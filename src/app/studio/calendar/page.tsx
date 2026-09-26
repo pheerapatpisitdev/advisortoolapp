@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  dayKey, dayStart, monthGridDays, nextDayKey, parseMonth, shiftMonth, thaiMonthYear, timeOfDay, todayKey,
+  boardDay, dayStart, monthGridDays, nextDayKey, parseMonth, shiftMonth, thaiMonthYear, timeOfDay, todayKey,
   countByPage, DROP_TIME, type BoardItem,
 } from "@/lib/content/calendar";
 import { CLAIM_HREF, CLAIM_NAME } from "@/lib/content/claim";
@@ -30,12 +30,14 @@ export const metadata = {
  * through the same checks as the editor's ลงเพจ box.
  */
 
-function toBoard(item: ContentItem, pageName: (id: string | null) => string): BoardItem {
+/** `from`–`to`: the moments the grid shows, borrowed edges included */
+function toBoard(item: ContentItem, pageName: (id: string | null) => string, from: Date, to: Date): BoardItem {
   const planName = item.planHref === CLAIM_HREF ? CLAIM_NAME : item.planHref === RECRUIT_HREF ? RECRUIT_NAME : contentProduct(item.planHref)?.name ?? item.planHref;
   const view = publishView(item.publish);
   const at = item.publish?.at ? new Date(item.publish.at) : null;
-  const placed = (view.kind === "scheduled" || view.kind === "published") && at;
-  const status: BoardItem["status"] = placed ? view.kind as "scheduled" | "published" : view.kind === "posting" ? "posting" : view.kind === "failed" ? "failed" : "waiting";
+  const day = boardDay(view.kind, at, from, to);
+  const placed = day !== null && at;
+  const status: BoardItem["status"] = view.kind === "none" ? "waiting" : view.kind;
   const blocked = (item.flags.policy ?? []).find((f) => f.severity === "block");
   return {
     id: item.id,
@@ -47,7 +49,7 @@ function toBoard(item: ContentItem, pageName: (id: string | null) => string): Bo
     body: item.output.body,
     imageUrl: posterUrl(item.output.poster ?? defaultPoster(item.output.hooks[0] ?? "", planName)),
     status,
-    day: placed ? dayKey(at) : null,
+    day,
     time: placed ? timeOfDay(at) : DROP_TIME,
     postId: item.publish?.postId ?? null,
     unreviewed: item.status === "draft",
@@ -90,9 +92,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const pageFilter = setup.pages.some((p) => p.pageId === params.page) ? params.page! : "";
   const pageName = (id: string | null) => setup.pages.find((p) => p.pageId === id)?.pageName ?? "";
 
-  const all = [...placed, ...waiting].map((i) => toBoard(i, pageName));
+  const all = [...placed, ...waiting].map((i) => toBoard(i, pageName, from, to));
   const errors: Record<string, string> = Object.fromEntries([...placed, ...waiting].flatMap(failure));
-  const counts = countByPage(all);
+  // the chips count posts on the Pages; one that failed sits on its day but is not up
+  const up = all.filter((i) => i.day && i.status !== "failed");
+  const counts = countByPage(up);
   // the filter hides other Pages' posts; the waiting rail belongs to no Page yet and stays
   const items = pageFilter ? all.filter((i) => !i.day || i.pageId === pageFilter) : all;
 
@@ -138,7 +142,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       {setup.pages.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-[var(--ct-mute)]">เพจ</span>
-          <Link href={query({ page: undefined })} aria-current={!pageFilter ? "page" : undefined} className={chip(!pageFilter)}>ทุกเพจ · {all.filter((i) => i.day).length}</Link>
+          <Link href={query({ page: undefined })} aria-current={!pageFilter ? "page" : undefined} className={chip(!pageFilter)}>ทุกเพจ · {up.length}</Link>
           {setup.pages.map((p) => (
             <Link key={p.pageId} href={query({ page: p.pageId })} aria-current={pageFilter === p.pageId ? "page" : undefined} className={chip(pageFilter === p.pageId)}>
               {p.pageName} · {counts.get(p.pageId) ?? 0}

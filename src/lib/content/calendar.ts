@@ -205,8 +205,22 @@ export function groupByDay(items: BoardItem[]): Map<string, BoardItem[]> {
   return byDay;
 }
 
+/** The rail: what has no day yet, a post that failed first — it was meant to be up already. */
 export function unscheduled(items: BoardItem[]): BoardItem[] {
-  return items.filter((i) => i.day === null);
+  const rail = items.filter((i) => i.day === null);
+  return [...rail.filter((i) => i.status === "failed"), ...rail.filter((i) => i.status !== "failed")];
+}
+
+/**
+ * The day a piece sits on, or null for the rail. Held and posted pieces sit on their time's
+ * day; so does one that failed — a send refused, or a time Facebook let pass — while that day
+ * is on the grid shown, so a missed day is seen where it happened and can be dragged from
+ * there. It used to wait in the rail with no date, and the red count on a day never showed.
+ */
+export function boardDay(kind: "none" | "posting" | "scheduled" | "published" | "failed", at: Date | null, from: Date, to: Date): string | null {
+  if (!at || (kind !== "scheduled" && kind !== "published" && kind !== "failed")) return null;
+  if (kind === "failed" && (at < from || at >= to)) return null;
+  return dayKey(at);
 }
 
 /** posts on the board per Page, for the filter chips */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  bangkokAt, canDropOnDay, countByPage, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
-  parseMonth, repeats, shiftMonth, thaiDayLabel, thaiMonthYear, timeOfDay, type BoardItem,
+  bangkokAt, boardDay, canDropOnDay, countByPage, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
+  parseMonth, repeats, shiftMonth, thaiDayLabel, thaiMonthYear, timeOfDay, unscheduled, type BoardItem,
 } from "@/lib/content/calendar";
 
 const item = (over: Partial<BoardItem>): BoardItem => ({
@@ -111,5 +111,29 @@ describe("where a drop lands on its day", () => {
 
   it("is nothing when the day has no time left ahead", () => {
     expect(dropTime("2026-09-25", [], new Date("2026-09-25T20:50:00+07:00"))).toBeNull();
+  });
+});
+
+describe("a post that did not go up", () => {
+  const from = new Date("2026-08-31T00:00:00+07:00");
+  const to = new Date("2026-10-05T00:00:00+07:00");
+  const at = new Date("2026-09-26T12:00:00+07:00");
+
+  it("sits on the day it was meant for, as held and posted ones do", () => {
+    expect(boardDay("failed", at, from, to)).toBe("2026-09-26");
+    expect(boardDay("scheduled", at, from, to)).toBe("2026-09-26");
+    expect(boardDay("published", at, from, to)).toBe("2026-09-26");
+  });
+
+  it("waits in the rail when its day is not on the month shown, or it never had a time", () => {
+    expect(boardDay("failed", new Date("2026-07-01T12:00:00+07:00"), from, to)).toBeNull();
+    expect(boardDay("failed", null, from, to)).toBeNull();
+    expect(boardDay("none", at, from, to)).toBeNull();
+    expect(boardDay("posting", at, from, to)).toBeNull();
+  });
+
+  it("comes first in the rail, ahead of pieces never sent", () => {
+    const rail = unscheduled([item({ id: "new" }), item({ id: "missed", status: "failed" }), item({ id: "other" })]);
+    expect(rail.map((i) => i.id)).toEqual(["missed", "new", "other"]);
   });
 });
