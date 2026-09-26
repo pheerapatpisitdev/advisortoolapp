@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { addPerson, deletePerson, MAX_PHOTO_BYTES, PersonError, PHOTO_TYPES, updatePerson } from "@/lib/content/people-store";
 import { MAX_PHOTOS } from "@/lib/content/people";
+import { piecesWithPerson } from "@/lib/content/store";
 
 /**
  * Adding and removing people, as plain requests: ten photos are more than a server action's
@@ -30,6 +31,18 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error("person add failed:", e);
     return Response.json({ ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" }, { status: 500 });
+  }
+}
+
+/** `?usage=<id>`: how many pieces were drawn with this person, asked before a delete */
+export async function GET(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("usage") ?? "";
+  if (!/^[0-9a-f-]{36}$/.test(id)) return Response.json({ ok: false, error: "ไม่พบบุคคลนี้" }, { status: 400 });
+  try {
+    return Response.json({ ok: true, ...(await piecesWithPerson(id)) });
+  } catch (e) {
+    console.error("person usage failed:", e);
+    return Response.json({ ok: false, error: "อ่านไม่สำเร็จ" }, { status: 500 });
   }
 }
 

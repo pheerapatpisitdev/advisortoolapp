@@ -451,6 +451,22 @@ export async function listPublished(from: Date, to: Date): Promise<ContentItem[]
 }
 
 /**
+ * The pieces whose picture has this person from the library in it, and how many of those are on
+ * a Page or held for one. Deleting the person removes their reference photos only: what was
+ * drawn with their face stays in those pieces, so the owner is told before they delete.
+ */
+export async function piecesWithPerson(personId: string): Promise<{ total: number; onPage: number }> {
+  const { data, error } = await supabaseAdmin().from("ins_content")
+    .select("publish_state").eq("output->person->>id", personId).limit(1000);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as { publish_state: string | null }[];
+  return {
+    total: rows.length,
+    onPage: rows.filter((r) => r.publish_state === "scheduled" || r.publish_state === "published" || r.publish_state === "posting").length,
+  };
+}
+
+/**
  * Every piece ever sent to a Page, cut down to where it stands — the ออโต้โพสต์ screen counts
  * them per Page. Newest first, so a cap drops the oldest history rather than today's.
  */

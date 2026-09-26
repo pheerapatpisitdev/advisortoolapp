@@ -100,7 +100,14 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
 
   async function remove(p: Person) {
     if (removing.has(p.id)) return;
-    if (!(await ask(`ลบ "${p.name}" และรูปทั้งหมดออกจากระบบ? ลบแล้วกู้คืนไม่ได้`, "ลบ"))) return;
+    // what was drawn with their face stays where it is: said before, not found out after
+    const usage = await fetch(`/api/content-people?usage=${p.id}`).then((r) => r.json()).catch(() => null) as { ok: boolean; total: number; onPage: number } | null;
+    const drawn = !usage?.ok
+      ? "\n\nภาพโพสต์ที่วาดหน้าเขาไปแล้วจะยังอยู่ ลบแค่รูปต้นแบบในคลัง"
+      : usage.total > 0
+        ? `\n\nยังมีภาพที่วาดหน้าเขาอยู่ใน ${usage.total} ชิ้น${usage.onPage ? ` (ลงเพจหรือตั้งเวลาไว้ ${usage.onPage} ชิ้น)` : ""} — ลบจากคลังแล้วภาพเหล่านั้นยังอยู่ ต้องทิ้งหรือลบโพสต์เอง`
+        : "";
+    if (!(await ask(`ลบ "${p.name}" และรูปทั้งหมดออกจากระบบ? ลบแล้วกู้คืนไม่ได้${drawn}`, "ลบ"))) return;
     setRowError(null);
     setRemoving((r) => new Set(r).add(p.id));
     const res = await fetch(`/api/content-people?id=${p.id}`, { method: "DELETE" }).then((r) => r.json()).catch(() => ({ ok: false }));
