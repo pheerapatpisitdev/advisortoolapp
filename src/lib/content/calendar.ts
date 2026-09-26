@@ -136,6 +136,40 @@ export interface BoardItem {
 /** where a dropped waiting piece lands on its day — the owner's pick (14:10 for an hour on 2026-09-24, then back) */
 export const DROP_TIME = "12:00";
 
+/**
+ * The times a drop fills on one Page's day, in order: the owner's noon first, then the
+ * evening the editor offers too, then the morning, late afternoon and night.
+ *
+ * Every drop used to land at noon. Four drops on one day went up on one Page at the same
+ * minute, and a drop on today after 11:45 was refused (Facebook holds a post fifteen minutes
+ * ahead at least) and jumped back to the rail.
+ */
+export const DROP_SLOTS = [DROP_TIME, "19:30", "08:30", "17:00", "21:00"] as const;
+
+/** Facebook's fifteen minutes, and five more for the trip there */
+const DROP_MARGIN_MS = 20 * 60_000;
+
+/**
+ * The time a drop on `day` gets: the first slot still ahead that the Page has nothing at
+ * (`taken`, "HH:MM" of its posts that day). With every slot ahead taken it shares the first
+ * of them, as all drops did before; null when the day has no slot left ahead at all.
+ */
+export function dropTime(day: string, taken: readonly string[], now: Date = new Date()): string | null {
+  const ahead = DROP_SLOTS.filter((t) => bangkokAt(day, t).getTime() - now.getTime() >= DROP_MARGIN_MS);
+  return ahead.find((t) => !taken.includes(t)) ?? ahead[0] ?? null;
+}
+
+/**
+ * The last day a drop can reach. Facebook holds a post thirty days ahead at most, and the
+ * thirtieth day is only partly inside that, so the board stops a day short rather than light
+ * up a day the server will refuse.
+ */
+export function lastDropDay(today: string): string {
+  let day = today;
+  for (let i = 0; i < 29; i++) day = nextDayKey(day);
+  return day;
+}
+
 /** Posted or on its way is fixed; waiting, held and refused can still be moved. */
 export function canDrag(item: BoardItem): boolean {
   return item.status === "waiting" || item.status === "scheduled" || item.status === "failed";
@@ -145,7 +179,7 @@ export function canDrag(item: BoardItem): boolean {
 export function canDropOnDay(item: BoardItem, day: string, today: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
   if (!canDrag(item) || item.blocked) return false;
-  if (day < today) return false;
+  if (day < today || day > lastDropDay(today)) return false;
   return day !== item.day;
 }
 
@@ -154,6 +188,7 @@ export function dropRejection(item: BoardItem, day: string, today: string): stri
   if (!canDrag(item)) return "ชิ้นนี้โพสต์ไปแล้ว ย้ายวันไม่ได้";
   if (item.blocked) return `ชิ้นนี้ผิดกฎโฆษณาของ Facebook (${item.blocked}) — แก้ก่อนแล้วค่อยตั้งเวลา`;
   if (day < today) return "ย้ายไปวันที่ผ่านมาแล้วไม่ได้";
+  if (day > lastDropDay(today)) return "ตั้งเวลาล่วงหน้าได้ไม่เกิน 30 วัน";
   return null;
 }
 

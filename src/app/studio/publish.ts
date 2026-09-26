@@ -1,8 +1,8 @@
 "use server";
 import { pageConnections } from "@/lib/facebook/connection";
-import { bangkokAt, DROP_TIME, timeOfDay, todayKey } from "@/lib/content/calendar";
+import { bangkokAt, dropTime, nextDayKey, timeOfDay, todayKey } from "@/lib/content/calendar";
 import { move, PAST_DAY, POST_SCOPE, publish, withdraw, type PublishResult } from "@/lib/content/publish-flow";
-import { getContent } from "@/lib/content/store";
+import { getContent, listPublished } from "@/lib/content/store";
 
 export type { PublishResult } from "@/lib/content/publish-flow";
 
@@ -57,8 +57,10 @@ export async function publishPiece(input: {
 }
 
 /**
- * A drop on the calendar. A waiting piece goes to the Page chosen on the board at DROP_TIME;
- * a held one keeps its Page and its time of day and moves to the new day.
+ * A drop on the calendar. A waiting piece goes to the Page chosen on the board, at the first
+ * of the day's slots that Page has free and that is still ahead (dropTime: noon, then the
+ * evening, …); a held one keeps its Page and its time of day and moves to the new day, unless
+ * that time has gone on the new day, when it takes a slot the same way.
  */
 export async function scheduleOnDay(input: { id: string; day: string; pageId: string; confirmNumbers?: boolean; force?: boolean }): Promise<PublishResult> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day)) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
@@ -66,9 +68,32 @@ export async function scheduleOnDay(input: { id: string; day: string; pageId: st
   if (input.day < todayKey()) return { ok: false, error: PAST_DAY };
   const item = await getContent(input.id).catch(() => null);
   if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
-  const held = item.publish?.state === "scheduled" && item.publish.at;
-  if (held) return move(item.id, bangkokAt(input.day, timeOfDay(new Date(item.publish!.at!))), input.confirmNumbers);
-  return publish({ id: item.id, pageId: input.pageId, at: bangkokAt(input.day, DROP_TIME).toISOString(), confirmNumbers: input.confirmNumbers, force: input.force });
+  const held = item.publish?.state === "scheduled" && item.publish.at ? item.publish : null;
+  const pageId = held?.pageId ?? input.pageId;
+  const kept = held ? timeOfDay(new Date(held.at!)) : null;
+  // a held post's own time stands while it is still well ahead on the new day
+  const time = kept && bangkokAt(input.day, kept).getTime() - Date.now() >= 20 * 60_000
+    ? kept
+    : dropTime(input.day, await takenOn(input.day, pageId, item.id));
+  if (!time) return { ok: false, error: DAY_GONE };
+  if (held) return move(item.id, bangkokAt(input.day, time), input.confirmNumbers);
+  return publish({ id: item.id, pageId: input.pageId, at: bangkokAt(input.day, time).toISOString(), confirmNumbers: input.confirmNumbers, force: input.force });
+}
+
+const DAY_GONE = "วันนี้เลยเวลาลงโพสต์แล้ว — วางวันพรุ่งนี้หรือวันถัดไปแทนนะครับ";
+
+/** The times one Page already has posts at on a Thai day, the piece being moved left out. */
+async function takenOn(day: string, pageId: string | null, except: string): Promise<string[]> {
+  if (!pageId) return [];
+  try {
+    const rows = await listPublished(bangkokAt(day, "00:00"), bangkokAt(nextDayKey(day), "00:00"));
+    return rows
+      .filter((r) => r.id !== except && r.publish?.pageId === pageId && r.publish.at)
+      .map((r) => timeOfDay(new Date(r.publish!.at!)));
+  } catch {
+    // not read: the first slot still ahead, as though the day were empty
+    return [];
+  }
 }
 
 /** The day sheet's บันทึกเวลา: a Thai "YYYY-MM-DDTHH:MM", for a waiting piece or a held one. */

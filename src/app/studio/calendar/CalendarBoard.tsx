@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import {
   canDrag, canDropOnDay, dropRejection, groupByDay, repeats, thaiDayLabel, todayKey, unscheduled,
-  DROP_TIME, type BoardItem, type MonthCell,
+  DROP_SLOTS, DROP_TIME, type BoardItem, type MonthCell,
 } from "@/lib/content/calendar";
 import { postLink } from "@/lib/facebook/publish";
 import { cancelScheduled, scheduleAt, scheduleOnDay, type PublishResult, type PublishSetup } from "../publish";
@@ -339,7 +339,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
 
         <aside className="shrink-0 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:w-60 xl:overflow-y-auto">
           <p className="text-sm font-medium">รอตั้งเวลา · {waiting.length}</p>
-          <p className="mt-1 text-xs text-[var(--ct-mute)]">ลากลงวันที่ต้องการ = ตั้งเวลา {DROP_TIME} (บนมือถือกดค้างแล้วลาก)</p>
+          <p className="mt-1 text-xs text-[var(--ct-mute)]">ลากลงวันที่ต้องการ = ตั้งเวลา {DROP_TIME} ถ้าเพจนั้นมีโพสต์ {DROP_TIME} แล้วหรือเลยเวลาแล้ว จะไป {DROP_SLOTS[1]} (บนมือถือกดค้างแล้วลาก)</p>
           {usable.length > 0 && (
             <label className="mt-2 block">
               <span className="mb-1 block text-xs text-[var(--ct-mute)]">ลงเพจ</span>

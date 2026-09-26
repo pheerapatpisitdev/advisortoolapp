@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bangkokAt, canDropOnDay, countByPage, dayKey, dropRejection, groupByDay, monthGridDays, nextDayKey,
+  bangkokAt, canDropOnDay, countByPage, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
   parseMonth, repeats, shiftMonth, thaiDayLabel, thaiMonthYear, timeOfDay, type BoardItem,
 } from "@/lib/content/calendar";
 
@@ -53,6 +53,13 @@ describe("the board's rules", () => {
     expect(canDropOnDay(item({ status: "scheduled", day: "2026-09-26" }), "2026-09-26", "2026-09-25")).toBe(false);
   });
 
+  it("does not light up a day Facebook will not hold a post for", () => {
+    expect(lastDropDay("2026-09-25")).toBe("2026-10-24");
+    expect(canDropOnDay(item({}), "2026-10-24", "2026-09-25")).toBe(true);
+    expect(canDropOnDay(item({}), "2026-10-25", "2026-09-25")).toBe(false);
+    expect(dropRejection(item({}), "2026-10-25", "2026-09-25")).toContain("30 วัน");
+  });
+
   it("refuses a piece that breaks Facebook's rules, and says why", () => {
     const bad = item({ blocked: "บอกใบ้ว่าคนอ่านมีหนี้" });
     expect(canDropOnDay(bad, "2026-09-26", "2026-09-25")).toBe(false);
@@ -77,5 +84,32 @@ describe("the board's rules", () => {
       item({ id: "d", day: "2026-09-27", time: "12:00", status: "scheduled", planHref: "/cancer" }),
     ]);
     expect([...flagged]).toEqual(["b"]);
+  });
+});
+
+describe("where a drop lands on its day", () => {
+  const morning = new Date("2026-09-25T09:00:00+07:00");
+
+  it("is noon, the owner's pick, when the Page has nothing then", () => {
+    expect(dropTime("2026-09-26", [], morning)).toBe("12:00");
+    expect(dropTime("2026-09-25", [], morning)).toBe("12:00");
+  });
+
+  it("is the evening when the Page already has a post at noon that day", () => {
+    expect(dropTime("2026-09-26", ["12:00"], morning)).toBe("19:30");
+    expect(dropTime("2026-09-26", ["12:00", "19:30"], morning)).toBe("08:30");
+  });
+
+  it("is the evening on today once noon is too near or gone, not a refusal", () => {
+    expect(dropTime("2026-09-25", [], new Date("2026-09-25T11:50:00+07:00"))).toBe("19:30");
+    expect(dropTime("2026-09-25", [], new Date("2026-09-25T14:00:00+07:00"))).toBe("19:30");
+  });
+
+  it("shares a time with another post rather than refuse, when every free one is gone", () => {
+    expect(dropTime("2026-09-25", ["19:30", "21:00"], new Date("2026-09-25T18:00:00+07:00"))).toBe("19:30");
+  });
+
+  it("is nothing when the day has no time left ahead", () => {
+    expect(dropTime("2026-09-25", [], new Date("2026-09-25T20:50:00+07:00"))).toBeNull();
   });
 });
