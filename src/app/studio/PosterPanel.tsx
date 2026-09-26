@@ -190,10 +190,7 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
                 className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]"
               />
             </label>
-            <div className="text-sm">
-              <span className="mb-1 block font-medium">ใส่บุคคลในภาพ</span>
-              <PersonPicker people={people} value={person} onChange={setPerson} confirmLeave={confirmLeave} />
-            </div>
+            <PersonPicker people={people} value={person} onChange={setPerson} confirmLeave={confirmLeave} />
             {!person && <div role="group" aria-label="วาดด้วย" className="flex flex-wrap items-center gap-1.5 text-sm">
               <span className="mr-1 font-medium">วาดด้วย</span>
               {PAINTERS.filter((p) => p.modelId).map((p) => (

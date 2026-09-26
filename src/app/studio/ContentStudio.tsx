@@ -842,7 +842,6 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           {format !== "script" && painter !== "none" && (
             <div>
-              <span className="mb-1.5 block text-sm font-medium">ใส่บุคคลในภาพ</span>
               <PersonPicker people={people} value={person} onChange={setPerson} />
               {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ซึ่งรักษาหน้าคนได้ดีที่สุด ราวภาพละ ฿2.4 · ชุดและสถานที่พิมพ์ในบรีฟภาพด้านล่าง</span>}
             </div>
