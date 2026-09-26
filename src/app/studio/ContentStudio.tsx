@@ -257,8 +257,13 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const hush = (from: Toast["from"]) => setToasts((list) => (list.some((t) => t.from === from) ? list.filter((t) => t.from !== from) : list));
   const [spend, setSpend] = useState(initialSpend);
   const router = useRouter();
-  /** the create form on a phone: folded away after a round, so the pieces are what is on screen */
-  const [formOpen, setFormOpen] = useState(true);
+  /**
+   * The create form on a phone: folded away after a round, so the pieces are what is on screen —
+   * and folded on arrival when pieces are waiting to be read, which otherwise began three
+   * screens down under the whole form. Open when there is nothing to read, or a formula was
+   * brought from the library to write with. (A desk shows it whatever this says.)
+   */
+  const [formOpen, setFormOpen] = useState(() => Boolean(initialHook) || (initial.items.length === 0 && !initialOpen));
   const formId = useId();
   /** the ใช้จริง rail below xl shows five until asked for the rest */
   const [allUsed, setAllUsed] = useState(false);
