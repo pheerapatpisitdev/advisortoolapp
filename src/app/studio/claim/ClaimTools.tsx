@@ -64,6 +64,16 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
   const [note, setNote] = useState("");
   const [count, setCount] = useState(1);
 
+  /**
+   * The consent is for these papers. It stayed ticked when the photos were swapped for the next
+   * customer's, so their papers went out on the last customer's yes; a new photo asks again.
+   * Taking one away keeps it — what is left was already agreed to.
+   */
+  const pickFiles = (next: File[]) => {
+    if (next.some((f) => !files.includes(f))) setConsent(false);
+    setFiles(next);
+  };
+
   const blocked = files.length === 0 ? "เลือกรูปเอกสารเคลมก่อน"
     : !consent ? "ติ๊กยืนยันความยินยอมของลูกค้าก่อน"
       : angle === "custom" && !custom.trim() ? "พิมพ์มุมที่อยากเล่า หรือเลือก “ให้ AI เลือก”" : null;
@@ -121,7 +131,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
       <div className="space-y-4 p-4">
         <div>
           <span className="mb-1 block text-sm font-medium">เอกสารเคลม <span className="font-normal text-[var(--ct-mute)]">(ไม่เกิน {MAX_DOCS} รูป)</span></span>
-          <PhotoDrop files={files} onChange={setFiles} limit={MAX_DOCS} />
+          <PhotoDrop files={files} onChange={pickFiles} limit={MAX_DOCS} />
           <p className="mt-1.5 text-xs text-[var(--ct-mute)]">หนังสืออนุมัติ บิลโรงพยาบาล ใบรับรองแพทย์ แคปแชท/สลิป · PDF ให้แคปหน้าจอก่อน · AI อ่านทุกรูป แปะสติ๊กเกอร์ปิดชื่อ แล้ววางบนโปสเตอร์ได้ถึง {MAX_PAPERS} ใบ (หนังสืออนุมัติก่อน) · ระบบเก็บเฉพาะรูปที่ปิดข้อมูลแล้ว</p>
         </div>
 
