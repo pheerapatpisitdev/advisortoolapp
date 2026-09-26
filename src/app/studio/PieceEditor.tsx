@@ -7,6 +7,7 @@ import { FORMAT_LABEL } from "@/lib/content/prompt";
 import { AD_LIMITS } from "@/lib/content/ads";
 import type { ContentItem } from "@/lib/content/store";
 import { onPage, publishView } from "@/lib/content/publish-label";
+import { applyFix } from "@/lib/content/apply-fix";
 import { proofreadPiece, saveContentEdits, type DrawBackgroundResult } from "./actions";
 import type { PiecePerson } from "@/lib/content/people";
 import type { PersonOption } from "./PersonPicker";
@@ -45,15 +46,6 @@ const draftOf = (item: ContentItem, productName: string): Draft => ({
   tags: item.output.hashtags.join(" "),
   poster: item.output.poster ?? defaultPoster(item.output.hooks[0], productName),
 });
-
-/** the first place `find` occurs, replaced; a fix that no longer matches changes nothing */
-function applyTo(d: Draft, fix: { find: string; replace: string }): Draft {
-  const i = d.hooks.findIndex((h) => h.includes(fix.find));
-  if (i >= 0) return { ...d, hooks: d.hooks.map((h, j) => (j === i ? h.replace(fix.find, fix.replace) : h)) };
-  if (d.body.includes(fix.find)) return { ...d, body: d.body.replace(fix.find, fix.replace) };
-  if (d.closing.includes(fix.find)) return { ...d, closing: d.closing.replace(fix.find, fix.replace) };
-  return d;
-}
 
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[var(--ct-accent)] read-only:bg-[var(--ct-ground)]";
 const smallBtn = "min-h-11 rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-panel)] px-3 py-1.5 text-sm";
@@ -160,8 +152,11 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
     setNote(null);
   };
   const accept = (fix: { find: string; replace: string }) => {
-    edit(applyTo(draft, fix));
+    const { draft: next, changed } = applyFix(draft, fix);
+    // put away either way: fixed now, or not in the words any more (fixed by hand)
     setApplied((s) => new Set(s).add(fix.find));
+    if (changed) edit(next);
+    else setNote(okNote(`ไม่พบ “${fix.find}” ในข้อความแล้ว`));
   };
 
   const outputOf = (d: Draft) => ({
