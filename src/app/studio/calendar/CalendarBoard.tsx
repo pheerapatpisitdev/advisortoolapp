@@ -349,7 +349,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
             </label>
           )}
           {waiting.length === 0 ? (
-            <p className="mt-3 text-xs text-[var(--ct-mute)]">ยังไม่มีโพสต์ที่รอลงเพจ — สร้างที่หน้า <Link href="/studio" className="underline">สร้างคอนเทนต์</Link></p>
+            <p className="mt-3 text-xs text-[var(--ct-mute)]">ยังไม่มีโพสต์ที่รอลงเพจ — ให้ <Link href="/studio" className="underline">Maryjane</Link> เขียนเพิ่ม</p>
           ) : (
             <div className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1">
               {waiting.map((item) => (
