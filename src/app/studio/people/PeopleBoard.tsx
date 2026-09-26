@@ -5,6 +5,9 @@ import type { Person } from "@/lib/content/people-store";
 import { ask } from "../ask";
 import { PhotoDrop } from "./PhotoDrop";
 
+/** thumbnails on a person's row before the rest are counted */
+const SHOWN = 4;
+
 /** the long side a reference photo is sent at: plenty for a face, and ten fit one request */
 const LONG_SIDE = 1024;
 
@@ -158,15 +161,21 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
           </article>
         ) : (
           <article key={p.id} className="flex flex-wrap items-center gap-4 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3">
-            <div className="flex gap-2">
-              {p.photos.map((path) => (
+            {/* four at most and a count of the rest: ten in a row ran off a phone's card and
+                squeezed the name to a letter a line */}
+            <div className="flex shrink-0 items-center gap-1.5">
+              {p.photos.slice(0, SHOWN).map((path) => (
                 // eslint-disable-next-line @next/next/no-img-element -- a private photo through our own route
-                <img key={path} src={photoUrl(path)} alt="" className="size-16 rounded-md object-cover" />
+                <img key={path} src={photoUrl(path)} alt="" className="size-14 rounded-md object-cover" />
               ))}
+              {p.photos.length > SHOWN && (
+                <span className="flex size-14 items-center justify-center rounded-md bg-[var(--ct-soft)] text-sm font-medium text-[var(--ct-accent)]">+{p.photos.length - SHOWN}</span>
+              )}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-32 flex-1">
               <p className="font-medium">{p.name}</p>
-              <p className="text-xs text-[var(--ct-mute)]">{p.photos.length} รูป · ยืนยันความยินยอม {new Date(p.consentedAt).toLocaleDateString("th-TH")}</p>
+              {/* Thailand's date on the server too, or a consent before 07:00 renders a day apart */}
+              <p className="text-xs text-[var(--ct-mute)]">{p.photos.length} รูป · ยืนยันความยินยอม {new Date(p.consentedAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}</p>
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={() => startEdit(p)} disabled={busy || removing.has(p.id)} className={`${btn} border border-[var(--ct-line)] px-3`}>แก้ไข</button>
