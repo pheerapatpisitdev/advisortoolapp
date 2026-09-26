@@ -556,6 +556,20 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
    * asked not to press วาดภาพ piece by piece. The cards show their words first and the
    * pictures arrive on their own; one that fails keeps its plain poster and the button.
    */
+  /**
+   * Posts in รอตรวจ with no picture yet. The browser orders a round's pictures once it has the
+   * pieces; when the connection dropped mid-wait (a phone put down, another app opened) the
+   * server still saved them, and nothing ever drew them — the owner went piece by piece.
+   */
+  const bare = tab === "draft" && !pending
+    // a รีวิวเคลม poster's papers are its picture already
+    ? items.filter((i) => i.format !== "script" && !i.output.poster?.background && !i.output.poster?.documents?.length && !drawing.has(i.id) && !onPage(i.publish))
+    : [];
+  const redraw = painterFor(painter, Math.max(0, spend.cap - spend.spent), Boolean(person));
+  function drawBare() {
+    void drawPictures(bare, painterOf(painter, Math.max(0, spend.cap - spend.spent)).id, brief.trim(), person);
+  }
+
   async function drawPictures(list: ContentItem[], paintWith: string, request: string, who: PiecePerson | null) {
     if (list.length === 0) return;
     // null rather than left out: a round without a person draws none, whatever a piece held
@@ -1015,6 +1029,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               </select>
             </label>
           </div>
+          {bare.length > 0 && redraw.modelId && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] px-3 py-1.5 text-sm">
+              <span className="text-[var(--ct-mute)]">{bare.length} ชิ้นยังไม่มีภาพ</span>
+              <button
+                type="button" onClick={drawBare}
+                className="min-h-11 rounded-lg border border-[var(--ct-accent)] px-3 font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
+              >
+                วาดภาพให้ {bare.length} ชิ้น · ราว ฿{(redraw.thb * bare.length).toFixed(2)}
+              </button>
+            </div>
+          )}
           {tab === "used" && (
             <p className="text-xs text-[var(--ct-mute)]">ชิ้นที่ใช้แล้วแต่ยังไม่ได้ลงเพจจากระบบ — ชิ้นที่ลงเพจหรือตั้งเวลาแล้วอยู่ในปฏิทินโพสต์</p>
           )}
