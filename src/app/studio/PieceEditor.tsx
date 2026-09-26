@@ -479,7 +479,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
         </div>
       )}
 
-      {isPost && <PublishPanel item={item} hook={hook} beforePublish={save} onPublished={onPublished} />}
+      {isPost && <PublishPanel item={item} hook={hook} beforePublish={save} onPublished={onPublished} drawing={drawing} />}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {/* one solid button a screen: a post's is ลงเพจ above, a script's or an ad's is this */}

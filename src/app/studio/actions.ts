@@ -27,7 +27,7 @@ import { NUMBERS_CLOSING, numbersBody, numbersPoster, numbersYardstick } from "@
 import { numberSheets } from "@/lib/content/numbers-plans";
 import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
-import { maybeOnPage, publishView } from "@/lib/content/publish-label";
+import { maybeOnPage, onPage, publishView } from "@/lib/content/publish-label";
 import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publish-flow";
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 
@@ -544,6 +544,10 @@ async function inEnglish(request: string): Promise<string> {
   return stripThai(r.text).slice(0, 300);
 }
 
+/** A picture for a piece Facebook has or holds: the post would keep the old one, so this one is not put on. */
+const ON_PAGE_DRAW = "ชิ้นนี้ลงเพจหรือตั้งเวลาไว้แล้ว — ภาพบนเพจเป็นภาพเดิม ถ้าจะเปลี่ยนภาพให้ยกเลิกการตั้งเวลาก่อน";
+const WENT_UP_WHILE_DRAWING = "ชิ้นนี้ถูกตั้งเวลาหรือลงเพจระหว่างวาด เพจจึงใช้ภาพเดิม — ภาพใหม่ไม่ได้ใส่";
+
 /** `note`: drawn, with something the owner should know — the person asked for was gone */
 export type DrawBackgroundResult = { ok: true; item: ContentItem; note?: string } | { ok: false; error: string };
 
@@ -566,6 +570,7 @@ export async function drawBackground(id: string, request = "", painter?: string,
   try {
     const item = await getContent(id);
     if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
+    if (onPage(item.publish)) return { ok: false, error: ON_PAGE_DRAW };
     const wanted = person === undefined ? item.output.person : person ?? undefined;
     const found = wanted ? await personPhotos(wanted.id) : null;
     const who = found && wanted ? { id: wanted.id, pose: POSES.some((p) => p.id === wanted.pose) ? wanted.pose : "auto" } : undefined;
@@ -600,6 +605,12 @@ export async function drawBackground(id: string, request = "", painter?: string,
       if (!latest) {
         await removeBackground(item.id, background);
         return { ok: false, error: "ไม่พบชิ้นงานนี้ (อาจถูกลบไปแล้ว)" };
+      }
+      // posted or held while it drew: Facebook has the poster as it was, and the piece must
+      // show what Facebook shows, so the new picture goes instead of onto it
+      if (onPage(latest.publish)) {
+        await removeBackground(item.id, background);
+        return { ok: false, error: WENT_UP_WHILE_DRAWING };
       }
       const previous = latest.output.poster?.background;
       const words = latest.output.poster ?? poster;

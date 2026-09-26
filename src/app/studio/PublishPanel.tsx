@@ -31,6 +31,8 @@ interface Props {
   /** saves the editor's unsaved words; false when that failed */
   beforePublish: () => Promise<boolean>;
   onPublished: (item: ContentItem) => void;
+  /** the photograph is still being drawn: what went up now would be the poster without it */
+  drawing?: boolean;
 }
 
 /** a datetime-local value for a Date, in the browser's time */
@@ -45,7 +47,7 @@ const quickOptions = (): Quick[] => quickTimes().map((t) => ({ label: t.label, i
 
 const button = "min-h-11 rounded-lg px-4 py-2 text-sm disabled:opacity-50";
 
-export function PublishPanel({ item, hook, beforePublish, onPublished }: Props) {
+export function PublishPanel({ item, hook, beforePublish, onPublished, drawing }: Props) {
   const [setup, setSetup] = useState<PublishSetup | null>(null);
   const [pageId, setPageId] = useState("");
   // "now", "custom", or the ISO time of one of the quick options
@@ -200,6 +202,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished }: Props) 
             ครั้งก่อนไม่สำเร็จ: <PlainText text={view.error} />
           </p>
         )}
+        {drawing && <p className="text-sm text-[var(--ct-mute)]">กำลังวาดภาพอยู่ — รอภาพเสร็จก่อนจึงจะโพสต์ได้ (ราว 20–40 วินาที)</p>}
         {blocked.length > 0 && <p className="text-sm text-[var(--ct-alert)]">ยังผิดกฎโฆษณาของ Facebook ({blocked[0].message}) — แก้แล้วกดบันทึกก่อน จึงจะโพสต์ได้</p>}
         <div className="grid gap-2 sm:grid-cols-2">
           <select value={pageId} onChange={(e) => setPageId(e.target.value)} aria-label="เพจที่จะโพสต์" className={field}>
@@ -224,7 +227,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished }: Props) 
           />
         )}
         <button
-          type="button" disabled={busy !== null || blocked.length > 0 || !pageId} onClick={send}
+          type="button" disabled={busy !== null || blocked.length > 0 || !pageId || drawing} onClick={send}
           className={`${button} bg-[var(--ct-solid)] font-medium text-[var(--ct-solid-ink)]`}
         >
           {busy === "send" ? "กำลังส่ง…" : when === "now" ? "โพสต์ลงเพจเลย" : `ตั้งเวลาโพสต์${quickLabel ? ` · ${quickLabel}` : ""}`}

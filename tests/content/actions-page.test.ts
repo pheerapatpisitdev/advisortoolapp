@@ -328,6 +328,29 @@ describe("the content ceiling", () => {
     expect(row.output.poster?.background).toBe("p1/new.png");
   });
 
+  it("does not draw for a piece already held by Facebook, nor spend on it", async () => {
+    row = make(held(5 * 3_600_000));
+    const r = await drawBackground("p1", "", "standard", null);
+    expect(r).toEqual({ ok: false, error: expect.stringContaining("ตั้งเวลา") });
+    expect(ai.drawImage).not.toHaveBeenCalled();
+    expect(store.holdContentBudget).not.toHaveBeenCalled();
+  });
+
+  it("puts nothing on a piece that went up while it drew, and removes the picture it drew", async () => {
+    ai.drawImage.mockImplementation(async () => {
+      // the owner pressed ตั้งเวลา while the picture was still being drawn
+      row = { ...row, publish: held(5 * 3_600_000) };
+      return { bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 };
+    });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const r = await drawBackground("p1", "", "standard", null);
+    expect(r).toEqual({ ok: false, error: expect.stringContaining("ภาพเดิม") });
+    expect(store.saveOutputIf).not.toHaveBeenCalled();
+    expect(row.output.poster?.background).toBe("p1/old.png");
+    expect(store.removeBackground).toHaveBeenCalledWith("p1", "p1/new.png");
+    expect(store.releaseContentBudget).toHaveBeenCalledWith("hold-1");
+  });
+
   it("gives up after three edits in a row, and removes the picture it drew", async () => {
     ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
     store.saveBackground.mockResolvedValue("p1/new.png");
