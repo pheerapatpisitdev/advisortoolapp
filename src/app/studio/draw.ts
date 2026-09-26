@@ -1,5 +1,6 @@
 "use client";
 import type { PiecePerson } from "@/lib/content/people";
+import type { RecruitWriteInput } from "@/lib/content/recruit-run";
 import type { DrawBackgroundResult, GenerateInput, GenerateResult } from "./actions";
 
 /** Order a piece's photograph through /api/content-draw, which is not queued behind the page's other actions. */
@@ -24,6 +25,16 @@ export async function drawPicture(id: string, request = "", painter?: string, pe
  */
 export async function generateRound(input: GenerateInput): Promise<GenerateResult> {
   const res = await fetch("/api/content-generate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return await res.json() as GenerateResult;
+}
+
+/** A หาทีม round through /api/content-recruit, outside the queue like generateRound, and throwing the same way. */
+export async function recruitRound(input: RecruitWriteInput): Promise<GenerateResult> {
+  const res = await fetch("/api/content-recruit", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),

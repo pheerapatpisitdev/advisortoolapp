@@ -6,7 +6,8 @@ import { LENGTHS, MAX_READER, type Format, type Length } from "@/lib/content/pro
 import {
   MAX_RECRUIT_CUSTOM, MAX_RECRUIT_PIECES, RECRUIT_NAME, RECRUIT_READERS, RECRUIT_TONES, RECRUIT_TOPICS, recruitTones,
 } from "@/lib/content/recruit";
-import { generateRecruit, type GenerateResult } from "../actions";
+import type { GenerateResult } from "../actions";
+import { recruitRound } from "../draw";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { FormatPicker, FormSection, LoopToggle, PictureFold, PressBar, pictureSummary, useLoop } from "../ui/form-parts";
 
@@ -70,7 +71,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
     // the form as it was at the press, whatever changes while the round is out
     const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, count, writer };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
-    await run(count, round.format, () => generateRecruit(round), paintWith, person);
+    await run(count, round.format, () => recruitRound(round), paintWith, person);
   }
 
   return (
