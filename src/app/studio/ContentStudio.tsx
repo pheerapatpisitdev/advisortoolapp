@@ -85,6 +85,8 @@ const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var
 
 /** the question before leaving an editor with words not yet saved */
 const LEAVE = "ยังไม่ได้บันทึกที่แก้ไว้ ออกเลยไหม?";
+/** the history step an open editor adds, so Back closes it (see inHistory) */
+const EDITOR_STEP = "studioEditor";
 
 /**
  * A word for the owner at the foot of the screen. Each comes from one place and replaces only
@@ -280,6 +282,8 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   useEffect(() => () => window.clearTimeout(copiedTimer.current), []);
   /** the open editor holds words not yet saved (PieceEditor says so) */
   const [editorDirty, setEditorDirty] = useState(false);
+  const dirtyNow = useRef(false);
+  useEffect(() => { dirtyNow.current = editorDirty; }, [editorDirty]);
   const [drawing, setDrawing] = useState<Set<string>>(() => new Set());
   /**
    * How many pieces the round in progress asked for — fixed at the press, not the live
@@ -343,6 +347,47 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     if (returnTo.current) document.getElementById(`piece-${returnTo.current}`)?.scrollIntoView({ block: "center" });
     returnTo.current = null;
   }, [editing]);
+
+  /**
+   * The phone's back gesture (and the browser's Back) closes the editor rather than leaving
+   * Studio. Opening it adds a step to the history, so Back lands on the list — asking first
+   * when words are unsaved, and staying if the owner says so. Before this, Back from the
+   * editor was a move within the app: no beforeunload, no question, the edits gone.
+   * Closing it any other way takes that step back off, so Back from the list leaves as before.
+   */
+  const inHistory = useRef(false);
+  const skipPop = useRef(false);
+  const markEditor = (id: string) => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("open", id);
+      window.history.pushState({ [EDITOR_STEP]: id }, "", `${url.pathname}${url.search}${url.hash}`);
+      inHistory.current = true;
+    } catch { /* Back leaves the page, as it did */ }
+  };
+  useEffect(() => {
+    if (editing && !inHistory.current) markEditor(editing);
+    if (!editing && inHistory.current) {
+      inHistory.current = false;
+      skipPop.current = true;
+      window.history.back();
+    }
+  }, [editing]);
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      // our own step taken back off: the step below may be the calendar's ?open= link, and a
+      // reload must not open the editor again
+      if (skipPop.current) { skipPop.current = false; dropParam("open"); return; }
+      const open = view.current.editing;
+      const step = (e.state as Record<string, unknown> | null)?.[EDITOR_STEP];
+      if (!open || step === open) return;
+      inHistory.current = false;
+      if (!dirtyNow.current) { closeEditor(); return; }
+      void ask(LEAVE, "ออกเลย").then((ok) => { if (ok) closeEditor(); else markEditor(open); });
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   /**
    * Words typed in the editor and not saved are asked about before any link takes the page
@@ -598,6 +643,12 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     } catch {
       say("copy", "คัดลอกไม่ได้ กด “แก้ไข” แล้วเลือกข้อความคัดลอกเองนะครับ");
     }
+  }
+
+  function closeEditor() {
+    setEditing(null);
+    // a piece posted from here is ใช้จริง and on the calendar now: it leaves on the way out
+    setItems((list) => list.filter((x) => x.status === view.current.tab && !onPage(x.publish)));
   }
 
   async function openUsed(item: ContentItem) {
@@ -897,11 +948,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 onStatus={(s) => changeStatus(editingItem, s)}
                 onPublished={published}
                 onDirtyChange={setEditorDirty}
-                onClose={() => {
-                  setEditing(null);
-                  // a piece posted from here is ใช้จริง and on the calendar now: it leaves on the way out
-                  setItems((list) => list.filter((x) => x.status === tab && !onPage(x.publish)));
-                }}
+                onClose={closeEditor}
               />
             </>
           ) : (
