@@ -1,5 +1,6 @@
 "use server";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
 import { backgroundPrompt, stripThai } from "@/lib/content/background";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
@@ -328,7 +329,9 @@ export async function setContentStatus(id: string, status: ContentStatus): Promi
     const kind = publishView(item.publish).kind;
     if (status === "trashed" && (kind === "posting" || kind === "scheduled" || kind === "published")) return { ok: false, error: ON_PAGE_TRASH };
     await setStatus(id, status);
-    if (status === "used" && item.status !== "used") await learnFormula(item);
+    // the card moves now; the formula is a model call of a few seconds, made once the answer
+    // has gone back — awaited here, every ✓ใช้จริง waited on it and held the page's other actions
+    if (status === "used" && item.status !== "used") after(() => learnFormula(item));
     return { ok: true };
   } catch (e) {
     console.error("content status failed:", e);

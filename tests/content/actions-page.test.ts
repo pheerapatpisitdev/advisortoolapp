@@ -20,6 +20,9 @@ const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), isPublis
 const ai = vi.hoisted(() => ({ chat: vi.fn(), drawImage: vi.fn() }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Map([["x-real-ip", "1.2.3.4"]]) }));
+// work left for after the answer is kept here, to be run when a test says so
+const later = vi.hoisted(() => [] as (() => unknown)[]);
+vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: (task: () => unknown) => { later.push(task); } }));
 vi.mock("@/lib/content/store", async (orig) => ({ ...(await orig<typeof import("@/lib/content/store")>()), ...store }));
 vi.mock("@/lib/ai/client", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/client")>()), ...ai }));
 vi.mock("@/lib/facebook/publish", async (orig) => ({ ...(await orig<typeof import("@/lib/facebook/publish")>()), ...fb }));
@@ -200,6 +203,19 @@ describe("the bin", () => {
     expect(await setContentStatus("p1", "trashed")).toEqual({ ok: true });
     expect(store.setStatus).toHaveBeenCalledWith("p1", "trashed");
     expect(store.deleteContent).not.toHaveBeenCalled();
+  });
+
+  it("marks a piece used without waiting for its formula to be drawn out", async () => {
+    later.length = 0;
+    row = { ...make(null), status: "draft" };
+    ai.chat.mockResolvedValue({ text: "{}" });
+    expect(await setContentStatus("p1", "used")).toEqual({ ok: true });
+    expect(store.setStatus).toHaveBeenCalledWith("p1", "used");
+    // the model is asked after the answer has gone back, not before
+    expect(ai.chat).not.toHaveBeenCalled();
+    expect(later).toHaveLength(1);
+    await later[0]();
+    expect(ai.chat).toHaveBeenCalledOnce();
   });
 
   it("will not take a piece Facebook holds or shows — the post would stay up", async () => {
