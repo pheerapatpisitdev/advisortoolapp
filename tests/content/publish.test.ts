@@ -46,10 +46,21 @@ describe("onPage", () => {
 
 describe("quickTimes", () => {
   it("offers this evening only while it is at least fifteen minutes ahead", () => {
-    const morning = new Date(2026, 8, 25, 10, 0);
+    const morning = new Date("2026-09-25T10:00:00+07:00");
     expect(quickTimes(morning).map((t) => t.label)).toEqual(["วันนี้ 19:30", "พรุ่งนี้ 12:00", "พรุ่งนี้ 19:30"]);
-    const late = new Date(2026, 8, 25, 19, 20);
+    const late = new Date("2026-09-25T19:20:00+07:00");
     expect(quickTimes(late).map((t) => t.label)).toEqual(["พรุ่งนี้ 12:00", "พรุ่งนี้ 19:30"]);
+  });
+
+  it("means Thailand's evening and noon, whatever the device's clock is set to", () => {
+    const [tonight, noon] = quickTimes(new Date("2026-09-25T10:00:00+07:00"));
+    expect(tonight.at.toISOString()).toBe("2026-09-25T12:30:00.000Z");
+    expect(noon.at.toISOString()).toBe("2026-09-26T05:00:00.000Z");
+  });
+
+  it("counts today from Thailand's date, not the device's — 01:00 in Bangkok is still the day before in UTC", () => {
+    const [tonight] = quickTimes(new Date("2026-09-26T01:00:00+07:00"));
+    expect(tonight.at.toISOString()).toBe("2026-09-26T12:30:00.000Z");
   });
 });
 

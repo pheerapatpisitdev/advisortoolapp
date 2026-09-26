@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { postLink } from "@/lib/facebook/publish";
+import { bangkokAt, dayKey, timeOfDay } from "@/lib/content/calendar";
 import { publishView, quickTimes, thaiWhen } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
 import { cancelScheduled, publishPiece, publishSetup, type PublishResult, type PublishSetup } from "./publish";
@@ -35,8 +36,12 @@ interface Props {
   drawing?: boolean;
 }
 
-/** a datetime-local value for a Date, in the browser's time */
-const localInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+/**
+ * The date-time box, in Thailand's time whatever the device's clock says: its value was read as
+ * the device's local time, so a laptop on UTC held 19:30 for 02:30 in Bangkok.
+ */
+const bangkokInput = (d: Date) => `${dayKey(d)}T${timeOfDay(d)}`;
+const fromBangkokInput = (v: string) => bangkokAt(v.slice(0, 10), v.slice(11, 16));
 
 /** how far ahead Facebook will hold a post, and how far this form lets the owner pick */
 const MIN_AHEAD_MS = 15 * 60_000;
@@ -83,13 +88,16 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing }
     return false;
   }, [when]);
 
-  // back at the tab after a while: the evening slot may have gone
+  // back at the tab after a while: the evening slot may have gone — while there is a time to
+  // choose. Once held or posted there is none, and asking said the held time had passed.
+  const choosing = ["none", "failed"].includes(publishView(item.publish).kind);
   useEffect(() => {
+    if (!choosing) return;
     const back = () => { if (document.visibilityState === "visible") refreshTimes(); };
     document.addEventListener("visibilitychange", back);
     window.addEventListener("focus", back);
     return () => { document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back); };
-  }, [refreshTimes]);
+  }, [refreshTimes, choosing]);
 
   const view = publishView(item.publish);
   const pageName = (id: string | null | undefined) => setup?.pages.find((p) => p.pageId === id)?.pageName ?? "เพจ";
@@ -100,7 +108,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing }
   function chosenTime(): { at: string | null } | { error: string } {
     if (when === "now") return { at: null };
     if (when === "custom" && !custom) return { error: "เลือกวันเวลาก่อนนะครับ" };
-    const iso = when === "custom" ? new Date(custom).toISOString() : when;
+    const iso = when === "custom" ? fromBangkokInput(custom).toISOString() : when;
     const ahead = new Date(iso).getTime() - Date.now();
     if (ahead < MIN_AHEAD_MS) return { error: "เวลานั้นใกล้เกินไปหรือผ่านไปแล้ว — ตั้งเวลาได้ตั้งแต่ 15 นาทีข้างหน้า" };
     if (ahead > MAX_AHEAD_MS) return { error: "ตั้งเวลาได้ไม่เกิน 30 วันข้างหน้า" };
@@ -222,8 +230,8 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing }
         {when === "custom" && (
           <input
             type="datetime-local" value={custom} onChange={(e) => setCustom(e.target.value)}
-            min={localInput(new Date(Date.now() + MIN_AHEAD_MS))} max={localInput(new Date(Date.now() + MAX_AHEAD_MS))}
-            aria-label="วันเวลาที่จะโพสต์" className={field}
+            min={bangkokInput(new Date(Date.now() + MIN_AHEAD_MS))} max={bangkokInput(new Date(Date.now() + MAX_AHEAD_MS))}
+            aria-label="วันเวลาที่จะโพสต์ (เวลาไทย)" className={field}
           />
         )}
         <button

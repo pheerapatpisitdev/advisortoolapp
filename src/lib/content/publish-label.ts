@@ -1,3 +1,4 @@
+import { bangkokAt, nextDayKey, todayKey } from "./calendar";
 import type { Publish } from "./store";
 
 /**
@@ -75,18 +76,15 @@ export function publishLabel(p: Publish | null, now: Date = new Date()): string 
 
 /**
  * The quick times offered for a schedule: this evening while it is still ahead, then tomorrow
- * noon and evening. Local time, which for the owner is Thailand's.
+ * noon and evening — Thailand's, whatever the device's clock is set to. They were built with
+ * the device's setHours, so a laptop on UTC or abroad held "วันนี้ 19:30" for 02:30 in Bangkok.
  */
 export function quickTimes(now: Date = new Date(), minAheadMs = 15 * 60_000): { label: string; at: Date }[] {
-  const at = (days: number, h: number, m: number) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() + days);
-    d.setHours(h, m, 0, 0);
-    return d;
-  };
+  const today = todayKey(now);
+  const tomorrow = nextDayKey(today);
   return [
-    { label: "วันนี้ 19:30", at: at(0, 19, 30) },
-    { label: "พรุ่งนี้ 12:00", at: at(1, 12, 0) },
-    { label: "พรุ่งนี้ 19:30", at: at(1, 19, 30) },
+    { label: "วันนี้ 19:30", at: bangkokAt(today, "19:30") },
+    { label: "พรุ่งนี้ 12:00", at: bangkokAt(tomorrow, "12:00") },
+    { label: "พรุ่งนี้ 19:30", at: bangkokAt(tomorrow, "19:30") },
   ].filter((t) => t.at.getTime() - now.getTime() >= minAheadMs);
 }
