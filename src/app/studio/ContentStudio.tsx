@@ -48,7 +48,7 @@ interface Props {
   lengths: { id: Length; label: string }[];
   hooks: HookTemplate[];
   initialHook: string | null;
-  initial: { items: ContentItem[]; counts: Record<ContentStatus, number> };
+  initial: { items: ContentItem[]; counts: Record<ContentStatus, number>; failed?: boolean };
   initialUsed: ContentItem[];
   spend: { spent: number; cap: number };
   /** a piece to open in the editor on arrival, from the calendar's แก้ไข */
@@ -272,6 +272,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [plan, setPlan] = useState("");
   const [items, setItems] = useState(initial.items);
   const [counts, setCounts] = useState(initial.counts);
+  /** the list could not be read at all — said so, not shown as an empty tab */
+  const [loadFailed, setLoadFailed] = useState(Boolean(initial.failed));
+  const [loadingMore, setLoadingMore] = useState(false);
   const [used, setUsed] = useState(initialUsed);
   const [editing, setEditing] = useState<string | null>(initialOpen?.id ?? null);
   /** a piece opened from the calendar page (/studio?open=…), which may be in neither tab's list */
@@ -421,11 +424,33 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   // gone from the list — deleted, moved to the other tab, filtered out — and the list is back
   const editingItem = editing ? (items.find((x) => x.id === editing) ?? (opened?.id === editing ? opened : undefined)) : undefined;
 
+  /** Throws when the list could not be read, and leaves what is on screen as it was. */
   async function reload(nextTab = tab, nextPlan = plan) {
     const wb = await contentWorkbench({ status: nextTab, planHref: nextPlan || undefined });
+    if (wb.failed) throw new Error("workbench not read");
     setItems(wb.items);
     setCounts(wb.counts);
+    setLoadFailed(false);
     hush("load");
+  }
+
+  /** The next older pieces of the tab, after the forty it opens with. */
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const wb = await contentWorkbench({ status: tab, planHref: plan || undefined, offset: items.length });
+      if (wb.failed) throw new Error("workbench not read");
+      // a piece that moved tab meanwhile shifts the pages by one: never show it twice
+      setItems((list) => {
+        const seen = new Set(list.map((x) => x.id));
+        return [...list, ...wb.items.filter((x) => !seen.has(x.id))];
+      });
+      setCounts(wb.counts);
+    } catch {
+      say("load", "โหลดเพิ่มไม่สำเร็จ ลองใหม่อีกครั้งนะครับ");
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   async function generate() {
@@ -499,12 +524,18 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
         } else {
           say("round-note", `สร้างเสร็จ ${fresh.length} ชิ้น อยู่ในแท็บ “รอตรวจ”`, "notice");
         }
-        setCounts((c) => ({ ...c, draft: c.draft + fresh.length }));
+        // the counts follow the plan filter on screen: a round for another plan is not in them
+        if (!now.plan || now.plan === fresh[0]?.planHref) setCounts((c) => ({ ...c, draft: c.draft + fresh.length }));
         setMaking(0);
       } else {
         setTab("draft");
         setPlan("");
-        await reload("draft", "").catch(() => {});
+        await reload("draft", "").catch(() => {
+          // the round's pieces are in hand: shown, rather than lost behind a list that did not load
+          setItems(fresh);
+          setCounts((c) => ({ ...c, draft: Math.max(c.draft, fresh.length) }));
+          say("load", "โหลดรายการทั้งหมดไม่สำเร็จ — แสดงเฉพาะชิ้นที่เพิ่งสร้าง รีเฟรชหน้าเพื่อดูทั้งหมด");
+        });
         setMaking(0);
         // a phone: the form folds away so the new pieces are what the screen shows
         if (window.matchMedia("(max-width: 1023.98px)").matches) setFormOpen(false);
@@ -1008,7 +1039,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           {items.length === 0 && !pending ? (
             <div className="rounded-xl border border-dashed border-[var(--ct-line)] bg-[var(--ct-panel)] px-4 py-10 text-center text-sm text-[var(--ct-mute)]">
-              {tab === "draft" ? (
+              {loadFailed ? (
+                <p>
+                  โหลดรายการไม่สำเร็จ —{" "}
+                  <button
+                    type="button" className="inline-flex min-h-11 items-center font-medium text-[var(--ct-accent)] underline"
+                    onClick={() => { reload().catch(() => say("load", "โหลดรายการไม่สำเร็จ ลองใหม่อีกครั้งนะครับ")); }}
+                  >
+                    ลองใหม่
+                  </button>
+                </p>
+              ) : tab === "draft" ? (
                 <p>ยังไม่มีชิ้นงานรอตรวจ — เลือกแบบประกันแล้วกดสร้างได้เลย</p>
               ) : tab === "trashed" ? (
                 <p>ถังขยะว่าง</p>
@@ -1049,6 +1090,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 )}
                 </div>
               ))}
+            </div>
+          )}
+          {/* the tab opens with forty; the count above says how many there are */}
+          {items.length > 0 && items.length < counts[tab] && (
+            <div className="flex justify-center">
+              <button
+                type="button" onClick={loadMore} disabled={loadingMore}
+                className="min-h-11 rounded-full border border-[var(--ct-line)] bg-[var(--ct-panel)] px-5 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)] disabled:opacity-50"
+              >
+                {loadingMore ? "กำลังโหลด…" : `โหลดเพิ่ม · แสดง ${items.length} จาก ${counts[tab]}`}
+              </button>
             </div>
           )}
           </>

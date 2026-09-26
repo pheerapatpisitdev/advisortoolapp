@@ -194,8 +194,9 @@ const staleClaim = (now = new Date()) =>
 /** the studio's lists: a piece on the Page is the calendar's to show (see onPage); a stuck send is not */
 const offPage = () => `publish_state.is.null,publish_state.not.in.(${ON_PAGE_STATES.join(",")}),${staleClaim()}`;
 
-export async function listContent(filter: { status?: ContentStatus; planHref?: string } = {}, limit = 40): Promise<ContentItem[]> {
-  let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).limit(limit);
+/** `offset`: the pieces already shown, for โหลดเพิ่ม — newest first, so the next page is older */
+export async function listContent(filter: { status?: ContentStatus; planHref?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
+  let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.planHref) q = q.eq("plan_href", filter.planHref);
   const { data, error } = await q.or(offPage());

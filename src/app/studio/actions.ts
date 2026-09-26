@@ -509,15 +509,27 @@ export async function saveContentEdits(
 export interface Workbench {
   items: ContentItem[];
   counts: Record<ContentStatus, number>;
+  /**
+   * The list could not be read. It used to come back as an empty list with zero counts, so a
+   * database hiccup read as "ยังไม่มีชิ้นงาน" and a reload after a round wiped the new pieces.
+   */
+  failed?: boolean;
 }
 
-export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string }): Promise<Workbench> {
+/** pieces a tab shows at a time; โหลดเพิ่ม asks for the next ones (`offset`) */
+const WORKBENCH_PAGE = 40;
+
+export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number }): Promise<Workbench> {
   try {
-    const [items, counts] = await Promise.all([listContent(filter), countByStatus(filter.planHref)]);
+    const offset = Math.max(0, Math.floor(Number(filter.offset) || 0));
+    const [items, counts] = await Promise.all([
+      listContent({ status: filter.status, planHref: filter.planHref }, WORKBENCH_PAGE, offset),
+      countByStatus(filter.planHref),
+    ]);
     return { items, counts };
   } catch (e) {
     console.error("content workbench failed:", e);
-    return { items: [], counts: { draft: 0, used: 0, trashed: 0 } };
+    return { items: [], counts: { draft: 0, used: 0, trashed: 0 }, failed: true };
   }
 }
 

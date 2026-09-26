@@ -15,6 +15,7 @@ const store = vi.hoisted(() => ({
   getContent: vi.fn(), saveOutput: vi.fn(), saveOutputIf: vi.fn(), recordPublishIf: vi.fn(), claimPublish: vi.fn(), deleteContent: vi.fn(),
   removeBackground: vi.fn(), listWords: vi.fn(), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
   contentSpentThisMonth: vi.fn(), contentCap: vi.fn(), setFixes: vi.fn(), saveBackground: vi.fn(), setStatus: vi.fn(),
+  listContent: vi.fn(), countByStatus: vi.fn(),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), isPublished: vi.fn() }));
 const ai = vi.hoisted(() => ({ chat: vi.fn(), drawImage: vi.fn() }));
@@ -35,7 +36,7 @@ vi.mock("@/lib/content/people-store", () => ({
   personPhotos: vi.fn(async () => ({ person: { id: "person-1" }, photos: [{ bytes: Buffer.from("x"), mimeType: "image/png" }] })),
 }));
 
-const { drawBackground, generateContent, removeContent, saveContentEdits, setContentStatus } = await import("@/app/studio/actions");
+const { contentWorkbench, drawBackground, generateContent, removeContent, saveContentEdits, setContentStatus } = await import("@/app/studio/actions");
 const { NUMBERS_PLANS, numberSheets } = await import("@/lib/content/numbers-plans");
 const { NUMBERS_CLOSING, numbersBody, numbersPoster, numbersYardstick } = await import("@/lib/content/numbers");
 const { PAINTERS, OVERHEAD_THB } = await import("@/lib/content/models");
@@ -375,5 +376,31 @@ describe("the content ceiling", () => {
     expect(r).toEqual({ ok: false, error: "ชิ้นนี้ถูกแก้ระหว่างวาดรูป — กดวาดใหม่อีกครั้งนะครับ" });
     expect(store.saveOutputIf).toHaveBeenCalledTimes(3);
     expect(store.removeBackground).toHaveBeenCalledWith("p1", "p1/new.png");
+  });
+});
+
+describe("the workbench list", () => {
+  it("says it could not be read, rather than showing an empty tab", async () => {
+    store.listContent.mockRejectedValueOnce(new Error("db down"));
+    store.countByStatus.mockResolvedValueOnce({ draft: 3, used: 0, trashed: 0 });
+    const wb = await contentWorkbench({ status: "draft" });
+    expect(wb.failed).toBe(true);
+    expect(wb.items).toEqual([]);
+  });
+
+  it("gives the next older pieces after the ones shown", async () => {
+    store.listContent.mockResolvedValueOnce([row]);
+    store.countByStatus.mockResolvedValueOnce({ draft: 57, used: 0, trashed: 0 });
+    const wb = await contentWorkbench({ status: "draft", planHref: "/cancer", offset: 40 });
+    expect(wb.failed).toBeUndefined();
+    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: "/cancer" }, 40, 40);
+    expect(wb.counts.draft).toBe(57);
+  });
+
+  it("reads a nonsense offset as the start", async () => {
+    store.listContent.mockResolvedValueOnce([]);
+    store.countByStatus.mockResolvedValueOnce({ draft: 0, used: 0, trashed: 0 });
+    await contentWorkbench({ status: "draft", offset: -5 });
+    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined }, 40, 0);
   });
 });
