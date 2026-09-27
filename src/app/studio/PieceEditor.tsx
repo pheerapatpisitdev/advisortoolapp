@@ -94,6 +94,12 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
   /** stickers laid on the claim papers and not yet ticked ตรวจแล้ว: unsaved as much as words are */
   const [stickersPending, setStickersPending] = useState(false);
   const unsaved = dirty || stickersPending;
+  /**
+   * A post or a cancel on its way to Facebook. Leaving meanwhile unmounted the ลงเพจ box: its
+   * answer — posted, refused — was said to nobody, and the card stayed in รอตรวจ looking unsent
+   * until a reload. The editor now stays put until the answer is in.
+   */
+  const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [marking, setMarking] = useState(false);
   const [note, setNote] = useState<NoteState>(null);
@@ -151,7 +157,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
   // and the page around the editor is told, for its own links
   const tell = useRef(onDirtyChange);
   useEffect(() => { tell.current = onDirtyChange; }, [onDirtyChange]);
-  useEffect(() => { tell.current?.(unsaved); }, [unsaved]);
+  useEffect(() => { tell.current?.(unsaved || sending); }, [unsaved, sending]);
   useEffect(() => () => tell.current?.(false), []);
 
   const edit = (next: Draft) => {
@@ -249,10 +255,13 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
   }
 
   /** unsaved words are asked about, not dropped */
-  const mayLeave = async () => !unsaved || ask(
+  const mayLeave = async () => {
+    if (sending) { setNote(errorNote("กำลังส่งขึ้นเพจ รอให้เสร็จก่อนนะครับ")); return false; }
+    return !unsaved || ask(
     stickersPending && !dirty ? "สติ๊กเกอร์ที่แปะเพิ่มยังไม่ได้บันทึก (กด “ตรวจแล้ว” ก่อน) ออกเลยไหม?" : "ยังไม่ได้บันทึกที่แก้ไว้ ออกเลยไหม?",
     "ออกเลย",
   );
+  };
 
   /** back to the list */
   async function leave() {
@@ -303,7 +312,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
     ["คำต้องระวัง", words.length, "warn"],
     ["AI เสนอแก้คำ", openFixes.length, "warn"],
   ] as const).filter(([, n]) => n > 0);
-  const busy = saving || marking;
+  const busy = saving || marking || sending;
 
   return (
     <section className="rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">
@@ -534,7 +543,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
         </div>
       )}
 
-      {isPost && <PublishPanel item={item} hook={hook} beforePublish={save} onPublished={onPublished} drawing={drawing} suggestDay={suggestDay} />}
+      {isPost && <PublishPanel item={item} hook={hook} beforePublish={save} onPublished={onPublished} drawing={drawing} suggestDay={suggestDay} onBusy={setSending} />}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {/* one solid button a screen: a post's is ลงเพจ above, a script's or an ad's is this */}

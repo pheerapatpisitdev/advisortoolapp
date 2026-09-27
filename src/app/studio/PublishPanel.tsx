@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { postLink } from "@/lib/facebook/publish";
 import { bangkokAt, dayKey, thaiDayLabel, timeOfDay } from "@/lib/content/calendar";
 import { publishView, quickTimes, thaiWhen } from "@/lib/content/publish-label";
@@ -36,6 +36,8 @@ interface Props {
   drawing?: boolean;
   /** a day the calendar sent the owner to write for: its noon and evening come first, noon chosen */
   suggestDay?: string | null;
+  /** told while a post or a cancel is on its way to Facebook, so the editor is not left mid-send */
+  onBusy?: (busy: boolean) => void;
 }
 
 /**
@@ -65,7 +67,7 @@ const button = "min-h-11 rounded-lg px-4 py-2 text-sm disabled:opacity-50";
 /** the choice that lets the server find the day: the first its Page has nothing on (scheduleNextOpen) */
 const OPEN = "open";
 
-export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, suggestDay }: Props) {
+export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, suggestDay, onBusy }: Props) {
   const [setup, setSetup] = useState<PublishSetup | null>(null);
   const [pageId, setPageId] = useState("");
   // "now", "custom", or the ISO time of one of the quick options — the calendar's day when it sent one
@@ -73,6 +75,10 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
   const [when, setWhen] = useState(() => (suggestDay && times[0]?.label.startsWith(thaiDayLabel(suggestDay)) ? times[0].iso : "now"));
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState<"send" | "cancel" | null>(null);
+  const busyTo = useRef(onBusy);
+  useEffect(() => { busyTo.current = onBusy; });
+  useEffect(() => { busyTo.current?.(busy !== null); }, [busy]);
+  useEffect(() => () => busyTo.current?.(false), []);
   const [note, setNote] = useState<NoteState>(null);
 
   useEffect(() => {
