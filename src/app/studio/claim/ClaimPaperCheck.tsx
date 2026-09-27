@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Box } from "@/lib/content/claim";
 import type { ContentItem } from "@/lib/content/store";
 import { AlertIcon, CheckIcon } from "../ui/icons";
@@ -19,7 +19,8 @@ interface Loaded {
  * drags more over anything it missed, and ticks ตรวจแล้ว once for all of them. Until then the
  * piece cannot go to a Page.
  */
-export function ClaimPaperCheck({ item, onChecked }: { item: ContentItem; onChecked: (item: ContentItem) => void }) {
+/** `onPending`: told whether stickers have been laid and not yet saved, so leaving asks first */
+export function ClaimPaperCheck({ item, onChecked, onPending }: { item: ContentItem; onChecked: (item: ContentItem) => void; onPending?: (pending: boolean) => void }) {
   const docs = item.output.poster?.documents ?? [];
   const key = docs.map((d) => d.path).join("|");
   const [papers, setPapers] = useState<(Loaded | null)[] | null>(null);
@@ -57,6 +58,11 @@ export function ClaimPaperCheck({ item, onChecked }: { item: ContentItem; onChec
   }, [item.id, key]);
 
   const added = boxes.reduce((n, b) => n + b.length, 0);
+  // stickers laid by hand live only here until ตรวจแล้ว: leaving dropped them without a word
+  const tell = useRef(onPending);
+  useEffect(() => { tell.current = onPending; });
+  useEffect(() => { tell.current?.(added > 0); }, [added]);
+  useEffect(() => () => tell.current?.(false), []);
 
   async function check() {
     if (!papers || saving) return;

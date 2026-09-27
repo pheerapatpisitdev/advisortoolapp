@@ -91,6 +91,9 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
   const [proofNote, setProofNote] = useState<string>();
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [dirty, setDirty] = useState(false);
+  /** stickers laid on the claim papers and not yet ticked ตรวจแล้ว: unsaved as much as words are */
+  const [stickersPending, setStickersPending] = useState(false);
+  const unsaved = dirty || stickersPending;
   const [saving, setSaving] = useState(false);
   const [marking, setMarking] = useState(false);
   const [note, setNote] = useState<NoteState>(null);
@@ -139,16 +142,16 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
 
   // unsaved words: the browser asks before the tab closes or reloads
   useEffect(() => {
-    if (!dirty) return;
+    if (!unsaved) return;
     const stay = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", stay);
     return () => window.removeEventListener("beforeunload", stay);
-  }, [dirty]);
+  }, [unsaved]);
 
   // and the page around the editor is told, for its own links
   const tell = useRef(onDirtyChange);
   useEffect(() => { tell.current = onDirtyChange; }, [onDirtyChange]);
-  useEffect(() => { tell.current?.(dirty); }, [dirty]);
+  useEffect(() => { tell.current?.(unsaved); }, [unsaved]);
   useEffect(() => () => tell.current?.(false), []);
 
   const edit = (next: Draft) => {
@@ -246,7 +249,10 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
   }
 
   /** unsaved words are asked about, not dropped */
-  const mayLeave = async () => !dirty || ask("ยังไม่ได้บันทึกที่แก้ไว้ ออกเลยไหม?", "ออกเลย");
+  const mayLeave = async () => !unsaved || ask(
+    stickersPending && !dirty ? "สติ๊กเกอร์ที่แปะเพิ่มยังไม่ได้บันทึก (กด “ตรวจแล้ว” ก่อน) ออกเลยไหม?" : "ยังไม่ได้บันทึกที่แก้ไว้ ออกเลยไหม?",
+    "ออกเลย",
+  );
 
   /** back to the list */
   async function leave() {
@@ -261,7 +267,10 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
   /** read through a round in one go: this one kept, and on to the next */
   async function saveAndNext() {
     if (!nav?.next) return;
-    if (await save()) nav.next();
+    if (!(await save())) return;
+    // the words are kept; stickers are kept only by ตรวจแล้ว
+    if (stickersPending && !(await ask("สติ๊กเกอร์ที่แปะเพิ่มยังไม่ได้บันทึก (กด “ตรวจแล้ว” ก่อน) ไปชิ้นถัดไปเลยไหม?", "ไปต่อ"))) return;
+    nav.next();
   }
 
   // the keys a desk expects: ⌘S / Ctrl+S keeps the words, Esc goes back to the list (not from
@@ -352,7 +361,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
       )}
 
       {Boolean(item.output.poster?.documents?.length) && item.output.paperChecked === false && !locked && (
-        <ClaimPaperCheck item={item} onChecked={onSaved} />
+        <ClaimPaperCheck item={item} onChecked={onSaved} onPending={setStickersPending} />
       )}
 
       {item.format !== "script" && <div className="mt-4">
