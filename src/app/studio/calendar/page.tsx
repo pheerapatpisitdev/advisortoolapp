@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { after } from "next/server";
 import {
   boardDay, dayStart, monthGridDays, nextDayKey, parseMonth, shiftMonth, thaiMonthYear, timeOfDay, todayKey,
   countByPage, DROP_TIME, type BoardItem,
@@ -75,15 +76,18 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const from = dayStart(cells[0].day);
   const to = dayStart(nextDayKey(cells[cells.length - 1].day));
 
-  // held posts whose time came are asked about first, so the board says what Facebook did;
-  // never lets a Graph or database error keep the page from drawing
-  // and never keeps it waiting long: past eight seconds the board draws, and the rest is asked next load
-  // the timer is cleared the moment the check ends, so a quick check is not followed by an eight-second wait
+  // Held posts whose time came are asked about first, so the board says what Facebook did —
+  // but the board waits for it two seconds at most. It waited eight, on every month, filter
+  // and drop. A check still going is finished after the page is sent (after()), and what it
+  // finds is on the next look; a Graph or database error never keeps the page from drawing.
+  // The timer is cleared the moment the check ends, so a quick check costs no wait.
+  const checking = verifyDue().catch((e) => console.error("calendar verify failed:", e));
   let timer: ReturnType<typeof setTimeout> | undefined;
-  await Promise.race([
-    verifyDue().catch((e) => console.error("calendar verify failed:", e)),
-    new Promise((done) => { timer = setTimeout(done, 8_000); }),
+  const done = await Promise.race([
+    checking.then(() => true),
+    new Promise<false>((resolve) => { timer = setTimeout(() => resolve(false), 2_000); }),
   ]).finally(() => clearTimeout(timer));
+  if (!done) after(() => checking);
   const [setup, placed, waiting] = await Promise.all([
     publishSetup(),
     listPublished(from, to).catch(() => []),
