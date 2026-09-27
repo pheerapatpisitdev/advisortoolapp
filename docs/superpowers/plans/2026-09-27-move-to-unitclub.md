@@ -136,16 +136,16 @@ node scripts/unitclub/check-secrets.mjs
 
 ### Task 6: Cutover (owner picks a quiet time; about 10 minutes)
 
-- [ ] **Step 1: Stop the jobs on DATA2.0** (MCP `apply_migration`, project `tmbbxahyxwkshxuxphcb`, name `stop_advisortool_crons`):
+- [x] **Step 1: Stop the jobs on DATA2.0** (MCP `apply_migration`, project `tmbbxahyxwkshxuxphcb`, name `stop_advisortool_crons`):
 
 ```sql
 select cron.unschedule('messenger-followups');
 select cron.unschedule('ins_prune_hourly');
 ```
 
-- [ ] **Step 2:** Repeat Task 4 Steps 1–3 (rows, files, counts).
-- [ ] **Step 3:** On Vercel (production and preview) set `NEXT_PUBLIC_SUPABASE_URL=https://cenysylrzbwfrtuqoeqk.supabase.co` and `SUPABASE_SERVICE_ROLE_KEY` to UnitClub's service key. Leave `ADMIN_SESSION_SECRET` exactly as it is. Redeploy production (the URL is baked in at build time).
-- [ ] **Step 4: Start the jobs on UnitClub** (MCP `apply_migration`, project `cenysylrzbwfrtuqoeqk`, name `advisortool_crons`):
+- [x] **Step 2:** Repeat Task 4 Steps 1–3 (rows, files, counts).
+- [x] **Step 3:** On Vercel (production and preview) set `NEXT_PUBLIC_SUPABASE_URL=https://cenysylrzbwfrtuqoeqk.supabase.co` and `SUPABASE_SERVICE_ROLE_KEY` to UnitClub's service key. Leave `ADMIN_SESSION_SECRET` exactly as it is. Redeploy production (the URL is baked in at build time).
+- [x] **Step 4: Start the jobs on UnitClub** (MCP `apply_migration`, project `cenysylrzbwfrtuqoeqk`, name `advisortool_crons`):
 
 ```sql
 select cron.schedule('ins_prune_hourly', '5 * * * *', 'select public.ins_prune()');
@@ -162,8 +162,8 @@ select cron.schedule('messenger-followups', '* * * * *', $cron$
 $cron$);
 ```
 
-- [ ] **Step 5: Verify:** `/api/health` answers; after two minutes `cron.job_run_details` on UnitClub shows both jobs succeeded and `net._http_response` shows 200s; a test message to the Page gets an answer and appears in `ins_transcripts` on UnitClub; UnitClub's API logs show advisortool's requests and DATA2.0's show none.
-- [ ] **Step 6:** Point `.env.local` at UnitClub (same two variables).
+- [x] **Step 5: Verify:** `/api/health` answers; after two minutes `cron.job_run_details` on UnitClub shows both jobs succeeded and `net._http_response` shows 200s; a test message to the Page gets an answer and appears in `ins_transcripts` on UnitClub; UnitClub's API logs show advisortool's requests and DATA2.0's show none.
+- [x] **Step 6:** Point `.env.local` at UnitClub (same two variables).
 
 **Rollback, any time before DATA2.0 is cleaned:** set the two Vercel variables back, redeploy, re-schedule the two jobs on DATA2.0 and unschedule them on UnitClub. Rows written on UnitClub after the cutover would need copying back by hand.
 
