@@ -71,7 +71,8 @@ export async function PATCH(req: NextRequest) {
   }
   try {
     const add = await Promise.all(files.map(async (f) => ({ bytes: Buffer.from(await f.arrayBuffer()), mimeType: f.type })));
-    const person = await updatePerson(id, { name, remove: form.getAll("remove").map(String), add });
+    const main = form.get("main");
+    const person = await updatePerson(id, { name, remove: form.getAll("remove").map(String), add, ...(typeof main === "string" && main ? { main } : {}) });
     return Response.json({ ok: true, person });
   } catch (e) {
     if (e instanceof PersonError) return Response.json({ ok: false, error: e.message }, { status: 400 });

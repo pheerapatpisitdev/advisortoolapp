@@ -83,8 +83,21 @@ export async function addPerson(name: string, photos: { bytes: Buffer; mimeType:
  * MAX_PHOTOS. New photos take free slots, so a path never collides with one still in use. The
  * consent stands: it was given for this person, and editing does not widen it.
  */
+/**
+ * A person's photos in the order they are kept: the one chosen as main first — the drawing
+ * sends the first every time and a few others at random, so it is the face the AI holds to —
+ * then the rest as they were, then the new ones. New photos used to go last with no way to put
+ * a better one first, whatever the page said about the first photo being the main one.
+ */
+export function orderPhotos(kept: string[], added: string[], main?: string): string[] {
+  const all = [...kept, ...added];
+  return main && kept.includes(main) ? [main, ...all.filter((p) => p !== main)] : all;
+}
+
 export async function updatePerson(id: string, change: {
   name?: string; remove?: string[]; add?: { bytes: Buffer; mimeType: string }[];
+  /** a kept photo to put first, as the main one */
+  main?: string;
 }): Promise<Person> {
   const person = await getPerson(id);
   if (!person) throw new PersonError("ไม่พบบุคคลนี้");
@@ -113,7 +126,7 @@ export async function updatePerson(id: string, change: {
     throw e;
   }
   const { data, error } = await db.from("ins_people")
-    .update({ name: change.name ?? person.name, photos: [...kept, ...added] }).eq("id", id)
+    .update({ name: change.name ?? person.name, photos: orderPhotos(kept, added, change.main) }).eq("id", id)
     .select("id, name, photos, consented_at").single();
   if (error) throw new Error(error.message);
   // the row no longer names them, so the files go last: a failure here leaves strays, not holes

@@ -46,12 +46,14 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [dropping, setDropping] = useState<string[]>([]);
+  /** the photo to put first, the one the AI holds to; the current first until another is chosen */
+  const [main, setMain] = useState<string | null>(null);
   const [adding, setAdding] = useState<File[]>([]);
 
   function startEdit(p: Person) {
     setEditError(null);
     setRowError(null);
-    setEditing(p.id); setEditName(p.name); setDropping([]); setAdding([]);
+    setEditing(p.id); setEditName(p.name); setDropping([]); setAdding([]); setMain(p.photos[0] ?? null);
   }
 
   async function saveEdit(p: Person) {
@@ -66,6 +68,7 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
       form.set("id", p.id);
       form.set("name", editName.trim());
       for (const path of dropping) form.append("remove", path);
+      if (main && !dropping.includes(main)) form.set("main", main);
       for (const [i, f] of adding.entries()) form.append("photos", await shrink(f), `photo-${i}.jpg`);
       const res = await fetch("/api/content-people", { method: "PATCH", body: form }).then((r) => r.json());
       if (!res.ok) return setEditError(res.error);
@@ -136,20 +139,30 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
               <input value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={40} className={field} />
             </label>
             <div>
-              <span className="mb-1 block text-sm font-medium">รูป — กดที่รูปเพื่อเอาออก</span>
+              <span className="mb-1 block text-sm font-medium">รูป — กดที่รูปเพื่อเอาออก · รูปหลักคือรูปที่ AI ใช้ทุกครั้ง</span>
               <div className="flex flex-wrap gap-2">
                 {p.photos.map((path) => {
                   const out = dropping.includes(path);
+                  // the main one, or the first kept once the main one is being taken out
+                  const isMain = !out && (path === main || (dropping.includes(main ?? "") && path === p.photos.find((x) => !dropping.includes(x))));
                   return (
-                    <button
-                      key={path} type="button" aria-pressed={out} title={out ? "กดอีกครั้งเพื่อเก็บไว้" : "เอารูปนี้ออก"}
-                      onClick={() => setDropping((d) => (out ? d.filter((x) => x !== path) : [...d, path]))}
-                      className={`relative size-20 overflow-hidden rounded-md ${out ? "opacity-30 ring-2 ring-[var(--ct-alert)]" : ""}`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element -- a private photo through our own route */}
-                      <img src={photoUrl(path)} alt="" className="size-full object-cover" />
-                      {out && <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-[var(--ct-alert)]">เอาออก</span>}
-                    </button>
+                    <div key={path} className="w-20 space-y-1">
+                      <button
+                        type="button" aria-pressed={out} title={out ? "กดอีกครั้งเพื่อเก็บไว้" : "เอารูปนี้ออก"}
+                        onClick={() => setDropping((d) => (out ? d.filter((x) => x !== path) : [...d, path]))}
+                        className={`relative block size-20 overflow-hidden rounded-md ${out ? "opacity-30 ring-2 ring-[var(--ct-alert)]" : isMain ? "ring-2 ring-[var(--ct-accent)]" : ""}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- a private photo through our own route */}
+                        <img src={photoUrl(path)} alt="" className="size-full object-cover" />
+                        {out && <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-[var(--ct-alert)]">เอาออก</span>}
+                        {isMain && <span className="absolute inset-x-0 bottom-0 bg-[var(--ct-solid)] py-0.5 text-center text-[0.65rem] font-medium text-[var(--ct-solid-ink)]">รูปหลัก</span>}
+                      </button>
+                      {!out && !isMain && (
+                        <button type="button" onClick={() => setMain(path)} className="min-h-9 w-full rounded-md border border-[var(--ct-line)] text-[0.7rem] text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+                          ตั้งเป็นหลัก
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
