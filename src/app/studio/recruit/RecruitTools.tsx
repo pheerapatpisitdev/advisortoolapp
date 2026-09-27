@@ -9,7 +9,7 @@ import {
 import type { GenerateResult } from "../actions";
 import { recruitRound } from "../draw";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
-import { FormatPicker, FormSection, LoopToggle, PictureFold, PressBar, pictureSummary, useLoop } from "../ui/form-parts";
+import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, useLoop } from "../ui/form-parts";
 
 /**
  * หาทีม's tools (owner, 2026-09-26): pick a topic and who it is for, set the round, press
@@ -186,6 +186,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
           ? `กำลังเขียน ${making} ${unit}… (ราว 20–40 วินาที)`
           : `สร้าง${format === "post" ? "โพสต์" : format === "ad" ? "โฆษณา" : "สคริปต์"}${RECRUIT_NAME} ${count} ${unit}`}
         note={blocked ?? `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`}
+        warning={blocked ? null : overBudget(Number(estimate), left)}
       />
     </>
   );

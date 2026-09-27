@@ -10,7 +10,7 @@ import { LENGTHS, MAX_READER, NICHES, type Format, type Length } from "@/lib/con
 import type { GenerateResult } from "../actions";
 import { PhotoDrop } from "../people/PhotoDrop";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
-import { FormatPicker, FormSection, LoopToggle, PictureFold, PressBar, pictureSummary, useLoop } from "../ui/form-parts";
+import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, useLoop } from "../ui/form-parts";
 import { burn, shrink } from "./redact";
 
 /**
@@ -276,6 +276,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
           ? `กำลังอ่านเอกสารและเขียน ${making} ${unit}… (ราว 30–60 วินาที)`
           : `สร้าง${format === "post" ? "รีวิวเคลม" : format === "ad" ? "โฆษณารีวิวเคลม" : "สคริปต์รีวิวเคลม"} ${count} ${unit}`}
         note={blocked ?? `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`}
+        warning={blocked ? null : overBudget(Number(estimate), left)}
       />
     </>
   );

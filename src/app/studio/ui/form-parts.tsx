@@ -80,7 +80,18 @@ export function PictureFold({ summary, children }: { summary: string; children: 
  * The สร้าง press with the round's count beside it: the number the button says is the one set
  * right next to it. A round whose size is set elsewhere (ads: มุมขาย × น้ำเสียง) has no stepper.
  */
-export function PressBar({ count, max, onCount, unit, label, onPress, disabled, note }: {
+/**
+ * `warning`: said above the note when the round is likely to cost more than the month has left.
+ * The writing is held against the budget on the server and refused there; the pictures after it
+ * were not, and failed one by one after the words were paid for.
+ */
+export function overBudget(estimate: number, left: number): string | null {
+  return estimate > left
+    ? `ราว ฿${estimate.toFixed(2)} เกินงบที่เหลือ ฿${left.toFixed(2)} — ภาพบางชิ้นอาจวาดไม่ได้ ลดจำนวนชิ้น เลือกไม่วาดภาพ หรือเพิ่มงบที่หน้า /admin/ai`
+    : null;
+}
+
+export function PressBar({ count, max, onCount, unit, label, onPress, disabled, note, warning }: {
   count: number;
   max: number;
   onCount?: (n: number) => void;
@@ -89,6 +100,7 @@ export function PressBar({ count, max, onCount, unit, label, onPress, disabled, 
   onPress: () => void;
   disabled: boolean;
   note: string;
+  warning?: string | null;
 }) {
   const step = "inline-flex size-11 items-center justify-center text-lg text-[var(--ct-ink)] disabled:opacity-30";
   return (
@@ -105,13 +117,14 @@ export function PressBar({ count, max, onCount, unit, label, onPress, disabled, 
           {label}
         </button>
       </div>
+      {warning && <p className="mt-2 text-xs font-medium text-[var(--ct-warn-ink)]">{warning}</p>}
       <p className="mt-2 text-xs text-[var(--ct-mute)]">{note}</p>
     </div>
   );
 }
 
 /** the folded ภาพและโมเดล in one line: the writer, then — posters only — the picture, its tone and who is in it */
-export function pictureSummary({ format, writer, painter, theme, person }: {
+export function pictureSummary({ format, writer, painter, theme, person, brief }: {
   format: Format;
   /** the writing model's short name */
   writer: string;
@@ -121,11 +134,14 @@ export function pictureSummary({ format, writer, painter, theme, person }: {
   theme?: string;
   /** the person in the picture, by name */
   person?: string;
+  /** the picture brief kept from before: it shapes every round, so it is not left folded out of sight */
+  brief?: string;
 }): string {
   const picture = format === "script" ? [] : [
     painter ? `วาดด้วย ${painter}` : "ไม่วาดภาพ",
     ...(theme ? [theme] : []),
     ...(painter && person ? [person] : []),
+    ...(painter && brief ? [`บรีฟ: ${[...brief].length > 28 ? `${[...brief].slice(0, 27).join("")}…` : brief}`] : []),
   ];
   return [`เขียนด้วย ${writer}`, ...picture].join(" · ");
 }

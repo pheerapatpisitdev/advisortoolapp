@@ -29,7 +29,7 @@ import { RECRUIT_HREF, RECRUIT_NAME } from "@/lib/content/recruit";
 import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
 import { thaiDayLabel } from "@/lib/content/calendar";
 import { PlainText } from "./ui/editor-fields";
-import { FormatPicker, FormSection, LoopToggle, PictureFold, PressBar, pictureSummary, useLoop } from "./ui/form-parts";
+import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, useLoop } from "./ui/form-parts";
 
 /**
  * The content workbench, laid out as the owner's Maryjane project lays out its run page:
@@ -909,6 +909,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     format, writer: writes.short, painter: paints.modelId ? paints.short : null,
     theme: theme === AUTO_THEME ? "โทนสี AI เลือก" : `โทน${THEME_LABEL[theme]}`,
     person: person ? people.find((p) => p.id === person.id)?.name : undefined,
+    brief: brief.trim() || undefined,
   });
 
   const usedLink = (
@@ -1158,6 +1159,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               ? `กำลังเขียน ${making} ${makingFormat === "ad" ? "แบบ" : "ชิ้น"}… (ราว 20–40 วินาที)`
               : format === "ad" ? `สร้างโฆษณา ${pieceCount} แบบ` : `สร้าง ${count} ชิ้น`}
             note={`ราว ฿${estimate} · สร้างได้อีกราว ${more} ชิ้น · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)} จาก ฿${spend.cap}`}
+            warning={overBudget(pieceCount * perPiece, left)}
           />
           </div>
         </aside>
