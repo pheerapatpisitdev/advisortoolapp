@@ -32,7 +32,7 @@ const chip = (on: boolean) =>
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
 const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
-export function ClaimTools({ writer, onWriter, painter, onPainter, people, person, onPerson, reader, onReader, left, pending, making, run }: {
+export function ClaimTools({ writer, onWriter, painter, onPainter, people, person, onPerson, reader, onReader, left, pending, making, run, folded, formId }: {
   writer: string;
   onWriter: (id: string) => void;
   /** the picture behind the poster, as on the plan form; shared with it and remembered */
@@ -51,6 +51,10 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
   making: number;
   /** `paintWith` and `who` are the painter and person at the press; the page draws each new poster's picture with them */
   run: (asked: number, format: Format, send: () => Promise<GenerateResult>, paintWith: string, who: PiecePerson | null) => Promise<void>;
+  /** a phone's form folded away after a round: the fields go, the press stays in reach */
+  folded?: boolean;
+  /** the id the page's ตั้งค่าการสร้าง button controls */
+  formId?: string;
 }) {
   const id = useId();
   const [files, setFiles] = useState<File[]>([]);
@@ -155,7 +159,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
 
   return (
     <>
-      <div className="space-y-4 p-4">
+      <div id={formId} className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>
         <div>
           <span className="mb-1 block text-sm font-medium">เอกสารเคลม <span className="font-normal text-[var(--ct-mute)]">(ไม่เกิน {MAX_DOCS} รูป)</span></span>
           <PhotoDrop files={files} onChange={pickFiles} limit={MAX_DOCS} />

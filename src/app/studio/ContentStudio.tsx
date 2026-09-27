@@ -72,6 +72,9 @@ const TABS: { id: ContentStatus; label: string }[] = [
 const PICK_KEY = "content-models";
 /** the reader last named: a page usually speaks to one niche, so it is kept for the next visit */
 const READER_KEY = "content-reader";
+/** the form last used (จากแบบประกัน, รีวิวเคลม, หาทีม) and the plan last picked, kept in this browser */
+const MODE_KEY = "content-mode";
+const PLAN_KEY = "content-plan";
 /** the round's person and pose, kept per device like the reader */
 const PERSON_KEY = "content-person";
 /** the round's poster colour, kept per device like the reader */
@@ -201,7 +204,25 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
-  const [mode, setMode] = useState<"plan" | "claim" | "recruit">("plan");
+  const [mode, setModeState] = useState<"plan" | "claim" | "recruit">("plan");
+  // the form and the plan as the owner left them, unless the address asks for a plan round
+  useEffect(() => {
+    try {
+      const keptPlan = localStorage.getItem(PLAN_KEY);
+      if (keptPlan && products.some((p) => p.href === keptPlan)) setHref(keptPlan);
+      const keptMode = localStorage.getItem(MODE_KEY);
+      if (!initialHook && (keptMode === "claim" || keptMode === "recruit")) setModeState(keptMode);
+    } catch { /* storage unavailable: the first plan */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
+  const setMode = (next: "plan" | "claim" | "recruit") => {
+    setModeState(next);
+    try { localStorage.setItem(MODE_KEY, next); } catch { /* not kept */ }
+  };
+  const pickPlan = (next: string) => {
+    setHref(next);
+    try { localStorage.setItem(PLAN_KEY, next); } catch { /* not kept */ }
+  };
   const [writer, setWriter] = useState(DEFAULT_WRITER);
   const [painter, setPainter] = useState(DEFAULT_PAINTER);
   useEffect(() => {
@@ -901,9 +922,12 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             </div>
           </div>
 
-          {mode === "claim" ? (
-            <div id={formId} className={formOpen ? "" : "hidden lg:block"}>
+          {/* All three stay mounted and only the chosen one is shown: switching unmounted the
+              others, and one stray tap threw away uploaded claim photos, the consent, the note,
+              the recruit topic. Each folds its fields on a phone and keeps its press in reach. */}
+          <div hidden={mode !== "claim"}>
               <ClaimTools
+                folded={!formOpen} formId={mode === "claim" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
                 people={people} person={person} onPerson={setPerson}
                 reader={reader} onReader={setReader} left={left} pending={pending} making={making}
@@ -912,10 +936,10 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                   if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
                 })}
               />
-            </div>
-          ) : mode === "recruit" ? (
-            <div id={formId} className={formOpen ? "" : "hidden lg:block"}>
+          </div>
+          <div hidden={mode !== "recruit"}>
               <RecruitTools
+                folded={!formOpen} formId={mode === "recruit" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
                 people={people} person={person} onPerson={setPerson}
                 left={left} pending={pending} making={making}
@@ -924,13 +948,12 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                   if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
                 })}
               />
-            </div>
-          ) : (
-          <>
-          <div id={formId} className={`space-y-4 p-4 ${formOpen ? "" : "hidden lg:block"}`}>
+          </div>
+          <div hidden={mode !== "plan"}>
+          <div id={mode === "plan" ? formId : undefined} className={`space-y-4 p-4 ${formOpen ? "" : "hidden lg:block"}`}>
           <label className="block">
             <span className="mb-1 block text-sm font-medium">แบบประกัน</span>
-            <select value={href} onChange={(e) => setHref(e.target.value)} className={field}>
+            <select value={href} onChange={(e) => pickPlan(e.target.value)} className={field}>
               {products.map((p) => <option key={p.href} value={p.href}>{p.name}</option>)}
             </select>
           </label>
@@ -1103,8 +1126,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               : format === "ad" ? `สร้างโฆษณา ${pieceCount} แบบ` : `สร้าง ${count} ชิ้น`}
             note={`ราว ฿${estimate} · สร้างได้อีกราว ${more} ชิ้น · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)} จาก ฿${spend.cap}`}
           />
-          </>
-          )}
+          </div>
         </aside>
 
         {/* ---------------------------------- pieces ---------------------------------- */}
