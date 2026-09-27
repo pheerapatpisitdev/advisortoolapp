@@ -298,24 +298,47 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  /*
+   * The checks ran on the last save; the words on screen may have moved on. A finding whose
+   * words are no longer there goes as the owner types — a number they just deleted stayed
+   * flagged until บันทึก — and while there are edits the checks say they are of the last save,
+   * since a number just typed is found only when it is saved. The numbers are kept as they
+   * were written ("89 บาท"), so they are found in the text as they are.
+   */
+  const onScreen = [...draft.hooks, draft.body, draft.closing, draft.tags, ...draft.poster.blocks.map((b) => b.text)].join("\n");
   const flags = item.flags;
-  const policy = flags.policy ?? [];
-  const openFixes = locked ? [] : (fixes ?? []).filter((f) => !applied.has(f.find));
-  const words = flags.words.filter((w) => !applied.has(w.word));
-  const anything = flags.numbers.length > 0 || words.length > 0 || policy.length > 0 || proofing || openFixes.length > 0 || Boolean(proofNote);
+  const policy = (flags.policy ?? []).filter((f) => !f.match || onScreen.includes(f.match));
+  const openFixes = locked ? [] : (fixes ?? []).filter((f) => !applied.has(f.find) && onScreen.includes(f.find));
+  const words = flags.words.filter((w) => !applied.has(w.word) && onScreen.includes(w.word));
+  const numbers = flags.numbers.filter((n) => onScreen.includes(n));
+  const anything = numbers.length > 0 || words.length > 0 || policy.length > 0 || proofing || openFixes.length > 0 || Boolean(proofNote);
+  const editorRoot = useRef<HTMLElement>(null);
+
+  /** the words in the field they are in, selected and in view — the lists said what, not where */
+  function locate(fragment: string) {
+    const fields = editorRoot.current?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("textarea, input[type=text], input:not([type])") ?? [];
+    for (const f of fields) {
+      const at = f.value.indexOf(fragment);
+      if (at < 0) continue;
+      f.focus();
+      f.setSelectionRange(at, at + fragment.length);
+      f.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
+  }
   const checksId = `checks-${item.id}`;
   const blocks = policy.filter((f) => f.severity === "block").length;
   const summary = ([
     ["ผิดกฎ Facebook", blocks, "alert"],
     ["เสี่ยงผิดกฎ Facebook", policy.length - blocks, "warn"],
-    ["ตัวเลขไม่ตรงตาราง", flags.numbers.length, "warn"],
+    ["ตัวเลขไม่ตรงตาราง", numbers.length, "warn"],
     ["คำต้องระวัง", words.length, "warn"],
     ["AI เสนอแก้คำ", openFixes.length, "warn"],
   ] as const).filter(([, n]) => n > 0);
   const busy = saving || marking || sending;
 
   return (
-    <section className="rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">
+    <section ref={editorRoot} className="rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">
       <div className="flex items-center justify-between gap-2">
         <button type="button" onClick={leave} title="กลับไปรายการ (Esc)" className="-ml-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
           <BackIcon className="size-4" />
@@ -488,13 +511,19 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
 
       {anything && (
         <div id={checksId} className="mt-4 scroll-mt-20 space-y-3">
+          {dirty && anything && (
+            <p className="text-xs text-[var(--ct-mute)]">ผลตรวจนี้เป็นของฉบับที่บันทึกล่าสุด — ตัวเลขหรือคำที่เพิ่งพิมพ์จะถูกตรวจเมื่อกดบันทึก (⌘S)</p>
+          )}
           {policy.length > 0 && (
             <div className="space-y-2">
               {policy.map((f) => (
                 <div key={f.code} className={`rounded-lg border p-3 text-sm ${f.severity === "block"
                   ? "border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]"
                   : "border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] text-[var(--ct-warn-ink)]"}`}>
-                  <p className="font-medium">{f.severity === "block" ? "ผิดกฎโฆษณา Facebook" : "เสี่ยงผิดกฎ Facebook"}: “{f.match}”</p>
+                  <p className="font-medium">
+                    {f.severity === "block" ? "ผิดกฎโฆษณา Facebook" : "เสี่ยงผิดกฎ Facebook"}:{" "}
+                    {f.match ? <button type="button" onClick={() => locate(f.match)} title="หาในข้อความ" className="underline decoration-dotted underline-offset-2">“{f.match}”</button> : null}
+                  </p>
                   <p className="mt-0.5">{f.message}</p>
                   <p className="mt-0.5 opacity-80">แก้โดย: {f.fix}</p>
                 </div>
@@ -502,12 +531,16 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
             </div>
           )}
 
-          {(flags.numbers.length > 0 || words.length > 0 || proofing || openFixes.length > 0) && (
+          {(numbers.length > 0 || words.length > 0 || proofing || openFixes.length > 0) && (
             <div className="space-y-3 rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] p-3 text-sm text-[var(--ct-warn-ink)]">
-              {flags.numbers.length > 0 && (
+              {numbers.length > 0 && (
                 <div>
-                  <p className="font-medium">ตัวเลขที่ไม่มีในข้อมูลของแบบนี้ — ตรวจก่อนโพสต์</p>
-                  <p className="mt-0.5">{flags.numbers.join(" · ")}</p>
+                  <p className="font-medium">ตัวเลขที่ไม่มีในข้อมูลของแบบนี้ — ตรวจก่อนโพสต์ <span className="font-normal">(แตะเพื่อหาในข้อความ)</span></p>
+                  <p className="mt-1 flex flex-wrap gap-1.5">
+                    {numbers.map((n) => (
+                      <button key={n} type="button" onClick={() => locate(n)} className="min-h-9 rounded-full border border-[var(--ct-warn-line)] bg-[var(--ct-panel)] px-2.5 tabular-nums hover:brightness-95">{n}</button>
+                    ))}
+                  </p>
                 </div>
               )}
               {words.length > 0 && (
@@ -516,7 +549,9 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
                   <ul className="mt-1 space-y-1">
                     {words.map((w) => (
                       <li key={w.word} className="flex flex-wrap items-center gap-2">
-                        <span>{w.kind === "banned" ? `“${w.word}” — คำโฆษณาที่ควรเลี่ยง` : `“${w.word}” → “${w.fix}”`}</span>
+                        <button type="button" onClick={() => locate(w.word)} title="หาในข้อความ" className="text-left underline decoration-dotted underline-offset-2">
+                          {w.kind === "banned" ? `“${w.word}” — คำโฆษณาที่ควรเลี่ยง` : `“${w.word}” → “${w.fix}”`}
+                        </button>
                         {w.fix && !locked && <button type="button" onClick={() => accept({ find: w.word, replace: w.fix! })} className={smallBtn}>แก้</button>}
                       </li>
                     ))}
