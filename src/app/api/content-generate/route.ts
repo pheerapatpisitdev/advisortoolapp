@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { generateContent, type GenerateInput } from "@/app/studio/actions";
+import { refuseUnless } from "@/lib/auth/viewer";
 
 /**
  * A round of writing, as a plain request rather than a server action.
@@ -13,6 +14,8 @@ import { generateContent, type GenerateInput } from "@/app/studio/actions";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const input = await req.json().catch(() => null) as GenerateInput | null;
   if (!input || typeof input !== "object") return Response.json({ ok: false, error: "ข้อมูลไม่ครบ ลองใหม่อีกครั้งนะครับ" }, { status: 400 });
   return Response.json(await generateContent(input));

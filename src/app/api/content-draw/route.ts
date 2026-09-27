@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { drawBackground } from "@/app/studio/actions";
+import { refuseUnless } from "@/lib/auth/viewer";
 
 /**
  * The content page's picture orders, as a plain request rather than a server action.
@@ -14,6 +15,8 @@ import { drawBackground } from "@/app/studio/actions";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const body = await req.json().catch(() => null) as { id?: unknown; request?: unknown; painter?: unknown; person?: unknown } | null;
   const id = typeof body?.id === "string" ? body.id : "";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return Response.json({ ok: false, error: "ไม่พบชิ้นงานนี้" }, { status: 400 });

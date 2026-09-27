@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 let fail = false;
 
+vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/content/store", () => ({
   addWord: async () => undefined,

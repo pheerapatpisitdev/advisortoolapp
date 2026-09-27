@@ -20,6 +20,7 @@ const store = vi.hoisted(() => ({
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), isPublished: vi.fn() }));
 const ai = vi.hoisted(() => ({ chat: vi.fn(), drawImage: vi.fn() }));
 
+vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
 vi.mock("next/headers", () => ({ headers: async () => new Map([["x-real-ip", "1.2.3.4"]]) }));
 // work left for after the answer is kept here, to be run when a test says so
 const later = vi.hoisted(() => [] as (() => unknown)[]);

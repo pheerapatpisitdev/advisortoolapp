@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { mintKey } from "@/lib/api/key";
 import { usedThisMonth } from "./period";
+import { requireStaff } from "@/lib/auth/viewer";
 
 /**
  * The keys that may call this system's API, and the one moment a key is readable.
@@ -25,6 +26,7 @@ export interface KeyRow {
 }
 
 export async function listKeys(): Promise<KeyRow[]> {
+  await requireStaff("admin");
   const { data, error } = await supabaseAdmin()
     .from("ins_api_clients")
     .select("id, name, prefix, quota_month, used_month, period, last_used_at, disabled, created_at")
@@ -48,6 +50,7 @@ export async function listKeys(): Promise<KeyRow[]> {
 
 /** A new key. The string comes back once; after this only its hash exists. */
 export async function createKey(name: string, quotaMonth: number | null): Promise<{ key: string }> {
+  await requireStaff("admin");
   const label = name.trim().slice(0, 80);
   if (!label) throw new Error("ตั้งชื่อกุญแจด้วยครับ จะได้รู้ว่าใครใช้");
 
@@ -68,12 +71,14 @@ export async function createKey(name: string, quotaMonth: number | null): Promis
  * us last March" still has an answer. Deleting is for a key issued by mistake.
  */
 export async function setKeyDisabled(id: string, disabled: boolean): Promise<void> {
+  await requireStaff("admin");
   const { error } = await supabaseAdmin().from("ins_api_clients").update({ disabled }).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/api");
 }
 
 export async function deleteKey(id: string): Promise<void> {
+  await requireStaff("admin");
   const { error } = await supabaseAdmin().from("ins_api_clients").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/api");

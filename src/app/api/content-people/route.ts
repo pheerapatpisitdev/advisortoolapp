@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { addPerson, deletePerson, MAX_PHOTO_BYTES, PersonError, PHOTO_TYPES, updatePerson } from "@/lib/content/people-store";
 import { MAX_PHOTOS } from "@/lib/content/people";
 import { piecesWithPerson } from "@/lib/content/store";
+import { refuseUnless } from "@/lib/auth/viewer";
 
 /**
  * Adding and removing people, as plain requests: ten photos are more than a server action's
@@ -10,6 +11,8 @@ import { piecesWithPerson } from "@/lib/content/store";
  */
 
 export async function POST(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const form = await req.formData().catch(() => null);
   if (!form) return Response.json({ ok: false, error: "ข้อมูลไม่ครบ ลองใหม่อีกครั้งนะครับ" }, { status: 400 });
   const name = String(form.get("name") ?? "").trim();
@@ -36,6 +39,8 @@ export async function POST(req: NextRequest) {
 
 /** `?usage=<id>`: how many pieces were drawn with this person, asked before a delete */
 export async function GET(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const id = req.nextUrl.searchParams.get("usage") ?? "";
   if (!/^[0-9a-f-]{36}$/.test(id)) return Response.json({ ok: false, error: "ไม่พบบุคคลนี้" }, { status: 400 });
   try {
@@ -47,6 +52,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const id = req.nextUrl.searchParams.get("id") ?? "";
   try {
     await deletePerson(id);
@@ -59,6 +66,8 @@ export async function DELETE(req: NextRequest) {
 
 /** A rename, photos removed by path, photos added — the same checks as adding a person. */
 export async function PATCH(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const form = await req.formData().catch(() => null);
   const id = String(form?.get("id") ?? "");
   if (!form || !/^[0-9a-f-]{36}$/.test(id)) return Response.json({ ok: false, error: "ไม่พบบุคคลนี้" }, { status: 400 });

@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 
 let upsertError: { message: string } | null = null;
 
+vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/ai/client", () => ({ clearAiConfigCache: () => undefined, testProviders: async () => [] }));
 vi.mock("@/lib/ai/ledger", () => ({

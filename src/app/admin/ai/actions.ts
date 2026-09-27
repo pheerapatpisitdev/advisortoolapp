@@ -6,6 +6,7 @@ import { monthSpend, monthStart, type SpendLine } from "@/lib/ai/ledger";
 import { contentBaht, DEFAULT_CONTENT_CAP_THB } from "@/lib/content/store";
 import { EMBEDDERS, JUDGE } from "@/lib/ai/providers";
 import { checkBudgets } from "./budget";
+import { requireStaff } from "@/lib/auth/viewer";
 
 export type { ProviderCheck } from "@/lib/ai/client";
 
@@ -80,6 +81,7 @@ export async function loadAiPage(): Promise<{
    */
   content: { spent: number | null; cap: number; fallback: number };
 }> {
+  await requireStaff("admin");
   const supabase = supabaseAdmin();
   const [keys, models, prefs, settings, spend] = await Promise.all([
     supabase.from("ins_api_keys").select("provider, tail, enabled"),
@@ -171,6 +173,7 @@ function byProvider(lines: SpendLine[], models: { provider: string; model_name: 
 }
 
 export async function saveApiKey(provider: string, key: string): Promise<Result> {
+  await requireStaff("admin");
   if (!PROVIDERS.includes(provider as Provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
   /**
    * Everything a key is not.
@@ -203,6 +206,7 @@ export async function saveApiKey(provider: string, key: string): Promise<Result>
  * wanted again. For TypeSafe it is also the shadow's off switch.
  */
 export async function setProviderEnabled(provider: string, enabled: boolean): Promise<Result> {
+  await requireStaff("admin");
   if (!PROVIDERS.includes(provider as Provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
   try {
     const { error } = await supabaseAdmin().from("ins_api_keys").update({ enabled: Boolean(enabled) }).eq("provider", provider);
@@ -216,6 +220,7 @@ export async function setProviderEnabled(provider: string, enabled: boolean): Pr
 }
 
 export async function setModelEnabled(id: string, enabled: boolean): Promise<Result> {
+  await requireStaff("admin");
   if (!id || typeof id !== "string") return { ok: false, error: "ไม่รู้จักโมเดลนี้" };
   try {
     const { error } = await supabaseAdmin().from("ins_model_prefs")
@@ -234,6 +239,7 @@ export async function setModelEnabled(id: string, enabled: boolean): Promise<Res
  * are read here, by the rules in ./budget.ts — the browser is not the guard.
  */
 export async function saveSettings(smallModel: string, largeModel: string, monthlyBudget: string, contentBudget: string): Promise<Result> {
+  await requireStaff("admin");
   const budgets = checkBudgets(monthlyBudget, contentBudget, DEFAULT_CONTENT_CAP_THB);
   if (!budgets.ok) return budgets;
   try {
@@ -257,5 +263,6 @@ export async function saveSettings(smallModel: string, largeModel: string, month
  * page that spends money every time it is opened is a page nobody should have written.
  */
 export async function checkKeys(): Promise<ProviderCheck[]> {
+  await requireStaff("admin");
   return testProviders([...PROVIDERS]);
 }

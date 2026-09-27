@@ -31,6 +31,8 @@ import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/mode
 import { maybeOnPage, onPage, publishView } from "@/lib/content/publish-label";
 import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publish-flow";
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
+import { can } from "@/lib/auth/access";
+import { requireMember } from "@/lib/auth/viewer";
 
 /**
  * The content workbench's doors, open to anyone who finds the page — the owner put it in the
@@ -138,6 +140,7 @@ function roundResult(r: { items: ContentItem[]; failed: boolean }, planned: numb
 }
 
 export async function generateContent(input: GenerateInput): Promise<GenerateResult> {
+  await requireMember();
   const brief = briefFor(input.href);
   if (!brief) return { ok: false, error: "ไม่พบผลิตภัณฑ์นี้" };
   if (!["post", "script", "ad"].includes(input.format)) return { ok: false, error: "เลือกประเภทงานก่อนนะครับ" };
@@ -253,6 +256,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
 
 /** หาทีม: a round from a picked topic (src/lib/content/recruit.ts), under the plan form's hourly limit. */
 export async function generateRecruit(input: RecruitWriteInput): Promise<GenerateResult> {
+  await requireMember();
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
@@ -273,6 +277,7 @@ export interface ProofreadResult {
  * and fixes for words that are no longer there are not written at all.
  */
 export async function proofreadPiece(id: string): Promise<ProofreadResult> {
+  await requireMember();
   if (!proofPerHour(`proof:${await caller()}`)) return { fixes: [] };
   try {
     const item = await getContent(id);
@@ -294,6 +299,7 @@ export async function proofreadPiece(id: string): Promise<ProofreadResult> {
 
 /** The editor's older door to proofreadPiece: the fixes alone. */
 export async function proofreadContent(id: string): Promise<Fix[]> {
+  await requireMember();
   return (await proofreadPiece(id)).fixes;
 }
 
@@ -322,6 +328,7 @@ async function learnFormula(item: ContentItem): Promise<void> {
 const ON_PAGE_TRASH = "ชิ้นนี้ขึ้นเพจหรือตั้งเวลาไว้แล้ว — ยกเลิกในปฏิทินโพสต์ก่อน แล้วค่อยทิ้ง";
 
 export async function setContentStatus(id: string, status: ContentStatus): Promise<{ ok: boolean; error?: string }> {
+  await requireMember();
   if (!isContentStatus(status)) return { ok: false };
   try {
     const item = await getContent(id);
@@ -338,6 +345,9 @@ export async function setContentStatus(id: string, status: ContentStatus): Promi
     return { ok: false };
   }
 }
+
+/** a held post belongs to the Page, and the Page to the staff who post to it */
+const PAGE_STAFF_ONLY = "ชิ้นนี้ตั้งเวลาลงเพจไว้แล้ว — ให้ทีมงานที่ดูแลเพจเป็นคนแก้หรือเอาออก";
 
 /** a piece Facebook shows, or is putting up this moment: its words are Facebook's now */
 const ON_PAGE_EDIT = "ชิ้นนี้ขึ้นเพจแล้ว แก้ที่นี่ไม่มีผลกับเพจ — แก้ในเพจโดยตรง";
@@ -356,6 +366,7 @@ const MAYBE_ON_PAGE_DELETE = "โพสต์นี้อาจขึ้นเ�
  * owner has checked the Page.
  */
 export async function removeContent(id: string, opts: { force?: boolean } = {}): Promise<{ ok: boolean; error?: string; confirmDelete?: boolean }> {
+  const viewer = await requireMember();
   try {
     const item = await getContent(id);
     if (!item) return { ok: true };
@@ -363,6 +374,8 @@ export async function removeContent(id: string, opts: { force?: boolean } = {}):
     if (view.kind === "posting" || view.kind === "published") return { ok: false, error: ON_PAGE_DELETE };
     if (maybeOnPage(item.publish) && !opts.force) return { ok: false, error: MAYBE_ON_PAGE_DELETE, confirmDelete: true };
     if (view.kind === "scheduled") {
+      // the Page is the staff's: only they take a held post back (owner, 2026-09-27)
+      if (!can(viewer, "publish")) return { ok: false, error: PAGE_STAFF_ONLY };
       // taken back, and the row says cancelled, before it goes
       const w = await withdraw(item);
       if (!w.ok) return { ok: false, error: w.error === CONCURRENT ? CONCURRENT : `${w.error} — เลยยังไม่ลบ` };
@@ -445,6 +458,7 @@ export async function saveContentEdits(
   edits: Pick<ContentOutput, "hooks" | "body" | "closing" | "hashtags" | "poster">,
   opts: { plain?: boolean; confirmNumbers?: boolean } = {},
 ): Promise<EditResult> {
+  const viewer = await requireMember();
   try {
     // the poster the browser sent is parsed like one from the model: nothing reaches the
     // table that the drawing route could not draw — and one it could not draw is said so,
@@ -489,6 +503,8 @@ export async function saveContentEdits(
       const yardstick = [brief?.text ?? "", item.output.fact ?? "", item.output.figures ?? ""].join("\n");
       const flags = flagsFor(output, yardstick, words, item.flags.fixes, item.planHref === RECRUIT_HREF);
       if (view.kind === "scheduled") {
+        // an edit of a held post re-sends it to the Page, which is the staff's to do
+        if (!can(viewer, "publish")) return { ok: false, error: PAGE_STAFF_ONLY };
         const r = await rescheduleEdited(item, output, flags, view.at, opts.confirmNumbers);
         if (r === RACED) continue;
         if (r.ok && dropped) await removeBackground(id, dropped);
@@ -520,6 +536,7 @@ export interface Workbench {
 const WORKBENCH_PAGE = 40;
 
 export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number }): Promise<Workbench> {
+  await requireMember();
   try {
     const offset = Math.max(0, Math.floor(Number(filter.offset) || 0));
     const [items, counts] = await Promise.all([
@@ -534,6 +551,7 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
 }
 
 export async function contentSpend(): Promise<{ spent: number; cap: number }> {
+  await requireMember();
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
     return { spent, cap };
@@ -578,6 +596,7 @@ export type DrawBackgroundResult = { ok: true; item: ContentItem; note?: string 
  * person and pose draws them in. A person since deleted is drawn without, and said so.
  */
 export async function drawBackground(id: string, request = "", painter?: string, person?: PiecePerson | null): Promise<DrawBackgroundResult> {
+  await requireMember();
   if (!drawPerHour(`draw:${await caller()}`)) {
     return { ok: false, error: "วาดรูปครบ 40 รูปในชั่วโมงนี้แล้ว รอสักพักนะครับ" };
   }

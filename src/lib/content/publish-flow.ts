@@ -1,6 +1,7 @@
 import { pageConnections, pageToken } from "@/lib/facebook/connection";
 import { deletePost, MAX_AHEAD_MS, MIN_AHEAD_MS, postPhoto, postState, PublishError, type Posted } from "@/lib/facebook/publish";
 import { setContentStatus } from "@/app/studio/actions";
+import { audit } from "@/lib/auth/viewer";
 import { fullText } from "./output";
 import { defaultPoster } from "./poster";
 import { drawPoster } from "./poster-draw";
@@ -181,6 +182,8 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
   }
   // posted is used: it moves to ใช้จริง, and its hook joins the formula library
   if (saved.status === "draft") await setContentStatus(saved.id, "used");
+  // who put it on the Page, for the calendar's "โดย" (owner, 2026-09-27)
+  await audit(claimAt ? "reschedule" : at ? "schedule" : "post", item.id, { pageId: page.pageId, at: at ? at.toISOString() : null });
   return { ok: true, item: { ...saved, status: "used" } };
 }
 
@@ -262,6 +265,7 @@ export async function withdraw(item: ContentItem): Promise<{ ok: true; item: Con
     return { ok: false, error: `เอาโพสต์ที่ตั้งเวลาไว้ออกจากเพจไม่สำเร็จ: ${e instanceof PublishError ? e.message : "ลองใหม่อีกครั้งนะครับ"}` };
   }
   const done = await recordPublishIf(item.id, { state: "posting", at: claimAt }, { state: "cancelled", postId: null, at: null });
+  if (done) await audit("unschedule", item.id, { pageId: p.pageId });
   return done ? { ok: true, item: done } : { ok: false, error: CONCURRENT };
 }
 

@@ -3,6 +3,7 @@ import { pageConnections } from "@/lib/facebook/connection";
 import { bangkokAt, dayKey, dropTime, lastDropDay, nextDayKey, nextOpenDay, timeOfDay, todayKey } from "@/lib/content/calendar";
 import { move, PAST_DAY, POST_SCOPE, publish, withdraw, type PublishResult } from "@/lib/content/publish-flow";
 import { getContent, listPublished } from "@/lib/content/store";
+import { requireStaff } from "@/lib/auth/viewer";
 
 export type { PublishResult } from "@/lib/content/publish-flow";
 
@@ -36,6 +37,7 @@ export interface PublishSetup {
 }
 
 export async function publishSetup(): Promise<PublishSetup> {
+  await requireStaff("publish");
   try {
     return { pages: (await pageConnections()).map((p) => ({ pageId: p.pageId, pageName: p.pageName, canPost: p.scopes.includes(POST_SCOPE) })) };
   } catch (e) {
@@ -58,6 +60,7 @@ export async function publishPiece(input: {
    */
   force?: boolean;
 }): Promise<PublishResult> {
+  await requireStaff("publish");
   return publish(input);
 }
 
@@ -68,6 +71,7 @@ export async function publishPiece(input: {
  * that time has gone on the new day, when it takes a slot the same way.
  */
 export async function scheduleOnDay(input: { id: string; day: string; pageId: string; confirmNumbers?: boolean; force?: boolean }): Promise<PublishResult> {
+  await requireStaff("publish");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day)) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
   // Thailand's today, now — a board left open overnight still thinks it is yesterday
   if (input.day < todayKey()) return { ok: false, error: PAST_DAY };
@@ -107,6 +111,7 @@ async function takenOn(day: string, pageId: string | null, except: string): Prom
  * one after another by the workbench, so each sees the ones before it as taken.
  */
 export async function scheduleNextOpen(input: { id: string; pageId: string; confirmNumbers?: boolean; force?: boolean }): Promise<PublishResult> {
+  await requireStaff("publish");
   const today = todayKey();
   let rows: Awaited<ReturnType<typeof listPublished>>;
   try {
@@ -124,6 +129,7 @@ export async function scheduleNextOpen(input: { id: string; pageId: string; conf
 
 /** The day sheet's บันทึกเวลา: a Thai "YYYY-MM-DDTHH:MM", for a waiting piece or a held one. */
 export async function scheduleAt(input: { id: string; local: string; pageId: string; confirmNumbers?: boolean; force?: boolean }): Promise<PublishResult> {
+  await requireStaff("publish");
   const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(input.local);
   if (!m) return { ok: false, error: "เลือกวันและเวลาก่อนนะครับ" };
   if (m[1] < todayKey()) return { ok: false, error: PAST_DAY };
@@ -136,6 +142,7 @@ export async function scheduleAt(input: { id: string; local: string; pageId: str
 
 /** Takes back a post Facebook is holding, before its time. It can be scheduled again after. */
 export async function cancelScheduled(id: string): Promise<PublishResult> {
+  await requireStaff("publish");
   const item = await getContent(id).catch(() => null);
   const p = item?.publish;
   if (!item || !p || p.state !== "scheduled" || !p.postId || !p.pageId) return { ok: false, error: "ชิ้นนี้ไม่ได้ตั้งเวลาไว้" };

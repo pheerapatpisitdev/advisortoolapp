@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { ContentWord, WordKind } from "@/lib/content/check";
 import { addWord, deleteWord, listWords } from "@/lib/content/store";
+import { requireStaff } from "@/lib/auth/viewer";
 
 /**
  * What the assistant knows on top of the plan rules.
@@ -37,6 +38,7 @@ export interface Note {
 }
 
 export async function listNotes(): Promise<Note[]> {
+  await requireStaff("admin");
   try {
     const { data, error } = await supabaseAdmin()
       .from("ins_faq").select("id, question, answer, enabled, updated_at")
@@ -53,6 +55,7 @@ export async function listNotes(): Promise<Note[]> {
 }
 
 export async function addNote(question: string, answer: string): Promise<Result> {
+  await requireStaff("admin");
   const q = question.trim().slice(0, MAX_Q);
   const a = answer.trim().slice(0, MAX_A);
   if (q.length < 4 || a.length < 4) return { ok: false, error: "พิมพ์คำถามและคำตอบให้ยาวกว่านี้หน่อยครับ" };
@@ -68,6 +71,7 @@ export async function addNote(question: string, answer: string): Promise<Result>
 }
 
 export async function setNoteEnabled(id: string, enabled: boolean): Promise<Result> {
+  await requireStaff("admin");
   try {
     const { error } = await supabaseAdmin().from("ins_faq").update({ enabled: Boolean(enabled) }).eq("id", id);
     if (error) throw new Error(error.message);
@@ -80,6 +84,7 @@ export async function setNoteEnabled(id: string, enabled: boolean): Promise<Resu
 }
 
 export async function deleteNote(id: string): Promise<Result> {
+  await requireStaff("admin");
   try {
     const { error } = await supabaseAdmin().from("ins_faq").delete().eq("id", id);
     if (error) throw new Error(error.message);
@@ -102,10 +107,12 @@ export async function deleteNote(id: string): Promise<Result> {
 const MAX_WORD = 60;
 
 export async function listContentWords(): Promise<ContentWord[]> {
+  await requireStaff("admin");
   return listWords();
 }
 
 export async function addContentWord(word: string, kind: WordKind, fix: string): Promise<Result> {
+  await requireStaff("admin");
   const w = word.trim().slice(0, MAX_WORD);
   const f = fix.trim().slice(0, MAX_WORD);
   if (!w) return { ok: false, error: "พิมพ์คำก่อนนะครับ" };
@@ -121,6 +128,7 @@ export async function addContentWord(word: string, kind: WordKind, fix: string):
 }
 
 export async function removeContentWord(word: string): Promise<Result> {
+  await requireStaff("admin");
   try {
     await deleteWord(word);
     revalidatePath("/admin/knowledge");
@@ -156,6 +164,7 @@ export interface Lesson {
 }
 
 export async function listLessons(): Promise<{ review: ChatReview | null; lessons: Lesson[] }> {
+  await requireStaff("admin");
   try {
     const db = supabaseAdmin();
     const [rev, items] = await Promise.all([
@@ -189,6 +198,7 @@ export async function listLessons(): Promise<{ review: ChatReview | null; lesson
 
 /** The owner's ใช้: the answer as they left it, into the notes the AI reads. */
 export async function applyLesson(id: number, question: string, answer: string): Promise<Result> {
+  await requireStaff("admin");
   const q = question.trim().slice(0, MAX_Q);
   const a = answer.trim().slice(0, MAX_A);
   if (q.length < 4 || a.length < 4) return { ok: false, error: "คำถามหรือคำตอบสั้นเกินไปครับ" };
@@ -210,6 +220,7 @@ export async function applyLesson(id: number, question: string, answer: string):
 }
 
 export async function skipLesson(id: number): Promise<Result> {
+  await requireStaff("admin");
   try {
     const { error } = await supabaseAdmin().from("ins_chat_review_items")
       .update({ status: "skipped", decided_at: new Date().toISOString() }).eq("id", id);
@@ -224,6 +235,7 @@ export async function skipLesson(id: number): Promise<Result> {
 
 /** The same review the morning cron runs, on the owner's press. */
 export async function reviewChatsNow(): Promise<Result> {
+  await requireStaff("admin");
   try {
     const { runChatReview } = await import("@/lib/chat/review");
     const r = await runChatReview();

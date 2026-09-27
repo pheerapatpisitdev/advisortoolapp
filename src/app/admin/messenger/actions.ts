@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { clearConnection, clearPending, pageConnections, pageToken, readPending, saveConnection } from "@/lib/facebook/connection";
 import { listPages, subscribePage, unsubscribePage } from "@/lib/facebook/oauth";
+import { audit, requireStaff } from "@/lib/auth/viewer";
 
 /**
  * Finishes a login where the person admins more than one Page — all of the chosen Pages, in
@@ -16,6 +17,7 @@ import { listPages, subscribePage, unsubscribePage } from "@/lib/facebook/oauth"
  * Page that refuses to subscribe must not cost the others their connection.
  */
 export async function connectPages(pageIds: string[]): Promise<string[]> {
+  await requireStaff("connect");
   if (pageIds.length === 0) throw new Error("ยังไม่ได้เลือกเพจ");
 
   const pending = await readPending();
@@ -35,6 +37,7 @@ export async function connectPages(pageIds: string[]): Promise<string[]> {
       await saveConnection({
         pageId: page.id, pageName: page.name, token: page.accessToken, scopes: pending.scopes, fields,
       });
+      await audit("connect-page", page.id, { name: page.name });
     } catch (e) {
       failures.push(`${page.name} — ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -54,6 +57,7 @@ export async function connectPages(pageIds: string[]): Promise<string[]> {
  * because a forgotten token cannot unsubscribe anything.
  */
 export async function disconnectPage(pageId: string) {
+  await requireStaff("connect");
   const token = await pageToken(pageId);
   if (token) {
     try {
@@ -68,12 +72,14 @@ export async function disconnectPage(pageId: string) {
    * the lookup happened to return.
    */
   await clearConnection(pageId);
+  await audit("disconnect-page", pageId);
   const stillLegacy = (await pageConnections()).find((c) => c.pageId === pageId && c.legacy);
   if (stillLegacy) await clearConnection();
   revalidatePath("/admin/messenger");
 }
 
 export async function cancelPending() {
+  await requireStaff("connect");
   await clearPending();
   revalidatePath("/admin/messenger");
 }
@@ -85,6 +91,7 @@ export async function cancelPending() {
  * would go on answering threads the agent had already picked up.
  */
 export async function refreshSubscription(pageId: string) {
+  await requireStaff("connect");
   const connection = (await pageConnections()).find((c) => c.pageId === pageId);
   const token = await pageToken(pageId);
   if (!connection || !token) throw new Error("ยังไม่ได้เชื่อมต่อเพจนี้");

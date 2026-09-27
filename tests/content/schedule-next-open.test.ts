@@ -5,6 +5,7 @@ import type { ContentItem, Publish } from "@/lib/content/store";
 
 const store = vi.hoisted(() => ({ listPublished: vi.fn(), getContent: vi.fn() }));
 const flow = vi.hoisted(() => ({ publish: vi.fn() }));
+vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
 vi.mock("@/lib/content/store", async (orig) => ({ ...(await orig<typeof import("@/lib/content/store")>()), ...store }));
 vi.mock("@/lib/content/publish-flow", async (orig) => ({ ...(await orig<typeof import("@/lib/content/publish-flow")>()), ...flow }));
 vi.mock("@/lib/facebook/connection", () => ({ pageConnections: vi.fn(async () => []) }));

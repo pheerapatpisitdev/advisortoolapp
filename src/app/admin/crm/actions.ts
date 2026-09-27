@@ -8,6 +8,7 @@ import {
 } from "@/lib/crm/load";
 import { chatLink, profileFor } from "@/lib/crm/names";
 import type { LeadRow, Range, Summary } from "@/lib/crm/types";
+import { requireStaff } from "@/lib/auth/viewer";
 
 /** Everything `/admin/crm` shows, read once. */
 
@@ -65,6 +66,7 @@ export interface CrmPage {
 type Tab = "recent" | "follow" | "unanswered";
 
 export async function loadCrm(range: Range = "7d", tab: Tab = "recent"): Promise<CrmPage> {
+  await requireStaff("admin");
   const start = rangeStart(range);
   const failed: string[] = [];
 
@@ -229,6 +231,7 @@ async function stoppedThreads(
  * being pointed at is one the screen was already showing.
  */
 export async function letBotResume(leadId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireStaff("admin");
   const supabase = supabaseAdmin();
 
   const { data, error } = await supabase
@@ -259,6 +262,7 @@ export async function letBotResume(leadId: string): Promise<{ ok: true } | { ok:
  * line could only grow until the thirty-day sweep caught up.
  */
 export async function markQuestionAnswered(id: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireStaff("admin");
   if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "ไม่พบคำถามข้อนี้" };
   try {
     await markAnswered(id);

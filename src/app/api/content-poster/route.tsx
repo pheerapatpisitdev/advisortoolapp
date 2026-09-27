@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { decodePoster, isSizeId, type SizeId } from "@/lib/content/poster";
 import { drawPoster } from "@/lib/content/poster-draw";
+import { refuseUnless } from "@/lib/auth/viewer";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,8 @@ export const runtime = "nodejs";
 const allow = limiter(400, 60 * 60_000);
 
 export async function GET(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const who = clientIp(req.headers);
   if (!allow(`poster:${who}`)) return new Response("ขอรูปถี่เกินไป รอสักครู่นะครับ", { status: 429 });
 

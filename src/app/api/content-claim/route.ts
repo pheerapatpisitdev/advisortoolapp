@@ -3,6 +3,7 @@ import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { MAX_DOCS } from "@/lib/content/claim";
 import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
 import { readClaim, writeClaim } from "@/lib/content/claim-run";
+import { refuseUnless } from "@/lib/auth/viewer";
 
 /**
  * รีวิวเคลม, as plain requests: six photographs are more than a server action's one-megabyte
@@ -35,6 +36,8 @@ function images(form: FormData, name: string): File[] | string {
 }
 
 export async function POST(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const form = await req.formData().catch(() => null);
   if (!form) return bad("ข้อมูลไม่ครบ ลองใหม่อีกครั้งนะครับ");
   if (form.get("consent") !== "on") return bad(NO_CONSENT);
@@ -47,6 +50,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const form = await req.formData().catch(() => null);
   if (!form) return bad("ข้อมูลไม่ครบ ลองใหม่อีกครั้งนะครับ");
   if (form.get("consent") !== "on") return bad(NO_CONSENT);

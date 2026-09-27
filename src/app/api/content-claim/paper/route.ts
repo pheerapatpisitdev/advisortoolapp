@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { checkPaper, claimPaper, type Paper } from "@/lib/content/claim-run";
 import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
+import { refuseUnless } from "@/lib/auth/viewer";
 
 /**
  * A รีวิวเคลม piece's papers in the editor: GET shows the i-th (the bucket is private), POST is
@@ -12,6 +13,8 @@ const TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 4 * 1024 * 1024;
 
 export async function GET(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const id = req.nextUrl.searchParams.get("id") ?? "";
   const i = Number(req.nextUrl.searchParams.get("i") ?? "0");
   if (!ID.test(id) || !Number.isInteger(i) || i < 0 || i >= MAX_PAPERS) return new Response("not found", { status: 404 });
@@ -21,6 +24,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const refused = await refuseUnless();
+  if (refused) return refused;
   const form = await req.formData().catch(() => null);
   const id = String(form?.get("id") ?? "");
   if (!form || !ID.test(id)) return Response.json({ ok: false, error: "ไม่พบชิ้นงานนี้" }, { status: 400 });

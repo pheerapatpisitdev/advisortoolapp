@@ -9,6 +9,7 @@ import { daysUntil } from "@/calc/calendar";
 import { conversationsSince, openQuestions, READ_FAILED } from "@/lib/crm/load";
 import { rangeStart, summarise } from "@/lib/crm/summary";
 import type { Counts } from "@/lib/crm/types";
+import { requireStaff } from "@/lib/auth/viewer";
 
 /**
  * What is waiting for somebody, and how the week has gone.
@@ -91,6 +92,7 @@ function must<T>(res: { data: T; error: { message: string } | null }): T {
 }
 
 export async function loadOverview(): Promise<Overview> {
+  await requireStaff("admin");
   const supabase = supabaseAdmin();
 
   /**

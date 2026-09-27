@@ -17,6 +17,7 @@ const rows = [
   ...Array.from({ length: 50 }, () => ({ model: "jev-1.13.0", task: "route_shadow", cost_thb: 0.001 })),
 ];
 
+vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/ai/client", () => ({ clearAiConfigCache: () => undefined, testProviders: async () => [] }));
 vi.mock("@/lib/supabase/admin", () => ({
