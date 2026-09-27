@@ -17,8 +17,12 @@ function UploadIcon() {
  * The photo chooser, in place of the browser's own "Choose Files — No file chosen": a tray
  * to tap or drop photos on, and the chosen ones shown as thumbnails with an × each, so what
  * is about to be sent is what is on screen. `limit` is how many more photos may be added.
+ *
+ * `minSide`: a photo whose short side is under it is marked เล็ก and said so — taken, not
+ * refused, since a small photo is sometimes the only one there is. The people library asks
+ * for it: a face drawn from a thumbnail comes out as somebody else.
  */
-export function PhotoDrop({ files, onChange, limit }: { files: File[]; onChange: (f: File[]) => void; limit: number }) {
+export function PhotoDrop({ files, onChange, limit, minSide }: { files: File[]; onChange: (f: File[]) => void; limit: number; minSide?: number }) {
   const input = useRef<HTMLInputElement>(null);
   const id = useId();
   const [over, setOver] = useState(false);
@@ -39,6 +43,25 @@ export function PhotoDrop({ files, onChange, limit }: { files: File[]; onChange:
   }
 
   const full = files.length >= limit;
+
+  // each photo's short side, measured once, when there is a floor to hold it to
+  const [shortSide, setShortSide] = useState<Map<File, number>>(() => new Map());
+  useEffect(() => {
+    if (!minSide) return;
+    let live = true;
+    for (const f of files) {
+      if (shortSide.has(f)) continue;
+      createImageBitmap(f).then((b) => {
+        const side = Math.min(b.width, b.height);
+        b.close();
+        if (live) setShortSide((m) => new Map(m).set(f, side));
+      }).catch(() => { /* not measurable: no mark */ });
+    }
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- measured per file; the map only grows
+  }, [files, minSide]);
+  const small = (f: File) => Boolean(minSide) && (shortSide.get(f) ?? Infinity) < minSide!;
+  const smallCount = files.filter(small).length;
 
   return (
     <div className="space-y-2">
@@ -68,6 +91,9 @@ export function PhotoDrop({ files, onChange, limit }: { files: File[]; onChange:
             <div key={`${f.name}-${i}`} className="relative size-20 overflow-hidden rounded-lg ring-1 ring-[var(--ct-hair)]">
               {/* eslint-disable-next-line @next/next/no-img-element -- a local preview of a file not yet sent */}
               <img src={previews[i]} alt="" className="size-full object-cover" />
+              {small(f) && (
+                <span className="absolute inset-x-0 bottom-0 bg-[var(--ct-warn-bg)] py-0.5 text-center text-[0.65rem] font-medium text-[var(--ct-warn-ink)]">รูปเล็ก</span>
+              )}
               {/* a finger-sized press over a small drawn circle, so the photo stays visible */}
               <button
                 type="button" aria-label="เอารูปนี้ออก" title="เอารูปนี้ออก"
@@ -81,6 +107,11 @@ export function PhotoDrop({ files, onChange, limit }: { files: File[]; onChange:
             </div>
           ))}
         </div>
+      )}
+      {smallCount > 0 && (
+        <p className="text-xs text-[var(--ct-warn-ink)]">
+          {smallCount} รูปความละเอียดต่ำ (ด้านสั้นไม่ถึง {minSide}px) — AI อาจวาดหน้าไม่เหมือน ถ้ามีรูปที่ใหญ่กว่าให้ใช้รูปนั้นแทน
+        </p>
       )}
       {refused && <p className="text-xs text-[var(--ct-alert)]">{refused}</p>}
     </div>

@@ -11,6 +11,9 @@ const SHOWN = 4;
 /** the long side a reference photo is sent at: plenty for a face, and ten fit one request */
 const LONG_SIDE = 1024;
 
+/** a reference photo whose short side is under this is marked small: too few pixels for a face to be drawn back */
+const MIN_FACE_SIDE = 512;
+
 /** A photo shrunk in the browser to LONG_SIDE and re-encoded as JPEG, so an upload stays small. */
 async function shrink(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
@@ -153,7 +156,7 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
             </div>
             <div>
               <span className="mb-1 block text-sm font-medium">เพิ่มรูป (รวมแล้วไม่เกิน {MAX_PHOTOS} รูป)</span>
-              <PhotoDrop files={adding} onChange={setAdding} limit={MAX_PHOTOS - (p.photos.length - dropping.length)} />
+              <PhotoDrop files={adding} onChange={setAdding} limit={MAX_PHOTOS - (p.photos.length - dropping.length)} minSide={MIN_FACE_SIDE} />
               <span className="mt-1 block text-xs text-[var(--ct-mute)]">
                 หลังบันทึกจะมี {p.photos.length - dropping.length + adding.length} รูป
               </span>
@@ -204,7 +207,7 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
         <div>
           <span className="mb-1 block text-sm font-medium">รูปต้นแบบ (1–{MAX_PHOTOS} รูป)</span>
           <span className="mb-2 block text-xs text-[var(--ct-mute)]">AI วาดจากครั้งละ {MAX_REFERENCES} รูป — รูปแรกทุกครั้ง ที่เหลือสุ่มจากรูปอื่น</span>
-          <PhotoDrop files={files} onChange={setFiles} limit={MAX_PHOTOS} />
+          <PhotoDrop files={files} onChange={setFiles} limit={MAX_PHOTOS} minSide={MIN_FACE_SIDE} />
         </div>
         <label className="flex min-h-11 items-start gap-3 py-1 text-sm">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
