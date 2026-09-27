@@ -1,0 +1,10 @@
+public.ins_*
+public.v_ins_*
+public.model_configs
+public.projects
+public.assets
+public.brand_kits
+public.jobs
+public.job_step_cache
+public.cost_entries
+public.settings
