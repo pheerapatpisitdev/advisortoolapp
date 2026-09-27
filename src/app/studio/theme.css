@@ -5,9 +5,13 @@
 
    The one colour with a job of its own is sand: the checks' warnings. It is the palette's
    "look here" block rather than red, because a flagged number is something to read before
-   posting, not a failure — red stays the error colour and nothing else. */
-.content-page {
-  color-scheme: light;
+   posting, not a failure — red stays the error colour and nothing else.
+
+   The tokens are set on the page's root as well as its wrapper (where :has is understood), so
+   what sits outside the wrapper — the body under an overscroll, the dialog ask.ts puts on the
+   body — wears the same palette, dark included. */
+.content-page,
+:root:has(.content-page) {
   --ct-ground: var(--bot-band);
   --ct-panel: var(--bot-surface);
   --ct-line: var(--bot-line-strong);
@@ -29,7 +33,12 @@
   --ct-scrim: color-mix(in srgb, var(--bot-ink) 60%, transparent);
   --ct-scrim-strong: color-mix(in srgb, var(--bot-ink) 80%, transparent);
   --ct-on-scrim: var(--bot-surface);
+  /* the desk's squared paper */
+  --ct-grid: color-mix(in srgb, var(--bot-line) 55%, transparent);
+}
 
+.content-page {
+  color-scheme: light;
   background: var(--ct-ground);
   color: var(--ct-ink);
   min-height: 100vh;
@@ -38,10 +47,56 @@
 
 body:has(.content-page) { background: var(--ct-ground); }
 
+/* ── dark ──────────────────────────────────────────────────────────────────────────────────
+ *
+ * Studio's own, chosen in its menu (ThemeSwitch) or taken from the device; the choice arrives
+ * resolved as <html data-studio-theme>, see src/lib/content/studio-theme.ts. Only Studio wears
+ * it: the sales pages are what customers see and keep the deck's light palette.
+ *
+ * The same roles on a near-black ground drawn from the navy, every pair held to WCAG — reading
+ * ink 14:1 on the panel, the muted ink 7.5:1, the accent 9:1 and 7.6:1 on its own soft wash,
+ * a control's edge 3.7:1 against the panel. The accent turns from navy to a light blue, and
+ * the solid button with it, carrying dark ink. The posters are not themed: they are pictures
+ * of what goes up, and what goes up is the same whichever way the owner reads the page.
+ */
+/* the wrapper as well as the root: the light tokens are set on both, and the nearer one wins */
+:root[data-studio-theme="dark"]:has(.content-page),
+:root[data-studio-theme="dark"] .content-page {
+  --ct-ground: #0e1116;
+  --ct-panel: #161b22;
+  --ct-line: #6b7482;
+  --ct-hair: #2a313b;
+  --ct-ink: #e7eaf0;
+  --ct-mute: #a4acb9;
+  --ct-accent: #9fbcf2;
+  --ct-solid: #9fbcf2;
+  --ct-solid-ink: #0a1733;
+  --ct-soft: #1c2940;
+  --ct-warn-bg: #2b271b;
+  --ct-warn-ink: #e6d9ad;
+  --ct-warn-line: #857750;
+  --ct-alert: #f2a3a0;
+  --ct-alert-bg: #3b2020;
+  --ct-alert-line: #d0625e;
+  --ct-scrim: rgba(0, 0, 0, 0.62);
+  --ct-scrim-strong: rgba(0, 0, 0, 0.8);
+  --ct-on-scrim: #ffffff;
+  --ct-grid: color-mix(in srgb, #2a313b 80%, transparent);
+
+  /* Studio's menu, which reads only these (globals.css) */
+  --shell-bg: #12161c;
+  --shell-ink: var(--ct-ink);
+  --shell-mute: var(--ct-mute);
+  --shell-line: var(--ct-hair);
+  --shell-active: var(--ct-accent);
+  --shell-active-bg: var(--ct-soft);
+
+  color-scheme: dark;
+}
+
 /* the pieces column is a desk: squared paper in the palette's faint line, so the empty space
    reads as somewhere work lands. Cards and notes sit on it in the panel colour. */
 .studio-desk {
-  --ct-grid: color-mix(in srgb, var(--bot-line) 55%, transparent);
   background-color: var(--ct-ground);
   background-image:
     linear-gradient(var(--ct-grid) 1px, transparent 1px),

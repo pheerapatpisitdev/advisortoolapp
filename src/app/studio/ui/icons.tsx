@@ -33,3 +33,7 @@ export const PenIcon = (p: IconProps) => <Svg {...p}><path d="M15.5 4.5l4 4L9 19
 export const CalendarIcon = (p: IconProps) => <Svg {...p}><path d="M5 6.5h14v13H5zM5 10.5h14M9 4v4M15 4v4" /></Svg>;
 export const QuoteIcon = (p: IconProps) => <Svg {...p}><path d="M9.5 7.5C7 8.5 5.5 10.5 5.5 13.5V17h4.5v-4.5H7.5M18.5 7.5c-2.5 1-4 3-4 6V17H19v-4.5h-2.5" /></Svg>;
 export const PeopleIcon = (p: IconProps) => <Svg {...p}><path d="M3.5 19.5v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1M12.7 8a3.2 3.2 0 1 1-6.4 0 3.2 3.2 0 0 1 6.4 0M16.5 14.7a4 4 0 0 1 4 3.8v1M15.4 5.3a3.2 3.2 0 0 1 0 5.4" /></Svg>;
+/** Studio's light and dark, for its switch */
+export const SunIcon = (p: IconProps) => <Svg {...p}><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" /></Svg>;
+export const MoonIcon = (p: IconProps) => <Svg {...p}><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" /></Svg>;
+export const AutoThemeIcon = (p: IconProps) => <Svg {...p}><path d="M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zM12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" /></Svg>;

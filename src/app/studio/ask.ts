@@ -15,12 +15,14 @@ export function ask(message: string, okLabel = "ยืนยัน"): Promise<bo
       margin: "auto",
       maxWidth: "min(26rem, calc(100vw - 2rem))",
       padding: "1.25rem",
-      border: "1px solid var(--bot-line)",
+      // Studio's palette (theme.css sets it on the page's root, so the top layer has it too),
+      // dark included; the deck's own where :has is not understood
+      border: "1px solid var(--ct-line, var(--bot-line))",
       borderRadius: "0.75rem",
-      background: "var(--bot-surface)",
-      color: "var(--bot-ink)",
-      // the palette's ink, faint — the same dark the rest of the page is drawn in
-      boxShadow: "0 12px 32px color-mix(in srgb, var(--bot-ink) 18%, transparent)",
+      background: "var(--ct-panel, var(--bot-surface))",
+      color: "var(--ct-ink, var(--bot-ink))",
+      // a shadow is black on either ground; the ink's own would glow on the dark one
+      boxShadow: "0 12px 32px rgba(0, 0, 0, 0.22)",
     });
 
     const text = document.createElement("p");
@@ -40,16 +42,16 @@ export function ask(message: string, okLabel = "ยืนยัน"): Promise<bo
         borderRadius: "0.5rem",
         fontSize: "0.9rem",
         cursor: "pointer",
-        border: strong ? "1px solid var(--bot-navy)" : "1px solid var(--bot-line)",
-        background: strong ? "var(--bot-navy)" : "var(--bot-surface)",
-        color: strong ? "var(--bot-surface)" : "var(--bot-ink)",
+        border: strong ? "1px solid var(--ct-solid, var(--bot-navy))" : "1px solid var(--ct-line, var(--bot-line))",
+        background: strong ? "var(--ct-solid, var(--bot-navy))" : "var(--ct-panel, var(--bot-surface))",
+        color: strong ? "var(--ct-solid-ink, var(--bot-surface))" : "var(--ct-ink, var(--bot-ink))",
         fontWeight: strong ? "600" : "400",
       });
       /* the box sits in the top layer, outside .content-page and its focus ring, so it draws its
          own: a ring on a keyboard's focus only, as :focus-visible decides */
       b.addEventListener("focus", () => {
         if (!b.matches(":focus-visible")) return;
-        b.style.outline = "3px solid var(--bot-navy)";
+        b.style.outline = "3px solid var(--ct-accent, var(--bot-navy))";
         b.style.outlineOffset = "2px";
       });
       b.addEventListener("blur", () => { b.style.outline = ""; b.style.outlineOffset = ""; });

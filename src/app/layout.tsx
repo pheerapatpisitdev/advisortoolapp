@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { studioThemeScript } from "@/lib/content/studio-theme";
 import { RAIL_KEY } from "@/lib/shell/menu";
 import { siteOrigin } from "@/lib/site-url";
 import "./globals.css";
@@ -41,6 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* the folded menu, remembered, applied before paint so the page does not jump sideways */}
         <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem("${RAIL_KEY}")==="1")document.documentElement.dataset.shell="rail"}catch(e){}` }} />
+        {/* Studio's light or dark, likewise before paint — read only by Studio's pages (studio-theme.ts) */}
+        <script dangerouslySetInnerHTML={{ __html: studioThemeScript }} />
       </head>
       {/* The ground under everything, including the back office, which paints no ground of
           its own. Written as the palette rather than as a Tailwind grey so that there is one

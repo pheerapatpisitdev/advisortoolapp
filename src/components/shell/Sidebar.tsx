@@ -117,7 +117,7 @@ function Icon({ name }: { name: MenuIcon }) {
  * different things, and naming the pages on the calculator tells a stranger the shape of
  * the tool.
  */
-export function Sidebar({ signedIn, menu, brand }: { signedIn: boolean; menu?: MenuGroup[]; brand?: Brand }) {
+export function Sidebar({ signedIn, menu, brand, footer }: { signedIn: boolean; menu?: MenuGroup[]; brand?: Brand; footer?: React.ReactNode }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [folded, setFolded] = useState(false);
@@ -217,6 +217,8 @@ export function Sidebar({ signedIn, menu, brand }: { signedIn: boolean; menu?: M
           )}
         </div>
       ))}
+      {/* a menu's own furniture below its links (Studio's light and dark); it pushes itself to the foot */}
+      {footer}
     </nav>
   );
 

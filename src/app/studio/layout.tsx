@@ -1,6 +1,7 @@
 import "./theme.css";
 import { AppShell } from "@/components/shell/AppShell";
 import { studioMenu } from "@/lib/shell/menu";
+import { ThemeSwitch } from "./ThemeSwitch";
 
 /**
  * Every page of Studio in one frame: Studio's own menu in place of the application's, and the
@@ -15,7 +16,7 @@ import { studioMenu } from "@/lib/shell/menu";
 export default function ContentLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="content-page">
-      <AppShell menu={studioMenu()} brand={{ href: "/studio", label: "Studio" }}>
+      <AppShell menu={studioMenu()} brand={{ href: "/studio", label: "Studio" }} footer={<ThemeSwitch />}>
         {/* pt-16 below lg: the phone's menu button is fixed at the top left */}
         <div className="mx-auto max-w-[1400px] px-4 pb-10 pt-16 lg:pt-6">{children}</div>
       </AppShell>
