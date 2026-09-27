@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { atFold, FOLD, footer, fullText } from "@/lib/content/output";
-import { defaultPoster, type PosterSpec } from "@/lib/content/poster";
+import { defaultPoster, posterUrl, type PosterSpec } from "@/lib/content/poster";
 import type { Fix } from "@/lib/content/proofread";
 import { FORMAT_LABEL } from "@/lib/content/prompt";
 import { AD_LIMITS } from "@/lib/content/ads";
@@ -16,7 +16,9 @@ import { PublishPanel } from "./PublishPanel";
 import { ClaimPaperCheck } from "./claim/ClaimPaperCheck";
 import { ask } from "./ask";
 import { AlertIcon, BackIcon, CheckIcon, LockIcon } from "./ui/editor-icons";
+import { ChevronLeftIcon, ChevronRightIcon } from "./ui/icons";
 import { AutoTextarea, errorNote, Note, okNote, type NoteState } from "./ui/editor-fields";
+import { FeedPreview } from "./ui/FeedPreview";
 
 /**
  * One piece opened across the workbench: every part editable, the checks beside it.
@@ -76,9 +78,12 @@ interface Props {
   onDirtyChange?: (dirty: boolean) => void;
   /** a day the calendar sent the owner to write for, offered first in the ลงเพจ box */
   suggestDay?: string | null;
+  /** where this piece stands in the list, and the pieces either side of it */
+  nav?: { position: number; total: number; prev?: () => void; next?: () => void };
 }
 
-export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onStatus, onPublished, onClose, people, onDirtyChange, suggestDay }: Props) {
+export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onStatus, onPublished, onClose, people, onDirtyChange, suggestDay, nav }: Props) {
+  const [feed, setFeed] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => draftOf(item, productName));
   const [hook, setHook] = useState(0);
   const [fixes, setFixes] = useState<Fix[] | null>(item.flags.fixes);
@@ -248,6 +253,33 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
     if (await mayLeave()) onClose();
   }
 
+  /** the piece before or after, asking about unsaved words as leaving does */
+  async function go(to?: () => void) {
+    if (to && (await mayLeave())) to();
+  }
+
+  /** read through a round in one go: this one kept, and on to the next */
+  async function saveAndNext() {
+    if (!nav?.next) return;
+    if (await save()) nav.next();
+  }
+
+  // the keys a desk expects: ⌘S / Ctrl+S keeps the words, Esc goes back to the list (not from
+  // inside a field, where Esc is the field's, nor under a dialog, where it is the dialog's)
+  const keys = useRef({ save, leave });
+  useEffect(() => { keys.current = { save, leave }; });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); void keys.current.save(); return; }
+      if (e.key !== "Escape" || e.defaultPrevented || document.querySelector("dialog[open], [role=dialog]")) return;
+      const at = document.activeElement;
+      if (at instanceof HTMLElement && at.closest("input, textarea, select, [contenteditable]")) return;
+      void keys.current.leave();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   const flags = item.flags;
   const policy = flags.policy ?? [];
   const openFixes = locked ? [] : (fixes ?? []).filter((f) => !applied.has(f.find));
@@ -266,10 +298,23 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
 
   return (
     <section className="rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">
-      <button type="button" onClick={leave} className="-ml-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
-        <BackIcon className="size-4" />
-        กลับไปรายการ
-      </button>
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" onClick={leave} title="กลับไปรายการ (Esc)" className="-ml-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+          <BackIcon className="size-4" />
+          กลับไปรายการ
+        </button>
+        {nav && nav.total > 1 && (
+          <div className="flex items-center gap-1 text-sm text-[var(--ct-mute)]">
+            <button type="button" onClick={() => go(nav.prev)} disabled={!nav.prev} aria-label="ชิ้นก่อนหน้า" title="ชิ้นก่อนหน้า" className="flex size-11 items-center justify-center rounded-lg hover:bg-[var(--ct-soft)] disabled:opacity-30">
+              <ChevronLeftIcon className="size-5" />
+            </button>
+            <span className="tabular-nums">{nav.position}/{nav.total}</span>
+            <button type="button" onClick={() => go(nav.next)} disabled={!nav.next} aria-label="ชิ้นถัดไป" title="ชิ้นถัดไป" className="flex size-11 items-center justify-center rounded-lg hover:bg-[var(--ct-soft)] disabled:opacity-30">
+              <ChevronRightIcon className="size-5" />
+            </button>
+          </div>
+        )}
+      </div>
       <div className="mt-2">
         <h2 className="text-base font-semibold">{productName} · {FORMAT_LABEL[item.format]}</h2>
         {item.output.angle && <p className="mt-0.5 text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
@@ -484,9 +529,12 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
           {isAd ? "คัดลอกข้อความหลัก" : "คัดลอกทั้งชิ้น"}
         </button>
         {!locked && (
-          <button type="button" onClick={save} disabled={!dirty || busy} className={secondary}>
+          <button type="button" onClick={save} disabled={!dirty || busy} title="บันทึก (⌘S / Ctrl+S)" className={secondary}>
             {saving ? "กำลังบันทึก…" : dirty ? "บันทึกการแก้ไข" : "บันทึกแล้ว"}
           </button>
+        )}
+        {isPost && (
+          <button type="button" onClick={() => setFeed(true)} className={secondary}>ดูแบบในฟีด</button>
         )}
         {item.status === "draft" && (
           <button type="button" onClick={markUsed} disabled={busy} className={`${secondary} inline-flex items-center gap-1.5 text-[var(--ct-accent)]`}>
@@ -494,12 +542,21 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
             {marking ? "กำลังย้าย…" : "ใช้จริง"}
           </button>
         )}
-        <button type="button" onClick={leave} className={`${secondary} ml-auto`}>กลับไปรายการ</button>
+        {nav?.next ? (
+          <button type="button" onClick={dirty && !locked ? saveAndNext : () => go(nav.next)} disabled={busy} className={`${secondary} ml-auto inline-flex items-center gap-1`}>
+            {dirty && !locked ? "บันทึกแล้วไปชิ้นถัดไป" : "ชิ้นถัดไป"}
+            <ChevronRightIcon className="size-4" />
+          </button>
+        ) : (
+          <button type="button" onClick={leave} className={`${secondary} ml-auto`}>กลับไปรายการ</button>
+        )}
         {held && <p className="basis-full text-xs text-[var(--ct-mute)]">บันทึกแล้วระบบจะส่งฉบับแก้ไปแทนโพสต์ที่ตั้งเวลาไว้ (เวลาเดิม)</p>}
         <Note note={note} className="basis-full" />
       </div>
 
       <p className="mt-3 text-xs text-[var(--ct-mute)]">{item.model} · ฿{item.costThb.toFixed(2)}</p>
+
+      {feed && <FeedPreview text={text} poster={posterUrl(draft.poster)} onClose={() => setFeed(false)} />}
 
       {item.output.imagePrompt && (
         <details className="mt-3 text-sm">

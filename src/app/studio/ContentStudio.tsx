@@ -418,6 +418,14 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   };
   useEffect(() => {
     if (editing && !inHistory.current) markEditor(editing);
+    // on to the next piece: the same step, naming the piece now open
+    else if (editing && inHistory.current) {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("open", editing);
+        window.history.replaceState({ [EDITOR_STEP]: editing }, "", `${url.pathname}${url.search}${url.hash}`);
+      } catch { /* the step keeps the first piece's name; Back still closes */ }
+    }
     if (!editing && inHistory.current) {
       inHistory.current = false;
       skipPop.current = true;
@@ -740,6 +748,14 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     }
   }
 
+  /** the pieces either side of the open one in the list on screen, for ‹ › and ชิ้นถัดไป */
+  function neighbours(id: string) {
+    const at = items.findIndex((x) => x.id === id);
+    if (at < 0) return undefined;
+    const to = (i: number) => (i >= 0 && i < items.length ? () => openEditor(items[i].id) : undefined);
+    return { position: at + 1, total: items.length, prev: to(at - 1), next: to(at + 1) };
+  }
+
   function closeEditor() {
     setEditing(null);
     // a piece posted from here is ใช้จริง and on the calendar now: it leaves on the way out
@@ -1059,6 +1075,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 onDirtyChange={setEditorDirty}
                 onClose={closeEditor}
                 suggestDay={forDay}
+                nav={neighbours(editingItem.id)}
               />
             </>
           ) : (
