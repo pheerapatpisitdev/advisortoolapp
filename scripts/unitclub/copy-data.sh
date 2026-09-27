@@ -18,6 +18,8 @@ dst() { PGHOST="$DST_PGHOST" PGPORT="$DST_PGPORT" PGUSER="$DST_PGUSER" PGPASSWOR
 
 {
   echo "set role postgres;"
+  # ins_content and ins_hook_templates point at each other (20260927_unitclub_deferrable_hook_fks.sql)
+  echo "set constraints all deferred;"
   # empty every table the copy is about to fill; views and sequences need nothing
   cat <<'SQL'
 do $$
