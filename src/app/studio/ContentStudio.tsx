@@ -101,7 +101,14 @@ const EDITOR_STEP = "studioEditor";
  * that place's last word: a round's error is not overwritten by a picture that failed after
  * it, nor cleared by a status change that went through.
  */
-type Toast = { from: "round" | "round-note" | "draw" | "draw-note" | "status" | "delete" | "load" | "copy"; tone: "error" | "notice"; text: string };
+type Toast = {
+  from: "round" | "round-note" | "draw" | "draw-note" | "status" | "delete" | "load" | "copy" | "undo";
+  /** error stays until closed; warn (a round that got part way) and notice go by themselves */
+  tone: "error" | "warn" | "notice";
+  text: string;
+  /** one thing to do about it, e.g. เลิกทำ */
+  action?: { label: string; run: () => void };
+};
 
 /** Pictures of a round being drawn: how many are done of how many. */
 function DrawProgress({ batch }: { batch: { total: number; done: number } }) {
@@ -294,8 +301,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [hookId, setHookId] = useState(initialHook ?? "");
   const [toasts, setToasts] = useState<Toast[]>([]);
   /** one word per source, the newest three on screen */
-  const say = (from: Toast["from"], text: string, tone: Toast["tone"] = "error") =>
-    setToasts((list) => [...list.filter((t) => t.from !== from), { from, tone, text }].slice(-3));
+  /**
+   * Notices piled up: nothing but ✕ took one away, so after a busy while the foot of the
+   * screen was three old messages. An error still stays until closed; the rest go by
+   * themselves, a little later when they offer something to press.
+   */
+  const say = (from: Toast["from"], text: string, tone: Toast["tone"] = "error", action?: Toast["action"]) => {
+    setToasts((list) => [...list.filter((t) => t.from !== from), { from, tone, text, action }].slice(-3));
+    if (tone !== "error") {
+      window.setTimeout(() => setToasts((list) => list.filter((t) => !(t.from === from && t.text === text))), action ? 8000 : 6000);
+    }
+  };
   const hush = (from: Toast["from"]) => setToasts((list) => (list.some((t) => t.from === from) ? list.filter((t) => t.from !== from) : list));
   const [spend, setSpend] = useState(initialSpend);
   const router = useRouter();
@@ -578,7 +594,8 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
       let fresh: ContentItem[];
       if (res.ok) {
         fresh = res.items;
-        if (res.missing > 0) say("round", `ได้ ${res.items.length} จาก ${asked} ชิ้น — อีก ${res.missing} ชิ้นเขียนไม่สำเร็จ กดสร้างเพิ่มได้`);
+        // part of a round is a partial success, not a failure: sand, not red
+        if (res.missing > 0) say("round", `ได้ ${res.items.length} จาก ${asked} ชิ้น — อีก ${res.missing} ชิ้นเขียนไม่สำเร็จ กดสร้างเพิ่มได้`, "warn");
       } else {
         say("round", res.error);
         if (!res.saved || !res.items?.length) return;
@@ -700,6 +717,22 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
       const others = list.filter((x) => x.id !== item.id);
       return status === "used" ? [{ ...newest, status }, ...others] : others;
     });
+    // ทิ้ง had no way back but the bin's own tab; now one press, for a few seconds
+    if (status === "trashed") {
+      const was = item.status;
+      say("undo", "ย้ายไปถังขยะแล้ว", "notice", {
+        label: "เลิกทำ",
+        run: () => {
+          hush("undo");
+          void changeStatus({ ...newest, status: "trashed" }, was).then(() => {
+            // back in the list it left, if that list is the one on screen
+            if (view.current.tab === was && !view.current.plan) {
+              setItems((list) => (list.some((x) => x.id === item.id) ? list : [{ ...newest, status: was }, ...list]));
+            }
+          });
+        },
+      });
+    }
   }
 
   async function remove(item: ContentItem) {
@@ -1417,9 +1450,16 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               role={t.tone === "error" ? "alert" : "status"}
               className={`pointer-events-auto flex items-start gap-1 rounded-lg border py-1 pl-3 pr-1 text-sm shadow-lg ${t.tone === "error"
                 ? "border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]"
-                : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)]"}`}
+                : t.tone === "warn"
+                  ? "border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] text-[var(--ct-warn-ink)]"
+                  : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)]"}`}
             >
               <p className="flex-1 py-2.5"><PlainText text={t.text} /></p>
+              {t.action && (
+                <button type="button" onClick={t.action.run} className="min-h-11 shrink-0 rounded-md px-3 font-medium text-[var(--ct-accent)] underline">
+                  {t.action.label}
+                </button>
+              )}
               <button type="button" onClick={() => hush(t.from)} aria-label="ปิด" className="flex size-11 shrink-0 items-center justify-center rounded-md">
                 <XIcon className="size-4" />
               </button>

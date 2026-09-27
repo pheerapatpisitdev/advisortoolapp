@@ -5,6 +5,7 @@ import { FORMAT_SHORT } from "@/lib/content/prompt";
 import type { ContentItem } from "@/lib/content/store";
 import { shortModel } from "@/lib/content/models";
 import { SAVE_LABEL, usePictureSaver } from "./savePicture";
+import { ask } from "./ask";
 import { CheckIcon } from "./ui/icons";
 
 /**
@@ -101,7 +102,12 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
           {item.status === "used" ? (
             <button type="button" onClick={onCopy} className={cell}>คัดลอก</button>
           ) : (
-            <button type="button" disabled={busy} onClick={() => onStatus("used")} className={`${cell} font-medium text-[var(--ct-accent)]`}>
+            <button type="button" disabled={busy} onClick={async () => {
+              // a piece that breaks Facebook's rules is marked used only when the owner says so:
+              // one tap put it in ใช้จริง, and its hook into the formula library
+              if (blocking && !(await ask("ชิ้นนี้ผิดกฎโฆษณาของ Facebook — ถ้าโพสต์ไปอาจโดนลดการมองเห็นหรือปิดโฆษณา ยังจะใช้จริงไหม?", "ใช้จริง"))) return;
+              onStatus("used");
+            }} className={`${cell} font-medium text-[var(--ct-accent)]`}>
               <CheckIcon className="size-4" />ใช้จริง
             </button>
           )}
