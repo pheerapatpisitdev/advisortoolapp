@@ -33,7 +33,7 @@ const chip = (on: boolean) =>
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
 const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
-export function ClaimTools({ writer, onWriter, painter, onPainter, people, person, onPerson, reader, onReader, left, pending, making, run, folded, formId }: {
+export function ClaimTools({ writer, onWriter, painter, onPainter, people, person, onPerson, rounds, reader, onReader, left, pending, making, run, folded, formId }: {
   writer: string;
   onWriter: (id: string) => void;
   /** the picture behind the poster, as on the plan form; shared with it and remembered */
@@ -48,6 +48,8 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
   onReader: (r: string) => void;
   /** the month's content money left, for the estimate and for อัตโนมัติ */
   left: number;
+  /** the agent's own AI rounds this month; null for staff (src/lib/auth/quota.ts) */
+  rounds?: { used: number; limit: number } | null;
   pending: boolean;
   making: number;
   /** `paintWith` and `who` are the painter and person at the press; the page draws each new poster's picture with them */
@@ -295,7 +297,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
         label={pending
           ? `กำลังอ่านเอกสารและเขียน ${making} ${unit}… (ราว 30–60 วินาที)`
           : `สร้าง${format === "post" ? "รีวิวเคลม" : format === "ad" ? "โฆษณารีวิวเคลม" : "สคริปต์รีวิวเคลม"} ${count} ${unit}`}
-        note={blocked ?? `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`}
+        note={blocked ?? (rounds ? `ราว ฿${estimate} · เดือนนี้สร้างด้วย AI ได้อีก ${Math.max(0, rounds.limit - rounds.used)} จาก ${rounds.limit} ครั้ง` : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
         warning={blocked ? null : overBudget(Number(estimate), left)}
       />
     </>

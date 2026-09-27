@@ -32,6 +32,13 @@ export async function staffRow(agentId: string): Promise<StaffRow | null> {
   return (data as StaffRow | null) ?? null;
 }
 
+/** Every staff member's agent id: the pool of pieces the staff share (src/lib/auth/scope.ts). */
+export const staffAgentIds = cache(async (): Promise<string[]> => {
+  const { data, error } = await supabaseAdmin().from("ins_staff").select("agent_id");
+  if (error) throw new Error(`อ่านรายชื่อทีมงานไม่ได้: ${error.message}`);
+  return ((data ?? []) as { agent_id: string }[]).map((r) => r.agent_id);
+});
+
 /**
  * Who is asking, read afresh from UnitOS's rows once per request. The cookie says who signed
  * in; the rows say whether they still may — an agent removed in UnitOS, a room suspended or a

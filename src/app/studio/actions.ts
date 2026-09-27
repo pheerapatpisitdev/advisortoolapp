@@ -33,6 +33,7 @@ import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publis
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 import { can } from "@/lib/auth/access";
 import { requireMember } from "@/lib/auth/viewer";
+import { allowanceOf, takeRound } from "@/lib/auth/quota";
 
 /**
  * The content workbench's doors, open to anyone who finds the page — the owner put it in the
@@ -140,7 +141,7 @@ function roundResult(r: { items: ContentItem[]; failed: boolean }, planned: numb
 }
 
 export async function generateContent(input: GenerateInput): Promise<GenerateResult> {
-  await requireMember();
+  const viewer = await requireMember();
   const brief = briefFor(input.href);
   if (!brief) return { ok: false, error: "ไม่พบผลิตภัณฑ์นี้" };
   if (!["post", "script", "ad"].includes(input.format)) return { ok: false, error: "เลือกประเภทงานก่อนนะครับ" };
@@ -163,6 +164,9 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
+  // the agent's own monthly allowance (src/lib/auth/quota.ts); staff are outside it
+  const over = await takeRound(viewer, "ai-write");
+  if (over) return { ok: false, error: over };
   const adAngles = Math.min(MAX_ANGLES, Math.max(1, Math.round(Number(input.adAngles) || 2)));
   const adTones = Math.min(MAX_TONES, Math.max(1, Math.round(Number(input.adTones) || 2)));
 
@@ -256,10 +260,12 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
 
 /** หาทีม: a round from a picked topic (src/lib/content/recruit.ts), under the plan form's hourly limit. */
 export async function generateRecruit(input: RecruitWriteInput): Promise<GenerateResult> {
-  await requireMember();
+  const viewer = await requireMember();
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
+  const over = await takeRound(viewer, "ai-recruit");
+  if (over) return { ok: false, error: over };
   return writeRecruit(input);
 }
 
@@ -550,14 +556,21 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
   }
 }
 
-export async function contentSpend(): Promise<{ spent: number; cap: number }> {
-  await requireMember();
+export async function contentSpend(): Promise<ContentSpend> {
+  const viewer = await requireMember();
   try {
-    const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    return { spent, cap };
+    const [spent, cap, allowance] = await Promise.all([contentSpentThisMonth(), contentCap(), allowanceOf(viewer)]);
+    return { spent, cap, rounds: allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit } };
   } catch {
-    return { spent: 0, cap: DEFAULT_CONTENT_CAP_THB };
+    return { spent: 0, cap: DEFAULT_CONTENT_CAP_THB, rounds: null };
   }
+}
+
+export interface ContentSpend {
+  spent: number;
+  cap: number;
+  /** the agent's own AI rounds this month (src/lib/auth/quota.ts); null for staff */
+  rounds: { used: number; limit: number } | null;
 }
 
 /**
@@ -596,10 +609,14 @@ export type DrawBackgroundResult = { ok: true; item: ContentItem; note?: string 
  * person and pose draws them in. A person since deleted is drawn without, and said so.
  */
 export async function drawBackground(id: string, request = "", painter?: string, person?: PiecePerson | null): Promise<DrawBackgroundResult> {
-  await requireMember();
+  const viewer = await requireMember();
   if (!drawPerHour(`draw:${await caller()}`)) {
     return { ok: false, error: "วาดรูปครบ 40 รูปในชั่วโมงนี้แล้ว รอสักพักนะครับ" };
   }
+  // asked before the piece is read: a piece that is not theirs costs a look, not a round
+  if (!(await getContent(id).catch(() => null))) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
+  const over = await takeRound(viewer, "ai-draw", id);
+  if (over) return { ok: false, error: over };
   let hold: string | null = null;
   try {
     const item = await getContent(id);

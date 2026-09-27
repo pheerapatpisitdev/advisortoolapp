@@ -12,7 +12,7 @@ import { anglesFor, FORMAT_SHORT, GOALS, MAX_FACT, MAX_READER, NICHES, type Angl
 import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
 import { AUTO, AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, painterOf, writerOf } from "@/lib/content/models";
 import type { ContentItem, ContentStatus } from "@/lib/content/store";
-import { contentSpend, contentWorkbench, removeContent, setContentStatus, type DrawBackgroundResult, type GenerateResult } from "./actions";
+import { contentSpend, contentWorkbench, removeContent, setContentStatus, type ContentSpend, type DrawBackgroundResult, type GenerateResult } from "./actions";
 import { publishSetup, scheduleNextOpen, type PublishPage } from "./publish";
 import { thaiWhen } from "@/lib/content/publish-label";
 import { drawPicture, generateRound } from "./draw";
@@ -53,7 +53,7 @@ interface Props {
   initialHook: string | null;
   initial: { items: ContentItem[]; counts: Record<ContentStatus, number>; failed?: boolean };
   initialUsed: ContentItem[];
-  spend: { spent: number; cap: number };
+  spend: ContentSpend;
   /** a piece to open in the editor on arrival, from the calendar's แก้ไข */
   initialOpen?: ContentItem | null;
   /** the calendar sent the owner here to write for this day; the editor's ลงเพจ box offers it */
@@ -969,7 +969,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 folded={!formOpen} formId={mode === "claim" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
                 people={people} person={person} onPerson={setPerson}
-                reader={reader} onReader={setReader} left={left} pending={pending} making={making}
+                reader={reader} onReader={setReader} left={left} rounds={spend.rounds} pending={pending} making={making}
                 run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
                   // the photograph behind each new claim poster, drawn as a plan round's are
                   if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
@@ -981,7 +981,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 folded={!formOpen} formId={mode === "recruit" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
                 people={people} person={person} onPerson={setPerson}
-                left={left} pending={pending} making={making}
+                left={left} rounds={spend.rounds} pending={pending} making={making}
                 run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
                   // the photograph behind each new recruit poster, drawn as a plan round's are
                   if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
@@ -1163,7 +1163,10 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             label={pending
               ? `กำลังเขียน ${making} ${makingFormat === "ad" ? "แบบ" : "ชิ้น"}… (ราว 20–40 วินาที)`
               : format === "ad" ? `สร้างโฆษณา ${pieceCount} แบบ` : `สร้าง ${count} ชิ้น`}
-            note={`ราว ฿${estimate} · สร้างได้อีกราว ${more} ชิ้น · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)} จาก ฿${spend.cap}`}
+            note={spend.rounds
+              // an agent's own allowance is what they can act on; the owner's baht is the owner's
+              ? `ราว ฿${estimate} · เดือนนี้สร้างด้วย AI ได้อีก ${Math.max(0, spend.rounds.limit - spend.rounds.used)} จาก ${spend.rounds.limit} ครั้ง`
+              : `ราว ฿${estimate} · สร้างได้อีกราว ${more} ชิ้น · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)} จาก ฿${spend.cap}`}
             warning={overBudget(pieceCount * perPiece, left)}
           />
           </div>

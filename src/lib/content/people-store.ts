@@ -1,3 +1,4 @@
+import { currentScope, roomFilter, roomMaySee } from "@/lib/auth/scope";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { ReferenceImage } from "@/lib/ai/images";
 import { MAX_PHOTOS, pickReferences } from "./people";
@@ -6,6 +7,10 @@ import { MAX_PHOTOS, pickReferences } from "./people";
  * The people library: consenting people and their reference photos, in a private bucket the
  * server alone reads. A photo's path is "<person id>/<n>.<ext>" and is checked against that
  * shape before any storage call, so a request cannot point the server at another file.
+ *
+ * The library is a room's (2026-09-27): agents of one UnitOS office see and use the people of
+ * that office, and nobody else's. Every lookup here asks src/lib/auth/scope.ts, photos included,
+ * so a path from another room is refused like a path that does not exist.
  */
 
 const BUCKET = "content-people";
@@ -36,16 +41,22 @@ const toPerson = (r: Record<string, unknown>): Person => ({
 });
 
 export async function listPeople(): Promise<Person[]> {
-  const { data, error } = await supabaseAdmin().from("ins_people").select("id, name, photos, consented_at").order("created_at");
+  const only = roomFilter(await currentScope());
+  let q = supabaseAdmin().from("ins_people").select("id, name, photos, consented_at");
+  if (only) q = q.or(only);
+  const { data, error } = await q.order("created_at");
   if (error) throw new Error(error.message);
   return (data ?? []).map(toPerson);
 }
 
 export async function getPerson(id: string): Promise<Person | null> {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
-  const { data, error } = await supabaseAdmin().from("ins_people").select("id, name, photos, consented_at").eq("id", id).maybeSingle();
+  const [{ data, error }, scope] = await Promise.all([
+    supabaseAdmin().from("ins_people").select("id, name, photos, consented_at, tenant_id").eq("id", id).maybeSingle(),
+    currentScope(),
+  ]);
   if (error) throw new Error(error.message);
-  return data ? toPerson(data) : null;
+  return data && roomMaySee(scope, data.tenant_id as string | null) ? toPerson(data) : null;
 }
 
 /**
@@ -55,8 +66,10 @@ export async function getPerson(id: string): Promise<Person | null> {
  */
 export async function addPerson(name: string, photos: { bytes: Buffer; mimeType: string }[]): Promise<Person> {
   const db = supabaseAdmin();
+  const owner = (await currentScope()).owner;
   const { data, error } = await db.from("ins_people")
-    .insert({ name, photos: [], consented_at: new Date().toISOString() }).select("id").single();
+    .insert({ name, photos: [], consented_at: new Date().toISOString(), agent_id: owner?.agentId ?? null, tenant_id: owner?.tenantId ?? null })
+    .select("id").single();
   if (error) throw new Error(error.message);
   const id = String(data.id);
   const paths: string[] = [];
@@ -154,6 +167,8 @@ export async function deletePerson(id: string): Promise<void> {
 
 export async function photoBytes(path: string): Promise<ReferenceImage | null> {
   if (!isPhotoPath(path)) return null;
+  // the folder is the person: a photo of somebody outside the asker's room is not theirs to see
+  if (!(await getPerson(path.split("/")[0]))) return null;
   const { data, error } = await supabaseAdmin().storage.from(BUCKET).download(path);
   if (error || !data) return null;
   return { bytes: Buffer.from(await data.arrayBuffer()), mimeType: data.type || "image/jpeg" };

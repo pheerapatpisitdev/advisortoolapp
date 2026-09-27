@@ -4,6 +4,8 @@ import { MAX_DOCS } from "@/lib/content/claim";
 import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
 import { readClaim, writeClaim } from "@/lib/content/claim-run";
 import { refuseUnless } from "@/lib/auth/viewer";
+import { requireMember } from "@/lib/auth/viewer";
+import { takeRound } from "@/lib/auth/quota";
 
 /**
  * รีวิวเคลม, as plain requests: six photographs are more than a server action's one-megabyte
@@ -45,6 +47,8 @@ export async function POST(req: NextRequest) {
   if (typeof files === "string") return bad(files);
   if (files.length === 0 || files.length > MAX_DOCS) return bad(`เลือกรูปเอกสาร 1–${MAX_DOCS} รูปนะครับ`);
   if (!readsPerHour(`claim-read:${clientIp(req.headers)}`)) return bad("อ่านเอกสารครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ", 429);
+  const over = await takeRound(await requireMember(), "ai-claim");
+  if (over) return bad(over, 429);
   const pics = await Promise.all(files.map(async (f) => ({ base64: Buffer.from(await f.arrayBuffer()).toString("base64"), mimeType: f.type })));
   return Response.json(await readClaim(pics));
 }

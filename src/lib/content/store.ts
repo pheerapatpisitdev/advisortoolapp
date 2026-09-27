@@ -1,3 +1,4 @@
+import { agentFilter, currentScope, maySee } from "@/lib/auth/scope";
 import { admits, monthSpend, monthStart, release, reserve, sweepHolds, type SpendLine } from "@/lib/ai/ledger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { ContentWord, WordHit, WordKind } from "./check";
@@ -39,6 +40,8 @@ export interface ContentItem {
   hookTemplateId: string | null;
   /** posted to a Facebook Page from here, or held there for later; null when never sent */
   publish: Publish | null;
+  /** the UnitOS agent who wrote it; null before 2026-09-27, when every piece was the owner's */
+  agentId: string | null;
 }
 
 export const PUBLISH_STATES = ["posting", "scheduled", "published", "failed", "cancelled"] as const;
@@ -131,7 +134,7 @@ export async function holdContentBudget(thb: number, cap: number): Promise<{ ok:
 export { release as releaseContentBudget };
 
 // one literal: supabase-js reads the column list's type from the string, and a joined one is opaque to it
-const COLUMNS = "id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error";
+const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error";
 
 function toPublish(r: Record<string, unknown>): Publish | null {
   const state = r.publish_state;
@@ -161,6 +164,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
     status: isContentStatus(r.status) ? r.status : "draft",
     hookTemplateId: (r.hook_template_id as string | null) ?? null,
     publish: toPublish(r),
+    agentId: (r.agent_id as string | null) ?? null,
   };
 }
 
@@ -169,7 +173,9 @@ export async function saveContent(row: {
   output: ContentOutput; flags: Flags; rateVersion: string | null; model: string; costThb: number;
   hookTemplateId: string | null;
 }): Promise<ContentItem> {
+  const owner = (await currentScope()).owner;
   const { data, error } = await supabaseAdmin().from("ins_content").insert({
+    agent_id: owner?.agentId ?? null, tenant_id: owner?.tenantId ?? null,
     plan_href: row.planHref, format: row.format, angle: row.angle || null, length: row.length,
     output: row.output, flags: row.flags, rate_version: row.rateVersion, model: row.model, cost_thb: row.costThb,
     hook_template_id: row.hookTemplateId,
@@ -178,10 +184,24 @@ export async function saveContent(row: {
   return toItem(data as Record<string, unknown>);
 }
 
+/** A piece by its id — or null when it is not the asker's to see (src/lib/auth/scope.ts). */
 export async function getContent(id: string): Promise<ContentItem | null> {
-  const { data, error } = await supabaseAdmin().from("ins_content").select(COLUMNS).eq("id", id).maybeSingle();
+  const [{ data, error }, scope] = await Promise.all([
+    supabaseAdmin().from("ins_content").select(COLUMNS).eq("id", id).maybeSingle(),
+    currentScope(),
+  ]);
   if (error) throw new Error(error.message);
-  return data ? toItem(data as Record<string, unknown>) : null;
+  const item = data ? toItem(data as Record<string, unknown>) : null;
+  return item && maySee(scope, item.agentId) ? item : null;
+}
+
+/**
+ * The asker's pieces only, as a filter — null for after() work, which sees everything. Read
+ * before a query is built: a PostgREST query is a thenable, and handing one through an async
+ * function runs it.
+ */
+async function ownersFilter(): Promise<string | null> {
+  return agentFilter(await currentScope());
 }
 
 /**
@@ -196,9 +216,11 @@ const offPage = () => `publish_state.is.null,publish_state.not.in.(${ON_PAGE_STA
 
 /** `offset`: the pieces already shown, for โหลดเพิ่ม — newest first, so the next page is older */
 export async function listContent(filter: { status?: ContentStatus; planHref?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
+  const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.planHref) q = q.eq("plan_href", filter.planHref);
+  if (only) q = q.or(only);
   const { data, error } = await q.or(offPage());
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(toItem);
@@ -206,9 +228,11 @@ export async function listContent(filter: { status?: ContentStatus; planHref?: s
 
 /** How many pieces sit under each tab. Three head-only counts; the table is small. */
 export async function countByStatus(planHref?: string): Promise<Record<ContentStatus, number>> {
+  const only = await ownersFilter();
   const counts = await Promise.all(CONTENT_STATUSES.map(async (status) => {
     let q = supabaseAdmin().from("ins_content").select("id", { count: "exact", head: true }).eq("status", status);
     if (planHref) q = q.eq("plan_href", planHref);
+    if (only) q = q.or(only);
     const { count, error } = await q.or(offPage());
     if (error) throw new Error(error.message);
     return [status, count ?? 0] as const;
@@ -514,10 +538,13 @@ export async function listDue(from: Date, to: Date, limit = 50): Promise<Content
  * newest first. รอตรวจ and ใช้จริง both, since posting is itself the decision to use a piece.
  */
 export async function listWaiting(limit = 50): Promise<ContentItem[]> {
-  const { data, error } = await supabaseAdmin().from("ins_content").select(COLUMNS)
+  // the staff's pieces: the rail is what the staff may put on their Page
+  const only = await ownersFilter();
+  let q = supabaseAdmin().from("ins_content").select(COLUMNS)
     .eq("format", "post").in("status", ["draft", "used"])
-    .or(`publish_state.is.null,publish_state.eq.cancelled,publish_state.eq.failed,${staleClaim()}`)
-    .order("created_at", { ascending: false }).limit(limit);
+    .or(`publish_state.is.null,publish_state.eq.cancelled,publish_state.eq.failed,${staleClaim()}`);
+  if (only) q = q.or(only);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(toItem);
 }
