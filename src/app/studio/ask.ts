@@ -1,3 +1,6 @@
+/** how long after opening a click on the backdrop is taken as the opening click's twin */
+const BACKDROP_GRACE_MS = 400;
+
 /**
  * An in-page yes/no, in place of window.confirm().
  *
@@ -63,9 +66,12 @@ export function ask(message: string, okLabel = "ยืนยัน"): Promise<bo
     let answer = false;
     yes.addEventListener("click", () => { answer = true; box.close(); });
     no.addEventListener("click", () => box.close());
-    // a tap on the backdrop lands on the dialog element too, so tell it from the padding by place
+    // a tap on the backdrop lands on the dialog element too, so tell it from the padding by place.
+    // Not in the first moment: a double click on the button that opened it put its second
+    // click on the backdrop, and the question was answered "no" before it was seen.
+    const opened = performance.now();
     box.addEventListener("click", (e) => {
-      if (e.target !== box) return;
+      if (e.target !== box || performance.now() - opened < BACKDROP_GRACE_MS) return;
       const r = box.getBoundingClientRect();
       if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) box.close();
     });
