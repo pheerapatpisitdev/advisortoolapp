@@ -493,6 +493,7 @@ function PostCard({ item, error, compact, repeated, dragging, onPointerDown, onO
           <p className="line-clamp-2 text-xs font-medium leading-snug">{item.hook}</p>
           <p className="line-clamp-1 text-xs text-[var(--ct-mute)]">{item.planName}{item.unreviewed ? " · ยังไม่ได้ตรวจ" : ""}</p>
           {repeated && <p className="text-xs text-[var(--ct-warn-ink)]">แบบเดียวกับโพสต์ก่อนหน้า</p>}
+          {item.by && <p className="line-clamp-1 text-xs text-[var(--ct-mute)]">โดย {item.by}</p>}
           {error && <p className="line-clamp-2 text-xs text-[var(--ct-alert)]"><PlainText text={error} /></p>}
         </div>
       )}
@@ -664,7 +665,7 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
       </a>
       <div className="mt-3 space-y-1">
         <p className="text-xs text-[var(--ct-mute)]">
-          {item.planName}{item.pageName ? ` · ${item.pageName}` : ""} · {STATUS_LABEL[item.status]}{item.unreviewed ? " · ยังไม่ได้ตรวจ" : ""}
+          {item.planName}{item.pageName ? ` · ${item.pageName}` : ""} · {STATUS_LABEL[item.status]}{item.by ? ` โดย ${item.by}` : ""}{item.unreviewed ? " · ยังไม่ได้ตรวจ" : ""}
         </p>
         <p className="text-sm font-medium">{item.hook}</p>
         <p className="line-clamp-6 whitespace-pre-wrap text-xs text-[var(--ct-mute)]">{item.body}</p>

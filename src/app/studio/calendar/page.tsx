@@ -14,7 +14,7 @@ import { listPublished, listWaiting, type ContentItem } from "@/lib/content/stor
 import { publishSetup } from "../publish";
 import { ChevronLeftIcon, ChevronRightIcon } from "../ui/icons";
 import { CalendarBoard, MonthList } from "./CalendarBoard";
-import { gatePage } from "@/lib/auth/viewer";
+import { gatePage, placedBy } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 /** the board's own actions (a drop posts through Facebook) run from this page, as /studio's do */
@@ -100,7 +100,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   // a send stuck past ten minutes is in both lists (the rail takes stale claims): once only
   const pieces = [...new Map([...placed, ...waiting].map((i) => [i.id, i])).values()];
-  const all = pieces.map((i) => toBoard(i, pageName, from, to));
+  const by = await placedBy(pieces.filter((i) => i.publish?.state && i.publish.state !== "cancelled").map((i) => i.id));
+  const all = pieces.map((i) => ({ ...toBoard(i, pageName, from, to), by: by[i.id] }));
   const errors: Record<string, string> = Object.fromEntries(pieces.flatMap(failure));
   // the chips count posts on the Pages; one that failed sits on its day but is not up
   const up = all.filter((i) => i.day && i.status !== "failed");

@@ -131,6 +131,8 @@ export interface BoardItem {
   unreviewed: boolean;
   /** why it may not go up at all: a Facebook-rule finding marked block */
   blocked: string | null;
+  /** who last put it on the Page or moved it there, from ins_audit — staff share one Page */
+  by?: string;
 }
 
 /** where a dropped waiting piece lands on its day — the owner's pick (14:10 for an hour on 2026-09-24, then back) */

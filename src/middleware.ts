@@ -16,7 +16,13 @@ import { NextResponse, type NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const lowered = pathname.toLowerCase();
-  if (pathname === lowered) return NextResponse.next();
+  if (pathname === lowered) {
+    // the address asked for, for a layout's sign-in gate to come back to (src/lib/auth/viewer.ts):
+    // a layout is not told which of its pages is being opened
+    const headers = new Headers(request.headers);
+    headers.set("x-pathname", `${pathname}${request.nextUrl.search}`);
+    return NextResponse.next({ request: { headers } });
+  }
 
   const url = request.nextUrl.clone();
   url.pathname = lowered;

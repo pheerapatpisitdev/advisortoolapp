@@ -1,8 +1,10 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { admit, can, type AgentRow, type Perm, type StaffRow, type Viewer } from "./access";
+import { safeNext } from "./next";
 import { readSession } from "./session";
 
 export type { Perm, Viewer } from "./access";
@@ -69,7 +71,11 @@ export async function refuseUnless(perm?: Perm): Promise<Response | null> {
  */
 export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   const viewer = await getViewer();
-  if (!viewer) redirect(`/login?next=${encodeURIComponent(next)}`);
+  if (!viewer) {
+    // the page actually asked for, when the middleware passed it on; the caller's guess otherwise
+    const asked = safeNext((await headers()).get("x-pathname"), next);
+    redirect(`/login?next=${encodeURIComponent(asked)}`);
+  }
   if (perm && !can(viewer, perm)) redirect("/studio");
   return viewer;
 }
@@ -98,4 +104,27 @@ export async function audit(action: string, target: string | null, detail?: Reco
   } catch (e) {
     console.error(`audit ${action} not written:`, e);
   }
+}
+
+/**
+ * Who last posted, scheduled or moved each piece, by name — the calendar's "โดย". Staff share
+ * one Page, so a post nobody remembers making should say whose it was. Pieces placed before
+ * the log began (2026-09-27) have no line and show no name.
+ */
+export async function placedBy(ids: string[]): Promise<Record<string, string>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await supabaseAdmin().from("ins_audit")
+    .select("target, at, agent:agents(name, agent_code)")
+    .in("target", ids).in("action", ["post", "schedule", "reschedule"])
+    .order("at", { ascending: false });
+  if (error) {
+    console.error("placed-by unreadable:", error.message);
+    return {};
+  }
+  const by: Record<string, string> = {};
+  for (const row of (data ?? []) as unknown as { target: string; agent: { name: string | null; agent_code: string } | null }[]) {
+    if (by[row.target] || !row.agent) continue;
+    by[row.target] = row.agent.name?.trim() || row.agent.agent_code;
+  }
+  return by;
 }
