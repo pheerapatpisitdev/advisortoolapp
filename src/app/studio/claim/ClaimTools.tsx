@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   CLAIM_ANGLES, FACT_LIMIT, MAX_CLAIM_CUSTOM, MAX_CLAIM_PIECES, MAX_DOCS, claimAngleLines, type ClaimFacts, type DocRead,
 } from "@/lib/content/claim";
@@ -11,7 +11,7 @@ import type { GenerateResult } from "../actions";
 import { PhotoDrop } from "../people/PhotoDrop";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, useLoop } from "../ui/form-parts";
-import { burn, shrink } from "./redact";
+import { burn, shrink, type Shrunk } from "./redact";
 
 /**
  * รีวิวเคลม's tools, one press like a plan's (owner, 2026-09-25): add the papers, tick the
@@ -21,7 +21,8 @@ import { burn, shrink } from "./redact";
  * piece with a paper cannot be posted until it is ticked there.
  */
 
-type ReadReply = ({ ok: true; costThb: number; facts: ClaimFacts; docs: DocRead[] }) | { ok: false; error: string };
+type ReadOk = { ok: true; costThb: number; facts: ClaimFacts; docs: DocRead[] };
+type ReadReply = ReadOk | { ok: false; error: string };
 
 /** reading the papers, on top of the writing; Gemini Flash reads six for about ฿0.1 */
 const READ_THB = 0.2;
@@ -86,7 +87,16 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
   // a person in the picture is drawn by Gemini whatever was picked, at Gemini's price
   const paints = painterFor(painter, left, Boolean(person));
   const drawn = format === "script" ? 0 : paints.thb * count;
-  const estimate = (READ_THB + count * (pick.thb + OVERHEAD_THB) + drawn).toFixed(2);
+  /**
+   * The papers as last read. Pressing สร้าง again with the same photos — another round, another
+   * format — paid to have them read again; a new photo, or one taken away, reads them afresh.
+   */
+  const lastRead = useRef<{ papers: File[]; shrunk: Shrunk[]; read: ReadOk } | null>(null);
+  const sameAsRead = (list: File[]) => {
+    const last = lastRead.current;
+    return Boolean(last) && last!.papers.length === list.length && last!.papers.every((f, i) => f === list[i]);
+  };
+  const estimate = ((sameAsRead(files) ? 0 : READ_THB) + count * (pick.thb + OVERHEAD_THB) + drawn).toFixed(2);
   const unit = format === "ad" ? "แบบ" : "ชิ้น";
 
   async function create() {
@@ -98,33 +108,43 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     const who = person;
     await run(count, round.format, async (): Promise<GenerateResult> => {
-      /*
-       * Everything before the last request writes nothing, so a failure there is said as what
-       * it is. It used to throw, and the page read every throw as a connection dropped while
-       * the pieces were being saved: "ชิ้นงานอาจสร้างเสร็จแล้ว", the tab switched to รอตรวจ,
-       * and nothing there — for a photo the browser could not open.
-       */
-      let shrunk: Awaited<ReturnType<typeof shrink>>[];
-      try {
-        shrunk = await Promise.all(papers.map((f) => shrink(f)));
-      } catch {
-        return { ok: false, error: "เปิดรูปบางรูปไม่ได้ — ลองแคปหน้าจอหรือบันทึกเป็น JPG แล้วเลือกใหม่ (ยังไม่ได้สร้างอะไร)" };
-      }
-      const readForm = new FormData();
-      readForm.set("consent", "on");
-      shrunk.forEach((s, i) => readForm.append("docs", s.blob, `doc-${i + 1}.jpg`));
-      let read: ReadReply;
-      try {
-        const res = await fetch("/api/content-claim", { method: "POST", body: readForm });
-        const body = await res.json().catch(() => null) as ReadReply | null;
-        if (!body) {
-          return { ok: false, error: res.status === 413 ? "รูปรวมกันใหญ่เกินไป — ลดจำนวนรูปแล้วลองใหม่ (ยังไม่ได้สร้างอะไร)" : "อ่านรูปเอกสารไม่สำเร็จ ลองใหม่อีกครั้ง (ยังไม่ได้สร้างอะไร)" };
+      // the same photos read a moment ago: their reading is used again rather than paid for again
+      const cached = sameAsRead(papers) ? lastRead.current! : null;
+      let shrunk: Shrunk[];
+      let read: ReadOk;
+      if (cached) {
+        shrunk = cached.shrunk;
+        read = cached.read;
+      } else {
+        /*
+         * Everything before the last request writes nothing, so a failure there is said as what
+         * it is. It used to throw, and the page read every throw as a connection dropped while
+         * the pieces were being saved: "ชิ้นงานอาจสร้างเสร็จแล้ว", the tab switched to รอตรวจ,
+         * and nothing there — for a photo the browser could not open.
+         */
+        try {
+          shrunk = await Promise.all(papers.map((f) => shrink(f)));
+        } catch {
+          return { ok: false, error: "เปิดรูปบางรูปไม่ได้ — ลองแคปหน้าจอหรือบันทึกเป็น JPG แล้วเลือกใหม่ (ยังไม่ได้สร้างอะไร)" };
         }
-        read = body;
-      } catch {
-        return { ok: false, error: "ส่งรูปไม่สำเร็จ การเชื่อมต่อหลุด — ลองกดสร้างใหม่ (ยังไม่ได้สร้างอะไร)" };
+        const readForm = new FormData();
+        readForm.set("consent", "on");
+        shrunk.forEach((s, i) => readForm.append("docs", s.blob, `doc-${i + 1}.jpg`));
+        let reply: ReadReply;
+        try {
+          const res = await fetch("/api/content-claim", { method: "POST", body: readForm });
+          const body = await res.json().catch(() => null) as ReadReply | null;
+          if (!body) {
+            return { ok: false, error: res.status === 413 ? "รูปรวมกันใหญ่เกินไป — ลดจำนวนรูปแล้วลองใหม่ (ยังไม่ได้สร้างอะไร)" : "อ่านรูปเอกสารไม่สำเร็จ ลองใหม่อีกครั้ง (ยังไม่ได้สร้างอะไร)" };
+          }
+          reply = body;
+        } catch {
+          return { ok: false, error: "ส่งรูปไม่สำเร็จ การเชื่อมต่อหลุด — ลองกดสร้างใหม่ (ยังไม่ได้สร้างอะไร)" };
+        }
+        if (!reply.ok) return { ok: false, error: reply.error };
+        read = reply;
+        lastRead.current = { papers, shrunk, read };
       }
-      if (!read.ok) return { ok: false, error: read.error };
 
       const form = new FormData();
       form.set("consent", "on");
