@@ -28,6 +28,11 @@ export interface PublishPage {
 
 export interface PublishSetup {
   pages: PublishPage[];
+  /**
+   * The Pages could not be read (Graph or the database, for a moment). An empty list used to
+   * stand for this too, and the owner was sent to connect a Page that was connected all along.
+   */
+  failed?: boolean;
 }
 
 export async function publishSetup(): Promise<PublishSetup> {
@@ -35,7 +40,7 @@ export async function publishSetup(): Promise<PublishSetup> {
     return { pages: (await pageConnections()).map((p) => ({ pageId: p.pageId, pageName: p.pageName, canPost: p.scopes.includes(POST_SCOPE) })) };
   } catch (e) {
     console.error("publish setup failed:", e);
-    return { pages: [] };
+    return { pages: [], failed: true };
   }
 }
 

@@ -1,5 +1,6 @@
 import { hookPostCounts, listHookTemplates } from "@/lib/content/store";
 import { HookLibrary } from "./HookLibrary";
+import { LoadFailed } from "../ui/LoadFailed";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export const metadata = {
 // the menu, the palette and the tabs come from ../layout.tsx
 export default async function HooksPage() {
   const [hooks, posted] = await Promise.all([
-    listHookTemplates().catch(() => []),
+    listHookTemplates().catch(() => null),
     hookPostCounts().catch(() => ({} as Record<string, number>)),
   ]);
   return (
@@ -20,7 +21,7 @@ export default async function HooksPage() {
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         สูตรที่มีช่อง [ ] ให้ AI เติมตามแบบประกัน เริ่มต้น 30 สูตร และเพิ่มเองทุกครั้งที่กด “ใช้จริง” กับชิ้นงาน
       </p>
-      <HookLibrary items={hooks} posted={posted} />
+      {hooks ? <HookLibrary items={hooks} posted={posted} /> : <LoadFailed what="คลังสูตร" href="/studio/hooks" />}
     </div>
   );
 }

@@ -188,7 +188,10 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
       if (reason) setError(reason);
       return;
     }
-    if (item.status !== "scheduled" && usable.length === 0) { setError("ยังตั้งเวลาไม่ได้ — ยังไม่มีเพจไหนเปิดสิทธิ์โพสต์ (ดูกล่องสีเหลืองด้านบน)"); return; }
+    if (item.status !== "scheduled" && usable.length === 0) {
+      setError(setup.failed ? "ยังตั้งเวลาไม่ได้ — โหลดรายชื่อเพจไม่สำเร็จ กดลองใหม่ด้านบน" : "ยังตั้งเวลาไม่ได้ — ยังไม่มีเพจไหนเปิดสิทธิ์โพสต์ (ดูกล่องสีเหลืองด้านบน)");
+      return;
+    }
     if (item.status !== "scheduled" && !pageId) { setError("เลือกเพจที่จะลงก่อน (ช่อง ลงเพจ เหนือแถบรอตั้งเวลา)"); return; }
     setError(null);
     startTransition(async () => {
@@ -273,7 +276,12 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
       {error && (
         <p role="alert" className="rounded-lg border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] p-3 text-sm text-[var(--ct-alert)]"><PlainText text={error} /></p>
       )}
-      {usable.length === 0 && (
+      {setup.failed ? (
+        <p role="alert" className="rounded-lg border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] p-3 text-sm text-[var(--ct-alert)]">
+          โหลดรายชื่อเพจไม่สำเร็จ ยังตั้งเวลาไม่ได้ตอนนี้ —{" "}
+          <button type="button" onClick={() => router.refresh()} className="inline-flex min-h-11 items-center font-medium underline">ลองใหม่</button>
+        </p>
+      ) : usable.length === 0 && (
         <p className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] p-3 text-sm text-[var(--ct-warn-ink)]">
           ยังไม่ได้อนุญาตให้ระบบโพสต์ลงเพจ — ไปเชื่อมเพจใหม่ที่ <Link href="/admin/messenger" className="font-medium underline">หน้าตั้งค่าเพจ</Link>
         </p>

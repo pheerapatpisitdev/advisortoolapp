@@ -81,6 +81,8 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
   useEffect(() => () => busyTo.current?.(false), []);
   const [note, setNote] = useState<NoteState>(null);
 
+  /** the Pages, read again by ลองใหม่ when the first read failed */
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
     publishSetup().then((s) => {
@@ -90,9 +92,9 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
       try { kept = localStorage.getItem(PAGE_KEY) ?? ""; } catch { /* storage unavailable */ }
       const usable = s.pages.filter((p) => p.canPost);
       setPageId(usable.find((p) => p.pageId === kept)?.pageId ?? usable[0]?.pageId ?? s.pages[0]?.pageId ?? "");
-    }).catch(() => { if (live) setSetup({ pages: [] }); });
+    }).catch(() => { if (live) setSetup({ pages: [], failed: true }); });
     return () => { live = false; };
-  }, []);
+  }, [attempt]);
 
   /**
    * The quick times again, as of now. A chosen one that has gone moves to the next that is
@@ -196,6 +198,13 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
   let body: React.ReactNode;
   if (!setup) {
     body = <p className="text-sm text-[var(--ct-mute)]">กำลังโหลด…</p>;
+  } else if (setup.failed && view.kind !== "scheduled" && view.kind !== "published" && view.kind !== "posting") {
+    body = (
+      <p className="text-sm text-[var(--ct-alert)]">
+        โหลดรายชื่อเพจไม่สำเร็จ —{" "}
+        <button type="button" onClick={() => { setSetup(null); setAttempt((n) => n + 1); }} className="inline-flex min-h-11 items-center font-medium underline">ลองใหม่</button>
+      </p>
+    );
   } else if (view.kind === "posting") {
     body = <p className="text-sm text-[var(--ct-mute)]">กำลังส่งไปเพจ…</p>;
   } else if (view.kind === "scheduled") {

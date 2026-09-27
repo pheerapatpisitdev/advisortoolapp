@@ -759,6 +759,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
   const [pages, setPages] = useState<PublishPage[] | null>(null);
+  const [pagesFailed, setPagesFailed] = useState(false);
   const [pickPage, setPickPage] = useState("");
   const [sending, setSending] = useState<{ done: number; total: number } | null>(null);
   const whyNot = (i: ContentItem): string | undefined =>
@@ -768,11 +769,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           : onPage(i.publish) ? "ตั้งเวลาแล้ว" : undefined;
   const pickable = items.filter((i) => !whyNot(i));
 
-  async function startPicking() {
+  function startPicking() {
     setPicking(true);
     setPicked(new Set());
-    if (pages) return;
-    const setup = await publishSetup().catch(() => ({ pages: [] as PublishPage[] }));
+    if (!pages || pagesFailed) void loadPages();
+  }
+
+  /** the Pages that can be posted to; ลองใหม่ reads them again, keeping what is ticked */
+  async function loadPages() {
+    setPages(null);
+    const setup = await publishSetup().catch(() => ({ pages: [] as PublishPage[], failed: true }));
+    setPagesFailed(Boolean(setup.failed));
     const usable = setup.pages.filter((p) => p.canPost);
     setPages(usable);
     let kept = "";
@@ -1194,6 +1201,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               </div>
               {pages === null ? (
                 <p className="text-sm text-[var(--ct-mute)]">กำลังโหลดรายชื่อเพจ…</p>
+              ) : pagesFailed ? (
+                <p className="text-sm text-[var(--ct-alert)]">
+                  โหลดรายชื่อเพจไม่สำเร็จ —{" "}
+                  <button type="button" onClick={loadPages} className="inline-flex min-h-11 items-center font-medium underline">ลองใหม่</button>
+                </p>
               ) : pages.length === 0 ? (
                 <p className="text-sm text-[var(--ct-alert)]">ยังไม่มีเพจที่อนุญาตให้ระบบโพสต์ — เชื่อมเพจที่หน้าตั้งค่าเพจก่อน</p>
               ) : (
