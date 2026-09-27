@@ -20,7 +20,7 @@ const chip = (on: boolean) =>
  * link used to take a row of its own between the heading and the list, underlined and longer
  * than either, so the one thing to choose read as the least of the three.
  */
-export function PersonPicker({ people, value, onChange, disabled, confirmLeave }: {
+export function PersonPicker({ people, value, onChange, disabled, confirmLeave, back }: {
   people: PersonOption[];
   value: PiecePerson | null;
   onChange: (next: PiecePerson | null) => void;
@@ -28,17 +28,21 @@ export function PersonPicker({ people, value, onChange, disabled, confirmLeave }
   disabled?: boolean;
   /** asked before the link to the library leaves the page; false stays */
   confirmLeave?: () => Promise<boolean>;
+  /** where the library's "← กลับ" returns to: the piece open in the editor, or Studio */
+  back?: string;
 }) {
+  // the library had no way back: someone added there left the owner to find the piece again
+  const libraryHref = back ? `/studio/people?back=${encodeURIComponent(back)}` : "/studio/people";
   const router = useRouter();
   const toLibrary = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!confirmLeave || e.metaKey || e.ctrlKey || e.shiftKey) return;
     e.preventDefault();
-    if (await confirmLeave()) router.push("/studio/people");
+    if (await confirmLeave()) router.push(libraryHref);
   };
   const heading = useId();
   const library = (label: string) => (
     <Link
-      href="/studio/people" onClick={toLibrary} title="เพิ่ม แก้ไข หรือลบคนในคลัง"
+      href={libraryHref} onClick={toLibrary} title="เพิ่ม แก้ไข หรือลบคนในคลัง"
       className="-mr-1 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-1 text-xs font-medium text-[var(--ct-accent)] hover:underline"
     >
       {label} <span aria-hidden="true">›</span>

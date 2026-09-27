@@ -54,12 +54,14 @@ interface Props {
   readOnly?: boolean;
   /** asked before a link leaves the editor; false stays */
   confirmLeave?: () => Promise<boolean>;
+  /** where the people library's "← กลับ" returns to */
+  back?: string;
 }
 
 /** who the picture was last drawn with, when they are still in the library */
 const known = (who: PiecePerson | null, people: PersonOption[]) => (who && people.some((p) => p.id === who.id) ? who : null);
 
-export function PosterPanel({ value, onChange, onDraw, busy, people, person: drawnWith, pictureLocked, readOnly, confirmLeave }: Props) {
+export function PosterPanel({ value, onChange, onDraw, busy, people, person: drawnWith, pictureLocked, readOnly, confirmLeave, back }: Props) {
   const [request, setRequest] = useState("");
   const [person, setPerson] = useState<PiecePerson | null>(() => known(drawnWith, people));
   // the piece's own person again when it changes under the editor (a redraw landed) or the
@@ -190,7 +192,7 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
                 className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]"
               />
             </label>
-            <PersonPicker people={people} value={person} onChange={setPerson} confirmLeave={confirmLeave} />
+            <PersonPicker people={people} value={person} onChange={setPerson} confirmLeave={confirmLeave} back={back} />
             {!person && <div role="group" aria-label="วาดด้วย" className="flex flex-wrap items-center gap-1.5 text-sm">
               <span className="mr-1 font-medium">วาดด้วย</span>
               {PAINTERS.filter((p) => p.modelId).map((p) => (

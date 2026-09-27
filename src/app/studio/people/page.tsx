@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listPeople } from "@/lib/content/people-store";
 import { PeopleBoard } from "./PeopleBoard";
 import { LoadFailed } from "../ui/LoadFailed";
@@ -10,11 +11,21 @@ export const metadata = {
 };
 
 // the menu, the palette and the tabs come from ../layout.tsx
-export default async function PeoplePage() {
+/** where "← กลับ" may lead: Studio, or a piece open in it — nothing off the site */
+const BACK = /^\/studio(\?open=[0-9a-f-]{36})?$/;
+
+export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ back?: string }> }) {
+  const { back } = await searchParams;
+  const backTo = back && BACK.test(back) ? back : null;
   // a failed read is said, not shown as an empty library with an add form under it
   const people = await listPeople().catch(() => null);
   return (
     <div className="max-w-[1000px] space-y-4">
+      {backTo && (
+        <Link href={backTo} className="-ml-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+          ← {backTo.includes("open=") ? "กลับไปชิ้นงานที่แก้อยู่" : "กลับไป Studio"}
+        </Link>
+      )}
       <div>
         <h1 className="text-xl font-semibold">คลังบุคคล</h1>
         <p className="mt-1 text-sm text-[var(--ct-mute)]">

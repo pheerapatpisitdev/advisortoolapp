@@ -171,7 +171,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
 
         {format !== "script" && painter !== "none" && (
           <div>
-            <PersonPicker people={people} value={person} onChange={onPerson} />
+            <PersonPicker people={people} value={person} onChange={onPerson} back="/studio" />
             {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ราวภาพละ ฿2.4</span>}
           </div>
         )}

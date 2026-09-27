@@ -261,7 +261,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
 
         {format !== "script" && painter !== "none" && (
           <div>
-            <PersonPicker people={people} value={person} onChange={onPerson} />
+            <PersonPicker people={people} value={person} onChange={onPerson} back="/studio" />
             {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ราวภาพละ ฿2.4 · บุคคลยืนด้านขวา เอกสารเลื่อนไปทางซ้ายให้</span>}
           </div>
         )}
