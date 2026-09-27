@@ -98,6 +98,22 @@ const EDITOR_STEP = "studioEditor";
  */
 type Toast = { from: "round" | "round-note" | "draw" | "draw-note" | "status" | "delete" | "load" | "copy"; tone: "error" | "notice"; text: string };
 
+/** Pictures of a round being drawn: how many are done of how many. */
+function DrawProgress({ batch }: { batch: { total: number; done: number } }) {
+  return (
+    <div role="status" className="space-y-1.5 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] px-3 py-2">
+      <p className="flex items-center gap-2 text-sm text-[var(--ct-accent)]">
+        <span className="size-2 rounded-full bg-[var(--ct-accent)] motion-safe:animate-pulse" />
+        กำลังวาดภาพ <b className="tabular-nums">{batch.done}/{batch.total}</b>
+        <span className="text-xs text-[var(--ct-mute)]">ภาพละราว 20–40 วินาที วาดพร้อมกันทุกชิ้น</span>
+      </p>
+      <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-[var(--ct-hair)]">
+        <div className="h-full rounded-full bg-[var(--ct-accent)] transition-[width]" style={{ width: `${Math.max(6, (batch.done / batch.total) * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
 /** Drops a query parameter from the address bar without a trip to the server. */
 function dropParam(name: string) {
   try {
@@ -307,6 +323,28 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [making, setMaking] = useState(0);
   const [makingFormat, setMakingFormat] = useState<Format>("post");
   const pending = making > 0;
+
+  /**
+   * How far a round has got, as far as the page can tell: the seconds it has been writing, then
+   * the pictures drawn out of the pictures ordered. The server answers once, with the pieces,
+   * so writing shows time rather than a stage it cannot know.
+   */
+  const [writingFor, setWritingFor] = useState(0);
+  useEffect(() => {
+    if (!pending) { setWritingFor(0); return; }
+    const start = Date.now();
+    const tick = window.setInterval(() => setWritingFor(Math.round((Date.now() - start) / 1000)), 1000);
+    return () => window.clearInterval(tick);
+  }, [pending]);
+  const [batch, setBatch] = useState<{ total: number; done: number } | null>(null);
+
+  // closing or reloading mid-round loses the auto-draw (the text is saved); the browser asks first
+  useEffect(() => {
+    if (!pending && !batch) return;
+    const stay = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", stay);
+    return () => window.removeEventListener("beforeunload", stay);
+  }, [pending, batch]);
   /**
    * What is on screen now, for code that finishes long after it started: a round lands
    * twenty seconds after the press, and the closure it began in still sees that moment.
@@ -577,8 +615,10 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
   async function drawPictures(list: ContentItem[], paintWith: string, request: string, who: PiecePerson | null) {
     if (list.length === 0) return;
+    setBatch((b) => ({ total: (b?.total ?? 0) + list.length, done: b?.done ?? 0 }));
     // null rather than left out: a round without a person draws none, whatever a piece held
-    const results = await Promise.all(list.map((item) => drawOne(item.id, request, paintWith, false, who)));
+    const results = await Promise.all(list.map((item) => drawOne(item.id, request, paintWith, false, who)
+      .finally(() => setBatch((b) => (!b ? b : b.done + 1 >= b.total ? null : { ...b, done: b.done + 1 })))));
     const failed = results.flatMap((r) => (r.ok ? [] : [r.error]));
     if (failed.length > 0) say("draw", `วาดภาพไม่สำเร็จ ${failed.length} ชิ้น (${failed[0]}) — กด “แก้ไข” แล้ววาดใหม่ได้`);
     setSpend(await contentSpend().catch(() => spend));
@@ -1002,9 +1042,10 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               {pending && (
                 <p role="status" className="flex items-center gap-2 text-sm font-medium text-[var(--ct-accent)]">
                   <span className="size-2.5 rounded-full bg-[var(--ct-accent)] motion-safe:animate-pulse" />
-                  กำลังสร้าง {making} {makingFormat === "ad" ? "แบบ" : "ชิ้น"} อยู่เบื้องหลัง — แก้ชิ้นนี้ต่อได้เลย
+                  กำลังสร้าง {making} {makingFormat === "ad" ? "แบบ" : "ชิ้น"} อยู่เบื้องหลัง · {writingFor} วินาที — แก้ชิ้นนี้ต่อได้เลย
                 </p>
               )}
+              {batch && <DrawProgress batch={batch} />}
               <PieceEditor
                 key={editingItem.id}
                 item={editingItem}
@@ -1048,7 +1089,8 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               </select>
             </label>
           </div>
-          {bare.length > 0 && redraw.modelId && (
+          {batch && !editingItem && <DrawProgress batch={batch} />}
+          {bare.length > 0 && redraw.modelId && !batch && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] px-3 py-1.5 text-sm">
               <span className="text-[var(--ct-mute)]">{bare.length} ชิ้นยังไม่มีภาพ</span>
               <button
@@ -1068,10 +1110,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           {pending && (
             <div role="status" className="space-y-3">
-              <p className="flex items-center gap-2 text-sm font-medium text-[var(--ct-accent)]">
+              <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium text-[var(--ct-accent)]">
                 <span className="size-2.5 rounded-full bg-[var(--ct-accent)] motion-safe:animate-pulse" />
-                กำลังสร้าง {making} {makingFormat === "ad" ? "แบบ" : "ชิ้น"}…
+                กำลังเขียน {making} {makingFormat === "ad" ? "แบบ" : "ชิ้น"}…
+                <span className="font-normal tabular-nums text-[var(--ct-mute)]">
+                  {writingFor} วินาที{writingFor > 60 ? " — นานกว่าปกติ แต่ยังทำงานอยู่" : " (ปกติ 20–40 วินาที)"}
+                </span>
               </p>
+              {/* time, not a stage: a bar that fills to 40 seconds and waits near the end */}
+              <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-[var(--ct-hair)]">
+                <div className="h-full rounded-full bg-[var(--ct-accent)] transition-[width] duration-1000 ease-linear" style={{ width: `${Math.min(92, (writingFor / 40) * 100)}%` }} />
+              </div>
               <div className="grid gap-4 @xl:grid-cols-2">
                 {Array.from({ length: making }, (_, i) => <PieceSkeleton key={i} />)}
               </div>
