@@ -1,18 +1,18 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { safeNext } from "@/lib/auth/next";
+import { getViewer } from "@/lib/auth/viewer";
+import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "เข้าสู่ระบบ | advisortool" };
 
 /**
- * Reserved, and redirecting until there is something to reserve it for.
- *
- * The owner's own way in is /admin, open at the address they type since the PIN went. This
- * address is kept for the agents: when they get accounts of their own, /login is where they
- * will sign in, and it is the word a person who is not the owner would guess.
- *
- * So this is not dead weight to be tidied away. Until that page exists it redirects, which
- * also keeps the browser histories, the bookmarks and the two Facebook routes working — a
- * saved address that 404s is a person who thinks the back office is gone.
+ * The door for UnitOS agents, kept for them since the PIN went (2026-09-22) and opened on
+ * 2026-09-27. Somebody already signed in goes straight on to where they were headed.
  */
-export default async function LoginPage() {
-  redirect("/admin");
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const next = safeNext((await searchParams).next);
+  if (await getViewer()) redirect(next);
+  return <LoginForm next={next} />;
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { loadOverview } from "./overview";
 import { Card, Empty } from "./ui";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "ภาพรวม | advisortool" };
@@ -35,6 +36,7 @@ function Figure({ label, value, note }: { label: string; value: string; note?: s
 }
 
 export default async function OverviewPage() {
+  await gatePage("/admin", "admin");
   const { attention, week } = await loadOverview();
   const n = (v: number) => v.toLocaleString("en-US");
 

@@ -11,6 +11,7 @@ import type { AdsRange, Tally } from "@/lib/ads/types";
 import type { AdAccount, AdSyncStatus } from "@/lib/facebook/ads-connection";
 import type { TokenExpiry } from "@/lib/facebook/oauth";
 import { siteOrigin } from "@/lib/site-url";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -176,6 +177,7 @@ function Cells({ t }: { t: Tally }) {
 }
 
 export default async function AdsPage({ searchParams }: { searchParams: Promise<{ range?: string; fb?: string; detail?: string }> }) {
+  await gatePage("/admin/ads", "admin");
   const params = await searchParams;
   const range: AdsRange = params.range === "30d" ? "30d" : "7d";
   const outcome = OUTCOMES[params.fb ?? ""];

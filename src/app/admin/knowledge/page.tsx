@@ -3,6 +3,7 @@ import { listContentWords, listLessons, listNotes } from "./actions";
 import { Lessons } from "./Lessons";
 import { Notes } from "./Notes";
 import { Words } from "./Words";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 /** สรุปแชทตอนนี้ runs the review as this page's action: a model reading a day of chats */
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
  * through a paid advertisement.
  */
 export default async function KnowledgePage() {
+  await gatePage("/admin/knowledge", "admin");
   const [notes, words, { review, lessons }] = await Promise.all([listNotes(), listContentWords(), listLessons()]);
   return (
     <>

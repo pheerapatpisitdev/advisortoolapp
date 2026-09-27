@@ -5,6 +5,7 @@ import { pageConnections } from "@/lib/facebook/connection";
 import { activityByPage, checkPosting, POST_SCOPE, type PageActivity, type PostingCheck } from "@/lib/content/posting-health";
 import { thaiWhen } from "@/lib/content/publish-label";
 import { listPublishRows } from "@/lib/content/store";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,7 @@ function Activity({ a }: { a: PageActivity }) {
 }
 
 export default async function PostingAdminPage() {
+  await gatePage("/admin/posting", "publish");
   const [connections, rows] = await Promise.all([
     pageConnections(),
     /** null when the table could not be read — then the counts are left off, not shown as zero */

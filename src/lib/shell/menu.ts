@@ -197,9 +197,9 @@ export const SALES_PAGES: MenuLink[] = SALES_SECTIONS.flatMap((s) => s.links);
  * left is what an agent sends customers anyway — the calculator, the assistant, the sales
  * pages — so a customer standing on one can still reach the others.
  */
-export function menuGroups(signedIn: boolean): MenuGroup[] {
+export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
   if (signedIn) {
-    return [
+    const groups: MenuGroup[] = [
       {
         links: [
           { href: "/admin", label: "ภาพรวม", icon: "grid", hue: "#2b736f" },
@@ -226,6 +226,13 @@ export function menuGroups(signedIn: boolean): MenuGroup[] {
         ],
       },
     ];
+    if (!who) return groups;
+    // the owner's list of assistants, and nobody else's business
+    if (who.owner) groups.push({ links: [{ href: "/admin/team", label: "ทีมงาน", icon: "users", hue: "#472f8a" }] });
+    // an assistant sees the doors they may open; a sign on a locked door is still a sign
+    return groups
+      .map((g) => ({ ...g, links: g.links.filter((l) => who[BACK_OFFICE_PERM[l.href] ?? "owner"]) }))
+      .filter((g) => g.links.length > 0);
   }
 
   /**
@@ -249,7 +256,7 @@ export function menuGroups(signedIn: boolean): MenuGroup[] {
       // rider, instead of being walked through one plan's own questions.
       { href: "/other-plans", label: "จัดแบบเอง", icon: "calc", hue: "#327d86" },
       { href: "/", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
-      // open to everyone, as the owner asked: its own hourly and monthly limits are the guard
+      // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
     ],
   }];
@@ -267,21 +274,50 @@ export function menuGroups(signedIn: boolean): MenuGroup[] {
  * the workbench reads as a place of its own (owner, 2026-09-27) — its pages down the side
  * where the tab row used to be, and one way back out. New Studio tools are added here.
  */
-export function studioMenu(): MenuGroup[] {
-  return [
-    {
-      title: "Studio",
-      links: [
-        // the writer is called Maryjane and wears a woman, as the owner named her (2026-09-27)
-        { href: "/studio", label: "Maryjane", icon: "woman", hue: "#2e5a80" },
-        { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
-        { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
-        { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
-      ],
-    },
-    { links: [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }] },
+export function studioMenu(who?: Who | null): MenuGroup[] {
+  const links: MenuLink[] = [
+    // the writer is called Maryjane and wears a woman, as the owner named her (2026-09-27)
+    { href: "/studio", label: "Maryjane", icon: "woman", hue: "#2e5a80" },
+    { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
+    { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
+    { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
   ];
+  // the calendar is the Page's, so it is for the staff who post to it (owner, 2026-09-27)
+  const shown = who && !who.publish ? links.filter((l) => l.href !== "/studio/calendar") : links;
+  const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
+  // staff get a way to the back office, landing on the first page of it they may open
+  const office = !who ? null : who.admin ? "/admin" : who.connect ? "/admin/messenger" : who.publish ? "/admin/posting" : null;
+  if (office) back.unshift({ href: office, label: "หลังบ้าน", icon: "grid", hue: "#2b736f" });
+  return [{ title: "Studio", links: shown }, { links: back }];
 }
+
+/**
+ * Who is looking at the menu, reduced to what the menu needs: a name to show at its foot and
+ * which doors to list. Built on the server from the session (src/lib/auth/viewer.ts) and
+ * handed down, because the menu is drawn in the browser and must not decide anything itself —
+ * every door it lists is checked again where it opens.
+ */
+export interface Who {
+  name: string;
+  room: string;
+  publish: boolean;
+  connect: boolean;
+  admin: boolean;
+  owner: boolean;
+}
+
+/** What each back-office page asks of the person opening it, as agreed on 2026-09-27. */
+const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room">> = {
+  "/admin": "admin",
+  "/admin/crm": "admin",
+  "/admin/ai": "admin",
+  "/admin/knowledge": "admin",
+  "/admin/messenger": "connect",
+  "/admin/posting": "publish",
+  "/admin/ads": "admin",
+  "/admin/api": "admin",
+  "/admin/team": "owner",
+};
 
 /**
  * Whether a link is the page being looked at.

@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
+import { gatePage, whoOf } from "@/lib/auth/viewer";
 import type { Metadata } from "next";
 
 /**
@@ -11,21 +13,20 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "หลังบ้าน | advisortool" };
 
 /**
- * The back office, open at its address.
+ * The back office, for the owner and the assistants the owner names (2026-09-27).
  *
- * There was a PIN here until 2026-09-22. The owner asked for it to go: /admin is the one
- * address they type, and a code to type after it was the thing standing between them and
- * the page most mornings. Removing it was their decision, made knowing what it opens —
- * anyone with the address can read the customer list, change the keys and disconnect the
- * Page — and it is recorded here so that nobody later mistakes the open door for an
- * oversight. If a door is wanted again, `git log -S ADMIN_PIN` finds the one that was here.
- *
- * `signedIn` on the shell now means only "this is the back office": the menu lists its
- * pages here and nowhere else, which is a sign rather than a gate.
+ * It was open at its address from 2026-09-22, by the owner's choice at the time; now that
+ * advisortool shares UnitOS's database, the door is UnitOS's: an agent signs in with their own
+ * code, and only staff (src/lib/auth/access.ts) get past this layout. Each page asks again for
+ * its own permission, and every action behind it asks for itself — a layout does not guard an
+ * action.
  */
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const viewer = await gatePage("/admin");
+  const who = whoOf(viewer);
+  if (!who || !(who.admin || who.connect || who.publish)) redirect("/studio");
   return (
-    <AppShell signedIn>
+    <AppShell signedIn who={who}>
       <div className="mx-auto max-w-5xl p-4 pt-16 sm:p-6 sm:pt-16 lg:pt-6">{children}</div>
     </AppShell>
   );

@@ -8,6 +8,7 @@ import { DisconnectButton } from "./DisconnectButton";
 import { PagePicker, type Choice } from "./PagePicker";
 import { RefreshSubscriptionButton } from "./RefreshSubscriptionButton";
 import { siteOrigin } from "@/lib/site-url";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +137,7 @@ export default async function MessengerAdminPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await gatePage("/admin/messenger", "connect");
   const params = await searchParams;
   const outcome = OUTCOMES[String(params.fb ?? "")];
   const detail = typeof params.detail === "string" ? params.detail : undefined;

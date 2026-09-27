@@ -14,6 +14,7 @@ import { listPublished, listWaiting, type ContentItem } from "@/lib/content/stor
 import { publishSetup } from "../publish";
 import { ChevronLeftIcon, ChevronRightIcon } from "../ui/icons";
 import { CalendarBoard, MonthList } from "./CalendarBoard";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 /** the board's own actions (a drop posts through Facebook) run from this page, as /studio's do */
@@ -65,6 +66,7 @@ function failure(item: ContentItem): [string, string][] {
 }
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ y?: string; m?: string; page?: string; view?: string }> }) {
+  await gatePage("/studio/calendar", "publish");
   const params = await searchParams;
   const today = todayKey();
   const [ty, tm] = today.split("-").map(Number);

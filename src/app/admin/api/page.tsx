@@ -3,6 +3,7 @@ import { listKeys } from "./actions";
 import { Keys } from "./Keys";
 import { Card } from "../ui";
 import { siteUrl } from "@/lib/site-url";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = { title: "MCP / API | advisortool" };
  * partner's brief, or into a model that is about to call it.
  */
 export default async function ApiPage() {
+  await gatePage("/admin/api", "admin");
   const rows = await listKeys();
   const base = siteUrl("/api/v1");
 

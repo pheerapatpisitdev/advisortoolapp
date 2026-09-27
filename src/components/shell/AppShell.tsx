@@ -1,4 +1,4 @@
-import type { MenuGroup } from "@/lib/shell/menu";
+import type { MenuGroup, Who } from "@/lib/shell/menu";
 import { Sidebar, type Brand } from "./Sidebar";
 
 /**
@@ -18,20 +18,22 @@ import { Sidebar, type Brand } from "./Sidebar";
  *
  * `menu` and `brand` put a section's own menu in the application's place — Studio's, today.
  */
-export function AppShell({ children, signedIn = false, menu, brand, footer }: {
+export function AppShell({ children, signedIn = false, menu, brand, footer, who }: {
   children: React.ReactNode;
   signedIn?: boolean;
   menu?: MenuGroup[];
   brand?: Brand;
   /** drawn at the foot of the menu, under its links */
   footer?: React.ReactNode;
+  /** who is signed in, from the layout's session check; left out where nobody is asked */
+  who?: Who | null;
 }) {
   return (
     <>
       {/* the page first, the menu after it, for the painting order the note above describes */}
       <div className="shell-inset">{children}</div>
       <div className="relative">
-        <Sidebar signedIn={signedIn} menu={menu} brand={brand} footer={footer} />
+        <Sidebar signedIn={signedIn} menu={menu} brand={brand} footer={footer} who={who} />
       </div>
     </>
   );

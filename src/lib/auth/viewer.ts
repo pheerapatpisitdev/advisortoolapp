@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { admit, can, type AgentRow, type Perm, type StaffRow, type Viewer } from "./access";
 import { readSession } from "./session";
@@ -71,6 +72,19 @@ export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   if (!viewer) redirect(`/login?next=${encodeURIComponent(next)}`);
   if (perm && !can(viewer, perm)) redirect("/studio");
   return viewer;
+}
+
+/** The little the menu needs to know, handed down from a layout (see `Who` in src/lib/shell/menu.ts). */
+export function whoOf(viewer: Viewer | null): Who | null {
+  if (!viewer) return null;
+  return {
+    name: viewer.name,
+    room: viewer.tenantName,
+    publish: can(viewer, "publish"),
+    connect: can(viewer, "connect"),
+    admin: can(viewer, "admin"),
+    owner: can(viewer, "owner"),
+  };
 }
 
 /** What staff did to the Page or the staff list. Never throws: a lost line must not undo a post. */

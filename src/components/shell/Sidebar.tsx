@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { isCurrent, menuGroups, RAIL_KEY, type MenuGroup, type MenuIcon } from "@/lib/shell/menu";
+import { signOut } from "@/app/login/actions";
+import { isCurrent, menuGroups, RAIL_KEY, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
 
 /** the name at the top of the menu, and where it leads */
 export type Brand = { href: string; label: string };
@@ -117,7 +118,14 @@ function Icon({ name }: { name: MenuIcon }) {
  * different things, and naming the pages on the calculator tells a stranger the shape of
  * the tool.
  */
-export function Sidebar({ signedIn, menu, brand, footer }: { signedIn: boolean; menu?: MenuGroup[]; brand?: Brand; footer?: React.ReactNode }) {
+export function Sidebar({ signedIn, menu, brand, footer, who }: {
+  signedIn: boolean;
+  menu?: MenuGroup[];
+  brand?: Brand;
+  footer?: React.ReactNode;
+  /** who is signed in: null for nobody; left out on pages that never ask (the sales pages) */
+  who?: Who | null;
+}) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [folded, setFolded] = useState(false);
@@ -134,7 +142,7 @@ export function Sidebar({ signedIn, menu, brand, footer }: { signedIn: boolean; 
     try { localStorage.setItem(RAIL_KEY, next ? "1" : "0"); } catch { /* not kept */ }
   };
 
-  const groups = menu ?? menuGroups(signedIn);
+  const groups = menu ?? menuGroups(signedIn, who);
   const home = brand ?? { href: "/", label: "advisortool" };
 
   // a menu left open across a navigation covers the page that was just asked for
@@ -219,6 +227,7 @@ export function Sidebar({ signedIn, menu, brand, footer }: { signedIn: boolean; 
       ))}
       {/* a menu's own furniture below its links (Studio's light and dark); it pushes itself to the foot */}
       {footer}
+      {who !== undefined && <Account who={who} pushDown={!footer} />}
     </nav>
   );
 
@@ -249,5 +258,34 @@ export function Sidebar({ signedIn, menu, brand, footer }: { signedIn: boolean; 
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The foot of the menu: who is signed in and the way out, or the way in. Only on the pages
+ * that ask who is looking (Studio and the back office) — a customer sent to a sales page by
+ * an advertisement has no account here and is not offered one.
+ */
+function Account({ who, pushDown }: { who: Who | null; pushDown: boolean }) {
+  return (
+    <div className={`${pushDown ? "mt-auto " : ""}border-t pt-3`} style={{ borderColor: "var(--shell-line)" }}>
+      {who ? (
+        <div className="flex items-center gap-2 px-2 rail:flex-col rail:px-0">
+          <div className="min-w-0 flex-1 rail:sr-only">
+            <p className="truncate text-sm font-medium" style={{ color: "var(--shell-ink)" }}>{who.name}</p>
+            <p className="truncate text-[0.7rem]" style={{ color: "var(--shell-mute)" }}>ห้อง {who.room}</p>
+          </div>
+          <form action={signOut}>
+            <button type="submit" className="shell-btn px-2 py-1 text-xs" style={{ color: "var(--shell-mute)" }} title="ออกจากระบบ">
+              ออกจากระบบ
+            </button>
+          </form>
+        </div>
+      ) : (
+        <Link href="/login" className="shell-btn flex items-center justify-center px-2 py-1.5 text-sm no-underline" style={{ color: "var(--shell-ink)" }}>
+          เข้าสู่ระบบ
+        </Link>
+      )}
+    </div>
   );
 }

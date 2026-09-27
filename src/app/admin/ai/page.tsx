@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { loadAiPage } from "./actions";
 import { AiClient } from "./AiClient";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AiPage() {
+  await gatePage("/admin/ai", "admin");
   const data = await loadAiPage();
   return <AiClient {...data} />;
 }

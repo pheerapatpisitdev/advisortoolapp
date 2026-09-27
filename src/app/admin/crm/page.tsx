@@ -8,6 +8,7 @@ import { Funnel } from "./Funnel";
 import { Charts } from "./Charts";
 import { Leads } from "./Leads";
 import { PlanRuns } from "./PlanRuns";
+import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "ลูกค้า | advisortool" };
@@ -51,6 +52,7 @@ function ReadFailed({ parts }: { parts: string[] }) {
 export default async function CrmPage(
   { searchParams }: { searchParams: Promise<{ range?: string; tab?: string }> },
 ) {
+  await gatePage("/admin/crm", "admin");
   const params = await searchParams;
   const range = isRange(params.range) ? params.range : "7d";
   const tab = isTab(params.tab) ? params.tab : "recent";
