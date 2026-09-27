@@ -279,7 +279,8 @@ export function unscheduled(items: BoardItem[]): BoardItem[] {
  * there. It used to wait in the rail with no date, and the red count on a day never showed.
  */
 export function boardDay(kind: "none" | "posting" | "scheduled" | "published" | "failed", at: Date | null, from: Date, to: Date): string | null {
-  if (!at || (kind !== "scheduled" && kind !== "published" && kind !== "failed")) return null;
+  // on its way to the Page this minute: on the day of its send, until Facebook answers
+  if (!at || kind === "none") return null;
   if (kind === "failed" && (at < from || at >= to)) return null;
   return dayKey(at);
 }

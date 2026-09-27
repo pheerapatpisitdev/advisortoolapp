@@ -92,8 +92,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const pageFilter = setup.pages.some((p) => p.pageId === params.page) ? params.page! : "";
   const pageName = (id: string | null) => setup.pages.find((p) => p.pageId === id)?.pageName ?? "";
 
-  const all = [...placed, ...waiting].map((i) => toBoard(i, pageName, from, to));
-  const errors: Record<string, string> = Object.fromEntries([...placed, ...waiting].flatMap(failure));
+  // a send stuck past ten minutes is in both lists (the rail takes stale claims): once only
+  const pieces = [...new Map([...placed, ...waiting].map((i) => [i.id, i])).values()];
+  const all = pieces.map((i) => toBoard(i, pageName, from, to));
+  const errors: Record<string, string> = Object.fromEntries(pieces.flatMap(failure));
   // the chips count posts on the Pages; one that failed sits on its day but is not up
   const up = all.filter((i) => i.day && i.status !== "failed");
   const counts = countByPage(up);

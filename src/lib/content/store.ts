@@ -455,9 +455,10 @@ export async function recordPublishIf(
 }
 
 /** Pieces posted or held between two moments, oldest first — the calendar's week. */
+/** Held, up, or on its way this minute — a send in flight was in neither this nor the rail. */
 export async function listPublished(from: Date, to: Date): Promise<ContentItem[]> {
   const { data, error } = await supabaseAdmin().from("ins_content").select(COLUMNS)
-    .in("publish_state", ["scheduled", "published"])
+    .in("publish_state", ["scheduled", "published", "posting"])
     .gte("publish_at", from.toISOString()).lt("publish_at", to.toISOString())
     .order("publish_at", { ascending: true }).limit(200);
   if (error) throw new Error(error.message);

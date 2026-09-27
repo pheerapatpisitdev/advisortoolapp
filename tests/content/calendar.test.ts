@@ -121,6 +121,8 @@ describe("a post that did not go up", () => {
 
   it("sits on the day it was meant for, as held and posted ones do", () => {
     expect(boardDay("failed", at, from, to)).toBe("2026-09-26");
+    // a send in flight too: it was in neither the grid nor the rail for up to ten minutes
+    expect(boardDay("posting", at, from, to)).toBe("2026-09-26");
     expect(boardDay("scheduled", at, from, to)).toBe("2026-09-26");
     expect(boardDay("published", at, from, to)).toBe("2026-09-26");
   });
@@ -129,7 +131,6 @@ describe("a post that did not go up", () => {
     expect(boardDay("failed", new Date("2026-07-01T12:00:00+07:00"), from, to)).toBeNull();
     expect(boardDay("failed", null, from, to)).toBeNull();
     expect(boardDay("none", at, from, to)).toBeNull();
-    expect(boardDay("posting", at, from, to)).toBeNull();
   });
 
   it("comes first in the rail, ahead of pieces never sent", () => {
