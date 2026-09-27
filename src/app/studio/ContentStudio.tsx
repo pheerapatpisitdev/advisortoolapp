@@ -434,7 +434,12 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     if (editing) { pieces.current?.scrollIntoView({ block: "start" }); return; }
     // the calendar's แก้ไข arrived as ?open=; once that editor is closed, a reload should not open it again
     dropParam("open");
-    if (returnTo.current) document.getElementById(`piece-${returnTo.current}`)?.scrollIntoView({ block: "center" });
+    if (returnTo.current) {
+      const card = document.getElementById(`piece-${returnTo.current}`);
+      card?.scrollIntoView({ block: "center" });
+      // and the keys back where they were: the card's own button, not the top of the page
+      card?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+    }
     returnTo.current = null;
   }, [editing]);
 

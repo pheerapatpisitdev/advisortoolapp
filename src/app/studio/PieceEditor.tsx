@@ -84,6 +84,13 @@ interface Props {
 
 export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onStatus, onPublished, onClose, people, onDirtyChange, suggestDay, nav }: Props) {
   const [feed, setFeed] = useState(false);
+  /**
+   * The editor takes the keys when it opens. Its opener, the card's button, went with the list,
+   * focus fell to the page, and a keyboard started again from the menu; a reader heard nothing.
+   * The title is where it lands — what is open, before any field.
+   */
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { title.current?.focus({ preventScroll: true }); }, []);
   const [draft, setDraft] = useState<Draft>(() => draftOf(item, productName));
   const [hook, setHook] = useState(0);
   const [fixes, setFixes] = useState<Fix[] | null>(item.flags.fixes);
@@ -357,7 +364,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
         )}
       </div>
       <div className="mt-2">
-        <h2 className="text-base font-semibold">{productName} · {FORMAT_LABEL[item.format]}</h2>
+        <h2 ref={title} tabIndex={-1} className="text-base font-semibold outline-none">{productName} · {FORMAT_LABEL[item.format]}</h2>
         {item.output.angle && <p className="mt-0.5 text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
       </div>
 
