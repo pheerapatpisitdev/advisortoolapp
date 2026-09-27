@@ -72,7 +72,10 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
   const [pageId, setPageId] = useState("");
   // "now", "custom", or the ISO time of one of the quick options — the calendar's day when it sent one
   const [times, setTimes] = useState<Quick[]>(() => quickOptions(suggestDay));
-  const [when, setWhen] = useState(() => (suggestDay && times[0]?.label.startsWith(thaiDayLabel(suggestDay)) ? times[0].iso : "now"));
+  // The first time on offer — the calendar's day when it sent one, else this evening or
+  // tomorrow noon — rather than โพสต์ตอนนี้: the one choice that cannot be taken back was the
+  // one the button started on.
+  const [when, setWhen] = useState(() => times[0]?.iso ?? "now");
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState<"send" | "cancel" | null>(null);
   const busyTo = useRef(onBusy);
