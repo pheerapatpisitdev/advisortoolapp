@@ -310,6 +310,20 @@ export async function listHookTemplates(): Promise<HookTemplate[]> {
   return ((data ?? []) as Record<string, unknown>[]).map(toTemplate);
 }
 
+/**
+ * How many pieces written to each formula went up, or are held to go up, on a Page. The
+ * library's use_count goes up for every piece written, trashed ones too — this is what the
+ * formula earned, not what it was tried on.
+ */
+export async function hookPostCounts(): Promise<Record<string, number>> {
+  const { data, error } = await supabaseAdmin().from("ins_content").select("hook_template_id")
+    .not("hook_template_id", "is", null).in("publish_state", ["scheduled", "published"]).limit(5000);
+  if (error) throw new Error(error.message);
+  const counts: Record<string, number> = {};
+  for (const r of (data ?? []) as { hook_template_id: string }[]) counts[r.hook_template_id] = (counts[r.hook_template_id] ?? 0) + 1;
+  return counts;
+}
+
 export async function getHookTemplate(id: string): Promise<HookTemplate | null> {
   const { data, error } = await supabaseAdmin().from("ins_hook_templates").select(HOOK_COLUMNS).eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);

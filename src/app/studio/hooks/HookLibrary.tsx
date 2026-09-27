@@ -11,11 +11,15 @@ import { CheckIcon, SearchIcon } from "../ui/icons";
  * "ใช้อันนี้" opens the workbench with the formula already chosen. Formulas drawn from the
  * owner's own posts say which hook they came from, so a good one can be traced back to the
  * post that earned it.
+ *
+ * The number that leads is how many of its pieces went up on a Page (`posted`), and the list
+ * is in that order: the count it had before went up for every piece written with it, the
+ * trashed ones too, so the formulas that were tried most sat above the ones that worked.
  */
 
 const WEEK = 7 * 24 * 60 * 60_000;
 
-export function HookLibrary({ items }: { items: HookTemplate[] }) {
+export function HookLibrary({ items, posted }: { items: HookTemplate[]; posted: Record<string, number> }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<HookCategory | "ALL">("ALL");
   const [copied, setCopied] = useState<string | null>(null);
@@ -27,10 +31,18 @@ export function HookLibrary({ items }: { items: HookTemplate[] }) {
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return items.filter((h) =>
-      (category === "ALL" || h.category === category)
-      && (!q || h.template.toLowerCase().includes(q) || (h.exampleHook ?? "").toLowerCase().includes(q)));
-  }, [items, query, category]);
+    return items
+      .filter((h) =>
+        (category === "ALL" || h.category === category)
+        && (!q || h.template.toLowerCase().includes(q) || (h.exampleHook ?? "").toLowerCase().includes(q)))
+      // what went up first, then what was written most; the list arrives in the second order already
+      .sort((a, b) => (posted[b.id] ?? 0) - (posted[a.id] ?? 0));
+  }, [items, query, category, posted]);
+  const inCategory = useMemo(() => {
+    const n = new Map<HookCategory, number>();
+    for (const h of items) n.set(h.category, (n.get(h.category) ?? 0) + 1);
+    return n;
+  }, [items]);
 
   async function copy(h: HookTemplate) {
     try {
@@ -60,7 +72,7 @@ export function HookLibrary({ items }: { items: HookTemplate[] }) {
         <button type="button" aria-pressed={category === "ALL"} onClick={() => setCategory("ALL")} className={chipCls(category === "ALL")}>ทั้งหมด {items.length}</button>
         {HOOK_CATEGORIES.map((c) => (
           <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)} className={chipCls(category === c)}>
-            {HOOK_CATEGORY_LABEL[c]}
+            {HOOK_CATEGORY_LABEL[c]} {inCategory.get(c) ?? 0}
           </button>
         ))}
       </div>
@@ -81,7 +93,10 @@ export function HookLibrary({ items }: { items: HookTemplate[] }) {
                 {h.exampleHook && <p className="mt-0.5 truncate text-xs text-[var(--ct-mute)]">จากโพสต์: {h.exampleHook}</p>}
               </div>
               <span className="shrink-0 rounded bg-[var(--ct-ground)] px-2 py-1 text-xs text-[var(--ct-mute)]">{HOOK_CATEGORY_LABEL[h.category]}</span>
-              <span className="w-14 shrink-0 text-right text-sm tabular-nums text-[var(--ct-accent)]" title="จำนวนครั้งที่ใช้">{h.useCount}×</span>
+              <span className="w-20 shrink-0 text-right leading-tight" title="ลงเพจหรือตั้งเวลาแล้ว · เขียนด้วยสูตรนี้ทั้งหมด">
+                <span className={`block text-sm tabular-nums ${posted[h.id] ? "font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`}>ลงเพจ {posted[h.id] ?? 0}</span>
+                <span className="block text-xs tabular-nums text-[var(--ct-mute)]">เขียน {h.useCount}</span>
+              </span>
               <Link href={`/studio?hook=${h.id}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)]">ใช้อันนี้</Link>
               <button type="button" onClick={() => copy(h)} aria-live="polite" className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">
                 {copied === h.id ? <><CheckIcon className="size-4 text-[var(--ct-accent)]" />คัดลอกแล้ว</> : "คัดลอก"}

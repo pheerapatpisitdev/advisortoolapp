@@ -1,4 +1,4 @@
-import { listHookTemplates } from "@/lib/content/store";
+import { hookPostCounts, listHookTemplates } from "@/lib/content/store";
 import { HookLibrary } from "./HookLibrary";
 
 export const dynamic = "force-dynamic";
@@ -10,14 +10,17 @@ export const metadata = {
 
 // the menu, the palette and the tabs come from ../layout.tsx
 export default async function HooksPage() {
-  const hooks = await listHookTemplates().catch(() => []);
+  const [hooks, posted] = await Promise.all([
+    listHookTemplates().catch(() => []),
+    hookPostCounts().catch(() => ({} as Record<string, number>)),
+  ]);
   return (
     <div className="max-w-3xl">
       <h1 className="text-xl font-semibold">คลังสูตรประโยคเปิด</h1>
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         สูตรที่มีช่อง [ ] ให้ AI เติมตามแบบประกัน เริ่มต้น 30 สูตร และเพิ่มเองทุกครั้งที่กด “ใช้จริง” กับชิ้นงาน
       </p>
-      <HookLibrary items={hooks} />
+      <HookLibrary items={hooks} posted={posted} />
     </div>
   );
 }
