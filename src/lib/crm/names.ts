@@ -17,6 +17,43 @@ import { pageToken } from "@/lib/facebook/connection";
  */
 
 const GRAPH = "https://graph.facebook.com/v23.0";
+const LINE_PROFILE = "https://api.line.me/v2/bot/profile";
+
+/** a LINE user id: "U" and 32 hex. Facebook can only refuse one, so it is never sent there. */
+const LINE_ID = /^U[0-9a-f]{32}$/;
+
+/**
+ * Who a lead is, asked of the service they wrote on. A LINE customer's id went to Facebook's
+ * Graph API with a Page's token — the lead's page_id for LINE is the bot's own id — and every
+ * one came back "Object with ID 'U…' does not exist" (runtime log, 2026-09-26).
+ */
+export async function profileFor(channel: string, pageId: string | null, id: string): Promise<Profile | null> {
+  if (channel === "line") return profileOnLine(id);
+  if (LINE_ID.test(id)) return null;
+  return profileOn(pageId, id);
+}
+
+/** A LINE customer's display name and picture, from the account they wrote to. Never throws. */
+async function profileOnLine(userId: string): Promise<Profile | null> {
+  const key = `line:${userId}`;
+  if (seen.has(key)) return seen.get(key)!;
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token || !LINE_ID.test(userId)) return null;
+  try {
+    const res = await fetch(`${LINE_PROFILE}/${userId}`, { cache: "no-store", headers: { authorization: `Bearer ${token}` } });
+    const body = (await res.json().catch(() => ({}))) as { displayName?: string; pictureUrl?: string; message?: string };
+    if (res.ok && body.displayName) {
+      const profile = { name: body.displayName, ...(body.pictureUrl ? { picture: body.pictureUrl } : {}) };
+      seen.set(key, profile);
+      return profile;
+    }
+    // a customer who blocked the account, or one it never had as a friend, has no profile to give
+    if (res.status !== 404) console.error(`อ่านชื่อลูกค้า LINE ไม่ได้: ${res.status} ${body.message ?? ""}`);
+  } catch (e) {
+    console.error("อ่านชื่อลูกค้า LINE ไม่สำเร็จ:", e);
+  }
+  return null;
+}
 
 export interface Profile {
   name: string;
@@ -69,6 +106,14 @@ export async function profileOn(pageId: string | null, psid: string): Promise<Pr
 /** Forget what was borrowed. Called between renders in tests. */
 export function forgetProfiles(): void {
   seen.clear();
+}
+
+/**
+ * Where "เปิดแชท" goes for a lead: LINE's own chat for a LINE customer (it names no thread by
+ * user id, so its inbox), and the Page's thread in Meta Business Suite otherwise.
+ */
+export function chatLink(channel: string, pageId: string | null, id: string | null): string {
+  return channel === "line" ? "https://chat.line.biz/" : inboxLink(pageId, id);
 }
 
 /**

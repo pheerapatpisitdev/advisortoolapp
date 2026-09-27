@@ -6,7 +6,7 @@ import {
   READ_FAILED, adNames, aiSpendSince, conversationsSince, markAnswered, openQuestions,
   type OpenQuestions,
 } from "@/lib/crm/load";
-import { inboxLink, profileOn } from "@/lib/crm/names";
+import { chatLink, profileFor } from "@/lib/crm/names";
 import type { LeadRow, Range, Summary } from "@/lib/crm/types";
 
 /** Everything `/admin/crm` shows, read once. */
@@ -163,14 +163,15 @@ async function present(raw: RawLead[], ads: Map<string, string>, withNames: bool
       botStopped: stopped.has(`${channel}:${user_hash}`),
       ...(rest.ad_id && ads.has(rest.ad_id) ? { adName: ads.get(rest.ad_id) } : {}),
     };
-    if (!lead.has_psid) return { ...lead, reachable: false, chatUrl: inboxLink(null, null) };
+    if (!lead.has_psid) return { ...lead, reachable: false, chatUrl: chatLink(channel, null, null) };
     const psid = await psidFor(lead.id);
-    if (!psid) return { ...lead, reachable: false, chatUrl: inboxLink(null, null) };
-    const profile = withNames ? await profileOn(lead.page_id, psid) : null;
+    if (!psid) return { ...lead, reachable: false, chatUrl: chatLink(channel, null, null) };
+    // asked of the service the customer wrote on: a LINE id means nothing to Facebook
+    const profile = withNames ? await profileFor(channel, lead.page_id, psid) : null;
     return {
       ...lead,
       reachable: true,
-      chatUrl: inboxLink(lead.page_id, psid),
+      chatUrl: chatLink(channel, lead.page_id, psid),
       ...(profile?.name ? { name: profile.name } : {}),
       ...(profile?.picture ? { picture: profile.picture } : {}),
     };
