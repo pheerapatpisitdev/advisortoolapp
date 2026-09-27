@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stickerAt, stickerRect, type Rect } from "@/app/studio/claim/stickers";
+import { emojiRow, stickerAt, stickerRect, type Rect } from "@/app/studio/claim/stickers";
 
 /** Is the point inside the rounded rectangle? The corners are quarter circles of r.radius. */
 function inside(r: Rect, px: number, py: number): boolean {
@@ -31,10 +31,33 @@ describe("a sticker covers its whole box", () => {
     }
   });
 
-  it("takes turns in colour and face, so neighbours differ", () => {
+  it("takes turns in colour and emoji, so neighbours differ", () => {
     for (let i = 0; i < 10; i++) {
       expect(stickerAt(i).fill).not.toBe(stickerAt(i + 1).fill);
-      expect(stickerAt(i).face).not.toBe(stickerAt(i + 1).face);
+      expect(stickerAt(i).pair).not.toEqual(stickerAt(i + 1).pair);
     }
+  });
+});
+
+describe("what a sticker says", () => {
+  const s = stickerAt(0);
+
+  it("is emoji only — no words on the customer's papers", () => {
+    for (let i = 0; i < 8; i++) {
+      const { text } = emojiRow(stickerAt(i), 400, 40);
+      expect(text).not.toMatch(/[\u0E00-\u0E7Fa-z]/i);
+    }
+  });
+
+  it("runs a row of the pair along a name line, and one on a small square", () => {
+    const line = emojiRow(s, 400, 40);
+    expect([...line.text].length).toBeGreaterThan(4);
+    expect(line.text.startsWith(s.pair[0] + s.pair[1])).toBe(true);
+    expect([...emojiRow(s, 40, 40).text]).toEqual([s.pair[0]]);
+  });
+
+  it("fits the pill's height, and never shrinks to nothing on a sliver", () => {
+    expect(emojiRow(s, 400, 40).size).toBeLessThanOrEqual(40 * 0.62);
+    expect(emojiRow(s, 3, 2).size).toBeGreaterThanOrEqual(4);
   });
 });

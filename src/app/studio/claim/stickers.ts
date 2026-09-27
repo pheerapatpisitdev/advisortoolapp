@@ -3,7 +3,10 @@ import type { Box } from "@/lib/content/claim";
 
 /**
  * What covers a name on a claim paper (owner, 2026-09-25: "สติ๊กเกอร์น่ารัก" in place of black
- * bars). Each is an opaque pastel pill with a face and a word, taking turns down the paper.
+ * bars). Each is an opaque pastel pill carrying a row of emoji — an animal and its little
+ * friend, taking turns across it — with a different pair and colour down the paper. It carried
+ * a word too ("ความลับนะ", "ส่วนตัวจ้า") until the owner asked for emoji only (2026-09-27): the
+ * words read as captions on someone's papers, the emoji read as stickers.
  *
  * Still a cover first: the pill is laid a little wider and taller than the box, by enough that
  * its rounded corners reach past the box's own corners, so nothing under it shows at the edge.
@@ -13,27 +16,41 @@ import type { Box } from "@/lib/content/claim";
 /** the pastel poster tones; their colours live in card-theme.ts with every other drawn colour */
 const TONES = ["blush", "sunny", "sky", "mint", "lavender"] as const;
 
-const FACES = [
-  { face: "🙈", word: "ความลับนะ" },
-  { face: "⭐", word: "ส่วนตัวจ้า" },
-  { face: "💖", word: "ปิดไว้ก่อน" },
-  { face: "🔒", word: "ข้อมูลส่วนตัว" },
-  { face: "🌸", word: "ขอเก็บไว้นะ" },
-] as const;
+/** an animal and its little friend; a row alternates the two */
+const PAIRS: readonly (readonly [string, string])[] = [
+  ["🐰", "🌸"],
+  ["🐻", "💛"],
+  ["🐱", "💕"],
+  ["🐥", "⭐"],
+  ["🙈", "💖"],
+  ["🐼", "🎀"],
+  ["🦄", "🌈"],
+  ["🐶", "🐾"],
+];
 
 export interface Sticker {
   fill: string;
-  ink: string;
   edge: string;
-  face: string;
-  word: string;
+  pair: readonly [string, string];
 }
 
-/** the i-th sticker on a paper: tones and faces step at different paces, so neighbours differ in both */
+/** the i-th sticker on a paper: tones and pairs step at different paces, so neighbours differ in both */
 export function stickerAt(i: number): Sticker {
   const t = POSTER_THEMES[TONES[i % TONES.length]];
-  const f = FACES[(i * 2) % FACES.length];
-  return { fill: t.from, ink: t.headline, edge: t.to, face: f.face, word: f.word };
+  return { fill: t.from, edge: t.to, pair: PAIRS[(i * 3) % PAIRS.length] };
+}
+
+/**
+ * The emoji laid across a pill w×h: as large as the pill's height allows, as many as fit the
+ * width at that size — one on a small square, a row of them along a name — the pair taking
+ * turns, and a single emoji never smaller than it can be seen.
+ */
+export function emojiRow(s: Sticker, w: number, h: number): { text: string; size: number } {
+  const size = Math.max(4, Math.min(h * 0.62, w * 0.7));
+  // an emoji is about as wide as it is tall; a little air between them
+  const count = Math.max(1, Math.min(12, Math.floor((w * 0.9) / (size * 1.2))));
+  const text = Array.from({ length: count }, (_, k) => s.pair[k % 2]).join("");
+  return { text, size };
 }
 
 export interface Rect {
@@ -60,7 +77,10 @@ export function stickerRect(b: Box, W: number, H: number): Rect {
   return { x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad, radius };
 }
 
-/** The pill burnt into a canvas. `font` is the page's own family, so Thai draws as the page shows it. */
+/** the colour emoji faces of each system, ahead of the page's own family */
+const EMOJI_FONTS = `"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"`;
+
+/** The pill burnt into a canvas. `font` is the page's own family, behind the emoji faces. */
 export function drawSticker(g: CanvasRenderingContext2D, b: Box, i: number, W: number, H: number, font: string) {
   const s = stickerAt(i);
   const r = stickerRect(b, W, H);
@@ -73,23 +93,17 @@ export function drawSticker(g: CanvasRenderingContext2D, b: Box, i: number, W: n
   g.strokeStyle = s.edge;
   g.stroke();
 
-  // the face and the word, then two faces, then one: the first that fits at a readable size
-  const fits = (label: string, size: number) => {
-    g.font = `600 ${size}px ${font}`;
-    return g.measureText(label).width <= r.w * 0.86;
-  };
-  const full = r.h * 0.56;
-  let label: string = s.face;
-  let size = Math.min(full, r.w * 0.6);
-  for (const option of [`${s.face} ${s.word}`, `${s.face}${s.face}`]) {
-    let at = full;
-    while (at > full * 0.7 && !fits(option, at)) at *= 0.94;
-    if (fits(option, at)) { label = option; size = at; break; }
+  const row = emojiRow(s, r.w, r.h);
+  let size = row.size;
+  g.font = `${size}px ${EMOJI_FONTS}, ${font}`;
+  // the estimate is the device's to correct: a face drawn wider than guessed is shrunk to fit
+  const width = g.measureText(row.text).width;
+  if (width > r.w * 0.92) {
+    size *= (r.w * 0.92) / width;
+    g.font = `${size}px ${EMOJI_FONTS}, ${font}`;
   }
-  g.font = `600 ${size}px ${font}`;
-  g.fillStyle = s.ink;
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + size * 0.04);
+  g.fillText(row.text, r.x + r.w / 2, r.y + r.h / 2 + size * 0.05);
   g.restore();
 }
