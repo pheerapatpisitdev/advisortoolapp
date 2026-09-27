@@ -44,6 +44,9 @@ HEADER = """-- advisortool on UnitClub: every table, view and function it owned 
 -- stood on 2026-09-27, rebuilt from pg_dump by scripts/unitclub/build-baseline.py.
 -- The migrations dated before this file describe DATA2.0's history and are not replayed here.
 
+-- functions are created in name order and some call ones that come later (pg_dump does the same)
+set check_function_bodies = false;
+
 create extension if not exists vector with schema extensions;
 create extension if not exists pgroonga with schema extensions;
 """
