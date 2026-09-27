@@ -7,9 +7,9 @@ import { contentSpend, contentWorkbench } from "./actions";
 import { ContentStudio } from "./ContentStudio";
 
 /**
- * The workbench and everything it loads, for the two doors to it: /content inside the menu,
- * and /maryjane on its own (the owner asked for a page with nothing else on it, 2026-09-24).
- * Each page still exports its own `maxDuration`, because the actions run as the page.
+ * The workbench and everything it loads, for /studio. The page exports its own `maxDuration`,
+ * because the actions run as the page. (/maryjane, the workbench with nothing around it, was
+ * a second door to this until the owner took it out on 2026-09-27; it redirects here.)
  */
 export async function StudioPage({ hook, open }: { hook?: string; open?: string }) {
   const [initial, used, hooks, spend, people] = await Promise.all([

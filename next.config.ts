@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/content", destination: "/studio", permanent: true },
       { source: "/content/:path*", destination: "/studio/:path*", permanent: true },
+      // the workbench alone, without the menu, until the owner took it out (2026-09-27)
+      { source: "/maryjane", destination: "/studio", permanent: true },
     ];
   },
 };
