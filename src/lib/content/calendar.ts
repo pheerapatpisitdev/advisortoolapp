@@ -205,6 +205,50 @@ export function groupByDay(items: BoardItem[]): Map<string, BoardItem[]> {
   return byDay;
 }
 
+/* -------------------------------- the week -------------------------------- */
+
+/** The seven day keys, Monday to Sunday, of the week a day falls in. */
+export function weekOf(day: string): string[] {
+  const [y, m, d] = day.split("-").map(Number);
+  const back = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7; // Monday is 0
+  let at = keyOfUtcMs(Date.UTC(y, m - 1, d) - back * DAY_MS);
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) { days.push(at); at = nextDayKey(at); }
+  return days;
+}
+
+export interface WeekSummary {
+  days: string[];
+  published: number;
+  scheduled: number;
+  failed: number;
+  /** today and the days after it this week with nothing up or held */
+  emptyAhead: string[];
+}
+
+/**
+ * This week at a glance, over the board's pieces: what went up, what is held, what did not go
+ * up, and the days still to come with nothing on them — the gaps to fill.
+ */
+export function weekSummary(items: BoardItem[], today: string): WeekSummary {
+  const days = weekOf(today);
+  const inWeek = items.filter((i) => i.day && days.includes(i.day));
+  const count = (s: BoardItem["status"]) => inWeek.filter((i) => i.status === s).length;
+  const covered = new Set(inWeek.filter((i) => i.status === "scheduled" || i.status === "published" || i.status === "posting").map((i) => i.day));
+  return {
+    days,
+    published: count("published"),
+    scheduled: count("scheduled"),
+    failed: count("failed"),
+    emptyAhead: days.filter((d) => d >= today && !covered.has(d)),
+  };
+}
+
+/** A day a post can still be put on: today up to the last day Facebook will hold one for. */
+export function fillable(day: string, today: string): boolean {
+  return day >= today && day <= lastDropDay(today);
+}
+
 /** The rail: what has no day yet, a post that failed first — it was meant to be up already. */
 export function unscheduled(items: BoardItem[]): BoardItem[] {
   const rail = items.filter((i) => i.day === null);

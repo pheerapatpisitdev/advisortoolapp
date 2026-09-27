@@ -24,7 +24,8 @@ import { ClaimTools } from "./claim/ClaimTools";
 import { RecruitTools } from "./recruit/RecruitTools";
 import { CLAIM_HREF, CLAIM_NAME } from "@/lib/content/claim";
 import { RECRUIT_HREF, RECRUIT_NAME } from "@/lib/content/recruit";
-import { CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
+import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
+import { thaiDayLabel } from "@/lib/content/calendar";
 import { PlainText } from "./ui/editor-fields";
 import { FormatPicker, FormSection, LoopToggle, PictureFold, PressBar, pictureSummary, useLoop } from "./ui/form-parts";
 
@@ -53,6 +54,8 @@ interface Props {
   spend: { spent: number; cap: number };
   /** a piece to open in the editor on arrival, from the calendar's แก้ไข */
   initialOpen?: ContentItem | null;
+  /** the calendar sent the owner here to write for this day; the editor's ลงเพจ box offers it */
+  forDay?: string | null;
   /** the people library, for ใส่บุคคลในภาพ */
   people: PersonOption[];
 }
@@ -176,7 +179,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
 }
 
-export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people }: Props) {
+export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay }: Props) {
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
@@ -263,7 +266,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
    * screens down under the whole form. Open when there is nothing to read, or a formula was
    * brought from the library to write with. (A desk shows it whatever this says.)
    */
-  const [formOpen, setFormOpen] = useState(() => Boolean(initialHook) || (initial.items.length === 0 && !initialOpen));
+  const [formOpen, setFormOpen] = useState(() => Boolean(initialHook) || Boolean(initialDay) || (initial.items.length === 0 && !initialOpen));
+  /** the day from the calendar, until the owner puts it away */
+  const [forDay, setForDay] = useState(initialDay ?? null);
   const formId = useId();
   /** the ใช้จริง rail below xl shows five until asked for the rest */
   const [allUsed, setAllUsed] = useState(false);
@@ -979,6 +984,19 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
         {/* ---------------------------------- pieces ---------------------------------- */}
         <section ref={pieces} className="studio-desk @container min-w-0 scroll-mt-4 space-y-3 rounded-xl border border-[var(--ct-hair)] p-3 lg:row-span-2 lg:min-h-[70dvh] lg:self-stretch xl:row-span-1">
+          {forDay && (
+            <div className="flex items-center gap-2 rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-soft)] py-1 pl-3 pr-1 text-sm text-[var(--ct-accent)]">
+              <CalendarIcon className="size-4 shrink-0" />
+              <p className="min-w-0 flex-1">เขียนสำหรับ <b>{thaiDayLabel(forDay)}</b> — เปิดชิ้นงานแล้วช่อง “ลงเพจ” จะมีวันนี้ให้เลือก</p>
+              <button
+                type="button" aria-label="ไม่ต้องใช้วันนี้" title="ไม่ต้องใช้วันนี้"
+                onClick={() => { setForDay(null); dropParam("day"); }}
+                className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-[var(--ct-panel)]"
+              >
+                <XIcon className="size-4" />
+              </button>
+            </div>
+          )}
           {editingItem ? (
             <>
               {pending && (
@@ -999,6 +1017,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 onPublished={published}
                 onDirtyChange={setEditorDirty}
                 onClose={closeEditor}
+                suggestDay={forDay}
               />
             </>
           ) : (

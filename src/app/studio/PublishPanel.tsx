@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { postLink } from "@/lib/facebook/publish";
-import { bangkokAt, dayKey, timeOfDay } from "@/lib/content/calendar";
+import { bangkokAt, dayKey, thaiDayLabel, timeOfDay } from "@/lib/content/calendar";
 import { publishView, quickTimes, thaiWhen } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
 import { cancelScheduled, publishPiece, publishSetup, type PublishResult, type PublishSetup } from "./publish";
@@ -34,6 +34,8 @@ interface Props {
   onPublished: (item: ContentItem) => void;
   /** the photograph is still being drawn: what went up now would be the poster without it */
   drawing?: boolean;
+  /** a day the calendar sent the owner to write for: its noon and evening come first, noon chosen */
+  suggestDay?: string | null;
 }
 
 /**
@@ -48,17 +50,25 @@ const MIN_AHEAD_MS = 15 * 60_000;
 const MAX_AHEAD_MS = 30 * 24 * 60 * 60_000;
 
 type Quick = { label: string; iso: string };
-const quickOptions = (): Quick[] => quickTimes().map((t) => ({ label: t.label, iso: t.at.toISOString() }));
+const quickOptions = (day?: string | null): Quick[] => {
+  const planned = day
+    ? ["12:00", "19:30"]
+      .map((t) => ({ label: `${thaiDayLabel(day)} ${t}`, iso: bangkokAt(day, t).toISOString() }))
+      .filter((q) => new Date(q.iso).getTime() - Date.now() >= MIN_AHEAD_MS)
+    : [];
+  const quick = quickTimes().map((t) => ({ label: t.label, iso: t.at.toISOString() }));
+  return [...planned, ...quick.filter((q) => !planned.some((p) => p.iso === q.iso))];
+};
 
 const button = "min-h-11 rounded-lg px-4 py-2 text-sm disabled:opacity-50";
 
-export function PublishPanel({ item, hook, beforePublish, onPublished, drawing }: Props) {
+export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, suggestDay }: Props) {
   const [setup, setSetup] = useState<PublishSetup | null>(null);
   const [pageId, setPageId] = useState("");
-  // "now", "custom", or the ISO time of one of the quick options
-  const [when, setWhen] = useState("now");
+  // "now", "custom", or the ISO time of one of the quick options — the calendar's day when it sent one
+  const [times, setTimes] = useState<Quick[]>(() => quickOptions(suggestDay));
+  const [when, setWhen] = useState(() => (suggestDay && times[0]?.label.startsWith(thaiDayLabel(suggestDay)) ? times[0].iso : "now"));
   const [custom, setCustom] = useState("");
-  const [times, setTimes] = useState<Quick[]>(quickOptions);
   const [busy, setBusy] = useState<"send" | "cancel" | null>(null);
   const [note, setNote] = useState<NoteState>(null);
 
@@ -80,13 +90,13 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing }
    * still ahead (or to picking one's own), and says so; returns whether the choice stood.
    */
   const refreshTimes = useCallback((): boolean => {
-    const fresh = quickOptions();
+    const fresh = quickOptions(suggestDay);
     setTimes(fresh);
     if (when === "now" || when === "custom" || fresh.some((t) => t.iso === when)) return true;
     setWhen(fresh[0]?.iso ?? "custom");
     setNote(errorNote("เวลาที่เลือกไว้ผ่านไปแล้ว — เลือกเวลาใหม่อีกครั้ง"));
     return false;
-  }, [when]);
+  }, [when, suggestDay]);
 
   // back at the tab after a while: the evening slot may have gone — while there is a time to
   // choose. Once held or posted there is none, and asking said the held time had passed.

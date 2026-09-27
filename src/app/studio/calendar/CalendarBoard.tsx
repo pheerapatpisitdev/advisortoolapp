@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import {
-  canDrag, canDropOnDay, dropRejection, groupByDay, repeats, thaiDayLabel, todayKey, unscheduled,
+  canDrag, canDropOnDay, dropRejection, fillable, groupByDay, repeats, thaiDayLabel, todayKey, unscheduled, weekSummary,
   DROP_SLOTS, DROP_TIME, type BoardItem, type MonthCell,
 } from "@/lib/content/calendar";
 import { postLink } from "@/lib/facebook/publish";
@@ -116,6 +116,8 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
   const byDay = groupByDay(board);
   const waiting = unscheduled(board);
   const repeated = repeats(board);
+  // this week at a glance, when the month on screen holds it
+  const week = cells.some((c) => c.day === today) ? weekSummary(board, today) : null;
 
   const run: Run = async (act) => {
     const ok: Confirmed = { confirmNumbers: false, force: false };
@@ -262,6 +264,8 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
   }
 
   const sheetItems = !sheet ? [] : sheet.kind === "day" ? (byDay.get(sheet.day) ?? []) : board.filter((i) => i.id === sheet.id);
+  // a day still ahead can be filled from its sheet: what waits, or a new post written for it
+  const sheetFill = sheet?.kind === "day" && fillable(sheet.day, today) ? sheet.day : null;
   const sheetTitle = !sheet ? "" : sheet.kind === "day" ? thaiDayLabel(sheet.day) : "รอตั้งเวลา";
 
   return (
@@ -273,6 +277,30 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
         <p className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] p-3 text-sm text-[var(--ct-warn-ink)]">
           ยังไม่ได้อนุญาตให้ระบบโพสต์ลงเพจ — ไปเชื่อมเพจใหม่ที่ <Link href="/admin/messenger" className="font-medium underline">หน้าตั้งค่าเพจ</Link>
         </p>
+      )}
+
+      {week && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] px-3 py-2 text-sm">
+          <span className="font-medium">สัปดาห์นี้</span>
+          <span className="text-[var(--ct-mute)]">ลงแล้ว <b className="tabular-nums text-[var(--ct-ink)]">{week.published}</b></span>
+          <span className="text-[var(--ct-mute)]">ตั้งเวลา <b className="tabular-nums text-[var(--ct-ink)]">{week.scheduled}</b></span>
+          {week.failed > 0 && <span className="font-medium text-[var(--ct-alert)]">ไม่สำเร็จ {week.failed}</span>}
+          {week.emptyAhead.length > 0 ? (
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[var(--ct-warn-ink)]">วันว่าง {week.emptyAhead.length}:</span>
+              {week.emptyAhead.map((d) => (
+                <button
+                  key={d} type="button" onClick={(e) => openSheet({ kind: "day", day: d }, e.timeStamp)}
+                  className="inline-flex min-h-9 items-center rounded-full border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-2.5 text-xs text-[var(--ct-warn-ink)] hover:brightness-95"
+                >
+                  {thaiDayLabel(d).split("ที่")[0]} {Number(d.slice(-2))}
+                </button>
+              ))}
+            </span>
+          ) : (
+            <span className="text-[var(--ct-mute)]">ไม่มีวันว่างที่เหลือ</span>
+          )}
+        </div>
       )}
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
@@ -297,8 +325,8 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
                 <div
                   key={cell.day}
                   data-day={cell.day}
-                  onClick={(e) => { if (dayItems.length > 0) openSheet({ kind: "day", day: cell.day }, e.timeStamp); }}
-                  className={`min-h-12 p-0.5 transition-colors sm:min-h-24 sm:p-2 lg:min-h-36 ${isTarget && accepts ? "bg-[var(--ct-soft)]" : "bg-[var(--ct-panel)]"} ${cell.inMonth ? "" : "opacity-50"} ${drag && !accepts ? "opacity-40" : ""}`}
+                  onClick={(e) => { if (dayItems.length > 0 || fillable(cell.day, today)) openSheet({ kind: "day", day: cell.day }, e.timeStamp); }}
+                  className={`min-h-12 p-0.5 transition-colors sm:min-h-24 sm:p-2 lg:min-h-36 ${!drag && dayItems.length === 0 && fillable(cell.day, today) ? "cursor-pointer hover:bg-[var(--ct-ground)]" : ""} ${isTarget && accepts ? "bg-[var(--ct-soft)]" : "bg-[var(--ct-panel)]"} ${cell.inMonth ? "" : "opacity-50"} ${drag && !accepts ? "opacity-40" : ""}`}
                 >
                   {/* a phone: the chips would be a finger's width, so the day is the button and says how many */}
                   <div className="sm:hidden">
@@ -312,6 +340,14 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
                         <span className={`min-w-5 rounded-full px-1 text-center text-xs font-medium leading-5 ${dayItems.some((i) => i.status === "failed") ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]"}`}>
                           {dayItems.length}
                         </span>
+                      </button>
+                    ) : fillable(cell.day, today) ? (
+                      <button
+                        type="button" aria-label={`${thaiDayLabel(cell.day)} · ยังไม่มีโพสต์ — เพิ่มโพสต์`}
+                        onClick={(e) => { e.stopPropagation(); openSheet({ kind: "day", day: cell.day }, e.timeStamp); }}
+                        className="flex min-h-11 w-full justify-center rounded-md hover:bg-[var(--ct-ground)]"
+                      >
+                        {dayNumber}
                       </button>
                     ) : (
                       <div className="flex min-h-11 justify-center">{dayNumber}</div>
@@ -376,6 +412,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
         <DaySheet
           title={sheetTitle} items={sheetItems} errors={errors} today={today} pages={usable} pageId={pageId} onPage={choosePage}
           run={run} onClose={() => setSheet(null)}
+          fill={sheetFill ? { day: sheetFill, waiting, place: (item) => tryMove(item, sheetFill) } : undefined}
         />
       )}
 
@@ -464,7 +501,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), select:not([disabled]), inpu
  * Tab goes round inside it, the page behind does not scroll, and the focus goes back to the
  * card or day it was opened from.
  */
-function DaySheet({ title, items, errors, today, pages, pageId, onPage, run, onClose }: {
+function DaySheet({ title, items, errors, today, pages, pageId, onPage, run, onClose, fill }: {
   title: string;
   items: BoardItem[];
   errors: Record<string, string>;
@@ -474,6 +511,8 @@ function DaySheet({ title, items, errors, today, pages, pageId, onPage, run, onC
   onPage: (id: string) => void;
   run: Run;
   onClose: () => void;
+  /** a day still ahead: what waits can be put on it, or a new post written for it */
+  fill?: { day: string; waiting: BoardItem[]; place: (item: BoardItem) => void };
 }) {
   const box = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
@@ -521,14 +560,70 @@ function DaySheet({ title, items, errors, today, pages, pageId, onPage, run, onC
           </button>
         </div>
         {items.length === 0 ? (
-          <p className="text-sm text-[var(--ct-mute)]">วันนี้ยังไม่มีโพสต์</p>
+          !fill && <p className="text-sm text-[var(--ct-mute)]">วันนี้ยังไม่มีโพสต์</p>
         ) : (
           <ul className="space-y-4">
             {items.map((item) => <SheetItem key={item.id} item={item} error={errors[item.id]} today={today} pages={pages} pageId={pageId} onPage={onPage} run={run} onDone={onClose} />)}
           </ul>
         )}
+        {fill && <FillDay fill={fill} pages={pages} pageId={pageId} onPage={onPage} empty={items.length === 0} />}
       </div>
     </div>
+  );
+}
+
+/**
+ * A day still ahead, filled from its own sheet. Dragging a card from the rail onto a day was the
+ * only way, which a phone makes hard; here each waiting post has วางวันนี้ (the same drop: the
+ * Page's first free time that day, see dropTime), and a post can be written for the day —
+ * Studio then offers the day in its ลงเพจ box.
+ */
+function FillDay({ fill, pages, pageId, onPage, empty }: {
+  fill: { day: string; waiting: BoardItem[]; place: (item: BoardItem) => void };
+  pages: PublishSetup["pages"];
+  pageId: string;
+  onPage: (id: string) => void;
+  empty: boolean;
+}) {
+  const ready = fill.waiting.filter((i) => !i.blocked);
+  return (
+    <section className={`space-y-3 ${empty ? "" : "mt-5 border-t border-[var(--ct-hair)] pt-4"}`}>
+      <h3 className="text-sm font-medium">{empty ? "วันนี้ยังไม่มีโพสต์ — เพิ่มโพสต์" : "เพิ่มโพสต์ในวันนี้"}</h3>
+      {ready.length > 0 && (
+        <>
+          {pages.length > 1 && (
+            <label className="block">
+              <span className="mb-1 block text-xs text-[var(--ct-mute)]">ลงเพจ</span>
+              <select value={pageId} onChange={(e) => onPage(e.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm">
+                {pages.map((p) => <option key={p.pageId} value={p.pageId}>{p.pageName}</option>)}
+              </select>
+            </label>
+          )}
+          <ul className="space-y-2">
+            {ready.map((item) => (
+              <li key={item.id} className="flex items-center gap-3 rounded-lg border border-[var(--ct-hair)] p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- the poster route's own image */}
+                <img src={item.imageUrl} alt="" loading="lazy" className="size-12 shrink-0 rounded object-cover" />
+                <p className="line-clamp-2 min-w-0 flex-1 text-sm">{item.hook}</p>
+                <button
+                  type="button" onClick={() => fill.place(item)}
+                  className="min-h-11 shrink-0 rounded-lg bg-[var(--ct-solid)] px-3 text-sm font-medium text-[var(--ct-solid-ink)]"
+                >
+                  วางวันนี้
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-[var(--ct-mute)]">ลงเวลา {DROP_TIME} ถ้าเพจนั้นมีโพสต์ {DROP_TIME} แล้วหรือเลยเวลาแล้ว จะไป {DROP_SLOTS[1]}</p>
+        </>
+      )}
+      <Link
+        href={`/studio?day=${fill.day}`}
+        className="flex min-h-11 items-center justify-center rounded-lg border border-[var(--ct-accent)] px-3 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
+      >
+        ให้ Maryjane เขียนโพสต์ใหม่สำหรับวันนี้
+      </Link>
+    </section>
   );
 }
 

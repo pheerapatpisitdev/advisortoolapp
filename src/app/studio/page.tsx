@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 // the menu, the palette and the tabs come from layout.tsx
-export default async function ContentPage({ searchParams }: { searchParams: Promise<{ hook?: string; open?: string }> }) {
-  const { hook, open } = await searchParams;
-  return <StudioPage hook={hook} open={open} />;
+export default async function ContentPage({ searchParams }: { searchParams: Promise<{ hook?: string; open?: string; day?: string }> }) {
+  const { hook, open, day } = await searchParams;
+  return <StudioPage hook={hook} open={open} day={day} />;
 }

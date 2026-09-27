@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bangkokAt, boardDay, canDropOnDay, countByPage, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
+  bangkokAt, boardDay, canDropOnDay, fillable, weekOf, weekSummary, countByPage, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
   parseMonth, repeats, shiftMonth, thaiDayLabel, thaiMonthYear, timeOfDay, unscheduled, type BoardItem,
 } from "@/lib/content/calendar";
 
@@ -135,5 +135,35 @@ describe("a post that did not go up", () => {
   it("comes first in the rail, ahead of pieces never sent", () => {
     const rail = unscheduled([item({ id: "new" }), item({ id: "missed", status: "failed" }), item({ id: "other" })]);
     expect(rail.map((i) => i.id)).toEqual(["missed", "new", "other"]);
+  });
+});
+
+describe("this week at a glance", () => {
+  it("runs Monday to Sunday around the day, across a month's end", () => {
+    expect(weekOf("2026-09-27")).toEqual(["2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27"]);
+    expect(weekOf("2026-09-30")[6]).toBe("2026-10-04");
+    expect(weekOf("2026-09-28")[0]).toBe("2026-09-28");
+  });
+
+  it("counts what went up, what is held and what failed, and names the empty days still to come", () => {
+    const today = "2026-09-24"; // a Thursday
+    const w = weekSummary([
+      item({ id: "a", day: "2026-09-22", status: "published" }),
+      item({ id: "b", day: "2026-09-24", status: "published" }),
+      item({ id: "c", day: "2026-09-26", status: "scheduled" }),
+      item({ id: "d", day: "2026-09-25", status: "failed" }),
+      item({ id: "e", day: "2026-09-29", status: "scheduled" }), // next week
+      item({ id: "f", day: null }),
+    ], today);
+    expect([w.published, w.scheduled, w.failed]).toEqual([2, 1, 1]);
+    // a failed post does not fill its day; the past is not a gap to fill
+    expect(w.emptyAhead).toEqual(["2026-09-25", "2026-09-27"]);
+  });
+
+  it("lets a post be put on today up to thirty days ahead, not before", () => {
+    expect(fillable("2026-09-25", "2026-09-25")).toBe(true);
+    expect(fillable("2026-10-24", "2026-09-25")).toBe(true);
+    expect(fillable("2026-09-24", "2026-09-25")).toBe(false);
+    expect(fillable("2026-10-25", "2026-09-25")).toBe(false);
   });
 });

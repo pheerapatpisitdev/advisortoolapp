@@ -74,9 +74,11 @@ interface Props {
    * its own back buttons, and the browser asks before the tab closes or reloads.
    */
   onDirtyChange?: (dirty: boolean) => void;
+  /** a day the calendar sent the owner to write for, offered first in the ลงเพจ box */
+  suggestDay?: string | null;
 }
 
-export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onStatus, onPublished, onClose, people, onDirtyChange }: Props) {
+export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onStatus, onPublished, onClose, people, onDirtyChange, suggestDay }: Props) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(item, productName));
   const [hook, setHook] = useState(0);
   const [fixes, setFixes] = useState<Fix[] | null>(item.flags.fixes);
@@ -474,7 +476,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
         </div>
       )}
 
-      {isPost && <PublishPanel item={item} hook={hook} beforePublish={save} onPublished={onPublished} drawing={drawing} />}
+      {isPost && <PublishPanel item={item} hook={hook} beforePublish={save} onPublished={onPublished} drawing={drawing} suggestDay={suggestDay} />}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {/* one solid button a screen: a post's is ลงเพจ above, a script's or an ad's is this */}

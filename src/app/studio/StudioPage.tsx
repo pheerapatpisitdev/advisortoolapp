@@ -5,13 +5,15 @@ import { listPeople } from "@/lib/content/people-store";
 import { getContent, listContent, listHookTemplates } from "@/lib/content/store";
 import { contentSpend, contentWorkbench } from "./actions";
 import { ContentStudio } from "./ContentStudio";
+import { fillable, todayKey } from "@/lib/content/calendar";
 
 /**
  * The workbench and everything it loads, for /studio. The page exports its own `maxDuration`,
  * because the actions run as the page. (/maryjane, the workbench with nothing around it, was
  * a second door to this until the owner took it out on 2026-09-27; it redirects here.)
  */
-export async function StudioPage({ hook, open }: { hook?: string; open?: string }) {
+/** `day`: the calendar's "เขียนโพสต์ใหม่สำหรับวันนี้" — a day still ahead the new posts are meant for */
+export async function StudioPage({ hook, open, day }: { hook?: string; open?: string; day?: string }) {
   const [initial, used, hooks, spend, people] = await Promise.all([
     contentWorkbench({ status: "draft" }),
     listContent({ status: "used" }, 20).catch(() => []),
@@ -31,6 +33,7 @@ export async function StudioPage({ hook, open }: { hook?: string; open?: string 
       initialUsed={used}
       spend={spend}
       initialOpen={opened}
+      forDay={day && /^\d{4}-\d{2}-\d{2}$/.test(day) && fillable(day, todayKey()) ? day : null}
       people={people.map((p) => ({ id: p.id, name: p.name }))}
     />
   );
