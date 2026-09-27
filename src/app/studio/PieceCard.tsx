@@ -26,9 +26,11 @@ interface Props {
   onStatus: (status: ContentItem["status"]) => void;
   onDelete: () => void;
   onCopy: () => void;
+  /** ตั้งเวลาหลายชิ้น: the card is ticked rather than opened; `why` says why it cannot be */
+  pick?: { on: boolean; toggle: () => void; why?: string };
 }
 
-export function PieceCard({ item, index, productName, busy, drawing, onEdit, onStatus, onDelete, onCopy }: Props) {
+export function PieceCard({ item, index, productName, busy, drawing, onEdit, onStatus, onDelete, onCopy, pick }: Props) {
   const blocking = (item.flags.policy ?? []).some((f) => f.severity === "block");
   const toCheck = item.flags.numbers.length + item.flags.words.length + (item.flags.policy?.length ?? 0);
   const cell = "flex min-h-11 items-center justify-center gap-1.5 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
@@ -36,8 +38,12 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
   const saver = usePictureSaver(picture, `poster-${item.id.slice(0, 8)}.png`);
 
   return (
-    <article className={`overflow-hidden rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] ${item.status === "trashed" ? "opacity-70" : ""}`}>
-      <button type="button" onClick={onEdit} className="relative block w-full text-left">
+    <article className={`overflow-hidden rounded-xl border bg-[var(--ct-panel)] ${pick?.on ? "border-[var(--ct-accent)] ring-2 ring-[var(--ct-accent)]" : "border-[var(--ct-hair)]"} ${item.status === "trashed" || pick?.why ? "opacity-70" : ""}`}>
+      <button
+        type="button" onClick={pick ? pick.toggle : onEdit} disabled={Boolean(pick?.why)}
+        {...(pick ? { role: "checkbox", "aria-checked": pick.on, "aria-label": `เลือกชิ้น ${index + 1}${pick.why ? ` (${pick.why})` : ""}` } : {})}
+        className="relative block w-full text-left"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element -- a drawn PNG from our own route, not an asset to optimise */}
         <img
           src={picture}
@@ -51,9 +57,16 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
             กำลังวาดภาพ… ราว 20–40 วินาที
           </span>
         )}
-        <span className="absolute left-3 top-3 rounded-full bg-[var(--ct-panel)] px-2.5 py-0.5 text-xs text-[var(--ct-mute)]">
-          {FORMAT_SHORT[item.format]} {index + 1}
-        </span>
+        {pick ? (
+          <span className={`absolute left-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${pick.on ? "bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]" : "bg-[var(--ct-panel)] text-[var(--ct-mute)]"}`}>
+            <span className={`flex size-4 items-center justify-center rounded border ${pick.on ? "border-transparent" : "border-[var(--ct-line)]"}`}>{pick.on && <CheckIcon className="size-3.5" />}</span>
+            {pick.why ?? (pick.on ? "เลือกแล้ว" : "เลือก")}
+          </span>
+        ) : (
+          <span className="absolute left-3 top-3 rounded-full bg-[var(--ct-panel)] px-2.5 py-0.5 text-xs text-[var(--ct-mute)]">
+            {FORMAT_SHORT[item.format]} {index + 1}
+          </span>
+        )}
         {toCheck > 0 && (
           <span className={`absolute right-3 top-3 rounded-full px-2.5 py-0.5 text-xs ${blocking ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-warn-bg)] text-[var(--ct-warn-ink)]"}`}>
             {blocking ? "ผิดกฎ Facebook" : `ต้องตรวจ ${toCheck}`}

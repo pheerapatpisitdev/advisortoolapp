@@ -205,6 +205,23 @@ export function groupByDay(items: BoardItem[]): Map<string, BoardItem[]> {
   return byDay;
 }
 
+/**
+ * The first day, from today to the last Facebook will hold for, that a Page has nothing on,
+ * and the time a drop gives it then (noon, or the evening once noon has gone). "The next gap":
+ * the Pages run one post a day, so a gap is a day, not a second slot on a day already posted.
+ * `pageDays`: the days the Page has a post held or up.
+ */
+export function nextOpenDay(pageDays: ReadonlySet<string>, now: Date = new Date()): { day: string; time: string } | null {
+  const today = todayKey(now);
+  const last = lastDropDay(today);
+  for (let day = today; day <= last; day = nextDayKey(day)) {
+    if (pageDays.has(day)) continue;
+    const time = dropTime(day, [], now);
+    if (time) return { day, time };
+  }
+  return null;
+}
+
 /* -------------------------------- the week -------------------------------- */
 
 /** The seven day keys, Monday to Sunday, of the week a day falls in. */

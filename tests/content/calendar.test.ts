@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bangkokAt, boardDay, canDropOnDay, fillable, weekOf, weekSummary, countByPage, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
+  bangkokAt, boardDay, canDropOnDay, fillable, nextOpenDay, weekOf, weekSummary, countByPage, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
   parseMonth, repeats, shiftMonth, thaiDayLabel, thaiMonthYear, timeOfDay, unscheduled, type BoardItem,
 } from "@/lib/content/calendar";
 
@@ -165,5 +165,28 @@ describe("this week at a glance", () => {
     expect(fillable("2026-10-24", "2026-09-25")).toBe(true);
     expect(fillable("2026-09-24", "2026-09-25")).toBe(false);
     expect(fillable("2026-10-25", "2026-09-25")).toBe(false);
+  });
+});
+
+describe("the next gap on a Page", () => {
+  const morning = new Date("2026-09-25T09:00:00+07:00");
+
+  it("is today at noon when the Page has nothing today", () => {
+    expect(nextOpenDay(new Set(), morning)).toEqual({ day: "2026-09-25", time: "12:00" });
+  });
+
+  it("is the first day the Page has nothing on, not a second post on a day it has", () => {
+    expect(nextOpenDay(new Set(["2026-09-25", "2026-09-26", "2026-09-28"]), morning)).toEqual({ day: "2026-09-27", time: "12:00" });
+  });
+
+  it("is this evening once noon has gone, and tomorrow once the evening has too", () => {
+    expect(nextOpenDay(new Set(), new Date("2026-09-25T14:00:00+07:00"))).toEqual({ day: "2026-09-25", time: "19:30" });
+    expect(nextOpenDay(new Set(), new Date("2026-09-25T21:30:00+07:00"))).toEqual({ day: "2026-09-26", time: "12:00" });
+  });
+
+  it("is nothing when every day Facebook will hold is taken", () => {
+    const all = new Set<string>();
+    for (let i = 0, d = "2026-09-25"; i < 30; i++) { all.add(d); d = nextDayKey(d); }
+    expect(nextOpenDay(all, morning)).toBeNull();
   });
 });

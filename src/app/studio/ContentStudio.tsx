@@ -13,6 +13,8 @@ import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
 import { AUTO, AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, painterOf, writerOf } from "@/lib/content/models";
 import type { ContentItem, ContentStatus } from "@/lib/content/store";
 import { contentSpend, contentWorkbench, removeContent, setContentStatus, type DrawBackgroundResult, type GenerateResult } from "./actions";
+import { publishSetup, scheduleNextOpen, type PublishPage } from "./publish";
+import { thaiWhen } from "@/lib/content/publish-label";
 import { drawPicture, generateRound } from "./draw";
 import { PersonPicker, type PersonOption } from "./PersonPicker";
 import { AUTO_THEME, ThemeSwatches, type ThemeChoice } from "./ThemeSwatches";
@@ -748,6 +750,66 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     }
   }
 
+  /**
+   * ตั้งเวลาหลายชิ้น: posts ticked on the list, held one after another for the next days their
+   * Page has nothing on (scheduleNextOpen). One at a time, so each sees the ones before it as
+   * taken. A piece that needs the owner — new numbers to confirm, a post that may be up already,
+   * papers not checked — is left for its own editor and said so; the rest carry on.
+   */
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const [pages, setPages] = useState<PublishPage[] | null>(null);
+  const [pickPage, setPickPage] = useState("");
+  const [sending, setSending] = useState<{ done: number; total: number } | null>(null);
+  const whyNot = (i: ContentItem): string | undefined =>
+    i.format !== "post" ? "ไม่ใช่โพสต์"
+      : (i.flags.policy ?? []).some((f) => f.severity === "block") ? "ผิดกฎ Facebook"
+        : drawing.has(i.id) ? "รอภาพ"
+          : onPage(i.publish) ? "ตั้งเวลาแล้ว" : undefined;
+  const pickable = items.filter((i) => !whyNot(i));
+
+  async function startPicking() {
+    setPicking(true);
+    setPicked(new Set());
+    if (pages) return;
+    const setup = await publishSetup().catch(() => ({ pages: [] as PublishPage[] }));
+    const usable = setup.pages.filter((p) => p.canPost);
+    setPages(usable);
+    let kept = "";
+    try { kept = localStorage.getItem("content-page") ?? ""; } catch { /* storage unavailable */ }
+    setPickPage(usable.find((p) => p.pageId === kept)?.pageId ?? usable[0]?.pageId ?? "");
+  }
+
+  async function scheduleMany() {
+    const order = items.filter((i) => picked.has(i.id) && !whyNot(i));
+    if (order.length === 0 || !pickPage) return;
+    const pageName = pages?.find((p) => p.pageId === pickPage)?.pageName ?? "เพจ";
+    if (!(await ask(`ตั้งเวลา ${order.length} ชิ้นลง ${pageName} วันละชิ้น ในวันว่างถัดไปของเพจนี้?`, "ตั้งเวลา"))) return;
+    try { localStorage.setItem("content-page", pickPage); } catch { /* not kept */ }
+    const held: string[] = [];
+    const left: string[] = [];
+    setSending({ done: 0, total: order.length });
+    for (const [n, item] of order.entries()) {
+      const res = await scheduleNextOpen({ id: item.id, pageId: pickPage }).catch(() => null);
+      if (res?.ok) {
+        published(res.item);
+        if (res.item.publish?.at) held.push(thaiWhen(new Date(res.item.publish.at)));
+      } else {
+        left.push(!res ? "การเชื่อมต่อหลุด" : res.confirmNumbers ? "มีตัวเลขต้องยืนยัน" : res.error);
+      }
+      setSending({ done: n + 1, total: order.length });
+    }
+    setSending(null);
+    setPicking(false);
+    setPicked(new Set());
+    // held ones live on the calendar now
+    setItems((list) => list.filter((x) => !onPage(x.publish)));
+    say("status", [
+      held.length ? `ตั้งเวลาแล้ว ${held.length} ชิ้น: ${held.join(", ")}` : "",
+      left.length ? `ข้าม ${left.length} ชิ้น (${[...new Set(left)].join(" · ")}) — เปิดแก้ไขทีละชิ้น` : "",
+    ].filter(Boolean).join(" · "), left.length ? "error" : "notice");
+  }
+
   /** the pieces either side of the open one in the list on screen, for ‹ › and ชิ้นถัดไป */
   function neighbours(id: string) {
     const at = items.findIndex((x) => x.id === id);
@@ -1118,6 +1180,39 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               </button>
             </div>
           )}
+          {tab !== "trashed" && !picking && pickable.length > 1 && (
+            <button type="button" onClick={startPicking} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+              <CalendarIcon className="size-4" />ตั้งเวลาหลายชิ้น
+            </button>
+          )}
+          {picking && (
+            <div className="sticky top-2 z-10 space-y-2 rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-panel)] p-3 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <b>เลือก {picked.size} ชิ้น</b>
+                <button type="button" onClick={() => setPicked(new Set(pickable.map((i) => i.id)))} className="min-h-11 rounded-lg px-2 text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">เลือกทั้งหมด ({pickable.length})</button>
+                {picked.size > 0 && <button type="button" onClick={() => setPicked(new Set())} className="min-h-11 rounded-lg px-2 text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">ล้าง</button>}
+              </div>
+              {pages === null ? (
+                <p className="text-sm text-[var(--ct-mute)]">กำลังโหลดรายชื่อเพจ…</p>
+              ) : pages.length === 0 ? (
+                <p className="text-sm text-[var(--ct-alert)]">ยังไม่มีเพจที่อนุญาตให้ระบบโพสต์ — เชื่อมเพจที่หน้าตั้งค่าเพจก่อน</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select value={pickPage} onChange={(e) => setPickPage(e.target.value)} aria-label="เพจที่จะลง" className="min-h-11 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 text-sm">
+                    {pages.map((p) => <option key={p.pageId} value={p.pageId}>{p.pageName}</option>)}
+                  </select>
+                  <button
+                    type="button" onClick={scheduleMany} disabled={picked.size === 0 || Boolean(sending) || !pickPage}
+                    className="min-h-11 rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
+                  >
+                    {sending ? `กำลังตั้งเวลา ${sending.done}/${sending.total}…` : `ตั้งเวลาวันว่างถัดไป ${picked.size} ชิ้น`}
+                  </button>
+                  <button type="button" onClick={() => { setPicking(false); setPicked(new Set()); }} disabled={Boolean(sending)} className="min-h-11 rounded-lg px-3 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">ยกเลิก</button>
+                </div>
+              )}
+              <p className="text-xs text-[var(--ct-mute)]">วันละชิ้น ในวันถัดไปที่เพจนี้ยังไม่มีโพสต์ เวลา 12:00 (วันนี้ถ้าเลย 12:00 แล้วเป็น 19:30) · ผ่านการตรวจเหมือนกดลงเพจทีละชิ้น</p>
+            </div>
+          )}
           {tab === "used" && (
             <p className="text-xs text-[var(--ct-mute)]">ชิ้นที่ใช้แล้วแต่ยังไม่ได้ลงเพจจากระบบ — ชิ้นที่ลงเพจหรือตั้งเวลาแล้วอยู่ในปฏิทินโพสต์</p>
           )}
@@ -1196,6 +1291,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                     onStatus={(s) => changeStatus(item, s)}
                     onDelete={() => remove(item)}
                     onCopy={() => copy(item)}
+                    pick={picking ? {
+                      on: picked.has(item.id),
+                      why: whyNot(item),
+                      toggle: () => setPicked((set) => { const next = new Set(set); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; }),
+                    } : undefined}
                   />
                 )}
                 </div>

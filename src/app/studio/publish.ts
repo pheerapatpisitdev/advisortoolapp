@@ -1,6 +1,6 @@
 "use server";
 import { pageConnections } from "@/lib/facebook/connection";
-import { bangkokAt, dropTime, nextDayKey, timeOfDay, todayKey } from "@/lib/content/calendar";
+import { bangkokAt, dayKey, dropTime, lastDropDay, nextDayKey, nextOpenDay, timeOfDay, todayKey } from "@/lib/content/calendar";
 import { move, PAST_DAY, POST_SCOPE, publish, withdraw, type PublishResult } from "@/lib/content/publish-flow";
 import { getContent, listPublished } from "@/lib/content/store";
 
@@ -94,6 +94,27 @@ async function takenOn(day: string, pageId: string | null, except: string): Prom
     // not read: the first slot still ahead, as though the day were empty
     return [];
   }
+}
+
+/**
+ * "วันว่างถัดไป": a piece held for the first day its Page has nothing on (nextOpenDay), at the
+ * time a drop would give it — through the same checks as every other way up. Several are sent
+ * one after another by the workbench, so each sees the ones before it as taken.
+ */
+export async function scheduleNextOpen(input: { id: string; pageId: string; confirmNumbers?: boolean; force?: boolean }): Promise<PublishResult> {
+  const today = todayKey();
+  let rows: Awaited<ReturnType<typeof listPublished>>;
+  try {
+    rows = await listPublished(bangkokAt(today, "00:00"), bangkokAt(nextDayKey(lastDropDay(today)), "00:00"));
+  } catch {
+    return { ok: false, error: "อ่านปฏิทินไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
+  }
+  const taken = new Set(rows
+    .filter((r) => r.id !== input.id && r.publish?.pageId === input.pageId && r.publish.at)
+    .map((r) => dayKey(new Date(r.publish!.at!))));
+  const open = nextOpenDay(taken);
+  if (!open) return { ok: false, error: "เพจนี้มีโพสต์ทุกวันใน 30 วันข้างหน้าแล้ว — เลือกวันเวลาเองในหน้าแก้ไข" };
+  return publish({ id: input.id, pageId: input.pageId, at: bangkokAt(open.day, open.time).toISOString(), confirmNumbers: input.confirmNumbers, force: input.force });
 }
 
 /** The day sheet's บันทึกเวลา: a Thai "YYYY-MM-DDTHH:MM", for a waiting piece or a held one. */

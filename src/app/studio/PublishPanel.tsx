@@ -4,7 +4,7 @@ import { postLink } from "@/lib/facebook/publish";
 import { bangkokAt, dayKey, thaiDayLabel, timeOfDay } from "@/lib/content/calendar";
 import { publishView, quickTimes, thaiWhen } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
-import { cancelScheduled, publishPiece, publishSetup, type PublishResult, type PublishSetup } from "./publish";
+import { cancelScheduled, publishPiece, publishSetup, scheduleNextOpen, type PublishResult, type PublishSetup } from "./publish";
 import { ask } from "./ask";
 import { CheckIcon, ClockIcon } from "./ui/editor-icons";
 import { errorNote, Note, okNote, PlainText, type NoteState } from "./ui/editor-fields";
@@ -62,6 +62,9 @@ const quickOptions = (day?: string | null): Quick[] => {
 
 const button = "min-h-11 rounded-lg px-4 py-2 text-sm disabled:opacity-50";
 
+/** the choice that lets the server find the day: the first its Page has nothing on (scheduleNextOpen) */
+const OPEN = "open";
+
 export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, suggestDay }: Props) {
   const [setup, setSetup] = useState<PublishSetup | null>(null);
   const [pageId, setPageId] = useState("");
@@ -92,7 +95,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
   const refreshTimes = useCallback((): boolean => {
     const fresh = quickOptions(suggestDay);
     setTimes(fresh);
-    if (when === "now" || when === "custom" || fresh.some((t) => t.iso === when)) return true;
+    if (when === "now" || when === "custom" || when === OPEN || fresh.some((t) => t.iso === when)) return true;
     setWhen(fresh[0]?.iso ?? "custom");
     setNote(errorNote("เวลาที่เลือกไว้ผ่านไปแล้ว — เลือกเวลาใหม่อีกครั้ง"));
     return false;
@@ -116,7 +119,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
 
   /** the ISO time to hold it for, null for now, or a reason it cannot go */
   function chosenTime(): { at: string | null } | { error: string } {
-    if (when === "now") return { at: null };
+    if (when === "now" || when === OPEN) return { at: null };
     if (when === "custom" && !custom) return { error: "เลือกวันเวลาก่อนนะครับ" };
     const iso = when === "custom" ? fromBangkokInput(custom).toISOString() : when;
     const ahead = new Date(iso).getTime() - Date.now();
@@ -131,7 +134,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
     const chosen = chosenTime();
     if ("error" in chosen) { setNote(errorNote(chosen.error)); return; }
     const { at } = chosen;
-    if (at === null && !(await ask(`โพสต์ลงเพจ ${pageName(pageId)} ตอนนี้เลย?`, "โพสต์เลย"))) return;
+    if (at === null && when !== OPEN && !(await ask(`โพสต์ลงเพจ ${pageName(pageId)} ตอนนี้เลย?`, "โพสต์เลย"))) return;
     setBusy("send");
     setNote(null);
     try {
@@ -140,9 +143,12 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
       let confirmNumbers = false;
       let force = false;
       for (;;) {
-        const res: PublishResult = await publishPiece({ id: item.id, pageId, at, hook, confirmNumbers, force });
+        const res: PublishResult = when === OPEN
+          ? await scheduleNextOpen({ id: item.id, pageId, confirmNumbers, force })
+          : await publishPiece({ id: item.id, pageId, at, hook, confirmNumbers, force });
         if (res.ok) {
-          setNote(okNote(at ? "ตั้งเวลาแล้ว" : "โพสต์ลงเพจแล้ว"));
+          const heldAt = res.item.publish?.at;
+          setNote(okNote(when === OPEN && heldAt ? `ตั้งเวลาแล้ว · ${thaiWhen(new Date(heldAt))}` : at ? "ตั้งเวลาแล้ว" : "โพสต์ลงเพจแล้ว"));
           onPublished(res.item);
           return;
         }
@@ -234,6 +240,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
           >
             <option value="now">โพสต์ตอนนี้</option>
             {times.map((t) => <option key={t.iso} value={t.iso}>ตั้งเวลา · {t.label}</option>)}
+            <option value={OPEN}>ตั้งเวลา · วันว่างถัดไปของเพจนี้</option>
             <option value="custom">ตั้งเวลา · เลือกวันเวลาเอง…</option>
           </select>
         </div>
@@ -248,7 +255,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
           type="button" disabled={busy !== null || blocked.length > 0 || !pageId || drawing} onClick={send}
           className={`${button} bg-[var(--ct-solid)] font-medium text-[var(--ct-solid-ink)]`}
         >
-          {busy === "send" ? "กำลังส่ง…" : when === "now" ? "โพสต์ลงเพจเลย" : `ตั้งเวลาโพสต์${quickLabel ? ` · ${quickLabel}` : ""}`}
+          {busy === "send" ? "กำลังส่ง…" : when === "now" ? "โพสต์ลงเพจเลย" : when === OPEN ? "ตั้งเวลา · วันว่างถัดไป" : `ตั้งเวลาโพสต์${quickLabel ? ` · ${quickLabel}` : ""}`}
         </button>
         <p className="text-xs text-[var(--ct-mute)]">ส่งรูปโปสเตอร์ 1:1 พร้อมข้อความเต็ม (รวมข้อความเตือนและชื่อบริษัท) · ตั้งเวลาได้ 15 นาที–30 วันข้างหน้า</p>
       </div>
