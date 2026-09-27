@@ -371,6 +371,10 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
           readOnly={locked}
           confirmLeave={mayLeave}
           onDraw={async (request, painter, person) => {
+            // The picture is drawn for the poster on file: calm where its words sit, in its
+            // colours. A layout or colour changed here and not saved was drawn for as it was —
+            // the words moved to the top over the busy half of a paid picture. So it is kept first.
+            if (dirty && !(await save())) return "บันทึกการแก้ไขไม่สำเร็จ เลยยังไม่ได้วาดภาพ";
             const res = await onDraw(request, painter, person);
             if (!res.ok) return res.error;
             // the picture is saved already; only the background joins the draft, so poster
