@@ -94,11 +94,32 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     const who = person;
     await run(count, round.format, async (): Promise<GenerateResult> => {
-      const shrunk = await Promise.all(papers.map((f) => shrink(f)));
+      /*
+       * Everything before the last request writes nothing, so a failure there is said as what
+       * it is. It used to throw, and the page read every throw as a connection dropped while
+       * the pieces were being saved: "ชิ้นงานอาจสร้างเสร็จแล้ว", the tab switched to รอตรวจ,
+       * and nothing there — for a photo the browser could not open.
+       */
+      let shrunk: Awaited<ReturnType<typeof shrink>>[];
+      try {
+        shrunk = await Promise.all(papers.map((f) => shrink(f)));
+      } catch {
+        return { ok: false, error: "เปิดรูปบางรูปไม่ได้ — ลองแคปหน้าจอหรือบันทึกเป็น JPG แล้วเลือกใหม่ (ยังไม่ได้สร้างอะไร)" };
+      }
       const readForm = new FormData();
       readForm.set("consent", "on");
       shrunk.forEach((s, i) => readForm.append("docs", s.blob, `doc-${i + 1}.jpg`));
-      const read = await (await fetch("/api/content-claim", { method: "POST", body: readForm })).json() as ReadReply;
+      let read: ReadReply;
+      try {
+        const res = await fetch("/api/content-claim", { method: "POST", body: readForm });
+        const body = await res.json().catch(() => null) as ReadReply | null;
+        if (!body) {
+          return { ok: false, error: res.status === 413 ? "รูปรวมกันใหญ่เกินไป — ลดจำนวนรูปแล้วลองใหม่ (ยังไม่ได้สร้างอะไร)" : "อ่านรูปเอกสารไม่สำเร็จ ลองใหม่อีกครั้ง (ยังไม่ได้สร้างอะไร)" };
+        }
+        read = body;
+      } catch {
+        return { ok: false, error: "ส่งรูปไม่สำเร็จ การเชื่อมต่อหลุด — ลองกดสร้างใหม่ (ยังไม่ได้สร้างอะไร)" };
+      }
       if (!read.ok) return { ok: false, error: read.error };
 
       const form = new FormData();
@@ -117,11 +138,17 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
       // each with the AI's stickers, checked in the editor before anything is posted
       if (round.format !== "script") {
         const order = shrunk.map((_, i) => i).sort((a, b) => Number(read.docs[b]?.kind === "approval") - Number(read.docs[a]?.kind === "approval"));
-        for (const at of order.slice(0, MAX_PAPERS)) {
-          form.append("paper", await burn(shrunk[at].blob, read.docs[at]?.boxes ?? []), `paper-${at + 1}.jpg`);
-          form.append("ratio", String(shrunk[at].width / shrunk[at].height));
+        try {
+          for (const at of order.slice(0, MAX_PAPERS)) {
+            form.append("paper", await burn(shrunk[at].blob, read.docs[at]?.boxes ?? []), `paper-${at + 1}.jpg`);
+            form.append("ratio", String(shrunk[at].width / shrunk[at].height));
+          }
+        } catch {
+          return { ok: false, error: "แปะสติ๊กเกอร์บนรูปไม่สำเร็จ ลองใหม่อีกครั้ง (ยังไม่ได้สร้างอะไร)" };
         }
       }
+      // only this one saves: a connection lost here may have left the pieces written, which
+      // is what a throw tells the page
       return await (await fetch("/api/content-claim", { method: "PUT", body: form })).json() as GenerateResult;
     }, paintWith, who);
   }
