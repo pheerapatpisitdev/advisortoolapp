@@ -51,7 +51,7 @@ pg_dump --schema-only --quote-all-identifiers --role=postgres --schema=public > 
 
 ```bash
 python3 scripts/unitclub/build-baseline.py "$TMPDIR/relations.sql" "$TMPDIR/public.sql" > supabase/migrations/20260927_unitclub_baseline.sql
-grep -c '^CREATE TABLE' supabase/migrations/20260927_unitclub_baseline.sql   # expect 49 (41 ins_* + model_configs + 7 studio)
+grep -c '^CREATE TABLE' supabase/migrations/20260927_unitclub_baseline.sql   # expect 42 (34 ins_* + model_configs + 7 studio)
 grep -c 'FUNCTION "public"' supabase/migrations/20260927_unitclub_baseline.sql
 grep -n '"anon"\|"authenticated"\|"public"."vector"' supabase/migrations/20260927_unitclub_baseline.sql   # expect nothing
 grep -n 'REFERENCES' supabase/migrations/20260927_unitclub_baseline.sql   # every target must be in the file
@@ -70,7 +70,7 @@ Additive only: new extensions, tables, functions, views and four buckets. Nothin
 select count(*) filter (where c.relkind = 'r') as tables, count(*) filter (where c.relkind = 'v') as views
 from pg_class c join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public' and (c.relname like 'ins\_%' or c.relname like 'v\_ins\_%');
--- expect 41 tables, 4 views
+-- expect 34 tables, 4 views
 
 select count(*) from information_schema.role_table_grants
 where table_schema = 'public' and grantee in ('anon', 'authenticated')

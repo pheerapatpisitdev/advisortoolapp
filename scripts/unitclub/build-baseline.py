@@ -97,10 +97,18 @@ def statements(text: str) -> list[str]:
     return blocks
 
 
+ANON_GRANT = re.compile(r'^(GRANT|REVOKE) .* (TO|FROM) "(anon|authenticated)";$')
+
+
+def without_anon_grants(stmt: str) -> str:
+    """pg_dump writes a relation's grants as consecutive one-line statements in one block."""
+    return "\n".join(l for l in stmt.split("\n") if not ANON_GRANT.match(l))
+
+
 def keep(stmt: str) -> bool:
-    if stmt.startswith(("SET ", "SELECT pg_catalog.set_config")):
+    if not stmt.strip():
         return False
-    if re.match(r'^(GRANT|REVOKE) .* (TO|FROM) "(anon|authenticated)";$', stmt):
+    if stmt.startswith(("SET ", "SELECT pg_catalog.set_config")):
         return False
     if stmt.startswith('CREATE POLICY "model_configs_read"'):
         return False
@@ -126,8 +134,8 @@ def function_statements(public_dump: str) -> list[str]:
 def main() -> None:
     relations = open(sys.argv[1], encoding="utf-8").read()
     public = open(sys.argv[2], encoding="utf-8").read()
-    rel_stmts = [s for s in statements(relations) if keep(s)]
-    fn_stmts = [s for s in function_statements(public) if keep(s)]
+    rel_stmts = [s for s in map(without_anon_grants, statements(relations)) if keep(s)]
+    fn_stmts = [s for s in map(without_anon_grants, function_statements(public)) if keep(s)]
     # Tables, then functions (claim_next_job returns SETOF jobs, and SQL bodies are checked
     # against the tables when created), then the views with their owners and grants.
     views = [s for s in rel_stmts if '"public"."v_ins_' in s]
