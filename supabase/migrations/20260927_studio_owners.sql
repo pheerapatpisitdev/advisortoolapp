@@ -2,8 +2,9 @@
 --
 -- A piece is its writer's: an agent sees and changes their own; the staff who post to the Page
 -- see every piece the staff wrote, which is the pool the calendar draws from. A person in the
--- people library belongs to the room — agents of one office photograph each other. Everything
--- written before today was the owner's, and is marked so.
+-- people library is likewise the agent's who added them (the owner chose not to share within a
+-- room); tenant_id is kept for reference only. Everything written before today was the owner's,
+-- and is marked so.
 alter table public.ins_content
   add column agent_id  uuid references public.agents(id) on delete set null,
   add column tenant_id uuid references public.tenants(id) on delete set null;

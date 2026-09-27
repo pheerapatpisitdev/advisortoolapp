@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { agentFilter, maySee, roomFilter, roomMaySee, type Scope } from "@/lib/auth/scope";
+import { agentFilter, maySee, type Scope } from "@/lib/auth/scope";
 
-const member: Scope = { agents: ["a1"], unowned: false, room: "t1", owner: { agentId: "a1", tenantId: "t1" } };
-const staff: Scope = { agents: ["s1", "s2"], unowned: true, room: "t1", owner: { agentId: "s1", tenantId: "t1" } };
-const all: Scope = { agents: null, unowned: true, room: null, owner: null };
-const none: Scope = { agents: [], unowned: false, room: "", owner: null };
+const member: Scope = { agents: ["a1"], unowned: false, owner: { agentId: "a1", tenantId: "t1" } };
+const staff: Scope = { agents: ["s1", "s2"], unowned: true, owner: { agentId: "s1", tenantId: "t1" } };
+const all: Scope = { agents: null, unowned: true, owner: null };
+const none: Scope = { agents: [], unowned: false, owner: null };
 
 describe("scope", () => {
   it("shows an agent their own pieces and nobody else's", () => {
@@ -30,16 +30,5 @@ describe("scope", () => {
     expect(agentFilter(staff)).toBe("agent_id.in.(s1,s2),agent_id.is.null");
     expect(agentFilter(all)).toBeNull();
     expect(agentFilter(none)).toBe("agent_id.eq.00000000-0000-0000-0000-000000000000");
-  });
-
-  it("keeps the people library to the room", () => {
-    expect(roomMaySee(member, "t1")).toBe(true);
-    expect(roomMaySee(member, "t2")).toBe(false);
-    expect(roomMaySee(member, null)).toBe(false);
-    expect(roomMaySee(staff, null)).toBe(true);
-    expect(roomMaySee(all, "t9")).toBe(true);
-    expect(roomFilter(member)).toBe("tenant_id.eq.t1");
-    expect(roomFilter(staff)).toBe("tenant_id.eq.t1,tenant_id.is.null");
-    expect(roomFilter(none)).toBe("tenant_id.eq.00000000-0000-0000-0000-000000000000");
   });
 });

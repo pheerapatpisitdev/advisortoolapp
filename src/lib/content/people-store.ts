@@ -1,4 +1,4 @@
-import { currentScope, roomFilter, roomMaySee } from "@/lib/auth/scope";
+import { agentFilter, currentScope, maySee } from "@/lib/auth/scope";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { ReferenceImage } from "@/lib/ai/images";
 import { MAX_PHOTOS, pickReferences } from "./people";
@@ -8,9 +8,10 @@ import { MAX_PHOTOS, pickReferences } from "./people";
  * server alone reads. A photo's path is "<person id>/<n>.<ext>" and is checked against that
  * shape before any storage call, so a request cannot point the server at another file.
  *
- * The library is a room's (2026-09-27): agents of one UnitOS office see and use the people of
- * that office, and nobody else's. Every lookup here asks src/lib/auth/scope.ts, photos included,
- * so a path from another room is refused like a path that does not exist.
+ * A person is the agent's who added them (owner, 2026-09-27: "ไม่แชร์ห้องกัน") — an agent's
+ * own face is theirs, not their office's. Staff see each other's, as they share the Page's
+ * pieces. Every lookup here asks src/lib/auth/scope.ts, photos included, so a path that is not
+ * the asker's is refused like a path that does not exist.
  */
 
 const BUCKET = "content-people";
@@ -41,7 +42,7 @@ const toPerson = (r: Record<string, unknown>): Person => ({
 });
 
 export async function listPeople(): Promise<Person[]> {
-  const only = roomFilter(await currentScope());
+  const only = agentFilter(await currentScope());
   let q = supabaseAdmin().from("ins_people").select("id, name, photos, consented_at");
   if (only) q = q.or(only);
   const { data, error } = await q.order("created_at");
@@ -52,11 +53,11 @@ export async function listPeople(): Promise<Person[]> {
 export async function getPerson(id: string): Promise<Person | null> {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
   const [{ data, error }, scope] = await Promise.all([
-    supabaseAdmin().from("ins_people").select("id, name, photos, consented_at, tenant_id").eq("id", id).maybeSingle(),
+    supabaseAdmin().from("ins_people").select("id, name, photos, consented_at, agent_id").eq("id", id).maybeSingle(),
     currentScope(),
   ]);
   if (error) throw new Error(error.message);
-  return data && roomMaySee(scope, data.tenant_id as string | null) ? toPerson(data) : null;
+  return data && maySee(scope, data.agent_id as string | null) ? toPerson(data) : null;
 }
 
 /**
@@ -167,7 +168,7 @@ export async function deletePerson(id: string): Promise<void> {
 
 export async function photoBytes(path: string): Promise<ReferenceImage | null> {
   if (!isPhotoPath(path)) return null;
-  // the folder is the person: a photo of somebody outside the asker's room is not theirs to see
+  // the folder is the person: a photo of somebody the asker did not add is not theirs to see
   if (!(await getPerson(path.split("/")[0]))) return null;
   const { data, error } = await supabaseAdmin().storage.from(BUCKET).download(path);
   if (error || !data) return null;
