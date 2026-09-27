@@ -44,6 +44,10 @@ describe("admit", () => {
     expect(admit(agent({ tenant: room({ config }) }), null, Date.now())).toBeNull();
   });
 
+  it("shuts out UnitOS's demo room, whose codes are handed to anyone trying it", () => {
+    expect(admit(agent({ tenant: room({ config: { isDemo: true } }) }), null, Date.now())).toBeNull();
+  });
+
   it("shuts out a session issued before the room revoked its keys", () => {
     const epoch = "2026-09-27T12:00:00Z";
     expect(admit(agent({ tenant: room({ key_epoch: epoch }) }), null, Date.parse(epoch) - 1)).toBeNull();

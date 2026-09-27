@@ -16,7 +16,7 @@ export interface AgentRow {
     slug: string;
     name: string | null;
     status: string;
-    config: { features?: { advisorTool?: boolean } } | null;
+    config: { features?: { advisorTool?: boolean }; isDemo?: boolean } | null;
     key_epoch: string | null;
   } | null;
 }
@@ -55,6 +55,9 @@ export function admit(agent: AgentRow | null, staff: StaffRow | null, issuedAt: 
   if (!OPEN_ROOMS.includes(room.status)) return null;
   // missing means on; the owner's Console turns advisortool off for a room with `false`
   if (room.config?.features?.advisorTool === false) return null;
+  // a showroom: its demo codes are handed to anyone trying UnitOS, and would hand them the
+  // owner's AI budget too (owner, 2026-09-27)
+  if (room.config?.isDemo) return null;
   // UnitOS revokes every key of a room by moving key_epoch forward; a session is one of those keys
   if (room.key_epoch && issuedAt < Date.parse(room.key_epoch)) return null;
   return {
