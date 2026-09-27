@@ -28,16 +28,16 @@ This is plan 1 of 2. Plan 2 (UnitOS sign-in, staff permissions, per-agent Studio
 - Create: `scripts/unitclub/copy-storage.mjs` — copies the four buckets file by file
 - Create: `scripts/unitclub/check-secrets.mjs` — decrypts every AI key and channel token on the target
 
-- [ ] **Step 1:** Write the six files (as committed on branch `move-to-unitclub`).
-- [ ] **Step 2:** `chmod +x scripts/unitclub/*.sh scripts/unitclub/*.py`
-- [ ] **Step 3:** Commit: `git add scripts/unitclub docs/superpowers/plans/2026-09-27-move-to-unitclub.md && git commit -m "chore(unitclub): tooling to move the database"`
+- [x] **Step 1:** Write the six files (as committed on branch `move-to-unitclub`).
+- [x] **Step 2:** `chmod +x scripts/unitclub/*.sh scripts/unitclub/*.py`
+- [x] **Step 3:** Commit: `git add scripts/unitclub docs/superpowers/plans/2026-09-27-move-to-unitclub.md && git commit -m "chore(unitclub): tooling to move the database"`
 
 ### Task 2: Baseline migration
 
 **Files:**
 - Create: `supabase/migrations/20260927_unitclub_baseline.sql`
 
-- [ ] **Step 1: Dump the schema from DATA2.0**
+- [x] **Step 1: Dump the schema from DATA2.0**
 
 ```bash
 eval "$(scripts/unitclub/pg-env.sh tmbbxahyxwkshxuxphcb SRC)"
@@ -47,7 +47,7 @@ pg_dump --schema-only --quote-all-identifiers --role=postgres "${args[@]}" > "$T
 pg_dump --schema-only --quote-all-identifiers --role=postgres --schema=public > "$TMPDIR/public.sql"
 ```
 
-- [ ] **Step 2: Build the migration**
+- [x] **Step 2: Build the migration**
 
 ```bash
 python3 scripts/unitclub/build-baseline.py "$TMPDIR/relations.sql" "$TMPDIR/public.sql" > supabase/migrations/20260927_unitclub_baseline.sql
@@ -57,14 +57,14 @@ grep -n '"anon"\|"authenticated"\|"public"."vector"' supabase/migrations/2026092
 grep -n 'REFERENCES' supabase/migrations/20260927_unitclub_baseline.sql   # every target must be in the file
 ```
 
-- [ ] **Step 3: Commit** — `git add supabase/migrations/20260927_unitclub_baseline.sql && git commit -m "chore(unitclub): baseline migration built from DATA2.0"`
+- [x] **Step 3: Commit** — `git add supabase/migrations/20260927_unitclub_baseline.sql && git commit -m "chore(unitclub): baseline migration built from DATA2.0"`
 
 ### Task 3: Apply the baseline to UnitClub
 
 Additive only: new extensions, tables, functions, views and four buckets. Nothing of UnitOS's is touched.
 
-- [ ] **Step 1:** Apply the file with the Supabase MCP `apply_migration` (project `cenysylrzbwfrtuqoeqk`, name `advisortool_baseline`).
-- [ ] **Step 2: Verify the shape and the lock**
+- [x] **Step 1:** Apply the file to UnitClub (done with `psql` through the CLI login role in one transaction, plus a `supabase_migrations.schema_migrations` row named `advisortool_baseline`; the circular hook FKs needed `20260927_unitclub_deferrable_hook_fks.sql` as well).
+- [x] **Step 2: Verify the shape and the lock**
 
 ```sql
 select count(*) filter (where c.relkind = 'r') as tables, count(*) filter (where c.relkind = 'v') as views
@@ -83,13 +83,13 @@ where n.nspname = 'public' and (p.proname like 'ins\_%' or p.proname in ('claim_
 -- expect no rows
 ```
 
-- [ ] **Step 3:** Run `get_advisors` (security) on UnitClub. Expected new findings: only "RLS enabled, no policy" INFO for the moved tables. Anything else is fixed before going on.
+- [x] **Step 3:** Run `get_advisors` (security) on UnitClub. Expected new findings: only "RLS enabled, no policy" INFO for the moved tables. Anything else is fixed before going on.
 
 ### Task 4: Rehearsal copy
 
 Copies today's rows and files while DATA2.0 keeps serving the app. The cutover repeats it.
 
-- [ ] **Step 1: Rows**
+- [x] **Step 1: Rows**
 
 ```bash
 eval "$(scripts/unitclub/pg-env.sh tmbbxahyxwkshxuxphcb SRC)"
@@ -97,7 +97,7 @@ eval "$(scripts/unitclub/pg-env.sh cenysylrzbwfrtuqoeqk DST)"
 scripts/unitclub/copy-data.sh     # expect: copied
 ```
 
-- [ ] **Step 2: Files**
+- [x] **Step 2: Files**
 
 ```bash
 key() { supabase projects api-keys --project-ref "$1" -o json | jq -r '.[] | select(.name=="service_role") | .api_key'; }
@@ -107,7 +107,7 @@ node scripts/unitclub/copy-storage.mjs
 # expect: assets 2/2, content-media 51/51, content-people 24/24, insurance-docs 3/3 (or today's counts)
 ```
 
-- [ ] **Step 3: Row counts match** — run on both projects and compare:
+- [x] **Step 3: Row counts match** — run on both projects and compare:
 
 ```sql
 select c.relname, (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from public.%I', c.relname), false, true, '')))[1]::text::int as n
@@ -117,7 +117,7 @@ where n.nspname = 'public' and c.relkind = 'r'
 order by 1;
 ```
 
-- [ ] **Step 4: Encrypted columns open on the target**
+- [x] **Step 4: Encrypted columns open on the target**
 
 ```bash
 URL=https://cenysylrzbwfrtuqoeqk.supabase.co SERVICE_KEY="$(key cenysylrzbwfrtuqoeqk)" \
@@ -126,12 +126,12 @@ node scripts/unitclub/check-secrets.mjs
 # expect ✓ for 5 AI keys and 7 channel tokens
 ```
 
-- [ ] **Step 5: Search works** — on UnitClub: `select count(*) from public.ins_search_faq((select embedding from public.ins_faq where embedding is not null limit 1), 3);` returns rows, and `select count(*) from public.ins_doc_chunks where content &@~ 'ประกัน';` runs without error (with `set search_path = public, extensions`).
+- [x] **Step 5: Search works** — on UnitClub: `select count(*) from public.ins_search_faq((select embedding from public.ins_faq where embedding is not null limit 1), 3);` returns rows, and `select count(*) from public.ins_doc_chunks where content &@~ 'ประกัน';` runs without error (with `set search_path = public, extensions`).
 
 ### Task 5: The app against UnitClub, locally
 
-- [ ] **Step 1:** `NEXT_PUBLIC_SUPABASE_URL=https://cenysylrzbwfrtuqoeqk.supabase.co SUPABASE_SERVICE_ROLE_KEY="$(key cenysylrzbwfrtuqoeqk)" npm run dev` — the variables on the command line win over `.env.local`, which is not edited.
-- [ ] **Step 2:** Open `/admin`, `/admin/ai`, `/admin/crm`, `/admin/knowledge`, `/studio`, `/studio/calendar`, `/plan`. Each loads with the same numbers as production. Do not press anything that posts to a Page or sends a message.
+- [x] **Step 1:** `NEXT_PUBLIC_SUPABASE_URL=https://cenysylrzbwfrtuqoeqk.supabase.co SUPABASE_SERVICE_ROLE_KEY="$(key cenysylrzbwfrtuqoeqk)" npm run dev` — the variables on the command line win over `.env.local`, which is not edited.
+- [x] **Step 2:** Open `/admin`, `/admin/ai`, `/admin/crm`, `/admin/knowledge`, `/studio`, `/studio/calendar`, `/plan`. Each loads with the same numbers as production. Do not press anything that posts to a Page or sends a message.
 - [ ] **Step 3:** `npm run verify` passes on the branch.
 
 ### Task 6: Cutover (owner picks a quiet time; about 10 minutes)
