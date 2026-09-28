@@ -11,6 +11,8 @@
  * browser and the drawing route can decode the same thing.
  */
 
+import { toLogo, type PosterLogo } from "./logo";
+
 export const BLOCK_KINDS = ["badge", "headline", "sub", "footer"] as const;
 export type BlockKind = (typeof BLOCK_KINDS)[number];
 
@@ -51,6 +53,8 @@ export interface PosterSpec {
    * so the papers keep to the left and leave them in sight.
    */
   personAside?: boolean;
+  /** the Page's logo and where it sits (logo.ts) */
+  logo?: PosterLogo;
 }
 
 /** papers on one claim poster: more and each is too small to read */
@@ -176,6 +180,7 @@ export function parsePoster(input: unknown): PosterSpec | null {
     ...(isBackgroundPath(raw.background) ? { background: raw.background } : {}),
     ...documentsOf(raw),
     ...(raw.personAside === true ? { personAside: true } : {}),
+    ...(toLogo(raw.logo) ? { logo: toLogo(raw.logo)! } : {}),
   };
 }
 

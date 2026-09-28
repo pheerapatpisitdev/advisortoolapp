@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useId, useState } from "react";
+import type { LogoSpot } from "@/lib/content/logo";
+import { LogoPicker } from "../ui/LogoPicker";
 import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, writerOf } from "@/lib/content/models";
 import type { PiecePerson } from "@/lib/content/people";
 import { LENGTHS, MAX_READER, type Format, type Length } from "@/lib/content/prompt";
@@ -25,12 +27,14 @@ const chip = (on: boolean) =>
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
 const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
-export function RecruitTools({ writer, onWriter, painter, onPainter, people, person, onPerson, rounds, left, pending, making, run, folded, formId }: {
+export function RecruitTools({ writer, onWriter, painter, onPainter, people, person, onPerson, logo, rounds, left, pending, making, run, folded, formId }: {
   writer: string;
   onWriter: (id: string) => void;
   painter: string;
   onPainter: (id: string) => void;
   people: PersonOption[];
+  /** the Page's logo and its spot, shared with the plan form (ui/LogoPicker.tsx) */
+  logo: { page?: string; spot: LogoSpot | null; onSpot: (s: LogoSpot | null) => void };
   person: PiecePerson | null;
   onPerson: (p: PiecePerson | null) => void;
   /** the month's content money left, for the estimate and for อัตโนมัติ */
@@ -76,7 +80,8 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, pro: format !== "ad" && pro, count, writer };
+    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, pro: format !== "ad" && pro, count, writer,
+      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot, page: logo.page } : {}) };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => recruitRound(round), paintWith, person);
   }
@@ -146,6 +151,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
         </div>
         </FormSection>
 
+        {format !== "script" && <LogoPicker {...logo} />}
         <PictureFold summary={pictureSummary({
           format, writer: pick.short, painter: paints.modelId ? paints.short : null,
           person: person ? people.find((p) => p.id === person.id)?.name : undefined,

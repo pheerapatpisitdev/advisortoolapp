@@ -1,4 +1,6 @@
 import { BudgetExceeded, chat } from "@/lib/ai/client";
+import { isLogoSpot } from "./logo";
+import { roundLogo } from "./logo-store";
 import type { ChatImage } from "@/lib/ai/types";
 import type { GenerateResult } from "@/app/studio/actions";
 import { findWords, strayNumbers } from "./check";
@@ -76,6 +78,9 @@ export interface ClaimWriteInput {
   loop?: boolean;
   /** สูตรคอนเทนต์โปร (posts and scripts; pro.ts) */
   pro?: boolean;
+  /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
+  logoSpot?: string;
+  page?: string;
   writer?: string;
   /** an angle id, "custom" with the owner's words, or "" for the AI's turn-taking */
   angle?: string;
@@ -110,6 +115,8 @@ export async function writeClaim(input: ClaimWriteInput): Promise<GenerateResult
   const length: Length | null = format === "script" ? (LENGTHS.find((l) => l.id === input.length)?.id ?? "60") : null;
   const loop = format === "script" && Boolean(input.loop);
   const pro = format !== "ad" && input.pro === true;
+  const logo = format === "script" ? null
+    : await roundLogo(typeof input.page === "string" ? input.page : null, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
   const yardstick = factsBlock(facts);
   let hold: string | null = null;
   try {
@@ -135,7 +142,10 @@ export async function writeClaim(input: ClaimWriteInput): Promise<GenerateResult
         console.error(`claim piece unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
         throw new UnreadableReply();
       }
-      return { output: { ...output, ...(loop ? { loop: true } : {}), ...(pro ? { pro: true } : {}) }, model: r.model, costThb: r.costThb };
+      return {
+        output: { ...output, ...(loop ? { loop: true } : {}), ...(pro ? { pro: true } : {}), ...(logo && output.poster ? { poster: { ...output.poster, logo } } : {}) },
+        model: r.model, costThb: r.costThb,
+      };
     }));
     const written = settled.flatMap((s) => (s.status === "fulfilled" ? [s.value] : []));
     const reasons = settled.flatMap((s) => (s.status === "rejected" ? [s.reason as unknown] : []));

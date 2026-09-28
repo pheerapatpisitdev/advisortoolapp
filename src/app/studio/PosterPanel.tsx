@@ -11,6 +11,7 @@ import { PersonPicker, type PersonOption } from "./PersonPicker";
 import { ThemeSwatches } from "./ThemeSwatches";
 import { ask } from "./ask";
 import { CheckIcon, LockIcon } from "./ui/editor-icons";
+import { LOGO_SPOT_ARROW, LOGO_SPOT_LABEL, LOGO_SPOTS, type PosterLogo } from "@/lib/content/logo";
 
 /**
  * The poster, editable: its four lines, where they sit, which colours, which size to download.
@@ -63,6 +64,8 @@ const known = (who: PiecePerson | null, people: PersonOption[]) => (who && peopl
 
 export function PosterPanel({ value, onChange, onDraw, busy, people, person: drawnWith, pictureLocked, readOnly, confirmLeave, back }: Props) {
   const [request, setRequest] = useState("");
+  /** the logo the piece came with, so taking it off can be undone before saving */
+  const [logo] = useState<PosterLogo | undefined>(value.logo);
   const [person, setPerson] = useState<PiecePerson | null>(() => known(drawnWith, people));
   // the piece's own person again when it changes under the editor (a redraw landed) or the
   // library arrives after the editor opened
@@ -171,6 +174,20 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
           <span className="mb-1.5 block font-medium">โทนสี</span>
           <ThemeSwatches value={value.theme} onChange={(theme) => onChange({ ...value, theme })} />
         </div>
+        {logo && (
+          <div role="radiogroup" aria-label="ตำแหน่งโลโก้" className="flex flex-wrap items-center gap-1.5 text-sm">
+            <span className="mr-1 font-medium">โลโก้</span>
+            <button type="button" role="radio" aria-checked={!value.logo} onClick={() => onChange({ ...value, logo: undefined })} className={chip(!value.logo)}>ไม่ใส่</button>
+            {LOGO_SPOTS.map((s) => (
+              <button
+                key={s} type="button" role="radio" aria-checked={value.logo?.spot === s} aria-label={LOGO_SPOT_LABEL[s]} title={LOGO_SPOT_LABEL[s]}
+                onClick={() => onChange({ ...value, logo: { ...logo, spot: s } })} className={chip(value.logo?.spot === s)}
+              >
+                {LOGO_SPOT_ARROW[s]}
+              </button>
+            ))}
+          </div>
+        )}
         </fieldset>
         <fieldset disabled={shut} className="m-0 min-w-0 space-y-2 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-2.5">
           <legend className="sr-only">ภาพพื้นหลัง</legend>

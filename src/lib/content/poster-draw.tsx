@@ -2,8 +2,9 @@ import { CARD_PALETTE, POSTER_THEMES, posterScrim } from "@/lib/card-theme";
 import { INSURER_LINE } from "./output";
 import { backgroundDataUri } from "./store";
 import { SIZES, type Layout, type PosterDocument, type PosterSpec, type SizeId } from "./poster";
-import { fitScale, fontSize, LINE_HEIGHT, metrics, withBreaks, type Canvas, type Metrics } from "./poster-layout";
+import { fitScale, fontSize, LINE_HEIGHT, logoAt, metrics, withBreaks, type Canvas, type Metrics } from "./poster-layout";
 import { renderPng } from "./poster-png";
+import { fitInBox, imageSize } from "./logo";
 
 /**
  * A content piece's poster as PNG bytes — what /api/content-poster serves, and what is
@@ -57,6 +58,20 @@ function lines(spec: PosterSpec, m: Metrics, scale: number, marked = false) {
   });
 }
 
+/** The Page's logo in its spot, fitted into its box at its own shape (logo.ts). */
+function Logo({ spec, canvas, uri }: { spec: PosterSpec; canvas: Canvas; uri: string | null }) {
+  if (!spec.logo || !uri) return null;
+  const at = logoAt(canvas, spec.logo.spot);
+  // sized to the picture's own shape, so the box's edge is the logo's edge
+  const { w, h } = fitInBox(imageSize(Buffer.from(uri.slice(uri.indexOf(",") + 1), "base64")), at);
+  return (
+    <div style={{ position: "absolute", left: at.left, top: at.top, width: at.w, height: at.h, display: "flex", justifyContent: at.align, alignItems: "center" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- drawn by satori, not a page */}
+      <img src={uri} alt="" width={w} height={h} style={{ width: w, height: h }} />
+    </div>
+  );
+}
+
 /** who insures it, small in the bottom margin, so a reshared picture still says */
 function InsurerLine({ spec, canvas, m }: { spec: PosterSpec; canvas: Canvas; m: Metrics }) {
   const c = POSTER_THEMES[spec.theme];
@@ -79,13 +94,14 @@ function InsurerLine({ spec, canvas, m }: { spec: PosterSpec; canvas: Canvas; m:
   );
 }
 
-function Poster({ spec, canvas, photo }: { spec: PosterSpec; canvas: Canvas; photo: string | null }) {
+function Poster({ spec, canvas, photo, logo }: { spec: PosterSpec; canvas: Canvas; photo: string | null; logo: string | null }) {
   const c = POSTER_THEMES[spec.theme];
   // a square photograph drawn as "cover": a square as wide as the canvas's longer side, centred,
   // so 4:5 and 9:16 crop it rather than stretch it (Maryjane's coverSide)
   const cover = Math.max(canvas.width, canvas.height);
-  const m = metrics(canvas);
-  const scale = fitScale(spec, canvas);
+  // the words keep clear of the logo only when there is one to draw
+  const m = metrics(canvas, logo ? spec.logo?.spot : null);
+  const scale = fitScale(spec, canvas, Boolean(logo));
 
   return (
     <div
@@ -107,6 +123,7 @@ function Poster({ spec, canvas, photo }: { spec: PosterSpec; canvas: Canvas; pho
       )}
       {lines(spec, m, scale)}
       <InsurerLine spec={spec} canvas={canvas} m={m} />
+      <Logo spec={spec} canvas={canvas} uri={logo} />
     </div>
   );
 }
@@ -163,15 +180,16 @@ const TILT = [-1.5, 1.5, -1];
  * cards, and the amount paid on the highlighter. Over the theme's colour, or over a drawn
  * photograph with the theme's wash where the words sit.
  */
-function DocumentPoster({ spec, canvas, papers, photo }: {
-  spec: PosterSpec; canvas: Canvas; papers: { uri: string; doc: PosterDocument }[]; photo: string | null;
+function DocumentPoster({ spec, canvas, papers, photo, logo }: {
+  spec: PosterSpec; canvas: Canvas; papers: { uri: string; doc: PosterDocument }[]; photo: string | null; logo: string | null;
 }) {
   const c = POSTER_THEMES[spec.theme];
-  const m = metrics(canvas);
+  const m = metrics(canvas, logo ? spec.logo?.spot : null);
   const room = canvas.height - m.padTop - m.padBottom;
   const wordsH = Math.round(room * WORDS_SHARE);
-  // the words fitted to their share alone: a canvas whose usable height is that share
-  const scale = fitScale(spec, { width: canvas.width, height: wordsH + 2 * m.padX });
+  // the words fitted to their share alone: a canvas whose usable height is that share (the
+  // logo's margin is already out of `room`)
+  const scale = fitScale(spec, { width: canvas.width, height: wordsH + 2 * m.padX }, false);
   const frame = Math.round(14 * m.k);
   // a person drawn into the photograph stands in its right third; the papers keep left of them
   const areaW = spec.personAside ? Math.round(m.usableWidth * PAPERS_BESIDE_PERSON) : m.usableWidth;
@@ -225,6 +243,7 @@ function DocumentPoster({ spec, canvas, papers, photo }: {
         })}
       </div>
       <InsurerLine spec={spec} canvas={canvas} m={m} />
+      <Logo spec={spec} canvas={canvas} uri={logo} />
     </div>
   );
 }
@@ -232,10 +251,14 @@ function DocumentPoster({ spec, canvas, papers, photo }: {
 /** The poster drawn at a size; a background that has gone missing draws the plain theme. */
 export async function drawPoster(spec: PosterSpec, size: SizeId = "square"): Promise<Buffer> {
   const canvas = SIZES[size];
-  const photo = spec.background ? await backgroundDataUri(spec.background) : null;
+  const [photo, logo] = await Promise.all([
+    spec.background ? backgroundDataUri(spec.background) : null,
+    // a logo gone missing is left off, and the words take its margin back
+    spec.logo ? backgroundDataUri(spec.logo.path) : null,
+  ]);
   // a paper gone missing is left out; with none left, the plain poster, as for a missing background
   const papers = (await Promise.all((spec.documents ?? []).map(async (doc) => ({ doc, uri: await backgroundDataUri(doc.path) }))))
     .flatMap((p) => (p.uri ? [{ doc: p.doc, uri: p.uri }] : []));
-  if (papers.length) return renderPng(<DocumentPoster spec={spec} canvas={canvas} papers={papers} photo={photo} />, canvas);
-  return renderPng(<Poster spec={spec} canvas={canvas} photo={photo} />, canvas);
+  if (papers.length) return renderPng(<DocumentPoster spec={spec} canvas={canvas} papers={papers} photo={photo} logo={logo} />, canvas);
+  return renderPng(<Poster spec={spec} canvas={canvas} photo={photo} logo={logo} />, canvas);
 }

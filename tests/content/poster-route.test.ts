@@ -15,6 +15,8 @@ const draw = vi.hoisted(() => ({ drawPoster: vi.fn(async () => Buffer.from("png"
 vi.mock("@/lib/content/store", () => store);
 vi.mock("@/lib/content/poster-draw", () => draw);
 vi.mock("@/lib/auth/viewer", () => ({ refuseUnless: vi.fn(async () => null) }));
+const logos = vi.hoisted(() => ({ mayUseLogo: vi.fn(async (path: string) => path.includes("0b7d3f4e")) }));
+vi.mock("@/lib/content/logo-store", () => logos);
 
 const { GET } = await import("@/app/api/content-poster/route");
 const { encodePoster } = await import("@/lib/content/poster");
@@ -47,6 +49,13 @@ describe("the poster route", () => {
       expect(res.status).toBe(404);
     }
     expect(draw.drawPoster).not.toHaveBeenCalled();
+  });
+
+  it("draws a logo only for someone who may use it", async () => {
+    const ok = await get(url({ logo: { path: `logos/${MINE}.png`, spot: "tr" } }));
+    expect(ok.status).toBe(200);
+    const theirs = await get(url({ logo: { path: `logos/${THEIRS}.png`, spot: "tr" } }));
+    expect(theirs.status).toBe(404);
   });
 
   it("is never kept by a shared cache", async () => {

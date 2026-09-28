@@ -18,6 +18,7 @@ import { thaiWhen } from "@/lib/content/publish-label";
 import { drawPicture, generateRound } from "./draw";
 import { PersonPicker, type PersonOption } from "./PersonPicker";
 import { AUTO_THEME, ThemeSwatches, type ThemeChoice } from "./ThemeSwatches";
+import { LogoPicker, useLogoSpot } from "./ui/LogoPicker";
 import { ask } from "./ask";
 import { PieceCard, PieceSkeleton } from "./PieceCard";
 import { PieceEditor } from "./PieceEditor";
@@ -62,6 +63,8 @@ interface Props {
   people: PersonOption[];
   /** the Page being worked for, chosen on its card at /studio; none for an agent */
   page?: string;
+  /** the Page whose logo the posters carry: the one worked for, or the first; none for an agent (own logo) */
+  logoPage?: string;
 }
 
 /** the Page the ลงเพจ box and the calendar start on, as PublishPanel.tsx keeps it */
@@ -212,7 +215,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
 }
 
-export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, page = "" }: Props) {
+export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, page = "", logoPage }: Props) {
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
@@ -301,6 +304,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
   const [pro, setPro] = usePro();
+  const [logoSpot, setLogoSpot] = useLogoSpot();
+  /** handed to the รีวิวเคลม and หาทีม forms, which carry the same logo */
+  const logo = { page: logoPage, spot: logoSpot, onSpot: setLogoSpot };
   const [count, setCount] = useState(3);
   const [adAngles, setAdAngles] = useState(2);
   const [adTones, setAdTones] = useState(2);
@@ -569,6 +575,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
       href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, pro: format !== "ad" && pro, count,
       hookTemplateId: format === "ad" ? null : hookId || null, adAngles, adTones, writer,
       reader, goal: format === "ad" ? "" : goal, fact: format === "ad" ? "" : fact, theme,
+      ...(format !== "script" && logoSpot ? { logoSpot, page: logoPage } : {}),
     }), (fresh) => {
       // the painter as it was at the press, even if the owner changes it while waiting
       // the brief too: what the box said at the press, not after. Only a round that finished:
@@ -979,7 +986,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <ClaimTools
                 folded={!formOpen} formId={mode === "claim" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
-                people={people} person={person} onPerson={setPerson}
+                people={people} person={person} onPerson={setPerson} logo={logo}
                 reader={reader} onReader={setReader} left={left} rounds={spend.rounds} pending={pending} making={making}
                 run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
                   // the photograph behind each new claim poster, drawn as a plan round's are
@@ -991,7 +998,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <RecruitTools
                 folded={!formOpen} formId={mode === "recruit" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
-                people={people} person={person} onPerson={setPerson}
+                people={people} person={person} onPerson={setPerson} logo={logo}
                 left={left} rounds={spend.rounds} pending={pending} making={making}
                 run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
                   // the photograph behind each new recruit poster, drawn as a plan round's are
@@ -1106,6 +1113,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           )}
           </FormSection>
 
+          {format !== "script" && <LogoPicker {...logo} />}
           <PictureFold summary={pictureLine}>
           <label className="block">
             <span className="mb-1 block text-sm font-medium">โมเดลเขียน</span>

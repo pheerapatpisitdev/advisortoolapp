@@ -79,6 +79,7 @@ export async function PUT(req: NextRequest) {
   return Response.json(await writeClaim({
     facts, count: Number(form.get("count")), writer: String(form.get("writer") ?? ""), papers,
     format: String(form.get("format") ?? ""), length: String(form.get("length") ?? ""), loop: form.get("loop") === "on", pro: form.get("pro") === "on",
+    logoSpot: String(form.get("logoSpot") ?? ""), page: String(form.get("page") ?? ""),
     angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
   }));
 }

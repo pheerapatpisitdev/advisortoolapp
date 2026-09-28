@@ -3,6 +3,7 @@ import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { decodePoster, isSizeId, type PosterSpec, type SizeId } from "@/lib/content/poster";
 import { drawPoster } from "@/lib/content/poster-draw";
 import { getContent } from "@/lib/content/store";
+import { mayUseLogo } from "@/lib/content/logo-store";
 import { refuseUnless } from "@/lib/auth/viewer";
 
 export const runtime = "nodejs";
@@ -25,12 +26,15 @@ export const runtime = "nodejs";
  * a claim paper in a shared cache is a customer's document handed to whoever asks next.
  */
 
-/** Every stored picture the poster names belongs to a piece the caller may see. */
+/** Every stored picture the poster names belongs to a piece the caller may see, and its logo is one they may use. */
 async function mayDraw(spec: PosterSpec): Promise<boolean> {
   const paths = [spec.background, ...(spec.documents ?? []).map((d) => d.path)].filter((p): p is string => Boolean(p));
   const pieces = [...new Set(paths.map((p) => p.split("/")[0]))];
-  const seen = await Promise.all(pieces.map((id) => getContent(id).catch(() => null)));
-  return seen.every(Boolean);
+  const [seen, logo] = await Promise.all([
+    Promise.all(pieces.map((id) => getContent(id).catch(() => null))),
+    spec.logo ? mayUseLogo(spec.logo.path).catch(() => false) : true,
+  ]);
+  return seen.every(Boolean) && logo;
 }
 
 /** drawing is free but not nothing; a script asking a thousand times an hour is not a person */

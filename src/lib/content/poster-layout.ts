@@ -1,4 +1,5 @@
 import type { BlockKind, PosterSpec } from "./poster";
+import { atTop, logoBox, type LogoSpot } from "./logo";
 
 /**
  * The poster's geometry, ported from Maryjane's poster-render.tsx with its lessons kept:
@@ -38,12 +39,17 @@ export interface Metrics {
  * A story is 9:16 and Facebook lays its own name and buttons over the top and bottom of one,
  * so a tall canvas keeps its words out of those bands — Maryjane's SAFE_INSETS for stories.
  */
-export function metrics(c: Canvas): Metrics {
+/**
+ * `logo`: a logo's spot. The words keep clear of it — the margin at its edge grows by the logo's
+ * box and a gap — and the logo itself sits at the edge the margin had before (logoAt).
+ */
+export function metrics(c: Canvas, logo?: LogoSpot | null): Metrics {
   const k = c.width / BASE_WIDTH;
   const tall = c.height / c.width > 1.5;
   const padX = Math.round(PADDING * k);
-  const padTop = tall ? Math.round(c.height * 0.14) : padX;
-  const padBottom = tall ? Math.round(c.height * 0.2) : padX;
+  const room = logo ? logoBox(c.width).h + Math.round(22 * k) : 0;
+  const padTop = (tall ? Math.round(c.height * 0.14) : padX) + (logo && atTop(logo) ? room : 0);
+  const padBottom = (tall ? Math.round(c.height * 0.2) : padX) + (logo && !atTop(logo) ? room : 0);
   return {
     k, padX, padTop, padBottom,
     gap: Math.round(22 * k),
@@ -77,10 +83,21 @@ function estimateHeight(p: PosterSpec, m: Metrics, scale: number): number {
 }
 
 /** 1 when the poster fits as designed; otherwise the factor, stepped down, that makes it fit. */
-export function fitScale(p: PosterSpec, c: Canvas): number {
-  const m = metrics(c);
+/** `withLogo`: false where the canvas given is a share of the poster that the logo's margin is already out of */
+export function fitScale(p: PosterSpec, c: Canvas, withLogo = true): number {
+  const m = metrics(c, withLogo ? p.logo?.spot : null);
   let scale = 1;
   // stepped rather than solved: shrinking changes how many lines each block wraps to
   for (let i = 0; i < 20 && estimateHeight(p, m, scale) > m.usableHeight; i++) scale *= 0.9;
   return scale;
+}
+
+/** Where a logo's box goes on the canvas: its edges the words' margins before the logo moved them. */
+export function logoAt(c: Canvas, spot: LogoSpot): { left: number; top: number; w: number; h: number; align: "flex-start" | "center" | "flex-end" } {
+  const m = metrics(c);
+  const { w, h } = logoBox(c.width);
+  const col = spot[1];
+  const left = col === "l" ? m.padX : col === "c" ? Math.round((c.width - w) / 2) : c.width - m.padX - w;
+  const top = atTop(spot) ? m.padTop : c.height - m.padBottom - h;
+  return { left, top, w, h, align: col === "l" ? "flex-start" : col === "c" ? "center" : "flex-end" };
 }

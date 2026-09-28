@@ -1,5 +1,7 @@
 "use client";
 import { useId, useRef, useState } from "react";
+import type { LogoSpot } from "@/lib/content/logo";
+import { LogoPicker } from "../ui/LogoPicker";
 import {
   CLAIM_ANGLES, FACT_LIMIT, MAX_CLAIM_CUSTOM, MAX_CLAIM_PIECES, MAX_DOCS, claimAngleLines, type ClaimFacts, type DocRead,
 } from "@/lib/content/claim";
@@ -33,7 +35,7 @@ const chip = (on: boolean) =>
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
 const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
-export function ClaimTools({ writer, onWriter, painter, onPainter, people, person, onPerson, rounds, reader, onReader, left, pending, making, run, folded, formId }: {
+export function ClaimTools({ writer, onWriter, painter, onPainter, people, person, onPerson, logo, rounds, reader, onReader, left, pending, making, run, folded, formId }: {
   writer: string;
   onWriter: (id: string) => void;
   /** the picture behind the poster, as on the plan form; shared with it and remembered */
@@ -41,6 +43,8 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
   onPainter: (id: string) => void;
   /** a person from the library in the photograph, as on the plan form; shared with it and remembered */
   people: PersonOption[];
+  /** the Page's logo and its spot, shared with the plan form (ui/LogoPicker.tsx) */
+  logo: { page?: string; spot: LogoSpot | null; onSpot: (s: LogoSpot | null) => void };
   person: PiecePerson | null;
   onPerson: (p: PiecePerson | null) => void;
   /** who the posts talk to — the plan form's, remembered on this device for both */
@@ -158,6 +162,10 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
       form.set("length", round.length);
       if (round.loop) form.set("loop", "on");
       if (round.pro) form.set("pro", "on");
+      if (round.format !== "script" && logo.spot) {
+        form.set("logoSpot", logo.spot);
+        if (logo.page) form.set("page", logo.page);
+      }
       form.set("angle", round.angle);
       form.set("custom", round.custom);
       form.set("reader", round.reader);
@@ -257,6 +265,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
         </label>
         </FormSection>
 
+        {format !== "script" && <LogoPicker {...logo} />}
         <PictureFold summary={pictureSummary({
           format, writer: pick.short, painter: paints.modelId ? paints.short : null,
           person: person ? people.find((p) => p.id === person.id)?.name : undefined,

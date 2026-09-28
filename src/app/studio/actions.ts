@@ -8,6 +8,8 @@ import { briefFor } from "@/lib/content/brief";
 import { findWords, strayNumbers, type ContentWord } from "@/lib/content/check";
 import { parseTemplatize, templatizeMessages } from "@/lib/content/hooks";
 import type { ContentOutput } from "@/lib/content/output";
+import { isLogoSpot } from "@/lib/content/logo";
+import { roundLogo } from "@/lib/content/logo-store";
 import { defaultPoster, parsePoster, posterText, THEMES, type Theme } from "@/lib/content/poster";
 import { contentProduct } from "@/lib/content/products";
 import { POSES, type PiecePerson } from "@/lib/content/people";
@@ -98,6 +100,10 @@ export interface GenerateInput {
   fact?: string;
   /** the poster colour the owner picked for the round; "auto", unknown or absent keeps the writer's own */
   theme?: string;
+  /** where the Page's logo goes on the round's posters (logo.ts); absent or unknown leaves it off */
+  logoSpot?: string;
+  /** the Page the round is for, whose logo it carries (the caller's own when they post to no Page) */
+  page?: string;
 }
 
 export type GenerateResult =
@@ -160,9 +166,15 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
   // the owner's story is the one other place a number may come from
   const yardstick = fact ? `${brief.text}\n${fact}` : brief.text;
   const theme = (THEMES as readonly string[]).includes(input.theme ?? "") ? (input.theme as Theme) : null;
-  // the round's colour on every poster, the writer's own poster or the one drawn from its hook
-  const dressed = (o: ContentOutput): ContentOutput =>
-    theme ? { ...o, poster: { ...(o.poster ?? defaultPoster(o.hooks[0], brief.product.name)), theme } } : o;
+  // a script has no poster to carry a logo
+  const logo = input.format === "script" ? null
+    : await roundLogo(typeof input.page === "string" ? input.page : null, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
+  // the round's colour and the Page's logo on every poster, the writer's own or the one drawn from its hook
+  const dressed = (o: ContentOutput): ContentOutput => {
+    if (!theme && !logo) return o;
+    const poster = o.poster ?? defaultPoster(o.hooks[0], brief.product.name);
+    return { ...o, poster: { ...poster, ...(theme ? { theme } : {}), ...(logo ? { logo } : {}) } };
+  };
 
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
@@ -210,7 +222,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
           hashtags: [],
           imagePrompt: heads.lines[i].imagePrompt,
           disclaimer: DISCLAIMER,
-          poster: numbersPoster(s, theme ?? heads.lines[i].theme ?? "navy"),
+          poster: { ...numbersPoster(s, theme ?? heads.lines[i].theme ?? "navy"), ...(logo ? { logo } : {}) },
           figures,
         };
         return {

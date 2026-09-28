@@ -47,6 +47,8 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
       // only a Page actually chosen is remembered for ลงเพจ: the fallback to the first is a
       // guess, and writing it down would send the next post to the wrong Page
       page={current === page ? current : undefined}
+      // the logo follows the Page worked for, or the first as the calendar and people do
+      logoPage={current || undefined}
     />
   );
 }
