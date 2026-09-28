@@ -1,9 +1,28 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { atFold } from "@/lib/content/output";
+import { atFold, captionParts } from "@/lib/content/output";
 import { XIcon } from "./icons";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * The caption as the feed shows it: one run of text in the reader's weight, line breaks kept,
+ * hashtags in the link colour, cut where Facebook cuts it (atFold) with ดูเพิ่มเติม to open the
+ * rest in place. The card and the preview both draw it, so they fold at the same character.
+ */
+export function FeedCaption({ text, className = "" }: { text: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const fold = atFold(text);
+  const shown = open ? text : fold.shown;
+  return (
+    <p className={`whitespace-pre-wrap break-words text-[0.95rem] leading-relaxed ${className}`}>
+      {captionParts(shown).map((p, i) => (p.tag ? <span key={i} className="text-[var(--ct-accent)]">{p.text}</span> : p.text))}
+      {!open && fold.hidden && (
+        <>… <button type="button" onClick={() => setOpen(true)} className="font-semibold text-[var(--ct-mute)] hover:underline">ดูเพิ่มเติม</button></>
+      )}
+    </p>
+  );
+}
 
 /**
  * The post as a reader meets it in the feed: the Page's line, the caption cut where Facebook
@@ -13,7 +32,6 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
  * to be imagined. Drawn from the draft, unsaved edits included.
  */
 export function FeedPreview({ text, poster, onClose }: { text: string; poster: string; onClose: () => void }) {
-  const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   useEffect(() => { close.current = onClose; });
@@ -58,12 +76,7 @@ export function FeedPreview({ text, poster, onClose }: { text: string; poster: s
             <XIcon className="size-5" />
           </button>
         </div>
-        <p className="whitespace-pre-wrap px-3 pb-3 text-[0.95rem] leading-relaxed">
-          {open ? text : fold.shown}
-          {!open && fold.hidden && (
-            <>… <button type="button" onClick={() => setOpen(true)} className="font-semibold text-[var(--ct-mute)] hover:underline">ดูเพิ่มเติม</button></>
-          )}
-        </p>
+        <FeedCaption text={text} className="px-3 pb-3" />
         {/* eslint-disable-next-line @next/next/no-img-element -- the poster route draws it from the draft */}
         <img src={poster} alt="โปสเตอร์ของโพสต์นี้" className="block aspect-square w-full bg-[var(--ct-ground)] object-cover" />
         <p className="px-3 py-2.5 text-xs text-[var(--ct-mute)]">

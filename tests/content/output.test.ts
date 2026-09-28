@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DISCLAIMER, INSURER_LINE, TAX_LINE, footer, fullText } from "@/lib/content/output";
+import { DISCLAIMER, INSURER_LINE, TAX_LINE, captionParts, footer, fullText } from "@/lib/content/output";
 
 const piece = { hooks: ["เปิด"], body: "เนื้อ", closing: "ปิด", hashtags: ["#a"], imagePrompt: "", disclaimer: DISCLAIMER };
 
@@ -17,5 +17,23 @@ describe("the lines under a piece", () => {
   it("does not repeat a tax line the piece already carries", () => {
     const f = footer({ ...piece, body: "ภาษี", disclaimer: `${DISCLAIMER}\n${TAX_LINE}` });
     expect(f.split(TAX_LINE).length - 1).toBe(1);
+  });
+});
+
+describe("a caption as the feed draws it", () => {
+  it("marks each hashtag, and keeps every other character as it was", () => {
+    const parts = captionParts("โพสต์\n\n#ประกันชีวิต #โรคร้ายแรง ท้าย");
+    expect(parts).toEqual([
+      { text: "โพสต์\n\n", tag: false },
+      { text: "#ประกันชีวิต", tag: true },
+      { text: " ", tag: false },
+      { text: "#โรคร้ายแรง", tag: true },
+      { text: " ท้าย", tag: false },
+    ]);
+    expect(parts.map((p) => p.text).join("")).toBe("โพสต์\n\n#ประกันชีวิต #โรคร้ายแรง ท้าย");
+  });
+
+  it("does not mark a lone # or one inside a word", () => {
+    expect(captionParts("ข้อ # 1 และ C#").every((p) => !p.tag)).toBe(true);
   });
 });

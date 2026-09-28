@@ -106,3 +106,19 @@ export function atFold(text: string, limit = FOLD): { shown: string; hidden: str
   const chars = [...text];
   return { shown: chars.slice(0, limit).join(""), hidden: chars.slice(limit).join(""), length: chars.length };
 }
+
+/** a hashtag as Facebook links one: "#" at a word's start and what follows up to a space or the next "#" */
+const HASHTAG = /(?<![^\s])#[^\s#]+/g;
+
+/** The caption in runs, each hashtag its own, so the feed's blue can be drawn on them; joined, the text back. */
+export function captionParts(text: string): { text: string; tag: boolean }[] {
+  const out: { text: string; tag: boolean }[] = [];
+  let at = 0;
+  for (const m of text.matchAll(HASHTAG)) {
+    if (m.index > at) out.push({ text: text.slice(at, m.index), tag: false });
+    out.push({ text: m[0], tag: true });
+    at = m.index + m[0].length;
+  }
+  if (at < text.length) out.push({ text: text.slice(at), tag: false });
+  return out;
+}

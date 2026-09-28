@@ -1,5 +1,6 @@
 "use client";
 import { publishLabel } from "@/lib/content/publish-label";
+import { fullText } from "@/lib/content/output";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
 import { FORMAT_SHORT } from "@/lib/content/prompt";
 import type { ContentItem } from "@/lib/content/store";
@@ -7,10 +8,15 @@ import { shortModel } from "@/lib/content/models";
 import { SAVE_LABEL, usePictureSaver } from "./savePicture";
 import { ask } from "./ask";
 import { CheckIcon } from "./ui/icons";
+import { FeedCaption } from "./ui/FeedPreview";
 
 /**
  * One piece on the workbench, in the shape of Maryjane's piece-card: the picture on top, the
  * words under it, and a bar of four buttons — the decision, the picture, the tools, the bin.
+ *
+ * The words are the caption as the Page will show it (owner, 2026-09-29): hook, body, closing,
+ * hashtags and the lines under them in one run, folded at ดูเพิ่มเติม — not a bold hook over four
+ * clipped lines of body. What the workbench knows about the piece sits in small type below.
  *
  * The picture is the piece's poster, drawn by /api/content-poster from the words the writer
  * chose; a piece from before posters gets one drawn from its hook.
@@ -75,21 +81,20 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
         )}
       </button>
 
-      <div className="space-y-1.5 p-3">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug">{item.output.hooks[0]}</p>
-        {item.output.angle && <p className="text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
-        {item.model && (
-          <p className="text-xs text-[var(--ct-mute)]">
-            เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}` : ""}{item.output.pro ? " · สูตรโปร" : ""}
-          </p>
-        )}
-        {publishLabel(item.publish) && (
-          <p className={`text-xs font-medium ${item.publish?.state === "failed" ? "text-[var(--ct-alert)]" : "text-[var(--ct-accent)]"}`}>{publishLabel(item.publish)}</p>
-        )}
-        <p className="line-clamp-4 whitespace-pre-line text-sm leading-relaxed">{item.output.body}</p>
-        {item.output.hashtags.length > 0 && (
-          <p className="line-clamp-1 text-xs text-[var(--ct-accent)]">{item.output.hashtags.join(" ")}</p>
-        )}
+      <div className="space-y-2.5 p-3">
+        {/* the opening line it went up with, for older pieces that carry three */}
+        <FeedCaption text={fullText(item.output, item.output.postedHook ?? 0)} />
+        <div className="space-y-0.5 border-t border-[var(--ct-hair)] pt-2">
+          {publishLabel(item.publish) && (
+            <p className={`text-xs font-medium ${item.publish?.state === "failed" ? "text-[var(--ct-alert)]" : "text-[var(--ct-accent)]"}`}>{publishLabel(item.publish)}</p>
+          )}
+          {item.output.angle && <p className="text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
+          {item.model && (
+            <p className="text-xs text-[var(--ct-mute)]">
+              เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}` : ""}{item.output.pro ? " · สูตรโปร" : ""}
+            </p>
+          )}
+        </div>
       </div>
 
       {item.status === "trashed" ? (
