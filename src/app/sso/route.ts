@@ -13,10 +13,13 @@ export const dynamic = "force-dynamic";
  * checking their UnitOS key. The ticket is deleted as it is read, so it works once; it lives a
  * minute; and the agent is let in by the same rules as the code at /login, read afresh from
  * UnitOS's rows. Anything wrong goes to /login, which works anyway.
+ *
+ * Lands on the home page (2026-09-28, owner's call), not /studio: from UnitOS the agent
+ * starts where everyone else does, and Studio is one click away in the menu.
  */
 export async function GET(req: Request) {
   const origin = requestOrigin(req);
-  const toLogin = () => NextResponse.redirect(`${origin}/login?next=${encodeURIComponent("/studio")}`);
+  const toLogin = () => NextResponse.redirect(`${origin}/login?next=${encodeURIComponent("/")}`);
   const id = new URL(req.url).searchParams.get("t") ?? "";
   if (!/^[0-9a-f-]{36}$/.test(id)) return toLogin();
 
@@ -32,5 +35,5 @@ export async function GET(req: Request) {
   if (!admit(agent, staff, Date.now())) return toLogin();
 
   await startSession(agentId);
-  return NextResponse.redirect(`${origin}/studio`);
+  return NextResponse.redirect(`${origin}/`);
 }
