@@ -56,7 +56,17 @@ export function scenes(hook: string, body: string, closing: string): Scene[] {
   marks.forEach((m, i) => {
     const end = marks[i + 1]?.index ?? text.length;
     const s = scene(m[1].trim(), text.slice(m.index! + m[0].length, end));
-    if (s.say || s.acts.length || s.screen.length) out.push(s);
+    if (!(s.say || s.acts.length || s.screen.length)) return;
+    // สูตรคอนเทนต์โปร opens the body with the hook's own three seconds — its screen text and
+    // opening shot, not spoken again (pro.ts): they belong on the hook's row, not a row of their own
+    const first = out[0];
+    if (i === 0 && opening && first && s.time?.replace(/\s/g, "") === "0–3วิ") {
+      first.acts.push(...s.acts);
+      first.screen.push(...s.screen);
+      if (s.say) first.say = `${first.say} ${s.say}`;
+      return;
+    }
+    out.push(s);
   });
   return out;
 }

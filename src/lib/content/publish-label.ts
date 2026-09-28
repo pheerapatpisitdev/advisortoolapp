@@ -24,6 +24,9 @@ export type PublishView =
  */
 export const POSTING_STALE_MS = 10 * 60_000;
 
+/** Facebook took it, or may have, and the row could not say so; pressing again may post it twice */
+export const POSSIBLY_POSTED = "โพสต์อาจขึ้นเพจไปแล้ว — เปิดเพจเช็กก่อนกดส่งใหม่";
+
 export const STUCK_MESSAGE = "ส่งไปเพจค้าง — เปิดเพจเช็กก่อนว่าขึ้นแล้วหรือยัง แล้วค่อยกดส่งใหม่";
 
 /** a posting row whose request died; it may have reached Facebook, so a re-send needs `force` */
@@ -33,9 +36,12 @@ export function stalePosting(p: Publish | null, now: Date = new Date()): boolean
   return Number.isNaN(at) || now.getTime() - at > POSTING_STALE_MS;
 }
 
-/** Facebook may already show it: a stuck send, or a refused one that came back with a post id. */
+/**
+ * Facebook may already show it: a stuck send, a refused one that came back with a post id, or
+ * one that ended without Facebook saying either way (publish-flow.ts records POSSIBLY_POSTED).
+ */
 export function maybeOnPage(p: Publish | null, now: Date = new Date()): boolean {
-  return stalePosting(p, now) || (p?.state === "failed" && Boolean(p.postId));
+  return stalePosting(p, now) || (p?.state === "failed" && (Boolean(p.postId) || p.error === POSSIBLY_POSTED));
 }
 
 export function publishView(p: Publish | null, now: Date = new Date()): PublishView {

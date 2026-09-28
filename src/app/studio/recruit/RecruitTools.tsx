@@ -9,7 +9,7 @@ import {
 import type { GenerateResult } from "../actions";
 import { recruitRound } from "../draw";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, useLoop } from "../ui/form-parts";
+import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, ProToggle, useLoop, usePro } from "../ui/form-parts";
 
 /**
  * หาทีม's tools (owner, 2026-09-26): pick a topic and who it is for, set the round, press
@@ -60,6 +60,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   const [format, setFormat] = useState<Format>("post");
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
+  const [pro, setPro] = usePro();
   const [tone, setTone] = useState("");
   const [count, setCount] = useState(1);
 
@@ -75,7 +76,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, count, writer };
+    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, pro: format !== "ad" && pro, count, writer };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => recruitRound(round), paintWith, person);
   }
@@ -114,6 +115,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
         )}
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
+        {format !== "ad" && <ProToggle value={pro} onChange={setPro} />}
 
         <FormSection title="เรื่องที่เล่า">
         <div role="group" aria-labelledby={`${id}-reader`}>
@@ -173,7 +175,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
 
         {format !== "script" && painter !== "none" && (
           <div>
-            <PersonPicker people={people} value={person} onChange={onPerson} back="/studio" />
+            <PersonPicker people={people} value={person} onChange={onPerson} back="/studio/write" />
             {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ราวภาพละ ฿2.4</span>}
           </div>
         )}

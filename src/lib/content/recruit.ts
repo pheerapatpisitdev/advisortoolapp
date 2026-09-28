@@ -5,6 +5,7 @@ import type { ContentOutput } from "./output";
 import { AD_LIMITS } from "./ads";
 import { POLICY_RULES_TH } from "./policy";
 import { LOOP_RULES, steerLines, type Format, type Length } from "./prompt";
+import { PRO_HOOK_RULES, proRules } from "./pro";
 import { clip, MAX_CHARS, parsePoster, THEME_MOOD, THEMES, type PosterBlock, type PosterSpec } from "./poster";
 
 /**
@@ -142,7 +143,7 @@ const POSTER_SHAPE = '"imagePrompt":"…","poster":{"theme":"navy","headline":"�
 const LENGTH_LABEL: Record<Length, string> = { "30": "30 วินาที", "60": "60 วินาที", "180": "2–3 นาที" };
 
 /** The writer's brief for one kind of work — the rules are the same for all three. */
-export function recruitSystem(format: Format, length: Length | null = null, loop = false): string {
+export function recruitSystem(format: Format, length: Length | null = null, loop = false, pro = false): string {
   const task: Record<Format, string[]> = {
     post: [
       "งาน: โพสต์เฟซบุ๊กชวนคนมาร่วมทีมตัวแทนประกันชีวิต",
@@ -181,14 +182,16 @@ export function recruitSystem(format: Format, length: Length | null = null, loop
     ...task[format],
     // a คลิปวนลูป's ending runs back into its hook (prompt.ts)
     ...(format === "script" && loop ? [LOOP_RULES] : []),
+    // สูตรคอนเทนต์โปร: this call writes the hook too, so it takes the hook's rules as well (pro.ts)
+    ...(pro && format !== "ad" ? [PRO_HOOK_RULES, proRules(format, length, loop)] : []),
   ].join("\n");
 }
 
 export function recruitMessages(
-  topic: RecruitTopic, tone: { say: string }, reader = "", format: Format = "post", length: Length | null = null, loop = false,
+  topic: RecruitTopic, tone: { say: string }, reader = "", format: Format = "post", length: Length | null = null, loop = false, pro = false,
 ): ChatMessage[] {
   return [
-    { role: "system", content: recruitSystem(format, length, loop) },
+    { role: "system", content: recruitSystem(format, length, loop, pro) },
     {
       role: "user",
       content: [

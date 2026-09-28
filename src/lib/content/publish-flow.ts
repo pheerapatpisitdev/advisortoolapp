@@ -7,7 +7,7 @@ import { defaultPoster } from "./poster";
 import { drawPoster } from "./poster-draw";
 import { contentProduct } from "./products";
 import { timeOfDay } from "./calendar";
-import { maybeOnPage, stalePosting } from "./publish-label";
+import { maybeOnPage, POSSIBLY_POSTED, stalePosting } from "./publish-label";
 import { POST_SCOPE } from "./posting-health";
 import { claimPublish, getContent, listDue, recordPublishIf, saveOutput, type ContentItem } from "./store";
 
@@ -26,8 +26,7 @@ import { claimPublish, getContent, listDue, recordPublishIf, saveOutput, type Co
 // kept beside the ออโต้โพสต์ screen's check, which reads it without loading the poster renderer
 export { POST_SCOPE };
 
-/** Facebook took it and the row could not say so; pressing again may post it twice */
-export const POSSIBLY_POSTED = "โพสต์อาจขึ้นเพจไปแล้ว — เปิดเพจเช็กก่อนกดส่งใหม่";
+export { POSSIBLY_POSTED };
 /** a move that took the old post back and could not write that down */
 export const MOVE_LOST = "ย้ายเวลาไม่สำเร็จ — โพสต์เดิมถูกลบแล้ว กดตั้งเวลาใหม่ได้";
 export const PAST_DAY = "ย้ายไปวันที่ผ่านมาแล้วไม่ได้";
@@ -128,19 +127,38 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
   const claim = claimAt ?? new Date().toISOString();
   if (!claimAt && !(await claimPublish(item.id, new Date(claim)))) return { ok: false, error: "ชิ้นนี้โพสต์หรือตั้งเวลาไปแล้ว หรือกำลังส่งอยู่" };
   const mine = { state: "posting" as const, at: claim };
-  let posted: Posted;
+  // failed is claimable again, so the owner can press once more; a move's old post is gone, so
+  // its id goes too. The Page is written either way, so the calendar shows the piece on its board.
+  const fail = (error: string) =>
+    recordPublishIf(item.id, mine, { state: "failed", pageId: page.pageId, error, ...(claimAt ? { postId: null } : {}) })
+      .catch((err) => console.error("publish failure not recorded:", err));
+
+  let png: Buffer;
   try {
     const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "");
-    const png = await drawPoster(poster, "square");
+    png = await drawPoster(poster, "square");
+  } catch (e) {
+    // nothing has left for Facebook yet: a plain failure
+    console.error("content poster failed:", e);
+    const message = "วาดรูปโพสต์ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ";
+    await fail(message);
+    return { ok: false, error: message };
+  }
+
+  let posted: Posted;
+  try {
     posted = await postPhoto({ pageId: page.pageId, token, png, caption: fullText(item.output, hook), at });
   } catch (e) {
-    const message = e instanceof PublishError ? e.message : "ส่งไป Facebook ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ";
-    if (!(e instanceof PublishError)) console.error("content publish failed:", e);
-    // failed is claimable again, so the owner can press once more; a move's old post is gone,
-    // so its id goes too
-    await recordPublishIf(item.id, mine, { state: "failed", error: message, ...(claimAt ? { postId: null } : {}) })
-      .catch((err) => console.error("publish failure not recorded:", err));
-    return { ok: false, error: message };
+    // A refusal Graph explained left nothing on the Page. Anything else — a timeout, a reset, a
+    // gateway's page, an answer with no post id — may have: the upload can land after we stop
+    // waiting. Saying "try again" there is how a post goes up twice, so the owner checks first.
+    if (e instanceof PublishError && !e.unsure) {
+      await fail(e.message);
+      return { ok: false, error: e.message };
+    }
+    console.error("content publish unsure:", e);
+    await fail(POSSIBLY_POSTED);
+    return { ok: false, error: POSSIBLY_POSTED, confirmRepost: true };
   }
 
   // Facebook has it now. Whatever happens below, the row keeps its id.

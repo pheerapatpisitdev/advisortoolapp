@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useState } from "react";
 import { FORMAT_SHORT, type Format } from "@/lib/content/prompt";
+import { PRO_NAME, PRO_PRINCIPLES } from "@/lib/content/pro";
 import { ChevronDownIcon } from "./icons";
 
 /**
@@ -171,5 +172,53 @@ export function LoopToggle({ value, onChange }: { value: boolean; onChange: (on:
         <span className="mt-0.5 block text-xs text-[var(--ct-mute)]">ประโยคปิดพูดค้างไว้ แล้ววนกลับไปต่อที่ประโยคเปิด คนดูจะดูซ้ำโดยไม่รู้ตัว · การชวนทักแชทย้ายไปไว้กลางคลิป</span>
       </span>
     </label>
+  );
+}
+
+const PRO_KEY = "content-pro";
+
+/** สูตรคอนเทนต์โปร, remembered per browser like คลิปวนลูป; off until the owner ticks it */
+export function usePro(): [boolean, (on: boolean) => void] {
+  const [pro, setProState] = useState(false);
+  useEffect(() => {
+    try { setProState(localStorage.getItem(PRO_KEY) === "on"); } catch { /* storage unavailable */ }
+  }, []);
+  const setPro = (on: boolean) => {
+    setProState(on);
+    try { localStorage.setItem(PRO_KEY, on ? "on" : "off"); } catch { /* not kept */ }
+  };
+  return [pro, setPro];
+}
+
+/** สูตรคอนเทนต์โปร (owner, 2026-09-29): the thirteen as writing rules — see src/lib/content/pro.ts */
+export function ProToggle({ value, onChange }: { value: boolean; onChange: (on: boolean) => void }) {
+  const [open, setOpen] = useState(false);
+  const list = useId();
+  return (
+    <div className={`rounded-lg border p-3 text-sm ${value ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
+      <label className="flex min-h-11 cursor-pointer items-start gap-2.5">
+        <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
+        <span>
+          <span className="font-medium">{PRO_NAME} (13 ข้อ)</span> <span className="text-[var(--ct-mute)]">(ระบบจำไว้ให้)</span>
+          <span className="mt-0.5 block text-xs text-[var(--ct-mute)]">ประโยคเปิดซ้อน 3 ชั้น · ดึงคนกลับกลางเรื่อง · ชวนเซฟ · สคริปต์มี B-roll</span>
+        </span>
+      </label>
+      <button
+        type="button" aria-expanded={open} aria-controls={list} onClick={() => setOpen((o) => !o)}
+        className="ml-7 inline-flex min-h-11 items-center gap-1 text-xs font-medium text-[var(--ct-accent)]"
+      >
+        <ChevronDownIcon className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /> ดู 13 ข้อ
+      </button>
+      {open && (
+        <ol id={list} className="ml-7 mt-1 list-decimal space-y-1.5 pl-4 text-xs">
+          {PRO_PRINCIPLES.map((p) => (
+            <li key={p.name}>
+              <span className="font-medium">{p.name}</span>{" "}
+              <span className="text-[var(--ct-mute)]">— {p.what}{p.ai ? "" : " (ทำเองหลังโพสต์ AI ทำแทนไม่ได้)"}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   );
 }

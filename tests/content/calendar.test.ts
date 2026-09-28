@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bangkokAt, boardDay, canDropOnDay, fillable, nextOpenDay, weekOf, weekSummary, countByPage, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
+  bangkokAt, boardDay, canDropOnDay, fillable, nextOpenDay, weekOf, weekSummary, dayKey, dropRejection, dropTime, groupByDay, lastDropDay, monthGridDays, nextDayKey,
   parseMonth, repeats, shiftMonth, thaiDayLabel, thaiMonthYear, timeOfDay, unscheduled, type BoardItem,
 } from "@/lib/content/calendar";
 
@@ -66,14 +66,13 @@ describe("the board's rules", () => {
     expect(dropRejection(bad, "2026-09-26", "2026-09-25")).toContain("มีหนี้");
   });
 
-  it("orders a day by time and counts posts per Page", () => {
+  it("orders a day by time", () => {
     const list = [
       item({ id: "b", day: "2026-09-26", time: "19:30", status: "scheduled" }),
       item({ id: "c", day: "2026-09-26", time: "12:00", status: "scheduled", pageId: "p2" }),
       item({ id: "d" }),
     ];
     expect(groupByDay(list).get("2026-09-26")!.map((i) => i.id)).toEqual(["c", "b"]);
-    expect(countByPage(list)).toEqual(new Map([["p1", 1], ["p2", 1]]));
   });
 
   it("marks the same plan twice running on one Page, not across Pages", () => {

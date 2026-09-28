@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { MAX_PHOTOS, MAX_REFERENCES } from "@/lib/content/people";
 import type { Person } from "@/lib/content/people-store";
+import { ALL_PAGES, ALL_PAGES_LABEL, forPage, pageOf, type PageRef } from "@/lib/content/people-pages";
 import { ask } from "../ask";
 import { PhotoDrop } from "./PhotoDrop";
 
@@ -28,8 +29,18 @@ async function shrink(file: File): Promise<Blob> {
 
 const photoUrl = (path: string) => `/api/content-people/photo?path=${encodeURIComponent(path)}`;
 
-export function PeopleBoard({ initial }: { initial: Person[] }) {
+/**
+ * `pages`: the Pages the library is split by (owner, 2026-09-28); none for an agent's own
+ * library, which lists everyone as before. `page` is the one shown, chosen on its card at
+ * /studio — there is no switch here: its own people and every Page's.
+ */
+export function PeopleBoard({ initial, pages, page }: { initial: Person[]; pages: PageRef[]; page: string }) {
   const [people, setPeople] = useState(initial);
+  const split = pages.length > 0;
+  /** the Page a new person is added under: this one, until changed */
+  const [addPage, setAddPage] = useState(page);
+  const [editPage, setEditPage] = useState(ALL_PAGES);
+  const shown = forPage(people, pages, page);
   const [name, setName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [consent, setConsent] = useState(false);
@@ -54,6 +65,7 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
     setEditError(null);
     setRowError(null);
     setEditing(p.id); setEditName(p.name); setDropping([]); setAdding([]); setMain(p.photos[0] ?? null);
+    setEditPage(pageOf(p, pages));
   }
 
   async function saveEdit(p: Person) {
@@ -67,6 +79,7 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
       const form = new FormData();
       form.set("id", p.id);
       form.set("name", editName.trim());
+      if (split) form.set("page", editPage);
       for (const path of dropping) form.append("remove", path);
       if (main && !dropping.includes(main)) form.set("main", main);
       for (const [i, f] of adding.entries()) form.append("photos", await shrink(f), `photo-${i}.jpg`);
@@ -92,6 +105,7 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
       const form = new FormData();
       form.set("name", name.trim());
       form.set("consent", "on");
+      if (split) form.set("page", addPage);
       for (const [i, f] of files.entries()) form.append("photos", await shrink(f), `photo-${i}.jpg`);
       const res = await fetch("/api/content-people", { method: "POST", body: form }).then((r) => r.json());
       if (!res.ok) return setAddError(res.error);
@@ -125,19 +139,30 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
   const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
   const alert = "rounded-lg border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] p-3 text-sm text-[var(--ct-alert)]";
   const btn = "inline-flex min-h-11 items-center rounded-lg px-4 text-sm disabled:opacity-50";
+  const pageSelect = (value: string, onChange: (v: string) => void) => (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium">เพจ</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={field}>
+        {pages.map((pg) => <option key={pg.pageId} value={pg.pageId}>{pg.pageName}</option>)}
+        <option value={ALL_PAGES}>{ALL_PAGES_LABEL}</option>
+      </select>
+    </label>
+  );
 
   return (
     <div className="space-y-6">
-
       <section className="space-y-3">
-        {people.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[var(--ct-line)] p-6 text-center text-sm text-[var(--ct-mute)]">ยังไม่มีใครในคลัง — เพิ่มคนแรกด้านล่าง</p>
-        ) : people.map((p) => editing === p.id ? (
+        {shown.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-[var(--ct-line)] p-6 text-center text-sm text-[var(--ct-mute)]">
+            {split && people.length > 0 ? "ยังไม่มีใครในคลังของเพจนี้ — เพิ่มด้านล่าง" : "ยังไม่มีใครในคลัง — เพิ่มคนแรกด้านล่าง"}
+          </p>
+        ) : shown.map((p) => editing === p.id ? (
           <article key={p.id} className="space-y-3 rounded-lg border border-[var(--ct-solid)] bg-[var(--ct-panel)] p-3">
             <label className="block">
               <span className="mb-1 block text-sm font-medium">ชื่อ</span>
               <input value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={40} className={field} />
             </label>
+            {split && pageSelect(editPage, setEditPage)}
             <div>
               <span className="mb-1 block text-sm font-medium">รูป — กดที่รูปเพื่อเอาออก · รูปหลักคือรูปที่ AI ใช้ทุกครั้ง</span>
               <div className="flex flex-wrap gap-2">
@@ -217,6 +242,7 @@ export function PeopleBoard({ initial }: { initial: Person[] }) {
           <span className="mb-1 block text-sm font-medium">ชื่อ</span>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="ตัวผม" className={field} />
         </label>
+        {split && pageSelect(addPage, setAddPage)}
         <div>
           <span className="mb-1 block text-sm font-medium">รูปต้นแบบ (1–{MAX_PHOTOS} รูป)</span>
           <span className="mb-2 block text-xs text-[var(--ct-mute)]">AI วาดจากครั้งละ {MAX_REFERENCES} รูป — รูปแรกทุกครั้ง ที่เหลือสุ่มจากรูปอื่น</span>

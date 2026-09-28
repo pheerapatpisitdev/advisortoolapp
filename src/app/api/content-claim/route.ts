@@ -3,15 +3,15 @@ import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { MAX_DOCS } from "@/lib/content/claim";
 import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
 import { readClaim, writeClaim } from "@/lib/content/claim-run";
-import { refuseUnless } from "@/lib/auth/viewer";
-import { requireMember } from "@/lib/auth/viewer";
+import { refuseUnless, requireMember } from "@/lib/auth/viewer";
 import { takeRound } from "@/lib/auth/quota";
 
 /**
  * รีวิวเคลม, as plain requests: six photographs are more than a server action's one-megabyte
  * body takes, and a round of writing should not queue the page's other actions behind it.
  *
- * POST reads the papers; PUT writes the pieces. Both refuse without the consent tick — the
+ * POST reads the papers; PUT writes the pieces. Each takes one of the agent's rounds
+ * (src/lib/auth/quota.ts). Both refuse without the consent tick — the
  * page asks for it too, but the rule is the server's. The photographs POST receives are sent
  * to the model and dropped; only the stickered paper PUT receives is ever kept, and a piece
  * with one waits for the owner's ตรวจแล้ว in the editor before it may be posted.
@@ -71,10 +71,14 @@ export async function PUT(req: NextRequest) {
   const ratios = form.getAll("ratio").map(Number);
   if (files.length > MAX_PAPERS || ratios.length !== files.length || !ratios.every(okRatio)) return bad("ขนาดรูปเอกสารไม่ถูกต้อง ลองเลือกรูปใหม่นะครับ");
   if (!roundsPerHour(`claim-write:${clientIp(req.headers)}`)) return bad("สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ", 429);
+  // the writing is a round of its own, as the reading is: without it a second round from the
+  // same papers (the page keeps their reading) or a PUT sent by hand wrote past the allowance
+  const over = await takeRound(await requireMember(), "ai-claim");
+  if (over) return bad(over, 429);
   const papers = await Promise.all(files.map(async (f, i) => ({ bytes: Buffer.from(await f.arrayBuffer()), mimeType: f.type, ratio: ratios[i] })));
   return Response.json(await writeClaim({
     facts, count: Number(form.get("count")), writer: String(form.get("writer") ?? ""), papers,
-    format: String(form.get("format") ?? ""), length: String(form.get("length") ?? ""), loop: form.get("loop") === "on",
+    format: String(form.get("format") ?? ""), length: String(form.get("length") ?? ""), loop: form.get("loop") === "on", pro: form.get("pro") === "on",
     angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
   }));
 }

@@ -78,6 +78,8 @@ export function PersonPicker({ people, value, onChange, disabled, confirmLeave, 
       >
         <option value="">ไม่ใส่</option>
         {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        {/* a piece drawn with someone of another Page: said, not shown as ไม่ใส่ */}
+        {value && !people.some((p) => p.id === value.id) && <option value={value.id}>คนที่เลือกไว้ (จากเพจอื่น)</option>}
       </select>
       {value && (
         <div role="radiogroup" aria-label="ท่าทาง" className="flex flex-wrap gap-1.5">

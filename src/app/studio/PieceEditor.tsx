@@ -406,7 +406,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
       {item.format !== "script" && <div className="mt-4">
         <p className="mb-1.5 text-sm font-medium">รูปโพสต์</p>
         <PosterPanel
-          back={`/studio?open=${item.id}`}
+          back={`/studio/write?open=${item.id}`}
           value={draft.poster}
           onChange={(poster) => {
             if (draft.poster.background && !poster.background) setPlain(true);

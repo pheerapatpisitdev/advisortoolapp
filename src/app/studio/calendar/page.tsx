@@ -2,7 +2,7 @@ import Link from "next/link";
 import { after } from "next/server";
 import {
   boardDay, dayStart, monthGridDays, nextDayKey, parseMonth, shiftMonth, thaiMonthYear, timeOfDay, todayKey,
-  countByPage, DROP_TIME, type BoardItem,
+  DROP_TIME, type BoardItem,
 } from "@/lib/content/calendar";
 import { CLAIM_HREF, CLAIM_NAME } from "@/lib/content/claim";
 import { RECRUIT_HREF, RECRUIT_NAME } from "@/lib/content/recruit";
@@ -95,7 +95,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     listPublished(from, to).catch(() => []),
     listWaiting().catch(() => []),
   ]);
-  const pageFilter = setup.pages.some((p) => p.pageId === params.page) ? params.page! : "";
+  // one Page, never all of them together and no switch between them (owner, 2026-09-28): the
+  // one its card on /studio asked for, else the first
+  const pageFilter = setup.pages.find((p) => p.pageId === params.page)?.pageId ?? setup.pages[0]?.pageId ?? "";
   const pageName = (id: string | null) => setup.pages.find((p) => p.pageId === id)?.pageName ?? "";
 
   // a send stuck past ten minutes is in both lists (the rail takes stale claims): once only
@@ -103,11 +105,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const by = await placedBy(pieces.filter((i) => i.publish?.state && i.publish.state !== "cancelled").map((i) => i.id));
   const all = pieces.map((i) => ({ ...toBoard(i, pageName, from, to), by: by[i.id] }));
   const errors: Record<string, string> = Object.fromEntries(pieces.flatMap(failure));
-  // the chips count posts on the Pages; one that failed sits on its day but is not up
-  const up = all.filter((i) => i.day && i.status !== "failed");
-  const counts = countByPage(up);
-  // the filter hides other Pages' posts; the waiting rail belongs to no Page yet and stays
-  const items = pageFilter ? all.filter((i) => !i.day || i.pageId === pageFilter) : all;
+  // other Pages' posts stay off this one's board; the waiting rail belongs to no Page yet and
+  // stays, and so does a card that names no Page (a send that failed before 2026-09-28 wrote
+  // none) — hidden on every board, a send that may be up would be seen on none
+  const items = pageFilter ? all.filter((i) => !i.day || !i.pageId || i.pageId === pageFilter) : all;
+  // and what is dropped here goes up on this Page, not on whichever one was used last
+  const pageSetup = pageFilter ? { ...setup, pages: setup.pages.filter((p) => p.pageId === pageFilter) } : setup;
 
   const query = (over: Record<string, string | undefined> = {}) => {
     const q = new URLSearchParams({ y: String(year), m: String(month) });
@@ -121,15 +124,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   };
   const prev = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, 1);
-  const chip = (on: boolean) =>
-    `inline-flex min-h-11 items-center rounded-full border px-4 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]" : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-mute)]"}`;
   const toggle = (on: boolean) => `inline-flex min-h-11 items-center rounded-full px-4 text-sm ${on ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`;
   const navBtn = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm";
 
   // the menu, the palette and the tabs come from ../layout.tsx
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">ปฏิทินโพสต์</h1>
+      <h1 className="text-xl font-semibold">
+        ปฏิทินโพสต์{pageFilter && <span className="font-normal text-[var(--ct-mute)]"> · {pageName(pageFilter)}</span>}
+      </h1>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -148,22 +151,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         </div>
       </div>
 
-      {setup.pages.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-[var(--ct-mute)]">เพจ</span>
-          <Link href={query({ page: undefined })} aria-current={!pageFilter ? "page" : undefined} className={chip(!pageFilter)}>ทุกเพจ · {up.length}</Link>
-          {setup.pages.map((p) => (
-            <Link key={p.pageId} href={query({ page: p.pageId })} aria-current={pageFilter === p.pageId ? "page" : undefined} className={chip(pageFilter === p.pageId)}>
-              {p.pageName} · {counts.get(p.pageId) ?? 0}
-            </Link>
-          ))}
-        </div>
-      )}
-
       {listView ? (
         <MonthList items={items.filter((i) => i.day && cells.some((c) => c.day === i.day && c.inMonth))} />
       ) : (
-        <CalendarBoard cells={cells} items={items} errors={errors} today={today} setup={setup} defaultPage={pageFilter} />
+        <CalendarBoard cells={cells} items={items} errors={errors} today={today} setup={pageSetup} defaultPage={pageFilter} />
       )}
     </div>
   );

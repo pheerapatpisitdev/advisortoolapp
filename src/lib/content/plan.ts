@@ -3,6 +3,7 @@ import type { ChatMessage } from "@/lib/ai/types";
 import { hookTemplateSection } from "./hooks";
 import { POLICY_RULES_TH } from "./policy";
 import { LOOP_PLAN, steerLines, type Steer } from "./prompt";
+import { PRO_HOOK_RULES } from "./pro";
 
 /**
  * The planner: before a word of body is written, decide each piece's angle and hook.
@@ -57,12 +58,15 @@ export function planMessages(opts: {
   template: { template: string; category: string } | null;
   /** the hooks open a คลิปวนลูป, so each must also finish its closing */
   loop?: boolean;
+  /** สูตรคอนเทนต์โปร: the hook is stacked (pro.ts) */
+  pro?: boolean;
 } & Steer): ChatMessage[] {
   const user = [
     `ข้อมูลผลิตภัณฑ์:\n${opts.brief}`,
     opts.angle ? `มุมที่เจ้าของเพจอยากเล่า: ${opts.angle}` : "",
     steerLines(opts),
     opts.loop ? LOOP_PLAN : "",
+    opts.pro ? PRO_HOOK_RULES : "",
     avoidSection(opts.avoid),
     opts.template ? hookTemplateSection(opts.template) : "",
     [

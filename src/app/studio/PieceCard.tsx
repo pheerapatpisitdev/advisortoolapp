@@ -80,7 +80,7 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
         {item.output.angle && <p className="text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
         {item.model && (
           <p className="text-xs text-[var(--ct-mute)]">
-            เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}` : ""}
+            เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}` : ""}{item.output.pro ? " · สูตรโปร" : ""}
           </p>
         )}
         {publishLabel(item.publish) && (

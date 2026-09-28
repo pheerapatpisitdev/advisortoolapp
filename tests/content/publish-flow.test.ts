@@ -25,6 +25,7 @@ const { CONCURRENT, MISSED, MOVE_LOST, PAPER_UNCHECKED, POSSIBLY_POSTED, forgetC
   await import("@/lib/content/publish-flow");
 const { publishView, STUCK_MESSAGE, POSTING_STALE_MS } = await import("@/lib/content/publish-label");
 const { PublishError } = await import("@/lib/facebook/publish");
+const { drawPoster } = await import("@/lib/content/poster-draw");
 
 const PAGE = "105";
 const output: ContentOutput = { hooks: ["หัว 1", "หัว 2", "หัว 3"], body: "เนื้อ", closing: "", hashtags: [], imagePrompt: "", disclaimer: "d" };
@@ -128,7 +129,33 @@ describe("Facebook took it, the database did not", () => {
   it("records a plain failure, with no post id, when Facebook refused", async () => {
     fb.postPhoto.mockRejectedValueOnce(new PublishError("Facebook ไม่รับโพสต์: x"));
     expect(await publish({ id: "p1", pageId: PAGE, at: null })).toEqual({ ok: false, error: "Facebook ไม่รับโพสต์: x" });
-    expect(row.publish).toMatchObject({ state: "failed", postId: null, error: "Facebook ไม่รับโพสต์: x" });
+    // the Page it was meant for, so the calendar can show it on that Page's board
+    expect(row.publish).toMatchObject({ state: "failed", postId: null, pageId: PAGE, error: "Facebook ไม่รับโพสต์: x" });
+  });
+
+  it("records a plain failure when the poster could not be drawn: nothing reached Facebook", async () => {
+    vi.mocked(drawPoster).mockRejectedValueOnce(new Error("font missing"));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null })).toMatchObject({ ok: false });
+    expect(fb.postPhoto).not.toHaveBeenCalled();
+    expect(row.publish).toMatchObject({ state: "failed", postId: null });
+    expect(row.publish?.error).not.toBe(POSSIBLY_POSTED);
+  });
+});
+
+describe("Facebook may have it, and did not say", () => {
+  it("a send that timed out may be up: the owner checks the Page before it goes again", async () => {
+    fb.postPhoto.mockRejectedValueOnce(Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" }));
+    expect(await publish({ id: "p1", pageId: PAGE, at: hoursAhead(2).toISOString() })).toEqual({ ok: false, error: POSSIBLY_POSTED, confirmRepost: true });
+    expect(row.publish).toMatchObject({ state: "failed", postId: null, pageId: PAGE, error: POSSIBLY_POSTED });
+    expect(await publish({ id: "p1", pageId: PAGE, at: null })).toMatchObject({ ok: false, confirmRepost: true });
+    expect(fb.postPhoto).toHaveBeenCalledTimes(1);
+    expect((await publish({ id: "p1", pageId: PAGE, at: null, force: true })).ok).toBe(true);
+  });
+
+  it("so may one Facebook answered without a post id", async () => {
+    fb.postPhoto.mockRejectedValueOnce(new PublishError("Facebook ตอบกลับมาไม่มีเลขโพสต์ ลองเช็กในเพจก่อนกดใหม่", undefined, true));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null })).toEqual({ ok: false, error: POSSIBLY_POSTED, confirmRepost: true });
+    expect(row.publish).toMatchObject({ state: "failed", error: POSSIBLY_POSTED });
   });
 });
 

@@ -97,7 +97,7 @@ export function HookLibrary({ items, posted }: { items: HookTemplate[]; posted: 
                 <span className={`block text-sm tabular-nums ${posted[h.id] ? "font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`}>ลงเพจ {posted[h.id] ?? 0}</span>
                 <span className="block text-xs tabular-nums text-[var(--ct-mute)]">เขียน {h.useCount}</span>
               </span>
-              <Link href={`/studio?hook=${h.id}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)]">ใช้อันนี้</Link>
+              <Link href={`/studio/write?hook=${h.id}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)]">ใช้อันนี้</Link>
               <button type="button" onClick={() => copy(h)} aria-live="polite" className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">
                 {copied === h.id ? <><CheckIcon className="size-4 text-[var(--ct-accent)]" />คัดลอกแล้ว</> : "คัดลอก"}
               </button>

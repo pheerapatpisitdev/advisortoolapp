@@ -384,7 +384,8 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
         <aside className="shrink-0 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:w-60 xl:overflow-y-auto">
           <p className="text-sm font-medium">รอตั้งเวลา · {waiting.length}</p>
           <p className="mt-1 text-xs text-[var(--ct-mute)]">ลากลงวันที่ต้องการ = ตั้งเวลา {DROP_TIME} ถ้าเพจนั้นมีโพสต์ {DROP_TIME} แล้วหรือเลยเวลาแล้ว จะไป {DROP_SLOTS[1]} (บนมือถือกดค้างแล้วลาก)</p>
-          {usable.length > 0 && (
+          {/* a choice only where there is one to make: the board is one Page's since 2026-09-28 */}
+          {usable.length > 1 && (
             <label className="mt-2 block">
               <span className="mb-1 block text-xs text-[var(--ct-mute)]">ลงเพจ</span>
               <select value={pageId} onChange={(e) => choosePage(e.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 py-1.5 text-sm">
@@ -393,7 +394,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
             </label>
           )}
           {waiting.length === 0 ? (
-            <p className="mt-3 text-xs text-[var(--ct-mute)]">ยังไม่มีโพสต์ที่รอลงเพจ — ให้ <Link href="/studio" className="underline">Maryjane</Link> เขียนเพิ่ม</p>
+            <p className="mt-3 text-xs text-[var(--ct-mute)]">ยังไม่มีโพสต์ที่รอลงเพจ — เขียนเพิ่มใน <Link href="/studio/write" className="underline">Organic Studio</Link></p>
           ) : (
             <div className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1">
               {waiting.map((item) => (
@@ -627,10 +628,10 @@ function FillDay({ fill, pages, pageId, onPage, empty }: {
         </>
       )}
       <Link
-        href={`/studio?day=${fill.day}`}
+        href={`/studio/write?day=${fill.day}`}
         className="flex min-h-11 items-center justify-center rounded-lg border border-[var(--ct-accent)] px-3 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
       >
-        ให้ Maryjane เขียนโพสต์ใหม่สำหรับวันนี้
+        เขียนโพสต์ใหม่สำหรับวันนี้ใน Organic Studio
       </Link>
     </section>
   );
@@ -682,7 +683,7 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
           <p className="text-sm text-[var(--ct-mute)]">กำลังส่งไปเพจ — โหลดหน้านี้ใหม่อีกครั้งในอีกสักครู่</p>
         ) : !item.blocked && (
           <>
-            {item.status !== "scheduled" && pages.length > 0 && (
+            {item.status !== "scheduled" && pages.length > 1 && (
               <label className="block">
                 <span className="mb-1 block text-xs text-[var(--ct-mute)]">ลงเพจ</span>
                 <select value={pageId} onChange={(e) => onPage(e.target.value)} className="min-h-11 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] p-2 text-sm">
@@ -712,7 +713,7 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
             )}
           </>
         )}
-        <Link href={`/studio?open=${item.id}`} className={`${btn} ml-auto`}>แก้ไข</Link>
+        <Link href={`/studio/write?open=${item.id}`} className={`${btn} ml-auto`}>แก้ไข</Link>
       </div>
       {item.status === "failed" && (
         <div className="mt-2 space-y-1 rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] p-2 text-xs text-[var(--ct-warn-ink)]">
@@ -739,7 +740,7 @@ export function MonthList({ items }: { items: BoardItem[] }) {
           <ul className="space-y-2">
             {(byDay.get(day) ?? []).map((item) => (
               <li key={item.id}>
-                <Link href={`/studio?open=${item.id}`} className="flex gap-3 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3 hover:bg-[var(--ct-soft)]">
+                <Link href={`/studio/write?open=${item.id}`} className="flex gap-3 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3 hover:bg-[var(--ct-soft)]">
                   {/* eslint-disable-next-line @next/next/no-img-element -- the piece's own poster */}
                   <img src={item.imageUrl} alt="" loading="lazy" className="size-16 shrink-0 rounded object-cover" />
                   <span className="min-w-0">

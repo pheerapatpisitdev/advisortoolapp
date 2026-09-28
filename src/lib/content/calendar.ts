@@ -287,16 +287,6 @@ export function boardDay(kind: "none" | "posting" | "scheduled" | "published" | 
   return dayKey(at);
 }
 
-/** posts on the board per Page, for the filter chips */
-export function countByPage(items: BoardItem[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const item of items) {
-    if (!item.day || !item.pageId) continue;
-    counts.set(item.pageId, (counts.get(item.pageId) ?? 0) + 1);
-  }
-  return counts;
-}
-
 /**
  * Posts that follow one about the same plan on the same Page — a follower reads the same
  * product twice running as the Page having nothing else to say.

@@ -83,6 +83,8 @@ export interface GenerateInput {
   length: Length | null;
   /** a คลิปวนลูป (scripts only): the closing runs back into the hook */
   loop?: boolean;
+  /** สูตรคอนเทนต์โปร (posts and scripts; pro.ts) */
+  pro?: boolean;
   count: number;
   hookTemplateId: string | null;
   /** for ads: how many selling angles, and how many tones each is written in */
@@ -148,6 +150,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
   const angle: AngleId = input.angle === "custom" || ANGLES.some((a) => a.id === input.angle) ? input.angle : "";
   const length = input.format === "script" && LENGTHS.some((l) => l.id === input.length) ? input.length : null;
   const loop = input.format === "script" && Boolean(input.loop);
+  const pro = input.format !== "ad" && input.pro === true;
   const custom = (input.custom ?? "").trim().slice(0, MAX_CUSTOM);
   const count = Math.min(MAX_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
   const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
@@ -231,14 +234,15 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
       return roundResult(saved, round.planned, round.budgetHit);
     }
 
-    const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop });
-    const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, plans: planned.plans, reader, goal, fact }, { prefer: writeWith });
+    const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, pro });
+    const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, pro, plans: planned.plans, reader, goal, fact }, { prefer: writeWith });
+    const marked = (o: ContentOutput): ContentOutput => (pro ? { ...o, pro: true } : o);
 
     // each piece carries its own writing cost and an equal share of the planner's
     const planShare = planned.costThb / written.pieces.length;
     const saved = await saveAll(written.pieces.map((w) => ({
       planHref: brief.product.href, format: input.format, angle, length,
-      output: input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : dressed(fact ? { ...w.output, fact } : w.output),
+      output: marked(input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : dressed(fact ? { ...w.output, fact } : w.output)),
       flags: flagsFor(w.output, yardstick, words, null),
       rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare,
       hookTemplateId: template?.id ?? null,

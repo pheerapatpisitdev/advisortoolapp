@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@/lib/ai/types";
+import { proRules } from "./pro";
 import type { PiecePlan } from "./plan";
 import { POLICY_RULES_TH } from "./policy";
 import { THEME_MOOD, THEMES } from "./poster";
@@ -181,6 +182,8 @@ export interface Ask extends Steer {
   length: Length | null;
   /** a คลิปวนลูป: the closing runs back into the hook (scripts only) */
   loop?: boolean;
+  /** สูตรคอนเทนต์โปร (pro.ts): posts and scripts, when the owner ticks it */
+  pro?: boolean;
   /** one per piece, from the planner; the writer writes to them and does not change their hooks */
   plans: PiecePlan[];
 }
@@ -269,7 +272,7 @@ export function planLines(plans: PiecePlan[]): string {
 export function buildMessages(a: Ask): ChatMessage[] {
   const user = [
     `ข้อมูลผลิตภัณฑ์:\n${a.brief}`,
-    [formatBrief(a), angleLine(a), steerLines(a)].filter(Boolean).join("\n"),
+    [formatBrief(a), a.pro ? proRules(a.format, a.length, a.loop) : "", angleLine(a), steerLines(a)].filter(Boolean).join("\n"),
     planLines(a.plans),
   ].join("\n\n");
   return [

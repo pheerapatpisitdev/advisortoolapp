@@ -68,6 +68,8 @@ export interface ContentOutput {
   paperChecked?: boolean;
   /** a คลิปวนลูป: the script's closing runs back into its hook, and the card says so (prompt.ts LOOP_RULES) */
   loop?: boolean;
+  /** written with สูตรคอนเทนต์โปร ticked (pro.ts) */
+  pro?: boolean;
   /**
    * Which of `hooks` went to the Page, for older pieces that carry three; absent is the
    * first. A held post taken back and sent again (a move, an edit) goes with the same one.

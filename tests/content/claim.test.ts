@@ -20,8 +20,27 @@ describe("scrub — nothing that names a person reaches the writer", () => {
     expect(scrub("คุณแม่ของนายสมชาย")).not.toContain("สมชาย");
   });
 
+  it("drops a name after คุณ, and a number in Thai digits", () => {
+    expect(scrub("คุณสมศรี มีสุข นอนโรงพยาบาล")).toBe("นอนโรงพยาบาล");
+    expect(scrub("บัตร ๑๑๐๓๗๐๐๑๒๓๔๕๖")).toBe("บัตร");
+    expect(scrub("โทร ๐๘๑-๒๓๔-๕๖๗๘")).toBe("โทร");
+  });
+
+  it("drops an English titled name", () => {
+    expect(scrub("ผู้ป่วย Mrs. Somsri Meesuk นอน 3 คืน")).toBe("ผู้ป่วย นอน 3 คืน");
+    expect(scrub("Mr John Smith")).toBe("");
+  });
+
+  it("keeps คุณ that names nobody: family, the doctor, and words that begin with it", () => {
+    expect(scrub("คุณแม่ นอนโรงพยาบาล")).toBe("คุณแม่ นอนโรงพยาบาล");
+    expect(scrub("คุณหมอ บอกว่าต้องผ่าตัด")).toBe("คุณหมอ บอกว่าต้องผ่าตัด");
+    expect(scrub("คุณภาพชีวิต ดีขึ้น")).toBe("คุณภาพชีวิต ดีขึ้น");
+    expect(scrub("ตรงคุณสมบัติ ได้เคลม")).toBe("ตรงคุณสมบัติ ได้เคลม");
+  });
+
   it("keeps the figures a post needs", () => {
     expect(scrub("ประกันจ่าย 48,250 บาท นอน 3 คืน")).toBe("ประกันจ่าย 48,250 บาท นอน 3 คืน");
+    expect(scrub("ประกันจ่าย ๔๘,๒๕๐ บาท")).toBe("ประกันจ่าย ๔๘,๒๕๐ บาท");
   });
 });
 

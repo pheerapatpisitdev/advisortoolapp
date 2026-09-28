@@ -32,6 +32,8 @@ export interface Person {
   name: string;
   photos: string[];
   consentedAt: string;
+  /** the Facebook Page they are drawn for; null is every Page's (src/lib/content/people-pages.ts) */
+  pageId: string | null;
 }
 
 const toPerson = (r: Record<string, unknown>): Person => ({
@@ -39,11 +41,14 @@ const toPerson = (r: Record<string, unknown>): Person => ({
   name: String(r.name),
   photos: (r.photos as string[] | null ?? []).filter(isPhotoPath),
   consentedAt: String(r.consented_at),
+  pageId: typeof r.page_id === "string" && r.page_id ? r.page_id : null,
 });
+
+const COLUMNS = "id, name, photos, consented_at, page_id";
 
 export async function listPeople(): Promise<Person[]> {
   const only = agentFilter(await currentScope());
-  let q = supabaseAdmin().from("ins_people").select("id, name, photos, consented_at");
+  let q = supabaseAdmin().from("ins_people").select(COLUMNS);
   if (only) q = q.or(only);
   const { data, error } = await q.order("created_at");
   if (error) throw new Error(error.message);
@@ -53,7 +58,7 @@ export async function listPeople(): Promise<Person[]> {
 export async function getPerson(id: string): Promise<Person | null> {
   if (!/^[0-9a-f-]{36}$/.test(id)) return null;
   const [{ data, error }, scope] = await Promise.all([
-    supabaseAdmin().from("ins_people").select("id, name, photos, consented_at, agent_id").eq("id", id).maybeSingle(),
+    supabaseAdmin().from("ins_people").select(`${COLUMNS}, agent_id`).eq("id", id).maybeSingle(),
     currentScope(),
   ]);
   if (error) throw new Error(error.message);
@@ -65,11 +70,11 @@ export async function getPerson(id: string): Promise<Person | null> {
  * first so the photos have an id to live under; if an upload fails, the row and whatever
  * made it up are taken back, so no half-saved person is left behind.
  */
-export async function addPerson(name: string, photos: { bytes: Buffer; mimeType: string }[]): Promise<Person> {
+export async function addPerson(name: string, photos: { bytes: Buffer; mimeType: string }[], pageId: string | null = null): Promise<Person> {
   const db = supabaseAdmin();
   const owner = (await currentScope()).owner;
   const { data, error } = await db.from("ins_people")
-    .insert({ name, photos: [], consented_at: new Date().toISOString(), agent_id: owner?.agentId ?? null, tenant_id: owner?.tenantId ?? null })
+    .insert({ name, photos: [], page_id: pageId, consented_at: new Date().toISOString(), agent_id: owner?.agentId ?? null, tenant_id: owner?.tenantId ?? null })
     .select("id").single();
   if (error) throw new Error(error.message);
   const id = String(data.id);
@@ -82,7 +87,7 @@ export async function addPerson(name: string, photos: { bytes: Buffer; mimeType:
       paths.push(path);
     }
     const { data: saved, error: set } = await db.from("ins_people").update({ photos: paths }).eq("id", id)
-      .select("id, name, photos, consented_at").single();
+      .select(COLUMNS).single();
     if (set) throw new Error(set.message);
     return toPerson(saved);
   } catch (e) {
@@ -112,6 +117,8 @@ export async function updatePerson(id: string, change: {
   name?: string; remove?: string[]; add?: { bytes: Buffer; mimeType: string }[];
   /** a kept photo to put first, as the main one */
   main?: string;
+  /** the Page they move to; null is every Page's, undefined leaves it */
+  pageId?: string | null;
 }): Promise<Person> {
   const person = await getPerson(id);
   if (!person) throw new PersonError("ไม่พบบุคคลนี้");
@@ -140,8 +147,11 @@ export async function updatePerson(id: string, change: {
     throw e;
   }
   const { data, error } = await db.from("ins_people")
-    .update({ name: change.name ?? person.name, photos: orderPhotos(kept, added, change.main) }).eq("id", id)
-    .select("id, name, photos, consented_at").single();
+    .update({
+      name: change.name ?? person.name, photos: orderPhotos(kept, added, change.main),
+      ...(change.pageId !== undefined ? { page_id: change.pageId } : {}),
+    }).eq("id", id)
+    .select(COLUMNS).single();
   if (error) throw new Error(error.message);
   // the row no longer names them, so the files go last: a failure here leaves strays, not holes
   if (remove.length) await db.storage.from(BUCKET).remove(remove);

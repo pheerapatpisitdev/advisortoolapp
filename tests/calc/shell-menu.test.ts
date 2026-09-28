@@ -174,12 +174,21 @@ describe("what the menu shows to somebody who has not signed in", () => {
 describe("Studio's own menu", () => {
   it("lists Studio's pages and a way back to the main system", () => {
     const links = studioMenu().flatMap((g) => g.links);
-    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
+    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
   });
 
-  it("lights Maryjane only on /studio itself, not on the pages beside it", () => {
+  it("keeps the front page for admins; others start at the workbench", () => {
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
+    expect(hrefs(who)).toEqual(["/studio/write", "/studio/hooks", "/studio/people", "/"]);
+    expect(hrefs({ ...who, admin: true, publish: true })).toContain("/studio");
+  });
+
+  it("lights the front page only on /studio itself, not on the pages beside it", () => {
     expect(isCurrent("/studio", "/studio")).toBe(true);
     expect(isCurrent("/studio", "/studio/calendar")).toBe(false);
+    expect(isCurrent("/studio", "/studio/write")).toBe(false);
+    expect(isCurrent("/studio/write", "/studio/write")).toBe(true);
     expect(isCurrent("/studio/calendar", "/studio/calendar")).toBe(true);
   });
 });

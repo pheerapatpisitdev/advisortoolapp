@@ -33,6 +33,8 @@ export interface RecruitWriteInput {
   length?: string;
   /** a คลิปวนลูป (scripts only): the closing runs back into the hook */
   loop?: boolean;
+  /** สูตรคอนเทนต์โปร (posts and scripts; pro.ts) */
+  pro?: boolean;
   count: number;
   writer?: string;
 }
@@ -49,6 +51,7 @@ export async function writeRecruit(input: RecruitWriteInput): Promise<GenerateRe
   const format: Format = input.format === "script" || input.format === "ad" ? input.format : "post";
   const length: Length | null = format === "script" ? (LENGTHS.find((l) => l.id === input.length)?.id ?? "60") : null;
   const loop = format === "script" && Boolean(input.loop);
+  const pro = format !== "ad" && input.pro === true;
   const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
   let hold: string | null = null;
   try {
@@ -62,7 +65,7 @@ export async function writeRecruit(input: RecruitWriteInput): Promise<GenerateRe
 
     const settled = await Promise.allSettled(recruitTones(input.tone ?? "", count).map(async (tone) => {
       const r = await chat({
-        tier: "large", task: "content", messages: recruitMessages(topic, tone, reader, format, length, loop),
+        tier: "large", task: "content", messages: recruitMessages(topic, tone, reader, format, length, loop, pro),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),
       });
@@ -72,7 +75,7 @@ export async function writeRecruit(input: RecruitWriteInput): Promise<GenerateRe
         console.error(`recruit piece unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
         throw new UnreadableReply();
       }
-      return { output: loop ? { ...output, loop: true } : output, model: r.model, costThb: r.costThb };
+      return { output: { ...output, ...(loop ? { loop: true } : {}), ...(pro ? { pro: true } : {}) }, model: r.model, costThb: r.costThb };
     }));
     const written = settled.flatMap((s) => (s.status === "fulfilled" ? [s.value] : []));
     const reasons = settled.flatMap((s) => (s.status === "rejected" ? [s.reason as unknown] : []));

@@ -276,14 +276,18 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
  */
 export function studioMenu(who?: Who | null): MenuGroup[] {
   const links: MenuLink[] = [
-    // the writer is called Maryjane and wears a woman, as the owner named her (2026-09-27)
-    { href: "/studio", label: "Maryjane", icon: "woman", hue: "#2e5a80" },
+    // the front page: a card per Page with these tools under it, for admins (owner, 2026-09-28)
+    { href: "/studio", label: "หน้ารวม", icon: "grid", hue: "#2b736f" },
+    // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
+    { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80" },
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
   ];
-  // the calendar is the Page's, so it is for the staff who post to it (owner, 2026-09-27)
-  const shown = who && !who.publish ? links.filter((l) => l.href !== "/studio/calendar") : links;
+  // the calendar is the Page's, so it is for the staff who post to it (owner, 2026-09-27);
+  // the front page is the admins' — everyone else's Studio starts at the workbench (2026-09-28)
+  const hidden = new Set([...(who && !who.publish ? ["/studio/calendar"] : []), ...(who && !who.admin ? ["/studio"] : [])]);
+  const shown = links.filter((l) => !hidden.has(l.href));
   const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
   // staff get a way to the back office, landing on the first page of it they may open
   const office = !who ? null : who.admin ? "/admin" : who.connect ? "/admin/messenger" : who.publish ? "/admin/posting" : null;

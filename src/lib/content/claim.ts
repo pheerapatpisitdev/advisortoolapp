@@ -4,6 +4,7 @@ import { DISCLAIMER, type ContentOutput } from "./output";
 import { POLICY_RULES_TH } from "./policy";
 import { AD_LIMITS } from "./ads";
 import { LOOP_RULES, steerLines, type Format, type Length } from "./prompt";
+import { PRO_HOOK_RULES, proRules } from "./pro";
 import { clip, MAX_CHARS, parsePoster, THEME_MOOD, THEMES, type PosterBlock, type PosterSpec } from "./poster";
 
 /**
@@ -93,13 +94,22 @@ export interface ClaimRead {
  * policy, an account. No figure a claim post needs is that long — a bill of ฿1,250,000.00 is
  * written with commas and stops at seven digits before them.
  */
-const LONG_NUMBER = /\d(?:[\s-]?\d){8,}/g;
-/** a titled name: นาย/นาง/นางสาว/ด.ช./ด.ญ./คุณ and the word after it */
+const LONG_NUMBER = /[\d๐-๙](?:[\s-]?[\d๐-๙]){8,}/g;
+/** a titled name: นาย/นาง/นางสาว/ด.ช./ด.ญ. and the word after it */
 const TITLED_NAME = /(?:นางสาว|นาง|นาย|ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|น\.ส\.)\s*[฀-๿]{2,}(?:\s+[฀-๿]{2,})?/g;
+/**
+ * คุณ and the name written onto it (คุณสมศรี มีสุข). Not the family or the doctor, who name
+ * nobody, nor the words that begin with คุณ (คุณภาพ, คุณสมบัติ, คุณค่า…); a คุณ set apart by a
+ * space is the pronoun, and is left.
+ */
+const KHUN_NAME = /คุณ(?!แม่|พ่อ|ตา|ยาย|ปู่|ย่า|ลุง|ป้า|น้า|หมอ|พยาบาล|ลูกค้า|ภาพ|สมบัติ|ค่า|ประโยชน์|ธรรม|วุฒิ|ความดี)[฀-๿]{2,}(?:\s+[฀-๿]{2,})?/g;
+/** Mr/Mrs/Ms/Miss and the capitalised words after it */
+const ENGLISH_NAME = /\b(?:Mrs|Mr|Ms|Miss)\.?\s*[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?/g;
 
 /** A line with anything that could name a person taken out. Runs on every fact, the model's and the owner's. */
 export function scrub(text: string): string {
-  return text.replace(LONG_NUMBER, "").replace(TITLED_NAME, "").replace(/\s{2,}/g, " ").trim();
+  return text.replace(LONG_NUMBER, "").replace(TITLED_NAME, "").replace(KHUN_NAME, "").replace(ENGLISH_NAME, "")
+    .replace(/\s{2,}/g, " ").trim();
 }
 
 /** A figure as a post would print it: digits and commas, a trailing .00 dropped; anything else is not a figure. */
@@ -280,7 +290,7 @@ const POSTER_SHAPE = '"imagePrompt":"…","poster":{"theme":"navy","headline":"�
 const LENGTH_LABEL: Record<Length, string> = { "30": "30 วินาที", "60": "60 วินาที", "180": "2–3 นาที" };
 
 /** The writer's brief for one kind of work — the rules are the same for all three. */
-export function claimSystem(format: Format, length: Length | null = null, loop = false): string {
+export function claimSystem(format: Format, length: Length | null = null, loop = false, pro = false): string {
   const task: Record<Format, string[]> = {
     post: [
       "งาน: โพสต์เฟซบุ๊กรีวิวการเคลมจริงของลูกค้า",
@@ -319,15 +329,17 @@ export function claimSystem(format: Format, length: Length | null = null, loop =
     ...task[format],
     // a คลิปวนลูป's ending runs back into its hook (prompt.ts)
     ...(format === "script" && loop ? [LOOP_RULES] : []),
+    // สูตรคอนเทนต์โปร: this call writes the hook too, so it takes the hook's rules as well (pro.ts)
+    ...(pro && format !== "ad" ? [PRO_HOOK_RULES, proRules(format, length, loop)] : []),
   ].join("\n");
 }
 
 export function claimMessages(
-  facts: ClaimFacts, angle: { say: string }, reader = "", format: Format = "post", length: Length | null = null, loop = false,
+  facts: ClaimFacts, angle: { say: string }, reader = "", format: Format = "post", length: Length | null = null, loop = false, pro = false,
 ): ChatMessage[] {
   const steer = steerLines({ reader: reader.trim() });
   return [
-    { role: "system", content: claimSystem(format, length, loop) },
+    { role: "system", content: claimSystem(format, length, loop, pro) },
     {
       role: "user",
       content: [

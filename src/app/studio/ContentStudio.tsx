@@ -29,7 +29,7 @@ import { RECRUIT_HREF, RECRUIT_NAME } from "@/lib/content/recruit";
 import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
 import { thaiDayLabel } from "@/lib/content/calendar";
 import { PlainText } from "./ui/editor-fields";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, useLoop } from "./ui/form-parts";
+import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, ProToggle, useLoop, usePro } from "./ui/form-parts";
 
 /**
  * The content workbench, laid out as the owner's Maryjane project lays out its run page:
@@ -58,9 +58,14 @@ interface Props {
   initialOpen?: ContentItem | null;
   /** the calendar sent the owner here to write for this day; the editor's ลงเพจ box offers it */
   forDay?: string | null;
-  /** the people library, for ใส่บุคคลในภาพ */
+  /** the people library, for ใส่บุคคลในภาพ: the Page's own and every Page's (people-pages.ts) */
   people: PersonOption[];
+  /** the Page being worked for, chosen on its card at /studio; none for an agent */
+  page?: string;
 }
+
+/** the Page the ลงเพจ box and the calendar start on, as PublishPanel.tsx keeps it */
+const PAGE_KEY = "content-page";
 
 const TABS: { id: ContentStatus; label: string }[] = [
   { id: "draft", label: "รอตรวจ" },
@@ -207,7 +212,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
 }
 
-export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay }: Props) {
+export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, page = "" }: Props) {
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
@@ -295,6 +300,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [custom, setCustom] = useState("");
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
+  const [pro, setPro] = usePro();
   const [count, setCount] = useState(3);
   const [adAngles, setAdAngles] = useState(2);
   const [adTones, setAdTones] = useState(2);
@@ -324,6 +330,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [formOpen, setFormOpen] = useState(() => Boolean(initialHook) || Boolean(initialDay) || (initial.items.length === 0 && !initialOpen));
   /** the day from the calendar, until the owner puts it away */
   const [forDay, setForDay] = useState(initialDay ?? null);
+  // working for a Page: what is posted from here goes to it unless changed in the ลงเพจ box
+  useEffect(() => {
+    if (!page) return;
+    try { localStorage.setItem(PAGE_KEY, page); } catch { /* not kept */ }
+  }, [page]);
   const formId = useId();
   /** the ใช้จริง rail below xl shows five until asked for the rest */
   const [allUsed, setAllUsed] = useState(false);
@@ -337,7 +348,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [loadingMore, setLoadingMore] = useState(false);
   const [used, setUsed] = useState(initialUsed);
   const [editing, setEditing] = useState<string | null>(initialOpen?.id ?? null);
-  /** a piece opened from the calendar page (/studio?open=…), which may be in neither tab's list */
+  /** a piece opened from the calendar page (/studio/write?open=…), which may be in neither tab's list */
   const [opened, setOpened] = useState<ContentItem | null>(initialOpen ?? null);
   /** pieces with a status change or a delete under way — one each, several at once */
   const [busy, setBusy] = useState<Set<string>>(() => new Set());
@@ -555,7 +566,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     const pictureBrief = brief.trim();
     const pictureOf = person;
     await runRound(pieceCount, format, () => generateRound({
-      href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, count,
+      href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, pro: format !== "ad" && pro, count,
       hookTemplateId: format === "ad" ? null : hookId || null, adAngles, adTones, writer,
       reader, goal: format === "ad" ? "" : goal, fact: format === "ad" ? "" : fact, theme,
     }), (fresh) => {
@@ -926,7 +937,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   return (
     <div>
       <div>
-        <h1 className="text-xl font-semibold">Studio</h1>
+        <h1 className="text-xl font-semibold">Organic Studio</h1>
         <p className="mt-1 text-sm text-[var(--ct-mute)]">AI เขียนจากข้อมูลจริงของแบบประกัน ตัวเลขทุกตัวมาจากตารางเบี้ย อ่านทวนก่อนโพสต์ทุกครั้ง</p>
       </div>
 
@@ -1011,6 +1022,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           )}
 
           {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
+          {format !== "ad" && <ProToggle value={pro} onChange={setPro} />}
 
           {format === "ad" && (
             <div className="space-y-3 rounded-lg bg-[var(--ct-ground)] p-3">
@@ -1135,7 +1147,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           {format !== "script" && painter !== "none" && (
             <div>
-              <PersonPicker people={people} value={person} onChange={setPerson} back="/studio" />
+              <PersonPicker people={people} value={person} onChange={setPerson} back="/studio/write" />
               {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ซึ่งรักษาหน้าคนได้ดีที่สุด ราวภาพละ ฿2.4 · ชุดและสถานที่พิมพ์ในบรีฟภาพด้านล่าง</span>}
             </div>
           )}

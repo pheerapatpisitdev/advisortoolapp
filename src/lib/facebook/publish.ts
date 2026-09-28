@@ -18,7 +18,11 @@ export const MIN_AHEAD_MS = 15 * 60_000;
 export const MAX_AHEAD_MS = 30 * 24 * 60 * 60_000;
 
 export class PublishError extends Error {
-  constructor(message: string, readonly code?: number) {
+  /**
+   * `unsure`: Facebook may have taken the post all the same — it answered with no post id, or
+   * something between here and Graph answered instead of Graph. A refusal Graph explained is sure.
+   */
+  constructor(message: string, readonly code?: number, readonly unsure = false) {
     super(message);
     this.name = "PublishError";
   }
@@ -66,9 +70,11 @@ export async function postPhoto(opts: {
     signal: AbortSignal.timeout(60_000),
   });
   const body = await res.json().catch(() => ({})) as GraphError & { id?: string; post_id?: string };
-  if (!res.ok || body.error) throw explain(body, res.status);
+  if (body.error) throw explain(body, res.status);
+  // a gateway's error page, not Graph's: whether the upload landed behind it is not known
+  if (!res.ok) throw new PublishError(explain(body, res.status).message, undefined, true);
   const id = body.post_id ?? body.id;
-  if (!id) throw new PublishError("Facebook ตอบกลับมาไม่มีเลขโพสต์ ลองเช็กในเพจก่อนกดใหม่");
+  if (!id) throw new PublishError("Facebook ตอบกลับมาไม่มีเลขโพสต์ ลองเช็กในเพจก่อนกดใหม่", undefined, true);
   return { id };
 }
 
