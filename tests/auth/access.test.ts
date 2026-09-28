@@ -44,6 +44,10 @@ describe("admit", () => {
     expect(admit(agent({ tenant: room({ config }) }), null, Date.now())).toBeNull();
   });
 
+  it("shuts out a room whose Application+ is switched off in the Console", () => {
+    expect(admit(agent({ tenant: room({ config: { features: { adStudio: false } } }) }), null, Date.now())).toBeNull();
+  });
+
   it("shuts out UnitOS's demo room, whose codes are handed to anyone trying it", () => {
     expect(admit(agent({ tenant: room({ config: { isDemo: true } }) }), null, Date.now())).toBeNull();
   });

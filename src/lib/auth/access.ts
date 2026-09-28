@@ -16,7 +16,7 @@ export interface AgentRow {
     slug: string;
     name: string | null;
     status: string;
-    config: { features?: { advisorTool?: boolean }; isDemo?: boolean } | null;
+    config: { features?: { advisorTool?: boolean; adStudio?: boolean }; isDemo?: boolean } | null;
     key_epoch: string | null;
   } | null;
 }
@@ -53,8 +53,11 @@ export function admit(agent: AgentRow | null, staff: StaffRow | null, issuedAt: 
   const room = agent?.tenant;
   if (!agent || !room) return null;
   if (!OPEN_ROOMS.includes(room.status)) return null;
-  // missing means on; the owner's Console turns advisortool off for a room with `false`
-  if (room.config?.features?.advisorTool === false) return null;
+  // missing means on; the owner's Console turns a room off with `false`. The Console's switch
+  // is Application+ (adStudio), the hub advisortool is opened from in UnitOS — off there means
+  // off here too, so a room closed in the Console cannot come in through /login instead
+  const features = room.config?.features;
+  if (features?.advisorTool === false || features?.adStudio === false) return null;
   // a showroom: its demo codes are handed to anyone trying UnitOS, and would hand them the
   // owner's AI budget too (owner, 2026-09-27)
   if (room.config?.isDemo) return null;
