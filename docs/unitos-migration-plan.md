@@ -111,11 +111,17 @@
 - **ตัวเลขโควตารายคนตั้งจากค่าเริ่มต้นในโค้ด:** ตั้งค่าเองได้ในตาราง `ins_ai_settings` (คอลัมน์ `member_ai_month`, `trial_ai_month`) ยังไม่มีช่องให้แก้บนหน้าเว็บ
 - **คอนเทนต์เก่า 43 ชิ้นและบุคคล 5 คนตั้งเป็นของเจ้าของ (015495 / ห้อง 83g) แล้ว**
 
-## ระยะที่ 3: เก็บกวาด (1–2 สัปดาห์หลังย้าย)
+## ระยะที่ 3: เก็บกวาด ✅ (28 ก.ย. 09:00 น. เจ้าของสั่งให้ทำทันที)
 
-- export แล้วลบตาราง ฟังก์ชัน และไฟล์ของ advisortool และ Maryjane ออกจาก DATA2.0 เก็บไว้เฉพาะของ Organizational Chart
-- export แล้วลบตาราง `az_gate_pins` / `az_gate_access_log` ใน UnitClub (ด่าน PIN ของ advisortool รุ่นเก่า)
-- merge branch `move-to-unitclub` เข้า `main`
+- **สำรองก่อนลบ:** `~/Documents/APP/_backups/data2-2026-09-28/`
+  - `data2-public.dump`: pg_dump ทั้ง schema และข้อมูล 84 ตาราง
+  - `data2-public-schema.sql`: โครงสร้างอย่างเดียว
+  - `data2-cron-buckets.sql`
+  - `storage/`: ไฟล์ 172 ไฟล์ รวม 131 MB
+- **ลบออกจาก DATA2.0:** ตาราง view ฟังก์ชัน และ type ทั้งหมดของ advisortool และ Maryjane, trigger `on_auth_user_created` ของ Maryjane, bucket 9 ตัว และ storage policy ของ bucket เหล่านั้น
+- **เก็บไว้บน DATA2.0 (Organizational Chart ยังใช้):** `org_charts`, `org_allowlist`, `org_charts_touch()`, `org_is_allowed()`, bucket `org-chart-photos` และระบบ Auth
+- **ไม่ลบ `az_gate_pins` / `az_gate_access_log` ใน UnitClub:** ยังถูกใช้อยู่จากเว็บ `www.advisorx.biz` (tool: hub, lifeready, ihealthy, ci123) ครั้งล่าสุด 27 ก.ย. 21:28 น. รวม 55 ครั้งใน 30 วัน
+- **merge branch `move-to-unitclub` เข้า `main`:** ✅ เสร็จแล้วตอน deploy ระยะที่ 2
 
 ## ข้อควรระวัง
 
