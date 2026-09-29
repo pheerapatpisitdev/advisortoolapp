@@ -13,13 +13,13 @@ import { ChevronDownIcon } from "./icons";
 const FORMATS: Format[] = ["post", "script", "ad"];
 
 /** ทำอะไร as one tap each — it reshapes the whole form, so every choice is in sight */
-export function FormatPicker({ value, onChange }: { value: Format; onChange: (f: Format) => void }) {
+export function FormatPicker({ value, onChange, formats = FORMATS }: { value: Format; onChange: (f: Format) => void; formats?: Format[] }) {
   const id = useId();
   return (
     <div role="group" aria-labelledby={id}>
       <span id={id} className="mb-1 block text-sm font-medium">ทำอะไร</span>
       <div className="flex gap-1 rounded-lg bg-[var(--ct-soft)] p-1">
-        {FORMATS.map((f) => (
+        {formats.map((f) => (
           <button
             key={f} type="button" aria-pressed={value === f} onClick={() => onChange(f)}
             className={`min-h-10 flex-1 rounded-md px-1.5 text-sm ${value === f ? "bg-[var(--ct-panel)] font-medium shadow-sm" : "text-[var(--ct-mute)]"}`}

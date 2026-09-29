@@ -27,6 +27,10 @@ import { ClaimTools } from "./claim/ClaimTools";
 import { RecruitTools } from "./recruit/RecruitTools";
 import { CLAIM_NAME } from "@/lib/content/claim";
 import { RECRUIT_NAME } from "@/lib/content/recruit";
+import { KNOWLEDGE_NAME } from "@/lib/content/knowledge";
+import { DRAFT_NAME } from "@/lib/content/draft";
+import { KnowledgeTools } from "./knowledge/KnowledgeTools";
+import { DraftTools } from "./draft/DraftTools";
 import { MODE_PLANS, modeName } from "@/lib/content/modes";
 import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
 import { thaiDayLabel } from "@/lib/content/calendar";
@@ -70,6 +74,10 @@ interface Props {
 
 /** the Page the ลงเพจ box and the calendar start on, as PublishPanel.tsx keeps it */
 const PAGE_KEY = "content-page";
+
+/** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft */
+type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft";
+const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft"];
 
 const TABS: { id: ContentStatus; label: string }[] = [
   { id: "draft", label: "รอตรวจ" },
@@ -220,18 +228,18 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
-  const [mode, setModeState] = useState<"plan" | "claim" | "recruit">("plan");
+  const [mode, setModeState] = useState<Mode>("plan");
   // the form and the plan as the owner left them, unless the address asks for a plan round
   useEffect(() => {
     try {
       const keptPlan = localStorage.getItem(PLAN_KEY);
       if (keptPlan && products.some((p) => p.href === keptPlan)) setHref(keptPlan);
       const keptMode = localStorage.getItem(MODE_KEY);
-      if (!initialHook && (keptMode === "claim" || keptMode === "recruit")) setModeState(keptMode);
+      if (!initialHook && keptMode && keptMode !== "plan" && (MODES as readonly string[]).includes(keptMode)) setModeState(keptMode as Mode);
     } catch { /* storage unavailable: the first plan */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
   }, []);
-  const setMode = (next: "plan" | "claim" | "recruit") => {
+  const setMode = (next: Mode) => {
     setModeState(next);
     try { localStorage.setItem(MODE_KEY, next); } catch { /* not kept */ }
   };
@@ -968,11 +976,12 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           </div>
 
           <div className={`px-4 pt-4 ${formOpen ? "" : "hidden lg:block"}`}>
-            <div role="group" aria-label="สร้างจาก" className="flex gap-1 rounded-lg bg-[var(--ct-soft)] p-1">
-              {([["plan", "จากแบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME]] as const).map(([m, label]) => (
+            {/* five in a row are too wide for a phone: the row scrolls sideways rather than wrap */}
+            <div role="group" aria-label="สร้างจาก" className="flex gap-1 overflow-x-auto rounded-lg bg-[var(--ct-soft)] p-1">
+              {([["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME]] as const).map(([m, label]) => (
                 <button
                   key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}
-                  className={`min-h-10 flex-auto whitespace-nowrap rounded-md px-1.5 text-sm ${mode === m ? "bg-[var(--ct-panel)] font-medium shadow-sm" : "text-[var(--ct-mute)]"}`}
+                  className={`min-h-10 flex-auto shrink-0 whitespace-nowrap rounded-md px-2.5 text-sm ${mode === m ? "bg-[var(--ct-panel)] font-medium shadow-sm" : "text-[var(--ct-mute)]"}`}
                 >
                   {label}
                 </button>
@@ -980,7 +989,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             </div>
           </div>
 
-          {/* All three stay mounted and only the chosen one is shown: switching unmounted the
+          {/* Every form stays mounted and only the chosen one is shown: switching unmounted the
               others, and one stray tap threw away uploaded claim photos, the consent, the note,
               the recruit topic. Each folds its fields on a phone and keeps its press in reach. */}
           <div hidden={mode !== "claim"}>
@@ -1003,6 +1012,28 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 left={left} rounds={spend.rounds} pending={pending} making={making}
                 run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
                   // the photograph behind each new recruit poster, drawn as a plan round's are
+                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
+                })}
+              />
+          </div>
+          <div hidden={mode !== "knowledge"}>
+              <KnowledgeTools
+                folded={!formOpen} formId={mode === "knowledge" ? formId : undefined}
+                writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
+                people={people} person={person} onPerson={setPerson} logo={logo}
+                left={left} rounds={spend.rounds} pending={pending} making={making}
+                run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
+                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
+                })}
+              />
+          </div>
+          <div hidden={mode !== "draft"}>
+              <DraftTools
+                folded={!formOpen} formId={mode === "draft" ? formId : undefined}
+                writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
+                people={people} person={person} onPerson={setPerson} logo={logo}
+                left={left} rounds={spend.rounds} pending={pending} making={making}
+                run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
                   if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
                 })}
               />
