@@ -116,10 +116,20 @@ export async function setStaffPages(agentId: string, pageIds: string[]): Promise
   if (readError) return { ok: false, error: `อ่านทีมงานไม่ได้: ${readError.message}` };
   if (!row) return { ok: false, error: "ไม่พบทีมงานคนนี้" };
   if ((row as { is_owner: boolean }).is_owner) return { ok: false, error: "เจ้าของเห็นทุกเพจอยู่แล้ว" };
-  const { error: clearError } = await db.from("ins_staff_pages").delete().eq("agent_id", agentId);
-  if (clearError) return { ok: false, error: `บันทึกไม่สำเร็จ: ${clearError.message}` };
-  if (ids.length) {
-    const { error } = await db.from("ins_staff_pages").insert(ids.map((page_id) => ({ agent_id: agentId, page_id })));
+  // Only what changed is written, the ones taken away first: a save that stops halfway leaves
+  // them with fewer Pages than ticked, never with one the owner took away, and never loses the
+  // ones ticked before and still ticked (clearing all and writing again lost every one on a failure).
+  const { data: had, error: hadError } = await db.from("ins_staff_pages").select("page_id").eq("agent_id", agentId);
+  if (hadError) return { ok: false, error: `บันทึกไม่สำเร็จ: ${hadError.message}` };
+  const before = new Set(((had ?? []) as { page_id: string }[]).map((r) => r.page_id));
+  const taken = [...before].filter((p) => !ids.includes(p));
+  const given = ids.filter((p) => !before.has(p));
+  if (taken.length) {
+    const { error } = await db.from("ins_staff_pages").delete().eq("agent_id", agentId).in("page_id", taken);
+    if (error) return { ok: false, error: `บันทึกไม่สำเร็จ: ${error.message}` };
+  }
+  if (given.length) {
+    const { error } = await db.from("ins_staff_pages").insert(given.map((page_id) => ({ agent_id: agentId, page_id })));
     if (error) return { ok: false, error: `บันทึกไม่สำเร็จ: ${error.message}` };
   }
   await audit("staff-pages", agentId, { pages: ids });
