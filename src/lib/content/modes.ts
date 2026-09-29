@@ -1,4 +1,5 @@
 import { CLAIM_HREF, CLAIM_NAME } from "./claim";
+import { KNOWLEDGE_HREF, KNOWLEDGE_NAME } from "./knowledge";
 import { RECRUIT_HREF, RECRUIT_NAME } from "./recruit";
 
 /**
@@ -8,6 +9,7 @@ import { RECRUIT_HREF, RECRUIT_NAME } from "./recruit";
 export const MODE_PLANS: { href: string; name: string }[] = [
   { href: CLAIM_HREF, name: CLAIM_NAME },
   { href: RECRUIT_HREF, name: RECRUIT_NAME },
+  { href: KNOWLEDGE_HREF, name: KNOWLEDGE_NAME },
 ];
 
 export function modeName(href: string): string | null {
