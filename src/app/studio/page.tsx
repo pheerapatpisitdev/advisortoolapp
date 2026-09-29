@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { gatePage, whoOf } from "@/lib/auth/viewer";
 import { listPeople } from "@/lib/content/people-store";
+import { visibleTo } from "@/lib/content/people-pages";
+import { myPages } from "@/lib/auth/pages";
+import { pageConnections } from "@/lib/facebook/connection";
 import { homeCards, scheduledByPage } from "@/lib/content/studio-home";
 import { countByStatus, listHookTemplates, listPublished } from "@/lib/content/store";
 import { publishSetup } from "./publish";
@@ -32,13 +35,18 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
   // (owner, 2026-09-28 and 2026-09-29); every other agent's Studio is the workbench
   if (!who.admin && !who.publish) redirect("/studio/write");
   const now = new Date();
-  const [counts, hooks, people, setup, placed] = await Promise.all([
+  const [counts, hooks, everyone, setup, placed, mine, connected] = await Promise.all([
     countByStatus().catch(() => null),
     listHookTemplates().catch(() => null),
     listPeople().catch(() => null),
     who.publish ? publishSetup() : null,
     who.publish ? listPublished(now, new Date(now.getTime() + AHEAD_MS)).catch(() => []) : [],
+    myPages().catch(() => []),
+    pageConnections().catch(() => []),
   ]);
+  // nobody of a Page the caller does not look after: a card counts the people its Page sees, and
+  // the helper reads someone of a Page outside the caller's own list as every Page's
+  const people = everyone && visibleTo(everyone, new Set(connected.map((p) => p.pageId)), new Set(mine.map((p) => p.pageId)));
   const cards = homeCards({
     room: who.room,
     name: who.name,
