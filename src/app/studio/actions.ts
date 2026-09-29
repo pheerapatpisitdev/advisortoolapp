@@ -19,6 +19,8 @@ import { checkPolicy } from "@/lib/content/policy";
 import { RECRUIT_HREF } from "@/lib/content/recruit";
 import { subjectOf } from "@/lib/content/knowledge";
 import { writeKnowledge, type KnowledgeWriteInput } from "@/lib/content/knowledge-run";
+import { cleanDraft } from "@/lib/content/draft";
+import { writeDraft, type DraftWriteInput } from "@/lib/content/draft-run";
 import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run";
 import { proofread, type Fix } from "@/lib/content/proofread";
 import { ANGLES, GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
@@ -300,6 +302,19 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
   const over = await takeRound(viewer, "ai-knowledge");
   if (over) return { ok: false, error: over };
   return writeKnowledge(input);
+}
+
+/** เขียนเอง: the agent's draft polished into versions (src/lib/content/draft.ts), under the hourly limit. */
+export async function generateDraft(input: DraftWriteInput): Promise<GenerateResult> {
+  const viewer = await requireMember();
+  if (!perHour(`content:${await caller()}`)) {
+    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
+  }
+  // an empty draft is said before a round is counted
+  if (!cleanDraft(input.draft)) return { ok: false, error: "พิมพ์ร่างก่อนนะครับ" };
+  const over = await takeRound(viewer, "ai-draft");
+  if (over) return { ok: false, error: over };
+  return writeDraft(input);
 }
 
 export interface ProofreadResult {
