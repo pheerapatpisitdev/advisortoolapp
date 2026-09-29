@@ -8,9 +8,10 @@ import { forPage } from "./people-pages";
  * The calendar, the people library and the Page's connection belong to one Page. The drafts
  * are the agent's and the opening lines the room's, so those tiles say the same on every card.
  *
- * The page is the admins' (owner, 2026-09-28). An admin who may not post sees no Pages (the list
- * and the calendar are the posting staff's, see publishSetup), so they get one card of their
- * own room with the tools they can open.
+ * The page is the admins' and the posting staff's (owner, 2026-09-28, 2026-09-29): each sees the
+ * cards of the Pages they look after (src/lib/auth/pages.ts). An admin who may not post sees no
+ * Pages, so they get one card of their own room with the tools they can open; posting staff
+ * with no Page yet get that card too, saying the owner ties Pages to them.
  */
 
 export type HomeTileKey = "write" | "calendar" | "hooks" | "people" | "settings";
@@ -44,6 +45,8 @@ export interface HomeInput {
   name: string;
   /** may post to the Pages, and so may open the calendar and /admin/posting */
   publish: boolean;
+  /** sees every Page (owner or admin); posting staff see only their own (src/lib/auth/pages.ts) */
+  admin: boolean;
   /** null: not read — the viewer may not post, or the list failed */
   pages: HomePage[] | null;
   /** posts Facebook is holding, per Page */
@@ -130,6 +133,8 @@ export function homeCards(input: HomeInput): HomeCard[] {
     tiles: [write(), hooks, people()],
   };
   // posting staff with nothing to show: the way to connect a Page, or word that the list failed
+  // posting staff with no Page of their own: the owner ties Pages to them on /admin/team
+  if (input.publish && !input.admin && input.pages) return [{ ...room, subtitle: "ยังไม่มีเพจที่ดูแล — ให้เจ้าของเพิ่มที่หน้าทีมงาน" }];
   if (input.publish) room.tiles.push(settings(input.pages ? "ยังไม่ได้เชื่อมต่อ" : "อ่านรายชื่อเพจไม่ได้"));
   return [room];
 }

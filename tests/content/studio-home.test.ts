@@ -5,6 +5,7 @@ const base: HomeInput = {
   room: "luckyplanner",
   name: "สมชาย",
   publish: true,
+  admin: true,
   pages: [
     { pageId: "p1", pageName: "Diamond Wealth Planner", canPost: true },
     { pageId: "p2", pageName: "ประกัน talk", canPost: false },
@@ -64,6 +65,13 @@ describe("the Studio home", () => {
     expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people", "settings"]);
     expect(tile(cards, 0, "settings")?.status).toBe("ยังไม่ได้เชื่อมต่อ");
     expect(homeCards({ ...base, pages: null })[0].tiles.at(-1)?.status).toBe("อ่านรายชื่อเพจไม่ได้");
+  });
+
+  it("tells posting staff with no Page of their own to ask the owner, with no settings to open", () => {
+    const cards = homeCards({ ...base, admin: false, pages: [] });
+    expect(cards).toHaveLength(1);
+    expect(cards[0].subtitle).toBe("ยังไม่มีเพจที่ดูแล — ให้เจ้าของเพิ่มที่หน้าทีมงาน");
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people"]);
   });
 
   it("puts the Page's own picture on its card", () => {

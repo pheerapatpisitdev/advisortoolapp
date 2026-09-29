@@ -28,8 +28,9 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
   if (kept.size > 0) redirect(`/studio/write?${kept}`);
 
   const who = whoOf(await gatePage("/studio"))!;
-  // the front page is for admins (owner, 2026-09-28); everyone else's Studio is the workbench
-  if (!who.admin) redirect("/studio/write");
+  // the front page is for admins and the posting staff, who see their own Pages on it
+  // (owner, 2026-09-28 and 2026-09-29); every other agent's Studio is the workbench
+  if (!who.admin && !who.publish) redirect("/studio/write");
   const now = new Date();
   const [counts, hooks, people, setup, placed] = await Promise.all([
     countByStatus().catch(() => null),
@@ -42,6 +43,7 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
     room: who.room,
     name: who.name,
     publish: who.publish,
+    admin: who.admin,
     pages: setup && !setup.failed ? setup.pages : null,
     scheduled: scheduledByPage(placed),
     drafts: counts?.draft ?? null,

@@ -177,11 +177,13 @@ describe("Studio's own menu", () => {
     expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
   });
 
-  it("keeps the front page for admins; others start at the workbench", () => {
+  it("keeps the front page for admins and posting staff; other agents start at the workbench", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
     expect(hrefs(who)).toEqual(["/studio/write", "/studio/hooks", "/studio/people", "/"]);
     expect(hrefs({ ...who, admin: true, publish: true })).toContain("/studio");
+    // posting staff choose among their own Pages there (owner, 2026-09-29)
+    expect(hrefs({ ...who, publish: true })).toContain("/studio");
   });
 
   it("lights the front page only on /studio itself, not on the pages beside it", () => {

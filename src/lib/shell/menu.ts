@@ -285,8 +285,9 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
   ];
   // the calendar is the Page's, so it is for the staff who post to it (owner, 2026-09-27);
-  // the front page is the admins' — everyone else's Studio starts at the workbench (2026-09-28)
-  const hidden = new Set([...(who && !who.publish ? ["/studio/calendar"] : []), ...(who && !who.admin ? ["/studio"] : [])]);
+  // the front page is the admins' and the posting staff's, who pick among their own Pages there
+  // (2026-09-29) — every other agent's Studio starts at the workbench
+  const hidden = new Set([...(who && !who.publish ? ["/studio/calendar"] : []), ...(who && !who.admin && !who.publish ? ["/studio"] : [])]);
   const shown = links.filter((l) => !hidden.has(l.href));
   const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
   // staff get a way to the back office, landing on the first page of it they may open
