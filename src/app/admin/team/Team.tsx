@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { addStaff, lookUpAgent, removeStaff, setStaffFlags, type StaffMember } from "./actions";
+import { addStaff, lookUpAgent, removeStaff, setStaffFlags, setStaffPages, type StaffMember } from "./actions";
 import { Empty } from "../ui";
 
 type Flag = "publish" | "connect" | "admin";
@@ -14,7 +14,7 @@ const FLAGS: { key: Flag; label: string; hint: string }[] = [
  * Adding an assistant is two steps on purpose: the code is looked up and the person's name and
  * room are shown before เพิ่ม, because a mistyped digit is somebody else in UnitOS.
  */
-export function Team({ rows }: { rows: StaffMember[] }) {
+export function Team({ rows, pages }: { rows: StaffMember[]; pages: { pageId: string; pageName: string }[] }) {
   const [code, setCode] = useState("");
   const [found, setFound] = useState<{ name: string; room: string } | null>(null);
   const [error, setError] = useState<string>();
@@ -104,6 +104,24 @@ export function Team({ rows }: { rows: StaffMember[] }) {
                   >
                     เอาออก
                   </button>
+                  {/* the Pages they look after (owner, 2026-09-29): admins see every one anyway */}
+                  {m.admin ? (
+                    <p className="w-full text-xs text-[var(--bot-ink-mute)]">เพจที่ดูแล: เห็นทุกเพจ (มีสิทธิ์หลังบ้าน)</p>
+                  ) : m.publish && (
+                    <div role="group" aria-label={`เพจที่ ${m.name} ดูแล`} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <span className="text-xs text-[var(--bot-ink-mute)]">เพจที่ดูแล:</span>
+                      {pages.map((p) => (
+                        <label key={p.pageId} className="inline-flex items-center gap-1.5 text-xs text-[var(--bot-ink)]">
+                          <input
+                            type="checkbox" checked={m.pages.includes(p.pageId)} disabled={pending}
+                            onChange={(e) => run(() => setStaffPages(m.agentId, e.target.checked ? [...m.pages, p.pageId] : m.pages.filter((id) => id !== p.pageId)))}
+                          />
+                          {p.pageName}
+                        </label>
+                      ))}
+                      {m.pages.length === 0 && <span className="text-xs text-[var(--bot-red-ink)]">ยังไม่ได้ติ๊ก — ยังไม่เห็นเพจไหน</span>}
+                    </div>
+                  )}
                 </>
               )}
             </li>

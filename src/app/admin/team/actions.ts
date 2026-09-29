@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { admit } from "@/lib/auth/access";
 import { agentsByCode, audit, requireStaff } from "@/lib/auth/viewer";
+import { pageConnections } from "@/lib/facebook/connection";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
@@ -24,6 +25,8 @@ export interface StaffMember {
   connect: boolean;
   admin: boolean;
   since: string;
+  /** the Pages tied to them (src/lib/auth/pages.ts); the owner and admins see every Page anyway */
+  pages: string[];
 }
 
 type Joined = {
@@ -37,6 +40,9 @@ export async function listStaff(): Promise<StaffMember[]> {
     .select("agent_id, is_owner, can_publish, can_connect, can_admin, created_at, agent:agents!ins_staff_agent_id_fkey(agent_code, name, tenant:tenants(slug, name))")
     .order("is_owner", { ascending: false }).order("created_at");
   if (error) throw new Error(`อ่านรายชื่อทีมงานไม่ได้: ${error.message}`);
+  const { data: tied, error: tiedError } = await supabaseAdmin().from("ins_staff_pages").select("agent_id, page_id");
+  if (tiedError) throw new Error(`อ่านเพจของทีมงานไม่ได้: ${tiedError.message}`);
+  const pagesOf = (id: string) => ((tied ?? []) as { agent_id: string; page_id: string }[]).filter((t) => t.agent_id === id).map((t) => t.page_id);
   return ((data ?? []) as unknown as Joined[]).map((r) => ({
     agentId: r.agent_id,
     code: r.agent?.agent_code ?? "",
@@ -44,6 +50,7 @@ export async function listStaff(): Promise<StaffMember[]> {
     room: r.agent?.tenant?.name?.trim() || r.agent?.tenant?.slug || "",
     owner: r.is_owner, publish: r.can_publish, connect: r.can_connect, admin: r.can_admin,
     since: r.created_at,
+    pages: pagesOf(r.agent_id),
   }));
 }
 
@@ -90,6 +97,31 @@ export async function removeStaff(agentId: string): Promise<{ ok: boolean; error
   if (error) return { ok: false, error: `เอาออกไม่สำเร็จ: ${error.message}` };
   if (!data?.length) return { ok: false, error: "เอาเจ้าของออกจากทีมงานไม่ได้" };
   await audit("staff-remove", agentId);
+  revalidatePath("/admin/team");
+  return { ok: true };
+}
+
+/**
+ * The Pages a member of staff looks after (owner, 2026-09-29): the ones ticked replace the ones
+ * they had. Only connected Pages, never the owner's row (the owner sees every Page).
+ */
+export async function setStaffPages(agentId: string, pageIds: string[]): Promise<{ ok: boolean; error?: string }> {
+  await requireStaff("owner");
+  const ids = [...new Set(pageIds.filter((p): p is string => typeof p === "string" && p.length > 0))];
+  const connected = new Set((await pageConnections()).map((p) => p.pageId));
+  if (ids.some((id) => !connected.has(id))) return { ok: false, error: "มีเพจที่ไม่ได้เชื่อมกับระบบแล้ว — โหลดหน้าใหม่แล้วลองอีกครั้ง" };
+  const db = supabaseAdmin();
+  const { data: row, error: readError } = await db.from("ins_staff").select("is_owner").eq("agent_id", agentId).maybeSingle();
+  if (readError) return { ok: false, error: `อ่านทีมงานไม่ได้: ${readError.message}` };
+  if (!row) return { ok: false, error: "ไม่พบทีมงานคนนี้" };
+  if ((row as { is_owner: boolean }).is_owner) return { ok: false, error: "เจ้าของเห็นทุกเพจอยู่แล้ว" };
+  const { error: clearError } = await db.from("ins_staff_pages").delete().eq("agent_id", agentId);
+  if (clearError) return { ok: false, error: `บันทึกไม่สำเร็จ: ${clearError.message}` };
+  if (ids.length) {
+    const { error } = await db.from("ins_staff_pages").insert(ids.map((page_id) => ({ agent_id: agentId, page_id })));
+    if (error) return { ok: false, error: `บันทึกไม่สำเร็จ: ${error.message}` };
+  }
+  await audit("staff-pages", agentId, { pages: ids });
   revalidatePath("/admin/team");
   return { ok: true };
 }
