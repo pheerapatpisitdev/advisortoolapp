@@ -34,6 +34,20 @@ describe("someone of another Page", () => {
     expect(store.updatePerson).not.toHaveBeenCalled();
   });
 
+  it("stays out of reach while the Pages cannot be read: not knowing it is theirs is not a yes", async () => {
+    const { pageConnections } = await import("@/lib/facebook/connection");
+    const { myPageIds } = await import("@/lib/auth/pages");
+    store.getPerson.mockResolvedValue({ id: ID, name: "phet", pageId: "p2", photos: [], consentedAt: "" });
+    for (const unreadable of [pageConnections, myPageIds]) {
+      vi.mocked(unreadable).mockRejectedValueOnce(new Error("db down"));
+      expect((await del()).status).toBe(503);
+      vi.mocked(unreadable).mockRejectedValueOnce(new Error("db down"));
+      expect((await patch()).status).toBe(503);
+    }
+    expect(store.deletePerson).not.toHaveBeenCalled();
+    expect(store.updatePerson).not.toHaveBeenCalled();
+  });
+
   it("of the caller's own Page, of every Page, or of a disconnected Page, can be", async () => {
     for (const pageId of ["p1", null, "gone"]) {
       store.getPerson.mockResolvedValue({ id: ID, name: "x", pageId, photos: [], consentedAt: "" });

@@ -73,19 +73,28 @@ export async function GET(req: NextRequest) {
 }
 
 /** someone of a connected Page the caller does not look after is not theirs to change (final review, 2026-09-29) */
-async function othersPerson(id: string): Promise<boolean> {
-  const person = await getPerson(id).catch(() => null);
-  if (!person?.pageId) return false;
-  const connected = new Set((await pageConnections().catch(() => [])).map((p) => p.pageId));
-  return connected.has(person.pageId) && !(await myPageIds().catch(() => new Set<string>())).has(person.pageId);
-}
 const notYours = () => Response.json({ ok: false, error: "คนนี้อยู่ในคลังของเพจที่คุณไม่ได้ดูแล" }, { status: 403 });
+/** null when the caller may change this person, the refusal otherwise; Pages that cannot be read refuse too */
+async function refuseOthersPerson(id: string): Promise<Response | null> {
+  const person = await getPerson(id).catch(() => null);
+  if (!person?.pageId) return null;
+  try {
+    const connected = new Set((await pageConnections()).map((p) => p.pageId));
+    if (!connected.has(person.pageId)) return null;
+    return (await myPageIds()).has(person.pageId) ? null : notYours();
+  } catch (e) {
+    // not knowing whether the Page is the caller's is not a yes
+    console.error("pages of a person not read:", e);
+    return Response.json({ ok: false, error: "อ่านรายชื่อเพจไม่ได้ ลองใหม่อีกครั้งนะครับ" }, { status: 503 });
+  }
+}
 
 export async function DELETE(req: NextRequest) {
   const refused = await refuseUnless();
   if (refused) return refused;
   const id = req.nextUrl.searchParams.get("id") ?? "";
-  if (await othersPerson(id)) return notYours();
+  const others = await refuseOthersPerson(id);
+  if (others) return others;
   try {
     await deletePerson(id);
     return Response.json({ ok: true });
@@ -102,7 +111,8 @@ export async function PATCH(req: NextRequest) {
   const form = await req.formData().catch(() => null);
   const id = String(form?.get("id") ?? "");
   if (!form || !/^[0-9a-f-]{36}$/.test(id)) return Response.json({ ok: false, error: "ไม่พบบุคคลนี้" }, { status: 400 });
-  if (await othersPerson(id)) return notYours();
+  const others = await refuseOthersPerson(id);
+  if (others) return others;
   const name = String(form.get("name") ?? "").trim();
   if (!name || name.length > 40) return Response.json({ ok: false, error: "ตั้งชื่อ 1–40 ตัวอักษรนะครับ" }, { status: 400 });
   const files = form.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
