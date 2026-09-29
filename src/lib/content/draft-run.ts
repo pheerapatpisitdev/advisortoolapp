@@ -1,5 +1,6 @@
 import type { GenerateResult } from "@/app/studio/actions";
 import { cleanDraft, draftMessages, DRAFT_HREF, MAX_DRAFT_PIECES, parseDraftPiece } from "./draft";
+import { modeChecks } from "./mode-checks";
 import { oneCallRound } from "./one-call-run";
 import { LENGTHS, MAX_READER, type Format, type Length } from "./prompt";
 
@@ -33,6 +34,8 @@ export async function writeDraft(input: DraftWriteInput): Promise<GenerateResult
     parse: (reply, i) => parseDraftPiece(reply, draft, i, format),
     // the draft is where a figure may come from; one the AI brought in is flagged
     yardstick: draft,
+    // a draft that recruits is read with หาทีม's rules: no income figure, even one it wrote itself
+    checks: modeChecks(DRAFT_HREF, draft),
     logoSpot: input.logoSpot, page: input.page, label: "draft",
   });
 }

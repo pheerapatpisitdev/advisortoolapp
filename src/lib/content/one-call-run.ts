@@ -6,6 +6,7 @@ import { isLogoSpot } from "./logo";
 import { roundLogo } from "./logo-store";
 import { OVERHEAD_THB, writerOf } from "./models";
 import type { ContentOutput } from "./output";
+import type { ModeChecks } from "./mode-checks";
 import { checkPolicy } from "./policy";
 import { posterText } from "./poster";
 import type { Format, Length } from "./prompt";
@@ -35,8 +36,10 @@ export interface OneCallRound {
   writer?: string;
   messages: (piece: number) => ChatMessage[];
   parse: (reply: string, piece: number) => ContentOutput | null;
-  /** where a figure may come from; "" flags every figure for the owner to confirm */
+  /** where a figure may come from */
   yardstick: string;
+  /** the mode's checks beyond every piece's own (mode-checks.ts) */
+  checks?: Partial<ModeChecks>;
   loop: boolean;
   pro: boolean;
   logoSpot?: string;
@@ -97,9 +100,9 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
         items.push(await saveContent({
           planHref: r.href, format: r.format, angle: "", length: r.length, output: w.output,
           flags: {
-            numbers: strayNumbers(checkedText(w.output), r.yardstick),
+            numbers: strayNumbers(checkedText(w.output), r.yardstick, { every: r.checks?.every }),
             words: findWords(checkedText(w.output), words),
-            policy: checkPolicy(checkedText(w.output)),
+            policy: checkPolicy(checkedText(w.output), { recruit: r.checks?.recruit }),
             fixes: null,
           },
           rateVersion: null, model: w.model, costThb: w.costThb, hookTemplateId: null,

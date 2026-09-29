@@ -68,12 +68,13 @@ export function numbersIn(text: string): number[] {
  *
  * Small bare numbers are the copy's own counting — "3 เหตุผล", "2 นาที" — and are left
  * alone; anything of a hundred or more, or said in baht or as a percentage, is a claim and has
- * to be one the model was handed.
+ * to be one the model was handed. `every`: no counting is spared — for ความรู้, written from
+ * general knowledge, where "ระยะรอคอย 30 วัน" is a claim about somebody's policy.
  */
-export function strayNumbers(output: string, brief: string): string[] {
+export function strayNumbers(output: string, brief: string, opts: { every?: boolean } = {}): string[] {
   const allowed = new Set(numbersIn(brief).map(key));
   const stray = amounts(output)
-    .filter((a) => a.value >= 100 || a.priced)
+    .filter((a) => opts.every || a.value >= 100 || a.priced)
     .filter((a) => !allowed.has(key(a.value)))
     .map((a) => a.raw);
   return [...new Set(stray)];

@@ -16,7 +16,7 @@ import { POSES, type PiecePerson } from "@/lib/content/people";
 import { personPhotos } from "@/lib/content/people-store";
 import { MAX_PIECES } from "@/lib/content/plan";
 import { checkPolicy } from "@/lib/content/policy";
-import { RECRUIT_HREF } from "@/lib/content/recruit";
+import { modeChecks, type ModeChecks } from "@/lib/content/mode-checks";
 import { subjectOf } from "@/lib/content/knowledge";
 import { writeKnowledge, type KnowledgeWriteInput } from "@/lib/content/knowledge-run";
 import { cleanDraft } from "@/lib/content/draft";
@@ -69,13 +69,13 @@ const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี�
 const tooDear = (what: string, left: number) =>
   `งบสร้างคอนเทนต์เดือนนี้เหลือ ${left.toFixed(2)} บาท ไม่พอ${what} — ${what === "รอบนี้" ? "ลดจำนวนชิ้น เลือกโมเดลประหยัด หรือ" : ""}เพิ่มงบได้ที่หน้า /admin/ai`;
 
-/** `recruit`: a หาทีม piece, read with the recruiting rules too (policy.ts) */
-function flagsFor(o: ContentOutput, brief: string, words: ContentWord[], fixes: Fix[] | null, recruit = false): Flags {
+/** `checks`: a plan-less mode's own (mode-checks.ts) — หาทีม's rules, every figure */
+function flagsFor(o: ContentOutput, brief: string, words: ContentWord[], fixes: Fix[] | null, checks: Partial<ModeChecks> = {}): Flags {
   const text = checkedText(o);
   return {
-    numbers: strayNumbers(text, brief),
+    numbers: strayNumbers(text, brief, { every: checks.every }),
     words: findWords(text, words),
-    policy: checkPolicy(text, { recruit }),
+    policy: checkPolicy(text, { recruit: checks.recruit }),
     // a suggestion whose words were edited away cannot be applied any more
     fixes: fixes ? fixes.filter((f) => text.includes(f.find)) : null,
   };
@@ -555,7 +555,7 @@ export async function saveContentEdits(
       if (opts.plain && !output.poster?.background) delete output.pictureBy;
       // the figures a numbers post was written from are allowed again, as the brief and the story are
       const yardstick = [brief?.text ?? "", item.output.fact ?? "", item.output.figures ?? ""].join("\n");
-      const flags = flagsFor(output, yardstick, words, item.flags.fixes, item.planHref === RECRUIT_HREF);
+      const flags = flagsFor(output, yardstick, words, item.flags.fixes, modeChecks(item.planHref, item.output.fact));
       if (view.kind === "scheduled") {
         // an edit of a held post re-sends it to the Page, which is the staff's to do
         if (!can(viewer, "publish")) return { ok: false, error: PAGE_STAFF_ONLY };

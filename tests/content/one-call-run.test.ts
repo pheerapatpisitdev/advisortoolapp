@@ -52,6 +52,17 @@ describe("a one-call round", () => {
     expect(store.releaseContentBudget).toHaveBeenCalledWith("h1");
   });
 
+  it("reads a piece with หาทีม's rules when told to, so an income figure in a draft is blocked", async () => {
+    await oneCallRound({ ...base, count: 1, yardstick: "รายได้ 50,000 บาทต่อเดือน", checks: { recruit: true }, parse: () => piece("มาร่วมทีม รายได้ 50,000 บาทต่อเดือน") });
+    const policy = (store.saveContent.mock.calls[0][0].flags as { policy: { code: string }[] }).policy;
+    expect(policy.map((f) => f.code)).toContain("income_promise");
+  });
+
+  it("flags a small count when told to flag every figure", async () => {
+    await oneCallRound({ ...base, count: 1, yardstick: "", checks: { every: true }, parse: () => piece("ระยะรอคอย 30 วัน") });
+    expect((store.saveContent.mock.calls[0][0].flags as { numbers: string[] }).numbers).not.toEqual([]);
+  });
+
   it("marks คลิปวนลูป and สูตรโปร on the pieces", async () => {
     await oneCallRound({ ...base, format: "script", count: 1, loop: true, pro: true, yardstick: "", parse: () => piece("x") });
     expect(store.saveContent.mock.calls[0][0].output).toMatchObject({ loop: true, pro: true });

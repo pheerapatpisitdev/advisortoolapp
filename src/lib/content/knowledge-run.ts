@@ -1,5 +1,6 @@
 import type { GenerateResult } from "@/app/studio/actions";
 import { knowledgeFormat, knowledgeMessages, KNOWLEDGE_HREF, MAX_KNOWLEDGE_PIECES, parseKnowledgePiece, subjectOf } from "./knowledge";
+import { modeChecks } from "./mode-checks";
 import { oneCallRound } from "./one-call-run";
 import { LENGTHS, MAX_READER, type Length } from "./prompt";
 
@@ -37,6 +38,7 @@ export async function writeKnowledge(input: KnowledgeWriteInput): Promise<Genera
     parse: (reply) => parseKnowledgePiece(reply, subject, format),
     // general knowledge is allowed, so there is nothing to find a figure in: every one is flagged
     yardstick: "",
+    checks: modeChecks(KNOWLEDGE_HREF, undefined),
     logoSpot: input.logoSpot, page: input.page, label: "knowledge",
   });
 }
