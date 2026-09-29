@@ -48,6 +48,27 @@ describe("a lead's name", () => {
 });
 
 describe("the link to a customer's chat", () => {
+  it("notes an id Facebook does not know (100/33) as a warning, not an error", async () => {
+    // a customer gone, blocked, or written down under another Page: a row without a name, not a
+    // fault — in development every console.error opens Next's red overlay (2026-09-29)
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock.mockResolvedValue(Response.json({ error: { code: 100, error_subcode: 33, message: "Object with ID '1' does not exist" } }, { status: 400 }));
+    expect(await profileFor("facebook", "1431905706931225", "28346614731664956")).toBeNull();
+    expect(error).not.toHaveBeenCalled();
+    expect(String(warn.mock.calls[0][0])).toContain("100/33");
+    warn.mockRestore();
+    error.mockRestore();
+  });
+
+  it("still notes any other refusal (a permission, a token) as an error", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock.mockResolvedValue(Response.json({ error: { code: 190, message: "token expired" } }, { status: 400 }));
+    expect(await profileFor("facebook", "1431905706931225", "28346614731664956")).toBeNull();
+    expect(String(error.mock.calls[0][0])).toContain("190");
+    error.mockRestore();
+  });
+
   it("opens LINE's own chat for a LINE customer, and the Page's inbox for Messenger", () => {
     expect(chatLink("line", "Udd1", LINE_USER)).toBe("https://chat.line.biz/");
     expect(chatLink("messenger", "105", "123")).toContain("business.facebook.com/latest/inbox/all?asset_id=105");

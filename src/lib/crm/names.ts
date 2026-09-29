@@ -88,8 +88,12 @@ export async function profileOn(pageId: string | null, psid: string): Promise<Pr
       if (res.ok && body.name) {
         profile = { name: body.name, ...(body.profile_pic ? { picture: body.profile_pic } : {}) };
       } else if (body.error) {
-        // Meta's words, so whoever reads the log can tell a missing permission from a stale id
-        console.error(
+        // Meta's words, so whoever reads the log can tell a missing permission from a stale id.
+        // 100/33 is an id Meta does not know: a customer gone or blocked, or one written down
+        // under another Page — a row without a name, not a fault, so a warning (2026-09-29): in
+        // development every console.error opens Next's red overlay over the page.
+        const unknownId = body.error.code === 100 && body.error.error_subcode === 33;
+        (unknownId ? console.warn : console.error)(
           `อ่านชื่อลูกค้าไม่ได้ (เพจ ${pageId || "?"}): ${body.error.code ?? res.status}` +
           `${body.error.error_subcode ? `/${body.error.error_subcode}` : ""} ${body.error.message ?? ""}`,
         );
