@@ -107,21 +107,25 @@ export function Team({ rows, pages }: { rows: StaffMember[]; pages: { pageId: st
                   {/* the Pages they look after (owner, 2026-09-29): admins see every one anyway */}
                   {m.admin ? (
                     <p className="w-full text-xs text-[var(--bot-ink-mute)]">เพจที่ดูแล: เห็นทุกเพจ (มีสิทธิ์หลังบ้าน)</p>
-                  ) : m.publish && (
+                  ) : m.publish && (() => {
+                    // ties to a Page no longer connected are not shown, sent back or counted
+                    const live = m.pages.filter((id) => pages.some((p) => p.pageId === id));
+                    return (
                     <div role="group" aria-label={`เพจที่ ${m.name} ดูแล`} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5">
                       <span className="text-xs text-[var(--bot-ink-mute)]">เพจที่ดูแล:</span>
                       {pages.map((p) => (
                         <label key={p.pageId} className="inline-flex items-center gap-1.5 text-xs text-[var(--bot-ink)]">
                           <input
-                            type="checkbox" checked={m.pages.includes(p.pageId)} disabled={pending}
-                            onChange={(e) => run(() => setStaffPages(m.agentId, e.target.checked ? [...m.pages, p.pageId] : m.pages.filter((id) => id !== p.pageId)))}
+                            type="checkbox" checked={live.includes(p.pageId)} disabled={pending}
+                            onChange={(e) => run(() => setStaffPages(m.agentId, e.target.checked ? [...live, p.pageId] : live.filter((id) => id !== p.pageId)))}
                           />
                           {p.pageName}
                         </label>
                       ))}
-                      {m.pages.length === 0 && <span className="text-xs text-[var(--bot-red-ink)]">ยังไม่ได้ติ๊ก — ยังไม่เห็นเพจไหน</span>}
+                      {live.length === 0 && <span className="text-xs text-[var(--bot-red-ink)]">ยังไม่ได้ติ๊ก — ยังไม่เห็นเพจไหน</span>}
                     </div>
-                  )}
+                    );
+                  })()}
                 </>
               )}
             </li>

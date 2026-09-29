@@ -103,13 +103,14 @@ export async function removeStaff(agentId: string): Promise<{ ok: boolean; error
 
 /**
  * The Pages a member of staff looks after (owner, 2026-09-29): the ones ticked replace the ones
- * they had. Only connected Pages, never the owner's row (the owner sees every Page).
+ * they had. A Page no longer connected is dropped rather than refused — the screen sends back
+ * what the person had, and a stale tie refused there would lock their ticks for good (final
+ * review). Never the owner's row: the owner sees every Page.
  */
 export async function setStaffPages(agentId: string, pageIds: string[]): Promise<{ ok: boolean; error?: string }> {
   await requireStaff("owner");
-  const ids = [...new Set(pageIds.filter((p): p is string => typeof p === "string" && p.length > 0))];
   const connected = new Set((await pageConnections()).map((p) => p.pageId));
-  if (ids.some((id) => !connected.has(id))) return { ok: false, error: "มีเพจที่ไม่ได้เชื่อมกับระบบแล้ว — โหลดหน้าใหม่แล้วลองอีกครั้ง" };
+  const ids = [...new Set(pageIds.filter((p): p is string => typeof p === "string" && connected.has(p)))];
   const db = supabaseAdmin();
   const { data: row, error: readError } = await db.from("ins_staff").select("is_owner").eq("agent_id", agentId).maybeSingle();
   if (readError) return { ok: false, error: `อ่านทีมงานไม่ได้: ${readError.message}` };

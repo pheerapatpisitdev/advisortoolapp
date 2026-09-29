@@ -79,7 +79,9 @@ export function PeopleBoard({ initial, pages, page }: { initial: Person[]; pages
       const form = new FormData();
       form.set("id", p.id);
       form.set("name", editName.trim());
-      if (split) form.set("page", editPage);
+      // only a Page the owner changed is sent: a person of a Page no longer connected reads as
+      // every Page's here, and saving a photo must not untie them from it
+      if (split && editPage !== pageOf(p, pages)) form.set("page", editPage);
       for (const path of dropping) form.append("remove", path);
       if (main && !dropping.includes(main)) form.set("main", main);
       for (const [i, f] of adding.entries()) form.append("photos", await shrink(f), `photo-${i}.jpg`);

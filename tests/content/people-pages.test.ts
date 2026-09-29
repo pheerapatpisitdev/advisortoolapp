@@ -52,3 +52,13 @@ describe("the page field sent with a person", () => {
     expect(readPageField("p9", pages)).toEqual({ ok: false });
   });
 });
+
+describe("people of a Page the caller does not look after (final review, 2026-09-29)", () => {
+  it("are kept out of their library and picker; every Page's and a disconnected Page's stay", async () => {
+    const { visibleTo } = await import("@/lib/content/people-pages");
+    const connected = new Set(["p1", "p2"]);
+    const shown = visibleTo(people, connected, new Set(["p1"])).map((p) => p.name);
+    expect(shown).toEqual(["บอย", "ใครก็ได้", "Luck", "เพจที่ตัดไปแล้ว"]);
+    expect(shown).not.toContain("phet");
+  });
+});

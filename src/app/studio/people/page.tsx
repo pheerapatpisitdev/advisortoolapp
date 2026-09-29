@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { gatePage } from "@/lib/auth/viewer";
 import { listPeople } from "@/lib/content/people-store";
-import { choosePage, type PageRef } from "@/lib/content/people-pages";
+import { choosePage, visibleTo, type PageRef } from "@/lib/content/people-pages";
+import { pageConnections } from "@/lib/facebook/connection";
 import { myPages } from "@/lib/auth/pages";
 import { PeopleBoard } from "./PeopleBoard";
 import { LoadFailed } from "../ui/LoadFailed";
@@ -22,12 +23,15 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   const backTo = back && BACK.test(back) ? back : null;
   await gatePage("/studio/people");
   // a failed read is said, not shown as an empty library with an add form under it
-  const [people, connected] = await Promise.all([
+  const [everyone, mine, connected] = await Promise.all([
     listPeople().catch(() => null),
     // the library is split by the Pages the caller looks after; an agent's own has no Pages
     myPages().catch(() => []),
+    pageConnections().catch(() => []),
   ]);
-  const pages: PageRef[] = connected.map((p) => ({ pageId: p.pageId, pageName: p.pageName }));
+  const pages: PageRef[] = mine.map((p) => ({ pageId: p.pageId, pageName: p.pageName }));
+  // nobody of a Page the caller does not look after (final review, 2026-09-29)
+  const people = everyone && visibleTo(everyone, new Set(connected.map((p) => p.pageId)), new Set(pages.map((p) => p.pageId)));
   // one Page, from its card on /studio; no switch between them (owner, 2026-09-28)
   const current = choosePage(page, pages);
   const currentName = pages.find((p) => p.pageId === current)?.pageName;

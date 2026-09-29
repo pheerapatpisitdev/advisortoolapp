@@ -44,9 +44,11 @@ describe("tying Pages to a member of staff", () => {
     expect(db.pages).toEqual([]);
   });
 
-  it("refuses a Page that is not connected", async () => {
-    expect(await setStaffPages("s1", ["p9"])).toMatchObject({ ok: false });
-    expect(db.pages).toEqual([{ agent_id: "s1", page_id: "p1" }]);
+  it("drops a Page no longer connected rather than refusing, so a stale tie cannot lock the ticks", async () => {
+    db.pages = [{ agent_id: "s1", page_id: "p1" }, { agent_id: "s1", page_id: "gone" }];
+    // the screen sends what the person had, the stale tie included, plus the new tick
+    expect(await setStaffPages("s1", ["p1", "gone", "p2"])).toEqual({ ok: true });
+    expect(db.pages).toEqual([{ agent_id: "s1", page_id: "p1" }, { agent_id: "s1", page_id: "p2" }]);
   });
 
   it("leaves the owner's row alone, and refuses someone not on the team", async () => {

@@ -21,6 +21,16 @@ interface Placed {
   pageId: string | null;
 }
 
+/**
+ * The people a caller may see at all (final review, 2026-09-29): those of the Pages they look
+ * after, every Page's, and those whose Page is no longer connected. Someone of a connected Page
+ * the caller does not look after is not theirs to see, draw or edit — without this they read as
+ * every Page's, since the Page list handed to the helpers below is the caller's own.
+ */
+export function visibleTo<T extends Placed>(people: T[], connected: Set<string>, mine: Set<string>): T[] {
+  return people.filter((p) => !p.pageId || !connected.has(p.pageId) || mine.has(p.pageId));
+}
+
 /** the Page a person is shown under: their own while it is connected, ALL_PAGES otherwise */
 export function pageOf(person: Placed, pages: PageRef[]): string {
   return person.pageId && pages.some((p) => p.pageId === person.pageId) ? person.pageId : ALL_PAGES;

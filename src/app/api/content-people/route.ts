@@ -1,10 +1,11 @@
 import type { NextRequest } from "next/server";
-import { addPerson, deletePerson, MAX_PHOTO_BYTES, PersonError, PHOTO_TYPES, updatePerson } from "@/lib/content/people-store";
+import { addPerson, deletePerson, getPerson, MAX_PHOTO_BYTES, PersonError, PHOTO_TYPES, updatePerson } from "@/lib/content/people-store";
 import { MAX_PHOTOS } from "@/lib/content/people";
 import { piecesWithPerson } from "@/lib/content/store";
 import { getViewer, refuseUnless } from "@/lib/auth/viewer";
 import { can } from "@/lib/auth/access";
-import { myPages } from "@/lib/auth/pages";
+import { myPageIds, myPages } from "@/lib/auth/pages";
+import { pageConnections } from "@/lib/facebook/connection";
 import { readPageField } from "@/lib/content/people-pages";
 
 /**
@@ -71,10 +72,20 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/** someone of a connected Page the caller does not look after is not theirs to change (final review, 2026-09-29) */
+async function othersPerson(id: string): Promise<boolean> {
+  const person = await getPerson(id).catch(() => null);
+  if (!person?.pageId) return false;
+  const connected = new Set((await pageConnections().catch(() => [])).map((p) => p.pageId));
+  return connected.has(person.pageId) && !(await myPageIds().catch(() => new Set<string>())).has(person.pageId);
+}
+const notYours = () => Response.json({ ok: false, error: "คนนี้อยู่ในคลังของเพจที่คุณไม่ได้ดูแล" }, { status: 403 });
+
 export async function DELETE(req: NextRequest) {
   const refused = await refuseUnless();
   if (refused) return refused;
   const id = req.nextUrl.searchParams.get("id") ?? "";
+  if (await othersPerson(id)) return notYours();
   try {
     await deletePerson(id);
     return Response.json({ ok: true });
@@ -91,6 +102,7 @@ export async function PATCH(req: NextRequest) {
   const form = await req.formData().catch(() => null);
   const id = String(form?.get("id") ?? "");
   if (!form || !/^[0-9a-f-]{36}$/.test(id)) return Response.json({ ok: false, error: "ไม่พบบุคคลนี้" }, { status: 400 });
+  if (await othersPerson(id)) return notYours();
   const name = String(form.get("name") ?? "").trim();
   if (!name || name.length > 40) return Response.json({ ok: false, error: "ตั้งชื่อ 1–40 ตัวอักษรนะครับ" }, { status: 400 });
   const files = form.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
