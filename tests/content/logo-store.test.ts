@@ -84,6 +84,20 @@ describe("a Page's logo and the Pages a member of staff looks after (owner, 2026
     expect(await mayUseLogo(PATH)).toBe(false);
   });
 
+  it("of a Page no longer connected is still drawn for whoever sees every Page, and for no one else", async () => {
+    // the Pages looked after are only the connected ones, so a logo of a Page since cut off is in none
+    row.value = { page_id: "gone", agent_id: null };
+    mine.ids = ["p1"];
+    viewer.getViewer.mockResolvedValue({ agentId: "o1", staff: { owner: true, publish: true, connect: true, admin: true } });
+    expect(await mayUseLogo(PATH)).toBe(true);
+    viewer.getViewer.mockResolvedValue({ agentId: "b1", staff: { owner: false, publish: false, connect: false, admin: true } });
+    expect(await mayUseLogo(PATH)).toBe(true);
+    viewer.getViewer.mockResolvedValue(staff);
+    expect(await mayUseLogo(PATH)).toBe(false);
+    viewer.getViewer.mockResolvedValue(agent);
+    expect(await mayUseLogo(PATH)).toBe(false);
+  });
+
   it("is not set by staff for a Page they do not look after: the round carries their own", async () => {
     viewer.getViewer.mockResolvedValue(staff);
     mine.ids = [];

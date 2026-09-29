@@ -58,7 +58,9 @@ export async function mayUseLogo(path: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin().from("ins_logos").select("page_id, agent_id").eq("path", path).maybeSingle();
   if (error || !data) return false;
   const row = data as { page_id: string | null; agent_id: string | null };
-  if (row.page_id) return (await myPageIds().catch(() => new Set<string>())).has(row.page_id);
+  // the Pages looked after are the connected ones only, so a logo of a Page since cut off would
+  // be nobody's; whoever sees every Page keeps it
+  if (row.page_id) return seesEveryPage(viewer) || (await myPageIds().catch(() => new Set<string>())).has(row.page_id);
   return row.agent_id === viewer.agentId || seesEveryPage(viewer) || can(viewer, "publish");
 }
 
