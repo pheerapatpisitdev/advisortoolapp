@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { gatePage, whoOf } from "@/lib/auth/viewer";
+import { gatePage } from "@/lib/auth/viewer";
 import { listPeople } from "@/lib/content/people-store";
 import { choosePage, type PageRef } from "@/lib/content/people-pages";
-import { pageConnections } from "@/lib/facebook/connection";
+import { myPages } from "@/lib/auth/pages";
 import { PeopleBoard } from "./PeopleBoard";
 import { LoadFailed } from "../ui/LoadFailed";
 
@@ -20,12 +20,12 @@ const BACK = /^\/studio\/write(\?open=[0-9a-f-]{36})?$/;
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ back?: string; page?: string }> }) {
   const { back, page } = await searchParams;
   const backTo = back && BACK.test(back) ? back : null;
-  const who = whoOf(await gatePage("/studio/people"))!;
+  await gatePage("/studio/people");
   // a failed read is said, not shown as an empty library with an add form under it
   const [people, connected] = await Promise.all([
     listPeople().catch(() => null),
-    // the library is split by Page for the staff who post to them; an agent's own has no Pages
-    who.publish ? pageConnections().catch(() => []) : Promise.resolve([]),
+    // the library is split by the Pages the caller looks after; an agent's own has no Pages
+    myPages().catch(() => []),
   ]);
   const pages: PageRef[] = connected.map((p) => ({ pageId: p.pageId, pageName: p.pageName }));
   // one Page, from its card on /studio; no switch between them (owner, 2026-09-28)

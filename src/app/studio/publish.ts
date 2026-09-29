@@ -1,5 +1,5 @@
 "use server";
-import { pageConnections } from "@/lib/facebook/connection";
+import { myPages } from "@/lib/auth/pages";
 import { bangkokAt, dayKey, dropTime, lastDropDay, nextDayKey, nextOpenDay, timeOfDay, todayKey } from "@/lib/content/calendar";
 import { move, PAST_DAY, POST_SCOPE, publish, withdraw, type PublishResult } from "@/lib/content/publish-flow";
 import { getContent, listPublished } from "@/lib/content/store";
@@ -39,7 +39,8 @@ export interface PublishSetup {
 export async function publishSetup(): Promise<PublishSetup> {
   await requireStaff("publish");
   try {
-    return { pages: (await pageConnections()).map((p) => ({ pageId: p.pageId, pageName: p.pageName, canPost: p.scopes.includes(POST_SCOPE) })) };
+    // the Pages the caller looks after (src/lib/auth/pages.ts), not every one connected
+    return { pages: (await myPages()).map((p) => ({ pageId: p.pageId, pageName: p.pageName, canPost: p.scopes.includes(POST_SCOPE) })) };
   } catch (e) {
     console.error("publish setup failed:", e);
     return { pages: [], failed: true };

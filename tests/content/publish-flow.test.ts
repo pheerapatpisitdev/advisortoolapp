@@ -14,6 +14,12 @@ const store = vi.hoisted(() => ({
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), postState: vi.fn() }));
 const conn = vi.hoisted(() => ({ pageConnections: vi.fn(), pageToken: vi.fn() }));
+// the Pages the caller looks after (src/lib/auth/pages.ts): every connected one unless a test narrows it
+const mine = vi.hoisted(() => ({ ids: null as string[] | null }));
+vi.mock("@/lib/auth/pages", () => ({
+  myPages: vi.fn(async () => ((await conn.pageConnections()) as { pageId: string }[]).filter((p) => !mine.ids || mine.ids.includes(p.pageId))),
+  myPageIds: vi.fn(async () => new Set(((await conn.pageConnections()) as { pageId: string }[]).map((p) => p.pageId).filter((id) => !mine.ids || mine.ids.includes(id)))),
+}));
 
 vi.mock("@/lib/content/store", () => store);
 vi.mock("@/lib/facebook/connection", () => conn);
@@ -51,6 +57,7 @@ function applyIf(from: { state: PublishState; postId?: string | null; at?: strin
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mine.ids = null;
   forgetChecks();
   row = piece();
   store.getContent.mockImplementation(async () => row);
@@ -296,5 +303,28 @@ describe("held posts whose time has come", () => {
     fb.postState.mockResolvedValue("published");
     await verifyDue();
     expect(fb.postState).toHaveBeenCalledTimes(VERIFY_MAX);
+  });
+});
+
+describe("a Page the caller does not look after (owner, 2026-09-29)", () => {
+  it("is refused for a post or a schedule, before Facebook hears of it", async () => {
+    mine.ids = [];
+    expect(await publish({ id: "p1", pageId: PAGE, at: null })).toMatchObject({ ok: false });
+    expect(await publish({ id: "p1", pageId: PAGE, at: hoursAhead(2).toISOString() })).toMatchObject({ ok: false });
+    expect(fb.postPhoto).not.toHaveBeenCalled();
+  });
+
+  it("is refused for a move of a post held there", async () => {
+    row = piece(pub({ state: "scheduled", postId: `${PAGE}_1`, at: hoursAhead(3).toISOString() }));
+    mine.ids = [];
+    expect(await move("p1", hoursAhead(5))).toMatchObject({ ok: false });
+    expect(fb.deletePost).not.toHaveBeenCalled();
+  });
+
+  it("is refused for taking a held post back", async () => {
+    row = piece(pub({ state: "scheduled", postId: `${PAGE}_1`, at: hoursAhead(3).toISOString() }));
+    mine.ids = [];
+    expect(await withdraw(row)).toEqual({ ok: false, error: "โพสต์นี้อยู่ในเพจที่คุณไม่ได้ดูแล" });
+    expect(fb.deletePost).not.toHaveBeenCalled();
   });
 });

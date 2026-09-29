@@ -7,6 +7,13 @@ const conn = vi.hoisted(() => ({ pageConnections: vi.fn() }));
 const row = vi.hoisted(() => ({ value: null as null | { page_id: string | null; agent_id: string | null } }));
 vi.mock("@/lib/auth/viewer", () => viewer);
 vi.mock("@/lib/facebook/connection", () => conn);
+// the Pages the caller looks after: p1 unless a test narrows it
+const mine = vi.hoisted(() => ({ ids: ["p1"] as string[] }));
+vi.mock("@/lib/auth/pages", () => ({
+  // as the real one: an agent who does not post looks after no Page
+  myPageIds: vi.fn(async () => ((await viewer.getViewer()) as { staff?: unknown } | null)?.staff ? new Set(mine.ids) : new Set<string>()),
+  seesEveryPage: (v: { staff?: { owner?: boolean; admin?: boolean } | null } | null) => Boolean(v?.staff?.owner || v?.staff?.admin),
+}));
 vi.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: () => ({
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: row.value, error: null }) }) }) }),
@@ -21,6 +28,7 @@ const PATH = "logos/0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f.png";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mine.ids = ["p1"];
   conn.pageConnections.mockResolvedValue([{ pageId: "p1", pageName: "LuckyPlanner" }]);
 });
 
@@ -65,5 +73,20 @@ describe("who may have a logo drawn", () => {
     row.value = null;
     viewer.getViewer.mockResolvedValue(staff);
     expect(await mayUseLogo(PATH)).toBe(false);
+  });
+});
+
+describe("a Page's logo and the Pages a member of staff looks after (owner, 2026-09-29)", () => {
+  it("is drawn only for staff who look after that Page", async () => {
+    row.value = { page_id: "p1", agent_id: null };
+    viewer.getViewer.mockResolvedValue(staff);
+    mine.ids = [];
+    expect(await mayUseLogo(PATH)).toBe(false);
+  });
+
+  it("is not set by staff for a Page they do not look after: the round carries their own", async () => {
+    viewer.getViewer.mockResolvedValue(staff);
+    mine.ids = [];
+    expect(await logoOwner("p1")).toEqual({ agentId: "s1" });
   });
 });

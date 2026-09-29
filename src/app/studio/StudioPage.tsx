@@ -3,7 +3,7 @@ import { CONTENT_PRODUCTS } from "@/lib/content/products";
 import { LENGTHS } from "@/lib/content/prompt";
 import { listPeople } from "@/lib/content/people-store";
 import { peopleFor } from "@/lib/content/people-pages";
-import { pageConnections } from "@/lib/facebook/connection";
+import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/viewer";
 import { getContent, listContent, listHookTemplates } from "@/lib/content/store";
@@ -26,8 +26,8 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
     listHookTemplates().catch(() => []),
     contentSpend(),
     listPeople().catch(() => []),
-    // the staff who post work for one Page at a time, and see only its people (owner, 2026-09-28)
-    staff ? pageConnections().catch(() => []) : Promise.resolve([]),
+    // the staff who post work for one of their Pages at a time, and see only its people
+    staff ? myPages().catch(() => []) : Promise.resolve([]),
   ]);
   const current = pages.find((p) => p.pageId === page)?.pageId ?? pages[0]?.pageId ?? "";
   // the calendar's แก้ไข: the piece opens in the editor on arrival

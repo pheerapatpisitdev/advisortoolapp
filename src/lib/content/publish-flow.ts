@@ -1,4 +1,5 @@
-import { pageConnections, pageToken } from "@/lib/facebook/connection";
+import { pageToken } from "@/lib/facebook/connection";
+import { myPageIds, myPages } from "@/lib/auth/pages";
 import { deletePost, MAX_AHEAD_MS, MIN_AHEAD_MS, postPhoto, postState, PublishError, type Posted } from "@/lib/facebook/publish";
 import { setContentStatus } from "@/app/studio/actions";
 import { audit } from "@/lib/auth/viewer";
@@ -98,8 +99,9 @@ export async function clear(
     if (ahead > MAX_AHEAD_MS) return { ok: false, error: "ตั้งเวลาล่วงหน้าได้ไม่เกิน 30 วัน" };
   }
 
-  const page = (await pageConnections().catch(() => [])).find((pg) => pg.pageId === input.pageId);
-  if (!page) return { ok: false, error: "ไม่พบเพจนี้ในรายการที่เชื่อมไว้ — เลือกเพจก่อน" };
+  // a Page the caller looks after (src/lib/auth/pages.ts): a post, a schedule and a move alike
+  const page = (await myPages().catch(() => [])).find((pg) => pg.pageId === input.pageId);
+  if (!page) return { ok: false, error: "ไม่พบเพจนี้ในเพจที่คุณดูแล — เลือกเพจก่อน" };
   if (!page.scopes.includes(POST_SCOPE)) {
     return { ok: false, error: `เพจ ${page.pageName} ยังไม่ได้เปิดสิทธิ์โพสต์ — เชื่อมเพจใหม่ที่หน้า /admin/messenger แล้วกดอนุญาตให้โพสต์` };
   }
@@ -271,6 +273,7 @@ export async function move(id: string, at: Date, confirmNumbers?: boolean): Prom
 export async function withdraw(item: ContentItem): Promise<{ ok: true; item: ContentItem } | { ok: false; error: string }> {
   const p = item.publish;
   if (p?.state !== "scheduled" || !p.postId || !p.pageId) return { ok: false, error: "ชิ้นนี้ไม่ได้ตั้งเวลาไว้" };
+  if (!(await myPageIds().catch(() => new Set<string>())).has(p.pageId)) return { ok: false, error: "โพสต์นี้อยู่ในเพจที่คุณไม่ได้ดูแล" };
   const token = await pageToken(p.pageId).catch(() => null);
   if (!token) return { ok: false, error: "ไม่พบการเชื่อมต่อของเพจ เลยเอาโพสต์ที่ตั้งเวลาไว้ออกไม่ได้ — ยกเลิกคิวในเพจก่อน" };
   const claimAt = new Date().toISOString();

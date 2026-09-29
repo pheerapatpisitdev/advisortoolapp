@@ -4,7 +4,7 @@ import { MAX_PHOTOS } from "@/lib/content/people";
 import { piecesWithPerson } from "@/lib/content/store";
 import { getViewer, refuseUnless } from "@/lib/auth/viewer";
 import { can } from "@/lib/auth/access";
-import { pageConnections } from "@/lib/facebook/connection";
+import { myPages } from "@/lib/auth/pages";
 import { readPageField } from "@/lib/content/people-pages";
 
 /**
@@ -24,8 +24,8 @@ async function pageField(form: FormData): Promise<{ ok: true; pageId: string | n
   const raw = form.get("page");
   if (raw === null) return { ok: true, pageId: undefined };
   if (!can(await getViewer(), "publish")) return { ok: false };
-  const pages = await pageConnections();
-  return readPageField(String(raw), pages);
+  // a person goes under a Page the caller looks after, not any Page connected
+  return readPageField(String(raw), await myPages());
 }
 
 export async function POST(req: NextRequest) {

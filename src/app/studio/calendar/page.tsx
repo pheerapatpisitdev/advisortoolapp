@@ -14,6 +14,7 @@ import { publishSetup } from "../publish";
 import { ChevronLeftIcon, ChevronRightIcon } from "../ui/icons";
 import { CalendarBoard, MonthList } from "./CalendarBoard";
 import { gatePage, placedBy } from "@/lib/auth/viewer";
+import { seesEveryPage } from "@/lib/auth/pages";
 
 export const dynamic = "force-dynamic";
 /** the board's own actions (a drop posts through Facebook) run from this page, as /studio's do */
@@ -65,7 +66,7 @@ function failure(item: ContentItem): [string, string][] {
 }
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ y?: string; m?: string; page?: string; view?: string }> }) {
-  await gatePage("/studio/calendar", "publish");
+  const viewer = await gatePage("/studio/calendar", "publish");
   const params = await searchParams;
   const today = todayKey();
   const [ty, tm] = today.split("-").map(Number);
@@ -107,7 +108,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   // other Pages' posts stay off this one's board; the waiting rail belongs to no Page yet and
   // stays, and so does a card that names no Page (a send that failed before 2026-09-28 wrote
   // none) — hidden on every board, a send that may be up would be seen on none
-  const items = pageFilter ? all.filter((i) => !i.day || !i.pageId || i.pageId === pageFilter) : all;
+  // A card naming no Page is shown only to those who see every Page; staff with no Page of
+  // their own see the waiting rail and nothing placed (owner, 2026-09-29)
+  const every = seesEveryPage(viewer);
+  const items = all.filter((i) => !i.day || (i.pageId ? i.pageId === pageFilter : every));
   // and what is dropped here goes up on this Page, not on whichever one was used last
   const pageSetup = pageFilter ? { ...setup, pages: setup.pages.filter((p) => p.pageId === pageFilter) } : setup;
 

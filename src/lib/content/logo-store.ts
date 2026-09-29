@@ -1,6 +1,6 @@
 import { can } from "@/lib/auth/access";
+import { myPageIds, seesEveryPage } from "@/lib/auth/pages";
 import { getViewer } from "@/lib/auth/viewer";
-import { pageConnections } from "@/lib/facebook/connection";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { LOGO_TYPES, type LogoSpot, type PosterLogo } from "./logo";
 
@@ -16,15 +16,13 @@ const MEDIA = "content-media";
 export type LogoOwner = { pageId: string } | { agentId: string };
 
 /**
- * Whose logo a round made by the caller carries: the Page's it is for, when the caller posts to
- * Pages and that Page is connected; the caller's own otherwise.
+ * Whose logo a round made by the caller carries: the Page's it is for, when that is a Page the
+ * caller looks after (src/lib/auth/pages.ts); the caller's own otherwise.
  */
 export async function logoOwner(pageId?: string | null): Promise<LogoOwner | null> {
   const viewer = await getViewer();
   if (!viewer) return null;
-  if (pageId && can(viewer, "publish") && (await pageConnections().catch(() => [])).some((p) => p.pageId === pageId)) {
-    return { pageId };
-  }
+  if (pageId && (await myPageIds().catch(() => new Set<string>())).has(pageId)) return { pageId };
   return { agentId: viewer.agentId };
 }
 
@@ -53,15 +51,15 @@ export async function saveLogo(owner: LogoOwner, bytes: Buffer, mimeType: string
   return path;
 }
 
-/** Whether the caller may have this logo drawn: a Page's for the posting staff, an agent's for them and the staff. */
+/** Whether the caller may have this logo drawn: a Page's for those who look after it, an agent's for them and the staff. */
 export async function mayUseLogo(path: string): Promise<boolean> {
   const viewer = await getViewer();
   if (!viewer) return false;
   const { data, error } = await supabaseAdmin().from("ins_logos").select("page_id, agent_id").eq("path", path).maybeSingle();
   if (error || !data) return false;
   const row = data as { page_id: string | null; agent_id: string | null };
-  if (can(viewer, "publish")) return true;
-  return !row.page_id && row.agent_id === viewer.agentId;
+  if (row.page_id) return (await myPageIds().catch(() => new Set<string>())).has(row.page_id);
+  return row.agent_id === viewer.agentId || seesEveryPage(viewer) || can(viewer, "publish");
 }
 
 /** The logo a round's posters carry: the owner's newest in the spot asked for, or none. */
