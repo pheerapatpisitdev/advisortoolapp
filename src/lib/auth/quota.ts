@@ -21,7 +21,7 @@ import type { Viewer } from "./access";
 export const DEFAULT_MEMBER_AI_MONTH = 20;
 export const DEFAULT_TRIAL_AI_MONTH = 5;
 
-export const AI_ROUNDS = ["ai-write", "ai-recruit", "ai-claim", "ai-draw"] as const;
+export const AI_ROUNDS = ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft"] as const;
 export type AiRound = (typeof AI_ROUNDS)[number];
 
 export interface Allowance {

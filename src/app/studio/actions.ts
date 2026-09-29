@@ -17,6 +17,8 @@ import { personPhotos } from "@/lib/content/people-store";
 import { MAX_PIECES } from "@/lib/content/plan";
 import { checkPolicy } from "@/lib/content/policy";
 import { RECRUIT_HREF } from "@/lib/content/recruit";
+import { subjectOf } from "@/lib/content/knowledge";
+import { writeKnowledge, type KnowledgeWriteInput } from "@/lib/content/knowledge-run";
 import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run";
 import { proofread, type Fix } from "@/lib/content/proofread";
 import { ANGLES, GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
@@ -283,6 +285,21 @@ export async function generateRecruit(input: RecruitWriteInput): Promise<Generat
   const over = await takeRound(viewer, "ai-recruit");
   if (over) return { ok: false, error: over };
   return writeRecruit(input);
+}
+
+/** ความรู้: a round from a picked subject (src/lib/content/knowledge.ts), under the plan form's hourly limit. */
+export async function generateKnowledge(input: KnowledgeWriteInput): Promise<GenerateResult> {
+  const viewer = await requireMember();
+  if (!perHour(`content:${await caller()}`)) {
+    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
+  }
+  // a subject not given is said before a round is counted
+  if (!subjectOf(String(input.kind ?? ""), String(input.subject ?? ""), typeof input.custom === "string" ? input.custom : "")) {
+    return { ok: false, error: "เลือกหัวข้อ หรือพิมพ์หัวข้อเองก่อนนะครับ" };
+  }
+  const over = await takeRound(viewer, "ai-knowledge");
+  if (over) return { ok: false, error: over };
+  return writeKnowledge(input);
 }
 
 export interface ProofreadResult {
