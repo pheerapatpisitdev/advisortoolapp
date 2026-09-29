@@ -25,8 +25,9 @@ import { PieceEditor } from "./PieceEditor";
 import { ScriptCard } from "./ScriptCard";
 import { ClaimTools } from "./claim/ClaimTools";
 import { RecruitTools } from "./recruit/RecruitTools";
-import { CLAIM_HREF, CLAIM_NAME } from "@/lib/content/claim";
-import { RECRUIT_HREF, RECRUIT_NAME } from "@/lib/content/recruit";
+import { CLAIM_NAME } from "@/lib/content/claim";
+import { RECRUIT_NAME } from "@/lib/content/recruit";
+import { MODE_PLANS, modeName } from "@/lib/content/modes";
 import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
 import { thaiDayLabel } from "@/lib/content/calendar";
 import { PlainText } from "./ui/editor-fields";
@@ -532,7 +533,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     return () => document.removeEventListener("click", onClick, true);
   }, [editorDirty, router]);
 
-  const nameOf = (h: string) => (h === CLAIM_HREF ? CLAIM_NAME : h === RECRUIT_HREF ? RECRUIT_NAME : products.find((p) => p.href === h)?.name ?? h);
+  const nameOf = (h: string) => modeName(h) ?? products.find((p) => p.href === h)?.name ?? h;
   // gone from the list — deleted, moved to the other tab, filtered out — and the list is back
   const editingItem = editing ? (items.find((x) => x.id === editing) ?? (opened?.id === editing ? opened : undefined)) : undefined;
 
@@ -1255,8 +1256,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               >
                 <option value="">ทุกแบบ</option>
                 {products.map((p) => <option key={p.href} value={p.href}>{p.name}</option>)}
-                <option value={CLAIM_HREF}>{CLAIM_NAME}</option>
-                <option value={RECRUIT_HREF}>{RECRUIT_NAME}</option>
+                {MODE_PLANS.map((m) => <option key={m.href} value={m.href}>{m.name}</option>)}
               </select>
             </label>
           </div>
