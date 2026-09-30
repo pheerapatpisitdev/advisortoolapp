@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 const DAY = 24 * 60 * 60 * 1000;
 const AREA: Record<string, string> = { life: "ชีวิต", health: "สุขภาพ", ci: "โรคร้าย", retire: "บำนาญ" };
 
-/** Plans customers built on /plan in the last thirty days: how many, and the latest twenty. */
+/** Plans customers built on /fhc (and on /plan, until 2026-10-01) in the last thirty days: how many, and the latest twenty. */
 export async function PlanRuns() {
   const { data, error } = await supabaseAdmin()
     .from("ins_plan_runs")
@@ -20,7 +20,7 @@ export async function PlanRuns() {
   return (
     <section className="space-y-3 rounded-lg border border-[var(--bot-line)] bg-white p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-base font-semibold text-[var(--bot-ink)]">ลูกค้าวางแผนเอง (/plan, /fhc)</h2>
+        <h2 className="text-base font-semibold text-[var(--bot-ink)]">ลูกค้าวางแผนเอง (/fhc)</h2>
         <p className="text-sm text-[var(--bot-ink-mute)]">7 วัน {week} ครั้ง · 30 วัน {rows.length} ครั้ง</p>
       </div>
       {rows.length > 0 && (

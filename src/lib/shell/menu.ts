@@ -126,8 +126,8 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     // the customer's own planner: which of the plans below, and how much, from their own figures
     title: "วางแผนประกัน",
     links: [
-      { href: "/plan", label: "Insurance Planner", icon: "calc", hue: "#3a2b73" },
-      // the agency's own questionnaire: scores first, then the same plan /plan builds
+      // the agency's own questionnaire: scores first, then which of the plans below, and how
+      // much. It was one of two until the owner took the plain planner (/plan) out (2026-10-01).
       { href: "/fhc", label: "Financial Health Check", icon: "pulse", hue: "#35306e" },
     ],
   },

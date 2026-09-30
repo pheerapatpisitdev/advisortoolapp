@@ -9,12 +9,12 @@ import {
 
 /**
  * The Financial Health Check's figures: the questionnaire's own sums, six scores, and the
- * five events tied to the plan the /plan engine prices. Pure, so every figure is testable; the
+ * five events tied to the plan the planner engine (lib/plan) prices. Pure, so every figure is testable; the
  * page, the print-out and the LINE message all read from here. Money is baht unless a field
  * says satang.
  */
 
-/** the /plan fields FHC asks in the same words */
+/** the planner engine's fields FHC asks in the same words */
 type Shared = Pick<PlanInput,
   "age" | "sex" | "income" | "expense" | "lifeCover" | "ciCover" | "healthNow" | "healthRoom" | "premiumsNow"
   | "hospital" | "lifeWant" | "retireAge" | "retireMonthly" | "pensionHave" | "budget">;
@@ -48,7 +48,7 @@ function money(v: unknown): number {
   return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_MONEY) : 0;
 }
 
-/** The form's values made safe, or the sentence to show when they cannot be — /plan's for age and income. */
+/** The form's values made safe, or the sentence to show when they cannot be — the planner's rules for age and income. */
 export function cleanFhc(raw: unknown): FhcInput | string {
   const r = (raw ?? {}) as Record<string, unknown>;
   const base = cleanInput(r);

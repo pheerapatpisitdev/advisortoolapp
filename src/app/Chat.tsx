@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { askCopilot } from "./actions";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
-import type { GuideGroup, GuideItem } from "@/lib/copilot/guide";
+import type { GuideItem } from "@/lib/copilot/guide";
 
 /**
  * The two pieces of markdown a model reaches for, drawn rather than printed — and a bare
@@ -82,8 +82,9 @@ function historyOf(turns: Turn[]): ChatMessage[] {
 /**
  * A row of questions to press.
  *
- * The same shape wherever it appears — under the heading before anything has been asked, and
- * under the last answer afterwards — so that pressing a button always means the same thing.
+ * Under the last answer only. The page used to open with a set of them too — example
+ * questions to start from — and the owner took those off (2026-10-01): the box you type in
+ * is the whole of the opening.
  */
 function Chips(
   { items, onPick, disabled }: { items: GuideItem[]; onPick: (ask: string) => void; disabled?: boolean },
@@ -103,7 +104,7 @@ function Chips(
   );
 }
 
-export function Chat({ guide }: { guide: GuideGroup[] }) {
+export function Chat() {
   const [turns, setTurns] = useState<Turn[]>([]);
   /**
    * What the pricing brain knows about the person being quoted, held here between questions.
@@ -114,8 +115,6 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
    */
   const [slots, setSlots] = useState<AnySlots | null>(null);
   const [draft, setDraft] = useState("");
-  /** whether the guide's other groups are open; closed until asked for */
-  const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   /** the scrolling part of the chat box, and the question the newest answer replies to */
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -135,7 +134,6 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
     setTurns([]);
     setSlots(null);
     setDraft("");
-    setMore(false);
   }
 
   /**
@@ -195,10 +193,8 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
     <main className={`flex min-h-0 flex-1 flex-col gap-3 sm:gap-4 ${talking ? "max-lg:pt-11" : ""}`}>
       {/**
         * On a phone, before anything is asked, the heading sits beside the menu button rather
-        * than under it. The row that button stands in was kept empty for it, and on a phone
-        * that row was the forty-odd pixels that pushed the last of the opening buttons out of
-        * the chat box. Once there is a conversation the row goes back to the button and to
-        * เริ่มใหม่ opposite it.
+        * than under it, rather than leaving that row empty above it. Once there is a
+        * conversation the row goes back to the button and to เริ่มใหม่ opposite it.
         */}
       <header className={`flex shrink-0 items-start justify-between gap-3 pt-1 ${talking ? "" : "max-lg:pl-12"}`}>
         <div className="flex items-start gap-3">
@@ -216,10 +212,7 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
             {/* the company name kept on one line: Thai wraps anywhere, and it split as กรุงไทยแอก / ซ่า */}
             <span className="whitespace-nowrap">กรุงไทย-แอกซ่า ประกันชีวิต</span>
           </h1>
-          {/* On a short phone it gives way to the opening buttons, which are what the page is
-              for: the rate-table claim is in the line under the box too, and the other plans
-              are in the menu and behind the box's own last link. */}
-          <p className={`mt-1 text-sm text-[var(--hm-mute)] ${talking ? "max-sm:hidden" : "short:hidden"}`}>
+          <p className={`mt-1 text-sm text-[var(--hm-mute)] ${talking ? "max-sm:hidden" : ""}`}>
             ถามเงื่อนไขก็ได้ ขอเบี้ยก็ได้ — เบี้ยคิดจากตารางจริง ตัวเดียวกับที่บอทและหน้าขายใช้ ·{" "}
             <Link href="/other-plans" className="underline underline-offset-2">แบบประกันอื่นๆ</Link>
           </p>
@@ -266,38 +259,8 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
         ref={scrollRef}
         // read out as it grows, so an answer is heard arriving and not only seen
         role="log" aria-live="polite" aria-busy={busy}
-        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-3 sm:p-4"
+        className={`flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-3 sm:p-4 ${talking ? "" : "hidden"}`}
       >
-        {turns.length === 0 && (
-          /**
-           * The open groups only, and the rest behind a press.
-           *
-           * All three at once came to eleven buttons, which on a phone pushed the box you type
-           * in off the bottom of the screen — a guide that hides the thing it is guiding you
-           * to. The prices stay open because that is what people come to ask.
-           */
-          /* No card around it any more: the box is the container now, and a bordered panel
-             inside a bordered panel is a frame drawn twice. */
-          <div className="my-auto space-y-3 px-1 py-1 sm:space-y-4 sm:py-2 short:py-0">
-            {/* the headings under it say the same thing, so a short phone does without it */}
-            <p className="text-sm text-[var(--hm-mute)] short:hidden">ไม่รู้จะเริ่มตรงไหน กดเลือกได้เลยครับ</p>
-            {guide.filter((group) => group.open || more).map((group) => (
-              <div key={group.title}>
-                <p className="mb-2 text-xs font-medium text-[var(--hm-mute)]">{group.title}</p>
-                <Chips items={group.items} onPick={ask} disabled={busy} />
-              </div>
-            ))}
-            {!more && guide.some((group) => !group.open) && (
-              <button
-                type="button" onClick={() => setMore(true)}
-                className="text-sm text-[var(--hm-accent)] underline underline-offset-2"
-              >
-                ดูแบบประกันอื่นและคำถามเพิ่มเติม
-              </button>
-            )}
-          </div>
-        )}
-
         {turns.map((t, i) => (
           <div
             key={i} ref={i === answered ? askedRef : undefined}
@@ -403,7 +366,7 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
 
       <form
         onSubmit={(e) => { e.preventDefault(); ask(draft); }}
-        className="flex shrink-0 gap-2 border-t border-[var(--hm-hair)] bg-[var(--hm-panel)] p-3"
+        className={`flex shrink-0 gap-2 bg-[var(--hm-panel)] p-3 ${talking ? "border-t border-[var(--hm-hair)]" : ""}`}
       >
         <input
           /* not disabled while an answer is on its way: a disabled field loses its focus, and

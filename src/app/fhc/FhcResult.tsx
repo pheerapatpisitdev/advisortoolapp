@@ -1,12 +1,12 @@
 "use client";
-import { PlanView } from "@/app/plan/PlanView";
+import { PlanView } from "@/components/plan/PlanView";
 import type { Level } from "@/lib/fhc/health";
 import { lineText } from "@/lib/fhc/share";
 import type { FhcReply, FhcWords } from "./actions";
 
 /**
  * The check's result: the AI's reading, six scores, the five events answered from our plans,
- * then the same plan card /plan shows. Printable on the app's A4 sheet; the agent's name and
+ * then the plan card from the planner engine. Printable on the app's A4 sheet; the agent's name and
  * the dependants' names appear on paper only, never in what is sent or stored.
  */
 
