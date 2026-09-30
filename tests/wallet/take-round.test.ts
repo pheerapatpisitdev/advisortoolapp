@@ -55,6 +55,23 @@ describe("takeRound", () => {
     expect(db.insert).toHaveBeenCalledWith({ agent_id: agent.agentId, action: "ai-draw", target: "piece-1", detail: { wallet: true } });
   });
 
+  it("holds the price it is told instead of the round's default, times the multiplier", async () => {
+    db.used = 20;
+    const res = await takeRound(agent, "ai-draw", "piece-1", 0.46);
+    expect(res).toMatchObject({ ok: true, paidBy: "wallet", heldSatang: 92, multiplier: 2 });
+    expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 92, "ai-draw");
+  });
+
+  it("keeps the round's default hold when the price it is told is not a positive number", async () => {
+    db.used = 20;
+    const held = holdSatang("ai-draw", 2);
+    for (const bad of [0, -1, NaN, Infinity]) {
+      wallet.holdWallet.mockClear();
+      await takeRound(agent, "ai-draw", "piece-1", bad);
+      expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, held, "ai-draw");
+    }
+  });
+
   it("refuses and sends the agent to top up when the wallet has not got it", async () => {
     db.used = 20;
     wallet.holdWallet.mockResolvedValueOnce(null);

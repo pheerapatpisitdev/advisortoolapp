@@ -686,8 +686,16 @@ export async function drawBackground(id: string, request = "", painter?: string,
     return { ok: false, error: "วาดรูปครบ 40 รูปในชั่วโมงนี้แล้ว รอสักพักนะครับ" };
   }
   // asked before the piece is read: a piece that is not theirs costs a look, not a round
-  if (!(await getContent(id).catch(() => null))) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
-  const pass = await takeRound(viewer, "ai-draw", id);
+  const seen = await getContent(id).catch(() => null);
+  if (!seen) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
+  // What a wallet round sets aside is this picture's own price, not the dearest one's: five
+  // pictures start at once and a flat ฿3 hold (฿6 after the multiplier) each needed ฿30 of
+  // money that would have paid ฿5. A person is likely when the request names one, or leaves it
+  // to the piece; whether their photos exist is only known inside the round, so this is the
+  // dearer guess (owner, 2026-09-30). "none" prices at 0: the default hold stays.
+  const personLikely = person ? true : person === undefined ? Boolean(seen.output.person) : false;
+  const priced = painterFor(painter, Infinity, personLikely);
+  const pass = await takeRound(viewer, "ai-draw", id, priced.thb > 0 ? priced.thb + OVERHEAD_THB : undefined);
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, async (): Promise<DrawBackgroundResult> => {
     let hold: string | null = null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  cardAllowed, chargeSatang, formatBaht, holdSatang, isTopUpThb, ROUND_HOLD_THB, TOPUP_THB, toSatang,
+  cardAllowed, chargeSatang, formatBaht, holdSatang, holdSatangFor, isTopUpThb, ROUND_HOLD_THB, TOPUP_THB, toSatang,
 } from "@/lib/wallet/money";
 import { AI_ROUNDS } from "@/lib/auth/quota";
 
@@ -40,6 +40,15 @@ describe("what a round holds", () => {
   it("is the round's hold times the multiplier, rounded up to a satang", () => {
     expect(holdSatang("ai-write", 2)).toBe(Math.ceil(ROUND_HOLD_THB["ai-write"] * 2 * 100));
     expect(holdSatang("ai-draw", 1.5)).toBe(Math.ceil(ROUND_HOLD_THB["ai-draw"] * 1.5 * 100));
+  });
+
+  it("can be sized from a price in baht instead of the round's default, rounded up to a satang", () => {
+    // a standard picture, ฿0.43 with its ฿0.03 overhead, at the default multiplier
+    expect(holdSatangFor(0.46, 2)).toBe(92);
+    // floating-point dust is not a satang of its own
+    expect(holdSatangFor(0.1 + 0.2, 1)).toBe(30);
+    expect(holdSatangFor(0.001, 2)).toBe(1);
+    expect(holdSatang("ai-write", 2)).toBe(holdSatangFor(ROUND_HOLD_THB["ai-write"], 2));
   });
 });
 

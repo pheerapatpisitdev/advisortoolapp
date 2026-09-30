@@ -47,7 +47,10 @@ export const ROUND_HOLD_THB: Record<AiRound, number> = {
 /** satang, rounded up; toFixed first so floating-point dust is not a satang of its own */
 const upToSatang = (baht: number): number => Math.ceil(Number((baht * 100).toFixed(6)));
 
-export const holdSatang = (round: AiRound, multiplier: number): number => upToSatang(ROUND_HOLD_THB[round] * multiplier);
+/** a hold sized from a price in baht, times the multiplier */
+export const holdSatangFor = (thb: number, multiplier: number): number => upToSatang(thb * multiplier);
+
+export const holdSatang = (round: AiRound, multiplier: number): number => holdSatangFor(ROUND_HOLD_THB[round], multiplier);
 
 /** what a round is charged: its real cost times the multiplier, never more than it held */
 export function chargeSatang(costThb: number, multiplier: number, heldSatang: number): number {

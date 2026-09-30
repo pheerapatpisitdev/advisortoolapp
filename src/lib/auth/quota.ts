@@ -1,6 +1,6 @@
 import { monthStart } from "@/lib/ai/ledger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { formatBaht, holdSatang } from "@/lib/wallet/money";
+import { formatBaht, holdSatang, holdSatangFor } from "@/lib/wallet/money";
 import type { RoundPass } from "@/lib/wallet/round";
 import { holdWallet, walletSettings } from "@/lib/wallet/store";
 import type { Viewer } from "./access";
@@ -64,8 +64,13 @@ export const walletShort = (neededSatang: number): string =>
  * lasts, then the agent's wallet (owner, 2026-09-30) — the round's price set aside first, so
  * rounds started together cannot spend the same baht. A round is written down before the
  * model is called either way, so rounds started together count each other.
+ *
+ * `holdThb`: what the caller can already price, in baht before the multiplier, used in place
+ * of the round's default. A picture is the case: the default is the dearest one's (Gemini
+ * with a person), so five drawn at once set aside ฿30 of a wallet that would have paid ฿5 for
+ * them and the last ones failed with money in it (owner, 2026-09-30).
  */
-export async function takeRound(viewer: Viewer, round: AiRound, target: string | null = null): Promise<RoundPass> {
+export async function takeRound(viewer: Viewer, round: AiRound, target: string | null = null, holdThb?: number): Promise<RoundPass> {
   // staff have no allowance to count against; the content ceiling covers them
   if (viewer.staff) return { ok: true, paidBy: "staff" };
   const db = supabaseAdmin();
@@ -81,7 +86,8 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
     return null;
   });
   if (!settings?.enabled) return { ok: false, refusal };
-  const heldSatang = holdSatang(round, settings.multiplier);
+  const priced = typeof holdThb === "number" && Number.isFinite(holdThb) && holdThb > 0;
+  const heldSatang = priced ? holdSatangFor(holdThb, settings.multiplier) : holdSatang(round, settings.multiplier);
   const holdId = await holdWallet(viewer.agentId, heldSatang, round).catch((e) => {
     console.error("wallet hold failed:", e);
     return null;
