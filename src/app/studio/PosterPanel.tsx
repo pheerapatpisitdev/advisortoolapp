@@ -202,7 +202,7 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
           )}
           {!shut && <>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">อยากได้ภาพแบบไหน <span className="font-normal text-[var(--ct-mute)]">(ไม่ใส่ก็ได้ · ถ้าใส่ วาดตามนี้ทั้งภาพ)</span></span>
+              <span className="mb-1 block text-sm font-medium">อยากได้ภาพแบบไหน <span className="font-normal text-[var(--ct-mute)]">(ไม่ใส่ก็ได้ · ถ้าใส่ AI วาดทั้งโปสเตอร์รวมตัวหนังสือ ต้องตรวจก่อนโพสต์)</span></span>
               <input
                 value={request} onChange={(e) => setRequest(e.target.value)} maxLength={300}
                 placeholder="เช่น พ่อกับลูกสาวอ่านนิทานก่อนนอน"

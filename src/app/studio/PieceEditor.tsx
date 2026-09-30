@@ -22,6 +22,7 @@ import { AutoTextarea, errorNote, Note, okNote, type NoteState } from "./ui/edit
 import { FeedPreview } from "./ui/FeedPreview";
 import { outputFormula } from "@/lib/content/formula";
 import { FinishCard } from "./FinishCard";
+import { AiTextCheck } from "./AiTextCheck";
 
 /**
  * One piece opened across the workbench: every part editable, the checks beside it.
@@ -407,6 +408,8 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
       {Boolean(item.output.poster?.documents?.length) && item.output.paperChecked === false && !locked && (
         <ClaimPaperCheck item={item} onChecked={onSaved} onPending={setStickersPending} />
       )}
+
+      {!locked && item.format !== "script" && <AiTextCheck key={item.id} item={item} poster={draft.poster} onChecked={onSaved} />}
 
       {item.format !== "script" && <div className="mt-4">
         <p className="mb-1.5 text-sm font-medium">รูปโพสต์</p>

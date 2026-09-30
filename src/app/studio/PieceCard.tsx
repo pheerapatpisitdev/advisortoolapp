@@ -1,6 +1,7 @@
 "use client";
 import { formulaBadge } from "@/lib/content/finish-check";
 import { lookLabel, readLook } from "@/lib/content/looks";
+import { aiTextState } from "@/lib/content/poster-text";
 import { publishLabel } from "@/lib/content/publish-label";
 import { fullText } from "@/lib/content/output";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
@@ -38,6 +39,14 @@ interface Props {
   /** ตั้งเวลาหลายชิ้น: the card is ticked rather than opened; `why` says why it cannot be */
   pick?: { on: boolean; toggle: () => void; why?: string };
 }
+
+/** a poster whose words the image model drew, and whether the agent has read them (poster-text.ts) */
+const AI_WORDS: Record<ReturnType<typeof aiTextState>, string> = {
+  none: "",
+  unchecked: " · ตัวหนังสือโดย AI (ยังไม่ตรวจ)",
+  checked: " · ตัวหนังสือโดย AI (ตรวจแล้ว)",
+  stale: " · ตัวหนังสือโดย AI (ต้องวาดใหม่)",
+};
 
 export function PieceCard({ item, index, productName, busy, drawing, onEdit, onStatus, onDelete, onCopy, pick }: Props) {
   const blocking = (item.flags.policy ?? []).some((f) => f.severity === "block");
@@ -93,7 +102,7 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
           {item.output.angle && <p className="text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
           {item.model && (
             <p className="text-xs text-[var(--ct-mute)]">
-              เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}${readLook(item.output.look) ? ` (${lookLabel(readLook(item.output.look)!)})` : ""}` : ""}{formulaBadge(item.output, item.format) ? ` · ${formulaBadge(item.output, item.format)}` : ""}
+              เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}${readLook(item.output.look) ? ` (${lookLabel(readLook(item.output.look)!)})` : ""}` : ""}{AI_WORDS[aiTextState(item.output.poster)]}{formulaBadge(item.output, item.format) ? ` · ${formulaBadge(item.output, item.format)}` : ""}
             </p>
           )}
         </div>
