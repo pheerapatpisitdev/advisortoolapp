@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
     // calendar failed with ENOENT on index_bg.wasm (2026-09-25)
     "/studio": POSTER_FILES,
     "/studio/**": POSTER_FILES,
+    // the API routes that reuse Studio's actions import the drawing too, and satori starts
+    // loading hb.wasm the moment its module loads: without the file that is an unhandled
+    // rejection that ends the whole process mid-request — a picture drawn, paid for and lost
+    // (2026-10-01, /api/content-draw and -generate)
+    "/api/content-*": POSTER_FILES,
   },
   // the workbench was /content until the owner renamed it Studio (2026-09-27); old bookmarks
   // and links keep working, query and all (?open=…, ?hook=…)
