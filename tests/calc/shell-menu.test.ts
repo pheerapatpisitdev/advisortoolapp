@@ -19,7 +19,8 @@ const routeExists = (href: string) => {
 
 describe("every place the menu says you can go", () => {
   it("is a page that exists", () => {
-    for (const group of [...menuGroups(true), ...menuGroups(false), ...studioMenu()]) {
+    const agent = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false, wallet: true };
+    for (const group of [...menuGroups(true), ...menuGroups(false), ...studioMenu(), ...studioMenu(agent)]) {
       for (const link of group.links) {
         expect(routeExists(link.href), `${link.label} → ${link.href}`).toBe(true);
       }
@@ -175,25 +176,35 @@ describe("what the menu shows to somebody who has not signed in", () => {
 describe("Studio's own menu", () => {
   it("lists Studio's pages and a way back to the main system", () => {
     const links = studioMenu().flatMap((g) => g.links);
-    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/wallet", "/"]);
+    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
   });
 
   it("keeps the front page for admins and posting staff; other agents start at the workbench", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
     // the calendar is every agent's: a Page's for those who post, a plan for the rest (owner, 2026-09-30)
-    expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/wallet", "/"]);
+    expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
     expect(hrefs({ ...who, admin: true, publish: true })).toContain("/studio");
     // posting staff choose among their own Pages there (owner, 2026-09-29)
     expect(hrefs({ ...who, publish: true })).toContain("/studio");
   });
 
   it("gives the wallet to agents only: staff write without one (owner, 2026-09-30)", () => {
-    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false, wallet: true };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
+    expect(hrefs(who)).toContain("/studio/wallet");
     expect(hrefs({ ...who, publish: true })).not.toContain("/studio/wallet");
     expect(hrefs({ ...who, connect: true })).not.toContain("/studio/wallet");
     expect(hrefs({ ...who, admin: true })).not.toContain("/studio/wallet");
+    expect(hrefs({ ...who, owner: true })).not.toContain("/studio/wallet");
+  });
+
+  it("hides the wallet while the owner has it off, and when nobody says either way", () => {
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const hrefs = (w: typeof who & { wallet?: boolean }) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
+    expect(hrefs({ ...who, wallet: false })).not.toContain("/studio/wallet");
+    expect(hrefs(who)).not.toContain("/studio/wallet");
+    expect(studioMenu().flatMap((g) => g.links).map((l) => l.href)).not.toContain("/studio/wallet");
   });
 
   it("lights the front page only on /studio itself, not on the pages beside it", () => {

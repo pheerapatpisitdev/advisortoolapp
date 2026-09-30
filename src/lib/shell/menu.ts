@@ -293,9 +293,11 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
   // plan for everyone else (2026-09-30); the front page is the admins' and the posting staff's,
   // who pick among their own Pages there (2026-09-29) — every other agent's Studio starts at the workbench
   const staff = Boolean(who && (who.admin || who.publish || who.connect || who.owner));
+  // the wallet is listed only while the owner has it on (who.wallet is worked out once in the
+  // layout, false for staff): an agent is not sent to a page that says it is switched off
   const hidden = new Set([
     ...(who && !who.admin && !who.publish ? ["/studio"] : []),
-    ...(staff ? ["/studio/wallet"] : []),
+    ...(staff || who?.wallet !== true ? ["/studio/wallet"] : []),
   ]);
   const shown = links.filter((l) => !hidden.has(l.href));
   const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
@@ -318,10 +320,12 @@ export interface Who {
   connect: boolean;
   admin: boolean;
   owner: boolean;
+  /** Studio only: the owner has the wallet on and this is an agent, not staff (owner, 2026-09-30) */
+  wallet?: boolean;
 }
 
 /** What each back-office page asks of the person opening it, as agreed on 2026-09-27. */
-const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room">> = {
+const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet">> = {
   "/admin": "admin",
   "/admin/crm": "admin",
   "/admin/ai": "admin",

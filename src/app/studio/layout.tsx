@@ -2,6 +2,7 @@ import "./theme.css";
 import { AppShell } from "@/components/shell/AppShell";
 import { gatePage, whoOf } from "@/lib/auth/viewer";
 import { studioMenu } from "@/lib/shell/menu";
+import { walletSettings } from "@/lib/wallet/store";
 import { ThemeSwitch } from "./ThemeSwitch";
 
 /**
@@ -12,7 +13,11 @@ import { ThemeSwitch } from "./ThemeSwitch";
  */
 export default async function ContentLayout({ children }: { children: React.ReactNode }) {
   // for UnitOS agents only since 2026-09-27; the pages under it that are staff's ask again
-  const who = whoOf(await gatePage("/studio"));
+  const viewer = await gatePage("/studio");
+  // the wallet is in the menu only while the owner has it on, and never for staff, who write
+  // without one (owner, 2026-09-30); a settings read that fails hides it rather than the page
+  const wallet = viewer.staff ? false : (await walletSettings().catch(() => null))?.enabled === true;
+  const who = { ...whoOf(viewer)!, wallet };
   return (
     <div className="content-page">
       <AppShell menu={studioMenu(who)} brand={{ href: who?.admin || who?.publish ? "/studio" : "/studio/write", label: "Studio" }} footer={<ThemeSwitch />} who={who}>
