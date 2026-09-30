@@ -1,6 +1,9 @@
 import "./home-theme.css";
 import { Chat } from "./Chat";
 import { AppShell } from "@/components/shell/AppShell";
+import { inviteToTry } from "@/lib/auth/free-asks";
+import { memberSettings } from "@/lib/auth/member-store";
+import { getViewer } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +13,12 @@ export const metadata = {
 };
 
 export default async function Home() {
+  // the "ลอง Studio ฟรี" bar (owner, 2026-10-01); a read that fails hides it rather than the page
+  const [viewer, settings] = await Promise.all([
+    getViewer().catch(() => null),
+    memberSettings().catch(() => null),
+  ]);
+  const invite = inviteToTry(Boolean(viewer), settings?.signupOpen === true);
   return (
     <div className="home-chat">
       <AppShell>
@@ -19,7 +28,7 @@ export default async function Home() {
       {/* No row kept free for the phone's menu button: the chat decides for itself whether its
           heading sits beside that button or under it — see `Chat`. */}
       <div className="mx-auto flex h-[100dvh] max-w-3xl flex-col px-4 pb-4 pt-3 sm:pb-5 lg:pt-5">
-        <Chat />
+        <Chat invite={invite} />
       </div>
       </AppShell>
     </div>

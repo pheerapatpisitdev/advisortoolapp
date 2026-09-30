@@ -79,7 +79,7 @@ export function LoginForm({ next, signupOpen, contactUrl }: { next: string; sign
         {tab === "member" && (
           <div className="mt-5 space-y-2 text-center text-sm">
             {signupOpen && (
-              <p>ยังไม่มีบัญชี? <Link href="/signup" className="font-medium text-[var(--bot-navy)] underline">สมัครใช้ Studio</Link></p>
+              <p>ยังไม่มีบัญชี? <Link href={`/signup?next=${encodeURIComponent(next)}`} className="font-medium text-[var(--bot-navy)] underline">สมัครใช้ Studio</Link></p>
             )}
             <p className="text-[var(--bot-ink-mute)]">
               ลืม PIN?{" "}
