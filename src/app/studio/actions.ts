@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
 import { backgroundPrompt, stripThai } from "@/lib/content/background";
+import { pickLook } from "@/lib/content/look-pick";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { briefFor } from "@/lib/content/brief";
 import { findWords, strayNumbers, type ContentWord } from "@/lib/content/check";
@@ -27,7 +28,7 @@ import { proofread, type Fix } from "@/lib/content/proofread";
 import { ANGLES, GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
   DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
-  getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, releaseContentBudget, removeBackground,
+  getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
 import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeAds } from "@/lib/content/write";
@@ -722,8 +723,14 @@ export async function drawBackground(id: string, request = "", painter?: string,
       if (!held.ok) return { ok: false, error: tooDear("วาดรูปนี้", held.left) };
       hold = held.id;
       const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "");
+      // the kind of picture, chosen for this scene away from the Page's last few (looks.ts); a
+      // picker or a list that cannot be read leaves the original look, and the picture is drawn
+      const look = await pickLook({
+        scene: stripThai(item.output.imagePrompt), person: Boolean(who),
+        recent: await recentLooks(item.pageId).catch(() => []),
+      });
       const prompt = backgroundPrompt({
-        scene: item.output.imagePrompt, layout: poster.layout, theme: poster.theme,
+        scene: item.output.imagePrompt, layout: poster.layout, theme: poster.theme, look,
         request: await inEnglish(request),
         // on a claim poster the papers cover the lower half, so the person stands beside them
         person: who ? { pose: who.pose, aside: Boolean(poster.documents?.length) } : null,
@@ -752,7 +759,7 @@ export async function drawBackground(id: string, request = "", painter?: string,
         // the person as drawn now: set when there is one, gone when the picture has none
         // the papers make room only while a person is in the picture (undefined is not stored)
         const drawn = { ...words, background, personAside: who && words.documents?.length ? true : undefined };
-        const output = { ...latest.output, poster: drawn, pictureBy: by, person: who };
+        const output = { ...latest.output, poster: drawn, pictureBy: by, person: who, look };
         if (!who) delete output.person;
         // the output alone: the words are unchanged, so the checks' flags are left as they are now
         const saved = await saveOutputIf(item.id, output, undefined, latest.output.rev ?? null);

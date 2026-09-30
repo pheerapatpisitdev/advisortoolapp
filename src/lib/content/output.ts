@@ -6,6 +6,7 @@
  */
 
 import { INSURER } from "@/lib/insurer";
+import type { Look } from "./looks";
 import type { PiecePerson } from "./people";
 import type { PosterSpec } from "./poster";
 
@@ -81,6 +82,8 @@ export interface ContentOutput {
   loops?: { open: string; close: string }[];
   /** สูตรอ่าน-ดูจนจบ: the checklist items the agent ticked (finish-check.ts) */
   finishTicks?: string[];
+  /** the kind of picture the background was drawn as (looks.ts); absent on pictures drawn before there were kinds */
+  look?: Look;
   /**
    * Which of `hooks` went to the Page, for older pieces that carry three; absent is the
    * first. A held post taken back and sent again (a move, an edit) goes with the same one.

@@ -7,6 +7,7 @@ import type { ContentOutput } from "@/lib/content/output";
  * memory: a piece on the Page is not changed here, and a held one is changed on Facebook too.
  */
 
+import { CLASSIC, STYLES } from "@/lib/content/looks";
 const PAGE = "105";
 let row: ContentItem;
 const order: string[] = [];
@@ -15,7 +16,7 @@ const store = vi.hoisted(() => ({
   getContent: vi.fn(), saveOutput: vi.fn(), saveOutputIf: vi.fn(), recordPublishIf: vi.fn(), claimPublish: vi.fn(), deleteContent: vi.fn(),
   removeBackground: vi.fn(), listWords: vi.fn(), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
   contentSpentThisMonth: vi.fn(), contentCap: vi.fn(), setFixes: vi.fn(), saveBackground: vi.fn(), setStatus: vi.fn(),
-  listContent: vi.fn(), countByStatus: vi.fn(),
+  listContent: vi.fn(), countByStatus: vi.fn(), recentLooks: vi.fn(async (): Promise<object[]> => []),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), isPublished: vi.fn() }));
 const ai = vi.hoisted(() => ({ chat: vi.fn(), drawImage: vi.fn() }));
@@ -330,6 +331,29 @@ describe("the content ceiling", () => {
     // the picture it replaced goes; the flags are not written over
     expect(store.removeBackground).toHaveBeenCalledWith("p1", "p1/old.png");
     expect(store.saveOutputIf.mock.calls[0][2]).toBeUndefined();
+  });
+
+  it("draws the look picked for the piece, not the Page's last one, and keeps it with the piece", async () => {
+    store.recentLooks.mockResolvedValueOnce([CLASSIC]);
+    ai.chat.mockResolvedValueOnce({ text: JSON.stringify({ style: "flatlay", subject: "objects", place: "home", light: "morning", mood: "calm", space: "table" }), model: "m", costThb: 0.01, outputTokens: 30 });
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const r = await drawBackground("p1", "", "standard", null);
+    expect(r.ok).toBe(true);
+    expect(store.recentLooks).toHaveBeenCalledWith(row.pageId);
+    expect(ai.drawImage.mock.calls[0][0].prompt).toContain(STYLES.find((s) => s.id === "flatlay")!.say);
+    expect(row.output.look).toEqual({ style: "flatlay", subject: "objects", place: "home", light: "morning", mood: "calm", space: "table" });
+  });
+
+  it("still draws, in the original look, when the look cannot be picked", async () => {
+    store.recentLooks.mockRejectedValueOnce(new Error("db down"));
+    ai.chat.mockRejectedValueOnce(new Error("ai down"));
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const r = await drawBackground("p1", "", "standard", null);
+    expect(r.ok).toBe(true);
+    expect(ai.drawImage.mock.calls[0][0].prompt).toContain("editorial-quality");
+    expect(row.output.look).toEqual(CLASSIC);
   });
 
   it("does not write a picture's older copy of the words over an edit saved while it drew", async () => {

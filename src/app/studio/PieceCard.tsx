@@ -1,5 +1,6 @@
 "use client";
 import { formulaBadge } from "@/lib/content/finish-check";
+import { lookLabel, readLook } from "@/lib/content/looks";
 import { publishLabel } from "@/lib/content/publish-label";
 import { fullText } from "@/lib/content/output";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
@@ -92,7 +93,7 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
           {item.output.angle && <p className="text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
           {item.model && (
             <p className="text-xs text-[var(--ct-mute)]">
-              เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}` : ""}{formulaBadge(item.output, item.format) ? ` · ${formulaBadge(item.output, item.format)}` : ""}
+              เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}${readLook(item.output.look) ? ` (${lookLabel(readLook(item.output.look)!)})` : ""}` : ""}{formulaBadge(item.output, item.format) ? ` · ${formulaBadge(item.output, item.format)}` : ""}
             </p>
           )}
         </div>
