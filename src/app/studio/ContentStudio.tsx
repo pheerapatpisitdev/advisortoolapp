@@ -82,6 +82,10 @@ interface Props {
 /** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft */
 type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft";
 const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft"];
+/** the tools in the "สร้างจาก" dropdown, in the order the owner reads them */
+const MODE_OPTIONS: readonly (readonly [Mode, string])[] = [
+  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME],
+];
 
 const TABS: { id: ContentStatus; label: string }[] = [
   { id: "draft", label: "รอตรวจ" },
@@ -974,17 +978,19 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           </div>
 
           <div className={`px-4 pt-4 ${formOpen ? "" : "hidden lg:block"}`}>
-            {/* five in a row are too wide for a phone: the row scrolls sideways rather than wrap */}
-            <div role="group" aria-label="สร้างจาก" className="flex gap-1 overflow-x-auto rounded-lg bg-[var(--ct-soft)] p-1">
-              {([["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME]] as const).map(([m, label]) => (
-                <button
-                  key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}
-                  className={`min-h-10 flex-auto shrink-0 whitespace-nowrap rounded-md px-2.5 text-sm ${mode === m ? "bg-[var(--ct-panel)] font-medium shadow-sm" : "text-[var(--ct-mute)]"}`}
+            {/* a dropdown (owner, 2026-10-01): five tabs in a row ran past the panel and had to be scrolled sideways */}
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">สร้างจาก</span>
+              <span className="relative block">
+                <select
+                  value={mode} onChange={(e) => setMode(e.target.value as Mode)}
+                  className="min-h-11 w-full appearance-none rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-2 pl-3 pr-10 text-sm font-medium outline-none focus:border-[var(--ct-accent)]"
                 >
-                  {label}
-                </button>
-              ))}
-            </div>
+                  {MODE_OPTIONS.map(([m, label]) => <option key={m} value={m}>{label}</option>)}
+                </select>
+                <ChevronDownIcon aria-hidden className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--ct-mute)]" />
+              </span>
+            </label>
           </div>
 
           {/* Every form stays mounted and only the chosen one is shown: switching unmounted the
