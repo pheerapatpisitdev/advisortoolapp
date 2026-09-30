@@ -51,8 +51,12 @@ export async function POST(req: NextRequest) {
   if (!readsPerHour(`claim-read:${clientIp(req.headers)}`)) return bad("อ่านเอกสารครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ", 429);
   const pass = await takeRound(await requireMember(), "ai-claim");
   if (!pass.ok) return bad(pass.refusal, 429);
-  const pics = await Promise.all(files.map(async (f) => ({ base64: Buffer.from(await f.arrayBuffer()).toString("base64"), mimeType: f.type })));
-  return Response.json(await payRound(pass, () => readClaim(pics)));
+  // the upload is read inside the round: a body that aborts here releases a wallet hold at
+  // once instead of leaving it locked until the sweep, fifteen minutes on
+  return Response.json(await payRound(pass, async () => {
+    const pics = await Promise.all(files.map(async (f) => ({ base64: Buffer.from(await f.arrayBuffer()).toString("base64"), mimeType: f.type })));
+    return readClaim(pics);
+  }));
 }
 
 export async function PUT(req: NextRequest) {
@@ -80,11 +84,14 @@ export async function PUT(req: NextRequest) {
   // same papers (the page keeps their reading) or a PUT sent by hand wrote past the allowance
   const pass = await takeRound(await requireMember(), "ai-claim");
   if (!pass.ok) return bad(pass.refusal, 429);
-  const papers = await Promise.all(files.map(async (f, i) => ({ bytes: Buffer.from(await f.arrayBuffer()), mimeType: f.type, ratio: ratios[i] })));
-  return Response.json(await payRound(pass, () => writeClaim({
-    facts, count: Number(form.get("count")), writer: String(form.get("writer") ?? ""), papers,
-    format: String(form.get("format") ?? ""), length: String(form.get("length") ?? ""), loop: form.get("loop") === "on", pro: form.get("pro") === "on",
-    logoSpot: String(form.get("logoSpot") ?? ""),
-    angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
-  }, project.pageId)));
+  // the upload is read inside the round, as POST's is (an aborted body must not lock a hold)
+  return Response.json(await payRound(pass, async () => {
+    const papers = await Promise.all(files.map(async (f, i) => ({ bytes: Buffer.from(await f.arrayBuffer()), mimeType: f.type, ratio: ratios[i] })));
+    return writeClaim({
+      facts, count: Number(form.get("count")), writer: String(form.get("writer") ?? ""), papers,
+      format: String(form.get("format") ?? ""), length: String(form.get("length") ?? ""), loop: form.get("loop") === "on", pro: form.get("pro") === "on",
+      logoSpot: String(form.get("logoSpot") ?? ""),
+      angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
+    }, project.pageId);
+  }));
 }
