@@ -69,6 +69,12 @@ describe("how it opens", () => {
     expect(check(post({ hooks: ["[0–3 วิ] วันนี้จะมาเล่าเรื่องค่าห้อง"] }), "no-preamble").ok).toBe(false);
   });
 
+  it("reads only what a script's hook says, not its screen text or its shot", () => {
+    const hooks = ["ค่าห้องในกรมธรรม์กับที่โรงพยาบาลคิดจริง ต่างกันตรงไหน {จอ: เบี้ย 1,200 บาท/เดือน} (ตัดเป็นภาพใกล้ใบเสร็จโรงพยาบาล)"];
+    expect(check(script("[3–8 วิ] สั้น", { hooks }), "hook-short", "script").ok).toBe(true);
+    expect(check(script("[3–8 วิ] สั้น", { hooks: ["(ยิ้มเข้ากล้อง) สวัสดีครับ วันนี้มาคุยเรื่องค่าห้อง"] }), "no-preamble", "script").ok).toBe(false);
+  });
+
   it("fails a hook past eighty visible characters", () => {
     expect(check(post({ hooks: ["ก".repeat(81)] }), "hook-short").ok).toBe(false);
     expect(check(post({ hooks: ["ที่".repeat(80)] }), "hook-short").ok).toBe(true);
@@ -98,6 +104,14 @@ describe("a hook that promises a count", () => {
     expect(check(post({ hooks, body: "1. ค่าห้อง\n2. ค่าผ่าตัด\n3. ค่ายา" }), "list-count").ok).toBe(true);
     expect(check(post({ hooks, body: "ข้อแรก ค่าห้อง ข้อสอง ค่าผ่าตัด ข้อสาม ค่ายา" }), "list-count").ok).toBe(true);
     expect(check(post({ hooks: ["๓ ข้อที่ต้องเช็ก"], body: "1️⃣ ค่าห้อง\n2️⃣ ค่าผ่าตัด\n3️⃣ ค่ายา" }), "list-count").ok).toBe(true);
+  });
+
+  it("takes a list of bullets, items named in words, or numbers inline, as the writers are told to write them", () => {
+    expect(check(post({ hooks: ["3 เหตุผลที่เคลมไม่ผ่าน"], body: "✅ แถลงสุขภาพไม่ครบ\n✅ ยังไม่พ้นระยะรอคอย\n✅ เอกสารไม่ครบ" }), "list-count").ok).toBe(true);
+    expect(check(post({ hooks: ["2 อย่างที่ต้องเช็ก"], body: "อย่างแรก ค่าห้อง อย่างที่สอง ค่าผ่าตัด" }), "list-count").ok).toBe(true);
+    expect(check(post({ hooks: ["3 จุดที่คนข้าม"], body: "เช็กสามจุดนี้ 1. ค่าห้อง 2. ค่าผ่าตัด 3. ค่ายา" }), "list-count").ok).toBe(true);
+    expect(check(post({ hooks: ["3 จุดที่คนข้าม"], body: "✅ ค่าห้อง\n✅ ค่าผ่าตัด" }), "list-count").ok).toBe(false);
+    expect(check(post({ hooks: ["3 จุดที่คนข้าม"], body: "ทุน 1.5 ล้าน 2. ค่าผ่าตัด" }), "list-count").ok).toBe(false);
   });
 });
 

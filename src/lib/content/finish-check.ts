@@ -113,6 +113,13 @@ const opening = (p: string) => p.replace(/^[\s\-•*▪✅✔👉\d.)๐-๙⃣�
 /** the hook without a script's time marker in front of it */
 const bareHook = (out: ContentOutput) => (out.hooks[0] ?? "").replace(/^\s*\[[^\]]*\]\s*/, "").trim();
 
+/**
+ * The hook as it is said: a script's screen text and shots are taken out (scenes()), since the
+ * formula asks for both in the first three seconds and they are not words anyone waits through.
+ */
+const spokenHook = (out: ContentOutput, format: FinishFormat) =>
+  format === "script" ? (scenes(out.hooks[0] ?? "", "", "")[0]?.say ?? "") : bareHook(out);
+
 /** what the paragraph checks read: a post's paragraphs, or what is said in each stretch of a script */
 function units(out: ContentOutput, format: FinishFormat): string[] {
   if (format === "script") return scenes(out.hooks[0] ?? "", out.body, out.closing).map((s) => s.say).filter(Boolean);
@@ -124,15 +131,21 @@ const COUNT_WORDS: Record<number, string[]> = {
   1: ["แรก", "หนึ่ง"], 2: ["สอง"], 3: ["สาม"], 4: ["สี่"], 5: ["ห้า"], 6: ["หก"], 7: ["เจ็ด"], 8: ["แปด"], 9: ["เก้า"], 10: ["สิบ"],
 };
 
+/**
+ * A list the hook promised, written any of the ways the writers are told to: a bullet or a number
+ * per line (finish.ts asks for bullets), "1. … 2. …" in one paragraph, or items named in words
+ * — ข้อแรก, อย่างที่สอง, เหตุผลที่สาม.
+ */
 function listCount(out: ContentOutput): string[] {
   const m = COUNT.exec(arabic(bareHook(out)));
   const n = m ? Number(m[1]) : 0;
   if (n < 2 || n > 10) return [];
   const text = arabic(`${out.body}\n${out.closing}`);
+  if (paragraphs(text).filter((p) => LIST_ITEM.test(p)).length >= n) return [];
   const missing: string[] = [];
   for (let k = 1; k <= n; k++) {
     const names = [String(k), ...COUNT_WORDS[k]].join("|");
-    const item = new RegExp(`(?:^|\\n)\\s*(?:${k}\\s*[.)]|${k}\\uFE0F?\\u20E3)|ข้อ(?:ที่)?\\s*(?:${names})(?!\\d)`);
+    const item = new RegExp(`(?:^|\\s)(?:${k}\\s*[.)](?!\\d)|${k}\\uFE0F?\\u20E3)|(?:ข้อ|เรื่อง|อย่าง|วิธี|เหตุผล|จุด|สิ่ง)(?:ที่)?\\s*(?:${names})(?!\\d)`);
     if (!item.test(text)) missing.push(`ข้อ ${k}`);
   }
   return missing.length ? [`hook บอก ${n} ข้อ แต่ไม่พบ ${missing.join(", ")}`] : [];
@@ -183,7 +196,7 @@ function cuts(out: ContentOutput): string[] {
 }
 
 export function finishChecks(out: ContentOutput, format: FinishFormat): FinishResult[] {
-  const hook = bareHook(out);
+  const hook = spokenHook(out, format);
   const paras = units(out, format);
   const where: Record<FinishCheckId, () => string[]> = {
     "no-preamble": () => (PREAMBLE.some((p) => hook.startsWith(p)) ? [clip(hook)] : []),
