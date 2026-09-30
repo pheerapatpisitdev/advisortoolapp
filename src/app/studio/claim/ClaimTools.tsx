@@ -162,10 +162,9 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
       form.set("length", round.length);
       if (round.loop) form.set("loop", "on");
       if (round.pro) form.set("pro", "on");
-      if (round.format !== "script" && logo.spot) {
-        form.set("logoSpot", logo.spot);
-        if (logo.page) form.set("page", logo.page);
-      }
+      if (round.format !== "script" && logo.spot) form.set("logoSpot", logo.spot);
+      // the project's Page: the round is written into it (2026-09-30)
+      if (logo.page) form.set("page", logo.page);
       form.set("angle", round.angle);
       form.set("custom", round.custom);
       form.set("reader", round.reader);

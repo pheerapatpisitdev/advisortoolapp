@@ -125,6 +125,8 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
 
   const view = publishView(item.publish);
   const pageName = (id: string | null | undefined) => setup?.pages.find((p) => p.pageId === id)?.pageName ?? "เพจ";
+  // a piece of a Page's project goes on that Page and no other (2026-09-30); one on no Page picks
+  const target = item.pageId ?? pageId;
   const blocked = (item.flags.policy ?? []).filter((f) => f.severity === "block");
   const quickLabel = times.find((t) => t.iso === when)?.label;
 
@@ -145,18 +147,18 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
     const chosen = chosenTime();
     if ("error" in chosen) { setNote(errorNote(chosen.error)); return; }
     const { at } = chosen;
-    if (at === null && when !== OPEN && !(await ask(`โพสต์ลงเพจ ${pageName(pageId)} ตอนนี้เลย?`, "โพสต์เลย"))) return;
+    if (at === null && when !== OPEN && !(await ask(`โพสต์ลงเพจ ${pageName(target)} ตอนนี้เลย?`, "โพสต์เลย"))) return;
     setBusy("send");
     setNote(null);
     try {
       if (!(await beforePublish())) { setNote(errorNote("บันทึกการแก้ไขไม่สำเร็จ เลยยังไม่ได้โพสต์")); return; }
-      try { localStorage.setItem(PAGE_KEY, pageId); } catch { /* not kept */ }
+      try { localStorage.setItem(PAGE_KEY, target); } catch { /* not kept */ }
       let confirmNumbers = false;
       let force = false;
       for (;;) {
         const res: PublishResult = when === OPEN
-          ? await scheduleNextOpen({ id: item.id, pageId, confirmNumbers, force })
-          : await publishPiece({ id: item.id, pageId, at, hook, confirmNumbers, force });
+          ? await scheduleNextOpen({ id: item.id, pageId: target, confirmNumbers, force })
+          : await publishPiece({ id: item.id, pageId: target, at, hook, confirmNumbers, force });
         if (res.ok) {
           const heldAt = res.item.publish?.at;
           setNote(okNote(when === OPEN && heldAt ? `ตั้งเวลาแล้ว · ${thaiWhen(new Date(heldAt))}` : at ? "ตั้งเวลาแล้ว" : "โพสต์ลงเพจแล้ว"));
@@ -247,11 +249,15 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
         {drawing && <p className="text-sm text-[var(--ct-mute)]">กำลังวาดภาพอยู่ — รอภาพเสร็จก่อนจึงจะโพสต์ได้ (ราว 20–40 วินาที)</p>}
         {blocked.length > 0 && <p className="text-sm text-[var(--ct-alert)]">ยังผิดกฎโฆษณาของ Facebook ({blocked[0].message}) — แก้แล้วกดบันทึกก่อน จึงจะโพสต์ได้</p>}
         <div className="grid gap-2 sm:grid-cols-2">
-          <select value={pageId} onChange={(e) => setPageId(e.target.value)} aria-label="เพจที่จะโพสต์" className={field}>
-            {setup.pages.map((p) => (
-              <option key={p.pageId} value={p.pageId} disabled={!p.canPost}>{p.pageName}{p.canPost ? "" : " (ยังไม่ได้อนุญาตให้โพสต์)"}</option>
-            ))}
-          </select>
+          {item.pageId ? (
+            <p className={`${field} flex items-center`}>ลง {pageName(item.pageId)}</p>
+          ) : (
+            <select value={pageId} onChange={(e) => setPageId(e.target.value)} aria-label="เพจที่จะโพสต์" className={field}>
+              {setup.pages.map((p) => (
+                <option key={p.pageId} value={p.pageId} disabled={!p.canPost}>{p.pageName}{p.canPost ? "" : " (ยังไม่ได้อนุญาตให้โพสต์)"}</option>
+              ))}
+            </select>
+          )}
           <select
             value={when} onChange={(e) => { setWhen(e.target.value); setNote(null); }}
             onFocus={() => refreshTimes()} aria-label="เวลาโพสต์" className={field}
@@ -270,7 +276,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
           />
         )}
         <button
-          type="button" disabled={busy !== null || blocked.length > 0 || !pageId || drawing} onClick={send}
+          type="button" disabled={busy !== null || blocked.length > 0 || !target || drawing} onClick={send}
           className={`${button} bg-[var(--ct-solid)] font-medium text-[var(--ct-solid-ink)]`}
         >
           {busy === "send" ? "กำลังส่ง…" : when === "now" ? "โพสต์ลงเพจเลย" : when === OPEN ? "ตั้งเวลา · วันว่างถัดไป" : `ตั้งเวลาโพสต์${quickLabel ? ` · ${quickLabel}` : ""}`}

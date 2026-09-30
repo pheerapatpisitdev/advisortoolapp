@@ -78,7 +78,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
     const round = { kind, subject, custom: custom.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, pro, count, writer,
-      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot, page: logo.page } : {}) };
+      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => knowledgeRound(round), paintWith, person);
   }

@@ -66,14 +66,10 @@ interface Props {
   forDay?: string | null;
   /** the people library, for ใส่บุคคลในภาพ: the Page's own and every Page's (people-pages.ts) */
   people: PersonOption[];
-  /** the Page being worked for, chosen on its card at /studio; none for an agent */
-  page?: string;
-  /** the Page whose logo the posters carry: the one worked for, or the first; none for an agent (own logo) */
-  logoPage?: string;
+  /** the Page whose project this is (its card on /studio, else the first, 2026-09-30); null for an agent with no Pages */
+  project: { pageId: string; pageName: string } | null;
 }
 
-/** the Page the ลงเพจ box and the calendar start on, as PublishPanel.tsx keeps it */
-const PAGE_KEY = "content-page";
 
 /** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft */
 type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft";
@@ -224,7 +220,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
 }
 
-export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, page = "", logoPage }: Props) {
+export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project }: Props) {
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
@@ -315,7 +311,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [pro, setPro] = usePro();
   const [logoSpot, setLogoSpot] = useLogoSpot();
   /** handed to the รีวิวเคลม and หาทีม forms, which carry the same logo */
-  const logo = { page: logoPage, spot: logoSpot, onSpot: setLogoSpot };
+  const logo = { page: project?.pageId, spot: logoSpot, onSpot: setLogoSpot };
   const [count, setCount] = useState(3);
   const [adAngles, setAdAngles] = useState(2);
   const [adTones, setAdTones] = useState(2);
@@ -345,11 +341,6 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [formOpen, setFormOpen] = useState(() => Boolean(initialHook) || Boolean(initialDay) || (initial.items.length === 0 && !initialOpen));
   /** the day from the calendar, until the owner puts it away */
   const [forDay, setForDay] = useState(initialDay ?? null);
-  // working for a Page: what is posted from here goes to it unless changed in the ลงเพจ box
-  useEffect(() => {
-    if (!page) return;
-    try { localStorage.setItem(PAGE_KEY, page); } catch { /* not kept */ }
-  }, [page]);
   const formId = useId();
   /** the ใช้จริง rail below xl shows five until asked for the rest */
   const [allUsed, setAllUsed] = useState(false);
@@ -547,7 +538,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
   /** Throws when the list could not be read, and leaves what is on screen as it was. */
   async function reload(nextTab = tab, nextPlan = plan) {
-    const wb = await contentWorkbench({ status: nextTab, planHref: nextPlan || undefined });
+    const wb = await contentWorkbench({ status: nextTab, planHref: nextPlan || undefined, page: project?.pageId });
     if (wb.failed) throw new Error("workbench not read");
     setItems(wb.items);
     setCounts(wb.counts);
@@ -559,7 +550,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   async function loadMore() {
     setLoadingMore(true);
     try {
-      const wb = await contentWorkbench({ status: tab, planHref: plan || undefined, offset: items.length });
+      const wb = await contentWorkbench({ status: tab, planHref: plan || undefined, offset: items.length, page: project?.pageId });
       if (wb.failed) throw new Error("workbench not read");
       // a piece that moved tab meanwhile shifts the pages by one: never show it twice
       setItems((list) => {
@@ -584,7 +575,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
       href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, pro: format !== "ad" && pro, count,
       hookTemplateId: format === "ad" ? null : hookId || null, adAngles, adTones, writer,
       reader, goal: format === "ad" ? "" : goal, fact: format === "ad" ? "" : fact, theme,
-      ...(format !== "script" && logoSpot ? { logoSpot, page: logoPage } : {}),
+      ...(format !== "script" && logoSpot ? { logoSpot } : {}), page: project?.pageId,
     }), (fresh) => {
       // the painter as it was at the press, even if the owner changes it while waiting
       // the brief too: what the box said at the press, not after. Only a round that finished:
@@ -868,17 +859,15 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     setPagesFailed(Boolean(setup.failed));
     const usable = setup.pages.filter((p) => p.canPost);
     setPages(usable);
-    let kept = "";
-    try { kept = localStorage.getItem("content-page") ?? ""; } catch { /* storage unavailable */ }
-    setPickPage(usable.find((p) => p.pageId === kept)?.pageId ?? usable[0]?.pageId ?? "");
+    // what is scheduled from here goes on this project's Page (2026-09-30), when it may be posted to
+    setPickPage(project && usable.some((p) => p.pageId === project.pageId) ? project.pageId : "");
   }
 
   async function scheduleMany() {
     const order = items.filter((i) => picked.has(i.id) && !whyNot(i));
     if (order.length === 0 || !pickPage) return;
-    const pageName = pages?.find((p) => p.pageId === pickPage)?.pageName ?? "เพจ";
+    const pageName = project?.pageName ?? "เพจ";
     if (!(await ask(`ตั้งเวลา ${order.length} ชิ้นลง ${pageName} วันละชิ้น ในวันว่างถัดไปของเพจนี้?`, "ตั้งเวลา"))) return;
-    try { localStorage.setItem("content-page", pickPage); } catch { /* not kept */ }
     const held: string[] = [];
     const left: string[] = [];
     setSending({ done: 0, total: order.length });
@@ -953,7 +942,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   return (
     <div>
       <div>
-        <h1 className="text-xl font-semibold">Organic Studio</h1>
+        <h1 className="text-xl font-semibold">Organic Studio{project && <span className="font-normal text-[var(--ct-mute)]"> · {project.pageName}</span>}</h1>
         <p className="mt-1 text-sm text-[var(--ct-mute)]">AI เขียนจากข้อมูลจริงของแบบประกัน ตัวเลขทุกตัวมาจากตารางเบี้ย อ่านทวนก่อนโพสต์ทุกครั้ง</p>
       </div>
 
@@ -1322,13 +1311,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                   โหลดรายชื่อเพจไม่สำเร็จ —{" "}
                   <button type="button" onClick={loadPages} className="inline-flex min-h-11 items-center font-medium underline">ลองใหม่</button>
                 </p>
-              ) : pages.length === 0 ? (
-                <p className="text-sm text-[var(--ct-alert)]">ยังไม่มีเพจที่อนุญาตให้ระบบโพสต์ — เชื่อมเพจที่หน้าตั้งค่าเพจก่อน</p>
+              ) : !pickPage ? (
+                <p className="text-sm text-[var(--ct-alert)]">เพจ {project?.pageName ?? "นี้"} ยังไม่ได้อนุญาตให้ระบบโพสต์ — เชื่อมเพจที่หน้าตั้งค่าเพจก่อน</p>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
-                  <select value={pickPage} onChange={(e) => setPickPage(e.target.value)} aria-label="เพจที่จะลง" className="min-h-11 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 text-sm">
-                    {pages.map((p) => <option key={p.pageId} value={p.pageId}>{p.pageName}</option>)}
-                  </select>
+                  <span className="text-sm">ลง <b>{project?.pageName}</b></span>
                   <button
                     type="button" onClick={scheduleMany} disabled={picked.size === 0 || Boolean(sending) || !pickPage}
                     className="min-h-11 rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"

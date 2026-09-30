@@ -5,8 +5,6 @@ import { listPeople } from "@/lib/content/people-store";
 import { peopleFor, visibleTo } from "@/lib/content/people-pages";
 import { pageConnections } from "@/lib/facebook/connection";
 import { myPages } from "@/lib/auth/pages";
-import { can } from "@/lib/auth/access";
-import { getViewer } from "@/lib/auth/viewer";
 import { getContent, listContent, listHookTemplates } from "@/lib/content/store";
 import { contentSpend, contentWorkbench } from "./actions";
 import { ContentStudio } from "./ContentStudio";
@@ -18,22 +16,22 @@ import { fillable, todayKey } from "@/lib/content/calendar";
  * a second door to this until the owner took it out on 2026-09-27; it redirects here.)
  */
 /** `day`: the calendar's "เขียนโพสต์ใหม่สำหรับวันนี้" — a day still ahead the new posts are meant for */
-/** `page`: the Facebook Page being worked for (from its card on /studio); the first when not given */
+/** `page`: the Page whose project opens (from its card on /studio); the first when not given */
 export async function StudioPage({ hook, open, day, page }: { hook?: string; open?: string; day?: string; page?: string }) {
-  const staff = can(await getViewer(), "publish");
-  const [initial, used, hooks, spend, people, pages, connected] = await Promise.all([
-    contentWorkbench({ status: "draft" }),
-    listContent({ status: "used" }, 20).catch(() => []),
+  // the calendar's แก้ไข: the piece opens in the editor on arrival — in its own Page's project
+  const opened = open && /^[0-9a-f-]{36}$/.test(open) ? await getContent(open).catch(() => null) : null;
+  // the project (owner, 2026-09-30): one of the caller's Pages — the opened piece's, else the one
+  // its card asked for, else the first — or none for an agent with no Pages, as projectPage settles it
+  const [mine, connected] = await Promise.all([myPages().catch(() => []), pageConnections().catch(() => [])]);
+  const project = mine.find((p) => p.pageId === (opened?.pageId ?? page)) ?? mine[0] ?? null;
+  const pageId = project?.pageId;
+  const [initial, used, hooks, spend, people] = await Promise.all([
+    contentWorkbench({ status: "draft", page: pageId }),
+    listContent({ status: "used", pageId }, 20).catch(() => []),
     listHookTemplates().catch(() => []),
     contentSpend(),
     listPeople().catch(() => []),
-    // the staff who post work for one of their Pages at a time, and see only its people
-    staff ? myPages().catch(() => []) : Promise.resolve([]),
-    staff ? pageConnections().catch(() => []) : Promise.resolve([]),
   ]);
-  const current = pages.find((p) => p.pageId === page)?.pageId ?? pages[0]?.pageId ?? "";
-  // the calendar's แก้ไข: the piece opens in the editor on arrival
-  const opened = open && /^[0-9a-f-]{36}$/.test(open) ? await getContent(open).catch(() => null) : null;
   return (
     <ContentStudio
       products={CONTENT_PRODUCTS.map((p) => ({ href: p.href, name: p.name }))}
@@ -46,12 +44,8 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
       initialOpen={opened}
       forDay={day && /^\d{4}-\d{2}-\d{2}$/.test(day) && fillable(day, todayKey()) ? day : null}
       // nobody of a Page the caller does not look after (final review, 2026-09-29)
-      people={peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set(pages.map((p) => p.pageId))), pages, current)}
-      // only a Page actually chosen is remembered for ลงเพจ: the fallback to the first is a
-      // guess, and writing it down would send the next post to the wrong Page
-      page={current === page ? current : undefined}
-      // the logo follows the Page worked for, or the first as the calendar and people do
-      logoPage={current || undefined}
+      people={peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set(mine.map((p) => p.pageId))), mine, pageId ?? "")}
+      project={project ? { pageId: project.pageId, pageName: project.pageName } : null}
     />
   );
 }

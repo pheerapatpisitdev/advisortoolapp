@@ -81,7 +81,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
     const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, pro: format !== "ad" && pro, count, writer,
-      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot, page: logo.page } : {}) };
+      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => recruitRound(round), paintWith, person);
   }

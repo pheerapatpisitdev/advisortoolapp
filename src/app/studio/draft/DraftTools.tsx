@@ -73,7 +73,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
     const round = { draft: draft.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, pro: format !== "ad" && pro, count, writer,
-      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot, page: logo.page } : {}) };
+      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => draftRound(round), paintWith, person);
   }
