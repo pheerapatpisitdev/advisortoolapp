@@ -53,11 +53,11 @@ export function WalletAdmin({ settings, rows }: { settings: WalletSettings | nul
 
   return (
     <>
-      <Card title="กระเป๋าเงินตัวแทน" hint="เปิดแล้ว ตัวแทนเติมเงินและใช้ AI ต่อจากกระเป๋าได้เมื่อรอบฟรี 5 ครั้งหมด · staff ใช้ฟรีเหมือนเดิม">
+      <Card title="กระเป๋าเงินตัวแทน" hint="เปิดแล้ว ตัวแทนเติมเงินและใช้ AI ต่อจากกระเป๋าได้เมื่อรอบฟรีหมด · staff ใช้ฟรีเหมือนเดิม">
         <div className="space-y-3">
           <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
             <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="size-5" />
-            เปิดให้ตัวแทนเติมเงินและใช้ AI ต่อจากกระเป๋าเมื่อรอบฟรี 5 ครั้งหมด
+            เปิดให้ตัวแทนเติมเงินและใช้ AI ต่อจากกระเป๋าเมื่อรอบฟรีหมด
           </label>
           <label className="block text-sm">
             <span className="block text-xs text-[var(--bot-ink-mute)]">ตัวคูณราคา (ต้นทุนจริงของ AI × ตัวคูณ, 1 ถึง 10)</span>

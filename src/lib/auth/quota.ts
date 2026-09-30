@@ -5,22 +5,22 @@ import { holdWallet, walletSettings } from "@/lib/wallet/store";
 import type { Viewer } from "./access";
 
 /**
- * How many AI rounds an agent may start without paying: five, once (owner, 2026-09-30).
+ * How many AI rounds an agent may start without paying: ten, once (owner, 2026-09-30).
  *
  * Until then it was twenty a Thai month, five for a trial room, paid from the owner's one AI
  * budget. With the wallet (src/lib/wallet/) the owner chose a taste instead of an allowance:
- * five rounds to try Studio, for a paying room and a trial room alike, never given again —
+ * ten rounds to try Studio (five at first, raised to ten the same day), for a paying room and a trial room alike, never given again —
  * after them every round is paid from the agent's own wallet. Staff are outside it; the
  * owner's content ceiling on /admin/ai still stands over the free rounds.
  *
  * Counted from 1 October 2026 in Thailand, so rounds used under the monthly allowance before
- * the change do not eat into the five (owner, 2026-09-30).
+ * the change do not eat into the ten (owner, 2026-09-30).
  *
  * A round is a writing round, a หาทีม round, a รีวิวเคลม reading or a picture drawn — the
  * things that call a model on purpose. Counted from ins_audit, so deleting the piece a round
  * made does not give the round back.
  */
-export const FREE_ROUNDS = 5;
+export const FREE_ROUNDS = 10;
 export const FREE_ROUNDS_FROM = new Date("2026-10-01T00:00:00+07:00");
 
 export const AI_ROUNDS = ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft"] as const;
@@ -51,7 +51,7 @@ export const walletShort = (neededSatang: number): string =>
   `รอบฟรีหมดแล้ว — รอบนี้ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(neededSatang)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`;
 
 /**
- * Asks for one round and says who pays for it: nobody for staff, the five free rounds while they
+ * Asks for one round and says who pays for it: nobody for staff, the free rounds while they
  * last, then the agent's wallet (owner, 2026-09-30) — the round's price set aside first, so
  * rounds started together cannot spend the same baht. A round is written down before the
  * model is called either way, so rounds started together count each other.

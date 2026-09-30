@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 
-/** Five free AI rounds for every agent, once, counted from 1 October 2026 (owner, 2026-09-30). */
+/** Ten free AI rounds for every agent, once, counted from 1 October 2026 (owner, 2026-09-30). */
 
 const db = vi.hoisted(() => ({ count: 0, since: "" }));
 vi.mock("@/lib/supabase/admin", () => ({
@@ -35,15 +35,15 @@ beforeEach(() => {
 });
 
 describe("the free rounds", () => {
-  it("are five, for a paying room and a trial room alike", async () => {
-    expect(FREE_ROUNDS).toBe(5);
-    expect(await allowanceOf(agent)).toEqual({ limit: 5, used: 0 });
-    expect(await allowanceOf({ ...agent, trial: true })).toEqual({ limit: 5, used: 0 });
+  it("are ten, for a paying room and a trial room alike", async () => {
+    expect(FREE_ROUNDS).toBe(10);
+    expect(await allowanceOf(agent)).toEqual({ limit: 10, used: 0 });
+    expect(await allowanceOf({ ...agent, trial: true })).toEqual({ limit: 10, used: 0 });
   });
 
   it("count every round since 1 October 2026 in Thailand, never from the start of a month", async () => {
     db.count = 3;
-    expect(await allowanceOf(agent)).toEqual({ limit: 5, used: 3 });
+    expect(await allowanceOf(agent)).toEqual({ limit: 10, used: 3 });
     expect(db.since).toBe(new Date("2026-10-01T00:00:00+07:00").toISOString());
     expect(FREE_ROUNDS_FROM.toISOString()).toBe("2026-09-30T17:00:00.000Z");
   });

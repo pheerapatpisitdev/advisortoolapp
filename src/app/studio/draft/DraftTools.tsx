@@ -35,7 +35,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
   onPerson: (p: PiecePerson | null) => void;
   /** the month's content money left, for the estimate and for อัตโนมัติ */
   left: number;
-  /** the agent's five free AI rounds and their wallet; null for staff (src/lib/auth/quota.ts) */
+  /** the agent's free AI rounds and their wallet; null for staff (src/lib/auth/quota.ts) */
   rounds?: Rounds | null;
   pending: boolean;
   making: number;

@@ -286,7 +286,7 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
-    // an agent's own wallet, to write past the five free rounds (owner, 2026-09-30); staff write without one
+    // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); staff write without one
     { href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b736f" },
   ];
   // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a

@@ -641,7 +641,7 @@ export async function contentSpend(): Promise<ContentSpend> {
 export interface ContentSpend {
   spent: number;
   cap: number;
-  /** the agent's five free AI rounds and their wallet (src/lib/auth/quota.ts); null for staff */
+  /** the agent's free AI rounds and their wallet (src/lib/auth/quota.ts); null for staff */
   rounds: Rounds | null;
 }
 
