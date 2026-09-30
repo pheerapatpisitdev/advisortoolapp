@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { overBudget, pictureSummary } from "@/app/studio/ui/form-parts";
+import { overBudget, pictureSummary, startingFormula } from "@/app/studio/ui/form-parts";
 
 describe("the round's line under สร้าง", () => {
   it("warns when a round would cost more than the month has left, and not otherwise", () => {
@@ -17,5 +17,18 @@ describe("the folded picture section's one line", () => {
 
   it("says nothing of a brief when no picture is drawn", () => {
     expect(pictureSummary({ format: "post", writer: "Sonnet", painter: null, brief: "x" })).not.toContain("บรีฟ");
+  });
+});
+
+describe("the formula the picker starts on", () => {
+  it("is the last one picked in this browser, 'none' included", () => {
+    expect(startingFormula("finish", null)).toBe("finish");
+    expect(startingFormula("none", "on")).toBeNull();
+  });
+
+  it("is สูตรโปร where it was ticked before there were two, and none otherwise", () => {
+    expect(startingFormula(null, "on")).toBe("pro");
+    expect(startingFormula(null, "off")).toBeNull();
+    expect(startingFormula(null, null)).toBeNull();
   });
 });

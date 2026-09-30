@@ -38,7 +38,7 @@ import { MODE_PLANS, modeName } from "@/lib/content/modes";
 import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
 import { thaiDayLabel } from "@/lib/content/calendar";
 import { PlainText } from "./ui/editor-fields";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, ProToggle, useLoop, usePro } from "./ui/form-parts";
+import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "./ui/form-parts";
 
 /**
  * The content workbench, laid out as the owner's Maryjane project lays out its run page:
@@ -315,7 +315,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [custom, setCustom] = useState("");
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
-  const [pro, setPro] = usePro();
+  const [formula, setFormula] = useFormula();
   const [logoSpot, setLogoSpot] = useLogoSpot();
   /** handed to the รีวิวเคลม and หาทีม forms, which carry the same logo */
   const logo = { page: project?.pageId, spot: logoSpot, onSpot: setLogoSpot };
@@ -579,7 +579,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     const pictureBrief = brief.trim();
     const pictureOf = person;
     await runRound(pieceCount, format, () => generateRound({
-      href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, pro: format !== "ad" && pro, count,
+      href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count,
       hookTemplateId: format === "ad" ? null : hookId || null, adAngles, adTones, writer,
       reader, goal: format === "ad" ? "" : goal, fact: format === "ad" ? "" : fact, theme,
       ...(format !== "script" && logoSpot ? { logoSpot } : {}), page: project?.pageId,
@@ -1058,7 +1058,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           )}
 
           {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
-          {format !== "ad" && <ProToggle value={pro} onChange={setPro} />}
+          {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
 
           {format === "ad" && (
             <div className="space-y-3 rounded-lg bg-[var(--ct-ground)] p-3">

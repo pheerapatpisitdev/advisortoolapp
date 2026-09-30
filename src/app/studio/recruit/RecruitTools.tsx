@@ -13,7 +13,7 @@ import {
 import type { GenerateResult } from "../actions";
 import { recruitRound } from "../draw";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, ProToggle, useLoop, usePro } from "../ui/form-parts";
+import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
 
 /**
  * หาทีม's tools (owner, 2026-09-26): pick a topic and who it is for, set the round, press
@@ -66,7 +66,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   const [format, setFormat] = useState<Format>("post");
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
-  const [pro, setPro] = usePro();
+  const [formula, setFormula] = useFormula();
   const [tone, setTone] = useState("");
   const [count, setCount] = useState(1);
 
@@ -82,7 +82,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, pro: format !== "ad" && pro, count, writer,
+    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count, writer,
       ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => recruitRound(round), paintWith, person);
@@ -124,7 +124,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
         )}
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
-        {format !== "ad" && <ProToggle value={pro} onChange={setPro} />}
+        {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
 
         <FormSection title="เรื่องที่เล่า">
         <div role="group" aria-labelledby={`${id}-reader`}>

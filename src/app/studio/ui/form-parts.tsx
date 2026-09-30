@@ -2,6 +2,8 @@
 import { useEffect, useId, useState } from "react";
 import { FORMAT_SHORT, type Format } from "@/lib/content/prompt";
 import { PRO_NAME, PRO_PRINCIPLES } from "@/lib/content/pro";
+import { FINISH_NAME, FINISH_PRINCIPLES } from "@/lib/content/finish";
+import { FORMULA_NAME, readFormula, type Formula } from "@/lib/content/formula";
 import { ChevronDownIcon } from "./icons";
 
 /**
@@ -186,49 +188,82 @@ export function LoopToggle({ value, onChange }: { value: boolean; onChange: (on:
 }
 
 const PRO_KEY = "content-pro";
+const FORMULA_KEY = "content-formula";
 
-/** สูตรคอนเทนต์โปร, remembered per browser like คลิปวนลูป; off until the owner ticks it */
-export function usePro(): [boolean, (on: boolean) => void] {
-  const [pro, setProState] = useState(false);
-  useEffect(() => {
-    try { setProState(localStorage.getItem(PRO_KEY) === "on"); } catch { /* storage unavailable */ }
-  }, []);
-  const setPro = (on: boolean) => {
-    setProState(on);
-    try { localStorage.setItem(PRO_KEY, on ? "on" : "off"); } catch { /* not kept */ }
-  };
-  return [pro, setPro];
+/**
+ * The formula the picker starts on: the one last picked in this browser ("none" is a pick),
+ * or สูตรคอนเทนต์โปร where its box was ticked before there were two to pick from (2026-10-01).
+ */
+export function startingFormula(kept: string | null, legacyPro: string | null): Formula | null {
+  if (kept !== null) return readFormula(kept);
+  return legacyPro === "on" ? "pro" : null;
 }
 
-/** สูตรคอนเทนต์โปร (owner, 2026-09-29): the thirteen as writing rules — see src/lib/content/pro.ts */
-export function ProToggle({ value, onChange }: { value: boolean; onChange: (on: boolean) => void }) {
+/** the writing formula, remembered per browser like คลิปวนลูป; none until the owner picks one */
+export function useFormula(): [Formula | null, (f: Formula | null) => void] {
+  const [formula, setFormulaState] = useState<Formula | null>(null);
+  useEffect(() => {
+    try { setFormulaState(startingFormula(localStorage.getItem(FORMULA_KEY), localStorage.getItem(PRO_KEY))); } catch { /* storage unavailable */ }
+  }, []);
+  const setFormula = (f: Formula | null) => {
+    setFormulaState(f);
+    try { localStorage.setItem(FORMULA_KEY, f ?? "none"); } catch { /* not kept */ }
+  };
+  return [formula, setFormula];
+}
+
+const FORMULA_OPTIONS: { id: Formula | null; label: string; hint: string }[] = [
+  { id: null, label: "ไม่ใช้สูตร", hint: "เขียนตามปกติ" },
+  { id: "pro", label: `${PRO_NAME} (13 ข้อ)`, hint: "ประโยคเปิดซ้อน 3 ชั้น · ดึงคนกลับกลางเรื่อง · ชวนเซฟ · สคริปต์มี B-roll" },
+  { id: "finish", label: FINISH_NAME, hint: "เปิดจากเรื่องที่คนรู้ครึ่งเดียว · ปมต้องเฉลยครบ · อ่านง่ายบนมือถือ · มีเช็กลิสต์ก่อนโพสต์" },
+];
+
+/**
+ * The writing formula, one at a time (formula.ts): สูตรคอนเทนต์โปร (pro.ts) or สูตรอ่าน-ดูจนจบ
+ * (finish.ts). A radio group rather than two boxes, because the two cannot be written together.
+ */
+export function FormulaPicker({ value, onChange }: { value: Formula | null; onChange: (f: Formula | null) => void }) {
   const [open, setOpen] = useState(false);
   const list = useId();
+  const name = useId();
+  const rules = value === "pro"
+    ? PRO_PRINCIPLES.map((p) => ({ name: p.name, what: `${p.what}${p.ai ? "" : " (ทำเองหลังโพสต์ AI ทำแทนไม่ได้)"}` }))
+    : value === "finish" ? FINISH_PRINCIPLES : [];
   return (
-    <div className={`rounded-lg border p-3 text-sm ${value ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
-      <label className="flex min-h-11 cursor-pointer items-start gap-2.5">
-        <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
-        <span>
-          <span className="font-medium">{PRO_NAME} (13 ข้อ)</span> <span className="text-[var(--ct-mute)]">(ระบบจำไว้ให้)</span>
-          <span className="mt-0.5 block text-xs text-[var(--ct-mute)]">ประโยคเปิดซ้อน 3 ชั้น · ดึงคนกลับกลางเรื่อง · ชวนเซฟ · สคริปต์มี B-roll</span>
-        </span>
-      </label>
-      <button
-        type="button" aria-expanded={open} aria-controls={list} onClick={() => setOpen((o) => !o)}
-        className="ml-7 inline-flex min-h-11 items-center gap-1 text-xs font-medium text-[var(--ct-accent)]"
-      >
-        <ChevronDownIcon className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /> ดู 13 ข้อ
-      </button>
-      {open && (
-        <ol id={list} className="ml-7 mt-1 list-decimal space-y-1.5 pl-4 text-xs">
-          {PRO_PRINCIPLES.map((p) => (
-            <li key={p.name}>
-              <span className="font-medium">{p.name}</span>{" "}
-              <span className="text-[var(--ct-mute)]">— {p.what}{p.ai ? "" : " (ทำเองหลังโพสต์ AI ทำแทนไม่ได้)"}</span>
-            </li>
-          ))}
-        </ol>
+    <fieldset className={`rounded-lg border p-3 text-sm ${value ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
+      <legend className="px-1 font-medium">
+        สูตรการเขียน <span className="font-normal text-[var(--ct-mute)]">(เลือกได้ทีละสูตร · ระบบจำไว้ให้)</span>
+      </legend>
+      <div className="space-y-0.5">
+        {FORMULA_OPTIONS.map((o) => (
+          <label key={o.id ?? "none"} className="flex min-h-11 cursor-pointer items-start gap-2.5 py-1">
+            <input type="radio" name={name} checked={value === o.id} onChange={() => { onChange(o.id); setOpen(false); }} className="mt-0.5 size-5 shrink-0" />
+            <span>
+              <span className="font-medium">{o.label}</span>
+              <span className="mt-0.5 block text-xs text-[var(--ct-mute)]">{o.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {value && (
+        <>
+          <button
+            type="button" aria-expanded={open} aria-controls={list} onClick={() => setOpen((o) => !o)}
+            className="ml-7 inline-flex min-h-11 items-center gap-1 text-xs font-medium text-[var(--ct-accent)]"
+          >
+            <ChevronDownIcon className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /> ดูกฎของ{FORMULA_NAME[value]}
+          </button>
+          {open && (
+            <ol id={list} className="ml-7 mt-1 list-decimal space-y-1.5 pl-4 text-xs">
+              {rules.map((r) => (
+                <li key={r.name}>
+                  <span className="font-medium">{r.name}</span> <span className="text-[var(--ct-mute)]">— {r.what}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
       )}
-    </div>
+    </fieldset>
   );
 }

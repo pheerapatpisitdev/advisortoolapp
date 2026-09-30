@@ -11,7 +11,7 @@ import { DRAFT_STYLES, MAX_DRAFT, MAX_DRAFT_PIECES } from "@/lib/content/draft";
 import type { GenerateResult } from "../actions";
 import { draftRound } from "../draw";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, ProToggle, useLoop, usePro } from "../ui/form-parts";
+import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
 
 /** เขียนเอง's tools (owner, 2026-09-29): the agent's draft and how many versions to polish it into (draft.ts). */
 
@@ -59,7 +59,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
   const [format, setFormat] = useState<Format>("post");
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
-  const [pro, setPro] = usePro();
+  const [formula, setFormula] = useFormula();
   const [count, setCount] = useState(1);
 
   const blocked = !draft.trim() ? "พิมพ์ร่างก่อน" : null;
@@ -74,7 +74,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { draft: draft.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, pro: format !== "ad" && pro, count, writer,
+    const round = { draft: draft.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count, writer,
       ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => draftRound(round), paintWith, person);
@@ -111,7 +111,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
         )}
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
-        {format !== "ad" && <ProToggle value={pro} onChange={setPro} />}
+        {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
 
         <FormSection title="เรื่องที่เล่า">
           <label className="block">
