@@ -105,16 +105,17 @@ export function backgroundPrompt(opts: {
   /** the kind of picture (looks.ts); absent or the original draws what every picture was drawn from before */
   look?: Look | null;
 }): string {
+  // what the owner typed decides the whole picture (owner, 2026-10-01)
+  const own = opts.request ? stripThai(opts.request) : "";
+  if (own) return ownerPrompt(opts, own);
   const look = opts.look ?? CLASSIC;
   if (!isClassic(look)) return lookPrompt(opts, look);
   const scene = stripThai(opts.scene) || "A believable everyday moment of a Thai family at home, warm and unposed.";
-  const request = opts.request ? stripThai(opts.request) : "";
   return [
     "Create a natural, editorial-quality 1:1 square background photograph for a Thai insurance agent's Facebook post.",
     "",
     "Scene:",
     scene,
-    ...(request ? ["", "The page owner asks for this — follow it closely:", request] : []),
     ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
     "",
     "Absolute rules:",
@@ -137,14 +138,12 @@ export function backgroundPrompt(opts: {
  */
 function lookPrompt(opts: Parameters<typeof backgroundPrompt>[0], look: Look): string {
   const scene = stripThai(opts.scene) || "A believable everyday moment of a Thai family at home, warm and unposed.";
-  const request = opts.request ? stripThai(opts.request) : "";
   const objects = styleKind(look.style) === "objects";
   return [
     `Create a 1:1 square background image for a Thai insurance agent's Facebook post, in this style: ${choiceOf("style", look.style).say}.`,
     "",
     "Scene:",
     scene,
-    ...(request ? ["", "The page owner asks for this — follow it closely:", request] : []),
     ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
     "",
     "Absolute rules:",
@@ -159,5 +158,27 @@ function lookPrompt(opts: Parameters<typeof backgroundPrompt>[0], look: Look): s
     `- Light: ${choiceOf("light", look.light).say}.`,
     `- Mood: ${choiceOf("mood", look.mood).say}, never fearful.`,
     "- Thai headline text will be placed on top of the image later, so leave room to breathe.",
+  ].join("\n");
+}
+
+/**
+ * The owner's own direction, typed in the editor or the round's picture brief: it decides the
+ * style, who is in it, the place, the light, the colours and the mood — no scene from the writer,
+ * no look, no theme palette. What stays is what keeps the poster readable and the advertisement
+ * safe: no lettering, the words' side calm, nothing an insurance advertisement must not show, and
+ * a person from the library kept as themselves.
+ */
+function ownerPrompt(opts: Parameters<typeof backgroundPrompt>[0], direction: string): string {
+  return [
+    "Create a 1:1 square background image for a Thai insurance agent's Facebook post.",
+    "",
+    "The page owner's own direction — follow it exactly; it decides the style, subject, setting, light, colours and mood:",
+    direction,
+    ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
+    "",
+    "Absolute rules (these hold whatever the direction says):",
+    "- NO text, letters, numbers or words, and NO logos, watermarks, signatures or user-interface elements anywhere in the image.",
+    `- Keep ${TEXT_AREA[opts.layout]} calm and simple — Thai headline text will be placed there later.`,
+    `- Avoid: ${AVOID.join("; ")}.`,
   ].join("\n");
 }

@@ -15,7 +15,7 @@ describe("the original look", () => {
     const cases = {
       bottom: { scene, layout: "bottom", theme: "navy" },
       top: { scene, layout: "top", theme: "sand" },
-      center: { scene, layout: "center", theme: "photo", request: "morning light by a window" },
+      center: { scene, layout: "center", theme: "photo" },
       person: { scene, layout: "bottom", theme: "mint", person: { pose: "auto" } },
       aside: { scene, layout: "top", theme: "navy", person: { pose: "auto", aside: true } },
     } as const;
@@ -104,5 +104,36 @@ describe("the card's words for a look", () => {
   it("names the style and the mood in Thai", () => {
     expect(lookLabel(flatlay)).toBe("ภาพวางของมุมบน · สงบ");
     expect(lookLabel(CLASSIC)).toBe("ภาพถ่าย editorial · มีความหวัง");
+  });
+});
+
+describe("the owner's own direction", () => {
+  const request = "a watercolour painting of an empty beach at dawn, pastel colours";
+  const p = backgroundPrompt({ scene, layout: "bottom", theme: "navy", look: flatlay, request });
+
+  it("decides the whole picture: no scene, no look, no theme colours", () => {
+    expect(p).toContain(request);
+    expect(p).not.toContain(scene);
+    expect(p).not.toContain(STYLES.find((s) => s.id === "flatlay")!.say);
+    expect(p).not.toContain("editorial-quality");
+    expect(p).not.toContain("deep navy blue shadows");
+    expect(p).not.toContain("Hopeful and reassuring");
+  });
+
+  it("keeps only what keeps the poster readable and the advertisement safe", () => {
+    expect(p).toContain("1:1 square");
+    expect(p).toContain("NO text, letters, numbers or words");
+    expect(p).toContain("bottom half of the frame");
+    expect(p).toContain("coffins");
+  });
+
+  it("keeps a person from the library in it", () => {
+    expect(backgroundPrompt({ scene, layout: "bottom", theme: "navy", request, person: { pose: "auto" } })).toContain("reference photos");
+  });
+
+  it("is not a direction when it is blank, or only Thai the model is never handed", () => {
+    for (const blank of ["", "   ", "ภาพสีน้ำ"]) {
+      expect(backgroundPrompt({ scene, layout: "bottom", theme: "navy", request: blank })).toBe(golden.bottom);
+    }
   });
 });

@@ -1198,7 +1198,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 placeholder="เช่น โทนอบอุ่นแบบภาพยนตร์ ครอบครัวในสวนตอนเย็น มุมกว้าง ไม่เอาภาพในโรงพยาบาล"
                 className={field}
               />
-              <span className="mt-1 block text-xs text-[var(--ct-mute)]">ใช้กับภาพทุกชิ้นในรอบนี้ ภาพจะยังไม่มีตัวหนังสือและเว้นที่ให้ข้อความเสมอ · {brief.length}/{MAX_BRIEF}</span>
+              <span className="mt-1 block text-xs text-[var(--ct-mute)]">ใช้กับภาพทุกชิ้นในรอบนี้ และวาดตามนี้ทั้งภาพ แต่ภาพจะยังไม่มีตัวหนังสือและเว้นที่ให้ข้อความเสมอ · {brief.length}/{MAX_BRIEF}</span>
             </label>
           )}
           </PictureFold>

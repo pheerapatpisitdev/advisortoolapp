@@ -356,6 +356,22 @@ describe("the content ceiling", () => {
     expect(row.output.look).toEqual(CLASSIC);
   });
 
+  it("draws what the owner typed, as they typed it, without picking a look", async () => {
+    row = { ...row, output: { ...row.output, look: CLASSIC } };
+    ai.chat.mockResolvedValueOnce({ text: "a watercolour painting of an empty beach", model: "m", costThb: 0.01, outputTokens: 10 });
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const r = await drawBackground("p1", "ภาพสีน้ำ ชายหาดไม่มีคน", "standard", null);
+    expect(r.ok).toBe(true);
+    // one call: the translation; no look is picked
+    expect(ai.chat).toHaveBeenCalledTimes(1);
+    expect(ai.chat.mock.calls[0][0].task).toBe("content-image-brief");
+    expect(store.recentLooks).not.toHaveBeenCalled();
+    expect(ai.drawImage.mock.calls[0][0].prompt).toContain("a watercolour painting of an empty beach");
+    expect(ai.drawImage.mock.calls[0][0].prompt).not.toContain("editorial-quality");
+    expect(row.output.look).toBeUndefined();
+  });
+
   it("does not write a picture's older copy of the words over an edit saved while it drew", async () => {
     ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
     store.saveBackground.mockResolvedValue("p1/new.png");
