@@ -1,5 +1,8 @@
 import { monthStart } from "@/lib/ai/ledger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { formatBaht, holdSatang } from "@/lib/wallet/money";
+import type { RoundPass } from "@/lib/wallet/round";
+import { holdWallet, walletSettings } from "@/lib/wallet/store";
 import type { Viewer } from "./access";
 
 /**
@@ -52,16 +55,39 @@ export function overAllowance(a: Allowance, trial: boolean): string | null {
     : `สร้างด้วย AI ได้คนละ ${a.limit} ครั้งต่อเดือน — ใช้ครบแล้วเดือนนี้ เริ่มใหม่วันที่ 1`;
 }
 
+/** the refusal when the free month is used and the wallet has not got this round's price */
+export const walletShort = (neededSatang: number): string =>
+  `โควตาฟรีเดือนนี้หมดแล้ว — รอบนี้ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(neededSatang)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`;
+
 /**
- * Asks for one round: refuses when the allowance is used up, otherwise writes the round down
- * (before the model is called, so rounds started together count each other) and lets it go.
+ * Asks for one round and says who pays for it: nobody for staff, the free month while it
+ * lasts, then the agent's wallet (owner, 2026-09-30) — the round's price set aside first, so
+ * rounds started together cannot spend the same baht. A round is written down before the
+ * model is called either way, so rounds started together count each other.
  */
-export async function takeRound(viewer: Viewer, round: AiRound, target: string | null = null): Promise<string | null> {
+export async function takeRound(viewer: Viewer, round: AiRound, target: string | null = null): Promise<RoundPass> {
   // staff have no allowance to count against; the content ceiling covers them
-  if (viewer.staff) return null;
+  if (viewer.staff) return { ok: true, paidBy: "staff" };
+  const db = supabaseAdmin();
   const refusal = overAllowance(await allowanceOf(viewer), viewer.trial);
-  if (refusal) return refusal;
-  const { error } = await supabaseAdmin().from("ins_audit").insert({ agent_id: viewer.agentId, action: round, target });
+  if (!refusal) {
+    const { error } = await db.from("ins_audit").insert({ agent_id: viewer.agentId, action: round, target });
+    if (error) console.error(`round ${round} not counted:`, error.message);
+    return { ok: true, paidBy: "free" };
+  }
+  // an unreadable wallet is a closed one: the round is refused, never let through unpaid
+  const settings = await walletSettings().catch((e) => {
+    console.error("wallet settings unreadable:", e);
+    return null;
+  });
+  if (!settings?.enabled) return { ok: false, refusal };
+  const heldSatang = holdSatang(round, settings.multiplier);
+  const holdId = await holdWallet(viewer.agentId, heldSatang, round).catch((e) => {
+    console.error("wallet hold failed:", e);
+    return null;
+  });
+  if (!holdId) return { ok: false, refusal: walletShort(heldSatang) };
+  const { error } = await db.from("ins_audit").insert({ agent_id: viewer.agentId, action: round, target, detail: { wallet: true } });
   if (error) console.error(`round ${round} not counted:`, error.message);
-  return null;
+  return { ok: true, paidBy: "wallet", holdId, heldSatang, multiplier: settings.multiplier };
 }

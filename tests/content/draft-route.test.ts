@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => null) }));
+const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => ({ ok: true, paidBy: "staff" })) }));
 const run = vi.hoisted(() => ({ writeDraft: vi.fn(async () => ({ ok: true, items: [], costThb: 0, missing: 0 })) }));
 vi.mock("@/lib/auth/quota", () => quota);
 // the hourly limit keys on the caller's address, read from the request's headers

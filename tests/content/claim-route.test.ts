@@ -28,7 +28,7 @@ beforeEach(() => {
 
 describe("writing a รีวิวเคลม", () => {
   it("takes one of the agent's rounds", async () => {
-    quota.takeRound.mockResolvedValue(null);
+    quota.takeRound.mockResolvedValue({ ok: true, paidBy: "staff" });
     const res = await PUT(writeRequest() as never);
     expect(res.status).toBe(200);
     expect(quota.takeRound).toHaveBeenCalledWith({ agentId: "a1" }, "ai-claim");
@@ -45,7 +45,7 @@ describe("writing a รีวิวเคลม", () => {
   });
 
   it("writes nothing once the month's rounds are used", async () => {
-    quota.takeRound.mockResolvedValue("ใช้ครบแล้วเดือนนี้");
+    quota.takeRound.mockResolvedValue({ ok: false, refusal: "ใช้ครบแล้วเดือนนี้" });
     const res = await PUT(writeRequest() as never);
     expect(res.status).toBe(429);
     expect(await res.json()).toEqual({ ok: false, error: "ใช้ครบแล้วเดือนนี้" });

@@ -5,6 +5,7 @@ import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
 import { readClaim, writeClaim } from "@/lib/content/claim-run";
 import { refuseUnless, requireMember } from "@/lib/auth/viewer";
 import { takeRound } from "@/lib/auth/quota";
+import { payRound } from "@/lib/wallet/round";
 import { projectPage } from "@/lib/auth/pages";
 
 /**
@@ -48,10 +49,10 @@ export async function POST(req: NextRequest) {
   if (typeof files === "string") return bad(files);
   if (files.length === 0 || files.length > MAX_DOCS) return bad(`เลือกรูปเอกสาร 1–${MAX_DOCS} รูปนะครับ`);
   if (!readsPerHour(`claim-read:${clientIp(req.headers)}`)) return bad("อ่านเอกสารครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ", 429);
-  const over = await takeRound(await requireMember(), "ai-claim");
-  if (over) return bad(over, 429);
+  const pass = await takeRound(await requireMember(), "ai-claim");
+  if (!pass.ok) return bad(pass.refusal, 429);
   const pics = await Promise.all(files.map(async (f) => ({ base64: Buffer.from(await f.arrayBuffer()).toString("base64"), mimeType: f.type })));
-  return Response.json(await readClaim(pics));
+  return Response.json(await payRound(pass, () => readClaim(pics)));
 }
 
 export async function PUT(req: NextRequest) {
@@ -77,13 +78,13 @@ export async function PUT(req: NextRequest) {
   if (!project.ok) return bad(project.error, 403);
   // the writing is a round of its own, as the reading is: without it a second round from the
   // same papers (the page keeps their reading) or a PUT sent by hand wrote past the allowance
-  const over = await takeRound(await requireMember(), "ai-claim");
-  if (over) return bad(over, 429);
+  const pass = await takeRound(await requireMember(), "ai-claim");
+  if (!pass.ok) return bad(pass.refusal, 429);
   const papers = await Promise.all(files.map(async (f, i) => ({ bytes: Buffer.from(await f.arrayBuffer()), mimeType: f.type, ratio: ratios[i] })));
-  return Response.json(await writeClaim({
+  return Response.json(await payRound(pass, () => writeClaim({
     facts, count: Number(form.get("count")), writer: String(form.get("writer") ?? ""), papers,
     format: String(form.get("format") ?? ""), length: String(form.get("length") ?? ""), loop: form.get("loop") === "on", pro: form.get("pro") === "on",
     logoSpot: String(form.get("logoSpot") ?? ""),
     angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
-  }, project.pageId));
+  }, project.pageId)));
 }

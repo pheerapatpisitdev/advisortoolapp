@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /** A round is written into the project of a Page the caller looks after, or not at all (owner, 2026-09-30). */
 
-const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => null), allowanceOf: vi.fn() }));
+const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => ({ ok: true, paidBy: "staff" })), allowanceOf: vi.fn() }));
 const project = vi.hoisted(() => ({ projectPage: vi.fn() }));
 const done = { ok: true, items: [], costThb: 0, missing: 0 };
 const runs = vi.hoisted(() => ({ writeRecruit: vi.fn(), writeKnowledge: vi.fn(), writeDraft: vi.fn() }));

@@ -41,6 +41,7 @@ import { can } from "@/lib/auth/access";
 import { projectPage } from "@/lib/auth/pages";
 import { requireMember } from "@/lib/auth/viewer";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
+import { payRound } from "@/lib/wallet/round";
 
 /**
  * The content workbench's doors, open to anyone who finds the page — the owner put it in the
@@ -188,98 +189,100 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
   // the agent's own monthly allowance (src/lib/auth/quota.ts); staff are outside it
-  const over = await takeRound(viewer, "ai-write");
-  if (over) return { ok: false, error: over };
-  const adAngles = Math.min(MAX_ANGLES, Math.max(1, Math.round(Number(input.adAngles) || 2)));
-  const adTones = Math.min(MAX_TONES, Math.max(1, Math.round(Number(input.adTones) || 2)));
+  const pass = await takeRound(viewer, "ai-write");
+  if (!pass.ok) return { ok: false, error: pass.refusal };
+  return payRound(pass, async (): Promise<GenerateResult> => {
+    const adAngles = Math.min(MAX_ANGLES, Math.max(1, Math.round(Number(input.adAngles) || 2)));
+    const adTones = Math.min(MAX_TONES, Math.max(1, Math.round(Number(input.adTones) || 2)));
 
-  let hold: string | null = null;
-  try {
-    const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    if (spent >= cap) return { ok: false, error: capReached(cap) };
-    // อัตโนมัติ decides on the money actually left, not on what the page last saw
-    const writer = writerOf(input.writer, cap - spent);
-    const writeWith = writer.model;
-    // the round's price set aside first, so rounds started together see each other's money
-    const pieces = input.format === "ad" ? adAngles * adTones : count;
-    const estimate = angle === "numbers" ? OVERHEAD_THB * 2 : pieces * (writer.thb + OVERHEAD_THB);
-    const held = await holdContentBudget(estimate, cap);
-    if (!held.ok) return { ok: false, error: tooDear("รอบนี้", held.left) };
-    hold = held.id;
-    const [avoid, template, words] = await Promise.all([
-      usedHooks(),
-      input.hookTemplateId ? getHookTemplate(input.hookTemplateId) : Promise.resolve(null),
-      listWords(),
-    ]);
-    const told = angleText(angle, custom);
+    let hold: string | null = null;
+    try {
+      const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
+      if (spent >= cap) return { ok: false, error: capReached(cap) };
+      // อัตโนมัติ decides on the money actually left, not on what the page last saw
+      const writer = writerOf(input.writer, cap - spent);
+      const writeWith = writer.model;
+      // the round's price set aside first, so rounds started together see each other's money
+      const pieces = input.format === "ad" ? adAngles * adTones : count;
+      const estimate = angle === "numbers" ? OVERHEAD_THB * 2 : pieces * (writer.thb + OVERHEAD_THB);
+      const held = await holdContentBudget(estimate, cap);
+      if (!held.ok) return { ok: false, error: tooDear("รอบนี้", held.left) };
+      hold = held.id;
+      const [avoid, template, words] = await Promise.all([
+        usedHooks(),
+        input.hookTemplateId ? getHookTemplate(input.hookTemplateId) : Promise.resolve(null),
+        listWords(),
+      ]);
+      const told = angleText(angle, custom);
 
-    // ตัวเลขชัดๆ: every figure from the engine, only the headline from a model (spec 2026-09-24)
-    if (angle === "numbers") {
-      if (input.format !== "post") return { ok: false, error: "มุมตัวเลขชัดๆ ใช้ได้กับโพสต์เฟซบุ๊กเท่านั้น" };
-      const sheets = numberSheets(brief.product.href, count);
-      if (sheets.length === 0) return { ok: false, error: "แบบนี้ยังคำนวณตัวเลขไม่ได้ในตอนนี้ (ตารางเบี้ยอาจหมดอายุ) ลองมุมอื่นก่อนนะครับ" };
-      const heads = await headlines(sheets);
-      const rows = sheets.map((s, i) => {
-        // the sheet's own figures, kept on the piece: an edit is checked against them again
-        const figures = numbersYardstick([s]);
-        const output: ContentOutput = {
-          hooks: [heads.lines[i].headline],
-          angle: `ตัวเลขชัดๆ · ${s.who}`,
-          body: numbersBody(s),
-          closing: NUMBERS_CLOSING,
-          hashtags: [],
-          imagePrompt: heads.lines[i].imagePrompt,
-          disclaimer: DISCLAIMER,
-          poster: { ...numbersPoster(s, theme ?? heads.lines[i].theme ?? "navy"), ...(logo ? { logo } : {}) },
-          figures,
-        };
-        return {
-          planHref: brief.product.href, format: "post" as const, angle, length: null, output,
-          flags: flagsFor(output, `${brief.text}\n${figures}`, words, null),
-          rateVersion: brief.rateVersion, model: heads.model, costThb: heads.costThb / sheets.length, hookTemplateId: null,
-        };
-      });
-      return roundResult(await saveAll(rows, project.pageId), count, 0);
-    }
+      // ตัวเลขชัดๆ: every figure from the engine, only the headline from a model (spec 2026-09-24)
+      if (angle === "numbers") {
+        if (input.format !== "post") return { ok: false, error: "มุมตัวเลขชัดๆ ใช้ได้กับโพสต์เฟซบุ๊กเท่านั้น" };
+        const sheets = numberSheets(brief.product.href, count);
+        if (sheets.length === 0) return { ok: false, error: "แบบนี้ยังคำนวณตัวเลขไม่ได้ในตอนนี้ (ตารางเบี้ยอาจหมดอายุ) ลองมุมอื่นก่อนนะครับ" };
+        const heads = await headlines(sheets);
+        const rows = sheets.map((s, i) => {
+          // the sheet's own figures, kept on the piece: an edit is checked against them again
+          const figures = numbersYardstick([s]);
+          const output: ContentOutput = {
+            hooks: [heads.lines[i].headline],
+            angle: `ตัวเลขชัดๆ · ${s.who}`,
+            body: numbersBody(s),
+            closing: NUMBERS_CLOSING,
+            hashtags: [],
+            imagePrompt: heads.lines[i].imagePrompt,
+            disclaimer: DISCLAIMER,
+            poster: { ...numbersPoster(s, theme ?? heads.lines[i].theme ?? "navy"), ...(logo ? { logo } : {}) },
+            figures,
+          };
+          return {
+            planHref: brief.product.href, format: "post" as const, angle, length: null, output,
+            flags: flagsFor(output, `${brief.text}\n${figures}`, words, null),
+            rateVersion: brief.rateVersion, model: heads.model, costThb: heads.costThb / sheets.length, hookTemplateId: null,
+          };
+        });
+        return roundResult(await saveAll(rows, project.pageId), count, 0);
+      }
 
-    if (input.format === "ad") {
-      const hint = [told, reader ? `คนอ่านคือ ${reader}` : ""].filter(Boolean).join(" · ");
-      const round = await writeAds({ brief: brief.text, angles: adAngles, tones: adTones, hint, prefer: writeWith });
-      const planShare = round.planThb / round.pieces.length;
-      const saved = await saveAll(round.pieces.map((w) => ({
-        planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(w.output),
-        flags: flagsFor(w.output, brief.text, words, null),
-        rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare, hookTemplateId: null,
+      if (input.format === "ad") {
+        const hint = [told, reader ? `คนอ่านคือ ${reader}` : ""].filter(Boolean).join(" · ");
+        const round = await writeAds({ brief: brief.text, angles: adAngles, tones: adTones, hint, prefer: writeWith });
+        const planShare = round.planThb / round.pieces.length;
+        const saved = await saveAll(round.pieces.map((w) => ({
+          planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(w.output),
+          flags: flagsFor(w.output, brief.text, words, null),
+          rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare, hookTemplateId: null,
+        })), project.pageId);
+        return roundResult(saved, round.planned, round.budgetHit);
+      }
+
+      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, pro });
+      const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, pro, plans: planned.plans, reader, goal, fact }, { prefer: writeWith });
+      const marked = (o: ContentOutput): ContentOutput => (pro ? { ...o, pro: true } : o);
+
+      // each piece carries its own writing cost and an equal share of the planner's
+      const planShare = planned.costThb / written.pieces.length;
+      const saved = await saveAll(written.pieces.map((w) => ({
+        planHref: brief.product.href, format: input.format, angle, length,
+        output: marked(input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : dressed(fact ? { ...w.output, fact } : w.output)),
+        flags: flagsFor(w.output, yardstick, words, null),
+        rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare,
+        hookTemplateId: template?.id ?? null,
       })), project.pageId);
-      return roundResult(saved, round.planned, round.budgetHit);
+      if (template && saved.items.length) await countHookUse(template, saved.items.length).catch((e) => console.error("hook count failed:", e));
+      // against the count asked for: a planner reply repaired short gives fewer plans, and the
+      // owner is told rather than handed two posts for three
+      return roundResult(saved, count, written.budgetHit);
+    } catch (e) {
+      if (e instanceof BudgetExceeded) return { ok: false, error: BUDGET_OUT };
+      if (e instanceof UnreadableReply) return { ok: false, error: e.message };
+      console.error("content generate failed:", e);
+      return { ok: false, error: "สร้างไม่สำเร็จ ระบบขัดข้องชั่วคราว ลองใหม่อีกครั้งนะครับ" };
+    } finally {
+      // the real costs are in the ledger by now, call by call
+      if (hold) await releaseContentBudget(hold);
     }
-
-    const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, pro });
-    const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, pro, plans: planned.plans, reader, goal, fact }, { prefer: writeWith });
-    const marked = (o: ContentOutput): ContentOutput => (pro ? { ...o, pro: true } : o);
-
-    // each piece carries its own writing cost and an equal share of the planner's
-    const planShare = planned.costThb / written.pieces.length;
-    const saved = await saveAll(written.pieces.map((w) => ({
-      planHref: brief.product.href, format: input.format, angle, length,
-      output: marked(input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : dressed(fact ? { ...w.output, fact } : w.output)),
-      flags: flagsFor(w.output, yardstick, words, null),
-      rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare,
-      hookTemplateId: template?.id ?? null,
-    })), project.pageId);
-    if (template && saved.items.length) await countHookUse(template, saved.items.length).catch((e) => console.error("hook count failed:", e));
-    // against the count asked for: a planner reply repaired short gives fewer plans, and the
-    // owner is told rather than handed two posts for three
-    return roundResult(saved, count, written.budgetHit);
-  } catch (e) {
-    if (e instanceof BudgetExceeded) return { ok: false, error: BUDGET_OUT };
-    if (e instanceof UnreadableReply) return { ok: false, error: e.message };
-    console.error("content generate failed:", e);
-    return { ok: false, error: "สร้างไม่สำเร็จ ระบบขัดข้องชั่วคราว ลองใหม่อีกครั้งนะครับ" };
-  } finally {
-    // the real costs are in the ledger by now, call by call
-    if (hold) await releaseContentBudget(hold);
-  }
+  });
 }
 
 /** หาทีม: a round from a picked topic (src/lib/content/recruit.ts), under the plan form's hourly limit. */
@@ -290,9 +293,9 @@ export async function generateRecruit(input: RecruitWriteInput): Promise<Generat
   }
   const project = await projectPage(input.page);
   if (!project.ok) return project;
-  const over = await takeRound(viewer, "ai-recruit");
-  if (over) return { ok: false, error: over };
-  return writeRecruit(input, project.pageId);
+  const pass = await takeRound(viewer, "ai-recruit");
+  if (!pass.ok) return { ok: false, error: pass.refusal };
+  return payRound(pass, () => writeRecruit(input, project.pageId));
 }
 
 /** ความรู้: a round from a picked subject (src/lib/content/knowledge.ts), under the plan form's hourly limit. */
@@ -307,9 +310,9 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
   }
   const project = await projectPage(input.page);
   if (!project.ok) return project;
-  const over = await takeRound(viewer, "ai-knowledge");
-  if (over) return { ok: false, error: over };
-  return writeKnowledge(input, project.pageId);
+  const pass = await takeRound(viewer, "ai-knowledge");
+  if (!pass.ok) return { ok: false, error: pass.refusal };
+  return payRound(pass, () => writeKnowledge(input, project.pageId));
 }
 
 /** เขียนเอง: the agent's draft polished into versions (src/lib/content/draft.ts), under the hourly limit. */
@@ -322,9 +325,9 @@ export async function generateDraft(input: DraftWriteInput): Promise<GenerateRes
   if (!cleanDraft(input.draft)) return { ok: false, error: "พิมพ์ร่างก่อนนะครับ" };
   const project = await projectPage(input.page);
   if (!project.ok) return project;
-  const over = await takeRound(viewer, "ai-draft");
-  if (over) return { ok: false, error: over };
-  return writeDraft(input, project.pageId);
+  const pass = await takeRound(viewer, "ai-draft");
+  if (!pass.ok) return { ok: false, error: pass.refusal };
+  return payRound(pass, () => writeDraft(input, project.pageId));
 }
 
 export interface ProofreadResult {
@@ -678,78 +681,80 @@ export async function drawBackground(id: string, request = "", painter?: string,
   }
   // asked before the piece is read: a piece that is not theirs costs a look, not a round
   if (!(await getContent(id).catch(() => null))) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
-  const over = await takeRound(viewer, "ai-draw", id);
-  if (over) return { ok: false, error: over };
-  let hold: string | null = null;
-  try {
-    const item = await getContent(id);
-    if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
-    if (onPage(item.publish)) return { ok: false, error: ON_PAGE_DRAW };
-    const wanted = person === undefined ? item.output.person : person ?? undefined;
-    const found = wanted ? await personPhotos(wanted.id) : null;
-    const who = found && wanted ? { id: wanted.id, pose: POSES.some((p) => p.id === wanted.pose) ? wanted.pose : "auto" } : undefined;
-    const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    if (spent >= cap) {
-      return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai` };
-    }
-    // only an id from the list, อัตโนมัติ settled on the money left; "none" draws nothing; a
-    // person in it is drawn by Gemini whatever was picked, and priced so
-    const chosen = painterFor(painter, cap - spent, Boolean(found?.photos.length));
-    if (!chosen.modelId) return { ok: false, error: "งบคอนเทนต์เหลือน้อย อัตโนมัติจึงไม่วาดภาพ เลือกโมเดลวาดเองได้ครับ" };
-    // the picture's price set aside first (plus the request's translation), so forty orders at once cannot all fit in the last baht
-    const held = await holdContentBudget(chosen.thb + OVERHEAD_THB, cap);
-    if (!held.ok) return { ok: false, error: tooDear("วาดรูปนี้", held.left) };
-    hold = held.id;
-    const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "");
-    const prompt = backgroundPrompt({
-      scene: item.output.imagePrompt, layout: poster.layout, theme: poster.theme,
-      request: await inEnglish(request),
-      // on a claim poster the papers cover the lower half, so the person stands beside them
-      person: who ? { pose: who.pose, aside: Boolean(poster.documents?.length) } : null,
-    });
-    const img = await drawImage({ task: "content-image", prompt, prefer: chosen.modelId, references: found?.photos });
-    // the fallback may have drawn it; name what actually did
-    const by = PAINTERS.find((p) => p.modelId === img.id)?.short ?? (img.id === "gemini-image-lite" ? "Gemini Lite Image" : img.model);
-    const background = await saveBackground(item.id, img.bytes, img.mimeType);
-    // The drawing takes half a minute; an edit saved meanwhile is read again, not written over.
-    // The write goes through only if the piece is still as just read (its rev); an edit that
-    // lands between the read and the write sends it round again, three times at most.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const latest = await getContent(id);
-      if (!latest) {
-        await removeBackground(item.id, background);
-        return { ok: false, error: "ไม่พบชิ้นงานนี้ (อาจถูกลบไปแล้ว)" };
+  const pass = await takeRound(viewer, "ai-draw", id);
+  if (!pass.ok) return { ok: false, error: pass.refusal };
+  return payRound(pass, async (): Promise<DrawBackgroundResult> => {
+    let hold: string | null = null;
+    try {
+      const item = await getContent(id);
+      if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
+      if (onPage(item.publish)) return { ok: false, error: ON_PAGE_DRAW };
+      const wanted = person === undefined ? item.output.person : person ?? undefined;
+      const found = wanted ? await personPhotos(wanted.id) : null;
+      const who = found && wanted ? { id: wanted.id, pose: POSES.some((p) => p.id === wanted.pose) ? wanted.pose : "auto" } : undefined;
+      const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
+      if (spent >= cap) {
+        return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai` };
       }
-      // posted or held while it drew: Facebook has the poster as it was, and the piece must
-      // show what Facebook shows, so the new picture goes instead of onto it
-      if (onPage(latest.publish)) {
-        await removeBackground(item.id, background);
-        return { ok: false, error: WENT_UP_WHILE_DRAWING };
+      // only an id from the list, อัตโนมัติ settled on the money left; "none" draws nothing; a
+      // person in it is drawn by Gemini whatever was picked, and priced so
+      const chosen = painterFor(painter, cap - spent, Boolean(found?.photos.length));
+      if (!chosen.modelId) return { ok: false, error: "งบคอนเทนต์เหลือน้อย อัตโนมัติจึงไม่วาดภาพ เลือกโมเดลวาดเองได้ครับ" };
+      // the picture's price set aside first (plus the request's translation), so forty orders at once cannot all fit in the last baht
+      const held = await holdContentBudget(chosen.thb + OVERHEAD_THB, cap);
+      if (!held.ok) return { ok: false, error: tooDear("วาดรูปนี้", held.left) };
+      hold = held.id;
+      const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "");
+      const prompt = backgroundPrompt({
+        scene: item.output.imagePrompt, layout: poster.layout, theme: poster.theme,
+        request: await inEnglish(request),
+        // on a claim poster the papers cover the lower half, so the person stands beside them
+        person: who ? { pose: who.pose, aside: Boolean(poster.documents?.length) } : null,
+      });
+      const img = await drawImage({ task: "content-image", prompt, prefer: chosen.modelId, references: found?.photos });
+      // the fallback may have drawn it; name what actually did
+      const by = PAINTERS.find((p) => p.modelId === img.id)?.short ?? (img.id === "gemini-image-lite" ? "Gemini Lite Image" : img.model);
+      const background = await saveBackground(item.id, img.bytes, img.mimeType);
+      // The drawing takes half a minute; an edit saved meanwhile is read again, not written over.
+      // The write goes through only if the piece is still as just read (its rev); an edit that
+      // lands between the read and the write sends it round again, three times at most.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const latest = await getContent(id);
+        if (!latest) {
+          await removeBackground(item.id, background);
+          return { ok: false, error: "ไม่พบชิ้นงานนี้ (อาจถูกลบไปแล้ว)" };
+        }
+        // posted or held while it drew: Facebook has the poster as it was, and the piece must
+        // show what Facebook shows, so the new picture goes instead of onto it
+        if (onPage(latest.publish)) {
+          await removeBackground(item.id, background);
+          return { ok: false, error: WENT_UP_WHILE_DRAWING };
+        }
+        const previous = latest.output.poster?.background;
+        const words = latest.output.poster ?? poster;
+        // the person as drawn now: set when there is one, gone when the picture has none
+        // the papers make room only while a person is in the picture (undefined is not stored)
+        const drawn = { ...words, background, personAside: who && words.documents?.length ? true : undefined };
+        const output = { ...latest.output, poster: drawn, pictureBy: by, person: who };
+        if (!who) delete output.person;
+        // the output alone: the words are unchanged, so the checks' flags are left as they are now
+        const saved = await saveOutputIf(item.id, output, undefined, latest.output.rev ?? null);
+        if (!saved) continue;
+        // the picture it replaced is shown nowhere any more
+        if (previous && previous !== background) await removeBackground(item.id, previous);
+        return wanted && !found
+          ? { ok: true, item: saved, note: "ไม่พบบุคคลที่เลือกในคลัง (อาจถูกลบไปแล้ว) เลยวาดภาพโดยไม่มีคน" }
+          : { ok: true, item: saved };
       }
-      const previous = latest.output.poster?.background;
-      const words = latest.output.poster ?? poster;
-      // the person as drawn now: set when there is one, gone when the picture has none
-      // the papers make room only while a person is in the picture (undefined is not stored)
-      const drawn = { ...words, background, personAside: who && words.documents?.length ? true : undefined };
-      const output = { ...latest.output, poster: drawn, pictureBy: by, person: who };
-      if (!who) delete output.person;
-      // the output alone: the words are unchanged, so the checks' flags are left as they are now
-      const saved = await saveOutputIf(item.id, output, undefined, latest.output.rev ?? null);
-      if (!saved) continue;
-      // the picture it replaced is shown nowhere any more
-      if (previous && previous !== background) await removeBackground(item.id, previous);
-      return wanted && !found
-        ? { ok: true, item: saved, note: "ไม่พบบุคคลที่เลือกในคลัง (อาจถูกลบไปแล้ว) เลยวาดภาพโดยไม่มีคน" }
-        : { ok: true, item: saved };
+      // edited three times over while it was being saved: the picture is not put on the piece
+      await removeBackground(item.id, background);
+      return { ok: false, error: "ชิ้นนี้ถูกแก้ระหว่างวาดรูป — กดวาดใหม่อีกครั้งนะครับ" };
+    } catch (e) {
+      if (e instanceof BudgetExceeded) return { ok: false, error: BUDGET_OUT };
+      console.error("content background failed:", e);
+      return { ok: false, error: "วาดรูปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
+    } finally {
+      if (hold) await releaseContentBudget(hold);
     }
-    // edited three times over while it was being saved: the picture is not put on the piece
-    await removeBackground(item.id, background);
-    return { ok: false, error: "ชิ้นนี้ถูกแก้ระหว่างวาดรูป — กดวาดใหม่อีกครั้งนะครับ" };
-  } catch (e) {
-    if (e instanceof BudgetExceeded) return { ok: false, error: BUDGET_OUT };
-    console.error("content background failed:", e);
-    return { ok: false, error: "วาดรูปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
-  } finally {
-    if (hold) await releaseContentBudget(hold);
-  }
+  });
 }
