@@ -37,6 +37,9 @@ const nextConfig: NextConfig = {
       { source: "/content/:path*", destination: "/studio/:path*", permanent: true },
       // the workbench alone, without the menu, until the owner took it out (2026-09-27)
       { source: "/maryjane", destination: "/studio", permanent: true },
+      // the plain planner, until the owner took it out (2026-10-01): the health check asks the
+      // same questions first and ends on the same plan
+      { source: "/plan", destination: "/fhc", permanent: true },
     ];
   },
 };

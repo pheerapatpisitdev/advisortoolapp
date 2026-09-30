@@ -4,9 +4,9 @@ import { CONTENT_PRODUCTS } from "@/lib/content/products";
 import { SALES_PAGES } from "@/lib/shell/menu";
 
 describe("the products the generator offers", () => {
-  // group insurance is sold to an HR manager, not posted; /plan is the planner, not a product
+  // group insurance is sold to an HR manager, not posted; /fhc is the planner, not a product
   it("are every sales page but group insurance and the planner", () => {
-    const pages = SALES_PAGES.map((p) => p.href).filter((h) => h !== "/group-insurance" && h !== "/plan" && h !== "/fhc").sort();
+    const pages = SALES_PAGES.map((p) => p.href).filter((h) => h !== "/group-insurance" && h !== "/fhc").sort();
     expect(CONTENT_PRODUCTS.map((p) => p.href).sort()).toEqual(pages);
   });
 });

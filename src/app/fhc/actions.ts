@@ -12,7 +12,7 @@ import { realPricer } from "@/lib/plan/pricer";
 import { recommend, type PlanResult } from "@/lib/plan/recommend";
 
 /**
- * The check's two calls, as /plan's: the figures first (the model picks the plan's order, 8 s at
+ * The check's two calls: the figures first (the model picks the plan's order, 8 s at
  * most), then the words — the check's summary and the plan's folded advice, side by side.
  * Both recompute from the form; only the order comes back from the browser, checked.
  */
