@@ -25,7 +25,7 @@ vi.mock("@/lib/wallet/store", () => ({ walletSettings: vi.fn(), holdWallet: vi.f
 const { allowanceOf, FREE_ROUNDS, FREE_ROUNDS_FROM, overAllowance } = await import("@/lib/auth/quota");
 
 const agent: Viewer = {
-  agentId: "00000000-0000-4000-8000-000000000002", code: "1", name: "a", tenantId: "t", tenantSlug: "t", tenantName: "t",
+  kind: "unitos", agentId: "00000000-0000-4000-8000-000000000002", code: "1", name: "a", tenantId: "t", tenantSlug: "t", tenantName: "t",
   trial: false, staff: null,
 };
 

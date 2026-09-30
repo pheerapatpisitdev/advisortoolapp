@@ -31,10 +31,14 @@ export interface StaffRow {
 export type Perm = "publish" | "connect" | "admin" | "owner";
 
 export interface Viewer {
+  /** a UnitOS agent, or a member who signed up here (src/lib/auth/member.ts, owner 2026-10-01) */
+  kind: "unitos" | "member";
   agentId: string;
+  /** the agent's 6-digit code; a member's phone */
   code: string;
   name: string;
-  tenantId: string;
+  /** null for a member: no UnitOS room */
+  tenantId: string | null;
   tenantSlug: string;
   tenantName: string;
   /** a room still on its free trial, whose Studio allowance is smaller */
@@ -64,6 +68,7 @@ export function admit(agent: AgentRow | null, staff: StaffRow | null, issuedAt: 
   // UnitOS revokes every key of a room by moving key_epoch forward; a session is one of those keys
   if (room.key_epoch && issuedAt < Date.parse(room.key_epoch)) return null;
   return {
+    kind: "unitos",
     agentId: agent.id,
     code: agent.agent_code,
     name: agent.name?.trim() || agent.agent_code,
@@ -74,6 +79,39 @@ export function admit(agent: AgentRow | null, staff: StaffRow | null, issuedAt: 
     staff: staff
       ? { owner: staff.is_owner, publish: staff.can_publish, connect: staff.can_connect, admin: staff.can_admin }
       : null,
+  };
+}
+
+/** A member's row in ins_members, as src/lib/auth/viewer.ts reads it. */
+export interface MemberRow {
+  id: string;
+  phone: string;
+  name: string;
+  status: string;
+  pin_changed_at: string | null;
+}
+
+/** What a member's menu says in place of a room. */
+export const MEMBER_ROOM = "สมาชิกทั่วไป";
+
+/**
+ * A member outside UnitOS (owner, 2026-10-01): Studio as any agent who is not staff has it —
+ * the free rounds, then their own wallet — and nothing of the Page or the back office. A PIN
+ * changed or reset after the session was issued ends it, as a room's key_epoch does.
+ */
+export function admitMember(member: MemberRow | null, issuedAt: number): Viewer | null {
+  if (!member || member.status !== "active") return null;
+  if (member.pin_changed_at && issuedAt < Date.parse(member.pin_changed_at)) return null;
+  return {
+    kind: "member",
+    agentId: member.id,
+    code: member.phone,
+    name: member.name.trim() || member.phone,
+    tenantId: null,
+    tenantSlug: "",
+    tenantName: MEMBER_ROOM,
+    trial: false,
+    staff: null,
   };
 }
 

@@ -26,7 +26,7 @@ export interface Scope {
   /** the Pages whose pieces are visible (src/lib/auth/pages.ts, owner 2026-09-30); null = every Page's */
   pages: string[] | null;
   /** who writes a new row, for its owner columns */
-  owner: { agentId: string; tenantId: string } | null;
+  owner: { agentId: string; tenantId: string | null } | null;
 }
 
 const ALL: Scope = { agents: null, unowned: true, pages: null, owner: null };

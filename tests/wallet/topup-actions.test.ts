@@ -4,7 +4,7 @@ import type { Viewer } from "@/lib/auth/access";
 /** Starting a top-up: only the five amounts, only an agent, only while the owner has it on. */
 
 const AGENT: Viewer = {
-  agentId: "00000000-0000-4000-8000-000000000002", code: "2", name: "ตัวแทน", tenantId: "t", tenantSlug: "t", tenantName: "t",
+  kind: "unitos", agentId: "00000000-0000-4000-8000-000000000002", code: "2", name: "ตัวแทน", tenantId: "t", tenantSlug: "t", tenantName: "t",
   trial: true, staff: null,
 };
 const who = vi.hoisted(() => ({ viewer: null as unknown }));
