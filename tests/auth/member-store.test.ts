@@ -72,6 +72,33 @@ describe("counts", () => {
   });
 });
 
+describe("PIN attempts", () => {
+  it("claims a failed attempt for the phone and returns its id", async () => {
+    db.on("ins_login_attempts", { data: { id: "a1" } });
+    expect(await store.claimPinAttempt("1.2.3.4", "0812345678")).toBe("a1");
+    const [insert] = db.writes("ins_login_attempts", "insert");
+    expect(insert[0].args[0]).toEqual({ ip: "1.2.3.4", ok: false, phone: "0812345678" });
+  });
+
+  it("throws when the claim cannot be written", async () => {
+    db.on("ins_login_attempts", { error: { message: "boom" } });
+    await expect(store.claimPinAttempt("ip", "0812345678")).rejects.toThrow("boom");
+  });
+
+  it("marks the claimed attempt ok, by id", async () => {
+    await store.markPinAttemptOk("a1");
+    const [update] = db.writes("ins_login_attempts", "update");
+    expect(update[0].args[0]).toEqual({ ok: true });
+    expect(has(update, "eq", "id", "a1")).toBe(true);
+  });
+
+  it("releases the claimed attempt, by id", async () => {
+    await store.releasePinAttempt("a1");
+    const [del] = db.writes("ins_login_attempts", "delete");
+    expect(has(del, "eq", "id", "a1")).toBe(true);
+  });
+});
+
 describe("listMembers", () => {
   it("lists members newest first with balance and free rounds used, capped at ten", async () => {
     db.on("ins_members", { data: [

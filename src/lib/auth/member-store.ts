@@ -66,6 +66,29 @@ export async function phoneFailures(phone: string, since: Date): Promise<number>
   return count ?? 0;
 }
 
+/**
+ * Writes a failed attempt before the PIN is checked, so a burst of parallel guesses counts
+ * itself (the same claim-first pattern as the sign-in). Returns the row's id.
+ */
+export async function claimPinAttempt(ip: string, phone: string): Promise<string> {
+  const { data, error } = await supabaseAdmin().from("ins_login_attempts")
+    .insert({ ip, ok: false, phone }).select("id").single();
+  if (error || !data) throw new Error(`บันทึกการลองใส่ PIN ไม่ได้: ${error?.message ?? "no row"}`);
+  return data.id as string;
+}
+
+/** The claimed attempt turned out right: it stops counting as a failure. */
+export async function markPinAttemptOk(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_login_attempts").update({ ok: true }).eq("id", id);
+  if (error) throw new Error(`บันทึกการลองใส่ PIN ไม่ได้: ${error.message}`);
+}
+
+/** A refused attempt is taken back, so a locked phone does not extend its own lock. */
+export async function releasePinAttempt(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_login_attempts").delete().eq("id", id);
+  if (error) throw new Error(`ถอนการลองใส่ PIN ไม่ได้: ${error.message}`);
+}
+
 export interface MemberSettings {
   /** /signup takes new members (owner's switch, off until they have tried it) */
   signupOpen: boolean;

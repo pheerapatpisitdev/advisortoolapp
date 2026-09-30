@@ -11,8 +11,12 @@ vi.mock("@/lib/auth/viewer", () => ({ requireMember: async () => who.viewer }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const auth = vi.hoisted(() => ({ startSession: vi.fn() }));
 vi.mock("@/lib/auth/session", () => auth);
-const store = vi.hoisted(() => ({ memberByPhone: vi.fn(), setPin: vi.fn(), setName: vi.fn() }));
+const store = vi.hoisted(() => ({
+  memberByPhone: vi.fn(), setPin: vi.fn(), setName: vi.fn(),
+  claimPinAttempt: vi.fn(), markPinAttemptOk: vi.fn(), releasePinAttempt: vi.fn(), phoneFailures: vi.fn(),
+}));
 vi.mock("@/lib/auth/member-store", () => store);
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-real-ip": "1.2.3.4" }) }));
 
 const { changePin, renameMe } = await import("@/app/studio/account/actions");
 let STORED = "";
@@ -20,6 +24,8 @@ let STORED = "";
 beforeEach(async () => {
   vi.clearAllMocks();
   who.viewer = MEMBER;
+  store.claimPinAttempt.mockResolvedValue("a1");
+  store.phoneFailures.mockResolvedValue(1);
   STORED ||= await hashPin("280419");
   store.memberByPhone.mockResolvedValue({ id: "m1", phone: "0812345678", name: "สมชาย", status: "active", pin_changed_at: null, pin_hash: STORED });
 });
@@ -47,6 +53,37 @@ describe("changePin", () => {
     who.viewer = { ...MEMBER, kind: "unitos", tenantId: "t1" };
     expect(await changePin("280419", "730512", "730512")).toEqual({ ok: false, error: "หน้านี้สำหรับสมาชิกทั่วไปเท่านั้น" });
     expect(store.memberByPhone).not.toHaveBeenCalled();
+  });
+});
+
+describe("changePin and the sign-in lock", () => {
+  it("refuses a phone at the lock without checking the PIN, and takes the claim back", async () => {
+    store.phoneFailures.mockResolvedValue(6); // includes this claim
+    expect(await changePin("280419", "730512", "730512")).toEqual({ ok: false, error: "กรอก PIN ผิดหลายครั้ง กรุณารออีก 15 นาที" });
+    expect(store.claimPinAttempt).toHaveBeenCalledWith("1.2.3.4", "0812345678");
+    expect(store.releasePinAttempt).toHaveBeenCalledWith("a1");
+    expect(store.markPinAttemptOk).not.toHaveBeenCalled();
+    expect(store.setPin).not.toHaveBeenCalled();
+    expect(auth.startSession).not.toHaveBeenCalled();
+  });
+
+  it("keeps the claim as a failure when the old PIN is wrong", async () => {
+    expect(await changePin("280418", "730512", "730512")).toEqual({ ok: false, error: "PIN เดิมไม่ถูกต้อง" });
+    expect(store.releasePinAttempt).not.toHaveBeenCalled();
+    expect(store.markPinAttemptOk).not.toHaveBeenCalled();
+  });
+
+  it("marks the claim ok before the PIN is changed", async () => {
+    expect(await changePin("280419", "730512", "730512")).toEqual({ ok: true });
+    expect(store.markPinAttemptOk).toHaveBeenCalledWith("a1");
+    expect(store.markPinAttemptOk.mock.invocationCallOrder[0]).toBeLessThan(store.setPin.mock.invocationCallOrder[0]);
+  });
+
+  it("says the system is down when the claim cannot be written", async () => {
+    store.claimPinAttempt.mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await changePin("280419", "730512", "730512")).toEqual({ ok: false, error: "ระบบขัดข้อง ลองใหม่อีกครั้ง" });
+    expect(store.setPin).not.toHaveBeenCalled();
   });
 });
 
