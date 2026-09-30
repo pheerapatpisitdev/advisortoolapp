@@ -1,40 +1,45 @@
 "use client";
 import { useState, useTransition, type FormEvent } from "react";
+import { Field, FormError, PinInput } from "@/components/auth/fields";
+import { INPUT, MUTE, PRIMARY, STUDIO_FIELDS } from "@/components/auth/styles";
 import { changePin, renameMe, type Result } from "./actions";
 
 function Note({ result, done }: { result?: Result; done: string }) {
   if (!result) return null;
   return result.ok
-    ? <p role="status" className="mt-2 text-sm text-[var(--bot-ok)]">{done}</p>
-    : <p role="alert" className="mt-2 text-sm text-[var(--bot-red-ink)]">{result.error}</p>;
+    ? <p role="status" className="text-sm text-[var(--bot-ok)]">{done}</p>
+    : <FormError>{result.error}</FormError>;
 }
+
+const CARD = "space-y-4 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 
 export function AccountForm({ name, phone }: { name: string; phone: string }) {
   const [nameResult, setNameResult] = useState<Result>();
   const [pinResult, setPinResult] = useState<Result>();
   const [pending, start] = useTransition();
-  const field = "w-full rounded-md border px-3 py-2 text-base";
-  const button = "mt-3 rounded-md bg-[var(--bot-navy)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <h1 className="text-xl font-semibold">บัญชีของฉัน</h1>
-      <p className="text-sm text-[var(--bot-ink-mute)]">เบอร์ที่ใช้เข้าสู่ระบบ: <span className="tabular-nums">{phone}</span></p>
+    <div className="mx-auto max-w-md space-y-6" style={STUDIO_FIELDS}>
+      <div>
+        <h1 className="text-xl font-semibold">บัญชีของฉัน</h1>
+        <p className={`mt-1 text-sm ${MUTE}`}>เบอร์ที่ใช้เข้าสู่ระบบ: <span className="tabular-nums">{phone}</span></p>
+      </div>
 
-      <form method="post" className="rounded-lg border bg-white p-4" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+      <form method="post" className={CARD} onSubmit={(e: FormEvent<HTMLFormElement>) => {
         // onSubmit, not action=: React 19 resets a form after its action, which would put the
         // old name back in the box after a failed save
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         start(async () => setNameResult(await renameMe(String(fd.get("name") ?? ""))));
       }}>
-        <label className="block text-sm font-medium" htmlFor="name">ชื่อที่แสดง</label>
-        <input id="name" name="name" defaultValue={name} maxLength={60} className={`${field} mt-1`} />
-        <button disabled={pending} className={button}>บันทึกชื่อ</button>
+        <Field id="account-name" label="ชื่อที่แสดง">
+          <input id="account-name" name="name" defaultValue={name} maxLength={60} className={INPUT} onChange={() => setNameResult(undefined)} />
+        </Field>
         <Note result={nameResult} done="บันทึกแล้ว" />
+        <button disabled={pending} className={PRIMARY}>บันทึกชื่อ</button>
       </form>
 
-      <form method="post" className="rounded-lg border bg-white p-4" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+      <form method="post" className={CARD} onSubmit={(e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         // captured now: currentTarget is gone once the await returns
         const form = e.currentTarget;
@@ -46,17 +51,21 @@ export function AccountForm({ name, phone }: { name: string; phone: string }) {
           if (res.ok) form.reset();
         });
       }}>
-        <p className="text-sm font-medium">เปลี่ยน PIN</p>
-        <p className="text-xs text-[var(--bot-ink-mute)]">เครื่องอื่นที่เข้าไว้จะต้องเข้าสู่ระบบใหม่</p>
-        {(["oldPin", "pin", "pinAgain"] as const).map((n) => (
-          <input key={n} name={n} type="password" inputMode="numeric" maxLength={6} pattern="\d{6}"
-                 autoComplete={n === "oldPin" ? "current-password" : "new-password"}
-                 placeholder={n === "oldPin" ? "PIN เดิม" : n === "pin" ? "PIN ใหม่" : "PIN ใหม่อีกครั้ง"}
-                 aria-label={n === "oldPin" ? "PIN เดิม" : n === "pin" ? "PIN ใหม่" : "PIN ใหม่อีกครั้ง"}
-                 className={`${field} mt-2 tracking-[0.3em] tabular-nums`} />
-        ))}
-        <button disabled={pending} className={button}>เปลี่ยน PIN</button>
+        <div>
+          <p className="font-medium">เปลี่ยน PIN</p>
+          <p className={`text-xs ${MUTE}`}>เครื่องอื่นที่เข้าไว้จะต้องเข้าสู่ระบบใหม่</p>
+        </div>
+        <Field id="account-old-pin" label="PIN เดิม">
+          <PinInput id="account-old-pin" name="oldPin" autoComplete="current-password" onChange={() => setPinResult(undefined)} />
+        </Field>
+        <Field id="account-pin" label="PIN ใหม่" hint="ห้ามเลขเรียงหรือเลขซ้ำ เช่น 123456, 000000">
+          <PinInput id="account-pin" name="pin" autoComplete="new-password" onChange={() => setPinResult(undefined)} />
+        </Field>
+        <Field id="account-pin-again" label="ยืนยัน PIN ใหม่">
+          <PinInput id="account-pin-again" name="pinAgain" autoComplete="new-password" onChange={() => setPinResult(undefined)} />
+        </Field>
         <Note result={pinResult} done="เปลี่ยน PIN แล้ว" />
+        <button disabled={pending} className={PRIMARY}>เปลี่ยน PIN</button>
       </form>
     </div>
   );
