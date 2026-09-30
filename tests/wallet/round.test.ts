@@ -30,6 +30,31 @@ describe("payRound on a wallet round", () => {
     expect(wallet.releaseWallet).not.toHaveBeenCalled();
   });
 
+  it("warns once, with the hold and the cost, when the cost outgrew the hold, and charges the hold", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await payRound(pass, async () => {
+      meterCost(3);
+      meterCost(3);
+      return { ok: true };
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain("h1");
+    expect(warn.mock.calls[0][0]).toContain("1200");
+    expect(warn.mock.calls[0][0]).toContain("1000");
+    expect(wallet.settleWallet).toHaveBeenCalledWith("h1", 1000, 6);
+    warn.mockRestore();
+  });
+
+  it("says nothing when the cost fits the hold", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await payRound(pass, async () => {
+      meterCost(5);
+      return { ok: true };
+    });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("is a wallet round only inside the run", async () => {
     expect(inWalletRound()).toBe(false);
     await payRound(pass, async () => {

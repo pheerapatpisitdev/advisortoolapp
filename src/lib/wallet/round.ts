@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { chargeSatang } from "./money";
+import { chargeSatang, holdSatangFor } from "./money";
 import { releaseWallet, settleWallet } from "./store";
 
 /**
@@ -50,6 +50,12 @@ export async function payRound<R extends Outcome>(pass: Extract<RoundPass, { ok:
   }
   try {
     if (delivered(result)) {
+      // the charge never passes the hold, so a round that cost more is undercharged; said once
+      // in the log so the owner can raise ROUND_HOLD_THB (src/lib/wallet/money.ts) (owner, 2026-09-30)
+      const wanted = holdSatangFor(meter.spentThb, pass.multiplier);
+      if (wanted > pass.heldSatang) {
+        console.warn(`wallet hold ${pass.holdId}: the round cost ${wanted} satang with the multiplier but held ${pass.heldSatang}; charged the hold`);
+      }
       await settleWallet(pass.holdId, chargeSatang(meter.spentThb, pass.multiplier, pass.heldSatang), meter.spentThb);
     } else {
       await releaseWallet(pass.holdId);
