@@ -1,5 +1,5 @@
 import type { ChatMessage } from "@/lib/ai/types";
-import { parseJsonReply } from "@/lib/ai/client";
+import { parseJsonReply } from "@/lib/ai/json-reply";
 import { AD_LIMITS } from "./ads";
 import { DISCLAIMER, type ContentOutput } from "./output";
 import { POLICY_RULES_TH } from "./policy";

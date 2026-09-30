@@ -1,4 +1,4 @@
-import { parseJsonReply } from "@/lib/ai/client";
+import { parseJsonReply } from "@/lib/ai/json-reply";
 
 /**
  * The hook-formula library: opening lines with their specifics swapped for [slots], so a line

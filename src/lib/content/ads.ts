@@ -1,4 +1,4 @@
-import { parseJsonReply } from "@/lib/ai/client";
+import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
 import { CORE_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
 
