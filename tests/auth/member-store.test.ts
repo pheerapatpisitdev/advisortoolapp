@@ -40,6 +40,36 @@ describe("setPin", () => {
   });
 });
 
+describe("setStatus", () => {
+  it("ends every existing session when it suspends, so reinstating does not revive them", async () => {
+    const at = new Date("2026-10-01T05:00:00.000Z");
+    await store.setStatus("m1", "suspended", at);
+    const [update] = db.writes("ins_members", "update");
+    expect(update[0].args[0]).toEqual({ status: "suspended", pin_changed_at: "2026-10-01T05:00:00.000Z" });
+    expect(has(update, "eq", "id", "m1")).toBe(true);
+  });
+
+  it("leaves pin_changed_at alone when it reinstates", async () => {
+    await store.setStatus("m1", "active");
+    const [update] = db.writes("ins_members", "update");
+    expect(update[0].args[0]).toEqual({ status: "active" });
+  });
+});
+
+describe("clearPinFailures", () => {
+  it("deletes only that phone's failed attempts", async () => {
+    await store.clearPinFailures("0812345678");
+    const [del] = db.writes("ins_login_attempts", "delete");
+    expect(has(del, "eq", "phone", "0812345678")).toBe(true);
+    expect(has(del, "eq", "ok", false)).toBe(true);
+  });
+
+  it("throws when the delete fails", async () => {
+    db.on("ins_login_attempts", { error: { message: "boom" } });
+    await expect(store.clearPinFailures("0812345678")).rejects.toThrow("boom");
+  });
+});
+
 describe("deleteMember", () => {
   it("filters the delete by id", async () => {
     await store.deleteMember("m1");

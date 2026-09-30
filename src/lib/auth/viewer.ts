@@ -65,7 +65,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
 /** For server actions and routes: a layout's gate does not cover an action, so each one asks. */
 export async function requireMember(): Promise<Viewer> {
   const viewer = await getViewer();
-  if (!viewer) throw new Error("กรุณาเข้าสู่ระบบด้วยรหัสตัวแทนก่อน");
+  if (!viewer) throw new Error("กรุณาเข้าสู่ระบบก่อน");
   return viewer;
 }
 
@@ -78,7 +78,7 @@ export async function requireStaff(perm: Perm): Promise<Viewer> {
 /** A route's answer when the caller may not: the same words, as JSON. */
 export async function refuseUnless(perm?: Perm): Promise<Response | null> {
   const viewer = await getViewer();
-  if (!viewer) return Response.json({ ok: false, error: "กรุณาเข้าสู่ระบบด้วยรหัสตัวแทนก่อน" }, { status: 401 });
+  if (!viewer) return Response.json({ ok: false, error: "กรุณาเข้าสู่ระบบก่อน" }, { status: 401 });
   if (perm && !can(viewer, perm)) return Response.json({ ok: false, error: "ไม่มีสิทธิ์ใช้ส่วนนี้" }, { status: 403 });
   return null;
 }

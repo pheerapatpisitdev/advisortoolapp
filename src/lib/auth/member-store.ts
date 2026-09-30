@@ -41,8 +41,13 @@ export async function setName(id: string, name: string): Promise<void> {
   if (error) throw new Error(`เปลี่ยนชื่อไม่สำเร็จ: ${error.message}`);
 }
 
-export async function setStatus(id: string, status: "active" | "suspended"): Promise<void> {
-  const { error } = await supabaseAdmin().from("ins_members").update({ status }).eq("id", id);
+/**
+ * Suspending also stamps pin_changed_at, so every session issued before it is over for good:
+ * without it, reinstating the member would bring their old cookies back to life.
+ */
+export async function setStatus(id: string, status: "active" | "suspended", at: Date = new Date()): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_members")
+    .update(status === "suspended" ? { status, pin_changed_at: at.toISOString() } : { status }).eq("id", id);
   if (error) throw new Error(`เปลี่ยนสถานะไม่สำเร็จ: ${error.message}`);
 }
 
@@ -64,6 +69,15 @@ export async function phoneFailures(phone: string, since: Date): Promise<number>
     .eq("phone", phone).eq("ok", false).gte("created_at", since.toISOString());
   if (error) throw new Error(`นับการเข้าสู่ระบบไม่ได้: ${error.message}`);
   return count ?? 0;
+}
+
+/**
+ * Forgets a phone's failed attempts. A member who asks for a reset has usually just typed five
+ * wrong PINs; without this the temporary PIN would be refused for the rest of the window.
+ */
+export async function clearPinFailures(phone: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_login_attempts").delete().eq("phone", phone).eq("ok", false);
+  if (error) throw new Error(`ล้างการลองใส่ PIN ไม่ได้: ${error.message}`);
 }
 
 /**

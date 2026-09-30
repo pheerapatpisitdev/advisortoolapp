@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const viewer = vi.hoisted(() => ({ requireStaff: vi.fn(async () => ({ agentId: "owner" })), audit: vi.fn() }));
+const viewer = vi.hoisted(() => ({ requireStaff: vi.fn(async () => ({ agentId: "owner" })), audit: vi.fn(), memberById: vi.fn() }));
 vi.mock("@/lib/auth/viewer", () => viewer);
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-const store = vi.hoisted(() => ({ saveMemberSettings: vi.fn(), setPin: vi.fn(), setStatus: vi.fn() }));
+const store = vi.hoisted(() => ({ saveMemberSettings: vi.fn(), setPin: vi.fn(), setStatus: vi.fn(), clearPinFailures: vi.fn() }));
 vi.mock("@/lib/auth/member-store", () => store);
 
 const { resetMemberPin, saveSignupSettings, setMemberStatus } = await import("@/app/admin/members/actions");
 const ID = "00000000-0000-4000-8000-0000000000aa";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  viewer.memberById.mockResolvedValue({ id: ID, phone: "0812345678", name: "สมชาย", status: "active", pin_changed_at: null });
+});
 
 describe("the back office's members", () => {
   it("asks for the admin permission every time", async () => {
@@ -39,10 +42,28 @@ describe("the back office's members", () => {
     expect(viewer.audit).toHaveBeenCalledWith("member-pin-reset", ID);
   });
 
+  it("forgets the phone's failed attempts once the new PIN is set, so it is not refused", async () => {
+    await resetMemberPin(ID, "730512");
+    expect(store.clearPinFailures).toHaveBeenCalledWith("0812345678");
+    expect(store.setPin.mock.invocationCallOrder[0]).toBeLessThan(store.clearPinFailures.mock.invocationCallOrder[0]);
+  });
+
+  it("reports an unknown member as not found, writing and auditing nothing", async () => {
+    viewer.memberById.mockResolvedValue(null);
+    expect(await resetMemberPin(ID, "730512")).toEqual({ ok: false, error: "ไม่พบสมาชิกนี้" });
+    expect(await setMemberStatus(ID, "suspended")).toEqual({ ok: false, error: "ไม่พบสมาชิกนี้" });
+    expect(store.setPin).not.toHaveBeenCalled();
+    expect(store.clearPinFailures).not.toHaveBeenCalled();
+    expect(store.setStatus).not.toHaveBeenCalled();
+    expect(viewer.audit).not.toHaveBeenCalled();
+  });
+
   it("suspends and reinstates, and nothing else", async () => {
     expect(await setMemberStatus(ID, "suspended")).toEqual({ ok: true });
     expect(await setMemberStatus(ID, "active")).toEqual({ ok: true });
     expect(await setMemberStatus(ID, "deleted")).toEqual({ ok: false, error: "สถานะไม่ถูกต้อง" });
+    expect(store.setStatus).toHaveBeenCalledWith(ID, "suspended");
+    expect(store.setStatus).toHaveBeenCalledWith(ID, "active");
     expect(viewer.audit).toHaveBeenCalledWith("member-suspend", ID);
     expect(viewer.audit).toHaveBeenCalledWith("member-reinstate", ID);
   });
