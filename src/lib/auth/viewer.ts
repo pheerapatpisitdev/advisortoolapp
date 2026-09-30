@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { admit, can, type AgentRow, type Perm, type StaffRow, type Viewer } from "./access";
+import { admit, admitMember, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type Viewer } from "./access";
 import { safeNext } from "./next";
 import { readSession } from "./session";
 
@@ -23,6 +23,15 @@ export async function agentsByCode(code: string): Promise<AgentRow[]> {
   const { data, error } = await supabaseAdmin().from("agents").select(AGENT_COLUMNS).eq("agent_code", code).limit(2);
   if (error) throw new Error(`อ่านข้อมูลตัวแทนไม่ได้: ${error.message}`);
   return (data as unknown as AgentRow[]) ?? [];
+}
+
+const MEMBER_COLUMNS = "id, phone, name, status, pin_changed_at";
+
+/** A member who signed up here (src/lib/auth/member.ts), or null. */
+export async function memberById(id: string): Promise<MemberRow | null> {
+  const { data, error } = await supabaseAdmin().from("ins_members").select(MEMBER_COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw new Error(`อ่านข้อมูลสมาชิกไม่ได้: ${error.message}`);
+  return (data as MemberRow | null) ?? null;
 }
 
 export async function staffRow(agentId: string): Promise<StaffRow | null> {
@@ -48,7 +57,9 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   const session = await readSession();
   if (!session) return null;
   const [agent, staff] = await Promise.all([agentById(session.agentId), staffRow(session.agentId)]);
-  return admit(agent, staff, session.issuedAt);
+  if (agent) return admit(agent, staff, session.issuedAt);
+  // not UnitOS's: a member who signed up here, or nobody (owner, 2026-10-01)
+  return admitMember(await memberById(session.agentId), session.issuedAt);
 });
 
 /** For server actions and routes: a layout's gate does not cover an action, so each one asks. */
@@ -114,6 +125,26 @@ export async function audit(action: string, target: string | null, detail?: Reco
 }
 
 /**
+ * What to call each id in a list: a UnitOS agent's name or code, a member's name or phone.
+ * Two plain reads rather than a join — since 2026-10-01 an `agent_id` may be either kind,
+ * and the foreign keys that joins went through are gone. An id found in neither is left out.
+ */
+export async function displayNames(ids: string[]): Promise<Record<string, string>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return {};
+  const [agents, members] = await Promise.all([
+    supabaseAdmin().from("agents").select("id, name, agent_code").in("id", unique),
+    supabaseAdmin().from("ins_members").select("id, name, phone").in("id", unique),
+  ]);
+  if (agents.error) console.error("agent names unreadable:", agents.error.message);
+  if (members.error) console.error("member names unreadable:", members.error.message);
+  const names: Record<string, string> = {};
+  for (const m of (members.data ?? []) as { id: string; name: string | null; phone: string }[]) names[m.id] = m.name?.trim() || m.phone;
+  for (const a of (agents.data ?? []) as { id: string; name: string | null; agent_code: string }[]) names[a.id] = a.name?.trim() || a.agent_code;
+  return names;
+}
+
+/**
  * Who last posted, scheduled or moved each piece, by name — the calendar's "โดย". Staff share
  * one Page, so a post nobody remembers making should say whose it was. Pieces placed before
  * the log began (2026-09-27) have no line and show no name.
@@ -121,17 +152,18 @@ export async function audit(action: string, target: string | null, detail?: Reco
 export async function placedBy(ids: string[]): Promise<Record<string, string>> {
   if (ids.length === 0) return {};
   const { data, error } = await supabaseAdmin().from("ins_audit")
-    .select("target, at, agent:agents(name, agent_code)")
+    .select("target, agent_id")
     .in("target", ids).in("action", ["post", "schedule", "reschedule"])
     .order("at", { ascending: false });
   if (error) {
     console.error("placed-by unreadable:", error.message);
     return {};
   }
+  const rows = (data ?? []) as { target: string; agent_id: string | null }[];
+  const latest: Record<string, string> = {};
+  for (const row of rows) if (!latest[row.target] && row.agent_id) latest[row.target] = row.agent_id;
+  const names = await displayNames(Object.values(latest));
   const by: Record<string, string> = {};
-  for (const row of (data ?? []) as unknown as { target: string; agent: { name: string | null; agent_code: string } | null }[]) {
-    if (by[row.target] || !row.agent) continue;
-    by[row.target] = row.agent.name?.trim() || row.agent.agent_code;
-  }
+  for (const [target, agentId] of Object.entries(latest)) if (names[agentId]) by[target] = names[agentId];
   return by;
 }
