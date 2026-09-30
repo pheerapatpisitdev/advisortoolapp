@@ -108,6 +108,7 @@ export function whoOf(viewer: Viewer | null): Who | null {
     connect: can(viewer, "connect"),
     admin: can(viewer, "admin"),
     owner: can(viewer, "owner"),
+    member: viewer.kind === "member",
   };
 }
 
