@@ -231,9 +231,8 @@ export function FormulaPicker({ value, onChange }: { value: Formula | null; onCh
     : value === "finish" ? FINISH_PRINCIPLES : [];
   return (
     <fieldset className={`rounded-lg border p-3 text-sm ${value ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
-      <legend className="px-1 font-medium">
-        สูตรการเขียน <span className="font-normal text-[var(--ct-mute)]">(เลือกได้ทีละสูตร · ระบบจำไว้ให้)</span>
-      </legend>
+      <legend className="px-1 font-medium">สูตรการเขียน</legend>
+      <p className="-mt-1 mb-1 text-xs text-[var(--ct-mute)]">เลือกได้ทีละสูตร · ระบบจำไว้ให้</p>
       <div className="space-y-0.5">
         {FORMULA_OPTIONS.map((o) => (
           <label key={o.id ?? "none"} className="flex min-h-11 cursor-pointer items-start gap-2.5 py-1">

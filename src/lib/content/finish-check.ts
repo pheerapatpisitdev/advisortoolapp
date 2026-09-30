@@ -20,8 +20,12 @@ export function visibleLength(s: string): number {
   return [...s.replace(MARKS, "")].length;
 }
 
-/** characters of Thai to a phone's line in a Facebook post, near enough; the guides' "บรรทัดบนมือถือ" */
-export const MOBILE_LINE = 36;
+/**
+ * Characters of Thai to a phone's line in a Facebook post, near enough; the guides' "บรรทัดบนมือถือ".
+ * Measured 2026-10-01 in FeedPreview's caption (0.95rem, 12px each side): 7.4px a visible
+ * character, so 49 on a 390px iPhone and 45 on a 360px Android — the narrower, the stricter.
+ */
+export const MOBILE_LINE = 45;
 
 export const PREAMBLE = ["สวัสดี", "วันนี้จะมา", "วันนี้เรามา", "วันนี้ขอ", "ก่อนอื่น", "หลายคนถาม", "ขอเล่า", "มาทำความรู้จัก", "ทำความเข้าใจ"];
 export const WEAK_OPENERS = ["เราขอแนะนำ", "ขอแนะนำ", "ซึ่ง", "ทั้งนี้", "อย่างไรก็ตาม", "นอกจากนี้", "ดังนั้น", "และ", "ก็", "จริงๆแล้ว", "จริง ๆ แล้ว"];
