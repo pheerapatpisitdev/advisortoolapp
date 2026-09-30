@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mayPlanOn, PLAN_LABEL, planState, planTitle } from "@/lib/content/day-plan";
+import { mayPlanOn, PLAN_LABEL, planPicture, planState, planTitle } from "@/lib/content/day-plan";
+import { decodePoster } from "@/lib/content/poster";
 
 const TODAY = "2026-09-30";
 
@@ -36,5 +37,21 @@ describe("a planned piece's title", () => {
     const item = { output: { hooks: ["หัวเรื่องที่ยาวมาก".repeat(10)] } } as never;
     expect(planTitle(item).length).toBeLessThanOrEqual(60);
     expect(planTitle({ output: { hooks: [] } } as never)).toBe("ชิ้นงาน");
+  });
+});
+
+describe("a planned piece's picture", () => {
+  const poster = { layout: "bottom", theme: "navy", blocks: [{ kind: "headline", text: "หัวโปสเตอร์" }], background: "p1/x.png" };
+  const spec = (url: string | null) => decodePoster(new URL(url!, "http://x").searchParams.get("s")!);
+
+  it("is its poster, as the post calendar and the workbench draw it", () => {
+    const url = planPicture({ format: "post", output: { hooks: ["หัว"], poster } } as never, "Life Protect");
+    expect(url).toMatch(/^\/api\/content-poster\?s=.+&size=square$/);
+    expect(spec(url)?.blocks[0].text).toBe("หัวโปสเตอร์");
+  });
+
+  it("is drawn from the hook for a piece written before posters, and none for a script", () => {
+    expect(spec(planPicture({ format: "post", output: { hooks: ["หัวเก่า"] } } as never, "Life Protect"))?.blocks.map((b) => b.text)).toContain("หัวเก่า");
+    expect(planPicture({ format: "script", output: { hooks: ["หัว"] } } as never, "x")).toBeNull();
   });
 });

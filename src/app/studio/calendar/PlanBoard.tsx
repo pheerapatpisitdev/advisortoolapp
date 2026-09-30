@@ -19,6 +19,8 @@ export interface PlanCard {
   format: string;
   day: string | null;
   doneAt: string | null;
+  /** the piece's poster, small (day-plan.ts planPicture); none for a script */
+  imageUrl: string | null;
 }
 
 /** a piece goes to a day not gone, and never to the day it is already on (that would unmark it) */
@@ -65,7 +67,8 @@ export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUn
     if (!res) return setNote("การเชื่อมต่อหลุด ลองใหม่อีกครั้งนะครับ");
     if (!res.ok) return setNote(res.error);
     const i = res.item;
-    apply({ id: i.id, title: [...planned, ...rail].find((c) => c.id === i.id)?.title ?? "ชิ้นงาน", format: i.format, day: i.plan?.day ?? null, doneAt: i.plan?.doneAt ?? null });
+    const was = [...planned, ...rail].find((c) => c.id === i.id);
+    apply({ id: i.id, title: was?.title ?? "ชิ้นงาน", format: i.format, day: i.plan?.day ?? null, doneAt: i.plan?.doneAt ?? null, imageUrl: was?.imageUrl ?? null });
   }
 
   const place = (c: PlanCard, day: string) => {
@@ -93,13 +96,22 @@ export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUn
     </div>
   );
 
+  /** the poster, small, and the title — both open the piece in the editor */
+  const heading = (c: PlanCard) => (
+    <Link href={`/studio/write?open=${c.id}`} className="flex items-start gap-2 font-medium underline-offset-2 hover:underline">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a drawn PNG from our own route, not an asset to optimise */}
+      {c.imageUrl && <img src={c.imageUrl} alt="" loading="lazy" draggable={false} className="size-10 shrink-0 rounded object-cover" />}
+      <span className="line-clamp-2 min-w-0">{c.title}</span>
+    </Link>
+  );
+
   // called, not rendered as a component: a component made in render remounts every time, and a
   // keyboard lost its place after each press (final review, 2026-09-30)
   const renderCard = (c: PlanCard) => {
     const state = planState(c.day!, c.doneAt, today);
     return (
       <div key={c.id} className={`space-y-1 rounded-lg border p-2 text-xs ${TONE[state]}`}>
-        <Link href={`/studio/write?open=${c.id}`} className="line-clamp-2 font-medium underline-offset-2 hover:underline">{c.title}</Link>
+        {heading(c)}
         <p className="text-[var(--ct-mute)]">{FORMAT[c.format] ?? c.format} · {PLAN_LABEL[state]}</p>
         <div className="flex flex-wrap gap-1">
           <button type="button" disabled={busy} onClick={() => toggleDone(c)} className={control}>
@@ -188,7 +200,7 @@ export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUn
             key={c.id} draggable onDragStart={(e) => e.dataTransfer.setData(DRAG_TYPE, c.id)}
             className="space-y-1 rounded-lg border border-[var(--ct-line)] p-2 text-xs"
           >
-            <Link href={`/studio/write?open=${c.id}`} className="line-clamp-2 font-medium underline-offset-2 hover:underline">{c.title}</Link>
+            {heading(c)}
             <p className="text-[var(--ct-mute)]">{FORMAT[c.format] ?? c.format}</p>
             {dayBox(c, "วันที่จะวาง", "วาง")}
           </div>

@@ -7,6 +7,8 @@ import type { ContentOutput } from "@/lib/content/output";
  * memory: a piece on the Page is not changed here, and a held one is changed on Facebook too.
  */
 
+import { CLASSIC, STYLES } from "@/lib/content/looks";
+import { READ_FAILED } from "@/lib/content/poster-text";
 const PAGE = "105";
 let row: ContentItem;
 const order: string[] = [];
@@ -15,7 +17,7 @@ const store = vi.hoisted(() => ({
   getContent: vi.fn(), saveOutput: vi.fn(), saveOutputIf: vi.fn(), recordPublishIf: vi.fn(), claimPublish: vi.fn(), deleteContent: vi.fn(),
   removeBackground: vi.fn(), listWords: vi.fn(), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
   contentSpentThisMonth: vi.fn(), contentCap: vi.fn(), setFixes: vi.fn(), saveBackground: vi.fn(), setStatus: vi.fn(),
-  listContent: vi.fn(), countByStatus: vi.fn(),
+  listContent: vi.fn(), countByStatus: vi.fn(), recentLooks: vi.fn(async (): Promise<object[]> => []),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), isPublished: vi.fn() }));
 const ai = vi.hoisted(() => ({ chat: vi.fn(), drawImage: vi.fn() }));
@@ -330,6 +332,103 @@ describe("the content ceiling", () => {
     // the picture it replaced goes; the flags are not written over
     expect(store.removeBackground).toHaveBeenCalledWith("p1", "p1/old.png");
     expect(store.saveOutputIf.mock.calls[0][2]).toBeUndefined();
+  });
+
+  it("draws the look picked for the piece, not the Page's last one, and keeps it with the piece", async () => {
+    store.recentLooks.mockResolvedValueOnce([CLASSIC]);
+    ai.chat.mockResolvedValueOnce({ text: JSON.stringify({ style: "flatlay", subject: "objects", place: "home", light: "morning", mood: "calm", space: "table" }), model: "m", costThb: 0.01, outputTokens: 30 });
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const r = await drawBackground("p1", "", "standard", null);
+    expect(r.ok).toBe(true);
+    expect(store.recentLooks).toHaveBeenCalledWith(row.pageId);
+    expect(ai.drawImage.mock.calls[0][0].prompt).toContain(STYLES.find((s) => s.id === "flatlay")!.say);
+    expect(row.output.look).toEqual({ style: "flatlay", subject: "objects", place: "home", light: "morning", mood: "calm", space: "table" });
+  });
+
+  it("still draws, in the original look, when the look cannot be picked", async () => {
+    store.recentLooks.mockRejectedValueOnce(new Error("db down"));
+    ai.chat.mockRejectedValueOnce(new Error("ai down"));
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const r = await drawBackground("p1", "", "standard", null);
+    expect(r.ok).toBe(true);
+    expect(ai.drawImage.mock.calls[0][0].prompt).toContain("editorial-quality");
+    expect(row.output.look).toEqual(CLASSIC);
+  });
+
+  it("keeps the drawn-words record the server wrote, whatever an edit from the browser sends", async () => {
+    const aiText = { blocks: "headline:หัวเรื่อง", read: "หัวเรื่อง", issues: ["x"], checked: false };
+    row = make(null, { ...output, poster: { ...output.poster!, aiText } });
+    const forged = { ...output.poster!, aiText: { ...aiText, issues: [], checked: true } };
+    expect((await saveContentEdits("p1", edits({ poster: forged }))).ok).toBe(true);
+    expect(row.output.poster?.aiText).toEqual(aiText);
+    row = make(null, { ...output });
+    expect((await saveContentEdits("p1", edits({ poster: forged }))).ok).toBe(true);
+    expect(row.output.poster?.aiText).toBeUndefined();
+  });
+
+  it("with a brief, has the model draw the whole poster, words and all, and reads the words back", async () => {
+    row = { ...row, output: { ...row.output, look: CLASSIC } };
+    ai.chat
+      .mockResolvedValueOnce({ text: "a scrapbook collage of family photos", model: "m", costThb: 0.01, outputTokens: 10 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ text: "หัวเรื่อง" }), model: "reader", costThb: 0.02, outputTokens: 10 });
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-high", costThb: 0.86 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const r = await drawBackground("p1", "ภาพแปะหลายรูปแบบสมุดภาพ", "sharp", null);
+    expect(r.ok).toBe(true);
+    const prompt = ai.drawImage.mock.calls[0][0].prompt as string;
+    expect(prompt).toContain("a scrapbook collage of family photos");
+    expect(prompt).toContain("หัวเรื่อง");
+    expect(prompt).not.toContain("NO text, letters, numbers or words");
+    expect(store.recentLooks).not.toHaveBeenCalled();
+    // the second call reads the picture it drew
+    expect(ai.chat.mock.calls[1][0].messages.at(-1).images[0].mimeType).toBe("image/png");
+    expect(row.output.poster?.aiText).toEqual({ blocks: "headline:หัวเรื่อง", read: "หัวเรื่อง", issues: [], checked: false });
+    expect(row.output.look).toBeUndefined();
+  });
+
+  it("takes a long art direction whole: translated in full, not cut to a sentence", async () => {
+    const english = `Premium editorial poster. ${"Torn paper layers, masking tape, muted gold accents. ".repeat(30)}`.trim();
+    ai.chat
+      .mockResolvedValueOnce({ text: english, model: "m", costThb: 0.02, outputTokens: 600 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ text: "หัวเรื่อง" }), model: "reader", costThb: 0.02, outputTokens: 10 });
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-high", costThb: 0.86 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const thai = `ออกแบบโปสเตอร์แบบ Premium Editorial ${"ใช้กระดาษฉีก เทปกระดาษ สีทองหม่น ".repeat(40)}`;
+    expect(thai.length).toBeGreaterThan(1000);
+    expect((await drawBackground("p1", thai, "sharp", null)).ok).toBe(true);
+    const translate = ai.chat.mock.calls[0][0];
+    expect(String(translate.messages[1].content).length).toBe(thai.trim().length);
+    expect(String(translate.messages[0].content)).not.toContain("one short");
+    expect(ai.drawImage.mock.calls[0][0].prompt).toContain(english);
+  });
+
+  it("keeps the picture when its words cannot be read back, and asks the agent to look", async () => {
+    ai.chat.mockRejectedValueOnce(new Error("reader down"));
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-high", costThb: 0.86 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const r = await drawBackground("p1", "a scrapbook collage", "sharp", null);
+    expect(r.ok).toBe(true);
+    expect(row.output.poster?.aiText).toMatchObject({ issues: [READ_FAILED], checked: false });
+  });
+
+  it("draws only the picture behind a รีวิวเคลม's papers, brief or not: the papers are laid by the code", async () => {
+    const PAPER = { path: "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f/9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d.jpg", ratio: 0.75 };
+    row = make(null, { ...output, poster: { ...output.poster!, documents: [PAPER] } });
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    expect((await drawBackground("p1", "a sunny beach", "standard", null)).ok).toBe(true);
+    expect(ai.drawImage.mock.calls[0][0].prompt).toContain("NO text, letters, numbers or words");
+    expect(row.output.poster?.aiText).toBeUndefined();
+  });
+
+  it("takes the drawn-words record away when the picture is drawn again without a brief", async () => {
+    row = make(null, { ...output, poster: { ...output.poster!, aiText: { blocks: "headline:หัวเรื่อง", read: "หัวเรื่อง", issues: [], checked: true } } });
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-medium", costThb: 0.43 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    expect((await drawBackground("p1", "", "standard", null)).ok).toBe(true);
+    expect(row.output.poster?.aiText).toBeUndefined();
   });
 
   it("does not write a picture's older copy of the words over an edit saved while it drew", async () => {

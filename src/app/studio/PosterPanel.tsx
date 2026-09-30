@@ -1,4 +1,5 @@
 "use client";
+import { MAX_DIRECTION } from "@/lib/content/background";
 import { useEffect, useState } from "react";
 import {
   BLOCK_KINDS, BLOCK_LABEL, LAYOUTS, LAYOUT_LABEL, MAX_CHARS, SIZES,
@@ -202,10 +203,10 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
           )}
           {!shut && <>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium">อยากได้ภาพแบบไหน (ไม่ใส่ก็ได้)</span>
-              <input
-                value={request} onChange={(e) => setRequest(e.target.value)} maxLength={300}
-                placeholder="เช่น พ่อกับลูกสาวอ่านนิทานก่อนนอน"
+              <span className="mb-1 block text-sm font-medium">อยากได้ภาพแบบไหน <span className="font-normal text-[var(--ct-mute)]">(ไม่ใส่ก็ได้ · ถ้าใส่ AI วาดทั้งโปสเตอร์รวมตัวหนังสือ ต้องตรวจก่อนโพสต์)</span></span>
+              <textarea
+                value={request} onChange={(e) => setRequest(e.target.value)} maxLength={MAX_DIRECTION} rows={3}
+                placeholder="เช่น พ่อกับลูกสาวอ่านนิทานก่อนนอน — หรือวาง art direction ทั้งชุด"
                 className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]"
               />
             </label>

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContentItem, Publish, PublishState } from "@/lib/content/store";
 import type { ContentOutput } from "@/lib/content/output";
+import { blocksKey } from "@/lib/content/poster-text";
 
 /**
  * The trip to the Page as a state machine: what the row says after each thing Facebook or the
@@ -28,7 +29,7 @@ vi.mock("@/lib/facebook/publish", async (orig) => ({ ...(await orig<typeof impor
 vi.mock("@/lib/content/poster-draw", () => ({ drawPoster: vi.fn(async () => Buffer.from("png")) }));
 vi.mock("@/app/studio/actions", () => ({ setContentStatus: vi.fn(async () => ({ ok: true })) }));
 
-const { CONCURRENT, MISSED, MOVE_LOST, PAPER_UNCHECKED, POSSIBLY_POSTED, forgetChecks, move, publish, verifyDue, withdraw, VERIFY_MAX } =
+const { AI_TEXT_STALE, AI_TEXT_UNCHECKED, CONCURRENT, MISSED, MOVE_LOST, PAPER_UNCHECKED, POSSIBLY_POSTED, forgetChecks, move, publish, verifyDue, withdraw, VERIFY_MAX } =
   await import("@/lib/content/publish-flow");
 const { publishView, STUCK_MESSAGE, POSTING_STALE_MS } = await import("@/lib/content/publish-label");
 const { PublishError } = await import("@/lib/facebook/publish");
@@ -76,6 +77,33 @@ beforeEach(() => {
   let n = 100;
   fb.postPhoto.mockImplementation(async () => ({ id: String(n++) }));
   fb.deletePost.mockResolvedValue(undefined);
+});
+
+describe("a poster whose words the image model drew", () => {
+  const blocks = [{ kind: "headline" as const, text: "จ่าย 9 ปี คุ้มครองตลอดชีพ" }];
+  const drawn = (checked: boolean, now = blocks): ContentOutput => ({
+    ...output,
+    poster: { layout: "bottom", theme: "navy", blocks: now, aiText: { blocks: blocksKey({ blocks }), read: "จ่าย 9 ปี คุ้มครองตลอดชีพ", issues: [], checked } },
+  });
+
+  it("keeps the piece off the Page, now or later, until the agent has looked at the words", async () => {
+    row = piece(null, drawn(false));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null })).toEqual({ ok: false, error: AI_TEXT_UNCHECKED });
+    expect(await publish({ id: "p1", pageId: PAGE, at: hoursAhead(2).toISOString() })).toEqual({ ok: false, error: AI_TEXT_UNCHECKED });
+    expect(fb.postPhoto).not.toHaveBeenCalled();
+  });
+
+  it("keeps it off when its words were edited after the picture was drawn, ticked or not", async () => {
+    row = piece(null, drawn(true, [{ kind: "headline", text: "หัวใหม่" }]));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null })).toEqual({ ok: false, error: AI_TEXT_STALE });
+    expect(fb.postPhoto).not.toHaveBeenCalled();
+  });
+
+  it("goes up once it is ticked", async () => {
+    row = piece(null, drawn(true));
+    expect((await publish({ id: "p1", pageId: PAGE, at: null })).ok).toBe(true);
+    expect(fb.postPhoto).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("a รีวิวเคลม paper the owner has not looked at", () => {

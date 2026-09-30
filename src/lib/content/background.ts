@@ -1,5 +1,6 @@
+import { CLASSIC, choiceOf, isClassic, styleKind, type Look } from "./looks";
 import { poseText } from "./people";
-import type { Layout, Theme } from "./poster";
+import type { Layout, PosterSpec, Theme } from "./poster";
 
 /**
  * What the image model is asked for when a poster gets a picture behind it.
@@ -54,11 +55,21 @@ const AVOID = [
   "rigid posing, generic corporate stock photography, plastic skin, sterile showroom lighting",
 ];
 
+/** the longest picture brief taken — room for a full art direction, not only a sentence */
+export const MAX_DIRECTION = 2500;
+
 const THAI = /[฀-๿]+/g;
 
 export function stripThai(text: string): string {
   return text.replace(THAI, " ").replace(/\s+/g, " ").trim();
 }
+
+/** the part of the frame the words sit on, for a look that fills it with something of its own */
+const TEXT_AREA: Record<Layout, string> = {
+  top: "the top half of the frame",
+  center: "a horizontal band across the middle of the frame",
+  bottom: "the bottom half of the frame",
+};
 
 /** where the words are not, so the person can stand there */
 const PERSON_SIDE: Record<Layout, string> = {
@@ -94,15 +105,20 @@ export function backgroundPrompt(opts: {
   request?: string | null;
   /** a person from the reference photos sent with the prompt, and the pose they take */
   person?: { pose: string; aside?: boolean } | null;
+  /** the kind of picture (looks.ts); absent or the original draws what every picture was drawn from before */
+  look?: Look | null;
 }): string {
+  // what the owner typed decides the whole picture (owner, 2026-10-01)
+  const own = opts.request ? stripThai(opts.request) : "";
+  if (own) return ownerPrompt(opts, own);
+  const look = opts.look ?? CLASSIC;
+  if (!isClassic(look)) return lookPrompt(opts, look);
   const scene = stripThai(opts.scene) || "A believable everyday moment of a Thai family at home, warm and unposed.";
-  const request = opts.request ? stripThai(opts.request) : "";
   return [
     "Create a natural, editorial-quality 1:1 square background photograph for a Thai insurance agent's Facebook post.",
     "",
     "Scene:",
     scene,
-    ...(request ? ["", "The page owner asks for this — follow it closely:", request] : []),
     ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
     "",
     "Absolute rules:",
@@ -115,5 +131,96 @@ export function backgroundPrompt(opts: {
     "- Thai people in a Thai setting; imperfect natural gestures, believable depth, soft natural light.",
     "- Hopeful and reassuring rather than fearful.",
     "- Thai headline text will be placed on top of the image later, so leave room to breathe.",
+  ].join("\n");
+}
+
+/**
+ * A look other than the original: the same frame and the same rules — no lettering, the words'
+ * side kept calm, nothing an insurance advertisement must not show, the theme's colours — with
+ * the style, who is in it, the place, the light and the mood the look names.
+ */
+function lookPrompt(opts: Parameters<typeof backgroundPrompt>[0], look: Look): string {
+  const scene = stripThai(opts.scene) || "A believable everyday moment of a Thai family at home, warm and unposed.";
+  const objects = styleKind(look.style) === "objects";
+  return [
+    `Create a 1:1 square background image for a Thai insurance agent's Facebook post, in this style: ${choiceOf("style", look.style).say}.`,
+    "",
+    "Scene:",
+    scene,
+    ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
+    "",
+    "Absolute rules:",
+    "- NO text, letters, numbers or words, and NO logos, watermarks, signatures or user-interface elements anywhere in the image.",
+    `- Keep ${TEXT_AREA[opts.layout]} calm and simple for the words — ${choiceOf("space", look.space).say}, no busy detail.`,
+    `- Avoid: ${AVOID.join("; ")}.`,
+    "",
+    "Visual direction:",
+    `- Colour palette: ${PALETTE[opts.theme]}.`,
+    `- In the picture: ${choiceOf("subject", look.subject).say}${objects ? " — nothing that can be read on them" : ""}.`,
+    `- Setting: ${choiceOf("place", look.place).say}.`,
+    `- Light: ${choiceOf("light", look.light).say}.`,
+    `- Mood: ${choiceOf("mood", look.mood).say}, never fearful.`,
+    "- Thai headline text will be placed on top of the image later, so leave room to breathe.",
+  ].join("\n");
+}
+
+/**
+ * The owner's own direction, typed in the editor or the round's picture brief: it decides the
+ * style, who is in it, the place, the light, the colours and the mood — no scene from the writer,
+ * no look, no theme palette. What stays is what keeps the poster readable and the advertisement
+ * safe: no lettering, the words' side calm, nothing an insurance advertisement must not show, and
+ * a person from the library kept as themselves.
+ */
+function ownerPrompt(opts: Parameters<typeof backgroundPrompt>[0], direction: string): string {
+  return [
+    "Create a 1:1 square background image for a Thai insurance agent's Facebook post.",
+    "",
+    "The page owner's own direction — follow it exactly; it decides the style, subject, setting, light, colours and mood:",
+    direction,
+    ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
+    "",
+    "Absolute rules (these hold whatever the direction says):",
+    "- NO text, letters, numbers or words, and NO logos, watermarks, signatures or user-interface elements anywhere in the image.",
+    `- Keep ${TEXT_AREA[opts.layout]} calm and simple — Thai headline text will be placed there later.`,
+    `- Avoid: ${AVOID.join("; ")}.`,
+  ].join("\n");
+}
+
+const ROLE: Record<string, string> = {
+  badge: "Small label",
+  headline: "Main headline, the largest words",
+  sub: "Supporting line",
+  footer: "Small closing line",
+};
+
+/**
+ * The whole poster, words and all, from the owner's picture brief (owner, 2026-10-01): the model
+ * designs it and sets the Thai itself. It is told the words exactly and nothing else may appear;
+ * the forbidden list holds, a library person stays themselves, and the lowest strip is left for
+ * the insurer's line and the logo the code still lays over it. What it drew is read back and
+ * checked (poster-text.ts), and the piece waits for the agent before it may go up.
+ */
+export function posterPrompt(opts: {
+  /** the owner's brief, already in English */
+  direction: string;
+  poster: Pick<PosterSpec, "blocks">;
+  layout: Layout;
+  person?: { pose: string; aside?: boolean } | null;
+}): string {
+  return [
+    "Create a finished 1:1 square Facebook post image for a Thai insurance agent: the design, the picture and the Thai lettering together.",
+    "",
+    "The page owner's own direction — follow it closely; it decides the design, style, colours, layout and mood:",
+    stripThai(opts.direction),
+    "",
+    "The words on the image, in Thai — draw each exactly as written, every character and every digit, in a clean, modern, clearly legible Thai typeface:",
+    ...opts.poster.blocks.map((b) => `- ${ROLE[b.kind] ?? "Line"}: ${b.text}`),
+    ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
+    "",
+    "Absolute rules:",
+    "- Draw only the words above: no other words, numbers, logos, watermarks, signatures or user-interface elements.",
+    "- Keep every Thai word whole and correctly spelled; never split, invent or rearrange characters.",
+    "- Leave the bottom strip of the image (its lowest tenth) plain and simple: the insurer's name and the Page's logo are added there later.",
+    `- Avoid: ${AVOID.join("; ")}.`,
   ].join("\n");
 }

@@ -1,3 +1,4 @@
+import { defaultPoster, posterUrl } from "./poster";
 import type { ContentItem } from "./store";
 
 /**
@@ -27,4 +28,14 @@ export function planTitle(item: Pick<ContentItem, "output">): string {
   const first = item.output.hooks[0]?.trim();
   if (!first) return "ชิ้นงาน";
   return first.length > 60 ? `${first.slice(0, 59)}…` : first;
+}
+
+/**
+ * A planned piece's picture, as the post calendar and the workbench draw it: its poster, or one
+ * from its hook for a piece written before posters. A script has none. `productName` is the
+ * caller's to find — the product list is kept off this file, which reaches the browser.
+ */
+export function planPicture(item: Pick<ContentItem, "format" | "output">, productName: string): string | null {
+  if (item.format === "script") return null;
+  return posterUrl(item.output.poster ?? defaultPoster(item.output.hooks[0] ?? "", productName), "square");
 }

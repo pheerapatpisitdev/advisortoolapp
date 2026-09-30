@@ -1,6 +1,8 @@
 "use server";
 import { requireMember } from "@/lib/auth/viewer";
 import { cleanTicks } from "@/lib/content/finish-check";
+import { aiTextState } from "@/lib/content/poster-text";
+import { AI_TEXT_STALE } from "@/lib/content/publish-flow";
 import { getContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 
 /**
@@ -26,6 +28,32 @@ export async function saveFinishTicks(id: string, ticks: string[]): Promise<Tick
     return { ok: false, error: "ชิ้นนี้เพิ่งถูกแก้ระหว่างบันทึก ลองติ๊กอีกครั้งนะครับ" };
   } catch (e) {
     console.error("finish ticks save failed:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
+  }
+}
+
+/**
+ * The agent has read the words the image model drew and says they are right (poster-text.ts);
+ * until then the piece may not go to a Page (publish-flow.ts). Only for words still the piece's
+ * own: after an edit the picture must be drawn again, not ticked.
+ */
+export async function markPosterText(id: string): Promise<TicksResult> {
+  await requireMember();
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const item = await getContent(id);
+      if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
+      const poster = item.output.poster;
+      const state = aiTextState(poster);
+      if (state === "none" || !poster?.aiText) return { ok: false, error: "ภาพนี้ไม่มีตัวหนังสือที่ AI วาด" };
+      if (state === "stale") return { ok: false, error: AI_TEXT_STALE };
+      const output = { ...item.output, poster: { ...poster, aiText: { ...poster.aiText, checked: true } } };
+      const saved = await saveOutputIf(id, output, undefined, item.output.rev ?? null);
+      if (saved) return { ok: true, item: saved };
+    }
+    return { ok: false, error: "ชิ้นนี้เพิ่งถูกแก้ระหว่างบันทึก ลองอีกครั้งนะครับ" };
+  } catch (e) {
+    console.error("poster words not marked:", e);
     return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }

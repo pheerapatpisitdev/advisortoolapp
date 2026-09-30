@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { monthGridDays, parseMonth, shiftMonth, thaiMonthYear, todayKey } from "@/lib/content/calendar";
-import { planTitle } from "@/lib/content/day-plan";
+import { planPicture, planTitle } from "@/lib/content/day-plan";
+import { modeName } from "@/lib/content/modes";
+import { contentProduct } from "@/lib/content/products";
 import { listPlanned, listUnplanned, type ContentItem } from "@/lib/content/store";
 import { ChevronLeftIcon, ChevronRightIcon } from "../ui/icons";
 import { PlanBoard, type PlanCard } from "./PlanBoard";
@@ -12,6 +14,7 @@ import { PlanBoard, type PlanCard } from "./PlanBoard";
 
 const card = (i: ContentItem): PlanCard => ({
   id: i.id, title: planTitle(i), format: i.format, day: i.plan?.day ?? null, doneAt: i.plan?.doneAt ?? null,
+  imageUrl: planPicture(i, modeName(i.planHref) ?? contentProduct(i.planHref)?.name ?? ""),
 });
 
 export async function PlanCalendar({ params }: { params: { y?: string; m?: string; view?: string } }) {

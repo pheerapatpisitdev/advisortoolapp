@@ -5,6 +5,7 @@ import { inWalletRound } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
 import type { ContentWord, WordHit, WordKind } from "./check";
 import { isHookCategory, type HookCategory, type HookTemplate } from "./hooks";
+import { readLook, type Look } from "./looks";
 import { ON_PAGE_STATES, POSTING_STALE_MS } from "./publish-label";
 import type { PolicyFinding } from "./policy";
 import type { Fix } from "./proofread";
@@ -305,6 +306,21 @@ export async function saveOutputIf(id: string, output: ContentOutput, flags: Fla
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as Record<string, unknown>[];
   return rows.length === 1 ? toItem(rows[0]) : null;
+}
+
+/**
+ * The looks of a Page's latest pictures, newest first (looks.ts) — what the look picker is told
+ * not to repeat. None for an agent with no Page: their pieces have no one Page to vary within.
+ */
+export async function recentLooks(pageId: string | null, limit = 5): Promise<Look[]> {
+  if (!pageId) return [];
+  const { data, error } = await supabaseAdmin().from("ins_content").select("output")
+    .eq("page_id", pageId).not("output->look", "is", null).order("created_at", { ascending: false }).limit(limit);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { output: ContentOutput }[]).flatMap((r) => {
+    const look = readLook(r.output?.look);
+    return look ? [look] : [];
+  });
 }
 
 /** The hooks of pieces the owner used, newest first — what the planner is told not to repeat. */
