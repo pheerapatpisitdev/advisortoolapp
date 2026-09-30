@@ -10,7 +10,7 @@ import { contentProduct } from "./products";
 import { timeOfDay } from "./calendar";
 import { maybeOnPage, POSSIBLY_POSTED, stalePosting } from "./publish-label";
 import { POST_SCOPE } from "./posting-health";
-import { claimPublish, getContent, listDue, recordPublishIf, saveOutput, type ContentItem } from "./store";
+import { adoptPage, claimPublish, getContent, listDue, recordPublishIf, saveOutput, type ContentItem } from "./store";
 
 /**
  * Posting a piece to a Facebook Page, the steps behind the workbench's server actions
@@ -99,8 +99,14 @@ export async function clear(
     if (ahead > MAX_AHEAD_MS) return { ok: false, error: "ตั้งเวลาล่วงหน้าได้ไม่เกิน 30 วัน" };
   }
 
+  const mine = await myPages().catch(() => []);
+  // a piece is its Page's (its project, owner 2026-09-30): posted there or nowhere
+  if (item.pageId && item.pageId !== input.pageId) {
+    const own = mine.find((pg) => pg.pageId === item.pageId)?.pageName;
+    return { ok: false, error: own ? `ชิ้นนี้เป็นของเพจ ${own} — ลงได้เฉพาะเพจของตัวเอง` : "ชิ้นนี้เป็นของเพจอื่น — ลงได้เฉพาะเพจของตัวเอง" };
+  }
   // a Page the caller looks after (src/lib/auth/pages.ts): a post, a schedule and a move alike
-  const page = (await myPages().catch(() => [])).find((pg) => pg.pageId === input.pageId);
+  const page = mine.find((pg) => pg.pageId === input.pageId);
   if (!page) return { ok: false, error: "ไม่พบเพจนี้ในเพจที่คุณดูแล — เลือกเพจก่อน" };
   if (!page.scopes.includes(POST_SCOPE)) {
     return { ok: false, error: `เพจ ${page.pageName} ยังไม่ได้เปิดสิทธิ์โพสต์ — เชื่อมเพจใหม่ที่หน้า /admin/messenger แล้วกดอนุญาตให้โพสต์` };
@@ -128,6 +134,8 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
   const { item, page, token, at } = c;
   const claim = claimAt ?? new Date().toISOString();
   if (!claimAt && !(await claimPublish(item.id, new Date(claim)))) return { ok: false, error: "ชิ้นนี้โพสต์หรือตั้งเวลาไปแล้ว หรือกำลังส่งอยู่" };
+  // a piece on no Page yet becomes the Page's it goes to; the post goes up either way
+  if (!item.pageId) await adoptPage(item.id, page.pageId).catch((e) => console.error("piece not tied to its Page:", e));
   const mine = { state: "posting" as const, at: claim };
   // failed is claimable again, so the owner can press once more; a move's old post is gone, so
   // its id goes too. The Page is written either way, so the calendar shows the piece on its board.

@@ -497,6 +497,12 @@ export async function recordPublishIf(
   return rows.length === 1 ? toItem(rows[0]) : null;
 }
 
+/** A piece on no Page yet takes the one it is posted to (owner, 2026-09-30): from then on it is that Page's. */
+export async function adoptPage(id: string, pageId: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_content").update({ page_id: pageId }).eq("id", id).is("page_id", null);
+  if (error) throw new Error(error.message);
+}
+
 /** Pieces posted or held between two moments, oldest first — the calendar's week. */
 /** Held, up, or on its way this minute — a send in flight was in neither this nor the rail. */
 export async function listPublished(from: Date, to: Date): Promise<ContentItem[]> {

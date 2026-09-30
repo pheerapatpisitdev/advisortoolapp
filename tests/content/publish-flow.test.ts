@@ -11,6 +11,7 @@ import type { ContentOutput } from "@/lib/content/output";
 let row: ContentItem;
 const store = vi.hoisted(() => ({
   getContent: vi.fn(), claimPublish: vi.fn(), recordPublishIf: vi.fn(), listDue: vi.fn(), saveOutput: vi.fn(),
+  adoptPage: vi.fn(async () => undefined),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), postState: vi.fn() }));
 const conn = vi.hoisted(() => ({ pageConnections: vi.fn(), pageToken: vi.fn() }));
@@ -326,5 +327,34 @@ describe("a Page the caller does not look after (owner, 2026-09-29)", () => {
     mine.ids = [];
     expect(await withdraw(row)).toEqual({ ok: false, error: "โพสต์นี้อยู่ในเพจที่คุณไม่ได้ดูแล" });
     expect(fb.deletePost).not.toHaveBeenCalled();
+  });
+});
+
+describe("a piece of one Page's project (owner, 2026-09-30)", () => {
+  const TALK = "205";
+  beforeEach(() => {
+    conn.pageConnections.mockResolvedValue([
+      { pageId: PAGE, pageName: "LuckyPlanner", scopes: ["pages_manage_posts"] },
+      { pageId: TALK, pageName: "ประกัน Talk", scopes: ["pages_manage_posts"] },
+    ]);
+  });
+
+  it("is refused on another Page, before Facebook hears of it", async () => {
+    row = { ...piece(), pageId: PAGE };
+    const r = await publish({ id: "p1", pageId: TALK, at: null });
+    expect(r).toMatchObject({ ok: false, error: expect.stringContaining("LuckyPlanner") });
+    expect(fb.postPhoto).not.toHaveBeenCalled();
+  });
+
+  it("goes up on its own Page, and is not tied again", async () => {
+    row = { ...piece(), pageId: PAGE };
+    expect((await publish({ id: "p1", pageId: PAGE, at: null })).ok).toBe(true);
+    expect(store.adoptPage).not.toHaveBeenCalled();
+  });
+
+  it("on no Page yet, becomes the Page's it goes to", async () => {
+    row = { ...piece(), pageId: null };
+    expect((await publish({ id: "p1", pageId: TALK, at: null })).ok).toBe(true);
+    expect(store.adoptPage).toHaveBeenCalledWith("p1", TALK);
   });
 });
