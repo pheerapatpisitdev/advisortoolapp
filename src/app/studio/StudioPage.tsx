@@ -22,12 +22,18 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
   const opened = open && /^[0-9a-f-]{36}$/.test(open) ? await getContent(open).catch(() => null) : null;
   // the project (owner, 2026-09-30): one of the caller's Pages — the opened piece's, else the one
   // its card asked for, else the first — or none for an agent with no Pages, as projectPage settles it
-  const [mine, connected] = await Promise.all([myPages().catch(() => []), pageConnections().catch(() => [])]);
-  const project = mine.find((p) => p.pageId === (opened?.pageId ?? page)) ?? mine[0] ?? null;
+  const [mine, connected] = await Promise.all([myPages().catch(() => null), pageConnections().catch(() => [])]);
+  const asked = opened?.pageId ?? page;
+  // the Pages could not be read: the one asked for is kept, for the server to settle or refuse,
+  // rather than none — a round sent with none would land in the first Page's project for good
+  const project = mine
+    ? mine.find((p) => p.pageId === asked) ?? mine[0] ?? null
+    : asked ? { pageId: asked, pageName: connected.find((p) => p.pageId === asked)?.pageName ?? "" } : null;
   const pageId = project?.pageId;
   const [initial, used, hooks, spend, people] = await Promise.all([
     contentWorkbench({ status: "draft", page: pageId }),
-    listContent({ status: "used", pageId }, 20).catch(() => []),
+    // nothing for a project not known: every Page's pieces would show together
+    mine || pageId ? listContent({ status: "used", pageId }, 20).catch(() => []) : Promise.resolve([]),
     listHookTemplates().catch(() => []),
     contentSpend(),
     listPeople().catch(() => []),
@@ -44,7 +50,7 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
       initialOpen={opened}
       forDay={day && /^\d{4}-\d{2}-\d{2}$/.test(day) && fillable(day, todayKey()) ? day : null}
       // nobody of a Page the caller does not look after (final review, 2026-09-29)
-      people={peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set(mine.map((p) => p.pageId))), mine, pageId ?? "")}
+      people={peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set((mine ?? []).map((p) => p.pageId))), mine ?? [], pageId ?? "")}
       project={project ? { pageId: project.pageId, pageName: project.pageName } : null}
     />
   );

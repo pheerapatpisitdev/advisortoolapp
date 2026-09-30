@@ -11,10 +11,12 @@ const actions = vi.hoisted(() => ({
   contentWorkbench: vi.fn(async () => ({ items: [], counts: { draft: 0, used: 0, trashed: 0 } })),
   contentSpend: vi.fn(async () => ({ spent: 0, cap: 30, rounds: null })),
 }));
-vi.mock("@/lib/auth/pages", () => ({ myPages: vi.fn(async () => state.mine) }));
+vi.mock("@/lib/auth/pages", () => ({ myPages: vi.fn(async () => { if (pages.failed) throw new Error("db down"); return state.mine; }) }));
 vi.mock("@/lib/facebook/connection", () => ({ pageConnections: vi.fn(async () => state.mine) }));
+const store = vi.hoisted(() => ({ listContent: vi.fn(async () => []) }));
+const pages = vi.hoisted(() => ({ failed: false }));
 vi.mock("@/lib/content/store", () => ({
-  getContent: vi.fn(async () => state.opened), listContent: vi.fn(async () => []), listHookTemplates: vi.fn(async () => []),
+  getContent: vi.fn(async () => state.opened), listContent: store.listContent, listHookTemplates: vi.fn(async () => []),
 }));
 vi.mock("@/lib/content/people-store", () => ({ listPeople: vi.fn(async () => []) }));
 vi.mock("@/app/studio/actions", () => actions);
@@ -28,6 +30,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.mine = [{ pageId: "pA", pageName: "A" }, { pageId: "pB", pageName: "B" }];
   state.opened = null;
+  pages.failed = false;
 });
 
 describe("the project /studio/write opens", () => {
@@ -47,5 +50,20 @@ describe("the project /studio/write opens", () => {
     state.mine = [];
     expect(await projectOf({})).toBeNull();
     expect(actions.contentWorkbench).toHaveBeenCalledWith({ status: "draft", page: undefined });
+  });
+});
+
+describe("when the Pages cannot be read (final review, 2026-09-30)", () => {
+  it("keeps the Page asked for, for the server to settle, rather than falling back to none", async () => {
+    pages.failed = true;
+    expect(await projectOf({ page: "pB" })).toEqual({ pageId: "pB", pageName: "B" });
+    expect(actions.contentWorkbench).toHaveBeenCalledWith({ status: "draft", page: "pB" });
+    expect(store.listContent).toHaveBeenCalledWith({ status: "used", pageId: "pB" }, 20);
+  });
+
+  it("lists nothing rather than every Page's pieces together when no Page was asked for", async () => {
+    pages.failed = true;
+    expect(await projectOf({})).toBeNull();
+    expect(store.listContent).not.toHaveBeenCalled();
   });
 });

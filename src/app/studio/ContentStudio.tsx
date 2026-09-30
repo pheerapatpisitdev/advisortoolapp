@@ -943,7 +943,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   return (
     <div>
       <div>
-        <h1 className="text-xl font-semibold">Organic Studio{project && <span className="font-normal text-[var(--ct-mute)]"> · {project.pageName}</span>}</h1>
+        <h1 className="text-xl font-semibold">Organic Studio{project?.pageName && <span className="font-normal text-[var(--ct-mute)]"> · {project.pageName}</span>}</h1>
         <p className="mt-1 text-sm text-[var(--ct-mute)]">AI เขียนจากข้อมูลจริงของแบบประกัน ตัวเลขทุกตัวมาจากตารางเบี้ย อ่านทวนก่อนโพสต์ทุกครั้ง</p>
       </div>
 
