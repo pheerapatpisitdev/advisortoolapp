@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { changePin, renameMe, type Result } from "./actions";
 
 function Note({ result, done }: { result?: Result; done: string }) {
@@ -21,17 +21,31 @@ export function AccountForm({ name, phone }: { name: string; phone: string }) {
       <h1 className="text-xl font-semibold">บัญชีของฉัน</h1>
       <p className="text-sm text-[var(--bot-ink-mute)]">เบอร์ที่ใช้เข้าสู่ระบบ: <span className="tabular-nums">{phone}</span></p>
 
-      <form className="rounded-lg border bg-white p-4" action={(fd) => start(async () => setNameResult(await renameMe(String(fd.get("name") ?? ""))))}>
+      <form className="rounded-lg border bg-white p-4" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+        // onSubmit, not action=: React 19 resets a form after its action, which would put the
+        // old name back in the box after a failed save
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        start(async () => setNameResult(await renameMe(String(fd.get("name") ?? ""))));
+      }}>
         <label className="block text-sm font-medium" htmlFor="name">ชื่อที่แสดง</label>
         <input id="name" name="name" defaultValue={name} maxLength={60} className={`${field} mt-1`} />
         <button disabled={pending} className={button}>บันทึกชื่อ</button>
         <Note result={nameResult} done="บันทึกแล้ว" />
       </form>
 
-      <form className="rounded-lg border bg-white p-4" action={(fd) => start(async () => {
-        const res = await changePin(String(fd.get("oldPin") ?? ""), String(fd.get("pin") ?? ""), String(fd.get("pinAgain") ?? ""));
-        setPinResult(res);
-      })}>
+      <form className="rounded-lg border bg-white p-4" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        // captured now: currentTarget is gone once the await returns
+        const form = e.currentTarget;
+        const fd = new FormData(form);
+        start(async () => {
+          const res = await changePin(String(fd.get("oldPin") ?? ""), String(fd.get("pin") ?? ""), String(fd.get("pinAgain") ?? ""));
+          setPinResult(res);
+          // the three boxes are emptied only when the PIN changed; after an error they keep what was typed
+          if (res.ok) form.reset();
+        });
+      }}>
         <p className="text-sm font-medium">เปลี่ยน PIN</p>
         <p className="text-xs text-[var(--bot-ink-mute)]">เครื่องอื่นที่เข้าไว้จะต้องเข้าสู่ระบบใหม่</p>
         {(["oldPin", "pin", "pinAgain"] as const).map((n) => (

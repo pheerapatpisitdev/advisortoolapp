@@ -1,19 +1,26 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { memberSignIn, signIn } from "./actions";
 
 type Tab = "member" | "unitos";
 
 export function LoginForm({ next, signupOpen, contactUrl }: { next: string; signupOpen: boolean; contactUrl: string | null }) {
-  const [tab, setTab] = useState<Tab>("member");
+  // the member tab is for people who can still sign up; while sign-up is off a visitor is
+  // almost surely a UnitOS agent, so that tab opens first (both stay available)
+  const [tab, setTab] = useState<Tab>(signupOpen ? "member" : "unitos");
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
-  const submit = (action: (fd: FormData) => Promise<{ error: string } | undefined>) => (fd: FormData) =>
+  // onSubmit, not action=: React 19 resets a form after its action, which would wipe the phone
+  // after every wrong PIN
+  const submit = (action: (fd: FormData) => Promise<{ error: string } | undefined>) => (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
     start(async () => {
       const res = await action(fd);
       if (res?.error) setError(res.error);
     });
+  };
   const pick = (t: Tab) => {
     setTab(t);
     setError(undefined);
@@ -33,7 +40,7 @@ export function LoginForm({ next, signupOpen, contactUrl }: { next: string; sign
         </div>
 
         {tab === "member" ? (
-          <form className="mt-5 space-y-3" action={submit(memberSignIn)}>
+          <form className="mt-5 space-y-3" onSubmit={submit(memberSignIn)}>
             <input type="hidden" name="next" value={next} />
             <input
               name="phone" type="tel" inputMode="tel" autoComplete="tel" autoFocus placeholder="เบอร์มือถือ"
@@ -51,7 +58,7 @@ export function LoginForm({ next, signupOpen, contactUrl }: { next: string; sign
             </button>
           </form>
         ) : (
-          <form className="mt-5" action={submit(signIn)}>
+          <form className="mt-5" onSubmit={submit(signIn)}>
             <p className="mb-3 text-center text-sm text-[var(--bot-ink-mute)]">รหัสตัวแทน 6 หลัก — รหัสเดียวกับที่ใช้เข้า UnitOS</p>
             <input type="hidden" name="next" value={next} />
             <input

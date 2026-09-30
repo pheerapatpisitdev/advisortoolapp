@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { signUp } from "./actions";
 
@@ -16,10 +16,16 @@ export function SignupForm() {
         <h1 className="text-center text-xl font-semibold">สมัครใช้ Studio</h1>
         <p className="mt-1 text-center text-sm text-[var(--bot-ink-mute)]">ใช้ AI เขียนคอนเทนต์ฟรี 10 รอบ แล้วเติมเงินใช้ต่อได้</p>
 
-        <form className="mt-6 space-y-3" action={(fd) => start(async () => {
-          const res = await signUp(fd);
-          if (res) setError(res);
-        })}>
+        {/* onSubmit, not action=: React 19 resets a form after its action, which would wipe
+            everything typed after every error */}
+        <form className="mt-6 space-y-3" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          start(async () => {
+            const res = await signUp(fd);
+            if (res) setError(res);
+          });
+        }}>
           <input name="name" autoComplete="name" maxLength={60} placeholder="ชื่อที่แสดง" aria-label="ชื่อที่แสดง" className={field} onChange={clear} />
           <input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="เบอร์มือถือ" aria-label="เบอร์มือถือ" className={field} onChange={clear} />
           <input name="pin" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} pattern="\d{6}"
