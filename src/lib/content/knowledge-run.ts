@@ -16,13 +16,14 @@ export interface KnowledgeWriteInput {
   loop?: boolean;
   pro?: boolean;
   logoSpot?: string;
+  /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   count: number;
   writer?: string;
 }
 
 /** ความรู้ on the server. Called by the generateKnowledge action only, which holds the limits. */
-export async function writeKnowledge(input: KnowledgeWriteInput): Promise<GenerateResult> {
+export async function writeKnowledge(input: KnowledgeWriteInput, pageId: string | null): Promise<GenerateResult> {
   const subject = subjectOf(String(input.kind ?? ""), String(input.subject ?? ""), typeof input.custom === "string" ? input.custom : "");
   if (!subject) return { ok: false, error: "เลือกหัวข้อ หรือพิมพ์หัวข้อเองก่อนนะครับ" };
   const format = knowledgeFormat(input.format);
@@ -39,6 +40,6 @@ export async function writeKnowledge(input: KnowledgeWriteInput): Promise<Genera
     // general knowledge is allowed, so there is nothing to find a figure in: every one is flagged
     yardstick: "",
     checks: modeChecks(KNOWLEDGE_HREF, undefined),
-    logoSpot: input.logoSpot, page: input.page, label: "knowledge",
+    logoSpot: input.logoSpot, pageId, label: "knowledge",
   });
 }

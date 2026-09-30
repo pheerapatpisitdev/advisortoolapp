@@ -7,6 +7,8 @@ const run = vi.hoisted(() => ({ readClaim: vi.fn(), writeClaim: vi.fn() }));
 vi.mock("@/lib/auth/quota", () => quota);
 vi.mock("@/lib/content/claim-run", () => run);
 vi.mock("@/lib/auth/viewer", () => ({ refuseUnless: vi.fn(async () => null), requireMember: vi.fn(async () => ({ agentId: "a1" })) }));
+const pages = vi.hoisted(() => ({ projectPage: vi.fn() }));
+vi.mock("@/lib/auth/pages", () => pages);
 
 const { PUT } = await import("@/app/api/content-claim/route");
 
@@ -21,6 +23,7 @@ function writeRequest(): Request {
 beforeEach(() => {
   vi.clearAllMocks();
   run.writeClaim.mockResolvedValue({ ok: true, items: [] });
+  pages.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });
 });
 
 describe("writing a รีวิวเคลม", () => {
@@ -30,6 +33,15 @@ describe("writing a รีวิวเคลม", () => {
     expect(res.status).toBe(200);
     expect(quota.takeRound).toHaveBeenCalledWith({ agentId: "a1" }, "ai-claim");
     expect(run.writeClaim).toHaveBeenCalledTimes(1);
+    expect(run.writeClaim).toHaveBeenCalledWith(expect.anything(), "p1");
+  });
+
+  it("writes nothing, and counts no round, for a Page the caller does not look after", async () => {
+    pages.projectPage.mockResolvedValue({ ok: false, error: "เพจนี้ไม่ได้อยู่ในเพจที่คุณดูแล" });
+    const res = await PUT(writeRequest() as never);
+    expect(res.status).toBe(403);
+    expect(quota.takeRound).not.toHaveBeenCalled();
+    expect(run.writeClaim).not.toHaveBeenCalled();
   });
 
   it("writes nothing once the month's rounds are used", async () => {

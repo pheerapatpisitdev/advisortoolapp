@@ -12,13 +12,14 @@ export interface DraftWriteInput {
   loop?: boolean;
   pro?: boolean;
   logoSpot?: string;
+  /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   count: number;
   writer?: string;
 }
 
 /** เขียนเอง on the server. Called by the generateDraft action only, which holds the limits. */
-export async function writeDraft(input: DraftWriteInput): Promise<GenerateResult> {
+export async function writeDraft(input: DraftWriteInput, pageId: string | null): Promise<GenerateResult> {
   const draft = cleanDraft(input.draft);
   if (!draft) return { ok: false, error: "พิมพ์ร่างก่อนนะครับ" };
   const format: Format = input.format === "script" || input.format === "ad" ? input.format : "post";
@@ -36,6 +37,6 @@ export async function writeDraft(input: DraftWriteInput): Promise<GenerateResult
     yardstick: draft,
     // a draft that recruits is read with หาทีม's rules: no income figure, even one it wrote itself
     checks: modeChecks(DRAFT_HREF, draft),
-    logoSpot: input.logoSpot, page: input.page, label: "draft",
+    logoSpot: input.logoSpot, pageId, label: "draft",
   });
 }

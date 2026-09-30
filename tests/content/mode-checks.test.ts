@@ -53,14 +53,14 @@ describe("the rounds pass their checks to the runner", () => {
   it("ความรู้: an empty yardstick, every figure", async () => {
     const { writeKnowledge } = await import("@/lib/content/knowledge-run");
     const { oneCallRound } = await import("@/lib/content/one-call-run");
-    await writeKnowledge({ kind: "article", subject: "waiting", count: 1 });
+    await writeKnowledge({ kind: "article", subject: "waiting", count: 1 }, null);
     expect(vi.mocked(oneCallRound).mock.calls.at(-1)![0]).toMatchObject({ yardstick: "", checks: { every: true, recruit: false } });
   });
 
   it("เขียนเอง: the draft as yardstick, and หาทีม's rules when it recruits", async () => {
     const { writeDraft } = await import("@/lib/content/draft-run");
     const { oneCallRound } = await import("@/lib/content/one-call-run");
-    await writeDraft({ draft: "ชวนมาร่วมทีม รายได้ 50,000 บาทต่อเดือน", count: 1 });
+    await writeDraft({ draft: "ชวนมาร่วมทีม รายได้ 50,000 บาทต่อเดือน", count: 1 }, null);
     expect(vi.mocked(oneCallRound).mock.calls.at(-1)![0]).toMatchObject({ yardstick: "ชวนมาร่วมทีม รายได้ 50,000 บาทต่อเดือน", checks: { recruit: true, every: false } });
   });
 });

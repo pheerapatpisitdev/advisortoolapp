@@ -39,6 +39,7 @@ export interface RecruitWriteInput {
   pro?: boolean;
   /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
   logoSpot?: string;
+  /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   count: number;
   writer?: string;
@@ -49,7 +50,7 @@ function checkedText(o: ContentOutput): string {
   return [...o.hooks, o.body, o.closing, o.hashtags.join(" "), posterText(o.poster)].join("\n");
 }
 
-export async function writeRecruit(input: RecruitWriteInput): Promise<GenerateResult> {
+export async function writeRecruit(input: RecruitWriteInput, pageId: string | null): Promise<GenerateResult> {
   const topic = topicOf(input.topic, input.custom ?? "");
   if (!topic) return { ok: false, error: "เลือกหัวข้อ หรือพิมพ์หัวข้อเองก่อนนะครับ" };
   const count = Math.min(MAX_RECRUIT_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
@@ -58,7 +59,7 @@ export async function writeRecruit(input: RecruitWriteInput): Promise<GenerateRe
   const loop = format === "script" && Boolean(input.loop);
   const pro = format !== "ad" && input.pro === true;
   const logo = format === "script" ? null
-    : await roundLogo(typeof input.page === "string" ? input.page : null, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
+    : await roundLogo(pageId, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
   const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
   let hold: string | null = null;
   try {
@@ -100,7 +101,7 @@ export async function writeRecruit(input: RecruitWriteInput): Promise<GenerateRe
     for (const w of written) {
       try {
         items.push(await saveContent({
-          planHref: RECRUIT_HREF, format, angle: "", length, output: w.output,
+          planHref: RECRUIT_HREF, format, angle: "", length, output: w.output, pageId,
           flags: {
             // the topic's brief is the only place a figure may come from, and it has none of income
             numbers: strayNumbers(checkedText(w.output), topic.brief),

@@ -80,6 +80,7 @@ export interface ClaimWriteInput {
   pro?: boolean;
   /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
   logoSpot?: string;
+  /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   writer?: string;
   /** an angle id, "custom" with the owner's words, or "" for the AI's turn-taking */
@@ -107,7 +108,7 @@ export function tooThin(f: ClaimFacts): boolean {
   return !f.illness && !f.paid && !f.billTotal && !f.note;
 }
 
-export async function writeClaim(input: ClaimWriteInput): Promise<GenerateResult> {
+export async function writeClaim(input: ClaimWriteInput, pageId: string | null): Promise<GenerateResult> {
   const facts = cleanFacts(input.facts);
   if (tooThin(facts)) return { ok: false, error: "AI อ่านโรคหรือยอดเงินจากเอกสารไม่ได้ — ลองรูปที่ชัดขึ้น หรือเล่าในช่อง “เล่าเพิ่ม” นะครับ" };
   const count = Math.min(MAX_CLAIM_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
@@ -116,7 +117,7 @@ export async function writeClaim(input: ClaimWriteInput): Promise<GenerateResult
   const loop = format === "script" && Boolean(input.loop);
   const pro = format !== "ad" && input.pro === true;
   const logo = format === "script" ? null
-    : await roundLogo(typeof input.page === "string" ? input.page : null, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
+    : await roundLogo(pageId, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
   const yardstick = factsBlock(facts);
   let hold: string | null = null;
   try {
@@ -161,7 +162,7 @@ export async function writeClaim(input: ClaimWriteInput): Promise<GenerateResult
       let item: ContentItem;
       try {
         item = await saveContent({
-          planHref: CLAIM_HREF, format, angle: "", length, output: w.output,
+          planHref: CLAIM_HREF, format, angle: "", length, output: w.output, pageId,
           flags: {
             numbers: strayNumbers(checkedText(w.output), yardstick),
             words: findWords(checkedText(w.output), words),

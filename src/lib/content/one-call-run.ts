@@ -43,7 +43,8 @@ export interface OneCallRound {
   loop: boolean;
   pro: boolean;
   logoSpot?: string;
-  page?: string;
+  /** the Page whose project the pieces go into, as projectPage settled it; null for an agent with no Pages */
+  pageId: string | null;
   /** names the round in the server log */
   label: string;
 }
@@ -54,7 +55,7 @@ function checkedText(o: ContentOutput): string {
 
 export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
   const logo = r.format === "script" ? null
-    : await roundLogo(typeof r.page === "string" ? r.page : null, isLogoSpot(r.logoSpot) ? r.logoSpot : null);
+    : await roundLogo(r.pageId, isLogoSpot(r.logoSpot) ? r.logoSpot : null);
   let hold: string | null = null;
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
@@ -98,7 +99,7 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
     for (const w of written) {
       try {
         items.push(await saveContent({
-          planHref: r.href, format: r.format, angle: "", length: r.length, output: w.output,
+          planHref: r.href, format: r.format, angle: "", length: r.length, output: w.output, pageId: r.pageId,
           flags: {
             numbers: strayNumbers(checkedText(w.output), r.yardstick, { every: r.checks?.every }),
             words: findWords(checkedText(w.output), words),

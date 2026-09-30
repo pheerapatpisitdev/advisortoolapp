@@ -5,6 +5,7 @@ import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
 import { readClaim, writeClaim } from "@/lib/content/claim-run";
 import { refuseUnless, requireMember } from "@/lib/auth/viewer";
 import { takeRound } from "@/lib/auth/quota";
+import { projectPage } from "@/lib/auth/pages";
 
 /**
  * รีวิวเคลม, as plain requests: six photographs are more than a server action's one-megabyte
@@ -71,6 +72,9 @@ export async function PUT(req: NextRequest) {
   const ratios = form.getAll("ratio").map(Number);
   if (files.length > MAX_PAPERS || ratios.length !== files.length || !ratios.every(okRatio)) return bad("ขนาดรูปเอกสารไม่ถูกต้อง ลองเลือกรูปใหม่นะครับ");
   if (!roundsPerHour(`claim-write:${clientIp(req.headers)}`)) return bad("สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ", 429);
+  // the Page whose project the round goes into, settled before a round is counted (owner, 2026-09-30)
+  const project = await projectPage(String(form.get("page") ?? ""));
+  if (!project.ok) return bad(project.error, 403);
   // the writing is a round of its own, as the reading is: without it a second round from the
   // same papers (the page keeps their reading) or a PUT sent by hand wrote past the allowance
   const over = await takeRound(await requireMember(), "ai-claim");
@@ -79,7 +83,7 @@ export async function PUT(req: NextRequest) {
   return Response.json(await writeClaim({
     facts, count: Number(form.get("count")), writer: String(form.get("writer") ?? ""), papers,
     format: String(form.get("format") ?? ""), length: String(form.get("length") ?? ""), loop: form.get("loop") === "on", pro: form.get("pro") === "on",
-    logoSpot: String(form.get("logoSpot") ?? ""), page: String(form.get("page") ?? ""),
+    logoSpot: String(form.get("logoSpot") ?? ""),
     angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
-  }));
+  }, project.pageId));
 }

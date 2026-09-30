@@ -38,6 +38,7 @@ import { maybeOnPage, onPage, publishView } from "@/lib/content/publish-label";
 import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publish-flow";
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 import { can } from "@/lib/auth/access";
+import { projectPage } from "@/lib/auth/pages";
 import { requireMember } from "@/lib/auth/viewer";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
 
@@ -106,7 +107,7 @@ export interface GenerateInput {
   theme?: string;
   /** where the Page's logo goes on the round's posters (logo.ts); absent or unknown leaves it off */
   logoSpot?: string;
-  /** the Page the round is for, whose logo it carries (the caller's own when they post to no Page) */
+  /** the Page whose project the round is for (projectPage settles it); its logo goes on the posters */
   page?: string;
 }
 
@@ -124,11 +125,11 @@ export type GenerateResult =
  * Saves a round's pieces one by one. A save that fails stops the loop, and what was saved
  * before it is kept and counted, so the owner is told "2 of 4" rather than "failed".
  */
-async function saveAll(rows: Parameters<typeof saveContent>[0][]): Promise<{ items: ContentItem[]; failed: boolean }> {
+async function saveAll(rows: Omit<Parameters<typeof saveContent>[0], "pageId">[], pageId: string | null): Promise<{ items: ContentItem[]; failed: boolean }> {
   const items: ContentItem[] = [];
   for (const row of rows) {
     try {
-      items.push(await saveContent(row));
+      items.push(await saveContent({ ...row, pageId }));
     } catch (e) {
       console.error("content save failed mid-round:", e);
       return { items, failed: true };
@@ -170,9 +171,12 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
   // the owner's story is the one other place a number may come from
   const yardstick = fact ? `${brief.text}\n${fact}` : brief.text;
   const theme = (THEMES as readonly string[]).includes(input.theme ?? "") ? (input.theme as Theme) : null;
+  // the Page whose project the round goes into (owner, 2026-09-30), settled before anything is counted
+  const project = await projectPage(input.page);
+  if (!project.ok) return project;
   // a script has no poster to carry a logo
   const logo = input.format === "script" ? null
-    : await roundLogo(typeof input.page === "string" ? input.page : null, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
+    : await roundLogo(project.pageId, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
   // the round's colour and the Page's logo on every poster, the writer's own or the one drawn from its hook
   const dressed = (o: ContentOutput): ContentOutput => {
     if (!theme && !logo) return o;
@@ -235,7 +239,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
           rateVersion: brief.rateVersion, model: heads.model, costThb: heads.costThb / sheets.length, hookTemplateId: null,
         };
       });
-      return roundResult(await saveAll(rows), count, 0);
+      return roundResult(await saveAll(rows, project.pageId), count, 0);
     }
 
     if (input.format === "ad") {
@@ -246,7 +250,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
         planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(w.output),
         flags: flagsFor(w.output, brief.text, words, null),
         rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare, hookTemplateId: null,
-      })));
+      })), project.pageId);
       return roundResult(saved, round.planned, round.budgetHit);
     }
 
@@ -262,7 +266,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
       flags: flagsFor(w.output, yardstick, words, null),
       rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare,
       hookTemplateId: template?.id ?? null,
-    })));
+    })), project.pageId);
     if (template && saved.items.length) await countHookUse(template, saved.items.length).catch((e) => console.error("hook count failed:", e));
     // against the count asked for: a planner reply repaired short gives fewer plans, and the
     // owner is told rather than handed two posts for three
@@ -284,9 +288,11 @@ export async function generateRecruit(input: RecruitWriteInput): Promise<Generat
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
+  const project = await projectPage(input.page);
+  if (!project.ok) return project;
   const over = await takeRound(viewer, "ai-recruit");
   if (over) return { ok: false, error: over };
-  return writeRecruit(input);
+  return writeRecruit(input, project.pageId);
 }
 
 /** ความรู้: a round from a picked subject (src/lib/content/knowledge.ts), under the plan form's hourly limit. */
@@ -299,9 +305,11 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
   if (!subjectOf(String(input.kind ?? ""), String(input.subject ?? ""), typeof input.custom === "string" ? input.custom : "")) {
     return { ok: false, error: "เลือกหัวข้อ หรือพิมพ์หัวข้อเองก่อนนะครับ" };
   }
+  const project = await projectPage(input.page);
+  if (!project.ok) return project;
   const over = await takeRound(viewer, "ai-knowledge");
   if (over) return { ok: false, error: over };
-  return writeKnowledge(input);
+  return writeKnowledge(input, project.pageId);
 }
 
 /** เขียนเอง: the agent's draft polished into versions (src/lib/content/draft.ts), under the hourly limit. */
@@ -312,9 +320,11 @@ export async function generateDraft(input: DraftWriteInput): Promise<GenerateRes
   }
   // an empty draft is said before a round is counted
   if (!cleanDraft(input.draft)) return { ok: false, error: "พิมพ์ร่างก่อนนะครับ" };
+  const project = await projectPage(input.page);
+  if (!project.ok) return project;
   const over = await takeRound(viewer, "ai-draft");
   if (over) return { ok: false, error: over };
-  return writeDraft(input);
+  return writeDraft(input, project.pageId);
 }
 
 export interface ProofreadResult {

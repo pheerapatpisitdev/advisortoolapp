@@ -18,7 +18,7 @@ const { oneCallRound } = await import("@/lib/content/one-call-run");
 const piece = (body: string): ContentOutput => ({ hooks: ["หัว"], body, closing: "", hashtags: [], imagePrompt: "", disclaimer: "" });
 const base = {
   href: "draft", format: "post" as const, length: null, count: 2, messages: () => [{ role: "user" as const, content: "x" }],
-  loop: false, pro: false, label: "test",
+  loop: false, pro: false, label: "test", pageId: "p1",
 };
 
 beforeEach(() => {
@@ -27,6 +27,11 @@ beforeEach(() => {
 });
 
 describe("a one-call round", () => {
+  it("writes each piece into the round's Page", async () => {
+    await oneCallRound({ ...base, count: 1, yardstick: "", parse: () => piece("ดี") });
+    expect(store.saveContent.mock.calls[0][0]).toMatchObject({ pageId: "p1" });
+  });
+
   it("flags a figure that is not in the yardstick, and not one that is", async () => {
     const r = await oneCallRound({ ...base, count: 1, yardstick: "ร่างมีเลข 500,000 บาท", parse: () => piece("ทุน 500,000 บาท เบี้ย 1,234 บาท") });
     expect(r.ok).toBe(true);

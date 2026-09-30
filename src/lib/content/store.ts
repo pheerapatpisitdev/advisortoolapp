@@ -175,13 +175,15 @@ export async function saveContent(row: {
   planHref: string; format: Format; angle: AngleId; length: Length | null;
   output: ContentOutput; flags: Flags; rateVersion: string | null; model: string; costThb: number;
   hookTemplateId: string | null;
+  /** the Page whose project the piece goes into (projectPage settled it); null for an agent with no Pages */
+  pageId: string | null;
 }): Promise<ContentItem> {
   const owner = (await currentScope()).owner;
   const { data, error } = await supabaseAdmin().from("ins_content").insert({
     agent_id: owner?.agentId ?? null, tenant_id: owner?.tenantId ?? null,
     plan_href: row.planHref, format: row.format, angle: row.angle || null, length: row.length,
     output: row.output, flags: row.flags, rate_version: row.rateVersion, model: row.model, cost_thb: row.costThb,
-    hook_template_id: row.hookTemplateId,
+    hook_template_id: row.hookTemplateId, page_id: row.pageId,
   }).select(COLUMNS).single();
   if (error) throw new Error(`บันทึกคอนเทนต์ไม่สำเร็จ: ${error.message}`);
   return toItem(data as Record<string, unknown>);
