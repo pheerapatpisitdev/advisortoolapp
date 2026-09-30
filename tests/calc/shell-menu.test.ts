@@ -180,7 +180,8 @@ describe("Studio's own menu", () => {
   it("keeps the front page for admins and posting staff; other agents start at the workbench", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
-    expect(hrefs(who)).toEqual(["/studio/write", "/studio/hooks", "/studio/people", "/"]);
+    // the calendar is every agent's: a Page's for those who post, a plan for the rest (owner, 2026-09-30)
+    expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
     expect(hrefs({ ...who, admin: true, publish: true })).toContain("/studio");
     // posting staff choose among their own Pages there (owner, 2026-09-29)
     expect(hrefs({ ...who, publish: true })).toContain("/studio");

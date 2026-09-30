@@ -15,6 +15,8 @@ import { ChevronLeftIcon, ChevronRightIcon } from "../ui/icons";
 import { CalendarBoard, MonthList } from "./CalendarBoard";
 import { gatePage, placedBy } from "@/lib/auth/viewer";
 import { seesEveryPage } from "@/lib/auth/pages";
+import { can } from "@/lib/auth/access";
+import { PlanCalendar } from "./PlanCalendar";
 
 export const dynamic = "force-dynamic";
 /** the board's own actions (a drop posts through Facebook) run from this page, as /studio's do */
@@ -66,8 +68,10 @@ function failure(item: ContentItem): [string, string][] {
 }
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ y?: string; m?: string; page?: string; view?: string }> }) {
-  const viewer = await gatePage("/studio/calendar", "publish");
+  const viewer = await gatePage("/studio/calendar");
   const params = await searchParams;
+  // an agent with no Page plans rather than posts: nothing below asks Facebook (owner, 2026-09-30)
+  if (!can(viewer, "publish")) return <PlanCalendar params={{ y: params.y, m: params.m, view: params.view }} />;
   const today = todayKey();
   const [ty, tm] = today.split("-").map(Number);
   const { year, month } = parseMonth(params.y, params.m, { year: ty, month: tm });
