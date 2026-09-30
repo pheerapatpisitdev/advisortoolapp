@@ -27,6 +27,7 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
   return (
     <WalletClient
       enabled={settings.enabled}
+      multiplier={settings.multiplier}
       balanceSatang={balance}
       entries={entries}
       rounds={{ used: allowance.used, limit: allowance.limit ?? 0 }}

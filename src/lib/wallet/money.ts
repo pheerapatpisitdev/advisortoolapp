@@ -44,6 +44,30 @@ export const ROUND_HOLD_THB: Record<AiRound, number> = {
   "ai-draw": 3,
 };
 
+/**
+ * What one post costs the providers on average, in baht before the multiplier: ฿0.56 a piece
+ * of writing, plus the round's planning and proofreading shared out over its pieces, from the
+ * usage ledger over the fortnight to 2026-10-01. At ×2 that is ฿1.25 a post.
+ *
+ * The top-up buttons say what the money buys in posts rather than rounds (owner, 2026-10-01):
+ * "about 10 rounds for ฿50" read as ฿5 a go, when a round is three to five posts. A picture
+ * costs more than a post and is not folded into the count.
+ */
+export const POST_COST_THB = 0.625;
+
+const clean = (n: number): number => Number(n.toFixed(6));
+
+/** about how many posts `thb` buys at `multiplier`: rounded down, to a multiple of five from ten up */
+export function postsFor(thb: number, multiplier: number): number {
+  const n = clean(thb / (POST_COST_THB * multiplier));
+  return n >= 10 ? Math.floor(n / 5) * 5 : Math.floor(n);
+}
+
+/** the half baht a post's average price is under: "เฉลี่ยโพสต์ละไม่ถึง ฿1.50" at ×2 */
+export function perPostUnder(multiplier: number): number {
+  return (Math.floor(clean(POST_COST_THB * multiplier * 2)) + 1) / 2;
+}
+
 /** satang, rounded up; toFixed first so floating-point dust is not a satang of its own */
 const upToSatang = (baht: number): number => Math.ceil(Number((baht * 100).toFixed(6)));
 
