@@ -46,6 +46,12 @@ export async function setStatus(id: string, status: "active" | "suspended"): Pro
   if (error) throw new Error(`เปลี่ยนสถานะไม่สำเร็จ: ${error.message}`);
 }
 
+/** Takes back an account that was opened past the address's daily limit (src/app/signup/actions.ts). */
+export async function deleteMember(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_members").delete().eq("id", id);
+  if (error) throw new Error(`ลบบัญชีไม่สำเร็จ: ${error.message}`);
+}
+
 export async function signupsFromIp(ip: string, since: Date): Promise<number> {
   const { count, error } = await supabaseAdmin().from("ins_members").select("id", { count: "exact", head: true })
     .eq("signup_ip", ip).gte("created_at", since.toISOString());

@@ -40,6 +40,14 @@ describe("setPin", () => {
   });
 });
 
+describe("deleteMember", () => {
+  it("filters the delete by id", async () => {
+    await store.deleteMember("m1");
+    const [deleteOp] = db.writes("ins_members", "delete");
+    expect(has(deleteOp, "eq", "id", "m1")).toBe(true);
+  });
+});
+
 describe("memberSettings", () => {
   it("is closed with no contact link when nothing is saved", async () => {
     db.on("ins_ai_settings", { data: null });

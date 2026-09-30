@@ -5,7 +5,7 @@ const nav = vi.hoisted(() => ({ redirect: vi.fn() }));
 vi.mock("next/navigation", () => nav);
 const auth = vi.hoisted(() => ({ startSession: vi.fn() }));
 vi.mock("@/lib/auth/session", () => auth);
-const store = vi.hoisted(() => ({ memberSettings: vi.fn(), signupsFromIp: vi.fn(), memberByPhone: vi.fn(), createMember: vi.fn() }));
+const store = vi.hoisted(() => ({ memberSettings: vi.fn(), signupsFromIp: vi.fn(), memberByPhone: vi.fn(), createMember: vi.fn(), deleteMember: vi.fn() }));
 vi.mock("@/lib/auth/member-store", () => store);
 
 const { signUp } = await import("@/app/signup/actions");
@@ -27,12 +27,23 @@ beforeEach(() => {
 
 describe("signUp", () => {
   it("opens an account, signs it in and goes to Studio", async () => {
+    store.signupsFromIp.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
     expect(await signUp(form())).toBeUndefined();
     const made = store.createMember.mock.calls[0][0];
     expect(made).toMatchObject({ phone: "0812345678", name: "สมชาย", ip: "1.2.3.4" });
     expect(made.pinHash).toMatch(/^scrypt\$/);
+    expect(store.signupsFromIp).toHaveBeenCalledTimes(2);
+    expect(store.deleteMember).not.toHaveBeenCalled();
     expect(auth.startSession).toHaveBeenCalledWith("m9");
     expect(nav.redirect).toHaveBeenCalledWith("/studio");
+  });
+
+  it("deletes a new account when re-count reveals a burst passed the early check", async () => {
+    store.signupsFromIp.mockResolvedValueOnce(2).mockResolvedValueOnce(4);
+    expect(await signUp(form())).toEqual({ error: "สมัครจากเครือข่ายนี้ครบแล้ว กรุณาลองใหม่พรุ่งนี้" });
+    expect(store.deleteMember).toHaveBeenCalledWith("m9");
+    expect(auth.startSession).not.toHaveBeenCalled();
+    expect(nav.redirect).not.toHaveBeenCalled();
   });
 
   it("takes nobody while the owner has sign-up off", async () => {
