@@ -2,7 +2,8 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
-import { backgroundPrompt, stripThai } from "@/lib/content/background";
+import { backgroundPrompt, posterPrompt, stripThai } from "@/lib/content/background";
+import { readPosterText } from "@/lib/content/poster-read";
 import { pickLook } from "@/lib/content/look-pick";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { briefFor } from "@/lib/content/brief";
@@ -568,6 +569,9 @@ export async function saveContentEdits(
         // filed, and no edit from a browser may swap it for another path
         delete output.poster.documents;
         if (item.output.poster?.documents) output.poster.documents = item.output.poster.documents;
+        // so is the record of words the model drew: only the drawing writes it, only markPosterText ticks it
+        delete output.poster.aiText;
+        if (item.output.poster?.aiText) output.poster.aiText = item.output.poster.aiText;
       }
       // back to the plain colour: nobody drew it any more, and its file can go
       const dropped = opts.plain && kept && output.poster && !output.poster.background ? kept : null;
@@ -719,7 +723,8 @@ export async function drawBackground(id: string, request = "", painter?: string,
       const chosen = painterFor(painter, cap - spent, Boolean(found?.photos.length));
       if (!chosen.modelId) return { ok: false, error: "งบคอนเทนต์เหลือน้อย อัตโนมัติจึงไม่วาดภาพ เลือกโมเดลวาดเองได้ครับ" };
       // the picture's price set aside first (plus the request's translation), so forty orders at once cannot all fit in the last baht
-      const held = await holdContentBudget(chosen.thb + OVERHEAD_THB, cap);
+      // a brief is translated and, when the model draws the words too, they are read back: a second small call
+      const held = await holdContentBudget(chosen.thb + OVERHEAD_THB * (request.trim() ? 2 : 1), cap);
       if (!held.ok) return { ok: false, error: tooDear("วาดรูปนี้", held.left) };
       hold = held.id;
       const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "");
@@ -727,20 +732,27 @@ export async function drawBackground(id: string, request = "", painter?: string,
       // for this scene away from the Page's last few (looks.ts) — a picker or a list that cannot
       // be read leaves the original look, and the picture is drawn
       const direction = await inEnglish(request);
+      // with a brief the model draws the whole poster, words and all — but not over a รีวิวเคลม's
+      // papers, which only the code may lay (they were blacked out and checked)
+      const wordsDrawn = Boolean(direction) && !poster.documents?.length;
       const look = direction ? undefined : await pickLook({
         scene: stripThai(item.output.imagePrompt), person: Boolean(who),
         recent: await recentLooks(item.pageId).catch(() => []),
       });
-      const prompt = backgroundPrompt({
-        scene: item.output.imagePrompt, layout: poster.layout, theme: poster.theme, look,
-        request: direction,
-        // on a claim poster the papers cover the lower half, so the person stands beside them
-        person: who ? { pose: who.pose, aside: Boolean(poster.documents?.length) } : null,
-      });
+      const prompt = wordsDrawn
+        ? posterPrompt({ direction, poster, layout: poster.layout, person: who ? { pose: who.pose } : null })
+        : backgroundPrompt({
+          scene: item.output.imagePrompt, layout: poster.layout, theme: poster.theme, look,
+          request: direction,
+          // on a claim poster the papers cover the lower half, so the person stands beside them
+          person: who ? { pose: who.pose, aside: Boolean(poster.documents?.length) } : null,
+        });
       const img = await drawImage({ task: "content-image", prompt, prefer: chosen.modelId, references: found?.photos });
       // the fallback may have drawn it; name what actually did
       const by = PAINTERS.find((p) => p.modelId === img.id)?.short ?? (img.id === "gemini-image-lite" ? "Gemini Lite Image" : img.model);
       const background = await saveBackground(item.id, img.bytes, img.mimeType);
+      // the words the model drew, read back off the picture against the words it was given
+      const aiText = wordsDrawn ? await readPosterText(img.bytes, img.mimeType, poster) : undefined;
       // The drawing takes half a minute; an edit saved meanwhile is read again, not written over.
       // The write goes through only if the piece is still as just read (its rev); an edit that
       // lands between the read and the write sends it round again, three times at most.
@@ -760,7 +772,9 @@ export async function drawBackground(id: string, request = "", painter?: string,
         const words = latest.output.poster ?? poster;
         // the person as drawn now: set when there is one, gone when the picture has none
         // the papers make room only while a person is in the picture (undefined is not stored)
-        const drawn = { ...words, background, personAside: who && words.documents?.length ? true : undefined };
+        const drawn = { ...words, background, personAside: who && words.documents?.length ? true : undefined, aiText };
+        // a picture drawn behind the code's words has no drawn words to check
+        if (!aiText) delete drawn.aiText;
         const output = { ...latest.output, poster: drawn, pictureBy: by, person: who, look };
         if (!who) delete output.person;
         // drawn from the owner's own direction: no look of ours to name, nor to avoid next time
