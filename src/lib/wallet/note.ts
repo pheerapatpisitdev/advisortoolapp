@@ -22,3 +22,16 @@ export function roundsNote(rounds: Rounds, estimate: string | number): { text: s
     topUp: true,
   };
 }
+
+/**
+ * The content money the page reckons with for อัตโนมัติ and the over-budget warning. The
+ * owner's monthly ceiling is the answer for staff and for a free round; a round the agent pays
+ * from the wallet ignores the ceiling on the server (contentCap() is Infinity inside it), so
+ * the page must too, or a paying agent is quietly given no pictures and told to raise a
+ * budget that is not theirs to raise (owner, 2026-09-30).
+ */
+export function moneyLeft(spend: { cap: number; spent: number; rounds: Rounds | null }): number {
+  const r = spend.rounds;
+  if (r && r.used >= r.limit && r.wallet) return Infinity;
+  return Math.max(0, spend.cap - spend.spent);
+}

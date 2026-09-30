@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { HOOK_CATEGORY_LABEL, type HookTemplate } from "@/lib/content/hooks";
 import { footer, fullText } from "@/lib/content/output";
 import type { PiecePerson } from "@/lib/content/people";
-import { roundsNote } from "@/lib/wallet/note";
+import { moneyLeft, roundsNote } from "@/lib/wallet/note";
 import { defaultPoster, posterUrl, THEME_LABEL, THEMES } from "@/lib/content/poster";
 import { MAX_PIECES } from "@/lib/content/plan";
 import { onPage, publishView } from "@/lib/content/publish-label";
@@ -575,7 +575,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   async function generate() {
     if (pending) return;
     // อัตโนมัติ is settled at the press, on the money left then
-    const paintWith = painterOf(painter, Math.max(0, spend.cap - spend.spent)).id;
+    const paintWith = painterOf(painter, moneyLeft(spend)).id;
     const pictureBrief = brief.trim();
     const pictureOf = person;
     await runRound(pieceCount, format, () => generateRound({
@@ -686,9 +686,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     // a รีวิวเคลม poster's papers are its picture already
     ? items.filter((i) => i.format !== "script" && !i.output.poster?.background && !i.output.poster?.documents?.length && !drawing.has(i.id) && !onPage(i.publish))
     : [];
-  const redraw = painterFor(painter, Math.max(0, spend.cap - spend.spent), Boolean(person));
+  const redraw = painterFor(painter, moneyLeft(spend), Boolean(person));
   function drawBare() {
-    void drawPictures(bare, painterOf(painter, Math.max(0, spend.cap - spend.spent)).id, brief.trim(), person);
+    void drawPictures(bare, painterOf(painter, moneyLeft(spend)).id, brief.trim(), person);
   }
 
   async function drawPictures(list: ContentItem[], paintWith: string, request: string, who: PiecePerson | null) {
@@ -926,7 +926,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
   const pieceCount = format === "ad" ? adAngles * adTones : count;
   // what one piece costs with the picks made, the picture included (scripts have none)
-  const left = Math.max(0, spend.cap - spend.spent);
+  const left = moneyLeft(spend);
   const writes = writerOf(writer, left);
   // a person in the picture is drawn by Gemini whatever was picked, at Gemini's price
   const paints = painterFor(painter, left, Boolean(person));
