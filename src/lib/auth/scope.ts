@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { getViewer, staffAgentIds } from "./viewer";
+import { myPageIds } from "./pages";
 
 /**
  * Whose Studio rows a request may see (owner, 2026-09-27).
@@ -22,12 +23,14 @@ export interface Scope {
   agents: string[] | null;
   /** rows with no owner (written before 2026-09-27, or by an agent since removed) */
   unowned: boolean;
+  /** the Pages whose pieces are visible (src/lib/auth/pages.ts, owner 2026-09-30); null = every Page's */
+  pages: string[] | null;
   /** who writes a new row, for its owner columns */
   owner: { agentId: string; tenantId: string } | null;
 }
 
-const ALL: Scope = { agents: null, unowned: true, owner: null };
-const NONE: Scope = { agents: [], unowned: false, owner: null };
+const ALL: Scope = { agents: null, unowned: true, pages: null, owner: null };
+const NONE: Scope = { agents: [], unowned: false, pages: [], owner: null };
 
 export const currentScope = cache(async (): Promise<Scope> => {
   let viewer;
@@ -39,8 +42,10 @@ export const currentScope = cache(async (): Promise<Scope> => {
   }
   if (!viewer) return NONE;
   const owner = { agentId: viewer.agentId, tenantId: viewer.tenantId };
-  if (viewer.staff) return { agents: await staffAgentIds(), unowned: true, owner };
-  return { agents: [viewer.agentId], unowned: false, owner };
+  // a Page's pieces are for whoever looks after it; a list that cannot be read shows none
+  const pages = [...(await myPageIds().catch(() => new Set<string>()))];
+  if (viewer.staff) return { agents: await staffAgentIds(), unowned: true, pages, owner };
+  return { agents: [viewer.agentId], unowned: false, pages, owner };
 });
 
 export function maySee(scope: Scope, agentId: string | null | undefined): boolean {
@@ -55,4 +60,23 @@ export function agentFilter(scope: Scope): string | null {
   if (scope.unowned) parts.push("agent_id.is.null");
   // nothing visible: a filter no row can pass
   return parts.length ? parts.join(",") : "agent_id.eq.00000000-0000-0000-0000-000000000000";
+}
+
+/**
+ * A piece of the workbench (owner, 2026-09-30): while it has a Page it is that Page's project,
+ * seen by whoever looks after the Page and by nobody else, whoever wrote it. A piece on no Page
+ * is seen as every row is (maySee).
+ */
+export function maySeePiece(scope: Scope, piece: { agentId: string | null; pageId: string | null }): boolean {
+  if (!piece.pageId) return maySee(scope, piece.agentId);
+  return scope.pages === null || scope.pages.includes(piece.pageId);
+}
+
+/** maySeePiece as a PostgREST `or` filter on page_id and agent_id; null when everything is visible. */
+export function pieceFilter(scope: Scope): string | null {
+  const agents = agentFilter(scope);
+  if (scope.pages === null && agents === null) return null;
+  const onPage = scope.pages === null ? "page_id.not.is.null" : scope.pages.length ? `page_id.in.(${scope.pages.join(",")})` : null;
+  const offPage = agents ? `and(page_id.is.null,or(${agents}))` : "page_id.is.null";
+  return onPage ? `${onPage},${offPage}` : offPage;
 }

@@ -52,7 +52,7 @@ const output: ContentOutput = {
 };
 const make = (publish: Publish | null, out: ContentOutput = output): ContentItem => ({
   id: "p1", createdAt: "2026-09-25T00:00:00Z", planHref: "/nowhere", format: "post", angle: "", length: null,
-  output: out, flags: clean, model: null, costThb: 0, status: "used", hookTemplateId: null, publish, agentId: null,
+  output: out, flags: clean, model: null, costThb: 0, status: "used", hookTemplateId: null, publish, agentId: null, pageId: PAGE,
 });
 const held = (msAhead: number, postId = `${PAGE}_9`): Publish =>
   ({ state: "scheduled", pageId: PAGE, postId, at: new Date(Date.now() + msAhead).toISOString(), error: null });

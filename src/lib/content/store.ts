@@ -1,4 +1,4 @@
-import { agentFilter, currentScope, maySee } from "@/lib/auth/scope";
+import { currentScope, maySeePiece, pieceFilter } from "@/lib/auth/scope";
 import { admits, monthSpend, monthStart, release, reserve, sweepHolds, type SpendLine } from "@/lib/ai/ledger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { ContentWord, WordHit, WordKind } from "./check";
@@ -42,6 +42,8 @@ export interface ContentItem {
   publish: Publish | null;
   /** the UnitOS agent who wrote it; null before 2026-09-27, when every piece was the owner's */
   agentId: string | null;
+  /** the Page whose project it is (owner, 2026-09-30): written there, posted only there; null for an agent with no Pages */
+  pageId: string | null;
 }
 
 export const PUBLISH_STATES = ["posting", "scheduled", "published", "failed", "cancelled"] as const;
@@ -134,7 +136,7 @@ export async function holdContentBudget(thb: number, cap: number): Promise<{ ok:
 export { release as releaseContentBudget };
 
 // one literal: supabase-js reads the column list's type from the string, and a joined one is opaque to it
-const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error";
+const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error, page_id";
 
 function toPublish(r: Record<string, unknown>): Publish | null {
   const state = r.publish_state;
@@ -165,6 +167,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
     hookTemplateId: (r.hook_template_id as string | null) ?? null,
     publish: toPublish(r),
     agentId: (r.agent_id as string | null) ?? null,
+    pageId: (r.page_id as string | null) ?? null,
   };
 }
 
@@ -184,7 +187,7 @@ export async function saveContent(row: {
   return toItem(data as Record<string, unknown>);
 }
 
-/** A piece by its id — or null when it is not the asker's to see (src/lib/auth/scope.ts). */
+/** A piece by its id — or null when it is not the asker's to see (src/lib/auth/scope.ts: its Page's, or its writer's). */
 export async function getContent(id: string): Promise<ContentItem | null> {
   const [{ data, error }, scope] = await Promise.all([
     supabaseAdmin().from("ins_content").select(COLUMNS).eq("id", id).maybeSingle(),
@@ -192,7 +195,7 @@ export async function getContent(id: string): Promise<ContentItem | null> {
   ]);
   if (error) throw new Error(error.message);
   const item = data ? toItem(data as Record<string, unknown>) : null;
-  return item && maySee(scope, item.agentId) ? item : null;
+  return item && maySeePiece(scope, item) ? item : null;
 }
 
 /**
@@ -201,7 +204,7 @@ export async function getContent(id: string): Promise<ContentItem | null> {
  * function runs it.
  */
 async function ownersFilter(): Promise<string | null> {
-  return agentFilter(await currentScope());
+  return pieceFilter(await currentScope());
 }
 
 /**
