@@ -1,4 +1,3 @@
-import { monthStart } from "@/lib/ai/ledger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatBaht, holdSatang, holdSatangFor } from "@/lib/wallet/money";
 import type { RoundPass } from "@/lib/wallet/round";
@@ -6,23 +5,23 @@ import { holdWallet, walletSettings } from "@/lib/wallet/store";
 import type { Viewer } from "./access";
 
 /**
- * How many AI rounds an agent may start in a Thai month (owner, 2026-09-27).
+ * How many AI rounds an agent may start without paying: five, once (owner, 2026-09-30).
  *
- * Every agent of every UnitOS room may write in Studio now, and every round is paid from the
- * owner's one AI budget. So each agent has an allowance of their own, smaller for a room still
- * on its free trial: enough to use the thing properly, not enough for one person — or one
- * person who signed up a trial room to try — to spend the month for everybody. Staff are
- * outside it; the owner's content ceiling on /admin/ai still stands over all of it.
+ * Until then it was twenty a Thai month, five for a trial room, paid from the owner's one AI
+ * budget. With the wallet (src/lib/wallet/) the owner chose a taste instead of an allowance:
+ * five rounds to try Studio, for a paying room and a trial room alike, never given again —
+ * after them every round is paid from the agent's own wallet. Staff are outside it; the
+ * owner's content ceiling on /admin/ai still stands over the free rounds.
  *
- * A round is a writing round, a หาทีม round, a รีวิวเคลม reading or a picture drawn — the four
+ * Counted from 1 October 2026 in Thailand, so rounds used under the monthly allowance before
+ * the change do not eat into the five (owner, 2026-09-30).
+ *
+ * A round is a writing round, a หาทีม round, a รีวิวเคลม reading or a picture drawn — the
  * things that call a model on purpose. Counted from ins_audit, so deleting the piece a round
  * made does not give the round back.
- *
- * Each round cost about ฿1–3 in September 2026 (฿0.53 a written piece on average, a round
- * writes several, a picture costs more), so 20 a month is at most about ฿60 an agent.
  */
-export const DEFAULT_MEMBER_AI_MONTH = 20;
-export const DEFAULT_TRIAL_AI_MONTH = 5;
+export const FREE_ROUNDS = 5;
+export const FREE_ROUNDS_FROM = new Date("2026-10-01T00:00:00+07:00");
 
 export const AI_ROUNDS = ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft"] as const;
 export type AiRound = (typeof AI_ROUNDS)[number];
@@ -35,33 +34,25 @@ export interface Allowance {
 
 export async function allowanceOf(viewer: Viewer): Promise<Allowance> {
   if (viewer.staff) return { limit: null, used: 0 };
-  const db = supabaseAdmin();
-  const [{ data: settings }, { count, error }] = await Promise.all([
-    db.from("ins_ai_settings").select("member_ai_month, trial_ai_month").maybeSingle(),
-    db.from("ins_audit").select("id", { count: "exact", head: true })
-      .eq("agent_id", viewer.agentId).in("action", [...AI_ROUNDS]).gte("at", monthStart().toISOString()),
-  ]);
+  const { count, error } = await supabaseAdmin().from("ins_audit").select("id", { count: "exact", head: true })
+    .eq("agent_id", viewer.agentId).in("action", [...AI_ROUNDS]).gte("at", FREE_ROUNDS_FROM.toISOString());
   if (error) throw new Error(`อ่านโควตาไม่ได้: ${error.message}`);
-  const set = viewer.trial ? settings?.trial_ai_month : settings?.member_ai_month;
-  const limit = typeof set === "number" ? set : viewer.trial ? DEFAULT_TRIAL_AI_MONTH : DEFAULT_MEMBER_AI_MONTH;
-  return { limit, used: count ?? 0 };
+  return { limit: FREE_ROUNDS, used: count ?? 0 };
 }
 
 /** The refusal to show, or null when a round may start. */
-export function overAllowance(a: Allowance, trial: boolean): string | null {
+export function overAllowance(a: Allowance): string | null {
   if (a.limit === null || a.used < a.limit) return null;
-  return trial
-    ? `ห้องทดลองใช้สร้างด้วย AI ได้เดือนละ ${a.limit} ครั้ง — ใช้ครบแล้วเดือนนี้ (เปิดใช้เต็มรูปแบบใน UnitOS เพื่อใช้ได้มากขึ้น)`
-    : `สร้างด้วย AI ได้คนละ ${a.limit} ครั้งต่อเดือน — ใช้ครบแล้วเดือนนี้ เริ่มใหม่วันที่ 1`;
+  return `ใช้รอบฟรีครบ ${a.limit} ครั้งแล้ว`;
 }
 
-/** the refusal when the free month is used and the wallet has not got this round's price */
+/** the refusal when the free rounds are used and the wallet has not got this round's price */
 export const walletShort = (neededSatang: number): string =>
-  `โควตาฟรีเดือนนี้หมดแล้ว — รอบนี้ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(neededSatang)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`;
+  `รอบฟรีหมดแล้ว — รอบนี้ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(neededSatang)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`;
 
 /**
- * Asks for one round and says who pays for it: nobody for staff, the free month while it
- * lasts, then the agent's wallet (owner, 2026-09-30) — the round's price set aside first, so
+ * Asks for one round and says who pays for it: nobody for staff, the five free rounds while they
+ * last, then the agent's wallet (owner, 2026-09-30) — the round's price set aside first, so
  * rounds started together cannot spend the same baht. A round is written down before the
  * model is called either way, so rounds started together count each other.
  *
@@ -74,7 +65,7 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
   // staff have no allowance to count against; the content ceiling covers them
   if (viewer.staff) return { ok: true, paidBy: "staff" };
   const db = supabaseAdmin();
-  const refusal = overAllowance(await allowanceOf(viewer), viewer.trial);
+  const refusal = overAllowance(await allowanceOf(viewer));
   if (!refusal) {
     const { error } = await db.from("ins_audit").insert({ agent_id: viewer.agentId, action: round, target });
     if (error) console.error(`round ${round} not counted:`, error.message);

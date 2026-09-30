@@ -102,7 +102,7 @@ export function PressBar({ count, max, onCount, unit, label, onPress, disabled, 
   disabled: boolean;
   note: string;
   warning?: string | null;
-  /** the free month is used and the wallet is on: a way to top it up beside the note */
+  /** the free rounds are used and the wallet is on: a way to top it up beside the note */
   topUp?: boolean;
 }) {
   const step = "inline-flex size-11 items-center justify-center text-lg text-[var(--ct-ink)] disabled:opacity-30";

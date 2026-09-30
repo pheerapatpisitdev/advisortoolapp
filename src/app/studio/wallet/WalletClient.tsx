@@ -68,7 +68,7 @@ export function WalletClient({ enabled, balanceSatang, entries, rounds, paid }: 
         <p className="text-sm text-[var(--ct-mute)]">ยอดในกระเป๋า</p>
         <p className="mt-1 text-3xl font-semibold tabular-nums">{formatBaht(balance)}</p>
         <p className="mt-2 text-sm text-[var(--ct-mute)]">
-          เหลือ {freeLeft}/{rounds.limit} รอบฟรีเดือนนี้ · หมดแล้วจึงตัดจากกระเป๋าตามต้นทุนจริงของงาน
+          รอบฟรีเหลือ {freeLeft}/{rounds.limit} ครั้ง · หมดแล้วจึงตัดจากกระเป๋าตามต้นทุนจริงของงาน
         </p>
         {waiting === "checking" && <p className="mt-3 text-sm font-medium" role="status">กำลังยืนยันการชำระเงิน…</p>}
         {waiting === "late" && <p className="mt-3 text-sm" role="status">ยังไม่ได้รับการยืนยันจาก Stripe — ยอดจะเข้าเองเมื่อ Stripe แจ้ง ลองเปิดหน้านี้ใหม่ภายหลังนะครับ</p>}

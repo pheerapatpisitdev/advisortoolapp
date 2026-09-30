@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 
-/** Who pays for a round: staff nobody, then the free month, then the agent's wallet (owner, 2026-09-30). */
+/** Who pays for a round: staff nobody, then the five free rounds, then the agent's wallet (owner, 2026-09-30). */
 
 const db = vi.hoisted(() => ({ used: 0, insert: vi.fn(async () => ({ error: null })) }));
 vi.mock("@/lib/supabase/admin", () => ({
@@ -40,14 +40,14 @@ describe("takeRound", () => {
   });
 
   it("uses the free month first, and counts the round", async () => {
-    db.used = 19;
+    db.used = 4;
     expect(await takeRound(agent, "ai-write")).toEqual({ ok: true, paidBy: "free" });
     expect(db.insert).toHaveBeenCalledWith({ agent_id: agent.agentId, action: "ai-write", target: null });
     expect(wallet.holdWallet).not.toHaveBeenCalled();
   });
 
-  it("holds the round's price in the wallet once the free month is used", async () => {
-    db.used = 20;
+  it("holds the round's price in the wallet once the free rounds are used", async () => {
+    db.used = 5;
     const held = holdSatang("ai-draw", 2);
     expect(await takeRound(agent, "ai-draw", "piece-1"))
       .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: held, multiplier: 2 });
@@ -56,14 +56,14 @@ describe("takeRound", () => {
   });
 
   it("holds the price it is told instead of the round's default, times the multiplier", async () => {
-    db.used = 20;
+    db.used = 5;
     const res = await takeRound(agent, "ai-draw", "piece-1", 0.46);
     expect(res).toMatchObject({ ok: true, paidBy: "wallet", heldSatang: 92, multiplier: 2 });
     expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 92, "ai-draw");
   });
 
   it("keeps the round's default hold when the price it is told is not a positive number", async () => {
-    db.used = 20;
+    db.used = 5;
     const held = holdSatang("ai-draw", 2);
     for (const bad of [0, -1, NaN, Infinity]) {
       wallet.holdWallet.mockClear();
@@ -73,7 +73,7 @@ describe("takeRound", () => {
   });
 
   it("refuses and sends the agent to top up when the wallet has not got it", async () => {
-    db.used = 20;
+    db.used = 5;
     wallet.holdWallet.mockResolvedValueOnce(null);
     const r = await takeRound(agent, "ai-write");
     expect(r).toMatchObject({ ok: false });
@@ -82,15 +82,15 @@ describe("takeRound", () => {
   });
 
   it("says the old words while the owner has the wallet off", async () => {
-    db.used = 20;
+    db.used = 5;
     wallet.walletSettings.mockResolvedValueOnce({ enabled: false, multiplier: 2 });
     const r = await takeRound(agent, "ai-write");
-    expect(r.ok === false && r.refusal).toMatch(/20 ครั้งต่อเดือน/);
+    expect(r.ok === false && r.refusal).toMatch(/รอบฟรีครบ 5 ครั้ง/);
     expect(wallet.holdWallet).not.toHaveBeenCalled();
   });
 
   it("says the old words when the wallet cannot be read, rather than letting the round through", async () => {
-    db.used = 20;
+    db.used = 5;
     wallet.walletSettings.mockRejectedValueOnce(new Error("down"));
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const r = await takeRound(agent, "ai-write");

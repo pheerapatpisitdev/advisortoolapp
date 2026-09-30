@@ -14,18 +14,18 @@ export interface Rounds {
 export function roundsNote(rounds: Rounds, estimate: string | number): { text: string; topUp: boolean } {
   const left = Math.max(0, rounds.limit - rounds.used);
   if (left > 0 || !rounds.wallet) {
-    return { text: `ราว ฿${estimate} · เดือนนี้สร้างด้วย AI ได้อีก ${left} จาก ${rounds.limit} ครั้ง`, topUp: false };
+    return { text: `ราว ฿${estimate} · รอบฟรีเหลือ ${left} จาก ${rounds.limit} ครั้ง`, topUp: false };
   }
   const price = (Number(estimate) * rounds.wallet.multiplier).toFixed(2);
   return {
-    text: `ราว ฿${price} จากกระเป๋า · โควตาฟรีเดือนนี้หมดแล้ว · คงเหลือ ${formatBaht(rounds.wallet.satang)}`,
+    text: `ราว ฿${price} จากกระเป๋า · รอบฟรีหมดแล้ว · คงเหลือ ${formatBaht(rounds.wallet.satang)}`,
     topUp: true,
   };
 }
 
 /**
  * The content money the page reckons with for อัตโนมัติ and the over-budget warning. The
- * owner's monthly ceiling is the answer for staff and for a free round; a round the agent pays
+ * owner's monthly content ceiling is the answer for staff and for a free round; a round the agent pays
  * from the wallet ignores the ceiling on the server (contentCap() is Infinity inside it), so
  * the page must too, or a paying agent is quietly given no pictures and told to raise a
  * budget that is not theirs to raise (owner, 2026-09-30).

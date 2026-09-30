@@ -54,7 +54,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
   onReader: (r: string) => void;
   /** the month's content money left, for the estimate and for อัตโนมัติ */
   left: number;
-  /** the agent's own AI rounds this month; null for staff (src/lib/auth/quota.ts) */
+  /** the agent's five free AI rounds and their wallet; null for staff (src/lib/auth/quota.ts) */
   rounds?: Rounds | null;
   pending: boolean;
   making: number;
