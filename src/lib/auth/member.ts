@@ -81,6 +81,12 @@ export async function verifyPin(pin: string, stored: string): Promise<boolean> {
   const salt = Buffer.from(parts[4], "base64");
   const want = Buffer.from(parts[5], "base64");
   if (salt.length === 0 || want.length === 0) return false;
-  const got = await scrypt(pin, salt, want.length, { N, r, p });
-  return timingSafeEqual(got, want);
+  try {
+    const got = await scrypt(pin, salt, want.length, { N, r, p });
+    return timingSafeEqual(got, want);
+  } catch {
+    // a stored cost scrypt refuses (N not a power of two, over the memory limit, ...) is a
+    // hash nobody can match, not a reason for the sign-in to crash
+    return false;
+  }
 }

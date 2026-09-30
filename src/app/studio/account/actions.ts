@@ -23,11 +23,11 @@ const MEMBERS_ONLY: Result = { ok: false, error: "หน้านี้สำห
 export async function changePin(oldPin: string, pin: string, pinAgain: string): Promise<Result> {
   const viewer = await requireMember();
   if (viewer.kind !== "member") return MEMBERS_ONLY;
-  const member = await memberByPhone(viewer.code);
-  if (!member || typeof oldPin !== "string") return { ok: false, error: "PIN เดิมไม่ถูกต้อง" };
-
+  let member: Awaited<ReturnType<typeof memberByPhone>>;
   let claim: string;
   try {
+    member = await memberByPhone(viewer.code);
+    if (!member || typeof oldPin !== "string") return { ok: false, error: "PIN เดิมไม่ถูกต้อง" };
     claim = await claimPinAttempt(clientIp(await headers()), member.phone);
     // the count includes the claim just written, exactly as in the sign-in
     const failures = await phoneFailures(member.phone, new Date(Date.now() - WINDOW_MINUTES * 60 * 1000));

@@ -121,6 +121,27 @@ describe("memberSignIn", () => {
     expect(auth.startSession).not.toHaveBeenCalled();
   });
 
+  it("says the system is down, and starts no session, when a lookup throws after the claim", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    store.memberByPhone.mockRejectedValueOnce(new Error("down"));
+    expect(await memberSignIn(form("0812345678", "280419"))).toEqual({ error: "ระบบขัดข้อง ลองใหม่อีกครั้ง" });
+    expect(auth.startSession).not.toHaveBeenCalled();
+    expect(nav.redirect).not.toHaveBeenCalled();
+  });
+
+  it("writes the claim before it counts the phone or the address", async () => {
+    const order: string[] = [];
+    db.on("ins_login_attempts", (steps) => {
+      if (has(steps, "insert")) { order.push("claim"); return { data: { id: "a1" } }; }
+      if (has(steps, "update") || has(steps, "delete")) return {};
+      order.push("ip count");
+      return { count: 0 };
+    });
+    store.phoneFailures.mockImplementation(async () => { order.push("phone count"); return 0; });
+    await memberSignIn(form("0812345678", "280419"));
+    expect(order.slice(0, 3)).toEqual(["claim", "ip count", "phone count"]);
+  });
+
   it("asks for a phone and a PIN before looking anything up", async () => {
     expect(await memberSignIn(form("0812", "280419"))).toEqual({ error: "กรอกเบอร์มือถือ 10 หลัก และ PIN 6 หลัก" });
     expect(await memberSignIn(form("0812345678", "28041"))).toEqual({ error: "กรอกเบอร์มือถือ 10 หลัก และ PIN 6 หลัก" });

@@ -51,6 +51,15 @@ describe("the PIN", () => {
     expect(await verifyPin("280419", "plain$280419")).toBe(false);
     expect(await verifyPin("280419", "scrypt$16384$8$1$AAAA")).toBe(false);
   });
+
+  it("answers false, not a throw, for a hash whose cost scrypt refuses", async () => {
+    const salt = Buffer.from("saltsaltsaltsalt").toString("base64");
+    const hash = Buffer.alloc(32, 1).toString("base64");
+    // N must be a power of two
+    expect(await verifyPin("280419", `scrypt$3$8$1$${salt}$${hash}`)).toBe(false);
+    // far over the memory limit: refused at once rather than hanging the request
+    expect(await verifyPin("280419", `scrypt$${2 ** 30}$8$1$${salt}$${hash}`)).toBe(false);
+  });
 });
 
 describe("cleanName", () => {

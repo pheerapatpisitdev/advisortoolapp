@@ -67,6 +67,14 @@ describe("changePin and the sign-in lock", () => {
     expect(auth.startSession).not.toHaveBeenCalled();
   });
 
+  it("says the system is down when the member cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    store.memberByPhone.mockRejectedValueOnce(new Error("down"));
+    expect(await changePin("280419", "730512", "730512")).toEqual({ ok: false, error: "ระบบขัดข้อง ลองใหม่อีกครั้ง" });
+    expect(store.setPin).not.toHaveBeenCalled();
+    expect(auth.startSession).not.toHaveBeenCalled();
+  });
+
   it("keeps the claim as a failure when the old PIN is wrong", async () => {
     expect(await changePin("280418", "730512", "730512")).toEqual({ ok: false, error: "PIN เดิมไม่ถูกต้อง" });
     expect(store.releasePinAttempt).not.toHaveBeenCalled();

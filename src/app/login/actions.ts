@@ -101,27 +101,36 @@ export async function memberSignIn(formData: FormData): Promise<{ error: string 
   // a refused attempt is taken back, so a locked address or phone does not extend its own lock
   const release = () => supabase.from("ins_login_attempts").delete().eq("id", attempt.id);
 
-  const fromIp = await ipFailures(ip, sinceDate.toISOString());
-  if (fromIp > MAX_FAILURES) {
-    await release();
-    return { error: `กรอกผิดเกิน ${MAX_FAILURES} ครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
-  }
-  const fromPhone = await phoneFailures(phone, sinceDate);
-  if (fromPhone > PHONE_FAILURES) {
-    await release();
-    return { error: `เบอร์นี้กรอก PIN ผิดหลายครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
-  }
+  let memberId: string;
+  // what follows the claim can throw (database down); say so in words rather than reach the
+  // error boundary. startSession and redirect stay outside: redirect works by throwing.
+  try {
+    const fromIp = await ipFailures(ip, sinceDate.toISOString());
+    if (fromIp > MAX_FAILURES) {
+      await release();
+      return { error: `กรอกผิดเกิน ${MAX_FAILURES} ครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
+    }
+    const fromPhone = await phoneFailures(phone, sinceDate);
+    if (fromPhone > PHONE_FAILURES) {
+      await release();
+      return { error: `เบอร์นี้กรอก PIN ผิดหลายครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
+    }
 
-  const member = await memberByPhone(phone);
-  const ok = Boolean(member && member.status === "active" && (await verifyPin(pin, member.pin_hash)));
+    const member = await memberByPhone(phone);
+    const ok = Boolean(member && member.status === "active" && (await verifyPin(pin, member.pin_hash)));
 
-  if (!ok || !member) {
-    const left = Math.min(MAX_FAILURES - fromIp, PHONE_FAILURES - fromPhone);
-    const why = "เบอร์หรือ PIN ไม่ถูกต้อง";
-    return { error: left > 0 ? `${why} เหลืออีก ${left} ครั้ง` : `${why} ถูกระงับชั่วคราว` };
+    if (!ok || !member) {
+      const left = Math.min(MAX_FAILURES - fromIp, PHONE_FAILURES - fromPhone);
+      const why = "เบอร์หรือ PIN ไม่ถูกต้อง";
+      return { error: left > 0 ? `${why} เหลืออีก ${left} ครั้ง` : `${why} ถูกระงับชั่วคราว` };
+    }
+    memberId = member.id;
+  } catch (e) {
+    console.error("memberSignIn failed after the attempt was recorded:", e);
+    return { error: "ระบบขัดข้อง ลองใหม่อีกครั้ง" };
   }
   await supabase.from("ins_login_attempts").update({ ok: true }).eq("id", attempt.id);
-  await startSession(member.id);
+  await startSession(memberId);
   redirect(next);
 }
 
