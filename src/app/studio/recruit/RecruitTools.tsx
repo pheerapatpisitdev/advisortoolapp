@@ -13,6 +13,7 @@ import {
 import type { GenerateResult } from "../actions";
 import { recruitRound } from "../draw";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
+import { PictureBrief } from "../ui/PictureBrief";
 import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
 
 /**
@@ -29,7 +30,7 @@ const chip = (on: boolean) =>
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
 const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
-export function RecruitTools({ writer, onWriter, painter, onPainter, people, person, onPerson, logo, rounds, left, pending, making, run, folded, formId }: {
+export function RecruitTools({ writer, onWriter, painter, onPainter, people, person, onPerson, brief, onBrief, logo, rounds, left, pending, making, run, folded, formId }: {
   writer: string;
   onWriter: (id: string) => void;
   painter: string;
@@ -39,14 +40,17 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   logo: { page?: string; spot: LogoSpot | null; onSpot: (s: LogoSpot | null) => void };
   person: PiecePerson | null;
   onPerson: (p: PiecePerson | null) => void;
+  /** บรีฟภาพเพิ่มเติม, shared with the plan form and remembered (ui/PictureBrief.tsx) */
+  brief: string;
+  onBrief: (next: string) => void;
   /** the month's content money left, for the estimate and for อัตโนมัติ */
   left: number;
   /** the agent's free AI rounds and their wallet; null for staff (src/lib/auth/quota.ts) */
   rounds?: Rounds | null;
   pending: boolean;
   making: number;
-  /** `paintWith` and `who` are the painter and person at the press; the page draws each new poster's picture with them */
-  run: (asked: number, format: Format, send: () => Promise<GenerateResult>, paintWith: string, who: PiecePerson | null) => Promise<void>;
+  /** `paintWith`, `who` and `brief` are the painter, person and picture brief at the press; the page draws each new poster's picture with them */
+  run: (asked: number, format: Format, send: () => Promise<GenerateResult>, paintWith: string, who: PiecePerson | null, brief: string) => Promise<void>;
   /** a phone's form folded away after a round: the fields go, the press stays in reach */
   folded?: boolean;
   /** the id the page's ตั้งค่าการสร้าง button controls */
@@ -85,7 +89,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
     const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count, writer,
       ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
-    await run(count, round.format, () => recruitRound(round), paintWith, person);
+    await run(count, round.format, () => recruitRound(round), paintWith, person, brief.trim());
   }
 
   const quota = rounds ? roundsNote(rounds, estimate) : null;
@@ -189,6 +193,8 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
             {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ราวภาพละ ฿2.4</span>}
           </div>
         )}
+
+        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} />}
         </PictureFold>
       </div>
 

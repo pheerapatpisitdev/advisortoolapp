@@ -1,5 +1,4 @@
 "use client";
-import { MAX_DIRECTION } from "@/lib/content/background";
 import Link from "next/link";
 import { TodayPlan } from "./TodayPlan";
 import { calendarHref, workbenchHref } from "@/lib/content/workbench-link";
@@ -20,6 +19,7 @@ import { contentSpend, contentWorkbench, removeContent, setContentStatus, type C
 import { publishSetup, scheduleNextOpen, type PublishPage } from "./publish";
 import { thaiWhen } from "@/lib/content/publish-label";
 import { drawPicture, generateRound } from "./draw";
+import { PictureBrief } from "./ui/PictureBrief";
 import { PersonPicker, type PersonOption } from "./PersonPicker";
 import { AUTO_THEME, ThemeSwatches, type ThemeChoice } from "./ThemeSwatches";
 import { LogoPicker, useLogoSpot } from "./ui/LogoPicker";
@@ -106,8 +106,6 @@ const PERSON_KEY = "content-person";
 const THEME_KEY = "content-poster-theme";
 /** the owner's own direction for the round's pictures, kept per device like the reader */
 const BRIEF_KEY = "content-picture-brief";
-/** what drawBackground translates and keeps of a request */
-const MAX_BRIEF = MAX_DIRECTION;
 
 const chip = (on: boolean) =>
   `inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
@@ -1000,11 +998,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <ClaimTools
                 folded={!formOpen} formId={mode === "claim" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
-                people={people} person={person} onPerson={setPerson} logo={logo}
+                people={people} person={person} onPerson={setPerson} brief={brief} onBrief={setBrief} logo={logo}
                 reader={reader} onReader={setReader} left={left} rounds={spend.rounds} pending={pending} making={making}
-                run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
+                run={(asked, fmt, send, paintWith, who, pictureBrief) => runRound(asked, fmt, send, (fresh) => {
                   // the photograph behind each new claim poster, drawn as a plan round's are
-                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
+                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, pictureBrief, who);
                 })}
               />
           </div>
@@ -1012,11 +1010,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <RecruitTools
                 folded={!formOpen} formId={mode === "recruit" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
-                people={people} person={person} onPerson={setPerson} logo={logo}
+                people={people} person={person} onPerson={setPerson} brief={brief} onBrief={setBrief} logo={logo}
                 left={left} rounds={spend.rounds} pending={pending} making={making}
-                run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
+                run={(asked, fmt, send, paintWith, who, pictureBrief) => runRound(asked, fmt, send, (fresh) => {
                   // the photograph behind each new recruit poster, drawn as a plan round's are
-                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
+                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, pictureBrief, who);
                 })}
               />
           </div>
@@ -1024,10 +1022,10 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <KnowledgeTools
                 folded={!formOpen} formId={mode === "knowledge" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
-                people={people} person={person} onPerson={setPerson} logo={logo}
+                people={people} person={person} onPerson={setPerson} brief={brief} onBrief={setBrief} logo={logo}
                 left={left} rounds={spend.rounds} pending={pending} making={making}
-                run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
-                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
+                run={(asked, fmt, send, paintWith, who, pictureBrief) => runRound(asked, fmt, send, (fresh) => {
+                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, pictureBrief, who);
                 })}
               />
           </div>
@@ -1035,10 +1033,10 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <DraftTools
                 folded={!formOpen} formId={mode === "draft" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
-                people={people} person={person} onPerson={setPerson} logo={logo}
+                people={people} person={person} onPerson={setPerson} brief={brief} onBrief={setBrief} logo={logo}
                 left={left} rounds={spend.rounds} pending={pending} making={making}
-                run={(asked, fmt, send, paintWith, who) => runRound(asked, fmt, send, (fresh) => {
-                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, "", who);
+                run={(asked, fmt, send, paintWith, who, pictureBrief) => runRound(asked, fmt, send, (fresh) => {
+                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, pictureBrief, who);
                 })}
               />
           </div>
@@ -1196,18 +1194,8 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             </div>
           )}
 
-          {/* the owner's free direction for every picture of the round, on top of the fixed rules */}
-          {format !== "script" && painter !== "none" && (
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">บรีฟภาพเพิ่มเติม <span className="font-normal text-[var(--ct-mute)]">(ไม่ใส่ก็ได้)</span></span>
-              <textarea
-                value={brief} onChange={(e) => setBrief(e.target.value)} maxLength={MAX_BRIEF} rows={3}
-                placeholder="เช่น โทนอบอุ่นแบบภาพยนตร์ ครอบครัวในสวนตอนเย็น มุมกว้าง ไม่เอาภาพในโรงพยาบาล"
-                className={field}
-              />
-              <span className="mt-1 block text-xs text-[var(--ct-mute)]">ใช้กับภาพทุกชิ้นในรอบนี้ ถ้าใส่ AI วาดทั้งโปสเตอร์รวมตัวหนังสือ ต้องตรวจตัวสะกดและตัวเลขก่อนโพสต์ · {brief.length}/{MAX_BRIEF}</span>
-            </label>
-          )}
+          {/* the owner's free direction for every picture of the round, shared with the other forms */}
+          {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={setBrief} />}
           </PictureFold>
           </div>
 
