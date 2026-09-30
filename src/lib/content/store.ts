@@ -219,12 +219,13 @@ const staleClaim = (now = new Date()) =>
 /** the studio's lists: a piece on the Page is the calendar's to show (see onPage); a stuck send is not */
 const offPage = () => `publish_state.is.null,publish_state.not.in.(${ON_PAGE_STATES.join(",")}),${staleClaim()}`;
 
-/** `offset`: the pieces already shown, for โหลดเพิ่ม — newest first, so the next page is older */
-export async function listContent(filter: { status?: ContentStatus; planHref?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
+/** `offset`: the pieces already shown, for โหลดเพิ่ม — newest first, so the next page is older. `pageId`: one Page's project */
+export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.planHref) q = q.eq("plan_href", filter.planHref);
+  if (filter.pageId) q = q.eq("page_id", filter.pageId);
   if (only) q = q.or(only);
   const { data, error } = await q.or(offPage());
   if (error) throw new Error(error.message);
@@ -232,17 +233,30 @@ export async function listContent(filter: { status?: ContentStatus; planHref?: s
 }
 
 /** How many pieces sit under each tab. Three head-only counts; the table is small. */
-export async function countByStatus(planHref?: string): Promise<Record<ContentStatus, number>> {
+export async function countByStatus(planHref?: string, pageId?: string): Promise<Record<ContentStatus, number>> {
   const only = await ownersFilter();
   const counts = await Promise.all(CONTENT_STATUSES.map(async (status) => {
     let q = supabaseAdmin().from("ins_content").select("id", { count: "exact", head: true }).eq("status", status);
     if (planHref) q = q.eq("plan_href", planHref);
+    if (pageId) q = q.eq("page_id", pageId);
     if (only) q = q.or(only);
     const { count, error } = await q.or(offPage());
     if (error) throw new Error(error.message);
     return [status, count ?? 0] as const;
   }));
   return Object.fromEntries(counts) as Record<ContentStatus, number>;
+}
+
+/** How many drafts each Page's project holds, for the cards on /studio (owner, 2026-09-30). */
+export async function countDraftsByPage(): Promise<Map<string, number>> {
+  const only = await ownersFilter();
+  let q = supabaseAdmin().from("ins_content").select("page_id").eq("status", "draft").not("page_id", "is", null);
+  if (only) q = q.or(only);
+  const { data, error } = await q.or(offPage());
+  if (error) throw new Error(error.message);
+  const out = new Map<string, number>();
+  for (const r of (data ?? []) as { page_id: string }[]) out.set(r.page_id, (out.get(r.page_id) ?? 0) + 1);
+  return out;
 }
 
 export async function setStatus(id: string, status: ContentStatus): Promise<void> {
@@ -542,12 +556,13 @@ export async function listDue(from: Date, to: Date, limit = 50): Promise<Content
  * Posts that could go on the calendar: never sent, taken back, refused, or stuck sending —
  * newest first. รอตรวจ and ใช้จริง both, since posting is itself the decision to use a piece.
  */
-export async function listWaiting(limit = 50): Promise<ContentItem[]> {
-  // the staff's pieces: the rail is what the staff may put on their Page
+export async function listWaiting(pageId?: string, limit = 50): Promise<ContentItem[]> {
+  // the staff's pieces: the rail is what the staff may put on their Page — its own project's (2026-09-30)
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS)
     .eq("format", "post").in("status", ["draft", "used"])
     .or(`publish_state.is.null,publish_state.eq.cancelled,publish_state.eq.failed,${staleClaim()}`);
+  if (pageId) q = q.eq("page_id", pageId);
   if (only) q = q.or(only);
   const { data, error } = await q.order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);

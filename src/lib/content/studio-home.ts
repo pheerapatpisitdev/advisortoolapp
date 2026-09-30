@@ -5,8 +5,9 @@ import { forPage } from "./people-pages";
  * Studio tools laid out under it, and a word or two in each tile saying what is in it — the
  * owner's layout, taken from a screenshot of another product (2026-09-28).
  *
- * The calendar, the people library and the Page's connection belong to one Page. The drafts
- * are the agent's and the opening lines the room's, so those tiles say the same on every card.
+ * The calendar, the people library, the Page's connection and its drafts (its project,
+ * 2026-09-30) belong to one Page. The opening lines are the room's, so only that tile says the
+ * same on every card.
  *
  * The page is the admins' and the posting staff's (owner, 2026-09-28, 2026-09-29): each sees the
  * cards of the Pages they look after (src/lib/auth/pages.ts). An admin who may not post sees no
@@ -53,6 +54,8 @@ export interface HomeInput {
   scheduled: Map<string, number>;
   /** null wherever a count could not be read: the tile says เปิดดู, not a false zero */
   drafts: number | null;
+  /** each Page's own drafts (its project, owner 2026-09-30); null when not read */
+  draftsByPage: Map<string, number> | null;
   hooks: number | null;
   /** the people library, each with their Page (src/lib/content/people-pages.ts) */
   people: { pageId: string | null }[] | null;
@@ -89,7 +92,7 @@ export function scheduledByPage(items: { publish: { state?: string | null; pageI
 export function homeCards(input: HomeInput): HomeCard[] {
   const write = (pageId?: string): HomeTile => ({
     key: "write", href: pageId ? `/studio/write?page=${encodeURIComponent(pageId)}` : "/studio/write", label: "Organic Studio",
-    status: count(input.drafts, (n) => `ร่าง ${n} ชิ้น`, "ยังไม่มีร่าง"),
+    status: count(pageId ? input.draftsByPage && (input.draftsByPage.get(pageId) ?? 0) : input.drafts, (n) => `ร่าง ${n} ชิ้น`, "ยังไม่มีร่าง"),
   });
   const hooks: HomeTile = {
     key: "hooks", href: "/studio/hooks", label: "คลังสูตรประโยคเปิด",

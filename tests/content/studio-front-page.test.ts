@@ -21,7 +21,7 @@ vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/auth/viewer", () => ({ gatePage: vi.fn(async () => state.who), whoOf: (v: unknown) => v }));
 vi.mock("@/lib/content/people-store", () => ({ listPeople: vi.fn(async () => state.people) }));
 vi.mock("@/lib/content/store", () => ({
-  countByStatus: vi.fn(async () => ({ draft: 0 })), listHookTemplates: vi.fn(async () => []), listPublished: vi.fn(async () => []),
+  countByStatus: vi.fn(async () => ({ draft: 0 })), countDraftsByPage: vi.fn(async () => new Map([["pX", 4]])), listHookTemplates: vi.fn(async () => []), listPublished: vi.fn(async () => []),
 }));
 vi.mock("@/app/studio/publish", () => ({
   publishSetup: vi.fn(async () => ({ pages: state.mine.map((p) => ({ ...p, canPost: true })) })),
@@ -56,6 +56,11 @@ describe("the people counted on a card of the front page", () => {
     const [card] = await cards();
     expect(card.id).toBe("room");
     expect(peopleStatus(card)).toBe("1 คน");
+  });
+
+  it("say how many drafts the card's own Page has", async () => {
+    const [card] = await cards();
+    expect(card.tiles.find((t) => t.key === "write")?.status).toBe("ร่าง 4 ชิ้น");
   });
 
   it("stay whole for an admin, who sees every Page", async () => {

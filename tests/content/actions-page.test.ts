@@ -394,7 +394,8 @@ describe("the workbench list", () => {
     store.countByStatus.mockResolvedValueOnce({ draft: 57, used: 0, trashed: 0 });
     const wb = await contentWorkbench({ status: "draft", planHref: "/cancer", offset: 40 });
     expect(wb.failed).toBeUndefined();
-    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: "/cancer" }, 40, 40);
+    // the owner's first Page's project, none being named (2026-09-30)
+    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: "/cancer", pageId: PAGE }, 40, 40);
     expect(wb.counts.draft).toBe(57);
   });
 
@@ -402,6 +403,6 @@ describe("the workbench list", () => {
     store.listContent.mockResolvedValueOnce([]);
     store.countByStatus.mockResolvedValueOnce({ draft: 0, used: 0, trashed: 0 });
     await contentWorkbench({ status: "draft", offset: -5 });
-    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined }, 40, 0);
+    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined, pageId: PAGE }, 40, 0);
   });
 });

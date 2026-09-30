@@ -13,8 +13,10 @@ vi.mock("@/lib/auth/pages", async (orig) => ({ ...(await orig<typeof import("@/l
 vi.mock("@/lib/content/recruit-run", () => ({ writeRecruit: runs.writeRecruit }));
 vi.mock("@/lib/content/knowledge-run", () => ({ writeKnowledge: runs.writeKnowledge }));
 vi.mock("@/lib/content/draft-run", () => ({ writeDraft: runs.writeDraft }));
+const store = vi.hoisted(() => ({ listContent: vi.fn(async () => []), countByStatus: vi.fn(async () => ({ draft: 0, used: 0, trashed: 0 })) }));
+vi.mock("@/lib/content/store", async (orig) => ({ ...(await orig<typeof import("@/lib/content/store")>()), ...store }));
 
-const { generateContent, generateDraft, generateKnowledge, generateRecruit } = await import("@/app/studio/actions");
+const { contentWorkbench, generateContent, generateDraft, generateKnowledge, generateRecruit } = await import("@/app/studio/actions");
 const { NOT_YOUR_PAGE } = await import("@/lib/auth/pages");
 const { CONTENT_PRODUCTS } = await import("@/lib/content/products");
 
@@ -45,5 +47,20 @@ describe("a round and its Page", () => {
     expect(runs.writeRecruit).toHaveBeenCalledWith(expect.anything(), "p1");
     expect(runs.writeKnowledge).toHaveBeenCalledWith(expect.anything(), "p1");
     expect(runs.writeDraft).toHaveBeenCalledWith(expect.anything(), "p1");
+  });
+});
+
+describe("the workbench's lists", () => {
+  it("are the Page's the request resolved to", async () => {
+    project.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });
+    await contentWorkbench({ status: "draft", page: "p1" });
+    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined, pageId: "p1" }, 40, 0);
+    expect(store.countByStatus).toHaveBeenCalledWith(undefined, "p1");
+  });
+
+  it("are empty for a Page taken from the caller while the page was open", async () => {
+    project.projectPage.mockResolvedValue({ ok: false, error: NOT_YOUR_PAGE });
+    expect(await contentWorkbench({ status: "draft", page: "p9" })).toMatchObject({ items: [], failed: true });
+    expect(store.listContent).not.toHaveBeenCalled();
   });
 });

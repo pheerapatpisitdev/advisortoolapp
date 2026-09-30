@@ -12,6 +12,7 @@ const base: HomeInput = {
   ],
   scheduled: new Map([["p1", 3]]),
   drafts: 5,
+  draftsByPage: new Map([["p1", 5]]),
   hooks: 30,
   people: [],
 };
@@ -37,6 +38,13 @@ describe("the Studio home", () => {
     expect(tile(cards, 1, "settings")?.status).toBe("ยังไม่ให้สิทธิ์โพสต์");
   });
 
+  it("counts each Page's own drafts on its card (owner, 2026-09-30)", () => {
+    const cards = homeCards({ ...base, draftsByPage: new Map([["p1", 2]]) });
+    expect(tile(cards, 0, "write")?.status).toBe("ร่าง 2 ชิ้น");
+    expect(tile(cards, 1, "write")?.status).toBe("ยังไม่มีร่าง");
+    expect(tile(homeCards({ ...base, draftsByPage: null }), 0, "write")?.status).toBe("เปิดดู");
+  });
+
   it("counts the people each Page sees, its own and every Page's, and links the library open on it", () => {
     const cards = homeCards({ ...base, people: [{ pageId: "p1" }, { pageId: "p1" }, { pageId: "p2" }, { pageId: null }] });
     expect(tile(cards, 0, "people")).toMatchObject({ href: "/studio/people?page=p1", status: "3 คน" });
@@ -46,10 +54,12 @@ describe("the Studio home", () => {
   });
 
   it("gives a count that could not be read a word, not a zero", () => {
-    const cards = homeCards({ ...base, drafts: null, hooks: null });
+    // a Page's card counts that Page's drafts (its project, 2026-09-30); the room's card counts `drafts`
+    const cards = homeCards({ ...base, draftsByPage: null, hooks: null });
     expect(tile(cards, 0, "write")?.status).toBe("เปิดดู");
     expect(tile(cards, 0, "hooks")?.status).toBe("เปิดดู");
-    expect(homeCards({ ...base, drafts: 0 })[0].tiles[0].status).toBe("ยังไม่มีร่าง");
+    expect(homeCards({ ...base, draftsByPage: new Map() })[0].tiles[0].status).toBe("ยังไม่มีร่าง");
+    expect(homeCards({ ...base, publish: false, pages: null, drafts: null })[0].tiles[0].status).toBe("เปิดดู");
   });
 
   it("shows an agent who may not post one card of their room, without the Page's tools", () => {

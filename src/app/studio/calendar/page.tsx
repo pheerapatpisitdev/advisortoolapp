@@ -90,14 +90,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     new Promise<false>((resolve) => { timer = setTimeout(() => resolve(false), 2_000); }),
   ]).finally(() => clearTimeout(timer));
   if (!done) after(() => checking);
-  const [setup, placed, waiting] = await Promise.all([
+  const [setup, placed] = await Promise.all([
     publishSetup(),
     listPublished(from, to).catch(() => []),
-    listWaiting().catch(() => []),
   ]);
   // one Page, never all of them together and no switch between them (owner, 2026-09-28): the
   // one its card on /studio asked for, else the first
   const pageFilter = setup.pages.find((p) => p.pageId === params.page)?.pageId ?? setup.pages[0]?.pageId ?? "";
+  // the rail is this Page's project (2026-09-30): what waits for another Page is not offered here
+  const waiting = await listWaiting(pageFilter || undefined).catch(() => []);
   const pageName = (id: string | null) => setup.pages.find((p) => p.pageId === id)?.pageName ?? "";
 
   // a send stuck past ten minutes is in both lists (the rail takes stale claims): once only

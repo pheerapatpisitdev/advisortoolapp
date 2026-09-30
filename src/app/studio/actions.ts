@@ -599,13 +599,18 @@ export interface Workbench {
 /** pieces a tab shows at a time; โหลดเพิ่ม asks for the next ones (`offset`) */
 const WORKBENCH_PAGE = 40;
 
-export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number }): Promise<Workbench> {
+/** `page`: the Page whose project is open; the server settles it (projectPage), so another Page's cannot be asked for */
+export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number; page?: string }): Promise<Workbench> {
   await requireMember();
   try {
+    const project = await projectPage(filter.page);
+    // a Page taken from the caller while the page was open: nothing of it is listed
+    if (!project.ok) return { items: [], counts: { draft: 0, used: 0, trashed: 0 }, failed: true };
+    const pageId = project.pageId ?? undefined;
     const offset = Math.max(0, Math.floor(Number(filter.offset) || 0));
     const [items, counts] = await Promise.all([
-      listContent({ status: filter.status, planHref: filter.planHref }, WORKBENCH_PAGE, offset),
-      countByStatus(filter.planHref),
+      listContent({ status: filter.status, planHref: filter.planHref, pageId }, WORKBENCH_PAGE, offset),
+      countByStatus(filter.planHref, pageId),
     ]);
     return { items, counts };
   } catch (e) {

@@ -5,7 +5,7 @@ import { visibleTo } from "@/lib/content/people-pages";
 import { myPages } from "@/lib/auth/pages";
 import { pageConnections } from "@/lib/facebook/connection";
 import { homeCards, scheduledByPage } from "@/lib/content/studio-home";
-import { countByStatus, listHookTemplates, listPublished } from "@/lib/content/store";
+import { countByStatus, countDraftsByPage, listHookTemplates, listPublished } from "@/lib/content/store";
 import { publishSetup } from "./publish";
 import { StudioHome } from "./StudioHome";
 
@@ -35,7 +35,7 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
   // (owner, 2026-09-28 and 2026-09-29); every other agent's Studio is the workbench
   if (!who.admin && !who.publish) redirect("/studio/write");
   const now = new Date();
-  const [counts, hooks, everyone, setup, placed, mine, connected] = await Promise.all([
+  const [counts, hooks, everyone, setup, placed, mine, connected, draftsByPage] = await Promise.all([
     countByStatus().catch(() => null),
     listHookTemplates().catch(() => null),
     listPeople().catch(() => null),
@@ -43,6 +43,8 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
     who.publish ? listPublished(now, new Date(now.getTime() + AHEAD_MS)).catch(() => []) : [],
     myPages().catch(() => []),
     pageConnections().catch(() => []),
+    // each Page's own drafts, for its card (its project, 2026-09-30)
+    who.publish ? countDraftsByPage().catch(() => null) : null,
   ]);
   // nobody of a Page the caller does not look after: a card counts the people its Page sees, and
   // the helper reads someone of a Page outside the caller's own list as every Page's
@@ -55,6 +57,7 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
     pages: setup && !setup.failed ? setup.pages : null,
     scheduled: scheduledByPage(placed),
     drafts: counts?.draft ?? null,
+    draftsByPage,
     hooks: hooks?.length ?? null,
     people,
   });
