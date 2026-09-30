@@ -3,7 +3,8 @@ import type { ChatMessage } from "@/lib/ai/types";
 import { hookTemplateSection } from "./hooks";
 import { POLICY_RULES_TH } from "./policy";
 import { LOOP_PLAN, steerLines, type Steer } from "./prompt";
-import { PRO_HOOK_RULES } from "./pro";
+import { readShareWhy, type ShareWhy } from "./finish";
+import { formulaHookRules, type Formula } from "./formula";
 
 /**
  * The planner: before a word of body is written, decide each piece's angle and hook.
@@ -26,6 +27,8 @@ export interface PiecePlan {
   /** one Thai sentence: the angle this piece takes, and who it talks to */
   angle: string;
   hook: string;
+  /** สูตรอ่าน-ดูจนจบ: why a reader would pass this piece on (finish.ts); the writer writes to it */
+  shareWhy?: ShareWhy;
 }
 
 const SYSTEM = [
@@ -58,20 +61,22 @@ export function planMessages(opts: {
   template: { template: string; category: string } | null;
   /** the hooks open a คลิปวนลูป, so each must also finish its closing */
   loop?: boolean;
-  /** สูตรคอนเทนต์โปร: the hook is stacked (pro.ts) */
-  pro?: boolean;
+  /** the writing formula: its hook rules (formula.ts) */
+  formula?: Formula | null;
 } & Steer): ChatMessage[] {
   const user = [
     `ข้อมูลผลิตภัณฑ์:\n${opts.brief}`,
     opts.angle ? `มุมที่เจ้าของเพจอยากเล่า: ${opts.angle}` : "",
     steerLines(opts),
     opts.loop ? LOOP_PLAN : "",
-    opts.pro ? PRO_HOOK_RULES : "",
+    formulaHookRules(opts.formula ?? null),
     avoidSection(opts.avoid),
     opts.template ? hookTemplateSection(opts.template) : "",
     [
       opts.count > 1 ? `วางแผน ${opts.count} ชิ้นที่ต่างมุมกันชัดเจน` : "วางแผน 1 ชิ้นที่ดีที่สุด",
-      'รูปแบบ: {"plans":[{"angle":"…","hook":"…"}]} ห้ามมีช่องอื่น',
+      opts.formula === "finish"
+        ? 'รูปแบบ: {"plans":[{"angle":"…","hook":"…","shareWhy":"use"}]} ห้ามมีช่องอื่น'
+        : 'รูปแบบ: {"plans":[{"angle":"…","hook":"…"}]} ห้ามมีช่องอื่น',
     ].join("\n"),
   ].filter(Boolean).join("\n\n");
   return [
@@ -90,7 +95,8 @@ export function parsePlans(reply: string, expected: number): PiecePlan[] | null 
     const hook = typeof r.hook === "string" ? r.hook.trim().slice(0, 200) : "";
     if (!hook) return [];
     const angle = typeof r.angle === "string" && r.angle.trim() ? r.angle.trim().slice(0, 300) : hook;
-    return [{ angle, hook }];
+    const shareWhy = readShareWhy(r.shareWhy);
+    return [{ angle, hook, ...(shareWhy ? { shareWhy } : {}) }];
   }).slice(0, Math.max(1, expected));
   return plans.length ? plans : null;
 }

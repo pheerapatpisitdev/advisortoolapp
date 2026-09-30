@@ -6,6 +6,7 @@ import { WRITERS } from "./models";
 import { headlineMessages, parseHeadlines, type NumberSheet } from "./numbers";
 import { parsePlans, planMessages, type PiecePlan } from "./plan";
 import { buildMessages, type AngleId, type Ask } from "./prompt";
+import { markFormula } from "./formula";
 import { ownerWording } from "./wording";
 
 export { DISCLAIMER, TAX_LINE, fullText, type ContentOutput } from "./output";
@@ -155,7 +156,8 @@ export async function write(ask: Ask, opts: { only?: string; prefer?: string } =
       console.error(`content piece unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
       throw new UnreadableReply();
     }
-    return { output, model: r.model, costThb: r.costThb };
+    // the formula named on the piece; สูตรอ่าน-ดูจนจบ's reason is the planner's, its loops the writer's
+    return { output: markFormula(output, ask.formula ?? null, r.text, p.shareWhy ?? null), model: r.model, costThb: r.costThb };
   }));
   return gather(settled);
 }

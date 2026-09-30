@@ -14,6 +14,7 @@ import { defaultPoster, parsePoster, posterText, THEMES, type Theme } from "@/li
 import { contentProduct } from "@/lib/content/products";
 import { POSES, type PiecePerson } from "@/lib/content/people";
 import { personPhotos } from "@/lib/content/people-store";
+import { formulaOf, type Formula } from "@/lib/content/formula";
 import { MAX_PIECES } from "@/lib/content/plan";
 import { checkPolicy } from "@/lib/content/policy";
 import { modeChecks, type ModeChecks } from "@/lib/content/mode-checks";
@@ -93,7 +94,9 @@ export interface GenerateInput {
   length: Length | null;
   /** a คลิปวนลูป (scripts only): the closing runs back into the hook */
   loop?: boolean;
-  /** สูตรคอนเทนต์โปร (posts and scripts; pro.ts) */
+  /** the writing formula (formula.ts); posts and scripts */
+  formula?: Formula | null;
+  /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   count: number;
   hookTemplateId: string | null;
@@ -164,7 +167,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
   const angle: AngleId = input.angle === "custom" || ANGLES.some((a) => a.id === input.angle) ? input.angle : "";
   const length = input.format === "script" && LENGTHS.some((l) => l.id === input.length) ? input.length : null;
   const loop = input.format === "script" && Boolean(input.loop);
-  const pro = input.format !== "ad" && input.pro === true;
+  const formula = formulaOf(input, input.format);
   const custom = (input.custom ?? "").trim().slice(0, MAX_CUSTOM);
   const count = Math.min(MAX_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
   const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
@@ -258,15 +261,15 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
         return roundResult(saved, round.planned, round.budgetHit);
       }
 
-      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, pro });
-      const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, pro, plans: planned.plans, reader, goal, fact }, { prefer: writeWith });
-      const marked = (o: ContentOutput): ContentOutput => (pro ? { ...o, pro: true } : o);
+      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, formula });
+      // the writer names the formula on each piece (markFormula), so nothing is added here
+      const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, formula, plans: planned.plans, reader, goal, fact }, { prefer: writeWith });
 
       // each piece carries its own writing cost and an equal share of the planner's
       const planShare = planned.costThb / written.pieces.length;
       const saved = await saveAll(written.pieces.map((w) => ({
         planHref: brief.product.href, format: input.format, angle, length,
-        output: marked(input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : dressed(fact ? { ...w.output, fact } : w.output)),
+        output: input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : dressed(fact ? { ...w.output, fact } : w.output),
         flags: flagsFor(w.output, yardstick, words, null),
         rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare,
         hookTemplateId: template?.id ?? null,

@@ -23,7 +23,7 @@ describe("the thirteen", () => {
 
 describe("the planner's hook", () => {
   it("is stacked only when the box is ticked", () => {
-    expect(text(planMessages({ ...planOpts, pro: true }))).toContain(PRO_HOOK_RULES);
+    expect(text(planMessages({ ...planOpts, formula: "pro" }))).toContain(PRO_HOOK_RULES);
     expect(text(planMessages(planOpts))).not.toContain(PRO_NAME);
   });
 
@@ -35,13 +35,13 @@ describe("the planner's hook", () => {
 
 describe("the round's writer", () => {
   it("gets the post rules for a post, and nothing when not ticked", () => {
-    expect(text(buildMessages(ask({ pro: true })))).toContain(proRules("post"));
+    expect(text(buildMessages(ask({ formula: "pro" })))).toContain(proRules("post"));
     expect(text(buildMessages(ask()))).not.toContain(PRO_NAME);
   });
 
   it("gets the script rules, with the first three seconds, B-roll and a save mid-clip", () => {
     const rules = proRules("script", "60");
-    expect(text(buildMessages(ask({ format: "script", length: "60", pro: true })))).toContain(rules);
+    expect(text(buildMessages(ask({ format: "script", length: "60", formula: "pro" })))).toContain(rules);
     expect(rules).toContain("[0–3 วิ]");
     expect(rules).toContain("B-roll:");
     expect(rules).toContain("- Mid-CTA:");

@@ -1,5 +1,6 @@
 import type { ChatMessage } from "@/lib/ai/types";
-import { proRules } from "./pro";
+import { SHARE_WHY } from "./finish";
+import { formulaRules, type Formula } from "./formula";
 import type { PiecePlan } from "./plan";
 import { POLICY_RULES_TH } from "./policy";
 import { THEME_MOOD, THEMES } from "./poster";
@@ -182,8 +183,8 @@ export interface Ask extends Steer {
   length: Length | null;
   /** a คลิปวนลูป: the closing runs back into the hook (scripts only) */
   loop?: boolean;
-  /** สูตรคอนเทนต์โปร (pro.ts): posts and scripts, when the owner ticks it */
-  pro?: boolean;
+  /** the writing formula the owner picked (formula.ts): posts and scripts */
+  formula?: Formula | null;
   /** one per piece, from the planner; the writer writes to them and does not change their hooks */
   plans: PiecePlan[];
 }
@@ -265,14 +266,17 @@ function angleLine(a: Ask): string {
 export function planLines(plans: PiecePlan[]): string {
   return [
     "แผนของแต่ละชิ้น:",
-    ...plans.map((p, i) => `ชิ้นที่ ${i + 1}\n  มุม: ${p.angle}\n  hook: ${p.hook}`),
+    ...plans.map((p, i) => [
+      `ชิ้นที่ ${i + 1}\n  มุม: ${p.angle}\n  hook: ${p.hook}`,
+      p.shareWhy ? `\n  เหตุผลที่คนจะแชร์: ${SHARE_WHY[p.shareWhy].say}` : "",
+    ].join("")),
   ].join("\n");
 }
 
 export function buildMessages(a: Ask): ChatMessage[] {
   const user = [
     `ข้อมูลผลิตภัณฑ์:\n${a.brief}`,
-    [formatBrief(a), a.pro ? proRules(a.format, a.length, a.loop) : "", angleLine(a), steerLines(a)].filter(Boolean).join("\n"),
+    [formatBrief(a), formulaRules(a.formula ?? null, a.format, a.length, Boolean(a.loop)), angleLine(a), steerLines(a)].filter(Boolean).join("\n"),
     planLines(a.plans),
   ].join("\n\n");
   return [
