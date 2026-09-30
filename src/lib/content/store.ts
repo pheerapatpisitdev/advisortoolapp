@@ -515,7 +515,8 @@ export async function listPlanned(from: string, to: string): Promise<ContentItem
   let q = supabaseAdmin().from("ins_content").select(COLUMNS)
     .gte("plan_day", from).lte("plan_day", to).in("status", PLANNABLE);
   if (only) q = q.or(only);
-  const { data, error } = await q.order("plan_day", { ascending: true }).order("created_at", { ascending: true });
+  // a piece on a Facebook Page is the Page calendar's, not a plan's (final review, 2026-09-30)
+  const { data, error } = await q.or(offPage()).order("plan_day", { ascending: true }).order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(toItem);
 }
@@ -525,7 +526,7 @@ export async function listUnplanned(limit = 60): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).is("plan_day", null).in("status", PLANNABLE);
   if (only) q = q.or(only);
-  const { data, error } = await q.order("created_at", { ascending: false }).limit(limit);
+  const { data, error } = await q.or(offPage()).order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);
   return ((data ?? []) as Record<string, unknown>[]).map(toItem);
 }

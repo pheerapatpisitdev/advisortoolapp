@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { TodayPlan } from "./TodayPlan";
 import { calendarHref, workbenchHref } from "@/lib/content/workbench-link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -1220,14 +1221,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
         {/* ---------------------------------- pieces ---------------------------------- */}
         <section ref={pieces} className="studio-desk @container min-w-0 scroll-mt-4 space-y-3 rounded-xl border border-[var(--ct-hair)] p-3 lg:row-span-2 lg:min-h-[70dvh] lg:self-stretch xl:row-span-1">
-          {todayPlan.length > 0 && (
-            <div role="status" className="space-y-1 rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]">
-              <p className="flex items-center gap-2"><CalendarIcon className="size-4 shrink-0" />วันนี้มีงานตามแผน <b>{todayPlan.length} ชิ้น</b></p>
-              <ul className="space-y-0.5 pl-6">
-                {todayPlan.map((p) => <li key={p.id}><Link href={`/studio/write?open=${p.id}`} className="underline underline-offset-2">{p.title}</Link></li>)}
-              </ul>
-            </div>
-          )}
+          <TodayPlan items={todayPlan} />
           {forDay && (
             <div className="flex items-center gap-2 rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-soft)] py-1 pl-3 pr-1 text-sm text-[var(--ct-accent)]">
               <CalendarIcon className="size-4 shrink-0" />

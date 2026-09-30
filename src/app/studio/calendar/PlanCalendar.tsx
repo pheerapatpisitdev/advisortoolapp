@@ -57,7 +57,8 @@ export async function PlanCalendar({ params }: { params: { y?: string; m?: strin
           <Link href={query({ view: "list" })} aria-current={listView ? "page" : undefined} className={toggle(listView)}>รายการ</Link>
         </div>
       </div>
-      <PlanBoard cells={cells} planned={planned.map(card)} unplanned={unplanned.map(card)} today={today} listView={listView} />
+      {/* a fresh board for each month and view: search params alone keep a client component's state */}
+      <PlanBoard key={`${year}-${month}-${listView ? "list" : "month"}`} cells={cells} planned={planned.map(card)} unplanned={unplanned.map(card)} today={today} listView={listView} />
     </div>
   );
 }

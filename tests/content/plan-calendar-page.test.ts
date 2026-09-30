@@ -35,6 +35,16 @@ describe("the calendar an agent with no Page gets", () => {
     expect(store.listPlanned).toHaveBeenCalledWith("2026-09-28", "2026-11-01");
     expect(store.listUnplanned).toHaveBeenCalled();
   });
+
+  it("draws a fresh board for each month and view, not the first month's again (final review)", async () => {
+    const { PlanBoard } = await import("@/app/studio/calendar/PlanBoard");
+    const boardOf = async (params: object) => {
+      const tree = (await PlanCalendar({ params })) as { props: { children: { type: unknown; key: string | null }[] } };
+      return tree.props.children.find((c) => c?.type === PlanBoard);
+    };
+    expect((await boardOf({ y: "2026", m: "10" }))?.key).toBe("2026-10-month");
+    expect((await boardOf({ y: "2026", m: "11", view: "list" }))?.key).toBe("2026-11-list");
+  });
 });
 
 describe("the calendar posting staff get", () => {

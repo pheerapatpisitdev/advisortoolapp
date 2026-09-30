@@ -32,6 +32,8 @@ beforeEach(() => {
   db.answer.value = { data: [row], error: null };
 });
 const has = (...call: unknown[]) => db.calls.some((c) => JSON.stringify(c) === JSON.stringify(call));
+/** the workbench's own "not on a Facebook Page" filter (store.ts offPage) */
+const offPage = () => db.calls.some((c) => c[0] === "or" && String(c[1]).startsWith("publish_state.is.null,publish_state.not.in."));
 
 describe("the planned pieces of a month", () => {
   it("are the asker's own, still in รอตรวจ or ใช้จริง, between the grid's first and last day", async () => {
@@ -48,6 +50,16 @@ describe("the planned pieces of a month", () => {
     expect(has("is", "plan_day", null)).toBe(true);
     expect(has("in", "status", ["draft", "used"])).toBe(true);
     expect(has("or", "and(page_id.is.null,or(agent_id.in.(a1)))")).toBe(true);
+  });
+});
+
+describe("pieces on a Facebook Page (final review, 2026-09-30)", () => {
+  it("are kept off the plan and its rail, as off the workbench's lists", async () => {
+    await listPlanned("2026-09-28", "2026-11-01");
+    expect(offPage()).toBe(true);
+    db.calls.length = 0;
+    await listUnplanned();
+    expect(offPage()).toBe(true);
   });
 });
 
