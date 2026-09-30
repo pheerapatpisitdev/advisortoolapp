@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const construct = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/stripe/client", () => ({ stripe: () => ({ webhooks: { constructEvent: construct } }) }));
+const client = vi.hoisted(() => ({ stripe: vi.fn() }));
+vi.mock("@/lib/stripe/client", () => client);
 const events = vi.hoisted(() => ({ actionFor: vi.fn(() => ({ kind: "ignore", why: "t" })), applyWalletAction: vi.fn(async () => "ignored") }));
 vi.mock("@/lib/wallet/events", () => events);
 
@@ -13,6 +14,7 @@ const req = (body = "{}", sig: string | null = "t=1,v1=x") =>
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  client.stripe.mockReturnValue({ webhooks: { constructEvent: construct } });
   construct.mockReturnValue({ id: "evt_1", type: "checkout.session.completed", data: { object: {} } });
 });
 
@@ -44,6 +46,17 @@ describe("the Stripe webhook", () => {
     delete process.env.STRIPE_WEBHOOK_SECRET;
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     expect((await POST(req())).status).toBe(500);
+    err.mockRestore();
+  });
+
+  it("answers 500, not a bad signature, when the Stripe key is not set", async () => {
+    client.stripe.mockImplementationOnce(() => { throw new Error("STRIPE_SECRET_KEY is not set"); });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req());
+    expect(res.status).toBe(500);
+    expect(await res.text()).toBe("not configured");
+    expect(construct).not.toHaveBeenCalled();
+    expect(events.applyWalletAction).not.toHaveBeenCalled();
     err.mockRestore();
   });
 });

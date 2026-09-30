@@ -17,13 +17,22 @@ export async function POST(req: Request) {
     console.error("STRIPE_WEBHOOK_SECRET is not set");
     return new NextResponse("not configured", { status: 500 });
   }
+  // made outside the try below: a missing STRIPE_SECRET_KEY is our fault, and answering it as a
+  // bad signature (400) would tell Stripe not to send the event again
+  let client;
+  try {
+    client = stripe();
+  } catch (e) {
+    console.error("stripe client unavailable:", e);
+    return new NextResponse("not configured", { status: 500 });
+  }
   // the signature is computed over the exact bytes Stripe sent, so the body is read as text
   const raw = await req.text();
   const signature = req.headers.get("stripe-signature");
   if (!signature) return new NextResponse("no signature", { status: 400 });
   let event;
   try {
-    event = stripe().webhooks.constructEvent(raw, signature, secret);
+    event = client.webhooks.constructEvent(raw, signature, secret);
   } catch {
     return new NextResponse("bad signature", { status: 400 });
   }
