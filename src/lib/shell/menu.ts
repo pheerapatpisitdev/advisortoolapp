@@ -213,6 +213,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
           { href: "/admin/ai", label: "ตั้งค่า AI", icon: "key", hue: "#2b4673" },
           // the agents' Studio wallets: on or off, the multiplier, a hand on a balance (owner, 2026-09-30)
           { href: "/admin/wallet", label: "กระเป๋าเงินตัวแทน", icon: "wallet", hue: "#2b736f" },
+          // members outside UnitOS who signed up themselves (owner, 2026-10-01)
+          { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#33638a" },
           // back in the menu on 2026-09-26 (owner): the daily บทเรียนจากแชท waits here for ใช้
           { href: "/admin/knowledge", label: "สอน AI", icon: "spark", hue: "#2e4a7a" },
         ],
@@ -335,6 +337,7 @@ const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet
   "/admin/crm": "admin",
   "/admin/ai": "admin",
   "/admin/wallet": "admin",
+  "/admin/members": "admin",
   "/admin/knowledge": "admin",
   "/admin/messenger": "connect",
   "/admin/posting": "publish",
