@@ -13,6 +13,7 @@ import type { PiecePerson } from "@/lib/content/people";
 import type { PersonOption } from "./PersonPicker";
 import { PosterPanel } from "./PosterPanel";
 import { PublishPanel } from "./PublishPanel";
+import { PlanPanel } from "./PlanPanel";
 import { ClaimPaperCheck } from "./claim/ClaimPaperCheck";
 import { ask } from "./ask";
 import { AlertIcon, BackIcon, CheckIcon, LockIcon } from "./ui/editor-icons";
@@ -78,11 +79,13 @@ interface Props {
   onDirtyChange?: (dirty: boolean) => void;
   /** a day the calendar sent the owner to write for, offered first in the ลงเพจ box */
   suggestDay?: string | null;
+  /** the agent may not post: the editor offers วางแผน instead of ลงเพจ (owner, 2026-09-30) */
+  planner?: boolean;
   /** where this piece stands in the list, and the pieces either side of it */
   nav?: { position: number; total: number; prev?: () => void; next?: () => void };
 }
 
-export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onStatus, onPublished, onClose, people, onDirtyChange, suggestDay, nav }: Props) {
+export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onStatus, onPublished, onClose, people, onDirtyChange, suggestDay, nav, planner }: Props) {
   const [feed, setFeed] = useState(false);
   /**
    * The editor takes the keys when it opens. Its opener, the card's button, went with the list,
@@ -586,7 +589,9 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
         </div>
       )}
 
-      {isPost && <PublishPanel item={item} hook={hook} beforePublish={save} onPublished={onPublished} drawing={drawing} suggestDay={suggestDay} onBusy={setSending} />}
+      {planner
+        ? <PlanPanel item={item} suggestDay={suggestDay} onSaved={onSaved} />
+        : isPost && <PublishPanel item={item} hook={hook} beforePublish={save} onPublished={onPublished} drawing={drawing} suggestDay={suggestDay} onBusy={setSending} />}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {/* one solid button a screen: a post's is ลงเพจ above, a script's or an ad's is this */}

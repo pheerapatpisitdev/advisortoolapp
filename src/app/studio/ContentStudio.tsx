@@ -69,6 +69,10 @@ interface Props {
   people: PersonOption[];
   /** the Page whose project this is (its card on /studio, else the first, 2026-09-30); null for an agent with no Pages */
   project: { pageId: string; pageName: string } | null;
+  /** the agent may not post, and plans instead (owner, 2026-09-30) */
+  planner: boolean;
+  /** today's planned pieces not yet marked posted, for the banner */
+  todayPlan: { id: string; title: string }[];
 }
 
 
@@ -221,7 +225,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
 }
 
-export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project }: Props) {
+export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project, planner, todayPlan }: Props) {
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
@@ -1216,10 +1220,18 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
         {/* ---------------------------------- pieces ---------------------------------- */}
         <section ref={pieces} className="studio-desk @container min-w-0 scroll-mt-4 space-y-3 rounded-xl border border-[var(--ct-hair)] p-3 lg:row-span-2 lg:min-h-[70dvh] lg:self-stretch xl:row-span-1">
+          {todayPlan.length > 0 && (
+            <div role="status" className="space-y-1 rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]">
+              <p className="flex items-center gap-2"><CalendarIcon className="size-4 shrink-0" />วันนี้มีงานตามแผน <b>{todayPlan.length} ชิ้น</b></p>
+              <ul className="space-y-0.5 pl-6">
+                {todayPlan.map((p) => <li key={p.id}><Link href={`/studio/write?open=${p.id}`} className="underline underline-offset-2">{p.title}</Link></li>)}
+              </ul>
+            </div>
+          )}
           {forDay && (
             <div className="flex items-center gap-2 rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-soft)] py-1 pl-3 pr-1 text-sm text-[var(--ct-accent)]">
               <CalendarIcon className="size-4 shrink-0" />
-              <p className="min-w-0 flex-1">เขียนสำหรับ <b>{thaiDayLabel(forDay)}</b> — เปิดชิ้นงานแล้วช่อง “ลงเพจ” จะมีวันนี้ให้เลือก</p>
+              <p className="min-w-0 flex-1">เขียนสำหรับ <b>{thaiDayLabel(forDay)}</b> — เปิดชิ้นงานแล้วช่อง “{planner ? "วางแผน" : "ลงเพจ"}” จะมีวันนี้ให้เลือก</p>
               <button
                 type="button" aria-label="ไม่ต้องใช้วันนี้" title="ไม่ต้องใช้วันนี้"
                 onClick={() => { setForDay(null); dropParam("day"); }}
@@ -1240,6 +1252,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               {batch && <DrawProgress batch={batch} />}
               <PieceEditor
                 key={editingItem.id}
+                planner={planner}
                 item={editingItem}
                 drawing={drawing.has(editingItem.id)}
                 productName={nameOf(editingItem.planHref)}

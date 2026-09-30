@@ -5,7 +5,10 @@ import { listPeople } from "@/lib/content/people-store";
 import { peopleFor, visibleTo } from "@/lib/content/people-pages";
 import { pageConnections } from "@/lib/facebook/connection";
 import { myPages } from "@/lib/auth/pages";
-import { getContent, listContent, listHookTemplates } from "@/lib/content/store";
+import { can } from "@/lib/auth/access";
+import { getViewer } from "@/lib/auth/viewer";
+import { planTitle } from "@/lib/content/day-plan";
+import { getContent, listContent, listHookTemplates, listPlanned } from "@/lib/content/store";
 import { contentSpend, contentWorkbench } from "./actions";
 import { ContentStudio } from "./ContentStudio";
 import { fillable, todayKey } from "@/lib/content/calendar";
@@ -30,13 +33,18 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
     ? mine.find((p) => p.pageId === asked) ?? mine[0] ?? null
     : asked ? { pageId: asked, pageName: connected.find((p) => p.pageId === asked)?.pageName ?? "" } : null;
   const pageId = project?.pageId;
-  const [initial, used, hooks, spend, people] = await Promise.all([
+  // an agent who may not post plans instead (owner, 2026-09-30): the editor offers a day, and
+  // the workbench says what today's plan still holds
+  const planner = !can(await getViewer().catch(() => null), "publish");
+  const today = todayKey();
+  const [initial, used, hooks, spend, people, planned] = await Promise.all([
     contentWorkbench({ status: "draft", page: pageId }),
     // nothing for a project not known: every Page's pieces would show together
     mine || pageId ? listContent({ status: "used", pageId }, 20).catch(() => []) : Promise.resolve([]),
     listHookTemplates().catch(() => []),
     contentSpend(),
     listPeople().catch(() => []),
+    planner ? listPlanned(today, today).catch(() => []) : Promise.resolve([]),
   ]);
   return (
     <ContentStudio
@@ -52,6 +60,8 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
       // nobody of a Page the caller does not look after (final review, 2026-09-29)
       people={peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set((mine ?? []).map((p) => p.pageId))), mine ?? [], pageId ?? "")}
       project={project ? { pageId: project.pageId, pageName: project.pageName } : null}
+      planner={planner}
+      todayPlan={planned.filter((i) => !i.plan?.doneAt).map((i) => ({ id: i.id, title: planTitle(i) }))}
     />
   );
 }

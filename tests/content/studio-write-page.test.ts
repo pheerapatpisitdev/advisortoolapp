@@ -13,13 +13,16 @@ const actions = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/auth/pages", () => ({ myPages: vi.fn(async () => { if (pages.failed) throw new Error("db down"); return state.mine; }) }));
 vi.mock("@/lib/facebook/connection", () => ({ pageConnections: vi.fn(async () => state.mine) }));
-const store = vi.hoisted(() => ({ listContent: vi.fn(async () => []) }));
+const store = vi.hoisted(() => ({ listContent: vi.fn(async () => []), listPlanned: vi.fn(async () => [] as unknown[]) }));
 const pages = vi.hoisted(() => ({ failed: false }));
 vi.mock("@/lib/content/store", () => ({
-  getContent: vi.fn(async () => state.opened), listContent: store.listContent, listHookTemplates: vi.fn(async () => []),
+  getContent: vi.fn(async () => state.opened), listContent: store.listContent, listPlanned: store.listPlanned, listHookTemplates: vi.fn(async () => []),
 }));
 vi.mock("@/lib/content/people-store", () => ({ listPeople: vi.fn(async () => []) }));
 vi.mock("@/app/studio/actions", () => actions);
+const viewer = vi.hoisted(() => ({ current: { agentId: "a1", staff: null } as unknown }));
+vi.mock("@/lib/auth/viewer", () => ({ getViewer: vi.fn(async () => viewer.current) }));
+vi.mock("@/lib/content/calendar", async (orig) => ({ ...(await orig<typeof import("@/lib/content/calendar")>()), todayKey: () => "2026-09-30" }));
 vi.mock("@/app/studio/ContentStudio", () => ({ ContentStudio: () => null }));
 
 const { StudioPage } = await import("@/app/studio/StudioPage");
@@ -31,6 +34,7 @@ beforeEach(() => {
   state.mine = [{ pageId: "pA", pageName: "A" }, { pageId: "pB", pageName: "B" }];
   state.opened = null;
   pages.failed = false;
+  viewer.current = { agentId: "a1", staff: null };
 });
 
 describe("the project /studio/write opens", () => {
@@ -65,5 +69,30 @@ describe("when the Pages cannot be read (final review, 2026-09-30)", () => {
     pages.failed = true;
     expect(await projectOf({})).toBeNull();
     expect(store.listContent).not.toHaveBeenCalled();
+  });
+});
+
+const propsOf = async (args: Parameters<typeof StudioPage>[0]) =>
+  ((await StudioPage(args)) as { props: { planner: boolean; todayPlan: { id: string; title: string }[] } }).props;
+
+describe("an agent who plans rather than posts (owner, 2026-09-30)", () => {
+  it("is told what today's plan still holds", async () => {
+    state.mine = [];
+    store.listPlanned.mockResolvedValue([
+      { id: "p1", output: { hooks: ["โพสต์วันนี้"] }, plan: { day: "2026-09-30", doneAt: null } },
+      { id: "p2", output: { hooks: ["โพสต์ไปแล้ว"] }, plan: { day: "2026-09-30", doneAt: "t" } },
+    ]);
+    const props = await propsOf({});
+    expect(props.planner).toBe(true);
+    expect(store.listPlanned).toHaveBeenCalledWith("2026-09-30", "2026-09-30");
+    expect(props.todayPlan).toEqual([{ id: "p1", title: "โพสต์วันนี้" }]);
+  });
+
+  it("is not who posting staff are: no plan read for them", async () => {
+    viewer.current = { agentId: "s1", staff: { owner: false, publish: true, connect: false, admin: false } };
+    const props = await propsOf({});
+    expect(props.planner).toBe(false);
+    expect(props.todayPlan).toEqual([]);
+    expect(store.listPlanned).not.toHaveBeenCalled();
   });
 });
