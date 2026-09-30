@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { calendarHref, workbenchHref } from "@/lib/content/workbench-link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { HOOK_CATEGORY_LABEL, type HookTemplate } from "@/lib/content/hooks";
@@ -934,7 +935,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   });
 
   const usedLink = (
-    <Link href="/studio/calendar" className="inline-flex min-h-11 items-center text-xs font-medium text-[var(--ct-accent)] underline underline-offset-2">
+    <Link href={calendarHref(project?.pageId)} className="inline-flex min-h-11 items-center text-xs font-medium text-[var(--ct-accent)] underline underline-offset-2">
       ดูโพสต์ที่ลงเพจ/ตั้งเวลาไว้ในปฏิทิน →
     </Link>
   );
@@ -1176,7 +1177,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           {format !== "script" && painter !== "none" && (
             <div>
-              <PersonPicker people={people} value={person} onChange={setPerson} back="/studio/write" />
+              <PersonPicker people={people} value={person} onChange={setPerson} back={workbenchHref({ page: project?.pageId })} />
               {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ซึ่งรักษาหน้าคนได้ดีที่สุด ราวภาพละ ฿2.4 · ชุดและสถานที่พิมพ์ในบรีฟภาพด้านล่าง</span>}
             </div>
           )}

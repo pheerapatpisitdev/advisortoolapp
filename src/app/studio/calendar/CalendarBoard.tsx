@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { workbenchHref } from "@/lib/content/workbench-link";
 import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import {
@@ -394,7 +395,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
             </label>
           )}
           {waiting.length === 0 ? (
-            <p className="mt-3 text-xs text-[var(--ct-mute)]">ยังไม่มีโพสต์ที่รอลงเพจ — เขียนเพิ่มใน <Link href="/studio/write" className="underline">Organic Studio</Link></p>
+            <p className="mt-3 text-xs text-[var(--ct-mute)]">ยังไม่มีโพสต์ที่รอลงเพจ — เขียนเพิ่มใน <Link href={workbenchHref({ page: pageId })} className="underline">Organic Studio</Link></p>
           ) : (
             <div className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1">
               {waiting.map((item) => (
@@ -628,7 +629,8 @@ function FillDay({ fill, pages, pageId, onPage, empty }: {
         </>
       )}
       <Link
-        href={`/studio/write?day=${fill.day}`}
+        // this Page's project: a piece written for the day is this Page's (2026-09-30)
+        href={workbenchHref({ day: fill.day, page: pageId })}
         className="flex min-h-11 items-center justify-center rounded-lg border border-[var(--ct-accent)] px-3 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
       >
         เขียนโพสต์ใหม่สำหรับวันนี้ใน Organic Studio

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useState } from "react";
+import { workbenchHref } from "@/lib/content/workbench-link";
 import type { LogoSpot } from "@/lib/content/logo";
 import { LogoPicker } from "../ui/LogoPicker";
 import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, writerOf } from "@/lib/content/models";
@@ -164,7 +165,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
 
         {format !== "script" && painter !== "none" && (
           <div>
-            <PersonPicker people={people} value={person} onChange={onPerson} back="/studio/write" />
+            <PersonPicker people={people} value={person} onChange={onPerson} back={workbenchHref({ page: logo.page })} />
             {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ราวภาพละ ฿2.4</span>}
           </div>
         )}

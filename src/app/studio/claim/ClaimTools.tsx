@@ -1,5 +1,6 @@
 "use client";
 import { useId, useRef, useState } from "react";
+import { workbenchHref } from "@/lib/content/workbench-link";
 import type { LogoSpot } from "@/lib/content/logo";
 import { LogoPicker } from "../ui/LogoPicker";
 import {
@@ -294,7 +295,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
 
         {format !== "script" && painter !== "none" && (
           <div>
-            <PersonPicker people={people} value={person} onChange={onPerson} back="/studio/write" />
+            <PersonPicker people={people} value={person} onChange={onPerson} back={workbenchHref({ page: logo.page })} />
             {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ราวภาพละ ฿2.4 · บุคคลยืนด้านขวา เอกสารเลื่อนไปทางซ้ายให้</span>}
           </div>
         )}

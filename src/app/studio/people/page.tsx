@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { backToWorkbench } from "@/lib/content/workbench-link";
 import { gatePage } from "@/lib/auth/viewer";
 import { listPeople } from "@/lib/content/people-store";
 import { choosePage, visibleTo, type PageRef } from "@/lib/content/people-pages";
@@ -15,12 +16,11 @@ export const metadata = {
 };
 
 // the menu, the palette and the tabs come from ../layout.tsx
-/** where "← กลับ" may lead: Studio, or a piece open in it — nothing off the site */
-const BACK = /^\/studio\/write(\?open=[0-9a-f-]{36})?$/;
+// "← กลับ" leads to Studio, to its Page's project or to a piece open in it — nothing off the site (workbench-link.ts)
 
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ back?: string; page?: string }> }) {
   const { back, page } = await searchParams;
-  const backTo = back && BACK.test(back) ? back : null;
+  const backTo = backToWorkbench(back);
   await gatePage("/studio/people");
   // a failed read is said, not shown as an empty library with an add form under it
   const [everyone, mine, connected] = await Promise.all([
