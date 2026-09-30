@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findWords, numbersIn, strayNumbers, type ContentWord } from "@/lib/content/check";
+import { claimedNumbers, findWords, numbersIn, strayNumbers, type ContentWord } from "@/lib/content/check";
 
 /**
  * The check that stands between a model's arithmetic and a post the owner puts their name to.
@@ -98,5 +98,11 @@ describe("Thai digits", () => {
 
   it("still leaves a script's time markers alone, and reports amounts after them as written", () => {
     expect(strayNumbers("[๐–๓ วิ] เบี้ย 3,500 บาท", "")).toEqual(["3,500 บาท"]);
+  });
+});
+
+describe("claimedNumbers", () => {
+  it("keeps what is said in baht, as a percentage, or a hundred and more — not the copy's own counting", () => {
+    expect(claimedNumbers("3 ข้อ เบี้ย 1,200 บาท ลด 5% ทุน 500,000 ภายใน 2 นาที")).toEqual([1200, 5, 500000]);
   });
 });
