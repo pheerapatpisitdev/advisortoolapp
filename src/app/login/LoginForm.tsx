@@ -11,6 +11,7 @@ export function LoginForm({ next, signupOpen, contactUrl }: { next: string; sign
   const [tab, setTab] = useState<Tab>(signupOpen ? "member" : "unitos");
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
+  // every form here is method="post": a submit before hydration must not put the PIN in the URL
   // onSubmit, not action=: React 19 resets a form after its action, which would wipe the phone
   // after every wrong PIN
   const submit = (action: (fd: FormData) => Promise<{ error: string } | undefined>) => (e: FormEvent<HTMLFormElement>) => {
@@ -40,7 +41,7 @@ export function LoginForm({ next, signupOpen, contactUrl }: { next: string; sign
         </div>
 
         {tab === "member" ? (
-          <form className="mt-5 space-y-3" onSubmit={submit(memberSignIn)}>
+          <form method="post" className="mt-5 space-y-3" onSubmit={submit(memberSignIn)}>
             <input type="hidden" name="next" value={next} />
             <input
               name="phone" type="tel" inputMode="tel" autoComplete="tel" autoFocus placeholder="เบอร์มือถือ"
@@ -58,7 +59,7 @@ export function LoginForm({ next, signupOpen, contactUrl }: { next: string; sign
             </button>
           </form>
         ) : (
-          <form className="mt-5" onSubmit={submit(signIn)}>
+          <form method="post" className="mt-5" onSubmit={submit(signIn)}>
             <p className="mb-3 text-center text-sm text-[var(--bot-ink-mute)]">รหัสตัวแทน 6 หลัก — รหัสเดียวกับที่ใช้เข้า UnitOS</p>
             <input type="hidden" name="next" value={next} />
             <input

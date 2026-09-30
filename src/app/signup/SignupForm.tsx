@@ -18,7 +18,7 @@ export function SignupForm() {
 
         {/* onSubmit, not action=: React 19 resets a form after its action, which would wipe
             everything typed after every error */}
-        <form className="mt-6 space-y-3" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+        <form method="post" className="mt-6 space-y-3" onSubmit={(e: FormEvent<HTMLFormElement>) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
           start(async () => {

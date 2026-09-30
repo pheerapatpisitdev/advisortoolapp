@@ -21,7 +21,7 @@ export function AccountForm({ name, phone }: { name: string; phone: string }) {
       <h1 className="text-xl font-semibold">บัญชีของฉัน</h1>
       <p className="text-sm text-[var(--bot-ink-mute)]">เบอร์ที่ใช้เข้าสู่ระบบ: <span className="tabular-nums">{phone}</span></p>
 
-      <form className="rounded-lg border bg-white p-4" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+      <form method="post" className="rounded-lg border bg-white p-4" onSubmit={(e: FormEvent<HTMLFormElement>) => {
         // onSubmit, not action=: React 19 resets a form after its action, which would put the
         // old name back in the box after a failed save
         e.preventDefault();
@@ -34,7 +34,7 @@ export function AccountForm({ name, phone }: { name: string; phone: string }) {
         <Note result={nameResult} done="บันทึกแล้ว" />
       </form>
 
-      <form className="rounded-lg border bg-white p-4" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+      <form method="post" className="rounded-lg border bg-white p-4" onSubmit={(e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         // captured now: currentTarget is gone once the await returns
         const form = e.currentTarget;
