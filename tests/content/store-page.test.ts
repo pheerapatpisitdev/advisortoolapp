@@ -22,7 +22,7 @@ vi.mock("@/lib/auth/scope", async (orig) => ({
   currentScope: async () => ({ agents: ["s1"], unowned: true, pages: ["p1", "p2"], owner: null }),
 }));
 
-const { countByStatus, countDraftsByPage, listContent, listWaiting } = await import("@/lib/content/store");
+const { countByStatus, countDraftsByPage, getContent, listContent, listWaiting, saveContent } = await import("@/lib/content/store");
 
 beforeEach(() => {
   db.calls.length = 0;
@@ -58,5 +58,26 @@ describe("one Page's project", () => {
   it("counts each Page's drafts for the cards on /studio", async () => {
     db.answer.value = { data: [{ page_id: "p1" }, { page_id: "p1" }, { page_id: "p2" }], error: null, count: 0 };
     expect(await countDraftsByPage()).toEqual(new Map([["p1", 2], ["p2", 1]]));
+  });
+});
+
+describe("the access rule itself (the spec's tests, final review 2026-09-30)", () => {
+  const ID = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
+  const row = (pageId: string | null, agentId = "s1") => ({ id: ID, agent_id: agentId, page_id: pageId, output: {}, flags: {}, status: "draft" });
+
+  it("gives no piece of a Page the caller does not look after, whoever wrote it", async () => {
+    db.answer.value = { data: row("p9") as unknown as unknown[], error: null, count: 0 };
+    expect(await getContent(ID)).toBeNull();
+    db.answer.value = { data: row("p1") as unknown as unknown[], error: null, count: 0 };
+    expect((await getContent(ID))?.pageId).toBe("p1");
+  });
+
+  it("writes a new piece into the Page settled for it", async () => {
+    db.answer.value = { data: row("p1") as unknown as unknown[], error: null, count: 0 };
+    await saveContent({
+      planHref: "/x", format: "post", angle: "", length: null, output: {} as never,
+      flags: { numbers: [], words: [], fixes: null }, rateVersion: null, model: "m", costThb: 0, hookTemplateId: null, pageId: "p1",
+    });
+    expect(db.calls.find((c) => c[0] === "insert")?.[1]).toMatchObject({ page_id: "p1" });
   });
 });
