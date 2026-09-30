@@ -140,7 +140,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
 
   it("keeps every back-office page out of it", () => {
     const out = hrefs(false);
-    for (const secret of ["/admin", "/admin/crm", "/admin/ai", "/admin/knowledge", "/admin/messenger", "/admin/ads", "/admin/api"]) {
+    for (const secret of ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/knowledge", "/admin/messenger", "/admin/ads", "/admin/api"]) {
       expect(out, secret).not.toContain(secret);
     }
   });
@@ -161,7 +161,8 @@ describe("what the menu shows to somebody who has not signed in", () => {
     expect(hrefs(true).sort()).toEqual(
       // /admin/knowledge (สอน AI) left the menu on 2026-09-23 and came back on 2026-09-26, with
       // the daily บทเรียนจากแชท on it. /admin/posting (ออโต้โพสต์) was asked for on 2026-09-25
-      ["/admin", "/admin/crm", "/admin/ai", "/admin/knowledge", "/admin/messenger", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
+      // /admin/wallet (กระเป๋าเงินตัวแทน) joined on 2026-09-30 with the Studio wallet
+      ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/knowledge", "/admin/messenger", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
     );
   });
 
