@@ -92,7 +92,7 @@ export function overBudget(estimate: number, left: number): string | null {
     : null;
 }
 
-export function PressBar({ count, max, onCount, unit, label, onPress, disabled, note, warning }: {
+export function PressBar({ count, max, onCount, unit, label, onPress, disabled, note, warning, topUp }: {
   count: number;
   max: number;
   onCount?: (n: number) => void;
@@ -102,6 +102,8 @@ export function PressBar({ count, max, onCount, unit, label, onPress, disabled, 
   disabled: boolean;
   note: string;
   warning?: string | null;
+  /** the free month is used and the wallet is on: a way to top it up beside the note */
+  topUp?: boolean;
 }) {
   const step = "inline-flex size-11 items-center justify-center text-lg text-[var(--ct-ink)] disabled:opacity-30";
   return (
@@ -119,7 +121,15 @@ export function PressBar({ count, max, onCount, unit, label, onPress, disabled, 
         </button>
       </div>
       {warning && <p className="mt-2 text-xs font-medium text-[var(--ct-warn-ink)]">{warning}</p>}
-      <p className="mt-2 text-xs text-[var(--ct-mute)]">{note}</p>
+      <p className="mt-2 text-xs text-[var(--ct-mute)]">
+        {note}
+        {topUp && (
+          <>
+            {" · "}
+            <a href="/studio/wallet" className="font-medium text-[var(--ct-ink)] underline underline-offset-2">เติมเงิน</a>
+          </>
+        )}
+      </p>
     </div>
   );
 }

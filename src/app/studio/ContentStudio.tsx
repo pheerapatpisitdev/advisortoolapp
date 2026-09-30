@@ -7,6 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { HOOK_CATEGORY_LABEL, type HookTemplate } from "@/lib/content/hooks";
 import { footer, fullText } from "@/lib/content/output";
 import type { PiecePerson } from "@/lib/content/people";
+import { roundsNote } from "@/lib/wallet/note";
 import { defaultPoster, posterUrl, THEME_LABEL, THEMES } from "@/lib/content/poster";
 import { MAX_PIECES } from "@/lib/content/plan";
 import { onPage, publishView } from "@/lib/content/publish-label";
@@ -931,6 +932,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const paints = painterFor(painter, left, Boolean(person));
   const perPiece = writes.thb + OVERHEAD_THB + (format === "script" ? 0 : paints.thb);
   const estimate = (pieceCount * perPiece).toFixed(1);
+  const quota = spend.rounds ? roundsNote(spend.rounds, estimate) : null;
   const more = Math.floor(left / perPiece);
   const pictureLine = pictureSummary({
     format, writer: writes.short, painter: paints.modelId ? paints.short : null,
@@ -1210,10 +1212,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             label={pending
               ? `กำลังเขียน ${making} ${makingFormat === "ad" ? "แบบ" : "ชิ้น"}… (ราว 20–40 วินาที)`
               : format === "ad" ? `สร้างโฆษณา ${pieceCount} แบบ` : `สร้าง ${count} ชิ้น`}
-            note={spend.rounds
-              // an agent's own allowance is what they can act on; the owner's baht is the owner's
-              ? `ราว ฿${estimate} · เดือนนี้สร้างด้วย AI ได้อีก ${Math.max(0, spend.rounds.limit - spend.rounds.used)} จาก ${spend.rounds.limit} ครั้ง`
+            note={quota
+              // an agent's own allowance and wallet are what they can act on; the owner's baht is the owner's
+              ? quota.text
               : `ราว ฿${estimate} · สร้างได้อีกราว ${more} ชิ้น · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)} จาก ฿${spend.cap}`}
+            topUp={Boolean(quota?.topUp)}
             warning={overBudget(pieceCount * perPiece, left)}
           />
           </div>

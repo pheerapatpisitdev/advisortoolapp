@@ -5,6 +5,7 @@ import type { LogoSpot } from "@/lib/content/logo";
 import { LogoPicker } from "../ui/LogoPicker";
 import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, writerOf } from "@/lib/content/models";
 import type { PiecePerson } from "@/lib/content/people";
+import { roundsNote, type Rounds } from "@/lib/wallet/note";
 import { LENGTHS, MAX_READER, type Format, type Length } from "@/lib/content/prompt";
 import {
   KNOWLEDGE_KINDS, KNOWLEDGE_NAME, KNOWLEDGE_SUBJECTS, MAX_KNOWLEDGE_CUSTOM, MAX_KNOWLEDGE_PIECES, type KnowledgeKind,
@@ -37,7 +38,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
   /** the month's content money left, for the estimate and for อัตโนมัติ */
   left: number;
   /** the agent's own AI rounds this month; null for staff (src/lib/auth/quota.ts) */
-  rounds?: { used: number; limit: number } | null;
+  rounds?: Rounds | null;
   pending: boolean;
   making: number;
   /** `paintWith` and `who` are the painter and person at the press; the page draws each new poster's picture with them */
@@ -83,6 +84,8 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => knowledgeRound(round), paintWith, person);
   }
+
+  const quota = rounds ? roundsNote(rounds, estimate) : null;
 
   return (
     <>
@@ -179,7 +182,8 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
         label={pending
           ? `กำลังเขียน ${making} ${unit}… (ราว 20–40 วินาที)`
           : `สร้าง${format === "post" ? "โพสต์" : "สคริปต์"}${KNOWLEDGE_NAME} ${count} ${unit}`}
-        note={blocked ?? (rounds ? `ราว ฿${estimate} · เดือนนี้สร้างด้วย AI ได้อีก ${Math.max(0, rounds.limit - rounds.used)} จาก ${rounds.limit} ครั้ง` : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
+        note={blocked ?? (quota ? quota.text : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
+        topUp={!blocked && Boolean(quota?.topUp)}
         warning={blocked ? null : overBudget(Number(estimate), left)}
       />
     </>

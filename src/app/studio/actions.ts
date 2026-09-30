@@ -42,6 +42,8 @@ import { projectPage } from "@/lib/auth/pages";
 import { requireMember } from "@/lib/auth/viewer";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
 import { payRound } from "@/lib/wallet/round";
+import type { Rounds } from "@/lib/wallet/note";
+import { walletView } from "@/lib/wallet/store";
 
 /**
  * The content workbench's doors, open to anyone who finds the page — the owner put it in the
@@ -625,8 +627,12 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
 export async function contentSpend(): Promise<ContentSpend> {
   const viewer = await requireMember();
   try {
-    const [spent, cap, allowance] = await Promise.all([contentSpentThisMonth(), contentCap(), allowanceOf(viewer)]);
-    return { spent, cap, rounds: allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit } };
+    // staff have no wallet and use the tools free (owner, 2026-09-30)
+    const [spent, cap, allowance, wallet] = await Promise.all([
+      contentSpentThisMonth(), contentCap(), allowanceOf(viewer),
+      viewer.staff ? Promise.resolve(null) : walletView(viewer.agentId),
+    ]);
+    return { spent, cap, rounds: allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit, wallet } };
   } catch {
     return { spent: 0, cap: DEFAULT_CONTENT_CAP_THB, rounds: null };
   }
@@ -635,8 +641,8 @@ export async function contentSpend(): Promise<ContentSpend> {
 export interface ContentSpend {
   spent: number;
   cap: number;
-  /** the agent's own AI rounds this month (src/lib/auth/quota.ts); null for staff */
-  rounds: { used: number; limit: number } | null;
+  /** the agent's own AI rounds this month and their wallet (src/lib/auth/quota.ts); null for staff */
+  rounds: Rounds | null;
 }
 
 /**
