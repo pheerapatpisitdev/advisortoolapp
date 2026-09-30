@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/assistant/rate-limit";
 import { hashPin, readSignup, SIGNUPS_PER_IP_PER_DAY } from "@/lib/auth/member";
+import { safeNext } from "@/lib/auth/next";
 import { createMember, deleteMember, memberByPhone, memberSettings, signupsFromIp } from "@/lib/auth/member-store";
 import { startSession } from "@/lib/auth/session";
 
@@ -17,6 +18,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Counts the address's signups twice: early (to avoid hashing if past the limit), then again
  * after the insert (parallel requests from the same address each read 0 and all create accounts;
  * the re-count catches this, deletes the new one, and returns the limit message).
+ *
+ * Goes on to `next` when the form carries one — ถาม AI sends people here after its free
+ * questions and should get them back (2026-10-01) — and to Studio otherwise; safeNext keeps it on this site.
  */
 export async function signUp(formData: FormData): Promise<{ error: string; taken?: boolean } | undefined> {
   let id: string;
@@ -47,5 +51,5 @@ export async function signUp(formData: FormData): Promise<{ error: string; taken
   }
   // outside the try: redirect() works by throwing, and must not be caught as a failure
   await startSession(id);
-  redirect("/studio");
+  redirect(safeNext(formData.get("next")));
 }

@@ -18,7 +18,7 @@ const TTL_MS = 7 * 24 * 60 * 60 * 1000;
  * which is still the passphrase of the encrypted keys and tokens. Reusing it means Vercel
  * needs nothing new; it is never rotated, because that would lock the keys away.
  */
-function secret(): string {
+export function sessionSecret(): string {
   const s = process.env.ADMIN_SESSION_SECRET;
   if (!s) throw new Error("ADMIN_SESSION_SECRET is not set");
   return s;
@@ -58,13 +58,13 @@ export function decodeSession(raw: string, key: string, now: number): Session | 
 
 export async function readSession(): Promise<Session | null> {
   const raw = (await cookies()).get(SESSION_COOKIE)?.value;
-  return raw ? decodeSession(raw, secret(), Date.now()) : null;
+  return raw ? decodeSession(raw, sessionSecret(), Date.now()) : null;
 }
 
 /** Only from a server action or a route: a page cannot set a cookie. */
 export async function startSession(agentId: string): Promise<void> {
   const now = Date.now();
-  (await cookies()).set(SESSION_COOKIE, encodeSession(agentId, now, now + TTL_MS, secret()), {
+  (await cookies()).set(SESSION_COOKIE, encodeSession(agentId, now, now + TTL_MS, sessionSecret()), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

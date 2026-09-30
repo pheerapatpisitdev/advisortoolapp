@@ -104,7 +104,7 @@ function Chips(
   );
 }
 
-export function Chat() {
+export function Chat({ invite = false }: { invite?: boolean }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   /**
    * What the pricing brain knows about the person being quoted, held here between questions.
@@ -216,6 +216,18 @@ export function Chat() {
             ถามเงื่อนไขก็ได้ ขอเบี้ยก็ได้ — เบี้ยคิดจากตารางจริง ตัวเดียวกับที่บอทและหน้าขายใช้ ·{" "}
             <Link href="/other-plans" className="underline underline-offset-2">แบบประกันอื่นๆ</Link>
           </p>
+          {/* for somebody not signed in, while sign-up is open (owner, 2026-10-01): the way to try
+              Studio, and to keep asking past the free questions — gone once there is a conversation,
+              which needs the height */}
+          {invite && !talking && (
+            <Link
+              href="/signup?next=/"
+              className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--hm-line)] bg-[var(--hm-panel)] px-3.5 py-1.5 text-sm text-[var(--hm-ink)] no-underline hover:border-[var(--hm-line-strong)]"
+            >
+              <span aria-hidden>✨</span>
+              <span>ลอง Studio ช่วยเขียนคอนเทนต์ ฟรี 10 รอบ — <span className="font-medium underline underline-offset-2">สมัครใน 1 นาที</span></span>
+            </Link>
+          )}
         </div>
         </div>
         {/* only once there is something to clear: a button that undoes nothing is a button

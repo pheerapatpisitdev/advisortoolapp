@@ -38,6 +38,13 @@ describe("signUp", () => {
     expect(nav.redirect).toHaveBeenCalledWith("/studio");
   });
 
+  it("goes back to the page that sent them, never off the site", async () => {
+    expect(await signUp(form({ next: "/" }))).toBeUndefined();
+    expect(nav.redirect).toHaveBeenLastCalledWith("/");
+    expect(await signUp(form({ next: "//evil.example" }))).toBeUndefined();
+    expect(nav.redirect).toHaveBeenLastCalledWith("/studio");
+  });
+
   it("deletes a new account when re-count reveals a burst passed the early check", async () => {
     store.signupsFromIp.mockResolvedValueOnce(2).mockResolvedValueOnce(4);
     expect(await signUp(form())).toEqual({ error: "สมัครจากเครือข่ายนี้ครบแล้ว กรุณาลองใหม่พรุ่งนี้" });
