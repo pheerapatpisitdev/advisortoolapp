@@ -213,6 +213,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
           { href: "/admin/ai", label: "ตั้งค่า AI", icon: "key", hue: "#2b4673" },
           // the agents' Studio wallets: on or off, the multiplier, a hand on a balance (owner, 2026-09-30)
           { href: "/admin/wallet", label: "กระเป๋าเงินตัวแทน", icon: "wallet", hue: "#2b736f" },
+          // members outside UnitOS who signed up themselves (owner, 2026-10-01)
+          { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#33638a" },
           // back in the menu on 2026-09-26 (owner): the daily บทเรียนจากแชท waits here for ใช้
           { href: "/admin/knowledge", label: "สอน AI", icon: "spark", hue: "#2e4a7a" },
         ],
@@ -288,6 +290,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
     // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); staff write without one
     { href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b736f" },
+    // a member's own name and PIN; UnitOS agents manage theirs in UnitOS (owner, 2026-10-01)
+    { href: "/studio/account", label: "บัญชีของฉัน", icon: "key", hue: "#2e4a7a" },
   ];
   // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
   // plan for everyone else (2026-09-30); the front page is the admins' and the posting staff's,
@@ -298,6 +302,7 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
   const hidden = new Set([
     ...(who && !who.admin && !who.publish ? ["/studio"] : []),
     ...(staff || who?.wallet !== true ? ["/studio/wallet"] : []),
+    ...(who?.member ? [] : ["/studio/account"]),
   ]);
   const shown = links.filter((l) => !hidden.has(l.href));
   const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
@@ -322,14 +327,17 @@ export interface Who {
   owner: boolean;
   /** Studio only: the owner has the wallet on and this is an agent, not staff (owner, 2026-09-30) */
   wallet?: boolean;
+  /** a member outside UnitOS (owner, 2026-10-01): their account page, and no room to name */
+  member?: boolean;
 }
 
 /** What each back-office page asks of the person opening it, as agreed on 2026-09-27. */
-const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet">> = {
+const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet" | "member">> = {
   "/admin": "admin",
   "/admin/crm": "admin",
   "/admin/ai": "admin",
   "/admin/wallet": "admin",
+  "/admin/members": "admin",
   "/admin/knowledge": "admin",
   "/admin/messenger": "connect",
   "/admin/posting": "publish",

@@ -21,7 +21,7 @@ const { takeRound } = await import("@/lib/auth/quota");
 const { holdSatang } = await import("@/lib/wallet/money");
 
 const agent: Viewer = {
-  agentId: "00000000-0000-4000-8000-000000000002", code: "1", name: "a", tenantId: "t", tenantSlug: "t", tenantName: "t",
+  kind: "unitos", agentId: "00000000-0000-4000-8000-000000000002", code: "1", name: "a", tenantId: "t", tenantSlug: "t", tenantName: "t",
   trial: false, staff: null,
 };
 

@@ -163,7 +163,8 @@ describe("what the menu shows to somebody who has not signed in", () => {
       // /admin/knowledge (สอน AI) left the menu on 2026-09-23 and came back on 2026-09-26, with
       // the daily บทเรียนจากแชท on it. /admin/posting (ออโต้โพสต์) was asked for on 2026-09-25
       // /admin/wallet (กระเป๋าเงินตัวแทน) joined on 2026-09-30 with the Studio wallet
-      ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/knowledge", "/admin/messenger", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
+      // /admin/members (สมาชิกทั่วไป) joined on 2026-10-01 with sign-up for people outside UnitOS
+      ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/members", "/admin/knowledge", "/admin/messenger", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
     );
   });
 
@@ -206,6 +207,14 @@ describe("Studio's own menu", () => {
     expect(hrefs(who)).not.toContain("/studio/wallet");
     expect(studioMenu().flatMap((g) => g.links).map((l) => l.href)).not.toContain("/studio/wallet");
   });
+
+  it("gives a member outside UnitOS their account page, and nobody else (owner, 2026-10-01)", () => {
+    const base = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false, wallet: true };
+    const hrefs = (who: typeof base & { member?: boolean }) => studioMenu(who).flatMap((g) => g.links.map((l) => l.href));
+    expect(hrefs({ ...base, member: true })).toContain("/studio/account");
+    expect(hrefs(base)).not.toContain("/studio/account");
+  });
+
 
   it("lights the front page only on /studio itself, not on the pages beside it", () => {
     expect(isCurrent("/studio", "/studio")).toBe(true);

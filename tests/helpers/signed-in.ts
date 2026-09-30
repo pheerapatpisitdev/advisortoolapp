@@ -9,6 +9,7 @@ import type { Viewer } from "@/lib/auth/access";
  * call getViewer inside the module, where a mock of the export would not reach.
  */
 export const OWNER: Viewer = {
+  kind: "unitos",
   agentId: "00000000-0000-4000-8000-000000000001",
   code: "015495",
   name: "เจ้าของ",
@@ -26,7 +27,9 @@ export const asOwner = {
   refuseUnless: async () => null,
   gatePage: async () => OWNER,
   audit: async () => {},
-  whoOf: () => ({ name: OWNER.name, room: OWNER.tenantName, publish: true, connect: true, admin: true, owner: true }),
+  whoOf: () => ({ name: OWNER.name, room: OWNER.tenantName, publish: true, connect: true, admin: true, owner: true, member: false }),
+  memberById: async () => null,
+  displayNames: async () => ({}),
   agentById: async () => null,
   agentsByCode: async () => [],
   staffRow: async () => null,

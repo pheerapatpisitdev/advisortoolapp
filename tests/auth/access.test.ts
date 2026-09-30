@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { admit, can, type AgentRow, type StaffRow } from "@/lib/auth/access";
+import { admit, admitMember, can, type AgentRow, type MemberRow, type StaffRow } from "@/lib/auth/access";
 
 const room = (over: Partial<NonNullable<AgentRow["tenant"]>> = {}): NonNullable<AgentRow["tenant"]> => ({
   id: "t1", slug: "83g", name: "83G", status: "active", config: null, key_epoch: null, ...over,
@@ -85,5 +85,37 @@ describe("can", () => {
 
   it("gives nobody anything when nobody is signed in", () => {
     expect(can(null, "publish")).toBe(false);
+  });
+});
+
+describe("admitMember (owner, 2026-10-01)", () => {
+  const member = (over: Partial<MemberRow> = {}): MemberRow => ({
+    id: "m1", phone: "0812345678", name: "สมชาย", status: "active", pin_changed_at: null, ...over,
+  });
+
+  it("lets an active member in with Studio only and no room", () => {
+    expect(admitMember(member(), Date.now())).toEqual({
+      kind: "member", agentId: "m1", code: "0812345678", name: "สมชาย",
+      tenantId: null, tenantSlug: "", tenantName: "สมาชิกทั่วไป", trial: false, staff: null,
+    });
+  });
+
+  it("names a member with a blank name by their phone", () => {
+    expect(admitMember(member({ name: "  " }), Date.now())?.name).toBe("0812345678");
+  });
+
+  it("shuts out a member who is gone or suspended", () => {
+    expect(admitMember(null, Date.now())).toBeNull();
+    expect(admitMember(member({ status: "suspended" }), Date.now())).toBeNull();
+  });
+
+  it("shuts out a session issued before the PIN changed", () => {
+    const at = "2026-10-01T05:00:00Z";
+    expect(admitMember(member({ pin_changed_at: at }), Date.parse(at) - 1)).toBeNull();
+    expect(admitMember(member({ pin_changed_at: at }), Date.parse(at))).not.toBeNull();
+  });
+
+  it("marks a UnitOS agent as one", () => {
+    expect(admit(agent(), null, Date.now())?.kind).toBe("unitos");
   });
 });

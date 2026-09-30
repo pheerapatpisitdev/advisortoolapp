@@ -276,7 +276,7 @@ function Account({ who, pushDown }: { who: Who | null; pushDown: boolean }) {
         <div className="flex items-center gap-2 px-2 rail:flex-col rail:px-0">
           <div className="min-w-0 flex-1 rail:sr-only">
             <p className="truncate text-sm font-medium" style={{ color: "var(--shell-ink)" }}>{who.name}</p>
-            <p className="truncate text-[0.7rem]" style={{ color: "var(--shell-mute)" }}>ห้อง {who.room}</p>
+            <p className="truncate text-[0.7rem]" style={{ color: "var(--shell-mute)" }}>{who.member ? who.room : `ห้อง ${who.room}`}</p>
           </div>
           <form action={signOut}>
             <button type="submit" className="shell-btn px-2 py-1 text-xs" style={{ color: "var(--shell-mute)" }} title="ออกจากระบบ">
