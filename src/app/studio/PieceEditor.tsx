@@ -20,6 +20,8 @@ import { AlertIcon, BackIcon, CheckIcon, LockIcon } from "./ui/editor-icons";
 import { ChevronLeftIcon, ChevronRightIcon } from "./ui/icons";
 import { AutoTextarea, errorNote, Note, okNote, type NoteState } from "./ui/editor-fields";
 import { FeedPreview } from "./ui/FeedPreview";
+import { outputFormula } from "@/lib/content/formula";
+import { FinishCard } from "./FinishCard";
 
 /**
  * One piece opened across the workbench: every part editable, the checks beside it.
@@ -518,6 +520,10 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
             {fold.hidden && <span className="text-[var(--ct-mute)]">… ดูเพิ่มเติม</span>}
           </p>
         </div>
+      )}
+
+      {outputFormula(item.output) === "finish" && (item.format === "post" || item.format === "script") && (
+        <FinishCard key={item.id} item={item} output={output} format={item.format} onSaved={onSaved} />
       )}
 
       {anything && (
