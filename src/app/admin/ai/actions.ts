@@ -7,6 +7,7 @@ import { contentBaht, DEFAULT_CONTENT_CAP_THB } from "@/lib/content/store";
 import { EMBEDDERS, JUDGE } from "@/lib/ai/providers";
 import { checkBudgets } from "./budget";
 import { requireStaff } from "@/lib/auth/viewer";
+import { walletChargedThb } from "@/lib/wallet/store";
 
 export type { ProviderCheck } from "@/lib/ai/client";
 
@@ -99,6 +100,9 @@ export async function loadAiPage(): Promise<{
       return null;
     }),
   ]);
+  // the ceiling leaves out what agents paid for from their wallets (src/lib/content/store.ts),
+  // so the figure beside it does too, or the two disagree by exactly that (owner, 2026-09-30)
+  const contentSpent = spend ? Math.max(0, contentBaht(spend.lines) - (await walletChargedThb(monthStart()))) : null;
   const disabled = new Set((prefs.data ?? []).filter((p) => !p.enabled).map((p) => p.model_id));
   return {
     keys: ((keys.data ?? []) as { provider: string; tail: string; enabled: boolean | null }[])
@@ -123,7 +127,7 @@ export async function loadAiPage(): Promise<{
     spentThisMonth: spend ? spend.baht : null,
     spend: spend ? byProvider(spend.lines, (models.data ?? []) as { provider: string; model_name: string }[]) : [],
     content: {
-      spent: spend ? contentBaht(spend.lines) : null,
+      spent: contentSpent,
       cap: settings.data?.content_budget_thb == null ? DEFAULT_CONTENT_CAP_THB : Number(settings.data.content_budget_thb),
       fallback: DEFAULT_CONTENT_CAP_THB,
     },
