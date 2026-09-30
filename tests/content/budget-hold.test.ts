@@ -12,6 +12,12 @@ vi.mock("@/lib/ai/ledger", async (orig) => ({ ...(await orig<typeof import("@/li
 vi.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: () => ({ from: () => ({ select: () => ({ maybeSingle: async () => settings.result }) }) }),
 }));
+const walletStore = vi.hoisted(() => ({
+  walletChargedThb: vi.fn(async () => 0),
+  releaseWallet: vi.fn(async () => {}),
+  settleWallet: vi.fn(async () => 0),
+}));
+vi.mock("@/lib/wallet/store", () => walletStore);
 
 const { admits, monthStart } = await import("@/lib/ai/ledger");
 const { CONTENT_RESERVE_TASK, contentCap, contentSpentThisMonth, DEFAULT_CONTENT_CAP_THB, holdContentBudget } = await import("@/lib/content/store");
@@ -92,5 +98,24 @@ describe("monthStart", () => {
     // 06:00 on 30 September in Bangkok is September
     expect(monthStart(new Date("2026-09-29T23:00:00Z")).toISOString()).toBe("2026-08-31T17:00:00.000Z");
     expect(monthStart(new Date("2027-01-01T00:00:00Z")).toISOString()).toBe("2026-12-31T17:00:00.000Z");
+  });
+});
+
+describe("rounds an agent pays for from the wallet", () => {
+  it("are taken off what the content ceiling counts", async () => {
+    ledger.monthSpend.mockResolvedValue(spent(10));
+    walletStore.walletChargedThb.mockResolvedValueOnce(4);
+    expect(await contentSpentThisMonth()).toBe(6);
+  });
+
+  it("are not stopped by the owner's ceiling", async () => {
+    const { payRound } = await import("@/lib/wallet/round");
+    settings.result = { data: { content_budget_thb: 30 }, error: null };
+    const cap = await payRound(
+      { ok: true, paidBy: "wallet", holdId: "h", heldSatang: 1, multiplier: 2 },
+      async () => ({ ok: false, cap: await contentCap() }),
+    );
+    expect(cap.cap).toBe(Infinity);
+    expect(await contentCap()).toBe(30);
   });
 });

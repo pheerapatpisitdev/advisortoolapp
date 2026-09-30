@@ -1,6 +1,8 @@
 import { currentScope, maySeePiece, pieceFilter } from "@/lib/auth/scope";
 import { admits, monthSpend, monthStart, release, reserve, sweepHolds, type SpendLine } from "@/lib/ai/ledger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { inWalletRound } from "@/lib/wallet/round";
+import { walletChargedThb } from "@/lib/wallet/store";
 import type { ContentWord, WordHit, WordKind } from "./check";
 import { isHookCategory, type HookCategory, type HookTemplate } from "./hooks";
 import { ON_PAGE_STATES, POSTING_STALE_MS } from "./publish-label";
@@ -89,6 +91,9 @@ export const DEFAULT_CONTENT_CAP_THB = 30;
  * it made up.
  */
 export async function contentCap(): Promise<number> {
+  // a round the agent pays for from their wallet is not the owner's money (owner, 2026-09-30):
+  // it is bounded by the wallet's hold instead (src/lib/wallet/round.ts)
+  if (inWalletRound()) return Infinity;
   const { data, error } = await supabaseAdmin().from("ins_ai_settings").select("content_budget_thb").maybeSingle();
   if (error) {
     console.error("content cap unreadable:", error.message);
@@ -105,11 +110,14 @@ export function contentBaht(lines: SpendLine[]): number {
 
 /**
  * What content has spent this month, with the money running rounds have set aside — the one
- * reader that counts holds. Dead requests' holds are swept first so they do not count.
+ * reader that counts holds. Dead requests' holds are swept first so they do not count. What
+ * agents paid for from their wallets is taken off: the ceiling guards the owner's money.
  */
 export async function contentSpentThisMonth(): Promise<number> {
   await sweepHolds();
-  return contentBaht((await monthSpend(monthStart(), { holds: true })).lines);
+  const since = monthStart();
+  const [spend, paidByAgents] = await Promise.all([monthSpend(since, { holds: true }), walletChargedThb(since)]);
+  return Math.max(0, contentBaht(spend.lines) - paidByAgents);
 }
 
 /** the ledger task a content reservation is written under; content-*, so the ceiling counts it */

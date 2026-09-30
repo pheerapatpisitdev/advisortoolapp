@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { meterCost } from "@/lib/wallet/round";
 import { monthSpend, monthStart } from "./ledger";
 import { IMAGE_CALLERS, TAKES_REFERENCES, type DrawnImage, type ReferenceImage } from "./images";
 import { CALLERS, EMBEDDERS, JUDGE, type JudgeAnswer, type JudgeQuestion } from "./providers";
@@ -111,6 +112,8 @@ async function assertWithinBudget(config: Config) {
 
 /** Records what a call cost. Never records the customer's words, only counts and money. */
 async function record(model: string, task: string, inTok: number, outTok: number, costThb: number) {
+  // a wallet round's meter (src/lib/wallet/round.ts); outside one this does nothing
+  meterCost(costThb);
   await supabaseAdmin().from("ins_usage_ledger").insert({
     model, task, input_tokens: inTok, output_tokens: outTok, cost_thb: Number(costThb.toFixed(6)),
   });
