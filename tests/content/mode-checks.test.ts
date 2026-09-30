@@ -36,13 +36,13 @@ describe("which checks a mode takes", () => {
 
 describe("the briefs the review asked for", () => {
   it("asks for a quote short enough that the poster never cuts it", () => {
-    const text = knowledgeMessages(subjectOf("quote", "family", "")!, 0, "", "post", null, false, false).map((m) => String(m.content)).join("\n");
+    const text = knowledgeMessages(subjectOf("quote", "family", "")!, 0, "", "post", null, false, null).map((m) => String(m.content)).join("\n");
     expect(text).toContain("ไม่เกิน 60 ตัวอักษร");
     expect(text).not.toContain("ไม่เกิน 80 ตัวอักษร");
   });
 
   it("tells the polisher a recruiting draft gets no income figure and picks no one by age or sex", () => {
-    const text = draftMessages("ชวนมาร่วมทีม", 0, "", "post", null, false, false).map((m) => String(m.content)).join("\n");
+    const text = draftMessages("ชวนมาร่วมทีม", 0, "", "post", null, false, null).map((m) => String(m.content)).join("\n");
     expect(text).toContain("ห้ามใส่ตัวเลขรายได้");
   });
 });

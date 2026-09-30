@@ -63,7 +63,7 @@ describe("the round's writer", () => {
 
 describe("รีวิวเคลม and หาทีม", () => {
   it("take the hook and the body rules together, since one call writes both", () => {
-    for (const system of [claimSystem("post", null, false, true), recruitSystem("post", null, false, true)]) {
+    for (const system of [claimSystem("post", null, false, "pro"), recruitSystem("post", null, false, "pro")]) {
       expect(system).toContain(PRO_HOOK_RULES);
       expect(system).toContain(proRules("post"));
     }

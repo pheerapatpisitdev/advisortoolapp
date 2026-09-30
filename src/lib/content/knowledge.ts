@@ -3,7 +3,7 @@ import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ContentOutput } from "./output";
 import { POLICY_RULES_TH } from "./policy";
 import { LOOP_RULES, steerLines, type Length } from "./prompt";
-import { PRO_HOOK_RULES, proRules } from "./pro";
+import { formulaRules, type Formula } from "./formula";
 import { clip, MAX_CHARS, parsePoster, THEME_MOOD, THEMES, type PosterBlock, type PosterSpec } from "./poster";
 
 /**
@@ -118,7 +118,7 @@ const POSTER_LINES = [
 const POSTER_SHAPE = '"imagePrompt":"…","poster":{"theme":"navy","headline":"…","footer":"…"}';
 const LENGTH_LABEL: Record<Length, string> = { "30": "30 วินาที", "60": "60 วินาที", "180": "2–3 นาที" };
 
-function knowledgeSystem(kind: KnowledgeKind, format: "post" | "script", length: Length | null, loop: boolean, pro: boolean): string {
+function knowledgeSystem(kind: KnowledgeKind, format: "post" | "script", length: Length | null, loop: boolean, formula: Formula | null): string {
   const task = format === "post"
     ? [
         "งาน: โพสต์เฟซบุ๊ก",
@@ -147,16 +147,16 @@ function knowledgeSystem(kind: KnowledgeKind, format: "post" | "script", length:
     KIND_TASK[kind],
     ...task,
     ...(format === "script" && loop ? [LOOP_RULES] : []),
-    ...(pro ? [PRO_HOOK_RULES, proRules(format, length, loop)] : []),
+    ...[formulaRules(formula, format, length, loop, true)].filter(Boolean),
   ].join("\n");
 }
 
 export function knowledgeMessages(
-  subject: KnowledgeSubject, piece: number, reader: string, format: "post" | "script", length: Length | null, loop: boolean, pro: boolean,
+  subject: KnowledgeSubject, piece: number, reader: string, format: "post" | "script", length: Length | null, loop: boolean, formula: Formula | null,
 ): ChatMessage[] {
   const about = subject.kind === "quote" ? `แนวคำคม: ${subject.label}` : `หัวข้อ: ${subject.label}`;
   return [
-    { role: "system", content: knowledgeSystem(subject.kind, format, length, loop, pro) },
+    { role: "system", content: knowledgeSystem(subject.kind, format, length, loop, formula) },
     { role: "user", content: [about, OPENERS[piece % OPENERS.length], steerLines({ reader: reader.trim() })].filter(Boolean).join("\n\n") },
   ];
 }

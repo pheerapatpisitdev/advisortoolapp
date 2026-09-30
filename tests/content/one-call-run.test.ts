@@ -18,7 +18,7 @@ const { oneCallRound } = await import("@/lib/content/one-call-run");
 const piece = (body: string): ContentOutput => ({ hooks: ["หัว"], body, closing: "", hashtags: [], imagePrompt: "", disclaimer: "" });
 const base = {
   href: "draft", format: "post" as const, length: null, count: 2, messages: () => [{ role: "user" as const, content: "x" }],
-  loop: false, pro: false, label: "test", pageId: "p1",
+  loop: false, formula: null, label: "test", pageId: "p1",
 };
 
 beforeEach(() => {
@@ -69,7 +69,14 @@ describe("a one-call round", () => {
   });
 
   it("marks คลิปวนลูป and สูตรโปร on the pieces", async () => {
-    await oneCallRound({ ...base, format: "script", count: 1, loop: true, pro: true, yardstick: "", parse: () => piece("x") });
-    expect(store.saveContent.mock.calls[0][0].output).toMatchObject({ loop: true, pro: true });
+    await oneCallRound({ ...base, format: "script", count: 1, loop: true, formula: "pro" as const, yardstick: "", parse: () => piece("x") });
+    expect(store.saveContent.mock.calls[0][0].output).toMatchObject({ loop: true, formula: "pro" });
+  });
+  it("marks a สูตรอ่าน-ดูจนจบ piece with the loops and the reason its writer reported", async () => {
+    ai.chat.mockImplementation(async () => ({
+      text: JSON.stringify({ loops: [{ open: "หัว", close: "เฉลย" }], shareWhy: "voice" }), model: "m", costThb: 0.5, outputTokens: 10,
+    }));
+    await oneCallRound({ ...base, count: 1, formula: "finish", yardstick: "", parse: () => piece("ปมนี้ เฉลย") });
+    expect(store.saveContent.mock.calls[0][0].output).toMatchObject({ formula: "finish", shareWhy: "voice", loops: [{ open: "หัว", close: "เฉลย" }] });
   });
 });

@@ -21,19 +21,19 @@ describe("the owner's draft", () => {
 
 describe("the polisher's brief", () => {
   it("keeps the draft's meaning and adds no fact, number or promise", () => {
-    const brief = text(draftMessages(DRAFT, 0, "", "post", null, false, false));
+    const brief = text(draftMessages(DRAFT, 0, "", "post", null, false, null));
     expect(brief).toContain(DRAFT);
     expect(brief).toContain("ห้ามเพิ่มข้อเท็จจริง ตัวเลข หรือคำสัญญา");
   });
 
   it("polishes each version its own way: closest, punchier, a story", () => {
     expect(DRAFT_STYLES.map((s) => s.id)).toEqual(["close", "punchy", "story"]);
-    expect(text(draftMessages(DRAFT, 0, "", "post", null, false, false))).toContain(DRAFT_STYLES[0].say);
-    expect(text(draftMessages(DRAFT, 2, "", "post", null, false, false))).toContain(DRAFT_STYLES[2].say);
+    expect(text(draftMessages(DRAFT, 0, "", "post", null, false, null))).toContain(DRAFT_STYLES[0].say);
+    expect(text(draftMessages(DRAFT, 2, "", "post", null, false, null))).toContain(DRAFT_STYLES[2].say);
   });
 
   it("writes an ad to Ads Manager's lengths", () => {
-    expect(text(draftMessages(DRAFT, 0, "", "ad", null, false, false))).toContain("headline");
+    expect(text(draftMessages(DRAFT, 0, "", "ad", null, false, null))).toContain("headline");
   });
 });
 

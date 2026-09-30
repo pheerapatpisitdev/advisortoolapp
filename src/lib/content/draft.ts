@@ -4,7 +4,7 @@ import { AD_LIMITS } from "./ads";
 import { DISCLAIMER, type ContentOutput } from "./output";
 import { POLICY_RULES_TH } from "./policy";
 import { LOOP_RULES, steerLines, type Format, type Length } from "./prompt";
-import { PRO_HOOK_RULES, proRules } from "./pro";
+import { formulaRules, type Formula } from "./formula";
 import { clip, MAX_CHARS, parsePoster, THEME_MOOD, THEMES, type PosterBlock, type PosterSpec } from "./poster";
 
 /**
@@ -55,7 +55,7 @@ const POSTER_LINES = [
 const POSTER_SHAPE = '"imagePrompt":"…","poster":{"theme":"navy","headline":"…","footer":"…"}';
 const LENGTH_LABEL: Record<Length, string> = { "30": "30 วินาที", "60": "60 วินาที", "180": "2–3 นาที" };
 
-function draftSystem(format: Format, length: Length | null, loop: boolean, pro: boolean): string {
+function draftSystem(format: Format, length: Length | null, loop: boolean, formula: Formula | null): string {
   const task: Record<Format, string[]> = {
     post: [
       "งาน: เกลาร่างของเจ้าของเพจเป็นโพสต์เฟซบุ๊ก",
@@ -89,14 +89,14 @@ function draftSystem(format: Format, length: Length | null, loop: boolean, pro: 
     "",
     ...task[format],
     ...(format === "script" && loop ? [LOOP_RULES] : []),
-    ...(pro && format !== "ad" ? [PRO_HOOK_RULES, proRules(format, length, loop)] : []),
+    ...[formulaRules(formula, format, length, loop, true)].filter(Boolean),
   ].join("\n");
 }
 
-export function draftMessages(draft: string, piece: number, reader: string, format: Format, length: Length | null, loop: boolean, pro: boolean): ChatMessage[] {
+export function draftMessages(draft: string, piece: number, reader: string, format: Format, length: Length | null, loop: boolean, formula: Formula | null): ChatMessage[] {
   const style = DRAFT_STYLES[piece % DRAFT_STYLES.length];
   return [
-    { role: "system", content: draftSystem(format, length, loop, pro) },
+    { role: "system", content: draftSystem(format, length, loop, formula) },
     {
       role: "user",
       content: [`ร่างของเจ้าของเพจ:\n"""${draft}"""`, `วิธีเกลาเวอร์ชันนี้: ${style.say}`, steerLines({ reader: reader.trim() })].filter(Boolean).join("\n\n"),

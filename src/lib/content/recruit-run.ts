@@ -13,6 +13,7 @@ import {
   contentCap, contentSpentThisMonth, holdContentBudget, listWords, releaseContentBudget, saveContent, type ContentItem,
 } from "./store";
 import { fallbackWriters, UnreadableReply } from "./write";
+import { formulaOf, markFormula } from "./formula";
 import { ownerWording } from "./wording";
 
 /**
@@ -35,7 +36,9 @@ export interface RecruitWriteInput {
   length?: string;
   /** a คลิปวนลูป (scripts only): the closing runs back into the hook */
   loop?: boolean;
-  /** สูตรคอนเทนต์โปร (posts and scripts; pro.ts) */
+  /** the writing formula (formula.ts); posts and scripts */
+  formula?: string | null;
+  /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
   logoSpot?: string;
@@ -57,7 +60,7 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
   const format: Format = input.format === "script" || input.format === "ad" ? input.format : "post";
   const length: Length | null = format === "script" ? (LENGTHS.find((l) => l.id === input.length)?.id ?? "60") : null;
   const loop = format === "script" && Boolean(input.loop);
-  const pro = format !== "ad" && input.pro === true;
+  const formula = formulaOf(input, format);
   const logo = format === "script" ? null
     : await roundLogo(pageId, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
   const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
@@ -73,7 +76,7 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
 
     const settled = await Promise.allSettled(recruitTones(input.tone ?? "", count).map(async (tone) => {
       const r = await chat({
-        tier: "large", task: "content", messages: recruitMessages(topic, tone, reader, format, length, loop, pro),
+        tier: "large", task: "content", messages: recruitMessages(topic, tone, reader, format, length, loop, formula),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),
       });
@@ -84,7 +87,7 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
         throw new UnreadableReply();
       }
       return {
-        output: { ...output, ...(loop ? { loop: true } : {}), ...(pro ? { pro: true } : {}), ...(logo && output.poster ? { poster: { ...output.poster, logo } } : {}) },
+        output: { ...markFormula(output, formula, r.text), ...(loop ? { loop: true } : {}), ...(logo && output.poster ? { poster: { ...output.poster, logo } } : {}) },
         model: r.model, costThb: r.costThb,
       };
     }));

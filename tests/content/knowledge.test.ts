@@ -35,7 +35,7 @@ describe("what a knowledge piece is about", () => {
 
 describe("the knowledge writer's brief", () => {
   it("sells nothing, and asks only for a save or a share", () => {
-    const brief = text(knowledgeMessages(myth, 0, "", "post", null, false, false));
+    const brief = text(knowledgeMessages(myth, 0, "", "post", null, false, null));
     expect(brief).toContain("ห้ามเอ่ยชื่อแบบประกัน");
     expect(brief).toContain("เซฟ");
     expect(brief).toContain("ห้ามชวนคอมเมนต์คำเฉพาะ");
@@ -43,16 +43,16 @@ describe("the knowledge writer's brief", () => {
   });
 
   it("never puts a quote in a real person's mouth", () => {
-    expect(text(knowledgeMessages(quote, 0, "", "post", null, false, false))).toContain("ห้ามอ้างว่าเป็นคำพูดของคนดัง");
+    expect(text(knowledgeMessages(quote, 0, "", "post", null, false, null))).toContain("ห้ามอ้างว่าเป็นคำพูดของคนดัง");
   });
 
   it("takes สูตรคอนเทนต์โปร and คลิปวนลูป as the other writers do", () => {
-    expect(text(knowledgeMessages(myth, 0, "", "post", null, false, true))).toContain(PRO_HOOK_RULES);
-    expect(text(knowledgeMessages(myth, 0, "", "script", "60", true, false))).toContain("คลิปวนลูป");
+    expect(text(knowledgeMessages(myth, 0, "", "post", null, false, "pro"))).toContain(PRO_HOOK_RULES);
+    expect(text(knowledgeMessages(myth, 0, "", "script", "60", true, null))).toContain("คลิปวนลูป");
   });
 
   it("opens each piece of a round differently", () => {
-    expect(text(knowledgeMessages(myth, 0, "", "post", null, false, false))).not.toEqual(text(knowledgeMessages(myth, 1, "", "post", null, false, false)));
+    expect(text(knowledgeMessages(myth, 0, "", "post", null, false, null))).not.toEqual(text(knowledgeMessages(myth, 1, "", "post", null, false, null)));
   });
 });
 

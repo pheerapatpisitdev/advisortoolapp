@@ -4,7 +4,7 @@ import { DISCLAIMER, type ContentOutput } from "./output";
 import { POLICY_RULES_TH } from "./policy";
 import { AD_LIMITS } from "./ads";
 import { LOOP_RULES, steerLines, type Format, type Length } from "./prompt";
-import { PRO_HOOK_RULES, proRules } from "./pro";
+import { formulaRules, type Formula } from "./formula";
 import { clip, MAX_CHARS, parsePoster, THEME_MOOD, THEMES, type PosterBlock, type PosterSpec } from "./poster";
 
 /**
@@ -290,7 +290,7 @@ const POSTER_SHAPE = '"imagePrompt":"…","poster":{"theme":"navy","headline":"�
 const LENGTH_LABEL: Record<Length, string> = { "30": "30 วินาที", "60": "60 วินาที", "180": "2–3 นาที" };
 
 /** The writer's brief for one kind of work — the rules are the same for all three. */
-export function claimSystem(format: Format, length: Length | null = null, loop = false, pro = false): string {
+export function claimSystem(format: Format, length: Length | null = null, loop = false, formula: Formula | null = null): string {
   const task: Record<Format, string[]> = {
     post: [
       "งาน: โพสต์เฟซบุ๊กรีวิวการเคลมจริงของลูกค้า",
@@ -329,17 +329,17 @@ export function claimSystem(format: Format, length: Length | null = null, loop =
     ...task[format],
     // a คลิปวนลูป's ending runs back into its hook (prompt.ts)
     ...(format === "script" && loop ? [LOOP_RULES] : []),
-    // สูตรคอนเทนต์โปร: this call writes the hook too, so it takes the hook's rules as well (pro.ts)
-    ...(pro && format !== "ad" ? [PRO_HOOK_RULES, proRules(format, length, loop)] : []),
+    // the writing formula: this call writes the hook too, so it takes the hook's rules as well (formula.ts)
+    ...[formulaRules(formula, format, length, loop, true)].filter(Boolean),
   ].join("\n");
 }
 
 export function claimMessages(
-  facts: ClaimFacts, angle: { say: string }, reader = "", format: Format = "post", length: Length | null = null, loop = false, pro = false,
+  facts: ClaimFacts, angle: { say: string }, reader = "", format: Format = "post", length: Length | null = null, loop = false, formula: Formula | null = null,
 ): ChatMessage[] {
   const steer = steerLines({ reader: reader.trim() });
   return [
-    { role: "system", content: claimSystem(format, length, loop, pro) },
+    { role: "system", content: claimSystem(format, length, loop, formula) },
     {
       role: "user",
       content: [

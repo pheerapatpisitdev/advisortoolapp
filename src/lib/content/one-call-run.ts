@@ -14,6 +14,7 @@ import {
   contentCap, contentSpentThisMonth, holdContentBudget, listWords, releaseContentBudget, saveContent, type ContentItem,
 } from "./store";
 import { fallbackWriters, UnreadableReply } from "./write";
+import { markFormula, type Formula } from "./formula";
 import { ownerWording } from "./wording";
 
 /**
@@ -41,7 +42,8 @@ export interface OneCallRound {
   /** the mode's checks beyond every piece's own (mode-checks.ts) */
   checks?: Partial<ModeChecks>;
   loop: boolean;
-  pro: boolean;
+  /** the writing formula the round was picked with (formula.ts) */
+  formula: Formula | null;
   logoSpot?: string;
   /** the Page whose project the pieces go into, as projectPage settled it; null for an agent with no Pages */
   pageId: string | null;
@@ -80,7 +82,7 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
       }
       return {
         output: {
-          ...output, ...(r.loop ? { loop: true } : {}), ...(r.pro ? { pro: true } : {}),
+          ...markFormula(output, r.formula, reply.text), ...(r.loop ? { loop: true } : {}),
           ...(logo && output.poster ? { poster: { ...output.poster, logo } } : {}),
         },
         model: reply.model, costThb: reply.costThb,
