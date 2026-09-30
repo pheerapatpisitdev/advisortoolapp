@@ -2,7 +2,7 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
-import { backgroundPrompt, posterPrompt, stripThai } from "@/lib/content/background";
+import { MAX_DIRECTION, backgroundPrompt, posterPrompt, stripThai } from "@/lib/content/background";
 import { readPosterText } from "@/lib/content/poster-read";
 import { pickLook } from "@/lib/content/look-pick";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
@@ -658,16 +658,20 @@ export interface ContentSpend {
  * a request typed in Thai is translated first by the cheap model — once, a fraction of a baht.
  */
 async function inEnglish(request: string): Promise<string> {
-  const text = request.trim().slice(0, 300);
+  const text = request.trim().slice(0, MAX_DIRECTION);
   if (!text || !/[\u0E00-\u0E7F]/.test(text)) return text;
+  // a full art direction is kept whole: every instruction, in order, not a summary of it
   const r = await chat({
-    tier: "small", task: "content-image-brief", maxTokens: 200,
+    tier: "small", task: "content-image-brief", maxTokens: 2500,
     messages: [
-      { role: "system", content: "Translate the Thai photo direction into one short English sentence for an image model. Describe only what should be seen. Reply with the sentence only." },
+      {
+        role: "system",
+        content: "Translate the Thai art direction into English for an image model. Keep every instruction and detail, in the same order and structure; do not summarise, shorten or add anything. English terms already in it stay as they are. Reply with the translation only.",
+      },
       { role: "user", content: text },
     ],
   });
-  return stripThai(r.text).slice(0, 300);
+  return stripThai(r.text).slice(0, MAX_DIRECTION);
 }
 
 /** A picture for a piece Facebook has or holds: the post would keep the old one, so this one is not put on. */

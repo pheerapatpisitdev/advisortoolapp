@@ -388,6 +388,22 @@ describe("the content ceiling", () => {
     expect(row.output.look).toBeUndefined();
   });
 
+  it("takes a long art direction whole: translated in full, not cut to a sentence", async () => {
+    const english = `Premium editorial poster. ${"Torn paper layers, masking tape, muted gold accents. ".repeat(30)}`.trim();
+    ai.chat
+      .mockResolvedValueOnce({ text: english, model: "m", costThb: 0.02, outputTokens: 600 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ text: "หัวเรื่อง" }), model: "reader", costThb: 0.02, outputTokens: 10 });
+    ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-high", costThb: 0.86 });
+    store.saveBackground.mockResolvedValue("p1/new.png");
+    const thai = `ออกแบบโปสเตอร์แบบ Premium Editorial ${"ใช้กระดาษฉีก เทปกระดาษ สีทองหม่น ".repeat(40)}`;
+    expect(thai.length).toBeGreaterThan(1000);
+    expect((await drawBackground("p1", thai, "sharp", null)).ok).toBe(true);
+    const translate = ai.chat.mock.calls[0][0];
+    expect(String(translate.messages[1].content).length).toBe(thai.trim().length);
+    expect(String(translate.messages[0].content)).not.toContain("one short");
+    expect(ai.drawImage.mock.calls[0][0].prompt).toContain(english);
+  });
+
   it("keeps the picture when its words cannot be read back, and asks the agent to look", async () => {
     ai.chat.mockRejectedValueOnce(new Error("reader down"));
     ai.drawImage.mockResolvedValue({ bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-high", costThb: 0.86 });

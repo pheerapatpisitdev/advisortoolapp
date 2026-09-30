@@ -1,4 +1,5 @@
 "use client";
+import { MAX_DIRECTION } from "@/lib/content/background";
 import Link from "next/link";
 import { TodayPlan } from "./TodayPlan";
 import { calendarHref, workbenchHref } from "@/lib/content/workbench-link";
@@ -102,7 +103,7 @@ const THEME_KEY = "content-poster-theme";
 /** the owner's own direction for the round's pictures, kept per device like the reader */
 const BRIEF_KEY = "content-picture-brief";
 /** what drawBackground translates and keeps of a request */
-const MAX_BRIEF = 300;
+const MAX_BRIEF = MAX_DIRECTION;
 
 const chip = (on: boolean) =>
   `inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on

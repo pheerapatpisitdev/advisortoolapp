@@ -55,6 +55,9 @@ const AVOID = [
   "rigid posing, generic corporate stock photography, plastic skin, sterile showroom lighting",
 ];
 
+/** the longest picture brief taken — room for a full art direction, not only a sentence */
+export const MAX_DIRECTION = 2500;
+
 const THAI = /[฀-๿]+/g;
 
 export function stripThai(text: string): string {
