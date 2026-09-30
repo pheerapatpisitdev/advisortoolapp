@@ -1,3 +1,9 @@
+-- Dropping a foreign key holds ACCESS EXCLUSIVE on the referenced table (UnitOS's agents) until
+-- commit: give up rather than queue every read of agents behind a busy UnitOS transaction.
+-- On a timeout, run it again at a quiet moment.
+set local lock_timeout = '5s';
+set local statement_timeout = '60s';
+
 -- สมาชิกทั่วไป: people outside UnitOS who sign up at advisortool itself (owner, 2026-10-01).
 --
 -- Until now whoever used Studio was a row of UnitOS's `agents`. People with no UnitOS room get
@@ -20,6 +26,7 @@ create index ins_members_signup_ip_idx on public.ins_members (signup_ip, created
 comment on table public.ins_members is 'advisortool members outside UnitOS: phone + hashed PIN. service_role only.';
 alter table public.ins_members enable row level security;
 revoke all on public.ins_members from anon, authenticated;
+grant all on public.ins_members to service_role;
 
 -- `agent_id` now holds a UnitOS agent's id or a member's. ins_staff and ins_sso_tickets keep
 -- theirs: only UnitOS agents are staff or come in from UnitOS. Dropping the cascade on the
