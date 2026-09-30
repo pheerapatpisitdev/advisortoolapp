@@ -44,6 +44,8 @@ export interface ContentItem {
   agentId: string | null;
   /** the Page whose project it is (owner, 2026-09-30): written there, posted only there; null for an agent with no Pages */
   pageId: string | null;
+  /** the day an agent with no Page planned it for, and when they said it was posted (owner, 2026-09-30); null when not planned */
+  plan: { day: string; doneAt: string | null } | null;
 }
 
 export const PUBLISH_STATES = ["posting", "scheduled", "published", "failed", "cancelled"] as const;
@@ -136,7 +138,7 @@ export async function holdContentBudget(thb: number, cap: number): Promise<{ ok:
 export { release as releaseContentBudget };
 
 // one literal: supabase-js reads the column list's type from the string, and a joined one is opaque to it
-const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error, page_id";
+const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error, page_id, plan_day, planned_done_at";
 
 function toPublish(r: Record<string, unknown>): Publish | null {
   const state = r.publish_state;
@@ -168,6 +170,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
     publish: toPublish(r),
     agentId: (r.agent_id as string | null) ?? null,
     pageId: (r.page_id as string | null) ?? null,
+    plan: r.plan_day ? { day: String(r.plan_day), doneAt: (r.planned_done_at as string | null) ?? null } : null,
   };
 }
 
@@ -501,6 +504,46 @@ export async function recordPublishIf(
 export async function adoptPage(id: string, pageId: string): Promise<void> {
   const { error } = await supabaseAdmin().from("ins_content").update({ page_id: pageId }).eq("id", id).is("page_id", null);
   if (error) throw new Error(error.message);
+}
+
+/** the planning calendar keeps to pieces still in use: a piece thrown away leaves the plan with it */
+const PLANNABLE = ["draft", "used"];
+
+/** The asker's pieces planned between two days, inclusive (owner, 2026-09-30). */
+export async function listPlanned(from: string, to: string): Promise<ContentItem[]> {
+  const only = await ownersFilter();
+  let q = supabaseAdmin().from("ins_content").select(COLUMNS)
+    .gte("plan_day", from).lte("plan_day", to).in("status", PLANNABLE);
+  if (only) q = q.or(only);
+  const { data, error } = await q.order("plan_day", { ascending: true }).order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Record<string, unknown>[]).map(toItem);
+}
+
+/** The asker's pieces with no day yet, newest first — the planning calendar's rail. */
+export async function listUnplanned(limit = 60): Promise<ContentItem[]> {
+  const only = await ownersFilter();
+  let q = supabaseAdmin().from("ins_content").select(COLUMNS).is("plan_day", null).in("status", PLANNABLE);
+  if (only) q = q.or(only);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(limit);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Record<string, unknown>[]).map(toItem);
+}
+
+/** A piece put on a day, moved, or taken off (null); either way it is not posted yet. The caller checks the piece is theirs. */
+export async function setPlan(id: string, day: string | null): Promise<ContentItem> {
+  const { data, error } = await supabaseAdmin().from("ins_content")
+    .update({ plan_day: day, planned_done_at: null }).eq("id", id).select(COLUMNS).single();
+  if (error) throw new Error(error.message);
+  return toItem(data as Record<string, unknown>);
+}
+
+/** The agent says a planned piece went up (or takes that back). The caller checks the piece is theirs and planned. */
+export async function setPlanDone(id: string, done: boolean): Promise<ContentItem> {
+  const { data, error } = await supabaseAdmin().from("ins_content")
+    .update({ planned_done_at: done ? new Date().toISOString() : null }).eq("id", id).select(COLUMNS).single();
+  if (error) throw new Error(error.message);
+  return toItem(data as Record<string, unknown>);
 }
 
 /** Pieces posted or held between two moments, oldest first — the calendar's week. */

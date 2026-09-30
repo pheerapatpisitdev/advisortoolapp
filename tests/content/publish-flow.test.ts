@@ -39,7 +39,7 @@ const output: ContentOutput = { hooks: ["หัว 1", "หัว 2", "หัว
 const piece = (publish: Publish | null = null, out: ContentOutput = output): ContentItem => ({
   id: "p1", createdAt: "2026-09-25T00:00:00Z", planHref: "/life-protect", format: "post", angle: "",
   length: null, output: out, flags: { numbers: [], words: [], policy: [], fixes: null }, model: null, costThb: 0, status: "used",
-  hookTemplateId: null, publish, agentId: null, pageId: PAGE,
+  hookTemplateId: null, publish, agentId: null, pageId: PAGE, plan: null,
 });
 const pub = (over: Partial<Publish>): Publish => ({ state: "scheduled", pageId: PAGE, postId: null, at: null, error: null, ...over });
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();

@@ -4,7 +4,7 @@
 
 **Goal:** ตัวแทนที่ไม่มีสิทธิ์ลงโพสต์ได้ปฏิทินวางแผน: วางชิ้นงานลงวัน, กด "โพสต์แล้ว", และเห็นงานของวันนี้ตอนเปิด Studio — โดยไม่แตะการโพสต์ Facebook
 
-**Architecture:** สองช่องใหม่บน `ins_content` (`plan_day`, `planned_done_at`) · กติกาเป็นฟังก์ชันล้วนใน `src/lib/content/plan.ts` · store อ่าน/เขียนผ่านขอบเขตเดิม (`ownersFilter`, `getContent`) · server actions ใน `src/app/studio/plan.ts` · `/studio/calendar` แยกตามสิทธิ์: ลงโพสต์ได้ = ปฏิทิน Facebook เดิม, ไม่ได้ = `PlanCalendar` · editor แสดง `PlanPanel` แทน `PublishPanel` ให้ผู้ไม่มีสิทธิ์ลงโพสต์
+**Architecture:** สองช่องใหม่บน `ins_content` (`plan_day`, `planned_done_at`) · กติกาเป็นฟังก์ชันล้วนใน `src/lib/content/day-plan.ts` · store อ่าน/เขียนผ่านขอบเขตเดิม (`ownersFilter`, `getContent`) · server actions ใน `src/app/studio/plan.ts` · `/studio/calendar` แยกตามสิทธิ์: ลงโพสต์ได้ = ปฏิทิน Facebook เดิม, ไม่ได้ = `PlanCalendar` · editor แสดง `PlanPanel` แทน `PublishPanel` ให้ผู้ไม่มีสิทธิ์ลงโพสต์
 
 **Tech Stack:** Next.js 15 (App Router, server actions), TypeScript, Supabase (service role, PostgREST), vitest
 
@@ -36,10 +36,10 @@
 
 **Files:**
 - Create: `supabase/migrations/20260930_content_plan.sql`
-- Create: `src/lib/content/plan.ts`
+- Create: `src/lib/content/day-plan.ts`
 - Modify: `src/lib/content/store.ts` (`ContentItem`, `COLUMNS`, `toItem`, เพิ่ม `listPlanned`, `listUnplanned`, `setPlan`, `setPlanDone`)
 - Modify: `tests/content/publish-flow.test.ts` (`piece`), `tests/content/actions-page.test.ts` (`make`) — เติม `plan: null`
-- Test: `tests/content/plan.test.ts` (ใหม่), `tests/content/store-plan.test.ts` (ใหม่)
+- Test: `tests/content/day-plan.test.ts` (ใหม่), `tests/content/store-plan.test.ts` (ใหม่)
 
 **Interfaces:**
 - Produces: `type PlanState = "planned" | "today" | "overdue" | "done"` · `planState(day: string, doneAt: string | null, today: string): PlanState` · `mayPlanOn(day: string, today: string): boolean` · `PLAN_LABEL: Record<PlanState, string>` · `planTitle(item: ContentItem): string` · `ContentItem.plan: { day: string; doneAt: string | null } | null` · `listPlanned(from: string, to: string): Promise<ContentItem[]>` · `listUnplanned(limit?: number): Promise<ContentItem[]>` · `setPlan(id: string, day: string | null): Promise<ContentItem>` · `setPlanDone(id: string, done: boolean): Promise<ContentItem>`
@@ -58,11 +58,11 @@ create index if not exists ins_content_plan_day on public.ins_content (plan_day)
 
 ยังไม่รันบนฐานข้อมูลจริง — Task 5
 
-- [ ] **Step 2: test ที่ล้ม — `tests/content/plan.test.ts`**
+- [ ] **Step 2: test ที่ล้ม — `tests/content/day-plan.test.ts`**
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { mayPlanOn, PLAN_LABEL, planState, planTitle } from "@/lib/content/plan";
+import { mayPlanOn, PLAN_LABEL, planState, planTitle } from "@/lib/content/day-plan";
 
 const TODAY = "2026-09-30";
 
@@ -105,10 +105,10 @@ describe("a planned piece's title", () => {
 
 - [ ] **Step 3: รันให้เห็นว่าล้ม**
 
-Run: `npx vitest run tests/content/plan.test.ts`
+Run: `npx vitest run tests/content/day-plan.test.ts`
 Expected: FAIL — `Cannot find module '@/lib/content/plan'`
 
-- [ ] **Step 4: `src/lib/content/plan.ts`**
+- [ ] **Step 4: `src/lib/content/day-plan.ts`**
 
 ```ts
 import type { ContentItem } from "./store";
@@ -145,7 +145,7 @@ export function planTitle(item: Pick<ContentItem, "output">): string {
 
 - [ ] **Step 5: รันให้ผ่าน**
 
-Run: `npx vitest run tests/content/plan.test.ts`
+Run: `npx vitest run tests/content/day-plan.test.ts`
 Expected: PASS
 
 - [ ] **Step 6: test ที่ล้ม — `tests/content/store-plan.test.ts`**
@@ -300,13 +300,13 @@ export async function setPlanDone(id: string, done: boolean): Promise<ContentIte
 
 - [ ] **Step 10: ตรวจ**
 
-Run: `npx vitest run tests/content/plan.test.ts tests/content/store-plan.test.ts && npx tsc --noEmit && npx vitest run`
+Run: `npx vitest run tests/content/day-plan.test.ts tests/content/store-plan.test.ts && npx tsc --noEmit && npx vitest run`
 Expected: PASS · tsc ไม่มี error (ถ้าฟ้อง `plan` หายใน object literal อื่นของ test ให้เติม `plan: null`)
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add supabase/migrations/20260930_content_plan.sql src/lib/content/plan.ts src/lib/content/store.ts tests/content/plan.test.ts tests/content/store-plan.test.ts tests/content/publish-flow.test.ts tests/content/actions-page.test.ts
+git add supabase/migrations/20260930_content_plan.sql src/lib/content/day-plan.ts src/lib/content/store.ts tests/content/day-plan.test.ts tests/content/store-plan.test.ts tests/content/publish-flow.test.ts tests/content/actions-page.test.ts
 git commit -m "feat(studio): a piece can be planned for a day and marked posted, with no Page"
 ```
 
@@ -401,7 +401,7 @@ Expected: FAIL — `Cannot find module '@/app/studio/plan'`
 "use server";
 import { requireMember } from "@/lib/auth/viewer";
 import { todayKey } from "@/lib/content/calendar";
-import { mayPlanOn } from "@/lib/content/plan";
+import { mayPlanOn } from "@/lib/content/day-plan";
 import { getContent, setPlan, setPlanDone, type ContentItem } from "@/lib/content/store";
 
 /**
@@ -563,7 +563,7 @@ Expected: FAIL — เมนูไม่มี `/studio/calendar` · `Cannot fin
 ```tsx
 import Link from "next/link";
 import { monthGridDays, parseMonth, shiftMonth, thaiMonthYear, todayKey } from "@/lib/content/calendar";
-import { planTitle } from "@/lib/content/plan";
+import { planTitle } from "@/lib/content/day-plan";
 import { listPlanned, listUnplanned, type ContentItem } from "@/lib/content/store";
 import { ChevronLeftIcon, ChevronRightIcon } from "../ui/icons";
 import { PlanBoard, type PlanCard } from "./PlanBoard";
@@ -633,7 +633,7 @@ export async function PlanCalendar({ params }: { params: { y?: string; m?: strin
 import Link from "next/link";
 import { useState } from "react";
 import { thaiDayLabel, type MonthCell } from "@/lib/content/calendar";
-import { mayPlanOn, PLAN_LABEL, planState, type PlanState } from "@/lib/content/plan";
+import { mayPlanOn, PLAN_LABEL, planState, type PlanState } from "@/lib/content/day-plan";
 import { markPlanDone, planPiece, unplanPiece, type PlanResult } from "../plan";
 import { CheckIcon, XIcon } from "../ui/icons";
 
@@ -869,7 +869,7 @@ Expected: FAIL — `planner` undefined
 
 - [ ] **Step 3: `src/app/studio/StudioPage.tsx`**
 
-import เพิ่ม `import { can } from "@/lib/auth/access";`, `import { getViewer } from "@/lib/auth/viewer";`, `import { planTitle } from "@/lib/content/plan";` และ `todayKey` (มีอยู่แล้วจาก calendar) · เพิ่ม `listPlanned` ใน import จาก store
+import เพิ่ม `import { can } from "@/lib/auth/access";`, `import { getViewer } from "@/lib/auth/viewer";`, `import { planTitle } from "@/lib/content/day-plan";` และ `todayKey` (มีอยู่แล้วจาก calendar) · เพิ่ม `listPlanned` ใน import จาก store
 
 ต่อจากบรรทัด `const pageId = project?.pageId;`:
 
@@ -901,7 +901,7 @@ import เพิ่ม `import { can } from "@/lib/auth/access";`, `import { get
 "use client";
 import { useState } from "react";
 import { thaiDayLabel, todayKey } from "@/lib/content/calendar";
-import { mayPlanOn, PLAN_LABEL, planState } from "@/lib/content/plan";
+import { mayPlanOn, PLAN_LABEL, planState } from "@/lib/content/day-plan";
 import type { ContentItem } from "@/lib/content/store";
 import { markPlanDone, planPiece, unplanPiece, type PlanResult } from "./plan";
 
