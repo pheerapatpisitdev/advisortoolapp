@@ -3,6 +3,7 @@ import { INSURER_LINE } from "./output";
 import { backgroundDataUri } from "./store";
 import { SIZES, type Layout, type PosterDocument, type PosterSpec, type SizeId } from "./poster";
 import { fitScale, fontSize, LINE_HEIGHT, logoAt, metrics, withBreaks, type Canvas, type Metrics } from "./poster-layout";
+import { codeDrawsWords } from "./poster-text";
 import { renderPng } from "./poster-png";
 import { fitInBox, imageSize } from "./logo";
 
@@ -102,6 +103,7 @@ function Poster({ spec, canvas, photo, logo }: { spec: PosterSpec; canvas: Canva
   // the words keep clear of the logo only when there is one to draw
   const m = metrics(canvas, logo ? spec.logo?.spot : null);
   const scale = fitScale(spec, canvas, Boolean(logo));
+  const words = codeDrawsWords(spec, Boolean(photo));
 
   return (
     <div
@@ -118,10 +120,11 @@ function Poster({ spec, canvas, photo, logo }: { spec: PosterSpec; canvas: Canva
         position: "relative",
       }}
     >
-      {photo && c.scrim !== null && (
+      {/* the model drew the words into the picture (poster-text.ts): no wash, no second set of words */}
+      {words && photo && c.scrim !== null && (
         <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", backgroundImage: posterScrim(spec.theme, spec.layout) }} />
       )}
-      {lines(spec, m, scale)}
+      {words && lines(spec, m, scale)}
       <InsurerLine spec={spec} canvas={canvas} m={m} />
       <Logo spec={spec} canvas={canvas} uri={logo} />
     </div>

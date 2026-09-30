@@ -50,3 +50,11 @@ export function comparePosterRead(read: string, poster: Pick<PosterSpec, "blocks
   for (const f of checkPolicy(read)) issues.push(`กฎ Facebook: ${f.message}`);
   return issues;
 }
+
+/**
+ * Whether the code sets the poster's words. Not when the model drew them into its picture — but a
+ * picture that has gone missing draws the code's words on the plain theme, rather than nothing.
+ */
+export function codeDrawsWords(p: Pick<PosterSpec, "aiText">, hasPhoto: boolean): boolean {
+  return !(p.aiText && hasPhoto);
+}

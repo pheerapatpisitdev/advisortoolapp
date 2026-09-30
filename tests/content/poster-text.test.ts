@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { backgroundPrompt, posterPrompt } from "@/lib/content/background";
 import { decodePoster, encodePoster, parsePoster, type PosterSpec } from "@/lib/content/poster";
-import { READ_FAILED, aiTextState, blocksKey, comparePosterRead } from "@/lib/content/poster-text";
+import { READ_FAILED, aiTextState, blocksKey, codeDrawsWords, comparePosterRead } from "@/lib/content/poster-text";
 
 /**
  * With a brief, the image model draws the whole poster, words and all (owner, 2026-10-01); what
@@ -92,5 +92,16 @@ describe("the state of a poster's drawn words", () => {
   it("is read from a stored poster, and nothing else is taken for it", () => {
     expect(parsePoster(drawn(false))?.aiText).toEqual({ blocks: blocksKey(poster), read: said, issues: [], checked: false });
     expect(parsePoster({ ...poster, aiText: "yes" })?.aiText).toBeUndefined();
+  });
+});
+
+describe("who draws the words", () => {
+  const drawn: PosterSpec = { ...poster, aiText: { blocks: blocksKey(poster), read: said, issues: [], checked: false } };
+
+  it("is the model when it drew them and its picture is there, and the code otherwise", () => {
+    expect(codeDrawsWords(drawn, true)).toBe(false);
+    // the picture has gone missing: the code's words on the plain theme, rather than nothing
+    expect(codeDrawsWords(drawn, false)).toBe(true);
+    expect(codeDrawsWords(poster, true)).toBe(true);
   });
 });
