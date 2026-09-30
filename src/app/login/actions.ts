@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/assistant/rate-limit";
 import { admit } from "@/lib/auth/access";
+import { normalizePhone, PHONE_FAILURES, verifyPin } from "@/lib/auth/member";
+import { memberByPhone, phoneFailures } from "@/lib/auth/member-store";
 import { safeNext } from "@/lib/auth/next";
 import { endSession, startSession } from "@/lib/auth/session";
 import { agentsByCode, staffRow } from "@/lib/auth/viewer";
@@ -10,6 +12,17 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const WINDOW_MINUTES = 15;
 const MAX_FAILURES = 5;
+
+/** Failed sign-ins from one address in the window — the agent code's and the members' alike. */
+async function ipFailures(ip: string, since: string): Promise<number> {
+  const { count } = await supabaseAdmin()
+    .from("ins_login_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("ip", ip)
+    .eq("ok", false)
+    .gte("created_at", since);
+  return count ?? 0;
+}
 
 /**
  * Signing in with the agent's own 6-digit code — the same code UnitOS takes.
@@ -25,13 +38,8 @@ export async function signIn(formData: FormData): Promise<{ error: string } | un
   const supabase = supabaseAdmin();
   const since = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
 
-  const { count } = await supabase
-    .from("ins_login_attempts")
-    .select("id", { count: "exact", head: true })
-    .eq("ip", ip)
-    .eq("ok", false)
-    .gte("created_at", since);
-  if ((count ?? 0) >= MAX_FAILURES) {
+  const count = await ipFailures(ip, since);
+  if (count >= MAX_FAILURES) {
     return { error: `กรอกผิดเกิน ${MAX_FAILURES} ครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
   }
   if (!/^\d{6}$/.test(code)) return { error: "กรุณากรอกรหัสตัวแทน 6 หลัก" };
@@ -47,13 +55,49 @@ export async function signIn(formData: FormData): Promise<{ error: string } | un
   await supabase.from("ins_login_attempts").insert({ ip, ok: Boolean(viewer) });
 
   if (!viewer) {
-    const left = MAX_FAILURES - (count ?? 0) - 1;
+    const left = MAX_FAILURES - count - 1;
     // one answer for an unknown code and a closed room, so the page does not say which codes exist
     const why = "รหัสไม่ถูกต้อง หรือห้องใน UnitOS ยังไม่เปิดให้ใช้";
     return { error: left > 0 ? `${why} เหลืออีก ${left} ครั้ง` : `${why} ถูกระงับชั่วคราว` };
   }
 
   await startSession(viewer.agentId);
+  redirect(next);
+}
+
+/**
+ * Signing in as a member outside UnitOS: phone and the PIN they chose (owner, 2026-10-01).
+ *
+ * The address's count is the agent code's, so switching tabs buys no more guesses. The phone
+ * has a count of its own as well, so many addresses cannot share out the guessing of one
+ * member's PIN. A phone that does not exist, a PIN that is wrong and a member who is suspended
+ * get the same words — sign-up already says whether a phone is taken, but it need not be said
+ * twice.
+ */
+export async function memberSignIn(formData: FormData): Promise<{ error: string } | undefined> {
+  const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  const pin = String(formData.get("pin") ?? "").trim();
+  const next = safeNext(formData.get("next"));
+  const ip = clientIp(await headers());
+  const sinceDate = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000);
+  const since = sinceDate.toISOString();
+
+  const fromIp = await ipFailures(ip, since);
+  if (fromIp >= MAX_FAILURES) return { error: `กรอกผิดเกิน ${MAX_FAILURES} ครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
+  if (!phone || !/^\d{6}$/.test(pin)) return { error: "กรอกเบอร์มือถือ 10 หลัก และ PIN 6 หลัก" };
+  const fromPhone = await phoneFailures(phone, sinceDate);
+  if (fromPhone >= PHONE_FAILURES) return { error: `เบอร์นี้กรอก PIN ผิดหลายครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
+
+  const member = await memberByPhone(phone);
+  const ok = Boolean(member && member.status === "active" && (await verifyPin(pin, member.pin_hash)));
+  await supabaseAdmin().from("ins_login_attempts").insert({ ip, ok, phone });
+
+  if (!ok || !member) {
+    const left = Math.min(MAX_FAILURES - fromIp, PHONE_FAILURES - fromPhone) - 1;
+    const why = "เบอร์หรือ PIN ไม่ถูกต้อง";
+    return { error: left > 0 ? `${why} เหลืออีก ${left} ครั้ง` : `${why} ถูกระงับชั่วคราว` };
+  }
+  await startSession(member.id);
   redirect(next);
 }
 
