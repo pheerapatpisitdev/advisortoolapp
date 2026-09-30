@@ -37,7 +37,8 @@ export type MenuIcon =
   | "studio"
   | "calendar"
   | "quote"
-  | "woman";
+  | "woman"
+  | "wallet";
 
 export interface MenuLink {
   href: string;
@@ -283,11 +284,17 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
+    // an agent's own wallet, to write past the free month (owner, 2026-09-30); staff write without one
+    { href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b736f" },
   ];
   // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
   // plan for everyone else (2026-09-30); the front page is the admins' and the posting staff's,
   // who pick among their own Pages there (2026-09-29) — every other agent's Studio starts at the workbench
-  const hidden = new Set(who && !who.admin && !who.publish ? ["/studio"] : []);
+  const staff = Boolean(who && (who.admin || who.publish || who.connect || who.owner));
+  const hidden = new Set([
+    ...(who && !who.admin && !who.publish ? ["/studio"] : []),
+    ...(staff ? ["/studio/wallet"] : []),
+  ]);
   const shown = links.filter((l) => !hidden.has(l.href));
   const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
   // staff get a way to the back office, landing on the first page of it they may open

@@ -174,17 +174,25 @@ describe("what the menu shows to somebody who has not signed in", () => {
 describe("Studio's own menu", () => {
   it("lists Studio's pages and a way back to the main system", () => {
     const links = studioMenu().flatMap((g) => g.links);
-    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
+    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/wallet", "/"]);
   });
 
   it("keeps the front page for admins and posting staff; other agents start at the workbench", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
     // the calendar is every agent's: a Page's for those who post, a plan for the rest (owner, 2026-09-30)
-    expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
+    expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/wallet", "/"]);
     expect(hrefs({ ...who, admin: true, publish: true })).toContain("/studio");
     // posting staff choose among their own Pages there (owner, 2026-09-29)
     expect(hrefs({ ...who, publish: true })).toContain("/studio");
+  });
+
+  it("gives the wallet to agents only: staff write without one (owner, 2026-09-30)", () => {
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
+    expect(hrefs({ ...who, publish: true })).not.toContain("/studio/wallet");
+    expect(hrefs({ ...who, connect: true })).not.toContain("/studio/wallet");
+    expect(hrefs({ ...who, admin: true })).not.toContain("/studio/wallet");
   });
 
   it("lights the front page only on /studio itself, not on the pages beside it", () => {
