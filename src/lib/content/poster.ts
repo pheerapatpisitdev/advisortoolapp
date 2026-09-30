@@ -55,6 +55,36 @@ export interface PosterSpec {
   personAside?: boolean;
   /** the Page's logo and where it sits (logo.ts) */
   logo?: PosterLogo;
+  /**
+   * The image model drew the words too, from the owner's picture brief (owner, 2026-10-01):
+   * the poster is the picture, with only the insurer's line and the logo laid over it. What was
+   * read back off it and found wrong is kept for the agent, who ticks it before it may go up.
+   */
+  aiText?: AiText;
+}
+
+export interface AiText {
+  /** the poster's words when it was drawn (poster-text.ts blocksKey), to tell an edit since */
+  blocks: string;
+  /** the words read back off the picture */
+  read: string;
+  /** what the reading found wrong */
+  issues: string[];
+  /** the agent looked and says the words are right */
+  checked: boolean;
+}
+
+/** a stored poster's drawn-words record; the drawing route gets only the mark, so the rest may be absent */
+function readAiText(v: unknown): AiText | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  if (typeof r.checked !== "boolean") return null;
+  return {
+    blocks: typeof r.blocks === "string" ? r.blocks : "",
+    read: typeof r.read === "string" ? r.read.slice(0, 2000) : "",
+    issues: Array.isArray(r.issues) ? r.issues.filter((x): x is string => typeof x === "string").slice(0, 20) : [],
+    checked: r.checked,
+  };
 }
 
 /** papers on one claim poster: more and each is too small to read */
@@ -181,6 +211,7 @@ export function parsePoster(input: unknown): PosterSpec | null {
     ...documentsOf(raw),
     ...(raw.personAside === true ? { personAside: true } : {}),
     ...(toLogo(raw.logo) ? { logo: toLogo(raw.logo)! } : {}),
+    ...(readAiText(raw.aiText) ? { aiText: readAiText(raw.aiText)! } : {}),
   };
 }
 
@@ -213,8 +244,11 @@ function fromBase64Url(s: string): Uint8Array {
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
 
+/** The poster for the drawing route's URL. Drawn words travel as a mark only: the route needs to know, not to read them. */
 export function encodePoster(p: PosterSpec): string {
-  return toBase64Url(new TextEncoder().encode(JSON.stringify(p)));
+  const { aiText, ...rest } = p;
+  const sent = aiText ? { ...rest, aiText: { checked: aiText.checked } } : rest;
+  return toBase64Url(new TextEncoder().encode(JSON.stringify(sent)));
 }
 
 export function decodePoster(s: string): PosterSpec | null {

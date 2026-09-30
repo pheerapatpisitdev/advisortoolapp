@@ -1,4 +1,5 @@
 import { pageToken } from "@/lib/facebook/connection";
+import { aiTextState } from "./poster-text";
 import { myPageIds, myPages } from "@/lib/auth/pages";
 import { deletePost, MAX_AHEAD_MS, MIN_AHEAD_MS, postPhoto, postState, PublishError, type Posted } from "@/lib/facebook/publish";
 import { setContentStatus } from "@/app/studio/actions";
@@ -56,6 +57,8 @@ export interface Cleared {
   at: Date | undefined;
 }
 
+export const AI_TEXT_UNCHECKED = "ตรวจตัวหนังสือบนภาพก่อนโพสต์ — AI วาดตัวหนังสือเอง กด “แก้ไข” ดูตัวสะกดและตัวเลข แล้วกด “ตรวจแล้ว”";
+export const AI_TEXT_STALE = "แก้ข้อความบนภาพหลังวาดแล้ว ตัวหนังสือบนภาพไม่ตรง — กดวาดใหม่ก่อนโพสต์";
 export const PAPER_UNCHECKED = "ตรวจรูปเอกสารเคลมก่อนโพสต์ — กด “แก้ไข” แล้วดูว่าสติ๊กเกอร์ปิดชื่อและเลขครบ จากนั้นกด “ตรวจแล้ว”";
 
 export const refused = (c: Cleared | Refusal): c is Refusal => "ok" in c;
@@ -84,6 +87,10 @@ export async function clear(
   }
   // a claim paper's stickers were laid by the AI; a person looks before the Page does
   if (item.output.poster?.documents?.length && item.output.paperChecked === false) return { ok: false, error: PAPER_UNCHECKED };
+  // words the image model drew: the agent reads them before the Page does, and they must still be the piece's words
+  const drawnWords = aiTextState(item.output.poster);
+  if (drawnWords === "stale") return { ok: false, error: AI_TEXT_STALE };
+  if (drawnWords === "unchecked") return { ok: false, error: AI_TEXT_UNCHECKED };
   const blocked = (item.flags.policy ?? []).filter((f) => f.severity === "block");
   if (blocked.length > 0) return { ok: false, error: `ยังผิดกฎโฆษณาของ Facebook: ${blocked[0].message} — แก้ก่อนแล้วค่อยโพสต์` };
   if (item.flags.numbers.length > 0 && !input.confirmNumbers) {
