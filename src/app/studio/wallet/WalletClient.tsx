@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
-import { cardAllowed, formatBaht, TOPUP_THB, type TopUpThb } from "@/lib/wallet/money";
+import { cardAllowed, formatBaht, perPostUnder, postsFor, TOPUP_THB, type TopUpThb } from "@/lib/wallet/money";
 import type { WalletEntry } from "@/lib/wallet/store";
 import { startTopUp, topUpStatus } from "./actions";
 
@@ -18,8 +18,10 @@ const signed = (satang: number) => `${satang >= 0 ? "+" : "−"}${formatBaht(Mat
 const POLL_MS = 2000;
 const POLL_TRIES = 30;
 
-export function WalletClient({ enabled, balanceSatang, entries, rounds, paid }: {
+export function WalletClient({ enabled, multiplier, balanceSatang, entries, rounds, paid }: {
   enabled: boolean;
+  /** the owner's price multiplier, for what each top-up buys in posts */
+  multiplier: number;
   balanceSatang: number;
   entries: WalletEntry[];
   rounds: { used: number; limit: number };
@@ -84,11 +86,14 @@ export function WalletClient({ enabled, balanceSatang, entries, rounds, paid }: 
                 <button key={thb} type="button" disabled={pending} onClick={() => topUp(thb)}
                   className="min-h-14 rounded-lg border border-[var(--ct-line)] px-3 py-2 text-left disabled:opacity-50">
                   <span className="block text-base font-semibold">฿{thb}</span>
-                  <span className="block text-xs text-[var(--ct-mute)]">{cardAllowed(thb) ? "PromptPay / บัตร" : "PromptPay"}</span>
+                  {/* in posts, not rounds: "10 rounds for ฿50" read as ฿5 a go (owner, 2026-10-01) */}
+                  <span className="block text-sm">ได้โพสต์ประมาณ {postsFor(thb, multiplier)} ชิ้น</span>
+                  <span className="mt-0.5 block text-xs text-[var(--ct-mute)]">{cardAllowed(thb) ? "PromptPay / บัตร" : "PromptPay"}</span>
                 </button>
               ))}
             </div>
             {error && <p className="text-sm text-[var(--ct-warn-ink)]" role="alert">{error}</p>}
+            <p className="text-sm">เฉลี่ยโพสต์ละไม่ถึง ฿{perPostUnder(multiplier).toFixed(2)} · ภาพที่ AI วาดคิดแยกตามต้นทุนจริง</p>
             <p className="text-xs text-[var(--ct-mute)]">ชำระผ่าน Stripe · เงินในกระเป๋าไม่มีวันหมดอายุ และใช้ได้กับ AI ใน Studio เท่านั้น</p>
           </>
         ) : (

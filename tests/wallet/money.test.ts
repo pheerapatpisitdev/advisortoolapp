@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  cardAllowed, chargeSatang, formatBaht, holdSatang, holdSatangFor, isTopUpThb, ROUND_HOLD_THB, TOPUP_THB, toSatang,
+  cardAllowed, chargeSatang, formatBaht, holdSatang, holdSatangFor, isTopUpThb, perPostUnder, postsFor, ROUND_HOLD_THB,
+  TOPUP_THB, toSatang,
 } from "@/lib/wallet/money";
 import { AI_ROUNDS } from "@/lib/auth/quota";
 
@@ -72,5 +73,28 @@ describe("what a round is charged", () => {
     expect(chargeSatang(0, 2, 1000)).toBe(0);
     expect(chargeSatang(NaN, 2, 1000)).toBe(0);
     expect(chargeSatang(-1, 2, 1000)).toBe(0);
+  });
+});
+
+describe("what a top-up buys, counted in posts (owner, 2026-10-01)", () => {
+  it("is about 40 posts for ฿50 at the ×2 multiplier, and so on up the buttons", () => {
+    expect(TOPUP_THB.map((thb) => postsFor(thb, 2))).toEqual([40, 80, 120, 160, 400]);
+  });
+
+  it("follows the owner's multiplier, rounded down to a number that reads as an estimate", () => {
+    expect(postsFor(50, 1.5)).toBe(50);
+    expect(postsFor(50, 3)).toBe(25);
+    expect(postsFor(500, 1)).toBe(800);
+  });
+
+  it("never promises a post a small top-up cannot pay for", () => {
+    expect(postsFor(5, 2)).toBe(4);
+    expect(postsFor(1, 2)).toBe(0);
+  });
+
+  it("says a post costs under the next half baht above its average price", () => {
+    expect(perPostUnder(2)).toBe(1.5);
+    expect(perPostUnder(1.5)).toBe(1);
+    expect(perPostUnder(2.4)).toBe(2);
   });
 });
