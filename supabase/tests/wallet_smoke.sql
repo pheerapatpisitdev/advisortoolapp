@@ -1,14 +1,17 @@
--- Run inside one transaction and roll back: nothing it does stays.
---   begin; \i supabase/tests/wallet_smoke.sql  rollback;
--- or paste the do-block into execute_sql wrapped in begin/rollback.
+-- The block never commits: it ends by raising, so everything it did is rolled back, on any database.
+--   success = the exception "wallet smoke: all good (rolled back)"; anything else is a failure.
+-- Run it as it is, with psql or execute_sql:  \i supabase/tests/wallet_smoke.sql
+--
+-- It borrows an agent that has no wallet rows yet, so it deletes nothing that is real. Step
+-- "a dead hold is swept" calls ins_wallet_sweep_holds(), which releases every agent's holds
+-- older than 15 minutes, not only this test's; that is harmless here because the rollback puts
+-- them back exactly as they were.
 do $$
 declare
-  a uuid := (select id from agents limit 1);
+  a uuid := (select ag.id from agents ag where not exists (select 1 from ins_wallets w where w.agent_id = ag.id) limit 1);
   h1 uuid; h2 uuid; r text; c bigint; b bigint;
 begin
-  delete from ins_wallet_entries where agent_id = a;
-  delete from ins_wallet_holds where agent_id = a;
-  delete from ins_wallets where agent_id = a;
+  if a is null then raise exception 'wallet smoke: every agent already has a wallet, nothing safe to borrow'; end if;
 
   -- a session nobody opened is not credited
   r := ins_wallet_credit_topup('cs_test_smoke', a, 10000);
@@ -59,5 +62,5 @@ begin
   if ins_wallet_adjust(a, 2000, 'ของขวัญ', a) <> 5520 then raise exception 'adjust'; end if;
 
   if ins_wallet_charged_thb(now() - interval '1 hour') < 4.9 then raise exception 'charged_thb'; end if;
-  raise notice 'wallet smoke: all good';
+  raise exception 'wallet smoke: all good (rolled back)';
 end $$;
