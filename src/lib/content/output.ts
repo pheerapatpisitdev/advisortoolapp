@@ -71,6 +71,17 @@ export interface ContentOutput {
   /** written with สูตรคอนเทนต์โปร ticked (pro.ts) */
   pro?: boolean;
   /**
+   * The writing formula the piece was written with (formula.ts). Pieces written before there
+   * were two carry `pro` instead, and are read as "pro" (outputFormula).
+   */
+  formula?: "pro" | "finish";
+  /** สูตรอ่าน-ดูจนจบ: why a reader would pass the piece on, as the planner or writer chose it (finish.ts) */
+  shareWhy?: "use" | "insider" | "voice";
+  /** สูตรอ่าน-ดูจนจบ: each loop the writer opened and where it closed, in the piece's own words */
+  loops?: { open: string; close: string }[];
+  /** สูตรอ่าน-ดูจนจบ: the checklist items the agent ticked (finish-check.ts) */
+  finishTicks?: string[];
+  /**
    * Which of `hooks` went to the Page, for older pieces that carry three; absent is the
    * first. A held post taken back and sent again (a move, an edit) goes with the same one.
    */
