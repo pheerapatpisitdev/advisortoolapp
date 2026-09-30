@@ -24,9 +24,11 @@ export async function saveWallet(enabled: boolean, multiplier: string): Promise<
   return { ok: true };
 }
 
+/**
+ * A hand on an agent's money is the owner's alone, though an admin may switch the wallet and
+ * set its multiplier (owner, 2026-09-30).
+ */
 export async function adjustAgentWallet(agentId: string, baht: string, note: string): Promise<Result> {
-  // a hand on an agent's money is the owner's alone, though an admin may switch the wallet
-  // and set its multiplier (owner, 2026-09-30)
   const viewer = await requireStaff("owner");
   if (typeof agentId !== "string" || !UUID.test(agentId)) return { ok: false, error: "ไม่พบตัวแทนนี้" };
   const a = readAdjust(baht, note);
