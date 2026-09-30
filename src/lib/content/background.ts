@@ -1,3 +1,4 @@
+import { CLASSIC, choiceOf, isClassic, styleKind, type Look } from "./looks";
 import { poseText } from "./people";
 import type { Layout, Theme } from "./poster";
 
@@ -60,6 +61,13 @@ export function stripThai(text: string): string {
   return text.replace(THAI, " ").replace(/\s+/g, " ").trim();
 }
 
+/** the part of the frame the words sit on, for a look that fills it with something of its own */
+const TEXT_AREA: Record<Layout, string> = {
+  top: "the top half of the frame",
+  center: "a horizontal band across the middle of the frame",
+  bottom: "the bottom half of the frame",
+};
+
 /** where the words are not, so the person can stand there */
 const PERSON_SIDE: Record<Layout, string> = {
   top: "Place the person in the lower half of the frame, clear of the calm top area.",
@@ -94,7 +102,11 @@ export function backgroundPrompt(opts: {
   request?: string | null;
   /** a person from the reference photos sent with the prompt, and the pose they take */
   person?: { pose: string; aside?: boolean } | null;
+  /** the kind of picture (looks.ts); absent or the original draws what every picture was drawn from before */
+  look?: Look | null;
 }): string {
+  const look = opts.look ?? CLASSIC;
+  if (!isClassic(look)) return lookPrompt(opts, look);
   const scene = stripThai(opts.scene) || "A believable everyday moment of a Thai family at home, warm and unposed.";
   const request = opts.request ? stripThai(opts.request) : "";
   return [
@@ -114,6 +126,38 @@ export function backgroundPrompt(opts: {
     `- Colour palette: ${PALETTE[opts.theme]}.`,
     "- Thai people in a Thai setting; imperfect natural gestures, believable depth, soft natural light.",
     "- Hopeful and reassuring rather than fearful.",
+    "- Thai headline text will be placed on top of the image later, so leave room to breathe.",
+  ].join("\n");
+}
+
+/**
+ * A look other than the original: the same frame and the same rules — no lettering, the words'
+ * side kept calm, nothing an insurance advertisement must not show, the theme's colours — with
+ * the style, who is in it, the place, the light and the mood the look names.
+ */
+function lookPrompt(opts: Parameters<typeof backgroundPrompt>[0], look: Look): string {
+  const scene = stripThai(opts.scene) || "A believable everyday moment of a Thai family at home, warm and unposed.";
+  const request = opts.request ? stripThai(opts.request) : "";
+  const objects = styleKind(look.style) === "objects";
+  return [
+    `Create a 1:1 square background image for a Thai insurance agent's Facebook post, in this style: ${choiceOf("style", look.style).say}.`,
+    "",
+    "Scene:",
+    scene,
+    ...(request ? ["", "The page owner asks for this — follow it closely:", request] : []),
+    ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
+    "",
+    "Absolute rules:",
+    "- NO text, letters, numbers or words, and NO logos, watermarks, signatures or user-interface elements anywhere in the image.",
+    `- Keep ${TEXT_AREA[opts.layout]} calm and simple for the words — ${choiceOf("space", look.space).say}, no busy detail.`,
+    `- Avoid: ${AVOID.join("; ")}.`,
+    "",
+    "Visual direction:",
+    `- Colour palette: ${PALETTE[opts.theme]}.`,
+    `- In the picture: ${choiceOf("subject", look.subject).say}${objects ? " — nothing that can be read on them" : ""}.`,
+    `- Setting: ${choiceOf("place", look.place).say}.`,
+    `- Light: ${choiceOf("light", look.light).say}.`,
+    `- Mood: ${choiceOf("mood", look.mood).say}, never fearful.`,
     "- Thai headline text will be placed on top of the image later, so leave room to breathe.",
   ].join("\n");
 }
