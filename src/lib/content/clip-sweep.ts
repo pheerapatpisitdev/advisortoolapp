@@ -1,15 +1,25 @@
+import { pageToken } from "@/lib/facebook/connection";
+import { reelState } from "@/lib/facebook/publish";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CLIP_BUCKET, CLIP_DRAFT_DAYS, type ClipVideo } from "./clip";
-import { VERIFY_WINDOW_MS } from "./publish-flow";
+import { REEL_FAILED, VERIFY_WINDOW_MS } from "./publish-flow";
 
 /**
  * Once a day, the clips nobody needs (owner, 2026-10-02): a posted Reel's file 48 hours after
  * it went up (Facebook has its own copy, and the check that it went up is done), a clip never
  * scheduled after 60 days, and files no piece points at. A held or sending Reel's file is never
  * touched — a move sends it again.
+ *
+ * A Reel posted "now" is never asked about by verifyDue, so before a posted Reel's file goes
+ * Facebook is asked whether it went up: published lets it go; failed keeps the file and turns
+ * the row to failed so the agent can post again; anything else waits for tomorrow.
  */
 
-export interface SweepRow { id: string; video: ClipVideo | null; state: string | null; at: string | null; rev: string | null }
+export interface SweepRow {
+  id: string; video: ClipVideo | null; state: string | null; at: string | null; rev: string | null;
+  /** Facebook's video id and the Page it went to, for asking about a posted Reel */
+  postId?: string | null; pageId?: string | null;
+}
 export interface SweepFile { piece: string; name: string; createdAt: string }
 
 const DAY = 24 * 60 * 60_000;
@@ -59,18 +69,25 @@ export async function sweepClips(now = new Date()): Promise<{ removed: number; e
   const rows = new Map<string, SweepRow>();
   for (let i = 0; i < pieces.length; i += 100) {
     const { data: found, error: readErr } = await db.from("ins_content")
-      .select("id, output, publish_state, publish_at").in("id", pieces.slice(i, i + 100));
+      .select("id, output, publish_state, publish_at, fb_post_id, fb_page_id").in("id", pieces.slice(i, i + 100));
     if (readErr) throw new Error(readErr.message);
-    for (const r of (found ?? []) as { id: string; output: { video?: ClipVideo; rev?: string } | null; publish_state: string | null; publish_at: string | null }[]) {
-      rows.set(r.id, { id: r.id, video: r.output?.video ?? null, state: r.publish_state, at: r.publish_at, rev: r.output?.rev ?? null });
+    type Read = { id: string; output: { video?: ClipVideo; rev?: string } | null; publish_state: string | null; publish_at: string | null; fb_post_id?: string | null; fb_page_id?: string | null };
+    for (const r of (found ?? []) as Read[]) {
+      rows.set(r.id, {
+        id: r.id, video: r.output?.video ?? null, state: r.publish_state, at: r.publish_at, rev: r.output?.rev ?? null,
+        postId: r.fb_post_id ?? null, pageId: r.fb_page_id ?? null,
+      });
     }
   }
 
   const plan = sweepPlan(files, rows, now);
+  const confirmed = await checkPosted(db, plan.expire.map((id) => rows.get(id)).filter((r): r is SweepRow => r?.state === "published"));
   const marked = new Set<string>();
   for (const id of plan.expire) {
     const planned = rows.get(id);
     if (!planned?.video) continue;
+    // a posted Reel Facebook has not said is up keeps its file: never marked, so never removed
+    if (planned.state === "published" && !confirmed.has(id)) continue;
     const { data } = await db.from("ins_content").select("output").eq("id", id).maybeSingle();
     const output = (data as { output?: { video?: ClipVideo; rev?: string } } | null)?.output;
     // the clip or the revision moved since the plan was made: it is not the one judged
@@ -96,4 +113,45 @@ export async function sweepClips(now = new Date()): Promise<{ removed: number; e
     if (e) console.error("clips not removed:", e.message);
   }
   return { removed: removable.length, expired };
+}
+
+type Db = ReturnType<typeof supabaseAdmin>;
+
+/**
+ * The posted Reels Facebook says are up. One it says failed is written back as failed (its file
+ * kept, so it can be posted again); one it cannot speak for — still processing, no token, a
+ * Graph error — is left for tomorrow's run.
+ */
+async function checkPosted(db: Db, posted: SweepRow[]): Promise<Set<string>> {
+  const up = new Set<string>();
+  const tokens = new Map<string, Promise<string | null>>();
+  const tokenOf = (pageId: string) => {
+    if (!tokens.has(pageId)) tokens.set(pageId, pageToken(pageId).catch(() => null));
+    return tokens.get(pageId)!;
+  };
+  for (let i = 0; i < posted.length; i += 10) {
+    await Promise.all(posted.slice(i, i + 10).map(async (r) => {
+      if (!r.postId || !r.pageId) return;
+      try {
+        const token = await tokenOf(r.pageId);
+        if (!token) return;
+        const state = await reelState(r.postId, token);
+        if (state === "published") up.add(r.id);
+        else if (state === "failed") await markFailed(db, r);
+      } catch (e) {
+        console.error(`reel ${r.postId} not checked:`, e);
+      }
+    }));
+  }
+  return up;
+}
+
+/** held to what the plan saw, as the expiry write is: a piece sent again since is not touched */
+async function markFailed(db: Db, r: SweepRow): Promise<void> {
+  let q = db.from("ins_content").update({ publish_state: "failed", publish_error: REEL_FAILED, fb_post_id: null })
+    .eq("id", r.id).eq("publish_state", "published");
+  q = r.at ? q.eq("publish_at", r.at) : q.is("publish_at", null);
+  if (r.postId) q = q.eq("fb_post_id", r.postId);
+  const { error } = await q.select("id");
+  if (error) console.error(`reel ${r.id} not marked failed:`, error.message);
 }

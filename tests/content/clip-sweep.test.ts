@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NO_FLAGS } from "@/lib/content/clip";
 
 // publish-flow is imported for its 48-hour window; its other imports are not needed here
 vi.mock("@/app/studio/actions", () => ({ setContentStatus: vi.fn() }));
+// a posted Reel is asked about before its file goes; nothing here reaches Facebook
+const fb = vi.hoisted(() => ({ reelState: vi.fn(), pageToken: vi.fn() }));
+vi.mock("@/lib/facebook/publish", async (orig) => ({ ...(await orig<object>()), reelState: fb.reelState }));
+vi.mock("@/lib/facebook/connection", () => ({ pageToken: fb.pageToken }));
 
 const { sweepPlan } = await import("@/lib/content/clip-sweep");
 type SweepFile = import("@/lib/content/clip-sweep").SweepFile;
@@ -105,12 +109,18 @@ const U1 = "11111111-1111-4111-8111-111111111111";
 const U2 = "22222222-2222-4222-8222-222222222222";
 const old = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 const dbRow = (id: string, over: Record<string, unknown> = {}) => ({
-  id, publish_state: "published", publish_at: old(60),
+  id, publish_state: "published", publish_at: old(60), fb_post_id: "vid1", fb_page_id: "105",
   output: { rev: "r1", video: { path: `${id}/v.mp4`, uploadedAt: old(100), expired: false } },
   ...over,
 });
 
 describe("sweepClips", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fb.pageToken.mockResolvedValue("tok");
+    fb.reelState.mockResolvedValue("published");
+  });
+
   it("writes expiry only against the revision, clip and publish state the plan saw", async () => {
     const f = fake({ folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] }, rows: [dbRow(U1)] });
     const { sweepClips } = await import("@/lib/content/clip-sweep");
@@ -160,5 +170,66 @@ describe("sweepClips", () => {
     await expect(sweepClips()).rejects.toThrow("boom");
     expect(f.removed).toEqual([]);
     expect(f.updates).toEqual([]);
+  });
+
+  it("asks Facebook about a posted Reel first; published lets its file go", async () => {
+    const f = fake({ folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] }, rows: [dbRow(U1)] });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    expect(await sweepClips()).toEqual({ removed: 1, expired: 1 });
+    expect(fb.pageToken).toHaveBeenCalledWith("105");
+    expect(fb.reelState).toHaveBeenCalledWith("vid1", "tok");
+    expect(f.removed).toEqual([`${U1}/v.mp4`]);
+  });
+
+  it("a Reel Facebook failed: the row turns failed with its post id cleared, the file stays", async () => {
+    fb.reelState.mockResolvedValue("failed");
+    const f = fake({ folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] }, rows: [dbRow(U1)] });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    const { REEL_FAILED } = await import("@/lib/content/publish-flow");
+    expect(await sweepClips()).toEqual({ removed: 0, expired: 0 });
+    expect(f.removed).toEqual([]);
+    expect(f.updates).toHaveLength(1);
+    expect(f.updates[0].patch).toEqual({ publish_state: "failed", publish_error: REEL_FAILED, fb_post_id: null });
+    expect(f.updates[0].id).toBe(U1);
+    expect(f.updates[0].filters).toContainEqual(["eq", "publish_state", "published"]);
+    expect(f.updates[0].filters.some((x) => x[1] === "publish_at")).toBe(true);
+    expect(f.updates[0].filters).toContainEqual(["eq", "fb_post_id", "vid1"]);
+  });
+
+  it("a Reel Facebook cannot speak for yet is left alone until tomorrow", async () => {
+    fb.reelState.mockResolvedValue("unknown");
+    const f = fake({ folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] }, rows: [dbRow(U1)] });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    expect(await sweepClips()).toEqual({ removed: 0, expired: 0 });
+    expect(f.removed).toEqual([]);
+    expect(f.updates).toEqual([]);
+  });
+
+  it("a Graph error, or no token, leaves the Reel alone", async () => {
+    fb.reelState.mockRejectedValue(new Error("graph down"));
+    let f = fake({ folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] }, rows: [dbRow(U1)] });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    expect(await sweepClips()).toEqual({ removed: 0, expired: 0 });
+    expect(f.removed).toEqual([]);
+    expect(f.updates).toEqual([]);
+
+    fb.reelState.mockResolvedValue("published");
+    fb.pageToken.mockResolvedValue(null);
+    f = fake({ folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] }, rows: [dbRow(U1, { fb_page_id: "106" })] });
+    expect(await sweepClips()).toEqual({ removed: 0, expired: 0 });
+    expect(fb.reelState).toHaveBeenCalledTimes(1);
+    expect(f.removed).toEqual([]);
+    expect(f.updates).toEqual([]);
+  });
+
+  it("a draft clip past 60 days goes without asking Facebook", async () => {
+    const f = fake({
+      folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] },
+      rows: [dbRow(U1, { publish_state: null, publish_at: null, fb_post_id: null, fb_page_id: null, output: { rev: "r1", video: { path: `${U1}/v.mp4`, uploadedAt: old(24 * 61) } } })],
+    });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    expect(await sweepClips()).toEqual({ removed: 1, expired: 1 });
+    expect(fb.reelState).not.toHaveBeenCalled();
+    expect(f.removed).toEqual([`${U1}/v.mp4`]);
   });
 });
