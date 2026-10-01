@@ -1,10 +1,11 @@
 import { siteUrl } from "@/lib/site-url";
 import { hashUserId } from "@/lib/line/verify";
-import { claimEvent, loadSession, saveSession } from "@/lib/chat/session";
+import { claimEvent, loadSession, saveTurn } from "@/lib/chat/session";
 import { push, reply, showLoading, toMessages, type LineMessage, type Said } from "@/lib/line/client";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { allow } from "@/lib/assistant/rate-limit";
-import { BudgetExceeded } from "@/lib/ai/client";
+import { BudgetExceeded, TurnTimeout, withTurnDeadline } from "@/lib/ai/client";
+import { turnBudgetMs } from "@/lib/chat/batch";
 import type { ChatMessage } from "@/lib/ai/types";
 import { openConversation, openLead, record, type RecordedEvent } from "@/lib/chat/record";
 import { WANTS_IN } from "@/lib/assistant/common";
@@ -48,15 +49,20 @@ function productOf(slots: unknown): string | null {
   return (slots as { product?: string } | null)?.product ?? null;
 }
 
-/** The answer, with one more attempt before giving up — the same reasoning as Messenger's. */
-async function answered(history: ChatMessage[], slots: Parameters<typeof answerAny>[1]) {
-  try {
-    return await answerAny(history, slots, "line");
-  } catch (e) {
-    if (e instanceof BudgetExceeded) throw e;
-    console.error("answer failed, trying once more:", e);
-    return await answerAny(history, slots, "line");
-  }
+/**
+ * The answer, with one more attempt before giving up, both inside the turn's clock — the same
+ * reasoning as Messenger's (src/lib/facebook/conversation.ts).
+ */
+async function answered(history: ChatMessage[], slots: Parameters<typeof answerAny>[1], turnMs: number) {
+  return withTurnDeadline(turnMs, async () => {
+    try {
+      return await answerAny(history, slots, "line");
+    } catch (e) {
+      if (e instanceof BudgetExceeded || e instanceof TurnTimeout) throw e;
+      console.error("answer failed, trying once more:", e);
+      return await answerAny(history, slots, "line");
+    }
+  });
 }
 
 /** A reply, or — when its token lapsed while the model was thinking — a push. */
@@ -72,9 +78,10 @@ async function say(replyToken: string, userId: string, messages: LineMessage[]):
 
 /**
  * `destination` is the account's own id, from the webhook body. It stands where Messenger puts
- * the Page's id, so the report can tell which account a conversation came in on.
+ * the Page's id, so the report can tell which account a conversation came in on. `startedAt`
+ * is when the batch began, as on Messenger.
  */
-export async function handle(event: LineEvent, destination = ""): Promise<void> {
+export async function handle(event: LineEvent, destination = "", opts: { startedAt?: number } = {}): Promise<void> {
   // a person, one to one: a group or a room is not a customer asking for a quotation
   if (event.source?.type && event.source.type !== "user") return;
   if (event.type !== "message" || event.message?.type !== "text") return;
@@ -118,7 +125,7 @@ export async function handle(event: LineEvent, destination = ""): Promise<void> 
 
   await showLoading(userId).catch(() => {});
   try {
-    const answer = await answered(history, session.slots);
+    const answer = await answered(history, session.slots, turnBudgetMs(opts.startedAt));
 
     // the words first and each card after the words it belongs to, as on Messenger
     const said: Said[] = answer.messages.flatMap((m) => [
@@ -131,10 +138,13 @@ export async function handle(event: LineEvent, destination = ""): Promise<void> 
     const spoken = answer.messages.map((m) => m.text).join("\n\n");
     // counted in the report, but it silences nothing any more
     const justSent = handedOver(answer.slots) && !handedOver(session.slots);
-    await saveSession(
-      "line", userHash, [...history, { role: "assistant", content: spoken }],
-      answer.slots, undefined, conversationId,
-    );
+    // a second message answered beside this one is merged with, not written over
+    await saveTurn("line", userHash, {
+      base: session,
+      added: [{ role: "user", content: text }, { role: "assistant", content: spoken }],
+      slots: answer.slots,
+      conversationId,
+    });
 
     // a would-be agent is filed under หาทีม, whatever plan the thread was about before
     const product = answer.recruit ? RECRUIT_PRODUCT : productOf(answer.slots);
@@ -154,9 +164,11 @@ export async function handle(event: LineEvent, destination = ""): Promise<void> 
       await openLead(conversationId, userId, stage, product);
     }
   } catch (e) {
+    // the apology first: it is the one thing that has to be out before the function's limit
+    await say(replyToken, userId, toMessages([{ text: e instanceof BudgetExceeded ? OUT_OF_BUDGET : BROKEN }]))
+      .catch((err) => console.error("apology not sent:", err));
     ledger.push({ kind: "failed" });
     await record(conversationId, ledger, null);
-    await say(replyToken, userId, toMessages([{ text: e instanceof BudgetExceeded ? OUT_OF_BUDGET : BROKEN }]));
     throw e;
   }
 }

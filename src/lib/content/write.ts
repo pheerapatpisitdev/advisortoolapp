@@ -7,6 +7,7 @@ import { headlineMessages, parseHeadlines, type NumberSheet } from "./numbers";
 import { parsePlans, planMessages, type PiecePlan } from "./plan";
 import { buildMessages, type AngleId, type Ask } from "./prompt";
 import { markFormula } from "./formula";
+import { OutOfTime, within as inTime, type Deadline } from "./deadline";
 import { ownerWording } from "./wording";
 
 export { DISCLAIMER, TAX_LINE, fullText, type ContentOutput } from "./output";
@@ -83,9 +84,24 @@ export interface Planned {
   costThb: number;
 }
 
-/** The cheap call: angles and hooks. */
-export async function plan(opts: Parameters<typeof planMessages>[0]): Promise<Planned> {
-  const r = await chat({ tier: "small", task: "content-plan", messages: planMessages(opts), maxTokens: 900, json: true });
+/**
+ * A call bounded by the round's time, when it has a limit (deadline.ts): each provider gets
+ * `usual` or the limit, whichever is less, and the whole call — fallbacks included — the limit.
+ * No limit leaves the call as it was.
+ */
+function timed<T>(call: (timeoutMs: number | undefined) => Promise<T>, usual: number | undefined, budgetMs: number | undefined, what: string): Promise<T> {
+  if (budgetMs === undefined) return call(usual);
+  // no time left (Deadline.budget's 0): not called at all — 0 as a timeoutMs would mean no limit
+  if (budgetMs <= 0) return Promise.reject(new OutOfTime(what));
+  return inTime(call(usual ? Math.min(usual, budgetMs) : budgetMs), budgetMs, what);
+}
+
+/**
+ * The cheap call: angles and hooks. `budgetMs`: the most it may take in all, the round's
+ * deadline (deadline.ts); without it each provider has its own 25 s.
+ */
+export async function plan(opts: Parameters<typeof planMessages>[0], limits: { budgetMs?: number } = {}): Promise<Planned> {
+  const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-plan", messages: planMessages(opts), maxTokens: 900, json: true, timeoutMs }), undefined, limits.budgetMs, "plan");
   const plans = parsePlans(r.text, opts.count);
   if (!plans) throw new UnreadableReply();
   return { plans, model: r.model, costThb: r.costThb };
@@ -139,15 +155,19 @@ const WRITE_TIMEOUT_MS = 60_000;
  * short enough to finish, and a piece that fails costs only itself. The planner already made
  * the angles distinct, so no writer needs to see the others' plans.
  */
-export async function write(ask: Ask, opts: { only?: string; prefer?: string } = {}): Promise<Round> {
+/**
+ * `budgetMs`: the most each piece may take in all, fallbacks included — what is left of the
+ * round's time (deadline.ts). A piece that runs past it is a piece that failed; the others are kept.
+ */
+export async function write(ask: Ask, opts: { only?: string; prefer?: string; budgetMs?: number } = {}): Promise<Round> {
   const within = fallbackWriters(opts.prefer);
   const settled = await Promise.allSettled(ask.plans.map(async (p) => {
-    const r = await chat({
+    const r = await timed((timeoutMs) => chat({
       tier: "large", task: "content", messages: buildMessages({ ...ask, plans: [p] }),
       // low effort: ad copy from a fixed brief needs little reasoning, and the room left over
       // is for the post; 4,000 covers what thinking remains plus a long script
-      maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low", only: opts.only, prefer: opts.prefer, within,
-    });
+      maxTokens: 4000, json: true, timeoutMs, effort: "low", only: opts.only, prefer: opts.prefer, within,
+    }), WRITE_TIMEOUT_MS, opts.budgetMs, "piece");
     const [parsed] = parsePieces(r.text, [p], ask.angle) ?? [];
     // told to say ตลอดชีพ and no ครับ, a model may still write "ถึงอายุ 99" or ครับ; the net catches it
     const output = parsed && ownerWording(parsed);
@@ -166,17 +186,29 @@ export async function write(ask: Ask, opts: { only?: string; prefer?: string } =
  * A round of ads: the cheap model designs the angles and tones, then every cell is written in
  * parallel by the large one, as posts are. A cell that fails costs only itself.
  */
-export async function writeAds(opts: { brief: string; angles: number; tones: number; hint: string; prefer?: string }): Promise<Round & { planThb: number; planned: number }> {
-  const m = await chat({ tier: "small", task: "content-plan", messages: matrixMessages(opts.brief, opts.angles, opts.tones, opts.hint), maxTokens: 900, json: true })
+/** the design's share of a round's time: it is one short reply from the cheap model */
+const AD_PLAN_MS = 40_000;
+
+/**
+ * `clock`: the round's deadline (deadline.ts), with `saveMs` kept back for saving the pieces
+ * after. The design gets what is left after a cell's time, at most AD_PLAN_MS; each cell what
+ * is left then, fallbacks included. Without it the calls are as they were.
+ */
+export async function writeAds(opts: { brief: string; angles: number; tones: number; hint: string; prefer?: string; clock?: Deadline; saveMs?: number }): Promise<Round & { planThb: number; planned: number }> {
+  const save = opts.saveMs ?? 0;
+  const planMs = opts.clock?.budget(AD_PLAN_MS, WRITE_TIMEOUT_MS + save);
+  // the design is optional (a failed one gives the default matrix), so no time for it skips it
+  const m = planMs === 0 ? null : await timed((timeoutMs) => chat({ tier: "small", task: "content-plan", messages: matrixMessages(opts.brief, opts.angles, opts.tones, opts.hint), maxTokens: 900, json: true, timeoutMs }), undefined, planMs, "ad plan")
     .catch(() => null);
   const matrix = parseMatrix(m?.text ?? "", opts.angles, opts.tones);
   const cells = matrixCells(matrix);
+  const cellMs = opts.clock?.budget(Infinity, save);
   const settled = await Promise.allSettled(cells.map(async (cell) => {
-    const r = await chat({
+    const r = await timed((timeoutMs) => chat({
       tier: "large", task: "content", messages: adCopyMessages(opts.brief, cell),
-      maxTokens: 3000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low", prefer: opts.prefer,
+      maxTokens: 3000, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
       within: fallbackWriters(opts.prefer),
-    });
+    }), WRITE_TIMEOUT_MS, cellMs, "ad");
     const copy = parseAdCopy(r.text);
     if (!copy) {
       console.error(`content ad unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
@@ -203,8 +235,8 @@ export async function writeAds(opts: { brief: string; angles: number; tones: num
  * The ตัวเลขชัดๆ angle's one call: a headline and a picture line per sheet, from the cheap
  * model. Any failure gives the fallback headlines — the figures under them are the post.
  */
-export async function headlines(sheets: NumberSheet[]): Promise<{ lines: ReturnType<typeof parseHeadlines>; model: string; costThb: number }> {
-  const r = await chat({ tier: "small", task: "content-headline", messages: headlineMessages(sheets), maxTokens: 800, json: true })
+export async function headlines(sheets: NumberSheet[], limits: { budgetMs?: number } = {}): Promise<{ lines: ReturnType<typeof parseHeadlines>; model: string; costThb: number }> {
+  const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-headline", messages: headlineMessages(sheets), maxTokens: 800, json: true, timeoutMs }), undefined, limits.budgetMs, "headlines")
     .catch((e) => { console.error("content headlines failed:", e); return null; });
   return { lines: parseHeadlines(r?.text ?? "", sheets.length), model: r?.model ?? "fallback", costThb: r?.costThb ?? 0 };
 }

@@ -25,3 +25,10 @@ export function readAdjust(baht: string, note: string): { ok: true; satang: numb
   if (!reason) return { ok: false, error: "ต้องใส่เหตุผลทุกครั้ง" };
   return { ok: true, satang: Math.round(v * 100), note: reason.slice(0, 200) };
 }
+
+/** the owner's reason for lifting a freeze: always one, as for an adjustment (owner, 2026-10-01) */
+export function readUnfreeze(note: string): { ok: true; note: string } | { ok: false; error: string } {
+  const reason = String(note ?? "").trim();
+  if (!reason) return { ok: false, error: "ต้องใส่เหตุผลทุกครั้ง" };
+  return { ok: true, note: reason.slice(0, 200) };
+}

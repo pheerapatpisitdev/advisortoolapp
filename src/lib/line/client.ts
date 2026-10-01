@@ -81,11 +81,16 @@ export function toMessages(said: Said[], replies?: string[]): LineMessage[] {
   return messages;
 }
 
+const SEND_TIMEOUT_MS = 20_000;
+
 async function post(path: string, body: unknown): Promise<void> {
   const res = await fetch(`${API}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token()}` },
     body: JSON.stringify(body),
+    // a send that hangs would eat the time the webhook keeps back for the apology
+    // (src/lib/chat/batch.ts SEND_MARGIN_MS); twenty seconds is far past a normal send
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`LINE ${res.status}: ${(await res.text()).slice(0, 300)}`);
 }

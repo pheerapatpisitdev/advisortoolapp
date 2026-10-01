@@ -1,5 +1,7 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { meterCost } from "@/lib/wallet/round";
+import { inWalletRound, meterCost } from "@/lib/wallet/round";
+import { walletChargedThb } from "@/lib/wallet/store";
 import { monthSpend, monthStart } from "./ledger";
 import { IMAGE_CALLERS, TAKES_REFERENCES, type DrawnImage, type ReferenceImage } from "./images";
 import { CALLERS, EMBEDDERS, JUDGE, type JudgeAnswer, type JudgeQuestion } from "./providers";
@@ -85,9 +87,24 @@ export function clearAiConfigCache() {
   cached = null;
 }
 
-/** Spend so far this calendar month, in baht — summed in the database, never from rows. */
+/**
+ * The owner's spend so far this calendar month, in baht — summed in the database, never from
+ * rows.
+ *
+ * What agents paid for from their own wallets is taken off, the same way the content ceiling
+ * does it (contentSpentThisMonth, src/lib/content/store.ts). It was not, and the ledger holds
+ * every call whoever paid for it: once agents began spending from their wallets their rounds
+ * filled the owner's monthly budget, and the Messenger and LINE bots told every customer they
+ * were out of budget on money the owner never spent (review, 2026-10-01). walletChargedThb is
+ * the providers' cost of the wallet rounds that were charged — the same baht as the ledger's
+ * cost_thb, not the marked-up satang the agent paid — so the two subtract cleanly. A round that
+ * failed and was released stays the owner's, which is what it was. When the wallet figure
+ * cannot be read it is 0, and the guard stops sooner rather than later.
+ */
 async function spentThisMonth(): Promise<number> {
-  return (await monthSpend(monthStart())).baht;
+  const since = monthStart();
+  const [spend, paidByAgents] = await Promise.all([monthSpend(since), walletChargedThb(since)]);
+  return Math.max(0, spend.baht - paidByAgents);
 }
 
 /**
@@ -102,6 +119,12 @@ async function spentThisMonth(): Promise<number> {
  */
 async function assertWithinBudget(config: Config) {
   if (config.budgetThb === null || config.budgetThb === undefined) return;
+  /**
+   * A round the agent pays for from their wallet is not the owner's money, so the owner's
+   * budget does not stand over it — the wallet's hold does (src/lib/wallet/round.ts). Without
+   * this an agent with money in the wallet was refused because the owner's month had run out.
+   */
+  if (inWalletRound()) return;
   const budget = Number(config.budgetThb);
   if (!Number.isFinite(budget)) {
     console.error(`monthly_budget_thb is not a number (${String(config.budgetThb)}); treating it as no limit`);
@@ -205,6 +228,67 @@ function candidates(config: Config, tier: Tier): ModelRow[] {
   return fallbackOrder(config.models, tier, tier === "small" ? config.smallModel : config.largeModel, liveKeys(config));
 }
 
+/**
+ * How long one provider may take when the caller names no time of its own: the providers'
+ * own 25 seconds (src/lib/ai/providers.ts), written out here so it survives being combined
+ * with a turn's deadline below — a signal handed to a provider replaces its default rather
+ * than adding to it. Callers that pass longer (60s for a post, 90s for a picture) keep theirs.
+ */
+export const DEFAULT_CALL_TIMEOUT_MS = 25_000;
+
+/** A turn ran out of time: whatever it was waiting on is abandoned and the caller apologises. */
+export class TurnTimeout extends Error {
+  constructor(ms: number) {
+    super(`turn took longer than ${Math.round(ms / 1000)} seconds`);
+    this.name = "TurnTimeout";
+  }
+}
+
+const deadlines = new AsyncLocalStorage<AbortSignal>();
+
+/**
+ * Runs one turn of a conversation under a deadline, and gives up on it at the deadline.
+ *
+ * The webhooks answer inside `after()`, and a serverless function that reaches its limit is
+ * killed where it stands — mid-answer, before the apology in its catch has been sent, so the
+ * customer met silence (review, 2026-10-01). A single call already had its 25 seconds, but a
+ * turn is several calls (a router, an answer, a judge), each with a fallback chain, and the
+ * conversation retries the whole answer once: added up, that could pass the function's limit.
+ *
+ * So the turn has a clock of its own. When it runs out the promise rejects with TurnTimeout
+ * at once, whatever is still in flight; the calls made under it see the same signal, so the
+ * one waiting on a provider is aborted and no further one is started. Nothing that has
+ * already been paid for is lost from the ledger — a call records its cost as it returns.
+ */
+export async function withTurnDeadline<T>(ms: number, run: () => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const e = new TurnTimeout(ms);
+      controller.abort(e);
+      reject(e);
+    }, Math.max(0, ms));
+  });
+  try {
+    return await Promise.race([deadlines.run(controller.signal, run), expired]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** a provider call's own leash, tied to the turn's deadline when there is one */
+function leash(own: AbortSignal): AbortSignal {
+  const turn = deadlines.getStore();
+  return turn ? AbortSignal.any([own, turn]) : own;
+}
+
+/** throws when the turn this call belongs to has already run out of time */
+function assertTurnAlive() {
+  const turn = deadlines.getStore();
+  if (turn?.aborted) throw turn.reason instanceof Error ? turn.reason : new TurnTimeout(0);
+}
+
 export interface ChatOptions {
   tier: Tier;
   task: string;
@@ -212,8 +296,8 @@ export interface ChatOptions {
   maxTokens?: number;
   json?: boolean;
   /**
-   * How long each provider may take before the next is tried. Left out, the providers' own
-   * 25 seconds applies, which is right for a chat reply and wrong for a whole Facebook post:
+   * How long each provider may take before the next is tried. Left out, DEFAULT_CALL_TIMEOUT_MS
+   * — the providers' own 25 seconds — applies, which is right for a chat reply and wrong for a whole Facebook post:
    * a large model writing a thousand words of Thai takes longer than that, and was being cut
    * off and silently replaced by a faster, thinner one.
    */
@@ -241,6 +325,7 @@ export interface ChatOptions {
 
 /** Sends one prompt, trying providers in order until one answers. */
 export async function chat({ tier, task, messages, maxTokens = 700, json, timeoutMs, effort, only, prefer, within }: ChatOptions): Promise<ChatResult> {
+  assertTurnAlive();
   const config = await loadConfig();
   await assertWithinBudget(config);
   const tried: string[] = [];
@@ -255,8 +340,12 @@ export async function chat({ tier, task, messages, maxTokens = 700, json, timeou
   for (const model of chain) {
     const call = CALLERS[model.provider];
     if (!call) continue;
+    // a turn out of time stops here rather than asking the next provider for nobody
+    assertTurnAlive();
     try {
-      const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
+      // 0 or less has always meant "no time of the caller's own" (src/lib/content/deadline.ts):
+      // the default, never a signal that is aborted before the call is made
+      const signal = leash(AbortSignal.timeout(timeoutMs && timeoutMs > 0 ? timeoutMs : DEFAULT_CALL_TIMEOUT_MS));
       const r = await call({ apiKey: config.keys[model.provider], model: model.model_name, messages, maxTokens, json, signal, effort });
       const costThb = (r.inputTokens / 1e6 * model.price.inputPerMTokUsd
         + r.outputTokens / 1e6 * model.price.outputPerMTokUsd) * USD_TO_THB;
@@ -383,12 +472,13 @@ export interface Judged {
  * running after the assistant has switched itself off is spending on nobody.
  */
 export async function judge({ task, state, questions, signal }: JudgeOptions): Promise<Judged> {
+  assertTurnAlive();
   const config = await loadConfig();
   await assertWithinBudget(config);
   if (config.off.has(JUDGE.provider)) throw new Error("TypeSafe ปิดอยู่");
   const apiKey = config.keys[JUDGE.provider];
   if (!apiKey) throw new Error("ยังไม่ได้ตั้งกุญแจ TypeSafe");
-  const r = await JUDGE.ask(apiKey, state, questions, signal);
+  const r = await JUDGE.ask(apiKey, state, questions, leash(signal ?? AbortSignal.timeout(DEFAULT_CALL_TIMEOUT_MS)));
   const costThb = r.inputTokens / 1e6 * JUDGE.usdPerMTokIn * USD_TO_THB;
   await record(r.model, task, r.inputTokens, r.outputTokens, costThb);
   return { answers: r.answers, model: r.model, inputTokens: r.inputTokens, costThb };

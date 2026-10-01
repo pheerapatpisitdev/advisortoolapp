@@ -15,7 +15,7 @@ import { PLAN_INFO_SYSTEM, SMALL_TALK_SYSTEM } from "./prompts";
 import { asksPayTerm, asksValueTable, mergeSlots, PLAN_CODE, routeMessage, type Routed } from "./route";
 import {
   aboutCompany, affirms, APPLICATION_FORM, asksAboutCompany, asksCheaper, baht, type Budget,
-  budgetIn, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, one, peopleIn,
+  budgetIn, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, keepGivenFigures, one, peopleIn,
   type QuoteFigures, recentTurns, Reply, Said, saysFormDone, spoken, stallReply, stalls,
   WANTS_IN, wantsToBuy,
 } from "../common";
@@ -591,20 +591,33 @@ async function answerPlanInfo(history: ChatMessage[], slots: Routed): Promise<Re
    * was here the bot could not say — while the website could, out of the same files.
    */
   const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
-  const r = await chat({
-    tier: "small",
-    task: "plan_info",
-    maxTokens: 400,
-    messages: [
-      {
-        role: "system",
-        content: `${PLAN_INFO_SYSTEM}\n\nข้อมูลแบบประกัน\n${planInfoText()}${knownSoFar(slots, lifeProtectTable())}`
-          + `\n\n---\n\n${await assembleKnowledge(asked)}`,
-      },
-      ...recentTurns(history, 6),
-    ],
-  });
-  return spoken(r.text.trim() || ASK_FOR_DETAILS, ASK_FOR_DETAILS);
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content: `${PLAN_INFO_SYSTEM}\n\nข้อมูลแบบประกัน\n${planInfoText()}${knownSoFar(slots, lifeProtectTable())}`
+        + `\n\n---\n\n${await assembleKnowledge(asked)}`,
+    },
+    ...recentTurns(history, 6),
+  ];
+  const r = await chat({ tier: "small", task: "plan_info", maxTokens: 400, messages });
+  return modelWrote(r, messages, slots);
+}
+
+/**
+ * A model's words, as a reply: checked for figures it was not given, and signed with its name.
+ *
+ * The check is `keepGivenFigures` — a premium the model worked out for itself is taken out,
+ * and if that leaves nothing, the engine's own figures for this customer are said instead, or
+ * the question for what is still missing. The name is so the website does not print "the
+ * system's premium calculator" under prose a model wrote (review 2026-10-01).
+ */
+function modelWrote(r: { text: string; model: string }, shown: ChatMessage[], slots: Routed): Reply {
+  const quoted = quotedFigures(slots, lifeProtectTable());
+  const fallback = quoted
+    ? `เบี้ยที่คิดให้ไว้คือ ${quoted} ครับ ถ้าอยากดูทุน อายุ หรือแบบชำระอื่น บอกได้เลย เดี๋ยวคิดให้`
+    : ASK_FOR_DETAILS;
+  const text = keepGivenFigures(r.text.trim(), shown.map((m) => m.content).join("\n"), fallback);
+  return { ...spoken(text || ASK_FOR_DETAILS, ASK_FOR_DETAILS), writtenBy: r.model };
 }
 
 /**
@@ -612,16 +625,12 @@ async function answerPlanInfo(history: ChatMessage[], slots: Routed): Promise<Re
  * earlier, was answered with a request for their age, sex and amount.
  */
 async function answerSmallTalk(history: ChatMessage[], slots: Routed): Promise<Reply> {
-  const r = await chat({
-    tier: "small",
-    task: "small_talk",
-    maxTokens: 200,
-    messages: [
-      { role: "system", content: `${SMALL_TALK_SYSTEM}${knownSoFar(slots, lifeProtectTable())}` },
-      ...recentTurns(history, 6),
-    ],
-  });
-  return spoken(r.text.trim() || ASK_FOR_DETAILS, ASK_FOR_DETAILS);
+  const messages: ChatMessage[] = [
+    { role: "system", content: `${SMALL_TALK_SYSTEM}${knownSoFar(slots, lifeProtectTable())}` },
+    ...recentTurns(history, 6),
+  ];
+  const r = await chat({ tier: "small", task: "small_talk", maxTokens: 200, messages });
+  return modelWrote(r, messages, slots);
 }
 
 /**

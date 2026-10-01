@@ -10,12 +10,14 @@ vi.mock("@/lib/ai/client", async () => {
 
 const { asksValueTable, boostedCoverIn, mergeSlots, routeMessage } = await import("@/lib/assistant/lifeprotect/route");
 // these read a customer rather than a plan, and now live where both brains can reach them
+const { businessDate } = await import("@/calc/calendar");
 const { affirms, ageFromBirthdate, asksCheaper, saysFormDone, stalls, wantsToBuy } = await import("@/lib/assistant/common");
 
-/** The age someone born on that date is today, counted the way a person counts it. */
+/** The age someone born on that date is today in Bangkok, counted the way a person counts it. */
 function ageOn(today: Date, day: number, month: number, year: number): number {
-  const passed = today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
-  return today.getFullYear() - year - (passed ? 0 : 1);
+  const [y, m, d] = businessDate(today).split("-").map(Number);
+  const passed = m > month || (m === month && d >= day);
+  return y - year - (passed ? 0 : 1);
 }
 
 const said = (content: string) => [{ role: "user" as const, content }];
@@ -71,6 +73,15 @@ describe("reading what the customer wants", () => {
     reply.text = "ไม่ใช่ JSON";
     // a greeting holds nothing to read, so the fallback is a plain turn carrying its own words
     expect(await routeMessage(said("สวัสดี"))).toEqual({ intent: "other", question: "สวัสดี" });
+  });
+});
+
+describe("an age given in months", () => {
+  it("is a baby of nought, whatever age the model read out of it", async () => {
+    // review 2026-10-01: "อายุ 8 เดือน" was priced as a child of eight
+    reply.text = JSON.stringify({ intent: "quote", age: 8 });
+    expect((await routeMessage(said("อายุ 8 เดือน ทุน 1 ล้าน"))).age).toBe(0);
+    expect((await routeMessage(said("ลูกชาย อายุ 8 เดือน ทุน 1 ล้าน"))).age).toBe(0);
   });
 });
 

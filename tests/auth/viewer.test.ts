@@ -59,6 +59,49 @@ describe("getViewer", () => {
   });
 });
 
+/** Signing out ends every session issued before it, on any device (review, 2026-10-01). */
+describe("getViewer and signing out everywhere", () => {
+  const signedOutAt = Date.parse("2026-10-01T03:00:00Z");
+
+  it("refuses a session issued before the agent last signed out", async () => {
+    session.value = { agentId: "a1", issuedAt: signedOutAt - 1 };
+    db.on("agents", { data: AGENT_ROW });
+    db.on("ins_staff", { data: null });
+    db.on("ins_session_epochs", { data: { not_before: new Date(signedOutAt).toISOString() } });
+    expect(await getViewer()).toBeNull();
+  });
+
+  it("refuses a member's old session the same way", async () => {
+    session.value = { agentId: "m1", issuedAt: signedOutAt - 1 };
+    db.on("agents", { data: null });
+    db.on("ins_staff", { data: null });
+    db.on("ins_members", { data: MEMBER_ROW });
+    db.on("ins_session_epochs", { data: { not_before: new Date(signedOutAt).toISOString() } });
+    expect(await getViewer()).toBeNull();
+  });
+
+  it("lets in a session issued since, and asks with the agent's rows rather than after them", async () => {
+    session.value = { agentId: "a1", issuedAt: signedOutAt };
+    db.on("agents", { data: AGENT_ROW });
+    db.on("ins_staff", { data: null });
+    db.on("ins_session_epochs", { data: { not_before: new Date(signedOutAt).toISOString() } });
+    expect((await getViewer())?.agentId).toBe("a1");
+    const epochs = db.log.find((l) => l.table === "ins_session_epochs")!;
+    expect(epochs.steps.some((s) => s.method === "eq" && s.args[0] === "agent_id" && s.args[1] === "a1")).toBe(true);
+  });
+
+  it("lets the cookie stand, and says so, when the stamp cannot be read", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    session.value = { agentId: "a1", issuedAt: signedOutAt - 1 };
+    db.on("agents", { data: AGENT_ROW });
+    db.on("ins_staff", { data: null });
+    db.on("ins_session_epochs", { error: { message: "timeout" } });
+    expect((await getViewer())?.agentId).toBe("a1");
+    expect(logged).toHaveBeenCalled();
+    logged.mockRestore();
+  });
+});
+
 describe("displayNames", () => {
   it("names agents by name or code, and members by name or phone", async () => {
     db.on("agents", { data: [{ id: "a1", name: "บอย", agent_code: "015495" }, { id: "a2", name: " ", agent_code: "000111" }] });

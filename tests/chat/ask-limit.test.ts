@@ -16,6 +16,8 @@ const who = vi.hoisted(() => ({ viewer: null as unknown }));
 vi.mock("@/lib/auth/viewer", () => ({ getViewer: async () => who.viewer }));
 const brain = vi.hoisted(() => ({ answer: vi.fn() }));
 vi.mock("@/lib/copilot/answer", () => ({ answerFromKnowledge: brain.answer }));
+// the per-address daily count has its own tests (copilot-input, web-asks); here it always allows
+vi.mock("@/lib/chat/web-asks", () => ({ claimWebAsk: async () => true }));
 
 const { askCopilot } = await import("@/app/actions");
 

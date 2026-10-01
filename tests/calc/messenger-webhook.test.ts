@@ -9,6 +9,8 @@ const session = {
   handedOverAt: null as string | null,
 };
 const saved: { mutedUntil?: Date | null; handedOverAt?: Date | null }[] = [];
+/** what each bot turn handed saveTurn */
+const turns: unknown[] = [];
 /** every user hash the handler touched, so one conversation can be shown to be one row */
 const hashesSeen: string[] = [];
 const quoted = async (): Promise<Answer> => ({
@@ -50,6 +52,10 @@ vi.mock("@/lib/chat/session", async () => {
       _c: string, u: string, _m: unknown, _s: unknown, mutedUntil?: Date | null,
       _conversationId?: string | null, handedOverAt?: Date | null,
     ) => { hashesSeen.push(u); saved.push({ mutedUntil, handedOverAt }); },
+    // a bot turn's save writes neither the mute nor the stamp (src/lib/chat/session.ts saveTurn)
+    saveTurn: async (_c: string, u: string, turn: unknown) => {
+      hashesSeen.push(u); saved.push({}); turns.push(turn);
+    },
   };
 });
 
@@ -72,7 +78,7 @@ const { handle } = await import("@/lib/facebook/conversation");
 beforeEach(() => {
   process.env.FB_APP_ID = "app-1";
   process.env.FB_APP_SECRET = "secret";
-  sent.text = []; sent.images = []; sent.replies = []; saved.length = 0; kept.length = 0;
+  sent.text = []; sent.images = []; sent.replies = []; saved.length = 0; kept.length = 0; turns.length = 0;
   imageFailures = 0;
   followups.armed.length = 0; followups.dropped.length = 0;
   session.messages = []; session.slots = null; session.mutedUntil = null; session.handedOverAt = null;
@@ -112,6 +118,38 @@ describe("a customer whose answer would not come", () => {
     answer.mockRejectedValue(new Error("ล่ม"));
     await expect(handle(asked)).rejects.toThrow();
     expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏"]);
+  });
+});
+
+/**
+ * The function is killed at its limit, before a catch can apologise. A turn has a clock of its
+ * own inside it, so a turn late in a long batch still gets the apology out (review, 2026-10-01).
+ */
+describe("a customer whose answer runs out of time", () => {
+  it("is apologised to before the function's limit, and the answer is not tried again", async () => {
+    const { WEBHOOK_LIMIT_MS, SEND_MARGIN_MS } = await import("@/lib/chat/batch");
+    answer.mockImplementation(() => new Promise<Answer>(() => {}));
+    // the batch began long enough ago that this turn has 30 milliseconds left
+    const startedAt = Date.now() - (WEBHOOK_LIMIT_MS - SEND_MARGIN_MS) + 30;
+    const began = Date.now();
+    await expect(handle({ sender: { id: "psid-slow" }, message: { mid: "ms1", text: "ชาย 35" } }, undefined, { startedAt }))
+      .rejects.toThrow(/longer than/);
+    expect(Date.now() - began).toBeLessThan(2000);
+    expect(answer).toHaveBeenCalledOnce();
+    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏"]);
+  });
+});
+
+describe("the turn the bot saves", () => {
+  it("is the session it began from plus the customer's words and its reply", async () => {
+    session.messages = [{ role: "user", content: "สวัสดี" }];
+    await handle({ sender: { id: "psid-save" }, message: { mid: "msv", text: "ชาย 35 ล้านนึง" } });
+    expect(turns).toEqual([{
+      base: session,
+      added: [{ role: "user", content: "ชาย 35 ล้านนึง" }, { role: "assistant", content: "เบี้ยประมาณ…" }],
+      slots: { intent: "quote" },
+      conversationId: null,
+    }]);
   });
 });
 

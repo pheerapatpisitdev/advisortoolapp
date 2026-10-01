@@ -118,6 +118,8 @@ export function RiderRow({
               </span>
             </>
           ) : null}
+          {/* AP and ECARE are priced at one occupation class; the row says which (review 2026-10-01) */}
+          {a.note && <span className="text-xs text-[var(--op-mute)]">{a.note}</span>}
           <DiseaseList code={a.code} />
         </div>
       )}

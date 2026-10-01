@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { verifySignature } from "@/lib/line/verify";
 import { handle, type LineEvent } from "@/lib/line/conversation";
+import { eachBySender } from "@/lib/chat/batch";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+/** five minutes, with a clock on each turn inside it — the same as Messenger's webhook */
+export const maxDuration = 300;
 
 /**
  * The LINE official account's webhook — the address the account has pointed at since
@@ -30,11 +32,14 @@ export async function POST(req: NextRequest) {
 
   // LINE gives up on a webhook that is slow to answer, and a model is slow, so the reply goes
   // out after this response. The console's "Verify" button sends no events and gets its 200.
-  after(async () => {
-    for (const event of events) {
-      await handle(event, destination).catch((e) => console.error("line event failed:", e));
-    }
-  });
+  // Different people side by side, one person's events in order (src/lib/chat/batch.ts).
+  const startedAt = Date.now();
+  after(() => eachBySender(
+    events,
+    (event) => event.source?.userId,
+    (event) => handle(event, destination, { startedAt }),
+    "line",
+  ));
 
   return NextResponse.json({ ok: true });
 }

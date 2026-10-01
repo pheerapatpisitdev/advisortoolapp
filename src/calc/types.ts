@@ -293,6 +293,8 @@ export interface Availability {
   options?: { code: string; name: string }[];
   needsPayer?: boolean;
   reason?: string;
+  /** an assumption the price rests on, shown beside the rider (AP/ECARE: the occupation class) */
+  note?: string;
 }
 /** Excel ตารางแสดงผลประโยชน์: what living to the end of the contract pays. */
 export interface MaturityRule {

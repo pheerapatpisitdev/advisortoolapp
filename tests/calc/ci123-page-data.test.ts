@@ -15,10 +15,17 @@ describe("ci123Table", () => {
     expect(t.sums).toEqual([500_000, 1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000, 10_000_000]);
     for (const sex of ["M", "F"] as const) {
       expect(t.premiums[sex]).toHaveLength(7);
-      for (const tier of t.premiums[sex]) {
+      t.premiums[sex].forEach((tier, i) => {
         expect(tier).toHaveLength(76);
-        expect(tier.every((row) => row !== null)).toBe(true);
-      }
+        /**
+         * Every row but the one the engine refuses: a woman of 19 at the smallest sum, whose
+         * CI 123 premium falls under the rider's own minimum. That row used to be priced at
+         * nought in all three modes and drawn as "0.00" (review 2026-10-01); it is a gap now,
+         * which the page draws as "—".
+         */
+        const gaps = tier.flatMap((row, at) => (row === null ? [at + t.ageMin] : []));
+        expect(gaps, `${sex} tier ${i + 1}`).toEqual(sex === "F" && i === 0 ? [19] : []);
+      });
       expect(t.basePremiums[sex].every((b) => b !== null)).toBe(true);
     }
   });

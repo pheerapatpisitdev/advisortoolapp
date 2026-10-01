@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { quoteModePremiums } from "@/calc/mode-premiums";
+import { modePremiumsFrom, quoteModePremiums } from "@/calc/mode-premiums";
 import { quote } from "@/calc/quote";
 import type { PayMode, QuoteInput } from "@/calc/types";
 
@@ -29,5 +29,48 @@ describe("quoteModePremiums", () => {
 
   it("ignores the mode the caller happened to put in the input", () => {
     expect(quoteModePremiums({ ...plb, mode: "monthly" }, TODAY)).toEqual(quoteModePremiums(plb, TODAY));
+  });
+});
+
+/**
+ * Review 2026-10-01: on a premium-basis quote every mode used to derive its own sum assured
+ * from the same target, so the panel printed the target three times over.
+ */
+describe("quoteModePremiums on a premium-basis quote", () => {
+  const ishield: QuoteInput = {
+    planCode: "ISHIELD", variant: "WLCI10", age: 35, sex: "M", mode: "monthly",
+    sumAssured: 0, basis: "premium", targetPremium: 20_000, riders: [],
+  };
+
+  it("prices one contract — the sum the chosen mode's target buys — in every mode", () => {
+    const sumAssured = quote(ishield, TODAY).sumAssured;
+    expect(sumAssured).toBe(3_317_740);
+    expect(quoteModePremiums(ishield, TODAY)).toEqual([
+      { mode: "annual", total: 22_222_222, belowMinimum: false },
+      { mode: "semi", total: 11_555_555, belowMinimum: false },
+      { mode: "monthly", total: 2_000_000, belowMinimum: false },
+    ]);
+    for (const mode of ["annual", "semi", "monthly"] as PayMode[]) {
+      expect(quoteModePremiums(ishield, TODAY)!.find((m) => m.mode === mode)!.total).toBe(
+        quote({ ...ishield, basis: "sumAssured", sumAssured, targetPremium: undefined, mode }, TODAY).totalModal,
+      );
+    }
+  });
+
+  it("does not print nought for the modes a small monthly target could not buy on its own", () => {
+    // 3,000 a year is under iShield's smallest contract; 3,000 a month is not
+    const rows = quoteModePremiums({ ...ishield, targetPremium: 3_000 }, TODAY)!;
+    expect(rows.map((r) => r.total)).toEqual([3_333_333, 1_733_333, 300_000]);
+  });
+
+  it("withholds the row when the target buys no contract at all", () => {
+    expect(quoteModePremiums({ ...ishield, targetPremium: 100 }, TODAY)).toBeUndefined();
+  });
+});
+
+describe("modePremiumsFrom", () => {
+  it("treats a total of nought as not priced, rather than as a free instalment", () => {
+    const r = quote(plb, TODAY);
+    expect(modePremiumsFrom((mode) => (mode === "annual" ? { ...r, totalModal: 0 } : r))).toBeUndefined();
   });
 });

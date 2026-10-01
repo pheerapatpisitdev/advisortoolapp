@@ -8,7 +8,7 @@ import { plansFor, territoriesFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { siteUrl } from "@/lib/site-url";
 import {
-  WANTS_IN, aboutCompany, affirms, asksAboutCompany, asksCheaper, handOverForm, one,
+  WANTS_IN, aboutCompany, affirms, asksAboutCompany, asksCheaper, handOverForm, keepGivenFigures, one,
   recentTurns, saysFormDone, spoken, stallReply, stalls, wantsToBuy, type Reply,
 } from "../common";
 import { CHOOSE_HEALTH } from "../choose";
@@ -223,30 +223,31 @@ async function planInfo(history: ChatMessage[], slots: HealthSlots): Promise<Rep
   // the health sheet for the contract in hand, and the library for everything else — see the
   // note on the life brain's own plan_info for why both travel
   const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
-  const r = await chat({
-    tier: "small",
-    task: "plan_info_health",
-    maxTokens: 400,
-    messages: [
-      {
-        role: "system",
-        content: `${HEALTH_PLAN_INFO_SYSTEM}${healthFactsFor(slots)}\n\n---\n\n${await assembleKnowledge(asked)}`,
-      },
-      ...recentTurns(history, 6),
-    ],
-  });
-  return spoken(r.text.trim(), ASK_FOR_DETAILS);
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content: `${HEALTH_PLAN_INFO_SYSTEM}${healthFactsFor(slots)}\n\n---\n\n${await assembleKnowledge(asked)}`,
+    },
+    ...recentTurns(history, 6),
+  ];
+  const r = await chat({ tier: "small", task: "plan_info_health", maxTokens: 400, messages });
+  return modelWrote(r, messages);
 }
 
 async function smallTalk(history: ChatMessage[], slots: HealthSlots): Promise<Reply> {
-  const r = await chat({
-    tier: "small",
-    task: "small_talk_health",
-    maxTokens: 200,
-    messages: [
-      { role: "system", content: `${HEALTH_SMALL_TALK_SYSTEM}${healthFactsFor(slots)}` },
-      ...recentTurns(history, 6),
-    ],
-  });
-  return spoken(r.text.trim(), ASK_FOR_DETAILS);
+  const messages: ChatMessage[] = [
+    { role: "system", content: `${HEALTH_SMALL_TALK_SYSTEM}${healthFactsFor(slots)}` },
+    ...recentTurns(history, 6),
+  ];
+  const r = await chat({ tier: "small", task: "small_talk_health", maxTokens: 200, messages });
+  return modelWrote(r, messages);
+}
+
+/**
+ * A model's words, checked for baht figures it was not shown and signed with its name — see
+ * the life brain's `modelWrote`, and `keepGivenFigures` (review 2026-10-01).
+ */
+function modelWrote(r: { text: string; model: string }, shown: ChatMessage[]): Reply {
+  const text = keepGivenFigures(r.text.trim(), shown.map((m) => m.content).join("\n"), ASK_FOR_DETAILS);
+  return { ...spoken(text, ASK_FOR_DETAILS), writtenBy: r.model };
 }

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { adsOauthIsConfigured, authorizeUrl, makeState, oauthIsConfigured, type LoginPurpose } from "@/lib/facebook/oauth";
+import {
+  adsOauthIsConfigured, authorizeUrl, makeState, newStateNonce, oauthIsConfigured, STATE_COOKIE, stateCookieOptions,
+  type LoginPurpose,
+} from "@/lib/facebook/oauth";
 import { requestOrigin } from "@/lib/facebook/origin";
 import { can } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/viewer";
@@ -11,7 +14,8 @@ export const dynamic = "force-dynamic";
  *
  * `?for=ads` is the same screen for the advertising account; where the person lands on the
  * way back depends on it, so the purpose is signed into the state rather than trusted from
- * the callback's query string.
+ * the callback's query string. The state's nonce also goes into a cookie only the callback
+ * sees, so the login can be finished only in this browser (src/lib/facebook/oauth.ts).
  */
 export async function GET(req: Request) {
   const origin = requestOrigin(req);
@@ -25,5 +29,8 @@ export async function GET(req: Request) {
   if (!ready) {
     return NextResponse.redirect(`${origin}${home}?fb=unconfigured`);
   }
-  return NextResponse.redirect(authorizeUrl(origin, makeState(purpose), purpose));
+  const nonce = newStateNonce();
+  const res = NextResponse.redirect(authorizeUrl(origin, makeState(purpose, nonce), purpose));
+  res.cookies.set(STATE_COOKIE, nonce, stateCookieOptions());
+  return res;
 }

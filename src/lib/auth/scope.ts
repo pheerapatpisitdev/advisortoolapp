@@ -13,9 +13,10 @@ import { myPageIds } from "./pages";
  * Read by the stores themselves (src/lib/content/store.ts, people-store.ts), so no list or
  * lookup can forget to ask. Three answers:
  * - `ALL`: no request at all — work finishing after the answer went back (`after()`), where
- *   there are no cookies to read. That work was started by a request that was checked.
- * - `NONE`: a request from nobody signed in. The gates turn these away before a store is
- *   reached; this is what a store answers if one ever is not.
+ *   there are no cookies to read. That work was started by a request that was checked. Only
+ *   Next's own "no request here" error means this; any other failure is NONE (2026-10-01).
+ * - `NONE`: a request from nobody signed in, or one whose viewer could not be read. The gates
+ *   turn these away before a store is reached; this is what a store answers if one ever is not.
  * - otherwise the agents whose rows this viewer may see.
  */
 export interface Scope {
@@ -32,13 +33,30 @@ export interface Scope {
 const ALL: Scope = { agents: null, unowned: true, pages: null, owner: null };
 const NONE: Scope = { agents: [], unowned: false, pages: [], owner: null };
 
+/**
+ * Whether `e` is Next refusing cookies() because there is no request to read them from:
+ * "`cookies` was called outside a request scope" (work outside any request, E251) or
+ * "used \"cookies\" inside \"after(...)\"" (after() work begun by a page or a route, E88).
+ * Read by both the error code Next attaches and the words, so a Next that drops one still matches.
+ */
+export function isOutsideRequest(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  const code = (e as { __NEXT_ERROR_CODE?: unknown }).__NEXT_ERROR_CODE;
+  if (code === "E251" || code === "E88") return true;
+  return e.message.includes("outside a request scope") || /inside "after\(/.test(e.message);
+}
+
 export const currentScope = cache(async (): Promise<Scope> => {
   let viewer;
   try {
     viewer = await getViewer();
-  } catch {
+  } catch (e) {
     // cookies() refuses outside a request: this is after() work, begun by a checked request
-    return ALL;
+    if (isOutsideRequest(e)) return ALL;
+    // anything else — the database down mid-request — is not a reason to show everybody's
+    // rows (review, 2026-10-01): nothing is shown, and the store's caller says it failed to load
+    console.error("currentScope: who is asking could not be read, showing nothing:", e);
+    return NONE;
   }
   if (!viewer) return NONE;
   const owner = { agentId: viewer.agentId, tenantId: viewer.tenantId };

@@ -28,6 +28,10 @@ export interface HookTemplate {
   id: string;
   category: HookCategory;
   template: string;
+  /**
+   * The hook it was drawn from — only when the asker may see the piece it came from (store.ts,
+   * examplesShown); null for everyone else, and for the seeds (review, 2026-10-01).
+   */
   exampleHook: string | null;
   useCount: number;
   /** one of the thirty it started with, rather than one drawn from the owner's own posts */

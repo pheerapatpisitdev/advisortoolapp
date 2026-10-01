@@ -12,4 +12,12 @@ describe("safeNext", () => {
       expect(safeNext(raw)).toBe("/studio");
     }
   });
+
+  it("refuses a control character or a backslash anywhere (review, 2026-10-01)", () => {
+    for (const raw of ["/\t/evil.example", "/x\ty", "/a\u0000b", "/a\u001fb", "/a\u007fb", "/studio\\..\\x", "/x\\/evil.example", "/x\r"]) {
+      expect(safeNext(raw)).toBe("/studio");
+    }
+    // a query or a fragment with ordinary characters still goes through
+    expect(safeNext("/studio/write?hook=a%20b#top")).toBe("/studio/write?hook=a%20b#top");
+  });
 });

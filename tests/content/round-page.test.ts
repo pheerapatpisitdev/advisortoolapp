@@ -13,6 +13,8 @@ vi.mock("@/lib/auth/pages", async (orig) => ({ ...(await orig<typeof import("@/l
 vi.mock("@/lib/content/recruit-run", () => ({ writeRecruit: runs.writeRecruit }));
 vi.mock("@/lib/content/knowledge-run", () => ({ writeKnowledge: runs.writeKnowledge }));
 vi.mock("@/lib/content/draft-run", () => ({ writeDraft: runs.writeDraft }));
+// the owner's ceiling, asked before the round (ceiling.ts): not reached
+vi.mock("@/lib/content/ceiling", () => ({ ceilingBeforeRound: vi.fn(async () => null) }));
 const store = vi.hoisted(() => ({ listContent: vi.fn(async () => []), countByStatus: vi.fn(async () => ({ draft: 0, used: 0, trashed: 0 })) }));
 vi.mock("@/lib/content/store", async (orig) => ({ ...(await orig<typeof import("@/lib/content/store")>()), ...store }));
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  grantedScopes, listAdAccounts, listPages, statePurpose, subscribePage, tokenFromCode,
+  grantedScopes, listAdAccounts, listPages, STATE_COOKIE, STATE_COOKIE_PATH, statePurpose, subscribePage, tokenFromCode,
 } from "@/lib/facebook/oauth";
 import { clearPending, savePending, saveConnection } from "@/lib/facebook/connection";
 import { clearPendingAds, saveAdAccount, savePendingAds } from "@/lib/facebook/ads-connection";
@@ -15,11 +15,29 @@ export const dynamic = "force-dynamic";
  * which, so the user token waits in the database until they say. The ads login is the same
  * shape with an ad account in place of a Page — and it keeps the user token itself, because
  * an ad account has no token of its own to hand over.
+ *
+ * The state is taken only from the browser that began the login, which holds its nonce in a
+ * cookie (src/lib/facebook/oauth.ts); that cookie is spent here whatever the outcome.
  */
 export async function GET(req: Request) {
+  const res = await finish(req);
+  res.cookies.set(STATE_COOKIE, "", { path: STATE_COOKIE_PATH, maxAge: 0 });
+  return res;
+}
+
+/** The cookie as the browser sent it, read off the request itself (the nonce is plain hex, never encoded). */
+function cookieFrom(req: Request, name: string): string | null {
+  for (const part of (req.headers.get("cookie") ?? "").split(";")) {
+    const at = part.indexOf("=");
+    if (at > 0 && part.slice(0, at).trim() === name) return part.slice(at + 1).trim();
+  }
+  return null;
+}
+
+async function finish(req: Request): Promise<NextResponse> {
   const origin = requestOrigin(req);
   const params = new URL(req.url).searchParams;
-  const purpose = statePurpose(params.get("state"));
+  const purpose = statePurpose(params.get("state"), cookieFrom(req, STATE_COOKIE));
   const home = purpose === "ads" ? "/admin/ads" : "/admin/messenger";
 
   const back = (outcome: string, detail?: string) => {

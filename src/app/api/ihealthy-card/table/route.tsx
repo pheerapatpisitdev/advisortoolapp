@@ -5,6 +5,7 @@ import {
   band, CARD_HEADERS, GOLD, GOLD_LIT, GROUND, GROUND_DEEP, H, loadFonts, MUTE, PAD, PlanTable, RULE,
   spacer, WHITE, widthOf,
 } from "../draw";
+import { HEALTH_CARD_KEYS, HEALTH_REPEATABLE, toCanonical } from "../../card/canonical";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -30,6 +31,9 @@ function heightOf(card: IHealthyTableCard): number {
  * from the table under a quote card, and the reason both draw the same component.
  */
 export async function GET(req: NextRequest) {
+  // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)
+  const moved = toCanonical(req, HEALTH_CARD_KEYS, HEALTH_REPEATABLE);
+  if (moved) return moved;
   const card = iHealthyTableCard(req.nextUrl.searchParams);
 
 

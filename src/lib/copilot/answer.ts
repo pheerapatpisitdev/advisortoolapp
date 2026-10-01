@@ -112,6 +112,22 @@ const ENGINE = "เครื่องคิดเบี้ยของระบ�
 const LIBRARY = "คลังความรู้ของระบบ";
 
 /**
+ * The line under an answer: which machine wrote it.
+ *
+ * An answer the library wrote is not the engine's, and neither is one a brain handed to a
+ * model — a question about the plan, or small talk. Those were all signed ENGINE until the
+ * review of 2026-10-01, which put "เครื่องคิดเบี้ยของระบบ" under free model prose: a reader
+ * takes that line to mean the figures above it were computed. A model's answer is signed
+ * with the model's name, the way the library's own answers are below; ENGINE is kept for the
+ * words the engine and this code produced.
+ */
+function whoWrote(answer: { fromLibrary?: true; writtenBy?: string }): string {
+  if (answer.fromLibrary) return LIBRARY;
+  if (answer.writtenBy !== undefined) return answer.writtenBy || LIBRARY;
+  return ENGINE;
+}
+
+/**
  * The plans without a brain are priced by `./price`, not turned away.
  *
  * For a while the gap was answered by refusing: a question about iShield was stopped rather
@@ -182,8 +198,7 @@ export async function answerFromKnowledge(
 
     return {
       text,
-      // an answer the library wrote is not the engine's, and the line under it should not say so
-      model: answer.fromLibrary ? LIBRARY : ENGINE,
+      model: whoWrote(answer),
       priced: Boolean(answer.priced),
       slots: answer.slots,
       ...(cards.length ? { cards } : {}),

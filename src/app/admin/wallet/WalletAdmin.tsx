@@ -1,9 +1,9 @@
 "use client";
 import { useState, useTransition } from "react";
 import { formatBaht } from "@/lib/wallet/money";
-import type { WalletRow, WalletSettings } from "@/lib/wallet/store";
+import type { FrozenWallet, WalletRow, WalletSettings } from "@/lib/wallet/store";
 import { Card, Empty } from "../ui";
-import { adjustAgentWallet, saveWallet, type Result } from "./actions";
+import { adjustAgentWallet, saveWallet, unfreezeAgentWallet, type Result } from "./actions";
 
 /**
  * The same look as /admin/ai (its Card, tokens and input classes), so the two settings pages
@@ -32,7 +32,12 @@ async function ask(fn: () => Promise<Result>, ok: string): Promise<{ ok: boolean
   }
 }
 
-export function WalletAdmin({ settings, rows }: { settings: WalletSettings | null; rows: WalletRow[] | null }) {
+export function WalletAdmin({ settings, rows, frozen = [] }: {
+  settings: WalletSettings | null;
+  rows: WalletRow[] | null;
+  /** wallets a refund or a dispute froze; null when they cannot be read */
+  frozen?: FrozenWallet[] | null;
+}) {
   const [enabled, setEnabled] = useState(settings?.enabled ?? false);
   const [multiplier, setMultiplier] = useState(String(settings?.multiplier ?? 2));
   const [said, setSaid] = useState<{ ok: boolean; text: string }>();
@@ -71,6 +76,18 @@ export function WalletAdmin({ settings, rows }: { settings: WalletSettings | nul
           </div>
         </div>
       </Card>
+
+      {frozen === null ? (
+        <Card title="กระเป๋าที่ถูกพัก">
+          <Empty>อ่านรายการกระเป๋าที่ถูกพักไม่ได้ — ตรวจว่า migration 20261001_wallet_refunds_free_rounds ถูก apply แล้ว</Empty>
+        </Card>
+      ) : frozen.length > 0 && (
+        <Card title="กระเป๋าที่ถูกพัก" hint="ถูกคืนเงินหรือถูกโต้แย้งการชำระใน Stripe · ใช้ AI จากกระเป๋าและเติมเงินไม่ได้จนกว่าเจ้าของจะปลด">
+          <ul className="space-y-3">
+            {frozen.map((f) => <FrozenRow key={f.agentId} wallet={f} row={rows?.find((r) => r.agentId === f.agentId)} />)}
+          </ul>
+        </Card>
+      )}
 
       <Card title="กระเป๋าของตัวแทน" hint="ยอดเติมและยอดใช้ นับตั้งแต่ต้นเดือนนี้">
         {rows === null ? <Empty>อ่านรายการกระเป๋าไม่ได้</Empty>
@@ -142,5 +159,47 @@ function Row({ row }: { row: WalletRow }) {
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * A wallet a refund or a dispute froze: what could not be taken back, why, and the owner's
+ * hand to lift it (owner, 2026-10-01). Lifting it lets the shortfall go — to collect it, take
+ * it with ปรับยอด on the wallet's line below first.
+ */
+function FrozenRow({ wallet, row }: { wallet: FrozenWallet; row?: WalletRow }) {
+  const [note, setNote] = useState("");
+  const [said, setSaid] = useState<{ ok: boolean; text: string }>();
+  const [pending, start] = useTransition();
+  const lift = () => {
+    setSaid(undefined);
+    start(async () => {
+      const r = await ask(() => unfreezeAgentWallet(wallet.agentId, note), "ปลดการพักแล้ว");
+      setSaid(r);
+      if (r.ok) setNote("");
+    });
+  };
+  return (
+    <li className="rounded border border-[var(--bot-line)] p-3 text-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span>{row?.name || "(ไม่มีชื่อ)"} <span className="text-xs text-[var(--bot-ink-faint)]">{row?.code ?? wallet.agentId}</span></span>
+        <span className="text-xs text-[var(--bot-ink-mute)]">
+          พักตั้งแต่ {new Date(wallet.frozenAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "medium", timeStyle: "short" })}
+        </span>
+      </div>
+      {wallet.reason && <p className="mt-1 text-xs text-[var(--bot-ink-mute)]">{wallet.reason}</p>}
+      <p className="mt-1">
+        หักคืนไม่ครบ <span className={`font-semibold tabular-nums ${wallet.shortfallSatang > 0 ? "text-[var(--bot-red-ink)]" : ""}`}>{formatBaht(wallet.shortfallSatang)}</span>
+        {row && <> · คงเหลือ <span className="tabular-nums">{formatBaht(row.balanceSatang)}</span></>}
+      </p>
+      <form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); lift(); }}>
+        <label className="min-w-48 flex-1 text-xs text-[var(--bot-ink-mute)]">
+          เหตุผลที่ปลดการพัก (ต้องใส่ · ยอดที่หักคืนไม่ครบจะถูกล้างไปด้วย)
+          <input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} className={`mt-1 block w-full text-[var(--bot-ink)] ${input}`} />
+        </label>
+        <button disabled={pending} className={primary}>{pending ? "กำลังบันทึก…" : "ปลดการพัก"}</button>
+      </form>
+      {said && <div className="mt-2"><Said {...said} /></div>}
+    </li>
   );
 }

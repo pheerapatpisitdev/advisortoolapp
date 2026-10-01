@@ -15,20 +15,50 @@ beforeAll(() => {
 describe("the purpose in the state", () => {
   it("defaults to the Pages, as it always did", async () => {
     const { makeState, statePurpose, stateIsValid } = await import("@/lib/facebook/oauth");
-    const s = makeState();
-    expect(stateIsValid(s)).toBe(true);
-    expect(statePurpose(s)).toBe("pages");
+    const s = makeState(undefined, "n1");
+    expect(stateIsValid(s, "n1")).toBe(true);
+    expect(statePurpose(s, "n1")).toBe("pages");
   });
 
   it("carries ads, signed", async () => {
     const { makeState, statePurpose, stateIsValid } = await import("@/lib/facebook/oauth");
-    const s = makeState("ads");
-    expect(stateIsValid(s)).toBe(true);
-    expect(statePurpose(s)).toBe("ads");
+    const s = makeState("ads", "n1");
+    expect(stateIsValid(s, "n1")).toBe(true);
+    expect(statePurpose(s, "n1")).toBe("ads");
     // change the purpose without re-signing and the state is dead
     const forged = s.replace(".ads.", ".pages.");
-    expect(stateIsValid(forged)).toBe(false);
-    expect(statePurpose(forged)).toBeUndefined();
+    expect(stateIsValid(forged, "n1")).toBe(false);
+    expect(statePurpose(forged, "n1")).toBeUndefined();
+  });
+});
+
+/** The state is good only in the browser that began the login (review, 2026-10-01). */
+describe("the state and the browser", () => {
+  it("is refused without the nonce cookie, or with another browser's", async () => {
+    const { makeState, newStateNonce, statePurpose } = await import("@/lib/facebook/oauth");
+    const mine = newStateNonce();
+    const s = makeState("pages", mine);
+    expect(statePurpose(s, mine)).toBe("pages");
+    expect(statePurpose(s, null)).toBeUndefined();
+    expect(statePurpose(s, undefined)).toBeUndefined();
+    expect(statePurpose(s, "")).toBeUndefined();
+    expect(statePurpose(s, newStateNonce())).toBeUndefined();
+  });
+
+  it("cannot have its nonce swapped for the attacker's own", async () => {
+    const { makeState, statePurpose } = await import("@/lib/facebook/oauth");
+    const s = makeState("pages", "victim");
+    const [expires, , purpose, mac] = s.split(".");
+    expect(statePurpose(`${expires}.attacker.${purpose}.${mac}`, "attacker")).toBeUndefined();
+  });
+
+  it("is signed with a key of its own, not ADMIN_SESSION_SECRET itself", async () => {
+    const { createHmac } = await import("node:crypto");
+    const { makeState, statePurpose } = await import("@/lib/facebook/oauth");
+    const [expires, nonce, purpose, mac] = makeState("pages", "n1").split(".");
+    expect(mac).not.toBe(createHmac("sha256", "test-secret").update(`${expires}.${nonce}.${purpose}`).digest("hex"));
+    const raw = createHmac("sha256", "test-secret").update(`${expires}.n1.pages`).digest("hex");
+    expect(statePurpose(`${expires}.n1.pages.${raw}`, "n1")).toBeUndefined();
   });
 
   it("asks Meta for ads_read when the purpose is ads", async () => {

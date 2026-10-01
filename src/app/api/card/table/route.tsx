@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 import { cardInputFrom, valueTableCard, type ValueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
+import { QUOTE_CARD_KEYS, toCanonical } from "../canonical";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -243,6 +244,9 @@ const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
  * canvas so that column can carry its figures at full size — see SINGLE_MAX.
  */
 export async function GET(req: NextRequest) {
+  // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)
+  const moved = toCanonical(req, QUOTE_CARD_KEYS);
+  if (moved) return moved;
   const input = cardInputFrom(req.nextUrl.searchParams);
   const card = input?.kind === "plan" ? valueTableCard(input) : undefined;
   if (!input || !card) return new Response("ไม่พบแบบประกันตามที่ระบุ", { status: 400 });

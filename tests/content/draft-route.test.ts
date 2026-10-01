@@ -7,6 +7,8 @@ vi.mock("@/lib/auth/quota", () => quota);
 // the hourly limit keys on the caller's address, read from the request's headers
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": `10.3.1.${Math.random()}` }) }));
 vi.mock("@/lib/content/draft-run", () => run);
+// the owner's ceiling, asked before the round (ceiling.ts): not reached
+vi.mock("@/lib/content/ceiling", () => ({ ceilingBeforeRound: vi.fn(async () => null) }));
 vi.mock("@/lib/auth/viewer", () => ({ refuseUnless: vi.fn(async () => null), requireMember: vi.fn(async () => ({ agentId: "a1" })), getViewer: vi.fn(async () => ({ agentId: "a1" })) }));
 
 const { POST } = await import("@/app/api/content-draft/route");

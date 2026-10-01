@@ -1,5 +1,6 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { decodeAsks, encodeAsks, FREE_ASKS, inviteToTry } from "@/lib/auth/free-asks";
+import { decodeAsks, encodeAsks, FREE_ASKS, inviteToTry, LEGACY_ASKS_UNTIL } from "@/lib/auth/free-asks";
 
 const KEY = "test-secret";
 
@@ -23,6 +24,21 @@ describe("the free questions' count (owner, 2026-10-01)", () => {
     expect(decodeAsks("nonsense", KEY)).toBe(FREE_ASKS);
     const signed = encodeAsks(2, KEY);
     expect(decodeAsks(`0${signed.slice(1)}`, KEY)).toBe(FREE_ASKS);
+  });
+});
+
+/** Signed with a key of its own since 2026-10-01; the month of cookies signed before that still count. */
+describe("the free questions' key", () => {
+  const oldWay = (n: number) => `${n}.${createHmac("sha256", KEY).update(`asks:${n}`).digest("hex")}`;
+
+  it("is not the base secret itself", () => {
+    expect(encodeAsks(1, KEY)).not.toBe(oldWay(1));
+  });
+
+  it("reads a cookie signed the old way until every one of them has run out", () => {
+    expect(decodeAsks(oldWay(1), KEY, LEGACY_ASKS_UNTIL - 1)).toBe(1);
+    expect(decodeAsks(oldWay(1), KEY, LEGACY_ASKS_UNTIL)).toBe(FREE_ASKS);
+    expect(decodeAsks(encodeAsks(1, KEY), KEY, LEGACY_ASKS_UNTIL + 1)).toBe(1);
   });
 });
 

@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { verifySignature, verifyTokenMatches } from "@/lib/facebook/verify";
 import { handle } from "@/lib/facebook/conversation";
-import type { Messaging } from "@/lib/facebook/events";
+import { customerOf, type Messaging } from "@/lib/facebook/events";
+import { eachBySender } from "@/lib/chat/batch";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+/**
+ * Five minutes, not one. The answers run inside after(), and at 60 seconds a batch of a few
+ * slow answers was killed mid-turn — the customer neither answered nor apologised to. Each
+ * turn now has its own clock inside this (src/lib/chat/batch.ts, which holds the same number
+ * as WEBHOOK_LIMIT_MS) so the apology always has time to go (review, 2026-10-01).
+ */
+export const maxDuration = 300;
 
 interface Entry {
   /** the Page this batch of events belongs to; ins_open_conversation wants it by name */
@@ -40,13 +47,21 @@ export async function POST(req: NextRequest) {
 
   // Meta gives up on a webhook that takes more than a few seconds, and an answer takes
   // longer than that, so the reply happens after this response has already been sent.
-  after(async () => {
-    for (const entry of entries) {
-      for (const m of entry.messaging ?? []) {
-        await handle(m, entry.id).catch((e) => console.error("facebook event failed:", e));
-      }
-    }
-  });
+  //
+  // Different customers are answered side by side, so one stuck answer does not hold up the
+  // rest; one customer's own events still go in order, one at a time. The Page goes into the
+  // key as well, because a page-scoped id names a person only on its own Page.
+  const startedAt = Date.now();
+  const events = entries.flatMap((entry) => (entry.messaging ?? []).map((m) => ({ m, pageId: entry.id })));
+  after(() => eachBySender(
+    events,
+    ({ m, pageId }) => {
+      const who = customerOf(m);
+      return who ? `${pageId ?? ""}:${who}` : undefined;
+    },
+    ({ m, pageId }) => handle(m, pageId, { startedAt }),
+    "facebook",
+  ));
 
   return NextResponse.json({ ok: true });
 }

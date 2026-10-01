@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { gatePage } from "@/lib/auth/viewer";
 import { allowanceOf } from "@/lib/auth/quota";
-import { balanceSatang, walletEntries, walletSettings } from "@/lib/wallet/store";
+import { walletEntries, walletSettings, walletStatus } from "@/lib/wallet/store";
 import { WalletClient } from "./WalletClient";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,8 @@ export const metadata: Metadata = { title: "กระเป๋าเงิน | 
 /**
  * An agent's wallet: what is in it, the free rounds left, the five top-ups, and what it was
  * spent on (owner, 2026-09-30). Every read has a fallback, so the page opens, empty, before the
- * wallet's tables exist. Staff have no wallet: they use AI without paying.
+ * wallet's tables exist. Staff have no wallet: they use AI without paying. A wallet a refund or
+ * a dispute froze says so, and to contact the office (owner, 2026-10-01).
  */
 export default async function WalletPage({ searchParams }: { searchParams: Promise<{ paid?: string }> }) {
   const viewer = await gatePage("/studio/wallet");
@@ -18,9 +19,9 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
   if (viewer.staff) {
     return <p className="text-sm text-[var(--ct-mute)]">ทีมงานใช้ AI ใน Studio ได้โดยไม่ต้องเติมเงินครับ</p>;
   }
-  const [settings, balance, entries, allowance] = await Promise.all([
+  const [settings, wallet, entries, allowance] = await Promise.all([
     walletSettings().catch(() => ({ enabled: false, multiplier: 2 })),
-    balanceSatang(viewer.agentId).catch(() => 0),
+    walletStatus(viewer.agentId).catch(() => ({ satang: 0, frozen: false })),
     walletEntries(viewer.agentId).catch(() => []),
     allowanceOf(viewer),
   ]);
@@ -28,7 +29,8 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
     <WalletClient
       enabled={settings.enabled}
       multiplier={settings.multiplier}
-      balanceSatang={balance}
+      balanceSatang={wallet.satang}
+      frozen={wallet.frozen}
       entries={entries}
       rounds={{ used: allowance.used, limit: allowance.limit ?? 0 }}
       paid={typeof paid === "string" ? paid : null}

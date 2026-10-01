@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { admit, admitMember, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type Viewer } from "./access";
+import { sessionNotBefore } from "./epoch";
 import { safeNext } from "./next";
 import { readSession } from "./session";
 
@@ -52,11 +53,17 @@ export const staffAgentIds = cache(async (): Promise<string[]> => {
  * Who is asking, read afresh from UnitOS's rows once per request. The cookie says who signed
  * in; the rows say whether they still may — an agent removed in UnitOS, a room suspended or a
  * room that revoked its keys is out on the next click, not when the cookie runs out.
+ *
+ * A session issued before the agent last signed out is over too, on every device (./epoch.ts,
+ * 2026-10-01). That stamp is read alongside the agent's rows, so it adds no round trip.
  */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
   const session = await readSession();
   if (!session) return null;
-  const [agent, staff] = await Promise.all([agentById(session.agentId), staffRow(session.agentId)]);
+  const [agent, staff, notBefore] = await Promise.all([
+    agentById(session.agentId), staffRow(session.agentId), sessionNotBefore(session.agentId),
+  ]);
+  if (notBefore !== null && session.issuedAt < notBefore) return null;
   if (agent) return admit(agent, staff, session.issuedAt);
   // not UnitOS's: a member who signed up here, or nobody (owner, 2026-10-01)
   return admitMember(await memberById(session.agentId), session.issuedAt);

@@ -8,9 +8,10 @@ import { CheckIcon, SearchIcon } from "../ui/icons";
  * The formula library as Maryjane's hook-library shows it: a search, a chip per category, and
  * one row per formula with how often it has been used and a way to use it now.
  *
- * "ใช้อันนี้" opens the workbench with the formula already chosen. Formulas drawn from the
- * owner's own posts say which hook they came from, so a good one can be traced back to the
- * post that earned it.
+ * "ใช้อันนี้" opens the workbench with the formula already chosen. A formula drawn from a post
+ * says which hook it came from, so a good one can be traced back to the post that earned it —
+ * to whoever may see that post, and to nobody else: the server leaves the example out for
+ * everyone else (store.ts, examplesShown; it was shown to every tenant, review 2026-10-01).
  *
  * The number that leads is how many of its pieces went up on a Page (`posted`), and the list
  * is in that order: the count it had before went up for every piece written with it, the
