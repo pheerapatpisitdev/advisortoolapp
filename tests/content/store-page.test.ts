@@ -44,6 +44,12 @@ describe("one Page's project", () => {
     expect(pageEq()).toEqual(["p2"]);
   });
 
+  it("offers Reels whose clip is still kept beside posts (2026-10-02)", async () => {
+    await listWaiting("p2");
+    expect(db.calls).toContainEqual(["or", "format.eq.post,and(output->video->>path.not.is.null,output->video->>expired.is.null)"]);
+    expect(db.calls.some((c) => c[0] === "eq" && c[1] === "format")).toBe(false);
+  });
+
   it("is not narrowed for a caller with no Pages", async () => {
     await listContent({ status: "draft" });
     await listWaiting();

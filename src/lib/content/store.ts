@@ -692,14 +692,17 @@ export async function listDue(from: Date, to: Date, limit = 50): Promise<Content
 }
 
 /**
- * Posts that could go on the calendar: never sent, taken back, refused, or stuck sending —
- * newest first. รอตรวจ and ใช้จริง both, since posting is itself the decision to use a piece.
+ * Posts and Reels that could go on the calendar: never sent, taken back, refused, or stuck
+ * sending — newest first. รอตรวจ and ใช้จริง both, since posting is itself the decision to use a
+ * piece. A Reel is any piece with a clip whose file is still kept (a clip piece, or a script
+ * with its clip attached); one the sweep let go cannot be sent, so it does not wait here.
  */
 export async function listWaiting(pageId?: string, limit = 50): Promise<ContentItem[]> {
   // the staff's pieces: the rail is what the staff may put on their Page — its own project's (2026-09-30)
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS)
-    .eq("format", "post").in("status", ["draft", "used"])
+    .or("format.eq.post,and(output->video->>path.not.is.null,output->video->>expired.is.null)")
+    .in("status", ["draft", "used"])
     .or(`publish_state.is.null,publish_state.eq.cancelled,publish_state.eq.failed,${staleClaim()}`);
   if (pageId) q = q.eq("page_id", pageId);
   if (only) q = q.or(only);

@@ -42,16 +42,19 @@ function toBoard(item: ContentItem, pageName: (id: string | null) => string, fro
   const day = boardDay(view.kind, at, from, to);
   const placed = day !== null && at;
   const status: BoardItem["status"] = view.kind === "none" ? "waiting" : view.kind;
-  const blocked = (item.flags.policy ?? []).find((f) => f.severity === "block");
+  // a Reel goes up with its caption: the caption's words and checks are the ones that count
+  const video = item.output.video;
+  const blocked = ((video ? video.flags : item.flags).policy ?? []).find((f) => f.severity === "block");
   return {
     id: item.id,
     pageId: item.publish?.pageId ?? null,
     pageName: pageName(item.publish?.pageId ?? null),
     planHref: item.planHref,
     planName,
-    hook: item.output.hooks[0] ?? "",
-    body: item.output.body,
+    hook: video ? (video.caption.split("\n")[0] || "คลิป") : (item.output.hooks[0] ?? ""),
+    body: video ? video.caption : item.output.body,
     imageUrl: posterUrl(item.output.poster ?? defaultPoster(item.output.hooks[0] ?? "", planName)),
+    reel: Boolean(video),
     status,
     day,
     time: placed ? timeOfDay(at) : DROP_TIME,
