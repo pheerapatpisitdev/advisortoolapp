@@ -82,6 +82,10 @@ describe("ciNeed, retireNeed", () => {
     expect((cleanInput({ age: 35, income: 1, lifeExpectancy: 90 }) as PlanInput).lifeExpectancy).toBe(90);
     expect((cleanInput({ age: 35, income: 1, lifeExpectancy: 200 }) as PlanInput).lifeExpectancy).toBeUndefined();
   });
+  it("spreads the lump sum from today when the customer is already past the retirement age", () => {
+    // 1,500,000 over (85 - 68) × 12 = 7,353 → 7,400
+    expect(retireNeed({ ...OWNER, age: 68, retireAge: 65, retireLump: 1_500_000 }).have).toBe(7_400);
+  });
   it("has no gap when what is there covers it", () => {
     expect(retireNeed({ ...OWNER, retireMonthly: 10_000, pensionHave: 12_000 }).gap).toBe(0);
   });

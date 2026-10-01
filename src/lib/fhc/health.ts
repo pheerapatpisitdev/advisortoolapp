@@ -48,11 +48,12 @@ function money(v: unknown): number {
   return Number.isFinite(n) && n > 0 ? Math.min(n, MAX_MONEY) : 0;
 }
 
-/** The form's values made safe, or the sentence to show when they cannot be — the planner's rules for age and income. */
+/** The form's values made safe, or the sentence to show when they cannot be — the planner's rules for age and income, and spending too: without it every score reads well. */
 export function cleanFhc(raw: unknown): FhcInput | string {
   const r = (raw ?? {}) as Record<string, unknown>;
   const base = cleanInput(r);
   if (typeof base === "string") return base;
+  if (!base.expense) return "กรอกค่าใช้จ่ายต่อเดือนก่อนนะครับ";
   const expectancy = Math.floor(Number(r.expectancy));
   const people = (Array.isArray(r.people) ? r.people : []).flatMap((x): Person[] => {
     const row = (x ?? {}) as Record<string, unknown>;
@@ -77,7 +78,7 @@ export function cleanFhc(raw: unknown): FhcInput | string {
 export interface FhcFigures {
   /** years of work left; none when the customer cannot work */
   workYears: number;
-  /** years from retiring to the expected age */
+  /** years from retiring (or from today, once past it) to the expected age */
   moneyYears: number;
   incomeYear: number;
   /** ค่าความสามารถในการทำงาน: a year's income times the years of work left */
@@ -99,7 +100,7 @@ export function figures(f: FhcInput): FhcFigures {
   const invest = f.taxFund + f.stocks;
   return {
     workYears,
-    moneyYears: Math.max(0, f.expectancy - f.retireAge),
+    moneyYears: Math.max(0, f.expectancy - Math.max(f.age, f.retireAge)),
     incomeYear,
     lifetimeIncome: incomeYear * workYears,
     netMonth: f.income - f.expense,
@@ -140,6 +141,7 @@ export interface Score {
 const higherIsBetter = (v: number | null, t: { green: number; yellow: number }): Level =>
   v === null ? "none" : v >= t.green ? "green" : v >= t.yellow ? "yellow" : "red";
 const pct = (v: number) => `${Math.round(Math.min(v, 9.99) * 100)}%`;
+const baht = (n: number) => Math.round(n).toLocaleString("en-US");
 
 export function scores(f: FhcInput): Score[] {
   return rate(f, 0);
@@ -150,7 +152,8 @@ function rate(f: FhcInput, newPremium: number): Score[] {
   const g = figures(f);
   const p = toPlanInput(f);
   const months = f.expense > 0 ? (f.cash + f.fixed) / f.expense : null;
-  const share = f.income > 0 ? (g.netMonth - newPremium) / f.income : null;
+  const left = g.netMonth - newPremium;
+  const share = f.income > 0 ? left / f.income : null;
   const debtYears = f.income > 0 ? g.debts / g.incomeYear : null;
   const life = lifeNeed(p);
   const lifeShare = life.need > 0 ? life.have / life.need : null;
@@ -164,7 +167,7 @@ function rate(f: FhcInput, newPremium: number): Score[] {
     },
     {
       key: "saving", label: "เงินเหลือต่อเดือน", level: higherIsBetter(share, SAVING_SHARE),
-      shown: share === null ? "—" : `${pct(Math.max(share, 0))} ของรายได้`,
+      shown: share === null ? "—" : left < 0 ? `ใช้เกินรายได้ ${baht(-left)} บาท/เดือน` : `${pct(share)} ของรายได้`,
     },
     {
       key: "debt", label: "ภาระหนี้",
@@ -221,8 +224,6 @@ export interface EventRow {
   level: Level;
   lines: string[];
 }
-
-const baht = (n: number) => Math.round(n).toLocaleString("en-US");
 
 /** What the plan card says about one area, in a line. */
 function offerLine(plan: PlanResult, key: AreaKey): string {

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { Choice, Field, HEALTH_NOW, INPUT, LABEL, MoneyField, n, PANEL, type Money } from "@/components/plan/fields";
 import {
   DEFAULT_EXPECTANCY, EVENTS, MAX_PEOPLE, RELATION_LABEL, WORK_ABILITY_LABEL, type Relation, type WorkAbility,
@@ -117,7 +117,9 @@ export function Fhc() {
   const [words, setWords] = useState<FhcWords | null>(null);
   const [editing, setEditing] = useState(true);
   const [error, setError] = useState("");
-  const [pending, start] = useTransition();
+  // its own flag, not useTransition: React ties every pending transition together, so the
+  // words' server call would keep the button busy long after the figures are in
+  const [pending, setPending] = useState(false);
   const seq = useRef(0);
 
   const shownRetire = retireTouched ? retireMonthly : defaultRetireMonthly(n(expense)) || "";
@@ -131,25 +133,34 @@ export function Fhc() {
     budget: n(shownBudget), expectancy: Number(expectancy), work,
     cash: n(cash), fixed: n(fixed), otherSaving: n(otherSaving), homeLoan: n(homeLoan), carLoan: n(carLoan),
     otherDebt: n(otherDebt), taxFund: n(taxFund), stocks: n(stocks),
-    people: people.filter((p) => p.age !== "").map((p) => ({ relation: p.relation, age: n(p.age) })),
+    people: people.map((p) => ({ relation: p.relation, age: n(p.age) })),
   };
   const g = figures(input);
 
   function submit() {
+    // a row without an age would drop out of the plan unseen
+    if (people.some((p) => p.age === "")) {
+      setError("ใส่อายุของคนในความดูแลให้ครบ หรือลบแถวที่ไม่ใช้ออก");
+      return;
+    }
     const form = input;
     setError("");
     setWords(null);
     const mine = ++seq.current;
-    start(async () => {
-      const reply = await runFhc(form);
+    setPending(true);
+    void (async () => {
+      const reply = await runFhc(form).catch(() => ({ ok: false as const, error: "ตรวจไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" }));
       if (mine !== seq.current) return;
+      setPending(false);
       if (!reply.ok) { setError(reply.error); return; }
       setResult(reply);
       setEditing(false);
       requestAnimationFrame(() => document.getElementById("fhc-result")?.scrollIntoView({ behavior: "smooth" }));
-      const w = await explainFhc(form, reply.plan.order);
-      if (mine === seq.current) setWords(w);
-    });
+      // not awaited: the words come later, and the form must not stay busy waiting for them
+      explainFhc(form, reply.plan.order)
+        .then((w) => { if (mine === seq.current) setWords(w); })
+        .catch(() => {});
+    })();
   }
 
   const modeSwitch = (
