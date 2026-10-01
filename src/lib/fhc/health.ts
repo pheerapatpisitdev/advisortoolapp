@@ -144,15 +144,10 @@ const pct = (v: number) => `${Math.round(Math.min(v, 9.99) * 100)}%`;
 const baht = (n: number) => Math.round(n).toLocaleString("en-US");
 
 export function scores(f: FhcInput): Score[] {
-  return rate(f, 0);
-}
-
-/** `newPremium`: baht a month of premium not yet in the expense, taken out of what is left */
-function rate(f: FhcInput, newPremium: number): Score[] {
   const g = figures(f);
   const p = toPlanInput(f);
   const months = f.expense > 0 ? (f.cash + f.fixed) / f.expense : null;
-  const left = g.netMonth - newPremium;
+  const left = g.netMonth;
   const share = f.income > 0 ? left / f.income : null;
   const debtYears = f.income > 0 ? g.debts / g.incomeYear : null;
   const life = lifeNeed(p);
@@ -189,33 +184,6 @@ function rate(f: FhcInput, newPremium: number): Score[] {
       shown: retireShare === null ? "—" : `${pct(retireShare)} ของที่อยากมี`,
     },
   ];
-}
-
-/**
- * The six scores again as if the customer took the plan: every offer the budget pays for added
- * to the cover they have, and its premium taken out of what is left each month. The emergency
- * fund and debt stay as they were — insurance does not move them.
- */
-export function scoresAfter(f: FhcInput, plan: PlanResult): Score[] {
-  const paid = (k: AreaKey) => {
-    const a = plan.areas.find((x) => x.key === k);
-    return a?.offer && (a.status === "fits" || a.status === "reduced") ? a.offer : undefined;
-  };
-  const [life, health, ci, retire] = [paid("life"), paid("health"), paid("ci"), paid("retire")];
-  const healthRoom = health ? Math.max(f.healthNow === "private" ? f.healthRoom : 0, health.cover) : f.healthRoom;
-  return rate({
-    ...f,
-    lifeCover: f.lifeCover + (life?.cover ?? 0),
-    ciCover: f.ciCover + (ci?.sum ?? 0),
-    healthNow: health ? "private" : f.healthNow,
-    healthRoom,
-    pensionHave: f.pensionHave + (retire?.cover ?? 0),
-  }, plan.usedAnnual / 100 / 12);
-}
-
-/** The scores the plan moves, each with where it stood before. */
-export function changes(before: Score[], after: Score[]): { before: Score; after: Score }[] {
-  return after.flatMap((a, i) => (a.level !== before[i].level || a.shown !== before[i].shown ? [{ before: before[i], after: a }] : []));
 }
 
 export interface EventRow {

@@ -2,7 +2,7 @@
 import { headers } from "next/headers";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import {
-  cleanFhc, events, figures, scores, scoresAfter, toPlanInput, type EventRow, type FhcFigures, type Score,
+  cleanFhc, events, figures, scores, toPlanInput, type EventRow, type FhcFigures, type Score,
 } from "@/lib/fhc/health";
 import { explainHealth, fallbackSummary, type FhcSummary } from "@/lib/fhc/summary";
 import { logRun } from "@/lib/plan/log";
@@ -19,11 +19,9 @@ import { recommend, type PlanResult } from "@/lib/plan/recommend";
 
 const allowRun = limiter(20, 60_000);
 const allowExplain = limiter(6, 60_000);
-// a slider fires on every stop; a person dragging stays well under this
-const allowWhatIf = limiter(60, 60_000);
 
 export type FhcReply =
-  | { ok: true; figures: FhcFigures; scores: Score[]; after: Score[]; events: EventRow[]; plan: PlanResult }
+  | { ok: true; figures: FhcFigures; scores: Score[]; events: EventRow[]; plan: PlanResult }
   | { ok: false; error: string };
 
 export async function runFhc(raw: unknown): Promise<FhcReply> {
@@ -34,7 +32,7 @@ export async function runFhc(raw: unknown): Promise<FhcReply> {
   const plan = recommend(p, realPricer(p.age, p.sex), await pickOrder(p));
   const sc = scores(f);
   await logRun({ ...p, from: "fhc", fhc: f }, { ...plan, scores: sc });
-  return { ok: true, figures: figures(f), scores: sc, after: scoresAfter(f, plan), events: events(f, sc, plan), plan };
+  return { ok: true, figures: figures(f), scores: sc, events: events(f, sc, plan), plan };
 }
 
 export interface FhcWords {
@@ -53,22 +51,4 @@ export async function explainFhc(raw: unknown, order?: unknown): Promise<FhcWord
   }
   const [summary, prose] = await Promise.all([explainHealth(f, plan), explain(p, plan)]);
   return { summary, prose };
-}
-
-export type WhatIfReply =
-  | { ok: true; scores: Score[]; after: Score[]; usedAnnual: number }
-  | { ok: false; error: string };
-
-/**
- * ลองปรับดู: the plan priced again from the rate tables in the order the check already chose —
- * no AI, so it answers while the customer is still dragging, and nothing is logged, so the
- * sliders do not fill /admin/crm. Running the check with the new values does both.
- */
-export async function whatIfFhc(raw: unknown, order?: unknown): Promise<WhatIfReply> {
-  const f = cleanFhc(raw);
-  if (typeof f === "string") return { ok: false, error: f };
-  if (!allowWhatIf(clientIp(await headers()))) return { ok: false, error: "ปรับถี่เกินไป รอสักครู่นะครับ" };
-  const p = toPlanInput(f);
-  const plan = recommend(p, realPricer(p.age, p.sex), isOrder(order) ? { ...FIXED_PICK, order } : FIXED_PICK);
-  return { ok: true, scores: scores(f), after: scoresAfter(f, plan), usedAnnual: plan.usedAnnual };
 }

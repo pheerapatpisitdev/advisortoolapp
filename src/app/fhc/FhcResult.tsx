@@ -1,10 +1,8 @@
 "use client";
 import { PlanView } from "@/components/plan/PlanView";
-import { formatBaht } from "@/calc/money";
-import { changes, type FhcInput, type Level } from "@/lib/fhc/health";
+import type { Level } from "@/lib/fhc/health";
 import { lineText } from "@/lib/fhc/share";
 import type { FhcReply, FhcWords } from "./actions";
-import { WhatIf, type WhatIfValues } from "./WhatIf";
 
 /**
  * The check's result: the AI's reading, six scores, the five events answered from our plans,
@@ -23,26 +21,21 @@ const WORD: Record<Level, string> = { green: "ดี", yellow: "ควรปร�
 
 const BOX = "rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-4";
 
-export function FhcResult({ result, asked, words, agent, interviewer, idate, names, busy, onEdit, onApply }: {
+export function FhcResult({ result, words, agent, interviewer, idate, names, onEdit }: {
   result: Extract<FhcReply, { ok: true }>;
-  /** the form the result was built from */
-  asked: FhcInput;
   words: FhcWords | null;
   agent: boolean;
   interviewer: string;
   idate: string;
   names: string[];
-  busy: boolean;
   onEdit: () => void;
-  onApply: (v: WhatIfValues) => void;
 }) {
-  const { scores, after, events, plan, figures } = result;
-  const moved = plan.usedAnnual > 0 ? changes(scores, after) : [];
+  const { scores, events, plan, figures } = result;
   const s = words?.summary;
   const named = names.filter(Boolean);
 
   function share() {
-    const text = lineText({ figures, scores, after, events, plan, summary: s });
+    const text = lineText({ figures, scores, events, plan, summary: s });
     window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   }
 
@@ -93,39 +86,6 @@ export function FhcResult({ result, asked, words, agent, interviewer, idate, nam
           {Math.round(figures.lifetimeIncome).toLocaleString("en-US")} บาท
         </p>
       </section>
-
-      {moved.length > 0 && (
-        <section className={BOX}>
-          <h2 className="text-base font-medium text-[var(--lg-white)]">
-            ถ้าทำตามแผนนี้ เฉลี่ยเดือนละ{" "}
-            <span className="lg-figure text-[var(--lg-gold)]">{formatBaht(Math.round(plan.usedAnnual / 12))}</span> บาท
-          </h2>
-          <ul className="mt-3 space-y-2.5">
-            {moved.map(({ before: b, after: a }) => (
-              <li key={a.key} className="text-sm">
-                <p className="text-[var(--lg-white)]">{a.label}</p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--lg-mute)]">
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${DOT[b.level]}`} />
-                    {b.shown} · {WORD[b.level]}
-                  </span>
-                  <span aria-label="เป็น">→</span>
-                  <span className="flex items-center gap-1.5 text-[var(--lg-white)]">
-                    <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${DOT[a.level]}`} />
-                    {a.shown} · {WORD[a.level]}
-                  </span>
-                </p>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs text-[var(--lg-mute)]">นับเฉพาะแบบที่พอดีกับงบ และหักเบี้ยใหม่ออกจากเงินเหลือต่อเดือนแล้ว</p>
-        </section>
-      )}
-
-      <WhatIf
-        key={JSON.stringify(asked)} asked={asked} order={plan.order} planAfter={after} planUsed={plan.usedAnnual}
-        dot={DOT} word={WORD} busy={busy} onApply={onApply}
-      />
 
       <section className={BOX}>
         <h2 className="text-base font-medium text-[var(--lg-white)]">5 เหตุการณ์ที่ควบคุมไม่ได้ กับทางรับมือ</h2>

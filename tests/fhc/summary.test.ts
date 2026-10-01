@@ -6,7 +6,7 @@ vi.mock("@/lib/ai/client", async (importOriginal) => ({
 }));
 
 import { chat } from "@/lib/ai/client";
-import { events, figures, scores, scoresAfter, type FhcInput } from "@/lib/fhc/health";
+import { events, figures, scores, type FhcInput } from "@/lib/fhc/health";
 import { lineText } from "@/lib/fhc/share";
 import { explainHealth, fallbackSummary, parseSummary } from "@/lib/fhc/summary";
 import { fixedSummary } from "@/lib/plan/order";
@@ -73,22 +73,10 @@ describe("explainHealth", () => {
 describe("lineText", () => {
   it("carries every score, the events, the plan and the disclaimer", () => {
     const sc = scores(F);
-    const text = lineText({ figures: figures(F), scores: sc, after: scoresAfter(F, PLAN), events: events(F, sc, PLAN), plan: PLAN, summary: FB });
+    const text = lineText({ figures: figures(F), scores: sc, events: events(F, sc, PLAN), plan: PLAN, summary: FB });
     for (const s of sc) expect(text).toContain(s.label);
     expect(text).toContain("การตกงาน");
     expect(text).toContain("iHealthy Ultra แผนซิลเวอร์");
     expect(text).toContain("ไม่ใช่ข้อเสนอขาย");
-  });
-  it("shows the scores the plan moves, and only those", () => {
-    const sc = scores(F);
-    const text = lineText({ figures: figures(F), scores: sc, after: scoresAfter(F, PLAN), events: events(F, sc, PLAN), plan: PLAN });
-    expect(text).toContain("━━ ถ้าทำตามแผนนี้ (เดือนละ 1,000 บาท) ━━");
-    expect(text).toContain("เงินเหลือต่อเดือน: 🟢 38% ของรายได้ → 🟢 35% ของรายได้");
-    expect(text).not.toMatch(/เงินสำรองฉุกเฉิน: (🟢|🟡|🔴|⚪)/u); // unchanged, so not in the before → after lines
-  });
-  it("leaves the section out when the plan spends nothing", () => {
-    const sc = scores(F);
-    const none = { ...PLAN, usedAnnual: 0 };
-    expect(lineText({ figures: figures(F), scores: sc, after: sc, events: events(F, sc, none), plan: none })).not.toContain("ถ้าทำตามแผนนี้");
   });
 });
