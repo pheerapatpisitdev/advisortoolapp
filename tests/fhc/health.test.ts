@@ -27,6 +27,10 @@ describe("figures", () => {
   it("has no working years left when the customer cannot work", () => {
     expect(figures({ ...F, work: "none" }).lifetimeIncome).toBe(0);
   });
+  it("counts half the earning power when the customer can work only partly", () => {
+    const g = figures({ ...F, work: "partial" });
+    expect([g.workYears, g.lifetimeIncome]).toEqual([25, 6_000_000]);
+  });
 });
 
 describe("toPlanInput", () => {
@@ -73,11 +77,18 @@ describe("scores", () => {
     expect(level({ ...F, expense: 38_000 }, "saving").level).toBe("red");
     expect(level({ ...F, expense: 43_500 }, "saving")).toMatchObject({ level: "red", shown: "ใช้เกินรายได้ 3,500 บาท/เดือน" });
   });
-  it("rates debt against a year of income, lower being better", () => {
+  it("rates debt other than the home against a year of income, lower being better", () => {
     expect(level({ ...F, homeLoan: 0, carLoan: 0 }, "debt")).toMatchObject({ level: "green", shown: "ไม่มีหนี้" });
-    expect(level({ ...F, homeLoan: 480_000, carLoan: 0 }, "debt").level).toBe("yellow"); // exactly 1
-    expect(level({ ...F, homeLoan: 1_440_000, carLoan: 0 }, "debt").level).toBe("yellow"); // exactly 3
-    expect(level({ ...F, homeLoan: 1_500_000, carLoan: 0 }, "debt").level).toBe("red");
+    expect(level({ ...F, carLoan: 480_000 }, "debt").level).toBe("yellow"); // exactly 1
+    expect(level({ ...F, carLoan: 1_000_000, otherDebt: 440_000 }, "debt").level).toBe("yellow"); // exactly 3
+    expect(level({ ...F, carLoan: 1_500_000 }, "debt").level).toBe("red");
+  });
+  it("leaves the home loan out of the debt score: a mortgage is ordinary", () => {
+    // 5 years of income in the home, nothing else owed
+    expect(level({ ...F, homeLoan: 2_400_000, carLoan: 0 }, "debt")).toMatchObject({ level: "green", shown: "มีแต่หนี้บ้าน" });
+    expect(level({ ...F, homeLoan: 2_400_000, carLoan: 240_000 }, "debt"))
+      .toMatchObject({ level: "green", shown: "0.5 เท่าของรายได้ต่อปี" });
+    expect(level(F, "debt").label).toBe("ภาระหนี้ (ไม่รวมบ้าน)");
   });
   it("rates hospital and critical-illness cover together", () => {
     expect(level(F, "healthCi").level).toBe("red");
