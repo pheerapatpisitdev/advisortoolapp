@@ -43,11 +43,19 @@ export async function removeClip(path: string): Promise<void> {
   }
 }
 
-/** Every clip filed under a piece, for a piece deleted for good. */
+/**
+ * Every clip filed under a piece, for a piece deleted for good. Best effort, as removeClip is:
+ * a storage hiccup must not keep the piece from being deleted — the sweep removes a file whose
+ * piece is gone after a day.
+ */
 export async function removeClipsOf(pieceId: string): Promise<void> {
-  const { data, error } = await bucket().list(pieceId);
-  if (error) throw new Error(error.message);
-  if (!data?.length) return;
-  const { error: gone } = await bucket().remove(data.map((f) => `${pieceId}/${f.name}`));
-  if (gone) throw new Error(`ลบคลิปไม่สำเร็จ: ${gone.message}`);
+  try {
+    const { data, error } = await bucket().list(pieceId);
+    if (error) { console.error(`clips of ${pieceId} not listed:`, error.message); return; }
+    if (!data?.length) return;
+    const { error: gone } = await bucket().remove(data.map((f) => `${pieceId}/${f.name}`));
+    if (gone) console.error(`clips of ${pieceId} not removed:`, gone.message);
+  } catch (e) {
+    console.error(`clips of ${pieceId} not removed:`, e);
+  }
 }

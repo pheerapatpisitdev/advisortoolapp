@@ -39,12 +39,32 @@ describe("clip-store", () => {
     await expect(clipReadUrl(PATH, 60)).rejects.toThrow();
   });
 
-  it("removing one file never throws; removing a piece's clips does when storage refuses", async () => {
+  it("removing one file never throws", async () => {
     bucket.remove.mockResolvedValue({ error: { message: "down" } });
     await expect(removeClip(PATH)).resolves.toBeUndefined();
-    bucket.list.mockResolvedValue({ data: [{ name: "a.mp4" }], error: null });
-    await expect(removeClipsOf(PIECE)).rejects.toThrow();
+  });
+
+  it("removes every clip under a piece", async () => {
+    bucket.list.mockResolvedValue({ data: [{ name: "a.mp4" }, { name: "b.mov" }], error: null });
+    bucket.remove.mockResolvedValue({ error: null });
+    await removeClipsOf(PIECE);
+    expect(bucket.remove).toHaveBeenCalledWith([`${PIECE}/a.mp4`, `${PIECE}/b.mov`]);
     bucket.list.mockResolvedValue({ data: [], error: null });
+    bucket.remove.mockClear();
+    await removeClipsOf(PIECE);
+    expect(bucket.remove).not.toHaveBeenCalled();
+  });
+
+  it("removing a piece's clips never blocks its delete: a refused list, remove or a throw is logged", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    bucket.list.mockResolvedValue({ data: [{ name: "a.mp4" }], error: null });
+    bucket.remove.mockResolvedValue({ error: { message: "down" } });
     await expect(removeClipsOf(PIECE)).resolves.toBeUndefined();
+    bucket.list.mockResolvedValue({ data: null, error: { message: "down" } });
+    await expect(removeClipsOf(PIECE)).resolves.toBeUndefined();
+    bucket.list.mockRejectedValue(new Error("network"));
+    await expect(removeClipsOf(PIECE)).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledTimes(3);
+    log.mockRestore();
   });
 });
