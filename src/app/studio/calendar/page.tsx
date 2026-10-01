@@ -20,7 +20,8 @@ import { PlanCalendar } from "./PlanCalendar";
 
 export const dynamic = "force-dynamic";
 /** the board's own actions (a drop posts through Facebook) run from this page, as /studio's do */
-export const maxDuration = 300;
+// a Reel's send is start (≤30 s) + the file to Facebook (≤300 s) + finish (≤60 s); Vercel Pro allows 800.
+export const maxDuration = 600;
 
 export const metadata = {
   title: "ปฏิทินโพสต์ | advisortool",
