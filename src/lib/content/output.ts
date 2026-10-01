@@ -5,6 +5,7 @@
  * importing the AI client, which holds the keys and must never reach a browser bundle.
  */
 
+import type { ClipVideo } from "./clip";
 import { INSURER } from "@/lib/insurer";
 import type { Look } from "./looks";
 import type { PiecePerson } from "./people";
@@ -95,6 +96,11 @@ export interface ContentOutput {
    * picture landing while an edit was saved, is then read again instead of written over.
    */
   rev?: string;
+  /**
+   * The clip an agent filmed for this piece — a clip piece's whole point, or a script's once
+   * it was filmed (owner, 2026-10-02). A piece that has one goes to the Page as a Reel.
+   */
+  video?: ClipVideo;
 }
 
 /** The piece as it will be pasted: one hook, the body, the closing, the tags, the footer. */

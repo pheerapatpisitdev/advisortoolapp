@@ -9,7 +9,7 @@ import { readLook, type Look } from "./looks";
 import { ON_PAGE_STATES, POSTING_STALE_MS } from "./publish-label";
 import type { PolicyFinding } from "./policy";
 import type { Fix } from "./proofread";
-import type { AngleId, Format, Length } from "./prompt";
+import type { AngleId, Length, PieceFormat } from "./prompt";
 import type { ContentOutput } from "./output";
 
 /**
@@ -32,7 +32,7 @@ export interface ContentItem {
   id: string;
   createdAt: string;
   planHref: string;
-  format: Format;
+  format: PieceFormat;
   angle: AngleId;
   length: Length | null;
   output: ContentOutput;
@@ -167,7 +167,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
     id: String(r.id),
     createdAt: String(r.created_at),
     planHref: String(r.plan_href),
-    format: r.format as Format,
+    format: r.format as PieceFormat,
     angle: (r.angle ?? "") as AngleId,
     length: (r.length ?? null) as Length | null,
     output: r.output as ContentOutput,
@@ -184,7 +184,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
 }
 
 export async function saveContent(row: {
-  planHref: string; format: Format; angle: AngleId; length: Length | null;
+  planHref: string; format: PieceFormat; angle: AngleId; length: Length | null;
   output: ContentOutput; flags: Flags; rateVersion: string | null; model: string; costThb: number;
   hookTemplateId: string | null;
   /** the Page whose project the piece goes into (projectPage settled it); null for an agent with no Pages */

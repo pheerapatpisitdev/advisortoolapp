@@ -1,3 +1,4 @@
+import { CLIP_HREF, CLIP_NAME } from "./clip";
 import { CLAIM_HREF, CLAIM_NAME } from "./claim";
 import { DRAFT_HREF, DRAFT_NAME } from "./draft";
 import { KNOWLEDGE_HREF, KNOWLEDGE_NAME } from "./knowledge";
@@ -12,6 +13,7 @@ export const MODE_PLANS: { href: string; name: string }[] = [
   { href: RECRUIT_HREF, name: RECRUIT_NAME },
   { href: KNOWLEDGE_HREF, name: KNOWLEDGE_NAME },
   { href: DRAFT_HREF, name: DRAFT_NAME },
+  { href: CLIP_HREF, name: CLIP_NAME },
 ];
 
 export function modeName(href: string): string | null {
