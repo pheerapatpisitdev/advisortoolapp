@@ -1,7 +1,7 @@
 "use server";
 
 import { clipOutput, clipPath, clipProblem, CLIP_HREF, isClipPath, MAX_CAPTION, MAX_CLIP_BRIEF, NO_FLAGS, type ClipFile, type ClipVideo } from "@/lib/content/clip";
-import { clipReadUrl, clipSize, createClipUpload, removeClip } from "@/lib/content/clip-store";
+import { clipSize, createClipUpload, removeClip } from "@/lib/content/clip-store";
 import { onPage } from "@/lib/content/publish-label";
 import { getContent, listWords, saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { projectPage } from "@/lib/auth/pages";
@@ -99,15 +99,6 @@ export async function finishClipUpload(input: { pieceId: string; path: string; f
     console.error("clip upload not finished:", e);
     return { ok: false, error: "บันทึกคลิปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
-}
-
-/** A link the card's player plays the clip from, for an hour; null when there is none. */
-export async function clipViewUrl(id: string): Promise<string | null> {
-  await requireMember();
-  const item = await getContent(id).catch(() => null);
-  const v = item?.output.video;
-  if (!v || v.expired) return null;
-  return clipReadUrl(v.path, 60 * 60).catch(() => null);
 }
 
 const listensPerHour = limiter(20, 60 * 60_000);

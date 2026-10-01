@@ -4,7 +4,7 @@ import { clockOf, MAX_CAPTION, reelDescription } from "@/lib/content/clip";
 import { onPage } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
 import { ask } from "../ask";
-import { clipViewUrl, saveClipCaption, transcribeClip } from "../clip";
+import { saveClipCaption, transcribeClip } from "../clip";
 import { PlanPanel } from "../PlanPanel";
 import { PublishPanel } from "../PublishPanel";
 import { BackIcon, CheckIcon } from "../ui/editor-icons";
@@ -29,7 +29,6 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
 }) {
   const v = item.output.video;
   const player = useRef<HTMLVideoElement>(null);
-  const [src, setSrc] = useState<string | null>(null);
   const [caption, setCaption] = useState(v?.caption ?? "");
   // a new caption from the server (a listen, a save) replaces what is in the box
   const [shown, setShown] = useState(v?.caption);
@@ -48,13 +47,6 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
     if (dirty && !(await ask("แคปชันที่แก้ยังไม่ได้บันทึก — ออกจากหน้านี้เลยไหม?", "ออกเลย"))) return;
     onClose();
   }
-
-  // a link good for an hour, asked again when a new take is attached
-  useEffect(() => {
-    let live = true;
-    clipViewUrl(item.id).then((url) => { if (live) setSrc(url); }).catch(() => { if (live) setSrc(null); });
-    return () => { live = false; };
-  }, [item.id, v?.path]);
 
   /** PublishPanel's beforePublish too: the caption on screen is the one that goes */
   async function save(): Promise<boolean> {
@@ -82,7 +74,7 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
 
   const seek = (at: number) => {
     const p = player.current;
-    if (!p || !src) return;
+    if (!p) return;
     p.currentTime = at;
     void p.play().catch(() => undefined);
   };
@@ -106,7 +98,8 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
         : v.expired ? (locked
           ? <p className="text-sm text-[var(--ct-mute)]">ไฟล์ต้นฉบับถูกลบจากระบบแล้ว — Reel ยังอยู่บนเพจ</p>
           : <p className="text-sm text-[var(--ct-warn-ink)]">ไฟล์คลิปหมดอายุ — แนบคลิปใหม่ที่การ์ด</p>)
-          : <video ref={player} src={src ?? undefined} controls playsInline preload="metadata" className="mx-auto block max-h-[60vh] max-w-full rounded-lg bg-black" />}
+          // a GET that redirects to a signed link (api/content-video/[id]); the path is there so a new take is a new address
+          : <video ref={player} src={`/api/content-video/${item.id}?v=${encodeURIComponent(v.path)}`} controls playsInline preload="metadata" className="mx-auto block max-h-[60vh] max-w-full rounded-lg bg-black" />}
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">แคปชัน</span>
