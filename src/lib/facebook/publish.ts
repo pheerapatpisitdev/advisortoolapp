@@ -82,6 +82,24 @@ export async function postPhoto(opts: {
   return { id };
 }
 
+/** Helper: wrap a fetch call; network errors become PublishError with given message and unsure flag */
+async function fetchWithError<T extends Record<string, unknown>>(
+  fetcher: () => Promise<Response>,
+  message: string,
+  unsure: boolean,
+): Promise<T & GraphError> {
+  let res: Response;
+  try {
+    res = await fetcher();
+  } catch {
+    throw new PublishError(message, undefined, unsure);
+  }
+  const body = await res.json().catch(() => ({})) as T & GraphError;
+  if (body.error) throw explain(body, res.status);
+  if (!res.ok) throw new PublishError(message, undefined, unsure);
+  return body;
+}
+
 /**
  * A clip as a Reel (owner, 2026-10-02): start, hand Facebook the file's link to fetch, finish.
  * The bytes never pass through here — a 300MB clip would not fit a function's request, and the
@@ -96,21 +114,25 @@ export async function postReel(opts: { pageId: string; token: string; fileUrl: s
 
   const startForm = new FormData();
   startForm.append("upload_phase", "start");
-  const started = await fetch(endpoint, { method: "POST", headers: auth, body: startForm, signal: AbortSignal.timeout(30_000) });
-  const start = await started.json().catch(() => ({})) as GraphError & { video_id?: string };
-  if (start.error) throw explain(start, started.status);
-  if (!started.ok || !start.video_id) throw new PublishError("Facebook ไม่รับการอัปโหลดคลิป ลองใหม่อีกครั้งนะครับ");
+  const start = await fetchWithError<{ video_id?: string }>(
+    () => fetch(endpoint, { method: "POST", headers: auth, body: startForm, signal: AbortSignal.timeout(30_000) }),
+    "ติดต่อ Facebook ไม่ได้ ลองใหม่อีกครั้งนะครับ",
+    false,
+  );
+  if (!start.video_id) throw new PublishError("Facebook ไม่รับการอัปโหลดคลิป ลองใหม่อีกครั้งนะครับ");
   const videoId = start.video_id;
 
   // Facebook fetches the file itself; a 300MB clip may take minutes
-  const sent = await fetch(`${RUPLOAD}/${encodeURIComponent(videoId)}`, {
-    method: "POST",
-    headers: { Authorization: `OAuth ${opts.token}`, file_url: opts.fileUrl },
-    signal: AbortSignal.timeout(300_000),
-  });
-  const upload = await sent.json().catch(() => ({})) as GraphError & { success?: boolean };
-  if (upload.error) throw explain(upload, sent.status);
-  if (!sent.ok || upload.success !== true) throw new PublishError("Facebook ดึงไฟล์คลิปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ");
+  const upload = await fetchWithError<{ success?: boolean }>(
+    () => fetch(`${RUPLOAD}/${encodeURIComponent(videoId)}`, {
+      method: "POST",
+      headers: { Authorization: `OAuth ${opts.token}`, file_url: opts.fileUrl },
+      signal: AbortSignal.timeout(300_000),
+    }),
+    "Facebook ดึงไฟล์คลิปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ",
+    false,
+  );
+  if (upload.success !== true) throw new PublishError("Facebook ดึงไฟล์คลิปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ");
 
   const finishForm = new FormData();
   finishForm.append("upload_phase", "finish");
@@ -122,10 +144,12 @@ export async function postReel(opts: { pageId: string; token: string; fileUrl: s
   } else {
     finishForm.append("video_state", "PUBLISHED");
   }
-  const finished = await fetch(endpoint, { method: "POST", headers: auth, body: finishForm, signal: AbortSignal.timeout(60_000) });
-  const finish = await finished.json().catch(() => ({})) as GraphError & { success?: boolean };
-  if (finish.error) throw explain(finish, finished.status);
-  if (!finished.ok || finish.success !== true) {
+  const finish = await fetchWithError<{ success?: boolean }>(
+    () => fetch(endpoint, { method: "POST", headers: auth, body: finishForm, signal: AbortSignal.timeout(60_000) }),
+    "Facebook ตอบกลับไม่ชัดว่ารับคลิปแล้วหรือยัง ลองเช็กในเพจก่อนกดใหม่",
+    true,
+  );
+  if (finish.success !== true) {
     throw new PublishError("Facebook ตอบกลับไม่ชัดว่ารับคลิปแล้วหรือยัง ลองเช็กในเพจก่อนกดใหม่", undefined, true);
   }
   return { id: videoId };

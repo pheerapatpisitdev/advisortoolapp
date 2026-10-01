@@ -51,6 +51,35 @@ describe("postReel", () => {
     graph([{ body: { video_id: "v1" } }, { body: { success: true } }, { body: {} }]);
     await expect(postReel(opts)).rejects.toBeInstanceOf(PublishError);
   });
+
+  it("network failure at start is sure — nothing on the Page yet", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("Connection reset");
+    }));
+    await expect(postReel(opts)).rejects.toMatchObject({ unsure: false, message: expect.stringContaining("ติดต่อ Facebook") });
+  });
+
+  it("network failure at rupload is sure — file upload before finish", async () => {
+    let callCount = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      callCount++;
+      if (callCount === 1) return new Response(JSON.stringify({ video_id: "v1" }));
+      if (url.includes("rupload")) throw new Error("Connection reset");
+      return new Response(JSON.stringify({ success: true }));
+    }));
+    await expect(postReel(opts)).rejects.toMatchObject({ unsure: false, message: expect.stringContaining("ดึงไฟล์") });
+  });
+
+  it("network failure at finish is unsure — may have uploaded", async () => {
+    let callCount = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      callCount++;
+      if (callCount === 1) return new Response(JSON.stringify({ video_id: "v1" }));
+      if (callCount === 2) return new Response(JSON.stringify({ success: true }));
+      throw new TypeError("fetch failed");
+    }));
+    await expect(postReel(opts)).rejects.toMatchObject({ unsure: true, message: expect.stringContaining("ตอบกลับไม่ชัด") });
+  });
 });
 
 describe("reelState", () => {
@@ -58,6 +87,8 @@ describe("reelState", () => {
     graph([{ body: { status: { video_status: "ready", publishing_phase: { status: "complete", publish_status: "published" } } } }]);
     expect(await reelState("v1", "t")).toBe("published");
     graph([{ body: { status: { video_status: "error" } } }]);
+    expect(await reelState("v1", "t")).toBe("failed");
+    graph([{ body: { status: { video_status: "upload_failed" } } }]);
     expect(await reelState("v1", "t")).toBe("failed");
     graph([{ body: { status: { video_status: "ready", processing_phase: { status: "error" } } } }]);
     expect(await reelState("v1", "t")).toBe("failed");
