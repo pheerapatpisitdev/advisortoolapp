@@ -43,6 +43,7 @@ export const ROUND_HOLD_THB: Record<AiRound, number> = {
   "ai-draft": 3,
   "ai-claim": 3,
   "ai-draw": 3,
+  "ai-clip": 3,
 };
 
 /**

@@ -8,9 +8,14 @@ const pages = vi.hoisted(() => ({ projectPage: vi.fn() }));
 vi.mock("@/lib/content/store", () => store);
 vi.mock("@/lib/content/clip-store", () => clips);
 vi.mock("@/lib/auth/pages", () => pages);
+const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => ({ ok: true, paidBy: "staff" })) }));
+vi.mock("@/lib/auth/quota", () => quota);
+vi.mock("@/lib/content/ceiling", () => ({ ceilingBeforeRound: vi.fn(async () => null) }));
+vi.mock("@/lib/content/clip-run", () => ({ runTranscribe: vi.fn(async (i: unknown) => ({ ok: true, item: i })) }));
+vi.mock("@/lib/wallet/round", () => ({ payRound: (_p: unknown, run: () => unknown) => run() }));
 vi.mock("@/lib/auth/viewer", () => ({ requireMember: vi.fn(async () => ({ agentId: "a1", staff: false })) }));
 
-const { finishClipUpload, startClipUpload } = await import("@/app/studio/clip");
+const { finishClipUpload, startClipUpload, transcribeClip } = await import("@/app/studio/clip");
 const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const file = { sizeBytes: 9_000_000, durationSec: 40, width: 1080, height: 1920, mime: "video/mp4" };
 const item = (over: Partial<ContentItem> = {}): ContentItem => ({
@@ -87,5 +92,20 @@ describe("finishClipUpload", () => {
     store.getContent.mockResolvedValue(item({ publish: { state: "scheduled", pageId: "105", postId: "v1", at: "2099-01-01T00:00:00Z", error: null } }));
     clips.clipSize.mockResolvedValue(file.sizeBytes);
     expect((await finishClipUpload({ pieceId: PIECE, path, file })).ok).toBe(false);
+  });
+});
+
+describe("transcribeClip", () => {
+  it("takes an ai-clip round and runs it", async () => {
+    store.getContent.mockResolvedValue(item({ output: { ...item().output, video: { path: "x", durationSec: 5, width: 1, height: 2, sizeBytes: 1, mime: "video/mp4", uploadedAt: "", caption: "", flags: NO_FLAGS } } }));
+    const r = await transcribeClip(PIECE);
+    expect(quota.takeRound).toHaveBeenCalledWith(expect.anything(), "ai-clip");
+    expect(r.ok).toBe(true);
+  });
+
+  it("refuses a piece with no clip before taking a round", async () => {
+    store.getContent.mockResolvedValue(item());
+    expect(await transcribeClip(PIECE)).toMatchObject({ ok: false });
+    expect(quota.takeRound).not.toHaveBeenCalled();
   });
 });

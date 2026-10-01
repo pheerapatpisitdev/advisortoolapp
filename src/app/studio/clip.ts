@@ -6,6 +6,11 @@ import { onPage } from "@/lib/content/publish-label";
 import { getContent, saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { projectPage } from "@/lib/auth/pages";
 import { requireMember } from "@/lib/auth/viewer";
+import { takeRound } from "@/lib/auth/quota";
+import { limiter } from "@/lib/assistant/rate-limit";
+import { ceilingBeforeRound } from "@/lib/content/ceiling";
+import { runTranscribe } from "@/lib/content/clip-run";
+import { payRound } from "@/lib/wallet/round";
 
 /**
  * A clip the agent filmed, onto a piece (owner, 2026-10-02). The file goes from the browser to
@@ -101,4 +106,19 @@ export async function clipViewUrl(id: string): Promise<string | null> {
   const v = item?.output.video;
   if (!v || v.expired) return null;
   return clipReadUrl(v.path, 60 * 60).catch(() => null);
+}
+
+const listensPerHour = limiter(20, 60 * 60_000);
+
+/** ถอดเสียง: one paid round per press (owner, 2026-10-02); a round that fails is not charged. */
+export async function transcribeClip(id: string): Promise<ClipResult> {
+  const viewer = await requireMember();
+  if (!listensPerHour(`clip:${viewer.agentId ?? "staff"}`)) return { ok: false, error: "ถอดเสียงครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
+  const item = await getContent(id).catch(() => null);
+  if (!item?.output.video) return { ok: false, error: "ชิ้นนี้ยังไม่มีคลิป" };
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${ceiling} บาทแล้ว` };
+  const pass = await takeRound(viewer, "ai-clip");
+  if (!pass.ok) return { ok: false, error: pass.refusal };
+  return payRound(pass, () => runTranscribe(item));
 }

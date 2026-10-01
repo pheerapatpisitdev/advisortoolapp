@@ -2,8 +2,9 @@ import { gatePage } from "@/lib/auth/viewer";
 import { StudioPage } from "../StudioPage";
 
 export const dynamic = "force-dynamic";
-// a round of five is two calls and several thousand words of Thai; the actions run as this page
-export const maxDuration = 300;
+// a round of five is two calls and several thousand words of Thai; the actions run as this page.
+// A clip over 100MB goes storage → Gemini upload (≤150 s) → wait (≤60 s) → a listen of up to 240 s; Vercel Pro allows 800.
+export const maxDuration = 600;
 
 export const metadata = {
   title: "Organic Studio | advisortool",

@@ -24,7 +24,7 @@ import type { Viewer } from "./access";
 export const FREE_ROUNDS = 10;
 export const FREE_ROUNDS_FROM = new Date("2026-10-01T00:00:00+07:00");
 
-export const AI_ROUNDS = ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft"] as const;
+export const AI_ROUNDS = ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft", "ai-clip"] as const;
 export type AiRound = (typeof AI_ROUNDS)[number];
 
 export interface Allowance {
