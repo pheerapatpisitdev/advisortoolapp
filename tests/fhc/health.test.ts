@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanFhc, events, figures, scores, toPlanInput, type FhcInput } from "@/lib/fhc/health";
+import { cleanFhc, events, figures, scores, scoresAfter, toPlanInput, type FhcInput } from "@/lib/fhc/health";
 import type { PlanResult } from "@/lib/plan/recommend";
 
 const F: FhcInput = {
@@ -107,5 +107,45 @@ describe("events", () => {
     expect(ev[3].lines).toEqual(["Protection Life (PLB) ชำระ 15 ปี · เดือนละ 1,000 บาท"]);
     expect(ev[1].level).toBe("none");
     expect(ev[4].lines[0]).toContain("150,000");
+  });
+});
+
+describe("scoresAfter", () => {
+  const offer = (product: string, sum: number, cover: number, annual: number) =>
+    ({ product, href: "/x", sum, cover, annual, firstYear: false });
+  // 6,000 baht a month in all: 72,000 baht a year, in satang
+  const plan = {
+    budget: 6_000, usedAnnual: 7_200_000, taxSaved: 0, order: ["life", "health", "ci", "retire"], orderedBy: "fixed", summary: "",
+    areas: [
+      { key: "life", unit: "sum", have: 0, should: 1, status: "fits", offer: offer("Life Protect", 25_000_000, 50_000_000, 3_000_000) },
+      { key: "health", unit: "room", have: 0, should: 5_500, status: "fits", offer: offer("iHealthy Ultra แผนซิลเวอร์", 5_500, 5_500, 2_000_000) },
+      { key: "ci", unit: "sum", have: 0, should: 1, status: "reduced", offer: offer("CI 123", 5_000_000, 5_000_000, 1_000_000) },
+      { key: "retire", unit: "pension", have: 0, should: 17_500, status: "fits", offer: offer("บำนาญ สมาร์ท 95", 1_200_000, 17_500, 1_200_000) },
+    ],
+  } as PlanResult;
+  const after = (f: FhcInput, p: PlanResult) => Object.fromEntries(scoresAfter(f, p).map((s) => [s.key, s]));
+
+  it("counts every offer the plan pays for", () => {
+    const a = after(F, plan);
+    expect(a.life.level).toBe("green");
+    expect(a.healthCi).toMatchObject({ level: "green", shown: "มีครบ" });
+    expect(a.retire.level).toBe("green");
+  });
+  it("takes the new premium out of what is left each month", () => {
+    // (40,000 − 25,000 − 6,000) ÷ 40,000 = 22.5%
+    expect(after(F, plan).saving).toMatchObject({ level: "green", shown: "23% ของรายได้" });
+    expect(after({ ...F, expense: 28_000 }, plan).saving.level).toBe("yellow"); // 15%
+  });
+  it("leaves the emergency fund and debt alone", () => {
+    const a = after(F, plan);
+    const b = Object.fromEntries(scores(F).map((s) => [s.key, s]));
+    expect([a.emergency, a.debt]).toEqual([b.emergency, b.debt]);
+  });
+  it("does not count an offer the budget cannot pay for", () => {
+    const short = {
+      ...plan, usedAnnual: 0,
+      areas: plan.areas.map((x) => ({ ...x, status: "short" as const })),
+    };
+    expect(scoresAfter(F, short)).toEqual(scores(F));
   });
 });
