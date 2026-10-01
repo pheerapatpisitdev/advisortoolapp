@@ -10,6 +10,8 @@ export interface ChatMessage {
   content: string;
   /** pictures to read with this message; only user messages carry them */
   images?: ChatImage[];
+  /** a video for Gemini to watch and hear — a signed link or a Files API uri; only the google caller reads it */
+  video?: { uri: string; mimeType: string };
 }
 
 export interface ModelRow {
