@@ -4,9 +4,14 @@ import { actionFor, applyWalletAction } from "@/lib/wallet/events";
 
 /**
  * Stripe telling us about a top-up's Checkout Session. The only place money enters a wallet.
- * The Dashboard endpoint sends four events: checkout.session.completed,
+ * The Dashboard endpoint sends checkout.session.completed,
  * checkout.session.async_payment_succeeded, checkout.session.async_payment_failed and
  * checkout.session.expired. A repeat is harmless — the crediting function keys on the session.
+ *
+ * And the only place it is taken back after a refund or a dispute (owner, 2026-10-01):
+ * charge.refunded and charge.dispute.created must be ticked on the same endpoint in the Stripe
+ * Dashboard too. A repeat of those is harmless as well — the clawback keys on the refunded total
+ * and on the dispute's id (src/lib/wallet/events.ts).
  */
 
 export const runtime = "nodejs";

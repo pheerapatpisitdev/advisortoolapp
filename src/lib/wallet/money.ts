@@ -1,4 +1,5 @@
 import type { AiRound } from "@/lib/auth/quota";
+import { OVERHEAD_THB, PAINTERS, painterFor } from "@/lib/content/models";
 
 /**
  * The wallet's money rules, browser-safe: the wallet page shows the buttons and the prices
@@ -43,6 +44,36 @@ export const ROUND_HOLD_THB: Record<AiRound, number> = {
   "ai-claim": 3,
   "ai-draw": 3,
 };
+
+/**
+ * What the fallback behind every painter costs, in baht: Gemini's lite image model at $0.034 a
+ * picture at ฿36 to the dollar (src/lib/ai/client.ts IMAGE_PREFERENCE). It is not offered on
+ * /content, so it is not in PAINTERS, but a picture drawn while OpenAI is down is drawn by it.
+ */
+export const IMAGE_FALLBACK_THB = 1.23;
+
+/**
+ * What a wallet round's picture sets aside, in baht before the multiplier: the dearest model
+ * the round can reach, not only the one picked (review, 2026-10-01). drawImage tries the picked
+ * model, then GPT Image, then Gemini's lite one; with a person's photos it tries Gemini Image
+ * first whatever was picked. Held at the picked painter's price alone, a ฿0.43 picture that fell
+ * back to the lite model, or a person that turned it into Gemini's ฿2.41, was charged at most
+ * the hold. Still no dearer than reachable: five pictures at once must not set aside ฿30
+ * (owner, 2026-09-30). 0 when nothing will be drawn ("none"): the round's default hold stays.
+ * `request`: an art direction typed in, translated and read back off the picture — two small
+ * calls instead of the look picker's one.
+ */
+export function drawHoldThb(a: { painter: string | null | undefined; withPerson: boolean; request: string }): number {
+  const picked = painterFor(a.painter, Infinity, a.withPerson);
+  if (!picked.modelId) return 0;
+  const standard = PAINTERS.find((p) => p.id === "standard")?.thb ?? 0;
+  const gemini = PAINTERS.find((p) => p.id === "gemini")?.thb ?? 0;
+  // with a person whose photos turn out to be gone, the picked painter draws without them
+  const reachable = a.withPerson
+    ? Math.max(gemini, painterFor(a.painter, Infinity, false).thb, standard, IMAGE_FALLBACK_THB)
+    : Math.max(picked.thb, standard, IMAGE_FALLBACK_THB);
+  return clean(reachable + OVERHEAD_THB * (a.request.trim() ? 2 : 1));
+}
 
 /**
  * What one post costs the providers on average, in baht before the multiplier: ฿0.56 a piece

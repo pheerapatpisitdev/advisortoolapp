@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * nothing when it gave the agent nothing.
  */
 
-const wallet = vi.hoisted(() => ({ settleWallet: vi.fn(), releaseWallet: vi.fn() }));
+const wallet = vi.hoisted(() => ({ settleWallet: vi.fn(), releaseWallet: vi.fn(), returnFreeRound: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
 
 const { delivered, inWalletRound, meterCost, payRound } = await import("@/lib/wallet/round");
@@ -16,6 +16,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   wallet.settleWallet.mockResolvedValue(0);
   wallet.releaseWallet.mockResolvedValue(undefined);
+  wallet.returnFreeRound.mockResolvedValue(true);
 });
 
 describe("payRound on a wallet round", () => {
@@ -108,13 +109,45 @@ describe("payRound on a wallet round", () => {
 });
 
 describe("payRound on a free or staff round", () => {
+  const free = { ok: true as const, paidBy: "free" as const, auditId: 41 };
+
   it("just runs it, touching no wallet", async () => {
-    expect(await payRound({ ok: true, paidBy: "free" }, async () => {
+    expect(await payRound(free, async () => {
       expect(inWalletRound()).toBe(false);
       meterCost(5);
       return { ok: true };
     })).toEqual({ ok: true });
     expect(wallet.settleWallet).not.toHaveBeenCalled();
+    expect(wallet.releaseWallet).not.toHaveBeenCalled();
+    expect(wallet.returnFreeRound).not.toHaveBeenCalled();
+  });
+
+  it("hands a free round back when it gave the agent nothing (review, 2026-10-01)", async () => {
+    await payRound(free, async () => ({ ok: false, error: "บันทึกไม่สำเร็จ" }));
+    expect(wallet.returnFreeRound).toHaveBeenCalledWith(41);
+  });
+
+  it("hands a free round back when it throws, and throws on", async () => {
+    await expect(payRound(free, async () => { throw new Error("model down"); })).rejects.toThrow("model down");
+    expect(wallet.returnFreeRound).toHaveBeenCalledWith(41);
+  });
+
+  it("keeps a free round that stopped part way but saved pieces", async () => {
+    await payRound(free, async () => ({ ok: false, items: [1] }));
+    expect(wallet.returnFreeRound).not.toHaveBeenCalled();
+  });
+
+  it("still answers when the free round cannot be handed back: the round stays used, and the log says so", async () => {
+    wallet.returnFreeRound.mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await payRound(free, async () => ({ ok: false }))).toEqual({ ok: false });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("runs a staff round untouched, handing nothing back", async () => {
+    await payRound({ ok: true, paidBy: "staff" }, async () => ({ ok: false }));
+    expect(wallet.returnFreeRound).not.toHaveBeenCalled();
     expect(wallet.releaseWallet).not.toHaveBeenCalled();
   });
 });

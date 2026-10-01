@@ -33,6 +33,11 @@ export interface Session {
   handedOverAt: string | null;
   /** the conversation row this live session is part of, or null when none has been opened */
   conversationId: string | null;
+  /**
+   * The row's updated_at exactly as it was read, or null when there was no row: what saveTurn
+   * compares against, so a turn can tell that another one saved in the meantime.
+   */
+  version?: string | null;
 }
 
 /** When the bot may speak in this thread again, counted from the agent's message. */
@@ -57,7 +62,7 @@ export async function loadSession(channel: Channel, userHash: string): Promise<S
     .eq("user_hash", userHash)
     .maybeSingle();
   if (!data) {
-    return { messages: [], slots: null, mutedUntil: null, handedOverAt: null, conversationId: null };
+    return { messages: [], slots: null, mutedUntil: null, handedOverAt: null, conversationId: null, version: null };
   }
 
   const fresh = new Date(data.updated_at).getTime() > Date.now() - MAX_AGE_HOURS * 3600_000;
@@ -73,6 +78,7 @@ export async function loadSession(channel: Channel, userHash: string): Promise<S
     // read past the staleness check on purpose: an application outlives a conversation
     handedOverAt: data.handed_over_at ?? null,
     conversationId,
+    version: (data.updated_at as string | null) ?? null,
   };
 }
 
@@ -108,6 +114,111 @@ export async function saveSession(
       ...(handedOverAt === undefined ? {} : { handed_over_at: handedOverAt?.toISOString() ?? null }),
       updated_at: new Date().toISOString(),
     });
+}
+
+/* ------------------------------ one bot turn ------------------------------ */
+
+/**
+ * The slots after two turns that ran at once: whatever this turn changed from where it began,
+ * laid over what the other turn saved. Keys this turn did not touch keep the other's values;
+ * a key this turn dropped is dropped. Slots are plain JSON, so they are compared as JSON.
+ *
+ * Exported for its test.
+ */
+export function mergeSlots(base: AnySlots | null, mine: AnySlots | null, theirs: AnySlots | null): AnySlots | null {
+  const b = (base ?? {}) as Record<string, unknown>;
+  const m = (mine ?? {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...((theirs ?? {}) as Record<string, unknown>) };
+  for (const key of new Set([...Object.keys(b), ...Object.keys(m)])) {
+    if (JSON.stringify(b[key]) === JSON.stringify(m[key])) continue;
+    if (key in m) out[key] = m[key];
+    else delete out[key];
+  }
+  return Object.keys(out).length ? (out as unknown as AnySlots) : null;
+}
+
+export interface Turn {
+  /** the session as it was loaded when this turn began, version included */
+  base: Session;
+  /** what this turn adds to the conversation: the customer's words and the bot's reply */
+  added: ChatMessage[];
+  /** the slots this turn's answer came back with */
+  slots: AnySlots | null;
+  conversationId: string | null;
+}
+
+/** how many times a turn re-reads and merges before it writes regardless */
+const SAVE_ATTEMPTS = 3;
+
+/**
+ * Writes the row only if it is still the one `version` names (or, with null, only if there is
+ * no row yet). False when another save got there first.
+ */
+async function writeIf(
+  channel: Channel, userHash: string, version: string | null,
+  values: { messages: ChatMessage[]; slots: AnySlots | null; conversationId: string | null },
+): Promise<boolean> {
+  const row = {
+    messages: values.messages.slice(-MAX_TURNS),
+    slots: values.slots ?? {},
+    conversation_id: values.conversationId,
+    updated_at: new Date().toISOString(),
+  };
+  const table = supabaseAdmin().from("ins_chat_sessions");
+  if (version === null) {
+    const { error } = await table.insert({ channel, user_hash: userHash, ...row });
+    if (!error) return true;
+    if (error.code === "23505") return false;
+    throw new Error(error.message);
+  }
+  const { data, error } = await table.update(row)
+    .eq("channel", channel).eq("user_hash", userHash).eq("updated_at", version)
+    .select("user_hash");
+  if (error) throw new Error(error.message);
+  return Array.isArray(data) && data.length > 0;
+}
+
+/**
+ * Saves what one bot turn said, without losing a turn that ran beside it.
+ *
+ * Two quick messages from one customer arrive as two webhook calls, often on two instances:
+ * both loaded the same session, both answered, and the later save wrote its own picture of
+ * the conversation over the earlier one's — the age the customer gave in the first message,
+ * remembered in its slots, was gone by the second (review, 2026-10-01). saveSession's upsert
+ * cannot see that happen.
+ *
+ * So this writes only over the row it read (its updated_at is the version). If another turn
+ * saved first, the row is read again and this turn's part is laid over it: its two messages
+ * after the other's, and only the slots it changed (mergeSlots). The answer has already been
+ * sent by then, so re-asking the model is not an option; merging is. After SAVE_ATTEMPTS
+ * collisions it writes the last merge regardless, as saveSession always did.
+ *
+ * The mute and the hand-over stamp are not written here at all, so an agent's mark that
+ * landed while the model was thinking stays exactly as the agent left it.
+ *
+ * Never throws: the customer has been answered, and a session that failed to save is a
+ * shorter memory, not an apology.
+ */
+export async function saveTurn(channel: Channel, userHash: string, turn: Turn): Promise<void> {
+  try {
+    let version = turn.base.version ?? null;
+    let messages = [...turn.base.messages, ...turn.added];
+    let slots = turn.slots;
+    let conversationId = turn.conversationId;
+    for (let attempt = 0; attempt < SAVE_ATTEMPTS; attempt++) {
+      if (await writeIf(channel, userHash, version, { messages, slots, conversationId })) return;
+      const fresh = await loadSession(channel, userHash);
+      version = fresh.version ?? null;
+      messages = [...fresh.messages, ...turn.added];
+      slots = mergeSlots(turn.base.slots, turn.slots, fresh.slots);
+      // the conversation the other turn is already filed under stays the one
+      conversationId = fresh.conversationId ?? turn.conversationId;
+    }
+    console.error(`chat session ${channel}:${userHash.slice(0, 8)} kept colliding; writing the last merge`);
+    await saveSession(channel, userHash, messages, slots, undefined, conversationId);
+  } catch (e) {
+    console.error("chat session not saved:", e);
+  }
 }
 
 /**

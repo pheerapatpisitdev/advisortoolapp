@@ -8,6 +8,8 @@ import { getViewer } from "@/lib/auth/viewer";
 import { BudgetExceeded } from "@/lib/ai/client";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
+import { cleanHistory, cleanSlots } from "@/lib/chat/public-input";
+import { claimWebAsk } from "@/lib/chat/web-asks";
 
 /**
  * The home page's assistant, open to anyone — which the owner chose knowingly after being
@@ -20,6 +22,11 @@ import type { AnySlots } from "@/lib/assistant/slots";
  *
  * Somebody not signed in gets FREE_ASKS answers, then an invitation to sign up or sign in
  * (owner, 2026-10-01, in place of closing the site): see src/lib/auth/free-asks.ts.
+ *
+ * Everything the browser sends is cleaned before a model sees it, and the cookie's count has
+ * a database count behind it per address per day (review, 2026-10-01): a server action takes
+ * whatever its caller posts, not only what the page would have sent. See
+ * src/lib/chat/public-input.ts and src/lib/chat/web-asks.ts for what and how many.
  */
 
 const MAX_QUESTION = 500;
@@ -41,8 +48,11 @@ export async function askCopilot(
   history: ChatMessage[] = [],
   slots: AnySlots | null = null,
 ): Promise<CopilotAnswer> {
-  const asked = question.trim().slice(0, MAX_QUESTION);
+  // typed for the page, but posted by anyone: nothing below trusts the types
+  const asked = (typeof question === "string" ? question : "").trim().slice(0, MAX_QUESTION);
   if (!asked) return { text: "", model: "—" };
+  const turns = cleanHistory(history);
+  const known = cleanSlots(slots);
 
   // a failed read of who is asking is somebody not signed in: they still get their free questions
   const signedIn = Boolean(await getViewer().catch(() => null));
@@ -50,10 +60,13 @@ export async function askCopilot(
   const used = signedIn ? 0 : decodeAsks(jar.get(ASKS_COOKIE)?.value, sessionSecret());
   if (!signedIn && used >= FREE_ASKS) return { text: SIGN_UP, model: "—" };
 
-  if (!allow(`copilot:${await caller()}`)) return { text: BUSY, model: "—", failed: true };
+  const ip = await caller();
+  if (!allow(`copilot:${ip}`)) return { text: BUSY, model: "—", failed: true };
+  // the count a caller without a cookie cannot reset; members ask without limit
+  if (!signedIn && !(await claimWebAsk(ip))) return { text: SIGN_UP, model: "—" };
 
   try {
-    const answer = await answerFromKnowledge(asked, history, slots);
+    const answer = await answerFromKnowledge(asked, turns, known);
     // only an answer counts: "busy" or a failure is no reason to spend one of the three
     if (!signedIn && !answer.failed) {
       jar.set(ASKS_COOKIE, encodeAsks(used + 1, sessionSecret()), {

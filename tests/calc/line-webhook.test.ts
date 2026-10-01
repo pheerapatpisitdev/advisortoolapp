@@ -48,6 +48,7 @@ vi.mock("@/lib/chat/session", async () => {
     claimEvent: async () => claimed,
     loadSession: async () => session,
     saveSession: async () => {},
+    saveTurn: async () => {},
   };
 });
 /** the transcript is the same code on both channels; the Messenger test checks what it keeps */
@@ -160,5 +161,17 @@ describe("the webhook's signature", () => {
     expect(verifySignature(body, good)).toBe(true);
     expect(verifySignature(body, "forged")).toBe(false);
     expect(verifySignature(body, null)).toBe(false);
+  });
+});
+
+/** the same clock as Messenger's: the apology goes before the function's limit */
+describe("an answer that runs out of time", () => {
+  it("is apologised for in the reply, and not tried again", async () => {
+    const { WEBHOOK_LIMIT_MS, SEND_MARGIN_MS } = await import("@/lib/chat/batch");
+    answer.mockImplementation(() => new Promise<Answer>(() => {}));
+    const startedAt = Date.now() - (WEBHOOK_LIMIT_MS - SEND_MARGIN_MS) + 30;
+    await expect(handle(said("ชาย 35") as never, "", { startedAt })).rejects.toThrow(/longer than/);
+    expect(answer).toHaveBeenCalledOnce();
+    expect(JSON.stringify(replies)).toContain("ระบบขัดข้องชั่วคราว");
   });
 });

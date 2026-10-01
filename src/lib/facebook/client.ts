@@ -59,6 +59,8 @@ function quickReplies(titles: string[]) {
   });
 }
 
+const SEND_TIMEOUT_MS = 20_000;
+
 async function post(path: string, body: unknown, pageId?: string): Promise<void> {
   // the token goes in the header, not the query string: a URL is written to access logs and
   // proxy caches, and this one can send messages as the page
@@ -66,6 +68,10 @@ async function post(path: string, body: unknown, pageId?: string): Promise<void>
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${await token(pageId)}` },
     body: JSON.stringify(body),
+    // a send that hangs would eat the time the webhook keeps back for the apology
+    // (src/lib/chat/batch.ts SEND_MARGIN_MS); twenty seconds is far past a normal send,
+    // a card Meta fetches from us included
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`Messenger ${res.status}: ${(await res.text()).slice(0, 300)}`);
 }

@@ -4,6 +4,7 @@ import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import { diseaseListFor } from "@/lib/copilot/knowledge";
 import { CARD_PALETTE, type CardPalette } from "@/lib/card-theme";
+import { DISEASE_CARD_KEYS, toCanonical } from "../canonical";
 
 export const runtime = "nodejs";
 /** The names come from a benefit sheet, which changes with a rate revision and not oftener. */
@@ -151,6 +152,9 @@ const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
 const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
 
 export async function GET(req: NextRequest) {
+  // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)
+  const moved = toCanonical(req, DISEASE_CARD_KEYS);
+  if (moved) return moved;
   const code = (req.nextUrl.searchParams.get("of") ?? "").toUpperCase();
   const list = diseaseListFor(code);
   if (!list) return new Response("ไม่พบรายชื่อโรคตามที่ระบุ", { status: 400 });

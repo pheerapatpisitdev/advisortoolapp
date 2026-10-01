@@ -3,7 +3,7 @@ import { getPlan, productLabel } from "./plans/registry";
 import { hasExpired } from "./calendar";
 import { basePremium, type BasePremiumResult } from "./base-premium";
 import { sumAssuredFromPremium } from "./sa-from-premium";
-import { ratePerThousandRiderPremium } from "./riders/rate-per-thousand";
+import { BY_OCCUPATION_CLASS, OCCUPATION_NOTE, ratePerThousandRiderPremium } from "./riders/rate-per-thousand";
 import { fixedPlanRiderPremium } from "./riders/fixed-by-plan";
 import { variantRiderPremium } from "./riders/variant-rate";
 import { payorBenefitPremium } from "./riders/payor-benefit";
@@ -206,6 +206,19 @@ export function quote(input: QuoteInput, today: Date = new Date()): QuoteResult 
     }
     items.push({ code, name: premium.name ?? name, amount, amountLabel: premium.amountLabel, annual: premium.annual, modal: premium.modal, eligible: true });
     for (const extra of premium.extraRows ?? []) items.push(extra);
+  }
+
+  /**
+   * AP and ECARE are priced at occupation class 1, which nobody was told (review 2026-10-01).
+   * Said once, as a note rather than an error: the figure is right for the class it names.
+   */
+  const byClass = items.filter((i) => i.eligible && BY_OCCUPATION_CLASS.has(rates.riders[i.code]?.kind ?? ""));
+  if (byClass.length) {
+    warnings.push({
+      level: "warn",
+      code: "OCCUPATION_CLASS",
+      message: `เบี้ย ${byClass.map((i) => i.code).join(" / ")} ${OCCUPATION_NOTE} — อาชีพชั้นอื่นเบี้ยสูงกว่านี้`,
+    });
   }
 
   // A package whose mandatory rider is missing quotes nothing (Excel F37/F38).

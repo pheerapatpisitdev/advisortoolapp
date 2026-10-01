@@ -5,6 +5,7 @@ import { highlighterUri } from "@/lib/highlighter";
 import type { NextRequest } from "next/server";
 import { cardInputFrom, quoteCard, type CardChart, type CardRow, type QuoteCard } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
+import { QUOTE_CARD_KEYS, toCanonical } from "./canonical";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -267,6 +268,9 @@ const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
  * a rendering of the engine's answer, not of whatever the link happened to say.
  */
 export async function GET(req: NextRequest) {
+  // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)
+  const moved = toCanonical(req, QUOTE_CARD_KEYS);
+  if (moved) return moved;
   const input = cardInputFrom(req.nextUrl.searchParams);
   const card = input ? quoteCard(input) : undefined;
   if (!input || !card) return new Response("ไม่พบแบบประกันตามที่ระบุ", { status: 400 });

@@ -12,6 +12,16 @@ export interface SaFromPremiumInput {
 }
 
 /**
+ * ROUNDUP taken a hair below the figure, as the pension engine's `rup` does.
+ *
+ * A division that is exact on paper can come out a few units in the last place over in
+ * binary — iShield WLCI20, woman of 39, 69,000 a year is 1,875,000.0000000002 — and a plain
+ * `Math.ceil` turned that into a sum assured of 1,875,001 (review 2026-10-01). Excel works to
+ * fifteen significant digits and sees 1,875,000 exactly, so the workbook says 1,875,000.
+ */
+const roundUp = (x: number) => Math.ceil(x - 1e-9);
+
+/**
  * Excel Cal!G37, G40, H40, F37, F40, C38, I40:
  *   annual   = modal / factor                      (float, like Excel)
  *   SA0      = annual*1000 / rate                  → discount d1 at SA0
@@ -26,8 +36,8 @@ export function sumAssuredFromPremium(rates: PlanRates, input: SaFromPremiumInpu
   const annual = input.targetPremium / rates.modeFactors[input.mode];
   const sa0 = (annual * 1000) / rate;
   const d1 = discountPerThousand(rates, input.variant, sa0);
-  const sa1 = Math.ceil((annual * 1000) / (rate - d1));
+  const sa1 = roundUp((annual * 1000) / (rate - d1));
   const d2 = discountPerThousand(rates, input.variant, sa1);
   const d = Math.max(d1, d2);
-  return Math.ceil((annual * 1000) / (rate - d));
+  return roundUp((annual * 1000) / (rate - d));
 }

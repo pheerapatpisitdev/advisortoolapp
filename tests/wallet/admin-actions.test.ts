@@ -7,10 +7,10 @@ vi.mock("@/lib/auth/viewer", async () => {
   return { ...asOwner, requireStaff: staff.requireStaff };
 });
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-const wallet = vi.hoisted(() => ({ saveWalletSettings: vi.fn(async () => {}), adjustWallet: vi.fn() }));
+const wallet = vi.hoisted(() => ({ saveWalletSettings: vi.fn(async () => {}), adjustWallet: vi.fn(), unfreezeWallet: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
 
-const { adjustAgentWallet, saveWallet } = await import("@/app/admin/wallet/actions");
+const { adjustAgentWallet, saveWallet, unfreezeAgentWallet } = await import("@/app/admin/wallet/actions");
 const { OWNER } = await import("../helpers/signed-in");
 const AGENT = "00000000-0000-4000-8000-000000000002";
 
@@ -59,5 +59,33 @@ describe("adjustAgentWallet", () => {
   it("refuses an agent id that is not one", async () => {
     expect(await adjustAgentWallet("x", "20", "a")).toMatchObject({ ok: false });
     expect(wallet.adjustWallet).not.toHaveBeenCalled();
+  });
+});
+
+describe("unfreezeAgentWallet (owner, 2026-10-01)", () => {
+  it("lifts the freeze with the owner's reason", async () => {
+    wallet.unfreezeWallet.mockResolvedValueOnce(2500);
+    expect(await unfreezeAgentWallet(AGENT, " ชำระส่วนที่ขาดแล้ว ")).toEqual({ ok: true });
+    expect(wallet.unfreezeWallet).toHaveBeenCalledWith(AGENT, "ชำระส่วนที่ขาดแล้ว");
+  });
+
+  it("is the owner's alone, like an adjustment", async () => {
+    wallet.unfreezeWallet.mockResolvedValueOnce(0);
+    await unfreezeAgentWallet(AGENT, "x");
+    expect(staff.requireStaff).toHaveBeenCalledWith("owner");
+    staff.requireStaff.mockRejectedValueOnce(new Error("ไม่มีสิทธิ์ใช้ส่วนนี้"));
+    await expect(unfreezeAgentWallet(AGENT, "x")).rejects.toThrow("ไม่มีสิทธิ์");
+    expect(wallet.unfreezeWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it("needs a reason and a real id", async () => {
+    expect(await unfreezeAgentWallet(AGENT, "  ")).toMatchObject({ ok: false });
+    expect(await unfreezeAgentWallet("x", "เหตุผล")).toMatchObject({ ok: false });
+    expect(wallet.unfreezeWallet).not.toHaveBeenCalled();
+  });
+
+  it("says so when the wallet was not frozen", async () => {
+    wallet.unfreezeWallet.mockResolvedValueOnce(null);
+    expect(await unfreezeAgentWallet(AGENT, "เหตุผล")).toEqual({ ok: false, error: "กระเป๋านี้ไม่ได้ถูกพักอยู่" });
   });
 });

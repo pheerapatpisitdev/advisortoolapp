@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { chargeSatang, holdSatangFor } from "./money";
-import { releaseWallet, settleWallet } from "./store";
+import { releaseWallet, returnFreeRound, settleWallet } from "./store";
 
 /**
  * Who pays for an AI round, and — when it is the agent's wallet — what the round really cost.
@@ -13,7 +13,9 @@ import { releaseWallet, settleWallet } from "./store";
  */
 
 export type WalletPass = { ok: true; paidBy: "wallet"; holdId: string; heldSatang: number; multiplier: number };
-export type RoundPass = { ok: false; refusal: string } | { ok: true; paidBy: "staff" | "free" } | WalletPass;
+/** `auditId`: the round's line in ins_audit, renamed when the round is handed back */
+export type FreePass = { ok: true; paidBy: "free"; auditId: number };
+export type RoundPass = { ok: false; refusal: string } | { ok: true; paidBy: "staff" } | FreePass | WalletPass;
 
 interface Meter { spentThb: number }
 const meters = new AsyncLocalStorage<Meter>();
@@ -32,13 +34,37 @@ export interface Outcome { ok: boolean; items?: unknown[] }
 /** a round gave the agent something: it went through, or it saved pieces before it stopped */
 export const delivered = (r: Outcome): boolean => r.ok || (Array.isArray(r.items) && r.items.length > 0);
 
+/** a free round's line renamed, so the count gives it back; a failure is logged and the round stays used */
+async function giveBack(pass: FreePass): Promise<void> {
+  try {
+    if (!(await returnFreeRound(pass.auditId))) console.error(`free round ${pass.auditId} was not there to give back`);
+  } catch (e) {
+    console.error(`free round ${pass.auditId} not given back:`, e);
+  }
+}
+
+/** a free round that throws, or gives the agent nothing, is handed back like a wallet round's money (review, 2026-10-01) */
+async function runFree<R extends Outcome>(pass: FreePass, run: () => Promise<R>): Promise<R> {
+  let result: R;
+  try {
+    result = await run();
+  } catch (e) {
+    await giveBack(pass);
+    throw e;
+  }
+  if (!delivered(result)) await giveBack(pass);
+  return result;
+}
+
 /**
  * Runs a round and settles who paid. A round that throws, or gives the agent nothing, gives
- * the whole hold back: the providers' cost of a failure is the owner's, not the agent's.
+ * the whole hold back: the providers' cost of a failure is the owner's, not the agent's — and a
+ * free round that does the same is handed back to the count.
  * A settle that fails is logged and the answer still goes out — the hold is swept back to the
  * agent in fifteen minutes (ins_wallet_sweep_holds), so the error is in the agent's favour.
  */
 export async function payRound<R extends Outcome>(pass: Extract<RoundPass, { ok: true }>, run: () => Promise<R>): Promise<R> {
+  if (pass.paidBy === "free") return runFree(pass, run);
   if (pass.paidBy !== "wallet") return run();
   const meter: Meter = { spentThb: 0 };
   let result: R;

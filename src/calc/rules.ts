@@ -1,4 +1,5 @@
 import type { Availability, PayMode, Payer, PlanRates, PlanRules, RiderInput, RiderRule, Warning } from "./types";
+import { BY_OCCUPATION_CLASS, OCCUPATION_NOTE } from "./riders/rate-per-thousand";
 
 export interface RiderContext {
   age: number;
@@ -142,6 +143,8 @@ export function riderAvailability(rules: PlanRules, rates: PlanRates, code: stri
     needsPayer: rates.riders[code]?.kind === "payorBenefit"
       || (rates.riders[code]?.kind === "premiumBased" && (rates.riders[code] as { by: string }).by === "payer") || undefined,
     reason: eligible ? undefined : CANNOT_BUY,
+    // AP and ECARE are priced at one occupation class, and the row says which (review 2026-10-01)
+    note: BY_OCCUPATION_CLASS.has(rates.riders[code]?.kind ?? "") ? OCCUPATION_NOTE : undefined,
   };
 }
 

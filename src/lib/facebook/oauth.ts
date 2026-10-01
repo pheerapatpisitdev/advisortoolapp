@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { adminSecret, deriveKey } from "@/lib/auth/keys";
 
 /**
  * Connecting a Page by logging in to Facebook, instead of pasting a token into a deploy
@@ -104,43 +105,73 @@ export function redirectUri(origin: string): string {
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 
+/** A key of the state's own, derived from ADMIN_SESSION_SECRET (src/lib/auth/keys.ts, 2026-10-01). */
 function stateSecret(): string {
-  const s = process.env.ADMIN_SESSION_SECRET;
-  if (!s) throw new Error("ADMIN_SESSION_SECRET is not set");
-  return s;
+  return deriveKey(adminSecret(), "oauth-state");
+}
+
+/**
+ * The browser that began the login (review, 2026-10-01). The state's nonce is also put in a
+ * short-lived cookie on the way out, and the callback takes the state only from the browser
+ * holding that cookie — so a signed state copied out of somebody's link, or a callback URL
+ * pushed at a signed-in admin, cannot finish a login they did not start.
+ *
+ * Scoped to the callback's path, and sameSite=lax: Facebook's redirect back is a top-level
+ * navigation from another site, which lax cookies ride along on and strict ones do not.
+ */
+export const STATE_COOKIE = "ins_fb_state";
+export const STATE_COOKIE_PATH = "/api/facebook/connect/callback";
+
+export function stateCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: STATE_COOKIE_PATH,
+    maxAge: STATE_TTL_MS / 1000,
+  };
+}
+
+export function newStateNonce(): string {
+  return randomBytes(16).toString("hex");
 }
 
 /**
  * Signed and short-lived, so a link someone else crafts cannot start a connection for us.
  * The purpose is inside the signature: a state that said "pages" on the way out cannot come
- * back saying "ads".
+ * back saying "ads". The nonce is the one put in the browser's STATE_COOKIE.
  */
-export function makeState(purpose: LoginPurpose = "pages"): string {
+export function makeState(purpose: LoginPurpose = "pages", nonce: string = newStateNonce()): string {
   const expires = String(Date.now() + STATE_TTL_MS);
-  const nonce = randomBytes(12).toString("hex");
   const mac = createHmac("sha256", stateSecret()).update(`${expires}.${nonce}.${purpose}`).digest("hex");
   return `${expires}.${nonce}.${purpose}.${mac}`;
 }
 
-function parseState(state: string | null): { purpose: LoginPurpose } | null {
-  if (!state) return null;
+function sameText(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+/** The state, if it is ours, unexpired and was begun in the browser that holds `browserNonce`. */
+function parseState(state: string | null, browserNonce: string | null | undefined): { purpose: LoginPurpose } | null {
+  if (!state || !browserNonce) return null;
   const [expires, nonce, purpose, mac] = state.split(".");
   if (!expires || !nonce || !mac || (purpose !== "pages" && purpose !== "ads")) return null;
   const expected = createHmac("sha256", stateSecret()).update(`${expires}.${nonce}.${purpose}`).digest("hex");
-  const a = Buffer.from(mac);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  if (!sameText(mac, expected)) return null;
   if (Number(expires) <= Date.now()) return null;
+  if (!sameText(nonce, browserNonce)) return null;
   return { purpose };
 }
 
-export function stateIsValid(state: string | null): boolean {
-  return parseState(state) !== null;
+export function stateIsValid(state: string | null, browserNonce: string | null | undefined): boolean {
+  return parseState(state, browserNonce) !== null;
 }
 
 /** The purpose a valid state was made for; nothing for a state that cannot be trusted. */
-export function statePurpose(state: string | null): LoginPurpose | undefined {
-  return parseState(state)?.purpose;
+export function statePurpose(state: string | null, browserNonce: string | null | undefined): LoginPurpose | undefined {
+  return parseState(state, browserNonce)?.purpose;
 }
 
 /**

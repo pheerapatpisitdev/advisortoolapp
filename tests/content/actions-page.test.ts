@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContentItem, Flags, Publish, PublishState } from "@/lib/content/store";
 import type { ContentOutput } from "@/lib/content/output";
 
@@ -18,6 +18,7 @@ const store = vi.hoisted(() => ({
   removeBackground: vi.fn(), listWords: vi.fn(), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
   contentSpentThisMonth: vi.fn(), contentCap: vi.fn(), setFixes: vi.fn(), saveBackground: vi.fn(), setStatus: vi.fn(),
   listContent: vi.fn(), countByStatus: vi.fn(), recentLooks: vi.fn(async (): Promise<object[]> => []),
+  usedHooks: vi.fn(async (): Promise<string[]> => []),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), isPublished: vi.fn() }));
 const ai = vi.hoisted(() => ({ chat: vi.fn(), drawImage: vi.fn() }));
@@ -35,6 +36,11 @@ vi.mock("@/lib/facebook/connection", () => ({
   pageToken: vi.fn(async () => "token"),
 }));
 vi.mock("@/lib/content/poster-draw", () => ({ drawPoster: vi.fn(async () => Buffer.from("png")) }));
+// the real one, watched: whether a round was counted at all
+vi.mock("@/lib/auth/quota", async (orig) => {
+  const real = await orig<typeof import("@/lib/auth/quota")>();
+  return { ...real, takeRound: vi.fn(real.takeRound) };
+});
 vi.mock("@/lib/content/people-store", () => ({
   personPhotos: vi.fn(async () => ({ person: { id: "person-1" }, photos: [{ bytes: Buffer.from("x"), mimeType: "image/png" }] })),
 }));
@@ -46,6 +52,7 @@ const { PAINTERS, OVERHEAD_THB } = await import("@/lib/content/models");
 const { CONCURRENT } = await import("@/lib/content/publish-flow");
 const { strayNumbers } = await import("@/lib/content/check");
 const { briefFor } = await import("@/lib/content/brief");
+const { takeRound } = await import("@/lib/auth/quota");
 
 const clean: Flags = { numbers: [], words: [], policy: [], fixes: null };
 const output: ContentOutput = {
@@ -505,3 +512,88 @@ describe("the workbench list", () => {
     expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined, pageId: PAGE }, 40, 0);
   });
 });
+
+describe("a round is not counted for nothing (review, 2026-10-01)", () => {
+  const ROUND = { href: Object.keys(NUMBERS_PLANS)[0], format: "post" as const, angle: "" as const, custom: "", length: null, count: 2, hookTemplateId: null };
+
+  it("says the ceiling is reached before a round is taken, not after", async () => {
+    store.contentSpentThisMonth.mockResolvedValue(30);
+    expect(await generateContent(ROUND)).toEqual({ ok: false, error: expect.stringContaining("ครบ 30 บาท") });
+    expect(await drawBackground("p1", "", "standard", null)).toEqual({ ok: false, error: expect.stringContaining("ครบ 30 บาท") });
+    expect(takeRound).not.toHaveBeenCalled();
+    expect(store.holdContentBudget).not.toHaveBeenCalled();
+  });
+});
+
+describe("a round inside its function's time (review, 2026-10-01)", () => {
+  const t0 = Date.now();
+  const later = (ms: number) => vi.spyOn(Date, "now").mockReturnValue(t0 + ms);
+  const drawn = { bytes: Buffer.from("img"), mimeType: "image/png", model: "gpt-image", id: "gpt-image-high", costThb: 0.86 };
+
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(t0);
+    store.saveBackground.mockResolvedValue("p1/new.png");
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("gives the planner a time of its own, and stops — saving nothing — when the writers would have none", async () => {
+    ai.chat.mockImplementationOnce(async () => {
+      later(262_000);
+      return { text: JSON.stringify({ plans: [{ hook: "หนึ่ง" }, { hook: "สอง" }] }), model: "m", costThb: 0.01, outputTokens: 50 };
+    });
+    const r = await generateContent({ href: Object.keys(NUMBERS_PLANS)[0], format: "post", angle: "", custom: "", length: null, count: 2, hookTemplateId: null });
+    expect(r).toEqual({ ok: false, error: expect.stringContaining("ใช้เวลานานเกินไป") });
+    expect(ai.chat.mock.calls[0][0].timeoutMs).toBeLessThanOrEqual(50_000);
+    // no writer was started with no time to finish
+    expect(ai.chat).toHaveBeenCalledTimes(1);
+    expect(store.releaseContentBudget).toHaveBeenCalledWith("hold-1");
+  });
+
+  it("puts a picture with drawn words on the piece, marked not read, before the reader is asked", async () => {
+    let onPieceWhenRead: unknown;
+    ai.chat
+      .mockResolvedValueOnce({ text: "a scrapbook collage", model: "m", costThb: 0.01, outputTokens: 10 })
+      .mockImplementationOnce(async () => {
+        onPieceWhenRead = row.output.poster;
+        return { text: JSON.stringify({ text: "หัวเรื่อง" }), model: "reader", costThb: 0.02, outputTokens: 10 };
+      });
+    ai.drawImage.mockResolvedValue(drawn);
+    const r = await drawBackground("p1", "ภาพแปะหลายรูปแบบสมุดภาพ", "sharp", null);
+    expect(onPieceWhenRead).toMatchObject({ background: "p1/new.png", aiText: { issues: [READ_FAILED], checked: false } });
+    // then the reading is written over the "not read" record, and handed back
+    expect(r).toMatchObject({ ok: true, item: { output: { poster: { aiText: { read: "หัวเรื่อง", issues: [], checked: false } } } } });
+  });
+
+  it("skips reading the words back when the drawing used the time, and keeps the picture", async () => {
+    ai.chat.mockResolvedValueOnce({ text: "a scrapbook collage", model: "m", costThb: 0.01, outputTokens: 10 });
+    ai.drawImage.mockImplementation(async () => { later(268_000); return drawn; });
+    const r = await drawBackground("p1", "ภาพแปะหลายรูปแบบสมุดภาพ", "sharp", null);
+    expect(r.ok).toBe(true);
+    // the translation only: no reader was asked with no time to answer
+    expect(ai.chat).toHaveBeenCalledTimes(1);
+    expect(row.output.poster).toMatchObject({ background: "p1/new.png", aiText: { issues: [READ_FAILED], checked: false } });
+  });
+
+  it("does not order a picture it would have no time to keep", async () => {
+    ai.chat.mockImplementationOnce(async () => {
+      later(100_000);
+      return { text: "a scrapbook collage", model: "m", costThb: 0.01, outputTokens: 10 };
+    });
+    const r = await drawBackground("p1", "ภาพแปะหลายรูปแบบสมุดภาพ", "sharp", null);
+    expect(r).toEqual({ ok: false, error: expect.stringContaining("ไม่ทันเวลา") });
+    expect(ai.drawImage).not.toHaveBeenCalled();
+    expect(row.output.poster?.background).toBe("p1/old.png");
+    expect(store.releaseContentBudget).toHaveBeenCalledWith("hold-1");
+  });
+
+  it("gives the translation only the time the picture can spare", async () => {
+    ai.chat
+      .mockResolvedValueOnce({ text: "a scrapbook collage", model: "m", costThb: 0.01, outputTokens: 10 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ text: "หัวเรื่อง" }), model: "reader", costThb: 0.02, outputTokens: 10 });
+    ai.drawImage.mockResolvedValue(drawn);
+    await drawBackground("p1", "ภาพแปะหลายรูปแบบสมุดภาพ", "sharp", null);
+    expect(ai.chat.mock.calls[0][0].timeoutMs).toBeGreaterThan(0);
+    expect(ai.chat.mock.calls[0][0].timeoutMs).toBeLessThanOrEqual(25_000);
+  });
+});
+

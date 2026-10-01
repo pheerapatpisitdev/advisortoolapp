@@ -9,8 +9,17 @@ vi.mock("@/lib/content/claim-run", () => run);
 vi.mock("@/lib/auth/viewer", () => ({ refuseUnless: vi.fn(async () => null), requireMember: vi.fn(async () => ({ agentId: "a1" })) }));
 const pages = vi.hoisted(() => ({ projectPage: vi.fn() }));
 vi.mock("@/lib/auth/pages", () => pages);
+const ceiling = vi.hoisted(() => ({ ceilingBeforeRound: vi.fn(async (): Promise<number | null> => null) }));
+vi.mock("@/lib/content/ceiling", () => ceiling);
 
-const { PUT } = await import("@/app/api/content-claim/route");
+const { POST, PUT } = await import("@/app/api/content-claim/route");
+
+function readRequest(): Request {
+  const form = new FormData();
+  form.set("consent", "on");
+  form.append("docs", new File([new Uint8Array([1, 2, 3])], "bill.jpg", { type: "image/jpeg" }));
+  return new Request("http://localhost/api/content-claim", { method: "POST", body: form, headers: { "x-forwarded-for": `10.0.1.${Math.random()}` } });
+}
 
 function writeRequest(): Request {
   const form = new FormData();
@@ -24,6 +33,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   run.writeClaim.mockResolvedValue({ ok: true, items: [] });
   pages.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });
+  ceiling.ceilingBeforeRound.mockResolvedValue(null);
 });
 
 describe("writing a รีวิวเคลม", () => {
@@ -50,5 +60,17 @@ describe("writing a รีวิวเคลม", () => {
     expect(res.status).toBe(429);
     expect(await res.json()).toEqual({ ok: false, error: "ใช้ครบแล้วเดือนนี้" });
     expect(run.writeClaim).not.toHaveBeenCalled();
+  });
+
+  it("is refused before a round is counted once the owner's ceiling is reached — reading and writing both", async () => {
+    // the round's own check came after takeRound, so a refused round still cost a free round (review, 2026-10-01)
+    ceiling.ceilingBeforeRound.mockResolvedValue(30);
+    for (const res of [await PUT(writeRequest() as never), await POST(readRequest() as never)]) {
+      expect(await res.json()).toEqual({ ok: false, error: expect.stringContaining("ครบ 30 บาท") });
+    }
+    expect(ceiling.ceilingBeforeRound).toHaveBeenCalledWith({ agentId: "a1" });
+    expect(quota.takeRound).not.toHaveBeenCalled();
+    expect(run.writeClaim).not.toHaveBeenCalled();
+    expect(run.readClaim).not.toHaveBeenCalled();
   });
 });

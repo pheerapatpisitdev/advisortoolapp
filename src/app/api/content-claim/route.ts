@@ -7,6 +7,7 @@ import { refuseUnless, requireMember } from "@/lib/auth/viewer";
 import { takeRound } from "@/lib/auth/quota";
 import { payRound } from "@/lib/wallet/round";
 import { projectPage } from "@/lib/auth/pages";
+import { ceilingBeforeRound } from "@/lib/content/ceiling";
 
 /**
  * รีวิวเคลม, as plain requests: six photographs are more than a server action's one-megabyte
@@ -29,6 +30,8 @@ const roundsPerHour = limiter(10, 60 * 60_000);
 
 const bad = (error: string, status = 400) => Response.json({ ok: false, error }, { status });
 const NO_CONSENT = "ต้องติ๊กยืนยันว่าลูกค้ายินยอมให้ใช้เอกสารนี้ก่อนนะครับ";
+/** the owner's content ceiling reached, said before a round is counted (ceiling.ts, review 2026-10-01) */
+const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
 
 function images(form: FormData, name: string): File[] | string {
   const files = form.getAll(name).filter((f): f is File => f instanceof File && f.size > 0);
@@ -49,7 +52,10 @@ export async function POST(req: NextRequest) {
   if (typeof files === "string") return bad(files);
   if (files.length === 0 || files.length > MAX_DOCS) return bad(`เลือกรูปเอกสาร 1–${MAX_DOCS} รูปนะครับ`);
   if (!readsPerHour(`claim-read:${clientIp(req.headers)}`)) return bad("อ่านเอกสารครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ", 429);
-  const pass = await takeRound(await requireMember(), "ai-claim");
+  const viewer = await requireMember();
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
+  const pass = await takeRound(viewer, "ai-claim");
   if (!pass.ok) return bad(pass.refusal, 429);
   // the upload is read inside the round: a body that aborts here releases a wallet hold at
   // once instead of leaving it locked until the sweep, fifteen minutes on
@@ -82,7 +88,10 @@ export async function PUT(req: NextRequest) {
   if (!project.ok) return bad(project.error, 403);
   // the writing is a round of its own, as the reading is: without it a second round from the
   // same papers (the page keeps their reading) or a PUT sent by hand wrote past the allowance
-  const pass = await takeRound(await requireMember(), "ai-claim");
+  const viewer = await requireMember();
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
+  const pass = await takeRound(viewer, "ai-claim");
   if (!pass.ok) return bad(pass.refusal, 429);
   // the upload is read inside the round, as POST's is (an aborted body must not lock a hold)
   return Response.json(await payRound(pass, async () => {

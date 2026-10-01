@@ -323,10 +323,20 @@ export async function recentLooks(pageId: string | null, limit = 5): Promise<Loo
   });
 }
 
-/** The hooks of pieces the owner used, newest first — what the planner is told not to repeat. */
+/**
+ * The hooks of the asker's used pieces, newest first — what the planner is told not to repeat.
+ *
+ * Only the pieces the asker may see (ownersFilter): it read every tenant's, so one agent's
+ * opening lines — a รีวิวเคลม's among them, which can carry a customer's story — went into every
+ * other agent's planner prompt (review, 2026-10-01). The rule it serves, "don't repeat
+ * yourself", is about the asker's own posts anyway.
+ */
 export async function usedHooks(limit = 40): Promise<string[]> {
-  const { data, error } = await supabaseAdmin().from("ins_content").select("output")
+  const only = await ownersFilter();
+  let q = supabaseAdmin().from("ins_content").select("output")
     .eq("status", "used").order("created_at", { ascending: false }).limit(limit);
+  if (only) q = q.or(only);
+  const { data, error } = await q;
   if (error) throw new Error(error.message);
   return ((data ?? []) as { output: ContentOutput }[]).map((r) => r.output?.hooks?.[0] ?? "").filter(Boolean);
 }
@@ -359,25 +369,60 @@ export async function deleteWord(word: string): Promise<void> {
 
 /* ---------------------------- hook formulas ---------------------------- */
 
-const HOOK_COLUMNS = "id, category, template, example_hook, use_count, seed, created_at";
+const HOOK_COLUMNS = "id, category, template, example_hook, source_content_id, use_count, seed, created_at";
 
-function toTemplate(r: Record<string, unknown>): HookTemplate {
+function toTemplate(r: Record<string, unknown>, shown: Set<string>): HookTemplate {
   return {
     id: String(r.id),
     category: (isHookCategory(r.category) ? r.category : "CLAIM") as HookCategory,
     template: String(r.template),
-    exampleHook: (r.example_hook as string | null) ?? null,
+    exampleHook: r.example_hook && shown.has(String(r.source_content_id)) ? String(r.example_hook) : null,
     useCount: Number(r.use_count ?? 0),
     seed: Boolean(r.seed),
     createdAt: String(r.created_at),
   };
 }
 
+/** source pieces asked about per request: a hundred ids keep the query string well inside PostgREST's */
+const SOURCES_PER_ASK = 100;
+
+/**
+ * The pieces, among the formulas' sources, whose hook the asker may read — the ones they may
+ * see themselves (maySeePiece: their own, or their Page's).
+ *
+ * The library is one for everybody: a formula is [slots] and no one's words, and every agent
+ * may write with any of them. The example under it is somebody's actual opening line, and it
+ * was shown to everyone — every tenant read every agent's hooks, a รีวิวเคลม's too (review,
+ * 2026-10-01). So the formula stays shared and its example is shown only to whoever could
+ * open the piece it came from. A formula whose piece is gone (source_content_id set null when
+ * it was deleted) has nobody left to show its example to. A lookup that fails shows no
+ * examples rather than everyone's.
+ */
+async function examplesShown(rows: Record<string, unknown>[]): Promise<Set<string>> {
+  const sources = [...new Set(rows.filter((r) => r.example_hook && r.source_content_id).map((r) => String(r.source_content_id)))];
+  if (sources.length === 0) return new Set();
+  try {
+    const scope = await currentScope();
+    const chunks = Array.from({ length: Math.ceil(sources.length / SOURCES_PER_ASK) }, (_, i) => sources.slice(i * SOURCES_PER_ASK, (i + 1) * SOURCES_PER_ASK));
+    const pieces = await Promise.all(chunks.map(async (ids) => {
+      const { data, error } = await supabaseAdmin().from("ins_content").select("id, agent_id, page_id").in("id", ids);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { id: string; agent_id: string | null; page_id: string | null }[];
+    }));
+    return new Set(pieces.flat().filter((p) => maySeePiece(scope, { agentId: p.agent_id, pageId: p.page_id })).map((p) => p.id));
+  } catch (e) {
+    console.error("hook examples not shown:", e);
+    return new Set();
+  }
+}
+
 export async function listHookTemplates(): Promise<HookTemplate[]> {
   const { data, error } = await supabaseAdmin().from("ins_hook_templates").select(HOOK_COLUMNS)
     .order("use_count", { ascending: false }).order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Record<string, unknown>[]).map(toTemplate);
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const shown = await examplesShown(rows);
+  return rows.map((r) => toTemplate(r, shown));
 }
 
 /**
@@ -397,7 +442,9 @@ export async function hookPostCounts(): Promise<Record<string, number>> {
 export async function getHookTemplate(id: string): Promise<HookTemplate | null> {
   const { data, error } = await supabaseAdmin().from("ins_hook_templates").select(HOOK_COLUMNS).eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
-  return data ? toTemplate(data as Record<string, unknown>) : null;
+  if (!data) return null;
+  const row = data as Record<string, unknown>;
+  return toTemplate(row, await examplesShown([row]));
 }
 
 /** read-then-write, which can lose a count to a race; one owner clicking one button cannot race */
@@ -406,7 +453,11 @@ export async function countHookUse(t: HookTemplate, by: number): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-/** A new formula, unless the library already has it (same words, any case or spacing). */
+/**
+ * A new formula, unless the library already has it (same words, any case or spacing). The
+ * hook it was drawn from is kept as its example, with the piece it came from: the example is
+ * shown only to whoever may see that piece (examplesShown).
+ */
 export async function addHookTemplate(t: { template: string; category: HookCategory; exampleHook: string; sourceId: string }): Promise<void> {
   const { error } = await supabaseAdmin().from("ins_hook_templates").insert({
     template: t.template, category: t.category, example_hook: t.exampleHook, source_content_id: t.sourceId,
@@ -415,9 +466,16 @@ export async function addHookTemplate(t: { template: string; category: HookCateg
   if (error && error.code !== "23505") throw new Error(error.message);
 }
 
-/** A piece gone for good, with the pictures drawn for it. Formulas drawn from it keep their text. */
+/**
+ * A piece gone for good, with the pictures drawn for it. Formulas drawn from it keep their
+ * text, but not its hook: with the piece gone nobody may be shown that example any more
+ * (examplesShown), so it is not kept either. Best effort — an example left behind is still
+ * shown to nobody.
+ */
 export async function deleteContent(id: string): Promise<void> {
   const db = supabaseAdmin();
+  const { error: example } = await db.from("ins_hook_templates").update({ example_hook: null }).eq("source_content_id", id);
+  if (example) console.error("hook example not cleared:", example.message);
   const { data: files } = await db.storage.from("content-media").list(id);
   if (files?.length) {
     const { error } = await db.storage.from("content-media").remove(files.map((f) => `${id}/${f.name}`));
@@ -588,8 +646,13 @@ export async function listPublished(from: Date, to: Date): Promise<ContentItem[]
  * drawn with their face stays in those pieces, so the owner is told before they delete.
  */
 export async function piecesWithPerson(personId: string): Promise<{ total: number; onPage: number }> {
-  const { data, error } = await supabaseAdmin().from("ins_content")
+  // the asker's pieces only (review, 2026-10-01): it counted every tenant's, for any id asked
+  // about; the route checks the person is the asker's too (getPerson)
+  const only = await ownersFilter();
+  let q = supabaseAdmin().from("ins_content")
     .select("publish_state").eq("output->person->>id", personId).limit(1000);
+  if (only) q = q.or(only);
+  const { data, error } = await q;
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as { publish_state: string | null }[];
   return {

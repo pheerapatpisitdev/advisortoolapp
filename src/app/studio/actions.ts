@@ -3,7 +3,9 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
 import { MAX_DIRECTION, backgroundPrompt, posterPrompt, stripThai } from "@/lib/content/background";
-import { readPosterText } from "@/lib/content/poster-read";
+import { readPosterText, unreadPosterText } from "@/lib/content/poster-read";
+import { ceilingBeforeRound } from "@/lib/content/ceiling";
+import { OutOfTime, deadline, within, type Deadline } from "@/lib/content/deadline";
 import { pickLook } from "@/lib/content/look-pick";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { briefFor } from "@/lib/content/brief";
@@ -12,7 +14,7 @@ import { parseTemplatize, templatizeMessages } from "@/lib/content/hooks";
 import type { ContentOutput } from "@/lib/content/output";
 import { isLogoSpot } from "@/lib/content/logo";
 import { roundLogo } from "@/lib/content/logo-store";
-import { defaultPoster, parsePoster, posterText, THEMES, type Theme } from "@/lib/content/poster";
+import { defaultPoster, parsePoster, posterText, THEMES, type PosterSpec, type Theme } from "@/lib/content/poster";
 import { contentProduct } from "@/lib/content/products";
 import { POSES, type PiecePerson } from "@/lib/content/people";
 import { personPhotos } from "@/lib/content/people-store";
@@ -45,6 +47,7 @@ import { projectPage } from "@/lib/auth/pages";
 import { requireMember } from "@/lib/auth/viewer";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
 import { payRound } from "@/lib/wallet/round";
+import { drawHoldThb } from "@/lib/wallet/money";
 import type { Rounds } from "@/lib/wallet/note";
 import { walletView } from "@/lib/wallet/store";
 
@@ -75,6 +78,18 @@ const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี�
 /** the ceiling not reached, but this request would pass it */
 const tooDear = (what: string, left: number) =>
   `งบสร้างคอนเทนต์เดือนนี้เหลือ ${left.toFixed(2)} บาท ไม่พอ${what} — ${what === "รอบนี้" ? "ลดจำนวนชิ้น เลือกโมเดลประหยัด หรือ" : ""}เพิ่มงบได้ที่หน้า /admin/ai`;
+
+/** a round that ran out of its function's time (deadline.ts), as the owner is told it */
+const OUT_OF_TIME = "รอบนี้ใช้เวลานานเกินไป AI ตอบไม่ทัน — ลองใหม่อีกครั้ง หรือลดจำนวนชิ้นนะครับ";
+
+/**
+ * A round of writing's time (deadline.ts): the planner's share, and what is kept back at the end
+ * to save the pieces — five posts, or six ads, one row each, and the hold given back.
+ */
+const PLAN_MS = 50_000;
+const SAVE_MS = 20_000;
+/** a writer's one try (write.ts); the planner leaves at least this for the pieces */
+const WRITE_TRY_MS = 60_000;
 
 /** `checks`: a plan-less mode's own (mode-checks.ts) — หาทีม's rules, every figure */
 function flagsFor(o: ContentOutput, brief: string, words: ContentWord[], fixes: Fix[] | null, checks: Partial<ModeChecks> = {}): Flags {
@@ -163,6 +178,8 @@ function roundResult(r: { items: ContentItem[]; failed: boolean }, planned: numb
 
 export async function generateContent(input: GenerateInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  // the round's time starts with the request: the planner, the writers and the saves all fit in it
+  const clock = deadline();
   const brief = briefFor(input.href);
   if (!brief) return { ok: false, error: "ไม่พบผลิตภัณฑ์นี้" };
   if (!["post", "script", "ad"].includes(input.format)) return { ok: false, error: "เลือกประเภทงานก่อนนะครับ" };
@@ -195,6 +212,9 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
+  // the owner's ceiling before a round is counted, not after (ceiling.ts, review 2026-10-01)
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   // the agent's own monthly allowance (src/lib/auth/quota.ts); staff are outside it
   const pass = await takeRound(viewer, "ai-write");
   if (!pass.ok) return { ok: false, error: pass.refusal };
@@ -227,7 +247,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
         if (input.format !== "post") return { ok: false, error: "มุมตัวเลขชัดๆ ใช้ได้กับโพสต์เฟซบุ๊กเท่านั้น" };
         const sheets = numberSheets(brief.product.href, count);
         if (sheets.length === 0) return { ok: false, error: "แบบนี้ยังคำนวณตัวเลขไม่ได้ในตอนนี้ (ตารางเบี้ยอาจหมดอายุ) ลองมุมอื่นก่อนนะครับ" };
-        const heads = await headlines(sheets);
+        const heads = await headlines(sheets, { budgetMs: clock.budget(PLAN_MS, SAVE_MS) });
         const rows = sheets.map((s, i) => {
           // the sheet's own figures, kept on the piece: an edit is checked against them again
           const figures = numbersYardstick([s]);
@@ -253,7 +273,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
 
       if (input.format === "ad") {
         const hint = [told, reader ? `คนอ่านคือ ${reader}` : ""].filter(Boolean).join(" · ");
-        const round = await writeAds({ brief: brief.text, angles: adAngles, tones: adTones, hint, prefer: writeWith });
+        const round = await writeAds({ brief: brief.text, angles: adAngles, tones: adTones, hint, prefer: writeWith, clock, saveMs: SAVE_MS });
         const planShare = round.planThb / round.pieces.length;
         const saved = await saveAll(round.pieces.map((w) => ({
           planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(w.output),
@@ -263,9 +283,11 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
         return roundResult(saved, round.planned, round.budgetHit);
       }
 
-      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, formula });
+      // the planner leaves the writers one try's time and the saves theirs; the writers take what
+      // is left then, fallbacks included, and the saves still fit (deadline.ts, review 2026-10-01)
+      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, formula }, { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) });
       // the writer names the formula on each piece (markFormula), so nothing is added here
-      const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, formula, plans: planned.plans, reader, goal, fact }, { prefer: writeWith });
+      const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, formula, plans: planned.plans, reader, goal, fact }, { prefer: writeWith, budgetMs: clock.budget(Infinity, SAVE_MS) });
 
       // each piece carries its own writing cost and an equal share of the planner's
       const planShare = planned.costThb / written.pieces.length;
@@ -283,6 +305,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
     } catch (e) {
       if (e instanceof BudgetExceeded) return { ok: false, error: BUDGET_OUT };
       if (e instanceof UnreadableReply) return { ok: false, error: e.message };
+      if (e instanceof OutOfTime) return { ok: false, error: OUT_OF_TIME };
       console.error("content generate failed:", e);
       return { ok: false, error: "สร้างไม่สำเร็จ ระบบขัดข้องชั่วคราว ลองใหม่อีกครั้งนะครับ" };
     } finally {
@@ -300,6 +323,8 @@ export async function generateRecruit(input: RecruitWriteInput): Promise<Generat
   }
   const project = await projectPage(input.page);
   if (!project.ok) return project;
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-recruit");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeRecruit(input, project.pageId));
@@ -317,6 +342,8 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
   }
   const project = await projectPage(input.page);
   if (!project.ok) return project;
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-knowledge");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeKnowledge(input, project.pageId));
@@ -332,6 +359,8 @@ export async function generateDraft(input: DraftWriteInput): Promise<GenerateRes
   if (!cleanDraft(input.draft)) return { ok: false, error: "พิมพ์ร่างก่อนนะครับ" };
   const project = await projectPage(input.page);
   if (!project.ok) return project;
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-draft");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeDraft(input, project.pageId));
@@ -382,6 +411,10 @@ export async function proofreadContent(id: string): Promise<Fix[]> {
  *
  * Skipped when the piece was written to a formula already: its hook would give that formula
  * back, and the call would buy nothing. Failure is silent — the piece is still marked used.
+ *
+ * The formula joins the one library everybody writes from; the hook it came from is kept with
+ * it as its example, and shown only to whoever may see this piece (store.ts, examplesShown —
+ * it was shown to every tenant, review 2026-10-01).
  */
 async function learnFormula(item: ContentItem): Promise<void> {
   const hook = item.output.hooks[0];
@@ -657,12 +690,16 @@ export interface ContentSpend {
  * The owner's picture request in English. Image models read Thai badly and try to draw it, so
  * a request typed in Thai is translated first by the cheap model — once, a fraction of a baht.
  */
-async function inEnglish(request: string): Promise<string> {
+async function inEnglish(request: string, clock: Deadline): Promise<string> {
   const text = request.trim().slice(0, MAX_DIRECTION);
   if (!text || !/[\u0E00-\u0E7F]/.test(text)) return text;
+  // the picture and its saving must still fit after it: no time for the translation is no
+  // picture, said before one is paid for (the request is the picture; it is not dropped)
+  const ms = clock.budget(TRANSLATE_MS, BEFORE_DRAW_MS);
+  if (!ms) throw new OutOfTime("translation");
   // a full art direction is kept whole: every instruction, in order, not a summary of it
-  const r = await chat({
-    tier: "small", task: "content-image-brief", maxTokens: 2500,
+  const r = await within(chat({
+    tier: "small", task: "content-image-brief", maxTokens: 2500, timeoutMs: Math.min(TRANSLATE_TRY_MS, ms),
     messages: [
       {
         role: "system",
@@ -670,8 +707,56 @@ async function inEnglish(request: string): Promise<string> {
       },
       { role: "user", content: text },
     ],
-  });
+  }), ms, "translation");
   return stripThai(r.text).slice(0, MAX_DIRECTION);
+}
+
+/**
+ * A picture's time (deadline.ts). The image call has no timeout of its own to pass: it gives
+ * each of its two image models 90 s (src/lib/ai/client.ts), so that much is kept for it, and
+ * the upload and the save after it. What comes before it — the translation, the look — gets
+ * what is left once that is kept back, with a little over; reading the drawn words back comes
+ * after the picture is on the piece, and only when there is time for it.
+ */
+const IMAGE_WORST_MS = 180_000;
+const AFTER_IMAGE_MS = 15_000;
+/** the picture can start only with this much left */
+const DRAW_NEEDS_MS = IMAGE_WORST_MS + AFTER_IMAGE_MS;
+/** what the steps before the picture keep back for it */
+const BEFORE_DRAW_MS = DRAW_NEEDS_MS + 10_000;
+const TRANSLATE_MS = 60_000;
+/** each provider's try at the translation: the providers' own 25 s, as before */
+const TRANSLATE_TRY_MS = 25_000;
+const LOOK_MS = 20_000;
+const READ_BACK_MS = 60_000;
+/** the read-back's own save */
+const WRITE_BACK_MS = 5_000;
+
+const OUT_OF_TIME_DRAW = "วาดรูปไม่ทันเวลา (AI ตอบช้า) — ยังไม่ได้วาดรูปนี้ ลองใหม่อีกครั้งนะครับ";
+
+/**
+ * The words the model drew, read back off the picture once it is on the piece, and written
+ * over the "not read" record the picture went on with. Optional: no time, a reader that is
+ * down, a piece redrawn, posted or ticked by the agent meanwhile — the record stays "not
+ * read", and the agent reads the words themselves before it may be posted. Null when nothing
+ * was written.
+ */
+async function readBack(id: string, background: string, img: { bytes: Buffer; mimeType: string }, poster: PosterSpec, clock: Deadline): Promise<ContentItem | null> {
+  const ms = clock.budget(READ_BACK_MS, WRITE_BACK_MS);
+  if (!ms) return null;
+  try {
+    const aiText = await readPosterText(img.bytes, img.mimeType, poster, { timeoutMs: ms });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const latest = await getContent(id);
+      const now = latest?.output.poster;
+      if (!latest || !now || now.background !== background || !now.aiText || now.aiText.checked || onPage(latest.publish)) return null;
+      const saved = await saveOutputIf(id, { ...latest.output, poster: { ...now, aiText } }, undefined, latest.output.rev ?? null);
+      if (saved) return saved;
+    }
+  } catch (e) {
+    console.error("poster words not written back:", e);
+  }
+  return null;
 }
 
 /** A picture for a piece Facebook has or holds: the post would keep the old one, so this one is not put on. */
@@ -694,20 +779,29 @@ export type DrawBackgroundResult = { ok: true; item: ContentItem; note?: string 
  */
 export async function drawBackground(id: string, request = "", painter?: string, person?: PiecePerson | null): Promise<DrawBackgroundResult> {
   const viewer = await requireMember();
+  // the picture's time starts with the request (deadline.ts, review 2026-10-01)
+  const clock = deadline();
   if (!drawPerHour(`draw:${await caller()}`)) {
     return { ok: false, error: "วาดรูปครบ 40 รูปในชั่วโมงนี้แล้ว รอสักพักนะครับ" };
   }
+  // the owner's ceiling before a round is counted, not after (ceiling.ts, review 2026-10-01)
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${ceiling} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai` };
   // asked before the piece is read: a piece that is not theirs costs a look, not a round
   const seen = await getContent(id).catch(() => null);
   if (!seen) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
   // What a wallet round sets aside is this picture's own price, not the dearest one's: five
   // pictures start at once and a flat ฿3 hold (฿6 after the multiplier) each needed ฿30 of
-  // money that would have paid ฿5. A person is likely when the request names one, or leaves it
-  // to the piece; whether their photos exist is only known inside the round, so this is the
-  // dearer guess (owner, 2026-09-30). "none" prices at 0: the default hold stays.
-  const personLikely = person ? true : person === undefined ? Boolean(seen.output.person) : false;
-  const priced = painterFor(painter, Infinity, personLikely);
-  const pass = await takeRound(viewer, "ai-draw", id, priced.thb > 0 ? priced.thb + OVERHEAD_THB : undefined);
+  // money that would have paid ฿5 (owner, 2026-09-30). But it is the dearest this picture can
+  // reach — the painter's fallbacks, and Gemini when a person is in it — or a picture that fell
+  // back, or gained a person, was charged no more than a cheaper hold (review, 2026-10-01).
+  // The piece's own person is settled here, from this read, and the round draws that one: read
+  // again inside the round, a person put on meanwhile was drawn by Gemini at a hold priced
+  // without them. Whether their photos exist is only known inside the round, so a person is the
+  // dearer guess. "none" prices at 0: the default hold stays.
+  if (person === undefined) person = seen.output.person ?? null;
+  const priced = drawHoldThb({ painter, withPerson: Boolean(person), request });
+  const pass = await takeRound(viewer, "ai-draw", id, priced > 0 ? priced : undefined);
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, async (): Promise<DrawBackgroundResult> => {
     let hold: string | null = null;
@@ -735,13 +829,14 @@ export async function drawBackground(id: string, request = "", painter?: string,
       // what the owner typed decides the whole picture; without it, the kind of picture is chosen
       // for this scene away from the Page's last few (looks.ts) — a picker or a list that cannot
       // be read leaves the original look, and the picture is drawn
-      const direction = await inEnglish(request);
+      const direction = await inEnglish(request, clock);
       // with a brief the model draws the whole poster, words and all — but not over a รีวิวเคลม's
       // papers, which only the code may lay (they were blacked out and checked)
       const wordsDrawn = Boolean(direction) && !poster.documents?.length;
       const look = direction ? undefined : await pickLook({
         scene: stripThai(item.output.imagePrompt), person: Boolean(who),
         recent: await recentLooks(item.pageId).catch(() => []),
+        timeoutMs: clock.budget(LOOK_MS, BEFORE_DRAW_MS),
       });
       const prompt = wordsDrawn
         ? posterPrompt({ direction, poster, layout: poster.layout, person: who ? { pose: who.pose } : null })
@@ -751,12 +846,17 @@ export async function drawBackground(id: string, request = "", painter?: string,
           // on a claim poster the papers cover the lower half, so the person stands beside them
           person: who ? { pose: who.pose, aside: Boolean(poster.documents?.length) } : null,
         });
+      // a picture that could not be kept is not paid for: with too little time left it is not ordered
+      if (clock.left() < DRAW_NEEDS_MS) return { ok: false, error: OUT_OF_TIME_DRAW };
       const img = await drawImage({ task: "content-image", prompt, prefer: chosen.modelId, references: found?.photos });
       // the fallback may have drawn it; name what actually did
       const by = PAINTERS.find((p) => p.modelId === img.id)?.short ?? (img.id === "gemini-image-lite" ? "Gemini Lite Image" : img.model);
       const background = await saveBackground(item.id, img.bytes, img.mimeType);
-      // the words the model drew, read back off the picture against the words it was given
-      const aiText = wordsDrawn ? await readPosterText(img.bytes, img.mimeType, poster) : undefined;
+      // The picture goes on the piece first, its drawn words marked "not read" — the agent is
+      // asked to read them — and is read back after (readBack). Reading came first, and three
+      // readers at a minute each could run the function out of time with the picture paid for,
+      // uploaded and on no piece (review, 2026-10-01).
+      const aiText = wordsDrawn ? unreadPosterText(poster) : undefined;
       // The drawing takes half a minute; an edit saved meanwhile is read again, not written over.
       // The write goes through only if the piece is still as just read (its rev); an edit that
       // lands between the read and the write sends it round again, three times at most.
@@ -788,15 +888,18 @@ export async function drawBackground(id: string, request = "", painter?: string,
         if (!saved) continue;
         // the picture it replaced is shown nowhere any more
         if (previous && previous !== background) await removeBackground(item.id, previous);
+        // the words the model drew, read back off the picture against the words it was given
+        const read = wordsDrawn ? await readBack(item.id, background, img, poster, clock) : null;
         return wanted && !found
-          ? { ok: true, item: saved, note: "ไม่พบบุคคลที่เลือกในคลัง (อาจถูกลบไปแล้ว) เลยวาดภาพโดยไม่มีคน" }
-          : { ok: true, item: saved };
+          ? { ok: true, item: read ?? saved, note: "ไม่พบบุคคลที่เลือกในคลัง (อาจถูกลบไปแล้ว) เลยวาดภาพโดยไม่มีคน" }
+          : { ok: true, item: read ?? saved };
       }
       // edited three times over while it was being saved: the picture is not put on the piece
       await removeBackground(item.id, background);
       return { ok: false, error: "ชิ้นนี้ถูกแก้ระหว่างวาดรูป — กดวาดใหม่อีกครั้งนะครับ" };
     } catch (e) {
       if (e instanceof BudgetExceeded) return { ok: false, error: BUDGET_OUT };
+      if (e instanceof OutOfTime) return { ok: false, error: OUT_OF_TIME_DRAW };
       console.error("content background failed:", e);
       return { ok: false, error: "วาดรูปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
     } finally {

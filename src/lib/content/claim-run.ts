@@ -11,6 +11,7 @@ import {
 import { OVERHEAD_THB, writerOf } from "./models";
 import type { ContentOutput } from "./output";
 import { checkPolicy } from "./policy";
+import { onPage } from "./publish-label";
 import { MAX_PAPERS, posterText } from "./poster";
 import { LENGTHS, MAX_READER, type Format, type Length } from "./prompt";
 import {
@@ -230,6 +231,9 @@ export async function claimPaper(id: string, i: number): Promise<{ bytes: Buffer
 
 export type CheckResult = { ok: true; item: ContentItem } | { ok: false; error: string };
 
+/** the papers of a piece on the Page, or held for it, are the ones Facebook has */
+const ON_PAGE_PAPER = "ชิ้นนี้ลงเพจหรือตั้งเวลาไว้แล้ว — เอกสารบนเพจเป็นชุดเดิม ถ้าจะแก้ให้ยกเลิกการตั้งเวลาก่อน";
+
 /**
  * ตรวจแล้ว on a claim poster's papers: the owner looked at every one, and perhaps laid more
  * stickers — `replaced` holds the new pictures by their place in the pile, stickers burnt in,
@@ -244,7 +248,18 @@ export async function checkPaper(id: string, replaced: Map<number, Paper>): Prom
     for (let attempt = 0; attempt < 3; attempt++) {
       const item = await getContent(id);
       const docs = item?.output.poster?.documents;
-      if (!item || item.planHref !== CLAIM_HREF || !docs?.length || !item.output.poster) return { ok: false, error: "ไม่พบรูปเอกสารของชิ้นนี้" };
+      if (!item || item.planHref !== CLAIM_HREF || !docs?.length || !item.output.poster) {
+        await dropAdded();
+        return { ok: false, error: "ไม่พบรูปเอกสารของชิ้นนี้" };
+      }
+      // A piece Facebook has or holds keeps the papers it went with: ตรวจแล้ว here would swap
+      // them, and tick paperChecked, on a poster the Page already has — as every other edit
+      // refuses (review, 2026-10-01). Asked again each time round, since it may have gone up
+      // between tries; whatever this request filed by then goes.
+      if (onPage(item.publish)) {
+        await dropAdded();
+        return { ok: false, error: ON_PAGE_PAPER };
+      }
       for (const [i, paper] of replaced) {
         if (i >= 0 && i < docs.length && !added.has(i)) added.set(i, await saveBackground(item.id, paper.bytes, paper.mimeType));
       }

@@ -121,6 +121,14 @@ describe("memberSignIn", () => {
     expect(auth.startSession).not.toHaveBeenCalled();
   });
 
+  it("fails closed when the address's count cannot be read (review, 2026-10-01)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    db.on("ins_login_attempts", (steps) => (has(steps, "insert") ? { data: { id: "a1" } } : { error: { message: "timeout" }, count: null }));
+    expect(await memberSignIn(form("0812345678", "280419"))).toEqual({ error: "ระบบขัดข้อง ลองใหม่อีกครั้ง" });
+    expect(store.memberByPhone).not.toHaveBeenCalled();
+    expect(auth.startSession).not.toHaveBeenCalled();
+  });
+
   it("says the system is down, and starts no session, when a lookup throws after the claim", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     store.memberByPhone.mockRejectedValueOnce(new Error("down"));

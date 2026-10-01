@@ -4,7 +4,7 @@ import { siteOrigin } from "@/lib/site-url";
 import { stripe } from "@/lib/stripe/client";
 import { checkoutParams } from "@/lib/wallet/checkout";
 import { isTopUpThb, toSatang } from "@/lib/wallet/money";
-import { balanceSatang, openTopUp, topUpState, walletSettings, type TopUpStatus } from "@/lib/wallet/store";
+import { balanceSatang, openTopUp, topUpState, walletFrozen, walletSettings, type TopUpStatus } from "@/lib/wallet/store";
 
 /**
  * Starting a top-up and asking how it went. The money is added only by Stripe's webhook
@@ -20,6 +20,8 @@ export async function startTopUp(thb: unknown): Promise<StartResult> {
   if (!isTopUpThb(thb)) return { ok: false, error: "เลือกยอดเติมจากปุ่มบนหน้านี้นะครับ" };
   const settings = await walletSettings().catch(() => null);
   if (!settings?.enabled) return { ok: false, error: "ตอนนี้ยังเติมเงินไม่ได้ครับ" };
+  // a wallet a refund or a dispute froze takes no new money until the owner lifts it (owner, 2026-10-01)
+  if (await walletFrozen(viewer.agentId)) return { ok: false, error: "กระเป๋าเงินถูกพักไว้ชั่วคราว — ติดต่อสำนักงานนะครับ" };
   try {
     const session = await stripe().checkout.sessions.create(checkoutParams({ agentId: viewer.agentId, thb, origin: siteOrigin() }));
     if (!session.url) throw new Error(`session ${session.id} has no url`);

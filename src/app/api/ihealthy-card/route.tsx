@@ -6,6 +6,7 @@ import {
   band, CARD_HEADERS, GOLD, GOLD_LIT, GROUND, GROUND_DEEP, H, Line, loadFonts, MUTE, PAD, PlanTable, RULE,
   geometryOf, scriptFonts, spacer, WHITE, widthOf,
 } from "./draw";
+import { HEALTH_CARD_KEYS, HEALTH_REPEATABLE, toCanonical } from "../card/canonical";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -43,6 +44,9 @@ function heightOf(card: IHealthyCard): number {
  * is a rendering of the engine's answer, not of whatever the link happened to say.
  */
 export async function GET(req: NextRequest) {
+  // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)
+  const moved = toCanonical(req, HEALTH_CARD_KEYS, HEALTH_REPEATABLE);
+  if (moved) return moved;
   let card = iHealthyCard(req.nextUrl.searchParams);
   // Chinese, Russian and Burmese need letters the Thai face does not have. Where they cannot
   // be had the card is drawn in Thai: a picture in the page's own language is a quote, and

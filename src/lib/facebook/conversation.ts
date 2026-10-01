@@ -1,11 +1,12 @@
 import { siteUrl } from "@/lib/site-url";
 import { hashUserId } from "@/lib/facebook/verify";
-import { claimEvent, isMuted, loadSession, muteFor, saveSession } from "@/lib/chat/session";
+import { claimEvent, isMuted, loadSession, muteFor, saveSession, saveTurn } from "@/lib/chat/session";
 import { armFollowup, dropFollowup } from "@/lib/chat/followup";
 import { sendImage, sendMessage, showTyping } from "@/lib/facebook/client";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { allow } from "@/lib/assistant/rate-limit";
-import { BudgetExceeded } from "@/lib/ai/client";
+import { BudgetExceeded, TurnTimeout, withTurnDeadline } from "@/lib/ai/client";
+import { turnBudgetMs } from "@/lib/chat/batch";
 import type { ChatMessage } from "@/lib/ai/types";
 import { agentTyped, customerOf, eventKey, referralOf, textOf, type Messaging } from "@/lib/facebook/events";
 import { productFromAd } from "@/lib/facebook/from-ad";
@@ -15,22 +16,29 @@ import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
 import { botTurn, keepTranscript } from "@/lib/chat/transcript";
 
 /**
- * The answer, with one more attempt before giving up.
+ * The answer, with one more attempt before giving up — both inside the turn's clock.
  *
  * The failures that reach a customer are transient — a key table that could not be read on a
  * cold start, a provider refusing one call. A second try costs a second and saves the lead.
+ *
+ * The clock (withTurnDeadline, src/lib/ai/client.ts) is what makes sure the apology below is
+ * sent at all: without it two slow attempts could run the function into its limit, and the
+ * platform kills it before the catch is reached (review, 2026-10-01). A turn out of time is
+ * not tried again.
  */
 async function answered(
   history: ChatMessage[], slots: Parameters<typeof answerAny>[1],
-  cameFor: Parameters<typeof answerAny>[3],
+  cameFor: Parameters<typeof answerAny>[3], turnMs: number,
 ) {
-  try {
-    return await answerAny(history, slots, "facebook", cameFor);
-  } catch (e) {
-    if (e instanceof BudgetExceeded) throw e;
-    console.error("answer failed, trying once more:", e);
-    return await answerAny(history, slots, "facebook", cameFor);
-  }
+  return withTurnDeadline(turnMs, async () => {
+    try {
+      return await answerAny(history, slots, "facebook", cameFor);
+    } catch (e) {
+      if (e instanceof BudgetExceeded || e instanceof TurnTimeout) throw e;
+      console.error("answer failed, trying once more:", e);
+      return await answerAny(history, slots, "facebook", cameFor);
+    }
+  });
 }
 
 /**
@@ -93,7 +101,11 @@ async function sendCard(
     .catch((e) => console.error("card link failed:", e));
 }
 
-export async function handle(event: Messaging, pageId?: string): Promise<void> {
+/**
+ * `startedAt` is when the webhook's batch began (Date.now()), so a turn late in a long batch
+ * gets only the time the function has left; left out, the turn has its full TURN_MS.
+ */
+export async function handle(event: Messaging, pageId?: string, opts: { startedAt?: number } = {}): Promise<void> {
   // on an echo the sender is the page, so the thread is named by who it was sent to
   const psid = customerOf(event);
   if (!psid) return;
@@ -221,7 +233,7 @@ export async function handle(event: Messaging, pageId?: string): Promise<void> {
 
   await showTyping(psid, pageId).catch(() => {});
   try {
-    const answer = await answered(history, session.slots, cameFor?.product);
+    const answer = await answered(history, session.slots, cameFor?.product, turnBudgetMs(opts.startedAt));
     // the model takes seconds, and an agent watching the thread answers inside them. Their
     // words are already in the customer's phone by now, so the bot says nothing and records
     // nothing — a mark that was not there when this answer began is theirs, just now.
@@ -246,11 +258,14 @@ export async function handle(event: Messaging, pageId?: string): Promise<void> {
     // the turn that hands the form over is counted, but no longer silences the bot: only an
     // agent's own reply does (owner, 2026-09-26)
     const justSent = handedOver(answer.slots) && !handedOver(session.slots);
-    // no mute argument: recording what was said must never clear one, nor the agent's stamp
-    await saveSession(
-      "facebook", userHash, [...history, { role: "assistant", content: spoken }],
-      answer.slots, undefined, conversationId,
-    );
+    // the mute and the agent's stamp are none of this save's business; and a second message
+    // from the same customer answered beside this one is merged with, not written over
+    await saveTurn("facebook", userHash, {
+      base: session,
+      added: [{ role: "user", content: text }, { role: "assistant", content: spoken }],
+      slots: answer.slots,
+      conversationId,
+    });
     /**
      * A quotation is where the conversation used to stop, so it is where the bot now arms one
      * question five minutes out. Armed after the session is written, because the follow-up
@@ -283,9 +298,11 @@ export async function handle(event: Messaging, pageId?: string): Promise<void> {
       await openLead(conversationId, psid, stage, product);
     }
   } catch (e) {
+    // the apology first: it is the one thing that has to be out before the function's limit
+    await sendMessage(psid, e instanceof BudgetExceeded ? OUT_OF_BUDGET : BROKEN, undefined, { pageId })
+      .catch((err) => console.error("apology not sent:", err));
     ledger.push({ kind: "failed" });
     await record(conversationId, ledger, null);
-    await sendMessage(psid, e instanceof BudgetExceeded ? OUT_OF_BUDGET : BROKEN, undefined, { pageId });
     throw e;
   }
 }

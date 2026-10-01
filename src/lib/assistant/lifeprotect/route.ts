@@ -3,7 +3,7 @@ import { chat, parseJsonReply } from "@/lib/ai/client";
 import { askShadow, recordShadow } from "../shadow";
 import type { ChatMessage } from "@/lib/ai/types";
 import { getPlan } from "@/calc/plans/registry";
-import { ageFromBirthdate, coverIn, peopleIn, recentTurns, sexIn } from "../common";
+import { ageFromBirthdate, monthsOldIn, coverIn, peopleIn, recentTurns, sexIn } from "../common";
 
 /**
  * Re-exported where they have always been named from: these read a person out of a message,
@@ -255,6 +255,8 @@ function clean(raw: Routed, history: ChatMessage[]): Routed {
   const born = ageFromBirthdate(last);
   if (born !== undefined) out.age = born;
   else if (namedPeople.length) out.age = namedPeople[0].age;
+  // "อายุ 8 เดือน" is a baby of nought, however the model counted it (review 2026-10-01)
+  else if (monthsOldIn(last) !== undefined) out.age = monthsOldIn(last);
   else if (typeof raw.age === "number" && raw.age >= 0 && raw.age <= 99) out.age = Math.trunc(raw.age);
 
   // a birthdate leaves the sex standing alone, with no age beside it for `peopleIn` to pair

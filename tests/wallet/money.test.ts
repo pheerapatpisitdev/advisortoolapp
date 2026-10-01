@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  cardAllowed, chargeSatang, formatBaht, holdSatang, holdSatangFor, isTopUpThb, perPostUnder, postsFor, ROUND_HOLD_THB,
-  TOPUP_THB, toSatang,
+  cardAllowed, chargeSatang, drawHoldThb, formatBaht, holdSatang, holdSatangFor, IMAGE_FALLBACK_THB, isTopUpThb, perPostUnder, postsFor,
+  ROUND_HOLD_THB, TOPUP_THB, toSatang,
 } from "@/lib/wallet/money";
 import { AI_ROUNDS } from "@/lib/auth/quota";
 
@@ -96,5 +96,37 @@ describe("what a top-up buys, counted in posts (owner, 2026-10-01)", () => {
     expect(perPostUnder(2)).toBe(1.5);
     expect(perPostUnder(1.5)).toBe(1);
     expect(perPostUnder(2.4)).toBe(2);
+  });
+});
+
+describe("what a picture holds (review, 2026-10-01)", () => {
+  it("is the dearest model the round can reach: the lite fallback behind a cheaper pick", () => {
+    // มาตรฐาน ฿0.43 falls back to Gemini's lite model at ฿1.23 when OpenAI is down
+    expect(drawHoldThb({ painter: "standard", withPerson: false, request: "" })).toBe(1.26);
+    expect(drawHoldThb({ painter: "auto", withPerson: false, request: "" })).toBe(1.26);
+    expect(drawHoldThb({ painter: "sharp", withPerson: false, request: "" })).toBe(1.26);
+    expect(IMAGE_FALLBACK_THB).toBeGreaterThan(0.86);
+  });
+
+  it("is Gemini's with a person, whatever was picked", () => {
+    expect(drawHoldThb({ painter: "standard", withPerson: true, request: "" })).toBe(2.44);
+    expect(drawHoldThb({ painter: "gemini", withPerson: false, request: "" })).toBe(2.44);
+  });
+
+  it("counts the translation and the read-back of a typed direction", () => {
+    expect(drawHoldThb({ painter: "standard", withPerson: false, request: "  ภาพทะเล " })).toBe(1.29);
+    expect(drawHoldThb({ painter: "standard", withPerson: false, request: "   " })).toBe(1.26);
+  });
+
+  it("is 0 when nothing will be drawn, leaving the round's default hold", () => {
+    expect(drawHoldThb({ painter: "none", withPerson: true, request: "" })).toBe(0);
+  });
+
+  it("is never the flat default's ฿3: five pictures at once hold no more than reachable (owner, 2026-09-30)", () => {
+    for (const painter of ["standard", "sharp", "gemini", "auto"]) {
+      for (const withPerson of [false, true]) {
+        expect(drawHoldThb({ painter, withPerson, request: "x" })).toBeLessThan(ROUND_HOLD_THB["ai-draw"]);
+      }
+    }
   });
 });

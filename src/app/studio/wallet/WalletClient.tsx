@@ -10,7 +10,10 @@ const ROUND_NAMES: Record<string, string> = {
 };
 
 const entryLabel = (e: WalletEntry) =>
-  e.kind === "topup" ? "เติมเงิน" : e.kind === "charge" ? ROUND_NAMES[e.round ?? ""] ?? "ใช้ AI" : `ปรับโดยเจ้าของ${e.note ? ` (${e.note})` : ""}`;
+  e.kind === "topup" ? "เติมเงิน"
+    : e.kind === "charge" ? ROUND_NAMES[e.round ?? ""] ?? "ใช้ AI"
+    : e.kind === "clawback" ? `หักคืน${e.note ? ` (${e.note})` : ""}`
+    : `ปรับโดยเจ้าของ${e.note ? ` (${e.note})` : ""}`;
 
 const signed = (satang: number) => `${satang >= 0 ? "+" : "−"}${formatBaht(Math.abs(satang))}`;
 
@@ -18,8 +21,10 @@ const signed = (satang: number) => `${satang >= 0 ? "+" : "−"}${formatBaht(Mat
 const POLL_MS = 2000;
 const POLL_TRIES = 30;
 
-export function WalletClient({ enabled, multiplier, balanceSatang, entries, rounds, paid }: {
+export function WalletClient({ enabled, multiplier, balanceSatang, frozen = false, entries, rounds, paid }: {
   enabled: boolean;
+  /** a refund or a dispute paused the wallet until the owner lifts it (owner, 2026-10-01) */
+  frozen?: boolean;
   /** the owner's price multiplier, for what each top-up buys in posts */
   multiplier: number;
   balanceSatang: number;
@@ -72,6 +77,11 @@ export function WalletClient({ enabled, multiplier, balanceSatang, entries, roun
         <p className="mt-2 text-sm text-[var(--ct-mute)]">
           รอบฟรีเหลือ {freeLeft}/{rounds.limit} ครั้ง · หมดแล้วจึงตัดจากกระเป๋าตามต้นทุนจริงของงาน
         </p>
+        {frozen && (
+          <p className="mt-3 text-sm font-medium text-[var(--ct-warn-ink)]" role="status">
+            กระเป๋าเงินถูกพักไว้ชั่วคราว เพราะมีการคืนเงินหรือโต้แย้งการชำระเงินที่เติมไว้ — ระหว่างนี้ใช้ AI จากกระเป๋าและเติมเงินไม่ได้ กรุณาติดต่อสำนักงานครับ
+          </p>
+        )}
         {waiting === "checking" && <p className="mt-3 text-sm font-medium" role="status">กำลังยืนยันการชำระเงิน…</p>}
         {waiting === "late" && <p className="mt-3 text-sm" role="status">ยังไม่ได้รับการยืนยันจาก Stripe — ยอดจะเข้าเองเมื่อ Stripe แจ้ง ลองเปิดหน้านี้ใหม่ภายหลังนะครับ</p>}
         {waiting === "failed" && <p className="mt-3 text-sm text-[var(--ct-warn-ink)]" role="status">การชำระเงินไม่สำเร็จ ยังไม่ได้ตัดเงินครับ</p>}
@@ -79,7 +89,9 @@ export function WalletClient({ enabled, multiplier, balanceSatang, entries, roun
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium">เติมเงิน</h2>
-        {enabled ? (
+        {frozen ? (
+          <p className="text-sm text-[var(--ct-mute)]">เติมเงินได้อีกครั้งเมื่อสำนักงานปลดการพักกระเป๋าแล้วครับ</p>
+        ) : enabled ? (
           <>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {TOPUP_THB.map((thb) => (

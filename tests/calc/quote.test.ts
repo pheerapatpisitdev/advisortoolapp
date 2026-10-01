@@ -29,7 +29,8 @@ describe("quote (PLB)", () => {
     expect(by.ECARE.modal).toBe(29_250);
     expect(by.MEB.annual).toBeGreaterThan(0);
     expect(r.totalModal).toBe(by.PLB12.modal + by.AP.modal + by.ECARE.modal + by.MEB.modal);
-    expect(r.warnings).toEqual([]);
+    // nothing wrong with the arrangement; only the occupation class it assumed, said once
+    expect(r.warnings.map((w) => [w.level, w.code])).toEqual([["warn", "OCCUPATION_CLASS"]]);
   });
 
   it("AP+ECARE over 5x base: both excluded from total, warning added (Excel behaviour)", () => {

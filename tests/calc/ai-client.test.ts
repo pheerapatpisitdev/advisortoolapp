@@ -12,6 +12,10 @@ const inserted: Record<string, unknown>[] = [];
 /** the month so far: what the ledger holds, and what the owner set as the ceiling */
 let ledger: { model: string; task: string; cost_thb: number }[] = [];
 let budget: number | null = null;
+/** what agents' wallet rounds cost the providers this month (ins_wallet_charged_thb) */
+let walletCharged = 0;
+/** whether the call is made inside a round an agent pays for from their wallet */
+let walletRound = false;
 /** what the client library does to any select: the first thousand rows, silently */
 const CAP = 1000;
 
@@ -28,6 +32,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         }
         return { data: [...acc.values()], error: null };
       }
+      if (name === "ins_wallet_charged_thb") return { data: walletCharged, error: null };
       return { data: keyRows, error: keyRows ? null : { message: "boom" } };
     },
     from: (table: string) => ({
@@ -48,10 +53,14 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-const call = vi.fn(async () => ({ text: "ok", inputTokens: 10, outputTokens: 5 }));
+vi.mock("@/lib/wallet/round", () => ({ meterCost: () => {}, inWalletRound: () => walletRound }));
+
+const call = vi.fn<(args?: { signal?: AbortSignal }) => Promise<{ text: string; inputTokens: number; outputTokens: number }>>(
+  async () => ({ text: "ok", inputTokens: 10, outputTokens: 5 }),
+);
 vi.mock("@/lib/ai/providers", () => ({ CALLERS: { google: (...a: unknown[]) => call(...(a as [])) }, EMBEDDERS: {} }));
 
-const { chat, clearAiConfigCache } = await import("@/lib/ai/client");
+const { chat, clearAiConfigCache, TurnTimeout, withTurnDeadline } = await import("@/lib/ai/client");
 
 const ask = () => chat({ tier: "small", task: "t", messages: [{ role: "user", content: "hi" }] });
 
@@ -62,7 +71,10 @@ beforeEach(() => {
   inserted.length = 0;
   ledger = [];
   budget = null;
-  call.mockClear();
+  walletCharged = 0;
+  walletRound = false;
+  call.mockReset();
+  call.mockImplementation(async () => ({ text: "ok", inputTokens: 10, outputTokens: 5 }));
   clearAiConfigCache();
 });
 
@@ -119,5 +131,76 @@ describe("reaching a model", () => {
     keyRows = [{ provider: "google", api_key: "k" }];
     // a minute has not passed, so only a config that refused to be cached lets this through
     expect((await ask()).text).toBe("ok");
+  });
+});
+
+/**
+ * The owner's budget is the owner's money. Agents' wallet rounds are in the same ledger, and
+ * once agents began spending from their wallets the owner's month filled with their rounds and
+ * the bots told every customer they were out of budget (review, 2026-10-01).
+ */
+describe("the owner's budget and the agents' wallets", () => {
+  const month = () => Array.from({ length: 1180 }, () => ({ model: "gemini-3.1-flash-lite", task: "content-write", cost_thb: 0.03 }));
+
+  it("does not count what agents paid for from their wallets", async () => {
+    ledger = month(); // ฿35.40 in the ledger
+    budget = 32;
+    walletCharged = 10; // ฿10 of it was agents' rounds: the owner has spent ฿25.40
+    expect((await ask()).text).toBe("ok");
+  });
+
+  it("still stops when the owner's own share reaches the budget", async () => {
+    ledger = month();
+    budget = 32;
+    walletCharged = 2; // ฿33.40 is the owner's
+    await expect(ask()).rejects.toThrow(/งบ/);
+  });
+
+  it("does not stand over a round an agent is paying for", async () => {
+    ledger = month();
+    budget = 1;
+    walletRound = true;
+    expect((await ask()).text).toBe("ok");
+  });
+});
+
+describe("a call's own clock", () => {
+  it("gives a provider a timeout even when the caller names none", async () => {
+    await ask();
+    const signal = call.mock.calls[0][0]?.signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal!.aborted).toBe(false);
+  });
+});
+
+/**
+ * The webhooks answer inside after(), and a function at its limit is killed before its catch
+ * sends the apology. A turn's clock gives up first, so the apology always goes.
+ */
+describe("a turn's deadline", () => {
+  it("gives up at the deadline and aborts the call still waiting on a provider", async () => {
+    let seen: AbortSignal | undefined;
+    call.mockImplementation((args?: { signal?: AbortSignal }) => new Promise((_, reject) => {
+      seen = args?.signal;
+      args?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+    }));
+    const began = Date.now();
+    await expect(withTurnDeadline(50, () => ask())).rejects.toBeInstanceOf(TurnTimeout);
+    expect(Date.now() - began).toBeLessThan(2000);
+    expect(seen?.aborted).toBe(true);
+  });
+
+  it("starts no further call once the turn is out of time", async () => {
+    await expect(withTurnDeadline(20, async () => {
+      await new Promise((r) => setTimeout(r, 60));
+      return ask();
+    })).rejects.toBeInstanceOf(TurnTimeout);
+    // the late ask() runs on after the race is lost; give it a moment, then look
+    await new Promise((r) => setTimeout(r, 80));
+    expect(call).not.toHaveBeenCalled();
+  });
+
+  it("changes nothing for a turn that finishes in time", async () => {
+    expect((await withTurnDeadline(5000, () => ask())).text).toBe("ok");
   });
 });

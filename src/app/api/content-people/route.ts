@@ -58,13 +58,18 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** `?usage=<id>`: how many pieces were drawn with this person, asked before a delete */
+/**
+ * `?usage=<id>`: how many pieces were drawn with this person, asked before a delete. Only of a
+ * person the caller may see (getPerson is scoped), and only their pieces: it answered for any
+ * id, another tenant's people included (review, 2026-10-01).
+ */
 export async function GET(req: NextRequest) {
   const refused = await refuseUnless();
   if (refused) return refused;
   const id = req.nextUrl.searchParams.get("usage") ?? "";
   if (!/^[0-9a-f-]{36}$/.test(id)) return Response.json({ ok: false, error: "ไม่พบบุคคลนี้" }, { status: 400 });
   try {
+    if (!(await getPerson(id))) return Response.json({ ok: false, error: "ไม่พบบุคคลนี้" }, { status: 404 });
     return Response.json({ ok: true, ...(await piecesWithPerson(id)) });
   } catch (e) {
     console.error("person usage failed:", e);

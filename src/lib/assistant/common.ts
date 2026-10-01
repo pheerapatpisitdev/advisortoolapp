@@ -1,5 +1,6 @@
 import type { ChatMessage } from "@/lib/ai/types";
 import { listPlans } from "@/calc/plans/registry";
+import { businessDate } from "@/calc/calendar";
 import { siteUrl } from "@/lib/site-url";
 import { INSURER } from "@/lib/insurer";
 
@@ -95,6 +96,15 @@ export interface Reply {
   /** the answer carries a premium — the moment a browser turns into someone worth calling */
   priced?: boolean;
   /**
+   * The model that worded this reply, when one did — plan questions and small talk.
+   *
+   * Unset means the words are the engine's own or written out in this code. The website prints
+   * a line under every answer saying where it came from, and it printed "เครื่องคิดเบี้ยของระบบ"
+   * under free model prose too (review 2026-10-01): a customer reading that line is told the
+   * figures in it were computed, which is exactly what a model's figures are not.
+   */
+  writtenBy?: string;
+  /**
    * the customer has said the application form is filled in
    *
    * It rides here beside `priced` for the same reason that one does: the turn that knows it
@@ -169,6 +179,53 @@ export function spoken(text: string, fallback: string): Reply {
   const head = parts.slice(0, MAX_BUBBLES - 1);
   const tail = parts.slice(MAX_BUBBLES - 1).join("\n\n");
   return { messages: [...head, tail].map((t) => ({ text: t })) };
+}
+
+/**
+ * A model's reply, with any baht figure it was not given taken out.
+ *
+ * The prompts forbid a model to work out a premium, and say so at length; asked whether the
+ * premium was level, it still answered 3,790 a month where the engine had quoted 3,861. A rule
+ * in a prompt is a request. This is the check behind it (review 2026-10-01).
+ *
+ * `given` is everything the model was shown — its system prompt with the engine's figures in
+ * it, the knowledge, and the turns of the conversation, which hold every quotation already
+ * sent and every figure the customer typed. A figure found there is one the model copied, and
+ * is left alone: the engine's own numbers must never be the casualty of this.
+ *
+ * What counts as a figure: any number followed by บาท or ฿, and any number with thousands
+ * separators on a line that talks about paying — เบี้ย, ผ่อน, จ่าย, เดือนละ, ปีละ, งวด. Plain
+ * small numbers (an age, a paying term, a count of illnesses) are not money and are not read.
+ *
+ * Only the lines carrying an invented figure go; the rest of the answer stands. When nothing
+ * is left, `fallback` is said instead.
+ */
+const BAHT_FIGURE = /(\d[\d,]*(?:\.\d+)?)\s*(?:บาท|฿)/g;
+const GROUPED_FIGURE = /\d{1,3}(?:,\d{3})+(?:\.\d+)?/g;
+const PAYING_WORDS = /เบี้ย|ผ่อน|จ่าย|เดือนละ|ปีละ|งวด|รายเดือน|รายปี|ราคา/;
+const ANY_NUMBER = /\d[\d,]*(?:\.\d+)?/g;
+
+const asNumber = (figure: string) => Number(figure.replace(/,/g, ""));
+
+/** The baht figures a line states, as numbers. */
+function bahtFiguresIn(line: string): number[] {
+  const out = [...line.matchAll(BAHT_FIGURE)].map((m) => asNumber(m[1]));
+  if (PAYING_WORDS.test(line)) out.push(...[...line.matchAll(GROUPED_FIGURE)].map((m) => asNumber(m[0])));
+  return out.filter((n) => Number.isFinite(n));
+}
+
+/** The baht figures in a model's text that appear nowhere in what it was given. */
+export function inventedFigures(text: string, given: string): number[] {
+  const known = new Set([...given.matchAll(ANY_NUMBER)].map((m) => asNumber(m[0])));
+  return [...new Set(text.split("\n").flatMap(bahtFiguresIn))].filter((n) => !known.has(n));
+}
+
+export function keepGivenFigures(text: string, given: string, fallback: string): string {
+  if (inventedFigures(text, given).length === 0) return text;
+  const kept = text.split("\n").filter((line) => inventedFigures(line, given).length === 0);
+  console.warn("ตัดตัวเลขเบี้ยที่โมเดลคิดเองออก:", inventedFigures(text, given).join(", "));
+  const left = kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return left || fallback;
 }
 
 /**
@@ -453,11 +510,29 @@ const SEX_WORD = "ผู้หญิง|ผู้ชาย|ผญ|ผช|หญ�
 const NOT_AFTER_A_NUMBER = String.raw`(?<!\d|\d[,.])`;
 // nor the count of a sum said in words: "หญิง 1 ล้าน อายุ 40" is not a one-year-old
 const NOT_BEFORE_A_NUMBER = String.raw`(?!\d|[,.]\d|\s*(?:ล้าน|แสน|หมื่น|พัน|บาท))`;
+/**
+ * An age counted in months — "ลูกชาย อายุ 8 เดือน", "หญิง 10 เดือน".
+ *
+ * Read as months and turned into the age a rate table means, which is whole years: under a
+ * year is age 0, eighteen months is 1. It was read as years — the baby of eight months was
+ * priced as a child of eight (review 2026-10-01), a different premium on every plan.
+ *
+ * Not "เดือนละ", which is an instalment ("ชาย 35 เดือนละ 3,000" is a man of thirty-five
+ * paying 3,000 a month), nor "เดือนนี้/หน้า/ที่แล้ว/ก่อน", which are dates. Only after an
+ * age said with a sex or the word อายุ in front of it: "ราย 6 เดือน" and "6 เดือนเท่าไหร่"
+ * are the half-yearly instalment, and a number standing alone before เดือน is left alone.
+ */
+const MONTHS = String.raw`\s*(เดือน)(?!ละ|นี้|หน้า|ที่|ก่อน)`;
 const PERSON_RE = new RegExp(
-  `(${SEX_WORD})\\s*(?:เพศ\\s*)?(?:อายุ\\s*)?(\\d{1,2})${NOT_BEFORE_A_NUMBER}`
+  `(${SEX_WORD})\\s*(?:เพศ\\s*)?(?:อายุ\\s*)?(\\d{1,2})${NOT_BEFORE_A_NUMBER}(?:${MONTHS})?`
   + `|${NOT_AFTER_A_NUMBER}(\\d{1,2})${NOT_BEFORE_A_NUMBER}\\s*(?:ปี)?\\s*(?:เพศ\\s*)?(${SEX_WORD})`,
   "g",
 );
+
+/** A number said as an age, in years: months come down to the whole years they make. */
+function yearsOf(n: number, inMonths: boolean): number {
+  return inMonths ? Math.floor(n / 12) : n;
+}
 
 /**
  * A sex said with no age beside it — "เกิด 14/12/2523 ผู้หญิง", where the age is a date, or
@@ -565,13 +640,36 @@ function planNamePattern(): RegExp {
  * "ถึงอายุ" is excluded: "คุ้มครองถึงอายุ 99 ไหม" is a question about the contract, and reading
  * ninety-nine as the customer's age would answer somebody who does not exist.
  */
-const AGE_ALONE = /(?<!ถึง\s?)อายุ\s*(\d{1,2})(?!\d)|^\s*(\d{1,2})\s*ปี/;
+const AGE_ALONE = new RegExp(String.raw`(?<!ถึง\s?)อายุ\s*(\d{1,2})(?!\d)(?:${MONTHS})?|^\s*(\d{1,2})\s*ปี`);
 
 export function ageIn(text: string): number | undefined {
+  return ageSaid(text)?.age;
+}
+
+/** `ageIn`, and whether the customer counted it in months. */
+function ageSaid(text: string): { age: number; inMonths: boolean } | undefined {
   const m = AGE_ALONE.exec(text);
   if (!m) return undefined;
-  const age = Number(m[1] ?? m[2]);
-  return Number.isInteger(age) && age >= 0 && age <= 99 ? age : undefined;
+  const inMonths = Boolean(m[2]);
+  const age = yearsOf(Number(m[1] ?? m[3]), inMonths);
+  return Number.isInteger(age) && age >= 0 && age <= 99 ? { age, inMonths } : undefined;
+}
+
+/**
+ * The age of a baby whose age the message gives in months, in whole years; undefined when
+ * the message gives no age in months.
+ *
+ * For the routers that take the model's reading of the age when `peopleIn` pairs nobody: a
+ * model reads "อายุ 8 เดือน" as eight as readily as the pattern once did, and this is the
+ * message's own word against it.
+ */
+export function monthsOldIn(text: string): number | undefined {
+  const said = text.replace(planNamePattern(), " ");
+  for (const m of said.matchAll(PERSON_RE)) {
+    if (m[3]) return yearsOf(Number(m[2]), true);
+  }
+  const alone = ageSaid(said);
+  return alone?.inMonths ? alone.age : undefined;
 }
 
 /**
@@ -591,8 +689,8 @@ export function peopleIn(text: string): { age: number; sex: "M" | "F" }[] {
   const said = text.replace(planNamePattern(), " ");
   const out: { age: number; sex: "M" | "F" }[] = [];
   for (const m of said.matchAll(PERSON_RE)) {
-    const word = m[1] ?? m[4] ?? "";
-    const age = Number(m[2] ?? m[3]);
+    const word = m[1] ?? m[5] ?? "";
+    const age = yearsOf(Number(m[2] ?? m[4]), Boolean(m[3]));
     if (!Number.isInteger(age) || age < 0 || age > 99) continue;
     const sex = word.includes("ญ") ? "F" : "M";
     // the same person written twice is still one person
@@ -623,10 +721,24 @@ export function ageFromBirthdate(text: string, today: Date = new Date()): number
   if (day < 1 || day > 31 || month < 1 || month > 12) return undefined;
   // a year in the 2500s is พ.ศ.; anything else is read as ค.ศ.
   const year = named >= 2400 ? named - 543 : named;
-  const passed = today.getMonth() + 1 > month
-    || (today.getMonth() + 1 === month && today.getDate() >= day);
-  const age = today.getFullYear() - year - (passed ? 0 : 1);
+  const now = bangkokToday(today);
+  const passed = now.month > month || (now.month === month && now.day >= day);
+  const age = now.year - year - (passed ? 0 : 1);
   return age >= 0 && age <= 99 ? age : undefined;
+}
+
+/**
+ * Today's date where the customer is, as numbers.
+ *
+ * `getFullYear`/`getMonth`/`getDate` answer in the server's own zone, and the server runs on
+ * UTC — seven hours behind Bangkok. Between midnight and seven in the morning a customer
+ * whose birthday it is was a year younger than they are, and on New Year's night everyone
+ * born in a given year was (review 2026-10-01). The rate tables' expiry is read on the
+ * Bangkok calendar for the same reason (`calc/calendar.ts`), so the age is too.
+ */
+function bangkokToday(today: Date): { year: number; month: number; day: number } {
+  const [year, month, day] = businessDate(today).split("-").map(Number);
+  return { year, month, day };
 }
 
 /**
@@ -646,7 +758,7 @@ function ageFromBirthYear(text: string, today: Date): number | undefined {
   if (!m) return undefined;
   const named = Number(m[1]);
   const year = named >= 2400 ? named - 543 : named;
-  const age = today.getFullYear() - year;
+  const age = bangkokToday(today).year - year;
   return age >= 0 && age <= 99 ? age : undefined;
 }
 

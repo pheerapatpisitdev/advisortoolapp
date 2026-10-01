@@ -10,7 +10,7 @@ const AGENT: Viewer = {
 const who = vi.hoisted(() => ({ viewer: null as unknown }));
 vi.mock("@/lib/auth/viewer", () => ({ requireMember: async () => who.viewer }));
 const wallet = vi.hoisted(() => ({
-  walletSettings: vi.fn(), openTopUp: vi.fn(), topUpState: vi.fn(), balanceSatang: vi.fn(),
+  walletSettings: vi.fn(), openTopUp: vi.fn(), topUpState: vi.fn(), balanceSatang: vi.fn(), walletFrozen: vi.fn(),
 }));
 vi.mock("@/lib/wallet/store", () => wallet);
 const create = vi.hoisted(() => vi.fn());
@@ -24,6 +24,7 @@ beforeEach(() => {
   who.viewer = AGENT;
   wallet.walletSettings.mockResolvedValue({ enabled: true, multiplier: 2 });
   wallet.openTopUp.mockResolvedValue(undefined);
+  wallet.walletFrozen.mockResolvedValue(false);
   create.mockResolvedValue({ id: "cs_test_1", url: "https://checkout.stripe.com/c/cs_test_1" });
 });
 
@@ -42,6 +43,14 @@ describe("startTopUp", () => {
   it("refuses while the owner has the wallet off", async () => {
     wallet.walletSettings.mockResolvedValueOnce({ enabled: false, multiplier: 2 });
     expect(await startTopUp(100)).toMatchObject({ ok: false });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("refuses while a refund or a dispute has the wallet frozen, and asks Stripe nothing (owner, 2026-10-01)", async () => {
+    wallet.walletFrozen.mockResolvedValueOnce(true);
+    const r = await startTopUp(100);
+    expect(r).toMatchObject({ ok: false });
+    expect(r.ok === false && r.error).toMatch(/ติดต่อสำนักงาน/);
     expect(create).not.toHaveBeenCalled();
   });
 

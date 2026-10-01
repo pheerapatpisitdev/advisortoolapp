@@ -29,3 +29,28 @@ describe("the top-up buttons (owner, 2026-10-01)", () => {
     expect(draw(2, false)).not.toContain("ได้โพสต์ประมาณ");
   });
 });
+
+describe("a frozen wallet (owner, 2026-10-01)", () => {
+  const frozen = renderToStaticMarkup(createElement(WalletClient, {
+    enabled: true, multiplier: 2, balanceSatang: 0, frozen: true, entries: [
+      { id: "e1", kind: "clawback", amountSatang: -1500, round: null, note: "คืนเงินยอดเติมผ่าน Stripe รวม ฿100.00", createdAt: "2026-10-01T03:00:00Z" },
+    ], rounds: { used: 10, limit: 10 }, paid: null,
+  }));
+
+  it("says it is paused and to contact the office", () => {
+    expect(frozen).toContain("ถูกพักไว้ชั่วคราว");
+    expect(frozen).toContain("ติดต่อสำนักงาน");
+  });
+
+  it("offers no top-up while paused", () => {
+    expect(frozen).not.toContain("ได้โพสต์ประมาณ");
+  });
+
+  it("names the money taken back in the history", () => {
+    expect(frozen).toContain("หักคืน (คืนเงินยอดเติมผ่าน Stripe รวม ฿100.00)");
+  });
+
+  it("says nothing of a pause on a wallet that is not frozen", () => {
+    expect(draw(2)).not.toContain("ถูกพักไว้");
+  });
+});
