@@ -102,11 +102,13 @@ export async function finishClipUpload(input: { pieceId: string; path: string; f
 }
 
 const listensPerHour = limiter(20, 60 * 60_000);
+/** each person's own bucket: staff are agents too, and a member's id is theirs (Viewer.agentId is never empty) */
+const listener = (v: { kind: string; agentId: string }) => `clip:${v.kind}:${v.agentId}`;
 
 /** ถอดเสียง: one paid round per press (owner, 2026-10-02); a round that fails is not charged. */
 export async function transcribeClip(id: string): Promise<ClipResult> {
   const viewer = await requireMember();
-  if (!listensPerHour(`clip:${viewer.agentId ?? "staff"}`)) return { ok: false, error: "ถอดเสียงครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
+  if (!listensPerHour(listener(viewer))) return { ok: false, error: "ถอดเสียงครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   const item = await getContent(id).catch(() => null);
   if (!item?.output.video) return { ok: false, error: "ชิ้นนี้ยังไม่มีคลิป" };
   // a listen would write an AI caption onto a Reel Facebook already holds with other words

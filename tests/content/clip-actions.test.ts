@@ -13,7 +13,8 @@ vi.mock("@/lib/auth/quota", () => quota);
 vi.mock("@/lib/content/ceiling", () => ({ ceilingBeforeRound: vi.fn(async () => null) }));
 vi.mock("@/lib/content/clip-run", () => ({ runTranscribe: vi.fn(async (i: unknown) => ({ ok: true, item: i })) }));
 vi.mock("@/lib/wallet/round", () => ({ payRound: (_p: unknown, run: () => unknown) => run() }));
-vi.mock("@/lib/auth/viewer", () => ({ requireMember: vi.fn(async () => ({ agentId: "a1", staff: false })) }));
+const auth = vi.hoisted(() => ({ requireMember: vi.fn() }));
+vi.mock("@/lib/auth/viewer", () => auth);
 
 const { finishClipUpload, saveClipCaption, startClipUpload, transcribeClip } = await import("@/app/studio/clip");
 const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
@@ -26,6 +27,7 @@ const item = (over: Partial<ContentItem> = {}): ContentItem => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  auth.requireMember.mockImplementation(async () => ({ kind: "unitos", agentId: "a1", staff: null }));
   clips.createClipUpload.mockResolvedValue({ token: "tok" });
   store.saveOutputIf.mockImplementation(async (_id: string, output: ContentItem["output"]) => item({ output }));
   pages.projectPage.mockResolvedValue({ ok: true, pageId: "105" });
@@ -118,6 +120,16 @@ describe("transcribeClip", () => {
     store.getContent.mockResolvedValue(withClip({ publish: { state: "scheduled", pageId: "105", postId: "v1", at: "2099-01-01T00:00:00Z", error: null } }));
     expect(await transcribeClip(PIECE)).toMatchObject({ ok: false, error: expect.stringContaining("ตั้งเวลาหรือลงเพจแล้ว") });
     expect(quota.takeRound).not.toHaveBeenCalled();
+  });
+
+  it("counts the hour's 20 listens per person, staff included, not in one shared bucket", async () => {
+    store.getContent.mockResolvedValue(withClip());
+    const as = (agentId: string, staff: object | null) => auth.requireMember.mockImplementation(async () => ({ kind: "unitos", agentId, staff }));
+    as("staff-1", { owner: true, publish: true, connect: true, admin: true });
+    for (let i = 0; i < 20; i++) expect((await transcribeClip(PIECE)).ok).toBe(true);
+    expect(await transcribeClip(PIECE)).toMatchObject({ ok: false, error: expect.stringContaining("ครบ 20 ครั้ง") });
+    as("staff-2", { owner: false, publish: true, connect: false, admin: false });
+    expect((await transcribeClip(PIECE)).ok).toBe(true);
   });
 
   it("refuses an expired clip before taking a round", async () => {
