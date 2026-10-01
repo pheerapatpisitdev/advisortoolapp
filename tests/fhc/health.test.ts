@@ -21,6 +21,9 @@ describe("figures", () => {
     expect(g.netWorth).toBe(160_000 + 340_000 - 1_200_000);
     expect(g.emergencyTarget).toBe(150_000);
   });
+  it("counts the years the money must last from today once past the retirement age", () => {
+    expect(figures({ ...F, age: 68, retireAge: 65 }).moneyYears).toBe(17);
+  });
   it("has no working years left when the customer cannot work", () => {
     expect(figures({ ...F, work: "none" }).lifetimeIncome).toBe(0);
   });
@@ -45,10 +48,11 @@ describe("cleanFhc", () => {
   it("keeps the plan's own sentences for age and income", () => {
     expect(cleanFhc({ age: 10, income: 1 })).toContain("อายุ");
     expect(cleanFhc({ age: 35 })).toContain("เงินเดือน");
+    expect(cleanFhc({ age: 35, income: 40_000 })).toContain("ค่าใช้จ่าย");
   });
   it("cleans the FHC fields", () => {
     const f = cleanFhc({
-      age: 35, income: 40_000, expectancy: 300, work: "bogus", cash: -5, stocks: "1200",
+      age: 35, income: 40_000, expense: 20_000, expectancy: 300, work: "bogus", cash: -5, stocks: "1200",
       people: [{ relation: "child", age: 4 }, { relation: "cousin", age: 9 }, { relation: "parent", age: 500 }],
     }) as FhcInput;
     expect([f.expectancy, f.work, f.cash, f.stocks]).toEqual([85, "full", 0, 1_200]);
@@ -67,6 +71,7 @@ describe("scores", () => {
     expect(level({ ...F, expense: 32_000 }, "saving").level).toBe("green"); // 20%
     expect(level({ ...F, expense: 36_000 }, "saving").level).toBe("yellow"); // 10%
     expect(level({ ...F, expense: 38_000 }, "saving").level).toBe("red");
+    expect(level({ ...F, expense: 43_500 }, "saving")).toMatchObject({ level: "red", shown: "ใช้เกินรายได้ 3,500 บาท/เดือน" });
   });
   it("rates debt against a year of income, lower being better", () => {
     expect(level({ ...F, homeLoan: 0, carLoan: 0 }, "debt")).toMatchObject({ level: "green", shown: "ไม่มีหนี้" });

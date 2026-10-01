@@ -164,7 +164,8 @@ export function defaultRetireMonthly(expense: number): number {
 
 /** baht a month: what the customer wants after work, what is already coming, and the gap */
 export function retireNeed(p: PlanInput): { should: number; have: number; gap: number } {
-  const months = Math.max(1, (p.lifeExpectancy ?? LUMP_LASTS_TO_AGE) - p.retireAge) * 12;
+  // past the retirement age the money is spread from today
+  const months = Math.max(1, (p.lifeExpectancy ?? LUMP_LASTS_TO_AGE) - Math.max(p.age, p.retireAge)) * 12;
   const have = p.pensionHave + Math.round(p.retireLump / months / 100) * 100;
   return { should: p.retireMonthly, have, gap: Math.max(0, p.retireMonthly - have) };
 }
