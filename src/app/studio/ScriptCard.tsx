@@ -4,6 +4,7 @@ import { formulaBadge } from "@/lib/content/finish-check";
 import { shortModel } from "@/lib/content/models";
 import { LENGTHS } from "@/lib/content/prompt";
 import { scenes } from "@/lib/content/script";
+import { onPage } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
 import { ask } from "./ask";
 import { CheckIcon } from "./ui/editor-icons";
@@ -34,7 +35,9 @@ interface Props {
 export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCopy, onItem }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const upload = useClipUpload(onItem);
-  const filmed = Boolean(item.output.video && !item.output.video.expired);
+  // held or posted, the Reel is Facebook's: its clip counts as filmed after the sweep lets the file go, and none is attached again
+  const held = onPage(item.publish);
+  const filmed = Boolean(item.output.video && (!item.output.video.expired || held));
   const blocking = (item.flags.policy ?? []).some((f) => f.severity === "block");
   const toCheck = item.flags.numbers.length + item.flags.words.length + (item.flags.policy?.length ?? 0);
   const list = scenes(item.output.hooks[0] ?? "", item.output.body, item.output.closing);
@@ -98,12 +101,14 @@ export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCo
             e.target.value = "";
           }}
         />
-        <button
-          type="button" disabled={busy || upload.busy} onClick={() => input.current?.click()}
-          className={`${cell} w-full border-t border-[var(--ct-hair)] text-[var(--ct-accent)]`}
-        >
-          {upload.busy ? uploadLabel(upload.progress) : filmed ? "แนบคลิปใหม่" : "▶ แนบคลิปที่ถ่ายแล้ว"}
-        </button>
+        {!held && (
+          <button
+            type="button" disabled={busy || upload.busy} onClick={() => input.current?.click()}
+            className={`${cell} w-full border-t border-[var(--ct-hair)] text-[var(--ct-accent)]`}
+          >
+            {upload.busy ? uploadLabel(upload.progress) : filmed ? "แนบคลิปใหม่" : "▶ แนบคลิปที่ถ่ายแล้ว"}
+          </button>
+        )}
         <div className="grid grid-cols-3 divide-x divide-[var(--ct-hair)] border-t border-[var(--ct-hair)]">
           {item.status === "used" ? (
             <button type="button" onClick={onCopy} className={cell}>คัดลอก</button>

@@ -102,7 +102,10 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
       </div>
 
       {!v ? <p className="text-sm text-[var(--ct-mute)]">ยังไม่มีคลิป — แนบคลิปที่การ์ด</p>
-        : v.expired ? <p className="text-sm text-[var(--ct-warn-ink)]">ไฟล์คลิปหมดอายุ — แนบคลิปใหม่ที่การ์ด</p>
+        // the sweep lets a Reel's file go once Facebook has it: that is not a clip to attach again
+        : v.expired ? (locked
+          ? <p className="text-sm text-[var(--ct-mute)]">ไฟล์ต้นฉบับถูกลบจากระบบแล้ว — Reel ยังอยู่บนเพจ</p>
+          : <p className="text-sm text-[var(--ct-warn-ink)]">ไฟล์คลิปหมดอายุ — แนบคลิปใหม่ที่การ์ด</p>)
           : <video ref={player} src={src ?? undefined} controls playsInline preload="metadata" className="mx-auto block max-h-[60vh] max-w-full rounded-lg bg-black" />}
 
       <label className="block">
@@ -139,7 +142,7 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
           <p className="font-medium">เสียงพูดในคลิป</p>
           {!v.transcript ? (
             <div className="mt-1 space-y-2">
-              <p className="text-[var(--ct-mute)]">{v.transcribeFailed ? "ถอดเสียงไม่สำเร็จ" : "ยังไม่ได้ถอดเสียง"} — ลงเพจได้ แต่ระบบจะขอให้ยืนยันว่ายังไม่ได้ตรวจเสียงพูด</p>
+              <p className="text-[var(--ct-mute)]">{v.transcribeFailed ? "ถอดเสียงไม่สำเร็จ" : "ยังไม่ได้ถอดเสียง"}{locked ? "" : " — ลงเพจได้ แต่ระบบจะขอให้ยืนยันว่ายังไม่ได้ตรวจเสียงพูด"}</p>
               {!locked && !v.expired && (
                 <button type="button" onClick={listen} disabled={working !== null || sending} className={button}>
                   {working === "listen" ? "กำลังถอดเสียง…" : "ถอดเสียงอีกครั้ง"}
@@ -189,7 +192,8 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
 
       {planner
         ? <PlanPanel item={item} suggestDay={suggestDay} onSaved={onSaved} />
-        : v && !v.expired && (
+        // held or posted, the box still says where it went (and links to it) after the file is gone
+        : v && (!v.expired || locked) && (
           <PublishPanel item={item} hook={0} beforePublish={save} onPublished={onPublished} drawing={false} suggestDay={suggestDay} onBusy={setSending} />
         )}
 

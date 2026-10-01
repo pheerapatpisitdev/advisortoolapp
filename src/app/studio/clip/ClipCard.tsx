@@ -1,7 +1,7 @@
 "use client";
 import { useRef } from "react";
 import { clockOf } from "@/lib/content/clip";
-import { publishLabel } from "@/lib/content/publish-label";
+import { onPage, publishLabel } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
 import { CLIP_ACCEPT, uploadLabel } from "./ClipTools";
 import { useClipUpload } from "./useClipUpload";
@@ -24,6 +24,8 @@ export function ClipCard({ item, index, busy, onEdit, onStatus, onDelete, onItem
   const warnings = v ? (v.spokenFlags?.length ?? 0) + v.flags.words.length + v.flags.numbers.length + (v.flags.policy?.length ?? 0) : 0;
   const blocking = (v?.flags.policy ?? []).some((f) => f.severity === "block");
   const label = publishLabel(item.publish);
+  // held or posted: Facebook has the clip, so there is nothing to attach again (the server refuses it)
+  const held = onPage(item.publish);
   const cell = "flex min-h-11 items-center justify-center gap-1.5 px-1 text-center text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
 
   return (
@@ -44,7 +46,9 @@ export function ClipCard({ item, index, busy, onEdit, onStatus, onDelete, onItem
 
       <div className="flex-1 space-y-2 px-3 py-3 text-sm">
         {!v ? <p className="text-[var(--ct-mute)]">ยังไม่มีไฟล์คลิป — แนบคลิปได้เลย</p>
-          : v.expired ? <p className="text-[var(--ct-warn-ink)]">ไฟล์คลิปหมดอายุ — แนบใหม่ได้</p>
+          : v.expired ? (held
+            ? <p className="text-[var(--ct-mute)]">ไฟล์ต้นฉบับถูกลบจากระบบแล้ว — Reel ยังอยู่บนเพจ</p>
+            : <p className="text-[var(--ct-warn-ink)]">ไฟล์คลิปหมดอายุ — แนบใหม่ได้</p>)
             : !v.transcript ? <p className="text-[var(--ct-mute)]">{v.transcribeFailed ? "ถอดเสียงไม่สำเร็จ — เปิดแก้ไขเพื่อลองอีกครั้ง" : "ยังไม่ได้ถอดเสียง"}</p>
               : null}
         {v?.caption ? <p className="line-clamp-4 whitespace-pre-line leading-relaxed">{v.caption}</p>
@@ -66,11 +70,13 @@ export function ClipCard({ item, index, busy, onEdit, onStatus, onDelete, onItem
           <button type="button" disabled={busy} onClick={onDelete} className={`${cell} text-[var(--ct-alert)]`}>ลบถาวร</button>
         </div>
       ) : (
-        <div className="grid grid-cols-3 divide-x divide-[var(--ct-hair)] border-t border-[var(--ct-hair)]">
+        <div className={`grid ${held ? "grid-cols-2" : "grid-cols-3"} divide-x divide-[var(--ct-hair)] border-t border-[var(--ct-hair)]`}>
           <button type="button" onClick={onEdit} disabled={!v} className={`${cell} font-medium text-[var(--ct-accent)]`}>แก้ไข / ลงเพจ</button>
-          <button type="button" onClick={() => input.current?.click()} disabled={busy || upload.busy} className={cell}>
-            {upload.busy ? uploadLabel(upload.progress, true) : v ? "แนบใหม่" : "แนบคลิป"}
-          </button>
+          {!held && (
+            <button type="button" onClick={() => input.current?.click()} disabled={busy || upload.busy} className={cell}>
+              {upload.busy ? uploadLabel(upload.progress, true) : v ? "แนบใหม่" : "แนบคลิป"}
+            </button>
+          )}
           <button type="button" disabled={busy || upload.busy} onClick={() => onStatus("trashed")} className={`${cell} text-[var(--ct-alert)]`}>ทิ้ง</button>
         </div>
       )}

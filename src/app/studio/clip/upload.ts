@@ -1,5 +1,5 @@
 "use client";
-import { Upload } from "tus-js-client";
+import { DetailedError, Upload } from "tus-js-client";
 import { CLIP_BUCKET, type ClipFile } from "@/lib/content/clip";
 
 /**
@@ -54,9 +54,19 @@ export function uploadClip(opts: { file: File; path: string; token: string; onPr
       onSuccess: () => resolve(),
     });
     opts.signal?.addEventListener("abort", () => { void upload.abort(); reject(new DOMException("aborted", "AbortError")); });
+    // tus finds earlier tries by the file's fingerprint; only one sent to this very path carries on —
+    // another path's was signed with another token, and its bytes would land under the wrong name
     upload.findPreviousUploads().then((previous) => {
-      if (previous.length) upload.resumeFromPreviousUpload(previous[0]);
+      const same = previous.find((p) => p.metadata?.objectName === opts.path);
+      if (same) upload.resumeFromPreviousUpload(same);
       upload.start();
     }).catch(reject);
   });
+}
+
+/** The HTTP status storage answered a failed upload with; null when it never answered (the network). */
+export function uploadStatus(e: unknown): number | null {
+  if (!(e instanceof DetailedError)) return null;
+  const status = e.originalResponse?.getStatus();
+  return typeof status === "number" && status > 0 ? status : null;
 }
