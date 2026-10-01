@@ -123,6 +123,15 @@ describe("editing a piece Facebook is holding", () => {
     expect(row.publish).toMatchObject({ state: "scheduled", postId: `${PAGE}_10`, at });
   });
 
+  it("refuses to edit a held Reel: nothing written, nothing taken back", async () => {
+    const video = { path: "p1/a.mp4", durationSec: 40, width: 1080, height: 1920, sizeBytes: 9, mime: "video/mp4", uploadedAt: "2026-10-02T00:00:00Z", caption: "c", flags: clean, transcript: [] };
+    row = { ...make(held(5 * 3_600_000), { ...output, video }), format: "script" };
+    expect(await saveContentEdits("p1", edits())).toEqual({ ok: false, error: "Reel นี้ตั้งเวลาไว้แล้ว — ยกเลิกคิวก่อนแก้ข้อความ" });
+    expect(store.saveOutputIf).not.toHaveBeenCalled();
+    expect(fb.deletePost).not.toHaveBeenCalled();
+    expect(order).toEqual([]);
+  });
+
   it("sends the edited piece with the opening line it was first posted with", async () => {
     row = make(held(5 * 3_600_000), { ...output, postedHook: 1 });
     expect((await saveContentEdits("p1", edits())).ok).toBe(true);
