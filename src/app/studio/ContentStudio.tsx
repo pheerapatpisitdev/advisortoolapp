@@ -35,6 +35,10 @@ import { KNOWLEDGE_NAME } from "@/lib/content/knowledge";
 import { DRAFT_NAME } from "@/lib/content/draft";
 import { KnowledgeTools } from "./knowledge/KnowledgeTools";
 import { DraftTools } from "./draft/DraftTools";
+import { CLIP_HREF, CLIP_NAME, isReelPiece } from "@/lib/content/clip";
+import { ClipTools } from "./clip/ClipTools";
+import { ClipCard } from "./clip/ClipCard";
+import { ClipEditor } from "./clip/ClipEditor";
 import { MODE_PLANS, modeName } from "@/lib/content/modes";
 import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
 import { thaiDayLabel } from "@/lib/content/calendar";
@@ -79,12 +83,12 @@ interface Props {
 }
 
 
-/** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft */
-type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft";
-const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft"];
+/** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft — or a clip the agent filmed */
+type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft" | "clip";
+const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft", "clip"];
 /** the tools in the "สร้างจาก" dropdown, in the order the owner reads them */
 const MODE_OPTIONS: readonly (readonly [Mode, string])[] = [
-  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME],
+  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME], ["clip", CLIP_NAME],
 ];
 
 const TABS: { id: ContentStatus; label: string }[] = [
@@ -146,6 +150,20 @@ function DrawProgress({ batch }: { batch: { total: number; done: number } }) {
         <div className="h-full rounded-full bg-[var(--ct-accent)] transition-[width]" style={{ width: `${Math.max(6, (batch.done / batch.total) * 100)}%` }} />
       </div>
     </div>
+  );
+}
+
+/** ตั้งเวลาหลายชิ้น's tick for a card with no picking face of its own (a script, a clip), as PieceCard draws its own */
+function PickToggle({ index, why, on, toggle }: { index: number; why?: string; on: boolean; toggle: () => void }) {
+  return (
+    <button
+      type="button" role="checkbox" aria-checked={on} aria-label={`เลือกชิ้น ${index + 1}${why ? ` (${why})` : ""}`}
+      onClick={toggle} disabled={Boolean(why)}
+      className={`mb-1.5 flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium disabled:opacity-70 ${on ? "border-[var(--ct-accent)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]" : "border-[var(--ct-hair)] bg-[var(--ct-panel)] text-[var(--ct-mute)]"}`}
+    >
+      <span className={`flex size-4 items-center justify-center rounded border ${on ? "border-transparent" : "border-[var(--ct-line)]"}`}>{on && <CheckIcon className="size-3.5" />}</span>
+      {why ?? (on ? "เลือกแล้ว" : "เลือก")}
+    </button>
   );
 }
 
@@ -687,7 +705,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
    */
   const bare = tab === "draft" && !pending
     // a รีวิวเคลม poster's papers are its picture already
-    ? items.filter((i) => i.format !== "script" && !i.output.poster?.background && !i.output.poster?.documents?.length && !drawing.has(i.id) && !onPage(i.publish))
+    ? items.filter((i) => i.format !== "script" && i.format !== "clip" && !i.output.poster?.background && !i.output.poster?.documents?.length && !drawing.has(i.id) && !onPage(i.publish))
     : [];
   const redraw = painterFor(painter, moneyLeft(spend), Boolean(person));
   function drawBare() {
@@ -825,6 +843,24 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     setOpened((o) => (o?.id === next.id ? next : o));
   }
 
+  /**
+   * A clip piece as it arrives and changes (clip/useClipUpload.ts): one already on screen is
+   * updated; a new one is counted in รอตรวจ, and goes on top of it when that list is showing.
+   * Read through `view`: the upload finishes long after the press.
+   */
+  const clipsCounted = useRef(new Set<string>());
+  function clipArrived(next: ContentItem) {
+    const now = view.current;
+    if ([...now.items, ...now.used].some((x) => x.id === next.id)) { saved(next); return; }
+    // one clip reports in up to three times (made, kept, listened to); it is new once
+    if (clipsCounted.current.has(next.id)) return;
+    clipsCounted.current.add(next.id);
+    // the tabs' numbers follow the plan filter: another plan's list does not count a clip
+    if (now.plan && now.plan !== CLIP_HREF) return;
+    setCounts((c) => ({ ...c, draft: c.draft + 1 }));
+    if (now.tab === "draft") setItems((list) => (list.some((x) => x.id === next.id) ? list : [next, ...list]));
+  }
+
   async function copy(item: ContentItem) {
     try {
       await navigator.clipboard.writeText(item.format === "ad" ? `${item.output.body}\n\n${footer(item.output)}` : fullText(item.output));
@@ -849,11 +885,16 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [pagesFailed, setPagesFailed] = useState(false);
   const [pickPage, setPickPage] = useState("");
   const [sending, setSending] = useState<{ done: number; total: number } | null>(null);
-  const whyNot = (i: ContentItem): string | undefined =>
-    i.format !== "post" ? "ไม่ใช่โพสต์"
-      : (i.flags.policy ?? []).some((f) => f.severity === "block") ? "ผิดกฎ Facebook"
-        : drawing.has(i.id) ? "รอภาพ"
-          : onPage(i.publish) ? "ตั้งเวลาแล้ว" : undefined;
+  const whyNot = (i: ContentItem): string | undefined => {
+    // a Reel (a clip piece, or a script with its clip attached) goes up with its caption's checks
+    const video = i.output.video;
+    const policy = (video ? video.flags : i.flags).policy ?? [];
+    return i.format !== "post" && !video ? "ไม่ใช่โพสต์"
+      : video?.expired ? "ไฟล์คลิปหมดอายุ"
+        : policy.some((f) => f.severity === "block") ? "ผิดกฎ Facebook"
+          : drawing.has(i.id) ? "รอภาพ"
+            : onPage(i.publish) ? "ตั้งเวลาแล้ว" : undefined;
+  };
   const pickable = items.filter((i) => !whyNot(i));
 
   function startPicking() {
@@ -887,7 +928,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
         published(res.item);
         if (res.item.publish?.at) held.push(thaiWhen(new Date(res.item.publish.at)));
       } else {
-        left.push(!res ? "การเชื่อมต่อหลุด" : res.confirmNumbers ? "มีตัวเลขต้องยืนยัน" : res.error);
+        left.push(!res ? "การเชื่อมต่อหลุด" : res.confirmNumbers ? "มีตัวเลขต้องยืนยัน" : res.confirmSpoken ? "มีเสียงพูดต้องตรวจ" : res.error);
       }
       setSending({ done: n + 1, total: order.length });
     }
@@ -1039,6 +1080,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                   if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, pictureBrief, who);
                 })}
               />
+          </div>
+          <div hidden={mode !== "clip"}>
+            <ClipTools page={project?.pageId} onItem={clipArrived} folded={!formOpen} formId={mode === "clip" ? formId : undefined} />
           </div>
           <div hidden={mode !== "plan"}>
           <div id={mode === "plan" ? formId : undefined} className={`space-y-4 p-4 ${formOpen ? "" : "hidden lg:block"}`}>
@@ -1242,6 +1286,20 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 </p>
               )}
               {batch && <DrawProgress batch={batch} />}
+              {isReelPiece(editingItem) ? (
+              <ClipEditor
+                key={editingItem.id}
+                item={editingItem}
+                planner={planner}
+                onSaved={saved}
+                onPublished={published}
+                onStatus={(s) => changeStatus(editingItem, s)}
+                onItem={clipArrived}
+                onClose={closeEditor}
+                onDirtyChange={setEditorDirty}
+                suggestDay={forDay}
+              />
+              ) : (
               <PieceEditor
                 key={editingItem.id}
                 planner={planner}
@@ -1258,6 +1316,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 suggestDay={forDay}
                 nav={neighbours(editingItem.id)}
               />
+              )}
             </>
           ) : (
           <>
@@ -1391,7 +1450,21 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               {items.map((item, i) => (
                 // the id is where leaving the editor scrolls back to; a grid of one so the card still fills its row
                 <div key={item.id} id={`piece-${item.id}`} className="grid scroll-mt-4">
-                {item.format === "script" ? (
+                {item.format !== "post" && item.format !== "ad" && picking && (
+                  // ScriptCard and ClipCard have no picking face of their own; a filmed script or a clip is pickable all the same
+                  <PickToggle index={i} why={whyNot(item)} on={picked.has(item.id)} toggle={() => setPicked((set) => { const next = new Set(set); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} />
+                )}
+                {item.format === "clip" ? (
+                  <ClipCard
+                    item={item}
+                    index={i}
+                    busy={busy.has(item.id)}
+                    onEdit={() => openEditor(item.id)}
+                    onStatus={(s) => changeStatus(item, s)}
+                    onDelete={() => remove(item)}
+                    onItem={clipArrived}
+                  />
+                ) : item.format === "script" ? (
                   <ScriptCard
                     item={item}
                     index={i}
@@ -1400,6 +1473,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                     onStatus={(s) => changeStatus(item, s)}
                     onDelete={() => remove(item)}
                     onCopy={() => copy(item)}
+                    onItem={clipArrived}
                   />
                 ) : (
                   <PieceCard
