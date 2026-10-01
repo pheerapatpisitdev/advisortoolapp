@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { thaiDayLabel, type MonthCell } from "@/lib/content/calendar";
+import { isReelPiece } from "@/lib/content/clip";
 import { mayPlanOn, PLAN_LABEL, planState, type PlanState } from "@/lib/content/day-plan";
 import { markPlanDone, planPiece, unplanPiece, type PlanResult } from "../plan";
 import { CheckIcon, XIcon } from "../ui/icons";
@@ -19,8 +20,10 @@ export interface PlanCard {
   format: string;
   day: string | null;
   doneAt: string | null;
-  /** the piece's poster, small (day-plan.ts planPicture); none for a script */
+  /** the piece's poster, small (day-plan.ts planPicture); none for a script or a clip */
   imageUrl: string | null;
+  /** a clip: ▶ in the poster's place, as the post calendar draws it */
+  reel: boolean;
 }
 
 /** a piece goes to a day not gone, and never to the day it is already on (that would unmark it) */
@@ -28,7 +31,7 @@ export function mayMoveTo(card: PlanCard, day: string, today: string): boolean {
   return mayPlanOn(day, today) && card.day !== day;
 }
 
-const FORMAT: Record<string, string> = { post: "โพสต์", script: "สคริปต์", ad: "โฆษณา" };
+const FORMAT: Record<string, string> = { post: "โพสต์", script: "สคริปต์", ad: "โฆษณา", clip: "คลิป" };
 const TONE: Record<PlanState, string> = {
   planned: "border-[var(--ct-line)]",
   today: "border-[var(--ct-accent)] bg-[var(--ct-soft)]",
@@ -68,7 +71,7 @@ export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUn
     if (!res.ok) return setNote(res.error);
     const i = res.item;
     const was = [...planned, ...rail].find((c) => c.id === i.id);
-    apply({ id: i.id, title: was?.title ?? "ชิ้นงาน", format: i.format, day: i.plan?.day ?? null, doneAt: i.plan?.doneAt ?? null, imageUrl: was?.imageUrl ?? null });
+    apply({ id: i.id, title: was?.title ?? "ชิ้นงาน", format: i.format, day: i.plan?.day ?? null, doneAt: i.plan?.doneAt ?? null, imageUrl: was?.imageUrl ?? null, reel: was?.reel ?? isReelPiece(i) });
   }
 
   const place = (c: PlanCard, day: string) => {
@@ -99,8 +102,12 @@ export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUn
   /** the poster, small, and the title — both open the piece in the editor */
   const heading = (c: PlanCard) => (
     <Link href={`/studio/write?open=${c.id}`} className="flex items-start gap-2 font-medium underline-offset-2 hover:underline">
-      {/* eslint-disable-next-line @next/next/no-img-element -- a drawn PNG from our own route, not an asset to optimise */}
-      {c.imageUrl && <img src={c.imageUrl} alt="" loading="lazy" draggable={false} className="size-10 shrink-0 rounded object-cover" />}
+      {c.reel ? (
+        <span role="img" aria-label="คลิป Reel" className="flex size-10 shrink-0 items-center justify-center rounded bg-[var(--ct-soft)] text-lg text-[var(--ct-accent)]">▶</span>
+      ) : c.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a drawn PNG from our own route, not an asset to optimise
+        <img src={c.imageUrl} alt="" loading="lazy" draggable={false} className="size-10 shrink-0 rounded object-cover" />
+      ) : null}
       <span className="line-clamp-2 min-w-0">{c.title}</span>
     </Link>
   );

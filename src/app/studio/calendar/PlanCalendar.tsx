@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { monthGridDays, parseMonth, shiftMonth, thaiMonthYear, todayKey } from "@/lib/content/calendar";
+import { isReelPiece } from "@/lib/content/clip";
 import { planPicture, planTitle } from "@/lib/content/day-plan";
 import { modeName } from "@/lib/content/modes";
 import { contentProduct } from "@/lib/content/products";
@@ -15,6 +16,7 @@ import { PlanBoard, type PlanCard } from "./PlanBoard";
 const card = (i: ContentItem): PlanCard => ({
   id: i.id, title: planTitle(i), format: i.format, day: i.plan?.day ?? null, doneAt: i.plan?.doneAt ?? null,
   imageUrl: planPicture(i, modeName(i.planHref) ?? contentProduct(i.planHref)?.name ?? ""),
+  reel: isReelPiece(i),
 });
 
 export async function PlanCalendar({ params }: { params: { y?: string; m?: string; view?: string } }) {
