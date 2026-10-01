@@ -46,4 +46,13 @@ describe("uploadToGemini", () => {
     vi.stubGlobal("fetch", vi.fn(async () => answers.shift()!));
     await expect(uploadToGemini({ apiKey: "k", body: new Blob([]).stream(), sizeBytes: 0, mimeType: "video/mp4", displayName: "c", pollMs: 0 })).rejects.toThrow();
   });
+
+  it("gives up when the file never leaves PROCESSING", async () => {
+    let first = true;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      if (first) { first = false; return new Response("{}", { headers: { "x-goog-upload-url": "https://up/1" } }); }
+      return new Response(JSON.stringify({ file: { name: "files/abc", uri: "u", state: "PROCESSING" }, name: "files/abc", uri: "u", state: "PROCESSING" }));
+    }));
+    await expect(uploadToGemini({ apiKey: "k", body: new Blob([]).stream(), sizeBytes: 0, mimeType: "video/mp4", displayName: "c", pollMs: 0 })).rejects.toThrow("took too long");
+  });
 });
