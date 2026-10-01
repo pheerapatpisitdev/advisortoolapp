@@ -1,9 +1,10 @@
 "use client";
 import { PlanView } from "@/components/plan/PlanView";
 import { formatBaht } from "@/calc/money";
-import { changes, type Level } from "@/lib/fhc/health";
+import { changes, type FhcInput, type Level } from "@/lib/fhc/health";
 import { lineText } from "@/lib/fhc/share";
 import type { FhcReply, FhcWords } from "./actions";
+import { WhatIf, type WhatIfValues } from "./WhatIf";
 
 /**
  * The check's result: the AI's reading, six scores, the five events answered from our plans,
@@ -22,14 +23,18 @@ const WORD: Record<Level, string> = { green: "ดี", yellow: "ควรปร�
 
 const BOX = "rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-4";
 
-export function FhcResult({ result, words, agent, interviewer, idate, names, onEdit }: {
+export function FhcResult({ result, asked, words, agent, interviewer, idate, names, busy, onEdit, onApply }: {
   result: Extract<FhcReply, { ok: true }>;
+  /** the form the result was built from */
+  asked: FhcInput;
   words: FhcWords | null;
   agent: boolean;
   interviewer: string;
   idate: string;
   names: string[];
+  busy: boolean;
   onEdit: () => void;
+  onApply: (v: WhatIfValues) => void;
 }) {
   const { scores, after, events, plan, figures } = result;
   const moved = plan.usedAnnual > 0 ? changes(scores, after) : [];
@@ -116,6 +121,11 @@ export function FhcResult({ result, words, agent, interviewer, idate, names, onE
           <p className="mt-3 text-xs text-[var(--lg-mute)]">นับเฉพาะแบบที่พอดีกับงบ และหักเบี้ยใหม่ออกจากเงินเหลือต่อเดือนแล้ว</p>
         </section>
       )}
+
+      <WhatIf
+        key={JSON.stringify(asked)} asked={asked} order={plan.order} planAfter={after} planUsed={plan.usedAnnual}
+        dot={DOT} word={WORD} busy={busy} onApply={onApply}
+      />
 
       <section className={BOX}>
         <h2 className="text-base font-medium text-[var(--lg-white)]">5 เหตุการณ์ที่ควบคุมไม่ได้ กับทางรับมือ</h2>

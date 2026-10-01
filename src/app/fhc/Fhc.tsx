@@ -11,6 +11,7 @@ import {
 import { defaultBudget, defaultRetireMonthly, type HealthNow } from "@/lib/plan/needs";
 import { explainFhc, runFhc, type FhcReply, type FhcWords } from "./actions";
 import { FhcResult } from "./FhcResult";
+import type { WhatIfValues } from "./WhatIf";
 
 /**
  * The agency's FHC questionnaire as a form. One page for two people: a customer on their own,
@@ -114,6 +115,7 @@ export function Fhc() {
   const [idate, setIdate] = useState(today);
 
   const [result, setResult] = useState<Extract<FhcReply, { ok: true }> | null>(null);
+  const [asked, setAsked] = useState<FhcInput | null>(null);
   const [words, setWords] = useState<FhcWords | null>(null);
   const [editing, setEditing] = useState(true);
   const [error, setError] = useState("");
@@ -137,13 +139,14 @@ export function Fhc() {
   };
   const g = figures(input);
 
-  function submit() {
+  /** `change`: values from ลองปรับดู, which this render's `input` does not have yet */
+  function submit(change: Partial<FhcInput> = {}) {
     // a row without an age would drop out of the plan unseen
     if (people.some((p) => p.age === "")) {
       setError("ใส่อายุของคนในความดูแลให้ครบ หรือลบแถวที่ไม่ใช้ออก");
       return;
     }
-    const form = input;
+    const form = { ...input, ...change };
     setError("");
     setWords(null);
     const mine = ++seq.current;
@@ -154,6 +157,7 @@ export function Fhc() {
       setPending(false);
       if (!reply.ok) { setError(reply.error); return; }
       setResult(reply);
+      setAsked(form);
       setEditing(false);
       requestAnimationFrame(() => document.getElementById("fhc-result")?.scrollIntoView({ behavior: "smooth" }));
       // not awaited: the words come later, and the form must not stay busy waiting for them
@@ -178,11 +182,24 @@ export function Fhc() {
     </div>
   );
 
-  if (result && !editing) {
+  // the sliders' values go into the form too, so แก้ข้อมูล shows what was checked; the
+  // retirement wish is pinned, since its default would follow the new spending
+  function apply(v: WhatIfValues) {
+    const retire = asked?.retireMonthly ?? n(shownRetire);
+    setBudgetTouched(true);
+    setBudget(v.budget);
+    setExpense(v.expense);
+    setRetireAge(String(v.retireAge));
+    setRetireTouched(true);
+    setRetireMonthly(retire);
+    submit({ ...v, retireMonthly: retire });
+  }
+
+  if (result && asked && !editing) {
     return (
       <div id="fhc-result" className="scroll-mt-20">
         <FhcResult
-          result={result} words={words} agent={agent} interviewer={interviewer} idate={idate}
+          result={result} asked={asked} words={words} agent={agent} interviewer={interviewer} idate={idate} busy={pending} onApply={apply}
           names={people.map((p) => p.name.trim())}
           onEdit={() => { setEditing(true); window.scrollTo({ top: 0 }); }}
         />
@@ -396,7 +413,7 @@ export function Fhc() {
 
       {error && <p className="text-center text-sm text-[var(--lg-gold)]">{error}</p>}
       <button
-        type="button" onClick={submit} disabled={pending}
+        type="button" onClick={() => submit()} disabled={pending}
         className="lg-metal-face w-full rounded-sm border border-[var(--lg-gold)] py-3.5 text-base font-medium disabled:opacity-60"
       >
         {pending ? "กำลังตรวจ…" : "ตรวจสุขภาพการเงิน"}
