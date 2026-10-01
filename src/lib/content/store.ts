@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inWalletRound } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
 import type { ContentWord, WordHit, WordKind } from "./check";
+import { removeClipsOf } from "./clip-store";
 import { isHookCategory, type HookCategory, type HookTemplate } from "./hooks";
 import { readLook, type Look } from "./looks";
 import { ON_PAGE_STATES, POSTING_STALE_MS } from "./publish-label";
@@ -481,6 +482,7 @@ export async function deleteContent(id: string): Promise<void> {
     const { error } = await db.storage.from("content-media").remove(files.map((f) => `${id}/${f.name}`));
     if (error) throw new Error(`ลบรูปไม่สำเร็จ: ${error.message}`);
   }
+  await removeClipsOf(id);
   const { error } = await db.from("ins_content").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
