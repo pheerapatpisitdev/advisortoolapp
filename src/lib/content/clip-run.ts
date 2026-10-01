@@ -6,6 +6,7 @@ import { clipReadUrl } from "./clip-store";
 import { captionFlags, clipMessages, clipYardstick, CLIP_MODEL, GEMINI_LINK_MAX_BYTES, parseClipReply, spokenFlagsOf } from "./clip-transcribe";
 import { modeChecks } from "./mode-checks";
 import { contentProduct } from "./products";
+import { onPage } from "./publish-label";
 import { getContent, listWords, saveOutputIf, type ContentItem } from "./store";
 
 /**
@@ -15,6 +16,7 @@ import { getContent, listWords, saveOutputIf, type ContentItem } from "./store";
 
 const LISTEN_TIMEOUT_MS = 240_000;
 const UNREAD = "ถอดเสียงไม่สำเร็จ — กด “ถอดเสียงอีกครั้ง” หรือเขียนแคปชันเองได้เลย";
+const SENT_MEANWHILE = "Reel นี้ส่งไปเพจแล้วระหว่างถอดเสียง — ไม่ได้เปลี่ยนแคปชัน";
 
 async function videoUri(v: ClipVideo): Promise<string> {
   const link = await clipReadUrl(v.path, 60 * 60);
@@ -26,13 +28,18 @@ async function videoUri(v: ClipVideo): Promise<string> {
   return uploadToGemini({ apiKey: key, body: file.body, sizeBytes: v.sizeBytes, mimeType: v.mime, displayName: v.path });
 }
 
-/** writes what the listening found onto the piece's clip, on the newest copy of the piece */
-async function keep(id: string, path: string, change: (v: ClipVideo) => ClipVideo): Promise<ContentItem | null> {
+/**
+ * writes what the listening found onto the piece's clip, on the newest copy of the piece.
+ * "sent" when the Reel went to the Page while the listen ran: send() does not bump rev, so
+ * the row is read again here and left alone once it is scheduled, posting or posted.
+ */
+async function keep(id: string, path: string, change: (v: ClipVideo) => ClipVideo): Promise<ContentItem | null | "sent"> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const now = await getContent(id);
     const v = now?.output.video;
     // the clip was swapped for another meanwhile: this one's findings are not that one's
     if (!now || !v || v.path !== path) return null;
+    if (onPage(now.publish)) return "sent";
     const saved = await saveOutputIf(id, { ...now.output, video: change(v) }, undefined, now.output.rev ?? null);
     if (saved) return saved;
   }
@@ -74,6 +81,7 @@ export async function runTranscribe(item: ContentItem): Promise<ClipResult> {
       delete next.transcribeFailed;
       return next;
     });
+    if (saved === "sent") return { ok: false, error: SENT_MEANWHILE };
     if (!saved) return { ok: false, error: "คลิปถูกเปลี่ยนระหว่างถอดเสียง — ลองถอดเสียงอีกครั้ง" };
     return { ok: true, item: saved };
   } catch (e) {

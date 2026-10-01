@@ -34,6 +34,8 @@ interface Props {
   onPublished: (item: ContentItem) => void;
   /** the photograph is still being drawn: what went up now would be the poster without it */
   drawing?: boolean;
+  /** what the wait is for when it is not a photograph (a clip's listen), said in place of the drawing line */
+  drawingNote?: string;
   /** a day the calendar sent the owner to write for: its noon and evening come first, noon chosen */
   suggestDay?: string | null;
   /** told while a post or a cancel is on its way to Facebook, so the editor is not left mid-send */
@@ -67,7 +69,7 @@ const button = "min-h-11 rounded-lg px-4 py-2 text-sm disabled:opacity-50";
 /** the choice that lets the server find the day: the first its Page has nothing on (scheduleNextOpen) */
 const OPEN = "open";
 
-export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, suggestDay, onBusy }: Props) {
+export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, drawingNote, suggestDay, onBusy }: Props) {
   const [setup, setSetup] = useState<PublishSetup | null>(null);
   const [pageId, setPageId] = useState("");
   // "now", "custom", or the ISO time of one of the quick options — the calendar's day when it sent one
@@ -257,7 +259,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
             ครั้งก่อนไม่สำเร็จ: <PlainText text={view.error} />
           </p>
         )}
-        {drawing && <p className="text-sm text-[var(--ct-mute)]">กำลังวาดภาพอยู่ — รอภาพเสร็จก่อนจึงจะโพสต์ได้ (ราว 20–40 วินาที)</p>}
+        {drawing && <p className="text-sm text-[var(--ct-mute)]">{drawingNote ?? "กำลังวาดภาพอยู่ — รอภาพเสร็จก่อนจึงจะโพสต์ได้ (ราว 20–40 วินาที)"}</p>}
         {blocked.length > 0 && <p className="text-sm text-[var(--ct-alert)]">ยังผิดกฎโฆษณาของ Facebook ({blocked[0].message}) — แก้แล้วกดบันทึกก่อน จึงจะโพสต์ได้</p>}
         <div className="grid gap-2 sm:grid-cols-2">
           {item.pageId ? (

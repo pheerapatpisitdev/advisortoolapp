@@ -66,6 +66,16 @@ describe("runTranscribe", () => {
     expect((store.saveOutputIf.mock.calls[0][1] as ContentItem["output"]).video!.transcribeFailed).toBe(true);
   });
 
+  it("a Reel sent to the Page while it listened: the row is not written, not ok", async () => {
+    const sent = { ...item(), publish: { state: "scheduled" as const, at: new Date(Date.now() + 3_600_000).toISOString(), postId: null, pageId: "105", error: null } };
+    // the listen started on a draft; the fresh read keep() makes finds it held on the Page
+    store.getContent.mockImplementation(async () => sent);
+    ai.chat.mockResolvedValue(reply({ segments: [{ start: 0, end: 1, text: "ก" }], caption: "ของ AI" }));
+    const r = await runTranscribe(item());
+    expect(store.saveOutputIf).not.toHaveBeenCalled();
+    expect(r).toEqual({ ok: false, error: "Reel นี้ส่งไปเพจแล้วระหว่างถอดเสียง — ไม่ได้เปลี่ยนแคปชัน" });
+  });
+
   it("an expired clip is not sent", async () => {
     const r = await runTranscribe(item(video({ expired: true })));
     expect(r.ok).toBe(false);

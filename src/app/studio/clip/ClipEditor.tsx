@@ -30,9 +30,14 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
   const v = item.output.video;
   const player = useRef<HTMLVideoElement>(null);
   const [caption, setCaption] = useState(v?.caption ?? "");
-  // a new caption from the server (a listen, a save) replaces what is in the box
+  // a new caption from the server (a listen, a save) replaces what is in the box — unless the
+  // agent has typed over the last one and not saved it: their words stay, and still read as unsaved
   const [shown, setShown] = useState(v?.caption);
-  if (shown !== v?.caption) { setShown(v?.caption); setCaption(v?.caption ?? ""); }
+  if (shown !== v?.caption) {
+    const typed = caption.trim() !== (shown ?? "").trim();
+    setShown(v?.caption);
+    if (!typed) setCaption(v?.caption ?? "");
+  }
   const [note, setNote] = useState<string | null>(null);
   const [working, setWorking] = useState<"save" | "listen" | null>(null);
   const [sending, setSending] = useState(false);
@@ -187,7 +192,11 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
         ? <PlanPanel item={item} suggestDay={suggestDay} onSaved={onSaved} />
         // held or posted, the box still says where it went (and links to it) after the file is gone
         : v && (!v.expired || locked) && (
-          <PublishPanel item={item} hook={0} beforePublish={save} onPublished={onPublished} drawing={false} suggestDay={suggestDay} onBusy={setSending} />
+          // a listen still running would write its caption over a Reel already sent: sending waits for it
+          <PublishPanel
+            item={item} hook={0} beforePublish={save} onPublished={onPublished} suggestDay={suggestDay} onBusy={setSending}
+            drawing={working === "listen"} drawingNote="กำลังถอดเสียงอยู่ — รอให้เสร็จก่อนจึงจะลงเพจได้"
+          />
         )}
 
       {item.status === "draft" && (
