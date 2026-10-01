@@ -116,6 +116,9 @@ export async function transcribeClip(id: string): Promise<ClipResult> {
   if (!listensPerHour(`clip:${viewer.agentId ?? "staff"}`)) return { ok: false, error: "ถอดเสียงครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   const item = await getContent(id).catch(() => null);
   if (!item?.output.video) return { ok: false, error: "ชิ้นนี้ยังไม่มีคลิป" };
+  // a listen would write an AI caption onto a Reel Facebook already holds with other words
+  if (onPage(item.publish)) return { ok: false, error: "Reel นี้ตั้งเวลาหรือลงเพจแล้ว — ยกเลิกคิวก่อนถอดเสียงใหม่" };
+  if (item.output.video.expired) return { ok: false, error: "ไฟล์คลิปหมดอายุแล้ว — แนบคลิปใหม่ก่อน" };
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${ceiling} บาทแล้ว` };
   const pass = await takeRound(viewer, "ai-clip");

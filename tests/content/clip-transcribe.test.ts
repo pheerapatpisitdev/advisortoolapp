@@ -16,13 +16,39 @@ describe("parseClipReply", () => {
     expect(r).toEqual({ segments: [{ start: 0, end: 2.5, text: "สวัสดีครับ" }, { start: 2.5, end: 6, text: "วันนี้มาเล่าเรื่องภาษี" }], caption: "ลดหย่อนภาษีได้ #ประกัน" });
   });
 
-  it("drops segments that are empty, backwards, out of order or past the clip's end, keeps the rest", () => {
+  it("drops segments that are empty, backwards, out of order or past the clip's end; moves an overlapping start up", () => {
     const r = parseClipReply(JSON.stringify({
       segments: [{ start: 0, end: 1, text: "ก" }, { start: 3, end: 2, text: "กลับหัว" }, { start: 0.5, end: 2, text: "ย้อน" },
         { start: 1, end: 2, text: "  " }, { start: 2, end: 99, text: "เกิน" }, { start: 2, end: 3, text: "ข" }],
       caption: "c",
     }), 10);
-    expect(r?.segments.map((s) => s.text)).toEqual(["ก", "ข"]);
+    expect(r?.segments).toEqual([{ start: 0, end: 1, text: "ก" }, { start: 1, end: 2, text: "ย้อน" }, { start: 2, end: 3, text: "ข" }]);
+  });
+
+  it("drops a segment that starts before the one before it started", () => {
+    const r = parseClipReply(JSON.stringify({ segments: [{ start: 2, end: 4, text: "ก" }, { start: 1, end: 5, text: "ย้อน" }], caption: "" }), 10);
+    expect(r?.segments.map((s) => s.text)).toEqual(["ก"]);
+  });
+
+  it("reads m:ss and string seconds", () => {
+    const r = parseClipReply(JSON.stringify({ segments: [{ start: "0:02", end: "0:05", text: "ก" }, { start: "5.5", end: "1:05.5", text: "ข" }], caption: "" }), 70);
+    expect(r?.segments).toEqual([{ start: 2, end: 5, text: "ก" }, { start: 5.5, end: 65.5, text: "ข" }]);
+  });
+
+  it("drops a segment whose time is null, empty, a boolean or other text", () => {
+    const r = parseClipReply(JSON.stringify({
+      segments: [{ start: null, end: 2, text: "a" }, { start: "", end: 2, text: "b" }, { start: true, end: 2, text: "c" }, { start: "soon", end: 2, text: "d" }, { start: 0, end: 2, text: "ok" }],
+      caption: "c",
+    }), 10);
+    expect(r?.segments.map((s) => s.text)).toEqual(["ok"]);
+  });
+
+  it("is null when segments were written and none could be read, even with a caption", () => {
+    expect(parseClipReply(JSON.stringify({ segments: [{ start: null, end: 2, text: "a" }], caption: "c" }), 10)).toBeNull();
+  });
+
+  it("keeps a caption for a silent clip (no segments written)", () => {
+    expect(parseClipReply(JSON.stringify({ segments: [], caption: "c" }), 10)).toEqual({ segments: [], caption: "c" });
   });
 
   it("is null for a reply that is not JSON, or has no segment and no caption", () => {

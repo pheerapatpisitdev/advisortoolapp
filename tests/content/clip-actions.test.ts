@@ -108,4 +108,21 @@ describe("transcribeClip", () => {
     expect(await transcribeClip(PIECE)).toMatchObject({ ok: false });
     expect(quota.takeRound).not.toHaveBeenCalled();
   });
+
+  const withClip = (over: Record<string, unknown> = {}, v: Record<string, unknown> = {}) => item({
+    output: { ...item().output, video: { path: "x", durationSec: 5, width: 1, height: 2, sizeBytes: 1, mime: "video/mp4", uploadedAt: "", caption: "", flags: NO_FLAGS, ...v } },
+    ...over,
+  });
+
+  it("refuses a Reel that is scheduled, posting or posted, before taking a round", async () => {
+    store.getContent.mockResolvedValue(withClip({ publish: { state: "scheduled", pageId: "105", postId: "v1", at: "2099-01-01T00:00:00Z", error: null } }));
+    expect(await transcribeClip(PIECE)).toMatchObject({ ok: false, error: expect.stringContaining("ตั้งเวลาหรือลงเพจแล้ว") });
+    expect(quota.takeRound).not.toHaveBeenCalled();
+  });
+
+  it("refuses an expired clip before taking a round", async () => {
+    store.getContent.mockResolvedValue(withClip({}, { expired: true }));
+    expect(await transcribeClip(PIECE)).toMatchObject({ ok: false, error: expect.stringContaining("หมดอายุ") });
+    expect(quota.takeRound).not.toHaveBeenCalled();
+  });
 });

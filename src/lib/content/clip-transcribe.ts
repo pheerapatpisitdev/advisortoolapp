@@ -41,24 +41,42 @@ export function clipMessages(ctx: { script: string; brief: string; product: stri
 
 const unfence = (t: string) => t.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
 
+/** seconds from a number, a string of seconds ("2.5") or m:ss ("0:02", "1:05.5"); NaN for anything else */
+function secondsOf(v: unknown): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : NaN;
+  if (typeof v !== "string") return NaN;
+  const t = v.trim();
+  if (/^\d+(?:\.\d+)?$/.test(t)) return Number(t);
+  const m = /^(\d+):([0-5]?\d(?:\.\d+)?)$/.exec(t);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+}
+
 export function parseClipReply(text: string, durationSec: number): { segments: Segment[]; caption: string } | null {
   let raw: unknown;
   try { raw = JSON.parse(unfence(text)); } catch { return null; }
   if (!raw || typeof raw !== "object") return null;
   const r = raw as { segments?: unknown; caption?: unknown };
+  const given = Array.isArray(r.segments) ? r.segments : [];
   const segments: Segment[] = [];
-  let last = 0;
-  for (const s of Array.isArray(r.segments) ? r.segments : []) {
-    const seg = s as { start?: unknown; end?: unknown; text?: unknown };
-    const start = Number(seg.start);
-    const end = Number(seg.end);
+  let lastStart = 0;
+  let lastEnd = 0;
+  for (const s of given) {
+    const seg = (s && typeof s === "object" ? s : {}) as { start?: unknown; end?: unknown; text?: unknown };
+    let start = secondsOf(seg.start);
+    const end = secondsOf(seg.end);
     const words = typeof seg.text === "string" ? seg.text.trim() : "";
-    // a stretch that runs backwards, starts inside the one before it (a quarter-second of
-    // overlap is the model's rounding), or runs past the end of the clip is not kept
-    if (!words || !Number.isFinite(start) || !Number.isFinite(end) || end <= start || start < last - 0.25 || end > durationSec + 1) continue;
+    if (!words || Number.isNaN(start) || Number.isNaN(end) || end <= start || end > durationSec + 1) continue;
+    // starting before the one before it began is out of order; starting inside it is overlap,
+    // which is moved up to where it ended
+    if (start < lastStart) continue;
+    if (start < lastEnd) start = lastEnd;
+    if (start >= end) continue;
     segments.push({ start, end, text: words.slice(0, 500) });
-    last = end;
+    lastStart = start;
+    lastEnd = end;
   }
+  // a reply that wrote segments and had none of them readable is unreadable, not a silent clip
+  if (given.length > 0 && segments.length === 0) return null;
   const caption = typeof r.caption === "string" ? r.caption.trim().slice(0, MAX_CAPTION) : "";
   if (segments.length === 0 && !caption) return null;
   return { segments, caption };
