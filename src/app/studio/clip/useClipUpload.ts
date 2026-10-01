@@ -76,7 +76,7 @@ export function useClipUpload(onItem: (item: ContentItem) => void) {
 
       if (!run.sent) {
         try {
-          await uploadClip({ file, path, token: run.token!, onProgress: setProgress });
+          await uploadClip({ file, path, token: run.token!, mime: meta.mime, onProgress: setProgress });
           run.sent = true;
         } catch (e) {
           const status = uploadStatus(e);

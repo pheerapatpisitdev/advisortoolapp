@@ -15,13 +15,20 @@ function resumableEndpoint(): string {
   return `https://${ref}.storage.supabase.co/storage/v1/upload/resumable/sign`;
 }
 
+/** a player that never answers (some codecs, some browsers) reads as a length not read, not a hang */
+const READ_TIMEOUT_MS = 15_000;
+
 export function readClipFile(file: File): Promise<ClipFile> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const v = document.createElement("video");
     v.preload = "metadata";
     v.muted = true;
+    let settled = false;
     const done = (d: number, w: number, h: number) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       URL.revokeObjectURL(url);
       // a .mov from an iPhone can come with an empty type; its name says what it is
       const mime = file.type || (/\.mov$/i.test(file.name) ? "video/quicktime" : /\.mp4$/i.test(file.name) ? "video/mp4" : "");
@@ -29,11 +36,13 @@ export function readClipFile(file: File): Promise<ClipFile> {
     };
     v.onloadedmetadata = () => done(v.duration, v.videoWidth, v.videoHeight);
     v.onerror = () => done(Number.NaN, 0, 0);
+    const timer = setTimeout(() => done(Number.NaN, 0, 0), READ_TIMEOUT_MS);
     v.src = url;
   });
 }
 
-export function uploadClip(opts: { file: File; path: string; token: string; onProgress: (fraction: number) => void; signal?: AbortSignal }): Promise<void> {
+/** `mime` is what readClipFile made of the file: a .mov from an iPhone can come with an empty type */
+export function uploadClip(opts: { file: File; path: string; token: string; mime?: string; onProgress: (fraction: number) => void; signal?: AbortSignal }): Promise<void> {
   return new Promise((resolve, reject) => {
     const upload = new Upload(opts.file, {
       endpoint: resumableEndpoint(),
@@ -44,7 +53,7 @@ export function uploadClip(opts: { file: File; path: string; token: string; onPr
       metadata: {
         bucketName: CLIP_BUCKET,
         objectName: opts.path,
-        contentType: opts.file.type || "video/mp4",
+        contentType: opts.mime || opts.file.type || "video/mp4",
         cacheControl: "3600",
       },
       // Supabase takes exactly 6MB chunks
