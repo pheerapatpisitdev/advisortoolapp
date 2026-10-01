@@ -14,7 +14,8 @@ const store = vi.hoisted(() => ({
   getContent: vi.fn(), claimPublish: vi.fn(), recordPublishIf: vi.fn(), listDue: vi.fn(), saveOutput: vi.fn(),
   adoptPage: vi.fn(async () => undefined),
 }));
-const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), postState: vi.fn() }));
+const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), postReel: vi.fn(), deletePost: vi.fn(), postState: vi.fn(), reelState: vi.fn() }));
+const clips = vi.hoisted(() => ({ clipReadUrl: vi.fn() }));
 const conn = vi.hoisted(() => ({ pageConnections: vi.fn(), pageToken: vi.fn() }));
 // the Pages the caller looks after (src/lib/auth/pages.ts): every connected one unless a test narrows it
 const mine = vi.hoisted(() => ({ ids: null as string[] | null }));
@@ -24,12 +25,13 @@ vi.mock("@/lib/auth/pages", () => ({
 }));
 
 vi.mock("@/lib/content/store", () => store);
+vi.mock("@/lib/content/clip-store", () => clips);
 vi.mock("@/lib/facebook/connection", () => conn);
 vi.mock("@/lib/facebook/publish", async (orig) => ({ ...(await orig<typeof import("@/lib/facebook/publish")>()), ...fb }));
 vi.mock("@/lib/content/poster-draw", () => ({ drawPoster: vi.fn(async () => Buffer.from("png")) }));
 vi.mock("@/app/studio/actions", () => ({ setContentStatus: vi.fn(async () => ({ ok: true })) }));
 
-const { AI_TEXT_STALE, AI_TEXT_UNCHECKED, CONCURRENT, MISSED, MOVE_LOST, PAPER_UNCHECKED, POSSIBLY_POSTED, forgetChecks, move, publish, verifyDue, withdraw, VERIFY_MAX } =
+const { AI_TEXT_STALE, AI_TEXT_UNCHECKED, CLIP_EXPIRED, CONCURRENT, MISSED, MOVE_LOST, PAPER_UNCHECKED, POSSIBLY_POSTED, REEL_FAILED, forgetChecks, move, publish, verifyDue, withdraw, VERIFY_MAX } =
   await import("@/lib/content/publish-flow");
 const { publishView, STUCK_MESSAGE, POSTING_STALE_MS } = await import("@/lib/content/publish-label");
 const { PublishError } = await import("@/lib/facebook/publish");
@@ -76,6 +78,8 @@ beforeEach(() => {
   conn.pageToken.mockResolvedValue("token");
   let n = 100;
   fb.postPhoto.mockImplementation(async () => ({ id: String(n++) }));
+  fb.postReel.mockImplementation(async () => ({ id: `v${n++}` }));
+  clips.clipReadUrl.mockResolvedValue("https://signed");
   fb.deletePost.mockResolvedValue(undefined);
 });
 
@@ -384,5 +388,94 @@ describe("a piece of one Page's project (owner, 2026-09-30)", () => {
     row = { ...piece(), pageId: null };
     expect((await publish({ id: "p1", pageId: TALK, at: null })).ok).toBe(true);
     expect(store.adoptPage).toHaveBeenCalledWith("p1", TALK);
+  });
+});
+
+describe("a Reel", () => {
+  const clean = { numbers: [], words: [], policy: [], fixes: null };
+  const video = (over: Partial<NonNullable<ContentOutput["video"]>> = {}): NonNullable<ContentOutput["video"]> => ({
+    path: "p1/9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d.mp4", durationSec: 40, width: 1080, height: 1920, sizeBytes: 9, mime: "video/mp4",
+    uploadedAt: "2026-10-02T00:00:00Z", caption: "แคปชัน", flags: clean, transcript: [], ...over,
+  });
+  const reel = (v = video(), format: ContentItem["format"] = "clip", flags: ContentItem["flags"] = clean) =>
+    ({ ...piece(null, { ...output, hooks: [], body: "", video: v }), format, flags });
+
+  it("goes up through postReel with the caption and no poster drawn", async () => {
+    row = reel();
+    expect((await publish({ id: "p1", pageId: PAGE, at: null })).ok).toBe(true);
+    expect(fb.postReel).toHaveBeenCalledWith(expect.objectContaining({ pageId: PAGE, fileUrl: "https://signed" }));
+    expect((fb.postReel.mock.calls[0][0] as { caption: string }).caption.startsWith("แคปชัน")).toBe(true);
+    expect(fb.postPhoto).not.toHaveBeenCalled();
+    expect(drawPoster).not.toHaveBeenCalled();
+    expect(row.publish).toMatchObject({ state: "published", postId: "v100" });
+  });
+
+  it("a Reel is judged by its caption: a script's blocked words do not stop it, a blocked caption does", async () => {
+    const block = { numbers: [], words: [], policy: [{ code: "x", severity: "block" as const, message: "ผิด", fix: "", match: "" }], fixes: null };
+    row = reel(video(), "script", block);
+    expect((await publish({ id: "p1", pageId: PAGE, at: null })).ok).toBe(true);
+    row = reel(video({ flags: block }), "script", clean);
+    expect((await publish({ id: "p1", pageId: PAGE, at: null })).ok).toBe(false);
+  });
+
+  it("asks about what was said, once, and lets it go when confirmed", async () => {
+    row = reel(video({ spokenFlags: [{ at: 42, kind: "word", text: "การันตี", message: "ได้ยินว่า “การันตี”" }] }));
+    const asked = await publish({ id: "p1", pageId: PAGE, at: null });
+    expect(asked).toMatchObject({ ok: false, confirmSpoken: ["0:42 ได้ยินว่า “การันตี”"] });
+    expect(fb.postReel).not.toHaveBeenCalled();
+    expect((await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).ok).toBe(true);
+  });
+
+  it("asks too when nobody has listened to it", async () => {
+    row = reel(video({ transcript: undefined }));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null })).toMatchObject({ confirmSpoken: ["ยังไม่ได้ตรวจเสียงพูดในคลิป"] });
+  });
+
+  it("refuses an expired file, and a script with no clip", async () => {
+    row = reel(video({ expired: true }));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null })).toEqual({ ok: false, error: CLIP_EXPIRED });
+    row = { ...piece(), format: "script" };
+    expect((await publish({ id: "p1", pageId: PAGE, at: null })).ok).toBe(false);
+  });
+
+  it("holds up to 29 days, not 30", async () => {
+    row = reel();
+    expect((await publish({ id: "p1", pageId: PAGE, at: hoursAhead(24 * 29.5).toISOString() })).ok).toBe(false);
+    expect((await publish({ id: "p1", pageId: PAGE, at: hoursAhead(24 * 28).toISOString() })).ok).toBe(true);
+  });
+
+  it("no read link: a plain failure, nothing sent, not 'may be on the Page'", async () => {
+    row = reel();
+    clips.clipReadUrl.mockRejectedValue(new Error("storage down"));
+    const r = await publish({ id: "p1", pageId: PAGE, at: null });
+    expect(r).toMatchObject({ ok: false });
+    expect(r).not.toHaveProperty("confirmRepost");
+    expect(fb.postReel).not.toHaveBeenCalled();
+    expect(row.publish?.state).toBe("failed");
+  });
+
+  it("a move re-sends the file and does not ask about what was said again", async () => {
+    row = reel(video({ spokenFlags: [{ at: 1, kind: "word", text: "x", message: "m" }] }));
+    row = { ...row, publish: pub({ state: "scheduled", postId: "v9", at: hoursAhead(5).toISOString() }) };
+    expect((await move("p1", hoursAhead(30))).ok).toBe(true);
+    expect(fb.deletePost).toHaveBeenCalledWith("v9", "token");
+    expect(fb.postReel).toHaveBeenCalledTimes(1);
+  });
+
+  it("a held Reel Facebook failed to process is taken back and marked failed", async () => {
+    row = { ...reel(), publish: pub({ state: "scheduled", postId: "v9", at: minutesAgo(30) }) };
+    store.listDue.mockImplementation(async () => [row]);
+    fb.reelState.mockResolvedValue("failed");
+    await verifyDue();
+    expect(fb.postState).not.toHaveBeenCalled();
+    expect(row.publish).toMatchObject({ state: "failed", error: REEL_FAILED });
+  });
+
+  it("a held Reel still processing is left as it is", async () => {
+    row = { ...reel(), publish: pub({ state: "scheduled", postId: "v9", at: minutesAgo(30) }) };
+    store.listDue.mockImplementation(async () => [row]);
+    fb.reelState.mockResolvedValue("unknown");
+    await verifyDue();
+    expect(row.publish?.state).toBe("scheduled");
   });
 });

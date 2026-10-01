@@ -1,7 +1,9 @@
 import { pageToken } from "@/lib/facebook/connection";
 import { aiTextState } from "./poster-text";
 import { myPageIds, myPages } from "@/lib/auth/pages";
-import { deletePost, MAX_AHEAD_MS, MIN_AHEAD_MS, postPhoto, postState, PublishError, type Posted } from "@/lib/facebook/publish";
+import { deletePost, MAX_AHEAD_MS, MIN_AHEAD_MS, postPhoto, postReel, postState, PublishError, REEL_MAX_AHEAD_MS, reelState, type Posted } from "@/lib/facebook/publish";
+import { reelDescription, spokenNotes } from "./clip";
+import { clipReadUrl } from "./clip-store";
 import { setContentStatus } from "@/app/studio/actions";
 import { audit } from "@/lib/auth/viewer";
 import { fullText } from "./output";
@@ -36,6 +38,11 @@ export const PAST_DAY = "ย้ายไปวันที่ผ่านมา�
 export const CONCURRENT = "มีการแก้ชิ้นนี้พร้อมกันอยู่ — โหลดหน้าใหม่แล้วลองอีกครั้ง";
 /** a held post whose time came and went without Facebook putting it up */
 export const MISSED = "ถึงเวลาแล้วแต่ Facebook ไม่ได้โพสต์ — ตั้งเวลาใหม่ได้";
+/** a held Reel Facebook could not process (its video node says error) */
+export const REEL_FAILED = "Facebook ประมวลผลคลิปไม่ผ่าน — แนบไฟล์ใหม่แล้วลงอีกครั้ง";
+export const CLIP_EXPIRED = "ไฟล์คลิปหมดอายุแล้ว — แนบคลิปใหม่ก่อนลงเพจ";
+/** a Reel's file is read by Facebook through this link; an hour covers a slow fetch */
+const REEL_LINK_SECONDS = 60 * 60;
 
 export type PublishResult =
   | { ok: true; item: ContentItem }
@@ -46,6 +53,8 @@ export type PublishResult =
     confirmNumbers?: string[];
     /** Facebook may already show it: the owner checks the Page, then it is sent again with `force` */
     confirmRepost?: boolean;
+    /** things said in a clip a post would be flagged for, or that nobody has listened: confirmed, never blocked (owner, 2026-10-02) */
+    confirmSpoken?: string[];
   };
 
 export type Refusal = Extract<PublishResult, { ok: false }>;
@@ -70,12 +79,14 @@ export const refused = (c: Cleared | Refusal): c is Refusal => "ok" in c;
  * cleared. `edited` checks a copy not yet saved, so an edit can be refused before it lands.
  */
 export async function clear(
-  input: { id: string; pageId: string; at: string | null; confirmNumbers?: boolean; moving?: boolean; force?: boolean },
+  input: { id: string; pageId: string; at: string | null; confirmNumbers?: boolean; confirmSpoken?: boolean; moving?: boolean; force?: boolean },
   edited?: ContentItem,
 ): Promise<Cleared | Refusal> {
   const item = edited ?? await getContent(input.id).catch(() => null);
   if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
-  if (item.format !== "post") return { ok: false, error: "โพสต์ลงเพจได้เฉพาะงานแบบโพสต์เฟซบุ๊ก" };
+  const video = item.output.video;
+  if (item.format !== "post" && !video) return { ok: false, error: "โพสต์ลงเพจได้เฉพาะโพสต์เฟซบุ๊ก หรือชิ้นที่แนบคลิปแล้ว" };
+  if (video?.expired) return { ok: false, error: CLIP_EXPIRED };
   const p = item.publish;
   const state = p?.state;
   if (input.moving) {
@@ -85,16 +96,26 @@ export async function clear(
     if (state === "posting" && !stalePosting(p)) return { ok: false, error: "ชิ้นนี้กำลังส่งไปเพจอยู่ รอสักครู่" };
     if (maybeOnPage(p) && !input.force) return { ok: false, error: POSSIBLY_POSTED, confirmRepost: true };
   }
-  // a claim paper's stickers were laid by the AI; a person looks before the Page does
-  if (item.output.poster?.documents?.length && item.output.paperChecked === false) return { ok: false, error: PAPER_UNCHECKED };
-  // words the image model drew: the agent reads them before the Page does, and they must still be the piece's words
-  const drawnWords = aiTextState(item.output.poster);
-  if (drawnWords === "stale") return { ok: false, error: AI_TEXT_STALE };
-  if (drawnWords === "unchecked") return { ok: false, error: AI_TEXT_UNCHECKED };
-  const blocked = (item.flags.policy ?? []).filter((f) => f.severity === "block");
+  if (!video) {
+    // a claim paper's stickers were laid by the AI; a person looks before the Page does
+    if (item.output.poster?.documents?.length && item.output.paperChecked === false) return { ok: false, error: PAPER_UNCHECKED };
+    // words the image model drew: the agent reads them before the Page does, and they must still be the piece's words
+    const drawnWords = aiTextState(item.output.poster);
+    if (drawnWords === "stale") return { ok: false, error: AI_TEXT_STALE };
+    if (drawnWords === "unchecked") return { ok: false, error: AI_TEXT_UNCHECKED };
+  }
+  // a Reel goes up with its caption, so the caption's checks are the ones that count — a
+  // script's own flags are about the script (owner, 2026-10-02)
+  const flags = video ? video.flags : item.flags;
+  const blocked = (flags.policy ?? []).filter((f) => f.severity === "block");
   if (blocked.length > 0) return { ok: false, error: `ยังผิดกฎโฆษณาของ Facebook: ${blocked[0].message} — แก้ก่อนแล้วค่อยโพสต์` };
-  if (item.flags.numbers.length > 0 && !input.confirmNumbers) {
-    return { ok: false, error: "มีตัวเลขที่ไม่ตรงกับตารางเบี้ย", confirmNumbers: item.flags.numbers };
+  if (flags.numbers.length > 0 && !input.confirmNumbers) {
+    return { ok: false, error: "มีตัวเลขที่ไม่ตรงกับตารางเบี้ย", confirmNumbers: flags.numbers };
+  }
+  // what was said is the agent's to stand behind: asked once, never blocked; a move was asked already
+  if (video && !input.moving && !input.confirmSpoken) {
+    const notes = spokenNotes(video);
+    if (notes.length > 0) return { ok: false, error: "มีสิ่งที่พูดในคลิปที่ควรตรวจก่อนลง", confirmSpoken: notes };
   }
 
   let at: Date | undefined;
@@ -103,7 +124,8 @@ export async function clear(
     const ahead = at.getTime() - Date.now();
     if (Number.isNaN(ahead)) return { ok: false, error: "เวลาที่เลือกไม่ถูกต้อง" };
     if (ahead < MIN_AHEAD_MS) return { ok: false, error: `เวลา ${timeOfDay(at)} ของวันนั้นใกล้หรือเลยไปแล้ว — ตั้งได้ตั้งแต่ 15 นาทีข้างหน้าขึ้นไป` };
-    if (ahead > MAX_AHEAD_MS) return { ok: false, error: "ตั้งเวลาล่วงหน้าได้ไม่เกิน 30 วัน" };
+    const maxAhead = video ? REEL_MAX_AHEAD_MS : MAX_AHEAD_MS;
+    if (ahead > maxAhead) return { ok: false, error: `ตั้งเวลาล่วงหน้าได้ไม่เกิน ${video ? 29 : 30} วัน` };
   }
 
   const mine = await myPages().catch(() => []);
@@ -150,21 +172,39 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
     recordPublishIf(item.id, mine, { state: "failed", pageId: page.pageId, error, ...(claimAt ? { postId: null } : {}) })
       .catch((err) => console.error("publish failure not recorded:", err));
 
-  let png: Buffer;
-  try {
-    const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "");
-    png = await drawPoster(poster, "square");
-  } catch (e) {
-    // nothing has left for Facebook yet: a plain failure
-    console.error("content poster failed:", e);
-    const message = "วาดรูปโพสต์ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ";
-    await fail(message);
-    return { ok: false, error: message };
+  const video = item.output.video;
+  // a Reel's file is fetched by Facebook through a signed link; a post's poster is drawn here.
+  // Either failing leaves nothing on the Page yet: a plain failure.
+  let deliver: () => Promise<Posted>;
+  if (video) {
+    let fileUrl: string;
+    try {
+      fileUrl = await clipReadUrl(video.path, REEL_LINK_SECONDS);
+    } catch (e) {
+      console.error("clip link not made:", e);
+      const message = "เปิดไฟล์คลิปไม่ได้ ลองใหม่อีกครั้งนะครับ";
+      await fail(message);
+      return { ok: false, error: message };
+    }
+    deliver = () => postReel({ pageId: page.pageId, token, fileUrl, caption: reelDescription(item.output), at });
+  } else {
+    let png: Buffer;
+    try {
+      const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "");
+      png = await drawPoster(poster, "square");
+    } catch (e) {
+      // nothing has left for Facebook yet: a plain failure
+      console.error("content poster failed:", e);
+      const message = "วาดรูปโพสต์ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ";
+      await fail(message);
+      return { ok: false, error: message };
+    }
+    deliver = () => postPhoto({ pageId: page.pageId, token, png, caption: fullText(item.output, hook), at });
   }
 
   let posted: Posted;
   try {
-    posted = await postPhoto({ pageId: page.pageId, token, png, caption: fullText(item.output, hook), at });
+    posted = await deliver();
   } catch (e) {
     // A refusal Graph explained left nothing on the Page. Anything else — a timeout, a reset, a
     // gateway's page, an answer with no post id — may have: the upload can land after we stop
@@ -223,7 +263,7 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
 }
 
 export async function publish(input: {
-  id: string; pageId: string; at: string | null; hook?: number; confirmNumbers?: boolean; force?: boolean;
+  id: string; pageId: string; at: string | null; hook?: number; confirmNumbers?: boolean; confirmSpoken?: boolean; force?: boolean;
 }): Promise<PublishResult> {
   const c = await clear(input);
   return refused(c) ? c : send(c, input.hook ?? 0);
@@ -350,7 +390,8 @@ export async function verifyDue(now = new Date()): Promise<void> {
     try {
       const token = await tokenOf(p.pageId);
       if (!token) return;
-      const state = await postState(p.postId, token);
+      const reel = Boolean(item.output.video);
+      const state = reel ? await reelState(p.postId, token) : await postState(p.postId, token);
       if (state === "unknown") return;
       if (state === "published") {
         if (await recordPublishIf(item.id, held, { state: "published" })) lastAsked.delete(item.id);
@@ -363,7 +404,7 @@ export async function verifyDue(now = new Date()): Promise<void> {
       } catch (e) {
         console.error("missed post not taken back:", e);
       }
-      if (await recordPublishIf(item.id, held, { state: "failed", postId, error: MISSED })) lastAsked.delete(item.id);
+      if (await recordPublishIf(item.id, held, { state: "failed", postId, error: reel ? REEL_FAILED : MISSED })) lastAsked.delete(item.id);
     } catch (e) {
       console.error(`post ${p.postId} not verified:`, e);
     }
