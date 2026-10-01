@@ -1,5 +1,5 @@
 /**
- * Putting a picture post on a Page, now or at a time Facebook holds for us.
+ * Putting a picture post or a Reel on a Page…
  *
  * Facebook keeps the schedule (scheduled_publish_time on an unpublished photo), so nothing on
  * this side has to be awake at 19:30: the post shows in Meta Business Suite's planner and goes
@@ -16,6 +16,10 @@ const GRAPH = "https://graph.facebook.com/v23.0";
 export const MIN_AHEAD_MS = 15 * 60_000;
 /** and up to some months ahead; thirty days is within every limit it has published */
 export const MAX_AHEAD_MS = 30 * 24 * 60 * 60_000;
+
+/** Reels take a schedule up to 29 days ahead (Reels publishing guide, checked 2026-10-02) */
+export const REEL_MAX_AHEAD_MS = 29 * 24 * 60 * 60_000;
+const RUPLOAD = "https://rupload.facebook.com/video-upload/v23.0";
 
 export class PublishError extends Error {
   /**
@@ -76,6 +80,86 @@ export async function postPhoto(opts: {
   const id = body.post_id ?? body.id;
   if (!id) throw new PublishError("Facebook ตอบกลับมาไม่มีเลขโพสต์ ลองเช็กในเพจก่อนกดใหม่", undefined, true);
   return { id };
+}
+
+/**
+ * A clip as a Reel (owner, 2026-10-02): start, hand Facebook the file's link to fetch, finish.
+ * The bytes never pass through here — a 300MB clip would not fit a function's request, and the
+ * link is a short signed one Facebook fetches once.
+ *
+ * Nothing is on the Page until finish is answered, so every failure before it is sure; a finish
+ * Graph did not answer (a gateway's page, no `success`) may have gone up, and is unsure.
+ */
+export async function postReel(opts: { pageId: string; token: string; fileUrl: string; caption: string; at?: Date }): Promise<Posted> {
+  const endpoint = `${GRAPH}/${encodeURIComponent(opts.pageId)}/video_reels`;
+  const auth = { Authorization: `Bearer ${opts.token}` };
+
+  const startForm = new FormData();
+  startForm.append("upload_phase", "start");
+  const started = await fetch(endpoint, { method: "POST", headers: auth, body: startForm, signal: AbortSignal.timeout(30_000) });
+  const start = await started.json().catch(() => ({})) as GraphError & { video_id?: string };
+  if (start.error) throw explain(start, started.status);
+  if (!started.ok || !start.video_id) throw new PublishError("Facebook ไม่รับการอัปโหลดคลิป ลองใหม่อีกครั้งนะครับ");
+  const videoId = start.video_id;
+
+  // Facebook fetches the file itself; a 300MB clip may take minutes
+  const sent = await fetch(`${RUPLOAD}/${encodeURIComponent(videoId)}`, {
+    method: "POST",
+    headers: { Authorization: `OAuth ${opts.token}`, file_url: opts.fileUrl },
+    signal: AbortSignal.timeout(300_000),
+  });
+  const upload = await sent.json().catch(() => ({})) as GraphError & { success?: boolean };
+  if (upload.error) throw explain(upload, sent.status);
+  if (!sent.ok || upload.success !== true) throw new PublishError("Facebook ดึงไฟล์คลิปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ");
+
+  const finishForm = new FormData();
+  finishForm.append("upload_phase", "finish");
+  finishForm.append("video_id", videoId);
+  finishForm.append("description", opts.caption);
+  if (opts.at) {
+    finishForm.append("video_state", "SCHEDULED");
+    finishForm.append("scheduled_publish_time", String(Math.floor(opts.at.getTime() / 1000)));
+  } else {
+    finishForm.append("video_state", "PUBLISHED");
+  }
+  const finished = await fetch(endpoint, { method: "POST", headers: auth, body: finishForm, signal: AbortSignal.timeout(60_000) });
+  const finish = await finished.json().catch(() => ({})) as GraphError & { success?: boolean };
+  if (finish.error) throw explain(finish, finished.status);
+  if (!finished.ok || finish.success !== true) {
+    throw new PublishError("Facebook ตอบกลับไม่ชัดว่ารับคลิปแล้วหรือยัง ลองเช็กในเพจก่อนกดใหม่", undefined, true);
+  }
+  return { id: videoId };
+}
+
+/** Where a Reel can be seen. */
+export function reelLink(videoId: string): string {
+  return `https://www.facebook.com/reel/${encodeURIComponent(videoId)}`;
+}
+
+/** What Facebook says of a Reel: up, failed in its processing, or not decided yet. */
+export type ReelState = "published" | "failed" | "unknown";
+
+interface ReelStatus {
+  status?: {
+    video_status?: string;
+    processing_phase?: { status?: string };
+    publishing_phase?: { status?: string; publish_status?: string };
+  };
+}
+
+/**
+ * A Reel's state from its video node. "failed" only when Facebook says the video errored —
+ * then it will never go up; a Reel still processing, or held for later, is "unknown". Graph
+ * errors throw, as postState's do.
+ */
+export async function reelState(videoId: string, token: string): Promise<ReelState> {
+  const { status } = await graphGet<ReelStatus>(videoId, "status", token);
+  if (!status) return "unknown";
+  if (status.video_status === "error" || status.video_status === "upload_failed"
+    || status.processing_phase?.status === "error" || status.publishing_phase?.status === "error"
+    || status.publishing_phase?.publish_status === "error") return "failed";
+  if (status.publishing_phase?.publish_status === "published") return "published";
+  return "unknown";
 }
 
 /** Takes a held post back. A post already gone counts as taken back. */
