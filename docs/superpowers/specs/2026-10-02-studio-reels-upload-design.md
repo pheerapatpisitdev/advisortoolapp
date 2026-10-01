@@ -21,11 +21,13 @@ Organic Studio ตอนนี้ทำคลิปได้แค่ตัว�
 | ถ่ายยังไง | อัปโหลดอย่างเดียว — ไม่มีกล้อง/teleprompter ในเบราว์เซอร์ ตัวแทนเปิดสคริปต์จาก Studio ไว้อีกจอได้ |
 | คลิปผูกกับอะไร | ได้ทั้งสองแบบ: แนบเข้าชิ้นสคริปต์ หรืออัปโหลดลอยๆ เป็นชิ้นใหม่ `format = 'clip'` |
 | เกณฑ์ไฟล์ | mp4/mov · 3–90 วินาที · แนวตั้ง · ≤ 300MB |
-| ทางของไฟล์ | เบราว์เซอร์ → Supabase Storage ตรง (signed upload URL) → Facebook ดึงเองจาก signed URL; ไฟล์ไม่ผ่าน Vercel |
+| ทางของไฟล์ | เบราว์เซอร์ → Supabase Storage ตรง (signed upload URL + TUS resumable) → Facebook ดึงเองจาก signed URL; ไฟล์ไม่ผ่าน Vercel |
+| ตั้งเวลา Reel | 15 นาที – **29 วัน** (Reels รับถึง 29 วัน; โพสต์รูปยัง 30 วันเหมือนเดิม) |
+| แก้แคปชัน | ได้เมื่อยังไม่ได้ตั้งเวลา — Reel ที่ตั้งเวลาแล้วต้องยกเลิกคิวก่อนแก้ (แก้ = ส่งไฟล์ใหม่ทั้งก้อน) |
 | ถอดเสียง + แคปชัน | Gemini Flash รอบเดียว ได้ข้อความพูดแบ่งช่วงพร้อมเวลา + แคปชันร่าง |
 | ตรวจเสียงพูด | **เตือนเท่านั้น** บอกวินาที ไม่บล็อก |
 | ตรวจแคปชัน | กติกาเดียวกับโพสต์ (คำต้องห้าม, ตัวเลขเบี้ยขอยืนยัน, กฎโฆษณา block) |
-| คิดเงิน | รอบใหม่ `ai-clip` hold ฿3 ผ่าน `payRound` เดิม; อัปโหลด/โพสต์ไม่คิด; ทีมงานไม่จ่าย |
+| คิดเงิน | รอบใหม่ `ai-clip` hold ฿3 ผ่าน `payRound` เดิม (นับเป็น 1 ใน 10 รอบฟรีเหมือนรอบอื่น); อัปโหลด/โพสต์ไม่คิด; ทีมงานไม่จ่าย |
 | อายุไฟล์ | เก็บจนโพสต์ขึ้นจริง + 48 ชม. (เพราะย้ายเวลา = ส่งไฟล์ใหม่); ร่างไม่เคยตั้งเวลา ค้างเกิน 60 วัน ลบไฟล์ |
 | ไม่ทำในเฟสนี้ | ตัดต่อ, ซับฝัง, เพลง, ภาพปกเลือกเอง, คลิปที่ระบบสร้าง, TikTok/YouTube |
 
@@ -66,11 +68,12 @@ video?: {
   brief?: string;          // what the agent typed for a standalone clip
   transcript?: { start: number; end: number; text: string }[];  // absent = not transcribed (yet / failed)
   caption: string;         // the Reel's description; the agent edits it
+  flags: Flags;            // the caption's checks — what clear() reads for a Reel, not item.flags (a script's own)
   spokenFlags?: SpokenFlag[];  // warnings from the transcript, each with its second
 }
 ```
 
-`Format` ([prompt.ts:16](../../../src/lib/content/prompt.ts)) เพิ่ม `"clip"` · ชิ้นไหน "ลงเป็น Reel" = มี `output.video` (ไม่ว่า format อะไร)
+`PieceFormat = Format | "clip"` ใหม่ใน [prompt.ts:16](../../../src/lib/content/prompt.ts) สำหรับ `ContentItem.format` (`Format` เดิมคงไว้เป็นชนิดที่ AI เขียนได้ — prompt ของแต่ละโหมดไม่ต้องรู้จัก clip) · ชิ้นไหน "ลงเป็น Reel" = มี `output.video` (ไม่ว่า format อะไร)
 ชิ้น `clip` ใส่ช่องบังคับของ `ContentOutput` เป็นค่าว่าง (`hooks: []`, `body: ""`, …) ยกเว้น `disclaimer` ตามแบบประกันของชิ้น (ถ้ามี)
 คำบรรยาย Reel = `video.caption` + `footer({ hooks: [], body: video.caption, closing: "", disclaimer })` — footer เดิม ([output.ts:24](../../../src/lib/content/output.ts)) จึงเติมบรรทัดภาษี/บริษัทประกันตามแคปชันเหมือนโพสต์
 
@@ -95,7 +98,7 @@ video?: {
 - เรียก Gemini Flash ครั้งเดียว `media_resolution` ต่ำ (ต้องการเสียงเป็นหลัก) ขอ JSON `{ segments: [{start,end,text}], caption }`
   - context: แนบเข้าสคริปต์ → บทของสคริปต์ + แบบประกันของชิ้น (`planHref`); ลอยๆ → `brief`
   - กติกาแคปชันใช้ของ prompt โพสต์เดิม (น้ำเสียง, ห้ามคำต้องห้าม, disclaimer ผ่าน `footer`)
-- ส่งคลิปให้ Gemini: signed URL ถ้า Gemini รับได้ ไม่งั้น Files API สตรีมจาก Supabase (ไม่โหลดทั้งไฟล์ลงหน่วยความจำ)
+- ส่งคลิปให้ Gemini: ≤ 100MB → signed URL ใน `fileData.fileUri` (Gemini ดึงเอง, เพดาน 100MB); ใหญ่กว่า → Files API resumable สตรีมจาก Supabase (ไม่โหลดทั้งไฟล์ลงหน่วยความจำ) แล้วรอ state `ACTIVE`
 - ตัวแปลงผล: JSON เสีย / ช่วงไม่เรียง / เวลาเกินความยาวคลิป → ทิ้งช่วงที่เสีย ถ้าไม่เหลือเลย = ล้มเหลว
 - ต้นทุนวัดผ่าน `meterCost` เดิม — คลิป 90 วินาทีราว ฿0.3–0.6
 
@@ -107,7 +110,7 @@ video?: {
 | เสียงพูด (`transcript`) | เตือน | เตือน | เตือน |
 
 - คำเตือนจากเสียงพูดเก็บใน `video.spokenFlags` พร้อมวินาทีของช่วงที่เจอ
-- `clear()` ([publish-flow.ts:72](../../../src/lib/content/publish-flow.ts)) สำหรับชิ้นที่มี video: ตรวจแคปชันตามกติกาโพสต์; ถ้ามี `spokenFlags` หรือยังไม่ได้ถอดเสียง → คืน `confirmSpoken` ให้ปุ่มขอกดยืนยัน (แบบเดียวกับ `confirmNumbers`) แต่ไม่บล็อก
+- `clear()` ([publish-flow.ts:72](../../../src/lib/content/publish-flow.ts)) สำหรับชิ้นที่มี video: ตรวจแคปชันตามกติกาโพสต์ จาก `video.flags` (ไม่ใช่ `item.flags` ซึ่งเป็นของบทสคริปต์); ถ้ามี `spokenFlags` หรือยังไม่ได้ถอดเสียง → คืน `confirmSpoken` ให้ปุ่มขอกดยืนยัน (แบบเดียวกับ `confirmNumbers`) แต่ไม่บล็อก
 - ถอดเสียงไม่สำเร็จ: ไม่คิดเงิน · ปุ่ม "ถอดเสียงอีกครั้ง" · เขียนแคปชันเองได้ · ลงได้ด้วยการยืนยัน "ยังไม่ได้ตรวจเสียงพูด"
 
 ### ลงเพจ — Reels API
@@ -166,10 +169,12 @@ vitest ใน `tests/content`, `tests/facebook` (mock แบบเทสต์�
 
 ทดสอบกับของจริงบนเพจทดสอบก่อนปล่อย: คลิป mp4 จาก iPhone และ Android ~60 วินาที → ลงเลย (Reel ขึ้นจริง) · ตั้งเวลา · ลากย้ายวัน · ถอน · คลิปที่พูด "การันตี" → เตือนถูกวินาที
 
-## ต้องเช็กก่อน (ขั้นแรกของ plan)
+## ผลเช็กเอกสาร (2026-10-02) และที่ยังต้องลองกับของจริง
 
-1. Supabase resumable upload (TUS) ใช้กับ signed upload URL ได้ไหม — ไม่ได้ → อัปโหลดธรรมดา + ลองใหม่
-2. Gemini รับวิดีโอทาง signed URL ได้ไหม — ไม่ได้ → Files API
-3. แก้ `scheduled_publish_time` ของ Reel ที่ตั้งไว้ได้ตรงๆ ไหม — ได้ → `move()` ของคลิปไม่ต้องส่งไฟล์ซ้ำ
-4. ช่วงตั้งเวลาของ Reels เท่ากับโพสต์รูป (15 นาที – 30 วัน) ไหม
-5. Vercel function ที่เรียก `postReel` (ขั้น rupload รอ Facebook ดึงไฟล์ 300MB) อยู่ใน `maxDuration` ไหม
+ยืนยันจากเอกสารแล้ว: TUS ใช้กับ signed upload URL ได้ (`x-signature`, chunk 6MB) · Gemini รับ URL ได้ถึง 100MB, Files API ถึง 2GB ·
+Reels ตั้งเวลา 10 นาที–29 วัน, 3–90 วินาที, 30 ตัว/เพจ/24 ชม. · Vercel Pro `maxDuration` สูงสุด 800 วินาที · เอกสารไม่ยืนยันว่าแก้เวลา Reel ที่ตั้งไว้ได้ → ใช้ `move()` แบบส่งใหม่
+
+ลองกับเพจจริงตอนทดสอบ:
+1. `DELETE /{video_id}` ถอน Reel ที่ตั้งเวลาได้
+2. Facebook (`facebookexternalhit`) ดึงไฟล์จาก signed URL ของ Supabase ได้
+3. `GET /{video_id}?fields=status` ตอบรูปแบบตามเอกสาร หลังโพสต์ทันทีและหลังถึงเวลาที่ตั้ง
