@@ -3,8 +3,8 @@ import { LIFE_EXPECTANCY } from "@/lib/plan/assumptions";
 import { ciNeed, cleanInput, healthNeed, lifeNeed, retireNeed, type PlanInput } from "@/lib/plan/needs";
 import type { Area, AreaKey, PlanResult } from "@/lib/plan/recommend";
 import {
-  COVER_SHARE, DEBT_YEARS, DEFAULT_EXPECTANCY, EMERGENCY_MONTHS, EVENTS, MAX_PEOPLE, RELATION_LABEL, SAVING_SHARE,
-  WORK_ABILITY_LABEL, type EventKey, type Relation, type WorkAbility,
+  COVER_SHARE, DEBT_YEARS, DEFAULT_EXPECTANCY, EMERGENCY_MONTHS, EVENTS, MAX_PEOPLE, PARTIAL_WORK_SHARE, RELATION_LABEL,
+  SAVING_SHARE, WORK_ABILITY_LABEL, type EventKey, type Relation, type WorkAbility,
 } from "./assumptions";
 
 /**
@@ -81,7 +81,7 @@ export interface FhcFigures {
   /** years from retiring (or from today, once past it) to the expected age */
   moneyYears: number;
   incomeYear: number;
-  /** ค่าความสามารถในการทำงาน: a year's income times the years of work left */
+  /** ค่าความสามารถในการทำงาน: a year's income times the years of work left; half of it when the customer can work only partly */
   lifetimeIncome: number;
   netMonth: number;
   savings: number;
@@ -102,7 +102,7 @@ export function figures(f: FhcInput): FhcFigures {
     workYears,
     moneyYears: Math.max(0, f.expectancy - Math.max(f.age, f.retireAge)),
     incomeYear,
-    lifetimeIncome: incomeYear * workYears,
+    lifetimeIncome: Math.round(incomeYear * workYears * (f.work === "partial" ? PARTIAL_WORK_SHARE : 1)),
     netMonth: f.income - f.expense,
     savings,
     debts,
@@ -149,7 +149,9 @@ export function scores(f: FhcInput): Score[] {
   const months = f.expense > 0 ? (f.cash + f.fixed) / f.expense : null;
   const left = g.netMonth;
   const share = f.income > 0 ? left / f.income : null;
-  const debtYears = f.income > 0 ? g.debts / g.incomeYear : null;
+  // the home loan is left out: a mortgage of several years' income is ordinary
+  const owed = f.carLoan + f.otherDebt;
+  const debtYears = f.income > 0 ? owed / g.incomeYear : null;
   const life = lifeNeed(p);
   const lifeShare = life.need > 0 ? life.have / life.need : null;
   const [health, ci] = [healthNeed(p).covered, ciNeed(p).gap === 0];
@@ -165,10 +167,12 @@ export function scores(f: FhcInput): Score[] {
       shown: share === null ? "—" : left < 0 ? `ใช้เกินรายได้ ${baht(-left)} บาท/เดือน` : `${pct(share)} ของรายได้`,
     },
     {
-      key: "debt", label: "ภาระหนี้",
+      key: "debt", label: "ภาระหนี้ (ไม่รวมบ้าน)",
       level: debtYears === null ? "none"
         : debtYears < DEBT_YEARS.green ? "green" : debtYears <= DEBT_YEARS.yellow ? "yellow" : "red",
-      shown: debtYears === null ? "—" : g.debts === 0 ? "ไม่มีหนี้" : `${debtYears.toFixed(1)} เท่าของรายได้ต่อปี`,
+      shown: debtYears === null ? "—"
+        : owed > 0 ? `${debtYears.toFixed(1)} เท่าของรายได้ต่อปี`
+          : f.homeLoan > 0 ? "มีแต่หนี้บ้าน" : "ไม่มีหนี้",
     },
     {
       key: "life", label: "ความคุ้มครองชีวิต", level: higherIsBetter(lifeShare, COVER_SHARE),

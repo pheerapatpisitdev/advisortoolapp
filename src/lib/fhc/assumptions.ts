@@ -10,7 +10,10 @@ export const DEFAULT_EXPECTANCY = 85;
 export const EMERGENCY_MONTHS = { green: 6, yellow: 3 } as const;
 /** เงินเหลือต่อเดือน เทียบรายได้ */
 export const SAVING_SHARE = { green: 0.2, yellow: 0.1 } as const;
-/** หนี้รวม เทียบรายได้ต่อปี (น้อยดี): ต่ำกว่า green = เขียว, ไม่เกิน yellow = เหลือง */
+/**
+ * หนี้ไม่รวมบ้าน (รถ + บัตรเครดิต/อื่นๆ) เทียบรายได้ต่อปี (น้อยดี): ต่ำกว่า green = เขียว, ไม่เกิน yellow = เหลือง.
+ * หนี้บ้านไม่นับ: ผ่อนบ้านหลายเท่าของรายได้เป็นเรื่องปกติ (owner, 2026-10-01) — ยังนับในทุนชีวิตและสินทรัพย์สุทธิ
+ */
 export const DEBT_YEARS = { green: 1, yellow: 3 } as const;
 /** ความคุ้มครองชีวิตและเงินเกษียณ: ที่มี เทียบที่ควรมี */
 export const COVER_SHARE = { green: 1, yellow: 0.5 } as const;
@@ -21,6 +24,8 @@ export const WORK_ABILITY_LABEL: Record<WorkAbility, string> = {
   partial: "ทำงานได้บางส่วน",
   none: "ทำงานไม่ได้",
 };
+/** ค่าความสามารถในการทำงาน: ทำงานได้บางส่วน นับเท่านี้ของรายได้ตลอดปีที่เหลือ */
+export const PARTIAL_WORK_SHARE = 0.5;
 
 export type Relation = "child" | "spouse" | "parent" | "other";
 export const RELATION_LABEL: Record<Relation, string> = {
