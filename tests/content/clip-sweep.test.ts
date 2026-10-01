@@ -3,7 +3,6 @@ import { NO_FLAGS } from "@/lib/content/clip";
 
 // publish-flow is imported for its 48-hour window; its other imports are not needed here
 vi.mock("@/app/studio/actions", () => ({ setContentStatus: vi.fn() }));
-vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: vi.fn() }));
 
 const { sweepPlan } = await import("@/lib/content/clip-sweep");
 type SweepFile = import("@/lib/content/clip-sweep").SweepFile;
@@ -59,5 +58,107 @@ describe("sweepPlan", () => {
     const r = row("a", "v.mp4", {}, 24 * 61);
     r.video!.expired = true;
     expect(sweepPlan([file("a", "v.mp4")], new Map([["a", r]]), now)).toEqual({ remove: ["a/v.mp4"], expire: [] });
+  });
+});
+
+// ---- sweepClips against an in-memory bucket and table ----
+
+const dbMock = vi.hoisted(() => ({ state: null as unknown }));
+vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => (dbMock.state as { client: unknown }).client }));
+
+type Filter = [string, string, unknown];
+function fake(opts: { folders: Record<string, { name: string; created_at: string }[]>; rows: Record<string, unknown>[]; matches?: boolean; readError?: boolean }) {
+  const updates: { id: unknown; filters: Filter[]; patch: Record<string, unknown> }[] = [];
+  const removed: string[] = [];
+  const query = (kind: "select" | "update", patch?: Record<string, unknown>) => {
+    const filters: Filter[] = [];
+    const b: Record<string, unknown> = {};
+    b.eq = (c: string, v: unknown) => { filters.push(["eq", c, v]); return b; };
+    b.is = (c: string, v: unknown) => { filters.push(["is", c, v]); return b; };
+    b.in = (_c: string, ids: string[]) => Promise.resolve(opts.readError
+      ? { data: null, error: { message: "boom" } }
+      : { data: opts.rows.filter((r) => ids.includes(r.id as string)), error: null });
+    b.maybeSingle = () => Promise.resolve({ data: opts.rows.find((r) => r.id === filters.find((f) => f[1] === "id")?.[2]) ?? null, error: null });
+    b.select = () => {
+      if (kind === "update") {
+        updates.push({ id: filters.find((f) => f[1] === "id")?.[2], filters, patch: patch! });
+        return Promise.resolve({ data: opts.matches === false ? [] : [{ id: "x" }], error: null });
+      }
+      return b;
+    };
+    return b;
+  };
+  const client = {
+    storage: { from: () => ({
+      list: async (dir: string) => dir === ""
+        ? { data: Object.keys(opts.folders).map((name) => ({ name })), error: null }
+        : { data: opts.folders[dir] ?? [], error: null },
+      remove: async (paths: string[]) => { removed.push(...paths); return { error: null }; },
+    }) },
+    from: () => ({ select: () => query("select"), update: (p: Record<string, unknown>) => query("update", p) }),
+  };
+  dbMock.state = { client };
+  return { updates, removed };
+}
+
+const U1 = "11111111-1111-4111-8111-111111111111";
+const U2 = "22222222-2222-4222-8222-222222222222";
+const old = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+const dbRow = (id: string, over: Record<string, unknown> = {}) => ({
+  id, publish_state: "published", publish_at: old(60),
+  output: { rev: "r1", video: { path: `${id}/v.mp4`, uploadedAt: old(100), expired: false } },
+  ...over,
+});
+
+describe("sweepClips", () => {
+  it("writes expiry only against the revision, clip and publish state the plan saw", async () => {
+    const f = fake({ folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] }, rows: [dbRow(U1)] });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    expect(await sweepClips()).toEqual({ removed: 1, expired: 1 });
+    const fl = f.updates[0].filters;
+    expect(fl).toContainEqual(["eq", "output->>rev", "r1"]);
+    expect(fl).toContainEqual(["eq", "output->video->>path", `${U1}/v.mp4`]);
+    expect(fl).toContainEqual(["eq", "publish_state", "published"]);
+    expect(fl.some((x) => x[1] === "publish_at")).toBe(true);
+    expect(f.removed).toEqual([`${U1}/v.mp4`]);
+  });
+
+  it("uses is-null filters when the plan saw no revision or state", async () => {
+    const f = fake({
+      folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }] },
+      rows: [dbRow(U1, { publish_state: null, publish_at: null, output: { video: { path: `${U1}/v.mp4`, uploadedAt: old(24 * 61) } } })],
+    });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    await sweepClips();
+    expect(f.updates[0].filters).toContainEqual(["is", "output->>rev", null]);
+    expect(f.updates[0].filters).toContainEqual(["is", "publish_state", null]);
+  });
+
+  it("holds back a piece's file when its update matched nothing, but still removes an orphan elsewhere", async () => {
+    const f = fake({
+      folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }], [U2]: [{ name: "x.mp4", created_at: old(100) }] },
+      rows: [dbRow(U1)], matches: false,
+    });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    expect(await sweepClips()).toEqual({ removed: 1, expired: 0 });
+    expect(f.removed).toEqual([`${U2}/x.mp4`]);
+  });
+
+  it("ignores a folder that is not a piece id and carries on", async () => {
+    const f = fake({
+      folders: { "not-a-uuid": [{ name: "a.mp4", created_at: old(500) }], [U2]: [{ name: "x.mp4", created_at: old(100) }] },
+      rows: [],
+    });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    expect(await sweepClips()).toEqual({ removed: 1, expired: 0 });
+    expect(f.removed).toEqual([`${U2}/x.mp4`]);
+  });
+
+  it("removes nothing when the rows cannot be read", async () => {
+    const f = fake({ folders: { [U2]: [{ name: "x.mp4", created_at: old(100) }] }, rows: [], readError: true });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    await expect(sweepClips()).rejects.toThrow("boom");
+    expect(f.removed).toEqual([]);
+    expect(f.updates).toEqual([]);
   });
 });

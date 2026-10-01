@@ -13,6 +13,7 @@ export interface SweepRow { id: string; video: ClipVideo | null; state: string |
 export interface SweepFile { piece: string; name: string; createdAt: string }
 
 const DAY = 24 * 60 * 60_000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HELD = new Set(["scheduled", "posting"]);
 
 export function sweepPlan(files: SweepFile[], rows: Map<string, SweepRow>, now: Date): { remove: string[]; expire: string[] } {
@@ -45,7 +46,8 @@ export async function sweepClips(now = new Date()): Promise<{ removed: number; e
   const bucket = db.storage.from(CLIP_BUCKET);
   const { data: dirs, error } = await bucket.list("", { limit: 1000 });
   if (error) throw new Error(error.message);
-  const pieces = (dirs ?? []).map((d) => d.name).filter(Boolean);
+  // only a piece's folder is ours to look at; anything else in the bucket is left alone
+  const pieces = (dirs ?? []).map((d) => d.name).filter((n) => UUID.test(n));
   if (pieces.length === 0) return { removed: 0, expired: 0 };
 
   const files: SweepFile[] = [];
@@ -53,22 +55,33 @@ export async function sweepClips(now = new Date()): Promise<{ removed: number; e
     const { data } = await bucket.list(piece, { limit: 100 });
     for (const f of data ?? []) files.push({ piece, name: f.name, createdAt: f.created_at ?? now.toISOString() });
   }
-  const { data: found, error: readErr } = await db.from("ins_content")
-    .select("id, output, publish_state, publish_at").in("id", pieces);
-  if (readErr) throw new Error(readErr.message);
+  // a short read would take live pieces for gone ones: any chunk failing stops the run before a write
   const rows = new Map<string, SweepRow>();
-  for (const r of (found ?? []) as { id: string; output: { video?: ClipVideo; rev?: string } | null; publish_state: string | null; publish_at: string | null }[]) {
-    rows.set(r.id, { id: r.id, video: r.output?.video ?? null, state: r.publish_state, at: r.publish_at, rev: r.output?.rev ?? null });
+  for (let i = 0; i < pieces.length; i += 100) {
+    const { data: found, error: readErr } = await db.from("ins_content")
+      .select("id, output, publish_state, publish_at").in("id", pieces.slice(i, i + 100));
+    if (readErr) throw new Error(readErr.message);
+    for (const r of (found ?? []) as { id: string; output: { video?: ClipVideo; rev?: string } | null; publish_state: string | null; publish_at: string | null }[]) {
+      rows.set(r.id, { id: r.id, video: r.output?.video ?? null, state: r.publish_state, at: r.publish_at, rev: r.output?.rev ?? null });
+    }
   }
 
   const plan = sweepPlan(files, rows, now);
   const marked = new Set<string>();
   for (const id of plan.expire) {
+    const planned = rows.get(id);
+    if (!planned?.video) continue;
     const { data } = await db.from("ins_content").select("output").eq("id", id).maybeSingle();
     const output = (data as { output?: { video?: ClipVideo; rev?: string } } | null)?.output;
-    if (!output?.video) continue;
+    // the clip or the revision moved since the plan was made: it is not the one judged
+    if (!output?.video || output.video.path !== planned.video.path || (output.rev ?? null) !== planned.rev) continue;
+    // the write holds only if the row is still exactly what the plan saw: same revision, same clip,
+    // same publish state (a piece claimed since then is sending, and Facebook may be fetching the file)
     let q = db.from("ins_content").update({ output: { ...output, video: { ...output.video, expired: true }, rev: crypto.randomUUID() } }).eq("id", id);
-    q = output.rev ? q.eq("output->>rev", output.rev) : q.is("output->>rev", null);
+    q = planned.rev ? q.eq("output->>rev", planned.rev) : q.is("output->>rev", null);
+    q = q.eq("output->video->>path", planned.video.path);
+    q = planned.state === null ? q.is("publish_state", null) : q.eq("publish_state", planned.state);
+    if (planned.state === "published" && planned.at) q = q.eq("publish_at", planned.at);
     const { data: done, error: e } = await q.select("id");
     if (e) console.error(`clip ${id} not marked expired:`, e.message);
     else if ((done ?? []).length === 1) marked.add(id);
