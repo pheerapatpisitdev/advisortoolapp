@@ -8,11 +8,11 @@ import { CLIP_BUCKET, type ClipFile } from "@/lib/content/clip";
  * after a dropped connection (Supabase resumable uploads, signed with x-signature).
  */
 
-/** the storage host itself, as Supabase's guide asks for large uploads */
+/** the storage host itself, as Supabase's guide asks for large uploads; a signed-token (x-signature) upload goes to the /sign route — the plain route wants a login JWT */
 function resumableEndpoint(): string {
   const base = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
   const ref = base.hostname.split(".")[0];
-  return `https://${ref}.storage.supabase.co/storage/v1/upload/resumable`;
+  return `https://${ref}.storage.supabase.co/storage/v1/upload/resumable/sign`;
 }
 
 export function readClipFile(file: File): Promise<ClipFile> {
