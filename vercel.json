@@ -10,6 +10,10 @@
     {
       "path": "/api/chat-review",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/content-video/sweep",
+      "schedule": "0 4 * * *"
     }
   ]
 }
