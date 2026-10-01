@@ -1,15 +1,17 @@
 "use server";
 
-import { clipOutput, clipPath, clipProblem, CLIP_HREF, isClipPath, MAX_CLIP_BRIEF, NO_FLAGS, type ClipFile, type ClipVideo } from "@/lib/content/clip";
+import { clipOutput, clipPath, clipProblem, CLIP_HREF, isClipPath, MAX_CAPTION, MAX_CLIP_BRIEF, NO_FLAGS, type ClipFile, type ClipVideo } from "@/lib/content/clip";
 import { clipReadUrl, clipSize, createClipUpload, removeClip } from "@/lib/content/clip-store";
 import { onPage } from "@/lib/content/publish-label";
-import { getContent, saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
+import { getContent, listWords, saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { projectPage } from "@/lib/auth/pages";
 import { requireMember } from "@/lib/auth/viewer";
 import { takeRound } from "@/lib/auth/quota";
 import { limiter } from "@/lib/assistant/rate-limit";
 import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { runTranscribe } from "@/lib/content/clip-run";
+import { captionFlags, clipYardstick } from "@/lib/content/clip-transcribe";
+import { modeChecks } from "@/lib/content/mode-checks";
 import { payRound } from "@/lib/wallet/round";
 
 /**
@@ -124,4 +126,29 @@ export async function transcribeClip(id: string): Promise<ClipResult> {
   const pass = await takeRound(viewer, "ai-clip");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => runTranscribe(item));
+}
+
+/**
+ * The agent's caption, kept and checked again. Only before the Reel is held: changing a held
+ * one means sending the whole file again — cancel the schedule first (owner, 2026-10-02).
+ */
+export async function saveClipCaption(id: string, caption: string): Promise<ClipResult> {
+  await requireMember();
+  const text = (typeof caption === "string" ? caption : "").trim().slice(0, MAX_CAPTION);
+  try {
+    const words = await listWords();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const item = await getContent(id);
+      const v = item?.output.video;
+      if (!item || !v) return { ok: false, error: "ชิ้นนี้ยังไม่มีคลิป" };
+      if (onPage(item.publish)) return { ok: false, error: "Reel นี้ตั้งเวลาหรือลงเพจแล้ว — ยกเลิกคิวก่อนแก้แคปชัน" };
+      const flags = captionFlags(text, clipYardstick(item), words, modeChecks(item.planHref, v.brief));
+      const saved = await saveOutputIf(id, { ...item.output, video: { ...v, caption: text, flags } }, undefined, item.output.rev ?? null);
+      if (saved) return { ok: true, item: saved };
+    }
+    return { ok: false, error: "มีการแก้ชิ้นนี้พร้อมกันอยู่ — โหลดหน้าใหม่แล้วบันทึกอีกครั้ง" };
+  } catch (e) {
+    console.error("clip caption not saved:", e);
+    return { ok: false, error: "บันทึกแคปชันไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
+  }
 }
