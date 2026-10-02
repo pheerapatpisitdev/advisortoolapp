@@ -20,6 +20,20 @@ export interface Said {
   text: string;
   /** where the quote is drawn as a picture, as a path on this site */
   card?: string;
+  /**
+   * The sales page's PDF of the quote on this message, as a path on this site.
+   *
+   * Remembered, never sent: the dispatcher keeps the latest one so a later "ขอไฟล์ PDF" can
+   * be answered with it (pdf.ts). Set beside the card from the same input, so the file
+   * prints exactly what the picture shows.
+   */
+  pdfPath?: string;
+  /**
+   * The PDF this message hands over, as a path on this site — only on the turn that answers a
+   * request for the file. A separate field from `pdfPath` because every channel delivers what
+   * is here, and a quote that carried it would send a file nobody asked for.
+   */
+  file?: string;
 }
 
 /** A person does not send one long block; the model's paragraphs go out as separate bubbles. */
@@ -447,7 +461,7 @@ export function stalls(text: string): boolean {
  * "เตรียมเอกสาร". The agency's answer is a form, so the answer is written out and the words
  * that mean it are listed here.
  */
-const BUYS =
+export const BUYS =
   /สมัคร|ทำ(?:ยังไง|อย่างไร|ไง)|ขั้นตอน|ต้องทำอะไร|เอา(?:แผน|แบบ|แผ่น|อัน|ตัว)นี้|ตกลงทำ|สนใจทำ|ทำเลย|เอาเลย|เริ่ม(?:ยังไง|อย่างไร|ได้เลย)|เตรียม(?:อะไร|เอกสาร)|ใช้เอกสาร|เอกสารอะไร|ซื้อ(?:ยังไง|ได้ที่ไหน|ได้เลย|เลย)|ดำเนินการ/;
 /** "ทำยังไง" about a claim, a cancellation or a surrender is a service question, not a purchase */
 const NOT_BUYING = /เคลม|ยกเลิก|เวนคืน|กู้|ต่ออายุ|เปลี่ยนแปลง/;

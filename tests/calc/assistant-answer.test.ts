@@ -22,6 +22,7 @@ const { lifeProtectTable } = await import("@/lib/lifeprotect-table");
 const { lifeProtectChatQuoteText } = await import("@/lib/lifeprotect-cta");
 const { cashAt, deathBenefitOf, lifeProtectModes, termAt } = await import("@/lib/lifeprotect-quote");
 const { formatBaht } = await import("@/calc/money");
+const { quotePdfPath } = await import("@/lib/quote-pdf/link");
 
 const said = (content: string) => [{ role: "user" as const, content }];
 
@@ -127,6 +128,10 @@ describe("a quote", () => {
     const answer = await answerQuestion(said("ชาย 35 ล้านนึง"), null);
     expect(answer.messages[0].card)
       .toMatch(/^\/api\/card\?plan=LIFEPROTECT&variant=WLF19H&age=35&sex=M&sum=1000000&v=[0-9a-z]+-[0-9]+$/);
+    // and the sales page's PDF of the same arrangement, remembered for when it is asked for
+    expect(answer.messages[0].pdfPath).toBe(quotePdfPath({
+      kind: "plan", planCode: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000,
+    }));
   });
 
   it("offers the two terms it did not quote", async () => {

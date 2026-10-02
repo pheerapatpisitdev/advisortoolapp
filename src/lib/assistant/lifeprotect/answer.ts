@@ -6,6 +6,7 @@ import { baseSumAssuredLimits } from "@/calc/rules";
 import { sumAssuredFromPremium } from "@/calc/sa-from-premium";
 import { formatBaht } from "@/calc/money";
 import { cardPath, valueTablePath } from "@/lib/card-link";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 import { lifeProtectChatQuoteText } from "@/lib/lifeprotect-cta";
 import { lifeProtectFacts } from "@/lib/lifeprotect-facts";
 import { cashAt, deathBenefitOf, lifeProtectModes, termAt } from "@/lib/lifeprotect-quote";
@@ -168,6 +169,9 @@ function sumForCover(table: LifeProtectTable, age: number, cover: number): numbe
   return Math.round(cover / coverMultiple(table, age) / 1000) * 1000;
 }
 
+/** The PDF field, only when the sales page can print the quote. */
+const withPdf = (pdfPath: string | undefined) => (pdfPath ? { pdfPath } : {});
+
 /** One insured, priced — or a sentence saying why this one has no price. */
 function quoteFor(
   table: LifeProtectTable, variant: string, who: { age: number; sex: "M" | "F" }, coverWanted: number,
@@ -205,6 +209,7 @@ function quoteFor(
       coverToAge: table.coverToAge,
     }),
     card: cardPath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }),
+    ...withPdf(quotePdfPath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured })),
     ...(annual ? { figures: { age, sex, plan: variant, sumAssured, annual: baht(annual.total), coverWanted } } : {}),
   };
 }
@@ -308,7 +313,9 @@ function answerQuote(slots: Routed): Reply {
   // buttons sit under, so it is the one the lead is opened against
   const figures = last >= 0 ? messages[last].figures : undefined;
   return {
-    messages: messages.map(({ text, card }) => (card ? { text, card } : { text })),
+    messages: messages.map(({ text, card, pdfPath }) => ({
+      text, ...(card ? { card } : {}), ...withPdf(pdfPath),
+    })),
     priced: last >= 0,
     ...(figures ? { quote: figures } : {}),
     ...(last >= 0 ? { replies: quoteReplies(table, variant) } : {}),

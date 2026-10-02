@@ -4,7 +4,8 @@ import { iHealthyQuoteText } from "@/lib/ihealthy-cta";
 import { iHealthyFacts, planLabel } from "@/lib/ihealthy-facts";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { deathBenefitOf, iHealthyPricing, shownAt } from "@/lib/ihealthy-quote";
-import { initialFrom } from "@/lib/ihealthy-link";
+import { initialFrom, queryFrom } from "@/lib/ihealthy-link";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
 
 const WHO = { product: "ihealthy" as const, intent: "quote" as const, age: 35, sex: "F" as const, plan: "GOLD" };
@@ -43,6 +44,14 @@ describe("the quotation the bot sends", () => {
     expect(card).toContain("fit=phone");
     const chosen = initialFrom(iHealthyTable(), Object.fromEntries(new URLSearchParams(card.split("?")[1])));
     expect(chosen).toMatchObject({ age: 35, sex: "F", plan: "GOLD", territory: "ประเทศไทย" });
+  });
+
+  it("remembers the sales page's PDF of the same arrangement", () => {
+    const table = iHealthyTable();
+    const v = { ...IHEALTHY_OPENING, age: 35, sex: "F" as const, plan: "GOLD" };
+    const pdf = healthQuote(WHO).messages[0].pdfPath!;
+    expect(pdf).toContain("page=ihealthy-ultra");
+    expect(pdf).toBe(quotePdfPath({ kind: "ihealthy", query: queryFrom(table, v) }));
   });
 
   it("offers the way on under the picture", () => {

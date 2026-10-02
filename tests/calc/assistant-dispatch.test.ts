@@ -157,7 +157,9 @@ describe("a customer who has not said what they came for", () => {
     routed = { intent: "other" };
     const answer = await answerAny(said("ทุน1ล้าน"), chose.slots);
     expect(answer.priced).toBe(true);
-    expect(answer.messages).toHaveLength(3);
+    // a quote each, then the one offer of the PDF (pdf.ts)
+    expect(answer.messages).toHaveLength(4);
+    expect(answer.messages[3].text).toContain("ไฟล์ PDF");
     expect(answer.messages[0].card).toContain("age=34&sex=F");
     expect(answer.messages[1].card).toContain("age=33&sex=M");
     expect(answer.messages[2].card).toContain("age=54&sex=M");
@@ -167,7 +169,9 @@ describe("a customer who has not said what they came for", () => {
     const asked = await answerAny(said("ช 23\nญ 25\nช 53"), null);
     routed = { intent: "quote", coverWanted: 1_000_000 };
     const answer = await answerAny(said("ประกันมรดก ทุน 1 ล้าน"), asked.slots);
-    expect(answer.messages).toHaveLength(3);
+    // a quote each, then the one offer of the PDF (pdf.ts)
+    expect(answer.messages).toHaveLength(4);
+    expect(answer.messages[3].text).toContain("ไฟล์ PDF");
     expect(answer.messages[0].card).toContain("age=23&sex=M");
     expect(answer.messages[2].card).toContain("age=53&sex=M");
   });
