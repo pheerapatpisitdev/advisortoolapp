@@ -2,7 +2,7 @@ import { chat } from "@/lib/ai/client";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { Sex } from "@/calc/types";
 import { hospitalReply } from "../hospitals";
-import { keepGivenFigures, one, recentTurns, spoken, type Reply } from "../common";
+import { APPLICATION_FORM, keepGivenFigures, one, recentTurns, spoken, type Reply } from "../common";
 import type { HealthAnswer } from "../ihealthy/answer";
 import { hasHealthQuote } from "../ihealthy/quote";
 import { asksForPicture, asksShareOfBill, type HealthSlots } from "../ihealthy/route";
@@ -13,8 +13,8 @@ import {
 } from "./quote";
 import { personInEn, planNamedInEn, routeHealthEn, territoryNamedInEn } from "./route";
 import {
-  APPLY_HAND_OVER_EN, ASK_AGE_EN, ASK_DETAILS_EN, ASK_SEX_EN, COMPANY_EN, FORM_DONE_EN, GREETING_EN,
-  HAND_OVER_EN, HEALTH_THANKS_EN, PLAN_BENEFITS_EN, SEE_OTHER_PLANS_EN, SHARE_OF_BILL_EN, STALL_EN, WANTS_IN_EN,
+  APPLY_STEPS_EN, ASK_AGE_EN, ASK_DETAILS_EN, ASK_SEX_EN, COMPANY_EN, FORM_DONE_EN, GREETING_EN,
+  FORM_NEXT_EN, HAND_OVER_EN, HEALTH_THANKS_EN, PLAN_BENEFITS_EN, PREMIUM_FIRST_EN, SEE_OTHER_PLANS_EN, SHARE_OF_BILL_EN, STALL_EN, WANTS_IN_EN,
 } from "./words";
 
 /**
@@ -32,7 +32,7 @@ const ASKS = /\?|\b(?:what|how|when|which|where|why|does|do|is|can|could)\b/i;
  * diabetes?", not "does the waiting period apply?" — the Thai list leaves out ซื้อได้ไหม for
  * the same reason, and a question answered with a hand-over is a question not answered.
  */
-const BUYS = /\bi(?:'d| would)? (?:like|want) to (?:apply|buy|sign up|purchase|get (?:it|this|covered))|sign me up|let'?s (?:do it|go ahead|apply)|^\s*(?:ok(?:ay)?,?\s*)?go ahead\b|i'?ll take (?:it|this|the \w+)|\bi(?:'| a)m in\b|how (?:do|can) i (?:apply|sign up)|^\s*apply(?: now)?\s*[.!]*\s*$/i;
+const BUYS = /\bi(?:'d| would)? (?:like|want) to (?:apply|buy|sign up|purchase|get (?:it|this|covered))|sign me up|let'?s (?:do it|go ahead|apply)|^\s*(?:ok(?:ay)?,?\s*)?go ahead\b|i'?ll take (?:it|this|the \w+)|\bi(?:'| a)m in\b|how (?:do|can) i (?:apply|sign up)|^\s*apply(?: now)?\s*[.!]*\s*$|steps? to apply|how to apply|apply(?:ing)? please|application (?:steps|form|process)|send (?:me )?the (?:application )?form/i;
 const NOT_BUYING = /claim|cancel|refund|renew/i;
 const FORM_DONE = /\b(?:done|filled|submitted|completed)\b|sent (?:it|them|the form)/i;
 const COMPANY = /which company|who is the insurer|what company|insurance company|is this legit|are you (?:licensed|real)/i;
@@ -67,7 +67,12 @@ export async function answerHealthEn(
   // a message carrying a person is a quotation being asked for, as in the Thai `wantsToBuy`
   const buys = BUYS.test(asked) && !NOT_BUYING.test(asked) && personInEn(asked).age === undefined;
   if (asked === WANTS_IN_EN || buys) {
-    return { ...one(APPLY_HAND_OVER_EN), slots: { ...known, formSent: true } };
+    // the Thai brain's handOverForm, in English: the steps, the form, and what happens next
+    const next = quoted ? FORM_NEXT_EN : `${FORM_NEXT_EN} ${PREMIUM_FIRST_EN}`;
+    return {
+      messages: [{ text: APPLY_STEPS_EN }, { text: APPLICATION_FORM }, { text: next }],
+      slots: { ...known, formSent: true },
+    };
   }
   /**
    * The reply to the health answer's question: their condition, treatment and medication.

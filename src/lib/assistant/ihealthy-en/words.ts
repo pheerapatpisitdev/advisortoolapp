@@ -24,11 +24,24 @@ export const HAND_OVER_EN = "An agent will continue with you right here in this 
   + "Meanwhile, feel free to ask anything about iHealthy Ultra.";
 
 /**
- * Deciding to apply. No form and no list of documents: the Thai form asks for a Thai ID card,
- * and how a foreigner applies is the agent's to say until the owner writes it down.
+ * Deciding to apply: the agency's own form, which has an English part for foreigners (owner,
+ * 2026-10-02 — "why doesn't the bot send the form?"). Nothing here promises what the agent
+ * will do about documents or payment beyond what the form itself asks.
  */
-export const APPLY_HAND_OVER_EN = "Great! 🙌 An agent will take you through the application right here in this chat "
-  + "and let you know which documents you'll need.";
+export const APPLY_STEPS_EN = [
+  "Great! 🙌 Applying is all online:",
+  "",
+  "1️⃣ Open the form below and tap \"For Foreigners\"",
+  "2️⃣ Fill in the three parts — your details and health, the health questions, then your beneficiary and documents",
+  "3️⃣ Answer the health questions truthfully — it's what keeps your future claims safe",
+  "",
+  "That's it 🙏",
+].join("\n");
+
+export const FORM_NEXT_EN = "When you've sent the form, just let us know here — an agent will check it and guide you "
+  + "through the next steps and payment.";
+
+export const PREMIUM_FIRST_EN = "If you'd like to see your premium first, just tell me your age and gender (e.g. \"35 male\").";
 
 export const FORM_DONE_EN = "Thank you! 🙏 An agent will check your details and get back to you in this chat.";
 

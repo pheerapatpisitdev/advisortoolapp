@@ -14,7 +14,8 @@ vi.mock("@/lib/ai/client", async () => {
 
 const { answerHealthEn } = await import("@/lib/assistant/ihealthy-en/answer");
 const { hospitalReply } = await import("@/lib/assistant/hospitals");
-const { GREETING_EN, APPLY_HAND_OVER_EN, HEALTH_THANKS_EN } = await import("@/lib/assistant/ihealthy-en/words");
+const { GREETING_EN, HEALTH_THANKS_EN } = await import("@/lib/assistant/ihealthy-en/words");
+const { APPLICATION_FORM } = await import("@/lib/assistant/common");
 
 const said = (content: string) => [{ role: "user" as const, content }];
 const THAI = /[฀-๿]/;
@@ -49,11 +50,25 @@ describe("the English health brain", () => {
     expect(a.slots.plan).toBe("GOLD");
   });
 
-  it("apply → hand over, no Thai form", async () => {
+  it("apply → the application form, its English steps, and what happens next", async () => {
     const a = await answerHealthEn(said("I want to apply"), { ...KNOWN, plan: "GOLD" });
-    expect(a.messages.map((m) => m.text).join("\n")).not.toContain("ktaxaform");
-    expect(a.messages[0].text).toBe(APPLY_HAND_OVER_EN);
+    const all = a.messages.map((m) => m.text).join("\n");
+    expect(all).toContain(APPLICATION_FORM);
+    expect(all).toContain("For Foreigners");
+    expect(all).not.toMatch(THAI);
     expect(a.slots.formSent).toBe(true);
+  });
+
+  it.each(["Step to apply please", "How can i apply ?", "send me the application form"])(
+    "hands over the form for %s", async (q) => {
+      const a = await answerHealthEn(said(q), { ...KNOWN, plan: "GOLD" });
+      expect(a.messages.map((m) => m.text).join("\n")).toContain(APPLICATION_FORM);
+    },
+  );
+
+  it("offers the premium first to someone who has not been quoted", async () => {
+    const a = await answerHealthEn(said("I want to apply"), null);
+    expect(a.messages.at(-1)!.text).toMatch(/age and gender/i);
   });
 
   it.each([
@@ -61,14 +76,13 @@ describe("the English health brain", () => {
     "Does the waiting period apply to accidents?", "Can I purchase it for my wife?",
   ])("does not take a question for a decision to apply: %s", async (q) => {
     const a = await answerHealthEn(said(q), { ...KNOWN, plan: "GOLD" });
-    expect(a.messages[0].text).not.toBe(APPLY_HAND_OVER_EN);
     expect(a.slots.formSent).toBeUndefined();
   });
 
   it.each(["I'd like to apply", "Sign me up", "How do I apply?", "Let's go ahead"])(
     "takes a decision to apply as one: %s", async (q) => {
       const a = await answerHealthEn(said(q), { ...KNOWN, plan: "GOLD" });
-      expect(a.messages[0].text).toBe(APPLY_HAND_OVER_EN);
+      expect(a.slots.formSent).toBe(true);
     },
   );
 
