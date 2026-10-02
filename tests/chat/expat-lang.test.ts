@@ -3,9 +3,10 @@ import { isExpatPage, languageOf } from "@/lib/assistant/expat";
 import { spokenBy } from "@/lib/assistant/voice";
 
 describe("expat pages", () => {
-  it("knows the two Expat Pages and nothing else", () => {
+  it("knows the three Expat Pages and nothing else", () => {
     expect(isExpatPage("112079600278201")).toBe(true);
     expect(isExpatPage("112110731809903")).toBe(true);
+    expect(isExpatPage("107330411059217")).toBe(true);
     expect(isExpatPage("103716981993581")).toBe(false);
     expect(isExpatPage(undefined)).toBe(false);
   });
