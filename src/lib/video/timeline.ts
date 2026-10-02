@@ -7,7 +7,7 @@ import type { Segment } from "@/lib/content/clip";
  */
 
 export type Span = [number, number];
-export interface Sub { start: number; end: number; text: string }
+export interface Sub { start: number; end: number; text: string; seg: number }
 
 const PAD = 0.1;
 const MIN_SILENCE = 0.25;
@@ -83,6 +83,8 @@ function subtract(spans: Span[], hole: Span): Span[] {
 /** what stays: the clip, less the cut sentences and (when asked) the silences, each with 0.1 s of air */
 export function keepRanges(a: { duration: number; segments: Segment[]; cut: number[]; silences: Span[]; trimSilence: boolean }): Span[] {
   let keep: Span[] = [[0, a.duration]];
+  // a clip measured silent from end to end has no speech to trust: trim nothing, cuts still apply
+  const silences = speechSpans(a.silences, a.duration).length === 0 ? [] : a.silences;
   const snapped = snapSegments(a.segments, a.silences, a.duration);
   for (const i of a.cut) {
     const s = snapped[i];
@@ -90,16 +92,17 @@ export function keepRanges(a: { duration: number; segments: Segment[]; cut: numb
     let [from, to] = [s.start, s.end];
     if (a.trimSilence) {
       // a silence the cut touches goes with it, so no sliver of air is left stranded beside the hole
-      for (const [x, y] of a.silences) {
+      for (const [x, y] of silences) {
         if (y - x < MIN_SILENCE) continue;
-        if (Math.abs(x - s.end) < 1e-6) to = Math.max(to, y);
-        if (Math.abs(y - s.start) < 1e-6) from = Math.min(from, x);
+        // keep 0.1 s of air on the speech side, as the silence trimming does
+        if (Math.abs(x - s.end) < 1e-6) to = Math.max(to, y >= a.duration ? a.duration : y - PAD);
+        if (Math.abs(y - s.start) < 1e-6) from = Math.min(from, x === 0 ? 0 : x + PAD);
       }
     }
     keep = subtract(keep, [from, to]);
   }
   if (a.trimSilence) {
-    for (const [s, e] of a.silences) {
+    for (const [s, e] of silences) {
       if (e - s < MIN_SILENCE) continue;
       const from = s === 0 ? 0 : s + PAD;
       const to = e >= a.duration ? a.duration : e - PAD;
@@ -122,7 +125,14 @@ export function mapTime(t: number, keep: Span[]): number {
 }
 
 const seg = new Intl.Segmenter("th", { granularity: "word" });
-const PARTICLE = /^(นะคะ|นะครับ|ค่ะ|คะ|ครับ|นะ|จ้ะ|จ้า)/;
+const PARTICLES = ["นะครับ", "นะคะ", "ค่ะ", "ครับ", "จ้ะ", "จ้า", "คะ", "นะ"];
+
+/** a closing particle at the start of a line, only when it is a whole word (not the front of คะแนน) */
+function leadingParticle(line: string): string | null {
+  const bounds = new Set<number>();
+  for (const { index, segment } of seg.segment(line)) { bounds.add(index); bounds.add(index + segment.length); }
+  return PARTICLES.find((p) => line.startsWith(p) && bounds.has(p.length)) ?? null;
+}
 
 /** One sentence as subtitle lines: the speaker's own spaces first; Thai words only for a phrase too long. */
 export function subtitleLines(text: string, max = MAX_LINE): string[] {
@@ -145,10 +155,10 @@ export function subtitleLines(text: string, max = MAX_LINE): string[] {
   }
   if (line) out.push(line);
   for (let i = 1; i < out.length; i++) {
-    const m = out[i].match(PARTICLE);
+    const m = leadingParticle(out[i]);
     if (m) {
-      out[i - 1] += m[1];
-      out[i] = out[i].slice(m[1].length).trim();
+      out[i - 1] += m;
+      out[i] = out[i].slice(m.length).trim();
       if (!out[i]) { out.splice(i, 1); i--; }
     }
   }
@@ -159,12 +169,15 @@ export function subtitleLines(text: string, max = MAX_LINE): string[] {
   return out;
 }
 
-/** the words of each speech span, laid out as timed lines in source-clip seconds */
+/** the words of each speech span, laid out as timed lines in source-clip seconds; each line knows its segment */
 export function buildSubs(segments: Segment[], silences: Span[], duration: number): Sub[] {
-  const spans = speechSpans(silences, duration);
-  if (spans.length === 0) return [];
-  const words: string[][] = spans.map(() => []);
-  for (const s of segments) {
+  let spans = speechSpans(silences, duration);
+  if (spans.length === 0) {
+    if (segments.length === 0) return [];
+    spans = [[0, duration]];
+  }
+  const inSpan: number[][] = spans.map(() => []);
+  segments.forEach((s, idx) => {
     const mid = (s.start + s.end) / 2;
     let best = 0;
     let bestD = Infinity;
@@ -172,25 +185,33 @@ export function buildSubs(segments: Segment[], silences: Span[], duration: numbe
       const d = mid < a ? a - mid : mid > b ? mid - b : 0;
       if (d < bestD) { bestD = d; best = i; }
     });
-    words[best].push(s.text);
-  }
+    inSpan[best].push(idx);
+  });
   const subs: Sub[] = [];
   spans.forEach(([a, b], i) => {
-    const lines = subtitleLines(words[i].join(" "));
-    const total = lines.reduce((n, l) => n + l.length, 0);
+    const ids = inSpan[i].filter((n) => segments[n].text.trim());
+    const spanChars = ids.reduce((n, id) => n + segments[id].text.length, 0);
     let t = a;
-    for (const l of lines) {
-      const d = (b - a) * (l.length / total);
-      subs.push({ start: r3(t), end: r3(t + d), text: l });
-      t += d;
+    for (const id of ids) {
+      const segEnd = t + (b - a) * (segments[id].text.length / spanChars);
+      const lines = subtitleLines(segments[id].text);
+      const total = lines.reduce((n, l) => n + l.length, 0);
+      let lt = t;
+      lines.forEach((l, k) => {
+        const end = k === lines.length - 1 ? segEnd : lt + (segEnd - t) * (l.length / total);
+        subs.push({ start: r3(lt), end: r3(end), text: l, seg: id });
+        lt = end;
+      });
+      t = segEnd;
     }
   });
   return subs;
 }
 
 /** subtitles on the cut clip's clock; one whose time was all cut is dropped */
-export function subsOnOutput(subs: Sub[], keep: Span[]): Sub[] {
+export function subsOnOutput(subs: Sub[], keep: Span[], cut: number[] = []): Sub[] {
   return subs
-    .map((s) => ({ start: mapTime(s.start, keep), end: mapTime(s.end, keep), text: s.text }))
+    .filter((s) => !cut.includes(s.seg))
+    .map((s) => ({ start: mapTime(s.start, keep), end: mapTime(s.end, keep), text: s.text, seg: s.seg }))
     .filter((s) => s.end - s.start > 0.05);
 }

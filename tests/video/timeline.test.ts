@@ -104,14 +104,46 @@ describe("buildSubs", () => {
     expect(subs[0].start).toBeGreaterThanOrEqual(3);
   });
   it("needs no silences: one span, the whole clip", () => {
-    expect(buildSubs([{ start: 0, end: 2, text: "สวัสดีครับ" }], [], 2)).toEqual([{ start: 0, end: 2, text: "สวัสดีครับ" }]);
+    expect(buildSubs([{ start: 0, end: 2, text: "สวัสดีครับ" }], [], 2)).toEqual([{ start: 0, end: 2, text: "สวัสดีครับ", seg: 0 }]);
   });
 });
 
 describe("subsOnOutput", () => {
   it("moves subtitles onto the cut clip and drops ones that were cut", () => {
     const keep: [number, number][] = [[0, 2], [4, 6]];
-    expect(subsOnOutput([{ start: 0.5, end: 1.5, text: "a" }, { start: 2.5, end: 3.5, text: "cut" }, { start: 4.5, end: 5.5, text: "b" }], keep))
-      .toEqual([{ start: 0.5, end: 1.5, text: "a" }, { start: 2.5, end: 3.5, text: "b" }]);
+    expect(subsOnOutput([{ start: 0.5, end: 1.5, text: "a", seg: 0 }, { start: 2.5, end: 3.5, text: "cut", seg: 1 }, { start: 4.5, end: 5.5, text: "b", seg: 2 }], keep))
+      .toEqual([{ start: 0.5, end: 1.5, text: "a", seg: 0 }, { start: 2.5, end: 3.5, text: "b", seg: 2 }]);
+  });
+  it("drops the lines of a cut segment", () => {
+    const silences = parseSilences(SILENCE_LOG, DURATION);
+    const subs = buildSubs(SEGMENTS, silences, DURATION);
+    const out = subsOnOutput(subs, [[0, DURATION]], [6]);
+    const text = out.map((s) => s.text).join("");
+    expect(text).not.toContain("ส่วนที่เหลือก็คือติด");
+    expect(text).not.toContain("สำหรับลูกค้าที่มีประวัติ");
+    expect(out.every((s) => s.seg !== 6)).toBe(true);
+    expect(out.length).toBe(subs.filter((s) => s.seg !== 6).length);
+  });
+});
+
+describe("fix round 1", () => {
+  const silences = parseSilences(SILENCE_LOG, DURATION);
+  it("a cut keeps 0.1 s of air on each side of the join", () => {
+    const keep = keepRanges({ duration: DURATION, segments: SEGMENTS, cut: [2], silences, trimSilence: true });
+    const ends = keep.map((k) => k[1]);
+    const starts = keep.map((k) => k[0]);
+    expect(ends.some((e) => Math.abs(e - 4.72) < 1e-6)).toBe(true);
+    expect(starts.some((x) => Math.abs(x - 9.36) < 1e-6)).toBe(true);
+  });
+  it("a clip measured silent throughout still shows its words and trims nothing", () => {
+    const subs = buildSubs([{ start: 0, end: 2, text: "สวัสดีครับ" }], [[0, 5]], 5);
+    expect(subs).toEqual([{ start: 0, end: 5, text: "สวัสดีครับ", seg: 0 }]);
+    expect(keepRanges({ duration: 5, segments: [], cut: [], silences: [[0, 5]], trimSilence: true })).toEqual([[0, 5]]);
+    expect(keepRanges({ duration: 5, segments: [{ start: 0, end: 2, text: "x" }], cut: [0], silences: [[0, 5]], trimSilence: true })).toEqual([[2, 5]]);
+  });
+  it("only a whole-word particle moves back a line", () => {
+    const lines = subtitleLines("คะแนนเครดิตของลูกค้าดีมากเลยนะคะ คะแนนเครดิตสูงมาก");
+    for (const l of lines) expect(l).not.toMatch(/^แนน/);
+    expect(lines.join("")).toContain("คะแนนเครดิตสูงมาก");
   });
 });
