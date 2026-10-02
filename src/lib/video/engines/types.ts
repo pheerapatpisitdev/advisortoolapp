@@ -13,8 +13,11 @@ export interface RenderEngine {
    * the engine names the job itself (Rendi) and the job is recorded once submit answers.
    */
   takesId?: boolean;
-  /** uploads: where an engine that writes our storage itself (Lambda) puts each output; id: the job's id, for an engine that takesId */
-  submit(job: FfmpegJob, opts: { callbackUrl: string; token: string; uploads?: Record<string, { uploadUrl: string; path: string }>; id?: string }): Promise<{ id: string }>;
+  /**
+   * uploads: where an engine that writes our storage itself (Lambda, Cloud Run) puts each output; id: the job's id, for an engine that takesId;
+   * payloadUrl: a signed link to the whole job written as a file, for an engine that fetches it itself (Cloud Run)
+   */
+  submit(job: FfmpegJob, opts: { callbackUrl: string; token: string; uploads?: Record<string, { uploadUrl: string; path: string }>; id?: string; payloadUrl?: string }): Promise<{ id: string }>;
   /** null: this engine answers by webhook only. throws when the engine could not be asked (network, rate limit, 5xx): the caller asks again later and never fails over on it; a job that never answers fails at EDIT_JOB_TIMEOUT_MS */
   status(id: string): Promise<JobStatus | null>;
   /** lets the engine's own copies of the outputs go, once we have ours */
