@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "นโยบายความเป็นส่วนตัว | advisortool",
+  title: "นโยบายความเป็นส่วนตัว | AdvisorTool",
   description: "ข้อมูลที่เว็บไซต์คำนวณเบี้ยประกัน advisortool และผู้ช่วยตอบแชทของเพจ เก็บ ใช้ และไม่เก็บ",
 };
 

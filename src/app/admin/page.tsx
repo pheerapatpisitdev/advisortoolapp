@@ -5,7 +5,7 @@ import { Card, Empty } from "./ui";
 import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "ภาพรวม | advisortool" };
+export const metadata: Metadata = { title: "ภาพรวม | AdvisorTool" };
 
 /**
  * The first thing the back office says when it is opened.

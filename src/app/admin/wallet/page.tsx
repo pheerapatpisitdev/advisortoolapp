@@ -5,7 +5,7 @@ import { frozenWallets, walletSettings, walletSummary } from "@/lib/wallet/store
 import { WalletAdmin } from "./WalletAdmin";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "กระเป๋าเงินตัวแทน | advisortool" };
+export const metadata: Metadata = { title: "กระเป๋าเงินตัวแทน | AdvisorTool" };
 
 export default async function AdminWalletPage() {
   await gatePage("/admin/wallet", "admin");

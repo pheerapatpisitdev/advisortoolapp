@@ -9,7 +9,7 @@ import { getViewer } from "@/lib/auth/viewer";
 import { SignupForm } from "./SignupForm";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "สมัครสมาชิก | advisortool" };
+export const metadata: Metadata = { title: "สมัครสมาชิก | AdvisorTool" };
 
 /** Sign-up for people outside UnitOS (owner, 2026-10-01); closed until the owner switches it on. */
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {

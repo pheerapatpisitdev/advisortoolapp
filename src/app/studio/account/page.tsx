@@ -4,7 +4,7 @@ import { gatePage } from "@/lib/auth/viewer";
 import { AccountForm } from "./AccountForm";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "บัญชีของฉัน | advisortool" };
+export const metadata: Metadata = { title: "บัญชีของฉัน | AdvisorTool" };
 
 /** A member's name and PIN (owner, 2026-10-01). UnitOS agents manage theirs in UnitOS. */
 export default async function AccountPage() {

@@ -11,7 +11,7 @@ export const maxDuration = 300;
 
 /** Named for the tab in the owner's words; the root layout's title is the calculator's. */
 export const metadata: Metadata = {
-  title: "สอน AI | advisortool",
+  title: "สอน AI | AdvisorTool",
 };
 
 /**

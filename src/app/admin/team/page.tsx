@@ -6,7 +6,7 @@ import { listStaff } from "./actions";
 import { Team } from "./Team";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "ทีมงาน | advisortool" };
+export const metadata: Metadata = { title: "ทีมงาน | AdvisorTool" };
 
 /** The owner's assistants: who may post to the Page, connect it, or open the back office. */
 export default async function TeamPage() {

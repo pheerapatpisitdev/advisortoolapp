@@ -9,7 +9,7 @@ import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "ออโต้โพสต์ | advisortool" };
+export const metadata: Metadata = { title: "ออโต้โพสต์ | AdvisorTool" };
 
 /**
  * The Facebook connection as the content workbench sees it: which Pages it can post to right

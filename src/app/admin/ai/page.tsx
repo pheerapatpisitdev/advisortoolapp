@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * admin page wore it, so two open tabs of the back office could not be told apart.
  */
 export const metadata: Metadata = {
-  title: "ตั้งค่า AI | advisortool",
+  title: "ตั้งค่า AI | AdvisorTool",
 };
 
 export default async function AiPage() {
