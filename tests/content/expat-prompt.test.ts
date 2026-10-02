@@ -59,3 +59,10 @@ describe("the English rules say each thing once", () => {
     expect(ENGLISH_RULES.split("ครับ/ค่ะ").length - 1).toBe(1);
   });
 });
+
+describe("the people an English piece's pictures show (owner, 2026-10-02)", () => {
+  it("are Western (European) expats, not Thai people or mixed nationalities", () => {
+    expect(ENGLISH_RULES).toMatch(/imagePrompt: the people are Western \(European\) expats/);
+    expect(ENGLISH_RULES).not.toContain("mixed nationalities");
+  });
+});

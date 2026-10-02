@@ -108,7 +108,7 @@ export const FALLBACK_HEADLINES_EN = [
   "Check the numbers before you decide",
 ];
 const FALLBACK_PICTURE = "A Thai adult at home reviewing household paperwork at a wooden table, natural window light, calm and hopeful mood, no text";
-const FALLBACK_PICTURE_EN = "An expat adult living in Thailand reviewing household paperwork at a wooden table at home, natural window light, calm and hopeful mood, no text";
+const FALLBACK_PICTURE_EN = "A Western (European) adult living in Thailand reviewing household paperwork at a wooden table at home, natural window light, calm and hopeful mood, no text";
 /** a Thai letter: an English headline carrying one is thrown away, as one with a digit is */
 const THAI = /[\u0E00-\u0E7F]/;
 

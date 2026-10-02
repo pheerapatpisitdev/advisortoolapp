@@ -156,7 +156,7 @@ describe("English headlines carry no Thai (final review, 2026-10-02)", () => {
   });
   it("falls back to an expat picture for an English piece, a Thai one for a Thai piece", () => {
     expect(parseHeadlines("not json", 1, "en")[0].imagePrompt).toBe(
-      "An expat adult living in Thailand reviewing household paperwork at a wooden table at home, natural window light, calm and hopeful mood, no text",
+      "A Western (European) adult living in Thailand reviewing household paperwork at a wooden table at home, natural window light, calm and hopeful mood, no text",
     );
     expect(parseHeadlines("not json", 1)[0].imagePrompt).toMatch(/^A Thai adult/);
   });
