@@ -158,7 +158,7 @@ export default function Home() {
       </div>
       <p className="mb-4 text-sm text-[var(--op-mute)]">{bundle ? BUNDLE_PICKER_NAME[bundle.code] ?? `ชุด${bundle.name}` : PICKER_NAME[state.planCode] ?? plan.planLabel ?? plan.rates.planName}</p>
       <ExpiryBanner expired={result?.meta.expired ?? false} expiresOn={plan.rates.expiresOn} />
-      <div className="grid gap-6 md:grid-cols-2">
+      <div data-click-sound className="grid gap-6 md:grid-cols-2">
         <div className="rounded-lg border border-[var(--op-line)] bg-[var(--op-panel)] p-4">
           {bundle ? (
             <BundleForm state={state} bundle={bundle} plans={pickerPlans()} bundles={pickerBundles()}

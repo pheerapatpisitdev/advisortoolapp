@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/login/actions";
+import { playClick } from "@/lib/shell/click-sound";
 import { isCurrent, menuGroups, RAIL_KEY, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
 
 /** the name at the top of the menu, and where it leads */
@@ -138,6 +139,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who }: {
   useEffect(() => { setFolded(document.documentElement.dataset.shell === "rail"); }, []);
 
   const toggleFold = () => {
+    playClick();
     const next = !folded;
     setFolded(next);
     if (next) document.documentElement.dataset.shell = "rail";
@@ -171,7 +173,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who }: {
       style={{ background: "var(--shell-bg)", borderColor: "var(--shell-line)", color: "var(--shell-ink)" }}
     >
       <div className="mb-4 flex items-center gap-1 rail:flex-col rail:gap-3">
-        <Link href={home.href} title={home.label} className="flex min-w-0 flex-1 items-center gap-2 px-2 no-underline rail:flex-none rail:px-0" style={{ color: "var(--shell-ink)" }}>
+        <Link href={home.href} title={home.label} onClick={playClick} className="flex min-w-0 flex-1 items-center gap-2 px-2 no-underline rail:flex-none rail:px-0" style={{ color: "var(--shell-ink)" }}>
           <Mark />
           <span className="text-sm font-semibold rail:sr-only">{home.label}</span>
         </Link>
@@ -205,6 +207,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who }: {
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    onClick={playClick}
                     {...(link.external ? { target: "_blank", rel: "noreferrer" } : {})}
                     aria-current={here ? "page" : undefined}
                     title={link.label}
@@ -243,7 +246,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who }: {
           where it printed over the first line of every sheet */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { playClick(); setOpen(true); }}
         aria-label="เปิดเมนู"
         aria-expanded={open}
         className="shell-hamburger fixed left-3 top-3 z-30 flex size-11 items-center justify-center rounded-full border backdrop-blur lg:hidden print:hidden"

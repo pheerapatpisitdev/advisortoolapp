@@ -1,4 +1,5 @@
 import type { MenuGroup, Who } from "@/lib/shell/menu";
+import { CalculatorSounds } from "./CalculatorSounds";
 import { Sidebar, type Brand } from "./Sidebar";
 
 /**
@@ -31,6 +32,7 @@ export function AppShell({ children, signedIn = false, menu, brand, footer, who 
   return (
     <>
       {/* the page first, the menu after it, for the painting order the note above describes */}
+      <CalculatorSounds />
       <div className="shell-inset">{children}</div>
       <div className="relative">
         <Sidebar signedIn={signedIn} menu={menu} brand={brand} footer={footer} who={who} />

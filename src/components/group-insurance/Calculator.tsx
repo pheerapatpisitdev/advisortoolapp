@@ -73,7 +73,7 @@ export function Calculator({ product }: { product: Product }) {
 
   return (
     <>
-      <div className="space-y-4">
+      <div data-click-sound className="space-y-4">
         {groups.map((g, i) => (
           <GroupCard
             key={g.id}
