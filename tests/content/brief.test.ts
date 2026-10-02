@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { iHealthyFacts } from "@/lib/ihealthy-facts";
 import { briefFor } from "@/lib/content/brief";
 import { CONTENT_PRODUCTS } from "@/lib/content/products";
 import { SALES_PAGES } from "@/lib/shell/menu";
@@ -63,5 +64,16 @@ describe("a total beside a monthly premium", () => {
         expect(line, p.name).toMatch(/หรือ [\d,]+ บาท\/ปี/);
       }
     }
+  });
+});
+
+describe("briefFor with expat", () => {
+  it("gives an expat iHealthy brief the foreign-customer facts, the 90 days from the sheet", () => {
+    const t = briefFor("/ihealthy-ultra", new Date("2026-10-02"), { expat: true })!.text;
+    expect(t).toContain("ข้อมูลสำหรับลูกค้าชาวต่างชาติ");
+    expect(t).toContain(`ภายใน ${iHealthyFacts().terms.outOfTerritoryDays} วัน`);
+    expect(t).toMatch(/ห้ามระบุชื่อหรือประเภทวีซ่า/);
+    expect(briefFor("/ihealthy-ultra", new Date("2026-10-02"))!.text).not.toContain("ชาวต่างชาติ");
+    expect(briefFor("/lifeprotect", new Date("2026-10-02"), { expat: true })!.text).not.toContain("ชาวต่างชาติ");
   });
 });

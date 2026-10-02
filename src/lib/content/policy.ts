@@ -11,6 +11,8 @@
  * The same rules go into the writer's prompt (POLICY_RULES_TH): stopping the sentence at the
  * source is cheaper than catching it afterwards, and catching it afterwards is still needed.
  */
+import type { Lang } from "./output";
+
 export type PolicySeverity = "block" | "warn";
 
 export interface PolicyRule {
@@ -72,6 +74,105 @@ export const POLICY_RULES: PolicyRule[] = [
     fix: "ใช้ตัวเลขจริงจากตารางเบี้ยแทนคำว่าที่สุด",
   },
 ];
+
+/**
+ * The same rules for English copy (iHealthy Ultra posts for expats). Assertion-only on purpose:
+ * "are you…", "you are/you're…", "you have…", "your debts" — so "if you get sick" and "when you
+ * change jobs" never match and there is no look-back for if/when. Run on every piece alongside
+ * the Thai ones; a Thai post simply never matches. message/fix are Thai (staff read them),
+ * the examples inside fix are English.
+ */
+// "you're sick" asserts; "you're covered for cancer" does not — so the word has to follow straight on
+const CONDITION_ADJ = "(?:sick|ill|unwell|diabetic|obese|overweight|depressed|chronically ill)";
+const CONDITION_NOUN = "(?:diabetes|cancer|hypertension|high blood pressure|depression|a chronic (?:illness|condition|disease))";
+export const POLICY_RULES_EN: PolicyRule[] = [
+  {
+    code: "health_you_en",
+    pattern: new RegExp(`\\b(?:are you|you(?:'|’)re|you are)\\s+(?:(?:so|very|really|still|now|currently|already)\\s+)?${CONDITION_ADJ}\\b|\\byou (?:have|suffer from|are suffering from)\\s+${CONDITION_NOUN}\\b(?!\\s+(?:cover|coverage|protection|insurance|plan|benefit|treatment))`, "i"),
+    severity: "block",
+    message: "บอกใบ้ว่าคนอ่านมีปัญหาสุขภาพ — Facebook ห้ามในโฆษณา",
+    fix: "พูดถึงความคุ้มครองแทนตัวคนอ่าน เช่น “If you ever need treatment…”",
+  },
+  {
+    code: "debt_you_en",
+    pattern: /\b(?:are you|you(?:'|’)re|you are)\b[^.!?\n]{0,15}?\b(?:in debt|indebted|bankrupt)\b|\byou (?:have|owe)\b[^.!?\n]{0,10}?\b(?:debts?|loans?)\b|\byour (?:debts?|credit score)\b/i,
+    severity: "block",
+    message: "บอกใบ้ว่าคนอ่านมีหนี้ — Facebook ห้ามในโฆษณา",
+    fix: "เล่าเป็นสถานการณ์ทั่วไป เช่น “A hospital bill can set anyone back”",
+  },
+  {
+    code: "age_you_en",
+    pattern: /(?<!\b(?:if|whether|when|once|as long as) )\b(?:you(?:'|’)re|you are)\s+(?:now\s+)?(?:(?:over|under|aged?)\s?)?\d{2}\b(?! or \d)|\bare you (?:over|under|aged?)\s?\d{2}\b|\bat your age\b/i,
+    severity: "block",
+    message: "ระบุอายุของคนอ่านตรงๆ — Facebook ห้ามในโฆษณา",
+    fix: "ยกเป็นตัวอย่างบุคคลที่สาม เช่น “A 35-year-old woman…” หรือไปตั้งอายุที่กลุ่มเป้าหมายของแอด",
+  },
+  {
+    code: "job_you_en",
+    pattern: /\b(?:are you|you(?:'|’)re|you are)\b[^.!?\n]{0,15}?\b(?:unemployed|jobless|out of work|laid off)\b|\b(?:lost|losing) your job\b|\byou (?:lost|have lost) your job\b/i,
+    severity: "block",
+    message: "บอกใบ้สถานะงานของคนอ่าน — Facebook ห้ามในโฆษณา",
+    fix: "เปลี่ยนเป็นข้อความกลางๆ ที่ไม่ระบุตัวคนอ่าน",
+  },
+  {
+    code: "guarantee_en",
+    pattern: /\b(?:guarantee[ds]?|assured)\s+(?:approval|acceptance|issue)\b|\b100\s?% (?:approved|approval|acceptance|accepted)\b|\b(?:approved|accepted)\s+100\s?%|\bno one is (?:declined|rejected|turned down)\b|\beveryone (?:is )?(?:approved|accepted)\b|\bguarantee[ds]? (?:to )?(?:approve|accept)\b/i,
+    severity: "block",
+    message: "รับประกันผลการสมัครแบบเด็ดขาด — ผิดมาตรฐานสินค้าการเงินของ Facebook และบริษัทพิจารณารับประกันทุกราย",
+    fix: "บอกเงื่อนไขจริงแทน เช่น “Easy to apply — an agent will check the terms with you”",
+  },
+  {
+    code: "pii_request_en",
+    pattern: /\b(?:send|share|give|provide|text|enter|type)\b[^.!?\n]{0,15}?\b(?:passport (?:number|no\.?)|id (?:card )?number|national id|bank account(?: number)?|account number|password|pin (?:code|number))\b/i,
+    severity: "block",
+    message: "ขอข้อมูลส่วนตัวในโพสต์ — Facebook ห้าม",
+    fix: "ชวนทักแชทก่อน แล้วค่อยขอข้อมูลในแชท เช่น “Message us to get started”",
+  },
+  {
+    code: "superlative_en",
+    pattern: /\b(?:best|cheapest)\b[^.!?\n]{0,25}?\b(?:in|of|across)\s+(?:thailand|the (?:world|country))\b|\bthailand(?:'|’)s (?:best|cheapest|#\s?1|number one)\b|(?<![\w])#\s?1\b|\bnumber\s?(?:one|1)\b|\bno\.\s?1\b/i,
+    severity: "warn",
+    message: "คำเกินจริงที่พิสูจน์ไม่ได้ — เสี่ยงโฆษณาถูกปฏิเสธ",
+    fix: "ใช้ตัวเลขจริงจากตารางเบี้ยแทนคำว่า best / cheapest",
+  },
+  // the unambiguous codes are caught on their own too: "Great for O-A holders" names a visa
+  // without the word (final review, 2026-10-02); "retirement", "work" and the like only beside it
+  {
+    code: "visa_type_en",
+    pattern: /\b(?:o-?a|o-?x|non-?o|non-?immigrant|retirement|elite|ltr|dtv|smart|education|marriage|business|work|tourist|long[- ]stay)\s+(?:visa|extension)\b|\b(?:visa|extension)\s+(?:type\s+)?(?:o-?a|o-?x|non-?o|dtv|ltr)\b|\b(?:o-?a|o-?x|non-?o|non-?immigrant|dtv|ltr)\b|\bthai(?:land)? elite\b/i,
+    severity: "block",
+    message: "ระบุชื่อประเภทวีซ่า — ไม่เขียนในโพสต์ ให้ชวนทักแชทแทน",
+    fix: "เขียนว่า “Message us to check your visa”",
+  },
+  {
+    code: "visa_promise_en",
+    pattern: /\bvisas?\s+(?:is\s+|will be\s+|gets?\s+)?(?:approved|guaranteed?|assured|sorted|secured)\b|\bvisa approval\s+(?:is\s+)?(?:guaranteed?|assured)\b|\b(?:approved|guaranteed|assured|secured)\s+visas?\b|\b(?:guarantee[ds]?|ensure[ds]?|secure[ds]?)\s+(?:your\s+|the\s+|a\s+)?visa\b|\b(?:works?|valid|good|accepted)\s+(?:for|with)\s+(?:every|any|all)\s+(?:\w+\s+)?visas?\b/i,
+    severity: "block",
+    message: "สัญญาว่าวีซ่าจะผ่าน — ห้าม ผลวีซ่าขึ้นกับสำนักงานตรวจคนเข้าเมือง",
+    fix: "เขียนว่า “Message us to check your visa” แทนคำสัญญา",
+  },
+  {
+    // out of Thailand it pays emergency treatment within 90 days of travel, and nothing else
+    code: "worldwide_en",
+    pattern: /(?<!\b(?:not|isn(?:'|’)t|aren(?:'|’)t|no)\s+)\b(?:worldwide|anywhere in the world|global (?:cover|coverage)|covered (?:everywhere|abroad)\b)/i,
+    severity: "block",
+    message: "อ้างว่าคุ้มครองทั่วโลก — แบบนี้คุ้มครองนอกประเทศเฉพาะรักษาฉุกเฉินภายใน 90 วันนับจากวันเดินทาง",
+    fix: "เขียนว่า “emergency treatment abroad within 90 days of travel”",
+  },
+];
+
+/**
+ * An English piece with Thai in it (final review, 2026-10-02): a writer told to write English
+ * may still drop in a Thai hashtag or a Thai line, and the post would go to expats half in a
+ * language they cannot read. Raised only when the caller says the piece is English.
+ */
+const THAI_RUN = /[\u0E00-\u0E7F]+(?:[ \t]+[\u0E00-\u0E7F]+)*/;
+export const THAI_IN_ENGLISH = {
+  code: "thai_in_english",
+  severity: "block" as const,
+  message: "ชิ้นภาษาอังกฤษมีตัวอักษรไทย — โพสต์อังกฤษต้องไม่มีภาษาไทย",
+  fix: "แก้ส่วนที่เป็นภาษาไทยให้เป็นภาษาอังกฤษ",
+};
 
 export interface PolicyFinding {
   code: string;
@@ -144,10 +245,11 @@ export const RECRUIT_POLICY_RULES: PolicyRule[] = [
   },
 ];
 
-export function checkPolicy(text: string, opts: { recruit?: boolean } = {}): PolicyFinding[] {
+/** `lang`: the piece's language; "en" also stops any Thai in it (THAI_IN_ENGLISH) */
+export function checkPolicy(text: string, opts: { recruit?: boolean; lang?: Lang } = {}): PolicyFinding[] {
   const out: PolicyFinding[] = [];
-  for (const rule of opts.recruit ? [...POLICY_RULES, ...RECRUIT_POLICY_RULES] : POLICY_RULES) {
-    const every = new RegExp(rule.pattern.source, "g");
+  for (const rule of [...POLICY_RULES, ...POLICY_RULES_EN, ...(opts.recruit ? RECRUIT_POLICY_RULES : [])]) {
+    const every = new RegExp(rule.pattern.source, `${rule.pattern.flags}g`);
     for (const m of text.matchAll(every)) {
       const before = text.slice(Math.max(0, m.index - 14), m.index);
       if (ABOUT_THE_READER.has(rule.code) && SUPPOSING.test(before)) continue;
@@ -155,6 +257,8 @@ export function checkPolicy(text: string, opts: { recruit?: boolean } = {}): Pol
       break;
     }
   }
+  const thai = opts.lang === "en" ? THAI_RUN.exec(text) : null;
+  if (thai) out.push({ ...THAI_IN_ENGLISH, match: thai[0] });
   return out;
 }
 

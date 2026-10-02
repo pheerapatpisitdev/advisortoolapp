@@ -16,14 +16,18 @@ export interface ContentWord {
   fix: string | null;
 }
 
-const UNIT: Record<string, number> = { "ล้าน": 1_000_000, "แสน": 100_000, "หมื่น": 10_000, "พัน": 1_000 };
+const UNIT: Record<string, number> = {
+  "ล้าน": 1_000_000, "แสน": 100_000, "หมื่น": 10_000, "พัน": 1_000,
+  million: 1_000_000, thousand: 1_000, M: 1_000_000, k: 1_000, K: 1_000,
+};
 
 /**
  * An amount as copy writes it: digits, then perhaps a Thai unit, then perhaps บาท or %.
  * `1 ล้าน`, `1,000,000 บาท` and `1.5 ล้านบาท` all land on one value, so the check compares
- * what was said rather than how it was typed.
+ * what was said rather than how it was typed. English copy is read the same way: `THB 1,000`,
+ * `฿1,000`, `1,000 baht`, `1.5 million`, `100M`, `50k` (M and k only straight after the digits).
  */
-const AMOUNT = /(\d[\d,]*(?:\.\d+)?)\s*(ล้าน|แสน|หมื่น|พัน)?\s*(บาท|%)?/g;
+const AMOUNT = /(?:(?<![A-Za-z])(THB|฿)\s?)?(\d[\d,]*(?:\.\d+)?)\s*(ล้าน|แสน|หมื่น|พัน|(?:[Mm]illion|MILLION|[Tt]housand|THOUSAND)(?![A-Za-z])|[MkK](?![A-Za-z]))?\s*(บาท|%|(?:[Bb]aht|BAHT|THB)(?![A-Za-z]))?/g;
 
 /**
  * A script's own time markers, `[0–3 วิ]`, are stage directions and not claims.
@@ -51,9 +55,9 @@ function amounts(text: string): Amount[] {
   const out: Amount[] = [];
   // markers are blanked to their own length, so indexes still line up with `text`
   for (const m of stripMarkers(arabic(text)).matchAll(AMOUNT)) {
-    const n = Number(m[1].replace(/,/g, ""));
+    const n = Number(m[2].replace(/,/g, ""));
     if (!Number.isFinite(n)) continue;
-    out.push({ raw: text.slice(m.index, m.index + m[0].length).trim(), value: n * (m[2] ? UNIT[m[2]] : 1), priced: Boolean(m[3]) });
+    out.push({ raw: text.slice(m.index, m.index + m[0].length).trim(), value: n * (m[3] ? (UNIT[m[3]] ?? UNIT[m[3].toLowerCase()]) : 1), priced: Boolean(m[1] || m[4]) });
   }
   return out;
 }

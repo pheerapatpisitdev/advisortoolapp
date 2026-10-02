@@ -2,7 +2,7 @@ import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
 import { hookTemplateSection } from "./hooks";
 import { POLICY_RULES_TH } from "./policy";
-import { LOOP_PLAN, steerLines, type Steer } from "./prompt";
+import { ENGLISH_RULES, LOOP_PLAN, steerLines, type Steer } from "./prompt";
 import { readShareWhy, type ShareWhy } from "./finish";
 import { formulaHookRules, type Formula } from "./formula";
 
@@ -80,7 +80,7 @@ export function planMessages(opts: {
     ].join("\n"),
   ].filter(Boolean).join("\n\n");
   return [
-    { role: "system", content: SYSTEM },
+    { role: "system", content: opts.lang === "en" ? `${SYSTEM}\n\n${ENGLISH_RULES}` : SYSTEM },
     { role: "user", content: user },
   ];
 }

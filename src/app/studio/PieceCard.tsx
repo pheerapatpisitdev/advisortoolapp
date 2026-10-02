@@ -3,7 +3,7 @@ import { formulaBadge } from "@/lib/content/finish-check";
 import { lookLabel, readLook } from "@/lib/content/looks";
 import { aiTextState } from "@/lib/content/poster-text";
 import { publishLabel } from "@/lib/content/publish-label";
-import { fullText } from "@/lib/content/output";
+import { fullText, langOf } from "@/lib/content/output";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
 import { FORMAT_SHORT } from "@/lib/content/prompt";
 import type { ContentItem } from "@/lib/content/store";
@@ -102,7 +102,7 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
           {item.output.angle && <p className="text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
           {item.model && (
             <p className="text-xs text-[var(--ct-mute)]">
-              เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}${readLook(item.output.look) ? ` (${lookLabel(readLook(item.output.look)!)})` : ""}` : ""}{AI_WORDS[aiTextState(item.output.poster)]}{formulaBadge(item.output, item.format) ? ` · ${formulaBadge(item.output, item.format)}` : ""}
+              เขียนโดย {shortModel(item.model)}{item.output.pictureBy ? ` · ภาพ ${item.output.pictureBy}${readLook(item.output.look) ? ` (${lookLabel(readLook(item.output.look)!)})` : ""}` : ""}{AI_WORDS[aiTextState(item.output.poster)]}{formulaBadge(item.output, item.format) ? ` · ${formulaBadge(item.output, item.format)}` : ""}{langOf(item.output) === "en" ? " · EN" : ""}
             </p>
           )}
         </div>

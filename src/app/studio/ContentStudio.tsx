@@ -11,7 +11,7 @@ import { moneyLeft, roundsNote } from "@/lib/wallet/note";
 import { defaultPoster, posterUrl, THEME_LABEL, THEMES } from "@/lib/content/poster";
 import { MAX_PIECES } from "@/lib/content/plan";
 import { onPage, publishView } from "@/lib/content/publish-label";
-import { anglesFor, FORMAT_SHORT, GOALS, MAX_FACT, MAX_READER, NICHES, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
+import { anglesFor, EXPAT_HREF, FORMAT_SHORT, GOALS, MAX_FACT, MAX_READER, NICHES, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
 import { AUTO, AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, painterOf, writerOf } from "@/lib/content/models";
 import type { ContentItem, ContentStatus } from "@/lib/content/store";
@@ -103,6 +103,8 @@ const TABS: { id: ContentStatus; label: string }[] = [
 const PICK_KEY = "content-models";
 /** the reader last named: a page usually speaks to one niche, so it is kept for the next visit */
 const READER_KEY = "content-reader";
+/** the คอนเทนต์สำหรับ Expat tick (iHealthy Ultra posts), kept per device like the reader */
+const EXPAT_KEY = "content-expat";
 /** the form last used (จากแบบประกัน, รีวิวเคลม, หาทีม) and the plan last picked, kept in this browser */
 const MODE_KEY = "content-mode";
 const PLAN_KEY = "content-plan";
@@ -288,10 +290,20 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     try { localStorage.setItem(PICK_KEY, JSON.stringify({ writer, painter, ...next })); } catch { /* not kept */ }
   };
   const [angle, setAngle] = useState<AngleId>("");
-  // a pick the form no longer offers (the plan or the format changed) goes back to ให้ AI เลือก
+  const [expat, setExpatState] = useState(false);
   useEffect(() => {
-    if (angle && angle !== "custom" && !anglesFor(format, href).some((a) => a.id === angle)) setAngle("");
-  }, [angle, format, href]);
+    try { setExpatState(localStorage.getItem(EXPAT_KEY) === "on"); } catch { /* storage unavailable */ }
+  }, []);
+  const setExpat = (on: boolean) => {
+    setExpatState(on);
+    try { localStorage.setItem(EXPAT_KEY, on ? "on" : "off"); } catch { /* not kept */ }
+  };
+  // the tick only counts where it shows: iHealthy Ultra, a post
+  const expatOn = expat && href === EXPAT_HREF && format === "post";
+  // a pick the form no longer offers (the plan, the format or the tick changed) goes back to ให้ AI เลือก
+  useEffect(() => {
+    if (angle && angle !== "custom" && !anglesFor(format, href, expatOn).some((a) => a.id === angle)) setAngle("");
+  }, [angle, format, href, expatOn]);
   const [reader, setReaderState] = useState("");
   useEffect(() => {
     try { setReaderState(localStorage.getItem(READER_KEY) ?? ""); } catch { /* storage unavailable */ }
@@ -604,7 +616,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     await runRound(pieceCount, format, () => generateRound({
       href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count,
       hookTemplateId: format === "ad" ? null : hookId || null, adAngles, adTones, writer,
-      reader, goal: format === "ad" ? "" : goal, fact: format === "ad" ? "" : fact, theme,
+      reader, expat: expatOn, goal: format === "ad" ? "" : goal, fact: format === "ad" ? "" : fact, theme,
       ...(format !== "script" && logoSpot ? { logoSpot } : {}), page: project?.pageId,
     }), (fresh) => {
       // the painter as it was at the press, even if the owner changes it while waiting
@@ -1138,11 +1150,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           <FormSection title="เรื่องที่เล่า">
           <div>
+            {href === EXPAT_HREF && format === "post" && (
+              <label className={`mb-3 flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm ${expat ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
+                <input type="checkbox" checked={expat} onChange={(e) => setExpat(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
+                <span className="font-medium">คอนเทนต์สำหรับ Expat (เขียนเป็นภาษาอังกฤษ)</span>
+              </label>
+            )}
             <label className="block">
               <span className="mb-1 block text-sm font-medium">มุมที่อยากเล่า <span className="font-normal text-[var(--ct-mute)]">(ไม่เลือกก็ได้)</span></span>
               <select value={angle} onChange={(e) => setAngle(e.target.value as AngleId)} className={field}>
                 <option value="">ให้ AI เลือก</option>
-                {anglesFor(format, href).map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                {anglesFor(format, href, expatOn).map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
                 <option value="custom">พิมพ์เอง…</option>
               </select>
             </label>
@@ -1157,15 +1175,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           <div role="group" aria-labelledby={`${formId}-reader`}>
             <span id={`${formId}-reader`} className="mb-1.5 block text-sm font-medium">คนอ่านคือใคร <span className="font-normal text-[var(--ct-mute)]">(ระบบจำไว้ให้)</span></span>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" aria-pressed={reader === ""} onClick={() => setReader("")} className={chip(reader === "")}>ทุกคน</button>
-              {NICHES.map((n) => (
-                <button key={n} type="button" aria-pressed={reader === n} onClick={() => setReader(n)} className={chip(reader === n)}>{n}</button>
-              ))}
-            </div>
+            {!expatOn && (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" aria-pressed={reader === ""} onClick={() => setReader("")} className={chip(reader === "")}>ทุกคน</button>
+                {NICHES.map((n) => (
+                  <button key={n} type="button" aria-pressed={reader === n} onClick={() => setReader(n)} className={chip(reader === n)}>{n}</button>
+                ))}
+              </div>
+            )}
             <label className="mt-2 block">
               <span className="sr-only">คนอ่าน (พิมพ์เอง)</span>
-              <input value={reader} onChange={(e) => setReader(e.target.value)} maxLength={MAX_READER} placeholder="หรือพิมพ์เอง เช่น พยาบาลกะดึก" className={field} />
+              <input value={reader} onChange={(e) => setReader(e.target.value)} maxLength={MAX_READER} placeholder={expatOn ? "เช่น retirees, expat families — ไม่ใส่ = ชาวต่างชาติที่อยู่ไทย" : "หรือพิมพ์เอง เช่น พยาบาลกะดึก"} className={field} />
             </label>
           </div>
 

@@ -1,7 +1,7 @@
 import { BudgetExceeded, chat, parseJsonReply } from "@/lib/ai/client";
-import { DISCLAIMER, TAX_LINE, type ContentOutput } from "./output";
+import { DISCLAIMER, TAX_LINE, type ContentOutput, type Lang } from "./output";
 import { adCopyMessages, matrixCells, matrixMessages, parseAdCopy, parseMatrix } from "./ads";
-import { parsePoster } from "./poster";
+import { parsePoster, type PosterSpec } from "./poster";
 import { WRITERS } from "./models";
 import { headlineMessages, parseHeadlines, type NumberSheet } from "./numbers";
 import { parsePlans, planMessages, type PiecePlan } from "./plan";
@@ -34,6 +34,20 @@ const strings = (v: unknown): string[] =>
 const text = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 
 /**
+ * A poster from the model's reply. parsePoster keeps `lang` (the drawing route reads it from
+ * the URL), but the language is the round's, not the model's: one that added "lang":"en" to a
+ * Thai poster would put the English insurer line under a Thai piece. englishOutput marks the
+ * English ones.
+ */
+function modelPoster(raw: unknown): PosterSpec | null {
+  const poster = parsePoster(raw);
+  if (!poster) return null;
+  const { lang: _lang, ...rest } = poster;
+  void _lang;
+  return rest;
+}
+
+/**
  * One post per plan, or null.
  *
  * All or nothing, as in Maryjane's parseDraftResponse: a reply with one piece fewer than the
@@ -56,6 +70,7 @@ export function parsePieces(reply: string, plans: PiecePlan[], angle: AngleId): 
   for (const [i, p] of pieces.entries()) {
     const body = text(p?.body);
     if (!body) return null;
+    const poster = modelPoster(p.poster);
     out.push({
       hooks: [plans[i].hook],
       angle: plans[i].angle,
@@ -65,7 +80,7 @@ export function parsePieces(reply: string, plans: PiecePlan[], angle: AngleId): 
       imagePrompt: text(p.imagePrompt),
       disclaimer: angle === "tax" ? `${DISCLAIMER}\n${TAX_LINE}` : DISCLAIMER,
       // a poster that cannot be read is left out, and the page draws one from the hook
-      ...(parsePoster(p.poster) ? { poster: parsePoster(p.poster)! } : {}),
+      ...(poster ? { poster } : {}),
     });
   }
   return out;
@@ -214,7 +229,7 @@ export async function writeAds(opts: { brief: string; angles: number; tones: num
       console.error(`content ad unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
       throw new UnreadableReply();
     }
-    const poster = parsePoster(copy.poster);
+    const poster = modelPoster(copy.poster);
     const output: ContentOutput = {
       hooks: [copy.headline],
       angle: `${cell.angle.label} · ${cell.tone.label}`,
@@ -234,9 +249,11 @@ export async function writeAds(opts: { brief: string; angles: number; tones: num
 /**
  * The ตัวเลขชัดๆ angle's one call: a headline and a picture line per sheet, from the cheap
  * model. Any failure gives the fallback headlines — the figures under them are the post.
+ * `lang`: "en" asks for English headlines (and falls back to the English ones).
  */
-export async function headlines(sheets: NumberSheet[], limits: { budgetMs?: number } = {}): Promise<{ lines: ReturnType<typeof parseHeadlines>; model: string; costThb: number }> {
-  const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-headline", messages: headlineMessages(sheets), maxTokens: 800, json: true, timeoutMs }), undefined, limits.budgetMs, "headlines")
+export async function headlines(sheets: NumberSheet[], limits: { budgetMs?: number; lang?: Lang } = {}): Promise<{ lines: ReturnType<typeof parseHeadlines>; model: string; costThb: number }> {
+  const lang = limits.lang ?? "th";
+  const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-headline", messages: headlineMessages(sheets, lang), maxTokens: 800, json: true, timeoutMs }), undefined, limits.budgetMs, "headlines")
     .catch((e) => { console.error("content headlines failed:", e); return null; });
-  return { lines: parseHeadlines(r?.text ?? "", sheets.length), model: r?.model ?? "fallback", costThb: r?.costThb ?? 0 };
+  return { lines: parseHeadlines(r?.text ?? "", sheets.length, lang), model: r?.model ?? "fallback", costThb: r?.costThb ?? 0 };
 }

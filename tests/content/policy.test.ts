@@ -93,3 +93,76 @@ describe("checkPolicy — หาทีม's own rules", () => {
     expect(codes("รายได้เดือนละ 50,000 บาท")).toEqual([]);
   });
 });
+
+describe("English rules", () => {
+  const codes = (t: string) => checkPolicy(t).map((f) => f.code);
+  it.each([
+    ["Are you sick of waiting rooms? Are you sick?", "health_you_en"],
+    ["You have diabetes, so…", "health_you_en"],
+    ["Are you in debt from hospital bills?", "debt_you_en"],
+    ["Now that you're over 50, cover gets harder.", "age_you_en"],
+    ["Lost your job last month?", "job_you_en"],
+    ["100% approved, guaranteed acceptance.", "guarantee_en"],
+    ["Send us your passport number to start.", "pii_request_en"],
+    ["The best in Thailand.", "superlative_en"],
+    ["Perfect for your O-A visa.", "visa_type_en"],
+    ["Use it for a retirement visa.", "visa_type_en"],
+    ["Your visa approved, guaranteed.", "visa_promise_en"],
+    ["Our plan works for every visa.", "visa_promise_en"],
+    ["It works for any visa.", "visa_promise_en"],
+    ["Valid for all visas.", "visa_promise_en"],
+    ["We're number one.", "superlative_en"],
+    ["The #1 health plan.", "superlative_en"],
+    ["The best plan in Thailand.", "superlative_en"],
+    ["The cheapest insurance in Thailand.", "superlative_en"],
+    // a visa named on its own, without the word "visa" after it (final review, 2026-10-02)
+    ["Great for O-A holders", "visa_type_en"],
+    ["Need insurance for your DTV?", "visa_type_en"],
+    ["On a Non-O? Message us", "visa_type_en"],
+    ["Applying for an LTR?", "visa_type_en"],
+    ["Retiring here on an O-X?", "visa_type_en"],
+    ["Covers the insurance requirement for Thai Elite", "visa_type_en"],
+    ["Send us your PIN code", "pii_request_en"],
+    // emergency treatment within 90 days of travel is all the cover abroad there is
+    ["You're covered anywhere in the world.", "worldwide_en"],
+    ["Enjoy global coverage.", "worldwide_en"],
+    ["Worldwide cover for expats", "worldwide_en"],
+  ])("catches %s", (text, code) => expect(codes(text)).toContain(code));
+  it.each([
+    "If you get sick, the bill is covered up to the plan's limit.",
+    "When you change jobs, your company plan ends.",
+    "Message us to check your visa.",
+    "Renewable up to age 98.",
+    "Bring your passport when you visit us.",
+    "You're covered for cancer treatment.",
+    "Are you covered for cancer?",
+    "You have cancer cover from day one.",
+    "You are protected against chronic illness.",
+    "Premiums depend on your age and plan.",
+    "If you're under 65, you can apply.",
+    "If you are aged 60, you can apply.",
+    "Cover is separate from visa approval.",
+    "Get help for your visa questions.",
+    "Guaranteed coverage up to age 98.",
+    "Ask us about your visa.",
+    "Plan for a long-term stay.",
+    "Share this post and pin it for later.",
+    "It is not worldwide cover.",
+    "It isn't worldwide, and it's not global cover.",
+    "Emergency treatment abroad within 90 days of travel.",
+  ])("lets %s through", (text) => expect(checkPolicy(text).filter((f) => f.code.endsWith("_en"))).toEqual([]));
+});
+
+describe("Thai in an English piece", () => {
+  it("stops an English piece that carries Thai, and names the first Thai run", () => {
+    const [f] = checkPolicy("Cover that stays with you\n#ประกันสุขภาพ #expat", { lang: "en" }).filter((x) => x.code === "thai_in_english");
+    expect(f).toMatchObject({ severity: "block", match: "ประกันสุขภาพ" });
+    expect(f.message).toBe("ชิ้นภาษาอังกฤษมีตัวอักษรไทย — โพสต์อังกฤษต้องไม่มีภาษาไทย");
+    expect(f.fix).toBe("แก้ส่วนที่เป็นภาษาไทยให้เป็นภาษาอังกฤษ");
+  });
+  it("says nothing of Thai on a Thai piece, nor on an English piece without any", () => {
+    expect(checkPolicy("Cover that stays with you\n#ประกันสุขภาพ").map((f) => f.code)).not.toContain("thai_in_english");
+    expect(checkPolicy("Cover that stays with you\n#ประกันสุขภาพ", { lang: "th" }).map((f) => f.code)).not.toContain("thai_in_english");
+    expect(checkPolicy("Cover that stays with you\n#expat", { lang: "en" })).toEqual([]);
+  });
+});

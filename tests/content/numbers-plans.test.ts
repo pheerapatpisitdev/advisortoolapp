@@ -88,3 +88,18 @@ describe("figures that match each sales page", () => {
     expect(s.perDayLine).toBe("ตกวันละ 374 บาท");
   });
 });
+
+const numbersIn = (t: string) => (t.match(/\d[\d,]*/g) ?? []).map((n) => Number(n.replace(/,/g, "")));
+
+describe("English number sheets", () => {
+  it("prices iHealthy Ultra in English with the same figures", () => {
+    const th = numberSheets("/ihealthy-ultra", 3, today);
+    const en = numberSheets("/ihealthy-ultra", 3, today, "en");
+    expect(en).toHaveLength(th.length);
+    for (const [i, s] of en.entries()) {
+      expect(numbersIn(numbersBody(s))).toEqual(expect.arrayContaining(numbersIn(numbersBody(th[i])).filter((n) => n >= 100)));
+      expect(`${numbersBody(s)}\n${s.poster.big}\n${s.poster.small}`).not.toMatch(/[\u0E00-\u0E7F]/);
+    }
+    expect(numberSheets("/lifeprotect", 1, today, "en")).toEqual([]);
+  });
+});

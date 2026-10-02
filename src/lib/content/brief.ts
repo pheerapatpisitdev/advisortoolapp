@@ -1,3 +1,5 @@
+import { iHealthyFacts } from "@/lib/ihealthy-facts";
+import { EXPAT_HREF } from "./prompt";
 import { contentProduct, type ContentProduct, type Figures } from "./products";
 import { lifelong } from "./wording";
 
@@ -31,7 +33,20 @@ function figuresOf(product: ContentProduct, today: Date): Figures {
   }
 }
 
-export function briefFor(href: string, today: Date = new Date()): Brief | null {
+/** What an English post to expats may say about iHealthy Ultra (owner, 2026-10-02). */
+function expatBlock(): string[] {
+  const days = iHealthyFacts().terms.outOfTerritoryDays;
+  return [
+    "",
+    "### ข้อมูลสำหรับลูกค้าชาวต่างชาติ (เจ้าของยืนยัน 2026-10-02)",
+    "- ชาวต่างชาติที่อาศัยอยู่ในประเทศไทยสมัครได้",
+    "- ใช้ประกอบการยื่นขอวีซ่าได้ — ห้ามระบุชื่อหรือประเภทวีซ่า ห้ามบอกว่าใช้กับวีซ่าทุกประเภทหรือรับประกันว่าผ่าน ให้ชวนทักมาเช็กว่าเหมาะกับวีซ่าของเขาไหม",
+    "- ตัวแทนดูแลและตอบแชทเป็นภาษาอังกฤษได้",
+    `- นอกประเทศไทย คุ้มครองเฉพาะการรักษาฉุกเฉินที่เกิดภายใน ${days} วันนับจากวันเดินทาง (สูงสุดถึงวันที่ ${days}) — ไม่ใช่คุ้มครองทั่วโลก`,
+  ];
+}
+
+export function briefFor(href: string, today: Date = new Date(), opts: { expat?: boolean } = {}): Brief | null {
   const product = contentProduct(href);
   if (!product) return null;
   const fig = figuresOf(product, today);
@@ -51,6 +66,7 @@ export function briefFor(href: string, today: Date = new Date()): Brief | null {
     "",
     "### ข้อควรระวัง (ห้ามเขียนขัดกับข้อนี้)",
     ...product.cautions.map((c) => `- ${c}`),
+    ...(opts.expat && href === EXPAT_HREF ? expatBlock() : []),
   ].join("\n"));
 
   return { product, text, expired: fig.expired, rateVersion: fig.rateVersion };

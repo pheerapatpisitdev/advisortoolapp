@@ -1,5 +1,5 @@
 import { CARD_PALETTE, POSTER_THEMES, posterScrim } from "@/lib/card-theme";
-import { INSURER_LINE } from "./output";
+import { insurerLine, langOf } from "./output";
 import { backgroundDataUri } from "./store";
 import { SIZES, type Layout, type PosterDocument, type PosterSpec, type SizeId } from "./poster";
 import { fitScale, fontSize, LINE_HEIGHT, logoAt, metrics, withBreaks, type Canvas, type Metrics } from "./poster-layout";
@@ -90,7 +90,7 @@ function InsurerLine({ spec, canvas, m }: { spec: PosterSpec; canvas: Canvas; m:
         ...(c.textShadow ? { textShadow: c.textShadow } : {}),
       }}
     >
-      {INSURER_LINE}
+      {insurerLine(langOf(spec))}
     </div>
   );
 }

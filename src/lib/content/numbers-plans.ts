@@ -1,9 +1,10 @@
 import type { NumberSheet, PricedPlan } from "./numbers";
+import type { Lang } from "./output";
 import { lifelong } from "./wording";
 import { cancerNumbers } from "./numbers-cases/cancer";
 import { ci123Numbers } from "./numbers-cases/ci123";
 import { easyProtectNumbers } from "./numbers-cases/easyprotect";
-import { iHealthyNumbers } from "./numbers-cases/ihealthy";
+import { iHealthyNumbers, iHealthyNumbersEn } from "./numbers-cases/ihealthy";
 import { legacyNumbers } from "./numbers-cases/legacy";
 import { lifeProtectNumbers } from "./numbers-cases/lifeprotect";
 import { lifeTreasureNumbers } from "./numbers-cases/lifetreasure";
@@ -31,6 +32,11 @@ export const NUMBERS_PLANS: Record<string, PricedPlan> = {
   "/bumnan95": pensionNumbers,
 };
 
+/** The plans with an English version; the rest give no English sheets and are written in Thai. */
+export const EXPAT_NUMBERS_PLANS: Record<string, PricedPlan> = {
+  "/ihealthy-ultra": iHealthyNumbersEn,
+};
+
 /** piece i's two claims: consecutive pairs round the list, so a round of three differs */
 export function claimsFor(list: string[], i: number): string[] {
   if (list.length <= 2) return list;
@@ -38,12 +44,16 @@ export function claimsFor(list: string[], i: number): string[] {
 }
 
 /** `count` sheets for a round, one person each in turn; empty when nobody can be priced. */
-export function numberSheets(href: string, count: number, today: Date = new Date()): NumberSheet[] {
-  const plan = NUMBERS_PLANS[href];
+export function numberSheets(href: string, count: number, today: Date = new Date(), lang: Lang = "th"): NumberSheet[] {
+  const en = lang === "en";
+  const plan = (en ? EXPAT_NUMBERS_PLANS : NUMBERS_PLANS)[href];
   if (!plan) return [];
   const priced = Array.from({ length: plan.caseCount }, (_, i) => i).filter((i) => plan.price(i, plan.claims, today) !== null);
   if (priced.length === 0) return [];
-  return Array.from({ length: count }, (_, n) => lifelongSheet(plan.price(priced[n % priced.length], claimsFor(plan.claims, n), today)!));
+  return Array.from({ length: count }, (_, n) => {
+    const sheet = plan.price(priced[n % priced.length], claimsFor(plan.claims, n), today)!;
+    return en ? sheet : lifelongSheet(sheet);
+  });
 }
 
 /** every line of a sheet with ตลอดชีพ in place of 99 (wording.ts) — the engines say "ถึงอายุ 99" */

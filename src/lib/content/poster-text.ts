@@ -25,7 +25,7 @@ export function aiTextState(p: PosterSpec | undefined): "none" | "unchecked" | "
 
 const arabic = (t: string) => t.replace(/[๐-๙]/g, (d) => String(d.charCodeAt(0) - 0x0e50));
 /** a model reads a picture's lines and spaces its own way; the words are what is compared */
-const squeeze = (t: string) => arabic(t).replace(/[\s​]+/g, "");
+const squeeze = (t: string) => arabic(t).toLowerCase().replace(/[\s​]+/g, "");
 const clip = (t: string, n = 40) => (t.length > n ? `${t.slice(0, n)}…` : t);
 
 export function comparePosterRead(read: string, poster: Pick<PosterSpec, "blocks">): string[] {
