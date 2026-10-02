@@ -514,4 +514,20 @@ describe("a PDF the customer asked for", () => {
     expect(files).toHaveLength(0);
     expect(sent.text[1]).toBe("รอสักครู่แล้วขอใหม่นะครับ");
   });
+
+  it("sends a couple both files, told once that they are coming, the buttons on the last", async () => {
+    const PDF2 = "/api/quote-pdf?page=plb&age=33&v=1";
+    answer.mockImplementation(async () => ({
+      messages: [{ text: "กำลังทำไฟล์ให้ครับ", file: PDF }, { text: "", file: PDF2 }],
+      replies: ["สนใจสมัคร"],
+      slots: { intent: "quote" },
+    }));
+    fetched.mockImplementation(async () => new Response(new Uint8Array([37]), { status: 200 }));
+    await handle(asked);
+    expect(sent.text).toEqual(["กำลังทำไฟล์ให้ครับ"]);
+    expect(files).toHaveLength(2);
+    expect(fetched.mock.calls.map((c) => c[0])).toEqual([expect.stringContaining(PDF), expect.stringContaining(PDF2)]);
+    expect(files[0].replies).toBeUndefined();
+    expect(files[1].replies).toEqual(["สนใจสมัคร"]);
+  });
 });

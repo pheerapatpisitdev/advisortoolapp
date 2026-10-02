@@ -187,6 +187,23 @@ describe("a PDF the customer asked for", () => {
     await handle(said("ขอไฟล์ PDF") as never);
     const texts = (replies[0] ?? pushes[0]).map((m) => (m.type === "text" ? m.text : ""));
     expect(texts[0]).toBe("ไฟล์ PDF ของเบี้ยล่าสุดครับ");
-    expect(texts).toContain(siteUrl(pdf));
+    // LINE's own browser on Android does not open a PDF: the flag sends it to the phone's
+    expect(texts).toContain(`${siteUrl(pdf)}&openExternalBrowser=1`);
+  });
+
+  it("is a link each for a couple", async () => {
+    const pdf = "/api/quote-pdf?page=plb&age=35&v=1";
+    const pdf2 = "/api/quote-pdf?page=plb&age=33&v=1";
+    answer.mockImplementation(async () => ({
+      messages: [{ text: "ไฟล์ PDF ของเบี้ยล่าสุดครับ", file: pdf }, { text: "", file: pdf2 }],
+      slots: { intent: "quote" },
+    }));
+    await handle(said("ขอไฟล์ PDF") as never);
+    const texts = (replies[0] ?? pushes[0]).map((m) => (m.type === "text" ? m.text : ""));
+    expect(texts).toEqual([
+      "ไฟล์ PDF ของเบี้ยล่าสุดครับ",
+      `${siteUrl(pdf)}&openExternalBrowser=1`,
+      `${siteUrl(pdf2)}&openExternalBrowser=1`,
+    ]);
   });
 });

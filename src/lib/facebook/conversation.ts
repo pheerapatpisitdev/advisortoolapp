@@ -286,7 +286,11 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
       }
       // the buttons ride on whatever lands last, because anything sent after them clears them
       const last = i === answer.messages.length - 1;
-      await sendMessage(psid, said.text, last && !said.card && !said.file ? answer.replies : undefined, { pageId });
+      // a bubble with no words is a picture or a file on its own: a couple's second card, their
+      // second PDF, whose words were said once before the first
+      if (said.text) {
+        await sendMessage(psid, said.text, last && !said.card && !said.file ? answer.replies : undefined, { pageId });
+      }
       // the card follows its own words, so the customer reads the quote before the picture of
       // it — and a couple priced together gets the pair in the order they were named
       if (said.card) await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId);
