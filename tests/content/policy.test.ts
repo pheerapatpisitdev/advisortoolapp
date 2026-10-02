@@ -93,3 +93,27 @@ describe("checkPolicy — หาทีม's own rules", () => {
     expect(codes("รายได้เดือนละ 50,000 บาท")).toEqual([]);
   });
 });
+
+describe("English rules", () => {
+  const codes = (t: string) => checkPolicy(t).map((f) => f.code);
+  it.each([
+    ["Are you sick of waiting rooms? Are you sick?", "health_you_en"],
+    ["You have diabetes, so…", "health_you_en"],
+    ["Are you in debt from hospital bills?", "debt_you_en"],
+    ["Now that you're over 50, cover gets harder.", "age_you_en"],
+    ["Lost your job last month?", "job_you_en"],
+    ["100% approved, guaranteed acceptance.", "guarantee_en"],
+    ["Send us your passport number to start.", "pii_request_en"],
+    ["The best in Thailand.", "superlative_en"],
+    ["Perfect for your O-A visa.", "visa_type_en"],
+    ["Use it for a retirement visa.", "visa_type_en"],
+    ["Your visa approved, guaranteed.", "visa_promise_en"],
+  ])("catches %s", (text, code) => expect(codes(text)).toContain(code));
+  it.each([
+    "If you get sick, the bill is covered up to the plan's limit.",
+    "When you change jobs, your company plan ends.",
+    "Message us to check your visa.",
+    "Renewable up to age 98.",
+    "Bring your passport when you visit us.",
+  ])("lets %s through", (text) => expect(checkPolicy(text).filter((f) => f.code.endsWith("_en"))).toEqual([]));
+});

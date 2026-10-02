@@ -73,6 +73,80 @@ export const POLICY_RULES: PolicyRule[] = [
   },
 ];
 
+/**
+ * The same rules for English copy (iHealthy Ultra posts for expats). Assertion-only on purpose:
+ * "are you…", "you are/you're…", "you have…", "your debts" — so "if you get sick" and "when you
+ * change jobs" never match and there is no look-back for if/when. Run on every piece alongside
+ * the Thai ones; a Thai post simply never matches. message/fix are Thai (staff read them),
+ * the examples inside fix are English.
+ */
+const ILLNESS = "(?:sick|ill|unwell|diabetic|diabetes|cancer|obese|overweight|depress(?:ed|ion)|hypertension|high blood pressure|chronic)";
+export const POLICY_RULES_EN: PolicyRule[] = [
+  {
+    code: "health_you_en",
+    pattern: new RegExp(`\\b(?:are you|you(?:'|’)re|you are)\\b[^.!?\\n]{0,20}?\\b${ILLNESS}\\b|\\byou (?:have|suffer from)\\b[^.!?\\n]{0,10}?\\b${ILLNESS}\\b`, "i"),
+    severity: "block",
+    message: "บอกใบ้ว่าคนอ่านมีปัญหาสุขภาพ — Facebook ห้ามในโฆษณา",
+    fix: "พูดถึงความคุ้มครองแทนตัวคนอ่าน เช่น “If you ever need treatment…”",
+  },
+  {
+    code: "debt_you_en",
+    pattern: /\b(?:are you|you(?:'|’)re|you are)\b[^.!?\n]{0,15}?\b(?:in debt|indebted|bankrupt)\b|\byou (?:have|owe)\b[^.!?\n]{0,10}?\b(?:debts?|loans?)\b|\byour (?:debts?|credit score)\b/i,
+    severity: "block",
+    message: "บอกใบ้ว่าคนอ่านมีหนี้ — Facebook ห้ามในโฆษณา",
+    fix: "เล่าเป็นสถานการณ์ทั่วไป เช่น “A hospital bill can set anyone back”",
+  },
+  {
+    code: "age_you_en",
+    pattern: /\b(?:you(?:'|’)re|you are|are you)\b[^.!?\n]{0,15}?\b(?:over|under|aged?)\s?\d{2}\b|(?<!whether )\byou(?:'|’)re \d{2}\b(?! or \d)|(?<!whether )\byou are \d{2}\b(?! or \d)|\byour age\b/i,
+    severity: "block",
+    message: "ระบุอายุของคนอ่านตรงๆ — Facebook ห้ามในโฆษณา",
+    fix: "ยกเป็นตัวอย่างบุคคลที่สาม เช่น “A 35-year-old woman…” หรือไปตั้งอายุที่กลุ่มเป้าหมายของแอด",
+  },
+  {
+    code: "job_you_en",
+    pattern: /\b(?:are you|you(?:'|’)re|you are)\b[^.!?\n]{0,15}?\b(?:unemployed|jobless|out of work|laid off)\b|\b(?:lost|losing) your job\b|\byou (?:lost|have lost) your job\b/i,
+    severity: "block",
+    message: "บอกใบ้สถานะงานของคนอ่าน — Facebook ห้ามในโฆษณา",
+    fix: "เปลี่ยนเป็นข้อความกลางๆ ที่ไม่ระบุตัวคนอ่าน",
+  },
+  {
+    code: "guarantee_en",
+    pattern: /\b(?:guarantee[ds]?|assured)\s+(?:approval|acceptance|coverage|issue)\b|\b100\s?% (?:approved|approval|acceptance|accepted)\b|\b(?:approved|accepted)\s+100\s?%|\bno one is (?:declined|rejected|turned down)\b|\beveryone (?:is )?(?:approved|accepted)\b|\bguarantee[ds]? (?:to )?(?:approve|accept)\b/i,
+    severity: "block",
+    message: "รับประกันผลการสมัครแบบเด็ดขาด — ผิดมาตรฐานสินค้าการเงินของ Facebook และบริษัทพิจารณารับประกันทุกราย",
+    fix: "บอกเงื่อนไขจริงแทน เช่น “Easy to apply — an agent will check the terms with you”",
+  },
+  {
+    code: "pii_request_en",
+    pattern: /\b(?:send|share|give|provide|text|enter|type)\b[^.!?\n]{0,15}?\b(?:passport (?:number|no\.?)|id (?:card )?number|national id|bank account(?: number)?|account number|password|pin)\b/i,
+    severity: "block",
+    message: "ขอข้อมูลส่วนตัวในโพสต์ — Facebook ห้าม",
+    fix: "ชวนทักแชทก่อน แล้วค่อยขอข้อมูลในแชท เช่น “Message us to get started”",
+  },
+  {
+    code: "superlative_en",
+    pattern: /\b(?:the )?(?:best|cheapest|number\s?(?:one|1)|no\.?\s?1|#\s?1)\s+(?:in|of|across)\s+(?:thailand|the (?:world|country))\b|\bthailand(?:'|’)s (?:best|cheapest|#\s?1|number one)\b/i,
+    severity: "warn",
+    message: "คำเกินจริงที่พิสูจน์ไม่ได้ — เสี่ยงโฆษณาถูกปฏิเสธ",
+    fix: "ใช้ตัวเลขจริงจากตารางเบี้ยแทนคำว่า best / cheapest",
+  },
+  {
+    code: "visa_type_en",
+    pattern: /\b(?:o-?a|o-?x|non-?o|non-?immigrant|retirement|elite|ltr|dtv|smart|education|marriage|business|work|tourist|long[- ]stay)\s+(?:visa|extension)\b|\b(?:visa|extension)\s+(?:type\s+)?(?:o-?a|o-?x|non-?o|dtv|ltr)\b/i,
+    severity: "block",
+    message: "ระบุชื่อประเภทวีซ่า — ไม่เขียนในโพสต์ ให้ชวนทักแชทแทน",
+    fix: "เขียนว่า “Message us to check your visa”",
+  },
+  {
+    code: "visa_promise_en",
+    pattern: /\bvisa\b[^.!?\n]{0,20}?\b(?:approved|approval|guaranteed?|assured|accepted|sorted|secured)\b|\b(?:guarantee[ds]?|ensure[ds]?|secure[ds]?|get(?:ting)?|win)\b[^.!?\n]{0,15}?\bvisa\b/i,
+    severity: "block",
+    message: "สัญญาว่าวีซ่าจะผ่าน — ห้าม ผลวีซ่าขึ้นกับสำนักงานตรวจคนเข้าเมือง",
+    fix: "เขียนว่า “Message us to check your visa” แทนคำสัญญา",
+  },
+];
+
 export interface PolicyFinding {
   code: string;
   severity: PolicySeverity;
@@ -146,8 +220,8 @@ export const RECRUIT_POLICY_RULES: PolicyRule[] = [
 
 export function checkPolicy(text: string, opts: { recruit?: boolean } = {}): PolicyFinding[] {
   const out: PolicyFinding[] = [];
-  for (const rule of opts.recruit ? [...POLICY_RULES, ...RECRUIT_POLICY_RULES] : POLICY_RULES) {
-    const every = new RegExp(rule.pattern.source, "g");
+  for (const rule of [...POLICY_RULES, ...POLICY_RULES_EN, ...(opts.recruit ? RECRUIT_POLICY_RULES : [])]) {
+    const every = new RegExp(rule.pattern.source, `${rule.pattern.flags}g`);
     for (const m of text.matchAll(every)) {
       const before = text.slice(Math.max(0, m.index - 14), m.index);
       if (ABOUT_THE_READER.has(rule.code) && SUPPOSING.test(before)) continue;
