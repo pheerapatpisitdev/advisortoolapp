@@ -14,6 +14,7 @@ vi.mock("@/lib/ai/client", async () => {
 
 const { answerHealth } = await import("@/lib/assistant/ihealthy/answer");
 const { healthQuote } = await import("@/lib/assistant/ihealthy/quote");
+const { hospitalReply } = await import("@/lib/assistant/hospitals");
 
 const said = (content: string) => [{ role: "user" as const, content }];
 const KNOWN = { product: "ihealthy" as const, intent: "quote" as const, age: 35, sex: "F" as const };
@@ -209,5 +210,20 @@ describe("what it asks a model for", () => {
     routed = { intent: "quote" };
     await answerHealth(said("Gold"), KNOWN);
     expect(chat.mock.calls.map((c) => c[0].task)).toEqual(["route_health"]);
+  });
+});
+
+describe("a question about the hospital network", () => {
+  it("is answered from Krungthai-AXA's list, without a model", async () => {
+    const answer = await answerHealth(said("ใช้ รพ.บำรุงราษฎร์ ได้ไหม"), KNOWN);
+    expect(answer.messages[0].text).toBe(hospitalReply("ใช้ รพ.บำรุงราษฎร์ ได้ไหม", "th"));
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it("does not take a question about the room for one about hospitals", async () => {
+    worded = "ค่าห้องตามแผนครับ";
+    routed = { intent: "plan_info" };
+    const answer = await answerHealth(said("ค่าห้องโรงพยาบาลเท่าไหร่"), KNOWN);
+    expect(answer.messages[0].text).not.toContain("Fax Claim");
   });
 });

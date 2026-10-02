@@ -13,6 +13,7 @@ import {
 } from "../common";
 import { CHOOSE_HEALTH } from "../choose";
 import { healthFaqAnswer } from "./faq";
+import { hospitalReply } from "../hospitals";
 import { healthMenu, otherPlansReply } from "./menu";
 import { HEALTH_PLAN_INFO_SYSTEM, HEALTH_SMALL_TALK_SYSTEM, healthFactsFor } from "./prompts";
 import {
@@ -86,6 +87,9 @@ export async function answerHealth(
   // rising premium, the waiting periods
   const faq = healthFaqAnswer(asked);
   if (faq) return { ...one(faq), slots: known };
+  // which hospitals: Krungthai-AXA's own list (../hospitals), answered in its fixed words
+  const hospitals = hospitalReply(asked, "th");
+  if (hospitals) return { ...one(hospitals), slots: known };
   if (asksShareOfBill(asked)) return { ...one(SHARE_OF_BILL_ANSWER), slots: known };
 
   /**

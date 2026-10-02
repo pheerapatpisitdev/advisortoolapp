@@ -13,6 +13,7 @@ vi.mock("@/lib/ai/client", async () => {
 });
 
 const { answerHealthEn } = await import("@/lib/assistant/ihealthy-en/answer");
+const { hospitalReply } = await import("@/lib/assistant/hospitals");
 const { GREETING_EN, APPLY_HAND_OVER_EN, HEALTH_THANKS_EN } = await import("@/lib/assistant/ihealthy-en/words");
 
 const said = (content: string) => [{ role: "user" as const, content }];
@@ -112,6 +113,17 @@ describe("the English health brain", () => {
     const told = await answerHealthEn(said("diabetes, metformin"), { ...KNOWN, healthAsked: true });
     const next = await answerHealthEn(said("Gold"), told.slots);
     expect(next.priced).toBe(true);
+  });
+
+  it("answers a hospital question from the network list, without a model", async () => {
+    const a = await answerHealthEn(said("Can I use Bumrungrad?"), KNOWN);
+    expect(a.messages[0].text).toBe(hospitalReply("Can I use Bumrungrad?", "en"));
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it("puts a health condition before the hospital it was treated at", async () => {
+    const a = await answerHealthEn(said("I had heart surgery at Bumrungrad, can I still apply?"), KNOWN);
+    expect(a.messages[0].text).toMatch(/declare/i);
   });
 
   it("a model reply with an invented figure loses that line", async () => {

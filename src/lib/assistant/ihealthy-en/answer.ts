@@ -1,6 +1,7 @@
 import { chat } from "@/lib/ai/client";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { Sex } from "@/calc/types";
+import { hospitalReply } from "../hospitals";
 import { keepGivenFigures, one, recentTurns, spoken, type Reply } from "../common";
 import type { HealthAnswer } from "../ihealthy/answer";
 import { hasHealthQuote } from "../ihealthy/quote";
@@ -84,6 +85,9 @@ export async function answerHealthEn(
   if (faq) {
     return { ...one(faq.answer()), slots: faq.key === "health" ? { ...known, healthAsked: true } : known };
   }
+  // where cover can be used: Krungthai-AXA's own list, never a model's idea of it
+  const hospitals = hospitalReply(asked, "en");
+  if (hospitals) return { ...one(hospitals), slots: known };
   if (asksShareOfBill(asked)) return { ...one(SHARE_OF_BILL_EN), slots: known };
 
   // the advertisement's button, or a hello: a question back, not a description of the contract

@@ -1,0 +1,8287 @@
+{
+ "source": "https://www.krungthai-axa.co.th/customer-service/hospitals",
+ "fetchedAt": "2026-10-02",
+ "hospitals": [
+  {
+   "id": "krabi-hospital",
+   "th": "โรงพยาบาลกระบี่",
+   "en": "Krabi Hospital",
+   "district": "เมืองกระบี่",
+   "province": "กระบี่",
+   "provinceEn": "Krabi",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7562 6700"
+  },
+  {
+   "id": "krabinakharin-hospital",
+   "th": "โรงพยาบาลกระบี่นครินทร์ อินเตอร์เนชั่นแนล",
+   "en": "Krabinakharin Hospital",
+   "district": "เมืองกระบี่",
+   "province": "กระบี่",
+   "provinceEn": "Krabi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7562 6555"
+  },
+  {
+   "id": "jariyatham-ruampat-krabi-hospital",
+   "th": "โรงพยาบาลจริยธรรมรวมแพทย์ กระบี่",
+   "en": "Jariyatham Ruamhpat Krabi Hospital",
+   "district": "เมืองกระบี่",
+   "province": "กระบี่",
+   "provinceEn": "Krabi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7566 4455, 0 7563 2204"
+  },
+  {
+   "id": "plaipraya-hospital",
+   "th": "โรงพยาบาลปลายพระยา",
+   "en": "Plaipraya Hospital",
+   "district": "กระบี่",
+   "province": "กระบี่",
+   "provinceEn": "Krabi",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7568 7454"
+  },
+  {
+   "id": "aonang-hospital",
+   "th": "โรงพยาบาลวัฒนแพทย์ อ่าวนาง",
+   "en": "Aonang Hospital",
+   "district": "เมืองกระบี่",
+   "province": "กระบี่",
+   "provinceEn": "Krabi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7581 5555"
+  },
+  {
+   "id": "clicknic-health-clinic",
+   "th": "คลิกนิกเฮลท์คลินิกเวชกรรม",
+   "en": "Clicknic Health Clinic",
+   "district": "กรุงเทพมหานคร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": ""
+  },
+  {
+   "id": "bangkok-smile-dental-clinic-asoke-branch",
+   "th": "คลินิกทันตกรรมบางกอกสไมล์ สาขาถนนอโศก",
+   "en": "Bangkok Smile Dental Clinic, Asoke Branch",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "02105 4288"
+  },
+  {
+   "id": "bangkok-smile-dental-clinic-phra-khanong-branch",
+   "th": "คลินิกทันตกรรมบางกอกสไมล์ สาขาพระโขนง",
+   "en": "Bangkok Smile Dental Clinic, Phra Khanong Branch",
+   "district": "คลองเตย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "02105 4288"
+  },
+  {
+   "id": "bangkok-smile-dental-clinic-onebangkok-branch",
+   "th": "คลินิกทันตกรรมบางกอกสไมล์ สาขาวันแบงค็อก",
+   "en": "Bangkok Smile Dental Clinic, Asoke Branch",
+   "district": "ปทุมวัน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "02 664 2929"
+  },
+  {
+   "id": "bangkok-smile-dental-clinic-silom-branch",
+   "th": "คลินิกทันตกรรมบางกอกสไมล์ สาขาสีลม",
+   "en": "Bangkok Smile Dental Clinic, Silom Branch",
+   "district": "บางรัก",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "02105 4288"
+  },
+  {
+   "id": "bangkok-smile-dental-clinic-sukhumvit-5-branch",
+   "th": "คลินิกทันตกรรมบางกอกสไมล์ สาขาสุขุมวิท 5",
+   "en": "Bangkok Smile Dental Clinic, Sukhumvit 5 Branch",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "02105 4288"
+  },
+  {
+   "id": "smile-seasons-thaphra-clinic",
+   "th": "คลินิกทันตกรรมสไมล์ซีซันส์ สาขาท่าพระ",
+   "en": "Bangkok Smile Dental Clinic",
+   "district": "ธนบุรี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": ""
+  },
+  {
+   "id": "smile-seasons-sanampao-clinic",
+   "th": "คลินิกทันตกรรมสไมล์ซีซันส์ สาขาสนามเป้า",
+   "en": "Bangkok Smile Dental Clinic",
+   "district": "พญาไท",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": ""
+  },
+  {
+   "id": "smile-seasons-clinic",
+   "th": "คลินิกทันตกรรมสไมล์ซีซันส์ สาขาอารีย์",
+   "en": "Smile Seasons Clinic",
+   "district": "พญาไท",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2114 3274"
+  },
+  {
+   "id": "smile-seasons-asoke-clinic",
+   "th": "คลินิกทันตกรรมสไมล์ซีซันส์ สาขาอโศก",
+   "en": "Bangkok Smile Dental Clinic",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": ""
+  },
+  {
+   "id": "smile-seasons-onnut-clinic",
+   "th": "คลินิกทันตกรรมสไมล์ซีซันส์ สาขาอ่อนนุช",
+   "en": "Bangkok Smile Dental Clinic",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": ""
+  },
+  {
+   "id": "smile-seasons-major-ratchayothin-clinic",
+   "th": "คลินิกทันตกรรมสไมล์ซีซันส์ สาขาเมเจอร์รัชโยธิน",
+   "en": "Bangkok Smile Dental Clinic",
+   "district": "จตุจักร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": ""
+  },
+  {
+   "id": "kluaynamthai-phaholyothin-clinic",
+   "th": "คลินิกเวชกรรมกล้วยน้ำไท สาขาพหลโยธิน",
+   "en": "Kluaynamthai Clinic, Phahonyothin Branch",
+   "district": "พญาไท",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2115 7639"
+  },
+  {
+   "id": "kluaynam-thai-ploenchit-clinic",
+   "th": "คลินิกเวชกรรมกล้วยน้ำไท สาขาเพลินจิต",
+   "en": "Kluaynamthai Clinic, Ploenchit Branch",
+   "district": "คลองเตย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2005 3613, 0 2252 0987"
+  },
+  {
+   "id": "chularat8-clinic",
+   "th": "คลินิกเวชกรรมจุฬารัตน์ 8",
+   "en": "Chularat8 Clinic",
+   "district": "ลาดกระบัง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2326 7993"
+  },
+  {
+   "id": "phayathai-g-tower-clinic",
+   "th": "คลินิกเวชกรรมพญาไท สาขาจีทาวเวอร์",
+   "en": "Phayathai G Tower Clinic",
+   "district": "ห้วยขวาง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "08 0046 3252"
+  },
+  {
+   "id": "sai-mai-avenue-medical-clinic",
+   "th": "คลินิกเวชกรรมพญาไท สาขาสายไหมอเวนิว",
+   "en": "Sai Mai Avenue Medical Clinic",
+   "district": "สายไหม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 3226 7974, 0 2944 7111"
+  },
+  {
+   "id": "paolo-clinic",
+   "th": "คลินิกเวชกรรมเปาโล",
+   "en": "Paolo Kaset Medical Clinic",
+   "district": "จตุจักร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2617 6474"
+  },
+  {
+   "id": "paolo-chamchuri-square-clinic",
+   "th": "คลินิกเวชกรรมเปาโล สาขาจามจุรีสแควร์",
+   "en": "Paolo Medical Clinic Chumchuri Square Branch",
+   "district": "ปทุมวัน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2118 2877"
+  },
+  {
+   "id": "paolo-medical-headoffice-clinic",
+   "th": "คลินิกเวชกรรมเปาโล สาขาธ.ทหารไทยธนชาต สนง.ใหญ่",
+   "en": "Paolo  Medical Clinic TMB Headquarter Branch",
+   "district": "จตุจักร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2273 7884"
+  },
+  {
+   "id": "paolo-clinic1",
+   "th": "คลินิกเวชกรรมเปาโล สาขารสาทาวเวอร์",
+   "en": "Paolo Clinic, Rasa Tower Branch",
+   "district": "จตุจักร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2937 1213"
+  },
+  {
+   "id": "paolo-satoo-clinic",
+   "th": "คลินิกเวชกรรมเปาโล สาขารสาทู",
+   "en": "Paolo Satoo Clinic",
+   "district": "ราชเทวี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 5238 4287"
+  },
+  {
+   "id": "paolo-chokchai4-clinic",
+   "th": "คลินิกเวชกรรมเปาโล สาขาสิงห์คอมเพล็กซ์",
+   "en": "Paolo Chokchai4 Clinic",
+   "district": "ห้วยขวาง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 2973 5104"
+  },
+  {
+   "id": "bdms-wellness-clinic",
+   "th": "บีดีเอ็มเอสเวลเนสสหคลินิก",
+   "en": "BDMS Wellness Clinic",
+   "district": "ปทุมวัน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2826 9999"
+  },
+  {
+   "id": "mithmitree-khun-ta-phloi-market-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (ตลาดคุณตาพลอย)",
+   "en": "Mithmitree Khun Ta Phloi Market Clinic",
+   "district": "หนองแขม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 1384 0925, 06 1384 1584"
+  },
+  {
+   "id": "mithmitree-setthakit-village-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (หมู่บ้านเศรษฐกิจ)",
+   "en": "Mithmitree Setthakit Village Clinic",
+   "district": "บางแค",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 5940 3162"
+  },
+  {
+   "id": "mithmitree-si-maha-phot-clinic",
+   "th": "มิตรไมตรีสหคลินิก (ศรีมหาโพธิ)",
+   "en": "Mithmitree Si Maha Phot Clinic",
+   "district": "ปราจีนบุรี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 3810 0809"
+  },
+  {
+   "id": "mithmitree-kaeo-ngoen-thong-clinic",
+   "th": "มิตรไมตรีสหคลินิก (แก้วเงินทอง)",
+   "en": "Mithmitree Kaeo Ngoen Thong Clinic",
+   "district": "กรุงเทพมหานคร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2060 8912, 06 4182 2463"
+  },
+  {
+   "id": "siriraj-h-solutionshospital",
+   "th": "ศูนย์สุขภาพเชิงป้องกันและบูรณาการสมดุลชีวิต โรงพยาบาลศิริราช (Siriraj H Solutions)",
+   "en": "Siriraj H Solutionshospital",
+   "district": "กรุงเทพมหานคร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "ipd",
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2414 1144"
+  },
+  {
+   "id": "siriraj-h-solutions",
+   "th": "ศูนย์สุขภาพเชิงป้องกันและบูรณาการสมดุลชีวิต โรงพยาบาลศิริราช (Siriraj H Solutions)",
+   "en": "Siriraj H Solutions",
+   "district": "คลองสาน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2414 1144"
+  },
+  {
+   "id": "national-cancer-institute",
+   "th": "สถาบันมะเร็งแห่งชาติ",
+   "en": "National Cancer Institute",
+   "district": "ราชเทวี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2202 6800"
+  },
+  {
+   "id": "samitivej-don-mueang-medical-clinic",
+   "th": "สมิติเวชดอนเมืองคลินิกเวชกรรม",
+   "en": "Samitivej Donmeaung  Airport Clinic",
+   "district": "ดอนเมือง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2535 4880-1"
+  },
+  {
+   "id": "chularat7-clinic",
+   "th": "สหคลินิกจุฬารัตน์ 7",
+   "en": "Chularat7 Clinic",
+   "district": "ประเวศ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2329 1559"
+  },
+  {
+   "id": "paolo-tg-clinic",
+   "th": "สหคลินิกเปาโล สาขาการบินไทย สำนักงานใหญ่",
+   "en": "Paolo TG Clinic",
+   "district": "กรุงเทพมหานคร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 1023 3060"
+  },
+  {
+   "id": "rsu-hospital11",
+   "th": "อาร์เอสยูเมดิคอลเซ็นเตอร์สหคลินิก",
+   "en": "RSU Medical Center Clinic",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2610 0300"
+  },
+  {
+   "id": "central-medic-dindaeng-clinic",
+   "th": "เซ็นทรัลเมดิกคลินิกเวชกรรม สาขาดินแดง",
+   "en": "Central Medic Clinic, Din Daeng Branch",
+   "district": "ดินแดง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2644 1644"
+  },
+  {
+   "id": "central-medic-phra-khanong-clinic",
+   "th": "เซ็นทรัลเมดิกคลินิกเวชกรรม สาขาพระโขนง",
+   "en": "Central Medic Clinic, Prakanong Branch",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2711 0460"
+  },
+  {
+   "id": "central-medic-ratchada-clinic",
+   "th": "เซ็นทรัลเมดิกคลินิกเวชกรรม สาขารัชดา",
+   "en": "Central Medic Clinic, Ratchada Branch",
+   "district": "ดินแดง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2692 5206"
+  },
+  {
+   "id": "central-medic-saint-louis-clinic",
+   "th": "เซ็นทรัลเมดิกคลินิกเวชกรรม เซ็นต์หลุยส์",
+   "en": "Central Medic Clinic, St. Louis Branch",
+   "district": "สาทร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2673 1773"
+  },
+  {
+   "id": "kdms-hospital",
+   "th": "โรงพยาบาลกระดูกและข้อ ข้อดีมีสุข",
+   "en": "KDMS Hospital",
+   "district": "ลาดพร้าว",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2080 8999"
+  },
+  {
+   "id": "bangkok-hospital",
+   "th": "โรงพยาบาลกรุงเทพ",
+   "en": "Bangkok Hospital Medical Center",
+   "district": "ห้วยขวาง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1719, 0 2310 3000"
+  },
+  {
+   "id": "bangkok-christian-hospital",
+   "th": "โรงพยาบาลกรุงเทพคริสเตียน",
+   "en": "Bangkok Christian",
+   "district": "บางรัก",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2625 9000, 0 2760 9000"
+  },
+  {
+   "id": "krang-hospital",
+   "th": "โรงพยาบาลกลาง",
+   "en": "Krang Hospital",
+   "district": "ป้อมปราบศัตรูพ่าย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2220 8000 ext.10125"
+  },
+  {
+   "id": "kluaynamthai-hospital",
+   "th": "โรงพยาบาลกล้วยน้ำไท",
+   "en": "Kluaynamthai Hospital",
+   "district": "คลองเตย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2769 2000"
+  },
+  {
+   "id": "kluaynamthai2-hospital",
+   "th": "โรงพยาบาลกล้วยน้ำไท 2",
+   "en": "Kluaynamthai2 Hospital",
+   "district": "บางนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2399 4259"
+  },
+  {
+   "id": "camillian-hospital",
+   "th": "โรงพยาบาลคามิลเลียน",
+   "en": "Camillian Hospital",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2185 1444"
+  },
+  {
+   "id": "jura-hospital1",
+   "th": "โรงพยาบาลจุฬาภรณ์ ราชวิทยาลัยจุฬาภรณ์",
+   "en": "Jura Hospital1",
+   "district": "หลักสี่",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2576 6000"
+  },
+  {
+   "id": "chulalongkorn-hospital1",
+   "th": "โรงพยาบาลจุฬาลงกรณ์ สภากาชาดไทย",
+   "en": "Chulalongkorn Hospital1",
+   "district": "ปทุมวัน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2649 4000"
+  },
+  {
+   "id": "cgh-phahon-hospital",
+   "th": "โรงพยาบาลซีจีเอช",
+   "en": "CGH Hospital",
+   "district": "บางเขน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2552 8777"
+  },
+  {
+   "id": "cgh-saimai-hospital",
+   "th": "โรงพยาบาลซีจีเอช สายไหม",
+   "en": "CGH Saimai Hospital",
+   "district": "สายไหม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2991 8999"
+  },
+  {
+   "id": "eent-hospital",
+   "th": "โรงพยาบาลตา หู คอ จมูก",
+   "en": "Eent Hospital",
+   "district": "บางพลัด",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2886 6600-16"
+  },
+  {
+   "id": "taksin-hospital",
+   "th": "โรงพยาบาลตากสิน",
+   "en": "Taksin Hospital",
+   "district": "คลองสาน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2437 0123 ext.60252"
+  },
+  {
+   "id": "thonburi-hospital",
+   "th": "โรงพยาบาลธนบุรี 1",
+   "en": "Thonburi Hospital",
+   "district": "บางกอกน้อย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1645, 0 2487 2000"
+  },
+  {
+   "id": "thonburi2-hospital",
+   "th": "โรงพยาบาลธนบุรี ทวีวัฒนา",
+   "en": "Thonburi2 Hospital",
+   "district": "ทวีวัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1645 กด 2, 0 2487 2100"
+  },
+  {
+   "id": "thonburi-hospital1",
+   "th": "โรงพยาบาลธนบุรี บำรุงเมือง",
+   "en": "Thonburi Bamrungmuang Hospital",
+   "district": "ป้อมปราบศัตรูพ่าย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2220 7999"
+  },
+  {
+   "id": "nakornthon-hospital",
+   "th": "โรงพยาบาลนครธน",
+   "en": "Nakornthon Hospital",
+   "district": "บางขุนเทียน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2450 9999"
+  },
+  {
+   "id": "nakharaphiban-hospital",
+   "th": "โรงพยาบาลนคราภิบาล",
+   "en": "Nakharaphiban Hospital",
+   "district": "ลาดกระบัง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2327 7077 ext.326"
+  },
+  {
+   "id": "namarak-hospital",
+   "th": "โรงพยาบาลนมะรักษ์ศัลยศาสตร์มะเร็ง",
+   "en": "Namarak Hospital",
+   "district": "ห้วยขวาง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2059 0245-51"
+  },
+  {
+   "id": "navamin-hospital",
+   "th": "โรงพยาบาลนวมินทร์",
+   "en": "Navamin Hospital",
+   "district": "มีนบุรี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2918 5080"
+  },
+  {
+   "id": "navamin9-hospital",
+   "th": "โรงพยาบาลนวมินทร์ 9",
+   "en": "Navamin9 Hospital",
+   "district": "มีนบุรี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2518 1818"
+  },
+  {
+   "id": "navavej-hospital",
+   "th": "โรงพยาบาลนวเวช",
+   "en": "Navavej Hospital",
+   "district": "บึงกุ่ม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2483 9999"
+  },
+  {
+   "id": "bangna-hospital",
+   "th": "โรงพยาบาลบางนา 1",
+   "en": "Bangna General Hospital",
+   "district": "บางนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2746 8630"
+  },
+  {
+   "id": "bangkok-metro-bangna-hospital",
+   "th": "โรงพยาบาลบางนากรุงเทพมหานคร",
+   "en": "Bangkok Metro Bangna Hospital",
+   "district": "บางนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2180 0201-3, 08 0051 0599"
+  },
+  {
+   "id": "bangpakok1-hospital",
+   "th": "โรงพยาบาลบางปะกอก 1",
+   "en": "Bangpakok1 Hospital",
+   "district": "ราษฎร์บูรณะ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1745, 0 2109 9111"
+  },
+  {
+   "id": "bangpakok8-hospital",
+   "th": "โรงพยาบาลบางปะกอก 8",
+   "en": "Bangpakok8 Hospital",
+   "district": "บางบอน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2109 8111"
+  },
+  {
+   "id": "bangpakok9-hospital",
+   "th": "โรงพยาบาลบางปะกอก 9 อินเตอร์เนชั่นแนล",
+   "en": "Bangpakok9 Hospital",
+   "district": "จอมทอง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1745, 0 2109 9111"
+  },
+  {
+   "id": "bangpakok-ayurveda-hospital",
+   "th": "โรงพยาบาลบางปะกอกอายุรเวช",
+   "en": "Bangpakok Ayurveda Hospital",
+   "district": "ราษฎร์บูรณะ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2109 2222"
+  },
+  {
+   "id": "bangmod-hospital",
+   "th": "โรงพยาบาลบางมด",
+   "en": "Bangmod Hospital",
+   "district": "จอมทอง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2867 0606, 0 2416 0049"
+  },
+  {
+   "id": "bangpo-hospital",
+   "th": "โรงพยาบาลบางโพ",
+   "en": "Bangpo Hospital",
+   "district": "บางซื่อ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2587 0144"
+  },
+  {
+   "id": "bangphai-hospital",
+   "th": "โรงพยาบาลบางไผ่",
+   "en": "Bangphai General Hospital",
+   "district": "ภาษีเจริญ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2457 0086"
+  },
+  {
+   "id": "bumrungrad-hospital",
+   "th": "โรงพยาบาลบำรุงราษฎร์ อินเตอร์เนชั่นแนล",
+   "en": "Bumrungrad Hospital",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1378, 0 2066 8888"
+  },
+  {
+   "id": "b-care-medical-center-hospital",
+   "th": "โรงพยาบาลบี.แคร์ เมดิคอลเซ็นเตอร์",
+   "en": "B.Care Medical Center",
+   "district": "สายไหม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2994 8201-3"
+  },
+  {
+   "id": "bnh-hospital",
+   "th": "โรงพยาบาลบีเอ็นเอช",
+   "en": "BNH Hospital",
+   "district": "บางรัก",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2022 0700"
+  },
+  {
+   "id": "piyavate-hospital",
+   "th": "โรงพยาบาลปิยะเวท",
+   "en": "Piyavate Hospital",
+   "district": "ห้วยขวาง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2129 5555"
+  },
+  {
+   "id": "bkt-hospital",
+   "th": "โรงพยาบาลผู้สูงอายุบางขุนเทียน",
+   "en": "BKT Hospital",
+   "district": "บางขุนเทียน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2452 7999 ext.11026"
+  },
+  {
+   "id": "phyathai-hospital",
+   "th": "โรงพยาบาลพญาไท 1",
+   "en": "Phyathai 1 Hospital",
+   "district": "ราชเทวี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1772, 0 2201 4600"
+  },
+  {
+   "id": "prayathai2-hospital",
+   "th": "โรงพยาบาลพญาไท 2",
+   "en": "Prayathai2 Hospital",
+   "district": "พญาไท",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1772, 0 2617 2444"
+  },
+  {
+   "id": "phyathai3-hospital",
+   "th": "โรงพยาบาลพญาไท 3",
+   "en": "Phyathai3 Hospital",
+   "district": "ภาษีเจริญ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1772, 0 2467 1111"
+  },
+  {
+   "id": "phyathai-nawamin-hospital",
+   "th": "โรงพยาบาลพญาไท นวมินทร์",
+   "en": "Phyathai Hospital Nawamin",
+   "district": "บึงกุ่ม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "1772, 0 2944 7111"
+  },
+  {
+   "id": "phyathai-phaholyothin-hospital",
+   "th": "โรงพยาบาลพญาไท พหลโยธิน",
+   "en": "Paolo Hospital Phaholyothin",
+   "district": "พญาไท",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2271 7000"
+  },
+  {
+   "id": "praram-9-hospital",
+   "th": "โรงพยาบาลพระรามเก้า",
+   "en": "Praram 9 Hospital",
+   "district": "ห้วยขวาง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1270, 0 2202 9999"
+  },
+  {
+   "id": "pmg-hospital",
+   "th": "โรงพยาบาลพีเอ็มจี",
+   "en": "PMG Hospital",
+   "district": "บางขุนเทียน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2451 4920"
+  },
+  {
+   "id": "mongkutwattana-hospital",
+   "th": "โรงพยาบาลมงกุฎวัฒนะ",
+   "en": "Mongkutwattana Hospital",
+   "district": "หลักสี่",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2574 5000-9"
+  },
+  {
+   "id": "mission-hospital",
+   "th": "โรงพยาบาลมิชชั่น",
+   "en": "Mission Hospital",
+   "district": "ดุสิต",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2282 1100 ต่อ 596"
+  },
+  {
+   "id": "mitpracha-hospital",
+   "th": "โรงพยาบาลมิตรประชา",
+   "en": "Mitpracha Hospital",
+   "district": "ภาษีเจริญ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2455 5599"
+  },
+  {
+   "id": "yanhee-hospital",
+   "th": "โรงพยาบาลยันฮี",
+   "en": "Yanhee International Hospital",
+   "district": "บางพลัด",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1723, 0 2879 0300"
+  },
+  {
+   "id": "rattanapracharak-hospital",
+   "th": "โรงพยาบาลรัตนประชารักษ์",
+   "en": "Rattanapracharak Hospital",
+   "district": "คลองสามวา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2171 5900"
+  },
+  {
+   "id": "rpp-hospital",
+   "th": "โรงพยาบาลราชพิพัฒน์",
+   "en": "RPP Hospital",
+   "district": "บางแค",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2102 4222 ext.241"
+  },
+  {
+   "id": "rajavithi-hospital",
+   "th": "โรงพยาบาลราชวิถี",
+   "en": "Rajavithi Hospital",
+   "district": "ราชเทวี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2206 2900, 0 2354 8108-37"
+  },
+  {
+   "id": "ramkhamhaeng-hospital",
+   "th": "โรงพยาบาลรามคำแหง",
+   "en": "Ramkhamhaeng Hospital",
+   "district": "บางกะปิ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2743 9999"
+  },
+  {
+   "id": "ram2-hospital",
+   "th": "โรงพยาบาลรามคำแหง 2",
+   "en": "Ram2 Hospital",
+   "district": "สะพานสูง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "ipd",
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2032 3888, 09 5771 9739"
+  },
+  {
+   "id": "ramathibodi-hospital",
+   "th": "โรงพยาบาลรามาธิบดี",
+   "en": "Ramathibodi Hospital",
+   "district": "ราชเทวี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2201 1000, 0 2200 3000 กด 1"
+  },
+  {
+   "id": "rajburana-hospital",
+   "th": "โรงพยาบาลราษฎร์บูรณะ",
+   "en": "Rajburana Hospital",
+   "district": "ราษฎร์บูรณะ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2872 1001-5"
+  },
+  {
+   "id": "ladpao-hospital",
+   "th": "โรงพยาบาลลาดพร้าว",
+   "en": "Ladpao Hospital",
+   "district": "วังทองหลาง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2530 2556, 0 2530 2244"
+  },
+  {
+   "id": "vichaiyut-hospital",
+   "th": "โรงพยาบาลวิชัยยุทธ",
+   "en": "Vichaiyut Hospital & Medical Center",
+   "district": "พญาไท",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2265 7777, 0 2618 6200-20"
+  },
+  {
+   "id": "vichaivej-nongkhaem-hospital",
+   "th": "โรงพยาบาลวิชัยเวช อินเตอร์เนชั่นแนล หนองแขม",
+   "en": "Vichaivej Nongkhaem Hospital",
+   "district": "หนองแขม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2441 6999"
+  },
+  {
+   "id": "vichaivej-yaekfaichai-hospital",
+   "th": "โรงพยาบาลวิชัยเวช แยกไฟฉาย",
+   "en": "Vichaivej Hospital Yaekfaichai",
+   "district": "บางกอกน้อย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2412 0055-60"
+  },
+  {
+   "id": "vibharam-hospital",
+   "th": "โรงพยาบาลวิภาราม",
+   "en": "Vibharam Hospital",
+   "district": "สวนหลวง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2032 2550, 0 2722 2500"
+  },
+  {
+   "id": "vibhavadi-hospital",
+   "th": "โรงพยาบาลวิภาวดี",
+   "en": "Vibhavadi Hospital",
+   "district": "จตุจักร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2561 1111, 0 2941 2800"
+  },
+  {
+   "id": "vimut-hospital",
+   "th": "โรงพยาบาลวิมุต",
+   "en": "Vimut Hospital",
+   "district": "พญาไท",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2079 0000"
+  },
+  {
+   "id": "theptarin-hospital",
+   "th": "โรงพยาบาลวิมุต-เทพธารินทร์",
+   "en": "Theptarin Hospital",
+   "district": "คลองเตย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2348 7000"
+  },
+  {
+   "id": "srisawan-hospital",
+   "th": "โรงพยาบาลศรีสวรรค์ กรุงเทพมหานคร",
+   "en": "Srisawan Hospital",
+   "district": "ตลิ่งชัน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1254,  024320098-99"
+  },
+  {
+   "id": "sikarin-hospital",
+   "th": "โรงพยาบาลศิครินทร์",
+   "en": "Sikarin Hospital",
+   "district": "บางนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2366 9900"
+  },
+  {
+   "id": "โรงพยาบาลศรราช",
+   "th": "โรงพยาบาลศิริราช",
+   "en": "โรงพยาบาลศรราช",
+   "district": "บางกอกน้อย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "ipd",
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2419 7214 (IPD), 08 1452 6640 (OPD)"
+  },
+  {
+   "id": "siriraj-piyamaharajkarun-hospital",
+   "th": "โรงพยาบาลศิริราช ปิยมหาราชการุณย์",
+   "en": "Siriraj Piyamaharajkarun Hospital",
+   "district": "บางกอกน้อย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "1417, 0 2419 1000"
+  },
+  {
+   "id": "brkidney-hospital",
+   "th": "โรงพยาบาลสถาบันโรคไตภูมิราชนครินทร์",
+   "en": "Brkidney Hospital",
+   "district": "ราชเทวี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2765 3000"
+  },
+  {
+   "id": "samitivej-thonburi-hospital",
+   "th": "โรงพยาบาลสมิติเวช ธนบุรี",
+   "en": "Samitivej Hospital Thonburi",
+   "district": "ธนบุรี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2438 0040-5, 0 2438 9000"
+  },
+  {
+   "id": "samitivej-srinagarind-hospital",
+   "th": "โรงพยาบาลสมิติเวช ศรีนครินทร์",
+   "en": "Samitivej Hospital Srinakarin",
+   "district": "สวนหลวง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2022 2222"
+  },
+  {
+   "id": "samitivej-sukhumvit-hospital",
+   "th": "โรงพยาบาลสมิติเวช สุขุมวิท",
+   "en": "Samitivej Hospital Sukhumvit",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2022 2222"
+  },
+  {
+   "id": "samitivej-chinatown-hospital",
+   "th": "โรงพยาบาลสมิติเวช ไชน่าทาวน์",
+   "en": "Samitivej Hospital China Town",
+   "district": "สัมพันธวงศ์",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2118 7888, 0 2118 7893"
+  },
+  {
+   "id": "mali-imc-hospital",
+   "th": "โรงพยาบาลสหวิทยาการมะลิ",
+   "en": "Mali Interdisciplinary Hospital",
+   "district": "บางบอน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2089 1111"
+  },
+  {
+   "id": "synphaet-hospital",
+   "th": "โรงพยาบาลสินแพทย์",
+   "en": "Synphaet Hospital",
+   "district": "คันนายาว",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2793 5000, 0 2793 5099"
+  },
+  {
+   "id": "synphaet-srinakarin-hospital",
+   "th": "โรงพยาบาลสินแพทย์ ศรีนครินทร์",
+   "en": "Synphaet Srinakarin Hospital",
+   "district": "ประเวศ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2006 8888"
+  },
+  {
+   "id": "seriruk-hospital",
+   "th": "โรงพยาบาลสินแพทย์ เสรีรักษ์",
+   "en": "Seriruk Hospital",
+   "district": "มีนบุรี",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2761 9888"
+  },
+  {
+   "id": "sirindhorn-hospital",
+   "th": "โรงพยาบาลสิรินธร",
+   "en": "Sirindhorn Hospital",
+   "district": "ประเวศ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2328 6900 ext.11517"
+  },
+  {
+   "id": "suksawat-hospital",
+   "th": "โรงพยาบาลสุขสวัสดิ์อินเตอร์",
+   "en": "Suksawat Hospital",
+   "district": "ราษฎร์บูรณะ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2874 6766-70"
+  },
+  {
+   "id": "sukhumvit-hospital",
+   "th": "โรงพยาบาลสุขุมวิท",
+   "en": "Sukhumvit Hospital",
+   "district": "วัฒนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2391 0011"
+  },
+  {
+   "id": "lpt-hospital",
+   "th": "โรงพยาบาลหลวงพ่อทวีศักดิ์ ชุตินฺธโร อุทิศ",
+   "en": "LPT Hospital",
+   "district": "หนองแขม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2429 3575"
+  },
+  {
+   "id": "hc-hospital",
+   "th": "โรงพยาบาลหัวเฉียว",
+   "en": "HC Hospital",
+   "district": "ป้อมปราบศัตรูพ่าย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2223 1351"
+  },
+  {
+   "id": "intrarathospital-hospital",
+   "th": "โรงพยาบาลอินทรารัตน์",
+   "en": "Intrarathospital Hospital",
+   "district": "คันนายาว",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2481 5555"
+  },
+  {
+   "id": "kasemrad-bangkae-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์บางแค",
+   "en": "Kasemrad Hospital Bangkae",
+   "district": "บางแค",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2804 8959-70"
+  },
+  {
+   "id": "kasemrad-prachachuen-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์ประชาชื่น",
+   "en": "Kasemrad Hospital Prachachuen",
+   "district": "บางซื่อ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2910 1600"
+  },
+  {
+   "id": "kasemrad-ramkhamhaeng-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์รามคำแหง",
+   "en": "Kasemrad Hospital Ramkhamhaeng",
+   "district": "สะพานสูง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2339 0000"
+  },
+  {
+   "id": "charoenkrungpracharak-hospital",
+   "th": "โรงพยาบาลเจริญกรุงประชารักษ์",
+   "en": "Charoenkrungpracharak Hospital",
+   "district": "บางคอแหลม",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2289 7000"
+  },
+  {
+   "id": "chaopraya-hospital",
+   "th": "โรงพยาบาลเจ้าพระยา",
+   "en": "Chaopraya Hospital",
+   "district": "บางกอกน้อย",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2884 7000"
+  },
+  {
+   "id": "saintlouis-hospital",
+   "th": "โรงพยาบาลเซนต์หลุยส์",
+   "en": "Saintlouis Hospital",
+   "district": "สาทร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2838 5555"
+  },
+  {
+   "id": "paolo-kaset-hospital",
+   "th": "โรงพยาบาลเปาโล เกษตร",
+   "en": "Paolo Hospital Kaset",
+   "district": "จตุจักร",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2150 0900"
+  },
+  {
+   "id": "paolo-chokchai4-hospital",
+   "th": "โรงพยาบาลเปาโล โชคชัย 4",
+   "en": "Paolo Hospital  Chokchai 4",
+   "district": "ลาดพร้าว",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2514 4140"
+  },
+  {
+   "id": "petcharavej-hospital",
+   "th": "โรงพยาบาลเพชรเวช",
+   "en": "Petcharavej Hospital",
+   "district": "ห้วยขวาง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1390, 0 2718 1515"
+  },
+  {
+   "id": "wkr-hospital",
+   "th": "โรงพยาบาลเวชการุณย์รัศมิ์",
+   "en": "WKR Hospital",
+   "district": "หนองจอก",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2988 4100 ext.260-261"
+  },
+  {
+   "id": "vejthani-hospital",
+   "th": "โรงพยาบาลเวชธานี",
+   "en": "Vejthani Hospital",
+   "district": "บางกะปิ",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2734 0000"
+  },
+  {
+   "id": "saiyud-hospital",
+   "th": "โรงพยาบาลเอสวายเอช",
+   "en": "Saiyud Hospital",
+   "district": "บางเขน",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2955 7711"
+  },
+  {
+   "id": "phaetpanya-hospital",
+   "th": "โรงพยาบาลแพทย์ปัญญา",
+   "en": "Phaetpanya Hospital",
+   "district": "สวนหลวง",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2314 0727"
+  },
+  {
+   "id": "thainakarin-hospital",
+   "th": "โรงพยาบาลไทยนครินทร์",
+   "en": "Thainakarin Hospital",
+   "district": "บางนา",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2340 7777, 0 2361 2727, 0 2361 2828"
+  },
+  {
+   "id": "imhsilom-hospital",
+   "th": "โรงพยาบาลไอเอ็มเอช สีลม",
+   "en": "Imhsilom Hospital",
+   "district": "บางรัก",
+   "province": "กรุงเทพมหานคร",
+   "provinceEn": "Bangkok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2635 7123, 0 2635 7120-39"
+  },
+  {
+   "id": "tharuea-kanchanaburi-hospital",
+   "th": "โรงพยาบาลท่าเรือ",
+   "en": "Tha Rua Kanchanaburi",
+   "district": "ท่ามะกา",
+   "province": "กาญจนบุรี",
+   "provinceEn": "Kanchanaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3456 1084"
+  },
+  {
+   "id": "thanakan-kanchanaburi-hospital",
+   "th": "โรงพยาบาลธนกาญจน์",
+   "en": "Thanakan Kanchanaburi Hospital",
+   "district": "เมืองกาญจนบุรี",
+   "province": "กาญจนบุรี",
+   "provinceEn": "Kanchanaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3454 0601-9"
+  },
+  {
+   "id": "phaholpolpayuhaseana-hospital",
+   "th": "โรงพยาบาลพหลพลพยุหเสนา",
+   "en": "Phaholpolpayuhaseana Hospital",
+   "district": "เมืองกาญจนบุรี",
+   "province": "กาญจนบุรี",
+   "provinceEn": "Kanchanaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3458 7800"
+  },
+  {
+   "id": "synphaet-kanchanaburi-hospital",
+   "th": "โรงพยาบาลสินแพทย์ กาญจนบุรี",
+   "en": "Synphaet Kanchanaburi Hospital",
+   "district": "เมืองกาญจนบุรี",
+   "province": "กาญจนบุรี",
+   "provinceEn": "Kanchanaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3462 4184-91, 0 3452 0911-5"
+  },
+  {
+   "id": "kalasinthonburi-hospital",
+   "th": "โรงพยาบาลกาฬสินธุ์ ธนบุรี",
+   "en": "Kalasinthonburi Hospital",
+   "district": "เมืองกาฬสินธุ์",
+   "province": "กาฬสินธุ์",
+   "provinceEn": "Kalasin",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4384 0444"
+  },
+  {
+   "id": "thirawat-hospital",
+   "th": "โรงพยาบาลธีรวัฒน์",
+   "en": "Thirawat Hospital",
+   "district": "เมืองกาฬสินธุ์",
+   "province": "กาฬสินธุ์",
+   "provinceEn": "Kalasin",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4381 1757"
+  },
+  {
+   "id": "phatbandit-hospital",
+   "th": "แพทย์บัณฑิตโรงพยาบาลทั่วไปขนาดเล็ก",
+   "en": "Phatbandit Hospital",
+   "district": "เมืองกำแพงเพชร",
+   "province": "กำแพงเพชร",
+   "provinceEn": "Kamphaeng Phet",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5571 1865"
+  },
+  {
+   "id": "akch-hospital",
+   "th": "โรงพยาบาลเอกชนเมืองกำแพง",
+   "en": "Akch Hospital",
+   "district": "เมืองกำแพงเพชร",
+   "province": "กำแพงเพชร",
+   "provinceEn": "Kamphaeng Phet",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5571 6702, 0 5571 6100"
+  },
+  {
+   "id": "heart-kku-hospital",
+   "th": "ศูนย์หัวใจสิริกิติ์ ภาคตะวันออกเฉียงเหนือ",
+   "en": "Queen Sirikit Heart Center of the Northeast",
+   "district": "เมืองขอนแก่น",
+   "province": "ขอนแก่น",
+   "provinceEn": "Khon Kaen",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4323 2700"
+  },
+  {
+   "id": "bangkok-hospital-khonkaen",
+   "th": "โรงพยาบาลกรุงเทพขอนแก่น",
+   "en": "Bangkok Khon Kaen",
+   "district": "เมืองขอนแก่น",
+   "province": "ขอนแก่น",
+   "provinceEn": "Khon Kaen",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1719, 0 4304 2888"
+  },
+  {
+   "id": "khonkaenram-hospital",
+   "th": "โรงพยาบาลขอนแก่นราม",
+   "en": "Khonkaenram Hospital",
+   "district": "เมืองขอนแก่น",
+   "province": "ขอนแก่น",
+   "provinceEn": "Khon Kaen",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4300 2002"
+  },
+  {
+   "id": "ratchaphruek-khonkaen-hospital",
+   "th": "โรงพยาบาลราชพฤกษ์ ขอนแก่น",
+   "en": "Ratchaphruek Khon Kaen Hospital",
+   "district": "เมืองของแก่น",
+   "province": "ขอนแก่น",
+   "provinceEn": "Khon Kaen",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4333 3555"
+  },
+  {
+   "id": "srinagarind-md-kku-hospital",
+   "th": "โรงพยาบาลศรีนครินทร์ คณะแพทยศาสตร์ มหาวิทยาลัยขอนแก่น",
+   "en": "Srinagarind Hospital",
+   "district": "เมืองขอนแก่น",
+   "province": "ขอนแก่น",
+   "provinceEn": "Khon Kaen",
+   "type": "hospital",
+   "care": [
+    "ipd",
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4336 3111, 0 4336 3031, 0 4336 6260"
+  },
+  {
+   "id": "chanthaburi-bangkok-hospital",
+   "th": "โรงพยาบาลกรุงเทพจันทบุรี",
+   "en": "Bangkok Hospital Chanthaburi",
+   "district": "เมืองจันทบุรี",
+   "province": "จันทบุรี",
+   "provinceEn": "Chanthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3931 9888"
+  },
+  {
+   "id": "phrapokklao-hospital",
+   "th": "โรงพยาบาลพระปกเกล้า",
+   "en": "Phrapokklao Hospital",
+   "district": "เมืองจันทบุรี",
+   "province": "จันทบุรี",
+   "provinceEn": "Chanthaburi",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3931 9666"
+  },
+  {
+   "id": "sirivej-chanthaburi-hospital",
+   "th": "โรงพยาบาลสิริเวช จันทบุรี",
+   "en": "Sirivej Hospital Chanthaburi",
+   "district": "เมืองจันทบุรี",
+   "province": "จันทบุรี",
+   "provinceEn": "Chanthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3960 5666"
+  },
+  {
+   "id": "bangkok-rayong-clinic-gateway-city-industrial-estate-branch",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขานิคมอุตสาหกรรมเกตเวย์ซิตี้ ฉะเชิงเทรา",
+   "en": "Bangkok Rayong Clinic, Gateway City Industrial Estate Branch",
+   "district": "แปลงยาว",
+   "province": "ฉะเชิงเทรา",
+   "provinceEn": "Chachoengsao",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3809 0806"
+  },
+  {
+   "id": "sotaravej-clinic",
+   "th": "คลินิกเวชกรรมโสธราเวช",
+   "en": "Sotaravej Clinic",
+   "district": "พนมสารคาม",
+   "province": "ฉะเชิงเทรา",
+   "provinceEn": "Chachoengsao",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3855 1519"
+  },
+  {
+   "id": "chularat-12-medical-clinic-gateway",
+   "th": "จุฬารัตน์ 12 เกตุเวย์สหคลินิก",
+   "en": "Chularat 12 Medical Clinic, Gateway",
+   "district": "แปลงยาว",
+   "province": "ฉะเชิงเทรา",
+   "provinceEn": "Chachoengsao",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3857 5134-5"
+  },
+  {
+   "id": "chularat-11-bangpakong-hospital",
+   "th": "โรงพยาบาลจุฬารัตน์ 11 อินเตอร์",
+   "en": "Chularat 11 Bangpakong Hospital",
+   "district": "บางปะกง",
+   "province": "ฉะเชิงเทรา",
+   "provinceEn": "Chachoengsao",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3850 0300"
+  },
+  {
+   "id": "ruampat-hospital-chachoengsao",
+   "th": "โรงพยาบาลรวมแพทย์ฉะเชิงเทรา",
+   "en": "Ruampat Hospital Chachoengsao",
+   "district": "เมืองฉะเชิงเทรา",
+   "province": "ฉะเชิงเทรา",
+   "provinceEn": "Chachoengsao",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3305 0600"
+  },
+  {
+   "id": "kasemrad-chachoengsao-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์ ฉะเชิงเทรา",
+   "en": "Kasemrad Hospital Chachoengsao",
+   "district": "เมืองฉะเชิงเทรา",
+   "province": "ฉะเชิงเทรา",
+   "provinceEn": "Chachoengsao",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3881 2702-19"
+  },
+  {
+   "id": "phanthong-chonburi-clinic",
+   "th": "คลินิกเฉพาะทางด้านเวชกรรมศัลยศาสตร์ออร์โธปิดิกส์และสูติศาสตร์-นรีเวชวิทยาแพทย์สาโรจน์ รัตน์นฤอร (บ้านเก่า)",
+   "en": "Phanthong Chonburi Clinic",
+   "district": "พานทอง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 6828 5514"
+  },
+  {
+   "id": "phanthong-chonburi-1-clinic",
+   "th": "คลินิกเฉพาะทางด้านเวชกรรมศัลยศาสตร์ออร์โธปิดิกส์และสูติศาสตร์-นรีเวชวิทยาแพทย์สาโรจน์ รัตน์นฤอร สาขา 1",
+   "en": "Phanthong Chonburi 1 Clinic",
+   "district": "พานทอง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 3615 3656"
+  },
+  {
+   "id": "phanthong-chonburi-2-clinic",
+   "th": "คลินิกเฉพาะทางด้านเวชกรรมออร์โธปิดิกส์ และสูติศาสตร์-นรีเวชวิทยา สาโรจน์ รัตน์นฤอร (สาขา 2 นาป่า)",
+   "en": "Phanthong Chonburi 2 Clinic",
+   "district": "ชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 3638 6968"
+  },
+  {
+   "id": "bangkok-pattaya-medical-bang-saray-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพพัทยา สาขาบางเสร่",
+   "en": "Bangkok Pattaya Clinic, Bangsaray Branch",
+   "district": "สัตหีบ",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3825 9935"
+  },
+  {
+   "id": "bowin-rayong-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาบ่อวิน",
+   "en": "Bangkok Rayong Clinic, Bowin Branch",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3833 7969"
+  },
+  {
+   "id": "bangkokrayong-bowin-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาบ่อวิน 2",
+   "en": "Bangkokrayong Bowin Clinic",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3811 9186"
+  },
+  {
+   "id": "bangkok-rayong-nong-chak-medical-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาหนองชาก บ้านบึง ชลบุรี",
+   "en": "Bangkok Rayong Clinic, Nong  Chak Branch",
+   "district": "บ้านบึง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3811 9009"
+  },
+  {
+   "id": "industrial-estates-clinic-bo-win-branch",
+   "th": "คลินิกเวชกรรมนิคมอุตสาหกรรม สาขาปากร่วมบ่อวิน",
+   "en": "Industrial Estates Clinic, Pak Ruam Bowin Branch",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 1429 6161, 08 1663 3592"
+  },
+  {
+   "id": "khao-mai-kaew-clinic",
+   "th": "คลินิกเวชกรรมนิคมอุตสาหกรรม สาขาเขาไม้แก้ว",
+   "en": "Industrial Estates Clinic, Khao Mai Kaew Branch",
+   "district": "บางละมุง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 3041 2308, 08 1429 6161"
+  },
+  {
+   "id": "brsclinicsahaphat-clinic",
+   "th": "คลินิกเวชกรรมบุญรักษาการแพทย์ สาขาเครือสหพัฒน์",
+   "en": "Brsclinicsahaphat Clinic",
+   "district": "หนองขาม",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 6974 8168"
+  },
+  {
+   "id": "pinthongmedical-clinic",
+   "th": "คลินิกเวชกรรมปิ่นทองการแพทย์",
+   "en": "Pinthongmedical Clinic",
+   "district": "หนองขาม",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 5574 1155"
+  },
+  {
+   "id": "prayathai-bowin-clinic",
+   "th": "คลินิกเวชกรรมพญาไท บ่อวิน",
+   "en": "Phyathai Medical Clinic, Bowin Branch",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 1940 1556, 06 3226 2220, 0 3833 7928"
+  },
+  {
+   "id": "phayathai-maenamkoo-clinic",
+   "th": "คลินิกเวชกรรมพญาไท แม่น้ำคู้",
+   "en": "Phayathai Maenamkoo Clinic",
+   "district": "ปลวกแดง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3306 0308"
+  },
+  {
+   "id": "samitivej-medical-banbueng-clinic",
+   "th": "คลินิกเวชกรรมสมิติเวช บ้านบึง",
+   "en": "Samitivej Clinic, Banbueng Branch",
+   "district": "บ้านบึง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3844 4300"
+  },
+  {
+   "id": "samitivej-sahapat-medical-clinic",
+   "th": "คลินิกเวชกรรมสมิติเวช เครือสหพัฒน์",
+   "en": "Samitivej Clinic, Sahaphat Branch",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3832 0300, 08 2993 2300-1"
+  },
+  {
+   "id": "dr-nat-medical-clinic",
+   "th": "คลินิกเวชกรรมหมอณัฐ",
+   "en": "Doctor Nat Clinic",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 9776 3514"
+  },
+  {
+   "id": "rajata-medical-pattaya-branch-clinic",
+   "th": "คลินิกเวชกรรมแพทย์รัฐศาสตร์ สาขาพัทยา",
+   "en": "Rajata Medical Pattaya Branch Clinic",
+   "district": "บางละมุง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 6854 1515"
+  },
+  {
+   "id": "j-clinic",
+   "th": "คลินิกเวชกรรมแพทย์เจ",
+   "en": "J Clinic",
+   "district": "มวกเหล็ก",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 3941 4741"
+  },
+  {
+   "id": "boonprathan-theone-medical-clinic",
+   "th": "บุญประทานคลินิกเวชกรรม (สาขาเดอะวัน)",
+   "en": "Boonprathan Clinic, The One Branch",
+   "district": "พานทอง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 7357 3288"
+  },
+  {
+   "id": "boonprathan-medical-clinic",
+   "th": "บุญประทานคลินิกเวชกรรม สาขาบุญนคร",
+   "en": "Boonprathan Clinic, Boon Nakhon Branch",
+   "district": "พานทอง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 2202 0699, 06 4687 2061"
+  },
+  {
+   "id": "boonprathan-sahapat-group-medical-clinic",
+   "th": "บุญประทานคลินิกเวชกรรม สาขาสหพัฒน์",
+   "en": "Boonprathan Cilnic, Sahaphat Branch",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 6220 4144"
+  },
+  {
+   "id": "mithmitree-bo-win-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (บ่อวิน)",
+   "en": "Mithmitree Bo Win Clinic",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5365 0131-3, 0 5377 7213"
+  },
+  {
+   "id": "mitmaitri-watwanghin-medical-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (วัดวังหิน)",
+   "en": "Mitmaitri Watwanghin Medical Clinic",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3311 2125"
+  },
+  {
+   "id": "mitmaitri-kaotao-medical-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (เขาตาโล)",
+   "en": "Mitmaitri Kaotao Medical Clinic",
+   "district": "บางละมุง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3833 2296"
+  },
+  {
+   "id": "mithmitree-sahaphat-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (เครือสหพัฒน์)",
+   "en": "Mithmitree Sahaphat Clinic",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3811 1605, 09 5847 6618"
+  },
+  {
+   "id": "bang-lamung-hospital",
+   "th": "สร้างสุขคลินิกเวชกรรม",
+   "en": "Bang Lamung Hospital",
+   "district": "ชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 4073 2738"
+  },
+  {
+   "id": "samitivej-jpark-clinic",
+   "th": "สหคลินิกสมิติเวช เจ พาร์ค",
+   "en": "Samitivej Clinic, J Park Branch",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 2993 2302-3"
+  },
+  {
+   "id": "ammata-nakhon-medical-clinic",
+   "th": "อมตะคลินิกเวชกรรม",
+   "en": "Ammata Nakhon Medical Clinic",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 1490 3894"
+  },
+  {
+   "id": "amata-hospital",
+   "th": "อมตะเวชกรรมโรงพยาบาลทั่วไปขนาดเล็ก",
+   "en": "Amata Vechakam General Hospital",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3834 5847-50, 09 2889 9103"
+  },
+  {
+   "id": "bangkok-pattaya-hospital",
+   "th": "โรงพยาบาลกรุงเทพพัทยา",
+   "en": "Bangkok Hospital Pattaya",
+   "district": "บางละมุง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3825 9999"
+  },
+  {
+   "id": "jomtien-hospital",
+   "th": "โรงพยาบาลจอมเทียน",
+   "en": "Jomtien Hospital",
+   "district": "บางละมุง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3312 5999"
+  },
+  {
+   "id": "chularat-cholvaej-hospital",
+   "th": "โรงพยาบาลจุฬารัตน์ ชลเวช",
+   "en": "Chularat Cholvaej Hospital",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1609, 0 3828 4354"
+  },
+  {
+   "id": "cholburi-hospital",
+   "th": "โรงพยาบาลชลบุรี",
+   "en": "Cholburi Hospital",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3893 1000"
+  },
+  {
+   "id": "piyavate-bowin-hospital",
+   "th": "โรงพยาบาลปิยะเวชช์ บ่อวิน",
+   "en": "Piyavejj Hospital Bowin",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3834 5111"
+  },
+  {
+   "id": "phayathai-borwin-hospital",
+   "th": "โรงพยาบาลพญาไท บ่อวิน",
+   "en": "Phayathai Borwin Hospital",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3835 9151"
+  },
+  {
+   "id": "phyathai-sriracha-2",
+   "th": "โรงพยาบาลพญาไท ศรีราชา 2",
+   "en": "Phyathai Sriracha 2",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3893 1000"
+  },
+  {
+   "id": "prayathai-sriracha-hospital",
+   "th": "โรงพยาบาลพญาไทศรีราชา",
+   "en": "Phyathai Hospital Sriracha",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3831 7333"
+  },
+  {
+   "id": "banglamung-hospital",
+   "th": "โรงพยาบาลพัทยาปัทมคุณ",
+   "en": "Banglamung Hospital",
+   "district": "ชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3842 9244-6, 0 3841 1551-2, 0 3842 8135"
+  },
+  {
+   "id": "pattaya-inter-hospital",
+   "th": "โรงพยาบาลพัทยาอินเตอร์เนชั่นแนล",
+   "en": "Pattaya International Hospital",
+   "district": "บางละมุง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 3842 8374"
+  },
+  {
+   "id": "pattayamemorial-hospital",
+   "th": "โรงพยาบาลพัทยาเมโมเรียล",
+   "en": "Pattayamemorial Hospital",
+   "district": "บางละมุง",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3848 8777, 0 3842 9422-4, 09 8248 2494, 09 8248 2495"
+  },
+  {
+   "id": "burapha-university-hospitals",
+   "th": "โรงพยาบาลมหาวิทยาลัยบูรพา",
+   "en": "Burapha University Hospitals",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3839 4850-3, 0 3839 0324"
+  },
+  {
+   "id": "vibharam-amata-hospital",
+   "th": "โรงพยาบาลวิภารามอมตะนคร",
+   "en": "Vibharam Amatanakorn Hospital",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3326 5599"
+  },
+  {
+   "id": "vibharaml-laemchabang-hospital",
+   "th": "โรงพยาบาลวิภารามแหลมฉบัง",
+   "en": "Vibharam Laemchabang Hospital",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3300 9800"
+  },
+  {
+   "id": "samitivej-chonburi-hospital",
+   "th": "โรงพยาบาลสมิติเวช ชลบุรี",
+   "en": "Samitivej Hospital Chonburi",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3303 8888"
+  },
+  {
+   "id": "samitivej-sriracha-hospital",
+   "th": "โรงพยาบาลสมิติเวช ศรีราชา",
+   "en": "Samitivej Hospital Sriracha",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3832 0300"
+  },
+  {
+   "id": "somdech-phra-nangchao-sirikit-hospital",
+   "th": "โรงพยาบาลสมเด็จพระนางเจ้าสิริกิติ์ กรมแพทย์ทหารเรือ",
+   "en": "H.M.Queen Sirikit Hospital",
+   "district": "สัตหีบ",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3893 3900, 0 3824 5735-69"
+  },
+  {
+   "id": "somdej-phra-boromratchathewi-na-sriracha-hospital",
+   "th": "โรงพยาบาลสมเด็จพระบรมราชเทวี ณ ศรีราชา",
+   "en": "Somdej Phra Boromratchathewi Na Sriracha Hospital",
+   "district": "ศรีราชา",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "ipd",
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3832 0200"
+  },
+  {
+   "id": "aikchol-hospital",
+   "th": "โรงพยาบาลเอกชล",
+   "en": "Aikchol Hospital",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3893 9999"
+  },
+  {
+   "id": "aikchol2-hospital",
+   "th": "โรงพยาบาลเอกชล อ่างศิลา",
+   "en": "Aikchol2 Hospital",
+   "district": "เมืองชลบุรี",
+   "province": "ชลบุรี",
+   "provinceEn": "Chonburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3893 9888"
+  },
+  {
+   "id": "ruam-phaet-chainat-hospital",
+   "th": "โรงพยาบาลรวมแพทย์ชัยนาท",
+   "en": "Rhuamphat Hospital Chainat",
+   "district": "เมืองชัยนาท",
+   "province": "ชัยนาท",
+   "provinceEn": "Chainat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5641 3017-8"
+  },
+  {
+   "id": "chaiyaphum-ram-hospital",
+   "th": "โรงพยาบาลชัยภูมิ-ราม",
+   "en": "Chaiyaphum-Ram Hospital",
+   "district": "เมืองชัยภูมิ",
+   "province": "ชัยภูมิ",
+   "provinceEn": "Chaiyaphum",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4481 3666"
+  },
+  {
+   "id": "chaiyaphum-ruam-phaet-hospital",
+   "th": "โรงพยาบาลชัยภูมิรวมแพทย์",
+   "en": "Chaiyaphum Ruampaet (Matsubayashi) Hospital",
+   "district": "เมืองชัยภูมิ",
+   "province": "ชัยภูมิ",
+   "provinceEn": "Chaiyaphum",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4481 3222, 08 9846 3015"
+  },
+  {
+   "id": "aek-chaiyaphum-hospital",
+   "th": "โรงพยาบาลเอกชัยภูมิ",
+   "en": "Chaiyaphum-Ram Hospital",
+   "district": "เมืองชัยภูมิ",
+   "province": "ชัยภูมิ",
+   "provinceEn": "Chaiyaphum",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "09 3515 5925"
+  },
+  {
+   "id": "chumphon-hospital",
+   "th": "โรงพยาบาลชุมพรเขตรอุดมศักดิ์",
+   "en": "Chumphon Hospital",
+   "district": "เมืองชุมพร",
+   "province": "ชุมพร",
+   "provinceEn": "Chumphon",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7750 3672"
+  },
+  {
+   "id": "thonburi-chumphon-hospital",
+   "th": "โรงพยาบาลธนบุรีชุมพร",
+   "en": "Thonburi Hospital Chumphon",
+   "district": "เมืองชุมพร",
+   "province": "ชุมพร",
+   "provinceEn": "Chumphon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7765 8555"
+  },
+  {
+   "id": "wiratsilp-hospital",
+   "th": "โรงพยาบาลวิรัชศิลป์",
+   "en": "Wiratsilp Hospital",
+   "district": "เมืองชุมพร",
+   "province": "ชุมพร",
+   "provinceEn": "Chumphon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7754 2555"
+  },
+  {
+   "id": "trang-hospital",
+   "th": "โรงพยาบาลตรัง",
+   "en": "Trang Hospital",
+   "district": "เมืองตรัง",
+   "province": "ตรัง",
+   "provinceEn": "Trang",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7520 1500"
+  },
+  {
+   "id": "trph-hospital",
+   "th": "โรงพยาบาลธนบุรี ตรัง",
+   "en": "TRPH Hospital",
+   "district": "เมืองตรัง",
+   "province": "ตรัง",
+   "provinceEn": "Trang",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7521 8988"
+  },
+  {
+   "id": "watthanaphaet-trang-hospital",
+   "th": "โรงพยาบาลวัฒนแพทย์ ตรัง",
+   "en": "Wattanapat Hospital Trang",
+   "district": "เมืองตรัง",
+   "province": "ตรัง",
+   "provinceEn": "Trang",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7520 5555, 0 7583 7000"
+  },
+  {
+   "id": "saen-tung-clinic-bth",
+   "th": "คลินิกเวชกรรมกรุงเทพตราด สาขาแสนตุ้ง",
+   "en": "Saen Tung Clinic BTH",
+   "district": "เมืองตราด",
+   "province": "ตราด",
+   "provinceEn": "Trat",
+   "type": "hospital",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3955 2750"
+  },
+  {
+   "id": "bangkok-trat-hospital",
+   "th": "โรงพยาบาลกรุงเทพตราด",
+   "en": "Bangkok Hospital Trat",
+   "district": "เมืองตราด",
+   "province": "ตราด",
+   "provinceEn": "Trat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3961 2000, 0 3955 2777"
+  },
+  {
+   "id": "koh-chang-international-hospital",
+   "th": "โรงพยาบาลเกาะช้างอินเตอร์เนชั่นแนล",
+   "en": "Koh Chang Internation Hospital",
+   "district": "เกาะช้าง",
+   "province": "ตราด",
+   "provinceEn": "Trat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3955 1554-5, 08 1863 3609"
+  },
+  {
+   "id": "chularat-mesot-hospital",
+   "th": "โรงพยาบาลจุฬารัตน์ แม่สอด",
+   "en": "Chularat Mesot Hospital",
+   "district": "แม่สอด",
+   "province": "ตาก",
+   "provinceEn": "Tak",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 5556 4440 - 59"
+  },
+  {
+   "id": "nakhon-mae-sot-international-hospital",
+   "th": "โรงพยาบาลนครแม่สอดอินเตอร์เนชั่นแนล",
+   "en": "Nakhon Mae Sot International Hospital",
+   "district": "แม่สอด",
+   "province": "ตาก",
+   "provinceEn": "Tak",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5551 8200-22"
+  },
+  {
+   "id": "king-taksin-maharat-hospital",
+   "th": "โรงพยาบาลสมเด็จพระเจ้าตากสินมหาราช",
+   "en": "King Taksin Maharat Hospital",
+   "district": "เมืองตาก",
+   "province": "ตาก",
+   "provinceEn": "Tak",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5551 1024, 0 5551 6332, 0 5551 3982"
+  },
+  {
+   "id": "mae-sot-ram-hospital",
+   "th": "โรงพยาบาลแม่สอด-ราม",
+   "en": "Maesot-Ram Hospital",
+   "district": "แม่สอด",
+   "province": "ตาก",
+   "provinceEn": "Tak",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5554 4544, 0 5553 3912-4"
+  },
+  {
+   "id": "bangkok-christian-nakhon-pathom-hospital",
+   "th": "โรงพยาบาลกรุงเทพคริสเตียน นครปฐม",
+   "en": "Bangkok Christian Hospital Nakhon Pathom",
+   "district": "เมืองนครปฐม",
+   "province": "นครปฐม",
+   "provinceEn": "Nakhon Pathom",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3427 0080-7"
+  },
+  {
+   "id": "bangkok-sanamchan-hospital",
+   "th": "โรงพยาบาลกรุงเทพสนามจันทร์",
+   "en": "Bangkok Hospital Sanamchan",
+   "district": "เมืองนครปฐม",
+   "province": "นครปฐม",
+   "provinceEn": "Nakhon Pathom",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3421 9600, 0 3425 2079"
+  },
+  {
+   "id": "nakhon-pathom-hospital",
+   "th": "โรงพยาบาลนครปฐม",
+   "en": "Bangkok Christian Hospital Nakhon Pathom",
+   "district": "เมืองนครปฐม",
+   "province": "นครปฐม",
+   "provinceEn": "Nakhon Pathom",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3424 0000 - 100"
+  },
+  {
+   "id": "synphaet-nakhonpathom",
+   "th": "โรงพยาบาลสินแพทย์ นครปฐม",
+   "en": "Synphaet Nakhonpathom",
+   "district": "เมืองนครปฐม",
+   "province": "นครปฐม",
+   "provinceEn": "Nakhon Pathom",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3427 1999"
+  },
+  {
+   "id": "bangkok-pakchong-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพเขาใหญ่",
+   "en": "Bangkok Pakchong Clinic",
+   "district": "ปากช่อง",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4430 0422"
+  },
+  {
+   "id": "phibunmedical-clinic",
+   "th": "คลินิกเวชกรรมแพทย์พิบูล",
+   "en": "Phibunmedical Clinic",
+   "district": "ปากช่อง",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4428 0286"
+  },
+  {
+   "id": "bangkok-pakchong-hospital",
+   "th": "โรงพยาบาลกรุงเทพปากช่อง",
+   "en": "Bangkok Hospital Pakchong",
+   "district": "ปากช่อง",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4431 6611-5, 0 4408 8960"
+  },
+  {
+   "id": "bangkok-hospital-ratchasima",
+   "th": "โรงพยาบาลกรุงเทพราชสีมา",
+   "en": "Bangkok Hospital Ratchasima",
+   "district": "เมืองนครราชสีมา",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1719, 0 4401 5999, 0 4442 9999"
+  },
+  {
+   "id": "bangkok-khaoyai-hospital",
+   "th": "โรงพยาบาลกรุงเทพเขาใหญ่",
+   "en": "Bangkok Khaoyai Hospital",
+   "district": "ปากช่อง",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4408 8699"
+  },
+  {
+   "id": "buayai-hospital",
+   "th": "โรงพยาบาลบัวใหญ่รวมแพทย์",
+   "en": "Buayai Ruamphat Hospital",
+   "district": "บัวใหญ่",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4429 2249, 08 9846 3015"
+  },
+  {
+   "id": "por-phathya-1",
+   "th": "โรงพยาบาลป.แพทย์ 1",
+   "en": "P.Phathya Hospital 1",
+   "district": "เมืองนครราชสีมา",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4423 4999"
+  },
+  {
+   "id": "por-phathya-2",
+   "th": "โรงพยาบาลป.แพทย์ 2",
+   "en": "P.Phathya Hospital 2",
+   "district": "เมืองนครราชสีมา",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4423 4999"
+  },
+  {
+   "id": "maharat-nakhon-ratchasima-hospital",
+   "th": "โรงพยาบาลมหาราชนครราชสีมา",
+   "en": "Maharat Nakhon Ratchasima Hospital",
+   "district": "เมืองนครราชสีมา",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 4423 5000"
+  },
+  {
+   "id": "suranaree-university-of-technology-hospital",
+   "th": "โรงพยาบาลมหาวิทยาลัยเทคโนโลยีสุรนารี",
+   "en": "Suranaree University of Technology Hospital",
+   "district": "เมืองนครราชสีมา",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4437 6555"
+  },
+  {
+   "id": "saint-mary-hospital",
+   "th": "โรงพยาบาลเซนต์เมรี่ นครราชสีมา",
+   "en": "Saint Mary's Hospital",
+   "district": "เมืองนครราชสีมา",
+   "province": "นครราชสีมา",
+   "provinceEn": "Nakhon Ratchasima",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4424 0240"
+  },
+  {
+   "id": "thonburithungsong-hospital",
+   "th": "โรงพยาบาลธนบุรี ทุ่งสง",
+   "en": "Thonburithungsong Hospital",
+   "district": "ทุ่งสง",
+   "province": "นครศรีธรรมราช",
+   "provinceEn": "Nakhon Si Thammarat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7580 8888"
+  },
+  {
+   "id": "nakorn-christian-hospital",
+   "th": "โรงพยาบาลนครคริสเตียน",
+   "en": "Nakhon Christian Hospital",
+   "district": "เมืองนครศรีธรรมราช",
+   "province": "นครศรีธรรมราช",
+   "provinceEn": "Nakhon Si Thammarat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7535 6214, 0 7534 2125"
+  },
+  {
+   "id": "nakharin-nakorn-si-thammarat-hospital",
+   "th": "โรงพยาบาลนครินทร์ นครศรีธรรมราช",
+   "en": "Nakharin Hospital Nakhon Si Thammarat",
+   "district": "เมืองนครศรีธรรมราช",
+   "province": "นครศรีธรรมราช",
+   "provinceEn": "Nakhon Si Thammarat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7531 2800 - 4"
+  },
+  {
+   "id": "maharaj-nakorn-si-thammarat-hospital",
+   "th": "โรงพยาบาลมหาราชนครศรีธรรมราช",
+   "en": "Maharaj Nakhon Si Thammarat Hospital",
+   "district": "เมืองนครศรีธรรมราช",
+   "province": "นครศรีธรรมราช",
+   "provinceEn": "Nakhon Si Thammarat",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7534 0250"
+  },
+  {
+   "id": "walailak-university-hospital",
+   "th": "โรงพยาบาลศูนย์การแพทย์ มหาวิทยาลัยวลัยลักษณ์",
+   "en": "Walailak University Hospital",
+   "district": "ท่าศาลา",
+   "province": "นครศรีธรรมราช",
+   "provinceEn": "Nakhon Si Thammarat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7547 9999"
+  },
+  {
+   "id": "sichon-hospital",
+   "th": "โรงพยาบาลสิชล",
+   "en": "Sichon Hospital",
+   "district": "สิชล",
+   "province": "นครศรีธรรมราช",
+   "provinceEn": "Nakhon Si Thammarat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7553 5630-4, 0 7553 5639"
+  },
+  {
+   "id": "princ-paknampo-hospital",
+   "th": "โรงพยาบาลพริ้นซ์ ปากน้ำโพ 1",
+   "en": "Princ Paknampo Hospital",
+   "district": "เมืองนครสวรรค์",
+   "province": "นครสวรรค์",
+   "provinceEn": "Nakhon Sawan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1208, 0 5600 0111"
+  },
+  {
+   "id": "princpaknampo12-hospital",
+   "th": "โรงพยาบาลพริ้นซ์ ปากน้ำโพ 2",
+   "en": "Princpaknampo12 Hospital",
+   "district": "เมืองนครสวรรค์",
+   "province": "นครสวรรค์",
+   "provinceEn": "Nakhon Sawan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1208, 0 5600 0111"
+  },
+  {
+   "id": "ruam-phaet-nakhon-sawan-hospital",
+   "th": "โรงพยาบาลรวมแพทย์นครสวรรค์",
+   "en": "Ruam Phaet Nakhon Sawan Hospital",
+   "district": "เมืองนครสวรรค์",
+   "province": "นครสวรรค์",
+   "provinceEn": "Nakhon Sawan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5622 3600"
+  },
+  {
+   "id": "romchat-hospital",
+   "th": "โรงพยาบาลร่มฉัตร",
+   "en": "Romchat Hospital",
+   "district": "เมืองนครสวรรค์",
+   "province": "นครสวรรค์",
+   "provinceEn": "Nakhon Sawan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5622 4266-75"
+  },
+  {
+   "id": "sri-sawan-hospital",
+   "th": "โรงพยาบาลศรีสวรรค์",
+   "en": "Sri Sawan Hospital",
+   "district": "เมืองนครสวรรค์",
+   "province": "นครสวรรค์",
+   "provinceEn": "Nakhon Sawan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1254 กด 1"
+  },
+  {
+   "id": "mithmitree-clinic-klong-tanon-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (คลองถนน)",
+   "en": "Mithmitree Clinic Klong Tanon Branch",
+   "district": "บางใหญ่",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2053 7417"
+  },
+  {
+   "id": "mithmitree-clinic-buatong-keha-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (บัวทองเคหะ)",
+   "en": "Mithmitree Clinic Buatong Keha Branch",
+   "district": "บางบัวทอง",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2925 9944"
+  },
+  {
+   "id": "mithmitree-clinic-bangkruay-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (บางกรวย)",
+   "en": "Mithmitree Clinic Bangkruay Branch",
+   "district": "บางกรวย",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2886 3113"
+  },
+  {
+   "id": "mithmitree-bang-si-mueang-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (บางศรีเมือง)",
+   "en": "Mithmitree Bang Si Mueang Clinic",
+   "district": "นนทบุรี",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2118 0630, 06 5508 8752"
+  },
+  {
+   "id": "mithmitree-clinic-bangyai-city-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (บางใหญ่ซิตี้)",
+   "en": "Mithmitree Clinic Bangyai City Branch",
+   "district": "บางใหญ่",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2010 2329"
+  },
+  {
+   "id": "mithmitree-clinic-prachaniwet-3-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (ประชานิเวศน์ 3)",
+   "en": "Mithmitree Clinic Prachaniwet 3 Branch",
+   "district": "เมืองนนทบุรี",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2952 8727"
+  },
+  {
+   "id": "mithmitree-plai-bang-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (ปลายบาง)",
+   "en": "Mithmitree Plai Bang Clinic",
+   "district": "นนทบุรี",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2118 6029, 06 5516 5269"
+  },
+  {
+   "id": "mithmitree-clinic-prapin-3-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (พระปิ่น 3)",
+   "en": "Mithmitree Clinic Prapin 3 Branch",
+   "district": "บางใหญ่",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2903 3663"
+  },
+  {
+   "id": "mithmitree-clinic-pimonraj-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (พิมลราช)",
+   "en": "Mithmitree Clinic Pimonraj Branch",
+   "district": "บางบัวทอง",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2923 6890"
+  },
+  {
+   "id": "mithmitree-clinic-wat-phrangurn-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (วัดพระเงิน)",
+   "en": "Mithmitree Clinic Wat Phrangurn Branch",
+   "district": "บางใหญ่",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2053 7418"
+  },
+  {
+   "id": "mithmitree-sanam-bin-nam-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (สนามบินน้ำ)",
+   "en": "Mithmitree Sanam Bin Nam Clinic",
+   "district": "นนทบุรี",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2968 7273, 08 6375 7925"
+  },
+  {
+   "id": "mithmitree-chaopaya-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (เจ้าพระยา)",
+   "en": "Mithmitree Chaopaya Clinic",
+   "district": "นนทบุรี",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2920 0957, 08 6344 3018"
+  },
+  {
+   "id": "mithmitree-clinic-muangthong-thani-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (เมืองทองธานี)",
+   "en": "Mithmitree Clinic Muangthong Thani Branch",
+   "district": "ปากเกร็ด",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2010 8251"
+  },
+  {
+   "id": "central-medic-clinic-pakkret-branch",
+   "th": "เซ็นทรัลเมดิกคลินิกเวชกรรม สาขาปากเกร็ด",
+   "en": "Central Medic Clinic Pakkret Branch",
+   "district": "ปากเกร็ด",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2960 9244"
+  },
+  {
+   "id": "krungthai-hospital",
+   "th": "โรงพยาบาลกรุงไทย",
+   "en": "Krungthai General Hospital",
+   "district": "ปากเกร็ด",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2582 2299"
+  },
+  {
+   "id": "krungthai-western-hospital",
+   "th": "โรงพยาบาลกรุงไทย เวสเทิร์น",
+   "en": "Krungthai General Hospital",
+   "district": "บางบัวทอง",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2822 9797"
+  },
+  {
+   "id": "nonthavej-hospital",
+   "th": "โรงพยาบาลนนทเวช",
+   "en": "Nonthavej Hospital",
+   "district": "เมืองนนทบุรี",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2596 7888"
+  },
+  {
+   "id": "vibharam-pakkred-hospital",
+   "th": "โรงพยาบาลวิภาราม ปากเกร็ด",
+   "en": "Vibharam Pakkred Hospital",
+   "district": "ปากเกร็ด",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2092 4900, 0 2960 9655"
+  },
+  {
+   "id": "anan-phatthana-2-hospital",
+   "th": "โรงพยาบาลอนันต์พัฒนา 2",
+   "en": "Anan Phatthana 2 Hospital",
+   "district": "บางกรวย",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2883 9922"
+  },
+  {
+   "id": "kasemrad-rattanathibet-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์รัตนาธิเบศร์",
+   "en": "Kasemrad Hospital Rattanatibeth",
+   "district": "บางบัวทอง",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2921 3400-9, 0 2149 1330"
+  },
+  {
+   "id": "kasemrad-ratanathabet-international-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์อินเตอร์เนชั่นแนล รัตนาธิเบศร์",
+   "en": "Kasemrad International Hospital Rattanatibeth",
+   "district": "บางใหญ่",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2594 0020-65"
+  },
+  {
+   "id": "world-medical-hospital",
+   "th": "โรงพยาบาลเวิลด์เมดิคอล",
+   "en": "World Medical Hospital",
+   "district": "ปากเกร็ด",
+   "province": "นนทบุรี",
+   "provinceEn": "Nonthaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2836 9999"
+  },
+  {
+   "id": "nara-medical-clinic",
+   "th": "นราการแพทย์สหคลินิก",
+   "en": "Nara Medical Clinic",
+   "district": "เมืองนราธิวาส",
+   "province": "นราธิวาส",
+   "provinceEn": "Narathiwat",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7351 2282"
+  },
+  {
+   "id": "narathiwat-hospital",
+   "th": "โรงพยาบาลนราธิวาสราชนครินทร์",
+   "en": "Narathiwat Hospital",
+   "district": "เมืองนราธิวาส",
+   "province": "นราธิวาส",
+   "provinceEn": "Narathiwat",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 7351 0999"
+  },
+  {
+   "id": "kolok-hospital",
+   "th": "โรงพยาบาลสุไหงโก-ลก",
+   "en": "Kolok Hospital",
+   "district": "สุไหงโก-ลก",
+   "province": "นราธิวาส",
+   "provinceEn": "Narathiwat",
+   "type": "hospital",
+   "care": [
+    "ipd",
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7351 7500"
+  },
+  {
+   "id": "buengkan-hospital1",
+   "th": "โรงพยาบาลบึงกาฬ",
+   "en": "Buengkan Hospital1",
+   "district": "บึงกาฬ",
+   "province": "บึงกาฬ",
+   "provinceEn": "Bueng Kan",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4249 1161-3"
+  },
+  {
+   "id": "buriram-hospital",
+   "th": "โรงพยาบาลบุรีรัมย์",
+   "en": "Buriram Hospital",
+   "district": "เมืองบุรีรัมย์",
+   "province": "บุรีรัมย์",
+   "provinceEn": "Buriram",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4461 5002"
+  },
+  {
+   "id": "buriram-ram-hospital",
+   "th": "โรงพยาบาลบุรีรัมย์ ราม",
+   "en": "Buriram Ram Hospital",
+   "district": "เมืองบุรีรัมย์",
+   "province": "บุรีรัมย์",
+   "provinceEn": "Buriram",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4461 4100-7"
+  },
+  {
+   "id": "tuh-premium-clinic",
+   "th": "คลินิกพรีเมียม โรงพยาบาลธรรมศาสตร์เฉลิมพระเกียรติ",
+   "en": "Tuh Premium Clinic",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2926 9996"
+  },
+  {
+   "id": "mithmitree-nava-nakorn-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (นวนคร)",
+   "en": "Mithmitree Nava Nakorn Clinic",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2909 4998, 09 0907 0650"
+  },
+  {
+   "id": "mithmitree-bueng-kham-proi-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (บึงคำพร้อย)",
+   "en": "Mithmitree Bueng Kham Proi Clinic",
+   "district": "ปทุมธานี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2050 1887, 06 5807 5727"
+  },
+  {
+   "id": "mithmitree-clinic-ladsawai-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (สาขาลาดสวาย)",
+   "en": "Mithmitree Clinic Ladsawai Branch",
+   "district": "ลำลูกกา",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2994 4555"
+  },
+  {
+   "id": "mithmitree-clinic-samkok-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (สามโคก)",
+   "en": "Mithmitree Clinic Samkok Branch",
+   "district": "สามโคก",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2053 7610"
+  },
+  {
+   "id": "mithmitree-thep-kunchorn-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (เทพกุญชร)",
+   "en": "Mithmitree Thep Kunchorn Clinic",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2198 2177, 09 0907 0651"
+  },
+  {
+   "id": "mithmitree-clinic-sema-fahkram-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (เสมาฟ้าคราม)",
+   "en": "Mithmitree Clinic Sema Fahkram Branch",
+   "district": "ลำลูกกา",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2987 5844"
+  },
+  {
+   "id": "mithmitree-clinic-aiyara-branch",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (ไอยรา)",
+   "en": "Mithmitree Clinic Aiyara Branch",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2034 0911"
+  },
+  {
+   "id": "smileexpress-dental-clinic",
+   "th": "สไมล์เอ็กซ์เพรสเด็นทัลคลินิกทันตกรรม สาขาตลาดไท",
+   "en": "Bangkok Smile Dental Clinic, Asoke Branch",
+   "district": "ปทุมธานี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "02 664 2929"
+  },
+  {
+   "id": "krung-siam-st.carlos-medical-centre-hospital",
+   "th": "โรงพยาบาลกรุงสยามเซนต์คาร์ลอส",
+   "en": "Krung Siam St.carlos Medical Centre Hospital",
+   "district": "เมืองปทุมธานี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2975 6700"
+  },
+  {
+   "id": "karunvej-pathumthani-hospital",
+   "th": "โรงพยาบาลการุญเวช ปทุมธานี",
+   "en": "Karunvej Pathumthani Hospital",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2529 4533-41"
+  },
+  {
+   "id": "cgh-lamlukka-hospital",
+   "th": "โรงพยาบาลซีจีเอช ลำลูกกา",
+   "en": "CGH Lamlukka Hospital",
+   "district": "ลำลูกกา",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2088 0888"
+  },
+  {
+   "id": "thammasat-university-hospital",
+   "th": "โรงพยาบาลธรรมศาสตร์เฉลิมพระเกียรติ มหาวิทยาลัยธรรมศาสตร์",
+   "en": "Thammasat University Hospital",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2926 9999"
+  },
+  {
+   "id": "bangpakok-rangsit-2-hospital",
+   "th": "โรงพยาบาลบางปะกอก รังสิต 2",
+   "en": "Bangpakok Rangsit 2 Hospital",
+   "district": "ธัญบุรี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1745, 0 2028 1111, 0 2996 2214"
+  },
+  {
+   "id": "pathumvech-hospital",
+   "th": "โรงพยาบาลปทุมเวช",
+   "en": "Pathumvech Hospital",
+   "district": "ธัญบุรี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2958 4500-15, 0 2567 1991-1"
+  },
+  {
+   "id": "phatara-thonburi-hospital",
+   "th": "โรงพยาบาลภัทร-ธนบุรี",
+   "en": "Phatara Thonburi Hospital",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2901 8400-8, 09 7004 7046, 09 7007 0871"
+  },
+  {
+   "id": "thamc-hospitals",
+   "th": "โรงพยาบาลศูนย์การแพทย์ธรรมศาสตร์",
+   "en": "Thamc Hospitals",
+   "district": "คลองหลวง",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2078 0000"
+  },
+  {
+   "id": "synphaet-lamlukka-hospital",
+   "th": "โรงพยาบาลสินแพทย์ ลำลูกกา",
+   "en": "Synphaet Lamlukka Hospital",
+   "district": "ลำลูกกา",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2006 9999"
+  },
+  {
+   "id": "rangsit-mother--child-hospital",
+   "th": "โรงพยาบาลเฉพาะทางแม่และเด็กแพทย์รังสิต",
+   "en": "Rangsit Mother Child Hospital",
+   "district": "ลำลูกกา",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2998 9888"
+  },
+  {
+   "id": "paolo-hospital-rangsit",
+   "th": "โรงพยาบาลเปาโล รังสิต",
+   "en": "Paolo Hospital Rangsit",
+   "district": "ธัญบุรี",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2577 8111"
+  },
+  {
+   "id": "patrangsit-hospital",
+   "th": "โรงพยาบาลแพทย์รังสิต",
+   "en": "Patrangsit Hospital",
+   "district": "ลำลูกกา",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2998 9999"
+  },
+  {
+   "id": "patrangsit-hospital-2",
+   "th": "โรงพยาบาลแพทย์รังสิต 2",
+   "en": "Patrangsit Hospital 2",
+   "district": "ลำลูกกา",
+   "province": "ปทุมธานี",
+   "provinceEn": "Pathum Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2998 9999"
+  },
+  {
+   "id": "bangkok-hospital-huahin",
+   "th": "โรงพยาบาลกรุงเทพหัวหิน",
+   "en": "Bangkok Hospital Huahin",
+   "district": "หัวหิน",
+   "province": "ประจวบคีรีขันธ์",
+   "provinceEn": "Prachuap Khiri Khan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3261 6800"
+  },
+  {
+   "id": "san-paolo-hospital-hua-hin",
+   "th": "โรงพยาบาลซานเปาโล หัวหิน",
+   "en": "San Paolo Hospital Hua Hin",
+   "district": "หัวหิน",
+   "province": "ประจวบคีรีขันธ์",
+   "provinceEn": "Prachuap Khiri Khan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3253 2576-80"
+  },
+  {
+   "id": "bangkok-rayong-clinic-304-industrial-park-branch",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขานิคมอุตสาหกรรม 304 ปราจีนบุรี",
+   "en": "Bangkok Rayong Clinic 304 Industrial Park Branch",
+   "district": "ศรีมหาโพธิ",
+   "province": "ปราจีนบุรี",
+   "provinceEn": "Prachinburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3421 8659"
+  },
+  {
+   "id": "boonraksa-medical-clinic",
+   "th": "คลินิกเวชกรรมบุญรักษาการแพทย์",
+   "en": "Boonraksa Medical Clinic",
+   "district": "ศรีมหาโพธิ",
+   "province": "ปราจีนบุรี",
+   "provinceEn": "Prachinburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 2702 8484"
+  },
+  {
+   "id": "teerawut-clinic",
+   "th": "คลินิกเวชกรรมแพทย์ธีรวุฒิ",
+   "en": "Teerawut Clinic",
+   "district": "กบินทร์บุรี",
+   "province": "ปราจีนบุรี",
+   "provinceEn": "Prachinburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3745 5176, 08 1735 3408"
+  },
+  {
+   "id": "chularat-304-international-hospital",
+   "th": "โรงพยาบาลจุฬารัตน์ 304 อินเตอร์",
+   "en": "Chularat 304 International Hospital",
+   "district": "ศรีมหาโพธิ",
+   "province": "ปราจีนบุรี",
+   "provinceEn": "Prachinburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1609, 0 3723 9665"
+  },
+  {
+   "id": "kasemrad-prachinburi-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์ ปราจีนบุรี",
+   "en": "Kasemrad Prachinburi Hospital",
+   "district": "ศรีมหาโพธิ",
+   "province": "ปราจีนบุรี",
+   "provinceEn": "Prachinburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3762 7000-99"
+  },
+  {
+   "id": "chao-phraya-abhaibhubejhr-hospital",
+   "th": "โรงพยาบาลเจ้าพระยาอภัยภูเบศร",
+   "en": "Chao Phraya Abhaibhubejhr Hospital",
+   "district": "เมืองปราจีนบุรี",
+   "province": "ปราจีนบุรี",
+   "provinceEn": "Prachinburi",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3721 1088"
+  },
+  {
+   "id": "siraruk-clinic",
+   "th": "ศิรารักษ์คลินิกแพทย์",
+   "en": "Siraruk Clinic",
+   "district": "เมืองปัตตานี",
+   "province": "ปัตตานี",
+   "provinceEn": "Pattani",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7341 4880"
+  },
+  {
+   "id": "pattani-hospital",
+   "th": "โรงพยาบาลปัตตานี",
+   "en": "Pattani Hospital",
+   "district": "ปัตตานี",
+   "province": "ปัตตานี",
+   "provinceEn": "Pattani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7371 1010"
+  },
+  {
+   "id": "siriros-hospital-pattani",
+   "th": "โรงพยาบาลสิโรรส ปัตตานี",
+   "en": "Siriros Hospital Pattani",
+   "district": "เมืองปัตตานี",
+   "province": "ปัตตานี",
+   "provinceEn": "Pattani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7334 8100 - 2"
+  },
+  {
+   "id": "karunvej-ayutthaya-hospital",
+   "th": "โรงพยาบาลการุญเวช อยุธยา",
+   "en": "Karunvej Ayutthaya Hospital",
+   "district": "บางปะอิน",
+   "province": "พระนครศรีอยุธยา",
+   "provinceEn": "Phra Nakhon Si Ayutthaya",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 3531 5100-195"
+  },
+  {
+   "id": "peravech-hospital",
+   "th": "โรงพยาบาลพีรเวช",
+   "en": "Peravech Hospital",
+   "district": "พระนครศรีอยุธยา",
+   "province": "พระนครศรีอยุธยา",
+   "provinceEn": "Phra Nakhon Si Ayutthaya",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3580 1555, 08 1780 1519, 08 1776 5611"
+  },
+  {
+   "id": "rajthanee-hospital",
+   "th": "โรงพยาบาลราชธานี",
+   "en": "Rajthanee Hospital",
+   "district": "พระนครศรีอยุธยา",
+   "province": "พระนครศรีอยุธยา",
+   "provinceEn": "Phra Nakhon Si Ayutthaya",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3533 5555-71, 06 3202 3855-61"
+  },
+  {
+   "id": "rajthanee-rojana-hospital",
+   "th": "โรงพยาบาลราชธานีโรจนะ",
+   "en": "Rajthanee-Rojana Hospital",
+   "district": "บางปะอิน",
+   "province": "พระนครศรีอยุธยา",
+   "provinceEn": "Phra Nakhon Si Ayutthaya",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3524 9249"
+  },
+  {
+   "id": "asia-internationa-hospital",
+   "th": "โรงพยาบาลเอเชียอินเตอร์เนชั่นแนล",
+   "en": "Asia Internationa Hospital",
+   "district": "บางปะอิน",
+   "province": "พระนครศรีอยุธยา",
+   "provinceEn": "Phra Nakhon Si Ayutthaya",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 3535 6888"
+  },
+  {
+   "id": "phayaoram-hospital",
+   "th": "โรงพยาบาลพะเยาราม",
+   "en": "Phayaoram Hospital",
+   "district": "เมืองพะเยา",
+   "province": "พะเยา",
+   "provinceEn": "Phayao",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5441 1111 ต่อ 3009"
+  },
+  {
+   "id": "takuapa-hospital",
+   "th": "โรงพยาบาลตะกั่วป่า",
+   "en": "Takuapa Hospital",
+   "district": "ตะกั่วป่า",
+   "province": "พังงา",
+   "provinceEn": "Phang Nga",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "1669, 0 7658 4250 ต่อ 5008"
+  },
+  {
+   "id": "piyarak-hospital",
+   "th": "โรงพยาบาลปิยะรักษ์",
+   "en": "Piyarak Hospital",
+   "district": "เมืองพัทลุง",
+   "province": "พัทลุง",
+   "provinceEn": "Phatthalung",
+   "type": "hospital",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7462 7146-55"
+  },
+  {
+   "id": "phattalung-hospital",
+   "th": "โรงพยาบาลพัทลุง",
+   "en": "Phattalung Hospital",
+   "district": "เมืองพัทลุง",
+   "province": "พัทลุง",
+   "provinceEn": "Phatthalung",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7460 9500"
+  },
+  {
+   "id": "chaiaroonhos-hospital",
+   "th": "โรงพยาบาลชัยอรุณเวชการ",
+   "en": "Chaiaroonhos Hospital",
+   "district": "เมืองพิจิตร",
+   "province": "พิจิตร",
+   "provinceEn": "Phichit",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5661 1407"
+  },
+  {
+   "id": "pitsanuvej-phichit-hospital",
+   "th": "โรงพยาบาลพิษณุเวช พิจิตร",
+   "en": "Pitsanuvej Pichit Hospital",
+   "district": "เมืองพิจิตร",
+   "province": "พิจิตร",
+   "provinceEn": "Phichit",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5661 3316"
+  },
+  {
+   "id": "bangkok-phitsanulok-hospital",
+   "th": "โรงพยาบาลกรุงเทพพิษณุโลก",
+   "en": "Bangkok Hospital Phitsanulok",
+   "district": "เมืองพิษณุโลก",
+   "province": "พิษณุโลก",
+   "provinceEn": "Phitsanulok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5521 1724"
+  },
+  {
+   "id": "pitsanuvej-hospital",
+   "th": "โรงพยาบาลพิษณุเวช",
+   "en": "Pitsanuvej Hospital",
+   "district": "เมืองพิษณุโลก",
+   "province": "พิษณุโลก",
+   "provinceEn": "Phitsanulok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5590 9000"
+  },
+  {
+   "id": "phitsanulok-hospital",
+   "th": "โรงพยาบาลพิษณุโลก ฮอสพิทอล",
+   "en": "Phitsanulok Hospital",
+   "district": "เมืองพิษณุโลก",
+   "province": "พิษณุโลก",
+   "provinceEn": "Phitsanulok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5590 9888"
+  },
+  {
+   "id": "mednu-hospital",
+   "th": "โรงพยาบาลมหาวิทยาลัยนเรศวร",
+   "en": "Mednu Hospital",
+   "district": "เมืองพิษณุโลก",
+   "province": "พิษณุโลก",
+   "provinceEn": "Phitsanulok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5596 5666, 0 5596 5777"
+  },
+  {
+   "id": "ruamphat-phitsanulok-hospital",
+   "th": "โรงพยาบาลรวมแพทย์พิษณุโลก",
+   "en": "Ruamphat Hospital Phitsanulok",
+   "district": "เมืองพิษณุโลก",
+   "province": "พิษณุโลก",
+   "provinceEn": "Phitsanulok",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5521 9307-16"
+  },
+  {
+   "id": "laguna-phuket-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพภูเก็ต สาขาลากูน่า",
+   "en": "Bangkok Phuket Clinic, Mai Khao Branch",
+   "district": "ถลาง",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 1175 2550"
+  },
+  {
+   "id": "bangkok-medical-clinic-phuket-mai-khao",
+   "th": "คลินิกเวชกรรมกรุงเทพภูเก็ต สาขาไม้ขาว",
+   "en": "Bangkok Phuket Clinic, Mai Khao Branch",
+   "district": "ถลาง",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7625 4425"
+  },
+  {
+   "id": "bangkok-siriroj-medical-clinic-airport-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพสิริโรจน์ สาขาสนามบิน",
+   "en": "Bangkok Siriroj Medical Clinic Airport Clinic",
+   "district": "ถลาง",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 2891 3315"
+  },
+  {
+   "id": "phuket-hospital",
+   "th": "โรงพยาบาลกรุงเทพภูเก็ต",
+   "en": "Bangkok Hospital Phuket",
+   "district": "เมืองภูเก็ต",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 7625 4425"
+  },
+  {
+   "id": "phuket-international-hospital",
+   "th": "โรงพยาบาลกรุงเทพสิริโรจน์",
+   "en": "Phuket International Hospital",
+   "district": "เมืองภูเก็ต",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 7636 1888"
+  },
+  {
+   "id": "dibuk-hospital",
+   "th": "โรงพยาบาลดีบุก",
+   "en": "Dibuk Hospital",
+   "district": "เมืองภูเก็ต",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7629 8298"
+  },
+  {
+   "id": "patong-hospital",
+   "th": "โรงพยาบาลป่าตอง",
+   "en": "Patong Hospital",
+   "district": "กะทู้",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7634 2633-4"
+  },
+  {
+   "id": "mission-phuket-hospital",
+   "th": "โรงพยาบาลมิชชั่นภูเก็ต",
+   "en": "Mission Hospital Phuket",
+   "district": "เมืองภูเก็ต",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 7623 7220-6"
+  },
+  {
+   "id": "vachiraphuket-hospital",
+   "th": "โรงพยาบาลวชิระภูเก็ต",
+   "en": "Vachiraphuket Hospital",
+   "district": "เมืองภูเก็ต",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "1669, 0 7636 1234"
+  },
+  {
+   "id": "phuket-provincial-administrative-hospital",
+   "th": "โรงพยาบาลองค์การบริหารส่วนจังหวัดภูเก็ต",
+   "en": "Phuket Provincial Hospital",
+   "district": "เมืองภูเก็ต",
+   "province": "ภูเก็ต",
+   "provinceEn": "Phuket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7635 8888"
+  },
+  {
+   "id": "mahasarakam-international",
+   "th": "โรงพยาบาลมหาสารคามอินเตอร์เนชั่นแนล",
+   "en": "Mahasarakam International",
+   "district": "เมืองมหาสารคาม",
+   "province": "มหาสารคาม",
+   "provinceEn": "Maha Sarakham",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4372 1770, 0 4372 3669"
+  },
+  {
+   "id": "bangkok-khonkaen-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพขอนแก่น สาขามุกดาหาร",
+   "en": "Bangkok Khonkaen Clinic",
+   "district": "มุกดาหาร",
+   "province": "มุกดาหาร",
+   "provinceEn": "Mukdahan",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 6293 2888"
+  },
+  {
+   "id": "princmukdahan-hospital",
+   "th": "โรงพยาบาลพริ้นซ์ มุกดาหาร",
+   "en": "Princmukdahan Hospital",
+   "district": "เมืองมุกดาหาร",
+   "province": "มุกดาหาร",
+   "provinceEn": "Mukdahan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4204 4999"
+  },
+  {
+   "id": "mukdahan-international",
+   "th": "โรงพยาบาลมุกดาหารอินเตอร์เนชั่นแนล",
+   "en": "Mukdahan International Hospital",
+   "district": "เมืองมุกดาหาร",
+   "province": "มุกดาหาร",
+   "provinceEn": "Mukdahan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4261 1222"
+  },
+  {
+   "id": "siroros-yala",
+   "th": "โรงพยาบาลสิโรรส ยะลา",
+   "en": "Siriros Hospital Yala",
+   "district": "เมืองยะลา",
+   "province": "ยะลา",
+   "provinceEn": "Yala",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7322 3600-4"
+  },
+  {
+   "id": "drhann",
+   "th": "โรงพยาบาลนายแพทย์หาญ",
+   "en": "Drhann",
+   "district": "เมืองยโสธร",
+   "province": "ยโสธร",
+   "provinceEn": "Yasothon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4571 1356, 0 457 2546"
+  },
+  {
+   "id": "ruamphat-yasothorn",
+   "th": "โรงพยาบาลรวมแพทย์ยโสธร",
+   "en": "Ruamphat Hospital Yasothon",
+   "district": "เมืองยโสธร",
+   "province": "ยโสธร",
+   "provinceEn": "Yasothon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4571 2141"
+  },
+  {
+   "id": "dr.ratthasart-clinic",
+   "th": "คลินิกด้านเวชกรรมแพทย์รัฐศาสตร์",
+   "en": "Dr.ratthasart Clinic",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 2891 3315"
+  },
+  {
+   "id": "ruampat-nikom-clinic",
+   "th": "คลินิกรวมแพทย์นิคม",
+   "en": "Ruampat Nikom Clinic",
+   "district": "นิคมพัฒนา",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3863 6217, 08 1344 3315"
+  },
+  {
+   "id": "bangkokrayong-nikhomphatthana-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาตลาดนิคมพัฒนา",
+   "en": "Bangkokrayong Nikhomphatthana Clinic",
+   "district": "นิคมพัฒนา",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3801 8921"
+  },
+  {
+   "id": "bangkokrayongclinic",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขานิคมพัฒนา",
+   "en": "Bangkokrayongclinic",
+   "district": "นิคมพัฒนา",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3802 6519, 09 2257 9005, 0 3892 1936"
+  },
+  {
+   "id": "bangkokrayongclinic-esie",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขานิคมอุตสาหกรรมอีสเทิร์นซีบอร์ด",
+   "en": "Bangkokrayongclinic Esie",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3801 5970"
+  },
+  {
+   "id": "banchang-rayong-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาบ้านฉาง",
+   "en": "Bangkok Rayong Clinic, Banchang Branch",
+   "district": "บ้านฉาง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3860 4669"
+  },
+  {
+   "id": "bangkokrayong-clinic-banpea",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาบ้านเพ",
+   "en": "Bangkokrayong Clinic Banpea",
+   "district": "เมืองระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3801 6300"
+  },
+  {
+   "id": "bangkok-rayong-pluak-daeng-branch",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาปลวกแดง",
+   "en": "Bangkok Hospital Rayong Clinic, Pluakdaeng Branch",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3802 5957"
+  },
+  {
+   "id": "bangkokrayong-maptaphut-clinic1",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขามาบตาพุด",
+   "en": "Bangkokrayong Maptaphut Clinic1",
+   "district": "เมืองระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3301 3969"
+  },
+  {
+   "id": "bangkokrayongclinic-sapanfour",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาสะพานสี่ ปลวกแดงระยอง",
+   "en": "Bangkokrayongclinic Sapanfour",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3801 5950"
+  },
+  {
+   "id": "bangkokrayongclinic-maepim",
+   "th": "คลินิกเวชกรรมกรุงเทพระยอง สาขาแหลมแม่พิมพ์",
+   "en": "Bangkokrayongclinic Maepim",
+   "district": "แกลง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3801 5864"
+  },
+  {
+   "id": "vejakum-clinic-sapanfour",
+   "th": "คลินิกเวชกรรมนิคมอุตสาหกรรม (สาขาสะพาน 4)",
+   "en": "Vejakum Clinic Sapanfour",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3866 0063"
+  },
+  {
+   "id": "vejakum-clinic-lg-pluakdang",
+   "th": "คลินิกเวชกรรมนิคมอุตสาหกรรม สาขาปลวกแดง",
+   "en": "Vejakum Clinic LG Pluakdang",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 1429 6161, 09 4423 1818"
+  },
+  {
+   "id": "phyathai-saphan-4-clinic",
+   "th": "คลินิกเวชกรรมพญาไท สะพานสี่",
+   "en": "Phyathai Saphan 4 Clinic",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "06 5502 0418"
+  },
+  {
+   "id": "rajata-medical-pluak-daeng-branch-clinic",
+   "th": "คลินิกเวชกรรมแพทย์รัฐศาสตร์ สาขาปลวกแดง",
+   "en": "Rajata Medical Pluak Daeng Branch Clinic",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 3628 2933"
+  },
+  {
+   "id": "dr.warakorn-clinic",
+   "th": "คลินิกโรคภูมิแพ้และโรคเด็ก(หมอวรากร)",
+   "en": "Dr.warakorn Clinic",
+   "district": "เมืองระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3862 4275, 08 7506 7700, 08 1668 3188"
+  },
+  {
+   "id": "samitivej-srirajha-clinic",
+   "th": "คลินิกโรงพยาบาลสมิติเวชศรีราชา สาขาอีสเทิร์นซีบอร์ด",
+   "en": "Samitivej Sriracha Clinic, Eastern Seaboard Branch",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 5207 8522 , 06 3886 9482"
+  },
+  {
+   "id": "boonprathan-cilnic-soi-13",
+   "th": "บุญประทานคลินิกเวชกรรม (สาขานิคมอุตสาหกรรม ซอย 13)",
+   "en": "Boonprathan Cilnic, Industrial Park Soi 13 Branch",
+   "district": "นิคมพัฒนา",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 5636 5051"
+  },
+  {
+   "id": "bunpratan-clinic-siam-eastern",
+   "th": "บุญประทานคลินิกเวชกรรม (สาขาสยามอีสเทิร์น จ.ระยอง)",
+   "en": "Boonprathan Clinic, Siam Eastern Branch",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 5715 4101"
+  },
+  {
+   "id": "boonprathanclinic-lg",
+   "th": "บุญประทานคลินิกเวชกรรม (สาขาหน้าแอลจี)",
+   "en": "Boonprathanclinic LG",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "09 4097 4409"
+  },
+  {
+   "id": "burapaphat-health-and-dental-clinic",
+   "th": "บูรพาพัฒน์สหคลินิก",
+   "en": "Burapaphat Health and Dental Clinic",
+   "district": "บ้านฉาง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3306 4460"
+  },
+  {
+   "id": "mithmitree-star-market-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (ตลาดสตาร์)",
+   "en": "Mithmitree Star Market Clinic",
+   "district": "ระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3301 6822, 06 5516 6897"
+  },
+  {
+   "id": "mithmitree-map-yang-phon-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (มาบยางพร)",
+   "en": "Mithmitree Map Yang Phon Clinic",
+   "district": "ระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3301 6055, 06 4157 8156"
+  },
+  {
+   "id": "mithmitree-saphan-4-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (สะพานสี่)",
+   "en": "Mithmitree Saphan 4 Clinic",
+   "district": "ระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3301 6477, 06 4157 8165"
+  },
+  {
+   "id": "rukx-rayong-clinic",
+   "th": "รักษ์ระยองสหคลินิก สาขาทับมา",
+   "en": "Rukx Rayong Clinic",
+   "district": "บางละมุง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": false,
+   "phone": "0 3301 4866, 08 2108 7299"
+  },
+  {
+   "id": "bangkokrayongclinic-mabkha",
+   "th": "สหคลินิกกรุงเทพระยอง สาขาปั๊มปตท. มาบข่า",
+   "en": "Bangkokrayongclinic Mabkha",
+   "district": "นิคมพัฒนา",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3802 9430, 06 3212 2808"
+  },
+  {
+   "id": "dr.somboon-jirapa-clinic",
+   "th": "สหคลินิกแพทย์สมบูรณ์-จิรภา มะลิขาว",
+   "en": "Somboon-Jirapa Malikhao Saha Clinic",
+   "district": "ระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": false,
+   "phone": "0 3886 0792, 0 3861 9450, 08 1499 9271"
+  },
+  {
+   "id": "dr.bun-clinic",
+   "th": "หมอบูณย์คลินิกเวชกรรม",
+   "en": "Dr.bun Clinic",
+   "district": "บ้านฉาง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": false,
+   "phone": "0 3860 1028"
+  },
+  {
+   "id": "dr.eakrith-clinic",
+   "th": "หมอเอกฤทธิ์คลินิกเฉพาะทางด้านเวชกรรม",
+   "en": "Dr.eakrith Clinic",
+   "district": "เมือง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 1752 1200, 09 1880 1100"
+  },
+  {
+   "id": "dr.-jaidee-clinic",
+   "th": "หมอใจดีคลินิกเวชกรรม",
+   "en": "DR. Jaidee Clinic",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 6640 9644"
+  },
+  {
+   "id": "muang-klaeng-clinic",
+   "th": "เมืองแกลงสหคลินิก",
+   "en": "Muang Klaeng Clinic",
+   "district": "แกลง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3867 4555"
+  },
+  {
+   "id": "bangkokpluakdaeng-hospital",
+   "th": "โรงพยาบาลกรุงเทพปลวกแดง",
+   "en": "Bangkokpluakdaeng Hospital",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3322 1339"
+  },
+  {
+   "id": "bangkokhospitalrayong",
+   "th": "โรงพยาบาลกรุงเทพระยอง",
+   "en": "Bangkokhospitalrayong",
+   "district": "เมืองระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3892 1999, 0 3310 8999"
+  },
+  {
+   "id": "chularat--rayong-hospital",
+   "th": "โรงพยาบาลจุฬารัตน์ระยอง",
+   "en": "Chularat Hospital Rayong",
+   "district": "เมืองระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3886 0890-3"
+  },
+  {
+   "id": "piyavejj-rayong",
+   "th": "โรงพยาบาลปิยะเวชช์ ระยอง",
+   "en": "Piyavej Rayong Hospital",
+   "district": "ปลวกแดง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3802 0111"
+  },
+  {
+   "id": "mongkutrayong",
+   "th": "โรงพยาบาลมงกุฎระยอง",
+   "en": "Mongkutrayong",
+   "district": "เมืองระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3869 1800, 0 3868 2136-9, 08 6368 4505"
+  },
+  {
+   "id": "rayong-hospital",
+   "th": "โรงพยาบาลระยอง",
+   "en": "Rayong Hospital",
+   "district": "เมืองระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3861 1104"
+  },
+  {
+   "id": "srirayong-hospital-hospital",
+   "th": "โรงพยาบาลศรีระยอง",
+   "en": "Srirayong Hospital Hospital",
+   "district": "เมืองระยอง",
+   "province": "ระยอง",
+   "provinceEn": "Rayong",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3899 8555"
+  },
+  {
+   "id": "bangkok-hospital-muangraj",
+   "th": "โรงพยาบาลกรุงเทพเมืองราช",
+   "en": "Bangkok Muangraj Hospital",
+   "district": "ราชบุรี",
+   "province": "ราชบุรี",
+   "provinceEn": "Ratchaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3232 2274-80"
+  },
+  {
+   "id": "sancamillo-hospital",
+   "th": "โรงพยาบาลซานคามิลโล",
+   "en": "Sancamillo Hospital",
+   "district": "บ้านโป่ง",
+   "province": "ราชบุรี",
+   "provinceEn": "Ratchaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3221 1143"
+  },
+  {
+   "id": "mahachi-prompathya-hospital",
+   "th": "โรงพยาบาลมหาชัยพร้อมแพทย์",
+   "en": "Mahachai Prompathya Hospital",
+   "district": "เมืองราชบุรี",
+   "province": "ราชบุรี",
+   "provinceEn": "Ratchaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3232 8521-8"
+  },
+  {
+   "id": "chureevetch-hospital",
+   "th": "โรงพยาบาลจุรีเวช",
+   "en": "Chureevetch Hospital",
+   "district": "เมืองร้อยเอ็ด",
+   "province": "ร้อยเอ็ด",
+   "provinceEn": "Roi Et",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4351 8019-26"
+  },
+  {
+   "id": "roi-et-thonburi-hospital",
+   "th": "โรงพยาบาลร้อยเอ็ดธนบุรี",
+   "en": "Roi Et-Thonburi Hospital",
+   "district": "เมืองร้อยเอ็ด",
+   "province": "ร้อยเอ็ด",
+   "provinceEn": "Roi Et",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4351 5191"
+  },
+  {
+   "id": "benjarom-hospital",
+   "th": "โรงพยาบาลเบญจรมย์",
+   "en": "Benjarom Hospital",
+   "district": "เมืองลพบุรี",
+   "province": "ลพบุรี",
+   "provinceEn": "Lopburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3641 3933, 03641 2160"
+  },
+  {
+   "id": "muangnarai-general-hospital",
+   "th": "โรงพยาบาลเมืองนารายณ์",
+   "en": "Muangnarai General Hospital",
+   "district": "เมืองลพบุรี",
+   "province": "ลพบุรี",
+   "provinceEn": "Lopburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3642 0666"
+  },
+  {
+   "id": "kokha-hospital",
+   "th": "โรงพยาบาลเกาะคา",
+   "en": "Kokha Hospital",
+   "district": "เกาะคา",
+   "province": "ลำปาง",
+   "provinceEn": "Lampang",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 5428 1393 ต่อ 3501"
+  },
+  {
+   "id": "khelangnakorn-ram-hospital",
+   "th": "โรงพยาบาลเขลางค์นครราม",
+   "en": "Khelangnakorn-ram Hospital",
+   "district": "เมืองลำปาง",
+   "province": "ลำปาง",
+   "provinceEn": "Lampang",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5401 9619"
+  },
+  {
+   "id": "princlamphun-hospital",
+   "th": "โรงพยาบาลพริ้นซ์ ลำพูน",
+   "en": "Princlamphun Hospital",
+   "district": "เมืองลำพูน",
+   "province": "ลำพูน",
+   "provinceEn": "Lamphun",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5358 2888"
+  },
+  {
+   "id": "lamphun-hospital",
+   "th": "โรงพยาบาลลำพูน",
+   "en": "Lamphun Hospital",
+   "district": "เมืองลำพูน",
+   "province": "ลำพูน",
+   "provinceEn": "Lamphun",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5356 9100"
+  },
+  {
+   "id": "lamphun-klaimor-hospita",
+   "th": "โรงพยาบาลลำพูนใกล้หมอ",
+   "en": "Lamphun Klaimor Hospital",
+   "district": "ลำพูน",
+   "province": "ลำพูน",
+   "provinceEn": "Lamphun",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5358 1998"
+  },
+  {
+   "id": "sirivej-lumphun-hospital",
+   "th": "โรงพยาบาลศิริเวชลำพูน",
+   "en": "Sirivej Lamphun Hospital",
+   "district": "เมืองลำพูน",
+   "province": "ลำพูน",
+   "provinceEn": "Lamphun",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 5309 6440, 0 5353 7576"
+  },
+  {
+   "id": "hariphunchairam-hospital",
+   "th": "โรงพยาบาลหริภุญชัย ราม",
+   "en": "Hariphunchairam Hospital",
+   "district": "เมืองลำพูน",
+   "province": "ลำพูน",
+   "provinceEn": "Lamphun",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 5358 1111"
+  },
+  {
+   "id": "hariphunchai-memorial-hospital",
+   "th": "โรงพยาบาลหริภุญชัยเมโมเรียล",
+   "en": "Hariphunchai Memorial Hospital",
+   "district": "เมืองลำพูน",
+   "province": "ลำพูน",
+   "provinceEn": "Lamphun",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5358 1600-4"
+  },
+  {
+   "id": "pracharakvejakarn-hospital",
+   "th": "โรงพยาบาลประชารักษ์เวชการ",
+   "en": "Pracharakvejakarn Hospital",
+   "district": "เมืองศรีสะเกษ",
+   "province": "ศรีสะเกษ",
+   "provinceEn": "Sisaket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4561 3342-3, 0 4563 1313"
+  },
+  {
+   "id": "princsisaket",
+   "th": "โรงพยาบาลพริ้นซ์ ศรีสะเกษ",
+   "en": "Princsisaket",
+   "district": "เมืองศรีสะเกษ",
+   "province": "ศรีสะเกษ",
+   "provinceEn": "Sisaket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4596 8888"
+  },
+  {
+   "id": "sisaket-hospital",
+   "th": "โรงพยาบาลศรีสะเกษ",
+   "en": "Sisaket Hospital",
+   "district": "ศรีสะเกษ",
+   "province": "ศรีสะเกษ",
+   "provinceEn": "Sisaket",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4561 1389"
+  },
+  {
+   "id": "princsakonnakhon-hospital",
+   "th": "โรงพยาบาลพริ้นซ์ สกลนคร",
+   "en": "Princsakonnakhon Hospital",
+   "district": "เมืองสกลนคร",
+   "province": "สกลนคร",
+   "provinceEn": "Sakon Nakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4209 2888"
+  },
+  {
+   "id": "raksakol-hospital",
+   "th": "โรงพยาบาลรักษ์สกล",
+   "en": "Raksakol Hospital",
+   "district": "เมืองสกลนคร",
+   "province": "สกลนคร",
+   "provinceEn": "Sakon Nakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4271 2800"
+  },
+  {
+   "id": "sakonnakon-hospital",
+   "th": "โรงพยาบาลสกลนคร",
+   "en": "Sakonnakon Hospital",
+   "district": "เมืองสกลนคร",
+   "province": "สกลนคร",
+   "provinceEn": "Sakon Nakhon",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4217 6000"
+  },
+  {
+   "id": "vithaya-medical-clinic",
+   "th": "คลินิกวิทยาการแพทย์",
+   "en": "Vithaya Medical Clinic",
+   "district": "เมืองสงขลา",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7481 8196"
+  },
+  {
+   "id": "bangkok-hospital-hatyai",
+   "th": "โรงพยาบาลกรุงเทพหาดใหญ่",
+   "en": "Bangkok Hospital Hatyai",
+   "district": "หาดใหญ่",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7427 2800, 1719"
+  },
+  {
+   "id": "rajyindee-hospital",
+   "th": "โรงพยาบาลธนบุรี ราษฎร์ยินดี",
+   "en": "Rajyindee Hospital",
+   "district": "หาดใหญ่",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7420 0200"
+  },
+  {
+   "id": "mitraparphospital",
+   "th": "โรงพยาบาลมิตรภาพสามัคคี (มูลนิธิท่งเซียเซี่ยงตึ้ง)",
+   "en": "Mitraparphospital",
+   "district": "หาดใหญ่",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7480 1900"
+  },
+  {
+   "id": "sikarin-hatyai-hospital",
+   "th": "โรงพยาบาลศิครินทร์ หาดใหญ่",
+   "en": "Sikarin Hatyai Hospital",
+   "district": "หาดใหญ่",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7431 0310, 1728"
+  },
+  {
+   "id": "songklan-hospital1",
+   "th": "โรงพยาบาลสงขลา",
+   "en": "Songklan Hospital1",
+   "district": "เมืองสงขลา",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7433 8100 ต่อ 7109"
+  },
+  {
+   "id": "songklanagarind-hospital",
+   "th": "โรงพยาบาลสงขลานครินทร์",
+   "en": "Songklanagarind Hospital",
+   "district": "หาดใหญ่",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7445 5000"
+  },
+  {
+   "id": "songklanagarind-vejchavivat-hospital",
+   "th": "โรงพยาบาลสงขลานครินทร์ เวชวิวัฒน์",
+   "en": "Songklanagarind Vejchavivat Hospital",
+   "district": "หาดใหญ่",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7445 1024"
+  },
+  {
+   "id": "hatyai-hospital",
+   "th": "โรงพยาบาลหาดใหญ่",
+   "en": "Hatyai Hospital",
+   "district": "หาดใหญ่",
+   "province": "สงขลา",
+   "provinceEn": "Songkhla",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7427 3100"
+  },
+  {
+   "id": "satun-hospital",
+   "th": "โรงพยาบาลสตูล",
+   "en": "Satun Hospital",
+   "district": "เมืองสตูล",
+   "province": "สตูล",
+   "provinceEn": "Satun",
+   "type": "hospital",
+   "care": [
+    "ipd",
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7472 3500"
+  },
+  {
+   "id": "jurarat-2-clinic",
+   "th": "จุฬารัตน์ 2 คลินิกเวชกรรม",
+   "en": "Jurarat 2 Clinic",
+   "district": "เมืองสมุทรปราการ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2753 2876-7"
+  },
+  {
+   "id": "mithmitreeclinic-thai-insurance-market",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (ตลาดไทยประกัน)",
+   "en": "Mithmitree Clinic, Thai Prakan Market Branch",
+   "district": "บางเสาธง",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2706 4050"
+  },
+  {
+   "id": "mithmitree-bang-bo-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (บางบ่อ)",
+   "en": "Mithmitree Bang Bo Clinic",
+   "district": "บางบ่อ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2118 6083, 06 5510 9365"
+  },
+  {
+   "id": "mithmitree-bang-pu-clinic",
+   "th": "มิตรไมตรีคลินิกเวชกรรม (บางปู)",
+   "en": "Mithmitree Bang Pu Clinic",
+   "district": "สมุทรปราการ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2035 7060, 06 4184 7493"
+  },
+  {
+   "id": "samitivej-suwanaphumi-clinic",
+   "th": "สมิติเวชสุวรรณภูมิ คลินิกเวชกรรม",
+   "en": "Samitivej Medical Clinic Suvarnnabhumi Airport Branch",
+   "district": "บางพลี",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2134 2666"
+  },
+  {
+   "id": "muangsamut-healthcare-unit-bangpu",
+   "th": "เมืองสมุทรบางปูคลินิกเวชกรรม",
+   "en": "Muang Samut Bangpu Clinic",
+   "district": "เมืองสมุทรปราการ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2323 4081-3"
+  },
+  {
+   "id": "chularat-1",
+   "th": "โรงพยาบาลจุฬารัตน์ 1 สุวรรณภูมิ",
+   "en": "Chularat 1 Suvarnabhumi Hospital",
+   "district": "บางพลี",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2316 8345-8"
+  },
+  {
+   "id": "chularat-3-hospital-bankpla",
+   "th": "โรงพยาบาลจุฬารัตน์ 3 อินเตอร์",
+   "en": "Chularat 3 International Hospital",
+   "district": "บางพลี",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1609, 0 2033 2900"
+  },
+  {
+   "id": "chularat-5-healthcare-unit-bangplee",
+   "th": "โรงพยาบาลจุฬารัตน์ 5",
+   "en": "Chularat 5 Hospital",
+   "district": "บางเสาธง",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2705 1170-4"
+  },
+  {
+   "id": "chularat-9-hospital-kingkaew",
+   "th": "โรงพยาบาลจุฬารัตน์ 9 แอร์พอร์ต",
+   "en": "Chularat 9 Airport Hospital",
+   "district": "บางพลี",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "08 0074 8800, 0 2115 2111"
+  },
+  {
+   "id": "bangna-2-hospital",
+   "th": "โรงพยาบาลบางนา 2",
+   "en": "Bangna General Hospital 2",
+   "district": "บางเสาธง",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2740 1800-6"
+  },
+  {
+   "id": "bangna-5-hospital",
+   "th": "โรงพยาบาลบางนา 5",
+   "en": "Bangna General Hospital 5",
+   "district": "บางพลี",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2138 1155-64"
+  },
+  {
+   "id": "bangpakok-3-hospital",
+   "th": "โรงพยาบาลบางปะกอก 3",
+   "en": "Bangpakok 3 Hospital",
+   "district": "พระประแดง",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1745, 0 2109 3111"
+  },
+  {
+   "id": "bangpakok-samutprakarn-hospital",
+   "th": "โรงพยาบาลบางปะกอกสมุทรปราการ",
+   "en": "Bangpakok Samutprakan Hospital",
+   "district": "พระประแดง",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1745, 0 2109 3222"
+  },
+  {
+   "id": "princ-hospital-suvarnabhumi",
+   "th": "โรงพยาบาลพริ้นซ์สุวรรณภูมิ",
+   "en": "Princ Suvarnnabhumi  Hospital",
+   "district": "บางพลี",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2080 5999, 0 2316 0031"
+  },
+  {
+   "id": "ruamchai-pracharug-hospital",
+   "th": "โรงพยาบาลรวมชัยประชารักษ์",
+   "en": "Ruamchai Pracharug Hospital",
+   "district": "บางบ่อ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2708 7501-20"
+  },
+  {
+   "id": "vibharam-samutprakan-general-hospital",
+   "th": "โรงพยาบาลวิภาราม สมุทรปราการ",
+   "en": "Vibharam Chaiprakarn Hospital",
+   "district": "พระประแดง",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2363 9222"
+  },
+  {
+   "id": "sikarin-samutprakan",
+   "th": "โรงพยาบาลศิครินทร์ สมุทรปราการ",
+   "en": "Sikarin Hospital Samutprakarn",
+   "district": "เมืองสมุทรปราการ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 2323 2991-7"
+  },
+  {
+   "id": "samrong-general-hospital",
+   "th": "โรงพยาบาลสำโรงการแพทย์",
+   "en": "Samrong General Hospital",
+   "district": "เมืองสมุทรปราการ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2361 0070-9, 0 2361 1111"
+  },
+  {
+   "id": "synphaet-hospital-theparak",
+   "th": "โรงพยาบาลสินแพทย์ เทพารักษ์",
+   "en": "Synphaet Theparak Hospital",
+   "district": "เมืองสมุทรปราการ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2761 5999"
+  },
+  {
+   "id": "central-park-hospital",
+   "th": "โรงพยาบาลเซ็นทรัลปาร์ค",
+   "en": "Central Park Hospital",
+   "district": "บางพลี",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2312 7261"
+  },
+  {
+   "id": "paolo-phrapradaeng-hospital",
+   "th": "โรงพยาบาลเปาโล พระประแดง",
+   "en": "Paolo Phrapradaeng Hospital",
+   "district": "พระสมุทรเจดีย์",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2818 9000"
+  },
+  {
+   "id": "paolo-memorial-hospital-samutprakarn",
+   "th": "โรงพยาบาลเปาโล สมุทรปราการ",
+   "en": "Paolo Hospital  Samutprakarn",
+   "district": "เมืองสมุทรปราการ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2363 2000"
+  },
+  {
+   "id": "maungsamut-paknam-hospital",
+   "th": "โรงพยาบาลเมืองสมุทร ปากน้ำ",
+   "en": "Muangsamut Hospital Paknam",
+   "district": "เมืองสมุทรปราการ",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2173 7766"
+  },
+  {
+   "id": "muang-samut-poo-chao-hospital",
+   "th": "โรงพยาบาลเมืองสมุทรปู่เจ้า",
+   "en": "Muang Samut Poo Chao Hospital",
+   "district": "พระประแดง",
+   "province": "สมุทรปราการ",
+   "provinceEn": "Samut Prakan",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 2754 2800-9, 0 2754 2510-3"
+  },
+  {
+   "id": "mahachai-maeklong--hospital",
+   "th": "โรงพยาบาลมหาชัยแม่กลอง",
+   "en": "Mahachai Maeklong Hospital",
+   "district": "เมืองสมุทรสงคราม",
+   "province": "สมุทรสงคราม",
+   "provinceEn": "Samut Songkhram",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3471 5001-5"
+  },
+  {
+   "id": "somdej-phraphutthaloetla--hospital",
+   "th": "โรงพยาบาลสมเด็จพระพุทธเลิศหล้า",
+   "en": "Somdej Phraphutthaloetla Hospital",
+   "district": "เมืองสมุทรสงคราม",
+   "province": "สมุทรสงคราม",
+   "provinceEn": "Samut Songkhram",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3471 4314-9"
+  },
+  {
+   "id": "banphaeo-general-hospital",
+   "th": "โรงพยาบาลบ้านแพ้ว (องค์การมหาชน)",
+   "en": "Banphaeo Hospital",
+   "district": "บ้านแพ้ว",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3441 9555-6"
+  },
+  {
+   "id": "mahachai-1-hospital",
+   "th": "โรงพยาบาลมหาชัย 1",
+   "en": "Mahachai 1 Hospital",
+   "district": "เมืองสมุทรสาคร",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1776, 0 3442 4990-4"
+  },
+  {
+   "id": "mahachai-2-hospital",
+   "th": "โรงพยาบาลมหาชัย 2",
+   "en": "Mahachai 2 Hospital",
+   "district": "กระทุ่มแบน",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 2431 0054, 0 2117 4999"
+  },
+  {
+   "id": "mahachai-3-hospital",
+   "th": "โรงพยาบาลมหาชัย 3",
+   "en": "Mahachai 3 Hospital",
+   "district": "เมืองสมุทรสาคร",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3442 8493, 0 3442 8495, 06 3267 1309, 06 3267 2149"
+  },
+  {
+   "id": "vichaivej-international-omnoi-hospital",
+   "th": "โรงพยาบาลวิชัยเวช อินเตอร์เนชั่นแนล สมุทรสาคร",
+   "en": "Vichaivej International Hospital Samutsakhon",
+   "district": "เมืองสมุทรสาคร",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3441 0700-6"
+  },
+  {
+   "id": "vichaivej-international-omnoi",
+   "th": "โรงพยาบาลวิชัยเวช อินเตอร์เนชั่นแนล อ้อมน้อย",
+   "en": "Vichaivej International Hospital Omnoi",
+   "district": "กระทุ่มแบน",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1792, 0 2441 7899, 0 2431 0070"
+  },
+  {
+   "id": "vibharam-samutsakhon-hospital",
+   "th": "โรงพยาบาลวิภาราม สมุทรสาคร",
+   "en": "Vibharam Samutsakhon Hospital",
+   "district": "เมืองสมุทรสาคร",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3411 6999"
+  },
+  {
+   "id": "samut-sakhon-hospital",
+   "th": "โรงพยาบาลสมุทรสาคร",
+   "en": "Samut Sakhon Hospital",
+   "district": "เมืองสมุทรสาคร",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3442 9333, 0 3483 7521-4"
+  },
+  {
+   "id": "ekachai-hospital",
+   "th": "โรงพยาบาลเอกชัย",
+   "en": "Ekachai Hospital",
+   "district": "เมืองสมุทรสาคร",
+   "province": "สมุทรสาคร",
+   "provinceEn": "Samut Sakhon",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1715, 0 3441 7999"
+  },
+  {
+   "id": "bangkok-muaklek-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพมวกเหล็ก",
+   "en": "Bangkok Muaklek Clinic",
+   "district": "มวกเหล็ก",
+   "province": "สระบุรี",
+   "provinceEn": "Saraburi",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3634 5768"
+  },
+  {
+   "id": "pabhavej-hospital",
+   "th": "โรงพยาบาลปภาเวช",
+   "en": "Pabhavej Hospital",
+   "district": "หนองแค",
+   "province": "สระบุรี",
+   "provinceEn": "Saraburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3632 6122-5"
+  },
+  {
+   "id": "praputthabath-hospital",
+   "th": "โรงพยาบาลพระพุทธบาท",
+   "en": "Praputthabath Hospital",
+   "district": "พระพุทธบาท",
+   "province": "สระบุรี",
+   "provinceEn": "Saraburi",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3626 8215-8, 0 3626 6166, 0 3626 6111"
+  },
+  {
+   "id": "mitrapab-memorial-saraburi-hospital",
+   "th": "โรงพยาบาลมิตรภาพเมโมเรียล",
+   "en": "Mittraphap Memorial Hospital",
+   "district": "เมืองสระบุรี",
+   "province": "สระบุรี",
+   "provinceEn": "Saraburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3621 8900 -1"
+  },
+  {
+   "id": "rajthanee-nongkhae",
+   "th": "โรงพยาบาลราชธานี หนองแค",
+   "en": "Rajthanee Nongkhae Hospital",
+   "district": "",
+   "province": "สระบุรี",
+   "provinceEn": "Saraburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3629 8888"
+  },
+  {
+   "id": "kasemrad-hospital-saraburi",
+   "th": "โรงพยาบาลเกษมราษฎร์สระบุรี",
+   "en": "Kasemrad Hospital Saraburi",
+   "district": "เมืองสระบุรี",
+   "province": "สระบุรี",
+   "provinceEn": "Saraburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3631 5555-59"
+  },
+  {
+   "id": "kasemrad-aranyaprathet",
+   "th": "โรงพยาบาลเกษมราษฎร์อินเตอร์เนชั่นแนล อรัญประเทศ",
+   "en": "Kasemrad International Hospital Aranyaprathet",
+   "district": "อรัญประเทศ",
+   "province": "สระแก้ว",
+   "provinceEn": "Sa Kaeo",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3764 0000 - 99"
+  },
+  {
+   "id": "singburi-veschakarn-hospital",
+   "th": "โรงพยาบาลสิงห์บุรีเวชชการ (หมอประเจิด)",
+   "en": "Singburi Veschakarn Hospital",
+   "district": "เมืองสิงห์บุรี",
+   "province": "สิงห์บุรี",
+   "provinceEn": "Sing Buri",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3652 2555"
+  },
+  {
+   "id": "dr.samreong-hospital",
+   "th": "สำเริงการแพทย์สหคลินิก",
+   "en": "Dr.samreong Hospital",
+   "district": "บางนางบวช",
+   "province": "สุพรรณบุรี",
+   "provinceEn": "Suphan Buri",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3550 8291"
+  },
+  {
+   "id": "thonburi-uthong-hospital",
+   "th": "โรงพยาบาลธนบุรีอู่ทอง",
+   "en": "Thonburi-Uthong Hospital",
+   "district": "อู่ทอง",
+   "province": "สุพรรณบุรี",
+   "provinceEn": "Suphan Buri",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3555 1673-7"
+  },
+  {
+   "id": "ponchai-hospital",
+   "th": "โรงพยาบาลพรชัย",
+   "en": "Ponchai Hospital",
+   "district": "เมืองสุพรรณบุรี",
+   "province": "สุพรรณบุรี",
+   "provinceEn": "Suphan Buri",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3551 4444"
+  },
+  {
+   "id": "vibhavadi-piyarasd-hospital",
+   "th": "โรงพยาบาลวิภาวดี-ปิยราษฎร์",
+   "en": "Vibhavadi Piyarasd Hospital",
+   "district": "อู่ทอง",
+   "province": "สุพรรณบุรี",
+   "provinceEn": "Suphan Buri",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3555 2724-6"
+  },
+  {
+   "id": "supamitr-general-hospital",
+   "th": "โรงพยาบาลศุภมิตร สุพรรณบุรี",
+   "en": "Supamitr General Hospital Suphanburi",
+   "district": "เมืองสุพรรณบุรี",
+   "province": "สุพรรณบุรี",
+   "provinceEn": "Suphan Buri",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3552 3777"
+  },
+  {
+   "id": "chaophrayayommarat-hospital",
+   "th": "โรงพยาบาลเจ้าพระยายมราช",
+   "en": "Chaophrayayommarat Hospital",
+   "district": "เมืองสุพรรณบุรี",
+   "province": "สุพรรณบุรี",
+   "provinceEn": "Suphan Buri",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 3551 4999"
+  },
+  {
+   "id": "bangkok-hospital-samui",
+   "th": "โรงพยาบาลกรุงเทพสมุย",
+   "en": "Bangkok Hospital Samui",
+   "district": "เกาะสมุย",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7742 9500"
+  },
+  {
+   "id": "bangkok-hospital-surat",
+   "th": "โรงพยาบาลกรุงเทพสุราษฎร์",
+   "en": "Bangkok Hospital Surat",
+   "district": "เมืองสุราษฎร์ธานี",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7795 6789"
+  },
+  {
+   "id": "surat-eye-hospital",
+   "th": "โรงพยาบาลจักษุสุราษฎร์",
+   "en": "Surat Eye Hospital",
+   "district": "เมืองสุราษฎร์",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7727 6999"
+  },
+  {
+   "id": "thaksin-hospital",
+   "th": "โรงพยาบาลทักษิณ",
+   "en": "Thaksin Hospital",
+   "district": "เมืองสุราษฎร์ธานี",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7727 8777, 0 7728 5701-5, 0 7721 2490-7"
+  },
+  {
+   "id": "phangan-international-hospital",
+   "th": "โรงพยาบาลพะงันอินเตอร์เนชั่นแนล",
+   "en": "Phangan International Hospital",
+   "district": "เกาะพะงัน",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7742 9559"
+  },
+  {
+   "id": "wattanapat-samui-hospital",
+   "th": "โรงพยาบาลวัฒนแพทย์ สมุย",
+   "en": "Wattanapat Samui Hospital",
+   "district": "เกาะสมุย",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7796 5889"
+  },
+  {
+   "id": "srivichai-suratthani",
+   "th": "โรงพยาบาลศรีวิชัย สุราษฎร์ธานี",
+   "en": "Srivichai Suratthani Hospital",
+   "district": "เมืองสุราษฎร์ธานี",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7728 2520"
+  },
+  {
+   "id": "samui-international-hospital",
+   "th": "โรงพยาบาลสมุยอินเตอร์เนชั่นแนล",
+   "en": "Samui International Hospital",
+   "district": "เกาะสมุย",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 7730 0394-5, 09 8013 5479"
+  },
+  {
+   "id": "suratthani-hospital",
+   "th": "โรงพยาบาลสุราษฎร์ธานี",
+   "en": "Suratthani Hospital",
+   "district": "เมืองสุราษฎร์ธานี",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7795 2900, 0 7795 2944"
+  },
+  {
+   "id": "koh-phangan-hospital",
+   "th": "โรงพยาบาลเกาะพะงัน",
+   "en": "Koh Phangan Hospital",
+   "district": "เกาะพะงัน",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7737 7034, 0 7737 7654"
+  },
+  {
+   "id": "samui-hospital",
+   "th": "โรงพยาบาลเกาะสมุย",
+   "en": "Samui Hospital",
+   "district": "เกาะสมุย",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7742 1103"
+  },
+  {
+   "id": "kohtao-hospital",
+   "th": "โรงพยาบาลเกาะเต่า",
+   "en": "Kohtao Hospital",
+   "district": "เกาะพะงัน",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7745 6490"
+  },
+  {
+   "id": "viengvech-hospital",
+   "th": "โรงพยาบาลเวียงเวช",
+   "en": "Viengvech Hospital",
+   "district": "เวียงสระ",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7736 1483"
+  },
+  {
+   "id": "chaiya-hospital",
+   "th": "โรงพยาบาลไชยา",
+   "en": "Chaiya Hospital",
+   "district": "ไชยา",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 7743 1467"
+  },
+  {
+   "id": "thai-international-hospital-koh-samui",
+   "th": "โรงพยาบาลไทยอินเตอร์เนชั่นแนล",
+   "en": "Thai International Hospital Koh Samui",
+   "district": "เกาะสมุย",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7733 2654, 0 7724 5721-6"
+  },
+  {
+   "id": "thai-international-koh-phangan-hospital",
+   "th": "โรงพยาบาลไทยอินเตอร์เนชั่นแนล พะงัน",
+   "en": "Thai International Koh Phangan Hospital",
+   "district": "เกาะพะงัน",
+   "province": "สุราษฎร์ธานี",
+   "provinceEn": "Surat Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 7737 7474-2"
+  },
+  {
+   "id": "surin-bkk-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพราชสีมา สาขาสุรินทร์",
+   "en": "Surin BKK Clinic",
+   "district": "เมืองสุรินทร์",
+   "province": "สุรินทร์",
+   "provinceEn": "Surin",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4406 1232"
+  },
+  {
+   "id": "ruampaet-dr.anan-hospital",
+   "th": "โรงพยาบาลรวมแพทย์หมออนันต์",
+   "en": "Ruampaet (Dr.Anan) Hospital",
+   "district": "เมืองสุรินทร์",
+   "province": "สุรินทร์",
+   "provinceEn": "Surin",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4451 5700-1"
+  },
+  {
+   "id": "surin-ruampaht-hospital",
+   "th": "โรงพยาบาลสุรินทร์รวมแพทย์",
+   "en": "Surin Ruampaht Hospital",
+   "district": "เมืองสุรินทร์",
+   "province": "สุรินทร์",
+   "provinceEn": "Surin",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4451 1523, 0 4451 1796"
+  },
+  {
+   "id": "pattanavej-sukhothai-hospital",
+   "th": "โรงพยาบาลพัฒนเวช สุโขทัย",
+   "en": "Sukhothai Pattanavej Hospital",
+   "district": "เมืองสุโขทัย",
+   "province": "สุโขทัย",
+   "provinceEn": "Sukhothai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5562 1502-7"
+  },
+  {
+   "id": "ruamphat-sukhothai-hospital",
+   "th": "โรงพยาบาลรวมแพทย์สุโขทัย",
+   "en": "Ruamphat Hospital Sukhothai",
+   "district": "เมืองสุโขทัย",
+   "province": "สุโขทัย",
+   "provinceEn": "Sukhothai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5561 2189, 08 9640 6767"
+  },
+  {
+   "id": "nongkhai-clinic",
+   "th": "คลินิกเวชกรรมรวมแพทย์หนองคาย",
+   "en": "Ruamphat Hospital Nongkhai",
+   "district": "เมืองหนองคาย",
+   "province": "หนองคาย",
+   "provinceEn": "Nong Khai",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4242 1414, 0 4242 1412"
+  },
+  {
+   "id": "thabo-crown-prince-hospital",
+   "th": "โรงพยาบาลสมเด็จพระยุพราชท่าบ่อ",
+   "en": "Thabo Crown Prince Hospital",
+   "district": "ท่าบ่อ",
+   "province": "หนองคาย",
+   "provinceEn": "Nong Khai",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4243 1015, 0 4243 1019"
+  },
+  {
+   "id": "nongkhai-hospital",
+   "th": "โรงพยาบาลหนองคาย",
+   "en": "Nongkhai Hospital",
+   "district": "เมืองหนองคาย",
+   "province": "หนองคาย",
+   "provinceEn": "Nong Khai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4241 3456-65, 0 4241 4719, 0 4241 4794-6, 0 4241 4894, 0 4242 0414, 0 4252 1533-4, 0 4241 3461"
+  },
+  {
+   "id": "nongkhai-wattana-hospital",
+   "th": "โรงพยาบาลหนองคาย-วัฒนา",
+   "en": "Nongkhai-Wattana General Hospital",
+   "district": "เมืองหนองคาย",
+   "province": "หนองคาย",
+   "provinceEn": "Nong Khai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4242 1999, 0 4242 1650"
+  },
+  {
+   "id": "veerapolkanpat-hospital",
+   "th": "โรงพยาบาลวีระพลการแพทย์",
+   "en": "Veerapolkanpat Hospital",
+   "district": "เมืองหนองบัวลำภู",
+   "province": "หนองบัวลำภู",
+   "provinceEn": "Nong Bua Lam Phu",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4231 2344-6"
+  },
+  {
+   "id": "bangkok-hospital-udon",
+   "th": "โรงพยาบาลกรุงเทพอุดร",
+   "en": "Bangkok Hospital Udon",
+   "district": "เมืองอุดรธานี",
+   "province": "อุดรธานี",
+   "provinceEn": "Udon Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "1719, 0 4218 8999, 0 4234 3111"
+  },
+  {
+   "id": "north-eastern-wattana-general-hospital",
+   "th": "โรงพยาบาลนอร์ทอิสเทอร์น วัฒนา",
+   "en": "North-Eastern Wattana",
+   "district": "เมืองอุดรธานี",
+   "province": "อุดรธานี",
+   "provinceEn": "Udon Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4224 1031-3, 04221 9888, 08 6455 3923"
+  },
+  {
+   "id": "udonthani-hospital",
+   "th": "โรงพยาบาลอุดรธานี",
+   "en": "Udonthani Hospital",
+   "district": "เมืองอุดรธานี",
+   "province": "อุดรธานี",
+   "provinceEn": "Udon Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4234 3364-7, 0 4221 5100"
+  },
+  {
+   "id": "aek-udon-international-hospital",
+   "th": "โรงพยาบาลเอกอุดร",
+   "en": "Aek Udon International Hospital",
+   "district": "เมืองอุดรธานี",
+   "province": "อุดรธานี",
+   "provinceEn": "Udon Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4234 2555, 0 4232 3232, 08 1471 1111"
+  },
+  {
+   "id": "pitsanuvej-uttaradit-hospital",
+   "th": "โรงพยาบาลพิษณุเวช อุตรดิตถ์",
+   "en": "Pitsanuvej Uttaradit Hospital",
+   "district": "เมืองอุตรดิตถ์",
+   "province": "อุตรดิตถ์",
+   "provinceEn": "Uttaradit",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5540 9000"
+  },
+  {
+   "id": "princ-uthaithani-hospital",
+   "th": "โรงพยาบาลพริ้นซ์ อุทัยธานี",
+   "en": "Princ Uthaithani Hospital",
+   "district": "เมืองอุทัยธานี",
+   "province": "อุทัยธานี",
+   "provinceEn": "Uthai Thani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "1208, 0 5540 9000, 0 5604 9899"
+  },
+  {
+   "id": "sunpasitinter-hospital",
+   "th": "โรงพยาบาลพริ้นซ์ อุบลราชธานี (สรรพสิทธิ์อินเตอร์)",
+   "en": "Sunpasitinter Hospital",
+   "district": "เมืองอุบลราชธานี",
+   "province": "อุบลราชธานี",
+   "provinceEn": "Ubon Ratchathani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4524 4999, 0 4525 0271-2 ,08 1999 3323"
+  },
+  {
+   "id": "rajavej-ubonratchathani-hospital",
+   "th": "โรงพยาบาลราชเวช อุบลราชธานี",
+   "en": "Rajavej Ubonratchathani Hospital",
+   "district": "เมืองอุบลราชธานี",
+   "province": "อุบลราชธานี",
+   "provinceEn": "Ubon Ratchathani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4528 0040-55"
+  },
+  {
+   "id": "sunpasitthiprasong-hospital",
+   "th": "โรงพยาบาลสรรพสิทธิประสงค์",
+   "en": "Sunpasitthiprasong Hospital",
+   "district": "เมืองอุบลราชธานี",
+   "province": "อุบลราชธานี",
+   "provinceEn": "Ubon Ratchathani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4531 9200, 0 4531 9295, 0 4524 2845"
+  },
+  {
+   "id": "ubonrak-thonburi-hospital",
+   "th": "โรงพยาบาลอุบลรักษ์ ธนบุรี",
+   "en": "Ubonrak Thonburi Hospital",
+   "district": "เมืองอุบลราชธานี",
+   "province": "อุบลราชธานี",
+   "provinceEn": "Ubon Ratchathani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4542 9100"
+  },
+  {
+   "id": "chiwamitra-hospital",
+   "th": "โรงพยาบาลเฉพาะทางมะเร็งชีวามิตราขนาดเล็ก",
+   "en": "Chiwamitra Hospital",
+   "district": "เมืองอุบลราชธานี",
+   "province": "อุบลราชธานี",
+   "provinceEn": "Ubon Ratchathani",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 4595 8888"
+  },
+  {
+   "id": "angthongvechakarn2-hospital",
+   "th": "โรงพยาบาลอ่างทองเวชชการ 2",
+   "en": "Angthongvechakarn2 Hospital",
+   "district": "เมืองอ่างทอง",
+   "province": "อ่างทอง",
+   "provinceEn": "Ang Thong",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3561 2361-4"
+  },
+  {
+   "id": "kasemrad-sriburin-clinic",
+   "th": "คลินิกเกษมราษฎร์ ศรีบุรินทร์ สาขาเชียงแสน",
+   "en": "Kasemerad Sriburin Clinic, Chiangsaen Branch",
+   "district": "เชียงแสน",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5365 0131-3, 0 5377 7213"
+  },
+  {
+   "id": "bangkok-chiangrai-maesai-clinic",
+   "th": "คลินิกเวชกรรมกรุงเทพเชียงราย แม่สาย",
+   "en": "Bangkok Chiangrai Maesai Clinic",
+   "district": "เชียงราย",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5205 1999"
+  },
+  {
+   "id": "mae-fah-luang-university-hospital",
+   "th": "ศูนย์การแพทย์ มหาวิทยาลัยแม่ฟ้าหลวง",
+   "en": "Mae Fah Luang University Medical Center",
+   "district": "เมืองเชียงราย",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5391 4000"
+  },
+  {
+   "id": "bangkok-chiangrai-hospital",
+   "th": "โรงพยาบาลกรุงเทพเชียงราย",
+   "en": "Bangkok Hospital Chiang Rai",
+   "district": "เมืองเชียงราย",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5205 1800"
+  },
+  {
+   "id": "kasemrad-maesai-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์ แม่สาย",
+   "en": "Kasemrad Hospital Mae-Sai",
+   "district": "แม่สาย",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5373 1391"
+  },
+  {
+   "id": "kasemrad-sriburin-hospital",
+   "th": "โรงพยาบาลเกษมราษฎร์ศรีบุรินทร์",
+   "en": "Kasemrad Hospital Sriburin",
+   "district": "เมืองเชียงราย",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5391 0999"
+  },
+  {
+   "id": "chiangrai-prachcnukroh-hospital",
+   "th": "โรงพยาบาลเชียงรายประชานุเคราะห์",
+   "en": "Chiangrai Prachcnukroh Hospital",
+   "district": "เมืองเชียงราย",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5371 1300, 0 5371 1009"
+  },
+  {
+   "id": "chaingrai-inter-hospital",
+   "th": "โรงพยาบาลเชียงรายราม",
+   "en": "Chaingrai Inter Hospital",
+   "district": "เมืองเชียงราย",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5371 9719"
+  },
+  {
+   "id": "overbook-hospital",
+   "th": "โรงพยาบาลโอเวอร์บรุ๊ค",
+   "en": "Overbook Hospital",
+   "district": "เมืองเชียงราย",
+   "province": "เชียงราย",
+   "provinceEn": "Chiang Rai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5371 1366, 0 5391 0100"
+  },
+  {
+   "id": "sriphat-medical-center",
+   "th": "ศูนย์ศรีพัฒน์",
+   "en": "Sriphat Medical Center",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5393 6900"
+  },
+  {
+   "id": "doctor-toh-clinic",
+   "th": "หมอโตคลินิกเวชกรรม",
+   "en": "Doctor Toh Clinic",
+   "district": "ฝาง",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "clinic",
+   "care": [
+    "health-check"
+   ],
+   "personalHealth": false,
+   "phone": "0 5345 1624, 053 382 222"
+  },
+  {
+   "id": "bangkokchiangmai-hospital",
+   "th": "โรงพยาบาลกรุงเทพเชียงใหม่",
+   "en": "Bangkokchiangmai Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5208 9888"
+  },
+  {
+   "id": "nakornping-hospital",
+   "th": "โรงพยาบาลนครพิงค์",
+   "en": "Nakornping Hospital",
+   "district": "แม่ริม",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "ipd",
+    "opd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 5399 9200 ต่อ 1107, 0 5399 9230"
+  },
+  {
+   "id": "med-cmu-hospital",
+   "th": "โรงพยาบาลมหาราชนครเชียงใหม่",
+   "en": "Med Cmu Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "ipd"
+   ],
+   "personalHealth": true,
+   "phone": "0 5393 6150"
+  },
+  {
+   "id": "rajavejchiangmai-hospital",
+   "th": "โรงพยาบาลราชเวช เชียงใหม่",
+   "en": "Rajavejchiangmai Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5201 1999"
+  },
+  {
+   "id": "lanna-hospital",
+   "th": "โรงพยาบาลลานนา",
+   "en": "Lanna Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5213 4777"
+  },
+  {
+   "id": "lanna3-hospital",
+   "th": "โรงพยาบาลลานนา 3",
+   "en": "Lanna3 Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 5201 5999"
+  },
+  {
+   "id": "chiangmairam-hospital",
+   "th": "โรงพยาบาลเชียงใหม่ ราม",
+   "en": "Chiangmairam Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5392 0300"
+  },
+  {
+   "id": "chiangmai-medical-center-hospital",
+   "th": "โรงพยาบาลเชียงใหม่เมดิคอลเซ็นเตอร์",
+   "en": "Chiangmai Medical Center Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "0 5327 0145-50"
+  },
+  {
+   "id": "chiangmai-klaimor-hostpital",
+   "th": "โรงพยาบาลเชียงใหม่ใกล้หมอ",
+   "en": "Chiangmai Klaimor Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5320 0002 ต่อ 1522, 0 5327 2788"
+  },
+  {
+   "id": "central-chiangmai-memorial-hospital",
+   "th": "โรงพยาบาลเซ็นทรัลเชียงใหม่เมโมเรียล",
+   "en": "Central Chiangmai Memorial Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5381 9333-40"
+  },
+  {
+   "id": "theppanya-hospital",
+   "th": "โรงพยาบาลเทพปัญญา",
+   "en": "Theppanya Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5208 8999"
+  },
+  {
+   "id": "mccormick-hospital",
+   "th": "โรงพยาบาลแมคคอร์มิค",
+   "en": "McCormick Hospital",
+   "district": "เมืองเชียงใหม่",
+   "province": "เชียงใหม่",
+   "provinceEn": "Chiang Mai",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5392 1777"
+  },
+  {
+   "id": "bangkokphetchaburi-hospital",
+   "th": "โรงพยาบาลกรุงเทพเพชรบุรี",
+   "en": "Bangkokphetchaburi Hospital",
+   "district": "เมืองเพชรบุรี",
+   "province": "เพชรบุรี",
+   "provinceEn": "Phetchaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3289 7888"
+  },
+  {
+   "id": "mahachaipetcharat-hospital",
+   "th": "โรงพยาบาลมหาชัยเพชรรัชต์",
+   "en": "Mahachaipetcharat Hospital",
+   "district": "เมืองเพชรบุรี",
+   "province": "เพชรบุรี",
+   "provinceEn": "Phetchaburi",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 3241 7070-9"
+  },
+  {
+   "id": "nakhonlom-hospital",
+   "th": "โรงพยาบาลนครหล่ม",
+   "en": "Nakhonlom Hospital",
+   "district": "หล่มสัก",
+   "province": "เพชรบูรณ์",
+   "provinceEn": "Phetchabun",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5670 2015-7"
+  },
+  {
+   "id": "phetcharat-hospial",
+   "th": "โรงพยาบาลเพชรรัตน์",
+   "en": "Phetcharat Hospial",
+   "district": "เมืองเพชรบูรณ์",
+   "province": "เพชรบูรณ์",
+   "provinceEn": "Phetchabun",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "dental",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5672 0680-4"
+  },
+  {
+   "id": "loeiram-hospital",
+   "th": "โรงพยาบาลเมืองเลยราม",
+   "en": "Loeiram Hospital",
+   "district": "เมืองเลย",
+   "province": "เลย",
+   "provinceEn": "Loei",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 4287 0000"
+  },
+  {
+   "id": "phraechristian-hospital",
+   "th": "โรงพยาบาลแพร่คริสเตียน",
+   "en": "Phraechristian Hospital",
+   "district": "เมืองแพร่",
+   "province": "แพร่",
+   "provinceEn": "Phrae",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5451 1017, 0 5451 1494, 0 5462 5300"
+  },
+  {
+   "id": "phrae-ram-hospital",
+   "th": "โรงพยาบาลแพร่ราม",
+   "en": "Phrae Ram Hospital",
+   "district": "เมืองแพร่",
+   "province": "แพร่",
+   "provinceEn": "Phrae",
+   "type": "hospital",
+   "care": [
+    "opd",
+    "ipd",
+    "health-check"
+   ],
+   "personalHealth": true,
+   "phone": "0 5452 2911-13"
+  },
+  {
+   "id": "ruammhor-clinic",
+   "th": "ม.รวมหมอคลินิกเวชกรรม",
+   "en": "m.Ruammhor Clinic",
+   "district": "เมืองแม่ฮ่องสอน",
+   "province": "แม่ฮ่องสอน",
+   "provinceEn": "Mae Hong Son",
+   "type": "clinic",
+   "care": [
+    "opd"
+   ],
+   "personalHealth": true,
+   "phone": "08 5532 5152"
+  },
+  {
+   "id": "ruamdental-clinic",
+   "th": "ม.รวมหมอฟันคลินิกทันตกรรม",
+   "en": "Ruamdental Clinic",
+   "district": "เมืองแม่ฮ่องสอน",
+   "province": "แม่ฮ่องสอน",
+   "provinceEn": "Mae Hong Son",
+   "type": "clinic",
+   "care": [
+    "dental"
+   ],
+   "personalHealth": true,
+   "phone": "08 0889 6709"
+  }
+ ]
+}
