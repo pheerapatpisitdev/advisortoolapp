@@ -42,7 +42,8 @@ export { keepOf };
 
 /**
  * What a render costs, in baht, by the engine that takes it: Rendi bills $0.10 a GB through it
- * (the clip in, about 25MB out); our Lambda about $0.002 a run.
+ * (the clip in, about 25MB out); our Lambda about $0.002 a run. A preview is estimated the same
+ * way (the whole clip goes through Rendi there too).
  */
 export const renderCostThb = (sizeBytes: number): Record<EngineName, number> => ({
   rendi: ((sizeBytes + 25e6) / 1e9) * 0.10 * THB_PER_USD,
@@ -128,7 +129,8 @@ export async function startRender(item: ContentItem, pass: EditPass, claim?: str
     });
 
     const job = renderJob(await clipReadUrl(v.path, LINK_SECONDS), keep, overlays);
-    await submitJob(item.id, "render", job, await avoidAfterFailure(edit), { rev: edit.rev, pass, costThb: renderCostThb(v.sizeBytes), claim });
+    // the pictures go on the job, which lets them go when it ends, whichever way
+    await submitJob(item.id, "render", job, await avoidAfterFailure(edit), { rev: edit.rev, pass, costThb: renderCostThb(v.sizeBytes), claim, pictures: uploaded });
   } catch (e) {
     console.error(`render of ${item.id} not started:`, e instanceof Error ? e.message.replace(/https?:\/\/\S+/g, "<url>") : e);
     // the round handed back; whatever happens to that, the claim and the pictures are let go

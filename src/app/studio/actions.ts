@@ -164,7 +164,8 @@ async function saveAll(rows: Omit<Parameters<typeof saveContent>[0], "pageId">[]
 
 /** A round's answer: whole, or what part of it was kept and why the rest was not. */
 function roundResult(r: { items: ContentItem[]; failed: boolean }, planned: number, budgetHit: number): GenerateResult {
-  const { items } = r;
+  // what goes back to the browser, as every other answer carrying a piece (forClient)
+  const items = r.items.map(forClient);
   const costThb = items.reduce((s, i) => s + i.costThb, 0);
   if (r.failed) {
     return items.length

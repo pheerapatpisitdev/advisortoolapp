@@ -2,6 +2,7 @@ import { pageToken } from "@/lib/facebook/connection";
 import { reelState } from "@/lib/facebook/publish";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CLIP_BUCKET, CLIP_DRAFT_DAYS, clipFiles, type ClipVideo } from "./clip";
+import { listFolder } from "./clip-store";
 import { REEL_FAILED, VERIFY_WINDOW_MS } from "./publish-flow";
 
 /**
@@ -55,16 +56,19 @@ export function sweepPlan(files: SweepFile[], rows: Map<string, SweepRow>, now: 
 export async function sweepClips(now = new Date()): Promise<{ removed: number; expired: number }> {
   const db = supabaseAdmin();
   const bucket = db.storage.from(CLIP_BUCKET);
-  const { data: dirs, error } = await bucket.list("", { limit: 1000 });
-  if (error) throw new Error(error.message);
+  const dirs = await listFolder("", 1000);
   // only a piece's folder is ours to look at; anything else in the bucket is left alone
-  const pieces = (dirs ?? []).map((d) => d.name).filter((n) => UUID.test(n));
+  const pieces = dirs.map((d) => d.name).filter((n) => UUID.test(n));
   if (pieces.length === 0) return { removed: 0, expired: 0 };
 
   const files: SweepFile[] = [];
   for (const piece of pieces) {
-    const { data } = await bucket.list(piece, { limit: 100 });
-    for (const f of data ?? []) files.push({ piece, name: f.name, createdAt: f.created_at ?? now.toISOString() });
+    // every page of it: a folder past one page kept its later files for good (final review, 2026-10-02)
+    const listed = await listFolder(piece).catch((e) => {
+      console.error(`clips of ${piece} not listed:`, e instanceof Error ? e.message : e);
+      return [];
+    });
+    for (const f of listed) files.push({ piece, name: f.name, createdAt: f.created_at ?? now.toISOString() });
   }
   // a short read would take live pieces for gone ones: any chunk failing stops the run before a write
   const rows = new Map<string, SweepRow>();

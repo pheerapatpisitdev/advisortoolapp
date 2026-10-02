@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { BudgetExceeded, chat, providerKey } from "@/lib/ai/client";
 import { uploadToGemini } from "@/lib/ai/gemini-files";
 import type { ClipResult } from "@/app/studio/clip";
-import type { ClipVideo } from "./clip";
+import { initialEdit } from "@/lib/video/jobs";
+import { editBusy, type ClipEdit, type ClipVideo } from "./clip";
 import { clipReadUrl } from "./clip-store";
 import { captionFlags, clipMessages, clipYardstick, CLIP_MODEL, GEMINI_LINK_MAX_BYTES, parseClipReply, spokenFlagsOf } from "./clip-transcribe";
 import { modeChecks } from "./mode-checks";
@@ -18,6 +20,21 @@ import { getContent, listWords, saveOutputIf, type ContentItem } from "./store";
 const LISTEN_TIMEOUT_MS = 110_000;
 const UNREAD = "ถอดเสียงไม่สำเร็จ — กด “ถอดเสียงอีกครั้ง” หรือเขียนแคปชันเองได้เลย";
 const SENT_MEANWHILE = "Reel นี้ส่งไปเพจแล้วระหว่างถอดเสียง — ไม่ได้เปลี่ยนแคปชัน";
+export const EDIT_BUSY = "คลิปนี้กำลังตัดต่ออยู่ — รอให้เสร็จก่อนถอดเสียงใหม่";
+
+
+/**
+ * The clip's edit made again for a new transcript (final review, 2026-10-02): its cut marks,
+ * subtitles and hook were about the old sentences, so they are laid out afresh from the new ones
+ * (initialEdit) over the same preview and silences — the video is the same. A new rev, so a take
+ * made before says it is not the edit now. An edit not prepared yet starts empty, and the
+ * prepare builds it when it lands.
+ */
+function editFor(v: ClipVideo, edit: ClipEdit): ClipEdit {
+  if (!edit.silences) return { ...edit, cut: [], subs: [], rev: randomUUID() };
+  const fresh = initialEdit(v, edit.silences);
+  return { ...edit, cut: fresh.cut, subs: fresh.subs, hook: fresh.hook, rev: fresh.rev };
+}
 
 async function videoUri(v: ClipVideo): Promise<string> {
   const link = await clipReadUrl(v.path, 60 * 60);
@@ -33,15 +50,18 @@ async function videoUri(v: ClipVideo): Promise<string> {
  * writes what the listening found onto the piece's clip, on the newest copy of the piece.
  * "sent" when the Reel went to the Page while the listen ran: send() does not bump rev, so
  * the row is read again here and left alone once it is scheduled, posting or posted.
+ * "busy" when `change` answers null: the clip's edit is being rendered or prepared.
  */
-async function keep(id: string, path: string, change: (v: ClipVideo) => ClipVideo): Promise<ContentItem | null | "sent"> {
+async function keep(id: string, path: string, change: (v: ClipVideo) => ClipVideo | null): Promise<ContentItem | null | "sent" | "busy"> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const now = await getContent(id);
     const v = now?.output.video;
     // the clip was swapped for another meanwhile: this one's findings are not that one's
     if (!now || !v || v.path !== path) return null;
     if (onPage(now.publish)) return "sent";
-    const saved = await saveOutputIf(id, { ...now.output, video: change(v) }, undefined, now.output.rev ?? null);
+    const next = change(v);
+    if (!next) return "busy";
+    const saved = await saveOutputIf(id, { ...now.output, video: next }, undefined, now.output.rev ?? null);
     if (saved) return saved;
   }
   return null;
@@ -73,6 +93,8 @@ export async function runTranscribe(item: ContentItem): Promise<ClipResult> {
     const yardstick = clipYardstick(item);
     const checks = modeChecks(item.planHref, v.brief);
     const saved = await keep(item.id, v.path, (now) => {
+      // a job is reading the old sentences (a render's cut and subtitles): not rewritten under it
+      if (editBusy(now.edit)) return null;
       const caption = now.caption.trim() ? now.caption : heard.caption;
       const next: ClipVideo = {
         ...now, transcript: heard.segments, caption,
@@ -82,9 +104,11 @@ export async function runTranscribe(item: ContentItem): Promise<ClipResult> {
       delete next.transcribeFailed;
       if (heard.hook) next.hookSuggestion = heard.hook;
       else delete next.hookSuggestion;
+      if (now.edit) next.edit = editFor(next, now.edit);
       return next;
     });
     if (saved === "sent") return { ok: false, error: SENT_MEANWHILE };
+    if (saved === "busy") return { ok: false, error: EDIT_BUSY };
     if (!saved) return { ok: false, error: "คลิปถูกเปลี่ยนระหว่างถอดเสียง — ลองถอดเสียงอีกครั้ง" };
     return { ok: true, item: saved };
   } catch (e) {

@@ -55,6 +55,17 @@ describe("clip-store", () => {
     expect(bucket.remove).not.toHaveBeenCalled();
   });
 
+  it("removes every clip under a piece, past the first page of the listing (final review, 2026-10-02)", async () => {
+    const names = Array.from({ length: 150 }, (_, i) => ({ name: `${i}.png` }));
+    bucket.list.mockImplementation(async (_dir: string, o: { limit: number; offset: number }) => ({ data: names.slice(o.offset, o.offset + o.limit), error: null }));
+    bucket.remove.mockResolvedValue({ error: null });
+    await removeClipsOf(PIECE);
+    const gone = bucket.remove.mock.calls.flatMap((c) => c[0] as string[]);
+    expect(gone).toHaveLength(150);
+    expect(new Set(gone)).toEqual(new Set(names.map((n) => `${PIECE}/${n.name}`)));
+    bucket.list.mockReset();
+  });
+
   it("removing a piece's clips never blocks its delete: a refused list, remove or a throw is logged", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     bucket.list.mockResolvedValue({ data: [{ name: "a.mp4" }], error: null });

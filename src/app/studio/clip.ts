@@ -1,6 +1,9 @@
 "use server";
 
-import { clipOutput, clipPath, clipProblem, CLIP_HREF, forClient, isClipPath, MAX_CAPTION, MAX_CLIP_BRIEF, NO_FLAGS, type ClipFile, type ClipVideo } from "@/lib/content/clip";
+import {
+  clipFiles, clipOutput, clipPath, clipProblem, CLIP_HREF, EDIT_JOB_TIMEOUT_MS, editBusy, forClient, isClipPath, MAX_CAPTION, MAX_CLIP_BRIEF, NO_FLAGS,
+  type ClipFile, type ClipVideo,
+} from "@/lib/content/clip";
 import { clipSize, createClipUpload, removeClip } from "@/lib/content/clip-store";
 import { onPage } from "@/lib/content/publish-label";
 import { getContent, listWords, saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
@@ -9,10 +12,11 @@ import { requireMember } from "@/lib/auth/viewer";
 import { takeRound } from "@/lib/auth/quota";
 import { limiter } from "@/lib/assistant/rate-limit";
 import { ceilingBeforeRound } from "@/lib/content/ceiling";
-import { runTranscribe } from "@/lib/content/clip-run";
+import { EDIT_BUSY, runTranscribe } from "@/lib/content/clip-run";
 import { captionFlags, clipYardstick } from "@/lib/content/clip-transcribe";
 import { modeChecks } from "@/lib/content/mode-checks";
 import { payRound } from "@/lib/wallet/round";
+import { checkJob } from "@/lib/video/jobs";
 
 /**
  * A clip the agent filmed, onto a piece (owner, 2026-10-02). The file goes from the browser to
@@ -23,15 +27,26 @@ export type ClipResult = { ok: true; item: ContentItem } | { ok: false; error: s
 type Started = { ok: true; pieceId: string; path: string; token: string; item?: ContentItem } | { ok: false; error: string };
 
 const HELD = "ชิ้นนี้ลงเพจหรือตั้งเวลาไว้แล้ว — ยกเลิกคิวก่อนแนบคลิปใหม่";
+const EDITING = "คลิปนี้กำลังตัดต่ออยู่ — รอให้เสร็จก่อนแนบคลิปใหม่";
 const READ_FAILED = "อ่านชิ้นงานไม่ได้ ลองใหม่อีกครั้งนะครับ";
 
-/** a piece a clip may go on: a script or a clip, the asker's to see, not on its way to the Page */
+/**
+ * a piece a clip may go on: a script or a clip, the asker's to see, not on its way to the Page,
+ * and not being edited — a job running on the clip would land its files, and settle its round,
+ * on a clip that is no longer there (final review, 2026-10-02)
+ */
 async function attachable(id: string): Promise<{ ok: true; item: ContentItem } | { ok: false; error: string }> {
-  const item = await getContent(id).catch(() => undefined);
+  let item = await getContent(id).catch(() => undefined);
   if (item === undefined) return { ok: false, error: READ_FAILED };
   if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
   if (item.format !== "script" && item.format !== "clip") return { ok: false, error: "แนบคลิปได้เฉพาะชิ้นสคริปต์หรือชิ้นคลิป" };
   if (onPage(item.publish)) return { ok: false, error: HELD };
+  const job = item.output.video?.edit?.job;
+  // a job nobody asked after past its bound is wrapped up here (its round handed back), not left to block a new clip for good
+  if (job && Date.now() - new Date(job.startedAt).getTime() > EDIT_JOB_TIMEOUT_MS) {
+    item = (await checkJob(id).catch(() => null))?.item ?? item;
+  }
+  if (editBusy(item.output.video?.edit)) return { ok: false, error: EDITING };
   return { ok: true, item };
 }
 
@@ -91,7 +106,8 @@ export async function finishClipUpload(input: { pieceId: string; path: string; f
       };
       const saved = await saveOutputIf(a.item.id, { ...a.item.output, video }, undefined, a.item.output.rev ?? null);
       if (!saved) continue;
-      if (before?.path && before.path !== input.path) await removeClip(before.path);
+      // the old clip goes with everything made from it — its preview and its edited take — and its edit with them
+      if (before) for (const p of clipFiles(before)) if (p !== input.path) await removeClip(p);
       return { ok: true, item: forClient(saved) };
     }
     return { ok: false, error: "มีการแก้ชิ้นนี้พร้อมกันอยู่ — โหลดหน้าใหม่แล้วลองอีกครั้ง" };
@@ -114,6 +130,8 @@ export async function transcribeClip(id: string): Promise<ClipResult> {
   // a listen would write an AI caption onto a Reel Facebook already holds with other words
   if (onPage(item.publish)) return { ok: false, error: "Reel นี้ตั้งเวลาหรือลงเพจแล้ว — ยกเลิกคิวก่อนถอดเสียงใหม่" };
   if (item.output.video.expired) return { ok: false, error: "ไฟล์คลิปหมดอายุแล้ว — แนบคลิปใหม่ก่อน" };
+  // a new transcript rebuilds the edit (clip-run.ts): not while a job reads the old one — before any round is taken
+  if (editBusy(item.output.video.edit)) return { ok: false, error: EDIT_BUSY };
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${ceiling} บาทแล้ว` };
   const pass = await takeRound(viewer, "ai-clip");

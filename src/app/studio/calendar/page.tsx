@@ -9,6 +9,7 @@ import { defaultPoster, posterUrl } from "@/lib/content/poster";
 import { contentProduct } from "@/lib/content/products";
 import { publishView } from "@/lib/content/publish-label";
 import { verifyDue } from "@/lib/content/publish-flow";
+import { forClient } from "@/lib/content/clip";
 import { listPublished, listWaiting, type ContentItem } from "@/lib/content/store";
 import { publishSetup } from "../publish";
 import { ChevronLeftIcon, ChevronRightIcon } from "../ui/icons";
@@ -101,13 +102,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   if (!done) after(() => checking);
   const [setup, placed] = await Promise.all([
     publishSetup(),
-    listPublished(from, to).catch(() => []),
+    // through forClient, as every piece the browser is handed: a clip's job keeps its round on the row
+    listPublished(from, to).then((l) => l.map(forClient)).catch(() => []),
   ]);
   // one Page, never all of them together and no switch between them (owner, 2026-09-28): the
   // one its card on /studio asked for, else the first
   const pageFilter = setup.pages.find((p) => p.pageId === params.page)?.pageId ?? setup.pages[0]?.pageId ?? "";
   // the rail is this Page's project (2026-09-30): what waits for another Page is not offered here
-  const waiting = await listWaiting(pageFilter || undefined).catch(() => []);
+  const waiting = await listWaiting(pageFilter || undefined).then((l) => l.map(forClient)).catch(() => []);
   const pageName = (id: string | null) => setup.pages.find((p) => p.pageId === id)?.pageName ?? "";
 
   // a send stuck past ten minutes is in both lists (the rail takes stale claims): once only

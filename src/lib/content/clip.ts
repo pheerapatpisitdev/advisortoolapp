@@ -87,6 +87,8 @@ export interface EditJob {
   tried: EngineName[];
   /** when a poll or a webhook claimed the finished job to collect it (src/lib/video/jobs.ts); others leave it alone */
   collecting?: string;
+  /** a render's subtitle and hook pictures, filed beside the clip for the engine to read; let go when the job ends */
+  pictures?: string[];
 }
 /** An agent's edit of a clip (owner, 2026-10-02): what is cut, the subtitles, the hook, the look. */
 export interface ClipEdit {
@@ -129,6 +131,18 @@ export function renderRunning(edit: ClipEdit | undefined, now = Date.now()): boo
   const claim = edit?.submitting;
   return Boolean(claim && claim.kind === "render" && now - new Date(claim.at).getTime() <= SUBMIT_STALE_MS);
 }
+/** a submit is under way on this edit (claimSubmit, src/lib/video/jobs.ts), and it is not one left by a dead request */
+export function submitting(edit: ClipEdit | undefined, now = Date.now()): boolean {
+  return Boolean(edit?.submitting) && now - new Date(edit!.submitting!.at).getTime() <= SUBMIT_STALE_MS;
+}
+/**
+ * The clip is being edited by a job — one on the edit, of either kind, or a submit about to make
+ * one (a render under way counts by either). A new clip or a new transcript would pull the files
+ * or the sentences out from under it (final review, 2026-10-02).
+ */
+export function editBusy(edit: ClipEdit | undefined, now = Date.now()): boolean {
+  return Boolean(edit?.job) || renderRunning(edit, now) || submitting(edit, now);
+}
 /** a job that has not answered for this long has failed; the wallet hands a hold back at the same 15 minutes */
 export const EDIT_JOB_TIMEOUT_MS = 15 * 60_000;
 
@@ -160,7 +174,7 @@ export interface ClipVideo {
 
 /**
  * A piece as the browser may see it: the clip's job without its round (a wallet hold's id),
- * its webhook secret's hash or the paths a render service was told to write. Every answer to
+ * its webhook secret's hash or the paths a render service was told to read and write. Every answer to
  * a person that carries a piece goes through this; the server's own reads keep them.
  */
 export function forClient(item: ContentItem): ContentItem {
@@ -171,6 +185,7 @@ export function forClient(item: ContentItem): ContentItem {
   delete shown.pass;
   delete shown.tokenHash;
   delete shown.dest;
+  delete shown.pictures;
   // the browser's copy only: it never goes back into a write (the server reads the row again)
   return { ...item, output: { ...item.output, video: { ...v, edit: { ...v.edit, job: shown as EditJob } } } };
 }

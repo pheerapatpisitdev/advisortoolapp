@@ -5,6 +5,7 @@ import { visibleTo } from "@/lib/content/people-pages";
 import { myPages } from "@/lib/auth/pages";
 import { pageConnections } from "@/lib/facebook/connection";
 import { homeCards, scheduledByPage } from "@/lib/content/studio-home";
+import { forClient } from "@/lib/content/clip";
 import { countByStatus, countDraftsByPage, listHookTemplates, listPublished } from "@/lib/content/store";
 import { publishSetup } from "./publish";
 import { StudioHome } from "./StudioHome";
@@ -40,7 +41,7 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
     listHookTemplates().catch(() => null),
     listPeople().catch(() => null),
     who.publish ? publishSetup() : null,
-    who.publish ? listPublished(now, new Date(now.getTime() + AHEAD_MS)).catch(() => []) : [],
+    who.publish ? listPublished(now, new Date(now.getTime() + AHEAD_MS)).then((l) => l.map(forClient)).catch(() => []) : [],
     myPages().catch(() => []),
     pageConnections().catch(() => []),
     // each Page's own drafts, for its card (its project, 2026-09-30)

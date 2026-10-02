@@ -13,7 +13,7 @@ import { contentProduct } from "./products";
 import { timeOfDay } from "./calendar";
 import { maybeOnPage, POSSIBLY_POSTED, stalePosting } from "./publish-label";
 import { POST_SCOPE } from "./posting-health";
-import { adoptPage, claimPublish, getContent, listDue, recordPublishIf, saveOutputIf, type ContentItem } from "./store";
+import { adoptPage, claimPublish, getContent, listDue, recordPublishIf, releasePublish, saveOutputIf, type ContentItem } from "./store";
 
 /**
  * Posting a piece to a Facebook Page, the steps behind the workbench's server actions
@@ -173,6 +173,16 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
   const { item, page, token, at } = c;
   const claim = claimAt ?? new Date().toISOString();
   if (!claimAt && !(await claimPublish(item.id, new Date(claim)))) return { ok: false, error: "ชิ้นนี้โพสต์หรือตั้งเวลาไปแล้ว หรือกำลังส่งอยู่" };
+  // a Reel's take may have changed between clear() and the claim: a render pressed (its claim or
+  // job now on the row) or the take let go. Both sides look after writing their own claim, so
+  // one of the two always sees the other (renderEdit looks again after its claimSubmit).
+  if (!claimAt && item.output.video) {
+    const moved = await takeMoved(item);
+    if (moved) {
+      await releasePublish(item.id, claim, item.publish).catch((e) => console.error("publish claim not given back:", e));
+      return { ok: false, error: moved };
+    }
+  }
   // a piece on no Page yet becomes the Page's it goes to; the post goes up either way
   if (!item.pageId) await adoptPage(item.id, page.pageId).catch((e) => console.error("piece not tied to its Page:", e));
   const mine = { state: "posting" as const, at: claim };
@@ -267,6 +277,18 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
   // who put it on the Page, for the calendar's "โดย" (owner, 2026-09-27)
   await audit(claimAt ? "reschedule" : at ? "schedule" : "post", item.id, { pageId: page.pageId, at: at ? at.toISOString() : null });
   return { ok: true, item: { ...saved, status: "used" } };
+}
+
+/**
+ * Why a Reel cleared as `cleared` may not go now, read from the row as it is: a render that
+ * started since (EDIT_RENDERING) or a take that changed (CONCURRENT); null when it is the same.
+ */
+async function takeMoved(cleared: ContentItem): Promise<string | null> {
+  const now = await getContent(cleared.id).catch(() => null);
+  const edit = now?.output.video?.edit;
+  if (!now?.output.video) return CONCURRENT;
+  if (renderRunning(edit)) return EDIT_RENDERING;
+  return (edit?.renderedPath ?? null) === (cleared.output.video?.edit?.renderedPath ?? null) ? null : CONCURRENT;
 }
 
 /**

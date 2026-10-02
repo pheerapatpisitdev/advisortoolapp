@@ -14,7 +14,7 @@ import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { takeRound } from "@/lib/auth/quota";
 import { prepareJob } from "@/lib/video/command";
 import { avoidAfterFailure, checkJob, claimSubmit, JOB_BUSY, releaseSubmit, submitJob, submitting } from "@/lib/video/jobs";
-import { CLIP_GONE, LINK_SECONDS, NOT_PREPARED, pageTheme, RENDER_DOWN, renderChecks, startRender } from "@/lib/video/render-run";
+import { CLIP_GONE, LINK_SECONDS, NOT_PREPARED, pageTheme, RENDER_DOWN, renderChecks, renderCostThb, startRender } from "@/lib/video/render-run";
 import type { Theme } from "@/lib/content/poster";
 
 /**
@@ -89,7 +89,8 @@ export async function openEdit(id: string): Promise<EditResult> {
     if (typeof claimed === "string") return answer((await getContent(id)) ?? item);
     try {
       const job = prepareJob(await clipReadUrl(video.path, LINK_SECONDS));
-      await submitJob(id, "prepare", job, await avoidAfterFailure(claimed.item.output.video?.edit), { claim: claimed.claim });
+      // free to the agent, not to the owner: its estimate goes to the usage ledger when it is delivered (jobs.ts)
+      await submitJob(id, "prepare", job, await avoidAfterFailure(claimed.item.output.video?.edit), { claim: claimed.claim, costThb: renderCostThb(video.sizeBytes) });
     } catch (e) {
       console.error(`prepare of ${id} not started:`, e instanceof Error ? e.message.replace(/https?:\/\/\S+/g, "<url>") : e);
       await releaseSubmit(id, claimed.claim);
@@ -221,6 +222,12 @@ export async function renderEdit(id: string): Promise<EditResult> {
     const claimed = await claimSubmit(g.item, "render", g.video.edit!.rev);
     if (claimed === "busy") return { ok: false, error: JOB_BUSY };
     if (claimed === "moved") return { ok: false, error: RACED };
+    // a send may have claimed the Reel since it was read: the row as the claim wrote it says so.
+    // send() looks for a render claim after its own claim too, so one of the two always sees the other
+    if (onPage(claimed.item.publish)) {
+      await releaseSubmit(id, claimed.claim);
+      return { ok: false, error: HELD };
+    }
     const round = await takeRound(viewer, "ai-edit", id).catch(async (e) => {
       await releaseSubmit(id, claimed.claim);
       throw e;
@@ -254,7 +261,8 @@ export async function useOriginal(id: string): Promise<EditResult> {
       if (edit.job || submitting(edit)) return { ok: false, error: JOB_BUSY };
       const old = edit.renderedPath;
       const next: ClipEdit = { ...edit, renderedPath: undefined, renderedAt: undefined, renderedRev: undefined };
-      const saved = await saveOutputIf(id, { ...item.output, video: { ...video, edit: next } }, undefined, item.output.rev ?? null);
+      // only while no send has claimed the Reel since it was read: one may be handing Facebook this very take
+      const saved = await saveOutputIf(id, { ...item.output, video: { ...video, edit: next } }, undefined, item.output.rev ?? null, item.publish);
       if (!saved) continue;
       await removeClip(old);
       return answer(saved);

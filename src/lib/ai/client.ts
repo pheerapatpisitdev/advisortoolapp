@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inWalletRound, meterCost } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
-import { monthSpend, monthStart } from "./ledger";
+import { monthSpend, monthStart, recordUsage } from "./ledger";
 import { IMAGE_CALLERS, TAKES_REFERENCES, type DrawnImage, type ReferenceImage } from "./images";
 import { CALLERS, EMBEDDERS, JUDGE, type JudgeAnswer, type JudgeQuestion } from "./providers";
 import type { ChatMessage, ChatResult, ModelRow, Tier } from "./types";
@@ -137,9 +137,7 @@ async function assertWithinBudget(config: Config) {
 async function record(model: string, task: string, inTok: number, outTok: number, costThb: number) {
   // a wallet round's meter (src/lib/wallet/round.ts); outside one this does nothing
   meterCost(costThb);
-  await supabaseAdmin().from("ins_usage_ledger").insert({
-    model, task, input_tokens: inTok, output_tokens: outTok, cost_thb: Number(costThb.toFixed(6)),
-  });
+  await recordUsage(model, task, inTok, outTok, costThb);
 }
 
 /**

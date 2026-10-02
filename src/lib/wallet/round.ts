@@ -99,6 +99,8 @@ export async function payRound<R extends Outcome>(pass: Extract<RoundPass, { ok:
  * times the multiplier, never past its hold. Not delivered: a wallet round's hold comes back,
  * a free round goes back to the count. Staff, and a free round that delivered, owe nothing.
  * A settle that fails is logged, as payRound's is: the hold is swept back in fifteen minutes.
+ * A delivered round whose hold was already gone is logged too (by the hold's id only): jobs.ts
+ * keeps a job from being collected that late, so it should never be seen.
  */
 export async function settleLater(pass: EditPass, delivered: boolean, costThb: number): Promise<void> {
   if (pass.paidBy === "free") {
@@ -111,7 +113,9 @@ export async function settleLater(pass: EditPass, delivered: boolean, costThb: n
     if (holdSatangFor(costThb, pass.multiplier) > pass.heldSatang) {
       console.warn(`wallet hold ${pass.holdId}: the job cost more than it held; charged the hold`);
     }
-    await settleWallet(pass.holdId, chargeSatang(costThb, pass.multiplier, pass.heldSatang), costThb);
+    const charged = await settleWallet(pass.holdId, chargeSatang(costThb, pass.multiplier, pass.heldSatang), costThb);
+    // the hold was gone (let go by the sweep) before the job was settled: the take went out unpaid
+    if (charged === null) console.error(`wallet hold ${pass.holdId}: delivered, but the hold was gone — not charged`);
   } catch (e) {
     console.error(`wallet hold ${pass.holdId} not settled:`, e instanceof Error ? e.message : e);
   }

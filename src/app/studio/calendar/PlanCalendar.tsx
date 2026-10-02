@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { monthGridDays, parseMonth, shiftMonth, thaiMonthYear, todayKey } from "@/lib/content/calendar";
-import { isReelPiece } from "@/lib/content/clip";
+import { forClient, isReelPiece } from "@/lib/content/clip";
 import { planPicture, planTitle } from "@/lib/content/day-plan";
 import { modeName } from "@/lib/content/modes";
 import { contentProduct } from "@/lib/content/products";
@@ -26,8 +26,9 @@ export async function PlanCalendar({ params }: { params: { y?: string; m?: strin
   const listView = params.view === "list";
   const cells = monthGridDays(year, month);
   const [planned, unplanned] = await Promise.all([
-    listPlanned(cells[0].day, cells[cells.length - 1].day).catch(() => []),
-    listUnplanned().catch(() => []),
+    // through forClient, as every piece the browser is handed: a clip's job keeps its round on the row
+    listPlanned(cells[0].day, cells[cells.length - 1].day).then((l) => l.map(forClient)).catch(() => []),
+    listUnplanned().then((l) => l.map(forClient)).catch(() => []),
   ]);
 
   const query = (over: Record<string, string | undefined> = {}) => {

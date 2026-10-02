@@ -92,4 +92,48 @@ describe("runTranscribe", () => {
     await runTranscribe(item());
     expect((store.saveOutputIf.mock.calls[1][1] as ContentItem["output"]).video!.hookSuggestion).toBeUndefined();
   });
+
+  describe("a clip already being edited (final review, 2026-10-02)", () => {
+    const edit = (over = {}) => ({
+      proxyPath: "p/33333333-3333-4333-8333-333333333333.mp4", silences: [[0, 0.5]] as [number, number][],
+      cut: [3], trimSilence: false, style: "yellow" as const, rev: "old-rev",
+      hook: { main: "หัวเก่า" }, subs: [{ start: 9, end: 10, text: "ประโยคเก่า", seg: 3 }],
+      renderedPath: "p/44444444-4444-4444-8444-444444444444.mp4", renderedRev: "old-rev", ...over,
+    });
+    const heard = { segments: [{ start: 1, end: 3, text: "ประโยคใหม่หนึ่ง" }, { start: 4, end: 6, text: "เอ่อ", cut: true }, { start: 7, end: 12, text: "ประโยคใหม่สอง" }], caption: "c", hook: { main: "หัวใหม่" } };
+
+    it("a new transcript lays the edit out again from the new sentences over the same preview, with a new rev", async () => {
+      store.getContent.mockImplementation(async () => item(video({ edit: edit() })));
+      ai.chat.mockResolvedValue(reply(heard));
+      expect((await runTranscribe(item(video({ edit: edit() })))).ok).toBe(true);
+
+      const e = (store.saveOutputIf.mock.calls[0][1] as ContentItem["output"]).video!.edit!;
+      expect(e).toMatchObject({ proxyPath: edit().proxyPath, silences: [[0, 0.5]], style: "yellow", trimSilence: false, hook: { main: "หัวใหม่" }, cut: [1] });
+      expect(e.subs.length).toBeGreaterThan(0);
+      expect(e.subs.every((l) => l.seg !== undefined && l.seg < 3)).toBe(true);
+      expect(e.subs.map((l) => l.text).join("")).toContain("ประโยคใหม่");
+      // the take made before stays, and now says it is not the edit
+      expect(e.renderedPath).toBe(edit().renderedPath);
+      expect(e.rev).not.toBe("old-rev");
+      expect(e.renderedRev).not.toBe(e.rev);
+    });
+
+    it("an edit not prepared yet starts empty, for the prepare to build", async () => {
+      const bare = { cut: [2], trimSilence: true, style: "box" as const, rev: "x", hook: { main: "" }, subs: [] };
+      store.getContent.mockImplementation(async () => item(video({ edit: bare })));
+      ai.chat.mockResolvedValue(reply(heard));
+      await runTranscribe(item(video({ edit: bare })));
+      expect((store.saveOutputIf.mock.calls[0][1] as ContentItem["output"]).video!.edit).toMatchObject({ cut: [], subs: [] });
+    });
+
+    it("is not rewritten while a job or a submit reads the old sentences: refused, nothing kept", async () => {
+      const job = { kind: "render" as const, engine: "rendi" as const, id: "j", startedAt: new Date().toISOString(), tokenHash: "h", tried: ["rendi" as const] };
+      for (const busy of [edit({ job }), edit({ submitting: { id: "c", at: new Date().toISOString(), kind: "prepare" as const } })]) {
+        store.getContent.mockImplementation(async () => item(video({ edit: busy })));
+        ai.chat.mockResolvedValue(reply(heard));
+        expect(await runTranscribe(item(video({ edit: busy })))).toEqual({ ok: false, error: "คลิปนี้กำลังตัดต่ออยู่ — รอให้เสร็จก่อนถอดเสียงใหม่" });
+      }
+      expect(store.saveOutputIf).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -1,10 +1,11 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
-  CLIP_BUCKET, CLIP_MIN_SEC, EDIT_JOB_TIMEOUT_MS, MAX_HOOK_MAIN, MAX_HOOK_TOP, SUBMIT_STALE_MS,
+  CLIP_BUCKET, CLIP_MIN_SEC, EDIT_JOB_TIMEOUT_MS, MAX_HOOK_MAIN, MAX_HOOK_TOP, SUBMIT_STALE_MS, submitting,
   type ClipEdit, type ClipVideo, type EditJob, type EditPass, type EngineName, type Hook,
 } from "@/lib/content/clip";
 import { removeClip } from "@/lib/content/clip-store";
-import { getContentUnscoped, saveOutputIf, type ContentItem } from "@/lib/content/store";
+import { CONTENT_EDIT_TASK, getContentUnscoped, saveOutputIf, type ContentItem } from "@/lib/content/store";
+import { recordUsage } from "@/lib/ai/ledger";
 import { siteUrl } from "@/lib/site-url";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { settleLater } from "@/lib/wallet/round";
@@ -43,6 +44,16 @@ export const JOB_NO_FILES = "ตัวตัดต่อไม่ได้ส่
  * this long, inside the 300 s a function may run (the webhook's maxDuration, the poll's action).
  */
 export const COLLECT_BUDGET_MS = 240_000;
+/**
+ * A job's clock (job.startedAt) starts at its submit claim, which is made before the round is
+ * taken — so it never starts later than the wallet's hold, which is let go fifteen minutes after
+ * it was made. A finished job is collected only when a collect at its whole budget would still
+ * end this margin before that: past COLLECT_LATEST_MS it is failed like one past the bound,
+ * nothing copied and the round handed back — never settled against a hold already let go, a
+ * take for free (final review, 2026-10-02).
+ */
+const COLLECT_MARGIN_MS = 30_000;
+export const COLLECT_LATEST_MS = EDIT_JOB_TIMEOUT_MS - COLLECT_BUDGET_MS - COLLECT_MARGIN_MS;
 /** a claim this old was made by a collector that died half way (past its 300 s); another may take over */
 export const COLLECT_STALE_MS = 6 * 60_000;
 export { SUBMIT_STALE_MS };
@@ -60,10 +71,10 @@ type Result = { state: "done"; paths: Record<string, string> } | { state: "faile
 const bucket = () => supabaseAdmin().storage.from(CLIP_BUCKET);
 const ageMs = (iso: string) => Date.now() - new Date(iso).getTime();
 const timedOut = (job: EditJob) => ageMs(job.startedAt) > EDIT_JOB_TIMEOUT_MS;
+const tooLateToCollect = (job: EditJob) => ageMs(job.startedAt) >= COLLECT_LATEST_MS;
 const claimHeld = (job: EditJob) => Boolean(job.collecting) && ageMs(job.collecting!) <= COLLECT_STALE_MS;
-/** a submit is under way on this edit (claimSubmit), and it is not one left by a dead request */
-export const submitting = (edit: ClipEdit | undefined): boolean =>
-  Boolean(edit?.submitting) && ageMs(edit!.submitting!.at) <= SUBMIT_STALE_MS;
+/** a submit is under way on this edit (claimSubmit), and it is not one left by a dead request: clip.ts, beside renderRunning */
+export { submitting };
 /** the edit a first job is recorded around, before the preview is made */
 const emptyEdit = (): ClipEdit => ({ cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: randomUUID() });
 const destination = (pieceId: string, ext: string) => `${pieceId}/${randomUUID()}.${ext}`;
@@ -137,29 +148,37 @@ async function destinations(pieceId: string, kind: EditJob["kind"]): Promise<Rec
  * records it on the clip. An engine that refuses for a reason the other may not have (a key, a
  * plan, the network) passes it on; one that refuses the command itself does not.
  * `meta`: a render's round (`pass`), its estimated cost — one figure, or one per engine, since
- * which engine takes it is known only here — and the edit rev it was made from (defaults to the
- * edit's rev now). `claim`: the caller's submit claim (claimSubmit); a live claim of anyone
- * else's refuses the job, and the job's record replaces the caller's own.
+ * which engine takes it is known only here — the edit rev it was made from (defaults to the
+ * edit's rev now) and the pictures it reads (let go when the job ends). `claim`: the caller's
+ * submit claim (claimSubmit); a live claim of anyone else's refuses the job, and the job's
+ * record replaces the caller's own. The job's clock starts at that claim's time (see
+ * COLLECT_LATEST_MS), or now when there is none.
+ * An engine that takes the id it is given (takesId) has the job recorded before it hears of it,
+ * so its callback cannot come back to a row that does not know the job yet.
  * Throws EngineError when nothing took it.
  */
 export async function submitJob(
   pieceId: string, kind: "prepare" | "render", job: FfmpegJob, avoid: EngineName[] = [],
-  meta: { rev?: string; pass?: EditPass; costThb?: number | Partial<Record<EngineName, number>>; claim?: string } = {},
+  meta: { rev?: string; pass?: EditPass; costThb?: number | Partial<Record<EngineName, number>>; claim?: string; pictures?: string[] } = {},
 ): Promise<EditJob> {
   const expected = Object.keys(OUTPUTS[kind]);
   if (job.outputs.length !== expected.length || !job.outputs.every((o) => expected.includes(o.name))) {
     throw new EngineError(`not a ${kind} job`, false);
   }
-  let item = await readPiece(pieceId);
-  if (item?.output.video?.edit?.job) {
+  let read = await readPiece(pieceId);
+  if (read?.output.video?.edit?.job) {
     // one that has finished or timed out is wrapped up first, so its round is settled
-    item = (await checkJob(pieceId)).item;
-    if (item.output.video?.edit?.job) throw new EngineError(JOB_BUSY, false);
+    read = (await checkJob(pieceId)).item;
+    if (read.output.video?.edit?.job) throw new EngineError(JOB_BUSY, false);
   }
-  const v = item?.output.video;
-  if (!item || !v) throw new Error("ไม่พบคลิปนี้");
+  const v = read?.output.video;
+  if (!read || !v) throw new Error("ไม่พบคลิปนี้");
+  let item: ContentItem = read;
   const othersClaim = (edit: ClipEdit | undefined) => submitting(edit) && edit!.submitting!.id !== meta.claim;
   if (othersClaim(v.edit)) throw new EngineError(JOB_BUSY, false);
+  // the caller's own claim: its time is the job's start, and it comes back if a pre-recorded job is not taken
+  const ownClaim = meta.claim && v.edit?.submitting?.id === meta.claim ? v.edit.submitting : undefined;
+  const startedAt = ownClaim?.at ?? new Date().toISOString();
 
   const all = await enginesInOrder();
   if (all.length === 0) throw new EngineError(NO_ENGINE, false);
@@ -168,14 +187,47 @@ export async function submitJob(
 
   const token = randomBytes(32).toString("hex");
   const tried: EngineName[] = [];
-  let taken: { engine: EngineName; id: string; dest?: Record<string, string> } | null = null;
+  const rev = meta.rev ?? (kind === "render" ? v.edit?.rev : undefined);
+  const recordFor = (engine: EngineName, id: string, dest?: Record<string, string>): EditJob => {
+    const costThb = typeof meta.costThb === "number" ? meta.costThb : meta.costThb?.[engine];
+    return {
+      kind, engine, id, startedAt, tokenHash: hashToken(token), tried: [...tried],
+      ...(dest ? { dest } : {}),
+      ...(rev ? { rev } : {}), ...(meta.pass ? { pass: meta.pass } : {}), ...(costThb !== undefined ? { costThb } : {}),
+      ...(meta.pictures?.length ? { pictures: meta.pictures } : {}),
+    };
+  };
+  let taken: EditJob | null = null;
   let last: EngineError | null = null;
+  let busy = false;
   for (const engine of engines) {
     tried.push(engine.name);
     try {
       const uploads = engine.name === "lambda" ? await destinations(pieceId, kind) : undefined;
-      const { id } = await engine.submit(job, { callbackUrl: siteUrl(JOB_CALLBACK_PATH), token, uploads });
-      taken = { engine: engine.name, id, ...(uploads ? { dest: Object.fromEntries(Object.entries(uploads).map(([k, u]) => [k, u.path])) } : {}) };
+      const dest = uploads ? Object.fromEntries(Object.entries(uploads).map(([k, u]) => [k, u.path])) : undefined;
+      const opts = { callbackUrl: siteUrl(JOB_CALLBACK_PATH), token, uploads };
+      if (engine.takesId) {
+        const record = recordFor(engine.name, randomUUID(), dest);
+        const pre = await writeEdit(item, (edit) => {
+          if (edit?.job || othersClaim(edit)) return null; // another job or submit got there first
+          return { ...(edit ?? emptyEdit()), job: record, submitting: undefined, error: undefined };
+        });
+        if (!pre) { busy = true; break; }
+        item = pre;
+        try {
+          await engine.submit(job, { ...opts, id: record.id });
+        } catch (e) {
+          // nothing runs under this id: its record goes, and the caller's claim comes back for the next engine
+          const back = await writeEdit(item, (edit) =>
+            edit?.job?.id === record.id ? { ...edit, job: null, ...(ownClaim ? { submitting: ownClaim } : {}) } : null);
+          if (back) item = back;
+          else console.error(`${engine.name} job ${record.id} for ${pieceId} was not taken and its record not cleared; it times out`);
+          throw e;
+        }
+        return record;
+      }
+      const { id } = await engine.submit(job, opts);
+      taken = recordFor(engine.name, id, dest);
       break;
     } catch (e) {
       if (!(e instanceof EngineError)) throw e;
@@ -184,22 +236,17 @@ export async function submitJob(
       if (!e.retryElsewhere) throw e;
     }
   }
+  if (busy) throw new EngineError(JOB_BUSY, false);
   if (!taken) throw last ?? new EngineError(NO_ENGINE, false);
 
-  const rev = meta.rev ?? (kind === "render" ? v.edit?.rev : undefined);
-  const costThb = typeof meta.costThb === "number" ? meta.costThb : meta.costThb?.[taken.engine];
-  const record: EditJob = {
-    kind, engine: taken.engine, id: taken.id, startedAt: new Date().toISOString(), tokenHash: hashToken(token), tried,
-    ...(taken.dest ? { dest: taken.dest } : {}),
-    ...(rev ? { rev } : {}), ...(meta.pass ? { pass: meta.pass } : {}), ...(costThb !== undefined ? { costThb } : {}),
-  };
+  const record = taken;
   const saved = await writeEdit(item, (edit) => {
     if (edit?.job && edit.job.id !== record.id) return null; // another job got there first
     if (othersClaim(edit)) return null; // so did another submit
     return { ...(edit ?? emptyEdit()), job: record, submitting: undefined, error: undefined };
   });
   if (!saved) {
-    console.error(`${taken.engine} job ${taken.id} for ${pieceId} was taken but not recorded`);
+    console.error(`${record.engine} job ${record.id} for ${pieceId} was taken but not recorded`);
     throw new EngineError("บันทึกงานตัดต่อไม่สำเร็จ", false);
   }
   return record;
@@ -272,9 +319,11 @@ async function readText(path: string): Promise<string> {
 }
 
 /**
- * Writes a claimed job's end into the edit and clears the job, then lets the old files go and
- * settles the round. Runs only for the claim's holder; a holder that lost its claim (it went
- * stale and was taken over) writes nothing and leaves its files to the sweep.
+ * Writes a claimed job's end into the edit and clears the job, then lets the old files and the
+ * job's pictures go, writes a delivered job's cost to the usage ledger (CONTENT_EDIT_TASK —
+ * whoever paid, the providers billed the owner) and settles the round. Runs only for the claim's
+ * holder; a holder that lost its claim (it went stale and was taken over) writes nothing and
+ * leaves its files to the sweep.
  */
 async function finalize(item: ContentItem, job: EditJob, result: Result): Promise<ContentItem> {
   const v = item.output.video!;
@@ -302,6 +351,12 @@ async function finalize(item: ContentItem, job: EditJob, result: Result): Promis
     const [old, now] = job.kind === "render" ? [before.renderedPath, result.paths.out_1] : [before.proxyPath, result.paths.out_1];
     if (old && old !== now) await removeClip(old);
     if (job.kind === "prepare") await removeClip(result.paths.out_2);
+  }
+  // the engine has read them (done) or never will (failed): either way they are no one's now
+  for (const p of job.pictures ?? []) await removeClip(p);
+  if (result.state === "done" && job.costThb) {
+    await recordUsage(job.engine, CONTENT_EDIT_TASK, 0, 0, job.costThb)
+      .catch((e) => console.error(`job ${job.id}: cost not recorded: ${redact(e)}`));
   }
   if (job.pass) await settleLater(job.pass, result.state === "done", result.state === "done" ? job.costThb ?? 0 : 0);
   return saved;
@@ -395,7 +450,8 @@ export async function checkJob(pieceId: string): Promise<{ item: ContentItem; ch
     }
   }
 
-  if (timedOut(job)) {
+  // past the bound — or finished too late for a whole collect to end inside the round's hold
+  if (timedOut(job) || (status?.state === "done" && tooLateToCollect(job))) {
     const r = await end(item, job, { state: "failed", error: JOB_TIMED_OUT });
     if (r.changed && engine && status?.state === "done") await cleanup(engine, status, job.id);
     return r;

@@ -47,7 +47,7 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
     listHookTemplates().catch(() => []),
     contentSpend(),
     listPeople().catch(() => []),
-    planner ? listPlanned(today, today).catch(() => []) : Promise.resolve([]),
+    planner ? listPlanned(today, today).then((l) => l.map(forClient)).catch(() => []) : Promise.resolve([]),
   ]);
   return (
     <ContentStudio

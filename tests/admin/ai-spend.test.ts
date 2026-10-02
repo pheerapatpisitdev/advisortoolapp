@@ -15,6 +15,9 @@ const rows = [
   ...Array.from({ length: 10 }, () => ({ model: "claude-sonnet-5", task: "copilot", cost_thb: 0.5 })),
   // the judge answers under its version, not the alias it was asked for by
   ...Array.from({ length: 50 }, () => ({ model: "jev-1.13.0", task: "route_shadow", cost_thb: 0.001 })),
+  // a clip's renders, under the engine that made them (final review, 2026-10-02)
+  ...Array.from({ length: 3 }, () => ({ model: "rendi", task: "content-edit", cost_thb: 0.2 })),
+  ...Array.from({ length: 2 }, () => ({ model: "lambda", task: "content-edit", cost_thb: 0.07 })),
 ];
 
 vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
@@ -61,8 +64,8 @@ const { loadAiPage } = await import("@/app/admin/ai/actions");
 describe("the spend card", () => {
   it("counts the whole month, not the first thousand calls", async () => {
     const page = await loadAiPage();
-    expect(page.spentThisMonth).toBeCloseTo(1150 * 0.03 + 20 * 0.05 + 10 * 0.5 + 50 * 0.001, 6);
-    expect(page.spend.reduce((n, p) => n + p.calls, 0)).toBe(1230);
+    expect(page.spentThisMonth).toBeCloseTo(1150 * 0.03 + 20 * 0.05 + 10 * 0.5 + 50 * 0.001 + 3 * 0.2 + 2 * 0.07, 6);
+    expect(page.spend.reduce((n, p) => n + p.calls, 0)).toBe(1235);
   });
 
   it("still says which company was paid, and for what, busiest task first", async () => {
@@ -80,5 +83,11 @@ describe("the spend card", () => {
     const page = await loadAiPage();
     expect(page.spend.find((p) => p.provider === "typesafe")).toMatchObject({ calls: 50, tasks: ["route_shadow"] });
     expect(page.spend.some((p) => p.provider.includes("ไม่รู้จักค่าย"))).toBe(false);
+  });
+
+  it("puts a clip's renders under the render service's key, not a name the card does not know", async () => {
+    const page = await loadAiPage();
+    expect(page.spend.find((p) => p.provider === "rendi")).toMatchObject({ calls: 3, tasks: ["content-edit"] });
+    expect(page.spend.find((p) => p.provider === "aws")).toMatchObject({ calls: 2, tasks: ["content-edit"] });
   });
 });

@@ -122,6 +122,13 @@ export async function contentSpentThisMonth(): Promise<number> {
   return Math.max(0, contentBaht(spend.lines) - paidByAgents);
 }
 
+/**
+ * the ledger task a clip's delivered render or preview is written under (src/lib/video/jobs.ts):
+ * content-*, so the ceiling counts it — and a wallet round's charge, taken off the same figure,
+ * nets it out, so only what the owner paid stays on the ceiling
+ */
+export const CONTENT_EDIT_TASK = "content-edit";
+
 /** the ledger task a content reservation is written under; content-*, so the ceiling counts it */
 export const CONTENT_RESERVE_TASK = "content-reserve";
 
@@ -309,11 +316,21 @@ export async function saveOutput(id: string, output: ContentOutput, flags?: Flag
  * written before revisions, never written since). Null when another write came first: an
  * edit saved while a picture was drawing, a picture that landed while an edit was saved. The
  * caller reads the piece again and builds on that, rather than writing its older copy back.
+ * `publishAsRead`: also only while its publish is still the one read (state and time) — a send
+ * claims a piece without touching its output, so a write that must not land under a send that
+ * started meanwhile (letting a Reel's take go) is held to this too.
  */
-export async function saveOutputIf(id: string, output: ContentOutput, flags: Flags | undefined, rev: string | null): Promise<ContentItem | null> {
+export async function saveOutputIf(
+  id: string, output: ContentOutput, flags: Flags | undefined, rev: string | null, publishAsRead?: Publish | null,
+): Promise<ContentItem | null> {
   const next = { ...output, rev: nextRev() };
   let q = supabaseAdmin().from("ins_content").update(flags ? { output: next, flags } : { output: next }).eq("id", id);
   q = rev === null ? q.is("output->>rev", null) : q.eq("output->>rev", rev);
+  if (publishAsRead === null) q = q.is("publish_state", null);
+  else if (publishAsRead) {
+    q = q.eq("publish_state", publishAsRead.state);
+    q = publishAsRead.at === null ? q.is("publish_at", null) : q.eq("publish_at", publishAsRead.at);
+  }
   const { data, error } = await q.select(COLUMNS);
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as Record<string, unknown>[];
@@ -550,6 +567,19 @@ export async function claimPublish(id: string, now = new Date()): Promise<boolea
     .eq("id", id)
     .or(`publish_state.is.null,publish_state.eq.failed,publish_state.eq.cancelled,${staleClaim(now)}`)
     .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length === 1;
+}
+
+/**
+ * A claim (claimPublish) given back before anything reached Facebook: the row as it was before
+ * it, only while it still holds this claim (posting, at the claim's own time). A row that was
+ * never sent goes back to never sent, so nothing shows a failure that did not happen.
+ */
+export async function releasePublish(id: string, claimAt: string, before: Publish | null): Promise<boolean> {
+  const { data, error } = await supabaseAdmin().from("ins_content").update({
+    publish_state: before?.state ?? null, publish_at: before?.at ?? null, publish_error: before?.error ?? null,
+  }).eq("id", id).eq("publish_state", "posting").eq("publish_at", claimAt).select("id");
   if (error) throw new Error(error.message);
   return (data ?? []).length === 1;
 }

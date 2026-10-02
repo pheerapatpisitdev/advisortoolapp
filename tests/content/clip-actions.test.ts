@@ -11,10 +11,12 @@ vi.mock("@/lib/auth/pages", () => pages);
 const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => ({ ok: true, paidBy: "staff" })) }));
 vi.mock("@/lib/auth/quota", () => quota);
 vi.mock("@/lib/content/ceiling", () => ({ ceilingBeforeRound: vi.fn(async () => null) }));
-vi.mock("@/lib/content/clip-run", () => ({ runTranscribe: vi.fn(async (i: unknown) => ({ ok: true, item: i })) }));
+vi.mock("@/lib/content/clip-run", async (orig) => ({ ...(await orig<typeof import("@/lib/content/clip-run")>()), runTranscribe: vi.fn(async (i: unknown) => ({ ok: true, item: i })) }));
 vi.mock("@/lib/wallet/round", () => ({ payRound: (_p: unknown, run: () => unknown) => run() }));
 const auth = vi.hoisted(() => ({ requireMember: vi.fn() }));
 vi.mock("@/lib/auth/viewer", () => auth);
+const jobs = vi.hoisted(() => ({ checkJob: vi.fn() }));
+vi.mock("@/lib/video/jobs", async (orig) => ({ ...(await orig<typeof import("@/lib/video/jobs")>()), ...jobs }));
 
 const { finishClipUpload, saveClipCaption, startClipUpload, transcribeClip } = await import("@/app/studio/clip");
 const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
@@ -57,6 +59,54 @@ describe("startClipUpload", () => {
     expect(await startClipUpload({ pieceId: PIECE, file })).toMatchObject({ ok: false });
     store.getContent.mockResolvedValue(item({ publish: { state: "scheduled", pageId: "105", postId: "v1", at: "2099-01-01T00:00:00Z", error: null } }));
     expect(await startClipUpload({ pieceId: PIECE, file })).toMatchObject({ ok: false });
+  });
+});
+
+describe("a clip being edited (final review, 2026-10-02)", () => {
+  const path = `${PIECE}/9a8b7c6d-5e4f-4a3b-2c1d-0e9f8a7b6c5d.mp4`;
+  const SOURCE = `${PIECE}/11111111-2222-4333-8444-555555555555.mp4`;
+  const PROXY = `${PIECE}/33333333-3333-4333-8333-333333333333.mp4`;
+  const TAKE = `${PIECE}/44444444-4444-4444-8444-444444444444.mp4`;
+  const baseEdit = { cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box" as const, rev: "r1", proxyPath: PROXY, silences: [] as [number, number][] };
+  const job = (startedAt = new Date().toISOString()) => ({ kind: "render" as const, engine: "rendi" as const, id: "cmd-1", startedAt, tokenHash: "h", tried: ["rendi" as const] });
+  const withEdit = (edit: Record<string, unknown>) => item({
+    format: "clip",
+    output: { ...item().output, video: { path: SOURCE, durationSec: 10, width: 1080, height: 1920, sizeBytes: 1, mime: "video/mp4", uploadedAt: "", caption: "c", flags: NO_FLAGS, edit: { ...baseEdit, ...edit } } },
+  });
+  const BUSY = "คลิปนี้กำลังตัดต่ออยู่ — รอให้เสร็จก่อนแนบคลิปใหม่";
+
+  it("refuses a new clip while a job runs or a submit is under way", async () => {
+    clips.clipSize.mockResolvedValue(file.sizeBytes);
+    for (const edit of [
+      { job: job() },
+      { submitting: { id: "c", at: new Date().toISOString(), kind: "render" } },
+      { submitting: { id: "c", at: new Date().toISOString(), kind: "prepare" } },
+    ]) {
+      store.getContent.mockResolvedValue(withEdit(edit));
+      expect(await startClipUpload({ pieceId: PIECE, file })).toEqual({ ok: false, error: BUSY });
+      expect(await finishClipUpload({ pieceId: PIECE, path, file })).toEqual({ ok: false, error: BUSY });
+    }
+    expect(clips.createClipUpload).not.toHaveBeenCalled();
+    expect(store.saveOutputIf).not.toHaveBeenCalled();
+    expect(clips.removeClip).not.toHaveBeenCalled();
+    expect(jobs.checkJob).not.toHaveBeenCalled();
+  });
+
+  it("a job left past its bound is wrapped up first, then the clip may go on", async () => {
+    store.getContent.mockResolvedValue(withEdit({ job: job(new Date(Date.now() - 16 * 60_000).toISOString()) }));
+    jobs.checkJob.mockResolvedValue({ item: withEdit({ job: null, error: "ตัดต่อนานเกิน 15 นาที — ลองอีกครั้งได้" }), changed: true });
+    expect(await startClipUpload({ pieceId: PIECE, file })).toMatchObject({ ok: true });
+    expect(jobs.checkJob).toHaveBeenCalledWith(PIECE);
+  });
+
+  it("a replaced clip takes its preview and its edited take with it, and its edit", async () => {
+    store.getContent.mockResolvedValue(withEdit({ renderedPath: TAKE, renderedRev: "r1" }));
+    clips.clipSize.mockResolvedValue(file.sizeBytes);
+    expect((await finishClipUpload({ pieceId: PIECE, path, file })).ok).toBe(true);
+    const saved = store.saveOutputIf.mock.calls[0][1] as ContentItem["output"];
+    expect(saved.video?.path).toBe(path);
+    expect(saved.video?.edit).toBeUndefined();
+    expect(clips.removeClip.mock.calls.map((c) => c[0]).sort()).toEqual([SOURCE, PROXY, TAKE].sort());
   });
 });
 
@@ -130,6 +180,12 @@ describe("transcribeClip", () => {
     expect(await transcribeClip(PIECE)).toMatchObject({ ok: false, error: expect.stringContaining("ครบ 20 ครั้ง") });
     as("staff-2", { owner: false, publish: true, connect: false, admin: false });
     expect((await transcribeClip(PIECE)).ok).toBe(true);
+  });
+
+  it("refuses while the clip's edit has a job or a submit under way, before taking a round (final review, 2026-10-02)", async () => {
+    store.getContent.mockResolvedValue(withClip({}, { edit: { cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: "r", job: { kind: "prepare", engine: "rendi", id: "j", startedAt: new Date().toISOString(), tokenHash: "h", tried: ["rendi"] } } }));
+    expect(await transcribeClip(PIECE)).toEqual({ ok: false, error: "คลิปนี้กำลังตัดต่ออยู่ — รอให้เสร็จก่อนถอดเสียงใหม่" });
+    expect(quota.takeRound).not.toHaveBeenCalled();
   });
 
   it("refuses an expired clip before taking a round", async () => {

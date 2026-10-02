@@ -42,6 +42,19 @@ export function monthStart(now = new Date()): Date {
   return new Date(Date.UTC(bkk.getUTCFullYear(), bkk.getUTCMonth(), 1) - BKK_MS);
 }
 
+/**
+ * One line of what was spent, in the ledger every reader sums: the AI client writes one per call
+ * as it returns, and a clip's render service one per job it delivered (src/lib/video/jobs.ts).
+ * Only counts and money, never anyone's words. A line that could not be written is logged, not
+ * thrown: the work it is for is done, and its answer still goes out.
+ */
+export async function recordUsage(model: string, task: string, inTok: number, outTok: number, costThb: number): Promise<void> {
+  const r = await supabaseAdmin().from("ins_usage_ledger").insert({
+    model, task, input_tokens: inTok, output_tokens: outTok, cost_thb: Number(costThb.toFixed(6)),
+  });
+  if (r?.error) console.error(`usage of ${task} not recorded:`, r.error.message);
+}
+
 /* ------------------------------ reservations ------------------------------ */
 
 /**

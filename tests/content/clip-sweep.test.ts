@@ -102,9 +102,12 @@ function fake(opts: { folders: Record<string, { name: string; created_at: string
   };
   const client = {
     storage: { from: () => ({
-      list: async (dir: string) => dir === ""
-        ? { data: Object.keys(opts.folders).map((name) => ({ name })), error: null }
-        : { data: opts.folders[dir] ?? [], error: null },
+      // a page at a time, as storage answers: at most `limit` (100 when not said) from `offset`
+      list: async (dir: string, o: { limit?: number; offset?: number } = {}) => {
+        const all = dir === "" ? Object.keys(opts.folders).map((name) => ({ name })) : opts.folders[dir] ?? [];
+        const from = o.offset ?? 0;
+        return { data: all.slice(from, from + (o.limit ?? 100)), error: null };
+      },
       remove: async (paths: string[]) => { removed.push(...paths); return { error: null }; },
     }) },
     from: () => ({ select: () => query("select"), update: (p: Record<string, unknown>) => query("update", p) }),
@@ -228,6 +231,18 @@ describe("sweepClips", () => {
     expect(fb.reelState).toHaveBeenCalledTimes(1);
     expect(f.removed).toEqual([]);
     expect(f.updates).toEqual([]);
+  });
+
+  it("reads a piece's folder to its end: a render's pictures past the first hundred go too (final review, 2026-10-02)", async () => {
+    const pngs = Array.from({ length: 250 }, (_, i) => ({ name: `${String(i).padStart(3, "0")}.png`, created_at: old(30) }));
+    const f = fake({
+      folders: { [U1]: [{ name: "v.mp4", created_at: old(100) }, ...pngs] },
+      rows: [dbRow(U1, { publish_state: null, publish_at: null, output: { rev: "r1", video: { path: `${U1}/v.mp4`, uploadedAt: old(1) } } })],
+    });
+    const { sweepClips } = await import("@/lib/content/clip-sweep");
+    expect(await sweepClips()).toEqual({ removed: 250, expired: 0 });
+    expect(f.removed.sort()).toEqual(pngs.map((p) => `${U1}/${p.name}`).sort());
+    expect(f.removed).not.toContain(`${U1}/v.mp4`);
   });
 
   it("a draft clip past 60 days goes without asking Facebook", async () => {

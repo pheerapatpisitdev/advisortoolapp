@@ -23,10 +23,19 @@ vi.mock("@/lib/video/overlays", () => ({
   renderSubPng: vi.fn(async (w: string) => Buffer.from(`sub:${w}`)),
   renderHookPng: vi.fn(async (h: Hook) => Buffer.from(`hook:${h.main}`)),
 }));
-// the asker may see the piece (scope is tested with the store); the words list is empty
+// the asker may see the piece (scope is tested with the store); the words list is empty.
+// `reads.after`: run once, just after the next read — another request writing between a read and a write
+const reads = vi.hoisted(() => ({ after: null as null | (() => void) }));
 vi.mock("@/lib/content/store", async (orig) => {
   const real = await orig<typeof import("@/lib/content/store")>();
-  return { ...real, getContent: (id: string) => real.getContentUnscoped(id), listWords: vi.fn(async () => []) };
+  const getContent = async (id: string) => {
+    const r = await real.getContentUnscoped(id);
+    const then = reads.after;
+    reads.after = null;
+    then?.();
+    return r;
+  };
+  return { ...real, getContent, listWords: vi.fn(async () => []) };
 });
 const ceiling = vi.hoisted(() => ({ ceilingBeforeRound: vi.fn(async (): Promise<number | null> => null) }));
 vi.mock("@/lib/content/ceiling", () => ceiling);
@@ -38,7 +47,7 @@ vi.mock("@/lib/auth/viewer", () => auth);
 const { NO_FLAGS, clipOutput } = await import("@/lib/content/clip");
 const { EngineError } = await import("@/lib/video/engines/types");
 const { JOB_BUSY } = await import("@/lib/video/jobs");
-const { RENDER_DOWN, TOO_SHORT } = await import("@/lib/video/render-run");
+const { RENDER_DOWN, TOO_SHORT, renderCostThb } = await import("@/lib/video/render-run");
 const { openEdit, pollEdit, renderEdit, saveEdit, useOriginal } = await import("@/app/studio/clip-edit");
 const { saveFinishTicks } = await import("@/app/studio/ticks");
 
@@ -109,8 +118,12 @@ beforeEach(() => {
   eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "rendi" ? rendi : lambda));
   quota.takeRound.mockResolvedValue(WALLET);
   ceiling.ceilingBeforeRound.mockResolvedValue(null);
+  reads.after = null;
   clipDb.reset(dbRow(video()));
 });
+
+/** a send claims the Reel (claimPublish): publish columns only, the output untouched */
+const sendClaims = () => { clipDb.row = { ...clipDb.row!, publish_state: "posting", publish_at: new Date().toISOString(), fb_page_id: "105" }; };
 
 afterEach(() => vi.useRealTimers());
 
@@ -122,6 +135,8 @@ describe("openEdit", () => {
     expect(quota.takeRound).not.toHaveBeenCalled();
     expect(storedEdit().job).toMatchObject({ kind: "prepare", engine: "rendi", id: "cmd-9" });
     expect(storedEdit().job?.pass).toBeUndefined();
+    // free to the agent, not to the owner: the estimate rides on the job, for the usage ledger when delivered
+    expect(storedEdit().job?.costThb).toBeCloseTo(renderCostThb(20_000_000).rendi);
     expect(storedEdit().submitting).toBeUndefined(); // the claim gave way to the job
     // the preview is made from the clip itself
     const job = rendi.submit.mock.calls[0][0] as FfmpegJob;
@@ -261,10 +276,24 @@ describe("renderEdit", () => {
       pass: { paidBy: "wallet", holdId: "hold-1", heldSatang: 600, multiplier: 2 },
     });
     expect(storedEdit().job?.pass).not.toHaveProperty("ok");
+    // the hook and subtitle pictures it reads are on the job, to be let go when it ends
+    const pngs = clipDb.uploads.filter((p) => p.endsWith(".png"));
+    expect(pngs.length).toBeGreaterThan(0);
+    expect(storedEdit().job?.pictures).toEqual(pngs);
     if (r.ok) {
       expect(r.item.output.video?.edit?.job).toMatchObject({ kind: "render", id: "cmd-9", rev: "r1" });
       expectNoJobInternals(r.item);
     }
+  });
+
+  it("a send that claimed the Reel since it was read: the claim let go, no round taken (final review, 2026-10-02)", async () => {
+    clipDb.reset(dbRow(video({ edit: prepared() })));
+    reads.after = sendClaims;
+    expect(await renderEdit(PIECE)).toEqual({ ok: false, error: "Reel นี้ตั้งเวลาหรือลงเพจแล้ว — ยกเลิกคิวก่อนตัดต่อ" });
+    expect(quota.takeRound).not.toHaveBeenCalled();
+    expect(rendi.submit).not.toHaveBeenCalled();
+    expect(storedEdit().submitting).toBeUndefined();
+    expect(storedEdit().job ?? null).toBeNull();
   });
 
   it("refuses before the round when the owner's monthly ceiling is reached", async () => {
@@ -362,5 +391,23 @@ describe("useOriginal", () => {
     expect(clipDb.files.has(TAKE)).toBe(false);
     expect(clipDb.removed).toEqual([TAKE]);
     expect(stored().path).toBe(SOURCE);
+  });
+
+  it("a send that claimed the Reel after it was read keeps the take, row and file (final review, 2026-10-02)", async () => {
+    clipDb.reset(dbRow(video({ edit: prepared({ renderedPath: TAKE, renderedAt: new Date().toISOString(), renderedRev: "r1" }) })));
+    clipDb.files.set(TAKE, { text: "REEL" });
+    reads.after = sendClaims;
+
+    expect(await useOriginal(PIECE)).toEqual({ ok: false, error: "Reel นี้ตั้งเวลาหรือลงเพจแล้ว — ยกเลิกคิวก่อนตัดต่อ" });
+
+    expect(storedEdit().renderedPath).toBe(TAKE);
+    expect(clipDb.files.has(TAKE)).toBe(true);
+    expect(clipDb.removed).toEqual([]);
+  });
+
+  it("refuses outright a Reel held or being sent", async () => {
+    clipDb.reset(dbRow(video({ edit: prepared({ renderedPath: TAKE, renderedRev: "r1" }) }), { publish_state: "posting", publish_at: new Date().toISOString() }));
+    expect((await useOriginal(PIECE)).ok).toBe(false);
+    expect(clipDb.writes).toBe(0);
   });
 });

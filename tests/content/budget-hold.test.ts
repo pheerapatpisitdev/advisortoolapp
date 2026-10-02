@@ -20,7 +20,7 @@ const walletStore = vi.hoisted(() => ({
 vi.mock("@/lib/wallet/store", () => walletStore);
 
 const { admits, monthStart } = await import("@/lib/ai/ledger");
-const { CONTENT_RESERVE_TASK, contentCap, contentSpentThisMonth, DEFAULT_CONTENT_CAP_THB, holdContentBudget } = await import("@/lib/content/store");
+const { CONTENT_EDIT_TASK, CONTENT_RESERVE_TASK, contentCap, contentSpentThisMonth, DEFAULT_CONTENT_CAP_THB, holdContentBudget } = await import("@/lib/content/store");
 
 const spent = (baht: number) => ({ calls: 1, baht, lines: [{ model: "x", task: "content", calls: 1, baht }] });
 
@@ -98,6 +98,22 @@ describe("monthStart", () => {
     // 06:00 on 30 September in Bangkok is September
     expect(monthStart(new Date("2026-09-29T23:00:00Z")).toISOString()).toBe("2026-08-31T17:00:00.000Z");
     expect(monthStart(new Date("2027-01-01T00:00:00Z")).toISOString()).toBe("2026-12-31T17:00:00.000Z");
+  });
+});
+
+describe("a clip's delivered render on the ceiling (final review, 2026-10-02)", () => {
+  const edits = (baht: number) => ({ calls: 1, baht, lines: [{ model: "rendi", task: CONTENT_EDIT_TASK, calls: 1, baht }] });
+
+  it("is counted as content when the owner paid (staff, a free round, a preview)", async () => {
+    expect(CONTENT_EDIT_TASK).toBe("content-edit");
+    ledger.monthSpend.mockResolvedValue(edits(0.9));
+    expect(await contentSpentThisMonth()).toBeCloseTo(0.9);
+  });
+
+  it("nets to nothing when the agent's wallet paid: the charge records the same cost", async () => {
+    ledger.monthSpend.mockResolvedValue(edits(0.9));
+    walletStore.walletChargedThb.mockResolvedValueOnce(0.9);
+    expect(await contentSpentThisMonth()).toBeCloseTo(0);
   });
 });
 

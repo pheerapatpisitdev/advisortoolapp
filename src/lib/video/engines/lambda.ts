@@ -18,10 +18,12 @@ const INVOKE_TIMEOUT_MS = 10_000;
 export function lambdaEngine(key: string): RenderEngine {
   return {
     name: "lambda",
+    // the id is ours to give, so the job is on the row before the function can call back about it
+    takesId: true,
     async submit(job, opts) {
       const aws = parseAwsKey(key);
       if (!aws) throw new EngineError("ตั้งค่า AWS ไม่ครบ", true);
-      const id = crypto.randomUUID();
+      const id = opts.id ?? crypto.randomUUID();
       const client = new LambdaClient({ region: aws.region, credentials: { accessKeyId: aws.accessKeyId, secretAccessKey: aws.secretAccessKey }, maxAttempts: 1 });
       try {
         await client.send(new InvokeCommand({

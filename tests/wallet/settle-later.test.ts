@@ -28,6 +28,19 @@ describe("settleLater", () => {
     expect(w.settleWallet).not.toHaveBeenCalled();
     expect(w.returnFreeRound).not.toHaveBeenCalled();
   });
+  it("logs, by the hold's id only, a delivered round whose hold was already gone (final review, 2026-10-02)", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    w.settleWallet.mockResolvedValueOnce(null as unknown as number);
+    await expect(settleLater({ paidBy: "wallet", holdId: "h-gone", heldSatang: 600, multiplier: 2 }, true, 0.9)).resolves.toBeUndefined();
+    expect(err).toHaveBeenCalledTimes(1);
+    expect(String(err.mock.calls[0][0])).toContain("h-gone");
+    expect(String(err.mock.calls[0][0])).toMatch(/not charged/);
+    // a hold that was there says nothing
+    err.mockClear();
+    await settleLater({ paidBy: "wallet", holdId: "h", heldSatang: 600, multiplier: 2 }, true, 0.9);
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
   it("logs a settle that fails instead of throwing: the hold is swept back to the agent", async () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
     w.settleWallet.mockRejectedValueOnce(new Error("db down"));

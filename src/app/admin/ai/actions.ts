@@ -206,6 +206,9 @@ function byProvider(lines: SpendLine[], models: { provider: string; model_name: 
     ...models.map((m) => [m.model_name, m.provider] as const),
     ...EMBEDDERS.map((e) => [e.model, e.provider] as const),
     [JUDGE.model, JUDGE.provider] as const,
+    // a clip's render, written to the ledger under its engine (src/lib/video/jobs.ts): its key's name here
+    ["rendi", "rendi"] as const,
+    ["lambda", "aws"] as const,
   ]);
   const acc = new Map<string, { calls: number; baht: number; tasks: Map<string, number> }>();
   for (const l of lines) {

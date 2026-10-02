@@ -12,7 +12,7 @@ import { blocksKey } from "@/lib/content/poster-text";
 let row: ContentItem;
 const store = vi.hoisted(() => ({
   getContent: vi.fn(), claimPublish: vi.fn(), recordPublishIf: vi.fn(), listDue: vi.fn(), saveOutput: vi.fn(), saveOutputIf: vi.fn(),
-  adoptPage: vi.fn(async () => undefined),
+  adoptPage: vi.fn(async () => undefined), releasePublish: vi.fn(),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), postReel: vi.fn(), deletePost: vi.fn(), postState: vi.fn(), reelState: vi.fn() }));
 const clips = vi.hoisted(() => ({ clipReadUrl: vi.fn() }));
@@ -70,6 +70,11 @@ beforeEach(() => {
     const stale = p?.state === "posting" && (!p.at || now.getTime() - new Date(p.at).getTime() > POSTING_STALE_MS);
     if (p && !["failed", "cancelled"].includes(p.state) && !stale) return false;
     row = { ...row, publish: { ...(p ?? pub({})), state: "posting", at: now.toISOString(), error: null } };
+    return true;
+  });
+  store.releasePublish.mockImplementation(async (_id: string, claimAt: string, before: Publish | null) => {
+    if (row.publish?.state !== "posting" || row.publish.at !== claimAt) return false;
+    row = { ...row, publish: before };
     return true;
   });
   store.recordPublishIf.mockImplementation(async (_id: string, from: Parameters<typeof applyIf>[0], p: Parameters<typeof applyIf>[1]) => applyIf(from, p));
@@ -438,6 +443,42 @@ describe("a Reel", () => {
     row = reel(video({ edit: edit({ job: jobOf("prepare") }) }));
     expect((await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).ok).toBe(true);
   });
+  describe("a render pressed, or the take let go, between clear() and the claim (final review, 2026-10-02)", () => {
+    /** the claim lands, and the edit changes just after clear() read it */
+    const raceWith = (change: (e: ReturnType<typeof edit>) => ReturnType<typeof edit>) => {
+      store.claimPublish.mockImplementationOnce(async (_id: string, now: Date) => {
+        row = { ...row, publish: { ...(row.publish ?? pub({})), state: "posting", at: now.toISOString(), error: null } };
+        const v = row.output.video!;
+        row = { ...row, output: { ...row.output, rev: "rZ", video: { ...v, edit: change(v.edit as ReturnType<typeof edit>) as typeof v.edit } } };
+        return true;
+      });
+    };
+
+    it("a render claim that appeared stops the send and gives the claim back, nothing sent", async () => {
+      row = reel(video({ edit: edit() }));
+      raceWith((e) => ({ ...e, submitting: { id: "c", at: new Date().toISOString(), kind: "render" } }));
+      expect(await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).toEqual({ ok: false, error: "กำลังสร้างคลิปที่ตัดต่อ — รอให้เสร็จก่อนลงเพจ" });
+      expect(row.publish).toBeNull();
+      expect(clips.clipReadUrl).not.toHaveBeenCalled();
+      expect(fb.postReel).not.toHaveBeenCalled();
+    });
+
+    it("a take that changed stops it too, and the row goes back to how it was", async () => {
+      row = { ...reel(video({ edit: edit({ renderedPath: "p1/e.mp4", renderedRev: "r1" }) })), publish: pub({ state: "failed", error: "ครั้งก่อน" }) };
+      raceWith((e) => ({ ...e, renderedPath: undefined, renderedRev: undefined }));
+      expect(await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).toEqual({ ok: false, error: CONCURRENT });
+      expect(row.publish).toMatchObject({ state: "failed", error: "ครั้งก่อน" });
+      expect(fb.postReel).not.toHaveBeenCalled();
+    });
+
+    it("a Reel whose take stayed the same goes up", async () => {
+      row = reel(video({ edit: edit({ renderedPath: "p1/e.mp4", renderedRev: "r1" }) }));
+      raceWith((e) => ({ ...e, hook: { main: "แก้หัว" } }));
+      expect((await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).ok).toBe(true);
+      expect(clips.clipReadUrl).toHaveBeenCalledWith("p1/e.mp4", expect.any(Number));
+    });
+  });
+
   it("a render that never answered, or a dead submit claim, does not hold the Reel", async () => {
     row = reel(video({ edit: edit({ job: jobOf("render", 20 * 60_000), submitting: { id: "c", at: minutesAgo(10), kind: "render" } }) }));
     expect((await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).ok).toBe(true);

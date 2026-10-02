@@ -18,12 +18,14 @@ const eng = vi.hoisted(() => ({ enginesInOrder: vi.fn(), engineNamed: vi.fn() })
 vi.mock("@/lib/video/engines/index", () => eng);
 const round = vi.hoisted(() => ({ settleLater: vi.fn(async () => undefined) }));
 vi.mock("@/lib/wallet/round", async (orig) => ({ ...(await orig<typeof import("@/lib/wallet/round")>()), ...round }));
+const ledger = vi.hoisted(() => ({ recordUsage: vi.fn(async () => undefined) }));
+vi.mock("@/lib/ai/ledger", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/ledger")>()), ...ledger }));
 
 const { NO_FLAGS, clipOutput, EDIT_JOB_TIMEOUT_MS } = await import("@/lib/content/clip");
 const { EngineError } = await import("@/lib/video/engines/types");
 const { prepareJob, renderJob } = await import("@/lib/video/command");
 const { buildSubs, parseSilences } = await import("@/lib/video/timeline");
-const { checkJob, hashToken, initialEdit, submitJob, JOB_FAILED, JOB_NO_FILES, JOB_TIMED_OUT, NO_ENGINE } = await import("@/lib/video/jobs");
+const { checkJob, finishJob, hashToken, initialEdit, submitJob, COLLECT_LATEST_MS, JOB_FAILED, JOB_NO_FILES, JOB_TIMED_OUT, NO_ENGINE } = await import("@/lib/video/jobs");
 
 const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const OWN_FILE = new RegExp(`^${PIECE}/[0-9a-f-]{36}\\.mp4$`);
@@ -421,12 +423,12 @@ describe("the 15-minute bound", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime(new Date("2026-10-02T10:00:00Z"));
-      const started = new Date(Date.now() - EDIT_JOB_TIMEOUT_MS + 2_000).toISOString(); // 2 s inside the bound
+      const started = new Date(Date.now() - COLLECT_LATEST_MS + 2_000).toISOString(); // 2 s inside the last moment a collect may start
       clipDb.reset(dbRow(video({ edit: edit({ job: job({ startedAt: started }) }) })));
       const status: JobStatus = { state: "done", outputs: { out_1: { url: "https://storage.rendi.test/out/slow.mp4" } } };
       rendi.status.mockResolvedValue(status);
       // the download is slow and then fails: the bound passes while copying
-      fetchMock.mockImplementationOnce(async () => { vi.setSystemTime(new Date(Date.now() + 10_000)); return new Response("no", { status: 502 }); });
+      fetchMock.mockImplementationOnce(async () => { vi.setSystemTime(new Date(Date.now() + EDIT_JOB_TIMEOUT_MS)); return new Response("no", { status: 502 }); });
 
       expect((await checkJob(PIECE)).changed).toBe(true);
 
@@ -437,6 +439,183 @@ describe("the 15-minute bound", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("the round's clock (final review, 2026-10-02)", () => {
+  it("a job's clock starts at its submit claim — made before the round was taken — not when the engine took it", async () => {
+    const { claimSubmit } = await import("@/lib/video/jobs");
+    const read = (await import("@/lib/content/store")).getContentUnscoped;
+    clipDb.reset(dbRow(video({ edit: edit() })));
+    const claimed = await claimSubmit((await read(PIECE))!, "render", "r1");
+    if (typeof claimed === "string") throw new Error(claimed);
+    // the round is taken and the pictures drawn after the claim: two minutes of it, here
+    const claimAt = minutesAgo(2);
+    clipDb.row = { ...clipDb.row!, output: { ...(clipDb.row!.output as ContentOutput), video: { ...stored(), edit: { ...storedEdit(), submitting: { id: claimed.claim, at: claimAt, kind: "render" } } } } };
+    rendi.submit.mockResolvedValue({ id: "cmd-c" });
+
+    await submitJob(PIECE, "render", renderJob("https://signed.test/s.mp4", [[0, 5]], []), [], { pass: WALLET, costThb: 0.5, claim: claimed.claim });
+
+    expect(storedEdit().job).toMatchObject({ id: "cmd-c", startedAt: claimAt });
+    expect(storedEdit().submitting).toBeUndefined();
+  });
+
+  it("a finished job too late for a whole collect to end inside the hold is failed: nothing copied, round handed back, never settled", async () => {
+    // one second past the last moment a collect may start: 15 min − 240 s budget − 30 s margin
+    expect(COLLECT_LATEST_MS).toBe(EDIT_JOB_TIMEOUT_MS - 240_000 - 30_000);
+    const late = new Date(Date.now() - COLLECT_LATEST_MS - 1_000).toISOString();
+    clipDb.reset(dbRow(video({ edit: edit({ renderedPath: OLD_TAKE, job: job({ startedAt: late }) }) })));
+    const status: JobStatus = { state: "done", outputs: { out_1: { url: URLS.reel, fileId: "f1" } } };
+    rendi.status.mockResolvedValue(status);
+
+    expect((await checkJob(PIECE)).changed).toBe(true);
+
+    expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT, renderedPath: OLD_TAKE });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(clipDb.uploads).toHaveLength(0);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
+    expect(round.settleLater).not.toHaveBeenCalledWith(WALLET, true, expect.anything());
+    expect(ledger.recordUsage).not.toHaveBeenCalled();
+    expect(rendi.cleanup).toHaveBeenCalledWith(status);
+  });
+
+  it("one finished just inside that moment is collected and charged", async () => {
+    const inTime = new Date(Date.now() - COLLECT_LATEST_MS + 5_000).toISOString();
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ startedAt: inTime }) }) })));
+    rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: URLS.reel } } });
+
+    await checkJob(PIECE);
+
+    expect(storedEdit().renderedPath).toMatch(OWN_FILE);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.9);
+  });
+
+  it("a running job past that moment is still waited for — only the 15 minutes end it", async () => {
+    const late = new Date(Date.now() - COLLECT_LATEST_MS - 1_000).toISOString();
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ startedAt: late }) }) })));
+    rendi.status.mockResolvedValue({ state: "running" });
+    expect((await checkJob(PIECE)).changed).toBe(false);
+    expect(storedEdit().job?.id).toBe("cmd-1");
+  });
+});
+
+describe("what a delivered job cost, in the usage ledger (final review, 2026-10-02)", () => {
+  it("a delivered render writes its estimate under content-edit, whoever paid", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ pass: { paidBy: "staff" } }) }) })));
+    rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: URLS.reel } } });
+    await checkJob(PIECE);
+    expect(storedEdit().renderedPath).toMatch(OWN_FILE);
+    expect(ledger.recordUsage).toHaveBeenCalledTimes(1);
+    expect(ledger.recordUsage).toHaveBeenCalledWith("rendi", "content-edit", 0, 0, 0.9);
+
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ pass: WALLET }) }) })));
+    await checkJob(PIECE);
+    expect(ledger.recordUsage).toHaveBeenCalledTimes(2);
+    expect(round.settleLater).toHaveBeenLastCalledWith(WALLET, true, 0.9);
+  });
+
+  it("a failed render writes nothing", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ job: job() }) })));
+    rendi.status.mockResolvedValue({ state: "failed", error: "boom" });
+    await checkJob(PIECE);
+    expect(storedEdit().error).toBe(JOB_FAILED);
+    expect(ledger.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it("a delivered preview writes its estimate too: free to the agent, not to the owner", async () => {
+    clipDb.reset(dbRow(video({ edit: { cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: "e0", job: job({ kind: "prepare", rev: undefined, pass: undefined, costThb: 0.6 }) } })));
+    rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: URLS.proxy }, out_2: { url: URLS.silences } } });
+    await checkJob(PIECE);
+    expect(storedEdit().proxyPath).toMatch(OWN_FILE);
+    expect(ledger.recordUsage).toHaveBeenCalledWith("rendi", "content-edit", 0, 0, 0.6);
+    expect(round.settleLater).not.toHaveBeenCalled();
+  });
+});
+
+describe("a render's pictures (final review, 2026-10-02)", () => {
+  const PICS = [`${PIECE}/55555555-5555-4555-8555-555555555555.png`, `${PIECE}/66666666-6666-4666-8666-666666666666.png`];
+
+  it("are recorded on the job at submit, and kept from the browser", async () => {
+    const { forClient } = await import("@/lib/content/clip");
+    const read = (await import("@/lib/content/store")).getContentUnscoped;
+    clipDb.reset(dbRow(video({ edit: edit() })));
+    rendi.submit.mockResolvedValue({ id: "cmd-p" });
+    await submitJob(PIECE, "render", renderJob("https://signed.test/s.mp4", [[0, 5]], []), [], { pass: WALLET, pictures: PICS });
+    expect(storedEdit().job?.pictures).toEqual(PICS);
+    expect(forClient((await read(PIECE))!).output.video!.edit!.job).not.toHaveProperty("pictures");
+  });
+
+  it("are let go when the job is delivered", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ pictures: PICS }) }) })));
+    for (const p of PICS) clipDb.files.set(p, { text: "PNG" });
+    rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: URLS.reel } } });
+    await checkJob(PIECE);
+    expect(storedEdit().renderedPath).toMatch(OWN_FILE);
+    for (const p of PICS) expect(clipDb.files.has(p)).toBe(false);
+  });
+
+  it("and when it fails or times out", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ pictures: PICS }) }) })));
+    for (const p of PICS) clipDb.files.set(p, { text: "PNG" });
+    rendi.status.mockResolvedValue({ state: "failed", error: "x" });
+    await checkJob(PIECE);
+    expect(storedEdit().error).toBe(JOB_FAILED);
+    for (const p of PICS) expect(clipDb.files.has(p)).toBe(false);
+
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ pictures: PICS, startedAt: minutesAgo(16) }) }) })));
+    for (const p of PICS) clipDb.files.set(p, { text: "PNG" });
+    rendi.status.mockResolvedValue({ state: "running" });
+    await checkJob(PIECE);
+    expect(storedEdit().error).toBe(JOB_TIMED_OUT);
+    for (const p of PICS) expect(clipDb.files.has(p)).toBe(false);
+  });
+});
+
+describe("an engine that takes the id it is given (final review, 2026-10-02)", () => {
+  it("has the job recorded before it is invoked, so a callback that comes back at once finds it", async () => {
+    lambda.takesId = true;
+    eng.enginesInOrder.mockImplementation(async () => [lambda]);
+    clipDb.reset(dbRow(video({ edit: edit() })));
+    let answered: string | null = null;
+    lambda.submit.mockImplementation(async (_job: unknown, opts: { id?: string; uploads?: Record<string, { path: string }> }) => {
+      // the function ran and called back before invoke even returned
+      answered = await finishJob(PIECE, opts.id!, { state: "done", outputs: { out_1: { path: opts.uploads!.out_1.path } } });
+      return { id: opts.id! };
+    });
+
+    const rec = await submitJob(PIECE, "render", renderJob("https://signed.test/s.mp4", [[0, 5]], []), [], { pass: WALLET, costThb: 0.07 });
+
+    expect(answered).toBe("finished");
+    expect(lambda.submit.mock.calls[0][1].id).toBe(rec.id);
+    // collected by the callback, and not brought back to life by submit
+    expect(storedEdit().job).toBeNull();
+    expect(storedEdit().renderedPath).toBe(rec.dest!.out_1);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.07);
+  });
+
+  it("an invoke that fails clears the record and gives the caller's claim back for the next engine", async () => {
+    const { claimSubmit } = await import("@/lib/video/jobs");
+    const read = (await import("@/lib/content/store")).getContentUnscoped;
+    lambda.takesId = true;
+    eng.enginesInOrder.mockImplementation(async () => [lambda, rendi]);
+    clipDb.reset(dbRow(video({ edit: edit() })));
+    const claimed = await claimSubmit((await read(PIECE))!, "render", "r1");
+    if (typeof claimed === "string") throw new Error(claimed);
+    const seen: unknown[] = [];
+    lambda.submit.mockImplementation(async () => { seen.push(storedEdit().job?.engine); throw new EngineError("ส่งงานให้ AWS ไม่ได้", true); });
+    rendi.submit.mockImplementation(async () => { seen.push(storedEdit().submitting?.id); return { id: "cmd-r" }; });
+
+    await submitJob(PIECE, "render", renderJob("https://signed.test/s.mp4", [[0, 5]], []), [], { claim: claimed.claim });
+
+    // on the row while Lambda was asked; the claim back while Rendi was
+    expect(seen).toEqual(["lambda", claimed.claim]);
+    expect(storedEdit().job).toMatchObject({ engine: "rendi", id: "cmd-r", tried: ["lambda", "rendi"] });
+    expect(storedEdit().submitting).toBeUndefined();
+  });
+
+  it("a callback for an id nobody has is still ignored", async () => {
+    clipDb.reset(dbRow(video({ edit: edit() })));
+    expect(await finishJob(PIECE, "nobody", { state: "done", outputs: {} })).toBe("ignored");
   });
 });
 
