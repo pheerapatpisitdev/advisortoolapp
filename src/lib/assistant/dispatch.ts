@@ -11,7 +11,7 @@ import type { HealthSlots } from "./ihealthy/route";
 import { answerQuestion } from "./lifeprotect/answer";
 import type { Routed } from "./lifeprotect/route";
 import type { AnySlots, Undecided, WithPdf } from "./slots";
-import { pdfTurn, withPdfOffer } from "./pdf";
+import { cleanPdfMemory, pdfTurn, withPdfOffer } from "./pdf";
 import { planNamedIn, priceNamedPlan } from "@/lib/copilot/price";
 import { asksPensionPrice, pensionNamedIn, pricePension } from "@/lib/copilot/pension-price";
 import { asksCi123Price, ci123NamedIn, priceCi123 } from "@/lib/copilot/ci123-price";
@@ -122,7 +122,7 @@ export async function answerAny(
    * before a brain sees them and written back onto whatever the brain returns, so a brain that
    * rebuilds its slots from scratch cannot drop it, and none has to know it exists.
    */
-  const memory = (stored as WithPdf<AnySlots> | null)?.pdf;
+  const memory = cleanPdfMemory((stored as WithPdf<AnySlots> | null)?.pdf);
   const slots = stored && "pdf" in stored ? withoutPdf(stored as WithPdf<AnySlots>) : stored;
 
   /**

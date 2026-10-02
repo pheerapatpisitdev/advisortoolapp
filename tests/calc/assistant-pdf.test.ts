@@ -144,6 +144,15 @@ describe("asked for the file", () => {
     expect(spoken(b)).not.toContain(APPLICATION_FORM);
   });
 
+  for (const yes of ["เอาเลย", "เอาแบบนี้", "เอาอันนี้ครับ"]) {
+    it(`reads ${yes} after the offer as the file: the offer was the last question`, async () => {
+      const first = await answerAny([{ role: "user", content: LIFE }], null, "facebook");
+      const a = await answerAny(thread([LIFE, first])(yes), first.slots, "facebook");
+      expect(a.messages[0].file).toBe(memoryOf(first)!.path);
+      expect(spoken(a)).not.toContain(APPLICATION_FORM);
+    });
+  }
+
   it("still sends the form for สมัคร after the offer", async () => {
     const first = await answerAny([{ role: "user", content: LIFE }], null, "facebook");
     const a = await answerAny(thread([LIFE, first])("สมัคร"), first.slots, "facebook");
@@ -175,6 +184,19 @@ describe("asked for the file", () => {
     const no = await answerAny(thread([LIFE, first])("ไม่ครับ"), first.slots, "facebook");
     expect(spoken(no)).toBe(DECLINED);
     expect(memoryOf(no)!.declined).toBe(true);
+  });
+
+  it("reads ไม่เป็นไรครับ with no offer on screen as politeness, not a no to the file", async () => {
+    const first = await answerAny([{ role: "user", content: LIFE }], null, "facebook");
+    const history: ChatMessage[] = [
+      { role: "user", content: LIFE },
+      { role: "assistant", content: "ยินดีครับ มีอะไรถามเพิ่มได้เลย" },
+      { role: "user", content: "ไม่เป็นไรครับ" },
+    ];
+    const a = await answerAny(history, first.slots, "facebook");
+    expect(spoken(a)).not.toBe(DECLINED);
+    expect(memoryOf(a)!.declined).toBeUndefined();
+    expect(memoryOf(a)!.path).toBe(memoryOf(first)!.path);
   });
 
   it("leaves ขอดูตารางมูลค่า alone", async () => {
@@ -220,5 +242,40 @@ describe("asked for the file", () => {
     expect(memoryOf(second)!.path).toBeUndefined();
     const a = await answerAny(thread([LIFE, first], [ci, second])("ขอ PDF"), second.slots, "facebook");
     expect(a.messages[0].text).toBe(NO_PDF);
+  });
+});
+
+describe("a PDF memory that came back from a browser", () => {
+  const ask = (pdf: unknown) => answerAny(
+    [{ role: "user", content: PDF_YES }], { product: "undecided", pdf } as unknown as AnySlots, "web");
+
+  it("never hands back a path this code did not write", async () => {
+    for (const path of ["javascript:alert(1)", "https://evil.example/x.pdf", "/api/quote-pdf?page=fhc&age=35", "//evil.example/api/quote-pdf?page=plb"]) {
+      const a = await ask({ path, asked: [] });
+      expect(a.messages.some((m) => m.file), path).toBe(false);
+      expect(spoken(a)).toBe(NO_QUOTE);
+    }
+  });
+
+  it("never echoes a card from somewhere else", async () => {
+    for (const card of ["https://evil.example/card.png", "/api/card/table?plan=PLB", "javascript:alert(1)"]) {
+      const a = await ask({ card, asked: [] });
+      expect(a.messages.some((m) => m.card), card).toBe(false);
+    }
+  });
+
+  it("survives an asked that is not a list, and a declined that is not true", async () => {
+    const a = await answerAny([{ role: "user", content: LIFE }],
+      { product: "undecided", pdf: { asked: 5, declined: "yes" } } as unknown as AnySlots, "facebook");
+    expect(a.messages.at(-1)!.text).toBe(OFFER);
+    expect(memoryOf(a)).toMatchObject({ asked: ["lifeprotect"] });
+    expect(memoryOf(a)!.declined).toBeUndefined();
+  });
+
+  it("keeps the good fields when one is bad", async () => {
+    const path = "/api/quote-pdf?page=plb&age=35&sex=M&sum=1000000&variant=PLB10&v=x";
+    const a = await ask({ path, card: "https://evil.example/c.png", asked: ["plb", "nope"] });
+    expect(a.messages[0].file).toBe(path);
+    expect(memoryOf(a)).toEqual({ path, asked: ["plb"] });
   });
 });

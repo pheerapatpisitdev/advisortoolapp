@@ -1,6 +1,6 @@
-import type { PdfPage } from "@/lib/quote-pdf/pages";
+import { PLAN_PAGES, type PdfPage } from "@/lib/quote-pdf/pages";
 import type { Channel } from "./channel";
-import { affirms, BUYS, one, type Reply, type Said } from "./common";
+import { affirms, one, type Reply, type Said } from "./common";
 import type { AnyAnswer } from "./dispatch";
 import type { AnySlots, PdfMemory, WithPdf } from "./slots";
 
@@ -42,15 +42,23 @@ const SENDING: Record<Channel, string> = {
 
 /** Polite endings a short answer may carry without changing what it says. */
 const TAIL = String.raw`(?:\s*(?:ครับ|ค่ะ|คะ|คับ|นะ|จ้า|จ้ะ|เลย|ก่อน|ขอบคุณ(?:ครับ|ค่ะ|คะ)?))*\s*$`;
-/** The button's own no, typed or tapped. */
-const SAYS_NO_THANKS = new RegExp(String.raw`^\s*${PDF_NO}${TAIL}`);
-/** A bare no, which only means "no file" straight after the bot offered one. */
+/**
+ * A bare no — the button's "ไม่เป็นไร" among them — which only means "no file" straight after
+ * the bot offered one. Anywhere else "ไม่เป็นไรครับ" is ordinary politeness, and reading it as a
+ * refusal would stop the offer for the rest of the conversation.
+ */
 const SAYS_NO = new RegExp(String.raw`^\s*(?:ยัง)?ไม่(?:เอา|ต้อง|ดีกว่า|เป็นไร)?${TAIL}|^\s*no(?:pe)?${TAIL}`, "i");
 /**
  * Ways of saying yes to the offer that `affirms` does not cover — "ขอด้วย", "ส่งมาเลย". Only
  * read straight after the offer, where there is nothing else they could be saying yes to.
  */
 const SAYS_SEND = new RegExp(String.raw`^\s*(?:ขอ(?:ด้วย|หน่อย)?|ส่ง(?:มา|ให้)?(?:หน่อย|ด้วย)?|อยากได้|ต้องการ|yes)${TAIL}`, "i");
+/**
+ * Words that can only mean applying, which outrank the offer. Narrower than `BUYS` on purpose:
+ * "เอาเลย", "เอาแบบนี้", "เอาอันนี้" are buying words after a quote, but straight after "want the
+ * PDF?" they are a yes to the file — the question the customer was just asked.
+ */
+const APPLIES = /สมัคร|ซื้อ|ทำประกัน|ขั้นตอน|เอกสาร|ทำ(?:ยังไง|อย่างไร|ไง)|ต้องทำอะไร|ดำเนินการ/;
 
 /**
  * The turn that answers a request for the file, or a no to the offer — undefined for any
@@ -58,7 +66,8 @@ const SAYS_SEND = new RegExp(String.raw`^\s*(?:ขอ(?:ด้วย|หน่�
  *
  * Read before the form, on purpose. The quote that offered the file also invited the
  * customer to apply, and the "เอาครับ" that comes back after the offer is about the file —
- * the last thing asked. A word that plainly means buying ("สมัคร") still gets the form.
+ * the last thing asked — even "เอาเลย". A word that can only mean applying ("สมัคร") still
+ * gets the form.
  *
  * A request with figures in it ("ขอใบเสนอราคา ชาย 35 ทุน 1 ล้าน") is asking for a quote, not
  * for the last one's file, so it is left to be priced — and the quote then offers the file.
@@ -69,12 +78,12 @@ export function pdfTurn(
   const kept: PdfMemory = memory ?? { asked: [] };
   const offered = Boolean(lastSaid?.trimEnd().endsWith(PDF_OFFER));
 
-  if (SAYS_NO_THANKS.test(asked) || (offered && SAYS_NO.test(asked))) {
+  if (offered && SAYS_NO.test(asked)) {
     return { reply: one(DECLINED), memory: { ...kept, declined: true } };
   }
 
   const requested = (PDF_ASKED.test(asked) && !/\d/.test(asked))
-    || (offered && (affirms(asked) || SAYS_SEND.test(asked)) && !BUYS.test(asked));
+    || (offered && (affirms(asked) || SAYS_SEND.test(asked)) && !APPLIES.test(asked));
   if (!requested) return undefined;
 
   if (kept.path) return { reply: { messages: [{ text: SENDING[channel], file: kept.path }] }, memory: kept };
@@ -86,9 +95,36 @@ export function pdfTurn(
 /** A quote's picture, as against a value table's or a list of illnesses'. */
 const QUOTE_CARD = /^\/api\/(?:card|ihealthy-card)\?/;
 
+const PDF_PAGES: readonly string[] = [...Object.keys(PLAN_PAGES), "ihealthy-ultra"];
+const isPdfPage = (v: unknown): v is PdfPage => typeof v === "string" && PDF_PAGES.includes(v);
+
 /** The page a PDF path prints. */
 function pageOf(path: string): PdfPage | undefined {
-  return (new URLSearchParams(path.split("?")[1] ?? "").get("page") ?? undefined) as PdfPage | undefined;
+  const page = new URLSearchParams(path.split("?")[1] ?? "").get("page");
+  return isPdfPage(page) ? page : undefined;
+}
+
+/**
+ * The PDF memory as this code could have written it, or undefined.
+ *
+ * On the website the slots go to the browser and come back, so whatever arrives may have been
+ * written by anyone: a `path` handed back as the file would be a link of their choosing, a
+ * `card` an image of their choosing, and an `asked` that is not a list throws on the next quote.
+ * So every field is checked against what `withPdfOffer` writes, and a field that fails is
+ * dropped — the rest of the conversation is still good. Read for every channel, not only the
+ * website: one check in one place, whoever stored the row.
+ */
+export function cleanPdfMemory(raw: unknown): PdfMemory | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const { path, card, asked, declined } = raw as Record<string, unknown>;
+  const ok = (v: unknown, pattern: RegExp) => typeof v === "string" && pattern.test(v) && !/\s/.test(v);
+  const goodPath = ok(path, /^\/api\/quote-pdf\?page=/) && pageOf(path as string) !== undefined;
+  return {
+    asked: Array.isArray(asked) ? [...new Set(asked.filter(isPdfPage))] : [],
+    ...(goodPath ? { path: path as string } : {}),
+    ...(ok(card, QUOTE_CARD) ? { card: card as string } : {}),
+    ...(declined === true ? { declined: true as const } : {}),
+  };
 }
 
 /**
