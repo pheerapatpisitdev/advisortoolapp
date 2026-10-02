@@ -1,9 +1,10 @@
 "use client";
 import { useState, useTransition } from "react";
 import { Card, Empty } from "../ui";
+import type { VideoSettings } from "@/lib/video/settings";
 import {
-  checkKeys, saveApiKey, setModelEnabled, setProviderEnabled, saveSettings,
-  type KeyRow, type ModelRow, type ProviderCheck, type ProviderSpend, type Result, type Settings,
+  checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings,
+  type KeyRow, type RenderProvider, type VideoKeyRow, type ModelRow, type ProviderCheck, type ProviderSpend, type Result, type Settings,
 } from "./actions";
 
 /**
@@ -92,9 +93,10 @@ const KIND_LABEL: Record<string, string> = { text: "ข้อความ", imag
 /** The quality an image row is asked for, so one model at two prices reads as two choices. */
 const QUALITY_LABEL: Record<string, string> = { low: "คุณภาพต่ำ", medium: "คุณภาพมาตรฐาน", high: "คุณภาพสูง (คมชัด)" };
 
-export function AiClient({ keys, models, settings, providers, spentThisMonth, spend, content }: {
+export function AiClient({ keys, models, settings, providers, spentThisMonth, spend, content, video }: {
   keys: KeyRow[]; models: ModelRow[]; settings: Settings | null; providers: string[];
   spentThisMonth: number | null; spend: ProviderSpend[]; content: { spent: number | null; cap: number; fallback: number };
+  video: { settings: VideoSettings; keys: VideoKeyRow[] };
 }) {
   const [pending, start] = useTransition();
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -144,6 +146,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
     });
   };
 
+  const [engine, setEngine] = useState<VideoSettings>(video.settings);
   const input = "rounded border border-[var(--bot-line-strong)] bg-[var(--bot-surface)] px-2 py-1";
 
   return (
@@ -226,6 +229,68 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
             );
           })}
         </div>
+      </Card>
+
+      <Card title="ตัวตัดต่อวิดีโอ" hint="บริการที่ใช้ตัดคลิปเป็นรีล เก็บกุญแจแบบเดียวกับค่าย AI แสดงเฉพาะ 4 ตัวท้าย">
+        <div className="space-y-2">
+          {([
+            ["rendi", "Rendi", "วางกุญแจ API ของ Rendi"],
+            ["aws", "AWS Lambda", "accessKeyId:secretAccessKey:region:functionName"],
+          ] as [RenderProvider, string, string][]).map(([p, label, placeholder]) => {
+            const held = video.keys.find((k) => k.provider === p);
+            return (
+              <div key={p} className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--bot-line)] p-2">
+                <span className="w-44 text-sm">{label}</span>
+                <span className="w-24 text-xs text-[var(--bot-ink-mute)]">{held ? `••••${held.tail}` : "ยังไม่ได้ตั้ง"}</span>
+                <span className="flex min-w-64 flex-1 items-center gap-2">
+                  <input
+                    type="password" placeholder={placeholder} autoComplete="off"
+                    className={`min-w-0 flex-1 text-sm ${input}`}
+                    value={draft[`render:${p}`] ?? ""} onChange={(e) => setDraft({ ...draft, [`render:${p}`]: e.target.value })}
+                  />
+                  <button
+                    type="button" disabled={pending || !(draft[`render:${p}`] ?? "").trim()}
+                    className="shrink-0 rounded bg-[var(--bot-navy)] px-3 py-1 text-xs text-[var(--bot-surface)] disabled:opacity-40"
+                    onClick={() => run(`render:${p}`, () => saveRenderKey(p, draft[`render:${p}`] ?? ""), `บันทึกกุญแจ ${label} แล้ว`,
+                      () => setDraft((d) => ({ ...d, [`render:${p}`]: "" })))}
+                  >
+                    {busy === `render:${p}` ? "กำลังบันทึก…" : "บันทึก"}
+                  </button>
+                </span>
+                <Said note={note} where={`render:${p}`} className="basis-full" />
+              </div>
+            );
+          })}
+        </div>
+        <form
+          className="mt-3 flex flex-wrap items-end gap-3"
+          onSubmit={(e) => { e.preventDefault(); run("engine", () => saveVideoEngine(engine), "บันทึกตัวตัดต่อแล้ว"); }}
+        >
+          <label className="text-sm">
+            <span className="block text-xs text-[var(--bot-ink-mute)]">ตัวตัดต่อหลัก</span>
+            <select value={engine.engine} className={`mt-1 ${input}`}
+                    onChange={(e) => setEngine({ ...engine, engine: e.target.value === "lambda" ? "lambda" : "rendi" })}>
+              <option value="rendi">Rendi</option>
+              <option value="lambda">AWS Lambda</option>
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="block text-xs text-[var(--bot-ink-mute)]">เวลาสูงสุดของ Rendi</span>
+            <select value={engine.rendiMaxSeconds} className={`mt-1 ${input}`}
+                    onChange={(e) => setEngine({ ...engine, rendiMaxSeconds: Number(e.target.value) })}>
+              <option value={60}>60 วินาที (แพลนฟรี)</option>
+              <option value={600}>600 วินาที (Pro)</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 pb-1.5 text-sm">
+            <input type="checkbox" checked={engine.fallback} onChange={(e) => setEngine({ ...engine, fallback: e.target.checked })} />
+            <span>ถ้าตัวหลักทำไม่ได้ ให้ลองอีกตัวแทน</span>
+          </label>
+          <button disabled={pending} className="rounded bg-[var(--bot-navy)] px-3 py-1.5 text-sm text-[var(--bot-surface)] disabled:opacity-40">
+            {busy === "engine" ? "กำลังบันทึก…" : "บันทึก"}
+          </button>
+          <Said note={note} where="engine" className="basis-full text-sm" />
+        </form>
       </Card>
 
       <Card title="โมเดล" hint="ปิดโมเดลที่ไม่ต้องการให้ระบบเลือกใช้">

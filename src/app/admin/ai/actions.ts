@@ -8,6 +8,8 @@ import { EMBEDDERS, JUDGE } from "@/lib/ai/providers";
 import { checkBudgets } from "./budget";
 import { requireStaff } from "@/lib/auth/viewer";
 import { walletChargedThb } from "@/lib/wallet/store";
+import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/video/settings";
+import { parseAwsKey } from "@/lib/video/engines/lambda";
 
 export type { ProviderCheck } from "@/lib/ai/client";
 
@@ -18,6 +20,18 @@ export type { ProviderCheck } from "@/lib/ai/client";
  */
 const PROVIDERS = ["anthropic", "openai", "google", "zai", "typesafe"] as const;
 export type Provider = (typeof PROVIDERS)[number];
+
+/**
+ * The video render services. Their keys live in the same encrypted table as the AI keys but
+ * are NOT in PROVIDERS: the fallback chain and checkKeys walk PROVIDERS, and neither should
+ * ever see a service that has no model. loadConfig (src/lib/ai/client.ts) only looks a key up
+ * by a model's provider, so extra rows in the table are never reached by it.
+ * "aws" is the key's name; the engine it feeds is called "lambda".
+ */
+export const RENDER_PROVIDERS = ["rendi", "aws"] as const;
+export type RenderProvider = (typeof RENDER_PROVIDERS)[number];
+
+export interface VideoKeyRow { provider: RenderProvider; tail: string }
 
 export interface KeyRow { provider: string; tail: string; enabled: boolean }
 export interface ModelRow {
@@ -81,6 +95,8 @@ export async function loadAiPage(): Promise<{
    * that ceiling is when the box is left empty — the page says so beside the box.
    */
   content: { spent: number | null; cap: number; fallback: number };
+  /** the clip render services: how they are set, and the last four characters of each key held */
+  video: { settings: VideoSettings; keys: VideoKeyRow[] };
 }> {
   await requireStaff("admin");
   const supabase = supabaseAdmin();
@@ -104,8 +120,20 @@ export async function loadAiPage(): Promise<{
   // so the figure beside it does too, or the two disagree by exactly that (owner, 2026-09-30)
   const contentSpent = spend ? Math.max(0, contentBaht(spend.lines) - (await walletChargedThb(monthStart()))) : null;
   const disabled = new Set((prefs.data ?? []).filter((p) => !p.enabled).map((p) => p.model_id));
+  const heldKeys = (keys.data ?? []) as { provider: string; tail: string; enabled: boolean | null }[];
+  // a settings row that cannot be read must not take the keys page down with it
+  const videoCfg = await videoSettings().catch((e) => {
+    console.error("อ่านการตั้งค่าตัดต่อไม่สำเร็จ:", e instanceof Error ? e.message : "unknown");
+    return { engine: "rendi", fallback: true, rendiMaxSeconds: 60 } as VideoSettings;
+  });
   return {
-    keys: ((keys.data ?? []) as { provider: string; tail: string; enabled: boolean | null }[])
+    video: {
+      settings: videoCfg,
+      keys: heldKeys.filter((k): k is typeof k & { provider: RenderProvider } => (RENDER_PROVIDERS as readonly string[]).includes(k.provider))
+        .map((k) => ({ provider: k.provider, tail: k.tail })),
+    },
+    keys: heldKeys
+      .filter((k) => (PROVIDERS as readonly string[]).includes(k.provider))
       .map((k) => ({ provider: k.provider, tail: k.tail, enabled: k.enabled !== false })),
     /**
      * Only the companies above. `model_configs` is shared with another product, so it lists
@@ -176,21 +204,20 @@ function byProvider(lines: SpendLine[], models: { provider: string; model_name: 
     .sort((a, b) => b.baht - a.baht);
 }
 
-export async function saveApiKey(provider: string, key: string): Promise<Result> {
-  await requireStaff("admin");
-  if (!PROVIDERS.includes(provider as Provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
-  /**
-   * Everything a key is not.
-   *
-   * An API key is printable ASCII by construction, and `trim()` only cleans the ends. One
-   * arrived here with U+2028 — a line separator, invisible, picked up from a copied web page
-   * — ninety characters in, and every xAI call then died building its own HTTP header:
-   * "character at index 91 has a value of 8232". On the page that reads as the provider
-   * being down, which it was not, and no amount of re-reading the provider's status would
-   * ever have said so.
-   */
-  const value = String(key ?? "").replace(/[^\x21-\x7e]/g, "");
-  if (value.length < 8) return { ok: false, error: "กุญแจสั้นเกินไป — วางกุญแจทั้งเส้นอีกครั้ง" };
+/**
+ * Everything a key is not.
+ *
+ * An API key is printable ASCII by construction, and `trim()` only cleans the ends. One
+ * arrived here with U+2028 — a line separator, invisible, picked up from a copied web page
+ * — ninety characters in, and every xAI call then died building its own HTTP header:
+ * "character at index 91 has a value of 8232". On the page that reads as the provider
+ * being down, which it was not, and no amount of re-reading the provider's status would
+ * ever have said so. (":" is printable, so an AWS key's separators survive.)
+ */
+const cleanKey = (key: string) => String(key ?? "").replace(/[^\x21-\x7e]/g, "");
+
+/** Encrypts and stores one key. Messages never carry the key itself. */
+async function storeKey(provider: string, value: string): Promise<Result> {
   try {
     const { error } = await supabaseAdmin().rpc("ins_set_api_key", {
       p_provider: provider, p_key: value, p_passphrase: passphrase(),
@@ -200,6 +227,44 @@ export async function saveApiKey(provider: string, key: string): Promise<Result>
     return failed("บันทึกกุญแจไม่สำเร็จ", e);
   }
   clearAiConfigCache();
+  revalidatePath("/admin/ai");
+  return { ok: true };
+}
+
+export async function saveApiKey(provider: string, key: string): Promise<Result> {
+  await requireStaff("admin");
+  if (!PROVIDERS.includes(provider as Provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
+  const value = cleanKey(key);
+  if (value.length < 8) return { ok: false, error: "กุญแจสั้นเกินไป — วางกุญแจทั้งเส้นอีกครั้ง" };
+  return storeKey(provider, value);
+}
+
+/**
+ * The key of a video render service. Rendi's is a plain API key; AWS's is one string,
+ * "accessKeyId:secretAccessKey:region:functionName", checked here so a half-pasted one is
+ * refused now instead of failing the first clip.
+ */
+export async function saveRenderKey(provider: RenderProvider, key: string): Promise<Result> {
+  await requireStaff("admin");
+  if (!(RENDER_PROVIDERS as readonly string[]).includes(provider)) return { ok: false, error: "บริการไม่ถูกต้อง" };
+  const value = cleanKey(key);
+  if (value.length < 8) return { ok: false, error: "กุญแจสั้นเกินไป — วางกุญแจทั้งเส้นอีกครั้ง" };
+  if (provider === "aws" && !parseAwsKey(value)) {
+    return { ok: false, error: "กุญแจ AWS ต้องเป็นรูปแบบ accessKeyId:secretAccessKey:region:functionName ครบสี่ส่วน" };
+  }
+  return storeKey(provider, value);
+}
+
+/** Which service renders clips, whether the other is tried when it cannot, and Rendi's time limit. */
+export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
+  await requireStaff("admin");
+  if (s?.engine !== "rendi" && s?.engine !== "lambda") return { ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" };
+  if (s.rendiMaxSeconds !== 60 && s.rendiMaxSeconds !== 600) return { ok: false, error: "เวลาสูงสุดของ Rendi ต้องเป็น 60 หรือ 600 วินาที" };
+  try {
+    await saveVideoSettings({ engine: s.engine, fallback: Boolean(s.fallback), rendiMaxSeconds: s.rendiMaxSeconds });
+  } catch (e) {
+    return failed("บันทึกตัวตัดต่อไม่สำเร็จ", e);
+  }
   revalidatePath("/admin/ai");
   return { ok: true };
 }
