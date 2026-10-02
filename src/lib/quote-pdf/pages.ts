@@ -6,6 +6,8 @@
  * that reads rates sits in link.ts.
  */
 
+import type { Sex } from "@/calc/types";
+
 export type PlanPage = "lifeprotect" | "easyprotect" | "ishield" | "lifetreasure" | "plb";
 export type PdfPage = PlanPage | "ihealthy-ultra";
 
@@ -71,4 +73,42 @@ export const PLAN_PAGES: Record<PlanPage, { planCode: string; path: string; sums
 /** The page that prices a plan, or undefined for a plan with no page of its own (ISMART, say). */
 export function pageForPlan(planCode: string): PlanPage | undefined {
   return (Object.keys(PLAN_PAGES) as PlanPage[]).find((p) => PLAN_PAGES[p].planCode === planCode);
+}
+
+export interface PlanInitial {
+  age: number;
+  sex: Sex;
+  sumAssured: number;
+  variant: string;
+}
+
+/**
+ * The figures a page's address asks for, judged against what the page itself offers.
+ *
+ * Pure and free of rate tables, so a calculator can run it in the browser on its own
+ * `window.location.search` — the pages stay static and one cached page serves every link. Each
+ * of age, sex, sum and variant must arrive exactly once: a repeated key is a mistake or an
+ * experiment, not a quote. Whether the engine can price the result is not asked here; that is
+ * `planInitialFrom`'s extra check, on the server.
+ */
+export function planInitialFromTable(
+  query: URLSearchParams,
+  offer: { sums: readonly number[]; variants: readonly string[]; ageMin: number; ageMax: number },
+): PlanInitial | undefined {
+  const once = (key: string): string | undefined => {
+    const all = query.getAll(key);
+    return all.length === 1 && all[0] !== "" ? all[0] : undefined;
+  };
+  const ageRaw = once("age");
+  const sex = once("sex");
+  const sumRaw = once("sum");
+  const variant = once("variant");
+  if (ageRaw === undefined || sex === undefined || sumRaw === undefined || variant === undefined) return undefined;
+  if (sex !== "M" && sex !== "F") return undefined;
+  if (!/^\d+$/.test(ageRaw) || !/^\d+$/.test(sumRaw)) return undefined;
+  const age = Number(ageRaw);
+  const sumAssured = Number(sumRaw);
+  if (!offer.sums.includes(sumAssured) || !offer.variants.includes(variant)) return undefined;
+  if (age < offer.ageMin || age > offer.ageMax) return undefined;
+  return { age, sex, sumAssured, variant };
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
@@ -15,8 +15,7 @@ import { ageWord } from "@/lib/lifeprotect-cta";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
-import { LIFETREASURE_SUMS } from "@/lib/quote-pdf/pages";
-import type { PlanInitial } from "@/lib/quote-pdf/link";
+import { LIFETREASURE_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 
@@ -34,8 +33,6 @@ export interface LifeTreasureCalculatorProps {
   table: LifeTreasureTable;
   /** pin a copy of the contact buttons to the bottom of a phone screen */
   sticky?: boolean;
-  /** the figures a link asked for, already checked against what this page offers */
-  initial?: PlanInitial;
 }
 
 /**
@@ -46,16 +43,33 @@ export interface LifeTreasureCalculatorProps {
  * they are deciding whether the money is better left here than anywhere else, and that is a
  * comparison between two totals.
  */
-export function LifeTreasureCalculator({ table, sticky = false, initial }: LifeTreasureCalculatorProps) {
+export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
   );
-  const [sumIndex, setSumIndex] = useState(initial ? LIFETREASURE_SUMS.indexOf(initial.sumAssured) : SUM_START_INDEX);
+  const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
   const sumAssured = LIFETREASURE_SUMS[sumIndex];
-  const [variant, setVariant] = useState(initial?.variant ?? TERM_START);
-  const [age, setAge] = useState<LifeTreasureAge>(initial?.age ?? AGE_START);
-  const [sex, setSex] = useState<Sex>(initial?.sex ?? "M");
+  const [variant, setVariant] = useState(TERM_START);
+  const [age, setAge] = useState<LifeTreasureAge>(AGE_START);
+  const [sex, setSex] = useState<Sex>("M");
+  // the PDF print waits for this: it is true once the link's figures (if any) are in state
+  const [seeded, setSeeded] = useState(false);
+
+  // A link from the chat opens the figures it quotes. Read here, in the browser, so the page
+  // itself stays static; no query, or one this page cannot show, leaves the start values.
+  useEffect(() => {
+    const initial = planInitialFromTable(new URLSearchParams(window.location.search), {
+      sums: LIFETREASURE_SUMS, variants: table.terms.map((t) => t.variant), ageMin: table.ageMin, ageMax: table.ageMax,
+    });
+    if (initial) {
+      setSumIndex(LIFETREASURE_SUMS.indexOf(initial.sumAssured));
+      setVariant(initial.variant);
+      setAge(initial.age as typeof age);
+      setSex(initial.sex);
+    }
+    setSeeded(true);
+  }, [table]);
 
   const term = termAt(table, variant);
   const ageNum = typeof age === "number" ? age : undefined;

@@ -1,5 +1,3 @@
-import { planInitialFrom } from "@/lib/quote-pdf/link";
-import { readQuery, type PageQuery } from "@/lib/quote-pdf/search-params";
 import { IShieldCalculator } from "@/components/IShieldCalculator";
 import { iShieldTable } from "@/lib/ishield-table";
 import { iShieldFacts } from "@/lib/ishield-facts";
@@ -23,19 +21,14 @@ export const metadata = {
  * The four-ways panel comes straight after the price because it is the page's pitch — one
  * premium that answers being ill, dying, and growing old.
  */
-export default async function IShieldPage(
-  { searchParams }: { searchParams: Promise<PageQuery> },
-) {
+export default async function IShieldPage() {
   const table = iShieldTable();
-  // A link from the chat opens the figures it quotes; no query, or one the page cannot show,
-  // opens the page as it always was.
-  const initial = planInitialFrom("ishield", await readQuery(searchParams));
   const facts = iShieldFacts();
   return (
     <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
       <Hero facts={facts} />
       <section id="calc" className="scroll-mt-4">
-        <IShieldCalculator table={table} initial={initial} sticky />
+        <IShieldCalculator table={table} sticky />
       </section>
       <ThreeWaysSection facts={facts} />
       <WhySection facts={facts} />

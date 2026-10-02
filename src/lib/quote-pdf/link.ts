@@ -6,7 +6,11 @@ import { iShieldTable } from "@/lib/ishield-table";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeTreasureTable } from "@/lib/lifetreasure-table";
 import { plbTable } from "@/lib/plb-table";
-import { PLAN_PAGES, pageForPlan, type PlanPage } from "@/lib/quote-pdf/pages";
+import {
+  PLAN_PAGES, pageForPlan, planInitialFromTable, type PlanInitial, type PlanPage,
+} from "@/lib/quote-pdf/pages";
+
+export type { PlanInitial };
 
 /**
  * The link from a quote to its PDF, and from a page's address back to the values it opens on.
@@ -18,13 +22,6 @@ import { PLAN_PAGES, pageForPlan, type PlanPage } from "@/lib/quote-pdf/pages";
  * PDF route can refuse what no page could show.
  */
 
-export interface PlanInitial {
-  age: number;
-  sex: Sex;
-  sumAssured: number;
-  variant: string;
-}
-
 /** The same key names `/api/card` reads. */
 export function planQueryFor(i: PlanInitial): string {
   return new URLSearchParams({
@@ -33,12 +30,6 @@ export function planQueryFor(i: PlanInitial): string {
 }
 
 type Query = Record<string, string | string[] | undefined>;
-
-/** A key that arrived exactly once. A repeated key is a mistake or an experiment, not a quote. */
-function once(query: Query, key: string): string | undefined {
-  const value = query[key];
-  return typeof value === "string" && value !== "" ? value : undefined;
-}
 
 /**
  * The variants and ages the page's own controls offer. The engine's range can be wider, and a
@@ -73,20 +64,14 @@ function offered(page: PlanPage, today: Date): { ageMin: number; ageMax: number;
 
 /** Undefined unless the page can open on exactly this quote and the engine can price it. */
 export function planInitialFrom(page: PlanPage, query: Query, today: Date = new Date()): PlanInitial | undefined {
-  const ageRaw = once(query, "age");
-  const sex = once(query, "sex");
-  const sumRaw = once(query, "sum");
-  const variant = once(query, "variant");
-  if (ageRaw === undefined || sex === undefined || sumRaw === undefined || variant === undefined) return undefined;
-  if (sex !== "M" && sex !== "F") return undefined;
-  if (!/^\d+$/.test(ageRaw) || !/^\d+$/.test(sumRaw)) return undefined;
-  const age = Number(ageRaw);
-  const sumAssured = Number(sumRaw);
-
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    for (const v of Array.isArray(value) ? value : value === undefined ? [] : [value]) params.append(key, v);
+  }
   const { planCode, sums } = PLAN_PAGES[page];
-  if (!sums.includes(sumAssured)) return undefined;
-  const own = offered(page, today);
-  if (age < own.ageMin || age > own.ageMax || !own.variants.includes(variant)) return undefined;
+  const initial = planInitialFromTable(params, { sums, ...offered(page, today) });
+  if (!initial) return undefined;
+  const { age, sex, sumAssured, variant } = initial;
 
   const result = quote({ planCode, variant, age, sex, mode: "annual", sumAssured, riders: [] }, today);
   if (result.warnings.some((w) => w.level === "error")) return undefined;

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
@@ -16,8 +16,7 @@ import { ageWord, lifeProtectQuoteText, type LifeProtectAge } from "@/lib/lifepr
 import { cardPath, valueTablePath } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
-import { LIFEPROTECT_SUMS } from "@/lib/quote-pdf/pages";
-import type { PlanInitial } from "@/lib/quote-pdf/link";
+import { LIFEPROTECT_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
@@ -94,24 +93,39 @@ export interface LifeProtectCalculatorProps {
   table: LifeProtectTable;
   /** pin a copy of the contact buttons to the bottom of a phone screen */
   sticky?: boolean;
-  /** the figures a link asked for, already checked against what this page offers */
-  initial?: PlanInitial;
 }
 
 /**
  * The customer's calculator for the base plan on its own. Four choices — sum, term, age, sex —
  * and every figure on the card follows from them at once, in the browser, from the table.
  */
-export function LifeProtectCalculator({ table, sticky = false, initial }: LifeProtectCalculatorProps) {
+export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
   );
-  const [sumIndex, setSumIndex] = useState(initial ? LIFEPROTECT_SUMS.indexOf(initial.sumAssured) : SUM_START_INDEX);
+  const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
   const sumAssured = LIFEPROTECT_SUMS[sumIndex];
-  const [variant, setVariant] = useState(initial?.variant ?? TERM_START);
-  const [age, setAge] = useState<LifeProtectAge>(initial?.age ?? AGE_START);
-  const [sex, setSex] = useState<Sex>(initial?.sex ?? "M");
+  const [variant, setVariant] = useState(TERM_START);
+  const [age, setAge] = useState<LifeProtectAge>(AGE_START);
+  const [sex, setSex] = useState<Sex>("M");
+  // the PDF print waits for this: it is true once the link's figures (if any) are in state
+  const [seeded, setSeeded] = useState(false);
+
+  // A link from the chat opens the figures it quotes. Read here, in the browser, so the page
+  // itself stays static; no query, or one this page cannot show, leaves the start values.
+  useEffect(() => {
+    const initial = planInitialFromTable(new URLSearchParams(window.location.search), {
+      sums: LIFEPROTECT_SUMS, variants: table.terms.map((t) => t.variant), ageMin: table.ageMin, ageMax: table.ageMax,
+    });
+    if (initial) {
+      setSumIndex(LIFEPROTECT_SUMS.indexOf(initial.sumAssured));
+      setVariant(initial.variant);
+      setAge(initial.age as typeof age);
+      setSex(initial.sex);
+    }
+    setSeeded(true);
+  }, [table]);
   /** the one rider the page is quoting beside the plan, or none — the company sells one or the other */
   const [pick, setPick] = useState<RiderPick | null>(null);
 
