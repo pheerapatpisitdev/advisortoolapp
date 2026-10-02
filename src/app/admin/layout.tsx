@@ -10,7 +10,7 @@ import type { Metadata } from "next";
  * on every screen here, so six open tabs looked like six copies of the calculator. Each page
  * that has a name of its own sets it; this is what the rest fall back to.
  */
-export const metadata: Metadata = { title: "หลังบ้าน | advisortool" };
+export const metadata: Metadata = { title: "หลังบ้าน | AdvisorTool" };
 
 /**
  * The back office, for the owner and the assistants the owner names (2026-09-27).

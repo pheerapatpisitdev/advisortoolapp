@@ -8,7 +8,7 @@ import { getViewer } from "@/lib/auth/viewer";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "ถามเรื่องแบบประกัน | advisortool",
+  title: "AdvisorTool",
   description: "ถามเงื่อนไขแบบประกันและคิดเบี้ยจากตารางจริง ตอบจากข้อมูลในระบบเท่านั้น",
 };
 

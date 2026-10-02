@@ -6,7 +6,7 @@ import { LoadFailed } from "../ui/LoadFailed";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "คลังสูตรประโยคเปิด | advisortool",
+  title: "คลังสูตรประโยคเปิด | AdvisorTool",
   description: "สูตรประโยคเปิดโพสต์ มีช่องให้เติม ใช้ซ้ำกับแบบประกันไหนก็ได้",
 };
 

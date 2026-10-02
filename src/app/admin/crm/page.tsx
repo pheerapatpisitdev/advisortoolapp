@@ -11,7 +11,7 @@ import { PlanRuns } from "./PlanRuns";
 import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "ลูกค้า | advisortool" };
+export const metadata: Metadata = { title: "ลูกค้า | AdvisorTool" };
 
 const RANGES: { key: Range; label: string }[] = [
   { key: "today", label: "วันนี้" },

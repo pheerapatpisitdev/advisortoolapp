@@ -12,7 +12,7 @@ import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "Messenger | advisortool" };
+export const metadata: Metadata = { title: "Messenger | AdvisorTool" };
 
 /**
  * A moment as the owner's own clock reads it.

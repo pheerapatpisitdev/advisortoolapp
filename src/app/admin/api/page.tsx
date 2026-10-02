@@ -7,7 +7,7 @@ import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "MCP / API | advisortool" };
+export const metadata: Metadata = { title: "MCP / API | AdvisorTool" };
 
 /**
  * The system's own API: who may call it, and how.

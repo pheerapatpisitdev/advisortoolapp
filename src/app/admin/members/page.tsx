@@ -6,7 +6,7 @@ import { Card } from "../ui";
 import { MembersAdmin } from "./MembersAdmin";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "สมาชิกทั่วไป | advisortool" };
+export const metadata: Metadata = { title: "สมาชิกทั่วไป | AdvisorTool" };
 
 /** People outside UnitOS who signed up with Google (owner, 2026-10-02): the switch, the list, and suspension. */
 export default async function MembersPage() {

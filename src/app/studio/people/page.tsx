@@ -11,7 +11,7 @@ import { LoadFailed } from "../ui/LoadFailed";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "คลังบุคคล | advisortool",
+  title: "คลังบุคคล | AdvisorTool",
   description: "คนที่ยินยอมให้ใช้รูปในโปสเตอร์ และรูปต้นแบบให้ AI วาด",
 };
 

@@ -7,7 +7,7 @@ import { getViewer } from "@/lib/auth/viewer";
 import { LoginForm } from "./LoginForm";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "เข้าสู่ระบบ | advisortool" };
+export const metadata: Metadata = { title: "เข้าสู่ระบบ | AdvisorTool" };
 
 /**
  * The door for UnitOS agents (their code) and for members outside UnitOS, who come in with

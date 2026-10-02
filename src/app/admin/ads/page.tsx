@@ -15,7 +15,7 @@ import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "โฆษณา | advisortool" };
+export const metadata: Metadata = { title: "โฆษณา | AdvisorTool" };
 
 /**
  * The advertising account, read-only.

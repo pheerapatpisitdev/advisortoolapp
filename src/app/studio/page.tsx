@@ -13,7 +13,7 @@ import { StudioHome } from "./StudioHome";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Studio | advisortool",
+  title: "Studio | AdvisorTool",
   description: "เครื่องมือทำโพสต์ของแต่ละเพจเฟซบุ๊ก",
 };
 
