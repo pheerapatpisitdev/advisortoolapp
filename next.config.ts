@@ -15,7 +15,8 @@ const nextConfig: NextConfig = {
   // the content posters draw with satori 0.33 and resvg, which load .wasm files from
   // node_modules at run time; bundled, their paths are rewritten and the deployed function
   // fails with ENOENT on hb.wasm (the owner's Maryjane project hit exactly this)
-  serverExternalPackages: ["satori", "@resvg/resvg-wasm"],
+  // Chrome for the quote PDF is a binary the bundler must leave alone, like the poster's .wasm
+  serverExternalPackages: ["satori", "@resvg/resvg-wasm", "puppeteer-core", "@sparticuz/chromium"],
   // the quote cards draw Thai text, and the drawing library needs the font files themselves —
   // the health card reads the same two faces from where the other one keeps them
   outputFileTracingIncludes: {
@@ -33,6 +34,8 @@ const nextConfig: NextConfig = {
     // rejection that ends the whole process mid-request — a picture drawn, paid for and lost
     // (2026-10-01, /api/content-draw and -generate)
     "/api/content-*": POSTER_FILES,
+    // the quote PDF launches the bundled Chrome, whose brotli-packed binary is read from disk
+    "/api/quote-pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
   },
   // the workbench was /content until the owner renamed it Studio (2026-09-27); old bookmarks
   // and links keep working, query and all (?open=…, ?hook=…)
