@@ -1,0 +1,40 @@
+import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda";
+import { EngineError, type RenderEngine } from "./types";
+
+/**
+ * Our own ffmpeg on AWS Lambda (owner, 2026-10-02), infra/lambda-ffmpeg. Invoked without
+ * waiting; it writes the outputs into our storage itself and calls back. The key is kept in
+ * the encrypted key store as ACCESS_KEY_ID:SECRET:REGION:FUNCTION_NAME.
+ */
+export function parseAwsKey(key: string): { accessKeyId: string; secretAccessKey: string; region: string; functionName: string } | null {
+  const parts = key.split(":");
+  if (parts.length !== 4 || parts.some((p) => !p)) return null;
+  const [accessKeyId, secretAccessKey, region, functionName] = parts;
+  return { accessKeyId, secretAccessKey, region, functionName };
+}
+
+export function lambdaEngine(key: string): RenderEngine {
+  return {
+    name: "lambda",
+    async submit(job, opts) {
+      const aws = parseAwsKey(key);
+      if (!aws) throw new EngineError("ตั้งค่า AWS ไม่ครบ", true);
+      const id = crypto.randomUUID();
+      const client = new LambdaClient({ region: aws.region, credentials: { accessKeyId: aws.accessKeyId, secretAccessKey: aws.secretAccessKey } });
+      try {
+        await client.send(new InvokeCommand({
+          FunctionName: aws.functionName,
+          InvocationType: "Event",
+          Payload: new TextEncoder().encode(JSON.stringify({ id, job, uploads: opts.uploads ?? {}, callbackUrl: opts.callbackUrl, token: opts.token })),
+        }));
+      } catch (e) {
+        // name and message only, never the error object (it may carry the request config)
+        console.error("lambda invoke failed:", e instanceof Error ? `${e.name}: ${e.message}` : "unknown error");
+        throw new EngineError("ส่งงานให้ AWS ไม่ได้", true);
+      }
+      return { id };
+    },
+    async status() { return null; },
+    async cleanup() { /* the function writes straight into our storage */ },
+  };
+}
