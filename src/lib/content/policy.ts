@@ -80,11 +80,13 @@ export const POLICY_RULES: PolicyRule[] = [
  * the Thai ones; a Thai post simply never matches. message/fix are Thai (staff read them),
  * the examples inside fix are English.
  */
-const ILLNESS = "(?:sick|ill|unwell|diabetic|diabetes|cancer|obese|overweight|depress(?:ed|ion)|hypertension|high blood pressure|chronic)";
+// "you're sick" asserts; "you're covered for cancer" does not — so the word has to follow straight on
+const CONDITION_ADJ = "(?:sick|ill|unwell|diabetic|obese|overweight|depressed|chronically ill)";
+const CONDITION_NOUN = "(?:diabetes|cancer|hypertension|high blood pressure|depression|a chronic (?:illness|condition|disease))";
 export const POLICY_RULES_EN: PolicyRule[] = [
   {
     code: "health_you_en",
-    pattern: new RegExp(`\\b(?:are you|you(?:'|’)re|you are)\\b[^.!?\\n]{0,20}?\\b${ILLNESS}\\b|\\byou (?:have|suffer from)\\b[^.!?\\n]{0,10}?\\b${ILLNESS}\\b`, "i"),
+    pattern: new RegExp(`\\b(?:are you|you(?:'|’)re|you are)\\s+(?:(?:so|very|really|still|now|currently|already)\\s+)?${CONDITION_ADJ}\\b|\\byou (?:have|suffer from|are suffering from)\\s+${CONDITION_NOUN}\\b(?!\\s+(?:cover|coverage|protection|insurance|plan|benefit|treatment))`, "i"),
     severity: "block",
     message: "บอกใบ้ว่าคนอ่านมีปัญหาสุขภาพ — Facebook ห้ามในโฆษณา",
     fix: "พูดถึงความคุ้มครองแทนตัวคนอ่าน เช่น “If you ever need treatment…”",
@@ -98,7 +100,7 @@ export const POLICY_RULES_EN: PolicyRule[] = [
   },
   {
     code: "age_you_en",
-    pattern: /\b(?:you(?:'|’)re|you are|are you)\b[^.!?\n]{0,15}?\b(?:over|under|aged?)\s?\d{2}\b|(?<!whether )\byou(?:'|’)re \d{2}\b(?! or \d)|(?<!whether )\byou are \d{2}\b(?! or \d)|\byour age\b/i,
+    pattern: /(?<!\b(?:if|whether|when|once|as long as) )\b(?:you(?:'|’)re|you are)\s+(?:now\s+)?(?:(?:over|under|aged?)\s?)?\d{2}\b(?! or \d)|\bare you (?:over|under|aged?)\s?\d{2}\b|\bat your age\b/i,
     severity: "block",
     message: "ระบุอายุของคนอ่านตรงๆ — Facebook ห้ามในโฆษณา",
     fix: "ยกเป็นตัวอย่างบุคคลที่สาม เช่น “A 35-year-old woman…” หรือไปตั้งอายุที่กลุ่มเป้าหมายของแอด",
@@ -112,7 +114,7 @@ export const POLICY_RULES_EN: PolicyRule[] = [
   },
   {
     code: "guarantee_en",
-    pattern: /\b(?:guarantee[ds]?|assured)\s+(?:approval|acceptance|coverage|issue)\b|\b100\s?% (?:approved|approval|acceptance|accepted)\b|\b(?:approved|accepted)\s+100\s?%|\bno one is (?:declined|rejected|turned down)\b|\beveryone (?:is )?(?:approved|accepted)\b|\bguarantee[ds]? (?:to )?(?:approve|accept)\b/i,
+    pattern: /\b(?:guarantee[ds]?|assured)\s+(?:approval|acceptance|issue)\b|\b100\s?% (?:approved|approval|acceptance|accepted)\b|\b(?:approved|accepted)\s+100\s?%|\bno one is (?:declined|rejected|turned down)\b|\beveryone (?:is )?(?:approved|accepted)\b|\bguarantee[ds]? (?:to )?(?:approve|accept)\b/i,
     severity: "block",
     message: "รับประกันผลการสมัครแบบเด็ดขาด — ผิดมาตรฐานสินค้าการเงินของ Facebook และบริษัทพิจารณารับประกันทุกราย",
     fix: "บอกเงื่อนไขจริงแทน เช่น “Easy to apply — an agent will check the terms with you”",
@@ -126,7 +128,7 @@ export const POLICY_RULES_EN: PolicyRule[] = [
   },
   {
     code: "superlative_en",
-    pattern: /\b(?:the )?(?:best|cheapest|number\s?(?:one|1)|no\.?\s?1|#\s?1)\s+(?:in|of|across)\s+(?:thailand|the (?:world|country))\b|\bthailand(?:'|’)s (?:best|cheapest|#\s?1|number one)\b/i,
+    pattern: /\b(?:best|cheapest)\b[^.!?\n]{0,25}?\b(?:in|of|across)\s+(?:thailand|the (?:world|country))\b|\bthailand(?:'|’)s (?:best|cheapest|#\s?1|number one)\b|(?<![\w])#\s?1\b|\bnumber\s?(?:one|1)\b|\bno\.\s?1\b/i,
     severity: "warn",
     message: "คำเกินจริงที่พิสูจน์ไม่ได้ — เสี่ยงโฆษณาถูกปฏิเสธ",
     fix: "ใช้ตัวเลขจริงจากตารางเบี้ยแทนคำว่า best / cheapest",
@@ -140,7 +142,7 @@ export const POLICY_RULES_EN: PolicyRule[] = [
   },
   {
     code: "visa_promise_en",
-    pattern: /\bvisa\b[^.!?\n]{0,20}?\b(?:approved|approval|guaranteed?|assured|accepted|sorted|secured)\b|\b(?:guarantee[ds]?|ensure[ds]?|secure[ds]?|get(?:ting)?|win)\b[^.!?\n]{0,15}?\bvisa\b/i,
+    pattern: /\bvisas?\s+(?:is\s+|will be\s+|gets?\s+)?(?:approved|guaranteed?|assured|sorted|secured)\b|\bvisa approval\s+(?:is\s+)?(?:guaranteed?|assured)\b|\b(?:approved|guaranteed|assured|secured)\s+visas?\b|\b(?:guarantee[ds]?|ensure[ds]?|secure[ds]?)\s+(?:your\s+|the\s+|a\s+)?visa\b|\b(?:works?|valid|good|accepted)\s+(?:for|with)\s+(?:every|any|all)\s+(?:\w+\s+)?visas?\b/i,
     severity: "block",
     message: "สัญญาว่าวีซ่าจะผ่าน — ห้าม ผลวีซ่าขึ้นกับสำนักงานตรวจคนเข้าเมือง",
     fix: "เขียนว่า “Message us to check your visa” แทนคำสัญญา",

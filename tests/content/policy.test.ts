@@ -108,6 +108,13 @@ describe("English rules", () => {
     ["Perfect for your O-A visa.", "visa_type_en"],
     ["Use it for a retirement visa.", "visa_type_en"],
     ["Your visa approved, guaranteed.", "visa_promise_en"],
+    ["Our plan works for every visa.", "visa_promise_en"],
+    ["It works for any visa.", "visa_promise_en"],
+    ["Valid for all visas.", "visa_promise_en"],
+    ["We're number one.", "superlative_en"],
+    ["The #1 health plan.", "superlative_en"],
+    ["The best plan in Thailand.", "superlative_en"],
+    ["The cheapest insurance in Thailand.", "superlative_en"],
   ])("catches %s", (text, code) => expect(codes(text)).toContain(code));
   it.each([
     "If you get sick, the bill is covered up to the plan's limit.",
@@ -115,5 +122,15 @@ describe("English rules", () => {
     "Message us to check your visa.",
     "Renewable up to age 98.",
     "Bring your passport when you visit us.",
+    "You're covered for cancer treatment.",
+    "Are you covered for cancer?",
+    "You have cancer cover from day one.",
+    "You are protected against chronic illness.",
+    "Premiums depend on your age and plan.",
+    "If you're under 65, you can apply.",
+    "If you are aged 60, you can apply.",
+    "Cover is separate from visa approval.",
+    "Get help for your visa questions.",
+    "Guaranteed coverage up to age 98.",
   ])("lets %s through", (text) => expect(checkPolicy(text).filter((f) => f.code.endsWith("_en"))).toEqual([]));
 });
