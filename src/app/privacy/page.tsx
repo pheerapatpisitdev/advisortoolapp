@@ -6,7 +6,7 @@ export const metadata = {
 };
 
 /** Last change to what this page describes, not to its wording. */
-const UPDATED = "26 กันยายน 2569";
+const UPDATED = "2 ตุลาคม 2569";
 const CONTACT = "pheerapatpisit.dev@gmail.com";
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
@@ -95,15 +95,20 @@ export default function PrivacyPage() {
           ไม่มีข้อความของคุณอยู่ในบันทึกนั้น
         </p>
         <p>
-          <strong>เราไม่มีระบบสมาชิกสำหรับผู้เข้าชม</strong> ไม่ต้องสมัคร ไม่ต้องเข้าสู่ระบบ
-          และไม่ตั้งคุกกี้เพื่อติดตามคุณ คุกกี้เพียงตัวเดียวของเว็บไซต์นี้ใช้สำหรับหน้าจัดการภายในของตัวแทนเอง
-          ซึ่งผู้เข้าชมทั่วไปไม่ได้ใช้
+          <strong>ผู้เข้าชมไม่ต้องสมัครสมาชิก</strong> เครื่องคำนวณและแชทใช้ได้โดยไม่ต้องเข้าสู่ระบบ
+          และเราไม่ตั้งคุกกี้เพื่อติดตามคุณ คุกกี้ของเว็บไซต์นี้มีไว้เพื่อจำการเข้าสู่ระบบของตัวแทนและสมาชิกเท่านั้น
+        </p>
+        <p>
+          <strong>สมาชิกทั่วไปที่สมัครด้วย Google</strong> เพื่อใช้ Studio: เราได้รับจาก Google เพียงชื่อ อีเมล
+          และรหัสประจำบัญชี Google ของคุณ ไม่ได้รับรหัสผ่าน และเก็บไว้คู่กับที่อยู่ IP ตอนสมัคร
+          เพื่อเปิดบัญชีและจำกัดการสมัครซ้ำ ชื่อที่แสดงแก้ได้ที่หน้า &ldquo;บัญชีของฉัน&rdquo;
+          หากต้องการปิดบัญชีและลบข้อมูล ติดต่อตัวแทนได้
         </p>
       </Section>
 
       <Section id="never" title="ข้อมูลที่ไม่เก็บและไม่ถาม">
         <p>
-          เว็บไซต์นี้ไม่ถามและไม่เก็บชื่อ เบอร์โทร อีเมล เลขบัตรประชาชน เลขกรมธรรม์ ประวัติการรักษาพยาบาล
+          นอกจากชื่อและอีเมลของสมาชิกที่สมัครด้วย Google ข้างต้น เว็บไซต์นี้ไม่ถามและไม่เก็บชื่อ เบอร์โทร อีเมล เลขบัตรประชาชน เลขกรมธรรม์ ประวัติการรักษาพยาบาล
           ข้อมูลบัตรเครดิต หรือข้อมูลการชำระเงินใด ๆ
         </p>
         <p>
@@ -180,8 +185,10 @@ export default function PrivacyPage() {
           </p>
           <p>
             <strong>What we keep.</strong> From the calculator, nothing: it runs in your browser, and the
-            age, sex and sum assured you choose are never sent to us. There are no visitor accounts and no
-            tracking cookies — the site&rsquo;s only cookie belongs to the agency&rsquo;s own admin page.
+            age, sex and sum assured you choose are never sent to us. Visitors need no account, and there are
+            no tracking cookies — the site&rsquo;s cookies only remember agents and members who sign in.
+            Members who sign up with Google to use Studio give us their name, email and Google account id
+            (never a password), kept with the IP address they signed up from.
             From a chat with the agency&rsquo;s Facebook Page or LINE account, the text of the conversation
             — yours, the assistant&rsquo;s and the agent&rsquo;s — is kept for at most 90 days, with phone
             numbers, national id numbers, emails and LINE ids blanked out before it is written, then deleted.
