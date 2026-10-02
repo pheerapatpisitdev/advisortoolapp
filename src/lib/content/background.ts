@@ -1,4 +1,4 @@
-import { CLASSIC, choiceOf, isClassic, styleKind, type Look } from "./looks";
+import { CLASSIC, choiceOf, isClassic, styleKind, subjectSay, type Look } from "./looks";
 import { poseText } from "./people";
 import { langOf, type Lang } from "./output";
 import type { Layout, PosterSpec, Theme } from "./poster";
@@ -171,7 +171,7 @@ function lookPrompt(opts: Parameters<typeof backgroundPrompt>[0], look: Look): s
     "",
     "Visual direction:",
     `- Colour palette: ${PALETTE[opts.theme]}.`,
-    `- In the picture: ${choiceOf("subject", look.subject).say}${objects ? " — nothing that can be read on them" : ""}.`,
+    `- In the picture: ${subjectSay(look.subject, langOf(opts))}${objects ? " — nothing that can be read on them" : ""}.`,
     `- Setting: ${choiceOf("place", look.place).say}.`,
     `- Light: ${choiceOf("light", look.light).say}.`,
     `- Mood: ${choiceOf("mood", look.mood).say}, never fearful.`,

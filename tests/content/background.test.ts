@@ -82,4 +82,17 @@ describe("English pieces", () => {
     expect(p).toContain("the Thai lettering together");
     expect(p).toContain("in a clean, modern, clearly legible Thai typeface");
   });
+
+  it("draws expats, not Thai people, for every people subject of a look on an English piece", () => {
+    const say = { thai: "foreign residents of mixed nationalities", solo: "one expat adult", couple: "an expat couple", family: "an expat family with young children", elders: "older expat parents" } as const;
+    for (const subject of ["thai", "solo", "couple", "family", "elders"] as const) {
+      const look = { ...CLASSIC, style: "film" as const, subject };
+      const en2 = backgroundPrompt({ ...en, look });
+      expect(en2, subject).toContain(say[subject]);
+      expect(en2, subject).not.toMatch(/Thai (people|adult|couple|family|parents)/);
+      expect(backgroundPrompt({ ...en, lang: undefined, look }), subject).toContain(
+        { thai: "Thai people, with", solo: "one Thai adult", couple: "a Thai couple", family: "a Thai family", elders: "elderly Thai parents" }[subject],
+      );
+    }
+  });
 });
