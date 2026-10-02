@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   CLIP_BUCKET, EDIT_JOB_TIMEOUT_MS, MAX_HOOK_MAIN, MAX_HOOK_TOP,
   type ClipEdit, type ClipVideo, type EditJob, type EditPass, type EngineName, type Hook,
@@ -38,11 +38,15 @@ export const JOB_FAILED = "ตัดต่อไม่สำเร็จ — ล
 export const JOB_TIMED_OUT = "ตัดต่อนานเกิน 15 นาที — ลองอีกครั้งได้";
 export const JOB_NO_FILES = "ตัวตัดต่อไม่ได้ส่งไฟล์กลับมา — ลองอีกครั้งได้";
 
-/** a claim this old was made by a collector that died half way (a function past its time); another may take over */
-export const COLLECT_STALE_MS = 5 * 60_000;
+/**
+ * All of one collect — every download from the engine and every upload into our bucket — gets
+ * this long, inside the 300 s a function may run (the webhook's maxDuration, the poll's action).
+ */
+export const COLLECT_BUDGET_MS = 240_000;
+/** a claim this old was made by a collector that died half way (past its 300 s); another may take over */
+export const COLLECT_STALE_MS = 6 * 60_000;
 /** a guarded write lost to another writer is tried again from a fresh read, this many times in all */
 const WRITE_TRIES = 4;
-const DOWNLOAD_TIMEOUT_MS = 120_000;
 
 /** what each kind of job hands back, by its output alias (command.ts), and how it is filed */
 const OUTPUTS: Record<EditJob["kind"], Record<string, { ext: string; contentType: string }>> = {
@@ -57,6 +61,8 @@ const ageMs = (iso: string) => Date.now() - new Date(iso).getTime();
 const timedOut = (job: EditJob) => ageMs(job.startedAt) > EDIT_JOB_TIMEOUT_MS;
 const claimHeld = (job: EditJob) => Boolean(job.collecting) && ageMs(job.collecting!) <= COLLECT_STALE_MS;
 const destination = (pieceId: string, ext: string) => `${pieceId}/${randomUUID()}.${ext}`;
+/** what is kept of a job's webhook secret: its sha256, so the row (which the edit page reads) never holds the secret */
+export const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
 /** an engine's words, fit for a log: no links (a signed input URL can sit in ffmpeg's error), short */
 const redact = (s: unknown) => String(s instanceof Error ? s.message : s ?? "").replace(/https?:\/\/\S+/g, "<url>").slice(0, 300);
 
@@ -146,14 +152,14 @@ export async function submitJob(
 
   const token = randomBytes(32).toString("hex");
   const tried: EngineName[] = [];
-  let taken: { engine: EngineName; id: string } | null = null;
+  let taken: { engine: EngineName; id: string; dest?: Record<string, string> } | null = null;
   let last: EngineError | null = null;
   for (const engine of engines) {
     tried.push(engine.name);
     try {
       const uploads = engine.name === "lambda" ? await destinations(pieceId, kind) : undefined;
       const { id } = await engine.submit(job, { callbackUrl: siteUrl(JOB_CALLBACK_PATH), token, uploads });
-      taken = { engine: engine.name, id };
+      taken = { engine: engine.name, id, ...(uploads ? { dest: Object.fromEntries(Object.entries(uploads).map(([k, u]) => [k, u.path])) } : {}) };
       break;
     } catch (e) {
       if (!(e instanceof EngineError)) throw e;
@@ -166,7 +172,8 @@ export async function submitJob(
 
   const rev = meta.rev ?? (kind === "render" ? v.edit?.rev : undefined);
   const record: EditJob = {
-    kind, engine: taken.engine, id: taken.id, startedAt: new Date().toISOString(), token, tried,
+    kind, engine: taken.engine, id: taken.id, startedAt: new Date().toISOString(), tokenHash: hashToken(token), tried,
+    ...(taken.dest ? { dest: taken.dest } : {}),
     ...(rev ? { rev } : {}), ...(meta.pass ? { pass: meta.pass } : {}), ...(meta.costThb !== undefined ? { costThb: meta.costThb } : {}),
   };
   const saved = await writeEdit(item, (edit) => {
@@ -258,16 +265,31 @@ async function end(item: ContentItem, job: EditJob, result: Result): Promise<{ i
   }
 }
 
-/** The engine's finished files copied into our storage (Rendi keeps them on its side). */
+/** a step of a collect, given up when the collect's budget runs out (an upload takes no signal of its own) */
+function within<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new Error("collect ran out of time"));
+  return new Promise<T>((resolve, reject) => {
+    const stop = () => reject(new Error("collect ran out of time"));
+    signal.addEventListener("abort", stop, { once: true });
+    p.then(
+      (v) => { signal.removeEventListener("abort", stop); resolve(v); },
+      (e) => { signal.removeEventListener("abort", stop); reject(e); },
+    );
+  });
+}
+
+/** The engine's finished files copied into our storage (Rendi keeps them on its side), all within COLLECT_BUDGET_MS. */
 async function copyOutputs(pieceId: string, job: EditJob, status: JobStatus): Promise<Record<string, string>> {
   const paths: Record<string, string> = {};
+  const budget = AbortSignal.timeout(COLLECT_BUDGET_MS);
   try {
     for (const [name, o] of Object.entries(OUTPUTS[job.kind])) {
-      const res = await fetch(status.outputs![name].url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+      const res = await within(fetch(status.outputs![name].url, { signal: budget }), budget);
       if (!res.ok) throw new Error(`${name} download ${res.status}`);
+      const body = await within(res.arrayBuffer(), budget);
       const path = destination(pieceId, o.ext);
       // buffered, not streamed: a Reel is tens of MB, and a buffered body is the upload supabase-js is sure of
-      const { error } = await bucket().upload(path, await res.arrayBuffer(), { contentType: o.contentType, upsert: false });
+      const { error } = await within(bucket().upload(path, body, { contentType: o.contentType, upsert: false }), budget);
       if (error) throw new Error(`${name} upload: ${error.message}`);
       paths[name] = path;
     }
@@ -292,7 +314,10 @@ async function cleanup(engine: RenderEngine, status: JobStatus, jobId: string): 
 /**
  * Asks the engine about a clip's job (when it answers questions — Lambda only calls back) and
  * wraps up one that is done, failed, or past EDIT_JOB_TIMEOUT_MS — exactly once. An engine that
- * cannot be asked now is asked again next time; only the timeout fails a job it never answers.
+ * cannot be asked now is asked again next time. EDIT_JOB_TIMEOUT_MS bounds a job, full stop: one
+ * past it has failed even when the engine now says done (its copies are let go, nothing is
+ * collected) — the wallet hands the hold back at the same 15 minutes. A stale claim taken over
+ * on such a job fails it rather than collecting again.
  */
 export async function checkJob(pieceId: string): Promise<{ item: ContentItem; changed: boolean }> {
   const item = await readPiece(pieceId);
@@ -313,6 +338,11 @@ export async function checkJob(pieceId: string): Promise<{ item: ContentItem; ch
     }
   }
 
+  if (timedOut(job)) {
+    const r = await end(item, job, { state: "failed", error: JOB_TIMED_OUT });
+    if (r.changed && engine && status?.state === "done") await cleanup(engine, status, job.id);
+    return r;
+  }
   if (engine && status?.state === "done") {
     if (missingOutputs(job.kind, status.outputs).length > 0) {
       console.error(`job ${job.id}: done without ${missingOutputs(job.kind, status.outputs).join(", ")}`);
@@ -330,11 +360,14 @@ export async function checkJob(pieceId: string): Promise<{ item: ContentItem; ch
       done = await finalize(claimed.item, claimed.job, { state: "done", paths: await copyOutputs(pieceId, claimed.job, status) });
     } catch (e) {
       console.error(`job ${job.id}: not collected: ${redact(e)}`);
-      if (!timedOut(job)) {
-        await unclaim(claimed.item, claimed.job);
-        return { item: (await readPiece(pieceId)) ?? item, changed: false };
+      // the bound passed while copying: failed, not asked again
+      if (timedOut(job)) {
+        const failed = await finalize(claimed.item, claimed.job, { state: "failed", error: JOB_TIMED_OUT });
+        await cleanup(engine, status, job.id);
+        return { item: failed, changed: true };
       }
-      return { item: await finalize(claimed.item, claimed.job, { state: "failed", error: JOB_TIMED_OUT }), changed: true };
+      await unclaim(claimed.item, claimed.job);
+      return { item: (await readPiece(pieceId)) ?? item, changed: false };
     }
     await cleanup(engine, status, job.id);
     return { item: done, changed: true };
@@ -343,44 +376,62 @@ export async function checkJob(pieceId: string): Promise<{ item: ContentItem; ch
     console.error(`job ${job.id} failed on ${job.engine}: ${redact(status.error)}`);
     return end(item, job, { state: "failed", error: JOB_FAILED });
   }
-  if (timedOut(job)) return end(item, job, { state: "failed", error: JOB_TIMED_OUT });
   return { item, changed: false };
 }
 
-/** a webhook's outputs, only as the paths this piece's job could have been given (submitJob's destinations) */
-function ownPaths(pieceId: string, kind: EditJob["kind"], outputs: Record<string, { path: string }> | undefined): Record<string, string> | null {
+/**
+ * A Lambda callback's outputs against the destinations its job was given (submitJob records
+ * them): every one exactly as given is the job's files; one missing means the job failed (the
+ * engine said done without it); one naming any other path is not our Lambda's word at all.
+ */
+function ownPaths(job: EditJob, outputs: Record<string, { path: string }> | undefined): Record<string, string> | "missing" | "foreign" {
   const paths: Record<string, string> = {};
-  for (const [name, o] of Object.entries(OUTPUTS[kind])) {
-    const path = outputs?.[name]?.path;
-    const shape = new RegExp(`^${pieceId.replace(/[^0-9a-zA-Z-]/g, "")}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.${o.ext}$`);
-    if (typeof path !== "string" || !shape.test(path)) return null;
-    paths[name] = path;
+  for (const name of Object.keys(OUTPUTS[job.kind])) {
+    const given = outputs?.[name]?.path;
+    if (given === undefined) return "missing";
+    if (!job.dest?.[name] || given !== job.dest[name]) return "foreign";
+    paths[name] = given;
   }
   return paths;
 }
 
 /**
- * A job's end as an engine reported it (the Lambda's webhook; its token was checked by the
- * route). Ignored when the clip's job is no longer this one, or is being collected. Throws
- * when it could not be written, so the caller answers an error and the engine tries again.
+ * A job's end as the Lambda reported it (its webhook; the token was checked by the route).
+ * - "ignored": the clip's job is no longer this one, is not a Lambda job (a Rendi job is only
+ *   finished by asking Rendi), or is being collected.
+ * - "refused": a done callback naming a file other than the job's own destinations; nothing is
+ *   written, and the job ends by a true callback or by the time limit.
+ * - "finished": written. A callback past EDIT_JOB_TIMEOUT_MS fails the job whatever it says,
+ *   and the files the Lambda wrote are let go.
+ * Throws when it could not be written, so the caller answers an error and the engine tries again.
  */
 export async function finishJob(
   pieceId: string, jobId: string,
   result: { state: "done" | "failed"; outputs?: Record<string, { path: string }>; error?: string },
-): Promise<void> {
+): Promise<"finished" | "ignored" | "refused"> {
   const item = await readPiece(pieceId);
   const job = item?.output.video?.edit?.job;
-  if (!item || !job || job.id !== jobId) return;
+  if (!item || !job || job.id !== jobId || job.engine !== "lambda") return "ignored";
+  if (timedOut(job)) {
+    console.error(`job ${jobId}: called back past the time limit`);
+    const ended = await end(item, job, { state: "failed", error: JOB_TIMED_OUT });
+    if (ended.changed) for (const p of Object.values(job.dest ?? {})) await removeClip(p);
+    return ended.changed ? "finished" : "ignored";
+  }
   let r: Result;
   if (result.state === "done") {
-    const paths = ownPaths(pieceId, job.kind, result.outputs);
-    if (!paths) console.error(`job ${jobId}: done without its files`);
-    r = paths ? { state: "done", paths } : { state: "failed", error: JOB_NO_FILES };
+    const paths = ownPaths(job, result.outputs);
+    if (paths === "foreign") {
+      console.error(`job ${jobId}: callback named files that are not the job's`);
+      return "refused";
+    }
+    if (paths === "missing") console.error(`job ${jobId}: done without its files`);
+    r = paths === "missing" ? { state: "failed", error: JOB_NO_FILES } : { state: "done", paths };
   } else {
     console.error(`job ${jobId} failed on ${job.engine}: ${redact(result.error)}`);
     r = { state: "failed", error: JOB_FAILED };
   }
-  await end(item, job, r);
+  return (await end(item, job, r)).changed ? "finished" : "ignored";
 }
 
 /** The piece whose clip has this job, for the webhook, which knows only the job. */

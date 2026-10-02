@@ -23,7 +23,7 @@ const { NO_FLAGS, clipOutput, EDIT_JOB_TIMEOUT_MS } = await import("@/lib/conten
 const { EngineError } = await import("@/lib/video/engines/types");
 const { prepareJob, renderJob } = await import("@/lib/video/command");
 const { buildSubs, parseSilences } = await import("@/lib/video/timeline");
-const { checkJob, initialEdit, submitJob, JOB_FAILED, JOB_NO_FILES, JOB_TIMED_OUT, NO_ENGINE } = await import("@/lib/video/jobs");
+const { checkJob, hashToken, initialEdit, submitJob, JOB_FAILED, JOB_NO_FILES, JOB_TIMED_OUT, NO_ENGINE } = await import("@/lib/video/jobs");
 
 const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const OWN_FILE = new RegExp(`^${PIECE}/[0-9a-f-]{36}\\.mp4$`);
@@ -60,7 +60,7 @@ const edit = (over: Partial<ClipEdit> = {}): ClipEdit => ({
   proxyPath: `${PIECE}/33333333-3333-4333-8333-333333333333.mp4`, silences: [[0, 0.4]], ...over,
 });
 const job = (over: Partial<EditJob> = {}): EditJob => ({
-  kind: "render", engine: "rendi", id: "cmd-1", startedAt: minutesAgo(1), token: "a".repeat(64), tried: ["rendi"],
+  kind: "render", engine: "rendi", id: "cmd-1", startedAt: minutesAgo(1), tokenHash: "a".repeat(64), tried: ["rendi"],
   rev: "r1", pass: WALLET, costThb: 0.9, ...over,
 });
 function dbRow(v: ClipVideo) {
@@ -99,11 +99,16 @@ describe("submitJob", () => {
 
     expect(storedEdit().job).toEqual(rec);
     expect(storedEdit().job).toMatchObject({ kind: "prepare", engine: "rendi", id: "cmd-1", tried: ["rendi"] });
-    expect(rec.token).toMatch(/^[0-9a-f]{64}$/);
+    // the engine gets the secret; the row keeps only its hash
+    const raw = rendi.submit.mock.calls[0][1].token as string;
+    expect(raw).toMatch(/^[0-9a-f]{64}$/);
+    expect(rec.tokenHash).toBe(hashToken(raw));
+    expect(rec.tokenHash).not.toBe(raw);
+    expect(JSON.stringify(clipDb.row)).not.toContain(raw);
     // a first prepare makes the clip's edit, empty, around the job
     expect(storedEdit()).toMatchObject({ cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box" });
     expect(typeof storedEdit().rev).toBe("string");
-    expect(rendi.submit).toHaveBeenCalledWith(job, expect.objectContaining({ token: rec.token, callbackUrl: expect.stringMatching(/\/api\/content-video\/job$/) }));
+    expect(rendi.submit).toHaveBeenCalledWith(job, expect.objectContaining({ token: raw, callbackUrl: expect.stringMatching(/\/api\/content-video\/job$/) }));
     expect(lambda.submit).not.toHaveBeenCalled();
   });
 
@@ -122,9 +127,14 @@ describe("submitJob", () => {
     lambda.submit.mockResolvedValue({ id: "lam-1" });
     const rec = await submitJob(PIECE, "prepare", prepareJob("https://signed.test/source.mp4"));
 
-    expect(storedEdit().job).toMatchObject({ engine: "lambda", id: "lam-1", tried: ["rendi", "lambda"], token: rec.token });
-    // the Lambda writes our storage itself: one signed destination per output, in this clip's folder
+    expect(storedEdit().job).toMatchObject({ engine: "lambda", id: "lam-1", tried: ["rendi", "lambda"], tokenHash: rec.tokenHash });
+    const raw = lambda.submit.mock.calls[0][1].token as string;
+    expect(hashToken(raw)).toBe(rec.tokenHash);
+    expect(JSON.stringify(clipDb.row)).not.toContain(raw);
+    // the Lambda writes our storage itself: one signed destination per output, in this clip's folder, recorded on the job
     const uploads = lambda.submit.mock.calls[0][1].uploads as Record<string, { uploadUrl: string; path: string }>;
+    expect(storedEdit().job?.dest).toEqual({ out_1: uploads.out_1.path, out_2: uploads.out_2.path });
+    expect(JSON.stringify(clipDb.row)).not.toContain("token=secret"); // nor the signed upload links
     expect(Object.keys(uploads).sort()).toEqual(["out_1", "out_2"]);
     expect(uploads.out_1.path).toMatch(OWN_FILE);
     expect(uploads.out_2.path).toMatch(new RegExp(`^${PIECE}/[0-9a-f-]{36}\\.txt$`));
@@ -318,6 +328,76 @@ describe("checkJob", () => {
     await checkJob(PIECE);
     expect(storedEdit().renderedPath).toMatch(OWN_FILE);
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.9);
+  });
+});
+
+describe("the 15-minute bound", () => {
+  it("a job Rendi calls done after 16 minutes has failed: nothing copied, round handed back, Rendi's copies let go", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ renderedPath: OLD_TAKE, job: job({ startedAt: minutesAgo(16) }) }) })));
+    const status: JobStatus = { state: "done", outputs: { out_1: { url: URLS.reel, fileId: "f1" } } };
+    rendi.status.mockResolvedValue(status);
+
+    await checkJob(PIECE);
+
+    expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT, renderedPath: OLD_TAKE });
+    expect(clipDb.uploads).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
+    expect(rendi.cleanup).toHaveBeenCalledWith(status);
+  });
+
+  it("a stale claim is taken over and the job collected once", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ startedAt: minutesAgo(8), collecting: minutesAgo(7) }) }) })));
+    rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: URLS.reel } } });
+
+    await Promise.all([checkJob(PIECE), checkJob(PIECE)]);
+
+    expect(clipDb.uploads).toHaveLength(1);
+    expect(storedEdit()).toMatchObject({ job: null, renderedPath: clipDb.uploads[0] });
+    expect(round.settleLater).toHaveBeenCalledTimes(1);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.9);
+  });
+
+  it("a claim held by a live collector is left alone", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ collecting: minutesAgo(1) }) }) })));
+    rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: URLS.reel } } });
+    expect((await checkJob(PIECE)).changed).toBe(false);
+    expect(clipDb.writes).toBe(0);
+    expect(clipDb.uploads).toHaveLength(0);
+  });
+
+  it("a stale claim on a job past the bound fails it instead of collecting again", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ job: job({ startedAt: minutesAgo(20), collecting: minutesAgo(7) }) }) })));
+    rendi.status.mockResolvedValue({ state: "done", outputs: { out_1: { url: URLS.reel } } });
+
+    await checkJob(PIECE);
+
+    expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT });
+    expect(storedEdit().renderedPath).toBeUndefined();
+    expect(clipDb.uploads).toHaveLength(0);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
+  });
+
+  it("a copy that breaks after the bound has passed fails the job instead of trying again", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-02T10:00:00Z"));
+      const started = new Date(Date.now() - EDIT_JOB_TIMEOUT_MS + 2_000).toISOString(); // 2 s inside the bound
+      clipDb.reset(dbRow(video({ edit: edit({ job: job({ startedAt: started }) }) })));
+      const status: JobStatus = { state: "done", outputs: { out_1: { url: "https://storage.rendi.test/out/slow.mp4" } } };
+      rendi.status.mockResolvedValue(status);
+      // the download is slow and then fails: the bound passes while copying
+      fetchMock.mockImplementationOnce(async () => { vi.setSystemTime(new Date(Date.now() + 10_000)); return new Response("no", { status: 502 }); });
+
+      expect((await checkJob(PIECE)).changed).toBe(true);
+
+      expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT });
+      expect(clipDb.uploads).toHaveLength(0);
+      expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
+      expect(rendi.cleanup).toHaveBeenCalledWith(status);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

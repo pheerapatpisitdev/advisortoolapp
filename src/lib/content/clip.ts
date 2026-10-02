@@ -69,8 +69,10 @@ export interface EditJob {
   engine: EngineName;
   id: string;
   startedAt: string;
-  /** the secret a webhook for this job must carry */
-  token: string;
+  /** sha256 (hex) of the secret a webhook for this job must carry; the secret itself goes only to the engine */
+  tokenHash: string;
+  /** where an engine that writes our storage itself (Lambda) was told to put each output, by alias; a callback must name exactly these */
+  dest?: Record<string, string>;
   /** the edit a render was made from */
   rev?: string;
   pass?: EditPass;
