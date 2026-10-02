@@ -52,7 +52,7 @@ describe("takeRound", () => {
     expect(await takeRound(agent, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41 });
     expect(db.rpc).toHaveBeenCalledWith("ins_take_free_round", {
       p_agent: agent.agentId, p_action: "ai-write", p_target: null,
-      p_limit: 10, p_from: "2026-09-30T17:00:00.000Z", p_rounds: ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft"],
+      p_limit: 10, p_from: "2026-09-30T17:00:00.000Z", p_rounds: ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft", "ai-clip"],
     });
     // the database wrote the line; nothing is written beside it, and no wallet is touched
     expect(db.insert).not.toHaveBeenCalled();

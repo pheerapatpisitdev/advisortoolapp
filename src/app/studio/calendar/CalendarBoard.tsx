@@ -7,7 +7,7 @@ import {
   canDrag, canDropOnDay, dropRejection, fillable, groupByDay, repeats, thaiDayLabel, todayKey, unscheduled, weekSummary,
   DROP_SLOTS, DROP_TIME, type BoardItem, type MonthCell,
 } from "@/lib/content/calendar";
-import { postLink } from "@/lib/facebook/publish";
+import { postLink, reelLink } from "@/lib/facebook/publish";
 import { cancelScheduled, scheduleAt, scheduleOnDay, type PublishResult, type PublishSetup } from "../publish";
 import { ask } from "../ask";
 import { AlertIcon, CheckIcon, ClockIcon, SendIcon, XIcon } from "../ui/icons";
@@ -67,7 +67,7 @@ interface DragSession {
 }
 
 /** what an action may be told once the owner has answered its question */
-type Confirmed = { confirmNumbers: boolean; force: boolean };
+type Confirmed = { confirmNumbers: boolean; confirmSpoken: boolean; force: boolean };
 /** runs an action, and asks for the confirmation it needs before trying again */
 type Run = (act: (ok: Confirmed) => Promise<PublishResult>) => Promise<boolean>;
 
@@ -121,7 +121,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
   const week = cells.some((c) => c.day === today) ? weekSummary(board, today) : null;
 
   const run: Run = async (act) => {
-    const ok: Confirmed = { confirmNumbers: false, force: false };
+    const ok: Confirmed = { confirmNumbers: false, confirmSpoken: false, force: false };
     // at most one question of each kind, then the answer stands
     for (;;) {
       const res = await act({ ...ok }).catch(() => ({ ok: false, error: "การเชื่อมต่อหลุด ลองเช็กในเพจก่อนกดใหม่" }) as PublishResult);
@@ -129,6 +129,11 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
       if (res.confirmNumbers && !ok.confirmNumbers) {
         if (!(await ask(`มีตัวเลขที่ไม่ตรงกับตารางเบี้ย: ${res.confirmNumbers.join(", ")}\n\nตรวจแล้วว่าถูกต้อง และยังจะตั้งเวลาไหม?`, "ตั้งเวลาต่อ"))) return false;
         ok.confirmNumbers = true;
+        continue;
+      }
+      if (res.confirmSpoken && !ok.confirmSpoken) {
+        if (!(await ask(`ตรวจสิ่งที่พูดในคลิปก่อนลง:\n${res.confirmSpoken.join("\n")}\n\nฟังแล้ว และยังจะตั้งเวลาไหม?`, "ตั้งเวลาต่อ"))) return false;
+        ok.confirmSpoken = true;
         continue;
       }
       if (res.confirmRepost && !ok.force) {
@@ -197,7 +202,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
     setError(null);
     startTransition(async () => {
       applyMove({ id: item.id, day });
-      await run(({ confirmNumbers, force }) => scheduleOnDay({ id: item.id, day, pageId, confirmNumbers, force }));
+      await run(({ confirmNumbers, confirmSpoken, force }) => scheduleOnDay({ id: item.id, day, pageId, confirmNumbers, confirmSpoken, force }));
     });
   }
 
@@ -430,6 +435,19 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
   );
 }
 
+/** a piece's picture on the board: its poster, or ▶ for a Reel, which has none */
+function Thumb({ item, className, big }: { item: BoardItem; className: string; big?: boolean }) {
+  if (item.reel) {
+    return (
+      <div role="img" aria-label="คลิป Reel" className={`flex items-center justify-center bg-[var(--ct-soft)] text-[var(--ct-accent)] ${big ? "text-3xl" : "text-lg"} ${className}`}>
+        ▶
+      </div>
+    );
+  }
+  // eslint-disable-next-line @next/next/no-img-element -- the piece's own poster, drawn by the poster route
+  return <img src={item.imageUrl} alt="" draggable={false} loading="lazy" className={`object-cover ${className}`} />;
+}
+
 function StatusIcon({ status, className }: { status: BoardItem["status"]; className?: string }) {
   switch (status) {
     case "published": return <CheckIcon className={className} />;
@@ -470,8 +488,7 @@ function PostCard({ item, error, compact, repeated, dragging, onPointerDown, onO
       style={{ WebkitTouchCallout: "none" }}
     >
       <div className="relative aspect-square w-full">
-        {/* eslint-disable-next-line @next/next/no-img-element -- the piece's own poster, drawn by the poster route */}
-        <img src={item.imageUrl} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
+        <Thumb item={item} className="h-full w-full" />
         {item.pageName && !compact && <span className={`absolute left-1 top-1 ${tag}`}>{item.pageName}</span>}
         {/* the time and the state share the foot of the poster; the state's words give way when it is narrow.
             A two-up day has no room for words: the time below, the state's drawing alone above */}
@@ -613,8 +630,7 @@ function FillDay({ fill, pages, pageId, onPage, empty }: {
           <ul className="space-y-2">
             {ready.map((item) => (
               <li key={item.id} className="flex items-center gap-3 rounded-lg border border-[var(--ct-hair)] p-2">
-                {/* eslint-disable-next-line @next/next/no-img-element -- the poster route's own image */}
-                <img src={item.imageUrl} alt="" loading="lazy" className="size-12 shrink-0 rounded object-cover" />
+                <Thumb item={item} className="size-12 shrink-0 rounded" />
                 <p className="line-clamp-2 min-w-0 flex-1 text-sm">{item.hook}</p>
                 <button
                   type="button" onClick={() => fill.place(item)}
@@ -661,11 +677,15 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
 
   return (
     <li className="rounded-lg border border-[var(--ct-hair)] p-3">
-      {/* the poster carries words, so it is shown whole rather than cropped beside the text */}
-      <a href={item.imageUrl} target="_blank" rel="noopener noreferrer" title="เปิดรูปขนาดเต็ม" aria-label="เปิดรูปขนาดเต็ม" className="block overflow-hidden rounded-lg bg-[var(--ct-ground)]">
-        {/* eslint-disable-next-line @next/next/no-img-element -- the piece's own poster */}
-        <img src={item.imageUrl} alt="" className="mx-auto max-h-[50dvh] w-full object-contain" />
-      </a>
+      {/* the poster carries words, so it is shown whole rather than cropped beside the text; a Reel has none */}
+      {item.reel ? (
+        <Thumb item={item} big className="h-24 w-full rounded-lg" />
+      ) : (
+        <a href={item.imageUrl} target="_blank" rel="noopener noreferrer" title="เปิดรูปขนาดเต็ม" aria-label="เปิดรูปขนาดเต็ม" className="block overflow-hidden rounded-lg bg-[var(--ct-ground)]">
+          {/* eslint-disable-next-line @next/next/no-img-element -- the piece's own poster */}
+          <img src={item.imageUrl} alt="" className="mx-auto max-h-[50dvh] w-full object-contain" />
+        </a>
+      )}
       <div className="mt-3 space-y-1">
         <p className="text-xs text-[var(--ct-mute)]">
           {item.planName}{item.pageName ? ` · ${item.pageName}` : ""} · {STATUS_LABEL[item.status]}{item.by ? ` โดย ${item.by}` : ""}{item.unreviewed ? " · ยังไม่ได้ตรวจ" : ""}
@@ -679,7 +699,7 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
         {item.status === "published" ? (
           <p className="text-sm">
             ขึ้นเพจแล้ว
-            {item.postId && <> · <a href={postLink(item.postId)} target="_blank" rel="noopener noreferrer" className="text-[var(--ct-accent)] underline">เปิดโพสต์บน Facebook</a></>}
+            {item.postId && <> · <a href={item.reel ? reelLink(item.postId) : postLink(item.postId)} target="_blank" rel="noopener noreferrer" className="text-[var(--ct-accent)] underline">เปิดโพสต์บน Facebook</a></>}
           </p>
         ) : item.status === "posting" ? (
           <p className="text-sm text-[var(--ct-mute)]">กำลังส่งไปเพจ — โหลดหน้านี้ใหม่อีกครั้งในอีกสักครู่</p>
@@ -699,7 +719,7 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
             </label>
             <button
               type="button" disabled={busy || (item.status !== "scheduled" && !pageId)}
-              onClick={() => act(({ confirmNumbers, force }) => scheduleAt({ id: item.id, local, pageId, confirmNumbers, force }))}
+              onClick={() => act(({ confirmNumbers, confirmSpoken, force }) => scheduleAt({ id: item.id, local, pageId, confirmNumbers, confirmSpoken, force }))}
               className="inline-flex min-h-11 items-center rounded-lg bg-[var(--ct-solid)] px-3 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
             >
               {busy ? "กำลังส่ง…" : item.status === "scheduled" ? "ย้ายเวลา" : "ตั้งเวลา"}
@@ -743,8 +763,7 @@ export function MonthList({ items }: { items: BoardItem[] }) {
             {(byDay.get(day) ?? []).map((item) => (
               <li key={item.id}>
                 <Link href={`/studio/write?open=${item.id}`} className="flex gap-3 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3 hover:bg-[var(--ct-soft)]">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- the piece's own poster */}
-                  <img src={item.imageUrl} alt="" loading="lazy" className="size-16 shrink-0 rounded object-cover" />
+                  <Thumb item={item} className="size-16 shrink-0 rounded" />
                   <span className="min-w-0">
                     <span className="block text-xs text-[var(--ct-accent)]">{item.time} · {item.pageName} · {STATUS_LABEL[item.status]}</span>
                     <span className="block truncate text-sm font-medium">{item.hook}</span>

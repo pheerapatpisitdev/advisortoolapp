@@ -214,6 +214,11 @@ function liveKeys(config: Config): Record<string, string> {
   return Object.fromEntries(Object.entries(config.keys).filter(([provider]) => !config.off.has(provider)));
 }
 
+/** A provider's key, as the chain would use it — for calls that are not a chat (Gemini's Files API); null when off or missing. */
+export async function providerKey(provider: string): Promise<string | null> {
+  return liveKeys(await loadConfig())[provider] ?? null;
+}
+
 /** The named text models that can answer now: the first as given, the rest cheapest first. */
 function keptTo(config: Config, names: string[]): ModelRow[] {
   const keys = liveKeys(config);
@@ -295,6 +300,8 @@ export interface ChatOptions {
   messages: ChatMessage[];
   maxTokens?: number;
   json?: boolean;
+  /** passed to Gemini as is; see CallArgs.mediaResolution */
+  mediaResolution?: "low";
   /**
    * How long each provider may take before the next is tried. Left out, DEFAULT_CALL_TIMEOUT_MS
    * — the providers' own 25 seconds — applies, which is right for a chat reply and wrong for a whole Facebook post:
@@ -324,7 +331,7 @@ export interface ChatOptions {
 }
 
 /** Sends one prompt, trying providers in order until one answers. */
-export async function chat({ tier, task, messages, maxTokens = 700, json, timeoutMs, effort, only, prefer, within }: ChatOptions): Promise<ChatResult> {
+export async function chat({ tier, task, messages, maxTokens = 700, json, mediaResolution, timeoutMs, effort, only, prefer, within }: ChatOptions): Promise<ChatResult> {
   assertTurnAlive();
   const config = await loadConfig();
   await assertWithinBudget(config);
@@ -346,7 +353,7 @@ export async function chat({ tier, task, messages, maxTokens = 700, json, timeou
       // 0 or less has always meant "no time of the caller's own" (src/lib/content/deadline.ts):
       // the default, never a signal that is aborted before the call is made
       const signal = leash(AbortSignal.timeout(timeoutMs && timeoutMs > 0 ? timeoutMs : DEFAULT_CALL_TIMEOUT_MS));
-      const r = await call({ apiKey: config.keys[model.provider], model: model.model_name, messages, maxTokens, json, signal, effort });
+      const r = await call({ apiKey: config.keys[model.provider], model: model.model_name, messages, maxTokens, json, mediaResolution, signal, effort });
       const costThb = (r.inputTokens / 1e6 * model.price.inputPerMTokUsd
         + r.outputTokens / 1e6 * model.price.outputPerMTokUsd) * USD_TO_THB;
       await record(model.model_name, task, r.inputTokens, r.outputTokens, costThb);

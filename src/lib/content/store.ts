@@ -4,12 +4,13 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inWalletRound } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
 import type { ContentWord, WordHit, WordKind } from "./check";
+import { removeClipsOf } from "./clip-store";
 import { isHookCategory, type HookCategory, type HookTemplate } from "./hooks";
 import { readLook, type Look } from "./looks";
 import { ON_PAGE_STATES, POSTING_STALE_MS } from "./publish-label";
 import type { PolicyFinding } from "./policy";
 import type { Fix } from "./proofread";
-import type { AngleId, Format, Length } from "./prompt";
+import type { AngleId, Length, PieceFormat } from "./prompt";
 import type { ContentOutput } from "./output";
 
 /**
@@ -32,7 +33,7 @@ export interface ContentItem {
   id: string;
   createdAt: string;
   planHref: string;
-  format: Format;
+  format: PieceFormat;
   angle: AngleId;
   length: Length | null;
   output: ContentOutput;
@@ -167,7 +168,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
     id: String(r.id),
     createdAt: String(r.created_at),
     planHref: String(r.plan_href),
-    format: r.format as Format,
+    format: r.format as PieceFormat,
     angle: (r.angle ?? "") as AngleId,
     length: (r.length ?? null) as Length | null,
     output: r.output as ContentOutput,
@@ -184,7 +185,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
 }
 
 export async function saveContent(row: {
-  planHref: string; format: Format; angle: AngleId; length: Length | null;
+  planHref: string; format: PieceFormat; angle: AngleId; length: Length | null;
   output: ContentOutput; flags: Flags; rateVersion: string | null; model: string; costThb: number;
   hookTemplateId: string | null;
   /** the Page whose project the piece goes into (projectPage settled it); null for an agent with no Pages */
@@ -481,6 +482,7 @@ export async function deleteContent(id: string): Promise<void> {
     const { error } = await db.storage.from("content-media").remove(files.map((f) => `${id}/${f.name}`));
     if (error) throw new Error(`ลบรูปไม่สำเร็จ: ${error.message}`);
   }
+  await removeClipsOf(id);
   const { error } = await db.from("ins_content").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
@@ -690,14 +692,17 @@ export async function listDue(from: Date, to: Date, limit = 50): Promise<Content
 }
 
 /**
- * Posts that could go on the calendar: never sent, taken back, refused, or stuck sending —
- * newest first. รอตรวจ and ใช้จริง both, since posting is itself the decision to use a piece.
+ * Posts and Reels that could go on the calendar: never sent, taken back, refused, or stuck
+ * sending — newest first. รอตรวจ and ใช้จริง both, since posting is itself the decision to use a
+ * piece. A Reel is any piece with a clip whose file is still kept (a clip piece, or a script
+ * with its clip attached); one the sweep let go cannot be sent, so it does not wait here.
  */
 export async function listWaiting(pageId?: string, limit = 50): Promise<ContentItem[]> {
   // the staff's pieces: the rail is what the staff may put on their Page — its own project's (2026-09-30)
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS)
-    .eq("format", "post").in("status", ["draft", "used"])
+    .or("format.eq.post,and(output->video->>path.not.is.null,output->video->>expired.is.null)")
+    .in("status", ["draft", "used"])
     .or(`publish_state.is.null,publish_state.eq.cancelled,publish_state.eq.failed,${staleClaim()}`);
   if (pageId) q = q.eq("page_id", pageId);
   if (only) q = q.or(only);

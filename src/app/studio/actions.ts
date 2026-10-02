@@ -612,6 +612,11 @@ export async function saveContentEdits(
       // the figures a numbers post was written from are allowed again, as the brief and the story are
       const yardstick = [brief?.text ?? "", item.output.fact ?? "", item.output.figures ?? ""].join("\n");
       const flags = flagsFor(output, yardstick, words, item.flags.fixes, modeChecks(item.planHref, item.output.fact));
+      if (view.kind === "scheduled" && item.output.video) {
+        // the edit never reaches a Reel (it goes up with the clip's own caption), and re-sending
+        // would delete the held Reel and upload the whole file again for nothing
+        return { ok: false, error: "Reel นี้ตั้งเวลาไว้แล้ว — ยกเลิกคิวก่อนแก้ข้อความ" };
+      }
       if (view.kind === "scheduled") {
         // an edit of a held post re-sends it to the Page, which is the staff's to do
         if (!can(viewer, "publish")) return { ok: false, error: PAGE_STAFF_ONLY };

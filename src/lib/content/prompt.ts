@@ -14,9 +14,14 @@ import { THEME_MOOD, THEMES } from "./poster";
  */
 
 export type Format = "post" | "script" | "ad";
+/**
+ * What a row in ins_content is: a format the writer writes, or a clip an agent filmed (owner,
+ * 2026-10-02). The writer's prompts never see "clip" — nothing writes one.
+ */
+export type PieceFormat = Format | "clip";
 
-export const FORMAT_LABEL: Record<Format, string> = { post: "โพสต์เฟซบุ๊ก", script: "สคริปต์วิดีโอ", ad: "โฆษณา" };
-export const FORMAT_SHORT: Record<Format, string> = { post: "โพสต์", script: "สคริปต์", ad: "โฆษณา" };
+export const FORMAT_LABEL: Record<PieceFormat, string> = { post: "โพสต์เฟซบุ๊ก", script: "สคริปต์วิดีโอ", ad: "โฆษณา", clip: "คลิป Reel" };
+export const FORMAT_SHORT: Record<PieceFormat, string> = { post: "โพสต์", script: "สคริปต์", ad: "โฆษณา", clip: "คลิป" };
 export type Length = "30" | "60" | "180";
 
 /**

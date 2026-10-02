@@ -6,7 +6,7 @@ import {
 
 const item = (over: Partial<BoardItem>): BoardItem => ({
   id: "a", pageId: "p1", pageName: "เพจ", planHref: "/lifeprotect", planName: "Life Protect", hook: "h", body: "b",
-  imageUrl: "/x.png", status: "waiting", day: null, time: "12:00", postId: null, unreviewed: false, blocked: null, ...over,
+  imageUrl: "/x.png", reel: false, status: "waiting", day: null, time: "12:00", postId: null, unreviewed: false, blocked: null, ...over,
 });
 
 describe("Thailand's time", () => {

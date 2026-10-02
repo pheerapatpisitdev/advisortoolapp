@@ -10,7 +10,7 @@ const { PlanBoard, mayMoveTo } = await import("@/app/studio/calendar/PlanBoard")
 const { monthGridDays } = await import("@/lib/content/calendar");
 
 const TODAY = "2026-09-30";
-const card = (id: string, day: string | null, doneAt: string | null = null) => ({ id, title: `หัว ${id}`, format: "post", day, doneAt, imageUrl: `/api/content-poster?s=${id}&size=square` });
+const card = (id: string, day: string | null, doneAt: string | null = null) => ({ id, title: `หัว ${id}`, format: "post", day, doneAt, imageUrl: `/api/content-poster?s=${id}&size=square`, reel: false });
 const html = (listView: boolean) => renderToStaticMarkup(createElement(PlanBoard, {
   cells: monthGridDays(2026, 10), planned: [card("p1", "2026-10-02")], unplanned: [card("r1", null)], today: TODAY, listView,
 }));
@@ -27,6 +27,15 @@ describe("the planning board", () => {
 
   it("makes each day a button that says how many pieces it holds, for a phone", () => {
     expect(html(false)).toContain('aria-label="ศุกร์ที่ 2 ต.ค. 2569 · 1 ชิ้น"');
+  });
+
+  it("draws ▶ for a clip, where a post has its poster", () => {
+    const clip = { ...card("c1", null), title: "แคปชันบรรทัดแรก", format: "clip", imageUrl: null, reel: true };
+    const out = renderToStaticMarkup(createElement(PlanBoard, { cells: monthGridDays(2026, 10), planned: [], unplanned: [clip], today: TODAY, listView: true }));
+    expect(out).toContain('aria-label="คลิป Reel"');
+    expect(out).toContain("▶");
+    expect(out).toContain("คลิป");
+    expect(out).not.toContain("<img");
   });
 });
 

@@ -1,18 +1,23 @@
 "use client";
+import { useRef } from "react";
 import { formulaBadge } from "@/lib/content/finish-check";
 import { shortModel } from "@/lib/content/models";
 import { LENGTHS } from "@/lib/content/prompt";
 import { scenes } from "@/lib/content/script";
+import { onPage } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
 import { ask } from "./ask";
 import { CheckIcon } from "./ui/editor-icons";
+import { CLIP_ACCEPT, uploadLabel } from "./clip/ClipTools";
+import { useClipUpload } from "./clip/useClipUpload";
 
 /**
  * A video script on the workbench: a shot list, not a poster.
  *
  * A script is read aloud in front of a camera, so its card is the words laid out the way
  * they will be filmed — one row per stretch of time, the words to say, what to do, and
- * what goes on screen. There is no picture, so no บันทึกรูป.
+ * what goes on screen. There is no picture, so no บันทึกรูป. Once filmed, the clip is attached
+ * here and the script's editor becomes the Reel's (owner, 2026-10-02).
  */
 
 interface Props {
@@ -23,9 +28,16 @@ interface Props {
   onStatus: (status: ContentItem["status"]) => void;
   onDelete: () => void;
   onCopy: () => void;
+  /** a clip arrived on this script (clip/useClipUpload.ts) */
+  onItem: (item: ContentItem) => void;
 }
 
-export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCopy }: Props) {
+export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCopy, onItem }: Props) {
+  const input = useRef<HTMLInputElement>(null);
+  const upload = useClipUpload(onItem);
+  // held or posted, the Reel is Facebook's: its clip counts as filmed after the sweep lets the file go, and none is attached again
+  const held = onPage(item.publish);
+  const filmed = Boolean(item.output.video && (!item.output.video.expired || held));
   const blocking = (item.flags.policy ?? []).some((f) => f.severity === "block");
   const toCheck = item.flags.numbers.length + item.flags.words.length + (item.flags.policy?.length ?? 0);
   const list = scenes(item.output.hooks[0] ?? "", item.output.body, item.output.closing);
@@ -37,7 +49,7 @@ export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCo
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--ct-hair)] px-3 py-2.5">
         <span className="rounded-full bg-[var(--ct-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--ct-accent)]">สคริปต์ {index + 1}</span>
         <span className="text-xs text-[var(--ct-mute)]">
-          {["วิดีโอ", length, `${list.length} ช่วง`, item.output.loop && "วนลูป ↻", formulaBadge(item.output, "script"), item.model && `เขียนโดย ${shortModel(item.model)}`].filter(Boolean).join(" · ")}
+          {["วิดีโอ", length, `${list.length} ช่วง`, item.output.loop && "วนลูป ↻", formulaBadge(item.output, "script"), item.model && `เขียนโดย ${shortModel(item.model)}`, filmed && "มีคลิปแล้ว ▶"].filter(Boolean).join(" · ")}
         </span>
         {toCheck > 0 && (
           <span className={`ml-auto rounded-full px-2.5 py-0.5 text-xs ${blocking ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-warn-bg)] text-[var(--ct-warn-ink)]"}`}>
@@ -71,6 +83,7 @@ export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCo
             </li>
           )}
         </ol>
+        {upload.note && <p role="status" className="px-3 pb-2.5 text-xs text-[var(--ct-mute)]">{upload.note}</p>}
       </div>
 
       {item.status === "trashed" ? (
@@ -79,6 +92,23 @@ export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCo
           <button type="button" disabled={busy} onClick={onDelete} className={`${cell} text-[var(--ct-alert)]`}>ลบถาวร</button>
         </div>
       ) : (
+        <>
+        <input
+          ref={input} type="file" accept={CLIP_ACCEPT} hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void upload.send(f, { pieceId: item.id });
+            e.target.value = "";
+          }}
+        />
+        {!held && (
+          <button
+            type="button" disabled={busy || upload.busy} onClick={() => input.current?.click()}
+            className={`${cell} w-full border-t border-[var(--ct-hair)] text-[var(--ct-accent)]`}
+          >
+            {upload.busy ? uploadLabel(upload.progress) : filmed ? "แนบคลิปใหม่" : "▶ แนบคลิปที่ถ่ายแล้ว"}
+          </button>
+        )}
         <div className="grid grid-cols-3 divide-x divide-[var(--ct-hair)] border-t border-[var(--ct-hair)]">
           {item.status === "used" ? (
             <button type="button" onClick={onCopy} className={cell}>คัดลอก</button>
@@ -93,9 +123,10 @@ export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCo
               ใช้จริง
             </button>
           )}
-          <button type="button" onClick={onEdit} className={cell}>แก้ไข</button>
-          <button type="button" disabled={busy} onClick={() => onStatus("trashed")} className={`${cell} text-[var(--ct-alert)]`}>ทิ้ง</button>
+          <button type="button" onClick={onEdit} className={cell}>{filmed ? "แก้ไข / ลงเพจ" : "แก้ไข"}</button>
+          <button type="button" disabled={busy || upload.busy} onClick={() => onStatus("trashed")} className={`${cell} text-[var(--ct-alert)]`}>ทิ้ง</button>
         </div>
+        </>
       )}
     </article>
   );

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { postLink } from "@/lib/facebook/publish";
+import { postLink, REEL_MAX_AHEAD_MS, reelLink } from "@/lib/facebook/publish";
 import { bangkokAt, dayKey, thaiDayLabel, timeOfDay } from "@/lib/content/calendar";
 import { publishView, quickTimes, thaiWhen } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
@@ -34,6 +34,8 @@ interface Props {
   onPublished: (item: ContentItem) => void;
   /** the photograph is still being drawn: what went up now would be the poster without it */
   drawing?: boolean;
+  /** what the wait is for when it is not a photograph (a clip's listen), said in place of the drawing line */
+  drawingNote?: string;
   /** a day the calendar sent the owner to write for: its noon and evening come first, noon chosen */
   suggestDay?: string | null;
   /** told while a post or a cancel is on its way to Facebook, so the editor is not left mid-send */
@@ -67,7 +69,7 @@ const button = "min-h-11 rounded-lg px-4 py-2 text-sm disabled:opacity-50";
 /** the choice that lets the server find the day: the first its Page has nothing on (scheduleNextOpen) */
 const OPEN = "open";
 
-export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, suggestDay, onBusy }: Props) {
+export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, drawingNote, suggestDay, onBusy }: Props) {
   const [setup, setSetup] = useState<PublishSetup | null>(null);
   const [pageId, setPageId] = useState("");
   // "now", "custom", or the ISO time of one of the quick options — the calendar's day when it sent one
@@ -127,7 +129,10 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
   const pageName = (id: string | null | undefined) => setup?.pages.find((p) => p.pageId === id)?.pageName ?? "เพจ";
   // a piece of a Page's project goes on that Page and no other (2026-09-30); one on no Page picks
   const target = item.pageId ?? pageId;
-  const blocked = (item.flags.policy ?? []).filter((f) => f.severity === "block");
+  // a Reel goes up with its caption, so the caption's checks are the ones that hold it back (publish-flow.ts clear)
+  const reel = Boolean(item.output.video);
+  const maxAhead = reel ? REEL_MAX_AHEAD_MS : MAX_AHEAD_MS;
+  const blocked = ((reel ? item.output.video!.flags : item.flags).policy ?? []).filter((f) => f.severity === "block");
   const quickLabel = times.find((t) => t.iso === when)?.label;
 
   /** the ISO time to hold it for, null for now, or a reason it cannot go */
@@ -137,7 +142,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
     const iso = when === "custom" ? fromBangkokInput(custom).toISOString() : when;
     const ahead = new Date(iso).getTime() - Date.now();
     if (ahead < MIN_AHEAD_MS) return { error: "เวลานั้นใกล้เกินไปหรือผ่านไปแล้ว — ตั้งเวลาได้ตั้งแต่ 15 นาทีข้างหน้า" };
-    if (ahead > MAX_AHEAD_MS) return { error: "ตั้งเวลาได้ไม่เกิน 30 วันข้างหน้า" };
+    if (ahead > maxAhead) return { error: `ตั้งเวลาได้ไม่เกิน ${reel ? 29 : 30} วันข้างหน้า` };
     return { at: iso };
   }
 
@@ -154,11 +159,12 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
       if (!(await beforePublish())) { setNote(errorNote("บันทึกการแก้ไขไม่สำเร็จ เลยยังไม่ได้โพสต์")); return; }
       try { localStorage.setItem(PAGE_KEY, target); } catch { /* not kept */ }
       let confirmNumbers = false;
+      let confirmSpoken = false;
       let force = false;
       for (;;) {
         const res: PublishResult = when === OPEN
-          ? await scheduleNextOpen({ id: item.id, pageId: target, confirmNumbers, force })
-          : await publishPiece({ id: item.id, pageId: target, at, hook, confirmNumbers, force });
+          ? await scheduleNextOpen({ id: item.id, pageId: target, confirmNumbers, confirmSpoken, force })
+          : await publishPiece({ id: item.id, pageId: target, at, hook, confirmNumbers, confirmSpoken, force });
         if (res.ok) {
           const heldAt = res.item.publish?.at;
           setNote(okNote(when === OPEN && heldAt ? `ตั้งเวลาแล้ว · ${thaiWhen(new Date(heldAt))}` : at ? "ตั้งเวลาแล้ว" : "โพสต์ลงเพจแล้ว"));
@@ -169,6 +175,13 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
           const go = await ask(`มีตัวเลขที่ไม่ตรงกับตารางเบี้ย: ${res.confirmNumbers.join(", ")}\n\nตรวจแล้วว่าถูกต้อง และยังจะโพสต์ไหม?`, "โพสต์ต่อ");
           if (!go) return;
           confirmNumbers = true;
+          continue;
+        }
+        if (res.confirmSpoken && !confirmSpoken) {
+          // what was said is the agent's to stand behind: asked once, never blocked
+          const go = await ask(`ตรวจสิ่งที่พูดในคลิปก่อนลง:\n${res.confirmSpoken.join("\n")}\n\nฟังแล้ว และยังจะลงไหม?`, "ลงต่อ");
+          if (!go) return;
+          confirmSpoken = true;
           continue;
         }
         if (res.confirmRepost && !force) {
@@ -229,7 +242,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
       <p className="flex flex-wrap items-center gap-1.5 text-sm">
         <CheckIcon className="size-4 text-[var(--ct-accent)]" />
         <span>ลง {pageName(item.publish?.pageId)} แล้ว{view.at ? ` ${thaiWhen(view.at)}` : ""}</span>
-        {item.publish?.postId && <> · <a href={postLink(item.publish.postId)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[var(--ct-accent)] underline">ดูโพสต์</a></>}
+        {item.publish?.postId && <> · <a href={reel ? reelLink(item.publish.postId) : postLink(item.publish.postId)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[var(--ct-accent)] underline">ดูโพสต์</a></>}
       </p>
     );
   } else if (!setup.pages.some((p) => p.canPost)) {
@@ -246,7 +259,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
             ครั้งก่อนไม่สำเร็จ: <PlainText text={view.error} />
           </p>
         )}
-        {drawing && <p className="text-sm text-[var(--ct-mute)]">กำลังวาดภาพอยู่ — รอภาพเสร็จก่อนจึงจะโพสต์ได้ (ราว 20–40 วินาที)</p>}
+        {drawing && <p className="text-sm text-[var(--ct-mute)]">{drawingNote ?? "กำลังวาดภาพอยู่ — รอภาพเสร็จก่อนจึงจะโพสต์ได้ (ราว 20–40 วินาที)"}</p>}
         {blocked.length > 0 && <p className="text-sm text-[var(--ct-alert)]">ยังผิดกฎโฆษณาของ Facebook ({blocked[0].message}) — แก้แล้วกดบันทึกก่อน จึงจะโพสต์ได้</p>}
         <div className="grid gap-2 sm:grid-cols-2">
           {item.pageId ? (
@@ -271,7 +284,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
         {when === "custom" && (
           <input
             type="datetime-local" value={custom} onChange={(e) => setCustom(e.target.value)}
-            min={bangkokInput(new Date(Date.now() + MIN_AHEAD_MS))} max={bangkokInput(new Date(Date.now() + MAX_AHEAD_MS))}
+            min={bangkokInput(new Date(Date.now() + MIN_AHEAD_MS))} max={bangkokInput(new Date(Date.now() + maxAhead))}
             aria-label="วันเวลาที่จะโพสต์ (เวลาไทย)" className={field}
           />
         )}
@@ -281,7 +294,11 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
         >
           {busy === "send" ? "กำลังส่ง…" : when === "now" ? "โพสต์ลงเพจเลย" : when === OPEN ? "ตั้งเวลา · วันว่างถัดไป" : `ตั้งเวลาโพสต์${quickLabel ? ` · ${quickLabel}` : ""}`}
         </button>
-        <p className="text-xs text-[var(--ct-mute)]">ส่งรูปโปสเตอร์ 1:1 พร้อมข้อความเต็ม (รวมข้อความเตือนและชื่อบริษัท) · ตั้งเวลาได้ 15 นาที–30 วันข้างหน้า</p>
+        <p className="text-xs text-[var(--ct-mute)]">
+          {reel
+            ? "ส่งคลิปเป็น Reel พร้อมแคปชัน (รวมข้อความเตือนและชื่อบริษัท) · ตั้งเวลาได้ 15 นาที–29 วันข้างหน้า"
+            : "ส่งรูปโปสเตอร์ 1:1 พร้อมข้อความเต็ม (รวมข้อความเตือนและชื่อบริษัท) · ตั้งเวลาได้ 15 นาที–30 วันข้างหน้า"}
+        </p>
       </div>
     );
   }

@@ -1,3 +1,4 @@
+import { CLIP_NAME, isReelPiece } from "./clip";
 import { defaultPoster, posterUrl } from "./poster";
 import type { ContentItem } from "./store";
 
@@ -23,8 +24,13 @@ export function mayPlanOn(day: string, today: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === day && day >= today;
 }
 
-/** what a card on the calendar says: the piece's first opening line */
-export function planTitle(item: Pick<ContentItem, "output">): string {
+/** what a card on the calendar says: the piece's first opening line — a clip's, its caption's first line */
+export function planTitle(item: Pick<ContentItem, "format" | "output">): string {
+  if (isReelPiece(item)) {
+    const line = item.output.video?.caption.split("\n")[0].trim() ?? "";
+    if (!line) return CLIP_NAME;
+    return line.length > 60 ? `${line.slice(0, 59)}…` : line;
+  }
   const first = item.output.hooks[0]?.trim();
   if (!first) return "ชิ้นงาน";
   return first.length > 60 ? `${first.slice(0, 59)}…` : first;
@@ -32,10 +38,11 @@ export function planTitle(item: Pick<ContentItem, "output">): string {
 
 /**
  * A planned piece's picture, as the post calendar and the workbench draw it: its poster, or one
- * from its hook for a piece written before posters. A script has none. `productName` is the
+ * from its hook for a piece written before posters. A script has none, and nor does a clip (the
+ * board draws ▶ for it, as the post calendar does). `productName` is the
  * caller's to find — the product list is kept off this file, which reaches the browser.
  */
 export function planPicture(item: Pick<ContentItem, "format" | "output">, productName: string): string | null {
-  if (item.format === "script") return null;
+  if (item.format === "script" || isReelPiece(item)) return null;
   return posterUrl(item.output.poster ?? defaultPoster(item.output.hooks[0] ?? "", productName), "square");
 }

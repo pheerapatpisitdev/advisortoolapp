@@ -121,6 +121,8 @@ export interface BoardItem {
   body: string;
   /** the poster, drawn by the poster route */
   imageUrl: string;
+  /** a Reel (a clip), not a picture post: no poster to show, and its link is the Reel's */
+  reel: boolean;
   status: BoardStatus;
   /** Thai day key; null while it waits in the รอตั้งเวลา rail */
   day: string | null;

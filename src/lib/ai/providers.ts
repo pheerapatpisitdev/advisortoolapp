@@ -7,6 +7,8 @@ export interface CallArgs {
   maxTokens: number;
   /** ask the provider for strict JSON where it supports it */
   json?: boolean;
+  /** Gemini only: how finely to read pictures and video; "low" for listening to a clip */
+  mediaResolution?: "low";
   signal?: AbortSignal;
   /**
    * How hard a Claude model may think before it answers. Sonnet 5 thinks by default when a
@@ -63,6 +65,7 @@ export function anthropicMessage(m: ChatMessage): { role: string; content: unkno
 /** A message's parts in Gemini's shape. */
 export function googleParts(m: ChatMessage): unknown[] {
   return [
+    ...(m.video ? [{ fileData: { mimeType: m.video.mimeType, fileUri: m.video.uri } }] : []),
     ...(m.images ?? []).map((i) => ({ inlineData: { mimeType: i.mimeType, data: i.base64 } })),
     { text: m.content },
   ];
@@ -108,7 +111,7 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
     };
   },
 
-  async google({ apiKey, model, messages, maxTokens, json, signal }) {
+  async google({ apiKey, model, messages, maxTokens, json, signal, mediaResolution }) {
     const { system, rest } = splitSystem(messages);
     const data = await postJson(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
@@ -119,6 +122,7 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
         generationConfig: {
           maxOutputTokens: maxTokens,
           ...(json ? { responseMimeType: "application/json" } : {}),
+          ...(mediaResolution === "low" ? { mediaResolution: "MEDIA_RESOLUTION_LOW" } : {}),
         },
       }, signal);
     const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");

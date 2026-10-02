@@ -38,6 +38,12 @@ describe("a planned piece's title", () => {
     expect(planTitle(item).length).toBeLessThanOrEqual(60);
     expect(planTitle({ output: { hooks: [] } } as never)).toBe("ชิ้นงาน");
   });
+
+  it("is a clip's caption's first line, or คลิป when it has none yet", () => {
+    expect(planTitle({ format: "clip", output: { hooks: [""], video: { caption: "บรรทัดแรก\nบรรทัดสอง" } } } as never)).toBe("บรรทัดแรก");
+    expect(planTitle({ format: "clip", output: { hooks: [""], video: { caption: "" } } } as never)).toBe("คลิป");
+    expect(planTitle({ format: "clip", output: { hooks: [""] } } as never)).toBe("คลิป");
+  });
 });
 
 describe("a planned piece's picture", () => {
@@ -53,5 +59,9 @@ describe("a planned piece's picture", () => {
   it("is drawn from the hook for a piece written before posters, and none for a script", () => {
     expect(spec(planPicture({ format: "post", output: { hooks: ["หัวเก่า"] } } as never, "Life Protect"))?.blocks.map((b) => b.text)).toContain("หัวเก่า");
     expect(planPicture({ format: "script", output: { hooks: ["หัว"] } } as never, "x")).toBeNull();
+  });
+
+  it("is none for a clip, which the board draws as ▶", () => {
+    expect(planPicture({ format: "clip", output: { hooks: [""], video: { caption: "" } } } as never, "x")).toBeNull();
   });
 });
