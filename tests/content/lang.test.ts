@@ -12,7 +12,7 @@ describe("englishOutput", () => {
   });
 
   it("keeps the writer's own poster and marks it", () => {
-    const poster = { layout: "bottom" as const, theme: "rose" as const, blocks: [{ kind: "headline" as const, text: "Mine" }] };
+    const poster = { layout: "bottom" as const, theme: "blush" as const, blocks: [{ kind: "headline" as const, text: "Mine" }] };
     const o = englishOutput({ ...thai, poster }, "iHealthy Ultra");
     expect(o.poster).toEqual({ ...poster, lang: "en" });
   });
