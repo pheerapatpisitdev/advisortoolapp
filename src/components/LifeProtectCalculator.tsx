@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
@@ -126,6 +127,9 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     }
     setSeeded(true);
   }, [table]);
+  useEffect(() => {
+    if (seeded) markPdfReady();
+  }, [seeded]);
   /** the one rider the page is quoting beside the plan, or none — the company sells one or the other */
   const [pick, setPick] = useState<RiderPick | null>(null);
 

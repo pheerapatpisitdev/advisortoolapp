@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
@@ -68,6 +69,9 @@ export function EasyProtectCalculator({ table, sticky = false }: EasyProtectCalc
     }
     setSeeded(true);
   }, [table]);
+  useEffect(() => {
+    if (seeded) markPdfReady();
+  }, [seeded]);
 
   const term = termAt(table, table.terms[0].variant);
   const ageNum = typeof age === "number" ? age : undefined;

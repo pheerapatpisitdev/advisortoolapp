@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
@@ -69,6 +70,9 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
     }
     setSeeded(true);
   }, [table]);
+  useEffect(() => {
+    if (seeded) markPdfReady();
+  }, [seeded]);
 
   const ageNum = typeof age === "number" ? age : undefined;
   const available = table.terms.filter((t) => ageNum !== undefined && termTakes(table, t, ageNum));

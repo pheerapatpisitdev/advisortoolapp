@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
@@ -70,6 +71,9 @@ export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCa
     }
     setSeeded(true);
   }, [table]);
+  useEffect(() => {
+    if (seeded) markPdfReady();
+  }, [seeded]);
 
   const term = termAt(table, variant);
   const ageNum = typeof age === "number" ? age : undefined;

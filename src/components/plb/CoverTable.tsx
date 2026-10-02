@@ -1,6 +1,7 @@
 import type { CoverRow } from "@/lib/cover-rows";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
+import { PdfPrepare } from "@/components/sales/PdfPrepare";
 
 /**
  * Every year of a term contract, on the page rather than only in a picture.
@@ -114,6 +115,7 @@ export function CoverTable({ rows, caption, endsNote, cardPath, planName }: Cove
       <p className="mt-3 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
         {endsNote} · แบบนี้เป็นความคุ้มครองล้วน ไม่มีมูลค่าเวนคืนและไม่มีเงินคืนเมื่อครบสัญญา
       </p>
+      <PdfPrepare />
     </section>
   );
 }
