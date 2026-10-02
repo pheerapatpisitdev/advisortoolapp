@@ -112,3 +112,23 @@ describe("clipYardstick", () => {
     for (const part of ["ฮุคหนึ่ง", "เนื้อหาบท", "ปิดท้ายบท", "โน้ตตัวแทน 777", briefFor(href)?.text ?? ""]) expect(y).toContain(part);
   });
 });
+
+describe("parseClipReply — editing suggestions", () => {
+  it("keeps a segment's cut mark and reason, and the suggested hook", () => {
+    const r = parseClipReply(JSON.stringify({
+      segments: [{ start: 0, end: 1, text: "เอ่อ", cut: true, why: "คำเติม" }, { start: 1, end: 3, text: "สวัสดีครับ" }],
+      caption: "c", hook: { top: "ขอบคุณลูกเพจทุกท่าน", main: "ปิดยอดไปแล้ว 881,533 บาท" },
+    }), 10);
+    expect(r?.segments[0]).toMatchObject({ cut: true, why: "คำเติม" });
+    expect(r?.segments[1].cut).toBeUndefined();
+    expect(r?.hook).toEqual({ top: "ขอบคุณลูกเพจทุกท่าน", main: "ปิดยอดไปแล้ว 881,533 บาท" });
+  });
+  it("cuts a hook that runs long, and drops a blank one", () => {
+    const r = parseClipReply(JSON.stringify({ segments: [], caption: "c", hook: { top: "x".repeat(40), main: "y".repeat(40) } }), 10);
+    expect(r?.hook).toEqual({ top: "x".repeat(24), main: "y".repeat(28) });
+    expect(parseClipReply(JSON.stringify({ segments: [], caption: "c", hook: { main: "  " } }), 10)?.hook).toBeUndefined();
+  });
+  it("ignores a cut that is not true", () => {
+    expect(parseClipReply(JSON.stringify({ segments: [{ start: 0, end: 1, text: "ก", cut: "yes" }], caption: "c" }), 10)?.segments[0].cut).toBeUndefined();
+  });
+});

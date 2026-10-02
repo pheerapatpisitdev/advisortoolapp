@@ -81,4 +81,15 @@ describe("runTranscribe", () => {
     expect(r.ok).toBe(false);
     expect(ai.chat).not.toHaveBeenCalled();
   });
+
+  it("stores the suggested hook, and drops a stale one when the reply has none", async () => {
+    const hook = { top: "ขอบคุณ", main: "ปิดยอดแล้ว" };
+    ai.chat.mockResolvedValue(reply({ segments: [{ start: 0, end: 1, text: "ก" }], caption: "c", hook }));
+    await runTranscribe(item());
+    expect((store.saveOutputIf.mock.calls[0][1] as ContentItem["output"]).video!.hookSuggestion).toEqual(hook);
+    store.getContent.mockImplementation(async () => item(video({ hookSuggestion: { main: "เก่า" } })));
+    ai.chat.mockResolvedValue(reply({ segments: [{ start: 0, end: 1, text: "ก" }], caption: "c" }));
+    await runTranscribe(item());
+    expect((store.saveOutputIf.mock.calls[1][1] as ContentItem["output"]).video!.hookSuggestion).toBeUndefined();
+  });
 });

@@ -1,7 +1,7 @@
 import type { ChatMessage } from "@/lib/ai/types";
 import { briefFor } from "./brief";
 import { findWords, strayNumbers, type ContentWord } from "./check";
-import { MAX_CAPTION, type Segment, type SpokenFlag } from "./clip";
+import { MAX_CAPTION, MAX_HOOK_MAIN, MAX_HOOK_TOP, type Hook, type Segment, type SpokenFlag } from "./clip";
 import type { ModeChecks } from "./mode-checks";
 import { checkPolicy } from "./policy";
 import type { ContentItem, Flags } from "./store";
@@ -24,7 +24,9 @@ const SYSTEM = [
   "แคปชันต้องไม่มีคำโฆษณาเกินจริง (การันตี, รับประกันผลตอบแทน, ไม่มีความเสี่ยง, ดีที่สุด, ถูกที่สุด) และไม่ใส่ตัวเลขเบี้ยหรือผลประโยชน์ที่ไม่ได้พูดในคลิปหรือไม่มีในข้อมูลที่ให้",
   "ไม่ต้องใส่ข้อความ disclaimer ท้ายแคปชัน ระบบเติมให้เอง",
   "ถ้าในคลิปไม่มีเสียงพูด ให้ segments เป็น [] และเขียนแคปชันจากภาพและข้อมูลที่ให้",
-  "ตอบเป็น JSON เท่านั้น รูปแบบ {\"segments\":[{\"start\":0,\"end\":2.5,\"text\":\"...\"}],\"caption\":\"...\"}",
+  "งานที่ 3: ทำเครื่องหมาย cut: true ที่ช่วงที่ควรตัดออกเมื่อตัดต่อ พร้อม why สั้นๆ — คำเติม (เอ่อ อ่า อืม), ประโยคที่พูดผิดแล้วพูดใหม่ (ตัดครั้งที่ผิด เก็บครั้งที่ดีที่สุด), ประโยคที่พูดไม่จบ — ช่วงที่ควรเก็บไม่ต้องใส่ cut",
+  "งานที่ 4: เขียน hook ตัวหนังสือขึ้นจอช่วงต้นคลิป: main ไม่เกิน 28 ตัวอักษร สรุปประเด็นที่ดึงดูดที่สุด และ top (ไม่บังคับ) ไม่เกิน 24 ตัวอักษร — ห้ามคำโฆษณาเกินจริงเหมือนแคปชัน",
+  "ตอบเป็น JSON เท่านั้น รูปแบบ {\"segments\":[{\"start\":0,\"end\":2.5,\"text\":\"...\",\"cut\":true,\"why\":\"คำเติม\"}],\"caption\":\"...\",\"hook\":{\"top\":\"...\",\"main\":\"...\"}}",
 ].join("\n");
 
 export function clipMessages(ctx: { script: string; brief: string; product: string }): ChatMessage[] {
@@ -51,17 +53,17 @@ function secondsOf(v: unknown): number {
   return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
 }
 
-export function parseClipReply(text: string, durationSec: number): { segments: Segment[]; caption: string } | null {
+export function parseClipReply(text: string, durationSec: number): { segments: Segment[]; caption: string; hook?: Hook } | null {
   let raw: unknown;
   try { raw = JSON.parse(unfence(text)); } catch { return null; }
   if (!raw || typeof raw !== "object") return null;
-  const r = raw as { segments?: unknown; caption?: unknown };
+  const r = raw as { segments?: unknown; caption?: unknown; hook?: unknown };
   const given = Array.isArray(r.segments) ? r.segments : [];
   const segments: Segment[] = [];
   let lastStart = 0;
   let lastEnd = 0;
   for (const s of given) {
-    const seg = (s && typeof s === "object" ? s : {}) as { start?: unknown; end?: unknown; text?: unknown };
+    const seg = (s && typeof s === "object" ? s : {}) as { start?: unknown; end?: unknown; text?: unknown; cut?: unknown; why?: unknown };
     let start = secondsOf(seg.start);
     const end = secondsOf(seg.end);
     const words = typeof seg.text === "string" ? seg.text.trim() : "";
@@ -71,7 +73,12 @@ export function parseClipReply(text: string, durationSec: number): { segments: S
     if (start < lastStart) continue;
     if (start < lastEnd) start = lastEnd;
     if (start >= end) continue;
-    segments.push({ start, end, text: words.slice(0, 500) });
+    const why = typeof seg.why === "string" ? seg.why.trim().slice(0, 60) : "";
+    segments.push({
+      start, end, text: words.slice(0, 500),
+      ...(seg.cut === true ? { cut: true } : {}),
+      ...(why ? { why } : {}),
+    });
     lastStart = start;
     lastEnd = end;
   }
@@ -79,7 +86,16 @@ export function parseClipReply(text: string, durationSec: number): { segments: S
   if (given.length > 0 && segments.length === 0) return null;
   const caption = typeof r.caption === "string" ? r.caption.trim().slice(0, MAX_CAPTION) : "";
   if (segments.length === 0 && !caption) return null;
-  return { segments, caption };
+  return { segments, caption, ...(hookOf(r.hook) ? { hook: hookOf(r.hook) } : {}) };
+}
+
+function hookOf(v: unknown): Hook | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const h = v as { main?: unknown; top?: unknown };
+  const main = typeof h.main === "string" ? h.main.trim() : "";
+  if (!main) return undefined;
+  const top = typeof h.top === "string" ? h.top.trim() : "";
+  return { main: main.slice(0, MAX_HOOK_MAIN), ...(top ? { top: top.slice(0, MAX_HOOK_TOP) } : {}) };
 }
 
 export function spokenFlagsOf(segments: Segment[], words: ContentWord[], yardstick: string, checks: Partial<ModeChecks>): SpokenFlag[] {

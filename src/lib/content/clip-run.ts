@@ -80,6 +80,8 @@ export async function runTranscribe(item: ContentItem): Promise<ClipResult> {
         spokenFlags: spokenFlagsOf(heard.segments, words, yardstick, checks),
       };
       delete next.transcribeFailed;
+      if (heard.hook) next.hookSuggestion = heard.hook;
+      else delete next.hookSuggestion;
       return next;
     });
     if (saved === "sent") return { ok: false, error: SENT_MEANWHILE };
