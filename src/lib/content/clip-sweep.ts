@@ -1,7 +1,7 @@
 import { pageToken } from "@/lib/facebook/connection";
 import { reelState } from "@/lib/facebook/publish";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { CLIP_BUCKET, CLIP_DRAFT_DAYS, type ClipVideo } from "./clip";
+import { CLIP_BUCKET, CLIP_DRAFT_DAYS, clipFiles, type ClipVideo } from "./clip";
 import { REEL_FAILED, VERIFY_WINDOW_MS } from "./publish-flow";
 
 /**
@@ -34,8 +34,9 @@ export function sweepPlan(files: SweepFile[], rows: Map<string, SweepRow>, now: 
     const path = `${f.piece}/${f.name}`;
     const r = rows.get(f.piece);
     const v = r?.video;
-    if (!r || !v || v.path !== path) {
-      // an upload left half way, a clip replaced, a piece deleted: a day's grace for one still arriving
+    // a clip keeps its preview and its edited take beside it; anything else in the folder is
+    // an upload left half way, a replaced take, a render's pictures — a day's grace, then gone
+    if (!r || !v || !clipFiles(v).includes(path)) {
       if (t - new Date(f.createdAt).getTime() > DAY) remove.push(path);
       continue;
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  clipPath, clipProblem, clockOf, isClipPath, isReelPiece, reelDescription, spokenNotes, clipOutput, NO_FLAGS, type ClipVideo,
+  clipPath, clipProblem, clockOf, isClipPath, isReelPiece, reelDescription, spokenNotes, clipOutput, clipFiles, NO_FLAGS, type ClipVideo,
 } from "@/lib/content/clip";
 
 const ok = { sizeBytes: 20_000_000, durationSec: 45, width: 1080, height: 1920, mime: "video/mp4" };
@@ -65,5 +65,14 @@ describe("isReelPiece", () => {
     expect(isReelPiece({ format: "clip", output: clipOutput("") })).toBe(true);
     expect(isReelPiece({ format: "script", output: { ...clipOutput(""), video: video() } })).toBe(true);
     expect(isReelPiece({ format: "post", output: clipOutput("") })).toBe(false);
+  });
+});
+
+describe("clipFiles", () => {
+  it("is the clip, its preview and its edited take", () => {
+    const v = { path: "p/a.mp4", durationSec: 5, width: 1, height: 2, sizeBytes: 1, mime: "video/mp4", uploadedAt: "", caption: "", flags: NO_FLAGS,
+      edit: { proxyPath: "p/b.mp4", renderedPath: "p/c.mp4", cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box" as const, rev: "r" } };
+    expect(clipFiles(v)).toEqual(["p/a.mp4", "p/b.mp4", "p/c.mp4"]);
+    expect(clipFiles({ ...v, edit: undefined })).toEqual(["p/a.mp4"]);
   });
 });

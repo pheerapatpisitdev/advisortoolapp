@@ -39,6 +39,9 @@ export interface Segment {
   start: number;
   end: number;
   text: string;
+  /** the listener thinks it should go (a filler, a retake); the agent decides */
+  cut?: boolean;
+  why?: string;
 }
 
 /** something said in the clip the checks would flag in a post — said, never blocked (owner, 2026-10-02) */
@@ -48,6 +51,52 @@ export interface SpokenFlag {
   text: string;
   message: string;
 }
+
+/** the look of the words laid on a clip (owner, 2026-10-02: four ready styles, no free styling) */
+export type ClipStyle = "box" | "outline" | "yellow" | "page";
+export const CLIP_STYLES: readonly ClipStyle[] = ["box", "outline", "yellow", "page"];
+export interface Hook { top?: string; main: string }
+export const MAX_HOOK_MAIN = 28;
+export const MAX_HOOK_TOP = 24;
+export type EngineName = "rendi" | "lambda";
+/** who pays for a render, kept on the job so the round is settled when the job ends */
+export type EditPass =
+  | { paidBy: "staff" }
+  | { paidBy: "free"; auditId: number }
+  | { paidBy: "wallet"; holdId: string; heldSatang: number; multiplier: number };
+export interface EditJob {
+  kind: "prepare" | "render";
+  engine: EngineName;
+  id: string;
+  startedAt: string;
+  /** the secret a webhook for this job must carry */
+  token: string;
+  /** the edit a render was made from */
+  rev?: string;
+  pass?: EditPass;
+  /** the job's estimated cost, for the round's charge */
+  costThb?: number;
+  /** engines already asked for this job, so a retry goes to the other */
+  tried: EngineName[];
+}
+/** An agent's edit of a clip (owner, 2026-10-02): what is cut, the subtitles, the hook, the look. */
+export interface ClipEdit {
+  proxyPath?: string;
+  silences?: [number, number][];
+  cut: number[];
+  trimSilence: boolean;
+  subs: { start: number; end: number; text: string }[];
+  hook: Hook;
+  style: ClipStyle;
+  rev: string;
+  job?: EditJob | null;
+  renderedPath?: string;
+  renderedAt?: string;
+  renderedRev?: string;
+  error?: string;
+}
+/** a job that has not answered for this long has failed; the wallet hands a hold back at the same 15 minutes */
+export const EDIT_JOB_TIMEOUT_MS = 15 * 60_000;
 
 export interface ClipVideo {
   /** "<piece id>/<file id>.<ext>" in content-video */
@@ -70,6 +119,14 @@ export interface ClipVideo {
   /** the caption's checks — what clear() reads for a Reel, never item.flags (a script's own) */
   flags: Flags;
   spokenFlags?: SpokenFlag[];
+  /** the hook the listener suggested */
+  hookSuggestion?: Hook;
+  edit?: ClipEdit;
+}
+
+/** every file a clip keeps in content-video: the clip, its preview, its edited take */
+export function clipFiles(v: ClipVideo): string[] {
+  return [v.path, v.edit?.proxyPath, v.edit?.renderedPath].filter((p): p is string => Boolean(p));
 }
 
 /** Why a file cannot be a Reel, in the agent's words; null when it can. */

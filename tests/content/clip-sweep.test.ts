@@ -63,6 +63,14 @@ describe("sweepPlan", () => {
     r.video!.expired = true;
     expect(sweepPlan([file("a", "v.mp4")], new Map([["a", r]]), now)).toEqual({ remove: ["a/v.mp4"], expire: [] });
   });
+
+  it("keeps a clip's preview and edited take while the clip is kept, and lets them go with it", () => {
+    const withEdit = (r: SweepRow): SweepRow => ({ ...r, video: { ...r.video!, edit: { proxyPath: `${r.id}/p.mp4`, renderedPath: `${r.id}/e.mp4`, cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: "x" } } });
+    const live = new Map([["a", withEdit(row("a", "v.mp4"))]]);
+    expect(sweepPlan([file("a", "v.mp4"), file("a", "p.mp4"), file("a", "e.mp4"), file("a", "old.png")], live, now).remove).toEqual(["a/old.png"]);
+    const idle = new Map([["a", withEdit(row("a", "v.mp4", {}, 24 * 61))]]);
+    expect(sweepPlan([file("a", "v.mp4"), file("a", "p.mp4"), file("a", "e.mp4")], idle, now).remove.sort()).toEqual(["a/e.mp4", "a/p.mp4", "a/v.mp4"]);
+  });
 });
 
 // ---- sweepClips against an in-memory bucket and table ----
