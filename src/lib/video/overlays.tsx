@@ -1,19 +1,13 @@
 import type { ReactNode } from "react";
-import type { ClipStyle, Hook } from "@/lib/content/clip";
+import type { Hook } from "@/lib/content/clip";
 import { renderPng } from "@/lib/content/poster-png";
-import { hookLines, subLines, type StyleLook } from "./styles";
+import { HOOK_SIZE, hookLines, hookMainSize, STYLE_LABEL, SUB_SIZE, subFontSize, subLines, type StyleLook } from "./styles";
 
-export { hookLines, subLines };
+export { HOOK_SIZE, hookLines, STYLE_LABEL, SUB_SIZE, subLines };
 
-/** two lines fit at full size; more shrink to fit the 200px picture (box padding ~36 comes off first) */
-const fit = (size: number, lines: number) => Math.max(40, Math.min(size, Math.floor((SUB_SIZE.height - 36) / (1.25 * lines))));
 const rows = (lines: string[]) => lines.map((l, i) => <div key={i} style={{ display: "flex", justifyContent: "center" }}>{l}</div>);
 
 /** The words laid on a clip, as transparent pictures the render puts over the video (owner, 2026-10-02). */
-
-export const STYLE_LABEL: Record<ClipStyle, string> = { box: "กล่องดำ", outline: "ตัวขาวขอบดำ", yellow: "เน้นเหลือง", page: "สีของเพจ" };
-export const SUB_SIZE = { width: 1080, height: 200 };
-export const HOOK_SIZE = { width: 1080, height: 360 };
 
 const text = (look: StyleLook, fontSize: number) => ({
   fontFamily: "Plex", fontWeight: 600, fontSize, lineHeight: 1.25, textAlign: "center" as const,
@@ -25,7 +19,7 @@ export function subElement(words: string, look: StyleLook): ReactNode {
   const lines = subLines(words);
   return (
     <div style={{ width: SUB_SIZE.width, height: SUB_SIZE.height, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", maxWidth: 1000, ...(look.box ? { background: look.box.background, borderRadius: look.box.borderRadius, padding: look.box.padding } : {}), ...text(look, fit(look.fontSize, lines.length)) }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", maxWidth: 1000, ...(look.box ? { background: look.box.background, borderRadius: look.box.borderRadius, padding: look.box.padding } : {}), ...text(look, subFontSize(look.fontSize, lines.length)) }}>
         {rows(lines)}
       </div>
     </div>
@@ -34,8 +28,7 @@ export function subElement(words: string, look: StyleLook): ReactNode {
 
 export function hookElement(hook: Hook, look: StyleLook): ReactNode {
   const lines = hookLines(hook.main);
-  // the picture is 360 tall: the top pill (~101 with its gap) and the main box's padding come off first
-  const mainSize = Math.max(40, Math.min(76, Math.floor((HOOK_SIZE.height - (hook.top ? 101 : 0) - 44 - 10) / (1.25 * lines.length))));
+  const mainSize = hookMainSize(lines.length, Boolean(hook.top));
   return (
     <div style={{ width: HOOK_SIZE.width, height: HOOK_SIZE.height, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       {hook.top ? (

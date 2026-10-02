@@ -14,7 +14,8 @@ import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { takeRound } from "@/lib/auth/quota";
 import { prepareJob } from "@/lib/video/command";
 import { avoidAfterFailure, checkJob, claimSubmit, JOB_BUSY, releaseSubmit, submitJob, submitting } from "@/lib/video/jobs";
-import { CLIP_GONE, LINK_SECONDS, NOT_PREPARED, RENDER_DOWN, renderChecks, startRender } from "@/lib/video/render-run";
+import { CLIP_GONE, LINK_SECONDS, NOT_PREPARED, pageTheme, RENDER_DOWN, renderChecks, startRender } from "@/lib/video/render-run";
+import type { Theme } from "@/lib/content/poster";
 
 /**
  * The agent's clip editor, on the server (owner, 2026-10-02): open it (the preview is made, free),
@@ -99,6 +100,17 @@ export async function openEdit(id: string): Promise<EditResult> {
     console.error(`edit of ${id} not opened:`, e);
     return { ok: false, error: RENDER_DOWN };
   }
+}
+
+/**
+ * The theme the "สีของเพจ" look is drawn in — the Page's latest poster's, as the render reads it
+ * (render-run.ts pageTheme) — so the editor's preview shows the colours the Reel will carry.
+ * Only for someone who may see the piece; navy otherwise.
+ */
+export async function editTheme(id: string): Promise<Theme> {
+  await requireMember();
+  const item = await getContent(id).catch(() => null);
+  return item ? pageTheme(item.pageId) : "navy";
 }
 
 /**

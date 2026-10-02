@@ -20,6 +20,9 @@ export const CLIP_MIN_SEC = 3;
 export const CLIP_MAX_SEC = 90;
 /** an edited Reel is at most a minute (owner, 2026-10-02); the clip filmed may run to CLIP_MAX_SEC */
 export const MAX_EDITED_SECONDS = 60;
+/** an edit that leaves more than a minute, with how much more to cut, in whole seconds */
+export const tooLong = (kept: number): string =>
+  `คลิปที่ตัดแล้วยาว ${Math.ceil(kept)} วินาที — Reel ที่ตัดต่อต้องไม่เกิน 1 นาที ตัดออกอีก ${Math.ceil(kept - MAX_EDITED_SECONDS)} วินาที`;
 /** a clip never scheduled keeps its file this long; then the sweep lets it go (owner, 2026-10-02) */
 export const CLIP_DRAFT_DAYS = 60;
 export const MAX_CLIP_BRIEF = 300;

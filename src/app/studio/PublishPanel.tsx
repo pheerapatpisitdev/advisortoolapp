@@ -160,11 +160,12 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
       try { localStorage.setItem(PAGE_KEY, target); } catch { /* not kept */ }
       let confirmNumbers = false;
       let confirmSpoken = false;
+      let confirmStale = false;
       let force = false;
       for (;;) {
         const res: PublishResult = when === OPEN
-          ? await scheduleNextOpen({ id: item.id, pageId: target, confirmNumbers, confirmSpoken, force })
-          : await publishPiece({ id: item.id, pageId: target, at, hook, confirmNumbers, confirmSpoken, force });
+          ? await scheduleNextOpen({ id: item.id, pageId: target, confirmNumbers, confirmSpoken, confirmStale, force })
+          : await publishPiece({ id: item.id, pageId: target, at, hook, confirmNumbers, confirmSpoken, confirmStale, force });
         if (res.ok) {
           const heldAt = res.item.publish?.at;
           setNote(okNote(when === OPEN && heldAt ? `ตั้งเวลาแล้ว · ${thaiWhen(new Date(heldAt))}` : at ? "ตั้งเวลาแล้ว" : "โพสต์ลงเพจแล้ว"));
@@ -182,6 +183,12 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
           const go = await ask(`ตรวจสิ่งที่พูดในคลิปก่อนลง:\n${res.confirmSpoken.join("\n")}\n\nฟังแล้ว และยังจะลงไหม?`, "ลงต่อ");
           if (!go) return;
           confirmSpoken = true;
+          continue;
+        }
+        if (res.confirmStale && !confirmStale) {
+          // the edit moved on after the take was made: the agent picks whether the older take still goes
+          if (!(await ask(res.error, "ลงคลิปที่สร้างไว้"))) return;
+          confirmStale = true;
           continue;
         }
         if (res.confirmRepost && !force) {

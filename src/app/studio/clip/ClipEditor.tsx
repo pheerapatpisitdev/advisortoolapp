@@ -3,15 +3,20 @@ import { useEffect, useRef, useState } from "react";
 import { clockOf, MAX_CAPTION, reelDescription } from "@/lib/content/clip";
 import { onPage } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
+import { keepOf } from "@/lib/video/preview";
+import { mapTime } from "@/lib/video/timeline";
 import { ask } from "../ask";
 import { saveClipCaption, transcribeClip } from "../clip";
 import { PlanPanel } from "../PlanPanel";
 import { PublishPanel } from "../PublishPanel";
 import { BackIcon, CheckIcon } from "../ui/editor-icons";
+import { ClipEditStudio } from "./ClipEditStudio";
 
 /**
  * A Reel before it goes (owner, 2026-10-02): the clip to watch, the caption to edit, what was
  * said that a post would be flagged for — each jumps the player to its second — and ลงเพจ.
+ * ตัดต่อ opens the clip editor (ClipEditStudio) in its place; once it has made a take, the
+ * player plays that take, which is what goes up.
  */
 export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onItem, onClose, onDirtyChange, suggestDay }: {
   item: ContentItem;
@@ -28,7 +33,15 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
   suggestDay?: string | null;
 }) {
   const v = item.output.video;
+  const edit = v?.edit;
   const player = useRef<HTMLVideoElement>(null);
+  const [editing, setEditing] = useState(false);
+  // the take the editor made plays first; the clip as filmed is a press away
+  const [take, setTake] = useState<"edited" | "original">("edited");
+  const hasTake = Boolean(edit?.renderedPath) && !v?.expired;
+  const showing = hasTake && take === "edited" ? "edited" : "original";
+  const stale = hasTake && edit?.renderedRev !== edit?.rev;
+  const pendingSeek = useRef<number | null>(null);
   const [caption, setCaption] = useState(v?.caption ?? "");
   // a new caption from the server (a listen, a save) replaces what is in the box — unless the
   // agent has typed over the last one and not saved it: their words stay, and still read as unsaved
@@ -77,15 +90,33 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
     onItem(r.item);
   }
 
+  /** to a second of the clip as filmed: on the edited take, where that second landed; one the take no longer matches plays the original */
   const seek = (at: number) => {
     const p = player.current;
-    if (!p) return;
-    p.currentTime = at;
+    if (!p || !v) return;
+    let to = at;
+    if (showing === "edited") {
+      if (stale || !edit?.silences) { pendingSeek.current = at; setTake("original"); return; }
+      to = mapTime(at, keepOf(v, edit));
+    }
+    p.currentTime = to;
+    void p.play().catch(() => undefined);
+  };
+  const seekPending = () => {
+    const p = player.current;
+    if (!p || pendingSeek.current === null) return;
+    p.currentTime = pendingSeek.current;
+    pendingSeek.current = null;
     void p.play().catch(() => undefined);
   };
   const flags = v?.flags;
   const captionWarnings = flags ? flags.words.length + flags.numbers.length + (flags.policy?.length ?? 0) : 0;
   const button = "min-h-11 rounded-lg border border-[var(--ct-line)] px-4 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
+  const chip = (on: boolean) => `min-h-11 rounded-lg border px-3 text-sm ${on ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] hover:bg-[var(--ct-soft)]"}`;
+  // the editor needs words to cut by and a file to cut; a held Reel's editor only shows what was made
+  const canEdit = Boolean(v && !v.expired && (v.transcript?.length ?? 0) > 0 && (!locked || edit?.proxyPath));
+
+  if (editing && v) return <ClipEditStudio item={item} onItem={onItem} onClose={() => setEditing(false)} />;
 
   return (
     <section className="space-y-4 rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">
@@ -94,7 +125,11 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
           <BackIcon className="size-4" />
           กลับไปรายการ
         </button>
-        <h2 className="mt-2 text-base font-semibold">คลิป Reel{v ? ` · ${clockOf(v.durationSec)}` : ""}</h2>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-semibold">คลิป Reel{v ? ` · ${clockOf(v.durationSec)}` : ""}</h2>
+          {hasTake && <span className="rounded-full bg-[var(--ct-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--ct-accent)]">คลิปที่ตัดต่อแล้ว</span>}
+          {stale && <span className="rounded-full bg-[var(--ct-warn-bg)] px-2.5 py-0.5 text-xs text-[var(--ct-warn-ink)]">ยังไม่ได้สร้างใหม่</span>}
+        </div>
         {v?.brief && <p className="mt-0.5 text-xs text-[var(--ct-mute)]">เรื่อง: {v.brief}</p>}
       </div>
 
@@ -104,7 +139,30 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
           ? <p className="text-sm text-[var(--ct-mute)]">ไฟล์ต้นฉบับถูกลบจากระบบแล้ว — Reel ยังอยู่บนเพจ</p>
           : <p className="text-sm text-[var(--ct-warn-ink)]">ไฟล์คลิปหมดอายุ — แนบคลิปใหม่ที่การ์ด</p>)
           // a GET that redirects to a signed link (api/content-video/[id]); the path is there so a new take is a new address
-          : <video ref={player} src={`/api/content-video/${item.id}?v=${encodeURIComponent(v.path)}`} controls playsInline preload="metadata" className="mx-auto block max-h-[60vh] max-w-full rounded-lg bg-black" />}
+          : (
+            <div className="space-y-2">
+              <video
+                ref={player} controls playsInline preload="metadata" onLoadedMetadata={seekPending}
+                src={showing === "edited"
+                  ? `/api/content-video/${item.id}?take=edited&v=${encodeURIComponent(edit!.renderedPath!)}`
+                  : `/api/content-video/${item.id}?v=${encodeURIComponent(v.path)}`}
+                className="mx-auto block max-h-[60vh] max-w-full rounded-lg bg-black"
+              />
+              {hasTake && (
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button type="button" aria-pressed={showing === "edited"} onClick={() => setTake("edited")} className={chip(showing === "edited")}>คลิปที่ตัดต่อแล้ว (จะลงอันนี้)</button>
+                  <button type="button" aria-pressed={showing === "original"} onClick={() => setTake("original")} className={chip(showing === "original")}>ต้นฉบับ</button>
+                </div>
+              )}
+              {canEdit && (
+                <div className="flex justify-center">
+                  <button type="button" onClick={() => setEditing(true)} disabled={working !== null || sending} className={`${button} font-medium text-[var(--ct-accent)]`}>
+                    {locked ? "ดูการตัดต่อ" : hasTake ? "แก้การตัดต่อ" : "ตัดต่อ"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">แคปชัน</span>

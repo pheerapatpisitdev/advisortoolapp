@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { CLIP_BUCKET, CLIP_MIN_SEC, MAX_EDITED_SECONDS, type ClipEdit, type ClipVideo, type EditPass, type EngineName } from "@/lib/content/clip";
+import { CLIP_BUCKET, CLIP_MIN_SEC, MAX_EDITED_SECONDS, tooLong, type EditPass, type EngineName } from "@/lib/content/clip";
 import { clipReadUrl, removeClip } from "@/lib/content/clip-store";
 import { captionFlags, clipYardstick } from "@/lib/content/clip-transcribe";
 import { modeChecks } from "@/lib/content/mode-checks";
@@ -10,8 +10,9 @@ import { settleLater } from "@/lib/wallet/round";
 import { renderJob, type OverlayInput } from "./command";
 import { avoidAfterFailure, JOB_BUSY, releaseSubmit, submitJob, submitting } from "./jobs";
 import { renderHookPng, renderSubPng } from "./overlays";
-import { styleLook } from "./styles";
-import { keepRanges, keptDuration, subsOnOutput, type Span } from "./timeline";
+import { HOOK_SEC, HOOK_Y, styleLook, SUB_Y } from "./styles";
+import { keepOf, subsShown } from "./preview";
+import { keptDuration } from "./timeline";
 
 /**
  * A clip's render, up to the moment a render service has it (owner, 2026-10-02): the checks
@@ -25,23 +26,19 @@ export const TOO_SHORT = "คลิปที่เหลือสั้นเก
 export const NOT_PREPARED = "ยังเตรียมคลิปไม่เสร็จ — รอสักครู่แล้วลองใหม่";
 export const CLIP_GONE = "ไฟล์คลิปหมดอายุแล้ว — แนบคลิปใหม่ก่อน";
 
-/** where the words sit on the 1080×1920 frame, and how long the hook stays (owner's hand-cut clip, 2026-10-02) */
-export const HOOK_Y = 230;
-export const SUB_Y = 1450;
-export const HOOK_SEC = 2.6;
+/** where the words sit on the 1080×1920 frame, and how long the hook stays: styles.ts, which the editor's preview reads too */
+export { HOOK_SEC, HOOK_Y, SUB_Y };
 /** the engine reads the clip and the pictures through links good for two hours; a job is bounded at 15 minutes */
 export const LINK_SECONDS = 2 * 60 * 60;
 /** pictures drawn and filed at once */
 const AT_ONCE = 6;
 const THB_PER_USD = 36;
 
-/** an edit that leaves more than a minute, with how much more to cut, in whole seconds */
-export const tooLong = (kept: number): string =>
-  `คลิปที่ตัดแล้วยาว ${Math.ceil(kept)} วินาที — Reel ที่ตัดต่อต้องไม่เกิน 1 นาที ตัดออกอีก ${Math.ceil(kept - MAX_EDITED_SECONDS)} วินาที`;
+/** an edit that leaves more than a minute: clip.ts, so the editor says it in the same words */
+export { tooLong };
 
-/** what stays of the clip under this edit */
-export const keepOf = (v: ClipVideo, edit: ClipEdit): Span[] =>
-  keepRanges({ duration: v.durationSec, segments: v.transcript ?? [], cut: edit.cut, silences: edit.silences ?? [], trimSilence: edit.trimSilence });
+/** what stays of the clip under this edit: preview.ts, which the editor reads too */
+export { keepOf };
 
 /**
  * What a render costs, in baht, by the engine that takes it: Rendi bills $0.10 a GB through it
@@ -112,8 +109,8 @@ export async function startRender(item: ContentItem, pass: EditPass, claim?: str
     if (!v || v.expired || !edit) throw new Error("no clip to render");
     const keep = keepOf(v, edit);
     const kept = keptDuration(keep);
-    // a stored line made before lines knew their sentence belongs to none, and is never cut with one
-    const subs = subsOnOutput(edit.subs.map((s) => ({ ...s, seg: s.seg ?? -1 })), keep, edit.cut);
+    // the same lines the editor's preview shows (preview.ts)
+    const subs = subsShown(edit, keep);
     const look = styleLook(edit.style, await pageTheme(item.pageId));
 
     const pictures: { draw: () => Promise<Buffer>; y: number; from: number; to: number }[] = [];

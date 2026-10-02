@@ -67,7 +67,7 @@ interface DragSession {
 }
 
 /** what an action may be told once the owner has answered its question */
-type Confirmed = { confirmNumbers: boolean; confirmSpoken: boolean; force: boolean };
+type Confirmed = { confirmNumbers: boolean; confirmSpoken: boolean; confirmStale: boolean; force: boolean };
 /** runs an action, and asks for the confirmation it needs before trying again */
 type Run = (act: (ok: Confirmed) => Promise<PublishResult>) => Promise<boolean>;
 
@@ -121,7 +121,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
   const week = cells.some((c) => c.day === today) ? weekSummary(board, today) : null;
 
   const run: Run = async (act) => {
-    const ok: Confirmed = { confirmNumbers: false, confirmSpoken: false, force: false };
+    const ok: Confirmed = { confirmNumbers: false, confirmSpoken: false, confirmStale: false, force: false };
     // at most one question of each kind, then the answer stands
     for (;;) {
       const res = await act({ ...ok }).catch(() => ({ ok: false, error: "การเชื่อมต่อหลุด ลองเช็กในเพจก่อนกดใหม่" }) as PublishResult);
@@ -134,6 +134,11 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
       if (res.confirmSpoken && !ok.confirmSpoken) {
         if (!(await ask(`ตรวจสิ่งที่พูดในคลิปก่อนลง:\n${res.confirmSpoken.join("\n")}\n\nฟังแล้ว และยังจะตั้งเวลาไหม?`, "ตั้งเวลาต่อ"))) return false;
         ok.confirmSpoken = true;
+        continue;
+      }
+      if (res.confirmStale && !ok.confirmStale) {
+        if (!(await ask(res.error, "ใช้คลิปที่สร้างไว้"))) return false;
+        ok.confirmStale = true;
         continue;
       }
       if (res.confirmRepost && !ok.force) {
@@ -202,7 +207,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
     setError(null);
     startTransition(async () => {
       applyMove({ id: item.id, day });
-      await run(({ confirmNumbers, confirmSpoken, force }) => scheduleOnDay({ id: item.id, day, pageId, confirmNumbers, confirmSpoken, force }));
+      await run(({ confirmNumbers, confirmSpoken, confirmStale, force }) => scheduleOnDay({ id: item.id, day, pageId, confirmNumbers, confirmSpoken, confirmStale, force }));
     });
   }
 
@@ -719,7 +724,7 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
             </label>
             <button
               type="button" disabled={busy || (item.status !== "scheduled" && !pageId)}
-              onClick={() => act(({ confirmNumbers, confirmSpoken, force }) => scheduleAt({ id: item.id, local, pageId, confirmNumbers, confirmSpoken, force }))}
+              onClick={() => act(({ confirmNumbers, confirmSpoken, confirmStale, force }) => scheduleAt({ id: item.id, local, pageId, confirmNumbers, confirmSpoken, confirmStale, force }))}
               className="inline-flex min-h-11 items-center rounded-lg bg-[var(--ct-solid)] px-3 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
             >
               {busy ? "กำลังส่ง…" : item.status === "scheduled" ? "ย้ายเวลา" : "ตั้งเวลา"}

@@ -928,7 +928,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
         published(res.item);
         if (res.item.publish?.at) held.push(thaiWhen(new Date(res.item.publish.at)));
       } else {
-        left.push(!res ? "การเชื่อมต่อหลุด" : res.confirmNumbers ? "มีตัวเลขต้องยืนยัน" : res.confirmSpoken ? "มีเสียงพูดต้องตรวจ" : res.error);
+        left.push(!res ? "การเชื่อมต่อหลุด" : res.confirmNumbers ? "มีตัวเลขต้องยืนยัน" : res.confirmSpoken ? "มีเสียงพูดต้องตรวจ" : res.confirmStale ? "คลิปตัดต่อเก่ากว่าใบสั่ง" : res.error);
       }
       setSending({ done: n + 1, total: order.length });
     }
