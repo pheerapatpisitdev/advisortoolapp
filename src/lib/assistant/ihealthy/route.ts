@@ -24,6 +24,11 @@ export interface HealthSlots {
   question?: string;
   /** the application form has been handed over; "กรอกแล้ว" after this is about that form */
   formSent?: true;
+  /**
+   * The conversation is in English — only on the Expat Pages (src/lib/assistant/expat.ts).
+   * Absent is Thai, which is every conversation that began before there was a choice.
+   */
+  lang?: "en";
 }
 
 /**
@@ -207,7 +212,7 @@ function clean(raw: Partial<HealthSlots>, history: ChatMessage[]): HealthSlots {
  * Slots carry over between turns: someone who gave an age and a sex and then taps a plan is
  * still the same customer. The newer turn always wins.
  */
-function merge(previous: HealthSlots | null, current: HealthSlots): HealthSlots {
+export function merge(previous: HealthSlots | null, current: HealthSlots): HealthSlots {
   if (!previous) return current;
   const merged: HealthSlots = { ...current };
   // filling in what the quote was waiting for is still asking for the quote
