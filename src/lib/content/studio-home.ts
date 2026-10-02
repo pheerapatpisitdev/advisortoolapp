@@ -122,7 +122,8 @@ export function homeCards(input: HomeInput): HomeCard[] {
         },
         hooks,
         people(p.pageId),
-        settings(p.canPost ? "เชื่อมต่อ Facebook แล้ว" : "ยังไม่ให้สิทธิ์โพสต์"),
+        // /admin/posting is the admins' since 2026-10-02: an assistant's card has no door they cannot open
+        ...(input.admin ? [settings(p.canPost ? "เชื่อมต่อ Facebook แล้ว" : "ยังไม่ให้สิทธิ์โพสต์")] : []),
       ],
     }));
   }

@@ -32,9 +32,9 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
   if (kept.size > 0) redirect(`/studio/write?${kept}`);
 
   const who = whoOf(await gatePage("/studio"))!;
-  // the front page is for admins (owner, 2026-09-28); every other agent's Studio is the
-  // workbench, an assistant's too since 2026-10-02 — they post from there
-  if (!who.admin) redirect("/studio/write");
+  // the front page is for admins and the posting staff, who see their own Pages on it
+  // (owner, 2026-09-28, 2026-09-29, kept 2026-10-02); every other agent's Studio is the workbench
+  if (!who.admin && !who.publish) redirect("/studio/write");
   const now = new Date();
   const [counts, hooks, everyone, setup, placed, mine, connected, draftsByPage] = await Promise.all([
     countByStatus().catch(() => null),

@@ -29,6 +29,12 @@ describe("the Studio home", () => {
     expect(tile(cards, 1, "calendar")?.status).toBe("ยังไม่มีรายการตั้งเวลา");
   });
 
+  it("gives an assistant their Pages' cards without the settings, which are the admins' (owner, 2026-10-02)", () => {
+    const cards = homeCards({ ...base, admin: false });
+    expect(cards.map((c) => c.title)).toEqual(["Diamond Wealth Planner", "ประกัน talk"]);
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "calendar", "hooks", "people"]);
+  });
+
   it("says in each tile what is in it", () => {
     const cards = homeCards(base);
     expect(tile(cards, 0, "write")).toMatchObject({ href: "/studio/write?page=p1", status: "ร่าง 5 ชิ้น" });
