@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const sent = vi.hoisted(() => ({ cmd: null as unknown, fail: null as Error | null, config: null as unknown }));
+const sent = vi.hoisted(() => ({ cmd: null as unknown, opts: null as unknown, fail: null as Error | null, config: null as unknown }));
 vi.mock("@aws-sdk/client-lambda", () => ({
-  LambdaClient: class { constructor(c: unknown) { sent.config = c; } async send(c: unknown) { if (sent.fail) throw sent.fail; sent.cmd = c; return { StatusCode: 202 }; } },
+  LambdaClient: class { constructor(c: unknown) { sent.config = c; } async send(c: unknown, o?: unknown) { if (sent.fail) throw sent.fail; sent.cmd = c; sent.opts = o; return { StatusCode: 202 }; } },
   InvokeCommand: class { constructor(readonly input: unknown) {} },
 }));
 const { lambdaEngine, parseAwsKey } = await import("@/lib/video/engines/lambda");
@@ -26,6 +26,9 @@ describe("lambdaEngine", () => {
     expect(input.InvocationType).toBe("Event");
     expect(JSON.parse(new TextDecoder().decode(input.Payload))).toEqual({ id, job, uploads: { out_1: { uploadUrl: "https://s/up", path: "p/x.mp4" } }, callbackUrl: "https://app/api/content-video/job", token: "t" });
     expect(await e.status(id)).toBeNull();
+    // never hangs a server action: one attempt, aborted after a few seconds
+    expect((sent.config as { maxAttempts: number }).maxAttempts).toBe(1);
+    expect((sent.opts as { abortSignal: AbortSignal }).abortSignal).toBeInstanceOf(AbortSignal);
   });
   it("a bad key or an AWS refusal is an error to try elsewhere", async () => {
     await expect(lambdaEngine("nope").submit(job, { callbackUrl: "x", token: "t" })).rejects.toMatchObject({ retryElsewhere: true });

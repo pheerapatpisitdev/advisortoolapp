@@ -13,6 +13,8 @@ export function parseAwsKey(key: string): { accessKeyId: string; secretAccessKey
   return { accessKeyId, secretAccessKey, region, functionName };
 }
 
+const INVOKE_TIMEOUT_MS = 10_000;
+
 export function lambdaEngine(key: string): RenderEngine {
   return {
     name: "lambda",
@@ -20,13 +22,13 @@ export function lambdaEngine(key: string): RenderEngine {
       const aws = parseAwsKey(key);
       if (!aws) throw new EngineError("ตั้งค่า AWS ไม่ครบ", true);
       const id = crypto.randomUUID();
-      const client = new LambdaClient({ region: aws.region, credentials: { accessKeyId: aws.accessKeyId, secretAccessKey: aws.secretAccessKey } });
+      const client = new LambdaClient({ region: aws.region, credentials: { accessKeyId: aws.accessKeyId, secretAccessKey: aws.secretAccessKey }, maxAttempts: 1 });
       try {
         await client.send(new InvokeCommand({
           FunctionName: aws.functionName,
           InvocationType: "Event",
           Payload: new TextEncoder().encode(JSON.stringify({ id, job, uploads: opts.uploads ?? {}, callbackUrl: opts.callbackUrl, token: opts.token })),
-        }));
+        }), { abortSignal: AbortSignal.timeout(INVOKE_TIMEOUT_MS) }); // an invoke must never hang a server action
       } catch (e) {
         // name and message only, never the error object (it may carry the request config)
         console.error("lambda invoke failed:", e instanceof Error ? `${e.name}: ${e.message}` : "unknown error");

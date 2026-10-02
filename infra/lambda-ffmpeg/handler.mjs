@@ -3,7 +3,7 @@ import { createWriteStream } from "node:fs";
 import { readFile, rm, mkdir } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { localize, splitArgs } from "./core.mjs";
+import { localize, postWithRetry, splitArgs } from "./core.mjs";
 
 const FFMPEG = process.env.FFMPEG_PATH ?? "/opt/ffmpeg/ffmpeg";
 
@@ -23,29 +23,44 @@ function run(args) {
   });
 }
 
-async function callback(event, body) {
-  await fetch(event.callbackUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: event.id, token: event.token, ...body }) });
+/** tell the app; retried on a hiccup. Logs the job id and a short reason only, never a URL or token. */
+function callback(event, body) {
+  return postWithRetry(event.callbackUrl, { id: event.id, token: event.token, ...body }, { log: (m) => console.error(`job ${event.id}: ${m}`) });
+}
+
+/** the render itself: resolves with the uploaded outputs, throws on any failure */
+async function render(event, dir) {
+  for (const o of event.job.outputs) {
+    if (!event.uploads?.[o.name]) throw new Error(`no upload target for ${o.name}`);
+  }
+  await mkdir(dir, { recursive: true });
+  const inputs = {};
+  for (const i of event.job.inputs) { inputs[i.name] = `${dir}/${i.name}`; await download(i.url, inputs[i.name]); }
+  const outputs = Object.fromEntries(event.job.outputs.map((o) => [o.name, `${dir}/${o.file}`]));
+  // split first, then fill each argument, so a path can never be split or re-quoted
+  await run(splitArgs(event.job.command).map((a) => localize(a, inputs, outputs)));
+  const done = {};
+  for (const o of event.job.outputs) {
+    const up = event.uploads[o.name];
+    const res = await fetch(up.uploadUrl, { method: "PUT", headers: { "Content-Type": o.contentType, "x-upsert": "false" }, body: await readFile(outputs[o.name]) });
+    if (!res.ok) throw new Error(`upload ${o.name} ${res.status}`);
+    done[o.name] = { path: up.path };
+  }
+  return done;
 }
 
 export async function handler(event) {
   const dir = `/tmp/${event.id}`;
-  await mkdir(dir, { recursive: true });
+  let result;
   try {
-    const inputs = {};
-    for (const i of event.job.inputs) { inputs[i.name] = `${dir}/${i.name}`; await download(i.url, inputs[i.name]); }
-    const outputs = Object.fromEntries(event.job.outputs.map((o) => [o.name, `${dir}/${o.file}`]));
-    await run(splitArgs(localize(event.job.command, inputs, outputs)));
-    const done = {};
-    for (const o of event.job.outputs) {
-      const up = event.uploads[o.name];
-      const res = await fetch(up.uploadUrl, { method: "PUT", headers: { "Content-Type": o.contentType, "x-upsert": "false" }, body: await readFile(outputs[o.name]) });
-      if (!res.ok) throw new Error(`upload ${o.name} ${res.status}`);
-      done[o.name] = { path: up.path };
-    }
-    await callback(event, { state: "done", outputs: done });
+    result = { state: "done", outputs: await render(event, dir) };
   } catch (e) {
-    await callback(event, { state: "failed", error: String(e?.message ?? e).slice(0, 500) }).catch(() => {});
+    const error = String(e?.message ?? e).slice(0, 500);
+    console.error(`job ${event.id}: render failed: ${error}`);
+    result = { state: "failed", error };
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+  // outside the try: a finished render is never reported failed because the POST hiccupped
+  await callback(event, result).catch((e) => { console.error(`job ${event.id}: ${e.message}`); });
 }
