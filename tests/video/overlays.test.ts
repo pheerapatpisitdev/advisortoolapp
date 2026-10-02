@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderHookPng, renderSubPng, STYLE_LABEL } from "@/lib/video/overlays";
-import { styleLook } from "@/lib/video/styles";
+import { hookLines, subLines, styleLook } from "@/lib/video/styles";
 import { CLIP_STYLES } from "@/lib/content/clip";
 
 const isPng = (b: Buffer) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
@@ -34,5 +34,16 @@ describe("overlay pictures", () => {
     const a = await renderHookPng({ top: "ขอบคุณลูกเพจทุกท่าน", main: "ปิดยอดไปแล้ว 881,533 บาท" }, styleLook("yellow"));
     const b = await renderHookPng({ main: "ปิดยอดไปแล้ว" }, styleLook("box"));
     expect([width(a), height(a), width(b), height(b)]).toEqual([1080, 360, 1080, 360]);
+  });
+  it("breaks a long unspaced Thai hook into lines instead of clipping it", async () => {
+    const main = "ขอบคุณลูกเพจทุกท่านที่ไว้วางใจเรา"; // 28+ unspaced Thai chars
+    const lines = hookLines(main);
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+    for (const l of lines) expect(l.length).toBeLessThanOrEqual(16 + 7);
+    const png = await renderHookPng({ main }, styleLook("box"));
+    expect([width(png), height(png)]).toEqual([1080, 360]);
+  });
+  it("gives a 29-char subtitle two lines", () => {
+    expect(subLines("ส่วนที่เหลือก็คือติดหนี้ทั้งหมดเลยครับพี่น้อง").length).toBe(2);
   });
 });

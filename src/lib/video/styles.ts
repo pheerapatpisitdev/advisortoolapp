@@ -1,6 +1,11 @@
 import { POSTER_THEMES } from "@/lib/card-theme";
 import type { ClipStyle } from "@/lib/content/clip";
 import type { Theme } from "@/lib/content/poster";
+import { subtitleLines } from "./timeline";
+
+/** satori does not wrap unspaced Thai, so lines are broken here; the preview and the render both use these. */
+export const hookLines = (main: string): string[] => subtitleLines(main, 16);
+export const subLines = (text: string): string[] => subtitleLines(text, 22);
 
 /**
  * The four looks of words on a clip (owner, 2026-10-02), defined once: the editor's preview
