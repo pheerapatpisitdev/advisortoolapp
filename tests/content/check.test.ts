@@ -106,3 +106,14 @@ describe("claimedNumbers", () => {
     expect(claimedNumbers("3 ข้อ เบี้ย 1,200 บาท ลด 5% ทุน 500,000 ภายใน 2 นาที")).toEqual([1200, 5, 500000]);
   });
 });
+
+it("reads English amounts as the Thai ones", () => {
+  expect(numbersIn("THB 100 million")).toEqual(numbersIn("100 ล้านบาท"));
+  expect(numbersIn("฿1,029 a month")).toEqual([1029]);
+  expect(numbersIn("1,000 baht")).toEqual([1000]);
+  expect(numbersIn("100M a year")).toEqual([100_000_000]);
+  expect(numbersIn("50k")).toEqual([50_000]);
+  expect(strayNumbers("Up to THB 100 million a year", "- วงเงินค่ารักษาต่อปี ตั้งแต่ 1,000,000 ถึง 100,000,000 บาท")).toEqual([]);
+  expect(claimedNumbers("3 reasons to look again")).toEqual([]);
+  expect(claimedNumbers("THB 30")).toEqual([30]);
+});

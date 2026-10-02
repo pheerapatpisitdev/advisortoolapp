@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { atFold, FOLD, footer, fullText } from "@/lib/content/output";
+import { atFold, FOLD, footer, fullText, langOf } from "@/lib/content/output";
 import { defaultPoster, posterUrl, type PosterSpec } from "@/lib/content/poster";
 import type { Fix } from "@/lib/content/proofread";
 import { FORMAT_LABEL } from "@/lib/content/prompt";
@@ -370,7 +370,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
         )}
       </div>
       <div className="mt-2">
-        <h2 ref={title} tabIndex={-1} className="text-base font-semibold outline-none">{productName} · {FORMAT_LABEL[item.format]}</h2>
+        <h2 ref={title} tabIndex={-1} className="text-base font-semibold outline-none">{productName} · {FORMAT_LABEL[item.format]}{langOf(item.output) === "en" && <span className="ml-2 rounded bg-[var(--ct-soft)] px-1.5 py-0.5 align-middle text-xs font-medium text-[var(--ct-accent)]">EN</span>}</h2>
         {item.output.angle && <p className="mt-0.5 text-xs text-[var(--ct-mute)]">มุม: {item.output.angle}</p>}
       </div>
 

@@ -11,7 +11,8 @@ import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { briefFor } from "@/lib/content/brief";
 import { findWords, strayNumbers, type ContentWord } from "@/lib/content/check";
 import { parseTemplatize, templatizeMessages } from "@/lib/content/hooks";
-import type { ContentOutput } from "@/lib/content/output";
+import { langOf, type ContentOutput, type Lang } from "@/lib/content/output";
+import { englishOutput } from "@/lib/content/lang";
 import { isLogoSpot } from "@/lib/content/logo";
 import { roundLogo } from "@/lib/content/logo-store";
 import { defaultPoster, parsePoster, posterText, THEMES, type PosterSpec, type Theme } from "@/lib/content/poster";
@@ -28,14 +29,14 @@ import { cleanDraft } from "@/lib/content/draft";
 import { writeDraft, type DraftWriteInput } from "@/lib/content/draft-run";
 import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run";
 import { proofread, type Fix } from "@/lib/content/proofread";
-import { ANGLES, GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
+import { GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
   DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
   getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
 import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeAds } from "@/lib/content/write";
-import { NUMBERS_CLOSING, numbersBody, numbersPoster, numbersYardstick } from "@/lib/content/numbers";
+import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick } from "@/lib/content/numbers";
 import { numberSheets } from "@/lib/content/numbers-plans";
 import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
@@ -92,13 +93,17 @@ const SAVE_MS = 20_000;
 /** a writer's one try (write.ts); the planner leaves at least this for the pieces */
 const WRITE_TRY_MS = 60_000;
 
-/** `checks`: a plan-less mode's own (mode-checks.ts) — หาทีม's rules, every figure */
-function flagsFor(o: ContentOutput, brief: string, words: ContentWord[], fixes: Fix[] | null, checks: Partial<ModeChecks> = {}): Flags {
+/**
+ * `lang`: the piece's language — the round's for a piece just written (its output is not yet
+ * marked), the stored piece's for an edit; an English one may carry no Thai (policy.ts).
+ * `checks`: a plan-less mode's own (mode-checks.ts) — หาทีม's rules, every figure.
+ */
+function flagsFor(o: ContentOutput, lang: Lang, brief: string, words: ContentWord[], fixes: Fix[] | null, checks: Partial<ModeChecks> = {}): Flags {
   const text = checkedText(o);
   return {
     numbers: strayNumbers(text, brief, { every: checks.every }),
     words: findWords(text, words),
-    policy: checkPolicy(text, { recruit: checks.recruit }),
+    policy: checkPolicy(text, { recruit: checks.recruit, lang }),
     // a suggestion whose words were edited away cannot be applied any more
     fixes: fixes ? fixes.filter((f) => text.includes(f.find)) : null,
   };
@@ -133,7 +138,12 @@ export interface GenerateInput {
   logoSpot?: string;
   /** the Page whose project the round is for (projectPage settles it); its logo goes on the posters */
   page?: string;
+  /** written in English for expats in Thailand — held only for an iHealthy Ultra post (settleExpat) */
+  expat?: boolean;
 }
+
+/** who an English round talks to when the owner names nobody */
+const EXPAT_READER = "ชาวต่างชาติที่อาศัยอยู่ในไทย (expat)";
 
 export type GenerateResult =
   | { ok: true; items: ContentItem[]; costThb: number; /** planned pieces whose writing failed */ missing: number }
@@ -182,16 +192,22 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
   const viewer = await requireMember();
   // the round's time starts with the request: the planner, the writers and the saves all fit in it
   const clock = deadline();
-  const brief = briefFor(input.href);
+  // the tick holds only for an iHealthy Ultra post; anything else sent with it is written in Thai
+  const settled = settleExpat(input);
+  const { expat } = settled;
+  const lang = expat ? "en" : "th";
+  const brief = briefFor(input.href, undefined, { expat });
   if (!brief) return { ok: false, error: "ไม่พบผลิตภัณฑ์นี้" };
   if (!["post", "script", "ad"].includes(input.format)) return { ok: false, error: "เลือกประเภทงานก่อนนะครับ" };
-  const angle: AngleId = input.angle === "custom" || ANGLES.some((a) => a.id === input.angle) ? input.angle : "";
+  // ตัวเลขชัดๆ asked where it cannot be priced is refused below, as it always was, rather than
+  // quietly swapped for the AI's pick — settleExpat keeps only what the menu offers
+  const angle: AngleId = settled.angle || (input.angle === "numbers" ? "numbers" : "");
   const length = input.format === "script" && LENGTHS.some((l) => l.id === input.length) ? input.length : null;
   const loop = input.format === "script" && Boolean(input.loop);
   const formula = formulaOf(input, input.format);
   const custom = (input.custom ?? "").trim().slice(0, MAX_CUSTOM);
   const count = Math.min(MAX_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
-  const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
+  const reader = (input.reader ?? "").trim().slice(0, MAX_READER) || (expat ? EXPAT_READER : "");
   const goal: GoalId = GOALS.some((g) => g.id === input.goal) ? input.goal! : "";
   // an ad is a stranger's first sight of the page: no true story in it, and no goal but a chat
   const fact = input.format === "ad" ? "" : (input.fact ?? "").trim().slice(0, MAX_FACT);
@@ -207,9 +223,12 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
   // the round's colour and the Page's logo on every poster, the writer's own or the one drawn from its hook
   const dressed = (o: ContentOutput): ContentOutput => {
     if (!theme && !logo) return o;
-    const poster = o.poster ?? defaultPoster(o.hooks[0], brief.product.name);
+    // in the piece's language: an English one drawn here would otherwise keep the Thai footer
+    const poster = o.poster ?? defaultPoster(o.hooks[0], brief.product.name, lang);
     return { ...o, poster: { ...poster, ...(theme ? { theme } : {}), ...(logo ? { logo } : {}) } };
   };
+  // an English piece is saved marked, with the English regulator line and always a poster (lang.ts)
+  const inTongue = (o: ContentOutput): ContentOutput => (expat ? englishOutput(o, brief.product.name) : o);
 
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
@@ -247,26 +266,26 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
       // ตัวเลขชัดๆ: every figure from the engine, only the headline from a model (spec 2026-09-24)
       if (angle === "numbers") {
         if (input.format !== "post") return { ok: false, error: "มุมตัวเลขชัดๆ ใช้ได้กับโพสต์เฟซบุ๊กเท่านั้น" };
-        const sheets = numberSheets(brief.product.href, count);
+        const sheets = numberSheets(brief.product.href, count, undefined, lang);
         if (sheets.length === 0) return { ok: false, error: "แบบนี้ยังคำนวณตัวเลขไม่ได้ในตอนนี้ (ตารางเบี้ยอาจหมดอายุ) ลองมุมอื่นก่อนนะครับ" };
-        const heads = await headlines(sheets, { budgetMs: clock.budget(PLAN_MS, SAVE_MS) });
+        const heads = await headlines(sheets, { budgetMs: clock.budget(PLAN_MS, SAVE_MS), lang });
         const rows = sheets.map((s, i) => {
           // the sheet's own figures, kept on the piece: an edit is checked against them again
           const figures = numbersYardstick([s]);
-          const output: ContentOutput = {
+          const output: ContentOutput = inTongue({
             hooks: [heads.lines[i].headline],
             angle: `ตัวเลขชัดๆ · ${s.who}`,
             body: numbersBody(s),
-            closing: NUMBERS_CLOSING,
+            closing: expat ? NUMBERS_CLOSING_EN : NUMBERS_CLOSING,
             hashtags: [],
             imagePrompt: heads.lines[i].imagePrompt,
             disclaimer: DISCLAIMER,
-            poster: { ...numbersPoster(s, theme ?? heads.lines[i].theme ?? "navy"), ...(logo ? { logo } : {}) },
+            poster: { ...numbersPoster(s, theme ?? heads.lines[i].theme ?? "navy", lang), ...(logo ? { logo } : {}) },
             figures,
-          };
+          });
           return {
             planHref: brief.product.href, format: "post" as const, angle, length: null, output,
-            flags: flagsFor(output, `${brief.text}\n${figures}`, words, null),
+            flags: flagsFor(output, lang, `${brief.text}\n${figures}`, words, null),
             rateVersion: brief.rateVersion, model: heads.model, costThb: heads.costThb / sheets.length, hookTemplateId: null,
           };
         });
@@ -279,7 +298,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
         const planShare = round.planThb / round.pieces.length;
         const saved = await saveAll(round.pieces.map((w) => ({
           planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(w.output),
-          flags: flagsFor(w.output, brief.text, words, null),
+          flags: flagsFor(w.output, lang, brief.text, words, null),
           rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare, hookTemplateId: null,
         })), project.pageId);
         return roundResult(saved, round.planned, round.budgetHit);
@@ -287,16 +306,16 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
 
       // the planner leaves the writers one try's time and the saves theirs; the writers take what
       // is left then, fallbacks included, and the saves still fit (deadline.ts, review 2026-10-01)
-      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, formula }, { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) });
+      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, formula, lang }, { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) });
       // the writer names the formula on each piece (markFormula), so nothing is added here
-      const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, formula, plans: planned.plans, reader, goal, fact }, { prefer: writeWith, budgetMs: clock.budget(Infinity, SAVE_MS) });
+      const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, formula, plans: planned.plans, reader, goal, fact, lang }, { prefer: writeWith, budgetMs: clock.budget(Infinity, SAVE_MS) });
 
       // each piece carries its own writing cost and an equal share of the planner's
       const planShare = planned.costThb / written.pieces.length;
       const saved = await saveAll(written.pieces.map((w) => ({
         planHref: brief.product.href, format: input.format, angle, length,
-        output: input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : dressed(fact ? { ...w.output, fact } : w.output),
-        flags: flagsFor(w.output, yardstick, words, null),
+        output: input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : inTongue(dressed(fact ? { ...w.output, fact } : w.output)),
+        flags: flagsFor(w.output, lang, yardstick, words, null),
         rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare,
         hookTemplateId: template?.id ?? null,
       })), project.pageId);
@@ -391,7 +410,7 @@ export async function proofreadPiece(id: string): Promise<ProofreadResult> {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
     if (spent >= cap) return { fixes: [], error: `งบสร้างคอนเทนต์เดือนนี้ครบ ${cap} บาทแล้ว เลยไม่ได้ตรวจคำผิดให้` };
     const text = checkedText(item.output);
-    const { fixes } = await proofread(text);
+    const { fixes } = await proofread(text, langOf(item.output));
     const latest = await getContent(id);
     if (!latest || checkedText(latest.output) !== text) return { fixes: [] };
     await setFixes(latest, fixes);
@@ -420,7 +439,8 @@ export async function proofreadContent(id: string): Promise<Fix[]> {
  */
 async function learnFormula(item: ContentItem): Promise<void> {
   const hook = item.output.hooks[0];
-  if (item.hookTemplateId || !hook) return;
+  // the formula library is Thai, and every Thai round writes from it: an English hook stays out
+  if (item.hookTemplateId || !hook || langOf(item.output) === "en") return;
   try {
     // a formula is nice to have; it does not spend past the owner's ceiling
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
@@ -583,7 +603,9 @@ export async function saveContentEdits(
       if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
       const view = publishView(item.publish);
       if (view.kind === "posting" || view.kind === "published") return { ok: false, error: ON_PAGE_EDIT };
-      const brief = briefFor(item.planHref);
+      // an English piece was written from the expat brief, and is checked against it again
+      const lang = langOf(item.output);
+      const brief = briefFor(item.planHref, undefined, { expat: lang === "en" });
       const output: ContentOutput = {
         ...item.output,
         hooks: edits.hooks.map((h) => h.slice(0, 400)),
@@ -607,13 +629,16 @@ export async function saveContentEdits(
         // so is the record of words the model drew: only the drawing writes it, only markPosterText ticks it
         delete output.poster.aiText;
         if (item.output.poster?.aiText) output.poster.aiText = item.output.poster.aiText;
+        // and the poster's language, which is the piece's: the browser's word for it is not taken
+        delete output.poster.lang;
+        if (lang === "en") output.poster.lang = "en";
       }
       // back to the plain colour: nobody drew it any more, and its file can go
       const dropped = opts.plain && kept && output.poster && !output.poster.background ? kept : null;
       if (opts.plain && !output.poster?.background) delete output.pictureBy;
       // the figures a numbers post was written from are allowed again, as the brief and the story are
       const yardstick = [brief?.text ?? "", item.output.fact ?? "", item.output.figures ?? ""].join("\n");
-      const flags = flagsFor(output, yardstick, words, item.flags.fixes, modeChecks(item.planHref, item.output.fact));
+      const flags = flagsFor(output, lang, yardstick, words, item.flags.fixes, modeChecks(item.planHref, item.output.fact));
       if (view.kind === "scheduled" && item.output.video) {
         // the edit never reaches a Reel (it goes up with the clip's own caption), and re-sending
         // would delete the held Reel and upload the whole file again for nothing
@@ -833,7 +858,8 @@ export async function drawBackground(id: string, request = "", painter?: string,
       const held = await holdContentBudget(chosen.thb + OVERHEAD_THB * (request.trim() ? 2 : 1), cap);
       if (!held.ok) return { ok: false, error: tooDear("วาดรูปนี้", held.left) };
       hold = held.id;
-      const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "");
+      const lang = langOf(item.output);
+      const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "", lang);
       // what the owner typed decides the whole picture; without it, the kind of picture is chosen
       // for this scene away from the Page's last few (looks.ts) — a picker or a list that cannot
       // be read leaves the original look, and the picture is drawn
@@ -847,12 +873,13 @@ export async function drawBackground(id: string, request = "", painter?: string,
         timeoutMs: clock.budget(LOOK_MS, BEFORE_DRAW_MS),
       });
       const prompt = wordsDrawn
-        ? posterPrompt({ direction, poster, layout: poster.layout, person: who ? { pose: who.pose } : null })
+        ? posterPrompt({ direction, poster, layout: poster.layout, person: who ? { pose: who.pose } : null, lang })
         : backgroundPrompt({
           scene: item.output.imagePrompt, layout: poster.layout, theme: poster.theme, look,
           request: direction,
           // on a claim poster the papers cover the lower half, so the person stands beside them
           person: who ? { pose: who.pose, aside: Boolean(poster.documents?.length) } : null,
+          lang,
         });
       // a picture that could not be kept is not paid for: with too little time left it is not ordered
       if (clock.left() < DRAW_NEEDS_MS) return { ok: false, error: OUT_OF_TIME_DRAW };

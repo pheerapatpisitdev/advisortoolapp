@@ -105,3 +105,7 @@ describe("who draws the words", () => {
     expect(codeDrawsWords(poster, true)).toBe(true);
   });
 });
+
+it("compares English read-back regardless of letter case", () => {
+  expect(comparePosterRead("COVER THAT STAYS", { blocks: [{ kind: "headline", text: "Cover that stays" }] })).toEqual([]);
+});

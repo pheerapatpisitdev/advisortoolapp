@@ -164,3 +164,25 @@ describe("the card's label", () => {
     expect(formulaBadge(post({ formula: undefined }), "post")).toBe("");
   });
 });
+
+describe("an English piece", () => {
+  const out = {
+    hooks: ["Today we want to talk about cover"], body: "1. a\n2. b", closing: "", hashtags: [], imagePrompt: "",
+    disclaimer: "", lang: "en" as const, formula: "finish" as const,
+  } satisfies ContentOutput;
+  const c = (o: ContentOutput, id: string) => finishChecks(o, "post").find((r) => r.id === id)?.ok;
+
+  it("flags an English preamble hook and holds an English count to its list", () => {
+    expect(c(out, "no-preamble")).toBe(false);
+    expect(c({ ...out, hooks: ["today we…"] }, "no-preamble")).toBe(false);
+    // the hook promises 3, the body lists 2
+    expect(c({ ...out, hooks: ["3 reasons to look again"] }, "list-count")).toBe(false);
+    expect(c({ ...out, hooks: ["Cover that stays"], body: "However, it renews." }, "lead-words")).toBe(false);
+  });
+
+  it("lets a plain English opening and a kept count pass", () => {
+    expect(c({ ...out, hooks: ["Cover that stays"] }, "no-preamble")).toBe(true);
+    expect(c({ ...out, hooks: ["2 reasons to look again"] }, "list-count")).toBe(true);
+    expect(c({ ...out, hooks: ["Cover that stays"], body: "Whichever plan you pick, it renews." }, "lead-words")).toBe(true);
+  });
+});

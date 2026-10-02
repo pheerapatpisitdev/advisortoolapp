@@ -1,5 +1,7 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
+import type { Lang } from "./output";
+import { ENGLISH_RULES } from "./prompt";
 import { THEME_MOOD, THEMES, type PosterSpec, type Theme } from "./poster";
 
 /**
@@ -52,10 +54,12 @@ export function definePlan<C>(p: {
 
 /** Thai words for a case's sex, as the bracket line says them */
 export const sexWord = (s: "M" | "F") => (s === "F" ? "หญิง" : "ชาย");
+export const sexWordEn = (s: "M" | "F") => (s === "F" ? "Female" : "Male");
 /** whole baht grouped for reading: 1,000,000 */
 export const money = (baht: number) => baht.toLocaleString("en-US");
 
 export const NUMBERS_CLOSING = "ทักแชทเช็กเบี้ยตามอายุคุณ";
+export const NUMBERS_CLOSING_EN = "Message us for the premium at your age";
 
 export function numbersBody(s: NumberSheet): string {
   return [s.sumLine, ...(s.sumNote ? [`(${s.sumNote})`] : []), s.premiumLine, s.perDayLine, ...s.claims, `(${s.who})`].filter(Boolean).join("\n");
@@ -66,15 +70,19 @@ export function numbersYardstick(sheets: NumberSheet[]): string {
   return sheets.flatMap((s) => [numbersBody(s), s.poster.big, s.poster.small]).join("\n");
 }
 
-export function numbersPoster(s: NumberSheet, theme: Theme = "navy"): PosterSpec {
+export function numbersPoster(s: NumberSheet, theme: Theme = "navy", lang: Lang = "th"): PosterSpec {
+  const small =
+    lang === "en"
+      ? /a day/.test(s.poster.big) ? s.poster.small.replace(/\s*·\s*about THB [\d,]+ a day.*$/, "") : s.poster.small
+      : // when the day figure is the big line, the small one does not say it twice
+        /วันละ/.test(s.poster.big) ? s.poster.small.replace(/\s*·\s*(?:ปีแรก)?ตกวันละ [\d,]+ บาท$/, "") : s.poster.small;
   return {
     layout: "bottom",
     theme,
     blocks: [
       { kind: "badge", text: s.product },
       { kind: "headline", text: s.poster.big },
-      // when the day figure is the big line, the small one does not say it twice
-      { kind: "sub", text: /วันละ/.test(s.poster.big) ? s.poster.small.replace(/\s*·\s*(?:ปีแรก)?ตกวันละ [\d,]+ บาท$/, "") : s.poster.small },
+      { kind: "sub", text: small },
       { kind: "footer", text: s.who },
     ],
   };
@@ -94,38 +102,51 @@ export const FALLBACK_HEADLINES = [
   "ความคุ้มครองก้อนใหญ่ ในเบี้ยที่จ่ายไหว",
   "เช็กให้ชัด ก่อนตัดสินใจ",
 ];
+export const FALLBACK_HEADLINES_EN = [
+  "Real numbers, no guessing",
+  "Big medical cover, a premium you can plan for",
+  "Check the numbers before you decide",
+];
 const FALLBACK_PICTURE = "A Thai adult at home reviewing household paperwork at a wooden table, natural window light, calm and hopeful mood, no text";
+const FALLBACK_PICTURE_EN = "An expat adult living in Thailand reviewing household paperwork at a wooden table at home, natural window light, calm and hopeful mood, no text";
+/** a Thai letter: an English headline carrying one is thrown away, as one with a digit is */
+const THAI = /[\u0E00-\u0E7F]/;
 
 /** One call for the whole round: a headline and a picture line per sheet, from the cheap model. */
-export function headlineMessages(sheets: NumberSheet[]): ChatMessage[] {
+export function headlineMessages(sheets: NumberSheet[], lang: Lang = "th"): ChatMessage[] {
   const list = sheets.map((s, i) => `ชิ้นที่ ${i + 1}: ${s.product} · ${s.who} · ${s.claims.join(" · ")}`).join("\n");
   return [
     {
       role: "system",
       content: [
-        "คุณเขียนพาดหัวโพสต์เฟซบุ๊กภาษาไทยให้ตัวแทนประกันชีวิต",
+        // an English round is not opened by asking for a Thai headline (final review, 2026-10-02)
+        lang === "en" ? "You write English Facebook post headlines for a life insurance agent in Thailand." : "คุณเขียนพาดหัวโพสต์เฟซบุ๊กภาษาไทยให้ตัวแทนประกันชีวิต",
         "ใต้พาดหัว ระบบจะวางตัวเลขเบี้ยและทุนให้เอง พาดหัวมีหน้าที่ทำให้คนหยุดอ่านตัวเลข",
         "กติกา: ห้ามมีตัวเลขใดๆ ทั้งเลขอารบิกและเลขไทย · ยาวไม่เกิน 60 ตัวอักษร · ห้ามสัญญาเกินข้อมูลที่ให้ · ห้ามใช้คำว่าถูกที่สุด ดีที่สุด การันตี · ห้ามอ้างว่าคุ้มครองครบ ครบจบ หรือทุกอย่าง — ทุกแบบมีข้อยกเว้น",
         "imagePrompt: คำบรรยายภาพประกอบเป็นภาษาอังกฤษ 1–2 ประโยค คนไทย แสงธรรมชาติ ห้ามมีตัวหนังสือในภาพ",
         "theme: โทนสีโปสเตอร์หนึ่งจากรายการนี้ ให้เข้ากับแบบประกันและคนในชิ้นนั้น:",
         ...THEMES.map((t) => `  ${t} — ${THEME_MOOD[t]}`),
         'ตอบเป็น JSON เท่านั้น: {"pieces":[{"headline":"…","imagePrompt":"…","theme":"navy"}]}',
-      ].join("\n"),
+      ].join("\n") + (lang === "en" ? `\n\n${ENGLISH_RULES}` : ""),
     },
     { role: "user", content: `เขียน ${sheets.length} ชิ้น ชิ้นละหนึ่งพาดหัว ไม่ซ้ำกัน\n${list}` },
   ];
 }
 
 /** Always `count` lines: a headline the guard lets through, or a fallback in its place. */
-export function parseHeadlines(reply: string, count: number): { headline: string; imagePrompt: string; theme?: Theme }[] {
+export function parseHeadlines(reply: string, count: number, lang: Lang = "th"): { headline: string; imagePrompt: string; theme?: Theme }[] {
   const raw = parseJsonReply<{ pieces?: unknown }>(reply);
   const list = Array.isArray(raw?.pieces) ? (raw.pieces as { headline?: unknown; imagePrompt?: unknown; theme?: unknown }[]) : [];
   return Array.from({ length: count }, (_, i) => {
     const p = list[i] ?? {};
-    const fallback = FALLBACK_HEADLINES[i % FALLBACK_HEADLINES.length];
-    const picture = typeof p.imagePrompt === "string" && p.imagePrompt.trim() ? p.imagePrompt.trim() : FALLBACK_PICTURE;
+    const fallbacks = lang === "en" ? FALLBACK_HEADLINES_EN : FALLBACK_HEADLINES;
+    const fallback = fallbacks[i % fallbacks.length];
+    const picture = typeof p.imagePrompt === "string" && p.imagePrompt.trim() ? p.imagePrompt.trim() : lang === "en" ? FALLBACK_PICTURE_EN : FALLBACK_PICTURE;
+    const said = typeof p.headline === "string" ? p.headline : "";
     // a theme the model made up is no theme; the caller falls back to its own
     const theme = (THEMES as readonly unknown[]).includes(p.theme) ? (p.theme as Theme) : undefined;
-    return { headline: safeHeadline(typeof p.headline === "string" ? p.headline : "", fallback), imagePrompt: picture, ...(theme ? { theme } : {}) };
+    // an English headline with Thai in it goes the way of one with a digit
+    const headline = lang === "en" && THAI.test(said) ? fallback : safeHeadline(said, fallback);
+    return { headline, imagePrompt: picture, ...(theme ? { theme } : {}) };
   });
 }

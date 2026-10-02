@@ -1,5 +1,6 @@
-import { CLASSIC, choiceOf, isClassic, styleKind, type Look } from "./looks";
+import { CLASSIC, choiceOf, isClassic, styleKind, subjectSay, type Look } from "./looks";
 import { poseText } from "./people";
+import { langOf, type Lang } from "./output";
 import type { Layout, PosterSpec, Theme } from "./poster";
 
 /**
@@ -96,6 +97,18 @@ function personLines(pose: string, layout: Layout, aside = false): string[] {
   ];
 }
 
+/** the phrases that differ by the piece's language; Thai is today's wording exactly */
+function words(lang: Lang) {
+  const en = lang === "en";
+  return {
+    headline: en ? "English headline text" : "Thai headline text",
+    people: en ? "Foreign residents of mixed nationalities, living in Thailand, in a Thai setting" : "Thai people in a Thai setting",
+    scene: en
+      ? "A believable everyday moment of an expat living in Thailand, warm and unposed."
+      : "A believable everyday moment of a Thai family at home, warm and unposed.",
+  };
+}
+
 export function backgroundPrompt(opts: {
   /** the writer's English scene for this piece */
   scene: string;
@@ -107,13 +120,15 @@ export function backgroundPrompt(opts: {
   person?: { pose: string; aside?: boolean } | null;
   /** the kind of picture (looks.ts); absent or the original draws what every picture was drawn from before */
   look?: Look | null;
+  /** the piece's language; absent is Thai */
+  lang?: Lang;
 }): string {
   // what the owner typed decides the whole picture (owner, 2026-10-01)
   const own = opts.request ? stripThai(opts.request) : "";
   if (own) return ownerPrompt(opts, own);
   const look = opts.look ?? CLASSIC;
   if (!isClassic(look)) return lookPrompt(opts, look);
-  const scene = stripThai(opts.scene) || "A believable everyday moment of a Thai family at home, warm and unposed.";
+  const scene = stripThai(opts.scene) || words(langOf(opts)).scene;
   return [
     "Create a natural, editorial-quality 1:1 square background photograph for a Thai insurance agent's Facebook post.",
     "",
@@ -128,9 +143,9 @@ export function backgroundPrompt(opts: {
     "",
     "Visual direction:",
     `- Colour palette: ${PALETTE[opts.theme]}.`,
-    "- Thai people in a Thai setting; imperfect natural gestures, believable depth, soft natural light.",
+    `- ${words(langOf(opts)).people}; imperfect natural gestures, believable depth, soft natural light.`,
     "- Hopeful and reassuring rather than fearful.",
-    "- Thai headline text will be placed on top of the image later, so leave room to breathe.",
+    `- ${words(langOf(opts)).headline} will be placed on top of the image later, so leave room to breathe.`,
   ].join("\n");
 }
 
@@ -140,7 +155,7 @@ export function backgroundPrompt(opts: {
  * the style, who is in it, the place, the light and the mood the look names.
  */
 function lookPrompt(opts: Parameters<typeof backgroundPrompt>[0], look: Look): string {
-  const scene = stripThai(opts.scene) || "A believable everyday moment of a Thai family at home, warm and unposed.";
+  const scene = stripThai(opts.scene) || words(langOf(opts)).scene;
   const objects = styleKind(look.style) === "objects";
   return [
     `Create a 1:1 square background image for a Thai insurance agent's Facebook post, in this style: ${choiceOf("style", look.style).say}.`,
@@ -156,11 +171,11 @@ function lookPrompt(opts: Parameters<typeof backgroundPrompt>[0], look: Look): s
     "",
     "Visual direction:",
     `- Colour palette: ${PALETTE[opts.theme]}.`,
-    `- In the picture: ${choiceOf("subject", look.subject).say}${objects ? " — nothing that can be read on them" : ""}.`,
+    `- In the picture: ${subjectSay(look.subject, langOf(opts))}${objects ? " — nothing that can be read on them" : ""}.`,
     `- Setting: ${choiceOf("place", look.place).say}.`,
     `- Light: ${choiceOf("light", look.light).say}.`,
     `- Mood: ${choiceOf("mood", look.mood).say}, never fearful.`,
-    "- Thai headline text will be placed on top of the image later, so leave room to breathe.",
+    `- ${words(langOf(opts)).headline} will be placed on top of the image later, so leave room to breathe.`,
   ].join("\n");
 }
 
@@ -181,7 +196,7 @@ function ownerPrompt(opts: Parameters<typeof backgroundPrompt>[0], direction: st
     "",
     "Absolute rules (these hold whatever the direction says):",
     "- NO text, letters, numbers or words, and NO logos, watermarks, signatures or user-interface elements anywhere in the image.",
-    `- Keep ${TEXT_AREA[opts.layout]} calm and simple — Thai headline text will be placed there later.`,
+    `- Keep ${TEXT_AREA[opts.layout]} calm and simple — ${words(langOf(opts)).headline} will be placed there later.`,
     `- Avoid: ${AVOID.join("; ")}.`,
   ].join("\n");
 }
@@ -206,20 +221,26 @@ export function posterPrompt(opts: {
   poster: Pick<PosterSpec, "blocks">;
   layout: Layout;
   person?: { pose: string; aside?: boolean } | null;
+  lang?: Lang;
 }): string {
+  const en = langOf(opts) === "en";
   return [
-    "Create a finished 1:1 square Facebook post image for a Thai insurance agent: the design, the picture and the Thai lettering together.",
+    `Create a finished 1:1 square Facebook post image for a Thai insurance agent: the design, the picture and the ${en ? "English" : "Thai"} lettering together.`,
     "",
     "The page owner's own direction — follow it closely; it decides the design, style, colours, layout and mood:",
     stripThai(opts.direction),
     "",
-    "The words on the image, in Thai — draw each exactly as written, every character and every digit, in a clean, modern, clearly legible Thai typeface:",
+    en
+      ? "The words on the image, in English — draw each exactly as written, every character and every digit, in a clean, modern, clearly legible typeface:"
+      : "The words on the image, in Thai — draw each exactly as written, every character and every digit, in a clean, modern, clearly legible Thai typeface:",
     ...opts.poster.blocks.map((b) => `- ${ROLE[b.kind] ?? "Line"}: ${b.text}`),
     ...(opts.person ? ["", ...personLines(opts.person.pose, opts.layout, opts.person.aside)] : []),
     "",
     "Absolute rules:",
     "- Draw only the words above: no other words, numbers, logos, watermarks, signatures or user-interface elements.",
-    "- Keep every Thai word whole and correctly spelled; never split, invent or rearrange characters.",
+    en
+      ? "- Keep every word whole and correctly spelled; never split, invent or rearrange characters."
+      : "- Keep every Thai word whole and correctly spelled; never split, invent or rearrange characters.",
     "- Leave the bottom strip of the image (its lowest tenth) plain and simple: the insurer's name and the Page's logo are added there later.",
     `- Avoid: ${AVOID.join("; ")}.`,
   ].join("\n");

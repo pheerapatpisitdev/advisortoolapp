@@ -1,5 +1,6 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
+import type { Lang } from "./output";
 
 /**
  * The kinds of background picture a poster may have (owner, 2026-10-01). Every picture used to
@@ -47,6 +48,19 @@ export const SUBJECTS = [
   { id: "objects", label: "สิ่งของ", say: "everyday objects only, with no people in the picture" },
   { id: "empty", label: "ไม่มีคน", say: "a place with no people in it" },
 ] as const satisfies readonly Choice[];
+
+/** what the image model is told for the people subjects on an English piece: expats, not Thai people */
+const SUBJECT_SAY_EN: Partial<Record<string, string>> = {
+  thai: "foreign residents of mixed nationalities living in Thailand, with imperfect natural gestures and believable depth",
+  solo: "one expat adult living in Thailand, on their own",
+  couple: "an expat couple living in Thailand",
+  family: "an expat family with young children, living in Thailand",
+  elders: "older expat parents, perhaps with their grown-up child",
+};
+
+export function subjectSay(id: Look["subject"], lang: Lang): string {
+  return (lang === "en" && SUBJECT_SAY_EN[id]) || choiceOf("subject", id).say;
+}
 
 export const PLACES = [
   { id: "thai", label: "ฉากไทย", say: "a believable Thai setting" },
