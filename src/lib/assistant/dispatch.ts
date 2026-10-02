@@ -19,6 +19,8 @@ import type { GuideItem } from "@/lib/copilot/guide";
 import { writtenFor, type Channel } from "./channel";
 import { answerFromLibrary } from "@/lib/copilot/library";
 import { recruitReply } from "./recruit";
+import { isExpatPage } from "./expat";
+import { answerExpat } from "./ihealthy-en/door";
 
 /** The last line of the menu, which is how a turn knows the menu was the last thing said. */
 const ASKED_WHICH = "สนใจแบบไหนครับ";
@@ -112,7 +114,13 @@ export async function answerAny(
    * health cover, whatever they pressed to get here.
    */
   cameFor?: Product,
+  /**
+   * The Page the message arrived on. The Expat Pages sell iHealthy Ultra to foreigners and
+   * answer in English, so they go through their own door before any of the doors below.
+   */
+  pageId?: string,
 ): Promise<AnyAnswer> {
+  if (isExpatPage(pageId)) return answerExpat(history, stored);
   const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
   const now = settled(stored);
   const named = productNamedIn(asked);

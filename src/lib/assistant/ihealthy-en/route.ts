@@ -16,14 +16,15 @@ import { merge, planNamedIn, type HealthSlots } from "../ihealthy/route";
 const AGE_SAID = [
   /\b(\d{1,2})\s*(?:years?\s*old|yrs?\b|y\/?o\b)/i,
   /\bage(?:d)?\s*(?:is\s*)?(\d{1,2})\b/i,
-  /\b(?:i'?m|i\s+am)\s+(\d{1,2})\b/i,
+  /\b(?:i['’]?m|i\s+am)\s+(\d{1,2})\b/i,
 ];
 
 /** A number on its own, and not part of a year, a sum or a limit in millions. */
 const AGE_ALONE = /(?<![\d,.])(\d{1,2})(?![\d,.]|\s*(?:million|mil\b|m\b|k\b|baht|thb))/i;
 
-const FEMALE = /\b(?:female|woman|women|lady|girl|wife|mrs|ms)\b|\bf\s*\d|\d\s*f\b/i;
-const MALE = /\b(?:male|man|men|gentleman|boy|husband|mr)\b|\bm\s*\d|\d\s*m\b(?!\s*(?:illion|il))/i;
+// a lone F or M beside a number ("F 42", "35m") — never the m of "I'm"
+const FEMALE = /\b(?:female|woman|women|lady|girl|wife|mrs|ms)\b|(?<!['’])\bf\s*\d|\d\s*f\b/i;
+const MALE = /\b(?:male|man|men|gentleman|boy|husband|mr)\b|(?<!['’])\bm\s*\d|\d\s*m\b(?!\s*(?:illion|il))/i;
 
 function ageInEn(text: string): number | undefined {
   for (const re of AGE_SAID) {

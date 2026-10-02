@@ -14,6 +14,8 @@ import { attribute, openConversation, openLead, record, type RecordedEvent } fro
 import { WANTS_IN } from "@/lib/assistant/common";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
 import { botTurn, keepTranscript } from "@/lib/chat/transcript";
+import { isExpatPage, languageOf } from "@/lib/assistant/expat";
+import { BROKEN_EN, BUSY_EN, CARD_UNSENT_EN, OUT_OF_BUDGET_EN, WANTS_IN_EN } from "@/lib/assistant/ihealthy-en/words";
 
 /**
  * The answer, with one more attempt before giving up — both inside the turn's clock.
@@ -28,15 +30,15 @@ import { botTurn, keepTranscript } from "@/lib/chat/transcript";
  */
 async function answered(
   history: ChatMessage[], slots: Parameters<typeof answerAny>[1],
-  cameFor: Parameters<typeof answerAny>[3], turnMs: number,
+  cameFor: Parameters<typeof answerAny>[3], turnMs: number, pageId?: string,
 ) {
   return withTurnDeadline(turnMs, async () => {
     try {
-      return await answerAny(history, slots, "facebook", cameFor);
+      return await answerAny(history, slots, "facebook", cameFor, pageId);
     } catch (e) {
       if (e instanceof BudgetExceeded || e instanceof TurnTimeout) throw e;
       console.error("answer failed, trying once more:", e);
-      return await answerAny(history, slots, "facebook", cameFor);
+      return await answerAny(history, slots, "facebook", cameFor, pageId);
     }
   });
 }
@@ -82,8 +84,24 @@ const OUT_OF_BUDGET = "ตอนนี้ระบบผู้ช่วยปิ
  */
 const CARD_UNSENT = "ใบเสนอราคาเป็นรูปครับ เปิดดูได้ที่ลิงก์นี้เลย";
 
+/**
+ * The words the inbox says on its own — the apologies and the card's fallback — in the
+ * language this turn is in. Thai everywhere but an Expat Page answering English.
+ */
+const OWN_WORDS = {
+  th: { busy: BUSY, broken: BROKEN, outOfBudget: OUT_OF_BUDGET, cardUnsent: CARD_UNSENT },
+  en: { busy: BUSY_EN, broken: BROKEN_EN, outOfBudget: OUT_OF_BUDGET_EN, cardUnsent: CARD_UNSENT_EN },
+};
+
+function ownWordsFor(pageId: string | undefined, text: string, slots: unknown) {
+  if (!isExpatPage(pageId)) return OWN_WORDS.th;
+  const before = slots ? ((slots as { lang?: string }).lang === "en" ? "en" : "th") : undefined;
+  return OWN_WORDS[languageOf(text, before)];
+}
+
 async function sendCard(
   psid: string, url: string, replies: string[] | undefined, pageId?: string,
+  cardUnsent: string = CARD_UNSENT,
 ): Promise<void> {
   try {
     await sendImage(psid, url, replies, pageId);
@@ -97,7 +115,7 @@ async function sendCard(
   } catch (e) {
     console.error("card failed twice, sending the link instead:", e);
   }
-  await sendMessage(psid, `${CARD_UNSENT}\n${url}`, replies, { pageId })
+  await sendMessage(psid, `${cardUnsent}\n${url}`, replies, { pageId })
     .catch((e) => console.error("card link failed:", e));
 }
 
@@ -197,7 +215,8 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
     return;
   }
 
-  const wantsIn = text.trim() === WANTS_IN;
+  const wantsIn = text.trim() === WANTS_IN || text.trim() === WANTS_IN_EN;
+  const own = ownWordsFor(pageId, text, session.slots);
 
   /**
    * The agent answering by hand pauses the bot, and this message ends the pause: the customer
@@ -213,7 +232,7 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
   const markedBefore = session.mutedUntil;
 
   if (!allow(`fb:${userHash}`)) {
-    await sendMessage(psid, BUSY, undefined, { pageId });
+    await sendMessage(psid, own.busy, undefined, { pageId });
     return;
   }
 
@@ -233,7 +252,7 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
 
   await showTyping(psid, pageId).catch(() => {});
   try {
-    const answer = await answered(history, session.slots, cameFor?.product, turnBudgetMs(opts.startedAt));
+    const answer = await answered(history, session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId);
     // the model takes seconds, and an agent watching the thread answers inside them. Their
     // words are already in the customer's phone by now, so the bot says nothing and records
     // nothing — a mark that was not there when this answer began is theirs, just now.
@@ -251,7 +270,7 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
       await sendMessage(psid, said.text, last && !said.card ? answer.replies : undefined, { pageId });
       // the card follows its own words, so the customer reads the quote before the picture of
       // it — and a couple priced together gets the pair in the order they were named
-      if (said.card) await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId);
+      if (said.card) await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId, own.cardUnsent);
     }
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
     const spoken = answer.messages.map((m) => m.text).join("\n\n");
@@ -299,7 +318,7 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
     }
   } catch (e) {
     // the apology first: it is the one thing that has to be out before the function's limit
-    await sendMessage(psid, e instanceof BudgetExceeded ? OUT_OF_BUDGET : BROKEN, undefined, { pageId })
+    await sendMessage(psid, e instanceof BudgetExceeded ? own.outOfBudget : own.broken, undefined, { pageId })
       .catch((err) => console.error("apology not sent:", err));
     ledger.push({ kind: "failed" });
     await record(conversationId, ledger, null);

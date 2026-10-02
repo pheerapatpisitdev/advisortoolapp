@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChatOptions } from "@/lib/ai/client";
 
 let routed: Record<string, unknown> = { intent: "other" };
-const chat = vi.fn(async (_: ChatOptions) => ({
+const chat = vi.fn(async () => ({
   text: JSON.stringify(routed),
   model: "stub", provider: "stub", inputTokens: 0, outputTokens: 0, costThb: 0,
 }));
@@ -24,6 +23,8 @@ describe("reading a person in English", () => {
     ["F 42", { age: 42, sex: "F" }],
     ["my age is 50 and I'm a woman", { age: 50, sex: "F" }],
     ["male", { sex: "M" }],
+    ["I'm 35", { age: 35 }],
+    ["I’m 40", { age: 40 }],
   ])("personInEn(%s)", (text, want) => expect(personInEn(text)).toEqual(want));
 
   it("does not read a plan ceiling or a year as an age", () => {

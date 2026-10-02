@@ -51,3 +51,7 @@ export const BUSY_EN = "We're getting a lot of messages right now — please try
 export const BROKEN_EN = "Sorry, something went wrong on our side — an agent will reply here shortly 🙏";
 export const OUT_OF_BUDGET_EN = "Our assistant is paused for now — an agent will reply to you here.";
 export const CARD_UNSENT_EN = "Your quote is a picture — you can open it here:";
+
+/** Who stands behind the policy. */
+export const COMPANY_EN = "iHealthy Ultra is a policy from Krungthai-AXA Life Insurance PCL. "
+  + "An agent can share their licence details with you right here in this chat.";

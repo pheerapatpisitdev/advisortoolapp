@@ -434,3 +434,25 @@ describe("the transcript", () => {
     expect(kept).toEqual([]);
   });
 });
+
+describe("a customer on an Expat Page", () => {
+  const EXPAT = "112079600278201";
+  const asked = { sender: { id: "psid-expat" }, message: { mid: "mx1", text: "hello" } };
+
+  it("is answered by the dispatcher told which Page it is", async () => {
+    await handle(asked, EXPAT);
+    expect((answer.mock.calls[0] as unknown[])[4]).toBe(EXPAT);
+  });
+
+  it("is apologised to in English when the answer will not come", async () => {
+    answer.mockRejectedValue(new Error("ล่ม"));
+    await expect(handle(asked, EXPAT)).rejects.toThrow();
+    expect(sent.text).toEqual(["Sorry, something went wrong on our side — an agent will reply here shortly 🙏"]);
+  });
+
+  it("is apologised to in Thai when they wrote Thai", async () => {
+    answer.mockRejectedValue(new Error("ล่ม"));
+    await expect(handle({ ...asked, message: { mid: "mx2", text: "สนใจค่ะ" } }, EXPAT)).rejects.toThrow();
+    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏"]);
+  });
+});
