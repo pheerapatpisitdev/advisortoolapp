@@ -11,15 +11,16 @@ import { renderQuotePdf } from "@/lib/quote-pdf/render";
 
 /** The 45-second bound covers Chrome's launch, and the browser never outlives the call. */
 
-function fakeBrowser(over: { pdf?: () => Promise<Uint8Array> } = {}) {
+function fakeBrowser(over: { pdf?: () => Promise<Uint8Array>; close?: () => Promise<void> } = {}) {
   const page = {
     emulateMediaType: vi.fn(async () => {}),
+    emulateTimezone: vi.fn(async () => {}),
     goto: vi.fn(async () => {}),
     waitForSelector: vi.fn(async () => {}),
     evaluate: vi.fn(async (fn: () => unknown) => fn()),
     pdf: vi.fn(over.pdf ?? (async () => new Uint8Array([37, 80, 68, 70]))),
   };
-  return { page, close: vi.fn(async () => {}), newPage: vi.fn(async () => page) };
+  return { page, close: vi.fn(over.close ?? (async () => {})), newPage: vi.fn(async () => page) };
 }
 
 beforeEach(() => {
@@ -95,5 +96,42 @@ describe("renderQuotePdf", () => {
     const opts = launch.mock.calls[0][0];
     expect(opts).toMatchObject({ executablePath: "/chrome", headless: "shell" });
     expect(opts.args).toBe(chromium.args);
+  });
+
+  /** The page stamps "พิมพ์เมื่อ" in the browser's zone, and Vercel's is UTC (final review, item 3). */
+  it("prints in Bangkok's time zone, set before the page loads", async () => {
+    const b = fakeBrowser();
+    launch.mockResolvedValue(b);
+    await renderQuotePdf("http://x/plb", { timeoutMs: 1000 });
+    expect(b.page.emulateTimezone).toHaveBeenCalledWith("Asia/Bangkok");
+    expect(b.page.emulateTimezone.mock.invocationCallOrder[0]).toBeLessThan(b.page.goto.mock.invocationCallOrder[0]);
+  });
+
+  /** A warm instance must not keep Chrome running after the answer (final review, item 8). */
+  it("waits for the browser to close before answering", async () => {
+    let closed = false;
+    const b = fakeBrowser({ close: () => new Promise<void>((r) => setTimeout(() => { closed = true; r(); }, 500)) });
+    launch.mockResolvedValue(b);
+    let done = false;
+    const result = renderQuotePdf("http://x/plb", { timeoutMs: 5000 }).then((pdf) => { done = true; return pdf; });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(b.close).toHaveBeenCalledTimes(1);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(400);
+    expect(closed).toBe(true);
+    expect(done).toBe(true);
+    expect((await result).toString()).toBe("%PDF");
+  });
+
+  it("does not wait more than two seconds for a browser that will not close", async () => {
+    const b = fakeBrowser({ close: () => new Promise<void>(() => {}) });
+    launch.mockResolvedValue(b);
+    let done = false;
+    const result = renderQuotePdf("http://x/plb", { timeoutMs: 5000 }).then((pdf) => { done = true; return pdf; });
+    await vi.advanceTimersByTimeAsync(1900);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(done).toBe(true);
+    expect((await result).toString()).toBe("%PDF");
   });
 });

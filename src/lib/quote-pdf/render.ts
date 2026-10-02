@@ -1,6 +1,9 @@
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 
+/** How long the answer waits for Chrome to go away before it leaves it to go on its own. */
+const CLOSE_WAIT_MS = 2_000;
+
 /**
  * Prints one of our own pages to PDF in headless Chrome, as the page's "บันทึกเป็น PDF" button
  * does in a browser.
@@ -31,11 +34,18 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number } =
         }))();
   // a launch nobody is waiting for any more must not become an unhandled rejection
   launching.catch(() => {});
+  // set the moment Chrome is up — before the work below resumes — so the end can tell a browser
+  // that came up in time from one still on its way
+  let up: Awaited<typeof launching> | undefined;
+  launching.then((b) => { up = b; }, () => {});
   try {
     const work = (async () => {
       const browser = await launching;
       const page = await browser.newPage();
       await page.emulateMediaType("print");
+      // the page stamps "พิมพ์เมื่อ" with the browser's clock, and a server's zone is UTC: a
+      // quote printed at eight in the morning would say one in the morning
+      await page.emulateTimezone("Asia/Bangkok");
       await page.goto(url, { waitUntil: "networkidle0", timeout: timeoutMs });
       // set by the calculator once it has seeded itself from the link; printing before that
       // would print the default figures
@@ -52,7 +62,18 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number } =
     return await Promise.race([work, deadline]);
   } finally {
     clearTimeout(timer);
-    // closes the browser whether it came up before the deadline or only after it
-    launching.then((b) => b.close()).catch(() => {});
+    if (up) {
+      // waited for, briefly: a warm instance answers the next request with this one's Chrome
+      // still running otherwise, and the two share one function's memory
+      let wait: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        up.close().catch(() => {}),
+        new Promise<void>((resolve) => { wait = setTimeout(resolve, CLOSE_WAIT_MS); }),
+      ]);
+      clearTimeout(wait);
+    } else {
+      // still on its way after the deadline: closed when it arrives, with nobody waiting for it
+      launching.then((b) => b.close()).catch(() => {});
+    }
   }
 }
