@@ -6,6 +6,7 @@ import { GET } from "@/app/api/quote-pdf/route";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { IHEALTHY_OPENING } from "@/lib/ihealthy-choice";
 import { queryFrom } from "@/lib/ihealthy-link";
+import { cardVersionFor } from "@/lib/card-theme";
 import { renderQuotePdf } from "@/lib/quote-pdf/render";
 import { siteOrigin } from "@/lib/site-url";
 
@@ -16,7 +17,8 @@ let n = 0;
 /** A fresh caller each time, so one test's calls never count against the next. */
 const req = (path: string, headers: Record<string, string> = {}) =>
   new Request(`http://localhost${path}`, { headers: { "x-real-ip": `10.0.0.${++n}`, ...headers } });
-const PLB = "/api/quote-pdf?page=plb&age=35&sex=M&sum=1000000&variant=PLB12&v=x";
+const V = cardVersionFor();
+const PLB = `/api/quote-pdf?page=plb&age=35&sex=M&sum=1000000&variant=PLB12&v=${V}`;
 
 beforeEach(() => {
   render.mockReset();
@@ -87,7 +89,7 @@ describe("GET /api/quote-pdf", () => {
   it("prints the iHealthy proposal", async () => {
     const table = iHealthyTable();
     const query = queryFrom(table, IHEALTHY_OPENING);
-    const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&v=x`));
+    const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&v=${V}`));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-disposition")).toBe('inline; filename="ihealthy-ultra-F35.pdf"');
     expect(render.mock.calls[0][0]).toBe(`${siteOrigin()}/ihealthy-ultra?${query}`);
@@ -104,5 +106,63 @@ describe("GET /api/quote-pdf", () => {
     const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&sum=5`));
     expect(res.status).toBe(400);
     expect(render).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The cache is keyed on the whole address, so a `v` of the caller's choosing would be a fresh
+   * Chrome every time (final review, item 9). Only the current one is printed.
+   */
+  it("redirects a link with another version to the current one, without printing", async () => {
+    for (const path of [
+      "/api/quote-pdf?page=plb&age=35&sex=M&sum=1000000&variant=PLB12&v=x",
+      "/api/quote-pdf?page=plb&age=35&sex=M&sum=1000000&variant=PLB12",
+    ]) {
+      const res = await GET(req(path));
+      expect(res.status, path).toBe(308);
+      const to = new URL(res.headers.get("location")!, "http://localhost");
+      expect(to.pathname).toBe("/api/quote-pdf");
+      expect(to.searchParams.get("v")).toBe(V);
+      expect(to.searchParams.get("age")).toBe("35");
+      expect(to.searchParams.get("variant")).toBe("PLB12");
+    }
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("refuses a bad link before redirecting it", async () => {
+    const res = await GET(req("/api/quote-pdf?page=plb&age=99&sex=M&sum=1000000&variant=PLB12&v=x"));
+    expect(res.status).toBe(400);
+  });
+
+  /** LINE's flag for the phone's own browser (final review, item 10): accepted, and printed past. */
+  it("accepts LINE's openExternalBrowser flag and leaves it out of the page it prints", async () => {
+    const res = await GET(req(`${PLB}&openExternalBrowser=1`));
+    expect(res.status).toBe(200);
+    expect(render).toHaveBeenCalledWith(`${siteOrigin()}/plb?age=35&sex=M&sum=1000000&variant=PLB12`, expect.anything());
+  });
+
+  it("accepts the flag on the iHealthy page too", async () => {
+    const query = queryFrom(iHealthyTable(), IHEALTHY_OPENING);
+    const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&v=${V}&openExternalBrowser=1`));
+    expect(res.status).toBe(200);
+    expect(render.mock.calls[0][0]).toBe(`${siteOrigin()}/ihealthy-ultra?${query}`);
+  });
+
+  it("keeps the flag through the version redirect", async () => {
+    const res = await GET(req("/api/quote-pdf?page=plb&age=35&sex=M&sum=1000000&variant=PLB12&v=x&openExternalBrowser=1"));
+    expect(res.status).toBe(308);
+    expect(new URL(res.headers.get("location")!, "http://localhost").searchParams.get("openExternalBrowser")).toBe("1");
+  });
+
+  it("refuses the flag with any other value", async () => {
+    const res = await GET(req(`${PLB}&openExternalBrowser=0`));
+    expect(res.status).toBe(400);
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("leaves the flag out of the page link it falls back to", async () => {
+    render.mockRejectedValue(new Error("no chrome"));
+    const res = await GET(req(`${PLB}&openExternalBrowser=1`));
+    expect(res.status).toBe(503);
+    expect(await res.text()).not.toContain("openExternalBrowser");
   });
 });

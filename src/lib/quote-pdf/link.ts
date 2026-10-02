@@ -97,6 +97,12 @@ export function quotePdfPath(
   return `/api/quote-pdf?page=${page}&${query}&v=${v}`;
 }
 
+/**
+ * LINE's own key: a link carrying it opens in the phone's browser rather than LINE's, which
+ * on Android shows a PDF as a blank page. The route accepts it and prints past it.
+ */
+export const EXTERNAL_BROWSER = "openExternalBrowser";
+
 /** The page address that opens on the same values as a PDF path, minus the PDF-only keys. */
 export function pagePathFor(pdfPath: string): string | undefined {
   const [, search = ""] = pdfPath.split("?");
@@ -105,6 +111,7 @@ export function pagePathFor(pdfPath: string): string | undefined {
   if (page === null) return undefined;
   params.delete("page");
   params.delete("v");
+  params.delete(EXTERNAL_BROWSER);
   const path = page === "ihealthy-ultra"
     ? "/ihealthy-ultra"
     : Object.hasOwn(PLAN_PAGES, page) ? PLAN_PAGES[page as PlanPage].path : undefined;

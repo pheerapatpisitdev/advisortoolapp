@@ -84,6 +84,8 @@ describe("the page link for a PDF path", () => {
 
   it("points an iHealthy PDF at its own page, and knows no other", () => {
     expect(pagePathFor("/api/quote-pdf?page=ihealthy-ultra&age=30&v=x")).toBe("/ihealthy-ultra?age=30");
+    // LINE's flag is the route's, not the page's
+    expect(pagePathFor("/api/quote-pdf?page=ihealthy-ultra&age=30&v=x&openExternalBrowser=1")).toBe("/ihealthy-ultra?age=30");
     expect(pagePathFor("/api/quote-pdf?page=constructor&age=30&v=x")).toBeUndefined();
     expect(pagePathFor("/api/quote-pdf?age=30")).toBeUndefined();
   });

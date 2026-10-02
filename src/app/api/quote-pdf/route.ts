@@ -1,9 +1,10 @@
+import { cardVersionFor } from "@/lib/card-theme";
 import { bearerMatches } from "@/lib/cron-auth";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { initialFrom, queryFrom } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { PLAN_PAGES, type PlanPage } from "@/lib/quote-pdf/pages";
-import { pagePathFor, planInitialFrom, planQueryFor } from "@/lib/quote-pdf/link";
+import { EXTERNAL_BROWSER, pagePathFor, planInitialFrom, planQueryFor } from "@/lib/quote-pdf/link";
 import { renderQuotePdf } from "@/lib/quote-pdf/render";
 import { siteOrigin } from "@/lib/site-url";
 
@@ -23,9 +24,9 @@ const CACHE = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=8640
 /** six a minute per caller: a person asks once; a script asks at once */
 const allow = limiter(6, 60_000);
 
-const PLAN_KEYS = new Set(["page", "v", "age", "sex", "sum", "variant"]);
+const PLAN_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "age", "sex", "sum", "variant"]);
 /** every key `queryFrom` writes; `r` is the one a link repeats, once per rider */
-const IHEALTHY_KEYS = new Set(["page", "v", "age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r"]);
+const IHEALTHY_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r"]);
 
 function html(status: number, body: string): Response {
   return new Response(
@@ -58,6 +59,8 @@ export async function GET(req: Request): Promise<Response> {
     if (!allowed.has(key)) return invalid();
     if (key !== "r" && params.getAll(key).length > 1) return invalid();
   }
+  // LINE's flag has one spelling; anything else in it is not LINE's
+  if (params.has(EXTERNAL_BROWSER) && params.get(EXTERNAL_BROWSER) !== "1") return invalid();
 
   let target: string;
   let name: string;
@@ -70,7 +73,7 @@ export async function GET(req: Request): Promise<Response> {
     const written = queryFrom(table, initial);
     // the page snaps what it is given to something it sells; a link that was not already that
     // would print a page other than the one it asked for
-    const skip = ["page", "v"];
+    const skip = ["page", "v", EXTERNAL_BROWSER];
     if (pairs(new URLSearchParams(written), skip).join("&") !== pairs(params, skip).join("&")) return invalid();
     target = `${siteOrigin()}/ihealthy-ultra?${written}`;
     name = `ihealthy-ultra-${initial.sex}${initial.age}`;
@@ -83,6 +86,22 @@ export async function GET(req: Request): Promise<Response> {
     target = `${siteOrigin()}${PLAN_PAGES[plan].path}?${query}`;
     name = `${plan}-${initial.sex}${initial.age}`;
     pdfPath = `/api/quote-pdf?page=${plan}&${query}`;
+  }
+
+  /**
+   * The CDN caches by the whole address, so a `v` of the caller's choosing would be a fresh
+   * Chrome on every request. Only the current one is printed; any other — an old link from
+   * before the tables changed, or none at all — is sent to the current one, which is the same
+   * file the bot links to now.
+   */
+  const v = cardVersionFor();
+  if (params.get("v") !== v) {
+    // relative, so it lands on whichever host was asked, behind whatever proxy asked it
+    const current = new URL(req.url);
+    current.searchParams.set("v", v);
+    return new Response(null, {
+      status: 308, headers: { location: `${current.pathname}${current.search}`, "cache-control": "no-store" },
+    });
   }
 
   try {
