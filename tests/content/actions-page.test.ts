@@ -18,7 +18,7 @@ const store = vi.hoisted(() => ({
   removeBackground: vi.fn(), listWords: vi.fn(), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
   contentSpentThisMonth: vi.fn(), contentCap: vi.fn(), setFixes: vi.fn(), saveBackground: vi.fn(), setStatus: vi.fn(),
   listContent: vi.fn(), countByStatus: vi.fn(), recentLooks: vi.fn(async (): Promise<object[]> => []),
-  usedHooks: vi.fn(async (): Promise<string[]> => []),
+  usedHooks: vi.fn(async (): Promise<string[]> => []), saveContent: vi.fn(),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), isPublished: vi.fn() }));
 const ai = vi.hoisted(() => ({ chat: vi.fn(), drawImage: vi.fn() }));
@@ -45,9 +45,11 @@ vi.mock("@/lib/content/people-store", () => ({
   personPhotos: vi.fn(async () => ({ person: { id: "person-1" }, photos: [{ bytes: Buffer.from("x"), mimeType: "image/png" }] })),
 }));
 
-const { contentWorkbench, drawBackground, generateContent, removeContent, saveContentEdits, setContentStatus } = await import("@/app/studio/actions");
+const { contentWorkbench, drawBackground, generateContent, proofreadPiece, removeContent, saveContentEdits, setContentStatus } = await import("@/app/studio/actions");
 const { NUMBERS_PLANS, numberSheets } = await import("@/lib/content/numbers-plans");
-const { NUMBERS_CLOSING, numbersBody, numbersPoster, numbersYardstick } = await import("@/lib/content/numbers");
+const { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick } = await import("@/lib/content/numbers");
+const { DISCLAIMER_EN, fullText } = await import("@/lib/content/output");
+const { posterText } = await import("@/lib/content/poster");
 const { PAINTERS, OVERHEAD_THB } = await import("@/lib/content/models");
 const { CONCURRENT } = await import("@/lib/content/publish-flow");
 const { strayNumbers } = await import("@/lib/content/check");
@@ -606,3 +608,86 @@ describe("a round inside its function's time (review, 2026-10-01)", () => {
   });
 });
 
+
+describe("a round ticked for expats (spec 2026-10-02)", () => {
+  const EN_ROW = (): ContentItem => make(null, { ...output, lang: "en", disclaimer: DISCLAIMER_EN, poster: { ...output.poster!, lang: "en" } });
+
+  beforeEach(() => {
+    let n = 0;
+    store.saveContent.mockImplementation(async (r: Omit<ContentItem, "id" | "createdAt" | "status" | "publish" | "agentId" | "plan">) =>
+      ({ ...make(null, r.output), ...r, id: `new-${++n}`, status: "draft" }) as ContentItem);
+  });
+
+  it("writes an expat numbers round on iHealthy Ultra in English", async () => {
+    // a lapsed rate table fails here, loudly, rather than passing the round by on another path
+    expect(numberSheets("/ihealthy-ultra", 1, new Date()).length).toBeGreaterThan(0);
+    expect(numberSheets("/ihealthy-ultra", 1, new Date(), "en").length).toBeGreaterThan(0);
+    ai.chat.mockResolvedValue({ text: "{}", model: "m", costThb: 0 }); // headlines fall back
+    const r = await generateContent({ href: "/ihealthy-ultra", format: "post", angle: "numbers", custom: "", length: null, count: 1, hookTemplateId: null, expat: true });
+    expect(r.ok).toBe(true);
+    expect(store.saveContent).toHaveBeenCalledOnce();
+    const o = (r as { items: ContentItem[] }).items[0].output;
+    expect(o).toMatchObject({ lang: "en", disclaimer: DISCLAIMER_EN, closing: NUMBERS_CLOSING_EN, poster: { lang: "en" } });
+    expect(fullText(o)).not.toMatch(/[\u0E00-\u0E7F]/);
+    expect(posterText(o.poster)).not.toMatch(/[\u0E00-\u0E7F]/);
+    // the headline was asked for in English
+    expect(JSON.stringify(ai.chat.mock.calls[0][0].messages)).toMatch(/English/);
+  });
+
+  it("gives an English post with no poster of its own, in the round's colour, an English one", async () => {
+    ai.chat
+      .mockResolvedValueOnce({ text: JSON.stringify({ plans: [{ hook: "Hospital bills in Bangkok add up fast", angle: "a" }] }), model: "m", costThb: 0, outputTokens: 10 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ body: "Private hospitals charge you in full.", closing: "Message us to check.", hashtags: [], imagePrompt: "a ward" }), model: "m", costThb: 0, outputTokens: 10 });
+    const r = await generateContent({ href: "/ihealthy-ultra", format: "post", angle: "expat_hospital", custom: "", length: null, count: 1, hookTemplateId: null, expat: true, theme: "navy" });
+    expect(r.ok).toBe(true);
+    const o = (r as { items: ContentItem[] }).items[0].output;
+    expect(o).toMatchObject({ lang: "en", disclaimer: DISCLAIMER_EN, poster: { lang: "en", theme: "navy" } });
+    expect(posterText(o.poster)).not.toMatch(/[\u0E00-\u0E7F]/);
+    // the planner and the writer were both told to write English, to the expat reader
+    for (const call of ai.chat.mock.calls) expect(call[0].messages[0].content).toMatch(/English/);
+    expect(JSON.stringify(ai.chat.mock.calls[0][0].messages)).toContain("ชาวต่างชาติที่อาศัยอยู่ในไทย (expat)");
+  });
+
+  it("writes the same request for another plan in Thai", async () => {
+    const href = Object.keys(NUMBERS_PLANS).find((h) => h !== "/ihealthy-ultra" && numberSheets(h, 1).length > 0)!;
+    expect(href).toBeTruthy();
+    ai.chat.mockResolvedValue({ text: "{}", model: "m", costThb: 0 });
+    const r = await generateContent({ href, format: "post", angle: "numbers", custom: "", length: null, count: 1, hookTemplateId: null, expat: true });
+    expect(r.ok).toBe(true);
+    const o = (r as { items: ContentItem[] }).items[0].output;
+    expect(o.lang).toBeUndefined();
+    expect(o.closing).toBe(NUMBERS_CLOSING);
+    expect(o.poster).not.toHaveProperty("lang");
+  });
+
+  it("keeps an English poster English through an edit from the browser", async () => {
+    row = EN_ROW();
+    const { lang: _, ...sent } = row.output.poster!;
+    void _;
+    const r = await saveContentEdits("p1", edits({ poster: sent }));
+    expect(r.ok && r.item.output.poster?.lang).toBe("en");
+  });
+
+  it("does not take a browser's word that a Thai poster is English", async () => {
+    const r = await saveContentEdits("p1", edits({ poster: { ...output.poster!, lang: "en" } }));
+    expect(r.ok).toBe(true);
+    expect(r.ok && r.item.output.poster).not.toHaveProperty("lang");
+  });
+
+  it("proofreads an English piece with the English editor", async () => {
+    row = EN_ROW();
+    ai.chat.mockResolvedValue({ text: JSON.stringify({ fixes: [] }), model: "m", costThb: 0 });
+    expect(await proofreadPiece("p1")).toEqual({ fixes: [] });
+    const sys = ai.chat.mock.calls[0][0].messages[0].content as string;
+    expect(sys).toMatch(/English/);
+  });
+
+  it("learns no hook formula from an English piece", async () => {
+    later.length = 0;
+    row = { ...EN_ROW(), status: "draft" };
+    ai.chat.mockResolvedValue({ text: "{}" });
+    expect(await setContentStatus("p1", "used")).toEqual({ ok: true });
+    for (const task of later) await task();
+    expect(ai.chat.mock.calls.some(([a]) => a.task === "content-hook-template")).toBe(false);
+  });
+});

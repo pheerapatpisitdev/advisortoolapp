@@ -1,5 +1,5 @@
 import { BudgetExceeded, chat, parseJsonReply } from "@/lib/ai/client";
-import { DISCLAIMER, TAX_LINE, type ContentOutput } from "./output";
+import { DISCLAIMER, TAX_LINE, type ContentOutput, type Lang } from "./output";
 import { adCopyMessages, matrixCells, matrixMessages, parseAdCopy, parseMatrix } from "./ads";
 import { parsePoster } from "./poster";
 import { WRITERS } from "./models";
@@ -234,9 +234,11 @@ export async function writeAds(opts: { brief: string; angles: number; tones: num
 /**
  * The ตัวเลขชัดๆ angle's one call: a headline and a picture line per sheet, from the cheap
  * model. Any failure gives the fallback headlines — the figures under them are the post.
+ * `lang`: "en" asks for English headlines (and falls back to the English ones).
  */
-export async function headlines(sheets: NumberSheet[], limits: { budgetMs?: number } = {}): Promise<{ lines: ReturnType<typeof parseHeadlines>; model: string; costThb: number }> {
-  const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-headline", messages: headlineMessages(sheets), maxTokens: 800, json: true, timeoutMs }), undefined, limits.budgetMs, "headlines")
+export async function headlines(sheets: NumberSheet[], limits: { budgetMs?: number; lang?: Lang } = {}): Promise<{ lines: ReturnType<typeof parseHeadlines>; model: string; costThb: number }> {
+  const lang = limits.lang ?? "th";
+  const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-headline", messages: headlineMessages(sheets, lang), maxTokens: 800, json: true, timeoutMs }), undefined, limits.budgetMs, "headlines")
     .catch((e) => { console.error("content headlines failed:", e); return null; });
-  return { lines: parseHeadlines(r?.text ?? "", sheets.length), model: r?.model ?? "fallback", costThb: r?.costThb ?? 0 };
+  return { lines: parseHeadlines(r?.text ?? "", sheets.length, lang), model: r?.model ?? "fallback", costThb: r?.costThb ?? 0 };
 }
