@@ -31,6 +31,8 @@ export interface HealthSlots {
   lang?: "en";
   /** the English health answer asked for the condition, treatment and medication; the next message is the reply */
   healthAsked?: true;
+  /** the last answer asked which province, so a bare "Phuket" is the reply (../hospitals) */
+  hospitalAsked?: true;
 }
 
 /**

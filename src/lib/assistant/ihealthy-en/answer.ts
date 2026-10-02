@@ -57,6 +57,9 @@ export async function answerHealthEn(
 ): Promise<HealthAnswer> {
   const asked = lastAsked(history).trim();
   const known: HealthSlots = { ...(previous ?? { product: "ihealthy", intent: "other" }), lang: "en" };
+  // asked last turn which province; the question holds for this message only
+  const awaitingProvince = known.hospitalAsked === true;
+  delete known.hospitalAsked;
   const quoted = hasHealthQuote(known);
 
   if (STALLS.test(asked) && !ASKS.test(asked)) return { ...one(STALL_EN), slots: known };
@@ -86,8 +89,10 @@ export async function answerHealthEn(
     return { ...one(faq.answer()), slots: faq.key === "health" ? { ...known, healthAsked: true } : known };
   }
   // where cover can be used: Krungthai-AXA's own list, never a model's idea of it
-  const hospitals = hospitalReply(asked, "en");
-  if (hospitals) return { ...one(hospitals), slots: known };
+  const hospitals = hospitalReply(asked, "en", awaitingProvince);
+  if (hospitals) {
+    return { ...one(hospitals.text), slots: hospitals.asksProvince ? { ...known, hospitalAsked: true } : known };
+  }
   if (asksShareOfBill(asked)) return { ...one(SHARE_OF_BILL_EN), slots: known };
 
   // the advertisement's button, or a hello: a question back, not a description of the contract

@@ -68,7 +68,10 @@ export async function answerHealth(
   history: ChatMessage[], previous: HealthSlots | null,
 ): Promise<HealthAnswer> {
   const asked = lastAsked(history);
-  const known: HealthSlots = previous ?? { product: "ihealthy", intent: "other" };
+  const known: HealthSlots = { ...(previous ?? { product: "ihealthy", intent: "other" }) };
+  // asked last turn which province; the question holds for this message only
+  const awaitingProvince = known.hospitalAsked === true;
+  delete known.hospitalAsked;
   const quoted = hasHealthQuote(known);
 
   // leaving to think it over needs no model and changes nothing the bot knows
@@ -88,8 +91,10 @@ export async function answerHealth(
   const faq = healthFaqAnswer(asked);
   if (faq) return { ...one(faq), slots: known };
   // which hospitals: Krungthai-AXA's own list (../hospitals), answered in its fixed words
-  const hospitals = hospitalReply(asked, "th");
-  if (hospitals) return { ...one(hospitals), slots: known };
+  const hospitals = hospitalReply(asked, "th", awaitingProvince);
+  if (hospitals) {
+    return { ...one(hospitals.text), slots: hospitals.asksProvince ? { ...known, hospitalAsked: true } : known };
+  }
   if (asksShareOfBill(asked)) return { ...one(SHARE_OF_BILL_ANSWER), slots: known };
 
   /**

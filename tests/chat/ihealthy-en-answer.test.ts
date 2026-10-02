@@ -117,7 +117,19 @@ describe("the English health brain", () => {
 
   it("answers a hospital question from the network list, without a model", async () => {
     const a = await answerHealthEn(said("Can I use Bumrungrad?"), KNOWN);
-    expect(a.messages[0].text).toBe(hospitalReply("Can I use Bumrungrad?", "en"));
+    expect(a.messages[0].text).toBe(hospitalReply("Can I use Bumrungrad?", "en")!.text);
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it("asks for the province, then sends its hospitals, then goes back to quoting", async () => {
+    const asked = await answerHealthEn(said("Which hospitals can I use?"), KNOWN);
+    expect(asked.messages[0].text).toMatch(/province/i);
+    expect(asked.slots.hospitalAsked).toBe(true);
+    const listed = await answerHealthEn(said("Phuket"), asked.slots);
+    expect(listed.messages[0].text).toContain("Bangkok Hospital Phuket");
+    expect(listed.slots.hospitalAsked).toBeUndefined();
+    const quoted = await answerHealthEn(said("Gold"), listed.slots);
+    expect(quoted.priced).toBe(true);
     expect(chat).not.toHaveBeenCalled();
   });
 

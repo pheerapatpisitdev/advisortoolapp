@@ -54,6 +54,9 @@ const PLACE_WORDS = new Set([
   "doctor", "koh", "เกาะ", "thai", "ไทย",
   // the insurer's own name: "กรุงไทยแอกซ่าใช่ไหม" is about the company, not รพ.กรุงไทย
   "กรุงไทย", "krungthai", "แอกซ่า", "axa",
+  // the towns expats live in (TOWNS below): "I live in Pattaya" is a place, not Pattaya Hospital
+  "pattaya", "พัทยา", "jomtien", "จอมเทียน", "huahin", "หัวหิน", "samui", "สมุย", "เกาะสมุย",
+  "phangan", "พะงัน", "เกาะพะงัน", "sriracha", "ศรีราชา", "korat", "โคราช",
 ]);
 
 /** English as words, its common words gone: "Bangkok Hospital Phuket" → " bangkok phuket ". */
@@ -104,14 +107,31 @@ export function hospitalsIn(text: string): Hospital[] {
   return found;
 }
 
-/** A province the message names, in either language. */
-function provinceIn(text: string): { th: string; en: string } | undefined {
+interface Place { th: string; en: string; district?: string }
+
+/**
+ * Where expats say they live, which is a town more often than a province: Pattaya is Chonburi,
+ * Hua Hin is Prachuap Khiri Khan. The district is the town's, so its hospitals come first.
+ */
+const TOWNS: [RegExp, string, string?][] = [
+  [/pattaya|jomtien|พัทยา|จอมเทียน|บางละมุง/i, "Chonburi", "บางละมุง"],
+  [/sri\s*racha|ศรีราชา/i, "Chonburi", "ศรีราชา"],
+  [/hua\s*hin|หัวหิน/i, "Prachuap Khiri Khan", "หัวหิน"],
+  [/samui|สมุย/i, "Surat Thani", "เกาะสมุย"],
+  [/phangan|พะงัน/i, "Surat Thani", "เกาะพะงัน"],
+  [/korat|โคราช/i, "Nakhon Ratchasima"],
+  [/ayutthaya|อยุธยา/i, "Phra Nakhon Si Ayutthaya"],
+  [/\bbkk\b|กรุงเทพ|กทม/i, "Bangkok"],
+];
+
+/** A province the message names, in either language, or the province of a town it names. */
+function provinceIn(text: string): Place | undefined {
+  for (const [town, en, district] of TOWNS) {
+    const province = PROVINCES.find((p) => p.en === en);
+    if (town.test(text) && province) return { ...province, ...(district ? { district } : {}) };
+  }
   const said = squash(text);
   const named = PROVINCES.filter((p) => said.includes(squash(p.th)) || said.includes(squash(p.en)));
-  if (said.includes("กรุงเทพ") || /\bbkk\b/i.test(text)) {
-    const bkk = PROVINCES.find((p) => p.en === "Bangkok");
-    if (bkk && !named.includes(bkk)) named.push(bkk);
-  }
   // the longest name wins: "Nakhon Si Thammarat" over a shorter one it happens to contain
   return named.sort((a, b) => b.en.length - a.en.length)[0];
 }
@@ -135,12 +155,15 @@ const FAX_TH = `เมื่อกรมธรรม์มีผลครบ ${F
 const CHECK_EN = `Networks can change, so please check with us before a planned admission. Full list: ${LIST_EN}`;
 const CHECK_TH = `เครือข่ายอาจมีการเปลี่ยนแปลง ก่อนนัดเข้ารักษาแจ้งเราให้เช็กอีกครั้งนะครับ ดูรายชื่อทั้งหมด: ${LIST_TH}`;
 
-function bulletsEn(list: Hospital[]): string {
-  return list.slice(0, 6).map((h) => `• ${h.en} (${h.provinceEn})`).join("\n");
+function bulletsEn(list: Hospital[], max = 6): string {
+  return list.slice(0, max).map((h) => `• ${h.en} (${h.provinceEn})`).join("\n");
 }
-function bulletsTh(list: Hospital[]): string {
-  return list.slice(0, 6).map((h) => `• ${h.th} (${h.district ? `${h.district} ` : ""}${h.province})`).join("\n");
+function bulletsTh(list: Hospital[], max = 6): string {
+  return list.slice(0, max).map((h) => `• ${h.th} (${h.district ? `${h.district} ` : ""}${h.province})`).join("\n");
 }
+
+/** A province's list, at most this long; the rest are counted and linked. */
+const PROVINCE_LIST = 10;
 
 function namedEn(found: Hospital[]): string {
   const ok = found.filter(usable);
@@ -171,47 +194,61 @@ function namedTh(found: Hospital[]): string {
   return `อยู่ในเครือข่ายของกรุงไทย-แอกซ่า ${ok.length} แห่งครับ เช่น\n${bulletsTh(sorted)}\n${FAX_TH}\n${CHECK_TH}`;
 }
 
-function inProvince(province: { th: string; en: string }, lang: "en" | "th"): string {
-  const here = HOSPITALS.filter((h) => h.province === province.th && usable(h) && inpatient(h));
+function inProvince(place: Place, lang: "en" | "th"): string {
+  const rank = (h: Hospital) => {
+    const known = WELL_KNOWN.indexOf(h.id);
+    return (place.district && h.district === place.district ? 0 : 100) + (known >= 0 ? known : 50);
+  };
+  const here = HOSPITALS
+    .filter((h) => h.province === place.th && usable(h) && inpatient(h))
+    .sort((a, b) => rank(a) - rank(b));
+  const more = here.length - PROVINCE_LIST;
   if (lang === "en") {
-    return here.length
-      ? `Krungthai-AXA has ${here.length} network hospitals in ${province.en} for individual health insurance, for example:\n`
-        + `${bulletsEn(here)}\n${FAX_EN.replace(" there", " at any of them")}\n${CHECK_EN}`
-      : `I can't find a network hospital in ${province.en} — an agent will check the nearest one for you. Full list: ${LIST_EN}`;
+    if (!here.length) {
+      return `I can't find a network hospital in ${place.en} — an agent will check the nearest one for you. Full list: ${LIST_EN}`;
+    }
+    return `Krungthai-AXA has ${here.length} network hospitals in ${place.en} for individual health insurance:\n`
+      + `${bulletsEn(here, PROVINCE_LIST)}\n${more > 0 ? `…and ${more} more on the full list.\n` : ""}`
+      + `${FAX_EN.replace(" there", " at any of them")}\n${CHECK_EN}`;
   }
-  return here.length
-    ? `โรงพยาบาลในเครือข่ายกรุงไทย-แอกซ่าที่${province.th}มี ${here.length} แห่งครับ เช่น\n${bulletsTh(here)}\n${FAX_TH}\n${CHECK_TH}`
-    : `ยังไม่เจอโรงพยาบาลในเครือข่ายที่${province.th}ครับ เดี๋ยวตัวแทนเช็กแห่งที่ใกล้ที่สุดให้ ดูรายชื่อทั้งหมด: ${LIST_TH}`;
+  if (!here.length) {
+    return `ยังไม่เจอโรงพยาบาลในเครือข่ายที่${place.th}ครับ เดี๋ยวตัวแทนเช็กแห่งที่ใกล้ที่สุดให้ ดูรายชื่อทั้งหมด: ${LIST_TH}`;
+  }
+  return `โรงพยาบาลในเครือข่ายกรุงไทย-แอกซ่าที่${place.th}มี ${here.length} แห่งครับ\n`
+    + `${bulletsTh(here, PROVINCE_LIST)}\n${more > 0 ? `…และอีก ${more} แห่งในรายชื่อทั้งหมด\n` : ""}${FAX_TH}\n${CHECK_TH}`;
 }
 
-function general(lang: "en" | "th"): string {
+/** A general question is answered with the network's size and a question back: which province? */
+function askProvince(lang: "en" | "th"): string {
   const hospitals = HOSPITALS.filter((h) => usable(h) && inpatient(h)).length;
   const clinics = HOSPITALS.filter((h) => usable(h) && !inpatient(h)).length;
-  const known = WELL_KNOWN.map((id) => HOSPITALS.find((h) => h.id === id && usable(h))).filter((h): h is Hospital => Boolean(h));
-  if (lang === "en") {
-    return `iHealthy Ultra comes with Krungthai-AXA's network of ${hospitals} hospitals and ${clinics} clinics across Thailand — `
-      + `including ${known.map((h) => h.en).join(", ")}. `
-      + `After ${FAX_CLAIM_DAYS} days you can use Fax Claim at any of them, with no upfront payment for covered treatment.\n`
-      + "Which hospital or area do you have in mind? If yours isn't on the list, an agent can explain how claims work there. "
-      + `Full list: ${LIST_EN}`;
-  }
-  return `iHealthy Ultra ใช้เครือข่ายของกรุงไทย-แอกซ่า โรงพยาบาล ${hospitals} แห่ง และคลินิก ${clinics} แห่งทั่วประเทศครับ `
-    + `เช่น ${known.map((h) => h.th).join(", ")}\n`
-    + `เมื่อกรมธรรม์มีผลครบ ${FAX_CLAIM_DAYS} วัน ใช้ Fax Claim ได้ทุกแห่ง ไม่ต้องสำรองจ่ายค่ารักษาที่อยู่ในความคุ้มครอง\n`
-    + `สนใจโรงพยาบาลไหนหรือแถวไหนบอกได้เลยครับ ถ้าไม่อยู่ในรายชื่อ ตัวแทนอธิบายวิธีเคลมให้ได้ ดูรายชื่อทั้งหมด: ${LIST_TH}`;
+  return lang === "en"
+    ? `iHealthy Ultra comes with Krungthai-AXA's network of ${hospitals} hospitals and ${clinics} clinics across Thailand, `
+      + `with Fax Claim (no upfront payment for covered treatment) from ${FAX_CLAIM_DAYS} days after your policy starts.\n`
+      + "Which province do you live in? I'll send you the network hospitals there 🏥"
+    : `iHealthy Ultra ใช้เครือข่ายของกรุงไทย-แอกซ่า โรงพยาบาล ${hospitals} แห่ง และคลินิก ${clinics} แห่งทั่วประเทศครับ `
+      + `ใช้ Fax Claim ได้ไม่ต้องสำรองจ่าย เมื่อกรมธรรม์มีผลครบ ${FAX_CLAIM_DAYS} วัน\n`
+      + "ลูกค้าอยู่จังหวัดไหนครับ เดี๋ยวส่งรายชื่อโรงพยาบาลในเครือข่ายที่จังหวัดนั้นให้ 🏥";
+}
+
+/** An answer about the network, and whether it ended by asking which province. */
+export interface HospitalAnswer {
+  text: string;
+  asksProvince?: true;
 }
 
 /**
  * The answer to a question about the network, or undefined when the message is not one.
  *
- * A hospital named outright is answered whatever else the message says; a province or the
- * network in general only when the message is asking about hospitals.
+ * A hospital named outright is answered whatever else the message says. A general question is
+ * asked back which province (owner, 2026-10-02), and `awaitingProvince` — set when the last
+ * answer asked — lets a bare "Phuket" or "เชียงใหม่" be the reply it is.
  */
-export function hospitalReply(text: string, lang: "en" | "th"): string | undefined {
+export function hospitalReply(text: string, lang: "en" | "th", awaitingProvince = false): HospitalAnswer | undefined {
   const found = hospitalsIn(text);
-  if (found.length) return lang === "en" ? namedEn(found) : namedTh(found);
-  const asks = lang === "en" ? ASKS_EN.test(text) || ASKS_TH.test(text) : ASKS_TH.test(text) || ASKS_EN.test(text);
-  if (!asks) return undefined;
-  const province = provinceIn(text);
-  return province ? inProvince(province, lang) : general(lang);
+  if (found.length) return { text: lang === "en" ? namedEn(found) : namedTh(found) };
+  const place = provinceIn(text);
+  if (awaitingProvince && place) return { text: inProvince(place, lang) };
+  if (!ASKS_EN.test(text) && !ASKS_TH.test(text)) return undefined;
+  return place ? { text: inProvince(place, lang) } : { text: askProvince(lang), asksProvince: true };
 }

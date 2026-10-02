@@ -30,7 +30,7 @@ describe("finding a hospital the customer names", () => {
 
 describe("hospitalReply in English", () => {
   it("confirms a named hospital, with Fax Claim after 90 days and the list's link", () => {
-    const r = hospitalReply("Can I use Bumrungrad?", "en")!;
+    const r = hospitalReply("Can I use Bumrungrad?", "en")!.text;
     expect(r).toContain("Bumrungrad Hospital");
     expect(r).toContain("Fax Claim");
     expect(r).toContain("90 days");
@@ -39,24 +39,52 @@ describe("hospitalReply in English", () => {
   });
 
   it("lists a chain's branches, a few of them", () => {
-    const r = hospitalReply("Is Samitivej in the network?", "en")!;
+    const r = hospitalReply("Is Samitivej in the network?", "en")!.text;
     expect(r).toContain("Samitivej");
     expect((r.match(/^• /gm) ?? []).length).toBeLessThanOrEqual(6);
     expect(r).not.toMatch(THAI);
   });
 
   it("lists the hospitals in a province", () => {
-    const r = hospitalReply("Which hospitals in Phuket can I use?", "en")!;
+    const r = hospitalReply("Which hospitals in Phuket can I use?", "en")!.text;
     expect(r).toContain("Phuket");
     expect(r).toMatch(/^• /m);
     expect(r).not.toMatch(THAI);
   });
 
-  it("answers a general question with the size of the network and asks which one", () => {
+  it("answers a general question by asking which province they live in", () => {
     const r = hospitalReply("Which hospitals can I use?", "en")!;
-    expect(r).toMatch(/\d+ hospitals/);
-    expect(r).toContain("Bumrungrad");
-    expect(r).not.toMatch(THAI);
+    expect(r.asksProvince).toBe(true);
+    expect(r.text).toMatch(/province/i);
+    expect(r.text).not.toMatch(THAI);
+  });
+
+  it("sends the province's hospitals when that is the reply", () => {
+    const r = hospitalReply("Phuket", "en", true)!;
+    expect(r.text).toContain("Bangkok Hospital Phuket");
+    expect(r.asksProvince).toBeUndefined();
+  });
+
+  it("reads the towns expats live in as their province, nearest first", () => {
+    const r = hospitalReply("I live in Pattaya", "en", true)!;
+    expect(r.text).toContain("Chonburi");
+    expect(r.text.split("\n")[1]).toMatch(/Pattaya|Bang Lamung|Banglamung/i);
+    expect(hospitalReply("Koh Samui", "en", true)!.text).toContain("Surat Thani");
+    expect(hospitalReply("Hua Hin", "en", true)!.text).toContain("Prachuap");
+  });
+
+  it("lists up to ten and says how many more there are", () => {
+    const r = hospitalReply("Bangkok", "en", true)!.text;
+    expect((r.match(/^• /gm) ?? []).length).toBe(10);
+    expect(r).toMatch(/\d+ more/);
+  });
+
+  it("does not take a bare province for a question when none was asked", () => {
+    expect(hospitalReply("Phuket", "en")).toBeUndefined();
+  });
+
+  it("lets go when the reply to the question is not a province", () => {
+    expect(hospitalReply("Gold", "en", true)).toBeUndefined();
   });
 
   it.each([
@@ -69,20 +97,28 @@ describe("hospitalReply in English", () => {
 
 describe("hospitalReply in Thai", () => {
   it("confirms a named hospital in Thai", () => {
-    const r = hospitalReply("ใช้ รพ.บำรุงราษฎร์ ได้ไหม", "th")!;
+    const r = hospitalReply("ใช้ รพ.บำรุงราษฎร์ ได้ไหม", "th")!.text;
     expect(r).toContain("บำรุงราษฎร์");
     expect(r).toContain("Fax Claim");
     expect(r).toContain("90 วัน");
     expect(r).toContain("krungthai-axa.co.th/customer-service/hospitals");
   });
 
-  it("answers which hospitals can be used, in Thai", () => {
-    expect(hospitalReply("ใช้โรงพยาบาลไหนได้บ้าง", "th")).toContain("Fax Claim");
-    expect(hospitalReply("มีโรงพยาบาลคู่สัญญาที่ไหนบ้าง", "th")).toContain("Fax Claim");
+  it("asks which province, in Thai, for a general question", () => {
+    for (const q of ["ใช้โรงพยาบาลไหนได้บ้าง", "มีโรงพยาบาลคู่สัญญาที่ไหนบ้าง"]) {
+      const r = hospitalReply(q, "th")!;
+      expect(r.asksProvince).toBe(true);
+      expect(r.text).toContain("จังหวัด");
+    }
+  });
+
+  it("sends the province's hospitals in Thai when that is the reply", () => {
+    expect(hospitalReply("เชียงใหม่", "th", true)!.text).toContain("โรงพยาบาลกรุงเทพเชียงใหม่");
+    expect(hospitalReply("อยู่พัทยาครับ", "th", true)!.text).toContain("ชลบุรี");
   });
 
   it("lists the hospitals in a province in Thai", () => {
-    const r = hospitalReply("โรงพยาบาลในภูเก็ตมีที่ไหนบ้าง", "th")!;
+    const r = hospitalReply("โรงพยาบาลในภูเก็ตมีที่ไหนบ้าง", "th")!.text;
     expect(r).toContain("ภูเก็ต");
     expect(r).toMatch(/^• /m);
   });

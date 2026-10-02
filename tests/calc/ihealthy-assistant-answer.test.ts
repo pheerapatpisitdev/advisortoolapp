@@ -216,7 +216,16 @@ describe("what it asks a model for", () => {
 describe("a question about the hospital network", () => {
   it("is answered from Krungthai-AXA's list, without a model", async () => {
     const answer = await answerHealth(said("ใช้ รพ.บำรุงราษฎร์ ได้ไหม"), KNOWN);
-    expect(answer.messages[0].text).toBe(hospitalReply("ใช้ รพ.บำรุงราษฎร์ ได้ไหม", "th"));
+    expect(answer.messages[0].text).toBe(hospitalReply("ใช้ รพ.บำรุงราษฎร์ ได้ไหม", "th")!.text);
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it("asks which province, then sends its hospitals", async () => {
+    const asked = await answerHealth(said("ใช้โรงพยาบาลไหนได้บ้าง"), KNOWN);
+    expect(asked.messages[0].text).toContain("จังหวัด");
+    const listed = await answerHealth(said("เชียงใหม่"), asked.slots);
+    expect(listed.messages[0].text).toContain("โรงพยาบาลกรุงเทพเชียงใหม่");
+    expect(listed.slots.hospitalAsked).toBeUndefined();
     expect(chat).not.toHaveBeenCalled();
   });
 
