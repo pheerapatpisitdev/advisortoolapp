@@ -35,7 +35,7 @@ export function rendiEngine(key: string, maxSeconds: number): RenderEngine {
     },
     async status(id: string): Promise<JobStatus> {
       const res = await call(`/commands/${encodeURIComponent(id)}`, { method: "GET" }, 15_000);
-      if (!res.ok) throw new EngineError(`อ่านสถานะงานจาก Rendi ไม่ได้ (${res.status})`, false);
+      if (!res.ok) throw new EngineError(`อ่านสถานะงานจาก Rendi ไม่ได้ (${res.status})`, true);
       const b = await res.json().catch(() => ({})) as {
         status?: string; error_message?: string;
         output_files?: Record<string, { storage_url?: string; file_id?: string }>;

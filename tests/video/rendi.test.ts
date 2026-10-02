@@ -46,6 +46,11 @@ describe("rendiEngine", () => {
     expect(await rendiEngine("k", 60).status("c1")).toEqual({ state: "failed", error: "boom" });
   });
 
+  it("on a 503 during status poll, throws with retryElsewhere: true", async () => {
+    api([{ status: 503, body: {} }]);
+    await expect(rendiEngine("k", 60).status("c1")).rejects.toMatchObject({ retryElsewhere: true });
+  });
+
   it("deletes its stored outputs once we have them", async () => {
     const calls = api([{ status: 204, body: {} }, { status: 404, body: {} }]);
     await rendiEngine("k", 60).cleanup({ state: "done", outputs: { out_1: { url: "u", fileId: "f1" }, out_2: { url: "u2", fileId: "f2" } } });

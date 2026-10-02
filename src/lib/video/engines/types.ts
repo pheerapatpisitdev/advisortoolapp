@@ -9,7 +9,7 @@ export interface RenderEngine {
   name: EngineName;
   /** uploads: where an engine that writes our storage itself (Lambda) puts each output */
   submit(job: FfmpegJob, opts: { callbackUrl: string; token: string; uploads?: Record<string, { uploadUrl: string; path: string }> }): Promise<{ id: string }>;
-  /** null: this engine answers by webhook only */
+  /** null: this engine answers by webhook only. throws when the engine could not be asked (network, rate limit, 5xx): the caller asks again later and never fails over on it; a job that never answers fails at EDIT_JOB_TIMEOUT_MS */
   status(id: string): Promise<JobStatus | null>;
   /** lets the engine's own copies of the outputs go, once we have ours */
   cleanup(status: JobStatus): Promise<void>;
