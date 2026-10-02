@@ -85,13 +85,20 @@ const OUT_OF_BUDGET = "ขอเวลาสักครู่นะครับ
  */
 const CARD_UNSENT = "ใบเสนอราคาเป็นรูปครับ เปิดดูได้ที่ลิงก์นี้เลย";
 
+const PDF_UNSENT = "ส่งไฟล์ไม่สำเร็จครับ เปิดหน้านี้แล้วกดปุ่มบันทึก PDF ได้เลยครับ";
+const PDF_WAIT = "รอสักครู่แล้วขอใหม่นะครับ";
+
 /**
  * The words the inbox says on its own — the apologies and the card's fallback — in the
  * language this turn is in. Thai everywhere but an Expat Page answering English.
  */
 const OWN_WORDS = {
-  th: { busy: BUSY, broken: BROKEN, outOfBudget: OUT_OF_BUDGET, cardUnsent: CARD_UNSENT },
-  en: { busy: BUSY_EN, broken: BROKEN_EN, outOfBudget: OUT_OF_BUDGET_EN, cardUnsent: CARD_UNSENT_EN },
+  th: { busy: BUSY, broken: BROKEN, outOfBudget: OUT_OF_BUDGET, cardUnsent: CARD_UNSENT, pdfUnsent: PDF_UNSENT, pdfWait: PDF_WAIT },
+  en: {
+    busy: BUSY_EN, broken: BROKEN_EN, outOfBudget: OUT_OF_BUDGET_EN, cardUnsent: CARD_UNSENT_EN,
+    pdfUnsent: "I couldn't send the file — open this page and tap the save-as-PDF button:",
+    pdfWait: "Give me a moment and ask again, please.",
+  },
 };
 
 function ownWordsFor(pageId: string | undefined, text: string, slots: unknown) {
@@ -120,8 +127,6 @@ async function sendCard(
     .catch((e) => console.error("card link failed:", e));
 }
 
-const PDF_UNSENT = "ส่งไฟล์ไม่สำเร็จครับ เปิดหน้านี้แล้วกดปุ่มบันทึก PDF ได้เลยครับ";
-const PDF_WAIT = "รอสักครู่แล้วขอใหม่นะครับ";
 /** the route prints with Chrome and is allowed 60 s; the webhook keeps its own margin on top */
 const PDF_FETCH_MS = 55_000;
 
@@ -135,6 +140,7 @@ const PDF_FETCH_MS = 55_000;
  */
 async function sendPdf(
   psid: string, pdfPath: string, replies: string[] | undefined, pageId?: string,
+  words: { pdfUnsent: string; pdfWait: string } = { pdfUnsent: PDF_UNSENT, pdfWait: PDF_WAIT },
 ): Promise<void> {
   const key = process.env.CRON_SECRET;
   try {
@@ -143,7 +149,7 @@ async function sendPdf(
       signal: AbortSignal.timeout(PDF_FETCH_MS),
     });
     if (res.status === 429) {
-      await sendMessage(psid, PDF_WAIT, replies, { pageId });
+      await sendMessage(psid, words.pdfWait, replies, { pageId });
       return;
     }
     if (!res.ok) throw new Error(`quote-pdf ${res.status}`);
@@ -152,7 +158,7 @@ async function sendPdf(
   } catch (e) {
     console.error("pdf failed, sending the page instead:", e);
     const page = pagePathFor(pdfPath);
-    await sendMessage(psid, page ? `${PDF_UNSENT}\n${siteUrl(page)}` : PDF_UNSENT, replies, { pageId })
+    await sendMessage(psid, page ? `${words.pdfUnsent}\n${siteUrl(page)}` : words.pdfUnsent, replies, { pageId })
       .catch((err) => console.error("pdf link failed:", err));
   }
 }
@@ -313,7 +319,7 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
       // the card follows its own words, so the customer reads the quote before the picture of
       // it — and a couple priced together gets the pair in the order they were named
       if (said.card) await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId, own.cardUnsent);
-      if (said.file) await sendPdf(psid, said.file, last ? answer.replies : undefined, pageId);
+      if (said.file) await sendPdf(psid, said.file, last ? answer.replies : undefined, pageId, own);
     }
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
     const spoken = answer.messages.map((m) => m.text).join("\n\n");

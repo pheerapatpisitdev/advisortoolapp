@@ -95,6 +95,29 @@ describe("GET /api/quote-pdf", () => {
     expect(render.mock.calls[0][0]).toBe(`${siteOrigin()}/ihealthy-ultra?${query}`);
   });
 
+  it("prints the iHealthy proposal in English for l=en", async () => {
+    const query = queryFrom(iHealthyTable(), IHEALTHY_OPENING);
+    const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&l=en&v=${V}`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toBe('inline; filename="ihealthy-ultra-en-F35.pdf"');
+    expect(render.mock.calls[0][0]).toBe(`${siteOrigin()}/ihealthy-ultra?${query}`);
+    expect(render.mock.calls[0][1]).toMatchObject({ lang: "en" });
+  });
+
+  it("refuses any language but English", async () => {
+    const query = queryFrom(iHealthyTable(), IHEALTHY_OPENING);
+    for (const l of ["zh", "th", "", "EN"]) {
+      const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&l=${l}&v=${V}`));
+      expect(res.status).toBe(400);
+    }
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("refuses l on a life plan, whose pages are Thai only", async () => {
+    const res = await GET(req(`${PLB}&l=en`));
+    expect(res.status).toBe(400);
+  });
+
   it("refuses an iHealthy link that is not what the page would write back", async () => {
     const res = await GET(req("/api/quote-pdf?page=ihealthy-ultra&age=35&sex=F&sa=1e308"));
     expect(res.status).toBe(400);

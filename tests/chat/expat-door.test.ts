@@ -13,6 +13,19 @@ vi.mock("@/lib/ai/client", async () => {
 
 const { answerAny } = await import("@/lib/assistant/dispatch");
 const { GREETING_EN } = await import("@/lib/assistant/ihealthy-en/words");
+const { PDF_OFFER, PDF_OFFER_EN, PDF_YES_EN, PDF_NO_EN } = await import("@/lib/assistant/pdf");
+import type { AnySlots, WithPdf } from "@/lib/assistant/slots";
+type AnyAnswer = Awaited<ReturnType<typeof answerAny>>;
+
+const spoken = (a: AnyAnswer) => a.messages.map((m) => m.text).join("\n\n");
+/** A conversation so far, ending with what the customer says now. */
+const thread = (...turns: [string, AnyAnswer][]) => (now: string) => [
+  ...turns.flatMap(([asked, answer]) => [
+    { role: "user" as const, content: asked },
+    { role: "assistant" as const, content: spoken(answer) },
+  ]),
+  { role: "user" as const, content: now },
+];
 
 const said = (content: string) => [{ role: "user" as const, content }];
 const THAI = /[฀-๿]/;
@@ -67,5 +80,45 @@ describe("a Thai Page", () => {
   it("is untouched by any of this", async () => {
     const a = await answerAny(said("For more information"), null, "facebook", undefined, "103716981993581");
     expect(a.messages[0].text).toMatch(THAI);
+  });
+});
+
+describe("the quote's PDF on an Expat Page", () => {
+  async function quotedInEnglish() {
+    const person = await answerAny(said("35 male"), null, "facebook", undefined, EXPAT);
+    const quote = await answerAny(thread(["35 male", person])("Gold"), person.slots, "facebook", undefined, EXPAT);
+    return { person, quote };
+  }
+
+  it("is offered in English after an English quote, for an English file", async () => {
+    const { quote } = await quotedInEnglish();
+    expect(quote.messages.at(-1)!.text).toBe(PDF_OFFER_EN);
+    expect(quote.replies?.slice(0, 2)).toEqual([PDF_YES_EN, PDF_NO_EN]);
+    expect((quote.slots as WithPdf<AnySlots>).pdf?.paths?.[0]).toContain("l=en");
+  });
+
+  it("is sent when asked for, in English", async () => {
+    const { person, quote } = await quotedInEnglish();
+    const history = thread(["35 male", person], ["Gold", quote]);
+    const sent = await answerAny(history(PDF_YES_EN), quote.slots, "facebook", undefined, EXPAT);
+    expect(sent.messages[0].text).not.toMatch(THAI);
+    expect(sent.messages[0].file).toContain("l=en");
+    const yes = await answerAny(history("yes please"), quote.slots, "facebook", undefined, EXPAT);
+    expect(yes.messages[0].file).toContain("l=en");
+  });
+
+  it("takes a no in English, and does not offer again", async () => {
+    const { person, quote } = await quotedInEnglish();
+    const no = await answerAny(thread(["35 male", person], ["Gold", quote])(PDF_NO_EN), quote.slots, "facebook", undefined, EXPAT);
+    expect(no.messages[0].text).not.toMatch(THAI);
+    expect(no.messages[0].file).toBeUndefined();
+    expect((no.slots as WithPdf<AnySlots>).pdf?.declined).toBe(true);
+  });
+
+  it("is offered in Thai, for a Thai file, to a customer writing Thai", async () => {
+    const person = await answerAny(said("หญิง 35 ค่ะ"), null, "facebook", undefined, EXPAT);
+    const quote = await answerAny(thread(["หญิง 35 ค่ะ", person])("เอาแผน Gold"), person.slots, "facebook", undefined, EXPAT);
+    expect(quote.messages.at(-1)!.text).toBe(PDF_OFFER);
+    expect((quote.slots as WithPdf<AnySlots>).pdf?.paths?.[0]).not.toContain("l=en");
   });
 });

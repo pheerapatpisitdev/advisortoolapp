@@ -5,6 +5,7 @@ import { affirms, one, saysFormDone, WANTS_IN, type Reply, type Said } from "./c
 import type { AnyAnswer } from "./dispatch";
 import { recruitReply } from "./recruit";
 import type { AnySlots, PdfMemory, WithPdf } from "./slots";
+import type { ChatLang } from "./expat";
 
 /**
  * The sales page's PDF, in the chat: offered once per plan after a quote, sent when asked for.
@@ -24,6 +25,11 @@ export const PDF_ASKED = /pdf|ไฟล์|ใบเสนอ/i;
 export const PDF_OFFER = "อยากได้เป็นไฟล์ PDF ไว้เก็บหรือส่งต่อให้ครอบครัวไหมครับ?";
 export const PDF_YES = "ขอไฟล์ PDF";
 export const PDF_NO = "ไม่เป็นไร";
+
+/** The same offer on the Expat Pages, for a customer writing English. Buttons under 20 characters. */
+export const PDF_OFFER_EN = "Would you like this as a PDF to keep or share with your family?";
+export const PDF_YES_EN = "Send me the PDF";
+export const PDF_NO_EN = "No thanks";
 
 const DECLINED = "ได้เลยครับ มีอะไรอยากถามต่อ พิมพ์มาได้เลย";
 const NO_PDF = "เบี้ยนี้ยังทำเป็นไฟล์ PDF ไม่ได้ครับ ส่งรูปใบเสนอให้แทนนะครับ";
@@ -67,6 +73,24 @@ const SAYS_SEND = new RegExp(String.raw`^\s*(?:ขอ(?:ด้วย|หน่�
  */
 const APPLIES = /สมัคร|ซื้อ|ทำประกัน|ขั้นตอน|เอกสาร|ทำ(?:ยังไง|อย่างไร|ไง)|ต้องทำอะไร|ดำเนินการ/;
 
+/** What the PDF turn says and hears, in the language the conversation is in. */
+const WORDS = {
+  th: {
+    offer: PDF_OFFER, yes: PDF_YES, no: PDF_NO, declined: DECLINED, noPdf: NO_PDF, sending: SENDING,
+    saysNo: SAYS_NO, saysSend: SAYS_SEND, applies: APPLIES, onward: WANTS_IN,
+  },
+  en: {
+    offer: PDF_OFFER_EN, yes: PDF_YES_EN, no: PDF_NO_EN,
+    declined: "No problem — just ask if anything else comes up.",
+    noPdf: "I can't make this one into a PDF yet — here's the quote picture instead.",
+    sending: { facebook: "Preparing your file…", line: "Here's the PDF of your latest quote.", web: "Here's the PDF of your latest quote." } as Record<Channel, string>,
+    saysNo: /^\s*(?:no|nope|no thanks|no thank you|not now|maybe later)\b[\s.!]*$/i,
+    saysSend: /^\s*(?:yes|yeah|yep|sure|ok(?:ay)?|please|yes please|send(?: it| me)?(?: please)?)\b[\s.!]*$/i,
+    applies: /\bapply\b|sign up|\bbuy\b|purchase/i,
+    onward: "I want to apply",
+  },
+};
+
 /**
  * A message the PDF's words turn up in that was always another path's to answer: a company
  * asking about its staff ("ขอใบเสนอราคาประกันกลุ่ม"), someone who wants to join the team
@@ -74,8 +98,8 @@ const APPLIES = /สมัคร|ซื้อ|ทำประกัน|ขั้
  * saying the form is done ("ส่งไฟล์ให้แล้ว"). Each had its answer before the file existed, and
  * the file is not that answer — the last one cost the form's thank-you and its count.
  */
-function belongsElsewhere(asked: string, lastSaid: string | undefined): boolean {
-  return aboutAGroup(asked) || recruitReply(asked, lastSaid) !== null || APPLIES.test(asked) || saysFormDone(asked);
+function belongsElsewhere(asked: string, lastSaid: string | undefined, applies: RegExp = APPLIES): boolean {
+  return aboutAGroup(asked) || recruitReply(asked, lastSaid) !== null || applies.test(asked) || saysFormDone(asked);
 }
 
 /** There is a latest quote to answer for: its files, its picture, or the word that it has none. */
@@ -108,35 +132,36 @@ function onward(memory: PdfMemory): PdfMemory {
  * for the last one's file, so it is left to be priced — and the quote then offers the file.
  */
 export function pdfTurn(
-  asked: string, lastSaid: string | undefined, memory: PdfMemory | undefined, channel: Channel,
+  asked: string, lastSaid: string | undefined, memory: PdfMemory | undefined, channel: Channel, lang: ChatLang = "th",
 ): { reply: Reply; memory: PdfMemory } | undefined {
+  const w = WORDS[lang];
   if (!memory || !holdsAQuote(memory)) return undefined;
   const kept = onward(memory);
   // the mark first: the words may have come back cut short
-  const offered = memory.offered === true || Boolean(lastSaid?.trimEnd().endsWith(PDF_OFFER));
+  const offered = memory.offered === true || Boolean(lastSaid && [PDF_OFFER, PDF_OFFER_EN].some((o) => lastSaid.trimEnd().endsWith(o)));
 
   // the apply button stays under every answer here: the file is a step towards it, not instead
-  if (offered && SAYS_NO.test(asked)) {
-    return { reply: { ...one(DECLINED), replies: [WANTS_IN] }, memory: { ...kept, declined: true } };
+  if (offered && w.saysNo.test(asked)) {
+    return { reply: { ...one(w.declined), replies: [w.onward] }, memory: { ...kept, declined: true } };
   }
 
   const requested = (PDF_ASKED.test(asked) && !/\d/.test(asked))
-    || (offered && (affirms(asked) || SAYS_SEND.test(asked)));
-  if (!requested || belongsElsewhere(asked, lastSaid)) return undefined;
+    || (offered && (affirms(asked) || w.saysSend.test(asked)));
+  if (!requested || belongsElsewhere(asked, lastSaid, w.applies)) return undefined;
 
   if (kept.paths?.length) {
     return {
       reply: {
         // a couple gets both files; the line that says they are coming is said once
-        messages: kept.paths.map((file, i) => ({ text: i === 0 ? SENDING[channel] : "", file })),
-        replies: [WANTS_IN],
+        messages: kept.paths.map((file, i) => ({ text: i === 0 ? w.sending[channel] : "", file })),
+        replies: [w.onward],
       },
       memory: kept,
     };
   }
   // the latest quote is one no sales page prints (CI 123, cancer, legacy): its picture instead,
   // where it has one — the pension plan has none, and gets the apology alone
-  return { reply: { ...one(NO_PDF, kept.card), replies: [WANTS_IN] }, memory: kept };
+  return { reply: { ...one(w.noPdf, kept.card), replies: [w.onward] }, memory: kept };
 }
 
 /** A quote's picture, as against a value table's or a list of illnesses'. */
@@ -191,7 +216,8 @@ export function cleanPdfMemory(raw: unknown): PdfMemory | undefined {
  * The question is asked once per plan and never after a no; the button is offered under
  * every quote that has a file, first, because it is the one thing the other buttons are not.
  */
-export function withPdfOffer(answer: AnyAnswer, memory: PdfMemory | undefined): AnyAnswer {
+export function withPdfOffer(answer: AnyAnswer, memory: PdfMemory | undefined, lang: ChatLang = "th"): AnyAnswer {
+  const w = WORDS[lang];
   const paths = [...new Set(answer.messages.map((m) => m.pdfPath).filter((p): p is string => Boolean(p)))]
     .slice(0, MAX_FILES);
   const card = paths.length
@@ -208,12 +234,12 @@ export function withPdfOffer(answer: AnyAnswer, memory: PdfMemory | undefined): 
   // the buttons sit under the last quote, so the question is about that one's plan
   const page = pageOf(paths.at(-1)!);
   const ask = Boolean(page && !base.asked.includes(page) && !base.declined);
-  const buttons = ask ? [PDF_YES, PDF_NO] : [PDF_YES];
+  const buttons = ask ? [w.yes, w.no] : [w.yes];
   const others = (answer.replies ?? []).filter((r) => !buttons.includes(r));
   const kept: PdfMemory = { ...base, paths };
   return remember({
     ...answer,
-    messages: ask ? [...answer.messages, { text: PDF_OFFER }] : answer.messages,
+    messages: ask ? [...answer.messages, { text: w.offer }] : answer.messages,
     replies: [...buttons, ...others],
     // the website draws `guide` in place of the replies, so the buttons go there too
     ...(answer.guide?.length

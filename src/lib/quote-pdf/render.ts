@@ -1,5 +1,6 @@
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
+import { LANG_COOKIE } from "@/lib/ihealthy-lang";
 
 /** How long the answer waits for Chrome to go away before it leaves it to go on its own. */
 const CLOSE_WAIT_MS = 2_000;
@@ -12,7 +13,11 @@ const CLOSE_WAIT_MS = 2_000;
  * here checks that, because the route is the only caller and the one place that decides it.
  * `CHROME_PATH` points local dev at an installed Chrome; on Vercel the bundled build is used.
  */
-export async function renderQuotePdf(url: string, opts: { timeoutMs?: number } = {}): Promise<Buffer> {
+/**
+ * `lang: "en"` prints the iHealthy page in English. The page reads its language from a cookie
+ * and nothing else (src/lib/ihealthy-lang.ts), so the cookie is set before the page is opened.
+ */
+export async function renderQuotePdf(url: string, opts: { timeoutMs?: number; lang?: "en" } = {}): Promise<Buffer> {
   const timeoutMs = opts.timeoutMs ?? 45_000;
   // started before anything slow: unpacking the 67 MB Chrome and launching it are most of a
   // cold start, and the route's own limit is 60 s, so a bound that began after them could
@@ -46,6 +51,7 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number } =
       // the page stamps "พิมพ์เมื่อ" with the browser's clock, and a server's zone is UTC: a
       // quote printed at eight in the morning would say one in the morning
       await page.emulateTimezone("Asia/Bangkok");
+      if (opts.lang === "en") await page.setCookie({ name: LANG_COOKIE, value: "en", url });
       await page.goto(url, { waitUntil: "networkidle0", timeout: timeoutMs });
       // set by the calculator once it has seeded itself from the link; printing before that
       // would print the default figures

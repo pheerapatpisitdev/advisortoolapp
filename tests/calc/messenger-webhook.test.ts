@@ -530,6 +530,18 @@ describe("a PDF the customer asked for", () => {
     expect(sent.text[1]).toContain("/plb?age=35");
   });
 
+  it("is handed over in English on an Expat Page when the file cannot be printed", async () => {
+    fetched.mockResolvedValue(new Response("down", { status: 503 }));
+    answer.mockImplementation(async () => ({
+      messages: [{ text: "Preparing your file…", file: "/api/quote-pdf?page=ihealthy-ultra&age=35&sex=M&l=en&v=1" }],
+      replies: ["I want to apply"],
+      slots: { product: "ihealthy", intent: "quote", lang: "en" },
+    }) as unknown as Answer);
+    await handle({ sender: { id: "psid-pdf-en" }, message: { mid: "mpe", text: "Send me the PDF" } }, "112079600278201");
+    expect(sent.text[1]).toContain("I couldn't send the file");
+    expect(sent.text[1]).toContain("/ihealthy-ultra?age=35&sex=M");
+  });
+
   it("is asked to wait when the route says too many", async () => {
     fetched.mockResolvedValue(new Response("slow down", { status: 429 }));
     await handle(asked);

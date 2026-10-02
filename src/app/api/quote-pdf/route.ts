@@ -26,7 +26,7 @@ const allow = limiter(6, 60_000);
 
 const PLAN_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "age", "sex", "sum", "variant"]);
 /** every key `queryFrom` writes; `r` is the one a link repeats, once per rider */
-const IHEALTHY_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r"]);
+const IHEALTHY_KEYS = new Set(["page", "v", EXTERNAL_BROWSER, "l", "age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r"]);
 
 function html(status: number, body: string): Response {
   return new Response(
@@ -61,6 +61,9 @@ export async function GET(req: Request): Promise<Response> {
   }
   // LINE's flag has one spelling; anything else in it is not LINE's
   if (params.has(EXTERNAL_BROWSER) && params.get(EXTERNAL_BROWSER) !== "1") return invalid();
+  // English, for the Expat Pages' bot; the page has other languages, but nothing prints them
+  if (params.has("l") && params.get("l") !== "en") return invalid();
+  const english = params.get("l") === "en";
 
   let target: string;
   let name: string;
@@ -73,11 +76,11 @@ export async function GET(req: Request): Promise<Response> {
     const written = queryFrom(table, initial);
     // the page snaps what it is given to something it sells; a link that was not already that
     // would print a page other than the one it asked for
-    const skip = ["page", "v", EXTERNAL_BROWSER];
+    const skip = ["page", "v", EXTERNAL_BROWSER, "l"];
     if (pairs(new URLSearchParams(written), skip).join("&") !== pairs(params, skip).join("&")) return invalid();
     target = `${siteOrigin()}/ihealthy-ultra?${written}`;
-    name = `ihealthy-ultra-${initial.sex}${initial.age}`;
-    pdfPath = `/api/quote-pdf?page=ihealthy-ultra&${written}`;
+    name = `ihealthy-ultra-${english ? "en-" : ""}${initial.sex}${initial.age}`;
+    pdfPath = `/api/quote-pdf?page=ihealthy-ultra&${written}${english ? "&l=en" : ""}`;
   } else {
     const plan = page as PlanPage;
     const initial = planInitialFrom(plan, Object.fromEntries(params));
@@ -105,7 +108,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   try {
-    const pdf = await renderQuotePdf(target, { timeoutMs: 45_000 });
+    const pdf = await renderQuotePdf(target, { timeoutMs: 45_000, ...(english ? { lang: "en" as const } : {}) });
     return new Response(new Uint8Array(pdf), {
       status: 200,
       headers: {

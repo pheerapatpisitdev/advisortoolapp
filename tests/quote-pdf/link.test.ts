@@ -33,6 +33,10 @@ describe("the PDF path for a quote", () => {
 
   it("carries an iHealthy query through untouched", () => {
     expect(quotePdfPath({ kind: "ihealthy", query: "age=30&sex=M" })).toMatch(/^\/api\/quote-pdf\?page=ihealthy-ultra&age=30&sex=M&v=.+$/);
+    expect(quotePdfPath({ kind: "ihealthy", query: "age=30&sex=M", lang: "en" }))
+      .toMatch(/^\/api\/quote-pdf\?page=ihealthy-ultra&age=30&sex=M&l=en&v=.+$/);
+    // the page reads its language from a cookie, so its own link carries none
+    expect(pagePathFor("/api/quote-pdf?page=ihealthy-ultra&age=30&sex=M&l=en&v=1")).toBe("/ihealthy-ultra?age=30&sex=M");
   });
 });
 
