@@ -27,8 +27,16 @@ export function visibleLength(s: string): number {
  */
 export const MOBILE_LINE = 45;
 
-export const PREAMBLE = ["สวัสดี", "วันนี้จะมา", "วันนี้เรามา", "วันนี้ขอ", "ก่อนอื่น", "หลายคนถาม", "ขอเล่า", "มาทำความรู้จัก", "ทำความเข้าใจ"];
-export const WEAK_OPENERS = ["เราขอแนะนำ", "ขอแนะนำ", "ซึ่ง", "ทั้งนี้", "อย่างไรก็ตาม", "นอกจากนี้", "ดังนั้น", "และ", "ก็", "จริงๆแล้ว", "จริง ๆ แล้ว"];
+export const PREAMBLE = ["สวัสดี", "วันนี้จะมา", "วันนี้เรามา", "วันนี้ขอ", "ก่อนอื่น", "หลายคนถาม", "ขอเล่า", "มาทำความรู้จัก", "ทำความเข้าใจ", "Hello", "Hi everyone", "Today we", "Today I", "Let's talk about", "Did you know"];
+export const WEAK_OPENERS = ["เราขอแนะนำ", "ขอแนะนำ", "ซึ่ง", "ทั้งนี้", "อย่างไรก็ตาม", "นอกจากนี้", "ดังนั้น", "และ", "ก็", "จริงๆแล้ว", "จริง ๆ แล้ว", "We recommend", "Which", "However", "Moreover", "Therefore", "And", "Also", "Actually"];
+/** a text begins with one of the words; English entries compare without case and stop at a word's end ("Which" is not "Whichever") */
+const startsWithAny = (text: string, words: string[]) => {
+  const t = text.toLowerCase();
+  return words.some((w) => {
+    const l = w.toLowerCase();
+    return t.startsWith(l) && !(/[a-z]$/.test(l) && /^[a-z]/.test(t.slice(l.length)));
+  });
+};
 /** words a reader of a Thai insurance post may not know; each wants a meaning where it first appears */
 export const JARGON = ["IRR", "co-payment", "copayment", "co-pay", "copay", "deductible", "annuity", "rider", "unit linked", "unit-linked", "cash value", "IPD", "OPD"];
 
@@ -126,7 +134,7 @@ function units(out: ContentOutput, format: FinishFormat): string[] {
   return [...paragraphs(out.body), ...paragraphs(out.closing)];
 }
 
-const COUNT = /(\d+)\s*(?:ข้อ|เรื่อง|จุด|อย่าง|วิธี|เหตุผล|สิ่ง)/;
+const COUNT = /(\d+)\s*(?:ข้อ|เรื่อง|จุด|อย่าง|วิธี|เหตุผล|สิ่ง|(?:reasons?|things?|tips?|ways?|mistakes?|questions?|steps?)\b)/i;
 const COUNT_WORDS: Record<number, string[]> = {
   1: ["แรก", "หนึ่ง"], 2: ["สอง"], 3: ["สาม"], 4: ["สี่"], 5: ["ห้า"], 6: ["หก"], 7: ["เจ็ด"], 8: ["แปด"], 9: ["เก้า"], 10: ["สิบ"],
 };
@@ -199,7 +207,7 @@ export function finishChecks(out: ContentOutput, format: FinishFormat): FinishRe
   const hook = spokenHook(out, format);
   const paras = units(out, format);
   const where: Record<FinishCheckId, () => string[]> = {
-    "no-preamble": () => (PREAMBLE.some((p) => hook.startsWith(p)) ? [clip(hook)] : []),
+    "no-preamble": () => (startsWithAny(hook, PREAMBLE) ? [clip(hook)] : []),
     "hook-short": () => (visibleLength(hook) > FINISH_HOOK_MAX ? [`${visibleLength(hook)}/${FINISH_HOOK_MAX} ตัวอักษร`] : []),
     "para-lines": () => paras.filter((p) => mobileLines(p) > 4).map((p) => clip(p)),
     "run-lines": () => paras
@@ -207,7 +215,7 @@ export function finishChecks(out: ContentOutput, format: FinishFormat): FinishRe
       .filter((r) => !r.startsWith("#") && !r.startsWith("http") && visibleLength(r) > MOBILE_LINE * 2)
       .map((r) => clip(r)),
     "lead-words": () => paras
-      .filter((p) => WEAK_OPENERS.some((w) => opening(p).startsWith(w)))
+      .filter((p) => startsWithAny(opening(p), WEAK_OPENERS))
       .map((p) => clip(p)),
     jargon: () => jargon(out),
     "list-count": () => listCount(out),

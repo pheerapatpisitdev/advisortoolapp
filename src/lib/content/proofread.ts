@@ -1,4 +1,5 @@
 import { chat, parseJsonReply } from "@/lib/ai/client";
+import type { Lang } from "./output";
 
 /**
  * The second check: a cheap model reads the finished post for Thai that is wrong or stiff.
@@ -23,6 +24,16 @@ const SYSTEM = [
   'ตอบเป็น JSON อย่างเดียว: {"fixes":[{"find":"…","replace":"…","why":"…"}]} ไม่เกิน 8 จุด',
 ].join("\n");
 
+const SYSTEM_EN = [
+  "You are an English copy editor. Proofread the insurance post you are given; its readers are not native English speakers.",
+  "Look only for: spelling mistakes, grammar mistakes, repeated words, and phrasing that sounds unnatural or hard for a non-native reader.",
+  "Never change numbers, the plan name, hashtags or the meaning. Never rewrite a whole paragraph.",
+  "find must be copied from the post exactly, character for character, and be as short as is still clear.",
+  "Write why in Thai, in a few words, for the staff who read it.",
+  "If nothing needs fixing, answer with an empty fixes array.",
+  'Answer with JSON only: {"fixes":[{"find":"…","replace":"…","why":"…"}]} with at most 8 fixes.',
+].join("\n");
+
 export function parseProof(reply: string, post: string): Fix[] {
   const raw = parseJsonReply<{ fixes?: unknown }>(reply);
   if (!raw || !Array.isArray(raw.fixes)) return [];
@@ -37,11 +48,11 @@ export function parseProof(reply: string, post: string): Fix[] {
   return out.slice(0, 8);
 }
 
-export async function proofread(post: string): Promise<{ fixes: Fix[]; costThb: number }> {
+export async function proofread(post: string, lang: Lang = "th"): Promise<{ fixes: Fix[]; costThb: number }> {
   const r = await chat({
     tier: "small",
     task: "content-proofread",
-    messages: [{ role: "system", content: SYSTEM }, { role: "user", content: post }],
+    messages: [{ role: "system", content: lang === "en" ? SYSTEM_EN : SYSTEM }, { role: "user", content: post }],
     maxTokens: 900,
     json: true,
   });

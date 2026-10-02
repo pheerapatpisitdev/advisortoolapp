@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { parseProof } from "@/lib/content/proofread";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/ai/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ai/client")>()),
+  chat: vi.fn(),
+}));
+
+import { chat } from "@/lib/ai/client";
+import { parseProof, proofread } from "@/lib/content/proofread";
 
 describe("parseProof", () => {
   const post = "ประกันนี้คุ้มคลองถึงอายุ 99 ปี\nสังเกตุว่าเบี้ยเท่าเดิม";
@@ -27,5 +34,16 @@ describe("parseProof", () => {
 
   it("reads an unreadable reply as no suggestions rather than an error", () => {
     expect(parseProof("ขอโทษครับ", post)).toEqual([]);
+  });
+});
+
+describe("proofread", () => {
+  it("asks an English editor for an English post, a Thai one otherwise", async () => {
+    const ai = vi.mocked(chat);
+    ai.mockResolvedValue({ text: '{"fixes":[]}', costThb: 0 } as Awaited<ReturnType<typeof chat>>);
+    await proofread("Cover that stay with you", "en");
+    expect(ai.mock.calls[0][0].messages[0].content).toMatch(/English/);
+    await proofread("โพสต์");
+    expect(ai.mock.calls[1][0].messages[0].content).toMatch(/บรรณาธิการภาษาไทย/);
   });
 });
