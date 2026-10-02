@@ -15,21 +15,13 @@ import { ageWord } from "@/lib/lifeprotect-cta";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { LIFETREASURE_SUMS } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
 
-/**
- * The sums the slider offers: every million from the plan's ten-million floor to thirty,
- * then every five to fifty. The finer steps sit where most of this plan is written; above
- * thirty million the extra millions are a conversation rather than a slider.
- */
-const SUMS = [
-  ...Array.from({ length: 21 }, (_, i) => 10_000_000 + 1_000_000 * i),
-  ...Array.from({ length: 4 }, (_, i) => 35_000_000 + 5_000_000 * i),
-];
 const SUM_START_INDEX = 0;
 /** The term the page opens on: eighteen years puts the smallest number in front of a stranger. */
 const TERM_START = "H99F18A";
@@ -57,7 +49,7 @@ export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCa
     [table.ageMin, table.ageMax],
   );
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
-  const sumAssured = SUMS[sumIndex];
+  const sumAssured = LIFETREASURE_SUMS[sumIndex];
   const [variant, setVariant] = useState(TERM_START);
   const [age, setAge] = useState<LifeTreasureAge>(AGE_START);
   const [sex, setSex] = useState<Sex>("M");
@@ -129,7 +121,7 @@ export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCa
             <span className="text-lg text-[var(--lg-mute)]">บาท</span>
           </div>
           <input
-            id="lt-sum" type="range" min={0} max={SUMS.length - 1} step={1} value={sumIndex}
+            id="lt-sum" type="range" min={0} max={LIFETREASURE_SUMS.length - 1} step={1} value={sumIndex}
             onChange={(e) => setSumIndex(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--lg-gold)]"
           />

@@ -15,22 +15,13 @@ import { ageWord } from "@/lib/lifeprotect-cta";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { EASYPROTECT_SUMS } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
 
-/**
- * The sums the slider offers: every hundred thousand from the plan's five-hundred-thousand
- * floor to three million, then every half-million to ten. The fine steps sit where most of
- * this plan is written — a first policy, or a top-up on one — and the coarse ones above
- * keep the slider usable with a thumb.
- */
-const SUMS = [
-  ...Array.from({ length: 26 }, (_, i) => 500_000 + 100_000 * i),
-  ...Array.from({ length: 14 }, (_, i) => 3_500_000 + 500_000 * i),
-];
 /** The page opens on one million: the sum this plan is most often written at. */
 const SUM_START_INDEX = 5;
 /** The age the page opens on — a real price before a visitor touches anything. */
@@ -58,7 +49,7 @@ export function EasyProtectCalculator({ table, sticky = false }: EasyProtectCalc
     [table.ageMin, table.ageMax],
   );
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
-  const sumAssured = SUMS[sumIndex];
+  const sumAssured = EASYPROTECT_SUMS[sumIndex];
   const [age, setAge] = useState<EasyProtectAge>(AGE_START);
   const [sex, setSex] = useState<Sex>("M");
 
@@ -125,7 +116,7 @@ export function EasyProtectCalculator({ table, sticky = false }: EasyProtectCalc
             <span className="text-lg text-[var(--lg-mute)]">บาท</span>
           </div>
           <input
-            id="ep-sum" type="range" min={0} max={SUMS.length - 1} step={1} value={sumIndex}
+            id="ep-sum" type="range" min={0} max={EASYPROTECT_SUMS.length - 1} step={1} value={sumIndex}
             onChange={(e) => setSumIndex(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--lg-gold)]"
           />

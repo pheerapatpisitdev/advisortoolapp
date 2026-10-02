@@ -16,6 +16,7 @@ import { ageWord, lifeProtectQuoteText, type LifeProtectAge } from "@/lib/lifepr
 import { cardPath, valueTablePath } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { LIFEPROTECT_SUMS } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
@@ -23,16 +24,7 @@ import { largestAt } from "@/lib/highlighter";
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
 
-/**
- * The sums the slider offers: every half million up to ten, then every million up to fifty.
- * One step the whole way would be a hundred stops on a thumb-wide track; the coarser upper
- * half keeps the slider usable where the extra half-millions matter least.
- */
-const SUMS = [
-  ...Array.from({ length: 20 }, (_, i) => 500_000 * (i + 1)),
-  ...Array.from({ length: 40 }, (_, i) => 11_000_000 + 1_000_000 * i),
-];
-const SUM_START_INDEX = SUMS.indexOf(1_000_000);
+const SUM_START_INDEX = LIFEPROTECT_SUMS.indexOf(1_000_000);
 /**
  * The term the page opens on: the one that puts the smallest number in front of a stranger.
  * The other two are a tap away with their own prices already on them, so opening cheap costs
@@ -113,7 +105,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     [table.ageMin, table.ageMax],
   );
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
-  const sumAssured = SUMS[sumIndex];
+  const sumAssured = LIFEPROTECT_SUMS[sumIndex];
   const [variant, setVariant] = useState(TERM_START);
   const [age, setAge] = useState<LifeProtectAge>(AGE_START);
   const [sex, setSex] = useState<Sex>("M");
@@ -250,7 +242,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
             <span className="text-lg text-[var(--lg-mute)]">บาท</span>
           </div>
           <input
-            id="lp-sum" type="range" min={0} max={SUMS.length - 1} step={1} value={sumIndex}
+            id="lp-sum" type="range" min={0} max={LIFEPROTECT_SUMS.length - 1} step={1} value={sumIndex}
             onChange={(e) => setSumIndex(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--lg-gold)]"
           />

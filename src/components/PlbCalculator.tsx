@@ -11,21 +11,13 @@ import { cardPath, valueTablePath } from "@/lib/card-link";
 import { coverRows } from "@/lib/cover-rows";
 import { CoverTable } from "@/components/plb/CoverTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import { Highlighted } from "@/components/Highlighted";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
 
-/**
- * The sums the slider offers: every hundred thousand from the plan's floor to a million,
- * then every half million to five. The finer steps sit under a million, which is where the
- * rate discount changes and where most of this plan is sold.
- */
-const SUMS = [
-  ...Array.from({ length: 8 }, (_, i) => 300_000 + 100_000 * i),
-  ...Array.from({ length: 8 }, (_, i) => 1_500_000 + 500_000 * i),
-];
-const SUM_START_INDEX = SUMS.indexOf(1_000_000);
+const SUM_START_INDEX = PLB_SUMS.indexOf(1_000_000);
 /** The term the page opens on: twelve years is the one the company's own proposal illustrates. */
 const TERM_START = "PLB12";
 /** The age the page opens on — a real price before a visitor touches anything. */
@@ -53,7 +45,7 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
     [table.ageMin, table.ageMax],
   );
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
-  const sumAssured = SUMS[sumIndex];
+  const sumAssured = PLB_SUMS[sumIndex];
   const [variant, setVariant] = useState(TERM_START);
   const [age, setAge] = useState<PlbAge>(AGE_START);
   const [sex, setSex] = useState<Sex>("M");
@@ -128,7 +120,7 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
             <span className="text-lg text-[var(--lg-mute)]">บาท</span>
           </div>
           <input
-            id="plb-sum" type="range" min={0} max={SUMS.length - 1} step={1} value={sumIndex}
+            id="plb-sum" type="range" min={0} max={PLB_SUMS.length - 1} step={1} value={sumIndex}
             onChange={(e) => setSumIndex(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--lg-gold)]"
           />
