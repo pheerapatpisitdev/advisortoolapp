@@ -12,7 +12,7 @@ import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/vide
 import { parseAwsKey } from "@/lib/video/engines/lambda";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
 
-const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60 };
+const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false };
 
 export type { ProviderCheck } from "@/lib/ai/client";
 
@@ -286,10 +286,11 @@ export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
   await requireStaff("admin");
   if (s?.engine !== "rendi" && s?.engine !== "lambda") return { ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" };
   if (typeof s.fallback !== "boolean") return { ok: false, error: "ค่าสำรองไม่ถูกต้อง" };
+  if (typeof s.enabled !== "boolean") return { ok: false, error: "ค่าเปิดตัดต่อไม่ถูกต้อง" };
   // 60 and 600 are the two Rendi plans' limits (free, Pro); anything between is a typo
   if (s.rendiMaxSeconds !== 60 && s.rendiMaxSeconds !== 600) return { ok: false, error: "เวลาสูงสุดของ Rendi ต้องเป็น 60 หรือ 600 วินาที" };
   try {
-    await saveVideoSettings({ engine: s.engine, fallback: s.fallback, rendiMaxSeconds: s.rendiMaxSeconds });
+    await saveVideoSettings({ engine: s.engine, fallback: s.fallback, rendiMaxSeconds: s.rendiMaxSeconds, enabled: s.enabled });
   } catch (e) {
     return failed("บันทึกตัวตัดต่อไม่สำเร็จ", e);
   }

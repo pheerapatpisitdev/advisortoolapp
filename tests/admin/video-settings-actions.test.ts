@@ -94,34 +94,41 @@ describe("saveRenderKey", () => {
 describe("saveVideoEngine", () => {
   it("refuses an unknown engine and saves nothing", async () => {
     // @ts-expect-error — deliberately outside the union
-    const r = await saveVideoEngine({ engine: "ffmpeg", fallback: true, rendiMaxSeconds: 60 });
+    const r = await saveVideoEngine({ engine: "ffmpeg", fallback: true, rendiMaxSeconds: 60, enabled: false });
     expect(r).toEqual({ ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" });
     expect(upsert).not.toHaveBeenCalled();
   });
 
   it("refuses a Rendi limit that is neither plan's", async () => {
-    const r = await saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 90 });
+    const r = await saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 90, enabled: false });
     expect(r.ok).toBe(false);
     expect(upsert).not.toHaveBeenCalled();
   });
 
   it("refuses a fallback that is not a boolean instead of coercing it", async () => {
     // @ts-expect-error — deliberately wrong type
-    const r = await saveVideoEngine({ engine: "rendi", fallback: "false", rendiMaxSeconds: 60 });
+    const r = await saveVideoEngine({ engine: "rendi", fallback: "false", rendiMaxSeconds: 60, enabled: false });
+    expect(r.ok).toBe(false);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses an enabled that is not a boolean instead of coercing it", async () => {
+    // @ts-expect-error — deliberately wrong type
+    const r = await saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: "true" });
     expect(r.ok).toBe(false);
     expect(upsert).not.toHaveBeenCalled();
   });
 
   it("stores the engine, the fallback and the limit", async () => {
-    await expect(saveVideoEngine({ engine: "lambda", fallback: false, rendiMaxSeconds: 600 })).resolves.toEqual({ ok: true });
+    await expect(saveVideoEngine({ engine: "lambda", fallback: false, rendiMaxSeconds: 600, enabled: true })).resolves.toEqual({ ok: true });
     expect(upsert).toHaveBeenCalledTimes(1);
-    expect(upsert.mock.calls[0][0]).toMatchObject({ id: true, video_engine: "lambda", video_fallback: false, rendi_max_seconds: 600 });
+    expect(upsert.mock.calls[0][0]).toMatchObject({ id: true, video_engine: "lambda", video_fallback: false, rendi_max_seconds: 600, video_edit_enabled: true });
   });
 
   it("says in Thai when the database refuses", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     upsert.mockResolvedValue({ error: { message: "boom" } });
-    const r = await saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60 });
+    const r = await saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(/ไม่สำเร็จ/);
     log.mockRestore();
@@ -129,7 +136,7 @@ describe("saveVideoEngine", () => {
 
   it("is refused for a non-admin", async () => {
     staffAllowed = false;
-    await expect(saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60 })).rejects.toThrow("forbidden");
+    await expect(saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false })).rejects.toThrow("forbidden");
     expect(upsert).not.toHaveBeenCalled();
   });
 });

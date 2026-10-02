@@ -18,7 +18,7 @@ import { ClipEditStudio } from "./ClipEditStudio";
  * ตัดต่อ opens the clip editor (ClipEditStudio) in its place; once it has made a take, the
  * player plays that take, which is what goes up.
  */
-export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onItem, onClose, onDirtyChange, suggestDay }: {
+export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onItem, onClose, onDirtyChange, suggestDay, clipEditing }: {
   item: ContentItem;
   /** the agent may not post: วางแผน instead of ลงเพจ, as PieceEditor does */
   planner?: boolean;
@@ -31,6 +31,8 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
   /** the caption holds words not yet saved: the workbench asks before Back leaves them, as for PieceEditor */
   onDirtyChange?: (dirty: boolean) => void;
   suggestDay?: string | null;
+  /** the owner's switch (admin/ai): off hides the editor's door; a take already made still plays and posts */
+  clipEditing: boolean;
 }) {
   const v = item.output.video;
   const edit = v?.edit;
@@ -114,7 +116,7 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
   const button = "min-h-11 rounded-lg border border-[var(--ct-line)] px-4 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
   const chip = (on: boolean) => `min-h-11 rounded-lg border px-3 text-sm ${on ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] hover:bg-[var(--ct-soft)]"}`;
   // the editor needs words to cut by and a file to cut; a held Reel's editor only shows what was made
-  const canEdit = Boolean(v && !v.expired && (v.transcript?.length ?? 0) > 0 && (!locked || edit?.proxyPath));
+  const canEdit = Boolean(clipEditing && v && !v.expired && (v.transcript?.length ?? 0) > 0 && (!locked || edit?.proxyPath));
 
   // every answer of the editor is this piece, wherever it lives (a tab's list or one opened from the calendar): onSaved, never onItem's new-clip count
   if (editing && v) return <ClipEditStudio item={item} onItem={onSaved} onClose={() => setEditing(false)} />;

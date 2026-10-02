@@ -12,6 +12,7 @@ import { requireMember } from "@/lib/auth/viewer";
 import { limiter } from "@/lib/assistant/rate-limit";
 import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { takeRound } from "@/lib/auth/quota";
+import { videoSettings } from "@/lib/video/settings";
 import { prepareJob } from "@/lib/video/command";
 import { avoidAfterFailure, checkJob, claimSubmit, JOB_BUSY, releaseSubmit, submitJob, submitting } from "@/lib/video/jobs";
 import { CLIP_GONE, LINK_SECONDS, NOT_PREPARED, pageTheme, RENDER_DOWN, renderChecks, renderCostThb, startRender } from "@/lib/video/render-run";
@@ -42,6 +43,8 @@ const HELD = "Reel นี้ตั้งเวลาหรือลงเพจ�
 const BAD_PATCH = "ข้อมูลการตัดต่อไม่ถูกต้อง — โหลดหน้าใหม่แล้วลองอีกครั้ง";
 const CUT_RANGE = "ประโยคที่เลือกตัดไม่มีในคลิปนี้ — โหลดหน้าใหม่แล้วลองอีกครั้ง";
 const RACED = "มีการแก้คลิปนี้พร้อมกันอยู่ — โหลดหน้าใหม่แล้วลองอีกครั้ง";
+/** the owner's switch is off (admin/ai): nothing is claimed, sent or paid for */
+const EDITING_OFF = "ระบบตัดต่อคลิปยังไม่เปิดใช้";
 const MAX_SUBS = 200;
 const MAX_SUB_TEXT = 120;
 
@@ -51,6 +54,12 @@ const PREPARES_SPENT = "เตรียมคลิปนี้ครบ 5 ค�
 
 const answer = (item: ContentItem): EditResult => ({ ok: true, item: forClient(item) });
 const len = (s: string) => [...s].length;
+
+/** the switch, read fresh each time; a read that fails is a refusal too, never an edit let through */
+async function editingOn(): Promise<string | null> {
+  const on = await videoSettings().then((s) => s.enabled, () => null);
+  return on === null ? READ_FAILED : on ? null : EDITING_OFF;
+}
 
 type Guarded = { ok: true; item: ContentItem; video: ClipVideo } | { ok: false; error: string };
 
@@ -77,6 +86,8 @@ async function guarded(id: string, held = true): Promise<Guarded> {
  */
 export async function openEdit(id: string): Promise<EditResult> {
   await requireMember();
+  const off = await editingOn();
+  if (off) return { ok: false, error: off };
   const g = await guarded(id);
   if (!g.ok) return g;
   const { item, video } = g;
@@ -183,6 +194,8 @@ function cleanPatch(patch: EditPatch, v: ClipVideo): { ok: true; value: Partial<
 /** The agent's changes to the edit, checked and kept with a new rev. Not while a render is being made. */
 export async function saveEdit(id: string, patch: EditPatch): Promise<EditResult> {
   await requireMember();
+  const off = await editingOn();
+  if (off) return { ok: false, error: off };
   try {
     // a save can race a job's write: read again and build on that, up to three times
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -212,6 +225,8 @@ export async function saveEdit(id: string, patch: EditPatch): Promise<EditResult
  */
 export async function renderEdit(id: string): Promise<EditResult> {
   const viewer = await requireMember();
+  const off = await editingOn();
+  if (off) return { ok: false, error: off };
   const g = await guarded(id);
   if (!g.ok) return g;
   try {
@@ -250,6 +265,8 @@ export async function renderEdit(id: string): Promise<EditResult> {
 /** ใช้คลิปต้นฉบับ: the edited take is let go (its file too), so the Reel goes up as it was filmed. */
 export async function useOriginal(id: string): Promise<EditResult> {
   await requireMember();
+  const off = await editingOn();
+  if (off) return { ok: false, error: off };
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
       const g = await guarded(id);

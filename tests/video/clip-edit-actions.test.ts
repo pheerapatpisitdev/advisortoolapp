@@ -41,6 +41,8 @@ const ceiling = vi.hoisted(() => ({ ceilingBeforeRound: vi.fn(async (): Promise<
 vi.mock("@/lib/content/ceiling", () => ceiling);
 const quota = vi.hoisted(() => ({ takeRound: vi.fn() }));
 vi.mock("@/lib/auth/quota", () => quota);
+const sw = vi.hoisted(() => ({ enabled: true, failed: false }));
+vi.mock("@/lib/video/settings", () => ({ videoSettings: vi.fn(async () => { if (sw.failed) throw new Error("db down"); return { enabled: sw.enabled }; }) }));
 const auth = vi.hoisted(() => ({ requireMember: vi.fn(async () => ({ kind: "unitos", agentId: "a1", staff: null })) }));
 vi.mock("@/lib/auth/viewer", () => auth);
 
@@ -119,6 +121,8 @@ beforeEach(() => {
   quota.takeRound.mockResolvedValue(WALLET);
   ceiling.ceilingBeforeRound.mockResolvedValue(null);
   reads.after = null;
+  sw.enabled = true;
+  sw.failed = false;
   clipDb.reset(dbRow(video()));
 });
 
@@ -126,6 +130,42 @@ beforeEach(() => {
 const sendClaims = () => { clipDb.row = { ...clipDb.row!, publish_state: "posting", publish_at: new Date().toISOString(), fb_page_id: "105" }; };
 
 afterEach(() => vi.useRealTimers());
+
+describe("the owner's clip editing switch", () => {
+  const OFF = "ระบบตัดต่อคลิปยังไม่เปิดใช้";
+  const settle = (row: ReturnType<typeof dbRow>) => { clipDb.reset(row); clipDb.reads.length = 0; };
+
+  it("refuses all four actions when off, before any link, claim, round, job or write", async () => {
+    sw.enabled = false;
+    settle(dbRow(video({ edit: prepared({ renderedPath: TAKE }) })));
+    for (const act of [openEdit, renderEdit, useOriginal]) expect(await act(PIECE)).toEqual({ ok: false, error: OFF });
+    expect(await saveEdit(PIECE, { cut: [] })).toEqual({ ok: false, error: OFF });
+    expect(clipDb.writes).toBe(0);
+    expect(clipDb.reads).toEqual([]);
+    expect(quota.takeRound).not.toHaveBeenCalled();
+    expect(ceiling.ceilingBeforeRound).not.toHaveBeenCalled();
+    expect(rendi.submit).not.toHaveBeenCalled();
+    expect(lambda.submit).not.toHaveBeenCalled();
+    expect(storedEdit().renderedPath).toBe(TAKE);
+  });
+
+  it("refuses when the switch cannot be read, never letting an edit through", async () => {
+    sw.failed = true;
+    expect((await openEdit(PIECE)).ok).toBe(false);
+    expect((await renderEdit(PIECE)).ok).toBe(false);
+    expect(clipDb.writes).toBe(0);
+    expect(quota.takeRound).not.toHaveBeenCalled();
+  });
+
+  it("still polls a job already running, and settles it, when off", async () => {
+    sw.enabled = false;
+    settle(dbRow(video({ edit: prepared({ job: runningJob() }) })));
+    rendi.status.mockResolvedValue({ state: "running" });
+    const r = await pollEdit(PIECE);
+    expect(r.ok).toBe(true);
+    expect(rendi.status).toHaveBeenCalledWith("cmd-1");
+  });
+});
 
 describe("openEdit", () => {
   it("openEdit starts a free prepare job for a clip that was listened to", async () => {

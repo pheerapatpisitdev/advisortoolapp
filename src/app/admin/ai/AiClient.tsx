@@ -287,6 +287,13 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
             <input type="checkbox" checked={engine.fallback} onChange={(e) => setEngine({ ...engine, fallback: e.target.checked })} />
             <span>ถ้าตัวหลักทำไม่ได้ ให้ลองอีกตัวแทน</span>
           </label>
+          <div className="basis-full text-sm">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={engine.enabled} onChange={(e) => setEngine({ ...engine, enabled: e.target.checked })} />
+              <span>เปิดให้เอเจนต์ตัดต่อคลิป</span>
+            </label>
+            <p className="mt-0.5 text-xs text-[var(--bot-ink-mute)]">ปิดอยู่ = เอเจนต์ไม่เห็นปุ่มตัดต่อ · คลิปที่กำลังทำอยู่ยังทำต่อจนเสร็จ</p>
+          </div>
           <button disabled={pending} className="rounded bg-[var(--bot-navy)] px-3 py-1.5 text-sm text-[var(--bot-surface)] disabled:opacity-40">
             {busy === "engine" ? "กำลังบันทึก…" : "บันทึก"}
           </button>

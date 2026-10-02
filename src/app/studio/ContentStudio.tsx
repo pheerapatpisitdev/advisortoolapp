@@ -80,6 +80,8 @@ interface Props {
   planner: boolean;
   /** today's planned pieces not yet marked posted, for the banner */
   todayPlan: { id: string; title: string }[];
+  /** the owner lets agents edit clips (admin/ai); off hides the ตัดต่อ button */
+  clipEditing: boolean;
 }
 
 
@@ -248,7 +250,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
 }
 
-export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project, planner, todayPlan }: Props) {
+export function ContentStudio({ products, lengths, hooks, initialHook, initial, initialUsed, spend: initialSpend, initialOpen, people, forDay: initialDay, project, planner, todayPlan, clipEditing }: Props) {
   const [href, setHref] = useState(products[0]?.href ?? "");
   const [format, setFormat] = useState<Format>("post");
   /** จากแบบประกัน, รีวิวเคลม or หาทีม: the forms share the pieces, the models and the budget line */
@@ -1299,6 +1301,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 onClose={closeEditor}
                 onDirtyChange={setEditorDirty}
                 suggestDay={forDay}
+                clipEditing={clipEditing}
               />
               ) : (
               <PieceEditor

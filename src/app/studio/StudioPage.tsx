@@ -12,6 +12,7 @@ import { forClient } from "@/lib/content/clip";
 import { getContent, listContent, listHookTemplates, listPlanned } from "@/lib/content/store";
 import { contentSpend, contentWorkbench } from "./actions";
 import { ContentStudio } from "./ContentStudio";
+import { videoSettings } from "@/lib/video/settings";
 import { fillable, todayKey } from "@/lib/content/calendar";
 
 /**
@@ -40,7 +41,7 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
   // the workbench says what today's plan still holds
   const planner = !can(await getViewer().catch(() => null), "publish");
   const today = todayKey();
-  const [initial, used, hooks, spend, people, planned] = await Promise.all([
+  const [initial, used, hooks, spend, people, planned, clipEditing] = await Promise.all([
     contentWorkbench({ status: "draft", page: pageId }),
     // nothing for a project not known: every Page's pieces would show together
     mine || pageId ? listContent({ status: "used", pageId }, 20).catch(() => []) : Promise.resolve([]),
@@ -48,6 +49,8 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
     contentSpend(),
     listPeople().catch(() => []),
     planner ? listPlanned(today, today).then((l) => l.map(forClient)).catch(() => []) : Promise.resolve([]),
+    // a read that fails hides the button: the server refuses an edit while the switch is not known to be on
+    videoSettings().then((s) => s.enabled, () => false),
   ]);
   return (
     <ContentStudio
@@ -64,6 +67,7 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
       people={peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set((mine ?? []).map((p) => p.pageId))), mine ?? [], pageId ?? "")}
       project={project ? { pageId: project.pageId, pageName: project.pageName } : null}
       planner={planner}
+      clipEditing={clipEditing}
       todayPlan={planned.filter((i) => !i.plan?.doneAt).map((i) => ({ id: i.id, title: planTitle(i) }))}
     />
   );
