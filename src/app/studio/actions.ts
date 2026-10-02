@@ -11,7 +11,7 @@ import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { briefFor } from "@/lib/content/brief";
 import { findWords, strayNumbers, type ContentWord } from "@/lib/content/check";
 import { parseTemplatize, templatizeMessages } from "@/lib/content/hooks";
-import { langOf, type ContentOutput } from "@/lib/content/output";
+import { langOf, type ContentOutput, type Lang } from "@/lib/content/output";
 import { englishOutput } from "@/lib/content/lang";
 import { isLogoSpot } from "@/lib/content/logo";
 import { roundLogo } from "@/lib/content/logo-store";
@@ -92,13 +92,17 @@ const SAVE_MS = 20_000;
 /** a writer's one try (write.ts); the planner leaves at least this for the pieces */
 const WRITE_TRY_MS = 60_000;
 
-/** `checks`: a plan-less mode's own (mode-checks.ts) — หาทีม's rules, every figure */
-function flagsFor(o: ContentOutput, brief: string, words: ContentWord[], fixes: Fix[] | null, checks: Partial<ModeChecks> = {}): Flags {
+/**
+ * `lang`: the piece's language — the round's for a piece just written (its output is not yet
+ * marked), the stored piece's for an edit; an English one may carry no Thai (policy.ts).
+ * `checks`: a plan-less mode's own (mode-checks.ts) — หาทีม's rules, every figure.
+ */
+function flagsFor(o: ContentOutput, lang: Lang, brief: string, words: ContentWord[], fixes: Fix[] | null, checks: Partial<ModeChecks> = {}): Flags {
   const text = checkedText(o);
   return {
     numbers: strayNumbers(text, brief, { every: checks.every }),
     words: findWords(text, words),
-    policy: checkPolicy(text, { recruit: checks.recruit }),
+    policy: checkPolicy(text, { recruit: checks.recruit, lang }),
     // a suggestion whose words were edited away cannot be applied any more
     fixes: fixes ? fixes.filter((f) => text.includes(f.find)) : null,
   };
@@ -279,7 +283,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
           });
           return {
             planHref: brief.product.href, format: "post" as const, angle, length: null, output,
-            flags: flagsFor(output, `${brief.text}\n${figures}`, words, null),
+            flags: flagsFor(output, lang, `${brief.text}\n${figures}`, words, null),
             rateVersion: brief.rateVersion, model: heads.model, costThb: heads.costThb / sheets.length, hookTemplateId: null,
           };
         });
@@ -292,7 +296,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
         const planShare = round.planThb / round.pieces.length;
         const saved = await saveAll(round.pieces.map((w) => ({
           planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(w.output),
-          flags: flagsFor(w.output, brief.text, words, null),
+          flags: flagsFor(w.output, lang, brief.text, words, null),
           rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare, hookTemplateId: null,
         })), project.pageId);
         return roundResult(saved, round.planned, round.budgetHit);
@@ -309,7 +313,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
       const saved = await saveAll(written.pieces.map((w) => ({
         planHref: brief.product.href, format: input.format, angle, length,
         output: input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : inTongue(dressed(fact ? { ...w.output, fact } : w.output)),
-        flags: flagsFor(w.output, yardstick, words, null),
+        flags: flagsFor(w.output, lang, yardstick, words, null),
         rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare,
         hookTemplateId: template?.id ?? null,
       })), project.pageId);
@@ -597,7 +601,9 @@ export async function saveContentEdits(
       if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
       const view = publishView(item.publish);
       if (view.kind === "posting" || view.kind === "published") return { ok: false, error: ON_PAGE_EDIT };
-      const brief = briefFor(item.planHref);
+      // an English piece was written from the expat brief, and is checked against it again
+      const lang = langOf(item.output);
+      const brief = briefFor(item.planHref, undefined, { expat: lang === "en" });
       const output: ContentOutput = {
         ...item.output,
         hooks: edits.hooks.map((h) => h.slice(0, 400)),
@@ -623,14 +629,14 @@ export async function saveContentEdits(
         if (item.output.poster?.aiText) output.poster.aiText = item.output.poster.aiText;
         // and the poster's language, which is the piece's: the browser's word for it is not taken
         delete output.poster.lang;
-        if (langOf(item.output) === "en") output.poster.lang = "en";
+        if (lang === "en") output.poster.lang = "en";
       }
       // back to the plain colour: nobody drew it any more, and its file can go
       const dropped = opts.plain && kept && output.poster && !output.poster.background ? kept : null;
       if (opts.plain && !output.poster?.background) delete output.pictureBy;
       // the figures a numbers post was written from are allowed again, as the brief and the story are
       const yardstick = [brief?.text ?? "", item.output.fact ?? "", item.output.figures ?? ""].join("\n");
-      const flags = flagsFor(output, yardstick, words, item.flags.fixes, modeChecks(item.planHref, item.output.fact));
+      const flags = flagsFor(output, lang, yardstick, words, item.flags.fixes, modeChecks(item.planHref, item.output.fact));
       if (view.kind === "scheduled" && item.output.video) {
         // the edit never reaches a Reel (it goes up with the clip's own caption), and re-sending
         // would delete the held Reel and upload the whole file again for nothing

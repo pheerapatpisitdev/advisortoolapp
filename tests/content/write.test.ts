@@ -149,6 +149,13 @@ describe("posters from the writer", () => {
     expect(two.poster).toBeUndefined();
   });
 
+  it("takes no language from the model: a Thai round's poster stays Thai whatever the reply says", () => {
+    const reply = JSON.stringify({ pieces: [{ body: "a", poster: { layout: "top", lang: "en", blocks: [{ kind: "headline", text: "วันละ 20 บาท" }], theme: "sand" } }] });
+    const [one] = parsePieces(reply, plans.slice(0, 1), "")!;
+    expect(one.poster).toBeDefined();
+    expect(one.poster).not.toHaveProperty("lang");
+  });
+
   it("asks for a poster whose colour is one of the named themes, never a colour of the model's own", () => {
     const [system] = buildMessages({ brief: "b", format: "post", angle: "", custom: "", length: null, plans });
     expect(system.content).toContain('"poster"');

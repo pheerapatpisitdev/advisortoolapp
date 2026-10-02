@@ -136,3 +136,43 @@ describe("English headlines", () => {
     expect(headlineMessages([])[0].content).not.toContain(ENGLISH_RULES);
   });
 });
+
+describe("English headlines carry no Thai (final review, 2026-10-02)", () => {
+  it("opens the English system prompt in English, and leaves the Thai one as it was", () => {
+    const en = headlineMessages([sheet], "en")[0].content as string;
+    expect(en.split("\n")[0]).toBe("You write English Facebook post headlines for a life insurance agent in Thailand.");
+    expect(en).not.toContain("พาดหัวโพสต์เฟซบุ๊กภาษาไทย");
+    const th = headlineMessages([sheet])[0].content as string;
+    expect(th.split("\n")[0]).toBe("คุณเขียนพาดหัวโพสต์เฟซบุ๊กภาษาไทยให้ตัวแทนประกันชีวิต");
+    expect(headlineMessages([sheet], "th")).toEqual(headlineMessages([sheet]));
+  });
+  it("throws away an English headline with Thai in it for an English fallback", () => {
+    const reply = JSON.stringify({ pieces: [{ headline: "Cover ที่อยู่กับคุณ", imagePrompt: "an expat at home" }, { headline: "Cover that stays", imagePrompt: "x" }] });
+    const out = parseHeadlines(reply, 2, "en");
+    expect(out[0].headline).toBe(FALLBACK_HEADLINES_EN[0]);
+    expect(out[1].headline).toBe("Cover that stays");
+    // a Thai round keeps its Thai headline
+    expect(parseHeadlines(JSON.stringify({ pieces: [{ headline: "คุ้มครองยาว", imagePrompt: "x" }] }), 1)[0].headline).toBe("คุ้มครองยาว");
+  });
+  it("falls back to an expat picture for an English piece, a Thai one for a Thai piece", () => {
+    expect(parseHeadlines("not json", 1, "en")[0].imagePrompt).toBe(
+      "An expat adult living in Thailand reviewing household paperwork at a wooden table at home, natural window light, calm and hopeful mood, no text",
+    );
+    expect(parseHeadlines("not json", 1)[0].imagePrompt).toMatch(/^A Thai adult/);
+  });
+});
+
+describe("an English numbers poster (final review, 2026-10-02)", () => {
+  const en = (big: string): NumberSheet => ({
+    product: "iHealthy Ultra", sumLine: "Medical cover up to THB 1,000,000 a year", premiumLine: "", perDayLine: "About THB 32 a day in the first year",
+    claims: [], who: "Male, 35",
+    poster: { big, small: "Up to THB 1,000,000 a year · about THB 32 a day in year one" },
+  });
+  const sub = (s: NumberSheet) => numbersPoster(s, "navy", "en").blocks.find((b) => b.kind === "sub")?.text;
+  it("does not say the day figure twice when it is the big line", () => {
+    expect(sub(en("About THB 32 a day in the first year"))).toBe("Up to THB 1,000,000 a year");
+  });
+  it("keeps the sub line whole when the big line is the monthly premium", () => {
+    expect(sub(en("THB 980/month"))).toBe("Up to THB 1,000,000 a year · about THB 32 a day in year one");
+  });
+});

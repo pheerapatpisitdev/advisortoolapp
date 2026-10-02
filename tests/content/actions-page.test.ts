@@ -41,6 +41,11 @@ vi.mock("@/lib/auth/quota", async (orig) => {
   const real = await orig<typeof import("@/lib/auth/quota")>();
   return { ...real, takeRound: vi.fn(real.takeRound) };
 });
+// the real one, watched: which brief an edit is checked against
+vi.mock("@/lib/content/brief", async (orig) => {
+  const real = await orig<typeof import("@/lib/content/brief")>();
+  return { ...real, briefFor: vi.fn(real.briefFor) };
+});
 vi.mock("@/lib/content/people-store", () => ({
   personPhotos: vi.fn(async () => ({ person: { id: "person-1" }, photos: [{ bytes: Buffer.from("x"), mimeType: "image/png" }] })),
 }));
@@ -680,6 +685,49 @@ describe("a round ticked for expats (spec 2026-10-02)", () => {
     expect(await proofreadPiece("p1")).toEqual({ fixes: [] });
     const sys = ai.chat.mock.calls[0][0].messages[0].content as string;
     expect(sys).toMatch(/English/);
+  });
+
+  it("stops an English round whose writer put Thai in it, from the round's language", async () => {
+    ai.chat
+      .mockResolvedValueOnce({ text: JSON.stringify({ plans: [{ hook: "Hospital bills in Bangkok add up fast", angle: "a" }] }), model: "m", costThb: 0, outputTokens: 10 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ body: "Private hospitals bill in full.", closing: "Message us to check.", hashtags: ["#ประกันสุขภาพ"], imagePrompt: "a ward" }), model: "m", costThb: 0, outputTokens: 10 });
+    const r = await generateContent({ href: "/ihealthy-ultra", format: "post", angle: "expat_hospital", custom: "", length: null, count: 1, hookTemplateId: null, expat: true });
+    expect(r.ok).toBe(true);
+    const f = (r as { items: ContentItem[] }).items[0].flags.policy?.find((x) => x.code === "thai_in_english");
+    expect(f).toMatchObject({ severity: "block", match: "ประกันสุขภาพ" });
+  });
+
+  it("stops an English piece saved with Thai in it, and only an English one", async () => {
+    const english = {
+      hooks: ["Cover that stays"], body: "Cover that stays with you.", closing: "Message us.",
+      poster: { layout: "bottom" as const, theme: "navy" as const, blocks: [{ kind: "headline" as const, text: "Cover that stays" }] },
+    };
+    row = EN_ROW();
+    await saveContentEdits("p1", edits({ ...english, hashtags: ["#ประกันสุขภาพ"] }));
+    expect(row.flags.policy?.find((f) => f.code === "thai_in_english")).toMatchObject({ severity: "block", match: "ประกันสุขภาพ" });
+    row = make(null);
+    await saveContentEdits("p1", edits({ hashtags: ["#ประกันสุขภาพ"] }));
+    expect(row.flags.policy?.map((f) => f.code)).not.toContain("thai_in_english");
+    // the system's own footer is never read: an English piece in English is clean
+    row = EN_ROW();
+    await saveContentEdits("p1", edits({ ...english, hashtags: ["#expat"] }));
+    expect(row.flags.policy).toEqual([]);
+  });
+
+  it("checks an edited English piece against the expat brief, and a Thai one against the plain brief", async () => {
+    row = { ...EN_ROW(), planHref: "/ihealthy-ultra" };
+    await saveContentEdits("p1", edits({ body: "Cover that stays with you." }));
+    expect(briefFor).toHaveBeenLastCalledWith("/ihealthy-ultra", undefined, { expat: true });
+    row = { ...make(null), planHref: "/ihealthy-ultra" };
+    await saveContentEdits("p1", edits());
+    expect(briefFor).toHaveBeenLastCalledWith("/ihealthy-ultra", undefined, { expat: false });
+  });
+
+  it("still refuses ตัวเลขชัดๆ asked for a script, rather than writing it with the AI's angle", async () => {
+    const r = await generateContent({ href: "/ihealthy-ultra", format: "script", angle: "numbers", custom: "", length: "60", count: 1, hookTemplateId: null });
+    expect(r).toEqual({ ok: false, error: "มุมตัวเลขชัดๆ ใช้ได้กับโพสต์เฟซบุ๊กเท่านั้น" });
+    expect(store.saveContent).not.toHaveBeenCalled();
+    expect(ai.chat).not.toHaveBeenCalled();
   });
 
   it("learns no hook formula from an English piece", async () => {

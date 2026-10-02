@@ -11,6 +11,8 @@
  * The same rules go into the writer's prompt (POLICY_RULES_TH): stopping the sentence at the
  * source is cheaper than catching it afterwards, and catching it afterwards is still needed.
  */
+import type { Lang } from "./output";
+
 export type PolicySeverity = "block" | "warn";
 
 export interface PolicyRule {
@@ -121,7 +123,7 @@ export const POLICY_RULES_EN: PolicyRule[] = [
   },
   {
     code: "pii_request_en",
-    pattern: /\b(?:send|share|give|provide|text|enter|type)\b[^.!?\n]{0,15}?\b(?:passport (?:number|no\.?)|id (?:card )?number|national id|bank account(?: number)?|account number|password|pin)\b/i,
+    pattern: /\b(?:send|share|give|provide|text|enter|type)\b[^.!?\n]{0,15}?\b(?:passport (?:number|no\.?)|id (?:card )?number|national id|bank account(?: number)?|account number|password|pin (?:code|number))\b/i,
     severity: "block",
     message: "ขอข้อมูลส่วนตัวในโพสต์ — Facebook ห้าม",
     fix: "ชวนทักแชทก่อน แล้วค่อยขอข้อมูลในแชท เช่น “Message us to get started”",
@@ -133,9 +135,11 @@ export const POLICY_RULES_EN: PolicyRule[] = [
     message: "คำเกินจริงที่พิสูจน์ไม่ได้ — เสี่ยงโฆษณาถูกปฏิเสธ",
     fix: "ใช้ตัวเลขจริงจากตารางเบี้ยแทนคำว่า best / cheapest",
   },
+  // the unambiguous codes are caught on their own too: "Great for O-A holders" names a visa
+  // without the word (final review, 2026-10-02); "retirement", "work" and the like only beside it
   {
     code: "visa_type_en",
-    pattern: /\b(?:o-?a|o-?x|non-?o|non-?immigrant|retirement|elite|ltr|dtv|smart|education|marriage|business|work|tourist|long[- ]stay)\s+(?:visa|extension)\b|\b(?:visa|extension)\s+(?:type\s+)?(?:o-?a|o-?x|non-?o|dtv|ltr)\b/i,
+    pattern: /\b(?:o-?a|o-?x|non-?o|non-?immigrant|retirement|elite|ltr|dtv|smart|education|marriage|business|work|tourist|long[- ]stay)\s+(?:visa|extension)\b|\b(?:visa|extension)\s+(?:type\s+)?(?:o-?a|o-?x|non-?o|dtv|ltr)\b|\b(?:o-?a|o-?x|non-?o|non-?immigrant|dtv|ltr)\b|\bthai(?:land)? elite\b/i,
     severity: "block",
     message: "ระบุชื่อประเภทวีซ่า — ไม่เขียนในโพสต์ ให้ชวนทักแชทแทน",
     fix: "เขียนว่า “Message us to check your visa”",
@@ -147,7 +151,28 @@ export const POLICY_RULES_EN: PolicyRule[] = [
     message: "สัญญาว่าวีซ่าจะผ่าน — ห้าม ผลวีซ่าขึ้นกับสำนักงานตรวจคนเข้าเมือง",
     fix: "เขียนว่า “Message us to check your visa” แทนคำสัญญา",
   },
+  {
+    // out of Thailand it pays emergency treatment within 90 days of travel, and nothing else
+    code: "worldwide_en",
+    pattern: /(?<!\b(?:not|isn(?:'|’)t|aren(?:'|’)t|no)\s+)\b(?:worldwide|anywhere in the world|global (?:cover|coverage)|covered (?:everywhere|abroad)\b)/i,
+    severity: "block",
+    message: "อ้างว่าคุ้มครองทั่วโลก — แบบนี้คุ้มครองนอกประเทศเฉพาะรักษาฉุกเฉินภายใน 90 วันนับจากวันเดินทาง",
+    fix: "เขียนว่า “emergency treatment abroad within 90 days of travel”",
+  },
 ];
+
+/**
+ * An English piece with Thai in it (final review, 2026-10-02): a writer told to write English
+ * may still drop in a Thai hashtag or a Thai line, and the post would go to expats half in a
+ * language they cannot read. Raised only when the caller says the piece is English.
+ */
+const THAI_RUN = /[\u0E00-\u0E7F]+(?:[ \t]+[\u0E00-\u0E7F]+)*/;
+export const THAI_IN_ENGLISH = {
+  code: "thai_in_english",
+  severity: "block" as const,
+  message: "ชิ้นภาษาอังกฤษมีตัวอักษรไทย — โพสต์อังกฤษต้องไม่มีภาษาไทย",
+  fix: "แก้ส่วนที่เป็นภาษาไทยให้เป็นภาษาอังกฤษ",
+};
 
 export interface PolicyFinding {
   code: string;
@@ -220,7 +245,8 @@ export const RECRUIT_POLICY_RULES: PolicyRule[] = [
   },
 ];
 
-export function checkPolicy(text: string, opts: { recruit?: boolean } = {}): PolicyFinding[] {
+/** `lang`: the piece's language; "en" also stops any Thai in it (THAI_IN_ENGLISH) */
+export function checkPolicy(text: string, opts: { recruit?: boolean; lang?: Lang } = {}): PolicyFinding[] {
   const out: PolicyFinding[] = [];
   for (const rule of [...POLICY_RULES, ...POLICY_RULES_EN, ...(opts.recruit ? RECRUIT_POLICY_RULES : [])]) {
     const every = new RegExp(rule.pattern.source, `${rule.pattern.flags}g`);
@@ -231,6 +257,8 @@ export function checkPolicy(text: string, opts: { recruit?: boolean } = {}): Pol
       break;
     }
   }
+  const thai = opts.lang === "en" ? THAI_RUN.exec(text) : null;
+  if (thai) out.push({ ...THAI_IN_ENGLISH, match: thai[0] });
   return out;
 }
 

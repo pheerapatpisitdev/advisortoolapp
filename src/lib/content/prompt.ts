@@ -5,6 +5,7 @@ import type { PiecePlan } from "./plan";
 import { POLICY_RULES_TH } from "./policy";
 import type { Lang } from "./output";
 import { THEME_MOOD, THEMES } from "./poster";
+import { iHealthyFacts } from "@/lib/ihealthy-facts";
 
 /**
  * What the content generator asks of the model.
@@ -65,6 +66,9 @@ export const EXPAT_HREF = "/ihealthy-ultra";
  * The angles for an English post to expats, offered only with the form's tick. `say` is a
  * Thai instruction like the others — the post it asks for is English (ENGLISH_RULES).
  */
+// the sheet's own figures (data/riders/ihealthy-ultra.json), so the angles move with it; the
+// no-claim discount's three years are only in the sheet's wording, so they stay written here
+const { renewalToAge: RENEW_TO, outOfTerritoryDays: ABROAD_DAYS } = iHealthyFacts().terms;
 export const EXPAT_ANGLES = [
   {
     id: "expat_hospital", label: "ค่าโรงพยาบาลเอกชนในไทย",
@@ -76,15 +80,15 @@ export const EXPAT_ANGLES = [
   },
   {
     id: "expat_job", label: "ประกันบริษัทหมดเมื่อเปลี่ยนงานหรือเกษียณ",
-    say: "ประกันบริษัทหมดเมื่อเปลี่ยนงานหรือเกษียณ — ประกันกลุ่มของนายจ้างจบเมื่องานจบ แต่ประกันที่ซื้อเองอยู่กับเราต่อ ต่ออายุได้ถึงอายุ 98 ใช้ข้อมูลผลิตภัณฑ์เท่านั้น",
+    say: `ประกันบริษัทหมดเมื่อเปลี่ยนงานหรือเกษียณ — ประกันกลุ่มของนายจ้างจบเมื่องานจบ แต่ประกันที่ซื้อเองอยู่กับเราต่อ ต่ออายุได้ถึงอายุ ${RENEW_TO} ใช้ข้อมูลผลิตภัณฑ์เท่านั้น`,
   },
   {
     id: "expat_travel", label: "กลับบ้าน/เที่ยวต่างประเทศ",
-    say: "กลับบ้านหรือเที่ยวต่างประเทศ — นอกประเทศไทยคุ้มครองเฉพาะการรักษาฉุกเฉินที่เกิดภายใน 90 วันนับจากวันเดินทาง ต้องพูดว่า “ฉุกเฉิน” และ “90 วัน” ให้ชัด ห้ามพูดว่าคุ้มครองทั่วโลกหรือคุ้มครองทุกที่",
+    say: `กลับบ้านหรือเที่ยวต่างประเทศ — นอกประเทศไทยคุ้มครองเฉพาะการรักษาฉุกเฉินที่เกิดภายใน ${ABROAD_DAYS} วันนับจากวันเดินทาง ต้องพูดว่า “ฉุกเฉิน” และ “${ABROAD_DAYS} วัน” ให้ชัด ห้ามพูดว่าคุ้มครองทั่วโลกหรือคุ้มครองทุกที่`,
   },
   {
     id: "expat_longstay", label: "อยู่ไทยยาว / เกษียณที่ไทย",
-    say: "อยู่ไทยยาวหรือเกษียณที่ไทย — ต่ออายุได้ถึงอายุ 98 มีส่วนลดเมื่อไม่เคลม 3 ปี และมีวงเงินสูงต่อปี ใช้ตัวเลขจากข้อมูลผลิตภัณฑ์เท่านั้น",
+    say: `อยู่ไทยยาวหรือเกษียณที่ไทย — ต่ออายุได้ถึงอายุ ${RENEW_TO} มีส่วนลดเมื่อไม่เคลม 3 ปี และมีวงเงินสูงต่อปี ใช้ตัวเลขจากข้อมูลผลิตภัณฑ์เท่านั้น`,
   },
   {
     id: "expat_english", label: "คุยกับตัวแทนเป็นภาษาอังกฤษได้",
@@ -141,7 +145,6 @@ export const ENGLISH_RULES = [
   "ENGLISH PIECE — this overrides the rules above about Thai particles (ครับ/ค่ะ), Thai word choices, and the “คนไทย” line for imagePrompt. Every other rule above still applies.",
   "- Every word the reader sees — hook, body, closing, poster blocks, hashtags — is natural English for expats living in Thailand. Use short sentences and plain international English; many readers are not native speakers.",
   "- The Page speaks as “we”. Money is written as “THB 1,000”, with digits taken from the brief.",
-  "- The rules about Thai particles (ครับ/ค่ะ) and Thai word choices do not apply; every other rule does.",
   "- imagePrompt: the people are foreign residents of mixed nationalities living their life in Thailand (instead of Thai people).",
   "- Visa: never name a visa type and never promise approval; invite readers to message us to check their visa.",
 ].join("\n");

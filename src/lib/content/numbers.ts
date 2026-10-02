@@ -108,6 +108,9 @@ export const FALLBACK_HEADLINES_EN = [
   "Check the numbers before you decide",
 ];
 const FALLBACK_PICTURE = "A Thai adult at home reviewing household paperwork at a wooden table, natural window light, calm and hopeful mood, no text";
+const FALLBACK_PICTURE_EN = "An expat adult living in Thailand reviewing household paperwork at a wooden table at home, natural window light, calm and hopeful mood, no text";
+/** a Thai letter: an English headline carrying one is thrown away, as one with a digit is */
+const THAI = /[\u0E00-\u0E7F]/;
 
 /** One call for the whole round: a headline and a picture line per sheet, from the cheap model. */
 export function headlineMessages(sheets: NumberSheet[], lang: Lang = "th"): ChatMessage[] {
@@ -116,7 +119,8 @@ export function headlineMessages(sheets: NumberSheet[], lang: Lang = "th"): Chat
     {
       role: "system",
       content: [
-        "คุณเขียนพาดหัวโพสต์เฟซบุ๊กภาษาไทยให้ตัวแทนประกันชีวิต",
+        // an English round is not opened by asking for a Thai headline (final review, 2026-10-02)
+        lang === "en" ? "You write English Facebook post headlines for a life insurance agent in Thailand." : "คุณเขียนพาดหัวโพสต์เฟซบุ๊กภาษาไทยให้ตัวแทนประกันชีวิต",
         "ใต้พาดหัว ระบบจะวางตัวเลขเบี้ยและทุนให้เอง พาดหัวมีหน้าที่ทำให้คนหยุดอ่านตัวเลข",
         "กติกา: ห้ามมีตัวเลขใดๆ ทั้งเลขอารบิกและเลขไทย · ยาวไม่เกิน 60 ตัวอักษร · ห้ามสัญญาเกินข้อมูลที่ให้ · ห้ามใช้คำว่าถูกที่สุด ดีที่สุด การันตี · ห้ามอ้างว่าคุ้มครองครบ ครบจบ หรือทุกอย่าง — ทุกแบบมีข้อยกเว้น",
         "imagePrompt: คำบรรยายภาพประกอบเป็นภาษาอังกฤษ 1–2 ประโยค คนไทย แสงธรรมชาติ ห้ามมีตัวหนังสือในภาพ",
@@ -137,9 +141,12 @@ export function parseHeadlines(reply: string, count: number, lang: Lang = "th"):
     const p = list[i] ?? {};
     const fallbacks = lang === "en" ? FALLBACK_HEADLINES_EN : FALLBACK_HEADLINES;
     const fallback = fallbacks[i % fallbacks.length];
-    const picture = typeof p.imagePrompt === "string" && p.imagePrompt.trim() ? p.imagePrompt.trim() : FALLBACK_PICTURE;
+    const picture = typeof p.imagePrompt === "string" && p.imagePrompt.trim() ? p.imagePrompt.trim() : lang === "en" ? FALLBACK_PICTURE_EN : FALLBACK_PICTURE;
+    const said = typeof p.headline === "string" ? p.headline : "";
     // a theme the model made up is no theme; the caller falls back to its own
     const theme = (THEMES as readonly unknown[]).includes(p.theme) ? (p.theme as Theme) : undefined;
-    return { headline: safeHeadline(typeof p.headline === "string" ? p.headline : "", fallback), imagePrompt: picture, ...(theme ? { theme } : {}) };
+    // an English headline with Thai in it goes the way of one with a digit
+    const headline = lang === "en" && THAI.test(said) ? fallback : safeHeadline(said, fallback);
+    return { headline, imagePrompt: picture, ...(theme ? { theme } : {}) };
   });
 }

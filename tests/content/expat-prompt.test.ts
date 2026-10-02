@@ -42,3 +42,20 @@ describe("English rules", () => {
     expect(planMessages(plan)[0].content).not.toContain(ENGLISH_RULES);
   });
 });
+
+describe("the expat angles' figures (final review, 2026-10-02)", () => {
+  it("come from the benefit sheet, so a change to it changes what the writer is told", async () => {
+    const { iHealthyFacts } = await import("@/lib/ihealthy-facts");
+    const { renewalToAge, outOfTerritoryDays } = iHealthyFacts().terms;
+    expect(angleText("expat_job", "")).toContain(`ต่ออายุได้ถึงอายุ ${renewalToAge}`);
+    expect(angleText("expat_longstay", "")).toContain(`ต่ออายุได้ถึงอายุ ${renewalToAge}`);
+    expect(angleText("expat_travel", "")).toContain(`ภายใน ${outOfTerritoryDays} วันนับจากวันเดินทาง`);
+    expect(angleText("expat_travel", "")).toContain(`“${outOfTerritoryDays} วัน”`);
+  });
+});
+
+describe("the English rules say each thing once", () => {
+  it("override the Thai-particle rule in one place", () => {
+    expect(ENGLISH_RULES.split("ครับ/ค่ะ").length - 1).toBe(1);
+  });
+});
