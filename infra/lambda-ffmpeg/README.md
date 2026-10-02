@@ -25,14 +25,14 @@ export REPO=$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$FN
 aws ecr create-repository --repository-name $FN --region $AWS_REGION
 aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
-cd infra/lambda-ffmpeg
+cd infra   # the build context is infra/ (the render code in infra/ffmpeg-core is shared with Cloud Run)
 # ffmpeg 6.0.1 static build, checksum computed from the archive at
 # https://johnvansickle.com/ffmpeg/old-releases/ffmpeg-6.0.1-amd64-static.tar.xz
 # (to use another version: download it, run `shasum -a 256 <file>`, pass both --build-arg values)
 docker build --platform linux/amd64 --provenance=false \
   --build-arg FFMPEG_VERSION=6.0.1 \
   --build-arg FFMPEG_SHA256=28268bf402f1083833ea269331587f60a242848880073be8016501d864bd07a5 \
-  -t $FN .
+  -f lambda-ffmpeg/Dockerfile -t $FN .
 docker tag $FN:latest $REPO:latest
 docker push $REPO:latest
 ```
@@ -108,3 +108,9 @@ aws lambda get-function --function-name $FN --region $AWS_REGION --query 'Config
 
 Expect `Active`, `3008`, `900`, `10240`. Logs of every render (including failures, by job id) are in CloudWatch:
 AWS console, CloudWatch, Log groups, `/aws/lambda/clip-ffmpeg`.
+
+## If the function is already deployed
+
+The render code now lives in `infra/ffmpeg-core/` (shared with Cloud Run), so the image layout changed
+(`lambda-ffmpeg/handler.handler`). Behaviour is identical. Rebuild with the step 1 command, push, and run the
+`update-function-code` command from step 3 to pick it up.

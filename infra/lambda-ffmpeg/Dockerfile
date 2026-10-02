@@ -9,5 +9,7 @@ RUN test -n "$FFMPEG_SHA256" || { echo "build with --build-arg FFMPEG_SHA256=<sh
     echo "${FFMPEG_SHA256}  /tmp/ffmpeg.tar.xz" | sha256sum -c - && \
     mkdir /opt/ffmpeg && tar -xJf /tmp/ffmpeg.tar.xz -C /opt/ffmpeg --strip-components=1 && \
     rm /tmp/ffmpeg.tar.xz && dnf clean all
-COPY core.mjs handler.mjs ${LAMBDA_TASK_ROOT}/
-CMD ["handler.handler"]
+# Build context is the infra/ folder (the render code is shared with cloudrun-ffmpeg): see README step 1.
+COPY ffmpeg-core/ ${LAMBDA_TASK_ROOT}/ffmpeg-core/
+COPY lambda-ffmpeg/handler.mjs ${LAMBDA_TASK_ROOT}/lambda-ffmpeg/
+CMD ["lambda-ffmpeg/handler.handler"]

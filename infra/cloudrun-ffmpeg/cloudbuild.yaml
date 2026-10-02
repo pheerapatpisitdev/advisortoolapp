@@ -1,0 +1,16 @@
+# Run from the repo root:  gcloud builds submit infra --config infra/cloudrun-ffmpeg/cloudbuild.yaml --substitutions _IMAGE=...,_FFMPEG_SHA256=...
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - cloudrun-ffmpeg/Dockerfile
+      - --build-arg
+      - FFMPEG_VERSION=6.0.1
+      - --build-arg
+      - FFMPEG_SHA256=${_FFMPEG_SHA256}
+      - -t
+      - ${_IMAGE}
+      - .
+images:
+  - ${_IMAGE}
