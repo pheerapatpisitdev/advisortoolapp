@@ -11,7 +11,7 @@ import { blocksKey } from "@/lib/content/poster-text";
 
 let row: ContentItem;
 const store = vi.hoisted(() => ({
-  getContent: vi.fn(), claimPublish: vi.fn(), recordPublishIf: vi.fn(), listDue: vi.fn(), saveOutput: vi.fn(),
+  getContent: vi.fn(), claimPublish: vi.fn(), recordPublishIf: vi.fn(), listDue: vi.fn(), saveOutput: vi.fn(), saveOutputIf: vi.fn(),
   adoptPage: vi.fn(async () => undefined),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), postReel: vi.fn(), deletePost: vi.fn(), postState: vi.fn(), reelState: vi.fn() }));
@@ -74,6 +74,12 @@ beforeEach(() => {
   });
   store.recordPublishIf.mockImplementation(async (_id: string, from: Parameters<typeof applyIf>[0], p: Parameters<typeof applyIf>[1]) => applyIf(from, p));
   store.saveOutput.mockImplementation(async (_id: string, out: ContentOutput) => { row = { ...row, output: out }; return row; });
+  // the table's guarded write: applied only while the piece's rev is the one the caller read
+  store.saveOutputIf.mockImplementation(async (_id: string, out: ContentOutput, _f: unknown, rev: string | null) => {
+    if ((row.output.rev ?? null) !== rev) return null;
+    row = { ...row, output: { ...out, rev: `r${Math.random()}` } };
+    return row;
+  });
   conn.pageConnections.mockResolvedValue([{ pageId: PAGE, pageName: "LuckyPlanner", scopes: ["pages_manage_posts"] }]);
   conn.pageToken.mockResolvedValue("token");
   let n = 100;
@@ -399,6 +405,68 @@ describe("a Reel", () => {
   });
   const reel = (v = video(), format: ContentItem["format"] = "clip", flags: ContentItem["flags"] = clean) =>
     ({ ...piece(null, { ...output, hooks: [], body: "", video: v }), format, flags });
+
+  const edit = (over: Record<string, unknown> = {}) => ({ rev: "r1", cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box" as const, ...over });
+  const jobOf = (kind: "prepare" | "render", ago = 60_000) =>
+    ({ kind, engine: "lambda" as const, id: "j1", startedAt: new Date(Date.now() - ago).toISOString(), tokenHash: "h" });
+
+  it("goes up as the edited take when there is one", async () => {
+    row = reel(video({ edit: edit({ renderedPath: "p1/edited.mp4", renderedRev: "r1" }) }));
+    await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true });
+    expect(clips.clipReadUrl).toHaveBeenCalledWith("p1/edited.mp4", expect.any(Number));
+  });
+  it("asks before posting a take older than the edit, and posts it once confirmed", async () => {
+    row = reel(video({ edit: edit({ renderedPath: "p1/edited.mp4", renderedRev: "r1", rev: "r2" }) }));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).toMatchObject({ ok: false, confirmStale: true });
+    expect(fb.postReel).not.toHaveBeenCalled();
+    expect((await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true, confirmStale: true })).ok).toBe(true);
+  });
+  it("posts the original when the edit was never rendered", async () => {
+    row = reel(video({ edit: edit() }));
+    await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true });
+    expect(clips.clipReadUrl).toHaveBeenCalledWith(row.output.video!.path, expect.any(Number));
+  });
+
+  it("will not post or schedule while a render is running or being sent, but a prepare does not stop it", async () => {
+    const wait = "กำลังสร้างคลิปที่ตัดต่อ — รอให้เสร็จก่อนลงเพจ";
+    row = reel(video({ edit: edit({ job: jobOf("render") }) }));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).toEqual({ ok: false, error: wait });
+    expect(await publish({ id: "p1", pageId: PAGE, at: hoursAhead(2).toISOString(), confirmSpoken: true })).toEqual({ ok: false, error: wait });
+    row = reel(video({ edit: edit({ submitting: { id: "c", at: new Date().toISOString(), kind: "render" } }) }));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).toEqual({ ok: false, error: wait });
+    expect(fb.postReel).not.toHaveBeenCalled();
+    row = reel(video({ edit: edit({ job: jobOf("prepare") }) }));
+    expect((await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).ok).toBe(true);
+  });
+  it("a render that never answered, or a dead submit claim, does not hold the Reel", async () => {
+    row = reel(video({ edit: edit({ job: jobOf("render", 20 * 60_000), submitting: { id: "c", at: minutesAgo(10), kind: "render" } }) }));
+    expect((await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).ok).toBe(true);
+  });
+  it("moving a held Reel is not stopped by a render or a stale take", async () => {
+    row = reel(video({ edit: edit({ rev: "r2", renderedPath: "p1/e.mp4", renderedRev: "r1", job: jobOf("render") }) }));
+    row = { ...row, publish: pub({ postId: "v9", at: hoursAhead(3).toISOString() }) };
+    expect((await move("p1", hoursAhead(5))).ok).toBe(true);
+  });
+
+  it("an edit a render wrote while publish worked is not wiped by publish's own write", async () => {
+    row = reel(video());
+    fb.postReel.mockImplementationOnce(async () => {
+      // the render finishes between publish's read and its write of the opening line
+      row = { ...row, output: { ...row.output, rev: "rX", video: { ...row.output.video!, edit: edit({ renderedPath: "p1/new.mp4", renderedRev: "r1" }) } } };
+      return { id: "v500" };
+    });
+    const r = await publish({ id: "p1", pageId: PAGE, at: null, hook: 2, confirmSpoken: true });
+    expect(r.ok).toBe(true);
+    expect(row.output.video?.edit?.renderedPath).toBe("p1/new.mp4");
+    expect(row.output.postedHook).toBe(2);
+    expect(store.saveOutput).not.toHaveBeenCalled();
+  });
+
+  it("an expired clip never gets a link to its removed file, edited take or not", async () => {
+    row = reel(video({ expired: true, edit: edit({ renderedPath: "p1/edited.mp4", renderedRev: "r1" }) }));
+    expect(await publish({ id: "p1", pageId: PAGE, at: null, confirmSpoken: true })).toEqual({ ok: false, error: CLIP_EXPIRED });
+    expect(clips.clipReadUrl).not.toHaveBeenCalled();
+  });
 
   it("goes up through postReel with the caption and no poster drawn", async () => {
     row = reel();

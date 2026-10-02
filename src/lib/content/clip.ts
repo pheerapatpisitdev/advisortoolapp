@@ -110,6 +110,22 @@ export interface ClipEdit {
   renderedRev?: string;
   error?: string;
 }
+/**
+ * a submit claim this old was left by a request that died (a submit signs links, draws the
+ * subtitles and asks the engines — well inside the 300 s a function may run); it counts for nothing
+ */
+export const SUBMIT_STALE_MS = 5 * 60_000;
+/**
+ * A take is being made right now — a render job still inside its time, or a render submit
+ * claim that is not stale — so what the Reel would go up as is about to change. A prepare
+ * does not count: it makes the preview, not the take.
+ */
+export function renderRunning(edit: ClipEdit | undefined, now = Date.now()): boolean {
+  const job = edit?.job;
+  if (job?.kind === "render" && now - new Date(job.startedAt).getTime() <= EDIT_JOB_TIMEOUT_MS) return true;
+  const claim = edit?.submitting;
+  return Boolean(claim && claim.kind === "render" && now - new Date(claim.at).getTime() <= SUBMIT_STALE_MS);
+}
 /** a job that has not answered for this long has failed; the wallet hands a hold back at the same 15 minutes */
 export const EDIT_JOB_TIMEOUT_MS = 15 * 60_000;
 

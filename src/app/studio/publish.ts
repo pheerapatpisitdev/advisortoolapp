@@ -61,6 +61,8 @@ export async function publishPiece(input: {
   confirmNumbers?: boolean;
   /** what was said in a clip has been looked at (a refusal came back with confirmSpoken) */
   confirmSpoken?: boolean;
+  /** an older take than the edit has been accepted (a refusal came back with confirmStale) */
+  confirmStale?: boolean;
   /**
    * The owner has checked the Page and wants it sent again, though Facebook may already show
    * it (a refusal came back with confirmRepost). Without it such a piece is refused.
@@ -77,7 +79,7 @@ export async function publishPiece(input: {
  * evening, …); a held one keeps its Page and its time of day and moves to the new day, unless
  * that time has gone on the new day, when it takes a slot the same way.
  */
-export async function scheduleOnDay(input: { id: string; day: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; force?: boolean }): Promise<PublishResult> {
+export async function scheduleOnDay(input: { id: string; day: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
   await requireStaff("publish");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day)) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
   // Thailand's today, now — a board left open overnight still thinks it is yesterday
@@ -93,7 +95,7 @@ export async function scheduleOnDay(input: { id: string; day: string; pageId: st
     : dropTime(input.day, await takenOn(input.day, pageId, item.id));
   if (!time) return { ok: false, error: DAY_GONE };
   if (held) return shown(await move(item.id, bangkokAt(input.day, time), input.confirmNumbers));
-  return shown(await publish({ id: item.id, pageId: input.pageId, at: bangkokAt(input.day, time).toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force }));
+  return shown(await publish({ id: item.id, pageId: input.pageId, at: bangkokAt(input.day, time).toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, confirmStale: input.confirmStale, force: input.force }));
 }
 
 const DAY_GONE = "วันนี้เลยเวลาลงโพสต์แล้ว — วางวันพรุ่งนี้หรือวันถัดไปแทนนะครับ";
@@ -117,7 +119,7 @@ async function takenOn(day: string, pageId: string | null, except: string): Prom
  * time a drop would give it — through the same checks as every other way up. Several are sent
  * one after another by the workbench, so each sees the ones before it as taken.
  */
-export async function scheduleNextOpen(input: { id: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; force?: boolean }): Promise<PublishResult> {
+export async function scheduleNextOpen(input: { id: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
   await requireStaff("publish");
   const today = todayKey();
   let rows: Awaited<ReturnType<typeof listPublished>>;
@@ -131,11 +133,11 @@ export async function scheduleNextOpen(input: { id: string; pageId: string; conf
     .map((r) => dayKey(new Date(r.publish!.at!))));
   const open = nextOpenDay(taken);
   if (!open) return { ok: false, error: "เพจนี้มีโพสต์ทุกวันใน 30 วันข้างหน้าแล้ว — เลือกวันเวลาเองในหน้าแก้ไข" };
-  return shown(await publish({ id: input.id, pageId: input.pageId, at: bangkokAt(open.day, open.time).toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force }));
+  return shown(await publish({ id: input.id, pageId: input.pageId, at: bangkokAt(open.day, open.time).toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, confirmStale: input.confirmStale, force: input.force }));
 }
 
 /** The day sheet's บันทึกเวลา: a Thai "YYYY-MM-DDTHH:MM", for a waiting piece or a held one. */
-export async function scheduleAt(input: { id: string; local: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; force?: boolean }): Promise<PublishResult> {
+export async function scheduleAt(input: { id: string; local: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
   await requireStaff("publish");
   const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(input.local);
   if (!m) return { ok: false, error: "เลือกวันและเวลาก่อนนะครับ" };
@@ -144,7 +146,7 @@ export async function scheduleAt(input: { id: string; local: string; pageId: str
   const item = await getContent(input.id).catch(() => null);
   if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
   if (item.publish?.state === "scheduled") return shown(await move(item.id, at, input.confirmNumbers));
-  return shown(await publish({ id: item.id, pageId: input.pageId, at: at.toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force }));
+  return shown(await publish({ id: item.id, pageId: input.pageId, at: at.toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, confirmStale: input.confirmStale, force: input.force }));
 }
 
 /** Takes back a post Facebook is holding, before its time. It can be scheduled again after. */

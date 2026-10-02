@@ -2,7 +2,7 @@ import { pageToken } from "@/lib/facebook/connection";
 import { aiTextState } from "./poster-text";
 import { myPageIds, myPages } from "@/lib/auth/pages";
 import { deletePost, MAX_AHEAD_MS, MIN_AHEAD_MS, postPhoto, postReel, postState, PublishError, REEL_MAX_AHEAD_MS, reelState, type Posted } from "@/lib/facebook/publish";
-import { reelDescription, spokenNotes } from "./clip";
+import { reelDescription, renderRunning, spokenNotes } from "./clip";
 import { clipReadUrl } from "./clip-store";
 import { setContentStatus } from "@/app/studio/actions";
 import { audit } from "@/lib/auth/viewer";
@@ -13,7 +13,7 @@ import { contentProduct } from "./products";
 import { timeOfDay } from "./calendar";
 import { maybeOnPage, POSSIBLY_POSTED, stalePosting } from "./publish-label";
 import { POST_SCOPE } from "./posting-health";
-import { adoptPage, claimPublish, getContent, listDue, recordPublishIf, saveOutput, type ContentItem } from "./store";
+import { adoptPage, claimPublish, getContent, listDue, recordPublishIf, saveOutputIf, type ContentItem } from "./store";
 
 /**
  * Posting a piece to a Facebook Page, the steps behind the workbench's server actions
@@ -40,6 +40,8 @@ export const CONCURRENT = "มีการแก้ชิ้นนี้พร�
 export const MISSED = "ถึงเวลาแล้วแต่ Facebook ไม่ได้โพสต์ — ตั้งเวลาใหม่ได้";
 /** a held Reel Facebook could not process (its video node says error) */
 export const REEL_FAILED = "Facebook ประมวลผลคลิปไม่ผ่าน — แนบไฟล์ใหม่แล้วลงอีกครั้ง";
+export const EDIT_RENDERING = "กำลังสร้างคลิปที่ตัดต่อ — รอให้เสร็จก่อนลงเพจ";
+export const EDIT_STALE = "แก้ใบสั่งตัดต่อหลังสร้างคลิปแล้ว — จะลงคลิปที่สร้างไว้ล่าสุดไหม";
 export const CLIP_EXPIRED = "ไฟล์คลิปหมดอายุแล้ว — แนบคลิปใหม่ก่อนลงเพจ";
 /** a Reel's file is read by Facebook through this link; an hour covers a slow fetch */
 const REEL_LINK_SECONDS = 60 * 60;
@@ -55,6 +57,8 @@ export type PublishResult =
     confirmRepost?: boolean;
     /** things said in a clip a post would be flagged for, or that nobody has listened: confirmed, never blocked (owner, 2026-10-02) */
     confirmSpoken?: string[];
+    /** the edit moved on after the take was made: the owner decides whether the older take still goes up */
+    confirmStale?: true;
   };
 
 export type Refusal = Extract<PublishResult, { ok: false }>;
@@ -79,7 +83,7 @@ export const refused = (c: Cleared | Refusal): c is Refusal => "ok" in c;
  * cleared. `edited` checks a copy not yet saved, so an edit can be refused before it lands.
  */
 export async function clear(
-  input: { id: string; pageId: string; at: string | null; confirmNumbers?: boolean; confirmSpoken?: boolean; moving?: boolean; force?: boolean },
+  input: { id: string; pageId: string; at: string | null; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; moving?: boolean; force?: boolean },
   edited?: ContentItem,
 ): Promise<Cleared | Refusal> {
   const item = edited ?? await getContent(input.id).catch(() => null);
@@ -87,6 +91,8 @@ export async function clear(
   const video = item.output.video;
   if (item.format !== "post" && !video) return { ok: false, error: "โพสต์ลงเพจได้เฉพาะโพสต์เฟซบุ๊ก หรือชิ้นที่แนบคลิปแล้ว" };
   if (video?.expired) return { ok: false, error: CLIP_EXPIRED };
+  // a take being made would change what goes up: wait for it (a move only re-times a Reel Facebook already holds)
+  if (video && !input.moving && renderRunning(video.edit)) return { ok: false, error: EDIT_RENDERING };
   const p = item.publish;
   const state = p?.state;
   if (input.moving) {
@@ -116,6 +122,10 @@ export async function clear(
   if (video && !input.moving && !input.confirmSpoken) {
     const notes = spokenNotes(video);
     if (notes.length > 0) return { ok: false, error: "มีสิ่งที่พูดในคลิปที่ควรตรวจก่อนลง", confirmSpoken: notes };
+  }
+  // the take was made from an older edit: asked once, and the older take goes up when confirmed
+  if (video?.edit?.renderedPath && video.edit.renderedRev !== video.edit.rev && !input.moving && !input.confirmStale) {
+    return { ok: false, error: EDIT_STALE, confirmStale: true };
   }
 
   let at: Date | undefined;
@@ -179,7 +189,7 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
   if (video) {
     let fileUrl: string;
     try {
-      fileUrl = await clipReadUrl(video.path, REEL_LINK_SECONDS);
+      fileUrl = await clipReadUrl(video.edit?.renderedPath ?? video.path, REEL_LINK_SECONDS);
     } catch (e) {
       console.error("clip link not made:", e);
       const message = "เปิดไฟล์คลิปไม่ได้ ลองใหม่อีกครั้งนะครับ";
@@ -250,10 +260,7 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
     }
   }
   if (hook !== postedHookOf(saved)) {
-    saved = await saveOutput(saved.id, { ...saved.output, postedHook: hook }).catch((e) => {
-      console.error("posted hook not kept:", e);
-      return saved!;
-    });
+    saved = await keepPostedHook(saved, hook);
   }
   // posted is used: it moves to ใช้จริง, and its hook joins the formula library
   if (saved.status === "draft") await setContentStatus(saved.id, "used");
@@ -262,8 +269,28 @@ export async function send(c: Cleared, hook: number, claimAt?: string): Promise<
   return { ok: true, item: { ...saved, status: "used" } };
 }
 
+/**
+ * Keeps which opening line went up, writing only that field and only over the row as it was
+ * read (saveOutputIf), read again when another writer got in first — a render finishing meanwhile
+ * writes the clip's edit, and must not be wiped by a copy read before it.
+ */
+async function keepPostedHook(saved: ContentItem, hook: number): Promise<ContentItem> {
+  let cur: ContentItem | null = saved;
+  try {
+    for (let i = 0; i < 4 && cur; i++) {
+      const next = await saveOutputIf(cur.id, { ...cur.output, postedHook: hook }, undefined, cur.output.rev ?? null);
+      if (next) return next;
+      cur = await getContent(saved.id);
+    }
+    console.error("posted hook not kept: the piece kept changing");
+  } catch (e) {
+    console.error("posted hook not kept:", e);
+  }
+  return cur ?? saved;
+}
+
 export async function publish(input: {
-  id: string; pageId: string; at: string | null; hook?: number; confirmNumbers?: boolean; confirmSpoken?: boolean; force?: boolean;
+  id: string; pageId: string; at: string | null; hook?: number; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean;
 }): Promise<PublishResult> {
   const c = await clear(input);
   return refused(c) ? c : send(c, input.hook ?? 0);

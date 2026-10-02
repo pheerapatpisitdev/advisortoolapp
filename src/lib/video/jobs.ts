@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
-  CLIP_BUCKET, CLIP_MIN_SEC, EDIT_JOB_TIMEOUT_MS, MAX_HOOK_MAIN, MAX_HOOK_TOP,
+  CLIP_BUCKET, CLIP_MIN_SEC, EDIT_JOB_TIMEOUT_MS, MAX_HOOK_MAIN, MAX_HOOK_TOP, SUBMIT_STALE_MS,
   type ClipEdit, type ClipVideo, type EditJob, type EditPass, type EngineName, type Hook,
 } from "@/lib/content/clip";
 import { removeClip } from "@/lib/content/clip-store";
@@ -45,11 +45,7 @@ export const JOB_NO_FILES = "ตัวตัดต่อไม่ได้ส่
 export const COLLECT_BUDGET_MS = 240_000;
 /** a claim this old was made by a collector that died half way (past its 300 s); another may take over */
 export const COLLECT_STALE_MS = 6 * 60_000;
-/**
- * a submit claim this old was left by a request that died (a submit signs links, draws the
- * subtitles and asks the engines — well inside the 300 s a function may run); it counts for nothing
- */
-export const SUBMIT_STALE_MS = 5 * 60_000;
+export { SUBMIT_STALE_MS };
 /** a guarded write lost to another writer is tried again from a fresh read, this many times in all */
 const WRITE_TRIES = 4;
 
