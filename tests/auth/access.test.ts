@@ -90,18 +90,18 @@ describe("can", () => {
 
 describe("admitMember (owner, 2026-10-01)", () => {
   const member = (over: Partial<MemberRow> = {}): MemberRow => ({
-    id: "m1", phone: "0812345678", name: "สมชาย", status: "active", pin_changed_at: null, ...over,
+    id: "m1", email: "somchai@gmail.com", name: "สมชาย", status: "active", revoked_at: null, ...over,
   });
 
   it("lets an active member in with Studio only and no room", () => {
     expect(admitMember(member(), Date.now())).toEqual({
-      kind: "member", agentId: "m1", code: "0812345678", name: "สมชาย",
+      kind: "member", agentId: "m1", code: "somchai@gmail.com", name: "สมชาย",
       tenantId: null, tenantSlug: "", tenantName: "สมาชิกทั่วไป", trial: false, staff: null,
     });
   });
 
-  it("names a member with a blank name by their phone", () => {
-    expect(admitMember(member({ name: "  " }), Date.now())?.name).toBe("0812345678");
+  it("names a member with a blank name by their email", () => {
+    expect(admitMember(member({ name: "  " }), Date.now())?.name).toBe("somchai@gmail.com");
   });
 
   it("shuts out a member who is gone or suspended", () => {
@@ -109,10 +109,10 @@ describe("admitMember (owner, 2026-10-01)", () => {
     expect(admitMember(member({ status: "suspended" }), Date.now())).toBeNull();
   });
 
-  it("shuts out a session issued before the PIN changed", () => {
+  it("shuts out a session issued before the member was suspended", () => {
     const at = "2026-10-01T05:00:00Z";
-    expect(admitMember(member({ pin_changed_at: at }), Date.parse(at) - 1)).toBeNull();
-    expect(admitMember(member({ pin_changed_at: at }), Date.parse(at))).not.toBeNull();
+    expect(admitMember(member({ revoked_at: at }), Date.parse(at) - 1)).toBeNull();
+    expect(admitMember(member({ revoked_at: at }), Date.parse(at))).not.toBeNull();
   });
 
   it("marks a UnitOS agent as one", () => {

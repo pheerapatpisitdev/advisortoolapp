@@ -7,7 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  * nothing about a copy taken from another. Signing out now also stamps the agent's row in
  * ins_session_epochs (supabase/migrations/20261001_session_epochs.sql), and every session of
  * theirs issued before the stamp is refused — the same rule as UnitOS's key_epoch for a room
- * and a member's pin_changed_at, for one person at a time.
+ * and a member's revoked_at, for one person at a time.
  *
  * `agent_id` is a UnitOS agent's id or a member's (ins_members), so the table has no foreign key.
  */

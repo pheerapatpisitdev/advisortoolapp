@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { allowanceOf } from "@/lib/auth/quota";
 import { walletEntries, walletSettings, walletStatus } from "@/lib/wallet/store";
@@ -10,14 +11,15 @@ export const metadata: Metadata = { title: "กระเป๋าเงิน | 
 /**
  * An agent's wallet: what is in it, the free rounds left, the five top-ups, and what it was
  * spent on (owner, 2026-09-30). Every read has a fallback, so the page opens, empty, before the
- * wallet's tables exist. Staff have no wallet: they use AI without paying. A wallet a refund or
+ * wallet's tables exist. The owner has no wallet: they use AI without paying; assistants have one
+ * as any agent (owner, 2026-10-02). A wallet a refund or
  * a dispute froze says so, and to contact the office (owner, 2026-10-01).
  */
 export default async function WalletPage({ searchParams }: { searchParams: Promise<{ paid?: string }> }) {
   const viewer = await gatePage("/studio/wallet");
   const { paid } = await searchParams;
-  if (viewer.staff) {
-    return <p className="text-sm text-[var(--ct-mute)]">ทีมงานใช้ AI ใน Studio ได้โดยไม่ต้องเติมเงินครับ</p>;
+  if (can(viewer, "owner")) {
+    return <p className="text-sm text-[var(--ct-mute)]">เจ้าของระบบใช้ AI ใน Studio ได้โดยไม่ต้องเติมเงินครับ</p>;
   }
   const [settings, wallet, entries, allowance] = await Promise.all([
     walletSettings().catch(() => ({ enabled: false, multiplier: 2 })),

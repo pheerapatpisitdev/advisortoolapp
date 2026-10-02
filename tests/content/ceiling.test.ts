@@ -13,7 +13,8 @@ vi.mock("@/lib/auth/quota", () => quota);
 
 const { ceilingBeforeRound } = await import("@/lib/content/ceiling");
 const AGENT = { agentId: "a1", staff: null } as unknown as Viewer;
-const STAFF = { agentId: "s1", staff: { publish: true } } as unknown as Viewer;
+const OWNER = { agentId: "o1", staff: { owner: true, publish: true, connect: true, admin: true } } as unknown as Viewer;
+const ASSISTANT = { agentId: "s1", staff: { owner: false, publish: true, connect: true, admin: true } } as unknown as Viewer;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -28,16 +29,19 @@ describe("the ceiling before a round", () => {
     expect(quota.allowanceOf).not.toHaveBeenCalled();
   });
 
-  it("refuses a staff round and a free round once it is reached", async () => {
+  it("refuses the owner's round and a free round once it is reached", async () => {
     store.contentSpentThisMonth.mockResolvedValue(30);
-    expect(await ceilingBeforeRound(STAFF)).toBe(30);
+    expect(await ceilingBeforeRound(OWNER)).toBe(30);
     expect(await ceilingBeforeRound(AGENT)).toBe(30);
+    expect(await ceilingBeforeRound(ASSISTANT)).toBe(30);
   });
 
   it("lets through an agent whose free rounds are used: their wallet pays, and the ceiling is the owner's", async () => {
     store.contentSpentThisMonth.mockResolvedValue(31);
     quota.allowanceOf.mockResolvedValue({ limit: 10, used: 10 });
     expect(await ceilingBeforeRound(AGENT)).toBeNull();
+    // an assistant pays from their own wallet too (owner, 2026-10-02)
+    expect(await ceilingBeforeRound(ASSISTANT)).toBeNull();
   });
 
   it("leaves a ledger it cannot read to the round's own check", async () => {

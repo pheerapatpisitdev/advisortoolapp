@@ -44,7 +44,7 @@ export interface HomePage {
 export interface HomeInput {
   room: string;
   name: string;
-  /** may post to the Pages, and so may open the calendar and /admin/posting */
+  /** may post to the Pages, and so may open the calendar (and, an admin, /admin/posting) */
   publish: boolean;
   /** sees every Page (owner or admin); posting staff see only their own (src/lib/auth/pages.ts) */
   admin: boolean;
@@ -122,7 +122,8 @@ export function homeCards(input: HomeInput): HomeCard[] {
         },
         hooks,
         people(p.pageId),
-        settings(p.canPost ? "เชื่อมต่อ Facebook แล้ว" : "ยังไม่ให้สิทธิ์โพสต์"),
+        // /admin/posting is the admins' since 2026-10-02: an assistant's card has no door they cannot open
+        ...(input.admin ? [settings(p.canPost ? "เชื่อมต่อ Facebook แล้ว" : "ยังไม่ให้สิทธิ์โพสต์")] : []),
       ],
     }));
   }

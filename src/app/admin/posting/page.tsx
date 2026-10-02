@@ -62,7 +62,7 @@ function Activity({ a }: { a: PageActivity }) {
 }
 
 export default async function PostingAdminPage() {
-  await gatePage("/admin/posting", "publish");
+  await gatePage("/admin/posting", "admin");
   const [connections, rows] = await Promise.all([
     pageConnections(),
     /** null when the table could not be read — then the counts are left off, not shown as zero */

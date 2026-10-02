@@ -1,4 +1,4 @@
-import type { Viewer } from "@/lib/auth/access";
+import { can, type Viewer } from "@/lib/auth/access";
 import { allowanceOf, overAllowance } from "@/lib/auth/quota";
 import { contentCap, contentSpentThisMonth } from "./store";
 
@@ -11,9 +11,9 @@ import { contentCap, contentSpentThisMonth } from "./store";
  * round, where the money is set aside; this is the same question asked first, so a round the
  * ceiling would refuse is never taken.
  *
- * The ceiling stands over the owner's money only — staff rounds and the agent's free rounds. A
+ * The ceiling stands over the owner's money only — the owner's rounds and the free rounds. A
  * round paid from the agent's wallet is outside it (contentCap is Infinity there, owner
- * 2026-09-30), and an agent whose free rounds are used will be paid from their wallet: they are
+ * 2026-09-30), and an agent or assistant whose free rounds are used will be paid from their wallet: they are
  * let through to takeRound, which says whether the wallet can pay.
  *
  * The ceiling reached and the round under it gives the ceiling, for the caller's message; null
@@ -24,7 +24,7 @@ export async function ceilingBeforeRound(viewer: Viewer): Promise<number | null>
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
     if (spent < cap) return null;
-    if (!viewer.staff && overAllowance(await allowanceOf(viewer))) return null;
+    if (!can(viewer, "owner") && overAllowance(await allowanceOf(viewer))) return null;
     return cap;
   } catch (e) {
     console.error("content ceiling not read before the round:", e);

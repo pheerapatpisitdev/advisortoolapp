@@ -48,14 +48,20 @@ describe("the free rounds", () => {
     expect(FREE_ROUNDS_FROM.toISOString()).toBe("2026-09-30T17:00:00.000Z");
   });
 
-  it("are not staff's to count", async () => {
+  it("are not the owner's to count", async () => {
     expect(await allowanceOf({ ...agent, staff: { owner: true, publish: true, connect: true, admin: true } }))
       .toEqual({ limit: null, used: 0 });
+  });
+
+  it("are an assistant's as any agent's, whatever was ticked (owner, 2026-10-02)", async () => {
+    db.count = 4;
+    expect(await allowanceOf({ ...agent, staff: { owner: false, publish: true, connect: true, admin: true } }))
+      .toEqual({ limit: 10, used: 4 });
   });
 });
 
 describe("overAllowance", () => {
-  it("lets staff through, whatever they have used", () => {
+  it("lets the owner through, whatever they have used", () => {
     expect(overAllowance({ limit: null, used: 999 })).toBeNull();
   });
 

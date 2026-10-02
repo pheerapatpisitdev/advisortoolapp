@@ -54,10 +54,16 @@ describe("startTopUp", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("refuses staff, who write without a wallet", async () => {
-    who.viewer = { ...AGENT, staff: { owner: false, publish: true, connect: false, admin: false } };
+  it("refuses the owner, who writes without a wallet", async () => {
+    who.viewer = { ...AGENT, staff: { owner: true, publish: true, connect: true, admin: true } };
     expect(await startTopUp(100)).toMatchObject({ ok: false });
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("lets an assistant top up, as any agent (owner, 2026-10-02)", async () => {
+    who.viewer = { ...AGENT, staff: { owner: false, publish: true, connect: true, admin: true } };
+    await startTopUp(100);
+    expect(create).toHaveBeenCalled();
   });
 
   it("says so in Thai when Stripe refuses", async () => {

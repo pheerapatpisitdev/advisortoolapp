@@ -26,7 +26,7 @@ export async function agentsByCode(code: string): Promise<AgentRow[]> {
   return (data as unknown as AgentRow[]) ?? [];
 }
 
-const MEMBER_COLUMNS = "id, phone, name, status, pin_changed_at";
+const MEMBER_COLUMNS = "id, email, name, status, revoked_at";
 
 /** A member who signed up here (src/lib/auth/member.ts), or null. */
 export async function memberById(id: string): Promise<MemberRow | null> {
@@ -133,7 +133,7 @@ export async function audit(action: string, target: string | null, detail?: Reco
 }
 
 /**
- * What to call each id in a list: a UnitOS agent's name or code, a member's name or phone.
+ * What to call each id in a list: a UnitOS agent's name or code, a member's name or email.
  * Two plain reads rather than a join — since 2026-10-01 an `agent_id` may be either kind,
  * and the foreign keys that joins went through are gone. An id found in neither is left out.
  */
@@ -142,12 +142,12 @@ export async function displayNames(ids: string[]): Promise<Record<string, string
   if (unique.length === 0) return {};
   const [agents, members] = await Promise.all([
     supabaseAdmin().from("agents").select("id, name, agent_code").in("id", unique),
-    supabaseAdmin().from("ins_members").select("id, name, phone").in("id", unique),
+    supabaseAdmin().from("ins_members").select("id, name, email").in("id", unique),
   ]);
   if (agents.error) console.error("agent names unreadable:", agents.error.message);
   if (members.error) console.error("member names unreadable:", members.error.message);
   const names: Record<string, string> = {};
-  for (const m of (members.data ?? []) as { id: string; name: string | null; phone: string }[]) names[m.id] = m.name?.trim() || m.phone;
+  for (const m of (members.data ?? []) as { id: string; name: string | null; email: string }[]) names[m.id] = m.name?.trim() || m.email;
   for (const a of (agents.data ?? []) as { id: string; name: string | null; agent_code: string }[]) names[a.id] = a.name?.trim() || a.agent_code;
   return names;
 }

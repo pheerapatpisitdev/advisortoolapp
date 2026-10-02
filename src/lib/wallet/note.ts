@@ -1,7 +1,7 @@
 import { formatBaht } from "./money";
 
 /**
- * The line under every make button for an agent (not staff): the free rounds left, and once
+ * The line under every make button for an agent or assistant (not the owner): the free rounds left, and once
  * they are used, the price from the wallet and what is in it. Browser-safe (owner, 2026-09-30).
  */
 export interface Rounds {
@@ -25,7 +25,7 @@ export function roundsNote(rounds: Rounds, estimate: string | number): { text: s
 
 /**
  * The content money the page reckons with for อัตโนมัติ and the over-budget warning. The
- * owner's monthly content ceiling is the answer for staff and for a free round; a round the agent pays
+ * owner's monthly content ceiling is the answer for the owner and for a free round; a round the agent pays
  * from the wallet ignores the ceiling on the server (contentCap() is Infinity inside it), so
  * the page must too, or a paying agent is quietly given no pictures and told to raise a
  * budget that is not theirs to raise (owner, 2026-09-30).

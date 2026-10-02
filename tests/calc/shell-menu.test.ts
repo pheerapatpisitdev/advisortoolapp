@@ -180,23 +180,32 @@ describe("Studio's own menu", () => {
     expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
   });
 
-  it("keeps the front page for admins and posting staff; other agents start at the workbench", () => {
+  it("keeps the front page for admins and assistants, the back office for admins; agents start at the workbench", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
     // the calendar is every agent's: a Page's for those who post, a plan for the rest (owner, 2026-09-30)
     expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/"]);
-    expect(hrefs({ ...who, admin: true, publish: true })).toContain("/studio");
-    // posting staff choose among their own Pages there (owner, 2026-09-29)
-    expect(hrefs({ ...who, publish: true })).toContain("/studio");
+    expect(hrefs({ ...who, admin: true, publish: true })).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/admin", "/"]);
+    // an assistant has an agent's Studio and the front page to choose among their Pages (owner, 2026-10-02)
+    expect(hrefs({ ...who, publish: true })).toEqual(["/studio", ...hrefs(who)]);
+    // the Messenger stays with the "connect" tick, which the owner gives or takes on /admin/team
+    expect(hrefs({ ...who, publish: true, connect: true })).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/admin/messenger", "/"]);
   });
 
-  it("gives the wallet to agents only: staff write without one (owner, 2026-09-30)", () => {
+  it("opens no back-office page to an assistant who only posts (owner, 2026-10-02)", () => {
+    const who = { name: "a", room: "r", publish: true, connect: false, admin: false, owner: false };
+    expect(menuGroups(true, who)).toEqual([]);
+    // ออโต้โพสต์ is the Pages' settings, not where a post is made: the admins'
+    expect(menuGroups(true, { ...who, admin: true }).flatMap((g) => g.links.map((l) => l.href))).toContain("/admin/posting");
+  });
+
+  it("gives the wallet to every agent and assistant; only the owner writes without one (owner, 2026-10-02)", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false, wallet: true };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
     expect(hrefs(who)).toContain("/studio/wallet");
-    expect(hrefs({ ...who, publish: true })).not.toContain("/studio/wallet");
-    expect(hrefs({ ...who, connect: true })).not.toContain("/studio/wallet");
-    expect(hrefs({ ...who, admin: true })).not.toContain("/studio/wallet");
+    expect(hrefs({ ...who, publish: true })).toContain("/studio/wallet");
+    expect(hrefs({ ...who, connect: true })).toContain("/studio/wallet");
+    expect(hrefs({ ...who, admin: true })).toContain("/studio/wallet");
     expect(hrefs({ ...who, owner: true })).not.toContain("/studio/wallet");
   });
 

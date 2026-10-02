@@ -24,7 +24,8 @@ export const metadata: Metadata = { title: "หลังบ้าน | advisorto
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const viewer = await gatePage("/admin");
   const who = whoOf(viewer);
-  if (!who || !(who.admin || who.connect || who.publish)) redirect("/studio");
+  // posting is done in Studio; the back office is the admins' and the Messenger is "connect"'s (owner, 2026-10-02)
+  if (!who || !(who.admin || who.connect)) redirect("/studio");
   return (
     <AppShell signedIn who={who}>
       <div className="mx-auto max-w-5xl p-4 pt-16 sm:p-6 sm:pt-16 lg:pt-6">{children}</div>

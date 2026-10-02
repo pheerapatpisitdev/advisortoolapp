@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 
-/** Who pays for a round: staff nobody, then the ten free rounds, then the agent's wallet (owner, 2026-09-30). */
+/**
+ * Who pays for a round: the owner nobody, then the ten free rounds, then the agent's wallet
+ * (owner, 2026-09-30). Assistants pay as any agent does (owner, 2026-10-02).
+ */
 
 // ins_take_free_round answers with the round's audit id, or null when the free rounds are used
 const db = vi.hoisted(() => ({
@@ -41,11 +44,19 @@ beforeEach(() => {
 });
 
 describe("takeRound", () => {
-  it("lets staff through, counting nothing", async () => {
+  it("lets the owner through, counting nothing", async () => {
     expect(await takeRound({ ...agent, staff: { owner: true, publish: true, connect: true, admin: true } }, "ai-write"))
       .toEqual({ ok: true, paidBy: "staff" });
     expect(db.insert).not.toHaveBeenCalled();
     expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("gives an assistant the free rounds, then their own wallet, like any agent (owner, 2026-10-02)", async () => {
+    const assistant: Viewer = { ...agent, staff: { owner: false, publish: true, connect: true, admin: true } };
+    expect(await takeRound(assistant, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41 });
+    freeUsed();
+    expect(await takeRound(assistant, "ai-write")).toMatchObject({ ok: true, paidBy: "wallet", holdId: "h1" });
+    expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, holdSatang("ai-write", 2), "ai-write");
   });
 
   it("uses the free rounds first, counted and written down in one locked call, and carries the line's id", async () => {

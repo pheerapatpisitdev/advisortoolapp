@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatBaht, holdSatang, holdSatangFor } from "@/lib/wallet/money";
 import type { RoundPass } from "@/lib/wallet/round";
 import { holdWallet, walletFrozen, walletSettings } from "@/lib/wallet/store";
-import type { Viewer } from "./access";
+import { can, type Viewer } from "./access";
 
 /**
  * How many AI rounds an agent may start without paying: ten, once (owner, 2026-09-30).
@@ -10,8 +10,9 @@ import type { Viewer } from "./access";
  * Until then it was twenty a Thai month, five for a trial room, paid from the owner's one AI
  * budget. With the wallet (src/lib/wallet/) the owner chose a taste instead of an allowance:
  * ten rounds to try Studio (five at first, raised to ten the same day), for a paying room and a trial room alike, never given again —
- * after them every round is paid from the agent's own wallet. Staff are outside it; the
- * owner's content ceiling on /admin/ai still stands over the free rounds.
+ * after them every round is paid from the agent's own wallet. The owner alone is outside it;
+ * an assistant has the ten and a wallet as any agent does, whatever was ticked for them
+ * (owner, 2026-10-02). The owner's content ceiling on /admin/ai still stands over the free rounds.
  *
  * Counted from 1 October 2026 in Thailand, so rounds used under the monthly allowance before
  * the change do not eat into the ten (owner, 2026-09-30).
@@ -28,13 +29,13 @@ export const AI_ROUNDS = ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-k
 export type AiRound = (typeof AI_ROUNDS)[number];
 
 export interface Allowance {
-  /** null for staff: no allowance of their own */
+  /** null for the owner: no allowance of their own */
   limit: number | null;
   used: number;
 }
 
 export async function allowanceOf(viewer: Viewer): Promise<Allowance> {
-  if (viewer.staff) return { limit: null, used: 0 };
+  if (can(viewer, "owner")) return { limit: null, used: 0 };
   const { count, error } = await supabaseAdmin().from("ins_audit").select("id", { count: "exact", head: true })
     .eq("agent_id", viewer.agentId).in("action", [...AI_ROUNDS]).gte("at", FREE_ROUNDS_FROM.toISOString());
   if (error) throw new Error(`อ่านโควตาไม่ได้: ${error.message}`);
@@ -77,7 +78,7 @@ async function takeFreeRound(viewer: Viewer, round: AiRound, target: string | nu
 }
 
 /**
- * Asks for one round and says who pays for it: nobody for staff, the free rounds while they
+ * Asks for one round and says who pays for it: nobody for the owner, the free rounds while they
  * last, then the agent's wallet (owner, 2026-09-30) — the round's price set aside first, so
  * rounds started together cannot spend the same baht. A round is written down before the
  * model is called either way, so rounds started together count each other.
@@ -92,8 +93,9 @@ async function takeFreeRound(viewer: Viewer, round: AiRound, target: string | nu
  * them and the last ones failed with money in it (owner, 2026-09-30).
  */
 export async function takeRound(viewer: Viewer, round: AiRound, target: string | null = null, holdThb?: number): Promise<RoundPass> {
-  // staff have no allowance to count against; the content ceiling covers them
-  if (viewer.staff) return { ok: true, paidBy: "staff" };
+  // the owner has no allowance to count against; the content ceiling covers them. Assistants
+  // used to be let through here too, until the owner gave them wallets (2026-10-02)
+  if (can(viewer, "owner")) return { ok: true, paidBy: "staff" };
   const freeId = await takeFreeRound(viewer, round, target).catch((e) => {
     console.error(`round ${round} not counted, refused:`, e);
     return undefined;

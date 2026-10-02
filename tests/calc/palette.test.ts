@@ -59,8 +59,11 @@ const MAY_HOLD_LITERALS = [
   "src/app/manifest.ts", // the PWA manifest takes colours, not variables
 ];
 
-/** Somebody else's brand, which we do not get to re-colour. */
-const FOREIGN_BRANDS = /#0866FF|#0653cc|#048A3D/i;
+/**
+ * Somebody else's brand, which we do not get to re-colour: Facebook's blue, and Google's
+ * sign-in button — the four-colour G on white with its grey edge and ink (src/app/login/LoginForm.tsx).
+ */
+const FOREIGN_BRANDS = /#0866FF|#0653cc|#048A3D|#4285F4|#EA4335|#FBBC05|#34A853|#dadce0|#3c4043|#f8f9fa/i;
 
 describe("hex literals are confined to the places that must hold them", () => {
   it("leaves none loose in a component", () => {

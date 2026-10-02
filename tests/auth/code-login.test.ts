@@ -15,7 +15,6 @@ const epoch = vi.hoisted(() => ({ endEverySession: vi.fn() }));
 vi.mock("@/lib/auth/epoch", () => epoch);
 const who = vi.hoisted(() => ({ agentsByCode: vi.fn(), staffRow: vi.fn() }));
 vi.mock("@/lib/auth/viewer", () => who);
-vi.mock("@/lib/auth/member-store", () => ({ memberByPhone: vi.fn(), phoneFailures: vi.fn() }));
 vi.mock("@/lib/supabase/admin", async () => {
   const { db } = await import("../helpers/fake-db");
   return { supabaseAdmin: () => db.client };

@@ -17,7 +17,7 @@ const AGENT_ROW = {
   id: "a1", agent_code: "015495", name: "บอย",
   tenant: { id: "t1", slug: "83g", name: "83G", status: "active", config: null, key_epoch: null },
 };
-const MEMBER_ROW = { id: "m1", phone: "0812345678", name: "สมชาย", status: "active", pin_changed_at: null };
+const MEMBER_ROW = { id: "m1", email: "somchai@gmail.com", name: "สมชาย", status: "active", revoked_at: null };
 
 beforeEach(() => {
   db.reset();
@@ -103,10 +103,10 @@ describe("getViewer and signing out everywhere", () => {
 });
 
 describe("displayNames", () => {
-  it("names agents by name or code, and members by name or phone", async () => {
+  it("names agents by name or code, and members by name or email", async () => {
     db.on("agents", { data: [{ id: "a1", name: "บอย", agent_code: "015495" }, { id: "a2", name: " ", agent_code: "000111" }] });
-    db.on("ins_members", { data: [{ id: "m1", name: "", phone: "0812345678" }] });
-    expect(await displayNames(["a1", "a2", "m1", "a1"])).toEqual({ a1: "บอย", a2: "000111", m1: "0812345678" });
+    db.on("ins_members", { data: [{ id: "m1", name: "", email: "somchai@gmail.com" }] });
+    expect(await displayNames(["a1", "a2", "m1", "a1"])).toEqual({ a1: "บอย", a2: "000111", m1: "somchai@gmail.com" });
   });
 
   it("asks nothing for no ids", async () => {
@@ -126,7 +126,7 @@ describe("placedBy", () => {
       ],
     });
     db.on("agents", { data: [{ id: "a1", name: "บอย", agent_code: "015495" }] });
-    db.on("ins_members", { data: [{ id: "m1", name: "สมชาย", phone: "0812345678" }] });
+    db.on("ins_members", { data: [{ id: "m1", name: "สมชาย", email: "somchai@gmail.com" }] });
     expect(await placedBy(["p1", "p2", "p3"])).toEqual({ p1: "สมชาย", p2: "บอย" });
     const audit = db.log.find((l) => l.table === "ins_audit")!;
     expect(String(audit.steps.find((s) => s.method === "select")?.args[0])).not.toContain("agents");

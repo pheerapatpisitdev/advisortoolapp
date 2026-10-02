@@ -3,8 +3,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/assistant/rate-limit";
 import { admit } from "@/lib/auth/access";
-import { normalizePhone, PHONE_FAILURES, verifyPin } from "@/lib/auth/member";
-import { memberByPhone, phoneFailures } from "@/lib/auth/member-store";
 import { safeNext } from "@/lib/auth/next";
 import { endEverySession } from "@/lib/auth/epoch";
 import { endSession, readSession, startSession } from "@/lib/auth/session";
@@ -23,8 +21,8 @@ const MAX_FAILURES = 5;
  * each try still hits one code in (live codes ÷ 1,000,000), so with a few hundred agents a
  * patient guesser could still land one within days — a longer secret is the wall, and the
  * owner keeps the 6-digit code (2026-10-01). Past the ceiling the code tab waits for the
- * window to pass, for everybody; the way in from UnitOS's menu (/sso) and the members' tab
- * are not affected, which is what makes a ceiling anybody can trip bearable.
+ * window to pass, for everybody; the way in from UnitOS's menu (/sso) and the members' Google
+ * button are not affected, which is what makes a ceiling anybody can trip bearable.
  */
 const SITE_CODE_FAILURES = 30;
 
@@ -35,7 +33,7 @@ function sinceWindow(): string {
 }
 
 /**
- * Failed sign-ins from one address in the window — the agent code's and the members' alike.
+ * Failed sign-ins from one address in the window (members' PIN attempts until 2026-10-02 too).
  * Throws when it cannot count: a lock that cannot be read must not read as no lock.
  */
 async function ipFailures(ip: string, since: string): Promise<number> {
@@ -49,7 +47,7 @@ async function ipFailures(ip: string, since: string): Promise<number> {
   return count;
 }
 
-/** Wrong agent codes from anywhere in the window: the members' attempts carry a phone, the code's do not. */
+/** Wrong agent codes from anywhere in the window: the members' old PIN attempts carry a phone, the code's do not. */
 async function codeFailures(since: string): Promise<number> {
   const { count, error } = await supabaseAdmin()
     .from("ins_login_attempts")
@@ -71,8 +69,7 @@ async function codeFailures(since: string): Promise<number> {
  * wrong codes from every address together (SITE_CODE_FAILURES).
  *
  * The attempt is written as a failure before anything is counted or checked, and only turned
- * into a success once the code lets somebody in — as memberSignIn below does, for the same
- * reason: counted first and recorded after, a burst of parallel requests all saw a count
+ * into a success once the code lets somebody in: counted first and recorded after, a burst of parallel requests all saw a count
  * below the limit and each got a guess (review, 2026-10-01). Written first, they count each
  * other, so the counts include this attempt. A count or a write that fails refuses the
  * sign-in rather than letting it through uncounted.
@@ -137,77 +134,6 @@ export async function signIn(formData: FormData): Promise<{ error: string } | un
   const { error: okError } = await supabase.from("ins_login_attempts").update({ ok: true }).eq("id", attempt.id);
   if (okError) console.error("signIn: could not mark the attempt a success", okError);
   await startSession(agentId);
-  redirect(next);
-}
-
-/**
- * Signing in as a member outside UnitOS: phone and the PIN they chose (owner, 2026-10-01).
- *
- * The attempt is written as a failure before anything is counted or checked, and only turned
- * into a success once the PIN is right. Counting first and recording after would let a burst of
- * parallel requests all see a count below the limit and each get a guess; written first, they
- * count each other, so the counts below include this attempt.
- *
- * The address's count is the agent code's, so switching tabs buys no more guesses. The phone
- * has a count of its own as well, so many addresses cannot share out the guessing of one
- * member's PIN. A phone that does not exist, a PIN that is wrong and a member who is suspended
- * get the same words — sign-up already says whether a phone is taken, but it need not be said
- * twice.
- */
-export async function memberSignIn(formData: FormData): Promise<{ error: string } | undefined> {
-  const phone = normalizePhone(String(formData.get("phone") ?? ""));
-  const pin = String(formData.get("pin") ?? "").trim();
-  const next = safeNext(formData.get("next"));
-  if (!phone || !/^\d{6}$/.test(pin)) return { error: "กรอกเบอร์มือถือ 10 หลัก และ PIN 6 หลัก" };
-
-  const ip = clientIp(await headers());
-  const supabase = supabaseAdmin();
-  const sinceDate = new Date(sinceWindow());
-
-  const { data: attempt, error: claimError } = await supabase
-    .from("ins_login_attempts")
-    .insert({ ip, ok: false, phone })
-    .select("id")
-    .single();
-  if (claimError || !attempt) {
-    console.error("memberSignIn: could not record the attempt", claimError);
-    return { error: "ระบบขัดข้อง ลองใหม่อีกครั้ง" };
-  }
-  // a refused attempt is taken back, so a locked address or phone does not extend its own lock
-  const release = () => supabase.from("ins_login_attempts").delete().eq("id", attempt.id);
-
-  let memberId: string;
-  // what follows the claim can throw (database down); say so in words rather than reach the
-  // error boundary. startSession and redirect stay outside: redirect works by throwing.
-  try {
-    const fromIp = await ipFailures(ip, sinceDate.toISOString());
-    if (fromIp > MAX_FAILURES) {
-      await release();
-      return { error: `กรอกผิดเกิน ${MAX_FAILURES} ครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
-    }
-    const fromPhone = await phoneFailures(phone, sinceDate);
-    if (fromPhone > PHONE_FAILURES) {
-      await release();
-      return { error: `เบอร์นี้กรอก PIN ผิดหลายครั้ง กรุณารออีก ${WINDOW_MINUTES} นาที` };
-    }
-
-    const member = await memberByPhone(phone);
-    const ok = Boolean(member && member.status === "active" && (await verifyPin(pin, member.pin_hash)));
-
-    if (!ok || !member) {
-      const left = Math.min(MAX_FAILURES - fromIp, PHONE_FAILURES - fromPhone);
-      const why = "เบอร์หรือ PIN ไม่ถูกต้อง";
-      return { error: left > 0 ? `${why} เหลืออีก ${left} ครั้ง` : `${why} ถูกระงับชั่วคราว` };
-    }
-    memberId = member.id;
-  } catch (e) {
-    console.error("memberSignIn failed after the attempt was recorded:", e);
-    return { error: "ระบบขัดข้อง ลองใหม่อีกครั้ง" };
-  }
-  // left as a failure if this does not land: it counts against the address, it lets nobody in
-  const { error: okError } = await supabase.from("ins_login_attempts").update({ ok: true }).eq("id", attempt.id);
-  if (okError) console.error("memberSignIn: could not mark the attempt a success", okError);
-  await startSession(memberId);
   redirect(next);
 }
 
