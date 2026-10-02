@@ -23,7 +23,7 @@ describe("postWithRetry", () => {
   it("gives up after four attempts, naming the reason but not the url", async () => {
     const logs: string[] = [];
     let n = 0;
-    await expect(postWithRetry("https://app/cb?secret", { id: "1" }, { fetchFn: (async () => { n++; return { ok: false, status: 500 }; }) as never, sleep: noSleep, log: (m: string) => logs.push(m) }))
+    await expect(postWithRetry("https://app/cb?secret", { id: "1" }, { fetchFn: (async () => { n++; return { ok: false, status: 500 }; }) as never, sleep: noSleep, log: (m: string) => { logs.push(m); } }))
       .rejects.toThrow("status 500");
     expect(n).toBe(4);
     expect(logs.join(" ")).not.toContain("secret");

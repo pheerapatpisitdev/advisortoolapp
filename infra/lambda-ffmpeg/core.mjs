@@ -30,7 +30,7 @@ export function localize(command, inputs, outputs) {
  * POST a JSON body, trying again on a network error or a non-2xx answer (delays between attempts).
  * Throws the last failure. fetchFn / sleep are injectable for tests.
  */
-export async function postWithRetry(url, body, { fetchFn = fetch, delaysMs = [1000, 3000, 9000], sleep = (ms) => new Promise((r) => setTimeout(r, ms)), log = (_message) => {} } = {}) {
+export async function postWithRetry(url, body, { fetchFn = fetch, delaysMs = [1000, 3000, 9000], sleep = (ms) => new Promise((r) => setTimeout(r, ms)), log = (message) => void message } = {}) {
   let last = "unknown";
   for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
     if (attempt > 0) await sleep(delaysMs[attempt - 1]);
