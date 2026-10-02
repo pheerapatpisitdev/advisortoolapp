@@ -3,8 +3,9 @@ import { StudioPage } from "../StudioPage";
 
 export const dynamic = "force-dynamic";
 // a round of five is two calls and several thousand words of Thai; the actions run as this page.
-// A clip over 100MB goes storage → Gemini upload (≤150 s) → wait (≤60 s) → a listen of up to 240 s; Vercel Pro allows 800.
-export const maxDuration = 600;
+// A clip over 100MB goes storage → Gemini upload (≤100 s) → wait (≤60 s) → a listen of up to 110 s, inside the
+// 300 s the Hobby plan allows (a 600 s value failed the production build, 2026-10-02).
+export const maxDuration = 300;
 
 export const metadata = {
   title: "Organic Studio | advisortool",

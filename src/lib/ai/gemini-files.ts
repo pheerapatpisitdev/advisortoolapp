@@ -4,9 +4,9 @@
  * Files are kept by Google for 48 hours and then dropped on their own.
  */
 const BASE = "https://generativelanguage.googleapis.com";
-// Kept well inside the caller's 600-second function, which still has a 240-second listen to do afterwards,
-// so our own clear errors fire before the platform kills the function.
-const UPLOAD_TIMEOUT_MS = 150_000;
+// Kept inside the caller's 300-second function (Vercel Hobby), which still has a 110-second listen to do
+// afterwards, so our own clear errors fire before the platform kills the function.
+const UPLOAD_TIMEOUT_MS = 100_000;
 const MAX_LOOKS = 30; // ≈60 s at the default 2 s between looks
 
 export async function uploadToGemini(opts: {

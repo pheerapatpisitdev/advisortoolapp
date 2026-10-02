@@ -115,19 +115,19 @@ export async function postReel(opts: { pageId: string; token: string; fileUrl: s
   const startForm = new FormData();
   startForm.append("upload_phase", "start");
   const start = await fetchWithError<{ video_id?: string }>(
-    () => fetch(endpoint, { method: "POST", headers: auth, body: startForm, signal: AbortSignal.timeout(30_000) }),
+    () => fetch(endpoint, { method: "POST", headers: auth, body: startForm, signal: AbortSignal.timeout(20_000) }),
     "ติดต่อ Facebook ไม่ได้ ลองใหม่อีกครั้งนะครับ",
     false,
   );
   if (!start.video_id) throw new PublishError("Facebook ไม่รับการอัปโหลดคลิป ลองใหม่อีกครั้งนะครับ");
   const videoId = start.video_id;
 
-  // Facebook fetches the file itself; a 300MB clip may take minutes
+  // Facebook fetches the file itself; 200 s keeps the whole send inside a 300 s function (Vercel Hobby)
   const upload = await fetchWithError<{ success?: boolean }>(
     () => fetch(`${RUPLOAD}/${encodeURIComponent(videoId)}`, {
       method: "POST",
       headers: { Authorization: `OAuth ${opts.token}`, file_url: opts.fileUrl },
-      signal: AbortSignal.timeout(300_000),
+      signal: AbortSignal.timeout(200_000),
     }),
     "Facebook ดึงไฟล์คลิปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ",
     false,

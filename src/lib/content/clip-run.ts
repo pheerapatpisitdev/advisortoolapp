@@ -14,7 +14,8 @@ import { getContent, listWords, saveOutputIf, type ContentItem } from "./store";
  * which holds the limits and the wallet; a result that is not ok is not charged.
  */
 
-const LISTEN_TIMEOUT_MS = 240_000;
+/** with the Files API path before it (≤100 s up, ≤60 s wait) this keeps a listen inside the page's 300 s (Vercel Hobby) */
+const LISTEN_TIMEOUT_MS = 110_000;
 const UNREAD = "ถอดเสียงไม่สำเร็จ — กด “ถอดเสียงอีกครั้ง” หรือเขียนแคปชันเองได้เลย";
 const SENT_MEANWHILE = "Reel นี้ส่งไปเพจแล้วระหว่างถอดเสียง — ไม่ได้เปลี่ยนแคปชัน";
 
@@ -23,7 +24,7 @@ async function videoUri(v: ClipVideo): Promise<string> {
   if (v.sizeBytes <= GEMINI_LINK_MAX_BYTES) return link;
   const key = await providerKey("google");
   if (!key) throw new Error("no Gemini key");
-  const file = await fetch(link, { signal: AbortSignal.timeout(300_000) });
+  const file = await fetch(link, { signal: AbortSignal.timeout(110_000) });
   if (!file.ok || !file.body) throw new Error(`clip not read for Gemini: ${file.status}`);
   return uploadToGemini({ apiKey: key, body: file.body, sizeBytes: v.sizeBytes, mimeType: v.mime, displayName: v.path });
 }
