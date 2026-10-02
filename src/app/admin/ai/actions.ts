@@ -10,6 +10,9 @@ import { requireStaff } from "@/lib/auth/viewer";
 import { walletChargedThb } from "@/lib/wallet/store";
 import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/video/settings";
 import { parseAwsKey } from "@/lib/video/engines/lambda";
+import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
+
+const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60 };
 
 export type { ProviderCheck } from "@/lib/ai/client";
 
@@ -22,16 +25,14 @@ const PROVIDERS = ["anthropic", "openai", "google", "zai", "typesafe"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 /**
- * The video render services. Their keys live in the same encrypted table as the AI keys but
- * are NOT in PROVIDERS: the fallback chain and checkKeys walk PROVIDERS, and neither should
- * ever see a service that has no model. loadConfig (src/lib/ai/client.ts) only looks a key up
- * by a model's provider, so extra rows in the table are never reached by it.
- * "aws" is the key's name; the engine it feeds is called "lambda".
+ * The render services' keys live in the same encrypted table as the AI keys but are NOT in
+ * PROVIDERS: the fallback chain and checkKeys walk PROVIDERS, and neither should ever see a
+ * service that has no model. loadConfig (src/lib/ai/client.ts) only looks a key up by a model's
+ * provider, so extra rows in the table are never reached by it.
+ *
+ * What the page may show of a held key: Rendi's last four characters; AWS's region and function. Never a secret.
  */
-export const RENDER_PROVIDERS = ["rendi", "aws"] as const;
-export type RenderProvider = (typeof RENDER_PROVIDERS)[number];
-
-export interface VideoKeyRow { provider: RenderProvider; tail: string }
+export interface VideoKeyRow { provider: RenderProvider; shown: string }
 
 export interface KeyRow { provider: string; tail: string; enabled: boolean }
 export interface ModelRow {
@@ -124,16 +125,13 @@ export async function loadAiPage(): Promise<{
   // a settings row that cannot be read must not take the keys page down with it
   const videoCfg = await videoSettings().catch((e) => {
     console.error("อ่านการตั้งค่าตัดต่อไม่สำเร็จ:", e instanceof Error ? e.message : "unknown");
-    return { engine: "rendi", fallback: true, rendiMaxSeconds: 60 } as VideoSettings;
+    return DEFAULT_VIDEO;
   });
+  const videoKeys = await renderKeysShown(heldKeys);
   return {
-    video: {
-      settings: videoCfg,
-      keys: heldKeys.filter((k): k is typeof k & { provider: RenderProvider } => (RENDER_PROVIDERS as readonly string[]).includes(k.provider))
-        .map((k) => ({ provider: k.provider, tail: k.tail })),
-    },
+    video: { settings: videoCfg, keys: videoKeys },
     keys: heldKeys
-      .filter((k) => (PROVIDERS as readonly string[]).includes(k.provider))
+      .filter((k) => !(RENDER_PROVIDERS as readonly string[]).includes(k.provider))
       .map((k) => ({ provider: k.provider, tail: k.tail, enabled: k.enabled !== false })),
     /**
      * Only the companies above. `model_configs` is shared with another product, so it lists
@@ -160,6 +158,31 @@ export async function loadAiPage(): Promise<{
       fallback: DEFAULT_CONTENT_CAP_THB,
     },
   };
+}
+
+/**
+ * What to show of each render key. Rendi's is its last four characters. AWS's is one string of
+ * four parts, so the tail says nothing; its region and function name are not secret and say which
+ * function is wired, so they are read out of the decrypted key here and only they are returned —
+ * never the secret or the access key id. A key that cannot be read shows as held, nothing more.
+ */
+async function renderKeysShown(held: { provider: string; tail: string }[]): Promise<VideoKeyRow[]> {
+  const rows = held.filter((k): k is typeof k & { provider: RenderProvider } => (RENDER_PROVIDERS as readonly string[]).includes(k.provider));
+  let aws: { region: string; functionName: string } | null = null;
+  if (rows.some((k) => k.provider === "aws")) {
+    try {
+      const { data } = await supabaseAdmin().rpc("ins_get_api_keys", { p_passphrase: passphrase() });
+      const key = ((data ?? []) as { provider: string; api_key: string }[]).find((k) => k.provider === "aws")?.api_key;
+      const parsed = key ? parseAwsKey(key) : null;
+      aws = parsed ? { region: parsed.region, functionName: parsed.functionName } : null;
+    } catch (e) {
+      console.error("อ่านกุญแจ AWS ไม่สำเร็จ:", e instanceof Error ? e.name : "unknown");
+    }
+  }
+  return rows.map((k) => ({
+    provider: k.provider,
+    shown: k.provider === "aws" ? (aws ? `${aws.region} · ${aws.functionName}` : "ตั้งไว้แล้ว") : `••••${k.tail}`,
+  }));
 }
 
 /**
@@ -259,9 +282,11 @@ export async function saveRenderKey(provider: RenderProvider, key: string): Prom
 export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
   await requireStaff("admin");
   if (s?.engine !== "rendi" && s?.engine !== "lambda") return { ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" };
+  if (typeof s.fallback !== "boolean") return { ok: false, error: "ค่าสำรองไม่ถูกต้อง" };
+  // 60 and 600 are the two Rendi plans' limits (free, Pro); anything between is a typo
   if (s.rendiMaxSeconds !== 60 && s.rendiMaxSeconds !== 600) return { ok: false, error: "เวลาสูงสุดของ Rendi ต้องเป็น 60 หรือ 600 วินาที" };
   try {
-    await saveVideoSettings({ engine: s.engine, fallback: Boolean(s.fallback), rendiMaxSeconds: s.rendiMaxSeconds });
+    await saveVideoSettings({ engine: s.engine, fallback: s.fallback, rendiMaxSeconds: s.rendiMaxSeconds });
   } catch (e) {
     return failed("บันทึกตัวตัดต่อไม่สำเร็จ", e);
   }

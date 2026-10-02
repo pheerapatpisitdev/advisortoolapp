@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const SECRET = "SuperSecretValue123";
 const rpc = vi.fn();
 const upsert = vi.fn();
+let tableRows: unknown[] = [];
 let staffAllowed = true;
 
 vi.mock("@/lib/auth/viewer", async () => {
@@ -18,9 +19,19 @@ vi.mock("@/lib/auth/viewer", async () => {
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/ai/client", () => ({ clearAiConfigCache: () => undefined, testProviders: async () => [] }));
 vi.mock("@/lib/ai/ledger", () => ({ monthStart: () => new Date(), monthSpend: async () => null }));
+vi.mock("@/lib/wallet/store", () => ({ walletChargedThb: async () => 0 }));
 vi.mock("@/lib/content/store", () => ({ contentBaht: () => 0, DEFAULT_CONTENT_CAP_THB: 30 }));
 vi.mock("@/lib/supabase/admin", () => ({
-  supabaseAdmin: () => ({ rpc, from: () => ({ upsert }) }),
+  supabaseAdmin: () => ({
+    rpc,
+    from: (table: string) => {
+      const q = {
+        upsert, order: () => q, maybeSingle: async () => ({ data: null, error: null }),
+        then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: table === "ins_api_keys" ? tableRows : [], error: null }).then(ok),
+      };
+      return { ...q, select: () => q };
+    },
+  }),
 }));
 
 process.env.ADMIN_SESSION_SECRET = "test-passphrase";
@@ -94,6 +105,13 @@ describe("saveVideoEngine", () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it("refuses a fallback that is not a boolean instead of coercing it", async () => {
+    // @ts-expect-error — deliberately wrong type
+    const r = await saveVideoEngine({ engine: "rendi", fallback: "false", rendiMaxSeconds: 60 });
+    expect(r.ok).toBe(false);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it("stores the engine, the fallback and the limit", async () => {
     await expect(saveVideoEngine({ engine: "lambda", fallback: false, rendiMaxSeconds: 600 })).resolves.toEqual({ ok: true });
     expect(upsert).toHaveBeenCalledTimes(1);
@@ -113,5 +131,31 @@ describe("saveVideoEngine", () => {
     staffAllowed = false;
     await expect(saveVideoEngine({ engine: "rendi", fallback: true, rendiMaxSeconds: 60 })).rejects.toThrow("forbidden");
     expect(upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadAiPage render keys", () => {
+  it("shows Rendi's last four and AWS's region and function, and never the secret or key id", async () => {
+    const aws = `AKIAEXAMPLEID:${SECRET}:ap-southeast-1:clip-ffmpeg`;
+    rpc.mockImplementation(async (fn: string) => fn === "ins_get_api_keys"
+      ? { data: [{ provider: "aws", api_key: aws }, { provider: "rendi", api_key: "rendi-whole-key-9999" }, { provider: "openai", api_key: "sk-x" }], error: null }
+      : { error: null });
+    const rows = [
+      { provider: "aws", tail: "ffmpeg".slice(-4), enabled: true },
+      { provider: "rendi", tail: "9999", enabled: true },
+      { provider: "openai", tail: "sk-x", enabled: true },
+    ];
+    tableRows = rows;
+    const { loadAiPage } = await import("@/app/admin/ai/actions");
+    const page = await loadAiPage();
+    expect(page.video.keys).toEqual([
+      { provider: "aws", shown: "ap-southeast-1 · clip-ffmpeg" },
+      { provider: "rendi", shown: "••••9999" },
+    ]);
+    const wire = JSON.stringify(page);
+    expect(wire).not.toContain(SECRET);
+    expect(wire).not.toContain("AKIAEXAMPLEID");
+    expect(page.keys.map((k) => k.provider)).toEqual(["openai"]);
+    tableRows = [];
   });
 });

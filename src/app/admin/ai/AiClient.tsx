@@ -2,9 +2,10 @@
 import { useState, useTransition } from "react";
 import { Card, Empty } from "../ui";
 import type { VideoSettings } from "@/lib/video/settings";
+import type { RenderProvider } from "@/lib/video/render-providers";
 import {
   checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings,
-  type KeyRow, type RenderProvider, type VideoKeyRow, type ModelRow, type ProviderCheck, type ProviderSpend, type Result, type Settings,
+  type KeyRow, type VideoKeyRow, type ModelRow, type ProviderCheck, type ProviderSpend, type Result, type Settings,
 } from "./actions";
 
 /**
@@ -241,7 +242,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
             return (
               <div key={p} className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--bot-line)] p-2">
                 <span className="w-44 text-sm">{label}</span>
-                <span className="w-24 text-xs text-[var(--bot-ink-mute)]">{held ? `••••${held.tail}` : "ยังไม่ได้ตั้ง"}</span>
+                <span className="w-44 break-all text-xs text-[var(--bot-ink-mute)]">{held ? held.shown : "ยังไม่ได้ตั้ง"}</span>
                 <span className="flex min-w-64 flex-1 items-center gap-2">
                   <input
                     type="password" placeholder={placeholder} autoComplete="off"
