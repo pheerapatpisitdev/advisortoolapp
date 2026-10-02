@@ -8,7 +8,7 @@ import { MembersAdmin } from "./MembersAdmin";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "สมาชิกทั่วไป | advisortool" };
 
-/** People outside UnitOS who signed up at /signup (owner, 2026-10-01): the switch, the list, PIN and suspension. */
+/** People outside UnitOS who signed up with Google (owner, 2026-10-02): the switch, the list, and suspension. */
 export default async function MembersPage() {
   await gatePage("/admin/members", "admin");
   const [settings, members] = await Promise.all([
@@ -22,7 +22,7 @@ export default async function MembersPage() {
     }),
   ]);
   return (
-    <Card title="สมาชิกทั่วไป" hint="คนนอก UnitOS ที่สมัครเองด้วยเบอร์มือถือและ PIN 6 หลัก ใช้ Studio ได้เหมือนตัวแทนทั่วไป — รอบฟรี 10 รอบ แล้วเติมเงินในกระเป๋า">
+    <Card title="สมาชิกทั่วไป" hint="คนนอก UnitOS ที่สมัครเองด้วยบัญชี Google ใช้ Studio ได้เหมือนตัวแทนทั่วไป — รอบฟรี 10 รอบ แล้วเติมเงินในกระเป๋า">
       <MembersAdmin settings={settings} members={members} freeRounds={FREE_ROUNDS} />
     </Card>
   );

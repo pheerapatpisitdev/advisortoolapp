@@ -34,7 +34,7 @@ export interface Viewer {
   /** a UnitOS agent, or a member who signed up here (src/lib/auth/member.ts, owner 2026-10-01) */
   kind: "unitos" | "member";
   agentId: string;
-  /** the agent's 6-digit code; a member's phone */
+  /** the agent's 6-digit code; a member's Google email */
   code: string;
   name: string;
   /** null for a member: no UnitOS room */
@@ -85,10 +85,11 @@ export function admit(agent: AgentRow | null, staff: StaffRow | null, issuedAt: 
 /** A member's row in ins_members, as src/lib/auth/viewer.ts reads it. */
 export interface MemberRow {
   id: string;
-  phone: string;
+  email: string;
   name: string;
   status: string;
-  pin_changed_at: string | null;
+  /** set on suspension: sessions issued before it are over */
+  revoked_at: string | null;
 }
 
 /** What a member's menu says in place of a room. */
@@ -96,17 +97,17 @@ export const MEMBER_ROOM = "สมาชิกทั่วไป";
 
 /**
  * A member outside UnitOS (owner, 2026-10-01): Studio as any agent who is not staff has it —
- * the free rounds, then their own wallet — and nothing of the Page or the back office. A PIN
- * changed or reset after the session was issued ends it, as a room's key_epoch does.
+ * the free rounds, then their own wallet — and nothing of the Page or the back office. A
+ * suspension after the session was issued ends it, as a room's key_epoch does.
  */
 export function admitMember(member: MemberRow | null, issuedAt: number): Viewer | null {
   if (!member || member.status !== "active") return null;
-  if (member.pin_changed_at && issuedAt < Date.parse(member.pin_changed_at)) return null;
+  if (member.revoked_at && issuedAt < Date.parse(member.revoked_at)) return null;
   return {
     kind: "member",
     agentId: member.id,
-    code: member.phone,
-    name: member.name.trim() || member.phone,
+    code: member.email,
+    name: member.name.trim() || member.email,
     tenantId: null,
     tenantSlug: "",
     tenantName: MEMBER_ROOM,

@@ -4,6 +4,7 @@ import { getPlan } from "@/calc/plans/registry";
 import { baseSumAssuredLimits } from "@/calc/rules";
 import { valueTableCard } from "@/lib/quote-card";
 import { cardPath, valueTablePath } from "@/lib/card-link";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 import { coverIn, peopleIn } from "@/lib/assistant/common";
 import { priceFollowUps, type GuideItem, type PriceGap } from "./guide";
 
@@ -85,6 +86,11 @@ export interface PriceReply {
    * same sentence.
    */
   guide?: GuideItem[];
+  /**
+   * The sales page's PDF of the quote on the first card, when a page prints this plan. The
+   * dispatcher puts it on the message beside that card, where it is remembered (pdf.ts).
+   */
+  pdfPath?: string;
 }
 
 /**
@@ -267,11 +273,14 @@ export function priceNamedPlan(text: string, code: string, label: string): Price
   const who2 = { age: who.age, sex: who.sex, sumAssured: result.sumAssured };
   const card = { kind: "plan" as const, planCode: code, variant: variant!, ...who2 };
   const hasTable = Boolean(valueTableCard(card));
+  // undefined for a plan with no page of its own (iSmart) or a sum its slider does not stop at
+  const pdfPath = quotePdfPath(card);
 
   return {
     priced: true,
     text: lines.join("\n"),
     cards: hasTable ? [cardPath(card), valueTablePath(card)] : [cardPath(card)],
+    ...(pdfPath ? { pdfPath } : {}),
     guide: priceFollowUps({
       planCode: code, planLabel: label, variant: variant!,
       age: who.age, sex: who.sex, sumAssured: result.sumAssured, needs: [],

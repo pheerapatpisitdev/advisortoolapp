@@ -6,6 +6,7 @@ import { modePremiumsFrom } from "@/calc/mode-premiums";
 import { formatBaht } from "@/calc/money";
 import { cardPath, diseaseCardPath, valueTablePath } from "@/lib/card-link";
 import { valueTableCard } from "@/lib/quote-card";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 import diseases from "../../../../data/riders/ishield-diseases.json";
 import {
   aboutCompany, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, peopleIn, saysFormDone, stallReply,
@@ -384,11 +385,13 @@ function quoted(
    * would be a second place to keep in step, and this asks the code that does the work.
    */
   const table = valueTableCard(card, today) ? valueTablePath(card) : undefined;
+  // on the quote and not on the table: the file is the sales page, which is the quote
+  const pdfPath = quotePdfPath(card);
 
   return {
     replies: [WANTS_IN, CHOOSE_HEALTH, CROSS_SELL],
     messages: [
-      { text: said(lines.join("\n")), card: cardPath(card) },
+      { text: said(lines.join("\n")), card: cardPath(card), ...(pdfPath ? { pdfPath } : {}) },
       ...(table
         ? [{
           text: said(`ตารางมูลค่าทุกปีให้ดูด้วยครับ — เบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี`

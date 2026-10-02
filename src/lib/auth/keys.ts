@@ -13,7 +13,7 @@ import { createHmac } from "node:crypto";
  * Not used for the stored Facebook and AI tokens: those are encrypted with ADMIN_SESSION_SECRET
  * itself as the passphrase, and a different key would leave every stored token unreadable.
  */
-export type KeyPurpose = "session" | "free-asks" | "oauth-state";
+export type KeyPurpose = "session" | "free-asks" | "oauth-state" | "google-login";
 
 export function deriveKey(base: string, purpose: KeyPurpose): string {
   return createHmac("sha256", base).update(`advisortool:key:${purpose}`).digest("hex");

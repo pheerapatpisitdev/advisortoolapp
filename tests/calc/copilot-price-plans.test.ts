@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { quote } from "@/calc/quote";
 import { planNamedIn, priceNamedPlan } from "@/lib/copilot/price";
 import { valueTableCard } from "@/lib/quote-card";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 
 /**
  * The figures this page gives against the figures the engine gives.
@@ -50,6 +51,11 @@ describe("iSmart, which has one package and needs no choosing", () => {
     expect(reply.cards?.[0]).toContain("plan=ISMART");
     expect(reply.cards?.[1]).toContain("/api/card/table?");
   });
+
+  it("has no PDF, because no sales page prints iSmart", () => {
+    const reply = priceNamedPlan("iSmart ชาย 35 ทุน 1 ล้าน เบี้ยเท่าไหร่", "ISMART", "iSmart 80/6");
+    expect(reply.pdfPath).toBeUndefined();
+  });
 });
 
 describe("a plan sold on several paying terms", () => {
@@ -70,6 +76,10 @@ describe("a plan sold on several paying terms", () => {
     });
     expect(reply.text).toContain(baht(expected.totalAnnual));
     expect(reply.cards?.[0]).toContain("variant=H99F12A");
+    expect(reply.pdfPath).toBe(quotePdfPath({
+      kind: "plan", planCode: "LIFETREASURE", variant: "H99F12A", age: 40, sex: "M", sumAssured: 10_000_000,
+    }));
+    expect(reply.pdfPath).toContain("page=lifetreasure");
   });
 
   it("names every term on offer when it asks", () => {

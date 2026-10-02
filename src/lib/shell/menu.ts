@@ -295,12 +295,13 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/account", label: "บัญชีของฉัน", icon: "key", hue: "#2e4a7a" },
   ];
   // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
-  // plan for everyone else (2026-09-30); the front page is the admins' — an assistant who posts
-  // has an agent's Studio and posts from the workbench (owner, 2026-10-02)
+  // plan for everyone else (2026-09-30); the front page is the admins' and the assistants', who
+  // choose among their own Pages there (owner, 2026-09-29, kept 2026-10-02) — every other
+  // agent's Studio starts at the workbench
   // the wallet is listed only while the owner has it on (who.wallet is worked out once in the
   // layout, false for the owner): an agent is not sent to a page that says it is switched off
   const hidden = new Set([
-    ...(who && !who.admin ? ["/studio"] : []),
+    ...(who && !who.admin && !who.publish ? ["/studio"] : []),
     ...(who?.owner || who?.wallet !== true ? ["/studio/wallet"] : []),
     ...(who?.member ? [] : ["/studio/account"]),
   ]);

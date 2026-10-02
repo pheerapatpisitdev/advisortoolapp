@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { answerIShield, COVER_CHOICES, savingIn, sumFromSaving, termFor } from "@/lib/assistant/ishield/answer";
 import { quote } from "@/calc/quote";
 import { formatBaht } from "@/calc/money";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 
 /** The rate table behind these figures is current on this date. */
 const WHILE_CURRENT = new Date("2026-09-05");
@@ -118,8 +119,23 @@ describe("the conversation", () => {
   it("quotes the sum, the premium and what the contract pays back", () => {
     expect(priced.priced).toBe(true);
     expect(priced.messages[0].card).toContain("plan=ISHIELD");
+    // a saving lands on a sum the sales page's slider does not stop at, so there is no PDF of it
+    expect(priced.messages[0].card).toContain("sum=490000");
+    expect(priced.messages[0].pdfPath).toBeUndefined();
     expect(spoken(priced)).toContain("ทุนประกัน");
     expect(spoken(priced)).toContain("85");
+  });
+
+  it("remembers the sales page's PDF of the same arrangement as the card", () => {
+    const onSlider = answer(COVER_CHOICES[0], { product: "ishield", age: 35, sex: "M", variant: "WLCI10" });
+    const card = new URL(`https://x${onSlider.messages[0].card}`).searchParams;
+    expect(onSlider.messages[0].pdfPath).toBe(quotePdfPath({
+      kind: "plan", planCode: "ISHIELD", variant: card.get("variant")!, age: Number(card.get("age")),
+      sex: card.get("sex") as "M" | "F", sumAssured: Number(card.get("sum")),
+    }));
+    expect(onSlider.messages[0].pdfPath).toContain("page=ishield&age=35&sex=M&sum=500000");
+    // only the quote carries it: the value table beside it is not what the file prints
+    expect(onSlider.messages.slice(1).some((m) => m.pdfPath)).toBe(false);
   });
 
   /**

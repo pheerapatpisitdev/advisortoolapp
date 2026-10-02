@@ -22,7 +22,7 @@ export default async function ContentLayout({ children }: { children: React.Reac
   const who = { ...whoOf(viewer)!, wallet };
   return (
     <div className="content-page">
-      <AppShell menu={studioMenu(who)} brand={{ href: who?.admin ? "/studio" : "/studio/write", label: "Studio" }} footer={<ThemeSwitch />} who={who}>
+      <AppShell menu={studioMenu(who)} brand={{ href: who?.admin || who?.publish ? "/studio" : "/studio/write", label: "Studio" }} footer={<ThemeSwitch />} who={who}>
         {/* pt-16 below lg: the phone's menu button is fixed at the top left */}
         <div className="mx-auto max-w-[1400px] px-4 pb-10 pt-16 lg:pt-6">{children}</div>
       </AppShell>

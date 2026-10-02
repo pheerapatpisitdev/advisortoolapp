@@ -10,7 +10,8 @@ import { answerIShield, type IShieldSlots } from "./ishield/answer";
 import type { HealthSlots } from "./ihealthy/route";
 import { answerQuestion } from "./lifeprotect/answer";
 import type { Routed } from "./lifeprotect/route";
-import type { AnySlots, Undecided } from "./slots";
+import type { AnySlots, Undecided, WithPdf } from "./slots";
+import { cleanPdfMemory, pdfTurn, withPdfOffer } from "./pdf";
 import { planNamedIn, priceNamedPlan } from "@/lib/copilot/price";
 import { asksPensionPrice, pensionNamedIn, pricePension } from "@/lib/copilot/pension-price";
 import { asksCi123Price, ci123NamedIn, priceCi123 } from "@/lib/copilot/ci123-price";
@@ -121,6 +122,46 @@ export async function answerAny(
   pageId?: string,
 ): Promise<AnyAnswer> {
   if (isExpatPage(pageId)) return answerExpat(history, stored);
+  const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+  const lastSaid = [...history].reverse().find((m) => m.role === "assistant")?.content;
+
+  /**
+   * The PDF's memory is the conversation's, not any one plan's: it is taken off the slots
+   * before a brain sees them and written back onto whatever the brain returns, so a brain that
+   * rebuilds its slots from scratch cannot drop it, and none has to know it exists.
+   */
+  const memory = cleanPdfMemory((stored as WithPdf<AnySlots> | null)?.pdf);
+  const slots = stored && "pdf" in stored ? withoutPdf(stored as WithPdf<AnySlots>) : stored;
+
+  /**
+   * A request for the file, or a no to the offer of one, answered before anything else — once
+   * there is a quote to answer it with. Before that it goes the usual way below, which ends in
+   * the quote that offers the file.
+   *
+   * Ahead of the form on purpose: the quote that offered the file also invited the customer to
+   * apply, and a bare "เอาครับ" after the offer is about the file. And ahead of the brains, which
+   * have nothing to add — the file is the last quote's, and the conversation is carried through
+   * untouched. A message that only sounds like it (group cover, joining the team, the form's own
+   * conversation) is turned away inside `pdfTurn` and reaches its own path here.
+   */
+  const turn = pdfTurn(asked, lastSaid, memory, channel);
+  if (turn) {
+    return { ...turn.reply, slots: { ...(slots ?? { product: "undecided" }), pdf: turn.memory } as WithPdf<AnySlots> };
+  }
+  return withPdfOffer(await routeAny(history, slots, channel, cameFor), memory);
+}
+
+/** The slots as a brain knows them; a session with no PDF memory is passed on as it is. */
+function withoutPdf(stored: WithPdf<AnySlots>): AnySlots {
+  const slots = { ...stored };
+  delete slots.pdf;
+  return slots;
+}
+
+/** Every turn that is not about the PDF: which plan, and which brain answers it. */
+async function routeAny(
+  history: ChatMessage[], stored: AnySlots | null, channel: Channel, cameFor: Product | undefined,
+): Promise<AnyAnswer> {
   const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
   const now = settled(stored);
   const named = productNamedIn(asked);
@@ -240,7 +281,12 @@ export async function answerAny(
     return {
       messages: [
         // the same words, written for wherever they are about to be read
-        { text: writtenFor(channel, priced.text), ...(priced.cards?.[0] ? { card: priced.cards[0] } : {}) },
+        {
+          text: writtenFor(channel, priced.text),
+          ...(priced.cards?.[0] ? { card: priced.cards[0] } : {}),
+          // beside the card it prints, where it is remembered for a later "ขอไฟล์ PDF"
+          ...(priced.pdfPath ? { pdfPath: priced.pdfPath } : {}),
+        },
         ...(priced.cards?.slice(1) ?? []).map((card) => ({ text: "", card })),
       ],
       priced: priced.priced,

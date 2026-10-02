@@ -20,6 +20,20 @@ export interface Said {
   text: string;
   /** where the quote is drawn as a picture, as a path on this site */
   card?: string;
+  /**
+   * The sales page's PDF of the quote on this message, as a path on this site.
+   *
+   * Remembered, never sent: the dispatcher keeps the latest one so a later "ขอไฟล์ PDF" can
+   * be answered with it (pdf.ts). Set beside the card from the same input, so the file
+   * prints exactly what the picture shows.
+   */
+  pdfPath?: string;
+  /**
+   * The PDF this message hands over, as a path on this site — only on the turn that answers a
+   * request for the file. A separate field from `pdfPath` because every channel delivers what
+   * is here, and a quote that carried it would send a file nobody asked for.
+   */
+  file?: string;
 }
 
 /** A person does not send one long block; the model's paragraphs go out as separate bubbles. */

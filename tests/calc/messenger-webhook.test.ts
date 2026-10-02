@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Answer } from "@/lib/assistant/lifeprotect/answer";
 
 const sent: { text: string[]; images: string[]; replies: (string[] | undefined)[] } = { text: [], images: [], replies: [] };
+/** every file handed to Messenger, and whether the next send of one is refused */
+const files: { bytes: Uint8Array; filename: string; replies?: string[] }[] = [];
+let fileFails = false;
 const session = {
   messages: [] as { role: "user" | "assistant"; content: string }[],
   slots: null as unknown,
@@ -29,6 +32,10 @@ vi.mock("@/lib/facebook/client", () => ({
   sendImage: async (_psid: string, url: string, replies?: string[]) => {
     sent.images.push(url); sent.replies.push(replies);
     if (imageFailures > 0) { imageFailures -= 1; throw new Error("Messenger 400: อัพโหลดไฟล์แนบไม่สำเร็จ"); }
+  },
+  sendFile: async (_psid: string, bytes: Uint8Array, filename: string, replies?: string[]) => {
+    if (fileFails) throw new Error("Messenger 400: อัพโหลดไฟล์ไม่สำเร็จ");
+    files.push({ bytes, filename, replies });
   },
   showTyping: async () => {},
 }));
@@ -79,7 +86,7 @@ beforeEach(() => {
   process.env.FB_APP_ID = "app-1";
   process.env.FB_APP_SECRET = "secret";
   sent.text = []; sent.images = []; sent.replies = []; saved.length = 0; kept.length = 0; turns.length = 0;
-  imageFailures = 0;
+  imageFailures = 0; files.length = 0; fileFails = false;
   followups.armed.length = 0; followups.dropped.length = 0;
   session.messages = []; session.slots = null; session.mutedUntil = null; session.handedOverAt = null;
   answer.mockReset();
@@ -454,5 +461,95 @@ describe("a customer on an Expat Page", () => {
     answer.mockRejectedValue(new Error("ล่ม"));
     await expect(handle({ ...asked, message: { mid: "mx2", text: "สนใจค่ะ" } }, EXPAT)).rejects.toThrow();
     expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏"]);
+  });
+});
+
+/**
+ * The quote's PDF on Messenger: the words, then the file the bot fetched from its own route.
+ * Whatever goes wrong with the file, the customer is handed the page to print it from.
+ */
+describe("a PDF the customer asked for", () => {
+  const PDF = "/api/quote-pdf?page=plb&age=35&v=1";
+  const asked = { sender: { id: "psid-pdf" }, message: { mid: "m1", text: "ขอไฟล์ PDF" } };
+  const fetched = vi.fn();
+
+  beforeEach(() => {
+    fetched.mockReset();
+    vi.stubGlobal("fetch", fetched);
+    answer.mockImplementation(async () => ({
+      messages: [{ text: "กำลังทำไฟล์ให้ครับ", file: PDF }],
+      replies: ["ขอไฟล์ PDF"],
+      slots: { intent: "quote" },
+    }));
+  });
+
+  it("is sent as a file, after the words, named as the route names it", async () => {
+    fetched.mockResolvedValue(new Response(new Uint8Array([37, 80, 68, 70]), {
+      status: 200, headers: { "content-disposition": 'inline; filename="plb-M35.pdf"' },
+    }));
+    await handle(asked);
+    expect(sent.text).toEqual(["กำลังทำไฟล์ให้ครับ"]);
+    expect(files).toHaveLength(1);
+    expect(files[0].filename).toBe("plb-M35.pdf");
+    expect([...files[0].bytes]).toEqual([37, 80, 68, 70]);
+    // the buttons ride on the file, the last thing on the screen
+    expect(files[0].replies).toEqual(["ขอไฟล์ PDF"]);
+    expect(fetched.mock.calls[0][0]).toContain(PDF);
+  });
+
+  it("carries the bot's own key to the route, so its fetch is not counted as a visitor's", async () => {
+    process.env.CRON_SECRET = "cron-key";
+    fetched.mockResolvedValue(new Response(new Uint8Array([1]), { status: 200 }));
+    await handle(asked);
+    expect(fetched.mock.calls[0][1].headers.authorization).toBe("Bearer cron-key");
+    // no filename header: the file still goes, under a name of ours
+    expect(files[0].filename).toBe("quote.pdf");
+    delete process.env.CRON_SECRET;
+  });
+
+  it("sends no authorization header when there is no key to send", async () => {
+    delete process.env.CRON_SECRET;
+    fetched.mockResolvedValue(new Response(new Uint8Array([1]), { status: 200 }));
+    await handle(asked);
+    expect(fetched.mock.calls[0][1]?.headers?.authorization).toBeUndefined();
+  });
+
+  it("is handed over as the page's address when the route cannot print it", async () => {
+    fetched.mockResolvedValue(new Response("down", { status: 503 }));
+    await handle(asked);
+    expect(files).toHaveLength(0);
+    expect(sent.text[1]).toContain("ส่งไฟล์ไม่สำเร็จครับ เปิดหน้านี้แล้วกดปุ่มบันทึก PDF ได้เลยครับ");
+    expect(sent.text[1]).toContain("/plb?age=35");
+    expect(sent.text[1]).not.toContain("quote-pdf");
+  });
+
+  it("is handed over as the page's address when Messenger refuses the file", async () => {
+    fetched.mockResolvedValue(new Response(new Uint8Array([1]), { status: 200 }));
+    fileFails = true;
+    await handle(asked);
+    expect(sent.text[1]).toContain("/plb?age=35");
+  });
+
+  it("is asked to wait when the route says too many", async () => {
+    fetched.mockResolvedValue(new Response("slow down", { status: 429 }));
+    await handle(asked);
+    expect(files).toHaveLength(0);
+    expect(sent.text[1]).toBe("รอสักครู่แล้วขอใหม่นะครับ");
+  });
+
+  it("sends a couple both files, told once that they are coming, the buttons on the last", async () => {
+    const PDF2 = "/api/quote-pdf?page=plb&age=33&v=1";
+    answer.mockImplementation(async () => ({
+      messages: [{ text: "กำลังทำไฟล์ให้ครับ", file: PDF }, { text: "", file: PDF2 }],
+      replies: ["สนใจสมัคร"],
+      slots: { intent: "quote" },
+    }));
+    fetched.mockImplementation(async () => new Response(new Uint8Array([37]), { status: 200 }));
+    await handle(asked);
+    expect(sent.text).toEqual(["กำลังทำไฟล์ให้ครับ"]);
+    expect(files).toHaveLength(2);
+    expect(fetched.mock.calls.map((c) => c[0])).toEqual([expect.stringContaining(PDF), expect.stringContaining(PDF2)]);
+    expect(files[0].replies).toBeUndefined();
+    expect(files[1].replies).toEqual(["สนใจสมัคร"]);
   });
 });

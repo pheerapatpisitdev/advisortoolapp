@@ -2,6 +2,12 @@
   "regions": [
     "sin1"
   ],
+  "functions": {
+    "src/app/api/quote-pdf/route.ts": {
+      "memory": 2048,
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
       "path": "/api/facebook/ads/sync",

@@ -1,5 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
@@ -14,22 +15,14 @@ import { cardPath, diseaseCardPath, valueTablePath } from "@/lib/card-link";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { ISHIELD_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
 
-/**
- * The sums the slider offers: every hundred thousand to a million, then every half million
- * to five. The plan's own floor and ceiling are 100,000 and 5,000,000, and the finer steps
- * sit where most of this plan is sold.
- */
-const SUMS = [
-  ...Array.from({ length: 10 }, (_, i) => 100_000 * (i + 1)),
-  ...Array.from({ length: 8 }, (_, i) => 1_500_000 + 500_000 * i),
-];
-const SUM_START_INDEX = SUMS.indexOf(1_000_000);
+const SUM_START_INDEX = ISHIELD_SUMS.indexOf(1_000_000);
 /** The term the page opens on: ten years is the one the company's own proposal illustrates. */
 const TERM_START = "WLCI10";
 /** The age the page opens on — a real price before a visitor touches anything. */
@@ -56,10 +49,30 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
     [table.ageMin, table.ageMax],
   );
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
-  const sumAssured = SUMS[sumIndex];
+  const sumAssured = ISHIELD_SUMS[sumIndex];
   const [wanted, setWanted] = useState(TERM_START);
   const [age, setAge] = useState<IShieldAge>(AGE_START);
   const [sex, setSex] = useState<Sex>("M");
+  // the PDF print waits for this: it is true once the link's figures (if any) are in state
+  const [seeded, setSeeded] = useState(false);
+
+  // A link from the chat opens the figures it quotes. Read here, in the browser, so the page
+  // itself stays static; no query, or one this page cannot show, leaves the start values.
+  useEffect(() => {
+    const initial = planInitialFromTable(new URLSearchParams(window.location.search), {
+      sums: ISHIELD_SUMS, variants: table.terms.map((t) => t.variant), ageMin: table.ageMin, ageMax: table.ageMax,
+    });
+    if (initial) {
+      setSumIndex(ISHIELD_SUMS.indexOf(initial.sumAssured));
+      setWanted(initial.variant);
+      setAge(initial.age as typeof age);
+      setSex(initial.sex);
+    }
+    setSeeded(true);
+  }, [table]);
+  useEffect(() => {
+    if (seeded) markPdfReady();
+  }, [seeded]);
 
   const ageNum = typeof age === "number" ? age : undefined;
   const available = table.terms.filter((t) => ageNum !== undefined && termTakes(table, t, ageNum));
@@ -129,7 +142,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
             <span className="text-lg text-[var(--lg-mute)]">บาท</span>
           </div>
           <input
-            id="is-sum" type="range" min={0} max={SUMS.length - 1} step={1} value={sumIndex}
+            id="is-sum" type="range" min={0} max={ISHIELD_SUMS.length - 1} step={1} value={sumIndex}
             onChange={(e) => setSumIndex(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--lg-gold)]"
           />

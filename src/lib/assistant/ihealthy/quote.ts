@@ -2,7 +2,8 @@ import type { Sex } from "@/calc/types";
 import { iHealthyQuoteText } from "@/lib/ihealthy-cta";
 import { iHealthyFacts, planLabel } from "@/lib/ihealthy-facts";
 import { IHEALTHY_OPENING, type IHealthyInitial } from "@/lib/ihealthy-choice";
-import { cardPath } from "@/lib/ihealthy-link";
+import { cardPath, queryFrom } from "@/lib/ihealthy-link";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 import { deathBenefitOf, iHealthyPricing, plansFor, shownAt, territoriesFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { WANTS_IN, baht, one, type QuoteFigures, type Reply } from "../common";
@@ -112,7 +113,12 @@ export function healthQuote(
 
   const annual = priced?.total.find((m) => m.mode === "annual");
   return {
-    messages: [{ text, card: `${cardPath(table, v)}&fit=phone` }],
+    messages: [{
+      text,
+      card: `${cardPath(table, v)}&fit=phone`,
+      // the same arrangement the card draws, so the file and the picture are one quotation
+      pdfPath: quotePdfPath({ kind: "ihealthy", query: queryFrom(table, v) }),
+    }],
     priced: true,
     ...(annual
       ? {

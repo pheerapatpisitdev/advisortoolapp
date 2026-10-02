@@ -70,6 +70,24 @@ describe("the slots the page hands back", () => {
     expect(cleanSlots("lifeprotect")).toBeNull();
     expect(cleanSlots({})).toBeNull();
   });
+
+  it("checks the PDF memory field by field, keeping the conversation", () => {
+    const path = "/api/quote-pdf?page=lifeprotect&age=35&sex=M&sum=1000000&variant=WLF19H&v=x";
+    const card = "/api/card?plan=LIFEPROTECT&variant=WLF19H&age=35&sex=M&sum=1000000&v=x";
+    const good = {
+      product: "lifeprotect", age: 35,
+      pdf: { paths: [path], card, asked: ["lifeprotect"], declined: true, offered: true, latestHasNoPdf: true },
+    };
+    expect(cleanSlots(good)).toEqual(good);
+    expect(cleanSlots({
+      product: "lifeprotect", age: 35,
+      pdf: {
+        paths: ["javascript:alert(1)"], card: "https://evil.example/c.png", asked: 5, declined: "yes",
+        offered: 1, latestHasNoPdf: "true",
+      },
+    })).toEqual({ product: "lifeprotect", age: 35, pdf: { asked: [] } });
+    expect(cleanSlots({ product: "lifeprotect", pdf: "x" })).toEqual({ product: "lifeprotect" });
+  });
 });
 
 /* ------------------------------ askCopilot itself ------------------------------ */

@@ -76,6 +76,21 @@ async function post(path: string, body: unknown, pageId?: string): Promise<void>
   if (!res.ok) throw new Error(`Messenger ${res.status}: ${(await res.text()).slice(0, 300)}`);
 }
 
+/**
+ * The same, for a body that is a file: multipart, so the boundary is fetch's to write and no
+ * content-type is set here. A file takes longer to take in than a sentence, but the same
+ * bound holds — an upload that hangs would eat the apology's time just as a send would.
+ */
+async function postForm(path: string, form: FormData, pageId?: string): Promise<void> {
+  const res = await fetch(`${GRAPH}/${path}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${await token(pageId)}` },
+    body: form,
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`Messenger ${res.status}: ${(await res.text()).slice(0, 300)}`);
+}
+
 /** An answer takes several seconds; the typing bubble says the page is working on it. */
 export async function showTyping(psid: string, pageId?: string): Promise<void> {
   await post("messages", { recipient: { id: psid }, sender_action: "typing_on" }, pageId);
@@ -97,6 +112,24 @@ export async function sendImage(
       ...(replies?.length ? { quick_replies: quickReplies(replies) } : {}),
     },
   }, pageId);
+}
+
+/**
+ * A PDF as an attachment, uploaded with the message rather than fetched by Meta from a URL:
+ * the file is printed on demand by a route that rate-limits strangers, and Meta's own fetch
+ * would be one. `is_reusable: false` because nothing else will send this file again.
+ */
+export async function sendFile(
+  psid: string, bytes: Uint8Array, filename: string, replies?: string[], pageId?: string,
+): Promise<void> {
+  const form = new FormData();
+  form.append("recipient", JSON.stringify({ id: psid }));
+  form.append("message", JSON.stringify({
+    attachment: { type: "file", payload: { is_reusable: false } },
+    ...(replies?.length ? { quick_replies: quickReplies(replies) } : {}),
+  }));
+  form.append("filedata", new Blob([bytes as BlobPart], { type: "application/pdf" }), filename);
+  await postForm("messages", form, pageId);
 }
 
 /**

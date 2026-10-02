@@ -1,5 +1,6 @@
 "use client";
 import { useRef } from "react";
+import { preparePrint } from "@/lib/quote-pdf/prepare";
 
 /**
  * Hands the table to the browser's own print pipeline, where "Save as PDF" is waiting.
@@ -10,51 +11,13 @@ import { useRef } from "react";
  * a word like เบี้ยสะสม are exactly where those get it wrong, on a document that goes to a
  * customer. That trade was put to the owner against a one-tap file, and this is the side they
  * chose.
- *
- * The rest of the page is hidden by walking up from the table and marking every sibling on
- * the way, rather than by the usual trick of hiding everything and pulling the target to the
- * top with `position: absolute`. That trick was tried first and printed a blank sheet: the
- * sales pages give every direct child of `.theme-legacy` `position: relative`, so "the top"
- * meant the top of some element halfway down the document. Hiding siblings needs to know
- * nothing about the page it is on, which is the property worth having here — six sales pages
- * with three different skins are what this runs inside.
  */
-const MARK = "data-print-hide";
-
 export function PrintButton({ className }: { className: string }) {
   const ref = useRef<HTMLButtonElement>(null);
 
   const print = () => {
     const target = ref.current?.closest(".print-table");
-    const hidden: Element[] = [];
-
-    /**
-     * The date, written in at the moment the sheet is made.
-     *
-     * Not rendered with the component: a `new Date()` in something that hydrates is a
-     * mismatch between the server's clock and the browser's, and the only moment this date
-     * means anything is this one.
-     */
-    const stamp = target?.querySelector("[data-printed-at]");
-    stamp?.setAttribute(
-      "data-printed-at",
-      `พิมพ์เมื่อ ${new Date().toLocaleString("th-TH", { dateStyle: "long", timeStyle: "short" })}`,
-    );
-
-    if (target) {
-      for (let node: Element | null = target; node && node !== document.body; node = node.parentElement) {
-        for (const sibling of Array.from(node.parentElement?.children ?? [])) {
-          if (sibling !== node) {
-            sibling.setAttribute(MARK, "");
-            hidden.push(sibling);
-          }
-        }
-      }
-    }
-
-    const restore = () => {
-      for (const el of hidden) el.removeAttribute(MARK);
-    };
+    const restore = target ? preparePrint(target) : () => {};
 
     // Chrome returns from print() once the dialog closes; Safari returns at once and leaves
     // it to the event. Both paths restore, and removing an attribute twice costs nothing.

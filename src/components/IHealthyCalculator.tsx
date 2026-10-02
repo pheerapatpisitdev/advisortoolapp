@@ -29,6 +29,7 @@ import { iHealthyQuoteText, type IHealthyCtaFacts } from "@/lib/ihealthy-cta";
 import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
 import { WORDS, baseWords } from "@/lib/ihealthy-words";
 import { Highlighted } from "@/components/Highlighted";
+import { markPdfReady, registerPrepare } from "@/lib/quote-pdf/prepare";
 
 export interface IHealthyCalculatorProps {
   table: IHealthyTable;
@@ -219,6 +220,15 @@ export function IHealthyCalculator(
     window.addEventListener("beforeprint", stamp);
     return () => window.removeEventListener("beforeprint", stamp);
   }, [w, lang]);
+
+  // The server's headless Chrome prints once the fold has priced the arrangement, and asks
+  // for the date the same way the browser's own print does.
+  const isAnswered = !!answered;
+  useEffect(() => {
+    if (!isAnswered) return;
+    registerPrepare(() => window.dispatchEvent(new Event("beforeprint")));
+    markPdfReady();
+  }, [isAnswered]);
 
   const priced = plan && territory && coverage
     ? iHealthyPricing(table, {

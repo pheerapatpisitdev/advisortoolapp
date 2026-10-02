@@ -63,6 +63,8 @@ interface Turn {
   cards?: string[];
   /** what to offer next, as buttons, when the answer leads somewhere in particular */
   guide?: GuideItem[];
+  /** the quotes' PDFs, each opened in a tab from its own link under the answer */
+  pdfs?: string[];
   /** the question that got no answer, so "ลองอีกครั้ง" can ask it again without retyping */
   retry?: string;
 }
@@ -173,7 +175,7 @@ export function Chat({ invite = false }: { invite?: boolean }) {
       if (reply.slots !== undefined) setSlots(reply.slots);
       setTurns((t) => [...t, {
         role: "assistant", text: reply.text, model: reply.model,
-        priced: reply.priced, cards: reply.cards, guide: reply.guide,
+        priced: reply.priced, cards: reply.cards, guide: reply.guide, pdfs: reply.pdfs,
         ...(reply.failed ? { retry: asked } : {}),
       }]);
     } catch {
@@ -335,6 +337,19 @@ export function Chat({ invite = false }: { invite?: boolean }) {
                 <p className="mt-2.5 text-xs font-medium text-[var(--hm-live)]">
                   {"✓ คิดจากตารางเบี้ยจริง"}
                 </p>
+              )}
+              {/* a couple's two files are numbered in the order the quotes were given */}
+              {t.pdfs && t.pdfs.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {t.pdfs.map((pdf, n) => (
+                    <a
+                      key={pdf} href={pdf} target="_blank" rel="noopener noreferrer"
+                      className="inline-block rounded-full bg-[var(--hm-solid)] px-4 py-2 text-sm font-medium text-[var(--hm-solid-ink)]"
+                    >
+                      {t.pdfs!.length > 1 ? `ดาวน์โหลด PDF (${n + 1})` : "ดาวน์โหลด PDF"}
+                    </a>
+                  ))}
+                </div>
               )}
               {/* the question that got no answer, one press from being asked again — on the
                   newest answer only, since an older one has been asked past already */}
