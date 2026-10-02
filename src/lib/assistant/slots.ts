@@ -37,14 +37,29 @@ export type AnySlots = Routed | HealthSlots | LegacySlots | IShieldSlots | Undec
  * the one holding the conversation by then.
  */
 export interface PdfMemory {
-  /** the latest quote's PDF, when the sales page can print that quote */
-  path?: string;
+  /**
+   * The latest answer's PDFs, in the order its quotes were sent: one person's one, a couple's
+   * two. Each of them asked for a quote, so each is owed their own file.
+   */
+  paths?: string[];
   /** the latest quote's card, sent instead when there is no PDF of it */
   card?: string;
+  /**
+   * The latest quote has neither a PDF nor a card (the pension plan). Remembered rather than
+   * left blank, because blank would leave the quote before it standing — and that is another
+   * plan's file.
+   */
+  latestHasNoPdf?: true;
   /** the pages the bot has already offered the file for: asked once per plan, then a button */
   asked: PdfPage[];
   /** the customer said no to the offer; the button stays, the question does not come back */
   declined?: true;
+  /**
+   * The last answer ended with the offer. Kept here as well as in its words because the words
+   * may not come back whole — the website cuts a long answer at 2,000 characters, and the offer
+   * is its last line. One turn long: whatever answers next writes it again or drops it.
+   */
+  offered?: true;
 }
 
 export type WithPdf<T> = T & { pdf?: PdfMemory };

@@ -126,12 +126,15 @@ export async function answerAny(
   const slots = stored && "pdf" in stored ? withoutPdf(stored as WithPdf<AnySlots>) : stored;
 
   /**
-   * A request for the file, or a no to the offer of one, answered before anything else.
+   * A request for the file, or a no to the offer of one, answered before anything else — once
+   * there is a quote to answer it with. Before that it goes the usual way below, which ends in
+   * the quote that offers the file.
    *
    * Ahead of the form on purpose: the quote that offered the file also invited the customer to
    * apply, and a bare "เอาครับ" after the offer is about the file. And ahead of the brains, which
    * have nothing to add — the file is the last quote's, and the conversation is carried through
-   * untouched.
+   * untouched. A message that only sounds like it (group cover, joining the team, the form's own
+   * conversation) is turned away inside `pdfTurn` and reaches its own path here.
    */
   const turn = pdfTurn(asked, lastSaid, memory, channel);
   if (turn) {

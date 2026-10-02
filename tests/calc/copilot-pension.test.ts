@@ -73,8 +73,10 @@ describe("บำนาญ สมาร์ท 95 in the chat", () => {
     );
     expect(answer.priced).toBe(true);
     expect(answer.messages[0].text).toContain("บำนาญ สมาร์ท 95");
-    // the conversation it interrupted is still there
-    expect(answer.slots).toEqual({ product: "lifeprotect" });
+    // the conversation it interrupted is still there, beside the note that this quote has no PDF
+    const { pdf, ...rest } = answer.slots as typeof answer.slots & { pdf?: unknown };
+    expect(rest).toEqual({ product: "lifeprotect" });
+    expect(pdf).toEqual({ asked: [], latestHasNoPdf: true });
   });
 });
 
