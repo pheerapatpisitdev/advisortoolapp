@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DISCLAIMER, DISCLAIMER_EN, INSURER_LINE, INSURER_LINE_EN, TAX_LINE, captionParts, footer, fullText } from "@/lib/content/output";
+import { DISCLAIMER, DISCLAIMER_EN, INSURER_LINE, INSURER_LINE_EN, TAX_LINE, insurerLine, captionParts, footer, fullText } from "@/lib/content/output";
 
 const piece = { hooks: ["เปิด"], body: "เนื้อ", closing: "ปิด", hashtags: ["#a"], imagePrompt: "", disclaimer: DISCLAIMER };
 
@@ -48,5 +48,12 @@ describe("an English piece's footer", () => {
   it("leaves a Thai piece's footer as before: no lang means the Thai insurer", () => {
     expect(footer(piece).endsWith(INSURER_LINE)).toBe(true);
     expect(footer(piece)).not.toContain(INSURER_LINE_EN);
+  });
+});
+
+describe("insurerLine", () => {
+  it("follows the piece's language", () => {
+    expect(insurerLine("en")).toBe(INSURER_LINE_EN);
+    expect(insurerLine("th")).toBe(INSURER_LINE);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { backgroundPrompt, stripThai } from "@/lib/content/background";
+import { backgroundPrompt, posterPrompt, stripThai } from "@/lib/content/background";
 import { parsePoster } from "@/lib/content/poster";
+import { CLASSIC } from "@/lib/content/looks";
 
 describe("backgroundPrompt", () => {
   const base = { scene: "A Thai father reading to his daughter at bedtime", layout: "bottom" as const, theme: "navy" as const };
@@ -45,5 +46,40 @@ describe("a poster's background", () => {
     for (const bad of ["../../etc/passwd", "https://evil.example/x.png", "a/b/c.png", "x.png"]) {
       expect(parsePoster({ blocks: headline, background: bad })!.background, bad).toBeUndefined();
     }
+  });
+});
+
+describe("English pieces", () => {
+  const en = { scene: "", layout: "bottom" as const, theme: "navy" as const, lang: "en" as const };
+
+  it("asks for English lettering and expat people on an English piece", () => {
+    const bg = backgroundPrompt(en);
+    expect(bg).toContain("English headline text");
+    expect(bg).not.toContain("Thai headline text");
+    expect(bg).toContain("Foreign residents of mixed nationalities, living in Thailand, in a Thai setting");
+    expect(bg).toContain("A believable everyday moment of an expat living in Thailand, warm and unposed.");
+    const p = posterPrompt({ direction: "clean", poster: { blocks: [{ kind: "headline", text: "Cover that stays" }] }, layout: "bottom", lang: "en" });
+    expect(p).toContain("The words on the image, in English");
+    expect(p).toContain("the English lettering");
+    expect(p).toContain("Keep every word whole and correctly spelled");
+    expect(p).not.toMatch(/Thai lettering|Thai typeface|Thai word/);
+  });
+
+  it("covers the look and owner-request branches", () => {
+    const lk = backgroundPrompt({ ...en, look: { ...CLASSIC, style: "film" } });
+    expect(lk).not.toContain("Thai headline text");
+    expect(lk).toContain("English headline text");
+    const rq = backgroundPrompt({ ...en, request: "a quiet beach" });
+    expect(rq).toContain("English headline text");
+    expect(rq).not.toContain("Thai headline text");
+  });
+
+  it("leaves a Thai piece's prompts as they were", () => {
+    expect(backgroundPrompt({ ...en, lang: undefined })).toContain("Thai headline text");
+    expect(backgroundPrompt({ ...en, lang: undefined })).toContain("Thai people in a Thai setting");
+    expect(backgroundPrompt({ ...en, request: "x", lang: undefined })).toContain("Thai headline text");
+    const p = posterPrompt({ direction: "d", poster: { blocks: [{ kind: "headline", text: "x" }] }, layout: "bottom" });
+    expect(p).toContain("the Thai lettering together");
+    expect(p).toContain("in a clean, modern, clearly legible Thai typeface");
   });
 });
