@@ -613,6 +613,23 @@ describe("an engine that takes the id it is given (final review, 2026-10-02)", (
     expect(storedEdit().submitting).toBeUndefined();
   });
 
+  it("an invoke whose answer is lost after a callback already finished the job never falls over to a second engine", async () => {
+    lambda.takesId = true;
+    eng.enginesInOrder.mockImplementation(async () => [lambda, rendi]);
+    clipDb.reset(dbRow(video({ edit: edit() })));
+    lambda.submit.mockImplementation(async (_job: unknown, opts: { id?: string; uploads?: Record<string, { path: string }> }) => {
+      await finishJob(PIECE, opts.id!, { state: "done", outputs: { out_1: { path: opts.uploads!.out_1.path } } });
+      throw new EngineError("ส่งงานให้ AWS ไม่ได้", true); // the invoke's answer timed out after Lambda took it
+    });
+
+    const rec = await submitJob(PIECE, "render", renderJob("https://signed.test/s.mp4", [[0, 5]], []), [], { pass: WALLET, costThb: 0.07 });
+
+    expect(rendi.submit).not.toHaveBeenCalled();
+    expect(storedEdit().renderedPath).toBe(rec.dest!.out_1);
+    expect(round.settleLater).toHaveBeenCalledTimes(1);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.07);
+  });
+
   it("a callback for an id nobody has is still ignored", async () => {
     clipDb.reset(dbRow(video({ edit: edit() })));
     expect(await finishJob(PIECE, "nobody", { state: "done", outputs: {} })).toBe("ignored");

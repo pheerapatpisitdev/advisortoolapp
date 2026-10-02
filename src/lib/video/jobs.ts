@@ -220,9 +220,11 @@ export async function submitJob(
           // nothing runs under this id: its record goes, and the caller's claim comes back for the next engine
           const back = await writeEdit(item, (edit) =>
             edit?.job?.id === record.id ? { ...edit, job: null, ...(ownClaim ? { submitting: ownClaim } : {}) } : null);
-          if (back) item = back;
-          else console.error(`${engine.name} job ${record.id} for ${pieceId} was not taken and its record not cleared; it times out`);
-          throw e;
+          if (back) { item = back; throw e; }
+          // the record is gone or could not be cleared: either a callback already finished it (the invoke answer
+          // was lost after Lambda took it) or it stays and times out — never hand the job to a second engine
+          console.error(`${engine.name} job ${record.id} for ${pieceId}: invoke failed but its record was not cleared; kept as taken`);
+          return record;
         }
         return record;
       }
