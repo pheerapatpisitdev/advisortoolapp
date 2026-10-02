@@ -9,8 +9,8 @@ import { valueTableCard } from "@/lib/quote-card";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
 import diseases from "../../../../data/riders/ishield-diseases.json";
 import {
-  aboutCompany, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, peopleIn, saysFormDone, stallReply,
-  stalls, WANTS_IN, wantsToBuy, type Reply,
+  aboutCompany, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, HEALTH_QUESTION,
+  peopleIn, saysFormDone, stallReply, stalls, WANTS_IN, wantsToBuy, type Reply,
 } from "../common";
 import { writtenFor, type Channel } from "../channel";
 import { CHOOSE_HEALTH, CHOOSE_LEGACY } from "../choose";
@@ -212,6 +212,24 @@ export function sumFromSaving(saving: number, who: { age: number; sex: "M" | "F"
   return Math.min(Math.max(tidy, min), max ?? raw);
 }
 
+/**
+ * A customer saying they have, or had, a condition — as against asking what the plan pays for.
+ *
+ * The shared pattern names cancer and the heart, and on a critical-illness contract those are
+ * as often the cover being asked about ("มะเร็งคุ้มครองไหม") as a condition being confessed. So
+ * a disease word counts only where the message is not about cover; the words that can only be
+ * about the customer's own health count wherever they are.
+ */
+const OWN_HEALTH = /โรคประจำตัว|แถลงสุขภาพ|ตรวจสุขภาพ|สุขภาพไม่ดี|กินยา|รักษาตัว|เคย\s*(?:เป็น|ป่วย|ผ่าตัด|รักษา)|กำลัง\s*(?:เป็น|รักษา)/;
+const ABOUT_COVER = /คุ้มครอง|ครอบคลุม|ได้เงิน|รับเงิน|เคลม|ถ้า\s*(?:เป็น|เจอ|ป่วย)|เจอโรค/;
+
+export function saysUnwell(text: string): boolean {
+  return OWN_HEALTH.test(text) || (HEALTH_QUESTION.test(text) && !ABOUT_COVER.test(text));
+}
+
+/** The paying term as a customer says it, and as a button says it. */
+const termLabel = (variant: string) => `ส่ง ${Number(variant.replace(/\D/g, ""))} ปี`;
+
 /** Everything the message adds to what was already known. */
 function filled(previous: IShieldSlots | null, asked: string): IShieldSlots {
   const slots: IShieldSlots = { product: "ishield", ...previous };
@@ -296,6 +314,16 @@ export function answerIShield(
     };
   }
 
+  /**
+   * A condition, answered before the form is.
+   *
+   * "เป็นเบาหวานสมัครได้ไหม" holds the word "สมัคร", and was sent the application form: the
+   * one reply on a critical-illness contract that tells a customer with a condition to go
+   * ahead. Whether they can be insured is the underwriter's answer, so they are told about
+   * the declaration — the same words the life and health plans use — and nothing is sent.
+   */
+  if (saysUnwell(asked)) return { messages: [{ text: said(HEALTH_DECLARATION) }], slots };
+
   // "บริษัทอะไร" was answered with the quote again: the life brain had this check and these
   // two did not. The agency's own sentence, whatever else the conversation is about.
   if (asksAboutCompany(asked)) return { messages: [{ text: said(aboutCompany(asked)) }], slots };
@@ -349,12 +377,11 @@ export function answerIShield(
   if (named && named !== slots.variant) {
     const max = baseAgeRange(rules()!, named, rates()).max;
     const open = TERMS.filter((v) => takes(v, slots.age!));
-    const label = (v: string) => `ส่ง ${Number(v.replace(/\D/g, ""))} ปี`;
     return {
       messages: [{
-        text: said(`แบบ${label(named)} รับอายุไม่เกิน ${max} ปีครับ อายุ ${slots.age} เลือกได้แบบ${open.map(label).join(" / ")}`),
+        text: said(`แบบ${termLabel(named)} รับอายุไม่เกิน ${max} ปีครับ อายุ ${slots.age} เลือกได้แบบ${open.map(termLabel).join(" / ")}`),
       }],
-      replies: open.map(label),
+      replies: open.map(termLabel),
       slots,
     };
   }
@@ -440,8 +467,15 @@ function quoted(
   // on the quote and not on the table: the file is the sales page, which is the quote
   const pdfPath = quotePdfPath(card);
 
+  /**
+   * The other paying terms this customer can take, as buttons — the same arrangement priced
+   * shorter or longer. A customer who wanted the twenty-year premium had no way to know it
+   * could be asked for, and the one who typed it was quoted the ten-year again.
+   */
+  const otherTerms = TERMS.filter((v) => v !== slots.variant && takes(v, slots.age)).map(termLabel);
+
   return {
-    replies: [WANTS_IN, CHOOSE_HEALTH, CROSS_SELL],
+    replies: [WANTS_IN, ...otherTerms, CHOOSE_HEALTH, CROSS_SELL],
     messages: [
       { text: said(lines.join("\n")), card: cardPath(card), ...(pdfPath ? { pdfPath } : {}) },
       ...(table

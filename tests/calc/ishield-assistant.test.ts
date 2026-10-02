@@ -109,6 +109,63 @@ describe("a paying term the customer names", () => {
   });
 });
 
+describe("a customer who says they are unwell", () => {
+  const tenYear = { product: "ishield" as const, age: 35, sex: "M" as const, variant: "WLCI10", sumAssured: 1_000_000, told: true as const };
+
+  /**
+   * The inbox, 2026-10-02: "เป็นเบาหวานสมัครได้ไหม" read as "สมัคร" and was sent the form. On a
+   * critical-illness contract that is the costliest wrong answer there is, so a condition is
+   * answered with the declaration before anything else is read — the form included.
+   */
+  it("is told about the health declaration, not sent the form", () => {
+    for (const said of ["เป็นเบาหวานสมัครได้ไหม", "ความดันสูง กินยาอยู่ สนใจสมัคร", "เคยผ่าตัดไส้ติ่ง ทำได้ไหม"]) {
+      const a = answer(said, tenYear);
+      expect(spoken(a), said).toContain("แถลงข้อมูลสุขภาพ");
+      expect(a.slots.formSent, said).toBeUndefined();
+      expect(a.priced, said).toBeFalsy();
+    }
+  });
+
+  it("is told before being asked who they are", () => {
+    const a = answer("มีโรคประจำตัว ทำได้ไหมครับ");
+    expect(spoken(a)).toContain("แถลงข้อมูลสุขภาพ");
+    expect(spoken(a)).not.toContain("เพศกับอายุ");
+  });
+
+  /** on this plan "มะเร็ง" is as often what is covered as what someone has */
+  it("leaves a question about what the plan pays for alone", () => {
+    for (const said of ["มะเร็งคุ้มครองไหม", "โรคหัวใจคุ้มครองไหม", "ถ้าเป็นมะเร็งรับเงินแล้วยังคุ้มครองต่อไหม"]) {
+      expect(spoken(answer(said, tenYear)), said).not.toContain("แถลงข้อมูลสุขภาพ");
+    }
+    expect(answer("มีโรคอะไรบ้าง", tenYear).messages[0].card).toBeDefined();
+  });
+});
+
+describe("the other paying terms, offered under the quotation", () => {
+  it("are the terms that take the customer, less the one just quoted", async () => {
+    const { WANTS_IN } = await import("@/lib/assistant/common");
+    const a = answer(COVER_CHOICES[1], { product: "ishield", age: 35, sex: "M", variant: "WLCI10" });
+    expect(a.replies?.[0]).toBe(WANTS_IN);
+    expect(a.replies).toEqual(expect.arrayContaining(["ส่ง 5 ปี", "ส่ง 15 ปี", "ส่ง 20 ปี"]));
+    expect(a.replies).not.toContain("ส่ง 10 ปี");
+  });
+
+  it("are each read back as the term they name, and priced", () => {
+    const first = answer(COVER_CHOICES[1], { product: "ishield", age: 35, sex: "M", variant: "WLCI10" });
+    for (const tap of (first.replies ?? []).filter((r) => r.startsWith("ส่ง "))) {
+      const a = answer(tap, first.slots);
+      expect(a.priced, tap).toBe(true);
+      expect(spoken(a), tap).toContain(`ชำระเบี้ย ${tap.replace(/\D/g, "")} ปี`);
+    }
+  });
+
+  /** at 53 only the fifteen-year term takes them, so there is nothing else to offer */
+  it("leave out a term the age is past", () => {
+    const a = answer(COVER_CHOICES[1], { product: "ishield", age: 53, sex: "M", variant: "WLCI15" });
+    expect(a.replies?.filter((r) => r.startsWith("ส่ง "))).toEqual([]);
+  });
+});
+
 describe("a saving turned into a sum", () => {
   it("buys a tidy sum, priced at what that sum actually costs", () => {
     const sum = sumFromSaving(3000, { age: 35, sex: "M", variant: "WLCI10" });
