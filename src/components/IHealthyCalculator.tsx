@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PayMode, Sex } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
 import type { IHealthyTable } from "@/lib/ihealthy-table";
@@ -26,7 +26,7 @@ import type { Attached } from "@/components/ihealthy/RiderPanel";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { LinkButton } from "@/components/sales/LinkButton";
 import { iHealthyQuoteText, type IHealthyCtaFacts } from "@/lib/ihealthy-cta";
-import type { Lang } from "@/lib/ihealthy-lang";
+import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
 import { WORDS, baseWords } from "@/lib/ihealthy-words";
 import { Highlighted } from "@/components/Highlighted";
 
@@ -202,6 +202,24 @@ export function IHealthyCalculator(
     }
   }, [link]);
 
+  /**
+   * The sheet's date, written in as the print dialog opens — from the button or from the
+   * browser's own menu, which fire the same event. Not rendered: a `new Date()` in something
+   * that hydrates is the server's clock disagreeing with the browser's, and the only moment
+   * this date means anything is this one.
+   */
+  const printedAt = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    const stamp = () => {
+      if (!printedAt.current) return;
+      printedAt.current.textContent = w.printedAt(
+        new Date().toLocaleString(HTML_LANG[lang], { dateStyle: "long", timeStyle: "short" }),
+      );
+    };
+    window.addEventListener("beforeprint", stamp);
+    return () => window.removeEventListener("beforeprint", stamp);
+  }, [w, lang]);
+
   const priced = plan && territory && coverage
     ? iHealthyPricing(table, {
         base: base.variant, sex, age, sumAssured, plan: plan.code, territory, coverage,
@@ -311,12 +329,10 @@ export function IHealthyCalculator(
       {/* On paper the form is gone, so what it held has to be said in words: a premium and
           a benefit table with nothing naming who they are for is not a quote.
 
-          And on paper it is a proposal for all six plans, not for the one on the card: the
-          owner hands the sheet over so the customer can choose, and the table's premium rows
-          already price every plan in every instalment. So the heading names no plan and no
-          instalment, and the card stays on screen. What the card carries that the table does
-          not — the DCI illnesses — prints under the table, after the health plan it rides
-          on. */}
+          The owner's full sheet: who it is for, then the plan on the card with its bill
+          itemised contract by contract, then all six plans side by side for comparison, then
+          the conditions written out in full. The heading names the six because the table is
+          still the bulk of the document; the card below it names the one chosen. */}
       <div className="ihu-print-head hidden print:block">
         <h2 className="text-lg font-medium">
           {w.tableCaption(data.plans.length)} · {territory ? territoryName(territory) : "—"}
@@ -325,6 +341,7 @@ export function IHealthyCalculator(
         <p className="mt-1 text-sm">
           {w.sex[sex]} {w.years(age)} · {w.baseWithSum(bases(base).label, sumAssured)} {w.baht}
         </p>
+        <p ref={printedAt} className="ihu-printed-at" />
       </div>
 
       <div className="space-y-5 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5 print:hidden">
@@ -444,7 +461,10 @@ export function IHealthyCalculator(
         </div>
       </div>
 
-      <div className="space-y-4 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-raise)] p-5 print:hidden">
+      <div className="ihu-quote space-y-4 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-raise)] p-5">
+        <h3 className="ihu-sheet-label hidden print:block">
+          {w.sheetChosen}{plan ? ` · iHealthy Ultra ${planLabel(plan.code)}` : ""}
+        </h3>
         {plan === undefined || priced === undefined ? (
           // Nothing the pickers can reach lands here; a rate revision that took a rate away
           // from either half would, and the half it came from is not worth guessing at — so
@@ -542,7 +562,8 @@ export function IHealthyCalculator(
               {shown && (
                 <p className="mt-1 opacity-80">{w.firstYearOnly}</p>
               )}
-              {hasDci && dciList}
+              {/* on paper the list prints under the table instead, three to a row */}
+              {hasDci && <div className="print:hidden">{dciList}</div>}
             </div>
           </>
         )}

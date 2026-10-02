@@ -188,13 +188,14 @@
   }
 }
 
-/* ── the printed sheet: two A4 pages ─────────────────────────────────────────────────────
+/* ── the printed sheet: the full proposal ────────────────────────────────────────────────
  *
- * What the owner hands a customer is the page on paper, and it came out as five sheets: a
- * poster-sized title, a table whose row titles wrapped to six lines in a quarter of the
- * width, a section band stranded at the foot of a page over an empty box, and the conditions
- * as a heading on one sheet and a list of closed folds on the next. The owner asked for two
- * A4 pages, so everything below is sized to that and nothing else on screen changes.
+ * What the owner hands a customer is the page on paper. It was first cut to two A4 sheets —
+ * the table and a list of one-line conditions — and the owner then asked for the whole
+ * document instead: the three headline figures and the date under the title, the chosen
+ * plan's card and its bill contract by contract, all six plans in the table, and every
+ * condition written out rather than named. It runs to as many sheets as that takes; what is
+ * kept from the two-page cut is the sizing, so none of it is a poster or a stranded heading.
  *
  * A named page rather than a bare `@page`: the stylesheet can outlive this route after a
  * client-side navigation, and the other sales pages keep the paper they were laid out for.
@@ -229,16 +230,59 @@
   .ihu-hero :is(.ihu-title-label, .ihu-title-name) { color: var(--bot-surface); }
   .ihu-hero .ihu-title-name > span { color: var(--bot-sand); }
   .ihu-hero .ihu-intro { color: var(--bot-navy-soft); }
-  /* the three figures say again what the sentence above them has just said */
-  .ihu-highlights { display: none; }
+  /* the three headline figures, as a strip along the foot of the letterhead */
+  .ihu-highlights {
+    margin-top: 6px; padding: 5px 0 0;
+    border-top: 1px solid var(--bot-navy-soft);
+  }
+  .ihu-highlights > div { padding-left: 12px; border-left-color: var(--bot-navy-soft); }
+  .ihu-highlights span { margin-bottom: 0; font-size: 8.5px; color: var(--bot-navy-soft); }
+  .ihu-highlights strong { font-size: 16px; color: var(--bot-sand); }
+  .ihu-highlights small { font-size: 9px; color: var(--bot-surface); }
 
-  /* Who the proposal is for, under the title. No card: on paper this is all six plans,
-     and the table's premium rows are the price. */
+  /* Who the proposal is for, under the title, and when it was made. */
   .ihealthy-scope #calc > div > * { margin-block: 0; }
-  .ihealthy-scope #calc > div > * + * { margin-top: 6px; }
+  .ihealthy-scope #calc > div > * + * { margin-top: 8px; }
   .ihu-print-head { border-left: 4px solid var(--bot-sand); padding: 1px 0 1px 8px; }
   .ihu-print-head h2 { font-size: 13px; color: var(--bot-navy); }
   .ihu-print-head > p { margin-top: 0; font-size: 10px; }
+  .ihu-print-head > .ihu-printed-at { font-size: 8.5px; color: var(--lg-mute); }
+
+  /* The two boxes headed for the sheet: the chosen plan, and its bill. */
+  .ihu-sheet-label {
+    margin: 0 0 3px; padding-bottom: 2px; font-size: 10.5px; font-weight: 600;
+    color: var(--bot-navy); border-bottom: 1px solid var(--bot-navy-soft);
+  }
+  .ihu-quote, .ihu-items {
+    border: 1px solid var(--bot-navy-soft); border-top: 3px solid var(--bot-navy);
+    border-radius: 6px; break-inside: avoid;
+  }
+
+  /* The card in two halves — what it is made of on the left, what it costs on the right —
+     since a phone's column of lines down the
+     full width of a sheet was a third of a page of mostly white. */
+  .ihu-quote {
+    display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px;
+    padding: 6px 12px 8px;
+  }
+  .ihu-quote > * { margin: 0 !important; }
+  .ihu-quote > .ihu-sheet-label, .ihu-quote > p { grid-column: 1 / -1; }
+  .ihu-quote :is(p, li, dt, dd, div) { font-size: 9.5px; line-height: 1.55; }
+  .ihu-quote :is(ul, dl) > * { margin-block: 0; }
+  .ihu-quote .border-t { padding-top: 4px; }
+  .ihu-quote > ul + div { border-top: 0; padding-top: 0; }
+  .ihu-quote .lg-figure.mt-1 { font-size: 20px; margin-top: 0; }
+  .ihu-quote dl { margin-top: 2px; max-width: 210px; }
+  /* the ceiling and what the family receives run under both halves */
+  .ihu-quote > div:last-child { grid-column: 1 / -1; padding-top: 4px; }
+
+  /* the bill: the fold's priced rows, the pickers above them left on screen */
+  .ihu-items > div { border-top: 0; padding: 6px 12px 8px; opacity: 1; }
+  .ihu-items > div > * + * { margin-top: 2px; }
+  .ihu-items dl { border-top: 0; padding-top: 0; max-width: 420px; }
+  .ihu-items dl > * { margin-block: 0; }
+  .ihu-items :is(p, dt, dd) { font-size: 9.5px; line-height: 1.55; }
+  .ihu-items dl > div:last-child { margin-top: 2px; padding-top: 2px; }
   /* the thirty-one DCI illnesses, three to a row rather than a page-long column */
   .ihu-print-dci section {
     margin-top: 6px; padding: 6px 10px; break-inside: avoid;
@@ -274,28 +318,31 @@
   .ihealthy-scope .ihu-benefit-table td > span { font-size: inherit; }
   .ihealthy-scope .ihu-benefit-table th[scope="colgroup"] { padding-top: 2.5px; padding-bottom: 2.5px; }
   .ihealthy-scope .ihu-benefit-table th[scope="colgroup"] > span { width: auto; padding-left: 0; }
-  /* no column is the chosen one on a sheet that proposes all six */
-  .ihealthy-scope .ihu-benefit-table [data-picked] { font-weight: inherit; }
-  .ihealthy-scope .ihu-benefit-table thead th[data-plan][data-picked] { box-shadow: none; }
+  /* the chosen column keeps its bar, so the card above can be found in the table */
+  .ihealthy-scope .ihu-benefit-table thead th[data-plan][data-picked] {
+    box-shadow: inset 0 -3px 0 var(--bot-sand);
+  }
   /* a section band goes with the first row under it, never alone at the foot of a sheet */
   .ihealthy-scope .ihu-benefit-table tr:has(> th[scope="colgroup"]) { break-after: avoid; }
   .ihu-bleed > div > p { padding-top: 3px; padding-bottom: 0; font-size: 8px; line-height: 1.5; }
 
-  /* The conditions: on paper a fold cannot be opened, so each prints as the one line it
-     already is — the summaries are whole sentences — two to a row, and the heading kept
-     with them. */
-  .ihu-terms { padding: 8px 0 0; break-inside: avoid; }
+  /* The conditions in full: a fold cannot be opened on paper, so each prints its summary as
+     a heading and its whole text under it — the shared rule in globals.css lets the bodies
+     out — one condition to a block, never split across a sheet. */
+  .ihu-terms { padding: 10px 0 0; }
   .ihu-terms h2 { font-size: 12px; margin: 0; break-after: avoid; color: var(--bot-navy); }
-  .ihu-terms h2 + div {
-    margin-top: 2px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 20px;
+  .ihu-terms h2 + div { margin-top: 2px; }
+  .ihu-terms details {
+    padding: 4px 0 5px; border-bottom: 1px solid var(--bot-navy-soft); break-inside: avoid;
   }
-  .ihu-terms details { border-bottom: 0; }
-  .ihu-terms details > div { display: none !important; }
-  .ihu-terms summary { display: block; padding: 1px 0; font-size: 9px; font-weight: 400; line-height: 1.5; }
+  .ihu-terms summary {
+    display: block; padding: 0; font-size: 9.5px; font-weight: 600; line-height: 1.5;
+    color: var(--bot-navy); break-after: avoid;
+  }
   .ihu-terms summary::before { content: "● "; color: var(--bot-sand-line); }
+  .ihu-terms details > div { padding: 1px 0 0 12px; font-size: 8.5px; line-height: 1.6; }
+  .ihu-terms details > div :is(p, li) { font-size: inherit; line-height: inherit; }
+  .ihu-terms details > div ul { margin-top: 2px; display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 14px; }
 
   .ihu-disclaimer { padding: 6px 0 0; break-inside: avoid; }
   .ihu-disclaimer > p { padding-top: 4px; margin-top: 0; font-size: 7.5px; line-height: 1.55; }

@@ -1,4 +1,5 @@
 import { Fold, H2, Rule } from "@/components/sales/Blocks";
+import { PrintUnfold } from "@/components/ihealthy/PrintUnfold";
 import type { IHealthyFacts } from "@/lib/ihealthy-facts";
 import type { IHealthyWords } from "@/lib/ihealthy-words";
 
@@ -37,6 +38,8 @@ export function TermsSection({ facts, w }: { facts: IHealthyFacts; w: IHealthyWo
     <section className="ihu-terms py-10">
       <H2>{w.termsHeading}</H2>
       <div className="mt-5">
+        {/* on paper every condition prints in full, so the folds open for the dialog */}
+        <PrintUnfold />
         <Fold summary={w.waitingSummary(t.waitingDays, t.specialWaitingDays)}>
           <p>{w.waitingBody(t.waitingDays, t.specialWaitingDiseases.length, t.specialWaitingDays)}</p>
           <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">

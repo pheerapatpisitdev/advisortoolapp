@@ -91,6 +91,11 @@ export interface IHealthyWords {
   dciNote: string;
   death: DeathWords;
   printOrPdf: string;
+  /** the printed sheet's own headings: the card and the itemised bill it carries on paper */
+  sheetChosen: string;
+  sheetItems: (mode: string) => string;
+  /** the moment the sheet was made, already written out in the reader's own calendar */
+  printedAt: (when: string) => string;
   copyLink: string;
   linkCopied: string;
   /** the card picture and the copied text, which leave the page in the reader's language */
@@ -299,6 +304,9 @@ const th: IHealthyWords = {
     always: "ทุกช่วงอายุ",
   },
   printOrPdf: "พิมพ์ หรือบันทึก PDF",
+  sheetChosen: "สรุปแผนที่เลือก",
+  sheetItems: (mode) => `เบี้ยประกันแยกตามสัญญา (${mode})`,
+  printedAt: (when) => `จัดทำเมื่อ ${when}`,
   copyLink: "คัดลอกลิงก์หน้านี้",
   linkCopied: "คัดลอกแล้ว ✓",
   share: {
@@ -431,6 +439,9 @@ const en: IHealthyWords = {
     always: "At any age",
   },
   printOrPdf: "Print or save as PDF",
+  sheetChosen: "Selected plan",
+  sheetItems: (mode) => `Premium by contract (${mode})`,
+  printedAt: (when) => `Prepared ${when}`,
   copyLink: "Copy link to this page",
   linkCopied: "Copied ✓",
   share: {
@@ -597,6 +608,9 @@ const zh: IHealthyWords = {
     always: "任何年龄",
   },
   printOrPdf: "打印或保存为PDF",
+  sheetChosen: "所选计划",
+  sheetItems: (mode) => `各合同保费（${mode}）`,
+  printedAt: (when) => `制作日期 ${when}`,
   copyLink: "复制本页链接",
   linkCopied: "已复制 ✓",
   share: {
@@ -753,6 +767,9 @@ const ru: IHealthyWords = {
     always: "В любом возрасте",
   },
   printOrPdf: "Печать или PDF",
+  sheetChosen: "Выбранный план",
+  sheetItems: (mode) => `Взнос по договорам (${mode})`,
+  printedAt: (when) => `Подготовлено ${when}`,
   copyLink: "Скопировать ссылку",
   linkCopied: "Скопировано ✓",
   share: {
@@ -911,6 +928,9 @@ const my: IHealthyWords = {
     always: "အသက်မရွေး",
   },
   printOrPdf: "ပုံနှိပ်ရန် သို့မဟုတ် PDF သိမ်းရန်",
+  sheetChosen: "ရွေးချယ်ထားသော အစီအစဉ်",
+  sheetItems: (mode) => `စာချုပ်အလိုက် ပရီမီယံ (${mode})`,
+  printedAt: (when) => `ပြုစုသည့်ရက် ${when}`,
   copyLink: "ဤစာမျက်နှာလင့်ခ် ကူးယူရန်",
   linkCopied: "ကူးယူပြီး ✓",
   share: {

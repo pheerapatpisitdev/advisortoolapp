@@ -256,8 +256,10 @@ export function RiderPanel(
     "rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-2 py-1.5 text-sm tabular-nums text-[var(--lg-white)]";
 
   return (
-    <details open className="group rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] print:hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-medium text-[var(--lg-white)] marker:hidden">
+    // On paper the pickers go and the priced rows stay: the itemised bill is the part of the
+    // fold a customer is owed, and the ticks are the agent's working.
+    <details open className="ihu-items group rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)]">
+      <summary className="print:hidden flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-sm font-medium text-[var(--lg-white)] marker:hidden">
         {w.foldTitle}
         <span
           aria-hidden
@@ -270,10 +272,11 @@ export function RiderPanel(
         aria-busy={pending}
         className={`space-y-3 border-t border-[var(--lg-panel-line)] px-5 py-4 ${pending ? "opacity-60" : ""}`}
       >
+        <h3 className="ihu-sheet-label hidden print:block">{w.sheetItems(w.mode[mode])}</h3>
         {lost ? (
           // A button, because the fold no longer stops and starts with the disclosure arrow:
           // it was told to close and reopen to retry, and closing it does nothing any more.
-          <p className="flex flex-wrap items-center gap-3 text-sm text-[var(--lg-gold)]">
+          <p className="flex flex-wrap items-center gap-3 text-sm text-[var(--lg-gold)] print:hidden">
             {w.pricingFailed}
             <button
               type="button" onClick={() => setAttempt((n) => n + 1)}
@@ -293,7 +296,7 @@ export function RiderPanel(
               return (
                 <div
                   key={c.code}
-                  className={`flex flex-wrap items-center gap-2.5 ${c.eligible ? "" : "opacity-55"}`}
+                  className={`flex flex-wrap items-center gap-2.5 print:hidden ${c.eligible ? "" : "opacity-55"}`}
                 >
                   <label className="flex flex-1 items-center gap-2.5 text-sm text-[var(--lg-white)]">
                     <input
