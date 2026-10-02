@@ -102,6 +102,12 @@ export const clipDb = {
           const f = clipDb.files.get(path);
           return f ? { data: new Blob([f.text]), error: null } : { data: null, error: { message: "Object not found" } };
         },
+        async list(dir: string, opts?: { search?: string; limit?: number }) {
+          const names = [...clipDb.files.keys()]
+            .filter((p) => p.startsWith(`${dir}/`)).map((p) => p.slice(dir.length + 1))
+            .filter((n) => !n.includes("/") && (!opts?.search || n.includes(opts.search)));
+          return { data: names.slice(0, opts?.limit ?? 100).map((name) => ({ name })), error: null };
+        },
         async remove(paths: string[]) {
           for (const p of paths) { clipDb.files.delete(p); clipDb.removed.push(p); }
           return { data: [], error: null };

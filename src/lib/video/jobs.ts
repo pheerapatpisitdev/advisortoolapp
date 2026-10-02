@@ -536,7 +536,24 @@ export async function checkJob(pieceId: string): Promise<{ item: ContentItem; ch
     console.error(`job ${job.id} failed on ${job.engine}: ${redact(status.error)}`);
     return end(item, job, { state: "failed", error: JOB_FAILED });
   }
+  // a callback engine whose call back never arrived (the app unreachable, every retry lost): its files are
+  // the job's own destinations, written only by the render, so all of them being there is the render's word
+  if (callsBack(job.engine) && job.dest && await allStored(Object.values(job.dest))) {
+    console.error(`job ${job.id}: no call back, files found in storage — finished from them`);
+    return end(item, job, { state: "done", paths: { ...job.dest } });
+  }
   return { item, changed: false };
+}
+
+/** every path is an object in the clip bucket (a destination is a fresh uuid name, so a hit is that upload) */
+async function allStored(paths: string[]): Promise<boolean> {
+  if (paths.length === 0) return false;
+  for (const p of paths) {
+    const slash = p.lastIndexOf("/");
+    const { data, error } = await bucket().list(p.slice(0, slash), { search: p.slice(slash + 1), limit: 1 });
+    if (error || !data?.some((f) => f.name === p.slice(slash + 1))) return false;
+  }
+  return true;
 }
 
 /**

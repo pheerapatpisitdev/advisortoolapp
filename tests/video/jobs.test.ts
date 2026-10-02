@@ -708,6 +708,24 @@ describe("a Cloud Run job (2026-10-02)", () => {
     expect(ledger.recordUsage).toHaveBeenCalledWith("cloudrun", "content-edit", 0, 0, 0.216);
   });
 
+  it("a call back that never arrives: the job is finished from its files once they are all in storage", async () => {
+    cloudrun.submit.mockImplementation(async (_j: unknown, o: Opts) => ({ id: o.id }));
+    const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET, costThb: 0.216 });
+
+    // nothing written yet: still running, nothing charged
+    expect((await checkJob(PIECE)).changed).toBe(false);
+    expect(storedEdit().job?.id).toBe(rec.id);
+    expect(round.settleLater).not.toHaveBeenCalled();
+
+    // the render uploaded its file but its call back was lost (the app unreachable)
+    clipDb.files.set(rec.dest!.out_1, { text: "MP4", contentType: "video/mp4" });
+    expect((await checkJob(PIECE)).changed).toBe(true);
+    expect(storedEdit()).toMatchObject({ job: null, renderedPath: rec.dest!.out_1 });
+    expect(clipDb.files.has(rec.payloadPath!)).toBe(false);
+    expect(round.settleLater).toHaveBeenCalledTimes(1);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.216);
+  });
+
   it("a callback that it failed hands the round back and lets the payload file go", async () => {
     cloudrun.submit.mockImplementation(async (_j: unknown, o: Opts) => ({ id: o.id }));
     const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET, costThb: 0.216 });
