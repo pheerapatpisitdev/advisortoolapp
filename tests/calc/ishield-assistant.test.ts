@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerIShield, COVER_CHOICES, savingIn, sumFromSaving, termFor } from "@/lib/assistant/ishield/answer";
+import { answerIShield, COVER_CHOICES, ishieldTermIn, savingIn, sumFromSaving, termFor } from "@/lib/assistant/ishield/answer";
 import { quote } from "@/calc/quote";
 import { formatBaht } from "@/calc/money";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
@@ -52,6 +52,60 @@ describe("the paying term", () => {
 
   it("gives up only when no term will have them", () => {
     expect(termFor(60)).toBeUndefined();
+  });
+});
+
+describe("a paying term the customer names", () => {
+  it("reads the ways a person asks for one", () => {
+    expect(ishieldTermIn("ส่ง 20 ปี")).toBe("WLCI20");
+    expect(ishieldTermIn("ขอแบบส่ง 20 ปีด้วย")).toBe("WLCI20");
+    expect(ishieldTermIn("จ่าย 15 ปี")).toBe("WLCI15");
+    expect(ishieldTermIn("ชำระเบี้ย 5 ปี")).toBe("WLCI05");
+    expect(ishieldTermIn("แบบ 10 ปี")).toBe("WLCI10");
+    expect(ishieldTermIn("20 ปีจบ")).toBe("WLCI20");
+  });
+
+  /** "อายุ 20 ปี" is an insured, not a term, and a term this plan is not sold in is no term */
+  it("does not read an age, or a term the plan does not have", () => {
+    expect(ishieldTermIn("อายุ 20 ปี")).toBeUndefined();
+    expect(ishieldTermIn("ชาย 20")).toBeUndefined();
+    expect(ishieldTermIn("ส่ง 7 ปี")).toBeUndefined();
+  });
+
+  const tenYear = { product: "ishield" as const, age: 35, sex: "M" as const, variant: "WLCI10", sumAssured: 1_000_000, told: true as const };
+
+  /** the inbox, 2026-10-02: asked for the twenty-year premium and was sent the ten-year one again */
+  it("re-quotes the same sum on the term asked for", () => {
+    const a = answer("ขอเบี้ยแบบส่ง 20 ปี", tenYear);
+    expect(a.priced).toBe(true);
+    expect(a.slots.variant).toBe("WLCI20");
+    expect(a.slots.sumAssured).toBe(1_000_000);
+    expect(spoken(a)).toContain("ชำระเบี้ย 20 ปี");
+    expect(a.messages[0].card).toContain("variant=WLCI20");
+  });
+
+  it("takes the term said in the same breath as the person and the sum", () => {
+    const a = answer("iShield ชาย 35 ทุน 1 ล้าน ส่ง 20 ปี");
+    expect(a.slots.variant).toBe("WLCI20");
+    expect(spoken(a)).toContain("ชำระเบี้ย 20 ปี");
+  });
+
+  it("keeps a term named before the customer said who they are", () => {
+    const first = answer("ส่ง 20 ปี");
+    const person = answer("ชาย 35", first.slots);
+    const a = answer(COVER_CHOICES[1], person.slots);
+    expect(a.slots.variant).toBe("WLCI20");
+    expect(spoken(a)).toContain("ชำระเบี้ย 20 ปี");
+  });
+
+  /** the twenty-year term is issued to 52; a customer of 55 is told so, not quoted on it */
+  it("says so when the term asked for will not take their age", () => {
+    const fifteen = { ...tenYear, age: 55, variant: "WLCI15" };
+    const a = answer("ส่ง 20 ปี", fifteen);
+    expect(a.priced).toBeFalsy();
+    expect(spoken(a)).toContain("52");
+    expect(spoken(a)).toContain("15 ปี");
+    expect(a.slots.variant).toBe("WLCI15");
   });
 });
 

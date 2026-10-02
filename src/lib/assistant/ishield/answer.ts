@@ -43,6 +43,8 @@ export interface IShieldSlots {
   sex?: "M" | "F";
   /** the paying term, e.g. WLCI10 */
   variant?: string;
+  /** the customer named the term; it outlives a change of age that it still takes */
+  termChosen?: true;
   /** the sum assured in baht, once a saving or a sum has settled it */
   sumAssured?: number;
   /**
@@ -151,14 +153,33 @@ export function savingIn(text: string): number | undefined {
  * because a term that refuses is not an option and being told so is not an answer.
  */
 export function termFor(age: number): string | undefined {
+  if (!rules()) return undefined;
+  if (takes(OPENS_ON, age)) return OPENS_ON;
+  return TERMS.find((v) => takes(v, age));
+}
+
+/** Whether this paying term is issued at this age. */
+function takes(variant: string, age: number): boolean {
   const r = rules();
-  if (!r) return undefined;
-  const takes = (v: string) => {
-    const { min, max } = baseAgeRange(r, v, rates());
-    return age >= min && age <= max;
-  };
-  if (takes(OPENS_ON)) return OPENS_ON;
-  return TERMS.find(takes);
+  if (!r) return false;
+  const { min, max } = baseAgeRange(r, variant, rates());
+  return age >= min && age <= max;
+}
+
+/**
+ * A paying term said with the word that makes it one — "ส่ง 20 ปี", "ชำระเบี้ย 15 ปี", "แบบ 5
+ * ปี", "20 ปีจบ" — and only in the four this plan is sold in.
+ *
+ * Never a bare number of years, for the reason the life plan gives: "อายุ 20 ปี" is an
+ * insured. Without this the term was never read at all, and a customer who asked for the
+ * twenty-year premium was sent the ten-year quotation again (the inbox, 2026-10-02).
+ */
+const TERM_NAMED = /(?:(?:จ่าย|ส่ง|ชำระ)(?:เบี้ย)?|แบบ)\s*(5|10|15|20)\s*ปี|(?<!\d)(5|10|15|20)\s*ปีจบ/;
+
+export function ishieldTermIn(text: string): string | undefined {
+  const m = text.match(TERM_NAMED);
+  const years = m?.[1] ?? m?.[2];
+  return years ? `WLCI${years.padStart(2, "0")}` : undefined;
 }
 
 /** The widest age this plan is issued at under any of its terms, for the refusal to quote. */
@@ -198,8 +219,13 @@ function filled(previous: IShieldSlots | null, asked: string): IShieldSlots {
   if (person) {
     slots.age = person.age;
     slots.sex = person.sex;
-    // the term depends on the age, so an age that moves takes the term with it
-    slots.variant = termFor(person.age);
+    // the term depends on the age, so an age that moves takes the term with it — unless the
+    // customer chose that term and it still takes them
+    const kept = slots.termChosen && slots.variant && takes(slots.variant, person.age);
+    if (!kept) {
+      slots.variant = termFor(person.age);
+      delete slots.termChosen;
+    }
   } else if (slots.age !== undefined && !slots.variant) {
     /**
      * An age that arrived by another road still needs a term.
@@ -210,6 +236,18 @@ function filled(previous: IShieldSlots | null, asked: string): IShieldSlots {
      * it takes perfectly well.
      */
     slots.variant = termFor(slots.age);
+  }
+
+  // a term named is the term, where it takes the customer; where it does not, the answer says so
+  const named = ishieldTermIn(asked);
+  if (named && (slots.age === undefined || takes(named, slots.age))) {
+    slots.variant = named;
+    slots.termChosen = true;
+    if (slots.sumAssured !== undefined) {
+      // the sum held was settled under another term, whose limits may not be this one's
+      const { min, max } = baseSumAssuredLimits(rules()!, named);
+      slots.sumAssured = Math.min(Math.max(slots.sumAssured, min), max ?? slots.sumAssured);
+    }
   }
 
   if (slots.age !== undefined && slots.sex && slots.variant) {
@@ -304,6 +342,20 @@ export function answerIShield(
           + " แต่แบบมรดกเบี้ยไม่ทิ้งยังทำได้อยู่ สนใจให้คิดเบี้ยให้ไหมครับ"),
       }],
       slots: { product: "ishield" },
+    };
+  }
+
+  const named = ishieldTermIn(asked);
+  if (named && named !== slots.variant) {
+    const max = baseAgeRange(rules()!, named, rates()).max;
+    const open = TERMS.filter((v) => takes(v, slots.age!));
+    const label = (v: string) => `ส่ง ${Number(v.replace(/\D/g, ""))} ปี`;
+    return {
+      messages: [{
+        text: said(`แบบ${label(named)} รับอายุไม่เกิน ${max} ปีครับ อายุ ${slots.age} เลือกได้แบบ${open.map(label).join(" / ")}`),
+      }],
+      replies: open.map(label),
+      slots,
     };
   }
 
