@@ -200,3 +200,19 @@ export function posterScrim(theme: Theme, layout: "top" | "center" | "bottom"): 
   const toward = layout === "top" ? "180deg" : "0deg";
   return `linear-gradient(${toward}, ${a(0.85)} 0%, ${a(0.55)} 40%, ${a(0.05)} 100%)`;
 }
+
+/** The words laid on a clip, drawn at a fixed width like the posters; the "page" style takes POSTER_THEMES instead. */
+export interface ClipStyleColors {
+  boxBg: string | null;
+  color: string;
+  stroke: string | null;
+  hookTopBg: string;
+  hookTopInk: string;
+  hookMainBg: string;
+  hookMainInk: string;
+}
+export const CLIP_STYLE_COLORS: Record<"box" | "outline" | "yellow", ClipStyleColors> = {
+  box: { boxBg: "rgba(0,0,0,0.62)", color: "#ffffff", stroke: null, hookTopBg: "#facc15", hookTopInk: "#111111", hookMainBg: "rgba(17,24,39,0.88)", hookMainInk: "#ffffff" },
+  outline: { boxBg: null, color: "#ffffff", stroke: "6px #000000", hookTopBg: "#ffffff", hookTopInk: "#111111", hookMainBg: "rgba(0,0,0,0)", hookMainInk: "#ffffff" },
+  yellow: { boxBg: "#facc15", color: "#111111", stroke: null, hookTopBg: "#111111", hookTopInk: "#facc15", hookMainBg: "#facc15", hookMainInk: "#111111" },
+};
