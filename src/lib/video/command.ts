@@ -4,6 +4,8 @@ import type { Span } from "./timeline";
  * The ffmpeg commands a render service runs (owner, 2026-10-02) — the same command for Rendi
  * and for our Lambda, in Rendi's form: inputs and outputs by alias, {{in_1}} / {{out_1}} in the
  * command, no leading "ffmpeg". The render is the one cut by hand on 2026-10-02 that worked.
+ * Both commands require the clip's first audio stream; a clip with no speech is refused before
+ * a job is made (src/app/studio/clip-edit.ts `openEdit`).
  */
 
 export interface FfmpegJob {
