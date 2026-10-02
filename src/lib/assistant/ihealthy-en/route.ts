@@ -12,39 +12,50 @@ import { merge, planNamedIn, type HealthSlots } from "../ihealthy/route";
  * reason, as the Thai router's `clean`: the plan is the price.
  */
 
-/** An age said as an age: "35 years old", "age 35", "I'm 35". */
+/**
+ * An age is read only where it cannot be anything else — the Thai reader's rule (`peopleIn`):
+ * beside a sex, said as an age, or as the whole message. A number on its own inside a
+ * sentence is too many things — "a 3 day stay", "2 nights", "70 M" — and a wrong age is a
+ * wrong premium (review, 2026-10-02).
+ */
+const SEX = "female|woman|lady|girl|male|man|gentleman|boy|f|m";
+/** "35 male", "35, male", "35/F", "35yo m", "25m", "35 years old female" */
+const AGE_THEN_SEX = new RegExp(
+  String.raw`(?<![\d,.])(\d{1,2})\s*(?:years?\s*old|yrs?|y\/?o)?\s*[,/-]?\s*(${SEX})\b`, "i",
+);
+/** "F 42", "male 45", "F, 35" — never the m of "I'm" */
+const SEX_THEN_AGE = new RegExp(String.raw`(?<![\w'’])(${SEX})\s*[,/-]?\s*(?:aged?\s*)?(\d{1,2})(?![\d,.])`, "i");
+
+/** An age said as an age: "35 years old", "age 35", "aged 35", "I'm 35", "I'm actually 45". */
 const AGE_SAID = [
   /\b(\d{1,2})\s*(?:years?\s*old|yrs?\b|y\/?o\b)/i,
   /\bage(?:d)?\s*(?:is\s*)?(\d{1,2})\b/i,
-  /\b(?:i['’]?m|i\s+am)\s+(\d{1,2})\b/i,
+  /\b(?:i['’]?m|i\s+am)\s+(?:actually\s+|now\s+|turning\s+)?(\d{1,2})\b/i,
 ];
+/** The whole message is the age. */
+const AGE_ONLY = /^\s*(\d{1,2})\s*[.!]?\s*$/;
 
-/** A number on its own, and not part of a year, a sum or a limit in millions. */
-const AGE_ALONE = /(?<![\d,.])(\d{1,2})(?![\d,.]|\s*(?:million|mil\b|m\b|k\b|baht|thb))/i;
+const FEMALE_WORD = /\b(?:female|woman|lady|girl|wife|mrs|ms)\b/i;
+const MALE_WORD = /\b(?:male|man|gentleman|boy|husband|mr)\b/i;
 
-// a lone F or M beside a number ("F 42", "35m") — never the m of "I'm"
-const FEMALE = /\b(?:female|woman|women|lady|girl|wife|mrs|ms)\b|(?<!['’])\bf\s*\d|\d\s*f\b/i;
-const MALE = /\b(?:male|man|men|gentleman|boy|husband|mr)\b|(?<!['’])\bm\s*\d|\d\s*m\b(?!\s*(?:illion|il))/i;
-
-function ageInEn(text: string): number | undefined {
-  for (const re of AGE_SAID) {
-    const m = re.exec(text);
-    if (m) return Number(m[1]);
-  }
-  const m = AGE_ALONE.exec(text);
-  return m ? Number(m[1]) : undefined;
-}
+const sexOf = (word: string): "M" | "F" => (/^(?:female|woman|lady|girl|f)$/i.test(word) ? "F" : "M");
 
 function sexInEn(text: string): "M" | "F" | undefined {
-  const f = FEMALE.test(text);
-  const m = MALE.test(text);
+  const f = FEMALE_WORD.test(text);
+  const m = MALE_WORD.test(text);
   if (f === m) return undefined;
   return f ? "F" : "M";
 }
 
 /** The age and the sex a message gives, whichever of the two it gives. */
 export function personInEn(text: string): { age?: number; sex?: "M" | "F" } {
-  const age = ageInEn(text);
+  const after = AGE_THEN_SEX.exec(text);
+  if (after) return { age: Number(after[1]), sex: sexOf(after[2]) };
+  const before = SEX_THEN_AGE.exec(text);
+  if (before) return { age: Number(before[2]), sex: sexOf(before[1]) };
+
+  const said = AGE_SAID.map((re) => re.exec(text)).find(Boolean) ?? AGE_ONLY.exec(text);
+  const age = said ? Number(said[1]) : undefined;
   const sex = sexInEn(text);
   return { ...(age !== undefined ? { age } : {}), ...(sex ? { sex } : {}) };
 }
@@ -53,7 +64,8 @@ export function personInEn(text: string): { age?: number; sex?: "M" | "F" } {
 const TERRITORY_WORDS_EN: [string, RegExp][] = [
   ["ทั่วโลก", /worldwide|global|whole world|anywhere in the world/i],
   ["เอเชีย", /\basia\b/i],
-  ["ประเทศไทย", /thailand/i],
+  // Thailand said in passing — "hospitals in Thailand", "lived in Thailand 12 years" — is not a choice of cover
+  ["ประเทศไทย", /thailand only|only (?:in |within )?thailand|just (?:in )?thailand|within thailand/i],
 ];
 
 export function territoryNamedInEn(text: string): string | undefined {
@@ -64,7 +76,8 @@ export function territoryNamedInEn(text: string): string | undefined {
 export function planNamedInEn(text: string): string | undefined {
   const named = planNamedIn(text);
   if (named) return named;
-  const m = text.match(/(\d+)\s*(?:million|mil\b|m\b)/i);
+  // written out: "70 M" is a seventy-year-old man before it is a seventy-million plan
+  const m = text.match(/(\d+)\s*(?:million|mil)\b/i);
   if (!m) return undefined;
   const baht = Number(m[1]) * 1_000_000;
   return iHealthyFacts().plans.find((p) => p.annualMax === baht)?.code;

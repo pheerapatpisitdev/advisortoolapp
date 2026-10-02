@@ -21,6 +21,11 @@ describe("languageOf", () => {
     ["👍", "th", "th"],
     ["我想了解保险", undefined, "en"],
     ["Gold แผนนี้", "en", "th"],
+    ["Gold", "th", "th"],
+    ["Bronze", "th", "th"],
+    ["ok", "th", "th"],
+    ["Gold", undefined, "en"],
+    ["Gold", "en", "en"],
   ] as const)("%s (was %s) → %s", (text, prev, want) => {
     expect(languageOf(text, prev)).toBe(want);
   });

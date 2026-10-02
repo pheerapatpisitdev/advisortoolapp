@@ -25,7 +25,22 @@ describe("reading a person in English", () => {
     ["male", { sex: "M" }],
     ["I'm 35", { age: 35 }],
     ["I’m 40", { age: 40 }],
+    ["35, male", { age: 35, sex: "M" }],
+    ["F, 35", { age: 35, sex: "F" }],
+    ["35/F", { age: 35, sex: "F" }],
+    ["50/m", { age: 50, sex: "M" }],
+    ["35yo m", { age: 35, sex: "M" }],
+    ["70 M", { age: 70, sex: "M" }],
+    ["25m", { age: 25, sex: "M" }],
+    ["35", { age: 35 }],
+    ["I've lived in Thailand 10 years, male 45", { age: 45, sex: "M" }],
   ])("personInEn(%s)", (text, want) => expect(personInEn(text)).toEqual(want));
+
+  it.each([
+    "Is a 3 day stay covered?", "Is a 30 day stay covered?", "How much is a private room for 2 nights?",
+  ])("reads no age out of a question about days or nights: %s", (q) => {
+    expect(personInEn(q).age).toBeUndefined();
+  });
 
   it("does not read a plan ceiling or a year as an age", () => {
     expect(personInEn("10 million plan").age).toBeUndefined();
@@ -38,6 +53,16 @@ describe("reading a plan and a territory in English", () => {
     expect(territoryNamedInEn("Asia please")).toBe("เอเชีย");
     expect(territoryNamedInEn("worldwide cover")).toBe("ทั่วโลก");
     expect(territoryNamedInEn("Thailand only")).toBe("ประเทศไทย");
+  });
+
+  it("does not read Thailand mentioned in passing as a territory", () => {
+    expect(territoryNamedInEn("Which hospitals in Thailand can I use?")).toBeUndefined();
+    expect(territoryNamedInEn("I have lived in Thailand for 12 years")).toBeUndefined();
+  });
+
+  it("reads an age with an M after it as an age, never as a plan", () => {
+    expect(planNamedInEn("70 M")).toBeUndefined();
+    expect(planNamedInEn("25m")).toBeUndefined();
   });
 
   it("reads a plan by name and by its yearly limit", () => {

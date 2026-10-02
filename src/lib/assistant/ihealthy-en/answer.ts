@@ -10,7 +10,7 @@ import { HEALTH_PLAN_INFO_SYSTEM_EN, HEALTH_SMALL_TALK_SYSTEM_EN, healthFactsFor
 import {
   cheaperEn, fullTableLinkEn, healthMenuEn, healthQuoteEn, otherPlansEn, territoryAnswerEn,
 } from "./quote";
-import { planNamedInEn, routeHealthEn, territoryNamedInEn } from "./route";
+import { personInEn, planNamedInEn, routeHealthEn, territoryNamedInEn } from "./route";
 import {
   APPLY_HAND_OVER_EN, ASK_AGE_EN, ASK_DETAILS_EN, ASK_SEX_EN, COMPANY_EN, FORM_DONE_EN, GREETING_EN,
   HAND_OVER_EN, PLAN_BENEFITS_EN, SEE_OTHER_PLANS_EN, SHARE_OF_BILL_EN, STALL_EN, WANTS_IN_EN,
@@ -26,7 +26,12 @@ import {
 
 const STALLS = /think (?:about|it over)|later|not now|maybe next|no thanks|get back to you|let me check/i;
 const ASKS = /\?|\b(?:what|how|when|which|where|why|does|do|is|can|could)\b/i;
-const BUYS = /\bapply\b|sign (?:me )?up|\bbuy\b|purchase|proceed|go ahead|i(?:'| a)m in|let'?s do it|how (?:do|can) i (?:get|start|apply)/i;
+/**
+ * Deciding to apply, said as a decision. Not "can foreigners buy this?", not "can I apply with
+ * diabetes?", not "does the waiting period apply?" — the Thai list leaves out ซื้อได้ไหม for
+ * the same reason, and a question answered with a hand-over is a question not answered.
+ */
+const BUYS = /\bi(?:'d| would)? (?:like|want) to (?:apply|buy|sign up|purchase|get (?:it|this|covered))|sign me up|let'?s (?:do it|go ahead|apply)|^\s*(?:ok(?:ay)?,?\s*)?go ahead\b|i'?ll take (?:it|this|the \w+)|\bi(?:'| a)m in\b|how (?:do|can) i (?:apply|sign up)|^\s*apply(?: now)?\s*[.!]*\s*$/i;
 const NOT_BUYING = /claim|cancel|refund|renew/i;
 const FORM_DONE = /\b(?:done|filled|submitted|completed)\b|sent (?:it|them|the form)/i;
 const COMPANY = /which company|who is the insurer|what company|insurance company|is this legit|are you (?:licensed|real)/i;
@@ -55,7 +60,9 @@ export async function answerHealthEn(
 
   if (STALLS.test(asked) && !ASKS.test(asked)) return { ...one(STALL_EN), slots: known };
   if (known.formSent && FORM_DONE.test(asked)) return { ...one(FORM_DONE_EN), slots: known };
-  if (asked === WANTS_IN_EN || (BUYS.test(asked) && !NOT_BUYING.test(asked))) {
+  // a message carrying a person is a quotation being asked for, as in the Thai `wantsToBuy`
+  const buys = BUYS.test(asked) && !NOT_BUYING.test(asked) && personInEn(asked).age === undefined;
+  if (asked === WANTS_IN_EN || buys) {
     return { ...one(APPLY_HAND_OVER_EN), slots: { ...known, formSent: true } };
   }
   if (GROUP.test(asked)) return { ...one(HAND_OVER_EN), slots: known };
@@ -65,7 +72,11 @@ export async function answerHealthEn(
   if (asksShareOfBill(asked)) return { ...one(SHARE_OF_BILL_EN), slots: known };
 
   // the advertisement's button, or a hello: a question back, not a description of the contract
-  if (GREETS.test(asked) && planNamedInEn(asked) === undefined) {
+  // only a bare hello: one that carries a person, a plan or a question is answered for those
+  const person = personInEn(asked);
+  const bare = person.age === undefined && person.sex === undefined
+    && planNamedInEn(asked) === undefined && !ASKS.test(asked);
+  if (GREETS.test(asked) && bare) {
     return known.age !== undefined && known.sex !== undefined
       ? { ...healthMenuEn(known.age, known.sex), slots: known }
       : { ...one(GREETING_EN), slots: known };
@@ -95,7 +106,9 @@ export async function answerHealthEn(
   if (slots.age === undefined || slots.sex === undefined) return { ...one(askForMissing(slots)), slots };
   // a plan is quoted when asked for — named now, changed, or never quoted — as in the Thai brain
   if (slots.plan) {
-    const asking = planNamedInEn(asked) !== undefined || slots.plan !== known.plan || !quoted;
+    // a corrected age or sex re-prices the plan on the table, or hands over when out of range
+    const asking = planNamedInEn(asked) !== undefined || slots.plan !== known.plan || !quoted
+      || slots.age !== known.age || slots.sex !== known.sex;
     if (asking) {
       return { ...healthQuoteEn({ ...slots, age: slots.age, sex: slots.sex, plan: slots.plan }), slots };
     }

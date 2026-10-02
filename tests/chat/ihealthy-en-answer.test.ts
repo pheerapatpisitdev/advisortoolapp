@@ -55,6 +55,49 @@ describe("the English health brain", () => {
     expect(a.slots.formSent).toBe(true);
   });
 
+  it.each([
+    "How can I get a quote?", "Can foreigners buy this?", "Can I apply with diabetes?",
+    "Does the waiting period apply to accidents?", "Can I purchase it for my wife?",
+  ])("does not take a question for a decision to apply: %s", async (q) => {
+    const a = await answerHealthEn(said(q), { ...KNOWN, plan: "GOLD" });
+    expect(a.messages[0].text).not.toBe(APPLY_HAND_OVER_EN);
+    expect(a.slots.formSent).toBeUndefined();
+  });
+
+  it.each(["I'd like to apply", "Sign me up", "How do I apply?", "Let's go ahead"])(
+    "takes a decision to apply as one: %s", async (q) => {
+      const a = await answerHealthEn(said(q), { ...KNOWN, plan: "GOLD" });
+      expect(a.messages[0].text).toBe(APPLY_HAND_OVER_EN);
+    },
+  );
+
+  it("does not greet away the details given with the greeting", async () => {
+    const a = await answerHealthEn(said("Hello, I'm 35 male"), null);
+    expect(a.replies).toEqual(["Bronze", "Silver", "Gold"]);
+    expect(a.slots).toMatchObject({ age: 35, sex: "M" });
+  });
+
+  it("answers the question asked with a hello", async () => {
+    routed = { intent: "plan_info" };
+    const a = await answerHealthEn(said("Hello, does it cover OPD?"), null);
+    expect(a.messages[0].text).not.toBe(GREETING_EN);
+  });
+
+  it("re-quotes the plan on the table when the age changes, and hands over out of range", async () => {
+    const a = await answerHealthEn(said("Sorry, I'm actually 45"), { ...KNOWN, plan: "GOLD" });
+    expect(a.priced).toBe(true);
+    expect(a.slots.age).toBe(45);
+    const b = await answerHealthEn(said("Sorry, I'm actually 85"), { ...KNOWN, plan: "GOLD" });
+    expect(b.priced).toBeFalsy();
+    expect(b.messages[0].text).toContain("An agent will continue");
+  });
+
+  it("re-sends nothing for Thailand said in passing", async () => {
+    routed = { intent: "plan_info" };
+    const a = await answerHealthEn(said("Which hospitals in Thailand can I use?"), { ...KNOWN, plan: "GOLD" });
+    expect(a.priced).toBeFalsy();
+  });
+
   it("a model reply with an invented figure loses that line", async () => {
     worded = "Gold costs 99,999 THB a year.\nIt covers inpatient care.";
     const a = await answerHealthEn(said("what does gold cover for inpatient care?"), { ...KNOWN, plan: "GOLD" });

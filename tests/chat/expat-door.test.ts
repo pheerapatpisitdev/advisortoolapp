@@ -40,7 +40,7 @@ describe("an Expat Page", () => {
     routed = { intent: "plan_info" };
     const two = await answerAny(said("ค่าห้องเท่าไหร่"), one.slots, "facebook", undefined, EXPAT);
     routed = { intent: "other" };
-    const three = await answerAny(said("Gold"), two.slots, "facebook", undefined, EXPAT);
+    const three = await answerAny(said("Gold please"), two.slots, "facebook", undefined, EXPAT);
     expect(three.priced).toBe(true);
     expect(three.messages[0].text).not.toMatch(THAI);
   });
@@ -53,6 +53,13 @@ describe("an Expat Page", () => {
   it("carries a person from a non-health session into the health brain", async () => {
     const a = await answerAny(said("Gold"), { product: "undecided", age: 40, sex: "F" }, "facebook", undefined, EXPAT);
     expect(a.priced).toBe(true);
+  });
+});
+
+describe("a Thai customer on an Expat Page", () => {
+  it("stays in Thai when they tap a plan button from the Thai menu", async () => {
+    const a = await answerAny(said("Gold"), { product: "ihealthy", intent: "quote", age: 35, sex: "F" }, "facebook", undefined, EXPAT);
+    expect(a.messages[0].text).toMatch(THAI);
   });
 });
 

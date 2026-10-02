@@ -18,17 +18,21 @@ export type ChatLang = "en" | "th";
 
 const THAI = /[฀-๿]/;
 const LATIN_WORD = /[A-Za-z]{2,}/;
+const NEUTRAL = /^\s*(?:smart|bronze|silver|gold|diamond|platinum|ok(?:ay)?|opd|ipd)\s*[.!]*\s*$/i;
 
 /**
  * English unless the customer writes Thai — the owner's rule for these Pages (2026-10-02).
  *
- * A message that says nothing about its language — an age on its own, a thumbs up — is answered
- * in the language the conversation was already in, so "35" after a Thai question does not turn
- * the reply English. Any other script reads as English: it is the language the agent serves
+ * A message that says nothing about its language — an age on its own, a thumbs up, a tapped
+ * plan button — is answered in the language the conversation was already in, so "35" after a
+ * Thai question does not turn the reply English. Any other script reads as English: it is the language the agent serves
  * foreigners in.
  */
 export function languageOf(text: string, previous?: ChatLang): ChatLang {
   if (THAI.test(text)) return "th";
+  // a tapped plan button, or an "ok", says nothing about language: the Thai menu's buttons are
+  // the plans' English names, and a Thai customer tapping Gold is still writing Thai
+  if (NEUTRAL.test(text)) return previous ?? "en";
   if (LATIN_WORD.test(text)) return "en";
   return previous ?? "en";
 }
