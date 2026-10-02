@@ -19,6 +19,7 @@ import { FAQ as HEALTH_FAQ } from "@/lib/assistant/ihealthy/faq";
 import {
   healthKnowledgeDetail, healthKnowledgeSummary, healthTopicsFor,
 } from "@/lib/health-knowledge";
+import { lifeProtectNamedIn, lifeProtectQaSection } from "@/lib/lifeprotect-knowledge";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PlanRules } from "@/calc/types";
 
@@ -430,7 +431,14 @@ export function knowledgePlans(): { code: string; name: string }[] {
  * Pure but for the one database read, and that read fails soft: the rules are the part that
  * must never be missing and they come from files in this repository, not from a table.
  */
-export async function assembleKnowledge(question = ""): Promise<string> {
+export async function assembleKnowledge(
+  question = "",
+  /**
+   * The Life Protect brain passes `lifeProtect` because its customers ask "ยกเลิกบูสเตอร์ได้ไหม"
+   * without naming the plan — the whole conversation already is the plan.
+   */
+  open: { lifeProtect?: boolean } = {},
+): Promise<string> {
   const plans = knowledgePlans()
     .map((p) => planSection(p.code, p.name, getPlan(p.code)!.rules))
     .join("\n\n");
@@ -458,6 +466,9 @@ export async function assembleKnowledge(question = ""): Promise<string> {
     ...(question === "" || pensionNamedIn(question) ? ["", PENSION_SECTION] : []),
     ...(question === "" || ci123NamedIn(question) ? ["", CI123_SECTION] : []),
     ...(question === "" || cancerNamedIn(question) ? ["", cancerSection()] : []),
+    // fetched by name like the three above; it is the company's Q&A sheet and runs to 7,000
+    // characters an iHealthy question would carry for nothing
+    ...(question === "" || open.lifeProtect || lifeProtectNamedIn(question) ? ["", lifeProtectQaSection()] : []),
     /**
      * Group insurance, said in four lines and no more.
      *

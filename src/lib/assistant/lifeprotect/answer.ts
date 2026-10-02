@@ -595,7 +595,7 @@ async function answerPlanInfo(history: ChatMessage[], slots: Routed): Promise<Re
     {
       role: "system",
       content: `${PLAN_INFO_SYSTEM}\n\nข้อมูลแบบประกัน\n${planInfoText()}${knownSoFar(slots, lifeProtectTable())}`
-        + `\n\n---\n\n${await assembleKnowledge(asked)}`,
+        + `\n\n---\n\n${await assembleKnowledge(asked, { lifeProtect: true })}`,
     },
     ...recentTurns(history, 6),
   ];
