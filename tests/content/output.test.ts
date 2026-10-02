@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DISCLAIMER, INSURER_LINE, TAX_LINE, captionParts, footer, fullText } from "@/lib/content/output";
+import { DISCLAIMER, DISCLAIMER_EN, INSURER_LINE, INSURER_LINE_EN, TAX_LINE, captionParts, footer, fullText } from "@/lib/content/output";
 
 const piece = { hooks: ["เปิด"], body: "เนื้อ", closing: "ปิด", hashtags: ["#a"], imagePrompt: "", disclaimer: DISCLAIMER };
 
@@ -35,5 +35,18 @@ describe("a caption as the feed draws it", () => {
 
   it("does not mark a lone # or one inside a word", () => {
     expect(captionParts("ข้อ # 1 และ C#").every((p) => !p.tag)).toBe(true);
+  });
+});
+
+describe("an English piece's footer", () => {
+  it("ends on the English disclaimer and insurer, with no tax line", () => {
+    const out = { hooks: ["Tax time"], body: "about tax", closing: "", hashtags: [], imagePrompt: "", disclaimer: DISCLAIMER_EN, lang: "en" as const };
+    expect(footer(out)).toBe(`${DISCLAIMER_EN}\n${INSURER_LINE_EN}`);
+    expect(fullText(out)).not.toMatch(/[\u0E00-\u0E7F]/);
+  });
+
+  it("leaves a Thai piece's footer as before: no lang means the Thai insurer", () => {
+    expect(footer(piece).endsWith(INSURER_LINE)).toBe(true);
+    expect(footer(piece)).not.toContain(INSURER_LINE_EN);
   });
 });

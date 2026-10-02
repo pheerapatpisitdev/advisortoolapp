@@ -18,12 +18,30 @@ export const TAX_LINE = "สิทธิประโยชน์ทางภา�
 export const INSURER_LINE = `รับประกันภัยโดย ${INSURER}`;
 
 /**
+ * The language a piece is written in. Thai is the default and is never stored: only an English
+ * piece carries `lang: "en"` in its own JSON (output and its poster), so no migration was needed.
+ */
+export type Lang = "th" | "en";
+export function langOf(o: { lang?: Lang } | undefined): Lang {
+  return o?.lang === "en" ? "en" : "th";
+}
+
+/** The same two lines for an English piece (iHealthy Ultra posts for expats). Added here, never by the model. */
+export const DISCLAIMER_EN = "Please make sure you understand the coverage details and conditions before deciding to buy insurance.";
+export const INSURER_LINE_EN = "Underwritten by Krungthai-AXA Life Insurance PCL";
+export function insurerLine(lang: Lang): string {
+  return lang === "en" ? INSURER_LINE_EN : INSURER_LINE;
+}
+
+/**
  * The lines the system puts under a piece: the regulator's, the tax line whenever the words
  * talk about tax (not only when the tax angle was picked), and the insurer. Worked out when
  * the piece is copied, so pieces written before a line existed get it too.
  */
-export function footer(out: Pick<ContentOutput, "hooks" | "body" | "closing" | "disclaimer">): string {
+export function footer(out: Pick<ContentOutput, "hooks" | "body" | "closing" | "disclaimer" | "lang">): string {
   const lines = out.disclaimer.split("\n").filter(Boolean);
+  // English: the tax line is Thai-law wording and an English piece makes no tax claim.
+  if (langOf(out) === "en") return [...lines, INSURER_LINE_EN].join("\n");
   const said = [...out.hooks, out.body, out.closing].join(" ");
   if (!lines.includes(TAX_LINE) && /ภาษี|ลดหย่อน/.test(said)) lines.push(TAX_LINE);
   lines.push(INSURER_LINE);
@@ -40,6 +58,8 @@ export interface ContentOutput {
   hashtags: string[];
   imagePrompt: string;
   disclaimer: string;
+  /** "en" when the piece is written in English; absent means Thai */
+  lang?: "en";
   /** the poster the writer designed; absent on pieces written before posters */
   poster?: PosterSpec;
   /**

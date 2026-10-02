@@ -11,6 +11,7 @@
  * browser and the drawing route can decode the same thing.
  */
 
+import type { Lang } from "./output";
 import { toLogo, type PosterLogo } from "./logo";
 
 export const BLOCK_KINDS = ["badge", "headline", "sub", "footer"] as const;
@@ -61,6 +62,8 @@ export interface PosterSpec {
    * read back off it and found wrong is kept for the agent, who ticks it before it may go up.
    */
   aiText?: AiText;
+  /** "en" on an English piece's poster (its footer and insurer line follow); absent means Thai */
+  lang?: "en";
 }
 
 export interface AiText {
@@ -212,17 +215,18 @@ export function parsePoster(input: unknown): PosterSpec | null {
     ...(raw.personAside === true ? { personAside: true } : {}),
     ...(toLogo(raw.logo) ? { logo: toLogo(raw.logo)! } : {}),
     ...(readAiText(raw.aiText) ? { aiText: readAiText(raw.aiText)! } : {}),
+    ...(raw.lang === "en" ? { lang: "en" as const } : {}),
   };
 }
 
 /** For a piece written before posters: its hook as the headline, under the product's name. */
-export function defaultPoster(hook: string, productName: string): PosterSpec {
+export function defaultPoster(hook: string, productName: string, lang: Lang = "th"): PosterSpec {
   const blocks: PosterBlock[] = [];
   const badge = clip(productName.replace(/\s*\(.*\)\s*$/, ""), MAX_CHARS.badge);
   if (badge) blocks.push({ kind: "badge", text: badge });
   blocks.push({ kind: "headline", text: clip(hook || productName, MAX_CHARS.headline) });
-  blocks.push({ kind: "footer", text: "ทักแชทสอบถามได้เลย" });
-  return { layout: "bottom", theme: "navy", blocks };
+  blocks.push({ kind: "footer", text: lang === "en" ? "Message us to ask" : "ทักแชทสอบถามได้เลย" });
+  return { layout: "bottom", theme: "navy", blocks, ...(lang === "en" ? { lang: "en" as const } : {}) };
 }
 
 /** The poster as the words the checks read — its figures are claims like any other. */

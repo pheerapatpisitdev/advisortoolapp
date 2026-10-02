@@ -71,3 +71,20 @@ describe("layout", () => {
     expect(fitScale(long, { width: 1080, height: 1080 })).toBeLessThan(1);
   });
 });
+
+describe("an English poster", () => {
+  const base = { layout: "bottom", theme: "navy", blocks: [{ kind: "headline", text: "Hi" }] };
+
+  it("keeps lang en through parsePoster and drops any other value", () => {
+    expect(parsePoster({ ...base, lang: "en" })?.lang).toBe("en");
+    expect(parsePoster({ ...base, lang: "fr" })).not.toHaveProperty("lang");
+    expect(decodePoster(encodePoster(parsePoster({ ...base, lang: "en" })!))?.lang).toBe("en");
+  });
+
+  it("draws an English default poster", () => {
+    const p = defaultPoster("Cover that stays", "iHealthy Ultra", "en");
+    expect(p.lang).toBe("en");
+    expect(p.blocks.at(-1)).toEqual({ kind: "footer", text: "Message us to ask" });
+    expect(defaultPoster("x", "y")).not.toHaveProperty("lang");
+  });
+});
