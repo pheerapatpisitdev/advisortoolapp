@@ -102,9 +102,9 @@ function words(lang: Lang) {
   const en = lang === "en";
   return {
     headline: en ? "English headline text" : "Thai headline text",
-    people: en ? "Foreign residents of mixed nationalities, living in Thailand, in a Thai setting" : "Thai people in a Thai setting",
+    people: en ? "Western (European) expats living in Thailand, in a Thai setting" : "Thai people in a Thai setting",
     scene: en
-      ? "A believable everyday moment of an expat living in Thailand, warm and unposed."
+      ? "A believable everyday moment of a Western (European) expat living in Thailand, warm and unposed."
       : "A believable everyday moment of a Thai family at home, warm and unposed.",
   };
 }

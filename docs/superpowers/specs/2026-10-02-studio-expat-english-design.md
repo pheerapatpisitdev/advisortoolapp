@@ -86,7 +86,7 @@ brief ชุดนี้คือไม้บรรทัดของ `strayNumb
   short sentences, plain international English (many readers are not native speakers)
 - the Page speaks as "we"; money is written as "THB 1,000" with digits taken from the brief
 - the rules above about Thai particles (ครับ/ค่ะ) and Thai word choices do not apply; every other rule does
-- `imagePrompt`: people are foreign residents of mixed nationalities living their life in Thailand (แทน "คนไทย")
+- `imagePrompt`: people are Western (European) expats living their life in Thailand (แทน "คนไทย"; เจ้าของเปลี่ยนจาก "หลายเชื้อชาติ" 2026-10-02) — ภาพพื้นหลัง ภาพแบบมี look และภาพสำรองของมุมตัวเลขใช้คำเดียวกัน
 - visa: never name a visa type, never promise approval; invite them to message us to check their visa
 
 ตัววางแผน: `hook` เป็นอังกฤษ (เพราะ hook ของชิ้นมาจากแผน, `write.ts`) แต่บรรทัด `angle` ยังเป็นไทย — เป็นโน้ตให้ทีมอ่าน ไม่ได้โพสต์

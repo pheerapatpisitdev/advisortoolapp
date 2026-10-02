@@ -56,8 +56,8 @@ describe("English pieces", () => {
     const bg = backgroundPrompt(en);
     expect(bg).toContain("English headline text");
     expect(bg).not.toContain("Thai headline text");
-    expect(bg).toContain("Foreign residents of mixed nationalities, living in Thailand, in a Thai setting");
-    expect(bg).toContain("A believable everyday moment of an expat living in Thailand, warm and unposed.");
+    expect(bg).toContain("Western (European) expats living in Thailand, in a Thai setting");
+    expect(bg).toContain("A believable everyday moment of a Western (European) expat living in Thailand, warm and unposed.");
     const p = posterPrompt({ direction: "clean", poster: { blocks: [{ kind: "headline", text: "Cover that stays" }] }, layout: "bottom", lang: "en" });
     expect(p).toContain("The words on the image, in English");
     expect(p).toContain("the English lettering");
@@ -84,7 +84,7 @@ describe("English pieces", () => {
   });
 
   it("draws expats, not Thai people, for every people subject of a look on an English piece", () => {
-    const say = { thai: "foreign residents of mixed nationalities", solo: "one expat adult", couple: "an expat couple", family: "an expat family with young children", elders: "older expat parents" } as const;
+    const say = { thai: "Western (European) expats living in Thailand", solo: "one Western (European) adult", couple: "a Western (European) couple", family: "a Western (European) family with young children", elders: "older Western (European) parents" } as const;
     for (const subject of ["thai", "solo", "couple", "family", "elders"] as const) {
       const look = { ...CLASSIC, style: "film" as const, subject };
       const en2 = backgroundPrompt({ ...en, look });

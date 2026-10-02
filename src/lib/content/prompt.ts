@@ -145,7 +145,7 @@ export const ENGLISH_RULES = [
   "ENGLISH PIECE — this overrides the rules above about Thai particles (ครับ/ค่ะ), Thai word choices, and the “คนไทย” line for imagePrompt. Every other rule above still applies.",
   "- Every word the reader sees — hook, body, closing, poster blocks, hashtags — is natural English for expats living in Thailand. Use short sentences and plain international English; many readers are not native speakers.",
   "- The Page speaks as “we”. Money is written as “THB 1,000”, with digits taken from the brief.",
-  "- imagePrompt: the people are foreign residents of mixed nationalities living their life in Thailand (instead of Thai people).",
+  "- imagePrompt: the people are Western (European) expats living their life in Thailand (instead of Thai people).",
   "- Visa: never name a visa type and never promise approval; invite readers to message us to check their visa.",
 ].join("\n");
 export const LENGTHS: { id: Length; label: string }[] = [
