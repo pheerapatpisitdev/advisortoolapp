@@ -3,6 +3,7 @@ import { Highlighted } from "@/components/Highlighted";
 import type { Projection } from "@/lib/cash-projection";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
+import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { INSURER } from "@/lib/assistant/common";
 
 export interface CashValueTableProps {
@@ -77,7 +78,13 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
             <p className="text-[10px]">ไม่ใช่ใบเสนอราคาของบริษัท</p>
           </div>
         </div>
-        <p className="mt-3 text-sm font-semibold">ตารางมูลค่ากรมธรรม์</p>
+        {/* The chart the page draws beside the table goes on the sheet too (the owner,
+            2026-10-02): the line where the cash value overtakes the premiums is the answer the
+            customer is reading the figures for. The first row's age is the age at issue. */}
+        <div className="mt-4">
+          <CashValueChart projection={projection} age={rows[0].age} onPaper />
+        </div>
+        <p className="text-sm font-semibold">ตารางมูลค่ากรมธรรม์</p>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
