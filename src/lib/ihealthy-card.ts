@@ -317,7 +317,8 @@ export interface IHealthyTableCard {
 export function iHealthyTableCard(query: URLSearchParams, today: Date = new Date()): IHealthyTableCard {
   const card = iHealthyCard(query, today);
   return {
-    headLine: "iHealthy Ultra · เปรียบเทียบแผน",
+    // the bot sends this one in English on the Expat Pages; the other languages have no caller
+    headLine: card.lang === "en" ? "iHealthy Ultra · Compare plans" : "iHealthy Ultra · เปรียบเทียบแผน",
     insuredWho: card.insuredWho,
     insuredLine: card.insuredLine,
     // nothing is chosen yet, so nothing is lit

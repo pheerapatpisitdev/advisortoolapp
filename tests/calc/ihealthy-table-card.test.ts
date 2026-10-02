@@ -33,3 +33,16 @@ describe("the comparison table on its own", () => {
     expect(card.columns.map((c) => c.name)).toEqual(["Smart", "Bronze"]);
   });
 });
+
+describe("the comparison table in English", () => {
+  it("is headed, and says who it is for, in English", () => {
+    const card = iHealthyTableCard(query({ l: "en" }));
+    expect(card.headLine).toBe("iHealthy Ultra · Compare plans");
+    expect(card.insuredWho).not.toMatch(/[฀-๿]/);
+    expect(card.insuredLine).not.toMatch(/[฀-๿]/);
+  });
+
+  it("is still Thai without l", () => {
+    expect(iHealthyTableCard(query()).headLine).toBe("iHealthy Ultra · เปรียบเทียบแผน");
+  });
+});
