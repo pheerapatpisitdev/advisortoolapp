@@ -14,6 +14,9 @@ describe("parseAwsKey", () => {
   it("reads id, secret, region and function name; anything else is null", () => {
     expect(parseAwsKey("AKIA1:sec/ret+x:ap-southeast-1:clip-ffmpeg")).toEqual({ accessKeyId: "AKIA1", secretAccessKey: "sec/ret+x", region: "ap-southeast-1", functionName: "clip-ffmpeg" });
     expect(parseAwsKey("AKIA1:secret")).toBeNull();
+    // a malformed region is refused, so it can never be sent anywhere
+    expect(parseAwsKey("AKIA1:s:evil.example.com/x:clip-ffmpeg")).toBeNull();
+    expect(parseAwsKey("AKIA1:s:r:clip-ffmpeg")).toBeNull();
   });
 });
 
@@ -35,19 +38,19 @@ describe("lambdaEngine", () => {
     await expect(lambdaEngine("nope").submit(job, { callbackUrl: "x", token: "t" })).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: false });
     // a service error: AWS answered with an HTTP status
     sent.fail = Object.assign(new Error("AccessDenied"), { name: "AccessDeniedException", $metadata: { httpStatusCode: 403, attempts: 1 } });
-    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: false });
+    await expect(lambdaEngine("A:s:us-east-1:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: false });
     sent.fail = Object.assign(new Error("Rate exceeded"), { name: "TooManyRequestsException", $metadata: { httpStatusCode: 429 } });
-    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: false });
+    await expect(lambdaEngine("A:s:us-east-1:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: false });
     // no connection was ever made: the region's endpoint not found
     sent.fail = Object.assign(new Error("getaddrinfo ENOTFOUND lambda.r.amazonaws.com"), { code: "ENOTFOUND", $metadata: { attempts: 1 } });
-    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: false });
+    await expect(lambdaEngine("A:s:us-east-1:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: false });
   });
   it("an invoke with no answer (the 10 s abort, a dropped connection) may have been queued: its outcome is unknown", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     // the SDK adds $metadata (attempts) to every error it retried, but an HTTP status only to an AWS answer
     sent.fail = Object.assign(new Error("Request aborted"), { name: "AbortError", $metadata: { attempts: 1 } });
-    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: true });
+    await expect(lambdaEngine("A:s:us-east-1:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: true });
     sent.fail = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
-    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: true });
+    await expect(lambdaEngine("A:s:us-east-1:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: true });
   });
 });

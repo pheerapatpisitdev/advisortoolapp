@@ -10,6 +10,7 @@ export function parseAwsKey(key: string): { accessKeyId: string; secretAccessKey
   const parts = key.split(":");
   if (parts.length !== 4 || parts.some((p) => !p)) return null;
   const [accessKeyId, secretAccessKey, region, functionName] = parts;
+  if (!/^[a-z]{2}(-[a-z]+)+-\d$/.test(region)) return null;
   return { accessKeyId, secretAccessKey, region, functionName };
 }
 

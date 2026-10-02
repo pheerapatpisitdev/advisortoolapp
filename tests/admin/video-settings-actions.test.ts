@@ -55,7 +55,7 @@ beforeEach(() => {
 
 describe("saveRenderKey", () => {
   it("refuses a malformed AWS key and stores nothing", async () => {
-    for (const bad of ["AKIAEXAMPLE:onlytwo", `AKIAEXAMPLE:${SECRET}:ap-southeast-1`, `AKIAEXAMPLE:${SECRET}::fn`]) {
+    for (const bad of ["AKIAEXAMPLE:onlytwo", `AKIAEXAMPLE:${SECRET}:ap-southeast-1`, `AKIAEXAMPLE:${SECRET}::fn`, `AKIAEXAMPLE:${SECRET}:evil.example.com:fn`]) {
       const r = await saveRenderKey("aws", bad);
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.error).not.toContain(SECRET);

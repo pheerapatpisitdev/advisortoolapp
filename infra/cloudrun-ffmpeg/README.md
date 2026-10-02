@@ -70,9 +70,15 @@ run it again.
 
 ## 4. The job
 
+The job runs as its own service account with **no roles at all**, because it processes untrusted video. Without
+this it would run as the default compute account, which holds build rights in step 1.
+
 ```bash
+gcloud iam service-accounts create clip-runner --display-name "Clip render runtime (no roles)"
+
 gcloud run jobs create $JOB \
   --region $REGION \
+  --service-account clip-runner@$PROJECT.iam.gserviceaccount.com \
   --image $IMAGE \
   --tasks 1 \
   --max-retries 0 \
@@ -83,6 +89,8 @@ gcloud run jobs create $JOB \
 
 `--max-retries 0` matters: Google must never re-run a job on its own (a retry would run after the app has already
 given up on it). `/tmp` on Cloud Run is in memory, so 8Gi covers the 300 MB source plus outputs.
+
+Job already created without it? `gcloud run jobs update $JOB --region $REGION --service-account clip-runner@$PROJECT.iam.gserviceaccount.com`.
 
 New image later: set `IMAGE` again (a new commit gives a new tag), repeat step 3, then
 `gcloud run jobs update $JOB --region $REGION --image $IMAGE`.
@@ -98,7 +106,7 @@ gcloud run jobs add-iam-policy-binding $JOB \
   --member serviceAccount:$SA \
   --role roles/run.jobsExecutorWithOverrides
 
-gcloud iam service-accounts keys create key.json --iam-account $SA
+gcloud iam service-accounts keys create ~/clip-key.json --iam-account $SA
 ```
 
 The role is `roles/run.jobsExecutorWithOverrides` (checked against Google's role reference: it holds
@@ -112,21 +120,23 @@ the organization (console: IAM, organization level), then:
 ```bash
 gcloud resource-manager org-policies disable-enforce iam.disableServiceAccountKeyCreation --project $PROJECT
 # wait 1-2 minutes, then create the key again
-gcloud iam service-accounts keys create key.json --iam-account $SA
+gcloud iam service-accounts keys create ~/clip-key.json --iam-account $SA
 gcloud resource-manager org-policies enable-enforce iam.disableServiceAccountKeyCreation --project $PROJECT
 ```
 
 Turn the policy back on afterwards; keys that already exist keep working.
 
-`key.json` is a secret. **Never paste it in chat or email.**
+`~/clip-key.json` is a secret. **Never paste it in chat or email.**
 
 ## 6. Paste the key into the app
 
-Open `/admin/ai`, add the `gcp` key: paste the contents of `key.json`, then type the region (`asia-southeast1`)
-and the job name (`clip-ffmpeg`). The app keeps only the fields it needs, encrypted. Afterwards **delete the file**:
+Open `/admin/ai`, find the row **Google Cloud Run**: paste the contents of `~/clip-key.json`, then type the region
+(`asia-southeast1`) and the job name (`clip-ffmpeg`), and save. The app keeps only the fields it needs, encrypted.
+Then set **ตัวตัดต่อหลัก** to **Google Cloud Run** and, when you are ready, turn on **เปิดให้เอเจนต์ตัดต่อคลิป** on the
+same page. Afterwards **delete the file**:
 
 ```bash
-rm key.json
+rm ~/clip-key.json
 ```
 
 ## 7. Budget alert (กันค่าใช้จ่ายบานปลาย)
@@ -142,6 +152,8 @@ gcloud run jobs describe $JOB --region $REGION
 gcloud run jobs executions list --job $JOB --region $REGION
 gcloud beta run jobs executions logs read EXECUTION_NAME --region $REGION
 ```
+
+(The `beta` command needs `gcloud components install beta` once.)
 
 `EXECUTION_NAME` is from the `executions list` output. Logs are also in the console: Cloud Run, Jobs, `clip-ffmpeg`,
 Executions, Logs. Lines look like `job <id>: render failed: ...` or `job: payload 403` (the payload link was

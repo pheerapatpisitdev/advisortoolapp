@@ -19,3 +19,5 @@ npm-debug.log*
 .golden-cache/
 /.next-build/
 /.vercel
+key.json
+*-key.json
