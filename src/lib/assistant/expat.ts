@@ -2,12 +2,13 @@
  * The Pages that sell iHealthy Ultra to foreigners, and the language each message is answered in.
  *
  * A list in code rather than a row per Page, the way `voice.ts` keeps the Pages that speak as a
- * man: there are two, the owner named them, and a Page connected tomorrow is a Thai Page until
+ * man: there are three, the owner named them, and a Page connected tomorrow is a Thai Page until
  * someone says otherwise.
  */
 export const EXPAT_PAGES = new Set([
   "112079600278201", // Expat Influencer Insurance
   "112110731809903", // Expat Insurance Thailand by Phet
+  "107330411059217", // Better Life Insurance — sells to foreigners too (owner, 2026-10-02)
 ]);
 
 export function isExpatPage(pageId?: string): boolean {
