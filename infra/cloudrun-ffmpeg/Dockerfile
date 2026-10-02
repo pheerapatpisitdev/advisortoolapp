@@ -13,4 +13,5 @@ RUN test -n "$FFMPEG_SHA256" || { echo "build with --build-arg FFMPEG_SHA256=<sh
 WORKDIR /app/cloudrun-ffmpeg
 COPY ffmpeg-core/ /app/ffmpeg-core/
 COPY cloudrun-ffmpeg/job.mjs ./
+USER node
 CMD ["node", "job.mjs"]

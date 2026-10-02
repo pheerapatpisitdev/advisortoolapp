@@ -66,7 +66,7 @@ describe("cloudRunEngine.submit", () => {
     const jwt = decodeJwt(form.get("assertion")!);
     expect(jwt.ok).toBe(true);
     expect(jwt.header).toEqual({ alg: "RS256", typ: "JWT" });
-    expect(jwt.claims).toEqual({ iss: email, scope: GOOGLE_SCOPE, aud: GOOGLE_TOKEN_URL, iat: now / 1000, exp: now / 1000 + 3600 });
+    expect(jwt.claims).toEqual({ iss: email, scope: GOOGLE_SCOPE, aud: GOOGLE_TOKEN_URL, iat: now / 1000 - 30, exp: now / 1000 + 3570 });
 
     expect(run.url).toBe("https://run.googleapis.com/v2/projects/my-proj/locations/asia-southeast1/jobs/clip-ffmpeg:run");
     expect(run.init.method).toBe("POST");
@@ -94,6 +94,16 @@ describe("cloudRunEngine.submit", () => {
     t += 2_000; // 59 s left: too close
     await e.submit(job, opts);
     expect(g.calls.map((c) => c.url.startsWith(GOOGLE_TOKEN_URL) ? "token" : "run")).toEqual(["token", "run", "run", "token", "run"]);
+  });
+
+  it("a swapped private key for the same account does not reuse the old key's token", async () => {
+    const other = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const a = storedKey();
+    const swapped = JSON.stringify({ ...JSON.parse(a.key), private_key: other });
+    const g = google([tokenOk(), runOk, tokenOk(), runOk]);
+    await cloudRunEngine(a.key, { fetch: g.fetch }).submit(job, opts);
+    await cloudRunEngine(swapped, { fetch: g.fetch }).submit(job, opts);
+    expect(g.calls.map((c) => c.url.startsWith(GOOGLE_TOKEN_URL) ? "token" : "run")).toEqual(["token", "run", "token", "run"]);
   });
 
   it("drops a token Google refuses, so the next try mints a new one", async () => {
@@ -155,7 +165,7 @@ describe("cloudRunEngine.submit", () => {
   it("without a payload link there is nothing to run: a mistake of ours, not one to try elsewhere", async () => {
     const g = google([]);
     await expect(cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, { ...opts, payloadUrl: undefined }))
-      .rejects.toMatchObject({ message: "ตั้งค่า Google Cloud ไม่ครบ", retryElsewhere: false });
+      .rejects.toMatchObject({ message: "internal: no payload link for the Cloud Run job", retryElsewhere: false });
     expect(g.calls).toHaveLength(0);
   });
 
@@ -219,7 +229,7 @@ describe("gcpKeyFromUpload / parseGcpKey", () => {
       expect(gcpKeyFromUpload(saFile(over), "asia-southeast1", "clip-ffmpeg")).toBeNull();
     }
     for (const region of ["", "asia", "Asia-Southeast1", "asia-southeast", "asia-southeast1/x"]) expect(gcpKeyFromUpload(saFile(), region, "clip-ffmpeg")).toBeNull();
-    for (const j of ["", "Clip", "1clip", "clip_ffmpeg", "clip/ffmpeg", `c${"a".repeat(63)}`]) expect(gcpKeyFromUpload(saFile(), "asia-southeast1", j)).toBeNull();
+    for (const j of ["", "Clip", "1clip", "clip-", "clip_ffmpeg", "clip/ffmpeg", `c${"a".repeat(63)}`]) expect(gcpKeyFromUpload(saFile(), "asia-southeast1", j)).toBeNull();
     for (const text of ["", "nope", "[]", "null", "{\"a\":1"]) expect(gcpKeyFromUpload(text, "asia-southeast1", "clip-ffmpeg")).toBeNull();
     expect(parseGcpKey("")).toBeNull();
     expect(parseGcpKey(JSON.stringify({ client_email: "a@b.c", private_key: PEM, project_id: "my-proj", region: "asia-southeast1" }))).toBeNull();

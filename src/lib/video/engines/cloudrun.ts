@@ -1,4 +1,4 @@
-import { createPrivateKey, createSign } from "node:crypto";
+import { createHash, createPrivateKey, createSign } from "node:crypto";
 import { EngineError, mayHaveReached, type RenderEngine } from "./types";
 
 /**
@@ -21,7 +21,7 @@ const TOKEN_MARGIN_MS = 60_000;
 const BAD_KEY = "ตั้งค่า Google Cloud ไม่ครบ";
 
 const REGION = /^[a-z]+-[a-z]+\d+$/;
-const JOB_NAME = /^[a-z][-a-z0-9]{0,62}$/;
+const JOB_NAME = /^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$/;
 const EMAIL = /^[^\s@]+@[^\s@]+$/;
 /** Google project ids, including the older domain-scoped "example.com:name" */
 const PROJECT_ID = /^[a-z0-9][-a-z0-9.:]{0,98}[a-z0-9]$/;
@@ -97,16 +97,19 @@ export function parseGcpKey(stored: string): GcpKey | null {
 
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
 
-/** access tokens by service account, kept in this server instance's memory only */
+/** access tokens by service account and key (a swapped key must not reuse the old one's token), kept in this server instance's memory only */
 const tokens = new Map<string, { token: string; expiresAt: number }>();
+
+const tokenKey = (k: GcpKey) => `${k.clientEmail}:${createHash("sha256").update(k.privateKey).digest("hex").slice(0, 12)}`;
 
 interface Deps { fetch?: typeof fetch; now?: () => number }
 
 async function accessToken(k: GcpKey, f: typeof fetch, now: () => number): Promise<string> {
-  const cached = tokens.get(k.clientEmail);
+  const cached = tokens.get(tokenKey(k));
   if (cached && cached.expiresAt - now() > TOKEN_MARGIN_MS) return cached.token;
 
-  const iat = Math.floor(now() / 1000);
+  // backdated: a server clock a little ahead of Google's must not get "issued in the future"
+  const iat = Math.floor(now() / 1000) - 30;
   const input = `${b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }))}.${b64url(JSON.stringify({
     iss: k.clientEmail, scope: GOOGLE_SCOPE, aud: GOOGLE_TOKEN_URL, iat, exp: iat + 3600,
   }))}`;
@@ -136,7 +139,7 @@ async function accessToken(k: GcpKey, f: typeof fetch, now: () => number): Promi
     throw new EngineError(`ขอสิทธิ์จาก Google Cloud ไม่ได้ (${res.status})`, true);
   }
   const life = typeof body.expires_in === "number" && body.expires_in > 0 ? body.expires_in : 3600;
-  tokens.set(k.clientEmail, { token: body.access_token, expiresAt: now() + life * 1000 });
+  tokens.set(tokenKey(k), { token: body.access_token, expiresAt: now() + life * 1000 });
   return body.access_token;
 }
 
@@ -151,7 +154,7 @@ export function cloudRunEngine(key: string, deps: Deps = {}): RenderEngine {
       const k = parseGcpKey(key);
       if (!k) throw new EngineError(BAD_KEY, true);
       // the caller always writes the payload file first; without it there is nothing to run
-      if (!opts.payloadUrl) throw new EngineError(BAD_KEY, false);
+      if (!opts.payloadUrl) throw new EngineError("internal: no payload link for the Cloud Run job", false);
       const id = opts.id ?? crypto.randomUUID();
       const token = await accessToken(k, f, now);
       const name = `projects/${encodeURIComponent(k.projectId)}/locations/${encodeURIComponent(k.region)}/jobs/${encodeURIComponent(k.job)}`;
@@ -170,7 +173,7 @@ export function cloudRunEngine(key: string, deps: Deps = {}): RenderEngine {
       }
       if (!res.ok) {
         // a token Google no longer takes is not offered again
-        if (res.status === 401) tokens.delete(k.clientEmail);
+        if (res.status === 401) tokens.delete(tokenKey(k));
         // status code only: Google's text is not ours to keep. Google never sees the ffmpeg
         // command (it is in the payload file), so any refusal is about the setup: try elsewhere.
         console.error("cloudrun run refused:", res.status);

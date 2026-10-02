@@ -471,7 +471,7 @@ async function cleanup(engine: RenderEngine, status: JobStatus, jobId: string): 
 }
 
 /**
- * Asks the engine about a clip's job (when it answers questions — Lambda only calls back) and
+ * Asks the engine about a clip's job (when it answers questions — Lambda and Cloud Run only call back) and
  * wraps up one that is done, failed, or past EDIT_JOB_TIMEOUT_MS — exactly once. An engine that
  * cannot be asked now is asked again next time. EDIT_JOB_TIMEOUT_MS bounds a job, full stop: one
  * past it has failed even when the engine now says done (its copies are let go, nothing is

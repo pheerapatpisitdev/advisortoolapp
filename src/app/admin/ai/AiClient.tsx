@@ -235,7 +235,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
         </div>
       </Card>
 
-      <Card title="ตัวตัดต่อวิดีโอ" hint="บริการที่ใช้ตัดคลิปเป็นรีล เก็บกุญแจแบบเดียวกับค่าย AI แสดงเฉพาะ 4 ตัวท้าย">
+      <Card title="ตัวตัดต่อวิดีโอ" hint="บริการที่ใช้ตัดคลิปเป็นรีล เก็บกุญแจแบบเดียวกับค่าย AI Rendi แสดง 4 ตัวท้าย ส่วน AWS และ Google แสดงว่าชี้ไปที่ไหน">
         <div className="space-y-2">
           {([
             ["rendi", "Rendi", "วางกุญแจ API ของ Rendi"],
@@ -286,8 +286,11 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
                 <button
                   type="button" disabled={pending || !(draft["render:gcp"] ?? "").trim()}
                   className="ml-auto shrink-0 rounded bg-[var(--bot-navy)] px-3 py-1 text-xs text-[var(--bot-surface)] disabled:opacity-40"
-                  onClick={() => run("render:gcp", () => saveRenderKey("gcp", draft["render:gcp"] ?? "", gcp), "บันทึกกุญแจ Google Cloud Run แล้ว",
-                    () => setDraft((d) => ({ ...d, ["render:gcp"]: "" })))}
+                  onClick={() => run("render:gcp", async () => {
+                    const res = await saveRenderKey("gcp", draft["render:gcp"] ?? "", gcp);
+                    setDraft((d) => ({ ...d, ["render:gcp"]: "" })); // the pasted key does not stay on screen, saved or refused
+                    return res;
+                  }, "บันทึกกุญแจ Google Cloud Run แล้ว")}
                 >
                   {busy === "render:gcp" ? "กำลังบันทึก…" : "บันทึก"}
                 </button>

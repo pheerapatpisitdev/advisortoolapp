@@ -13,13 +13,20 @@ the app, then exits. The job needs **no Google permissions of its own** at run t
 - The `gcloud` CLI installed (`gcloud --version` works), then run `gcloud auth login` once.
 - No Docker needed: Google builds the image for you (Cloud Build).
 
-Run everything from the repo root. Replace `YOUR_PROJECT_ID` with a project that has billing attached.
+### 0. A project with billing
+
+Create a project (https://console.cloud.google.com/projectcreate) and link your billing account to it
+(https://console.cloud.google.com/billing/linkedaccount, pick the project, "Link a billing account"). Note the
+project ID it shows.
+
+Run everything from the repo root. Replace `YOUR_PROJECT_ID` with that project.
 
 ```bash
 export PROJECT=YOUR_PROJECT_ID
 export REGION=asia-southeast1
 export JOB=clip-ffmpeg
-export IMAGE=$REGION-docker.pkg.dev/$PROJECT/clip/clip-ffmpeg:latest
+# a new tag per build: a rebuilt :latest may not be picked up by the job
+export IMAGE=$REGION-docker.pkg.dev/$PROJECT/clip/clip-ffmpeg:$(git rev-parse --short HEAD)
 
 gcloud config set project $PROJECT
 ```
@@ -28,6 +35,15 @@ gcloud config set project $PROJECT
 
 ```bash
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com iam.googleapis.com
+```
+
+On a **new** project, the default compute service account must be allowed to run builds, or step 3 fails with
+`PERMISSION_DENIED`:
+
+```bash
+gcloud projects add-iam-policy-binding $PROJECT \
+  --member serviceAccount:$(gcloud projects describe $PROJECT --format='value(projectNumber)')-compute@developer.gserviceaccount.com \
+  --role roles/cloudbuild.builds.builder
 ```
 
 ## 2. A place for the image
@@ -68,8 +84,8 @@ gcloud run jobs create $JOB \
 `--max-retries 0` matters: Google must never re-run a job on its own (a retry would run after the app has already
 given up on it). `/tmp` on Cloud Run is in memory, so 8Gi covers the 300 MB source plus outputs.
 
-New image later: repeat step 3, then
-`gcloud run jobs update $JOB --region $REGION --image $IMAGE` (the same command applies the new `:latest`).
+New image later: set `IMAGE` again (a new commit gives a new tag), repeat step 3, then
+`gcloud run jobs update $JOB --region $REGION --image $IMAGE`.
 
 ## 5. A key that can only run this job
 
@@ -88,6 +104,19 @@ gcloud iam service-accounts keys create key.json --iam-account $SA
 The role is `roles/run.jobsExecutorWithOverrides` (checked against Google's role reference: it holds
 `run.jobs.run` and `run.jobs.runWithOverrides`; the plain `roles/run.jobsExecutor` is not enough because the app
 sets `JOB_URL` as an override). It is granted on **this job only**, not the project.
+
+If the last command says key creation is not allowed, your organization enforces the policy
+`iam.disableServiceAccountKeyCreation` (the default for organizations). Grant yourself `roles/orgpolicy.policyAdmin` on
+the organization (console: IAM, organization level), then:
+
+```bash
+gcloud resource-manager org-policies disable-enforce iam.disableServiceAccountKeyCreation --project $PROJECT
+# wait 1-2 minutes, then create the key again
+gcloud iam service-accounts keys create key.json --iam-account $SA
+gcloud resource-manager org-policies enable-enforce iam.disableServiceAccountKeyCreation --project $PROJECT
+```
+
+Turn the policy back on afterwards; keys that already exist keep working.
 
 `key.json` is a secret. **Never paste it in chat or email.**
 
