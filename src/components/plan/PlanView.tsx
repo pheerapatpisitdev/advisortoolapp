@@ -115,7 +115,8 @@ export function PlanView({ result, prose }: { result: PlanResult; prose: Prose |
         </p>
       </section>
 
-      <details className="rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-4">
+      {/* data-fold: on paper the advice prints in full, opened by PrintUnfold like a Fold */}
+      <details data-fold="" className="rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-4">
         <summary className="cursor-pointer text-sm text-[var(--lg-gold)]">อ่านคำแนะนำแต่ละด้าน</summary>
         <div className="mt-3 space-y-3 text-sm leading-relaxed text-[var(--lg-mute)]">
           <p>{prose?.intro ?? "กำลังเขียนคำแนะนำ…"}</p>

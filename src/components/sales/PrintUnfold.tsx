@@ -12,9 +12,9 @@ import { useEffect } from "react";
  * browser agrees prints its contents. The events fire for the page's own button and for the
  * browser's menu alike.
  *
- * Mounted once, by `SalesTheme`, and it reaches only `Fold`s, by their `data-fold`: the other
- * disclosures on the sales pages (the rider pickers on iHealthy, the advice under a plan)
- * print as they always have.
+ * Mounted once, by `SalesTheme`, and it reaches only what is marked `data-fold` — every
+ * `Fold`, and the advice under a plan on /fhc — so the other disclosures on the sales pages
+ * (the rider pickers on iHealthy) print as they always have.
  * The value-table print is untouched too — it hides its siblings with `display: none`, and an
  * open fold inside a hidden section is still hidden.
  */
