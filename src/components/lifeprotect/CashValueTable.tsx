@@ -3,7 +3,7 @@ import { Highlighted } from "@/components/Highlighted";
 import type { Projection } from "@/lib/cash-projection";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
-import { AGENTS, INSURER } from "@/lib/assistant/common";
+import { INSURER } from "@/lib/assistant/common";
 
 export interface CashValueTableProps {
   projection: Projection;
@@ -245,8 +245,9 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
       )}
 
       {/* What the proposal this is modelled on carries at the foot of every sheet: who
-          underwrites it, who is presenting it, and the sentence that has to travel with any
-          figure. The date is written in by the print button rather than rendered here — a
+          underwrites it, and the sentence that has to travel with any figure. Not who is
+          presenting it — many agents print from this page, so no one agent's name and
+          licence belongs on every customer's sheet (the owner, 2026-10-02). The date is written in by the print button rather than rendered here — a
           `new Date()` in a component that hydrates is a mismatch waiting to happen, and the
           only moment the date means anything is the moment the sheet is made. */}
       <div data-print-only className="mt-6 hidden border-t border-black pt-2 text-[9.5px] leading-[1.6]">
@@ -254,12 +255,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           เบี้ยประกันเป็นตัวเลขประมาณการจากตารางของบริษัท ไม่ใช่ใบเสนอราคา
           เบี้ยและความคุ้มครองจริงเป็นไปตามผลการพิจารณารับประกันและที่ระบุในกรมธรรม์
         </p>
-        <div className="mt-1.5 flex items-start justify-between gap-4">
-          <p>รับประกันโดย {INSURER}</p>
-          <p className="shrink-0 text-right">
-            {AGENTS.map((a) => `${a.name} · ใบอนุญาต ${a.licence}`).join(" / ")}
-          </p>
-        </div>
+        <p className="mt-1.5">รับประกันโดย {INSURER}</p>
         <p data-printed-at className="mt-1" />
       </div>
     </section>

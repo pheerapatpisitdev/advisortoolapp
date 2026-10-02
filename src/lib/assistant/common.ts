@@ -35,19 +35,6 @@ export const MAX_BUBBLES = 3;
  */
 export { INSURER };
 
-/**
- * The agents behind the page, as their own licences record them.
- *
- * Only the two fields a customer is entitled to check: the name and the licence number the
- * regulator issued, which an agent is required to show anyway. The national id printed beside
- * them on the same card is deliberately not here — the bot tells customers it never handles
- * one, and it should hold none of its own either.
- */
-export const AGENTS = [
-  { name: "พีรพัฒฑ์พิสิษฐ์ ทองสีทอง", licence: "6001028534" },
-  { name: "ศิวลักษณ์ ทองสีทอง", licence: "6401024117" },
-];
-
 export const ABOUT_INSURER = `แบบประกันนี้รับประกันโดย ${INSURER} ครับ 🙏`;
 
 export const ABOUT_TRUST = "ถ้าอยากคุยรายละเอียดกับตัวแทนโดยตรง เดี๋ยวมีคนมาตอบในแชทนี้ครับ";
