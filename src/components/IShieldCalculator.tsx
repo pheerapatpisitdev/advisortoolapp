@@ -285,7 +285,6 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
 
               {projection && (
                 <>
-                  <div className="mt-4 text-sm text-[var(--lg-mute)]">ความคุ้มครอง เบี้ย และมูลค่าเงินสด</div>
                   {/* a new term, age or sex is a different contract, so the readout goes back
                       to its break-even year; dragging the sum alone keeps the year in view */}
                   <CashValueChart key={`${term.variant}-${sex}-${who!.age}`} projection={projection} age={who!.age} />
