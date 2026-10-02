@@ -2,7 +2,7 @@ import { siteUrl } from "@/lib/site-url";
 import { hashUserId } from "@/lib/facebook/verify";
 import { claimEvent, isMuted, loadSession, muteFor, saveSession, saveTurn } from "@/lib/chat/session";
 import { armFollowup, dropFollowup } from "@/lib/chat/followup";
-import { sendImage, sendMessage, showTyping } from "@/lib/facebook/client";
+import { sendFile, sendImage, sendMessage, showTyping } from "@/lib/facebook/client";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { allow } from "@/lib/assistant/rate-limit";
 import { BudgetExceeded, TurnTimeout, withTurnDeadline } from "@/lib/ai/client";
@@ -12,6 +12,7 @@ import { agentTyped, customerOf, eventKey, referralOf, textOf, type Messaging } 
 import { productFromAd } from "@/lib/facebook/from-ad";
 import { attribute, openConversation, openLead, record, type RecordedEvent } from "@/lib/chat/record";
 import { WANTS_IN } from "@/lib/assistant/common";
+import { pagePathFor } from "@/lib/quote-pdf/link";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
 import { botTurn, keepTranscript } from "@/lib/chat/transcript";
 
@@ -99,6 +100,43 @@ async function sendCard(
   }
   await sendMessage(psid, `${CARD_UNSENT}\n${url}`, replies, { pageId })
     .catch((e) => console.error("card link failed:", e));
+}
+
+const PDF_UNSENT = "ส่งไฟล์ไม่สำเร็จครับ เปิดหน้านี้แล้วกดปุ่มบันทึก PDF ได้เลยครับ";
+const PDF_WAIT = "รอสักครู่แล้วขอใหม่นะครับ";
+/** the route prints with Chrome and is allowed 60 s; the webhook keeps its own margin on top */
+const PDF_FETCH_MS = 55_000;
+
+/**
+ * The quote's PDF, fetched from our own route and uploaded as a file.
+ *
+ * The route is public and rate-limited per address, so the bot says who it is with the cron
+ * key — and where there is none, goes without it and takes the limit like anyone else. Whatever
+ * goes wrong, the customer is given the sales page itself, where the same figures sit under a
+ * save button: a bare failure would leave them with a promise ("กำลังทำไฟล์ให้ครับ") and nothing.
+ */
+async function sendPdf(
+  psid: string, pdfPath: string, replies: string[] | undefined, pageId?: string,
+): Promise<void> {
+  const key = process.env.CRON_SECRET;
+  try {
+    const res = await fetch(siteUrl(pdfPath), {
+      ...(key ? { headers: { authorization: `Bearer ${key}` } } : {}),
+      signal: AbortSignal.timeout(PDF_FETCH_MS),
+    });
+    if (res.status === 429) {
+      await sendMessage(psid, PDF_WAIT, replies, { pageId });
+      return;
+    }
+    if (!res.ok) throw new Error(`quote-pdf ${res.status}`);
+    const name = /filename="?([^";]+)"?/i.exec(res.headers.get("content-disposition") ?? "")?.[1];
+    await sendFile(psid, new Uint8Array(await res.arrayBuffer()), name ?? "quote.pdf", replies, pageId);
+  } catch (e) {
+    console.error("pdf failed, sending the page instead:", e);
+    const page = pagePathFor(pdfPath);
+    await sendMessage(psid, page ? `${PDF_UNSENT}\n${siteUrl(page)}` : PDF_UNSENT, replies, { pageId })
+      .catch((err) => console.error("pdf link failed:", err));
+  }
 }
 
 /**
@@ -248,10 +286,11 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
       }
       // the buttons ride on whatever lands last, because anything sent after them clears them
       const last = i === answer.messages.length - 1;
-      await sendMessage(psid, said.text, last && !said.card ? answer.replies : undefined, { pageId });
+      await sendMessage(psid, said.text, last && !said.card && !said.file ? answer.replies : undefined, { pageId });
       // the card follows its own words, so the customer reads the quote before the picture of
       // it — and a couple priced together gets the pair in the order they were named
       if (said.card) await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId);
+      if (said.file) await sendPdf(psid, said.file, last ? answer.replies : undefined, pageId);
     }
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
     const spoken = answer.messages.map((m) => m.text).join("\n\n");

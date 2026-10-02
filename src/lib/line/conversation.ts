@@ -131,6 +131,8 @@ export async function handle(event: LineEvent, destination = "", opts: { started
     const said: Said[] = answer.messages.flatMap((m) => [
       ...(m.text ? [{ text: m.text }] : []),
       ...(m.card ? [{ image: siteUrl(m.card) }] : []),
+      // a link LINE draws as a tap-to-open line: the file is one tap from the route
+      ...(m.file ? [{ text: siteUrl(m.file) }] : []),
     ]);
     await say(replyToken, userId, toMessages(said, answer.replies));
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);

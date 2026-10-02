@@ -6,6 +6,7 @@ import {
 } from "@/lib/assistant/lifeprotect/route";
 import { asksFullTable, asksOtherPlans, asksShareOfBill } from "@/lib/assistant/ihealthy/route";
 import { asksCheaper } from "@/lib/assistant/common";
+import { PDF_ASKED } from "@/lib/assistant/pdf";
 import type { AnySlots } from "@/lib/assistant/slots";
 import { askLibrary } from "./library";
 import { asksPensionPrice, pensionNamedIn } from "./pension-price";
@@ -54,7 +55,10 @@ const ASKS_PRICE = /เบี้ย|ราคา|กี่บาท|ค่าง
  * draw a table, and the customer got prose where the bot would have sent the picture.
  */
 function forTheEngine(text: string): boolean {
-  return asksForPrice(text)
+  // a request for the file is answered by the dispatcher even before a quote exists, in the
+  // words the bot uses ("ขอแบบประกัน อายุ และเพศก่อน") rather than from the library
+  return PDF_ASKED.test(text)
+    || asksForPrice(text)
     || asksValueTable(text)
     || asksPayTerm(text)
     || asksAboutDeathBenefit(text)
@@ -98,6 +102,8 @@ export interface CopilotAnswer {
    * page's authority behind it.
    */
   guide?: GuideItem[];
+  /** the quote's PDF, a path the page links to; the bot's channels deliver it their own way */
+  pdf?: string;
   /**
    * Nothing was answered — the system was busy or broken — and the same question asked again
    * may well get through. The page offers "ลองอีกครั้ง" on it, and leaves the apology out of
@@ -202,6 +208,7 @@ export async function answerFromKnowledge(
       priced: Boolean(answer.priced),
       slots: answer.slots,
       ...(cards.length ? { cards } : {}),
+      ...(answer.messages[0]?.file ? { pdf: answer.messages[0].file } : {}),
       /**
        * The plan's own next questions where the dispatcher sent some — the other paying
        * terms of the contract just quoted — and otherwise the two the brains recognise.

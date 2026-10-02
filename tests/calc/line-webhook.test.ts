@@ -65,6 +65,7 @@ vi.mock("@/lib/chat/record", () => ({
 vi.mock("@/lib/assistant/dispatch", () => ({ answerAny: answer }));
 
 const { handle } = await import("@/lib/line/conversation");
+const { siteUrl } = await import("@/lib/site-url");
 const { toMessages } = await import("@/lib/line/client");
 const { verifySignature } = await import("@/lib/line/verify");
 
@@ -173,5 +174,19 @@ describe("an answer that runs out of time", () => {
     await expect(handle(said("ชาย 35") as never, "", { startedAt })).rejects.toThrow(/longer than/);
     expect(answer).toHaveBeenCalledOnce();
     expect(JSON.stringify(replies)).toContain("ระบบขัดข้องชั่วคราว");
+  });
+});
+
+describe("a PDF the customer asked for", () => {
+  it("is a link in a bubble of its own, after the words", async () => {
+    const pdf = "/api/quote-pdf?page=plb&age=35&v=1";
+    answer.mockImplementation(async () => ({
+      messages: [{ text: "ไฟล์ PDF ของเบี้ยล่าสุดครับ", file: pdf }],
+      slots: { intent: "quote" },
+    }));
+    await handle(said("ขอไฟล์ PDF") as never);
+    const texts = (replies[0] ?? pushes[0]).map((m) => (m.type === "text" ? m.text : ""));
+    expect(texts[0]).toBe("ไฟล์ PDF ของเบี้ยล่าสุดครับ");
+    expect(texts).toContain(siteUrl(pdf));
   });
 });

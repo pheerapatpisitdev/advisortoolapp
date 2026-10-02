@@ -63,6 +63,8 @@ interface Turn {
   cards?: string[];
   /** what to offer next, as buttons, when the answer leads somewhere in particular */
   guide?: GuideItem[];
+  /** the quote's PDF, opened in a tab from the link under the answer */
+  pdf?: string;
   /** the question that got no answer, so "ลองอีกครั้ง" can ask it again without retyping */
   retry?: string;
 }
@@ -173,7 +175,7 @@ export function Chat({ invite = false }: { invite?: boolean }) {
       if (reply.slots !== undefined) setSlots(reply.slots);
       setTurns((t) => [...t, {
         role: "assistant", text: reply.text, model: reply.model,
-        priced: reply.priced, cards: reply.cards, guide: reply.guide,
+        priced: reply.priced, cards: reply.cards, guide: reply.guide, pdf: reply.pdf,
         ...(reply.failed ? { retry: asked } : {}),
       }]);
     } catch {
@@ -335,6 +337,14 @@ export function Chat({ invite = false }: { invite?: boolean }) {
                 <p className="mt-2.5 text-xs font-medium text-[var(--hm-live)]">
                   {"✓ คิดจากตารางเบี้ยจริง"}
                 </p>
+              )}
+              {t.pdf && (
+                <a
+                  href={t.pdf} target="_blank" rel="noopener noreferrer"
+                  className="mt-3 inline-block rounded-full bg-[var(--hm-solid)] px-4 py-2 text-sm font-medium text-[var(--hm-solid-ink)]"
+                >
+                  ดาวน์โหลด PDF
+                </a>
               )}
               {/* the question that got no answer, one press from being asked again — on the
                   newest answer only, since an older one has been asked past already */}
