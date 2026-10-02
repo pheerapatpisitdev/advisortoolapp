@@ -4,6 +4,7 @@ import { quoteBundle } from "@/calc/bundles/quote";
 import { formatBaht } from "@/calc/money";
 import type { Sex } from "@/calc/types";
 import { displayPremium, perDay } from "@/lib/legacy-cta";
+import type { Lang } from "../output";
 import { money } from "../numbers";
 
 /**
@@ -24,13 +25,23 @@ export interface PriceLines {
   annualSatang: number;
 }
 
-export function priceLines(modes: ModePremium[] | undefined, expired: boolean, firstYear = false): PriceLines | null {
+export function priceLines(modes: ModePremium[] | undefined, expired: boolean, firstYear = false, lang: Lang = "th"): PriceLines | null {
   const shown = displayPremium(modes, expired);
   const annual = modes?.find((m) => m.mode === "annual");
   if (!shown || !annual) return null;
-  const word = firstYear ? "เบี้ยปีแรก" : "เบี้ย";
   const monthly = shown.mode === "monthly";
   const day = money(perDay(annual.total));
+  if (lang === "en") {
+    const perDayLine = `About THB ${day} a day${firstYear ? " in the first year" : ""}`;
+    return {
+      premiumLine: monthly ? `${firstYear ? "First-year premium" : "Premium"} THB ${formatBaht(shown.total)}/month` : "",
+      perDayLine,
+      big: monthly ? `THB ${formatBaht(shown.total)}/month` : perDayLine,
+      day,
+      annualSatang: annual.total,
+    };
+  }
+  const word = firstYear ? "เบี้ยปีแรก" : "เบี้ย";
   // a month's premium or the day's, never a year's (owner, 2026-09-25): below the monthly
   // floor the day figure leads, and there is no premium line above it
   return {

@@ -17,6 +17,7 @@ describe("anglesFor", () => {
 });
 
 import { numbersBody, numbersPoster, numbersYardstick, safeHeadline, type NumberSheet } from "@/lib/content/numbers";
+import { ENGLISH_RULES } from "@/lib/content/prompt";
 import { strayNumbers } from "@/lib/content/check";
 import { MAX_CHARS } from "@/lib/content/poster";
 
@@ -104,7 +105,7 @@ describe("Life Protect's number sheets", () => {
   });
 });
 
-import { FALLBACK_HEADLINES, headlineMessages, parseHeadlines } from "@/lib/content/numbers";
+import { FALLBACK_HEADLINES, FALLBACK_HEADLINES_EN, headlineMessages, parseHeadlines } from "@/lib/content/numbers";
 
 describe("headlines", () => {
   it("asks for one digit-free headline per sheet", () => {
@@ -125,5 +126,13 @@ describe("headlines", () => {
   });
   it("survives an unreadable reply", () => {
     expect(parseHeadlines("not json", 2)).toHaveLength(2);
+  });
+});
+
+describe("English headlines", () => {
+  it("falls back to English headlines and closes in English", () => {
+    expect(parseHeadlines("not json", 2, "en").map((h) => h.headline)).toEqual(FALLBACK_HEADLINES_EN.slice(0, 2));
+    expect(headlineMessages([], "en")[0].content).toContain(ENGLISH_RULES);
+    expect(headlineMessages([])[0].content).not.toContain(ENGLISH_RULES);
   });
 });
