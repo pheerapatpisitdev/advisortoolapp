@@ -50,7 +50,7 @@ describe("videoSettings", () => {
 describe("the migration that lets the column hold cloudrun", () => {
   it("replaces the video_engine check with one that allows all three engines", async () => {
     const { readFileSync } = await import("node:fs");
-    const sql = readFileSync(new URL("../../supabase/migrations/20261003_clip_cloudrun.sql", import.meta.url), "utf8");
+    const sql = readFileSync(new URL("../../supabase/migrations/20261004_clip_cloudrun.sql", import.meta.url), "utf8");
     expect(sql).toMatch(/drop constraint if exists ins_ai_settings_video_engine_check/);
     expect(sql).toMatch(/add constraint ins_ai_settings_video_engine_check\s+check \(video_engine in \('rendi', 'lambda', 'cloudrun'\)\)/);
   });
