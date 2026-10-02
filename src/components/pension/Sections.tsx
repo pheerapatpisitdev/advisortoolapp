@@ -184,9 +184,6 @@ export function Disclaimer({ facts }: { facts: PensionCopyFacts }) {
         สิทธิลดหย่อนภาษีเป็นไปตามเงื่อนไขของกรมสรรพากร
         ผู้ขอเอาประกันภัยควรศึกษาเงื่อนไข ความคุ้มครอง และข้อยกเว้นก่อนตัดสินใจทำประกันภัยทุกครั้ง
       </p>
-      <p className="pt-4 text-xs leading-[1.9] text-[var(--lg-mute)] opacity-75">
-        <Link href="/privacy" className="underline underline-offset-4">ความเป็นส่วนตัว</Link>
-      </p>
     </footer>
   );
 }

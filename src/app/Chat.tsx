@@ -417,8 +417,7 @@ export function Chat({ invite = false }: { invite?: boolean }) {
       </section>
 
       <p className="shrink-0 text-center text-xs text-[var(--hm-mute)]">
-        เบี้ยเป็นตัวเลขประมาณการจากตารางของบริษัท ไม่ใช่ใบเสนอราคา ·{" "}
-        <Link href="/privacy" className="underline">ความเป็นส่วนตัว</Link>
+        เบี้ยเป็นตัวเลขประมาณการจากตารางของบริษัท ไม่ใช่ใบเสนอราคา
       </p>
     </main>
   );

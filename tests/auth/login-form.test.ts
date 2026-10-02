@@ -40,10 +40,6 @@ describe("LoginForm's member tab (owner, 2026-10-02)", () => {
     expect(draw(true)).toContain("กดปุ่มเดียวกันนี้เพื่อสมัคร ฟรี 10 รอบ");
     expect(draw(false, "x")).not.toContain("เพื่อสมัคร");
   });
-
-  it("says that going on accepts the privacy policy", () => {
-    expect(draw(true)).toMatch(/ยอมรับ[\s\S]*href="\/privacy"/);
-  });
 });
 
 describe("LoginForm's look (owner, 2026-10-01)", () => {

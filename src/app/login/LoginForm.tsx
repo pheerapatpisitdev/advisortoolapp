@@ -1,6 +1,5 @@
 "use client";
 import { useState, useTransition, type FormEvent } from "react";
-import Link from "next/link";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { Field, FormError } from "@/components/auth/fields";
 import { INPUT, MUTE, PRIMARY } from "@/components/auth/styles";
@@ -76,10 +75,6 @@ export function LoginForm({ next, signupOpen, error: googleError }: { next: stri
             <GoogleG />ดำเนินการต่อด้วย Google
           </a>
           {signupOpen && <p className={`text-center text-sm ${MUTE}`}>ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร ฟรี 10 รอบ</p>}
-          <p className={`text-center text-xs ${MUTE}`}>
-            การดำเนินการต่อถือว่ายอมรับ{" "}
-            <Link href="/privacy" className="underline underline-offset-2">นโยบายความเป็นส่วนตัว</Link>
-          </p>
         </div>
       ) : (
         <form method="post" className="mt-5 space-y-4" onSubmit={submit(signIn)}>

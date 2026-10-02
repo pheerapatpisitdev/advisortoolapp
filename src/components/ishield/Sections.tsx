@@ -178,9 +178,6 @@ export function Disclaimer({ facts }: { facts: IShieldCopyFacts }) {
         ไม่ใช่ใบเสนอราคา เบี้ยและความคุ้มครองจริงเป็นไปตามผลการพิจารณารับประกันและที่ระบุในกรมธรรม์
         ผู้ขอเอาประกันภัยควรศึกษาเงื่อนไข ความคุ้มครอง และข้อยกเว้นก่อนตัดสินใจทำประกันภัยทุกครั้ง
       </p>
-      <p className="pt-4 text-xs leading-[1.9] text-[var(--lg-mute)] opacity-75">
-        <Link href="/privacy" className="underline underline-offset-4">ความเป็นส่วนตัว</Link>
-      </p>
     </footer>
   );
 }

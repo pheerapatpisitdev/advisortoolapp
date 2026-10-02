@@ -1,7 +1,5 @@
 "use client";
-import Link from "next/link";
 import { AppShell } from "@/components/shell/AppShell";
-import { SALES_PAGES } from "@/lib/shell/menu";
 import { useMemo, useState } from "react";
 import { quote } from "@/calc/quote";
 import { getPlan, listPlans } from "@/calc/plans/registry";
@@ -157,20 +155,8 @@ export default function Home() {
             page is what an agent shows a customer across a table, and a link on it labelled
             หลังบ้าน is an invitation to press it. The door is unchanged — /admin still asks
             for the PIN — only the sign is gone. */}
-        <span className="flex gap-4 text-sm text-[var(--op-mute)]">
-          <Link href="/privacy" className="underline">ความเป็นส่วนตัว</Link>
-        </span>
       </div>
-      <p className="text-sm text-[var(--op-mute)]">{bundle ? BUNDLE_PICKER_NAME[bundle.code] ?? `ชุด${bundle.name}` : PICKER_NAME[state.planCode] ?? plan.planLabel ?? plan.rates.planName}</p>
-      {/* the calculator is the agent's tool; these are the pages an agent sends a customer to */}
-      <p className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-[var(--op-mute)]">
-        <span>หน้าขายสำหรับลูกค้า</span>
-        {SALES_PAGES.map((page) => (
-          <Link key={page.href} href={page.href} target="_blank" rel="noreferrer" className="underline">
-            {page.label}
-          </Link>
-        ))}
-      </p>
+      <p className="mb-4 text-sm text-[var(--op-mute)]">{bundle ? BUNDLE_PICKER_NAME[bundle.code] ?? `ชุด${bundle.name}` : PICKER_NAME[state.planCode] ?? plan.planLabel ?? plan.rates.planName}</p>
       <ExpiryBanner expired={result?.meta.expired ?? false} expiresOn={plan.rates.expiresOn} />
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-lg border border-[var(--op-line)] bg-[var(--op-panel)] p-4">
