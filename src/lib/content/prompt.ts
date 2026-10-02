@@ -3,6 +3,7 @@ import { SHARE_WHY } from "./finish";
 import { formulaRules, type Formula } from "./formula";
 import type { PiecePlan } from "./plan";
 import { POLICY_RULES_TH } from "./policy";
+import type { Lang } from "./output";
 import { THEME_MOOD, THEMES } from "./poster";
 
 /**
@@ -57,12 +58,46 @@ export const ANGLES = [
   },
 ] as const;
 
-export type AngleId = (typeof ANGLES)[number]["id"] | "custom" | "";
+/** The one page whose posts may be written in English, for expats living in Thailand. */
+export const EXPAT_HREF = "/ihealthy-ultra";
+
+/**
+ * The angles for an English post to expats, offered only with the form's tick. `say` is a
+ * Thai instruction like the others — the post it asks for is English (ENGLISH_RULES).
+ */
+export const EXPAT_ANGLES = [
+  {
+    id: "expat_hospital", label: "ค่าโรงพยาบาลเอกชนในไทย",
+    say: "ค่าโรงพยาบาลเอกชนในไทย — เล่าว่าคนที่ไม่มีสิทธิรักษาของรัฐต้องจ่ายค่ารักษาโรงพยาบาลเอกชนเอง แล้วพาไปที่วงเงินเหมาจ่ายของแบบนี้ ห้ามยกตัวเลขค่ารักษาของโรงพยาบาลที่ไม่มีในข้อมูลผลิตภัณฑ์",
+  },
+  {
+    id: "expat_visa", label: "ประกันสุขภาพกับวีซ่า",
+    say: "ประกันสุขภาพกับวีซ่า — แบบนี้ใช้ประกอบการยื่นขอวีซ่าได้ พูดกว้างๆ เท่านั้น ห้ามระบุชื่อหรือประเภทวีซ่า ห้ามบอกว่าใช้ได้กับวีซ่าทุกประเภท ห้ามรับประกันว่าผ่าน ให้ชวนทักข้อความมาเช็กว่าเหมาะกับวีซ่าของเขาไหม",
+  },
+  {
+    id: "expat_job", label: "ประกันบริษัทหมดเมื่อเปลี่ยนงานหรือเกษียณ",
+    say: "ประกันบริษัทหมดเมื่อเปลี่ยนงานหรือเกษียณ — ประกันกลุ่มของนายจ้างจบเมื่องานจบ แต่ประกันที่ซื้อเองอยู่กับเราต่อ ต่ออายุได้ถึงอายุ 98 ใช้ข้อมูลผลิตภัณฑ์เท่านั้น",
+  },
+  {
+    id: "expat_travel", label: "กลับบ้าน/เที่ยวต่างประเทศ",
+    say: "กลับบ้านหรือเที่ยวต่างประเทศ — นอกประเทศไทยคุ้มครองเฉพาะการรักษาฉุกเฉินที่เกิดภายใน 90 วันนับจากวันเดินทาง ต้องพูดว่า “ฉุกเฉิน” และ “90 วัน” ให้ชัด ห้ามพูดว่าคุ้มครองทั่วโลกหรือคุ้มครองทุกที่",
+  },
+  {
+    id: "expat_longstay", label: "อยู่ไทยยาว / เกษียณที่ไทย",
+    say: "อยู่ไทยยาวหรือเกษียณที่ไทย — ต่ออายุได้ถึงอายุ 98 มีส่วนลดเมื่อไม่เคลม 3 ปี และมีวงเงินสูงต่อปี ใช้ตัวเลขจากข้อมูลผลิตภัณฑ์เท่านั้น",
+  },
+  {
+    id: "expat_english", label: "คุยกับตัวแทนเป็นภาษาอังกฤษได้",
+    say: "คุยกับตัวแทนเป็นภาษาอังกฤษได้ — ซื้อและเคลมโดยมีตัวแทนดูแลและตอบแชทเป็นภาษาอังกฤษ ลดความกังวลเรื่องภาษา",
+  },
+] as const;
+
+export type AngleId = (typeof ANGLES)[number]["id"] | (typeof EXPAT_ANGLES)[number]["id"] | "custom" | "";
 
 /** The angle as the models are told it: the owner's words, the angle's full meaning, or nothing. */
 export function angleText(angle: AngleId, custom: string): string {
   if (angle === "custom") return custom.trim();
-  return ANGLES.find((a) => a.id === angle)?.say ?? "";
+  return [...EXPAT_ANGLES, ...ANGLES].find((a) => a.id === angle)?.say ?? "";
 }
 
 /**
@@ -74,11 +109,42 @@ export const NUMBERS_HREFS = [
   "/lifeprotect", "/plb", "/easyprotect", "/lifetreasure", "/legacy", "/ishield", "/ci123", "/cancer", "/ihealthy-ultra", "/bumnan95",
 ] as const;
 
-/** The angles the form may offer: ตัวเลขชัดๆ is a post's, and only for a plan it can price. */
-export function anglesFor(format: Format, href: string): (typeof ANGLES)[number][] {
-  return ANGLES.filter((a) => a.id !== "numbers" || (format === "post" && (NUMBERS_HREFS as readonly string[]).includes(href)));
+/**
+ * The angles the form may offer: ตัวเลขชัดๆ is a post's, and only for a plan it can price. With
+ * the expat tick the six expat angles lead, and the two that speak to Thai taxpayers and
+ * parents (tax, child) go.
+ */
+export function anglesFor(format: Format, href: string, expat = false): ((typeof ANGLES)[number] | (typeof EXPAT_ANGLES)[number])[] {
+  const base = ANGLES.filter((a) => a.id !== "numbers" || (format === "post" && (NUMBERS_HREFS as readonly string[]).includes(href)));
+  if (!expat) return base;
+  return [...EXPAT_ANGLES, ...base.filter((a) => a.id !== "tax" && a.id !== "child")];
 }
 
+/**
+ * What the server and the form make of a request's expat tick: it holds only for an
+ * iHealthy Ultra post, and the angle only if that menu offers it. A stale page or a forged
+ * request settles to a Thai piece and "ให้ AI เลือก".
+ */
+export function settleExpat(i: { href: string; format: string; expat?: boolean; angle: string }): { expat: boolean; angle: AngleId } {
+  const expat = i.expat === true && i.href === EXPAT_HREF && i.format === "post";
+  const offered = i.format === "post" || i.format === "script" || i.format === "ad"
+    ? anglesFor(i.format, i.href, expat).some((a) => a.id === i.angle)
+    : false;
+  return { expat, angle: i.angle === "custom" || offered ? (i.angle as AngleId) : "" };
+}
+
+/**
+ * Appended to the system prompt of an English piece. It says which of the Thai rules above
+ * it does not touch, so the model is not pulled two ways.
+ */
+export const ENGLISH_RULES = [
+  "ENGLISH PIECE — this overrides the rules above about Thai particles (ครับ/ค่ะ), Thai word choices, and the “คนไทย” line for imagePrompt. Every other rule above still applies.",
+  "- Every word the reader sees — hook, body, closing, poster blocks, hashtags — is natural English for expats living in Thailand. Use short sentences and plain international English; many readers are not native speakers.",
+  "- The Page speaks as “we”. Money is written as “THB 1,000”, with digits taken from the brief.",
+  "- The rules about Thai particles (ครับ/ค่ะ) and Thai word choices do not apply; every other rule does.",
+  "- imagePrompt: the people are foreign residents of mixed nationalities living their life in Thailand (instead of Thai people).",
+  "- Visa: never name a visa type and never promise approval; invite readers to message us to check their visa.",
+].join("\n");
 export const LENGTHS: { id: Length; label: string }[] = [
   { id: "30", label: "30 วินาที" },
   { id: "60", label: "60 วินาที" },
@@ -134,6 +200,8 @@ export interface Steer {
   /** who the piece talks to, in the owner's words: "แม่ลูกเล็ก วัย 30" */
   reader?: string;
   goal?: GoalId;
+  /** "en": the post is written in English (ENGLISH_RULES); absent or "th" leaves every prompt as it was */
+  lang?: Lang;
   /**
    * Something true the owner knows first-hand — a claim paid, a question a customer asked,
    * a piece of news. The one place a piece may tell a real story; see steerLines.
@@ -285,7 +353,7 @@ export function buildMessages(a: Ask): ChatMessage[] {
     planLines(a.plans),
   ].join("\n\n");
   return [
-    { role: "system", content: SYSTEM },
+    { role: "system", content: a.lang === "en" ? `${SYSTEM}\n\n${ENGLISH_RULES}` : SYSTEM },
     { role: "user", content: user },
   ];
 }
