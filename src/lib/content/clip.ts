@@ -1,7 +1,7 @@
 import type { ContentOutput } from "./output";
 import { footer } from "./output";
 import type { PieceFormat } from "./prompt";
-import type { Flags } from "./store";
+import type { ContentItem, Flags } from "./store";
 
 /**
  * A clip an agent filmed and uploads to post as a Reel (owner, 2026-10-02): the rules a file
@@ -89,11 +89,20 @@ export interface ClipEdit {
   silences?: [number, number][];
   cut: number[];
   trimSilence: boolean;
-  subs: { start: number; end: number; text: string }[];
+  /** `seg`: the sentence (transcript index) a line was made from, so a cut sentence's lines go with it */
+  subs: { start: number; end: number; text: string; seg?: number }[];
   hook: Hook;
   style: ClipStyle;
   rev: string;
   job?: EditJob | null;
+  /**
+   * A submit under way (src/lib/video/jobs.ts claimSubmit): written, guarded on the row's rev,
+   * before an engine is asked, so two presses at once cannot both send a job (or both pay).
+   * One older than SUBMIT_STALE_MS was left by a request that died and counts for nothing.
+   */
+  submitting?: { id: string; at: string; kind: EditJob["kind"] };
+  /** the engine the last job failed on, so the next one goes to the other when there is one */
+  failedOn?: EngineName;
   renderedPath?: string;
   renderedAt?: string;
   renderedRev?: string;
@@ -126,6 +135,23 @@ export interface ClipVideo {
   /** the hook the listener suggested */
   hookSuggestion?: Hook;
   edit?: ClipEdit;
+}
+
+/**
+ * A piece as the browser may see it: the clip's job without its round (a wallet hold's id),
+ * its webhook secret's hash or the paths a render service was told to write. Every answer to
+ * a person that carries a piece goes through this; the server's own reads keep them.
+ */
+export function forClient(item: ContentItem): ContentItem {
+  const v = item.output?.video;
+  const job = v?.edit?.job;
+  if (!v?.edit || !job) return item;
+  const shown: Partial<EditJob> = { ...job };
+  delete shown.pass;
+  delete shown.tokenHash;
+  delete shown.dest;
+  // the browser's copy only: it never goes back into a write (the server reads the row again)
+  return { ...item, output: { ...item.output, video: { ...v, edit: { ...v.edit, job: shown as EditJob } } } };
 }
 
 /** every file a clip keeps in content-video: the clip, its preview, its edited take */

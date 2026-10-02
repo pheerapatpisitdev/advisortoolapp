@@ -68,6 +68,8 @@ export const clipDb = {
   uploads: [] as string[],
   removed: [] as string[],
   signed: [] as string[],
+  /** files a read link was signed for (createSignedUrl) */
+  reads: [] as string[],
   writes: 0,
   reset(row: Row | null) {
     this.row = clone(row);
@@ -75,6 +77,7 @@ export const clipDb = {
     this.uploads.length = 0;
     this.removed.length = 0;
     this.signed.length = 0;
+    this.reads.length = 0;
     this.writes = 0;
   },
   client: {
@@ -85,7 +88,11 @@ export const clipDb = {
           clipDb.signed.push(path);
           return { data: { signedUrl: `https://storage.test/upload/sign/${path}?token=secret`, token: "secret", path }, error: null };
         },
-        async upload(path: string, body: ArrayBuffer | string, opts?: { contentType?: string }) {
+        async createSignedUrl(path: string, seconds: number) {
+          clipDb.reads.push(path);
+          return { data: { signedUrl: `https://storage.test/object/sign/${path}?token=read&s=${seconds}` }, error: null };
+        },
+        async upload(path: string, body: ArrayBuffer | Uint8Array | string, opts?: { contentType?: string }) {
           const text = typeof body === "string" ? body : new TextDecoder().decode(body);
           clipDb.files.set(path, { text, contentType: opts?.contentType });
           clipDb.uploads.push(path);

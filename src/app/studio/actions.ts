@@ -40,6 +40,7 @@ import { numberSheets } from "@/lib/content/numbers-plans";
 import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
 import { maybeOnPage, onPage, publishView } from "@/lib/content/publish-label";
+import { forClient } from "@/lib/content/clip";
 import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publish-flow";
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 import { can } from "@/lib/auth/access";
@@ -663,7 +664,8 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
       listContent({ status: filter.status, planHref: filter.planHref, pageId }, WORKBENCH_PAGE, offset),
       countByStatus(filter.planHref, pageId),
     ]);
-    return { items, counts };
+    // a clip's render job keeps its round and webhook secret's hash on the row; the browser gets neither
+    return { items: items.map(forClient), counts };
   } catch (e) {
     console.error("content workbench failed:", e);
     return { items: [], counts: { draft: 0, used: 0, trashed: 0 }, failed: true };

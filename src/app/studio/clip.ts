@@ -1,6 +1,6 @@
 "use server";
 
-import { clipOutput, clipPath, clipProblem, CLIP_HREF, isClipPath, MAX_CAPTION, MAX_CLIP_BRIEF, NO_FLAGS, type ClipFile, type ClipVideo } from "@/lib/content/clip";
+import { clipOutput, clipPath, clipProblem, CLIP_HREF, forClient, isClipPath, MAX_CAPTION, MAX_CLIP_BRIEF, NO_FLAGS, type ClipFile, type ClipVideo } from "@/lib/content/clip";
 import { clipSize, createClipUpload, removeClip } from "@/lib/content/clip-store";
 import { onPage } from "@/lib/content/publish-label";
 import { getContent, listWords, saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
@@ -92,7 +92,7 @@ export async function finishClipUpload(input: { pieceId: string; path: string; f
       const saved = await saveOutputIf(a.item.id, { ...a.item.output, video }, undefined, a.item.output.rev ?? null);
       if (!saved) continue;
       if (before?.path && before.path !== input.path) await removeClip(before.path);
-      return { ok: true, item: saved };
+      return { ok: true, item: forClient(saved) };
     }
     return { ok: false, error: "มีการแก้ชิ้นนี้พร้อมกันอยู่ — โหลดหน้าใหม่แล้วลองอีกครั้ง" };
   } catch (e) {
@@ -118,7 +118,8 @@ export async function transcribeClip(id: string): Promise<ClipResult> {
   if (ceiling !== null) return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${ceiling} บาทแล้ว` };
   const pass = await takeRound(viewer, "ai-clip");
   if (!pass.ok) return { ok: false, error: pass.refusal };
-  return payRound(pass, () => runTranscribe(item));
+  const r = await payRound(pass, () => runTranscribe(item));
+  return r.ok ? { ok: true, item: forClient(r.item) } : r;
 }
 
 /**
@@ -137,7 +138,7 @@ export async function saveClipCaption(id: string, caption: string): Promise<Clip
       if (onPage(item.publish)) return { ok: false, error: "Reel นี้ตั้งเวลาหรือลงเพจแล้ว — ยกเลิกคิวก่อนแก้แคปชัน" };
       const flags = captionFlags(text, clipYardstick(item), words, modeChecks(item.planHref, v.brief));
       const saved = await saveOutputIf(id, { ...item.output, video: { ...v, caption: text, flags } }, undefined, item.output.rev ?? null);
-      if (saved) return { ok: true, item: saved };
+      if (saved) return { ok: true, item: forClient(saved) };
     }
     return { ok: false, error: "มีการแก้ชิ้นนี้พร้อมกันอยู่ — โหลดหน้าใหม่แล้วบันทึกอีกครั้ง" };
   } catch (e) {

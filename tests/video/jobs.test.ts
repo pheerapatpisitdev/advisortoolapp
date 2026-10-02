@@ -167,6 +167,41 @@ describe("submitJob", () => {
   });
 });
 
+describe("submit claims", () => {
+  it("a live claim of another request's refuses a job; the claim's own holder replaces it with the job", async () => {
+    const { claimSubmit } = await import("@/lib/video/jobs");
+    rendi.submit.mockResolvedValue({ id: "cmd-5" });
+    const read = (await import("@/lib/content/store")).getContentUnscoped;
+    const claimed = await claimSubmit((await read(PIECE))!, "prepare");
+    if (typeof claimed === "string") throw new Error(claimed);
+    expect(storedEdit().submitting).toMatchObject({ id: claimed.claim, kind: "prepare" });
+    // a second claim, and a submit without the claim, are turned away before any engine is asked
+    expect(await claimSubmit((await read(PIECE))!, "prepare")).toBe("busy");
+    await expect(submitJob(PIECE, "prepare", prepareJob("https://signed.test/a.mp4"))).rejects.toThrow("งานตัดต่อค้างอยู่");
+    expect(rendi.submit).not.toHaveBeenCalled();
+
+    await submitJob(PIECE, "prepare", prepareJob("https://signed.test/a.mp4"), [], { claim: claimed.claim });
+    expect(storedEdit().job).toMatchObject({ id: "cmd-5" });
+    expect(storedEdit().submitting).toBeUndefined();
+  });
+
+  it("a claim left by a request that died counts for nothing", async () => {
+    clipDb.reset(dbRow(video({ edit: edit({ submitting: { id: "dead", at: minutesAgo(6), kind: "render" } }) })));
+    rendi.submit.mockResolvedValue({ id: "cmd-6" });
+    await submitJob(PIECE, "render", renderJob("https://signed.test/source.mp4", [[0, 5]], []));
+    expect(storedEdit().job).toMatchObject({ id: "cmd-6" });
+    expect(storedEdit().submitting).toBeUndefined();
+  });
+
+  it("a claim is refused once the edit moved on from the one checked", async () => {
+    const { claimSubmit } = await import("@/lib/video/jobs");
+    clipDb.reset(dbRow(video({ edit: edit({ rev: "r2" }) })));
+    const item = (await (await import("@/lib/content/store")).getContentUnscoped(PIECE))!;
+    expect(await claimSubmit(item, "render", "r1")).toBe("moved");
+    expect(storedEdit().submitting).toBeUndefined();
+  });
+});
+
 describe("checkJob", () => {
   it("collects a finished prepare: preview kept, silences read, a first edit built", async () => {
     clipDb.reset(dbRow(video({ edit: { cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: "e0", job: job({ kind: "prepare", rev: undefined, pass: undefined, costThb: undefined }) } })));
@@ -212,7 +247,8 @@ describe("checkJob", () => {
   });
 
   it("collects a finished render: the take kept, the old take removed, the round charged", async () => {
-    clipDb.reset(dbRow(video({ edit: edit({ renderedPath: OLD_TAKE, renderedRev: "r0", job: job() }) })));
+    // a render that went through after one that failed: the failure is forgotten
+    clipDb.reset(dbRow(video({ edit: edit({ renderedPath: OLD_TAKE, renderedRev: "r0", failedOn: "lambda", job: job() }) })));
     clipDb.files.set(OLD_TAKE, { text: "OLD-TAKE" });
     const status: JobStatus = { state: "done", outputs: { out_1: { url: URLS.reel, fileId: "f9" } } };
     rendi.status.mockResolvedValue(status);
@@ -225,6 +261,7 @@ describe("checkJob", () => {
     expect(e.renderedPath).not.toBe(OLD_TAKE);
     expect(clipDb.files.get(e.renderedPath!)).toEqual({ text: "REEL-BYTES", contentType: "video/mp4" });
     expect(e.renderedRev).toBe("r1");
+    expect(e.failedOn).toBeUndefined();
     expect(Date.now() - new Date(e.renderedAt!).getTime()).toBeLessThan(5_000);
     expect(clipDb.files.has(OLD_TAKE)).toBe(false);
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.9);
@@ -265,7 +302,7 @@ describe("checkJob", () => {
     const r = await checkJob(PIECE);
 
     expect(r.changed).toBe(true);
-    expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT, renderedPath: OLD_TAKE, cut: [1] });
+    expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT, renderedPath: OLD_TAKE, cut: [1], failedOn: "rendi" });
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
   });
 
@@ -298,6 +335,8 @@ describe("checkJob", () => {
 
     const e = storedEdit();
     expect(e).toMatchObject({ job: null, error: JOB_FAILED, renderedPath: OLD_TAKE, renderedRev: "r0", cut: [1], hook: { main: "หัวของฉัน" }, rev: "r1" });
+    // the engine it failed on is kept, so the next render goes to the other one (render-run.ts)
+    expect(e.failedOn).toBe("rendi");
     expect(JSON.stringify(clipDb.row)).not.toContain("SECRET");
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
     expect(clipDb.uploads).toHaveLength(0);
@@ -407,5 +446,16 @@ describe("initialEdit", () => {
     expect(e.hook.main).toBe([..."ประกันสุขภาพ เลือกยังไงให้คุ้มค่าที่สุดสำหรับครอบครัว"].slice(0, 28).join(""));
     expect([...e.hook.main]).toHaveLength(28);
     expect(e).toMatchObject({ cut: [1], trimSilence: true, style: "box", silences: [[0, 0.4]] });
+  });
+
+  it("starts with nothing cut when the listener marked every sentence, or all but under 3 s", () => {
+    const all = video({ transcript: video().transcript!.map((s) => ({ ...s, cut: true })) });
+    expect(initialEdit(all, [[0, 0.4]]).cut).toEqual([]);
+    // the first and last marked: what is left is the middle sentence and its air, 2.7 s of the 10
+    const gaps: [number, number][] = [[3, 3.5], [6, 6.5]];
+    const most = video({ transcript: video().transcript!.map((s, i) => ({ ...s, cut: i !== 1 })) });
+    expect(initialEdit(most, gaps).cut).toEqual([]);
+    // one retake marked, most of the clip left: the mark stands
+    expect(initialEdit(video(), gaps).cut).toEqual([1]);
   });
 });

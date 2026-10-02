@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
-  CLIP_BUCKET, EDIT_JOB_TIMEOUT_MS, MAX_HOOK_MAIN, MAX_HOOK_TOP,
+  CLIP_BUCKET, CLIP_MIN_SEC, EDIT_JOB_TIMEOUT_MS, MAX_HOOK_MAIN, MAX_HOOK_TOP,
   type ClipEdit, type ClipVideo, type EditJob, type EditPass, type EngineName, type Hook,
 } from "@/lib/content/clip";
 import { removeClip } from "@/lib/content/clip-store";
@@ -11,7 +11,7 @@ import { settleLater } from "@/lib/wallet/round";
 import type { FfmpegJob } from "./command";
 import { engineNamed, enginesInOrder } from "./engines/index";
 import { EngineError, type JobStatus, type RenderEngine } from "./engines/types";
-import { buildSubs, parseSilences, type Span } from "./timeline";
+import { buildSubs, keepRanges, keptDuration, parseSilences, type Span } from "./timeline";
 
 /**
  * A clip's ffmpeg jobs (owner, 2026-10-02): handed to a render service with the other one as
@@ -45,6 +45,11 @@ export const JOB_NO_FILES = "ตัวตัดต่อไม่ได้ส่
 export const COLLECT_BUDGET_MS = 240_000;
 /** a claim this old was made by a collector that died half way (past its 300 s); another may take over */
 export const COLLECT_STALE_MS = 6 * 60_000;
+/**
+ * a submit claim this old was left by a request that died (a submit signs links, draws the
+ * subtitles and asks the engines — well inside the 300 s a function may run); it counts for nothing
+ */
+export const SUBMIT_STALE_MS = 5 * 60_000;
 /** a guarded write lost to another writer is tried again from a fresh read, this many times in all */
 const WRITE_TRIES = 4;
 
@@ -60,6 +65,11 @@ const bucket = () => supabaseAdmin().storage.from(CLIP_BUCKET);
 const ageMs = (iso: string) => Date.now() - new Date(iso).getTime();
 const timedOut = (job: EditJob) => ageMs(job.startedAt) > EDIT_JOB_TIMEOUT_MS;
 const claimHeld = (job: EditJob) => Boolean(job.collecting) && ageMs(job.collecting!) <= COLLECT_STALE_MS;
+/** a submit is under way on this edit (claimSubmit), and it is not one left by a dead request */
+export const submitting = (edit: ClipEdit | undefined): boolean =>
+  Boolean(edit?.submitting) && ageMs(edit!.submitting!.at) <= SUBMIT_STALE_MS;
+/** the edit a first job is recorded around, before the preview is made */
+const emptyEdit = (): ClipEdit => ({ cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: randomUUID() });
 const destination = (pieceId: string, ext: string) => `${pieceId}/${randomUUID()}.${ext}`;
 /** what is kept of a job's webhook secret: its sha256, so the row (which the edit page reads) never holds the secret */
 export const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
@@ -94,12 +104,17 @@ export function initialEdit(v: ClipVideo, silences: Span[]): ClipEdit {
   const firstLine = (v.caption.split(/\r?\n/).find((l) => l.trim()) ?? "").trim();
   const cap = (s: string, n: number) => [...s].slice(0, n).join("");
   const suggested = v.hookSuggestion?.main?.trim() ? v.hookSuggestion : null;
+  // the listener's cut marks, unless they would take the whole clip (or all but under 3 s of
+  // it): the agent's first view is never an empty clip (review of Task 8, 2026-10-02)
+  const marked = segments.flatMap((s, i) => (s.cut ? [i] : []));
+  const left = keptDuration(keepRanges({ duration: v.durationSec, segments, cut: marked, silences, trimSilence: true }));
+  const cut = marked.length > 0 && (marked.length === segments.length || left < CLIP_MIN_SEC) ? [] : marked;
   const hook: Hook = suggested
     ? { ...(suggested.top?.trim() ? { top: cap(suggested.top.trim(), MAX_HOOK_TOP) } : {}), main: cap(suggested.main.trim(), MAX_HOOK_MAIN) }
     : { main: cap(firstLine, MAX_HOOK_MAIN) };
   return {
     silences,
-    cut: segments.flatMap((s, i) => (s.cut ? [i] : [])),
+    cut,
     trimSilence: true,
     // each line keeps its `seg`, so a cut sentence's lines can be left off (subsOnOutput)
     subs: buildSubs(segments, silences, v.durationSec),
@@ -125,12 +140,15 @@ async function destinations(pieceId: string, kind: EditJob["kind"]): Promise<Rec
  * Hands a clip's ffmpeg job to the first engine that takes it, the owner's pick first, and
  * records it on the clip. An engine that refuses for a reason the other may not have (a key, a
  * plan, the network) passes it on; one that refuses the command itself does not.
- * `meta`: a render's round (`pass`), its estimated cost and the edit rev it was made from
- * (defaults to the edit's rev now). Throws EngineError when nothing took it.
+ * `meta`: a render's round (`pass`), its estimated cost — one figure, or one per engine, since
+ * which engine takes it is known only here — and the edit rev it was made from (defaults to the
+ * edit's rev now). `claim`: the caller's submit claim (claimSubmit); a live claim of anyone
+ * else's refuses the job, and the job's record replaces the caller's own.
+ * Throws EngineError when nothing took it.
  */
 export async function submitJob(
   pieceId: string, kind: "prepare" | "render", job: FfmpegJob, avoid: EngineName[] = [],
-  meta: { rev?: string; pass?: EditPass; costThb?: number } = {},
+  meta: { rev?: string; pass?: EditPass; costThb?: number | Partial<Record<EngineName, number>>; claim?: string } = {},
 ): Promise<EditJob> {
   const expected = Object.keys(OUTPUTS[kind]);
   if (job.outputs.length !== expected.length || !job.outputs.every((o) => expected.includes(o.name))) {
@@ -144,6 +162,8 @@ export async function submitJob(
   }
   const v = item?.output.video;
   if (!item || !v) throw new Error("ไม่พบคลิปนี้");
+  const othersClaim = (edit: ClipEdit | undefined) => submitting(edit) && edit!.submitting!.id !== meta.claim;
+  if (othersClaim(v.edit)) throw new EngineError(JOB_BUSY, false);
 
   const all = await enginesInOrder();
   if (all.length === 0) throw new EngineError(NO_ENGINE, false);
@@ -171,21 +191,62 @@ export async function submitJob(
   if (!taken) throw last ?? new EngineError(NO_ENGINE, false);
 
   const rev = meta.rev ?? (kind === "render" ? v.edit?.rev : undefined);
+  const costThb = typeof meta.costThb === "number" ? meta.costThb : meta.costThb?.[taken.engine];
   const record: EditJob = {
     kind, engine: taken.engine, id: taken.id, startedAt: new Date().toISOString(), tokenHash: hashToken(token), tried,
     ...(taken.dest ? { dest: taken.dest } : {}),
-    ...(rev ? { rev } : {}), ...(meta.pass ? { pass: meta.pass } : {}), ...(meta.costThb !== undefined ? { costThb: meta.costThb } : {}),
+    ...(rev ? { rev } : {}), ...(meta.pass ? { pass: meta.pass } : {}), ...(costThb !== undefined ? { costThb } : {}),
   };
   const saved = await writeEdit(item, (edit) => {
     if (edit?.job && edit.job.id !== record.id) return null; // another job got there first
-    const base: ClipEdit = edit ?? { cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: randomUUID() };
-    return { ...base, job: record, error: undefined };
+    if (othersClaim(edit)) return null; // so did another submit
+    return { ...(edit ?? emptyEdit()), job: record, submitting: undefined, error: undefined };
   });
   if (!saved) {
     console.error(`${taken.engine} job ${taken.id} for ${pieceId} was taken but not recorded`);
     throw new EngineError("บันทึกงานตัดต่อไม่สำเร็จ", false);
   }
   return record;
+}
+
+/**
+ * Claims the clip's next submit for one request, before it asks an engine (or takes a round):
+ * a write guarded on the row's rev, so of two presses at once only one gets it. "busy": a job
+ * is running or another submit holds a live claim. "moved": the edit is no longer the one the
+ * caller checked (`editRev`), so its checks would have to be made again.
+ */
+export async function claimSubmit(
+  item: ContentItem, kind: EditJob["kind"], editRev?: string,
+): Promise<{ item: ContentItem; claim: string } | "busy" | "moved"> {
+  const claim = randomUUID();
+  let why: "busy" | "moved" = "busy";
+  const saved = await writeEdit(item, (edit) => {
+    if (edit?.job || submitting(edit)) { why = "busy"; return null; }
+    if (editRev !== undefined && edit?.rev !== editRev) { why = "moved"; return null; }
+    return { ...(edit ?? emptyEdit()), submitting: { id: claim, at: new Date().toISOString(), kind } };
+  });
+  return saved ? { item: saved, claim } : why;
+}
+
+/** A claim let go when its submit did not happen (refused, or nothing took the job). Best effort: a claim left behind goes stale. */
+export async function releaseSubmit(pieceId: string, claim: string): Promise<void> {
+  try {
+    const item = await readPiece(pieceId);
+    if (!item) return;
+    await writeEdit(item, (edit) => (edit?.submitting?.id === claim ? { ...edit, submitting: undefined } : null));
+  } catch (e) {
+    console.error(`submit claim on ${pieceId} not let go: ${redact(e)}`);
+  }
+}
+
+/**
+ * What a new job should not be sent to: the engine the last one failed on — but only while
+ * another engine is set up to take it; with one engine there is nothing else to try.
+ */
+export async function avoidAfterFailure(edit: ClipEdit | undefined): Promise<EngineName[]> {
+  const failed = edit?.failedOn;
+  if (!failed) return [];
+  return (await enginesInOrder()).some((e) => e.name !== failed) ? [failed] : [];
 }
 
 /** The job claimed for collecting, or null when it is gone, is another job, or someone else holds it. */
@@ -227,13 +288,13 @@ async function finalize(item: ContentItem, job: EditJob, result: Result): Promis
   const saved = await writeEdit(item, (edit, video) => {
     if (!edit || edit.job?.id !== job.id || edit.job.collecting !== job.collecting) return null;
     before = edit;
-    if (result.state === "failed") return { ...edit, job: null, error: result.error };
+    if (result.state === "failed") return { ...edit, job: null, error: result.error, failedOn: job.engine };
     if (job.kind === "render") {
-      return { ...edit, job: null, error: undefined, renderedPath: result.paths.out_1, renderedAt: at, renderedRev: job.rev };
+      return { ...edit, job: null, error: undefined, failedOn: undefined, renderedPath: result.paths.out_1, renderedAt: at, renderedRev: job.rev };
     }
     const first = edit.subs.length === 0 ? initialEdit(video, silences) : null;
     return {
-      ...edit, proxyPath: result.paths.out_1, silences, job: null, error: undefined,
+      ...edit, proxyPath: result.paths.out_1, silences, job: null, error: undefined, failedOn: undefined,
       ...(first ? { cut: first.cut, subs: first.subs, hook: edit.hook.main.trim() ? edit.hook : first.hook, rev: first.rev } : {}),
     };
   });

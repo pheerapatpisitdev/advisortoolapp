@@ -6,7 +6,7 @@ import { startTopUp, topUpStatus } from "./actions";
 
 const ROUND_NAMES: Record<string, string> = {
   "ai-write": "เขียนโพสต์", "ai-recruit": "หาทีม", "ai-knowledge": "ความรู้", "ai-draft": "เขียนเอง",
-  "ai-claim": "รีวิวเคลม", "ai-draw": "วาดภาพ", "ai-clip": "ถอดเสียงคลิป",
+  "ai-claim": "รีวิวเคลม", "ai-draw": "วาดภาพ", "ai-clip": "ถอดเสียงคลิป", "ai-edit": "ตัดต่อคลิป",
 };
 
 const entryLabel = (e: WalletEntry) =>

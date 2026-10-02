@@ -8,6 +8,7 @@ import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/viewer";
 import { planTitle } from "@/lib/content/day-plan";
+import { forClient } from "@/lib/content/clip";
 import { getContent, listContent, listHookTemplates, listPlanned } from "@/lib/content/store";
 import { contentSpend, contentWorkbench } from "./actions";
 import { ContentStudio } from "./ContentStudio";
@@ -22,7 +23,9 @@ import { fillable, todayKey } from "@/lib/content/calendar";
 /** `page`: the Page whose project opens (from its card on /studio); the first when not given */
 export async function StudioPage({ hook, open, day, page }: { hook?: string; open?: string; day?: string; page?: string }) {
   // the calendar's แก้ไข: the piece opens in the editor on arrival — in its own Page's project
-  const opened = open && /^[0-9a-f-]{36}$/.test(open) ? await getContent(open).catch(() => null) : null;
+  const found = open && /^[0-9a-f-]{36}$/.test(open) ? await getContent(open).catch(() => null) : null;
+  // a clip's render job keeps its round and webhook secret's hash on the row; the browser gets neither
+  const opened = found ? forClient(found) : null;
   // the project (owner, 2026-09-30): one of the caller's Pages — the opened piece's, else the one
   // its card asked for, else the first — or none for an agent with no Pages, as projectPage settles it
   const [mine, connected] = await Promise.all([myPages().catch(() => null), pageConnections().catch(() => [])]);
@@ -53,7 +56,7 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
       hooks={hooks}
       initialHook={hooks.some((h) => h.id === hook) ? hook! : null}
       initial={initial}
-      initialUsed={used}
+      initialUsed={used.map(forClient)}
       spend={spend}
       initialOpen={opened}
       forDay={day && /^\d{4}-\d{2}-\d{2}$/.test(day) && fillable(day, todayKey()) ? day : null}
