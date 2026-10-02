@@ -17,16 +17,17 @@ describe("what the model is forbidden", () => {
       expect(prompt).toContain("ห้ามวินิจฉัย");
     });
     it(`${name} tells the truth when asked outright whether it is a person`, () => {
-      expect(prompt).toContain("ระบบช่วยตอบของเพจ");
+      expect(prompt).toContain("ผู้ช่วยตอบของเพจ");
     });
     it(`${name} never states a figure of its own`, () => {
       expect(prompt).toContain("ห้ามคิดตัวเลขเอง");
     });
   }
 
-  it("sends the claim and the hospital network to a person", () => {
+  // the hospital network is answered from Krungthai-AXA's list (src/lib/assistant/hospitals.ts)
+  it("sends the claim to be checked and answered in this chat", () => {
     expect(HEALTH_PLAN_INFO_SYSTEM).toContain("การเคลม");
-    expect(HEALTH_PLAN_INFO_SYSTEM).toContain("โรงพยาบาลในเครือ");
+    expect(HEALTH_PLAN_INFO_SYSTEM).toContain("เดี๋ยวแอดมินเช็กให้แล้วกลับมาตอบในแชทนี้");
   });
 });
 

@@ -70,8 +70,8 @@ const BUSY = "ตอนนี้มีคำถามเข้ามาเยอ
  * "รบกวนถามใหม่อีกครั้งครับ" — which is no way to treat someone who arrived through a paid
  * advertisement. The agent watches this inbox, so the message says so.
  */
-const BROKEN = "ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏";
-const OUT_OF_BUDGET = "ตอนนี้ระบบผู้ช่วยปิดชั่วคราวครับ รบกวนติดต่อตัวแทนโดยตรงนะครับ";
+const BROKEN = "ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏";
+const OUT_OF_BUDGET = "ขอเวลาสักครู่นะครับ เดี๋ยวกลับมาตอบในแชทนี้";
 
 
 /**

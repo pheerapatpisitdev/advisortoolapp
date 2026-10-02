@@ -85,7 +85,7 @@ describe("a customer who has not said what they came for", () => {
       { role: "user" as const, content: "ขอดูทั้ง2แบบ" },
     ], first.slots);
     expect(again.messages[0].text).not.toContain("สนใจแบบไหนครับ");
-    expect(again.messages[0].text).toContain("ตัวแทน");
+    expect(again.messages[0].text).toContain("แอดมิน");
     // the buttons stay up, because some customers were only scrolling
     expect(again.replies).toEqual([CHOOSE_LIFE, CHOOSE_LEGACY, CHOOSE_ISHIELD]);
   });

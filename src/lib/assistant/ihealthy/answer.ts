@@ -50,7 +50,7 @@ function askForMissing(slots: HealthSlots): string {
  */
 const SHARE_OF_BILL_ANSWER =
   "มีทั้งแบบมีความรับผิดส่วนแรกและแบบร่วมจ่ายครับ เบี้ยถูกลงพอสมควร แลกกับที่เราออกค่ารักษาส่วนแรกเอง\n"
-  + `สองแบบนี้บริษัทขายเฉพาะประเทศไทย และตัวเลขขอให้ตัวแทนคิดให้นะครับ ${HEALTH_HAND_OVER}`;
+  + `สองแบบนี้บริษัทขายเฉพาะประเทศไทยครับ ส่วนตัวเลข ${HEALTH_HAND_OVER}`;
 
 /** What the customer said this turn. */
 function lastAsked(history: ChatMessage[]): string {
@@ -78,7 +78,7 @@ export async function answerHealth(
   if (stalls(asked)) return { ...one(stallReply(quoted)), slots: known };
   // the form is out and they say it is filled in: the agent takes it from here
   if (known.formSent && saysFormDone(asked)) {
-    return { ...one("ขอบคุณครับ 🙏 เดี๋ยวตัวแทนเช็กข้อมูลแล้วติดต่อกลับในแชทนี้ครับ"), slots: known };
+    return { ...one("ขอบคุณครับ 🙏 เดี๋ยวแอดมินเช็กข้อมูลแล้วติดต่อกลับในแชทนี้ครับ"), slots: known };
   }
   if (wantsToBuy(asked, quoted) && !affirms(asked)) {
     return { ...handOverForm(quoted), slots: { ...known, formSent: true } };

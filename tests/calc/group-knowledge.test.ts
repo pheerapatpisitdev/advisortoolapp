@@ -95,7 +95,7 @@ describe("the handover a company gets", () => {
   it("says the product exists and hands the details to a person", () => {
     const text = handOverGroup().messages.map((m) => m.text).join("\n");
     expect(text).toContain("ประกันกลุ่ม");
-    expect(text).toContain("ตัวแทน");
+    expect(text).toContain("แอดมิน");
   });
 
   /**

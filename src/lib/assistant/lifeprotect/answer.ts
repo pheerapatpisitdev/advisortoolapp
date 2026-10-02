@@ -68,7 +68,7 @@ function askForMissing(slots: Routed, table: LifeProtectTable): string {
   return known.filter(Boolean).length ? `ได้เลยครับ ${known.filter(Boolean).join(" · ")} 👍\n${ask}` : ask;
 }
 
-const HAND_OVER = "เดี๋ยวตัวแทนมาคุยต่อในแชทนี้ครับ ระหว่างนี้ถามเรื่อง Life Protect x 2 ได้เลย";
+const HAND_OVER = "เดี๋ยวแอดมินเช็กให้แล้วกลับมาตอบในแชทนี้ครับ ระหว่างนี้ถามเรื่อง Life Protect x 2 ได้เลย";
 
 export async function answerQuestion(history: ChatMessage[], previous: Routed | null): Promise<Answer> {
   const asked = lastAsked(history);
@@ -261,7 +261,7 @@ function answerValueTable(slots: Routed): Reply {
   if (age === undefined || sex === undefined || coverWanted === undefined) {
     return one(askForMissing(slots, table));
   }
-  if (table.expired) return one(`ตารางเบี้ยชุดนี้หมดอายุแล้วครับ ขอราคาปัจจุบันจากตัวแทนได้เลย ${HAND_OVER}`);
+  if (table.expired) return one(`ตารางเบี้ยชุดนี้หมดอายุแล้วครับ ${HAND_OVER}`);
 
   const variant = QUOTABLE.has(slots.variant ?? "") ? slots.variant! : FIRST_TERM;
   const sumAssured = sumBehind(table, age, coverWanted, variant, slots.offer, slots.takenSum);
@@ -287,7 +287,7 @@ function answerValueTable(slots: Routed): Reply {
  */
 function answerQuote(slots: Routed): Reply {
   if (slots.variant && !QUOTABLE.has(slots.variant)) {
-    return one(`ในแชทนี้ผมคิดให้ได้เฉพาะแบบ Life Protect x 2 ครับ แบบอื่นขอให้ตัวแทนเสนอให้นะครับ ${HAND_OVER}`);
+    return one(`ในแชทนี้ผมคิดให้ได้เฉพาะแบบ Life Protect x 2 ครับ สำหรับแบบอื่น ${HAND_OVER}`);
   }
 
   const table = lifeProtectTable();
@@ -296,7 +296,7 @@ function answerQuote(slots: Routed): Reply {
   if (people.length === 0 || coverWanted === undefined) return one(askForMissing(slots, table));
 
   if (table.expired) {
-    return one(`ตารางเบี้ยชุดนี้หมดอายุแล้วครับ ขอราคาปัจจุบันจากตัวแทนได้เลย ${HAND_OVER}`);
+    return one(`ตารางเบี้ยชุดนี้หมดอายุแล้วครับ ${HAND_OVER}`);
   }
 
   // naming the cover a cheaper offer put on the table takes that offer, term and all: the

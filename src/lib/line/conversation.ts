@@ -38,8 +38,8 @@ export interface LineEvent {
 const MAX_CHARS = 1000;
 const BUSY = "ตอนนี้มีคำถามเข้ามาเยอะครับ รบกวนรอสักครู่แล้วถามใหม่นะครับ";
 /** the agency reads this account, as it reads the Page, so the apology says a person is coming */
-const BROKEN = "ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏";
-const OUT_OF_BUDGET = "ตอนนี้ระบบผู้ช่วยปิดชั่วคราวครับ รบกวนติดต่อตัวแทนโดยตรงนะครับ";
+const BROKEN = "ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏";
+const OUT_OF_BUDGET = "ขอเวลาสักครู่นะครับ เดี๋ยวกลับมาตอบในแชทนี้";
 
 function handedOver(slots: unknown): boolean {
   return Boolean((slots as { formSent?: boolean } | null)?.formSent);

@@ -169,7 +169,7 @@ function namedEn(found: Hospital[]): string {
   const ok = found.filter(usable);
   if (ok.length === 0) {
     return `${found[0].en} is in Krungthai-AXA's network, but not for individual health insurance — `
-      + "an agent will confirm what applies to you here in this chat.";
+      + "let me check what applies to you and get back to you right here in this chat.";
   }
   if (ok.length === 1) {
     const h = ok[0];
@@ -184,7 +184,7 @@ function namedEn(found: Hospital[]): string {
 function namedTh(found: Hospital[]): string {
   const ok = found.filter(usable);
   if (ok.length === 0) {
-    return `${found[0].th} อยู่ในเครือข่ายของกรุงไทย-แอกซ่า แต่ไม่ใช่สำหรับประกันสุขภาพส่วนบุคคลครับ เดี๋ยวตัวแทนเช็กให้ในแชทนี้`;
+    return `${found[0].th} อยู่ในเครือข่ายของกรุงไทย-แอกซ่า แต่ไม่ใช่สำหรับประกันสุขภาพส่วนบุคคลครับ เดี๋ยวแอดมินเช็กให้แล้วกลับมาตอบในแชทนี้`;
   }
   if (ok.length === 1) {
     const h = ok[0];
@@ -205,14 +205,14 @@ function inProvince(place: Place, lang: "en" | "th"): string {
   const more = here.length - PROVINCE_LIST;
   if (lang === "en") {
     if (!here.length) {
-      return `I can't find a network hospital in ${place.en} — an agent will check the nearest one for you. Full list: ${LIST_EN}`;
+      return `I can't find a network hospital in ${place.en} — let me check the nearest one for you. Full list: ${LIST_EN}`;
     }
     return `Krungthai-AXA has ${here.length} network hospitals in ${place.en} for individual health insurance:\n`
       + `${bulletsEn(here, PROVINCE_LIST)}\n${more > 0 ? `…and ${more} more on the full list.\n` : ""}`
       + `${FAX_EN.replace(" there", " at any of them")}\n${CHECK_EN}`;
   }
   if (!here.length) {
-    return `ยังไม่เจอโรงพยาบาลในเครือข่ายที่${place.th}ครับ เดี๋ยวตัวแทนเช็กแห่งที่ใกล้ที่สุดให้ ดูรายชื่อทั้งหมด: ${LIST_TH}`;
+    return `ยังไม่เจอโรงพยาบาลในเครือข่ายที่${place.th}ครับ เดี๋ยวแอดมินเช็กแห่งที่ใกล้ที่สุดให้ ดูรายชื่อทั้งหมด: ${LIST_TH}`;
   }
   return `โรงพยาบาลในเครือข่ายกรุงไทย-แอกซ่าที่${place.th}มี ${here.length} แห่งครับ\n`
     + `${bulletsTh(here, PROVINCE_LIST)}\n${more > 0 ? `…และอีก ${more} แห่งในรายชื่อทั้งหมด\n` : ""}${FAX_TH}\n${CHECK_TH}`;

@@ -83,6 +83,7 @@ describe("the quotation the bot sends", () => {
   it("shows no price at all once the rate table has lapsed", () => {
     const reply = healthQuote(WHO, new Date("2099-01-01"));
     expect(reply.messages[0].card).toBeUndefined();
-    expect(reply.messages[0].text).toContain("ขอราคาปัจจุบัน");
+    expect(reply.messages[0].text).toContain("หมดอายุ");
+    expect(reply.messages[0].text).toContain("แอดมินเช็กให้");
   });
 });

@@ -132,7 +132,7 @@ describe("a LINE customer's message", () => {
     answer.mockRejectedValue(new Error("ล่ม"));
     await expect(handle(said("ขอราคาหน่อย"))).rejects.toThrow();
     expect(answer).toHaveBeenCalledTimes(2);
-    expect(replies[0][0]).toMatchObject({ text: "ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏" });
+    expect(replies[0][0]).toMatchObject({ text: "ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏" });
   });
 });
 

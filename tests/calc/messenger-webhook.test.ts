@@ -124,7 +124,7 @@ describe("a customer whose answer would not come", () => {
   it("is handed to the agent, not told to come back later, when it truly cannot answer", async () => {
     answer.mockRejectedValue(new Error("ล่ม"));
     await expect(handle(asked)).rejects.toThrow();
-    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏"]);
+    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏"]);
   });
 });
 
@@ -143,7 +143,7 @@ describe("a customer whose answer runs out of time", () => {
       .rejects.toThrow(/longer than/);
     expect(Date.now() - began).toBeLessThan(2000);
     expect(answer).toHaveBeenCalledOnce();
-    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏"]);
+    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏"]);
   });
 });
 
@@ -454,13 +454,13 @@ describe("a customer on an Expat Page", () => {
   it("is apologised to in English when the answer will not come", async () => {
     answer.mockRejectedValue(new Error("ล่ม"));
     await expect(handle(asked, EXPAT)).rejects.toThrow();
-    expect(sent.text).toEqual(["Sorry, something went wrong on our side — an agent will reply here shortly 🙏"]);
+    expect(sent.text).toEqual(["Sorry, something went wrong on our side — I'll get back to you here shortly 🙏"]);
   });
 
   it("is apologised to in Thai when they wrote Thai", async () => {
     answer.mockRejectedValue(new Error("ล่ม"));
     await expect(handle({ ...asked, message: { mid: "mx2", text: "สนใจค่ะ" } }, EXPAT)).rejects.toThrow();
-    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินมาตอบให้นะครับ 🙏"]);
+    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏"]);
   });
 });
 

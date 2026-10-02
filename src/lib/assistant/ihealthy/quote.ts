@@ -11,7 +11,7 @@ import type { HealthSlots } from "./route";
 
 /** What the bot says when only a person can answer. */
 export const HEALTH_HAND_OVER =
-  "เดี๋ยวตัวแทนมาคุยต่อในแชทนี้ครับ ระหว่างนี้ถามเรื่องไอเฮลท์ตี้ อัลตร้าได้เลย";
+  "เดี๋ยวแอดมินเช็กให้แล้วกลับมาตอบในแชทนี้ครับ ระหว่างนี้ถามเรื่องไอเฮลท์ตี้ อัลตร้าได้เลย";
 
 /** The words a tapped button sends, which are the words the bot reads back. */
 export const SEE_OTHER_PLANS = "ดูแผนอื่น";
@@ -61,7 +61,7 @@ export function healthQuote(
     return one(`ไอเฮลท์ตี้ อัลตร้า รับประกันอายุ ${table.ageMin}-${table.ageMax} ปีครับ อายุ ${age} ปีอยู่นอกช่วงนี้ ${HEALTH_HAND_OVER}`);
   }
   if (table.expired) {
-    return one(`ตารางเบี้ยชุดนี้หมดอายุแล้วครับ ขอราคาปัจจุบันจากตัวแทนได้เลย ${HEALTH_HAND_OVER}`);
+    return one(`ตารางเบี้ยชุดนี้หมดอายุแล้วครับ ${HEALTH_HAND_OVER}`);
   }
 
   const sellable = plansFor(table, age);
@@ -108,7 +108,7 @@ export function healthQuote(
 
   // no text means no price may be shown; the card would only say the same thing in a picture
   if (!text) {
-    return one(`ตอนนี้ยังคิดราคาแผนนี้ให้ไม่ได้ครับ ขอราคาปัจจุบันจากตัวแทนได้เลย ${HEALTH_HAND_OVER}`);
+    return one(`ตอนนี้ยังคิดราคาแผนนี้ให้ไม่ได้ครับ ${HEALTH_HAND_OVER}`);
   }
 
   const annual = priced?.total.find((m) => m.mode === "annual");

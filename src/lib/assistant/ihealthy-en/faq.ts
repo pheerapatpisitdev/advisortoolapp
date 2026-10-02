@@ -23,10 +23,10 @@ export const FAQ_EN: Entry[] = [
     answer: () =>
       "You can still apply with a health condition — you just need to declare your health truthfully on the application, "
       + "and the insurer reviews each case: standard terms, an extra premium, or an exclusion for that condition.\n"
-      + "We can't answer for the insurer's decision, so an agent will help you here in this chat 🙏\n"
+      + "I can't answer for the insurer's decision, but I'll help you with it right here in this chat 🙏\n"
       // the owner's choice (2026-10-02): most expats arrive with a condition, and the agent
       // can only pre-check one they have been told about
-      + "To help the agent check, could you share a bit more about the condition you have now, "
+      + "To help me check, could you share a bit more about the condition you have now, "
       + "the treatment you've had, and any medication you take?",
   },
   {
@@ -38,7 +38,7 @@ export const FAQ_EN: Entry[] = [
     match: /visa|immigration|extension of stay|\bnon-?o\b|\bO-?A\b|\bO-?X\b|\bLTR\b/i,
     answer: () =>
       "Many expats use this policy as proof of health insurance for their stay in Thailand. "
-      + "What's required depends on your situation and can change, so an agent will check what your application needs.",
+      + "What's required depends on your situation and can change, so let me check what your application needs.",
   },
   {
     key: "abroad",
@@ -78,7 +78,7 @@ export const FAQ_EN: Entry[] = [
     match: /\btax\b/i,
     answer: () =>
       "Health premiums can reduce Thai personal income tax for people who file tax in Thailand. "
-      + "An agent can explain how it works in your case.",
+      + "I can check how it works in your case if you'd like.",
   },
 ];
 

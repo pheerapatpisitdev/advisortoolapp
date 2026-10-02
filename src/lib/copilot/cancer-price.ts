@@ -122,7 +122,7 @@ export function priceCancer(text: string, today: Date = new Date()): PriceReply 
   if (result.meta.expired) {
     return {
       priced: false,
-      text: `${out}\n\n⚠️ ตารางเบี้ยชุดนี้ (${result.meta.version}) หมดอายุ ${result.meta.expiresOn} แล้ว ขอราคาปัจจุบันจากตัวแทนก่อนนะครับ`,
+      text: `${out}\n\n⚠️ ตารางเบี้ยชุดนี้ (${result.meta.version}) หมดอายุ ${result.meta.expiresOn} แล้ว เดี๋ยวแอดมินเช็กราคาปัจจุบันให้ก่อนนะครับ`,
     };
   }
 

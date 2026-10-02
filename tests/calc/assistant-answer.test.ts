@@ -297,7 +297,7 @@ describe("who stands behind the policy", () => {
     routed = { intent: "other" };
     const answer = await answerQuestion(said("มีใบอนุญาตตัวแทนไหม บริษัทน่าเชื่อถือหรือเปล่า"), null);
     expect(answer.messages[0].text).toContain("กรุงไทย-แอกซ่า ประกันชีวิต");
-    expect(answer.messages[0].text).toContain("เดี๋ยวมีคนมาตอบในแชทนี้");
+    expect(answer.messages[0].text).toContain("เดี๋ยวแอดมินดูให้");
     expect(answer.messages[0].text).not.toContain("6001028534");
   });
 
@@ -492,7 +492,7 @@ describe("deciding to buy", () => {
     expect(steps).toContain("QR Code");
     expect(rest).toEqual([
       FORM,
-      "กรอกเสร็จแล้วแจ้งในแชทนี้ได้เลย เดี๋ยวตัวแทนติดต่อกลับไปดูแลขั้นตอนต่อให้ครับ",
+      "กรอกเสร็จแล้วแจ้งในแชทนี้ได้เลย เดี๋ยวแอดมินเช็กข้อมูลแล้วดูแลขั้นตอนต่อให้ครับ",
     ]);
     expect(answer.slots.formSent).toBe(true);
     expect(answer.slots.coverWanted).toBe(2_000_000);
@@ -528,14 +528,14 @@ describe("deciding to buy", () => {
     const answer = await answerQuestion(said("สมัครยังไงคะ"), null);
     expect(chat).not.toHaveBeenCalled();
     expect(answer.messages[1].text).toBe(FORM);
-    expect(answer.messages[2].text).toBe("กรอกเสร็จแล้วแจ้งในแชทนี้ได้เลย เดี๋ยวตัวแทนติดต่อกลับไปดูแลขั้นตอนต่อให้ครับ ถ้าอยากทราบเบี้ยก่อน บอกเพศกับอายุมาได้เลยครับ เดี๋ยวคิดให้");
+    expect(answer.messages[2].text).toBe("กรอกเสร็จแล้วแจ้งในแชทนี้ได้เลย เดี๋ยวแอดมินเช็กข้อมูลแล้วดูแลขั้นตอนต่อให้ครับ ถ้าอยากทราบเบี้ยก่อน บอกเพศกับอายุมาได้เลยครับ เดี๋ยวคิดให้");
   });
 
   it("acknowledges a filled-in form without promising anything", async () => {
     const answer = await answerQuestion(said("กรอกแล้วครับ"), { ...quoted, formSent: true });
     expect(chat).not.toHaveBeenCalled();
     expect(answer.messages).toHaveLength(1);
-    expect(answer.messages[0].text).toBe("ขอบคุณครับ 🙏 เดี๋ยวตัวแทนเช็กข้อมูลแล้วติดต่อกลับในแชทนี้ครับ");
+    expect(answer.messages[0].text).toBe("ขอบคุณครับ 🙏 เดี๋ยวแอดมินเช็กข้อมูลแล้วติดต่อกลับในแชทนี้ครับ");
     expect(answer.slots.formSent).toBe(true);
   });
 

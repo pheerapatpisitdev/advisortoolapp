@@ -104,7 +104,7 @@ describe("the English health brain", () => {
     expect(a.slots.age).toBe(45);
     const b = await answerHealthEn(said("Sorry, I'm actually 85"), { ...KNOWN, plan: "GOLD" });
     expect(b.priced).toBeFalsy();
-    expect(b.messages[0].text).toContain("An agent will continue");
+    expect(b.messages[0].text).toContain("I'll get back to you right here");
   });
 
   it("re-sends nothing for Thailand said in passing", async () => {

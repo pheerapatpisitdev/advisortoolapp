@@ -53,7 +53,7 @@ describe("a company asking about cover for its staff", () => {
     const answer = await answerAny(said("ประกันกลุ่มสำหรับพนักงานมีไหม"), null);
     const text = textOf(answer);
     expect(text).toContain("/group-insurance");
-    expect(text).toContain("ตัวแทน");
+    expect(text).toContain("แอดมิน");
     expect(chat).not.toHaveBeenCalled();
   });
 

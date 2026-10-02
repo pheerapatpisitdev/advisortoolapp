@@ -67,7 +67,7 @@ export function healthMenu(age: number, sex: Sex, today: Date = new Date()): Rep
     return one(`ไอเฮลท์ตี้ อัลตร้า รับประกันอายุ ${table.ageMin}-${table.ageMax} ปีครับ อายุ ${age} ปีอยู่นอกช่วงนี้ ${HEALTH_HAND_OVER}`);
   }
   if (table.expired) {
-    return one(`ตารางเบี้ยชุดนี้หมดอายุแล้วครับ ขอราคาปัจจุบันจากตัวแทนได้เลย ${HEALTH_HAND_OVER}`);
+    return one(`ตารางเบี้ยชุดนี้หมดอายุแล้วครับ ${HEALTH_HAND_OVER}`);
   }
 
   const sellable = plansFor(table, age).map((p) => p.code);
@@ -75,7 +75,7 @@ export function healthMenu(age: number, sex: Sex, today: Date = new Date()): Rep
   const priced = pricedPlans(table, age, sex, phoneColumns(order, sellable));
 
   if (priced.length === 0) {
-    return one(`ตอนนี้ยังคิดราคาให้ไม่ได้ครับ ขอราคาปัจจุบันจากตัวแทนได้เลย ${HEALTH_HAND_OVER}`);
+    return one(`ตอนนี้ยังคิดราคาให้ไม่ได้ครับ ${HEALTH_HAND_OVER}`);
   }
 
   // the picture opens on the first of them; nothing is highlighted, so which one only decides

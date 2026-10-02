@@ -15,7 +15,7 @@ describe("what the model is told", () => {
 
   it("tells the truth when asked outright whether it is a person", () => {
     expect(PLAN_INFO_SYSTEM).toContain("ถ้าลูกค้าถามตรงๆ ว่าเป็นคนหรือบอท");
-    expect(PLAN_INFO_SYSTEM).toContain("ระบบช่วยตอบของเพจ");
+    expect(PLAN_INFO_SYSTEM).toContain("ผู้ช่วยตอบของเพจ");
   });
 
   it("lets a customer leave without being asked for anything", () => {
@@ -30,7 +30,7 @@ describe("what the model is told", () => {
 
   for (const [name, prompt] of [["plan info", PLAN_INFO_SYSTEM], ["small talk", SMALL_TALK_SYSTEM]] as const) {
     it(`forbids ${name} from promising to send something later`, () => {
-      expect(prompt).toContain("ห้ามสัญญาว่าจะส่งอะไรให้ทีหลัง");
+      expect(prompt).toContain("ห้ามสัญญาว่าจะสรุปหรือส่งอะไรให้ทีหลัง");
     });
   }
 
@@ -47,7 +47,7 @@ describe("what the model is told", () => {
       // asked outright, it names the insurer rather than refusing: "บ.ชื่ออะไรคะ" got
       // "ในส่วนนี้ผมไม่สามารถแจ้งชื่อบริษัทได้ครับ" from a model told only what not to say
       expect(prompt).toContain("แบบประกันนี้รับประกันโดย บมจ. กรุงไทย-แอกซ่า ประกันชีวิต");
-      expect(prompt).toContain("ห้ามอ้างว่าเป็นตัวแทน");
+      expect(prompt).toContain("ห้ามอ้างว่ามีใบอนุญาตตัวแทนหรือนายหน้า");
       expect(prompt).toContain("ห้ามบอกว่าตัวเองเป็นคน");
     });
   }
