@@ -15,13 +15,18 @@ export const keepOf = (v: Pick<ClipVideo, "durationSec" | "transcript">, edit: P
 /** a player's clock is read a frame late: this close to a kept edge counts as on it */
 const EDGE = 0.02;
 
+/** a kept start this close to the file's own end has no frame to jump to */
+const TAIL = 0.05;
+
 /**
  * Where the player goes from source second `t`: nowhere (null) while it is in a kept stretch,
- * the next kept start when it is in a cut, or "end" once nothing kept is left after it.
+ * the next kept start when it is in a cut, or "end" once nothing kept is left after it. A start
+ * at or past the end of the file playing (`duration`: the preview may run a little shorter than
+ * the clip) is the end too, so the player never seeks to where it cannot go, again and again.
  */
-export function playerJump(t: number, keep: Span[]): number | "end" | null {
+export function playerJump(t: number, keep: Span[], duration = Infinity): number | "end" | null {
   for (const [a, b] of keep) {
-    if (t < a - EDGE) return a;
+    if (t < a - EDGE) return Number.isFinite(duration) && a >= duration - TAIL ? "end" : a;
     if (t < b - EDGE) return null;
   }
   return "end";

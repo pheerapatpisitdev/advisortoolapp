@@ -116,7 +116,8 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
   // the editor needs words to cut by and a file to cut; a held Reel's editor only shows what was made
   const canEdit = Boolean(v && !v.expired && (v.transcript?.length ?? 0) > 0 && (!locked || edit?.proxyPath));
 
-  if (editing && v) return <ClipEditStudio item={item} onItem={onItem} onClose={() => setEditing(false)} />;
+  // every answer of the editor is this piece, wherever it lives (a tab's list or one opened from the calendar): onSaved, never onItem's new-clip count
+  if (editing && v) return <ClipEditStudio item={item} onItem={onSaved} onClose={() => setEditing(false)} />;
 
   return (
     <section className="space-y-4 rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">

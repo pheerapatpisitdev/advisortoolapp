@@ -18,7 +18,8 @@ export interface LiveEdit {
   look: StyleLook;
 }
 
-const rows = (lines: string[]) => lines.map((l, i) => <div key={i} style={{ display: "flex", justifyContent: "center" }}>{l}</div>);
+// satori breaks only where hookLines/subLines did: the browser must not break a row again
+const rows = (lines: string[]) => lines.map((l, i) => <div key={i} style={{ display: "flex", justifyContent: "center", whiteSpace: "nowrap" }}>{l}</div>);
 const stroke = (look: StyleLook): CSSProperties => (look.stroke ? { WebkitTextStroke: look.stroke } : {});
 
 /** the hook as overlays.tsx hookElement draws it, in the 1080-wide frame */
@@ -28,7 +29,7 @@ function HookLayer({ hook, look }: { hook: Hook; look: StyleLook }) {
   return (
     <div style={{ position: "absolute", left: 0, top: HOOK_Y, width: HOOK_SIZE.width, height: HOOK_SIZE.height, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
       {top ? (
-        <div style={{ display: "flex", padding: "14px 30px", borderRadius: 18, background: look.hookTopBg, color: look.hookTopInk, fontWeight: 600, fontSize: 44, marginBottom: 18, flexShrink: 0 }}>{top}</div>
+        <div style={{ display: "flex", padding: "14px 30px", borderRadius: 18, background: look.hookTopBg, color: look.hookTopInk, fontWeight: 600, fontSize: 44, marginBottom: 18, flexShrink: 0, whiteSpace: "nowrap" }}>{top}</div>
       ) : null}
       <div style={{ display: "flex", padding: "22px 40px", borderRadius: 24, background: look.hookMainBg, color: look.hookMainInk, fontWeight: 600, fontSize: hookMainSize(lines.length, Boolean(top)), lineHeight: 1.25, flexDirection: "column", alignItems: "center", textAlign: "center", maxWidth: 1020, ...stroke(look) }}>
         {rows(lines)}
@@ -88,7 +89,7 @@ export function EditPreview({ player, src, live }: {
     const p = player.current;
     const l = edit.current;
     if (!p || !l) return;
-    const jump = playerJump(p.currentTime, l.keep);
+    const jump = playerJump(p.currentTime, l.keep, p.duration);
     if (jump === "end") { if (!p.paused) p.pause(); }
     else if (jump !== null) p.currentTime = jump;
     const at = overlayAt(p.currentTime, l.keep, l.subs, Boolean(l.hook.main.trim()));
@@ -108,7 +109,7 @@ export function EditPreview({ player, src, live }: {
     const onPlay = () => {
       const l = edit.current;
       // played again from the end: from the first kept second
-      if (l && l.keep.length > 0 && playerJump(p.currentTime, l.keep) === "end") p.currentTime = l.keep[0][0];
+      if (l && l.keep.length > 0 && playerJump(p.currentTime, l.keep, p.duration) === "end") p.currentTime = l.keep[0][0];
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(loop);
     };

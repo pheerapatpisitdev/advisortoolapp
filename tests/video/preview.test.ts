@@ -27,6 +27,12 @@ describe("playerJump", () => {
     expect(playerJump(12, KEEP)).toBe("end");
     expect(playerJump(0, [])).toBe("end");
   });
+  it("says end for a kept start at or past the end of the file playing, never a seek that loops", () => {
+    // the preview file is 7.98 s long: the stretch at 8 has no frame to go to
+    expect(playerJump(6.3, KEEP, 7.98)).toBe("end");
+    expect(playerJump(2.5, KEEP, 7.98)).toBe(4);
+    expect(playerJump(2.5, KEEP, Number.NaN)).toBe(4);
+  });
 });
 
 describe("overlayAt", () => {

@@ -433,8 +433,8 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
    * What is on screen now, for code that finishes long after it started: a round lands
    * twenty seconds after the press, and the closure it began in still sees that moment.
    */
-  const view = useRef({ tab, plan, editing, items, used });
-  useEffect(() => { view.current = { tab, plan, editing, items, used }; });
+  const view = useRef({ tab, plan, editing, items, used, opened });
+  useEffect(() => { view.current = { tab, plan, editing, items, used, opened }; });
   const pieces = useRef<HTMLElement>(null);
 
   /**
@@ -851,7 +851,8 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const clipsCounted = useRef(new Set<string>());
   function clipArrived(next: ContentItem) {
     const now = view.current;
-    if ([...now.items, ...now.used].some((x) => x.id === next.id)) { saved(next); return; }
+    // a piece on screen — in a tab's list, or opened from the calendar (?open=) — is updated where it is
+    if ([...now.items, ...now.used].some((x) => x.id === next.id) || now.opened?.id === next.id) { saved(next); return; }
     // one clip reports in up to three times (made, kept, listened to); it is new once
     if (clipsCounted.current.has(next.id)) return;
     clipsCounted.current.add(next.id);

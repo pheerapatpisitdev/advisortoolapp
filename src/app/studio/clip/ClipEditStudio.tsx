@@ -7,6 +7,7 @@ import {
 import type { Theme } from "@/lib/content/poster";
 import { onPage } from "@/lib/content/publish-label";
 import type { ContentItem } from "@/lib/content/store";
+import { mergeBack, POLL_GIVE_UP, retryDelay } from "@/lib/video/edit-saves";
 import { keepOf, subsShown } from "@/lib/video/preview";
 import { STYLE_LABEL, styleLook } from "@/lib/video/styles";
 import { keptDuration } from "@/lib/video/timeline";
@@ -52,11 +53,18 @@ export function ClipEditStudio({ item, onItem, onClose }: {
   const job = running(edit);
 
   const toItem = useRef(onItem);
-  useEffect(() => { toItem.current = onItem; });
+  // the piece as it is now, for answers that arrive after the render that sent them
+  const current = useRef(item);
+  useEffect(() => { toItem.current = onItem; current.current = item; });
+  // the editor still open: a save the connection dropped is tried again only while it is
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
-  const [note, setNote] = useState<{ text: string; error: boolean } | null>(null);
-  const [busy, setBusy] = useState<"open" | "render" | "original" | null>(null);
-  const [saveState, setSaveState] = useState<"idle" | "waiting" | "saving" | "saved">("idle");
+  /** `save`: about a save, cleared when one goes through */
+  const [note, setNote] = useState<{ text: string; error: boolean; save?: boolean } | null>(null);
+  // opening is under way from the first paint, so "not prepared" never flashes before it
+  const [busy, setBusy] = useState<"open" | "render" | "original" | null>(locked || gone ? null : "open");
+  const [saveState, setSaveState] = useState<"idle" | "waiting" | "saving" | "saved" | "retrying">("idle");
   const [theme, setTheme] = useState<Theme>("navy");
 
   // the agent's edit on screen. A new edit from the server (the preview made, a reload after a
@@ -106,36 +114,47 @@ export function ClipEditStudio({ item, onItem, onClose }: {
     return () => { alive = false; };
   }, [item.id, gone]);
 
-  // while a job runs, ask after it every 3 s — one ask at a time, stopped when the editor closes
-  const polling = job !== null && !gone;
+  // while a job runs, ask after it every 3 s — one ask at a time, stopped when the editor closes,
+  // and after a few failures in a row (ลองใหม่ starts it again: a poll, never another open)
+  const [pollStalled, setPollStalled] = useState(false);
+  const polling = job !== null && !gone && !pollStalled;
   useEffect(() => {
     if (!polling) return;
     let stop = false;
+    let failed = 0;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
       const r = await pollEdit(item.id).catch(() => null);
       if (stop) return;
-      if (r?.ok) toItem.current(r.item);
-      else if (r) setNote({ text: r.error, error: true });
+      if (r?.ok) {
+        failed = 0;
+        toItem.current(r.item);
+      } else if (++failed >= POLL_GIVE_UP) {
+        setNote({ text: r ? r.error : "ถามสถานะงานตัดต่อไม่ได้ — การเชื่อมต่อหลุด", error: true });
+        setPollStalled(true);
+        return;
+      }
       timer = setTimeout(tick, POLL_MS);
     };
     timer = setTimeout(tick, POLL_MS);
     return () => { stop = true; clearTimeout(timer); };
   }, [polling, item.id]);
 
-  /** the piece as it is on the server, the edit on screen with it (after a refusal) */
+  /** the edit as the server has it, on screen: from a fresh read, or the last one when that fails too */
   async function reload() {
     const r = await pollEdit(item.id).catch(() => null);
-    if (!r?.ok) return;
-    const e = r.item.output.video?.edit;
+    const fresh = r?.ok ? r.item : current.current;
+    const e = fresh.output.video?.edit;
     if (e?.proxyPath && e.silences) { setDraft(draftOf(e)); setSeenRev(e.rev); }
-    toItem.current(r.item);
+    if (r?.ok) toItem.current(r.item);
   }
 
   // saves go one after another; what changes while one is on its way goes in the next
   const pending = useRef<EditPatch>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queue = useRef<Promise<boolean>>(Promise.resolve(true));
+  /** saves the connection dropped in a row, for the wait before the next try */
+  const dropped = useRef(0);
 
   function flush(): Promise<boolean> {
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
@@ -146,29 +165,45 @@ export function ClipEditStudio({ item, onItem, onClose }: {
       setSaveState("saving");
       const r = await saveEdit(item.id, patch).catch(() => null);
       if (r?.ok) {
+        dropped.current = 0;
         const rev = r.item.output.video?.edit?.rev;
         if (rev) own.current.add(rev);
         toItem.current(r.item);
+        setNote((n) => (n?.save ? null : n));
         setSaveState(Object.keys(pending.current).length > 0 ? "waiting" : "saved");
         return true;
       }
+      if (!r) {
+        // the connection dropped: the change goes back in, under what was typed since, and is tried again
+        pending.current = mergeBack(patch, pending.current);
+        dropped.current += 1;
+        setSaveState("retrying");
+        setNote({ text: "บันทึกการตัดต่อไม่ได้ — การเชื่อมต่อหลุด กำลังลองใหม่…", error: true, save: true });
+        if (alive.current && !timer.current) timer.current = setTimeout(() => void flush(), retryDelay(dropped.current));
+        return false;
+      }
       // refused: say why, and show the edit as the server has it; what was typed since is let go too
+      dropped.current = 0;
       pending.current = {};
       if (timer.current) { clearTimeout(timer.current); timer.current = null; }
       setSaveState("idle");
-      setNote({ text: r ? r.error : "บันทึกการตัดต่อไม่สำเร็จ — การเชื่อมต่อหลุด", error: true });
+      setNote({ text: `การแก้ล่าสุดยังไม่ได้บันทึก — ${r.error}`, error: true, save: true });
       await reload();
       return false;
     });
     return queue.current;
   }
 
-  // closing with a change not yet sent sends it anyway
+  // closing with a change not yet sent sends it anyway — after any save on its way, so an older one never lands last
   useEffect(() => () => {
-    if (!timer.current) return;
-    clearTimeout(timer.current);
-    const patch = pending.current;
-    if (Object.keys(patch).length > 0) void saveEdit(item.id, patch).then((r) => { if (r.ok) toItem.current(r.item); }).catch(() => undefined);
+    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
+    void queue.current.then(async () => {
+      const patch = pending.current;
+      if (Object.keys(patch).length === 0) return;
+      pending.current = {};
+      const r = await saveEdit(item.id, patch).catch(() => null);
+      if (r?.ok) toItem.current(r.item);
+    });
   }, [item.id]);
 
   function change(patch: EditPatch) {
@@ -186,8 +221,9 @@ export function ClipEditStudio({ item, onItem, onClose }: {
   }
 
   async function render() {
-    if (!(await flush())) return;
+    // the inputs are shut from the press, so nothing typed lands between the save and the render
     setBusy("render");
+    if (!(await flush())) { setBusy(null); return; }
     setNote(null);
     const r = await renderEdit(item.id).catch(() => null);
     setBusy(null);
@@ -198,8 +234,8 @@ export function ClipEditStudio({ item, onItem, onClose }: {
 
   async function original() {
     if (!(await ask("กลับไปใช้คลิปต้นฉบับ? คลิปที่ตัดต่อไว้จะถูกลบ ส่วนการตัดต่อในหน้านี้ยังอยู่ สร้างใหม่ได้", "ใช้คลิปต้นฉบับ"))) return;
-    if (!(await flush())) return;
     setBusy("original");
+    if (!(await flush())) { setBusy(null); return; }
     setNote(null);
     const r = await backToOriginal(item.id).catch(() => null);
     setBusy(null);
@@ -244,6 +280,14 @@ export function ClipEditStudio({ item, onItem, onClose }: {
     return () => p.removeEventListener("loadedmetadata", go);
   }, [view]);
 
+  // the one ลองใหม่ on screen: a stalled poll asks again; a failed render renders again; a preview never made is asked for once more
+  const jobFailed = Boolean(edit?.error) && !job && !locked;
+  const notPrepared = !ready && !job && !locked && busy !== "open";
+  const retry: (() => void) | null = pollStalled ? () => { setNote(null); setPollStalled(false); }
+    : jobFailed && ready ? (tooLongNow || tooShort ? null : () => void render())
+      : notPrepared ? () => void open()
+        : null;
+
   const button = "min-h-11 rounded-lg border border-[var(--ct-line)] px-4 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
   const field = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)] read-only:bg-[var(--ct-ground)]";
   const chip = (on: boolean) => `inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm disabled:opacity-50 ${on ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] hover:bg-[var(--ct-soft)]"}`;
@@ -276,7 +320,9 @@ export function ClipEditStudio({ item, onItem, onClose }: {
           {edit?.renderedPath && <span className="rounded-full bg-[var(--ct-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--ct-accent)]">คลิปที่ตัดต่อแล้ว</span>}
           {edit?.renderedPath && stale && <span className="rounded-full bg-[var(--ct-warn-bg)] px-2.5 py-0.5 text-xs text-[var(--ct-warn-ink)]">ยังไม่ได้สร้างใหม่</span>}
           {!readOnly && saveState !== "idle" && (
-            <span role="status" className="ml-auto text-xs text-[var(--ct-mute)]">{saveState === "saved" ? "บันทึกแล้ว" : "กำลังบันทึก…"}</span>
+            <span role="status" className={`ml-auto text-xs ${saveState === "retrying" ? "text-[var(--ct-alert)]" : "text-[var(--ct-mute)]"}`}>
+              {saveState === "saved" ? "บันทึกแล้ว" : saveState === "retrying" ? "ยังไม่ได้บันทึก — กำลังลองใหม่" : "กำลังบันทึก…"}
+            </span>
           )}
         </div>
       </div>
@@ -295,23 +341,22 @@ export function ClipEditStudio({ item, onItem, onClose }: {
             </p>
           )}
           {busy === "open" && !job && <p role="status" className="text-sm text-[var(--ct-mute)]">กำลังเปิดหน้าตัดต่อ…</p>}
-          {/* a job that ended badly: the server's own words, and the same press again */}
-          {edit?.error && !job && !locked && (
-            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] p-3 text-sm text-[var(--ct-alert)]">
-              <p className="min-w-0 flex-1">{edit.error}</p>
-              <button type="button" onClick={() => void (ready ? render() : open())} disabled={busy !== null || (ready && (tooLongNow || tooShort))} className={button}>ลองใหม่</button>
+          {/* what went wrong, in the server's own words where it has them, and one ลองใหม่ */}
+          {(jobFailed || note || (notPrepared && !locked) || retry) && (
+            <div
+              className={`flex flex-wrap items-center gap-3 rounded-lg p-3 text-sm ${jobFailed || note?.error ? "border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}
+            >
+              <div className="min-w-0 flex-1 space-y-1">
+                {jobFailed && <p role="alert">{edit!.error}</p>}
+                {note && <p role={note.error ? "alert" : "status"}>{note.text}</p>}
+                {notPrepared && !jobFailed && !note && <p>ยังไม่ได้เตรียมคลิปสำหรับตัดต่อ</p>}
+              </div>
+              {retry && <button type="button" onClick={retry} disabled={busy !== null} className={button}>ลองใหม่</button>}
             </div>
           )}
-          {note && (
-            <div className={`flex flex-wrap items-center gap-3 text-sm ${note.error ? "text-[var(--ct-alert)]" : "text-[var(--ct-mute)]"}`} role="status">
-              <p className="min-w-0 flex-1">{note.text}</p>
-              {note.error && !ready && !job && !locked && <button type="button" onClick={() => void open()} disabled={busy !== null} className={button}>ลองใหม่</button>}
-            </div>
-          )}
+          {locked && !ready && !job && <p className="text-sm text-[var(--ct-mute)]">ยังไม่ได้เตรียมคลิปสำหรับตัดต่อ</p>}
 
-          {!ready || !draft || !v ? (
-            !job && !edit?.error && !note && busy !== "open" && <p className="text-sm text-[var(--ct-mute)]">ยังไม่ได้เตรียมคลิปสำหรับตัดต่อ</p>
-          ) : (
+          {!ready || !draft || !v ? null : (
             <div className="grid items-start gap-4 @xl:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] @3xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
               <div className="mx-auto w-full max-w-[17rem] space-y-2 @xl:sticky @xl:top-4 @xl:max-w-none">
                 <EditPreview
