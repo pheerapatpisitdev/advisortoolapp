@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClipEdit, ClipVideo, EditJob, EngineName, Hook } from "@/lib/content/clip";
 import type { ContentOutput } from "@/lib/content/output";
 import type { FfmpegJob } from "@/lib/video/command";
@@ -28,6 +28,8 @@ vi.mock("@/lib/content/store", async (orig) => {
   const real = await orig<typeof import("@/lib/content/store")>();
   return { ...real, getContent: (id: string) => real.getContentUnscoped(id), listWords: vi.fn(async () => []) };
 });
+const ceiling = vi.hoisted(() => ({ ceilingBeforeRound: vi.fn(async (): Promise<number | null> => null) }));
+vi.mock("@/lib/content/ceiling", () => ceiling);
 const quota = vi.hoisted(() => ({ takeRound: vi.fn() }));
 vi.mock("@/lib/auth/quota", () => quota);
 const auth = vi.hoisted(() => ({ requireMember: vi.fn(async () => ({ kind: "unitos", agentId: "a1", staff: null })) }));
@@ -38,6 +40,7 @@ const { EngineError } = await import("@/lib/video/engines/types");
 const { JOB_BUSY } = await import("@/lib/video/jobs");
 const { RENDER_DOWN, TOO_SHORT } = await import("@/lib/video/render-run");
 const { openEdit, pollEdit, renderEdit, saveEdit, useOriginal } = await import("@/app/studio/clip-edit");
+const { saveFinishTicks } = await import("@/app/studio/ticks");
 
 const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const SOURCE = `${PIECE}/11111111-1111-4111-8111-111111111111.mp4`;
@@ -89,7 +92,12 @@ function expectNoJobInternals(item: unknown) {
   expect(text).not.toContain("hold-1");
 }
 
+// each test an hour and more after the last, so the preview limit (five a piece an hour) starts afresh
+let clock = Date.now();
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  clock += 2 * 60 * 60_000;
+  vi.setSystemTime(clock);
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   rendi = engine("rendi");
@@ -100,8 +108,11 @@ beforeEach(() => {
   eng.enginesInOrder.mockImplementation(async () => [rendi, lambda]);
   eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "rendi" ? rendi : lambda));
   quota.takeRound.mockResolvedValue(WALLET);
+  ceiling.ceilingBeforeRound.mockResolvedValue(null);
   clipDb.reset(dbRow(video()));
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("openEdit", () => {
   it("openEdit starts a free prepare job for a clip that was listened to", async () => {
@@ -149,6 +160,19 @@ describe("openEdit", () => {
     expect(clipDb.reads).toEqual([]);
     expect(clipDb.writes).toBe(0);
     expect(quota.takeRound).not.toHaveBeenCalled();
+  });
+
+  it("makes at most five previews of a piece an hour; the sixth is refused without a submit", async () => {
+    const other = "9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a";
+    for (let i = 0; i < 5; i++) {
+      clipDb.reset(dbRow(video(), { id: other })); // the last preview failed: no proxy, no job
+      expect((await openEdit(other)).ok).toBe(true);
+    }
+    expect(rendi.submit).toHaveBeenCalledTimes(5);
+    clipDb.reset(dbRow(video(), { id: other }));
+    expect(await openEdit(other)).toEqual({ ok: false, error: "เตรียมคลิปนี้ครบ 5 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" });
+    expect(rendi.submit).toHaveBeenCalledTimes(5);
+    expect(clipDb.writes).toBe(0);
   });
 
   it("two opens at once send one prepare", async () => {
@@ -230,7 +254,8 @@ describe("renderEdit", () => {
     const r = await renderEdit(PIECE);
     expect(r.ok).toBe(true);
     expect(quota.takeRound).toHaveBeenCalledTimes(1);
-    expect(quota.takeRound).toHaveBeenCalledWith(expect.objectContaining({ agentId: "a1" }), "ai-edit");
+    // the piece is the round's audit target, as a picture's is
+    expect(quota.takeRound).toHaveBeenCalledWith(expect.objectContaining({ agentId: "a1" }), "ai-edit", PIECE);
     expect(storedEdit().job).toMatchObject({
       kind: "render", engine: "rendi", id: "cmd-9", rev: "r1",
       pass: { paidBy: "wallet", holdId: "hold-1", heldSatang: 600, multiplier: 2 },
@@ -240,6 +265,15 @@ describe("renderEdit", () => {
       expect(r.item.output.video?.edit?.job).toMatchObject({ kind: "render", id: "cmd-9", rev: "r1" });
       expectNoJobInternals(r.item);
     }
+  });
+
+  it("refuses before the round when the owner's monthly ceiling is reached", async () => {
+    clipDb.reset(dbRow(video({ edit: prepared() })));
+    ceiling.ceilingBeforeRound.mockResolvedValue(30);
+    expect(await renderEdit(PIECE)).toEqual({ ok: false, error: "เดือนนี้ใช้งบสร้างคอนเทนต์ครบ 30 บาทแล้ว" });
+    expect(quota.takeRound).not.toHaveBeenCalled();
+    expect(rendi.submit).not.toHaveBeenCalled();
+    expect(clipDb.writes).toBe(0); // no claim was made
   });
 
   it("a refused round lets the claim go and sends nothing", async () => {
@@ -296,6 +330,19 @@ describe("pollEdit", () => {
     if (!running.ok) throw new Error(running.error);
     expect(running.item.output.video?.edit?.job?.id).toBe("cmd-1");
     expectNoJobInternals(running.item);
+  });
+});
+
+describe("the other doors a piece goes back to the browser through", () => {
+  it("a finish-tick save hands back a clip's job without its round, secret hash or paths", async () => {
+    clipDb.reset(dbRow(video({ edit: prepared({ job: runningJob({ engine: "lambda", dest: { out_1: TAKE } }) }) })));
+    const r = await saveFinishTicks(PIECE, []);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.item.output.video?.edit?.job?.id).toBe("cmd-1");
+    expectNoJobInternals(r.item);
+    expect(JSON.stringify(r.item)).not.toContain(TAKE);
+    // the row keeps them
+    expect(storedEdit().job).toMatchObject({ tokenHash: "a".repeat(64), dest: { out_1: TAKE }, pass: { holdId: "hold-0" } });
   });
 });
 

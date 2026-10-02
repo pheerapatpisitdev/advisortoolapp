@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { CLIP_BUCKET, CLIP_MIN_SEC, type ClipEdit, type ClipVideo, type EditPass, type EngineName } from "@/lib/content/clip";
+import { CLIP_BUCKET, CLIP_MIN_SEC, MAX_EDITED_SECONDS, type ClipEdit, type ClipVideo, type EditPass, type EngineName } from "@/lib/content/clip";
 import { clipReadUrl, removeClip } from "@/lib/content/clip-store";
 import { captionFlags, clipYardstick } from "@/lib/content/clip-transcribe";
 import { modeChecks } from "@/lib/content/mode-checks";
@@ -34,6 +34,10 @@ export const LINK_SECONDS = 2 * 60 * 60;
 /** pictures drawn and filed at once */
 const AT_ONCE = 6;
 const THB_PER_USD = 36;
+
+/** an edit that leaves more than a minute, with how much more to cut, in whole seconds */
+export const tooLong = (kept: number): string =>
+  `คลิปที่ตัดแล้วยาว ${Math.ceil(kept)} วินาที — Reel ที่ตัดต่อต้องไม่เกิน 1 นาที ตัดออกอีก ${Math.ceil(kept - MAX_EDITED_SECONDS)} วินาที`;
 
 /** what stays of the clip under this edit */
 export const keepOf = (v: ClipVideo, edit: ClipEdit): Span[] =>
@@ -70,9 +74,12 @@ export async function renderChecks(item: ContentItem): Promise<string | null> {
   const edit = v.edit;
   if (!edit?.proxyPath || !edit.silences) return NOT_PREPARED;
   if (edit.job || submitting(edit)) return JOB_BUSY;
-  if (keptDuration(keepOf(v, edit)) < CLIP_MIN_SEC) return TOO_SHORT;
-  const hook = [edit.hook.top ?? "", edit.hook.main].join("\n").trim();
-  if (hook) {
+  const kept = keptDuration(keepOf(v, edit));
+  if (kept < CLIP_MIN_SEC) return TOO_SHORT;
+  if (kept > MAX_EDITED_SECONDS) return tooLong(kept);
+  // the hook is drawn only when it has a main line (startRender): a top line alone shows nothing
+  if (edit.hook.main.trim()) {
+    const hook = [edit.hook.top ?? "", edit.hook.main].join("\n").trim();
     // the hook is burned into the picture: what the rules block cannot be fixed after the render
     const flags = captionFlags(hook, clipYardstick(item), await listWords(), modeChecks(item.planHref, v.brief));
     const blocked = (flags.policy ?? []).find((f) => f.severity === "block");
@@ -127,7 +134,8 @@ export async function startRender(item: ContentItem, pass: EditPass, claim?: str
     await submitJob(item.id, "render", job, await avoidAfterFailure(edit), { rev: edit.rev, pass, costThb: renderCostThb(v.sizeBytes), claim });
   } catch (e) {
     console.error(`render of ${item.id} not started:`, e instanceof Error ? e.message.replace(/https?:\/\/\S+/g, "<url>") : e);
-    await settleLater(pass, false, 0);
+    // the round handed back; whatever happens to that, the claim and the pictures are let go
+    await settleLater(pass, false, 0).catch((err) => console.error(`round of ${item.id} not handed back:`, err instanceof Error ? err.message : err));
     if (claim) await releaseSubmit(item.id, claim);
     for (const p of uploaded) await removeClip(p);
     throw new Error(RENDER_DOWN);

@@ -36,7 +36,7 @@ const { NO_FLAGS, clipOutput } = await import("@/lib/content/clip");
 const { getContentUnscoped } = await import("@/lib/content/store");
 const { EngineError } = await import("@/lib/video/engines/types");
 const { claimSubmit } = await import("@/lib/video/jobs");
-const { HOOK_Y, RENDER_DOWN, SUB_Y, TOO_SHORT, pageTheme, renderChecks, renderCostThb, startRender } = await import("@/lib/video/render-run");
+const { HOOK_Y, RENDER_DOWN, SUB_Y, TOO_SHORT, tooLong, pageTheme, renderChecks, renderCostThb, startRender } = await import("@/lib/video/render-run");
 
 const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const SOURCE = `${PIECE}/11111111-1111-4111-8111-111111111111.mp4`;
@@ -113,6 +113,19 @@ describe("renderChecks", () => {
     expect(await renderChecks(await piece())).toBeNull();
   });
 
+  it("refuses an edit that leaves more than a minute, saying how much more to cut", async () => {
+    // nothing cut from a 90-second clip
+    clipDb.reset(dbRow(video({ durationSec: 90, edit: edit({ cut: [] }) })));
+    expect(await renderChecks(await piece())).toBe("คลิปที่ตัดแล้วยาว 90 วินาที — Reel ที่ตัดต่อต้องไม่เกิน 1 นาที ตัดออกอีก 30 วินาที");
+    // whole seconds, rounded up
+    clipDb.reset(dbRow(video({ durationSec: 61.2, edit: edit({ cut: [] }) })));
+    expect(await renderChecks(await piece())).toBe("คลิปที่ตัดแล้วยาว 62 วินาที — Reel ที่ตัดต่อต้องไม่เกิน 1 นาที ตัดออกอีก 2 วินาที");
+    expect(tooLong(61.2)).toBe(await renderChecks(await piece()));
+    // a minute exactly is a Reel
+    clipDb.reset(dbRow(video({ durationSec: 60, edit: edit({ cut: [] }) })));
+    expect(await renderChecks(await piece())).toBeNull();
+  });
+
   it("refuses a hook the rules block", async () => {
     clipDb.reset(dbRow(video({ edit: edit({ hook: { main: "การันตีอนุมัติทุกเคส" } }) })));
     const refusal = await renderChecks(await piece());
@@ -123,6 +136,9 @@ describe("renderChecks", () => {
     words.list = [{ word: "รวยเร็ว", kind: "banned", fix: null }];
     clipDb.reset(dbRow(video({ edit: edit({ hook: { top: "รวยเร็ว", main: "ประกันสุขภาพ" } }) })));
     expect(await renderChecks(await piece())).toContain("รวยเร็ว");
+    // a top line with no main line is never drawn, so it refuses nothing
+    clipDb.reset(dbRow(video({ edit: edit({ hook: { top: "การันตีอนุมัติทุกเคส รวยเร็ว", main: " " } }) })));
+    expect(await renderChecks(await piece())).toBeNull();
   });
 
   it("refuses an edit not yet prepared, one with a job, and an expired clip", async () => {
@@ -199,6 +215,18 @@ describe("startRender", () => {
     // the pictures drawn for it are let go too
     expect([...clipDb.files.keys()].filter((p) => p.endsWith(".png"))).toEqual([]);
     expect(clipDb.removed.filter((p) => p.endsWith(".png"))).toHaveLength(3);
+  });
+
+  it("lets the claim and the pictures go even when handing the round back fails", async () => {
+    const claimed = await claimSubmit(await piece(), "render", "r1");
+    if (typeof claimed === "string") throw new Error(claimed);
+    eng.enginesInOrder.mockResolvedValue([]);
+    round.settleLater.mockRejectedValueOnce(new Error("wallet down"));
+
+    await expect(startRender(claimed.item, WALLET, claimed.claim)).rejects.toThrow(RENDER_DOWN);
+
+    expect(storedEdit().submitting).toBeUndefined();
+    expect([...clipDb.files.keys()].filter((p) => p.endsWith(".png"))).toEqual([]);
   });
 
   it("sends a render after a failure to the other engine, or to the same one when it is the only one", async () => {

@@ -529,7 +529,7 @@ async function rescheduleEdited(item: ContentItem, output: ContentOutput, flags:
   const saved = await saveOutputIf(item.id, output, flags, item.output.rev ?? null);
   if (!saved) return RACED;
   const sent = await move(item.id, at, confirmed);
-  if (sent.ok) return { ok: true, item: sent.item };
+  if (sent.ok) return { ok: true, item: forClient(sent.item) };
   // the old words go back when the Page still holds them: Facebook would not take the old
   // post back, or another request had the piece — unless something wrote over this edit since
   const undo = () => saveOutputIf(item.id, item.output, item.flags, saved.output.rev ?? null)
@@ -629,7 +629,7 @@ export async function saveContentEdits(
       const saved = await saveOutputIf(id, output, flags, item.output.rev ?? null);
       if (!saved) continue;
       if (dropped) await removeBackground(id, dropped);
-      return { ok: true, item: saved };
+      return { ok: true, item: forClient(saved) };
     }
     return { ok: false, error: "ภาพเพิ่งวาดใหม่ระหว่างบันทึก — กดบันทึกอีกครั้งนะครับ" };
   } catch (e) {
@@ -898,8 +898,8 @@ export async function drawBackground(id: string, request = "", painter?: string,
         // the words the model drew, read back off the picture against the words it was given
         const read = wordsDrawn ? await readBack(item.id, background, img, poster, clock) : null;
         return wanted && !found
-          ? { ok: true, item: read ?? saved, note: "ไม่พบบุคคลที่เลือกในคลัง (อาจถูกลบไปแล้ว) เลยวาดภาพโดยไม่มีคน" }
-          : { ok: true, item: read ?? saved };
+          ? { ok: true, item: forClient(read ?? saved), note: "ไม่พบบุคคลที่เลือกในคลัง (อาจถูกลบไปแล้ว) เลยวาดภาพโดยไม่มีคน" }
+          : { ok: true, item: forClient(read ?? saved) };
       }
       // edited three times over while it was being saved: the picture is not put on the piece
       await removeBackground(item.id, background);

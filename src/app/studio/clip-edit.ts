@@ -9,6 +9,8 @@ import { clipReadUrl, removeClip } from "@/lib/content/clip-store";
 import { onPage } from "@/lib/content/publish-label";
 import { getContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { requireMember } from "@/lib/auth/viewer";
+import { limiter } from "@/lib/assistant/rate-limit";
+import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { takeRound } from "@/lib/auth/quota";
 import { prepareJob } from "@/lib/video/command";
 import { avoidAfterFailure, checkJob, claimSubmit, JOB_BUSY, releaseSubmit, submitJob, submitting } from "@/lib/video/jobs";
@@ -41,6 +43,10 @@ const CUT_RANGE = "ประโยคที่เลือกตัดไม่�
 const RACED = "มีการแก้คลิปนี้พร้อมกันอยู่ — โหลดหน้าใหม่แล้วลองอีกครั้ง";
 const MAX_SUBS = 200;
 const MAX_SUB_TEXT = 120;
+
+/** a preview is free to the agent but not to the owner: five a piece an hour is room for any retry */
+const preparesPerHour = limiter(5, 60 * 60_000);
+const PREPARES_SPENT = "เตรียมคลิปนี้ครบ 5 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ";
 
 const answer = (item: ContentItem): EditResult => ({ ok: true, item: forClient(item) });
 const len = (s: string) => [...s].length;
@@ -76,6 +82,7 @@ export async function openEdit(id: string): Promise<EditResult> {
   try {
     if (video.edit?.job) return answer((await checkJob(id)).item);
     if (submitting(video.edit) || (video.edit?.proxyPath && video.edit.silences)) return answer(item);
+    if (!preparesPerHour(`prepare:${id}`)) return { ok: false, error: PREPARES_SPENT };
     const claimed = await claimSubmit(item, "prepare");
     // another press got there first: the piece as it now is, with its claim (or its job) on it
     if (typeof claimed === "string") return answer((await getContent(id)) ?? item);
@@ -197,10 +204,12 @@ export async function renderEdit(id: string): Promise<EditResult> {
   try {
     const refusal = await renderChecks(g.item);
     if (refusal) return { ok: false, error: refusal };
+    const ceiling = await ceilingBeforeRound(viewer);
+    if (ceiling !== null) return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${ceiling} บาทแล้ว` };
     const claimed = await claimSubmit(g.item, "render", g.video.edit!.rev);
     if (claimed === "busy") return { ok: false, error: JOB_BUSY };
     if (claimed === "moved") return { ok: false, error: RACED };
-    const round = await takeRound(viewer, "ai-edit").catch(async (e) => {
+    const round = await takeRound(viewer, "ai-edit", id).catch(async (e) => {
       await releaseSubmit(id, claimed.claim);
       throw e;
     });

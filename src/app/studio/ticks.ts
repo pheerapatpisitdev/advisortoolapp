@@ -4,6 +4,7 @@ import { cleanTicks } from "@/lib/content/finish-check";
 import { aiTextState } from "@/lib/content/poster-text";
 import { AI_TEXT_STALE } from "@/lib/content/publish-flow";
 import { getContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
+import { forClient } from "@/lib/content/clip";
 
 /**
  * สูตรอ่าน-ดูจนจบ: the checklist items the agent ticked (finish-check.ts), kept with the piece.
@@ -23,7 +24,7 @@ export async function saveFinishTicks(id: string, ticks: string[]): Promise<Tick
       if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
       const output = { ...item.output, finishTicks: cleanTicks(ticks, item.format) };
       const saved = await saveOutputIf(id, output, undefined, item.output.rev ?? null);
-      if (saved) return { ok: true, item: saved };
+      if (saved) return { ok: true, item: forClient(saved) };
     }
     return { ok: false, error: "ชิ้นนี้เพิ่งถูกแก้ระหว่างบันทึก ลองติ๊กอีกครั้งนะครับ" };
   } catch (e) {
@@ -49,7 +50,7 @@ export async function markPosterText(id: string): Promise<TicksResult> {
       if (state === "stale") return { ok: false, error: AI_TEXT_STALE };
       const output = { ...item.output, poster: { ...poster, aiText: { ...poster.aiText, checked: true } } };
       const saved = await saveOutputIf(id, output, undefined, item.output.rev ?? null);
-      if (saved) return { ok: true, item: saved };
+      if (saved) return { ok: true, item: forClient(saved) };
     }
     return { ok: false, error: "ชิ้นนี้เพิ่งถูกแก้ระหว่างบันทึก ลองอีกครั้งนะครับ" };
   } catch (e) {

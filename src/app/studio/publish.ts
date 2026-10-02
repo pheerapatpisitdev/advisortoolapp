@@ -3,9 +3,13 @@ import { myPages } from "@/lib/auth/pages";
 import { bangkokAt, dayKey, dropTime, lastDropDay, nextDayKey, nextOpenDay, timeOfDay, todayKey } from "@/lib/content/calendar";
 import { move, PAST_DAY, POST_SCOPE, publish, withdraw, type PublishResult } from "@/lib/content/publish-flow";
 import { getContent, listPublished } from "@/lib/content/store";
+import { forClient } from "@/lib/content/clip";
 import { requireStaff } from "@/lib/auth/viewer";
 
 export type { PublishResult } from "@/lib/content/publish-flow";
+
+/** a result as the browser gets it: a clip's job without its round, secret hash or storage paths */
+const shown = (r: PublishResult): PublishResult => (r.ok ? { ok: true, item: forClient(r.item) } : r);
 
 /**
  * Posting a piece to a Facebook Page from the workbench, now or at a time Facebook holds.
@@ -64,7 +68,7 @@ export async function publishPiece(input: {
   force?: boolean;
 }): Promise<PublishResult> {
   await requireStaff("publish");
-  return publish(input);
+  return shown(await publish(input));
 }
 
 /**
@@ -88,8 +92,8 @@ export async function scheduleOnDay(input: { id: string; day: string; pageId: st
     ? kept
     : dropTime(input.day, await takenOn(input.day, pageId, item.id));
   if (!time) return { ok: false, error: DAY_GONE };
-  if (held) return move(item.id, bangkokAt(input.day, time), input.confirmNumbers);
-  return publish({ id: item.id, pageId: input.pageId, at: bangkokAt(input.day, time).toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force });
+  if (held) return shown(await move(item.id, bangkokAt(input.day, time), input.confirmNumbers));
+  return shown(await publish({ id: item.id, pageId: input.pageId, at: bangkokAt(input.day, time).toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force }));
 }
 
 const DAY_GONE = "วันนี้เลยเวลาลงโพสต์แล้ว — วางวันพรุ่งนี้หรือวันถัดไปแทนนะครับ";
@@ -127,7 +131,7 @@ export async function scheduleNextOpen(input: { id: string; pageId: string; conf
     .map((r) => dayKey(new Date(r.publish!.at!))));
   const open = nextOpenDay(taken);
   if (!open) return { ok: false, error: "เพจนี้มีโพสต์ทุกวันใน 30 วันข้างหน้าแล้ว — เลือกวันเวลาเองในหน้าแก้ไข" };
-  return publish({ id: input.id, pageId: input.pageId, at: bangkokAt(open.day, open.time).toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force });
+  return shown(await publish({ id: input.id, pageId: input.pageId, at: bangkokAt(open.day, open.time).toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force }));
 }
 
 /** The day sheet's บันทึกเวลา: a Thai "YYYY-MM-DDTHH:MM", for a waiting piece or a held one. */
@@ -139,8 +143,8 @@ export async function scheduleAt(input: { id: string; local: string; pageId: str
   const at = bangkokAt(m[1], m[2]);
   const item = await getContent(input.id).catch(() => null);
   if (!item) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
-  if (item.publish?.state === "scheduled") return move(item.id, at, input.confirmNumbers);
-  return publish({ id: item.id, pageId: input.pageId, at: at.toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force });
+  if (item.publish?.state === "scheduled") return shown(await move(item.id, at, input.confirmNumbers));
+  return shown(await publish({ id: item.id, pageId: input.pageId, at: at.toISOString(), confirmNumbers: input.confirmNumbers, confirmSpoken: input.confirmSpoken, force: input.force }));
 }
 
 /** Takes back a post Facebook is holding, before its time. It can be scheduled again after. */
@@ -151,7 +155,7 @@ export async function cancelScheduled(id: string): Promise<PublishResult> {
   if (!item || !p || p.state !== "scheduled" || !p.postId || !p.pageId) return { ok: false, error: "ชิ้นนี้ไม่ได้ตั้งเวลาไว้" };
   if (p.at && new Date(p.at).getTime() <= Date.now()) return { ok: false, error: "ถึงเวลาโพสต์ไปแล้ว ยกเลิกไม่ได้ — ลบโพสต์ในเพจแทน" };
   try {
-    return await withdraw(item);
+    return shown(await withdraw(item));
   } catch (e) {
     console.error("content cancel failed:", e);
     return { ok: false, error: "ยกเลิกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };

@@ -18,6 +18,8 @@ export const CLIP_MAX_BYTES = 300 * 1024 * 1024;
 /** Reels take 3 to 90 seconds (Facebook's Reels publishing guide) */
 export const CLIP_MIN_SEC = 3;
 export const CLIP_MAX_SEC = 90;
+/** an edited Reel is at most a minute (owner, 2026-10-02); the clip filmed may run to CLIP_MAX_SEC */
+export const MAX_EDITED_SECONDS = 60;
 /** a clip never scheduled keeps its file this long; then the sweep lets it go (owner, 2026-10-02) */
 export const CLIP_DRAFT_DAYS = 60;
 export const MAX_CLIP_BRIEF = 300;

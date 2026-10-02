@@ -3,6 +3,7 @@ import { requireMember } from "@/lib/auth/viewer";
 import { todayKey } from "@/lib/content/calendar";
 import { mayPlanOn } from "@/lib/content/day-plan";
 import { getContent, setPlan, setPlanDone, type ContentItem } from "@/lib/content/store";
+import { forClient } from "@/lib/content/clip";
 
 /**
  * The planning calendar's actions (owner, 2026-09-30): put a piece on a day, take it off, say it
@@ -22,7 +23,7 @@ async function mine(id: string): Promise<ContentItem | null> {
 
 async function saving(write: () => Promise<ContentItem>): Promise<PlanResult> {
   try {
-    return { ok: true, item: await write() };
+    return { ok: true, item: forClient(await write()) };
   } catch (e) {
     console.error("plan not saved:", e);
     return { ok: false, error: NOT_SAVED };
