@@ -701,10 +701,10 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
 export async function contentSpend(): Promise<ContentSpend> {
   const viewer = await requireMember();
   try {
-    // staff have no wallet and use the tools free (owner, 2026-09-30)
+    // the owner has no wallet and uses the tools free (owner, 2026-09-30); assistants have one (2026-10-02)
     const [spent, cap, allowance, wallet] = await Promise.all([
       contentSpentThisMonth(), contentCap(), allowanceOf(viewer),
-      viewer.staff ? Promise.resolve(null) : walletView(viewer.agentId),
+      can(viewer, "owner") ? Promise.resolve(null) : walletView(viewer.agentId),
     ]);
     return { spent, cap, rounds: allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit, wallet } };
   } catch {

@@ -44,7 +44,7 @@ export interface HomePage {
 export interface HomeInput {
   room: string;
   name: string;
-  /** may post to the Pages, and so may open the calendar and /admin/posting */
+  /** may post to the Pages, and so may open the calendar (and, an admin, /admin/posting) */
   publish: boolean;
   /** sees every Page (owner or admin); posting staff see only their own (src/lib/auth/pages.ts) */
   admin: boolean;

@@ -11,7 +11,8 @@ vi.mock("react", async (orig) => ({ ...(await orig<typeof import("react")>()), c
 
 const { currentScope } = await import("@/lib/auth/scope");
 
-const staffer = { agentId: "s1", tenantId: "t1", staff: { owner: false, publish: true, connect: false, admin: false } };
+const staffer = { agentId: "s1", tenantId: "t1", staff: { owner: false, publish: true, connect: false, admin: true } };
+const assistant = { agentId: "s2", tenantId: "t1", staff: { owner: false, publish: true, connect: true, admin: false } };
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -20,6 +21,13 @@ describe("the scope of a request", () => {
     viewer.getViewer.mockResolvedValue(staffer);
     pages.myPageIds.mockResolvedValue(new Set(["p1"]));
     expect(await currentScope()).toMatchObject({ agents: ["s1", "s2"], pages: ["p1"] });
+  });
+
+  it("shows an assistant their own rows and their Pages', as any agent, not the team's (owner, 2026-10-02)", async () => {
+    viewer.getViewer.mockResolvedValue(assistant);
+    pages.myPageIds.mockResolvedValue(new Set(["p2"]));
+    expect(await currentScope()).toEqual({ agents: ["s2"], unowned: false, pages: ["p2"], owner: { agentId: "s2", tenantId: "t1" } });
+    expect(viewer.staffAgentIds).not.toHaveBeenCalled();
   });
 
   it("shows no Page's pieces when the Pages cannot be read", async () => {

@@ -1,5 +1,6 @@
 import "./theme.css";
 import { AppShell } from "@/components/shell/AppShell";
+import { can } from "@/lib/auth/access";
 import { gatePage, whoOf } from "@/lib/auth/viewer";
 import { studioMenu } from "@/lib/shell/menu";
 import { walletSettings } from "@/lib/wallet/store";
@@ -14,13 +15,14 @@ import { ThemeSwitch } from "./ThemeSwitch";
 export default async function ContentLayout({ children }: { children: React.ReactNode }) {
   // for UnitOS agents only since 2026-09-27; the pages under it that are staff's ask again
   const viewer = await gatePage("/studio");
-  // the wallet is in the menu only while the owner has it on, and never for staff, who write
-  // without one (owner, 2026-09-30); a settings read that fails hides it rather than the page
-  const wallet = viewer.staff ? false : (await walletSettings().catch(() => null))?.enabled === true;
+  // the wallet is in the menu only while the owner has it on, and never for the owner, who writes
+  // without one (owner, 2026-09-30; assistants got theirs 2026-10-02); a settings read that fails
+  // hides it rather than the page
+  const wallet = can(viewer, "owner") ? false : (await walletSettings().catch(() => null))?.enabled === true;
   const who = { ...whoOf(viewer)!, wallet };
   return (
     <div className="content-page">
-      <AppShell menu={studioMenu(who)} brand={{ href: who?.admin || who?.publish ? "/studio" : "/studio/write", label: "Studio" }} footer={<ThemeSwitch />} who={who}>
+      <AppShell menu={studioMenu(who)} brand={{ href: who?.admin ? "/studio" : "/studio/write", label: "Studio" }} footer={<ThemeSwitch />} who={who}>
         {/* pt-16 below lg: the phone's menu button is fixed at the top left */}
         <div className="mx-auto max-w-[1400px] px-4 pb-10 pt-16 lg:pt-6">{children}</div>
       </AppShell>

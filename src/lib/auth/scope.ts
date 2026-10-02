@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { can } from "./access";
 import { getViewer, staffAgentIds } from "./viewer";
 import { myPageIds } from "./pages";
 
@@ -6,9 +7,10 @@ import { myPageIds } from "./pages";
  * Whose Studio rows a request may see (owner, 2026-09-27).
  *
  * A piece, and a person in the people library, is the agent's who made it: an agent sees their
- * own and nobody else's, not even their own office's (owner, 2026-09-27). Staff share one Page,
- * so they see everything any staff member made — the pool the calendar draws from — and the
- * rows made before owners were kept, which were all the owner's.
+ * own and nobody else's, not even their own office's (owner, 2026-09-27). The owner and the
+ * admins see everything any staff member made — the pool the calendar draws from — and the
+ * rows made before owners were kept, which were all the owner's. An assistant who only posts
+ * sees as an agent does: their own rows, and the pieces of the Pages they look after (owner, 2026-10-02).
  *
  * Read by the stores themselves (src/lib/content/store.ts, people-store.ts), so no list or
  * lookup can forget to ask. Three answers:
@@ -62,7 +64,7 @@ export const currentScope = cache(async (): Promise<Scope> => {
   const owner = { agentId: viewer.agentId, tenantId: viewer.tenantId };
   // a Page's pieces are for whoever looks after it; a list that cannot be read shows none
   const pages = [...(await myPageIds().catch(() => new Set<string>()))];
-  if (viewer.staff) return { agents: await staffAgentIds(), unowned: true, pages, owner };
+  if (can(viewer, "admin")) return { agents: await staffAgentIds(), unowned: true, pages, owner };
   return { agents: [viewer.agentId], unowned: false, pages, owner };
 });
 

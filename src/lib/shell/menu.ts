@@ -288,26 +288,26 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
-    // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); staff write without one
+    // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
+    // one too (2026-10-02), only the owner writes without one
     { href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b736f" },
     // a member's own name and PIN; UnitOS agents manage theirs in UnitOS (owner, 2026-10-01)
     { href: "/studio/account", label: "บัญชีของฉัน", icon: "key", hue: "#2e4a7a" },
   ];
   // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
-  // plan for everyone else (2026-09-30); the front page is the admins' and the posting staff's,
-  // who pick among their own Pages there (2026-09-29) — every other agent's Studio starts at the workbench
-  const staff = Boolean(who && (who.admin || who.publish || who.connect || who.owner));
+  // plan for everyone else (2026-09-30); the front page is the admins' — an assistant who posts
+  // has an agent's Studio and posts from the workbench (owner, 2026-10-02)
   // the wallet is listed only while the owner has it on (who.wallet is worked out once in the
-  // layout, false for staff): an agent is not sent to a page that says it is switched off
+  // layout, false for the owner): an agent is not sent to a page that says it is switched off
   const hidden = new Set([
-    ...(who && !who.admin && !who.publish ? ["/studio"] : []),
-    ...(staff || who?.wallet !== true ? ["/studio/wallet"] : []),
+    ...(who && !who.admin ? ["/studio"] : []),
+    ...(who?.owner || who?.wallet !== true ? ["/studio/wallet"] : []),
     ...(who?.member ? [] : ["/studio/account"]),
   ]);
   const shown = links.filter((l) => !hidden.has(l.href));
   const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
   // staff get a way to the back office, landing on the first page of it they may open
-  const office = !who ? null : who.admin ? "/admin" : who.connect ? "/admin/messenger" : who.publish ? "/admin/posting" : null;
+  const office = !who ? null : who.admin ? "/admin" : who.connect ? "/admin/messenger" : null;
   if (office) back.unshift({ href: office, label: "หลังบ้าน", icon: "grid", hue: "#2b736f" });
   return [{ title: "Studio", links: shown }, { links: back }];
 }
@@ -325,7 +325,7 @@ export interface Who {
   connect: boolean;
   admin: boolean;
   owner: boolean;
-  /** Studio only: the owner has the wallet on and this is an agent, not staff (owner, 2026-09-30) */
+  /** Studio only: the owner has the wallet on and this is not the owner (owner, 2026-09-30; assistants 2026-10-02) */
   wallet?: boolean;
   /** a member outside UnitOS (owner, 2026-10-01): their account page, and no room to name */
   member?: boolean;
@@ -340,7 +340,8 @@ const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet
   "/admin/members": "admin",
   "/admin/knowledge": "admin",
   "/admin/messenger": "connect",
-  "/admin/posting": "publish",
+  // the Pages' settings, not where a post is made: the admins' since 2026-10-02 (owner)
+  "/admin/posting": "admin",
   "/admin/ads": "admin",
   "/admin/api": "admin",
   "/admin/team": "owner",

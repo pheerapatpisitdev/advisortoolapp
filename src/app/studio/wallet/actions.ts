@@ -1,4 +1,5 @@
 "use server";
+import { can } from "@/lib/auth/access";
 import { requireMember } from "@/lib/auth/viewer";
 import { siteOrigin } from "@/lib/site-url";
 import { stripe } from "@/lib/stripe/client";
@@ -15,7 +16,8 @@ export type StartResult = { ok: true; url: string } | { ok: false; error: string
 
 export async function startTopUp(thb: unknown): Promise<StartResult> {
   const viewer = await requireMember();
-  if (viewer.staff) return { ok: false, error: "ทีมงานใช้ AI ได้โดยไม่ต้องเติมเงินครับ" };
+  // the owner alone writes without a wallet; assistants top up as any agent (owner, 2026-10-02)
+  if (can(viewer, "owner")) return { ok: false, error: "เจ้าของระบบใช้ AI ได้โดยไม่ต้องเติมเงินครับ" };
   // only the five amounts on the page; a number sent by hand is not a price
   if (!isTopUpThb(thb)) return { ok: false, error: "เลือกยอดเติมจากปุ่มบนหน้านี้นะครับ" };
   const settings = await walletSettings().catch(() => null);
