@@ -11,18 +11,25 @@ import puppeteer from "puppeteer-core";
  */
 export async function renderQuotePdf(url: string, opts: { timeoutMs?: number } = {}): Promise<Buffer> {
   const timeoutMs = opts.timeoutMs ?? 45_000;
-  const browser = await puppeteer.launch({
-    executablePath: process.env.CHROME_PATH ?? (await chromium.executablePath()),
-    args: chromium.args,
-    headless: true,
-  });
-  // the timer bounds launch-to-PDF as one; closing the browser is what unblocks a stuck page
+  // started before anything slow: unpacking the 67 MB Chrome and launching it are most of a
+  // cold start, and the route's own limit is 60 s, so a bound that began after them could
+  // leave the caller with the platform's 504 instead of the fallback page
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`quote PDF took over ${timeoutMs} ms`)), timeoutMs);
   });
+  const launching = (async () =>
+    puppeteer.launch({
+      executablePath: process.env.CHROME_PATH ?? (await chromium.executablePath()),
+      args: chromium.args,
+      headless: true,
+      timeout: timeoutMs,
+    }))();
+  // a launch nobody is waiting for any more must not become an unhandled rejection
+  launching.catch(() => {});
   try {
     const work = (async () => {
+      const browser = await launching;
       const page = await browser.newPage();
       await page.emulateMediaType("print");
       await page.goto(url, { waitUntil: "networkidle0", timeout: timeoutMs });
@@ -41,6 +48,7 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number } =
     return await Promise.race([work, deadline]);
   } finally {
     clearTimeout(timer);
-    await browser.close().catch(() => {});
+    // closes the browser whether it came up before the deadline or only after it
+    launching.then((b) => b.close()).catch(() => {});
   }
 }
