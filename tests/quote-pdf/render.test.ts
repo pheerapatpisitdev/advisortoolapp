@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const launch = vi.hoisted(() => vi.fn());
 vi.mock("puppeteer-core", () => ({ default: { launch } }));
 vi.mock("@sparticuz/chromium", () => ({
-  default: { args: [], executablePath: vi.fn(async () => "/chrome") },
+  default: { args: ["--single-process"], executablePath: vi.fn(async () => "/chrome") },
 }));
 
+import chromium from "@sparticuz/chromium";
 import { renderQuotePdf } from "@/lib/quote-pdf/render";
 
 /** The 45-second bound covers Chrome's launch, and the browser never outlives the call. */
@@ -29,6 +30,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("renderQuotePdf", () => {
@@ -75,5 +77,23 @@ describe("renderQuotePdf", () => {
     launch.mockResolvedValue(fakeBrowser());
     await renderQuotePdf("http://x/plb", { timeoutMs: 1234 });
     expect(launch.mock.calls[0][0]).toMatchObject({ timeout: 1234 });
+  });
+
+  it("uses puppeteer's own flags for a local Chrome", async () => {
+    vi.stubEnv("CHROME_PATH", "/Applications/Chrome");
+    launch.mockResolvedValue(fakeBrowser());
+    await renderQuotePdf("http://x/plb", { timeoutMs: 1000 });
+    const opts = launch.mock.calls[0][0];
+    expect(opts).toMatchObject({ executablePath: "/Applications/Chrome", headless: true });
+    expect(opts.args).toBeUndefined();
+  });
+
+  it("uses the serverless flags and headless shell with the bundled Chrome", async () => {
+    vi.stubEnv("CHROME_PATH", "");
+    launch.mockResolvedValue(fakeBrowser());
+    await renderQuotePdf("http://x/plb", { timeoutMs: 1000 });
+    const opts = launch.mock.calls[0][0];
+    expect(opts).toMatchObject({ executablePath: "/chrome", headless: "shell" });
+    expect(opts.args).toBe(chromium.args);
   });
 });

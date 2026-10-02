@@ -18,13 +18,17 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number } =
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`quote PDF took over ${timeoutMs} ms`)), timeoutMs);
   });
+  // two paths on purpose: chromium.args are serverless Linux flags (--single-process,
+  // --no-zygote) that crash a desktop Chrome, so a local CHROME_PATH gets puppeteer's defaults
   const launching = (async () =>
-    puppeteer.launch({
-      executablePath: process.env.CHROME_PATH ?? (await chromium.executablePath()),
-      args: chromium.args,
-      headless: true,
-      timeout: timeoutMs,
-    }))();
+    process.env.CHROME_PATH
+      ? puppeteer.launch({ executablePath: process.env.CHROME_PATH, headless: true, timeout: timeoutMs })
+      : puppeteer.launch({
+          executablePath: await chromium.executablePath(),
+          args: chromium.args,
+          headless: "shell", // the build ships headless_shell, as the package's README prescribes
+          timeout: timeoutMs,
+        }))();
   // a launch nobody is waiting for any more must not become an unhandled rejection
   launching.catch(() => {});
   try {
