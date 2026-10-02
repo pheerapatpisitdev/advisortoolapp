@@ -195,6 +195,30 @@ export const NICHES = [
   "วัยใกล้เกษียณ",
 ] as const;
 
+/**
+ * The readers an expat piece speaks to (owner, 2026-10-02), shown in place of NICHES when the
+ * คอนเทนต์สำหรับ Expat tick is on. Thai for the staff who pick them, with the English name the
+ * writer can use; each has its own reason to want iHealthy Ultra.
+ */
+export const EXPAT_NICHES = [
+  "วัยเกษียณที่อยู่ไทยยาว (Retirees)",
+  "พนักงานบริษัทต่างชาติ (Expat employees)",
+  "ครอบครัวไทย-ต่างชาติ (Thai-foreign families)",
+  "เจ้าของกิจการ/ฟรีแลนซ์ (Business owners & freelancers)",
+  "ครูต่างชาติ (Teachers)",
+  "คนที่เดินทางบ่อย (Frequent travelers)",
+] as const;
+
+/**
+ * The reader kept when the tick changes: a chip from the other list does not cross over — a
+ * Thai niche on an English piece, or an expat one on a Thai piece — and becomes ทุกคน; anything
+ * the owner typed stays.
+ */
+export function readerFor(reader: string, expat: boolean): string {
+  const other: readonly string[] = expat ? NICHES : EXPAT_NICHES;
+  return other.includes(reader) ? "" : reader;
+}
+
 export const MAX_READER = 120;
 export const MAX_FACT = 400;
 

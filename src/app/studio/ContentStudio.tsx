@@ -11,7 +11,7 @@ import { moneyLeft, roundsNote } from "@/lib/wallet/note";
 import { defaultPoster, posterUrl, THEME_LABEL, THEMES } from "@/lib/content/poster";
 import { MAX_PIECES } from "@/lib/content/plan";
 import { onPage, publishView } from "@/lib/content/publish-label";
-import { anglesFor, EXPAT_HREF, FORMAT_SHORT, GOALS, MAX_FACT, MAX_READER, NICHES, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
+import { anglesFor, EXPAT_HREF, EXPAT_NICHES, FORMAT_SHORT, GOALS, MAX_FACT, MAX_READER, NICHES, readerFor, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
 import { AUTO, AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, painterOf, writerOf } from "@/lib/content/models";
 import type { ContentItem, ContentStatus } from "@/lib/content/store";
@@ -312,6 +312,13 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     setReaderState(next);
     try { localStorage.setItem(READER_KEY, next); } catch { /* not kept */ }
   };
+  // a reader chip from the other list does not cross over when the tick (or the plan) changes
+  useEffect(() => {
+    const kept = readerFor(reader, expatOn);
+    if (kept === reader) return;
+    setReaderState(kept);
+    try { localStorage.setItem(READER_KEY, kept); } catch { /* not kept */ }
+  }, [reader, expatOn]);
   const [theme, setThemeState] = useState<ThemeChoice>("navy");
   useEffect(() => {
     try {
@@ -1175,14 +1182,12 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           <div role="group" aria-labelledby={`${formId}-reader`}>
             <span id={`${formId}-reader`} className="mb-1.5 block text-sm font-medium">คนอ่านคือใคร <span className="font-normal text-[var(--ct-mute)]">(ระบบจำไว้ให้)</span></span>
-            {!expatOn && (
-              <div className="flex flex-wrap gap-2">
-                <button type="button" aria-pressed={reader === ""} onClick={() => setReader("")} className={chip(reader === "")}>ทุกคน</button>
-                {NICHES.map((n) => (
-                  <button key={n} type="button" aria-pressed={reader === n} onClick={() => setReader(n)} className={chip(reader === n)}>{n}</button>
-                ))}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" aria-pressed={reader === ""} onClick={() => setReader("")} className={chip(reader === "")}>ทุกคน</button>
+              {(expatOn ? EXPAT_NICHES : NICHES).map((n) => (
+                <button key={n} type="button" aria-pressed={reader === n} onClick={() => setReader(n)} className={chip(reader === n)}>{n}</button>
+              ))}
+            </div>
             <label className="mt-2 block">
               <span className="sr-only">คนอ่าน (พิมพ์เอง)</span>
               <input value={reader} onChange={(e) => setReader(e.target.value)} maxLength={MAX_READER} placeholder={expatOn ? "เช่น retirees, expat families — ไม่ใส่ = ชาวต่างชาติที่อยู่ไทย" : "หรือพิมพ์เอง เช่น พยาบาลกะดึก"} className={field} />

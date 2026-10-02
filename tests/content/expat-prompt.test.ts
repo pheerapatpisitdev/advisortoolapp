@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ENGLISH_RULES, anglesFor, angleText, buildMessages, settleExpat } from "@/lib/content/prompt";
+import { ENGLISH_RULES, EXPAT_NICHES, MAX_READER, NICHES, anglesFor, angleText, buildMessages, readerFor, settleExpat } from "@/lib/content/prompt";
 import { planMessages } from "@/lib/content/plan";
 
 describe("expat angles", () => {
@@ -64,5 +64,23 @@ describe("the people an English piece's pictures show (owner, 2026-10-02)", () =
   it("are Western (European) expats, not Thai people or mixed nationalities", () => {
     expect(ENGLISH_RULES).toMatch(/imagePrompt: the people are Western \(European\) expats/);
     expect(ENGLISH_RULES).not.toContain("mixed nationalities");
+  });
+});
+
+describe("the expat readers (owner, 2026-10-02)", () => {
+  it("are six chips, each naming its group in English too, within the reader limit", () => {
+    expect(EXPAT_NICHES).toHaveLength(6);
+    for (const n of EXPAT_NICHES) {
+      expect(n).toMatch(/\([A-Za-z &-]+\)$/);
+      expect(n.length).toBeLessThanOrEqual(MAX_READER);
+    }
+  });
+  it("keep a chip from the other list from crossing over when the tick changes", () => {
+    expect(readerFor(NICHES[0], true)).toBe("");
+    expect(readerFor(EXPAT_NICHES[0], false)).toBe("");
+    expect(readerFor(EXPAT_NICHES[0], true)).toBe(EXPAT_NICHES[0]);
+    expect(readerFor(NICHES[0], false)).toBe(NICHES[0]);
+    expect(readerFor("retired nurses", true)).toBe("retired nurses");
+    expect(readerFor("", false)).toBe("");
   });
 });
