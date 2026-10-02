@@ -636,6 +636,178 @@ describe("an engine that takes the id it is given (final review, 2026-10-02)", (
   });
 });
 
+describe("a Cloud Run job (2026-10-02)", () => {
+  type Opts = { id: string; token: string; callbackUrl: string; payloadUrl?: string; uploads?: Record<string, { uploadUrl: string; path: string }> };
+  const PAYLOAD = new RegExp(`^${PIECE}/[0-9a-f-]{36}\\.job\\.json$`);
+  const pathOf = (url: string) => decodeURIComponent(new URL(url).pathname.replace(/^\/object\/sign\//, ""));
+  let cloudrun: FakeEngine;
+  beforeEach(() => {
+    cloudrun = engine("cloudrun");
+    cloudrun.takesId = true;
+    lambda.takesId = true;
+    eng.enginesInOrder.mockImplementation(async () => [cloudrun, rendi]);
+    eng.engineNamed.mockImplementation(async (n: EngineName) => ({ rendi, lambda, cloudrun })[n]);
+    cloudrun.status.mockResolvedValue(null);
+    clipDb.reset(dbRow(video({ edit: edit() })));
+  });
+  const render = () => renderJob("https://signed.test/s.mp4", [[0, 5]], []);
+  const submitted = () => cloudrun.submit.mock.calls[0][1] as Opts;
+
+  it("files the whole job before the run is asked, hands over a 1 h link to it, and records the file on the job", async () => {
+    let seen: { text: string; contentType?: string } | undefined;
+    let recordAtRun: EditJob | null | undefined;
+    cloudrun.submit.mockImplementation(async (_j: unknown, o: Opts) => {
+      seen = clipDb.files.get(pathOf(o.payloadUrl!));
+      recordAtRun = storedEdit().job;
+      return { id: o.id };
+    });
+    const j = render();
+    const rec = await submitJob(PIECE, "render", j, [], { pass: WALLET, costThb: { cloudrun: 0.216, rendi: 0.9 } });
+
+    const o = submitted();
+    const path = pathOf(o.payloadUrl!);
+    expect(path).toMatch(PAYLOAD);
+    expect(o.payloadUrl).toContain("s=3600");
+    // on file, as text, when the run was asked — the same object Lambda is invoked with
+    expect(seen?.contentType).toBe("text/plain");
+    expect(JSON.parse(seen!.text)).toEqual({ id: rec.id, job: j, uploads: o.uploads, callbackUrl: o.callbackUrl, token: o.token });
+    expect(o.id).toBe(rec.id);
+    expect(recordAtRun).toMatchObject({ id: rec.id, engine: "cloudrun", payloadPath: path });
+    expect(storedEdit().job).toMatchObject({ engine: "cloudrun", payloadPath: path, costThb: 0.216, tried: ["cloudrun"] });
+    // our storage, written by the job itself: one signed destination per output, recorded on the job
+    expect(storedEdit().job?.dest).toEqual({ out_1: o.uploads!.out_1.path });
+    // the row has neither the secret nor any link
+    const row = JSON.stringify(clipDb.row);
+    for (const secret of [o.token, o.payloadUrl!, o.uploads!.out_1.uploadUrl]) expect(row).not.toContain(secret);
+    expect(rendi.submit).not.toHaveBeenCalled();
+  });
+
+  it("is kept from the browser: forClient strips the payload file's path", async () => {
+    const { forClient } = await import("@/lib/content/clip");
+    const { getContentUnscoped } = await import("@/lib/content/store");
+    cloudrun.submit.mockImplementation(async (_j: unknown, o: Opts) => ({ id: o.id }));
+    await submitJob(PIECE, "render", render(), [], { pass: WALLET });
+    const shown = forClient((await getContentUnscoped(PIECE))!);
+    expect(storedEdit().job?.payloadPath).toMatch(PAYLOAD);
+    expect(shown.output.video?.edit?.job).toBeTruthy();
+    expect(shown.output.video?.edit?.job?.payloadPath).toBeUndefined();
+    expect(JSON.stringify(shown)).not.toMatch(/\.job\.json/);
+  });
+
+  it("a callback that it is done finishes it and lets the payload file go", async () => {
+    cloudrun.submit.mockImplementation(async (_j: unknown, o: Opts) => ({ id: o.id }));
+    const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET, costThb: 0.216 });
+    const path = rec.payloadPath!;
+    expect(clipDb.files.has(path)).toBe(true);
+
+    expect(await finishJob(PIECE, rec.id, { state: "done", outputs: { out_1: { path: rec.dest!.out_1 } } })).toBe("finished");
+    expect(storedEdit()).toMatchObject({ job: null, renderedPath: rec.dest!.out_1 });
+    expect(clipDb.files.has(path)).toBe(false);
+    expect(clipDb.removed).toContain(path);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.216);
+    expect(ledger.recordUsage).toHaveBeenCalledWith("cloudrun", "content-edit", 0, 0, 0.216);
+  });
+
+  it("a callback that it failed hands the round back and lets the payload file go", async () => {
+    cloudrun.submit.mockImplementation(async (_j: unknown, o: Opts) => ({ id: o.id }));
+    const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET, costThb: 0.216 });
+    expect(await finishJob(PIECE, rec.id, { state: "failed", error: "ffmpeg exited 1" })).toBe("finished");
+    expect(storedEdit()).toMatchObject({ job: null, error: JOB_FAILED, failedOn: "cloudrun" });
+    expect(clipDb.files.has(rec.payloadPath!)).toBe(false);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
+  });
+
+  it("one that never answers times out at 15 minutes, and its payload file goes with it", async () => {
+    cloudrun.submit.mockImplementation(async (_j: unknown, o: Opts) => ({ id: o.id }));
+    const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET });
+    // asked about before then: Cloud Run only calls back, so nothing changes
+    expect((await checkJob(PIECE)).changed).toBe(false);
+    expect(clipDb.files.has(rec.payloadPath!)).toBe(true);
+
+    const row = clipDb.row!.output as ContentOutput;
+    clipDb.row = { ...clipDb.row!, output: { ...row, video: { ...row.video!, edit: { ...row.video!.edit!, job: { ...rec, startedAt: minutesAgo(16) } } } } };
+    expect((await checkJob(PIECE)).changed).toBe(true);
+    expect(storedEdit()).toMatchObject({ job: null, error: JOB_TIMED_OUT });
+    expect(clipDb.files.has(rec.payloadPath!)).toBe(false);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
+  });
+
+  it("a run Google refuses outright: the record and the payload file go, and the next engine gets the job", async () => {
+    let path = "";
+    cloudrun.submit.mockImplementation(async (_j: unknown, o: Opts) => {
+      path = pathOf(o.payloadUrl!);
+      throw new EngineError("Google Cloud ไม่รับงาน (403)", true);
+    });
+    rendi.submit.mockResolvedValue({ id: "cmd-next" });
+    const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET });
+
+    expect(rec).toMatchObject({ engine: "rendi", id: "cmd-next", tried: ["cloudrun", "rendi"] });
+    expect(rec.payloadPath).toBeUndefined();
+    expect(storedEdit().job).toMatchObject({ engine: "rendi", id: "cmd-next" });
+    expect(storedEdit().job?.payloadPath).toBeUndefined();
+    expect(path).toMatch(PAYLOAD);
+    expect(clipDb.files.has(path)).toBe(false);
+    expect(clipDb.removed).toContain(path);
+  });
+
+  it("a run call with no answer may have started it: kept as taken with its payload file, never sent to a second engine", async () => {
+    cloudrun.submit.mockRejectedValue(new EngineError("ส่งงานให้ Google Cloud ไม่ได้", true, true));
+    const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET, costThb: 0.216 });
+
+    expect(rendi.submit).not.toHaveBeenCalled();
+    expect(rec).toMatchObject({ engine: "cloudrun", tried: ["cloudrun"] });
+    expect(storedEdit().job).toMatchObject({ id: rec.id, engine: "cloudrun", payloadPath: rec.payloadPath });
+    // the run may be fetching it right now
+    expect(clipDb.files.has(rec.payloadPath!)).toBe(true);
+    expect(round.settleLater).not.toHaveBeenCalled();
+
+    // and it is still ended by its callback, which lets the file go
+    expect(await finishJob(PIECE, rec.id, { state: "done", outputs: { out_1: { path: rec.dest!.out_1 } } })).toBe("finished");
+    expect(storedEdit().renderedPath).toBe(rec.dest!.out_1);
+    expect(clipDb.files.has(rec.payloadPath!)).toBe(false);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.216);
+  });
+
+  it("the same for a Lambda invoke with no answer: kept as taken, no fallback", async () => {
+    eng.enginesInOrder.mockImplementation(async () => [lambda, rendi]);
+    lambda.submit.mockRejectedValue(new EngineError("ส่งงานให้ AWS ไม่ได้", true, true));
+    const rec = await submitJob(PIECE, "render", render(), [], { pass: WALLET });
+
+    expect(rendi.submit).not.toHaveBeenCalled();
+    expect(storedEdit().job).toMatchObject({ id: rec.id, engine: "lambda", tried: ["lambda"] });
+    expect(rec.payloadPath).toBeUndefined(); // Lambda is handed the job itself
+    expect(lambda.submit.mock.calls[0][1].payloadUrl).toBeUndefined();
+  });
+
+  it("a submit that loses the row to another before the run is asked lets its payload file go", async () => {
+    const { claimSubmit } = await import("@/lib/video/jobs");
+    const read = (await import("@/lib/content/store")).getContentUnscoped;
+    const storage = clipDb.client.storage;
+    const from = storage.from;
+    // another request claims the clip while ours is filing the payload
+    storage.from = () => {
+      const b = from();
+      return {
+        ...b,
+        async upload(path: string, body: string, opts?: { contentType?: string }) {
+          const r = await b.upload(path, body, opts);
+          if (path.endsWith(".job.json")) await claimSubmit((await read(PIECE))!, "render");
+          return r;
+        },
+      } as ReturnType<typeof from>;
+    };
+    try {
+      await expect(submitJob(PIECE, "render", render(), [], { pass: WALLET })).rejects.toThrow(/งานตัดต่อค้างอยู่/);
+    } finally {
+      storage.from = from;
+    }
+    expect(cloudrun.submit).not.toHaveBeenCalled();
+    const filed = clipDb.uploads.filter((p) => p.endsWith(".job.json"));
+    expect(filed).toHaveLength(1);
+    expect(clipDb.files.has(filed[0])).toBe(false);
+  });
+});
+
 describe("initialEdit", () => {
   it("takes the caption's first line, cut to 28, when nothing was suggested", () => {
     const e = initialEdit(video({ hookSuggestion: undefined }), [[0, 0.4]]);

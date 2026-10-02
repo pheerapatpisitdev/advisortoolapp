@@ -192,6 +192,9 @@ describe("startRender", () => {
     expect(storedEdit().job).toMatchObject({ kind: "render", engine: "rendi", id: "cmd-9", rev: "r1", pass: WALLET });
     expect(storedEdit().job?.costThb).toBeCloseTo(rendiCost, 6);
     expect(renderCostThb(20_000_000).rendi).toBeCloseTo(rendiCost, 6);
+    // our Cloud Run job: about $0.006 a run (4 vCPU for a minute), whatever the clip's size
+    expect(renderCostThb(20_000_000).cloudrun).toBeCloseTo(0.006 * 36, 9);
+    expect(renderCostThb(300_000_000).cloudrun).toBeCloseTo(0.006 * 36, 9);
     expect(item.output.video?.edit?.job?.id).toBe("cmd-9");
 
     // the cost is the engine's that took it: Rendi turned it away, our Lambda's estimate is kept

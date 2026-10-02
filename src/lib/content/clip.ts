@@ -63,7 +63,7 @@ export const CLIP_STYLES: readonly ClipStyle[] = ["box", "outline", "yellow", "p
 export interface Hook { top?: string; main: string }
 export const MAX_HOOK_MAIN = 28;
 export const MAX_HOOK_TOP = 24;
-export type EngineName = "rendi" | "lambda";
+export type EngineName = "rendi" | "lambda" | "cloudrun";
 /** who pays for a render, kept on the job so the round is settled when the job ends */
 export type EditPass =
   | { paidBy: "staff" }
@@ -76,8 +76,13 @@ export interface EditJob {
   startedAt: string;
   /** sha256 (hex) of the secret a webhook for this job must carry; the secret itself goes only to the engine */
   tokenHash: string;
-  /** where an engine that writes our storage itself (Lambda) was told to put each output, by alias; a callback must name exactly these */
+  /** where an engine that writes our storage itself (Lambda, Cloud Run) was told to put each output, by alias; a callback must name exactly these */
   dest?: Record<string, string>;
+  /**
+   * Cloud Run's copy of the whole job, filed beside the clip for the run to fetch: it holds the
+   * webhook secret and the signed upload links, so it is let go when the job ends, whichever way
+   */
+  payloadPath?: string;
   /** the edit a render was made from */
   rev?: string;
   pass?: EditPass;
@@ -186,6 +191,7 @@ export function forClient(item: ContentItem): ContentItem {
   delete shown.tokenHash;
   delete shown.dest;
   delete shown.pictures;
+  delete shown.payloadPath;
   // the browser's copy only: it never goes back into a write (the server reads the row again)
   return { ...item, output: { ...item.output, video: { ...v, edit: { ...v.edit, job: shown as EditJob } } } };
 }

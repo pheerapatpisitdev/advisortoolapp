@@ -42,12 +42,14 @@ export { keepOf };
 
 /**
  * What a render costs, in baht, by the engine that takes it: Rendi bills $0.10 a GB through it
- * (the clip in, about 25MB out); our Lambda about $0.002 a run. A preview is estimated the same
- * way (the whole clip goes through Rendi there too).
+ * (the clip in, about 25MB out); our Lambda about $0.002 a run; our Cloud Run job about $0.006
+ * (4 vCPU for about a minute). A preview is estimated the same way (the whole clip goes through
+ * Rendi there too).
  */
 export const renderCostThb = (sizeBytes: number): Record<EngineName, number> => ({
   rendi: ((sizeBytes + 25e6) / 1e9) * 0.10 * THB_PER_USD,
   lambda: 0.002 * THB_PER_USD,
+  cloudrun: 0.006 * THB_PER_USD,
 });
 
 /** The theme of the Page's latest poster — what the "page" style is drawn in; navy when it has none. */

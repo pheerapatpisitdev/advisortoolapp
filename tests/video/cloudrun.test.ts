@@ -112,23 +112,34 @@ describe("cloudRunEngine.submit", () => {
     const err = await cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, opts).catch((e) => e);
     expect(err).toBeInstanceOf(EngineError);
     expect(err.retryElsewhere).toBe(true);
+    // Google answered: a definite refusal, nothing started
+    expect(err.mayBeTaken).toBe(false);
     expect(err.message).toContain(String(status));
   });
 
-  it("a run call that times out or cannot connect is one to try elsewhere", async () => {
+  it("a run call that times out or loses its connection may have started the job: its outcome is unknown", async () => {
     captureLogs();
     const timeout = new DOMException(`The operation was aborted due to timeout ${PAYLOAD_URL}`, "TimeoutError");
     let g = google([tokenOk(), timeout]);
-    await expect(cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, opts)).rejects.toMatchObject({ retryElsewhere: true });
-    g = google([tokenOk(), new TypeError(`fetch failed ${PAYLOAD_URL}`)]);
-    await expect(cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, opts)).rejects.toMatchObject({ retryElsewhere: true });
+    await expect(cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, opts)).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: true });
+    g = google([tokenOk(), new TypeError(`fetch failed ${PAYLOAD_URL}`, { cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }) })]);
+    await expect(cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, opts)).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: true });
+  });
+
+  it("a run call that never connected (host not found, refused) started nothing", async () => {
+    captureLogs();
+    for (const code of ["ENOTFOUND", "ECONNREFUSED"]) {
+      const g = google([tokenOk(), new TypeError("fetch failed", { cause: Object.assign(new Error(code), { code }) })]);
+      await expect(cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, opts)).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: false });
+    }
   });
 
   it("a token endpoint that refuses, times out or answers nonsense is one to try elsewhere", async () => {
     captureLogs();
     for (const a of [{ status: 400, body: { error: "invalid_grant" } }, { status: 500 }, { status: 200, body: {} }, new DOMException("t", "TimeoutError")] as Answer[]) {
       const g = google([a]);
-      await expect(cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, opts)).rejects.toMatchObject({ retryElsewhere: true });
+      // no token, no run call: a definite "not started", whatever the token call did
+      await expect(cloudRunEngine(storedKey().key, { fetch: g.fetch }).submit(job, opts)).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: false });
       expect(g.calls).toHaveLength(1); // never runs without a token
     }
   });

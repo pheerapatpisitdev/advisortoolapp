@@ -3,7 +3,7 @@ import {
   CLIP_BUCKET, CLIP_MIN_SEC, EDIT_JOB_TIMEOUT_MS, MAX_HOOK_MAIN, MAX_HOOK_TOP, SUBMIT_STALE_MS, submitting,
   type ClipEdit, type ClipVideo, type EditJob, type EditPass, type EngineName, type Hook,
 } from "@/lib/content/clip";
-import { removeClip } from "@/lib/content/clip-store";
+import { clipReadUrl, removeClip } from "@/lib/content/clip-store";
 import { CONTENT_EDIT_TASK, getContentUnscoped, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { recordUsage } from "@/lib/ai/ledger";
 import { siteUrl } from "@/lib/site-url";
@@ -78,6 +78,10 @@ export { submitting };
 /** the edit a first job is recorded around, before the preview is made */
 const emptyEdit = (): ClipEdit => ({ cut: [], trimSilence: true, subs: [], hook: { main: "" }, style: "box", rev: randomUUID() });
 const destination = (pieceId: string, ext: string) => `${pieceId}/${randomUUID()}.${ext}`;
+/** the engines that write our storage themselves and call back with the job's token; Rendi is only ever asked */
+export const callsBack = (engine: EngineName): boolean => engine === "lambda" || engine === "cloudrun";
+/** how long Cloud Run's link to the job's payload file lasts: the run fetches it as it starts, and a job is bounded at 15 minutes */
+export const PAYLOAD_LINK_SECONDS = 60 * 60;
 /** what is kept of a job's webhook secret: its sha256, so the row (which the edit page reads) never holds the secret */
 export const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
 /** an engine's words, fit for a log: no links (a signed input URL can sit in ffmpeg's error), short */
@@ -131,7 +135,7 @@ export function initialEdit(v: ClipVideo, silences: Span[]): ClipEdit {
   };
 }
 
-/** For an engine that writes our storage itself (Lambda): a signed upload destination per output. */
+/** For an engine that writes our storage itself (Lambda, Cloud Run): a signed upload destination per output. */
 async function destinations(pieceId: string, kind: EditJob["kind"]): Promise<Record<string, { uploadUrl: string; path: string }>> {
   const out: Record<string, { uploadUrl: string; path: string }> = {};
   for (const [name, o] of Object.entries(OUTPUTS[kind])) {
@@ -141,6 +145,23 @@ async function destinations(pieceId: string, kind: EditJob["kind"]): Promise<Rec
     out[name] = { uploadUrl: data.signedUrl, path };
   }
   return out;
+}
+
+/**
+ * For Cloud Run: the whole job — the same object Lambda is invoked with — filed beside the clip
+ * as text, and a link to it good for PAYLOAD_LINK_SECONDS. The file holds the webhook secret and
+ * the signed upload links: its link goes only to the engine, never to a log or the row.
+ */
+async function filePayload(pieceId: string, payload: object): Promise<{ path: string; url: string }> {
+  const path = destination(pieceId, "job.json");
+  const { error } = await bucket().upload(path, JSON.stringify(payload), { contentType: "text/plain", upsert: false });
+  if (error) throw new EngineError("เตรียมที่เก็บไฟล์ตัดต่อไม่สำเร็จ", true);
+  try {
+    return { path, url: await clipReadUrl(path, PAYLOAD_LINK_SECONDS) };
+  } catch {
+    await removeClip(path);
+    throw new EngineError("เตรียมที่เก็บไฟล์ตัดต่อไม่สำเร็จ", true);
+  }
 }
 
 /**
@@ -154,7 +175,10 @@ async function destinations(pieceId: string, kind: EditJob["kind"]): Promise<Rec
  * record replaces the caller's own. The job's clock starts at that claim's time (see
  * COLLECT_LATEST_MS), or now when there is none.
  * An engine that takes the id it is given (takesId) has the job recorded before it hears of it,
- * so its callback cannot come back to a row that does not know the job yet.
+ * so its callback cannot come back to a row that does not know the job yet. When such an engine's
+ * submit ends with no answer (EngineError.mayBeTaken: a timeout, a dropped connection), it may be
+ * running the job: the record stays as taken and no other engine is asked — the job ends by its
+ * callback or at the time limit, the round handed back. Only a definite refusal clears the record.
  * Throws EngineError when nothing took it.
  */
 export async function submitJob(
@@ -188,11 +212,11 @@ export async function submitJob(
   const token = randomBytes(32).toString("hex");
   const tried: EngineName[] = [];
   const rev = meta.rev ?? (kind === "render" ? v.edit?.rev : undefined);
-  const recordFor = (engine: EngineName, id: string, dest?: Record<string, string>): EditJob => {
+  const recordFor = (engine: EngineName, id: string, dest?: Record<string, string>, payloadPath?: string): EditJob => {
     const costThb = typeof meta.costThb === "number" ? meta.costThb : meta.costThb?.[engine];
     return {
       kind, engine, id, startedAt, tokenHash: hashToken(token), tried: [...tried],
-      ...(dest ? { dest } : {}),
+      ...(dest ? { dest } : {}), ...(payloadPath ? { payloadPath } : {}),
       ...(rev ? { rev } : {}), ...(meta.pass ? { pass: meta.pass } : {}), ...(costThb !== undefined ? { costThb } : {}),
       ...(meta.pictures?.length ? { pictures: meta.pictures } : {}),
     };
@@ -203,27 +227,46 @@ export async function submitJob(
   for (const engine of engines) {
     tried.push(engine.name);
     try {
-      const uploads = engine.name === "lambda" ? await destinations(pieceId, kind) : undefined;
+      const uploads = callsBack(engine.name) ? await destinations(pieceId, kind) : undefined;
       const dest = uploads ? Object.fromEntries(Object.entries(uploads).map(([k, u]) => [k, u.path])) : undefined;
       const opts = { callbackUrl: siteUrl(JOB_CALLBACK_PATH), token, uploads };
       if (engine.takesId) {
-        const record = recordFor(engine.name, randomUUID(), dest);
+        const id = randomUUID();
+        // Cloud Run fetches the job itself: filed before the run is asked, recorded on the job, let go when it ends
+        const payload = engine.name === "cloudrun"
+          ? await filePayload(pieceId, { id, job, uploads: uploads ?? {}, callbackUrl: opts.callbackUrl, token })
+          : undefined;
+        const record = recordFor(engine.name, id, dest, payload?.path);
         const pre = await writeEdit(item, (edit) => {
           if (edit?.job || othersClaim(edit)) return null; // another job or submit got there first
           return { ...(edit ?? emptyEdit()), job: record, submitting: undefined, error: undefined };
         });
-        if (!pre) { busy = true; break; }
+        if (!pre) {
+          if (payload) await removeClip(payload.path);
+          busy = true;
+          break;
+        }
         item = pre;
         try {
-          await engine.submit(job, { ...opts, id: record.id });
+          await engine.submit(job, { ...opts, id, ...(payload ? { payloadUrl: payload.url } : {}) });
         } catch (e) {
-          // nothing runs under this id: its record goes, and the caller's claim comes back for the next engine
+          if (e instanceof EngineError && e.mayBeTaken) {
+            // no answer: the engine may be running it now — kept as taken, never handed to a second engine;
+            // its callback or the time limit ends it (and lets the payload file go)
+            console.error(`${engine.name} job ${record.id} for ${pieceId}: no answer to the submit (${redact(e)}); kept as taken`);
+            return record;
+          }
+          // a definite refusal: nothing runs under this id. Its record goes, and the caller's claim comes back for the next engine
           const back = await writeEdit(item, (edit) =>
             edit?.job?.id === record.id ? { ...edit, job: null, ...(ownClaim ? { submitting: ownClaim } : {}) } : null);
-          if (back) { item = back; throw e; }
-          // the record is gone or could not be cleared: either a callback already finished it (the invoke answer
-          // was lost after Lambda took it) or it stays and times out — never hand the job to a second engine
-          console.error(`${engine.name} job ${record.id} for ${pieceId}: invoke failed but its record was not cleared; kept as taken`);
+          if (back) {
+            item = back;
+            if (payload) await removeClip(payload.path);
+            throw e;
+          }
+          // the record is gone or could not be cleared: either a callback already finished it (the answer was
+          // lost after the engine took it) or it stays and times out — never hand the job to a second engine
+          console.error(`${engine.name} job ${record.id} for ${pieceId}: submit failed but its record was not cleared; kept as taken`);
           return record;
         }
         return record;
@@ -354,7 +397,9 @@ async function finalize(item: ContentItem, job: EditJob, result: Result): Promis
     if (old && old !== now) await removeClip(old);
     if (job.kind === "prepare") await removeClip(result.paths.out_2);
   }
-  // the engine has read them (done) or never will (failed): either way they are no one's now
+  // the job's payload (its secret and upload links) first; then the pictures, which the engine has
+  // read (done) or never will (failed): either way they are no one's now
+  if (job.payloadPath) await removeClip(job.payloadPath);
   for (const p of job.pictures ?? []) await removeClip(p);
   if (result.state === "done" && job.costThb) {
     await recordUsage(job.engine, CONTENT_EDIT_TASK, 0, 0, job.costThb)
@@ -495,9 +540,9 @@ export async function checkJob(pieceId: string): Promise<{ item: ContentItem; ch
 }
 
 /**
- * A Lambda callback's outputs against the destinations its job was given (submitJob records
- * them): every one exactly as given is the job's files; one missing means the job failed (the
- * engine said done without it); one naming any other path is not our Lambda's word at all.
+ * A callback's outputs against the destinations its job was given (submitJob records them):
+ * every one exactly as given is the job's files; one missing means the job failed (the engine
+ * said done without it); one naming any other path is not our engine's word at all.
  */
 function ownPaths(job: EditJob, outputs: Record<string, { path: string }> | undefined): Record<string, string> | "missing" | "foreign" {
   const paths: Record<string, string> = {};
@@ -511,13 +556,13 @@ function ownPaths(job: EditJob, outputs: Record<string, { path: string }> | unde
 }
 
 /**
- * A job's end as the Lambda reported it (its webhook; the token was checked by the route).
- * - "ignored": the clip's job is no longer this one, is not a Lambda job (a Rendi job is only
- *   finished by asking Rendi), or is being collected.
+ * A job's end as the engine reported it (its webhook; the token was checked by the route).
+ * - "ignored": the clip's job is no longer this one, is not a job of an engine that calls back
+ *   (Lambda, Cloud Run — a Rendi job is only finished by asking Rendi), or is being collected.
  * - "refused": a done callback naming a file other than the job's own destinations; nothing is
  *   written, and the job ends by a true callback or by the time limit.
  * - "finished": written. A callback past EDIT_JOB_TIMEOUT_MS fails the job whatever it says,
- *   and the files the Lambda wrote are let go.
+ *   and the files the engine wrote are let go.
  * Throws when it could not be written, so the caller answers an error and the engine tries again.
  */
 export async function finishJob(
@@ -526,7 +571,7 @@ export async function finishJob(
 ): Promise<"finished" | "ignored" | "refused"> {
   const item = await readPiece(pieceId);
   const job = item?.output.video?.edit?.job;
-  if (!item || !job || job.id !== jobId || job.engine !== "lambda") return "ignored";
+  if (!item || !job || job.id !== jobId || !callsBack(job.engine)) return "ignored";
   if (timedOut(job)) {
     console.error(`job ${jobId}: called back past the time limit`);
     const ended = await end(item, job, { state: "failed", error: JOB_TIMED_OUT });

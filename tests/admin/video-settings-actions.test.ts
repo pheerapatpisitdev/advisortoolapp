@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -7,6 +8,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const SECRET = "SuperSecretValue123";
+// a throwaway key pair made here, never a real one
+const PEM = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+const PEM_BODY = PEM.split("\n")[1];
+const SA_EMAIL = "clip-render@my-proj.iam.gserviceaccount.com";
+/** a service account file as Google hands it out, pasted with CRLF line ends */
+const SA_FILE = JSON.stringify({
+  type: "service_account", project_id: "my-proj", private_key_id: "abc123", private_key: PEM, client_email: SA_EMAIL,
+  client_id: "1234567890", auth_uri: "https://accounts.google.com/o/oauth2/auth", token_uri: "https://oauth2.googleapis.com/token",
+}, null, 2).replace(/\n/g, "\r\n");
 const rpc = vi.fn();
 const upsert = vi.fn();
 let tableRows: unknown[] = [];
@@ -91,7 +101,54 @@ describe("saveRenderKey", () => {
   });
 });
 
+describe("saveRenderKey for Google Cloud Run", () => {
+  it("keeps only what the engine needs, as one line of JSON, from the pasted file and the region and job typed beside it", async () => {
+    const r = await saveRenderKey("gcp", SA_FILE, { region: " asia-southeast1 ", job: "clip-ffmpeg" });
+    expect(r).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const [fn, args] = rpc.mock.calls[0] as [string, { p_provider: string; p_key: string; p_passphrase: string }];
+    expect(fn).toBe("ins_set_api_key");
+    expect(args.p_provider).toBe("gcp");
+    // the file's line breaks survive as escapes (cleanKey would have stripped them), no raw ones
+    expect(args.p_key).not.toMatch(/[\r\n]/);
+    expect(JSON.parse(args.p_key)).toEqual({ client_email: SA_EMAIL, private_key: PEM, project_id: "my-proj", region: "asia-southeast1", job: "clip-ffmpeg" });
+  });
+
+  it("refuses a bad paste, a bad region or job name, or no region at all — in Thai, without the key, storing nothing", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const bad: [string, { region: string; job: string } | undefined][] = [
+      ["not json at all", { region: "asia-southeast1", job: "clip-ffmpeg" }],
+      [JSON.stringify({ client_email: SA_EMAIL, project_id: "my-proj" }), { region: "asia-southeast1", job: "clip-ffmpeg" }],
+      [JSON.stringify({ client_email: SA_EMAIL, project_id: "my-proj", private_key: `-----BEGIN PRIVATE KEY-----\n${SECRET}\n-----END PRIVATE KEY-----\n` }), { region: "asia-southeast1", job: "clip-ffmpeg" }],
+      [SA_FILE, { region: "Asia Southeast", job: "clip-ffmpeg" }],
+      [SA_FILE, { region: "asia-southeast1", job: "Clip_FFmpeg" }],
+      [SA_FILE, undefined],
+    ];
+    for (const [file, where] of bad) {
+      const r = await saveRenderKey("gcp", file, where);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error).toMatch(/Service Account/);
+      expect(JSON.stringify(r)).not.toContain(SECRET);
+      expect(JSON.stringify(r)).not.toContain(PEM_BODY);
+    }
+    expect(rpc).not.toHaveBeenCalled();
+    expect(JSON.stringify(log.mock.calls)).not.toContain(PEM_BODY);
+    log.mockRestore();
+  });
+
+  it("is refused for a non-admin before anything is stored", async () => {
+    staffAllowed = false;
+    await expect(saveRenderKey("gcp", SA_FILE, { region: "asia-southeast1", job: "clip-ffmpeg" })).rejects.toThrow("forbidden");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
 describe("saveVideoEngine", () => {
+  it("stores Google Cloud Run as the pick", async () => {
+    await expect(saveVideoEngine({ engine: "cloudrun", fallback: true, rendiMaxSeconds: 60, enabled: false })).resolves.toEqual({ ok: true });
+    expect(upsert.mock.calls[0][0]).toMatchObject({ video_engine: "cloudrun", video_fallback: true });
+  });
+
   it("refuses an unknown engine and saves nothing", async () => {
     // @ts-expect-error — deliberately outside the union
     const r = await saveVideoEngine({ engine: "ffmpeg", fallback: true, rendiMaxSeconds: 60, enabled: false });
@@ -163,6 +220,38 @@ describe("loadAiPage render keys", () => {
     expect(wire).not.toContain(SECRET);
     expect(wire).not.toContain("AKIAEXAMPLEID");
     expect(page.keys.map((k) => k.provider)).toEqual(["openai"]);
+    tableRows = [];
+  });
+
+  it("shows Google's project, region and job — never the private key or the service account's email", async () => {
+    await saveRenderKey("gcp", SA_FILE, { region: "asia-southeast1", job: "clip-ffmpeg" });
+    const stored = (rpc.mock.calls[0][1] as { p_key: string }).p_key;
+    rpc.mockReset().mockImplementation(async (fn: string) => fn === "ins_get_api_keys"
+      ? { data: [{ provider: "gcp", api_key: stored }, { provider: "aws", api_key: `AKIAEXAMPLEID:${SECRET}:ap-southeast-1:clip-ffmpeg` }], error: null }
+      : { error: null });
+    tableRows = [
+      { provider: "gcp", tail: stored.slice(-4), enabled: true },
+      { provider: "aws", tail: "fmpeg".slice(-4), enabled: true },
+    ];
+    const { loadAiPage } = await import("@/app/admin/ai/actions");
+    const page = await loadAiPage();
+    expect(page.video.keys).toEqual([
+      { provider: "gcp", shown: "my-proj · asia-southeast1 · clip-ffmpeg" },
+      { provider: "aws", shown: "ap-southeast-1 · clip-ffmpeg" },
+    ]);
+    const wire = JSON.stringify(page);
+    for (const secret of [PEM_BODY, "PRIVATE KEY", SA_EMAIL, "client_email", "iam.gserviceaccount.com", SECRET]) expect(wire).not.toContain(secret);
+    expect(page.keys).toEqual([]);
+    tableRows = [];
+  });
+
+  it("a Google key that cannot be read shows as held, nothing more", async () => {
+    rpc.mockImplementation(async (fn: string) => fn === "ins_get_api_keys" ? { data: [{ provider: "gcp", api_key: `{"private_key":"${SECRET}"}` }], error: null } : { error: null });
+    tableRows = [{ provider: "gcp", tail: "xx\"}", enabled: true }];
+    const { loadAiPage } = await import("@/app/admin/ai/actions");
+    const page = await loadAiPage();
+    expect(page.video.keys).toEqual([{ provider: "gcp", shown: "ตั้งไว้แล้ว" }]);
+    expect(JSON.stringify(page)).not.toContain(SECRET);
     tableRows = [];
   });
 });

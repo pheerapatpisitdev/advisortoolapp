@@ -25,9 +25,26 @@ export interface RenderEngine {
 }
 
 export class EngineError extends Error {
-  /** retryElsewhere: the other engine may well succeed (a key, a plan, a network) — not a bad command */
-  constructor(message: string, readonly retryElsewhere: boolean) {
+  /**
+   * retryElsewhere: the other engine may well succeed (a key, a plan, a network) — not a bad command.
+   * mayBeTaken: the submit's outcome is unknown — the request went out and no answer came back
+   * (a timeout, a dropped connection), so the engine may be running the job now. The caller keeps
+   * the job as taken and never hands it to another engine: it ends by callback or by the time limit.
+   */
+  constructor(message: string, readonly retryElsewhere: boolean, readonly mayBeTaken = false) {
     super(message);
     this.name = "EngineError";
   }
+}
+
+/** network failures where no connection was ever made, so nothing can have reached the engine */
+const NEVER_CONNECTED = new Set(["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "UND_ERR_CONNECT_TIMEOUT"]);
+
+/**
+ * A request that failed without an answer may still have been taken — unless the failure says the
+ * connection was never made (the host not found or refusing). A timeout says nothing either way.
+ */
+export function mayHaveReached(e: unknown): boolean {
+  const codes = [e, e instanceof Error ? e.cause : undefined].map((x) => (x && typeof x === "object" ? (x as { code?: unknown }).code : undefined));
+  return !codes.some((c) => typeof c === "string" && NEVER_CONNECTED.has(c));
 }

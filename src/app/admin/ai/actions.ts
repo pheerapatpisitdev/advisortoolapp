@@ -10,6 +10,7 @@ import { requireStaff } from "@/lib/auth/viewer";
 import { walletChargedThb } from "@/lib/wallet/store";
 import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/video/settings";
 import { parseAwsKey } from "@/lib/video/engines/lambda";
+import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
 
 const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false };
@@ -30,7 +31,8 @@ export type Provider = (typeof PROVIDERS)[number];
  * service that has no model. loadConfig (src/lib/ai/client.ts) only looks a key up by a model's
  * provider, so extra rows in the table are never reached by it.
  *
- * What the page may show of a held key: Rendi's last four characters; AWS's region and function. Never a secret.
+ * What the page may show of a held key: Rendi's last four characters; AWS's region and function;
+ * Google's project, region and job. Never a secret, nor the service account's email.
  */
 export interface VideoKeyRow { provider: RenderProvider; shown: string }
 
@@ -164,24 +166,28 @@ export async function loadAiPage(): Promise<{
  * What to show of each render key. Rendi's is its last four characters. AWS's is one string of
  * four parts, so the tail says nothing; its region and function name are not secret and say which
  * function is wired, so they are read out of the decrypted key here and only they are returned —
- * never the secret or the access key id. A key that cannot be read shows as held, nothing more.
+ * never the secret or the access key id. Google's is a JSON object: its project, region and job
+ * are shown the same way — never the private key or the service account's email. A key that
+ * cannot be read shows as held, nothing more.
  */
 async function renderKeysShown(held: { provider: string; tail: string }[]): Promise<VideoKeyRow[]> {
   const rows = held.filter((k): k is typeof k & { provider: RenderProvider } => (RENDER_PROVIDERS as readonly string[]).includes(k.provider));
-  let aws: { region: string; functionName: string } | null = null;
-  if (rows.some((k) => k.provider === "aws")) {
+  const labels: Partial<Record<RenderProvider, string>> = {};
+  if (rows.some((k) => k.provider === "aws" || k.provider === "gcp")) {
     try {
       const { data } = await supabaseAdmin().rpc("ins_get_api_keys", { p_passphrase: passphrase() });
-      const key = ((data ?? []) as { provider: string; api_key: string }[]).find((k) => k.provider === "aws")?.api_key;
-      const parsed = key ? parseAwsKey(key) : null;
-      aws = parsed ? { region: parsed.region, functionName: parsed.functionName } : null;
+      const stored = (p: RenderProvider) => ((data ?? []) as { provider: string; api_key: string }[]).find((k) => k.provider === p)?.api_key;
+      const aws = stored("aws") ? parseAwsKey(stored("aws")!) : null;
+      if (aws) labels.aws = `${aws.region} · ${aws.functionName}`;
+      const gcp = stored("gcp") ? parseGcpKey(stored("gcp")!) : null;
+      if (gcp) labels.gcp = `${gcp.projectId} · ${gcp.region} · ${gcp.job}`;
     } catch (e) {
-      console.error("อ่านกุญแจ AWS ไม่สำเร็จ:", e instanceof Error ? e.name : "unknown");
+      console.error("อ่านกุญแจตัวตัดต่อไม่สำเร็จ:", e instanceof Error ? e.name : "unknown");
     }
   }
   return rows.map((k) => ({
     provider: k.provider,
-    shown: k.provider === "aws" ? (aws ? `${aws.region} · ${aws.functionName}` : "ตั้งไว้แล้ว") : `••••${k.tail}`,
+    shown: k.provider === "rendi" ? `••••${k.tail}` : labels[k.provider] ?? "ตั้งไว้แล้ว",
   }));
 }
 
@@ -209,6 +215,7 @@ function byProvider(lines: SpendLine[], models: { provider: string; model_name: 
     // a clip's render, written to the ledger under its engine (src/lib/video/jobs.ts): its key's name here
     ["rendi", "rendi"] as const,
     ["lambda", "aws"] as const,
+    ["cloudrun", "gcp"] as const,
   ]);
   const acc = new Map<string, { calls: number; baht: number; tasks: Map<string, number> }>();
   for (const l of lines) {
@@ -268,11 +275,21 @@ export async function saveApiKey(provider: string, key: string): Promise<Result>
 /**
  * The key of a video render service. Rendi's is a plain API key; AWS's is one string,
  * "accessKeyId:secretAccessKey:region:functionName", checked here so a half-pasted one is
- * refused now instead of failing the first clip.
+ * refused now instead of failing the first clip. Google's is the service account's JSON file as
+ * pasted, with the region and job name typed beside it (`gcp`): only the fields the engine needs
+ * are kept (gcpKeyFromUpload). It does not go through cleanKey — that would strip the file's line
+ * breaks — and what is stored is the minified JSON gcpKeyFromUpload makes.
  */
-export async function saveRenderKey(provider: RenderProvider, key: string): Promise<Result> {
+export async function saveRenderKey(provider: RenderProvider, key: string, gcp?: { region: string; job: string }): Promise<Result> {
   await requireStaff("admin");
   if (!(RENDER_PROVIDERS as readonly string[]).includes(provider)) return { ok: false, error: "บริการไม่ถูกต้อง" };
+  if (provider === "gcp") {
+    const stored = gcpKeyFromUpload(String(key ?? ""), String(gcp?.region ?? ""), String(gcp?.job ?? ""));
+    if (!stored) {
+      return { ok: false, error: "ไฟล์ Service Account ของ Google ไม่ถูกต้อง — วางไฟล์ JSON ทั้งไฟล์ และตรวจ region (เช่น asia-southeast1) กับชื่อ job (ตัวเล็ก ขีด และตัวเลข)" };
+    }
+    return storeKey(provider, stored);
+  }
   const value = cleanKey(key);
   if (value.length < 8) return { ok: false, error: "กุญแจสั้นเกินไป — วางกุญแจทั้งเส้นอีกครั้ง" };
   if (provider === "aws" && !parseAwsKey(value)) {
@@ -281,10 +298,10 @@ export async function saveRenderKey(provider: RenderProvider, key: string): Prom
   return storeKey(provider, value);
 }
 
-/** Which service renders clips, whether the other is tried when it cannot, and Rendi's time limit. */
+/** Which service renders clips, whether the others are tried when it cannot, and Rendi's time limit. */
 export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
   await requireStaff("admin");
-  if (s?.engine !== "rendi" && s?.engine !== "lambda") return { ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" };
+  if (s?.engine !== "rendi" && s?.engine !== "lambda" && s?.engine !== "cloudrun") return { ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" };
   if (typeof s.fallback !== "boolean") return { ok: false, error: "ค่าสำรองไม่ถูกต้อง" };
   if (typeof s.enabled !== "boolean") return { ok: false, error: "ค่าเปิดตัดต่อไม่ถูกต้อง" };
   // 60 and 600 are the two Rendi plans' limits (free, Pro); anything between is a typo

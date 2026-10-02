@@ -151,6 +151,40 @@ describe("the job webhook", () => {
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
   });
 
+  it("finishes a Cloud Run job whose token matches, and lets its payload file go", async () => {
+    const PAYLOAD = `${PIECE}/66666666-6666-4666-8666-666666666666.job.json`;
+    clipDb.reset(dbRow(job({ engine: "cloudrun", id: "cr-1", tried: ["cloudrun"], payloadPath: PAYLOAD, costThb: 0.216 })));
+    clipDb.files.set(PAYLOAD, { text: "{}", contentType: "text/plain" });
+    const res = await post({ id: "cr-1", token: TOKEN, state: "done", outputs: { out_1: { path: TAKE } } });
+
+    expect(res.status).toBe(200);
+    expect(storedEdit()).toMatchObject({ job: null, renderedPath: TAKE, renderedRev: "r1" });
+    expect(clipDb.files.has(PAYLOAD)).toBe(false);
+    expect(round.settleLater).toHaveBeenCalledWith(WALLET, true, 0.216);
+  });
+
+  it("refuses a Cloud Run callback with a wrong token, and one naming files not its own", async () => {
+    clipDb.reset(dbRow(job({ engine: "cloudrun", id: "cr-1", tried: ["cloudrun"] })));
+    const before = JSON.stringify(clipDb.row);
+    expect((await post({ id: "cr-1", token: "e".repeat(64), state: "done", outputs: { out_1: { path: TAKE } } })).status).toBe(401);
+    expect((await post({ id: "cr-1", token: TOKEN, state: "done", outputs: { out_1: { path: SOURCE } } })).status).toBe(400);
+    expect(JSON.stringify(clipDb.row)).toBe(before);
+    expect(round.settleLater).not.toHaveBeenCalled();
+  });
+
+  it("an unsigned Rendi-style webhook naming a Cloud Run job only asks again, and Cloud Run has nothing to say", async () => {
+    const cloudrun = { name: "cloudrun" as EngineName, takesId: true, submit: vi.fn(), status: vi.fn(async () => null), cleanup: vi.fn(async () => undefined) };
+    eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "cloudrun" ? (cloudrun as RenderEngine) : null));
+    clipDb.reset(dbRow(job({ engine: "cloudrun", id: "cr-1", tried: ["cloudrun"] })));
+    const before = JSON.stringify(clipDb.row);
+    const lie = { data: { command_id: "cr-1", status: "SUCCESS" }, state: "done", outputs: { out_1: { path: TAKE } } };
+
+    expect((await post(lie)).status).toBe(200);
+    expect(cloudrun.status).toHaveBeenCalledWith("cr-1");
+    expect(JSON.stringify(clipDb.row)).toBe(before);
+    expect(round.settleLater).not.toHaveBeenCalled();
+  });
+
   it("a second callback for a job already finished changes nothing", async () => {
     await post({ id: "lam-1", token: TOKEN, state: "done", outputs: { out_1: { path: TAKE } } });
     const after = JSON.stringify(clipDb.row);

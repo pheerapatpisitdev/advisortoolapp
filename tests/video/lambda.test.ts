@@ -30,9 +30,24 @@ describe("lambdaEngine", () => {
     expect((sent.config as { maxAttempts: number }).maxAttempts).toBe(1);
     expect((sent.opts as { abortSignal: AbortSignal }).abortSignal).toBeInstanceOf(AbortSignal);
   });
-  it("a bad key or an AWS refusal is an error to try elsewhere", async () => {
-    await expect(lambdaEngine("nope").submit(job, { callbackUrl: "x", token: "t" })).rejects.toMatchObject({ retryElsewhere: true });
-    sent.fail = new Error("AccessDenied");
-    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ retryElsewhere: true });
+  it("a bad key or an AWS refusal is an error to try elsewhere, and nothing was queued", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await expect(lambdaEngine("nope").submit(job, { callbackUrl: "x", token: "t" })).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: false });
+    // a service error: AWS answered with an HTTP status
+    sent.fail = Object.assign(new Error("AccessDenied"), { name: "AccessDeniedException", $metadata: { httpStatusCode: 403, attempts: 1 } });
+    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: false });
+    sent.fail = Object.assign(new Error("Rate exceeded"), { name: "TooManyRequestsException", $metadata: { httpStatusCode: 429 } });
+    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: false });
+    // no connection was ever made: the region's endpoint not found
+    sent.fail = Object.assign(new Error("getaddrinfo ENOTFOUND lambda.r.amazonaws.com"), { code: "ENOTFOUND", $metadata: { attempts: 1 } });
+    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: false });
+  });
+  it("an invoke with no answer (the 10 s abort, a dropped connection) may have been queued: its outcome is unknown", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // the SDK adds $metadata (attempts) to every error it retried, but an HTTP status only to an AWS answer
+    sent.fail = Object.assign(new Error("Request aborted"), { name: "AbortError", $metadata: { attempts: 1 } });
+    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ retryElsewhere: true, mayBeTaken: true });
+    sent.fail = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+    await expect(lambdaEngine("A:s:r:f").submit(job, { callbackUrl: "x", token: "t", uploads: {} })).rejects.toMatchObject({ mayBeTaken: true });
   });
 });

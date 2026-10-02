@@ -1,5 +1,5 @@
 import { createPrivateKey, createSign } from "node:crypto";
-import { EngineError, type RenderEngine } from "./types";
+import { EngineError, mayHaveReached, type RenderEngine } from "./types";
 
 /**
  * Our own ffmpeg as a Google Cloud Run Job (owner, 2026-10-02), infra/cloudrun-ffmpeg. The app
@@ -140,7 +140,7 @@ async function accessToken(k: GcpKey, f: typeof fetch, now: () => number): Promi
   return body.access_token;
 }
 
-export function cloudRunEngine(key: string, deps: Deps = {}): Omit<RenderEngine, "name"> & { name: "cloudrun" } {
+export function cloudRunEngine(key: string, deps: Deps = {}): RenderEngine {
   const f = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
   return {
@@ -165,7 +165,8 @@ export function cloudRunEngine(key: string, deps: Deps = {}): Omit<RenderEngine,
         });
       } catch (e) {
         console.error("cloudrun run failed:", e instanceof Error ? e.name : "unknown error");
-        throw new EngineError("ส่งงานให้ Google Cloud ไม่ได้", true);
+        // no answer (the 10 s abort, a dropped connection): Google may have started the run
+        throw new EngineError("ส่งงานให้ Google Cloud ไม่ได้", true, mayHaveReached(e));
       }
       if (!res.ok) {
         // a token Google no longer takes is not offered again

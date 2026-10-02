@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { EngineName } from "@/lib/content/clip";
 
-/** Which service renders clips, and whether the other one is tried when it cannot (owner, 2026-10-02). */
+/** Which service renders clips, and whether the others are tried when it cannot (owner, 2026-10-02). */
 export interface VideoSettings { engine: EngineName; fallback: boolean; rendiMaxSeconds: number;
   /** agents may edit clips (owner switch, off by default: no render service may be live yet) */
   enabled: boolean }
@@ -13,7 +13,7 @@ export async function videoSettings(): Promise<VideoSettings> {
   if (error) throw new Error(`อ่านการตั้งค่าตัดต่อไม่ได้: ${error.message}`);
   const seconds = Number(data?.rendi_max_seconds);
   return {
-    engine: data?.video_engine === "lambda" ? "lambda" : "rendi",
+    engine: data?.video_engine === "lambda" || data?.video_engine === "cloudrun" ? data.video_engine : "rendi",
     fallback: data?.video_fallback !== false,
     rendiMaxSeconds: Number.isFinite(seconds) ? clamp(seconds) : 60,
     enabled: data?.video_edit_enabled === true,

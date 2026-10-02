@@ -1,15 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { checkJob, finishJob, hashToken, pieceOfJob } from "@/lib/video/jobs";
+import { callsBack, checkJob, finishJob, hashToken, pieceOfJob } from "@/lib/video/jobs";
 
 /**
  * A render service telling us a clip's job has ended (src/lib/video/jobs.ts).
  *
- * - Our Lambda posts { id, token, state, outputs, error }: the token is the job's own secret.
- *   The job keeps only its sha256, so the token is hashed here and the hashes compared in
- *   constant time; a wrong one is 401 and nothing changes. Only a Lambda job is finished this
- *   way — a token callback for a Rendi job is ignored. A failure to write is 500, so the Lambda
- *   tries again.
+ * - Our Lambda and our Cloud Run job post { id, token, state, outputs, error }: the token is the
+ *   job's own secret. The job keeps only its sha256, so the token is hashed here and the hashes
+ *   compared in constant time; a wrong one is 401 and nothing changes. Only a job of an engine
+ *   that calls back is finished this way — a token callback for a Rendi job is ignored. A failure
+ *   to write is 500, so the engine tries again.
  * - Rendi's dashboard webhook posts { data: { command_id } } and is not signed, so its body is
  *   never believed: the job is asked about again (checkJob), as the edit page's poll would.
  *
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     return ok();
   }
 
-  // Lambda: signed with the job's token
+  // Lambda, Cloud Run: signed with the job's token
   const { id, token, state } = body;
   if (typeof id !== "string" || !id || typeof token !== "string") return NextResponse.json({ error: "bad body" }, { status: 400 });
   let found: Awaited<ReturnType<typeof pieceOfJob>>;
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "try again" }, { status: 500 });
   }
   // a Rendi job is only finished by asking Rendi; a callback for one says nothing about whether it exists
-  if (!found || found.job.engine !== "lambda") return ok();
+  if (!found || !callsBack(found.job.engine)) return ok();
   if (!sameToken(token, found.job.tokenHash)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   if (state !== "done" && state !== "failed") return NextResponse.json({ error: "bad body" }, { status: 400 });
 

@@ -148,6 +148,9 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
   };
 
   const [engine, setEngine] = useState<VideoSettings>(video.settings);
+  // Google Cloud Run: the service account file is pasted whole; region and job are typed beside it
+  const [gcp, setGcp] = useState({ region: "asia-southeast1", job: "clip-ffmpeg" });
+  const gcpHeld = video.keys.find((k) => k.provider === "gcp");
   const input = "rounded border border-[var(--bot-line-strong)] bg-[var(--bot-surface)] px-2 py-1";
 
   return (
@@ -262,6 +265,36 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
               </div>
             );
           })}
+          <div className="flex flex-wrap items-start gap-2 rounded-md border border-[var(--bot-line)] p-2">
+            <span className="w-44 text-sm">Google Cloud Run</span>
+            <span className="w-44 break-all text-xs text-[var(--bot-ink-mute)]">{gcpHeld ? gcpHeld.shown : "ยังไม่ได้ตั้ง"}</span>
+            <span className="flex min-w-64 flex-1 flex-col gap-2">
+              <textarea
+                placeholder="วางไฟล์ Service Account (JSON)" autoComplete="off" spellCheck={false} rows={3}
+                className={`min-w-0 font-mono text-xs ${input}`}
+                value={draft["render:gcp"] ?? ""} onChange={(e) => setDraft({ ...draft, ["render:gcp"]: e.target.value })}
+              />
+              <span className="flex flex-wrap items-center gap-2">
+                <label className="text-xs text-[var(--bot-ink-mute)]">
+                  region
+                  <input className={`ml-1 w-36 text-sm ${input}`} value={gcp.region} onChange={(e) => setGcp({ ...gcp, region: e.target.value })} />
+                </label>
+                <label className="text-xs text-[var(--bot-ink-mute)]">
+                  job
+                  <input className={`ml-1 w-32 text-sm ${input}`} value={gcp.job} onChange={(e) => setGcp({ ...gcp, job: e.target.value })} />
+                </label>
+                <button
+                  type="button" disabled={pending || !(draft["render:gcp"] ?? "").trim()}
+                  className="ml-auto shrink-0 rounded bg-[var(--bot-navy)] px-3 py-1 text-xs text-[var(--bot-surface)] disabled:opacity-40"
+                  onClick={() => run("render:gcp", () => saveRenderKey("gcp", draft["render:gcp"] ?? "", gcp), "บันทึกกุญแจ Google Cloud Run แล้ว",
+                    () => setDraft((d) => ({ ...d, ["render:gcp"]: "" })))}
+                >
+                  {busy === "render:gcp" ? "กำลังบันทึก…" : "บันทึก"}
+                </button>
+              </span>
+            </span>
+            <Said note={note} where="render:gcp" className="basis-full" />
+          </div>
         </div>
         <form
           className="mt-3 flex flex-wrap items-end gap-3"
@@ -270,9 +303,10 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
           <label className="text-sm">
             <span className="block text-xs text-[var(--bot-ink-mute)]">ตัวตัดต่อหลัก</span>
             <select value={engine.engine} className={`mt-1 ${input}`}
-                    onChange={(e) => setEngine({ ...engine, engine: e.target.value === "lambda" ? "lambda" : "rendi" })}>
+                    onChange={(e) => setEngine({ ...engine, engine: e.target.value === "lambda" || e.target.value === "cloudrun" ? e.target.value : "rendi" })}>
               <option value="rendi">Rendi</option>
               <option value="lambda">AWS Lambda</option>
+              <option value="cloudrun">Google Cloud Run</option>
             </select>
           </label>
           <label className="text-sm">
@@ -285,7 +319,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
           </label>
           <label className="flex items-center gap-2 pb-1.5 text-sm">
             <input type="checkbox" checked={engine.fallback} onChange={(e) => setEngine({ ...engine, fallback: e.target.checked })} />
-            <span>ถ้าตัวหลักทำไม่ได้ ให้ลองอีกตัวแทน</span>
+            <span>ถ้าตัวหลักทำไม่ได้ ให้ลองตัวอื่นที่ตั้งกุญแจไว้แทน</span>
           </label>
           <div className="basis-full text-sm">
             <label className="flex items-center gap-2">
