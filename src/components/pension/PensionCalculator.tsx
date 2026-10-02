@@ -243,7 +243,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                     <dd className="text-lg font-semibold tabular-nums"><Highlighted>{baht(q.monthlyPension)} บาท/เดือน</Highlighted></dd>
                   </div>
                 </dl>
-                <table className="w-full text-sm">
+                <table className="w-full text-sm [&_td+td]:border-l [&_th+th]:border-l [&_td+td]:border-[var(--op-line)] [&_th+th]:border-[var(--op-line)] [&_td]:px-2 [&_th]:px-2">
                   <thead>
                     <tr className="border-b border-[var(--op-line)] text-left text-[var(--op-mute)]">
                       <th className="py-2">อายุ</th>
@@ -279,7 +279,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
             {/* open by default: the owner wants the year-by-year figures in view, not behind a press */}
             <h3 className="text-sm font-semibold">ตารางผลประโยชน์รายปี</h3>
               <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-sm tabular-nums">
+                <table className="w-full text-sm tabular-nums [&_td+td]:border-l [&_th+th]:border-l [&_td+td]:border-[var(--op-line)] [&_th+th]:border-[var(--op-line)] [&_td]:px-2 [&_th]:px-2">
                   <thead>
                     <tr className="border-b border-[var(--op-line)] text-right text-[var(--op-mute)]">
                       <th className="py-2 text-left">อายุ</th>
