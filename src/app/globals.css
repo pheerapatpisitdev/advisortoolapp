@@ -447,7 +447,11 @@ body:has(.theme-legacy) {
   }
 
   /* A folded block prints as a heading with nothing under it, so the conditions and the
-     exclusions would come out as a list of section titles with their contents cut away. */
+     exclusions would come out as a list of section titles with their contents cut away.
+     This rule alone no longer prevents it: current Chrome hides a closed fold's contents
+     behind `::details-content` whatever the child's display says. What prints a `Fold` open
+     is `PrintUnfold` (mounted by `SalesTheme`), which opens them for the print dialog; the
+     rule stays for browsers that still honour it and for `<details>` that are not Folds. */
   .theme-legacy details > div {
     display: block !important;
   }

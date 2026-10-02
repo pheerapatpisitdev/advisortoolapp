@@ -1,5 +1,6 @@
 import { IBM_Plex_Sans_Thai, Trirong } from "next/font/google";
 import { AppShell } from "@/components/shell/AppShell";
+import { PrintUnfold } from "@/components/sales/PrintUnfold";
 
 /**
  * Trirong is a Thai serif: it has the weight of something printed and kept, which is what a
@@ -34,6 +35,8 @@ export function SalesTheme({ children }: { children: React.ReactNode }) {
           direct child and ties a Tailwind z utility on specificity, so what puts the menu
           above the page is being written after it. AppShell keeps that order. */}
       <AppShell>{children}</AppShell>
+      {/* on paper every fold prints in full, so they open for the dialog */}
+      <PrintUnfold />
     </div>
   );
 }

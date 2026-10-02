@@ -23,12 +23,14 @@ export function Rule() {
  * A fold is a promise that what is inside can wait. The seventy illnesses on the iShield page
  * cannot: they are what the contract is, and a reader who has to press twice to find out what
  * is covered has been asked to take the heading on trust.
+ *
+ * On paper every fold prints open: `data-fold` is what `PrintUnfold` looks for.
  */
 export function Fold(
   { summary, children, open = false }: { summary: string; children: React.ReactNode; open?: boolean },
 ) {
   return (
-    <details open={open} className="group border-b border-[var(--lg-panel-line)] last:border-b-0">
+    <details open={open} data-fold="" className="group border-b border-[var(--lg-panel-line)] last:border-b-0">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-medium text-[var(--lg-white)] marker:hidden">
         {summary}
         <span
