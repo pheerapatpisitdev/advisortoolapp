@@ -12,6 +12,7 @@ import { coverRows } from "@/lib/cover-rows";
 import { CoverTable } from "@/components/plb/CoverTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
+import type { PlanInitial } from "@/lib/quote-pdf/link";
 import { Highlighted } from "@/components/Highlighted";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
@@ -28,6 +29,8 @@ export interface PlbCalculatorProps {
   table: PlbTable;
   /** pin a copy of the contact buttons to the bottom of a phone screen */
   sticky?: boolean;
+  /** the figures a link asked for, already checked against what this page offers */
+  initial?: PlanInitial;
 }
 
 /**
@@ -39,16 +42,16 @@ export interface PlbCalculatorProps {
  * costs — the day rate, the total over the term, and the price per million, which is the only
  * way the sum-assured discount is visible.
  */
-export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
+export function PlbCalculator({ table, sticky = false, initial }: PlbCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
   );
-  const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
+  const [sumIndex, setSumIndex] = useState(initial ? PLB_SUMS.indexOf(initial.sumAssured) : SUM_START_INDEX);
   const sumAssured = PLB_SUMS[sumIndex];
-  const [variant, setVariant] = useState(TERM_START);
-  const [age, setAge] = useState<PlbAge>(AGE_START);
-  const [sex, setSex] = useState<Sex>("M");
+  const [variant, setVariant] = useState(initial?.variant ?? TERM_START);
+  const [age, setAge] = useState<PlbAge>(initial?.age ?? AGE_START);
+  const [sex, setSex] = useState<Sex>(initial?.sex ?? "M");
 
   const term = termAt(table, variant);
   const ageNum = typeof age === "number" ? age : undefined;

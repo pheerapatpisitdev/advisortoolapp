@@ -1,3 +1,5 @@
+import { planInitialFrom } from "@/lib/quote-pdf/link";
+import { readQuery, type PageQuery } from "@/lib/quote-pdf/search-params";
 import { LifeTreasureCalculator } from "@/components/LifeTreasureCalculator";
 import { lifeTreasureTable } from "@/lib/lifetreasure-table";
 import { lifeTreasureFacts } from "@/lib/lifetreasure-facts";
@@ -21,14 +23,19 @@ export const metadata = {
  * money put here is money not doing something else — and it is answered with the company's
  * own surrender table rather than with an adjective.
  */
-export default async function LifeTreasurePage() {
+export default async function LifeTreasurePage(
+  { searchParams }: { searchParams: Promise<PageQuery> },
+) {
   const table = lifeTreasureTable();
+  // A link from the chat opens the figures it quotes; no query, or one the page cannot show,
+  // opens the page as it always was.
+  const initial = planInitialFrom("lifetreasure", await readQuery(searchParams));
   const facts = lifeTreasureFacts();
   return (
     <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
       <Hero facts={facts} />
       <section id="calc" className="scroll-mt-4">
-        <LifeTreasureCalculator table={table} sticky />
+        <LifeTreasureCalculator table={table} initial={initial} sticky />
       </section>
       <WhatItPaysSection facts={facts} />
       <WhySection facts={facts} />

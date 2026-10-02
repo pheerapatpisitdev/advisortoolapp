@@ -1,3 +1,5 @@
+import { planInitialFrom } from "@/lib/quote-pdf/link";
+import { readQuery, type PageQuery } from "@/lib/quote-pdf/search-params";
 import { LifeProtectCalculator } from "@/components/LifeProtectCalculator";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectFacts } from "@/lib/lifeprotect-facts";
@@ -17,8 +19,13 @@ export const metadata = {
  * who else is it for, what am I still worried about. The doubled sum is the page's pitch, so
  * its panel comes straight after the price rather than after the reasons.
  */
-export default async function LifeProtectPage() {
+export default async function LifeProtectPage(
+  { searchParams }: { searchParams: Promise<PageQuery> },
+) {
   const table = lifeProtectTable();
+  // A link from the chat opens the figures it quotes; no query, or one the page cannot show,
+  // opens the page as it always was.
+  const initial = planInitialFrom("lifeprotect", await readQuery(searchParams));
   const facts = lifeProtectFacts();
   // One column at every width: the page is read top to bottom, and the order the parts come
   // in is the argument. A phone gets the narrowest measure it can hold; a tablet and a
@@ -28,7 +35,7 @@ export default async function LifeProtectPage() {
     <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
       <Hero facts={facts} />
       <section id="calc" className="scroll-mt-4">
-        <LifeProtectCalculator table={table} sticky />
+        <LifeProtectCalculator table={table} initial={initial} sticky />
       </section>
       <DoubleSection facts={facts} />
       <WhySection facts={facts} />

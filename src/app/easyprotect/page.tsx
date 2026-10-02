@@ -1,3 +1,5 @@
+import { planInitialFrom } from "@/lib/quote-pdf/link";
+import { readQuery, type PageQuery } from "@/lib/quote-pdf/search-params";
 import { EasyProtectCalculator } from "@/components/EasyProtectCalculator";
 import { easyProtectTable } from "@/lib/easyprotect-table";
 import { easyProtectFacts } from "@/lib/easyprotect-facts";
@@ -21,14 +23,19 @@ export const metadata = {
  * reader can still act on today; what the contract is worth in thirty years only matters to
  * somebody who has already decided the premium is worth paying.
  */
-export default async function EasyProtectPage() {
+export default async function EasyProtectPage(
+  { searchParams }: { searchParams: Promise<PageQuery> },
+) {
   const table = easyProtectTable();
+  // A link from the chat opens the figures it quotes; no query, or one the page cannot show,
+  // opens the page as it always was.
+  const initial = planInitialFrom("easyprotect", await readQuery(searchParams));
   const facts = easyProtectFacts();
   return (
     <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
       <Hero facts={facts} />
       <section id="calc" className="scroll-mt-4">
-        <EasyProtectCalculator table={table} sticky />
+        <EasyProtectCalculator table={table} initial={initial} sticky />
       </section>
       <WhatItPaysSection facts={facts} />
       <WhySection facts={facts} />

@@ -1,3 +1,5 @@
+import { planInitialFrom } from "@/lib/quote-pdf/link";
+import { readQuery, type PageQuery } from "@/lib/quote-pdf/search-params";
 import { PlbCalculator } from "@/components/PlbCalculator";
 import { plbTable } from "@/lib/plb-table";
 import { plbFacts } from "@/lib/plb-facts";
@@ -20,14 +22,19 @@ export const metadata = {
  * What the contract pays comes straight after the price, and it says the bad half out loud:
  * a plan with no money back is a plan whose worst fact has to arrive early.
  */
-export default async function PlbPage() {
+export default async function PlbPage(
+  { searchParams }: { searchParams: Promise<PageQuery> },
+) {
   const table = plbTable();
+  // A link from the chat opens the figures it quotes; no query, or one the page cannot show,
+  // opens the page as it always was.
+  const initial = planInitialFrom("plb", await readQuery(searchParams));
   const facts = plbFacts();
   return (
     <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
       <Hero facts={facts} />
       <section id="calc" className="scroll-mt-4">
-        <PlbCalculator table={table} sticky />
+        <PlbCalculator table={table} initial={initial} sticky />
       </section>
       <WhatItPaysSection facts={facts} />
       <WhySection facts={facts} />

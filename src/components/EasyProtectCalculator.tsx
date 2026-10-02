@@ -16,6 +16,7 @@ import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { EASYPROTECT_SUMS } from "@/lib/quote-pdf/pages";
+import type { PlanInitial } from "@/lib/quote-pdf/link";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 
@@ -32,6 +33,8 @@ export interface EasyProtectCalculatorProps {
   table: EasyProtectTable;
   /** pin a copy of the contact buttons to the bottom of a phone screen */
   sticky?: boolean;
+  /** the figures a link asked for, already checked against what this page offers */
+  initial?: PlanInitial;
 }
 
 /**
@@ -43,15 +46,15 @@ export interface EasyProtectCalculatorProps {
  * the one this plan is decided on: it is a number with an end to it, which is not true of
  * any plan paid to ninety-nine.
  */
-export function EasyProtectCalculator({ table, sticky = false }: EasyProtectCalculatorProps) {
+export function EasyProtectCalculator({ table, sticky = false, initial }: EasyProtectCalculatorProps) {
   const AGES = useMemo(
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
   );
-  const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
+  const [sumIndex, setSumIndex] = useState(initial ? EASYPROTECT_SUMS.indexOf(initial.sumAssured) : SUM_START_INDEX);
   const sumAssured = EASYPROTECT_SUMS[sumIndex];
-  const [age, setAge] = useState<EasyProtectAge>(AGE_START);
-  const [sex, setSex] = useState<Sex>("M");
+  const [age, setAge] = useState<EasyProtectAge>(initial?.age ?? AGE_START);
+  const [sex, setSex] = useState<Sex>(initial?.sex ?? "M");
 
   const term = termAt(table, table.terms[0].variant);
   const ageNum = typeof age === "number" ? age : undefined;
