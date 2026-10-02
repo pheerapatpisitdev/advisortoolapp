@@ -55,3 +55,7 @@ export const CARD_UNSENT_EN = "Your quote is a picture — you can open it here:
 /** Who stands behind the policy. */
 export const COMPANY_EN = "iHealthy Ultra is a policy from Krungthai-AXA Life Insurance PCL. "
   + "An agent can share their licence details with you right here in this chat.";
+
+/** After the customer has told us about their condition, as the health answer asked them to. */
+export const HEALTH_THANKS_EN = "Thank you for sharing that 🙏 An agent will look at it and give you an honest pre-check "
+  + "right here in this chat. We can't promise the insurer's decision, but we'll tell you what to expect.";

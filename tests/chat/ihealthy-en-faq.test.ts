@@ -34,6 +34,14 @@ describe("the English FAQ", () => {
     expect(a).not.toMatch(/worldwide/i);
   });
 
+  it("asks for the condition, the treatment and the medication, instead of asking for nothing", () => {
+    const a = healthFaqAnswerEn("I have diabetes, can I apply?")!;
+    expect(a).toMatch(/condition/i);
+    expect(a).toMatch(/treatment/i);
+    expect(a).toMatch(/medication/i);
+    expect(a).not.toMatch(/don'?t send|do not send/i);
+  });
+
   it("never says a condition is covered", () => {
     expect(healthFaqAnswerEn("I have high blood pressure, am I covered?")).not.toMatch(/you are covered|will be covered|accepted/i);
   });

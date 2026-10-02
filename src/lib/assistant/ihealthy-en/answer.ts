@@ -5,7 +5,7 @@ import { keepGivenFigures, one, recentTurns, spoken, type Reply } from "../commo
 import type { HealthAnswer } from "../ihealthy/answer";
 import { hasHealthQuote } from "../ihealthy/quote";
 import { asksForPicture, asksShareOfBill, type HealthSlots } from "../ihealthy/route";
-import { healthFaqAnswerEn } from "./faq";
+import { FAQ_EN, HEALTH } from "./faq";
 import { HEALTH_PLAN_INFO_SYSTEM_EN, HEALTH_SMALL_TALK_SYSTEM_EN, healthFactsForEn } from "./prompts";
 import {
   cheaperEn, fullTableLinkEn, healthMenuEn, healthQuoteEn, otherPlansEn, territoryAnswerEn,
@@ -13,7 +13,7 @@ import {
 import { personInEn, planNamedInEn, routeHealthEn, territoryNamedInEn } from "./route";
 import {
   APPLY_HAND_OVER_EN, ASK_AGE_EN, ASK_DETAILS_EN, ASK_SEX_EN, COMPANY_EN, FORM_DONE_EN, GREETING_EN,
-  HAND_OVER_EN, PLAN_BENEFITS_EN, SEE_OTHER_PLANS_EN, SHARE_OF_BILL_EN, STALL_EN, WANTS_IN_EN,
+  HAND_OVER_EN, HEALTH_THANKS_EN, PLAN_BENEFITS_EN, SEE_OTHER_PLANS_EN, SHARE_OF_BILL_EN, STALL_EN, WANTS_IN_EN,
 } from "./words";
 
 /**
@@ -65,10 +65,25 @@ export async function answerHealthEn(
   if (asked === WANTS_IN_EN || buys) {
     return { ...one(APPLY_HAND_OVER_EN), slots: { ...known, formSent: true } };
   }
+  /**
+   * The reply to the health answer's question: their condition, treatment and medication.
+   * Thanked and left for the agent, once — not met with the same answer asking for it again,
+   * which is what the word "diabetes" in it would otherwise get.
+   */
+  if (known.healthAsked) {
+    const told = HEALTH.test(asked) || !ASKS.test(asked);
+    const somethingElse = planNamedInEn(asked) !== undefined || personInEn(asked).age !== undefined;
+    const onward = { ...known };
+    delete onward.healthAsked;
+    if (told && !somethingElse) return { ...one(HEALTH_THANKS_EN), slots: onward };
+    delete known.healthAsked;
+  }
   if (GROUP.test(asked)) return { ...one(HAND_OVER_EN), slots: known };
   if (COMPANY.test(asked)) return { ...one(COMPANY_EN), slots: known };
-  const faq = healthFaqAnswerEn(asked);
-  if (faq) return { ...one(faq), slots: known };
+  const faq = FAQ_EN.find((e) => e.match.test(asked));
+  if (faq) {
+    return { ...one(faq.answer()), slots: faq.key === "health" ? { ...known, healthAsked: true } : known };
+  }
   if (asksShareOfBill(asked)) return { ...one(SHARE_OF_BILL_EN), slots: known };
 
   // the advertisement's button, or a hello: a question back, not a description of the contract

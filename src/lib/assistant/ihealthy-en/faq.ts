@@ -14,7 +14,7 @@ interface Entry {
   answer: () => string;
 }
 
-const HEALTH = /pre-?existing|condition|diabetes|blood pressure|hypertension|cancer|heart|surgery|asthma|thyroid|medication|sick|illness|disease/i;
+export const HEALTH = /pre-?existing|condition|diabetes|blood pressure|hypertension|cancer|heart|surgery|asthma|thyroid|medication|sick|illness|disease/i;
 
 export const FAQ_EN: Entry[] = [
   {
@@ -24,7 +24,10 @@ export const FAQ_EN: Entry[] = [
       "You can still apply with a health condition — you just need to declare your health truthfully on the application, "
       + "and the insurer reviews each case: standard terms, an extra premium, or an exclusion for that condition.\n"
       + "We can't answer for the insurer's decision, so an agent will help you here in this chat 🙏\n"
-      + "Please don't send medical details or test results in this chat.",
+      // the owner's choice (2026-10-02): most expats arrive with a condition, and the agent
+      // can only pre-check one they have been told about
+      + "To help the agent check, could you share a bit more about the condition you have now, "
+      + "the treatment you've had, and any medication you take?",
   },
   {
     /**

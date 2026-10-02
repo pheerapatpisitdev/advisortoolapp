@@ -13,7 +13,7 @@ vi.mock("@/lib/ai/client", async () => {
 });
 
 const { answerHealthEn } = await import("@/lib/assistant/ihealthy-en/answer");
-const { GREETING_EN, APPLY_HAND_OVER_EN } = await import("@/lib/assistant/ihealthy-en/words");
+const { GREETING_EN, APPLY_HAND_OVER_EN, HEALTH_THANKS_EN } = await import("@/lib/assistant/ihealthy-en/words");
 
 const said = (content: string) => [{ role: "user" as const, content }];
 const THAI = /[฀-๿]/;
@@ -96,6 +96,22 @@ describe("the English health brain", () => {
     routed = { intent: "plan_info" };
     const a = await answerHealthEn(said("Which hospitals in Thailand can I use?"), { ...KNOWN, plan: "GOLD" });
     expect(a.priced).toBeFalsy();
+  });
+
+  it("thanks the customer for their health details rather than asking for them again", async () => {
+    const asked = await answerHealthEn(said("I have high blood pressure, can I still apply?"), KNOWN);
+    expect(asked.slots.healthAsked).toBe(true);
+    chat.mockClear();
+    const told = await answerHealthEn(said("Hypertension since 2019, on amlodipine 5mg, stable"), asked.slots);
+    expect(told.messages[0].text).toBe(HEALTH_THANKS_EN);
+    expect(told.slots.age).toBe(35);
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it("goes back to answering once the details are in", async () => {
+    const told = await answerHealthEn(said("diabetes, metformin"), { ...KNOWN, healthAsked: true });
+    const next = await answerHealthEn(said("Gold"), told.slots);
+    expect(next.priced).toBe(true);
   });
 
   it("a model reply with an invented figure loses that line", async () => {

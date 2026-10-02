@@ -29,6 +29,8 @@ export interface HealthSlots {
    * Absent is Thai, which is every conversation that began before there was a choice.
    */
   lang?: "en";
+  /** the English health answer asked for the condition, treatment and medication; the next message is the reply */
+  healthAsked?: true;
 }
 
 /**
