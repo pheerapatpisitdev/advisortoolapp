@@ -16,6 +16,7 @@ function fakeBrowser(over: { pdf?: () => Promise<Uint8Array>; close?: () => Prom
     emulateMediaType: vi.fn(async () => {}),
     emulateTimezone: vi.fn(async () => {}),
     goto: vi.fn(async () => {}),
+    setCookie: vi.fn(async () => {}),
     waitForSelector: vi.fn(async () => {}),
     evaluate: vi.fn(async (fn: () => unknown) => fn()),
     pdf: vi.fn(over.pdf ?? (async () => new Uint8Array([37, 80, 68, 70]))),
@@ -96,6 +97,22 @@ describe("renderQuotePdf", () => {
     const opts = launch.mock.calls[0][0];
     expect(opts).toMatchObject({ executablePath: "/chrome", headless: "shell" });
     expect(opts.args).toBe(chromium.args);
+  });
+
+  /** The iHealthy page reads its language from a cookie only, so English is a cookie set first. */
+  it("prints the iHealthy page in English when asked, with the cookie set before the page loads", async () => {
+    const b = fakeBrowser();
+    launch.mockResolvedValue(b);
+    await renderQuotePdf("http://x/ihealthy-ultra?age=35", { timeoutMs: 1000, lang: "en" });
+    expect(b.page.setCookie).toHaveBeenCalledWith(expect.objectContaining({ name: "ihu-lang", value: "en", url: "http://x/ihealthy-ultra?age=35" }));
+    expect(b.page.setCookie.mock.invocationCallOrder[0]).toBeLessThan(b.page.goto.mock.invocationCallOrder[0]);
+  });
+
+  it("sets no cookie for Thai", async () => {
+    const b = fakeBrowser();
+    launch.mockResolvedValue(b);
+    await renderQuotePdf("http://x/plb", { timeoutMs: 1000 });
+    expect(b.page.setCookie).not.toHaveBeenCalled();
   });
 
   /** The page stamps "พิมพ์เมื่อ" in the browser's zone, and Vercel's is UTC (final review, item 3). */

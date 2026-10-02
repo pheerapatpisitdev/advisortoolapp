@@ -9,6 +9,7 @@ import { deathBenefitOf, iHealthyPricing, plansFor, shownAt, territoriesFor } fr
 import { iHealthyTable, type IHealthyTable } from "@/lib/ihealthy-table";
 import { baseWords, WORDS } from "@/lib/ihealthy-words";
 import { siteUrl } from "@/lib/site-url";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 import { baht, one, type QuoteFigures, type Reply } from "../common";
 import { arrangementFor } from "../ihealthy/quote";
 import type { HealthSlots } from "../ihealthy/route";
@@ -26,6 +27,8 @@ import {
 export { HAND_OVER_EN };
 
 const W = WORDS.en;
+
+const withPdf = (pdfPath: string | undefined) => (pdfPath ? { pdfPath } : {});
 const QUOTE_REPLIES = [SEE_OTHER_PLANS_EN, PLAN_BENEFITS_EN, WANTS_IN_EN];
 
 /** Why there is no price, or nothing when there can be one. */
@@ -92,7 +95,12 @@ export function healthQuoteEn(
 
   const annual = priced?.total.find((m) => m.mode === "annual");
   return {
-    messages: [{ text, card: `${cardPath(table, v, "en")}&fit=phone` }],
+    messages: [{
+      text,
+      card: `${cardPath(table, v, "en")}&fit=phone`,
+      // the same proposal the page prints, printed in English (/api/quote-pdf?…&l=en)
+      ...withPdf(quotePdfPath({ kind: "ihealthy", query: queryFrom(table, v), lang: "en" })),
+    }],
     priced: true,
     ...(annual
       ? {

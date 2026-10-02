@@ -83,10 +83,12 @@ export function planInitialFrom(page: PlanPage, query: Query, today: Date = new 
 export function quotePdfPath(
   input:
     | { kind: "plan"; planCode: string; variant: string; age: number; sex: Sex; sumAssured: number }
-    | { kind: "ihealthy"; query: string },
+    | { kind: "ihealthy"; query: string; lang?: "en" },
 ): string | undefined {
   const v = cardVersionFor();
-  if (input.kind === "ihealthy") return `/api/quote-pdf?page=ihealthy-ultra&${input.query}&v=${v}`;
+  if (input.kind === "ihealthy") {
+    return `/api/quote-pdf?page=ihealthy-ultra&${input.query}${input.lang === "en" ? "&l=en" : ""}&v=${v}`;
+  }
   const page = pageForPlan(input.planCode);
   if (!page) return undefined;
   const query = planQueryFor({
@@ -112,6 +114,8 @@ export function pagePathFor(pdfPath: string): string | undefined {
   params.delete("page");
   params.delete("v");
   params.delete(EXTERNAL_BROWSER);
+  // the page takes its language from a cookie, never from its address
+  params.delete("l");
   const path = page === "ihealthy-ultra"
     ? "/ihealthy-ultra"
     : Object.hasOwn(PLAN_PAGES, page) ? PLAN_PAGES[page as PlanPage].path : undefined;

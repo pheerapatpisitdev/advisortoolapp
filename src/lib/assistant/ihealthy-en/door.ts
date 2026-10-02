@@ -14,15 +14,21 @@ import { answerHealthEn } from "./answer";
  * language — English unless the customer writes Thai (owner, 2026-10-02) — and the person
  * travels across a switch either way, so nobody is asked their age twice for changing language.
  */
+/** The language this message is answered in: English unless it is written in Thai. */
+export function expatLanguage(asked: string, stored: AnySlots | null): ChatLang {
+  const health = stored && "product" in stored && stored.product === "ihealthy" ? stored as HealthSlots : null;
+  const previous: ChatLang | undefined = stored ? (health?.lang === "en" ? "en" : "th") : undefined;
+  return languageOf(asked, previous);
+}
+
 export async function answerExpat(
   history: ChatMessage[], stored: AnySlots | null,
 ): Promise<AnyAnswer> {
   const last = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
   const health = stored && "product" in stored && stored.product === "ihealthy" ? stored as HealthSlots : null;
-  const previous: ChatLang | undefined = stored ? (health?.lang === "en" ? "en" : "th") : undefined;
   const carried = health ?? personOf(stored);
 
-  if (languageOf(last, previous) === "en") return answerHealthEn(history, carried);
+  if (expatLanguage(last, stored) === "en") return answerHealthEn(history, carried);
 
   const thai = carried ? withoutLang(carried) : null;
   const answer = await answerHealth(history, thai);

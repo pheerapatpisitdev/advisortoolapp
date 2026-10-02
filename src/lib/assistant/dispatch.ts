@@ -21,7 +21,7 @@ import { writtenFor, type Channel } from "./channel";
 import { answerFromLibrary } from "@/lib/copilot/library";
 import { recruitReply } from "./recruit";
 import { isExpatPage } from "./expat";
-import { answerExpat } from "./ihealthy-en/door";
+import { answerExpat, expatLanguage } from "./ihealthy-en/door";
 
 /** The last line of the menu, which is how a turn knows the menu was the last thing said. */
 const ASKED_WHICH = "สนใจแบบไหนครับ";
@@ -121,7 +121,6 @@ export async function answerAny(
    */
   pageId?: string,
 ): Promise<AnyAnswer> {
-  if (isExpatPage(pageId)) return answerExpat(history, stored);
   const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
   const lastSaid = [...history].reverse().find((m) => m.role === "assistant")?.content;
 
@@ -144,6 +143,19 @@ export async function answerAny(
    * untouched. A message that only sounds like it (group cover, joining the team, the form's own
    * conversation) is turned away inside `pdfTurn` and reaches its own path here.
    */
+  /**
+   * The Expat Pages take the same PDF turn and the same offer, in the conversation's language,
+   * and their own door for everything else (./ihealthy-en/door).
+   */
+  if (isExpatPage(pageId)) {
+    const lang = expatLanguage(asked, slots);
+    const asks = pdfTurn(asked, lastSaid, memory, channel, lang);
+    if (asks) {
+      return { ...asks.reply, slots: { ...(slots ?? { product: "ihealthy", intent: "other" }), pdf: asks.memory } as WithPdf<AnySlots> };
+    }
+    return withPdfOffer(await answerExpat(history, slots), memory, lang);
+  }
+
   const turn = pdfTurn(asked, lastSaid, memory, channel);
   if (turn) {
     return { ...turn.reply, slots: { ...(slots ?? { product: "undecided" }), pdf: turn.memory } as WithPdf<AnySlots> };
