@@ -233,6 +233,17 @@ const staleClaim = (now = new Date()) =>
 const offPage = () => `publish_state.is.null,publish_state.not.in.(${ON_PAGE_STATES.join(",")}),${staleClaim()}`;
 
 /** `offset`: the pieces already shown, for โหลดเพิ่ม — newest first, so the next page is older. `pageId`: one Page's project */
+/**
+ * A piece by its id, whoever is asking — for work no person asked for: a render service's
+ * callback, a job collected after the answer went back (src/lib/video/jobs.ts). Never answer a
+ * person's request with it; getContent is the one that checks the piece is theirs.
+ */
+export async function getContentUnscoped(id: string): Promise<ContentItem | null> {
+  const { data, error } = await supabaseAdmin().from("ins_content").select(COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? toItem(data as Record<string, unknown>) : null;
+}
+
 export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);

@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import type { EditPass } from "@/lib/content/clip";
 import { chargeSatang, holdSatangFor } from "./money";
 import { releaseWallet, returnFreeRound, settleWallet } from "./store";
 
@@ -90,4 +91,28 @@ export async function payRound<R extends Outcome>(pass: Extract<RoundPass, { ok:
     console.error("wallet settle failed:", e);
   }
   return result;
+}
+
+/**
+ * Settles a round whose work finished after the answer went back — a clip's render, collected
+ * by a poll or a webhook (src/lib/video/jobs.ts). Delivered: a wallet round is charged its cost
+ * times the multiplier, never past its hold. Not delivered: a wallet round's hold comes back,
+ * a free round goes back to the count. Staff, and a free round that delivered, owe nothing.
+ * A settle that fails is logged, as payRound's is: the hold is swept back in fifteen minutes.
+ */
+export async function settleLater(pass: EditPass, delivered: boolean, costThb: number): Promise<void> {
+  if (pass.paidBy === "free") {
+    if (!delivered) await giveBack({ ok: true, ...pass });
+    return;
+  }
+  if (pass.paidBy !== "wallet") return;
+  try {
+    if (!delivered) { await releaseWallet(pass.holdId); return; }
+    if (holdSatangFor(costThb, pass.multiplier) > pass.heldSatang) {
+      console.warn(`wallet hold ${pass.holdId}: the job cost more than it held; charged the hold`);
+    }
+    await settleWallet(pass.holdId, chargeSatang(costThb, pass.multiplier, pass.heldSatang), costThb);
+  } catch (e) {
+    console.error(`wallet hold ${pass.holdId} not settled:`, e instanceof Error ? e.message : e);
+  }
 }

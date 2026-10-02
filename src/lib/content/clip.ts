@@ -78,6 +78,8 @@ export interface EditJob {
   costThb?: number;
   /** engines already asked for this job, so a retry goes to the other */
   tried: EngineName[];
+  /** when a poll or a webhook claimed the finished job to collect it (src/lib/video/jobs.ts); others leave it alone */
+  collecting?: string;
 }
 /** An agent's edit of a clip (owner, 2026-10-02): what is cut, the subtitles, the hook, the look. */
 export interface ClipEdit {
