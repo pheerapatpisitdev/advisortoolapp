@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ModePremium } from "@/calc/mode-premiums";
-import { lifeProtectChatQuoteText, lifeProtectMessage, lifeProtectQuoteText } from "@/lib/lifeprotect-cta";
+import { lifeProtectCashText, lifeProtectChatQuoteText, lifeProtectMessage, lifeProtectQuoteText } from "@/lib/lifeprotect-cta";
 
 const MONTHLY: ModePremium = { mode: "monthly", total: 258_300, belowMinimum: false };
 const ANNUAL: ModePremium = { mode: "annual", total: 600_000, belowMinimum: false };
@@ -34,6 +34,21 @@ describe("lifeProtectMessage", () => {
   });
 });
 
+describe("lifeProtectCashText", () => {
+  it("is a message of its own, one row a line", () => {
+    expect(lifeProtectCashText([{ age: 60, amount: 2_000 }, { age: 99, amount: 1_547_000 }])).toBe([
+      "🏦 หากขายคืนบริษัทจะได้",
+      "",
+      "- อายุ 60 ปี 2,000 บาท",
+      "- อายุ 99 ปี 1,547,000 บาท",
+    ].join("\n"));
+  });
+
+  it("says nothing when the table has no rows", () => {
+    expect(lifeProtectCashText([])).toBeUndefined();
+  });
+});
+
 describe("lifeProtectQuoteText", () => {
   // ชาย 35 · 1 ล้าน · จ่ายถึงอายุ 99: the figures the page shows for its opening case
   const modes: ModePremium[] = [
@@ -43,7 +58,7 @@ describe("lifeProtectQuoteText", () => {
   ];
   const death = { beforeAge: 60, sumBefore: 2_000_000, sumFrom: 1_000_000, alreadyPastAge: false };
 
-  it("writes every figure on the card, in the card's order", () => {
+  it("writes the card's figures in its order, without the cash values", () => {
     const text = lifeProtectQuoteText({
       sumAssured: 1_000_000, termLabel: "จ่ายถึงอายุ 99", age: 35, sex: "M", modes, death,
       cash: [{ age: 60, amount: 123_456 }, { age: 99, amount: 1_000_000 }],
@@ -51,10 +66,9 @@ describe("lifeProtectQuoteText", () => {
     expect(text).toBe([
       "🛡️ Life Protect x 2",
       "ทุน 1,000,000 บาท เพิ่มเป็น 2,000,000 ถึงอายุ 60",
-      "",
       "ชาย อายุ 35 · จ่ายถึงอายุ 99",
-      "💰 เบี้ยประมาณ 1,548 บาท/เดือน (ตกวันละ 48 บาท)",
       "",
+      "💰 เบี้ยประมาณ 1,548 บาท/เดือน (ตกวันละ 48 บาท)",
       "รายเดือน 1,548 บาท",
       "ราย 6 เดือน 8,944 บาท",
       "รายปี 17,200 บาท",
@@ -62,10 +76,6 @@ describe("lifeProtectQuoteText", () => {
       "👪 ครอบครัวได้รับเมื่อเสียชีวิต",
       "- เสียชีวิตก่อนอายุ 60 ปี 2,000,000 บาท",
       "- อายุ 60 ปีขึ้นไป 1,000,000 บาท",
-      "",
-      "🏦 หากขายคืนบริษัทจะได้",
-      "- อายุ 60 ปี 123,456 บาท",
-      "- อายุ 99 ปี 1,000,000 บาท",
       "",
       "📌 เบี้ยคงที่ตลอดระยะเวลาชำระ",
       "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน",
@@ -90,7 +100,6 @@ describe("lifeProtectQuoteText", () => {
       "💰 เบี้ยประมาณ 1,548 บาท/เดือน (ตกวันละ 48 บาท)",
       "- สัญญาหลัก 716 บาท/เดือน",
       "- สัญญาเพิ่มเติมพีบี ฟิต 832 บาท/เดือน",
-      "",
       "รายเดือน 1,548 บาท",
     ].join("\n"));
   });
@@ -100,13 +109,13 @@ describe("lifeProtectQuoteText", () => {
       sumAssured: 1_000_000, termLabel: "จ่าย 9 ปี", age: 35, sex: "M", modes, death, cash: [],
     });
     expect(text).not.toContain("สัญญาหลัก");
-    expect(text).toContain("💰 เบี้ยประมาณ 1,548 บาท/เดือน (ตกวันละ 48 บาท)\n\nรายเดือน 1,548 บาท");
+    expect(text).toContain("💰 เบี้ยประมาณ 1,548 บาท/เดือน (ตกวันละ 48 บาท)\nรายเดือน 1,548 บาท");
   });
 
   it("promises no doubling to an insured already past the age it stops at", () => {
     const past = { beforeAge: 60, sumBefore: 1_000_000, sumFrom: 1_000_000, alreadyPastAge: true };
     const text = lifeProtectQuoteText({ sumAssured: 1_000_000, termLabel: "จ่าย 9 ปี", age: 62, sex: "M", modes, death: past, cash: [] });
-    expect(text).toContain("🛡️ Life Protect x 2\nทุน 1,000,000 บาท\n\nชาย อายุ 62");
+    expect(text).toContain("🛡️ Life Protect x 2\nทุน 1,000,000 บาท\nชาย อายุ 62");
     expect(text).not.toContain("เพิ่มเป็น");
   });
 

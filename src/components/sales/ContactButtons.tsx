@@ -9,9 +9,11 @@ import type { ContactWords } from "@/lib/ihealthy-words";
  * Facebook Page — the owner took them all out (2026-09-23).
  */
 export function ContactButtons(
-  { copyText, cardPath, tableCardPath, tableLabel, diseaseCardPath, compact = false, words }:
+  { copyText, secondCopy, cardPath, tableCardPath, tableLabel, diseaseCardPath, compact = false, words }:
     {
-      copyText?: string; cardPath?: string; tableCardPath?: string;
+      copyText?: string; cardPath?: string;
+      /** a second message to paste after the first, with the words on its own button */
+      secondCopy?: { text: string; full: string; compact: string }; tableCardPath?: string;
       /** what the table's button says, for a plan whose table is not a table of values */
       tableLabel?: { full: string; compact: string };
       /** the contract's illnesses as a picture — the same for every customer, so it needs no quote */
@@ -54,6 +56,14 @@ export function ContactButtons(
           <SendButton text={copyText} compact={compact} words={words?.send} className={`${shape} border border-[var(--lg-gold)] text-[var(--lg-gold)]`} />
           <CopyButton text={copyText} compact={compact} words={words?.copy} className={`${shape} border border-[var(--lg-panel-line)] text-[var(--lg-mute)]`} />
         </>
+      )}
+      {copyText && secondCopy && (
+        <CopyButton
+          text={secondCopy.text}
+          compact={compact}
+          words={{ full: secondCopy.full, compact: secondCopy.compact, copied: "คัดลอกแล้ว ✓" }}
+          className={`${shape} border border-[var(--lg-panel-line)] text-[var(--lg-mute)]`}
+        />
       )}
     </div>
   );

@@ -61,8 +61,8 @@ export interface LifeProtectQuoteFacts {
 }
 
 /**
- * The quote as the agent pastes it into a chat: every figure the card shows, in the order
- * the card shows it, so what the customer reads in the chat is what they saw on the page.
+ * The quote as the agent pastes it into a chat: the card's figures in the card's order, except
+ * the cash values, which the owner sends as a second message (2026-10-03).
  */
 export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
   const [headline] = f.modes;
@@ -78,8 +78,8 @@ export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
     // of them reads as a broadcast rather than as an agent answering
     "🛡️ Life Protect x 2",
     sum,
-    "",
     `${SEX_WORD[f.sex]} อายุ ${ageWord(f.age)} · ${f.termLabel}`,
+    "",
     `💰 เบี้ยประมาณ ${formatBaht(headline.total)} บาท${PER[headline.mode]}` + (annual ? ` (ตกวันละ ${perDayText(annual.total)} บาท)` : ""),
     // the parts of that figure, so a customer reading a bigger number than the plan's own
     // price can see at once what the rest of it buys
@@ -89,7 +89,6 @@ export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
         `- ${f.rider.name} ${formatBaht(f.rider.own.total)} บาท${PER[f.rider.own.mode]}`,
       ]
       : []),
-    "",
     // one instalment a line, smallest first, whichever the card headlines
     ...INSTALMENT_ORDER.flatMap((mode) => {
       const m = f.modes.find((x) => x.mode === mode);
@@ -98,12 +97,22 @@ export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
     "",
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต",
     ...deathBenefitRows(f.death).map((r) => `- ${r.label} ${baht(r.amount)} บาท`),
+    // the cash values are a message of their own (lifeProtectCashText), sent after this one
+    "",
+    "📌 เบี้ยคงที่ตลอดระยะเวลาชำระ",
+    "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน",
   ];
-  if (f.cash.length > 0) {
-    lines.push("", "🏦 หากขายคืนบริษัทจะได้", ...f.cash.map((r) => `- อายุ ${r.age} ปี ${baht(r.amount)} บาท`));
-  }
-  lines.push("", "📌 เบี้ยคงที่ตลอดระยะเวลาชำระ", "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน");
   return lines.join("\n");
+}
+
+/**
+ * What the customer gets back by selling the contract to the company, as a message apart from
+ * the quote: read inside the quote it looked to customers like money lost, and the owner
+ * would rather send it when they ask (2026-10-03). Undefined when the table has no rows.
+ */
+export function lifeProtectCashText(cash: CashRow[]): string | undefined {
+  if (cash.length === 0) return undefined;
+  return ["🏦 หากขายคืนบริษัทจะได้", "", ...cash.map((r) => `- อายุ ${r.age} ปี ${r.amount.toLocaleString("en-US")} บาท`)].join("\n");
 }
 
 /**

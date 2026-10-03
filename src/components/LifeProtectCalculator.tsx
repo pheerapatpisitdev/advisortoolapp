@@ -13,7 +13,7 @@ import {
 import { cashProjection } from "@/lib/cash-projection";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
-import { ageWord, lifeProtectQuoteText, type LifeProtectAge } from "@/lib/lifeprotect-cta";
+import { ageWord, lifeProtectCashText, lifeProtectQuoteText, type LifeProtectAge } from "@/lib/lifeprotect-cta";
 import { cardPath, valueTablePath } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
@@ -207,6 +207,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         : undefined,
     })
     : undefined;
+  const cashText = quoteText ? lifeProtectCashText(cash) : undefined;
+  const secondCopy = cashText ? { text: cashText, full: "คัดลอกมูลค่าขายคืน", compact: "ขายคืน" } : undefined;
 
   /**
    * The figure on a term button: that term's yearly premium, once there is an age. Yearly on
@@ -550,11 +552,11 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         </div>
       )}
 
-      <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} />
+      <ContactButtons copyText={quoteText} secondCopy={secondCopy} cardPath={card} tableCardPath={tableCard} />
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
-          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} compact />
+          <ContactButtons copyText={quoteText} secondCopy={secondCopy} cardPath={card} tableCardPath={tableCard} compact />
         </div>
       )}
     </div>
