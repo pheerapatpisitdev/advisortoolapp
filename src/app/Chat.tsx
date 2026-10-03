@@ -5,6 +5,7 @@ import { askCopilot } from "./actions";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
 import type { GuideItem } from "@/lib/copilot/guide";
+import { withoutParticles } from "@/lib/assistant/voice";
 
 /**
  * The two pieces of markdown a model reaches for, drawn rather than printed — and a bare
@@ -298,7 +299,7 @@ export function Chat({ invite = false }: { invite?: boolean }) {
                   : "min-w-0 max-w-[92%] rounded-2xl rounded-bl-sm border border-[var(--hm-line)] bg-[var(--hm-panel)] px-4 py-3 text-sm leading-relaxed text-[var(--hm-ink)]"
               }
             >
-              {t.role === "assistant" ? <Rich text={t.text} /> : <p className="whitespace-pre-wrap">{t.text}</p>}
+              {t.role === "assistant" ? <Rich text={withoutParticles(t.text)} /> : <p className="whitespace-pre-wrap">{t.text}</p>}
               {/* the picture the engine drew, which is the thing an agent forwards to a
                   customer — drawn server-side from the same figures the words above carry */}
               {t.cards?.map((card) => (

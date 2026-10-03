@@ -11,20 +11,17 @@
  * exactly alone. Nothing here is a translation: it is one particle and one pronoun.
  */
 
-export type Voice = "male" | "female";
+export type Voice = "male" | "female" | "neutral";
 
 /**
- * The Pages that keep the ครับ the copy is written in. Every other Page speaks ค่ะ.
+ * Every Page now speaks without the particle (owner, 2026-10-03: "เอาออกให้หมดเลย").
  *
- * A list of the exceptions rather than a row per Page, because a Page connected tomorrow
- * should already have a voice, and the one it should have is the one the other two use.
+ * The line a customer reads ends where the sentence ends, with no ครับ or ค่ะ, so the same
+ * words suit whoever is at the keyboard. The male and female voices stay in `spokenBy` for the
+ * day a Page asks for one back; `voiceOf` is the one place that decides, and it decides for all.
  */
-const SPEAKS_AS_A_MAN = new Set([
-  "103716981993581", // ประกันเพื่อคนวัยทำงาน
-]);
-
-export function voiceOf(pageId?: string): Voice {
-  return pageId && SPEAKS_AS_A_MAN.has(pageId) ? "male" : "female";
+export function voiceOf(_pageId?: string): Voice {
+  return "neutral";
 }
 
 /**
@@ -58,10 +55,26 @@ const I_MYSELF = /(?<!เส้น|ทรง|โกน|สระ|ย้อม|�
  */
 export function spokenBy(voice: Voice, text: string): string {
   if (voice === "male") return text;
+  if (voice === "neutral") return withoutParticles(text);
   return text
     .replace(/ครับผม/g, "ค่ะ")
     .replace(/นะครับ/g, "นะคะ")
     .replace(ASKS, "$1คะ")
     .replace(/ครับ/g, "ค่ะ")
     .replace(I_MYSELF, "เรา");
+}
+
+/**
+ * The line with its ครับ / ค่ะ / คะ taken off.
+ *
+ * คะ is only a particle when nothing Thai follows it: "คะแนน" is a score and must survive.
+ * What a particle leaves behind — a space before a line break, or two spaces side by side —
+ * is tidied, so "ขอบคุณครับ 🙏" reads "ขอบคุณ 🙏" and "ได้เลยครับ\n" loses nothing but the word.
+ */
+export function withoutParticles(text: string): string {
+  return text
+    .replace(/ครับผม|ครับ|ค่ะ|คะ(?![\u0E00-\u0E7F])/g, "")
+    .replace(I_MYSELF, "เรา")
+    .replace(/(\S) {2,}/g, "$1 ")
+    .replace(/[ \t]+(?=\n|$)/g, "");
 }

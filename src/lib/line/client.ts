@@ -7,6 +7,8 @@
  * thinking — rare, and better than silence.
  */
 
+import { withoutParticles } from "@/lib/assistant/voice";
+
 const API = "https://api.line.me/v2/bot";
 
 /** LINE takes at most five messages in one reply, and at most this many characters in each. */
@@ -75,7 +77,7 @@ export function toMessages(said: Said[], replies?: string[]): LineMessage[] {
   }
 
   const messages: LineMessage[] = parts.slice(0, MAX_MESSAGES).map((p) => ("text" in p
-    ? { type: "text", text: p.text }
+    ? { type: "text", text: withoutParticles(p.text) }
     : { type: "image", originalContentUrl: p.image, previewImageUrl: p.image }));
   if (replies?.length && messages.length) messages[messages.length - 1].quickReply = quickReply(replies);
   return messages;

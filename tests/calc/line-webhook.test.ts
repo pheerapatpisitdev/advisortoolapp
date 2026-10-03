@@ -132,7 +132,7 @@ describe("a LINE customer's message", () => {
     answer.mockRejectedValue(new Error("ล่ม"));
     await expect(handle(said("ขอราคาหน่อย"))).rejects.toThrow();
     expect(answer).toHaveBeenCalledTimes(2);
-    expect(replies[0][0]).toMatchObject({ text: "ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏" });
+    expect(replies[0][0]).toMatchObject({ text: "ขออภัย ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะ 🙏" });
   });
 });
 
@@ -186,7 +186,7 @@ describe("a PDF the customer asked for", () => {
     }));
     await handle(said("ขอไฟล์ PDF") as never);
     const texts = (replies[0] ?? pushes[0]).map((m) => (m.type === "text" ? m.text : ""));
-    expect(texts[0]).toBe("ไฟล์ PDF ของเบี้ยล่าสุดครับ");
+    expect(texts[0]).toBe("ไฟล์ PDF ของเบี้ยล่าสุด");
     // LINE's own browser on Android does not open a PDF: the flag sends it to the phone's
     expect(texts).toContain(`${siteUrl(pdf)}&openExternalBrowser=1`);
   });
@@ -201,7 +201,7 @@ describe("a PDF the customer asked for", () => {
     await handle(said("ขอไฟล์ PDF") as never);
     const texts = (replies[0] ?? pushes[0]).map((m) => (m.type === "text" ? m.text : ""));
     expect(texts).toEqual([
-      "ไฟล์ PDF ของเบี้ยล่าสุดครับ",
+      "ไฟล์ PDF ของเบี้ยล่าสุด",
       `${siteUrl(pdf)}&openExternalBrowser=1`,
       `${siteUrl(pdf2)}&openExternalBrowser=1`,
     ]);
