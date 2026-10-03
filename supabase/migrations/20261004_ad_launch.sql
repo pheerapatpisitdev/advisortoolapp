@@ -6,6 +6,14 @@
 -- made and the last step that finished, so a retry resumes at the step that broke instead of
 -- creating a second campaign, and the page can say which step failed.
 --
+-- claimed_at is the lock a request takes before it runs the steps, so two clicks or two tabs
+-- resuming the same row do not both create a campaign; a claim older than a couple of minutes
+-- is a request that died and may be taken over.
+--
+-- piece_id is set null when the piece is deleted: the row holds real ad ids and spend history
+-- that must outlive the piece, and a plain foreign key would make deleting a piece fail after
+-- its pictures were already removed.
+--
 -- Everything is created PAUSED; activated_at is set only when the owner presses the separate
 -- switch-on button. superseded retires an attempt the owner chose to start over, which frees
 -- the (piece, account) pair for a new row.
@@ -16,7 +24,7 @@
 create table if not exists public.ins_ad_launch (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
-  piece_id uuid not null references public.ins_content(id),
+  piece_id uuid references public.ins_content(id) on delete set null,
   act_id text not null,
   page_id text not null,
   link text not null,
@@ -34,6 +42,7 @@ create table if not exists public.ins_ad_launch (
   step text not null default 'none' check (step in ('none', 'campaign', 'adset', 'creative', 'ad')),
   error text,
   activated_at timestamptz,
+  claimed_at timestamptz,
   superseded boolean not null default false,
   created_by uuid
 );

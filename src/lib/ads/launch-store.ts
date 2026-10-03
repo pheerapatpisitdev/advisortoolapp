@@ -15,7 +15,8 @@ export type LaunchStep = "none" | "campaign" | "adset" | "creative" | "ad";
 export interface LaunchRow {
   id: string;
   createdAt: string;
-  pieceId: string;
+  /** null once the piece was deleted; the launch record stays for its ad ids */
+  pieceId: string | null;
   /** Meta's ad account id, with its `act_` prefix */
   actId: string;
   pageId: string;
@@ -36,6 +37,8 @@ export interface LaunchRow {
   error: string | null;
   /** when the owner switched it on; null while it is still paused */
   activatedAt: string | null;
+  /** when a request took the launch to run it; null when nobody holds it */
+  claimedAt: string | null;
   superseded: boolean;
   createdBy: string | null;
 }
@@ -63,7 +66,7 @@ const UNIQUE_VIOLATION = "23505";
 interface DbRow {
   id: string;
   created_at: string;
-  piece_id: string;
+  piece_id: string | null;
   act_id: string;
   page_id: string;
   link: string;
@@ -80,6 +83,7 @@ interface DbRow {
   step: LaunchStep;
   error: string | null;
   activated_at: string | null;
+  claimed_at: string | null;
   superseded: boolean;
   created_by: string | null;
 }
@@ -105,6 +109,7 @@ function fromDb(r: DbRow): LaunchRow {
     step: r.step,
     error: r.error,
     activatedAt: r.activated_at,
+    claimedAt: r.claimed_at,
     superseded: r.superseded,
     createdBy: r.created_by,
   };
@@ -188,5 +193,33 @@ export async function markActivated(id: string, at: string): Promise<void> {
 /** Retires an attempt so the piece and account can be launched afresh. */
 export async function supersede(id: string): Promise<void> {
   const { error } = await supabaseAdmin().from("ins_ad_launch").update({ superseded: true }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** A claim older than this is a request that died: the launch may be claimed again. */
+const CLAIM_STALE_MS = 120_000;
+
+/**
+ * Takes the launch to run it: true if this request now holds it, false if another does.
+ *
+ * createLaunch hands the same row to two concurrent requests; without this both would resume
+ * at the same step and both create a campaign on Meta. One conditional update decides who
+ * goes on. The timestamp is quoted for PostgREST, since it holds its reserved "." and ":".
+ */
+export async function claimLaunch(id: string, staleMs = CLAIM_STALE_MS, now = new Date()): Promise<boolean> {
+  const staleBefore = new Date(now.getTime() - staleMs).toISOString();
+  const { data, error } = await supabaseAdmin()
+    .from("ins_ad_launch")
+    .update({ claimed_at: now.toISOString() })
+    .eq("id", id)
+    .or(`claimed_at.is.null,claimed_at.lt."${staleBefore}"`)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length === 1;
+}
+
+/** Gives the launch back once the request is done with it, whether the steps worked or not. */
+export async function releaseLaunch(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_ad_launch").update({ claimed_at: null }).eq("id", id);
   if (error) throw new Error(error.message);
 }
