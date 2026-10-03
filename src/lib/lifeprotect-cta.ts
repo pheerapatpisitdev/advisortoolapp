@@ -100,7 +100,7 @@ export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
     ...deathBenefitRows(f.death).map((r) => `- ${r.label} ${baht(r.amount)} บาท`),
   ];
   if (f.cash.length > 0) {
-    lines.push("", "🏦 มูลค่าเงินสดสะสม (หากเวนคืน)", ...f.cash.map((r) => `- อายุ ${r.age} ปี ${baht(r.amount)} บาท`));
+    lines.push("", "🏦 หากขายคืนบริษัทจะได้", ...f.cash.map((r) => `- อายุ ${r.age} ปี ${baht(r.amount)} บาท`));
   }
   lines.push("", "📌 เบี้ยคงที่ตลอดระยะเวลาชำระ", "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน");
   return lines.join("\n");
