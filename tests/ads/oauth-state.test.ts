@@ -98,3 +98,63 @@ describe("which configuration each login goes through", () => {
     expect(ads.searchParams.get("config_id")).toBeNull();
   });
 });
+
+/**
+ * The third login: creating ads, which needs `ads_management`. Same screen, same state, its own
+ * configuration — and the purpose is inside the signature, so a state signed for the Page or
+ * the ads_read login can never come back as this one.
+ */
+describe("the ads-manage purpose", () => {
+  it("carries ads-manage, signed", async () => {
+    const { makeState, statePurpose } = await import("@/lib/facebook/oauth");
+    const s = makeState("ads-manage", "n1");
+    expect(statePurpose(s, "n1")).toBe("ads-manage");
+  });
+
+  it("cannot be swapped to or from the Page and ads_read purposes", async () => {
+    const { makeState, statePurpose } = await import("@/lib/facebook/oauth");
+    for (const other of ["pages", "ads"] as const) {
+      // signed for the other purpose, relabelled ads-manage
+      const toManage = makeState(other, "n1").replace(`.${other}.`, ".ads-manage.");
+      expect(statePurpose(toManage, "n1")).toBeUndefined();
+      // signed for ads-manage, relabelled as the other
+      const fromManage = makeState("ads-manage", "n1").replace(".ads-manage.", `.${other}.`);
+      expect(statePurpose(fromManage, "n1")).toBeUndefined();
+    }
+  });
+
+  it("is refused in a browser without the nonce, like the other purposes", async () => {
+    const { makeState, statePurpose } = await import("@/lib/facebook/oauth");
+    const s = makeState("ads-manage", "n1");
+    expect(statePurpose(s, null)).toBeUndefined();
+    expect(statePurpose(s, "n2")).toBeUndefined();
+  });
+
+  it("goes through its own configuration, never the Page or ads_read ones", async () => {
+    process.env.FB_LOGIN_CONFIG_ID = "page-config";
+    process.env.FB_ADS_LOGIN_CONFIG_ID = "ads-config";
+    process.env.FB_ADS_MANAGE_CONFIG_ID = "manage-config";
+    const { authorizeUrl, makeState, adsManageOauthIsConfigured } = await import("@/lib/facebook/oauth");
+    const url = new URL(authorizeUrl("https://x.test", makeState("ads-manage"), "ads-manage"));
+    expect(url.searchParams.get("config_id")).toBe("manage-config");
+    expect(adsManageOauthIsConfigured()).toBe(true);
+  });
+
+  it("does not fall back to another configuration when its own is missing", async () => {
+    process.env.FB_LOGIN_CONFIG_ID = "page-config";
+    process.env.FB_ADS_LOGIN_CONFIG_ID = "ads-config";
+    delete process.env.FB_ADS_MANAGE_CONFIG_ID;
+    const { authorizeUrl, makeState, adsManageOauthIsConfigured, adsManageConfigId } = await import("@/lib/facebook/oauth");
+    expect(adsManageConfigId()).toBeUndefined();
+    expect(adsManageOauthIsConfigured()).toBe(false);
+    const url = new URL(authorizeUrl("https://x.test", makeState("ads-manage"), "ads-manage"));
+    expect(url.searchParams.get("config_id")).toBeNull();
+    expect(url.searchParams.get("scope")).toBe("ads_management,pages_show_list,pages_read_engagement,pages_manage_ads");
+  });
+
+  it("treats an empty configuration as missing", async () => {
+    process.env.FB_ADS_MANAGE_CONFIG_ID = "";
+    const { adsManageOauthIsConfigured } = await import("@/lib/facebook/oauth");
+    expect(adsManageOauthIsConfigured()).toBe(false);
+  });
+});

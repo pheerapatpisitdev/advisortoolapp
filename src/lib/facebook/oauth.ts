@@ -30,8 +30,18 @@ export const SCOPES = ["pages_show_list", "pages_messaging", "pages_manage_metad
  */
 export const ADS_SCOPES = ["ads_read"];
 
-/** Why somebody is going through the login: for the bot's Pages, or for the ad figures. */
-export type LoginPurpose = "pages" | "ads";
+/**
+ * What creating ads from Studio asks for. `ads_management` is the one that can spend money, so
+ * it is its own login, apart from `ads_read` above — the person who only wants a spend report
+ * is never shown it. The Page scopes are the ones Meta wants beside it to attach a Page to an ad.
+ */
+export const ADS_MANAGE_SCOPES = ["ads_management", "pages_show_list", "pages_read_engagement", "pages_manage_ads"];
+
+/** Why somebody is going through the login: for the bot's Pages, for the ad figures, or to create ads. */
+export type LoginPurpose = "pages" | "ads" | "ads-manage";
+
+/** Every purpose the state may carry; parseState checks against this, the signature binds the one chosen. */
+const PURPOSES: readonly LoginPurpose[] = ["pages", "ads", "ads-manage"];
 
 /**
  * The events the webhook actually handles: typed messages, taps on ice breakers or buttons,
@@ -98,6 +108,23 @@ export function adsOauthIsConfigured(): boolean {
   return oauthIsConfigured() && Boolean(adsLoginConfigId());
 }
 
+/**
+ * The login configuration for creating ads.
+ *
+ * Its own, for the same reason as the one above: a Business login replaces the whole grant, so
+ * going through the Page configuration would put the Page picker in front of somebody who came
+ * to run an ad, and going through the ads_read one would grant nothing that can create. No
+ * fallback to either — a missing value means the login is off, not "use the nearest one".
+ */
+export function adsManageConfigId(): string | undefined {
+  return process.env.FB_ADS_MANAGE_CONFIG_ID || undefined;
+}
+
+/** Whether the ads-manage login can be offered at all; without its own configuration it cannot. */
+export function adsManageOauthIsConfigured(): boolean {
+  return oauthIsConfigured() && Boolean(adsManageConfigId());
+}
+
 /** Meta matches this against its allow-list character for character. */
 export function redirectUri(origin: string): string {
   return `${origin}/api/facebook/connect/callback`;
@@ -139,7 +166,7 @@ export function newStateNonce(): string {
 /**
  * Signed and short-lived, so a link someone else crafts cannot start a connection for us.
  * The purpose is inside the signature: a state that said "pages" on the way out cannot come
- * back saying "ads". The nonce is the one put in the browser's STATE_COOKIE.
+ * back saying "ads" or "ads-manage". The nonce is the one put in the browser's STATE_COOKIE.
  */
 export function makeState(purpose: LoginPurpose = "pages", nonce: string = newStateNonce()): string {
   const expires = String(Date.now() + STATE_TTL_MS);
@@ -157,12 +184,12 @@ function sameText(a: string, b: string): boolean {
 function parseState(state: string | null, browserNonce: string | null | undefined): { purpose: LoginPurpose } | null {
   if (!state || !browserNonce) return null;
   const [expires, nonce, purpose, mac] = state.split(".");
-  if (!expires || !nonce || !mac || (purpose !== "pages" && purpose !== "ads")) return null;
+  if (!expires || !nonce || !mac || !PURPOSES.includes(purpose as LoginPurpose)) return null;
   const expected = createHmac("sha256", stateSecret()).update(`${expires}.${nonce}.${purpose}`).digest("hex");
   if (!sameText(mac, expected)) return null;
   if (Number(expires) <= Date.now()) return null;
   if (!sameText(nonce, browserNonce)) return null;
-  return { purpose };
+  return { purpose: purpose as LoginPurpose };
 }
 
 export function stateIsValid(state: string | null, browserNonce: string | null | undefined): boolean {
@@ -180,7 +207,8 @@ export function statePurpose(state: string | null, browserNonce: string | null |
  * configured the dialog uses it; without, the plain scope list still serves a Consumer app.
  *
  * With a login configuration the ads purpose still depends on the owner having added
- * `ads_read` to that configuration in the dashboard — the URL cannot ask for it.
+ * `ads_read` to that configuration in the dashboard — the URL cannot ask for it. The same goes
+ * for ads-manage and `ads_management`.
  */
 export function authorizeUrl(origin: string, state: string, purpose: LoginPurpose = "pages"): string {
   const params = new URLSearchParams({
@@ -189,12 +217,14 @@ export function authorizeUrl(origin: string, state: string, purpose: LoginPurpos
     state,
     response_type: "code",
   });
-  const config = purpose === "ads" ? adsLoginConfigId() : process.env.FB_LOGIN_CONFIG_ID;
+  const config = purpose === "ads-manage" ? adsManageConfigId()
+    : purpose === "ads" ? adsLoginConfigId()
+    : process.env.FB_LOGIN_CONFIG_ID;
   if (config) {
     params.set("config_id", config);
     params.set("override_default_response_type", "true");
   } else {
-    params.set("scope", (purpose === "ads" ? ADS_SCOPES : SCOPES).join(","));
+    params.set("scope", (purpose === "ads-manage" ? ADS_MANAGE_SCOPES : purpose === "ads" ? ADS_SCOPES : SCOPES).join(","));
   }
   return `${DIALOG}?${params}`;
 }
