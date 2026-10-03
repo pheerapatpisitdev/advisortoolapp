@@ -9,6 +9,8 @@
 export const SEE_OTHER_PLANS_EN = "See other plans";
 export const PLAN_BENEFITS_EN = "Plan benefits";
 export const WANTS_IN_EN = "I want to apply";
+/** The advertisement's own quick-reply button (the ad's message template), matched whatever its case. */
+export const CHECK_PREMIUMS_EN = "Check insurance premiums";
 
 /** The first thing a customer from the advertisement hears. */
 export const GREETING_EN = "Hi, thanks for reaching out! 🙏 We help expats in Thailand get iHealthy Ultra health insurance — "

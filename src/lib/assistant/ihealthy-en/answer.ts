@@ -13,7 +13,7 @@ import {
 } from "./quote";
 import { personInEn, planNamedInEn, routeHealthEn, territoryNamedInEn } from "./route";
 import {
-  APPLY_STEPS_EN, ASK_AGE_EN, ASK_DETAILS_EN, ASK_SEX_EN, COMPANY_EN, FORM_DONE_EN, GREETING_EN,
+  APPLY_STEPS_EN, ASK_AGE_EN, ASK_DETAILS_EN, ASK_SEX_EN, CHECK_PREMIUMS_EN, COMPANY_EN, FORM_DONE_EN, GREETING_EN,
   FORM_NEXT_EN, HAND_OVER_EN, HEALTH_THANKS_EN, PLAN_BENEFITS_EN, PREMIUM_FIRST_EN, SEE_OTHER_PLANS_EN, SHARE_OF_BILL_EN, STALL_EN, WANTS_IN_EN,
 } from "./words";
 
@@ -73,6 +73,19 @@ export async function answerHealthEn(
       messages: [{ text: APPLY_STEPS_EN }, { text: APPLICATION_FORM }, { text: next }],
       slots: { ...known, formSent: true },
     };
+  }
+  /**
+   * The advertisement's "Check insurance premiums" button: the premium, or the two things it
+   * needs. Answered here, before any model reads it — a model read "other" for a customer
+   * already known and rambled instead of showing the table (probe, 2026-10-03). It also
+   * leaves the health question: pressing a button is not answering it.
+   */
+  if (asked.toLowerCase() === CHECK_PREMIUMS_EN.toLowerCase()) {
+    const onward = { ...known };
+    delete onward.healthAsked;
+    return onward.age !== undefined && onward.sex !== undefined
+      ? { ...healthMenuEn(onward.age, onward.sex), slots: onward }
+      : { ...one(ASK_DETAILS_EN), slots: onward };
   }
   /**
    * The reply to the health answer's question: their condition, treatment and medication.

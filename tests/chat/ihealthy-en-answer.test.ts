@@ -14,7 +14,7 @@ vi.mock("@/lib/ai/client", async () => {
 
 const { answerHealthEn } = await import("@/lib/assistant/ihealthy-en/answer");
 const { hospitalReply } = await import("@/lib/assistant/hospitals");
-const { GREETING_EN, HEALTH_THANKS_EN } = await import("@/lib/assistant/ihealthy-en/words");
+const { ASK_DETAILS_EN, CHECK_PREMIUMS_EN, GREETING_EN, HEALTH_THANKS_EN } = await import("@/lib/assistant/ihealthy-en/words");
 const { APPLICATION_FORM } = await import("@/lib/assistant/common");
 
 const said = (content: string) => [{ role: "user" as const, content }];
@@ -29,6 +29,33 @@ describe("the English health brain", () => {
     expect(a.messages[0].text).toBe(GREETING_EN);
     expect(a.slots.lang).toBe("en");
     expect(chat).not.toHaveBeenCalled();
+  });
+
+  describe("the ad's \"Check insurance premiums\" button", () => {
+    it("asks for age and gender without a model when the person is not known", async () => {
+      const a = await answerHealthEn(said(CHECK_PREMIUMS_EN), null);
+      expect(a.messages[0].text).toBe(ASK_DETAILS_EN);
+      expect(a.slots.lang).toBe("en");
+      expect(chat).not.toHaveBeenCalled();
+    });
+
+    it("shows the plan menu without a model when the person is known", async () => {
+      routed = { intent: "other" };
+      const a = await answerHealthEn(said(CHECK_PREMIUMS_EN), KNOWN);
+      expect(a.replies).toEqual(["Bronze", "Silver", "Gold"]);
+      expect(chat).not.toHaveBeenCalled();
+    });
+
+    it("is not taken for the answer to the health question", async () => {
+      const a = await answerHealthEn(said(CHECK_PREMIUMS_EN), { ...KNOWN, healthAsked: true });
+      expect(a.messages[0].text).not.toBe(HEALTH_THANKS_EN);
+      expect(a.replies).toEqual(["Bronze", "Silver", "Gold"]);
+    });
+
+    it("is recognised however the button's text is cased", async () => {
+      const a = await answerHealthEn(said("check insurance premiums"), null);
+      expect(a.messages[0].text).toBe(ASK_DETAILS_EN);
+    });
   });
 
   it("35 male → English menu", async () => {
