@@ -19,7 +19,7 @@ export interface AdAccount {
   connectedAt: string;
 }
 
-interface Row {
+export interface Row {
   key: string;
   page_id: string | null;
   page_name: string | null;
@@ -29,15 +29,17 @@ interface Row {
   updated_at: string;
 }
 
-function passphrase(): string {
+/** The secret the table's RPCs encrypt with; shared with the ads_management store. */
+export function channelPassphrase(): string {
   const s = process.env.ADMIN_SESSION_SECRET;
   if (!s) throw new Error("ADMIN_SESSION_SECRET is not set");
   return s;
 }
 
-async function read(key: string): Promise<Row | null> {
+/** One decrypted row of the channel table, by key; shared with the ads_management store. */
+export async function readChannelAuth(key: string): Promise<Row | null> {
   const { data, error } = await supabaseAdmin()
-    .rpc("ins_get_channel_auth", { p_key: key, p_passphrase: passphrase() });
+    .rpc("ins_get_channel_auth", { p_key: key, p_passphrase: channelPassphrase() });
   if (error) throw new Error(error.message);
   return ((data ?? []) as Row[])[0] ?? null;
 }
@@ -108,7 +110,7 @@ export async function recordAdSync(actId: string, at: string, error: string | nu
 }
 
 export async function adAccountToken(actId: string): Promise<string | null> {
-  return (await read(adsKeyFor(actId)))?.token ?? null;
+  return (await readChannelAuth(adsKeyFor(actId)))?.token ?? null;
 }
 
 export async function saveAdAccount(a: { id: string; name: string; currency: string | null; token: string; scopes: string[] }): Promise<void> {
@@ -119,7 +121,7 @@ export async function saveAdAccount(a: { id: string; name: string; currency: str
     p_token: a.token,
     p_scopes: a.scopes,
     p_fields: a.currency ? [a.currency] : [],
-    p_passphrase: passphrase(),
+    p_passphrase: channelPassphrase(),
   });
   if (error) throw new Error(error.message);
 }
@@ -138,13 +140,13 @@ export async function savePendingAds(userToken: string, scopes: string[]): Promi
     p_token: userToken,
     p_scopes: scopes,
     p_fields: [],
-    p_passphrase: passphrase(),
+    p_passphrase: channelPassphrase(),
   });
   if (error) throw new Error(error.message);
 }
 
 export async function readPendingAds(): Promise<{ token: string; scopes: string[] } | null> {
-  const row = await read(ADS_PENDING_KEY);
+  const row = await readChannelAuth(ADS_PENDING_KEY);
   return row ? { token: row.token, scopes: row.scopes ?? [] } : null;
 }
 

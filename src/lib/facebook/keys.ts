@@ -52,9 +52,35 @@ export function adsKeyFor(actId: string): string {
 }
 
 export function isAdsKey(key: string): boolean {
-  return key === ADS_PENDING_KEY || key.startsWith(ADS_PREFIX);
+  return key === ADS_PENDING_KEY || key.startsWith(ADS_PREFIX) || isAdsManageKey(key);
 }
 
 export function adAccountIdInKey(key: string): string | undefined {
   return key.startsWith(ADS_PREFIX) ? key.slice(ADS_PREFIX.length) || undefined : undefined;
+}
+
+/**
+ * Where the token that may create ads is kept.
+ *
+ * Its own prefix, not `facebook_ads:`, because it is a different grant: `ads_read` can only
+ * look, this one can spend. Sharing a key would let a reconnect of one overwrite the other,
+ * and the figures sync (which reads with the first) would start carrying a token it never
+ * asked for. `facebook_ads_manage:` does not start with `facebook_ads:`, so the readers of
+ * the first prefix never see these rows by accident.
+ */
+const ADS_MANAGE_PREFIX = "facebook_ads_manage:";
+
+/** An ads_management login in progress: the user token, held until an account is chosen. */
+export const ADS_MANAGE_PENDING_KEY = "facebook_ads_manage_pending";
+
+export function adsManageKeyFor(actId: string): string {
+  return `${ADS_MANAGE_PREFIX}${actId}`;
+}
+
+export function isAdsManageKey(key: string): boolean {
+  return key === ADS_MANAGE_PENDING_KEY || key.startsWith(ADS_MANAGE_PREFIX);
+}
+
+export function adsManageAccountIdInKey(key: string): string | undefined {
+  return key.startsWith(ADS_MANAGE_PREFIX) ? key.slice(ADS_MANAGE_PREFIX.length) || undefined : undefined;
 }
