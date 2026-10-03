@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   // the quote cards draw Thai text, and the drawing library needs the font files themselves —
   // the health card reads the same two faces from where the other one keeps them
   outputFileTracingIncludes: {
-    "/api/card": ["./src/app/api/card/*.ttf"],
+    "/api/card": ["./src/app/api/card/*.ttf", "./public/card/family.jpg"],
     "/api/ihealthy-card": ["./src/app/api/card/*.ttf"],
     // the content posters borrow the quote card's Thai faces rather than keep a second copy
     "/api/content-poster": POSTER_FILES,
