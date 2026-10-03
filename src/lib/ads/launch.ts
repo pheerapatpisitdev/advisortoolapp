@@ -16,6 +16,11 @@ import { EXPIRED } from "./sync";
  * Every check that can fail without Meta (budget, currency, link, token, poster) runs before
  * the first request, so a refused launch leaves nothing half-made on the ad account.
  *
+ * Recreating over a launch that was switched on first pauses its campaign (POST /{id}
+ * status=PAUSED, success required). A retired row is no longer found, so an ad left running
+ * under it would keep spending beside the new one and double the daily cap. If the pause
+ * fails, the old row is not retired and nothing new is made.
+ *
  * Fields checked against Marketing API v23.0 before writing; differences from the plan:
  * - Campaign: also sends is_adset_budget_sharing_enabled=false. The budget sits on the ad set,
  *   and Meta refuses such a campaign on some accounts (code 100, subcode 4834011, "You must
@@ -121,6 +126,20 @@ function hashOf(body: Record<string, unknown>): string | null {
   return typeof first?.hash === "string" && first.hash ? first.hash : null;
 }
 
+/**
+ * Pauses the campaign of a launch that is being replaced. Pausing the campaign stops its
+ * ad set and ad with it. Only Meta's {success: true} counts as paused.
+ */
+async function pauseCampaign(fetchFn: typeof fetch, token: string, campaignId: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  const failed = "ปิดแอดเดิมไม่สำเร็จ ลองใหม่อีกครั้ง";
+  // the id becomes a Graph path, as in adEffectiveStatus
+  if (!campaignId || !/^\w+$/.test(campaignId)) return { ok: false, error: failed };
+  const r = await graph(fetchFn, token, campaignId, { status: "PAUSED" });
+  if (!r.ok) return { ok: false, error: r.error === EXPIRED ? EXPIRED : `${failed} — ${r.error}` };
+  if (r.body.success !== true) return { ok: false, error: failed };
+  return { ok: true };
+}
+
 /** The calendar day in Bangkok, so an ad made at 6am Thai time is not named after yesterday. */
 function bangkokDay(d: Date): string {
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
@@ -147,7 +166,15 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
 
   if (input.recreate) {
     const old = await store.findLaunch(input.pieceId, input.actId);
-    if (old) await store.supersede(old.id);
+    if (old) {
+      // a switched-on ad keeps spending after its row is retired; pause it first or the
+      // account would run two ads and the daily cap would be passed twice over
+      if (old.activatedAt) {
+        const paused = await pauseCampaign(fetchFn, token, old.campaignId);
+        if (!paused.ok) return { ok: false, step: "check", error: paused.error };
+      }
+      await store.supersede(old.id);
+    }
   }
 
   const { row: started } = await store.createLaunch({

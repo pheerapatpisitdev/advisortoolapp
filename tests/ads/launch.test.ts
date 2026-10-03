@@ -254,10 +254,67 @@ describe("making the ad", () => {
 
     const fresh = await runLaunch({ ...input, recreate: true }, deps());
     expect(fresh.ok).toBe(true);
-    expect(sent).toHaveLength(5);
+    // the old one was never switched on, so there is nothing to pause
+    expect(sent.map((s) => s.path)).toEqual([
+      "/v23.0/act_1/campaigns", "/v23.0/act_1/adsets", "/v23.0/act_1/adimages", "/v23.0/act_1/adcreatives", "/v23.0/act_1/ads",
+    ]);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ superseded: true, adId: "A1" });
     expect(rows[1]).toMatchObject({ superseded: false, step: "ad", campaignId: "C2", adId: "A2" });
+  });
+
+  async function switchedOn(): Promise<void> {
+    replies = [...FULL];
+    const r = await runLaunch(input, deps());
+    if (!r.ok) throw new Error("setup failed");
+    replies = [ok({ success: true }), ok({ success: true }), ok({ success: true })];
+    expect(await activateLaunch(r.launch.id, deps())).toEqual({ ok: true });
+    sent = [];
+  }
+
+  it("pauses the old campaign before recreating over an ad that is switched on", async () => {
+    await switchedOn();
+    replies = [ok({ success: true }), ok({ id: "C2" }), ok({ id: "S2" }), ok({ images: { bytes: { hash: "H2" } } }), ok({ id: "R2" }), ok({ id: "A2" })];
+
+    const fresh = await runLaunch({ ...input, recreate: true }, deps());
+    expect(fresh.ok).toBe(true);
+    expect(sent.map((s) => s.path)).toEqual([
+      "/v23.0/C1", "/v23.0/act_1/campaigns", "/v23.0/act_1/adsets", "/v23.0/act_1/adimages", "/v23.0/act_1/adcreatives", "/v23.0/act_1/ads",
+    ]);
+    expect(sent[0].method).toBe("POST");
+    expect(sent[0].params.get("status")).toBe("PAUSED");
+    expect(sent[0].auth).toBe("Bearer tok");
+    expect(sent[0].url).not.toContain("tok");
+    for (const i of [1, 2, 5]) expect(sent[i].params.get("status")).toBe("PAUSED");
+    expect(rows[0]).toMatchObject({ superseded: true, campaignId: "C1" });
+    expect(rows[1]).toMatchObject({ superseded: false, step: "ad", campaignId: "C2", activatedAt: null });
+  });
+
+  it.each([
+    ["Meta refuses", fail(100, "cannot pause"), "ปิดแอดเดิมไม่สำเร็จ"],
+    ["Meta does not confirm", ok({ success: false }), "ปิดแอดเดิมไม่สำเร็จ"],
+    ["the token expired", fail(190), EXPIRED],
+  ])("keeps the old launch and makes nothing new when the pause fails: %s", async (_name, reply, message) => {
+    await switchedOn();
+    replies = [reply, ...FULL];
+
+    const result = await runLaunch({ ...input, recreate: true }, deps());
+    expect(result).toMatchObject({ ok: false, step: "check" });
+    expect(!result.ok && result.error).toContain(message);
+    expect(sent.map((s) => s.path)).toEqual(["/v23.0/C1"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].superseded).toBe(false);
+  });
+
+  it("neither pauses nor retires a switched-on ad when the recreate is refused before Meta", async () => {
+    await switchedOn();
+    poster = null;
+    replies = [ok({ success: true }), ...FULL];
+
+    const result = await runLaunch({ ...input, recreate: true }, deps());
+    expect(result).toMatchObject({ ok: false, step: "check" });
+    expect(sent).toHaveLength(0);
+    expect(rows[0].superseded).toBe(false);
   });
 });
 
