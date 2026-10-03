@@ -10,6 +10,7 @@ import { cardPath, diseaseCardPath } from "@/lib/card-link";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import type { Ci123Table } from "@/lib/ci123-table";
 import { Highlighted } from "@/components/Highlighted";
+import { PanelPhoto } from "@/components/sales/PanelPhoto";
 
 const PER_LABEL: Record<PayMode, string> = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" };
 const ROW_MODES: PayMode[] = ["annual", "semi", "monthly"];
@@ -132,7 +133,8 @@ export function Ci123Calculator({ table, sticky = false }: { table: Ci123Table; 
           ชุดนี้รับอายุ {RANGE.min}–{RANGE.max} ปี ทักมาให้เราช่วยหาแบบที่เหมาะกับคุณ
         </div>
       ) : (
-        <div className="space-y-5 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-raise)] p-5">
+        <div className="relative space-y-5 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-raise)] p-5">
+          <PanelPhoto />
           {headline && annual ? (
             <div>
               <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน</div>

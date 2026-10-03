@@ -261,6 +261,23 @@ const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
 const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
 
 /**
+ * The family beside the premium, as the data URI the drawing library takes.
+ *
+ * Read from disk for the same reason as the faces; next.config.ts lists it. Its ground is white,
+ * which is the card's own, so it needs no cut-out. A card that cannot find it is drawn without
+ * rather than not at all — a missing picture must never cost a customer their quote.
+ */
+const PHOTO_SIZE = H.premium + H.perDay + 2 * H.others;
+async function loadPhoto(): Promise<string | undefined> {
+  try {
+    const file = await readFile(path.join(process.cwd(), "public/card/family.jpg"));
+    return `data:image/jpeg;base64,${file.toString("base64")}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * A quote drawn as an image, so LINE can hand a customer the same card the sales page
  * shows — something to keep, and to show whoever else in the house has to agree to it.
  *
@@ -277,10 +294,11 @@ export async function GET(req: NextRequest) {
   /** the theme the plan is sold under, so the card matches the page it was quoted from */
   const p = cardPaletteFor();
 
-  const [regular, semibold, display] = await Promise.all([
+  const [regular, semibold, display, photo] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
     loadFont("Trirong-SemiBold.ttf"),
+    loadPhoto(),
   ]);
 
   return new ImageResponse(
@@ -320,30 +338,42 @@ export async function GET(req: NextRequest) {
           </div>
         </div>
 
-        {card.premium ? (
-          <div style={{ ...band(H.premium), alignItems: "baseline", paddingTop: 14 }}>
-            <div style={{ display: "flex", fontFamily: "Trirong", fontSize: 86, lineHeight: 1, color: p.figure }}>
-              {card.premium.amount}
+        {/* the premium and what it comes to, with the family at the right of them: the picture
+            is laid over the corner of this block, so no band changes height */}
+        <div style={{ display: "flex", flexDirection: "column", position: "relative", flexShrink: 0 }}>
+          {card.premium && photo && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photo} width={PHOTO_SIZE} height={PHOTO_SIZE} alt=""
+              style={{ position: "absolute", right: 0, top: 0, width: PHOTO_SIZE, height: PHOTO_SIZE }}
+            />
+          )}
+          {card.premium ? (
+            <div style={{ ...band(H.premium), alignItems: "baseline", paddingTop: 14 }}>
+              <div style={{ display: "flex", fontFamily: "Trirong", fontSize: 86, lineHeight: 1, color: p.figure }}>
+                {card.premium.amount}
+              </div>
+              <div style={{ display: "flex", fontSize: 30, color: p.mute, marginLeft: 16 }}>
+                บาท {card.premium.per}
+              </div>
             </div>
-            <div style={{ display: "flex", fontSize: 30, color: p.mute, marginLeft: 16 }}>
-              บาท {card.premium.per}
+          ) : (
+            <div style={{ ...band(H.noPrice), fontSize: 34, color: p.accent, alignItems: "center" }}>
+              ขอราคาปัจจุบันได้ทางแชท
             </div>
-          </div>
-        ) : (
-          <div style={{ ...band(H.noPrice), fontSize: 34, color: p.accent, alignItems: "center" }}>
-            ขอราคาปัจจุบันได้ทางแชท
-          </div>
-        )}
-        {card.perDay && (
-          <div style={{ ...band(H.perDay), fontSize: 26, color: p.mute }}>
-            <Marked p={p}>{card.perDay}</Marked>
-          </div>
-        )}
-        {card.others.map((line) => (
-          <div key={line} style={{ ...band(H.others), fontSize: 25, color: p.mute }}>
-            <Marked p={p}>{line}</Marked>
-          </div>
-        ))}
+          )}
+          {card.perDay && (
+            <div style={{ ...band(H.perDay), fontSize: 26, color: p.mute }}>
+              <Marked p={p}>{card.perDay}</Marked>
+            </div>
+          )}
+          {card.others.map((line) => (
+            <div key={line} style={{ ...band(H.others), fontSize: 25, color: p.mute }}>
+              <Marked p={p}>{line}</Marked>
+            </div>
+          ))}
+
+        </div>
 
         {card.sections.map((s) => (
           s.items?.length

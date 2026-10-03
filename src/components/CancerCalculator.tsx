@@ -14,6 +14,7 @@ import { Highlighted } from "@/components/Highlighted";
 import { cardPath } from "@/lib/card-link";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import type { CancerTable } from "@/lib/cancer-table";
+import { PanelPhoto } from "@/components/sales/PanelPhoto";
 
 const PER_LABEL: Record<PayMode, string> = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" };
 const ROW_MODES: PayMode[] = ["annual", "semi", "monthly"];
@@ -137,7 +138,8 @@ export function CancerCalculator({ table, sticky = false }: { table: CancerTable
           ชุดนี้รับอายุ {RANGE.min === 0 ? "แรกเกิด" : RANGE.min}–{RANGE.max} ปี ทักมาให้เราช่วยหาแบบที่เหมาะกับคุณ
         </div>
       ) : (
-        <div className="space-y-5 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-raise)] p-5">
+        <div className="relative space-y-5 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-raise)] p-5">
+          <PanelPhoto />
           {headline && annual ? (
             <div>
               <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน</div>
