@@ -7,6 +7,14 @@
    phones in a browser, once the address bar has taken its share. Width below the desk layout,
    because a laptop's short window has the width to fit the same things in fewer rows. */
 @custom-variant short (@media (max-width: 63.99rem) and (max-height: 47.5rem));
+/* A control's height in Studio: a finger's 44px on a touch screen, and a mouse's 36px on a desk
+   screen with a pointer, where the owner wants the pages tighter (2026-10-04). */
+@utility min-h-tap {
+  min-height: 2.75rem;
+  @media (min-width: 64rem) and (pointer: fine) {
+    min-height: 2.25rem;
+  }
+}
 
 body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Helvetica Neue", Arial, sans-serif;

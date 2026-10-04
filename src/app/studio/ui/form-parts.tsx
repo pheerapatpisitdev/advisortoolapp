@@ -37,7 +37,7 @@ export function FormatPicker({ value, onChange, formats = FORMATS }: { value: Fo
 /** a quiet rule and a name over a run of fields */
 export function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-4 border-t border-[var(--ct-hair)] pt-4">
+    <div className="space-y-3 border-t border-[var(--ct-hair)] pt-3">
       <h3 className="text-xs font-medium text-[var(--ct-mute)]">{title}</h3>
       {children}
     </div>
@@ -64,7 +64,7 @@ export function PictureFold({ summary, children }: { summary: string; children: 
     <div className="rounded-lg border border-[var(--ct-hair)]">
       <button
         type="button" aria-expanded={open} aria-controls={id} onClick={toggle}
-        className="flex min-h-11 w-full items-start justify-between gap-2 px-3 py-2.5 text-left"
+        className="flex min-h-tap w-full items-start justify-between gap-2 px-3 py-2.5 text-left"
       >
         <span className="min-w-0">
           <span className="block text-sm font-medium">ภาพและโมเดล <span className="font-normal text-[var(--ct-mute)]">(ระบบจำไว้ให้)</span></span>
@@ -118,7 +118,7 @@ export function PressBar({ count, max, onCount, unit, label, onPress, disabled, 
             <button type="button" aria-label={`เพิ่ม 1 ${unit}`} disabled={count >= max} onClick={() => onCount(count + 1)} className={step}>+</button>
           </div>
         )}
-        <button type="button" onClick={onPress} disabled={disabled} className="min-h-11 flex-1 rounded-lg bg-[var(--ct-solid)] px-4 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50">
+        <button type="button" onClick={onPress} disabled={disabled} className="min-h-tap flex-1 rounded-lg bg-[var(--ct-solid)] px-4 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50">
           {label}
         </button>
       </div>
@@ -177,7 +177,7 @@ export function useLoop(): [boolean, (on: boolean) => void] {
 /** คลิปวนลูป (owner, 2026-09-27): the ending runs back into the opening line — see prompt.ts LOOP_RULES */
 export function LoopToggle({ value, onChange }: { value: boolean; onChange: (on: boolean) => void }) {
   return (
-    <label className={`flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm ${value ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
+    <label className={`flex min-h-tap cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm ${value ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
       <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
       <span>
         <span className="font-medium">คลิปวนลูป ↻</span> <span className="text-[var(--ct-mute)]">(ระบบจำไว้ให้)</span>
@@ -235,7 +235,7 @@ export function FormulaPicker({ value, onChange }: { value: Formula | null; onCh
       <p className="-mt-1 mb-1 text-xs text-[var(--ct-mute)]">เลือกได้ทีละสูตร · ระบบจำไว้ให้</p>
       <div className="space-y-0.5">
         {FORMULA_OPTIONS.map((o) => (
-          <label key={o.id ?? "none"} className="flex min-h-11 cursor-pointer items-start gap-2.5 py-1">
+          <label key={o.id ?? "none"} className="flex min-h-tap cursor-pointer items-start gap-2.5 py-1">
             <input type="radio" name={name} checked={value === o.id} onChange={() => { onChange(o.id); setOpen(false); }} className="mt-0.5 size-5 shrink-0" />
             <span>
               <span className="font-medium">{o.label}</span>
@@ -248,7 +248,7 @@ export function FormulaPicker({ value, onChange }: { value: Formula | null; onCh
         <>
           <button
             type="button" aria-expanded={open} aria-controls={list} onClick={() => setOpen((o) => !o)}
-            className="ml-7 inline-flex min-h-11 items-center gap-1 text-xs font-medium text-[var(--ct-accent)]"
+            className="ml-7 inline-flex min-h-tap items-center gap-1 text-xs font-medium text-[var(--ct-accent)]"
           >
             <ChevronDownIcon className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /> ดูกฎของ{FORMULA_NAME[value]}
           </button>

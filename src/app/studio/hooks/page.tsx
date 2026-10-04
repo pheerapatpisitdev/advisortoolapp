@@ -19,7 +19,7 @@ export default async function HooksPage() {
     hookPostCounts().catch(() => ({} as Record<string, number>)),
   ]);
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <h1 className="text-xl font-semibold">คลังสูตรประโยคเปิด</h1>
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         สูตรที่มีช่อง [ ] ให้ AI เติมตามแบบประกัน เริ่มต้น 30 สูตร และเพิ่มเองทุกครั้งที่กด “ใช้จริง” กับชิ้นงาน

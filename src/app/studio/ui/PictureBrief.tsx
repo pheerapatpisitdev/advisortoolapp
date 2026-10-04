@@ -17,7 +17,7 @@ export function PictureBrief({ value, onChange, papers = false }: { value: strin
       <textarea
         value={value} onChange={(e) => onChange(e.target.value)} maxLength={MAX_DIRECTION} rows={3}
         placeholder="เช่น โทนอบอุ่นแบบภาพยนตร์ ครอบครัวในสวนตอนเย็น มุมกว้าง ไม่เอาภาพในโรงพยาบาล"
-        className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]"
+        className="min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]"
       />
       <span className="mt-1 block text-xs text-[var(--ct-mute)]">
         {papers

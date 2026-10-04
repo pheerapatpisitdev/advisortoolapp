@@ -23,7 +23,7 @@ import { errorNote, Note, okNote, PlainText, type NoteState } from "./ui/editor-
 
 /** the Page last posted to, kept in this browser */
 const PAGE_KEY = "content-page";
-const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
+const field = "min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
 interface Props {
   item: ContentItem;
@@ -64,7 +64,7 @@ const quickOptions = (day?: string | null): Quick[] => {
   return [...planned, ...quick.filter((q) => !planned.some((p) => p.iso === q.iso))];
 };
 
-const button = "min-h-11 rounded-lg px-4 py-2 text-sm disabled:opacity-50";
+const button = "min-h-tap rounded-lg px-4 py-2 text-sm disabled:opacity-50";
 
 /** the choice that lets the server find the day: the first its Page has nothing on (scheduleNextOpen) */
 const OPEN = "open";
@@ -227,7 +227,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
     body = (
       <p className="text-sm text-[var(--ct-alert)]">
         โหลดรายชื่อเพจไม่สำเร็จ —{" "}
-        <button type="button" onClick={() => { setSetup(null); setAttempt((n) => n + 1); }} className="inline-flex min-h-11 items-center font-medium underline">ลองใหม่</button>
+        <button type="button" onClick={() => { setSetup(null); setAttempt((n) => n + 1); }} className="inline-flex min-h-tap items-center font-medium underline">ลองใหม่</button>
       </p>
     );
   } else if (view.kind === "posting") {
@@ -249,7 +249,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
       <p className="flex flex-wrap items-center gap-1.5 text-sm">
         <CheckIcon className="size-4 text-[var(--ct-accent)]" />
         <span>ลง {pageName(item.publish?.pageId)} แล้ว{view.at ? ` ${thaiWhen(view.at)}` : ""}</span>
-        {item.publish?.postId && <> · <a href={reel ? reelLink(item.publish.postId) : postLink(item.publish.postId)} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-[var(--ct-accent)] underline">ดูโพสต์</a></>}
+        {item.publish?.postId && <> · <a href={reel ? reelLink(item.publish.postId) : postLink(item.publish.postId)} target="_blank" rel="noreferrer" className="inline-flex min-h-tap items-center text-[var(--ct-accent)] underline">ดูโพสต์</a></>}
       </p>
     );
   } else if (!setup.pages.some((p) => p.canPost)) {

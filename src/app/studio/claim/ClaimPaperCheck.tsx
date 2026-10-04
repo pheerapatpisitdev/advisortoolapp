@@ -87,7 +87,7 @@ export function ClaimPaperCheck({ item, onChecked, onPending }: { item: ContentI
     }
   }
 
-  const chip = (on: boolean) => `inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm ${on
+  const chip = (on: boolean) => `inline-flex min-h-tap items-center rounded-full border px-3.5 text-sm ${on
     ? "border-[var(--ct-solid)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]"
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] hover:bg-[var(--ct-soft)]"}`;
 
@@ -126,7 +126,7 @@ export function ClaimPaperCheck({ item, onChecked, onPending }: { item: ContentI
           ))}
           <button
             type="button" onClick={check} disabled={saving}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
+            className="inline-flex min-h-tap w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
           >
             <CheckIcon className="size-4" />
             {saving ? "กำลังบันทึก…" : added ? `แปะ ${added} จุดแล้วกดตรวจแล้ว` : "ตรวจแล้ว ไม่เห็นชื่อหรือเลขใดๆ"}

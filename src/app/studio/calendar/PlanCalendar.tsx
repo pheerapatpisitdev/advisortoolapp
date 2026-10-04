@@ -42,8 +42,8 @@ export async function PlanCalendar({ params }: { params: { y?: string; m?: strin
   };
   const prev = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, 1);
-  const toggle = (on: boolean) => `inline-flex min-h-11 items-center rounded-full px-4 text-sm ${on ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`;
-  const navBtn = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm";
+  const toggle = (on: boolean) => `inline-flex min-h-tap items-center rounded-full px-4 text-sm ${on ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`;
+  const navBtn = "inline-flex min-h-tap min-w-11 items-center justify-center rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm";
 
   return (
     <div className="space-y-4">

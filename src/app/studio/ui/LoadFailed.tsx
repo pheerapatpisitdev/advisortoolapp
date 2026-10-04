@@ -7,7 +7,7 @@ export function LoadFailed({ what, href }: { what: string; href: string }) {
   return (
     <p role="alert" className="mt-5 rounded-lg border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] p-4 text-sm text-[var(--ct-alert)]">
       โหลด{what}ไม่สำเร็จ —{" "}
-      <a href={href} className="inline-flex min-h-11 items-center font-medium underline">ลองใหม่</a>
+      <a href={href} className="inline-flex min-h-tap items-center font-medium underline">ลองใหม่</a>
     </p>
   );
 }

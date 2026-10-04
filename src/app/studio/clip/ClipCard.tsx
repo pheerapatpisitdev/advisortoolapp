@@ -26,7 +26,7 @@ export function ClipCard({ item, index, busy, onEdit, onStatus, onDelete, onItem
   const label = publishLabel(item.publish);
   // held or posted: Facebook has the clip, so there is nothing to attach again (the server refuses it)
   const held = onPage(item.publish);
-  const cell = "flex min-h-11 items-center justify-center gap-1.5 px-1 text-center text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
+  const cell = "flex min-h-tap items-center justify-center gap-1.5 px-1 text-center text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
 
   return (
     <article className={`flex flex-col overflow-hidden rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] ${item.status === "trashed" ? "opacity-70" : ""}`}>

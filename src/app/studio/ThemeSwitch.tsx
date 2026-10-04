@@ -53,7 +53,7 @@ export function ThemeSwitch() {
           return (
             <button
               key={id} type="button" role="radio" aria-checked={on} title={label} onClick={() => pick(id)}
-              className="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border text-[0.7rem] rail:flex-none"
+              className="flex min-h-tap flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border text-[0.7rem] rail:flex-none"
               style={{
                 borderColor: on ? "var(--shell-active)" : "transparent",
                 background: on ? "var(--shell-active-bg)" : "transparent",

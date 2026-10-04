@@ -138,9 +138,9 @@ export function PeopleBoard({ initial, pages, page }: { initial: Person[]; pages
     setPeople((list) => list.filter((x) => x.id !== p.id));
   }
 
-  const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
+  const field = "min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
   const alert = "rounded-lg border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] p-3 text-sm text-[var(--ct-alert)]";
-  const btn = "inline-flex min-h-11 items-center rounded-lg px-4 text-sm disabled:opacity-50";
+  const btn = "inline-flex min-h-tap items-center rounded-lg px-4 text-sm disabled:opacity-50";
   const pageSelect = (value: string, onChange: (v: string) => void) => (
     <label className="block">
       <span className="mb-1 block text-sm font-medium">เพจ</span>
@@ -152,10 +152,10 @@ export function PeopleBoard({ initial, pages, page }: { initial: Person[]; pages
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <section className="space-y-3">
         {shown.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[var(--ct-line)] p-6 text-center text-sm text-[var(--ct-mute)]">
+          <p className="rounded-lg border border-dashed border-[var(--ct-line)] p-4 text-center text-sm text-[var(--ct-mute)]">
             {split && people.length > 0 ? "ยังไม่มีใครในคลังของเพจนี้ — เพิ่มด้านล่าง" : "ยังไม่มีใครในคลัง — เพิ่มคนแรกด้านล่าง"}
           </p>
         ) : shown.map((p) => editing === p.id ? (
@@ -238,7 +238,7 @@ export function PeopleBoard({ initial, pages, page }: { initial: Person[]; pages
         ))}
       </section>
 
-      <section key={formKey} className="space-y-3 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
+      <section key={formKey} className="space-y-3 rounded-lg border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3">
         <h2 className="font-semibold">เพิ่มบุคคล</h2>
         <label className="block">
           <span className="mb-1 block text-sm font-medium">ชื่อ</span>
@@ -250,7 +250,7 @@ export function PeopleBoard({ initial, pages, page }: { initial: Person[]; pages
           <span className="mb-2 block text-xs text-[var(--ct-mute)]">AI วาดจากครั้งละ {MAX_REFERENCES} รูป — รูปแรกทุกครั้ง ที่เหลือสุ่มจากรูปอื่น</span>
           <PhotoDrop files={files} onChange={setFiles} limit={MAX_PHOTOS} minSide={MIN_FACE_SIDE} />
         </div>
-        <label className="flex min-h-11 items-start gap-3 py-1 text-sm">
+        <label className="flex min-h-tap items-start gap-3 py-1 text-sm">
           <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
           <span>ได้รับความยินยอมจากเจ้าของรูป ให้ใช้ในโฆษณาและให้ AI ดัดแปลงได้</span>
         </label>

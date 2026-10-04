@@ -10,7 +10,7 @@ export interface PersonOption {
 }
 
 const chip = (on: boolean) =>
-  `min-h-11 rounded-full border px-3.5 py-1.5 text-sm disabled:opacity-50 ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
+  `min-h-tap rounded-full border px-3.5 py-1.5 text-sm disabled:opacity-50 ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
 
 /**
  * Who from the people library goes into the picture, and how they stand. None is the
@@ -43,7 +43,7 @@ export function PersonPicker({ people, value, onChange, disabled, confirmLeave, 
   const library = (label: string) => (
     <Link
       href={libraryHref} onClick={toLibrary} title="เพิ่ม แก้ไข หรือลบคนในคลัง"
-      className="-mr-1 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-1 text-xs font-medium text-[var(--ct-accent)] hover:underline"
+      className="-mr-1 inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg px-1 text-xs font-medium text-[var(--ct-accent)] hover:underline"
     >
       {label} <span aria-hidden="true">›</span>
     </Link>
@@ -74,7 +74,7 @@ export function PersonPicker({ people, value, onChange, disabled, confirmLeave, 
         disabled={disabled}
         aria-labelledby={heading}
         onChange={(e) => onChange(e.target.value ? { id: e.target.value, pose: value?.pose ?? "auto" } : null)}
-        className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm disabled:opacity-60"
+        className="min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm disabled:opacity-60"
       >
         <option value="">ไม่ใส่</option>
         {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}

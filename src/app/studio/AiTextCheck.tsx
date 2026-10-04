@@ -63,13 +63,13 @@ export function AiTextCheck({ item, poster, onChecked }: { item: ContentItem; po
       )}
       {read && (
         <details className="ml-6">
-          <summary className="min-h-11 cursor-pointer py-2 text-xs font-medium">ข้อความที่ AI อ่านได้จากภาพ</summary>
+          <summary className="min-h-tap cursor-pointer py-2 text-xs font-medium">ข้อความที่ AI อ่านได้จากภาพ</summary>
           <p className="whitespace-pre-line text-xs">{read}</p>
         </details>
       )}
       <button
         type="button" onClick={() => void tick()} disabled={saving}
-        className="min-h-11 rounded-lg bg-[var(--ct-solid)] px-4 py-2 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
+        className="min-h-tap rounded-lg bg-[var(--ct-solid)] px-4 py-2 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
       >
         {saving ? "กำลังบันทึก…" : "ตรวจแล้ว ตัวหนังสือบนภาพถูกต้อง"}
       </button>

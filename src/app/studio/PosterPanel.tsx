@@ -33,7 +33,7 @@ function textsOf(p: PosterSpec): Record<BlockKind, string> {
 }
 
 const chip = (on: boolean) =>
-  `min-h-11 rounded-full border px-3.5 py-1.5 text-sm disabled:opacity-50 ${on
+  `min-h-tap rounded-full border px-3.5 py-1.5 text-sm disabled:opacity-50 ${on
     ? "border-[var(--ct-solid)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]"
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] hover:bg-[var(--ct-soft)]"}`;
 
@@ -139,7 +139,7 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
             type="button"
             onClick={saver.save}
             disabled={saver.state === "saving" || shown !== value}
-            className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-center text-sm font-medium hover:bg-[var(--ct-soft)] disabled:opacity-50"
+            className="mt-2 flex min-h-tap w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-center text-sm font-medium hover:bg-[var(--ct-soft)] disabled:opacity-50"
           >
             {saver.state === "saved" && <CheckIcon className="size-4" />}
             {SAVE_LABEL[saver.state]}
@@ -160,7 +160,7 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
               value={texts[kind]}
               maxLength={MAX_CHARS[kind]}
               onChange={(e) => set(kind, e.target.value)}
-              className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)] disabled:opacity-60"
+              className="min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)] disabled:opacity-60"
             />
           </label>
         ))}
@@ -207,7 +207,7 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
               <textarea
                 value={request} onChange={(e) => setRequest(e.target.value)} maxLength={MAX_DIRECTION} rows={3}
                 placeholder="เช่น พ่อกับลูกสาวอ่านนิทานก่อนนอน — หรือวาง art direction ทั้งชุด"
-                className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]"
+                className="min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]"
               />
             </label>
             <PersonPicker people={people} value={person} onChange={setPerson} confirmLeave={confirmLeave} back={back} />
@@ -221,11 +221,11 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
             </div>}
           </>}
           <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={draw} disabled={drawing || busy || shut} className="min-h-11 rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-panel)] px-3 py-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)] disabled:opacity-50">
+            <button type="button" onClick={draw} disabled={drawing || busy || shut} className="min-h-tap rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-panel)] px-3 py-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)] disabled:opacity-50">
               {drawing || busy ? "กำลังวาด… ราว 20–40 วินาที" : value.background ? `วาดภาพใหม่ (${price})` : `วาดภาพพื้นหลังด้วย AI (${price})`}
             </button>
             {value.background && !drawing && !busy && (
-              <button type="button" onClick={dropPicture} disabled={shut} className="min-h-11 rounded-lg border border-[var(--ct-line)] px-3 py-2 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50">
+              <button type="button" onClick={dropPicture} disabled={shut} className="min-h-tap rounded-lg border border-[var(--ct-line)] px-3 py-2 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50">
                 ใช้สีพื้นแทน
               </button>
             )}
