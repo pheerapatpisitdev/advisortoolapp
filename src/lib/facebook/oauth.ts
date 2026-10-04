@@ -127,6 +127,21 @@ export function adsManageOauthIsConfigured(): boolean {
   return oauthIsConfigured() && Boolean(adsManageConfigId());
 }
 
+/**
+ * The settings the ads-manage login still lacks, by name — never their values.
+ *
+ * The Studio page used to name only the configuration id whatever was missing, and a machine
+ * without the app secret was told to set an id that was already there.
+ */
+export function adsManageMissingEnv(): string[] {
+  const wanted: [string, string | undefined][] = [
+    ["FB_APP_ID", process.env.FB_APP_ID],
+    ["FB_APP_SECRET", process.env.FB_APP_SECRET],
+    ["FB_ADS_MANAGE_CONFIG_ID", adsManageConfigId()],
+  ];
+  return wanted.filter(([, value]) => !value).map(([name]) => name);
+}
+
 /** Meta matches this against its allow-list character for character. */
 export function redirectUri(origin: string): string {
   return `${origin}/api/facebook/connect/callback`;

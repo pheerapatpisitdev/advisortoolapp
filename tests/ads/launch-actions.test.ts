@@ -50,6 +50,7 @@ const fb = vi.hoisted(() => ({
   listAdAccounts: vi.fn(),
   tokenExpiry: vi.fn(),
   adsManageOauthIsConfigured: vi.fn(() => true),
+  adsManageMissingEnv: vi.fn((): string[] => []),
 }));
 vi.mock("@/lib/facebook/oauth", async (orig) => ({ ...(await orig<typeof import("@/lib/facebook/oauth")>()), ...fb }));
 
@@ -205,6 +206,14 @@ describe("the page's setup", () => {
       launch: { id: "L1", step: "ad", adId: "AD1", effectiveStatus: "PAUSED" },
     });
     expect(launch.adEffectiveStatus).toHaveBeenCalledWith("AD1", SECRET);
+  });
+
+  it("says which settings are missing by name, never their values", async () => {
+    store.findLaunch.mockResolvedValue(row());
+    fb.adsManageMissingEnv.mockReturnValueOnce(["FB_APP_SECRET"]);
+    fb.adsManageOauthIsConfigured.mockReturnValueOnce(false);
+    const setup = await adsLaunchSetup();
+    expect(setup).toMatchObject({ configured: false, missing: ["FB_APP_SECRET"] });
   });
 
   it("lists only ad pieces that are not in the bin, and says which have a poster", async () => {

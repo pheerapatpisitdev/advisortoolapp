@@ -141,7 +141,13 @@ function Connect({ setup, outcome }: { setup: AdsLaunchSetup; outcome: string | 
   ) : (
     <div className="rounded-lg border border-dashed border-[var(--ct-line)] px-3 py-3 text-sm">
       <span aria-disabled="true" className={`${solid} inline-flex items-center opacity-50`}>เชื่อมบัญชีโฆษณาสำหรับสร้างแอด</span>
-      <p className="mt-2 text-[var(--ct-mute)]">ยังเชื่อมไม่ได้ — ยังไม่ได้ตั้งค่า <code>FB_ADS_MANAGE_CONFIG_ID</code> ใน Vercel (ขั้นตอนอยู่ใน docs/ads-manage-permission.md)</p>
+      <p className="mt-2 text-[var(--ct-mute)]">
+        ยังเชื่อมไม่ได้ — เซิร์ฟเวอร์นี้ยังไม่ได้ตั้งค่า{" "}
+        {setup.missing.map((name, i) => (
+          <span key={name}>{i > 0 ? ", " : ""}<code>{name}</code></span>
+        ))}{" "}
+        (บน Vercel หรือ .env.local แล้วรีสตาร์ท ขั้นตอนอยู่ใน docs/ads-manage-permission.md)
+      </p>
     </div>
   );
 

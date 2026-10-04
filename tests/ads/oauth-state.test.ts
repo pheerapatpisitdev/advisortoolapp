@@ -162,6 +162,25 @@ describe("the ads-manage purpose", () => {
     expect(ADS_MANAGE_SCOPES).toContain("pages_messaging");
   });
 
+  it("names exactly the settings it is missing, so the page does not blame the wrong one", async () => {
+    const { adsManageMissingEnv } = await import("@/lib/facebook/oauth");
+    process.env.FB_APP_ID = "1";
+    process.env.FB_ADS_MANAGE_CONFIG_ID = "manage-config";
+    delete process.env.FB_APP_SECRET;
+    expect(adsManageMissingEnv()).toEqual(["FB_APP_SECRET"]);
+
+    process.env.FB_APP_SECRET = "s";
+    expect(adsManageMissingEnv()).toEqual([]);
+
+    delete process.env.FB_APP_ID;
+    process.env.FB_APP_SECRET = "";
+    process.env.FB_ADS_MANAGE_CONFIG_ID = "";
+    expect(adsManageMissingEnv()).toEqual(["FB_APP_ID", "FB_APP_SECRET", "FB_ADS_MANAGE_CONFIG_ID"]);
+
+    process.env.FB_APP_ID = "1";
+    process.env.FB_APP_SECRET = "s";
+  });
+
   it("treats an empty configuration as missing", async () => {
     process.env.FB_ADS_MANAGE_CONFIG_ID = "";
     const { adsManageOauthIsConfigured } = await import("@/lib/facebook/oauth");
