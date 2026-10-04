@@ -645,7 +645,7 @@ const PLANNABLE = ["draft", "used"];
 export async function listPlanned(from: string, to: string): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS)
-    .gte("plan_day", from).lte("plan_day", to).in("status", PLANNABLE);
+    .gte("plan_day", from).lte("plan_day", to).in("status", PLANNABLE).neq("format", "ad");
   if (only) q = q.or(only);
   // a piece on a Facebook Page is the Page calendar's, not a plan's (final review, 2026-09-30)
   const { data, error } = await q.or(offPage()).order("plan_day", { ascending: true }).order("created_at", { ascending: true });
@@ -656,7 +656,7 @@ export async function listPlanned(from: string, to: string): Promise<ContentItem
 /** The asker's pieces with no day yet, newest first — the planning calendar's rail. */
 export async function listUnplanned(limit = 60): Promise<ContentItem[]> {
   const only = await ownersFilter();
-  let q = supabaseAdmin().from("ins_content").select(COLUMNS).is("plan_day", null).in("status", PLANNABLE);
+  let q = supabaseAdmin().from("ins_content").select(COLUMNS).is("plan_day", null).in("status", PLANNABLE).neq("format", "ad");
   if (only) q = q.or(only);
   const { data, error } = await q.or(offPage()).order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);

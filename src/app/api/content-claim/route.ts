@@ -71,8 +71,8 @@ export async function PUT(req: NextRequest) {
   if (refused) return refused;
   const form = await req.formData().catch(() => null);
   if (!form) return bad("ข้อมูลไม่ครบ ลองใหม่อีกครั้งนะครับ");
-  if (form.get("consent") !== "on") return bad(NO_CONSENT);
   if (form.get("format") === "ad") return bad(ADS_MOVED);
+  if (form.get("consent") !== "on") return bad(NO_CONSENT);
   let facts: unknown;
   try {
     facts = JSON.parse(String(form.get("facts") ?? ""));

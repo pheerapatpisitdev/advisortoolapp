@@ -55,6 +55,13 @@ describe("writing a รีวิวเคลม", () => {
     expect(run.writeClaim).not.toHaveBeenCalled();
   });
 
+  it("gives an ad request the same answer even without the consent tick", async () => {
+    const form = new FormData();
+    form.set("format", "ad");
+    const res = await PUT(new Request("http://localhost/api/content-claim", { method: "PUT", body: form }) as never);
+    expect(await res.json()).toEqual({ ok: false, error: "โฆษณาย้ายไปทำใน Ads Studio แล้ว" });
+  });
+
   it("writes nothing, and counts no round, for a Page the caller does not look after", async () => {
     pages.projectPage.mockResolvedValue({ ok: false, error: "เพจนี้ไม่ได้อยู่ในเพจที่คุณดูแล" });
     const res = await PUT(writeRequest() as never);

@@ -53,6 +53,16 @@ describe("the planned pieces of a month", () => {
   });
 });
 
+describe("ad pieces (Ads Studio campaigns, 2026-10-04)", () => {
+  it("are left out of the plan's grid and of its rail", async () => {
+    await listPlanned("2026-09-28", "2026-11-01");
+    expect(has("neq", "format", "ad")).toBe(true);
+    db.calls.length = 0;
+    await listUnplanned();
+    expect(has("neq", "format", "ad")).toBe(true);
+  });
+});
+
 describe("pieces on a Facebook Page (final review, 2026-09-30)", () => {
   it("are kept off the plan and its rail, as off the workbench's lists", async () => {
     await listPlanned("2026-09-28", "2026-11-01");
