@@ -11,6 +11,20 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  * file and nowhere else.
  */
 
+/** One choice the owner can steer a campaign by: the text, and why the writer proposed it. */
+export type Dimension = { text: string; note: string };
+
+/**
+ * What a campaign is written along: the hooks, the kinds of people, the angles and the picture
+ * styles. Each ad is one pick from each, and the queue walks through their combinations.
+ */
+export interface Dimensions {
+  hooks: Dimension[];
+  personas: Dimension[];
+  angles: Dimension[];
+  styles: Dimension[];
+}
+
 export interface AdCampaign {
   id: string;
   createdAt: string;
@@ -25,6 +39,12 @@ export interface AdCampaign {
   hint: string | null;
   /** the agent who made it: the viewer's agent id (the owner's own, when the owner made it) */
   agentId: string | null;
+  /** null for a campaign made before dimensions, or when what is stored is not the right shape */
+  dimensions: Dimensions | null;
+  /** how far the queue of dimension combinations has gone: the number of designs made so far */
+  queuePos: number;
+  /** the voice of the brand in the owner's words; null when none was given */
+  brandVoice: string | null;
 }
 
 interface DbRow {
@@ -38,6 +58,28 @@ interface DbRow {
   theme: string | null;
   hint: string | null;
   agent_id: string | null;
+  dimensions?: unknown;
+  queue_pos?: number | null;
+  brand_voice?: string | null;
+}
+
+const DIMENSION_KEYS = ["hooks", "personas", "angles", "styles"] as const;
+
+function isDimension(v: unknown): v is Dimension {
+  return typeof v === "object" && v !== null && typeof (v as Dimension).text === "string" && typeof (v as Dimension).note === "string";
+}
+
+/** The stored jsonb as Dimensions, or null when it is not exactly that shape. */
+function toDimensions(v: unknown): Dimensions | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const out = {} as Dimensions;
+  for (const k of DIMENSION_KEYS) {
+    const list = o[k];
+    if (!Array.isArray(list) || !list.every(isDimension)) return null;
+    out[k] = list.map(({ text, note }) => ({ text, note }));
+  }
+  return out;
 }
 
 function fromDb(r: DbRow): AdCampaign {
@@ -52,6 +94,9 @@ function fromDb(r: DbRow): AdCampaign {
     theme: r.theme,
     hint: r.hint,
     agentId: r.agent_id,
+    dimensions: toDimensions(r.dimensions),
+    queuePos: r.queue_pos ?? 0,
+    brandVoice: r.brand_voice ?? null,
   };
 }
 
@@ -93,6 +138,8 @@ export async function createCampaign(c: {
   theme?: string | null;
   hint?: string | null;
   agentId: string | null;
+  dimensions?: Dimensions | null;
+  brandVoice?: string | null;
 }): Promise<AdCampaign> {
   const { data, error } = await supabaseAdmin()
     .from("ins_ad_campaign")
@@ -105,6 +152,8 @@ export async function createCampaign(c: {
       theme: c.theme ?? null,
       hint: c.hint ?? null,
       agent_id: c.agentId,
+      dimensions: c.dimensions ?? null,
+      brand_voice: c.brandVoice ?? null,
     })
     .select("*")
     .single();
@@ -115,7 +164,7 @@ export async function createCampaign(c: {
 /** Changes only what is given; the Page and plan are not editable. */
 export async function updateCampaign(
   id: string,
-  patch: Partial<Pick<AdCampaign, "name" | "angles" | "tones" | "theme" | "hint">>,
+  patch: Partial<Pick<AdCampaign, "name" | "angles" | "tones" | "theme" | "hint" | "dimensions" | "brandVoice" | "queuePos">>,
 ): Promise<void> {
   const columns: Record<string, unknown> = {};
   if (patch.name !== undefined) columns.name = patch.name;
@@ -123,6 +172,9 @@ export async function updateCampaign(
   if (patch.tones !== undefined) columns.tones = clamp(patch.tones, MAX_TONES);
   if (patch.theme !== undefined) columns.theme = patch.theme;
   if (patch.hint !== undefined) columns.hint = patch.hint;
+  if (patch.dimensions !== undefined) columns.dimensions = patch.dimensions;
+  if (patch.brandVoice !== undefined) columns.brand_voice = patch.brandVoice;
+  if (patch.queuePos !== undefined) columns.queue_pos = patch.queuePos;
   if (Object.keys(columns).length === 0) return;
   const { error } = await supabaseAdmin().from("ins_ad_campaign").update(columns).eq("id", id);
   if (error) throw new Error(error.message);
