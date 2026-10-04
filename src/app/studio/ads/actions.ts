@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { audit, requireStaff } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
+import { cleanContact, getPageContact, savePageContact, type PageContact } from "@/lib/ads/page-contact";
 import {
   contentCap, contentSpentThisMonth, getContent, holdContentBudget, releaseContentBudget, type ContentItem,
 } from "@/lib/content/store";
@@ -1176,4 +1177,36 @@ export async function activateSendAction(sendId: string): Promise<SwitchResult> 
 export async function pauseSendAction(sendId: string): Promise<SwitchResult> {
   await requireStaff("owner");
   return switchAction(sendId, "ads-send-pause");
+}
+
+/** The contacts kept for one of the owner's connected Pages, for the settings fold. */
+export async function pageContact(
+  pageId: string,
+): Promise<{ ok: true; contact: PageContact | null } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  try {
+    if (!(await myPages()).some((p) => p.pageId === pageId)) return { ok: false, error: PAGE_NOT_CONNECTED };
+    return { ok: true, contact: await getPageContact(pageId) };
+  } catch (e) {
+    console.error("pageContact failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/** Saves what the owner typed as the Page's contacts; an empty form clears them. */
+export async function updatePageContact(
+  pageId: string,
+  input: unknown,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  try {
+    if (!(await myPages()).some((p) => p.pageId === pageId)) return { ok: false, error: PAGE_NOT_CONNECTED };
+    const clean = cleanContact(input);
+    if ("error" in clean) return { ok: false, error: clean.error };
+    await savePageContact(pageId, clean);
+    return { ok: true };
+  } catch (e) {
+    console.error("updatePageContact failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
 }
