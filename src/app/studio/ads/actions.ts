@@ -18,6 +18,7 @@ import {
 import { adTab, tabCounts, type AdTab } from "@/lib/ads/campaign-view";
 import { cardLaunch } from "@/lib/ads/ad-card";
 import { contentProduct } from "@/lib/content/products";
+import type { PiecePerson } from "@/lib/content/people";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
 import type { PolicyFinding } from "@/lib/content/policy";
 import type { AdAccount } from "@/lib/facebook/ads-connection";
@@ -87,6 +88,8 @@ export interface LaunchPiece {
   description: string;
   hasPoster: boolean;
   poster: PosterSpec | null;
+  /** who the picture was drawn with; null for none. A redraw sends it back, or the server would take the person off */
+  person: PiecePerson | null;
   /** the angle and tone it was written in, as labels; null on pieces written before the grid */
   ad: { angle: string; tone: string } | null;
   /** Facebook's advertising rules it trips; empty on pieces written before the rules were checked */
@@ -334,6 +337,7 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
       description: p.output.closing ?? "",
       hasPoster: Boolean(p.output.poster),
       poster: p.output.poster ?? null,
+      person: p.output.person ?? null,
       ad: p.output.ad ?? null,
       flags: { policy: p.flags?.policy ?? [] },
       launch: launches[i][0] ?? null,

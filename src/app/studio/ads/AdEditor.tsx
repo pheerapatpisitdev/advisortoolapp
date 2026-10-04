@@ -169,6 +169,8 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
     return () => window.removeEventListener("beforeunload", stay);
   }, [dirty]);
 
+  // a piece in the bin is read-only: nothing to save or draw (and pay for) until it is restored
+  const trashed = piece.status === "trashed";
   const launched = piece.launches.length > 0;
   const policy = piece.flags.policy;
   const ids = `ad-${piece.id}`;
@@ -192,7 +194,7 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
             {moving ? "กำลังทิ้ง…" : "ทิ้ง"}
           </button>
         )}
-        <button type="button" onClick={save} disabled={!dirty || saving} className={`${solid} shrink-0`}>
+        <button type="button" onClick={save} disabled={!dirty || saving || trashed} className={`${solid} shrink-0`}>
           {saving ? "กำลังบันทึก…" : dirty ? "บันทึก" : "บันทึกแล้ว"}
         </button>
       </header>
@@ -208,7 +210,9 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
               edit({ poster });
             }}
             people={people}
-            person={null}
+            person={piece.person}
+            readOnly={trashed}
+            pictureLocked={trashed}
             back={`/studio/ads/${campaign.id}`}
             confirmLeave={async () => !dirty || ask("ออกจากหน้านี้? การแก้ที่ยังไม่บันทึกจะหายไป", "ออก")}
             onDraw={async (request, painter, person) => {

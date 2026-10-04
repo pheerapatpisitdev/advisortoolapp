@@ -508,6 +508,18 @@ describe("a campaign's room", () => {
     expect(camps.listCampaignPieces).toHaveBeenCalledWith(CAMPAIGN);
   });
 
+  it("carries the person an ad was drawn with, so a redraw keeps it", async () => {
+    const person = { id: "p1", pose: "standing" };
+    camps.listCampaignPieces.mockResolvedValue([
+      piece({ output: { hooks: ["h"], body: "b", closing: "c", person } }),
+      piece({ id: "plain", output: { hooks: ["h"], body: "b", closing: "c" } }),
+    ]);
+    const room = await adCampaignRoom(CAMPAIGN);
+    if (!room.ok) throw new Error("room did not open");
+    expect(room.pieces[0].person).toEqual(person);
+    expect(room.pieces[1].person).toBeNull();
+  });
+
   it("carries no token string", async () => {
     store.findLaunch.mockResolvedValue(row());
     const room = await adCampaignRoom(CAMPAIGN);
