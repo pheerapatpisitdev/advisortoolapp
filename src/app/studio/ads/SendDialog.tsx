@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
 import { picturePending, planLink } from "@/lib/ads/room-view";
+import { sendOutcome } from "@/lib/ads/sent-view";
 import type { SendResult } from "@/lib/ads/send";
 import { XIcon } from "../ui/icons";
 import { sendApproved } from "./actions";
@@ -19,17 +20,6 @@ import { field, plain, solid, TONES } from "./styles";
  * Once back, it says how each piece went: made (paused), failed with Meta's reason, or left out
  * before anything was made, with why (not approved, picture not drawn, sent already…).
  */
-
-type Line = { tone: keyof typeof TONES; text: string };
-
-function outcome(res: SendResult, pieceId: string): Line {
-  const skipped = res.skipped?.find((s) => s.pieceId === pieceId);
-  if (skipped) return { tone: "warn", text: `กันออก — ${skipped.reason}` };
-  const item = res.ok ? res.items.find((i) => i.pieceId === pieceId) : undefined;
-  if (item?.adId) return { tone: "ok", text: "สร้างแล้ว (หยุดไว้)" };
-  if (item?.error) return { tone: "bad", text: `ไม่สำเร็จ — ${item.error}` };
-  return { tone: "warn", text: "ยังไม่ได้สร้าง — กดลองใหม่ในแท็บส่งแล้ว" };
-}
 
 export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
   room: Room;
@@ -188,7 +178,7 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
             </p>
             <ul className="divide-y divide-[var(--ct-hair)] rounded-lg border border-[var(--ct-hair)]">
               {sentList.map((p) => {
-                const line = outcome(result, p.id);
+                const line = sendOutcome(result, p.id);
                 return (
                   <li key={p.id} className="flex items-start gap-3 p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element -- a drawn PNG from our own route */}

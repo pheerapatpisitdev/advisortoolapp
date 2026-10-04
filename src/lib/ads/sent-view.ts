@@ -1,3 +1,5 @@
+import type { SendResult } from "./send";
+
 /**
  * What the sent tab says and offers for each batch send and each ad launched one by one
  * (Ads Studio, 2026-10-04). Pure, so the rules for which button shows can be pinned by a test.
@@ -116,4 +118,20 @@ export function pauseQuestion(o: { what: string; account: string; page: string; 
     "",
     "แอดจะหยุดแสดงและหยุดใช้เงิน เปิดใช้อีกครั้งได้ภายหลัง",
   ].join("\n");
+}
+
+/**
+ * How one piece went, as the send dialog says it once the send is back: left out with why, made
+ * (paused), failed with Meta's reason, or not made yet. Not made with a send on record: the sent
+ * tab's ลองใหม่ makes it. Refused before a send existed: nothing was made, so the press is
+ * ส่ง again — there is nothing in the sent tab to retry.
+ */
+export function sendOutcome(res: SendResult, pieceId: string): { tone: "ok" | "warn" | "bad"; text: string } {
+  const skipped = res.skipped?.find((s) => s.pieceId === pieceId);
+  if (skipped) return { tone: "warn", text: `กันออก — ${skipped.reason}` };
+  const item = res.ok ? res.items.find((i) => i.pieceId === pieceId) : undefined;
+  if (item?.adId) return { tone: "ok", text: "สร้างแล้ว (หยุดไว้)" };
+  if (item?.error) return { tone: "bad", text: `ไม่สำเร็จ — ${item.error}` };
+  if (!res.send) return { tone: "warn", text: "ยังไม่ได้สร้างอะไรบน Facebook — กดส่งอีกครั้ง" };
+  return { tone: "warn", text: "ยังไม่ได้สร้าง — กดลองใหม่ในแท็บส่งแล้ว" };
 }

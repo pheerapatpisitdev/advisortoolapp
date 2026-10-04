@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  activateQuestion, badStatus, legacyButtons, pauseQuestion, sendBadge, sendButtons, statusText, switchedOn, type BadgeShape, type SendShape,
+  activateQuestion, badStatus, legacyButtons, pauseQuestion, sendBadge, sendButtons, sendOutcome, statusText, switchedOn, type BadgeShape, type SendShape,
 } from "@/lib/ads/sent-view";
+import type { SendResult } from "@/lib/ads/send";
+import type { AdSend, AdSendItem } from "@/lib/ads/send-store";
 
 const send = (over: Partial<SendShape> = {}): SendShape => ({
   step: "ads", activatedAt: null, pausedAt: null, hasMetaCampaign: true, hasAdset: true, metaStatus: "PAUSED",
@@ -110,5 +112,32 @@ describe("a send's badge", () => {
   it("keeps the switch-on record when Meta does not say ACTIVE and does not say paused", () => {
     expect(badge({ activatedAt: T1, metaStatus: null, items: [{ effectiveStatus: null }] })).toEqual({ on: true, text: "เปิดใช้แล้ว", since: T1 });
     expect(badge({ activatedAt: T1, metaStatus: "PAUSED" })).toEqual({ on: false, text: "หยุดไว้ — ยังไม่เสียเงิน", since: null });
+  });
+});
+
+describe("how each piece went, after a send", () => {
+  const SEND = { id: "S1" } as unknown as AdSend;
+
+  it("names made, failed and left-out pieces", () => {
+    const res: SendResult = {
+      ok: true, send: SEND, skipped: [{ pieceId: "P3", reason: "ยังไม่ได้อนุมัติ" }],
+      items: [{ pieceId: "P1", adId: "A1", error: null }, { pieceId: "P2", adId: null, error: "Meta ปฏิเสธ" }] as unknown as AdSendItem[],
+    };
+    expect(sendOutcome(res, "P1")).toEqual({ tone: "ok", text: "สร้างแล้ว (หยุดไว้)" });
+    expect(sendOutcome(res, "P2")).toEqual({ tone: "bad", text: "ไม่สำเร็จ — Meta ปฏิเสธ" });
+    expect(sendOutcome(res, "P3")).toEqual({ tone: "warn", text: "กันออก — ยังไม่ได้อนุมัติ" });
+  });
+
+  it("sends a piece to the sent tab's retry only when the send exists", () => {
+    const broke: SendResult = { ok: false, step: "campaign", error: "x", send: SEND };
+    expect(sendOutcome(broke, "P1").text).toContain("แท็บส่งแล้ว");
+  });
+
+  it("says nothing was made, and to press send again, when the send was refused before it existed", () => {
+    const refused: SendResult = { ok: false, step: "check", error: "มีรอบส่งอื่นกำลังเริ่มอยู่" };
+    const line = sendOutcome(refused, "P1");
+    expect(line.text).not.toContain("แท็บส่งแล้ว");
+    expect(line.text).toContain("ยังไม่ได้สร้างอะไร");
+    expect(line.text).toContain("กดส่งอีกครั้ง");
   });
 });
