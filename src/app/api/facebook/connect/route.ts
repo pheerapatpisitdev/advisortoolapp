@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  adsOauthIsConfigured, authorizeUrl, makeState, newStateNonce, oauthIsConfigured, STATE_COOKIE, stateCookieOptions,
+  adsManageOauthIsConfigured, adsOauthIsConfigured, authorizeUrl, makeState, newStateNonce, oauthIsConfigured, STATE_COOKIE, stateCookieOptions,
   type LoginPurpose,
 } from "@/lib/facebook/oauth";
 import { requestOrigin } from "@/lib/facebook/origin";
@@ -14,18 +14,25 @@ export const dynamic = "force-dynamic";
  *
  * `?for=ads` is the same screen for the advertising account; where the person lands on the
  * way back depends on it, so the purpose is signed into the state rather than trusted from
- * the callback's query string. The state's nonce also goes into a cookie only the callback
+ * the callback's query string. `?for=ads-manage` is the login that can create ads from Studio:
+ * the owner's alone, with its own configuration, and it lands back on /studio/ads. The state's nonce also goes into a cookie only the callback
  * sees, so the login can be finished only in this browser (src/lib/facebook/oauth.ts).
  */
 export async function GET(req: Request) {
   const origin = requestOrigin(req);
-  const purpose: LoginPurpose = new URL(req.url).searchParams.get("for") === "ads" ? "ads" : "pages";
-  const home = purpose === "ads" ? "/admin/ads" : "/admin/messenger";
-  // Pages are the staff's with can_connect; the ad account is the back office's (2026-09-27)
+  const wanted = new URL(req.url).searchParams.get("for");
+  const purpose: LoginPurpose = wanted === "ads-manage" ? "ads-manage" : wanted === "ads" ? "ads" : "pages";
+  const home = purpose === "ads-manage" ? "/studio/ads" : purpose === "ads" ? "/admin/ads" : "/admin/messenger";
+  // Pages are the staff's with can_connect; the ad account is the back office's (2026-09-27);
+  // the login that can spend money is the owner's alone
   const viewer = await getViewer();
   if (!viewer) return NextResponse.redirect(`${origin}/login?next=${encodeURIComponent(home)}`);
-  if (!can(viewer, purpose === "ads" ? "admin" : "connect")) return NextResponse.redirect(`${origin}/studio`);
-  const ready = purpose === "ads" ? adsOauthIsConfigured() : oauthIsConfigured();
+  if (!can(viewer, purpose === "ads-manage" ? "owner" : purpose === "ads" ? "admin" : "connect")) {
+    return NextResponse.redirect(`${origin}/studio`);
+  }
+  const ready = purpose === "ads-manage" ? adsManageOauthIsConfigured()
+    : purpose === "ads" ? adsOauthIsConfigured()
+    : oauthIsConfigured();
   if (!ready) {
     return NextResponse.redirect(`${origin}${home}?fb=unconfigured`);
   }
