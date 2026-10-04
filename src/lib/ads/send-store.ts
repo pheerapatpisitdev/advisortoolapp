@@ -239,6 +239,25 @@ export async function saveItemError(id: string, message: string): Promise<void> 
 }
 
 /**
+ * Removes a send that made nothing on Meta, with its items (they go with it, by the foreign key):
+ * true if it was removed. Used by a send that stood down because an earlier send holds its
+ * pieces, so it neither keeps those pieces locked nor can be resumed later. The delete is
+ * conditional — step 'none' and no Meta campaign — so a send that has anything on Meta is never
+ * removed, whatever the caller thought.
+ */
+export async function dropSend(id: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin()
+    .from("ins_ad_send")
+    .delete()
+    .eq("id", id)
+    .eq("step", "none")
+    .is("meta_campaign_id", null)
+    .select("id");
+  if (error) throw new Error(error.message);
+  return (data ?? []).length === 1;
+}
+
+/**
  * Takes the send to run it: true if this request now holds it, false if another does.
  *
  * One conditional update decides who goes on, so two presses or two tabs do not both make the

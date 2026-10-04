@@ -35,8 +35,11 @@ import {
  *
  * Only the request holding the send's claim may make anything. Two presses of "send" each make a
  * send row (nothing in the database stops the same piece being in two), so before its campaign a
- * send checks the campaign's other live sends: if an earlier one holds any of its pieces, this one
- * stands down with nothing made on Meta, and only the earliest makes a campaign.
+ * send checks the campaign's other live sends: if an earlier one holds any of its pieces — or is
+ * still being created (its row is written before its items, in a second request, so its pieces
+ * cannot be seen yet) — this one stands down with nothing made on Meta and removes its own row
+ * (dropSend), so it neither keeps those pieces locked nor can be resumed later. Only the
+ * earliest makes a campaign.
  *
  * A batch can make many requests, each allowed REQUEST_TIMEOUT_MS. No new piece is started once
  * SEND_TIME_BUDGET_MS has passed — the rest wait for a resume — so a run ends well inside the
@@ -111,6 +114,14 @@ const PIECE_GONE = "ชิ้นนี้ถูกลบไปแล้ว";
 const OUT_OF_TIME = "ส่งไม่ทันในรอบเดียว กดลองใหม่เพื่อส่งชิ้นที่เหลือ";
 const BUSY = "กำลังส่งรอบนี้อยู่ รอสักครู่แล้วลองใหม่";
 const DUPLICATE = "แอดในรอบนี้อยู่ในรอบส่งอื่นที่เริ่มก่อนแล้ว รอบนี้จึงไม่ได้สร้างอะไรบน Facebook";
+const OTHER_STARTING = "มีรอบส่งอื่นของแคมเปญนี้กำลังเริ่มอยู่ รอสักครู่แล้วลองใหม่";
+
+/**
+ * How long a send with no items yet counts as one still being created. Its items follow its row
+ * within the same request, so a minute is ample; an older item-less row (a rollback that failed)
+ * must not block the campaign's sends for ever.
+ */
+const CREATING_MS = 60_000;
 const NOT_FOUND = "ไม่พบรอบส่งนี้";
 const RETIRED = "รอบส่งนี้ถูกเลิกแล้ว";
 const BAD_IDS = "บัญชีโฆษณาหรือเพจไม่ถูกต้อง";
@@ -205,17 +216,24 @@ export async function resumeSend(sendId: string, deps: SendDeps): Promise<SendRe
   return result.ok ? { ...result, skipped: [] } : result;
 }
 
-/** True when an earlier live send of the same Studio campaign holds any of this send's pieces. */
-async function beatenBy(store: SendDeps["store"], send: AdSend, items: AdSendItem[]): Promise<boolean> {
-  if (!send.campaignId) return false;
+/**
+ * Why this send must stand down, or null when it may go on: an earlier live send of the same
+ * Studio campaign holds one of its pieces, or is still being created (no items and nothing on
+ * Meta yet, made within CREATING_MS before this one) and so may be about to hold them.
+ * "Earlier" is by creation time, then id, so of two racing sends exactly one goes on.
+ */
+async function beatenBy(store: SendDeps["store"], send: AdSend, items: AdSendItem[]): Promise<string | null> {
+  if (!send.campaignId) return null;
   const mine = new Set(items.flatMap((i) => (i.pieceId ? [i.pieceId] : [])));
-  const others = await store.listSends(send.campaignId);
-  return others.some(
-    (o) =>
-      o.id !== send.id &&
-      (o.createdAt < send.createdAt || (o.createdAt === send.createdAt && o.id < send.id)) &&
-      o.items.some((i) => i.pieceId && mine.has(i.pieceId)),
+  const mineAt = Date.parse(send.createdAt);
+  const earlier = (await store.listSends(send.campaignId)).filter(
+    (o) => o.id !== send.id && (o.createdAt < send.createdAt || (o.createdAt === send.createdAt && o.id < send.id)),
   );
+  if (earlier.some((o) => o.items.some((i) => i.pieceId && mine.has(i.pieceId)))) return DUPLICATE;
+  const starting = earlier.some(
+    (o) => o.items.length === 0 && !o.metaCampaignId && o.step === "none" && mineAt - Date.parse(o.createdAt) <= CREATING_MS,
+  );
+  return starting ? OTHER_STARTING : null;
 }
 
 /** The run itself, under the claim: campaign, ad set, then every piece still without an ad. */
@@ -233,6 +251,7 @@ async function drive(
   if (!(await store.claimSend(sendId, SEND_CLAIM_STALE_MS))) {
     return { ok: false, step: "check", error: BUSY, send: (await store.getSend(sendId)) ?? undefined };
   }
+  let dropped = false;
   try {
     const started = now().getTime();
     // re-read under the claim: another run may have moved the send on since it was read
@@ -247,7 +266,15 @@ async function drive(
       return { ok: false as const, step, error, send };
     };
 
-    if (!send.metaCampaignId && (await beatenBy(store, send, items))) return stop("check", DUPLICATE);
+    if (!send.metaCampaignId) {
+      const beaten = await beatenBy(store, send, items);
+      if (beaten) {
+        // nothing of this send is on Meta: remove it rather than leave a live row holding the pieces
+        dropped = await store.dropSend(sendId);
+        if (dropped) return { ok: false, step: "check", error: beaten };
+        return stop("check", beaten);
+      }
+    }
 
     const act = send.actId;
     const day = bangkokDay(now());
@@ -298,7 +325,7 @@ async function drive(
     const madeItems = sources.order(await store.listItems(sendId));
     return { ok: true, send: after, items: madeItems };
   } finally {
-    await store.releaseSend(sendId);
+    if (!dropped) await store.releaseSend(sendId);
   }
 }
 

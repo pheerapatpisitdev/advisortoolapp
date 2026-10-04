@@ -32,6 +32,9 @@ let sends: AdSend[];
 let items: AdSendItem[];
 let nextId: number;
 let claimStaleSeen: (number | undefined)[];
+/** which createSend call (1-based) writes its items late, as the real one does in a second request */
+let lateItemsOfCall: number | null;
+let createCalls: number;
 
 function fetchFn(): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
@@ -50,7 +53,11 @@ function fetchFn(): typeof fetch {
   }) as typeof fetch;
 }
 
-/** The tables, in memory. Created rows get increasing times, as the database's now() would. */
+/**
+ * The tables, in memory. Created rows get increasing times, as the database's now() would. The
+ * real createSend writes the send row and then its items in a second request; lateItemsOfCall
+ * opens that gap for one call, so another send can run in it.
+ */
 function memoryStore(): Store {
   const sendById = (id: string) => sends.find((s) => s.id === id);
   const itemById = (id: string) => items.find((i) => i.id === id);
@@ -64,6 +71,7 @@ function memoryStore(): Store {
         pausedAt: null, superseded: false, createdBy: s.createdBy ?? null,
       };
       sends.push(send);
+      if (++createCalls === lateItemsOfCall) await new Promise((r) => setTimeout(r, 20));
       const made = [...new Set(pieceIds)].map((pieceId) => {
         const item: AdSendItem = { id: `I${nextId++}`, sendId: send.id, pieceId, imageHash: null, creativeId: null, adId: null, error: null };
         items.push(item);
@@ -89,7 +97,14 @@ function memoryStore(): Store {
       s.claimedAt = "2026-10-04T01:00:00.000Z";
       return true;
     },
-    releaseSend: async (id: string) => { sendById(id)!.claimedAt = null; },
+    releaseSend: async (id: string) => { const s = sendById(id); if (s) s.claimedAt = null; },
+    dropSend: async (id: string) => {
+      const s = sendById(id);
+      if (!s || s.step !== "none" || s.metaCampaignId) return false;
+      sends = sends.filter((x) => x.id !== id);
+      items = items.filter((i) => i.sendId !== id);
+      return true;
+    },
     markSendActivated: async (id: string, at: string) => { sendById(id)!.activatedAt = at; },
     markSendPaused: async (id: string, at: string) => { sendById(id)!.pausedAt = at; },
     sentPieceIds: async (campaignId: string) => {
@@ -148,6 +163,8 @@ beforeEach(() => {
   items = [];
   nextId = 1;
   claimStaleSeen = [];
+  lateItemsOfCall = null;
+  createCalls = 0;
   store = memoryStore();
   token = "tok";
   posters = { P1, P2 };
@@ -374,7 +391,55 @@ describe("two presses at once", () => {
     expect(sent).toHaveLength(8);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     expect(results.find((r) => !r.ok)).toMatchObject({ ok: false, step: "check" });
-    expect(sends.every((s) => s.claimedAt === null)).toBe(true);
+    // the send that stood down made nothing on Meta and is gone, items and all
+    expect(sends).toHaveLength(1);
+    expect(sends[0]).toMatchObject({ metaCampaignId: "C1", claimedAt: null });
+    expect(items.map((i) => i.sendId)).toEqual([sends[0].id, sends[0].id]);
+  });
+
+  it("make one campaign when the first send's items are written after the second send has started", async () => {
+    // A writes its row, then its items late; B writes row and items, claims, and checks first
+    lateItemsOfCall = 1;
+    replies = [...FULL];
+    const [a, b] = await Promise.all([runSend(input, deps()), runSend(input, deps())]);
+
+    expect(sent.filter((s) => s.path.endsWith("/campaigns"))).toHaveLength(1);
+    expect(sent).toHaveLength(8);
+    expect(a.ok).toBe(true);
+    expect(b).toMatchObject({ ok: false, step: "check" });
+    expect(!b.ok && b.error).toContain("กำลังเริ่ม");
+    expect(!b.ok && b.send).toBeUndefined();
+    expect(sends.map((s) => s.id)).toEqual([a.ok ? a.send.id : ""]);
+  });
+
+  it("leave nothing of the send that stood down: its pieces are not counted as sent, and it cannot be resumed", async () => {
+    replies = [...FULL];
+    const results = await Promise.all([runSend(input, deps()), runSend(input, deps())]);
+    const winner = results.find((r) => r.ok)!;
+    const loserId = sends.length === 1 && winner.ok ? (winner.send.id === "S1" ? "S2" : "S1") : "";
+    expect(loserId).not.toBe("");
+
+    expect([...(await store.sentPieceIds("K1"))].sort()).toEqual(["P1", "P2"]);
+    // once the real send is retired, its pieces are free: no leftover row still holds them
+    sends[0].superseded = true;
+    expect(await store.sentPieceIds("K1")).toEqual(new Set());
+
+    sent = [];
+    replies = [...FULL];
+    expect(await resumeSend(loserId, deps())).toMatchObject({ ok: false, step: "check" });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("are not blocked by an old send that never got its items", async () => {
+    // a rollback that failed long ago left a row with no items: it is not a send still starting
+    sends.push({
+      id: "S0", createdAt: "2026-10-04T00:50:00.000Z", campaignId: "K1", actId: "act_1", pageId: "111", link: "https://example.com/plan",
+      currency: "THB", dailyBudgetMinor: 10000, metaCampaignId: null, adsetId: null, step: "none", error: null, claimedAt: null,
+      activatedAt: null, pausedAt: null, superseded: false, createdBy: "U1",
+    });
+    replies = [...FULL];
+    expect((await runSend(input, deps())).ok).toBe(true);
+    expect(sent.filter((s) => s.path.endsWith("/campaigns"))).toHaveLength(1);
   });
 
   it("make one campaign when two retries of the same send race", async () => {

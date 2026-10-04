@@ -8,14 +8,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * text, since it cannot be run here.
  */
 
-interface Call { table: string; op: string; payload?: unknown; filters: [string, unknown][]; or?: string; order?: [string, unknown] }
+interface Call { table: string; op: string; payload?: unknown; filters: [string, unknown][]; or?: string; order?: [string, unknown]; is?: [string, unknown][] }
 const calls: Call[] = [];
 /** what an insert...select().single() answers */
 let insertOne: { data: unknown; error: { code?: string; message: string } | null };
 /** what a plain read, or an insert...select() awaited, answers per table */
 let rowsByTable: Record<string, Record<string, unknown>[]>;
 let one: Record<string, unknown> | null;
-/** the rows a conditional update answers when it asks for them back */
+/** the rows a conditional update or delete answers when it asks for them back */
 let updated: { id: string }[];
 
 function builder(table: string) {
@@ -27,13 +27,14 @@ function builder(table: string) {
     select: () => b,
     or: (cond: string) => { call.or = cond; return b; },
     eq: (col: string, val: unknown) => { call.filters.push([col, val]); return b; },
+    is: (col: string, val: unknown) => { (call.is ??= []).push([col, val]); return b; },
     in: (col: string, val: unknown) => { call.filters.push([col, val]); return b; },
     order: (col: string, opts: unknown) => { call.order = [col, opts]; return b; },
     single: async () => { calls.push(call); return insertOne; },
     maybeSingle: async () => { calls.push(call); return { data: one, error: null }; },
     then: (resolve: (v: unknown) => unknown) => {
       calls.push(call);
-      const data = call.op === "update" ? updated : (rowsByTable[table] ?? []);
+      const data = call.op === "update" || call.op === "delete" ? updated : (rowsByTable[table] ?? []);
       return resolve({ data, error: null });
     },
   };
@@ -43,7 +44,7 @@ function builder(table: string) {
 vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => ({ from: builder }) }));
 
 const {
-  claimSend, createSend, getSend, listSends, markSendActivated, markSendPaused, releaseSend,
+  claimSend, createSend, dropSend, getSend, listSends, markSendActivated, markSendPaused, releaseSend,
   saveItem, saveItemError, saveSendError, saveSendStep, sentPieceIds,
 } = await import("@/lib/ads/send-store");
 const { CLAIM_STALE_MS } = await import("@/lib/ads/launch-store");
@@ -203,6 +204,21 @@ describe("claiming a send", () => {
     await releaseSend("S1");
     expect(calls[0].payload).toEqual({ claimed_at: null });
     expect(calls[0].filters).toEqual([["id", "S1"]]);
+  });
+});
+
+describe("dropping a send that made nothing", () => {
+  it("deletes only a send at step none with no Meta campaign, and says it did", async () => {
+    updated = [{ id: "S1" }];
+    expect(await dropSend("S1")).toBe(true);
+    expect(calls[0]).toMatchObject({ table: "ins_ad_send", op: "delete" });
+    expect(calls[0].filters).toEqual([["id", "S1"], ["step", "none"]]);
+    expect(calls[0].is).toEqual([["meta_campaign_id", null]]);
+  });
+
+  it("answers false when the send has a Meta campaign or moved on, so nothing was deleted", async () => {
+    updated = [];
+    expect(await dropSend("S1")).toBe(false);
   });
 });
 
