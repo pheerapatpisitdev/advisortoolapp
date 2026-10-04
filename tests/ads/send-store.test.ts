@@ -252,3 +252,34 @@ describe("the migration", () => {
     }
   });
 });
+
+describe("a send's objective", () => {
+  it("writes a lead send's objective, form and button", async () => {
+    await createSend({ ...input, objective: "leads", leadFormId: "777", cta: "GET_QUOTE" }, []);
+    expect(calls[0].payload).toMatchObject({ objective: "leads", lead_form_id: "777", cta: "GET_QUOTE" });
+  });
+
+  it("writes a send that names no objective as traffic, with no form or button", async () => {
+    await createSend(input, []);
+    expect(calls[0].payload).toMatchObject({ objective: "traffic", lead_form_id: null, cta: null });
+  });
+
+  it("reads a lead send's objective, form and button back in camelCase", async () => {
+    one = { ...sendRow, objective: "leads", lead_form_id: "777", cta: "SIGN_UP" };
+    expect(await getSend("S1")).toMatchObject({ objective: "leads", leadFormId: "777", cta: "SIGN_UP" });
+  });
+
+  it("reads a row from before objectives as traffic", async () => {
+    one = sendRow;
+    expect(await getSend("S1")).toMatchObject({ objective: "traffic", leadFormId: null, cta: null });
+  });
+
+  it("is limited by the migration to the two objectives and three buttons, and a lead send needs both", () => {
+    const sql = readFileSync("supabase/migrations/20261006_ad_send_objective.sql", "utf8");
+    expect(sql).toContain("alter table public.ins_ad_send");
+    expect(sql).toContain("objective text not null default 'traffic'");
+    expect(sql).toContain("objective in ('traffic', 'leads')");
+    expect(sql).toContain("'GET_QUOTE', 'SIGN_UP', 'LEARN_MORE'");
+    expect(sql).toContain("objective <> 'leads' or (lead_form_id is not null and cta is not null)");
+  });
+});

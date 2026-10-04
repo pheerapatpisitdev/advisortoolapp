@@ -67,6 +67,7 @@ function memoryStore(): Store {
       const send: AdSend = {
         id: `S${n}`, createdAt: new Date(Date.UTC(2026, 9, 4, 1, 0, n)).toISOString(), campaignId: s.campaignId,
         actId: s.actId, pageId: s.pageId, link: s.link, currency: s.currency, dailyBudgetMinor: s.dailyBudgetMinor,
+        objective: s.objective ?? "traffic", leadFormId: s.leadFormId ?? null, cta: s.cta ?? null,
         metaCampaignId: null, adsetId: null, step: "none", error: null, claimedAt: null, activatedAt: null,
         pausedAt: null, superseded: false, createdBy: s.createdBy ?? null,
       };
@@ -434,7 +435,7 @@ describe("two presses at once", () => {
     // a rollback that failed long ago left a row with no items: it is not a send still starting
     sends.push({
       id: "S0", createdAt: "2026-10-04T00:50:00.000Z", campaignId: "K1", actId: "act_1", pageId: "111", link: "https://example.com/plan",
-      currency: "THB", dailyBudgetMinor: 10000, metaCampaignId: null, adsetId: null, step: "none", error: null, claimedAt: null,
+      currency: "THB", dailyBudgetMinor: 10000, objective: "traffic", leadFormId: null, cta: null, metaCampaignId: null, adsetId: null, step: "none", error: null, claimedAt: null,
       activatedAt: null, pausedAt: null, superseded: false, createdBy: "U1",
     });
     replies = [...FULL];
