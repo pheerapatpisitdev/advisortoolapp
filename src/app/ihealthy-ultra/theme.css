@@ -272,7 +272,12 @@
   .ihu-quote .border-t { padding-top: 4px; }
   .ihu-quote > ul + div { border-top: 0; padding-top: 0; }
   .ihu-quote .lg-figure.mt-1 { font-size: 20px; margin-top: 0; }
-  .ihu-quote dl { margin-top: 2px; max-width: 210px; }
+  /* The other instalments, each a highlighter stroke on the label and on the figure. Kept
+     close enough that the figure reads as the label's, and given air above and below, since
+     a stroke runs a little past its line: set line on line, the strokes ran into one yellow
+     slab and the last one sat on the rule under it. */
+  .ihu-quote dl { margin-top: 4px; padding-bottom: 4px; max-width: 165px; }
+  .ihu-quote dl > * + * { margin-top: 5px; }
   /* the ceiling and what the family receives run under both halves */
   .ihu-quote > div:last-child { grid-column: 1 / -1; padding-top: 4px; }
 
