@@ -457,6 +457,9 @@ describe("two presses at once", () => {
   it("hold the claim longer than a send may run, each request waiting its full timeout", async () => {
     // a claim that runs out sooner lets a second press take over a send still making ads
     expect(SEND_CLAIM_STALE_MS).toBeGreaterThan(SEND_TIME_BUDGET_MS + 3 * REQUEST_TIMEOUT_MS);
+    // and the longest run — the budget plus a piece started just inside it — ends a minute or more
+    // before the page's maxDuration (300 s) kills it, which would leave an ad on Meta unsaved
+    expect(SEND_TIME_BUDGET_MS + 3 * REQUEST_TIMEOUT_MS).toBeLessThanOrEqual(300_000 - 60_000);
     replies = [...FULL];
     await runSend(input, deps());
     expect(claimStaleSeen).toEqual([SEND_CLAIM_STALE_MS]);
@@ -485,6 +488,37 @@ describe("two presses at once", () => {
     expect(again.ok).toBe(true);
     expect(paths()).toEqual(["/v23.0/act_1/adimages", "/v23.0/act_1/adcreatives", "/v23.0/act_1/ads"]);
     expect(sends[0].step).toBe("ads");
+  });
+});
+
+describe("the time budget counts from the request's start", () => {
+  it("counts the time spent drawing posters: a slow draw leaves the pieces for a resume", async () => {
+    let t = NOW.getTime();
+    clock = () => new Date(t);
+    replies = [ok({ id: "C1" }), ok({ id: "AS1" })];
+    const slow: SendDeps = { ...deps(), poster: async (id) => { t += SEND_TIME_BUDGET_MS / 2; return posters[id] ?? null; } };
+    const result = await runSend(input, slow);
+
+    expect(result.ok).toBe(true);
+    expect(paths()).toEqual(["/v23.0/act_1/campaigns", "/v23.0/act_1/adsets"]);
+    expect(itemOf("P1").error).toContain("ลองใหม่");
+    expect(itemOf("P2").error).toContain("ลองใหม่");
+    expect(sends[0].step).toBe("adset");
+  });
+
+  it("counts from when the action began, when it says", async () => {
+    replies = [ok({ id: "C1" }), ok({ id: "AS1" })];
+    const late: SendDeps = { ...deps(), startedAt: NOW.getTime() - SEND_TIME_BUDGET_MS };
+    await runSend(input, late);
+    expect(paths()).toEqual(["/v23.0/act_1/campaigns", "/v23.0/act_1/adsets"]);
+    expect(itemOf("P1").adId).toBeNull();
+
+    sent = [];
+    replies = [...PIECE1, ...PIECE2];
+    await resumeSend(sends[0].id, late);
+    expect(sent).toHaveLength(0);
+    await resumeSend(sends[0].id, deps());
+    expect(itemOf("P2").adId).toBe("A2");
   });
 });
 

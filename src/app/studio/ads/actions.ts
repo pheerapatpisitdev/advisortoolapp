@@ -910,9 +910,11 @@ const picturePending = (p: ContentItem) => Boolean(p.output.ad?.style && p.outpu
  * content store. A poster that cannot be drawn is no poster — the engine leaves that piece out
  * with its reason rather than a throw stopping the whole batch.
  */
-function sendDeps(known: Map<string, ContentItem> = new Map()): SendDeps {
+function sendDeps(startedAt: number, known: Map<string, ContentItem> = new Map()): SendDeps {
   const pieceOf = async (id: string) => known.get(id) ?? (await getContent(id));
   return {
+    // the engine's time budget counts from the press, so the reads before it count too
+    startedAt,
     store: sendStore,
     token: adManageToken,
     poster: async (id) => {
@@ -954,6 +956,7 @@ export interface SendApprovedInput {
  * are read strictly: one that cannot be read refuses the send rather than risk a second ad.
  */
 export async function sendApproved(input: SendApprovedInput): Promise<SendResult> {
+  const startedAt = Date.now();
   const viewer = await requireStaff("owner");
   let started = false;
   try {
@@ -1001,7 +1004,7 @@ export async function sendApproved(input: SendApprovedInput): Promise<SendResult
         pieces: fresh.map((p) => ({ id: p.id, ...wordsOf(p) })),
         createdBy: viewer.agentId,
       },
-      sendDeps(byId),
+      sendDeps(startedAt, byId),
     );
     const all = [...skipped, ...(result.skipped ?? [])];
     await audit("ads-send", result.send?.id ?? campaign.id, {
@@ -1030,10 +1033,11 @@ export async function sendApproved(input: SendApprovedInput): Promise<SendResult
  * account, Page, link and budget it started with.
  */
 export async function retrySend(sendId: string): Promise<SendResult> {
+  const startedAt = Date.now();
   await requireStaff("owner");
   const record = (ok: boolean, detail: Record<string, unknown>) => audit("ads-send", sendId, { ok, retry: true, ...detail });
   try {
-    const result = await resumeSend(sendId, sendDeps());
+    const result = await resumeSend(sendId, sendDeps(startedAt));
     await record(result.ok, { step: result.ok ? "ads" : result.step, error: result.ok ? undefined : result.error });
     revalidatePath("/studio/ads", "layout");
     return result;

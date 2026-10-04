@@ -41,13 +41,18 @@ import {
  * (dropSend), so it neither keeps those pieces locked nor can be resumed later. Only the
  * earliest makes a campaign.
  *
- * A batch can make many requests, each allowed REQUEST_TIMEOUT_MS. No new piece is started once
- * SEND_TIME_BUDGET_MS has passed — the rest wait for a resume — so a run ends well inside the
- * page's maxDuration (300 s), and the claim is held for longer than any run can last.
+ * A batch can make many requests, each allowed REQUEST_TIMEOUT_MS (graph.ts). No new piece is
+ * started once SEND_TIME_BUDGET_MS has passed since the request began (deps.startedAt, or when
+ * runSend / resumeSend was entered — poster drawing counts) — the rest wait for a resume — so a
+ * run ends well inside the page's maxDuration (300 s): a function killed mid-piece would leave an
+ * ad on Meta with no id saved. The claim is held for longer than any run can last.
  */
 
-/** No new piece is started after this long; with campaign and ad set it keeps a run inside 300 s. */
-export const SEND_TIME_BUDGET_MS = 180_000;
+/**
+ * No new piece is started this long after the request began. A piece started just inside it
+ * (three requests at their full 30 s) still ends a minute and more before maxDuration (300 s).
+ */
+export const SEND_TIME_BUDGET_MS = 120_000;
 
 /**
  * How old a claim must be before another request may take it over. Longer than the longest run
@@ -90,6 +95,8 @@ export interface SendDeps {
   thIdentity?: () => string | null;
   fetchFn?: typeof fetch;
   now?: () => Date;
+  /** when the request began (ms since epoch); the time budget counts from here. Defaults to entering runSend / resumeSend. */
+  startedAt?: number;
 }
 
 /** A piece left out of a send before anything was made, and why. */
@@ -138,6 +145,7 @@ interface Sources {
 
 export async function runSend(input: SendInput, deps: SendDeps): Promise<SendResult> {
   const { store } = deps;
+  const begun = deps.startedAt ?? (deps.now ?? (() => new Date()))().getTime();
 
   const unique = [...new Map(input.pieces.map((p) => [p.id, p])).values()];
   if (unique.length === 0) return { ok: false, step: "check", error: NO_PIECES };
@@ -191,7 +199,7 @@ export async function runSend(input: SendInput, deps: SendDeps): Promise<SendRes
     poster: async (id) => posters.get(id) ?? deps.poster(id),
     order: (items) => [...items].sort((a, b) => (byId.get(a.pieceId ?? "")?.index ?? 0) - (byId.get(b.pieceId ?? "")?.index ?? 0)),
   };
-  return { ...(await drive(started.id, token, identity, sources, deps)), skipped };
+  return { ...(await drive(started.id, token, identity, sources, deps, begun)), skipped };
 }
 
 /**
@@ -200,6 +208,7 @@ export async function runSend(input: SendInput, deps: SendDeps): Promise<SendRes
  * with (account, page, link, budget), never anything new.
  */
 export async function resumeSend(sendId: string, deps: SendDeps): Promise<SendResult> {
+  const begun = deps.startedAt ?? (deps.now ?? (() => new Date()))().getTime();
   const send = await deps.store.getSend(sendId);
   if (!send) return { ok: false, step: "check", error: NOT_FOUND };
   if (send.superseded) return { ok: false, step: "check", error: RETIRED, send };
@@ -212,7 +221,7 @@ export async function resumeSend(sendId: string, deps: SendDeps): Promise<SendRe
   if (!token) return { ok: false, step: "check", error: NO_TOKEN, send };
 
   const sources: Sources = { text: (id) => deps.piece(id), poster: (id) => deps.poster(id), order: (items) => items };
-  const result = await drive(sendId, token, identity, sources, deps);
+  const result = await drive(sendId, token, identity, sources, deps, begun);
   return result.ok ? { ...result, skipped: [] } : result;
 }
 
@@ -243,6 +252,8 @@ async function drive(
   identity: string | null,
   sources: Sources,
   deps: SendDeps,
+  /** when the request began (ms): the time budget counts from here, not from the claim */
+  begun: number,
 ): Promise<Exclude<SendResult, { ok: true }> | { ok: true; send: AdSend; items: AdSendItem[] }> {
   const { store } = deps;
   const fetchFn = deps.fetchFn ?? fetch;
@@ -253,7 +264,6 @@ async function drive(
   }
   let dropped = false;
   try {
-    const started = now().getTime();
     // re-read under the claim: another run may have moved the send on since it was read
     let send = await store.getSend(sendId);
     if (!send) return { ok: false, step: "check", error: NOT_FOUND };
@@ -308,7 +318,7 @@ async function drive(
     let cut = false;
     for (const item of items) {
       if (item.adId) continue;
-      if (cut || now().getTime() - started >= SEND_TIME_BUDGET_MS) {
+      if (cut || now().getTime() - begun >= SEND_TIME_BUDGET_MS) {
         cut = true;
         await store.saveItemError(item.id, OUT_OF_TIME);
         continue;
