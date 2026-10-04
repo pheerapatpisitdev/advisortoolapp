@@ -57,7 +57,7 @@ vi.mock("@/lib/facebook/oauth", async (orig) => ({ ...(await orig<typeof import(
 
 const store = vi.hoisted(() => ({ findLaunch: vi.fn(), getLaunch: vi.fn() }));
 vi.mock("@/lib/ads/launch-store", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/launch-store")>()), ...store }));
-const launch = vi.hoisted(() => ({ runLaunch: vi.fn(), activateLaunch: vi.fn(), adEffectiveStatus: vi.fn() }));
+const launch = vi.hoisted(() => ({ runLaunch: vi.fn(), activateLaunch: vi.fn(), adEffectiveStatus: vi.fn(), thVerifiedIdentity: vi.fn(() => "VID1" as string | null) }));
 vi.mock("@/lib/ads/launch", () => launch);
 const camps = vi.hoisted(() => ({
   listCampaigns: vi.fn(),
@@ -379,6 +379,14 @@ describe("switching an ad on", () => {
   });
 });
 
+describe("the Thai advertiser identity flag", () => {
+  it("tells the page when META_TH_VERIFIED_IDENTITY_ID is missing", async () => {
+    launch.thVerifiedIdentity.mockReturnValueOnce(null);
+    const { connection } = await adsStudioHome(PAGE);
+    expect(connection.thIdentity).toBe(false);
+  });
+});
+
 describe("Ads Studio's list of campaigns", () => {
   it("opens a Page it is asked for, and the first Page for one it does not know or none", async () => {
     pages.myPages.mockResolvedValue([{ pageId: PAGE, pageName: "เพจทดสอบ" }, { pageId: "333", pageName: "เพจสอง" }]);
@@ -432,6 +440,7 @@ describe("Ads Studio's list of campaigns", () => {
       accounts: [{ id: ACT, name: "บัญชีทดสอบ", currency: "THB", expiresAt: "2026-12-01T00:00:00.000Z", tokenValid: true }],
       choices: [{ id: ACT, name: "บัญชีทดสอบ" }],
       maxDailyBudgetThb: 500,
+      thIdentity: true,
     });
   });
 

@@ -84,7 +84,7 @@ export interface LaunchPanelProps {
 
 export function LaunchPanel({ piece, connection, page, pages, copy, dirty }: LaunchPanelProps) {
   const router = useRouter();
-  const { accounts, maxDailyBudgetThb } = connection;
+  const { accounts, maxDailyBudgetThb, thIdentity } = connection;
   const [actId, setActId] = useState((accounts.find((a) => a.currency === "THB") ?? accounts[0])?.id ?? "");
   const [link, setLink] = useState("");
   const [budget, setBudget] = useState("");
@@ -197,6 +197,11 @@ export function LaunchPanel({ piece, connection, page, pages, copy, dirty }: Lau
               </select>
             </label>
             {nonBaht && <p className="text-sm text-[var(--ct-warn-ink)]">รองรับเฉพาะบัญชีสกุลบาท (THB) เลือกบัญชีอื่น</p>}
+            {!thIdentity && (
+              <p className="text-sm text-[var(--ct-warn-ink)]">
+                ยังยิงไม่ได้ — Meta บังคับให้แอดที่แสดงในไทยระบุผู้ลงโฆษณาที่ยืนยันตัวตนแล้ว ต้องตั้งค่า <code className="break-all">META_TH_VERIFIED_IDENTITY_ID</code> ก่อน (ขั้นตอนอยู่ใน docs/ads-manage-permission.md)
+              </p>
+            )}
             <label className="block space-y-1">
               <span className="text-xs text-[var(--ct-mute)]">ลิงก์ปลายทางของปุ่ม</span>
               <input value={link} onChange={(e) => setLink(e.target.value)} inputMode="url" autoCapitalize="none" placeholder="https://…" className={field} />
