@@ -10,7 +10,7 @@ import {
 import { adsManageMissingEnv, adsManageOauthIsConfigured, listAdAccounts, tokenExpiry, type TokenExpiry } from "@/lib/facebook/oauth";
 import * as launchStore from "@/lib/ads/launch-store";
 import type { LaunchRow, LaunchStep as RowStep } from "@/lib/ads/launch-store";
-import { activateLaunch, adEffectiveStatus, runLaunch, type LaunchResult } from "@/lib/ads/launch";
+import { activateLaunch, adEffectiveStatus, runLaunch, type LaunchResult, thVerifiedIdentity } from "@/lib/ads/launch";
 import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
 import {
   createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign,
@@ -77,6 +77,8 @@ export interface Connection {
   /** the ad accounts a finished Facebook login reached, waiting to be picked; currency so the page can say which can launch */
   choices: { id: string; name: string; currency: string | null }[];
   maxDailyBudgetThb: number;
+  /** META_TH_VERIFIED_IDENTITY_ID is set: Meta refuses ad sets reaching Thailand without it */
+  thIdentity: boolean;
 }
 
 /** One ad piece on a campaign's card, with what the card and the edit page need. */
@@ -167,6 +169,7 @@ async function connection(): Promise<{ connection: Connection; accounts: AdAccou
       }),
       choices,
       maxDailyBudgetThb: maxDailyBudgetThb(),
+      thIdentity: thVerifiedIdentity() !== null,
     },
   };
 }

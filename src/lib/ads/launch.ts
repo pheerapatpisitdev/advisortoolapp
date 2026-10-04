@@ -30,10 +30,16 @@ import { EXPIRED } from "./sync";
  *   figure exact — with one ad set there is nothing to share with anyway.
  *   https://developers.facebook.com/docs/graph-api/changelog/version24.0/
  *   https://developers.facebook.com/docs/marketing-api/reference/ad-account/campaigns/
- * - Ad set: targeting stays countries only. v23.0 enrols new ad sets in Advantage+ audience by
- *   default and only demands targeting_automation.advantage_audience when age or gender are
- *   customised, which this launch does not do; location is never relaxed by it.
+ * - Ad set: Thailand, aged 20 and up, Advantage+ audience on. Meta refused the first live
+ *   launch (2026-10-04) with countries only: an audience that can reach people under 20 in
+ *   Thailand (the age of majority there) or under 18 anywhere is not allowed for this kind of
+ *   ad. With an age set, v23.0 wants targeting_automation.advantage_audience stated; 1 keeps
+ *   the default it enrols new ad sets in, and location is never relaxed by it.
  *   https://developers.facebook.com/docs/graph-api/changelog/version23.0/
+ *   It also names the verified advertiser and payer Meta requires for Thailand
+ *   (regional_regulated_categories THAILAND_UNIVERSAL, universal_beneficiary/universal_payer);
+ *   the second live try was refused without them.
+ *   https://developers.facebook.com/docs/marketing-api/reference/ad-campaign/
  * - Image: POST /adimages answers {images: {<name>: {hash, ...}}}, not a top-level id, so the
  *   hash is read from the first entry of `images`.
  *   https://developers.facebook.com/docs/marketing-api/reference/ad-account/adimages/
@@ -70,6 +76,18 @@ export interface LaunchDeps {
   poster(pieceId: string): Promise<Buffer | null>;
   fetchFn?: typeof fetch;
   now?: () => Date;
+  /** the verified advertiser identity Meta requires on ad sets reaching Thailand; defaults to the env */
+  thIdentity?: () => string | null;
+}
+
+/**
+ * The verified identity (Business settings → การอนุญาตและการตรวจสอบยืนยัน) every ad set
+ * reaching Thailand must name as advertiser and payer. Ad sets made through the API do not take
+ * the ad account's default, and Meta has no public API to look the id up, so the owner sets it.
+ */
+export function thVerifiedIdentity(env: Record<string, string | undefined> = process.env): string | null {
+  const id = (env.META_TH_VERIFIED_IDENTITY_ID ?? "").trim();
+  return /^\d+$/.test(id) ? id : null;
 }
 
 export type LaunchResult =
@@ -79,6 +97,7 @@ export type LaunchResult =
 const NO_TOKEN = "ยังไม่ได้เชื่อมบัญชีโฆษณาสำหรับสร้างแอด กดเชื่อมบัญชีก่อน";
 const NO_POSTER = "ชิ้นนี้ยังไม่มีโปสเตอร์ สร้างโปสเตอร์ก่อนยิงแอด";
 const BUSY = "กำลังสร้างแอดนี้อยู่ รอสักครู่แล้วลองใหม่";
+const NO_TH_IDENTITY = "ยังไม่ได้ตั้งค่า META_TH_VERIFIED_IDENTITY_ID — Meta บังคับให้แอดที่แสดงในไทยระบุผู้ลงโฆษณาที่ยืนยันตัวตนแล้ว (ขั้นตอนอยู่ใน docs/ads-manage-permission.md)";
 const NO_ID = "Facebook ตอบกลับมาแต่ไม่มีไอดี";
 /** How long one request to Meta may take; a function that waits on a hung one is cut off with nothing saved. */
 export const REQUEST_TIMEOUT_MS = 30_000;
@@ -171,6 +190,9 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
   if (!/^act_\d+$/.test(input.actId) || !/^\d+$/.test(input.pageId)) {
     return { ok: false, step: "check", error: "บัญชีโฆษณาหรือเพจไม่ถูกต้อง" };
   }
+  // every ad set reaches Thailand, and Meta refuses one that names no verified advertiser
+  const identity = (deps.thIdentity ?? thVerifiedIdentity)();
+  if (!identity) return { ok: false, step: "check", error: NO_TH_IDENTITY };
   const token = await deps.token(input.actId);
   if (!token) return { ok: false, step: "check", error: NO_TOKEN };
   // fetched before anything is retired or recorded, so a piece without one changes nothing
@@ -248,7 +270,9 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
         optimization_goal: "LINK_CLICKS",
         bid_strategy: "LOWEST_COST_WITHOUT_CAP",
         destination_type: "WEBSITE",
-        targeting: JSON.stringify({ geo_locations: { countries: ["TH"] } }),
+        targeting: JSON.stringify({ geo_locations: { countries: ["TH"] }, age_min: 20, targeting_automation: { advantage_audience: 1 } }),
+        regional_regulated_categories: JSON.stringify(["THAILAND_UNIVERSAL"]),
+        regional_regulation_identities: JSON.stringify({ universal_beneficiary: identity, universal_payer: identity }),
         status: "PAUSED",
       });
       if (!r.ok) return stop("adset", r.error);

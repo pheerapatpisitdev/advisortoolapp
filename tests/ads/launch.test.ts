@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { CLAIM_STALE_MS, type LaunchRow, type NewLaunch } from "@/lib/ads/launch-store";
 import { EXPIRED } from "@/lib/ads/sync";
-import { activateLaunch, adEffectiveStatus, REQUEST_TIMEOUT_MS, runLaunch, type LaunchDeps, type LaunchInput } from "@/lib/ads/launch";
+import { activateLaunch, adEffectiveStatus, REQUEST_TIMEOUT_MS, runLaunch, thVerifiedIdentity, type LaunchDeps, type LaunchInput } from "@/lib/ads/launch";
 
 /**
  * The launch spends real money on Meta, so both things it talks to are stood in for: Graph by a
@@ -80,12 +80,14 @@ const NOW = new Date("2026-10-04T01:00:00.000Z");
 let store: Store;
 let token: string | null;
 let poster: Buffer | null;
+let identity: string | null = "VID1";
 const deps = (): LaunchDeps => ({
   store,
   token: async () => token,
   poster: async () => poster,
   fetchFn: fetchFn(),
   now: () => NOW,
+  thIdentity: () => identity,
 });
 
 const input: LaunchInput = {
@@ -135,7 +137,14 @@ describe("making the ad", () => {
     expect(adset.get("optimization_goal")).toBe("LINK_CLICKS");
     expect(adset.get("bid_strategy")).toBe("LOWEST_COST_WITHOUT_CAP");
     expect(adset.get("destination_type")).toBe("WEBSITE");
-    expect(JSON.parse(adset.get("targeting")!)).toEqual({ geo_locations: { countries: ["TH"] } });
+    // Meta refuses an audience that may reach anyone under 20 in Thailand (adult age there); with an
+    // age set, v23 asks for the Advantage+ audience choice to be stated
+    expect(JSON.parse(adset.get("targeting")!)).toEqual({
+      geo_locations: { countries: ["TH"] }, age_min: 20, targeting_automation: { advantage_audience: 1 },
+    });
+    // Meta's rule for every ad set reaching Thailand: a verified advertiser and payer
+    expect(JSON.parse(adset.get("regional_regulated_categories")!)).toEqual(["THAILAND_UNIVERSAL"]);
+    expect(JSON.parse(adset.get("regional_regulation_identities")!)).toEqual({ universal_beneficiary: "VID1", universal_payer: "VID1" });
 
     expect(image.get("bytes")).toBe(POSTER.toString("base64"));
 
@@ -402,6 +411,15 @@ describe("a request to Meta that never answers", () => {
 });
 
 describe("refusing before Meta is asked", () => {
+  it("refuses without a verified Thai advertiser identity, and asks Meta nothing", async () => {
+    identity = null;
+    const result = await runLaunch(input, deps());
+    identity = "VID1";
+    expect(result).toMatchObject({ ok: false, step: "check" });
+    expect(!result.ok && result.error).toContain("META_TH_VERIFIED_IDENTITY_ID");
+    expect(sent).toHaveLength(0);
+  });
+
   it.each([
     ["no poster", () => { poster = null; }, {}],
     ["no token", () => { token = null; }, {}],
@@ -510,5 +528,14 @@ describe("reading what Meta made of the ad", () => {
   it("returns null when Meta answers with an error", async () => {
     replies = [fail(190)];
     expect(await adEffectiveStatus("A1", "tok", fetchFn())).toBeNull();
+  });
+});
+
+describe("the verified Thai advertiser identity", () => {
+  it("is read from META_TH_VERIFIED_IDENTITY_ID, digits only", () => {
+    expect(thVerifiedIdentity({ META_TH_VERIFIED_IDENTITY_ID: " 123456 " })).toBe("123456");
+    expect(thVerifiedIdentity({ META_TH_VERIFIED_IDENTITY_ID: "" })).toBeNull();
+    expect(thVerifiedIdentity({ META_TH_VERIFIED_IDENTITY_ID: "abc" })).toBeNull();
+    expect(thVerifiedIdentity({})).toBeNull();
   });
 });
