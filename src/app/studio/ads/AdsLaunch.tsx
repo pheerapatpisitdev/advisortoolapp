@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import type { LaunchRow } from "@/lib/ads/launch-store";
 import { ask } from "../ask";
 import { AutoTextarea, errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
+import { budgetBaht, formReady, overCap } from "./form-ready";
 import { activateAd, chooseAdManageAccount, launchAd, type AdsLaunchSetup, type LaunchView } from "./actions";
 
 /**
@@ -240,8 +241,9 @@ export function AdsLaunch({ setup, outcome, detail, limits }: {
   const launch: LaunchView | null = fresh[key] ?? piece?.launches.find((l) => l.actId === actId) ?? null;
   const pageName = (id: string) => setup.pages.find((p) => p.pageId === id)?.pageName ?? id;
   const nonBaht = account !== undefined && account.currency !== "THB";
-  const baht = Number(budget);
-  const ready = piece?.hasPoster === true && !nonBaht && link.trim() !== "" && Number.isInteger(baht) && baht >= 1 && pageId !== "" && actId !== "";
+  const baht = budgetBaht(budget);
+  const tooMuch = overCap(budget, setup.maxDailyBudgetThb);
+  const ready = formReady({ hasPoster: piece?.hasPoster === true, nonBaht, link, budget, pageId, actId, maxDailyBudgetThb: setup.maxDailyBudgetThb });
 
   function pick(id: string) {
     const p = setup.pieces.find((x) => x.id === id);
@@ -386,6 +388,11 @@ export function AdsLaunch({ setup, outcome, detail, limits }: {
                   value={budget} onChange={(e) => setBudget(e.target.value)} disabled={busy !== null}
                   type="number" inputMode="numeric" min={1} max={setup.maxDailyBudgetThb} step={1} className={field}
                 />
+                {tooMuch && (
+                  <span role="alert" className="block text-xs font-medium text-[var(--ct-alert)]">
+                    เกินเพดาน {setup.maxDailyBudgetThb.toLocaleString("en-US")} บาทต่อวัน — ลดงบก่อนจึงจะบันทึกได้
+                  </span>
+                )}
               </label>
 
               {launch === null && (
