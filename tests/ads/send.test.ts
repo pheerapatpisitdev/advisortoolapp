@@ -317,6 +317,58 @@ describe("sending a batch", () => {
   });
 });
 
+describe("sending a lead batch", () => {
+  const leads: SendInput = { ...input, objective: "leads", leadFormId: "777", cta: "GET_QUOTE" };
+  const leadCreative = (p: URLSearchParams) => JSON.parse(p.get("object_story_spec")!).link_data;
+
+  it("makes a lead campaign whose ad set promotes the Page and whose ads open the chosen form, every one paused", async () => {
+    replies = [...FULL];
+    const result = await runSend(leads, deps());
+
+    expect(result.ok).toBe(true);
+    const [campaign, adset, , creative1, ad1, , creative2, ad2] = sent.map((s) => s.params);
+    expect(campaign.get("objective")).toBe("OUTCOME_LEADS");
+    expect(campaign.get("name")).toBe("Studio · ลีด · 2 แอด · 2026-10-04");
+    expect(adset.get("optimization_goal")).toBe("LEAD_GENERATION");
+    expect(adset.get("destination_type")).toBe("ON_AD");
+    expect(JSON.parse(adset.get("promoted_object")!)).toEqual({ page_id: "111" });
+    for (const c of [creative1, creative2]) {
+      expect(leadCreative(c)).toMatchObject({ link: "http://fb.me/", call_to_action: { type: "GET_QUOTE", value: { lead_gen_form_id: "777" } } });
+    }
+    for (const p of [campaign, adset, ad1, ad2]) expect(p.get("status")).toBe("PAUSED");
+    expect(sends[0]).toMatchObject({ objective: "leads", leadFormId: "777", cta: "GET_QUOTE", link: "http://fb.me/" });
+  });
+
+  it("needs no link", async () => {
+    replies = [...FULL];
+    expect((await runSend({ ...leads, link: "" }, deps())).ok).toBe(true);
+  });
+
+  it("names traffic sends as before and records them as traffic", async () => {
+    replies = [...FULL];
+    await runSend(input, deps());
+    expect(sent[0].params.get("name")).toBe("Studio · 2 แอด · 2026-10-04");
+    expect(sends[0]).toMatchObject({ objective: "traffic", leadFormId: null, cta: null, link: "https://example.com/plan" });
+  });
+
+  it("resumes at the ad set that broke with the same form and button, not as traffic", async () => {
+    replies = [ok({ id: "C1" }), fail(100, "bad targeting")];
+    await runSend({ ...leads, cta: "SIGN_UP" }, deps());
+
+    sent = [];
+    replies = [ok({ id: "AS1" }), ...PIECE1, ...PIECE2];
+    const again = await resumeSend(sends[0].id, deps());
+    expect(again.ok).toBe(true);
+    expect(sent[0].params.get("optimization_goal")).toBe("LEAD_GENERATION");
+    expect(JSON.parse(sent[0].params.get("promoted_object")!)).toEqual({ page_id: "111" });
+    const creatives = sent.filter((s) => s.path.endsWith("/adcreatives"));
+    expect(creatives).toHaveLength(2);
+    for (const c of creatives) {
+      expect(leadCreative(c.params).call_to_action).toEqual({ type: "SIGN_UP", value: { lead_gen_form_id: "777" } });
+    }
+  });
+});
+
 describe("pieces that cannot go", () => {
   it("leaves out a piece with no poster, says why, and sends the others", async () => {
     posters = { P1: null, P2 };
@@ -533,6 +585,9 @@ describe("refusing before Meta is asked", () => {
     ["an empty link", () => {}, { link: " " }, "ลิงก์"],
     ["a bad account id", () => {}, { actId: "act_1/x" }, "บัญชี"],
     ["a bad page id", () => {}, { pageId: "1?x" }, "เพจ"],
+    ["a lead send with no form", () => {}, { objective: "leads" as const, cta: "GET_QUOTE" }, "ฟอร์ม"],
+    ["a lead send with a bad form id", () => {}, { objective: "leads" as const, leadFormId: "7/x", cta: "GET_QUOTE" }, "ฟอร์ม"],
+    ["a lead send with an unknown button", () => {}, { objective: "leads" as const, leadFormId: "777", cta: "BUY_NOW" }, "ปุ่ม"],
   ])("%s", async (_name, arrange, change, says) => {
     arrange();
     replies = [...FULL];

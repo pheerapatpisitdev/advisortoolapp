@@ -1,9 +1,10 @@
-import type { AdSend, AdSendItem } from "./send-store";
+import type { AdSend, AdSendItem, LeadCta, SendObjective } from "./send-store";
 import { checkDailyBudget, checkLink, maxDailyBudgetThb } from "./launch-limits";
 import { thVerifiedIdentity } from "./launch";
 import {
   adParams,
   adsetParams,
+  type AdGoal,
   bangkokDay,
   campaignParams,
   creativeParams,
@@ -11,6 +12,8 @@ import {
   hashOf,
   idOf,
   imageParams,
+  LEAD_CTAS,
+  LEAD_LINK,
   NO_HASH,
   NO_ID,
 } from "./graph";
@@ -73,10 +76,17 @@ export interface SendInput {
   actId: string;
   currency: string | null;
   pageId: string;
+  /** where a traffic ad's button goes; a lead send ignores it */
   link: string;
   dailyBudgetBaht: number;
   pieces: SendPiece[];
   createdBy: string;
+  /** traffic when left out */
+  objective?: SendObjective;
+  /** the Page's Instant Form a lead send's ads open */
+  leadFormId?: string;
+  /** a lead ad's button, one of LEAD_CTAS */
+  cta?: string;
 }
 
 export interface SendDeps {
@@ -131,8 +141,30 @@ const CREATING_MS = 60_000;
 const NOT_FOUND = "ไม่พบรอบส่งนี้";
 const RETIRED = "รอบส่งนี้ถูกเลิกแล้ว";
 const BAD_IDS = "บัญชีโฆษณาหรือเพจไม่ถูกต้อง";
+const BAD_FORM = "ยังไม่ได้เลือกฟอร์มลีด หรือฟอร์มไม่ถูกต้อง";
+const BAD_CTA = "ปุ่มบนแอดไม่ถูกต้อง";
 const NO_TH_IDENTITY =
   "ยังไม่ได้ตั้งค่า META_TH_VERIFIED_IDENTITY_ID — Meta บังคับให้แอดที่แสดงในไทยระบุผู้ลงโฆษณาที่ยืนยันตัวตนแล้ว (ขั้นตอนอยู่ใน docs/ads-manage-permission.md)";
+
+/** What a send's ads ask people to do, from what the send was started with. */
+export function goalOf(send: AdSend): AdGoal {
+  return send.objective === "leads"
+    ? { objective: "leads", leadFormId: send.leadFormId!, cta: send.cta! }
+    : { objective: "traffic", link: send.link };
+}
+
+/** A lead send's form and button, or why they cannot go; a traffic send's checked link. */
+function checkGoal(input: SendInput): { ok: true; link: string; leadFormId: string | null; cta: LeadCta | null } | { ok: false; error: string } {
+  if (input.objective !== "leads") {
+    const link = checkLink(input.link);
+    return link.ok ? { ok: true, link: link.url, leadFormId: null, cta: null } : link;
+  }
+  // the form id goes into the creative; only Meta's own numeric ids are taken
+  if (!input.leadFormId || !/^\d+$/.test(input.leadFormId)) return { ok: false, error: BAD_FORM };
+  const cta = LEAD_CTAS.find((c) => c === input.cta);
+  if (!cta) return { ok: false, error: BAD_CTA };
+  return { ok: true, link: LEAD_LINK, leadFormId: input.leadFormId, cta };
+}
 
 /** Where a run gets a piece's words and poster: from the request for a new send, from deps for a resume. */
 interface Sources {
@@ -150,8 +182,8 @@ export async function runSend(input: SendInput, deps: SendDeps): Promise<SendRes
   if (unique.length === 0) return { ok: false, step: "check", error: NO_PIECES };
   const budget = checkDailyBudget(input.dailyBudgetBaht, input.currency, maxDailyBudgetThb());
   if (!budget.ok) return { ok: false, step: "check", error: budget.error };
-  const link = checkLink(input.link);
-  if (!link.ok) return { ok: false, step: "check", error: link.error };
+  const goal = checkGoal(input);
+  if (!goal.ok) return { ok: false, step: "check", error: goal.error };
   // ids go into Graph paths; anything else would let a bad value pick a different endpoint
   if (!/^act_\d+$/.test(input.actId) || !/^\d+$/.test(input.pageId)) return { ok: false, step: "check", error: BAD_IDS };
   // every ad set reaches Thailand, and Meta refuses one that names no verified advertiser
@@ -184,9 +216,12 @@ export async function runSend(input: SendInput, deps: SendDeps): Promise<SendRes
       campaignId: input.campaignId,
       actId: input.actId,
       pageId: input.pageId,
-      link: link.url,
+      link: goal.link,
       currency: "THB",
       dailyBudgetMinor: budget.minor,
+      objective: input.objective === "leads" ? "leads" : "traffic",
+      leadFormId: goal.leadFormId,
+      cta: goal.cta,
       createdBy: input.createdBy,
     },
     going.map((p) => p.id),
@@ -287,10 +322,10 @@ async function drive(
 
     const act = send.actId;
     const day = bangkokDay(now());
-    const batchName = `Studio · ${items.length} แอด · ${day}`;
+    const batchName = `Studio · ${send.objective === "leads" ? "ลีด · " : ""}${items.length} แอด · ${day}`;
 
     if (!send.metaCampaignId) {
-      const r = await graph(fetchFn, token, `${act}/campaigns`, campaignParams(batchName));
+      const r = await graph(fetchFn, token, `${act}/campaigns`, campaignParams(batchName, send.objective));
       if (!r.ok) return stop("campaign", r.error);
       const id = idOf(r.body);
       if (!id) return stop("campaign", NO_ID);
@@ -310,7 +345,7 @@ async function drive(
           campaignId: send.metaCampaignId!,
           dailyBudgetMinor: send.dailyBudgetMinor,
           identity,
-          goal: { objective: "traffic", link: send.link },
+          goal: goalOf(send),
           pageId: send.pageId,
         }),
       );
@@ -383,7 +418,7 @@ async function makeAd(
         name,
         pageId: send.pageId,
         imageHash,
-        goal: { objective: "traffic", link: send.link },
+        goal: goalOf(send),
         primaryText: text.primaryText,
         headline: text.headline,
         description: text.description,
