@@ -53,3 +53,41 @@ export function sendBlocker(s: {
   if (!s.thIdentity) return "ยังส่งไม่ได้ — ต้องตั้งค่า META_TH_VERIFIED_IDENTITY_ID ก่อน (ขั้นตอนอยู่ใน docs/ads-manage-permission.md)";
   return null;
 }
+
+/**
+ * Where a piece's automatic picture stands in the room: waiting its turn, drawing, drawn (until
+ * the refreshed piece shows its background), or failed with why.
+ */
+export type PictureState = "wait" | "drawing" | "done" | { error: string };
+
+/**
+ * The draw button a card offers: วาดรูปใหม่ after a failed draw, วาดรูป for a piece still
+ * without its picture — but none while it waits, draws, or has just been drawn and the refreshed
+ * piece is not in yet (a paid draw the owner would press for nothing), and none in the bin.
+ */
+export function drawOffer(picture: PictureState | undefined, pending: boolean, tab: string): "draw" | "redraw" | null {
+  if (typeof picture === "object") return "redraw";
+  if (picture || !pending || tab === "trash") return null;
+  return "draw";
+}
+
+/**
+ * The room's picture states with every "done" dropped whose piece is in and has its background. A
+ * piece the room has not seen yet keeps its "done": the round's own refresh may land after the
+ * draw's. The same record when nothing changed, so an effect calling it settles.
+ */
+export function settledPictures<P extends { id: string } & Parameters<typeof picturePending>[0]>(
+  pictures: Record<string, PictureState>,
+  pieces: P[],
+): Record<string, PictureState> {
+  const byId = new Map(pieces.map((p) => [p.id, p]));
+  const settled = Object.keys(pictures).filter((id) => {
+    if (pictures[id] !== "done") return false;
+    const p = byId.get(id);
+    return p !== undefined && !picturePending(p);
+  });
+  if (settled.length === 0) return pictures;
+  const next = { ...pictures };
+  for (const id of settled) delete next[id];
+  return next;
+}

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
 import { brokenStep, cardLaunch, cardText } from "@/lib/ads/ad-card";
-import { picturePending } from "@/lib/ads/room-view";
+import { drawOffer, picturePending, type PictureState } from "@/lib/ads/room-view";
 import { setAdStatus } from "./actions";
 import type { RoomPiece } from "./AdEditor";
 
@@ -15,11 +15,11 @@ import type { RoomPiece } from "./AdEditor";
  *
  * Under it, ✓ อนุมัติ and ✕ ทิ้ง (or ยกเลิกอนุมัติ, or กู้คืน from the bin); a piece already
  * sent to Facebook has none. While its picture is being drawn the poster says so; a picture that
- * failed, or never came, has a button to draw it.
+ * failed, or never came, has a button to draw it — but not one just drawn whose refreshed piece
+ * is not in yet (room-view.ts drawOffer).
  */
 
-/** where a piece's automatic picture stands in the room: waiting its turn, drawing, or failed with why */
-export type PictureState = "wait" | "drawing" | { error: string };
+export type { PictureState };
 
 const label = "rounded-full bg-[var(--ct-ground)] px-2.5 py-0.5 text-xs text-[var(--ct-mute)]";
 const small = "min-h-11 flex-1 rounded-lg border px-3 text-sm font-medium disabled:opacity-50";
@@ -44,6 +44,7 @@ export function AdCard({ piece, productName, fold, picture, onOpen, onDraw }: {
   const pending = picturePending(piece);
   const drawing = picture === "wait" || picture === "drawing";
   const failed = typeof picture === "object" ? picture.error : null;
+  const offer = drawOffer(picture, pending, piece.tab);
 
   async function move(status: "draft" | "used" | "trashed") {
     setMoving(true);
@@ -100,13 +101,13 @@ export function AdCard({ piece, productName, fold, picture, onOpen, onDraw }: {
         </span>
       </button>
 
-      {(failed || (pending && !drawing && piece.tab !== "trash")) && (
+      {offer && (
         <div className="space-y-1 border-t border-[var(--ct-hair)] px-3 py-2">
           <p className={`text-xs ${failed ? "text-[var(--ct-alert)]" : "text-[var(--ct-warn-ink)]"}`}>
             {failed ? `วาดรูปไม่สำเร็จ — ${failed}` : "ยังไม่มีรูปตามสไตล์ภาพ ชิ้นนี้ยังส่งขึ้น Facebook ไม่ได้"}
           </p>
           <button type="button" onClick={onDraw} className={`${small} w-full border-[var(--ct-line)] hover:bg-[var(--ct-soft)]`}>
-            {failed ? "วาดรูปใหม่" : "วาดรูป"}
+            {offer === "redraw" ? "วาดรูปใหม่" : "วาดรูป"}
           </button>
         </div>
       )}

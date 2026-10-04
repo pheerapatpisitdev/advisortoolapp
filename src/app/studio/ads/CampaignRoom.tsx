@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ContentItem } from "@/lib/content/store";
 import { AD_TAB_KEYS, type AdTabKey } from "@/lib/ads/campaign-view";
 import { styleRequest } from "@/lib/ads/dimension-edit";
-import { sendBlocker, type WriteCount } from "@/lib/ads/room-view";
+import { sendBlocker, settledPictures, type WriteCount } from "@/lib/ads/room-view";
 import type { PersonOption } from "../PersonPicker";
 import { drawPicture, generateRound } from "../draw";
 import { AdCard, type PictureState } from "./AdCard";
@@ -25,7 +25,8 @@ import { solid, TONES } from "./styles";
  *
  * A round is one press at a time. When it is back, each new ad's picture is drawn, one after
  * another, from its picture style (the standard painter); its card says so meanwhile and offers
- * to draw again if it fails. Arriving from the wizard (?write=<n>), the first round starts by
+ * to draw again if it fails. A drawn picture stays "done" until the refreshed piece shows it, so
+ * the card never offers a paid draw in between. Arriving from the wizard (?write=<n>), the first round starts by
  * itself, once.
  */
 
@@ -74,6 +75,8 @@ export function CampaignRoom({ room, productName, rules, people, autoWrite }: {
   // the dimensions the pictures are drawn from: the newest, whatever was saved meanwhile
   const dims = useRef(campaign.dimensions);
   useEffect(() => { dims.current = campaign.dimensions; }, [campaign.dimensions]);
+  // a drawn picture is "done" until the refreshed piece has its background; then it is forgotten
+  useEffect(() => { setPictures((p) => settledPictures(p, pieces)); }, [pieces]);
 
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
@@ -104,8 +107,8 @@ export function CampaignRoom({ room, productName, rules, people, autoWrite }: {
         jobs.current.shift();
         setPictures((p) => {
           const next = { ...p };
-          if (res.ok) delete next[job.id];
-          else next[job.id] = { error: res.error };
+          // drawn: no draw button until the refreshed piece shows the picture (the effect above clears it)
+          next[job.id] = res.ok ? "done" : { error: res.error };
           return next;
         });
         if (res.ok) router.refresh();

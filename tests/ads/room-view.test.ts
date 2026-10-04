@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { picturePending, planLink, roundCost, sendBlocker, writeParam } from "@/lib/ads/room-view";
+import { drawOffer, picturePending, planLink, roundCost, sendBlocker, settledPictures, writeParam, type PictureState } from "@/lib/ads/room-view";
 
 describe("the room's small decisions", () => {
   it("starts a round on arrival only for 1, 2 or 4", () => {
@@ -40,5 +40,31 @@ describe("why the send button is shut", () => {
     expect(sendBlocker({ ...ready, accounts: [{ currency: "USD" }] })).toContain("THB");
     expect(sendBlocker({ ...ready, thIdentity: false })).toContain("META_TH_VERIFIED_IDENTITY_ID");
     expect(sendBlocker({ ...ready, pageConnected: false })).toContain("เพจ");
+  });
+});
+
+describe("a picture drawn, until the room has it", () => {
+  const style = { variant: { style: "ภาพจริง" }, poster: {} };
+  const drawn = { variant: { style: "ภาพจริง" }, poster: { background: "p/bg.png" } };
+
+  it("offers no paid draw button for a picture just drawn, while the refreshed piece is on its way", () => {
+    expect(drawOffer("done", true, "draft")).toBeNull();
+    expect(drawOffer("wait", true, "draft")).toBeNull();
+    expect(drawOffer("drawing", true, "draft")).toBeNull();
+    expect(drawOffer(undefined, true, "draft")).toBe("draw");
+    expect(drawOffer({ error: "x" }, true, "draft")).toBe("redraw");
+    expect(drawOffer(undefined, true, "trash")).toBeNull();
+    expect(drawOffer(undefined, false, "draft")).toBeNull();
+  });
+
+  it("forgets a drawn picture once the refreshed piece has its background — not before the piece is in", () => {
+    const pictures: Record<string, PictureState> = { a: "done", b: "done", c: "drawing", d: "done" };
+    const next = settledPictures(pictures, [{ id: "a", ...drawn }, { id: "b", ...style }, { id: "c", ...drawn }]);
+    expect(next).toEqual({ b: "done", c: "drawing", d: "done" });
+  });
+
+  it("gives back the same record when nothing settles, so the room does not re-render for nothing", () => {
+    const pictures: Record<string, PictureState> = { b: "done", c: "wait" };
+    expect(settledPictures(pictures, [{ id: "b", ...style }, { id: "c", ...drawn }])).toBe(pictures);
   });
 });
