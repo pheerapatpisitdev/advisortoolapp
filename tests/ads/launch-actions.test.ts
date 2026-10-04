@@ -68,12 +68,12 @@ const camps = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/ads/campaign-store", () => camps);
 // Organic Studio's save, which checks and keeps an edit; Ads Studio only decides who may call it
-const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn() }));
+const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn(), setContentStatus: vi.fn() }));
 vi.mock("@/app/studio/actions", () => studio);
 
 const {
   launchAd, chooseAdManageAccount, activateAd,
-  adsStudioHome, createAdCampaign, adCampaignRoom, updateAdCampaign, saveAdCopy,
+  adsStudioHome, createAdCampaign, adCampaignRoom, updateAdCampaign, saveAdCopy, setAdStatus,
 } = await import("@/app/studio/ads/actions");
 
 const piece = (over: Record<string, unknown> = {}) => ({
@@ -124,6 +124,7 @@ beforeEach(() => {
   camps.updateCampaign.mockResolvedValue(undefined);
   camps.listCampaignPieces.mockResolvedValue([piece()]);
   studio.saveContentEdits.mockResolvedValue({ ok: true, item: piece() });
+  studio.setContentStatus.mockResolvedValue({ ok: true });
 });
 
 describe("who may use the actions", () => {
@@ -137,9 +138,10 @@ describe("who may use the actions", () => {
     await expect(adCampaignRoom(CAMPAIGN)).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(updateAdCampaign(CAMPAIGN, { name: "x" })).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(saveAdCopy(PIECE, { hooks: ["h"], body: "b", closing: "c", hashtags: [] })).rejects.toThrow("ไม่มีสิทธิ์");
+    await expect(setAdStatus(PIECE, "trashed")).rejects.toThrow("ไม่มีสิทธิ์");
     for (const spy of [
       launch.runLaunch, launch.activateLaunch, conn.saveAdManageAccount, conn.adManageAccounts, content.getContent, who.audit,
-      pages.myPages, ...Object.values(camps), studio.saveContentEdits,
+      pages.myPages, ...Object.values(camps), studio.saveContentEdits, studio.setContentStatus, store.findLaunch,
     ]) {
       expect(spy).not.toHaveBeenCalled();
     }
@@ -576,5 +578,67 @@ describe("saving an ad's words", () => {
     expect(res).toMatchObject({ ok: false });
     expect(JSON.stringify(res)).not.toContain("secret detail");
     log.mockRestore();
+  });
+});
+
+describe("the bin for an ad", () => {
+  it("bins a draft, and a piece launched but still paused", async () => {
+    expect(await setAdStatus(PIECE, "trashed")).toEqual({ ok: true });
+    expect(studio.setContentStatus).toHaveBeenLastCalledWith(PIECE, "trashed");
+    store.findLaunch.mockResolvedValue(row({ activatedAt: null }));
+    expect(await setAdStatus(PIECE, "trashed")).toEqual({ ok: true });
+    expect(studio.setContentStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses to bin a piece whose ad is switched on, in any account", async () => {
+    conn.adManageAccounts.mockResolvedValue([
+      { id: ACT, name: "บัญชีทดสอบ", currency: "THB" }, { id: "act_222", name: "สอง", currency: "THB" },
+    ]);
+    store.findLaunch.mockImplementation(async (_p: string, act: string) => (act === "act_222" ? row({ actId: act, activatedAt: "2026-10-04T02:00:00Z" }) : null));
+    expect(await setAdStatus(PIECE, "trashed")).toEqual({ ok: false, error: "ปิดแอดนี้ก่อนทิ้ง" });
+    expect(studio.setContentStatus).not.toHaveBeenCalled();
+  });
+
+  it("refuses rather than bins when the launch table cannot be read", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    store.findLaunch.mockRejectedValue(new Error("no such table"));
+    const res = await setAdStatus(PIECE, "trashed");
+    expect(res.ok).toBe(false);
+    expect(studio.setContentStatus).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("restores from the bin whatever the launches", async () => {
+    content.getContent.mockResolvedValue(piece({ status: "trashed" }));
+    store.findLaunch.mockResolvedValue(row({ activatedAt: "2026-10-04T02:00:00Z" }));
+    expect(await setAdStatus(PIECE, "draft")).toEqual({ ok: true });
+    expect(studio.setContentStatus).toHaveBeenCalledWith(PIECE, "draft");
+  });
+
+  it("refuses a piece that is not an ad, or not in a campaign", async () => {
+    content.getContent.mockResolvedValueOnce(piece({ format: "post" }));
+    expect((await setAdStatus(PIECE, "trashed")).ok).toBe(false);
+    content.getContent.mockResolvedValueOnce(piece({ campaignId: null }));
+    expect(await setAdStatus(PIECE, "trashed")).toEqual({ ok: false, error: "ชิ้นนี้ไม่ได้อยู่ในแคมเปญ" });
+    expect(studio.setContentStatus).not.toHaveBeenCalled();
+  });
+
+  it("refuses any status but the bin and back", async () => {
+    expect((await setAdStatus(PIECE, "used" as "draft")).ok).toBe(false);
+    expect(studio.setContentStatus).not.toHaveBeenCalled();
+  });
+
+  it("passes on what Studio's own status change says", async () => {
+    studio.setContentStatus.mockResolvedValueOnce({ ok: false, error: "ชิ้นนี้ขึ้นเพจแล้ว" });
+    expect(await setAdStatus(PIECE, "trashed")).toEqual({ ok: false, error: "ชิ้นนี้ขึ้นเพจแล้ว" });
+  });
+});
+
+describe("the room names every Page", () => {
+  it("carries the owner's Pages, for a launch made on another Page than the campaign's", async () => {
+    pages.myPages.mockResolvedValue([{ pageId: PAGE, pageName: "เพจทดสอบ" }, { pageId: "333", pageName: "เพจสอง" }]);
+    const room = await adCampaignRoom(CAMPAIGN);
+    if (!room.ok) throw new Error("room did not open");
+    expect(room.pages).toEqual([{ pageId: PAGE, pageName: "เพจทดสอบ" }, { pageId: "333", pageName: "เพจสอง" }]);
   });
 });

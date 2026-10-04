@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AD_FOLD, brokenStep, cardLaunch, cardText, writeCount } from "@/lib/ads/ad-card";
+import { AD_FOLD, brokenStep, cardLaunch, cardText, pageNameOf, writeCount } from "@/lib/ads/ad-card";
 import { AD_LIMITS } from "@/lib/content/ads";
 
 /**
@@ -71,5 +71,17 @@ describe("writeCount", () => {
   it("never asks for fewer than one of either", () => {
     expect(writeCount(0, 2)).toBe(2);
     expect(writeCount(Number.NaN, 2)).toBe(2);
+  });
+});
+
+describe("pageNameOf", () => {
+  const pages = [{ pageId: "P1", pageName: "เพจหนึ่ง" }, { pageId: "P2", pageName: "เพจสอง" }];
+
+  it("names a launch's own Page, not the campaign's", () => {
+    expect(pageNameOf("P2", pages)).toBe("เพจสอง");
+  });
+
+  it("falls back to the id for a Page the owner no longer has", () => {
+    expect(pageNameOf("P9", pages)).toBe("P9");
   });
 });

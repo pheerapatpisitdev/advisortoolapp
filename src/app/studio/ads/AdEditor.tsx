@@ -9,11 +9,11 @@ import { drawPicture } from "../draw";
 import { ask } from "../ask";
 import { AutoTextarea, errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
 import { XIcon } from "../ui/icons";
-import { saveAdCopy, type AdCampaignRoom } from "./actions";
+import { saveAdCopy, setAdStatus, type AdCampaignRoom } from "./actions";
 import { FeedPreview } from "./FeedPreview";
 import { LaunchPanel } from "./LaunchPanel";
 import type { AdRules } from "./rules";
-import { field, solid } from "./styles";
+import { field, plain as plainButton, solid } from "./styles";
 
 /**
  * One ad, full screen: the poster on the left (Studio's own PosterPanel, with its AI picture),
@@ -123,6 +123,25 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
     }
   }
 
+  const [moving, setMoving] = useState(false);
+  /** ทิ้ง / กู้คืน: the piece moves tab, the room is read again, and the editor closes on a bin */
+  async function move(status: "draft" | "trashed") {
+    if (status === "trashed" && !(await ask("ทิ้งแอดนี้ลงถังขยะ? กู้คืนได้จากแท็บถังขยะ", "ทิ้ง"))) return;
+    setMoving(true);
+    setNote(null);
+    try {
+      const res = await setAdStatus(piece.id, status);
+      if (!res.ok) { setNote(errorNote(res.error)); return; }
+      router.refresh();
+      if (status === "trashed") onClose();
+      else setNote(okNote("กู้คืนแล้ว อยู่ในแท็บ “ร่าง”"));
+    } catch {
+      setNote(errorNote("การเชื่อมต่อหลุด ลองใหม่อีกครั้ง"));
+    } finally {
+      setMoving(false);
+    }
+  }
+
   async function close() {
     if (dirty && !(await ask("ปิดหน้าแก้แอด? การแก้ที่ยังไม่บันทึกจะหายไป", "ปิดโดยไม่บันทึก"))) return;
     onClose();
@@ -164,6 +183,15 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
           <h2 id={`${ids}-title`} className="truncate text-sm font-semibold">{draft.headline || "แอดไม่มีหัวข้อ"}</h2>
           <p className="truncate text-xs text-[var(--ct-mute)]">{campaign.title}{piece.ad ? ` · ${piece.ad.angle} · ${piece.ad.tone}` : ""}</p>
         </div>
+        {piece.status === "trashed" ? (
+          <button type="button" onClick={() => move("draft")} disabled={moving || saving} className={`${plainButton} shrink-0`}>
+            {moving ? "กำลังกู้คืน…" : "กู้คืน"}
+          </button>
+        ) : (
+          <button type="button" onClick={() => move("trashed")} disabled={moving || saving} className={`${plainButton} shrink-0 text-[var(--ct-alert)]`}>
+            {moving ? "กำลังทิ้ง…" : "ทิ้ง"}
+          </button>
+        )}
         <button type="button" onClick={save} disabled={!dirty || saving} className={`${solid} shrink-0`}>
           {saving ? "กำลังบันทึก…" : dirty ? "บันทึก" : "บันทึกแล้ว"}
         </button>
@@ -237,6 +265,7 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
             piece={{ id: piece.id, status: piece.status, hasPoster: piece.hasPoster, launches: piece.launches }}
             connection={room.connection}
             page={{ pageId: campaign.pageId, pageName: campaign.pageName, connected: campaign.pageConnected }}
+            pages={room.pages}
             copy={{ headline: draft.headline, primaryText: draft.primaryText, description: draft.description }}
             dirty={dirty}
           />

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LaunchRow } from "@/lib/ads/launch-store";
-import { LAUNCH_STEPS } from "@/lib/ads/ad-card";
+import { LAUNCH_STEPS, pageNameOf } from "@/lib/ads/ad-card";
 import { ask } from "../ask";
 import { errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
 import { budgetBaht, formReady, overCap } from "./form-ready";
@@ -74,13 +74,15 @@ export interface LaunchPanelProps {
   piece: { id: string; status: string; hasPoster: boolean; launches: LaunchView[] };
   connection: Connection;
   page: { pageId: string; pageName: string | null; connected: boolean };
+  /** the owner's Pages: a launch made before Ads Studio may be on another Page than the campaign's, and is named by its own */
+  pages: { pageId: string; pageName: string }[];
   /** the words as the editor holds them now; they go to Facebook as typed */
   copy: { headline: string; primaryText: string; description: string };
   /** the editor holds edits not yet saved: the poster Facebook would get is the saved one */
   dirty: boolean;
 }
 
-export function LaunchPanel({ piece, connection, page, copy, dirty }: LaunchPanelProps) {
+export function LaunchPanel({ piece, connection, page, pages, copy, dirty }: LaunchPanelProps) {
   const router = useRouter();
   const { accounts, maxDailyBudgetThb } = connection;
   const [actId, setActId] = useState((accounts.find((a) => a.currency === "THB") ?? accounts[0])?.id ?? "");
@@ -141,7 +143,7 @@ export function LaunchPanel({ piece, connection, page, copy, dirty }: LaunchPane
         "เปิดใช้แอดนี้?",
         "",
         `บัญชีโฆษณา: ${acct ? `${acct.name} (${acct.id})` : launch.actId}`,
-        `เพจ: ${pageName}`,
+        `เพจ: ${pageNameOf(launch.pageId, pages)}`,
         `งบ: ${baht(launch.dailyBudgetBaht)} ต่อวัน`,
         "",
         "กดแล้ว Facebook จะเริ่มใช้เงินจากบัญชีโฆษณานี้ทันที (หลังผ่านการตรวจของ Meta)",
@@ -228,7 +230,7 @@ export function LaunchPanel({ piece, connection, page, copy, dirty }: LaunchPane
               )}
               {launch.step === "ad" && (
                 <div className="space-y-1 text-sm">
-                  <p>เพจ {pageName} · งบ {baht(launch.dailyBudgetBaht)} ต่อวัน</p>
+                  <p>เพจ {pageNameOf(launch.pageId, pages)} · งบ {baht(launch.dailyBudgetBaht)} ต่อวัน</p>
                   {launch.activatedAt ? <p>เปิดใช้แล้ว {when(launch.activatedAt)}</p> : <p className="text-[var(--ct-mute)]">หยุดไว้ — ยังไม่เสียเงิน</p>}
                   {statusText && (
                     <p className={bad ? "font-medium text-[var(--ct-alert)]" : ""}>

@@ -21,7 +21,7 @@ import { contentProduct } from "@/lib/content/products";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
 import type { PolicyFinding } from "@/lib/content/policy";
 import type { AdAccount } from "@/lib/facebook/ads-connection";
-import { saveContentEdits, type EditResult } from "@/app/studio/actions";
+import { saveContentEdits, setContentStatus, type EditResult } from "@/app/studio/actions";
 
 /**
  * The doors /studio/ads calls. Creating an ad spends the owner's money once it is switched on,
@@ -307,6 +307,8 @@ export type AdCampaignRoom =
     pieces: (LaunchPiece & { tab: AdTab })[];
     counts: Record<AdTab, number>;
     connection: Connection;
+    /** every Page the owner has, so a launch made on another Page (from the page before Ads Studio) is named by its own */
+    pages: { pageId: string; pageName: string }[];
   }
   /** no such campaign (a wrong or old id: back to the list), or, with `error`, it could not be read */
   | { ok: false; error?: string };
@@ -344,6 +346,7 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
       pieces,
       counts: tabCounts(pieces.map((p) => p.tab)),
       connection: conn,
+      pages: pages.map((p) => ({ pageId: p.pageId, pageName: p.pageName })),
     };
   } catch (e) {
     console.error("adCampaignRoom failed:", e);
@@ -400,6 +403,37 @@ export async function saveAdCopy(
     return result;
   } catch (e) {
     console.error("saveAdCopy failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/** a piece whose ad is switched on stays out of the bin: binning it here would leave the ad spending */
+const LIVE_TRASH = "ปิดแอดนี้ก่อนทิ้ง";
+
+/**
+ * The bin for an ad piece, and back out of it (the bin is how a campaign is tidied; campaigns
+ * are not deleted). A piece whose ad is switched on in any account is refused; one launched
+ * and still paused may go. A launch table that cannot be read refuses too, rather than binning
+ * a piece that may be spending.
+ */
+export async function setAdStatus(pieceId: string, status: "draft" | "trashed"): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  try {
+    if (status !== "draft" && status !== "trashed") return { ok: false, error: SOMETHING_BROKE };
+    const piece = await getContent(pieceId);
+    if (!piece || piece.format !== "ad") return { ok: false, error: "ไม่พบชิ้นโฆษณานี้" };
+    if (!piece.campaignId) return { ok: false, error: NOT_IN_CAMPAIGN };
+    if (status === "trashed") {
+      const accounts = await adManageAccounts();
+      const rows = await Promise.all(accounts.map((a) => launchStore.findLaunch(piece.id, a.id)));
+      if (rows.some((r) => r?.activatedAt)) return { ok: false, error: LIVE_TRASH };
+    }
+    const res = await setContentStatus(piece.id, status);
+    if (!res.ok) return { ok: false, error: res.error ?? SOMETHING_BROKE };
+    revalidatePath("/studio/ads", "layout");
+    return { ok: true };
+  } catch (e) {
+    console.error("setAdStatus failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
   }
 }

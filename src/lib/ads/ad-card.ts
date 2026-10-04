@@ -46,3 +46,8 @@ export function writeCount(angles: number, tones: number): number {
   const n = (v: number) => (Number.isFinite(v) ? Math.max(1, Math.round(v)) : 1);
   return n(angles) * n(tones);
 }
+
+/** A Page's name among the owner's Pages, or its id when it is not one of them any more. */
+export function pageNameOf(pageId: string, pages: { pageId: string; pageName: string }[]): string {
+  return pages.find((p) => p.pageId === pageId)?.pageName ?? pageId;
+}
