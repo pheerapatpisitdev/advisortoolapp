@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { LaunchRow, NewLaunch } from "@/lib/ads/launch-store";
+import { CLAIM_STALE_MS, type LaunchRow, type NewLaunch } from "@/lib/ads/launch-store";
 import { EXPIRED } from "@/lib/ads/sync";
-import { activateLaunch, adEffectiveStatus, runLaunch, type LaunchDeps, type LaunchInput } from "@/lib/ads/launch";
+import { activateLaunch, adEffectiveStatus, REQUEST_TIMEOUT_MS, runLaunch, type LaunchDeps, type LaunchInput } from "@/lib/ads/launch";
 
 /**
  * The launch spends real money on Meta, so both things it talks to are stood in for: Graph by a
@@ -342,6 +342,14 @@ describe("making the ad", () => {
     expect(result).toMatchObject({ ok: false, step: "check" });
     expect(sent).toHaveLength(0);
     expect(rows[0].superseded).toBe(false);
+  });
+});
+
+describe("the claim and the run", () => {
+  it("outlasts every request a launch makes while holding it, each waiting its full timeout", () => {
+    // campaign, ad set, image, creative, ad: a claim that runs out sooner lets a second press
+    // take over a launch that is still running, and both then make the next object
+    expect(CLAIM_STALE_MS).toBeGreaterThan(5 * REQUEST_TIMEOUT_MS);
   });
 });
 

@@ -81,7 +81,7 @@ const NO_POSTER = "ชิ้นนี้ยังไม่มีโปสเต�
 const BUSY = "กำลังสร้างแอดนี้อยู่ รอสักครู่แล้วลองใหม่";
 const NO_ID = "Facebook ตอบกลับมาแต่ไม่มีไอดี";
 /** How long one request to Meta may take; a function that waits on a hung one is cut off with nothing saved. */
-const REQUEST_TIMEOUT_MS = 30_000;
+export const REQUEST_TIMEOUT_MS = 30_000;
 /**
  * A request that timed out or dropped may still have been carried out by Meta: the answer is
  * what is missing, not the work. Retrying blind could make a second campaign or ad set.
