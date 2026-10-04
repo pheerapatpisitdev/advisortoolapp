@@ -196,8 +196,15 @@ export async function supersede(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-/** A claim older than this is a request that died: the launch may be claimed again. */
-const CLAIM_STALE_MS = 120_000;
+/**
+ * A claim older than this is a request that died: the launch may be claimed again.
+ *
+ * Longer than a whole run can take while holding it — five requests to Meta, each allowed
+ * REQUEST_TIMEOUT_MS in launch.ts — so a run that is merely slow is never taken over. At two
+ * minutes a run stuck on slow answers could still be going when a second press claimed it,
+ * and both would make the next object.
+ */
+export const CLAIM_STALE_MS = 180_000;
 
 /**
  * Takes the launch to run it: true if this request now holds it, false if another does.

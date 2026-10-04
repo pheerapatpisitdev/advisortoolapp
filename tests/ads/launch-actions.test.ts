@@ -54,7 +54,7 @@ const fb = vi.hoisted(() => ({
 vi.mock("@/lib/facebook/oauth", async (orig) => ({ ...(await orig<typeof import("@/lib/facebook/oauth")>()), ...fb }));
 
 const store = vi.hoisted(() => ({ findLaunch: vi.fn(), getLaunch: vi.fn() }));
-vi.mock("@/lib/ads/launch-store", () => store);
+vi.mock("@/lib/ads/launch-store", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/launch-store")>()), ...store }));
 const launch = vi.hoisted(() => ({ runLaunch: vi.fn(), activateLaunch: vi.fn(), adEffectiveStatus: vi.fn() }));
 vi.mock("@/lib/ads/launch", () => launch);
 
@@ -165,6 +165,11 @@ describe("launching an ad", () => {
 
   it("refuses to recreate over a launch that is being run right now, but not an idle or a stale one", async () => {
     store.findLaunch.mockResolvedValueOnce(row({ claimedAt: new Date(Date.now() - 30_000).toISOString() }));
+    expect(await launchAd(input({ recreate: true }))).toMatchObject({ ok: false, step: "check" });
+    expect(launch.runLaunch).not.toHaveBeenCalled();
+
+    // a run may hold its claim this long while Meta is slow; it is still running
+    store.findLaunch.mockResolvedValueOnce(row({ claimedAt: new Date(Date.now() - 150_000).toISOString() }));
     expect(await launchAd(input({ recreate: true }))).toMatchObject({ ok: false, step: "check" });
     expect(launch.runLaunch).not.toHaveBeenCalled();
 

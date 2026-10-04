@@ -140,6 +140,12 @@ describe("claiming a launch", () => {
     expect(await claimLaunch("L1", 120_000, now)).toBe(false);
   });
 
+  it("by default treats a claim as dead after three minutes", async () => {
+    updated = [{ id: "L1" }];
+    await claimLaunch("L1", undefined, now);
+    expect(calls[0].or).toContain('"2026-10-04T00:57:00.000Z"');
+  });
+
   it("uses the stale time it is given", async () => {
     updated = [{ id: "L1" }];
     await claimLaunch("L1", 60_000, now);

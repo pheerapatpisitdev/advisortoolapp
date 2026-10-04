@@ -23,8 +23,6 @@ import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
  */
 
 const SOMETHING_BROKE = "ทำรายการไม่สำเร็จ ลองอีกครั้ง ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ";
-/** the launch store's own claim lifetime (CLAIM_STALE_MS): a younger claim is a request still running */
-const CLAIM_LIVE_MS = 120_000;
 /** newest ad pieces the page offers; older ones are one search away in Studio */
 const PIECES_SHOWN = 30;
 
@@ -207,7 +205,7 @@ export async function launchAd(input: LaunchInput): Promise<LaunchResult> {
     if (input.recreate) {
       // a request still running on the old launch would carry on beside the new one
       const old = await launchStore.findLaunch(input.pieceId, input.actId);
-      if (old?.claimedAt && Date.now() - new Date(old.claimedAt).getTime() < CLAIM_LIVE_MS) {
+      if (old?.claimedAt && Date.now() - new Date(old.claimedAt).getTime() < launchStore.CLAIM_STALE_MS) {
         return refused("กำลังทำงานอยู่ รอสักครู่แล้วลองใหม่");
       }
     }
