@@ -1,15 +1,17 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { posterUrl } from "@/lib/content/poster";
-import type { AdsStudioHome } from "./actions";
+import { ask } from "../ask";
+import { deleteAdCampaign, type AdsStudioHome } from "./actions";
 import { ConnectBar } from "./ConnectBar";
 import { field, solid, TONES } from "./styles";
 
 /**
  * /studio/ads: one Page's ad campaigns. The Page's name heads it with a picker for the others,
  * the ad-account strip sits under it, then a card per campaign with its newest poster and how
- * many of its ads are drafts, approved and sent. With no campaign yet, three steps and
+ * many of its ads are drafts, approved and sent, and a ลบ that asks first. With no campaign yet, three steps and
  * a button to start. A new campaign is made in the wizard (/studio/ads/new?page=…).
  */
 
@@ -28,6 +30,57 @@ function Counts({ counts }: { counts: AdsStudioHome["campaigns"][number]["counts
       <span>อนุมัติแล้ว <b className="font-semibold tabular-nums">{counts.approved}</b></span>
       <span className={counts.sent ? "text-[var(--ct-accent)]" : ""}>ส่งแล้ว <b className="font-semibold tabular-nums">{counts.sent}</b></span>
     </p>
+  );
+}
+
+type Campaign = AdsStudioHome["campaigns"][number];
+
+/** The card's ลบ: asks in the page, then deletes. A refusal (an ad still switched on) shows under the card. */
+function DeleteCampaign({ campaign, onError }: { campaign: Campaign; onError: (e: string | null) => void }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const sent = campaign.counts.sent > 0;
+  const onClick = async () => {
+    const message = `ลบแคมเปญ "${campaign.name}" และแอดทั้งหมดในแคมเปญนี้ออกจาก Ads Studio?${sent
+      ? "\n\nแอดที่ส่งขึ้น Facebook แล้วจะยังอยู่ในตัวจัดการโฆษณา (หยุดไว้) ถ้าไม่ใช้แล้วให้ลบที่นั่นด้วย"
+      : ""}\n\nลบแล้วกู้คืนไม่ได้`;
+    if (!(await ask(message, "ลบแคมเปญ"))) return;
+    onError(null);
+    start(async () => {
+      const res = await deleteAdCampaign(campaign.id);
+      if (res.ok) router.refresh();
+      else onError(res.error);
+    });
+  };
+  return (
+    <button
+      type="button" onClick={onClick} disabled={pending} aria-label={`ลบแคมเปญ ${campaign.name}`}
+      className="absolute right-2 top-2 min-h-11 rounded-full border border-[var(--ct-line)] bg-[var(--ct-panel)]/90 px-3.5 text-sm text-[var(--ct-alert)] shadow-sm backdrop-blur hover:bg-[var(--ct-alert-bg)] disabled:opacity-50"
+    >
+      {pending ? "กำลังลบ…" : "ลบ"}
+    </button>
+  );
+}
+
+function CampaignCard({ c }: { c: Campaign }) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <li className="relative">
+      <Link href={`/studio/ads/${c.id}`} className="block overflow-hidden rounded-2xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] hover:border-[var(--ct-line)] focus-visible:border-[var(--ct-accent)]">
+        {c.coverPoster ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a drawn PNG from our own route
+          <img src={posterUrl(c.coverPoster)} alt="" loading="lazy" className="aspect-square w-full bg-[var(--ct-ground)] object-cover" />
+        ) : (
+          <div className="flex aspect-square w-full items-center justify-center bg-[var(--ct-ground)] text-sm text-[var(--ct-mute)]">ยังไม่มีโปสเตอร์</div>
+        )}
+        <div className="space-y-1 p-4">
+          <h2 className="truncate font-semibold">{c.name}</h2>
+          <Counts counts={c.counts} />
+        </div>
+      </Link>
+      <DeleteCampaign campaign={c} onError={setError} />
+      {error && <p role="alert" className={`mt-2 rounded-lg border px-3 py-2 text-sm ${TONES.bad}`}>{error}</p>}
+    </li>
   );
 }
 
@@ -87,22 +140,7 @@ export function CampaignList({ home, outcome, warn, detail }: {
         </section>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {home.campaigns.map((c) => (
-            <li key={c.id}>
-              <Link href={`/studio/ads/${c.id}`} className="block overflow-hidden rounded-2xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] hover:border-[var(--ct-line)] focus-visible:border-[var(--ct-accent)]">
-                {c.coverPoster ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- a drawn PNG from our own route
-                  <img src={posterUrl(c.coverPoster)} alt="" loading="lazy" className="aspect-square w-full bg-[var(--ct-ground)] object-cover" />
-                ) : (
-                  <div className="flex aspect-square w-full items-center justify-center bg-[var(--ct-ground)] text-sm text-[var(--ct-mute)]">ยังไม่มีโปสเตอร์</div>
-                )}
-                <div className="space-y-1 p-4">
-                  <h2 className="truncate font-semibold">{c.name}</h2>
-                  <Counts counts={c.counts} />
-                </div>
-              </Link>
-            </li>
-          ))}
+          {home.campaigns.map((c) => <CampaignCard key={c.id} c={c} />)}
         </ul>
       )}
     </div>

@@ -180,6 +180,17 @@ export async function updateCampaign(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Removes a campaign row. Its pieces and sends stay: their campaign_id is set null by the
+ * foreign keys, so a sent ad's ids and spending history outlive the campaign. Whether it may go
+ * (nothing switched on) is the caller's to decide.
+ */
+export async function deleteCampaign(id: string): Promise<void> {
+  if (!UUID.test(id)) return;
+  const { error } = await supabaseAdmin().from("ins_ad_campaign").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 /** Every piece filed in a campaign, whatever its state, newest first. */
 export async function listCampaignPieces(campaignId: string): Promise<ContentItem[]> {
   const { data, error } = await supabaseAdmin()

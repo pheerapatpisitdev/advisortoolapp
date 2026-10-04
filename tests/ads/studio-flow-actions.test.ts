@@ -70,6 +70,7 @@ const camps = vi.hoisted(() => ({
   createCampaign: vi.fn(),
   updateCampaign: vi.fn(),
   listCampaignPieces: vi.fn(),
+  deleteCampaign: vi.fn(),
 }));
 vi.mock("@/lib/ads/campaign-store", () => camps);
 const sends = vi.hoisted(() => ({ sentPieceIds: vi.fn(), listSends: vi.fn(), getSend: vi.fn() }));
@@ -85,7 +86,7 @@ vi.mock("@/app/studio/actions", () => studio);
 
 const {
   analyzeCampaignDraft, analyzeCampaign, createAdCampaign, updateAdCampaign, adCampaignRoom,
-  sendApproved, retrySend, activateSendAction, pauseSendAction, pauseAd,
+  sendApproved, retrySend, activateSendAction, pauseSendAction, pauseAd, deleteAdCampaign,
 } = await import("@/app/studio/ads/actions");
 
 const dims = (over: Record<string, unknown> = {}) => ({
@@ -152,6 +153,7 @@ beforeEach(() => {
   camps.getCampaign.mockResolvedValue(campaign());
   camps.createCampaign.mockImplementation(async (c: Record<string, unknown>) => campaign({ ...c, id: CAMPAIGN }));
   camps.updateCampaign.mockResolvedValue(undefined);
+  camps.deleteCampaign.mockResolvedValue(undefined);
   camps.listCampaignPieces.mockResolvedValue([piece("p1"), piece("p2")]);
   sends.sentPieceIds.mockResolvedValue(new Set<string>());
   sends.listSends.mockResolvedValue([]);
@@ -635,5 +637,49 @@ describe("pausing an ad launched one by one", () => {
     const room = await adCampaignRoom(CAMPAIGN);
     if (!room.ok) throw new Error("room did not open");
     expect(room.legacy).toEqual([expect.objectContaining({ id: "L2", canPause: false })]);
+  });
+});
+
+describe("deleting a campaign", () => {
+  it("deletes a campaign with nothing switched on, and records it", async () => {
+    expect(await deleteAdCampaign(CAMPAIGN)).toEqual({ ok: true });
+    expect(camps.deleteCampaign).toHaveBeenCalledWith(CAMPAIGN);
+    expect(who.audit).toHaveBeenCalledWith("ads-campaign-delete", CAMPAIGN, expect.objectContaining({ ok: true, pageId: PAGE }));
+  });
+
+  it("deletes one whose send was sent and never switched on, or paused since", async () => {
+    sends.listSends.mockResolvedValueOnce([send(), send({ id: "S2", activatedAt: "2026-10-04T04:00:00.000Z", pausedAt: "2026-10-04T05:00:00.000Z" })]);
+    expect(await deleteAdCampaign(CAMPAIGN)).toEqual({ ok: true });
+  });
+
+  it("refuses while a send is switched on", async () => {
+    sends.listSends.mockResolvedValueOnce([send({ activatedAt: "2026-10-04T06:00:00.000Z", pausedAt: "2026-10-04T05:00:00.000Z" })]);
+    const res = await deleteAdCampaign(CAMPAIGN);
+    expect(res).toMatchObject({ ok: false, error: expect.stringContaining("เปิดใช้อยู่") });
+    expect(camps.deleteCampaign).not.toHaveBeenCalled();
+  });
+
+  it("refuses while a piece's own launch is switched on", async () => {
+    store.findLaunch.mockImplementation(async (pieceId: string) => (pieceId === "p2" ? { id: "L1", activatedAt: "2026-10-04T02:00:00Z" } : null));
+    expect(await deleteAdCampaign(CAMPAIGN)).toMatchObject({ ok: false });
+    expect(camps.deleteCampaign).not.toHaveBeenCalled();
+  });
+
+  it("says when there is no such campaign, and is the owner's alone", async () => {
+    camps.getCampaign.mockResolvedValueOnce(null);
+    expect(await deleteAdCampaign(CAMPAIGN)).toEqual({ ok: false, error: "ไม่พบแคมเปญนี้" });
+    who.owner = false;
+    await expect(deleteAdCampaign(CAMPAIGN)).rejects.toThrow();
+    expect(camps.deleteCampaign).not.toHaveBeenCalled();
+  });
+
+  it("refuses rather than deletes when the sends cannot be read", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    sends.listSends.mockRejectedValueOnce(new Error("boom secret"));
+    const res = await deleteAdCampaign(CAMPAIGN);
+    expect(res).toMatchObject({ ok: false });
+    expect(JSON.stringify(res)).not.toContain("boom secret");
+    expect(camps.deleteCampaign).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 });

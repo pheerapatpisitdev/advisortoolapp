@@ -16,7 +16,7 @@ import type { LaunchRow, LaunchStep as RowStep } from "@/lib/ads/launch-store";
 import { activateLaunch, adEffectiveStatus, pauseLaunch, runLaunch, type LaunchResult, thVerifiedIdentity } from "@/lib/ads/launch";
 import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
 import {
-  createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign, type Dimensions,
+  createCampaign, deleteCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign, type Dimensions,
 } from "@/lib/ads/campaign-store";
 import { adTab, tabCounts, type AdTab, type AdTabKey } from "@/lib/ads/campaign-view";
 import * as sendStore from "@/lib/ads/send-store";
@@ -703,7 +703,7 @@ const SENT_LOCKED = "ชิ้นนี้ส่งขึ้น Facebook แล�
 
 /**
  * Approve (used), back to draft, or the bin for an ad piece (the bin is how a campaign is
- * tidied; campaigns are not deleted). A piece already sent to Facebook — in a send that was not
+ * tidied; a whole campaign goes with deleteAdCampaign). A piece already sent to Facebook — in a send that was not
  * retired, or with a live launch in any account — keeps its status. A piece whose ad is switched
  * on says to close the ad first. A send or launch table that cannot be read refuses too, rather
  * than changing a piece that may be spending.
@@ -725,6 +725,35 @@ export async function setAdStatus(pieceId: string, status: "draft" | "used" | "t
     return { ok: true };
   } catch (e) {
     console.error("setAdStatus failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/** a campaign with an ad spending stays: deleting it would take away the room's pause button */
+const LIVE_DELETE = "แคมเปญนี้มีแอดที่เปิดใช้อยู่ — หยุดแอดก่อนลบแคมเปญ";
+
+/**
+ * Deletes a campaign from Ads Studio. Refused while any of its ads is switched on — a send
+ * switched on and not paused since, or a piece's launch marked on — since the room is where it
+ * would be paused. What was sent stays on Facebook, paused, and its send rows stay as history;
+ * the pieces stay too, filed under no campaign (ads never show in Organic Studio). A send or
+ * launch table that cannot be read refuses, rather than deleting a campaign that may be spending.
+ */
+export async function deleteAdCampaign(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  try {
+    const campaign = await getCampaign(id);
+    if (!campaign) return { ok: false, error: NO_CAMPAIGN };
+    const [sends, pieces, accounts] = await Promise.all([listSends(campaign.id), listCampaignPieces(campaign.id), adManageAccounts()]);
+    const sendOn = sends.some((s) => s.activatedAt && (!s.pausedAt || Date.parse(s.pausedAt) < Date.parse(s.activatedAt)));
+    const rows = await Promise.all(pieces.flatMap((p) => accounts.map((a) => launchStore.findLaunch(p.id, a.id))));
+    if (sendOn || rows.some((r) => r?.activatedAt)) return { ok: false, error: LIVE_DELETE };
+    await deleteCampaign(campaign.id);
+    await audit("ads-campaign-delete", campaign.id, { ok: true, name: titleOf(campaign), pageId: campaign.pageId, sends: sends.length, pieces: pieces.length });
+    revalidatePath("/studio/ads", "layout");
+    return { ok: true };
+  } catch (e) {
+    console.error("deleteAdCampaign failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
   }
 }
