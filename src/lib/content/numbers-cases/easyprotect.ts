@@ -12,6 +12,7 @@ export const easyProtectNumbers = definePlan<{ sex: Sex; age: number; sum: numbe
     { sex: "F", age: 30, sum: 500_000 },
     { sex: "M", age: 45, sum: 1_000_000 },
   ],
+  ladder: { term: "จ่าย 6 ปี คุ้มครองถึงอายุ 99", firstYear: false, rungs: [500_000, 1_000_000, 2_000_000, 3_000_000].map((sum) => ({ sum })) },
   claims: [
     "จ่ายเบี้ยแค่ 6 ปี",
     "คุ้มครองถึงอายุ 99",
@@ -28,6 +29,7 @@ export const easyProtectNumbers = definePlan<{ sex: Sex; age: number; sum: numbe
       product: "Easy Protect 6",
       sumLine: `ประกันชีวิตทุน ${money(p.sum)} บาท`,
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี จ่าย ${term.payTerm} ปี`,

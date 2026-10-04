@@ -35,6 +35,8 @@ function iHealthyPlan(lang: Lang) {
     product: "iHealthy Ultra",
     cases: CASES,
     claims: CLAIMS[lang],
+    // the premium table is Thai only: the English ad does not carry one
+    ...(en ? {} : { ladder: { term: "จ่ายเบี้ยถึงอายุ 99", firstYear: true, rungs: ["SMART", "BRONZE", "SILVER", "GOLD"].map((plan) => ({ plan })) } }),
     price: (p, claims, today) => {
       const table = iHealthyTable(today);
       const plan = table.plans.find((x) => x.code === p.plan);
@@ -55,6 +57,7 @@ function iHealthyPlan(lang: Lang) {
           ? `A package with life cover of THB ${money(sum)}${priced.standard ? " and daily cash" : ""}`
           : `แพ็กเกจรวมประกันชีวิตทุน ${money(sum)} บาท${priced.standard ? " และค่าชดเชยรายวัน" : ""}`,
         premiumLine: lines.premiumLine,
+        annualSatang: lines.annualSatang,
         perDayLine: lines.perDayLine,
         claims: claims.map((c) => c.replace("{renew}", String(terms.renewalToAge)).replace("{ncd}", String(terms.noClaimDiscountPercent))),
         who: en ? `${sexWordEn(p.sex)}, ${p.age}` : `${sexWord(p.sex)} ${p.age} ปี`,

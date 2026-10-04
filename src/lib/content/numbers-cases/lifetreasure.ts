@@ -15,6 +15,7 @@ export const lifeTreasureNumbers = definePlan<{ sex: Sex; age: number; sum: numb
     { sex: "F", age: 40, sum: 10_000_000, term: "H99F12A" },
     { sex: "M", age: 55, sum: 20_000_000, term: "H99F06A" },
   ],
+  ladder: { term: "จ่าย 12 ปี คุ้มครองถึงอายุ 99", firstYear: false, rungs: [10, 15, 20, 30].map((m) => ({ sum: m * 1_000_000, term: "H99F12A" })) },
   claims: [
     "เงินก้อนระบุจำนวนไว้ล่วงหน้า ไม่ขึ้นกับตลาด",
     "แบ่งให้ใครเท่าไรระบุได้",
@@ -34,6 +35,7 @@ export const lifeTreasureNumbers = definePlan<{ sex: Sex; age: number; sum: numb
       product: "Life Treasure",
       sumLine: `ทุนประกันชีวิต ${money(p.sum)} บาท`,
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims: said,
       who: `${sexWord(p.sex)} ${p.age} ปี จ่าย ${term.payTerm} ปี`,

@@ -14,6 +14,7 @@ export const cancerNumbers = definePlan<{ sex: Sex; age: number; tier: number }>
     { sex: "M", age: 35, tier: 4 },
     { sex: "F", age: 45, tier: 4 },
   ],
+  ladder: { term: "จ่ายเบี้ยถึงอายุ 99", firstYear: true, rungs: [{ tier: 1 }, { tier: 2 }, { tier: 4 }, { tier: 6 }] },
   claims: [
     "เจอมะเร็งระยะแรกก็ได้เงินก้อน",
     "นอนโรงพยาบาลรับชดเชยรายวัน",
@@ -31,6 +32,7 @@ export const cancerNumbers = definePlan<{ sex: Sex; age: number; tier: number }>
       sumLine: `ประกันมะเร็งทุน ${money(cpr)} บาท`,
       sumNote: `ชดเชยนอนโรงพยาบาลวันละ ${money(hic)} บาท · คู่กับ Life Protect x 2 ทุน ${money(tier.sumAssured)} บาท`,
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี`,

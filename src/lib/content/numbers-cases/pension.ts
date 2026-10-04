@@ -14,6 +14,7 @@ export const pensionNumbers = definePlan<{ sex: "M" | "F"; age: number; monthly:
     { sex: "F", age: 35, monthly: 5_000, from: 60 },
     { sex: "M", age: 45, monthly: 10_000, from: 60 },
   ],
+  ladder: { term: "จ่ายถึงอายุ 60 รับบำนาญตั้งแต่ 60", firstYear: false, rungs: [5_000, 10_000, 20_000, 30_000].map((monthly) => ({ monthly, from: 60 })) },
   claims: [
     "รับบำนาญถึงอายุ 95",
     "รับประกันจ่าย 15 ปีแรก",
@@ -36,6 +37,7 @@ export const pensionNumbers = definePlan<{ sex: "M" | "F"; age: number; monthly:
       sumLine: `บำนาญเดือนละ ${money(annual.quote.monthlyPension)} บาท`,
       sumNote: `เริ่มรับตั้งแต่อายุ ${p.from}`,
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี จ่ายเบี้ย ${annual.quote.payYears} ปี`,

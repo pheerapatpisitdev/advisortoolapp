@@ -24,6 +24,8 @@ export interface NumberSheet {
   /** "ตกวันละ 48 บาท": the yearly premium ÷ 365, rounded up, as the sales pages say it */
   perDayLine: string;
   claims: string[];
+  /** the yearly premium in satang, as the engine's annual mode says it, for the ad's premium table */
+  annualSatang: number;
   /** "ชาย 35 ปี จ่ายถึงอายุ 99", shown in brackets: the premium is this person's */
   who: string;
   poster: { big: string; small: string };
@@ -39,6 +41,16 @@ export interface PricedPlan {
   caseCount: number;
   /** case i priced today with these claim lines, or null when the engine cannot price it */
   price: (i: number, claims: string[], today: Date) => NumberSheet | null;
+  /** the rungs of the ad's premium table; absent when the plan has none (the English iHealthy) */
+  ladder?: {
+    /** the term as the table says it, before lifelong() */
+    term: string;
+    /** the premium rises with age, so the table says เบี้ยปีแรก */
+    firstYear: boolean;
+    rungs: number;
+    /** rung r for this sex and age, priced with the plan's own claims, or null when the engine will not sell it */
+    price: (rung: number, sex: "M" | "F", age: number, today: Date) => NumberSheet | null;
+  };
 }
 
 /** A plan's cases and pricing, typed in its own file and erased to a PricedPlan here. */
@@ -48,8 +60,26 @@ export function definePlan<C>(p: {
   /** fixed wording the owner approved, used as written */
   claims: string[];
   price: (c: C, claims: string[], today: Date) => NumberSheet | null;
+  /** four rungs of the premium table: the case fields besides sex and age */
+  ladder?: { term: string; firstYear: boolean; rungs: Omit<C, "sex" | "age">[] };
 }): PricedPlan {
-  return { product: p.product, claims: p.claims, caseCount: p.cases.length, price: (i, claims, today) => p.price(p.cases[i], claims, today) };
+  const { ladder } = p;
+  return {
+    product: p.product,
+    claims: p.claims,
+    caseCount: p.cases.length,
+    price: (i, claims, today) => p.price(p.cases[i], claims, today),
+    ...(ladder
+      ? {
+          ladder: {
+            term: ladder.term,
+            firstYear: ladder.firstYear,
+            rungs: ladder.rungs.length,
+            price: (rung, sex, age, today) => p.price({ ...ladder.rungs[rung], sex, age } as C, p.claims, today),
+          },
+        }
+      : {}),
+  };
 }
 
 /** Thai words for a case's sex, as the bracket line says them */

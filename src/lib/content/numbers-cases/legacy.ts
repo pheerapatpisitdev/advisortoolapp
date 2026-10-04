@@ -16,6 +16,7 @@ export const legacyNumbers = definePlan<{ sex: Sex; age: number; tier: number }>
     { sex: "M", age: 35, tier: 1 },
     { sex: "F", age: 45, tier: 1 },
   ],
+  ladder: { term: "จ่ายเบี้ยถึงอายุ 99", firstYear: true, rungs: [{ tier: 1 }, { tier: 2 }, { tier: 3 }, { tier: 5 }] },
   claims: [
     "ป่วยโรคร้ายแรงรับเงินสด {critical} บาท",
     "เสียชีวิตก่อน 60 รับ {death} บาท",
@@ -38,6 +39,7 @@ export const legacyNumbers = definePlan<{ sex: Sex; age: number; tier: number }>
       product: "มรดกเพื่อครอบครัว",
       sumLine: `มรดกให้ครอบครัว ${money(plan)} บาท`,
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims: said,
       who: `${sexWord(p.sex)} ${p.age} ปี`,

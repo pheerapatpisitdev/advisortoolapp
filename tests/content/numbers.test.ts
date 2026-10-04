@@ -24,6 +24,7 @@ import { MAX_CHARS } from "@/lib/content/poster";
 const sheet: NumberSheet = {
   product: "Life Protect x 2",
   sumLine: "ประกันชีวิตทุน 1,000,000 บาท",
+  annualSatang: 1_854_000,
   premiumLine: "เบี้ย 1,548 บาท ต่อเดือน",
   perDayLine: "ตกวันละ 48 บาท",
   claims: ["เบี้ยไม่เพิ่ม", "เสียชีวิตก่อน 60 รับ 2,000,000 บาท"],
@@ -164,7 +165,7 @@ describe("English headlines carry no Thai (final review, 2026-10-02)", () => {
 
 describe("an English numbers poster (final review, 2026-10-02)", () => {
   const en = (big: string): NumberSheet => ({
-    product: "iHealthy Ultra", sumLine: "Medical cover up to THB 1,000,000 a year", premiumLine: "", perDayLine: "About THB 32 a day in the first year",
+    product: "iHealthy Ultra", sumLine: "Medical cover up to THB 1,000,000 a year", annualSatang: 1_200_000, premiumLine: "", perDayLine: "About THB 32 a day in the first year",
     claims: [], who: "Male, 35",
     poster: { big, small: "Up to THB 1,000,000 a year · about THB 32 a day in year one" },
   });

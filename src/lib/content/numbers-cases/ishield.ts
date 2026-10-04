@@ -12,6 +12,7 @@ export const iShieldNumbers = definePlan<{ sex: Sex; age: number; sum: number; t
     { sex: "F", age: 30, sum: 500_000, term: "WLCI20" },
     { sex: "M", age: 45, sum: 1_000_000, term: "WLCI15" },
   ],
+  ladder: { term: "จ่าย 10 ปี คุ้มครองถึงอายุ 85", firstYear: false, rungs: [500_000, 1_000_000, 2_000_000, 3_000_000].map((sum) => ({ sum, term: "WLCI10" })) },
   claims: [
     "เบี้ยไม่เพิ่ม",
     "คุ้มครอง {diseases} โรค เจอระยะเริ่มต้นก็ได้เงิน",
@@ -28,6 +29,7 @@ export const iShieldNumbers = definePlan<{ sex: Sex; age: number; sum: number; t
       product: "iShield",
       sumLine: `ประกันโรคร้ายแรงทุน ${money(p.sum)} บาท`,
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims: claims.map((c) => c.replace("{diseases}", String(diseases))),
       who: `${sexWord(p.sex)} ${p.age} ปี ${term.label}`,

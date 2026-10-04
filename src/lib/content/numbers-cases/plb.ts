@@ -12,6 +12,7 @@ export const plbNumbers = definePlan<{ sex: Sex; age: number; sum: number; term:
     { sex: "F", age: 30, sum: 1_000_000, term: "PLB10" },
     { sex: "M", age: 40, sum: 3_000_000, term: "PLB15" },
   ],
+  ladder: { term: "จ่าย 10 ปี คุ้มครอง 10 ปี", firstYear: false, rungs: [1, 2, 3, 5].map((m) => ({ sum: m * 1_000_000, term: "PLB10" })) },
   claims: [
     "เบี้ยไม่เพิ่มตลอดสัญญา",
     "จ่ายมีวันจบ",
@@ -29,6 +30,7 @@ export const plbNumbers = definePlan<{ sex: Sex; age: number; sum: number; term:
       product: "Protection Life",
       sumLine: `ประกันชีวิตทุน ${money(p.sum)} บาท`,
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี คุ้มครอง ${term.years} ปี ถึงอายุ ${coverEndsAt(term, p.age)}`,

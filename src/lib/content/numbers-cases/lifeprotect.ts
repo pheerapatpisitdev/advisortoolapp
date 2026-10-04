@@ -16,6 +16,7 @@ export const lifeProtectNumbers = definePlan<{ sex: Sex; age: number; sum: numbe
     { sex: "F", age: 30, sum: 500_000, term: "WLF19H" },
     { sex: "M", age: 45, sum: 1_000_000, term: "WLF19H" },
   ],
+  ladder: { term: "จ่าย 19 ปี คุ้มครองถึงอายุ 99", firstYear: false, rungs: [1, 2, 3, 5].map((m) => ({ sum: m * 1_000_000, term: "WLF19H" })) },
   claims: [
     "เบี้ยไม่เพิ่ม",
     "เบี้ยไม่ทิ้ง คุ้มครองถึงอายุ 99",
@@ -35,6 +36,7 @@ export const lifeProtectNumbers = definePlan<{ sex: Sex; age: number; sum: numbe
       sumLine: doubled ? `ประกันชีวิตคุ้มครอง ${money(cover)} บาท` : `ประกันชีวิตทุน ${money(p.sum)} บาท`,
       ...(doubled ? { sumNote: `ทุน ${money(p.sum)} บาท × 2 เมื่อเสียชีวิตก่อนอายุ ${table.boosterBeforeAge}` } : {}),
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี ${term.label}`,

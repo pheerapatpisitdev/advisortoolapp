@@ -15,6 +15,7 @@ export const ci123Numbers = definePlan<{ sex: Sex; age: number; tier: number }>(
     { sex: "M", age: 35, tier: 2 },
     { sex: "F", age: 45, tier: 2 },
   ],
+  ladder: { term: "จ่ายเบี้ยถึงอายุ 99", firstYear: true, rungs: [{ tier: 1 }, { tier: 2 }, { tier: 3 }, { tier: 6 }] },
   claims: [
     "คุ้มครอง {diseases} โรค",
     "เจอระยะแรกก็ได้เงิน",
@@ -32,6 +33,7 @@ export const ci123Numbers = definePlan<{ sex: Sex; age: number; tier: number }>(
       sumLine: `ประกันโรคร้ายแรงทุน ${money(ci)} บาท`,
       sumNote: `คู่กับประกันชีวิต Life Protect x 2 ทุน ${money(tier.sumAssured)} บาท`,
       premiumLine: lines.premiumLine,
+      annualSatang: lines.annualSatang,
       perDayLine: lines.perDayLine,
       claims: claims.map((c) => c.replace("{diseases}", String(table.diseaseCount))),
       who: `${sexWord(p.sex)} ${p.age} ปี`,
