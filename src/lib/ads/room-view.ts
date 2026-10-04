@@ -91,3 +91,6 @@ export function settledPictures<P extends { id: string } & Parameters<typeof pic
   for (const id of settled) delete next[id];
   return next;
 }
+
+/** A picture waiting its turn is skipped when its piece went to the bin meanwhile (one the room has not seen yet is not). */
+export const inBin = (pieces: { id: string; tab: string }[], id: string): boolean => pieces.some((p) => p.id === id && p.tab === "trash");

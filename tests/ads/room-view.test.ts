@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drawOffer, picturePending, planLink, roundCost, sendBlocker, settledPictures, writeParam, type PictureState } from "@/lib/ads/room-view";
+import { drawOffer, inBin, picturePending, planLink, roundCost, sendBlocker, settledPictures, writeParam, type PictureState } from "@/lib/ads/room-view";
 
 describe("the room's small decisions", () => {
   it("starts a round on arrival only for 1, 2 or 4", () => {
@@ -66,5 +66,14 @@ describe("a picture drawn, until the room has it", () => {
   it("gives back the same record when nothing settles, so the room does not re-render for nothing", () => {
     const pictures: Record<string, PictureState> = { b: "done", c: "wait" };
     expect(settledPictures(pictures, [{ id: "b", ...style }, { id: "c", ...drawn }])).toBe(pictures);
+  });
+});
+
+describe("a picture waiting its turn", () => {
+  it("is skipped when its piece went to the bin meanwhile, not when the room has not seen it yet", () => {
+    const pieces = [{ id: "a", tab: "trash" }, { id: "b", tab: "draft" }];
+    expect(inBin(pieces, "a")).toBe(true);
+    expect(inBin(pieces, "b")).toBe(false);
+    expect(inBin(pieces, "new")).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ContentItem } from "@/lib/content/store";
 import { AD_TAB_KEYS, type AdTabKey } from "@/lib/ads/campaign-view";
 import { styleRequest } from "@/lib/ads/dimension-edit";
-import { sendBlocker, settledPictures, type WriteCount } from "@/lib/ads/room-view";
+import { inBin, sendBlocker, settledPictures, type WriteCount } from "@/lib/ads/room-view";
 import type { PersonOption } from "../PersonPicker";
 import { drawPicture, generateRound } from "../draw";
 import { AdCard, type PictureState } from "./AdCard";
@@ -26,7 +26,7 @@ import { solid, TONES } from "./styles";
  * A round is one press at a time. When it is back, each new ad's picture is drawn, one after
  * another, from its picture style (the standard painter); its card says so meanwhile and offers
  * to draw again if it fails. A drawn picture stays "done" until the refreshed piece shows it, so
- * the card never offers a paid draw in between. Arriving from the wizard (?write=<n>), the first round starts by
+ * the card never offers a paid draw in between; a piece binned while waiting is not drawn. Arriving from the wizard (?write=<n>), the first round starts by
  * itself, once.
  */
 
@@ -75,6 +75,9 @@ export function CampaignRoom({ room, productName, rules, people, autoWrite }: {
   // the dimensions the pictures are drawn from: the newest, whatever was saved meanwhile
   const dims = useRef(campaign.dimensions);
   useEffect(() => { dims.current = campaign.dimensions; }, [campaign.dimensions]);
+  // the pieces as last refreshed, for the drawing line: a piece binned meanwhile is skipped
+  const latest = useRef(pieces);
+  useEffect(() => { latest.current = pieces; }, [pieces]);
   // a drawn picture is "done" until the refreshed piece has its background; then it is forgotten
   useEffect(() => { setPictures((p) => settledPictures(p, pieces)); }, [pieces]);
 
@@ -102,6 +105,15 @@ export function CampaignRoom({ room, productName, rules, people, autoWrite }: {
     try {
       while (jobs.current.length > 0) {
         const job = jobs.current[0];
+        if (inBin(latest.current, job.id)) {
+          jobs.current.shift();
+          setPictures((p) => {
+            const next = { ...p };
+            delete next[job.id];
+            return next;
+          });
+          continue;
+        }
         setPictures((p) => ({ ...p, [job.id]: "drawing" }));
         const res = await drawPicture(job.id, styleRequest(dims.current, job.style), "standard");
         jobs.current.shift();
