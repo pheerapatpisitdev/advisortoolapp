@@ -40,6 +40,12 @@ describe("editing the four dimensions", () => {
     })).toEqual(got);
   });
 
+  it("turns a | into ' / ' as the server does", () => {
+    const e = editRow(toEdit(dims()), "hooks", 0, { text: "h|1" });
+    expect(fromEdit(e).hooks[0].text).toBe("h / 1");
+    expect(cleanDimensions(fromEdit(e))).toEqual(fromEdit(e));
+  });
+
   it("names a dimension left with nothing ticked", () => {
     expect(shortOf(toEdit(dims()))).toEqual([]);
     const e = editRow(toEdit(dims()), "styles", toEdit(dims()).styles[0].id, { on: false });

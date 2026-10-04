@@ -7,12 +7,11 @@
 
 import { ANGLE_BANK } from "@/lib/content/ads";
 import type { Dimension, Dimensions } from "@/lib/ads/campaign-store";
-import { DIMENSION_MAX, DIMENSION_NOTE_MAX, DIMENSION_TEXT_MAX } from "@/lib/ads/dimension-edit";
+import { DIMENSION_MAX, DIMENSION_NOTE_MAX, dimensionText } from "@/lib/ads/dimension-edit";
 
 export type Variant = { hook: string; persona: string; angle: string; style: string; combo: string };
 
 // the same limits the page edits to (dimension-edit.ts), so what it counts is what is kept
-const TEXT_MAX = DIMENSION_TEXT_MAX;
 const NOTE_MAX = DIMENSION_NOTE_MAX;
 const HOOKS_MAX = DIMENSION_MAX.hooks;
 const OTHERS_MAX = DIMENSION_MAX.personas;
@@ -107,7 +106,8 @@ function cleanList(raw: unknown, max: number): Dimension[] {
     if (typeof item !== "object" || item === null) continue;
     const r = item as { text?: unknown; note?: unknown };
     if (typeof r.text !== "string") continue;
-    const text = cut(r.text.trim(), TEXT_MAX).trim();
+    // no "|" survives: the combination key joins the four texts with it
+    const text = dimensionText(r.text);
     if (!text || seen.has(text)) continue;
     seen.add(text);
     out.push({ text, note: typeof r.note === "string" ? cut(r.note.trim(), NOTE_MAX).trim() : "" });

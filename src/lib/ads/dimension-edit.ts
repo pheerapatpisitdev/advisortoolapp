@@ -3,8 +3,8 @@ import type { Dimensions } from "@/lib/ads/campaign-store";
 /**
  * The four dimensions as the wizard and the room edit them (Ads Studio, 2026-10-04): every row
  * kept on screen with a tick, so one ticked off can be ticked back, and what is ticked read back
- * the way the server cleans it (dimensions.ts's cleanDimensions) — trimmed, cut to length, the
- * same text once, held to the most each dimension takes. Reading it back here the same way means
+ * the way the server cleans it (dimensions.ts's cleanDimensions) — "|" turned to " / ", trimmed,
+ * cut to length, the same text once, held to the most each dimension takes. Reading it back here the same way means
  * the count of combinations the page shows is the count the queue will walk.
  *
  * Pure and import-free (but a type), so the browser can use it without the writer's prompts.
@@ -34,6 +34,12 @@ export type EditDims = Record<DimensionKey, EditRow[]>;
 
 const cut = (s: string, max: number) => Array.from(s).slice(0, max).join("");
 
+/**
+ * A dimension's text as it is kept: a "|" becomes " / " (a combination's key joins the four texts
+ * with "|", so one inside a text could make two combinations share a key), then trimmed and cut.
+ */
+export const dimensionText = (s: string) => cut(s.replace(/\s*\|\s*/g, " / ").trim(), DIMENSION_TEXT_MAX).trim();
+
 /** Saved dimensions as rows, every one ticked. */
 export function toEdit(d: Dimensions): EditDims {
   let id = 0;
@@ -47,7 +53,7 @@ function kept(rows: EditRow[], max: number): Dimensions[DimensionKey] {
   const seen = new Set<string>();
   for (const r of rows) {
     if (!r.on) continue;
-    const text = cut(r.text.trim(), DIMENSION_TEXT_MAX).trim();
+    const text = dimensionText(r.text);
     if (!text || seen.has(text)) continue;
     seen.add(text);
     out.push({ text, note: cut(r.note.trim(), DIMENSION_NOTE_MAX).trim() });

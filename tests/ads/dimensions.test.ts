@@ -160,6 +160,15 @@ describe("cleanDimensions", () => {
     expect(cleanDimensions("x")).toBeNull();
   });
 
+  it("turns a | in a text into ' / ', so two combinations can never share a key", () => {
+    const c = cleanDimensions({ ...ok, hooks: [{ text: "a|b", note: "" }, { text: "a | c|", note: "" }], personas: [{ text: "x", note: "" }] });
+    expect(c?.hooks.map((h) => h.text)).toEqual(["a / b", "a / c /"]);
+    // "a|b" + "c" against "a" + "b|c" used to give the same key "a|b|c|…"
+    const clash = cleanDimensions({ hooks: [{ text: "a|b" }, { text: "a" }], personas: [{ text: "c" }, { text: "b|c" }], angles: [{ text: "d" }], styles: [{ text: "e" }] })!;
+    const combos = orderedVariants(clash).map((v) => v.combo);
+    expect(new Set(combos).size).toBe(combos.length);
+  });
+
   it("treats a missing note as empty", () => {
     expect(cleanDimensions({ ...ok, hooks: [{ text: "h" }] })?.hooks).toEqual([{ text: "h", note: "" }]);
   });
