@@ -210,10 +210,12 @@ function Connect({ setup, outcome }: { setup: AdsLaunchSetup; outcome: string | 
   );
 }
 
-export function AdsLaunch({ setup, outcome, detail, limits }: {
+export function AdsLaunch({ setup, outcome, warn = null, detail, limits }: {
   setup: AdsLaunchSetup;
   /** the ?fb= the Facebook login came back with */
   outcome: string | null;
+  /** the ?warn= the login came back with; "pages" means the Page inbox permission may have been dropped */
+  warn?: string | null;
   /** Facebook's own words for a failed login, from ?detail= */
   detail: string | null;
   /** AD_LIMITS, handed down so this file does not carry the writer's prompts into the browser */
@@ -319,6 +321,12 @@ export function AdsLaunch({ setup, outcome, detail, limits }: {
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
+      {warn === "pages" && (
+        <p role="alert" className={`rounded-lg border px-3 py-3 text-sm font-medium ${TONES.bad}`}>
+          สิทธิ์อินบ็อกซ์ของเพจ (pages_messaging) อาจหลุดไปตอนเชื่อมบัญชีโฆษณานี้ — บอทอาจตอบข้อความไม่ได้แล้ว
+          ไปเชื่อมเพจใหม่ที่ <a href="/admin/messenger" className="underline">/admin/messenger</a> ตอนนี้เลย
+        </p>
+      )}
       <Connect setup={setup} outcome={outcome} />
       {outcome && detail && (
         <p className="-mt-3 break-all text-xs text-[var(--ct-mute)]">ข้อความจาก Facebook (ส่งให้คนดูแลระบบได้เลย): {detail}</p>

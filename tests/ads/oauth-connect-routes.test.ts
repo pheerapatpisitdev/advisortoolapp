@@ -157,13 +157,13 @@ describe("the ads-manage login", () => {
   });
 
   it("connects the one account, and touches neither the ads_read store nor the Page store", async () => {
-    scopesOf("ads_management", "pages_show_list");
+    scopesOf("ads_management", "pages_show_list", "pages_messaging");
     accounts(1);
     const res = await roundTrip();
     expect(res.headers.get("location")).toBe(`${ORIGIN}/studio/ads?fb=connected`);
     expect(manage.saveAdManageAccount).toHaveBeenCalledTimes(1);
     expect(manage.saveAdManageAccount).toHaveBeenCalledWith({
-      id: "act_1", name: "บัญชี 1", currency: "THB", token: "user-token", scopes: ["ads_management", "pages_show_list"],
+      id: "act_1", name: "บัญชี 1", currency: "THB", token: "user-token", scopes: ["ads_management", "pages_show_list", "pages_messaging"],
     });
     expect(manage.clearPendingAdsManage).toHaveBeenCalledTimes(1);
     expect(ads.saveAdAccount).not.toHaveBeenCalled();
@@ -176,13 +176,38 @@ describe("the ads-manage login", () => {
   });
 
   it("keeps the token and asks which account when there are several", async () => {
-    scopesOf("ads_management");
+    scopesOf("ads_management", "pages_messaging");
     accounts(2);
     const res = await roundTrip();
     expect(res.headers.get("location")).toBe(`${ORIGIN}/studio/ads?fb=choose`);
-    expect(manage.savePendingAdsManage).toHaveBeenCalledWith("user-token", ["ads_management"]);
+    expect(manage.savePendingAdsManage).toHaveBeenCalledWith("user-token", ["ads_management", "pages_messaging"]);
     expect(manage.saveAdManageAccount).not.toHaveBeenCalled();
     expect(ads.savePendingAds).not.toHaveBeenCalled();
+  });
+
+  // A Business login replaces the whole grant; a login without pages_messaging may have taken
+  // the Page inbox down, so the page warns even though the ads connection itself is kept.
+  it("warns when pages_messaging is missing from a connected login, and still saves it", async () => {
+    scopesOf("ads_management", "pages_show_list");
+    accounts(1);
+    const res = await roundTrip();
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/studio/ads?fb=connected&warn=pages`);
+    expect(manage.saveAdManageAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns when pages_messaging is missing from a login that must choose an account, and still keeps it", async () => {
+    scopesOf("ads_management");
+    accounts(2);
+    const res = await roundTrip();
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/studio/ads?fb=choose&warn=pages`);
+    expect(manage.savePendingAdsManage).toHaveBeenCalledWith("user-token", ["ads_management"]);
+  });
+
+  it("does not warn when pages_messaging was granted", async () => {
+    scopesOf("ads_management", "pages_messaging");
+    accounts(1);
+    const res = await roundTrip();
+    expect(res.headers.get("location")).not.toContain("warn=");
   });
 
   it("answers cancelled, state and failed on the Studio page too", async () => {

@@ -42,8 +42,9 @@ async function finish(req: Request): Promise<NextResponse> {
   const purpose = statePurpose(params.get("state"), cookieFrom(req, STATE_COOKIE));
   const home = purpose === "ads-manage" ? "/studio/ads" : purpose === "ads" ? "/admin/ads" : "/admin/messenger";
 
-  const back = (outcome: string, detail?: string) => {
+  const back = (outcome: string, detail?: string, warn?: string) => {
     const q = new URLSearchParams({ fb: outcome });
+    if (warn) q.set("warn", warn);
     if (detail) q.set("detail", detail.slice(0, 200));
     return NextResponse.redirect(`${origin}${home}?${q}`);
   };
@@ -68,15 +69,18 @@ async function finish(req: Request): Promise<NextResponse> {
       // a login that left out ads_management cannot create anything, so nothing is kept
       if (!scopes.includes("ads_management")) return back("noscope");
       if (accounts.length === 0) return back("noaccounts");
+      // a Business login replaces the whole grant: without pages_messaging the Pages' inbox may
+      // have just been revoked. The connection is still kept, and the page says to reconnect Pages.
+      const warn = scopes.includes("pages_messaging") ? undefined : "pages";
       if (accounts.length > 1) {
         await savePendingAdsManage(userToken, scopes);
-        return back("choose");
+        return back("choose", undefined, warn);
       }
       const a = accounts[0];
       await saveAdManageAccount({ id: a.id, name: a.name, currency: a.currency, token: userToken, scopes });
       await clearPendingAdsManage();
       await audit("connect-ads-manage", a.id, { name: a.name });
-      return back("connected");
+      return back("connected", undefined, warn);
     }
 
     if (purpose === "ads") {

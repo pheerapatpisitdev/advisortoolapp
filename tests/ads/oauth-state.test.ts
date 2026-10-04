@@ -149,7 +149,17 @@ describe("the ads-manage purpose", () => {
     expect(adsManageOauthIsConfigured()).toBe(false);
     const url = new URL(authorizeUrl("https://x.test", makeState("ads-manage"), "ads-manage"));
     expect(url.searchParams.get("config_id")).toBeNull();
-    expect(url.searchParams.get("scope")).toBe("ads_management,pages_show_list,pages_read_engagement,pages_manage_ads");
+    // a Business login replaces the whole grant, so this list is the Page set plus the two ad scopes
+    expect(url.searchParams.get("scope")).toBe(
+      "pages_show_list,pages_messaging,pages_manage_metadata,pages_manage_posts,pages_read_engagement,pages_manage_ads,ads_management",
+    );
+  });
+
+  it("asks for every Page scope the Page login does, so the ads login cannot revoke the inbox", async () => {
+    const { ADS_MANAGE_SCOPES, SCOPES } = await import("@/lib/facebook/oauth");
+    expect(ADS_MANAGE_SCOPES).toEqual([...SCOPES, "pages_manage_ads", "ads_management"]);
+    for (const s of SCOPES) expect(ADS_MANAGE_SCOPES).toContain(s);
+    expect(ADS_MANAGE_SCOPES).toContain("pages_messaging");
   });
 
   it("treats an empty configuration as missing", async () => {

@@ -31,11 +31,13 @@ export const SCOPES = ["pages_show_list", "pages_messaging", "pages_manage_metad
 export const ADS_SCOPES = ["ads_read"];
 
 /**
- * What creating ads from Studio asks for. `ads_management` is the one that can spend money, so
- * it is its own login, apart from `ads_read` above — the person who only wants a spend report
- * is never shown it. The Page scopes are the ones Meta wants beside it to attach a Page to an ad.
+ * What creating ads from Studio asks for: every Page scope the Page login has, plus the two
+ * that make an ad. A Business login replaces the user's whole grant (see the note on
+ * adsLoginConfigId), so a login that left `pages_messaging` out would revoke it from the
+ * connected Pages and take the live inbox down. `ads_management` is the one that can spend
+ * money, so it is its own login, apart from `ads_read` above.
  */
-export const ADS_MANAGE_SCOPES = ["ads_management", "pages_show_list", "pages_read_engagement", "pages_manage_ads"];
+export const ADS_MANAGE_SCOPES = [...SCOPES, "pages_manage_ads", "ads_management"];
 
 /** Why somebody is going through the login: for the bot's Pages, for the ad figures, or to create ads. */
 export type LoginPurpose = "pages" | "ads" | "ads-manage";
