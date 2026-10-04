@@ -256,7 +256,7 @@ export async function getContentUnscoped(id: string): Promise<ContentItem | null
   return data ? toItem(data as Record<string, unknown>) : null;
 }
 
-/** `includeAds`: Organic Studio shows no ad piece; the one caller that wants ads says so (Ads Studio campaigns, 2026-10-04) */
+/** `includeAds`: Organic Studio shows no ad piece, so its callers omit it; Ads Studio reads its ads through listCampaignPieces, and nothing passes this today (kept for a reader that wants both) */
 export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string; includeAds?: boolean } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);

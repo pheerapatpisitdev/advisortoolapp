@@ -23,7 +23,7 @@ export interface AdCampaign {
   tones: number;
   theme: string | null;
   hint: string | null;
-  /** the agent who made it; null when the owner did */
+  /** the agent who made it: the viewer's agent id (the owner's own, when the owner made it) */
   agentId: string | null;
 }
 

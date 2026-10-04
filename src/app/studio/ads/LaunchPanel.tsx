@@ -99,7 +99,8 @@ export function LaunchPanel({ piece, connection, page, pages, copy, dirty }: Lau
   const pageName = page.pageName ?? page.pageId;
   const nonBaht = account !== undefined && account.currency !== "THB";
   const tooMuch = overCap(budget, maxDailyBudgetThb);
-  const ready = !dirty && formReady({ hasPoster: piece.hasPoster, nonBaht, link, budget, pageId: page.pageId, actId, maxDailyBudgetThb });
+  const formOk = formReady({ hasPoster: piece.hasPoster, nonBaht, link, budget, pageId: page.pageId, actId, maxDailyBudgetThb });
+  const ready = !dirty && formOk;
 
   // the whole panel is shut, with the reason, when this ad cannot be launched at all
   const shut = !page.connected
@@ -252,7 +253,7 @@ export function LaunchPanel({ piece, connection, page, pages, copy, dirty }: Lau
                 )}
                 <button type="button" disabled={busy !== null || !ready} onClick={recreate} className={plain}>สร้างใหม่</button>
               </div>
-              {!ready && <p className="text-xs text-[var(--ct-mute)]">ปุ่มลองใหม่และสร้างใหม่ใช้ค่าในฟอร์มข้างบน กรอกลิงก์และงบให้ครบก่อน</p>}
+              {!formOk && <p className="text-xs text-[var(--ct-mute)]">ปุ่มลองใหม่และสร้างใหม่ใช้ค่าในฟอร์มข้างบน กรอกลิงก์และงบให้ครบก่อน</p>}
             </div>
           )}
           <Note note={note} />
