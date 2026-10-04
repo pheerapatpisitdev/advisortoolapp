@@ -6,6 +6,7 @@ import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
 import type { GuideItem } from "@/lib/copilot/guide";
 import { withoutParticles } from "@/lib/assistant/voice";
+import { trackMeta } from "@/components/meta/track";
 
 /**
  * The two pieces of markdown a model reaches for, drawn rather than printed — and a bare
@@ -165,6 +166,7 @@ export function Chat({ invite = false }: { invite?: boolean }) {
   async function ask(question: string) {
     const asked = question.trim();
     if (!asked || busy) return;
+    if (turns.length === 0) trackMeta("Contact");
     setDraft("");
     setBusy(true);
     // the model sees the conversation as it was before this question, which is what the
@@ -174,6 +176,7 @@ export function Chat({ invite = false }: { invite?: boolean }) {
     try {
       const reply = await askCopilot(asked, history, slots);
       if (reply.slots !== undefined) setSlots(reply.slots);
+      if (reply.priced) trackMeta("Quote");
       setTurns((t) => [...t, {
         role: "assistant", text: reply.text, model: reply.model,
         priced: reply.priced, cards: reply.cards, guide: reply.guide, pdfs: reply.pdfs,

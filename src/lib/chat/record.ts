@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Referral } from "@/lib/facebook/events";
 import type { Channel } from "./session";
+import { sendConversion } from "@/lib/meta/capi";
 
 /**
  * What the bot keeps about a conversation, and the only place that writes it.
@@ -63,7 +64,18 @@ export async function openConversation(
       p_entry_payload: entryPayload ?? null,
     });
     if (error) throw new Error(error.message);
-    return (data as string | null) ?? null;
+    const id = (data as string | null) ?? null;
+    // Messenger ads never load the pixel. Tell Meta this conversation came from one.
+    if (id && channel === "facebook" && referral?.ad_id) {
+      void sendConversion({
+        eventName: "Lead",
+        eventId: `${id}:open`,
+        actionSource: "business_messaging",
+        externalId: id,
+        customData: { ad_id: referral.ad_id },
+      });
+    }
+    return id;
   } catch (e) {
     console.error("เปิดบทสนทนาไม่สำเร็จ:", e);
     return null;
