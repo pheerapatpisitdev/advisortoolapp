@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adsetParams, campaignParams, creativeParams, LEAD_CTAS, LEAD_LINK, type AdGoal } from "@/lib/ads/graph";
+import { adsetParams, campaignParams, creativeParams, LEAD_CTAS, LEAD_LINK, messengerLink, type AdGoal } from "@/lib/ads/graph";
 
 /**
  * The builders both ad engines share: what each object carries for a traffic ad and for a lead
@@ -9,6 +9,7 @@ import { adsetParams, campaignParams, creativeParams, LEAD_CTAS, LEAD_LINK, type
 
 const traffic: AdGoal = { objective: "traffic", link: "https://x.test/plan" };
 const leads: AdGoal = { objective: "leads", leadFormId: "777", cta: "GET_QUOTE" };
+const messages: AdGoal = { objective: "messages" };
 const adset = (goal: AdGoal) => adsetParams({ name: "n", campaignId: "C1", dailyBudgetMinor: 10000, identity: "VID1", goal, pageId: "111" });
 const omit = (o: Record<string, string>, ...keys: string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k)));
 const creative = (goal: AdGoal) => JSON.parse(creativeParams({
@@ -27,6 +28,12 @@ describe("the campaign", () => {
     expect(omit(leads, "objective")).toEqual(omit(campaignParams("n", "traffic"), "objective"));
     expect(leads).toMatchObject({ status: "PAUSED", special_ad_categories: "[]", is_adset_budget_sharing_enabled: "false" });
   });
+
+  it("is an engagement campaign for messages, with the same other fields", () => {
+    const m = campaignParams("n", "messages");
+    expect(m.objective).toBe("OUTCOME_ENGAGEMENT");
+    expect(omit(m, "objective")).toEqual(omit(campaignParams("n", "traffic"), "objective"));
+  });
 });
 
 describe("the ad set", () => {
@@ -42,9 +49,16 @@ describe("the ad set", () => {
     expect(JSON.parse(a.promoted_object)).toEqual({ page_id: "111" });
   });
 
-  it("keeps budget, bidding, audience, the Thai identity and PAUSED the same for both", () => {
+  it("optimises messages for conversations in Messenger, promoting the Page", () => {
+    const a = adset(messages);
+    expect(a).toMatchObject({ optimization_goal: "CONVERSATIONS", destination_type: "MESSENGER" });
+    expect(JSON.parse(a.promoted_object)).toEqual({ page_id: "111" });
+  });
+
+  it("keeps budget, bidding, audience, the Thai identity and PAUSED the same for every objective", () => {
     const pick = (a: Record<string, string>) => omit(a, "optimization_goal", "destination_type", "promoted_object");
     expect(pick(adset(leads))).toEqual(pick(adset(traffic)));
+    expect(pick(adset(messages))).toEqual(pick(adset(traffic)));
     expect(adset(leads)).toMatchObject({ status: "PAUSED", daily_budget: "10000", billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP" });
   });
 });
@@ -64,6 +78,14 @@ describe("the creative", () => {
       image_hash: "H1", link: LEAD_LINK, message: "ข้อความ", name: "หัวข้อ", description: "คำอธิบาย",
       call_to_action: { type: "SIGN_UP", value: { lead_gen_form_id: "777" } },
     });
+  });
+
+  it("opens a Messenger chat with the Page on a messages ad, its link the Page's m.me address", () => {
+    expect(creative(messages).link_data).toEqual({
+      image_hash: "H1", link: "https://m.me/111", message: "ข้อความ", name: "หัวข้อ", description: "คำอธิบาย",
+      call_to_action: { type: "MESSAGE_PAGE", value: { app_destination: "MESSENGER" } },
+    });
+    expect(messengerLink("111")).toBe("https://m.me/111");
   });
 
   it("offers the three lead buttons, quote first", () => {

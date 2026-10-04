@@ -145,8 +145,8 @@ describe("how each piece went, after a send", () => {
 });
 
 describe("an objective and a lead button in Thai", () => {
-  it("names both objectives and the three buttons", () => {
-    expect(OBJECTIVE_LABEL).toEqual({ traffic: "ทราฟฟิก", leads: "ฟอร์มลีด" });
+  it("names every objective and the three buttons", () => {
+    expect(OBJECTIVE_LABEL).toEqual({ traffic: "ทราฟฟิก", leads: "ฟอร์มลีด", messages: "ข้อความ" });
     expect(CTA_LABEL).toEqual({ GET_QUOTE: "รับใบเสนอราคา", SIGN_UP: "ลงทะเบียน", LEARN_MORE: "ดูเพิ่มเติม" });
   });
 });

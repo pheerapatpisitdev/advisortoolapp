@@ -979,7 +979,7 @@ export interface SendApprovedInput {
   dailyBudgetBaht: number;
   /** the pieces the owner kept in the send dialog */
   pieceIds: string[];
-  /** traffic when left out */
+  /** traffic when left out; messages needs no link, form or button (the ads open the Page's chat) */
   objective?: SendObjective;
   /** for leads: the Page's form the ads open, checked against Meta's list before anything is made */
   leadFormId?: string;
@@ -1032,7 +1032,7 @@ export async function sendApproved(input: SendApprovedInput): Promise<SendResult
     if (!pages.some((p) => p.pageId === campaign.pageId)) return refusedSend(PAGE_GONE);
     const asked = [...new Set((Array.isArray(input.pieceIds) ? input.pieceIds : []).filter((x): x is string => typeof x === "string"))];
     if (asked.length === 0) return refusedSend(NO_PIECES);
-    const objective: SendObjective = input.objective === "leads" ? "leads" : "traffic";
+    const objective: SendObjective = input.objective === "leads" || input.objective === "messages" ? input.objective : "traffic";
     if (objective === "leads") {
       // the form must still be an active form of this campaign's Page: the dialog may be stale
       const token = await adManageToken(account.id);

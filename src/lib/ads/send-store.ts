@@ -15,7 +15,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 export type SendStep = "none" | "campaign" | "adset" | "ads";
 
 /** What the send's ads ask people to do: open a link, or fill a Page's Instant Form. */
-export type SendObjective = "traffic" | "leads";
+export type SendObjective = "traffic" | "leads" | "messages";
 
 /** The button on a lead ad. */
 export type LeadCta = "GET_QUOTE" | "SIGN_UP" | "LEARN_MORE";

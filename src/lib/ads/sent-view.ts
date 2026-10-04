@@ -22,7 +22,7 @@ export const STATUS_LABEL: Record<string, string> = {
 const BAD = new Set(["DISAPPROVED", "WITH_ISSUES"]);
 
 /** What a send's ads ask people to do, as the owner reads it. */
-export const OBJECTIVE_LABEL: Record<SendObjective, string> = { traffic: "ทราฟฟิก", leads: "ฟอร์มลีด" };
+export const OBJECTIVE_LABEL: Record<SendObjective, string> = { traffic: "ทราฟฟิก", leads: "ฟอร์มลีด", messages: "ข้อความ" };
 
 /** A lead ad's button, in the words Facebook shows on it in Thai. */
 export const CTA_LABEL: Record<LeadCta, string> = { GET_QUOTE: "รับใบเสนอราคา", SIGN_UP: "ลงทะเบียน", LEARN_MORE: "ดูเพิ่มเติม" };

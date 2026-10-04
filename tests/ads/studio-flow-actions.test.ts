@@ -574,6 +574,26 @@ describe("sending approved ads", () => {
   });
 });
 
+describe("sending approved ads as messages", () => {
+  it("hands runSend a messages send without a form or button, asking Meta for no forms", async () => {
+    const res = await sendApproved({
+      campaignId: CAMPAIGN, actId: ACT, link: "", dailyBudgetBaht: 150, pieceIds: ["p1"],
+      objective: "messages", leadFormId: "777", cta: "GET_QUOTE",
+    });
+    expect(res.ok).toBe(true);
+    expect(forms.listLeadForms).not.toHaveBeenCalled();
+    const [arg] = engine.runSend.mock.calls[0] as unknown as [Record<string, unknown>];
+    expect(arg).toMatchObject({ objective: "messages", pageId: PAGE });
+    expect(arg).not.toHaveProperty("leadFormId");
+    expect(who.audit).toHaveBeenCalledWith("ads-send", "S1", expect.objectContaining({ objective: "messages" }));
+  });
+
+  it("takes an objective it does not know as traffic", async () => {
+    await sendApproved({ campaignId: CAMPAIGN, actId: ACT, link: "https://x.test/", dailyBudgetBaht: 150, pieceIds: ["p1"], objective: "bogus" as never });
+    expect((engine.runSend.mock.calls[0] as unknown as [Record<string, unknown>])[0]).toMatchObject({ objective: "traffic" });
+  });
+});
+
 describe("sending approved ads as a lead form", () => {
   const go = (over: Record<string, unknown> = {}) => sendApproved({
     campaignId: CAMPAIGN, actId: ACT, link: "", dailyBudgetBaht: 150, pieceIds: ["p1"],

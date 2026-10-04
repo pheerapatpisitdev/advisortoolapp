@@ -317,6 +317,48 @@ describe("sending a batch", () => {
   });
 });
 
+describe("sending a messages batch", () => {
+  const messages: SendInput = { ...input, objective: "messages", link: "" };
+
+  it("makes an engagement campaign whose ads open a chat with the Page, every one paused, needing no link", async () => {
+    replies = [...FULL];
+    const result = await runSend(messages, deps());
+
+    expect(result.ok).toBe(true);
+    const [campaign, adset, , creative1, ad1, , creative2, ad2] = sent.map((s) => s.params);
+    expect(campaign.get("objective")).toBe("OUTCOME_ENGAGEMENT");
+    expect(campaign.get("name")).toBe("Studio · ข้อความ · 2 แอด · 2026-10-04");
+    expect(adset.get("optimization_goal")).toBe("CONVERSATIONS");
+    expect(adset.get("destination_type")).toBe("MESSENGER");
+    expect(JSON.parse(adset.get("promoted_object")!)).toEqual({ page_id: "111" });
+    for (const c of [creative1, creative2]) {
+      expect(JSON.parse(c.get("object_story_spec")!).link_data).toMatchObject({
+        link: "https://m.me/111", call_to_action: { type: "MESSAGE_PAGE", value: { app_destination: "MESSENGER" } },
+      });
+    }
+    for (const p of [campaign, adset, ad1, ad2]) expect(p.get("status")).toBe("PAUSED");
+    expect(sends[0]).toMatchObject({ objective: "messages", leadFormId: null, cta: null, link: "https://m.me/111" });
+  });
+
+  it("ignores a form and a button sent along with it", async () => {
+    replies = [...FULL];
+    await runSend({ ...messages, leadFormId: "777", cta: "GET_QUOTE" }, deps());
+    expect(sends[0]).toMatchObject({ objective: "messages", leadFormId: null, cta: null });
+  });
+
+  it("resumes at the ad set that broke as messages, not as traffic", async () => {
+    replies = [ok({ id: "C1" }), fail(100, "bad targeting")];
+    await runSend(messages, deps());
+
+    sent = [];
+    replies = [ok({ id: "AS1" }), ...PIECE1, ...PIECE2];
+    expect((await resumeSend(sends[0].id, deps())).ok).toBe(true);
+    expect(sent[0].params.get("destination_type")).toBe("MESSENGER");
+    const creatives = sent.filter((s) => s.path.endsWith("/adcreatives"));
+    expect(JSON.parse(creatives[0].params.get("object_story_spec")!).link_data.call_to_action.type).toBe("MESSAGE_PAGE");
+  });
+});
+
 describe("sending a lead batch", () => {
   const leads: SendInput = { ...input, objective: "leads", leadFormId: "777", cta: "GET_QUOTE" };
   const leadCreative = (p: URLSearchParams) => JSON.parse(p.get("object_story_spec")!).link_data;
