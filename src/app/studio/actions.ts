@@ -595,7 +595,9 @@ export async function setContentStatus(id: string, status: ContentStatus): Promi
     await setStatus(id, status);
     // the card moves now; the formula is a model call of a few seconds, made once the answer
     // has gone back — awaited here, every ✓ใช้จริง waited on it and held the page's other actions
-    if (status === "used" && item.status !== "used") after(() => learnFormula(item));
+    // an ad's headline is written for Ads Studio, not as an organic hook: it stays out of the library
+    const isAd = item.format === "ad" || Boolean(item.campaignId);
+    if (status === "used" && item.status !== "used" && !isAd) after(() => learnFormula(item));
     return { ok: true };
   } catch (e) {
     console.error("content status failed:", e);
