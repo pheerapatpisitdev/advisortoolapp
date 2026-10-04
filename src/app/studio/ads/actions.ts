@@ -13,7 +13,7 @@ import {
 import { adsManageMissingEnv, adsManageOauthIsConfigured, listAdAccounts, tokenExpiry, type TokenExpiry } from "@/lib/facebook/oauth";
 import * as launchStore from "@/lib/ads/launch-store";
 import type { LaunchRow, LaunchStep as RowStep } from "@/lib/ads/launch-store";
-import { activateLaunch, adEffectiveStatus, runLaunch, type LaunchResult, thVerifiedIdentity } from "@/lib/ads/launch";
+import { activateLaunch, adEffectiveStatus, pauseLaunch, runLaunch, type LaunchResult, thVerifiedIdentity } from "@/lib/ads/launch";
 import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
 import {
   createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign, type Dimensions,
@@ -488,8 +488,11 @@ export type AdCampaignRoom =
     queue: QueueView | null;
     /** the campaign's live batch sends, newest first */
     sends: SendView[];
-    /** ads launched one by one before batch sends, with the piece each is for, newest piece first */
-    legacy: (LaunchView & { pieceId: string })[];
+    /**
+     * ads launched one by one before batch sends, with the piece each is for, newest piece first.
+     * `canPause` when the ad exists: Pause is offered whatever activatedAt says, as for a send.
+     */
+    legacy: (LaunchView & { pieceId: string; canPause: boolean })[];
     connection: Connection;
     /** every Page the owner has, so a launch made on another Page (from the page before Ads Studio) is named by its own */
     pages: { pageId: string; pageName: string }[];
@@ -624,7 +627,7 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
       counts: tabCounts(pieces.map((p) => p.tab)),
       queue: queueOf(campaign.dimensions, items),
       sends,
-      legacy: items.flatMap((p, i) => launches[i].map((l) => ({ ...l, pieceId: p.id }))),
+      legacy: items.flatMap((p, i) => launches[i].map((l) => ({ ...l, pieceId: p.id, canPause: l.adId !== null }))),
       connection: conn,
       pages: pages.map((p) => ({ pageId: p.pageId, pageName: p.pageName })),
     };
@@ -870,6 +873,28 @@ export async function activateAd(launchId: string): Promise<{ ok: true } | { ok:
     return result;
   } catch (e) {
     console.error("activateAd failed:", e);
+    await record(false, SOMETHING_BROKE).catch(() => {});
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/**
+ * Pauses an ad launched one by one (pauseLaunch): the ad goes PAUSED and the launch reads as
+ * not switched on, so "เปิดใช้" (activateAd) brings it back. Every press is recorded.
+ */
+export async function pauseAd(launchId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  let row: LaunchRow | null = null;
+  const record = (ok: boolean, error?: string) =>
+    audit("ads-launch-pause", launchId, { ok, error, adId: row?.adId, actId: row?.actId, pageId: row?.pageId, dailyBudgetMinor: row?.dailyBudgetMinor });
+  try {
+    row = await launchStore.getLaunch(launchId);
+    const result = await pauseLaunch(launchId, { store: launchStore, token: adManageToken });
+    await record(result.ok, result.ok ? undefined : result.error);
+    if (result.ok) revalidatePath("/studio/ads", "layout");
+    return result;
+  } catch (e) {
+    console.error("pauseAd failed:", e);
     await record(false, SOMETHING_BROKE).catch(() => {});
     return { ok: false, error: SOMETHING_BROKE };
   }

@@ -310,6 +310,52 @@ export async function activateLaunch(
   }
 }
 
+/** Why a launch's ad may not be paused, or null when it may: only an ad that exists can be. */
+function notPausable(row: LaunchRow | null): string | null {
+  if (!row) return "ไม่พบรายการยิงแอดนี้";
+  if (row.superseded) return "รายการนี้ถูกแทนที่ด้วยการสร้างใหม่แล้ว";
+  // the id becomes a Graph path, as in adEffectiveStatus
+  if (!row.adId || !/^\w+$/.test(row.adId)) return "แอดนี้ยังไม่ได้สร้าง";
+  return null;
+}
+
+/**
+ * The owner's press to stop an ad launched one by one: the ad goes PAUSED — the ad, not its
+ * campaign, so the next "เปิดใช้" (which sets campaign, ad set and ad ACTIVE) brings it back.
+ * It is sent whatever activatedAt says, since a switch-on that broke after the ad went on can
+ * leave it running unmarked. Only Meta's {success: true} counts; then activatedAt is cleared, so
+ * activateLaunch goes to Meta again rather than answering that the ad is already on.
+ */
+export async function pauseLaunch(
+  launchId: string,
+  deps: Pick<LaunchDeps, "store" | "token" | "fetchFn" | "now">,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { store } = deps;
+  const fetchFn = deps.fetchFn ?? fetch;
+
+  const row = await store.getLaunch(launchId);
+  const refused = notPausable(row);
+  if (refused) return { ok: false, error: refused };
+  const token = await deps.token(row!.actId);
+  if (!token) return { ok: false, error: NO_TOKEN };
+
+  if (!(await store.claimLaunch(launchId))) return { ok: false, error: BUSY };
+  try {
+    // re-read under the claim: another press may have changed the launch while this one waited
+    const held = await store.getLaunch(launchId);
+    const changed = notPausable(held);
+    if (changed) return { ok: false, error: changed };
+
+    const r = await graph(fetchFn, token, held!.adId!, { status: "PAUSED" });
+    if (!r.ok) return { ok: false, error: r.error };
+    if (r.body.success !== true) return { ok: false, error: "Facebook ไม่ยืนยันการหยุด" };
+    await store.markLaunchPaused(launchId);
+    return { ok: true };
+  } finally {
+    await store.releaseLaunch(launchId);
+  }
+}
+
 /** What Meta made of the ad (ACTIVE, PAUSED, DISAPPROVED, ...), or null when it would not say. */
 export async function adEffectiveStatus(adId: string, token: string, fetchFn: typeof fetch = fetch): Promise<string | null> {
   // the id becomes a Graph path; a stray "/" or "?" would ask Meta about something else

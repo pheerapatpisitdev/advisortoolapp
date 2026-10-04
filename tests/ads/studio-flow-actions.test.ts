@@ -62,7 +62,7 @@ vi.mock("@/lib/facebook/oauth", async (orig) => ({ ...(await orig<typeof import(
 
 const store = vi.hoisted(() => ({ findLaunch: vi.fn(), getLaunch: vi.fn() }));
 vi.mock("@/lib/ads/launch-store", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/launch-store")>()), ...store }));
-const launch = vi.hoisted(() => ({ runLaunch: vi.fn(), activateLaunch: vi.fn(), adEffectiveStatus: vi.fn(), thVerifiedIdentity: vi.fn(() => "VID1" as string | null) }));
+const launch = vi.hoisted(() => ({ runLaunch: vi.fn(), activateLaunch: vi.fn(), pauseLaunch: vi.fn(), adEffectiveStatus: vi.fn(), thVerifiedIdentity: vi.fn(() => "VID1" as string | null) }));
 vi.mock("@/lib/ads/launch", () => launch);
 const camps = vi.hoisted(() => ({
   listCampaigns: vi.fn(),
@@ -85,7 +85,7 @@ vi.mock("@/app/studio/actions", () => studio);
 
 const {
   analyzeCampaignDraft, analyzeCampaign, createAdCampaign, updateAdCampaign, adCampaignRoom,
-  sendApproved, retrySend, activateSendAction, pauseSendAction,
+  sendApproved, retrySend, activateSendAction, pauseSendAction, pauseAd,
 } = await import("@/app/studio/ads/actions");
 
 const dims = (over: Record<string, unknown> = {}) => ({
@@ -147,6 +147,8 @@ beforeEach(() => {
   fb.tokenExpiry.mockResolvedValue({ valid: true, expiresAt: "2026-12-01T00:00:00.000Z", dataAccessExpiresAt: null });
   store.findLaunch.mockResolvedValue(null);
   launch.adEffectiveStatus.mockResolvedValue("PAUSED");
+  launch.pauseLaunch.mockResolvedValue({ ok: true });
+  store.getLaunch.mockResolvedValue({ id: "L1", pieceId: "p2", actId: ACT, pageId: PAGE, adId: "LAD", dailyBudgetMinor: 20000, activatedAt: "2026-10-04T02:00:00Z" });
   camps.getCampaign.mockResolvedValue(campaign());
   camps.createCampaign.mockImplementation(async (c: Record<string, unknown>) => campaign({ ...c, id: CAMPAIGN }));
   camps.updateCampaign.mockResolvedValue(undefined);
@@ -173,9 +175,10 @@ describe("who may use the new actions", () => {
     await expect(retrySend("S1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(activateSendAction("S1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(pauseSendAction("S1")).rejects.toThrow("ไม่มีสิทธิ์");
+    await expect(pauseAd("L1")).rejects.toThrow("ไม่มีสิทธิ์");
     for (const spy of [
       ...Object.values(content), ...Object.values(camps), ...Object.values(sends), ...Object.values(engine), ai.analyzeDimensions,
-      pages.myPages, conn.adManageAccounts, conn.adManageToken, store.findLaunch, g.graph, who.audit,
+      pages.myPages, conn.adManageAccounts, conn.adManageToken, store.findLaunch, store.getLaunch, launch.pauseLaunch, g.graph, who.audit,
     ]) {
       expect(spy).not.toHaveBeenCalled();
     }
@@ -429,7 +432,7 @@ describe("the room's queue, sends and older ads", () => {
       : null));
     const room = await adCampaignRoom(CAMPAIGN);
     if (!room.ok) throw new Error("room did not open");
-    expect(room.legacy).toEqual([expect.objectContaining({ id: "L1", pieceId: "p2", adId: "LAD", dailyBudgetBaht: 200, effectiveStatus: "PAUSED" })]);
+    expect(room.legacy).toEqual([expect.objectContaining({ id: "L1", pieceId: "p2", adId: "LAD", dailyBudgetBaht: 200, effectiveStatus: "PAUSED", canPause: true })]);
     expect(room.pieces[1].tab).toBe("sent");
     expect(room.connection.thIdentity).toBe(true);
   });
@@ -597,5 +600,38 @@ describe("retrying, switching on and pausing a send", () => {
     expect(who.audit).toHaveBeenCalledWith("ads-send-activate", "S1", expect.objectContaining({ ok: false }));
     expect(who.audit).toHaveBeenCalledWith("ads-send-pause", "S1", expect.objectContaining({ ok: false }));
     log.mockRestore();
+  });
+});
+
+describe("pausing an ad launched one by one", () => {
+  it("pauses through pauseLaunch with the launch store and token reader, and records it", async () => {
+    expect(await pauseAd("L1")).toEqual({ ok: true });
+    expect(launch.pauseLaunch).toHaveBeenCalledWith("L1", expect.objectContaining({ store: expect.anything(), token: expect.any(Function) }));
+    expect(who.audit).toHaveBeenCalledWith("ads-launch-pause", "L1", expect.objectContaining({ ok: true, adId: "LAD", actId: ACT, pageId: PAGE }));
+  });
+
+  it("hands back why it did not pause, and records the failure", async () => {
+    launch.pauseLaunch.mockResolvedValueOnce({ ok: false, error: "Facebook ไม่ยืนยันการหยุด" });
+    expect(await pauseAd("L1")).toEqual({ ok: false, error: "Facebook ไม่ยืนยันการหยุด" });
+    expect(who.audit).toHaveBeenCalledWith("ads-launch-pause", "L1", expect.objectContaining({ ok: false, error: "Facebook ไม่ยืนยันการหยุด" }));
+  });
+
+  it("turns a throw into a Thai answer, and still records the press", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    launch.pauseLaunch.mockRejectedValueOnce(new Error("boom secret"));
+    const res = await pauseAd("L1");
+    expect(res).toMatchObject({ ok: false });
+    expect(JSON.stringify(res)).not.toContain("boom secret");
+    expect(who.audit).toHaveBeenCalledWith("ads-launch-pause", "L1", expect.objectContaining({ ok: false }));
+    log.mockRestore();
+  });
+
+  it("offers Pause in the room only for a launch whose ad exists", async () => {
+    store.findLaunch.mockImplementation(async (pieceId: string) => (pieceId === "p1"
+      ? { id: "L2", pieceId: "p1", actId: ACT, pageId: PAGE, step: "adset", adId: null, campaignId: "C1", adsetId: "S1", error: "x", activatedAt: null, claimedAt: null, dailyBudgetMinor: 20000, link: "https://x.test/", superseded: false, createdAt: "2026-10-03T00:00:00.000Z" }
+      : null));
+    const room = await adCampaignRoom(CAMPAIGN);
+    if (!room.ok) throw new Error("room did not open");
+    expect(room.legacy).toEqual([expect.objectContaining({ id: "L2", canPause: false })]);
   });
 });
