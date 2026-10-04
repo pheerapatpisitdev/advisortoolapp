@@ -40,6 +40,12 @@ describe("a daily budget", () => {
     expect(checkDailyBudget(801, "THB", 800).ok).toBe(false);
   });
 
+  // a cap that is NaN makes `baht > max` false for every amount, which would turn the cap off
+  it.each([NaN, Infinity, -1, 0, 0.5, 1.5, Number.MAX_SAFE_INTEGER + 2])("falls back to the default cap when the cap is %s", (max) => {
+    expect(checkDailyBudget(501, "THB", max).ok).toBe(false);
+    expect(checkDailyBudget(500, "THB", max)).toEqual({ ok: true, minor: 50000 });
+  });
+
   it("names the cap in the message when over it", () => {
     const r = checkDailyBudget(501, "THB");
     expect(r.ok).toBe(false);

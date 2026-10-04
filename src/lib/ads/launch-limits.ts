@@ -27,6 +27,9 @@ export type BudgetCheck = { ok: true; minor: number } | { ok: false; error: stri
  * units differ (JPY has none), and sending the wrong one would spend 100x or 1/100 of it.
  */
 export function checkDailyBudget(baht: number, currency: string | null, max: number = maxDailyBudgetThb()): BudgetCheck {
+  // a cap that is not a whole number of at least 1 (NaN above all: every comparison with it is
+  // false, so it would let any amount through) is not a cap; use the default one
+  if (!Number.isSafeInteger(max) || max < 1) max = DEFAULT_MAX_DAILY_BUDGET_THB;
   if (currency !== "THB") return { ok: false, error: "รองรับเฉพาะบัญชีโฆษณาสกุลบาท (THB)" };
   if (!Number.isInteger(baht) || baht < 1) return { ok: false, error: "งบต่อวันต้องเป็นบาทเต็มจำนวน อย่างน้อย 1 บาท" };
   if (baht > max) return { ok: false, error: `งบต่อวันสูงสุด ${max} บาท` };
