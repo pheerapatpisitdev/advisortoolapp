@@ -25,7 +25,7 @@ import {
  * on except activateSend, a separate press; a send never spends money by itself.
  *
  * The campaign, ad set, creative and ad carry exactly the fields a single launch does: both
- * engines build them with graph.ts, and the reasons for each field are in launch.ts's header.
+ * engines build them with graph.ts, and the reasons for each field are in graph.ts.
  *
  * Every Meta id is saved the moment Meta returns it (send-store.ts), so a break stops there and
  * resumeSend carries on with what was made instead of making a second campaign or ad set. A

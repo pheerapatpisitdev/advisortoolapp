@@ -3,10 +3,10 @@ import type { LeadCta, SendObjective } from "./send-store";
 import { EXPIRED } from "./sync";
 
 /**
- * The Graph request code both ad engines share: launch.ts (one ad) and send.ts (a batch). One
+ * The Graph request code both ad engines share: the earlier one-by-one launch (since removed) and send.ts (a batch). One
  * request function, and one builder per object the engines make, so a send's campaign, ad set,
  * creative and ad carry exactly the fields a single launch does — the reasons for each field
- * are in launch.ts's header, where they were first checked against Marketing API v23.0.
+ * were first checked against Marketing API v23.0 (see the notes in send.ts).
  */
 
 export const GRAPH = "https://graph.facebook.com/v23.0";

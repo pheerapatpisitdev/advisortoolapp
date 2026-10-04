@@ -1,7 +1,7 @@
 /**
  * Whether the ads form may be sent, kept free of React so a test can pin the budget edges.
  *
- * The cap is checked here as well as on the server (runLaunch's checkDailyBudget): the buttons
+ * The cap is checked here as well as on the server (the batch send's checkDailyBudget, send.ts): the buttons
  * sit outside a <form>, so the input's own `max` stops nothing, and without this a figure over
  * the cap was only refused after the owner pressed save.
  */
