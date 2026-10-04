@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { drawOffer, inBin, picturePending, planLink, sendBlocker, settledPictures, writeParam, type PictureState } from "@/lib/ads/room-view";
+import { drawOffer, inBin, picturePending, planLink, pruneTicks, sendBlocker, settledPictures, tableAge, type PictureState } from "@/lib/ads/room-view";
 
 describe("the room's small decisions", () => {
-  it("starts a round on arrival only for 1, 2 or 4", () => {
-    expect(writeParam("1")).toBe(1);
-    expect(writeParam("2")).toBe(2);
-    expect(writeParam("4")).toBe(4);
-    for (const v of ["3", "0", "8", "", "x", undefined, null]) expect(writeParam(v)).toBe(0);
-  });
-
   it("knows a piece whose poster has no picture still waits for it, whatever its ad holds", () => {
     expect(picturePending({ poster: {} })).toBe(true);
     expect(picturePending({ poster: { background: "/x.png" } })).toBe(false);
@@ -68,5 +61,29 @@ describe("a picture waiting its turn", () => {
     expect(inBin(pieces, "a")).toBe(true);
     expect(inBin(pieces, "b")).toBe(false);
     expect(inBin(pieces, "new")).toBe(false);
+  });
+});
+
+describe("the ticks on the draft cards", () => {
+  it("drops the ids that left ร่าง after a refresh, binned or sent in another tab meanwhile", () => {
+    expect(pruneTicks(new Set(["a", "b", "c"]), ["a", "c"])).toEqual(new Set(["a", "c"]));
+  });
+  it("keeps nothing when ร่าง is empty", () => {
+    expect(pruneTicks(new Set(["a", "b"]), [])).toEqual(new Set());
+  });
+  it("gives back the same set when nothing drops, so the room does not re-render for nothing", () => {
+    const ticked = new Set(["a"]);
+    expect(pruneTicks(ticked, ["a", "b"])).toBe(ticked);
+  });
+});
+
+describe("the premium table's age as typed", () => {
+  it("takes a whole year from 0 to 80", () => {
+    expect(tableAge("30")).toBe(30);
+    expect(tableAge(" 0 ")).toBe(0);
+    expect(tableAge("80")).toBe(80);
+  });
+  it("refuses anything else, so the press stays shut", () => {
+    for (const v of ["", "81", "-1", "30.5", "3e1", "สามสิบ", "100"]) expect(tableAge(v)).toBeNull();
   });
 });

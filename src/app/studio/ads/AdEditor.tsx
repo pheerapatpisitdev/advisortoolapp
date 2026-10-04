@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { defaultPoster, type PosterSpec } from "@/lib/content/poster";
+import { adLabel } from "@/lib/ads/ad-card";
 import type { ContentItem } from "@/lib/content/store";
 import { PosterPanel } from "../PosterPanel";
 import type { PersonOption } from "../PersonPicker";
@@ -18,7 +19,7 @@ import { field, plain as plainButton, solid } from "./styles";
  * One ad, full screen: the poster on the left (Studio's own PosterPanel, with its AI picture),
  * the three Ads Manager fields on the right with a count against Facebook's lengths — red when
  * over, never cut — the ad as the feed would show it, and the save. Sending to Facebook is the
- * room's (ส่งขึ้น Facebook), for every approved ad at once; nothing here launches.
+ * room's (ส่งขึ้น Facebook), for the ads ticked in ร่าง at once; nothing here launches.
  *
  * An ad already sent keeps what it went up with: saving here changes Studio's copy only, and the
  * editor says so. Its status is Facebook's now, so it has no ทิ้ง.
@@ -185,7 +186,7 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
           <h2 id={`${ids}-title`} className="truncate text-sm font-semibold">{draft.headline || "แอดไม่มีหัวข้อ"}</h2>
           <p className="truncate text-xs text-[var(--ct-mute)]">
             {campaign.title}
-            {piece.variant ? ` · ${piece.variant.persona} · ${piece.variant.angle} · ${piece.variant.style}` : piece.ad ? ` · ${piece.ad.angle} · ${piece.ad.tone}` : ""}
+            {piece.ad && adLabel(piece.ad) ? ` · ${adLabel(piece.ad)}` : ""}
           </p>
         </div>
         {sent ? null : piece.status === "trashed" ? (

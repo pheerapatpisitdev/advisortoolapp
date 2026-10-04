@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AD_FOLD, brokenStep, cardLaunch, cardText, pageNameOf, writeCount } from "@/lib/ads/ad-card";
+import { AD_FOLD, adLabel, brokenStep, cardLaunch, cardText, pageNameOf, writeCount } from "@/lib/ads/ad-card";
 import { AD_LIMITS } from "@/lib/content/ads";
 
 /**
@@ -83,5 +83,15 @@ describe("pageNameOf", () => {
 
   it("falls back to the id for a Page the owner no longer has", () => {
     expect(pageNameOf("P9", pages)).toBe("P9");
+  });
+});
+
+describe("a piece's angle label", () => {
+  it("joins the angle and tone of an older piece", () => {
+    expect(adLabel({ angle: "คุ้มครองครอบครัว", tone: "อบอุ่น" })).toBe("คุ้มครองครอบครัว · อบอุ่น");
+  });
+  it("leaves no stray dot for a long ad, which has no tone, or an angle the AI chose", () => {
+    expect(adLabel({ angle: "เกษียณ", tone: "" })).toBe("เกษียณ");
+    expect(adLabel({ angle: "", tone: "" })).toBe("");
   });
 });

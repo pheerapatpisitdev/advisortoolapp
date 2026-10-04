@@ -14,39 +14,45 @@ import { budgetBaht, formReady, overCap } from "./form-ready";
 import { field, plain, solid, TONES } from "./styles";
 
 /**
- * ส่งขึ้น Facebook: every approved ad not yet sent, as one paused Meta campaign and ad set with an
- * ad per piece. The owner picks traffic (a link, the plan's page to begin with), a lead form
- * (one of the Page's Instant Forms and the button) or messages (ส่งข้อความ opens a Messenger chat
- * with the Page, where its bot answers — nothing more to choose), the ad account (baht only), the daily budget
- * under the cap, and can take any piece out by its thumbnail. Nothing is switched on here — that
- * is the sent tab's เปิดใช้ทั้งชุด, asked first.
+ * ส่งขึ้น Facebook: the drafts ticked in ร่าง, as one paused Meta campaign and ad set with an ad
+ * per piece. The owner picks traffic (a link, the plan's page to begin with), a lead form (one of
+ * the Page's Instant Forms and the button) or messages (ส่งข้อความ opens a Messenger chat with the
+ * Page, where its bot answers — nothing more to choose), the ad account only when more than one in
+ * baht is connected (the one there is, otherwise), the daily budget under the cap, and can take
+ * any piece out by its thumbnail. Nothing is switched on here — that is the sent tab's
+ * เปิดใช้ทั้งชุด, asked first.
  *
  * Once back, it says how each piece went: made (paused), failed with Meta's reason, or left out
- * before anything was made, with why (not approved, picture not drawn, sent already…).
+ * before anything was made, with why (binned meanwhile, picture not drawn, sent already…); the
+ * room clears its ticks (`onSent`).
  */
 
 /** what each objective's button does, under its name */
 const OBJECTIVE_HINT: Record<SendObjective, string> = { traffic: "พาไปเว็บ", leads: "กรอกใน Facebook", messages: "เปิดแชทเพจ" };
 /** what is still to fill in before sending, by objective */
-const STILL_NEEDED: Record<SendObjective, string> = { traffic: "ใส่ลิงก์ ", leads: "เลือกฟอร์ม ", messages: "" };
+const STILL_NEEDED: Record<SendObjective, string> = { traffic: "ใส่ลิงก์และงบต่อวัน", leads: "เลือกฟอร์มและใส่งบต่อวัน", messages: "ใส่งบต่อวัน" };
 /** what the send's Meta campaign is called in the header, by objective */
 const CAMPAIGN_KIND: Record<SendObjective, string> = { traffic: "", leads: "ลีด", messages: "ข้อความ" };
 
 /** A lead button in the order the dialog offers them, the default first. */
 const CTAS = Object.keys(CTA_LABEL) as LeadCta[];
 
-export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
+export function SendDialog({ room, pieces, productName, onSent, onClose, onShowSent }: {
   room: Room;
-  /** the approved pieces not yet sent */
+  /** the drafts ticked in ร่าง */
   pieces: RoomPiece[];
   productName: string;
+  /** a send is back (or its connection dropped): the ticks are spent */
+  onSent: () => void;
   onClose: () => void;
   onShowSent: () => void;
 }) {
   const router = useRouter();
   const { campaign, connection } = room;
-  const { accounts, maxDailyBudgetThb } = connection;
-  const [actId, setActId] = useState(accounts.find((a) => a.currency === "THB")?.id ?? "");
+  const { maxDailyBudgetThb } = connection;
+  // only a baht account can send: the choice is asked only when there is more than one
+  const accounts = connection.accounts.filter((a) => a.currency === "THB");
+  const [actId, setActId] = useState(accounts[0]?.id ?? "");
   const [link, setLink] = useState(planLink(campaign.planHref));
   const [budget, setBudget] = useState("");
   const [objective, setObjective] = useState<SendObjective>("traffic");
@@ -124,6 +130,7 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
       setLost(true);
     } finally {
       setBusy(false);
+      onSent();
       router.refresh();
     }
   }
@@ -165,17 +172,16 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
                 </button>
               ))}
             </div>
-            <label className="block min-w-0 space-y-1">
-              <span className="text-xs text-[var(--ct-mute)]">บัญชีโฆษณา (สกุลบาทเท่านั้น)</span>
-              <select value={actId} onChange={(e) => setActId(e.target.value)} className={field}>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id} disabled={a.currency !== "THB"}>
-                    {a.name}{a.currency ? ` · ${a.currency}` : ""}{a.currency !== "THB" ? " (ใช้ไม่ได้)" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {nonBaht && <p className="text-sm text-[var(--ct-warn-ink)]">รองรับเฉพาะบัญชีสกุลบาท (THB) เลือกบัญชีอื่น</p>}
+            {accounts.length > 1 ? (
+              <label className="block min-w-0 space-y-1">
+                <span className="text-xs text-[var(--ct-mute)]">บัญชีโฆษณา (สกุลบาท)</span>
+                <select value={actId} onChange={(e) => setActId(e.target.value)} className={field}>
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}
+                </select>
+              </label>
+            ) : account && (
+              <p className="text-xs text-[var(--ct-mute)]">บัญชีโฆษณา <span className="font-medium text-[var(--ct-ink)]">{account.name}</span> · {account.currency}</p>
+            )}
             {objective === "traffic" ? (
               <label className="block space-y-1">
                 <span className="text-xs text-[var(--ct-mute)]">ลิงก์ปลายทางของปุ่ม “ดูเพิ่มเติม”</span>
@@ -228,7 +234,9 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
             {busy && <p role="status" className="text-xs text-[var(--ct-mute)]">ราว 10 วินาทีต่อชิ้น อย่าปิดหน้านี้จนกว่าจะเสร็จ</p>}
             {!busy && !ready && (
               <p className="text-xs text-[var(--ct-mute)]">
-                เลือกบัญชีสกุลบาท {STILL_NEEDED[objective]}และงบต่อวันเป็นจำนวนเต็มบาทก่อน
+                {going.length === 0
+                  ? "ไม่เหลือแอดที่จะส่ง — กด + ที่รูปเพื่อใส่กลับ"
+                  : `${STILL_NEEDED[objective]}เป็นจำนวนเต็มบาทก่อน`}
               </p>
             )}
           </fieldset>

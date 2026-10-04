@@ -13,7 +13,7 @@ import { field } from "./styles";
  * ภาพและโมเดล for an Ads Studio campaign (owner, 2026-10-05): Organic Studio's fold — the writer,
  * the painter, the posters' tone, who is in the pictures and the picture brief — kept on the
  * campaign rather than this browser, so every ad in it is made alike. ไม่วาดภาพ is not offered:
- * an ad is not sent without its picture. Used by the room's settings and the new-campaign wizard.
+ * an ad is not sent without its picture. Used by ตั้งค่าแคมเปญ and the new-campaign form.
  */
 
 export interface PicturePicks {
@@ -87,7 +87,7 @@ export function PictureFields({ value, onChange, people, back }: {
 
       <PictureBrief
         value={brief} onChange={(b) => onChange({ brief: b })}
-        note="ใช้กับภาพทุกแอดในแคมเปญนี้ ต่อจากสไตล์ภาพของแต่ละแบบ · AI วาดทั้งโปสเตอร์รวมตัวหนังสือ ต้องตรวจตัวสะกดและตัวเลขก่อนส่ง"
+        note="ใช้กับภาพทุกแอดในแคมเปญนี้ · AI วาดทั้งโปสเตอร์รวมตัวหนังสือ ต้องตรวจตัวสะกดและตัวเลขก่อนส่ง"
       />
     </PictureFold>
   );

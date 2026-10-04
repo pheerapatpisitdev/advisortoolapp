@@ -120,8 +120,12 @@ export interface LaunchPiece {
   poster: PosterSpec | null;
   /** who the picture was drawn with; null for none. A redraw sends it back, or the server would take the person off */
   person: PiecePerson | null;
-  /** the angle and tone it was written in, as labels; null on pieces written before the grid */
-  ad: { angle: string; tone: string } | null;
+  /**
+   * the angle and tone it was written in, as labels (a long ad has no tone), who it was written
+   * for, and the age its premium table is priced at (null before the table); null on pieces
+   * written before the grid
+   */
+  ad: { angle: string; tone: string; reader: string; age: number | null } | null;
   /** Facebook's advertising rules it trips; empty on pieces written before the rules were checked */
   flags: { policy: PolicyFinding[] };
   /** the newest live launch of the piece in any account */
@@ -502,7 +506,9 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
       hasPoster: Boolean(p.output.poster),
       poster: p.output.poster ?? null,
       person: p.output.person ?? null,
-      ad: p.output.ad ? { angle: p.output.ad.angle, tone: p.output.ad.tone } : null,
+      ad: p.output.ad
+        ? { angle: p.output.ad.angle, tone: p.output.ad.tone, reader: p.output.ad.reader ?? "", age: p.output.ad.age ?? null }
+        : null,
       flags: { policy: p.flags?.policy ?? [] },
       launch: launches[i][0] ?? null,
       launches: launches[i],

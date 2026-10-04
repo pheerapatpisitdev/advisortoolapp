@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { gatePage } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
 import { AD_LIMITS } from "@/lib/content/ads";
-import { openCampaign, writeParam } from "@/lib/ads/room-view";
+import { openCampaign } from "@/lib/ads/room-view";
 import { CONTENT_PRODUCTS, contentProduct } from "@/lib/content/products";
 import { listPeople } from "@/lib/content/people-store";
 import { peopleFor, visibleTo } from "@/lib/content/people-pages";
 import { pageConnections } from "@/lib/facebook/connection";
-import { adCampaignRoom, adsStudioHome, type AdCampaignRoom } from "./actions";
+import { adCampaignRoom, adsStudioHome, pageContact, type AdCampaignRoom } from "./actions";
 import { AdsStudio, type StudioView } from "./AdsStudio";
 
 export const dynamic = "force-dynamic";
@@ -24,14 +24,14 @@ export const metadata: Metadata = { title: "Ads Studio | Studio" };
  *
  * ?campaign=<id> opens that campaign, on its own Page; without one, the Page's newest
  * (?page=<id>, or the owner's first Page). ?new=1, or a Page with no campaign, makes one in the
- * tools; a ?campaign= beside it is where ยกเลิก goes back to. ?write=<n> arrives with a campaign
- * just made and writes its first round. The Facebook login comes back with ?fb=<outcome>.
+ * tools; a ?campaign= beside it is where ยกเลิก goes back to. The Facebook login comes back with
+ * ?fb=<outcome>, which ตั้งค่าเพจ shows with the Page's contacts.
  */
 export default async function StudioAdsPage({ searchParams }: {
-  searchParams: Promise<{ page?: string; campaign?: string; new?: string; write?: string; fb?: string; warn?: string; detail?: string }>;
+  searchParams: Promise<{ page?: string; campaign?: string; new?: string; fb?: string; warn?: string; detail?: string }>;
 }) {
   await gatePage("/studio/ads", "owner");
-  const { page, campaign, new: making, write, fb, warn, detail } = await searchParams;
+  const { page, campaign, new: making, fb, warn, detail } = await searchParams;
   const fresh = making === "1";
 
   // the campaign asked for first: its Page is the one the page is of
@@ -55,6 +55,9 @@ export default async function StudioAdsPage({ searchParams }: {
     return peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set(mine.map((p) => p.pageId))), mine, pageId ?? "");
   };
 
+  // ตั้งค่าเพจ's contacts, for whichever Page the page is of
+  const contact = home.pageId ? await pageContact(home.pageId) : null;
+
   let view: StudioView;
   if (!room) view = { kind: "new", back: fresh && campaign ? campaign : null, people: await peopleOf(home.pageId) };
   // ok: false without an error is a campaign deleted between the list and the read: the same words serve
@@ -65,8 +68,6 @@ export default async function StudioAdsPage({ searchParams }: {
       room,
       productName: contentProduct(room.campaign.planHref)?.name ?? room.campaign.planHref,
       people: await peopleOf(room.campaign.pageId),
-      // only the campaign the address named was just made; the newest opened in its place was not
-      autoWrite: room === asked ? writeParam(write) : 0,
     };
   }
 
@@ -74,6 +75,7 @@ export default async function StudioAdsPage({ searchParams }: {
     <AdsStudio
       home={home}
       view={view}
+      contact={contact}
       rules={{ limits: AD_LIMITS }}
       products={CONTENT_PRODUCTS.map((p) => ({ href: p.href, name: p.name }))}
       outcome={fb ?? null}

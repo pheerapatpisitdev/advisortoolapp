@@ -1,43 +1,44 @@
 "use client";
 import { useRouter } from "next/navigation";
-import type { WriteCount } from "@/lib/ads/room-view";
 import type { PersonOption } from "../PersonPicker";
 import type { AdsStudioHome } from "./actions";
 import type { Room } from "./AdEditor";
 import { CampaignRoom } from "./CampaignRoom";
 import { Columns } from "./Columns";
-import { ConnectBar } from "./ConnectBar";
-import { NewCampaignWizard } from "./NewCampaignWizard";
+import { NewCampaignForm } from "./NewCampaignForm";
+import { PageSettings, type PageContactRead } from "./PageSettings";
 import type { AdRules } from "./rules";
-import { SentRail } from "./SentRail";
 import { field, TONES } from "./styles";
 
 /**
- * /studio/ads, one page as Organic Studio is (owner, 2026-10-04): `Ads Studio · <Page>` and the
- * ad-account strip, then three columns. The tools start with the Page and the campaign to work
- * on — "+ แคมเปญใหม่…" turns them into the three steps that make one — and the open campaign's
- * room fills the rest (CampaignRoom). Every choice is a new address, so a reload, the back button
- * and a link all land where they were: ?page=, ?campaign=, ?new=1.
+ * /studio/ads, one page as Organic Studio is (owner, 2026-10-05): `Ads Studio · <Page>`, then the
+ * tools and the desk. The tools start with the Page and the campaign to work on — "+ แคมเปญใหม่…"
+ * turns them into the one form that makes one — and end with ตั้งค่าเพจ (the Page's contacts and
+ * the ad-account connection); the open campaign's room fills the rest (CampaignRoom). Every choice
+ * is a new address, so a reload, the back button and a link all land where they were: ?page=,
+ * ?campaign=, ?new=1.
  */
 
 export type StudioView =
-  | { kind: "room"; room: Room; productName: string; people: PersonOption[]; autoWrite: WriteCount | 0 }
+  | { kind: "room"; room: Room; productName: string; people: PersonOption[] }
   /** making a campaign; `back` is the one that was open, for ยกเลิก */
   | { kind: "new"; back: string | null; people: PersonOption[] }
   /** the campaign asked for could not be read */
   | { kind: "error"; id: string; error: string };
 
 const STEPS = [
-  { title: "เลือกแบบประกัน", text: "ใส่สิ่งที่อยากเน้น น้ำเสียงแบรนด์ ภาพและโมเดลถ้ามี" },
-  { title: "AI วิเคราะห์", text: "เสนอ ฮุก กลุ่มคน มุมขาย และสไตล์ภาพ แก้ได้ตามใจ" },
-  { title: "มิติและสร้าง", text: "ติ๊ก แก้ เพิ่ม แล้วสร้างแอดชุดแรก 1 / 2 / 4 ชิ้น" },
+  { title: "สร้างแคมเปญ", text: "เลือกแบบประกัน ใส่สิ่งที่อยากเน้น น้ำเสียงแบรนด์ ภาพและโมเดลถ้ามี" },
+  { title: "สร้างโฆษณา", text: "เลือกมุม คนอ่าน และอายุในตารางเบี้ย แล้วสร้างทีละ 1–4 ชิ้น" },
+  { title: "ติ๊กแล้วส่ง", text: "ติ๊กแอดในแท็บร่าง ส่งขึ้น Facebook แบบหยุดไว้ ตรวจแล้วค่อยเปิดใช้" },
 ];
 
 const NEW = "new";
 
-export function AdsStudio({ home, view, rules, products, outcome, warn, detail }: {
+export function AdsStudio({ home, view, contact, rules, products, outcome, warn, detail }: {
   home: AdsStudioHome;
   view: StudioView;
+  /** the open Page's contacts, for ตั้งค่าเพจ; null with no Page */
+  contact: PageContactRead | null;
   rules: AdRules;
   products: { href: string; name: string }[];
   outcome: string | null;
@@ -78,14 +79,19 @@ export function AdsStudio({ home, view, rules, products, outcome, warn, detail }
     </>
   );
 
+  const pageSettings = (folded: boolean) => page && contact && (
+    <PageSettings
+      key={page.pageId}
+      pageId={page.pageId} contact={contact} connection={home.connection}
+      outcome={outcome} warn={warn} detail={detail} folded={folded}
+    />
+  );
+
   return (
     <div>
       <div>
         <h1 className="text-xl font-semibold">Ads Studio{page && <span className="font-normal text-[var(--ct-mute)]"> · {page.pageName}</span>}</h1>
-        <p className="mt-1 text-sm text-[var(--ct-mute)]">AI เขียนแอดจากข้อมูลจริงของแบบประกันตามมิติของแคมเปญ อนุมัติแล้วส่งขึ้น Facebook แบบหยุดไว้ ตรวจแล้วค่อยเปิดใช้</p>
-      </div>
-      <div className="mt-3">
-        <ConnectBar connection={home.connection} outcome={outcome} warn={warn} detail={detail} />
+        <p className="mt-1 text-sm text-[var(--ct-mute)]">AI เขียนแอดจากข้อมูลจริงของแบบประกัน ตัวเลขเบี้ยระบบใส่เอง ติ๊กแอดที่ใช้แล้วส่งขึ้น Facebook แบบหยุดไว้ ตรวจแล้วค่อยเปิดใช้</p>
       </div>
 
       {!page ? (
@@ -97,21 +103,22 @@ export function AdsStudio({ home, view, rules, products, outcome, warn, detail }
       ) : view.kind === "room" ? (
         <CampaignRoom
           key={view.room.campaign.id}
-          room={view.room} pickers={pickers} productName={view.productName} rules={rules} people={view.people} autoWrite={view.autoWrite}
+          room={view.room} pickers={pickers} pageSettings={pageSettings} productName={view.productName} rules={rules} people={view.people}
         />
       ) : (
         <Columns
-          note={view.kind === "new" ? "ตั้งแคมเปญใหม่ 3 ขั้น แล้วแอดชุดแรกจะขึ้นตรงกลาง" : "เลือกแคมเปญ หรือสร้างแคมเปญใหม่"}
+          note={view.kind === "new" ? "ตั้งแคมเปญใหม่ แล้วสร้างโฆษณาได้ในห้องของแคมเปญ" : "เลือกแคมเปญ หรือสร้างแคมเปญใหม่"}
           startOpen
           tools={(folded) => (
             <>
               <div className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>{pickers}</div>
               {view.kind === "new" && (
-                <NewCampaignWizard
+                <NewCampaignForm
                   pageId={page.pageId} products={products} people={view.people} folded={folded}
                   onCancel={view.back ? () => router.push(`/studio/ads?campaign=${encodeURIComponent(view.back!)}`) : null}
                 />
               )}
+              {pageSettings(folded)}
             </>
           )}
           desk={view.kind === "error" ? (
@@ -132,7 +139,6 @@ export function AdsStudio({ home, view, rules, products, outcome, warn, detail }
               </ol>
             </div>
           )}
-          rail={<SentRail rows={[]} pieces={[]} productName="" onShow={null} />}
         />
       )}
     </div>

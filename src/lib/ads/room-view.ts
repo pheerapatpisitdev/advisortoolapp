@@ -1,17 +1,15 @@
 /**
  * Small decisions a campaign's room makes, kept free of React so a test can pin them
- * (Ads Studio, 2026-10-04): how many ads one press writes, what a round costs about, whether a
- * piece still waits for its picture, and why the send button is shut.
+ * (Ads Studio, 2026-10-04): the age a round's premium table is priced at, whether a piece still
+ * waits for its picture, why the send button is shut, and which ticks survive a refresh.
  */
 
-/** a press writes one, two or four ads, never another number */
-export const WRITE_COUNTS = [1, 2, 4] as const;
-export type WriteCount = (typeof WRITE_COUNTS)[number];
-
-/** ?write=<n> from the wizard: 1, 2 or 4 starts that round on arrival; anything else starts none (0) */
-export function writeParam(v: string | undefined | null): WriteCount | 0 {
-  const n = Number(v);
-  return (WRITE_COUNTS as readonly number[]).includes(n) ? (n as WriteCount) : 0;
+/** The premium table's age as typed in the writing form: a whole year from 0 to 80, or null for anything else. */
+export function tableAge(text: string): number | null {
+  const t = text.trim();
+  if (!/^\d{1,2}$/.test(t)) return null;
+  const n = Number(t);
+  return n <= 80 ? n : null;
 }
 
 /**
@@ -39,7 +37,7 @@ export function sendBlocker(s: {
 }): string | null {
   if (s.ticked === 0) return "ติ๊กเลือกแอดในแท็บร่างก่อน";
   if (!s.pageConnected) return "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว — เชื่อมเพจใหม่ก่อนจึงจะส่งได้";
-  if (s.accounts.length === 0) return "ยังไม่ได้เชื่อมบัญชีโฆษณา — เชื่อมที่หน้ารายการแคมเปญก่อน";
+  if (s.accounts.length === 0) return "ยังไม่ได้เชื่อมบัญชีโฆษณา — เชื่อมที่ “ตั้งค่าเพจ” ในแผงเครื่องมือก่อน";
   if (!s.accounts.some((a) => a.currency === "THB")) return "รองรับเฉพาะบัญชีโฆษณาสกุลบาท (THB) — เชื่อมบัญชีสกุลบาทก่อน";
   if (!s.thIdentity) return "ยังส่งไม่ได้ — ต้องตั้งค่า META_TH_VERIFIED_IDENTITY_ID ก่อน (ขั้นตอนอยู่ใน docs/ads-manage-permission.md)";
   return null;
@@ -81,6 +79,17 @@ export function settledPictures<P extends { id: string } & Parameters<typeof pic
   const next = { ...pictures };
   for (const id of settled) delete next[id];
   return next;
+}
+
+/**
+ * The ticks on the ร่าง cards once the room is read again: an id that is no longer a draft (binned,
+ * or sent from another tab meanwhile) drops out, so the send never counts it. The same set when
+ * nothing drops, so an effect calling it settles.
+ */
+export function pruneTicks(ticked: Set<string>, draftIds: string[]): Set<string> {
+  const drafts = new Set(draftIds);
+  if ([...ticked].every((id) => drafts.has(id))) return ticked;
+  return new Set([...ticked].filter((id) => drafts.has(id)));
 }
 
 /** A picture waiting its turn is skipped when its piece went to the bin meanwhile (one the room has not seen yet is not). */

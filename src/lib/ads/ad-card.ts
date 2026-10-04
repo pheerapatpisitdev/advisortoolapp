@@ -15,6 +15,11 @@ export function cardText(text: string, limit = AD_FOLD): { shown: string; more: 
   return { shown: fold.shown, more: fold.hidden.length > 0 };
 }
 
+/** A piece's angle and tone as one label; a long ad has no tone, and none is left as a stray "·". */
+export function adLabel(ad: { angle: string; tone: string }): string {
+  return [ad.angle, ad.tone].filter((s) => s.trim()).join(" · ");
+}
+
 /**
  * The launch a card shows, the one that decides its tab: one switched on in any account first,
  * else the newest (the room hands launches newest first).
