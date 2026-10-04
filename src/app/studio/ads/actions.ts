@@ -20,11 +20,14 @@ import {
 } from "@/lib/ads/campaign-store";
 import { adTab, tabCounts, type AdTab, type AdTabKey } from "@/lib/ads/campaign-view";
 import * as sendStore from "@/lib/ads/send-store";
-import { getSend, listSends, sentPieceIds, type AdSend, type AdSendItem, type SendStep } from "@/lib/ads/send-store";
+import {
+  getSend, listSends, sentPieceIds, type AdSend, type AdSendItem, type SendObjective, type SendStep,
+} from "@/lib/ads/send-store";
 import {
   activateSend, pauseSend, resumeSend, runSend, SEND_CLAIM_STALE_MS, type SendDeps, type SendResult, type Skipped, type SwitchResult,
 } from "@/lib/ads/send";
 import { graph } from "@/lib/ads/graph";
+import { listLeadForms, type LeadForms } from "@/lib/ads/lead-forms";
 import { analyzeDimensions } from "@/lib/ads/analyze";
 import { cleanDimensions, orderedVariants, type Variant } from "@/lib/ads/dimensions";
 import { contentProduct } from "@/lib/content/products";
@@ -57,6 +60,9 @@ const NO_PLAN = "ไม่พบแบบประกันนี้";
 const PAGE_NOT_CONNECTED = "เพจนี้ยังไม่ได้เชื่อมกับระบบ";
 const PAGE_GONE = "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว";
 const ACCOUNT_NOT_CONNECTED = "บัญชีโฆษณานี้ยังไม่ได้เชื่อมสำหรับสร้างแอด";
+const ADS_NOT_CONNECTED = "ยังไม่ได้เชื่อมบัญชีโฆษณาสำหรับสร้างแอด กดเชื่อมบัญชีก่อน";
+const FORM_NOT_ON_PAGE = "ฟอร์มนี้ไม่อยู่ในเพจหรือถูกปิดแล้ว โหลดรายชื่อฟอร์มใหม่แล้วเลือกอีกครั้ง";
+const TOS_NOT_ACCEPTED = "เพจนี้ยังไม่ได้ยอมรับเงื่อนไขแอดลีดของ Facebook";
 
 /**
  * What one analysis is held at: one call to the small tier with a 3000-token reply (analyze.ts),
@@ -459,6 +465,7 @@ export interface SendView {
   link: string;
   currency: string;
   dailyBudgetBaht: number;
+  objective: SendObjective;
   step: SendStep;
   error: string | null;
   activatedAt: string | null;
@@ -572,6 +579,7 @@ async function sendViews(list: (AdSend & { items: AdSendItem[] })[]): Promise<Se
       link: s.link,
       currency: s.currency,
       dailyBudgetBaht: s.dailyBudgetMinor / 100,
+      objective: s.objective,
       step: s.step,
       error: s.error,
       activatedAt: s.activatedAt,
@@ -942,6 +950,33 @@ export interface SendApprovedInput {
   dailyBudgetBaht: number;
   /** the pieces the owner kept in the send dialog */
   pieceIds: string[];
+  /** traffic when left out */
+  objective?: SendObjective;
+  /** for leads: the Page's form the ads open, checked against Meta's list before anything is made */
+  leadFormId?: string;
+  /** for leads: the button, one of LEAD_CTAS */
+  cta?: string;
+}
+
+/**
+ * The campaign Page's lead forms, for the send dialog: read with the token of the ad account
+ * the owner picked, since that login is the one that can see the Page's forms.
+ */
+export async function leadForms(campaignId: string, actId: string): Promise<LeadForms> {
+  await requireStaff("owner");
+  try {
+    const campaign = await getCampaign(campaignId);
+    if (!campaign) return { ok: false, error: NO_CAMPAIGN };
+    const [accounts, pages] = await Promise.all([adManageAccounts(), myPages()]);
+    if (!accounts.some((a) => a.id === actId)) return { ok: false, error: ACCOUNT_NOT_CONNECTED };
+    if (!pages.some((p) => p.pageId === campaign.pageId)) return { ok: false, error: PAGE_GONE };
+    const token = await adManageToken(actId);
+    if (!token) return { ok: false, error: ADS_NOT_CONNECTED };
+    return await listLeadForms(campaign.pageId, token);
+  } catch (e) {
+    console.error("leadForms failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
 }
 
 /**
@@ -968,6 +1003,16 @@ export async function sendApproved(input: SendApprovedInput): Promise<SendResult
     if (!pages.some((p) => p.pageId === campaign.pageId)) return refusedSend(PAGE_GONE);
     const asked = [...new Set((Array.isArray(input.pieceIds) ? input.pieceIds : []).filter((x): x is string => typeof x === "string"))];
     if (asked.length === 0) return refusedSend(NO_PIECES);
+    const objective: SendObjective = input.objective === "leads" ? "leads" : "traffic";
+    if (objective === "leads") {
+      // the form must still be an active form of this campaign's Page: the dialog may be stale
+      const token = await adManageToken(account.id);
+      if (!token) return refusedSend(ADS_NOT_CONNECTED);
+      const listed = await listLeadForms(campaign.pageId, token);
+      if (!listed.ok) return refusedSend(listed.error);
+      if (!listed.tosAccepted) return refusedSend(TOS_NOT_ACCEPTED);
+      if (!listed.forms.some((f) => f.id === input.leadFormId)) return refusedSend(FORM_NOT_ON_PAGE);
+    }
 
     const [items, sent] = await Promise.all([listCampaignPieces(campaign.id), sentPieceIds(campaign.id)]);
     const byId = new Map(items.map((p) => [p.id, p]));
@@ -1003,6 +1048,8 @@ export async function sendApproved(input: SendApprovedInput): Promise<SendResult
         dailyBudgetBaht: input.dailyBudgetBaht,
         pieces: fresh.map((p) => ({ id: p.id, ...wordsOf(p) })),
         createdBy: viewer.agentId,
+        objective,
+        ...(objective === "leads" ? { leadFormId: input.leadFormId, cta: input.cta } : {}),
       },
       sendDeps(startedAt, byId),
     );
@@ -1015,6 +1062,7 @@ export async function sendApproved(input: SendApprovedInput): Promise<SendResult
       actId: account.id,
       pageId: campaign.pageId,
       dailyBudgetBaht: input.dailyBudgetBaht,
+      objective,
       pieces: fresh.length,
       skipped: all.length,
     });
