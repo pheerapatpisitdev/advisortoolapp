@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { audit, requireStaff } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
-import { getContent, listContent, type ContentItem } from "@/lib/content/store";
+import { getContent, type ContentItem } from "@/lib/content/store";
 import { drawPoster } from "@/lib/content/poster-draw";
 import {
   adManageAccounts, adManageToken, clearPendingAdsManage, readPendingAdsManage, saveAdManageAccount,
@@ -16,6 +16,7 @@ import {
   createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign,
 } from "@/lib/ads/campaign-store";
 import { adTab, tabCounts, type AdTab } from "@/lib/ads/campaign-view";
+import { cardLaunch } from "@/lib/ads/ad-card";
 import { contentProduct } from "@/lib/content/products";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
 import type { PolicyFinding } from "@/lib/content/policy";
@@ -32,8 +33,6 @@ import { saveContentEdits, type EditResult } from "@/app/studio/actions";
  */
 
 const SOMETHING_BROKE = "ทำรายการไม่สำเร็จ ลองอีกครั้ง ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ";
-/** newest ad pieces the page offers; older ones are one search away in Studio */
-const PIECES_SHOWN = 30;
 /** a campaign's name and its "สิ่งที่อยากเน้น" (controller, 2026-10-04): generateContent reads the hint to 120 */
 const NAME_MAX = 60;
 const HINT_MAX = 120;
@@ -78,22 +77,6 @@ export interface Connection {
   maxDailyBudgetThb: number;
 }
 
-/** The page before Ads Studio (until Task 5 replaces it): one list of every ad piece. */
-export interface AdsLaunchSetup extends Connection {
-  pages: { pageId: string; pageName: string }[];
-  pieces: {
-    id: string;
-    headline: string;
-    primaryText: string;
-    description: string;
-    hasPoster: boolean;
-    /** the newest live launch of the piece in any account */
-    launch: LaunchView | null;
-    /** every live launch of the piece, one per ad account */
-    launches: LaunchView[];
-  }[];
-}
-
 /** One ad piece on a campaign's card, with what the card and the edit page need. */
 export interface LaunchPiece {
   id: string;
@@ -125,9 +108,6 @@ const view = (r: LaunchRow, effectiveStatus: string | null): LaunchView => ({
   effectiveStatus,
   dailyBudgetBaht: r.dailyBudgetMinor / 100,
 });
-
-/** An ad piece keeps its Ads Manager fields in the piece's own: headline in hooks[0], text in body, description in closing. */
-const adPiece = (p: ContentItem) => p.format === "ad" && p.status !== "trashed";
 
 /**
  * When each account's login runs out, asked of Meta's token inspector, once per distinct
@@ -213,32 +193,8 @@ async function launchViews(pieces: ContentItem[], accounts: AdAccount[]): Promis
   }));
 }
 
-/** The launch that decides a piece's tab: one switched on in any account, else the newest. */
-const tabLaunch = (launches: { activatedAt: string | null }[]) => launches.find((l) => l.activatedAt) ?? launches[0] ?? null;
-
-export async function adsLaunchSetup(): Promise<AdsLaunchSetup> {
-  await requireStaff("owner");
-  const [{ connection: conn, accounts }, pages, listed] = await Promise.all([
-    connection(),
-    myPages(),
-    listContent({ includeAds: true }, 200),
-  ]);
-  const pieces = listed.filter(adPiece).slice(0, PIECES_SHOWN);
-  const launches = await launchViews(pieces, accounts);
-  return {
-    ...conn,
-    pages: pages.map((p) => ({ pageId: p.pageId, pageName: p.pageName })),
-    pieces: pieces.map((p, i) => ({
-      id: p.id,
-      headline: p.output.hooks[0] ?? "",
-      primaryText: p.output.body ?? "",
-      description: p.output.closing ?? "",
-      hasPoster: Boolean(p.output.poster),
-      launch: launches[i][0] ?? null,
-      launches: launches[i],
-    })),
-  };
-}
+/** The launch that decides a piece's tab: one switched on in any account, else the newest (the card shows the same one). */
+const tabLaunch = cardLaunch;
 
 /** A campaign's name, or its plan's when the owner gave none. */
 const titleOf = (c: AdCampaign) => c.name ?? contentProduct(c.planHref)?.name ?? c.planHref;
@@ -263,6 +219,8 @@ export interface AdsStudioHome {
     planHref: string;
     /** the newest piece with a poster, out of the bin, to draw on the card; null when none has one */
     cover: string | null;
+    /** that piece's poster, for the card to draw through the poster route */
+    coverPoster: PosterSpec | null;
     counts: Record<AdTab, number>;
   }[];
   connection: Connection;
@@ -292,12 +250,14 @@ export async function adsStudioHome(pageId?: string): Promise<AdsStudioHome> {
     try {
       const pieces = await listCampaignPieces(c.id);
       const tabs = await Promise.all(pieces.map(async (p) => adTab(p, tabLaunch(await liveRows(p.id, accounts)))));
-      const cover = pieces.find((p) => p.status !== "trashed" && p.output.poster)?.id ?? null;
-      return { id: c.id, name: titleOf(c), planHref: c.planHref, cover, counts: tabCounts(tabs) };
+      const shown = pieces.find((p) => p.status !== "trashed" && p.output.poster) ?? null;
+      return {
+        id: c.id, name: titleOf(c), planHref: c.planHref, cover: shown?.id ?? null, coverPoster: shown?.output.poster ?? null, counts: tabCounts(tabs),
+      };
     } catch (e) {
       // one campaign that cannot be counted is a card with no numbers, not a list that will not open
       console.error("ad campaign pieces unreadable:", e);
-      return { id: c.id, name: titleOf(c), planHref: c.planHref, cover: null, counts: tabCounts([]) };
+      return { id: c.id, name: titleOf(c), planHref: c.planHref, cover: null, coverPoster: null, counts: tabCounts([]) };
     }
   }));
   return { pages: shown, pageId: page.pageId, campaigns: cards, connection: conn, error: null };

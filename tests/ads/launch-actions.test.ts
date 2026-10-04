@@ -31,7 +31,7 @@ vi.mock("@/lib/auth/viewer", async () => {
 });
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const content = vi.hoisted(() => ({ getContent: vi.fn(), listContent: vi.fn() }));
+const content = vi.hoisted(() => ({ getContent: vi.fn() }));
 vi.mock("@/lib/content/store", () => content);
 const draw = vi.hoisted(() => ({ drawPoster: vi.fn(async () => Buffer.from("png")) }));
 vi.mock("@/lib/content/poster-draw", () => draw);
@@ -72,7 +72,7 @@ const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn() }));
 vi.mock("@/app/studio/actions", () => studio);
 
 const {
-  adsLaunchSetup, launchAd, chooseAdManageAccount, activateAd,
+  launchAd, chooseAdManageAccount, activateAd,
   adsStudioHome, createAdCampaign, adCampaignRoom, updateAdCampaign, saveAdCopy,
 } = await import("@/app/studio/ads/actions");
 
@@ -107,7 +107,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   who.owner = true;
   content.getContent.mockResolvedValue(piece());
-  content.listContent.mockResolvedValue([piece()]);
   pages.myPages.mockResolvedValue([{ pageId: PAGE, pageName: "เพจทดสอบ" }]);
   conn.adManageAccounts.mockResolvedValue([{ id: ACT, name: "บัญชีทดสอบ", currency: "THB", connectedAt: "2026-10-01" }]);
   conn.adManageToken.mockResolvedValue(SECRET);
@@ -130,7 +129,6 @@ beforeEach(() => {
 describe("who may use the actions", () => {
   it("refuses everyone but the owner, on every action, before anything is read or written", async () => {
     who.owner = false;
-    await expect(adsLaunchSetup()).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(launchAd(input())).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(chooseAdManageAccount(ACT)).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(activateAd("L1")).rejects.toThrow("ไม่มีสิทธิ์");
@@ -246,70 +244,36 @@ describe("launching an ad", () => {
   });
 });
 
-describe("the page's setup", () => {
-  it("carries no token string, whatever it asked Meta about", async () => {
-    store.findLaunch.mockResolvedValue(row());
-    const setup = await adsLaunchSetup();
-    expect(JSON.stringify(setup)).not.toContain(SECRET);
-    expect(setup).toMatchObject({
-      configured: true,
-      accounts: [{ id: ACT, name: "บัญชีทดสอบ", currency: "THB", expiresAt: "2026-12-01T00:00:00.000Z" }],
-      pages: [{ pageId: PAGE, pageName: "เพจทดสอบ" }],
-      maxDailyBudgetThb: 500,
-    });
-    expect(setup.pieces).toHaveLength(1);
-    expect(setup.pieces[0]).toMatchObject({
-      id: PIECE, headline: "หัวข้อโฆษณา", primaryText: "ข้อความหลัก", description: "คำอธิบาย", hasPoster: true,
-      launch: { id: "L1", step: "ad", adId: "AD1", effectiveStatus: "PAUSED" },
-    });
-    expect(launch.adEffectiveStatus).toHaveBeenCalledWith("AD1", SECRET);
-  });
-
+describe("the ad-account strip", () => {
   it("says which settings are missing by name, never their values", async () => {
-    store.findLaunch.mockResolvedValue(row());
     fb.adsManageMissingEnv.mockReturnValueOnce(["FB_APP_SECRET"]);
     fb.adsManageOauthIsConfigured.mockReturnValueOnce(false);
-    const setup = await adsLaunchSetup();
-    expect(setup).toMatchObject({ configured: false, missing: ["FB_APP_SECRET"] });
+    const { connection } = await adsStudioHome(PAGE);
+    expect(connection).toMatchObject({ configured: false, missing: ["FB_APP_SECRET"] });
   });
 
-  it("lists only ad pieces that are not in the bin, and says which have a poster", async () => {
-    content.listContent.mockResolvedValue([
-      piece(),
-      piece({ id: "b", format: "post" }),
-      piece({ id: "c", status: "trashed" }),
-      piece({ id: "d", output: { hooks: ["h"], body: "b", closing: "c" } }),
-    ]);
-    const { pieces } = await adsLaunchSetup();
-    expect(pieces.map((p) => [p.id, p.hasPoster])).toEqual([[PIECE, true], ["d", false]]);
-    // Organic lists leave ads out unless asked; this page is where ads are (until Ads Studio replaces it)
-    expect(content.listContent).toHaveBeenCalledWith({ includeAds: true }, 200);
-  });
-
-  it("survives Meta or the launch table not answering", async () => {
+  it("survives Meta not answering about the login's expiry", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     fb.tokenExpiry.mockRejectedValue(new Error("meta down"));
-    store.findLaunch.mockRejectedValue(new Error("no such table"));
-    const setup = await adsLaunchSetup();
-    expect(setup.accounts[0].expiresAt).toBeNull();
-    expect(setup.pieces[0].launch).toBeNull();
+    const { connection } = await adsStudioHome(PAGE);
+    expect(connection.accounts[0]).toMatchObject({ id: ACT, expiresAt: null, tokenValid: null });
     log.mockRestore();
   });
 
   it("does not ask Meta about expiry, or log an error, on a server without the app secret", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     fb.adsManageMissingEnv.mockReturnValue(["FB_APP_SECRET"]);
-    const setup = await adsLaunchSetup();
+    const { connection } = await adsStudioHome(PAGE);
     expect(fb.tokenExpiry).not.toHaveBeenCalled();
     expect(log).not.toHaveBeenCalled();
-    expect(setup.accounts[0]).toMatchObject({ id: ACT, expiresAt: null, tokenValid: null });
+    expect(connection.accounts[0]).toMatchObject({ id: ACT, expiresAt: null, tokenValid: null });
     fb.adsManageMissingEnv.mockReturnValue([]);
     log.mockRestore();
   });
 
   it("reads the accounts a half-finished login is waiting to choose between", async () => {
-    const setup = await adsLaunchSetup();
-    expect(setup.choices).toEqual([{ id: ACT, name: "บัญชีทดสอบ" }]);
+    const { connection } = await adsStudioHome(PAGE);
+    expect(connection.choices).toEqual([{ id: ACT, name: "บัญชีทดสอบ" }]);
     expect(fb.listAdAccounts).toHaveBeenCalledWith(SECRET);
   });
 });
@@ -401,8 +365,14 @@ describe("Ads Studio's list of campaigns", () => {
       pieceId === "launched" ? row({ pieceId }) : pieceId === "live" ? row({ pieceId, activatedAt: "2026-10-04T02:00:00Z" }) : null);
     const home = await adsStudioHome(PAGE);
     expect(home.campaigns).toEqual([
-      { id: CAMPAIGN, name: "แคมเปญทดสอบ", planHref: "/lifeprotect", cover: "launched", counts: { draft: 1, launched: 1, live: 1, trash: 1 } },
-      { id: "c2", name: expect.stringContaining("Life Protect"), planHref: "/lifeprotect", cover: null, counts: { draft: 0, launched: 0, live: 0, trash: 0 } },
+      {
+        id: CAMPAIGN, name: "แคมเปญทดสอบ", planHref: "/lifeprotect", cover: "launched", coverPoster: { theme: "navy", blocks: [] },
+        counts: { draft: 1, launched: 1, live: 1, trash: 1 },
+      },
+      {
+        id: "c2", name: expect.stringContaining("Life Protect"), planHref: "/lifeprotect", cover: null, coverPoster: null,
+        counts: { draft: 0, launched: 0, live: 0, trash: 0 },
+      },
     ]);
     // the list does not ask Meta about every ad; the room does
     expect(launch.adEffectiveStatus).not.toHaveBeenCalled();
@@ -424,7 +394,7 @@ describe("Ads Studio's list of campaigns", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     camps.listCampaignPieces.mockRejectedValue(new Error("db down"));
     const home = await adsStudioHome(PAGE);
-    expect(home.campaigns[0]).toMatchObject({ id: CAMPAIGN, cover: null, counts: { draft: 0, launched: 0, live: 0, trash: 0 } });
+    expect(home.campaigns[0]).toMatchObject({ id: CAMPAIGN, cover: null, coverPoster: null, counts: { draft: 0, launched: 0, live: 0, trash: 0 } });
     log.mockRestore();
   });
 
