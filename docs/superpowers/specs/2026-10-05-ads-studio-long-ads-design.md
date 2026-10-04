@@ -31,7 +31,7 @@ campaign and opens its room. It does not write any ads.
 From top to bottom:
 
 1. The Page and campaign pickers (unchanged).
-2. **ช่องทางติดต่อของเพจ**: a small fold per Page with ชื่อตัวแทน, Line ID, and an Inbox link
+2. **ช่องทางติดต่อของเพจ** (inside ตั้งค่าเพจ, see Layout): a small fold per Page with ชื่อตัวแทน, Line ID, and an Inbox link
    (prefilled with `https://m.me/<pageId>`). It is saved per Page and shared by all campaigns.
    When it is empty, the fold says so in the warning colour.
 3. **The writing form**:
@@ -51,8 +51,49 @@ and 3, and the dimension chips on ad cards.
 
 ### Unchanged
 
-The tabs (ทั้งหมด / ร่าง / อนุมัติแล้ว / ส่งแล้ว / ถังขยะ), ส่งขึ้น Facebook and its three
-objectives, the sent rail, the ad editor, and drawing with the campaign's picks.
+ส่งขึ้น Facebook and its three objectives, the sent tab's เปิดใช้ทั้งชุด / หยุดทั้งชุด / ลองใหม่,
+the ad editor, and drawing with the campaign's picks. For the tabs and the rail, see Layout below.
+
+## Layout: one place per tool (owner, 2026-10-05)
+
+The flow is: set up once per Page → pick a campaign → write → check in ร่าง → send → watch in
+ส่งแล้ว → write more. Every tool has exactly one home.
+
+**Tools column (left), top to bottom**
+
+1. เพจ + แคมเปญ pickers.
+2. The writing form, with the press pinned at the foot of the column.
+3. **ตั้งค่าแคมเปญ** (folded): ชื่อ, สิ่งที่อยากเน้น, น้ำเสียง, ภาพและโมเดล, ลบแคมเปญนี้.
+4. **ตั้งค่าเพจ** (folded): ช่องทางติดต่อ, and the ad-account connection. The ad-account
+   connection moves here from the strip above the columns, and the strip is removed.
+
+**Desk (right)**
+
+- Tabs: **ร่าง · ส่งแล้ว · ถังขยะ**, with ส่งขึ้น Facebook (N) at the end of the row.
+- Ad cards. A card in ร่าง has a tick (เลือกส่ง), ทิ้ง, and a press that opens the editor.
+- The send dialog: objective, ad account (only when there is more than one), budget, and the
+  ticked pieces.
+- The editor opens full screen over the page, as today.
+
+**Removed as duplicates or unused**
+
+| Removed | Why | Instead |
+|---|---|---|
+| The ส่งแล้ว rail on the right | It only led to the ส่งแล้ว tab | The tab |
+| The ทั้งหมด tab | It repeats the other tabs | ร่าง |
+| ✓ อนุมัติ and the อนุมัติแล้ว tab | Approving and then sending is one choice made twice | Tick on the ร่าง cards; ส่งขึ้น Facebook (N) counts the ticks |
+| The ad-account strip above the columns | The account is also chosen in the send dialog | ตั้งค่าเพจ; the dialog asks only when there are 2+ accounts |
+| The old one-by-one launches in ส่งแล้ว | A system no longer used; prod has none | Nothing |
+
+**Ticks**
+
+- Ticks live in the page only and are not saved. They start empty. ส่งขึ้น Facebook is shut
+  until something is ticked.
+- The send takes the ticked drafts. A ticked piece still waiting for its picture is shown in the
+  dialog as left out, as today.
+- Pieces approved earlier (status `used`) show in ร่าง like any draft.
+- The server's send accepts drafts and `used` pieces that have not been sent, and refuses
+  anything binned or already sent, as it does now.
 
 ## The ad itself
 
@@ -157,6 +198,10 @@ The ladders live next to each plan's case in `src/lib/content/numbers-cases/`, a
 - `variantAdMessages` / `writeAdVariants`
 - The unused angle × tone matrix (`matrixMessages`, `parseMatrix`, `matrixCells`, `adCopyMessages`,
   the banks)
+- `SentRail.tsx`, the ทั้งหมด and อนุมัติแล้ว tabs, the card's ✓ อนุมัติ / ยกเลิกอนุมัติ
+- `ConnectBar` as a strip (its contents move into ตั้งค่าเพจ)
+- The legacy one-by-one launch list in the sent tab, and the actions that serve only it
+  (`launchAd`, `activateAd`, `pauseAd`). `ins_ad_launch` stays in the database.
 - Their tests
 
 ## Errors
@@ -179,7 +224,10 @@ The ladders live next to each plan's case in `src/lib/content/numbers-cases/`, a
   absent per Page; an AI premium figure not in the yardstick is flagged.
 - **Actions**: a round with a bad age is refused uncharged; reader and angle are cleaned as in
   Organic; contacts are saved and validated (https only, lengths).
-- **Browser**: a new campaign, the room form, and the contacts fold, at desktop and 375px.
+- **Ticks and send**: the send takes only ticked drafts; a binned or sent piece is refused; the
+  button counts the ticks.
+- **Browser**: a new campaign, the room form, ตั้งค่าเพจ, ticking and the send dialog, at
+  desktop and 375px.
 
 ## Out of scope
 
