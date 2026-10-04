@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drawOffer, inBin, picturePending, planLink, roundCost, sendBlocker, settledPictures, writeParam, type PictureState } from "@/lib/ads/room-view";
+import { drawOffer, inBin, picturePending, planLink, sendBlocker, settledPictures, writeParam, type PictureState } from "@/lib/ads/room-view";
 
 describe("the room's small decisions", () => {
   it("starts a round on arrival only for 1, 2 or 4", () => {
@@ -7,12 +7,6 @@ describe("the room's small decisions", () => {
     expect(writeParam("2")).toBe(2);
     expect(writeParam("4")).toBe(4);
     for (const v of ["3", "0", "8", "", "x", undefined, null]) expect(writeParam(v)).toBe(0);
-  });
-
-  it("says what a round costs about", () => {
-    expect(roundCost(1)).toBe("ราว 0.5–1 บาท");
-    expect(roundCost(2)).toBe("ราว 1–2 บาท");
-    expect(roundCost(4)).toBe("ราว 2–4 บาท");
   });
 
   it("knows a piece written to a style still waits for its picture", () => {

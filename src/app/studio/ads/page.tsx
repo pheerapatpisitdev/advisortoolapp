@@ -45,22 +45,26 @@ export default async function StudioAdsPage({ searchParams }: {
     if (roomId) room = await adCampaignRoom(roomId);
   }
 
-  let view: StudioView;
-  if (!room) view = { kind: "new", back: fresh && campaign ? campaign : null };
-  // ok: false without an error is a campaign deleted between the list and the read: the same words serve
-  else if (!room.ok) view = { kind: "error", id: roomId!, error: room.error ?? "ไม่พบแคมเปญนี้แล้ว" };
-  else {
-    // the people library for ใส่บุคคลในภาพ, as Organic Studio offers it: nobody of a Page the owner does not look after
+  // the people library for ใส่บุคคลในภาพ, as Organic Studio offers it: nobody of a Page the owner does not look after
+  const peopleOf = async (pageId: string | null) => {
     const [people, mine, connected] = await Promise.all([
       listPeople().catch(() => []),
       myPages().catch(() => []),
       pageConnections().catch(() => []),
     ]);
+    return peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set(mine.map((p) => p.pageId))), mine, pageId ?? "");
+  };
+
+  let view: StudioView;
+  if (!room) view = { kind: "new", back: fresh && campaign ? campaign : null, people: await peopleOf(home.pageId) };
+  // ok: false without an error is a campaign deleted between the list and the read: the same words serve
+  else if (!room.ok) view = { kind: "error", id: roomId!, error: room.error ?? "ไม่พบแคมเปญนี้แล้ว" };
+  else {
     view = {
       kind: "room",
       room,
       productName: contentProduct(room.campaign.planHref)?.name ?? room.campaign.planHref,
-      people: peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set(mine.map((p) => p.pageId))), mine, room.campaign.pageId),
+      people: await peopleOf(room.campaign.pageId),
       // only the campaign the address named was just made; the newest opened in its place was not
       autoWrite: room === asked ? writeParam(write) : 0,
     };

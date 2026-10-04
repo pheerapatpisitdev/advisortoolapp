@@ -1,5 +1,7 @@
 import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
+import type { PiecePerson } from "@/lib/content/people";
 import { COLUMNS, toItem, type ContentItem } from "@/lib/content/store";
+import { personPick } from "@/lib/ads/picture-picks";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
@@ -45,6 +47,13 @@ export interface AdCampaign {
   queuePos: number;
   /** the voice of the brand in the owner's words; null when none was given */
   brandVoice: string | null;
+  /** ภาพและโมเดล (picture-picks.ts): the writer and painter ids, null for อัตโนมัติ */
+  writer: string | null;
+  painter: string | null;
+  /** who from the people library is in its pictures; null for nobody */
+  person: PiecePerson | null;
+  /** บรีฟภาพเพิ่มเติม, drawn to after each picture's style; null for none */
+  pictureBrief: string | null;
 }
 
 interface DbRow {
@@ -61,6 +70,10 @@ interface DbRow {
   dimensions?: unknown;
   queue_pos?: number | null;
   brand_voice?: string | null;
+  writer?: string | null;
+  painter?: string | null;
+  person?: unknown;
+  picture_brief?: string | null;
 }
 
 const DIMENSION_KEYS = ["hooks", "personas", "angles", "styles"] as const;
@@ -97,6 +110,10 @@ function fromDb(r: DbRow): AdCampaign {
     dimensions: toDimensions(r.dimensions),
     queuePos: r.queue_pos ?? 0,
     brandVoice: r.brand_voice ?? null,
+    writer: r.writer ?? null,
+    painter: r.painter ?? null,
+    person: personPick(r.person),
+    pictureBrief: r.picture_brief ?? null,
   };
 }
 
@@ -140,6 +157,10 @@ export async function createCampaign(c: {
   agentId: string | null;
   dimensions?: Dimensions | null;
   brandVoice?: string | null;
+  writer?: string | null;
+  painter?: string | null;
+  person?: PiecePerson | null;
+  pictureBrief?: string | null;
 }): Promise<AdCampaign> {
   const { data, error } = await supabaseAdmin()
     .from("ins_ad_campaign")
@@ -154,6 +175,10 @@ export async function createCampaign(c: {
       agent_id: c.agentId,
       dimensions: c.dimensions ?? null,
       brand_voice: c.brandVoice ?? null,
+      writer: c.writer ?? null,
+      painter: c.painter ?? null,
+      person: c.person ?? null,
+      picture_brief: c.pictureBrief ?? null,
     })
     .select("*")
     .single();
@@ -164,7 +189,7 @@ export async function createCampaign(c: {
 /** Changes only what is given; the Page and plan are not editable. */
 export async function updateCampaign(
   id: string,
-  patch: Partial<Pick<AdCampaign, "name" | "angles" | "tones" | "theme" | "hint" | "dimensions" | "brandVoice" | "queuePos">>,
+  patch: Partial<Pick<AdCampaign, "name" | "angles" | "tones" | "theme" | "hint" | "dimensions" | "brandVoice" | "queuePos" | "writer" | "painter" | "person" | "pictureBrief">>,
 ): Promise<void> {
   const columns: Record<string, unknown> = {};
   if (patch.name !== undefined) columns.name = patch.name;
@@ -175,6 +200,10 @@ export async function updateCampaign(
   if (patch.dimensions !== undefined) columns.dimensions = patch.dimensions;
   if (patch.brandVoice !== undefined) columns.brand_voice = patch.brandVoice;
   if (patch.queuePos !== undefined) columns.queue_pos = patch.queuePos;
+  if (patch.writer !== undefined) columns.writer = patch.writer;
+  if (patch.painter !== undefined) columns.painter = patch.painter;
+  if (patch.person !== undefined) columns.person = patch.person;
+  if (patch.pictureBrief !== undefined) columns.picture_brief = patch.pictureBrief;
   if (Object.keys(columns).length === 0) return;
   const { error } = await supabaseAdmin().from("ins_ad_campaign").update(columns).eq("id", id);
   if (error) throw new Error(error.message);

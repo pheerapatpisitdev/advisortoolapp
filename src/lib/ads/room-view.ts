@@ -15,15 +15,6 @@ export function writeParam(v: string | undefined | null): WriteCount | 0 {
 }
 
 /**
- * What a round costs about, in the owner's words. Per ad: writing 0.1–0.5 baht and the picture
- * about 0.43 (the spec's figures), said as half a baht to a baht.
- */
-export function roundCost(n: number): string {
-  const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
-  return `ราว ${fmt(n * 0.5)}–${fmt(n)} บาท`;
-}
-
-/**
  * A piece written to a picture style whose picture is not on its poster yet (still drawing, or
  * the draw failed). The send leaves such a piece out (actions.ts picturePending), so the card
  * offers to draw it.

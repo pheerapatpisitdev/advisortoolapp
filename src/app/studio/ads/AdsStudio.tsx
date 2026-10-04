@@ -23,12 +23,12 @@ import { field, TONES } from "./styles";
 export type StudioView =
   | { kind: "room"; room: Room; productName: string; people: PersonOption[]; autoWrite: WriteCount | 0 }
   /** making a campaign; `back` is the one that was open, for ยกเลิก */
-  | { kind: "new"; back: string | null }
+  | { kind: "new"; back: string | null; people: PersonOption[] }
   /** the campaign asked for could not be read */
   | { kind: "error"; id: string; error: string };
 
 const STEPS = [
-  { title: "เลือกแบบประกัน", text: "ใส่สิ่งที่อยากเน้น น้ำเสียงแบรนด์ และโทนสีถ้ามี" },
+  { title: "เลือกแบบประกัน", text: "ใส่สิ่งที่อยากเน้น น้ำเสียงแบรนด์ ภาพและโมเดลถ้ามี" },
   { title: "AI วิเคราะห์", text: "เสนอ ฮุก กลุ่มคน มุมขาย และสไตล์ภาพ แก้ได้ตามใจ" },
   { title: "มิติและสร้าง", text: "ติ๊ก แก้ เพิ่ม แล้วสร้างแอดชุดแรก 1 / 2 / 4 ชิ้น" },
 ];
@@ -108,7 +108,7 @@ export function AdsStudio({ home, view, rules, products, outcome, warn, detail }
               <div className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>{pickers}</div>
               {view.kind === "new" && (
                 <NewCampaignWizard
-                  pageId={page.pageId} products={products} folded={folded}
+                  pageId={page.pageId} products={products} people={view.people} folded={folded}
                   onCancel={view.back ? () => router.push(`/studio/ads?campaign=${encodeURIComponent(view.back!)}`) : null}
                 />
               )}

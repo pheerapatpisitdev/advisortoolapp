@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import type { ContentItem } from "@/lib/content/store";
 import { AD_TAB_KEYS, type AdTabKey } from "@/lib/ads/campaign-view";
 import { styleRequest } from "@/lib/ads/dimension-edit";
+import { pictureRequest } from "@/lib/ads/picture-picks";
+import { AUTO } from "@/lib/content/models";
 import { inBin, sendBlocker, settledPictures, type WriteCount } from "@/lib/ads/room-view";
 import { sentRows } from "@/lib/ads/sent-view";
 import type { PersonOption } from "../PersonPicker";
@@ -28,7 +30,7 @@ import { solid, TONES } from "./styles";
  * three when an ad is pressed.
  *
  * A round is one press at a time. When it is back, each new ad's picture is drawn, one after
- * another, from its picture style (the standard painter); its card says so meanwhile and offers
+ * another, from its picture style and the campaign's ภาพและโมเดล (painter, person, brief); its card says so meanwhile and offers
  * to draw again if it fails. A drawn picture stays "done" until the refreshed piece shows it, so
  * the card never offers a paid draw in between; a piece binned while waiting is not drawn. Arriving from the wizard (?write=<n>), the first round starts by
  * itself, once.
@@ -81,6 +83,11 @@ export function CampaignRoom({ room, pickers, productName, rules, people, autoWr
   // the dimensions the pictures are drawn from: the newest, whatever was saved meanwhile
   const dims = useRef(campaign.dimensions);
   useEffect(() => { dims.current = campaign.dimensions; }, [campaign.dimensions]);
+  // likewise how they are drawn: the campaign's painter, person and brief as last saved
+  const picks = useRef({ painter: campaign.painter, person: campaign.person, brief: campaign.pictureBrief });
+  useEffect(() => {
+    picks.current = { painter: campaign.painter, person: campaign.person, brief: campaign.pictureBrief };
+  }, [campaign.painter, campaign.person, campaign.pictureBrief]);
   // the pieces as last refreshed, for the drawing line: a piece binned meanwhile is skipped
   const latest = useRef(pieces);
   useEffect(() => { latest.current = pieces; }, [pieces]);
@@ -121,7 +128,8 @@ export function CampaignRoom({ room, pickers, productName, rules, people, autoWr
           continue;
         }
         setPictures((p) => ({ ...p, [job.id]: "drawing" }));
-        const res = await drawPicture(job.id, styleRequest(dims.current, job.style), "standard");
+        const { painter, person, brief } = picks.current;
+        const res = await drawPicture(job.id, pictureRequest(styleRequest(dims.current, job.style), brief), painter ?? AUTO, person);
         jobs.current.shift();
         setPictures((p) => {
           const next = { ...p };
@@ -216,7 +224,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, autoWr
             <div className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>{pickers}</div>
             <CampaignSettings
               key={campaign.dimensions ? "with-dimensions" : "without"}
-              campaign={campaign} productName={productName} queue={queue} sent={counts.sent > 0} folded={folded}
+              campaign={campaign} productName={productName} queue={queue} people={people} sent={counts.sent > 0} folded={folded}
               writing={making > 0} onWrite={write}
               onAnalysed={(fallback) => setRoundNote(fallback
                 ? { tone: "warn", text: "AI ตอบไม่ได้ในรอบนี้ เลยใช้รายการตั้งต้นให้ก่อน — แก้มิติได้ที่แผงเครื่องมือ แล้วกดสร้าง" }

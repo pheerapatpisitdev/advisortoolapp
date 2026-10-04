@@ -30,6 +30,7 @@ import { graph } from "@/lib/ads/graph";
 import { listLeadForms, type LeadForms } from "@/lib/ads/lead-forms";
 import { analyzeDimensions } from "@/lib/ads/analyze";
 import { cleanDimensions, orderedVariants, type Variant } from "@/lib/ads/dimensions";
+import { briefPick, painterPick, personPick, writerPick } from "@/lib/ads/picture-picks";
 import { contentProduct } from "@/lib/content/products";
 import type { PiecePerson } from "@/lib/content/people";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
@@ -393,6 +394,11 @@ export interface CampaignInput {
   theme?: string | null;
   hint?: string | null;
   brandVoice?: string | null;
+  /** ภาพและโมเดล (picture-picks.ts): anything not on the lists is kept as อัตโนมัติ / nobody / none */
+  writer?: string | null;
+  painter?: string | null;
+  person?: PiecePerson | null;
+  pictureBrief?: string | null;
 }
 
 /** A new campaign under one of the owner's Pages, for a plan Studio writes about, with its dimensions. */
@@ -415,6 +421,10 @@ export async function createAdCampaign(input: CampaignInput): Promise<{ ok: true
       agentId: viewer.agentId,
       dimensions,
       brandVoice: trimmed(input.brandVoice, VOICE_MAX),
+      writer: writerPick(input.writer),
+      painter: painterPick(input.painter),
+      person: personPick(input.person),
+      pictureBrief: briefPick(input.pictureBrief),
     });
     await audit("create-ad-campaign", made.id, { pageId: made.pageId, planHref: made.planHref });
     revalidatePath("/studio/ads", "layout");
@@ -651,6 +661,10 @@ export interface CampaignPatch {
   /** they steer only what is still to be written: what was made stays made, and the queue skips it */
   dimensions?: Dimensions;
   brandVoice?: string | null;
+  writer?: string | null;
+  painter?: string | null;
+  person?: PiecePerson | null;
+  pictureBrief?: string | null;
 }
 
 /** The room's settings. The Page and the plan are set when the campaign is made and stay. */
@@ -671,6 +685,10 @@ export async function updateAdCampaign(id: string, patch: CampaignPatch): Promis
       clean.dimensions = dimensions;
     }
     if (patch.brandVoice !== undefined) clean.brandVoice = trimmed(patch.brandVoice, VOICE_MAX);
+    if (patch.writer !== undefined) clean.writer = writerPick(patch.writer);
+    if (patch.painter !== undefined) clean.painter = painterPick(patch.painter);
+    if (patch.person !== undefined) clean.person = personPick(patch.person);
+    if (patch.pictureBrief !== undefined) clean.pictureBrief = briefPick(patch.pictureBrief);
     await updateCampaign(campaign.id, clean);
     revalidatePath("/studio/ads", "layout");
     return { ok: true };

@@ -3,16 +3,20 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Theme } from "@/lib/content/poster";
 import { comboLine, fromEdit, shortOf, toEdit, type EditDims } from "@/lib/ads/dimension-edit";
-import { roundCost, WRITE_COUNTS, type WriteCount } from "@/lib/ads/room-view";
-import { AUTO_THEME, ThemeSwatches, type ThemeChoice } from "../ThemeSwatches";
+import { adRoundCost } from "@/lib/ads/picture-picks";
+import { WRITE_COUNTS, type WriteCount } from "@/lib/ads/room-view";
+import type { PersonOption } from "../PersonPicker";
+import { AUTO_THEME } from "../ThemeSwatches";
 import { errorNote, Note, type NoteState } from "../ui/editor-fields";
 import { analyzeCampaignDraft, createAdCampaign } from "./actions";
 import { DimensionsEditor } from "./DimensionsEditor";
+import { PictureFields, type PicturePicks } from "./PictureFields";
 import { chip, field, plain, solid, TONES } from "./styles";
 
 /**
  * A new campaign in three steps, as Monoko's AD Studio has it (owner, 2026-10-04):
- * 1. the plan, and if the owner likes a name, what to stress, the brand's voice and the colour;
+ * 1. the plan, and if the owner likes a name, what to stress, the brand's voice and ภาพและโมเดล
+ *    (the writer, painter, tone, person and picture brief: PictureFields);
  * 2. the AI reads the plan and proposes the four dimensions (10–20 s, under a baht) — when it
  *    cannot answer, the starting set comes back instead and the page says so;
  * 3. the dimensions to tick off, reword and add to, how many designs they make, and how many
@@ -65,9 +69,11 @@ function Counted({ label, value, onChange, max, rows, placeholder }: {
   );
 }
 
-export function NewCampaignWizard({ pageId, products, folded, onCancel }: {
+export function NewCampaignWizard({ pageId, products, people, folded, onCancel }: {
   pageId: string;
   products: { href: string; name: string }[];
+  /** the people library, for ใส่บุคคลในภาพ */
+  people: PersonOption[];
   /** a phone with the tools folded */
   folded: boolean;
   /** back to the campaign that was open; null when the Page has none to go back to */
@@ -80,7 +86,7 @@ export function NewCampaignWizard({ pageId, products, folded, onCancel }: {
   const [name, setName] = useState("");
   const [focus, setFocus] = useState("");
   const [voice, setVoice] = useState("");
-  const [theme, setTheme] = useState<ThemeChoice>(AUTO_THEME);
+  const [picks, setPicks] = useState<PicturePicks>({ writer: null, painter: null, theme: AUTO_THEME, person: null, brief: "" });
   const [dims, setDims] = useState<EditDims | null>(null);
   const [fallback, setFallback] = useState(false);
   /** what the dimensions were analysed from; another plan, focus or voice asks again */
@@ -140,7 +146,8 @@ export function NewCampaignWizard({ pageId, products, folded, onCancel }: {
     try {
       const res = await createAdCampaign({
         pageId, planHref, name: name.trim() || null, hint: focus, brandVoice: voice,
-        theme: theme === AUTO_THEME ? null : (theme as Theme), dimensions: fromEdit(dims),
+        theme: picks.theme === AUTO_THEME ? null : (picks.theme as Theme), dimensions: fromEdit(dims),
+        writer: picks.writer, painter: picks.painter, person: picks.person, pictureBrief: picks.brief,
       });
       if (!res.ok) { setNote(errorNote(res.error)); setCreating(false); return; }
       // creating stays on until the room opens: a second press would make a second campaign
@@ -177,10 +184,10 @@ export function NewCampaignWizard({ pageId, products, folded, onCancel }: {
             <Counted label="ชื่อแคมเปญ" value={name} onChange={setName} max={NAME_MAX} placeholder="ไม่ใส่ ใช้ชื่อแบบประกันแทน" />
             <Counted label="สิ่งที่อยากเน้น" value={focus} onChange={setFocus} max={TEXT_MAX} rows={2} placeholder="เช่น เน้นคนทำงานอายุ 30 ที่ยังไม่มีประกันสุขภาพ" />
             <Counted label="น้ำเสียงแบรนด์" value={voice} onChange={setVoice} max={TEXT_MAX} rows={2} placeholder="เช่น อบอุ่น เป็นกันเอง ไม่ขายของแรง" />
-            <div>
-              <span className="mb-1.5 block text-sm font-medium">โทนสีโปสเตอร์</span>
-              <ThemeSwatches<ThemeChoice> value={theme} onChange={setTheme} allowAuto />
-            </div>
+            <PictureFields
+              value={picks} onChange={(next) => setPicks((p) => ({ ...p, ...next }))}
+              people={people} back={`/studio/ads?page=${encodeURIComponent(pageId)}&new=1`}
+            />
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={next} disabled={!planHref || busy} className={`${solid} w-full`}>
                 {fresh ? "ถัดไป" : "ถัดไป: ให้ AI วิเคราะห์"}
@@ -240,7 +247,7 @@ export function NewCampaignWizard({ pageId, products, folded, onCancel }: {
                 {WRITE_COUNTS.map((n) => (
                   <button key={n} type="button" aria-pressed={count === n} disabled={creating} onClick={() => setCount(n)} className={chip(count === n)}>{n} ชิ้น</button>
                 ))}
-                <span className="text-xs text-[var(--ct-mute)]">{roundCost(count)} รวมวาดรูป</span>
+                <span className="text-xs text-[var(--ct-mute)]">{adRoundCost(count, picks)} รวมวาดรูป</span>
               </div>
             </div>
             <button type="button" onClick={create} disabled={creating || short.length > 0} className={`${solid} w-full`}>

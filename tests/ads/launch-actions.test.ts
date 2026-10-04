@@ -484,6 +484,7 @@ describe("making a campaign", () => {
     expect(camps.createCampaign).toHaveBeenCalledWith({
       pageId: PAGE, planHref: "/lifeprotect", name: null, angles: 2, tones: 1, theme: "navy", hint: null,
       agentId: "00000000-0000-4000-8000-000000000001", dimensions: DIMS, brandVoice: null,
+      writer: null, painter: null, person: null, pictureBrief: null,
     });
     expect(who.audit).toHaveBeenCalledWith("create-ad-campaign", CAMPAIGN, expect.objectContaining({ pageId: PAGE, planHref: "/lifeprotect" }));
   });
