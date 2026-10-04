@@ -15,7 +15,7 @@ export function QueueBar({ queue, making, seconds }: {
   if (!queue) {
     return (
       <p className="rounded-2xl border border-dashed border-[var(--ct-line)] px-4 py-3 text-sm text-[var(--ct-mute)]">
-        แคมเปญนี้ยังไม่มีมิติ — กด “ให้ AI วิเคราะห์มิติ” ที่แผงตั้งค่าก่อน แล้วจึงสร้างแอดจากคิวได้
+        แคมเปญนี้ยังไม่มีมิติ — กด “ให้ AI วิเคราะห์มิติ” ที่แผงเครื่องมือก่อน แล้วจึงสร้างแอดจากคิวได้
       </p>
     );
   }

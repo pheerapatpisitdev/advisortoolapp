@@ -94,3 +94,13 @@ export function settledPictures<P extends { id: string } & Parameters<typeof pic
 
 /** A picture waiting its turn is skipped when its piece went to the bin meanwhile (one the room has not seen yet is not). */
 export const inBin = (pieces: { id: string; tab: string }[], id: string): boolean => pieces.some((p) => p.id === id && p.tab === "trash");
+
+/**
+ * The campaign the one-page Ads Studio opens: the one asked for when the Page has it, else the
+ * newest (the list comes newest first); none, so the tools make a campaign, when a new one is
+ * asked for or the Page has none yet.
+ */
+export function openCampaign(campaigns: { id: string }[], o: { asked: string | null; fresh: boolean }): string | null {
+  if (o.fresh) return null;
+  return campaigns.find((c) => c.id === o.asked)?.id ?? campaigns[0]?.id ?? null;
+}

@@ -369,7 +369,7 @@ export async function analyzeCampaign(campaignId: string): Promise<AnalyzeResult
   try {
     const campaign = await getCampaign(campaignId);
     if (!campaign) return { ok: false, error: NO_CAMPAIGN };
-    if (campaign.dimensions) return { ok: false, error: "แคมเปญนี้มีมิติแล้ว แก้ได้ในแผงตั้งค่า" };
+    if (campaign.dimensions) return { ok: false, error: "แคมเปญนี้มีมิติแล้ว แก้ได้ในแผงเครื่องมือ" };
     const res = await analyzeHeld(campaign.planHref, campaign.hint, campaign.brandVoice);
     if (!res.ok) return res;
     await updateCampaign(campaign.id, { dimensions: res.dimensions });
