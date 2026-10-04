@@ -58,9 +58,18 @@ export interface BenefitTableProps {
 function Icon({ mark }: { mark: string }) {
   return <span aria-hidden className="mr-1.5 inline-block">{mark}</span>;
 }
-/** Hidden at every width, restored from the tablet breakpoint up. */
-const WIDE_ONLY_CELL = "hidden sm:table-cell";
-const WIDE_ONLY_ROW = "hidden sm:table-row";
+/**
+ * Hidden at every width, restored from the tablet breakpoint up — and always on paper.
+ *
+ * A phone's print dialog lays the sheet out at the phone's own width, so the breakpoint alone
+ * printed the phone's cut — three plans and five rows — and a customer saving the quote from
+ * their phone got a summary where the desktop's file has the whole contract. Paper is the full
+ * table whatever printed it, so each width rule here has a print rule that outranks it.
+ */
+const WIDE_ONLY_CELL = "hidden sm:table-cell print:table-cell!";
+const WIDE_ONLY_ROW = "hidden sm:table-row print:table-row!";
+/** The phone's cut, which no sheet of paper carries. */
+const PHONE_ONLY = "sm:hidden print:hidden!";
 
 const DASH = "-";
 
@@ -162,8 +171,16 @@ function grouped(value: string): string {
 const TITLE_W =
   "w-28 min-w-28 max-w-28 sm:w-56 sm:min-w-56 sm:max-w-56 lg:w-72 lg:min-w-72 lg:max-w-72"
   + " xl:w-auto xl:min-w-[25rem] xl:max-w-none";
-/** The pinned row-title column. Opaque, or the rows scroll visibly through their own titles. */
-const PIN = `sticky left-0 print:static ${TITLE_W} border-r border-[var(--lg-panel-line)] bg-[var(--lg-ground-deep)] px-3 text-left`;
+/**
+ * The pinned row-title column. Opaque, or the rows scroll visibly through their own titles.
+ *
+ * On paper it takes the stylesheet's share of the sheet, held to the tablet's ceiling and
+ * free to shrink: a phone prints at its own width, where a fixed tablet column pushed the six
+ * plans off the edge of the page.
+ */
+const PIN = `sticky left-0 print:static ${TITLE_W} print:min-w-0! print:max-w-56! border-r border-[var(--lg-panel-line)] bg-[var(--lg-ground-deep)] px-3 text-left`;
+/** A section's name, pinned over the row titles on screen and run the sheet's width on paper. */
+const BAND_LABEL = `sticky left-0 print:static inline-block ${TITLE_W} print:min-w-0! print:max-w-none! px-3`;
 /**
  * The plan names, and with them the one statement of why four columns are dashes at a child
  * age, stay on screen: the table is three and a half phone screens tall, and a header that
@@ -278,7 +295,7 @@ export function BenefitTable(
                         80%, under a name at 13px and 600. The unit stays small so the digits
                         carry it, and the colour is left alone — the table sets one on every
                         cell from its own stylesheet, and that rule outranks a utility class. */}
-                    <span className="mt-1 hidden font-bold tabular-nums sm:block sm:text-[0.95rem] sm:leading-tight">
+                    <span className="mt-1 hidden font-bold tabular-nums sm:block sm:text-[0.95rem] sm:leading-tight print:block!">
                       {w.big(p.annualMax).num}
                       <span className="ml-1 text-[0.62rem] font-normal opacity-70">{w.big(p.annualMax).unit}</span>
                     </span>
@@ -298,7 +315,7 @@ export function BenefitTable(
                 across against one another. A phone has no room for a two-line header and
                 only three columns to read across, so it takes a row of its own — the first
                 thing under the price, which is the pair a reader weighs. */}
-            <tr className="border-t border-[var(--lg-panel-line)] sm:hidden">
+            <tr className={`border-t border-[var(--lg-panel-line)] ${PHONE_ONLY}`}>
               <th
                 scope="row"
                 className={`${PIN} z-10 py-2.5 text-[0.7rem] font-medium leading-relaxed text-[var(--lg-white)]`}
@@ -329,7 +346,7 @@ export function BenefitTable(
                     scope="colgroup" colSpan={plans.length + 1}
                     className="bg-[var(--lg-ground-deep)] py-2 text-left text-[0.7rem] font-medium leading-relaxed text-[var(--lg-gold)]"
                   >
-                    <span className={`sticky left-0 print:static inline-block ${TITLE_W} px-3`}>{entry.heading}</span>
+                    <span className={BAND_LABEL}>{entry.heading}</span>
                   </th>
                 </tr>
               ) : (
@@ -343,7 +360,7 @@ export function BenefitTable(
                     scope="row"
                     className={`${PIN} z-10 py-2 text-[0.7rem] font-normal leading-relaxed text-[var(--lg-mute)]`}
                   >
-                    <span className="sm:hidden">
+                    <span className={PHONE_ONLY}>
                       {entry.no !== null && PHONE_ROW_LABEL[entry.no] ? (
                         <>
                           <Icon mark={PHONE_ROW_LABEL[entry.no].icon} />
@@ -351,7 +368,7 @@ export function BenefitTable(
                         </>
                       ) : entry.title}
                     </span>
-                    <span className="hidden sm:inline">{entry.title}</span>
+                    <span className="hidden sm:inline print:inline!">{entry.title}</span>
                     {/* The company caps two of these rows by count rather than by money, in a
                         column of its own on the sheet. Under the title rather than in a
                         column here, because thirty-four of the thirty-six rows would have
@@ -373,7 +390,7 @@ export function BenefitTable(
                       <td
                         key={`phone-${run.plans[0]}`} colSpan={run.plans.length}
                         {...runAttrs(run, selected)}
-                        className={`${COLUMN_RULE} sm:hidden ${runAttrs(run, selected).className}`}
+                        className={`${COLUMN_RULE} ${PHONE_ONLY} ${runAttrs(run, selected).className}`}
                       >
                         {run.cell.text}
                       </td>
@@ -403,7 +420,7 @@ export function BenefitTable(
                   scope="row"
                   className={`${PIN} z-10 py-2.5 text-[0.7rem] font-medium leading-relaxed text-[var(--lg-white)]`}
                 >
-                  <span className="sm:hidden"><Icon mark="💵" /></span>
+                  <span className={PHONE_ONLY}><Icon mark="💵" /></span>
                   {w.dailyCashRow}
                 </th>
                 <td
@@ -434,7 +451,7 @@ export function BenefitTable(
                   scope="colgroup" colSpan={plans.length + 1}
                   className="bg-[var(--lg-ground-deep)] py-2 text-left text-[0.7rem] font-medium leading-relaxed text-[var(--lg-gold)]"
                 >
-                  <span className={`sticky left-0 print:static inline-block ${TITLE_W} px-3`}>{w.premiumHeading}</span>
+                  <span className={BAND_LABEL}>{w.premiumHeading}</span>
                 </th>
               </tr>
             )}
@@ -471,7 +488,7 @@ export function BenefitTable(
         {/* What the full table holds, not what it pays: หมวด 8 is ไม่คุ้มครอง in all six
             plans, so a sentence promising cover in every category the phone hides would be
             promising one the contract refuses. */}
-        <span className="sm:hidden">
+        <span className={PHONE_ONLY}>
           {w.moreOnDesktop(hidden)}
         </span>
         {/* on paper there is nothing to scroll to, and the whole table is already there */}
