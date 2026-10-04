@@ -135,7 +135,11 @@ describe("making the ad", () => {
     expect(adset.get("optimization_goal")).toBe("LINK_CLICKS");
     expect(adset.get("bid_strategy")).toBe("LOWEST_COST_WITHOUT_CAP");
     expect(adset.get("destination_type")).toBe("WEBSITE");
-    expect(JSON.parse(adset.get("targeting")!)).toEqual({ geo_locations: { countries: ["TH"] } });
+    // Meta refuses an audience that may reach anyone under 20 in Thailand (adult age there); with an
+    // age set, v23 asks for the Advantage+ audience choice to be stated
+    expect(JSON.parse(adset.get("targeting")!)).toEqual({
+      geo_locations: { countries: ["TH"] }, age_min: 20, targeting_automation: { advantage_audience: 1 },
+    });
 
     expect(image.get("bytes")).toBe(POSTER.toString("base64"));
 

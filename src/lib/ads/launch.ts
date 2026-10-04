@@ -30,9 +30,11 @@ import { EXPIRED } from "./sync";
  *   figure exact — with one ad set there is nothing to share with anyway.
  *   https://developers.facebook.com/docs/graph-api/changelog/version24.0/
  *   https://developers.facebook.com/docs/marketing-api/reference/ad-account/campaigns/
- * - Ad set: targeting stays countries only. v23.0 enrols new ad sets in Advantage+ audience by
- *   default and only demands targeting_automation.advantage_audience when age or gender are
- *   customised, which this launch does not do; location is never relaxed by it.
+ * - Ad set: Thailand, aged 20 and up, Advantage+ audience on. Meta refused the first live
+ *   launch (2026-10-04) with countries only: an audience that can reach people under 20 in
+ *   Thailand (the age of majority there) or under 18 anywhere is not allowed for this kind of
+ *   ad. With an age set, v23.0 wants targeting_automation.advantage_audience stated; 1 keeps
+ *   the default it enrols new ad sets in, and location is never relaxed by it.
  *   https://developers.facebook.com/docs/graph-api/changelog/version23.0/
  * - Image: POST /adimages answers {images: {<name>: {hash, ...}}}, not a top-level id, so the
  *   hash is read from the first entry of `images`.
@@ -248,7 +250,7 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
         optimization_goal: "LINK_CLICKS",
         bid_strategy: "LOWEST_COST_WITHOUT_CAP",
         destination_type: "WEBSITE",
-        targeting: JSON.stringify({ geo_locations: { countries: ["TH"] } }),
+        targeting: JSON.stringify({ geo_locations: { countries: ["TH"] }, age_min: 20, targeting_automation: { advantage_audience: 1 } }),
         status: "PAUSED",
       });
       if (!r.ok) return stop("adset", r.error);
