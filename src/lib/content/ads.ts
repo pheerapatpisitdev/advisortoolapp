@@ -1,7 +1,6 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
 import { CORE_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
-import type { Variant } from "@/lib/ads/dimensions";
 import type { PiecePlan } from "./plan";
 
 /**
@@ -49,70 +48,6 @@ const AD_SHORT_FIELDS = [
   `- headline: สั้นมาก 3–5 คำ ไม่เกิน ${AD_LIMITS.headline} ตัวอักษรนับรวมสระและวรรณยุกต์ (แสดงใต้ภาพ ข้างปุ่ม) ต้องเป็นประโยคที่จบในตัว`,
   `- description: สั้นมาก 3–5 คำ ไม่เกิน ${AD_LIMITS.description} ตัวอักษรนับรวมสระและวรรณยุกต์ ต้องจบในตัว ถ้ามีตัวเลขต้องมีหน่วยครบ`,
 ];
-
-/** What every ad's writer is told, whatever it is written to: the rules, the lengths, the reply's shape. */
-function adSystem(): string {
-  return [
-    ...AD_HEAD,
-    "",
-    CORE_RULES,
-    "",
-    "ความยาว (นับตัวอักษร):",
-    `- primaryText: ${AD_LIMITS.fold} ตัวอักษรแรกต้องอ่านรู้เรื่องจบในตัว เพราะ Facebook พับส่วนที่เหลือ ทั้งหมดไม่เกิน 400 ตัวอักษร ปิดท้ายด้วยการชวนทักแชท`,
-    ...AD_SHORT_FIELDS,
-    "",
-    "ตอบ JSON อย่างเดียว:",
-    `{"primaryText":"…","headline":"…","description":"…",${POSTER_JSON}}`,
-    POSTER_RULES,
-  ].join("\n");
-}
-
-/**
- * One ad written to one combination of a campaign's four dimensions (Ads Studio, 2026-10-04).
- * The writer is told the same as for any ad; what changes is what it writes to: the hook as the
- * line to open with (its idea, not necessarily its words), the people it talks to, the reason it
- * gives, and the picture's style for the imagePrompt. The campaign's focus and brand voice, when
- * the owner gave them, go with every piece.
- */
-export function variantAdMessages(brief: string, v: Variant, extras: { focus: string; voice: string }): ChatMessage[] {
-  const focus = extras.focus.trim();
-  const voice = extras.voice.trim();
-  const user = [
-    `ข้อมูลผลิตภัณฑ์:\n${brief}`,
-    `ฮุก (ใช้เป็นแนวของประโยคเปิด ในบรรทัดแรกของ primaryText): ${v.hook}`,
-    `กลุ่มคนที่พูดด้วย: ${v.persona}`,
-    `มุมขายที่ต้องใช้: ${v.angle}`,
-    focus ? `สิ่งที่อยากเน้น: ${focus}` : "",
-    voice ? `น้ำเสียงแบรนด์: ${voice}` : "",
-    `สไตล์ภาพ: ${v.style} — imagePrompt ต้องบรรยายภาพในสไตล์นี้`,
-  ].filter(Boolean).join("\n\n");
-  return [{ role: "system", content: adSystem() }, { role: "user", content: user }];
-}
-
-export interface AdCopy {
-  primaryText: string;
-  headline: string;
-  description: string;
-  imagePrompt: string;
-  poster: unknown;
-}
-
-/** The three fields Ads Manager asks for, as written; null when there is no ad. */
-export function parseAdCopy(reply: string): AdCopy | null {
-  const raw = parseJsonReply<Record<string, unknown>>(reply);
-  if (!raw) return null;
-  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-  const primaryText = str(raw.primaryText).slice(0, 1200);
-  const headline = str(raw.headline).slice(0, 120);
-  if (!primaryText || !headline) return null;
-  return {
-    primaryText,
-    headline,
-    description: str(raw.description).slice(0, 120),
-    imagePrompt: str(raw.imagePrompt),
-    poster: raw.poster,
-  };
-}
 
 /** Claims no one can prove; the writer is told never to make them. */
 export const BANNED_SUPERLATIVES = ["อันดับ 1", "ขายดีที่สุด", "คุ้มที่สุด", "ถูกที่สุด", "กล้าเทียบทุกบริษัท"] as const;

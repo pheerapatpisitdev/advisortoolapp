@@ -1,7 +1,6 @@
 import { BudgetExceeded, chat, parseJsonReply } from "@/lib/ai/client";
 import { DISCLAIMER, TAX_LINE, type ContentOutput, type Lang } from "./output";
-import { assembleLongAd, longAdMessages, parseAdCopy, parseLongAd, variantAdMessages, type LongAdContext } from "./ads";
-import type { Variant } from "@/lib/ads/dimensions";
+import { assembleLongAd, longAdMessages, parseLongAd, type LongAdContext } from "./ads";
 import { parsePoster, type PosterSpec } from "./poster";
 import { WRITERS } from "./models";
 import { headlineMessages, parseHeadlines, type NumberSheet } from "./numbers";
@@ -199,46 +198,13 @@ export async function write(ask: Ask, opts: { only?: string; prefer?: string; bu
 }
 
 /**
- * Ads written to combinations of a campaign's dimensions (Ads Studio, 2026-10-04), each in its own
- * call to the large model, all in parallel, as posts are. A piece that fails costs only itself.
+ * Long-form ads, one per plan (Ads Studio, 2026-10-05), each in its own call to the large model,
+ * all in parallel, as posts are; a piece that fails costs only itself. The model writes the
+ * opening, bullets, cta and hashtags; the code puts the headline figures, the premium table and
+ * the contacts around them.
  *
  * `clock`: the round's deadline (deadline.ts), with `saveMs` kept back for saving the pieces
  * after; each call gets what is left then, fallbacks included. Without it the calls are as usual.
- */
-export async function writeAdVariants(opts: { brief: string; variants: Variant[]; focus: string; voice: string; prefer?: string; clock?: Deadline; saveMs?: number }): Promise<Round> {
-  const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
-  const settled = await Promise.allSettled(opts.variants.map(async (v) => {
-    const r = await timed((timeoutMs) => chat({
-      tier: "large", task: "content", messages: variantAdMessages(opts.brief, v, { focus: opts.focus, voice: opts.voice }),
-      maxTokens: 3000, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
-      within: fallbackWriters(opts.prefer),
-    }), WRITE_TIMEOUT_MS, cellMs, "ad");
-    const copy = parseAdCopy(r.text);
-    if (!copy) {
-      console.error(`content ad unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
-      throw new UnreadableReply();
-    }
-    const poster = modelPoster(copy.poster);
-    const output: ContentOutput = {
-      hooks: [copy.headline],
-      angle: `${v.angle} · ${v.persona}`,
-      body: copy.primaryText,
-      closing: copy.description,
-      hashtags: [],
-      imagePrompt: copy.imagePrompt,
-      disclaimer: DISCLAIMER,
-      ...(poster ? { poster } : {}),
-      ad: { angle: v.angle, tone: v.persona, hook: v.hook, persona: v.persona, style: v.style, combo: v.combo },
-    };
-    return { output: ownerWording(output), model: r.model, costThb: r.costThb };
-  }));
-  return gather(settled);
-}
-
-/**
- * Long-form ads, one per plan (Ads Studio, 2026-10-05), each in its own call to the large model,
- * in parallel, as writeAdVariants does. The model writes the opening, bullets, cta and hashtags;
- * the code puts the headline figures, the premium table and the contacts around them.
  */
 export async function writeLongAds(opts: { brief: string; plans: PiecePlan[]; ctx: LongAdContext; prefer?: string; clock?: Deadline; saveMs?: number }): Promise<Round> {
   const { contact, ...shown } = opts.ctx;

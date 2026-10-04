@@ -35,7 +35,8 @@ import {
   getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
-import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeAdVariants, type Round } from "@/lib/content/write";
+import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds } from "@/lib/content/write";
+import { headlineFigures, premiumTable, tableText, type PremiumTable } from "@/lib/content/premium-table";
 import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick } from "@/lib/content/numbers";
 import { numberSheets } from "@/lib/content/numbers-plans";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
@@ -46,8 +47,8 @@ import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 import { can } from "@/lib/auth/access";
 import { myPages, projectPage } from "@/lib/auth/pages";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
-import { getCampaign, listCampaignPieces, updateCampaign, type AdCampaign } from "@/lib/ads/campaign-store";
-import { nextVariants, type Variant } from "@/lib/ads/dimensions";
+import { getCampaign, listCampaignPieces, type AdCampaign } from "@/lib/ads/campaign-store";
+import { contactBlock, getPageContact } from "@/lib/ads/page-contact";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
 import { payRound } from "@/lib/wallet/round";
 import { drawHoldThb } from "@/lib/wallet/money";
@@ -124,7 +125,7 @@ export interface GenerateInput {
   pro?: boolean;
   count: number;
   hookTemplateId: string | null;
-  /** no longer read: an ad is written from its campaign's queue (Ads Studio, 2026-10-04) */
+  /** no longer read: an ad is written into a campaign (Ads Studio); Organic's form still sends them */
   adAngles?: number;
   adTones?: number;
   /** an id from WRITERS; anything else is the default */
@@ -142,11 +143,13 @@ export interface GenerateInput {
   /** written in English for expats in Thailand — held only for an iHealthy Ultra post (settleExpat) */
   expat?: boolean;
   /**
-   * An ad is written into a campaign (Ads Studio): of what is sent, only this and `count` (1, 2
-   * or 4; anything else is 1) are read — the campaign's product, Page, dimensions, focus and
-   * voice stand in for the rest.
+   * An ad is written into a campaign (Ads Studio): of what is sent, only this, `count` (1–4),
+   * `angle` and `custom`, `reader` and `age` are read — the campaign's product, Page, focus,
+   * voice and writer stand in for the rest.
    */
   campaignId?: string;
+  /** an ad's: the age its premium table is priced at, a whole year from 0 to 80; 30 when absent or not a number */
+  age?: number;
 }
 
 /** who an English round talks to when the owner names nobody */
@@ -195,92 +198,31 @@ function roundResult(r: { items: ContentItem[]; failed: boolean }, planned: numb
   return { ok: true, items, costThb, missing: Math.max(0, planned - items.length) };
 }
 
-/** how many ads one press of สร้าง writes; anything else asked is one */
-const AD_COUNTS = [1, 2, 4] as const;
-type AdCount = (typeof AD_COUNTS)[number];
+/** how many long ads one press of สร้าง writes */
+const AD_MAX = 4;
+/** the ages a premium table is priced at, and the one taken when none is given */
+const AGE_MIN = 0;
+const AGE_MAX = 80;
+const AGE_DEFAULT = 30;
 
-/** an ad round's campaign, the combinations it will write, and how many were asked for */
-interface AdQueue {
+/** an age as sent, as a whole year in range: 31.7 is 31, anything not a number is 30 */
+function adAge(v: unknown): number {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) ? Math.min(AGE_MAX, Math.max(AGE_MIN, Math.floor(n))) : AGE_DEFAULT;
+}
+
+/** an ad round's campaign, and the table its figures come from */
+interface AdRound {
   campaign: AdCampaign;
-  variants: Variant[];
-  asked: AdCount;
-}
-
-/** the combinations a campaign's pieces were written to, whatever their state — the bin's included */
-function madeCombos(pieces: ContentItem[]): Set<string> {
-  return new Set(pieces.flatMap((p) => (p.output.ad?.combo ? [p.output.ad.combo] : [])));
-}
-
-type AdRow = Omit<Parameters<typeof saveContent>[0], "pageId">;
-
-/**
- * Saves an ad round's pieces one by one, and moves the campaign's queue on by those saved.
- *
- * Two presses at once both pick the same next combinations, so the campaign's pieces are read
- * again just before each save and a combination that appeared meanwhile is not saved twice —
- * it was paid for, but a duplicate in the queue is worse (it would be launched as a second test
- * of the same thing). A read that fails falls back to what was known, rather than lose a paid
- * piece. A save that fails stops the loop, as saveAll does.
- *
- * Fewer than asked, for whatever reason, is an answer with the pieces and why (review focus 5):
- * "ได้ 1 จาก 4 ชิ้น — …".
- */
-async function saveAdRound(q: AdQueue, round: Round, row: (w: Round["pieces"][number]) => AdRow, pageId: string | null): Promise<GenerateResult> {
-  const { asked } = q;
-  const items: ContentItem[] = [];
-  let duplicates = 0;
-  let failed = false;
-  const known = new Set<string>();
-  for (const w of round.pieces) {
-    const combo = w.output.ad?.combo;
-    if (combo) {
-      try {
-        for (const c of madeCombos(await listCampaignPieces(q.campaign.id))) known.add(c);
-      } catch (e) {
-        console.error("campaign pieces not re-read before saving:", e);
-      }
-      if (known.has(combo)) {
-        duplicates++;
-        continue;
-      }
-    }
-    try {
-      items.push(await saveContent({ ...row(w), pageId }));
-      if (combo) known.add(combo);
-    } catch (e) {
-      console.error("content save failed mid-round:", e);
-      failed = true;
-      break;
-    }
-  }
-  if (items.length) {
-    await updateCampaign(q.campaign.id, { queuePos: q.campaign.queuePos + items.length })
-      .catch((e) => console.error("campaign queue not moved on:", e));
-  }
-  const out = items.map(forClient);
-  const costThb = out.reduce((s, i) => s + i.costThb, 0);
-  if (out.length >= asked) return { ok: true, items: out, costThb, missing: 0 };
-  const why = [
-    q.variants.length < asked ? `คิวเหลือ ${q.variants.length} แบบ` : "",
-    round.budgetHit > 0 ? BUDGET_OUT : "",
-    duplicates > 0 ? `${duplicates} แบบถูกสร้างจากอีกรอบไปพร้อมกันแล้ว` : "",
-    failed ? "บันทึกไม่สำเร็จ" : "",
-  ];
-  const unwritten = q.variants.length - round.pieces.length - round.budgetHit;
-  if (unwritten > 0) why.push(`AI เขียนไม่สำเร็จ ${unwritten} ชิ้น`);
-  return {
-    ok: false,
-    error: `ได้ ${out.length} จาก ${asked} ชิ้น — ${why.filter(Boolean).join(" · ")}`,
-    saved: out.length,
-    items: out,
-  };
+  table: PremiumTable;
+  age: number;
 }
 
 export async function generateContent(given: GenerateInput): Promise<GenerateResult> {
   const viewer = await requireMember();
   let input = given;
   // an ad is the owner's, written into a campaign: what the campaign holds replaces what was sent
-  let adQueue: AdQueue | null = null;
+  let ad: AdRound | null = null;
   if (input.format === "ad") {
     if (!input.campaignId) return { ok: false, error: ADS_MOVED };
     try {
@@ -298,23 +240,17 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
     if (!campaign) return { ok: false, error: "ไม่พบแคมเปญนี้" };
     // a campaign whose Page was disconnected since can be read but not written into
     if (!(await myPages()).some((p) => p.pageId === campaign.pageId)) return { ok: false, error: "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว" };
-    if (!campaign.dimensions) return { ok: false, error: "ให้ AI วิเคราะห์มิติก่อน" };
-    // what is made is read from the pieces, the bin's included — queuePos is only a count to show
-    let made: Set<string>;
-    try {
-      made = madeCombos(await listCampaignPieces(campaign.id));
-    } catch (e) {
-      console.error("campaign pieces not read:", e);
-      return { ok: false, error: "อ่านแคมเปญไม่ได้ ลองใหม่อีกครั้งนะครับ" };
-    }
-    const asked = AD_COUNTS.includes(Number(input.count) as AdCount) ? (Number(input.count) as AdCount) : 1;
-    const variants = nextVariants(campaign.dimensions, made, asked);
-    // a queue walked to its end is said before anything is counted or held (review focus 2)
-    if (variants.length === 0) return { ok: false, error: "สร้างครบทุกแบบแล้ว" };
-    adQueue = { campaign, variants, asked };
-    // only the campaignId and count are read from the browser: everything else is the campaign's, its writer too
+    const age = adAge(input.age);
+    // an age the plan prices on no rung is said before anything is counted or held (review focus 1)
+    const table = premiumTable(campaign.planHref, age);
+    if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
+    ad = { campaign, table, age };
+    // only the count, the angle, the reader and the age are read from the browser: everything
+    // else is the campaign's, its writer too. The angle settles below (settleExpat), against
+    // what an ad's menu offers, so ตัวเลขชัดๆ — a post's — becomes the AI's pick.
     input = {
-      href: campaign.planHref, format: "ad", angle: "", custom: campaign.hint ?? "", length: null, count: asked,
+      href: campaign.planHref, format: "ad", angle: given.angle, custom: given.custom ?? "", length: null,
+      count: Math.min(AD_MAX, Math.max(1, Math.round(Number(given.count) || 1))), reader: given.reader,
       hookTemplateId: null, page: campaign.pageId, theme: campaign.theme ?? undefined, campaignId: campaign.id,
       writer: campaign.writer ?? undefined,
     };
@@ -330,7 +266,7 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
   if (!["post", "script", "ad"].includes(input.format)) return { ok: false, error: "เลือกประเภทงานก่อนนะครับ" };
   // ตัวเลขชัดๆ asked where it cannot be priced is refused below, as it always was, rather than
   // quietly swapped for the AI's pick — settleExpat keeps only what the menu offers
-  const angle: AngleId = settled.angle || (input.angle === "numbers" ? "numbers" : "");
+  const angle: AngleId = settled.angle || (input.angle === "numbers" && !ad ? "numbers" : "");
   const length = input.format === "script" && LENGTHS.some((l) => l.id === input.length) ? input.length : null;
   const loop = input.format === "script" && Boolean(input.loop);
   const formula = formulaOf(input, input.format);
@@ -377,8 +313,7 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
       const writer = writerOf(input.writer, cap - spent);
       const writeWith = writer.model;
       // the round's price set aside first, so rounds started together see each other's money
-      const pieces = adQueue ? adQueue.variants.length : count;
-      const estimate = angle === "numbers" ? OVERHEAD_THB * 2 : pieces * (writer.thb + OVERHEAD_THB);
+      const estimate = angle === "numbers" ? OVERHEAD_THB * 2 : count * (writer.thb + OVERHEAD_THB);
       const held = await holdContentBudget(estimate, cap);
       if (!held.ok) return { ok: false, error: tooDear("รอบนี้", held.left) };
       hold = held.id;
@@ -418,17 +353,41 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
         return roundResult(await saveAll(rows, project.pageId), count, 0);
       }
 
-      if (adQueue) {
-        const { campaign, variants } = adQueue;
-        const round = await writeAdVariants({
-          brief: brief.text, variants, focus: (campaign.hint ?? "").trim().slice(0, MAX_CUSTOM), voice: (campaign.brandVoice ?? "").trim(),
-          prefer: writeWith, clock, saveMs: SAVE_MS,
+      if (ad) {
+        const { campaign, table, age } = ad;
+        const focus = (campaign.hint ?? "").trim().slice(0, MAX_CUSTOM);
+        // the Page's contacts are read before anything is paid for: a round that cannot place
+        // them fails whole rather than writing ads that send nobody anywhere. The campaign's
+        // earlier headlines only steer the planner, so a read of them that fails is left out.
+        const [earlier, pageContact] = await Promise.all([
+          listCampaignPieces(campaign.id).catch((e) => {
+            console.error("campaign pieces not read for the planner:", e);
+            return [] as ContentItem[];
+          }),
+          getPageContact(campaign.pageId),
+        ]);
+        // the campaign's earlier headlines first, so the planner's cut of the list keeps them
+        const heads = earlier.flatMap((p) => (p.output.hooks[0] ? [p.output.hooks[0]] : []));
+        const planned = await plan(
+          { brief: brief.text, count, angle: [focus, told].filter(Boolean).join(" — "), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang: "th" },
+          { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) },
+        );
+        const contact = contactBlock(pageContact);
+        const ctx = { table: tableText(table), headline: headlineFigures(table), contact, reader, focus, voice: (campaign.brandVoice ?? "").trim() };
+        // every figure the ad carries is the code's: kept on the piece, an edit is checked against
+        // them again (review focus 2) — the contacts too, whose Line ID and m.me link have digits
+        const figures = `${ctx.table}\n${ctx.headline}\n${contact}`;
+        const written = await writeLongAds({ brief: brief.text, plans: planned.plans, ctx, prefer: writeWith, clock, saveMs: SAVE_MS });
+        const planShare = planned.costThb / written.pieces.length;
+        const rows = written.pieces.map((w) => {
+          const output: ContentOutput = { ...w.output, ad: { angle: w.output.ad?.angle ?? "", tone: "", reader, age }, figures };
+          return {
+            planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(output),
+            flags: flagsFor(output, "th", `${brief.text}\n${figures}`, words, null),
+            rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare, hookTemplateId: null, campaignId: campaign.id,
+          };
         });
-        return await saveAdRound(adQueue, round, (w) => ({
-          planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(w.output),
-          flags: flagsFor(w.output, lang, brief.text, words, null),
-          rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb, hookTemplateId: null, campaignId: campaign.id,
-        }), project.pageId);
+        return roundResult(await saveAll(rows, project.pageId), count, written.budgetHit);
       }
 
       // the planner leaves the writers one try's time and the saves theirs; the writers take what

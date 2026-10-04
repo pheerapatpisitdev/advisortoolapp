@@ -63,13 +63,13 @@ export interface ContentOutput {
   /** the poster the writer designed; absent on pieces written before posters */
   poster?: PosterSpec;
   /**
-   * For an ad, the cell it fills. An ad's Ads Manager fields live in the piece's own:
-   * headline in hooks[0], primary text in body, description in closing. An ad written from a
-   * campaign's queue (Ads Studio, 2026-10-04) also names its four dimensions and their `combo`,
-   * which is how the queue knows it is made; `tone` is then the persona, so older readers still
-   * show two labels. Ads from before the queue have only angle and tone.
+   * For an ad, what it was written to. An ad's Ads Manager fields live in the piece's own:
+   * headline in hooks[0], primary text in body, description in closing. A long-form ad (Ads
+   * Studio, 2026-10-05) names its planned angle, who it is for and the age its table is priced
+   * at; `tone` is "". Ads written from a campaign's dimension queue (2026-10-04) keep their four
+   * dimensions and `combo`; ads from before the queue have only angle and tone.
    */
-  ad?: { angle: string; tone: string; hook?: string; persona?: string; style?: string; combo?: string };
+  ad?: { angle: string; tone: string; reader?: string; age?: number; hook?: string; persona?: string; style?: string; combo?: string };
   /** who drew the photograph behind the poster, as the card names it ("GPT Image HD") */
   pictureBy?: string;
   /** a person from the library drawn into the picture, and their pose; a redraw keeps them */
@@ -82,7 +82,8 @@ export interface ContentOutput {
   /**
    * For a ตัวเลขชัดๆ piece, the engine's figures it was written from (numbersYardstick of its
    * sheet). They are in no brief either, so without them the first save of an untouched
-   * numbers post flagged every premium in it as not from the rate table.
+   * numbers post flagged every premium in it as not from the rate table. For a long-form ad,
+   * its premium table, headline figures and the Page's contacts, for the same reason.
    */
   figures?: string;
   /**

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetExceeded } from "@/lib/ai/client";
 import { BANNED_SUPERLATIVES, assembleLongAd, longAdMessages, parseLongAd, type LongAd, type LongAdContext } from "@/lib/content/ads";
 import type { PiecePlan } from "@/lib/content/plan";
+import { headlineFigures, premiumTable, tableText } from "@/lib/content/premium-table";
+import { NUMBERS_PLANS } from "@/lib/content/numbers-plans";
 
 const ai = vi.hoisted(() => ({ chat: vi.fn() }));
 vi.mock("@/lib/ai/client", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/client")>()), chat: ai.chat }));
@@ -124,6 +126,24 @@ describe("writeLongAds", () => {
     expect(a.output.disclaimer).toBe(DISCLAIMER);
     expect(a.output.ad).toEqual({ angle: plan.angle, tone: "" });
     expect(a.costThb).toBe(1.5);
+  });
+
+  it("leaves every plan's real table and headline figures as they are, through the owner's wording", async () => {
+    // ownerWording (ตลอดชีพ, no ครับ/ค่ะ) runs over the whole assembled body, table included
+    ai.chat.mockResolvedValue(reply("เปิดเรื่อง"));
+    let tried = 0;
+    for (const href of Object.keys(NUMBERS_PLANS)) {
+      for (const age of [0, 1, 20, 30, 45, 55, 60, 70, 80]) {
+        const t = premiumTable(href, age);
+        if (!t) continue;
+        tried++;
+        const c = { ...ctx, table: tableText(t), headline: headlineFigures(t) };
+        const [a] = (await writeLongAds({ brief: "brief", plans: [plan], ctx: c })).pieces;
+        expect(a.output.body, `${href} at ${age}`).toContain(c.table);
+        expect(a.output.body, `${href} at ${age}`).toContain(c.headline);
+      }
+    }
+    expect(tried).toBeGreaterThan(30);
   });
 
   it("keeps the ones written when the budget stops the rest", async () => {
