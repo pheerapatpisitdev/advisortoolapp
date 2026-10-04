@@ -8,22 +8,6 @@ import type { PiecePlan } from "./plan";
  * premium table, a contacts block, hashtags) whose figures are all placed by code.
  */
 
-export interface AdAngle {
-  key: string;
-  label: string;
-  /** what this angle promises the reader, in one Thai sentence */
-  promise: string;
-}
-
-export const ANGLE_BANK: AdAngle[] = [
-  { key: "family", label: "ครอบครัวไปต่อได้", promise: "เงินก้อนให้คนข้างหลังเดินต่อได้ ถ้าวันหนึ่งเราไม่อยู่" },
-  { key: "small_price", label: "เริ่มต้นไม่แพง", promise: "เบี้ยที่จ่ายไหวเมื่อเทียบเป็นรายวัน โดยใช้ตัวเลขจากข้อมูลเท่านั้น" },
-  { key: "early", label: "วางแผนก่อนสาย", promise: "ทำตอนยังอายุน้อยและสุขภาพดี เงื่อนไขดีกว่ารอ" },
-  { key: "peace", label: "ความอุ่นใจ", promise: "หลับสบายเพราะรู้ว่ามีแผนรองรับ" },
-  { key: "gift", label: "ของขวัญให้คนที่รัก", promise: "ความคุ้มครองเป็นสิ่งที่ส่งต่อให้ลูกหรือคู่ชีวิตได้" },
-  { key: "clarity", label: "เข้าใจง่ายใน 1 นาที", promise: "สรุปแบบประกันให้เห็นภาพในไม่กี่บรรทัด" },
-];
-
 export const MAX_ANGLES = 3;
 export const MAX_TONES = 2;
 

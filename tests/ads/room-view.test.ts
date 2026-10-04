@@ -9,12 +9,11 @@ describe("the room's small decisions", () => {
     for (const v of ["3", "0", "8", "", "x", undefined, null]) expect(writeParam(v)).toBe(0);
   });
 
-  it("knows a piece written to a style still waits for its picture", () => {
-    expect(picturePending({ variant: { style: "s" }, poster: { } })).toBe(true);
-    expect(picturePending({ variant: { style: "s" }, poster: { background: "/x.png" } })).toBe(false);
-    // older pieces, and pieces with no poster at all, are not waiting for a picture
-    expect(picturePending({ variant: null, poster: {} })).toBe(false);
-    expect(picturePending({ variant: { style: "s" }, poster: null })).toBe(false);
+  it("knows a piece whose poster has no picture still waits for it, whatever its ad holds", () => {
+    expect(picturePending({ poster: {} })).toBe(true);
+    expect(picturePending({ poster: { background: "/x.png" } })).toBe(false);
+    // a piece with no poster at all is not waiting for a picture
+    expect(picturePending({ poster: null })).toBe(false);
   });
 
   it("starts a send's link at the plan's page on the site", () => {
@@ -24,12 +23,12 @@ describe("the room's small decisions", () => {
 });
 
 describe("why the send button is shut", () => {
-  const ready = { approved: 3, accounts: [{ currency: "THB" }], thIdentity: true, pageConnected: true };
-  it("opens with approved ads, a baht account, the Page and the verified identity", () => {
+  const ready = { ticked: 3, accounts: [{ currency: "THB" }], thIdentity: true, pageConnected: true };
+  it("opens with ticked ads, a baht account, the Page and the verified identity", () => {
     expect(sendBlocker(ready)).toBeNull();
   });
   it("says each missing thing", () => {
-    expect(sendBlocker({ ...ready, approved: 0 })).toContain("อนุมัติ");
+    expect(sendBlocker({ ...ready, ticked: 0 })).toBe("ติ๊กเลือกแอดในแท็บร่างก่อน");
     expect(sendBlocker({ ...ready, accounts: [] })).toContain("บัญชีโฆษณา");
     expect(sendBlocker({ ...ready, accounts: [{ currency: "USD" }] })).toContain("THB");
     expect(sendBlocker({ ...ready, thIdentity: false })).toContain("META_TH_VERIFIED_IDENTITY_ID");

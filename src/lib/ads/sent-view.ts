@@ -2,8 +2,7 @@ import type { SendResult } from "./send";
 import type { LeadCta, SendObjective } from "./send-store";
 
 /**
- * What the sent tab says and offers for each batch send and each ad launched one by one
- * (Ads Studio, 2026-10-04). Pure, so the rules for which button shows can be pinned by a test.
+ * What the sent tab says and offers for each batch send (Ads Studio, 2026-10-04). Pure, so the rules for which button shows can be pinned by a test.
  */
 
 /** Meta's effective_status in the words the owner reads; anything not listed is shown as Meta says it */
@@ -100,11 +99,6 @@ export function sendBadge(s: BadgeShape): { on: boolean; text: string; since: st
   return { on: false, text: "หยุดไว้", since: null };
 }
 
-/** An ad launched one by one: เปิดใช้ when made and not switched on, หยุด whenever the ad exists. */
-export function legacyButtons(l: { step: string; activatedAt: string | null; canPause: boolean }): { activate: boolean; pause: boolean } {
-  return { activate: l.step === "ad" && !l.activatedAt, pause: l.canPause };
-}
-
 const baht = (n: number) => `฿${n.toLocaleString("en-US")}`;
 
 /** The question before a switch-on: the account, the Page and the daily budget it is about to spend. */
@@ -157,8 +151,8 @@ export interface SentRow {
   /** on: Meta says it is running; bad: refused, in trouble, or never made */
   tone: "on" | "off" | "bad";
   budgetBaht: number;
-  /** when its send went; null for an ad launched one by one, which keeps no time of its own here */
-  sentAt: string | null;
+  /** when its send went */
+  sentAt: string;
 }
 
 type RailAd = { pieceId: string | null; adId: string | null; error: string | null; effectiveStatus: string | null };
@@ -169,13 +163,9 @@ function railStatus(a: RailAd): Pick<SentRow, "status" | "tone"> {
   return { status: statusText(a.effectiveStatus) ?? "ส่งแล้ว", tone };
 }
 
-/** Every ad of the campaign's sends (newest send first, as they come), then those launched one by one. */
+/** Every ad of the campaign's sends, newest send first, as they come. */
 export function sentRows(
   sends: { createdAt: string; dailyBudgetBaht: number; items: (RailAd & { id: string })[] }[],
-  legacy: (RailAd & { id: string; dailyBudgetBaht: number })[],
 ): SentRow[] {
-  return [
-    ...sends.flatMap((s) => s.items.map((i) => ({ key: i.id, pieceId: i.pieceId, ...railStatus(i), budgetBaht: s.dailyBudgetBaht, sentAt: s.createdAt }))),
-    ...legacy.map((l) => ({ key: l.id, pieceId: l.pieceId, ...railStatus(l), budgetBaht: l.dailyBudgetBaht, sentAt: null })),
-  ];
+  return sends.flatMap((s) => s.items.map((i) => ({ key: i.id, pieceId: i.pieceId, ...railStatus(i), budgetBaht: s.dailyBudgetBaht, sentAt: s.createdAt })));
 }

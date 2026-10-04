@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The doors of Ads Studio's new flow: the wizard's analysis, the room's queue and sends, and the
- * batch send's buttons. Owner only, every spend held before the AI is asked, and a send only of
- * pieces that are approved, in the campaign and not yet on Facebook. Nothing here touches the
+ * The doors of Ads Studio's flow: making a campaign, the room and its sends, and the batch send's
+ * buttons. Owner only, and a send only of pieces in the campaign, out of the bin and not yet on
+ * Facebook. Nothing here touches the
  * database or Meta: the stores, the engines and Graph are all fakes.
  */
 
@@ -60,9 +60,9 @@ const fb = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/facebook/oauth", async (orig) => ({ ...(await orig<typeof import("@/lib/facebook/oauth")>()), ...fb }));
 
-const store = vi.hoisted(() => ({ findLaunch: vi.fn(), getLaunch: vi.fn() }));
+const store = vi.hoisted(() => ({ findLaunch: vi.fn() }));
 vi.mock("@/lib/ads/launch-store", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/launch-store")>()), ...store }));
-const launch = vi.hoisted(() => ({ runLaunch: vi.fn(), activateLaunch: vi.fn(), pauseLaunch: vi.fn(), adEffectiveStatus: vi.fn(), thVerifiedIdentity: vi.fn(() => "VID1" as string | null) }));
+const launch = vi.hoisted(() => ({ adEffectiveStatus: vi.fn(), thVerifiedIdentity: vi.fn(() => "VID1" as string | null) }));
 vi.mock("@/lib/ads/launch", () => launch);
 const camps = vi.hoisted(() => ({
   listCampaigns: vi.fn(),
@@ -81,33 +81,18 @@ const g = vi.hoisted(() => ({ graph: vi.fn() }));
 vi.mock("@/lib/ads/graph", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/graph")>()), ...g }));
 const forms = vi.hoisted(() => ({ listLeadForms: vi.fn() }));
 vi.mock("@/lib/ads/lead-forms", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/lead-forms")>()), ...forms }));
-const ai = vi.hoisted(() => ({ analyzeDimensions: vi.fn() }));
-vi.mock("@/lib/ads/analyze", () => ai);
 const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn(), setContentStatus: vi.fn() }));
 vi.mock("@/app/studio/actions", () => studio);
 
 const {
-  analyzeCampaignDraft, analyzeCampaign, createAdCampaign, updateAdCampaign, adCampaignRoom,
-  sendApproved, retrySend, activateSendAction, pauseSendAction, pauseAd, deleteAdCampaign, leadForms,
+  createAdCampaign, updateAdCampaign, adCampaignRoom,
+  sendApproved, retrySend, activateSendAction, pauseSendAction, deleteAdCampaign, leadForms,
 } = await import("@/app/studio/ads/actions");
-
-const dims = (over: Record<string, unknown> = {}) => ({
-  hooks: [{ text: "ฮุก 1", note: "" }, { text: "ฮุก 2", note: "" }],
-  personas: [{ text: "พ่อแม่", note: "" }],
-  angles: [{ text: "มุม 1", note: "" }],
-  styles: [{ text: "ภาพถ่าย", note: "แสงธรรมชาติ" }],
-  ...over,
-});
 
 const campaign = (over: Record<string, unknown> = {}) => ({
   id: CAMPAIGN, createdAt: "2026-10-04T00:00:00.000Z", pageId: PAGE, planHref: "/lifeprotect", name: "แคมเปญทดสอบ",
-  angles: 1, tones: 1, theme: null, hint: "เน้นครอบครัว", agentId: null, dimensions: dims(), queuePos: 0, brandVoice: "อบอุ่น", ...over,
+  angles: 1, tones: 1, theme: null, hint: "เน้นครอบครัว", agentId: null, brandVoice: "อบอุ่น", ...over,
 });
-
-const ad = (combo: string, over: Record<string, unknown> = {}) => {
-  const [hook, persona, angle, style] = combo.split("|");
-  return { angle, tone: persona, hook, persona, style, combo, ...over };
-};
 
 const piece = (id: string, over: Record<string, unknown> = {}) => ({
   id,
@@ -119,7 +104,7 @@ const piece = (id: string, over: Record<string, unknown> = {}) => ({
   output: {
     hooks: [`หัวข้อ ${id}`], body: `ข้อความ ${id}`, closing: `คำอธิบาย ${id}`,
     poster: { layout: "square", theme: "navy", blocks: [], background: `${id}/bg.png` },
-    ad: ad("ฮุก 1|พ่อแม่|มุม 1|ภาพถ่าย"),
+    ad: { angle: "ครอบครัว", tone: "อบอุ่น" },
   },
   ...over,
 });
@@ -150,8 +135,6 @@ beforeEach(() => {
   fb.tokenExpiry.mockResolvedValue({ valid: true, expiresAt: "2026-12-01T00:00:00.000Z", dataAccessExpiresAt: null });
   store.findLaunch.mockResolvedValue(null);
   launch.adEffectiveStatus.mockResolvedValue("PAUSED");
-  launch.pauseLaunch.mockResolvedValue({ ok: true });
-  store.getLaunch.mockResolvedValue({ id: "L1", pieceId: "p2", actId: ACT, pageId: PAGE, adId: "LAD", dailyBudgetMinor: 20000, activatedAt: "2026-10-04T02:00:00Z" });
   camps.getCampaign.mockResolvedValue(campaign());
   camps.createCampaign.mockImplementation(async (c: Record<string, unknown>) => campaign({ ...c, id: CAMPAIGN }));
   camps.updateCampaign.mockResolvedValue(undefined);
@@ -167,136 +150,36 @@ beforeEach(() => {
   engine.activateSend.mockResolvedValue({ ok: true });
   engine.pauseSend.mockResolvedValue({ ok: true });
   g.graph.mockResolvedValue({ ok: false, error: "x" });
-  ai.analyzeDimensions.mockResolvedValue({ dimensions: dims(), costThb: 0.05, fallback: false });
   forms.listLeadForms.mockResolvedValue({ ok: true, tosAccepted: true, forms: [{ id: "777", name: "ขอใบเสนอราคา" }] });
 });
 
-describe("who may use the new actions", () => {
+describe("who may use the actions", () => {
   it("refuses everyone but the owner, before anything is read, held or sent", async () => {
     who.owner = false;
-    await expect(analyzeCampaignDraft({ pageId: PAGE, planHref: "/lifeprotect" })).rejects.toThrow("ไม่มีสิทธิ์");
-    await expect(analyzeCampaign(CAMPAIGN)).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(sendApproved({ campaignId: CAMPAIGN, actId: ACT, link: "https://x.test/", dailyBudgetBaht: 150, pieceIds: ["p1"] })).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(retrySend("S1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(activateSendAction("S1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(pauseSendAction("S1")).rejects.toThrow("ไม่มีสิทธิ์");
-    await expect(pauseAd("L1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(leadForms(CAMPAIGN, ACT)).rejects.toThrow("ไม่มีสิทธิ์");
     for (const spy of [
       forms.listLeadForms,
-      ...Object.values(content), ...Object.values(camps), ...Object.values(sends), ...Object.values(engine), ai.analyzeDimensions,
-      pages.myPages, conn.adManageAccounts, conn.adManageToken, store.findLaunch, store.getLaunch, launch.pauseLaunch, g.graph, who.audit,
+      ...Object.values(content), ...Object.values(camps), ...Object.values(sends), ...Object.values(engine),
+      pages.myPages, conn.adManageAccounts, conn.adManageToken, store.findLaunch, g.graph, who.audit,
     ]) {
       expect(spy).not.toHaveBeenCalled();
     }
   });
 });
 
-describe("the wizard's analysis", () => {
-  const draft = (over: Record<string, unknown> = {}) =>
-    analyzeCampaignDraft({ pageId: PAGE, planHref: "/lifeprotect", ...over } as Parameters<typeof analyzeCampaignDraft>[0]);
-
-  it("holds the AI's price first, asks with the plan's brief, focus and voice, and gives the hold back", async () => {
-    const order: string[] = [];
-    content.holdContentBudget.mockImplementation(async () => { order.push("hold"); return { ok: true, id: "HOLD1" }; });
-    ai.analyzeDimensions.mockImplementation(async () => { order.push("analyze"); return { dimensions: dims(), costThb: 0.05, fallback: false }; });
-    content.releaseContentBudget.mockImplementation(async () => { order.push("release"); });
-
-    expect(await draft({ focus: `  ${"ก".repeat(130)} `, voice: ` ${"ข".repeat(130)} ` })).toEqual({ ok: true, dimensions: dims(), fallback: false });
-    expect(order).toEqual(["hold", "analyze", "release"]);
-    const [thb, cap] = content.holdContentBudget.mock.calls[0] as unknown as [number, number];
-    expect(thb).toBeGreaterThan(0);
-    expect(thb).toBeLessThan(1);
-    expect(cap).toBe(30);
-    expect(content.releaseContentBudget).toHaveBeenCalledWith("HOLD1");
-    const asked = ai.analyzeDimensions.mock.calls[0][0] as { brief: string; productName: string; focus: string; voice: string };
-    expect(asked.brief).toContain("Life Protect");
-    expect(asked.productName).toContain("Life Protect");
-    expect(asked.focus).toBe("ก".repeat(120));
-    expect(asked.voice).toBe("ข".repeat(120));
-  });
-
-  it("says when it fell back to the starting set", async () => {
-    ai.analyzeDimensions.mockResolvedValueOnce({ dimensions: dims(), costThb: 0, fallback: true });
-    expect(await draft()).toMatchObject({ ok: true, fallback: true });
-  });
-
-  it("says plainly that the month's ceiling is full, and asks no AI", async () => {
-    content.contentSpentThisMonth.mockResolvedValue(30);
-    const res = await draft();
-    expect(res).toMatchObject({ ok: false });
-    expect(res.ok ? "" : res.error).toContain("ครบ");
-    expect(content.holdContentBudget).not.toHaveBeenCalled();
-    expect(ai.analyzeDimensions).not.toHaveBeenCalled();
-  });
-
-  it("says how much is left when the hold does not fit, and asks no AI", async () => {
-    content.holdContentBudget.mockResolvedValueOnce({ ok: false, left: 0.01 });
-    const res = await draft();
-    expect(res).toMatchObject({ ok: false });
-    expect(res.ok ? "" : res.error).toContain("0.01");
-    expect(ai.analyzeDimensions).not.toHaveBeenCalled();
-    expect(content.releaseContentBudget).not.toHaveBeenCalled();
-  });
-
-  it("refuses a plan Studio does not know or a Page not connected, before holding anything", async () => {
-    expect(await draft({ planHref: "/nothing-here" })).toMatchObject({ ok: false });
-    expect(await draft({ pageId: "999" })).toMatchObject({ ok: false });
-    expect(content.holdContentBudget).not.toHaveBeenCalled();
-    expect(ai.analyzeDimensions).not.toHaveBeenCalled();
-  });
-
-  it("gives the hold back and answers in Thai when something underneath throws", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    ai.analyzeDimensions.mockRejectedValueOnce(new Error("db down: secret detail"));
-    const res = await draft();
-    expect(res).toMatchObject({ ok: false });
-    expect(JSON.stringify(res)).not.toContain("secret detail");
-    expect(content.releaseContentBudget).toHaveBeenCalledWith("HOLD1");
-    log.mockRestore();
-  });
-});
-
-describe("analysing an older campaign", () => {
-  it("asks with the campaign's own focus and voice and saves the dimensions on it", async () => {
-    camps.getCampaign.mockResolvedValue(campaign({ dimensions: null }));
-    ai.analyzeDimensions.mockResolvedValueOnce({ dimensions: dims({ personas: [{ text: "คนทำงาน", note: "" }] }), costThb: 0.05, fallback: true });
-    const res = await analyzeCampaign(CAMPAIGN);
-    expect(res).toMatchObject({ ok: true, fallback: true });
-    expect(ai.analyzeDimensions.mock.calls[0][0]).toMatchObject({ focus: "เน้นครอบครัว", voice: "อบอุ่น" });
-    expect(camps.updateCampaign).toHaveBeenCalledWith(CAMPAIGN, { dimensions: dims({ personas: [{ text: "คนทำงาน", note: "" }] }) });
-    expect(content.releaseContentBudget).toHaveBeenCalledWith("HOLD1");
-  });
-
-  it("does not spend on a campaign that already has dimensions, or one that is not there", async () => {
-    expect(await analyzeCampaign(CAMPAIGN)).toMatchObject({ ok: false });
-    camps.getCampaign.mockResolvedValueOnce(null);
-    expect(await analyzeCampaign(CAMPAIGN)).toMatchObject({ ok: false, error: "ไม่พบแคมเปญนี้" });
-    expect(content.holdContentBudget).not.toHaveBeenCalled();
-    expect(ai.analyzeDimensions).not.toHaveBeenCalled();
-    expect(camps.updateCampaign).not.toHaveBeenCalled();
-  });
-
-  it("says the ceiling is full without asking the AI or saving", async () => {
-    camps.getCampaign.mockResolvedValue(campaign({ dimensions: null }));
-    content.contentSpentThisMonth.mockResolvedValue(31);
-    const res = await analyzeCampaign(CAMPAIGN);
-    expect(res.ok ? "" : res.error).toContain("ครบ");
-    expect(ai.analyzeDimensions).not.toHaveBeenCalled();
-    expect(camps.updateCampaign).not.toHaveBeenCalled();
-  });
-});
-
 describe("making a campaign from the wizard", () => {
   const made = (over: Record<string, unknown> = {}) =>
-    createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", dimensions: dims(), ...over } as Parameters<typeof createAdCampaign>[0]);
+    createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", ...over } as Parameters<typeof createAdCampaign>[0]);
 
-  it("keeps the cleaned dimensions and the brand voice, trimmed to 120", async () => {
-    const messy = dims({ hooks: [{ text: "  ฮุก 1  ", note: " n " }, { text: "ฮุก 1", note: "ซ้ำ" }] });
-    expect(await made({ dimensions: messy, brandVoice: ` ${"ว".repeat(130)} `, hint: "  " })).toEqual({ ok: true, id: CAMPAIGN });
-    expect(camps.createCampaign).toHaveBeenCalledWith(expect.objectContaining({
-      dimensions: dims({ hooks: [{ text: "ฮุก 1", note: "n" }] }), brandVoice: "ว".repeat(120), hint: null,
-    }));
+  it("makes a campaign without dimensions, keeping the brand voice trimmed to 120", async () => {
+    expect(await made({ brandVoice: ` ${"ว".repeat(130)} `, hint: "  " })).toEqual({ ok: true, id: CAMPAIGN });
+    const arg = camps.createCampaign.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg).toMatchObject({ brandVoice: "ว".repeat(120), hint: null });
+    expect(arg).not.toHaveProperty("dimensions");
   });
 
   it("keeps no brand voice when none is given", async () => {
@@ -304,12 +187,9 @@ describe("making a campaign from the wizard", () => {
     expect(camps.createCampaign).toHaveBeenLastCalledWith(expect.objectContaining({ brandVoice: null }));
   });
 
-  it("refuses dimensions with an empty list, or none, and makes nothing", async () => {
-    expect(await made({ dimensions: dims({ styles: [] }) })).toEqual({ ok: false, error: "มิติไม่ครบ" });
-    // required in the type; a caller from outside TypeScript can still leave it out
-    expect(await createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect" } as unknown as Parameters<typeof createAdCampaign>[0]))
-      .toEqual({ ok: false, error: "มิติไม่ครบ" });
-    expect(await made({ dimensions: dims({ hooks: [{ text: "   ", note: "" }] }) })).toEqual({ ok: false, error: "มิติไม่ครบ" });
+  it("refuses a plan Studio does not know, or a Page that is not connected, and makes nothing", async () => {
+    expect(await made({ planHref: "/nope" })).toMatchObject({ ok: false });
+    expect(await made({ pageId: "999" })).toMatchObject({ ok: false });
     expect(camps.createCampaign).not.toHaveBeenCalled();
   });
 });
@@ -318,9 +198,9 @@ describe("a campaign's ภาพและโมเดล", () => {
   const PERSON = { id: "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f", pose: "arms" };
 
   it("keeps the picks made in the wizard, and only ids from the lists", async () => {
-    await createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", dimensions: dims(), writer: "cheap", painter: "gemini", person: PERSON, pictureBrief: "  สวน  " });
+    await createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", writer: "cheap", painter: "gemini", person: PERSON, pictureBrief: "  สวน  " });
     expect(camps.createCampaign).toHaveBeenLastCalledWith(expect.objectContaining({ writer: "cheap", painter: "gemini", person: PERSON, pictureBrief: "สวน" }));
-    await createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", dimensions: dims(), writer: "claude-opus", painter: "none", person: { id: "x", pose: "arms" }, pictureBrief: "  " });
+    await createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", writer: "claude-opus", painter: "none", person: { id: "x", pose: "arms" }, pictureBrief: "  " });
     expect(camps.createCampaign).toHaveBeenLastCalledWith(expect.objectContaining({ writer: null, painter: null, person: null, pictureBrief: null }));
   });
 
@@ -330,15 +210,10 @@ describe("a campaign's ภาพและโมเดล", () => {
   });
 });
 
-describe("changing a campaign's dimensions and voice", () => {
-  it("saves cleaned dimensions and a trimmed voice", async () => {
-    expect(await updateAdCampaign(CAMPAIGN, { dimensions: dims(), brandVoice: ` ${"ว".repeat(130)} ` })).toEqual({ ok: true });
-    expect(camps.updateCampaign).toHaveBeenCalledWith(CAMPAIGN, { dimensions: dims(), brandVoice: "ว".repeat(120) });
-  });
-
-  it("refuses dimensions that would leave a list empty, and changes nothing", async () => {
-    expect(await updateAdCampaign(CAMPAIGN, { dimensions: dims({ angles: [] }), name: "x" })).toEqual({ ok: false, error: "มิติไม่ครบ" });
-    expect(camps.updateCampaign).not.toHaveBeenCalled();
+describe("changing a campaign's voice", () => {
+  it("saves a trimmed voice", async () => {
+    expect(await updateAdCampaign(CAMPAIGN, { brandVoice: ` ${"ว".repeat(130)} ` })).toEqual({ ok: true });
+    expect(camps.updateCampaign).toHaveBeenCalledWith(CAMPAIGN, { brandVoice: "ว".repeat(120) });
   });
 
   it("clears the voice when it is blanked", async () => {
@@ -347,49 +222,23 @@ describe("changing a campaign's dimensions and voice", () => {
   });
 });
 
-describe("the room's queue, sends and older ads", () => {
-  it("shows the next combination not yet made, and how many are made of all", async () => {
-    // hooks 2 × 1 × 1 × 1 = 2 combinations; p1 and the binned p3 were both written to the first
-    camps.listCampaignPieces.mockResolvedValue([piece("p1"), piece("p3", { status: "trashed" })]);
+describe("the room's sends", () => {
+  it("carries no queue, no legacy list and no dimensions, and no variant on a piece", async () => {
     const room = await adCampaignRoom(CAMPAIGN);
     if (!room.ok) throw new Error("room did not open");
-    expect(room.queue).toEqual({
-      next: [{ hook: "ฮุก 2", persona: "พ่อแม่", angle: "มุม 1", style: "ภาพถ่าย", combo: "ฮุก 2|พ่อแม่|มุม 1|ภาพถ่าย" }],
-      made: 1,
-      total: 2,
-    });
-    expect(room.campaign.dimensions).toEqual(dims());
+    expect(room).not.toHaveProperty("queue");
+    expect(room).not.toHaveProperty("legacy");
+    expect(room.campaign).not.toHaveProperty("dimensions");
+    expect(room.pieces[0]).not.toHaveProperty("variant");
     expect(room.campaign.brandVoice).toBe("อบอุ่น");
   });
 
-  it("has an empty next when every combination is made, and no queue without dimensions", async () => {
-    camps.listCampaignPieces.mockResolvedValue([piece("p1"), piece("p2", { output: { ...piece("p2").output, ad: ad("ฮุก 2|พ่อแม่|มุม 1|ภาพถ่าย") } })]);
-    let room = await adCampaignRoom(CAMPAIGN);
-    if (!room.ok) throw new Error("room did not open");
-    expect(room.queue).toEqual({ next: [], made: 2, total: 2 });
-
-    camps.getCampaign.mockResolvedValue(campaign({ dimensions: null }));
-    room = await adCampaignRoom(CAMPAIGN);
-    if (!room.ok) throw new Error("room did not open");
-    expect(room.queue).toBeNull();
-  });
-
-  it("counts only made combinations the current dimensions still have", async () => {
-    camps.listCampaignPieces.mockResolvedValue([piece("p1", { output: { ...piece("p1").output, ad: ad("เก่า|พ่อแม่|มุม 1|ภาพถ่าย") } })]);
+  it("keeps a piece approved before this change (status used) in the draft tab", async () => {
+    camps.listCampaignPieces.mockResolvedValue([piece("p1", { status: "used" }), piece("p2", { status: "draft" }), piece("p3", { status: "trashed" })]);
     const room = await adCampaignRoom(CAMPAIGN);
     if (!room.ok) throw new Error("room did not open");
-    expect(room.queue).toMatchObject({ made: 0, total: 2 });
-  });
-
-  it("labels each piece with its four dimensions, and older pieces with none", async () => {
-    camps.listCampaignPieces.mockResolvedValue([
-      piece("p1"),
-      piece("old", { output: { hooks: ["h"], body: "b", closing: "c", ad: { angle: "ครอบครัว", tone: "อบอุ่น" } } }),
-    ]);
-    const room = await adCampaignRoom(CAMPAIGN);
-    if (!room.ok) throw new Error("room did not open");
-    expect(room.pieces[0].variant).toEqual({ hook: "ฮุก 1", persona: "พ่อแม่", angle: "มุม 1", style: "ภาพถ่าย" });
-    expect(room.pieces[1].variant).toBeNull();
+    expect(room.pieces.map((p) => p.tab)).toEqual(["draft", "draft", "trash"]);
+    expect(room.counts).toEqual({ all: 2, draft: 2, sent: 0, trash: 1 });
   });
 
   it("lays out each send with its ads, puts its pieces in the sent tab, and carries no token or Meta campaign id", async () => {
@@ -402,7 +251,7 @@ describe("the room's queue, sends and older ads", () => {
     const room = await adCampaignRoom(CAMPAIGN);
     if (!room.ok) throw new Error("room did not open");
     expect(room.pieces.map((p) => p.tab)).toEqual(["sent", "sent"]);
-    expect(room.counts).toMatchObject({ sent: 2, approved: 0 });
+    expect(room.counts).toMatchObject({ sent: 2, draft: 0 });
     expect(room.sends).toHaveLength(1);
     expect(room.sends[0]).toMatchObject({
       id: "S1", actId: ACT, pageId: PAGE, dailyBudgetBaht: 150, step: "ads", activatedAt: null, pausedAt: null,
@@ -451,14 +300,13 @@ describe("the room's queue, sends and older ads", () => {
     expect(room.sends[0].items.map((i) => i.madeAfterActivation)).toEqual([false, true, null]);
   });
 
-  it("lists the ads launched one by one before sends, with the piece each is for", async () => {
+  it("puts a piece with a launch from before sends in the sent tab", async () => {
     store.findLaunch.mockImplementation(async (pieceId: string) => (pieceId === "p2"
-      ? { id: "L1", pieceId: "p2", actId: ACT, pageId: PAGE, step: "ad", adId: "LAD", campaignId: "C1", adsetId: "S1", error: null, activatedAt: null, claimedAt: null, dailyBudgetMinor: 20000, link: "https://x.test/", superseded: false, createdAt: "2026-10-03T00:00:00.000Z" }
+      ? { id: "L1", pieceId: "p2", actId: ACT, pageId: PAGE, step: "ad", adId: "LAD", campaignId: "C1", adsetId: "S1", error: null, activatedAt: null, claimedAt: null, dailyBudgetMinor: 20000, link: "https://x.test/", superseded: false, createdAt: "2026-10-04T02:00:00Z" }
       : null));
     const room = await adCampaignRoom(CAMPAIGN);
     if (!room.ok) throw new Error("room did not open");
-    expect(room.legacy).toEqual([expect.objectContaining({ id: "L1", pieceId: "p2", adId: "LAD", dailyBudgetBaht: 200, effectiveStatus: "PAUSED", canPause: true })]);
-    expect(room.pieces[1].tab).toBe("sent");
+    expect(room.pieces.map((p) => p.tab)).toEqual(["draft", "sent"]);
     expect(room.connection.thIdentity).toBe(true);
   });
 
@@ -471,7 +319,7 @@ describe("the room's queue, sends and older ads", () => {
   });
 });
 
-describe("sending approved ads", () => {
+describe("sending ticked ads", () => {
   const go = (over: Record<string, unknown> = {}) =>
     sendApproved({ campaignId: CAMPAIGN, actId: ACT, link: "https://x.test/", dailyBudgetBaht: 150, pieceIds: ["p1", "p2"], ...over });
 
@@ -494,7 +342,14 @@ describe("sending approved ads", () => {
     expect(JSON.stringify(res)).not.toContain(SECRET);
   });
 
-  it("leaves out pieces not approved, not in this campaign, already in a live send or launched before, with reasons", async () => {
+  it("sends a draft and a piece approved before this change (status used), alike", async () => {
+    camps.listCampaignPieces.mockResolvedValue([piece("d", { status: "draft" }), piece("u", { status: "used" })]);
+    const res = await go({ pieceIds: ["d", "u"] });
+    expect(res).toMatchObject({ ok: true, skipped: [] });
+    expect((engine.runSend.mock.calls[0][0] as { pieces: { id: string }[] }).pieces.map((p) => p.id)).toEqual(["d", "u"]);
+  });
+
+  it("leaves out pieces binned, not in this campaign, already in a live send or launched before, with reasons", async () => {
     camps.listCampaignPieces.mockResolvedValue([
       piece("ok"), piece("draft", { status: "draft" }), piece("binned", { status: "trashed" }), piece("in-send"), piece("launched"),
     ]);
@@ -504,22 +359,30 @@ describe("sending approved ads", () => {
 
     const res = await go({ pieceIds: ["ok", "draft", "binned", "elsewhere", "in-send", "launched", "ok"] });
     const arg = engine.runSend.mock.calls[0][0] as { pieces: { id: string }[] };
-    expect(arg.pieces.map((p) => p.id)).toEqual(["ok"]);
+    expect(arg.pieces.map((p) => p.id)).toEqual(["ok", "draft"]);
     if (!res.ok) throw new Error("send refused");
     const reasons = Object.fromEntries(res.skipped.map((s) => [s.pieceId, s.reason]));
-    expect(Object.keys(reasons).sort()).toEqual(["binned", "draft", "elsewhere", "in-send", "launched", "ok"]);
-    expect(reasons.draft).toContain("อนุมัติ");
-    expect(reasons.binned).toContain("อนุมัติ");
+    expect(Object.keys(reasons).sort()).toEqual(["binned", "elsewhere", "in-send", "launched", "ok"]);
+    expect(reasons.binned).toContain("ถังขยะ");
     expect(reasons.elsewhere).toContain("แคมเปญ");
     expect(reasons["in-send"]).toContain("ส่ง");
     expect(reasons.launched).toContain("ส่ง");
     expect(reasons.ok).toBe("ชิ้นนี้ยังไม่มีโปสเตอร์");
   });
 
+  it("leaves out a ticked piece that was binned or sent in another tab meanwhile, and sends nothing when only those were ticked", async () => {
+    camps.listCampaignPieces.mockResolvedValue([piece("binned", { status: "trashed" }), piece("gone-live")]);
+    sends.sentPieceIds.mockResolvedValue(new Set(["gone-live"]));
+    const res = await go({ pieceIds: ["binned", "gone-live"] });
+    expect(res).toMatchObject({ ok: false, step: "check" });
+    expect(!res.ok && res.skipped?.map((s) => s.pieceId)).toEqual(["binned", "gone-live"]);
+    expect(engine.runSend).not.toHaveBeenCalled();
+  });
+
   it("does not call runSend when no piece is left, and says why", async () => {
-    camps.listCampaignPieces.mockResolvedValue([piece("draft", { status: "draft" })]);
-    const res = await go({ pieceIds: ["draft"] });
-    expect(res).toMatchObject({ ok: false, step: "check", skipped: [{ pieceId: "draft" }] });
+    camps.listCampaignPieces.mockResolvedValue([piece("binned", { status: "trashed" })]);
+    const res = await go({ pieceIds: ["binned"] });
+    expect(res).toMatchObject({ ok: false, step: "check", skipped: [{ pieceId: "binned" }] });
     expect(engine.runSend).not.toHaveBeenCalled();
     expect(await go({ pieceIds: [] })).toMatchObject({ ok: false, step: "check" });
     expect(engine.runSend).not.toHaveBeenCalled();
@@ -552,14 +415,17 @@ describe("sending approved ads", () => {
     ]);
     const res = await go({ pieceIds: ["p1", "bare", "old"] });
     if (!res.ok) throw new Error("send refused");
-    expect(res.skipped).toEqual([{ pieceId: "bare", reason: expect.stringContaining("วาด") }]);
-    expect((engine.runSend.mock.calls[0][0] as { pieces: { id: string }[] }).pieces.map((p) => p.id)).toEqual(["p1", "old"]);
+    // the poster alone decides: a piece whose ad holds no style (a long ad) waits for its picture too
+    expect(res.skipped).toEqual([
+      { pieceId: "bare", reason: expect.stringContaining("วาด") },
+      { pieceId: "old", reason: expect.stringContaining("วาด") },
+    ]);
+    expect((engine.runSend.mock.calls[0][0] as { pieces: { id: string }[] }).pieces.map((p) => p.id)).toEqual(["p1"]);
     const deps = engine.runSend.mock.calls[0][1] as { poster: (id: string) => Promise<Buffer | null>; token: (a: string) => Promise<string | null> };
     expect(await deps.poster("p1")).toEqual(Buffer.from("png"));
     expect(draw.drawPoster).toHaveBeenLastCalledWith(expect.objectContaining({ background: "p1/bg.png" }), "square");
     expect(await deps.poster("bare")).toBeNull();
-    // a piece written before the dimensions had no picture to wait for
-    expect(await deps.poster("old")).toEqual(Buffer.from("png"));
+    expect(await deps.poster("old")).toBeNull();
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     draw.drawPoster.mockRejectedValueOnce(new Error("canvas"));
     expect(await deps.poster("p1")).toBeNull();
@@ -590,7 +456,7 @@ describe("sending approved ads", () => {
   });
 });
 
-describe("sending approved ads as messages", () => {
+describe("sending ticked ads as messages", () => {
   it("hands runSend a messages send without a form or button, asking Meta for no forms", async () => {
     const res = await sendApproved({
       campaignId: CAMPAIGN, actId: ACT, link: "", dailyBudgetBaht: 150, pieceIds: ["p1"],
@@ -610,7 +476,7 @@ describe("sending approved ads as messages", () => {
   });
 });
 
-describe("sending approved ads as a lead form", () => {
+describe("sending ticked ads as a lead form", () => {
   const go = (over: Record<string, unknown> = {}) => sendApproved({
     campaignId: CAMPAIGN, actId: ACT, link: "", dailyBudgetBaht: 150, pieceIds: ["p1"],
     objective: "leads", leadFormId: "777", cta: "GET_QUOTE", ...over,
@@ -711,39 +577,6 @@ describe("retrying, switching on and pausing a send", () => {
     expect(who.audit).toHaveBeenCalledWith("ads-send-activate", "S1", expect.objectContaining({ ok: false }));
     expect(who.audit).toHaveBeenCalledWith("ads-send-pause", "S1", expect.objectContaining({ ok: false }));
     log.mockRestore();
-  });
-});
-
-describe("pausing an ad launched one by one", () => {
-  it("pauses through pauseLaunch with the launch store and token reader, and records it", async () => {
-    expect(await pauseAd("L1")).toEqual({ ok: true });
-    expect(launch.pauseLaunch).toHaveBeenCalledWith("L1", expect.objectContaining({ store: expect.anything(), token: expect.any(Function) }));
-    expect(who.audit).toHaveBeenCalledWith("ads-launch-pause", "L1", expect.objectContaining({ ok: true, adId: "LAD", actId: ACT, pageId: PAGE }));
-  });
-
-  it("hands back why it did not pause, and records the failure", async () => {
-    launch.pauseLaunch.mockResolvedValueOnce({ ok: false, error: "Facebook ไม่ยืนยันการหยุด" });
-    expect(await pauseAd("L1")).toEqual({ ok: false, error: "Facebook ไม่ยืนยันการหยุด" });
-    expect(who.audit).toHaveBeenCalledWith("ads-launch-pause", "L1", expect.objectContaining({ ok: false, error: "Facebook ไม่ยืนยันการหยุด" }));
-  });
-
-  it("turns a throw into a Thai answer, and still records the press", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    launch.pauseLaunch.mockRejectedValueOnce(new Error("boom secret"));
-    const res = await pauseAd("L1");
-    expect(res).toMatchObject({ ok: false });
-    expect(JSON.stringify(res)).not.toContain("boom secret");
-    expect(who.audit).toHaveBeenCalledWith("ads-launch-pause", "L1", expect.objectContaining({ ok: false }));
-    log.mockRestore();
-  });
-
-  it("offers Pause in the room only for a launch whose ad exists", async () => {
-    store.findLaunch.mockImplementation(async (pieceId: string) => (pieceId === "p1"
-      ? { id: "L2", pieceId: "p1", actId: ACT, pageId: PAGE, step: "adset", adId: null, campaignId: "C1", adsetId: "S1", error: "x", activatedAt: null, claimedAt: null, dailyBudgetMinor: 20000, link: "https://x.test/", superseded: false, createdAt: "2026-10-03T00:00:00.000Z" }
-      : null));
-    const room = await adCampaignRoom(CAMPAIGN);
-    if (!room.ok) throw new Error("room did not open");
-    expect(room.legacy).toEqual([expect.objectContaining({ id: "L2", canPause: false })]);
   });
 });
 

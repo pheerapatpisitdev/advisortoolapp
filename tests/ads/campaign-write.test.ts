@@ -57,7 +57,7 @@ const { generateContent, saveContentEdits } = await import("@/app/studio/actions
 const campaign = {
   id: "c1", createdAt: "2026-10-04T00:00:00Z", pageId: "P1", planHref: "/lifeprotect", name: null,
   angles: 3, tones: 1, theme: null, hint: "เน้นครอบครัว", agentId: null,
-  dimensions: null, queuePos: 0, brandVoice: "อบอุ่น เป็นกันเอง", writer: null, painter: null, person: null,
+  brandVoice: "อบอุ่น เป็นกันเอง", writer: null, painter: null, person: null,
 };
 const contact = { agentName: "คุณเอ", lineId: "abc123", inboxUrl: "https://m.me/104857600123456" };
 

@@ -47,7 +47,7 @@ const UUID = "0b9f2c1e-5d3a-4c7b-9e11-2a4f6d8c0b13";
 const dbRow = {
   id: UUID, created_at: "2026-10-04T00:00:00Z", page_id: "p1", plan_href: "/plans/ishield",
   name: "iShield", angles: 2, tones: 2, theme: "t", hint: "h", agent_id: "A1",
-  dimensions: null, queue_pos: 0, brand_voice: null,
+  brand_voice: null,
 };
 
 beforeEach(() => {
@@ -65,7 +65,7 @@ describe("reading campaigns", () => {
     expect(list).toEqual([{
       id: UUID, createdAt: "2026-10-04T00:00:00Z", pageId: "p1", planHref: "/plans/ishield",
       name: "iShield", angles: 2, tones: 2, theme: "t", hint: "h", agentId: "A1",
-      dimensions: null, queuePos: 0, brandVoice: null,
+      brandVoice: null,
       writer: null, painter: null, person: null, pictureBrief: null,
     }]);
   });
@@ -102,50 +102,28 @@ describe("making and changing campaigns", () => {
   });
 });
 
-describe("a campaign's dimensions, queue and brand voice", () => {
-  const dims = {
-    hooks: [{ text: "ฮุก", note: "ทำไม" }],
-    personas: [{ text: "คนทำงาน", note: "" }],
-    angles: [{ text: "มุม", note: "" }],
-    styles: [{ text: "สไตล์", note: "" }],
-  };
-
-  it("writes dimensions and brand_voice when they are given", async () => {
-    await createCampaign({ pageId: "p1", planHref: "/plans/ishield", angles: 2, tones: 2, agentId: "A1", dimensions: dims, brandVoice: "อบอุ่น" });
-    expect(calls[0].payload).toMatchObject({ dimensions: dims, brand_voice: "อบอุ่น" });
-  });
-
-  it("writes null dimensions and brand_voice when they are not", async () => {
+describe("a campaign's brand voice", () => {
+  it("writes brand_voice when it is given, null when not, and no dimensions or queue columns", async () => {
+    await createCampaign({ pageId: "p1", planHref: "/plans/ishield", angles: 2, tones: 2, agentId: "A1", brandVoice: "อบอุ่น" });
+    expect(calls[0].payload).toMatchObject({ brand_voice: "อบอุ่น" });
+    expect(calls[0].payload).not.toHaveProperty("dimensions");
+    calls.length = 0;
     await createCampaign({ pageId: "p1", planHref: "/plans/ishield", angles: 2, tones: 2, agentId: "A1" });
-    expect(calls[0].payload).toMatchObject({ dimensions: null, brand_voice: null });
+    expect(calls[0].payload).toMatchObject({ brand_voice: null });
   });
 
-  it("reads dimensions, queue_pos and brand_voice back in camelCase", async () => {
-    one = { ...dbRow, dimensions: dims, queue_pos: 5, brand_voice: "อบอุ่น" };
-    expect(await getCampaign(UUID)).toMatchObject({ dimensions: dims, queuePos: 5, brandVoice: "อบอุ่น" });
+  it("reads brand_voice back in camelCase, and leaves the old columns off the campaign", async () => {
+    one = { ...dbRow, dimensions: { hooks: [] }, queue_pos: 5, brand_voice: "อบอุ่น" };
+    const c = await getCampaign(UUID);
+    expect(c).toMatchObject({ brandVoice: "อบอุ่น" });
+    expect(c).not.toHaveProperty("dimensions");
+    expect(c).not.toHaveProperty("queuePos");
   });
 
-  it("answers null dimensions when the stored jsonb is not the right shape", async () => {
-    for (const bad of [
-      "text", 3, [], { hooks: [] },
-      { ...dims, hooks: "x" },
-      { ...dims, styles: [{ text: 1, note: "" }] },
-      { ...dims, angles: [{ text: "a" }] },
-      { ...dims, personas: [null] },
-    ]) {
-      one = { ...dbRow, dimensions: bad };
-      expect((await getCampaign(UUID))?.dimensions).toBeNull();
-    }
-  });
-
-  it("treats a missing queue_pos as zero", async () => {
-    one = { ...dbRow, queue_pos: undefined };
-    expect((await getCampaign(UUID))?.queuePos).toBe(0);
-  });
-
-  it("updates dimensions, brandVoice and queuePos as snake_case columns", async () => {
-    await updateCampaign(UUID, { dimensions: dims, brandVoice: null, queuePos: 3 });
-    expect(calls[0]).toMatchObject({ op: "update", payload: { dimensions: dims, brand_voice: null, queue_pos: 3 }, filters: [["id", UUID]] });
+  it("updates brandVoice as a snake_case column", async () => {
+    await updateCampaign(UUID, { brandVoice: null });
+    expect(calls[0]).toMatchObject({ op: "update", payload: { brand_voice: null }, filters: [["id", UUID]] });
+    expect(calls[0].payload).not.toHaveProperty("queue_pos");
   });
 });
 

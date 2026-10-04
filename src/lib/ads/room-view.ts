@@ -15,29 +15,29 @@ export function writeParam(v: string | undefined | null): WriteCount | 0 {
 }
 
 /**
- * A piece written to a picture style whose picture is not on its poster yet (still drawing, or
- * the draw failed). The send leaves such a piece out (actions.ts picturePending), so the card
- * offers to draw it.
+ * A piece whose poster has no picture yet (still drawing, or the draw failed), whatever its ad
+ * holds. The send leaves such a piece out (actions.ts picturePending), so the card offers to
+ * draw it.
  */
-export function picturePending(p: { variant: { style: string } | null; poster: { background?: string } | null }): boolean {
-  return Boolean(p.variant?.style && p.poster && !p.poster.background);
+export function picturePending(p: { poster: { background?: string } | null }): boolean {
+  return Boolean(p.poster && !p.poster.background);
 }
 
 /** The link a send starts with: the campaign's plan page on the site. */
 export const planLink = (planHref: string) => `https://advisortool.app${planHref.startsWith("/") ? "" : "/"}${planHref}`;
 
 /**
- * Why "ส่งขึ้น Facebook" is shut, or null when it may open: nothing approved and unsent, no
+ * Why "ส่งขึ้น Facebook" is shut, or null when it may open: nothing ticked in the draft tab, no
  * ad account connected (or none in baht), the Page gone, or the verified advertiser Meta
  * requires in Thailand not set.
  */
 export function sendBlocker(s: {
-  approved: number;
+  ticked: number;
   accounts: { currency: string | null }[];
   thIdentity: boolean;
   pageConnected: boolean;
 }): string | null {
-  if (s.approved === 0) return "ยังไม่มีแอดที่อนุมัติและยังไม่ได้ส่ง — กด ✓ อนุมัติ บนการ์ดก่อน";
+  if (s.ticked === 0) return "ติ๊กเลือกแอดในแท็บร่างก่อน";
   if (!s.pageConnected) return "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว — เชื่อมเพจใหม่ก่อนจึงจะส่งได้";
   if (s.accounts.length === 0) return "ยังไม่ได้เชื่อมบัญชีโฆษณา — เชื่อมที่หน้ารายการแคมเปญก่อน";
   if (!s.accounts.some((a) => a.currency === "THB")) return "รองรับเฉพาะบัญชีโฆษณาสกุลบาท (THB) — เชื่อมบัญชีสกุลบาทก่อน";

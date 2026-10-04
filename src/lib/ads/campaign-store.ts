@@ -8,24 +8,10 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  * Where Ads Studio campaigns are kept: ins_ad_campaign, service_role only.
  *
  * A campaign is one insurance product on one Facebook Page, with how many angles and tones the
- * owner wants written for it. It is Studio's own grouping: the Meta campaign is made per launch.
+ * owner wants written for it (the dimensions and queue_pos columns stay in the table, unused). It is Studio's own grouping: the Meta campaign is made per launch.
  * Column names are snake_case in the table and camelCase here; the conversion happens in this
  * file and nowhere else.
  */
-
-/** One choice the owner can steer a campaign by: the text, and why the writer proposed it. */
-export type Dimension = { text: string; note: string };
-
-/**
- * What a campaign is written along: the hooks, the kinds of people, the angles and the picture
- * styles. Each ad is one pick from each, and the queue walks through their combinations.
- */
-export interface Dimensions {
-  hooks: Dimension[];
-  personas: Dimension[];
-  angles: Dimension[];
-  styles: Dimension[];
-}
 
 export interface AdCampaign {
   id: string;
@@ -41,10 +27,6 @@ export interface AdCampaign {
   hint: string | null;
   /** the agent who made it: the viewer's agent id (the owner's own, when the owner made it) */
   agentId: string | null;
-  /** null for a campaign made before dimensions, or when what is stored is not the right shape */
-  dimensions: Dimensions | null;
-  /** how far the queue of dimension combinations has gone: the number of designs made so far */
-  queuePos: number;
   /** the voice of the brand in the owner's words; null when none was given */
   brandVoice: string | null;
   /** ภาพและโมเดล (picture-picks.ts): the writer and painter ids, null for อัตโนมัติ */
@@ -67,32 +49,11 @@ interface DbRow {
   theme: string | null;
   hint: string | null;
   agent_id: string | null;
-  dimensions?: unknown;
-  queue_pos?: number | null;
   brand_voice?: string | null;
   writer?: string | null;
   painter?: string | null;
   person?: unknown;
   picture_brief?: string | null;
-}
-
-const DIMENSION_KEYS = ["hooks", "personas", "angles", "styles"] as const;
-
-function isDimension(v: unknown): v is Dimension {
-  return typeof v === "object" && v !== null && typeof (v as Dimension).text === "string" && typeof (v as Dimension).note === "string";
-}
-
-/** The stored jsonb as Dimensions, or null when it is not exactly that shape. */
-function toDimensions(v: unknown): Dimensions | null {
-  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
-  const o = v as Record<string, unknown>;
-  const out = {} as Dimensions;
-  for (const k of DIMENSION_KEYS) {
-    const list = o[k];
-    if (!Array.isArray(list) || !list.every(isDimension)) return null;
-    out[k] = list.map(({ text, note }) => ({ text, note }));
-  }
-  return out;
 }
 
 function fromDb(r: DbRow): AdCampaign {
@@ -107,8 +68,6 @@ function fromDb(r: DbRow): AdCampaign {
     theme: r.theme,
     hint: r.hint,
     agentId: r.agent_id,
-    dimensions: toDimensions(r.dimensions),
-    queuePos: r.queue_pos ?? 0,
     brandVoice: r.brand_voice ?? null,
     writer: r.writer ?? null,
     painter: r.painter ?? null,
@@ -155,7 +114,6 @@ export async function createCampaign(c: {
   theme?: string | null;
   hint?: string | null;
   agentId: string | null;
-  dimensions?: Dimensions | null;
   brandVoice?: string | null;
   writer?: string | null;
   painter?: string | null;
@@ -173,7 +131,6 @@ export async function createCampaign(c: {
       theme: c.theme ?? null,
       hint: c.hint ?? null,
       agent_id: c.agentId,
-      dimensions: c.dimensions ?? null,
       brand_voice: c.brandVoice ?? null,
       writer: c.writer ?? null,
       painter: c.painter ?? null,
@@ -189,7 +146,7 @@ export async function createCampaign(c: {
 /** Changes only what is given; the Page and plan are not editable. */
 export async function updateCampaign(
   id: string,
-  patch: Partial<Pick<AdCampaign, "name" | "angles" | "tones" | "theme" | "hint" | "dimensions" | "brandVoice" | "queuePos" | "writer" | "painter" | "person" | "pictureBrief">>,
+  patch: Partial<Pick<AdCampaign, "name" | "angles" | "tones" | "theme" | "hint" | "brandVoice" | "writer" | "painter" | "person" | "pictureBrief">>,
 ): Promise<void> {
   const columns: Record<string, unknown> = {};
   if (patch.name !== undefined) columns.name = patch.name;
@@ -197,9 +154,7 @@ export async function updateCampaign(
   if (patch.tones !== undefined) columns.tones = clamp(patch.tones, MAX_TONES);
   if (patch.theme !== undefined) columns.theme = patch.theme;
   if (patch.hint !== undefined) columns.hint = patch.hint;
-  if (patch.dimensions !== undefined) columns.dimensions = patch.dimensions;
   if (patch.brandVoice !== undefined) columns.brand_voice = patch.brandVoice;
-  if (patch.queuePos !== undefined) columns.queue_pos = patch.queuePos;
   if (patch.writer !== undefined) columns.writer = patch.writer;
   if (patch.painter !== undefined) columns.painter = patch.painter;
   if (patch.person !== undefined) columns.person = patch.person;

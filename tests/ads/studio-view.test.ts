@@ -30,7 +30,7 @@ describe("the sent rail's rows", () => {
       { pieceId: "b", adId: "2", error: null, effectiveStatus: "PAUSED" },
       { pieceId: "c", adId: "3", error: null, effectiveStatus: "DISAPPROVED" },
       { pieceId: "d", adId: "4", error: null, effectiveStatus: null },
-    ])], []);
+    ])]);
     expect(rows.map((r) => [r.pieceId, r.status, r.tone])).toEqual([
       ["a", "กำลังวิ่ง", "on"],
       ["b", "หยุดไว้", "off"],
@@ -44,19 +44,7 @@ describe("the sent rail's rows", () => {
     const rows = sentRows([send([
       { pieceId: "a", adId: null, error: "Meta ปฏิเสธ", effectiveStatus: null },
       { pieceId: "b", adId: null, error: null, effectiveStatus: null },
-    ])], []);
+    ])]);
     expect(rows.map((r) => [r.status, r.tone])).toEqual([["สร้างแอดไม่สำเร็จ", "bad"], ["กำลังส่ง…", "off"]]);
-  });
-
-  it("puts the ads launched one by one after the sends, without a date", () => {
-    const rows = sentRows([send([{ pieceId: "a", adId: "1", error: null, effectiveStatus: "PAUSED" }])], [
-      { id: "l1", pieceId: "z", adId: "9", error: null, effectiveStatus: "ACTIVE", dailyBudgetBaht: 100 },
-      { id: "l2", pieceId: "y", adId: null, error: "broke", effectiveStatus: null, dailyBudgetBaht: 100 },
-    ]);
-    expect(rows.map((r) => [r.key, r.pieceId, r.status, r.tone, r.sentAt])).toEqual([
-      ["i0", "a", "หยุดไว้", "off", "2026-10-03T07:20:00Z"],
-      ["l1", "z", "กำลังวิ่ง", "on", null],
-      ["l2", "y", "สร้างแอดไม่สำเร็จ", "bad", null],
-    ]);
   });
 });

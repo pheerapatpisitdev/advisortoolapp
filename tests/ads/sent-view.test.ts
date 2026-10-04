@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CTA_LABEL,
   OBJECTIVE_LABEL,
-  activateQuestion, badStatus, legacyButtons, pauseQuestion, sendBadge, sendButtons, sendOutcome, statusText, switchedOn, type BadgeShape, type SendShape,
+  activateQuestion, badStatus, pauseQuestion, sendBadge, sendButtons, sendOutcome, statusText, switchedOn, type BadgeShape, type SendShape,
 } from "@/lib/ads/sent-view";
 import type { SendResult } from "@/lib/ads/send";
 import type { AdSend, AdSendItem } from "@/lib/ads/send-store";
@@ -53,14 +53,6 @@ describe("switched on", () => {
     expect(switchedOn({ activatedAt: T1, pausedAt: null })).toBe(true);
     expect(switchedOn({ activatedAt: T1, pausedAt: T2 })).toBe(false);
     expect(switchedOn({ activatedAt: T2, pausedAt: T1 })).toBe(true);
-  });
-});
-
-describe("an ad launched one by one", () => {
-  it("switches on when made and off, and pauses whenever the ad exists", () => {
-    expect(legacyButtons({ step: "ad", activatedAt: null, canPause: true })).toEqual({ activate: true, pause: true });
-    expect(legacyButtons({ step: "ad", activatedAt: T1, canPause: true })).toEqual({ activate: false, pause: true });
-    expect(legacyButtons({ step: "creative", activatedAt: null, canPause: false })).toEqual({ activate: false, pause: false });
   });
 });
 
