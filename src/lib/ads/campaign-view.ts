@@ -1,14 +1,15 @@
 import type { ContentStatus } from "@/lib/content/store";
 
 /**
- * The tabs of a campaign's room (Ads Studio): ทั้งหมด, ร่าง, ส่งแล้ว, ถังขยะ. ทั้งหมด is every piece out of the bin, not a tab a piece sits in.
+ * The tabs of a campaign's room (Ads Studio): ร่าง, ส่งแล้ว, ถังขยะ. The counts also carry `all`,
+ * every piece out of the bin, for the campaign list; it is a count, not a tab a piece sits in.
  * Pure, so the list page, the room and their tests count pieces the same way.
  */
 
 export const AD_TABS = ["draft", "sent", "trash"] as const;
 export type AdTab = (typeof AD_TABS)[number];
 
-/** the room's tab strip: ทั้งหมด first, then where a piece can sit */
+/** the keys of a campaign's counts: `all` (out of the bin) first, then the tabs a piece can sit in */
 export const AD_TAB_KEYS = ["all", ...AD_TABS] as const;
 export type AdTabKey = (typeof AD_TAB_KEYS)[number];
 

@@ -941,6 +941,7 @@ export async function updatePageContact(
     const clean = cleanContact(input);
     if ("error" in clean) return { ok: false, error: clean.error };
     await savePageContact(pageId, clean);
+    await audit("ads-page-contact", pageId, { ...clean });
     return { ok: true };
   } catch (e) {
     console.error("updatePageContact failed:", e);

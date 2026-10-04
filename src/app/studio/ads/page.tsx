@@ -13,8 +13,8 @@ import { AdsStudio, type StudioView } from "./AdsStudio";
 export const dynamic = "force-dynamic";
 // the Facebook login comes back here, and every action of the page runs as it: a send makes
 // several Meta requests per ad, each allowed 30 s, and stops starting new ones after 180 s
-// (src/lib/ads/send.ts); the AI's analysis takes 10–20 s. 300 s is what the Hobby plan allows,
-// as on the other Studio pages.
+// (src/lib/ads/send.ts), and a round of long ads is written here too. 300 s is what the Hobby
+// plan allows, as on the other Studio pages.
 export const maxDuration = 300;
 export const metadata: Metadata = { title: "Ads Studio | Studio" };
 

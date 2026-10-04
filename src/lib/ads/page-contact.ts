@@ -12,21 +12,26 @@ const NAME_MAX = 60;
 const LINE_MAX = 40;
 const INBOX_MAX = 200;
 const BAD_INBOX = "ลิงก์ Inbox ต้องขึ้นต้นด้วย https://";
+const LONG_INBOX = `ลิงก์ Inbox ยาวเกินไป (ไม่เกิน ${INBOX_MAX} ตัวอักษร)`;
 
 function text(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-/** Loose typing in, tidy contact out: trimmed, @ and inner spaces gone from the Line ID, https only. */
+/**
+ * Loose typing in, tidy contact out: trimmed, @ and inner spaces gone from the Line ID, https
+ * only. The scheme is stored in lower case, so "HTTPS://…" passes the table's ^https:// check.
+ */
 export function cleanContact(v: unknown): PageContact | { error: string } {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
   const name = text(o.agentName).slice(0, NAME_MAX);
   const line = text(o.lineId).replace(/^@/, "").replace(/\s+/g, "").slice(0, LINE_MAX);
-  const inbox = text(o.inboxUrl);
+  const inbox = text(o.inboxUrl).replace(/^https:\/\//i, "https://");
   if (inbox) {
     let ok = false;
-    try { ok = new URL(inbox).protocol === "https:"; } catch { /* not a URL */ }
-    if (!ok || inbox.length > INBOX_MAX) return { error: BAD_INBOX };
+    try { ok = inbox.startsWith("https://") && new URL(inbox).protocol === "https:"; } catch { /* not a URL */ }
+    if (!ok) return { error: BAD_INBOX };
+    if (inbox.length > INBOX_MAX) return { error: LONG_INBOX };
   }
   return { agentName: name || null, lineId: line || null, inboxUrl: inbox || null };
 }

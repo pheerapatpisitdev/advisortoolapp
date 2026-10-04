@@ -21,7 +21,8 @@ function builder(table: string) {
 }
 
 vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => ({ from: builder }) }));
-vi.mock("@/lib/auth/viewer", () => ({ requireStaff: async () => ({}), audit: async () => {} }));
+const audits = vi.hoisted(() => [] as unknown[][]);
+vi.mock("@/lib/auth/viewer", () => ({ requireStaff: async () => ({}), audit: async (...a: unknown[]) => { audits.push(a); } }));
 vi.mock("@/lib/auth/pages", () => ({ myPages: async () => [{ pageId: "mine" }] }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -29,7 +30,7 @@ const { cleanContact, contactBlock, getPageContact, savePageContact } = await im
 const { pageContact, updatePageContact } = await import("@/app/studio/ads/actions");
 
 const none = { agentName: null, lineId: null, inboxUrl: null };
-beforeEach(() => { calls.length = 0; one = null; });
+beforeEach(() => { calls.length = 0; one = null; audits.length = 0; });
 
 describe("cleanContact", () => {
   it("trims, strips one @ and inner spaces from the Line ID", () => {
@@ -40,6 +41,17 @@ describe("cleanContact", () => {
     for (const inboxUrl of ["http://x", "javascript:alert(1)", "m.me/x"]) {
       expect(cleanContact({ inboxUrl })).toEqual({ error: "ลิงก์ Inbox ต้องขึ้นต้นด้วย https://" });
     }
+  });
+  it("stores the scheme in lower case, so the table's ^https:// check passes", () => {
+    expect(cleanContact({ inboxUrl: "HTTPS://m.me/X" })).toEqual({ ...none, inboxUrl: "https://m.me/X" });
+    expect(cleanContact({ inboxUrl: "Https://m.me/x" })).toEqual({ ...none, inboxUrl: "https://m.me/x" });
+    // parsed as https by URL, but not written as https://
+    expect(cleanContact({ inboxUrl: "https:m.me/x" })).toEqual({ error: "ลิงก์ Inbox ต้องขึ้นต้นด้วย https://" });
+  });
+  it("says a link over 200 characters is too long, not that it is not https", () => {
+    const inboxUrl = `https://m.me/${"a".repeat(200)}`;
+    expect(cleanContact({ inboxUrl })).toEqual({ error: "ลิงก์ Inbox ยาวเกินไป (ไม่เกิน 200 ตัวอักษร)" });
+    expect(cleanContact({ inboxUrl: inboxUrl.slice(0, 200) })).toEqual({ ...none, inboxUrl: inboxUrl.slice(0, 200) });
   });
   it("turns empty strings into null and cuts to the lengths", () => {
     expect(cleanContact({ agentName: " ", lineId: "@", inboxUrl: "" })).toEqual(none);
@@ -86,10 +98,12 @@ describe("the actions", () => {
   it("refuse a bad inbox without writing", async () => {
     expect((await updatePageContact("mine", { inboxUrl: "http://x" })).ok).toBe(false);
     expect(calls).toEqual([]);
+    expect(audits).toEqual([]);
   });
   it("save and read back for the owner's Page; an empty form clears", async () => {
     expect(await updatePageContact("mine", { lineId: "@ab c" })).toEqual({ ok: true });
     expect(calls[0].payload).toMatchObject({ line_id: "abc" });
+    expect(audits).toEqual([["ads-page-contact", "mine", { agentName: null, lineId: "abc", inboxUrl: null }]]);
     calls.length = 0;
     expect(await updatePageContact("mine", {})).toEqual({ ok: true });
     expect(calls[0].op).toBe("delete");

@@ -110,7 +110,7 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
         }
         setPictures((p) => ({ ...p, [id]: "drawing" }));
         const { painter, person, brief } = picks.current;
-        const res = await drawPicture(id, pictureRequest("", brief), painter ?? AUTO, person);
+        const res = await drawPicture(id, pictureRequest(brief), painter ?? AUTO, person);
         jobs.current.shift();
         setPictures((p) => {
           const next = { ...p };
@@ -231,7 +231,7 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
                 ))}
               </div>
               <button type="button" onClick={() => setSending(true)} disabled={blocked !== null} className={solid}>
-                {`ส่งขึ้น Facebook (${ticked.size})`}
+                {`ส่งขึ้น Facebook (${going.length})`}
               </button>
             </div>
             {blocked && <p className="text-right text-xs text-[var(--ct-warn-ink)]">{blocked}</p>}

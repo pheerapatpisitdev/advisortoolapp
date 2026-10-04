@@ -20,7 +20,7 @@ import {
 } from "./graph";
 
 /**
- * Sends a campaign's approved ads to Facebook as one batch: one campaign, one ad set, and an
+ * Sends a campaign's ticked ads to Facebook as one batch: one campaign, one ad set, and an
  * image, a creative and an ad for each piece — every one PAUSED. Nothing here switches anything
  * on except activateSend, a separate press; a send never spends money by itself.
  *

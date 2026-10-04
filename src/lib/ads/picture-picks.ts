@@ -47,13 +47,9 @@ export function briefPick(v: unknown): string | null {
   return t || null;
 }
 
-/**
- * What one picture is drawn to: the picture style of its combination, then the campaign's brief.
- * Held to what the drawing reads, the style first, so a long brief is what gives way.
- */
-export function pictureRequest(style: string, brief: string | null): string {
-  const joined = brief ? (style ? `${style}\n${brief}` : brief) : style;
-  return joined.slice(0, MAX_DIRECTION);
+/** What one picture is drawn to: the campaign's brief, held to what the drawing reads; "" without one. */
+export function pictureRequest(brief: string | null): string {
+  return (brief ?? "").slice(0, MAX_DIRECTION);
 }
 
 /**

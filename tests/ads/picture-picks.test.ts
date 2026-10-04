@@ -31,13 +31,10 @@ describe("a campaign's ภาพและโมเดล", () => {
     expect(briefPick("ก".repeat(MAX_DIRECTION + 10))!.length).toBe(MAX_DIRECTION);
   });
 
-  it("draws to the style, then the brief, and lets the brief give way when long", () => {
-    expect(pictureRequest("มินิมอล — พื้นขาว", null)).toBe("มินิมอล — พื้นขาว");
-    expect(pictureRequest("มินิมอล", "ไม่เอาโรงพยาบาล")).toBe("มินิมอล\nไม่เอาโรงพยาบาล");
-    expect(pictureRequest("", "ไม่เอาโรงพยาบาล")).toBe("ไม่เอาโรงพยาบาล");
-    const long = pictureRequest("มินิมอล", "ก".repeat(MAX_DIRECTION));
-    expect(long.length).toBe(MAX_DIRECTION);
-    expect(long.startsWith("มินิมอล\n")).toBe(true);
+  it("draws to the campaign's brief, held to what the drawing reads", () => {
+    expect(pictureRequest(null)).toBe("");
+    expect(pictureRequest("ไม่เอาโรงพยาบาล")).toBe("ไม่เอาโรงพยาบาล");
+    expect(pictureRequest("ก".repeat(MAX_DIRECTION + 10)).length).toBe(MAX_DIRECTION);
   });
 
   it("prices a round from the picks: อัตโนมัติ as the best writer and มาตรฐาน, a person as Gemini", () => {
