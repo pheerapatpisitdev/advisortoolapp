@@ -52,6 +52,18 @@ describe("a round and its Page", () => {
   });
 });
 
+describe("a round for an ad", () => {
+  it("is refused by หาทีม and เขียนเอง before anything is written or counted — ads moved to Ads Studio", async () => {
+    project.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });
+    const refused = { ok: false, error: "โฆษณาย้ายไปทำใน Ads Studio แล้ว" };
+    expect(await generateRecruit({ topic: "t", count: 1, format: "ad", page: "p1" } as never)).toEqual(refused);
+    expect(await generateDraft({ draft: "ร่างของฉัน", count: 1, format: "ad", page: "p1" } as never)).toEqual(refused);
+    expect(runs.writeRecruit).not.toHaveBeenCalled();
+    expect(runs.writeDraft).not.toHaveBeenCalled();
+    expect(quota.takeRound).not.toHaveBeenCalled();
+  });
+});
+
 describe("the workbench's lists", () => {
   it("are the Page's the request resolved to", async () => {
     project.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });

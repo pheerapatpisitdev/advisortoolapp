@@ -21,8 +21,9 @@ function readRequest(): Request {
   return new Request("http://localhost/api/content-claim", { method: "POST", body: form, headers: { "x-forwarded-for": `10.0.1.${Math.random()}` } });
 }
 
-function writeRequest(): Request {
+function writeRequest(format?: string): Request {
   const form = new FormData();
+  if (format) form.set("format", format);
   form.set("consent", "on");
   form.set("facts", JSON.stringify({ kind: "ipd" }));
   form.set("count", "1");
@@ -44,6 +45,14 @@ describe("writing a รีวิวเคลม", () => {
     expect(quota.takeRound).toHaveBeenCalledWith({ agentId: "a1" }, "ai-claim");
     expect(run.writeClaim).toHaveBeenCalledTimes(1);
     expect(run.writeClaim).toHaveBeenCalledWith(expect.anything(), "p1");
+  });
+
+  it("refuses an ad before anything is counted or written — ads moved to Ads Studio", async () => {
+    const res = await PUT(writeRequest("ad") as never);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "โฆษณาย้ายไปทำใน Ads Studio แล้ว" });
+    expect(quota.takeRound).not.toHaveBeenCalled();
+    expect(run.writeClaim).not.toHaveBeenCalled();
   });
 
   it("writes nothing, and counts no round, for a Page the caller does not look after", async () => {

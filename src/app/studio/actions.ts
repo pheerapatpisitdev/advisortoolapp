@@ -29,7 +29,7 @@ import { cleanDraft } from "@/lib/content/draft";
 import { writeDraft, type DraftWriteInput } from "@/lib/content/draft-run";
 import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run";
 import { proofread, type Fix } from "@/lib/content/proofread";
-import { GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
+import { ADS_MOVED, GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
   DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
   getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
@@ -339,6 +339,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
 /** หาทีม: a round from a picked topic (src/lib/content/recruit.ts), under the plan form's hourly limit. */
 export async function generateRecruit(input: RecruitWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  if (input.format === "ad") return { ok: false, error: ADS_MOVED };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
@@ -373,6 +374,7 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
 /** เขียนเอง: the agent's draft polished into versions (src/lib/content/draft.ts), under the hourly limit. */
 export async function generateDraft(input: DraftWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  if (input.format === "ad") return { ok: false, error: ADS_MOVED };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }

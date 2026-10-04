@@ -67,6 +67,28 @@ describe("one Page's project", () => {
   });
 });
 
+describe("Organic Studio's lists leave ads out (Ads Studio campaigns, 2026-10-04)", () => {
+  const notAd = (): unknown[][] => db.calls.filter((c) => c[0] === "neq" && c[1] === "format");
+
+  it("lists no ad piece unless asked", async () => {
+    await listContent();
+    expect(notAd()).toEqual([["neq", "format", "ad"]]);
+    db.calls.length = 0;
+    await listContent({ includeAds: true });
+    expect(notAd()).toEqual([]);
+  });
+
+  it("counts no ad piece under any tab", async () => {
+    await countByStatus();
+    expect(notAd()).toHaveLength(3);
+  });
+
+  it("counts no ad draft on a Page's card", async () => {
+    await countDraftsByPage();
+    expect(notAd()).toEqual([["neq", "format", "ad"]]);
+  });
+});
+
 describe("the access rule itself (the spec's tests, final review 2026-09-30)", () => {
   const ID = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
   const row = (pageId: string | null, agentId = "s1") => ({ id: ID, agent_id: agentId, page_id: pageId, output: {}, flags: {}, status: "draft" });

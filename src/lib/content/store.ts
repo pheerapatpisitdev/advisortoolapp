@@ -256,12 +256,14 @@ export async function getContentUnscoped(id: string): Promise<ContentItem | null
   return data ? toItem(data as Record<string, unknown>) : null;
 }
 
-export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
+/** `includeAds`: Organic Studio shows no ad piece; the one caller that wants ads says so (Ads Studio campaigns, 2026-10-04) */
+export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string; includeAds?: boolean } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.planHref) q = q.eq("plan_href", filter.planHref);
   if (filter.pageId) q = q.eq("page_id", filter.pageId);
+  if (!filter.includeAds) q = q.neq("format", "ad");
   if (only) q = q.or(only);
   const { data, error } = await q.or(offPage());
   if (error) throw new Error(error.message);
@@ -272,7 +274,7 @@ export async function listContent(filter: { status?: ContentStatus; planHref?: s
 export async function countByStatus(planHref?: string, pageId?: string): Promise<Record<ContentStatus, number>> {
   const only = await ownersFilter();
   const counts = await Promise.all(CONTENT_STATUSES.map(async (status) => {
-    let q = supabaseAdmin().from("ins_content").select("id", { count: "exact", head: true }).eq("status", status);
+    let q = supabaseAdmin().from("ins_content").select("id", { count: "exact", head: true }).eq("status", status).neq("format", "ad");
     if (planHref) q = q.eq("plan_href", planHref);
     if (pageId) q = q.eq("page_id", pageId);
     if (only) q = q.or(only);
@@ -286,7 +288,7 @@ export async function countByStatus(planHref?: string, pageId?: string): Promise
 /** How many drafts each Page's project holds, for the cards on /studio (owner, 2026-09-30). */
 export async function countDraftsByPage(): Promise<Map<string, number>> {
   const only = await ownersFilter();
-  let q = supabaseAdmin().from("ins_content").select("page_id").eq("status", "draft").not("page_id", "is", null);
+  let q = supabaseAdmin().from("ins_content").select("page_id").eq("status", "draft").neq("format", "ad").not("page_id", "is", null);
   if (only) q = q.or(only);
   const { data, error } = await q.or(offPage());
   if (error) throw new Error(error.message);

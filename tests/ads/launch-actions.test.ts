@@ -225,6 +225,8 @@ describe("the page's setup", () => {
     ]);
     const { pieces } = await adsLaunchSetup();
     expect(pieces.map((p) => [p.id, p.hasPoster])).toEqual([[PIECE, true], ["d", false]]);
+    // Organic lists leave ads out unless asked; this page is where ads are (until Ads Studio replaces it)
+    expect(content.listContent).toHaveBeenCalledWith({ includeAds: true }, 200);
   });
 
   it("survives Meta or the launch table not answering", async () => {

@@ -124,7 +124,7 @@ export async function adsLaunchSetup(): Promise<AdsLaunchSetup> {
     adManageAccounts(),
     pendingChoices(),
     myPages(),
-    listContent({}, 200),
+    listContent({ includeAds: true }, 200),
   ]);
   const missing = adsManageMissingEnv();
   // the expiry is asked with the app's own id and secret; a server without them (a laptop
