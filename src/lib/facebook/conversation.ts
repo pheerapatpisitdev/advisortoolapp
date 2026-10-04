@@ -16,6 +16,7 @@ import { pagePathFor } from "@/lib/quote-pdf/link";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
 import { botTurn, keepTranscript } from "@/lib/chat/transcript";
 import { isExpatPage, languageOf } from "@/lib/assistant/expat";
+import { welcomeOf } from "@/lib/assistant/page-welcome";
 import { BROKEN_EN, BUSY_EN, CARD_UNSENT_EN, OUT_OF_BUDGET_EN, WANTS_IN_EN } from "@/lib/assistant/ihealthy-en/words";
 
 /**
@@ -311,6 +312,14 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
       }
       // the buttons ride on whatever lands last, because anything sent after them clears them
       const last = i === answer.messages.length - 1;
+      // the Page's greeting comes with its pictures ahead of it; one that will not send is
+      // skipped, because the words are the greeting and the pictures only introduce it
+      if (said.opening) {
+        for (const picture of welcomeOf(pageId)?.pictures ?? []) {
+          await sendImage(psid, siteUrl(picture), undefined, pageId)
+            .catch((e) => console.error("welcome picture failed, greeting without it:", e));
+        }
+      }
       // a bubble with no words is a picture or a file on its own: a couple's second card, their
       // second PDF, whose words were said once before the first
       if (said.text) {

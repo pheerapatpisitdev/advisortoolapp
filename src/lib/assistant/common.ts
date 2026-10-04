@@ -34,6 +34,11 @@ export interface Said {
    * is here, and a quote that carried it would send a file nobody asked for.
    */
   file?: string;
+  /**
+   * This is the Page's own greeting (page-welcome.ts), which Messenger sends with the Page's
+   * pictures ahead of it. Every other channel reads `text` and never looks here.
+   */
+  opening?: boolean;
 }
 
 /** A person does not send one long block; the model's paragraphs go out as separate bubbles. */

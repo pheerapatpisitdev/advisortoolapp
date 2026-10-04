@@ -22,6 +22,7 @@ import { answerFromLibrary } from "@/lib/copilot/library";
 import { recruitReply } from "./recruit";
 import { isExpatPage } from "./expat";
 import { answerExpat, expatLanguage } from "./ihealthy-en/door";
+import { welcomeOf } from "./page-welcome";
 
 /** The last line of the menu, which is how a turn knows the menu was the last thing said. */
 const ASKED_WHICH = "สนใจแบบไหนครับ";
@@ -53,6 +54,21 @@ export type AnyAnswer = Reply & {
 
 /** A message that asks something, as against one that announces an interest. */
 const ASKS_SOMETHING = /ไหม|มั้ย|หรือเปล่า|รึเปล่า|อะไร|เท่าไหร่|เท่าไร|กี่|ยังไง|อย่างไร|ทำไม|ที่ไหน|\?/;
+
+/**
+ * A first message with nothing in it to answer: "สวัสดี", "สนใจ", "ขอรายละเอียด".
+ *
+ * Anything a door below would act on is something: a plan or a subject, a person or an age, a
+ * figure, a question, the group cover, joining the team. Those go their usual way, with the
+ * Page's own plan standing behind them; only a message that says none of it is greeted.
+ */
+function opensWithNothing(asked: string): boolean {
+  return !productNamedIn(asked) && !productByTopic(asked) && !planNamedIn(asked)
+    && !pensionNamedIn(asked) && !ci123NamedIn(asked) && !cancerNamedIn(asked)
+    && !aboutAGroup(asked) && !recruitReply(asked, undefined)
+    && !peopleIn(asked).length && ageIn(asked) === undefined
+    && !/[0-9๐-๙]/.test(asked) && !ASKS_SOMETHING.test(asked);
+}
 
 /** Words that make a question about a plan a question about its price. */
 const asksAboutMoney = (text: string) => /เบี้ย|ราคา|กี่บาท|ค่างวด|จ่ายเดือนละ|จ่ายปีละ|จ่ายเท่าไหร่|คิดให้|premium/i.test(text);
@@ -160,7 +176,17 @@ export async function answerAny(
   if (turn) {
     return { ...turn.reply, slots: { ...(slots ?? { product: "undecided" }), pdf: turn.memory } as WithPdf<AnySlots> };
   }
-  return withPdfOffer(await routeAny(history, slots, channel, cameFor), memory);
+
+  /**
+   * A Page that sells one plan greets a first message that says nothing with that plan, rather
+   * than with the choice of three (page-welcome.ts). Only the first: a conversation already
+   * under way, or one an advertisement already placed, is not greeted again.
+   */
+  const welcome = welcomeOf(pageId);
+  if (welcome && !slots && !cameFor && opensWithNothing(asked)) {
+    return { messages: [{ text: welcome.text, opening: true }], slots: { product: "undecided" } };
+  }
+  return withPdfOffer(await routeAny(history, slots, channel, cameFor ?? welcome?.product), memory);
 }
 
 /** The slots as a brain knows them; a session with no PDF memory is passed on as it is. */
