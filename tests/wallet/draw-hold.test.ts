@@ -35,7 +35,7 @@ const output: ContentOutput = {
 };
 const make = (out: ContentOutput = output): ContentItem => ({
   id: "p1", createdAt: "2026-09-25T00:00:00Z", planHref: "/nowhere", format: "post", angle: "", length: null,
-  output: out, flags: clean, model: null, costThb: 0, status: "draft", hookTemplateId: null, publish: null, agentId: null, pageId: PAGE, plan: null,
+  output: out, flags: clean, model: null, costThb: 0, status: "draft", hookTemplateId: null, publish: null, agentId: null, pageId: PAGE, plan: null, campaignId: null,
 });
 const withPerson = { ...output, person: { id: "person-1", pose: "auto" } } as ContentOutput;
 

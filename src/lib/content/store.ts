@@ -50,6 +50,8 @@ export interface ContentItem {
   pageId: string | null;
   /** the day an agent with no Page planned it for, and when they said it was posted (owner, 2026-09-30); null when not planned */
   plan: { day: string; doneAt: string | null } | null;
+  /** the Ads Studio campaign an ad piece is filed under (owner, 2026-10-04); null for every other piece */
+  campaignId: string | null;
 }
 
 export const PUBLISH_STATES = ["posting", "scheduled", "published", "failed", "cancelled"] as const;
@@ -155,7 +157,7 @@ export async function holdContentBudget(thb: number, cap: number): Promise<{ ok:
 export { release as releaseContentBudget };
 
 // one literal: supabase-js reads the column list's type from the string, and a joined one is opaque to it
-const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error, page_id, plan_day, planned_done_at";
+export const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error, page_id, plan_day, planned_done_at, campaign_id";
 
 function toPublish(r: Record<string, unknown>): Publish | null {
   const state = r.publish_state;
@@ -169,7 +171,7 @@ function toPublish(r: Record<string, unknown>): Publish | null {
   };
 }
 
-function toItem(r: Record<string, unknown>): ContentItem {
+export function toItem(r: Record<string, unknown>): ContentItem {
   const flags = (r.flags ?? {}) as Partial<Flags>;
   return {
     id: String(r.id),
@@ -188,6 +190,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
     agentId: (r.agent_id as string | null) ?? null,
     pageId: (r.page_id as string | null) ?? null,
     plan: r.plan_day ? { day: String(r.plan_day), doneAt: (r.planned_done_at as string | null) ?? null } : null,
+    campaignId: (r.campaign_id as string | null) ?? null,
   };
 }
 
@@ -197,13 +200,15 @@ export async function saveContent(row: {
   hookTemplateId: string | null;
   /** the Page whose project the piece goes into (projectPage settled it); null for an agent with no Pages */
   pageId: string | null;
+  /** the Ads Studio campaign an ad piece is filed under; absent for every other piece */
+  campaignId?: string | null;
 }): Promise<ContentItem> {
   const owner = (await currentScope()).owner;
   const { data, error } = await supabaseAdmin().from("ins_content").insert({
     agent_id: owner?.agentId ?? null, tenant_id: owner?.tenantId ?? null,
     plan_href: row.planHref, format: row.format, angle: row.angle || null, length: row.length,
     output: row.output, flags: row.flags, rate_version: row.rateVersion, model: row.model, cost_thb: row.costThb,
-    hook_template_id: row.hookTemplateId, page_id: row.pageId,
+    hook_template_id: row.hookTemplateId, page_id: row.pageId, campaign_id: row.campaignId ?? null,
   }).select(COLUMNS).single();
   if (error) throw new Error(`บันทึกคอนเทนต์ไม่สำเร็จ: ${error.message}`);
   return toItem(data as Record<string, unknown>);

@@ -106,7 +106,7 @@ describe("clipYardstick", () => {
       output: { ...clipOutput(""), hooks: ["ฮุคหนึ่ง"], body: "เนื้อหาบท", closing: "ปิดท้ายบท", video: {
         path: "p/x.mp4", durationSec: 5, width: 1, height: 2, sizeBytes: 1, mime: "video/mp4", uploadedAt: "", caption: "", flags: NO_FLAGS, brief: "โน้ตตัวแทน 777",
       } },
-      flags: NO_FLAGS, model: null, costThb: 0, status: "draft", hookTemplateId: null, publish: null, agentId: "a", pageId: "1", plan: null,
+      flags: NO_FLAGS, model: null, costThb: 0, status: "draft", hookTemplateId: null, publish: null, agentId: "a", pageId: "1", plan: null, campaignId: null,
     };
     const y = clipYardstick(item);
     for (const part of ["ฮุคหนึ่ง", "เนื้อหาบท", "ปิดท้ายบท", "โน้ตตัวแทน 777", briefFor(href)?.text ?? ""]) expect(y).toContain(part);
