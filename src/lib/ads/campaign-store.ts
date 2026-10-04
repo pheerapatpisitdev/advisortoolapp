@@ -138,3 +138,42 @@ export async function listCampaignPieces(campaignId: string): Promise<ContentIte
   if (error) throw new Error(error.message);
   return ((data ?? []) as unknown as Record<string, unknown>[]).map(toItem);
 }
+
+/** Ids per read, so a long `in (...)` stays within the address length a request allows. */
+const CHUNK = 100;
+
+/**
+ * For Studio's front page: each Page's campaigns, and how many of their pieces have a live
+ * (not superseded) launch. A Page with no campaign is not in the map. Three reads however many
+ * campaigns there are: the campaigns, the live launches, then the pieces those launches are for
+ * (to say which campaign each belongs to). A piece launched on two ad accounts counts once.
+ */
+export async function campaignCountsByPage(): Promise<Map<string, { campaigns: number; launched: number }>> {
+  const db = supabaseAdmin();
+  const out = new Map<string, { campaigns: number; launched: number }>();
+
+  const { data: camps, error: campErr } = await db.from("ins_ad_campaign").select("id, page_id");
+  if (campErr) throw new Error(campErr.message);
+  const pageOf = new Map<string, string>();
+  for (const c of (camps ?? []) as { id: string; page_id: string }[]) {
+    pageOf.set(c.id, c.page_id);
+    const n = out.get(c.page_id) ?? { campaigns: 0, launched: 0 };
+    n.campaigns += 1;
+    out.set(c.page_id, n);
+  }
+  if (pageOf.size === 0) return out;
+
+  const { data: launches, error: launchErr } = await db.from("ins_ad_launch").select("piece_id").eq("superseded", false);
+  if (launchErr) throw new Error(launchErr.message);
+  const launched = [...new Set(((launches ?? []) as { piece_id: string | null }[]).flatMap((l) => (l.piece_id ? [l.piece_id] : [])))];
+
+  for (let i = 0; i < launched.length; i += CHUNK) {
+    const { data: pieces, error: pieceErr } = await db.from("ins_content").select("id, campaign_id").in("id", launched.slice(i, i + CHUNK));
+    if (pieceErr) throw new Error(pieceErr.message);
+    for (const p of (pieces ?? []) as { id: string; campaign_id: string | null }[]) {
+      const page = p.campaign_id ? pageOf.get(p.campaign_id) : undefined;
+      if (page) out.get(page)!.launched += 1;
+    }
+  }
+  return out;
+}

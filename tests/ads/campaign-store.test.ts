@@ -13,6 +13,8 @@ const calls: Call[] = [];
 /** what a select answers: the list for a plain read, the one row for single/maybeSingle */
 let rows: Record<string, unknown>[];
 let one: Record<string, unknown> | null;
+/** what a plain read of one table answers, where a test needs the tables to differ */
+let rowsByTable: Record<string, Record<string, unknown>[]> = {};
 
 function builder(table: string) {
   const call: Call = { table, op: "select", filters: [] };
@@ -21,10 +23,11 @@ function builder(table: string) {
     update: (payload: unknown) => { call.op = "update"; call.payload = payload; return b; },
     select: () => b,
     eq: (col: string, val: unknown) => { call.filters.push([col, val]); return b; },
+    in: (col: string, val: unknown) => { call.filters.push([col, val]); return b; },
     order: (col: string, opts: unknown) => { call.order = [col, opts]; return b; },
     single: async () => { calls.push(call); return { data: one, error: null }; },
     maybeSingle: async () => { calls.push(call); return { data: one, error: null }; },
-    then: (resolve: (v: unknown) => unknown) => { calls.push(call); return resolve({ data: rows, error: null }); },
+    then: (resolve: (v: unknown) => unknown) => { calls.push(call); return resolve({ data: rowsByTable[table] ?? rows, error: null }); },
   };
   return b;
 }
@@ -36,7 +39,7 @@ vi.mock("@/lib/auth/scope", () => ({
   pieceFilter: () => null,
 }));
 
-const { createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign } = await import("@/lib/ads/campaign-store");
+const { campaignCountsByPage, createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign } = await import("@/lib/ads/campaign-store");
 const { saveContent } = await import("@/lib/content/store");
 const { MAX_ANGLES, MAX_TONES } = await import("@/lib/content/ads");
 
@@ -49,6 +52,7 @@ const dbRow = {
 beforeEach(() => {
   calls.length = 0;
   rows = [];
+  rowsByTable = {};
   one = dbRow;
 });
 
@@ -131,5 +135,39 @@ describe("the migration", () => {
     expect(sql).toContain("campaign_id is null");
     expect(sql).toMatch(/not exists/i);
     expect(sql).toContain("page_id is not null");
+  });
+});
+
+describe("the campaign counts on Studio's front page", () => {
+  const C1 = "0b9f2c1e-5d3a-4c7b-9e11-2a4f6d8c0b13";
+  const C2 = "1c0a3d2f-6e4b-4d8c-8f22-3b5a7e9d1c24";
+  const C3 = "2d1b4e3a-7f5c-4e9d-9a33-4c6b8fae2d35";
+
+  it("counts a Page's campaigns and the pieces in them that have a live launch", async () => {
+    rowsByTable = {
+      ins_ad_campaign: [{ id: C1, page_id: "p1" }, { id: C2, page_id: "p1" }, { id: C3, page_id: "p2" }],
+      // a piece launched twice (two ad accounts) counts once; a launch whose piece was deleted counts for none
+      ins_ad_launch: [{ piece_id: "a" }, { piece_id: "a" }, { piece_id: "b" }, { piece_id: null }],
+      ins_content: [{ id: "a", campaign_id: C1 }, { id: "b", campaign_id: C2 }],
+    };
+    const counts = await campaignCountsByPage();
+    expect(counts.get("p1")).toEqual({ campaigns: 2, launched: 2 });
+    expect(counts.get("p2")).toEqual({ campaigns: 1, launched: 0 });
+    expect(counts.has("p3")).toBe(false);
+    // three reads however many campaigns: the live launches, then the pieces they are for
+    expect(calls.map((c) => c.table)).toEqual(["ins_ad_campaign", "ins_ad_launch", "ins_content"]);
+    expect(calls[1].filters).toContainEqual(["superseded", false]);
+    expect(calls[2].filters).toContainEqual(["id", ["a", "b"]]);
+  });
+
+  it("does not ask for pieces when nothing is launched", async () => {
+    rowsByTable = { ins_ad_campaign: [{ id: C1, page_id: "p1" }], ins_ad_launch: [] };
+    expect((await campaignCountsByPage()).get("p1")).toEqual({ campaigns: 1, launched: 0 });
+    expect(calls.map((c) => c.table)).toEqual(["ins_ad_campaign", "ins_ad_launch"]);
+  });
+
+  it("does not look for launches when there are no campaigns", async () => {
+    expect((await campaignCountsByPage()).size).toBe(0);
+    expect(calls.map((c) => c.table)).toEqual(["ins_ad_campaign"]);
   });
 });

@@ -5,6 +5,7 @@ import { visibleTo } from "@/lib/content/people-pages";
 import { myPages } from "@/lib/auth/pages";
 import { pageConnections } from "@/lib/facebook/connection";
 import { homeCards, scheduledByPage } from "@/lib/content/studio-home";
+import { campaignCountsByPage } from "@/lib/ads/campaign-store";
 import { forClient } from "@/lib/content/clip";
 import { countByStatus, countDraftsByPage, listHookTemplates, listPublished } from "@/lib/content/store";
 import { publishSetup } from "./publish";
@@ -36,7 +37,7 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
   // (owner, 2026-09-28, 2026-09-29, kept 2026-10-02); every other agent's Studio is the workbench
   if (!who.admin && !who.publish) redirect("/studio/write");
   const now = new Date();
-  const [counts, hooks, everyone, setup, placed, mine, connected, draftsByPage] = await Promise.all([
+  const [counts, hooks, everyone, setup, placed, mine, connected, draftsByPage, adCampaigns] = await Promise.all([
     countByStatus().catch(() => null),
     listHookTemplates().catch(() => null),
     listPeople().catch(() => null),
@@ -46,6 +47,8 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
     pageConnections().catch(() => []),
     // each Page's own drafts, for its card (its project, 2026-09-30)
     who.publish ? countDraftsByPage().catch(() => null) : null,
+    // each Page's campaigns for the Ads Studio tile, which is the owner's alone
+    who.owner ? campaignCountsByPage().catch(() => null) : null,
   ]);
   // nobody of a Page the caller does not look after: a card counts the people its Page sees, and
   // the helper reads someone of a Page outside the caller's own list as every Page's
@@ -54,6 +57,7 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
     room: who.room,
     name: who.name,
     publish: who.publish,
+    owner: who.owner,
     admin: who.admin,
     pages: setup && !setup.failed ? setup.pages : null,
     scheduled: scheduledByPage(placed),
@@ -61,6 +65,7 @@ export default async function StudioFrontPage({ searchParams }: { searchParams: 
     draftsByPage,
     hooks: hooks?.length ?? null,
     people,
+    adCampaigns,
   });
   return <StudioHome cards={cards} />;
 }

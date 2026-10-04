@@ -289,7 +289,7 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
     // puts an ad piece on Facebook as a paused ad: spends the owner's ad account, so the owner's alone (2026-10-04)
-    { href: "/studio/ads", label: "ยิงแอด", icon: "megaphone", hue: "#352f80" },
+    { href: "/studio/ads", label: "Ads Studio", icon: "megaphone", hue: "#352f80" },
     // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
     // one too (2026-10-02), only the owner writes without one
     { href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b736f" },
