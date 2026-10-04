@@ -2,18 +2,11 @@ import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
 import { CORE_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
 import type { Variant } from "@/lib/ads/dimensions";
+import type { PiecePlan } from "./plan";
 
 /**
- * Facebook ads in variants: selling angles down the side, tones across the top, one ad per cell.
- *
- * The owner's Maryjane project's AD Studio (src/lib/ad-matrix.ts, ad-prompt.ts), cut to fit a
- * workbench. A cheap call designs the matrix once per round; one large-model call writes each
- * cell, all in parallel, so four ads take about as long as one. The point of the grid is the
- * comparison: two angles each in two tones is an A/B test the owner can run in Ads Manager, where
- * four versions of one idea is not.
- *
- * The banks are Maryjane's shape with an insurance agent's angles. They are what the round falls
- * back on when the matrix call fails — a round of four near-identical ads is worse than none.
+ * Facebook ads: the writer's rules, and the long-form ad (an opening, the benefit bullets, a
+ * premium table, a contacts block, hashtags) whose figures are all placed by code.
  */
 
 export interface AdAngle {
@@ -23,17 +16,6 @@ export interface AdAngle {
   promise: string;
 }
 
-export interface AdTone {
-  key: string;
-  label: string;
-  instruction: string;
-}
-
-export interface AdMatrix {
-  angles: AdAngle[];
-  tones: AdTone[];
-}
-
 export const ANGLE_BANK: AdAngle[] = [
   { key: "family", label: "ครอบครัวไปต่อได้", promise: "เงินก้อนให้คนข้างหลังเดินต่อได้ ถ้าวันหนึ่งเราไม่อยู่" },
   { key: "small_price", label: "เริ่มต้นไม่แพง", promise: "เบี้ยที่จ่ายไหวเมื่อเทียบเป็นรายวัน โดยใช้ตัวเลขจากข้อมูลเท่านั้น" },
@@ -41,13 +23,6 @@ export const ANGLE_BANK: AdAngle[] = [
   { key: "peace", label: "ความอุ่นใจ", promise: "หลับสบายเพราะรู้ว่ามีแผนรองรับ" },
   { key: "gift", label: "ของขวัญให้คนที่รัก", promise: "ความคุ้มครองเป็นสิ่งที่ส่งต่อให้ลูกหรือคู่ชีวิตได้" },
   { key: "clarity", label: "เข้าใจง่ายใน 1 นาที", promise: "สรุปแบบประกันให้เห็นภาพในไม่กี่บรรทัด" },
-];
-
-export const TONE_BANK: AdTone[] = [
-  { key: "friendly", label: "เป็นกันเอง", instruction: "เขียนเหมือนคุยกับเพื่อน ใช้คำง่าย" },
-  { key: "direct", label: "ตรงไปตรงมา", instruction: "สั้น กระชับ บอกประโยชน์ในบรรทัดแรกทันที" },
-  { key: "warm", label: "อบอุ่น", instruction: "เน้นความรู้สึกและความห่วงใยคนในครอบครัว" },
-  { key: "expert", label: "มืออาชีพ", instruction: "น่าเชื่อถือ มีข้อเท็จจริงประกอบ ไม่ขายตรงเกินไป" },
 ];
 
 export const MAX_ANGLES = 3;
@@ -64,91 +39,32 @@ export const MAX_TONES = 2;
  */
 export const AD_LIMITS = { fold: 125, headline: 27, description: 27 } as const;
 
-/** The bank's first `n`, so a failed matrix still yields distinct ads. */
-export function fallbackMatrix(angles: number, tones: number): AdMatrix {
-  return { angles: ANGLE_BANK.slice(0, angles), tones: TONE_BANK.slice(0, tones) };
-}
+const AD_HEAD = [
+  "คุณเป็นนักเขียนโฆษณา Facebook ภาษาไทยให้ตัวแทนประกันชีวิต",
+  "แนวที่ได้ผลในไทย: หยุดสายตาในบรรทัดแรก แล้วชวนให้ทักแชท ไม่ขายด้วยความกลัว",
+];
 
-export function matrixMessages(brief: string, angles: number, tones: number, hint: string): ChatMessage[] {
-  const system = [
-    "คุณเป็นนักวางกลยุทธ์โฆษณา Facebook ของตัวแทนประกันชีวิตในไทย",
-    "หน้าที่คือออกแบบ “มิติ” ของโฆษณาชุดนี้ ไม่ใช่เขียนข้อความ",
-    "- มุมขาย (angle) = เหตุผลที่คนควรสนใจแบบประกันนี้ แต่ละมุมต้องต่างกันชัดเจน และต้องอิงข้อมูลผลิตภัณฑ์ที่ให้มาเท่านั้น",
-    "- โทน (tone) = น้ำเสียงที่ใช้เล่า",
-    "- เรียงมุมขายจากที่น่าจะได้ผลที่สุดไปหาน้อยที่สุด",
-    "ตอบ JSON อย่างเดียว:",
-    '{"angles":[{"key":"english_key","label":"ชื่อไทยสั้นๆ","promise":"สิ่งที่มุมนี้สัญญากับคนอ่าน 1 ประโยค"}],"tones":[{"key":"english_key","label":"ชื่อไทยสั้นๆ","instruction":"คำสั่งน้ำเสียง"}]}',
-  ].join("\n");
-  const user = [
-    `ข้อมูลผลิตภัณฑ์:\n${brief}`,
-    hint ? `มุมที่เจ้าของเพจอยากเน้น: ${hint}` : "",
-    `ออกแบบมุมขาย ${angles} มุม และโทน ${tones} โทน`,
-  ].filter(Boolean).join("\n\n");
-  return [{ role: "system", content: system }, { role: "user", content: user }];
-}
-
-function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 30);
-}
-
-/** The model's matrix, repaired where it can be and topped up from the banks where it falls short. */
-export function parseMatrix(reply: string, angles: number, tones: number): AdMatrix {
-  const raw = parseJsonReply<{ angles?: unknown; tones?: unknown }>(reply);
-  const read = <T extends { key: string; label: string }>(v: unknown, make: (r: Record<string, string>, key: string) => T): T[] => {
-    const out: T[] = [];
-    for (const item of Array.isArray(v) ? v : []) {
-      if (!item || typeof item !== "object") continue;
-      const r = Object.fromEntries(Object.entries(item as Record<string, unknown>).map(([k, x]) => [k, typeof x === "string" ? x.trim() : ""]));
-      const key = slug(r.key || r.label || "") || `k${out.length}`;
-      if (!r.label || out.some((o) => o.key === key)) continue;
-      out.push(make(r, key));
-    }
-    return out;
-  };
-  const a = read(raw?.angles, (r, key) => ({ key, label: r.label.slice(0, 40), promise: (r.promise || "").slice(0, 200) }));
-  const t = read(raw?.tones, (r, key) => ({ key, label: r.label.slice(0, 30), instruction: (r.instruction || "").slice(0, 200) }));
-  // short of what was asked, the banks fill in, skipping any already chosen
-  for (const b of ANGLE_BANK) if (a.length < angles && !a.some((x) => x.key === b.key)) a.push(b);
-  for (const b of TONE_BANK) if (t.length < tones && !t.some((x) => x.key === b.key)) t.push(b);
-  return { angles: a.slice(0, angles), tones: t.slice(0, tones) };
-}
-
-export interface AdCell {
-  angle: AdAngle;
-  tone: AdTone;
-}
-
-/** Every angle in every tone, angle by angle, so a row of the grid is one angle. */
-export function matrixCells(m: AdMatrix): AdCell[] {
-  return m.angles.flatMap((angle) => m.tones.map((tone) => ({ angle, tone })));
-}
+/** The headline's and the description's lengths, the same for every kind of ad. */
+const AD_SHORT_FIELDS = [
+  `- headline: สั้นมาก 3–5 คำ ไม่เกิน ${AD_LIMITS.headline} ตัวอักษรนับรวมสระและวรรณยุกต์ (แสดงใต้ภาพ ข้างปุ่ม) ต้องเป็นประโยคที่จบในตัว`,
+  `- description: สั้นมาก 3–5 คำ ไม่เกิน ${AD_LIMITS.description} ตัวอักษรนับรวมสระและวรรณยุกต์ ต้องจบในตัว ถ้ามีตัวเลขต้องมีหน่วยครบ`,
+];
 
 /** What every ad's writer is told, whatever it is written to: the rules, the lengths, the reply's shape. */
 function adSystem(): string {
   return [
-    "คุณเป็นนักเขียนโฆษณา Facebook ภาษาไทยให้ตัวแทนประกันชีวิต",
-    "แนวที่ได้ผลในไทย: หยุดสายตาในบรรทัดแรก แล้วชวนให้ทักแชท ไม่ขายด้วยความกลัว",
+    ...AD_HEAD,
     "",
     CORE_RULES,
     "",
     "ความยาว (นับตัวอักษร):",
     `- primaryText: ${AD_LIMITS.fold} ตัวอักษรแรกต้องอ่านรู้เรื่องจบในตัว เพราะ Facebook พับส่วนที่เหลือ ทั้งหมดไม่เกิน 400 ตัวอักษร ปิดท้ายด้วยการชวนทักแชท`,
-    `- headline: สั้นมาก 3–5 คำ ไม่เกิน ${AD_LIMITS.headline} ตัวอักษรนับรวมสระและวรรณยุกต์ (แสดงใต้ภาพ ข้างปุ่ม) ต้องเป็นประโยคที่จบในตัว`,
-    `- description: สั้นมาก 3–5 คำ ไม่เกิน ${AD_LIMITS.description} ตัวอักษรนับรวมสระและวรรณยุกต์ ต้องจบในตัว ถ้ามีตัวเลขต้องมีหน่วยครบ`,
+    ...AD_SHORT_FIELDS,
     "",
     "ตอบ JSON อย่างเดียว:",
     `{"primaryText":"…","headline":"…","description":"…",${POSTER_JSON}}`,
     POSTER_RULES,
   ].join("\n");
-}
-
-export function adCopyMessages(brief: string, cell: AdCell): ChatMessage[] {
-  const user = [
-    `ข้อมูลผลิตภัณฑ์:\n${brief}`,
-    `มุมขายที่ต้องใช้: ${cell.angle.label} — ${cell.angle.promise}`,
-    `โทนที่ต้องใช้: ${cell.tone.label} — ${cell.tone.instruction}`,
-  ].join("\n\n");
-  return [{ role: "system", content: adSystem() }, { role: "user", content: user }];
 }
 
 /**
@@ -196,4 +112,120 @@ export function parseAdCopy(reply: string): AdCopy | null {
     imagePrompt: str(raw.imagePrompt),
     poster: raw.poster,
   };
+}
+
+/** Claims no one can prove; the writer is told never to make them. */
+export const BANNED_SUPERLATIVES = ["อันดับ 1", "ขายดีที่สุด", "คุ้มที่สุด", "ถูกที่สุด", "กล้าเทียบทุกบริษัท"] as const;
+
+/** Facebook's primary text allows 2,200 characters. */
+const PRIMARY_MAX = 2200;
+
+/**
+ * What the code knows about a long ad's round: the premium table, the headline figures, the
+ * Page's contacts (never shown to the model), who it is for and what to stress.
+ */
+export interface LongAdContext {
+  table: string;
+  headline: string;
+  contact: string;
+  reader: string;
+  focus: string;
+  voice: string;
+}
+
+function longAdSystem(): string {
+  return [
+    ...AD_HEAD,
+    "",
+    CORE_RULES,
+    "",
+    "รูปแบบโฆษณายาว (ระบบประกอบเป็นข้อความเดียวให้เอง คุณเขียนแค่ส่วนของคุณ):",
+    `- opening: 1–2 บรรทัด ${AD_LIMITS.fold} ตัวอักษรแรกต้องอ่านรู้เรื่องจบในตัว เพราะ Facebook พับส่วนที่เหลือ`,
+    "- bullets: 5–8 บรรทัด ขึ้นต้นทุกบรรทัดด้วย 🥇 เล่าประโยชน์จากข้อมูลผลิตภัณฑ์เท่านั้น",
+    "- cta: บรรทัดเดียว ชวนทักแชทเช็คเบี้ยฟรี โดยแจ้งเพศและอายุ",
+    "- hashtags: 6–12 แท็ก ขึ้นต้นด้วย #",
+    "- ห้ามเขียนเบี้ยหรือตัวเลขเบี้ยใดๆ ระบบใส่ตารางเบี้ยให้เอง",
+    `- ห้ามอ้างสิ่งที่พิสูจน์ไม่ได้: ${BANNED_SUPERLATIVES.join(" · ")}`,
+    "",
+    "ความยาว (นับตัวอักษร):",
+    ...AD_SHORT_FIELDS,
+    "",
+    "ตอบ JSON อย่างเดียว:",
+    `{"opening":"…","bullets":["🥇 …"],"cta":"…","hashtags":["#…"],"headline":"…","description":"…",${POSTER_JSON}}`,
+    POSTER_RULES,
+  ].join("\n");
+}
+
+/**
+ * One long ad's writer messages. The table and the headline figures are shown as facts it may
+ * refer to; the contacts are not, because the code places them.
+ */
+export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdContext, "contact">): ChatMessage[] {
+  const focus = ctx.focus.trim();
+  const voice = ctx.voice.trim();
+  const reader = ctx.reader.trim();
+  const user = [
+    `ข้อมูลผลิตภัณฑ์:\n${brief}`,
+    `ตารางเบี้ยที่ระบบจะใส่ให้ (อ้างถึงได้ แต่ห้ามเขียนซ้ำ):\n${ctx.table}`,
+    `ตัวเลขเด่นที่ระบบจะใส่ให้:\n${ctx.headline}`,
+    `มุมที่ต้องใช้: ${p.angle}`,
+    `ฮุก (ใช้เป็นแนวของ opening ไม่ต้องตรงคำ): ${p.hook}`,
+    reader ? `กลุ่มคนที่พูดด้วย: ${reader}` : "",
+    focus ? `สิ่งที่อยากเน้น: ${focus}` : "",
+    voice ? `น้ำเสียงแบรนด์: ${voice}` : "",
+    "imagePrompt ต้องบรรยายภาพที่เข้ากับมุมนี้",
+  ].filter(Boolean).join("\n\n");
+  return [{ role: "system", content: longAdSystem() }, { role: "user", content: user }];
+}
+
+export interface LongAd {
+  opening: string;
+  bullets: string[];
+  cta: string;
+  hashtags: string[];
+  headline: string;
+  description: string;
+  imagePrompt: string;
+  poster: unknown;
+}
+
+/** A long ad as the model wrote it, repaired where it can be; null without an opening or a headline. */
+export function parseLongAd(reply: string): LongAd | null {
+  const raw = parseJsonReply<Record<string, unknown>>(reply);
+  if (!raw) return null;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const list = (v: unknown) => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
+  const opening = str(raw.opening);
+  const headline = str(raw.headline).slice(0, 120);
+  if (!opening || !headline) return null;
+  return {
+    opening,
+    bullets: list(raw.bullets).slice(0, 8).map((b) => (b.startsWith("🥇") ? b : `🥇 ${b}`)),
+    cta: str(raw.cta),
+    hashtags: list(raw.hashtags).map((h) => (h.startsWith("#") ? h : `#${h}`)).slice(0, 12),
+    headline,
+    description: str(raw.description).slice(0, 120),
+    imagePrompt: str(raw.imagePrompt),
+    poster: raw.poster,
+  };
+}
+
+/**
+ * The ad's primary text: the model's opening, bullets, cta and hashtags around the code's
+ * figures, in the order a reader meets them. Cut to Facebook's limit at a line boundary,
+ * hashtags first; the table is never cut mid-figure.
+ */
+export function assembleLongAd(ad: LongAd, figures: { headline: string; table: string; contact: string }): string {
+  const join = (blocks: string[]) => blocks.filter(Boolean).join("\n.\n");
+  const head = [ad.opening, figures.headline, ad.bullets.join("\n"), figures.table, ad.cta, figures.contact];
+  const tags = ad.hashtags.join(" ");
+  const len = (s: string) => [...s].length;
+  const full = join([...head, tags]);
+  if (len(full) <= PRIMARY_MAX) return full;
+  const bare = join(head);
+  if (len(bare) <= PRIMARY_MAX) return bare;
+  const lines = bare.split("\n");
+  while (lines.length > 1 && len(lines.join("\n")) > PRIMARY_MAX) lines.pop();
+  // one line alone past the limit is a model that ran on; the limit still holds
+  return [...lines.join("\n")].slice(0, PRIMARY_MAX).join("");
 }

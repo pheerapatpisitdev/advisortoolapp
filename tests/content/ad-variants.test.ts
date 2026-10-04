@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetExceeded } from "@/lib/ai/client";
-import { AD_LIMITS, adCopyMessages, fallbackMatrix, variantAdMessages } from "@/lib/content/ads";
+import { AD_LIMITS, variantAdMessages } from "@/lib/content/ads";
 import type { Variant } from "@/lib/ads/dimensions";
 
 /**
@@ -28,9 +28,8 @@ beforeEach(() => {
 describe("variantAdMessages", () => {
   it("has the same rules as any ad, and names the hook, the people, the angle, the style, the focus and the voice", () => {
     const [system, user] = variantAdMessages("ข้อมูลแบบประกัน", v1, { focus: "เน้นครอบครัว", voice: "อบอุ่น" });
-    const m = fallbackMatrix(1, 1);
-    const [plain] = adCopyMessages("ข้อมูลแบบประกัน", { angle: m.angles[0], tone: m.tones[0] });
-    expect(system.content).toBe(plain.content);
+    expect(system.content).toContain("ห้ามคำนวณ");
+    expect(system.content).toContain("กฎโฆษณาของ Facebook");
     expect(system.content).toContain(`${AD_LIMITS.fold} ตัวอักษรแรก`);
     for (const s of ["ข้อมูลแบบประกัน", v1.hook, v1.persona, v1.angle, v1.style, "เน้นครอบครัว", "อบอุ่น"]) expect(user.content).toContain(s);
     expect(user.content).toContain("imagePrompt");

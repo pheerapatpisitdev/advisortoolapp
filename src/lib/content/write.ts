@@ -1,6 +1,6 @@
 import { BudgetExceeded, chat, parseJsonReply } from "@/lib/ai/client";
 import { DISCLAIMER, TAX_LINE, type ContentOutput, type Lang } from "./output";
-import { parseAdCopy, variantAdMessages } from "./ads";
+import { assembleLongAd, longAdMessages, parseAdCopy, parseLongAd, variantAdMessages, type LongAdContext } from "./ads";
 import type { Variant } from "@/lib/ads/dimensions";
 import { parsePoster, type PosterSpec } from "./poster";
 import { WRITERS } from "./models";
@@ -229,6 +229,42 @@ export async function writeAdVariants(opts: { brief: string; variants: Variant[]
       disclaimer: DISCLAIMER,
       ...(poster ? { poster } : {}),
       ad: { angle: v.angle, tone: v.persona, hook: v.hook, persona: v.persona, style: v.style, combo: v.combo },
+    };
+    return { output: ownerWording(output), model: r.model, costThb: r.costThb };
+  }));
+  return gather(settled);
+}
+
+/**
+ * Long-form ads, one per plan (Ads Studio, 2026-10-05), each in its own call to the large model,
+ * in parallel, as writeAdVariants does. The model writes the opening, bullets, cta and hashtags;
+ * the code puts the headline figures, the premium table and the contacts around them.
+ */
+export async function writeLongAds(opts: { brief: string; plans: PiecePlan[]; ctx: LongAdContext; prefer?: string; clock?: Deadline; saveMs?: number }): Promise<Round> {
+  const { contact, ...shown } = opts.ctx;
+  const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
+  const settled = await Promise.allSettled(opts.plans.map(async (plan) => {
+    const r = await timed((timeoutMs) => chat({
+      tier: "large", task: "content", messages: longAdMessages(opts.brief, plan, shown),
+      maxTokens: 3000, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
+      within: fallbackWriters(opts.prefer),
+    }), WRITE_TIMEOUT_MS, cellMs, "ad");
+    const ad = parseLongAd(r.text);
+    if (!ad) {
+      console.error(`content long ad unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+      throw new UnreadableReply();
+    }
+    const poster = modelPoster(ad.poster);
+    const output: ContentOutput = {
+      hooks: [ad.headline],
+      angle: plan.angle,
+      body: assembleLongAd(ad, { headline: opts.ctx.headline, table: opts.ctx.table, contact }),
+      closing: ad.description,
+      hashtags: [],
+      imagePrompt: ad.imagePrompt,
+      disclaimer: DISCLAIMER,
+      ...(poster ? { poster } : {}),
+      ad: { angle: plan.angle, tone: "" },
     };
     return { output: ownerWording(output), model: r.model, costThb: r.costThb };
   }));
