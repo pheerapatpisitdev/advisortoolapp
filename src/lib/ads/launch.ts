@@ -79,11 +79,20 @@ const NO_TOKEN = "ยังไม่ได้เชื่อมบัญชี�
 const NO_POSTER = "ชิ้นนี้ยังไม่มีโปสเตอร์ สร้างโปสเตอร์ก่อนยิงแอด";
 const BUSY = "กำลังสร้างแอดนี้อยู่ รอสักครู่แล้วลองใหม่";
 const NO_ID = "Facebook ตอบกลับมาแต่ไม่มีไอดี";
+/** How long one request to Meta may take; a function that waits on a hung one is cut off with nothing saved. */
+const REQUEST_TIMEOUT_MS = 30_000;
+/**
+ * A request that timed out or dropped may still have been carried out by Meta: the answer is
+ * what is missing, not the work. Retrying blind could make a second campaign or ad set.
+ */
+const RESULT_UNKNOWN = "ไม่รู้ว่าขั้นนี้สำเร็จหรือไม่ ตรวจใน Ads Manager หรือโหลดหน้านี้ใหม่ก่อนลองอีกครั้ง";
 
 type Graph = { ok: true; body: Record<string, unknown> } | { ok: false; error: string };
 
 /**
  * One Graph request. The token goes in the header, never the URL, so it stays out of logs.
+ * Every request has a 30 s timeout; a timeout or a dropped connection is a failure whose result
+ * is unknown (RESULT_UNKNOWN), handled like any other failure: the step stops and the error is saved.
  * A failure is HTTP not ok or an `error` in the body (Meta sometimes answers 200 with one);
  * error 190 becomes the same reconnect message the figures sync shows.
  */
@@ -99,12 +108,15 @@ async function graph(fetchFn: typeof fetch, token: string, path: string, params?
             headers: { authorization: `Bearer ${token}`, "content-type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams(params).toString(),
             cache: "no-store",
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
           }
-        : { headers: { authorization: `Bearer ${token}` }, cache: "no-store" },
+        : { headers: { authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
     );
     body = ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
   } catch (e) {
-    return { ok: false, error: `ติดต่อ Facebook ไม่ได้ — ${e instanceof Error ? e.message : String(e)}` };
+    const timedOut = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+    const why = timedOut ? "Facebook ไม่ตอบกลับภายใน 30 วินาที" : `ติดต่อ Facebook ไม่ได้ — ${e instanceof Error ? e.message : String(e)}`;
+    return { ok: false, error: `${why} ${RESULT_UNKNOWN}` };
   }
   const err = body.error as { code?: number; message?: string; error_user_msg?: string } | undefined;
   if (!res.ok || err) {

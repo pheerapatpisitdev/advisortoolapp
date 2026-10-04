@@ -318,6 +318,54 @@ describe("making the ad", () => {
   });
 });
 
+describe("a request to Meta that never answers", () => {
+  const aborted = () => Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" });
+
+  it("stops at the ad set, keeps the campaign, says the result is unknown, and sends nothing after", async () => {
+    let calls = 0;
+    const deps2: LaunchDeps = {
+      ...deps(),
+      fetchFn: (async (input: string | URL | Request) => {
+        calls++;
+        sent.push({ method: "POST", path: new URL(String(input)).pathname, url: String(input), auth: null, params: new URLSearchParams() });
+        if (calls === 1) return new Response(JSON.stringify({ id: "C1" }), { status: 200 });
+        throw aborted();
+      }) as typeof fetch,
+    };
+    const result = await runLaunch(input, deps2);
+
+    expect(result).toMatchObject({ ok: false, step: "adset" });
+    expect(!result.ok && result.error).toContain("ไม่รู้ว่า");
+    expect(!result.ok && result.error).toContain("Ads Manager");
+    expect(sent.map((s) => s.path)).toEqual(["/v23.0/act_1/campaigns", "/v23.0/act_1/adsets"]);
+    expect(rows[0]).toMatchObject({ step: "campaign", campaignId: "C1", adsetId: null, claimedAt: null });
+    expect(rows[0].error).toContain("Ads Manager");
+  });
+
+  it("gives every request a timeout signal, so a hung Meta cannot hold the function open", async () => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    const base = fetchFn();
+    replies = [...FULL];
+    const deps2: LaunchDeps = {
+      ...deps(),
+      fetchFn: ((url: string | URL | Request, init?: RequestInit) => { signals.push(init?.signal); return base(url, init); }) as typeof fetch,
+    };
+    expect((await runLaunch(input, deps2)).ok).toBe(true);
+    expect(signals).toHaveLength(5);
+    for (const sig of signals) expect(sig).toBeInstanceOf(AbortSignal);
+  });
+
+  it("treats an AbortError the same way", async () => {
+    const deps2: LaunchDeps = {
+      ...deps(),
+      fetchFn: (async () => { throw Object.assign(new Error("This operation was aborted"), { name: "AbortError" }); }) as typeof fetch,
+    };
+    const result = await runLaunch(input, deps2);
+    expect(result).toMatchObject({ ok: false, step: "campaign" });
+    expect(!result.ok && result.error).toContain("ไม่รู้ว่า");
+  });
+});
+
 describe("refusing before Meta is asked", () => {
   it.each([
     ["no poster", () => { poster = null; }, {}],

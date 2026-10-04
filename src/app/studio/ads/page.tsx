@@ -5,6 +5,10 @@ import { adsLaunchSetup } from "./actions";
 import { AdsLaunch } from "./AdsLaunch";
 
 export const dynamic = "force-dynamic";
+// the launch actions run as this page: up to five Meta requests, each allowed 30 s (src/lib/ads/launch.ts),
+// and the page itself asks Meta for every launched ad's status. 300 s is what the Hobby plan allows, as on the
+// other Studio pages; the default would cut a slow launch off between two steps.
+export const maxDuration = 300;
 export const metadata: Metadata = { title: "ยิงแอด | Studio" };
 
 /**
