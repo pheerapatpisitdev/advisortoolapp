@@ -72,7 +72,7 @@ const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn(), setContentStatus: 
 vi.mock("@/app/studio/actions", () => studio);
 
 const {
-  launchAd, chooseAdManageAccount, activateAd,
+  launchAd, chooseAdManageAccounts, activateAd,
   adsStudioHome, createAdCampaign, adCampaignRoom, updateAdCampaign, saveAdCopy, setAdStatus,
 } = await import("@/app/studio/ads/actions");
 
@@ -131,7 +131,7 @@ describe("who may use the actions", () => {
   it("refuses everyone but the owner, on every action, before anything is read or written", async () => {
     who.owner = false;
     await expect(launchAd(input())).rejects.toThrow("ไม่มีสิทธิ์");
-    await expect(chooseAdManageAccount(ACT)).rejects.toThrow("ไม่มีสิทธิ์");
+    await expect(chooseAdManageAccounts([ACT])).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(activateAd("L1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(adsStudioHome(PAGE)).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", angles: 1, tones: 1 })).rejects.toThrow("ไม่มีสิทธิ์");
@@ -275,26 +275,69 @@ describe("the ad-account strip", () => {
 
   it("reads the accounts a half-finished login is waiting to choose between", async () => {
     const { connection } = await adsStudioHome(PAGE);
-    expect(connection.choices).toEqual([{ id: ACT, name: "บัญชีทดสอบ" }]);
+    expect(connection.choices).toEqual([{ id: ACT, name: "บัญชีทดสอบ", currency: "THB" }]);
     expect(fb.listAdAccounts).toHaveBeenCalledWith(SECRET);
   });
 });
 
-describe("choosing an account after the login", () => {
-  it("keeps the picked account with the waiting token, clears the wait, and audits", async () => {
-    expect(await chooseAdManageAccount(ACT)).toEqual({ ok: true });
+describe("choosing accounts after the login", () => {
+  const TWO = "act_2";
+  beforeEach(() => {
+    fb.listAdAccounts.mockResolvedValue([
+      { id: ACT, name: "บัญชีทดสอบ", currency: "THB" },
+      { id: TWO, name: "บัญชีสอง", currency: "USD" },
+    ]);
+  });
+
+  it("keeps every picked account with the waiting token, clears the wait, and audits each", async () => {
+    expect(await chooseAdManageAccounts([ACT, TWO])).toEqual({ ok: true });
+    expect(conn.saveAdManageAccount).toHaveBeenCalledTimes(2);
     expect(conn.saveAdManageAccount).toHaveBeenCalledWith({
       id: ACT, name: "บัญชีทดสอบ", currency: "THB", token: SECRET, scopes: ["ads_management"],
     });
-    expect(conn.clearPendingAdsManage).toHaveBeenCalled();
+    expect(conn.saveAdManageAccount).toHaveBeenCalledWith({
+      id: TWO, name: "บัญชีสอง", currency: "USD", token: SECRET, scopes: ["ads_management"],
+    });
+    expect(conn.clearPendingAdsManage).toHaveBeenCalledTimes(1);
     expect(who.audit).toHaveBeenCalledWith("connect-ads-manage", ACT, expect.anything());
+    expect(who.audit).toHaveBeenCalledWith("connect-ads-manage", TWO, expect.anything());
   });
 
-  it("says so when the login has expired, or the account was not in it", async () => {
-    conn.readPendingAdsManage.mockResolvedValueOnce(null);
-    expect(await chooseAdManageAccount(ACT)).toMatchObject({ ok: false });
-    expect(await chooseAdManageAccount("act_999")).toMatchObject({ ok: false });
+  it("takes each account once, however often it is sent", async () => {
+    expect(await chooseAdManageAccounts([ACT, ACT])).toEqual({ ok: true });
+    expect(conn.saveAdManageAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an empty pick without reading anything", async () => {
+    expect(await chooseAdManageAccounts([])).toMatchObject({ ok: false, error: "ยังไม่ได้เลือกบัญชีโฆษณา" });
+    expect(conn.readPendingAdsManage).not.toHaveBeenCalled();
     expect(conn.saveAdManageAccount).not.toHaveBeenCalled();
+  });
+
+  it("says so when the login has expired", async () => {
+    conn.readPendingAdsManage.mockResolvedValueOnce(null);
+    expect(await chooseAdManageAccounts([ACT])).toMatchObject({ ok: false });
+    expect(conn.saveAdManageAccount).not.toHaveBeenCalled();
+  });
+
+  it("names an account that was not in the login, keeps the others, and leaves the wait for another try", async () => {
+    const res = await chooseAdManageAccounts([ACT, "act_999"]);
+    expect(res).toMatchObject({ ok: false });
+    expect(res.ok ? "" : res.error).toContain("act_999");
+    expect(conn.saveAdManageAccount).toHaveBeenCalledTimes(1);
+    expect(conn.clearPendingAdsManage).not.toHaveBeenCalled();
+  });
+
+  it("names an account whose save failed and leaves the wait", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    conn.saveAdManageAccount.mockRejectedValueOnce(new Error("db down"));
+    const res = await chooseAdManageAccounts([ACT, TWO]);
+    expect(res).toMatchObject({ ok: false });
+    expect(res.ok ? "" : res.error).toContain("บัญชีทดสอบ");
+    expect(res.ok ? "" : res.error).not.toContain("db down");
+    expect(conn.clearPendingAdsManage).not.toHaveBeenCalled();
+    expect(who.audit).toHaveBeenCalledWith("connect-ads-manage", TWO, expect.anything());
+    log.mockRestore();
   });
 });
 
