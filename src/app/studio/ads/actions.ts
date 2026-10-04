@@ -74,7 +74,8 @@ export interface Connection {
     tokenValid: boolean | null;
   }[];
   /** the ad accounts a half-finished login is waiting to choose between */
-  choices: { id: string; name: string }[];
+  /** the ad accounts a finished Facebook login reached, waiting to be picked; currency so the page can say which can launch */
+  choices: { id: string; name: string; currency: string | null }[];
   maxDailyBudgetThb: number;
 }
 
@@ -132,11 +133,11 @@ async function expiries(ids: string[]): Promise<Map<string, TokenExpiry>> {
   return out;
 }
 
-async function pendingChoices(): Promise<{ id: string; name: string }[]> {
+async function pendingChoices(): Promise<Connection["choices"]> {
   try {
     const pending = await readPendingAdsManage();
     if (!pending) return [];
-    return (await listAdAccounts(pending.token)).map((a) => ({ id: a.id, name: a.name }));
+    return (await listAdAccounts(pending.token)).map((a) => ({ id: a.id, name: a.name, currency: a.currency }));
   } catch (e) {
     console.error("ads-manage pending accounts unreadable:", e);
     return [];
@@ -529,21 +530,38 @@ export async function launchAd(input: LaunchInput): Promise<LaunchResult> {
   }
 }
 
-/** Finishes a login where the person may reach more than one ad account: the one picked is kept. */
-export async function chooseAdManageAccount(actId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+/**
+ * Keeps the ad accounts picked from a finished Facebook login, any number at once (owner,
+ * 2026-10-04), each with the login's token. The waiting login is cleared only when every pick
+ * was kept: an account that could not be saved is named and can be picked again from the same
+ * list, without another Facebook login.
+ */
+export async function chooseAdManageAccounts(actIds: string[]): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireStaff("owner");
+  const ids = [...new Set(actIds)];
+  if (ids.length === 0) return { ok: false, error: "ยังไม่ได้เลือกบัญชีโฆษณา" };
   try {
     const pending = await readPendingAdsManage();
     if (!pending) return { ok: false, error: "การเชื่อมต่อหมดอายุแล้ว กดเชื่อมบัญชีโฆษณาใหม่อีกครั้ง" };
-    const a = (await listAdAccounts(pending.token)).find((x) => x.id === actId);
-    if (!a) return { ok: false, error: "ไม่พบบัญชีนี้ในบัญชีที่เพิ่งเข้าสู่ระบบ" };
-    await saveAdManageAccount({ id: a.id, name: a.name, currency: a.currency, token: pending.token, scopes: pending.scopes });
-    await clearPendingAdsManage();
-    await audit("connect-ads-manage", a.id, { name: a.name });
+    const available = await listAdAccounts(pending.token);
+    const failed: string[] = [];
+    for (const id of ids) {
+      const a = available.find((x) => x.id === id);
+      if (!a) { failed.push(`${id} (ไม่พบในบัญชีที่เพิ่งเข้าสู่ระบบ)`); continue; }
+      try {
+        await saveAdManageAccount({ id: a.id, name: a.name, currency: a.currency, token: pending.token, scopes: pending.scopes });
+        await audit("connect-ads-manage", a.id, { name: a.name });
+      } catch (e) {
+        console.error("chooseAdManageAccounts: saving", a.id, "failed:", e);
+        failed.push(a.name);
+      }
+    }
     revalidatePath("/studio/ads", "layout");
+    if (failed.length > 0) return { ok: false, error: `เชื่อมไม่สำเร็จ: ${failed.join(", ")} — ลองเลือกใหม่อีกครั้ง` };
+    await clearPendingAdsManage();
     return { ok: true };
   } catch (e) {
-    console.error("chooseAdManageAccount failed:", e);
+    console.error("chooseAdManageAccounts failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
   }
 }

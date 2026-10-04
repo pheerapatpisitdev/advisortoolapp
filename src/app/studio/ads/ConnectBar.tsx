@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { errorNote, Note, type NoteState } from "../ui/editor-fields";
-import { chooseAdManageAccount, type Connection } from "./actions";
+import { chooseAdManageAccounts, type Connection } from "./actions";
 import { solid, TONES } from "./styles";
 
 /**
@@ -48,18 +48,27 @@ function Account({ a, now }: { a: Connection["accounts"][number]; now: number })
   );
 }
 
-/** A login that reached several ad accounts: the one to keep is picked here. */
-function Choices({ choices }: { choices: Connection["choices"] }) {
+/**
+ * A finished login's ad accounts, any number of them picked at once (owner, 2026-10-04). Nothing
+ * is ticked to begin with: the login may reach twenty accounts, and only the ones ticked are kept.
+ */
+function Choices({ choices, connected }: { choices: Connection["choices"]; connected: Set<string> }) {
   const router = useRouter();
-  const [chosen, setChosen] = useState(choices[0]?.id ?? "");
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<NoteState>(null);
+
+  const toggle = (id: string) => setChosen((was) => {
+    const next = new Set(was);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   async function choose() {
     setBusy(true);
     setNote(null);
     try {
-      const res = await chooseAdManageAccount(chosen);
+      const res = await chooseAdManageAccounts([...chosen]);
       if (res.ok) router.refresh();
       else setNote(errorNote(res.error));
     } catch {
@@ -71,21 +80,29 @@ function Choices({ choices }: { choices: Connection["choices"] }) {
 
   return (
     <div className="space-y-2 border-t border-[var(--ct-hair)] pt-3">
-      <p className="text-sm">เข้าสู่ระบบแล้ว เลือกบัญชีโฆษณาที่จะใช้สร้างแอด</p>
+      <p className="text-sm">เข้าสู่ระบบแล้ว ติ๊กบัญชีโฆษณาที่จะใช้สร้างแอด เลือกได้หลายบัญชี</p>
       <ul className="divide-y divide-[var(--ct-hair)] rounded-lg border border-[var(--ct-hair)]">
         {choices.map((c) => (
           <li key={c.id}>
             <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2">
-              <input type="radio" name="ads-manage-choice" checked={chosen === c.id} onChange={() => setChosen(c.id)} disabled={busy} className="size-4 shrink-0" />
+              <input type="checkbox" checked={chosen.has(c.id)} onChange={() => toggle(c.id)} disabled={busy} className="size-4 shrink-0" />
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">{c.name}</span>
-                <span className="block break-all text-xs text-[var(--ct-mute)]">{c.id}</span>
+                <span className="block truncate text-sm font-medium">
+                  {c.name}
+                  {connected.has(c.id) && <span className="ml-2 text-xs font-normal text-[var(--ct-mute)]">เชื่อมแล้ว</span>}
+                </span>
+                <span className="block break-all text-xs text-[var(--ct-mute)]">{c.id}{c.currency ? ` · ${c.currency}` : ""}</span>
+                {c.currency !== null && c.currency !== "THB" && (
+                  <span className="block text-xs text-[var(--ct-warn-ink)]">ยิงแอดไม่ได้ (ไม่ใช่สกุลบาท)</span>
+                )}
               </span>
             </label>
           </li>
         ))}
       </ul>
-      <button type="button" disabled={busy || !chosen} onClick={choose} className={solid}>{busy ? "กำลังเชื่อมต่อ…" : "ใช้บัญชีนี้"}</button>
+      <button type="button" disabled={busy || chosen.size === 0} onClick={choose} className={solid}>
+        {busy ? "กำลังเชื่อมต่อ…" : chosen.size > 0 ? `เชื่อม ${chosen.size} บัญชี` : "เลือกบัญชีก่อน"}
+      </button>
       <Note note={note} />
     </div>
   );
@@ -146,7 +163,7 @@ export function ConnectBar({ connection, outcome, warn, detail }: {
             (บน Vercel หรือ .env.local แล้วรีสตาร์ท ขั้นตอนอยู่ใน docs/ads-manage-permission.md)
           </p>
         )}
-        {choices.length > 0 && <Choices choices={choices} />}
+        {choices.length > 0 && <Choices choices={choices} connected={new Set(accounts.map((a) => a.id))} />}
       </section>
     </div>
   );
