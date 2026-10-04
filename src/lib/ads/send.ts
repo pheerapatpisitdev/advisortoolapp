@@ -24,8 +24,33 @@ import {
  * image, a creative and an ad for each piece — every one PAUSED. Nothing here switches anything
  * on except activateSend, a separate press; a send never spends money by itself.
  *
- * The campaign, ad set, creative and ad carry exactly the fields a single launch does: both
- * engines build them with graph.ts, and the reasons for each field are in graph.ts.
+ * The campaign, ad set, creative and ad are built with graph.ts, which the earlier one-by-one
+ * launch (since removed) shared, so they carry the fields it did. The reasons for each field:
+ *
+ * Fields checked against Marketing API v23.0 before writing; differences from the plan:
+ * - Campaign: also sends is_adset_budget_sharing_enabled=false. The budget sits on the ad set,
+ *   and Meta refuses such a campaign on some accounts (code 100, subcode 4834011, "You must
+ *   specify True or False in the field is_adset_budget_sharing_enabled if you are not using
+ *   campaign budget"); v24.0 makes it required for everyone. false keeps the owner's daily
+ *   figure exact — with one ad set there is nothing to share with anyway.
+ *   https://developers.facebook.com/docs/graph-api/changelog/version24.0/
+ *   https://developers.facebook.com/docs/marketing-api/reference/ad-account/campaigns/
+ * - Ad set: Thailand, aged 20 and up, Advantage+ audience on. Meta refused the first live
+ *   launch (2026-10-04) with countries only: an audience that can reach people under 20 in
+ *   Thailand (the age of majority there) or under 18 anywhere is not allowed for this kind of
+ *   ad. With an age set, v23.0 wants targeting_automation.advantage_audience stated; 1 keeps
+ *   the default it enrols new ad sets in, and location is never relaxed by it.
+ *   https://developers.facebook.com/docs/graph-api/changelog/version23.0/
+ *   It also names the verified advertiser and payer Meta requires for Thailand
+ *   (regional_regulated_categories THAILAND_UNIVERSAL, universal_beneficiary/universal_payer);
+ *   the second live try was refused without them.
+ *   https://developers.facebook.com/docs/marketing-api/reference/ad-campaign/
+ * - Image: POST /adimages answers {images: {<name>: {hash, ...}}}, not a top-level id, so the
+ *   hash is read from the first entry of `images`.
+ *   https://developers.facebook.com/docs/marketing-api/reference/ad-account/adimages/
+ * - Creative and ad: the planned fields match; link_data.link must equal the button's link,
+ *   so both are the same checked URL.
+ *   https://developers.facebook.com/docs/marketing-api/reference/ad-creative-link-data/
  *
  * Every Meta id is saved the moment Meta returns it (send-store.ts), so a break stops there and
  * resumeSend carries on with what was made instead of making a second campaign or ad set. A
