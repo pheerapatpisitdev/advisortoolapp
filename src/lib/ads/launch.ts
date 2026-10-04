@@ -16,10 +16,11 @@ import { EXPIRED } from "./sync";
  * Every check that can fail without Meta (budget, currency, link, token, poster) runs before
  * the first request, so a refused launch leaves nothing half-made on the ad account.
  *
- * Recreating over a launch that was switched on first pauses its campaign (POST /{id}
- * status=PAUSED, success required). A retired row is no longer found, so an ad left running
- * under it would keep spending beside the new one and double the daily cap. If the pause
- * fails, the old row is not retired and nothing new is made.
+ * Recreating over a launch that made a campaign first pauses that campaign (POST /{id}
+ * status=PAUSED, success required), switched on by this app or not. A retired row is no longer
+ * found, so an ad left running under it would keep spending beside the new one and double the
+ * daily cap. If the pause fails, the old row is not retired and nothing new is made. A row
+ * with no campaign id made nothing on Meta, so nothing is paused.
  *
  * Fields checked against Marketing API v23.0 before writing; differences from the plan:
  * - Campaign: also sends is_adset_budget_sharing_enabled=false. The budget sits on the ad set,
@@ -179,9 +180,11 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
   if (input.recreate) {
     const old = await store.findLaunch(input.pieceId, input.actId);
     if (old) {
-      // a switched-on ad keeps spending after its row is retired; pause it first or the
-      // account would run two ads and the daily cap would be passed twice over
-      if (old.activatedAt) {
+      // Whatever the row says about activation, a campaign it made is on Meta and a retired row
+      // is no longer found: if it was switched on, or someone switched it on in Ads Manager, it
+      // would keep spending beside the new one and the daily cap would be passed twice over.
+      // A row with no campaign made nothing, so there is nothing to pause.
+      if (old.campaignId) {
         const paused = await pauseCampaign(fetchFn, token, old.campaignId);
         if (!paused.ok) return { ok: false, step: "check", error: paused.error };
       }

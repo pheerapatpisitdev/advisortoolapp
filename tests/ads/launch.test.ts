@@ -250,17 +250,44 @@ describe("making the ad", () => {
     replies = [...FULL];
     await runLaunch(input, deps());
     sent = [];
-    replies = [ok({ id: "C2" }), ok({ id: "S2" }), ok({ images: { bytes: { hash: "H2" } } }), ok({ id: "R2" }), ok({ id: "A2" })];
+    replies = [ok({ success: true }), ok({ id: "C2" }), ok({ id: "S2" }), ok({ images: { bytes: { hash: "H2" } } }), ok({ id: "R2" }), ok({ id: "A2" })];
 
     const fresh = await runLaunch({ ...input, recreate: true }, deps());
     expect(fresh.ok).toBe(true);
-    // the old one was never switched on, so there is nothing to pause
+    // never switched on, but its campaign exists on Meta: pause it whatever the row says about activation
     expect(sent.map((s) => s.path)).toEqual([
-      "/v23.0/act_1/campaigns", "/v23.0/act_1/adsets", "/v23.0/act_1/adimages", "/v23.0/act_1/adcreatives", "/v23.0/act_1/ads",
+      "/v23.0/C1", "/v23.0/act_1/campaigns", "/v23.0/act_1/adsets", "/v23.0/act_1/adimages", "/v23.0/act_1/adcreatives", "/v23.0/act_1/ads",
     ]);
+    expect(sent[0].params.get("status")).toBe("PAUSED");
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ superseded: true, adId: "A1" });
     expect(rows[1]).toMatchObject({ superseded: false, step: "ad", campaignId: "C2", adId: "A2" });
+  });
+
+  it("sends no pause when the old launch never made a campaign", async () => {
+    replies = [fail(100, "nope")];
+    expect(await runLaunch(input, deps())).toMatchObject({ ok: false, step: "campaign" });
+    expect(rows[0].campaignId).toBeNull();
+    sent = [];
+    replies = [...FULL];
+
+    const fresh = await runLaunch({ ...input, recreate: true }, deps());
+    expect(fresh.ok).toBe(true);
+    expect(sent.map((s) => s.path)).toEqual([
+      "/v23.0/act_1/campaigns", "/v23.0/act_1/adsets", "/v23.0/act_1/adimages", "/v23.0/act_1/adcreatives", "/v23.0/act_1/ads",
+    ]);
+    expect(rows[0]).toMatchObject({ superseded: true, campaignId: null });
+  });
+
+  it("pauses the campaign of a launch that stopped halfway and was never switched on", async () => {
+    replies = [ok({ id: "C1" }), fail(100, "bad targeting")];
+    await runLaunch(input, deps());
+    sent = [];
+    replies = [ok({ success: true }), ...FULL];
+
+    expect((await runLaunch({ ...input, recreate: true }, deps())).ok).toBe(true);
+    expect(sent[0]).toMatchObject({ method: "POST", path: "/v23.0/C1" });
+    expect(sent[0].params.get("status")).toBe("PAUSED");
   });
 
   async function switchedOn(): Promise<void> {
