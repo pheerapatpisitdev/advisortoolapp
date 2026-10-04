@@ -106,11 +106,20 @@ export function tableCells(t: PremiumTable): number[] {
 }
 
 /**
+ * Every line of the table but its premiums: the term, the package note, each row's heading and
+ * note. The sums the writer is shown and may name — "คุ้มครอง 4 ล้าน" is the doubled cover a
+ * Life Protect row heads with, though its brief says only the plain sums.
+ */
+export function tableSums(t: PremiumTable): string {
+  return [t.term, t.note ?? "", ...t.rows.flatMap((r) => [r.heading, r.note ?? ""])].filter(Boolean).join("\n");
+}
+
+/**
  * The figures in what the model itself wrote (never the code's lines) that it may not write: any
- * amount the brief does not have, and any premium of the table restated — the writer is told the
- * table but must not say a premium (spec "Keeping figures true"). Checked once, when the ad is
- * written; an edit later is checked against the brief and every line the code placed.
+ * amount neither the brief nor the table's sums have, and any premium of the table restated — the
+ * writer is told the table but must not say a premium (spec "Keeping figures true"). Checked once,
+ * when the ad is written; an edit later is checked against the brief and every line the code placed.
  */
 export function restatedFigures(modelText: string, brief: string, t: PremiumTable): string[] {
-  return [...new Set([...strayNumbers(modelText, brief), ...sameFigures(modelText, tableCells(t))])];
+  return [...new Set([...strayNumbers(modelText, `${brief}\n${tableSums(t)}`), ...sameFigures(modelText, tableCells(t))])];
 }

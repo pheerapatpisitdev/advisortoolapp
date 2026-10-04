@@ -234,8 +234,27 @@ describe("the model's own words — final review 4", () => {
     expect(restatedFigures("เบี้ยเริ่ม 2176.29 บาท", "ประกันมะเร็ง", satang)).toEqual(["2176.29 บาท"]);
   });
 
-  it("flag a figure the brief does not have, even one the table shows as a sum", () => {
+  it("flag a figure neither the brief nor the table's sums have", () => {
     expect(restatedFigures("คุ้มครองสูงสุด 7 ล้าน", brief, t)).toEqual(["7 ล้าน"]);
+  });
+
+  it("no plan's own row headings or notes are flagged in the model's words, at 30", () => {
+    for (const href of Object.keys(NUMBERS_PLANS)) {
+      const table = premiumTable(href, 30, today);
+      if (!table) continue;
+      const cited = table.rows.map((r) => [r.heading, r.note ?? ""].join(" ")).join(" · ");
+      expect(restatedFigures(cited, "", table), href).toEqual([]);
+    }
+  });
+
+  it("leave a sum the table itself prints, though the brief lacks it", () => {
+    // the headline's own sum and the package note's base, written into the model's words
+    expect(restatedFigures("ส่งต่อมรดก 2,000,000 บาท รวมฐาน 150,000 บาท", "มรดกเพื่อครอบครัว", t)).toEqual([]);
+    const lp = premiumTable("/lifeprotect", 30, today)!;
+    // "คุ้มครอง 4 ล้าน" is the doubled cover the table heads a row with; its brief says only the plain sums
+    expect(restatedFigures("คุ้มครองสูงสุด 4 ล้าน ถ้าจากไปก่อนอายุ 60", "Life Protect x 2 ทุน 1 ล้าน", lp)).toEqual([]);
+    // the table's premiums stay off limits in the model's words
+    expect(restatedFigures("คุ้มครอง 4 ล้าน เบี้ย 43,200 บาท/ปี", "Life Protect x 2", lp)).toEqual(["43,200 บาท"]);
   });
 
   it("leave coverage named from the brief alone", () => {
