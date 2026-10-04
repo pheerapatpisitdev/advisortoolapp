@@ -305,7 +305,14 @@ async function drive(
         fetchFn,
         token,
         `${act}/adsets`,
-        adsetParams({ name: batchName, campaignId: send.metaCampaignId!, dailyBudgetMinor: send.dailyBudgetMinor, identity }),
+        adsetParams({
+          name: batchName,
+          campaignId: send.metaCampaignId!,
+          dailyBudgetMinor: send.dailyBudgetMinor,
+          identity,
+          goal: { objective: "traffic", link: send.link },
+          pageId: send.pageId,
+        }),
       );
       if (!r.ok) return stop("adset", r.error);
       const id = idOf(r.body);
@@ -376,7 +383,7 @@ async function makeAd(
         name,
         pageId: send.pageId,
         imageHash,
-        link: send.link,
+        goal: { objective: "traffic", link: send.link },
         primaryText: text.primaryText,
         headline: text.headline,
         description: text.description,

@@ -210,7 +210,14 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
         fetchFn,
         token,
         `${act}/adsets`,
-        adsetParams({ name, campaignId: row.campaignId!, dailyBudgetMinor: row.dailyBudgetMinor, identity }),
+        adsetParams({
+          name,
+          campaignId: row.campaignId!,
+          dailyBudgetMinor: row.dailyBudgetMinor,
+          identity,
+          goal: { objective: "traffic", link: row.link },
+          pageId: row.pageId,
+        }),
       );
       if (!r.ok) return stop("adset", r.error);
       const id = idOf(r.body);
@@ -235,7 +242,7 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
           name,
           pageId: row.pageId,
           imageHash: row.imageHash,
-          link: row.link,
+          goal: { objective: "traffic", link: row.link },
           primaryText: row.primaryText,
           headline: row.headline,
           description: row.description,
