@@ -212,20 +212,38 @@ export function parseLongAd(reply: string): LongAd | null {
 
 /**
  * The ad's primary text: the model's opening, bullets, cta and hashtags around the code's
- * figures, in the order a reader meets them. Cut to Facebook's limit at a line boundary,
- * hashtags first; the table is never cut mid-figure.
+ * figures, in the order a reader meets them. Over Facebook's limit, only the model's words are
+ * trimmed, in this order until it fits: the hashtags, the bullets from the last one, the cta,
+ * then the opening (whole lines from the top while they fit; if even its first line does not,
+ * that line is cut by characters). The headline figures, the table and the contacts are never
+ * trimmed, and empty blocks are left out so no "." spacer is left dangling.
  */
 export function assembleLongAd(ad: LongAd, figures: { headline: string; table: string; contact: string }): string {
-  const join = (blocks: string[]) => blocks.filter(Boolean).join("\n.\n");
-  const head = [ad.opening, figures.headline, ad.bullets.join("\n"), figures.table, ad.cta, figures.contact];
-  const tags = ad.hashtags.join(" ");
   const len = (s: string) => [...s].length;
-  const full = join([...head, tags]);
-  if (len(full) <= PRIMARY_MAX) return full;
-  const bare = join(head);
-  if (len(bare) <= PRIMARY_MAX) return bare;
-  const lines = bare.split("\n");
-  while (lines.length > 1 && len(lines.join("\n")) > PRIMARY_MAX) lines.pop();
-  // one line alone past the limit is a model that ran on; the limit still holds
-  return [...lines.join("\n")].slice(0, PRIMARY_MAX).join("");
+  const build = (opening: string, bullets: string[], cta: string, tags: string) =>
+    [opening, figures.headline, bullets.join("\n"), figures.table, cta, figures.contact, tags]
+      .filter((b) => b.trim()).join("\n.\n");
+  const fits = (s: string) => len(s) <= PRIMARY_MAX;
+
+  const tags = ad.hashtags.join(" ");
+  let out = build(ad.opening, ad.bullets, ad.cta, tags);
+  if (fits(out)) return out;
+  for (let n = ad.bullets.length; n >= 0; n--) {
+    out = build(ad.opening, ad.bullets.slice(0, n), ad.cta, "");
+    if (fits(out)) return out;
+  }
+  out = build(ad.opening, [], "", "");
+  if (fits(out)) return out;
+  // the opening alone is over: keep whole lines from the top while they fit
+  const rest = build("", [], "", "");
+  const room = PRIMARY_MAX - len(rest) - 3; // the "\n.\n" joining the opening to the rest
+  const lines = ad.opening.split("\n");
+  let kept = "";
+  for (const line of lines) {
+    const next = kept ? `${kept}\n${line}` : line;
+    if (len(next) > room) break;
+    kept = next;
+  }
+  if (!kept) kept = [...lines[0]].slice(0, Math.max(0, room)).join("").trimEnd();
+  return build(kept, [], "", "");
 }

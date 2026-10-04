@@ -63,17 +63,41 @@ describe("assembleLongAd", () => {
     expect(out).toBe([ad.opening, headline, ad.bullets.join("\n"), table, ad.cta, contact, "#ประกันชีวิต #มรดก"].join("\n.\n"));
     for (const f of ["9,060", "755", "11,684", "974"]) expect(out).toContain(f);
   });
-  it("stays within 2,200 characters, dropping the hashtags first", () => {
+  const intact = (out: string) => {
+    expect([...out].length).toBeLessThanOrEqual(2200);
+    expect(out).toContain(table);
+    expect(out).toContain(headline);
+    expect(out).toContain(contact);
+    expect(out.endsWith("\n.")).toBe(false);
+    expect(out).not.toContain("\n.\n.\n");
+  };
+  it("drops the hashtags first", () => {
     const long = { ...ad, bullets: Array.from({ length: 8 }, () => "🥇 " + "ก".repeat(120)), opening: "ข".repeat(900), hashtags: ["#" + "ค".repeat(300)] };
     const out = assembleLongAd(long, figures);
-    expect([...out].length).toBeLessThanOrEqual(2200);
+    intact(out);
     expect(out).not.toContain("#ค");
-    expect(out).toContain(table);
+    expect(out).toContain(long.cta);
   });
-  it("cuts at a line boundary when even the body is too long", () => {
-    const long = { ...ad, opening: "ข".repeat(2500), hashtags: [] };
-    const out = assembleLongAd(long, figures);
-    expect([...out].length).toBeLessThanOrEqual(2200);
+  it("drops bullets from the last, keeping the cta, when the bullets are what make it too long", () => {
+    const bullets = Array.from({ length: 8 }, (_, i) => `🥇 ${i}` + "ก".repeat(250));
+    const out = assembleLongAd({ ...ad, bullets, hashtags: [] }, figures);
+    intact(out);
+    expect(out).toContain(ad.cta);
+    expect(out).toContain(bullets[0]);
+    expect(out).not.toContain(bullets[7]);
+  });
+  it("shortens a 2,500-character single-line opening and keeps the table and contacts whole", () => {
+    const out = assembleLongAd({ ...ad, opening: "ข".repeat(2500), hashtags: [] }, figures);
+    intact(out);
+    expect(out.startsWith("ข")).toBe(true);
+    expect(out).not.toContain("ข".repeat(2500));
+  });
+  it("keeps whole opening lines from the top while they fit", () => {
+    const opening = ["หนึ่ง", "ก".repeat(1500), "ข".repeat(1500)].join("\n");
+    const out = assembleLongAd({ ...ad, bullets: [], hashtags: [], opening }, figures);
+    intact(out);
+    expect(out).toContain("หนึ่ง\n" + "ก".repeat(1500));
+    expect(out).not.toContain("ข".repeat(1500));
   });
 });
 
