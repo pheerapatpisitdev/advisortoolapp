@@ -181,7 +181,19 @@ describe("FALLBACK_DIMENSIONS", () => {
     expect(f.hooks).toHaveLength(8);
     expect(f.personas.map((p) => p.text)).toEqual(["พ่อแม่มือใหม่", "คนทำงานอายุ 30", "คนใกล้เกษียณ"]);
     expect(f.angles.map((a) => a.text)).toEqual(ANGLE_BANK.slice(0, 4).map((a) => a.label));
-    expect(f.styles.map((s) => s.text)).toEqual(["ภาพถ่ายครอบครัว", "ตัวเลขเด่นบนพื้นสี", "Before & After"]);
+    expect(f.styles.map((s) => s.text)).toEqual(["ภาพถ่ายครอบครัว", "พื้นสีเรียบ เว้นที่ให้ตัวเลข", "ภาพคู่สองช่วงเวลา"]);
+  });
+
+  it("asks the painter for no lettering or numbers — the poster lays the words and figures on top", () => {
+    for (const s of f.styles.slice(1)) {
+      expect(s.text).not.toMatch(/ตัวเลขเด่น|Before|After/);
+      expect(s.note).toContain("ไม่มีตัวหนังสือหรือตัวเลขในภาพ");
+    }
+  });
+
+  it("starts with no hook that sounds like a promise about the product's terms", () => {
+    expect(f.hooks.map((h) => h.text)).not.toContain("ยิ่งเริ่มเร็ว เงื่อนไขยิ่งดี");
+    expect(f.hooks.some((h) => h.text.includes("เงื่อนไข"))).toBe(false);
   });
 
   it("survives its own cleaning unchanged", () => {
