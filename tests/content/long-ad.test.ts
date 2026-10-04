@@ -14,7 +14,7 @@ const table = [
   "🙆‍♀️ หญิง = 9,060 บาท/ปี (ตกเดือนละ 755)",
   "🕵️‍♂️ ชาย = 11,684 บาท/ปี (ตกเดือนละ 974)",
 ].join("\n");
-const headline = "💁‍♀️ คุ้มครองชีวิต 3,000,000 บาท\n💰 ออมเพียง 9,060 บาท/ปี";
+const headline = "มรดกเพื่อครอบครัว\n💁‍♀️ แผนคุ้มครองมรดก 3,000,000 บาท\n💰 เบี้ยปีแรก 9,060 บาท/ปี (ตกเดือนละ 755) (หญิง อายุ 30 ปี)";
 const contact = "👉 คุณเอ\n📲 Line: @abc\n👉 Inbox: https://m.me/123";
 const ctx: LongAdContext = { table, headline, contact, reader: "พ่อแม่มือใหม่", focus: "", voice: "" };
 const plan: PiecePlan = { angle: "ครอบครัวไปต่อได้", hook: "ถ้าพรุ่งนี้ไม่มีเรา" };
@@ -144,6 +144,20 @@ describe("writeLongAds", () => {
       }
     }
     expect(tried).toBeGreaterThan(30);
+  });
+
+  it("hands back the model's own words apart, without the code's figures — final review 4", async () => {
+    ai.chat.mockResolvedValue({
+      ...reply("เปิดเรื่อง"),
+      text: JSON.stringify({
+        opening: "เปิดเรื่อง", bullets: ["ข้อหนึ่ง"], cta: "ทักแชท", hashtags: ["#a"], headline: "หัวข้อ", description: "รอง", imagePrompt: "a family",
+        poster: { layout: "bottom", blocks: [{ kind: "headline", text: "บนโปสเตอร์" }] },
+      }),
+    });
+    const [a] = (await writeLongAds({ brief: "brief", plans: [plan], ctx })).pieces;
+    expect(a.modelText).toBe(["เปิดเรื่อง", "🥇 ข้อหนึ่ง", "ทักแชท", "#a", "หัวข้อ", "รอง", "บนโปสเตอร์"].join("\n"));
+    expect(a.modelText).not.toContain("9,060");
+    expect(a.output).not.toHaveProperty("modelText");
   });
 
   it("keeps the ones written when the budget stops the rest", async () => {

@@ -1,7 +1,7 @@
 import { BudgetExceeded, chat, parseJsonReply } from "@/lib/ai/client";
 import { DISCLAIMER, TAX_LINE, type ContentOutput, type Lang } from "./output";
 import { assembleLongAd, longAdMessages, parseLongAd, type LongAdContext } from "./ads";
-import { parsePoster, type PosterSpec } from "./poster";
+import { parsePoster, posterText, type PosterSpec } from "./poster";
 import { WRITERS } from "./models";
 import { headlineMessages, parseHeadlines, type NumberSheet } from "./numbers";
 import { parsePlans, planMessages, type PiecePlan } from "./plan";
@@ -126,6 +126,12 @@ export interface WrittenPiece {
   output: ContentOutput;
   model: string;
   costThb: number;
+  /**
+   * A long ad's words as the model wrote them — opening, bullets, cta, hashtags, headline,
+   * description and the poster's text — without the code's figures, so the round can check
+   * them alone (restatedFigures). Not saved on the piece.
+   */
+  modelText?: string;
 }
 
 /**
@@ -232,7 +238,9 @@ export async function writeLongAds(opts: { brief: string; plans: PiecePlan[]; ct
       ...(poster ? { poster } : {}),
       ad: { angle: plan.angle, tone: "" },
     };
-    return { output: ownerWording(output), model: r.model, costThb: r.costThb };
+    const modelText = [ad.opening, ...ad.bullets, ad.cta, ad.hashtags.join(" "), ad.headline, ad.description, posterText(poster ?? undefined)]
+      .filter(Boolean).join("\n");
+    return { output: ownerWording(output), model: r.model, costThb: r.costThb, modelText };
   }));
   return gather(settled);
 }

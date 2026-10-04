@@ -92,6 +92,15 @@ export function strayNumbers(output: string, brief: string, opts: { every?: bool
   return [...new Set(stray)];
 }
 
+/**
+ * The amounts in `text` equal to one of `values`, as written: "9,483.50 บาท" and "9483.5" are both
+ * 9,483.50. For figures a text may not repeat even where they are true, such as an ad's premiums.
+ */
+export function sameFigures(text: string, values: number[]): string[] {
+  const banned = new Set(values.map(key));
+  return [...new Set(amounts(text).filter((a) => banned.has(key(a.value))).map((a) => a.raw))];
+}
+
 /** float-safe identity for an amount: 3.38 and 3.380 are the same figure */
 const key = (n: number) => n.toFixed(2);
 

@@ -47,6 +47,11 @@ export interface PricedPlan {
     term: string;
     /** the premium rises with age, so the table says เบี้ยปีแรก */
     firstYear: boolean;
+    /**
+     * what every price in the table includes, when the plan is sold as a package whose sheets
+     * do not say so themselves; printed once, in brackets, under the table's head line
+     */
+    note?: string;
     rungs: number;
     /** rung r for this sex and age, priced with the plan's own claims, or null when the engine will not sell it */
     price: (rung: number, sex: "M" | "F", age: number, today: Date) => NumberSheet | null;
@@ -61,7 +66,7 @@ export function definePlan<C>(p: {
   claims: string[];
   price: (c: C, claims: string[], today: Date) => NumberSheet | null;
   /** four rungs of the premium table: the case fields besides sex and age */
-  ladder?: { term: string; firstYear: boolean; rungs: Omit<C, "sex" | "age">[] };
+  ladder?: { term: string; firstYear: boolean; note?: string; rungs: Omit<C, "sex" | "age">[] };
 }): PricedPlan {
   const { ladder } = p;
   return {
@@ -74,6 +79,7 @@ export function definePlan<C>(p: {
           ladder: {
             term: ladder.term,
             firstYear: ladder.firstYear,
+            ...(ladder.note ? { note: ladder.note } : {}),
             rungs: ladder.rungs.length,
             price: (rung, sex, age, today) => p.price({ ...ladder.rungs[rung], sex, age } as C, p.claims, today),
           },

@@ -1,5 +1,6 @@
+import { sameFigures, strayNumbers } from "./check";
 import { NUMBERS_PLANS } from "./numbers-plans";
-import { money, type NumberSheet, type PricedPlan } from "./numbers";
+import { money, sexWord, type NumberSheet, type PricedPlan } from "./numbers";
 import { lifelong } from "./wording";
 
 /**
@@ -10,6 +11,12 @@ import { lifelong } from "./wording";
  */
 export interface PremiumRow {
   heading: string;
+  /**
+   * how the heading's sum is reached, or what the price includes — the sheet's sumNote, in
+   * brackets under the heading: Life Protect's doubled cover holds only for a death before the
+   * booster age, and a set's price is the whole package's
+   */
+  note?: string;
   /** annual baht; null when the engine would not price a woman at this rung */
   female: number | null;
   male: number | null;
@@ -22,6 +29,8 @@ export interface PremiumTable {
   term: string;
   /** the premium rises with age: the table says เบี้ยปีแรก */
   firstYear: boolean;
+  /** what every price includes, for a package whose sheets do not say it (the ladder's note) */
+  note?: string;
   rows: PremiumRow[];
 }
 
@@ -41,10 +50,14 @@ export function premiumTableOf(plan: PricedPlan, age: number, today: Date): Prem
     const m = ladder.price(r, "M", age, today);
     const head = f ?? m;
     if (!head) continue;
-    rows.push({ heading: lifelong(head.sumLine), female: annualBaht(f), male: annualBaht(m) });
+    rows.push({ heading: lifelong(head.sumLine), ...(head.sumNote ? { note: lifelong(head.sumNote) } : {}), female: annualBaht(f), male: annualBaht(m) });
   }
   if (rows.length === 0) return null;
-  return { product: plan.product, age, term: lifelong(ladder.term), firstYear: ladder.firstYear, rows };
+  return {
+    product: plan.product, age, term: lifelong(ladder.term), firstYear: ladder.firstYear,
+    ...(ladder.note ? { note: lifelong(ladder.note) } : {}),
+    rows,
+  };
 }
 
 export function premiumTable(href: string, age: number, today: Date = new Date()): PremiumTable | null {
@@ -52,12 +65,18 @@ export function premiumTable(href: string, age: number, today: Date = new Date()
   return plan ? premiumTableOf(plan, age, today) : null;
 }
 
-/** The exact lines of the ad's table block: the term, then a block per row. */
+/** whether the plan has a premium table at all — without one, no age can be tried */
+export function hasLadder(href: string): boolean {
+  return Boolean(NUMBERS_PLANS[href]?.ladder);
+}
+
+/** The exact lines of the ad's table block: the term (and the package's note), then a block per row. */
 export function tableText(t: PremiumTable): string {
-  const head = `${t.firstYear ? "เบี้ยปีแรก " : ""}${t.term} (อายุ ${t.age} ปี)`;
+  const head = [`${t.firstYear ? "เบี้ยปีแรก " : ""}${t.term} (อายุ ${t.age} ปี)`, ...(t.note ? [`(${t.note})`] : [])].join("\n");
   const blocks = t.rows.map((r) =>
     [
       r.heading,
+      ...(r.note ? [`(${r.note})`] : []),
       ...(r.female === null ? [] : [`🙆‍♀️ หญิง = ${baht(r.female)} บาท/ปี (ตกเดือนละ ${perMonth(r.female)})`]),
       ...(r.male === null ? [] : [`🕵️‍♂️ ชาย = ${baht(r.male)} บาท/ปี (ตกเดือนละ ${perMonth(r.male)})`]),
     ].join("\n"),
@@ -65,10 +84,33 @@ export function tableText(t: PremiumTable): string {
   return [head, ...blocks].join("\n\n");
 }
 
-/** Two lines for the writer and the poster: the middle row's sum and its premium, a woman's first. */
+/**
+ * The ad's headline figures, for the writer to read and the code to place: the product, then the
+ * middle row's sum with its note (the condition on a doubled cover, what a package includes),
+ * then its premium, a woman's first, with whose premium it is.
+ */
 export function headlineFigures(t: PremiumTable): string {
   const row = t.rows[Math.floor((t.rows.length - 1) / 2)];
-  const annual = row.female ?? row.male;
-  if (annual === null) return row.heading;
-  return `${row.heading}\n${t.firstYear ? "เบี้ยปีแรก" : "เบี้ย"} ${baht(annual)} บาท/ปี (ตกเดือนละ ${perMonth(annual)})`;
+  const note = [row.note, t.note].filter(Boolean).join(" · ");
+  const sum = `💁‍♀️ ${row.heading}${note ? ` (${note})` : ""}`;
+  const sex = row.female !== null ? "F" : row.male !== null ? "M" : null;
+  const annual = sex === "F" ? row.female : row.male;
+  if (sex === null || annual === null) return [t.product, sum].join("\n");
+  const premium = `💰 ${t.firstYear ? "เบี้ยปีแรก" : "เบี้ย"} ${baht(annual)} บาท/ปี (ตกเดือนละ ${perMonth(annual)}) (${sexWord(sex)} อายุ ${t.age} ปี)`;
+  return [t.product, sum, premium].join("\n");
+}
+
+/** Every premium the table prints, yearly and ตกเดือนละ, as values. */
+export function tableCells(t: PremiumTable): number[] {
+  return t.rows.flatMap((r) => [r.female, r.male].flatMap((a) => (a === null ? [] : [a, Math.ceil(a / 12)])));
+}
+
+/**
+ * The figures in what the model itself wrote (never the code's lines) that it may not write: any
+ * amount the brief does not have, and any premium of the table restated — the writer is told the
+ * table but must not say a premium (spec "Keeping figures true"). Checked once, when the ad is
+ * written; an edit later is checked against the brief and every line the code placed.
+ */
+export function restatedFigures(modelText: string, brief: string, t: PremiumTable): string[] {
+  return [...new Set([...strayNumbers(modelText, brief), ...sameFigures(modelText, tableCells(t))])];
 }

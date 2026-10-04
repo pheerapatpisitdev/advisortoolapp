@@ -16,7 +16,14 @@ export const legacyNumbers = definePlan<{ sex: Sex; age: number; tier: number }>
     { sex: "M", age: 35, tier: 1 },
     { sex: "F", age: 45, tier: 1 },
   ],
-  ladder: { term: "จ่ายเบี้ยถึงอายุ 99", firstYear: true, rungs: [{ tier: 1 }, { tier: 2 }, { tier: 3 }, { tier: 5 }] },
+  ladder: {
+    term: "จ่ายเบี้ยถึงอายุ 99",
+    firstYear: true,
+    // its sheets carry no note, yet every price is the package's: the base and the rider together
+    // (this file's comment and data/bundles/legacy-family.json, whose every tier is on 150,000)
+    note: "เบี้ยรวม Life Protect x 2 ทุน 150,000 บาท กับสัญญาเพิ่มเติมโรคร้ายแรง",
+    rungs: [{ tier: 1 }, { tier: 2 }, { tier: 3 }, { tier: 5 }],
+  },
   claims: [
     "ป่วยโรคร้ายแรงรับเงินสด {critical} บาท",
     "เสียชีวิตก่อน 60 รับ {death} บาท",

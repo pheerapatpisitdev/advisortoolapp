@@ -142,6 +142,12 @@ describe("an ad round is refused before anything is counted", () => {
     nothingSpent();
   });
 
+  it("for a plan with no premium table at all, saying so rather than blaming the age — final review 9", async () => {
+    campaigns.getCampaign.mockResolvedValue({ ...campaign, planHref: "/no-table" });
+    expect(await generateContent(sent)).toEqual({ ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด" });
+    nothingSpent();
+  });
+
   it("but a campaign without dimensions is written — they are no longer read", async () => {
     const r = await generateContent(sent);
     expect(r.ok).toBe(true);
@@ -180,6 +186,47 @@ describe("a round of long ads", () => {
   it("flags none of its own figures, the contacts' digits included", async () => {
     await generateContent(sent);
     for (const row of saved()) expect(row.flags.numbers).toEqual([]);
+  });
+
+  /** the writer answers with these words of its own in place of the usual ones */
+  const writes = (own: Record<string, unknown>) => {
+    const reply = { ...writerReply, text: JSON.stringify({ ...JSON.parse(writerReply.text), ...own }) };
+    ai.chat.mockImplementation(async (o: { task: string; messages: { content: string }[] }) =>
+      (o.task === "content-plan" ? plannerReply(asked(o.messages)) : reply));
+  };
+
+  it("flags a premium of the table the model restated in its opening — final review 4", async () => {
+    writes({ opening: "ทุน 2 ล้าน เบี้ยแค่ 43,200 บาท/ปี ครอบครัวไปต่อได้" });
+    await generateContent(sent);
+    for (const row of saved()) expect(row.flags.numbers).toEqual(["43,200 บาท"]);
+  });
+
+  it("flags one restated as a month, in a bullet or on the poster", async () => {
+    writes({
+      bullets: ["🥇 ตกเดือนละ 3,600 บาทเท่านั้น"],
+      poster: { layout: "bottom", blocks: [{ kind: "headline", text: "เบี้ย 21,600 บาท/ปี" }] },
+    });
+    await generateContent(sent);
+    const [row] = saved();
+    expect(row.flags.numbers).toContain("3,600 บาท");
+    expect(row.flags.numbers).toContain("21,600 บาท");
+  });
+
+  it("leaves coverage named from the brief alone, and never flags the table the code placed", async () => {
+    writes({ opening: "ทุน 1,000,000 บาท ครอบครัวได้ 2,000,000 บาท", bullets: ["🥇 จ่ายจบได้ใน 9 หรือ 19 ปี"] });
+    await generateContent(sent);
+    for (const row of saved()) {
+      expect(row.flags.numbers).toEqual([]);
+      expect(row.output.body).toContain(table);
+    }
+  });
+
+  it("does not save the model's words apart from the piece", async () => {
+    await generateContent(sent);
+    for (const row of saved()) {
+      expect(row).not.toHaveProperty("modelText");
+      expect(row.output).not.toHaveProperty("modelText");
+    }
   });
 
   it("tells the planner the campaign's earlier headlines and the Page's hooks to avoid, its focus before the angle, and the reader", async () => {

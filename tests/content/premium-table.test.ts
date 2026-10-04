@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { definePlan, money, type NumberSheet } from "@/lib/content/numbers";
 import { NUMBERS_PLANS } from "@/lib/content/numbers-plans";
-import { headlineFigures, premiumTable, premiumTableOf, tableText } from "@/lib/content/premium-table";
+import { getBundle } from "@/calc/bundles/registry";
+import { CONTENT_PRODUCTS } from "@/lib/content/products";
+import { hasLadder, headlineFigures, premiumTable, premiumTableOf, restatedFigures, tableCells, tableText } from "@/lib/content/premium-table";
 
 const today = new Date("2026-10-05");
 
@@ -52,7 +54,7 @@ describe("the premium table", () => {
     const r = t.rows[0];
     expect(text).toContain(`🙆‍♀️ หญิง = ${money(r.female!)} บาท/ปี (ตกเดือนละ ${money(Math.ceil(r.female! / 12))})`);
     expect(text).toContain(`🕵️‍♂️ ชาย = ${money(r.male!)} บาท/ปี (ตกเดือนละ ${money(Math.ceil(r.male! / 12))})`);
-    expect(text).toContain(`${r.heading}\n🙆‍♀️`);
+    expect(text).toContain(`${r.heading}\n(${r.note})\n🙆‍♀️`);
   });
 
   it("a premium with satang keeps them", () => {
@@ -102,13 +104,18 @@ describe("the premium table", () => {
     expect(text).toContain("🕵️‍♂️ ชาย = 12,000 บาท/ปี (ตกเดือนละ 1,000)");
   });
 
-  it("headlineFigures uses the middle row, female first", () => {
+  it("headlineFigures: the product, the middle row's sum with its note, and whose premium it is, female first", () => {
     const t = { product: "P", age: 30, term: "x", firstYear: false, rows: [
-      { heading: "A", female: 100, male: 200 }, { heading: "B", female: 1200, male: 2400 }, { heading: "C", female: 300, male: 400 }, { heading: "D", female: 500, male: 600 },
+      { heading: "A", female: 100, male: 200 }, { heading: "B", note: "ทุน 1 × 2", female: 1200, male: 2400 }, { heading: "C", female: 300, male: 400 }, { heading: "D", female: 500, male: 600 },
     ] };
-    expect(headlineFigures(t)).toBe("B\nเบี้ย 1,200 บาท/ปี (ตกเดือนละ 100)");
-    const m = { ...t, rows: [{ heading: "E", female: null, male: 2400 }] };
-    expect(headlineFigures(m)).toBe("E\nเบี้ย 2,400 บาท/ปี (ตกเดือนละ 200)");
+    expect(headlineFigures(t)).toBe("P\n💁‍♀️ B (ทุน 1 × 2)\n💰 เบี้ย 1,200 บาท/ปี (ตกเดือนละ 100) (หญิง อายุ 30 ปี)");
+    const m = { ...t, age: 45, firstYear: true, rows: [{ heading: "E", female: null, male: 2400 }] };
+    expect(headlineFigures(m)).toBe("P\n💁‍♀️ E\n💰 เบี้ยปีแรก 2,400 บาท/ปี (ตกเดือนละ 200) (ชาย อายุ 45 ปี)");
+  });
+
+  it("headlineFigures carries a package's note too", () => {
+    const t = { product: "P", age: 30, term: "x", firstYear: true, note: "เบี้ยรวม X", rows: [{ heading: "A", female: 100, male: 200 }] };
+    expect(headlineFigures(t)).toBe("P\n💁‍♀️ A (เบี้ยรวม X)\n💰 เบี้ยปีแรก 100 บาท/ปี (ตกเดือนละ 9) (หญิง อายุ 30 ปี)");
   });
 
   it("the term passes through lifelong()", () => {
@@ -117,3 +124,122 @@ describe("the premium table", () => {
     expect(t.term).not.toContain("99");
   });
 });
+
+describe("a table never shows a sum without its condition — final review 1 and 2", () => {
+  it("Life Protect x 2 at 30: each doubled cover says it is the sum × 2 before 60, and so does the headline", () => {
+    const t = premiumTable("/lifeprotect", 30, today)!;
+    expect(tableText(t)).toBe([
+      "จ่าย 19 ปี คุ้มครองตลอดชีพ (อายุ 30 ปี)",
+      "",
+      "ประกันชีวิตคุ้มครอง 2,000,000 บาท",
+      "(ทุน 1,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "🙆‍♀️ หญิง = 21,600 บาท/ปี (ตกเดือนละ 1,800)",
+      "🕵️‍♂️ ชาย = 25,400 บาท/ปี (ตกเดือนละ 2,117)",
+      "",
+      "ประกันชีวิตคุ้มครอง 4,000,000 บาท",
+      "(ทุน 2,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "🙆‍♀️ หญิง = 43,200 บาท/ปี (ตกเดือนละ 3,600)",
+      "🕵️‍♂️ ชาย = 50,800 บาท/ปี (ตกเดือนละ 4,234)",
+      "",
+      "ประกันชีวิตคุ้มครอง 6,000,000 บาท",
+      "(ทุน 3,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "🙆‍♀️ หญิง = 64,800 บาท/ปี (ตกเดือนละ 5,400)",
+      "🕵️‍♂️ ชาย = 76,200 บาท/ปี (ตกเดือนละ 6,350)",
+      "",
+      "ประกันชีวิตคุ้มครอง 10,000,000 บาท",
+      "(ทุน 5,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "🙆‍♀️ หญิง = 108,000 บาท/ปี (ตกเดือนละ 9,000)",
+      "🕵️‍♂️ ชาย = 127,000 บาท/ปี (ตกเดือนละ 10,584)",
+    ].join("\n"));
+    expect(headlineFigures(t)).toBe([
+      "Life Protect x 2",
+      "💁‍♀️ ประกันชีวิตคุ้มครอง 4,000,000 บาท (ทุน 2,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "💰 เบี้ย 43,200 บาท/ปี (ตกเดือนละ 3,600) (หญิง อายุ 30 ปี)",
+    ].join("\n"));
+  });
+
+  it("Life Protect x 2 past the booster age shows the plain sum, with no note", () => {
+    const t = premiumTable("/lifeprotect", 65, today)!;
+    expect(t.rows.length).toBeGreaterThan(0);
+    for (const r of t.rows) {
+      expect(r.heading).toMatch(/^ประกันชีวิตทุน /);
+      expect(r.note).toBeUndefined();
+    }
+  });
+
+  it("the cancer set at 30 says each price is the set's: daily cash and Life Protect with it", () => {
+    const t = premiumTable("/cancer", 30, today)!;
+    const text = tableText(t);
+    expect(text).toContain([
+      "ประกันมะเร็งทุน 300,000 บาท",
+      "(ชดเชยนอนโรงพยาบาลวันละ 1,000 บาท · คู่กับ Life Protect x 2 ทุน 150,000 บาท)",
+      "🙆‍♀️ หญิง = 2,176.29 บาท/ปี (ตกเดือนละ 182)",
+      "🕵️‍♂️ ชาย = 2,255.39 บาท/ปี (ตกเดือนละ 188)",
+    ].join("\n"));
+    expect(text).toContain("ประกันมะเร็งทุน 3,000,000 บาท\n(ชดเชยนอนโรงพยาบาลวันละ 6,000 บาท · คู่กับ Life Protect x 2 ทุน 600,000 บาท)\n");
+    expect(headlineFigures(t)).toBe([
+      "ชุดประกันมะเร็ง",
+      "💁‍♀️ ประกันมะเร็งทุน 500,000 บาท (ชดเชยนอนโรงพยาบาลวันละ 2,000 บาท · คู่กับ Life Protect x 2 ทุน 150,000 บาท)",
+      "💰 เบี้ยปีแรก 2,398.58 บาท/ปี (ตกเดือนละ 200) (หญิง อายุ 30 ปี)",
+    ].join("\n"));
+  });
+
+  it("every row of CI 123 and iHealthy carries its package note", () => {
+    for (const href of ["/ci123", "/ihealthy-ultra"]) {
+      const t = premiumTable(href, 30, today)!;
+      for (const r of t.rows) expect(r.note, href).toBeTruthy();
+    }
+    expect(tableText(premiumTable("/ihealthy-ultra", 30, today)!)).toContain("(แพ็กเกจรวมประกันชีวิตทุน 50,000 บาท");
+  });
+
+  it("legacy, whose sheets have no note, says once under the head line what its price includes", () => {
+    const t = premiumTable("/legacy", 30, today)!;
+    expect(tableText(t).split("\n").slice(0, 3)).toEqual([
+      "เบี้ยปีแรก จ่ายเบี้ยตลอดชีพ (อายุ 30 ปี)",
+      "(เบี้ยรวม Life Protect x 2 ทุน 150,000 บาท กับสัญญาเพิ่มเติมโรคร้ายแรง)",
+      "",
+    ]);
+    expect(headlineFigures(t).split("\n")[1]).toBe("💁‍♀️ มรดกให้ครอบครัว 2,000,000 บาท (เบี้ยรวม Life Protect x 2 ทุน 150,000 บาท กับสัญญาเพิ่มเติมโรคร้ายแรง)");
+    // the note's figures are the bundle's: every tier of the ladder is Life Protect 150,000 + DCI
+    for (const no of [1, 2, 3, 5]) {
+      const tier = getBundle("LEGACY_FAMILY")!.tiers.find((x) => x.no === no)!;
+      expect(tier.sumAssured).toBe(150_000);
+      expect(tier.riders.map((r) => r.code)).toEqual(["DCI"]);
+    }
+  });
+});
+
+describe("which plans an ad can be written for — final review 9", () => {
+  it("every product Studio offers has a premium table", () => {
+    for (const p of CONTENT_PRODUCTS) expect(hasLadder(p.href), p.href).toBe(true);
+  });
+  it("an unknown href has none", () => {
+    expect(hasLadder("/nope")).toBe(false);
+  });
+});
+
+describe("the model's own words — final review 4", () => {
+  const t = premiumTable("/legacy", 30, today)!;
+  const brief = "มรดกเพื่อครอบครัว ทุน 1 ล้าน 2 ล้าน 3 ล้าน 5 ล้าน ลดหย่อนภาษีได้ 100,000 บาท";
+
+  it("the table's cells are its yearly and ตกเดือนละ figures", () => {
+    expect(tableCells(t)).toContain(6803);
+    expect(tableCells(t)).toContain(567);
+  });
+
+  it("flag a premium of the table restated, yearly or a month, however it is written", () => {
+    expect(restatedFigures("ทุน 2 ล้าน เบี้ยแค่ 6,803 บาท/ปี", brief, t)).toEqual(["6,803 บาท"]);
+    expect(restatedFigures("ตกเดือนละ 567 บาทเท่านั้น", brief, t)).toEqual(["567 บาท"]);
+    const satang = premiumTable("/cancer", 30, today)!;
+    expect(restatedFigures("เบี้ยเริ่ม 2176.29 บาท", "ประกันมะเร็ง", satang)).toEqual(["2176.29 บาท"]);
+  });
+
+  it("flag a figure the brief does not have, even one the table shows as a sum", () => {
+    expect(restatedFigures("คุ้มครองสูงสุด 7 ล้าน", brief, t)).toEqual(["7 ล้าน"]);
+  });
+
+  it("leave coverage named from the brief alone", () => {
+    expect(restatedFigures("ส่งต่อมรดก 2 ล้าน ลดหย่อนภาษีได้ 100,000 บาท", brief, t)).toEqual([]);
+  });
+});
+
