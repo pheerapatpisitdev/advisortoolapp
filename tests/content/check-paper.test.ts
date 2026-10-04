@@ -21,7 +21,7 @@ const piece = (publish: Publish | null): ContentItem => ({
     poster: { layout: "bottom", theme: "navy", blocks: [{ kind: "headline", text: "h" }], documents: [{ path: "c1/old.jpg", ratio: 0.75 }] },
   },
   flags: { numbers: [], words: [], policy: [], fixes: null }, model: null, costThb: 0, status: "draft", hookTemplateId: null,
-  publish, agentId: "a1", pageId: "p1", plan: null,
+  publish, agentId: "a1", pageId: "p1", plan: null, campaignId: null,
 });
 const stickered = () => new Map([[0, { bytes: Buffer.from("jpg"), mimeType: "image/jpeg", ratio: 0.75 }]]);
 

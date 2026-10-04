@@ -50,6 +50,8 @@ export interface ContentItem {
   pageId: string | null;
   /** the day an agent with no Page planned it for, and when they said it was posted (owner, 2026-09-30); null when not planned */
   plan: { day: string; doneAt: string | null } | null;
+  /** the Ads Studio campaign an ad piece is filed under (owner, 2026-10-04); null for every other piece */
+  campaignId: string | null;
 }
 
 export const PUBLISH_STATES = ["posting", "scheduled", "published", "failed", "cancelled"] as const;
@@ -155,7 +157,7 @@ export async function holdContentBudget(thb: number, cap: number): Promise<{ ok:
 export { release as releaseContentBudget };
 
 // one literal: supabase-js reads the column list's type from the string, and a joined one is opaque to it
-const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error, page_id, plan_day, planned_done_at";
+export const COLUMNS = "id, agent_id, created_at, plan_href, format, angle, length, output, flags, model, cost_thb, status, hook_template_id, fb_page_id, fb_post_id, publish_state, publish_at, publish_error, page_id, plan_day, planned_done_at, campaign_id";
 
 function toPublish(r: Record<string, unknown>): Publish | null {
   const state = r.publish_state;
@@ -169,7 +171,7 @@ function toPublish(r: Record<string, unknown>): Publish | null {
   };
 }
 
-function toItem(r: Record<string, unknown>): ContentItem {
+export function toItem(r: Record<string, unknown>): ContentItem {
   const flags = (r.flags ?? {}) as Partial<Flags>;
   return {
     id: String(r.id),
@@ -188,6 +190,7 @@ function toItem(r: Record<string, unknown>): ContentItem {
     agentId: (r.agent_id as string | null) ?? null,
     pageId: (r.page_id as string | null) ?? null,
     plan: r.plan_day ? { day: String(r.plan_day), doneAt: (r.planned_done_at as string | null) ?? null } : null,
+    campaignId: (r.campaign_id as string | null) ?? null,
   };
 }
 
@@ -197,13 +200,15 @@ export async function saveContent(row: {
   hookTemplateId: string | null;
   /** the Page whose project the piece goes into (projectPage settled it); null for an agent with no Pages */
   pageId: string | null;
+  /** the Ads Studio campaign an ad piece is filed under; absent for every other piece */
+  campaignId?: string | null;
 }): Promise<ContentItem> {
   const owner = (await currentScope()).owner;
   const { data, error } = await supabaseAdmin().from("ins_content").insert({
     agent_id: owner?.agentId ?? null, tenant_id: owner?.tenantId ?? null,
     plan_href: row.planHref, format: row.format, angle: row.angle || null, length: row.length,
     output: row.output, flags: row.flags, rate_version: row.rateVersion, model: row.model, cost_thb: row.costThb,
-    hook_template_id: row.hookTemplateId, page_id: row.pageId,
+    hook_template_id: row.hookTemplateId, page_id: row.pageId, campaign_id: row.campaignId ?? null,
   }).select(COLUMNS).single();
   if (error) throw new Error(`บันทึกคอนเทนต์ไม่สำเร็จ: ${error.message}`);
   return toItem(data as Record<string, unknown>);
@@ -251,12 +256,14 @@ export async function getContentUnscoped(id: string): Promise<ContentItem | null
   return data ? toItem(data as Record<string, unknown>) : null;
 }
 
-export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
+/** `includeAds`: Organic Studio shows no ad piece, so its callers omit it; Ads Studio reads its ads through listCampaignPieces, and nothing passes this today (kept for a reader that wants both) */
+export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string; includeAds?: boolean } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.planHref) q = q.eq("plan_href", filter.planHref);
   if (filter.pageId) q = q.eq("page_id", filter.pageId);
+  if (!filter.includeAds) q = q.neq("format", "ad");
   if (only) q = q.or(only);
   const { data, error } = await q.or(offPage());
   if (error) throw new Error(error.message);
@@ -267,7 +274,7 @@ export async function listContent(filter: { status?: ContentStatus; planHref?: s
 export async function countByStatus(planHref?: string, pageId?: string): Promise<Record<ContentStatus, number>> {
   const only = await ownersFilter();
   const counts = await Promise.all(CONTENT_STATUSES.map(async (status) => {
-    let q = supabaseAdmin().from("ins_content").select("id", { count: "exact", head: true }).eq("status", status);
+    let q = supabaseAdmin().from("ins_content").select("id", { count: "exact", head: true }).eq("status", status).neq("format", "ad");
     if (planHref) q = q.eq("plan_href", planHref);
     if (pageId) q = q.eq("page_id", pageId);
     if (only) q = q.or(only);
@@ -281,7 +288,7 @@ export async function countByStatus(planHref?: string, pageId?: string): Promise
 /** How many drafts each Page's project holds, for the cards on /studio (owner, 2026-09-30). */
 export async function countDraftsByPage(): Promise<Map<string, number>> {
   const only = await ownersFilter();
-  let q = supabaseAdmin().from("ins_content").select("page_id").eq("status", "draft").not("page_id", "is", null);
+  let q = supabaseAdmin().from("ins_content").select("page_id").eq("status", "draft").neq("format", "ad").not("page_id", "is", null);
   if (only) q = q.or(only);
   const { data, error } = await q.or(offPage());
   if (error) throw new Error(error.message);
@@ -638,7 +645,7 @@ const PLANNABLE = ["draft", "used"];
 export async function listPlanned(from: string, to: string): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS)
-    .gte("plan_day", from).lte("plan_day", to).in("status", PLANNABLE);
+    .gte("plan_day", from).lte("plan_day", to).in("status", PLANNABLE).neq("format", "ad");
   if (only) q = q.or(only);
   // a piece on a Facebook Page is the Page calendar's, not a plan's (final review, 2026-09-30)
   const { data, error } = await q.or(offPage()).order("plan_day", { ascending: true }).order("created_at", { ascending: true });
@@ -649,7 +656,7 @@ export async function listPlanned(from: string, to: string): Promise<ContentItem
 /** The asker's pieces with no day yet, newest first — the planning calendar's rail. */
 export async function listUnplanned(limit = 60): Promise<ContentItem[]> {
   const only = await ownersFilter();
-  let q = supabaseAdmin().from("ins_content").select(COLUMNS).is("plan_day", null).in("status", PLANNABLE);
+  let q = supabaseAdmin().from("ins_content").select(COLUMNS).is("plan_day", null).in("status", PLANNABLE).neq("format", "ad");
   if (only) q = q.or(only);
   const { data, error } = await q.or(offPage()).order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);

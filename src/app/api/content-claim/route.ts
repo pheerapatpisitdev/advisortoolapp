@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { MAX_DOCS } from "@/lib/content/claim";
+import { ADS_MOVED } from "@/lib/content/prompt";
 import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
 import { readClaim, writeClaim } from "@/lib/content/claim-run";
 import { refuseUnless, requireMember } from "@/lib/auth/viewer";
@@ -70,6 +71,7 @@ export async function PUT(req: NextRequest) {
   if (refused) return refused;
   const form = await req.formData().catch(() => null);
   if (!form) return bad("ข้อมูลไม่ครบ ลองใหม่อีกครั้งนะครับ");
+  if (form.get("format") === "ad") return bad(ADS_MOVED);
   if (form.get("consent") !== "on") return bad(NO_CONSENT);
   let facts: unknown;
   try {

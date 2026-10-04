@@ -15,7 +15,7 @@ import { forPage } from "./people-pages";
  * with no Page yet get that card too, saying the owner ties Pages to them.
  */
 
-export type HomeTileKey = "write" | "calendar" | "hooks" | "people" | "settings";
+export type HomeTileKey = "write" | "ads" | "calendar" | "hooks" | "people" | "settings";
 
 export interface HomeTile {
   key: HomeTileKey;
@@ -46,6 +46,8 @@ export interface HomeInput {
   name: string;
   /** may post to the Pages, and so may open the calendar (and, an admin, /admin/posting) */
   publish: boolean;
+  /** the owner: Ads Studio is theirs alone, so only their cards carry its tile */
+  owner: boolean;
   /** sees every Page (owner or admin); posting staff see only their own (src/lib/auth/pages.ts) */
   admin: boolean;
   /** null: not read — the viewer may not post, or the list failed */
@@ -59,6 +61,8 @@ export interface HomeInput {
   hooks: number | null;
   /** the people library, each with their Page (src/lib/content/people-pages.ts) */
   people: { pageId: string | null }[] | null;
+  /** each Page's campaigns and the pieces launched from them; null when not read (the tile says เปิดดู) */
+  adCampaigns: Map<string, { campaigns: number; launched: number }> | null;
 }
 
 const count = (n: number | null, some: (n: number) => string, none: string) =>
@@ -94,6 +98,13 @@ export function homeCards(input: HomeInput): HomeCard[] {
     key: "write", href: pageId ? `/studio/write?page=${encodeURIComponent(pageId)}` : "/studio/write", label: "Organic Studio",
     status: count(pageId ? input.draftsByPage && (input.draftsByPage.get(pageId) ?? 0) : input.drafts, (n) => `ร่าง ${n} ชิ้น`, "ยังไม่มีร่าง"),
   });
+  const ads = (pageId: string): HomeTile => {
+    const c = input.adCampaigns && (input.adCampaigns.get(pageId) ?? { campaigns: 0, launched: 0 });
+    return {
+      key: "ads", href: `/studio/ads?page=${encodeURIComponent(pageId)}`, label: "Ads Studio",
+      status: c === null ? "เปิดดู" : c.campaigns === 0 ? "ยังไม่มีแคมเปญ" : c.launched > 0 ? `${c.campaigns} แคมเปญ · ยิงแล้ว ${c.launched}` : `${c.campaigns} แคมเปญ`,
+    };
+  };
   const hooks: HomeTile = {
     key: "hooks", href: "/studio/hooks", label: "คลังสูตรประโยคเปิด",
     status: count(input.hooks, (n) => `${n} สูตร`, "ยังไม่มีสูตร"),
@@ -116,6 +127,7 @@ export function homeCards(input: HomeInput): HomeCard[] {
       picture: pagePicture(p.pageId),
       tiles: [
         write(p.pageId),
+        ...(input.owner ? [ads(p.pageId)] : []),
         {
           key: "calendar", href: `/studio/calendar?page=${encodeURIComponent(p.pageId)}`, label: "ปฏิทินโพสต์",
           status: count(input.scheduled.get(p.pageId) ?? 0, (n) => `ตั้งเวลาไว้ ${n} โพสต์`, "ยังไม่มีรายการตั้งเวลา"),

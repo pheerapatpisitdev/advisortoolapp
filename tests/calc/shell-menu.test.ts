@@ -196,6 +196,8 @@ describe("Studio's own menu", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w?: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
     expect(hrefs({ ...who, owner: true, admin: true, publish: true, connect: true })).toContain("/studio/ads");
+    const label = studioMenu({ ...who, owner: true, admin: true, publish: true, connect: true }).flatMap((g) => g.links).find((l) => l.href === "/studio/ads")?.label;
+    expect(label).toBe("Ads Studio");
     // an admin who is not the owner, an assistant, a plain agent, a member and a signed-out reader
     expect(hrefs({ ...who, admin: true, publish: true, connect: true })).not.toContain("/studio/ads");
     expect(hrefs({ ...who, publish: true })).not.toContain("/studio/ads");

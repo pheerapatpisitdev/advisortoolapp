@@ -18,7 +18,7 @@ const video = (over = {}) => ({
 });
 const item = (v = video()): ContentItem => ({
   id: "p", createdAt: "", planHref: "clip", format: "clip", angle: "", length: null, output: { ...clipOutput(""), video: v },
-  flags: NO_FLAGS, model: null, costThb: 0, status: "draft", hookTemplateId: null, publish: null, agentId: "a", pageId: "105", plan: null,
+  flags: NO_FLAGS, model: null, costThb: 0, status: "draft", hookTemplateId: null, publish: null, agentId: "a", pageId: "105", plan: null, campaignId: null,
 });
 const reply = (o: unknown) => ({ text: JSON.stringify(o), model: "gemini-3.7-flash", provider: "google", inputTokens: 1, outputTokens: 1, costThb: 0.3 });
 

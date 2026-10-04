@@ -24,7 +24,7 @@ const file = { sizeBytes: 9_000_000, durationSec: 40, width: 1080, height: 1920,
 const item = (over: Partial<ContentItem> = {}): ContentItem => ({
   id: PIECE, createdAt: "", planHref: "/life-protect", format: "script", angle: "", length: "60",
   output: { ...clipOutput("d"), hooks: ["h"], body: "บท" }, flags: NO_FLAGS, model: null, costThb: 0, status: "draft",
-  hookTemplateId: null, publish: null, agentId: "a1", pageId: "105", plan: null, ...over,
+  hookTemplateId: null, publish: null, agentId: "a1", pageId: "105", plan: null, campaignId: null, ...over,
 });
 
 beforeEach(() => {

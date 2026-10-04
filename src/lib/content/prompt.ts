@@ -16,6 +16,9 @@ import { iHealthyFacts } from "@/lib/ihealthy-facts";
  */
 
 export type Format = "post" | "script" | "ad";
+
+/** what Organic Studio's writers and its claim route say to a request for an ad (Ads Studio campaigns, 2026-10-04) */
+export const ADS_MOVED = "โฆษณาย้ายไปทำใน Ads Studio แล้ว";
 /**
  * What a row in ins_content is: a format the writer writes, or a clip an agent filmed (owner,
  * 2026-10-02). The writer's prompts never see "clip" — nothing writes one.

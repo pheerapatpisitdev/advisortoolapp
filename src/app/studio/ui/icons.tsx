@@ -30,6 +30,7 @@ export const ArrowRightIcon = (p: IconProps) => <Svg {...p}><path d="M5 12h14M13
 export const SearchIcon = (p: IconProps) => <Svg {...p}><path d="M10.5 4.5a6 6 0 1 1 0 12 6 6 0 0 1 0-12zM15 15l4.5 4.5" /></Svg>;
 /** the four sub-pages of the workbench, for its tab row */
 export const PenIcon = (p: IconProps) => <Svg {...p}><path d="M15.5 4.5l4 4L9 19H5v-4zM13 7l4 4" /></Svg>;
+export const MegaphoneIcon = (p: IconProps) => <Svg {...p}><path d="M4 10.5v3A1.5 1.5 0 0 0 5.5 15H7l9 4.5v-15L7 9H5.5A1.5 1.5 0 0 0 4 10.5zM7 15v4.5M19 10.5a3 3 0 0 1 0 3" /></Svg>;
 export const CalendarIcon = (p: IconProps) => <Svg {...p}><path d="M5 6.5h14v13H5zM5 10.5h14M9 4v4M15 4v4" /></Svg>;
 export const QuoteIcon = (p: IconProps) => <Svg {...p}><path d="M9.5 7.5C7 8.5 5.5 10.5 5.5 13.5V17h4.5v-4.5H7.5M18.5 7.5c-2.5 1-4 3-4 6V17H19v-4.5h-2.5" /></Svg>;
 export const PeopleIcon = (p: IconProps) => <Svg {...p}><path d="M3.5 19.5v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1M12.7 8a3.2 3.2 0 1 1-6.4 0 3.2 3.2 0 0 1 6.4 0M16.5 14.7a4 4 0 0 1 4 3.8v1M15.4 5.3a3.2 3.2 0 0 1 0 5.4" /></Svg>;

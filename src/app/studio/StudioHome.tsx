@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { HomeCard, HomeTileKey } from "@/lib/content/studio-home";
-import { CalendarIcon, PenIcon, PeopleIcon, QuoteIcon, SlidersIcon } from "./ui/icons";
+import { CalendarIcon, MegaphoneIcon, PenIcon, PeopleIcon, QuoteIcon, SlidersIcon } from "./ui/icons";
 import { PageAvatar } from "./ui/PageAvatar";
 
 const ICONS: Record<HomeTileKey, (p: { className?: string }) => React.ReactNode> = {
   write: PenIcon,
+  ads: MegaphoneIcon,
   calendar: CalendarIcon,
   hooks: QuoteIcon,
   people: PeopleIcon,

@@ -29,7 +29,7 @@ import { cleanDraft } from "@/lib/content/draft";
 import { writeDraft, type DraftWriteInput } from "@/lib/content/draft-run";
 import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run";
 import { proofread, type Fix } from "@/lib/content/proofread";
-import { GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
+import { ADS_MOVED, GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
   DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
   getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
@@ -45,8 +45,9 @@ import { forClient } from "@/lib/content/clip";
 import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publish-flow";
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 import { can } from "@/lib/auth/access";
-import { projectPage } from "@/lib/auth/pages";
-import { requireMember } from "@/lib/auth/viewer";
+import { myPages, projectPage } from "@/lib/auth/pages";
+import { requireMember, requireStaff } from "@/lib/auth/viewer";
+import { getCampaign } from "@/lib/ads/campaign-store";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
 import { payRound } from "@/lib/wallet/round";
 import { drawHoldThb } from "@/lib/wallet/money";
@@ -140,6 +141,8 @@ export interface GenerateInput {
   page?: string;
   /** written in English for expats in Thailand — held only for an iHealthy Ultra post (settleExpat) */
   expat?: boolean;
+  /** an ad is written into a campaign (Ads Studio): its product, Page and settings stand in for the rest */
+  campaignId?: string;
 }
 
 /** who an English round talks to when the owner names nobody */
@@ -188,8 +191,35 @@ function roundResult(r: { items: ContentItem[]; failed: boolean }, planned: numb
   return { ok: true, items, costThb, missing: Math.max(0, planned - items.length) };
 }
 
-export async function generateContent(input: GenerateInput): Promise<GenerateResult> {
+export async function generateContent(given: GenerateInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  let input = given;
+  // an ad is the owner's, written into a campaign: what the campaign holds replaces what was sent
+  let campaignId: string | null = null;
+  if (input.format === "ad") {
+    if (!input.campaignId) return { ok: false, error: ADS_MOVED };
+    try {
+      await requireStaff("owner");
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "ไม่มีสิทธิ์ใช้ส่วนนี้" };
+    }
+    let campaign;
+    try {
+      campaign = await getCampaign(input.campaignId);
+    } catch (e) {
+      console.error("campaign not read:", e);
+      return { ok: false, error: "อ่านแคมเปญไม่ได้ ลองใหม่อีกครั้งนะครับ" };
+    }
+    if (!campaign) return { ok: false, error: "ไม่พบแคมเปญนี้" };
+    // a campaign whose Page was disconnected since can be read but not written into
+    if (!(await myPages()).some((p) => p.pageId === campaign.pageId)) return { ok: false, error: "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว" };
+    campaignId = campaign.id;
+    // an ad has no angle menu: the campaign's hint is the whole brief from the owner
+    input = {
+      ...input, href: campaign.planHref, page: campaign.pageId, angle: "", adAngles: campaign.angles, adTones: campaign.tones,
+      theme: campaign.theme ?? input.theme, custom: campaign.hint ?? "",
+    };
+  }
   // the round's time starts with the request: the planner, the writers and the saves all fit in it
   const clock = deadline();
   // the tick holds only for an iHealthy Ultra post; anything else sent with it is written in Thai
@@ -293,13 +323,13 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
       }
 
       if (input.format === "ad") {
-        const hint = [told, reader ? `คนอ่านคือ ${reader}` : ""].filter(Boolean).join(" · ");
+        const hint = [told || custom, reader ? `คนอ่านคือ ${reader}` : ""].filter(Boolean).join(" · ");
         const round = await writeAds({ brief: brief.text, angles: adAngles, tones: adTones, hint, prefer: writeWith, clock, saveMs: SAVE_MS });
         const planShare = round.planThb / round.pieces.length;
         const saved = await saveAll(round.pieces.map((w) => ({
           planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(w.output),
           flags: flagsFor(w.output, lang, brief.text, words, null),
-          rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare, hookTemplateId: null,
+          rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare, hookTemplateId: null, campaignId,
         })), project.pageId);
         return roundResult(saved, round.planned, round.budgetHit);
       }
@@ -339,6 +369,7 @@ export async function generateContent(input: GenerateInput): Promise<GenerateRes
 /** หาทีม: a round from a picked topic (src/lib/content/recruit.ts), under the plan form's hourly limit. */
 export async function generateRecruit(input: RecruitWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  if (input.format === "ad") return { ok: false, error: ADS_MOVED };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
@@ -373,6 +404,7 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
 /** เขียนเอง: the agent's draft polished into versions (src/lib/content/draft.ts), under the hourly limit. */
 export async function generateDraft(input: DraftWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  if (input.format === "ad") return { ok: false, error: ADS_MOVED };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }

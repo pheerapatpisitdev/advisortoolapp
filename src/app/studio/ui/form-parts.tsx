@@ -12,7 +12,7 @@ import { ChevronDownIcon } from "./icons";
  * ภาพและโมเดล (folded, it is set once and remembered) → the count beside the สร้าง press.
  */
 
-const FORMATS: Format[] = ["post", "script", "ad"];
+const FORMATS: Format[] = ["post", "script"];
 
 /** ทำอะไร as one tap each — it reshapes the whole form, so every choice is in sight */
 export function FormatPicker({ value, onChange, formats = FORMATS }: { value: Format; onChange: (f: Format) => void; formats?: Format[] }) {

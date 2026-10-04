@@ -15,6 +15,8 @@ const base: HomeInput = {
   draftsByPage: new Map([["p1", 5]]),
   hooks: 30,
   people: [],
+  owner: false,
+  adCampaigns: null,
 };
 
 const tile = (cards: ReturnType<typeof homeCards>, card: number, key: string) =>
@@ -92,6 +94,31 @@ describe("the Studio home", () => {
 
   it("puts the Page's own picture on its card", () => {
     expect(homeCards(base)[0].picture).toBe("https://graph.facebook.com/p1/picture?type=square&width=128&height=128");
+  });
+
+  describe("the Ads Studio tile, the owner's alone", () => {
+    const owner = { ...base, owner: true };
+
+    it("sits after Organic Studio on each Page's card, to that Page's campaigns", () => {
+      const cards = homeCards({ ...owner, adCampaigns: new Map([["p1", { campaigns: 2, launched: 3 }]]) });
+      expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "ads", "calendar", "hooks", "people", "settings"]);
+      expect(tile(cards, 0, "ads")).toMatchObject({ href: "/studio/ads?page=p1", label: "Ads Studio", status: "2 แคมเปญ · ยิงแล้ว 3" });
+    });
+
+    it("says only the campaigns when none is launched, and that there are none for a Page not in the count", () => {
+      const cards = homeCards({ ...owner, adCampaigns: new Map([["p1", { campaigns: 1, launched: 0 }]]) });
+      expect(tile(cards, 0, "ads")?.status).toBe("1 แคมเปญ");
+      expect(tile(cards, 1, "ads")?.status).toBe("ยังไม่มีแคมเปญ");
+    });
+
+    it("says เปิดดู, not a false zero, when the counts could not be read", () => {
+      expect(tile(homeCards(owner), 0, "ads")?.status).toBe("เปิดดู");
+    });
+
+    it("is not on anyone else's card", () => {
+      const cards = homeCards({ ...base, owner: false, adCampaigns: new Map([["p1", { campaigns: 2, launched: 1 }]]) });
+      expect(cards.flatMap((c) => c.tiles.map((t) => t.key))).not.toContain("ads");
+    });
   });
 });
 
