@@ -3,7 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { gatePage } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
-import { AD_LIMITS, MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
+import { AD_LIMITS } from "@/lib/content/ads";
+import { writeParam } from "@/lib/ads/room-view";
 import { contentProduct } from "@/lib/content/products";
 import { listPeople } from "@/lib/content/people-store";
 import { peopleFor, visibleTo } from "@/lib/content/people-pages";
@@ -12,9 +13,9 @@ import { adCampaignRoom } from "../actions";
 import { CampaignRoom } from "../CampaignRoom";
 
 export const dynamic = "force-dynamic";
-// the launch actions run as this page: up to five Meta requests, each allowed 30 s (src/lib/ads/launch.ts),
-// and the page itself asks Meta for every launched ad's status. 300 s is what the Hobby plan allows, as on the
-// other Studio pages; the default would cut a slow launch off between two steps.
+// the send actions run as this page: a batch makes several Meta requests per ad, each allowed 30 s, and
+// stops starting new ones after 180 s (src/lib/ads/send.ts); the page itself asks Meta for every sent
+// ad's status. 300 s is what the Hobby plan allows, as on the other Studio pages.
 export const maxDuration = 300;
 export const metadata: Metadata = { title: "แคมเปญ | Ads Studio" };
 
@@ -52,9 +53,9 @@ export default async function AdCampaignPage({ params, searchParams }: {
     <CampaignRoom
       room={room}
       productName={productName}
-      rules={{ maxAngles: MAX_ANGLES, maxTones: MAX_TONES, limits: AD_LIMITS }}
+      rules={{ limits: AD_LIMITS }}
       people={peopleFor(visibleTo(people, new Set(connected.map((p) => p.pageId)), new Set(mine.map((p) => p.pageId))), mine, room.campaign.pageId)}
-      autoWrite={write === "1"}
+      autoWrite={writeParam(write)}
     />
   );
 }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { CLAIM_STALE_MS, type LaunchRow, type NewLaunch } from "@/lib/ads/launch-store";
 import { EXPIRED } from "@/lib/ads/sync";
-import { activateLaunch, adEffectiveStatus, REQUEST_TIMEOUT_MS, runLaunch, thVerifiedIdentity, type LaunchDeps, type LaunchInput } from "@/lib/ads/launch";
+import { activateLaunch, adEffectiveStatus, pauseLaunch, REQUEST_TIMEOUT_MS, runLaunch, thVerifiedIdentity, type LaunchDeps, type LaunchInput } from "@/lib/ads/launch";
 
 /**
  * The launch spends real money on Meta, so both things it talks to are stood in for: Graph by a
@@ -62,6 +62,7 @@ function memoryStore(): Store {
     saveStep: async (id: string, patch: Partial<LaunchRow>) => { Object.assign(byId(id)!, patch, { error: null }); },
     saveError: async (id: string, message: string) => { byId(id)!.error = message; },
     markActivated: async (id: string, at: string) => { byId(id)!.activatedAt = at; },
+    markLaunchPaused: async (id: string) => { byId(id)!.activatedAt = null; },
     supersede: async (id: string) => { byId(id)!.superseded = true; },
     claimLaunch: async (id: string) => {
       const r = byId(id);
@@ -512,6 +513,96 @@ describe("switching the ad on", () => {
 
     expect(await activateLaunch(id, deps())).toEqual({ ok: true });
     expect(sent).toHaveLength(0);
+  });
+});
+
+describe("pausing the ad", () => {
+  async function switchedOn(): Promise<string> {
+    replies = [...FULL];
+    const r = await runLaunch(input, deps());
+    if (!r.ok) throw new Error("setup failed");
+    replies = [ok({ success: true }), ok({ success: true }), ok({ success: true })];
+    if (!(await activateLaunch(r.launch.id, deps())).ok) throw new Error("setup failed");
+    sent = [];
+    return r.launch.id;
+  }
+
+  it("sends PAUSED to the ad only, then clears the switch-on and the claim", async () => {
+    const id = await switchedOn();
+    replies = [ok({ success: true })];
+
+    expect(await pauseLaunch(id, deps())).toEqual({ ok: true });
+    expect(sent.map((s) => s.path)).toEqual(["/v23.0/A1"]);
+    expect(sent[0].method).toBe("POST");
+    expect(sent[0].params.get("status")).toBe("PAUSED");
+    expect(sent[0].auth).toBe("Bearer tok");
+    expect(sent[0].url).not.toContain("tok");
+    expect(rows[0].activatedAt).toBeNull();
+    expect(rows[0].claimedAt).toBeNull();
+  });
+
+  it("can be switched on again after a pause: campaign, ad set and ad go ACTIVE once more", async () => {
+    const id = await switchedOn();
+    replies = [ok({ success: true })];
+    await pauseLaunch(id, deps());
+    sent = [];
+    replies = [ok({ success: true }), ok({ success: true }), ok({ success: true })];
+
+    expect(await activateLaunch(id, deps())).toEqual({ ok: true });
+    expect(sent.map((s) => s.path)).toEqual(["/v23.0/C1", "/v23.0/S1", "/v23.0/A1"]);
+    expect(sent.every((s) => s.params.get("status") === "ACTIVE")).toBe(true);
+    expect(rows[0].activatedAt).toBe(NOW.toISOString());
+  });
+
+  it("pauses an ad that was never marked on, since a broken switch-on may have left it running", async () => {
+    replies = [...FULL];
+    const r = await runLaunch(input, deps());
+    sent = [];
+    replies = [ok({ success: true })];
+    expect(await pauseLaunch(r.launch!.id, deps())).toEqual({ ok: true });
+    expect(sent.map((s) => s.path)).toEqual(["/v23.0/A1"]);
+  });
+
+  it("refuses a launch with no ad, or one that is gone, without asking Meta", async () => {
+    replies = [ok({ id: "C1" }), fail(100)];
+    const r = await runLaunch(input, deps());
+    sent = [];
+    expect(await pauseLaunch(r.launch!.id, deps())).toMatchObject({ ok: false });
+    expect(await pauseLaunch("nope", deps())).toMatchObject({ ok: false });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("keeps the switch-on when Meta does not confirm, says so, and gives the claim back", async () => {
+    const id = await switchedOn();
+    replies = [ok({ success: false })];
+    expect(await pauseLaunch(id, deps())).toEqual({ ok: false, error: "Facebook ไม่ยืนยันการหยุด" });
+    expect(rows[0].activatedAt).toBe(NOW.toISOString());
+    expect(rows[0].claimedAt).toBeNull();
+  });
+
+  it("asks to reconnect on an expired token, and says the result is unknown on a timeout", async () => {
+    const id = await switchedOn();
+    replies = [fail(190, "expired")];
+    expect(await pauseLaunch(id, deps())).toEqual({ ok: false, error: EXPIRED });
+
+    const timedOut: LaunchDeps = {
+      ...deps(),
+      fetchFn: (async () => { throw Object.assign(new Error("timeout"), { name: "TimeoutError" }); }) as typeof fetch,
+    };
+    const result = await pauseLaunch(id, timedOut);
+    expect(!result.ok && result.error).toContain("ไม่รู้ว่า");
+    expect(rows[0].activatedAt).toBe(NOW.toISOString());
+  });
+
+  it("refuses while another press holds the launch, and without a token", async () => {
+    const id = await switchedOn();
+    rows[0].claimedAt = "2026-10-04T01:00:00.000Z";
+    expect(await pauseLaunch(id, deps())).toMatchObject({ ok: false });
+    rows[0].claimedAt = null;
+    token = null;
+    expect(await pauseLaunch(id, deps())).toMatchObject({ ok: false });
+    expect(sent).toHaveLength(0);
+    expect(rows[0].activatedAt).toBe(NOW.toISOString());
   });
 });
 

@@ -33,7 +33,7 @@ function builder(table: string) {
 
 vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => ({ from: builder }) }));
 
-const { claimLaunch, createLaunch, findLaunch, getLaunch, markActivated, releaseLaunch, saveError, saveStep, supersede } =
+const { claimLaunch, createLaunch, findLaunch, getLaunch, markActivated, markLaunchPaused, releaseLaunch, saveError, saveStep, supersede } =
   await import("@/lib/ads/launch-store");
 
 const dbRow = {
@@ -113,6 +113,12 @@ describe("recording progress", () => {
   it("stamps the moment of switching on", async () => {
     await markActivated("L1", "2026-10-04T01:00:00Z");
     expect(calls[0].payload).toEqual({ activated_at: "2026-10-04T01:00:00Z" });
+  });
+
+  it("clears the moment of switching on when the ad is paused", async () => {
+    await markLaunchPaused("L1");
+    expect(calls[0].payload).toEqual({ activated_at: null });
+    expect(calls[0].filters).toEqual([["id", "L1"]]);
   });
 
   it("retires a row", async () => {

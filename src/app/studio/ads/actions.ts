@@ -2,7 +2,10 @@
 import { revalidatePath } from "next/cache";
 import { audit, requireStaff } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
-import { getContent, type ContentItem } from "@/lib/content/store";
+import {
+  contentCap, contentSpentThisMonth, getContent, holdContentBudget, releaseContentBudget, type ContentItem,
+} from "@/lib/content/store";
+import { briefFor } from "@/lib/content/brief";
 import { drawPoster } from "@/lib/content/poster-draw";
 import {
   adManageAccounts, adManageToken, clearPendingAdsManage, readPendingAdsManage, saveAdManageAccount,
@@ -10,13 +13,20 @@ import {
 import { adsManageMissingEnv, adsManageOauthIsConfigured, listAdAccounts, tokenExpiry, type TokenExpiry } from "@/lib/facebook/oauth";
 import * as launchStore from "@/lib/ads/launch-store";
 import type { LaunchRow, LaunchStep as RowStep } from "@/lib/ads/launch-store";
-import { activateLaunch, adEffectiveStatus, runLaunch, type LaunchResult, thVerifiedIdentity } from "@/lib/ads/launch";
+import { activateLaunch, adEffectiveStatus, pauseLaunch, runLaunch, type LaunchResult, thVerifiedIdentity } from "@/lib/ads/launch";
 import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
 import {
-  createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign,
+  createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign, type Dimensions,
 } from "@/lib/ads/campaign-store";
-import { adTab, tabCounts, type AdTab } from "@/lib/ads/campaign-view";
-import { cardLaunch } from "@/lib/ads/ad-card";
+import { adTab, tabCounts, type AdTab, type AdTabKey } from "@/lib/ads/campaign-view";
+import * as sendStore from "@/lib/ads/send-store";
+import { getSend, listSends, sentPieceIds, type AdSend, type AdSendItem, type SendStep } from "@/lib/ads/send-store";
+import {
+  activateSend, pauseSend, resumeSend, runSend, SEND_CLAIM_STALE_MS, type SendDeps, type SendResult, type Skipped, type SwitchResult,
+} from "@/lib/ads/send";
+import { graph } from "@/lib/ads/graph";
+import { analyzeDimensions } from "@/lib/ads/analyze";
+import { cleanDimensions, orderedVariants, type Variant } from "@/lib/ads/dimensions";
 import { contentProduct } from "@/lib/content/products";
 import type { PiecePerson } from "@/lib/content/people";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
@@ -39,6 +49,29 @@ const NAME_MAX = 60;
 const HINT_MAX = 120;
 const NOT_IN_CAMPAIGN = "ชิ้นนี้ไม่ได้อยู่ในแคมเปญ";
 const NO_CAMPAIGN = "ไม่พบแคมเปญนี้";
+/** the brand's voice in the owner's words (controller, 2026-10-04): held like the hint */
+const VOICE_MAX = 120;
+/** dimensions with a list left empty, or none at all: the queue would have nothing to walk */
+const DIMENSIONS_SHORT = "มิติไม่ครบ";
+const NO_PLAN = "ไม่พบแบบประกันนี้";
+const PAGE_NOT_CONNECTED = "เพจนี้ยังไม่ได้เชื่อมกับระบบ";
+const PAGE_GONE = "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว";
+const ACCOUNT_NOT_CONNECTED = "บัญชีโฆษณานี้ยังไม่ได้เชื่อมสำหรับสร้างแอด";
+
+/**
+ * What one analysis is held at: one call to the small tier with a 3000-token reply (analyze.ts),
+ * about four of the planner's short calls (OVERHEAD_THB), rounded up. The spec puts the real
+ * price under one baht; the ledger records what it actually cost.
+ */
+const ANALYZE_HOLD_THB = 0.2;
+const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว (กันไว้ให้บอทตอบลูกค้า) — เพิ่มงบได้ที่หน้า /admin/ai`;
+const tooDear = (left: number) => `งบสร้างคอนเทนต์เดือนนี้เหลือ ${left.toFixed(2)} บาท ไม่พอให้ AI วิเคราะห์มิติ — เพิ่มงบได้ที่หน้า /admin/ai`;
+
+const NO_PIECES = "ยังไม่ได้เลือกแอด";
+const NOT_APPROVED = "ชิ้นนี้ยังไม่ได้อนุมัติ";
+const ALREADY_SENT = "ชิ้นนี้ส่งขึ้น Facebook ไปแล้ว";
+/** a piece written to a picture style whose picture is not drawn yet (or failed): sent bare, it would not be the ad approved */
+const PICTURE_PENDING = "รูปของชิ้นนี้ยังวาดไม่เสร็จ วาดรูปให้เสร็จก่อนส่ง";
 
 /** One launch as the page draws it. No Meta id but the ad's, and no token. */
 export interface LaunchView {
@@ -95,6 +128,8 @@ export interface LaunchPiece {
   person: PiecePerson | null;
   /** the angle and tone it was written in, as labels; null on pieces written before the grid */
   ad: { angle: string; tone: string } | null;
+  /** the four dimensions it was written to; null on pieces written before the dimensions */
+  variant: { hook: string; persona: string; angle: string; style: string } | null;
   /** Facebook's advertising rules it trips; empty on pieces written before the rules were checked */
   flags: { policy: PolicyFinding[] };
   /** the newest live launch of the piece in any account */
@@ -200,9 +235,6 @@ async function launchViews(pieces: ContentItem[], accounts: AdAccount[]): Promis
   }));
 }
 
-/** The launch that decides a piece's tab: one switched on in any account, else the newest (the card shows the same one). */
-const tabLaunch = cardLaunch;
-
 /** A campaign's name, or its plan's when the owner gave none. */
 const titleOf = (c: AdCampaign) => c.name ?? contentProduct(c.planHref)?.name ?? c.planHref;
 
@@ -228,7 +260,7 @@ export interface AdsStudioHome {
     cover: string | null;
     /** that piece's poster, for the card to draw through the poster route */
     coverPoster: PosterSpec | null;
-    counts: Record<AdTab, number>;
+    counts: Record<AdTabKey, number>;
   }[];
   connection: Connection;
   /** set when the campaigns could not be read, so the page says so rather than showing none */
@@ -256,7 +288,8 @@ export async function adsStudioHome(pageId?: string): Promise<AdsStudioHome> {
   const cards = await Promise.all(campaigns.map(async (c) => {
     try {
       const pieces = await listCampaignPieces(c.id);
-      const tabs = await Promise.all(pieces.map(async (p) => adTab(p, tabLaunch(await liveRows(p.id, accounts)))));
+      const sent = await sentPieceIds(c.id);
+      const tabs = await Promise.all(pieces.map(async (p) => adTab(p, sent.has(p.id) || (await liveRows(p.id, accounts)).length > 0)));
       const shown = pieces.find((p) => p.status !== "trashed" && p.output.poster) ?? null;
       return {
         id: c.id, name: titleOf(c), planHref: c.planHref, cover: shown?.id ?? null, coverPoster: shown?.output.poster ?? null, counts: tabCounts(tabs),
@@ -270,32 +303,112 @@ export async function adsStudioHome(pageId?: string): Promise<AdsStudioHome> {
   return { pages: shown, pageId: page.pageId, campaigns: cards, connection: conn, error: null };
 }
 
+export type AnalyzeResult = { ok: true; dimensions: Dimensions; fallback: boolean } | { ok: false; error: string };
+
+/**
+ * One analysis of a plan's dimensions, paid for first: the month's ceiling is asked, and the
+ * analysis's price held, before the AI is. analyzeDimensions never throws — a spent month
+ * inside it would only come back as the starting set — so a full ceiling is said here, plainly,
+ * and the starting set is left for when the AI itself could not answer. The hold is given back
+ * once the real cost is in the ledger.
+ */
+async function analyzeHeld(planHref: string, focus: string | null, voice: string | null): Promise<AnalyzeResult> {
+  const brief = briefFor(planHref);
+  if (!brief) return { ok: false, error: NO_PLAN };
+  const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
+  if (spent >= cap) return { ok: false, error: capReached(cap) };
+  const held = await holdContentBudget(ANALYZE_HOLD_THB, cap);
+  if (!held.ok) return { ok: false, error: tooDear(held.left) };
+  try {
+    const r = await analyzeDimensions({ brief: brief.text, productName: brief.product.name, focus: focus ?? "", voice: voice ?? "" });
+    return { ok: true, dimensions: r.dimensions, fallback: r.fallback };
+  } finally {
+    await releaseContentBudget(held.id).catch((e) => console.error("analysis hold not released:", e));
+  }
+}
+
+export interface DraftAnalysisInput {
+  pageId: string;
+  planHref: string;
+  /** สิ่งที่อยากเน้น, held to 120 */
+  focus?: string | null;
+  /** น้ำเสียงแบรนด์, held to 120 */
+  voice?: string | null;
+}
+
+/**
+ * The wizard's second step: the AI proposes the four dimensions for a campaign not yet made.
+ * Nothing is saved; the owner edits the proposal and createAdCampaign keeps it. `fallback` says
+ * the AI could not answer and this is the starting set.
+ */
+export async function analyzeCampaignDraft(input: DraftAnalysisInput): Promise<AnalyzeResult> {
+  await requireStaff("owner");
+  try {
+    if (!contentProduct(input.planHref)) return { ok: false, error: NO_PLAN };
+    if (!(await myPages()).some((p) => p.pageId === input.pageId)) return { ok: false, error: PAGE_NOT_CONNECTED };
+    return await analyzeHeld(input.planHref, trimmed(input.focus, HINT_MAX), trimmed(input.voice, VOICE_MAX));
+  } catch (e) {
+    console.error("analyzeCampaignDraft failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/**
+ * The room's button for a campaign made before dimensions: the AI proposes them from the
+ * campaign's plan, focus and voice, and they are saved on it. A campaign that already has
+ * dimensions is not analysed again — that would throw away the owner's edits.
+ */
+export async function analyzeCampaign(campaignId: string): Promise<AnalyzeResult> {
+  await requireStaff("owner");
+  try {
+    const campaign = await getCampaign(campaignId);
+    if (!campaign) return { ok: false, error: NO_CAMPAIGN };
+    if (campaign.dimensions) return { ok: false, error: "แคมเปญนี้มีมิติแล้ว แก้ได้ในแผงตั้งค่า" };
+    const res = await analyzeHeld(campaign.planHref, campaign.hint, campaign.brandVoice);
+    if (!res.ok) return res;
+    await updateCampaign(campaign.id, { dimensions: res.dimensions });
+    revalidatePath("/studio/ads", "layout");
+    return res;
+  } catch (e) {
+    console.error("analyzeCampaign failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
 export interface CampaignInput {
   pageId: string;
   planHref: string;
   name?: string | null;
-  angles: number;
-  tones: number;
+  /** The four dimensions the owner kept from the analysis; ones with a list left empty are refused ("มิติไม่ครบ"). */
+  dimensions: Dimensions;
+  /** no longer chosen by the owner (the dimensions replace them); kept on the row, 1 when not sent */
+  angles?: number;
+  tones?: number;
   theme?: string | null;
   hint?: string | null;
+  brandVoice?: string | null;
 }
 
-/** A new campaign under one of the owner's Pages, for a plan Studio writes about. */
+/** A new campaign under one of the owner's Pages, for a plan Studio writes about, with its dimensions. */
 export async function createAdCampaign(input: CampaignInput): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const viewer = await requireStaff("owner");
   try {
-    if (!contentProduct(input.planHref)) return { ok: false, error: "ไม่พบแบบประกันนี้" };
+    const dimensions = cleanDimensions(input.dimensions);
+    if (!dimensions) return { ok: false, error: DIMENSIONS_SHORT };
+    if (!contentProduct(input.planHref)) return { ok: false, error: NO_PLAN };
     const pages = await myPages();
-    if (!pages.some((p) => p.pageId === input.pageId)) return { ok: false, error: "เพจนี้ยังไม่ได้เชื่อมกับระบบ" };
+    if (!pages.some((p) => p.pageId === input.pageId)) return { ok: false, error: PAGE_NOT_CONNECTED };
     const made = await createCampaign({
       pageId: input.pageId,
       planHref: input.planHref,
       name: trimmed(input.name, NAME_MAX),
-      angles: Number(input.angles),
-      tones: Number(input.tones),
+      angles: Number(input.angles ?? 1),
+      tones: Number(input.tones ?? 1),
       theme: themeOf(input.theme),
       hint: trimmed(input.hint, HINT_MAX),
       agentId: viewer.agentId,
+      dimensions,
+      brandVoice: trimmed(input.brandVoice, VOICE_MAX),
     });
     await audit("create-ad-campaign", made.id, { pageId: made.pageId, planHref: made.planHref });
     revalidatePath("/studio/ads", "layout");
@@ -306,13 +419,77 @@ export async function createAdCampaign(input: CampaignInput): Promise<{ ok: true
   }
 }
 
+/** Where the room's queue stands: the next combination to write (one, for the strip), and how many of all are made. */
+export interface QueueView {
+  /** at most one; empty when every combination is made */
+  next: Variant[];
+  /** combinations of the current dimensions already written, the bin's included */
+  made: number;
+  total: number;
+}
+
+/** One piece's ad in a send, as the sent tab draws it. */
+export interface SendItemView {
+  id: string;
+  pieceId: string | null;
+  /** Meta's ad id; null while the ad is not made */
+  adId: string | null;
+  /** why this piece's ad could not be made; null when it could */
+  error: string | null;
+  /** what Meta says the ad is doing (ACTIVE, PAUSED, DISAPPROVED, ...); null without an ad or when Meta would not say */
+  effectiveStatus: string | null;
+  /**
+   * The ad was made after the send was last switched on (Meta's created_time later than
+   * activatedAt), so it is still paused until the next press. False for a send never switched on
+   * or an item with no ad; null when Meta would not say when the ad was made.
+   */
+  madeAfterActivation: boolean | null;
+}
+
+/**
+ * One batch send as the sent tab draws it. No token, and no Meta id but the ads': whether the
+ * send has a Meta campaign is what the buttons need — Pause is offered whenever it has one,
+ * whatever activatedAt says, since a switch-on that broke half-way can leave the campaign on.
+ */
+export interface SendView {
+  id: string;
+  createdAt: string;
+  actId: string;
+  pageId: string;
+  link: string;
+  currency: string;
+  dailyBudgetBaht: number;
+  step: SendStep;
+  error: string | null;
+  activatedAt: string | null;
+  pausedAt: string | null;
+  hasMetaCampaign: boolean;
+  hasAdset: boolean;
+  /** a request holds the send right now (sending, retrying, switching): the buttons wait */
+  running: boolean;
+  /** what Meta says the campaign is doing; null without one or when Meta would not say */
+  metaStatus: string | null;
+  /** how many of its ads were made after it was switched on, and so are still paused */
+  madeAfterActivation: number;
+  items: SendItemView[];
+}
+
 export type AdCampaignRoom =
   | {
     ok: true;
     /** `title` is what to call it (its name, or the plan's); `name` stays the owner's own, null when blank */
     campaign: AdCampaign & { title: string; pageName: string | null; pageConnected: boolean };
     pieces: (LaunchPiece & { tab: AdTab })[];
-    counts: Record<AdTab, number>;
+    counts: Record<AdTabKey, number>;
+    /** null for a campaign without dimensions (made before them): the room offers the analysis instead */
+    queue: QueueView | null;
+    /** the campaign's live batch sends, newest first */
+    sends: SendView[];
+    /**
+     * ads launched one by one before batch sends, with the piece each is for, newest piece first.
+     * `canPause` when the ad exists: Pause is offered whatever activatedAt says, as for a send.
+     */
+    legacy: (LaunchView & { pieceId: string; canPause: boolean })[];
     connection: Connection;
     /** every Page the owner has, so a launch made on another Page (from the page before Ads Studio) is named by its own */
     pages: { pageId: string; pageName: string }[];
@@ -320,39 +497,134 @@ export type AdCampaignRoom =
   /** no such campaign (a wrong or old id: back to the list), or, with `error`, it could not be read */
   | { ok: false; error?: string };
 
+/** the combinations a campaign's pieces were written to, the bin's included (as generateContent counts them) */
+const madeCombos = (pieces: ContentItem[]) => new Set(pieces.flatMap((p) => (p.output.ad?.combo ? [p.output.ad.combo] : [])));
+
+function queueOf(d: Dimensions | null, pieces: ContentItem[]): QueueView | null {
+  if (!d) return null;
+  const made = madeCombos(pieces);
+  const order = orderedVariants(d);
+  const next = order.find((v) => !made.has(v.combo));
+  // only what the current dimensions still have counts: a combination edited away is not "made" of these
+  return { next: next ? [next] : [], made: order.filter((v) => made.has(v.combo)).length, total: order.length };
+}
+
+function variantOf(ad: ContentItem["output"]["ad"]): LaunchPiece["variant"] {
+  if (!ad?.hook || !ad.persona || !ad.style) return null;
+  return { hook: ad.hook, persona: ad.persona, angle: ad.angle, style: ad.style };
+}
+
+/** A piece's words as its ad carries them: the first hook is the headline. */
+const wordsOf = (p: ContentItem) => ({ headline: p.output.hooks[0] ?? "", primaryText: p.output.body ?? "", description: p.output.closing ?? "" });
+
+/** Fields of one Meta object, or null for anything that goes wrong: a status is a label, never a reason not to open. */
+async function metaFields(id: string | null, fields: string, token: string | null): Promise<Record<string, unknown> | null> {
+  // the id becomes a Graph path; a stray "/" or "?" would ask Meta about something else
+  if (!id || !token || !/^\w+$/.test(id)) return null;
+  try {
+    const r = await graph(fetch, token, `${id}?fields=${fields}`);
+    return r.ok ? r.body : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Meta's created_time ("2026-10-04T03:01:00+0000") as milliseconds, or null. */
+function metaTime(v: unknown): number | null {
+  if (typeof v !== "string") return null;
+  const t = Date.parse(v.replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
+  return Number.isNaN(t) ? null : t;
+}
+
+/**
+ * The campaign's sends with what Meta says of each campaign and ad. Items keep no time of their
+ * own, so whether an ad was made after the send was switched on is read from Meta's created_time:
+ * activateSend stamps activatedAt only once every ad then made is on, and a resume cannot run
+ * while it holds the claim, so an ad made later than that stamp is one that press did not reach.
+ */
+async function sendViews(list: (AdSend & { items: AdSendItem[] })[]): Promise<SendView[]> {
+  const tokens = new Map<string, Promise<string | null>>();
+  const tokenFor = (act: string) => tokens.get(act) ?? tokens.set(act, adManageToken(act).catch(() => null)).get(act)!;
+  return Promise.all(list.map(async (s) => {
+    const token = await tokenFor(s.actId);
+    const on = s.activatedAt ? Date.parse(s.activatedAt) : null;
+    const [campaignFields, items] = await Promise.all([
+      metaFields(s.metaCampaignId, "effective_status", token),
+      Promise.all(s.items.map(async (i): Promise<SendItemView> => {
+        const f = i.adId ? await metaFields(i.adId, "effective_status,created_time", token) : null;
+        const made = metaTime(f?.created_time);
+        return {
+          id: i.id,
+          pieceId: i.pieceId,
+          adId: i.adId,
+          error: i.error,
+          effectiveStatus: typeof f?.effective_status === "string" ? f.effective_status : null,
+          madeAfterActivation: on === null || !i.adId ? false : made === null ? null : made > on,
+        };
+      })),
+    ]);
+    const claimed = s.claimedAt ? Date.parse(s.claimedAt) : NaN;
+    return {
+      id: s.id,
+      createdAt: s.createdAt,
+      actId: s.actId,
+      pageId: s.pageId,
+      link: s.link,
+      currency: s.currency,
+      dailyBudgetBaht: s.dailyBudgetMinor / 100,
+      step: s.step,
+      error: s.error,
+      activatedAt: s.activatedAt,
+      pausedAt: s.pausedAt,
+      hasMetaCampaign: Boolean(s.metaCampaignId),
+      hasAdset: Boolean(s.adsetId),
+      running: !Number.isNaN(claimed) && Date.now() - claimed < SEND_CLAIM_STALE_MS,
+      metaStatus: typeof campaignFields?.effective_status === "string" ? campaignFields.effective_status : null,
+      madeAfterActivation: items.filter((i) => i.madeAfterActivation === true).length,
+      items,
+    };
+  }));
+}
+
 /**
  * A campaign's room: every piece in it, in the bin too, with its launches and what Meta says of
- * each ad. A campaign whose Page has since been disconnected still opens, saying so.
+ * each ad; the queue of combinations; the batch sends; and the ads launched one by one before
+ * them. A campaign whose Page has since been disconnected still opens, saying so.
  */
 export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
   await requireStaff("owner");
   try {
     const campaign = await getCampaign(id);
     if (!campaign) return { ok: false };
-    const [pages, { connection: conn, accounts }, items] = await Promise.all([myPages(), connection(), listCampaignPieces(campaign.id)]);
+    const [pages, { connection: conn, accounts }, items, liveSends] = await Promise.all([
+      myPages(), connection(), listCampaignPieces(campaign.id), listSends(campaign.id),
+    ]);
     const page = pages.find((p) => p.pageId === campaign.pageId) ?? null;
-    const launches = await launchViews(items, accounts);
+    const sent = new Set(liveSends.flatMap((s) => s.items.flatMap((i) => (i.pieceId ? [i.pieceId] : []))));
+    const [launches, sends] = await Promise.all([launchViews(items, accounts), sendViews(liveSends)]);
     const pieces = items.map((p, i) => ({
       id: p.id,
       createdAt: p.createdAt,
       status: p.status,
-      headline: p.output.hooks[0] ?? "",
-      primaryText: p.output.body ?? "",
-      description: p.output.closing ?? "",
+      ...wordsOf(p),
       hasPoster: Boolean(p.output.poster),
       poster: p.output.poster ?? null,
       person: p.output.person ?? null,
-      ad: p.output.ad ?? null,
+      ad: p.output.ad ? { angle: p.output.ad.angle, tone: p.output.ad.tone } : null,
+      variant: variantOf(p.output.ad),
       flags: { policy: p.flags?.policy ?? [] },
       launch: launches[i][0] ?? null,
       launches: launches[i],
-      tab: adTab(p, tabLaunch(launches[i])),
+      tab: adTab(p, sent.has(p.id) || launches[i].length > 0),
     }));
     return {
       ok: true,
       campaign: { ...campaign, title: titleOf(campaign), pageName: page?.pageName ?? null, pageConnected: page !== null },
       pieces,
       counts: tabCounts(pieces.map((p) => p.tab)),
+      queue: queueOf(campaign.dimensions, items),
+      sends,
+      legacy: items.flatMap((p, i) => launches[i].map((l) => ({ ...l, pieceId: p.id, canPause: l.adId !== null }))),
       connection: conn,
       pages: pages.map((p) => ({ pageId: p.pageId, pageName: p.pageName })),
     };
@@ -368,6 +640,9 @@ export interface CampaignPatch {
   tones?: number;
   theme?: string | null;
   hint?: string | null;
+  /** they steer only what is still to be written: what was made stays made, and the queue skips it */
+  dimensions?: Dimensions;
+  brandVoice?: string | null;
 }
 
 /** The room's settings. The Page and the plan are set when the campaign is made and stay. */
@@ -376,12 +651,18 @@ export async function updateAdCampaign(id: string, patch: CampaignPatch): Promis
   try {
     const campaign = await getCampaign(id);
     if (!campaign) return { ok: false, error: NO_CAMPAIGN };
-    const clean: CampaignPatch = {};
+    const clean: Parameters<typeof updateCampaign>[1] = {};
     if (patch.name !== undefined) clean.name = trimmed(patch.name, NAME_MAX);
     if (patch.angles !== undefined) clean.angles = Number(patch.angles);
     if (patch.tones !== undefined) clean.tones = Number(patch.tones);
     if (patch.theme !== undefined) clean.theme = themeOf(patch.theme);
     if (patch.hint !== undefined) clean.hint = trimmed(patch.hint, HINT_MAX);
+    if (patch.dimensions !== undefined) {
+      const dimensions = cleanDimensions(patch.dimensions);
+      if (!dimensions) return { ok: false, error: DIMENSIONS_SHORT };
+      clean.dimensions = dimensions;
+    }
+    if (patch.brandVoice !== undefined) clean.brandVoice = trimmed(patch.brandVoice, VOICE_MAX);
     await updateCampaign(campaign.id, clean);
     revalidatePath("/studio/ads", "layout");
     return { ok: true };
@@ -417,25 +698,27 @@ export async function saveAdCopy(
 
 /** a piece whose ad is switched on stays out of the bin: binning it here would leave the ad spending */
 const LIVE_TRASH = "ปิดแอดนี้ก่อนทิ้ง";
+/** a piece in a send, or with a live launch, is Facebook's now: approving, un-approving or binning it would not match what was sent */
+const SENT_LOCKED = "ชิ้นนี้ส่งขึ้น Facebook แล้ว แก้สถานะไม่ได้";
 
 /**
- * The bin for an ad piece, and back out of it (the bin is how a campaign is tidied; campaigns
- * are not deleted). A piece whose ad is switched on in any account is refused; one launched
- * and still paused may go. A launch table that cannot be read refuses too, rather than binning
- * a piece that may be spending.
+ * Approve (used), back to draft, or the bin for an ad piece (the bin is how a campaign is
+ * tidied; campaigns are not deleted). A piece already sent to Facebook — in a send that was not
+ * retired, or with a live launch in any account — keeps its status. A piece whose ad is switched
+ * on says to close the ad first. A send or launch table that cannot be read refuses too, rather
+ * than changing a piece that may be spending.
  */
-export async function setAdStatus(pieceId: string, status: "draft" | "trashed"): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function setAdStatus(pieceId: string, status: "draft" | "used" | "trashed"): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireStaff("owner");
   try {
-    if (status !== "draft" && status !== "trashed") return { ok: false, error: SOMETHING_BROKE };
+    if (status !== "draft" && status !== "used" && status !== "trashed") return { ok: false, error: SOMETHING_BROKE };
     const piece = await getContent(pieceId);
     if (!piece || piece.format !== "ad") return { ok: false, error: "ไม่พบชิ้นโฆษณานี้" };
     if (!piece.campaignId) return { ok: false, error: NOT_IN_CAMPAIGN };
-    if (status === "trashed") {
-      const accounts = await adManageAccounts();
-      const rows = await Promise.all(accounts.map((a) => launchStore.findLaunch(piece.id, a.id)));
-      if (rows.some((r) => r?.activatedAt)) return { ok: false, error: LIVE_TRASH };
-    }
+    const accounts = await adManageAccounts();
+    const rows = await Promise.all(accounts.map((a) => launchStore.findLaunch(piece.id, a.id)));
+    if (status === "trashed" && rows.some((r) => r?.activatedAt)) return { ok: false, error: LIVE_TRASH };
+    if (rows.some((r) => r !== null) || (await sentPieceIds(piece.campaignId)).has(piece.id)) return { ok: false, error: SENT_LOCKED };
     const res = await setContentStatus(piece.id, status);
     if (!res.ok) return { ok: false, error: res.error ?? SOMETHING_BROKE };
     revalidatePath("/studio/ads", "layout");
@@ -590,4 +873,212 @@ export async function activateAd(launchId: string): Promise<{ ok: true } | { ok:
     await record(false, SOMETHING_BROKE).catch(() => {});
     return { ok: false, error: SOMETHING_BROKE };
   }
+}
+
+/**
+ * Pauses an ad launched one by one (pauseLaunch): the ad goes PAUSED and the launch reads as
+ * not switched on, so "เปิดใช้" (activateAd) brings it back. Every press is recorded.
+ */
+export async function pauseAd(launchId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  let row: LaunchRow | null = null;
+  const record = (ok: boolean, error?: string) =>
+    audit("ads-launch-pause", launchId, { ok, error, adId: row?.adId, actId: row?.actId, pageId: row?.pageId, dailyBudgetMinor: row?.dailyBudgetMinor });
+  try {
+    row = await launchStore.getLaunch(launchId);
+    const result = await pauseLaunch(launchId, { store: launchStore, token: adManageToken });
+    await record(result.ok, result.ok ? undefined : result.error);
+    if (result.ok) revalidatePath("/studio/ads", "layout");
+    return result;
+  } catch (e) {
+    console.error("pauseAd failed:", e);
+    await record(false, SOMETHING_BROKE).catch(() => {});
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+const refusedSend = (error: string, skipped?: Skipped[]): SendResult => ({ ok: false, step: "check", error, ...(skipped ? { skipped } : {}) });
+
+/**
+ * A piece written to a picture style and approved before its picture came back (or after it
+ * failed) has the plain poster: sent like that, the ad would not be the one approved.
+ */
+const picturePending = (p: ContentItem) => Boolean(p.output.ad?.style && p.output.poster && !p.output.poster.background);
+
+/**
+ * Where the send engine gets each piece's poster and words: the pieces already loaded, or the
+ * content store. A poster that cannot be drawn is no poster — the engine leaves that piece out
+ * with its reason rather than a throw stopping the whole batch.
+ */
+function sendDeps(startedAt: number, known: Map<string, ContentItem> = new Map()): SendDeps {
+  const pieceOf = async (id: string) => known.get(id) ?? (await getContent(id));
+  return {
+    // the engine's time budget counts from the press, so the reads before it count too
+    startedAt,
+    store: sendStore,
+    token: adManageToken,
+    poster: async (id) => {
+      try {
+        const p = await pieceOf(id);
+        const spec = p?.output.poster;
+        if (!p || !spec || picturePending(p)) return null;
+        return await drawPoster(spec, "square");
+      } catch (e) {
+        console.error("send poster not drawn:", id, e);
+        return null;
+      }
+    },
+    piece: async (id) => {
+      const p = await pieceOf(id);
+      return p && p.format === "ad" ? wordsOf(p) : null;
+    },
+  };
+}
+
+export interface SendApprovedInput {
+  campaignId: string;
+  actId: string;
+  link: string;
+  dailyBudgetBaht: number;
+  /** the pieces the owner kept in the send dialog */
+  pieceIds: string[];
+}
+
+/**
+ * Sends the campaign's approved ads as one paused Meta campaign and ad set (send.ts). Nothing
+ * here switches anything on.
+ *
+ * The Page is the campaign's and the currency the account's, looked up here, never taken from
+ * the form. Each piece asked for is checked first: it must be in this campaign, approved (status
+ * used), not in a live send, without a launch from before sends, and with its picture drawn.
+ * One that is not is left out with its reason, joined to the engine's own (no poster, sent
+ * meanwhile) in `skipped`; with none left, the engine is not called. The send and launch tables
+ * are read strictly: one that cannot be read refuses the send rather than risk a second ad.
+ */
+export async function sendApproved(input: SendApprovedInput): Promise<SendResult> {
+  const viewer = await requireStaff("owner");
+  const startedAt = Date.now();
+  let started = false;
+  try {
+    const campaign = await getCampaign(input.campaignId);
+    if (!campaign) return refusedSend(NO_CAMPAIGN);
+    const [accounts, pages] = await Promise.all([adManageAccounts(), myPages()]);
+    const account = accounts.find((a) => a.id === input.actId);
+    if (!account) return refusedSend(ACCOUNT_NOT_CONNECTED);
+    if (!pages.some((p) => p.pageId === campaign.pageId)) return refusedSend(PAGE_GONE);
+    const asked = [...new Set((Array.isArray(input.pieceIds) ? input.pieceIds : []).filter((x): x is string => typeof x === "string"))];
+    if (asked.length === 0) return refusedSend(NO_PIECES);
+
+    const [items, sent] = await Promise.all([listCampaignPieces(campaign.id), sentPieceIds(campaign.id)]);
+    const byId = new Map(items.map((p) => [p.id, p]));
+    const skipped: Skipped[] = [];
+    const going: ContentItem[] = [];
+    for (const id of asked) {
+      const p = byId.get(id);
+      const reason = !p || p.format !== "ad" ? NOT_IN_CAMPAIGN
+        : p.status !== "used" ? NOT_APPROVED
+          : sent.has(id) ? ALREADY_SENT
+            : picturePending(p) ? PICTURE_PENDING
+              : null;
+      if (reason) skipped.push({ pieceId: id, reason });
+      else going.push(p!);
+    }
+    // a launch from before sends, in any connected account, is that piece's ad already
+    const launched = await Promise.all(going.map(async (p) =>
+      (await Promise.all(accounts.map((a) => launchStore.findLaunch(p.id, a.id)))).some((r) => r !== null)));
+    const fresh: ContentItem[] = [];
+    going.forEach((p, i) => (launched[i] ? skipped.push({ pieceId: p.id, reason: ALREADY_SENT }) : fresh.push(p)));
+    if (fresh.length === 0) {
+      return refusedSend(`ไม่มีแอดที่ส่งได้ — ${[...new Set(skipped.map((s) => s.reason))].join(" / ")}`, skipped);
+    }
+
+    started = true;
+    const result = await runSend(
+      {
+        campaignId: campaign.id,
+        actId: account.id,
+        currency: account.currency,
+        pageId: campaign.pageId,
+        link: input.link,
+        dailyBudgetBaht: input.dailyBudgetBaht,
+        pieces: fresh.map((p) => ({ id: p.id, ...wordsOf(p) })),
+        createdBy: viewer.agentId,
+      },
+      sendDeps(startedAt, byId),
+    );
+    const all = [...skipped, ...(result.skipped ?? [])];
+    await audit("ads-send", result.send?.id ?? campaign.id, {
+      ok: result.ok,
+      step: result.ok ? "ads" : result.step,
+      error: result.ok ? undefined : result.error,
+      campaignId: campaign.id,
+      actId: account.id,
+      pageId: campaign.pageId,
+      dailyBudgetBaht: input.dailyBudgetBaht,
+      pieces: fresh.length,
+      skipped: all.length,
+    });
+    revalidatePath("/studio/ads", "layout");
+    return { ...result, skipped: all };
+  } catch (e) {
+    console.error("sendApproved failed:", e);
+    // a send that reached the engine may have made something on Meta: the attempt is recorded
+    if (started) await audit("ads-send", input.campaignId, { ok: false, error: SOMETHING_BROKE, actId: input.actId }).catch(() => {});
+    return refusedSend(SOMETHING_BROKE);
+  }
+}
+
+/**
+ * Carries a send on from where it stopped (resumeSend): only what is missing is made, with the
+ * account, Page, link and budget it started with.
+ */
+export async function retrySend(sendId: string): Promise<SendResult> {
+  await requireStaff("owner");
+  const startedAt = Date.now();
+  const record = (ok: boolean, detail: Record<string, unknown>) => audit("ads-send", sendId, { ok, retry: true, ...detail });
+  try {
+    const result = await resumeSend(sendId, sendDeps(startedAt));
+    await record(result.ok, { step: result.ok ? "ads" : result.step, error: result.ok ? undefined : result.error });
+    revalidatePath("/studio/ads", "layout");
+    return result;
+  } catch (e) {
+    console.error("retrySend failed:", e);
+    await record(false, { error: SOMETHING_BROKE }).catch(() => {});
+    return refusedSend(SOMETHING_BROKE);
+  }
+}
+
+/**
+ * Switch a whole send on, or pause it: the press the page confirms first, recorded whatever came
+ * of it. Not a door itself: both actions that call it ask who is calling first.
+ */
+async function switchAction(sendId: string, action: "ads-send-activate" | "ads-send-pause"): Promise<SwitchResult> {
+  let send: AdSend | null = null;
+  const record = (ok: boolean, error?: string) => audit(action, sendId, {
+    ok, error, campaignId: send?.campaignId, actId: send?.actId, pageId: send?.pageId, dailyBudgetMinor: send?.dailyBudgetMinor,
+  });
+  try {
+    send = await getSend(sendId);
+    const deps = { store: sendStore, token: adManageToken };
+    const result = action === "ads-send-activate" ? await activateSend(sendId, deps) : await pauseSend(sendId, deps);
+    await record(result.ok, result.ok ? undefined : result.error);
+    revalidatePath("/studio/ads", "layout");
+    return result;
+  } catch (e) {
+    console.error(`${action} failed:`, e);
+    await record(false, SOMETHING_BROKE).catch(() => {});
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/** The press that can spend: campaign, ad set and every ad made go on (activateSend). */
+export async function activateSendAction(sendId: string): Promise<SwitchResult> {
+  await requireStaff("owner");
+  return switchAction(sendId, "ads-send-activate");
+}
+
+/** Pauses the send's Meta campaign, which stops its ad set and ads (pauseSend). */
+export async function pauseSendAction(sendId: string): Promise<SwitchResult> {
+  await requireStaff("owner");
+  return switchAction(sendId, "ads-send-pause");
 }

@@ -15,6 +15,9 @@ const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const ACT = "act_111";
 const PAGE = "222";
 const CAMPAIGN = "5a6b7c8d-1e2f-4a3b-9c4d-5e6f7a8b9c0d";
+const DIMS = {
+  hooks: [{ text: "ฮุก", note: "" }], personas: [{ text: "คน", note: "" }], angles: [{ text: "มุม", note: "" }], styles: [{ text: "ภาพ", note: "" }],
+};
 
 const who = vi.hoisted(() => ({ owner: true, audit: vi.fn(async () => {}) }));
 vi.mock("@/lib/auth/viewer", async () => {
@@ -67,6 +70,8 @@ const camps = vi.hoisted(() => ({
   listCampaignPieces: vi.fn(),
 }));
 vi.mock("@/lib/ads/campaign-store", () => camps);
+const sends = vi.hoisted(() => ({ sentPieceIds: vi.fn(), listSends: vi.fn() }));
+vi.mock("@/lib/ads/send-store", () => sends);
 // Organic Studio's save, which checks and keeps an edit; Ads Studio only decides who may call it
 const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn(), setContentStatus: vi.fn() }));
 vi.mock("@/app/studio/actions", () => studio);
@@ -123,6 +128,8 @@ beforeEach(() => {
   camps.createCampaign.mockImplementation(async (c: Record<string, unknown>) => campaign({ ...c, id: CAMPAIGN }));
   camps.updateCampaign.mockResolvedValue(undefined);
   camps.listCampaignPieces.mockResolvedValue([piece()]);
+  sends.sentPieceIds.mockResolvedValue(new Set<string>());
+  sends.listSends.mockResolvedValue([]);
   studio.saveContentEdits.mockResolvedValue({ ok: true, item: piece() });
   studio.setContentStatus.mockResolvedValue({ ok: true });
 });
@@ -134,14 +141,15 @@ describe("who may use the actions", () => {
     await expect(chooseAdManageAccounts([ACT])).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(activateAd("L1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(adsStudioHome(PAGE)).rejects.toThrow("ไม่มีสิทธิ์");
-    await expect(createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", angles: 1, tones: 1 })).rejects.toThrow("ไม่มีสิทธิ์");
+    await expect(createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", dimensions: DIMS })).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(adCampaignRoom(CAMPAIGN)).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(updateAdCampaign(CAMPAIGN, { name: "x" })).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(saveAdCopy(PIECE, { hooks: ["h"], body: "b", closing: "c", hashtags: [] })).rejects.toThrow("ไม่มีสิทธิ์");
+    await expect(setAdStatus(PIECE, "used")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(setAdStatus(PIECE, "trashed")).rejects.toThrow("ไม่มีสิทธิ์");
     for (const spy of [
       launch.runLaunch, launch.activateLaunch, conn.saveAdManageAccount, conn.adManageAccounts, content.getContent, who.audit,
-      pages.myPages, ...Object.values(camps), studio.saveContentEdits, studio.setContentStatus, store.findLaunch,
+      pages.myPages, ...Object.values(camps), studio.saveContentEdits, studio.setContentStatus, store.findLaunch, sends.sentPieceIds, sends.listSends,
     ]) {
       expect(spy).not.toHaveBeenCalled();
     }
@@ -412,19 +420,22 @@ describe("Ads Studio's list of campaigns", () => {
         piece({ id: "binned", status: "trashed" }),
         piece({ id: "launched" }),
         piece({ id: "live" }),
+        piece({ id: "in-send", status: "used" }),
+        piece({ id: "approved", status: "used" }),
       ]
       : []);
     store.findLaunch.mockImplementation(async (pieceId: string) =>
       pieceId === "launched" ? row({ pieceId }) : pieceId === "live" ? row({ pieceId, activatedAt: "2026-10-04T02:00:00Z" }) : null);
+    sends.sentPieceIds.mockImplementation(async (id: string) => new Set(id === CAMPAIGN ? ["in-send"] : []));
     const home = await adsStudioHome(PAGE);
     expect(home.campaigns).toEqual([
       {
         id: CAMPAIGN, name: "แคมเปญทดสอบ", planHref: "/lifeprotect", cover: "launched", coverPoster: { theme: "navy", blocks: [] },
-        counts: { draft: 1, launched: 1, live: 1, trash: 1 },
+        counts: { all: 5, draft: 1, approved: 1, sent: 3, trash: 1 },
       },
       {
         id: "c2", name: expect.stringContaining("Life Protect"), planHref: "/lifeprotect", cover: null, coverPoster: null,
-        counts: { draft: 0, launched: 0, live: 0, trash: 0 },
+        counts: { all: 0, draft: 0, approved: 0, sent: 0, trash: 0 },
       },
     ]);
     // the list does not ask Meta about every ad; the room does
@@ -448,13 +459,14 @@ describe("Ads Studio's list of campaigns", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     camps.listCampaignPieces.mockRejectedValue(new Error("db down"));
     const home = await adsStudioHome(PAGE);
-    expect(home.campaigns[0]).toMatchObject({ id: CAMPAIGN, cover: null, coverPoster: null, counts: { draft: 0, launched: 0, live: 0, trash: 0 } });
+    expect(home.campaigns[0]).toMatchObject({ id: CAMPAIGN, cover: null, coverPoster: null, counts: { all: 0, draft: 0, approved: 0, sent: 0, trash: 0 } });
     log.mockRestore();
   });
 
   it("says the list could not be read rather than showing an empty one", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     camps.listCampaigns.mockRejectedValueOnce(new Error("db down: secret detail"));
+    sends.sentPieceIds.mockImplementation(async (id: string) => new Set(id === CAMPAIGN ? ["in-send"] : []));
     const home = await adsStudioHome(PAGE);
     expect(home.campaigns).toEqual([]);
     expect(home.error).toBeTruthy();
@@ -465,13 +477,13 @@ describe("Ads Studio's list of campaigns", () => {
 
 describe("making a campaign", () => {
   const made = (over: Record<string, unknown> = {}) =>
-    createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", angles: 2, tones: 1, ...over } as Parameters<typeof createAdCampaign>[0]);
+    createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", angles: 2, tones: 1, dimensions: DIMS, ...over } as Parameters<typeof createAdCampaign>[0]);
 
   it("files it under a connected Page and a plan Studio knows, by the owner", async () => {
     expect(await made({ theme: "navy" })).toEqual({ ok: true, id: CAMPAIGN });
     expect(camps.createCampaign).toHaveBeenCalledWith({
       pageId: PAGE, planHref: "/lifeprotect", name: null, angles: 2, tones: 1, theme: "navy", hint: null,
-      agentId: "00000000-0000-4000-8000-000000000001",
+      agentId: "00000000-0000-4000-8000-000000000001", dimensions: DIMS, brandVoice: null,
     });
     expect(who.audit).toHaveBeenCalledWith("create-ad-campaign", CAMPAIGN, expect.objectContaining({ pageId: PAGE, planHref: "/lifeprotect" }));
   });
@@ -553,10 +565,10 @@ describe("a campaign's room", () => {
     expect(room.pieces[0]).toMatchObject({
       id: PIECE, headline: "หัวข้อโฆษณา", primaryText: "ข้อความหลัก", description: "คำอธิบาย", hasPoster: true,
       poster: { theme: "navy", blocks: [] }, flags: { policy }, ad: { angle: "ครอบครัว", tone: "อบอุ่น" },
-      launch: { id: "L1", adId: "AD1", effectiveStatus: "PAUSED" }, tab: "live",
+      launch: { id: "L1", adId: "AD1", effectiveStatus: "PAUSED" }, tab: "sent",
     });
     expect(room.pieces[1]).toMatchObject({ id: "binned", hasPoster: false, poster: null, flags: { policy: [] }, launch: null, tab: "trash" });
-    expect(room.counts).toEqual({ draft: 0, launched: 0, live: 1, trash: 1 });
+    expect(room.counts).toEqual({ all: 1, draft: 0, approved: 0, sent: 1, trash: 1 });
     expect(camps.listCampaignPieces).toHaveBeenCalledWith(CAMPAIGN);
   });
 
@@ -645,16 +657,40 @@ describe("saving an ad's words", () => {
   });
 });
 
-describe("the bin for an ad", () => {
-  it("bins a draft, and a piece launched but still paused", async () => {
-    expect(await setAdStatus(PIECE, "trashed")).toEqual({ ok: true });
-    expect(studio.setContentStatus).toHaveBeenLastCalledWith(PIECE, "trashed");
-    store.findLaunch.mockResolvedValue(row({ activatedAt: null }));
-    expect(await setAdStatus(PIECE, "trashed")).toEqual({ ok: true });
-    expect(studio.setContentStatus).toHaveBeenCalledTimes(2);
+describe("approving and binning an ad", () => {
+  it("approves a draft, bins it, and puts it back to draft", async () => {
+    for (const status of ["used", "trashed", "draft"] as const) {
+      expect(await setAdStatus(PIECE, status)).toEqual({ ok: true });
+      expect(studio.setContentStatus).toHaveBeenLastCalledWith(PIECE, status);
+    }
+    expect(studio.setContentStatus).toHaveBeenCalledTimes(3);
   });
 
-  it("refuses to bin a piece whose ad is switched on, in any account", async () => {
+  it("refuses all three for a piece in a send that was not retired", async () => {
+    sends.sentPieceIds.mockResolvedValue(new Set([PIECE]));
+    for (const status of ["used", "draft", "trashed"] as const) {
+      expect(await setAdStatus(PIECE, status)).toEqual({ ok: false, error: "ชิ้นนี้ส่งขึ้น Facebook แล้ว แก้สถานะไม่ได้" });
+    }
+    expect(sends.sentPieceIds).toHaveBeenCalledWith(CAMPAIGN);
+    expect(studio.setContentStatus).not.toHaveBeenCalled();
+  });
+
+  it("refuses all three for a piece with a live launch row, even a paused one", async () => {
+    store.findLaunch.mockResolvedValue(row({ activatedAt: null }));
+    for (const status of ["used", "draft", "trashed"] as const) {
+      expect(await setAdStatus(PIECE, status)).toEqual({ ok: false, error: "ชิ้นนี้ส่งขึ้น Facebook แล้ว แก้สถานะไม่ได้" });
+    }
+    expect(studio.setContentStatus).not.toHaveBeenCalled();
+  });
+
+  it("restores nothing for a binned piece that was sent", async () => {
+    content.getContent.mockResolvedValue(piece({ status: "trashed" }));
+    sends.sentPieceIds.mockResolvedValue(new Set([PIECE]));
+    expect((await setAdStatus(PIECE, "draft")).ok).toBe(false);
+    expect(studio.setContentStatus).not.toHaveBeenCalled();
+  });
+
+  it("asks to close the ad first when it is switched on in any account", async () => {
     conn.adManageAccounts.mockResolvedValue([
       { id: ACT, name: "บัญชีทดสอบ", currency: "THB" }, { id: "act_222", name: "สอง", currency: "THB" },
     ]);
@@ -663,20 +699,14 @@ describe("the bin for an ad", () => {
     expect(studio.setContentStatus).not.toHaveBeenCalled();
   });
 
-  it("refuses rather than bins when the launch table cannot be read", async () => {
+  it("refuses rather than changes when the launch table or the sends cannot be read", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    store.findLaunch.mockRejectedValue(new Error("no such table"));
-    const res = await setAdStatus(PIECE, "trashed");
-    expect(res.ok).toBe(false);
+    store.findLaunch.mockRejectedValueOnce(new Error("no such table"));
+    expect((await setAdStatus(PIECE, "trashed")).ok).toBe(false);
+    sends.sentPieceIds.mockRejectedValueOnce(new Error("no such table"));
+    expect((await setAdStatus(PIECE, "used")).ok).toBe(false);
     expect(studio.setContentStatus).not.toHaveBeenCalled();
     log.mockRestore();
-  });
-
-  it("restores from the bin whatever the launches", async () => {
-    content.getContent.mockResolvedValue(piece({ status: "trashed" }));
-    store.findLaunch.mockResolvedValue(row({ activatedAt: "2026-10-04T02:00:00Z" }));
-    expect(await setAdStatus(PIECE, "draft")).toEqual({ ok: true });
-    expect(studio.setContentStatus).toHaveBeenCalledWith(PIECE, "draft");
   });
 
   it("refuses a piece that is not an ad, or not in a campaign", async () => {
@@ -687,8 +717,8 @@ describe("the bin for an ad", () => {
     expect(studio.setContentStatus).not.toHaveBeenCalled();
   });
 
-  it("refuses any status but the bin and back", async () => {
-    expect((await setAdStatus(PIECE, "used" as "draft")).ok).toBe(false);
+  it("refuses any status but draft, used and trashed", async () => {
+    expect((await setAdStatus(PIECE, "published" as "draft")).ok).toBe(false);
     expect(studio.setContentStatus).not.toHaveBeenCalled();
   });
 

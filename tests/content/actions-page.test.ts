@@ -245,6 +245,17 @@ describe("the bin", () => {
     expect(ai.chat).toHaveBeenCalledOnce();
   });
 
+  it("approving an ad leaves the hook-formula library alone — an ad headline is not an organic hook", async () => {
+    later.length = 0;
+    for (const over of [{ format: "ad" as const }, { campaignId: "c1" }]) {
+      row = { ...make(null), status: "draft", ...over };
+      expect(await setContentStatus("p1", "used")).toEqual({ ok: true });
+      expect(store.setStatus).toHaveBeenCalledWith("p1", "used");
+    }
+    expect(later).toHaveLength(0);
+    expect(ai.chat).not.toHaveBeenCalled();
+  });
+
   it("will not take a piece Facebook holds or shows — the post would stay up", async () => {
     for (const publish of [held(5 * 3_600_000), held(-3_600_000)]) {
       row = make(publish);

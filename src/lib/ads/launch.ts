@@ -1,7 +1,21 @@
 import type { LaunchRow, LaunchStep as StoreLaunchStep, StepPatch } from "./launch-store";
 import { checkDailyBudget, checkLink, maxDailyBudgetThb } from "./launch-limits";
-import { isExpiredToken } from "./insights";
 import { EXPIRED } from "./sync";
+import {
+  adParams,
+  adsetParams,
+  bangkokDay,
+  campaignParams,
+  creativeParams,
+  graph,
+  hashOf,
+  idOf,
+  imageParams,
+  NO_HASH,
+  NO_ID,
+} from "./graph";
+
+export { REQUEST_TIMEOUT_MS } from "./graph";
 
 /**
  * Puts one image ad on Facebook in four steps — campaign, ad set, creative (image upload, then
@@ -46,9 +60,10 @@ import { EXPIRED } from "./sync";
  * - Creative and ad: the planned fields match; link_data.link must equal the button's link,
  *   so both are the same checked URL.
  *   https://developers.facebook.com/docs/marketing-api/reference/ad-creative-link-data/
+ *
+ * The request code and the field builders live in graph.ts, shared with the batch send (send.ts),
+ * so both make their objects with the very same fields.
  */
-
-const GRAPH = "https://graph.facebook.com/v23.0";
 
 /** A step that makes something on Meta. The store's "none" is where a launch starts, not a step. */
 export type LaunchStep = Exclude<StoreLaunchStep, "none">;
@@ -98,66 +113,6 @@ const NO_TOKEN = "ยังไม่ได้เชื่อมบัญชี�
 const NO_POSTER = "ชิ้นนี้ยังไม่มีโปสเตอร์ สร้างโปสเตอร์ก่อนยิงแอด";
 const BUSY = "กำลังสร้างแอดนี้อยู่ รอสักครู่แล้วลองใหม่";
 const NO_TH_IDENTITY = "ยังไม่ได้ตั้งค่า META_TH_VERIFIED_IDENTITY_ID — Meta บังคับให้แอดที่แสดงในไทยระบุผู้ลงโฆษณาที่ยืนยันตัวตนแล้ว (ขั้นตอนอยู่ใน docs/ads-manage-permission.md)";
-const NO_ID = "Facebook ตอบกลับมาแต่ไม่มีไอดี";
-/** How long one request to Meta may take; a function that waits on a hung one is cut off with nothing saved. */
-export const REQUEST_TIMEOUT_MS = 30_000;
-/**
- * A request that timed out or dropped may still have been carried out by Meta: the answer is
- * what is missing, not the work. Retrying blind could make a second campaign or ad set.
- */
-const RESULT_UNKNOWN = "ไม่รู้ว่าขั้นนี้สำเร็จหรือไม่ ตรวจใน Ads Manager หรือโหลดหน้านี้ใหม่ก่อนลองอีกครั้ง";
-
-type Graph = { ok: true; body: Record<string, unknown> } | { ok: false; error: string };
-
-/**
- * One Graph request. The token goes in the header, never the URL, so it stays out of logs.
- * Every request has a 30 s timeout; a timeout or a dropped connection is a failure whose result
- * is unknown (RESULT_UNKNOWN), handled like any other failure: the step stops and the error is saved.
- * A failure is HTTP not ok or an `error` in the body (Meta sometimes answers 200 with one);
- * error 190 becomes the same reconnect message the figures sync shows.
- */
-async function graph(fetchFn: typeof fetch, token: string, path: string, params?: Record<string, string>): Promise<Graph> {
-  let res: Response;
-  let body: Record<string, unknown>;
-  try {
-    res = await fetchFn(
-      `${GRAPH}/${path}`,
-      params
-        ? {
-            method: "POST",
-            headers: { authorization: `Bearer ${token}`, "content-type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams(params).toString(),
-            cache: "no-store",
-            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-          }
-        : { headers: { authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
-    );
-    body = ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
-  } catch (e) {
-    const timedOut = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
-    const why = timedOut ? "Facebook ไม่ตอบกลับภายใน 30 วินาที" : `ติดต่อ Facebook ไม่ได้ — ${e instanceof Error ? e.message : String(e)}`;
-    return { ok: false, error: `${why} ${RESULT_UNKNOWN}` };
-  }
-  const err = body.error as { code?: number; message?: string; error_user_msg?: string } | undefined;
-  if (!res.ok || err) {
-    if (isExpiredToken(err)) return { ok: false, error: EXPIRED };
-    // Meta's own words are the diagnosis; the Thai prefix says whose words they are
-    return { ok: false, error: `Facebook ไม่รับ — ${err?.error_user_msg ?? err?.message ?? `HTTP ${res.status}`}` };
-  }
-  return { ok: true, body };
-}
-
-/** The id a create returned, or null — a 200 without one has made nothing we can build on. */
-function idOf(body: Record<string, unknown>): string | null {
-  return typeof body.id === "string" && body.id ? body.id : null;
-}
-
-/** POST /adimages answers {images: {<name>: {hash}}}; the one image sent is the first entry. */
-function hashOf(body: Record<string, unknown>): string | null {
-  const first = Object.values((body.images ?? {}) as Record<string, { hash?: unknown }>)[0];
-  return typeof first?.hash === "string" && first.hash ? first.hash : null;
-}
-
 /**
  * Pauses the campaign of a launch that is being replaced. Pausing the campaign stops its
  * ad set and ad with it. Only Meta's {success: true} counts as paused.
@@ -170,11 +125,6 @@ async function pauseCampaign(fetchFn: typeof fetch, token: string, campaignId: s
   if (!r.ok) return { ok: false, error: r.error === EXPIRED ? EXPIRED : `${failed} — ${r.error}` };
   if (r.body.success !== true) return { ok: false, error: failed };
   return { ok: true };
-}
-
-/** The calendar day in Bangkok, so an ad made at 6am Thai time is not named after yesterday. */
-function bangkokDay(d: Date): string {
-  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 }
 
 export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<LaunchResult> {
@@ -248,13 +198,7 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
     };
 
     if (row.step === "none") {
-      const r = await graph(fetchFn, token, `${act}/campaigns`, {
-        name,
-        objective: "OUTCOME_TRAFFIC",
-        status: "PAUSED",
-        special_ad_categories: "[]",
-        is_adset_budget_sharing_enabled: "false",
-      });
+      const r = await graph(fetchFn, token, `${act}/campaigns`, campaignParams(name));
       if (!r.ok) return stop("campaign", r.error);
       const id = idOf(r.body);
       if (!id) return stop("campaign", NO_ID);
@@ -262,19 +206,12 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
     }
 
     if (row.step === "campaign") {
-      const r = await graph(fetchFn, token, `${act}/adsets`, {
-        name,
-        campaign_id: row.campaignId!,
-        daily_budget: String(row.dailyBudgetMinor),
-        billing_event: "IMPRESSIONS",
-        optimization_goal: "LINK_CLICKS",
-        bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-        destination_type: "WEBSITE",
-        targeting: JSON.stringify({ geo_locations: { countries: ["TH"] }, age_min: 20, targeting_automation: { advantage_audience: 1 } }),
-        regional_regulated_categories: JSON.stringify(["THAILAND_UNIVERSAL"]),
-        regional_regulation_identities: JSON.stringify({ universal_beneficiary: identity, universal_payer: identity }),
-        status: "PAUSED",
-      });
+      const r = await graph(
+        fetchFn,
+        token,
+        `${act}/adsets`,
+        adsetParams({ name, campaignId: row.campaignId!, dailyBudgetMinor: row.dailyBudgetMinor, identity }),
+      );
       if (!r.ok) return stop("adset", r.error);
       const id = idOf(r.body);
       if (!id) return stop("adset", NO_ID);
@@ -284,26 +221,26 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
     if (row.step === "adset") {
       // the upload is saved on its own: a retry after a creative failure reuses the image
       if (!row.imageHash) {
-        const r = await graph(fetchFn, token, `${act}/adimages`, { bytes: poster.toString("base64") });
+        const r = await graph(fetchFn, token, `${act}/adimages`, imageParams(poster));
         if (!r.ok) return stop("creative", r.error);
         const hash = hashOf(r.body);
-        if (!hash) return stop("creative", "Facebook รับรูปแต่ไม่ส่งรหัสรูปกลับมา");
+        if (!hash) return stop("creative", NO_HASH);
         await save({ imageHash: hash });
       }
-      const r = await graph(fetchFn, token, `${act}/adcreatives`, {
-        name,
-        object_story_spec: JSON.stringify({
-          page_id: row.pageId,
-          link_data: {
-            image_hash: row.imageHash,
-            link: row.link,
-            message: row.primaryText ?? "",
-            name: row.headline ?? "",
-            description: row.description ?? "",
-            call_to_action: { type: "LEARN_MORE", value: { link: row.link } },
-          },
+      const r = await graph(
+        fetchFn,
+        token,
+        `${act}/adcreatives`,
+        creativeParams({
+          name,
+          pageId: row.pageId,
+          imageHash: row.imageHash,
+          link: row.link,
+          primaryText: row.primaryText,
+          headline: row.headline,
+          description: row.description,
         }),
-      });
+      );
       if (!r.ok) return stop("creative", r.error);
       const id = idOf(r.body);
       if (!id) return stop("creative", NO_ID);
@@ -311,12 +248,7 @@ export async function runLaunch(input: LaunchInput, deps: LaunchDeps): Promise<L
     }
 
     if (row.step === "creative") {
-      const r = await graph(fetchFn, token, `${act}/ads`, {
-        name,
-        adset_id: row.adsetId!,
-        creative: JSON.stringify({ creative_id: row.creativeId }),
-        status: "PAUSED",
-      });
+      const r = await graph(fetchFn, token, `${act}/ads`, adParams({ name, adsetId: row.adsetId!, creativeId: row.creativeId }));
       if (!r.ok) return stop("ad", r.error);
       const id = idOf(r.body);
       if (!id) return stop("ad", NO_ID);
@@ -372,6 +304,52 @@ export async function activateLaunch(
       if (r.body.success !== true) return { ok: false, error: "Facebook ไม่ยืนยันการเปิดใช้" };
     }
     await store.markActivated(launchId, now().toISOString());
+    return { ok: true };
+  } finally {
+    await store.releaseLaunch(launchId);
+  }
+}
+
+/** Why a launch's ad may not be paused, or null when it may: only an ad that exists can be. */
+function notPausable(row: LaunchRow | null): string | null {
+  if (!row) return "ไม่พบรายการยิงแอดนี้";
+  if (row.superseded) return "รายการนี้ถูกแทนที่ด้วยการสร้างใหม่แล้ว";
+  // the id becomes a Graph path, as in adEffectiveStatus
+  if (!row.adId || !/^\w+$/.test(row.adId)) return "แอดนี้ยังไม่ได้สร้าง";
+  return null;
+}
+
+/**
+ * The owner's press to stop an ad launched one by one: the ad goes PAUSED — the ad, not its
+ * campaign, so the next "เปิดใช้" (which sets campaign, ad set and ad ACTIVE) brings it back.
+ * It is sent whatever activatedAt says, since a switch-on that broke after the ad went on can
+ * leave it running unmarked. Only Meta's {success: true} counts; then activatedAt is cleared, so
+ * activateLaunch goes to Meta again rather than answering that the ad is already on.
+ */
+export async function pauseLaunch(
+  launchId: string,
+  deps: Pick<LaunchDeps, "store" | "token" | "fetchFn" | "now">,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { store } = deps;
+  const fetchFn = deps.fetchFn ?? fetch;
+
+  const row = await store.getLaunch(launchId);
+  const refused = notPausable(row);
+  if (refused) return { ok: false, error: refused };
+  const token = await deps.token(row!.actId);
+  if (!token) return { ok: false, error: NO_TOKEN };
+
+  if (!(await store.claimLaunch(launchId))) return { ok: false, error: BUSY };
+  try {
+    // re-read under the claim: another press may have changed the launch while this one waited
+    const held = await store.getLaunch(launchId);
+    const changed = notPausable(held);
+    if (changed) return { ok: false, error: changed };
+
+    const r = await graph(fetchFn, token, held!.adId!, { status: "PAUSED" });
+    if (!r.ok) return { ok: false, error: r.error };
+    if (r.body.success !== true) return { ok: false, error: "Facebook ไม่ยืนยันการหยุด" };
+    await store.markLaunchPaused(launchId);
     return { ok: true };
   } finally {
     await store.releaseLaunch(launchId);

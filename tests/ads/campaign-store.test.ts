@@ -47,6 +47,7 @@ const UUID = "0b9f2c1e-5d3a-4c7b-9e11-2a4f6d8c0b13";
 const dbRow = {
   id: UUID, created_at: "2026-10-04T00:00:00Z", page_id: "p1", plan_href: "/plans/ishield",
   name: "iShield", angles: 2, tones: 2, theme: "t", hint: "h", agent_id: "A1",
+  dimensions: null, queue_pos: 0, brand_voice: null,
 };
 
 beforeEach(() => {
@@ -64,6 +65,7 @@ describe("reading campaigns", () => {
     expect(list).toEqual([{
       id: UUID, createdAt: "2026-10-04T00:00:00Z", pageId: "p1", planHref: "/plans/ishield",
       name: "iShield", angles: 2, tones: 2, theme: "t", hint: "h", agentId: "A1",
+      dimensions: null, queuePos: 0, brandVoice: null,
     }]);
   });
 
@@ -99,6 +101,53 @@ describe("making and changing campaigns", () => {
   });
 });
 
+describe("a campaign's dimensions, queue and brand voice", () => {
+  const dims = {
+    hooks: [{ text: "ฮุก", note: "ทำไม" }],
+    personas: [{ text: "คนทำงาน", note: "" }],
+    angles: [{ text: "มุม", note: "" }],
+    styles: [{ text: "สไตล์", note: "" }],
+  };
+
+  it("writes dimensions and brand_voice when they are given", async () => {
+    await createCampaign({ pageId: "p1", planHref: "/plans/ishield", angles: 2, tones: 2, agentId: "A1", dimensions: dims, brandVoice: "อบอุ่น" });
+    expect(calls[0].payload).toMatchObject({ dimensions: dims, brand_voice: "อบอุ่น" });
+  });
+
+  it("writes null dimensions and brand_voice when they are not", async () => {
+    await createCampaign({ pageId: "p1", planHref: "/plans/ishield", angles: 2, tones: 2, agentId: "A1" });
+    expect(calls[0].payload).toMatchObject({ dimensions: null, brand_voice: null });
+  });
+
+  it("reads dimensions, queue_pos and brand_voice back in camelCase", async () => {
+    one = { ...dbRow, dimensions: dims, queue_pos: 5, brand_voice: "อบอุ่น" };
+    expect(await getCampaign(UUID)).toMatchObject({ dimensions: dims, queuePos: 5, brandVoice: "อบอุ่น" });
+  });
+
+  it("answers null dimensions when the stored jsonb is not the right shape", async () => {
+    for (const bad of [
+      "text", 3, [], { hooks: [] },
+      { ...dims, hooks: "x" },
+      { ...dims, styles: [{ text: 1, note: "" }] },
+      { ...dims, angles: [{ text: "a" }] },
+      { ...dims, personas: [null] },
+    ]) {
+      one = { ...dbRow, dimensions: bad };
+      expect((await getCampaign(UUID))?.dimensions).toBeNull();
+    }
+  });
+
+  it("treats a missing queue_pos as zero", async () => {
+    one = { ...dbRow, queue_pos: undefined };
+    expect((await getCampaign(UUID))?.queuePos).toBe(0);
+  });
+
+  it("updates dimensions, brandVoice and queuePos as snake_case columns", async () => {
+    await updateCampaign(UUID, { dimensions: dims, brandVoice: null, queuePos: 3 });
+    expect(calls[0]).toMatchObject({ op: "update", payload: { dimensions: dims, brand_voice: null, queue_pos: 3 }, filters: [["id", UUID]] });
+  });
+});
+
 describe("filing a piece into a campaign", () => {
   const save = (campaignId?: string | null) => saveContent({
     planHref: "/plans/ishield", format: "ad", angle: "" as never, length: null,
@@ -129,6 +178,14 @@ describe("the migration", () => {
     expect(sql).toContain("enable row level security");
     expect(sql).toContain("revoke all on public.ins_ad_campaign from public, anon, authenticated");
     expect(sql).toContain("grant all on public.ins_ad_campaign to service_role");
+  });
+
+  it("adds the dimensions, queue position and brand voice, and nothing else is dropped", () => {
+    const flow = readFileSync("supabase/migrations/20261005_ad_studio_flow.sql", "utf8");
+    expect(flow).toContain("add column if not exists dimensions jsonb");
+    expect(flow).toContain("add column if not exists queue_pos int not null default 0");
+    expect(flow).toContain("add column if not exists brand_voice text");
+    expect(flow).not.toMatch(/drop (table|column)/i);
   });
 
   it("files old ad pieces only when they are unfiled, so running it twice changes nothing more", () => {

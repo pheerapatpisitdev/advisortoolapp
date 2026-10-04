@@ -190,6 +190,15 @@ export async function markActivated(id: string, at: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Clears the moment of switching on, once the owner has paused the ad: the launch reads as not
+ * switched on again, so the next "เปิดใช้" goes to Meta instead of answering that it already is.
+ */
+export async function markLaunchPaused(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_ad_launch").update({ activated_at: null }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 /** Retires an attempt so the piece and account can be launched afresh. */
 export async function supersede(id: string): Promise<void> {
   const { error } = await supabaseAdmin().from("ins_ad_launch").update({ superseded: true }).eq("id", id);
