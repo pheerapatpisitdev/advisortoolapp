@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => ({ ok: true, paidBy: "staff" })), allowanceOf: vi.fn() }));
-const project = vi.hoisted(() => ({ projectPage: vi.fn() }));
+const project = vi.hoisted(() => ({ projectPage: vi.fn(), myPages: vi.fn() }));
 const campaigns = vi.hoisted(() => ({ getCampaign: vi.fn() }));
 const write = vi.hoisted(() => ({ writeAds: vi.fn() }));
 const viewer = vi.hoisted(() => ({ owner: true }));
@@ -33,7 +33,7 @@ vi.mock("@/lib/auth/viewer", async () => {
 });
 vi.mock("next/headers", () => ({ headers: async () => new Map([["x-real-ip", "1.2.3.4"]]) }));
 vi.mock("@/lib/auth/quota", () => quota);
-vi.mock("@/lib/auth/pages", async (orig) => ({ ...(await orig<typeof import("@/lib/auth/pages")>()), projectPage: project.projectPage }));
+vi.mock("@/lib/auth/pages", async (orig) => ({ ...(await orig<typeof import("@/lib/auth/pages")>()), projectPage: project.projectPage, myPages: project.myPages }));
 vi.mock("@/lib/ads/campaign-store", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/campaign-store")>()), ...campaigns }));
 vi.mock("@/lib/content/ceiling", () => ({ ceilingBeforeRound: vi.fn(async () => null) }));
 vi.mock("@/lib/content/store", async (orig) => ({ ...(await orig<typeof import("@/lib/content/store")>()), ...store }));
@@ -58,6 +58,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   viewer.owner = true;
   project.projectPage.mockImplementation(async (asked?: string) => ({ ok: true, pageId: asked ?? null }));
+  project.myPages.mockResolvedValue([{ pageId: "P1", pageName: "เพจ" }]);
   campaigns.getCampaign.mockResolvedValue(campaign);
   write.writeAds.mockResolvedValue({
     pieces: [{ output, model: "m", costThb: 1 }], planThb: 0.5, planned: 1, budgetHit: 0,
@@ -85,6 +86,15 @@ describe("an ad round", () => {
     expect(await generateContent({ ...sent, campaignId: "c1" })).toEqual({ ok: false, error: "ไม่พบแคมเปญนี้" });
     expect(quota.takeRound).not.toHaveBeenCalled();
     expect(write.writeAds).not.toHaveBeenCalled();
+  });
+
+  it("is refused, before anything is counted, when its Page is no longer connected", async () => {
+    project.myPages.mockResolvedValue([{ pageId: "P2", pageName: "เพจอื่น" }]);
+    expect(await generateContent({ ...sent, campaignId: "c1" })).toEqual({ ok: false, error: "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว" });
+    expect(project.projectPage).not.toHaveBeenCalled();
+    expect(quota.takeRound).not.toHaveBeenCalled();
+    expect(write.writeAds).not.toHaveBeenCalled();
+    expect(store.saveContent).not.toHaveBeenCalled();
   });
 
   it("takes its angles, tones and hint from the campaign, not from the browser", async () => {

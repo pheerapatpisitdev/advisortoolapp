@@ -131,9 +131,10 @@ export function CampaignSettings({ campaign, productName, rules, writing, onWrit
       </details>
       {/* outside the fold: folding the settings away on a phone keeps the button */}
       <div className="sticky bottom-0 rounded-b-2xl border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
-        <button type="button" onClick={write} disabled={writing || saving} className={`${solid} w-full`}>
+        <button type="button" onClick={write} disabled={writing || saving || !campaign.pageConnected} className={`${solid} w-full`}>
           {writing ? "กำลังเขียนแอด…" : `เขียนแอดเพิ่ม ${count} แบบ`}
         </button>
+        {!campaign.pageConnected && <p role="note" className="mt-1.5 text-xs font-medium text-[var(--ct-alert)]">เพจนี้ไม่ได้เชื่อมกับระบบแล้ว</p>}
         <p className="mt-1.5 text-xs text-[var(--ct-mute)]">{angles} มุมขาย × {tones} น้ำเสียง · ราว 20–40 วินาที</p>
       </div>
     </section>

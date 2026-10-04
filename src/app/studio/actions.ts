@@ -45,7 +45,7 @@ import { forClient } from "@/lib/content/clip";
 import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publish-flow";
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 import { can } from "@/lib/auth/access";
-import { projectPage } from "@/lib/auth/pages";
+import { myPages, projectPage } from "@/lib/auth/pages";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
 import { getCampaign } from "@/lib/ads/campaign-store";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
@@ -211,6 +211,8 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
       return { ok: false, error: "อ่านแคมเปญไม่ได้ ลองใหม่อีกครั้งนะครับ" };
     }
     if (!campaign) return { ok: false, error: "ไม่พบแคมเปญนี้" };
+    // a campaign whose Page was disconnected since can be read but not written into
+    if (!(await myPages()).some((p) => p.pageId === campaign.pageId)) return { ok: false, error: "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว" };
     campaignId = campaign.id;
     // an ad has no angle menu: the campaign's hint is the whole brief from the owner
     input = {
