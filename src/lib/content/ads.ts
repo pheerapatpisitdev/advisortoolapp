@@ -1,6 +1,7 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
 import { CORE_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
+import type { Variant } from "@/lib/ads/dimensions";
 
 /**
  * Facebook ads in variants: selling angles down the side, tones across the top, one ad per cell.
@@ -122,8 +123,9 @@ export function matrixCells(m: AdMatrix): AdCell[] {
   return m.angles.flatMap((angle) => m.tones.map((tone) => ({ angle, tone })));
 }
 
-export function adCopyMessages(brief: string, cell: AdCell): ChatMessage[] {
-  const system = [
+/** What every ad's writer is told, whatever it is written to: the rules, the lengths, the reply's shape. */
+function adSystem(): string {
+  return [
     "คุณเป็นนักเขียนโฆษณา Facebook ภาษาไทยให้ตัวแทนประกันชีวิต",
     "แนวที่ได้ผลในไทย: หยุดสายตาในบรรทัดแรก แล้วชวนให้ทักแชท ไม่ขายด้วยความกลัว",
     "",
@@ -138,12 +140,37 @@ export function adCopyMessages(brief: string, cell: AdCell): ChatMessage[] {
     `{"primaryText":"…","headline":"…","description":"…",${POSTER_JSON}}`,
     POSTER_RULES,
   ].join("\n");
+}
+
+export function adCopyMessages(brief: string, cell: AdCell): ChatMessage[] {
   const user = [
     `ข้อมูลผลิตภัณฑ์:\n${brief}`,
     `มุมขายที่ต้องใช้: ${cell.angle.label} — ${cell.angle.promise}`,
     `โทนที่ต้องใช้: ${cell.tone.label} — ${cell.tone.instruction}`,
   ].join("\n\n");
-  return [{ role: "system", content: system }, { role: "user", content: user }];
+  return [{ role: "system", content: adSystem() }, { role: "user", content: user }];
+}
+
+/**
+ * One ad written to one combination of a campaign's four dimensions (Ads Studio, 2026-10-04).
+ * The writer is told the same as for any ad; what changes is what it writes to: the hook as the
+ * line to open with (its idea, not necessarily its words), the people it talks to, the reason it
+ * gives, and the picture's style for the imagePrompt. The campaign's focus and brand voice, when
+ * the owner gave them, go with every piece.
+ */
+export function variantAdMessages(brief: string, v: Variant, extras: { focus: string; voice: string }): ChatMessage[] {
+  const focus = extras.focus.trim();
+  const voice = extras.voice.trim();
+  const user = [
+    `ข้อมูลผลิตภัณฑ์:\n${brief}`,
+    `ฮุก (ใช้เป็นแนวของประโยคเปิด ในบรรทัดแรกของ primaryText): ${v.hook}`,
+    `กลุ่มคนที่พูดด้วย: ${v.persona}`,
+    `มุมขายที่ต้องใช้: ${v.angle}`,
+    focus ? `สิ่งที่อยากเน้น: ${focus}` : "",
+    voice ? `น้ำเสียงแบรนด์: ${voice}` : "",
+    `สไตล์ภาพ: ${v.style} — imagePrompt ต้องบรรยายภาพในสไตล์นี้`,
+  ].filter(Boolean).join("\n\n");
+  return [{ role: "system", content: adSystem() }, { role: "user", content: user }];
 }
 
 export interface AdCopy {

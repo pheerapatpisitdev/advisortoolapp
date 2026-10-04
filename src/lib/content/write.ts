@@ -1,6 +1,7 @@
 import { BudgetExceeded, chat, parseJsonReply } from "@/lib/ai/client";
 import { DISCLAIMER, TAX_LINE, type ContentOutput, type Lang } from "./output";
-import { adCopyMessages, matrixCells, matrixMessages, parseAdCopy, parseMatrix } from "./ads";
+import { parseAdCopy, variantAdMessages } from "./ads";
+import type { Variant } from "@/lib/ads/dimensions";
 import { parsePoster, type PosterSpec } from "./poster";
 import { WRITERS } from "./models";
 import { headlineMessages, parseHeadlines, type NumberSheet } from "./numbers";
@@ -198,29 +199,17 @@ export async function write(ask: Ask, opts: { only?: string; prefer?: string; bu
 }
 
 /**
- * A round of ads: the cheap model designs the angles and tones, then every cell is written in
- * parallel by the large one, as posts are. A cell that fails costs only itself.
- */
-/** the design's share of a round's time: it is one short reply from the cheap model */
-const AD_PLAN_MS = 40_000;
-
-/**
+ * Ads written to combinations of a campaign's dimensions (Ads Studio, 2026-10-04), each in its own
+ * call to the large model, all in parallel, as posts are. A piece that fails costs only itself.
+ *
  * `clock`: the round's deadline (deadline.ts), with `saveMs` kept back for saving the pieces
- * after. The design gets what is left after a cell's time, at most AD_PLAN_MS; each cell what
- * is left then, fallbacks included. Without it the calls are as they were.
+ * after; each call gets what is left then, fallbacks included. Without it the calls are as usual.
  */
-export async function writeAds(opts: { brief: string; angles: number; tones: number; hint: string; prefer?: string; clock?: Deadline; saveMs?: number }): Promise<Round & { planThb: number; planned: number }> {
-  const save = opts.saveMs ?? 0;
-  const planMs = opts.clock?.budget(AD_PLAN_MS, WRITE_TIMEOUT_MS + save);
-  // the design is optional (a failed one gives the default matrix), so no time for it skips it
-  const m = planMs === 0 ? null : await timed((timeoutMs) => chat({ tier: "small", task: "content-plan", messages: matrixMessages(opts.brief, opts.angles, opts.tones, opts.hint), maxTokens: 900, json: true, timeoutMs }), undefined, planMs, "ad plan")
-    .catch(() => null);
-  const matrix = parseMatrix(m?.text ?? "", opts.angles, opts.tones);
-  const cells = matrixCells(matrix);
-  const cellMs = opts.clock?.budget(Infinity, save);
-  const settled = await Promise.allSettled(cells.map(async (cell) => {
+export async function writeAdVariants(opts: { brief: string; variants: Variant[]; focus: string; voice: string; prefer?: string; clock?: Deadline; saveMs?: number }): Promise<Round> {
+  const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
+  const settled = await Promise.allSettled(opts.variants.map(async (v) => {
     const r = await timed((timeoutMs) => chat({
-      tier: "large", task: "content", messages: adCopyMessages(opts.brief, cell),
+      tier: "large", task: "content", messages: variantAdMessages(opts.brief, v, { focus: opts.focus, voice: opts.voice }),
       maxTokens: 3000, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
       within: fallbackWriters(opts.prefer),
     }), WRITE_TIMEOUT_MS, cellMs, "ad");
@@ -232,18 +221,18 @@ export async function writeAds(opts: { brief: string; angles: number; tones: num
     const poster = modelPoster(copy.poster);
     const output: ContentOutput = {
       hooks: [copy.headline],
-      angle: `${cell.angle.label} · ${cell.tone.label}`,
+      angle: `${v.angle} · ${v.persona}`,
       body: copy.primaryText,
       closing: copy.description,
       hashtags: [],
       imagePrompt: copy.imagePrompt,
       disclaimer: DISCLAIMER,
       ...(poster ? { poster } : {}),
-      ad: { angle: cell.angle.label, tone: cell.tone.label },
+      ad: { angle: v.angle, tone: v.persona, hook: v.hook, persona: v.persona, style: v.style, combo: v.combo },
     };
     return { output: ownerWording(output), model: r.model, costThb: r.costThb };
   }));
-  return { ...gather(settled), planThb: m?.costThb ?? 0, planned: cells.length };
+  return gather(settled);
 }
 
 /**

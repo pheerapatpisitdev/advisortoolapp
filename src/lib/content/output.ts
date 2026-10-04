@@ -64,9 +64,12 @@ export interface ContentOutput {
   poster?: PosterSpec;
   /**
    * For an ad, the cell it fills. An ad's Ads Manager fields live in the piece's own:
-   * headline in hooks[0], primary text in body, description in closing.
+   * headline in hooks[0], primary text in body, description in closing. An ad written from a
+   * campaign's queue (Ads Studio, 2026-10-04) also names its four dimensions and their `combo`,
+   * which is how the queue knows it is made; `tone` is then the persona, so older readers still
+   * show two labels. Ads from before the queue have only angle and tone.
    */
-  ad?: { angle: string; tone: string };
+  ad?: { angle: string; tone: string; hook?: string; persona?: string; style?: string; combo?: string };
   /** who drew the photograph behind the poster, as the card names it ("GPT Image HD") */
   pictureBy?: string;
   /** a person from the library drawn into the picture, and their pose; a redraw keeps them */
