@@ -118,7 +118,7 @@ Stories ไม่รับปุ่ม Call Now กับ Get Directions ตา�
 
 ## 2. สิทธิ์และการตรวจแอป
 
-Config ใหม่ชื่อทำนอง Ads manage มี `ads_management` บวกชุดเพจทั้งหมดที่ config เพจใช้ (`SCOPES`) และ `pages_manage_ads` พร้อมเพจที่เชื่อมไว้ทุกเพจเป็นสินทรัพย์
+Config ใหม่ **Ads manage** (`1083148447943779`) มีสิทธิ์ 9 ตัวเท่ากับ config เพจ Messenger bot ทุกตัว ดู `docs/ads-manage-permission.md`
 เพราะการล็อกอินธุรกิจทับสิทธิ์ทั้งชุด ถ้าไม่ติ๊ก `pages_messaging` อินบ็อกซ์ของบอทหลุด หลังล็อกอินครั้งแรกให้เปิด `/admin/messenger` ตรวจก่อนสร้างแอด
 
 บัญชีของเจ้าของแอปเอง ใช้ Standard Access ได้โดยไม่ยื่น App Review ถ้าผู้ใช้มีบทบาทในแอปและมีสิทธิ์ในบัญชีโฆษณานั้น

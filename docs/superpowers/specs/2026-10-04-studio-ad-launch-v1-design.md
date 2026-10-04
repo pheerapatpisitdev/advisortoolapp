@@ -40,8 +40,8 @@ primary text ที่ `body` description ที่ `closing` และมีโ
 
 - เพิ่มวัตถุประสงค์ล็อกอิน `ads-manage` ใน `src/lib/facebook/oauth.ts` ใช้ config จาก `FB_ADS_MANAGE_CONFIG_ID`
   ตัวแปรว่าง = ปุ่มเชื่อมกดไม่ได้และบอกว่าขาดอะไร ไม่ตกไปใช้ `FB_LOGIN_CONFIG_ID` หรือ `FB_ADS_LOGIN_CONFIG_ID`
-- config ตัวที่สามติ๊กชุดเพจทั้งหมดที่ config เพจใช้ (`SCOPES`: `pages_show_list`, `pages_messaging`, `pages_manage_metadata`, `pages_manage_posts`, `pages_read_engagement`) บวก `pages_manage_ads` และ `ads_management`
-  และใส่เพจที่เชื่อมไว้ทุกเพจเป็นสินทรัพย์ เพราะการล็อกอินธุรกิจทับสิทธิ์ทั้งชุด สิทธิ์หรือเพจที่ไม่ติ๊กจะถูกถอด (ถ้าไม่ติ๊ก `pages_messaging` อินบ็อกซ์ของบอทหลุด)
+- config ตัวที่สาม **Ads manage** (`1083148447943779`) ติ๊กสิทธิ์ 9 ตัวเท่ากับ config เพจ Messenger bot ทุกตัว (รวม `ads_management` ที่ Messenger bot มีอยู่แล้ว) รายการอยู่ใน `docs/ads-manage-permission.md`
+  เพราะการล็อกอินธุรกิจทับสิทธิ์ทั้งชุด สิทธิ์ที่ไม่ติ๊กจะถูกถอด (ขาด `pages_messaging` อินบ็อกซ์ของบอทหลุด ขาด `ads_read` หน้าอ่านผลพัง) โทเค็นแบบผู้ใช้เลือกสินทรัพย์ใน config ไม่ได้ ให้ติ๊กทุกเพจในหน้าต่างล็อกอินตอนกดเชื่อม
   `ADS_MANAGE_SCOPES` ในโค้ดสร้างจาก `SCOPES` บวกสองตัวนั้น ห้ามแก้ config เพจและ config อ่านผล
 - ถ้าล็อกอินกลับมาโดยไม่มี `pages_messaging` callback ยังเก็บการเชื่อมไว้ แต่ redirect พร้อม `warn=pages` และ `/studio/ads` ขึ้นคำเตือนให้เชื่อมเพจใหม่ที่ `/admin/messenger`
 - `src/app/api/facebook/connect/callback/route.ts` เพิ่มกิ่งใหม่ แยกจากกิ่งเพจและกิ่ง `ads_read` ที่ไม่แตะ
@@ -94,4 +94,4 @@ server action ใน Studio (ไม่เปิด API สาธารณะ) �
 - เจ้าของสร้าง config ตัวที่สามและใส่ `FB_ADS_MANAGE_CONFIG_ID` ใน `.env.local` และ Vercel ตามเอกสารสิทธิ์ (`.env.example` ที่ commit แล้วยังไม่มีบรรทัดนี้ ต้องเพิ่มเอง)
 - หลังล็อกอินครั้งแรกด้วย config นี้ เปิด `/admin/messenger` ตรวจว่าทุกเพจยังรับและตอบข้อความได้ ก่อนสร้างแอดใดๆ
 - เพดาน 500 บาทต่อวันเป็นตัวเลขที่เจ้าของต้องการ
-- ครีเอทีฟที่สร้างด้วยโทเค็นผู้ใช้ผ่านสิทธิ์ `pages_manage_ads` ใช้เพจที่ผู้ใช้มีบทบาทอยู่ได้จริง ตรวจตอนลองยิงครั้งแรก
+- ครีเอทีฟที่สร้างด้วยโทเค็นผู้ใช้ใช้เพจที่ผู้ใช้มีบทบาทอยู่ได้โดยไม่มี `pages_manage_ads` หรือไม่ (แอปยังเลือกสิทธิ์นี้ไม่ได้) ตรวจตอนลองยิงครั้งแรก
