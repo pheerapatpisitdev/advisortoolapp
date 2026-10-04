@@ -237,6 +237,17 @@ describe("the page's setup", () => {
     log.mockRestore();
   });
 
+  it("does not ask Meta about expiry, or log an error, on a server without the app secret", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    fb.adsManageMissingEnv.mockReturnValue(["FB_APP_SECRET"]);
+    const setup = await adsLaunchSetup();
+    expect(fb.tokenExpiry).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+    expect(setup.accounts[0]).toMatchObject({ id: ACT, expiresAt: null, tokenValid: null });
+    fb.adsManageMissingEnv.mockReturnValue([]);
+    log.mockRestore();
+  });
+
   it("reads the accounts a half-finished login is waiting to choose between", async () => {
     const setup = await adsLaunchSetup();
     expect(setup.choices).toEqual([{ id: ACT, name: "บัญชีทดสอบ" }]);

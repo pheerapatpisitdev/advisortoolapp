@@ -126,7 +126,11 @@ export async function adsLaunchSetup(): Promise<AdsLaunchSetup> {
     myPages(),
     listContent({}, 200),
   ]);
-  const expiry = await expiries(accounts.map((a) => a.id));
+  const missing = adsManageMissingEnv();
+  // the expiry is asked with the app's own id and secret; a server without them (a laptop
+  // without the secret) would only log an error per account, so it does not ask
+  const canAskMeta = !missing.includes("FB_APP_ID") && !missing.includes("FB_APP_SECRET");
+  const expiry = canAskMeta ? await expiries(accounts.map((a) => a.id)) : new Map<string, TokenExpiry>();
   const pieces = listed.filter(adPiece).slice(0, PIECES_SHOWN);
 
   // one live launch per piece and account; a table that cannot be read (before its migration, or
@@ -156,7 +160,7 @@ export async function adsLaunchSetup(): Promise<AdsLaunchSetup> {
 
   return {
     configured: adsManageOauthIsConfigured(),
-    missing: adsManageMissingEnv(),
+    missing,
     accounts: accounts.map((a) => {
       const e = expiry.get(a.id);
       // the earlier of the token's own end and the end of the person's data access, as /admin/ads says it
