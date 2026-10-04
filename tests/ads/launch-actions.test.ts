@@ -252,7 +252,15 @@ describe("switching an ad on", () => {
   it("audits a success against the launch", async () => {
     expect(await activateAd("L1")).toEqual({ ok: true });
     expect(launch.activateLaunch).toHaveBeenCalledWith("L1", expect.objectContaining({ store: expect.anything() }));
-    expect(who.audit).toHaveBeenCalledWith("activate-ad", "L1", expect.objectContaining({ adId: "AD1", actId: ACT, pageId: PAGE }));
+    expect(who.audit).toHaveBeenCalledWith("activate-ad", "L1", expect.objectContaining({ ok: true, adId: "AD1", actId: ACT, pageId: PAGE }));
+  });
+
+  it("audits a failure too, with the reason, since a press that did not go on is still an attempt to spend", async () => {
+    launch.activateLaunch.mockResolvedValueOnce({ ok: false, error: "Facebook ไม่ยืนยันการเปิดใช้" });
+    await activateAd("L1");
+    expect(who.audit).toHaveBeenCalledWith("activate-ad", "L1", expect.objectContaining({
+      ok: false, error: "Facebook ไม่ยืนยันการเปิดใช้", adId: "AD1", actId: ACT, pageId: PAGE,
+    }));
   });
 
   it("hands back why it did not go on, so the page can show it", async () => {
@@ -266,6 +274,14 @@ describe("switching an ad on", () => {
     const res = await activateAd("L1");
     expect(res).toMatchObject({ ok: false });
     expect(JSON.stringify(res)).not.toContain("boom");
+    log.mockRestore();
+  });
+
+  it("still audits the press when the switch-on throws", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    launch.activateLaunch.mockRejectedValueOnce(new Error("boom"));
+    await activateAd("L1");
+    expect(who.audit).toHaveBeenCalledWith("activate-ad", "L1", expect.objectContaining({ ok: false }));
     log.mockRestore();
   });
 });

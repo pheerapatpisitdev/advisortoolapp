@@ -277,16 +277,19 @@ export async function chooseAdManageAccount(actId: string): Promise<{ ok: true }
  */
 export async function activateAd(launchId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireStaff("owner");
+  let row: LaunchRow | null = null;
+  // every press is recorded, success or not: it is the one that can start spending
+  const record = (ok: boolean, error?: string) =>
+    audit("activate-ad", launchId, { ok, error, adId: row?.adId, actId: row?.actId, pageId: row?.pageId, dailyBudgetMinor: row?.dailyBudgetMinor });
   try {
-    const row = await launchStore.getLaunch(launchId);
+    row = await launchStore.getLaunch(launchId);
     const result = await activateLaunch(launchId, { store: launchStore, token: adManageToken });
-    if (result.ok) {
-      await audit("activate-ad", launchId, { adId: row?.adId, actId: row?.actId, pageId: row?.pageId, dailyBudgetMinor: row?.dailyBudgetMinor });
-      revalidatePath("/studio/ads");
-    }
+    await record(result.ok, result.ok ? undefined : result.error);
+    if (result.ok) revalidatePath("/studio/ads");
     return result;
   } catch (e) {
     console.error("activateAd failed:", e);
+    await record(false, SOMETHING_BROKE).catch(() => {});
     return { ok: false, error: SOMETHING_BROKE };
   }
 }
