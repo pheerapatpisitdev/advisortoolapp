@@ -266,7 +266,8 @@ export function AdsLaunch({ setup, outcome, warn = null, detail, limits }: {
     setBusy("save");
     setNote(null);
     try {
-      const res = await launchAd({ pieceId, actId, pageId, link, dailyBudgetBaht: baht, headline, primaryText, description, recreate });
+      // the Page is the piece's campaign's now (Ads Studio); this page's picker goes with it in Task 5
+      const res = await launchAd({ pieceId, actId, link, dailyBudgetBaht: baht, headline, primaryText, description, recreate });
       if (res.launch) setFresh((f) => ({ ...f, [key]: toView(res.launch!) }));
       if (res.ok) setNote(okNote("บันทึกเป็นแอดหยุดไว้แล้ว ยังไม่เสียเงิน ตรวจใน Ads Manager แล้วกดเปิดใช้ข้างล่างเมื่อพร้อม"));
       // a step that broke is told under that step; anything else has no row to hang it on
