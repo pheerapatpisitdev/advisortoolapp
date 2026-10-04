@@ -956,8 +956,8 @@ export interface SendApprovedInput {
  * are read strictly: one that cannot be read refuses the send rather than risk a second ad.
  */
 export async function sendApproved(input: SendApprovedInput): Promise<SendResult> {
-  const startedAt = Date.now();
   const viewer = await requireStaff("owner");
+  const startedAt = Date.now();
   let started = false;
   try {
     const campaign = await getCampaign(input.campaignId);
@@ -1033,8 +1033,8 @@ export async function sendApproved(input: SendApprovedInput): Promise<SendResult
  * account, Page, link and budget it started with.
  */
 export async function retrySend(sendId: string): Promise<SendResult> {
-  const startedAt = Date.now();
   await requireStaff("owner");
+  const startedAt = Date.now();
   const record = (ok: boolean, detail: Record<string, unknown>) => audit("ads-send", sendId, { ok, retry: true, ...detail });
   try {
     const result = await resumeSend(sendId, sendDeps(startedAt));
@@ -1048,9 +1048,11 @@ export async function retrySend(sendId: string): Promise<SendResult> {
   }
 }
 
-/** Switch a whole send on, or pause it: the press the page confirms first, recorded whatever came of it. */
+/**
+ * Switch a whole send on, or pause it: the press the page confirms first, recorded whatever came
+ * of it. Not a door itself: both actions that call it ask who is calling first.
+ */
 async function switchAction(sendId: string, action: "ads-send-activate" | "ads-send-pause"): Promise<SwitchResult> {
-  await requireStaff("owner");
   let send: AdSend | null = null;
   const record = (ok: boolean, error?: string) => audit(action, sendId, {
     ok, error, campaignId: send?.campaignId, actId: send?.actId, pageId: send?.pageId, dailyBudgetMinor: send?.dailyBudgetMinor,
@@ -1071,10 +1073,12 @@ async function switchAction(sendId: string, action: "ads-send-activate" | "ads-s
 
 /** The press that can spend: campaign, ad set and every ad made go on (activateSend). */
 export async function activateSendAction(sendId: string): Promise<SwitchResult> {
+  await requireStaff("owner");
   return switchAction(sendId, "ads-send-activate");
 }
 
 /** Pauses the send's Meta campaign, which stops its ad set and ads (pauseSend). */
 export async function pauseSendAction(sendId: string): Promise<SwitchResult> {
+  await requireStaff("owner");
   return switchAction(sendId, "ads-send-pause");
 }
