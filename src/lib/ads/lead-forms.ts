@@ -19,9 +19,6 @@ export type LeadForms = { ok: true; tosAccepted: boolean; forms: LeadForm[] } | 
 const BAD_PAGE = "เพจไม่ถูกต้อง";
 const NOT_MANAGED = "บัญชีที่เชื่อมไว้สำหรับสร้างแอดไม่ได้ดูแลเพจนี้ เชื่อมบัญชีใหม่แล้วติ๊กเพจนี้";
 
-/** Where the owner accepts the lead-ads terms for a Page. */
-export const tosUrl = (pageId: string) => `https://www.facebook.com/ads/leadgen/tos?page_id=${pageId}`;
-
 export async function listLeadForms(pageId: string, userToken: string, fetchFn: typeof fetch = fetch): Promise<LeadForms> {
   // the id goes into Graph paths; anything else would let a bad value pick a different endpoint
   if (!/^\d+$/.test(pageId)) return { ok: false, error: BAD_PAGE };

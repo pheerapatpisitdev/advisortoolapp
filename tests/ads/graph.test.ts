@@ -10,6 +10,7 @@ import { adsetParams, campaignParams, creativeParams, LEAD_CTAS, LEAD_LINK, type
 const traffic: AdGoal = { objective: "traffic", link: "https://x.test/plan" };
 const leads: AdGoal = { objective: "leads", leadFormId: "777", cta: "GET_QUOTE" };
 const adset = (goal: AdGoal) => adsetParams({ name: "n", campaignId: "C1", dailyBudgetMinor: 10000, identity: "VID1", goal, pageId: "111" });
+const omit = (o: Record<string, string>, ...keys: string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k)));
 const creative = (goal: AdGoal) => JSON.parse(creativeParams({
   name: "n", pageId: "111", imageHash: "H1", goal, primaryText: "ข้อความ", headline: "หัวข้อ", description: "คำอธิบาย",
 }).object_story_spec);
@@ -21,11 +22,10 @@ describe("the campaign", () => {
   });
 
   it("is a lead campaign for leads, paused and with the same other fields", () => {
-    const { objective, ...rest } = campaignParams("n", "leads");
-    expect(objective).toBe("OUTCOME_LEADS");
-    const { objective: _t, ...trafficRest } = campaignParams("n", "traffic");
-    expect(rest).toEqual(trafficRest);
-    expect(rest).toMatchObject({ status: "PAUSED", special_ad_categories: "[]", is_adset_budget_sharing_enabled: "false" });
+    const leads = campaignParams("n", "leads");
+    expect(leads.objective).toBe("OUTCOME_LEADS");
+    expect(omit(leads, "objective")).toEqual(omit(campaignParams("n", "traffic"), "objective"));
+    expect(leads).toMatchObject({ status: "PAUSED", special_ad_categories: "[]", is_adset_budget_sharing_enabled: "false" });
   });
 });
 
@@ -43,10 +43,7 @@ describe("the ad set", () => {
   });
 
   it("keeps budget, bidding, audience, the Thai identity and PAUSED the same for both", () => {
-    const pick = (a: Record<string, string>) => {
-      const { optimization_goal: _o, destination_type: _d, promoted_object: _p, ...rest } = a;
-      return rest;
-    };
+    const pick = (a: Record<string, string>) => omit(a, "optimization_goal", "destination_type", "promoted_object");
     expect(pick(adset(leads))).toEqual(pick(adset(traffic)));
     expect(adset(leads)).toMatchObject({ status: "PAUSED", daily_budget: "10000", billing_event: "IMPRESSIONS", bid_strategy: "LOWEST_COST_WITHOUT_CAP" });
   });

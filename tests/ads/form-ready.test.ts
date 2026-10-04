@@ -31,3 +31,25 @@ describe("the ads form's readiness", () => {
     expect(formReady({ ...ok, actId: "" })).toBe(false);
   });
 });
+
+describe("the ads form's readiness for a lead form", () => {
+  const lead = { ...ok, link: "", objective: "leads" as const, leadFormId: "777" };
+
+  it("needs a form, not a link", () => {
+    expect(formReady(lead)).toBe(true);
+    expect(formReady({ ...lead, leadFormId: "" })).toBe(false);
+  });
+
+  it("needs the link again once switched back to traffic", () => {
+    expect(formReady({ ...lead, objective: "traffic" })).toBe(false);
+    expect(formReady({ ...lead, objective: "traffic", link: "https://x.test/" })).toBe(true);
+  });
+
+  it("still holds a lead send to the budget, cap, currency, account and Page", () => {
+    expect(formReady({ ...lead, budget: "501" })).toBe(false);
+    expect(formReady({ ...lead, nonBaht: true })).toBe(false);
+    expect(formReady({ ...lead, actId: "" })).toBe(false);
+    expect(formReady({ ...lead, pageId: "" })).toBe(false);
+    expect(formReady({ ...lead, hasPoster: false })).toBe(false);
+  });
+});

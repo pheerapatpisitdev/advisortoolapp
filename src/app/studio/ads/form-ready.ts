@@ -17,6 +17,10 @@ export interface FormState {
   actId: string;
   /** baht a day, from the setup (ADS_MAX_DAILY_BUDGET_THB) */
   maxDailyBudgetThb: number;
+  /** traffic when left out: a traffic send needs a link, a lead send a form instead */
+  objective?: "traffic" | "leads";
+  /** the chosen lead form; "" while none is chosen */
+  leadFormId?: string;
 }
 
 /** the typed budget as a number; NaN for an empty or non-numeric box */
@@ -33,7 +37,7 @@ export function formReady(s: FormState): boolean {
   return (
     s.hasPoster &&
     !s.nonBaht &&
-    s.link.trim() !== "" &&
+    (s.objective === "leads" ? (s.leadFormId ?? "") !== "" : s.link.trim() !== "") &&
     Number.isInteger(n) && n >= 1 && n <= s.maxDailyBudgetThb &&
     s.pageId !== "" &&
     s.actId !== ""

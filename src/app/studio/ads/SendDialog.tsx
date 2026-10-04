@@ -3,23 +3,29 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
 import { picturePending, planLink } from "@/lib/ads/room-view";
-import { sendOutcome } from "@/lib/ads/sent-view";
+import { CTA_LABEL, NEW_FORM_URL, OBJECTIVE_LABEL, sendOutcome, tosUrl } from "@/lib/ads/sent-view";
 import type { SendResult } from "@/lib/ads/send";
+import type { LeadCta, SendObjective } from "@/lib/ads/send-store";
+import type { LeadForms } from "@/lib/ads/lead-forms";
 import { XIcon } from "../ui/icons";
-import { sendApproved } from "./actions";
+import { leadForms, sendApproved } from "./actions";
 import type { Room, RoomPiece } from "./AdEditor";
 import { budgetBaht, formReady, overCap } from "./form-ready";
 import { field, plain, solid, TONES } from "./styles";
 
 /**
  * ส่งขึ้น Facebook: every approved ad not yet sent, as one paused Meta campaign and ad set with an
- * ad per piece. The owner picks the ad account (baht only), keeps or edits the link (the plan's
- * page to begin with), sets the daily budget under the cap, and can take any piece out by its
- * thumbnail. Nothing is switched on here — that is the sent tab's เปิดใช้ทั้งชุด, asked first.
+ * ad per piece. The owner picks traffic (a link, the plan's page to begin with) or a lead form
+ * (one of the Page's Instant Forms and the button), the ad account (baht only), the daily budget
+ * under the cap, and can take any piece out by its thumbnail. Nothing is switched on here — that
+ * is the sent tab's เปิดใช้ทั้งชุด, asked first.
  *
  * Once back, it says how each piece went: made (paused), failed with Meta's reason, or left out
  * before anything was made, with why (not approved, picture not drawn, sent already…).
  */
+
+/** A lead button in the order the dialog offers them, the default first. */
+const CTAS = Object.keys(CTA_LABEL) as LeadCta[];
 
 export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
   room: Room;
@@ -35,6 +41,12 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
   const [actId, setActId] = useState(accounts.find((a) => a.currency === "THB")?.id ?? "");
   const [link, setLink] = useState(planLink(campaign.planHref));
   const [budget, setBudget] = useState("");
+  const [objective, setObjective] = useState<SendObjective>("traffic");
+  // the Page's forms for the chosen account: null until asked, "loading" while asking
+  const [forms, setForms] = useState<LeadForms | "loading" | null>(null);
+  const [formsFor, setFormsFor] = useState("");
+  const [leadFormId, setLeadFormId] = useState("");
+  const [cta, setCta] = useState<LeadCta>("GET_QUOTE");
   const [kept, setKept] = useState<Set<string>>(() => new Set(pieces.map((p) => p.id)));
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
@@ -63,9 +75,30 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
     return () => document.removeEventListener("keydown", onKey);
   }, [busy, onClose]);
 
+  async function loadForms() {
+    setForms("loading");
+    setFormsFor(actId);
+    try {
+      const out = await leadForms(campaign.id, actId);
+      setForms(out);
+      setLeadFormId(out.ok && out.tosAccepted ? out.forms[0]?.id ?? "" : "");
+    } catch {
+      setForms({ ok: false, error: "โหลดรายชื่อฟอร์มไม่สำเร็จ ลองอีกครั้ง" });
+      setLeadFormId("");
+    }
+  }
+
+  // the forms are read with the chosen account's token: asked on switching to leads, and again for another account
+  useEffect(() => {
+    if (objective === "leads" && actId && formsFor !== actId) void loadForms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadForms reads the state it is keyed on
+  }, [objective, actId, formsFor]);
+
   const account = accounts.find((a) => a.id === actId);
   const nonBaht = account !== undefined && account.currency !== "THB";
-  const ready = formReady({ hasPoster: kept.size > 0, nonBaht, link, budget, pageId: campaign.pageId, actId, maxDailyBudgetThb });
+  const ready = formReady({
+    hasPoster: kept.size > 0, nonBaht, link, budget, pageId: campaign.pageId, actId, maxDailyBudgetThb, objective, leadFormId,
+  });
   const going = pieces.filter((p) => kept.has(p.id));
 
   async function send() {
@@ -75,7 +108,10 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
     setLost(false);
     setSentList(going);
     try {
-      setResult(await sendApproved({ campaignId: campaign.id, actId, link, dailyBudgetBaht: budgetBaht(budget), pieceIds: going.map((p) => p.id) }));
+      setResult(await sendApproved({
+        campaignId: campaign.id, actId, link, dailyBudgetBaht: budgetBaht(budget), pieceIds: going.map((p) => p.id),
+        objective, ...(objective === "leads" ? { leadFormId, cta } : {}),
+      }));
     } catch {
       setLost(true);
     } finally {
@@ -99,7 +135,7 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
           <div className="min-w-0">
             <h2 id="send-title" className="font-semibold">ส่งขึ้น Facebook</h2>
             <p className="mt-0.5 text-xs text-[var(--ct-mute)]">
-              เพจ {campaign.pageName ?? campaign.pageId} · 1 แคมเปญ + 1 ชุดโฆษณา (ไทย อายุ 20+) + แอดต่อชิ้น · สร้างเป็นหยุดไว้ทั้งหมด ยังไม่เสียเงิน
+              เพจ {campaign.pageName ?? campaign.pageId} · 1 แคมเปญ{objective === "leads" ? "ลีด" : ""} + 1 ชุดโฆษณา (ไทย อายุ 20+) + แอดต่อชิ้น · สร้างเป็นหยุดไว้ทั้งหมด ยังไม่เสียเงิน
             </p>
           </div>
           <button type="button" onClick={onClose} disabled={busy} aria-label="ปิด" className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-[var(--ct-soft)] disabled:opacity-50">
@@ -109,7 +145,18 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
 
         {!result && !lost && (
           <fieldset disabled={busy} className="m-0 min-w-0 space-y-3 border-0 p-0">
-            <legend className="sr-only">บัญชี ลิงก์ งบ และแอดที่จะส่ง</legend>
+            <legend className="sr-only">วัตถุประสงค์ บัญชี ลิงก์หรือฟอร์ม งบ และแอดที่จะส่ง</legend>
+            <div role="group" aria-label="วัตถุประสงค์" className="grid grid-cols-2 gap-2">
+              {(["traffic", "leads"] as const).map((o) => (
+                <button
+                  key={o} type="button" onClick={() => setObjective(o)} aria-pressed={objective === o}
+                  className={`min-h-11 rounded-lg border px-3 py-2 text-left text-sm ${objective === o ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium" : "border-[var(--ct-hair)]"}`}
+                >
+                  <span className="block">{OBJECTIVE_LABEL[o]}</span>
+                  <span className="block text-xs text-[var(--ct-mute)]">{o === "leads" ? "กรอกใน Facebook" : "พาไปเว็บ"}</span>
+                </button>
+              ))}
+            </div>
             <label className="block min-w-0 space-y-1">
               <span className="text-xs text-[var(--ct-mute)]">บัญชีโฆษณา (สกุลบาทเท่านั้น)</span>
               <select value={actId} onChange={(e) => setActId(e.target.value)} className={field}>
@@ -121,10 +168,17 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
               </select>
             </label>
             {nonBaht && <p className="text-sm text-[var(--ct-warn-ink)]">รองรับเฉพาะบัญชีสกุลบาท (THB) เลือกบัญชีอื่น</p>}
-            <label className="block space-y-1">
-              <span className="text-xs text-[var(--ct-mute)]">ลิงก์ปลายทางของปุ่ม “ดูเพิ่มเติม”</span>
-              <input value={link} onChange={(e) => setLink(e.target.value)} inputMode="url" autoCapitalize="none" className={field} />
-            </label>
+            {objective === "traffic" ? (
+              <label className="block space-y-1">
+                <span className="text-xs text-[var(--ct-mute)]">ลิงก์ปลายทางของปุ่ม “ดูเพิ่มเติม”</span>
+                <input value={link} onChange={(e) => setLink(e.target.value)} inputMode="url" autoCapitalize="none" className={field} />
+              </label>
+            ) : (
+              <LeadFormFields
+                forms={forms} pageId={campaign.pageId} leadFormId={leadFormId} onForm={setLeadFormId}
+                cta={cta} onCta={setCta} onReload={() => void loadForms()}
+              />
+            )}
             <label className="block space-y-1">
               <span className="text-xs text-[var(--ct-mute)]">งบต่อวันของทั้งชุด (บาท) · สูงสุด {maxDailyBudgetThb.toLocaleString("en-US")}</span>
               <input value={budget} onChange={(e) => setBudget(e.target.value)} type="number" inputMode="numeric" min={1} max={maxDailyBudgetThb} step={1} className={field} />
@@ -160,7 +214,11 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
               {busy ? `กำลังสร้างบน Facebook… ${seconds} วินาที` : `สร้างเป็นแอดหยุดไว้ (${going.length})`}
             </button>
             {busy && <p role="status" className="text-xs text-[var(--ct-mute)]">ราว 10 วินาทีต่อชิ้น อย่าปิดหน้านี้จนกว่าจะเสร็จ</p>}
-            {!busy && !ready && <p className="text-xs text-[var(--ct-mute)]">เลือกบัญชีสกุลบาท ใส่ลิงก์ และงบต่อวันเป็นจำนวนเต็มบาทก่อน</p>}
+            {!busy && !ready && (
+              <p className="text-xs text-[var(--ct-mute)]">
+                เลือกบัญชีสกุลบาท {objective === "leads" ? "เลือกฟอร์ม" : "ใส่ลิงก์"} และงบต่อวันเป็นจำนวนเต็มบาทก่อน
+              </p>
+            )}
           </fieldset>
         )}
 
@@ -201,5 +259,49 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
         )}
       </div>
     </div>
+  );
+}
+
+/** The lead half of the dialog: the Page's forms (or why there are none to pick) and the button. */
+function LeadFormFields({ forms, pageId, leadFormId, onForm, cta, onCta, onReload }: {
+  forms: LeadForms | "loading" | null;
+  pageId: string;
+  leadFormId: string;
+  onForm: (id: string) => void;
+  cta: LeadCta;
+  onCta: (c: LeadCta) => void;
+  onReload: () => void;
+}) {
+  const reload = <button type="button" onClick={onReload} className={`${plain} shrink-0`}>โหลดใหม่</button>;
+  const note = (tone: "bad" | "warn", body: React.ReactNode) => (
+    <div className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${TONES[tone]}`}>
+      <p className="min-w-0">{body}</p>
+      {reload}
+    </div>
+  );
+
+  if (forms === null || forms === "loading") return <p role="status" className="text-sm text-[var(--ct-mute)]">กำลังโหลดฟอร์ม…</p>;
+  if (!forms.ok) return note("bad", forms.error);
+  if (!forms.tosAccepted) {
+    return note("warn", <>เพจนี้ยังไม่ได้ยอมรับเงื่อนไขแอดลีดของ Facebook — <a href={tosUrl(pageId)} target="_blank" rel="noreferrer" className="underline">ไปกดยอมรับ</a> แล้วกดโหลดใหม่</>);
+  }
+  if (forms.forms.length === 0) {
+    return note("warn", <>ยังไม่มีฟอร์มบนเพจนี้ — <a href={NEW_FORM_URL} target="_blank" rel="noreferrer" className="underline">สร้างฟอร์มใน Business Suite</a> แล้วกดโหลดใหม่</>);
+  }
+  return (
+    <>
+      <label className="block min-w-0 space-y-1">
+        <span className="text-xs text-[var(--ct-mute)]">ฟอร์มที่ปุ่มบนแอดเปิด</span>
+        <select value={leadFormId} onChange={(e) => onForm(e.target.value)} className={field}>
+          {forms.forms.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </select>
+      </label>
+      <label className="block min-w-0 space-y-1">
+        <span className="text-xs text-[var(--ct-mute)]">ปุ่มบนแอด</span>
+        <select value={cta} onChange={(e) => onCta(e.target.value as LeadCta)} className={field}>
+          {CTAS.map((c) => <option key={c} value={c}>{CTA_LABEL[c]}</option>)}
+        </select>
+      </label>
+    </>
   );
 }

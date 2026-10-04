@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
-import { activateQuestion, badStatus, pauseQuestion, sendBadge, sendButtons, statusText } from "@/lib/ads/sent-view";
+import { activateQuestion, badStatus, OBJECTIVE_LABEL, pauseQuestion, sendBadge, sendButtons, statusText } from "@/lib/ads/sent-view";
 import { ask } from "../ask";
 import { errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
 import { activateSendAction, pauseSendAction, retrySend, type SendView } from "./actions";
@@ -76,7 +76,7 @@ export function SentSend({ send, pieces, account, pageName, productName, onOpen 
           </span>
         </p>
         <p className="break-words text-sm text-[var(--ct-mute)]">
-          {account} · เพจ {pageName} · งบ {baht(send.dailyBudgetBaht)} ต่อวัน · {made}/{send.items.length} แอด
+          {OBJECTIVE_LABEL[send.objective]} · {account} · เพจ {pageName} · งบ {baht(send.dailyBudgetBaht)} ต่อวัน · {made}/{send.items.length} แอด
         </p>
         {meta && <p className={`text-sm ${badStatus(send.metaStatus) ? "font-medium text-[var(--ct-alert)]" : ""}`}>สถานะจาก Meta: {meta}</p>}
         {send.step !== "ads" && <p className="text-sm text-[var(--ct-warn-ink)]">{STEP_TEXT[send.step] ?? send.step}</p>}

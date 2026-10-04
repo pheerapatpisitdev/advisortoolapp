@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { listLeadForms, tosUrl } from "@/lib/ads/lead-forms";
+import { listLeadForms } from "@/lib/ads/lead-forms";
+import { tosUrl } from "@/lib/ads/sent-view";
 
 /**
  * Which Instant Forms a Page offers and whether it has accepted Meta's lead-ads terms. Graph is
