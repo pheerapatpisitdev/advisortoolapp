@@ -66,6 +66,7 @@ describe("reading campaigns", () => {
       id: UUID, createdAt: "2026-10-04T00:00:00Z", pageId: "p1", planHref: "/plans/ishield",
       name: "iShield", angles: 2, tones: 2, theme: "t", hint: "h", agentId: "A1",
       dimensions: null, queuePos: 0, brandVoice: null,
+      writer: null, painter: null, person: null, pictureBrief: null,
     }]);
   });
 
@@ -148,6 +149,31 @@ describe("a campaign's dimensions, queue and brand voice", () => {
   });
 });
 
+describe("a campaign's ภาพและโมเดล", () => {
+  const PERSON = { id: "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f", pose: "arms" };
+
+  it("writes the picks as snake_case columns, null when not given", async () => {
+    await createCampaign({ pageId: "p1", planHref: "/plans/ishield", angles: 1, tones: 1, agentId: "A1", writer: "cheap", painter: "sharp", person: PERSON, pictureBrief: "สวน" });
+    expect(calls[0].payload).toMatchObject({ writer: "cheap", painter: "sharp", person: PERSON, picture_brief: "สวน" });
+    calls.length = 0;
+    await createCampaign({ pageId: "p1", planHref: "/plans/ishield", angles: 1, tones: 1, agentId: "A1" });
+    expect(calls[0].payload).toMatchObject({ writer: null, painter: null, person: null, picture_brief: null });
+  });
+
+  it("reads them back, and a stored person not of the right shape as nobody", async () => {
+    one = { ...dbRow, writer: "best", painter: "gemini", person: PERSON, picture_brief: "สวน" };
+    expect(await getCampaign(UUID)).toMatchObject({ writer: "best", painter: "gemini", person: PERSON, pictureBrief: "สวน" });
+    one = { ...dbRow, person: { id: "x" } };
+    expect(await getCampaign(UUID)).toMatchObject({ writer: null, painter: null, person: null, pictureBrief: null });
+  });
+
+  it("updates only the picks given", async () => {
+    await updateCampaign(UUID, { painter: null, pictureBrief: "ทะเล" });
+    expect(calls[0]).toMatchObject({ op: "update", payload: { painter: null, picture_brief: "ทะเล" } });
+    expect(calls[0].payload).not.toHaveProperty("writer");
+  });
+});
+
 describe("filing a piece into a campaign", () => {
   const save = (campaignId?: string | null) => saveContent({
     planHref: "/plans/ishield", format: "ad", angle: "" as never, length: null,
@@ -186,6 +212,14 @@ describe("the migration", () => {
     expect(flow).toContain("add column if not exists queue_pos int not null default 0");
     expect(flow).toContain("add column if not exists brand_voice text");
     expect(flow).not.toMatch(/drop (table|column)/i);
+  });
+
+  it("adds the picture picks, held to the lists, and drops nothing", () => {
+    const pic = readFileSync("supabase/migrations/20261008_ad_campaign_picture.sql", "utf8");
+    for (const col of ["writer text", "painter text", "person jsonb", "picture_brief text"]) expect(pic).toContain(`add column if not exists ${col}`);
+    expect(pic).toContain("writer in ('best', 'balanced', 'cheap')");
+    expect(pic).toContain("painter in ('standard', 'sharp', 'gemini')");
+    expect(pic).not.toMatch(/drop (table|column)/i);
   });
 
   it("files old ad pieces only when they are unfiled, so running it twice changes nothing more", () => {

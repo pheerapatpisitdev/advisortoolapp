@@ -14,6 +14,7 @@ import {
   imageParams,
   LEAD_CTAS,
   LEAD_LINK,
+  messengerLink,
   NO_HASH,
   NO_ID,
 } from "./graph";
@@ -122,6 +123,9 @@ export type SendResult =
 
 export type SwitchResult = { ok: true } | { ok: false; error: string };
 
+/** what a batch's Meta campaign name says before its count; traffic says nothing, as it always has */
+const BATCH_LABEL: Record<SendObjective, string> = { traffic: "", leads: "ลีด · ", messages: "ข้อความ · " };
+
 const NO_PIECES = "ยังไม่ได้เลือกแอด";
 const NO_TOKEN = "ยังไม่ได้เชื่อมบัญชีโฆษณาสำหรับสร้างแอด กดเชื่อมบัญชีก่อน";
 const NO_POSTER = "ชิ้นนี้ยังไม่มีโปสเตอร์ สร้างโปสเตอร์ก่อนส่ง";
@@ -148,13 +152,15 @@ const NO_TH_IDENTITY =
 
 /** What a send's ads ask people to do, from what the send was started with. */
 export function goalOf(send: AdSend): AdGoal {
-  return send.objective === "leads"
-    ? { objective: "leads", leadFormId: send.leadFormId!, cta: send.cta! }
-    : { objective: "traffic", link: send.link };
+  if (send.objective === "leads") return { objective: "leads", leadFormId: send.leadFormId!, cta: send.cta! };
+  if (send.objective === "messages") return { objective: "messages" };
+  return { objective: "traffic", link: send.link };
 }
 
-/** A lead send's form and button, or why they cannot go; a traffic send's checked link. */
+/** A lead send's form and button, or why they cannot go; a traffic send's checked link; a messages send's chat link. */
 function checkGoal(input: SendInput): { ok: true; link: string; leadFormId: string | null; cta: LeadCta | null } | { ok: false; error: string } {
+  // the button opens the Page's chat: nothing to choose, and the link kept is the Page's own
+  if (input.objective === "messages") return { ok: true, link: messengerLink(input.pageId), leadFormId: null, cta: null };
   if (input.objective !== "leads") {
     const link = checkLink(input.link);
     return link.ok ? { ok: true, link: link.url, leadFormId: null, cta: null } : link;
@@ -219,7 +225,7 @@ export async function runSend(input: SendInput, deps: SendDeps): Promise<SendRes
       link: goal.link,
       currency: "THB",
       dailyBudgetMinor: budget.minor,
-      objective: input.objective === "leads" ? "leads" : "traffic",
+      objective: input.objective === "leads" || input.objective === "messages" ? input.objective : "traffic",
       leadFormId: goal.leadFormId,
       cta: goal.cta,
       createdBy: input.createdBy,
@@ -322,7 +328,7 @@ async function drive(
 
     const act = send.actId;
     const day = bangkokDay(now());
-    const batchName = `Studio · ${send.objective === "leads" ? "ลีด · " : ""}${items.length} แอด · ${day}`;
+    const batchName = `Studio · ${BATCH_LABEL[send.objective]}${items.length} แอด · ${day}`;
 
     if (!send.metaCampaignId) {
       const r = await graph(fetchFn, token, `${act}/campaigns`, campaignParams(batchName, send.objective));

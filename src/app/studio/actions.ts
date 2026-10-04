@@ -312,10 +312,11 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
     // a queue walked to its end is said before anything is counted or held (review focus 2)
     if (variants.length === 0) return { ok: false, error: "สร้างครบทุกแบบแล้ว" };
     adQueue = { campaign, variants, asked };
-    // only the campaignId and count are read from the browser: everything else is the campaign's
+    // only the campaignId and count are read from the browser: everything else is the campaign's, its writer too
     input = {
       href: campaign.planHref, format: "ad", angle: "", custom: campaign.hint ?? "", length: null, count: asked,
       hookTemplateId: null, page: campaign.pageId, theme: campaign.theme ?? undefined, campaignId: campaign.id,
+      writer: campaign.writer ?? undefined,
     };
   }
   // the round's time starts with the request: the planner, the writers and the saves all fit in it

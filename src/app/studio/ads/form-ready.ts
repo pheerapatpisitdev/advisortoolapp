@@ -17,8 +17,8 @@ export interface FormState {
   actId: string;
   /** baht a day, from the setup (ADS_MAX_DAILY_BUDGET_THB) */
   maxDailyBudgetThb: number;
-  /** traffic when left out: a traffic send needs a link, a lead send a form instead */
-  objective?: "traffic" | "leads";
+  /** traffic when left out: a traffic send needs a link, a lead send a form instead, a messages send neither */
+  objective?: "traffic" | "leads" | "messages";
   /** the chosen lead form; "" while none is chosen */
   leadFormId?: string;
 }
@@ -37,7 +37,7 @@ export function formReady(s: FormState): boolean {
   return (
     s.hasPoster &&
     !s.nonBaht &&
-    (s.objective === "leads" ? (s.leadFormId ?? "") !== "" : s.link.trim() !== "") &&
+    (s.objective === "leads" ? (s.leadFormId ?? "") !== "" : s.objective === "messages" || s.link.trim() !== "") &&
     Number.isInteger(n) && n >= 1 && n <= s.maxDailyBudgetThb &&
     s.pageId !== "" &&
     s.actId !== ""

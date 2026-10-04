@@ -15,15 +15,6 @@ export function writeParam(v: string | undefined | null): WriteCount | 0 {
 }
 
 /**
- * What a round costs about, in the owner's words. Per ad: writing 0.1–0.5 baht and the picture
- * about 0.43 (the spec's figures), said as half a baht to a baht.
- */
-export function roundCost(n: number): string {
-  const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
-  return `ราว ${fmt(n * 0.5)}–${fmt(n)} บาท`;
-}
-
-/**
  * A piece written to a picture style whose picture is not on its poster yet (still drawing, or
  * the draw failed). The send leaves such a piece out (actions.ts picturePending), so the card
  * offers to draw it.
@@ -94,3 +85,13 @@ export function settledPictures<P extends { id: string } & Parameters<typeof pic
 
 /** A picture waiting its turn is skipped when its piece went to the bin meanwhile (one the room has not seen yet is not). */
 export const inBin = (pieces: { id: string; tab: string }[], id: string): boolean => pieces.some((p) => p.id === id && p.tab === "trash");
+
+/**
+ * The campaign the one-page Ads Studio opens: the one asked for when the Page has it, else the
+ * newest (the list comes newest first); none, so the tools make a campaign, when a new one is
+ * asked for or the Page has none yet.
+ */
+export function openCampaign(campaigns: { id: string }[], o: { asked: string | null; fresh: boolean }): string | null {
+  if (o.fresh) return null;
+  return campaigns.find((c) => c.id === o.asked)?.id ?? campaigns[0]?.id ?? null;
+}

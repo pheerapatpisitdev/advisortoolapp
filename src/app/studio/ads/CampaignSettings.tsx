@@ -3,20 +3,25 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Theme } from "@/lib/content/poster";
 import { comboLine, fromEdit, sameDimensions, shortOf, toEdit, type EditDims } from "@/lib/ads/dimension-edit";
-import { roundCost, WRITE_COUNTS, type WriteCount } from "@/lib/ads/room-view";
-import { AUTO_THEME, ThemeSwatches, type ThemeChoice } from "../ThemeSwatches";
+import { adRoundCost } from "@/lib/ads/picture-picks";
+import { WRITE_COUNTS, type WriteCount } from "@/lib/ads/room-view";
+import type { PersonOption } from "../PersonPicker";
+import { AUTO_THEME } from "../ThemeSwatches";
 import { errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
-import { analyzeCampaign, updateAdCampaign } from "./actions";
+import { ask } from "../ask";
+import { analyzeCampaign, deleteAdCampaign, updateAdCampaign } from "./actions";
 import type { Room } from "./AdEditor";
 import { DimensionsEditor } from "./DimensionsEditor";
-import { chip, field, plain, solid } from "./styles";
+import { PictureFields, type PicturePicks } from "./PictureFields";
+import { chip, field, plain, solid, TONES } from "./styles";
 
 /**
- * A campaign's settings, on the left of its room and folded away on a phone: the plan (set
- * when it was made, shown only), its name, what to stress, the brand's voice, the posters'
- * colour, and the four dimensions — which steer only the ads still to be written. Under them,
- * the button that writes the next 1, 2 or 4 ads from the queue; it says so when the queue is
- * walked to its end. A campaign made before dimensions offers the AI's analysis instead.
+ * A campaign's settings, in Ads Studio's tools column under the Page and campaign pickers (folded
+ * away on a phone): the plan (set when it was made, shown only), its name, what to stress, the
+ * brand's voice, ภาพและโมเดล (PictureFields), and the four dimensions — which steer only the ads still
+ * to be written — then ลบแคมเปญนี้, which asks first. At the column's foot, in sight folded or
+ * not, the button that writes the next 1, 2 or 4 ads from the queue; it says so when the queue
+ * is walked to its end. A campaign made before dimensions offers the AI's analysis instead.
  * Settings changed and not saved are saved first, since the writer reads the campaign, not
  * this form.
  */
@@ -67,11 +72,49 @@ function Analyse({ campaignId, onDone }: { campaignId: string; onDone: (fallback
   );
 }
 
-export function CampaignSettings({ campaign, productName, queue, writing, onWrite, onAnalysed }: {
+/** ลบแคมเปญนี้: asks in the page, then deletes and opens the Page's next campaign. A refusal (an ad still switched on) shows under it. */
+function DeleteCampaign({ campaign, sent }: { campaign: Room["campaign"]; sent: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function run() {
+    const message = `ลบแคมเปญ "${campaign.title}" และแอดทั้งหมดในแคมเปญนี้ออกจาก Ads Studio?${sent
+      ? "\n\nแอดที่ส่งขึ้น Facebook แล้วจะยังอยู่ในตัวจัดการโฆษณา (หยุดไว้) ถ้าไม่ใช้แล้วให้ลบที่นั่นด้วย"
+      : ""}\n\nลบแล้วกู้คืนไม่ได้`;
+    if (!(await ask(message, "ลบแคมเปญ"))) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await deleteAdCampaign(campaign.id);
+      if (!res.ok) { setError(res.error); setBusy(false); return; }
+      // busy stays on until the page has moved: the campaign is gone
+      router.replace(`/studio/ads?page=${encodeURIComponent(campaign.pageId)}`);
+    } catch {
+      setError("การเชื่อมต่อหลุด ยังไม่รู้ว่าลบแล้วหรือไม่ — เปิดหน้านี้ใหม่เพื่อดู");
+      setBusy(false);
+    }
+  }
+  return (
+    <div>
+      <button type="button" onClick={run} disabled={busy} className="inline-flex min-h-11 items-center text-sm text-[var(--ct-alert)] underline underline-offset-2 disabled:opacity-50">
+        {busy ? "กำลังลบ…" : "ลบแคมเปญนี้"}
+      </button>
+      {error && <p role="alert" className={`rounded-lg border px-3 py-2 text-sm ${TONES.bad}`}>{error}</p>}
+    </div>
+  );
+}
+
+export function CampaignSettings({ campaign, productName, queue, people, sent, folded, writing, onWrite, onAnalysed }: {
   campaign: Room["campaign"];
   /** the plan's name, shown and not editable */
   productName: string;
   queue: Room["queue"];
+  /** the people library, for ใส่บุคคลในภาพ */
+  people: PersonOption[];
+  /** some of its ads went to Facebook: deleting says they stay there */
+  sent: boolean;
+  /** a phone with the tools folded: only the button shows */
+  folded: boolean;
   /** a round is being written: the button stays shut until it is back */
   writing: boolean;
   onWrite: (count: WriteCount) => void;
@@ -82,19 +125,25 @@ export function CampaignSettings({ campaign, productName, queue, writing, onWrit
   const [name, setName] = useState(campaign.name ?? "");
   const [hint, setHint] = useState(campaign.hint ?? "");
   const [voice, setVoice] = useState(campaign.brandVoice ?? "");
-  const [theme, setTheme] = useState<ThemeChoice>((campaign.theme as Theme | null) ?? AUTO_THEME);
+  const [picks, setPicks] = useState<PicturePicks>(() => ({
+    writer: campaign.writer, painter: campaign.painter, theme: (campaign.theme as Theme | null) ?? AUTO_THEME,
+    person: campaign.person, brief: campaign.pictureBrief ?? "",
+  }));
   // the room remounts this panel when a campaign gains its dimensions, so they start from the saved ones
   const [dims, setDims] = useState<EditDims | null>(() => (campaign.dimensions ? toEdit(campaign.dimensions) : null));
   const [count, setCount] = useState<WriteCount>(2);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<NoteState>(null);
 
-  const themeValue = theme === AUTO_THEME ? null : theme;
+  const themeValue = picks.theme === AUTO_THEME ? null : picks.theme;
+  const picksDirty = picks.writer !== campaign.writer || picks.painter !== campaign.painter
+    || (picks.person?.id ?? null) !== (campaign.person?.id ?? null) || (picks.person?.pose ?? null) !== (campaign.person?.pose ?? null)
+    || (picks.brief.trim() || null) !== campaign.pictureBrief;
   const kept = dims ? fromEdit(dims) : null;
   const short = dims ? shortOf(dims) : [];
   const dimsDirty = kept !== null && !sameDimensions(kept, campaign.dimensions);
   const fieldsDirty = (name.trim() || null) !== campaign.name || (hint.trim() || null) !== campaign.hint
-    || (voice.trim() || null) !== campaign.brandVoice || themeValue !== campaign.theme;
+    || (voice.trim() || null) !== campaign.brandVoice || themeValue !== campaign.theme || picksDirty;
   const dirty = fieldsDirty || dimsDirty;
   // an edit not saved yet may add designs; the server says when there are truly none left
   const exhausted = !dimsDirty && queue !== null && queue.next.length === 0;
@@ -108,6 +157,7 @@ export function CampaignSettings({ campaign, productName, queue, writing, onWrit
     try {
       const res = await updateAdCampaign(campaign.id, {
         name, hint, brandVoice: voice, theme: themeValue, ...(dimsDirty && kept ? { dimensions: kept } : {}),
+        writer: picks.writer, painter: picks.painter, person: picks.person, pictureBrief: picks.brief,
       });
       if (!res.ok) { setNote(errorNote(res.error)); return false; }
       router.refresh();
@@ -131,13 +181,8 @@ export function CampaignSettings({ campaign, productName, queue, writing, onWrit
   }
 
   return (
-    <section aria-label="ตั้งค่าแคมเปญ" className="rounded-2xl border border-[var(--ct-hair)] bg-[var(--ct-panel)]">
-      <details open className="group">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold">
-          ตั้งค่าแคมเปญ
-          <span aria-hidden className="text-[var(--ct-mute)] transition-transform group-open:rotate-180">▾</span>
-        </summary>
-        <div className="space-y-4 border-t border-[var(--ct-hair)] p-4">
+    <>
+      <div className={`space-y-4 border-t border-[var(--ct-hair)] p-4 ${folded ? "hidden lg:block" : ""}`}>
           <fieldset disabled={saving || writing} className="m-0 min-w-0 space-y-4 border-0 p-0">
             <legend className="sr-only">ตั้งค่าแคมเปญ</legend>
             <div className="text-sm">
@@ -162,10 +207,10 @@ export function CampaignSettings({ campaign, productName, queue, writing, onWrit
               </span>
               <textarea value={voice} onChange={(e) => setVoice(e.target.value)} maxLength={TEXT_MAX} rows={2} className={`${field} leading-relaxed`} />
             </label>
-            <div>
-              <span className="mb-1.5 block text-sm font-medium">โทนสีโปสเตอร์</span>
-              <ThemeSwatches<ThemeChoice> value={theme} onChange={setTheme} allowAuto />
-            </div>
+            <PictureFields
+              value={picks} onChange={(next) => setPicks((p) => ({ ...p, ...next }))}
+              people={people} back={`/studio/ads?campaign=${encodeURIComponent(campaign.id)}`}
+            />
           </fieldset>
           {dims && kept && (
             <div className="space-y-2">
@@ -182,10 +227,10 @@ export function CampaignSettings({ campaign, productName, queue, writing, onWrit
             </button>
           )}
           <Note note={note} />
-        </div>
-      </details>
+          <DeleteCampaign campaign={campaign} sent={sent} />
+      </div>
       {/* outside the fold: folding the settings away on a phone keeps the button */}
-      <div className="sticky bottom-0 space-y-2 rounded-b-2xl border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
+      <div className="sticky bottom-0 space-y-2 rounded-b-xl border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
         {!campaign.dimensions ? (
           <Analyse campaignId={campaign.id} onDone={onAnalysed} />
         ) : (
@@ -202,11 +247,11 @@ export function CampaignSettings({ campaign, productName, queue, writing, onWrit
             <p className="text-xs text-[var(--ct-mute)]">
               {exhausted
                 ? "ทุกแบบของมิติตอนนี้สร้างไปแล้ว — เพิ่มฮุก กลุ่มคน มุมขาย หรือสไตล์ภาพเพื่อสร้างต่อ"
-                : `${roundCost(count)} รวมวาดรูป · ราว 20–40 วินาที${queue && left < count ? ` · เหลือ ${left} แบบ` : ""}`}
+                : `${adRoundCost(count, picks)} รวมวาดรูป · ราว 20–40 วินาที${queue && left < count ? ` · เหลือ ${left} แบบ` : ""}`}
             </p>
           </>
         )}
       </div>
-    </section>
+    </>
   );
 }

@@ -22,7 +22,7 @@ export const STATUS_LABEL: Record<string, string> = {
 const BAD = new Set(["DISAPPROVED", "WITH_ISSUES"]);
 
 /** What a send's ads ask people to do, as the owner reads it. */
-export const OBJECTIVE_LABEL: Record<SendObjective, string> = { traffic: "ทราฟฟิก", leads: "ฟอร์มลีด" };
+export const OBJECTIVE_LABEL: Record<SendObjective, string> = { traffic: "ทราฟฟิก", leads: "ฟอร์มลีด", messages: "ข้อความ" };
 
 /** A lead ad's button, in the words Facebook shows on it in Thai. */
 export const CTA_LABEL: Record<LeadCta, string> = { GET_QUOTE: "รับใบเสนอราคา", SIGN_UP: "ลงทะเบียน", LEARN_MORE: "ดูเพิ่มเติม" };
@@ -147,4 +147,35 @@ export function sendOutcome(res: SendResult, pieceId: string): { tone: "ok" | "w
   if (item?.error) return { tone: "bad", text: `ไม่สำเร็จ — ${item.error}` };
   if (!res.send) return { tone: "warn", text: "ยังไม่ได้สร้างอะไรบน Facebook — กดส่งอีกครั้ง" };
   return { tone: "warn", text: "ยังไม่ได้สร้าง — กดลองใหม่ในแท็บส่งแล้ว" };
+}
+
+/** One ad on the sent rail beside the room's ads: its piece, what it is doing, and what it spends. */
+export interface SentRow {
+  key: string;
+  pieceId: string | null;
+  status: string;
+  /** on: Meta says it is running; bad: refused, in trouble, or never made */
+  tone: "on" | "off" | "bad";
+  budgetBaht: number;
+  /** when its send went; null for an ad launched one by one, which keeps no time of its own here */
+  sentAt: string | null;
+}
+
+type RailAd = { pieceId: string | null; adId: string | null; error: string | null; effectiveStatus: string | null };
+
+function railStatus(a: RailAd): Pick<SentRow, "status" | "tone"> {
+  if (!a.adId) return a.error ? { status: "สร้างแอดไม่สำเร็จ", tone: "bad" } : { status: "กำลังส่ง…", tone: "off" };
+  const tone = a.effectiveStatus === "ACTIVE" ? "on" : badStatus(a.effectiveStatus) ? "bad" : "off";
+  return { status: statusText(a.effectiveStatus) ?? "ส่งแล้ว", tone };
+}
+
+/** Every ad of the campaign's sends (newest send first, as they come), then those launched one by one. */
+export function sentRows(
+  sends: { createdAt: string; dailyBudgetBaht: number; items: (RailAd & { id: string })[] }[],
+  legacy: (RailAd & { id: string; dailyBudgetBaht: number })[],
+): SentRow[] {
+  return [
+    ...sends.flatMap((s) => s.items.map((i) => ({ key: i.id, pieceId: i.pieceId, ...railStatus(i), budgetBaht: s.dailyBudgetBaht, sentAt: s.createdAt }))),
+    ...legacy.map((l) => ({ key: l.id, pieceId: l.pieceId, ...railStatus(l), budgetBaht: l.dailyBudgetBaht, sentAt: null })),
+  ];
 }

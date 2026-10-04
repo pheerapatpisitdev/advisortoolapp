@@ -314,6 +314,22 @@ describe("making a campaign from the wizard", () => {
   });
 });
 
+describe("a campaign's ภาพและโมเดล", () => {
+  const PERSON = { id: "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f", pose: "arms" };
+
+  it("keeps the picks made in the wizard, and only ids from the lists", async () => {
+    await createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", dimensions: dims(), writer: "cheap", painter: "gemini", person: PERSON, pictureBrief: "  สวน  " });
+    expect(camps.createCampaign).toHaveBeenLastCalledWith(expect.objectContaining({ writer: "cheap", painter: "gemini", person: PERSON, pictureBrief: "สวน" }));
+    await createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", dimensions: dims(), writer: "claude-opus", painter: "none", person: { id: "x", pose: "arms" }, pictureBrief: "  " });
+    expect(camps.createCampaign).toHaveBeenLastCalledWith(expect.objectContaining({ writer: null, painter: null, person: null, pictureBrief: null }));
+  });
+
+  it("saves changed picks from the settings, cleaned the same way", async () => {
+    expect(await updateAdCampaign(CAMPAIGN, { writer: "best", painter: "auto", person: null, pictureBrief: " ทะเล " })).toEqual({ ok: true });
+    expect(camps.updateCampaign).toHaveBeenCalledWith(CAMPAIGN, { writer: "best", painter: null, person: null, pictureBrief: "ทะเล" });
+  });
+});
+
 describe("changing a campaign's dimensions and voice", () => {
   it("saves cleaned dimensions and a trimmed voice", async () => {
     expect(await updateAdCampaign(CAMPAIGN, { dimensions: dims(), brandVoice: ` ${"ว".repeat(130)} ` })).toEqual({ ok: true });
@@ -571,6 +587,26 @@ describe("sending approved ads", () => {
     expect(JSON.stringify(res)).not.toContain("secret detail");
     expect(who.audit).toHaveBeenLastCalledWith("ads-send", CAMPAIGN, expect.objectContaining({ ok: false }));
     log.mockRestore();
+  });
+});
+
+describe("sending approved ads as messages", () => {
+  it("hands runSend a messages send without a form or button, asking Meta for no forms", async () => {
+    const res = await sendApproved({
+      campaignId: CAMPAIGN, actId: ACT, link: "", dailyBudgetBaht: 150, pieceIds: ["p1"],
+      objective: "messages", leadFormId: "777", cta: "GET_QUOTE",
+    });
+    expect(res.ok).toBe(true);
+    expect(forms.listLeadForms).not.toHaveBeenCalled();
+    const [arg] = engine.runSend.mock.calls[0] as unknown as [Record<string, unknown>];
+    expect(arg).toMatchObject({ objective: "messages", pageId: PAGE });
+    expect(arg).not.toHaveProperty("leadFormId");
+    expect(who.audit).toHaveBeenCalledWith("ads-send", "S1", expect.objectContaining({ objective: "messages" }));
+  });
+
+  it("takes an objective it does not know as traffic", async () => {
+    await sendApproved({ campaignId: CAMPAIGN, actId: ACT, link: "https://x.test/", dailyBudgetBaht: 150, pieceIds: ["p1"], objective: "bogus" as never });
+    expect((engine.runSend.mock.calls[0] as unknown as [Record<string, unknown>])[0]).toMatchObject({ objective: "traffic" });
   });
 });
 

@@ -15,14 +15,22 @@ import { field, plain, solid, TONES } from "./styles";
 
 /**
  * ส่งขึ้น Facebook: every approved ad not yet sent, as one paused Meta campaign and ad set with an
- * ad per piece. The owner picks traffic (a link, the plan's page to begin with) or a lead form
- * (one of the Page's Instant Forms and the button), the ad account (baht only), the daily budget
+ * ad per piece. The owner picks traffic (a link, the plan's page to begin with), a lead form
+ * (one of the Page's Instant Forms and the button) or messages (ส่งข้อความ opens a Messenger chat
+ * with the Page, where its bot answers — nothing more to choose), the ad account (baht only), the daily budget
  * under the cap, and can take any piece out by its thumbnail. Nothing is switched on here — that
  * is the sent tab's เปิดใช้ทั้งชุด, asked first.
  *
  * Once back, it says how each piece went: made (paused), failed with Meta's reason, or left out
  * before anything was made, with why (not approved, picture not drawn, sent already…).
  */
+
+/** what each objective's button does, under its name */
+const OBJECTIVE_HINT: Record<SendObjective, string> = { traffic: "พาไปเว็บ", leads: "กรอกใน Facebook", messages: "เปิดแชทเพจ" };
+/** what is still to fill in before sending, by objective */
+const STILL_NEEDED: Record<SendObjective, string> = { traffic: "ใส่ลิงก์ ", leads: "เลือกฟอร์ม ", messages: "" };
+/** what the send's Meta campaign is called in the header, by objective */
+const CAMPAIGN_KIND: Record<SendObjective, string> = { traffic: "", leads: "ลีด", messages: "ข้อความ" };
 
 /** A lead button in the order the dialog offers them, the default first. */
 const CTAS = Object.keys(CTA_LABEL) as LeadCta[];
@@ -135,7 +143,7 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
           <div className="min-w-0">
             <h2 id="send-title" className="font-semibold">ส่งขึ้น Facebook</h2>
             <p className="mt-0.5 text-xs text-[var(--ct-mute)]">
-              เพจ {campaign.pageName ?? campaign.pageId} · 1 แคมเปญ{objective === "leads" ? "ลีด" : ""} + 1 ชุดโฆษณา (ไทย อายุ 20+) + แอดต่อชิ้น · สร้างเป็นหยุดไว้ทั้งหมด ยังไม่เสียเงิน
+              เพจ {campaign.pageName ?? campaign.pageId} · 1 แคมเปญ{CAMPAIGN_KIND[objective]} + 1 ชุดโฆษณา (ไทย อายุ 20+) + แอดต่อชิ้น · สร้างเป็นหยุดไว้ทั้งหมด ยังไม่เสียเงิน
             </p>
           </div>
           <button type="button" onClick={onClose} disabled={busy} aria-label="ปิด" className="flex size-11 shrink-0 items-center justify-center rounded-lg hover:bg-[var(--ct-soft)] disabled:opacity-50">
@@ -146,14 +154,14 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
         {!result && !lost && (
           <fieldset disabled={busy} className="m-0 min-w-0 space-y-3 border-0 p-0">
             <legend className="sr-only">วัตถุประสงค์ บัญชี ลิงก์หรือฟอร์ม งบ และแอดที่จะส่ง</legend>
-            <div role="group" aria-label="วัตถุประสงค์" className="grid grid-cols-2 gap-2">
-              {(["traffic", "leads"] as const).map((o) => (
+            <div role="group" aria-label="วัตถุประสงค์" className="grid grid-cols-3 gap-2">
+              {(["traffic", "leads", "messages"] as const).map((o) => (
                 <button
                   key={o} type="button" onClick={() => setObjective(o)} aria-pressed={objective === o}
                   className={`min-h-11 rounded-lg border px-3 py-2 text-left text-sm ${objective === o ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium" : "border-[var(--ct-hair)]"}`}
                 >
                   <span className="block">{OBJECTIVE_LABEL[o]}</span>
-                  <span className="block text-xs text-[var(--ct-mute)]">{o === "leads" ? "กรอกใน Facebook" : "พาไปเว็บ"}</span>
+                  <span className="block text-xs text-[var(--ct-mute)]">{OBJECTIVE_HINT[o]}</span>
                 </button>
               ))}
             </div>
@@ -173,6 +181,10 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
                 <span className="text-xs text-[var(--ct-mute)]">ลิงก์ปลายทางของปุ่ม “ดูเพิ่มเติม”</span>
                 <input value={link} onChange={(e) => setLink(e.target.value)} inputMode="url" autoCapitalize="none" className={field} />
               </label>
+            ) : objective === "messages" ? (
+              <p className={`rounded-lg border px-3 py-2 text-sm ${TONES.ok}`}>
+                ปุ่ม “ส่งข้อความ” บนแอดเปิดแชท Messenger ของเพจ {campaign.pageName ?? ""} แล้วบอทของเพจตอบต่อ — Meta จะเลือกแสดงให้คนที่น่าจะทักแชท
+              </p>
             ) : (
               <LeadFormFields
                 forms={forms} pageId={campaign.pageId} leadFormId={leadFormId} onForm={setLeadFormId}
@@ -216,7 +228,7 @@ export function SendDialog({ room, pieces, productName, onClose, onShowSent }: {
             {busy && <p role="status" className="text-xs text-[var(--ct-mute)]">ราว 10 วินาทีต่อชิ้น อย่าปิดหน้านี้จนกว่าจะเสร็จ</p>}
             {!busy && !ready && (
               <p className="text-xs text-[var(--ct-mute)]">
-                เลือกบัญชีสกุลบาท {objective === "leads" ? "เลือกฟอร์ม" : "ใส่ลิงก์"} และงบต่อวันเป็นจำนวนเต็มบาทก่อน
+                เลือกบัญชีสกุลบาท {STILL_NEEDED[objective]}และงบต่อวันเป็นจำนวนเต็มบาทก่อน
               </p>
             )}
           </fieldset>

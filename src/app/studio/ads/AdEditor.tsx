@@ -216,7 +216,7 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
             person={piece.person}
             readOnly={trashed}
             pictureLocked={trashed}
-            back={`/studio/ads/${campaign.id}`}
+            back={`/studio/ads?campaign=${encodeURIComponent(campaign.id)}`}
             confirmLeave={async () => !dirty || ask("ออกจากหน้านี้? การแก้ที่ยังไม่บันทึกจะหายไป", "ออก")}
             onDraw={async (request, painter, person) => {
               // the picture is drawn for the poster on file, so an unsaved layout or colour is kept first

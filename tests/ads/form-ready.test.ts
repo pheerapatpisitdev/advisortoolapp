@@ -53,3 +53,19 @@ describe("the ads form's readiness for a lead form", () => {
     expect(formReady({ ...lead, hasPoster: false })).toBe(false);
   });
 });
+
+describe("the ads form's readiness for messages", () => {
+  const chat = { ...ok, link: "", objective: "messages" as const };
+
+  it("needs neither a link nor a form", () => {
+    expect(formReady(chat)).toBe(true);
+  });
+
+  it("still holds a messages send to the budget, cap, currency, account and Page", () => {
+    expect(formReady({ ...chat, budget: "501" })).toBe(false);
+    expect(formReady({ ...chat, budget: "" })).toBe(false);
+    expect(formReady({ ...chat, nonBaht: true })).toBe(false);
+    expect(formReady({ ...chat, actId: "" })).toBe(false);
+    expect(formReady({ ...chat, pageId: "" })).toBe(false);
+  });
+});

@@ -1,23 +1,28 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Theme } from "@/lib/content/poster";
 import { comboLine, fromEdit, shortOf, toEdit, type EditDims } from "@/lib/ads/dimension-edit";
-import { roundCost, WRITE_COUNTS, type WriteCount } from "@/lib/ads/room-view";
-import { AUTO_THEME, ThemeSwatches, type ThemeChoice } from "../ThemeSwatches";
+import { adRoundCost } from "@/lib/ads/picture-picks";
+import { WRITE_COUNTS, type WriteCount } from "@/lib/ads/room-view";
+import type { PersonOption } from "../PersonPicker";
+import { AUTO_THEME } from "../ThemeSwatches";
 import { errorNote, Note, type NoteState } from "../ui/editor-fields";
 import { analyzeCampaignDraft, createAdCampaign } from "./actions";
 import { DimensionsEditor } from "./DimensionsEditor";
+import { PictureFields, type PicturePicks } from "./PictureFields";
 import { chip, field, plain, solid, TONES } from "./styles";
 
 /**
  * A new campaign in three steps, as Monoko's AD Studio has it (owner, 2026-10-04):
- * 1. the plan, and if the owner likes a name, what to stress, the brand's voice and the colour;
+ * 1. the plan, and if the owner likes a name, what to stress, the brand's voice and ภาพและโมเดล
+ *    (the writer, painter, tone, person and picture brief: PictureFields);
  * 2. the AI reads the plan and proposes the four dimensions (10–20 s, under a baht) — when it
  *    cannot answer, the starting set comes back instead and the page says so;
  * 3. the dimensions to tick off, reword and add to, how many designs they make, and how many
- *    ads to write first. Made, the campaign's room opens and writes them (?write=<n>).
+ *    ads to write first. Made, Ads Studio opens it and writes them (?campaign=<id>&write=<n>).
+ * It sits in Ads Studio's tools column, one step under the other's place, folded away on a phone
+ * like the settings it stands in for; ยกเลิก goes back to the campaign that was open.
  * Every step can be gone back to. Going forward again re-asks the AI only when the plan, the
  * focus or the voice changed — the owner's edits to the proposal are not thrown away for nothing.
  */
@@ -28,7 +33,7 @@ const TEXT_MAX = 120;
 
 function StepBar({ step, reached, busy, onGo }: { step: number; reached: number; busy: boolean; onGo: (n: number) => void }) {
   return (
-    <ol className="grid grid-cols-3 gap-2">
+    <ol className="grid grid-cols-3 gap-1.5">
       {STEP_TITLES.map((t, i) => {
         const n = i + 1;
         const here = n === step;
@@ -36,9 +41,9 @@ function StepBar({ step, reached, busy, onGo }: { step: number; reached: number;
           <li key={t}>
             <button
               type="button" disabled={busy || n > reached || here} onClick={() => onGo(n)} aria-current={here ? "step" : undefined}
-              className={`flex min-h-11 w-full items-center gap-2 rounded-xl border px-2 py-2 text-left text-xs sm:px-3 sm:text-sm ${here ? "border-[var(--ct-solid)] font-semibold" : "border-[var(--ct-hair)] text-[var(--ct-mute)] enabled:hover:bg-[var(--ct-soft)]"}`}
+              className={`flex min-h-11 w-full items-center gap-1.5 rounded-lg border px-1.5 py-1.5 text-left text-xs ${here ? "border-[var(--ct-solid)] font-semibold" : "border-[var(--ct-hair)] text-[var(--ct-mute)] enabled:hover:bg-[var(--ct-soft)]"}`}
             >
-              <span className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs ${n <= reached ? "bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]" : "bg-[var(--ct-ground)]"}`}>{n}</span>
+              <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-xs ${n <= reached ? "bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]" : "bg-[var(--ct-ground)]"}`}>{n}</span>
               <span className="min-w-0 break-words">{t}</span>
             </button>
           </li>
@@ -64,10 +69,15 @@ function Counted({ label, value, onChange, max, rows, placeholder }: {
   );
 }
 
-export function NewCampaignWizard({ pageId, pageName, products }: {
+export function NewCampaignWizard({ pageId, products, people, folded, onCancel }: {
   pageId: string;
-  pageName: string;
   products: { href: string; name: string }[];
+  /** the people library, for ใส่บุคคลในภาพ */
+  people: PersonOption[];
+  /** a phone with the tools folded */
+  folded: boolean;
+  /** back to the campaign that was open; null when the Page has none to go back to */
+  onCancel: (() => void) | null;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -76,7 +86,7 @@ export function NewCampaignWizard({ pageId, pageName, products }: {
   const [name, setName] = useState("");
   const [focus, setFocus] = useState("");
   const [voice, setVoice] = useState("");
-  const [theme, setTheme] = useState<ThemeChoice>(AUTO_THEME);
+  const [picks, setPicks] = useState<PicturePicks>({ writer: null, painter: null, theme: AUTO_THEME, person: null, brief: "" });
   const [dims, setDims] = useState<EditDims | null>(null);
   const [fallback, setFallback] = useState(false);
   /** what the dimensions were analysed from; another plan, focus or voice asks again */
@@ -136,11 +146,12 @@ export function NewCampaignWizard({ pageId, pageName, products }: {
     try {
       const res = await createAdCampaign({
         pageId, planHref, name: name.trim() || null, hint: focus, brandVoice: voice,
-        theme: theme === AUTO_THEME ? null : (theme as Theme), dimensions: fromEdit(dims),
+        theme: picks.theme === AUTO_THEME ? null : (picks.theme as Theme), dimensions: fromEdit(dims),
+        writer: picks.writer, painter: picks.painter, person: picks.person, pictureBrief: picks.brief,
       });
       if (!res.ok) { setNote(errorNote(res.error)); setCreating(false); return; }
       // creating stays on until the room opens: a second press would make a second campaign
-      router.push(`/studio/ads/${res.id}?write=${count}`);
+      router.push(`/studio/ads?campaign=${encodeURIComponent(res.id)}&write=${count}`);
     } catch {
       setNote(errorNote("การเชื่อมต่อหลุด ลองใหม่อีกครั้ง — ถ้าแคมเปญขึ้นในรายการแล้ว ไม่ต้องสร้างซ้ำ"));
       setCreating(false);
@@ -151,18 +162,15 @@ export function NewCampaignWizard({ pageId, pageName, products }: {
   const busy = analysing || creating;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="space-y-1">
-        <Link href={`/studio/ads?page=${encodeURIComponent(pageId)}`} className="inline-flex min-h-11 items-center text-sm text-[var(--ct-mute)] hover:underline">
-          ← แคมเปญทั้งหมด
-        </Link>
-        <h1 className="text-xl font-semibold">สร้างแคมเปญ</h1>
-        <p className="text-sm text-[var(--ct-mute)]">Ads Studio · เพจ {pageName}</p>
-      </header>
+    <div className={`space-y-4 border-t border-[var(--ct-hair)] p-4 ${folded ? "hidden lg:block" : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold">แคมเปญใหม่</h3>
+        {onCancel && <button type="button" onClick={onCancel} disabled={busy} className="min-h-11 rounded-lg px-2 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)] disabled:opacity-50">ยกเลิก</button>}
+      </div>
 
       <StepBar step={step} reached={fresh ? reached : Math.min(reached, 2)} busy={busy} onGo={go} />
 
-      <section className="space-y-4 rounded-2xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4 sm:p-5">
+      <div className="space-y-4">
         {step === 1 && (
           <>
             <label className="block space-y-1">
@@ -176,12 +184,12 @@ export function NewCampaignWizard({ pageId, pageName, products }: {
             <Counted label="ชื่อแคมเปญ" value={name} onChange={setName} max={NAME_MAX} placeholder="ไม่ใส่ ใช้ชื่อแบบประกันแทน" />
             <Counted label="สิ่งที่อยากเน้น" value={focus} onChange={setFocus} max={TEXT_MAX} rows={2} placeholder="เช่น เน้นคนทำงานอายุ 30 ที่ยังไม่มีประกันสุขภาพ" />
             <Counted label="น้ำเสียงแบรนด์" value={voice} onChange={setVoice} max={TEXT_MAX} rows={2} placeholder="เช่น อบอุ่น เป็นกันเอง ไม่ขายของแรง" />
-            <div>
-              <span className="mb-1.5 block text-sm font-medium">โทนสีโปสเตอร์</span>
-              <ThemeSwatches<ThemeChoice> value={theme} onChange={setTheme} allowAuto />
-            </div>
+            <PictureFields
+              value={picks} onChange={(next) => setPicks((p) => ({ ...p, ...next }))}
+              people={people} back={`/studio/ads?page=${encodeURIComponent(pageId)}&new=1`}
+            />
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={next} disabled={!planHref || busy} className={solid}>
+              <button type="button" onClick={next} disabled={!planHref || busy} className={`${solid} w-full`}>
                 {fresh ? "ถัดไป" : "ถัดไป: ให้ AI วิเคราะห์"}
               </button>
               <span className="text-xs text-[var(--ct-mute)]">AI ใช้เวลาราว 10–20 วินาที ค่าใช้จ่ายไม่ถึง 1 บาท</span>
@@ -239,17 +247,17 @@ export function NewCampaignWizard({ pageId, pageName, products }: {
                 {WRITE_COUNTS.map((n) => (
                   <button key={n} type="button" aria-pressed={count === n} disabled={creating} onClick={() => setCount(n)} className={chip(count === n)}>{n} ชิ้น</button>
                 ))}
-                <span className="text-xs text-[var(--ct-mute)]">{roundCost(count)} รวมวาดรูป</span>
+                <span className="text-xs text-[var(--ct-mute)]">{adRoundCost(count, picks)} รวมวาดรูป</span>
               </div>
             </div>
-            <button type="button" onClick={create} disabled={creating || short.length > 0} className={`${solid} w-full sm:w-auto`}>
+            <button type="button" onClick={create} disabled={creating || short.length > 0} className={`${solid} w-full`}>
               {creating ? "กำลังสร้าง…" : `สร้างแคมเปญ แล้วสร้างแอด ${count} ชิ้น`}
             </button>
             {short.length > 0 && <p className="text-xs font-medium text-[var(--ct-alert)]">แต่ละมิติต้องติ๊กไว้อย่างน้อย 1 ข้อ</p>}
           </>
         )}
         <Note note={note} />
-      </section>
+      </div>
     </div>
   );
 }
