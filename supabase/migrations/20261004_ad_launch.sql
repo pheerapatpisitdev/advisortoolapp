@@ -54,5 +54,9 @@ create unique index if not exists ins_ad_launch_one_live
 
 alter table public.ins_ad_launch enable row level security;
 
+-- as the wallet tables (20260930_wallet.sql): only the server's service role may touch it
+revoke all on public.ins_ad_launch from public, anon, authenticated;
+grant all on public.ins_ad_launch to service_role;
+
 comment on table public.ins_ad_launch is
   'การยิงแอด Facebook จาก Studio หนึ่งแถวต่อหนึ่งครั้งที่พยายาม: เก็บ id ของแคมเปญ ชุดโฆษณา ครีเอทีฟ และแอด กับขั้นล่าสุดที่เสร็จ เพื่อให้ลองใหม่ต่อจากขั้นที่พัง';

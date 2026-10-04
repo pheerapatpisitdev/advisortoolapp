@@ -169,4 +169,12 @@ describe("the migration", () => {
   it("has the claim column", () => {
     expect(sql).toContain("claimed_at timestamptz");
   });
+
+  // like the wallet tables (20260930_wallet.sql): row-level security alone leaves the table's
+  // default grants to anon and authenticated, so the table is locked to service_role explicitly
+  it("locks the table to service_role", () => {
+    expect(sql).toContain("revoke all on public.ins_ad_launch from public, anon, authenticated;");
+    expect(sql).toContain("grant all on public.ins_ad_launch to service_role;");
+    expect(sql.indexOf("revoke all on public.ins_ad_launch")).toBeGreaterThan(sql.indexOf("create table if not exists public.ins_ad_launch"));
+  });
 });
