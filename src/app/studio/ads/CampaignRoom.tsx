@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AD_TABS, type AdTab } from "@/lib/ads/campaign-view";
+import { AD_TAB_KEYS, type AdTabKey } from "@/lib/ads/campaign-view";
 import { writeCount } from "@/lib/ads/ad-card";
 import type { PersonOption } from "../PersonPicker";
 import { generateRound } from "../draw";
@@ -14,16 +14,17 @@ import { TONES } from "./styles";
 
 /**
  * A campaign's room (/studio/ads/[id]): its settings on the left, its ads on the right under
- * four tabs — ร่าง, ยิงแล้ว, เปิดใช้, ถังขยะ — and the editor full screen over both when an ad is
+ * five tabs — ทั้งหมด, ร่าง, อนุมัติแล้ว, ส่งแล้ว, ถังขยะ — and the editor full screen over both when an ad is
  * pressed. A round of writing takes 20–40 seconds and shows its seconds as it goes; one press
  * at a time. Arriving from a new campaign (?write=1), the first round starts by itself, once.
  */
 
-const TAB_LABEL: Record<AdTab, string> = { draft: "ร่าง", launched: "ยิงแล้ว", live: "เปิดใช้", trash: "ถังขยะ" };
-const TAB_EMPTY: Record<AdTab, string> = {
-  draft: "ยังไม่มีแอดที่รอยิง — กด “เขียนแอดเพิ่ม” ที่แผงตั้งค่า",
-  launched: "ยังไม่มีแอดที่ยิงไป Facebook",
-  live: "ยังไม่มีแอดที่เปิดใช้",
+const TAB_LABEL: Record<AdTabKey, string> = { all: "ทั้งหมด", draft: "ร่าง", approved: "อนุมัติแล้ว", sent: "ส่งแล้ว", trash: "ถังขยะ" };
+const TAB_EMPTY: Record<AdTabKey, string> = {
+  all: "ยังไม่มีแอด — กด “เขียนแอดเพิ่ม” ที่แผงตั้งค่า",
+  draft: "ยังไม่มีแอดร่าง — กด “เขียนแอดเพิ่ม” ที่แผงตั้งค่า",
+  approved: "ยังไม่มีแอดที่อนุมัติ",
+  sent: "ยังไม่มีแอดที่ส่งไป Facebook",
   trash: "ถังขยะว่าง",
 };
 
@@ -49,7 +50,7 @@ export function CampaignRoom({ room, productName, rules, people, autoWrite }: {
 }) {
   const router = useRouter();
   const { campaign, pieces, counts } = room;
-  const [tab, setTab] = useState<AdTab>("draft");
+  const [tab, setTab] = useState<AdTabKey>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [making, setMaking] = useState(0);
   const [roundNote, setRoundNote] = useState<RoundNote>(null);
@@ -112,7 +113,7 @@ export function CampaignRoom({ room, productName, rules, people, autoWrite }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
   }, []);
 
-  const shown = pieces.filter((p) => p.tab === tab);
+  const shown = pieces.filter((p) => (tab === "all" ? p.tab !== "trash" : p.tab === tab));
   const open = openId ? pieces.find((p) => p.id === openId) ?? null : null;
 
   return (
@@ -135,7 +136,7 @@ export function CampaignRoom({ room, productName, rules, people, autoWrite }: {
 
         <section aria-label="แอดในแคมเปญ" className="min-w-0 space-y-4">
           <div role="tablist" aria-label="สถานะแอด" className="flex gap-1 overflow-x-auto border-b border-[var(--ct-hair)]">
-            {AD_TABS.map((t) => (
+            {AD_TAB_KEYS.map((t) => (
               <button
                 key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
                 className={`-mb-px flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm ${tab === t ? "border-[var(--ct-solid)] font-semibold" : "border-transparent text-[var(--ct-mute)] hover:text-inherit"}`}

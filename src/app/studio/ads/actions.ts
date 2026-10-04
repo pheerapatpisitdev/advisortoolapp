@@ -15,8 +15,8 @@ import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
 import {
   createCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign,
 } from "@/lib/ads/campaign-store";
-import { adTab, tabCounts, type AdTab } from "@/lib/ads/campaign-view";
-import { cardLaunch } from "@/lib/ads/ad-card";
+import { adTab, tabCounts, type AdTab, type AdTabKey } from "@/lib/ads/campaign-view";
+import { sentPieceIds } from "@/lib/ads/send-store";
 import { contentProduct } from "@/lib/content/products";
 import type { PiecePerson } from "@/lib/content/people";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
@@ -200,9 +200,6 @@ async function launchViews(pieces: ContentItem[], accounts: AdAccount[]): Promis
   }));
 }
 
-/** The launch that decides a piece's tab: one switched on in any account, else the newest (the card shows the same one). */
-const tabLaunch = cardLaunch;
-
 /** A campaign's name, or its plan's when the owner gave none. */
 const titleOf = (c: AdCampaign) => c.name ?? contentProduct(c.planHref)?.name ?? c.planHref;
 
@@ -228,7 +225,7 @@ export interface AdsStudioHome {
     cover: string | null;
     /** that piece's poster, for the card to draw through the poster route */
     coverPoster: PosterSpec | null;
-    counts: Record<AdTab, number>;
+    counts: Record<AdTabKey, number>;
   }[];
   connection: Connection;
   /** set when the campaigns could not be read, so the page says so rather than showing none */
@@ -256,7 +253,8 @@ export async function adsStudioHome(pageId?: string): Promise<AdsStudioHome> {
   const cards = await Promise.all(campaigns.map(async (c) => {
     try {
       const pieces = await listCampaignPieces(c.id);
-      const tabs = await Promise.all(pieces.map(async (p) => adTab(p, tabLaunch(await liveRows(p.id, accounts)))));
+      const sent = await sentPieceIds(c.id);
+      const tabs = await Promise.all(pieces.map(async (p) => adTab(p, sent.has(p.id) || (await liveRows(p.id, accounts)).length > 0)));
       const shown = pieces.find((p) => p.status !== "trashed" && p.output.poster) ?? null;
       return {
         id: c.id, name: titleOf(c), planHref: c.planHref, cover: shown?.id ?? null, coverPoster: shown?.output.poster ?? null, counts: tabCounts(tabs),
@@ -312,7 +310,7 @@ export type AdCampaignRoom =
     /** `title` is what to call it (its name, or the plan's); `name` stays the owner's own, null when blank */
     campaign: AdCampaign & { title: string; pageName: string | null; pageConnected: boolean };
     pieces: (LaunchPiece & { tab: AdTab })[];
-    counts: Record<AdTab, number>;
+    counts: Record<AdTabKey, number>;
     connection: Connection;
     /** every Page the owner has, so a launch made on another Page (from the page before Ads Studio) is named by its own */
     pages: { pageId: string; pageName: string }[];
@@ -329,7 +327,9 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
   try {
     const campaign = await getCampaign(id);
     if (!campaign) return { ok: false };
-    const [pages, { connection: conn, accounts }, items] = await Promise.all([myPages(), connection(), listCampaignPieces(campaign.id)]);
+    const [pages, { connection: conn, accounts }, items, sent] = await Promise.all([
+      myPages(), connection(), listCampaignPieces(campaign.id), sentPieceIds(campaign.id),
+    ]);
     const page = pages.find((p) => p.pageId === campaign.pageId) ?? null;
     const launches = await launchViews(items, accounts);
     const pieces = items.map((p, i) => ({
@@ -346,7 +346,7 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
       flags: { policy: p.flags?.policy ?? [] },
       launch: launches[i][0] ?? null,
       launches: launches[i],
-      tab: adTab(p, tabLaunch(launches[i])),
+      tab: adTab(p, sent.has(p.id) || launches[i].length > 0),
     }));
     return {
       ok: true,
@@ -417,25 +417,27 @@ export async function saveAdCopy(
 
 /** a piece whose ad is switched on stays out of the bin: binning it here would leave the ad spending */
 const LIVE_TRASH = "ปิดแอดนี้ก่อนทิ้ง";
+/** a piece in a send, or with a live launch, is Facebook's now: approving, un-approving or binning it would not match what was sent */
+const SENT_LOCKED = "ชิ้นนี้ส่งขึ้น Facebook แล้ว แก้สถานะไม่ได้";
 
 /**
- * The bin for an ad piece, and back out of it (the bin is how a campaign is tidied; campaigns
- * are not deleted). A piece whose ad is switched on in any account is refused; one launched
- * and still paused may go. A launch table that cannot be read refuses too, rather than binning
- * a piece that may be spending.
+ * Approve (used), back to draft, or the bin for an ad piece (the bin is how a campaign is
+ * tidied; campaigns are not deleted). A piece already sent to Facebook — in a send that was not
+ * retired, or with a live launch in any account — keeps its status. A piece whose ad is switched
+ * on says to close the ad first. A send or launch table that cannot be read refuses too, rather
+ * than changing a piece that may be spending.
  */
-export async function setAdStatus(pieceId: string, status: "draft" | "trashed"): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function setAdStatus(pieceId: string, status: "draft" | "used" | "trashed"): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireStaff("owner");
   try {
-    if (status !== "draft" && status !== "trashed") return { ok: false, error: SOMETHING_BROKE };
+    if (status !== "draft" && status !== "used" && status !== "trashed") return { ok: false, error: SOMETHING_BROKE };
     const piece = await getContent(pieceId);
     if (!piece || piece.format !== "ad") return { ok: false, error: "ไม่พบชิ้นโฆษณานี้" };
     if (!piece.campaignId) return { ok: false, error: NOT_IN_CAMPAIGN };
-    if (status === "trashed") {
-      const accounts = await adManageAccounts();
-      const rows = await Promise.all(accounts.map((a) => launchStore.findLaunch(piece.id, a.id)));
-      if (rows.some((r) => r?.activatedAt)) return { ok: false, error: LIVE_TRASH };
-    }
+    const accounts = await adManageAccounts();
+    const rows = await Promise.all(accounts.map((a) => launchStore.findLaunch(piece.id, a.id)));
+    if (status === "trashed" && rows.some((r) => r?.activatedAt)) return { ok: false, error: LIVE_TRASH };
+    if (rows.some((r) => r !== null) || (await sentPieceIds(piece.campaignId)).has(piece.id)) return { ok: false, error: SENT_LOCKED };
     const res = await setContentStatus(piece.id, status);
     if (!res.ok) return { ok: false, error: res.error ?? SOMETHING_BROKE };
     revalidatePath("/studio/ads", "layout");

@@ -12,7 +12,7 @@ import { field, solid, TONES } from "./styles";
 /**
  * /studio/ads: one Page's ad campaigns. The Page's name heads it with a picker for the others,
  * the ad-account strip sits under it, then a card per campaign with its newest poster and how
- * many of its ads are drafts, launched and switched on. With no campaign yet, three steps and
+ * many of its ads are drafts, approved and sent. With no campaign yet, three steps and
  * a button to start.
  */
 
@@ -26,8 +26,8 @@ function Counts({ counts }: { counts: AdsStudioHome["campaigns"][number]["counts
   return (
     <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--ct-mute)]">
       <span>ร่าง <b className="font-semibold tabular-nums">{counts.draft}</b></span>
-      <span>ยิงแล้ว <b className="font-semibold tabular-nums">{counts.launched}</b></span>
-      <span className={counts.live ? "text-[var(--ct-accent)]" : ""}>เปิดใช้ <b className="font-semibold tabular-nums">{counts.live}</b></span>
+      <span>อนุมัติแล้ว <b className="font-semibold tabular-nums">{counts.approved}</b></span>
+      <span className={counts.sent ? "text-[var(--ct-accent)]" : ""}>ส่งแล้ว <b className="font-semibold tabular-nums">{counts.sent}</b></span>
     </p>
   );
 }

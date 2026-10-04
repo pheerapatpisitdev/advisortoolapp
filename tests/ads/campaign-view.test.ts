@@ -2,34 +2,33 @@ import { describe, expect, it } from "vitest";
 import { adTab, tabCounts } from "@/lib/ads/campaign-view";
 
 /**
- * Which tab of a campaign's room an ad piece sits under: the bin wins, then a launch that was
- * switched on, then any live launch, and a piece with none is a draft.
+ * Which tab of a campaign's room an ad piece sits under: a piece sent to Facebook is under
+ * ส่งแล้ว whatever its status; then the bin; then approved (status used); the rest are drafts.
  */
 
 describe("adTab", () => {
-  it("puts a piece in the bin under ถังขยะ, whatever its launch", () => {
-    expect(adTab({ status: "trashed" }, { activatedAt: "2026-10-04T00:00:00Z" })).toBe("trash");
-    expect(adTab({ status: "trashed" }, null)).toBe("trash");
+  it("puts a piece that was sent under ส่งแล้ว, whatever its status", () => {
+    for (const status of ["draft", "used", "trashed"] as const) {
+      expect(adTab({ status }, true)).toBe("sent");
+    }
   });
 
-  it("puts a switched-on launch under เปิดใช้", () => {
-    expect(adTab({ status: "draft" }, { activatedAt: "2026-10-04T00:00:00Z" })).toBe("live");
+  it("puts an unsent piece in the bin under ถังขยะ", () => {
+    expect(adTab({ status: "trashed" }, false)).toBe("trash");
   });
 
-  it("puts a launch not yet switched on (or stopped part way) under ยิงแล้ว", () => {
-    expect(adTab({ status: "draft" }, { activatedAt: null })).toBe("launched");
-    expect(adTab({ status: "used" }, { activatedAt: null })).toBe("launched");
+  it("puts an approved piece (status used) under อนุมัติแล้ว", () => {
+    expect(adTab({ status: "used" }, false)).toBe("approved");
   });
 
-  it("puts a piece with no launch under ร่าง", () => {
-    expect(adTab({ status: "draft" }, null)).toBe("draft");
-    expect(adTab({ status: "used" }, null)).toBe("draft");
+  it("leaves anything else a draft", () => {
+    expect(adTab({ status: "draft" }, false)).toBe("draft");
   });
 });
 
 describe("tabCounts", () => {
-  it("counts every tab, zero for the empty ones", () => {
-    expect(tabCounts(["draft", "draft", "live", "trash"])).toEqual({ draft: 2, launched: 0, live: 1, trash: 1 });
-    expect(tabCounts([])).toEqual({ draft: 0, launched: 0, live: 0, trash: 0 });
+  it("counts each tab, and ทั้งหมด without the bin", () => {
+    expect(tabCounts(["draft", "draft", "approved", "sent", "trash"])).toEqual({ all: 4, draft: 2, approved: 1, sent: 1, trash: 1 });
+    expect(tabCounts([])).toEqual({ all: 0, draft: 0, approved: 0, sent: 0, trash: 0 });
   });
 });
