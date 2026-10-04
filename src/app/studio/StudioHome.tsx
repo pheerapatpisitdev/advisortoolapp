@@ -22,29 +22,29 @@ export function StudioHome({ cards }: { cards: HomeCard[] }) {
     <div className="max-w-6xl">
       <h1 className="text-xl font-semibold">Studio</h1>
       <p className="mt-1 text-sm text-[var(--ct-mute)]">เลือกเครื่องมือของเพจที่จะทำงานด้วย</p>
-      <div className="mt-6 space-y-5">
+      <div className="mt-4 space-y-3">
         {cards.map((card) => (
-          <section key={card.id} aria-labelledby={`card-${card.id}`} className="overflow-hidden rounded-2xl border border-[var(--ct-hair)] bg-[var(--ct-panel)]">
-            <header className="flex items-center gap-4 p-4 sm:p-6">
+          <section key={card.id} aria-labelledby={`card-${card.id}`} className="overflow-hidden rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)]">
+            <header className="flex items-center gap-3 px-4 py-3">
               <PageAvatar picture={card.picture} initials={card.initials} />
               <div className="min-w-0">
-                <h2 id={`card-${card.id}`} className="truncate text-lg font-semibold">{card.title}</h2>
-                <p className="truncate text-sm text-[var(--ct-mute)]">{card.subtitle}</p>
+                <h2 id={`card-${card.id}`} className="truncate font-semibold">{card.title}</h2>
+                <p className="truncate text-xs text-[var(--ct-mute)]">{card.subtitle}</p>
               </div>
             </header>
             {/* the tiles draw their right and bottom hairlines; the card clips the outer ones */}
             <div className="border-t border-[var(--ct-hair)]">
-              <ul className="-mb-px -mr-px grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+              <ul className="-mb-px -mr-px grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
                 {card.tiles.map((tile) => {
                   const Icon = ICONS[tile.key];
                   return (
                     <li key={tile.key} className="border-b border-r border-[var(--ct-hair)]">
-                      <Link href={tile.href} className="flex h-full min-h-24 flex-col justify-center gap-1.5 p-4 hover:bg-[var(--ct-soft)] focus-visible:bg-[var(--ct-soft)] sm:px-5">
-                        <span className="flex items-center gap-2 font-medium">
-                          <Icon className="size-5 text-[var(--ct-accent)]" />
+                      <Link href={tile.href} className="flex h-full flex-col justify-center gap-0.5 px-4 py-2.5 hover:bg-[var(--ct-soft)] focus-visible:bg-[var(--ct-soft)]">
+                        <span className="flex items-center gap-1.5 text-sm font-medium">
+                          <Icon className="size-4 shrink-0 text-[var(--ct-accent)]" />
                           {tile.label}
                         </span>
-                        <span className="text-sm text-[var(--ct-mute)]">{tile.status}</span>
+                        <span className="truncate text-xs text-[var(--ct-mute)]">{tile.status}</span>
                       </Link>
                     </li>
                   );
