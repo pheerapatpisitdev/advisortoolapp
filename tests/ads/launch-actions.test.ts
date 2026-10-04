@@ -15,6 +15,9 @@ const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const ACT = "act_111";
 const PAGE = "222";
 const CAMPAIGN = "5a6b7c8d-1e2f-4a3b-9c4d-5e6f7a8b9c0d";
+const DIMS = {
+  hooks: [{ text: "ฮุก", note: "" }], personas: [{ text: "คน", note: "" }], angles: [{ text: "มุม", note: "" }], styles: [{ text: "ภาพ", note: "" }],
+};
 
 const who = vi.hoisted(() => ({ owner: true, audit: vi.fn(async () => {}) }));
 vi.mock("@/lib/auth/viewer", async () => {
@@ -67,7 +70,7 @@ const camps = vi.hoisted(() => ({
   listCampaignPieces: vi.fn(),
 }));
 vi.mock("@/lib/ads/campaign-store", () => camps);
-const sends = vi.hoisted(() => ({ sentPieceIds: vi.fn() }));
+const sends = vi.hoisted(() => ({ sentPieceIds: vi.fn(), listSends: vi.fn() }));
 vi.mock("@/lib/ads/send-store", () => sends);
 // Organic Studio's save, which checks and keeps an edit; Ads Studio only decides who may call it
 const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn(), setContentStatus: vi.fn() }));
@@ -126,6 +129,7 @@ beforeEach(() => {
   camps.updateCampaign.mockResolvedValue(undefined);
   camps.listCampaignPieces.mockResolvedValue([piece()]);
   sends.sentPieceIds.mockResolvedValue(new Set<string>());
+  sends.listSends.mockResolvedValue([]);
   studio.saveContentEdits.mockResolvedValue({ ok: true, item: piece() });
   studio.setContentStatus.mockResolvedValue({ ok: true });
 });
@@ -137,7 +141,7 @@ describe("who may use the actions", () => {
     await expect(chooseAdManageAccounts([ACT])).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(activateAd("L1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(adsStudioHome(PAGE)).rejects.toThrow("ไม่มีสิทธิ์");
-    await expect(createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", angles: 1, tones: 1 })).rejects.toThrow("ไม่มีสิทธิ์");
+    await expect(createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", dimensions: DIMS })).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(adCampaignRoom(CAMPAIGN)).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(updateAdCampaign(CAMPAIGN, { name: "x" })).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(saveAdCopy(PIECE, { hooks: ["h"], body: "b", closing: "c", hashtags: [] })).rejects.toThrow("ไม่มีสิทธิ์");
@@ -145,7 +149,7 @@ describe("who may use the actions", () => {
     await expect(setAdStatus(PIECE, "trashed")).rejects.toThrow("ไม่มีสิทธิ์");
     for (const spy of [
       launch.runLaunch, launch.activateLaunch, conn.saveAdManageAccount, conn.adManageAccounts, content.getContent, who.audit,
-      pages.myPages, ...Object.values(camps), studio.saveContentEdits, studio.setContentStatus, store.findLaunch, sends.sentPieceIds,
+      pages.myPages, ...Object.values(camps), studio.saveContentEdits, studio.setContentStatus, store.findLaunch, sends.sentPieceIds, sends.listSends,
     ]) {
       expect(spy).not.toHaveBeenCalled();
     }
@@ -473,13 +477,13 @@ describe("Ads Studio's list of campaigns", () => {
 
 describe("making a campaign", () => {
   const made = (over: Record<string, unknown> = {}) =>
-    createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", angles: 2, tones: 1, ...over } as Parameters<typeof createAdCampaign>[0]);
+    createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect", angles: 2, tones: 1, dimensions: DIMS, ...over } as Parameters<typeof createAdCampaign>[0]);
 
   it("files it under a connected Page and a plan Studio knows, by the owner", async () => {
     expect(await made({ theme: "navy" })).toEqual({ ok: true, id: CAMPAIGN });
     expect(camps.createCampaign).toHaveBeenCalledWith({
       pageId: PAGE, planHref: "/lifeprotect", name: null, angles: 2, tones: 1, theme: "navy", hint: null,
-      agentId: "00000000-0000-4000-8000-000000000001",
+      agentId: "00000000-0000-4000-8000-000000000001", dimensions: DIMS, brandVoice: null,
     });
     expect(who.audit).toHaveBeenCalledWith("create-ad-campaign", CAMPAIGN, expect.objectContaining({ pageId: PAGE, planHref: "/lifeprotect" }));
   });
