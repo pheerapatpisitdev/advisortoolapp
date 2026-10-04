@@ -7,7 +7,7 @@ import { drawPoster } from "@/lib/content/poster-draw";
 import {
   adManageAccounts, adManageToken, clearPendingAdsManage, readPendingAdsManage, saveAdManageAccount,
 } from "@/lib/facebook/ads-manage-connection";
-import { adsManageOauthIsConfigured, listAdAccounts, tokenExpiry, type TokenExpiry } from "@/lib/facebook/oauth";
+import { adsManageMissingEnv, adsManageOauthIsConfigured, listAdAccounts, tokenExpiry, type TokenExpiry } from "@/lib/facebook/oauth";
 import * as launchStore from "@/lib/ads/launch-store";
 import type { LaunchRow, LaunchStep as RowStep } from "@/lib/ads/launch-store";
 import { activateLaunch, adEffectiveStatus, runLaunch, type LaunchResult } from "@/lib/ads/launch";
@@ -44,6 +44,8 @@ export interface LaunchView {
 export interface AdsLaunchSetup {
   /** the ads-manage login is set up on this deployment (FB_ADS_MANAGE_CONFIG_ID) */
   configured: boolean;
+  /** the names of the settings the login still lacks on this server, empty when configured */
+  missing: string[];
   accounts: {
     id: string;
     name: string;
@@ -154,6 +156,7 @@ export async function adsLaunchSetup(): Promise<AdsLaunchSetup> {
 
   return {
     configured: adsManageOauthIsConfigured(),
+    missing: adsManageMissingEnv(),
     accounts: accounts.map((a) => {
       const e = expiry.get(a.id);
       // the earlier of the token's own end and the end of the person's data access, as /admin/ads says it
