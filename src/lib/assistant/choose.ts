@@ -151,6 +151,9 @@ const HEADING = `สวัสดีครับ 🙏 ที่ผมดูแล
 
 export const CHOICES = `${HEADING}\n\n${numbered()}`;
 
+/** The whole menu message as the bot says it when a Page has not written its own (page-welcome.ts). */
+export const MENU_TEXT = `${CHOICES}\n\nสนใจแบบไหนครับ`;
+
 /**
  * The number a customer typed instead of tapping.
  *
@@ -198,9 +201,9 @@ export function askWhich(lead?: string): Reply {
 
   // a customer who asked something first is answered first: "ของอะไร" met with "สนใจแบบไหนครับ"
   // is a question answered with a question, which is how it read in the inbox
-  const messages = lead
-    ? [{ text: lead }, { text: `${asked}\n\nสนใจแบบไหนครับ` }]
-    : [{ text: `${asked}\n\nสนใจแบบไหนครับ` }];
+  // marked, so a Page that wrote its own menu (page-welcome.ts) can say it in its words instead
+  const menu = { text: `${asked}\n\nสนใจแบบไหนครับ`, menu: true };
+  const messages = lead ? [{ text: lead }, menu] : [menu];
   return { messages, replies: DOORS.map((d) => d.title) };
 }
 

@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatOptions } from "@/lib/ai/client";
 
@@ -13,71 +11,121 @@ vi.mock("@/lib/ai/client", async () => {
 });
 
 const { answerAny } = await import("@/lib/assistant/dispatch");
-const { welcomeOf } = await import("@/lib/assistant/page-welcome");
+const { askWhich, MENU_TEXT } = await import("@/lib/assistant/choose");
+const { defaultWelcomeText, isWelcomePicture, readWelcomeInput } = await import("@/lib/assistant/page-welcome");
+type PageWelcome = import("@/lib/assistant/page-welcome").PageWelcome;
 
-const LUCKYPLANNER = "105982528649026";
-const OTHER_PAGE = "1431905706931225"; // ประกัน Talk
+const PAGE = "105982528649026";
 const said = (content: string) => [{ role: "user" as const, content }];
+const ask = (first: string, welcome?: PageWelcome, cameFor?: "legacy") =>
+  answerAny(said(first), null, "facebook", cameFor, PAGE, welcome);
+
+const ONE_PLAN: PageWelcome = {
+  mode: "one_plan", product: "lifeprotect",
+  text: "สวัสดีครับ 🙏 Life Protect\nขอทราบเพศกับอายุหน่อยครับ (เช่น ช 35)",
+  pictures: ["/welcome/luckyplanner/agent.jpg"],
+};
+const MENU: PageWelcome = { mode: "menu", text: "หวัดดีครับ เลือกได้เลย", pictures: [] };
 
 beforeEach(() => { chat.mockClear(); });
 
-describe("LuckyPlanner greets a first message that says nothing with Life Protect", () => {
-  it.each(["สวัสดีครับ", "สนใจครับ", "ขอรายละเอียด", "hi"])("%s", async (first) => {
-    const a = await answerAny(said(first), null, "facebook", undefined, LUCKYPLANNER);
-    expect(a.messages).toHaveLength(1);
-    expect(a.messages[0].opening).toBe(true);
-    expect(a.messages[0].text).toContain("Life Protect");
-    expect(a.messages[0].text).toContain("เพศกับอายุ");
-    expect(a.messages[0].text).not.toContain("1.");
+describe("a one-plan Page", () => {
+  it.each(["สวัสดีครับ", "สนใจครับ", "ขอรายละเอียด", "hi"])("greets '%s' with its plan, and no model", async (first) => {
+    const a = await ask(first, ONE_PLAN);
+    expect(a.messages).toEqual([{ text: ONE_PLAN.text, opening: true }]);
     expect(a.replies ?? []).toEqual([]);
     expect(chat).not.toHaveBeenCalled();
   });
 
-  it("then prices Life Protect for the person who answers it", async () => {
-    const first = await answerAny(said("สวัสดีครับ"), null, "facebook", undefined, LUCKYPLANNER);
+  it("then prices its plan for the person who answers", async () => {
+    const first = await ask("สวัสดีครับ", ONE_PLAN);
     const history = [
       { role: "user" as const, content: "สวัสดีครับ" },
       { role: "assistant" as const, content: first.messages[0].text },
       { role: "user" as const, content: "ช 35" },
     ];
-    const a = await answerAny(history, first.slots, "facebook", undefined, LUCKYPLANNER);
+    const a = await answerAny(history, first.slots, "facebook", undefined, PAGE, ONE_PLAN);
     expect((a.slots as { product: string }).product).toBe("lifeprotect");
     expect(a.messages.some((m) => m.opening)).toBe(false);
   });
 
-  it("sends its pictures from the site, the agent's first", () => {
-    const pictures = welcomeOf(LUCKYPLANNER)!.pictures;
-    expect(pictures[0]).toBe("/welcome/luckyplanner/agent.jpg");
-    for (const p of pictures) expect(existsSync(join(process.cwd(), "public", p))).toBe(true);
-  });
-});
+  it.each(["ชาย 35", "ทุน 1 ล้าน", "เวนคืนได้ไหม", "สนใจ iShield", "ค่าห้องเท่าไหร่"])(
+    "does not greet '%s', which says something", async (first) => {
+      const a = await ask(first, ONE_PLAN);
+      expect(a.messages.some((m) => m.opening)).toBe(false);
+    },
+  );
 
-describe("what LuckyPlanner does not greet", () => {
-  it.each([
-    "ชาย 35", // a person: priced, not greeted
-    "ทุน 1 ล้าน", // a figure
-    "เวนคืนได้ไหม", // a question
-    "สนใจ iShield", // another plan, named
-    "ค่าห้องเท่าไหร่", // another subject
-  ])("%s", async (first) => {
-    const a = await answerAny(said(first), null, "facebook", undefined, LUCKYPLANNER);
-    expect(a.messages.some((m) => m.opening)).toBe(false);
-  });
-
-  it("a customer an advertisement already placed", async () => {
-    const a = await answerAny(said("สวัสดีครับ"), null, "facebook", "legacy", LUCKYPLANNER);
+  it("does not greet a customer an advertisement already placed", async () => {
+    const a = await ask("สวัสดีครับ", ONE_PLAN, "legacy");
     expect(a.messages.some((m) => m.opening)).toBe(false);
     expect((a.slots as { product: string }).product).toBe("legacy");
   });
 
-  it("a conversation already under way", async () => {
-    const a = await answerAny(said("สวัสดีครับ"), { product: "undecided" }, "facebook", undefined, LUCKYPLANNER);
+  it("does not greet a conversation already under way", async () => {
+    const a = await answerAny(said("สวัสดีครับ"), { product: "undecided" }, "facebook", undefined, PAGE, ONE_PLAN);
     expect(a.messages.some((m) => m.opening)).toBe(false);
   });
+});
 
-  it("anybody on another Page, who still gets the choice of three", async () => {
-    const a = await answerAny(said("สวัสดีครับ"), null, "facebook", undefined, OTHER_PAGE);
+describe("a menu Page", () => {
+  it("says the menu in its own words, keeps the buttons, and opens with it", async () => {
+    const a = await ask("สวัสดีครับ", MENU);
+    expect(a.messages.at(-1)).toMatchObject({ text: MENU.text, opening: true, menu: true });
+    expect(a.replies).toEqual(askWhich().replies);
+  });
+
+  it("says it again later in its words, but not as the opening", async () => {
+    const a = await answerAny(said("อืม"), { product: "undecided" }, "facebook", undefined, PAGE, MENU);
+    const menu = a.messages.find((m) => m.menu);
+    expect(menu?.text).toBe(MENU.text);
+    expect(menu?.opening).toBeUndefined();
+  });
+});
+
+describe("a Page with nothing set", () => {
+  it("greets with the built-in menu, as before", async () => {
+    const a = await ask("สวัสดีครับ");
+    expect(a.messages.at(-1)!.text).toBe(MENU_TEXT);
     expect(a.messages.some((m) => m.opening)).toBe(false);
-    expect(a.messages.at(-1)!.text).toContain("ที่ผมดูแลมี 3 แบบ");
+  });
+});
+
+describe("what the back office may save", () => {
+  const BUCKET = "https://x.supabase.co/storage/v1/object/public/page-welcome/";
+  const read = (raw: unknown) => readWelcomeInput(raw, BUCKET);
+
+  it("takes a one-plan greeting with an upload and a file of the site's own", () => {
+    const r = read({ mode: "one_plan", product: "ishield", text: " สวัสดี \r\nครับ ", pictures: [`${BUCKET}a1b2.jpg`, "/welcome/luckyplanner/agent.jpg"] });
+    expect(r).toEqual({ ok: true, value: { mode: "one_plan", product: "ishield", text: "สวัสดี \nครับ", pictures: [`${BUCKET}a1b2.jpg`, "/welcome/luckyplanner/agent.jpg"] } });
+  });
+
+  it("drops the plan from a menu greeting", () => {
+    expect(read({ mode: "menu", product: "ishield", text: "x", pictures: [] })).toEqual({ ok: true, value: { mode: "menu", text: "x", pictures: [] } });
+  });
+
+  it.each([
+    [{ mode: "other", text: "x" }, "แบบการต้อนรับ"],
+    [{ mode: "one_plan", product: "plb", text: "x" }, "แบบประกัน"],
+    [{ mode: "menu", text: "   " }, "ว่าง"],
+    [{ mode: "menu", text: "ก".repeat(1501) }, "ยาวเกิน"],
+    [{ mode: "menu", text: "x", pictures: Array(6).fill("/welcome/a.jpg") }, "ไม่เกิน 5"],
+    [{ mode: "menu", text: "x", pictures: ["https://evil.example/a.jpg"] }, "ไม่ได้อัปโหลด"],
+    [{ mode: "menu", text: "x", pictures: ["/welcome/../secret.jpg"] }, "ไม่ได้อัปโหลด"],
+  ])("refuses %j", (raw, error) => {
+    const r = read(raw);
+    expect(r.ok).toBe(false);
+    expect(r.ok ? "" : r.error).toContain(error);
+  });
+
+  it("knows its own pictures and nothing else", () => {
+    expect(isWelcomePicture(`${BUCKET}0f-9.png`, BUCKET)).toBe(true);
+    expect(isWelcomePicture(`${BUCKET}sub/0f.png`, BUCKET)).toBe(false);
+    expect(isWelcomePicture("/welcome/x.gif", BUCKET)).toBe(false);
+  });
+
+  it("starts each mode from the words the bot already says", () => {
+    expect(defaultWelcomeText("menu")).toBe(MENU_TEXT);
+    expect(defaultWelcomeText("one_plan", "legacy")).toContain("มรดกเพื่อครอบครัว");
   });
 });

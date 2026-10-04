@@ -34,9 +34,11 @@ export interface Said {
    * is here, and a quote that carried it would send a file nobody asked for.
    */
   file?: string;
+  /** the three-plan menu, which a Page may have written in its own words (page-welcome.ts) */
+  menu?: boolean;
   /**
-   * This is the Page's own greeting (page-welcome.ts), which Messenger sends with the Page's
-   * pictures ahead of it. Every other channel reads `text` and never looks here.
+   * The first thing a Page says to a customer, which Messenger sends with the Page's welcome
+   * pictures ahead of it (page-welcome.ts). Every other channel reads `text` and never looks here.
    */
   opening?: boolean;
 }

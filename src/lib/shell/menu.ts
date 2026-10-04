@@ -223,6 +223,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
         title: "ช่องทาง",
         links: [
           { href: "/admin/messenger", label: "Messenger", icon: "chat", hue: "#2b2e73" },
+          // what each Page says to a customer who has not said anything yet (owner, 2026-10-04)
+          { href: "/admin/welcome", label: "ข้อความต้อนรับ", icon: "chat", hue: "#2d2f76" },
           // the same Page connection, seen from the content workbench: can it post, what went up
           { href: "/admin/posting", label: "ออโต้โพสต์", icon: "pen", hue: "#302f79" },
           // the advertising account sits next to the inbox it fills
@@ -344,6 +346,7 @@ const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet
   "/admin/members": "admin",
   "/admin/knowledge": "admin",
   "/admin/messenger": "connect",
+  "/admin/welcome": "admin",
   // the Pages' settings, not where a post is made: the admins' since 2026-10-02 (owner)
   "/admin/posting": "admin",
   "/admin/ads": "admin",

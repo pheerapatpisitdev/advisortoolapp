@@ -22,7 +22,7 @@ import { answerFromLibrary } from "@/lib/copilot/library";
 import { recruitReply } from "./recruit";
 import { isExpatPage } from "./expat";
 import { answerExpat, expatLanguage } from "./ihealthy-en/door";
-import { welcomeOf } from "./page-welcome";
+import type { PageWelcome } from "./page-welcome";
 
 /** The last line of the menu, which is how a turn knows the menu was the last thing said. */
 const ASKED_WHICH = "สนใจแบบไหนครับ";
@@ -136,6 +136,11 @@ export async function answerAny(
    * answer in English, so they go through their own door before any of the doors below.
    */
   pageId?: string,
+  /**
+   * How this Page greets, as the owner set it on /admin/welcome; undefined for the built-in
+   * menu. Read by the caller, so nothing in here waits on the database.
+   */
+  welcome?: PageWelcome,
 ): Promise<AnyAnswer> {
   const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
   const lastSaid = [...history].reverse().find((m) => m.role === "assistant")?.content;
@@ -182,11 +187,25 @@ export async function answerAny(
    * than with the choice of three (page-welcome.ts). Only the first: a conversation already
    * under way, or one an advertisement already placed, is not greeted again.
    */
-  const welcome = welcomeOf(pageId);
-  if (welcome && !slots && !cameFor && opensWithNothing(asked)) {
-    return { messages: [{ text: welcome.text, opening: true }], slots: { product: "undecided" } };
+  const plan = welcome?.mode === "one_plan" ? welcome.product : undefined;
+  if (plan && !slots && !cameFor && opensWithNothing(asked)) {
+    return { messages: [{ text: welcome!.text, opening: true }], slots: { product: "undecided" } };
   }
-  return withPdfOffer(await routeAny(history, slots, channel, cameFor ?? welcome?.product), memory);
+  const answer = await routeAny(history, slots, channel, cameFor ?? plan);
+  return withPdfOffer(welcome?.mode === "menu" ? inPageWords(answer, welcome.text, !slots) : answer, memory);
+}
+
+/**
+ * The menu in the words the Page wrote for it, wherever it is shown; its buttons are the
+ * built-in ones, which the dispatcher reads back. On the first message of a conversation it
+ * is the Page's opening, and goes out with the Page's pictures.
+ */
+function inPageWords(answer: AnyAnswer, text: string, first: boolean): AnyAnswer {
+  if (!answer.messages.some((m) => m.menu)) return answer;
+  return {
+    ...answer,
+    messages: answer.messages.map((m) => (m.menu ? { ...m, text, ...(first ? { opening: true } : {}) } : m)),
+  };
 }
 
 /** The slots as a brain knows them; a session with no PDF memory is passed on as it is. */

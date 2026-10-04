@@ -16,7 +16,8 @@ import { pagePathFor } from "@/lib/quote-pdf/link";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
 import { botTurn, keepTranscript } from "@/lib/chat/transcript";
 import { isExpatPage, languageOf } from "@/lib/assistant/expat";
-import { welcomeOf } from "@/lib/assistant/page-welcome";
+import { loadWelcome } from "@/lib/chat/page-welcome-store";
+import type { PageWelcome } from "@/lib/assistant/page-welcome";
 import { BROKEN_EN, BUSY_EN, CARD_UNSENT_EN, OUT_OF_BUDGET_EN, WANTS_IN_EN } from "@/lib/assistant/ihealthy-en/words";
 
 /**
@@ -32,15 +33,15 @@ import { BROKEN_EN, BUSY_EN, CARD_UNSENT_EN, OUT_OF_BUDGET_EN, WANTS_IN_EN } fro
  */
 async function answered(
   history: ChatMessage[], slots: Parameters<typeof answerAny>[1],
-  cameFor: Parameters<typeof answerAny>[3], turnMs: number, pageId?: string,
+  cameFor: Parameters<typeof answerAny>[3], turnMs: number, pageId?: string, welcome?: PageWelcome,
 ) {
   return withTurnDeadline(turnMs, async () => {
     try {
-      return await answerAny(history, slots, "facebook", cameFor, pageId);
+      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome);
     } catch (e) {
       if (e instanceof BudgetExceeded || e instanceof TurnTimeout) throw e;
       console.error("answer failed, trying once more:", e);
-      return await answerAny(history, slots, "facebook", cameFor, pageId);
+      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome);
     }
   });
 }
@@ -297,7 +298,9 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
 
   await showTyping(psid, pageId).catch(() => {});
   try {
-    const answer = await answered(history, session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId);
+    // how this Page greets (/admin/welcome); the Expat Pages answer in their own bot and have none
+    const welcome = isExpatPage(pageId) ? undefined : await loadWelcome(pageId);
+    const answer = await answered(history, session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId, welcome);
     // the model takes seconds, and an agent watching the thread answers inside them. Their
     // words are already in the customer's phone by now, so the bot says nothing and records
     // nothing — a mark that was not there when this answer began is theirs, just now.
@@ -315,8 +318,9 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
       // the Page's greeting comes with its pictures ahead of it; one that will not send is
       // skipped, because the words are the greeting and the pictures only introduce it
       if (said.opening) {
-        for (const picture of welcomeOf(pageId)?.pictures ?? []) {
-          await sendImage(psid, siteUrl(picture), undefined, pageId)
+        for (const picture of welcome?.pictures ?? []) {
+          // an upload is a full URL already; a file of the site's own is a path on it
+          await sendImage(psid, picture.startsWith("/") ? siteUrl(picture) : picture, undefined, pageId)
             .catch((e) => console.error("welcome picture failed, greeting without it:", e));
         }
       }
