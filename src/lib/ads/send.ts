@@ -13,7 +13,6 @@ import {
   imageParams,
   NO_HASH,
   NO_ID,
-  REQUEST_TIMEOUT_MS,
 } from "./graph";
 
 /**
