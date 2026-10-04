@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  CTA_LABEL,
+  OBJECTIVE_LABEL,
   activateQuestion, badStatus, legacyButtons, pauseQuestion, sendBadge, sendButtons, sendOutcome, statusText, switchedOn, type BadgeShape, type SendShape,
 } from "@/lib/ads/sent-view";
 import type { SendResult } from "@/lib/ads/send";
@@ -139,5 +141,12 @@ describe("how each piece went, after a send", () => {
     expect(line.text).not.toContain("แท็บส่งแล้ว");
     expect(line.text).toContain("ยังไม่ได้สร้างอะไร");
     expect(line.text).toContain("กดส่งอีกครั้ง");
+  });
+});
+
+describe("an objective and a lead button in Thai", () => {
+  it("names both objectives and the three buttons", () => {
+    expect(OBJECTIVE_LABEL).toEqual({ traffic: "ทราฟฟิก", leads: "ฟอร์มลีด" });
+    expect(CTA_LABEL).toEqual({ GET_QUOTE: "รับใบเสนอราคา", SIGN_UP: "ลงทะเบียน", LEARN_MORE: "ดูเพิ่มเติม" });
   });
 });

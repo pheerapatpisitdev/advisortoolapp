@@ -14,6 +14,12 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 /** The last step that finished; 'none' before anything has been made on Meta. */
 export type SendStep = "none" | "campaign" | "adset" | "ads";
 
+/** What the send's ads ask people to do: open a link, or fill a Page's Instant Form. */
+export type SendObjective = "traffic" | "leads";
+
+/** The button on a lead ad. */
+export type LeadCta = "GET_QUOTE" | "SIGN_UP" | "LEARN_MORE";
+
 export interface AdSend {
   id: string;
   createdAt: string;
@@ -22,10 +28,16 @@ export interface AdSend {
   /** Meta's ad account id, with its `act_` prefix */
   actId: string;
   pageId: string;
+  /** where the button goes; a lead send keeps the placeholder its creatives carry (LEAD_LINK) */
   link: string;
   currency: string;
   /** minor units of the currency (satang for THB), as Meta takes them */
   dailyBudgetMinor: number;
+  objective: SendObjective;
+  /** the Instant Form a lead send's ads open; null for traffic */
+  leadFormId: string | null;
+  /** a lead send's button; null for traffic */
+  cta: LeadCta | null;
   metaCampaignId: string | null;
   adsetId: string | null;
   step: SendStep;
@@ -61,6 +73,10 @@ export interface NewSend {
   link: string;
   currency: string;
   dailyBudgetMinor: number;
+  /** traffic when left out */
+  objective?: SendObjective;
+  leadFormId?: string | null;
+  cta?: LeadCta | null;
   createdBy?: string | null;
 }
 
@@ -79,6 +95,10 @@ interface SendDb {
   link: string;
   currency: string;
   daily_budget_minor: number;
+  // absent on rows read before the objective migration
+  objective?: SendObjective;
+  lead_form_id?: string | null;
+  cta?: LeadCta | null;
   meta_campaign_id: string | null;
   adset_id: string | null;
   step: SendStep;
@@ -110,6 +130,9 @@ function sendFromDb(r: SendDb): AdSend {
     link: r.link,
     currency: r.currency,
     dailyBudgetMinor: r.daily_budget_minor,
+    objective: r.objective ?? "traffic",
+    leadFormId: r.lead_form_id ?? null,
+    cta: r.cta ?? null,
     metaCampaignId: r.meta_campaign_id,
     adsetId: r.adset_id,
     step: r.step,
@@ -146,6 +169,9 @@ export async function createSend(s: NewSend, pieceIds: string[]): Promise<{ send
       link: s.link,
       currency: s.currency,
       daily_budget_minor: s.dailyBudgetMinor,
+      objective: s.objective ?? "traffic",
+      lead_form_id: s.leadFormId ?? null,
+      cta: s.cta ?? null,
       created_by: s.createdBy ?? null,
     })
     .select("*")

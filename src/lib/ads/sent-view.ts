@@ -1,4 +1,5 @@
 import type { SendResult } from "./send";
+import type { LeadCta, SendObjective } from "./send-store";
 
 /**
  * What the sent tab says and offers for each batch send and each ad launched one by one
@@ -19,6 +20,18 @@ export const STATUS_LABEL: Record<string, string> = {
   DELETED: "ถูกลบ",
 };
 const BAD = new Set(["DISAPPROVED", "WITH_ISSUES"]);
+
+/** What a send's ads ask people to do, as the owner reads it. */
+export const OBJECTIVE_LABEL: Record<SendObjective, string> = { traffic: "ทราฟฟิก", leads: "ฟอร์มลีด" };
+
+/** A lead ad's button, in the words Facebook shows on it in Thai. */
+export const CTA_LABEL: Record<LeadCta, string> = { GET_QUOTE: "รับใบเสนอราคา", SIGN_UP: "ลงทะเบียน", LEARN_MORE: "ดูเพิ่มเติม" };
+
+/** Where the owner accepts a Page's lead-ads terms; kept here, away from Graph code, for the dialog. */
+export const tosUrl = (pageId: string) => `https://www.facebook.com/ads/leadgen/tos?page_id=${pageId}`;
+
+/** Where the owner makes an Instant Form in Business Suite. */
+export const NEW_FORM_URL = "https://business.facebook.com/latest/instant_forms";
 
 export const statusText = (s: string | null): string | null => (s ? STATUS_LABEL[s] ?? s : null);
 export const badStatus = (s: string | null): boolean => (s ? BAD.has(s) : false);

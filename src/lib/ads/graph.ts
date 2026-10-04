@@ -1,4 +1,5 @@
 import { isExpiredToken } from "./insights";
+import type { LeadCta, SendObjective } from "./send-store";
 import { EXPIRED } from "./sync";
 
 /**
@@ -81,27 +82,55 @@ export function bangkokDay(d: Date): string {
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 }
 
-/** POST {act}/campaigns: traffic, paused, budget on the ad set. */
-export function campaignParams(name: string): Record<string, string> {
+/**
+ * What an ad asks people to do, and what it needs for that: a traffic ad's button opens a link;
+ * a lead ad's button opens one of the Page's Instant Forms.
+ */
+export type AdGoal = { objective: "traffic"; link: string } | { objective: "leads"; leadFormId: string; cta: LeadCta };
+
+/** The buttons a lead ad may carry, the default first. */
+export const LEAD_CTAS: readonly LeadCta[] = ["GET_QUOTE", "SIGN_UP", "LEARN_MORE"];
+
+/**
+ * The link a lead creative carries: link_data must have one, but the button opens the form, so
+ * nobody is sent to it. Meta's own lead-ad examples use this one.
+ */
+export const LEAD_LINK = "http://fb.me/";
+
+/** POST {act}/campaigns: traffic or leads, paused, budget on the ad set. */
+export function campaignParams(name: string, objective: SendObjective = "traffic"): Record<string, string> {
   return {
     name,
-    objective: "OUTCOME_TRAFFIC",
+    objective: objective === "leads" ? "OUTCOME_LEADS" : "OUTCOME_TRAFFIC",
     status: "PAUSED",
     special_ad_categories: "[]",
     is_adset_budget_sharing_enabled: "false",
   };
 }
 
-/** POST {act}/adsets: Thailand, 20 and up, Advantage+ audience, the verified Thai advertiser and payer, paused. */
-export function adsetParams(a: { name: string; campaignId: string; dailyBudgetMinor: number; identity: string }): Record<string, string> {
+/**
+ * POST {act}/adsets: Thailand, 20 and up, Advantage+ audience, the verified Thai advertiser and
+ * payer, paused. Traffic is optimised for link clicks to a website; leads for forms filled on
+ * Facebook, which Meta ties to the Page through promoted_object.
+ */
+export function adsetParams(a: {
+  name: string;
+  campaignId: string;
+  dailyBudgetMinor: number;
+  identity: string;
+  goal: AdGoal;
+  pageId: string;
+}): Record<string, string> {
+  const leads = a.goal.objective === "leads";
   return {
     name: a.name,
     campaign_id: a.campaignId,
     daily_budget: String(a.dailyBudgetMinor),
     billing_event: "IMPRESSIONS",
-    optimization_goal: "LINK_CLICKS",
+    optimization_goal: leads ? "LEAD_GENERATION" : "LINK_CLICKS",
     bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-    destination_type: "WEBSITE",
+    destination_type: leads ? "ON_AD" : "WEBSITE",
+    ...(leads ? { promoted_object: JSON.stringify({ page_id: a.pageId }) } : {}),
     targeting: JSON.stringify({ geo_locations: { countries: ["TH"] }, age_min: 20, targeting_automation: { advantage_audience: 1 } }),
     regional_regulated_categories: JSON.stringify(["THAILAND_UNIVERSAL"]),
     regional_regulation_identities: JSON.stringify({ universal_beneficiary: a.identity, universal_payer: a.identity }),
@@ -114,27 +143,35 @@ export function imageParams(poster: Buffer): Record<string, string> {
   return { bytes: poster.toString("base64") };
 }
 
-/** POST {act}/adcreatives: a Click-to-Website image ad; the button opens the same link as the card. */
+/**
+ * POST {act}/adcreatives: an image ad. A traffic button opens the same link as the card; a lead
+ * button opens the chosen form, and the card carries LEAD_LINK.
+ */
 export function creativeParams(c: {
   name: string;
   pageId: string;
   imageHash: string | null;
-  link: string;
+  goal: AdGoal;
   primaryText: string | null;
   headline: string | null;
   description: string | null;
 }): Record<string, string> {
+  const g = c.goal;
+  const link = g.objective === "leads" ? LEAD_LINK : g.link;
+  const call_to_action = g.objective === "leads"
+    ? { type: g.cta, value: { lead_gen_form_id: g.leadFormId } }
+    : { type: "LEARN_MORE", value: { link } };
   return {
     name: c.name,
     object_story_spec: JSON.stringify({
       page_id: c.pageId,
       link_data: {
         image_hash: c.imageHash,
-        link: c.link,
+        link,
         message: c.primaryText ?? "",
         name: c.headline ?? "",
         description: c.description ?? "",
-        call_to_action: { type: "LEARN_MORE", value: { link: c.link } },
+        call_to_action,
       },
     }),
   };

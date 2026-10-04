@@ -79,6 +79,8 @@ const engine = vi.hoisted(() => ({ runSend: vi.fn(), resumeSend: vi.fn(), activa
 vi.mock("@/lib/ads/send", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/send")>()), ...engine }));
 const g = vi.hoisted(() => ({ graph: vi.fn() }));
 vi.mock("@/lib/ads/graph", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/graph")>()), ...g }));
+const forms = vi.hoisted(() => ({ listLeadForms: vi.fn() }));
+vi.mock("@/lib/ads/lead-forms", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/lead-forms")>()), ...forms }));
 const ai = vi.hoisted(() => ({ analyzeDimensions: vi.fn() }));
 vi.mock("@/lib/ads/analyze", () => ai);
 const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn(), setContentStatus: vi.fn() }));
@@ -86,7 +88,7 @@ vi.mock("@/app/studio/actions", () => studio);
 
 const {
   analyzeCampaignDraft, analyzeCampaign, createAdCampaign, updateAdCampaign, adCampaignRoom,
-  sendApproved, retrySend, activateSendAction, pauseSendAction, pauseAd, deleteAdCampaign,
+  sendApproved, retrySend, activateSendAction, pauseSendAction, pauseAd, deleteAdCampaign, leadForms,
 } = await import("@/app/studio/ads/actions");
 
 const dims = (over: Record<string, unknown> = {}) => ({
@@ -124,7 +126,7 @@ const piece = (id: string, over: Record<string, unknown> = {}) => ({
 
 const send = (over: Record<string, unknown> = {}) => ({
   id: "S1", createdAt: "2026-10-04T03:00:00.000Z", campaignId: CAMPAIGN, actId: ACT, pageId: PAGE, link: "https://x.test/",
-  currency: "THB", dailyBudgetMinor: 15000, metaCampaignId: "MC1", adsetId: "AS1", step: "ads", error: null, claimedAt: null,
+  currency: "THB", dailyBudgetMinor: 15000, objective: "traffic", leadFormId: null, cta: null, metaCampaignId: "MC1", adsetId: "AS1", step: "ads", error: null, claimedAt: null,
   activatedAt: null, pausedAt: null, superseded: false, createdBy: OWNER_ID,
   items: [
     { id: "I1", sendId: "S1", pieceId: "p1", imageHash: "h1", creativeId: "c1", adId: "AD1", error: null },
@@ -166,6 +168,7 @@ beforeEach(() => {
   engine.pauseSend.mockResolvedValue({ ok: true });
   g.graph.mockResolvedValue({ ok: false, error: "x" });
   ai.analyzeDimensions.mockResolvedValue({ dimensions: dims(), costThb: 0.05, fallback: false });
+  forms.listLeadForms.mockResolvedValue({ ok: true, tosAccepted: true, forms: [{ id: "777", name: "ขอใบเสนอราคา" }] });
 });
 
 describe("who may use the new actions", () => {
@@ -178,7 +181,9 @@ describe("who may use the new actions", () => {
     await expect(activateSendAction("S1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(pauseSendAction("S1")).rejects.toThrow("ไม่มีสิทธิ์");
     await expect(pauseAd("L1")).rejects.toThrow("ไม่มีสิทธิ์");
+    await expect(leadForms(CAMPAIGN, ACT)).rejects.toThrow("ไม่มีสิทธิ์");
     for (const spy of [
+      forms.listLeadForms,
       ...Object.values(content), ...Object.values(camps), ...Object.values(sends), ...Object.values(engine), ai.analyzeDimensions,
       pages.myPages, conn.adManageAccounts, conn.adManageToken, store.findLaunch, store.getLaunch, launch.pauseLaunch, g.graph, who.audit,
     ]) {
@@ -466,7 +471,9 @@ describe("sending approved ads", () => {
         { id: "p2", headline: "หัวข้อ p2", primaryText: "ข้อความ p2", description: "คำอธิบาย p2" },
       ],
       createdBy: OWNER_ID,
+      objective: "traffic",
     });
+    expect(forms.listLeadForms).not.toHaveBeenCalled();
     expect(who.audit).toHaveBeenCalledWith("ads-send", "S1", expect.objectContaining({ ok: true, campaignId: CAMPAIGN, actId: ACT, pageId: PAGE }));
     expect(JSON.stringify(res)).not.toContain(SECRET);
   });
@@ -564,6 +571,70 @@ describe("sending approved ads", () => {
     expect(JSON.stringify(res)).not.toContain("secret detail");
     expect(who.audit).toHaveBeenLastCalledWith("ads-send", CAMPAIGN, expect.objectContaining({ ok: false }));
     log.mockRestore();
+  });
+});
+
+describe("sending approved ads as a lead form", () => {
+  const go = (over: Record<string, unknown> = {}) => sendApproved({
+    campaignId: CAMPAIGN, actId: ACT, link: "", dailyBudgetBaht: 150, pieceIds: ["p1"],
+    objective: "leads", leadFormId: "777", cta: "GET_QUOTE", ...over,
+  });
+
+  it("checks the form on the campaign's Page with the account's token, then hands runSend the form and button", async () => {
+    const res = await go();
+    expect(res.ok).toBe(true);
+    expect(forms.listLeadForms).toHaveBeenCalledWith(PAGE, SECRET);
+    const [arg] = engine.runSend.mock.calls[0] as unknown as [Record<string, unknown>];
+    expect(arg).toMatchObject({ objective: "leads", leadFormId: "777", cta: "GET_QUOTE", pageId: PAGE });
+    expect(who.audit).toHaveBeenCalledWith("ads-send", "S1", expect.objectContaining({ objective: "leads" }));
+  });
+
+  it("refuses a form that is not an active form of the Page, before Meta is asked to make anything", async () => {
+    const res = await go({ leadFormId: "999" });
+    expect(res).toMatchObject({ ok: false, step: "check" });
+    expect(!res.ok && res.error).toContain("ฟอร์มนี้ไม่อยู่ในเพจหรือถูกปิดแล้ว");
+    expect(engine.runSend).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the Page has not accepted the lead-ads terms", async () => {
+    forms.listLeadForms.mockResolvedValue({ ok: true, tosAccepted: false, forms: [] });
+    const res = await go();
+    expect(!res.ok && res.error).toContain("ยังไม่ได้ยอมรับเงื่อนไขแอดลีด");
+    expect(engine.runSend).not.toHaveBeenCalled();
+  });
+
+  it("passes on Meta's refusal to list the forms", async () => {
+    forms.listLeadForms.mockResolvedValue({ ok: false, error: "Facebook ไม่รับ — no permission" });
+    const res = await go();
+    expect(!res.ok && res.error).toContain("no permission");
+    expect(engine.runSend).not.toHaveBeenCalled();
+  });
+});
+
+describe("listing a campaign Page's lead forms", () => {
+  it("answers what Meta lists for the campaign's Page, read with the chosen account's token", async () => {
+    expect(await leadForms(CAMPAIGN, ACT)).toEqual({ ok: true, tosAccepted: true, forms: [{ id: "777", name: "ขอใบเสนอราคา" }] });
+    expect(forms.listLeadForms).toHaveBeenCalledWith(PAGE, SECRET);
+    expect(conn.adManageToken).toHaveBeenCalledWith(ACT);
+  });
+
+  it.each([
+    ["an unknown campaign", () => camps.getCampaign.mockResolvedValue(null)],
+    ["an account that is not connected", () => conn.adManageAccounts.mockResolvedValue([])],
+    ["a Page no longer connected", () => pages.myPages.mockResolvedValue([])],
+    ["no token for the account", () => conn.adManageToken.mockResolvedValue(null)],
+  ])("refuses %s without asking Meta", async (_n, arrange) => {
+    arrange();
+    const out = await leadForms(CAMPAIGN, ACT);
+    expect(out.ok).toBe(false);
+    expect(forms.listLeadForms).not.toHaveBeenCalled();
+  });
+
+  it("names a lead send's objective in the room", async () => {
+    sends.listSends.mockResolvedValue([send({ objective: "leads", leadFormId: "777", cta: "GET_QUOTE", link: "http://fb.me/" })]);
+    const room = await adCampaignRoom(CAMPAIGN);
+    if (!room.ok) throw new Error("room did not open");
+    expect(room.sends[0].objective).toBe("leads");
   });
 });
 
