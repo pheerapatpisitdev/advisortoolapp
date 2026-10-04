@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { defaultPoster, posterUrl } from "@/lib/content/poster";
-import { activateQuestion, badStatus, pauseQuestion, sendButtons, statusText, switchedOn } from "@/lib/ads/sent-view";
+import { activateQuestion, badStatus, pauseQuestion, sendBadge, sendButtons, statusText } from "@/lib/ads/sent-view";
 import { ask } from "../ask";
 import { errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
 import { activateSendAction, pauseSendAction, retrySend, type SendView } from "./actions";
@@ -40,7 +40,7 @@ export function SentSend({ send, pieces, account, pageName, productName, onOpen 
   const [busy, setBusy] = useState<"retry" | "activate" | "pause" | null>(null);
   const [note, setNote] = useState<NoteState>(null);
   const buttons = sendButtons(send);
-  const on = switchedOn(send);
+  const badge = sendBadge(send);
   const made = send.items.filter((i) => i.adId).length;
 
   async function press(kind: "retry" | "activate" | "pause") {
@@ -71,8 +71,8 @@ export function SentSend({ send, pieces, account, pageName, productName, onOpen 
       <header className="space-y-1">
         <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <span className="font-semibold">ส่ง {when(send.createdAt)}</span>
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${on ? "bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}>
-            {on ? `เปิดใช้แล้ว ${when(send.activatedAt!)}` : "หยุดไว้ — ยังไม่เสียเงิน"}
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.on ? "bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}>
+            {badge.since ? `${badge.text} ${when(badge.since)}` : badge.text}
           </span>
         </p>
         <p className="break-words text-sm text-[var(--ct-mute)]">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  activateQuestion, badStatus, legacyButtons, pauseQuestion, sendButtons, statusText, switchedOn, type SendShape,
+  activateQuestion, badStatus, legacyButtons, pauseQuestion, sendBadge, sendButtons, statusText, switchedOn, type BadgeShape, type SendShape,
 } from "@/lib/ads/sent-view";
 
 const send = (over: Partial<SendShape> = {}): SendShape => ({
@@ -80,5 +80,35 @@ describe("the words", () => {
     expect(p).toContain("acc");
     expect(p).toContain("เพจ B");
     expect(p).toContain("฿200 ต่อวัน");
+  });
+});
+
+describe("a send's badge", () => {
+  const badge = (over: Partial<BadgeShape> = {}) => sendBadge({
+    activatedAt: null, pausedAt: null, hasMetaCampaign: true, metaStatus: "PAUSED",
+    items: [{ effectiveStatus: "CAMPAIGN_PAUSED" }], ...over,
+  });
+
+  it("says no money is spent only when Meta says paused, or there is no Meta campaign", () => {
+    expect(badge()).toEqual({ on: false, text: "หยุดไว้ — ยังไม่เสียเงิน", since: null });
+    expect(badge({ hasMetaCampaign: false, metaStatus: null, items: [{ effectiveStatus: null }] }).text).toBe("หยุดไว้ — ยังไม่เสียเงิน");
+  });
+
+  it("makes no money claim when Meta's status could not be read", () => {
+    expect(badge({ metaStatus: null, items: [{ effectiveStatus: null }] })).toEqual({ on: false, text: "หยุดไว้", since: null });
+    expect(badge({ metaStatus: "IN_PROCESS", items: [{ effectiveStatus: null }] }).text).toBe("หยุดไว้");
+  });
+
+  it("says running whenever Meta says the campaign or any ad is ACTIVE, even with no switch-on record", () => {
+    expect(badge({ metaStatus: "ACTIVE" })).toEqual({ on: true, text: "กำลังวิ่ง — เปิดใช้ไม่ครบ", since: null });
+    expect(badge({ metaStatus: null, items: [{ effectiveStatus: "ACTIVE" }] }).text).toBe("กำลังวิ่ง — เปิดใช้ไม่ครบ");
+    expect(badge({ activatedAt: T1, metaStatus: "ACTIVE" })).toEqual({ on: true, text: "กำลังวิ่ง — เปิดใช้แล้ว", since: T1 });
+    // a pause on record that Meta does not show: still running, never "no money"
+    expect(badge({ activatedAt: T1, pausedAt: T2, metaStatus: "ACTIVE" })).toEqual({ on: true, text: "กำลังวิ่ง", since: null });
+  });
+
+  it("keeps the switch-on record when Meta does not say ACTIVE and does not say paused", () => {
+    expect(badge({ activatedAt: T1, metaStatus: null, items: [{ effectiveStatus: null }] })).toEqual({ on: true, text: "เปิดใช้แล้ว", since: T1 });
+    expect(badge({ activatedAt: T1, metaStatus: "PAUSED" })).toEqual({ on: false, text: "หยุดไว้ — ยังไม่เสียเงิน", since: null });
   });
 });

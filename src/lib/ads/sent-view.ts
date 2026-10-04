@@ -56,6 +56,35 @@ export function sendButtons(s: SendShape): { retry: boolean; activate: boolean; 
   };
 }
 
+export interface BadgeShape {
+  activatedAt: string | null;
+  pausedAt: string | null;
+  hasMetaCampaign: boolean;
+  metaStatus: string | null;
+  items: { effectiveStatus: string | null }[];
+}
+
+/**
+ * The badge at the top of a send: whether it may be spending. Meta's word comes first — the
+ * switch-on record can be half-finished (a switch-on or pause that broke midway).
+ * - Meta says the campaign or any ad is ACTIVE: กำลังวิ่ง, marked เปิดใช้ไม่ครบ when no switch-on
+ *   was recorded, with the switch-on time when the record agrees.
+ * - ยังไม่เสียเงิน only when Meta says the campaign is PAUSED, or there is no Meta campaign.
+ * - Otherwise (Meta unreadable or saying something else): the switch-on record, and no claim
+ *   about money either way.
+ * `since` is the time to show after the text, when there is one.
+ */
+export function sendBadge(s: BadgeShape): { on: boolean; text: string; since: string | null } {
+  const active = s.metaStatus === "ACTIVE" || s.items.some((i) => i.effectiveStatus === "ACTIVE");
+  if (active) {
+    if (!s.activatedAt) return { on: true, text: "กำลังวิ่ง — เปิดใช้ไม่ครบ", since: null };
+    return switchedOn(s) ? { on: true, text: "กำลังวิ่ง — เปิดใช้แล้ว", since: s.activatedAt } : { on: true, text: "กำลังวิ่ง", since: null };
+  }
+  if (!s.hasMetaCampaign || s.metaStatus === "PAUSED") return { on: false, text: "หยุดไว้ — ยังไม่เสียเงิน", since: null };
+  if (switchedOn(s)) return { on: true, text: "เปิดใช้แล้ว", since: s.activatedAt };
+  return { on: false, text: "หยุดไว้", since: null };
+}
+
 /** An ad launched one by one: เปิดใช้ when made and not switched on, หยุด whenever the ad exists. */
 export function legacyButtons(l: { step: string; activatedAt: string | null; canPause: boolean }): { activate: boolean; pause: boolean } {
   return { activate: l.step === "ad" && !l.activatedAt, pause: l.canPause };
