@@ -7,13 +7,15 @@
 
 import { ANGLE_BANK } from "@/lib/content/ads";
 import type { Dimension, Dimensions } from "@/lib/ads/campaign-store";
+import { DIMENSION_MAX, DIMENSION_NOTE_MAX, DIMENSION_TEXT_MAX } from "@/lib/ads/dimension-edit";
 
 export type Variant = { hook: string; persona: string; angle: string; style: string; combo: string };
 
-const TEXT_MAX = 80;
-const NOTE_MAX = 120;
-const HOOKS_MAX = 12;
-const OTHERS_MAX = 5;
+// the same limits the page edits to (dimension-edit.ts), so what it counts is what is kept
+const TEXT_MAX = DIMENSION_TEXT_MAX;
+const NOTE_MAX = DIMENSION_NOTE_MAX;
+const HOOKS_MAX = DIMENSION_MAX.hooks;
+const OTHERS_MAX = DIMENSION_MAX.personas;
 
 export function totalCombos(d: Dimensions): number {
   return d.hooks.length * d.personas.length * d.angles.length * d.styles.length;

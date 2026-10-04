@@ -379,11 +379,8 @@ export interface CampaignInput {
   pageId: string;
   planHref: string;
   name?: string | null;
-  /**
-   * The four dimensions the owner kept from the analysis. Required: a campaign without them is
-   * refused ("มิติไม่ครบ"). Optional in the type only while the page before the wizard still calls this.
-   */
-  dimensions?: Dimensions;
+  /** The four dimensions the owner kept from the analysis; ones with a list left empty are refused ("มิติไม่ครบ"). */
+  dimensions: Dimensions;
   /** no longer chosen by the owner (the dimensions replace them); kept on the row, 1 when not sent */
   angles?: number;
   tones?: number;

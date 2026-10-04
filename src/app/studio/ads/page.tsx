@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { gatePage } from "@/lib/auth/viewer";
-import { AD_LIMITS, MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
-import { CONTENT_PRODUCTS } from "@/lib/content/products";
 import { adsStudioHome } from "./actions";
 import { CampaignList } from "./CampaignList";
 
@@ -25,8 +23,6 @@ export default async function StudioAdsPage({ searchParams }: {
   return (
     <CampaignList
       home={home}
-      products={CONTENT_PRODUCTS.map((p) => ({ href: p.href, name: p.name }))}
-      rules={{ maxAngles: MAX_ANGLES, maxTones: MAX_TONES, limits: AD_LIMITS }}
       outcome={fb ?? null}
       warn={warn ?? null}
       detail={detail ?? null}

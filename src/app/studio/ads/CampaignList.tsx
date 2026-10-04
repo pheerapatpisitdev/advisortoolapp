@@ -1,26 +1,25 @@
 "use client";
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { posterUrl } from "@/lib/content/poster";
 import type { AdsStudioHome } from "./actions";
 import { ConnectBar } from "./ConnectBar";
-import { NewCampaign } from "./NewCampaign";
-import type { AdRules } from "./rules";
 import { field, solid, TONES } from "./styles";
 
 /**
  * /studio/ads: one Page's ad campaigns. The Page's name heads it with a picker for the others,
  * the ad-account strip sits under it, then a card per campaign with its newest poster and how
  * many of its ads are drafts, approved and sent. With no campaign yet, three steps and
- * a button to start.
+ * a button to start. A new campaign is made in the wizard (/studio/ads/new?page=…).
  */
 
 const STEPS = [
-  { title: "สร้างแคมเปญ", text: "เลือกแบบประกัน จำนวนมุมขายและน้ำเสียง แล้วระบบเขียนแอดชุดแรกให้" },
-  { title: "แก้แอด", text: "เกลาข้อความ วาดภาพโปสเตอร์ ดูตัวอย่างในฟีดก่อนยิง" },
-  { title: "ยิงแอด", text: "บันทึกเป็นแอดหยุดไว้บน Facebook ตรวจใน Ads Manager แล้วค่อยเปิดใช้" },
+  { title: "สร้างแคมเปญ", text: "เลือกแบบประกัน ให้ AI เสนอฮุก กลุ่มคน มุมขาย และสไตล์ภาพ แล้วแก้ได้ตามใจ" },
+  { title: "สร้างและอนุมัติ", text: "สร้างแอดจากคิวครั้งละ 1 / 2 / 4 ชิ้นพร้อมรูป แล้วกด ✓ อนุมัติ หรือ ✕ ทิ้ง บนการ์ด" },
+  { title: "ส่งขึ้น Facebook", text: "ส่งทุกชิ้นที่อนุมัติครั้งเดียวเป็นแอดหยุดไว้ ตรวจแล้วค่อยเปิดใช้ทั้งชุด" },
 ];
+
+const newHref = (pageId: string) => `/studio/ads/new?page=${encodeURIComponent(pageId)}`;
 
 function Counts({ counts }: { counts: AdsStudioHome["campaigns"][number]["counts"] }) {
   return (
@@ -32,16 +31,13 @@ function Counts({ counts }: { counts: AdsStudioHome["campaigns"][number]["counts
   );
 }
 
-export function CampaignList({ home, products, rules, outcome, warn, detail }: {
+export function CampaignList({ home, outcome, warn, detail }: {
   home: AdsStudioHome;
-  products: { href: string; name: string }[];
-  rules: AdRules;
   outcome: string | null;
   warn: string | null;
   detail: string | null;
 }) {
   const router = useRouter();
-  const [making, setMaking] = useState(false);
   const page = home.pages.find((p) => p.pageId === home.pageId) ?? null;
 
   return (
@@ -62,16 +58,12 @@ export function CampaignList({ home, products, rules, outcome, warn, detail }: {
             </label>
           )}
         </div>
-        {page && !making && (
-          <button type="button" onClick={() => setMaking(true)} className={solid}>+ สร้างแคมเปญ</button>
+        {page && (
+          <Link href={newHref(page.pageId)} className={`${solid} inline-flex items-center no-underline`}>+ สร้างแคมเปญ</Link>
         )}
       </header>
 
       <ConnectBar connection={home.connection} outcome={outcome} warn={warn} detail={detail} />
-
-      {making && page && (
-        <NewCampaign pageId={page.pageId} pageName={page.pageName} products={products} rules={rules} onClose={() => setMaking(false)} />
-      )}
 
       {!page ? (
         <p className="rounded-2xl border border-dashed border-[var(--ct-line)] p-5 text-sm text-[var(--ct-mute)]">
@@ -80,21 +72,19 @@ export function CampaignList({ home, products, rules, outcome, warn, detail }: {
       ) : home.error ? (
         <p role="alert" className={`rounded-lg border px-3 py-2 text-sm ${TONES.bad}`}>อ่านรายการแคมเปญไม่ได้ — {home.error}</p>
       ) : home.campaigns.length === 0 ? (
-        !making && (
-          <section className="rounded-2xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5 sm:p-6">
-            <h2 className="font-semibold">ยังไม่มีแคมเปญของเพจนี้</h2>
-            <ol className="mt-4 grid gap-3 sm:grid-cols-3">
-              {STEPS.map((s, i) => (
-                <li key={s.title} className="rounded-xl bg-[var(--ct-ground)] p-4">
-                  <span className="flex size-7 items-center justify-center rounded-full bg-[var(--ct-solid)] text-sm font-semibold text-[var(--ct-solid-ink)]">{i + 1}</span>
-                  <p className="mt-2 text-sm font-medium">{s.title}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-[var(--ct-mute)]">{s.text}</p>
-                </li>
-              ))}
-            </ol>
-            <button type="button" onClick={() => setMaking(true)} className={`${solid} mt-4`}>เริ่มสร้างแคมเปญแรก</button>
-          </section>
-        )
+        <section className="rounded-2xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5 sm:p-6">
+          <h2 className="font-semibold">ยังไม่มีแคมเปญของเพจนี้</h2>
+          <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="rounded-xl bg-[var(--ct-ground)] p-4">
+                <span className="flex size-7 items-center justify-center rounded-full bg-[var(--ct-solid)] text-sm font-semibold text-[var(--ct-solid-ink)]">{i + 1}</span>
+                <p className="mt-2 text-sm font-medium">{s.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--ct-mute)]">{s.text}</p>
+              </li>
+            ))}
+          </ol>
+          <Link href={newHref(page.pageId)} className={`${solid} mt-4 inline-flex items-center no-underline`}>เริ่มสร้างแคมเปญแรก</Link>
+        </section>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {home.campaigns.map((c) => (

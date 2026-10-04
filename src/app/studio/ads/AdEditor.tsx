@@ -11,17 +11,17 @@ import { AutoTextarea, errorNote, Note, okNote, type NoteState } from "../ui/edi
 import { XIcon } from "../ui/icons";
 import { saveAdCopy, setAdStatus, type AdCampaignRoom } from "./actions";
 import { FeedPreview } from "./FeedPreview";
-import { LaunchPanel } from "./LaunchPanel";
 import type { AdRules } from "./rules";
 import { field, plain as plainButton, solid } from "./styles";
 
 /**
  * One ad, full screen: the poster on the left (Studio's own PosterPanel, with its AI picture),
  * the three Ads Manager fields on the right with a count against Facebook's lengths — red when
- * over, never cut — the ad as the feed would show it, the save, and under them the launch.
+ * over, never cut — the ad as the feed would show it, and the save. Sending to Facebook is the
+ * room's (ส่งขึ้น Facebook), for every approved ad at once; nothing here launches.
  *
- * An ad already put on Facebook keeps what it went up with: saving here changes Studio's copy
- * only, and the editor says so. A new set from the launch panel is how an edit reaches Facebook.
+ * An ad already sent keeps what it went up with: saving here changes Studio's copy only, and the
+ * editor says so. Its status is Facebook's now, so it has no ทิ้ง.
  */
 
 export type Room = Extract<AdCampaignRoom, { ok: true }>;
@@ -171,7 +171,7 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
 
   // a piece in the bin is read-only: nothing to save or draw (and pay for) until it is restored
   const trashed = piece.status === "trashed";
-  const launched = piece.launches.length > 0;
+  const sent = piece.tab === "sent";
   const policy = piece.flags.policy;
   const ids = `ad-${piece.id}`;
 
@@ -183,9 +183,12 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
         </button>
         <div className="min-w-0 flex-1">
           <h2 id={`${ids}-title`} className="truncate text-sm font-semibold">{draft.headline || "แอดไม่มีหัวข้อ"}</h2>
-          <p className="truncate text-xs text-[var(--ct-mute)]">{campaign.title}{piece.ad ? ` · ${piece.ad.angle} · ${piece.ad.tone}` : ""}</p>
+          <p className="truncate text-xs text-[var(--ct-mute)]">
+            {campaign.title}
+            {piece.variant ? ` · ${piece.variant.persona} · ${piece.variant.angle} · ${piece.variant.style}` : piece.ad ? ` · ${piece.ad.angle} · ${piece.ad.tone}` : ""}
+          </p>
         </div>
-        {piece.status === "trashed" ? (
+        {sent ? null : piece.status === "trashed" ? (
           <button type="button" onClick={() => move("draft")} disabled={moving || saving} className={`${plainButton} shrink-0`}>
             {moving ? "กำลังกู้คืน…" : "กู้คืน"}
           </button>
@@ -230,9 +233,9 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
         </section>
 
         <div className="min-w-0 space-y-4">
-          {launched && (
+          {sent && (
             <p role="note" className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm font-medium text-[var(--ct-warn-ink)]">
-              แก้ตรงนี้ไม่เปลี่ยนแอดที่ยิงไปแล้ว ใช้สร้างใหม่
+              แอดนี้ส่งขึ้น Facebook แล้ว — แก้ตรงนี้เปลี่ยนเฉพาะสำเนาใน Studio ไม่เปลี่ยนแอดบน Facebook
             </p>
           )}
           {policy.length > 0 && (
@@ -265,14 +268,6 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
             description={draft.description} poster={draft.poster} fold={rules.limits.fold}
           />
 
-          <LaunchPanel
-            piece={{ id: piece.id, status: piece.status, hasPoster: piece.hasPoster, launches: piece.launches }}
-            connection={room.connection}
-            page={{ pageId: campaign.pageId, pageName: campaign.pageName, connected: campaign.pageConnected }}
-            pages={room.pages}
-            copy={{ headline: draft.headline, primaryText: draft.primaryText, description: draft.description }}
-            dirty={dirty}
-          />
         </div>
       </div>
     </div>

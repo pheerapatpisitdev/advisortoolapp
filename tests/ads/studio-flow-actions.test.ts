@@ -299,7 +299,9 @@ describe("making a campaign from the wizard", () => {
 
   it("refuses dimensions with an empty list, or none, and makes nothing", async () => {
     expect(await made({ dimensions: dims({ styles: [] }) })).toEqual({ ok: false, error: "มิติไม่ครบ" });
-    expect(await made({ dimensions: undefined })).toEqual({ ok: false, error: "มิติไม่ครบ" });
+    // required in the type; a caller from outside TypeScript can still leave it out
+    expect(await createAdCampaign({ pageId: PAGE, planHref: "/lifeprotect" } as unknown as Parameters<typeof createAdCampaign>[0]))
+      .toEqual({ ok: false, error: "มิติไม่ครบ" });
     expect(await made({ dimensions: dims({ hooks: [{ text: "   ", note: "" }] }) })).toEqual({ ok: false, error: "มิติไม่ครบ" });
     expect(camps.createCampaign).not.toHaveBeenCalled();
   });
