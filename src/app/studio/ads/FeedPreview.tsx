@@ -32,9 +32,11 @@ export function FeedPreview({ pageName, primaryText, headline, description, post
   // a new picture once typing pauses, not on every keystroke (as PosterPanel's own preview)
   const [shown, setShown] = useState(poster);
   useEffect(() => {
+    // the full preview shows the saved poster at once: nothing is being typed
+    if (full) return;
     const t = setTimeout(() => setShown(poster), 600);
     return () => clearTimeout(t);
-  }, [poster]);
+  }, [poster, full]);
   const pic = full ? poster : shown;
   const split = foldSplit(primaryText, fold);
   const drawable = pic.blocks.some((b) => b.kind === "headline");
@@ -61,7 +63,7 @@ export function FeedPreview({ pageName, primaryText, headline, description, post
                 ฟีดตัดตรงนี้
               </span>
             )}
-            {split.after}
+            {split.after.replace(/^\s+/, "")}
           </>
         ) : open ? primaryText : cut.shown}
         {!full && !open && cut.more && (
@@ -72,7 +74,7 @@ export function FeedPreview({ pageName, primaryText, headline, description, post
 
       {drawable ? (
         // eslint-disable-next-line @next/next/no-img-element -- the poster route draws it from the draft
-        <img src={posterUrl(pic)} alt="โปสเตอร์ของแอดนี้" className="block aspect-square w-full bg-[var(--ct-ground)] object-cover" />
+        <img src={posterUrl(pic)} alt={full ? headline || "โปสเตอร์ของแอดนี้" : "โปสเตอร์ของแอดนี้"} className="block aspect-square w-full bg-[var(--ct-ground)] object-cover" />
       ) : (
         <div className="flex aspect-square w-full items-center justify-center bg-[var(--ct-ground)] p-4 text-center text-sm text-[var(--ct-mute)]">ใส่พาดหัวบนภาพก่อน แล้วรูปจะขึ้นตรงนี้</div>
       )}

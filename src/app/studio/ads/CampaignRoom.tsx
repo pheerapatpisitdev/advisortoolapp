@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ContentItem } from "@/lib/content/store";
 import type { AdTab } from "@/lib/ads/campaign-view";
 import { ctaLabel, pickAd, sendOf, startTab } from "@/lib/ads/ads-list";
@@ -213,14 +213,16 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
     ? `อ่านผลลัพธ์ไม่ได้ — ${results.error}`
     : `${results.fetchedAt ? `ผลลัพธ์ ${results.days} วันล่าสุด · อัปเดตล่าสุด ${when(results.fetchedAt)}` : `ยังไม่มีผลลัพธ์ในช่วง ${results.days} วัน`} · ดึงจาก Facebook วันละครั้ง อาจช้าได้ถึง 1 วัน`;
 
-  // the ad picked, in the address: in place, so no history entry and no new read of the room
+  // the ad picked, in the address: in place, so no history entry and no new read of the room;
+  // asserted again when the address changes under it (a new results range drops ?ad=)
+  const search = useSearchParams();
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("ad") === selected || (!selected && !url.searchParams.has("ad"))) return;
     if (selected) url.searchParams.set("ad", selected);
     else url.searchParams.delete("ad");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [selected]);
+  }, [selected, search]);
 
   const chooseTab = (t: AdTab) => {
     setTab(t);
@@ -290,13 +292,15 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
                     )}
                   </div>
                   {blocked && <p className="text-xs text-[var(--ct-warn-ink)]">{blocked}</p>}
-                  {tab === "sent" && <SentTab room={room} productName={productName} onOpen={setOpenId} />}
+                  {/* a sent ad pressed in a batch panel shows in the preview */}
+                  {tab === "sent" && room.sends.length > 0 && <SentTab room={room} productName={productName} onOpen={setWanted} />}
                 </>
               )}
             />
           </section>
 
-          <section aria-label="ตัวอย่างโฆษณา" className="min-w-0 flex-1 lg:sticky lg:top-4">
+          <section aria-label="ตัวอย่างโฆษณา" className="min-w-0 flex-1 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+            <div className="mx-auto max-w-[500px]">
             {picked ? (
               <AdPreview
                 key={picked.id}
@@ -309,6 +313,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
                 เลือกแอดในรายการเพื่อดูตัวอย่างในฟีด
               </p>
             )}
+            </div>
           </section>
         </div>
       </div>

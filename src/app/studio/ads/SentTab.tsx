@@ -3,7 +3,7 @@ import { pageNameOf } from "@/lib/ads/ad-card";
 import type { Room } from "./AdEditor";
 import { SentSend } from "./SentSend";
 
-/** The room's ส่งแล้ว tab: each batch send, newest first, as its own panel (SentSend). */
+/** The ส่งแล้ว sub-tab's batch sends, newest first, each as its own panel (SentSend); pressing an ad hands its id to `onOpen`. */
 
 export function SentTab({ room, productName, onOpen }: {
   room: Room;
@@ -21,7 +21,7 @@ export function SentTab({ room, productName, onOpen }: {
   if (sends.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-[var(--ct-line)] p-6 text-center text-sm text-[var(--ct-mute)]">
-        ยังไม่มีแอดที่ส่งไป Facebook — ติ๊ก “เลือกส่ง” บนการ์ดในแท็บร่าง แล้วกด “ส่งขึ้น Facebook”
+        ยังไม่มีแอดที่ส่งไป Facebook — ติ๊กแอดในแท็บร่าง แล้วกด “ส่งขึ้น Facebook”
       </p>
     );
   }
