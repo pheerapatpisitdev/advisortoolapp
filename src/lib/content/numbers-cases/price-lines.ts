@@ -23,6 +23,11 @@ export interface PriceLines {
   /** "48": the day figure alone, for the poster's small line */
   day: string;
   annualSatang: number;
+  /**
+   * the monthly mode's premium in satang when the company takes it monthly at this premium (the
+   * month premiumLine says); absent under the monthly floor. The ad's table says it as ตกเดือนละ.
+   */
+  monthlySatang?: number;
 }
 
 export function priceLines(modes: ModePremium[] | undefined, expired: boolean, firstYear = false, lang: Lang = "th"): PriceLines | null {
@@ -31,6 +36,7 @@ export function priceLines(modes: ModePremium[] | undefined, expired: boolean, f
   if (!shown || !annual) return null;
   const monthly = shown.mode === "monthly";
   const day = money(perDay(annual.total));
+  const month = monthly ? { monthlySatang: shown.total } : {};
   if (lang === "en") {
     const perDayLine = `About THB ${day} a day${firstYear ? " in the first year" : ""}`;
     return {
@@ -39,6 +45,7 @@ export function priceLines(modes: ModePremium[] | undefined, expired: boolean, f
       big: monthly ? `THB ${formatBaht(shown.total)}/month` : perDayLine,
       day,
       annualSatang: annual.total,
+      ...month,
     };
   }
   const word = firstYear ? "เบี้ยปีแรก" : "เบี้ย";
@@ -50,6 +57,7 @@ export function priceLines(modes: ModePremium[] | undefined, expired: boolean, f
     big: monthly ? `${word} ${formatBaht(shown.total)} บาท/เดือน` : `${firstYear ? "ปีแรกตกวันละ" : "ตกวันละ"} ${day} บาท`,
     day,
     annualSatang: annual.total,
+    ...month,
   };
 }
 

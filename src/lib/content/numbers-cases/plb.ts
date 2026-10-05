@@ -31,6 +31,7 @@ export const plbNumbers = definePlan<{ sex: Sex; age: number; sum: number; term:
       sumLine: `ประกันชีวิตทุน ${money(p.sum)} บาท`,
       premiumLine: lines.premiumLine,
       annualSatang: lines.annualSatang,
+      ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี คุ้มครอง ${term.years} ปี ถึงอายุ ${coverEndsAt(term, p.age)}`,

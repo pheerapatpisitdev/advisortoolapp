@@ -34,6 +34,7 @@ export const ci123Numbers = definePlan<{ sex: Sex; age: number; tier: number }>(
       sumNote: `คู่กับประกันชีวิต Life Protect x 2 ทุน ${money(tier.sumAssured)} บาท`,
       premiumLine: lines.premiumLine,
       annualSatang: lines.annualSatang,
+      ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
       perDayLine: lines.perDayLine,
       claims: claims.map((c) => c.replace("{diseases}", String(table.diseaseCount))),
       who: `${sexWord(p.sex)} ${p.age} ปี`,

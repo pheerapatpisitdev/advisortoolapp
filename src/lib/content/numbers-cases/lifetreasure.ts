@@ -36,6 +36,7 @@ export const lifeTreasureNumbers = definePlan<{ sex: Sex; age: number; sum: numb
       sumLine: `ทุนประกันชีวิต ${money(p.sum)} บาท`,
       premiumLine: lines.premiumLine,
       annualSatang: lines.annualSatang,
+      ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
       perDayLine: lines.perDayLine,
       claims: said,
       who: `${sexWord(p.sex)} ${p.age} ปี จ่าย ${term.payTerm} ปี`,

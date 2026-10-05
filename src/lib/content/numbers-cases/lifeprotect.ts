@@ -43,6 +43,7 @@ export const lifeProtectNumbers = definePlan<{ sex: Sex; age: number; sum: numbe
       ...(doubled ? { sumNote: `ทุน ${money(p.sum)} บาท × 2 เมื่อเสียชีวิตก่อนอายุ ${table.boosterBeforeAge}` } : {}),
       premiumLine: lines.premiumLine,
       annualSatang: lines.annualSatang,
+      ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี ${term.label}`,

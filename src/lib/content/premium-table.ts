@@ -6,7 +6,8 @@ import { lifelong } from "./wording";
 
 /**
  * The premium table of a long-form ad (spec 2026-10-05): one row per rung of the plan's
- * ladder, a yearly figure per sex, every one from the plan's own engine. A model never writes
+ * ladder, a yearly figure per sex and its monthly-mode premium (ตกเดือนละ), every one from the
+ * plan's own engine. A model never writes
  * a premium. A rung the engine will not sell at this age is left out, and so is a sex it
  * will not sell to; a table with no row left is null, and the round is refused.
  */
@@ -20,7 +21,14 @@ export interface PremiumRow {
   note?: string;
   /** annual baht; null when the engine would not price a woman at this rung */
   female: number | null;
+  /**
+   * ตกเดือนละ: the engine's monthly-mode premium in baht, the month the ตัวเลขชัดๆ ad shows (owner,
+   * 2026-10-06, no longer the year ÷ 12); null where the company will not take it monthly at this
+   * premium (under the monthly floor), and the cell then says the year alone
+   */
+  femaleMonth: number | null;
   male: number | null;
+  maleMonth: number | null;
 }
 
 export interface PremiumTable {
@@ -41,14 +49,15 @@ export interface PremiumTable {
 }
 
 const annualBaht = (s: NumberSheet | null) => (s ? s.annualSatang / 100 : null);
+const monthBaht = (s: NumberSheet | null) => (s?.monthlySatang ? s.monthlySatang / 100 : null);
 /** a premium to the satang when it has satang (9,483.50), whole baht otherwise, as the engines say it */
 const baht = (n: number) => (Number.isInteger(n) ? money(n) : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-/** ตกเดือนละ: the yearly premium ÷ 12, rounded up, the way ตกวันละ is ÷ 365 */
-const perMonth = (annual: number) => money(Math.ceil(annual / 12));
+/** a Thai year's premium and its ตกเดือนละ, as a cell and the headline say them; no month bracket without a monthly mode */
+const yearTh = (annual: number, month: number | null | undefined) => `${baht(annual)} บาท/ปี${month == null ? "" : ` (ตกเดือนละ ${baht(month)})`}`;
 /** an English premium: "19,415 THB", "2,176.29 THB" */
 const thb = (n: number) => `${baht(n)} THB`;
-/** the English year's premium and its month, as a cell and the headline say them */
-const yearEn = (annual: number) => `${thb(annual)}/yr (about ${perMonth(annual)} a month)`;
+/** the English year's premium and its month, as a cell and the headline say them: the engine's month, so not "about" */
+const yearEn = (annual: number, month: number | null | undefined) => `${thb(annual)}/yr${month == null ? "" : ` (${thb(month)} a month)`}`;
 /**
  * one money format in an English ad (spec 2026-10-06): the sheet's "THB 25,000,000" said as the
  * cells say it, "25,000,000 THB". Only the ad table's text: the sheets, and Organic's English
@@ -74,7 +83,10 @@ export function premiumTableOf(plan: PricedPlan, age: number, today: Date, lang:
     const m = ladder.price(r, "M", age, today);
     const head = f ?? m;
     if (!head) continue;
-    rows.push({ heading: said(head.sumLine), ...(head.sumNote ? { note: said(head.sumNote) } : {}), female: annualBaht(f), male: annualBaht(m) });
+    rows.push({
+      heading: said(head.sumLine), ...(head.sumNote ? { note: said(head.sumNote) } : {}),
+      female: annualBaht(f), femaleMonth: monthBaht(f), male: annualBaht(m), maleMonth: monthBaht(m),
+    });
   }
   if (rows.length === 0) return null;
   return {
@@ -106,8 +118,8 @@ export function tableText(t: PremiumTable): string {
     [
       r.heading,
       ...(r.note ? [`(${r.note})`] : []),
-      ...(r.female === null ? [] : [`🙆‍♀️ หญิง = ${baht(r.female)} บาท/ปี (ตกเดือนละ ${perMonth(r.female)})`]),
-      ...(r.male === null ? [] : [`🕵️‍♂️ ชาย = ${baht(r.male)} บาท/ปี (ตกเดือนละ ${perMonth(r.male)})`]),
+      ...(r.female === null ? [] : [`🙆‍♀️ หญิง = ${yearTh(r.female, r.femaleMonth)}`]),
+      ...(r.male === null ? [] : [`🕵️‍♂️ ชาย = ${yearTh(r.male, r.maleMonth)}`]),
     ].join("\n"),
   );
   return [head, ...blocks].join("\n\n");
@@ -121,8 +133,8 @@ function tableTextEn(t: PremiumTable): string {
     [
       r.heading,
       ...(r.note ? [`(${r.note})`] : []),
-      ...(r.female === null ? [] : [`🙆‍♀️ Female = ${yearEn(r.female)}`]),
-      ...(r.male === null ? [] : [`🕵️‍♂️ Male = ${yearEn(r.male)}`]),
+      ...(r.female === null ? [] : [`🙆‍♀️ Female = ${yearEn(r.female, r.femaleMonth)}`]),
+      ...(r.male === null ? [] : [`🕵️‍♂️ Male = ${yearEn(r.male, r.maleMonth)}`]),
     ].join("\n"),
   );
   return [head, ...blocks].join("\n\n");
@@ -152,24 +164,28 @@ function settle(t: PremiumTable, pick?: Partial<HeadlinePick>) {
   const priced = (s: "F" | "M") => (s === "F" ? row.female : row.male) !== null;
   const other = want === "F" ? "M" : "F";
   const sex: "F" | "M" | null = priced(want) ? want : priced(other) ? other : null;
-  return { rung, row, sex, annual: sex === "F" ? row.female : sex === "M" ? row.male : null };
+  return {
+    rung, row, sex,
+    annual: sex === "F" ? row.female : sex === "M" ? row.male : null,
+    month: sex === "F" ? row.femaleMonth : sex === "M" ? row.maleMonth : null,
+  };
 }
 
 /**
  * The ad's headline figures, for the writer to read and the code to place: the product, then the
  * picked row's sum (the middle one by default) with its note (the condition on a doubled cover,
- * what a package includes), then its premium for the picked sex (a woman by default), with whose
- * premium it is.
+ * what a package includes), then its premium for the picked sex (a woman by default) and its
+ * ตกเดือนละ as the cell says it, with whose premium it is.
  */
 export function headlineFigures(t: PremiumTable, pick?: Partial<HeadlinePick>): string {
-  const { row, sex, annual } = settle(t, pick);
+  const { row, sex, annual, month } = settle(t, pick);
   const note = [row.note, t.note].filter(Boolean).join(" · ");
   const sum = `💁‍♀️ ${row.heading}${note ? ` (${note})` : ""}`;
   if (sex === null || annual === null) return [t.product, sum].join("\n");
   if (t.lang === "en") {
-    return [t.product, sum, `💰 ${t.firstYear ? "First-year premium" : "Premium"} ${yearEn(annual)} (${sexWordEn(sex)}, ${t.age})`].join("\n");
+    return [t.product, sum, `💰 ${t.firstYear ? "First-year premium" : "Premium"} ${yearEn(annual, month)} (${sexWordEn(sex)}, ${t.age})`].join("\n");
   }
-  const premium = `💰 ${t.firstYear ? "เบี้ยปีแรก" : "เบี้ย"} ${baht(annual)} บาท/ปี (ตกเดือนละ ${perMonth(annual)}) (${sexWord(sex)} อายุ ${t.age} ปี)`;
+  const premium = `💰 ${t.firstYear ? "เบี้ยปีแรก" : "เบี้ย"} ${yearTh(annual, month)} (${sexWord(sex)} อายุ ${t.age} ปี)`;
   return [t.product, sum, premium].join("\n");
 }
 
@@ -213,9 +229,11 @@ export function headlineOwner(t: PremiumTable, pick?: Partial<HeadlinePick>): { 
   return { sex: shown, rung, heading: row.heading, line: `${who} · ${row.heading}${note ? ` (${note})` : ""}` };
 }
 
-/** Every premium the table prints, yearly and ตกเดือนละ, as values. */
+/** Every premium the table prints, yearly and ตกเดือนละ (the engine's monthly mode, where it has one), as values. */
 export function tableCells(t: PremiumTable): number[] {
-  return t.rows.flatMap((r) => [r.female, r.male].flatMap((a) => (a === null ? [] : [a, Math.ceil(a / 12)])));
+  return t.rows.flatMap((r) =>
+    [[r.female, r.femaleMonth], [r.male, r.maleMonth]].flatMap(([a, m]) => (a == null ? [] : m == null ? [a] : [a, m])),
+  );
 }
 
 /**
@@ -238,7 +256,8 @@ export function tableSums(t: PremiumTable): string {
 export function restatedFigures(modelText: string, brief: string, t: PremiumTable): string[] {
   return [...new Set([
     ...strayNumbers(modelText, `${brief}\n${tableSums(t)}`),
-    ...sameFigures(modelText, tableCells(t)),
+    // a month with satang is the same premium said in whole baht, as the ตัวเลขชัดๆ ad says it (formatBaht)
+    ...sameFigures(modelText, tableCells(t).flatMap((n) => (Number.isInteger(n) ? [n] : [n, Math.floor(n)]))),
     // an English table's writer is held to the English premium phrases (check.ts)
     ...premiumAmounts(modelText, t.lang ?? "th"),
   ])];

@@ -47,6 +47,7 @@ export const legacyNumbers = definePlan<{ sex: Sex; age: number; tier: number }>
       sumLine: `มรดกให้ครอบครัว ${money(plan)} บาท`,
       premiumLine: lines.premiumLine,
       annualSatang: lines.annualSatang,
+      ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
       perDayLine: lines.perDayLine,
       claims: said,
       who: `${sexWord(p.sex)} ${p.age} ปี`,

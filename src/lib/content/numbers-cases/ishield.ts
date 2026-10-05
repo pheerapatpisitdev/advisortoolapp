@@ -30,6 +30,7 @@ export const iShieldNumbers = definePlan<{ sex: Sex; age: number; sum: number; t
       sumLine: `ประกันโรคร้ายแรงทุน ${money(p.sum)} บาท`,
       premiumLine: lines.premiumLine,
       annualSatang: lines.annualSatang,
+      ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
       perDayLine: lines.perDayLine,
       claims: claims.map((c) => c.replace("{diseases}", String(diseases))),
       who: `${sexWord(p.sex)} ${p.age} ปี ${term.label}`,

@@ -65,6 +65,7 @@ function iHealthyPlan(lang: Lang) {
           : `แพ็กเกจรวมประกันชีวิตทุน ${money(sum)} บาท${priced.standard ? " และค่าชดเชยรายวัน" : ""}`,
         premiumLine: lines.premiumLine,
         annualSatang: lines.annualSatang,
+        ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
         perDayLine: lines.perDayLine,
         claims: claims.map((c) => c.replace("{renew}", String(terms.renewalToAge)).replace("{ncd}", String(terms.noClaimDiscountPercent))),
         who: en ? `${sexWordEn(p.sex)}, ${p.age}` : `${sexWord(p.sex)} ${p.age} ปี`,

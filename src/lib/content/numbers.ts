@@ -26,6 +26,11 @@ export interface NumberSheet {
   claims: string[];
   /** the yearly premium in satang, as the engine's annual mode says it, for the ad's premium table */
   annualSatang: number;
+  /**
+   * the monthly-mode premium in satang, as the engine's monthly mode says it, for the ad's premium
+   * table's ตกเดือนละ (owner, 2026-10-06); absent under the monthly floor
+   */
+  monthlySatang?: number;
   /** "ชาย 35 ปี จ่ายถึงอายุ 99", shown in brackets: the premium is this person's */
   who: string;
   poster: { big: string; small: string };

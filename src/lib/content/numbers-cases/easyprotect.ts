@@ -30,6 +30,7 @@ export const easyProtectNumbers = definePlan<{ sex: Sex; age: number; sum: numbe
       sumLine: `ประกันชีวิตทุน ${money(p.sum)} บาท`,
       premiumLine: lines.premiumLine,
       annualSatang: lines.annualSatang,
+      ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี จ่าย ${term.payTerm} ปี`,

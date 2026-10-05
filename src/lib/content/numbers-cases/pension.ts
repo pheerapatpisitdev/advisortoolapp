@@ -38,6 +38,7 @@ export const pensionNumbers = definePlan<{ sex: "M" | "F"; age: number; monthly:
       sumNote: `เริ่มรับตั้งแต่อายุ ${p.from}`,
       premiumLine: lines.premiumLine,
       annualSatang: lines.annualSatang,
+      ...(lines.monthlySatang ? { monthlySatang: lines.monthlySatang } : {}),
       perDayLine: lines.perDayLine,
       claims,
       who: `${sexWord(p.sex)} ${p.age} ปี จ่ายเบี้ย ${annual.quote.payYears} ปี`,
