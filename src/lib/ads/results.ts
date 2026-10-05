@@ -31,6 +31,7 @@ export function sumResults(rows: DailyRow[], adIdsByKey: Map<string, string[]>):
   const byAd = new Map<string, AdResult>();
   for (const r of rows) {
     const t = byAd.get(r.ad_id) ?? { spend: 0, impressions: 0, clicks: 0, messaging: 0 };
+    // spend is summed as THB: Ads Studio supports no other account currency
     t.spend += Number(r.spend) || 0;
     t.impressions += r.impressions || 0;
     t.clicks += r.link_clicks || 0;

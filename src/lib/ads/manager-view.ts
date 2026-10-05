@@ -41,14 +41,33 @@ export function parseTab(v: unknown, hasCampaign: boolean): "campaigns" | "ads" 
   return "campaigns";
 }
 
+/** Code-point offsets at which a segment of the text starts, for one Intl.Segmenter granularity. */
+function starts(text: string, granularity: "grapheme" | "word"): number[] {
+  const out: number[] = [];
+  let cp = 0;
+  for (const seg of new Intl.Segmenter("th", { granularity }).segment(text)) {
+    out.push(cp);
+    cp += Array.from(seg.segment).length;
+  }
+  return out;
+}
+
 /**
- * Where an ad's text is cut for its "see more" fold, in code points: the last whitespace
- * (space or line break) at or before n, so a word is not split; n itself when there is none;
- * the whole length when the text fits.
+ * Where an ad's text is cut for its "see more" fold, in code points; the whole length when it
+ * fits. The cut never splits a letter (a Thai vowel or tone mark with its consonant, an emoji
+ * sequence): at the last whitespace at or before n, else the last word boundary, either one not
+ * earlier than 0.6 n, else the last grapheme boundary at or before n.
  */
 export function foldAt(text: string, n = 125): number {
+  if (n <= 0) return 0;
   const cps = Array.from(text);
   if (cps.length <= n) return cps.length;
-  for (let i = n; i > 0; i--) if (/\s/.test(cps[i])) return i;
-  return n;
+  const graphemes = starts(text, "grapheme");
+  const isStart = new Set(graphemes);
+  const floor = Math.ceil(0.6 * n);
+  for (let i = n; i >= floor; i--) if (isStart.has(i) && /\s/.test(cps[i])) return i;
+  const words = starts(text, "word");
+  for (let k = words.length - 1; k >= 0; k--) if (words[k] <= n && words[k] >= floor) return words[k];
+  for (let k = graphemes.length - 1; k >= 0; k--) if (graphemes[k] <= n) return graphemes[k];
+  return 0;
 }

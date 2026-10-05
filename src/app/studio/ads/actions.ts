@@ -1017,13 +1017,22 @@ export async function campaignResults(
     const since = bangkokSince(days);
     const rows: (DailyRow & { fetched_at: string })[] = [];
     for (let i = 0; i < adIds.length; i += 100) {
-      const { data, error } = await supabaseAdmin()
-        .from("ins_ad_daily")
-        .select("ad_id, spend, impressions, link_clicks, clicks, messaging_started, fetched_at")
-        .in("ad_id", adIds.slice(i, i + 100))
-        .gte("date", since);
-      if (error) throw new Error(error.message);
-      rows.push(...((data ?? []) as (DailyRow & { fetched_at: string })[]));
+      // PostgREST answers at most 1000 rows a request: page until a short page comes back
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabaseAdmin()
+          .from("ins_ad_daily")
+          .select("ad_id, spend, impressions, link_clicks, clicks, messaging_started, fetched_at")
+          .in("ad_id", adIds.slice(i, i + 100))
+          .gte("date", since)
+          // a stable order, or a row can fall between two pages
+          .order("date", { ascending: true })
+          .order("ad_id", { ascending: true })
+          .range(from, from + 999);
+        if (error) throw new Error(error.message);
+        const page = (data ?? []) as (DailyRow & { fetched_at: string })[];
+        rows.push(...page);
+        if (page.length < 1000) break;
+      }
     }
     const fetchedAt = rows.reduce<string | null>((m, r) => (r.fetched_at && (!m || Date.parse(r.fetched_at) > Date.parse(m)) ? r.fetched_at : m), null);
     return {

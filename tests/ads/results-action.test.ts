@@ -26,18 +26,21 @@ vi.mock("@/lib/ads/campaign-store", () => camps);
 const sends = vi.hoisted(() => ({ listSends: vi.fn() }));
 vi.mock("@/lib/ads/send-store", () => sends);
 
-const db = vi.hoisted(() => ({ calls: [] as { table: string; ids: string[]; gte: [string, string] | null }[], rows: [] as Record<string, unknown>[], fail: false }));
+type Call = { table: string; ids: string[]; gte: [string, string] | null; range: [number, number] | null };
+const db = vi.hoisted(() => ({ calls: [] as Call[], rows: [] as Record<string, unknown>[], fail: false, pages: null as null | ((c: Call) => Record<string, unknown>[]) }));
 vi.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: () => ({
     from: (table: string) => {
-      const c: { table: string; ids: string[]; gte: [string, string] | null } = { table, ids: [], gte: null };
+      const c: Call = { table, ids: [], gte: null, range: null };
       const b: Record<string, unknown> = {
         select: () => b,
         in: (_col: string, v: string[]) => { c.ids = v; return b; },
         gte: (col: string, v: string) => { c.gte = [col, v]; return b; },
+        order: () => b,
+        range: (a: number, z: number) => { c.range = [a, z]; return b; },
         then: (resolve: (v: unknown) => unknown) => {
           db.calls.push(c);
-          return resolve(db.fail ? { data: null, error: { message: "x" } } : { data: db.rows.filter((r) => c.ids.includes(r.ad_id as string)), error: null });
+          return resolve(db.fail ? { data: null, error: { message: "boom: secret detail" } } : db.pages ? { data: db.pages(c), error: null } : { data: db.rows.filter((r) => c.ids.includes(r.ad_id as string)), error: null });
         },
       };
       return b;
@@ -57,6 +60,7 @@ beforeEach(() => {
   who.owner = true;
   db.calls.length = 0;
   db.fail = false;
+  db.pages = null;
   db.rows = [r("A1", "10.5"), r("A2", 5, "2026-10-05T03:00:00Z"), r("B1", 1), r("OLD1", 20)];
   pages.myPages.mockResolvedValue([{ pageId: "P1", pageName: "x" }]);
   camps.listCampaigns.mockResolvedValue([{ id: "C1" }, { id: "C2" }]);
@@ -123,6 +127,15 @@ describe("campaignResults", () => {
   it("says so, in Thai, when the read breaks", async () => {
     db.fail = true;
     const res = await campaignResults("P1", 7);
-    expect(res.ok).toBe(false);
+    expect(res).toEqual({ ok: false, error: "ทำรายการไม่สำเร็จ ลองอีกครั้ง ถ้ายังไม่ได้ให้แจ้งผู้ดูแลระบบ" });
+    expect(JSON.stringify(res)).not.toContain("secret detail");
+  });
+  it("pages past 1000 rows and counts every page", async () => {
+    sends.listSends.mockResolvedValue([{ id: "S", items: [item("p1", "A1")] }]);
+    camps.listCampaigns.mockResolvedValue([{ id: "C1" }]);
+    db.pages = (c) => (c.range![0] === 0 ? Array.from({ length: 1000 }, () => r("A1", 1)) : [r("A1", 1), r("A1", 1)]);
+    const res = await campaignResults("P1", 30);
+    expect(db.calls.map((c) => c.range)).toEqual([[0, 999], [1000, 1999]]);
+    expect(res.ok && res.byCampaign.C1.spend).toBe(1002);
   });
 });

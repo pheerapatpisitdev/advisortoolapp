@@ -55,8 +55,29 @@ describe("parseDays / parseTab", () => {
 describe("foldAt", () => {
   it("is the length when the text fits", () => expect(foldAt("สั้นๆ", 125)).toBe(5));
   it("breaks at the last space within n", () => expect(foldAt("aaa bbb ccc", 9)).toBe(7));
-  it("breaks at a line boundary", () => expect(foldAt("aaaa\nbbbbbbbb", 8)).toBe(4));
+  it("breaks at a line boundary", () => expect(foldAt("aaaaaaa\nbbbbbbbb", 9)).toBe(7));
   it("cuts at n when there is no whitespace", () => expect(foldAt("x".repeat(300), 125)).toBe(125));
+  it("never splits a Thai cluster with no spaces to cut at", () => {
+    const text = "กรุงเทพมหานครอมรรัตนโกสินทร์มหินทรายุธยามหาดิลกภพนพรัตน์ราชธานีบูรีรมย์".repeat(4);
+    for (const n of [10, 17, 40, 77, 125]) {
+      const cut = Array.from(text).slice(n, n + 1).join("");
+      const at = foldAt(text, n);
+      expect(at).toBeLessThanOrEqual(n);
+      expect(at).toBeGreaterThan(0);
+      expect(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/.test(Array.from(text)[at] ?? "")).toBe(false);
+      void cut;
+    }
+  });
+  it("keeps an emoji ZWJ sequence whole", () => {
+    const fam = "👨‍👩‍👧"; // 5 code points
+    const text = "a".repeat(8) + fam + "b".repeat(40);
+    expect(foldAt(text, 10)).toBe(8);
+  });
+  it("ignores a space too early to be a good cut", () => {
+    const text = "ab " + "x".repeat(60);
+    expect(foldAt(text, 40)).toBe(40);
+  });
+  it("is 0 for n <= 0", () => expect(foldAt("abc", 0)).toBe(0));
   it("counts code points, not UTF-16 units", () => {
     expect(foldAt("😀😀😀 😀😀😀", 5)).toBe(3);
     expect(foldAt("😀".repeat(200), 125)).toBe(125);
