@@ -102,7 +102,7 @@ describe("iHealthy's emphasis, from the benefit sheet", () => {
     expect(adCategories("GOLD")).toEqual([11, 10, 4, 1, 9, 18, 19]);
     const smart = iHealthyAdFacts("SMART").join("\n");
     const gold = iHealthyAdFacts("GOLD").join("\n");
-    expect(smart).toContain("ค่าห้องและค่าอาหาร วันละ 1,500 บาท (ผู้ป่วยในโรงพยาบาลเอกชน)");
+    expect(smart).toContain("ค่าห้องและค่าอาหาร วันละ 1,500 บาท (ผู้ป่วยในโรงพยาบาลเอกชนชั้นนำ)");
     expect(smart).not.toContain("ผู้ป่วยนอก");
     expect(gold).toContain("วันละ 9,000 บาท");
     expect(gold).toContain("ค่ารักษาผู้ป่วยนอก (ปรึกษาแพทย์และยา) วงเงินปีละ 12,000 บาท");
@@ -112,7 +112,9 @@ describe("iHealthy's emphasis, from the benefit sheet", () => {
       expect(text).toContain("เคมีบำบัด");
       expect(text).toContain("ล้างไต");
       expect(text).toContain("ไม่ใช่ระยะเวลาจ่ายเบี้ยหรือระยะเวลาคุ้มครอง");
-      expect(text).toContain("โรงพยาบาลเอกชน");
+      // leading private hospitals, never a hospital's name (owner, 2026-10-06)
+      expect(text).toContain("พูดว่า \"โรงพยาบาลเอกชนชั้นนำ\" เท่านั้น ห้ามระบุชื่อโรงพยาบาล");
+      expect(text.match(/โรงพยาบาลเอกชน(?!ชั้นนำ)/g)).toBeNull();
     }
     expect(iHealthyAdFacts("NOPE")).toEqual([]);
   });
@@ -131,7 +133,9 @@ describe("iHealthy's emphasis, from the benefit sheet", () => {
 
   it("says it in English for the expat brief", () => {
     const gold = iHealthyAdFacts("GOLD", "en").join("\n");
-    expect(gold).toContain("Inpatient room and board at private hospitals: up to 9,000 THB a day");
+    expect(gold).toContain("Inpatient room and board at leading private hospitals: up to 9,000 THB a day");
+    expect(gold).toContain("Say \"leading private hospitals\" only: never name a hospital.");
+    expect(gold.match(/(?<!leading )private hospitals/g)).toBeNull();
     expect(gold).toContain("Outpatient doctor visits and medicine: covered up to 12,000 THB a year");
     expect(gold).not.toMatch(/[฀-๿]/);
     expect(iHealthyAdFacts("SMART", "en").join("\n")).not.toContain("Outpatient");

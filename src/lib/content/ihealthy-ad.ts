@@ -10,8 +10,9 @@ import type { Lang } from "./output";
  * outpatient extras appear only on the plans that have them. Only the words around them are ours.
  *
  * Heart surgery may be an example (owner, 2026-10-06, lifting the earlier ban). No hospital names —
- * "โรงพยาบาลเอกชน" / "private hospitals" only. The special waiting period for tumours and cancer
- * goes in the cautions, so no ad says cancer is covered from day one.
+ * "โรงพยาบาลเอกชนชั้นนำ" / "leading private hospitals" only (owner, 2026-10-06). The special
+ * waiting period for tumours and cancer goes in the cautions, so no ad says cancer is covered
+ * from day one.
  */
 
 /** the plans of the ad's premium table, in its rows' order (numbers-cases/ihealthy.ts ladder) */
@@ -54,11 +55,11 @@ const CORE: Category[] = [
   {
     no: 1,
     th: (v) => (asCharged(v)
-      ? "ค่าห้องและค่าอาหารผู้ป่วยในโรงพยาบาลเอกชน จ่ายตามจริง (รวมห้อง ICU)"
-      : `ค่าห้องและค่าอาหาร วันละ ${amount(v)} บาท (ผู้ป่วยในโรงพยาบาลเอกชน) · ห้อง ICU จ่ายตามจริง`),
+      ? "ค่าห้องและค่าอาหารผู้ป่วยในโรงพยาบาลเอกชนชั้นนำ จ่ายตามจริง (รวมห้อง ICU)"
+      : `ค่าห้องและค่าอาหาร วันละ ${amount(v)} บาท (ผู้ป่วยในโรงพยาบาลเอกชนชั้นนำ) · ห้อง ICU จ่ายตามจริง`),
     en: (v) => (asCharged(v)
-      ? "Inpatient room and board at private hospitals: paid as charged (ICU included)"
-      : `Inpatient room and board at private hospitals: up to ${amount(v)} THB a day · intensive care (ICU) paid as charged`),
+      ? "Inpatient room and board at leading private hospitals: paid as charged (ICU included)"
+      : `Inpatient room and board at leading private hospitals: up to ${amount(v)} THB a day · intensive care (ICU) paid as charged`),
   },
   {
     no: 9,
@@ -147,7 +148,7 @@ export function iHealthyAdFacts(plan: string, lang: Lang = "th"): string[] {
       "Put the ad's weight here — on what the lump-sum yearly limit pays for — not on the pay period or the cover period.",
       ...core,
       ...(extras.length ? ["Extras on this plan:", ...extras] : []),
-      "Say \"private hospitals\" only: never name a hospital.",
+      "Say \"leading private hospitals\" only: never name a hospital.",
     ];
   }
   return [
@@ -156,7 +157,7 @@ export function iHealthyAdFacts(plan: string, lang: Lang = "th"): string[] {
     "ให้น้ำหนักของแอดอยู่ที่สิ่งที่วงเงินเหมาจ่ายต่อปีจ่ายให้ ไม่ใช่ระยะเวลาจ่ายเบี้ยหรือระยะเวลาคุ้มครอง",
     ...core,
     ...(extras.length ? ["ผลประโยชน์เสริมของแผนนี้:", ...extras] : []),
-    "พูดว่า \"โรงพยาบาลเอกชน\" เท่านั้น ห้ามระบุชื่อโรงพยาบาล",
+    "พูดว่า \"โรงพยาบาลเอกชนชั้นนำ\" เท่านั้น ห้ามระบุชื่อโรงพยาบาล",
   ];
 }
 
