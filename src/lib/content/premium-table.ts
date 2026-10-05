@@ -2,6 +2,7 @@ import { personPhrases, premiumAmounts, sameFigures, strayNumbers } from "./chec
 import { EXPAT_NUMBERS_PLANS, NUMBERS_PLANS, lifelongSheet } from "./numbers-plans";
 import { money, sexWord, sexWordEn, type NumberSheet, type PricedPlan } from "./numbers";
 import type { Lang } from "./output";
+import { formatBaht } from "@/calc/money";
 import { lifelong } from "./wording";
 
 /**
@@ -52,12 +53,17 @@ const annualBaht = (s: NumberSheet | null) => (s ? s.annualSatang / 100 : null);
 const monthBaht = (s: NumberSheet | null) => (s?.monthlySatang ? s.monthlySatang / 100 : null);
 /** a premium to the satang when it has satang (9,483.50), whole baht otherwise, as the engines say it */
 const baht = (n: number) => (Number.isInteger(n) ? money(n) : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+/**
+ * ตกเดือนละ in whole baht, floored, as the ตัวเลขชัดๆ ad says the same premium (formatBaht): the
+ * same premium reads the same in every ad (controller, 2026-10-06)
+ */
+const perMonth = (month: number) => formatBaht(Math.round(month * 100));
 /** a Thai year's premium and its ตกเดือนละ, as a cell and the headline say them; no month bracket without a monthly mode */
-const yearTh = (annual: number, month: number | null | undefined) => `${baht(annual)} บาท/ปี${month == null ? "" : ` (ตกเดือนละ ${baht(month)})`}`;
+const yearTh = (annual: number, month: number | null | undefined) => `${baht(annual)} บาท/ปี${month == null ? "" : ` (ตกเดือนละ ${perMonth(month)})`}`;
 /** an English premium: "19,415 THB", "2,176.29 THB" */
 const thb = (n: number) => `${baht(n)} THB`;
 /** the English year's premium and its month, as a cell and the headline say them: the engine's month, so not "about" */
-const yearEn = (annual: number, month: number | null | undefined) => `${thb(annual)}/yr${month == null ? "" : ` (${thb(month)} a month)`}`;
+const yearEn = (annual: number, month: number | null | undefined) => `${thb(annual)}/yr${month == null ? "" : ` (${perMonth(month)} THB a month)`}`;
 /**
  * one money format in an English ad (spec 2026-10-06): the sheet's "THB 25,000,000" said as the
  * cells say it, "25,000,000 THB". Only the ad table's text: the sheets, and Organic's English
@@ -229,12 +235,18 @@ export function headlineOwner(t: PremiumTable, pick?: Partial<HeadlinePick>): { 
   return { sex: shown, rung, heading: row.heading, line: `${who} · ${row.heading}${note ? ` (${note})` : ""}` };
 }
 
-/** Every premium the table prints, yearly and ตกเดือนละ (the engine's monthly mode, where it has one), as values. */
+/**
+ * Every premium the table prints, as values: the yearly figure and ตกเดือนละ (the engine's monthly
+ * mode, where it has one) in the whole baht the cell says it.
+ */
 export function tableCells(t: PremiumTable): number[] {
   return t.rows.flatMap((r) =>
-    [[r.female, r.femaleMonth], [r.male, r.maleMonth]].flatMap(([a, m]) => (a == null ? [] : m == null ? [a] : [a, m])),
+    [[r.female, r.femaleMonth], [r.male, r.maleMonth]].flatMap(([a, m]) => (a == null ? [] : m == null ? [a] : [a, Math.floor(Math.round(m * 100) / 100)])),
   );
 }
+
+/** the engine's monthly premiums to the satang, which the table says in whole baht */
+const exactMonths = (t: PremiumTable) => t.rows.flatMap((r) => [r.femaleMonth, r.maleMonth].filter((m): m is number => m != null && !Number.isInteger(m)));
 
 /**
  * Every line of the table but its premiums: the term, the package note, each row's heading and
@@ -256,8 +268,8 @@ export function tableSums(t: PremiumTable): string {
 export function restatedFigures(modelText: string, brief: string, t: PremiumTable): string[] {
   return [...new Set([
     ...strayNumbers(modelText, `${brief}\n${tableSums(t)}`),
-    // a month with satang is the same premium said in whole baht, as the ตัวเลขชัดๆ ad says it (formatBaht)
-    ...sameFigures(modelText, tableCells(t).flatMap((n) => (Number.isInteger(n) ? [n] : [n, Math.floor(n)]))),
+    // the cells as printed, and a month to the satang the engine priced it at: both are the same premium
+    ...sameFigures(modelText, [...tableCells(t), ...exactMonths(t)]),
     // an English table's writer is held to the English premium phrases (check.ts)
     ...premiumAmounts(modelText, t.lang ?? "th"),
   ])];

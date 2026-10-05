@@ -142,7 +142,7 @@ describe("an English campaign's round", () => {
       expect(row.output.poster.lang).toBe("en");
       expect(row.output.body).toContain(tableText(t));
       // ตกเดือนละ is the engine's monthly-mode premium (owner, 2026-10-06), not the year ÷ 12
-      expect(row.output.body).toContain(`💰 First-year premium 43,415 THB/yr (${t.rows[3].femaleMonth!.toLocaleString("en-US")} THB a month) (Female, 30)`);
+      expect(row.output.body).toContain(`💰 First-year premium 43,415 THB/yr (${Math.floor(t.rows[3].femaleMonth!).toLocaleString("en-US")} THB a month) (Female, 30)`);
       expect(row.output.body).toContain("👉 Phet\n📲 Line: @expatphet\n👉 Inbox: https://m.me/112110731809903");
       expect(row.output.ad).toMatchObject({ age: 30, sex: "F", head: "Medical cover up to 25,000,000 THB a year" });
       expect(row.flags.numbers).toEqual([]);

@@ -23,8 +23,8 @@ const monthOf = (modes: ModePremium[] | undefined): number | null => {
 };
 /** a premium as the table says it: satang when it has them, whole baht otherwise */
 const said = (n: number) => (Number.isInteger(n) ? money(n) : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-/** the month bracket, only where there is a monthly mode */
-const bracket = (month: number | null) => (month === null ? "" : ` (ตกเดือนละ ${said(month)})`);
+/** the month bracket, only where there is a monthly mode, in whole baht as the ตัวเลขชัดๆ ad says it (formatBaht) */
+const bracket = (month: number | null) => (month === null ? "" : ` (ตกเดือนละ ${formatBaht(Math.round(month * 100))})`);
 /** a Thai cell as the table prints it */
 const cellTh = (who: "หญิง" | "ชาย", annual: number | string, month: number | null) =>
   `${who === "หญิง" ? "🙆‍♀️" : "🕵️‍♂️"} ${who} = ${typeof annual === "string" ? annual : said(annual)} บาท/ปี${bracket(month)}`;
@@ -109,8 +109,9 @@ describe("the premium table", () => {
   });
 
   it("a premium with satang keeps them", () => {
-    const t = { product: "P", age: 55, term: "x", firstYear: true, rows: [{ heading: "H", female: 9483.5, femaleMonth: 812.25, male: null, maleMonth: null }] };
-    expect(tableText(t)).toContain("🙆‍♀️ หญิง = 9,483.50 บาท/ปี (ตกเดือนละ 812.25)");
+    const t = { product: "P", age: 55, term: "x", firstYear: true, rows: [{ heading: "H", female: 9483.5, femaleMonth: 812.75, male: null, maleMonth: null }] };
+    // the year keeps its satang; the month is whole baht, floored, as the ตัวเลขชัดๆ ad says it
+    expect(tableText(t)).toContain("🙆‍♀️ หญิง = 9,483.50 บาท/ปี (ตกเดือนละ 812)");
   });
 
   it("firstYear plans say เบี้ยปีแรก", () => {
@@ -384,7 +385,8 @@ describe("the model's own words — final review 4", () => {
     expect(legacyMonth).not.toBeNull();
     expect(legacyMonth).not.toBe(twelfth);
     expect(tableCells(t)).toContain(annual);
-    expect(tableCells(t)).toContain(legacyMonth);
+    expect(tableCells(t)).toContain(Math.floor(legacyMonth));
+    expect(tableText(t)).toContain(`(ตกเดือนละ ${formatBaht(Math.round(legacyMonth * 100))})`);
     expect(tableCells(t)).not.toContain(twelfth);
     // 6,803 (2,000,000, a woman) is under the monthly floor: its year alone
     expect(tableCells(t)).toContain(6803);
@@ -393,10 +395,10 @@ describe("the model's own words — final review 4", () => {
 
   it("flag a premium of the table restated, yearly or a month, however it is written", () => {
     expect(restatedFigures("ทุน 2 ล้าน เบี้ยแค่ 6,803 บาท/ปี", brief, t)).toEqual(["6,803 บาท"]);
+    // the month as the table prints it (whole baht), and to the satang the engine priced it at
     const month = said(legacyMonth);
     expect(restatedFigures(`ทุน 5 ล้าน จ่ายเพียง ${month} บาทเท่านั้น`, brief, t)).toEqual([`${month} บาท`]);
-    // a month with satang said in whole baht, as the ตัวเลขชัดๆ ad says it (formatBaht), is the same premium
-    const whole = formatBaht(legacyMonth * 100);
+    const whole = formatBaht(Math.round(legacyMonth * 100));
     expect(restatedFigures(`ทุน 5 ล้าน จ่ายเพียง ${whole} บาทเท่านั้น`, brief, t)).toEqual([`${whole} บาท`]);
     // the year ÷ 12 is no figure of the table now: where the brief has it and no premium word is beside it, nothing flags it
     expect(restatedFigures(`ทุน 5 ล้าน จ่ายเพียง ${twelfth} บาทเท่านั้น`, `${brief} ${twelfth}`, t)).toEqual([]);

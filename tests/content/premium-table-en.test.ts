@@ -31,8 +31,8 @@ function ihMonth(rung: number, sex: "F" | "M", age: number): number | null {
   return shown?.mode === "monthly" ? shown.total / 100 : null;
 }
 const n = (x: number) => x.toLocaleString("en-US", Number.isInteger(x) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-/** an English cell's figures: the year, then the month where there is a monthly mode */
-const yearEn = (annual: number, month: number | null) => `${n(annual)} THB/yr${month === null ? "" : ` (${n(month)} THB a month)`}`;
+/** an English cell's figures: the year, then the month where there is a monthly mode, in whole baht floored (formatBaht) */
+const yearEn = (annual: number, month: number | null) => `${n(annual)} THB/yr${month === null ? "" : ` (${Math.floor(month).toLocaleString("en-US")} THB a month)`}`;
 
 describe("the English iHealthy ladder", () => {
   it("has the Thai ladder's rungs; no other plan has an English one", () => {
@@ -58,7 +58,7 @@ describe("the English iHealthy ladder", () => {
     expect(th.lang).toBeUndefined();
     expect(premiumTable(HREF, 30, today, "th")).toEqual(th);
     const month = ihMonth(0, "F", 30);
-    expect(tableText(th)).toContain(`🙆‍♀️ หญิง = 19,415 บาท/ปี${month === null ? "" : ` (ตกเดือนละ ${n(month)})`}`);
+    expect(tableText(th)).toContain(`🙆‍♀️ หญิง = 19,415 บาท/ปี${month === null ? "" : ` (ตกเดือนละ ${Math.floor(month).toLocaleString("en-US")})`}`);
   });
 });
 
@@ -153,7 +153,7 @@ describe("the English table's words", () => {
     expect(tableText(s)).not.toContain("a month");
   });
 
-  it("say a month with satang as the engine prices it", () => {
+  it("say a month with satang in whole baht, as the ตัวเลขชัดๆ ad does", () => {
     const plan = {
       ...EXPAT_NUMBERS_PLANS[HREF],
       ladder: {
@@ -162,7 +162,9 @@ describe("the English table's words", () => {
       },
     };
     const s = premiumTableOf(plan, 40, today, "en")!;
-    expect(tableText(s)).toContain("🙆‍♀️ Female = 28,700 THB/yr (2,583.40 THB a month)");
+    expect(tableText(s)).toContain("🙆‍♀️ Female = 28,700 THB/yr (2,583 THB a month)");
+    expect(restatedFigures("Just 2,583.40 THB", "", s)).toEqual(["2,583.40 THB"]);
+    expect(restatedFigures("Just 2,583 THB", "", s)).toEqual(["2,583 THB"]);
     expect(tableText(s)).not.toContain("about");
   });
 
