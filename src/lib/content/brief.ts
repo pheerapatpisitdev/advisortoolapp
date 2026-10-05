@@ -17,6 +17,10 @@ export interface Brief {
   rateVersion: string | null;
 }
 
+/** the iHealthy caution's post wording, and what an ad's brief says instead: the code places the ad's premiums */
+const AD_NO_PREMIUM_FROM = "โพสต์นี้ห้ามระบุเบี้ย";
+const AD_NO_PREMIUM = "ห้ามเขียนตัวเลขเบี้ยเอง — ระบบใส่ให้";
+
 const NO_PRICES = "- **ตอนนี้ห้ามระบุเบี้ยหรือราคาใดๆ** ตารางเบี้ยกำลังปรับปรุง ให้เขียนโดยไม่ใส่ราคาและชวนทักมาถามแทน";
 
 /**
@@ -75,7 +79,8 @@ export function briefFor(href: string, today: Date = new Date(), opts: { expat?:
     ...ad,
     "",
     "### ข้อควรระวัง (ห้ามเขียนขัดกับข้อนี้)",
-    ...product.cautions.map((c) => `- ${c}`),
+    // an ad prints the premiums the code places, so its brief does not forbid them — only writing one (posts unchanged)
+    ...product.cautions.map((c) => `- ${ad.length ? c.replace(AD_NO_PREMIUM_FROM, AD_NO_PREMIUM) : c}`),
     ...(ad.length ? [`- ${iHealthyAdCaution(adLang)}`] : []),
     ...(opts.expat && href === EXPAT_HREF ? expatBlock() : []),
   ].join("\n"));

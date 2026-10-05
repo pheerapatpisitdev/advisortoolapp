@@ -336,9 +336,10 @@ export async function writeNumbersAds(opts: {
  * model. Any failure gives the fallback headlines — the figures under them are the post.
  * `lang`: "en" asks for English headlines (and falls back to the English ones).
  */
-export async function headlines(sheets: NumberSheet[], limits: { budgetMs?: number; lang?: Lang } = {}): Promise<{ lines: ReturnType<typeof parseHeadlines>; model: string; costThb: number }> {
+/** `max`: an ad's Meta headline length (27); Organic's posts leave it out and keep their 60 */
+export async function headlines(sheets: NumberSheet[], limits: { budgetMs?: number; lang?: Lang; max?: number } = {}): Promise<{ lines: ReturnType<typeof parseHeadlines>; model: string; costThb: number }> {
   const lang = limits.lang ?? "th";
-  const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-headline", messages: headlineMessages(sheets, lang), maxTokens: 800, json: true, timeoutMs }), undefined, limits.budgetMs, "headlines")
+  const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-headline", messages: headlineMessages(sheets, lang, limits.max ?? 60), maxTokens: 800, json: true, timeoutMs }), undefined, limits.budgetMs, "headlines")
     .catch((e) => { console.error("content headlines failed:", e); return null; });
-  return { lines: parseHeadlines(r?.text ?? "", sheets.length, lang), model: r?.model ?? "fallback", costThb: r?.costThb ?? 0 };
+  return { lines: parseHeadlines(r?.text ?? "", sheets.length, lang, limits.max), model: r?.model ?? "fallback", costThb: r?.costThb ?? 0 };
 }

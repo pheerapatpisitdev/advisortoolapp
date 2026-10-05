@@ -141,3 +141,32 @@ describe("iHealthy's emphasis, from the benefit sheet", () => {
     expect(en).toContain("ข้อมูลสำหรับลูกค้าชาวต่างชาติ");
   });
 });
+
+describe("review polish (2026-10-06)", () => {
+  it("keeps a numbers ad's Meta headline within 27 characters, its fallbacks too; Organic keeps 60", async () => {
+    const { FALLBACK_AD_HEADLINES, FALLBACK_AD_HEADLINES_EN, headlineMessages, parseHeadlines } = await import("@/lib/content/numbers");
+    for (const h of [...FALLBACK_AD_HEADLINES, ...FALLBACK_AD_HEADLINES_EN]) expect([...h].length).toBeLessThanOrEqual(27);
+    const long = "ความคุ้มครองก้อนใหญ่ ในเบี้ยที่จ่ายไหวสำหรับทุกคน";
+    const reply = JSON.stringify({ pieces: [{ headline: long }, { headline: "เงินก้อนให้คนข้างหลัง" }] });
+    const ad = parseHeadlines(reply, 2, "th", 27);
+    expect(ad[0].headline).toBe(FALLBACK_AD_HEADLINES[0]);
+    expect(ad[1].headline).toBe("เงินก้อนให้คนข้างหลัง");
+    for (const h of parseHeadlines("not json", 3, "en", 27)) expect([...h.headline].length).toBeLessThanOrEqual(27);
+    expect(parseHeadlines(reply, 2)[0].headline).toBe(long);
+    expect(headlineMessages([], "th", 27)[0].content).toContain("ยาวไม่เกิน 27 ตัวอักษร");
+    expect(headlineMessages([])[0].content).toContain("ยาวไม่เกิน 60 ตัวอักษร");
+  });
+
+  it("prices a numbers round without its picture", async () => {
+    const { adRoundCost } = await import("@/lib/ads/picture-picks");
+    const picks = { writer: null, painter: null, person: null };
+    expect(Number(adRoundCost(2, picks, false).slice(5))).toBeLessThan(Number(adRoundCost(2, picks).slice(5)));
+  });
+
+  it("does not forbid premiums in an iHealthy ad's brief, which prints the code's; the post brief is as it was", () => {
+    const ad = briefFor("/ihealthy-ultra", undefined, { adPlan: "GOLD" })!.text;
+    expect(ad).not.toContain("โพสต์นี้ห้ามระบุเบี้ย");
+    expect(ad).toContain("ห้ามเขียนตัวเลขเบี้ยเอง — ระบบใส่ให้");
+    expect(briefFor("/ihealthy-ultra")!.text).toContain("โพสต์นี้ห้ามระบุเบี้ย");
+  });
+});

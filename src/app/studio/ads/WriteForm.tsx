@@ -272,7 +272,9 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
         disabled={writing || disabled || age === null || customMissing || rowsPending}
         note={writing
           ? `กำลังเขียน ${seconds} วินาที${seconds > 60 ? " — นานกว่าปกติ แต่ยังทำงานอยู่" : " (ปกติ 20–40 วินาที)"}`
-          : `${adRoundCost(count, picks)} รวมวาดรูป · ราว 20–40 วินาที`}
+          : kind === "numbers"
+            ? `${adRoundCost(count, picks, false)} ไม่วาดรูป (โปสเตอร์ตัวเลข) · ราว 20–40 วินาที`
+            : `${adRoundCost(count, picks)} รวมวาดรูป · ราว 20–40 วินาที`}
         warning={warning}
       />
     </>

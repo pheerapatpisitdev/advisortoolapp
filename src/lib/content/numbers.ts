@@ -138,6 +138,12 @@ export const FALLBACK_HEADLINES = [
   "ความคุ้มครองก้อนใหญ่ ในเบี้ยที่จ่ายไหว",
   "เช็กให้ชัด ก่อนตัดสินใจ",
 ];
+/**
+ * A ตัวเลขชัดๆ ad's fallbacks (Ads Studio, spec 2026-10-06): its headline is Meta's, which shows 27
+ * characters (AD_LIMITS.headline), so every one of these fits that.
+ */
+export const FALLBACK_AD_HEADLINES = ["ตัวเลขจริง ไม่ต้องเดา", "เช็กตัวเลขก่อนตัดสินใจ", "ดูตัวเลขให้ชัดก่อน"];
+export const FALLBACK_AD_HEADLINES_EN = ["Real numbers, no guessing", "Check the numbers first", "See the real figures"];
 export const FALLBACK_HEADLINES_EN = [
   "Real numbers, no guessing",
   "Big medical cover, a premium you can plan for",
@@ -149,7 +155,8 @@ const FALLBACK_PICTURE_EN = "A Western (European) adult living in Thailand revie
 const THAI = /[\u0E00-\u0E7F]/;
 
 /** One call for the whole round: a headline and a picture line per sheet, from the cheap model. */
-export function headlineMessages(sheets: NumberSheet[], lang: Lang = "th"): ChatMessage[] {
+/** `max`: the headline's length in characters — 60 for an Organic post, 27 for an ad's Meta headline */
+export function headlineMessages(sheets: NumberSheet[], lang: Lang = "th", max = 60): ChatMessage[] {
   const list = sheets.map((s, i) => `ชิ้นที่ ${i + 1}: ${s.product} · ${s.who} · ${s.claims.join(" · ")}`).join("\n");
   return [
     {
@@ -158,7 +165,7 @@ export function headlineMessages(sheets: NumberSheet[], lang: Lang = "th"): Chat
         // an English round is not opened by asking for a Thai headline (final review, 2026-10-02)
         lang === "en" ? "You write English Facebook post headlines for a life insurance agent in Thailand." : "คุณเขียนพาดหัวโพสต์เฟซบุ๊กภาษาไทยให้ตัวแทนประกันชีวิต",
         "ใต้พาดหัว ระบบจะวางตัวเลขเบี้ยและทุนให้เอง พาดหัวมีหน้าที่ทำให้คนหยุดอ่านตัวเลข",
-        "กติกา: ห้ามมีตัวเลขใดๆ ทั้งเลขอารบิกและเลขไทย · ยาวไม่เกิน 60 ตัวอักษร · ห้ามสัญญาเกินข้อมูลที่ให้ · ห้ามใช้คำว่าถูกที่สุด ดีที่สุด การันตี · ห้ามอ้างว่าคุ้มครองครบ ครบจบ หรือทุกอย่าง — ทุกแบบมีข้อยกเว้น",
+        `กติกา: ห้ามมีตัวเลขใดๆ ทั้งเลขอารบิกและเลขไทย · ยาวไม่เกิน ${max} ตัวอักษร · ห้ามสัญญาเกินข้อมูลที่ให้ · ห้ามใช้คำว่าถูกที่สุด ดีที่สุด การันตี · ห้ามอ้างว่าคุ้มครองครบ ครบจบ หรือทุกอย่าง — ทุกแบบมีข้อยกเว้น`,
         "imagePrompt: คำบรรยายภาพประกอบเป็นภาษาอังกฤษ 1–2 ประโยค คนไทย แสงธรรมชาติ ห้ามมีตัวหนังสือในภาพ",
         "theme: โทนสีโปสเตอร์หนึ่งจากรายการนี้ ให้เข้ากับแบบประกันและคนในชิ้นนั้น:",
         ...THEMES.map((t) => `  ${t} — ${THEME_MOOD[t]}`),
@@ -170,19 +177,26 @@ export function headlineMessages(sheets: NumberSheet[], lang: Lang = "th"): Chat
 }
 
 /** Always `count` lines: a headline the guard lets through, or a fallback in its place. */
-export function parseHeadlines(reply: string, count: number, lang: Lang = "th"): { headline: string; imagePrompt: string; theme?: Theme }[] {
+/**
+ * `max`: an ad's 27 (AD_LIMITS.headline) — a headline longer than that is given up for an ad
+ * fallback that fits; without it, Organic's rules as they always were.
+ */
+export function parseHeadlines(reply: string, count: number, lang: Lang = "th", max?: number): { headline: string; imagePrompt: string; theme?: Theme }[] {
   const raw = parseJsonReply<{ pieces?: unknown }>(reply);
   const list = Array.isArray(raw?.pieces) ? (raw.pieces as { headline?: unknown; imagePrompt?: unknown; theme?: unknown }[]) : [];
   return Array.from({ length: count }, (_, i) => {
     const p = list[i] ?? {};
-    const fallbacks = lang === "en" ? FALLBACK_HEADLINES_EN : FALLBACK_HEADLINES;
+    const fallbacks = max !== undefined
+      ? (lang === "en" ? FALLBACK_AD_HEADLINES_EN : FALLBACK_AD_HEADLINES)
+      : lang === "en" ? FALLBACK_HEADLINES_EN : FALLBACK_HEADLINES;
     const fallback = fallbacks[i % fallbacks.length];
     const picture = typeof p.imagePrompt === "string" && p.imagePrompt.trim() ? p.imagePrompt.trim() : lang === "en" ? FALLBACK_PICTURE_EN : FALLBACK_PICTURE;
     const said = typeof p.headline === "string" ? p.headline : "";
     // a theme the model made up is no theme; the caller falls back to its own
     const theme = (THEMES as readonly unknown[]).includes(p.theme) ? (p.theme as Theme) : undefined;
     // an English headline with Thai in it goes the way of one with a digit
-    const headline = lang === "en" && THAI.test(said) ? fallback : safeHeadline(said, fallback);
+    const tooLong = max !== undefined && [...said.trim()].length > max;
+    const headline = (lang === "en" && THAI.test(said)) || tooLong ? fallback : safeHeadline(said, fallback);
     return { headline, imagePrompt: picture, ...(theme ? { theme } : {}) };
   });
 }

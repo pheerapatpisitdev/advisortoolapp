@@ -8,7 +8,7 @@ import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { OutOfTime, deadline, within, type Deadline } from "@/lib/content/deadline";
 import { pickLook } from "@/lib/content/look-pick";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
-import { adOwnerLines, briefWithoutPremiums } from "@/lib/content/ads";
+import { AD_LIMITS, adOwnerLines, briefWithoutPremiums } from "@/lib/content/ads";
 import { briefFor } from "@/lib/content/brief";
 import { findWords, strayNumbers, type ContentWord } from "@/lib/content/check";
 import { parseTemplatize, templatizeMessages } from "@/lib/content/hooks";
@@ -427,7 +427,7 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
           kind === "long" ? writeLongAds(writeArgs)
             : numbers ? writeNumbersAds({ ...writeArgs, body: numbers.body, poster: { ...numbers.poster, ...(logo ? { logo } : {}) } })
               : writeShortAds({ ...writeArgs, kind: kind === "story" ? "story" : "knowledge", ...(sub ? { sub } : {}) }),
-          numbers && ad.sheet ? headlines(planned.plans.map(() => ad.sheet!), { budgetMs: clock.budget(PLAN_MS, SAVE_MS), lang }) : Promise.resolve(null),
+          numbers && ad.sheet ? headlines(planned.plans.map(() => ad.sheet!), { budgetMs: clock.budget(PLAN_MS, SAVE_MS), lang, max: AD_LIMITS.headline }) : Promise.resolve(null),
         ]);
         const planShare = (planned.costThb + (numberHeads?.costThb ?? 0)) / written.pieces.length;
         const rows = written.pieces.map((w, i) => {

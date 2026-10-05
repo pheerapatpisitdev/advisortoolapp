@@ -55,10 +55,11 @@ export function pictureRequest(brief: string | null): string {
 /**
  * About what a round of `n` ads costs with the campaign's picks, the picture included. อัตโนมัติ is
  * priced as the month having room (the best writer, มาตรฐาน); a person is drawn by Gemini.
+ * `drawn` false: a round with no picture (ตัวเลขชัดๆ ads carry the numbers poster), priced without one.
  */
-export function adRoundCost(n: number, picks: { writer: string | null; painter: string | null; person: PiecePerson | null }): string {
+export function adRoundCost(n: number, picks: { writer: string | null; painter: string | null; person: PiecePerson | null }, drawn = true): string {
   const writes = writerOf(picks.writer ?? AUTO);
-  const paints = painterFor(picks.painter ?? AUTO, Infinity, Boolean(picks.person));
-  const total = n * (writes.thb + OVERHEAD_THB + paints.thb);
+  const paints = drawn ? painterFor(picks.painter ?? AUTO, Infinity, Boolean(picks.person)).thb : 0;
+  const total = n * (writes.thb + OVERHEAD_THB + paints);
   return `ราว ฿${total.toFixed(1)}`;
 }
