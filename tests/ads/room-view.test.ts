@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drawOffer, inBin, picturePending, planLink, pruneTicks, sendBlocker, settledPictures, tableAge, type PictureState } from "@/lib/ads/room-view";
+import { drawOffer, inBin, paperPending, picturePending, planLink, pruneTicks, sendBlocker, settledPictures, tableAge, type PictureState } from "@/lib/ads/room-view";
 
 describe("the room's small decisions", () => {
   it("knows a piece whose poster has no picture still waits for it, whatever its ad holds", () => {
@@ -7,6 +7,15 @@ describe("the room's small decisions", () => {
     expect(picturePending({ poster: { background: "/x.png" } })).toBe(false);
     // a piece with no poster at all is not waiting for a picture
     expect(picturePending({ poster: null })).toBe(false);
+  });
+
+  it("knows a claim ad whose papers are not checked yet", () => {
+    expect(paperPending({ poster: { documents: [{}] }, paperChecked: false })).toBe(true);
+    expect(paperPending({ poster: { documents: [{}] }, paperChecked: true })).toBe(false);
+    expect(paperPending({ poster: { documents: [{}] } })).toBe(false);
+    expect(paperPending({ poster: { documents: [] }, paperChecked: false })).toBe(false);
+    expect(paperPending({ poster: null, paperChecked: false })).toBe(false);
+    expect(paperPending({ paperChecked: false })).toBe(false);
   });
 
   it("starts a send's link at the plan's page on the site", () => {

@@ -85,6 +85,7 @@ vi.mock("@/lib/ads/lead-forms", async (orig) => ({ ...(await orig<typeof import(
 const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn(), setContentStatus: vi.fn() }));
 vi.mock("@/app/studio/actions", () => studio);
 
+const { PAPER_UNCHECKED } = await import("@/lib/content/publish-flow");
 const {
   createAdCampaign, updateAdCampaign, adCampaignRoom,
   sendApproved, retrySend, activateSendAction, pauseSendAction, deleteAdCampaign, leadForms, tableRows, headlinePreview,
@@ -369,6 +370,22 @@ describe("sending ticked ads", () => {
     expect(reasons["in-send"]).toContain("ส่ง");
     expect(reasons.launched).toContain("ส่ง");
     expect(reasons.ok).toBe("ชิ้นนี้ยังไม่มีโปสเตอร์");
+  });
+
+  it("leaves out a claim ad whose papers are not checked, and sends nothing when only that was ticked", async () => {
+    const claim = (id: string, checked: boolean) => piece(id, {
+      output: { ...piece(id).output, poster: { ...piece(id).output.poster, documents: [{ path: `${id}/d0.png`, ratio: 1 }] }, paperChecked: checked },
+    });
+    camps.listCampaignPieces.mockResolvedValue([piece("p1"), claim("c1", false), claim("c2", true)]);
+    const res = await go({ pieceIds: ["p1", "c1", "c2"] });
+    expect((engine.runSend.mock.calls[0][0] as { pieces: { id: string }[] }).pieces.map((p) => p.id)).toEqual(["p1", "c2"]);
+    if (!res.ok) throw new Error("send refused");
+    expect(res.skipped).toEqual([{ pieceId: "c1", reason: PAPER_UNCHECKED }]);
+
+    engine.runSend.mockClear();
+    const only = await go({ pieceIds: ["c1"] });
+    expect(only).toMatchObject({ ok: false, step: "check", skipped: [{ pieceId: "c1", reason: PAPER_UNCHECKED }] });
+    expect(engine.runSend).not.toHaveBeenCalled();
   });
 
   it("leaves out a ticked piece that was binned or sent in another tab meanwhile, and sends nothing when only those were ticked", async () => {

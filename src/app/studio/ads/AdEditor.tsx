@@ -10,6 +10,7 @@ import { drawPicture } from "../draw";
 import { ask } from "../ask";
 import { AutoTextarea, errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
 import { XIcon } from "../ui/icons";
+import { ClaimPaperCheck } from "../claim/ClaimPaperCheck";
 import { saveAdCopy, setAdStatus, type AdCampaignRoom } from "./actions";
 import { FeedPreview } from "./FeedPreview";
 import type { AdRules } from "./rules";
@@ -85,6 +86,10 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
   const [plain, setPlain] = useState(false);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<NoteState>(null);
+  /** stickers laid on the papers and not yet saved by ตรวจแล้ว: leaving asks first, as PieceEditor does */
+  const [stickersPending, setStickersPending] = useState(false);
+  /** the paper check went through here: the room's own refresh may land after it */
+  const [checkedHere, setCheckedHere] = useState(false);
   // every edit counts up, so a save can tell whether the owner typed on while it was out
   const edits = useRef(0);
 
@@ -145,6 +150,7 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
 
   async function close() {
     if (dirty && !(await ask("ปิดหน้าแก้แอด? การแก้ที่ยังไม่บันทึกจะหายไป", "ปิดโดยไม่บันทึก"))) return;
+    if (stickersPending && !dirty && !(await ask("สติ๊กเกอร์ที่แปะเพิ่มยังไม่ได้บันทึก (กด “ตรวจแล้ว” ก่อน) ปิดเลยไหม?", "ปิดโดยไม่บันทึก"))) return;
     onClose();
   }
 
@@ -164,17 +170,18 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
   }, []);
   // leaving the page with unsaved words: the browser asks
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty && !stickersPending) return;
     const stay = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", stay);
     return () => window.removeEventListener("beforeunload", stay);
-  }, [dirty]);
+  }, [dirty, stickersPending]);
 
   // a piece in the bin is read-only: nothing to save or draw (and pay for) until it is restored
   const trashed = piece.status === "trashed";
   const sent = piece.tab === "sent";
   const policy = piece.flags.policy;
   const ids = `ad-${piece.id}`;
+  const paperCheck = piece.paperPending && !checkedHere && !trashed && !sent;
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby={`${ids}-title`} className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-[var(--ct-ground)]">
@@ -246,6 +253,20 @@ export function AdEditor({ piece, room, productName, rules, people, onClose }: {
                 {policy.map((f, i) => <li key={`${f.code}-${i}`}>{f.message}{f.match ? ` (“${f.match}”)` : ""}{f.fix ? ` — ${f.fix}` : ""}</li>)}
               </ul>
             </div>
+          )}
+
+          {paperCheck && (
+            <ClaimPaperCheck
+              item={{ id: piece.id, output: { poster: piece.poster } }}
+              onPending={setStickersPending}
+              onChecked={(item) => {
+                // the papers on file may be new pictures now; the words typed meanwhile stay, still unsaved
+                setCheckedHere(true);
+                setStickersPending(false);
+                setDraft((d) => ({ ...d, poster: { ...d.poster, documents: item.output.poster?.documents } }));
+                router.refresh();
+              }}
+            />
           )}
 
           <section aria-label="ข้อความโฆษณา" className="space-y-3 rounded-2xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4 sm:p-5">

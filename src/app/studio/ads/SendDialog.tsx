@@ -109,11 +109,13 @@ export function SendDialog({ room, pieces, productName, onSent, onClose, onShowS
   }, [objective, actId, formsFor]);
 
   const account = accounts.find((a) => a.id === actId);
+  // a claim ad whose papers are not checked is never sent (the server leaves it out too)
+  const held = pieces.filter((p) => kept.has(p.id) && p.paperPending);
   const nonBaht = account !== undefined && account.currency !== "THB";
   const ready = formReady({
-    hasPoster: kept.size > 0, nonBaht, link, budget, pageId: campaign.pageId, actId, maxDailyBudgetThb, objective, leadFormId,
+    hasPoster: kept.size > held.length, nonBaht, link, budget, pageId: campaign.pageId, actId, maxDailyBudgetThb, objective, leadFormId,
   });
-  const going = pieces.filter((p) => kept.has(p.id));
+  const going = pieces.filter((p) => kept.has(p.id) && !p.paperPending);
 
   async function send() {
     if (!ready || busy) return;
@@ -222,12 +224,16 @@ export function SendDialog({ room, pieces, productName, onSent, onClose, onShowS
                       >
                         {on ? "✕" : "+"}
                       </button>
+                      {p.paperPending && <span className="mt-0.5 block text-[11px] leading-tight text-[var(--ct-warn-ink)]">ยังไม่ตรวจใบเคลม จะถูกข้าม</span>}
                       {picturePending(p) && <span className="mt-0.5 block text-[11px] leading-tight text-[var(--ct-warn-ink)]">รูปยังวาดไม่เสร็จ จะถูกกันออก</span>}
                     </li>
                   );
                 })}
               </ul>
             </div>
+            {held.length > 0 && (
+              <p role="note" className="text-xs font-medium text-[var(--ct-warn-ink)]">ข้ามแอดรีวิวเคลมที่ยังไม่ตรวจใบเคลม {held.length} ชิ้น</p>
+            )}
             <button type="button" onClick={send} disabled={!ready || busy} className={`${solid} w-full`}>
               {busy ? `กำลังสร้างบน Facebook… ${seconds} วินาที` : `สร้างเป็นแอดหยุดไว้ (${going.length})`}
             </button>

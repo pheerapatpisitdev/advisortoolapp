@@ -94,7 +94,7 @@ export function AdsList({ pieces, tab, onTab, counts, selected, onSelect, ticked
                     <span className={`block break-words text-sm leading-snug ${on ? "font-semibold" : "font-medium"}`}>
                       {p.headline || <span className="font-normal text-[var(--ct-mute)]">(ไม่มีหัวข้อ)</span>}
                     </span>
-                    {(chips.length > 0 || flagged || picture || p.lang === "en") && (
+                    {(chips.length > 0 || flagged || picture || p.paperPending || p.lang === "en") && (
                       <span className="flex flex-wrap gap-1">
                         {p.lang === "en" && <span className={chip} title="แอดภาษาอังกฤษ">EN</span>}
                         {chips.map((c) => <span key={c} className={chip}>{c}</span>)}
@@ -103,6 +103,7 @@ export function AdsList({ pieces, tab, onTab, counts, selected, onSelect, ticked
                             {blocking ? "ผิดกฎ Facebook" : "ต้องตรวจ"}
                           </span>
                         )}
+                        {p.paperPending && <span className="rounded-full bg-[var(--ct-warn-bg)] px-2 py-0.5 text-[0.7rem] text-[var(--ct-warn-ink)]">ยังไม่ตรวจใบเคลม</span>}
                         {(picture === "wait" || picture === "drawing") && <span className={chip}>{picture === "drawing" ? "กำลังวาดรูป…" : "รอวาดรูป…"}</span>}
                         {typeof picture === "object" && <span className="rounded-full bg-[var(--ct-alert-bg)] px-2 py-0.5 text-[0.7rem] text-[var(--ct-alert)]">วาดรูปไม่สำเร็จ</span>}
                       </span>

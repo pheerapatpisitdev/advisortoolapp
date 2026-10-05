@@ -22,6 +22,15 @@ export function picturePending(p: { poster: { background?: string } | null; ad?:
   return Boolean(p.poster && !p.poster.background && p.ad?.kind !== "numbers");
 }
 
+/**
+ * A รีวิวเคลม ad whose papers the owner has not yet checked: it has papers and `paperChecked` is
+ * false (absent counts as checked, as for a plain post). The send leaves such a piece out
+ * (actions.ts), so the list and the dialog say so.
+ */
+export function paperPending(o: { poster?: { documents?: unknown[] } | null; paperChecked?: boolean }): boolean {
+  return Boolean(o.poster?.documents?.length) && o.paperChecked === false;
+}
+
 /** The new pieces of a round that go on the drawing line: all but the ตัวเลขชัดๆ ads, whose poster is the numbers poster. */
 export function toDraw(items: { id: string; output: { ad?: { kind?: string } } }[]): string[] {
   return items.filter((i) => i.output.ad?.kind !== "numbers").map((i) => i.id);

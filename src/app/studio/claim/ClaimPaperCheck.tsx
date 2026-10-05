@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Box } from "@/lib/content/claim";
+import type { PosterSpec } from "@/lib/content/poster";
 import type { ContentItem } from "@/lib/content/store";
 import { AlertIcon, CheckIcon } from "../ui/icons";
 import { burn } from "./redact";
@@ -18,9 +19,11 @@ interface Loaded {
  * The AI laid the stickers; the owner looks at every paper on the poster as it will be posted,
  * drags more over anything it missed, and ticks ตรวจแล้ว once for all of them. Until then the
  * piece cannot go to a Page.
+ *
+ * `item`: only its id and papers are read, so the Ads room's piece can stand in for a content item.
+ * `onPending`: told whether stickers have been laid and not yet saved, so leaving asks first
  */
-/** `onPending`: told whether stickers have been laid and not yet saved, so leaving asks first */
-export function ClaimPaperCheck({ item, onChecked, onPending }: { item: ContentItem; onChecked: (item: ContentItem) => void; onPending?: (pending: boolean) => void }) {
+export function ClaimPaperCheck({ item, onChecked, onPending }: { item: { id: string; output: { poster?: PosterSpec | null } }; onChecked: (item: ContentItem) => void; onPending?: (pending: boolean) => void }) {
   const docs = item.output.poster?.documents ?? [];
   const key = docs.map((d) => d.path).join("|");
   const [papers, setPapers] = useState<(Loaded | null)[] | null>(null);

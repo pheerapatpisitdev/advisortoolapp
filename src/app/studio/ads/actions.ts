@@ -18,6 +18,8 @@ import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
 import {
   createCampaign, deleteCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign,
 } from "@/lib/ads/campaign-store";
+import { paperPending } from "@/lib/ads/room-view";
+import { PAPER_UNCHECKED } from "@/lib/content/publish-flow";
 import { adTab, liveCount, tabCounts, type AdTab, type AdTabKey } from "@/lib/ads/campaign-view";
 import * as sendStore from "@/lib/ads/send-store";
 import {
@@ -129,6 +131,8 @@ export interface LaunchPiece {
   lang?: "en";
   hasPoster: boolean;
   poster: PosterSpec | null;
+  /** a รีวิวเคลม ad whose papers are not checked yet: the send leaves it out until the owner ticks ตรวจแล้ว */
+  paperPending: boolean;
   /** who the picture was drawn with; null for none. A redraw sends it back, or the server would take the person off */
   person: PiecePerson | null;
   /**
@@ -526,6 +530,7 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
       ...(p.output.lang === "en" ? { lang: "en" as const } : {}),
       hasPoster: Boolean(p.output.poster),
       poster: p.output.poster ?? null,
+      paperPending: paperPending(p.output),
       person: p.output.person ?? null,
       ad: p.output.ad
         ? {
@@ -906,6 +911,7 @@ export async function sendApproved(input: SendApprovedInput): Promise<SendResult
         : p.status === "trashed" ? IN_BIN
           : sent.has(id) ? ALREADY_SENT
             : picturePending(p) ? PICTURE_PENDING
+              : paperPending(p.output) ? PAPER_UNCHECKED
               : null;
       if (reason) skipped.push({ pieceId: id, reason });
       else going.push(p!);
