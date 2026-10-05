@@ -117,6 +117,18 @@ describe("iHealthy's emphasis, from the benefit sheet", () => {
     expect(iHealthyAdFacts("NOPE")).toEqual([]);
   });
 
+  it("may use heart surgery as an example (owner, 2026-10-06): no rule forbids it, in either language", () => {
+    for (const plan of ["SMART", "GOLD"]) {
+      const th = iHealthyAdFacts(plan).join("\n");
+      const en = iHealthyAdFacts(plan, "en").join("\n");
+      expect(th).not.toContain("หัวใจ");
+      expect(en).not.toMatch(/heart/i);
+      // the hospital-name rule stays
+      expect(th).toContain("ห้ามระบุชื่อโรงพยาบาล");
+      expect(en).toContain("never name a hospital");
+    }
+  });
+
   it("says it in English for the expat brief", () => {
     const gold = iHealthyAdFacts("GOLD", "en").join("\n");
     expect(gold).toContain("Inpatient room and board at private hospitals: up to 9,000 THB a day");

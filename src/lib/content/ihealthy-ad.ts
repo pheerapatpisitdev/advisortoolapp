@@ -9,9 +9,9 @@ import type { Lang } from "./output";
  * never typed here: a category the headline's plan pays nothing for is left out, and the
  * outpatient extras appear only on the plans that have them. Only the words around them are ours.
  *
- * Until the owner rules otherwise: no heart-surgery example and no hospital names — "โรงพยาบาล
- * เอกชน" / "private hospitals" only. The special waiting period for tumours and cancer goes in
- * the cautions, so no ad says cancer is covered from day one.
+ * Heart surgery may be an example (owner, 2026-10-06, lifting the earlier ban). No hospital names —
+ * "โรงพยาบาลเอกชน" / "private hospitals" only. The special waiting period for tumours and cancer
+ * goes in the cautions, so no ad says cancer is covered from day one.
  */
 
 /** the plans of the ad's premium table, in its rows' order (numbers-cases/ihealthy.ts ladder) */
@@ -147,7 +147,7 @@ export function iHealthyAdFacts(plan: string, lang: Lang = "th"): string[] {
       "Put the ad's weight here — on what the lump-sum yearly limit pays for — not on the pay period or the cover period.",
       ...core,
       ...(extras.length ? ["Extras on this plan:", ...extras] : []),
-      "Say \"private hospitals\" only: never name a hospital, and never use heart surgery as an example.",
+      "Say \"private hospitals\" only: never name a hospital.",
     ];
   }
   return [
@@ -156,7 +156,7 @@ export function iHealthyAdFacts(plan: string, lang: Lang = "th"): string[] {
     "ให้น้ำหนักของแอดอยู่ที่สิ่งที่วงเงินเหมาจ่ายต่อปีจ่ายให้ ไม่ใช่ระยะเวลาจ่ายเบี้ยหรือระยะเวลาคุ้มครอง",
     ...core,
     ...(extras.length ? ["ผลประโยชน์เสริมของแผนนี้:", ...extras] : []),
-    "พูดว่า \"โรงพยาบาลเอกชน\" เท่านั้น ห้ามระบุชื่อโรงพยาบาล และห้ามยกตัวอย่างการผ่าตัดหัวใจ",
+    "พูดว่า \"โรงพยาบาลเอกชน\" เท่านั้น ห้ามระบุชื่อโรงพยาบาล",
   ];
 }
 
