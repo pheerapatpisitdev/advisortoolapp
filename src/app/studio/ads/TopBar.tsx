@@ -9,7 +9,8 @@ import { solid } from "./styles";
 /**
  * Ads Studio's top bar (desktop redesign, 2026-10-05): the name, the Page, the connected ad
  * account (or a link to connect one under ตั้งค่าเพจ), the results range (7 / 30 วัน, kept in
- * ?days=), and + สร้าง — a small menu of แคมเปญใหม่ and, with a campaign open, โฆษณาในแคมเปญนี้.
+ * ?days=), and + สร้าง — a small menu of แคมเปญใหม่ and, with a campaign open, โฆษณาในแคมเปญนี้,
+ * each a link that opens the create drawer (?create=); focus returns to + สร้าง when it shuts.
  * On a phone the parts wrap onto more lines.
  */
 export function TopBar({ pages, pageId, connection, days, hrefs }: {
@@ -96,7 +97,7 @@ export function TopBar({ pages, pageId, connection, days, hrefs }: {
         {pageId && (
           <div ref={box} className="relative">
             <button
-              ref={opener} type="button" aria-haspopup="menu" aria-expanded={menu}
+              ref={opener} type="button" aria-haspopup="menu" aria-expanded={menu} data-create-opener
               onClick={() => setMenu((m) => !m)} className={solid}
             >
               + สร้าง

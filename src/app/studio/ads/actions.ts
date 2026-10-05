@@ -34,7 +34,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listLeadForms, type LeadForms } from "@/lib/ads/lead-forms";
 import { briefPick, painterPick, personPick, writerPick } from "@/lib/ads/picture-picks";
 import { contentProduct } from "@/lib/content/products";
-import { middleRung, premiumTable } from "@/lib/content/premium-table";
+import { adAge, adPick } from "@/lib/ads/headline-input";
+import { hasLadder, headlineFigures, middleRung, premiumTable, tableText } from "@/lib/content/premium-table";
 import type { PiecePerson } from "@/lib/content/people";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
 import type { PolicyFinding } from "@/lib/content/policy";
@@ -562,6 +563,32 @@ export async function tableRows(
     return { ok: true, rows: table.rows.map((r, index) => ({ index, heading: r.heading })), middle: middleRung(table.rows.length) };
   } catch (e) {
     console.error("tableRows failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/**
+ * What a round would place in an ad's figures, for the create drawer's preview (Ads Studio
+ * desktop, 2026-10-05): the 💁‍♀️/💰 headline lines and the premium table, at the age, sex and row
+ * chosen. The age and pick are cleaned as the round cleans them (adAge, adPick) and the text is
+ * the round's own (headlineFigures, tableText), so what is previewed is what the ad carries.
+ */
+export async function headlinePreview(
+  campaignId: string, pick: { age: unknown; sex: unknown; rung?: unknown },
+): Promise<{ ok: true; headline: string; table: string } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  try {
+    const campaign = await getCampaign(campaignId);
+    if (!campaign) return { ok: false, error: NO_CAMPAIGN };
+    // a campaign whose Page was disconnected cannot be written into (generateContent says the same)
+    if (!(await myPages()).some((p) => p.pageId === campaign.pageId)) return { ok: false, error: PAGE_GONE };
+    if (!hasLadder(campaign.planHref)) return { ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด" };
+    const age = adAge(pick?.age);
+    const table = premiumTable(campaign.planHref, age);
+    if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
+    return { ok: true, headline: headlineFigures(table, adPick(pick?.sex, pick?.rung)), table: tableText(table) };
+  } catch (e) {
+    console.error("headlinePreview failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
   }
 }

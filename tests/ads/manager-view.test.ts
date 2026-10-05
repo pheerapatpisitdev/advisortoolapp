@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { campaignState, foldAt, onBudget, parseDays, parseTab, totals } from "@/lib/ads/manager-view";
+import { campaignState, foldAt, onBudget, parseCreate, parseDays, parseTab, studioHref, totals, withCreate } from "@/lib/ads/manager-view";
+import { adAge, adPick } from "@/lib/ads/headline-input";
 
 const on = { activatedAt: "2026-10-04T01:00:00Z", pausedAt: null };
 const off = { activatedAt: "2026-10-04T01:00:00Z", pausedAt: "2026-10-04T02:00:00Z" };
@@ -80,5 +81,39 @@ describe("foldAt", () => {
   it("counts code points, not UTF-16 units", () => {
     expect(foldAt("😀😀😀 😀😀😀", 5)).toBe(3);
     expect(foldAt("😀".repeat(200), 125)).toBe(125);
+  });
+});
+
+describe("the create drawer in the address", () => {
+  it("parseCreate: a campaign always, ads only with a campaign open, nothing else", () => {
+    expect(parseCreate("campaign", false)).toBe("campaign");
+    expect(parseCreate("ad", true)).toBe("ad");
+    expect(parseCreate("ad", false)).toBeNull();
+    for (const v of [undefined, null, "", "1", "AD"]) expect(parseCreate(v, true)).toBeNull();
+  });
+  it("studioHref carries it last, and leaves it out when shut", () => {
+    expect(studioHref({ page: "P1", campaign: "C1", tab: "ads", days: 7, create: "ad" })).toBe("/studio/ads?page=P1&campaign=C1&tab=ads&create=ad");
+    expect(studioHref({ page: "P1", campaign: null, tab: "campaigns", days: 30, create: null })).toBe("/studio/ads?page=P1&tab=campaigns&days=30");
+  });
+  it("withCreate opens and shuts it in an address, keeping the rest", () => {
+    expect(withCreate("https://x.test/studio/ads?page=P1&tab=ads&ad=A1", "ad")).toBe("/studio/ads?page=P1&tab=ads&ad=A1&create=ad");
+    expect(withCreate("/studio/ads?page=P1&create=campaign&tab=campaigns", null)).toBe("/studio/ads?page=P1&tab=campaigns");
+    expect(withCreate("/studio/ads?create=ad", "campaign")).toBe("/studio/ads?create=campaign");
+    expect(withCreate("/studio/ads", null)).toBe("/studio/ads");
+  });
+});
+
+describe("an ad round's age and headline pick as sent (headline-input)", () => {
+  it("adAge: a whole year 0–80, 30 for anything not a number", () => {
+    expect(adAge(31.7)).toBe(31);
+    expect(adAge("45")).toBe(45);
+    expect(adAge(-3)).toBe(0);
+    expect(adAge(120)).toBe(80);
+    for (const v of ["", "x", null, undefined, Number.NaN, {}]) expect(adAge(v)).toBe(30);
+  });
+  it("adPick: M or a woman; a whole row index or none", () => {
+    expect(adPick("M", 3)).toEqual({ sex: "M", rung: 3 });
+    expect(adPick("m", 1.5)).toEqual({ sex: "F" });
+    expect(adPick(undefined, "2")).toEqual({ sex: "F" });
   });
 });

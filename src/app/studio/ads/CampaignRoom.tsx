@@ -14,7 +14,10 @@ import { AdEditor, type Room } from "./AdEditor";
 import { AdPreview } from "./AdPreview";
 import { AdsList } from "./AdsList";
 import { CampaignSettings } from "./CampaignSettings";
+import { CreateDrawer } from "./CreateDrawer";
+import { HeadlinePreview } from "./HeadlinePreview";
 import { switchedOn } from "@/lib/ads/sent-view";
+import { withCreate } from "@/lib/ads/manager-view";
 import type { AdRules } from "./rules";
 import { SendDialog } from "./SendDialog";
 import { SentTab } from "./SentTab";
@@ -27,8 +30,11 @@ import { WriteForm, type WriteInput } from "./WriteForm";
  * the left (AdsList — ร่าง · ส่งแล้ว · ถังขยะ, ticks, each sent ad's results, ส่งขึ้น Facebook (N)
  * and สร้างโฆษณาเพิ่ม under it, the sent tab's batch panels below) and on the right the ad picked
  * as a Facebook feed post (AdPreview), sticky on a desk. The editor goes full screen over both.
- * สร้างโฆษณาเพิ่ม opens the writing form, with ตั้งค่าแคมเปญ, in a panel above the list (the
- * create drawer comes later); the panel is only hidden when shut, so what was typed stays.
+ * สร้างโฆษณาเพิ่ม (and + สร้าง › โฆษณาในแคมเปญนี้) opens the create drawer (CreateDrawer, ?create=ad
+ * in the address, written in place): the writing form with ตั้งค่าแคมเปญ under it, the figures the
+ * round will place beside it (HeadlinePreview), the press at its foot. A campaign with no ad yet
+ * opens with the drawer open. While a round runs the drawer stays open and says so; when the
+ * round is back with ads it shuts and the first new ad is picked.
  *
  * The ad picked is kept in the address (?ad=<id>), written in place with history.replaceState so a
  * click neither adds history nor reads the room again; the page opens on that ad's sub-tab. An ad
@@ -72,7 +78,6 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
   const { campaign, pieces, counts, connection } = room;
   const [tab, setTab] = useState<AdTab>(() => startTab(pieces, adAsked));
   const [wanted, setWanted] = useState<string | null>(adAsked);
-  const [writingOpen, setWritingOpen] = useState(() => pieces.length === 0);
   const [ticked, setTicked] = useState<Set<string>>(() => new Set());
   const [openId, setOpenId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -83,6 +88,16 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
   const running = useRef(false);
   const jobs = useRef<string[]>([]);
   const drawing = useRef(false);
+  // the create drawer, kept in the address (?create=ad) and opened or shut in place
+  const search = useSearchParams();
+  const drawerOpen = search.get("create") === "ad";
+  const setDrawer = (on: boolean) => window.history.replaceState(null, "", withCreate(window.location.href, on ? "ad" : null));
+  // a campaign with no ad yet starts with the drawer open, as the form used to be
+  useEffect(() => {
+    if (pieces.length === 0 && new URL(window.location.href).searchParams.get("create") !== "ad") setDrawer(true);
+    // once, on opening the campaign
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // what ตั้งค่าแคมเปญ hands in to save its unsaved settings before a round
   const saveFirst = useRef<(() => Promise<boolean>) | null>(null);
   // how the pictures are drawn: the campaign's painter, person and brief as last saved
@@ -186,9 +201,9 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
         setRoundNote({ tone: made.length > 0 ? "warn" : "bad", text: res.error });
       }
       setTab("draft");
-      // the round's first new ad in the preview, once the refreshed room has it; the form shuts
+      // the round's first new ad in the preview, once the refreshed room has it; the drawer shuts
       setWanted(made[0]?.id ?? null);
-      if (made.length > 0) setWritingOpen(false);
+      if (made.length > 0) setDrawer(false);
       router.refresh();
     } finally {
       running.current = false;
@@ -215,7 +230,6 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
 
   // the ad picked, in the address: in place, so no history entry and no new read of the room;
   // asserted again when the address changes under it (a new results range drops ?ad=)
-  const search = useSearchParams();
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("ad") === selected || (!selected && !url.searchParams.has("ad"))) return;
@@ -250,31 +264,6 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <section aria-label="รายการโฆษณา" className="min-w-0 space-y-3 lg:w-[42%] lg:shrink-0">
-            <div hidden={!writingOpen} className="rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)]">
-              <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
-                <h2 className="font-semibold">สร้างโฆษณาเพิ่ม</h2>
-                <button
-                  type="button" onClick={() => setWritingOpen(false)} disabled={making > 0}
-                  title={making > 0 ? "กำลังสร้างแอด รอให้เสร็จก่อน" : undefined}
-                  className="min-h-11 rounded-lg px-3 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)] disabled:opacity-50"
-                >
-                  {making > 0 ? "กำลังสร้าง…" : "ปิด"}
-                </button>
-              </div>
-              <WriteForm
-                campaignId={campaign.id} planHref={campaign.planHref}
-                picks={{ writer: campaign.writer, painter: campaign.painter, person: campaign.person }}
-                writing={making > 0} disabled={!campaign.pageConnected}
-                warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}
-                folded={false} onWrite={(input) => void write(input)}
-              >
-                <CampaignSettings
-                  campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={room.sends.filter(switchedOn).length} folded={false}
-                  writing={making > 0} saveFirst={saveFirst}
-                />
-              </WriteForm>
-            </div>
-
             <AdsList
               pieces={pieces} tab={tab} onTab={chooseTab} counts={counts}
               selected={selected} onSelect={setWanted}
@@ -287,9 +276,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
                     <button type="button" onClick={() => setSending(true)} disabled={blocked !== null} className={solid}>
                       {`ส่งขึ้น Facebook (${going.length})`}
                     </button>
-                    {!writingOpen && (
-                      <button type="button" onClick={() => setWritingOpen(true)} className={plain}>+ สร้างโฆษณาเพิ่ม</button>
-                    )}
+                    <button type="button" data-create-opener onClick={() => setDrawer(true)} className={plain}>+ สร้างโฆษณาเพิ่ม</button>
                   </div>
                   {blocked && <p className="text-xs text-[var(--ct-warn-ink)]">{blocked}</p>}
                   {/* a sent ad pressed in a batch panel shows in the preview */}
@@ -318,6 +305,26 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
         </div>
       </div>
 
+      {drawerOpen && (
+        <CreateDrawer title={`สร้างโฆษณา · ${campaign.title}`} busy={making > 0} onClose={() => setDrawer(false)}>
+          {roundNote && (
+            <p role={roundNote.tone === "bad" ? "alert" : "status"} className={`mx-4 mt-4 rounded-lg border px-3 py-2 text-sm ${TONES[roundNote.tone]}`}>{roundNote.text}</p>
+          )}
+          <WriteForm
+            campaignId={campaign.id} planHref={campaign.planHref}
+            picks={{ writer: campaign.writer, painter: campaign.painter, person: campaign.person }}
+            writing={making > 0} disabled={!campaign.pageConnected}
+            warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}
+            folded={false} onWrite={(input) => void write(input)}
+            preview={(pick) => <HeadlinePreview campaignId={campaign.id} {...pick} />}
+          >
+            <CampaignSettings
+              campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={room.sends.filter(switchedOn).length} folded={false}
+              writing={making > 0} saveFirst={saveFirst}
+            />
+          </WriteForm>
+        </CreateDrawer>
+      )}
       {sending && (
         <SendDialog
           room={room} pieces={going} productName={productName}

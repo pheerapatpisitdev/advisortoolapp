@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { headlineFigures, premiumTable, tableText } from "@/lib/content/premium-table";
 
 /**
  * The doors of Ads Studio's flow: making a campaign, the room and its sends, and the batch send's
@@ -86,7 +87,7 @@ vi.mock("@/app/studio/actions", () => studio);
 
 const {
   createAdCampaign, updateAdCampaign, adCampaignRoom,
-  sendApproved, retrySend, activateSendAction, pauseSendAction, deleteAdCampaign, leadForms, tableRows,
+  sendApproved, retrySend, activateSendAction, pauseSendAction, deleteAdCampaign, leadForms, tableRows, headlinePreview,
 } = await import("@/app/studio/ads/actions");
 
 const campaign = (over: Record<string, unknown> = {}) => ({
@@ -653,5 +654,55 @@ describe("the headline's rows on the writing form — the 2026-10-05 ad", () => 
     expect(await tableRows(CAMPAIGN, 30)).toEqual({ ok: false, error: "ไม่พบแคมเปญนี้" });
     who.owner = false;
     await expect(tableRows(CAMPAIGN, 30)).rejects.toThrow("ไม่มีสิทธิ์ใช้ส่วนนี้");
+  });
+});
+
+describe("the create drawer's figure preview — headlinePreview, 2026-10-05", () => {
+    const figures = (href: string, age: number, pick: { sex: "F" | "M"; rung?: number }) => {
+    const table = premiumTable(href, age)!;
+    return { ok: true, headline: headlineFigures(table, pick), table: tableText(table) };
+  };
+
+  it("is the round's own text: the headline and the table at the age, sex and row chosen", async () => {
+    camps.getCampaign.mockResolvedValue(campaign());
+    expect(await headlinePreview(CAMPAIGN, { age: 35, sex: "M", rung: 4 })).toEqual(figures("/lifeprotect", 35, { sex: "M", rung: 4 }));
+    expect(await headlinePreview(CAMPAIGN, { age: 35, sex: "F" })).toEqual(figures("/lifeprotect", 35, { sex: "F" }));
+    const res = await headlinePreview(CAMPAIGN, { age: 35, sex: "M", rung: 4 });
+    expect(res.ok && res.headline).toContain("ชาย อายุ 35 ปี");
+    expect(res.ok && res.headline).toContain("4,000,000");
+  });
+
+  it("cleans what the browser sends as the round does: a whole year 0–80, a woman unless M, a whole row or the middle", async () => {
+    camps.getCampaign.mockResolvedValue(campaign());
+    expect(await headlinePreview(CAMPAIGN, { age: 35.9, sex: "X", rung: 1.5 })).toEqual(figures("/lifeprotect", 35, { sex: "F" }));
+    expect(await headlinePreview(CAMPAIGN, { age: "abc", sex: "M", rung: "2" })).toEqual(figures("/lifeprotect", 30, { sex: "M" }));
+    expect(await headlinePreview(CAMPAIGN, { age: -5, sex: "M" })).toEqual(figures("/lifeprotect", 0, { sex: "M" }));
+    // a row off the table is the middle one, as the headline settles it
+    expect(await headlinePreview(CAMPAIGN, { age: 35, sex: "F", rung: 99 })).toEqual(figures("/lifeprotect", 35, { sex: "F", rung: 2 }));
+  });
+
+  it("says when the plan cannot price the age, or has no table", async () => {
+    camps.getCampaign.mockResolvedValue(campaign({ planHref: "/ishield" }));
+    expect(await headlinePreview(CAMPAIGN, { age: 55, sex: "F" })).toEqual({ ok: false, error: "อายุ 55 ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น" });
+    camps.getCampaign.mockResolvedValue(campaign({ planHref: "/nope" }));
+    expect(await headlinePreview(CAMPAIGN, { age: 30, sex: "F" })).toEqual({ ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด" });
+  });
+
+  it("is Page-checked: a campaign whose Page is no longer connected is refused", async () => {
+    camps.getCampaign.mockResolvedValue(campaign());
+    pages.myPages.mockResolvedValue([{ pageId: "OTHER", pageName: "อื่น" }]);
+    expect(await headlinePreview(CAMPAIGN, { age: 30, sex: "F" })).toEqual({ ok: false, error: "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว" });
+  });
+
+  it("is the owner's alone, says when the campaign is gone, and says so when the read breaks", async () => {
+    camps.getCampaign.mockResolvedValue(null);
+    expect(await headlinePreview(CAMPAIGN, { age: 30, sex: "F" })).toEqual({ ok: false, error: "ไม่พบแคมเปญนี้" });
+    camps.getCampaign.mockRejectedValue(new Error("db down"));
+    const res = await headlinePreview(CAMPAIGN, { age: 30, sex: "F" });
+    expect(res.ok).toBe(false);
+    who.owner = false;
+    camps.getCampaign.mockClear();
+    await expect(headlinePreview(CAMPAIGN, { age: 30, sex: "F" })).rejects.toThrow("ไม่มีสิทธิ์ใช้ส่วนนี้");
+    expect(camps.getCampaign).not.toHaveBeenCalled();
   });
 });

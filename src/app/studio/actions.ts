@@ -37,6 +37,7 @@ import {
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
 import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds } from "@/lib/content/write";
+import { adAge, adPick } from "@/lib/ads/headline-input";
 import { hasLadder, headlineFigures, headlineOwner, otherPeople, premiumTable, restatedFigures, tableText, type HeadlinePick, type PremiumTable } from "@/lib/content/premium-table";
 import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick } from "@/lib/content/numbers";
 import { numberSheets } from "@/lib/content/numbers-plans";
@@ -205,22 +206,6 @@ function roundResult(r: { items: ContentItem[]; failed: boolean }, planned: numb
 
 /** how many long ads one press of สร้าง writes */
 const AD_MAX = 4;
-/** the ages a premium table is priced at, and the one taken when none is given */
-const AGE_MIN = 0;
-const AGE_MAX = 80;
-const AGE_DEFAULT = 30;
-
-/** an age as sent, as a whole year in range: 31.7 is 31, anything not a number is 30 */
-function adAge(v: unknown): number {
-  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
-  return Number.isFinite(n) ? Math.min(AGE_MAX, Math.max(AGE_MIN, Math.floor(n))) : AGE_DEFAULT;
-}
-
-/** an ad's headline pick as sent: "M" or a woman; a whole row index, or none (the middle row) */
-function adPick(sex: unknown, rung: unknown): Partial<HeadlinePick> {
-  return { sex: sex === "M" ? "M" : "F", ...(typeof rung === "number" && Number.isInteger(rung) ? { rung } : {}) };
-}
-
 /** an ad round's campaign, the table its figures come from, and the row and sex its headline names */
 interface AdRound {
   campaign: AdCampaign;

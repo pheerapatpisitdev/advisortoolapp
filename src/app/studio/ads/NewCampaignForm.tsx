@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Theme } from "@/lib/content/poster";
 import type { PersonOption } from "../PersonPicker";
@@ -14,7 +14,8 @@ import { field, solid } from "./styles";
  * owner likes a name, what to stress, the brand's voice and ภาพและโมเดล (PictureFields), then
  * สร้างแคมเปญ. Made, Ads Studio opens its room; no ad is written until the owner presses there.
  * Folded away on a phone like the settings it stands in for; ยกเลิก goes back to the campaign
- * that was open.
+ * that was open. In the create drawer (2026-10-05) the drawer carries the title and ✕, and is told
+ * while the campaign is being made (`onCreating`) so it stays open.
  */
 
 const NAME_MAX = 60;
@@ -36,7 +37,7 @@ function Counted({ label, value, onChange, max, rows, placeholder }: {
   );
 }
 
-export function NewCampaignForm({ pageId, products, people, folded, onCancel }: {
+export function NewCampaignForm({ pageId, products, people, folded, onCancel, heading = true, onCreating }: {
   pageId: string;
   products: { href: string; name: string }[];
   /** the people library, for ใส่บุคคลในภาพ */
@@ -45,6 +46,10 @@ export function NewCampaignForm({ pageId, products, people, folded, onCancel }: 
   folded: boolean;
   /** back to the campaign that was open; null when the Page has none to go back to */
   onCancel: (() => void) | null;
+  /** its own title line (แคมเปญใหม่ · ยกเลิก); off in the drawer, which has its own */
+  heading?: boolean;
+  /** told when making the campaign starts and stops */
+  onCreating?: (on: boolean) => void;
 }) {
   const router = useRouter();
   const [planHref, setPlanHref] = useState("");
@@ -54,6 +59,7 @@ export function NewCampaignForm({ pageId, products, people, folded, onCancel }: 
   const [picks, setPicks] = useState<PicturePicks>({ writer: null, painter: null, theme: AUTO_THEME, person: null, brief: "" });
   const [creating, setCreating] = useState(false);
   const [note, setNote] = useState<NoteState>(null);
+  useEffect(() => { onCreating?.(creating); }, [creating, onCreating]);
 
   async function create() {
     if (!planHref || creating) return;
@@ -76,10 +82,12 @@ export function NewCampaignForm({ pageId, products, people, folded, onCancel }: 
 
   return (
     <div className={`space-y-4 border-t border-[var(--ct-hair)] p-4 ${folded ? "hidden lg:block" : ""}`}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-semibold">แคมเปญใหม่</h3>
-        {onCancel && <button type="button" onClick={onCancel} disabled={creating} className="min-h-11 rounded-lg px-2 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)] disabled:opacity-50">ยกเลิก</button>}
-      </div>
+      {heading && (
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-semibold">แคมเปญใหม่</h3>
+          {onCancel && <button type="button" onClick={onCancel} disabled={creating} className="min-h-11 rounded-lg px-2 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)] disabled:opacity-50">ยกเลิก</button>}
+        </div>
+      )}
       <fieldset disabled={creating} className="m-0 min-w-0 space-y-4 border-0 p-0">
         <legend className="sr-only">ข้อมูลแคมเปญ</legend>
         <label className="block space-y-1">
@@ -95,13 +103,13 @@ export function NewCampaignForm({ pageId, products, people, folded, onCancel }: 
         <Counted label="น้ำเสียงแบรนด์" value={voice} onChange={setVoice} max={TEXT_MAX} rows={2} placeholder="เช่น อบอุ่น เป็นกันเอง ไม่ขายของแรง" />
         <PictureFields
           value={picks} onChange={(next) => setPicks((p) => ({ ...p, ...next }))}
-          people={people} back={`/studio/ads?page=${encodeURIComponent(pageId)}&new=1`}
+          people={people} back={`/studio/ads?page=${encodeURIComponent(pageId)}&create=campaign`}
         />
       </fieldset>
       <button type="button" onClick={create} disabled={!planHref || creating} className={`${solid} w-full`}>
         {creating ? "กำลังสร้าง…" : "สร้างแคมเปญ"}
       </button>
-      <p className="text-xs text-[var(--ct-mute)]">ยังไม่เขียนแอดและยังไม่เสียค่าใช้จ่าย — สร้างแล้วเลือกมุม คนอ่าน และอายุ แล้วกดสร้างโฆษณาที่แผงเครื่องมือ</p>
+      <p className="text-xs text-[var(--ct-mute)]">ยังไม่เขียนแอดและยังไม่เสียค่าใช้จ่าย — สร้างแล้วเลือกมุม คนอ่าน และอายุ แล้วกดสร้างโฆษณา</p>
       <Note note={note} />
     </div>
   );

@@ -1,10 +1,10 @@
 "use client";
-import { useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { AdResult } from "@/lib/ads/results";
 import type { CampaignRow } from "@/lib/ads/campaign-table";
-import { studioHref } from "@/lib/ads/manager-view";
+import { parseCreate, studioHref, withCreate, type CreateMode } from "@/lib/ads/manager-view";
 import { switchedOn } from "@/lib/ads/sent-view";
 import type { PersonOption } from "../PersonPicker";
 import type { AdsStudioHome } from "./actions";
@@ -13,6 +13,7 @@ import { CampaignRoom, type RoomResults } from "./CampaignRoom";
 import { CampaignSettings } from "./CampaignSettings";
 import { CampaignTable } from "./CampaignTable";
 import { Columns } from "./Columns";
+import { CreateDrawer } from "./CreateDrawer";
 import { NewCampaignForm } from "./NewCampaignForm";
 import { PageSettings, type PageContactRead } from "./PageSettings";
 import type { AdRules } from "./rules";
@@ -23,9 +24,11 @@ import { TopBar } from "./TopBar";
  * /studio/ads laid out as Ads Manager is (desktop redesign, 2026-10-05): the top bar (TopBar),
  * then the tabs แคมเปญ · โฆษณา · ตั้งค่าเพจ. แคมเปญ is the Page's campaigns as one table
  * (CampaignTable); โฆษณา is the open campaign's ads, a list beside a feed preview (CampaignRoom); ตั้งค่าเพจ is the Page's
- * contacts and ad-account connection, beside ตั้งค่าแคมเปญ with a campaign open. A new campaign
- * (?new=1, or a Page with none) is made in the tools column as before. Every choice is a new
- * address (studioHref), so a reload, the back button and a link all land where they were.
+ * contacts and ad-account connection, beside ตั้งค่าแคมเปญ with a campaign open. + สร้าง opens the
+ * create drawer (?create=campaign over any view here; ?create=ad is the ads tab's, CampaignRoom's).
+ * A Page with no campaign, or the older ?new=1, makes one in the tools column as before. Every
+ * choice is a new address (studioHref), so a reload, the back button and a link all land where
+ * they were.
  */
 
 export type StudioView =
@@ -72,7 +75,20 @@ function CampaignSettingsTab({ room, productName, people }: { room: Room; produc
   );
 }
 
-export function AdsStudio({ home, view, openId, days, contact, rules, products, outcome, warn, detail }: {
+/** แคมเปญใหม่ in the create drawer, over whatever view is open; it stays open while the campaign is being made. */
+function NewCampaignDrawer({ pageId, products, people, onClose }: {
+  pageId: string; products: { href: string; name: string }[]; people: PersonOption[]; onClose: () => void;
+}) {
+  const [creating, setCreating] = useState(false);
+  const told = useCallback((on: boolean) => setCreating(on), []);
+  return (
+    <CreateDrawer title="แคมเปญใหม่" busy={creating} onClose={onClose}>
+      <NewCampaignForm pageId={pageId} products={products} people={people} folded={false} onCancel={null} heading={false} onCreating={told} />
+    </CreateDrawer>
+  );
+}
+
+export function AdsStudio({ home, view, openId, days, contact, drawerPeople, rules, products, outcome, warn, detail }: {
   home: AdsStudioHome;
   view: StudioView;
   /** the campaign open (the ads tab's, tinted in the table); null with none */
@@ -80,6 +96,8 @@ export function AdsStudio({ home, view, openId, days, contact, rules, products, 
   days: 7 | 30;
   /** the open Page's contacts, for ตั้งค่าเพจ; null where they are not shown */
   contact: PageContactRead | null;
+  /** the people library for the new-campaign drawer, when it is open over another view */
+  drawerPeople: PersonOption[];
   rules: AdRules;
   products: { href: string; name: string }[];
   outcome: string | null;
@@ -89,14 +107,17 @@ export function AdsStudio({ home, view, openId, days, contact, rules, products, 
   const router = useRouter();
   const page = home.pages.find((p) => p.pageId === home.pageId) ?? null;
   const tab: Tab = view.kind === "room" || view.kind === "error" ? "ads" : view.kind === "page" ? "page" : "campaigns";
-  const href = (o: { tab?: Tab; campaign?: string | null; days?: 7 | 30 }) => studioHref({
+  const href = (o: { tab?: Tab; campaign?: string | null; days?: 7 | 30; create?: CreateMode }) => studioHref({
     page: page?.pageId ?? null,
     campaign: o.campaign === undefined ? openId : o.campaign,
     tab: o.tab ?? tab,
     days: o.days ?? days,
+    create: o.create ?? null,
   });
-  // a new campaign keeps the open one as the way back (ยกเลิก)
-  const newHref = page ? `/studio/ads?page=${encodeURIComponent(page.pageId)}&new=1${openId ? `&campaign=${encodeURIComponent(openId)}` : ""}` : "";
+  // the create drawer's mode, from the address; it is shut in place, so the view is not read again
+  const search = useSearchParams();
+  const creating = parseCreate(search.get("create"), openId !== null);
+  const shutDrawer = useCallback(() => window.history.replaceState(null, "", withCreate(window.location.href, null)), []);
 
   const pageSettings = (folded: boolean) => page && contact && (
     <PageSettings
@@ -119,8 +140,9 @@ export function AdsStudio({ home, view, openId, days, contact, rules, products, 
         hrefs={{
           days: (d) => href({ days: d }),
           settings: href({ tab: "page" }),
-          newCampaign: newHref,
-          newAd: openId && view.kind !== "new" ? href({ tab: "ads" }) : null,
+          // over the view open, which is where the drawer shuts back to
+          newCampaign: href({ create: "campaign" }),
+          newAd: openId && view.kind !== "new" && view.kind !== "error" ? href({ tab: "ads", create: "ad" }) : null,
         }}
       />
 
@@ -211,6 +233,11 @@ export function AdsStudio({ home, view, openId, days, contact, rules, products, 
             />
           )}
         </>
+      )}
+
+      {/* the in-page form already makes the campaign where there is none, or with ?new=1 */}
+      {creating === "campaign" && page && !home.error && view.kind !== "new" && (
+        <NewCampaignDrawer pageId={page.pageId} products={products} people={drawerPeople} onClose={shutDrawer} />
       )}
     </div>
   );

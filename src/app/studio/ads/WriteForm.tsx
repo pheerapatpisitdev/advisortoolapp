@@ -22,6 +22,8 @@ import { chip, field } from "./styles";
  *   สร้าง N โฆษณา. The folds handed in (`children`) sit between the fields and the press, so the
  *   press stays the last thing in the column.
  * The plan, Page, focus, voice and ภาพและโมเดล are the campaign's; the server reads them there.
+ * In the create drawer (2026-10-05) `preview` is drawn beside the fields with the age, sex and
+ * row chosen, for the figures the round will place.
  */
 
 export interface WriteInput {
@@ -42,7 +44,7 @@ const AGE_DEFAULT = "30";
 /** how long the age must rest before its rows are asked for */
 const ROWS_WAIT_MS = 300;
 
-export function WriteForm({ campaignId, planHref, picks, writing, disabled, warning = null, folded, onWrite, children }: {
+export function WriteForm({ campaignId, planHref, picks, writing, disabled, warning = null, folded, onWrite, preview, children }: {
   campaignId: string;
   planHref: string;
   /** the campaign's saved writer, painter and person, for the price */
@@ -56,6 +58,8 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
   /** a phone with the tools folded: only the press shows */
   folded: boolean;
   onWrite: (input: WriteInput) => void;
+  /** beside the fields on a desk (under them on a phone): drawn with the headline's choice */
+  preview?: (pick: { age: number | null; sex: "F" | "M"; rung?: number }) => ReactNode;
   children?: ReactNode;
 }) {
   const formId = useId();
@@ -123,7 +127,7 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
 
   return (
     <>
-      <div className={`space-y-4 border-t border-[var(--ct-hair)] p-4 ${folded ? "hidden lg:block" : ""}`}>
+      <div className={`border-t border-[var(--ct-hair)] p-4 ${preview ? "grid gap-6 lg:grid-cols-2" : "space-y-4"} ${folded ? (preview ? "hidden lg:grid" : "hidden lg:block") : ""}`}>
         <fieldset disabled={writing} className="m-0 min-w-0 space-y-4 border-0 p-0">
           <legend className="sr-only">เขียนแอด</legend>
           <div>
@@ -199,6 +203,7 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
             </span>
           </div>
         </fieldset>
+        {preview && <div className="min-w-0">{preview({ age, sex, ...(rung === undefined ? {} : { rung }) })}</div>}
       </div>
 
       {children}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { gatePage } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
 import { AD_LIMITS } from "@/lib/content/ads";
-import { parseDays, parseTab } from "@/lib/ads/manager-view";
+import { parseCreate, parseDays, parseTab } from "@/lib/ads/manager-view";
 import { CONTENT_PRODUCTS, contentProduct } from "@/lib/content/products";
 import { listPeople } from "@/lib/content/people-store";
 import { peopleFor, visibleTo } from "@/lib/content/people-pages";
@@ -26,8 +26,10 @@ export const metadata: Metadata = { title: "Ads Studio | Studio" };
  * The address holds every choice, so a reload, the back button and a link land where they were:
  * ?page=<id> (the owner's first Page without one), ?campaign=<id> (the campaign open; its Page is
  * the one the page is of), ?tab=campaigns|ads|page (ads by default with a campaign named,
- * campaigns otherwise; ads only with a campaign open), ?days=7|30 for the results. ?new=1, or a
- * Page with no campaign, makes one; a ?campaign= beside it is where ยกเลิก goes back to. The
+ * campaigns otherwise; ads only with a campaign open), ?days=7|30 for the results, and
+ * ?create=campaign|ad for the create drawer over the view (ad only with a campaign open, on its
+ * ads tab). ?new=1, the older way, or a Page with no campaign, makes one in the page itself; a
+ * ?campaign= beside it is where ยกเลิก goes back to. The
  * ads tab keeps the ad in its preview in ?ad=<id>. The
  * Facebook login comes back with ?fb=<outcome>, which ตั้งค่าเพจ shows with the Page's contacts.
  *
@@ -36,14 +38,15 @@ export const metadata: Metadata = { title: "Ads Studio | Studio" };
  * ตั้งค่าแคมเปญ, with a campaign open).
  */
 export default async function StudioAdsPage({ searchParams }: {
-  searchParams: Promise<{ page?: string; campaign?: string; new?: string; fb?: string; warn?: string; detail?: string; tab?: string; days?: string; ad?: string }>;
+  searchParams: Promise<{ page?: string; campaign?: string; new?: string; fb?: string; warn?: string; detail?: string; tab?: string; days?: string; ad?: string; create?: string }>;
 }) {
   await gatePage("/studio/ads", "owner");
-  const { page, campaign, new: making, fb, warn, detail, tab: tabAsked, days: daysAsked, ad } = await searchParams;
+  const { page, campaign, new: making, fb, warn, detail, tab: tabAsked, days: daysAsked, ad, create } = await searchParams;
   const fresh = making === "1";
   const days = parseDays(daysAsked);
   // without a tab: the Facebook login lands on ตั้งค่าเพจ, where it says how it went; a campaign named opens on its ads
-  const wanted = tabAsked ?? (fb || warn ? "page" : campaign && !fresh ? "ads" : undefined);
+  // the ads drawer is the ads tab's
+  const wanted = create === "ad" && campaign && !fresh ? "ads" : tabAsked ?? (fb || warn ? "page" : campaign && !fresh ? "ads" : undefined);
 
   // the campaign asked for, when the tab shows it or its Page is not named: its Page is the one the page is of
   const asked = !fresh && campaign && (wanted === "ads" || wanted === "page" || !page) ? await adCampaignRoom(campaign) : null;
@@ -103,6 +106,11 @@ export default async function StudioAdsPage({ searchParams }: {
     };
   }
 
+  // the people library for the new-campaign drawer, where it is open over another view
+  const drawerPeople = home.pageId && view.kind !== "new" && parseCreate(create, openId !== null) === "campaign"
+    ? (view.kind === "room" ? view.people : await peopleOf(home.pageId))
+    : [];
+
   // ตั้งค่าเพจ's contacts, for whichever Page the page is of, where they are shown
   const contact = home.pageId && (view.kind === "page" || view.kind === "new") ? await pageContact(home.pageId) : null;
 
@@ -113,6 +121,7 @@ export default async function StudioAdsPage({ searchParams }: {
       openId={openId}
       days={days}
       contact={contact}
+      drawerPeople={drawerPeople}
       rules={{ limits: AD_LIMITS }}
       products={CONTENT_PRODUCTS.map((p) => ({ href: p.href, name: p.name }))}
       outcome={fb ?? null}

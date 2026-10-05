@@ -73,15 +73,42 @@ export function foldAt(text: string, n = 125): number {
 }
 
 /**
- * An address of Ads Studio: the Page, the campaign open, the tab, and the results range (7 is
- * the default and is left out). Every choice is a new address, so a reload, the back button and
- * a link all land where they were.
+ * An address of Ads Studio: the Page, the campaign open, the tab, the results range (7 is
+ * the default and is left out) and the create drawer, when it is open. Every choice is a new
+ * address, so a reload, the back button and a link all land where they were.
  */
-export function studioHref(o: { page: string | null; campaign: string | null; tab: "campaigns" | "ads" | "page"; days: 7 | 30 }): string {
+export function studioHref(o: {
+  page: string | null; campaign: string | null; tab: "campaigns" | "ads" | "page"; days: 7 | 30;
+  /** the create drawer open over the view */
+  create?: CreateMode | null;
+}): string {
   const q = new URLSearchParams();
   if (o.page) q.set("page", o.page);
   if (o.campaign) q.set("campaign", o.campaign);
   q.set("tab", o.tab);
   if (o.days === 30) q.set("days", "30");
+  if (o.create) q.set("create", o.create);
   return `/studio/ads?${q.toString()}`;
+}
+
+/** what the create drawer makes: a campaign, or ads in the campaign open */
+export type CreateMode = "campaign" | "ad";
+
+/** ?create= : the drawer's mode; ads only with a campaign open, nothing for anything else. */
+export function parseCreate(v: unknown, hasCampaign: boolean): CreateMode | null {
+  if (v === "campaign") return "campaign";
+  if (v === "ad" && hasCampaign) return "ad";
+  return null;
+}
+
+/**
+ * The same address with the create drawer opened in `mode`, or shut with null: written in place
+ * (history.replaceState) when the drawer opens or closes inside the page, so no read of the
+ * room is made again.
+ */
+export function withCreate(href: string, mode: CreateMode | null): string {
+  const url = new URL(href, "http://studio.invalid");
+  if (mode) url.searchParams.set("create", mode);
+  else url.searchParams.delete("create");
+  return `${url.pathname}${url.search}${url.hash}`;
 }
