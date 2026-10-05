@@ -49,6 +49,12 @@ const perMonth = (annual: number) => money(Math.ceil(annual / 12));
 const thb = (n: number) => `${baht(n)} THB`;
 /** the English year's premium and its month, as a cell and the headline say them */
 const yearEn = (annual: number) => `${thb(annual)}/yr (about ${perMonth(annual)} a month)`;
+/**
+ * one money format in an English ad (spec 2026-10-06): the sheet's "THB 25,000,000" said as the
+ * cells say it, "25,000,000 THB". Only the ad table's text: the sheets, and Organic's English
+ * posts built from them, keep their own wording.
+ */
+const thbAfter = (s: string) => s.replace(/\bTHB\s?(\d[\d,]*(?:\.\d+)?)/g, "$1 THB");
 /** the plans a language's tables come from: the English ones only for an English table */
 const plansOf = (lang: Lang) => (lang === "en" ? EXPAT_NUMBERS_PLANS : NUMBERS_PLANS);
 
@@ -60,7 +66,7 @@ const plansOf = (lang: Lang) => (lang === "en" ? EXPAT_NUMBERS_PLANS : NUMBERS_P
 export function premiumTableOf(plan: PricedPlan, age: number, today: Date, lang: Lang = "th"): PremiumTable | null {
   const ladder = plan.ladder;
   const en = lang === "en";
-  const said = (t: string) => (en ? t : lifelong(t));
+  const said = (t: string) => (en ? thbAfter(t) : lifelong(t));
   if (!ladder) return null;
   const rows: PremiumRow[] = [];
   for (let r = 0; r < ladder.rungs; r++) {

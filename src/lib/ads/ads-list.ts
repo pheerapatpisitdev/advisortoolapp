@@ -1,6 +1,6 @@
 import type { AdTab } from "./campaign-view";
 import { foldAt } from "./manager-view";
-import { CTA_LABEL } from "./sent-view";
+import { CTA_LABEL, CTA_LABEL_EN } from "./sent-view";
 import type { LeadCta, SendObjective } from "./send-store";
 
 /**
@@ -36,12 +36,12 @@ export function foldSplit(text: string, n: number): { before: string; after: str
 /**
  * The button under the post, as Facebook words it: the send's lead button for a lead form,
  * ดูเพิ่มเติม for traffic, and ส่งข้อความ for messages — and for an ad not sent yet. An English ad
- * (spec 2026-10-06) shows Send message and Learn more, as Facebook words them for its readers.
+ * (spec 2026-10-06) shows its button in English: Send message, Learn more, Get quote, Sign up.
  */
 export function ctaLabel(send: { objective: SendObjective; cta: LeadCta | null } | null, lang: "th" | "en" = "th"): string {
   const en = lang === "en";
   if (!send || send.objective === "messages") return en ? "Send message" : "ส่งข้อความ";
-  if (send.objective === "leads") return CTA_LABEL[send.cta ?? "LEARN_MORE"];
+  if (send.objective === "leads") return (en ? CTA_LABEL_EN : CTA_LABEL)[send.cta ?? "LEARN_MORE"];
   return en ? "Learn more" : "ดูเพิ่มเติม";
 }
 

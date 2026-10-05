@@ -47,23 +47,23 @@ describe("the English table's words", () => {
     expect(tableText(t)).toBe([
       "First-year premium · renewable up to age 98 (age 30)",
       "",
-      "Medical cover up to THB 3,000,000 a year",
-      "(A package with life cover of THB 50,000 and daily cash)",
+      "Medical cover up to 3,000,000 THB a year",
+      "(A package with life cover of 50,000 THB and daily cash)",
       "🙆‍♀️ Female = 19,415 THB/yr (about 1,618 a month)",
       "🕵️‍♂️ Male = 16,720 THB/yr (about 1,394 a month)",
       "",
-      "Medical cover up to THB 10,000,000 a year",
-      "(A package with life cover of THB 50,000 and daily cash)",
+      "Medical cover up to 10,000,000 THB a year",
+      "(A package with life cover of 50,000 THB and daily cash)",
       "🙆‍♀️ Female = 22,715 THB/yr (about 1,893 a month)",
       "🕵️‍♂️ Male = 19,420 THB/yr (about 1,619 a month)",
       "",
-      "Medical cover up to THB 15,000,000 a year",
-      "(A package with life cover of THB 50,000 and daily cash)",
+      "Medical cover up to 15,000,000 THB a year",
+      "(A package with life cover of 50,000 THB and daily cash)",
       "🙆‍♀️ Female = 33,915 THB/yr (about 2,827 a month)",
       "🕵️‍♂️ Male = 29,020 THB/yr (about 2,419 a month)",
       "",
-      "Medical cover up to THB 25,000,000 a year",
-      "(A package with life cover of THB 50,000 and daily cash)",
+      "Medical cover up to 25,000,000 THB a year",
+      "(A package with life cover of 50,000 THB and daily cash)",
       "🙆‍♀️ Female = 43,415 THB/yr (about 3,618 a month)",
       "🕵️‍♂️ Male = 37,020 THB/yr (about 3,085 a month)",
     ].join("\n"));
@@ -72,14 +72,20 @@ describe("the English table's words", () => {
   it("head the ad with the picked row and sex: the middle row and a woman by default", () => {
     expect(headlineFigures(t)).toBe([
       "iHealthy Ultra",
-      "💁‍♀️ Medical cover up to THB 10,000,000 a year (A package with life cover of THB 50,000 and daily cash)",
+      "💁‍♀️ Medical cover up to 10,000,000 THB a year (A package with life cover of 50,000 THB and daily cash)",
       "💰 First-year premium 22,715 THB/yr (about 1,893 a month) (Female, 30)",
     ].join("\n"));
     expect(headlineFigures(t, { sex: "M", rung: 3 }).split("\n")[2]).toBe("💰 First-year premium 37,020 THB/yr (about 3,085 a month) (Male, 30)");
     expect(headlineOwner(t, { sex: "F", rung: 3 })).toEqual({
-      sex: "F", rung: 3, heading: "Medical cover up to THB 25,000,000 a year",
-      line: "Female, 30 · Medical cover up to THB 25,000,000 a year (A package with life cover of THB 50,000 and daily cash)",
+      sex: "F", rung: 3, heading: "Medical cover up to 25,000,000 THB a year",
+      line: "Female, 30 · Medical cover up to 25,000,000 THB a year (A package with life cover of 50,000 THB and daily cash)",
     });
+  });
+
+  it("say every amount one way, the number then THB — the sheets keep their own wording for Organic's posts", () => {
+    expect(tableText(t)).not.toMatch(/THB \d/);
+    expect(headlineFigures(t)).not.toMatch(/THB \d/);
+    expect(EXPAT_NUMBERS_PLANS[HREF].ladder!.price(3, "F", 30, today)!.sumLine).toBe("Medical cover up to THB 25,000,000 a year");
   });
 
   it("say satang when a premium has them", () => {
@@ -98,6 +104,7 @@ describe("the English table's words", () => {
   it("hold the writer's own words to the English premium and person phrases", () => {
     expect(restatedFigures("Only 89 THB a day for peace of mind", "", t)).toEqual(["89 THB"]);
     expect(restatedFigures("Cover up to THB 10,000,000 a year", "", t)).toEqual([]);
+    expect(restatedFigures("Cover up to 10,000,000 THB a year", "", t)).toEqual([]);
     expect(otherPeople("Perfect for a 35-year-old woman", "F", 30, "en")).toEqual(["35-year-old woman"]);
     expect(otherPeople("Perfect for a 30-year-old woman", "F", 30, "en")).toEqual([]);
   });

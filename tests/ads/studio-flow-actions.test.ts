@@ -732,7 +732,7 @@ describe("an English campaign's figure preview and rows — spec 2026-10-06", ()
     expect(res).toEqual({ ok: true, headline: headlineFigures(table, { sex: "F", rung: 3 }), table: tableText(table) });
     expect(res.ok && res.headline).toContain("💰 First-year premium 43,415 THB/yr (about 3,618 a month) (Female, 30)");
     const rows = await tableRows(CAMPAIGN, 30);
-    expect(rows.ok && rows.rows[3]).toEqual({ index: 3, heading: "Medical cover up to THB 25,000,000 a year" });
+    expect(rows.ok && rows.rows[3]).toEqual({ index: 3, heading: "Medical cover up to 25,000,000 THB a year" });
   });
 
   it("keeps iHealthy Ultra on a Thai Page in Thai", async () => {

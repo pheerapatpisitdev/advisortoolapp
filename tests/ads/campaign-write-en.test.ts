@@ -143,7 +143,7 @@ describe("an English campaign's round", () => {
       expect(row.output.body).toContain(tableText(t));
       expect(row.output.body).toContain("💰 First-year premium 43,415 THB/yr (about 3,618 a month) (Female, 30)");
       expect(row.output.body).toContain("👉 Phet\n📲 Line: @expatphet\n👉 Inbox: https://m.me/112110731809903");
-      expect(row.output.ad).toMatchObject({ age: 30, sex: "F", head: "Medical cover up to THB 25,000,000 a year" });
+      expect(row.output.ad).toMatchObject({ age: 30, sex: "F", head: "Medical cover up to 25,000,000 THB a year" });
       expect(row.flags.numbers).toEqual([]);
     }
   });

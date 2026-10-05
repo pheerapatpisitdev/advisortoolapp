@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { PiecePerson } from "@/lib/content/people";
-import { anglesFor, EXPAT_NICHES, MAX_READER, NICHES, type AngleId } from "@/lib/content/prompt";
+import { anglesFor, EXPAT_NICHES, MAX_READER, NICHES, readerFor, type AngleId } from "@/lib/content/prompt";
 import { adRoundCost } from "@/lib/ads/picture-picks";
 import { tableAge } from "@/lib/ads/room-view";
 import { PressBar } from "../ui/form-parts";
@@ -78,7 +78,8 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
   const formId = useId();
   const [angle, setAngle] = useState<AngleId>(draft?.angle ?? "");
   const [custom, setCustom] = useState(draft?.custom ?? "");
-  const [reader, setReader] = useState(draft?.reader ?? "");
+  // an English campaign's draft keeps only an expat chip or typed words: a Thai chip is ทุกคน (readerFor)
+  const [reader, setReader] = useState(() => (lang === "en" ? readerFor(draft?.reader ?? "", true) : draft?.reader ?? ""));
   const [ageText, setAgeText] = useState(draft?.ageText ?? AGE_DEFAULT);
   const [count, setCount] = useState(draft?.count ?? 2);
   const [sex, setSex] = useState<"F" | "M">(draft?.sex ?? "F");

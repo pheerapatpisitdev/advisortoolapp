@@ -25,6 +25,8 @@ export const OBJECTIVE_LABEL: Record<SendObjective, string> = { traffic: "ทร
 
 /** A lead ad's button, in the words Facebook shows on it in Thai. */
 export const CTA_LABEL: Record<LeadCta, string> = { GET_QUOTE: "รับใบเสนอราคา", SIGN_UP: "ลงทะเบียน", LEARN_MORE: "ดูเพิ่มเติม" };
+/** the same buttons under an English ad (spec 2026-10-06) */
+export const CTA_LABEL_EN: Record<LeadCta, string> = { GET_QUOTE: "Get quote", SIGN_UP: "Sign up", LEARN_MORE: "Learn more" };
 
 /** Where the owner accepts a Page's lead-ads terms; kept here, away from Graph code, for the dialog. */
 export const tosUrl = (pageId: string) => `https://www.facebook.com/ads/leadgen/tos?page_id=${pageId}`;

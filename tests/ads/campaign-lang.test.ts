@@ -3,6 +3,7 @@ import { campaignLang } from "@/lib/ads/campaign-lang";
 import { EXPAT_PAGES } from "@/lib/assistant/expat";
 import { contactBlock } from "@/lib/ads/page-contact";
 import { ctaLabel } from "@/lib/ads/ads-list";
+import { EXPAT_NICHES, NICHES, readerFor } from "@/lib/content/prompt";
 
 /**
  * A campaign's language (spec 2026-10-06): English only for iHealthy Ultra on an Expat Page, Thai
@@ -44,5 +45,21 @@ describe("an English ad's contacts and button", () => {
     expect(ctaLabel({ objective: "messages", cta: null }, "en")).toBe("Send message");
     expect(ctaLabel({ objective: "traffic", cta: null }, "en")).toBe("Learn more");
     expect(ctaLabel(null)).toBe("ส่งข้อความ");
+  });
+
+  it("words a lead form's button in English", () => {
+    expect(ctaLabel({ objective: "leads", cta: "GET_QUOTE" }, "en")).toBe("Get quote");
+    expect(ctaLabel({ objective: "leads", cta: "SIGN_UP" }, "en")).toBe("Sign up");
+    expect(ctaLabel({ objective: "leads", cta: "LEARN_MORE" }, "en")).toBe("Learn more");
+    expect(ctaLabel({ objective: "leads", cta: null }, "en")).toBe("Learn more");
+    expect(ctaLabel({ objective: "leads", cta: "GET_QUOTE" })).toBe("รับใบเสนอราคา");
+  });
+});
+
+describe("an English campaign's saved reader", () => {
+  it("drops a Thai chip and keeps an expat chip or typed words (WriteForm uses readerFor)", () => {
+    expect(readerFor(NICHES[0], true)).toBe("");
+    expect(readerFor(EXPAT_NICHES[0], true)).toBe(EXPAT_NICHES[0]);
+    expect(readerFor("Retired teachers in Chiang Mai", true)).toBe("Retired teachers in Chiang Mai");
   });
 });
