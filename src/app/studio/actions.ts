@@ -37,7 +37,7 @@ import {
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
 import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds } from "@/lib/content/write";
-import { hasLadder, headlineFigures, headlineOwner, premiumTable, restatedFigures, tableText, type HeadlinePick, type PremiumTable } from "@/lib/content/premium-table";
+import { hasLadder, headlineFigures, headlineOwner, otherPeople, premiumTable, restatedFigures, tableText, type HeadlinePick, type PremiumTable } from "@/lib/content/premium-table";
 import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick } from "@/lib/content/numbers";
 import { numberSheets } from "@/lib/content/numbers-plans";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
@@ -403,7 +403,8 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
           const checked = flagsFor(output, "th", `${brief.text}\n${figures}`, words, null);
           // the model's own words against the brief alone, and no premium of the table restated
           // in them: the whole-text check above lets anything the code placed through
-          const restated = restatedFigures(w.modelText ?? "", brief.text, table);
+          // …and no person of another sex or age than the one the headline prices
+          const restated = [...restatedFigures(w.modelText ?? "", brief.text, table), ...otherPeople(w.modelText ?? "", owner.sex, age)];
           return {
             planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(output),
             flags: { ...checked, numbers: [...new Set([...checked.numbers, ...restated])] },

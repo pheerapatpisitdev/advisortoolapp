@@ -350,6 +350,12 @@ describe("the inputs of an ad round, cleaned", () => {
     expect(row.output.ad).toMatchObject({ sex, head: t.rows[rung].heading });
   });
 
+  it("flags a person of another sex or age in the model's words — the 2026-10-05 ad's second sample", async () => {
+    writes({ bullets: ["🥇 สำหรับผู้หญิงอายุ 35 ทุน 500,000 บาท", "🥇 ชายอายุ 35 ก็คุ้ม"] });
+    await generateContent({ ...sent, age: 35, sex: "M", rung: 1 });
+    for (const row of saved()) expect(row.flags.numbers).toEqual(["ผู้หญิงอายุ 35"]);
+  });
+
   it("neither the planner nor the writer is shown the brief's premium samples, though the yardstick keeps them", async () => {
     // the model copied "เบี้ยเดือนละ 1,548 บาท" from the brief's sample cases (2026-10-05)
     writes({ bullets: ["🥇 เบี้ยเดือนละ 1,548 บาท"] });

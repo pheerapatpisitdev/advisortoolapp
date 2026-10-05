@@ -3,7 +3,7 @@ import { definePlan, money, type NumberSheet } from "@/lib/content/numbers";
 import { NUMBERS_PLANS } from "@/lib/content/numbers-plans";
 import { getBundle } from "@/calc/bundles/registry";
 import { CONTENT_PRODUCTS } from "@/lib/content/products";
-import { hasLadder, headlineFigures, headlineOwner, premiumTable, premiumTableOf, restatedFigures, tableCells, tableText } from "@/lib/content/premium-table";
+import { hasLadder, headlineFigures, headlineOwner, otherPeople, premiumTable, premiumTableOf, restatedFigures, tableCells, tableText } from "@/lib/content/premium-table";
 
 const today = new Date("2026-10-05");
 
@@ -334,3 +334,26 @@ describe("the model's own words — final review 4", () => {
   });
 });
 
+
+describe("otherPeople — the model may not speak of another person (2026-10-05)", () => {
+  it.each([
+    ["ผู้หญิงอายุ 35 ทุน 500,000 บาท", "ผู้หญิงอายุ 35"],
+    ["สำหรับหญิง 35 ปี", "หญิง 35 ปี"],
+    ["ชายอายุ 40 ก็ยังทัน", "ชายอายุ 40"],
+    ["ผู้ชายวัย 30 ที่ยังผ่อนบ้าน", "ผู้ชายวัย 30"],
+    ["ผู้ชาย อายุ 45 ปี", "ผู้ชาย อายุ 45"],
+  ])("flags %s when the ad is a man of 35", (text, flagged) => {
+    expect(otherPeople(text, "M", 35)).toEqual([flagged]);
+  });
+
+  it.each([
+    "ผู้ชายวัย 35 ที่ยังผ่อนบ้าน", "ชายอายุ 35 ปี ทุน 1,000,000", "ชาย 35 ปี", "ก่อนอายุ 60", "ถึงอายุ 99",
+    "คุ้มครองถึงอายุ 85", "อายุ 20–65 ปี สมัครได้", "ทั้งหญิงและชาย", "ผู้หญิงหลายคนถามว่า", "จ่ายจบใน 19 ปี",
+  ])("leaves %s when the ad is a man of 35", (text) => {
+    expect(otherPeople(text, "M", 35)).toEqual([]);
+  });
+
+  it("a woman's ad flags a man of the same age", () => {
+    expect(otherPeople("ผู้ชายอายุ 30 ก็ซื้อได้ ผู้หญิงอายุ 30 ด้วย", "F", 30)).toEqual(["ผู้ชายอายุ 30"]);
+  });
+});
