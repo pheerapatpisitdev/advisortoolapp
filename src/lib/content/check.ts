@@ -199,8 +199,9 @@ function premiumSpans(text: string, lang: Lang = "th"): PremiumSpan[] {
  */
 const PREMIUM_LEAD_EN = /\b(premiums?|per month|a month|monthly|per year|a year|yearly|annually|per day|a day|daily)\b[^\d\n]{0,12}$/i;
 const PREMIUM_TAIL_EN = /^\s*(?:\/\s*(?:mo|mth|month|yr|year|day|annum)\b|(?:per|a|an|each|every)\s+(?:month|year|day)\b|monthly\b|yearly\b|annually\b|daily\b)/i;
-// "costs" is a benefit's word ("out-of-pocket costs of THB 500,000") unless it prices the plan ("it costs only THB 54 a day")
-const BENEFIT_EN = /cover|medical|hospital|room|board|tax|deduct|cash|benefit|pension|income|refund|limit|claim|compensat|payout|pays out|reimburse|salary|rent|mortgage|tuition|school|loan|bills?\b|expens|treatment|surgery|stay|spend|save|\bcosts?\b(?!\s+(?:you\s+)?(?:only|just|from|about|around|less|under|as little|\d|THB|฿))/i;
+// "costs" is a benefit's word ("out-of-pocket costs of THB 500,000") unless it prices the plan ("it costs only
+// THB 54 a day", "it costs THB 54 a day"); a hospital stay is "hospital", a saving on tax is BENEFIT_AFTER_EN
+const BENEFIT_EN = /cover|medical|hospital|room|board|tax|deduct|cash|benefit|pension|income|refund|limit|claim|compensat|payout|pays out|reimburse|salary|rent|mortgage|tuition|school|loan|bills?\b|expens|treatment|surgery|\bcosts?\b(?!\s*$|\s+(?:you\s+)?(?:only|just|from|about|around|less|under|as little|\d|THB|฿))/i;
 /** a benefit said right after the amount and its period: "Save THB 25,000 a year on tax" */
 const BENEFIT_AFTER_EN = /^\s*(?:on|in|of|for)\s+(?:your\s+)?(?:tax(?:es)?|bills?|costs?|expenses?|savings?|treatment)\b/i;
 const COVER_EN = /(?:up to|maximum(?: of)?|max\.?|limit(?: of)?)\s*$/i;
@@ -218,8 +219,8 @@ function premiumSpansEn(text: string): PremiumSpan[] {
     const tail = PREMIUM_TAIL_EN.exec(text.slice(a.end));
     const before = text.slice(since, a.at);
     const bare = BARE_LEAD_EN.test(before) && /,|\d{3}/.test(a.raw);
-    // only money counts: "Pay in 12 monthly instalments" has a period after a count, not a premium
-    if (!a.priced && !a.unit && !bare) continue;
+    // money, or a money-sized amount by the period ("Only 154 a day"): "Pay in 12 monthly instalments" is a count
+    if (!a.priced && !a.unit && !bare && !(tail && a.value >= 100)) continue;
     const lead = PREMIUM_LEAD_EN.exec(before);
     const said = lead ? before.slice(0, lead.index) : before;
     // the benefit word may sit before the period word or between it and the amount ("Daily cash of THB 1,000")

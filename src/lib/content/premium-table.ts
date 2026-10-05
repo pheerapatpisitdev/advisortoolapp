@@ -54,7 +54,7 @@ const yearEn = (annual: number) => `${thb(annual)}/yr (about ${perMonth(annual)}
  * cells say it, "25,000,000 THB". Only the ad table's text: the sheets, and Organic's English
  * posts built from them, keep their own wording.
  */
-export const thbAfter = (s: string) => s.replace(/\bTHB\s?(\d[\d,]*(?:\.\d+)?)/g, "$1 THB");
+export const thbAfter = (s: string) => s.replace(/\bTHB\s?(\d[\d,]*(?:\.\d+)?(?:\s?(?:million|billion|bn|m|k)\b)?)/gi, "$1 THB");
 /** the plans a language's tables come from: the English ones only for an English table */
 const plansOf = (lang: Lang) => (lang === "en" ? EXPAT_NUMBERS_PLANS : NUMBERS_PLANS);
 

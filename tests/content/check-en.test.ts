@@ -16,6 +16,12 @@ describe("English premium phrases", () => {
     ["Premium from THB 1,618", "THB 1,618"],
     ["just 1,618 baht monthly", "1,618 baht"],
     ["It costs only THB 54 a day", "THB 54"],
+    ["It costs THB 54 a day", "THB 54"],
+    ["It only costs 54 THB a day", "54 THB"],
+    ["Stay protected for just THB 54 a day", "THB 54"],
+    ["Spend just 54 THB a day on peace of mind", "54 THB"],
+    ["Save money: only THB 54 a day", "THB 54"],
+    ["Only 154 a day for a private room plan", "154"],
     ["about THB 1,618/mo", "THB 1,618"],
   ])("flags %j", (text, amount) => {
     expect(premiumAmounts(text, "en")).toEqual([amount]);
@@ -82,4 +88,17 @@ describe("English person phrases", () => {
     // an English table's figures are the code's; its people come only from the writer's words
     expect(premiumTable("/ihealthy-ultra", 30, new Date("2026-10-06"), "en")).not.toBeNull();
   });
+});
+
+describe("thbAfter: an English ad's money, the number then THB", async () => {
+  const { thbAfter } = await import("@/lib/content/premium-table");
+  it.each([
+    ["up to THB 25,000,000 a year", "up to 25,000,000 THB a year"],
+    ["up to THB 25 million a year", "up to 25 million THB a year"],
+    ["THB 25M cover", "25M THB cover"],
+    ["THB 1.5 million", "1.5 million THB"],
+    ["THB 50k daily cash", "50k THB daily cash"],
+    ["only THB 54 more a day", "only 54 THB more a day"],
+    ["25,000,000 THB already", "25,000,000 THB already"],
+  ])("%j → %j", (from, to) => expect(thbAfter(from)).toBe(to));
 });
