@@ -9,7 +9,7 @@ import { switchedOn } from "@/lib/ads/sent-view";
 import type { PersonOption } from "../PersonPicker";
 import type { AdsStudioHome } from "./actions";
 import type { Room } from "./AdEditor";
-import { CampaignRoom } from "./CampaignRoom";
+import { CampaignRoom, type RoomResults } from "./CampaignRoom";
 import { CampaignSettings } from "./CampaignSettings";
 import { CampaignTable } from "./CampaignTable";
 import { Columns } from "./Columns";
@@ -22,7 +22,7 @@ import { TopBar } from "./TopBar";
 /**
  * /studio/ads laid out as Ads Manager is (desktop redesign, 2026-10-05): the top bar (TopBar),
  * then the tabs แคมเปญ · โฆษณา · ตั้งค่าเพจ. แคมเปญ is the Page's campaigns as one table
- * (CampaignTable); โฆษณา is the open campaign's room (CampaignRoom); ตั้งค่าเพจ is the Page's
+ * (CampaignTable); โฆษณา is the open campaign's ads, a list beside a feed preview (CampaignRoom); ตั้งค่าเพจ is the Page's
  * contacts and ad-account connection, beside ตั้งค่าแคมเปญ with a campaign open. A new campaign
  * (?new=1, or a Page with none) is made in the tools column as before. Every choice is a new
  * address (studioHref), so a reload, the back button and a link all land where they were.
@@ -37,7 +37,8 @@ export type StudioView =
     resultsError: string | null;
     fetchedAt: string | null;
   }
-  | { kind: "room"; room: Room; productName: string; people: PersonOption[] }
+  /** the ads tab: the open campaign's room, the ad named in the address, and its sent ads' results */
+  | { kind: "room"; room: Room; productName: string; people: PersonOption[]; adAsked: string | null; results: RoomResults }
   /** ตั้งค่าเพจ; `room` is the open campaign's, for ตั้งค่าแคมเปญ, null with none */
   | { kind: "page"; room: Room | null; productName: string; people: PersonOption[] }
   /** making a campaign; `back` is the one that was open, for ยกเลิก */
@@ -161,7 +162,8 @@ export function AdsStudio({ home, view, openId, days, contact, rules, products, 
           ) : view.kind === "room" ? (
             <CampaignRoom
               key={view.room.campaign.id}
-              room={view.room} pickers={back} pageSettings={() => null} productName={view.productName} rules={rules} people={view.people}
+              room={view.room} pickers={back} productName={view.productName} rules={rules} people={view.people}
+              adAsked={view.adAsked} results={view.results}
             />
           ) : view.kind === "page" ? (
             <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">

@@ -22,7 +22,7 @@ import {
 import { adTab, tabCounts, type AdTab, type AdTabKey } from "@/lib/ads/campaign-view";
 import * as sendStore from "@/lib/ads/send-store";
 import {
-  getSend, listSends, sentPieceIds, type AdSend, type AdSendItem, type SendObjective, type SendStep,
+  getSend, listSends, sentPieceIds, type AdSend, type AdSendItem, type LeadCta, type SendObjective, type SendStep,
 } from "@/lib/ads/send-store";
 import {
   activateSend, pauseSend, resumeSend, runSend, SEND_CLAIM_STALE_MS, type SendDeps, type SendResult, type Skipped, type SwitchResult,
@@ -132,8 +132,8 @@ export interface LaunchPiece {
    * before the grid
    */
   ad: { angle: string; tone: string; reader: string; age: number | null; sex: "F" | "M" | null; head: string | null } | null;
-  /** Facebook's advertising rules it trips; empty on pieces written before the rules were checked */
-  flags: { policy: PolicyFinding[] };
+  /** Facebook's advertising rules it trips (empty on pieces written before the rules were checked), and amounts not in the brief */
+  flags: { policy: PolicyFinding[]; numbers: string[] };
   /** the newest live launch of the piece in any account */
   launch: LaunchView | null;
   /** every live launch of the piece, one per ad account */
@@ -385,6 +385,8 @@ export interface SendView {
   currency: string;
   dailyBudgetBaht: number;
   objective: SendObjective;
+  /** a lead form's button; null for the other objectives */
+  cta: LeadCta | null;
   step: SendStep;
   error: string | null;
   activatedAt: string | null;
@@ -475,6 +477,7 @@ async function sendViews(list: (AdSend & { items: AdSendItem[] })[]): Promise<Se
       currency: s.currency,
       dailyBudgetBaht: s.dailyBudgetMinor / 100,
       objective: s.objective,
+      cta: s.cta ?? null,
       step: s.step,
       error: s.error,
       activatedAt: s.activatedAt,
@@ -518,7 +521,7 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
           sex: p.output.ad.sex ?? null, head: p.output.ad.head ?? null,
         }
         : null,
-      flags: { policy: p.flags?.policy ?? [] },
+      flags: { policy: p.flags?.policy ?? [], numbers: p.flags?.numbers ?? [] },
       launch: launches[i][0] ?? null,
       launches: launches[i],
       tab: adTab(p, sent.has(p.id) || launches[i].length > 0),

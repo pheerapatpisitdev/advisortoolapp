@@ -2,63 +2,77 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ContentItem } from "@/lib/content/store";
-import { AD_TABS, type AdTab } from "@/lib/ads/campaign-view";
+import type { AdTab } from "@/lib/ads/campaign-view";
+import { ctaLabel, pickAd, sendOf, startTab } from "@/lib/ads/ads-list";
 import { pictureRequest } from "@/lib/ads/picture-picks";
+import type { AdResult } from "@/lib/ads/results";
 import { AUTO } from "@/lib/content/models";
-import { inBin, pruneTicks, sendBlocker, settledPictures } from "@/lib/ads/room-view";
+import { inBin, pruneTicks, sendBlocker, settledPictures, type PictureState } from "@/lib/ads/room-view";
 import type { PersonOption } from "../PersonPicker";
 import { drawPicture, generateRound } from "../draw";
-import { AdCard, type PictureState } from "./AdCard";
 import { AdEditor, type Room } from "./AdEditor";
+import { AdPreview } from "./AdPreview";
+import { AdsList } from "./AdsList";
 import { CampaignSettings } from "./CampaignSettings";
 import { switchedOn } from "@/lib/ads/sent-view";
-import { Columns } from "./Columns";
 import type { AdRules } from "./rules";
 import { SendDialog } from "./SendDialog";
 import { SentTab } from "./SentTab";
-import { solid, TONES } from "./styles";
+import { when } from "./SentSend";
+import { plain, solid, TONES } from "./styles";
 import { WriteForm, type WriteInput } from "./WriteForm";
 
 /**
- * The campaign open in Ads Studio, in two columns (owner, 2026-10-05). The tools, top to bottom:
- * the Page and campaign pickers Ads Studio hands in, the writing form, ตั้งค่าแคมเปญ and
- * ตั้งค่าเพจ (both folded), and the press pinned at the foot. The desk: the ads under ร่าง ·
- * ส่งแล้ว (the sends) · ถังขยะ, with ส่งขึ้น Facebook (N) at the end of the row; the editor full
- * screen over both when an ad is pressed.
+ * The โฆษณา tab of the campaign open (Ads Studio desktop, 2026-10-05), in two panes: the list on
+ * the left (AdsList — ร่าง · ส่งแล้ว · ถังขยะ, ticks, each sent ad's results, ส่งขึ้น Facebook (N)
+ * and สร้างโฆษณาเพิ่ม under it, the sent tab's batch panels below) and on the right the ad picked
+ * as a Facebook feed post (AdPreview), sticky on a desk. The editor goes full screen over both.
+ * สร้างโฆษณาเพิ่ม opens the writing form, with ตั้งค่าแคมเปญ, in a panel above the list (the
+ * create drawer comes later); the panel is only hidden when shut, so what was typed stays.
  *
- * Ticks live here only and are never saved: a draft card's เลือกส่ง adds it, the send takes the
+ * The ad picked is kept in the address (?ad=<id>), written in place with history.replaceState so a
+ * click neither adds history nor reads the room again; the page opens on that ad's sub-tab. An ad
+ * not in the sub-tab shown (binned or sent meanwhile, or gone) gives way to the sub-tab's first,
+ * and a new sub-tab starts at its first (ads-list pickAd).
+ *
+ * Ticks live here only and are never saved: a draft row's tick adds it, the send takes the
  * ticked drafts, and they are cleared once a send is back. A ticked piece that leaves ร่าง (binned,
  * or sent from another tab) drops out when the room is read again.
  *
  * A round is one press at a time. When it is back, each new ad's picture is drawn, one after
  * another, from the campaign's ภาพและโมเดล (painter, person, brief) — an empty request lets the
- * drawing choose the look, as Organic does; its card says so meanwhile and offers to draw again if
- * it fails. A drawn picture stays "done" until the refreshed piece shows it, so the card never
- * offers a paid draw in between; a piece binned while waiting is not drawn.
+ * drawing choose the look, as Organic does; its row and preview say so meanwhile and offer to draw
+ * again if it fails. A drawn picture stays "done" until the refreshed piece shows it, so the
+ * preview never offers a paid draw in between; a piece binned while waiting is not drawn. The
+ * round's first new ad is picked once it is in.
  */
-
-const TAB_LABEL: Record<AdTab, string> = { draft: "ร่าง", sent: "ส่งแล้ว", trash: "ถังขยะ" };
-const TAB_EMPTY: Record<AdTab, string> = {
-  draft: "ยังไม่มีแอดร่าง — กด “สร้าง” ที่แผงเครื่องมือ",
-  sent: "",
-  trash: "ถังขยะว่าง",
-};
 
 type RoundNote = { tone: keyof typeof TONES; text: string } | null;
 
-export function CampaignRoom({ room, pickers, pageSettings, productName, rules, people }: {
+export interface RoomResults {
+  /** each sent piece's results over the range */
+  byPiece: Record<string, AdResult>;
+  error: string | null;
+  fetchedAt: string | null;
+  days: 7 | 30;
+}
+
+export function CampaignRoom({ room, pickers, productName, rules, people, adAsked, results }: {
   room: Room;
-  /** the Page and campaign pickers, at the top of the tools */
+  /** the way back to the campaigns, above the panes */
   pickers: ReactNode;
-  /** ตั้งค่าเพจ, the last fold of the tools; told whether the tools are folded */
-  pageSettings: (folded: boolean) => ReactNode;
   productName: string;
   rules: AdRules;
   people: PersonOption[];
+  /** the ad named in the address (?ad=), if any */
+  adAsked: string | null;
+  results: RoomResults;
 }) {
   const router = useRouter();
   const { campaign, pieces, counts, connection } = room;
-  const [tab, setTab] = useState<AdTab>("draft");
+  const [tab, setTab] = useState<AdTab>(() => startTab(pieces, adAsked));
+  const [wanted, setWanted] = useState<string | null>(adAsked);
+  const [writingOpen, setWritingOpen] = useState(() => pieces.length === 0);
   const [ticked, setTicked] = useState<Set<string>>(() => new Set());
   const [openId, setOpenId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -155,8 +169,9 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
         });
       } catch {
         // the server carries on and saves the ads whatever happened to the connection
-        setRoundNote({ tone: "warn", text: "การเชื่อมต่อหลุดระหว่างรอ แอดอาจสร้างเสร็จแล้ว ดูในแท็บ “ร่าง” ก่อนกดสร้างใหม่ — ชิ้นที่ยังไม่มีรูปกด “วาดรูป” บนการ์ดได้" });
+        setRoundNote({ tone: "warn", text: "การเชื่อมต่อหลุดระหว่างรอ แอดอาจสร้างเสร็จแล้ว ดูในแท็บ “ร่าง” ก่อนกดสร้างใหม่ — ชิ้นที่ยังไม่มีรูปกด “วาดรูป” ที่ตัวอย่างได้" });
         setTab("draft");
+        setWanted(null);
         router.refresh();
         return;
       }
@@ -171,6 +186,9 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
         setRoundNote({ tone: made.length > 0 ? "warn" : "bad", text: res.error });
       }
       setTab("draft");
+      // the round's first new ad in the preview, once the refreshed room has it; the form shuts
+      setWanted(made[0]?.id ?? null);
+      if (made.length > 0) setWritingOpen(false);
       router.refresh();
     } finally {
       running.current = false;
@@ -186,95 +204,121 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
     return next;
   });
 
-  const shown = pieces.filter((p) => p.tab === tab);
+  const selected = pickAd(pieces, tab, wanted);
+  const picked = selected ? pieces.find((p) => p.id === selected) ?? null : null;
   const open = openId ? pieces.find((p) => p.id === openId) ?? null : null;
   const going = pieces.filter((p) => p.tab === "draft" && ticked.has(p.id));
   const blocked = sendBlocker({ ticked: going.length, accounts: connection.accounts, thIdentity: connection.thIdentity, pageConnected: campaign.pageConnected });
+  const resultsNote = results.error
+    ? `อ่านผลลัพธ์ไม่ได้ — ${results.error}`
+    : `${results.fetchedAt ? `ผลลัพธ์ ${results.days} วันล่าสุด · อัปเดตล่าสุด ${when(results.fetchedAt)}` : `ยังไม่มีผลลัพธ์ในช่วง ${results.days} วัน`} · ดึงจาก Facebook วันละครั้ง อาจช้าได้ถึง 1 วัน`;
+
+  // the ad picked, in the address: in place, so no history entry and no new read of the room
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("ad") === selected || (!selected && !url.searchParams.has("ad"))) return;
+    if (selected) url.searchParams.set("ad", selected);
+    else url.searchParams.delete("ad");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [selected]);
+
+  const chooseTab = (t: AdTab) => {
+    setTab(t);
+    setWanted(null);
+  };
 
   return (
     <>
-      <Columns
-        note="เลือกมุม คนอ่าน และอายุ แล้วกดสร้าง แอดจะไปอยู่ที่ “ร่าง”"
-        tools={(folded) => (
-          <>
-            <div className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>{pickers}</div>
-            <WriteForm
-              campaignId={campaign.id} planHref={campaign.planHref}
-              picks={{ writer: campaign.writer, painter: campaign.painter, person: campaign.person }}
-              writing={making > 0} disabled={!campaign.pageConnected}
-              warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}
-              folded={folded} onWrite={(input) => void write(input)}
-            >
-              <CampaignSettings
-                campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={room.sends.filter(switchedOn).length} folded={folded}
-                writing={making > 0} saveFirst={saveFirst}
-              />
-              {pageSettings(folded)}
-            </WriteForm>
-          </>
+      <div className="mt-4 space-y-3">
+        {pickers}
+        {!campaign.pageConnected && (
+          <p role="alert" className={`rounded-lg border px-3 py-2 text-sm ${TONES.warn}`}>
+            เพจนี้ไม่ได้เชื่อมกับระบบแล้ว — ยังแก้แอดได้ แต่สร้างและส่งแอดไม่ได้จนกว่าจะเชื่อมเพจอีกครั้ง
+          </p>
         )}
-        desk={(
-          <>
-            {!campaign.pageConnected && (
-              <p role="alert" className={`rounded-lg border px-3 py-2 text-sm ${TONES.warn}`}>
-                เพจนี้ไม่ได้เชื่อมกับระบบแล้ว — ยังแก้แอดได้ แต่สร้างและส่งแอดไม่ได้จนกว่าจะเชื่อมเพจอีกครั้ง
-              </p>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div role="tablist" aria-label="สถานะแอด" className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-1">
-                {AD_TABS.map((t) => (
-                  <button
-                    key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
-                    className={`inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-sm ${tab === t ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}
-                  >
-                    {TAB_LABEL[t]} <span className="tabular-nums">{counts[t]}</span>
-                  </button>
-                ))}
+        {making > 0 && (
+          <p role="status" className="flex items-center gap-2 text-sm font-medium text-[var(--ct-accent)]">
+            <span className="size-2.5 rounded-full bg-[var(--ct-accent)] motion-safe:animate-pulse" />
+            กำลังเขียนแอด {making} ชิ้น — เสร็จแล้วจะขึ้นในแท็บ “ร่าง”
+          </p>
+        )}
+        {roundNote && (
+          <p role={roundNote.tone === "bad" ? "alert" : "status"} className={`rounded-lg border px-3 py-2 text-sm ${TONES[roundNote.tone]}`}>{roundNote.text}</p>
+        )}
+
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <section aria-label="รายการโฆษณา" className="min-w-0 space-y-3 lg:w-[42%] lg:shrink-0">
+            <div hidden={!writingOpen} className="rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)]">
+              <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+                <h2 className="font-semibold">สร้างโฆษณาเพิ่ม</h2>
+                <button
+                  type="button" onClick={() => setWritingOpen(false)} disabled={making > 0}
+                  title={making > 0 ? "กำลังสร้างแอด รอให้เสร็จก่อน" : undefined}
+                  className="min-h-11 rounded-lg px-3 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)] disabled:opacity-50"
+                >
+                  {making > 0 ? "กำลังสร้าง…" : "ปิด"}
+                </button>
               </div>
-              <button type="button" onClick={() => setSending(true)} disabled={blocked !== null} className={solid}>
-                {`ส่งขึ้น Facebook (${going.length})`}
-              </button>
+              <WriteForm
+                campaignId={campaign.id} planHref={campaign.planHref}
+                picks={{ writer: campaign.writer, painter: campaign.painter, person: campaign.person }}
+                writing={making > 0} disabled={!campaign.pageConnected}
+                warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}
+                folded={false} onWrite={(input) => void write(input)}
+              >
+                <CampaignSettings
+                  campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={room.sends.filter(switchedOn).length} folded={false}
+                  writing={making > 0} saveFirst={saveFirst}
+                />
+              </WriteForm>
             </div>
-            {blocked && <p className="text-right text-xs text-[var(--ct-warn-ink)]">{blocked}</p>}
-            {making > 0 && (
-              <p role="status" className="flex items-center gap-2 text-sm font-medium text-[var(--ct-accent)]">
-                <span className="size-2.5 rounded-full bg-[var(--ct-accent)] motion-safe:animate-pulse" />
-                กำลังเขียนแอด {making} ชิ้น — เสร็จแล้วจะขึ้นในแท็บ “ร่าง”
+
+            <AdsList
+              pieces={pieces} tab={tab} onTab={chooseTab} counts={counts}
+              selected={selected} onSelect={setWanted}
+              ticked={ticked} onTick={tick}
+              results={results.byPiece} resultsNote={resultsNote}
+              productName={productName} pictures={pictures}
+              foot={(
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => setSending(true)} disabled={blocked !== null} className={solid}>
+                      {`ส่งขึ้น Facebook (${going.length})`}
+                    </button>
+                    {!writingOpen && (
+                      <button type="button" onClick={() => setWritingOpen(true)} className={plain}>+ สร้างโฆษณาเพิ่ม</button>
+                    )}
+                  </div>
+                  {blocked && <p className="text-xs text-[var(--ct-warn-ink)]">{blocked}</p>}
+                  {tab === "sent" && <SentTab room={room} productName={productName} onOpen={setOpenId} />}
+                </>
+              )}
+            />
+          </section>
+
+          <section aria-label="ตัวอย่างโฆษณา" className="min-w-0 flex-1 lg:sticky lg:top-4">
+            {picked ? (
+              <AdPreview
+                key={picked.id}
+                piece={picked} productName={productName} pageName={campaign.pageName ?? "เพจของคุณ"} fold={rules.limits.fold}
+                cta={ctaLabel(sendOf(room.sends, picked.id))} picture={pictures[picked.id]}
+                onEdit={() => setOpenId(picked.id)} onDraw={() => draw([picked.id])}
+              />
+            ) : (
+              <p className="rounded-xl border border-dashed border-[var(--ct-line)] bg-[var(--ct-panel)] px-4 py-10 text-center text-sm text-[var(--ct-mute)]">
+                เลือกแอดในรายการเพื่อดูตัวอย่างในฟีด
               </p>
             )}
-
-            {roundNote && (
-              <p role={roundNote.tone === "bad" ? "alert" : "status"} className={`rounded-lg border px-3 py-2 text-sm ${TONES[roundNote.tone]}`}>{roundNote.text}</p>
-            )}
-
-            {tab === "sent" ? (
-              <SentTab room={room} productName={productName} onOpen={setOpenId} />
-            ) : shown.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-[var(--ct-line)] bg-[var(--ct-panel)] px-4 py-10 text-center text-sm text-[var(--ct-mute)]">{TAB_EMPTY[tab]}</p>
-            ) : (
-              <ul className="grid gap-4 @xl:grid-cols-2 @5xl:grid-cols-3">
-                {shown.map((p) => (
-                  <li key={p.id} className="grid">
-                    <AdCard
-                      piece={p} productName={productName} fold={rules.limits.fold} picture={pictures[p.id]}
-                      ticked={ticked.has(p.id)} onTick={(on) => tick(p.id, on)}
-                      onOpen={() => setOpenId(p.id)}
-                      onDraw={() => draw([p.id])}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      />
+          </section>
+        </div>
+      </div>
 
       {sending && (
         <SendDialog
           room={room} pieces={going} productName={productName}
           onSent={() => setTicked(new Set())}
           onClose={() => setSending(false)}
-          onShowSent={() => { setSending(false); setTab("sent"); }}
+          onShowSent={() => { setSending(false); chooseTab("sent"); }}
         />
       )}
       {open && <AdEditor key={open.id} piece={open} room={room} rules={rules} people={people} productName={productName} onClose={() => setOpenId(null)} />}

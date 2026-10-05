@@ -28,17 +28,18 @@ export const metadata: Metadata = { title: "Ads Studio | Studio" };
  * the one the page is of), ?tab=campaigns|ads|page (ads by default with a campaign named,
  * campaigns otherwise; ads only with a campaign open), ?days=7|30 for the results. ?new=1, or a
  * Page with no campaign, makes one; a ?campaign= beside it is where ยกเลิก goes back to. The
+ * ads tab keeps the ad in its preview in ?ad=<id>. The
  * Facebook login comes back with ?fb=<outcome>, which ตั้งค่าเพจ shows with the Page's contacts.
  *
  * Each tab reads only what it shows: the table its rows and results, the ads tab the open
- * campaign's room (which asks Meta about every ad), ตั้งค่าเพจ (where the Facebook login lands without a tab) the contacts (and the room, for
+ * campaign's room (which asks Meta about every ad) and its Page's results, ตั้งค่าเพจ (where the Facebook login lands without a tab) the contacts (and the room, for
  * ตั้งค่าแคมเปญ, with a campaign open).
  */
 export default async function StudioAdsPage({ searchParams }: {
-  searchParams: Promise<{ page?: string; campaign?: string; new?: string; fb?: string; warn?: string; detail?: string; tab?: string; days?: string }>;
+  searchParams: Promise<{ page?: string; campaign?: string; new?: string; fb?: string; warn?: string; detail?: string; tab?: string; days?: string; ad?: string }>;
 }) {
   await gatePage("/studio/ads", "owner");
-  const { page, campaign, new: making, fb, warn, detail, tab: tabAsked, days: daysAsked } = await searchParams;
+  const { page, campaign, new: making, fb, warn, detail, tab: tabAsked, days: daysAsked, ad } = await searchParams;
   const fresh = making === "1";
   const days = parseDays(daysAsked);
   // without a tab: the Facebook login lands on ตั้งค่าเพจ, where it says how it went; a campaign named opens on its ads
@@ -72,9 +73,18 @@ export default async function StudioAdsPage({ searchParams }: {
   } else if (tab === "ads") {
     const room = await roomOf();
     // ok: false without an error is a campaign deleted between the list and the read: the same words serve
-    view = room?.ok
-      ? { kind: "room", room, productName: productOf(room), people: await peopleOf(room.campaign.pageId) }
-      : { kind: "error", id: openId!, error: room?.error ?? "ไม่พบแคมเปญนี้แล้ว" };
+    if (room?.ok) {
+      // the sent ads' results over the range, read with the people the editor offers
+      const [people, results] = await Promise.all([peopleOf(room.campaign.pageId), campaignResults(room.campaign.pageId, days)]);
+      view = {
+        kind: "room", room, productName: productOf(room), people, adAsked: ad ?? null,
+        results: results.ok
+          ? { byPiece: results.byPiece, error: null, fetchedAt: results.fetchedAt, days }
+          : { byPiece: {}, error: results.error, fetchedAt: null, days },
+      };
+    } else {
+      view = { kind: "error", id: openId!, error: room?.error ?? "ไม่พบแคมเปญนี้แล้ว" };
+    }
   } else if (tab === "page") {
     const room = await roomOf();
     view = room?.ok
