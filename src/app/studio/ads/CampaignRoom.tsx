@@ -23,7 +23,7 @@ import { SendDialog } from "./SendDialog";
 import { SentTab } from "./SentTab";
 import { when } from "./SentSend";
 import { plain, solid, TONES } from "./styles";
-import { WriteForm, type WriteInput } from "./WriteForm";
+import { WriteForm, type WriteDraft, type WriteInput } from "./WriteForm";
 
 /**
  * The โฆษณา tab of the campaign open (Ads Studio desktop, 2026-10-05), in two panes: the list on
@@ -91,6 +91,8 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
   // the create drawer, kept in the address (?create=ad) and opened or shut in place
   const search = useSearchParams();
   const drawerOpen = search.get("create") === "ad";
+  // what was typed in the drawer's form, kept while it is shut
+  const [draft, setDraft] = useState<WriteDraft | null>(null);
   const setDrawer = (on: boolean) => window.history.replaceState(null, "", withCreate(window.location.href, on ? "ad" : null));
   // a campaign with no ad yet starts with the drawer open, as the form used to be
   useEffect(() => {
@@ -258,7 +260,8 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
             กำลังเขียนแอด {making} ชิ้น — เสร็จแล้วจะขึ้นในแท็บ “ร่าง”
           </p>
         )}
-        {roundNote && (
+        {/* in the drawer while it is open, here otherwise: said once */}
+        {roundNote && !drawerOpen && (
           <p role={roundNote.tone === "bad" ? "alert" : "status"} className={`rounded-lg border px-3 py-2 text-sm ${TONES[roundNote.tone]}`}>{roundNote.text}</p>
         )}
 
@@ -317,6 +320,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
             warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}
             folded={false} onWrite={(input) => void write(input)}
             preview={(pick) => <HeadlinePreview campaignId={campaign.id} {...pick} />}
+            draft={draft} onDraft={setDraft}
           >
             <CampaignSettings
               campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={room.sends.filter(switchedOn).length} folded={false}

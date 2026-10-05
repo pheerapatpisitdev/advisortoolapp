@@ -7,7 +7,8 @@ import { TONES } from "./styles";
  * The create drawer's figure preview (Ads Studio desktop, 2026-10-05): what the code will place in
  * every ad of the round at the age, sex and row chosen — the 💁‍♀️/💰 headline lines and the premium
  * table — read from the server (headlinePreview) once the choice has rested, so the owner sees the
- * figures before paying. A stale answer (the choice changed meanwhile) is dropped.
+ * figures before paying. Nothing is asked until the age's rows are in (WriteForm's `ready`), so
+ * the row is the one the round will use; a stale answer (the choice changed meanwhile) is dropped.
  */
 
 /** how long a choice must rest before its figures are asked for */
@@ -15,15 +16,17 @@ const WAIT_MS = 350;
 
 type Shown = { key: string; headline: string; table: string; error: null } | { key: string; headline: null; table: null; error: string };
 
-export function HeadlinePreview({ campaignId, age, sex, rung }: {
+export function HeadlinePreview({ campaignId, age, sex, rung, ready }: {
   campaignId: string;
   /** the table age; null while the field is not a whole year 0–80 */
   age: number | null;
   sex: "F" | "M";
   /** the row the headline names; undefined for the middle one */
   rung?: number;
+  /** the age's rows are in, so `rung` is the row the round will use: nothing is asked before */
+  ready: boolean;
 }) {
-  const key = age === null ? null : `${campaignId}|${age}|${sex}|${rung ?? ""}`;
+  const key = age === null || !ready ? null : `${campaignId}|${age}|${sex}|${rung ?? ""}`;
   const [shown, setShown] = useState<Shown | null>(null);
 
   useEffect(() => {
@@ -48,7 +51,7 @@ export function HeadlinePreview({ campaignId, age, sex, rung }: {
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold">ตัวเลขที่จะอยู่ในแอด</h3>
         <span role="status" aria-live="polite" className="text-xs text-[var(--ct-mute)]">
-          {age === null ? "" : fresh ? "" : "กำลังโหลด…"}
+          {age === null || fresh ? "" : "กำลังโหลด…"}
         </span>
       </div>
       {age === null ? (

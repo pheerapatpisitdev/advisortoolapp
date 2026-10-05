@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { PiecePerson } from "@/lib/content/people";
 import { anglesFor, MAX_READER, NICHES, type AngleId } from "@/lib/content/prompt";
 import { adRoundCost } from "@/lib/ads/picture-picks";
@@ -34,6 +34,12 @@ export interface WriteInput {
   rung?: number;
 }
 
+/** what was typed in the form, kept by its holder so a drawer shut and opened again shows it (2026-10-05) */
+export interface WriteDraft {
+  angle: AngleId; custom: string; reader: string; ageText: string; count: number; sex: "F" | "M";
+  head: { heading: string; index: number } | null;
+}
+
 /** the table's rows at an age, as the server gave them, or why there are none */
 type Rows = { age: number; rows: { index: number; heading: string }[]; middle: number; error: string | null };
 
@@ -44,7 +50,7 @@ const AGE_DEFAULT = "30";
 /** how long the age must rest before its rows are asked for */
 const ROWS_WAIT_MS = 300;
 
-export function WriteForm({ campaignId, planHref, picks, writing, disabled, warning = null, folded, onWrite, preview, children }: {
+export function WriteForm({ campaignId, planHref, picks, writing, disabled, warning = null, folded, onWrite, preview, draft, onDraft, children }: {
   campaignId: string;
   planHref: string;
   /** the campaign's saved writer, painter and person, for the price */
@@ -59,25 +65,34 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
   folded: boolean;
   onWrite: (input: WriteInput) => void;
   /** beside the fields on a desk (under them on a phone): drawn with the headline's choice */
-  preview?: (pick: { age: number | null; sex: "F" | "M"; rung?: number }) => ReactNode;
+  preview?: (pick: { age: number | null; sex: "F" | "M"; rung?: number; ready: boolean }) => ReactNode;
+  /** what was typed before, to start from; the age kept in this browser is used only without it */
+  draft?: WriteDraft | null;
+  /** told of every change, for `draft` next time */
+  onDraft?: (d: WriteDraft) => void;
   children?: ReactNode;
 }) {
   const formId = useId();
-  const [angle, setAngle] = useState<AngleId>("");
-  const [custom, setCustom] = useState("");
-  const [reader, setReader] = useState("");
-  const [ageText, setAgeText] = useState(AGE_DEFAULT);
-  const [count, setCount] = useState(2);
-  const [sex, setSex] = useState<"F" | "M">("F");
+  const [angle, setAngle] = useState<AngleId>(draft?.angle ?? "");
+  const [custom, setCustom] = useState(draft?.custom ?? "");
+  const [reader, setReader] = useState(draft?.reader ?? "");
+  const [ageText, setAgeText] = useState(draft?.ageText ?? AGE_DEFAULT);
+  const [count, setCount] = useState(draft?.count ?? 2);
+  const [sex, setSex] = useState<"F" | "M">(draft?.sex ?? "F");
   /**
    * the picked row: its heading, so the pick survives an age whose table drops a row, and its
    * index, for an age whose headings change (Life Protect's doubled cover is gone at 60); null is the middle row
    */
-  const [head, setHead] = useState<{ heading: string; index: number } | null>(null);
+  const [head, setHead] = useState<{ heading: string; index: number } | null>(draft?.head ?? null);
   const [rows, setRows] = useState<Rows | null>(null);
-
-  // the age last used in this browser; the server render starts at 30
   useEffect(() => {
+    onDraft?.({ angle, custom, reader, ageText, count, sex, head });
+  }, [onDraft, angle, custom, reader, ageText, count, sex, head]);
+
+  // the age last used in this browser; the server render starts at 30 (a draft has its own)
+  const hadDraft = useRef(Boolean(draft));
+  useEffect(() => {
+    if (hadDraft.current) return;
     try {
       const kept = localStorage.getItem(AGE_KEY);
       if (kept !== null && tableAge(kept) !== null) setAgeText(kept);
@@ -203,7 +218,7 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
             </span>
           </div>
         </fieldset>
-        {preview && <div className="min-w-0">{preview({ age, sex, ...(rung === undefined ? {} : { rung }) })}</div>}
+        {preview && <div className="min-w-0">{preview({ age, sex, ready: !rowsPending, ...(rung === undefined ? {} : { rung }) })}</div>}
       </div>
 
       {children}

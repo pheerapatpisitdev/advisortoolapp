@@ -8,12 +8,13 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboard
  * in the address (?create=campaign|ad), so a reload keeps it open.
  *
  * Focus moves to its first field on open and back to what opened it on close (the + สร้าง button
- * when that is gone); Tab stays inside it, and the page under it does not scroll. Esc, the
- * backdrop and ✕ close it — except while a round or a campaign is being made (`busy`): then they
+ * when that is gone); Tab stays inside it, and the page under it is inert and does not scroll.
+ * Esc, the backdrop and ✕ close it — except while a round or a campaign is being made (`busy`): then they
  * do nothing and the drawer says so, with the seconds counted, so nothing in progress is lost.
  */
 
-const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+// :disabled, not [disabled]: a control shut by its disabled <fieldset> is not one either
+const FOCUSABLE = "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])";
 
 export function CreateDrawer({ title, busy, onClose, children }: {
   title: string;
@@ -23,6 +24,7 @@ export function CreateDrawer({ title, busy, onClose, children }: {
   children: ReactNode;
 }) {
   const titleId = useId();
+  const root = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   // the latest of these for the listeners set once
@@ -30,12 +32,20 @@ export function CreateDrawer({ title, busy, onClose, children }: {
   useEffect(() => { shut.current = { busy, onClose }; }, [busy, onClose]);
   const close = () => { if (!shut.current.busy) shut.current.onClose(); };
 
-  // open: the page stops scrolling, focus goes to the first field; shut: focus goes back
+  // open: the page stops scrolling and goes inert (nothing behind can be focused or pressed, even
+  // with focus dropped to <body> by a press that shut itself), focus goes to the first field;
+  // shut: all of that is undone and focus goes back
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     const scroll = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const first = body.current?.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), textarea:not([disabled])")
+    const stilled: HTMLElement[] = [];
+    for (let el: HTMLElement | null = root.current; el && el !== document.body && el.parentElement; el = el.parentElement) {
+      for (const sib of el.parentElement.children) {
+        if (sib !== el && sib instanceof HTMLElement && !sib.inert) { sib.inert = true; stilled.push(sib); }
+      }
+    }
+    const first = body.current?.querySelector<HTMLElement>("input:not(:disabled), select:not(:disabled), textarea:not(:disabled)")
       ?? body.current?.querySelector<HTMLElement>(FOCUSABLE);
     (first ?? panel.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -46,16 +56,20 @@ export function CreateDrawer({ title, busy, onClose, children }: {
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = scroll;
+      for (const el of stilled) el.inert = false;
       const back = opener?.isConnected ? opener : document.querySelector<HTMLElement>("[data-create-opener]");
       back?.focus();
     };
     // once per opening: the listener reads the latest busy and onClose through `shut`
   }, []);
 
-  // the seconds a round or a creation has been running
+  // the seconds a round or a creation has been running; the press shuts itself as it starts, so
+  // focus is kept in the drawer (on the panel) rather than left on <body>
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
     if (!busy) { setSeconds(0); return; }
+    const at = document.activeElement;
+    if (panel.current && (!at || !panel.current.contains(at) || (at as HTMLButtonElement).disabled)) panel.current.focus();
     const start = Date.now();
     const tick = window.setInterval(() => setSeconds(Math.round((Date.now() - start) / 1000)), 1000);
     return () => window.clearInterval(tick);
@@ -72,7 +86,7 @@ export function CreateDrawer({ title, busy, onClose, children }: {
   };
 
   return (
-    <div className="fixed inset-0 z-40">
+    <div ref={root} className="fixed inset-0 z-40">
       <div aria-hidden="true" onClick={close} className="absolute inset-0 bg-[var(--ct-scrim)]" />
       <div
         ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-busy={busy} tabIndex={-1} onKeyDown={trap}
