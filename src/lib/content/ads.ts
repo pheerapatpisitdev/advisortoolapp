@@ -115,31 +115,54 @@ export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdCont
 }
 
 /**
- * Facts the brief says only inside a sample person's line: PLB's "คุ้มครองถึงอายุ 40", Life
- * Treasure's "ส่งต่อได้ 1.7 เท่า", the pension example's บำนาญ. Such a line is kept without its person.
+ * What a sample person's line says that holds for any reader, and so is kept without the person:
+ * Life Treasure's multiple (rewritten, below) and the pension example's บำนาญ. PLB's
+ * "คุ้มครองถึงอายุ 40" holds only for the sample's entry age; its term is in the brief already.
  */
-const ONLY_THERE = /คุ้มครองถึงอายุ|เท่า|บำนาญ/;
+const ONLY_THERE = /ส่งต่อได้ [\d.]+ เท่า|บำนาญ/;
+/**
+ * Life Treasure's "ส่งต่อได้ 1.7 เท่า" lines, as one line true for any reader: the multiple is
+ * over one at every age below 56 and falls under it later (the engine's leverage, 2026-10-05).
+ */
+export const LEGACY_LINE = "เริ่มทำเร็ว ส่งต่อได้มากกว่าเบี้ยที่จ่ายรวม — กี่เท่าขึ้นกับอายุ เพศ และระยะชำระ (เริ่มตอนอายุมากอาจได้ไม่ถึง)";
+/** the pension example's term was the sample's; the plan pays until the pension starts, or six years (calc/pension) */
+const PENSION_PAY = "จ่ายเบี้ยจนถึงวันเริ่มรับบำนาญ (หรือจ่ายแค่ 6 ปี)";
+/** a line the cuts left with an entry age as its point: "เริ่มต้น: อายุ 35 …", "เริ่มอายุ 30 · รอถึงอายุ 45" */
+const ENTRY_AGE = /^\s*[-•*]?\s*เริ่มต้น\s*:|(?:^|[\s:·])(?:เริ่ม|รอถึง)?อายุ \d/;
+
+const tidy = (line: string) => line.replace(/[ \t]{2,}/g, " ").replace(/:\s*\(/g, " (");
 
 /**
- * A brief for an ad round's planner and writer (spec 2026-10-05): no premium, and no sample person.
- * Each clause that says an amount as a premium (check.ts) is cut, so "เบี้ย 1,548 บาท/เดือน (เฉลี่ย
- * วันละ 48 บาท)" is never there to copy beside the code's table. A line about a sample person
- * ("ผู้หญิงอายุ 35 ทุน 500,000 บาท …") goes whole — the second 2026-10-05 sample copied one —
- * unless it holds a fact found nowhere else (ONLY_THERE): then only the person is cut. The numbers
- * check keeps the whole brief.
+ * A brief for an ad round's planner and writer (spec 2026-10-05): it says only what holds for any
+ * reader — no premium and no sample person. Each clause that says an amount as a premium (check.ts)
+ * is cut, so "เบี้ย 1,548 บาท/เดือน (เฉลี่ยวันละ 48 บาท)" is never there to copy beside the code's
+ * table; a line the cut leaves with only an entry age goes. A sample person's line ("ผู้หญิงอายุ
+ * 35 ทุน 500,000 บาท …") goes whole — the second 2026-10-05 sample copied one — unless it says
+ * something true for anyone (ONLY_THERE): Life Treasure's multiples become LEGACY_LINE, once; the
+ * pension example keeps its sum, without the person and with the plan's own terms. The numbers
+ * check keeps the whole brief; products.ts and Organic posts are unchanged.
  */
 export function briefWithoutPremiums(brief: string): string {
+  let legacySaid = false;
   return brief.split("\n").flatMap((line) => {
     if (line.trim() === "") return [line];
     const people = personPhrases(line);
-    let out = line;
     if (people.length > 0) {
       if (!ONLY_THERE.test(line)) return [];
+      if (/ส่งต่อได้ [\d.]+ เท่า/.test(line)) {
+        if (legacySaid) return [];
+        legacySaid = true;
+        return [`${/^\s*-/.test(line) ? "- " : ""}${LEGACY_LINE}`];
+      }
+      let out = line;
       for (const p of [...people].reverse()) out = out.slice(0, p.at) + out.slice(p.end);
+      out = tidy(withoutPremiums(out)).replace(/จ่าย \d+ ปี\s*$/, PENSION_PAY);
+      return out.trim() === "" ? [] : [out];
     }
-    out = withoutPremiums(out).replace(/[ \t]{2,}/g, " ").replace(/:\s*\(/g, " (");
-    // a line the cuts left empty goes, rather than standing as a blank line
-    return out.trim() === "" ? [] : [out];
+    const out = tidy(withoutPremiums(line));
+    // a line the cuts left empty, or with only an entry age, goes rather than standing alone
+    if (out === line) return [line];
+    return out.trim() === "" || ENTRY_AGE.test(out) ? [] : [out];
   }).join("\n");
 }
 

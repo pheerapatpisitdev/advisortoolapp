@@ -116,16 +116,23 @@ const PREMIUM_LEAD = /(เบี้ย|ตกวันละ|ตกเดือ�
 const PREMIUM_TAIL = /^\s*(?:\/|ต่อ)\s*(?:เดือน|ปี|วัน)/;
 /**
  * Money paid out rather than paid in, said by the day, month or year: "ชดเชยนอนโรงพยาบาลวันละ
- * 1,000 บาท", "บำนาญเดือนละ 10,000 บาท", "ห้องเดี่ยวมาตรฐาน วันละ 5,000 บาท" — or a household's
- * own money: "ผ่อนบ้านเดือนละ 20,000 บาท", "เงินเดือน 30,000 บาท/เดือน", "ค่าเทอมลูกปีละ …". Only วันละ, เดือนละ,
+ * 1,000 บาท", "บำนาญเดือนละ 10,000 บาท", "ห้องเดี่ยวมาตรฐาน วันละ 5,000 บาท", within BENEFIT_REACH
+ * letters before the premium word (anywhere in the clause when only a tail says premium) — or a household's own money (HOUSEHOLD). Only วันละ, เดือนละ,
  * ปีละ and ต่อ… give way to these — an amount after เบี้ย or ตก… is a premium whatever came before.
  */
-const BENEFIT = /ชดเชย|บำนาญ|ค่ารักษา|ห้อง|รายได้|ลดหย่อน|เงินคืน|รับเงิน|วงเงิน|ผ่อน|เงินเดือน|ค่าเทอม|รายจ่าย/;
+const BENEFIT = /ชดเชย|บำนาญ|ค่ารักษา|ห้อง|รายได้|ลดหย่อน|เงินคืน|รับเงิน|วงเงิน/;
+/** how far before the premium word a benefit word may sit: "ชดเชยนอนโรงพยาบาลวันละ", "ห้องเดี่ยวมาตรฐาน วันละ" */
+const BENEFIT_REACH = 20;
+/**
+ * A household's own money, right before the word: "ผ่อนบ้านเดือนละ", "เงินเดือน 30,000 บาท/เดือน",
+ * "ค่าเทอมลูกปีละ", "รายจ่ายเดือนละ". Only right before — "ผ่อนบ้านอยู่ วันละ 48 บาท" is a premium.
+ */
+const HOUSEHOLD = /(?:ผ่อน(?:บ้าน|รถ|คอนโด)?|เงินเดือน|ค่าเทอม(?:ลูก)?|รายจ่าย)\s*$/;
 /**
  * …and an amount whose only premium sign is after it is cover when คุ้มครอง is right before it:
  * "คุ้มครองสูงสุด 60 ล้านบาทต่อปี". Not "คุ้มครองครอบครัว เพียง 1,196 บาท/เดือน" (a premium).
  */
-const COVER = /คุ้มครอง(?:สูงสุด)?\s*$/;
+const COVER = /คุ้มครอง(?:สูงสุด)?(?:ถึง)?\s*$/;
 /**
  * Right after เบี้ย (or ตก…ละ) an amount is a premium even without บาท when it looks like money —
  * a comma or three digits: "เบี้ย 1,548", "ตกเดือนละ 1,196"; not "เบี้ยส่วน CI 123", whose
@@ -165,9 +172,12 @@ function premiumSpans(text: string): PremiumSpan[] {
     if (!a.priced && !a.unit && !tail && !bare) continue;
     const lead = PREMIUM_LEAD.exec(before);
     const said = lead ? before.slice(0, lead.index) : before;
+    // before วันละ/เดือนละ… the benefit word sits close; with only a tail, anywhere in the clause
+    // ("ลดหย่อนภาษีเงินได้บุคคลธรรมดาได้สูงสุด 100,000 บาทต่อปี")
+    const benefit = BENEFIT.test(lead ? said.slice(-BENEFIT_REACH) : said) || HOUSEHOLD.test(said);
     const premium = lead
-      ? /^(เบี้ย|ตก)/.test(lead[1]) || !BENEFIT.test(said)
-      : Boolean(tail) && !BENEFIT.test(said) && !COVER.test(said);
+      ? /^(เบี้ย|ตก)/.test(lead[1]) || !benefit
+      : Boolean(tail) && !benefit && !COVER.test(said);
     if (!premium) continue;
     const startAt = lead ? since + lead.index : a.at;
     const head = CLAUSE_HEAD.exec(text.slice(since, startAt));
@@ -211,8 +221,11 @@ export function withoutPremiums(text: string): string {
  * วัย N, or N ปี. Only after a sex word, so "ก่อนอายุ 60", "ถึงอายุ 99" and "อายุ 20–65 ปี" are not.
  */
 const PERSON = /(ผู้หญิง|ผู้ชาย|หญิง|ชาย)([^\d\n]{0,4}?)(?:(?:อายุ|วัย)\s*(\d{1,2})(?!\d)|(\d{1,2})\s*ปี)/g;
-/** a sex word that is not one person: ลูกชาย, เด็กชาย, ทั้งหญิงและชาย, หญิงชาย */
-const NOT_ONE_BEFORE = /(?:ลูก|เด็ก|ทั้ง|และ|หญิง|ชาย)$/;
+/**
+ * a sex word that is not one person: ลูกชาย, เด็กชาย, ทั้งหญิง…, หญิงชาย, and the second of
+ * "หญิงและชาย" — but "ผู้ชายอายุ 35 และผู้หญิงอายุ 30" is two people
+ */
+const NOT_ONE_BEFORE = /(?:ลูก|เด็ก|ทั้ง|หญิง|ชาย)$|(?<!ผู้)(?:หญิง|ชาย)\s*และ\s*$/;
 const NOT_ONE_BETWEEN = /หญิง|ชาย|และ/;
 /** an age that opens a range, not a person's: "30–40", "30 ถึง 40 ปี", "40 ขึ้นไป" */
 const RANGE_AFTER = /^\s*(?:ปี|ขวบ)?\s*(?:[–—-]|ถึง|ขึ้นไป)/;
@@ -235,7 +248,7 @@ export function personPhrases(text: string): PersonPhrase[] {
   const out: PersonPhrase[] = [];
   for (const m of read.matchAll(PERSON)) {
     const end = m.index + m[0].length;
-    if (NOT_ONE_BEFORE.test(read.slice(Math.max(0, m.index - 4), m.index))) continue;
+    if (NOT_ONE_BEFORE.test(read.slice(Math.max(0, m.index - 12), m.index))) continue;
     if (NOT_ONE_BETWEEN.test(m[2])) continue;
     if (RANGE_AFTER.test(read.slice(end))) continue;
     out.push({ phrase: text.slice(m.index, end).trim(), sex: m[1].endsWith("หญิง") ? "F" : "M", age: Number(m[3] ?? m[4]), at: m.index, end });

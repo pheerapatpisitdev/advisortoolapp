@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetExceeded } from "@/lib/ai/client";
-import { BANNED_SUPERLATIVES, assembleLongAd, briefWithoutPremiums, longAdMessages, parseLongAd, type LongAd, type LongAdContext } from "@/lib/content/ads";
+import { BANNED_SUPERLATIVES, LEGACY_LINE, assembleLongAd, briefWithoutPremiums, longAdMessages, parseLongAd, type LongAd, type LongAdContext } from "@/lib/content/ads";
 import type { PiecePlan } from "@/lib/content/plan";
 import { headlineFigures, premiumTable, tableText } from "@/lib/content/premium-table";
 import { NUMBERS_PLANS } from "@/lib/content/numbers-plans";
@@ -84,29 +84,50 @@ describe("briefWithoutPremiums — the writer never sees a premium to copy", () 
       .toBe("- ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40)");
   });
 
-  it("drops a sample person's line, but keeps a fact found only there without the person", () => {
+  it("drops a sample person's line; Life Treasure's multiples become one line true for anyone; the pension example keeps its sum", () => {
     expect(briefWithoutPremiums("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท จ่าย 9 ปี: เบี้ย 4,914 บาท/เดือน (เฉลี่ยวันละ 150 บาท)")).toBe("");
     expect(briefWithoutPremiums("- เริ่มต้น: ผู้หญิงอายุ 35 ทุน 500,000 บาท (คุ้มครอง 1,000,000 บาท) เบี้ยเฉลี่ยวันละ 20 บาท")).toBe("");
-    expect(briefWithoutPremiums("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40): เบี้ยเฉลี่ยวันละ 15 บาท"))
-      .toBe("- ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40)");
-    expect(briefWithoutPremiums("- ผู้ชายอายุ 45 ทุน 10,000,000 บาท ชำระเบี้ย 6 ปี: เบี้ย 86,400 บาท/เดือน (เฉลี่ยวันละ 2,631 บาท) (ส่งต่อได้ 1.7 เท่าของเบี้ยที่จ่ายรายปี)"))
-      .toBe("- ทุน 10,000,000 บาท ชำระเบี้ย 6 ปี (ส่งต่อได้ 1.7 เท่าของเบี้ยที่จ่ายรายปี)");
+    // PLB's cover-to age holds only for the sample's entry age: the term is already in the brief
+    expect(briefWithoutPremiums("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40): เบี้ยเฉลี่ยวันละ 15 บาท")).toBe("");
+    const lt = (n: number, x: string) => `- ผู้ชายอายุ 45 ทุน 10,000,000 บาท ชำระเบี้ย ${n} ปี: เบี้ย 86,400 บาท/เดือน (เฉลี่ยวันละ 2,631 บาท) (ส่งต่อได้ ${x} เท่าของเบี้ยที่จ่ายรายปี)`;
+    expect(briefWithoutPremiums([lt(6, "1.7"), lt(12, "1.8"), lt(18, "1.5")].join("\n"))).toBe(`- ${LEGACY_LINE}`);
+    expect(briefWithoutPremiums("- ตัวอย่าง: ผู้ชายอายุ 40 อยากได้บำนาญเดือนละ 10,000 บาท ตั้งแต่อายุ 60 → ทุน 787,402 บาท เบี้ยเฉลี่ยวันละ 374 บาท จ่าย 20 ปี"))
+      .toBe("- ตัวอย่าง: อยากได้บำนาญเดือนละ 10,000 บาท ตั้งแต่อายุ 60 → ทุน 787,402 บาท จ่ายเบี้ยจนถึงวันเริ่มรับบำนาญ (หรือจ่ายแค่ 6 ปี)");
   });
 
-  it("keeps CI 123's caution, PLB's cover ages and Life Treasure's multiples, without their premiums — review 2026-10-05", () => {
+  it("drops a line the cuts leave with only an entry age, and keeps one with a fact — final round", () => {
+    for (const gone of [
+      "- เริ่มต้น: อายุ 35 ทุน 500,000 บาท เบี้ยเฉลี่ยวันละ 47 บาท",
+      "- เริ่มต้น: อายุ 30 แผนเล็กสุด เบี้ยปีแรกเฉลี่ยวันละ 12 บาท",
+      "- เริ่มอายุ 30 เบี้ยปีแรกเฉลี่ยวันละ 14 บาท · รอถึงอายุ 45 เบี้ยปีแรกเฉลี่ยวันละ 30 บาท",
+    ]) expect(briefWithoutPremiums(gone), gone).toBe("");
+    expect(briefWithoutPremiums("- ซื้อให้ลูกแรกเกิด: ทุน 1,000,000 บาท (คุ้มครอง 2,000,000 บาท) จ่าย 19 ปี เบี้ย 1,260 บาท/เดือน"))
+      .toBe("- ซื้อให้ลูกแรกเกิด: ทุน 1,000,000 บาท (คุ้มครอง 2,000,000 บาท) จ่าย 19 ปี");
+    // a line with no premium is never touched
+    expect(briefWithoutPremiums("- รับอายุ 0–80 ปี · คุ้มครองตลอดชีพ")).toBe("- รับอายุ 0–80 ปี · คุ้มครองตลอดชีพ");
+  });
+
+
+  it("keeps CI 123's caution, the pension example's sum, and Life Treasure's multiples as one line, without premiums — final round", () => {
     const ci = briefWithoutPremiums(briefFor("/ci123")!.text);
     expect(ci).toContain("เบี้ยส่วน CI 123 คิดตามอายุจริง ปรับขึ้นเมื่ออายุมากขึ้น — ทุกราคาเป็นเบี้ยปีแรก");
     const plb = briefWithoutPremiums(briefFor("/plb")!.text);
-    for (const age of [40, 45, 47, 50]) expect(plb).toContain(`คุ้มครองถึงอายุ ${age}`);
+    expect(plb).not.toContain("คุ้มครองถึงอายุ");
     expect(plb).not.toMatch(/วันละ \d+ บาท/);
     const lt = briefWithoutPremiums(briefFor("/lifetreasure")!.text);
-    for (const x of ["1.7", "1.8", "1.5"]) expect(lt).toContain(`ส่งต่อได้ ${x} เท่า`);
+    expect(lt.split("\n").filter((l) => l.includes(LEGACY_LINE))).toHaveLength(1);
+    expect(lt).not.toMatch(/ส่งต่อได้ [\d.]+ เท่า/);
     for (const gone of ["86,400", "2,631", "42,750", "33,300"]) expect(lt).not.toContain(gone);
     const pension = briefWithoutPremiums(briefFor("/bumnan95")!.text);
     expect(pension).toContain("บำนาญเดือนละ 10,000 บาท");
-    expect(pension).toContain("ทุน 787,402 บาท");
+    expect(pension).toContain("ทุน 787,402 บาท จ่ายเบี้ยจนถึงวันเริ่มรับบำนาญ (หรือจ่ายแค่ 6 ปี)");
     expect(pension).not.toContain("374");
+    const legacy = briefWithoutPremiums(briefFor("/legacy")!.text);
+    expect(legacy).not.toMatch(/เริ่มต้น: อายุ|เริ่มอายุ/);
+    expect(briefWithoutPremiums(briefFor("/ishield")!.text)).not.toContain("เริ่มต้น:");
+    expect(briefWithoutPremiums(briefFor("/lifeprotect")!.text)).toContain("ซื้อให้ลูกแรกเกิด");
   });
+
 
   it("shows no sample person in any plan's ad brief — the root of the 2026-10-05 ad's second sample", () => {
     for (const href of Object.keys(NUMBERS_PLANS)) {

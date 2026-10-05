@@ -124,6 +124,8 @@ describe("premiumAmounts — an amount said as a premium is money (review, 2026-
     "แค่ 48 บาทต่อวัน", "48 บาท/วัน", "ปีละ 14,350 บาท", "เบี้ย 2 พัน", "คุ้มครองครอบครัว วันละ 48 บาท",
     // re-review: cover only when คุ้มครอง is right before the amount; a premium after เบี้ย needs no บาท
     "คุ้มครองครอบครัว เพียง 1,196 บาท/เดือน", "เบี้ย 1,548", "เบี้ยแค่ 14350 ต่อปี", "ตกเดือนละ 1,196",
+    // final round: a household word far from วันละ does not make it a burden
+    "ผ่อนบ้านอยู่ วันละ 48 บาท ก็คุ้มครองครอบครัวได้",
   ])("flags %s", (text) => {
     expect(premiumAmounts(text)).toHaveLength(1);
   });
@@ -136,6 +138,7 @@ describe("premiumAmounts — an amount said as a premium is money (review, 2026-
     "คุ้มครองสูงสุด 60 ล้านบาทต่อปี", "เบี้ยส่วน CI 123",
     // household burdens, not premiums
     "ผ่อนบ้านเดือนละ 20,000 บาท", "เงินเดือน 30,000 บาท/เดือน", "ค่าเทอมลูกปีละ 100,000 บาท", "รายจ่ายเดือนละ 30,000 บาท",
+    "คุ้มครองสูงสุดถึง 60 ล้านบาทต่อปี", "ห้องเดี่ยวมาตรฐาน วันละ 5,000 บาท",
   ])("leaves %s", (text) => {
     expect(premiumAmounts(text)).toEqual([]);
   });
@@ -147,6 +150,10 @@ describe("personPhrases — a person the copy speaks of", () => {
       ["ผู้หญิงอายุ 35", "F", 35], ["ชายอายุ ๔๐", "M", 40],
     ]);
   });
+  it("a second person after และ is still a person", () => {
+    expect(personPhrases("ผู้ชายอายุ 35 และผู้หญิงอายุ 30").map((p) => p.phrase)).toEqual(["ผู้ชายอายุ 35", "ผู้หญิงอายุ 30"]);
+  });
+
   it("leaves both sexes, children and ranges", () => {
     for (const t of ["ทั้งหญิงและชาย อายุ 20–65 ปี", "หญิงชายอายุ 35", "ลูกชายอายุ 5 ขวบ", "เด็กชายอายุ 10", "ผู้ชายวัย 30–40", "ผู้ชายอายุ 40 ขึ้นไป"]) {
       expect(personPhrases(t), t).toEqual([]);
