@@ -11,16 +11,19 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboard
  * when that is gone); Tab stays inside it, and the page under it is inert and does not scroll.
  * Esc, the backdrop and ✕ close it — except while a round or a campaign is being made (`busy`): then they
  * do nothing and the drawer says so, with the seconds counted, so nothing in progress is lost.
+ * With `confirmClose` (settings typed and not saved), they ask it first and stay open on a no.
  */
 
 // :disabled, not [disabled]: a control shut by its disabled <fieldset> is not one either
 const FOCUSABLE = "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])";
 
-export function CreateDrawer({ title, busy, onClose, children }: {
+export function CreateDrawer({ title, busy, onClose, confirmClose, children }: {
   title: string;
   /** a round or a campaign is being made: the drawer stays open until it is back */
   busy: boolean;
   onClose: () => void;
+  /** asked before closing; false keeps the drawer open (unsaved work in it) */
+  confirmClose?: () => Promise<boolean>;
   children: ReactNode;
 }) {
   const titleId = useId();
@@ -28,9 +31,13 @@ export function CreateDrawer({ title, busy, onClose, children }: {
   const panel = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   // the latest of these for the listeners set once
-  const shut = useRef({ busy, onClose });
-  useEffect(() => { shut.current = { busy, onClose }; }, [busy, onClose]);
-  const close = () => { if (!shut.current.busy) shut.current.onClose(); };
+  const shut = useRef({ busy, onClose, confirmClose });
+  useEffect(() => { shut.current = { busy, onClose, confirmClose }; }, [busy, onClose, confirmClose]);
+  const close = async () => {
+    if (shut.current.busy) return;
+    if (shut.current.confirmClose && !(await shut.current.confirmClose())) return;
+    shut.current.onClose();
+  };
 
   // open: the page stops scrolling and goes inert (nothing behind can be focused or pressed, even
   // with focus dropped to <body> by a press that shut itself), focus goes to the first field;
@@ -50,7 +57,7 @@ export function CreateDrawer({ title, busy, onClose, children }: {
     (first ?? panel.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
       // a question already open (ask's own <dialog>) takes its Escape for itself
-      if (e.key === "Escape" && !document.querySelector("dialog[open]")) close();
+      if (e.key === "Escape" && !document.querySelector("dialog[open]")) void close();
     };
     document.addEventListener("keydown", onKey);
     return () => {
@@ -87,7 +94,7 @@ export function CreateDrawer({ title, busy, onClose, children }: {
 
   return (
     <div ref={root} className="fixed inset-0 z-40">
-      <div aria-hidden="true" onClick={close} className="absolute inset-0 bg-[var(--ct-scrim)]" />
+      <div aria-hidden="true" onClick={() => void close()} className="absolute inset-0 bg-[var(--ct-scrim)]" />
       <div
         ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-busy={busy} tabIndex={-1} onKeyDown={trap}
         className="absolute inset-0 flex flex-col bg-[var(--ct-panel)] shadow-2xl outline-none lg:left-auto lg:w-[720px] lg:max-w-[calc(100vw-2rem)] lg:border-l lg:border-[var(--ct-hair)]"
@@ -95,7 +102,7 @@ export function CreateDrawer({ title, busy, onClose, children }: {
         <header className="flex items-center gap-3 border-b border-[var(--ct-hair)] px-4 py-2">
           <h2 id={titleId} className="min-w-0 flex-1 truncate font-semibold">{title}</h2>
           <button
-            type="button" onClick={close} disabled={busy} aria-label="ปิด"
+            type="button" onClick={() => void close()} disabled={busy} aria-label="ปิด"
             title={busy ? "ปิดได้เมื่อสร้างเสร็จ" : undefined}
             className="inline-flex size-11 items-center justify-center rounded-lg text-lg text-[var(--ct-mute)] hover:bg-[var(--ct-ground)] disabled:opacity-40"
           >

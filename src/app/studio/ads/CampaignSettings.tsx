@@ -53,7 +53,7 @@ function DeleteCampaign({ campaign, sent, live }: { campaign: Room["campaign"]; 
   );
 }
 
-export function CampaignSettings({ campaign, productName, people, sent, live, folded, writing, saveFirst }: {
+export function CampaignSettings({ campaign, productName, people, sent, live, folded, writing, saveFirst, unsaved }: {
   campaign: Room["campaign"];
   /** the plan's name, shown and not editable */
   productName: string;
@@ -69,6 +69,8 @@ export function CampaignSettings({ campaign, productName, people, sent, live, fo
   writing: boolean;
   /** set to what saves the unsaved settings, for the room to call before a round; false when they could not be */
   saveFirst: MutableRefObject<(() => Promise<boolean>) | null>;
+  /** kept true while settings are typed and not saved, for the drawer to ask before it closes */
+  unsaved?: MutableRefObject<boolean>;
 }) {
   const router = useRouter();
   const [name, setName] = useState(campaign.name ?? "");
@@ -109,6 +111,11 @@ export function CampaignSettings({ campaign, productName, people, sent, live, fo
   }
   // the room's press saves what is typed here first; the newest persist, whatever changed since
   useEffect(() => { saveFirst.current = persist; });
+  useEffect(() => {
+    if (!unsaved) return;
+    unsaved.current = dirty;
+    return () => { unsaved.current = false; };
+  }, [unsaved, dirty]);
 
   async function save() {
     if (await persist()) setNote(okNote("บันทึกการตั้งค่าแล้ว"));

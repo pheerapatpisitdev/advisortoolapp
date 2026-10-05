@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ContentItem } from "@/lib/content/store";
 import { liveCount, type AdTab } from "@/lib/ads/campaign-view";
@@ -9,6 +9,7 @@ import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
 import { AUTO } from "@/lib/content/models";
 import { inBin, pruneTicks, sendBlocker, settledPictures, type PictureState } from "@/lib/ads/room-view";
 import type { PersonOption } from "../PersonPicker";
+import { ask } from "../ask";
 import { drawPicture, generateRound } from "../draw";
 import { AdEditor, type Room } from "./AdEditor";
 import { AdPreview } from "./AdPreview";
@@ -103,6 +104,12 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
   }, []);
   // what ตั้งค่าแคมเปญ hands in to save its unsaved settings before a round
   const saveFirst = useRef<(() => Promise<boolean>) | null>(null);
+  // ตั้งค่าแคมเปญ typed and not saved, in the drawer: closing it asks first
+  const settingsUnsaved = useRef(false);
+  const confirmDrawerClose = useCallback(
+    async () => !settingsUnsaved.current || ask("มีการตั้งค่าแคมเปญที่ยังไม่ได้บันทึก — ปิดโดยไม่บันทึก?", "ปิดโดยไม่บันทึก"),
+    [],
+  );
   // how the pictures are drawn: the campaign's painter, person and brief as last saved
   const picks = useRef({ painter: campaign.painter, person: campaign.person, brief: campaign.pictureBrief });
   useEffect(() => {
@@ -310,7 +317,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
       </div>
 
       {drawerOpen && (
-        <CreateDrawer title={`สร้างโฆษณา · ${campaign.title}`} busy={making > 0} onClose={() => setDrawer(false)}>
+        <CreateDrawer title={`สร้างโฆษณา · ${campaign.title}`} busy={making > 0} onClose={() => setDrawer(false)} confirmClose={confirmDrawerClose}>
           {roundNote && (
             <p role={roundNote.tone === "bad" ? "alert" : "status"} className={`mx-4 mt-4 rounded-lg border px-3 py-2 text-sm ${TONES[roundNote.tone]}`}>{roundNote.text}</p>
           )}
@@ -325,7 +332,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
           >
             <CampaignSettings
               campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={liveCount(room.sends, room.pieces.flatMap((p) => p.launches))} folded={false}
-              writing={making > 0} saveFirst={saveFirst}
+              writing={making > 0} saveFirst={saveFirst} unsaved={settingsUnsaved}
             />
           </WriteForm>
         </CreateDrawer>
