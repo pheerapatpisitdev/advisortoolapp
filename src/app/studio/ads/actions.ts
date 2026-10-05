@@ -1064,21 +1064,27 @@ export async function campaignRows(pageId: string): Promise<{ ok: true; rows: Ca
       return a ? `${a.name} (${a.id})` : actId;
     };
     const rows = await Promise.all(campaigns.map(async (c): Promise<CampaignRow> => {
-      const [pieces, sends] = await Promise.all([listCampaignPieces(c.id), listSends(c.id)]);
-      const sent = new Set(sends.flatMap((s) => s.items.flatMap((i) => (i.pieceId ? [i.pieceId] : []))));
-      const tabs = await Promise.all(pieces.map(async (p) => adTab(p, sent.has(p.id) || (await liveRows(p.id, accounts)).length > 0)));
-      const counts = tabCounts(tabs);
-      return {
-        id: c.id,
-        name: titleOf(c),
-        planName: contentProduct(c.planHref)?.name ?? c.planHref,
-        drafts: counts.draft,
-        sent: counts.sent,
-        sends: sends.map((s) => ({
-          id: s.id, activatedAt: s.activatedAt, pausedAt: s.pausedAt, dailyBudgetMinor: s.dailyBudgetMinor,
-          accountName: accountName(s.actId), ads: s.items.filter((i) => i.adId).length,
-        })),
-      };
+      const named = { id: c.id, name: titleOf(c), planName: contentProduct(c.planHref)?.name ?? c.planHref };
+      try {
+        const [pieces, sends] = await Promise.all([listCampaignPieces(c.id), listSends(c.id)]);
+        const sent = new Set(sends.flatMap((s) => s.items.flatMap((i) => (i.pieceId ? [i.pieceId] : []))));
+        const tabs = await Promise.all(pieces.map(async (p) => adTab(p, sent.has(p.id) || (await liveRows(p.id, accounts)).length > 0)));
+        const counts = tabCounts(tabs);
+        return {
+          ...named,
+          drafts: counts.draft,
+          sent: counts.sent,
+          sends: sends.map((s) => ({
+            id: s.id, activatedAt: s.activatedAt, pausedAt: s.pausedAt, dailyBudgetMinor: s.dailyBudgetMinor,
+            accountName: accountName(s.actId), ads: s.items.filter((i) => i.adId).length,
+            hasMetaCampaign: Boolean(s.metaCampaignId), hasAdset: Boolean(s.adsetId),
+          })),
+        };
+      } catch (e) {
+        // one campaign that cannot be read is a row saying so, not a table that will not open
+        console.error("campaign row unreadable:", e);
+        return { ...named, drafts: 0, sent: 0, sends: [], unreadable: true };
+      }
     }));
     return { ok: true, rows };
   } catch (e) {

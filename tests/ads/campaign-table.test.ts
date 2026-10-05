@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { footLine, money, resultCells, switchPlan, switchQuestion, tableLine, type CampaignRow, type RowSend } from "@/lib/ads/campaign-table";
+import { footLine, money, resultCells, switchPlan, switchQuestion, switchShut, tableLine, type CampaignRow, type RowSend } from "@/lib/ads/campaign-table";
 import { deleteQuestion } from "@/lib/ads/campaign-view";
 import { studioHref } from "@/lib/ads/manager-view";
 
@@ -10,6 +10,8 @@ const send = (id: string, on: boolean | null, minor: number, accountName = "บ�
   dailyBudgetMinor: minor,
   accountName,
   ads,
+  hasMetaCampaign: true,
+  hasAdset: true,
 });
 const row = (id: string, sends: RowSend[], drafts = 2, sent = 1): CampaignRow => ({ id, name: `แคมเปญ ${id}`, planName: "iHealthy", drafts, sent, sends });
 const result = { spend: 1234.5, impressions: 12000, clicks: 30, messaging: 4 };
@@ -61,7 +63,26 @@ describe("footLine", () => {
 });
 
 describe("switchPlan / switchQuestion", () => {
-  it("no send: no switch", () => expect(switchPlan([])).toBeNull());
+  it("no send: no switch, saying why", () => {
+    expect(switchPlan([])).toBeNull();
+    expect(switchShut([])).toContain("ยังไม่มีแอดที่ส่งขึ้น Facebook");
+  });
+  it("off: skips a newer send with no ad, or no Meta campaign or ad set, for the newest that can go on", () => {
+    const sends = [
+      send("NO_ADS", null, 1000, "a", 0),
+      { ...send("NO_SET", null, 1000), hasAdset: false },
+      { ...send("NO_CAMP", null, 1000), hasMetaCampaign: false },
+      send("OK", false, 2000),
+      send("OLDER", null, 3000),
+    ];
+    expect(switchPlan(sends)).toMatchObject({ kind: "activate", send: { id: "OK" } });
+    expect(switchShut(sends)).toBeNull();
+  });
+  it("off with no send that can go on: shut, saying to finish the send first", () => {
+    const sends = [send("NO_ADS", null, 1000, "a", 0), { ...send("NO_SET", false, 1000), hasAdset: false }];
+    expect(switchPlan(sends)).toBeNull();
+    expect(switchShut(sends)).toContain("ลองใหม่");
+  });
   it("on: pauses every send that is on", () => {
     const plan = switchPlan([send("S1", true, 15000), send("S2", false, 1000), send("S3", true, 5000, "บัญชี B (act_2)")]);
     expect(plan?.kind).toBe("pause");

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { studioHref } from "@/lib/ads/manager-view";
 import type { Connection } from "./actions";
 import { solid } from "./styles";
 
@@ -57,7 +58,7 @@ export function TopBar({ pages, pageId, connection, days, hrefs }: {
           <span className="sr-only">เพจ</span>
           <select
             value={pageId}
-            onChange={(e) => router.push(`/studio/ads?page=${encodeURIComponent(e.target.value)}`)}
+            onChange={(e) => router.push(studioHref({ page: e.target.value, campaign: null, tab: "campaigns", days }))}
             className="min-h-11 max-w-[16rem] rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm font-medium outline-none focus:border-[var(--ct-accent)]"
           >
             {pages.map((p) => <option key={p.pageId} value={p.pageId}>{p.pageName}</option>)}

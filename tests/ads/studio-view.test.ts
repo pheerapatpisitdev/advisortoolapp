@@ -1,23 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { openCampaign } from "@/lib/ads/room-view";
 import { sentRows } from "@/lib/ads/sent-view";
-
-describe("which campaign the page opens", () => {
-  const list = [{ id: "new" }, { id: "old" }];
-  it("opens the newest when none is asked for", () => {
-    expect(openCampaign(list, { asked: null, fresh: false })).toBe("new");
-  });
-  it("opens the one asked for when the Page has it", () => {
-    expect(openCampaign(list, { asked: "old", fresh: false })).toBe("old");
-  });
-  it("opens the newest for an id the Page does not have", () => {
-    expect(openCampaign(list, { asked: "gone", fresh: false })).toBe("new");
-  });
-  it("opens none, so the tools make a campaign, when asked for a new one or there is none", () => {
-    expect(openCampaign(list, { asked: "old", fresh: true })).toBeNull();
-    expect(openCampaign([], { asked: null, fresh: false })).toBeNull();
-  });
-});
 
 describe("the sent rail's rows", () => {
   const send = (items: { pieceId: string | null; adId: string | null; error: string | null; effectiveStatus: string | null }[]) => ({

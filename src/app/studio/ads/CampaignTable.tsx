@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AdResult } from "@/lib/ads/results";
-import { footLine, switchPlan, switchQuestion, tableLine, type CampaignRow } from "@/lib/ads/campaign-table";
+import { footLine, switchPlan, switchQuestion, switchShut, tableLine, type CampaignRow } from "@/lib/ads/campaign-table";
 import { deleteQuestion } from "@/lib/ads/campaign-view";
 import { switchedOn } from "@/lib/ads/sent-view";
 import { ask } from "../ask";
@@ -16,8 +16,8 @@ import { TONES } from "./styles";
  * lists them — the เปิด/หยุด switch, the name with its state and plan, piece counts, the budget
  * running now and what its sent ads did over the range, a ⋯ menu with ลบแคมเปญ, and the totals
  * at the foot. The switch turns off by pausing every send that is on (one question naming them
- * all) and on by switching on the newest send, with the sent tab's own questions; it is shut
- * while the campaign has no send. The table scrolls inside its own frame on a narrow screen.
+ * all) and on by switching on the newest send that can be, with the sent tab's own questions;
+ * it is shut, saying why, while there is none to turn on or off. The table scrolls inside its own frame on a narrow screen.
  */
 
 const STATE: Record<"on" | "paused" | "draft", { label: string; tone: string }> = {
@@ -30,68 +30,103 @@ const th = "border-b border-[var(--ct-line)] px-3 py-2 text-left text-xs font-me
 const td = "border-b border-[var(--ct-hair)] px-3 py-2 align-top";
 const numCell = `${td} text-right tabular-nums whitespace-nowrap`;
 
-function RowMenu({ row, open, pageId }: { row: CampaignRow; open: boolean; pageId: string }) {
+/**
+ * The row's ⋯ menu. It is drawn fixed to the window, under its button (above it near the
+ * window's foot), so the table's scrolling frame never clips it; a scroll or resize closes it.
+ * What went wrong shows in the row, as the switch's does.
+ */
+function RowMenu({ row, open, pageId, disabled, onBusy, onError }: {
+  row: CampaignRow;
+  open: boolean;
+  pageId: string;
+  /** the row is busy (switching or deleting) */
+  disabled: boolean;
+  onBusy: (busy: boolean) => void;
+  onError: (error: string | null) => void;
+}) {
   const router = useRouter();
-  const [shown, setShown] = useState(false);
+  const [at, setAt] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const box = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!shown) return;
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { setShown(false); opener.current?.focus(); } };
-    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setShown(false); };
+    if (!at) return;
+    const close = () => setAt(null);
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { close(); opener.current?.focus(); } };
+    const away = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!menu.current?.contains(t) && !opener.current?.contains(t)) close();
+    };
     document.addEventListener("keydown", key);
     document.addEventListener("pointerdown", away);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
     return () => {
       document.removeEventListener("keydown", key);
       document.removeEventListener("pointerdown", away);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
     };
-  }, [shown]);
+  }, [at]);
+
+  function toggle() {
+    if (at) { setAt(null); return; }
+    const r = opener.current?.getBoundingClientRect();
+    if (!r) return;
+    const right = Math.max(8, window.innerWidth - r.right);
+    // a menu of one item is about 3.5rem tall; near the foot it opens upward
+    setAt(r.bottom + 64 > window.innerHeight ? { bottom: window.innerHeight - r.top + 4, right } : { top: r.bottom + 4, right });
+  }
 
   async function remove() {
-    setShown(false);
+    setAt(null);
     const live = row.sends.filter(switchedOn).length;
     if (!(await ask(deleteQuestion({ title: row.name, live, sent: row.sent > 0 }), "ลบแคมเปญ"))) return;
     setBusy(true);
-    setError(null);
+    onBusy(true);
+    onError(null);
     try {
       const res = await deleteAdCampaign(row.id);
-      if (!res.ok) { setError(res.error); setBusy(false); return; }
+      if (!res.ok) { onError(res.error); setBusy(false); onBusy(false); return; }
       // the open campaign is gone: back to the Page's table without it; busy stays on until the page moves
       if (open) router.replace(`/studio/ads?page=${encodeURIComponent(pageId)}`);
       else router.refresh();
     } catch {
-      setError("การเชื่อมต่อหลุด ยังไม่รู้ว่าลบแล้วหรือไม่ — เปิดหน้านี้ใหม่เพื่อดู");
+      onError("การเชื่อมต่อหลุด ยังไม่รู้ว่าลบแล้วหรือไม่ — เปิดหน้านี้ใหม่เพื่อดู");
       setBusy(false);
+      onBusy(false);
     }
   }
 
   return (
-    <div ref={box} className="relative">
+    <>
       <button
-        ref={opener} type="button" aria-haspopup="menu" aria-expanded={shown} disabled={busy}
-        aria-label={`ตัวเลือกของแคมเปญ ${row.name}`} onClick={() => setShown((s) => !s)}
+        ref={opener} type="button" aria-haspopup="menu" aria-expanded={at !== null} disabled={disabled || busy}
+        aria-label={`ตัวเลือกของแคมเปญ ${row.name}`} onClick={toggle}
         className="inline-flex size-11 items-center justify-center rounded-lg text-lg leading-none hover:bg-[var(--ct-ground)] disabled:opacity-50"
       >
         {busy ? "…" : "⋯"}
       </button>
-      {shown && (
-        <div role="menu" aria-label={`ตัวเลือกของแคมเปญ ${row.name}`} className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-1 shadow-lg">
+      {at && (
+        <div
+          ref={menu} role="menu" aria-label={`ตัวเลือกของแคมเปญ ${row.name}`} style={{ top: at.top, bottom: at.bottom, right: at.right }}
+          className="fixed z-30 w-44 overflow-hidden rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-1 shadow-lg"
+        >
           <button type="button" role="menuitem" onClick={() => void remove()} className="flex min-h-11 w-full items-center px-3 text-left text-sm text-[var(--ct-alert)] hover:bg-[var(--ct-soft)]">
             ลบแคมเปญ
           </button>
         </div>
       )}
-      {error && <p role="alert" className={`absolute right-0 z-10 mt-1 w-64 rounded-lg border px-3 py-2 text-left text-xs ${TONES.bad}`}>{error}</p>}
-    </div>
+    </>
   );
 }
 
-function Switch({ row, pageName, onBusy, onError }: {
+function Switch({ row, pageName, disabled, onBusy, onError }: {
   row: CampaignRow;
   pageName: string;
+  /** the row is busy (deleting) */
+  disabled: boolean;
   onBusy: (busy: boolean) => void;
   onError: (error: string | null) => void;
 }) {
@@ -99,6 +134,7 @@ function Switch({ row, pageName, onBusy, onError }: {
   const [busy, setBusy] = useState(false);
   const plan = switchPlan(row.sends);
   const on = plan?.kind === "pause";
+  const shut = switchShut(row.sends);
 
   async function press() {
     if (!plan) return;
@@ -129,11 +165,11 @@ function Switch({ row, pageName, onBusy, onError }: {
     }
   }
 
-  const label = plan ? (on ? `หยุดแคมเปญ ${row.name}` : `เปิดใช้แคมเปญ ${row.name}`) : `แคมเปญ ${row.name} ยังไม่มีชุดที่ส่งขึ้น Facebook`;
+  const label = plan ? (on ? `หยุดแคมเปญ ${row.name}` : `เปิดใช้แคมเปญ ${row.name}`) : `แคมเปญ ${row.name}: ${shut}`;
   return (
     <button
-      type="button" role="switch" aria-checked={on} aria-label={label} disabled={!plan || busy} onClick={() => void press()}
-      title={plan ? undefined : "ยังไม่มีแอดที่ส่งขึ้น Facebook — ส่งแอดจากแท็บโฆษณาก่อน จึงจะเปิด/หยุดได้"}
+      type="button" role="switch" aria-checked={on} aria-label={label} disabled={!plan || busy || disabled} onClick={() => void press()}
+      title={shut ?? undefined}
       className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:cursor-not-allowed disabled:opacity-40"
     >
       <span className={`relative inline-block h-6 w-10 rounded-full transition-colors ${on ? "bg-[var(--ct-solid)]" : "bg-[var(--ct-line)]"} ${busy ? "motion-safe:animate-pulse" : ""}`}>
@@ -202,27 +238,31 @@ export function CampaignTable({ rows, results, resultsError, fetchedAt, pageId, 
                 <tr key={row.id} aria-current={selected ? "true" : undefined} aria-busy={busy[row.id] || undefined} className={selected ? "bg-[var(--ct-soft)]" : "hover:bg-[var(--ct-ground)]"}>
                   <td className={`${td} py-0`}>
                     <Switch
-                      row={row} pageName={pageName}
+                      row={row} pageName={pageName} disabled={Boolean(busy[row.id])}
                       onBusy={(b) => setBusy((m) => ({ ...m, [row.id]: b }))}
                       onError={(e) => setErrors((m) => ({ ...m, [row.id]: e }))}
                     />
                   </td>
                   <td className={`${td} min-w-[16rem]`}>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link href={open(row.id)} className="font-medium text-[var(--ct-accent)] hover:underline">{row.name}</Link>
+                      <Link href={open(row.id)} className="inline-flex min-h-11 items-center font-medium text-[var(--ct-accent)] hover:underline">{row.name}</Link>
                       <span className={`rounded-full px-2 py-0.5 text-xs ${state.tone}`}>{busy[row.id] ? "กำลังเปลี่ยน…" : state.label}</span>
                     </div>
                     <p className="mt-0.5 text-xs text-[var(--ct-mute)]">{row.planName}</p>
                     {error && <p role="alert" className="mt-1 break-words text-xs text-[var(--ct-alert)]">{error}</p>}
                   </td>
-                  <td className={numCell}>{row.drafts.toLocaleString("th-TH")} · {row.sent.toLocaleString("th-TH")}</td>
+                  <td className={numCell}>{row.unreadable ? <span className="text-[var(--ct-alert)]">อ่านไม่ได้</span> : `${row.drafts.toLocaleString("th-TH")} · ${row.sent.toLocaleString("th-TH")}`}</td>
                   <td className={numCell}>{line.budget}</td>
                   <td className={numCell}>{line.cells.spend}</td>
                   <td className={numCell}>{line.cells.impressions}</td>
                   <td className={numCell}>{line.cells.clicks}</td>
                   <td className={numCell}>{line.cells.messaging}</td>
                   <td className={numCell}>{line.cells.perChat}</td>
-                  <td className={`${td} py-0 text-right`}><RowMenu row={row} open={selected} pageId={pageId} /></td>
+                  <td className={`${td} py-0 text-right`}><RowMenu
+                      row={row} open={selected} pageId={pageId} disabled={Boolean(busy[row.id])}
+                      onBusy={(b) => setBusy((m) => ({ ...m, [row.id]: b }))}
+                      onError={(e) => setErrors((m) => ({ ...m, [row.id]: e }))}
+                    /></td>
                 </tr>
               );
             })}

@@ -19,6 +19,9 @@ export interface RowSend {
   accountName: string;
   /** how many of its ads were made on Meta */
   ads: number;
+  /** its Meta campaign and ad set are made */
+  hasMetaCampaign: boolean;
+  hasAdset: boolean;
 }
 
 /** One campaign of the table; `sends` are its live (not superseded) ones, newest first. */
@@ -29,6 +32,8 @@ export interface CampaignRow {
   drafts: number;
   sent: number;
   sends: RowSend[];
+  /** its pieces or sends could not be read: no counts, no sends, and the row says so */
+  unreadable?: true;
 }
 
 export const DASH = "—";
@@ -77,13 +82,28 @@ export function footLine(rows: CampaignRow[], results: Record<string, AdResult>)
 }
 
 /**
- * What the row's switch does: off pauses every send that is on; on switches on the newest send;
- * null when the campaign has no send (the switch is shut).
+ * A send the switch can turn on: its Meta campaign, ad set and at least one ad are made — the
+ * sent tab's เปิดใช้ทั้งชุด rule (sendButtons), for a send that is not on. A send short of them
+ * is refused by the server, so it is never the one picked.
+ */
+const activatable = (s: RowSend) => s.hasMetaCampaign && s.hasAdset && s.ads > 0;
+
+/**
+ * What the row's switch does: off pauses every send that is on; on switches on the newest send
+ * that can be; null when the campaign has none it could turn on or off (the switch is shut).
  */
 export function switchPlan(sends: RowSend[]): { kind: "pause"; sends: RowSend[] } | { kind: "activate"; send: RowSend } | null {
-  if (sends.length === 0) return null;
   const on = sends.filter(switchedOn);
-  return on.length > 0 ? { kind: "pause", sends: on } : { kind: "activate", send: sends[0] };
+  if (on.length > 0) return { kind: "pause", sends: on };
+  const next = sends.find(activatable);
+  return next ? { kind: "activate", send: next } : null;
+}
+
+/** Why the switch is shut, for its title; null when it is not. */
+export function switchShut(sends: RowSend[]): string | null {
+  if (switchPlan(sends)) return null;
+  if (sends.length === 0) return "ยังไม่มีแอดที่ส่งขึ้น Facebook — ส่งแอดจากแท็บโฆษณาก่อน จึงจะเปิด/หยุดได้";
+  return "ชุดที่ส่งไปยังสร้างแอดบน Facebook ไม่ครบ — กด “ลองใหม่” ในแท็บโฆษณา (ส่งแล้ว) ก่อน จึงจะเปิดใช้ได้";
 }
 
 /** The one question before the switch, in the sent tab's words (pauseQuestion / activateQuestion). */

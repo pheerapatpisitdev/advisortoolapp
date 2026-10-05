@@ -37,7 +37,7 @@ const plan = CONTENT_PRODUCTS[0];
 const piece = (id: string, status = "draft") => ({ id, status, output: {} });
 const item = (pieceId: string | null, adId: string | null) => ({ id: `i-${pieceId}-${adId}`, sendId: "S", pieceId, adId, error: null });
 const sendRow = (id: string, actId: string, items: ReturnType<typeof item>[], on: boolean) => ({
-  id, actId, dailyBudgetMinor: 15000, activatedAt: on ? "2026-10-04T01:00:00Z" : null, pausedAt: null, items,
+  id, actId, dailyBudgetMinor: 15000, metaCampaignId: on ? "MC" : null, adsetId: on ? "AS" : null, activatedAt: on ? "2026-10-04T01:00:00Z" : null, pausedAt: null, items,
 });
 
 beforeEach(() => {
@@ -68,8 +68,8 @@ describe("campaignRows", () => {
       {
         id: "C1", name: plan.name, planName: plan.name, drafts: 1, sent: 3,
         sends: [
-          { id: "S2", activatedAt: null, pausedAt: null, dailyBudgetMinor: 15000, accountName: "act_9", ads: 0 },
-          { id: "S1", activatedAt: "2026-10-04T01:00:00Z", pausedAt: null, dailyBudgetMinor: 15000, accountName: "บัญชี A (act_1)", ads: 2 },
+          { id: "S2", activatedAt: null, pausedAt: null, dailyBudgetMinor: 15000, accountName: "act_9", ads: 0, hasMetaCampaign: false, hasAdset: false },
+          { id: "S1", activatedAt: "2026-10-04T01:00:00Z", pausedAt: null, dailyBudgetMinor: 15000, accountName: "บัญชี A (act_1)", ads: 2, hasMetaCampaign: true, hasAdset: true },
         ],
       },
       { id: "C2", name: "ของฉัน", planName: "/no-such-plan", drafts: 0, sent: 0, sends: [] },
@@ -88,8 +88,19 @@ describe("campaignRows", () => {
     await expect(campaignRows("P1")).rejects.toThrow();
   });
 
+  it("one campaign that cannot be read is a row saying so; the others still come", async () => {
+    sends.listSends.mockImplementation(async (id: string) => { if (id === "C1") throw new Error("boom"); return []; });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await campaignRows("P1");
+    err.mockRestore();
+    expect(res.ok && res.rows).toEqual([
+      { id: "C1", name: plan.name, planName: plan.name, drafts: 0, sent: 0, sends: [], unreadable: true },
+      { id: "C2", name: "ของฉัน", planName: "/no-such-plan", drafts: 0, sent: 0, sends: [] },
+    ]);
+  });
+
   it("says something broke without the detail", async () => {
-    sends.listSends.mockRejectedValue(new Error("boom: secret detail"));
+    camps.listCampaigns.mockRejectedValue(new Error("boom: secret detail"));
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await campaignRows("P1");
     expect(res.ok).toBe(false);
