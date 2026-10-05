@@ -26,6 +26,8 @@ describe("the kind as sent", () => {
 
   it("names a shorter kind on the list's chips, and not the long ad", () => {
     expect(kindChip({ kind: "knowledge", sub: "checklist" })).toBe("ความรู้ · เช็กลิสต์ก่อนซื้อ");
+    expect(kindChip({ kind: "claim" })).toBe("รีวิวเคลม");
+    expect(adKind("claim")).toBe("claim");
     expect(kindChip(null)).toBeNull();
     expect(rowChips({ sex: "F", age: 30, head: null, kind: "numbers" })).toEqual(["ตัวเลขชัดๆ", "หญิง · อายุ 30"]);
     expect(rowChips({ sex: "F", age: 30, head: null })).toEqual(["หญิง · อายุ 30"]);

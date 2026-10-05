@@ -264,7 +264,7 @@ export function claimAngleLines(steer: ClaimSteer, count: number): { label: stri
   });
 }
 
-const WRITE_RULES = [
+export const WRITE_RULES = [
   "กฎที่ห้ามละเมิด:",
   "1. ใช้เฉพาะข้อเท็จจริงใน “ข้อมูลการเคลม” ห้ามเติมอาการ เหตุการณ์ ความรู้สึก หรือรายละเอียดที่ไม่มีในนั้น",
   "2. ตัวเลขทุกตัวต้องคัดลอกจากข้อมูลการเคลมตรงตัว ห้ามคำนวณ ห้ามปัดเศษ ห้ามบวกลบ ถ้าไม่มีตัวเลขที่ต้องการให้เขียนโดยไม่ใส่ตัวเลข",
@@ -278,14 +278,14 @@ const WRITE_RULES = [
   POLICY_RULES_TH,
 ].join("\n");
 
-const POSTER_LINES = [
+export const POSTER_LINES = [
   "- imagePrompt: ภาพพื้นหลังหลังรูปเอกสาร เป็นภาษาอังกฤษ 1–2 ประโยค คนไทย แสงธรรมชาติ บรรยากาศโล่งใจ อบอุ่น เช่น ครอบครัวยิ้มอยู่ด้วยกันที่บ้าน หรือห้องพักฟื้นที่สว่างสงบ ห้ามมีตัวหนังสือ ห้ามมีเอกสาร ห้ามภาพคนป่วยหนักหรือเลือด",
   "- poster.headline: ข้อความบนภาพไม่เกิน 50 ตัวอักษร ใจความเดียว เช่น “นอนโรงพยาบาล 3 คืน ไม่ต้องสำรองจ่าย” ตัวเลขต้องมาจากข้อมูลตรงตัว ไม่ต้องใส่ยอดที่ประกันจ่าย เพราะระบบวางยอดนี้ไว้ในแถบเหลืองใต้พาดหัวให้แล้ว",
   "- poster.footer: ไม่เกิน 40 ตัวอักษร เช่น ชวนทักแชท",
   "- poster.theme เลือกโทนสีหนึ่งจากรายการนี้:",
   ...THEMES.filter((t) => t !== "photo").map((t) => `    ${t} — ${THEME_MOOD[t]}`),
 ];
-const POSTER_SHAPE = '"imagePrompt":"…","poster":{"theme":"navy","headline":"…","footer":"…"}';
+export const POSTER_SHAPE = '"imagePrompt":"…","poster":{"theme":"navy","headline":"…","footer":"…"}';
 
 const LENGTH_LABEL: Record<Length, string> = { "30": "30 วินาที", "60": "60 วินาที", "180": "2–3 นาที" };
 

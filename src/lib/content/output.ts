@@ -74,7 +74,9 @@ export interface ContentOutput {
    */
   ad?: {
     angle: string; tone: string; reader?: string; age?: number; sex?: "F" | "M"; head?: string; hook?: string; persona?: string; style?: string; combo?: string;
-    kind?: "numbers" | "knowledge" | "story"; sub?: "myth" | "faq" | "checklist";
+    kind?: "numbers" | "knowledge" | "story" | "claim"; sub?: "myth" | "faq" | "checklist";
+    /** a รีวิวเคลม ad that carries its plan's premium table after the story */
+    claimTable?: boolean;
   };
   /** who drew the photograph behind the poster, as the card names it ("GPT Image HD") */
   pictureBy?: string;

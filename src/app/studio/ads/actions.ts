@@ -140,7 +140,7 @@ export interface LaunchPiece {
   ad: {
     angle: string; tone: string; reader: string; age: number | null; sex: "F" | "M" | null; head: string | null;
     /** a shorter kind of ad (ad-kind.ts) and a knowledge ad's sub-kind; absent on a long ad */
-    kind?: "numbers" | "knowledge" | "story"; sub?: "myth" | "faq" | "checklist";
+    kind?: "numbers" | "knowledge" | "story" | "claim"; sub?: "myth" | "faq" | "checklist";
   } | null;
   /** Facebook's advertising rules it trips (empty on pieces written before the rules were checked), and amounts not in the brief */
   flags: { policy: PolicyFinding[]; numbers: string[] };

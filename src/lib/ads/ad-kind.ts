@@ -6,10 +6,11 @@
  * 1. long — แอดยาว + ตารางเบี้ย, the long ad as it always was;
  * 2. numbers — ตัวเลขชัดๆ, a short ad on the headline's figures alone, its poster the numbers poster;
  * 3. knowledge — ความรู้: a myth put right, an FAQ or a checklist before buying (`sub`);
- * 4. story — เล่าเป็นเรื่อง, a short imagined situation turning to the plan.
+ * 4. story — เล่าเป็นเรื่อง, a short imagined situation turning to the plan;
+ * 5. claim — รีวิวเคลม, a real claim told from the customer's documents (spec 2026-10-06 claim review).
  */
 
-export const AD_KINDS = ["long", "numbers", "knowledge", "story"] as const;
+export const AD_KINDS = ["long", "numbers", "knowledge", "story", "claim"] as const;
 export type AdKind = (typeof AD_KINDS)[number];
 
 export const KNOWLEDGE_SUBS = ["myth", "faq", "checklist"] as const;
@@ -20,6 +21,7 @@ export const KIND_LABEL: Record<AdKind, string> = {
   numbers: "ตัวเลขชัดๆ",
   knowledge: "ความรู้",
   story: "เล่าเป็นเรื่อง",
+  claim: "รีวิวเคลม",
 };
 
 export const SUB_LABEL: Record<KnowledgeSub, string> = {
