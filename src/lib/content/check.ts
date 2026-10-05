@@ -49,6 +49,9 @@ interface Amount {
   value: number;
   /** said as money or a percentage, rather than a bare count */
   priced: boolean;
+  /** where it starts and ends in the text */
+  at: number;
+  end: number;
 }
 
 function amounts(text: string): Amount[] {
@@ -57,7 +60,8 @@ function amounts(text: string): Amount[] {
   for (const m of stripMarkers(arabic(text)).matchAll(AMOUNT)) {
     const n = Number(m[2].replace(/,/g, ""));
     if (!Number.isFinite(n)) continue;
-    out.push({ raw: text.slice(m.index, m.index + m[0].length).trim(), value: n * (m[3] ? (UNIT[m[3]] ?? UNIT[m[3].toLowerCase()]) : 1), priced: Boolean(m[1] || m[4]) });
+    const end = m.index + m[0].trimEnd().length;
+    out.push({ raw: text.slice(m.index, end).trim(), value: n * (m[3] ? (UNIT[m[3]] ?? UNIT[m[3].toLowerCase()]) : 1), priced: Boolean(m[1] || m[4]), at: m.index, end });
   }
   return out;
 }
@@ -99,6 +103,47 @@ export function strayNumbers(output: string, brief: string, opts: { every?: bool
 export function sameFigures(text: string, values: number[]): string[] {
   const banned = new Set(values.map(key));
   return [...new Set(amounts(text).filter((a) => banned.has(key(a.value))).map((a) => a.raw))];
+}
+
+/**
+ * A word that makes the amount after it a premium, with at most a few letters between them and
+ * no digit: "เบี้ยเฉลี่ยวันละ 20", "เบี้ย 4,914", "ตกเดือนละ 1,800", "วันละ 48".
+ */
+const PREMIUM_LEAD = /(เบี้ย|ตกวันละ|ตกเดือนละ|วันละ|เดือนละ|ต่อเดือน|ต่อปี)[^\d\n]{0,12}$/;
+/** what after an amount makes it a premium: "1,548 บาท/เดือน", "43,200 บาท ต่อปี" */
+const PREMIUM_TAIL = /^\s*(?:\/|ต่อ)\s*(?:เดือน|ปี)/;
+/** "6 ปี", "3 เดือน", "30 วัน": a length of time, even straight after เบี้ย ("จ่ายเบี้ยแค่ 6 ปี") */
+const DURATION = /^\s*(?:ปี|เดือน|วัน|งวด|ครั้ง|เท่า|แผน)/;
+/**
+ * Money paid out rather than paid in, said by the day, month or year: "ชดเชยนอนโรงพยาบาลวันละ
+ * 1,000 บาท", "บำนาญเดือนละ 10,000 บาท". Only วันละ, เดือนละ and ต่อ… give way to these — an
+ * amount after เบี้ย or ตก… is a premium whatever came before.
+ */
+const BENEFIT = /ชดเชย|บำนาญ|ค่ารักษา|ค่าห้อง|รายได้|ลดหย่อน|เงินคืน|รับเงิน|วงเงิน/;
+
+/**
+ * The amounts in a text said as a premium: next to เบี้ย, วันละ, เดือนละ, ต่อเดือน, ต่อปี, /เดือน,
+ * /ปี, ตกวันละ or ตกเดือนละ. Coverage, ages, counts and percentages are not, and neither is a
+ * benefit paid by the day or the month. A long ad's model may write none of these, true or not:
+ * the code prints every premium (spec 2026-10-05, "AI never writes a premium").
+ */
+export function premiumAmounts(text: string): string[] {
+  const out: string[] = [];
+  for (const a of amounts(text)) {
+    if (a.raw.endsWith("%")) continue;
+    const after = text.slice(a.end);
+    if (DURATION.test(after) && !/บาท|฿|THB/i.test(a.raw)) continue;
+    const lineStart = text.lastIndexOf("\n", a.at - 1) + 1;
+    const before = text.slice(lineStart, a.at);
+    const lead = PREMIUM_LEAD.exec(before);
+    // the words just before the premium word, or before the amount when only its tail says so
+    const context = before.slice(Math.max(0, (lead ? lead.index : before.length) - 24), lead ? lead.index : before.length);
+    const premium = lead
+      ? /^(เบี้ย|ตก)/.test(lead[1]) || !BENEFIT.test(context)
+      : PREMIUM_TAIL.test(after) && !BENEFIT.test(context);
+    if (premium) out.push(a.raw);
+  }
+  return [...new Set(out)];
 }
 
 /** float-safe identity for an amount: 3.38 and 3.380 are the same figure */

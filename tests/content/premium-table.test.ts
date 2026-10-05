@@ -3,14 +3,16 @@ import { definePlan, money, type NumberSheet } from "@/lib/content/numbers";
 import { NUMBERS_PLANS } from "@/lib/content/numbers-plans";
 import { getBundle } from "@/calc/bundles/registry";
 import { CONTENT_PRODUCTS } from "@/lib/content/products";
-import { hasLadder, headlineFigures, premiumTable, premiumTableOf, restatedFigures, tableCells, tableText } from "@/lib/content/premium-table";
+import { hasLadder, headlineFigures, headlineOwner, premiumTable, premiumTableOf, restatedFigures, tableCells, tableText } from "@/lib/content/premium-table";
 
 const today = new Date("2026-10-05");
 
 describe("the premium table", () => {
-  it("every NUMBERS_PLANS href has a ladder with 4 rungs", () => {
+  it("every NUMBERS_PLANS href has a ladder of 4 rungs, Life Protect's of 6", () => {
+    // Life Protect's doubled cover reads 500,000 to 5,000,000 (owner, 2026-10-05); the rest keep four
+    const rungs: Record<string, number> = { "/lifeprotect": 6 };
     for (const [href, plan] of Object.entries(NUMBERS_PLANS)) {
-      expect(plan.ladder?.rungs, href).toBe(4);
+      expect(plan.ladder?.rungs, href).toBe(rungs[href] ?? 4);
     }
   });
 
@@ -27,7 +29,7 @@ describe("the premium table", () => {
   it("every plan prices every rung at 30 for both sexes", () => {
     for (const href of Object.keys(NUMBERS_PLANS)) {
       const t = premiumTable(href, 30, today)!;
-      expect(t.rows, href).toHaveLength(4);
+      expect(t.rows, href).toHaveLength(NUMBERS_PLANS[href].ladder!.rungs);
       for (const r of t.rows) {
         expect(r.female, href).not.toBeNull();
         expect(r.male, href).not.toBeNull();
@@ -77,7 +79,7 @@ describe("the premium table", () => {
     for (const href of Object.keys(NUMBERS_PLANS)) {
       for (let age = 0; age <= 80 && !found; age++) {
         const t = premiumTable(href, age, today);
-        if (t && t.rows.length < 4) {
+        if (t && t.rows.length < NUMBERS_PLANS[href].ladder!.rungs) {
           expect(t.rows.length).toBeGreaterThan(0);
           found = true;
         }
@@ -118,6 +120,36 @@ describe("the premium table", () => {
     expect(headlineFigures(t)).toBe("P\n💁‍♀️ A (เบี้ยรวม X)\n💰 เบี้ยปีแรก 100 บาท/ปี (ตกเดือนละ 9) (หญิง อายุ 30 ปี)");
   });
 
+  it("headlineFigures takes the owner's row and sex: a man of 35 on Life Protect's 1,000,000 cover", () => {
+    const t = premiumTable("/lifeprotect", 35, today)!;
+    const rung = t.rows.findIndex((r) => r.heading === "ประกันชีวิตคุ้มครอง 1,000,000 บาท");
+    expect(rung).toBe(1);
+    const male = t.rows[rung].male!;
+    expect(headlineFigures(t, { sex: "M", rung })).toBe([
+      "Life Protect x 2",
+      "💁‍♀️ ประกันชีวิตคุ้มครอง 1,000,000 บาท (ทุน 500,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      `💰 เบี้ย ${money(male)} บาท/ปี (ตกเดือนละ ${money(Math.ceil(male / 12))}) (ชาย อายุ 35 ปี)`,
+    ].join("\n"));
+  });
+
+  it("headlineFigures falls back to the other sex where the chosen one is not priced, and says whose it is", () => {
+    const t = { product: "P", age: 40, term: "x", firstYear: false, rows: [{ heading: "A", female: 1200, male: null }] };
+    expect(headlineFigures(t, { sex: "M", rung: 0 })).toBe("P\n💁‍♀️ A\n💰 เบี้ย 1,200 บาท/ปี (ตกเดือนละ 100) (หญิง อายุ 40 ปี)");
+  });
+
+  it("a rung off the table is the middle row", () => {
+    const t = premiumTable("/lifeprotect", 30, today)!;
+    for (const rung of [-1, 6, 2.5, Number.NaN]) expect(headlineFigures(t, { sex: "F", rung }), String(rung)).toBe(headlineFigures(t));
+  });
+
+  it("headlineOwner names whose ad it is: the sex the headline shows, the age, the row with its note", () => {
+    const t = premiumTable("/lifeprotect", 35, today)!;
+    expect(headlineOwner(t, { sex: "M", rung: 1 })).toEqual({
+      sex: "M", rung: 1, heading: "ประกันชีวิตคุ้มครอง 1,000,000 บาท",
+      line: "ชาย อายุ 35 ปี · ประกันชีวิตคุ้มครอง 1,000,000 บาท (ทุน 500,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+    });
+  });
+
   it("the term passes through lifelong()", () => {
     const t = premiumTable("/lifeprotect", 30, today)!;
     expect(t.term).toContain("ตลอดชีพ");
@@ -126,36 +158,58 @@ describe("the premium table", () => {
 });
 
 describe("a table never shows a sum without its condition — final review 1 and 2", () => {
-  it("Life Protect x 2 at 30: each doubled cover says it is the sum × 2 before 60, and so does the headline", () => {
+  it("Life Protect x 2 at 30: six rows whose doubled cover reads 500,000 to 5,000,000, each saying it is the sum × 2 before 60", () => {
     const t = premiumTable("/lifeprotect", 30, today)!;
+    expect(t.rows.map((r) => r.heading)).toEqual([500_000, 1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000].map((n) => `ประกันชีวิตคุ้มครอง ${money(n)} บาท`));
+    for (const r of t.rows) expect(r.note).toMatch(/^ทุน [\d,]+ บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60$/);
     expect(tableText(t)).toBe([
       "จ่าย 19 ปี คุ้มครองตลอดชีพ (อายุ 30 ปี)",
+      "",
+      "ประกันชีวิตคุ้มครอง 500,000 บาท",
+      "(ทุน 250,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "🙆‍♀️ หญิง = 5,400 บาท/ปี (ตกเดือนละ 450)",
+      "🕵️‍♂️ ชาย = 6,350 บาท/ปี (ตกเดือนละ 530)",
+      "",
+      "ประกันชีวิตคุ้มครอง 1,000,000 บาท",
+      "(ทุน 500,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "🙆‍♀️ หญิง = 10,800 บาท/ปี (ตกเดือนละ 900)",
+      "🕵️‍♂️ ชาย = 12,700 บาท/ปี (ตกเดือนละ 1,059)",
       "",
       "ประกันชีวิตคุ้มครอง 2,000,000 บาท",
       "(ทุน 1,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
       "🙆‍♀️ หญิง = 21,600 บาท/ปี (ตกเดือนละ 1,800)",
       "🕵️‍♂️ ชาย = 25,400 บาท/ปี (ตกเดือนละ 2,117)",
       "",
+      "ประกันชีวิตคุ้มครอง 3,000,000 บาท",
+      "(ทุน 1,500,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "🙆‍♀️ หญิง = 32,400 บาท/ปี (ตกเดือนละ 2,700)",
+      "🕵️‍♂️ ชาย = 38,100 บาท/ปี (ตกเดือนละ 3,175)",
+      "",
       "ประกันชีวิตคุ้มครอง 4,000,000 บาท",
       "(ทุน 2,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
       "🙆‍♀️ หญิง = 43,200 บาท/ปี (ตกเดือนละ 3,600)",
       "🕵️‍♂️ ชาย = 50,800 บาท/ปี (ตกเดือนละ 4,234)",
       "",
-      "ประกันชีวิตคุ้มครอง 6,000,000 บาท",
-      "(ทุน 3,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
-      "🙆‍♀️ หญิง = 64,800 บาท/ปี (ตกเดือนละ 5,400)",
-      "🕵️‍♂️ ชาย = 76,200 บาท/ปี (ตกเดือนละ 6,350)",
-      "",
-      "ประกันชีวิตคุ้มครอง 10,000,000 บาท",
-      "(ทุน 5,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
-      "🙆‍♀️ หญิง = 108,000 บาท/ปี (ตกเดือนละ 9,000)",
-      "🕵️‍♂️ ชาย = 127,000 บาท/ปี (ตกเดือนละ 10,584)",
+      "ประกันชีวิตคุ้มครอง 5,000,000 บาท",
+      "(ทุน 2,500,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "🙆‍♀️ หญิง = 54,000 บาท/ปี (ตกเดือนละ 4,500)",
+      "🕵️‍♂️ ชาย = 63,500 บาท/ปี (ตกเดือนละ 5,292)",
     ].join("\n"));
+    // the middle row by default, a woman's premium first
     expect(headlineFigures(t)).toBe([
       "Life Protect x 2",
-      "💁‍♀️ ประกันชีวิตคุ้มครอง 4,000,000 บาท (ทุน 2,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
-      "💰 เบี้ย 43,200 บาท/ปี (ตกเดือนละ 3,600) (หญิง อายุ 30 ปี)",
+      "💁‍♀️ ประกันชีวิตคุ้มครอง 2,000,000 บาท (ทุน 1,000,000 บาท × 2 เมื่อเสียชีวิตก่อนอายุ 60)",
+      "💰 เบี้ย 21,600 บาท/ปี (ตกเดือนละ 1,800) (หญิง อายุ 30 ปี)",
     ].join("\n"));
+  });
+
+  it("Life Protect x 2's smallest base sum is one the company sells (150,000 and up)", () => {
+    const plan = NUMBERS_PLANS["/lifeprotect"];
+    for (let r = 0; r < plan.ladder!.rungs; r++) {
+      const sheet = plan.ladder!.price(r, "F", 30, today)!;
+      const base = Number(/ทุน ([\d,]+) บาท/.exec(sheet.sumNote ?? "")![1].replace(/,/g, ""));
+      expect(base).toBeGreaterThanOrEqual(150_000);
+    }
   });
 
   it("Life Protect x 2 past the booster age shows the plain sum, with no note", () => {
@@ -255,6 +309,24 @@ describe("the model's own words — final review 4", () => {
     expect(restatedFigures("คุ้มครองสูงสุด 4 ล้าน ถ้าจากไปก่อนอายุ 60", "Life Protect x 2 ทุน 1 ล้าน", lp)).toEqual([]);
     // the table's premiums stay off limits in the model's words
     expect(restatedFigures("คุ้มครอง 4 ล้าน เบี้ย 43,200 บาท/ปี", "Life Protect x 2", lp)).toEqual(["43,200 บาท"]);
+  });
+
+  it("flag any amount next to a premium word in the model's own words, even one the brief has — the 2026-10-05 ad", () => {
+    const lp = premiumTable("/lifeprotect", 30, today)!;
+    const brief = "ผู้หญิงอายุ 35 ทุน 500,000 บาท เบี้ยเฉลี่ยวันละ 20 บาท\nผู้ชายอายุ 35 ทุน 1,000,000 บาท จ่ายตลอดชีพ: เบี้ย 1,548 บาท/เดือน (เฉลี่ยวันละ 48 บาท)";
+    expect(restatedFigures("เริ่มต้นเบี้ยเฉลี่ยวันละ 20 บาท", brief, lp)).toEqual(["20 บาท"]);
+    expect(restatedFigures("🥇 เบี้ยเดือนละ 1,548 บาท", brief, lp)).toEqual(["1,548 บาท"]);
+    expect(restatedFigures("ชายอายุ 35 ปี ทุน 1,000,000 คุ้มครองครอบครัว วันละ 48 บาท", brief, lp)).toEqual(["48 บาท"]);
+    expect(restatedFigures("จ่ายแค่ 1,548 บาท/เดือน", brief, lp)).toEqual(["1,548 บาท"]);
+  });
+
+  it("but not coverage, an age or a count beside no premium word", () => {
+    const lp = premiumTable("/lifeprotect", 30, today)!;
+    const brief = "ทุนสองเท่าถ้าเสียชีวิตก่อนอายุ 60 · ทุน 1,000,000 บาท · จ่ายจบได้ใน 9 หรือ 19 ปี · เบี้ยเท่าเดิมทุกปี";
+    expect(restatedFigures("คุ้มครอง 1,000,000 บาท ถ้าจากไปก่อนอายุ 60", brief, lp)).toEqual([]);
+    expect(restatedFigures("เบี้ยเท่าเดิมทุกปี จ่ายจบได้ใน 9 หรือ 19 ปี", brief, lp)).toEqual([]);
+    const cancer = premiumTable("/cancer", 30, today)!;
+    expect(restatedFigures("ชดเชยนอนโรงพยาบาลวันละ 1,000 บาท", "ชดเชยนอนโรงพยาบาลวันละ 1,000–10,000 บาท", cancer)).toEqual([]);
   });
 
   it("leave coverage named from the brief alone", () => {

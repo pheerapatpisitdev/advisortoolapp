@@ -30,6 +30,7 @@ import { graph } from "@/lib/ads/graph";
 import { listLeadForms, type LeadForms } from "@/lib/ads/lead-forms";
 import { briefPick, painterPick, personPick, writerPick } from "@/lib/ads/picture-picks";
 import { contentProduct } from "@/lib/content/products";
+import { middleRung, premiumTable } from "@/lib/content/premium-table";
 import type { PiecePerson } from "@/lib/content/people";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
 import type { PolicyFinding } from "@/lib/content/policy";
@@ -122,10 +123,11 @@ export interface LaunchPiece {
   person: PiecePerson | null;
   /**
    * the angle and tone it was written in, as labels (a long ad has no tone), who it was written
-   * for, and the age its premium table is priced at (null before the table); null on pieces
-   * written before the grid
+   * for, the age its premium table is priced at (null before the table), and whose premium its
+   * headline shows on which row (null before the owner could pick them); null on pieces written
+   * before the grid
    */
-  ad: { angle: string; tone: string; reader: string; age: number | null } | null;
+  ad: { angle: string; tone: string; reader: string; age: number | null; sex: "F" | "M" | null; head: string | null } | null;
   /** Facebook's advertising rules it trips; empty on pieces written before the rules were checked */
   flags: { policy: PolicyFinding[] };
   /** the newest live launch of the piece in any account */
@@ -507,7 +509,10 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
       poster: p.output.poster ?? null,
       person: p.output.person ?? null,
       ad: p.output.ad
-        ? { angle: p.output.ad.angle, tone: p.output.ad.tone, reader: p.output.ad.reader ?? "", age: p.output.ad.age ?? null }
+        ? {
+          angle: p.output.ad.angle, tone: p.output.ad.tone, reader: p.output.ad.reader ?? "", age: p.output.ad.age ?? null,
+          sex: p.output.ad.sex ?? null, head: p.output.ad.head ?? null,
+        }
         : null,
       flags: { policy: p.flags?.policy ?? [] },
       launch: launches[i][0] ?? null,
@@ -525,6 +530,29 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
     };
   } catch (e) {
     console.error("adCampaignRoom failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/**
+ * The rows of a campaign's premium table at an age, for the writing form's ทุนในหัวแอด (owner,
+ * 2026-10-05): each row's heading by its index, which is what the round's `rung` is, and the
+ * middle one, the headline's when none is picked. The tables' rates are too big to send to the
+ * browser, so the form asks here when the age changes.
+ */
+export async function tableRows(
+  campaignId: string, age: number,
+): Promise<{ ok: true; rows: { index: number; heading: string }[]; middle: number } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  if (!Number.isInteger(age) || age < 0 || age > 80) return { ok: false, error: "ใส่อายุเป็นจำนวนเต็ม 0–80" };
+  try {
+    const campaign = await getCampaign(campaignId);
+    if (!campaign) return { ok: false, error: NO_CAMPAIGN };
+    const table = premiumTable(campaign.planHref, age);
+    if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
+    return { ok: true, rows: table.rows.map((r, index) => ({ index, heading: r.heading })), middle: middleRung(table.rows.length) };
+  } catch (e) {
+    console.error("tableRows failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
   }
 }

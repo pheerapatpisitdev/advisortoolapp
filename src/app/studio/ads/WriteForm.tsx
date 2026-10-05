@@ -5,6 +5,7 @@ import { anglesFor, MAX_READER, NICHES, type AngleId } from "@/lib/content/promp
 import { adRoundCost } from "@/lib/ads/picture-picks";
 import { tableAge } from "@/lib/ads/room-view";
 import { PressBar } from "../ui/form-parts";
+import { tableRows } from "./actions";
 import { chip, field } from "./styles";
 
 /**
@@ -14,20 +15,35 @@ import { chip, field } from "./styles";
  *   take it, with different openings), or the owner's own words;
  * - คนอ่านคือใคร: ทุกคน, a niche, or typed;
  * - อายุในตารางเบี้ย: the age every ad's premium table is priced at, kept in this browser;
+ * - เพศในหัวแอด and ทุนในหัวแอด (2026-10-05): whose premium the headline shows, and which row of
+ *   the table it names — the rows asked of the server for the age (the rates are too big for the
+ *   browser), the middle one until another is picked. The table itself still prints every row;
  * - the press, pinned at the column's foot: − / + for 1–4 ads, what the round costs about, and
  *   สร้าง N โฆษณา. The folds handed in (`children`) sit between the fields and the press, so the
  *   press stays the last thing in the column.
  * The plan, Page, focus, voice and ภาพและโมเดล are the campaign's; the server reads them there.
  */
 
-export interface WriteInput { angle: AngleId; custom: string; reader: string; age: number; count: number }
+export interface WriteInput {
+  angle: AngleId; custom: string; reader: string; age: number; count: number;
+  /** whose premium the headline shows */
+  sex: "F" | "M";
+  /** the table row the headline names, an index into its rows; absent for the middle one */
+  rung?: number;
+}
+
+/** the table's rows at an age, as the server gave them, or why there are none */
+type Rows = { age: number; rows: { index: number; heading: string }[]; middle: number; error: string | null };
 
 const MAX_COUNT = 4;
 const CUSTOM_MAX = 120;
 const AGE_KEY = "ads-table-age";
 const AGE_DEFAULT = "30";
+/** how long the age must rest before its rows are asked for */
+const ROWS_WAIT_MS = 300;
 
-export function WriteForm({ planHref, picks, writing, disabled, warning = null, folded, onWrite, children }: {
+export function WriteForm({ campaignId, planHref, picks, writing, disabled, warning = null, folded, onWrite, children }: {
+  campaignId: string;
   planHref: string;
   /** the campaign's saved writer, painter and person, for the price */
   picks: { writer: string | null; painter: string | null; person: PiecePerson | null };
@@ -48,6 +64,10 @@ export function WriteForm({ planHref, picks, writing, disabled, warning = null, 
   const [reader, setReader] = useState("");
   const [ageText, setAgeText] = useState(AGE_DEFAULT);
   const [count, setCount] = useState(2);
+  const [sex, setSex] = useState<"F" | "M">("F");
+  /** the picked row's heading, so a pick survives an age whose table drops a row; null is the middle row */
+  const [head, setHead] = useState<string | null>(null);
+  const [rows, setRows] = useState<Rows | null>(null);
 
   // the age last used in this browser; the server render starts at 30
   useEffect(() => {
@@ -63,6 +83,24 @@ export function WriteForm({ planHref, picks, writing, disabled, warning = null, 
     try { localStorage.setItem(AGE_KEY, v.trim()); } catch { /* not kept */ }
   };
 
+  // the table's rows for the age, once it has rested; a stale answer is dropped
+  useEffect(() => {
+    if (age === null) return;
+    let live = true;
+    const wait = window.setTimeout(() => {
+      tableRows(campaignId, age)
+        .then((r) => {
+          if (!live) return;
+          setRows(r.ok ? { age, rows: r.rows, middle: r.middle, error: null } : { age, rows: [], middle: 0, error: r.error });
+        })
+        .catch(() => { if (live) setRows({ age, rows: [], middle: 0, error: "โหลดรายการทุนไม่ได้ หัวแอดจะใช้แถวกลางของตาราง" }); });
+    }, ROWS_WAIT_MS);
+    return () => { live = false; window.clearTimeout(wait); };
+  }, [campaignId, age]);
+  const shownRows = rows && rows.age === age ? rows : null;
+  const picked = shownRows ? shownRows.rows.findIndex((r) => r.heading === head) : -1;
+  const rung = shownRows && shownRows.rows.length > 0 ? (picked >= 0 ? picked : shownRows.middle) : undefined;
+
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
     if (!writing) { setSeconds(0); return; }
@@ -72,9 +110,11 @@ export function WriteForm({ planHref, picks, writing, disabled, warning = null, 
   }, [writing]);
 
   const customMissing = angle === "custom" && !custom.trim();
+  // the press waits for the age's rows, so the row sent is one of the table the server prices
+  const rowsPending = age !== null && shownRows === null;
   const press = () => {
-    if (age === null || customMissing) return;
-    onWrite({ angle, custom: angle === "custom" ? custom.trim() : "", reader: reader.trim(), age, count });
+    if (age === null || customMissing || rowsPending) return;
+    onWrite({ angle, custom: angle === "custom" ? custom.trim() : "", reader: reader.trim(), age, count, sex, ...(rung === undefined ? {} : { rung }) });
   };
 
   return (
@@ -126,6 +166,30 @@ export function WriteForm({ planHref, picks, writing, disabled, warning = null, 
               {age === null ? "ใส่อายุเป็นจำนวนเต็ม 0–80" : "ทุกแอดในรอบนี้คิดเบี้ยที่อายุนี้ ทั้งหญิงและชาย ระบบจำไว้ให้"}
             </span>
           </label>
+
+          <div>
+            <div role="group" aria-labelledby={`${formId}-sex`}>
+              <span id={`${formId}-sex`} className="mb-1.5 block text-sm font-medium">เพศในหัวแอด</span>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" aria-pressed={sex === "F"} onClick={() => setSex("F")} className={chip(sex === "F")}>หญิง</button>
+                <button type="button" aria-pressed={sex === "M"} onClick={() => setSex("M")} className={chip(sex === "M")}>ชาย</button>
+              </div>
+            </div>
+            <label className="mt-3 block">
+              <span className="mb-1 block text-sm font-medium">ทุนในหัวแอด</span>
+              <select
+                value={rung ?? ""} onChange={(e) => setHead(shownRows?.rows[Number(e.target.value)]?.heading ?? null)}
+                disabled={!shownRows || shownRows.rows.length === 0} className={field}
+              >
+                {!shownRows || shownRows.rows.length === 0
+                  ? <option value="">{age !== null && !shownRows ? "กำลังโหลด…" : "—"}</option>
+                  : shownRows.rows.map((r) => <option key={r.index} value={r.index}>{r.heading}</option>)}
+              </select>
+            </label>
+            <span className={`mt-1 block text-xs ${shownRows?.error ? "font-medium text-[var(--ct-alert)]" : "text-[var(--ct-mute)]"}`}>
+              {shownRows?.error ?? "หัวแอดใช้ทุนและเพศนี้ — ตารางยังแสดงครบทุกแถว"}
+            </span>
+          </div>
         </fieldset>
       </div>
 
@@ -135,7 +199,7 @@ export function WriteForm({ planHref, picks, writing, disabled, warning = null, 
         count={count} max={MAX_COUNT} onCount={setCount} unit="แอด"
         label={writing ? "กำลังสร้างแอด…" : `สร้าง ${count} โฆษณา`}
         onPress={press}
-        disabled={writing || disabled || age === null || customMissing}
+        disabled={writing || disabled || age === null || customMissing || rowsPending}
         note={writing
           ? `กำลังเขียน ${seconds} วินาที${seconds > 60 ? " — นานกว่าปกติ แต่ยังทำงานอยู่" : " (ปกติ 20–40 วินาที)"}`
           : `${adRoundCost(count, picks)} รวมวาดรูป · ราว 20–40 วินาที`}

@@ -16,7 +16,13 @@ export const lifeProtectNumbers = definePlan<{ sex: Sex; age: number; sum: numbe
     { sex: "F", age: 30, sum: 500_000, term: "WLF19H" },
     { sex: "M", age: 45, sum: 1_000_000, term: "WLF19H" },
   ],
-  ladder: { term: "จ่าย 19 ปี คุ้มครองถึงอายุ 99", firstYear: false, rungs: [1, 2, 3, 5].map((m) => ({ sum: m * 1_000_000, term: "WLF19H" })) },
+  // six rungs whose doubled cover reads 500,000 to 5,000,000 (owner, 2026-10-05): the ad's
+  // headline can then name the cover a reader asks for; the company's smallest sum is 150,000
+  ladder: {
+    term: "จ่าย 19 ปี คุ้มครองถึงอายุ 99",
+    firstYear: false,
+    rungs: [250_000, 500_000, 1_000_000, 1_500_000, 2_000_000, 2_500_000].map((sum) => ({ sum, term: "WLF19H" })),
+  },
   claims: [
     "เบี้ยไม่เพิ่ม",
     "เบี้ยไม่ทิ้ง คุ้มครองถึงอายุ 99",

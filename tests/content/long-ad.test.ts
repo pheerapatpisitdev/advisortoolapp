@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetExceeded } from "@/lib/ai/client";
-import { BANNED_SUPERLATIVES, assembleLongAd, longAdMessages, parseLongAd, type LongAd, type LongAdContext } from "@/lib/content/ads";
+import { BANNED_SUPERLATIVES, assembleLongAd, briefWithoutPremiums, longAdMessages, parseLongAd, type LongAd, type LongAdContext } from "@/lib/content/ads";
 import type { PiecePlan } from "@/lib/content/plan";
 import { headlineFigures, premiumTable, tableText } from "@/lib/content/premium-table";
 import { NUMBERS_PLANS } from "@/lib/content/numbers-plans";
+import { briefFor } from "@/lib/content/brief";
 
 const ai = vi.hoisted(() => ({ chat: vi.fn() }));
 vi.mock("@/lib/ai/client", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/client")>()), chat: ai.chat }));
@@ -16,7 +17,8 @@ const table = [
 ].join("\n");
 const headline = "มรดกเพื่อครอบครัว\n💁‍♀️ แผนคุ้มครองมรดก 3,000,000 บาท\n💰 เบี้ยปีแรก 9,060 บาท/ปี (ตกเดือนละ 755) (หญิง อายุ 30 ปี)";
 const contact = "👉 คุณเอ\n📲 Line: @abc\n👉 Inbox: https://m.me/123";
-const ctx: LongAdContext = { table, headline, contact, reader: "พ่อแม่มือใหม่", focus: "", voice: "" };
+const owner = "หญิง อายุ 30 ปี · แผนคุ้มครองมรดก 3,000,000 บาท";
+const ctx: LongAdContext = { table, headline, owner, contact, reader: "พ่อแม่มือใหม่", focus: "", voice: "" };
 const plan: PiecePlan = { angle: "ครอบครัวไปต่อได้", hook: "ถ้าพรุ่งนี้ไม่มีเรา" };
 
 const ad: LongAd = {
@@ -28,7 +30,7 @@ const ad: LongAd = {
 };
 
 describe("longAdMessages", () => {
-  const [system, user] = longAdMessages("ข้อมูลแบบประกัน", plan, { table, headline, reader: ctx.reader, focus: "", voice: "" });
+  const [system, user] = longAdMessages("ข้อมูลแบบประกัน", plan, { table, headline, owner, reader: ctx.reader, focus: "ทุนประกัน 1,000,000 ชาย 35 ปี", voice: "" });
   it("tells the writer the format, that the code writes the premiums, and the banned claims", () => {
     expect(system.content).toContain("ห้ามเขียนเบี้ย");
     expect(system.content).toContain("🥇");
@@ -39,6 +41,49 @@ describe("longAdMessages", () => {
     expect(user.content).toContain(table);
     expect(user.content).toContain(plan.hook);
     expect(user.content).not.toContain("m.me");
+  });
+  it("says whose ad it is, and that this line wins over the campaign's focus — the 2026-10-05 ad", () => {
+    expect(user.content).toContain(`แอดนี้เป็นของ: ${owner}`);
+    expect(user.content).toContain("ห้ามพูดถึงอายุ เพศ หรือทุนอื่น");
+    expect(user.content).toContain("สิ่งที่อยากเน้น: ทุนประกัน 1,000,000 ชาย 35 ปี");
+    // the owner line comes before the focus, and the focus is told it gives way
+    expect(user.content.indexOf("แอดนี้เป็นของ")).toBeLessThan(user.content.indexOf("สิ่งที่อยากเน้น"));
+    expect(user.content).toMatch(/ถ้าสิ่งที่อยากเน้น.*ให้ยึด/);
+  });
+});
+
+describe("briefWithoutPremiums — the writer never sees a premium to copy", () => {
+  const brief = briefFor("/lifeprotect")!.text;
+  const kept = briefWithoutPremiums(brief);
+
+  it("drops Life Protect's premium sample lines", () => {
+    for (const gone of ["เบี้ยเฉลี่ยวันละ 20 บาท", "4,914 บาท/เดือน", "2,583 บาท/เดือน", "1,548 บาท/เดือน", "1,260 บาท/เดือน", "วันละ 48 บาท"]) {
+      expect(brief, gone).toContain(gone);
+      expect(kept, gone).not.toContain(gone);
+    }
+  });
+
+  it("keeps the coverage, the ages, the terms and the cautions", () => {
+    for (const stays of [
+      "รับอายุ 0–80 ปี · คุ้มครองตลอดชีพ · ทุนสองเท่าถ้าเสียชีวิตก่อนอายุ 60",
+      "ตัวอย่างทุนสองเท่า: ทุน 1,000,000 บาท ครอบครัวได้ 2,000,000 บาท",
+      "เบี้ยเท่าเดิมทุกปี และจ่ายจบได้ใน 9 หรือ 19 ปี (หรือจ่ายตลอดชีพ)",
+      "ทุนสองเท่าได้เฉพาะเสียชีวิตก่อนอายุที่กำหนด",
+      "## Life Protect x 2",
+    ]) expect(kept, stays).toContain(stays);
+  });
+
+  it("keeps a benefit paid by the day, a pension by the month, a discount in percent and years of paying", () => {
+    const lines = "- ชดเชยนอนโรงพยาบาลวันละ 1,000–10,000 บาท\n- อยากได้บำนาญเดือนละ 10,000 บาท\n- ไม่เคลม 3 ปีติดต่อกัน ลดเบี้ย 10%\n- จ่ายเบี้ยแค่ 6 ปี แล้วคุ้มครองยาวตลอดชีพ";
+    expect(briefWithoutPremiums(lines)).toBe(lines);
+  });
+
+  it("no plan's brief keeps a line with a premium in it", () => {
+    for (const href of Object.keys(NUMBERS_PLANS)) {
+      const b = briefFor(href);
+      if (!b) continue;
+      for (const line of briefWithoutPremiums(b.text).split("\n")) expect(line, href).not.toMatch(/เบี้ย[^\d\n]{0,12}\d[\d,]*(?:\.\d+)?(?!\s*(?:ปี|เดือน|วัน|%)|[\d,.])|\d[\d,]*\s*บาท\/(เดือน|ปี)/);
+    }
   });
 });
 

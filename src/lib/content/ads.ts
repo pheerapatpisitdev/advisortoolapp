@@ -1,5 +1,6 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
+import { premiumAmounts } from "./check";
 import { CORE_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
 import type { PiecePlan } from "./plan";
 
@@ -40,12 +41,14 @@ export const BANNED_SUPERLATIVES = ["อันดับ 1", "ขายดีท�
 const PRIMARY_MAX = 2200;
 
 /**
- * What the code knows about a long ad's round: the premium table, the headline figures, the
- * Page's contacts (never shown to the model), who it is for and what to stress.
+ * What the code knows about a long ad's round: the premium table, the headline figures and whose
+ * they are, the Page's contacts (never shown to the model), who it is for and what to stress.
  */
 export interface LongAdContext {
   table: string;
   headline: string;
+  /** whose ad it is, as the headline settles it: "ชาย อายุ 35 ปี · ประกันชีวิตคุ้มครอง 1,000,000 บาท (…)" */
+  owner: string;
   contact: string;
   reader: string;
   focus: string;
@@ -87,6 +90,12 @@ export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdCont
     `ข้อมูลผลิตภัณฑ์:\n${brief}`,
     `ตารางเบี้ยที่ระบบจะใส่ให้ (อ้างถึงได้ แต่ห้ามเขียนซ้ำ):\n${ctx.table}`,
     `ตัวเลขเด่นที่ระบบจะใส่ให้:\n${ctx.headline}`,
+    // the 2026-10-05 ad: the focus said ชาย 35 ปี ทุน 1 ล้าน while the figures were a woman's at 30
+    [
+      `แอดนี้เป็นของ: ${ctx.owner.trim()}`,
+      "ถ้าจะพูดถึงเพศ อายุ หรือทุน ให้พูดตามบรรทัดนี้เท่านั้น ห้ามพูดถึงอายุ เพศ หรือทุนอื่น และห้ามบอกเบี้ยเป็นตัวเลข",
+      "ถ้าสิ่งที่อยากเน้นด้านล่างพูดถึงเพศ อายุ หรือทุนที่ต่างจากนี้ ให้ยึดบรรทัดนี้ ใช้สิ่งที่อยากเน้นแค่เป็นแนวเรื่อง",
+    ].join("\n"),
     `มุมที่ต้องใช้: ${p.angle}`,
     `ฮุก (ใช้เป็นแนวของ opening ไม่ต้องตรงคำ): ${p.hook}`,
     reader ? `กลุ่มคนที่พูดด้วย: ${reader}` : "",
@@ -95,6 +104,16 @@ export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdCont
     "imagePrompt ต้องบรรยายภาพที่เข้ากับมุมนี้",
   ].filter(Boolean).join("\n\n");
   return [{ role: "system", content: longAdSystem() }, { role: "user", content: user }];
+}
+
+/**
+ * A brief without its premium lines, for an ad round's planner and writer (spec 2026-10-05): a
+ * line that says any amount as a premium (premiumAmounts) is left out, so its sample cases —
+ * "ผู้ชายอายุ 35 … เบี้ย 1,548 บาท/เดือน (เฉลี่ยวันละ 48 บาท)" — are never there to copy beside
+ * the code's table. Coverage, ages, terms and cautions stay. The numbers check keeps the whole brief.
+ */
+export function briefWithoutPremiums(brief: string): string {
+  return brief.split("\n").filter((line) => premiumAmounts(line).length === 0).join("\n");
 }
 
 export interface LongAd {

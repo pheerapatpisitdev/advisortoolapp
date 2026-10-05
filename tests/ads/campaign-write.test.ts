@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { headlineFigures, premiumTable, tableText } from "@/lib/content/premium-table";
+import { headlineFigures, headlineOwner, premiumTable, tableText } from "@/lib/content/premium-table";
 import { MAX_READER } from "@/lib/content/prompt";
 import { OVERHEAD_THB, writerOf } from "@/lib/content/models";
 import { BudgetExceeded } from "@/lib/ai/client";
@@ -86,6 +86,12 @@ const writerReply = {
 const asked = (messages: { content: string }[]) => Number(/วางแผน (\d+) ชิ้น/.exec(messages[1].content)?.[1] ?? 1);
 const callsFor = (task: string) => ai.chat.mock.calls.map(([o]) => o).filter((o) => o.task === task);
 const saved = () => store.saveContent.mock.calls.map(([row]) => row);
+/** the writer answers with these words of its own in place of the usual ones */
+const writes = (own: Record<string, unknown>) => {
+  const reply = { ...writerReply, text: JSON.stringify({ ...JSON.parse(writerReply.text), ...own }) };
+  ai.chat.mockImplementation(async (o: { task: string; messages: { content: string }[] }) =>
+    (o.task === "content-plan" ? plannerReply(asked(o.messages)) : reply));
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -179,7 +185,7 @@ describe("a round of long ads", () => {
     await generateContent(sent);
     const [row] = saved();
     expect(row.output.figures).toContain(`${table}\n${headline}`);
-    expect(row.output.ad).toEqual({ angle: "มุมที่ 1", tone: "", reader: "พ่อแม่มือใหม่", age: 30 });
+    expect(row.output.ad).toEqual({ angle: "มุมที่ 1", tone: "", reader: "พ่อแม่มือใหม่", age: 30, sex: "F", head: premiumTable("/lifeprotect", 30)!.rows[2].heading });
     expect(saved()[1].output.ad.angle).toBe("มุมที่ 2");
   });
 
@@ -188,12 +194,6 @@ describe("a round of long ads", () => {
     for (const row of saved()) expect(row.flags.numbers).toEqual([]);
   });
 
-  /** the writer answers with these words of its own in place of the usual ones */
-  const writes = (own: Record<string, unknown>) => {
-    const reply = { ...writerReply, text: JSON.stringify({ ...JSON.parse(writerReply.text), ...own }) };
-    ai.chat.mockImplementation(async (o: { task: string; messages: { content: string }[] }) =>
-      (o.task === "content-plan" ? plannerReply(asked(o.messages)) : reply));
-  };
 
   it("flags a premium of the table the model restated in its opening — final review 4", async () => {
     writes({ opening: "ทุน 2 ล้าน เบี้ยแค่ 43,200 บาท/ปี ครอบครัวไปต่อได้" });
@@ -312,6 +312,45 @@ describe("the inputs of an ad round, cleaned", () => {
     const t = premiumTable("/lifeprotect", settled)!;
     expect(saved()[0].output.body).toContain(tableText(t));
     expect(saved()[0].output.ad.age).toBe(settled);
+  });
+
+  it("a man of 35 on the 1,000,000 row: the headline, the writer's owner line and the piece all say so — the 2026-10-05 ad", async () => {
+    const t = premiumTable("/lifeprotect", 35)!;
+    const rung = t.rows.findIndex((r) => r.heading === "ประกันชีวิตคุ้มครอง 1,000,000 บาท");
+    await generateContent({ ...sent, age: 35, sex: "M", rung });
+    const [row] = saved();
+    expect(row.output.body).toContain(headlineFigures(t, { sex: "M", rung }));
+    expect(row.output.body).toContain("(ชาย อายุ 35 ปี)");
+    expect(row.output.body).toContain(tableText(t));
+    expect(row.output.ad).toMatchObject({ age: 35, sex: "M", head: "ประกันชีวิตคุ้มครอง 1,000,000 บาท" });
+    const user = callsFor("content")[0].messages[1].content;
+    expect(user).toContain(`แอดนี้เป็นของ: ${headlineOwner(t, { sex: "M", rung }).line}`);
+    expect(user).toContain("ชาย อายุ 35 ปี · ประกันชีวิตคุ้มครอง 1,000,000 บาท");
+  });
+
+  it.each([
+    [{ sex: "X", rung: 99 }, "F", 2], [{ sex: undefined, rung: "1" }, "F", 2], [{ sex: "M", rung: -1 }, "M", 2],
+    [{ sex: "M", rung: 1.5 }, "M", 2], [{ sex: "M", rung: 5 }, "M", 5], [{ sex: "F", rung: 0 }, "F", 0],
+  ])("sex and rung %o are cleaned to %s on row %s", async (pick, sex, rung) => {
+    await generateContent({ ...sent, ...(pick as object) });
+    const t = premiumTable("/lifeprotect", 30)!;
+    const [row] = saved();
+    expect(row.output.body).toContain(headlineFigures(t, { sex: sex as "F" | "M", rung }));
+    expect(row.output.ad).toMatchObject({ sex, head: t.rows[rung].heading });
+  });
+
+  it("neither the planner nor the writer is shown the brief's premium samples, though the yardstick keeps them", async () => {
+    // the model copied "เบี้ยเดือนละ 1,548 บาท" from the brief's sample cases (2026-10-05)
+    writes({ bullets: ["🥇 เบี้ยเดือนละ 1,548 บาท"] });
+    await generateContent(sent);
+    for (const call of [...callsFor("content-plan"), ...callsFor("content")]) {
+      const user = call.messages[1].content;
+      expect(user).toContain("ตัวอย่างทุนสองเท่า");
+      expect(user).not.toContain("1,548 บาท/เดือน");
+      expect(user).not.toContain("เบี้ยเฉลี่ยวันละ 20 บาท");
+    }
+    // a premium the brief has is still flagged in the model's words
+    for (const row of saved()) expect(row.flags.numbers).toEqual(["1,548 บาท"]);
   });
 
   it("the reader is cut to its length, and a custom angle to 120", async () => {

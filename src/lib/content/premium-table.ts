@@ -1,4 +1,4 @@
-import { sameFigures, strayNumbers } from "./check";
+import { premiumAmounts, sameFigures, strayNumbers } from "./check";
 import { NUMBERS_PLANS } from "./numbers-plans";
 import { money, sexWord, type NumberSheet, type PricedPlan } from "./numbers";
 import { lifelong } from "./wording";
@@ -84,20 +84,55 @@ export function tableText(t: PremiumTable): string {
   return [head, ...blocks].join("\n\n");
 }
 
+/** The row and sex the ad's headline is about, as the owner picks them on the writing form. */
+export interface HeadlinePick {
+  sex: "F" | "M";
+  /** an index into the table's rows */
+  rung: number;
+}
+
+/** the middle row: the headline's row when none is picked, or one off the table */
+export const middleRung = (rows: number) => Math.floor((rows - 1) / 2);
+
+/**
+ * The pick settled against the table: a rung off it is the middle row; a sex the row is not
+ * priced for gives way to the other, which the headline then names.
+ */
+function settle(t: PremiumTable, pick?: Partial<HeadlinePick>) {
+  const r = pick?.rung;
+  const rung = typeof r === "number" && Number.isInteger(r) && r >= 0 && r < t.rows.length ? r : middleRung(t.rows.length);
+  const row = t.rows[rung];
+  const want = pick?.sex === "M" ? "M" : "F";
+  const priced = (s: "F" | "M") => (s === "F" ? row.female : row.male) !== null;
+  const other = want === "F" ? "M" : "F";
+  const sex: "F" | "M" | null = priced(want) ? want : priced(other) ? other : null;
+  return { rung, row, sex, annual: sex === "F" ? row.female : sex === "M" ? row.male : null };
+}
+
 /**
  * The ad's headline figures, for the writer to read and the code to place: the product, then the
- * middle row's sum with its note (the condition on a doubled cover, what a package includes),
- * then its premium, a woman's first, with whose premium it is.
+ * picked row's sum (the middle one by default) with its note (the condition on a doubled cover,
+ * what a package includes), then its premium for the picked sex (a woman by default), with whose
+ * premium it is.
  */
-export function headlineFigures(t: PremiumTable): string {
-  const row = t.rows[Math.floor((t.rows.length - 1) / 2)];
+export function headlineFigures(t: PremiumTable, pick?: Partial<HeadlinePick>): string {
+  const { row, sex, annual } = settle(t, pick);
   const note = [row.note, t.note].filter(Boolean).join(" · ");
   const sum = `💁‍♀️ ${row.heading}${note ? ` (${note})` : ""}`;
-  const sex = row.female !== null ? "F" : row.male !== null ? "M" : null;
-  const annual = sex === "F" ? row.female : row.male;
   if (sex === null || annual === null) return [t.product, sum].join("\n");
   const premium = `💰 ${t.firstYear ? "เบี้ยปีแรก" : "เบี้ย"} ${baht(annual)} บาท/ปี (ตกเดือนละ ${perMonth(annual)}) (${sexWord(sex)} อายุ ${t.age} ปี)`;
   return [t.product, sum, premium].join("\n");
+}
+
+/**
+ * Whose ad it is, as the headline settles it: the writer is told this (spec 2026-10-05) so its
+ * words cannot name another age, sex or sum than the figures the code places under them.
+ */
+export function headlineOwner(t: PremiumTable, pick?: Partial<HeadlinePick>): { sex: "F" | "M"; rung: number; heading: string; line: string } {
+  const { rung, row, sex } = settle(t, pick);
+  const shown = sex ?? (pick?.sex === "M" ? "M" : "F");
+  const note = [row.note, t.note].filter(Boolean).join(" · ");
+  return { sex: shown, rung, heading: row.heading, line: `${sexWord(shown)} อายุ ${t.age} ปี · ${row.heading}${note ? ` (${note})` : ""}` };
 }
 
 /** Every premium the table prints, yearly and ตกเดือนละ, as values. */
@@ -116,10 +151,16 @@ export function tableSums(t: PremiumTable): string {
 
 /**
  * The figures in what the model itself wrote (never the code's lines) that it may not write: any
- * amount neither the brief nor the table's sums have, and any premium of the table restated — the
- * writer is told the table but must not say a premium (spec "Keeping figures true"). Checked once,
- * when the ad is written; an edit later is checked against the brief and every line the code placed.
+ * amount neither the brief nor the table's sums have, any premium of the table restated, and any
+ * amount said as a premium at all — "วันละ 48 บาท" copied from the brief's sample cases is as
+ * wrong beside the code's table as one made up (the 2026-10-05 ad). The writer is told the table
+ * but must not say a premium (spec "Keeping figures true"). Checked once, when the ad is written;
+ * an edit later is checked against the brief and every line the code placed.
  */
 export function restatedFigures(modelText: string, brief: string, t: PremiumTable): string[] {
-  return [...new Set([...strayNumbers(modelText, `${brief}\n${tableSums(t)}`), ...sameFigures(modelText, tableCells(t))])];
+  return [...new Set([
+    ...strayNumbers(modelText, `${brief}\n${tableSums(t)}`),
+    ...sameFigures(modelText, tableCells(t)),
+    ...premiumAmounts(modelText),
+  ])];
 }

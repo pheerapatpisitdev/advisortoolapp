@@ -133,7 +133,7 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
     void drain();
   }
 
-  async function write({ angle, custom, reader, age, count }: WriteInput) {
+  async function write({ angle, custom, reader, age, count, sex, rung }: WriteInput) {
     if (running.current) return;
     running.current = true;
     setMaking(count);
@@ -149,7 +149,7 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
       try {
         // the campaign's plan, Page, focus, voice and writer stand in for the rest
         res = await generateRound({
-          format: "ad", campaignId: campaign.id, count, angle, custom, reader, age,
+          format: "ad", campaignId: campaign.id, count, angle, custom, reader, age, sex, rung,
           href: "", length: null, hookTemplateId: null,
         });
       } catch {
@@ -198,7 +198,7 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
           <>
             <div className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>{pickers}</div>
             <WriteForm
-              planHref={campaign.planHref}
+              campaignId={campaign.id} planHref={campaign.planHref}
               picks={{ writer: campaign.writer, painter: campaign.painter, person: campaign.person }}
               writing={making > 0} disabled={!campaign.pageConnected}
               warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}

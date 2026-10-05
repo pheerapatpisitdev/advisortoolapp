@@ -86,7 +86,7 @@ vi.mock("@/app/studio/actions", () => studio);
 
 const {
   createAdCampaign, updateAdCampaign, adCampaignRoom,
-  sendApproved, retrySend, activateSendAction, pauseSendAction, deleteAdCampaign, leadForms,
+  sendApproved, retrySend, activateSendAction, pauseSendAction, deleteAdCampaign, leadForms, tableRows,
 } = await import("@/app/studio/ads/actions");
 
 const campaign = (over: Record<string, unknown> = {}) => ({
@@ -621,5 +621,30 @@ describe("deleting a campaign", () => {
     expect(JSON.stringify(res)).not.toContain("boom secret");
     expect(camps.deleteCampaign).not.toHaveBeenCalled();
     log.mockRestore();
+  });
+});
+
+describe("the headline's rows on the writing form — the 2026-10-05 ad", () => {
+  it("are the campaign's table rows at that age, by index", async () => {
+    camps.getCampaign.mockResolvedValue(campaign());
+    const res = await tableRows(CAMPAIGN, 35);
+    expect(res).toEqual({
+      ok: true,
+      rows: [500_000, 1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000].map((n, index) => ({ index, heading: `ประกันชีวิตคุ้มครอง ${n.toLocaleString("en-US")} บาท` })),
+      middle: 2,
+    });
+  });
+
+  it("refuse an age that is not a whole year from 0 to 80, and an age the plan cannot price", async () => {
+    camps.getCampaign.mockResolvedValue(campaign({ planHref: "/ishield" }));
+    for (const age of [-1, 81, 30.5, Number.NaN]) expect((await tableRows(CAMPAIGN, age)).ok, String(age)).toBe(false);
+    expect(await tableRows(CAMPAIGN, 55)).toEqual({ ok: false, error: "อายุ 55 ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น" });
+  });
+
+  it("are the owner's alone, and say when the campaign is gone", async () => {
+    camps.getCampaign.mockResolvedValue(null);
+    expect(await tableRows(CAMPAIGN, 30)).toEqual({ ok: false, error: "ไม่พบแคมเปญนี้" });
+    who.owner = false;
+    await expect(tableRows(CAMPAIGN, 30)).rejects.toThrow("ไม่มีสิทธิ์ใช้ส่วนนี้");
   });
 });

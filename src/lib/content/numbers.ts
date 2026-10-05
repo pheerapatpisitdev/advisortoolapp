@@ -65,7 +65,7 @@ export function definePlan<C>(p: {
   /** fixed wording the owner approved, used as written */
   claims: string[];
   price: (c: C, claims: string[], today: Date) => NumberSheet | null;
-  /** four rungs of the premium table: the case fields besides sex and age */
+  /** the rungs of the premium table (four; Life Protect's six): the case fields besides sex and age */
   ladder?: { term: string; firstYear: boolean; note?: string; rungs: Omit<C, "sex" | "age">[] };
 }): PricedPlan {
   const { ladder } = p;

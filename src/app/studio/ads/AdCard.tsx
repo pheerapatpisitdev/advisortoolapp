@@ -10,7 +10,8 @@ import type { RoomPiece } from "./AdEditor";
 /**
  * One ad in a campaign's room: the square poster, the headline, the primary text as far as the
  * feed shows it before ดูเพิ่มเติม, and small labels — the angle it was written to (with the tone
- * of an older piece), the age its premium table is priced at, and a warning when it trips
+ * of an older piece), the age its premium table is priced at, whose premium its headline shows
+ * on which row, and a warning when it trips
  * Facebook's advertising rules. Pressing it opens the editor.
  *
  * Under it, in ร่าง, เลือกส่ง (a tick the room keeps, for ส่งขึ้น Facebook) and ✕ ทิ้ง; in the bin,
@@ -43,6 +44,8 @@ export function AdCard({ piece, productName, fold, picture, ticked, onTick, onOp
   const text = cardText(piece.primaryText, fold);
   const angle = piece.ad ? adLabel(piece.ad) : "";
   const age = piece.ad?.age ?? null;
+  // whose premium the headline shows, on which row: "หัวแอด ชาย · ประกันชีวิตคุ้มครอง 1,000,000 บาท"
+  const head = piece.ad?.sex && piece.ad.head ? `หัวแอด ${piece.ad.sex === "M" ? "ชาย" : "หญิง"} · ${piece.ad.head}` : "";
   const blocking = piece.flags.policy.some((f) => f.severity === "block");
   const pending = picturePending(piece);
   const drawing = picture === "wait" || picture === "drawing";
@@ -87,10 +90,11 @@ export function AdCard({ piece, productName, fold, picture, ticked, onTick, onOp
             {text.shown}
             {text.more && <span className="text-[var(--ct-mute)]">… ดูเพิ่มเติม</span>}
           </span>
-          {(angle || age !== null) && (
+          {(angle || age !== null || head) && (
             <span className="flex flex-wrap gap-1.5">
               {angle && <span className={`${label} max-w-full break-words`}>{angle}</span>}
               {age !== null && <span className={label}>ตาราง อายุ {age}</span>}
+              {head && <span className={`${label} max-w-full break-words`}>{head}</span>}
             </span>
           )}
         </span>

@@ -8,6 +8,7 @@ import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { OutOfTime, deadline, within, type Deadline } from "@/lib/content/deadline";
 import { pickLook } from "@/lib/content/look-pick";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
+import { briefWithoutPremiums } from "@/lib/content/ads";
 import { briefFor } from "@/lib/content/brief";
 import { findWords, strayNumbers, type ContentWord } from "@/lib/content/check";
 import { parseTemplatize, templatizeMessages } from "@/lib/content/hooks";
@@ -36,7 +37,7 @@ import {
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
 import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds } from "@/lib/content/write";
-import { hasLadder, headlineFigures, premiumTable, restatedFigures, tableText, type PremiumTable } from "@/lib/content/premium-table";
+import { hasLadder, headlineFigures, headlineOwner, premiumTable, restatedFigures, tableText, type HeadlinePick, type PremiumTable } from "@/lib/content/premium-table";
 import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick } from "@/lib/content/numbers";
 import { numberSheets } from "@/lib/content/numbers-plans";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
@@ -144,12 +145,16 @@ export interface GenerateInput {
   expat?: boolean;
   /**
    * An ad is written into a campaign (Ads Studio): of what is sent, only this, `count` (1–4),
-   * `angle` and `custom`, `reader` and `age` are read — the campaign's product, Page, focus,
+   * `angle` and `custom`, `reader`, `age`, `sex` and `rung` are read — the campaign's product, Page, focus,
    * voice and writer stand in for the rest.
    */
   campaignId?: string;
   /** an ad's: the age its premium table is priced at, a whole year from 0 to 80; 30 when absent or not a number */
   age?: number;
+  /** an ad's: whose premium the headline shows; anything but "M" is a woman's */
+  sex?: "F" | "M";
+  /** an ad's: the row of the table (an index into its rows) the headline names; the middle one when absent or off it */
+  rung?: number;
 }
 
 /** who an English round talks to when the owner names nobody */
@@ -211,11 +216,17 @@ function adAge(v: unknown): number {
   return Number.isFinite(n) ? Math.min(AGE_MAX, Math.max(AGE_MIN, Math.floor(n))) : AGE_DEFAULT;
 }
 
-/** an ad round's campaign, and the table its figures come from */
+/** an ad's headline pick as sent: "M" or a woman; a whole row index, or none (the middle row) */
+function adPick(sex: unknown, rung: unknown): Partial<HeadlinePick> {
+  return { sex: sex === "M" ? "M" : "F", ...(typeof rung === "number" && Number.isInteger(rung) ? { rung } : {}) };
+}
+
+/** an ad round's campaign, the table its figures come from, and the row and sex its headline names */
 interface AdRound {
   campaign: AdCampaign;
   table: PremiumTable;
   age: number;
+  pick: Partial<HeadlinePick>;
 }
 
 export async function generateContent(given: GenerateInput): Promise<GenerateResult> {
@@ -246,8 +257,9 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
     // an age the plan prices on no rung is said before anything is counted or held (review focus 1)
     const table = premiumTable(campaign.planHref, age);
     if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
-    ad = { campaign, table, age };
-    // only the count, the angle, the reader and the age are read from the browser: everything
+    // headlineFigures and headlineOwner settle a rung off the table to the middle row
+    ad = { campaign, table, age, pick: adPick(input.sex, input.rung) };
+    // only the count, the angle, the reader, the age and the headline's pick are read from the browser: everything
     // else is the campaign's, its writer too. The angle settles below (settleExpat), against
     // what an ad's menu offers, so ตัวเลขชัดๆ — a post's — becomes the AI's pick.
     input = {
@@ -356,7 +368,10 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
       }
 
       if (ad) {
-        const { campaign, table, age } = ad;
+        const { campaign, table, age, pick } = ad;
+        // the planner and the writer never see the brief's premium samples to copy (2026-10-05);
+        // the numbers check below still measures against the whole brief
+        const shownBrief = briefWithoutPremiums(brief.text);
         const focus = (campaign.hint ?? "").trim().slice(0, MAX_CUSTOM);
         // the Page's contacts are read before anything is paid for: a round that cannot place
         // them fails whole rather than writing ads that send nobody anywhere. The campaign's
@@ -371,18 +386,19 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
         // the campaign's earlier headlines first, so the planner's cut of the list keeps them
         const heads = earlier.flatMap((p) => (p.output.hooks[0] ? [p.output.hooks[0]] : []));
         const planned = await plan(
-          { brief: brief.text, count, angle: [focus, told].filter(Boolean).join(" — "), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang: "th" },
+          { brief: shownBrief, count, angle: [focus, told].filter(Boolean).join(" — "), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang: "th" },
           { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) },
         );
         const contact = contactBlock(pageContact);
-        const ctx = { table: tableText(table), headline: headlineFigures(table), contact, reader, focus, voice: (campaign.brandVoice ?? "").trim() };
+        const owner = headlineOwner(table, pick);
+        const ctx = { table: tableText(table), headline: headlineFigures(table, pick), owner: owner.line, contact, reader, focus, voice: (campaign.brandVoice ?? "").trim() };
         // every figure the ad carries is the code's: kept on the piece, an edit is checked against
         // them again (review focus 2) — the contacts too, whose Line ID and m.me link have digits
         const figures = `${ctx.table}\n${ctx.headline}\n${contact}`;
-        const written = await writeLongAds({ brief: brief.text, plans: planned.plans, ctx, prefer: writeWith, clock, saveMs: SAVE_MS });
+        const written = await writeLongAds({ brief: shownBrief, plans: planned.plans, ctx, prefer: writeWith, clock, saveMs: SAVE_MS });
         const planShare = planned.costThb / written.pieces.length;
         const rows = written.pieces.map((w) => {
-          const output: ContentOutput = { ...w.output, ad: { angle: w.output.ad?.angle ?? "", tone: "", reader, age }, figures };
+          const output: ContentOutput = { ...w.output, ad: { angle: w.output.ad?.angle ?? "", tone: "", reader, age, sex: owner.sex, head: owner.heading }, figures };
           const checked = flagsFor(output, "th", `${brief.text}\n${figures}`, words, null);
           // the model's own words against the brief alone, and no premium of the table restated
           // in them: the whole-text check above lets anything the code placed through
