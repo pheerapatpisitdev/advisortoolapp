@@ -12,14 +12,13 @@ import {
 } from "@/lib/facebook/ads-manage-connection";
 import { adsManageMissingEnv, adsManageOauthIsConfigured, listAdAccounts, tokenExpiry, type TokenExpiry } from "@/lib/facebook/oauth";
 import * as launchStore from "@/lib/ads/launch-store";
-import { switchedOn } from "@/lib/ads/sent-view";
 import type { LaunchRow, LaunchStep as RowStep } from "@/lib/ads/launch-store";
 import { adEffectiveStatus, thVerifiedIdentity } from "@/lib/ads/launch";
 import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
 import {
   createCampaign, deleteCampaign, getCampaign, listCampaignPieces, listCampaigns, updateCampaign, type AdCampaign,
 } from "@/lib/ads/campaign-store";
-import { adTab, tabCounts, type AdTab, type AdTabKey } from "@/lib/ads/campaign-view";
+import { adTab, liveCount, tabCounts, type AdTab, type AdTabKey } from "@/lib/ads/campaign-view";
 import * as sendStore from "@/lib/ads/send-store";
 import {
   getSend, listSends, sentPieceIds, type AdSend, type AdSendItem, type LeadCta, type SendObjective, type SendStep,
@@ -694,16 +693,20 @@ export async function setAdStatus(pieceId: string, status: "draft" | "used" | "t
  * Facebook is touched: what was sent stays there as it is — a send switched on keeps running and
  * spending, and is paused from Ads Manager from then on, which the page asks the owner to accept
  * first. The send rows stay as history (their campaign set to none), and so do the pieces, filed
- * under no campaign (ads never show in Organic Studio). How many sends were on is logged. A send
- * table that cannot be read refuses, so the log never says nothing was running when it was.
+ * under no campaign (ads never show in Organic Studio). How many sends and pre-send launches were
+ * switched on is logged (liveCount). A send or launch table that cannot be read refuses, so the
+ * log never says nothing was running when it was.
  */
 export async function deleteAdCampaign(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireStaff("owner");
   try {
     const campaign = await getCampaign(id);
     if (!campaign) return { ok: false, error: NO_CAMPAIGN };
-    const [sends, pieces] = await Promise.all([listSends(campaign.id), listCampaignPieces(campaign.id)]);
-    const live = sends.filter(switchedOn).length;
+    const [sends, pieces, accounts] = await Promise.all([listSends(campaign.id), listCampaignPieces(campaign.id), adManageAccounts()]);
+    // a launch from before sends that was switched on may be running too; an unreadable launch table refuses, as the sends do
+    const launches = (await Promise.all(pieces.flatMap((p) => accounts.map((a) => launchStore.findLaunch(p.id, a.id)))))
+      .filter((r): r is LaunchRow => r !== null);
+    const live = liveCount(sends, launches);
     await deleteCampaign(campaign.id);
     await audit("ads-campaign-delete", campaign.id, { ok: true, name: titleOf(campaign), pageId: campaign.pageId, sends: sends.length, live, pieces: pieces.length });
     revalidatePath("/studio/ads", "layout");
@@ -1098,12 +1101,14 @@ export async function campaignRows(pageId: string): Promise<{ ok: true; rows: Ca
       try {
         const [pieces, sends] = await Promise.all([listCampaignPieces(c.id), listSends(c.id)]);
         const sent = new Set(sends.flatMap((s) => s.items.flatMap((i) => (i.pieceId ? [i.pieceId] : []))));
-        const tabs = await Promise.all(pieces.map(async (p) => adTab(p, sent.has(p.id) || (await liveRows(p.id, accounts)).length > 0)));
+        const launched = await Promise.all(pieces.map((p) => liveRows(p.id, accounts)));
+        const tabs = pieces.map((p, i) => adTab(p, sent.has(p.id) || launched[i].length > 0));
         const counts = tabCounts(tabs);
         return {
           ...named,
           drafts: counts.draft,
           sent: counts.sent,
+          liveLaunches: launched.flat().filter((r) => r.activatedAt).length,
           sends: sends.map((s) => ({
             id: s.id, activatedAt: s.activatedAt, pausedAt: s.pausedAt, dailyBudgetMinor: s.dailyBudgetMinor,
             accountName: accountName(s.actId), ads: s.items.filter((i) => i.adId).length,
@@ -1113,7 +1118,7 @@ export async function campaignRows(pageId: string): Promise<{ ok: true; rows: Ca
       } catch (e) {
         // one campaign that cannot be read is a row saying so, not a table that will not open
         console.error("campaign row unreadable:", e);
-        return { ...named, drafts: 0, sent: 0, sends: [], unreadable: true };
+        return { ...named, drafts: 0, sent: 0, sends: [], liveLaunches: 0, unreadable: true };
       }
     }));
     return { ok: true, rows };

@@ -607,6 +607,20 @@ describe("deleting a campaign", () => {
     expect(who.audit).toHaveBeenCalledWith("ads-campaign-delete", CAMPAIGN, expect.objectContaining({ live: 0 }));
   });
 
+  it("counts a pre-send launch that was switched on as live", async () => {
+    store.findLaunch.mockImplementation(async (pieceId: string) => (pieceId === "p1" ? { id: "L1", pieceId, activatedAt: "2026-09-01T00:00:00.000Z" } : pieceId === "p2" ? { id: "L2", pieceId, activatedAt: null } : null));
+    expect(await deleteAdCampaign(CAMPAIGN)).toEqual({ ok: true });
+    expect(who.audit).toHaveBeenCalledWith("ads-campaign-delete", CAMPAIGN, expect.objectContaining({ live: 1 }));
+  });
+
+  it("refuses rather than deletes when the launches cannot be read", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    store.findLaunch.mockRejectedValueOnce(new Error("db down"));
+    expect(await deleteAdCampaign(CAMPAIGN)).toMatchObject({ ok: false });
+    expect(camps.deleteCampaign).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
   it("says when there is no such campaign, and is the owner's alone", async () => {
     camps.getCampaign.mockResolvedValueOnce(null);
     expect(await deleteAdCampaign(CAMPAIGN)).toEqual({ ok: false, error: "ไม่พบแคมเปญนี้" });

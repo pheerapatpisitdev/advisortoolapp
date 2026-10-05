@@ -13,7 +13,7 @@ const send = (id: string, on: boolean | null, minor: number, accountName = "บ�
   hasMetaCampaign: true,
   hasAdset: true,
 });
-const row = (id: string, sends: RowSend[], drafts = 2, sent = 1): CampaignRow => ({ id, name: `แคมเปญ ${id}`, planName: "iHealthy", drafts, sent, sends });
+const row = (id: string, sends: RowSend[], drafts = 2, sent = 1): CampaignRow => ({ id, name: `แคมเปญ ${id}`, planName: "iHealthy", drafts, sent, sends, liveLaunches: 0 });
 const result = { spend: 1234.5, impressions: 12000, clicks: 30, messaging: 4 };
 
 describe("resultCells", () => {
@@ -109,7 +109,8 @@ describe("deleteQuestion", () => {
   it("warns about live sends first, then sent ads, else nothing extra", () => {
     expect(deleteQuestion({ title: "X", live: 2, sent: true })).toContain("มีแอดที่เปิดใช้อยู่ 2 ชุด");
     const sent = deleteQuestion({ title: "X", live: 0, sent: true });
-    expect(sent).toContain("จะยังอยู่ในตัวจัดการโฆษณา (หยุดไว้)");
+    expect(sent).toContain("ยังอยู่ในตัวจัดการโฆษณา — ตรวจสถานะที่นั่น");
+    expect(sent).not.toContain("หยุดไว้");
     expect(sent).not.toContain("เปิดใช้อยู่");
     expect(deleteQuestion({ title: "X", live: 0, sent: false })).toBe('ลบแคมเปญ "X" และแอดทั้งหมดในแคมเปญนี้ออกจาก Ads Studio?\n\nลบแล้วกู้คืนไม่ได้');
   });

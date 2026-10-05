@@ -61,7 +61,7 @@ export function CampaignSettings({ campaign, productName, people, sent, live, fo
   people: PersonOption[];
   /** some of its ads went to Facebook: deleting says they stay there */
   sent: boolean;
-  /** how many of its sends are switched on now: deleting leaves them running on Facebook */
+  /** how many of its ads may be running now (liveCount): deleting leaves them running on Facebook */
   live: number;
   /** a phone with the tools folded */
   folded: boolean;

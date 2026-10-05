@@ -32,6 +32,8 @@ export interface CampaignRow {
   drafts: number;
   sent: number;
   sends: RowSend[];
+  /** its pieces' launches from before sends that were switched on: they may be running too */
+  liveLaunches: number;
   /** its pieces or sends could not be read: no counts, no sends, and the row says so */
   unreadable?: true;
 }

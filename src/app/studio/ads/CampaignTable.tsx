@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AdResult } from "@/lib/ads/results";
 import { deleteShut, footLine, switchPlan, switchQuestion, switchShut, tableLine, UNREADABLE, type CampaignRow } from "@/lib/ads/campaign-table";
-import { deleteQuestion } from "@/lib/ads/campaign-view";
-import { switchedOn } from "@/lib/ads/sent-view";
+import { deleteQuestion, liveCount } from "@/lib/ads/campaign-view";
 import { ask } from "../ask";
 import { activateSendAction, deleteAdCampaign, pauseSendAction } from "./actions";
 import { when } from "./SentSend";
@@ -85,7 +84,7 @@ function RowMenu({ row, open, pageId, disabled, onBusy, onError }: {
   async function remove() {
     if (shutDelete) return;
     setAt(null);
-    const live = row.sends.filter(switchedOn).length;
+    const live = liveCount(row.sends) + row.liveLaunches;
     if (!(await ask(deleteQuestion({ title: row.name, live, sent: row.sent > 0 }), "ลบแคมเปญ"))) return;
     setBusy(true);
     onBusy(true);

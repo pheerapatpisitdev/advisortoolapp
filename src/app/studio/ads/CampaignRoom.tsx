@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ContentItem } from "@/lib/content/store";
-import type { AdTab } from "@/lib/ads/campaign-view";
+import { liveCount, type AdTab } from "@/lib/ads/campaign-view";
 import { ctaLabel, pickAd, sendOf, startTab } from "@/lib/ads/ads-list";
 import { pictureRequest } from "@/lib/ads/picture-picks";
 import type { AdResult } from "@/lib/ads/results";
@@ -16,7 +16,6 @@ import { AdsList } from "./AdsList";
 import { CampaignSettings } from "./CampaignSettings";
 import { CreateDrawer } from "./CreateDrawer";
 import { HeadlinePreview } from "./HeadlinePreview";
-import { switchedOn } from "@/lib/ads/sent-view";
 import { withCreate } from "@/lib/ads/manager-view";
 import type { AdRules } from "./rules";
 import { SendDialog } from "./SendDialog";
@@ -323,7 +322,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
             draft={draft} onDraft={setDraft}
           >
             <CampaignSettings
-              campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={room.sends.filter(switchedOn).length} folded={false}
+              campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={liveCount(room.sends, room.pieces.flatMap((p) => p.launches))} folded={false}
               writing={making > 0} saveFirst={saveFirst}
             />
           </WriteForm>

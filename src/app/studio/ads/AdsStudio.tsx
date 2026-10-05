@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { AdResult } from "@/lib/ads/results";
 import type { CampaignRow } from "@/lib/ads/campaign-table";
 import { parseCreate, studioHref, withCreate, type CreateMode } from "@/lib/ads/manager-view";
-import { switchedOn } from "@/lib/ads/sent-view";
+import { liveCount } from "@/lib/ads/campaign-view";
 import type { PersonOption } from "../PersonPicker";
 import type { AdsStudioHome } from "./actions";
 import type { Room } from "./AdEditor";
@@ -69,7 +69,7 @@ function CampaignSettingsTab({ room, productName, people }: { room: Room; produc
     <CampaignSettings
       key={room.campaign.id}
       campaign={room.campaign} productName={productName} people={people}
-      sent={room.counts.sent > 0} live={room.sends.filter(switchedOn).length}
+      sent={room.counts.sent > 0} live={liveCount(room.sends, room.pieces.flatMap((p) => p.launches))}
       folded={false} writing={false} saveFirst={saveFirst}
     />
   );

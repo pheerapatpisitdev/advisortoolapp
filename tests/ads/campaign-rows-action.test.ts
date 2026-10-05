@@ -66,16 +66,23 @@ describe("campaignRows", () => {
     if (!res.ok) return;
     expect(res.rows).toEqual([
       {
-        id: "C1", name: plan.name, planName: plan.name, drafts: 1, sent: 3,
+        id: "C1", name: plan.name, planName: plan.name, drafts: 1, sent: 3, liveLaunches: 0,
         sends: [
           { id: "S2", activatedAt: null, pausedAt: null, dailyBudgetMinor: 15000, accountName: "act_9", ads: 0, hasMetaCampaign: false, hasAdset: false },
           { id: "S1", activatedAt: "2026-10-04T01:00:00Z", pausedAt: null, dailyBudgetMinor: 15000, accountName: "บัญชี A (act_1)", ads: 2, hasMetaCampaign: true, hasAdset: true },
         ],
       },
-      { id: "C2", name: "ของฉัน", planName: "/no-such-plan", drafts: 0, sent: 0, sends: [] },
+      { id: "C2", name: "ของฉัน", planName: "/no-such-plan", drafts: 0, sent: 0, sends: [], liveLaunches: 0 },
     ]);
     // superseded sends are not asked for: they do not switch or spend a budget now
     for (const call of sends.listSends.mock.calls) expect(call[1]?.includeSuperseded).toBeFalsy();
+  });
+
+  it("counts a pre-send launch that was switched on, for the delete question", async () => {
+    launches.findLaunch.mockImplementation(async (pieceId: string) =>
+      (pieceId === "old" ? { id: "L", createdAt: "2026-01-01", activatedAt: "2026-01-02T00:00:00Z" } : pieceId === "p3" ? { id: "L3", createdAt: "2026-01-01", activatedAt: null } : null));
+    const res = await campaignRows("P1");
+    expect(res.ok && res.rows[0].liveLaunches).toBe(1);
   });
 
   it("refuses a Page that is not the owner's", async () => {
@@ -94,8 +101,8 @@ describe("campaignRows", () => {
     const res = await campaignRows("P1");
     err.mockRestore();
     expect(res.ok && res.rows).toEqual([
-      { id: "C1", name: plan.name, planName: plan.name, drafts: 0, sent: 0, sends: [], unreadable: true },
-      { id: "C2", name: "ของฉัน", planName: "/no-such-plan", drafts: 0, sent: 0, sends: [] },
+      { id: "C1", name: plan.name, planName: plan.name, drafts: 0, sent: 0, sends: [], liveLaunches: 0, unreadable: true },
+      { id: "C2", name: "ของฉัน", planName: "/no-such-plan", drafts: 0, sent: 0, sends: [], liveLaunches: 0 },
     ]);
   });
 
