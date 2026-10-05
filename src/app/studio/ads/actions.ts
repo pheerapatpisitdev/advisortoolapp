@@ -28,6 +28,8 @@ import {
   activateSend, pauseSend, resumeSend, runSend, SEND_CLAIM_STALE_MS, type SendDeps, type SendResult, type Skipped, type SwitchResult,
 } from "@/lib/ads/send";
 import { graph } from "@/lib/ads/graph";
+import { sumResults, type AdResult, type DailyRow } from "@/lib/ads/results";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listLeadForms, type LeadForms } from "@/lib/ads/lead-forms";
 import { briefPick, painterPick, personPick, writerPick } from "@/lib/ads/picture-picks";
 import { contentProduct } from "@/lib/content/products";
@@ -972,6 +974,61 @@ export async function updatePageContact(
     return { ok: true };
   } catch (e) {
     console.error("updatePageContact failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/**
+ * What a Page's sent ads did over the last 7 or 30 days, by campaign and by piece, from the
+ * ads sync's daily rows. A campaign or piece with no row is absent from the maps (the page
+ * shows "—", not 0). fetchedAt is when the newest row was synced; null when there is none.
+ */
+export async function campaignResults(
+  pageId: string,
+  days: 7 | 30,
+): Promise<
+  | { ok: true; byCampaign: Record<string, AdResult>; byPiece: Record<string, AdResult>; fetchedAt: string | null }
+  | { ok: false; error: string }
+> {
+  await requireStaff("owner");
+  try {
+    if (!(await myPages()).some((p) => p.pageId === pageId)) return { ok: false, error: PAGE_NOT_CONNECTED };
+    const campaigns = await listCampaigns(pageId);
+    const lists = await Promise.all(campaigns.map((c) => listSends(c.id)));
+    const byCampaignAds = new Map<string, string[]>();
+    const byPieceAds = new Map<string, string[]>();
+    campaigns.forEach((c, i) => {
+      for (const send of lists[i]) {
+        for (const item of send.items) {
+          if (!item.adId) continue;
+          byCampaignAds.set(c.id, [...(byCampaignAds.get(c.id) ?? []), item.adId]);
+          if (item.pieceId) byPieceAds.set(item.pieceId, [...(byPieceAds.get(item.pieceId) ?? []), item.adId]);
+        }
+      }
+    });
+    const adIds = [...new Set([...byCampaignAds.values()].flat())];
+    if (adIds.length === 0) return { ok: true, byCampaign: {}, byPiece: {}, fetchedAt: null };
+
+    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    const rows: (DailyRow & { fetched_at: string })[] = [];
+    for (let i = 0; i < adIds.length; i += 100) {
+      const { data, error } = await supabaseAdmin()
+        .from("ins_ad_daily")
+        .select("ad_id, spend, impressions, link_clicks, clicks, messaging_started, fetched_at")
+        .in("ad_id", adIds.slice(i, i + 100))
+        .gte("date", since);
+      if (error) throw new Error(error.message);
+      rows.push(...((data ?? []) as (DailyRow & { fetched_at: string })[]));
+    }
+    const fetchedAt = rows.reduce<string | null>((m, r) => (r.fetched_at && (!m || Date.parse(r.fetched_at) > Date.parse(m)) ? r.fetched_at : m), null);
+    return {
+      ok: true,
+      byCampaign: Object.fromEntries(sumResults(rows, byCampaignAds)),
+      byPiece: Object.fromEntries(sumResults(rows, byPieceAds)),
+      fetchedAt,
+    };
+  } catch (e) {
+    console.error("campaignResults failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
   }
 }
