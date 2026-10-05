@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { checkPaper, claimPaper, type Paper } from "@/lib/content/claim-run";
 import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
 import { refuseUnless } from "@/lib/auth/viewer";
+import { campaignPaperRefusal } from "@/lib/ads/claim-paper-guard";
 
 /**
  * A รีวิวเคลม piece's papers in the editor: GET shows the i-th (the bucket is private), POST is
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id") ?? "";
   const i = Number(req.nextUrl.searchParams.get("i") ?? "0");
   if (!ID.test(id) || !Number.isInteger(i) || i < 0 || i >= MAX_PAPERS) return new Response("not found", { status: 404 });
+  const campaign = await campaignPaperRefusal(id, false);
+  if (campaign) return campaign;
   const paper = await claimPaper(id, i).catch(() => null);
   if (!paper) return new Response("not found", { status: 404 });
   return new Response(new Uint8Array(paper.bytes), { headers: { "content-type": paper.mimeType, "cache-control": "no-store" } });
@@ -29,6 +32,8 @@ export async function POST(req: NextRequest) {
   const form = await req.formData().catch(() => null);
   const id = String(form?.get("id") ?? "");
   if (!form || !ID.test(id)) return Response.json({ ok: false, error: "ไม่พบชิ้นงานนี้" }, { status: 400 });
+  const campaign = await campaignPaperRefusal(id, true);
+  if (campaign) return campaign;
   // paper-<i> is the i-th paper with stickers added; the others are as they were
   const replaced = new Map<number, Paper>();
   for (let i = 0; i < MAX_PAPERS; i++) {
