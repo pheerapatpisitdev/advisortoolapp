@@ -71,3 +71,17 @@ export function foldAt(text: string, n = 125): number {
   for (let k = graphemes.length - 1; k >= 0; k--) if (graphemes[k] <= n) return graphemes[k];
   return 0;
 }
+
+/**
+ * An address of Ads Studio: the Page, the campaign open, the tab, and the results range (7 is
+ * the default and is left out). Every choice is a new address, so a reload, the back button and
+ * a link all land where they were.
+ */
+export function studioHref(o: { page: string | null; campaign: string | null; tab: "campaigns" | "ads" | "page"; days: 7 | 30 }): string {
+  const q = new URLSearchParams();
+  if (o.page) q.set("page", o.page);
+  if (o.campaign) q.set("campaign", o.campaign);
+  q.set("tab", o.tab);
+  if (o.days === 30) q.set("days", "30");
+  return `/studio/ads?${q.toString()}`;
+}

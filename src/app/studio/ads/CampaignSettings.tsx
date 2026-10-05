@@ -5,6 +5,7 @@ import type { Theme } from "@/lib/content/poster";
 import type { PersonOption } from "../PersonPicker";
 import { AUTO_THEME } from "../ThemeSwatches";
 import { errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
+import { deleteQuestion } from "@/lib/ads/campaign-view";
 import { ask } from "../ask";
 import { deleteAdCampaign, updateAdCampaign } from "./actions";
 import type { Room } from "./AdEditor";
@@ -29,11 +30,7 @@ function DeleteCampaign({ campaign, sent, live }: { campaign: Room["campaign"]; 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function run() {
-    // Facebook is never touched: a send switched on keeps spending, and only Ads Manager can stop it after
-    const message = `ลบแคมเปญ "${campaign.title}" และแอดทั้งหมดในแคมเปญนี้ออกจาก Ads Studio?${live > 0
-      ? `\n\n⚠️ มีแอดที่เปิดใช้อยู่ ${live} ชุด — จะยังวิ่งและใช้งบต่อบน Facebook หลังลบแล้วหยุดได้ที่ตัวจัดการโฆษณา (Ads Manager) เท่านั้น`
-      : sent ? "\n\nแอดที่ส่งขึ้น Facebook แล้วจะยังอยู่ในตัวจัดการโฆษณา (หยุดไว้) ถ้าไม่ใช้แล้วให้ลบที่นั่นด้วย" : ""}\n\nลบแล้วกู้คืนไม่ได้`;
-    if (!(await ask(message, "ลบแคมเปญ"))) return;
+    if (!(await ask(deleteQuestion({ title: campaign.title, live, sent }), "ลบแคมเปญ"))) return;
     setBusy(true);
     setError(null);
     try {

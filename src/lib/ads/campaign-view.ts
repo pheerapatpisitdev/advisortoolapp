@@ -32,3 +32,14 @@ export function tabCounts(rows: AdTab[]): Record<AdTabKey, number> {
   }
   return out;
 }
+
+/**
+ * The question before ลบแคมเปญ, wherever it is pressed (ตั้งค่าแคมเปญ, the campaign table's row
+ * menu). Facebook is never touched: a send switched on keeps spending, and only Ads Manager can
+ * stop it after.
+ */
+export function deleteQuestion(o: { title: string; live: number; sent: boolean }): string {
+  return `ลบแคมเปญ "${o.title}" และแอดทั้งหมดในแคมเปญนี้ออกจาก Ads Studio?${o.live > 0
+    ? `\n\n⚠️ มีแอดที่เปิดใช้อยู่ ${o.live} ชุด — จะยังวิ่งและใช้งบต่อบน Facebook หลังลบแล้วหยุดได้ที่ตัวจัดการโฆษณา (Ads Manager) เท่านั้น`
+    : o.sent ? "\n\nแอดที่ส่งขึ้น Facebook แล้วจะยังอยู่ในตัวจัดการโฆษณา (หยุดไว้) ถ้าไม่ใช้แล้วให้ลบที่นั่นด้วย" : ""}\n\nลบแล้วกู้คืนไม่ได้`;
+}

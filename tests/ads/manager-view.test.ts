@@ -12,7 +12,6 @@ describe("campaignState", () => {
   });
   it("is draft with no sends", () => {
     expect(campaignState([])).toBe("draft");
-    expect(campaignState([])).toBe("draft");
   });
   it("counts a switch-on after a pause as on", () => {
     expect(campaignState([{ activatedAt: "2026-10-04T03:00:00Z", pausedAt: "2026-10-04T02:00:00Z" }])).toBe("on");

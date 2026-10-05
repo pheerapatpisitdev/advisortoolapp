@@ -29,6 +29,7 @@ import {
 } from "@/lib/ads/send";
 import { graph } from "@/lib/ads/graph";
 import { sumResults, type AdResult, type DailyRow } from "@/lib/ads/results";
+import type { CampaignRow } from "@/lib/ads/campaign-table";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listLeadForms, type LeadForms } from "@/lib/ads/lead-forms";
 import { briefPick, painterPick, personPick, writerPick } from "@/lib/ads/picture-picks";
@@ -1043,6 +1044,45 @@ export async function campaignResults(
     };
   } catch (e) {
     console.error("campaignResults failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/**
+ * The แคมเปญ tab's rows for one of the owner's Pages: each campaign's name, plan, how many
+ * pieces are drafts and sent (counted as the room counts them), and its live sends — not the
+ * superseded ones — for its state, running budget and switch. Meta is not asked: the switch
+ * works from the switch-on record, as the room's badge does when Meta will not say.
+ */
+export async function campaignRows(pageId: string): Promise<{ ok: true; rows: CampaignRow[] } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  try {
+    if (!(await myPages()).some((p) => p.pageId === pageId)) return { ok: false, error: PAGE_NOT_CONNECTED };
+    const [campaigns, accounts] = await Promise.all([listCampaigns(pageId), adManageAccounts()]);
+    const accountName = (actId: string) => {
+      const a = accounts.find((x) => x.id === actId);
+      return a ? `${a.name} (${a.id})` : actId;
+    };
+    const rows = await Promise.all(campaigns.map(async (c): Promise<CampaignRow> => {
+      const [pieces, sends] = await Promise.all([listCampaignPieces(c.id), listSends(c.id)]);
+      const sent = new Set(sends.flatMap((s) => s.items.flatMap((i) => (i.pieceId ? [i.pieceId] : []))));
+      const tabs = await Promise.all(pieces.map(async (p) => adTab(p, sent.has(p.id) || (await liveRows(p.id, accounts)).length > 0)));
+      const counts = tabCounts(tabs);
+      return {
+        id: c.id,
+        name: titleOf(c),
+        planName: contentProduct(c.planHref)?.name ?? c.planHref,
+        drafts: counts.draft,
+        sent: counts.sent,
+        sends: sends.map((s) => ({
+          id: s.id, activatedAt: s.activatedAt, pausedAt: s.pausedAt, dailyBudgetMinor: s.dailyBudgetMinor,
+          accountName: accountName(s.actId), ads: s.items.filter((i) => i.adId).length,
+        })),
+      };
+    }));
+    return { ok: true, rows };
+  } catch (e) {
+    console.error("campaignRows failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
   }
 }
