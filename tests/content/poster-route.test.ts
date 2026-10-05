@@ -14,7 +14,10 @@ const store = vi.hoisted(() => ({ getContent: vi.fn() }));
 const draw = vi.hoisted(() => ({ drawPoster: vi.fn(async () => Buffer.from("png")) }));
 vi.mock("@/lib/content/store", () => store);
 vi.mock("@/lib/content/poster-draw", () => draw);
-vi.mock("@/lib/auth/viewer", () => ({ refuseUnless: vi.fn(async () => null) }));
+const who = vi.hoisted(() => ({ owner: true }));
+vi.mock("@/lib/auth/viewer", () => ({
+  refuseUnless: vi.fn(async (perm?: string) => (perm === "owner" && !who.owner ? Response.json({ ok: false }, { status: 403 }) : null)),
+}));
 const logos = vi.hoisted(() => ({ mayUseLogo: vi.fn(async (path: string) => path.includes("0b7d3f4e")) }));
 vi.mock("@/lib/content/logo-store", () => logos);
 
@@ -27,6 +30,7 @@ const get = (u: string) => GET(new NextRequest(u, { headers: { "x-forwarded-for"
 
 beforeEach(() => {
   vi.clearAllMocks();
+  who.owner = true;
   store.getContent.mockImplementation(async (id: string) => (id === MINE ? { id } : null));
 });
 
@@ -48,6 +52,16 @@ describe("the poster route", () => {
       const res = await get(url(spec));
       expect(res.status).toBe(404);
     }
+    expect(draw.drawPoster).not.toHaveBeenCalled();
+  });
+
+  it("draws a campaign claim ad's papers for the owner alone", async () => {
+    store.getContent.mockImplementation(async (id: string) => (id === MINE ? { id, format: "ad" } : null));
+    const spec = { documents: [{ path: `${MINE}/${FILE}`, ratio: 0.75 }] };
+    expect((await get(url(spec))).status).toBe(200);
+    who.owner = false;
+    vi.mocked(draw.drawPoster).mockClear();
+    expect((await get(url(spec))).status).toBe(403);
     expect(draw.drawPoster).not.toHaveBeenCalled();
   });
 

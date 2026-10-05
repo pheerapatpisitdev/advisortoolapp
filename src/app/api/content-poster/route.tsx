@@ -26,15 +26,21 @@ export const runtime = "nodejs";
  * a claim paper in a shared cache is a customer's document handed to whoever asks next.
  */
 
-/** Every stored picture the poster names belongs to a piece the caller may see, and its logo is one they may use. */
-async function mayDraw(spec: PosterSpec): Promise<boolean> {
+/**
+ * Every stored picture the poster names belongs to a piece the caller may see, and its logo is one
+ * they may use. A campaign claim ad (format "ad", Ads Studio) is the owner's alone: null draws,
+ * a Response is the refusal.
+ */
+async function mayDraw(spec: PosterSpec): Promise<Response | null> {
   const paths = [spec.background, ...(spec.documents ?? []).map((d) => d.path)].filter((p): p is string => Boolean(p));
   const pieces = [...new Set(paths.map((p) => p.split("/")[0]))];
   const [seen, logo] = await Promise.all([
     Promise.all(pieces.map((id) => getContent(id).catch(() => null))),
     spec.logo ? mayUseLogo(spec.logo.path).catch(() => false) : true,
   ]);
-  return seen.every(Boolean) && logo;
+  if (!seen.every(Boolean) || !logo) return new Response("ไม่พบรูปนี้", { status: 404 });
+  if (seen.some((p) => p?.format === "ad")) return refuseUnless("owner");
+  return null;
 }
 
 /** drawing is free but not nothing; a script asking a thousand times an hour is not a person */
@@ -51,7 +57,8 @@ export async function GET(req: NextRequest) {
   if (!spec) return new Response("ข้อมูลโปสเตอร์ไม่ถูกต้อง", { status: 400 });
   const sizeId: SizeId = isSizeId(q.get("size")) ? q.get("size") as SizeId : "square";
   // the same answer as a piece that does not exist, so a path says nothing about whose it is
-  if (!(await mayDraw(spec))) return new Response("ไม่พบรูปนี้", { status: 404 });
+  const barred = await mayDraw(spec);
+  if (barred) return barred;
 
   let png: Buffer;
   try {

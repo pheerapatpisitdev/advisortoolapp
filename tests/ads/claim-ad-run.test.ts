@@ -127,6 +127,14 @@ describe("a claim ad round is refused before anything is spent", () => {
     expect(await writeClaimAds({ ...input, age: 55 })).toEqual({ ok: false, error: "อายุ 55 ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น" });
     nothingSpent();
   });
+
+  it("with the table on for a plan that has no table at all says so, not the age", async () => {
+    campaigns.getCampaign.mockResolvedValue({ ...campaign, planHref: "/no-such-plan" });
+    expect(await writeClaimAds(input)).toEqual({
+      ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด — ปิด “ใส่ตารางเบี้ย” แล้วลองใหม่",
+    });
+    nothingSpent();
+  });
 });
 
 describe("a Thai round with the table", () => {

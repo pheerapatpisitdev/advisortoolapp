@@ -80,6 +80,48 @@ describe("a campaign claim ad's papers", () => {
   });
 });
 
+describe("a lookup or send check that cannot be settled", () => {
+  it("refuses when the piece cannot be looked up: nothing is read or checked", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    store.getContent.mockRejectedValue(new Error("db down"));
+    expect((await get()).status).toBe(500);
+    expect((await post()).status).toBe(500);
+    expect(run.claimPaper).not.toHaveBeenCalled();
+    expect(run.checkPaper).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("keeps an ad piece whose campaign is gone owner-only", async () => {
+    store.getContent.mockResolvedValue({ id: ID, format: "ad", campaignId: null });
+    who.role = "agent";
+    expect((await post()).status).toBe(403);
+    expect(run.checkPaper).not.toHaveBeenCalled();
+  });
+
+  it("freezes an ad piece whose campaign is gone once it has a launch", async () => {
+    store.getContent.mockResolvedValue({ id: ID, format: "ad", campaignId: null });
+    launches.findLaunch.mockResolvedValue({ id: "L1" });
+    expect((await post()).status).toBe(409);
+    expect(run.checkPaper).not.toHaveBeenCalled();
+    expect(sends.sentPieceIds).not.toHaveBeenCalled();
+  });
+
+  it("checks an ad piece whose campaign is gone and that was never launched", async () => {
+    store.getContent.mockResolvedValue({ id: ID, format: "ad", campaignId: null });
+    expect(await (await post()).json()).toEqual({ ok: true });
+    expect(run.checkPaper).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an ad piece whose campaign is gone when launches cannot be read", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    store.getContent.mockResolvedValue({ id: ID, format: "ad", campaignId: null });
+    conn.adManageAccounts.mockRejectedValue(new Error("no token"));
+    expect((await post()).status).toBe(500);
+    expect(run.checkPaper).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+});
+
 describe("an organic claim piece's papers", () => {
   it("stay as they were: any signed-in viewer, no send tables asked", async () => {
     store.getContent.mockResolvedValue({ id: ID, format: "post", campaignId: null });

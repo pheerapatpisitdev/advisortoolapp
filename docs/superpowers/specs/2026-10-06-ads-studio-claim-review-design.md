@@ -40,8 +40,8 @@ approved in chat ("ok ไปต่อ", "ทำอะไรต่อ").
    - when the table is on, the table block (`tableText` for the chosen age, no 💁/💰 headline
      lines, no owner line);
    - the Page contacts;
-   - the claim caution (`DISCLAIMER`; English: "Claim results depend on policy terms.");
-   - hashtags.
+   - the claim caution (`DISCLAIMER`; English: "Claim results depend on policy terms.").
+     (No hashtags, as Organic's claim ads.)
 
    Headline and description: at most 27 characters, otherwise the fallback (as for ตัวเลขชัดๆ).
 

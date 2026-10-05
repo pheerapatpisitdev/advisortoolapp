@@ -17,7 +17,7 @@ import { englishOutput } from "@/lib/content/lang";
 import { OVERHEAD_THB, writerOf } from "@/lib/content/models";
 import { DISCLAIMER, type ContentOutput } from "@/lib/content/output";
 import { posterText, THEMES, type Theme } from "@/lib/content/poster";
-import { headlineOwner, premiumTable, restatedFigures, tableText, type PremiumTable } from "@/lib/content/premium-table";
+import { hasLadder, headlineOwner, premiumTable, restatedFigures, tableText, type PremiumTable } from "@/lib/content/premium-table";
 import { contentProduct } from "@/lib/content/products";
 import { MAX_READER } from "@/lib/content/prompt";
 import {
@@ -78,7 +78,11 @@ export async function writeClaimAds(input: ClaimAdInput): Promise<GenerateResult
   if (input.withTable) {
     age = adAge(input.age);
     table = premiumTable(campaign.planHref, age, undefined, lang);
-    if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
+    if (!table) {
+      // no table at all is not an age problem: trying another age cannot help
+      if (!hasLadder(campaign.planHref, lang)) return { ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด — ปิด “ใส่ตารางเบี้ย” แล้วลองใหม่" };
+      return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
+    }
     owner = headlineOwner(table, adPick(input.sex, input.rung));
   }
 

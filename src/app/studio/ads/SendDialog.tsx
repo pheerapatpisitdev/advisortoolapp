@@ -241,7 +241,9 @@ export function SendDialog({ room, pieces, productName, onSent, onClose, onShowS
             {!busy && !ready && (
               <p className="text-xs text-[var(--ct-mute)]">
                 {going.length === 0
-                  ? "ไม่เหลือแอดที่จะส่ง — กด + ที่รูปเพื่อใส่กลับ"
+                  ? held.length > 0
+                    ? "แอดรีวิวเคลมต้องตรวจใบเคลมก่อน — เปิด “แก้ไข” แล้วกด “ตรวจแล้ว”"
+                    : "ไม่เหลือแอดที่จะส่ง — กด + ที่รูปเพื่อใส่กลับ"
                   : `${STILL_NEEDED[objective]}เป็นจำนวนเต็มบาทก่อน`}
               </p>
             )}

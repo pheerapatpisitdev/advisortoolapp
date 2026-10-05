@@ -15,15 +15,24 @@ export const PAPER_SENT_LOCKED = "แอดนี้ส่งขึ้น Facebo
  * cannot be read refuses, as setAdStatus does. An organic claim piece is none of this: null.
  */
 export async function campaignPaperRefusal(id: string, check: boolean): Promise<Response | null> {
-  const item = await getContent(id).catch(() => null);
+  let item;
+  try {
+    item = await getContent(id);
+  } catch (e) {
+    // a lookup that fails is not an organic piece: refuse rather than skip the owner and sent checks
+    console.error("claim paper lookup failed:", e);
+    return Response.json({ ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" }, { status: 500 });
+  }
   if (!item || (!item.campaignId && item.format !== "ad")) return null;
   const refused = await refuseUnless("owner");
   if (refused) return refused;
-  if (!check || !item.campaignId) return null;
+  if (!check) return null;
   try {
     const accounts = await adManageAccounts();
     const rows = await Promise.all(accounts.map((a) => launchStore.findLaunch(item.id, a.id)));
-    if (rows.some((r) => r !== null) || (await sentPieceIds(item.campaignId)).has(item.id)) {
+    // deleteAdCampaign nulls campaignId on its pieces, but Meta may still have the ad: a launch alone locks it
+    const sent = item.campaignId ? (await sentPieceIds(item.campaignId)).has(item.id) : false;
+    if (rows.some((r) => r !== null) || sent) {
       return Response.json({ ok: false, error: PAPER_SENT_LOCKED }, { status: 409 });
     }
     return null;
