@@ -36,13 +36,16 @@ export function cleanContact(v: unknown): PageContact | { error: string } {
   return { agentName: name || null, lineId: line || null, inboxUrl: inbox || null };
 }
 
-/** The closing lines of an ad: whichever contacts are set, or a plain invitation. */
-export function contactBlock(c: PageContact | null): string {
+/**
+ * The closing lines of an ad: whichever contacts are set, or a plain invitation — in English for
+ * an English campaign (campaignLang), whose contact lines are the same.
+ */
+export function contactBlock(c: PageContact | null, lang: "th" | "en" = "th"): string {
   const lines: string[] = [];
   if (c?.agentName) lines.push(`👉 ${c.agentName}`);
   if (c?.lineId) lines.push(`📲 Line: @${c.lineId}`);
   if (c?.inboxUrl) lines.push(`👉 Inbox: ${c.inboxUrl}`);
-  return lines.length ? lines.join("\n") : "ทักแชทได้เลย";
+  return lines.length ? lines.join("\n") : lang === "en" ? "Message us" : "ทักแชทได้เลย";
 }
 
 export async function getPageContact(pageId: string): Promise<PageContact | null> {

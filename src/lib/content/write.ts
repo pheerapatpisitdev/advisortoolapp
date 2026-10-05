@@ -212,12 +212,13 @@ export async function write(ask: Ask, opts: { only?: string; prefer?: string; bu
  * `clock`: the round's deadline (deadline.ts), with `saveMs` kept back for saving the pieces
  * after; each call gets what is left then, fallbacks included. Without it the calls are as usual.
  */
-export async function writeLongAds(opts: { brief: string; plans: PiecePlan[]; ctx: LongAdContext; prefer?: string; clock?: Deadline; saveMs?: number }): Promise<Round> {
+/** `lang` "en": an English campaign's ads (campaignLang), written to the English long-ad rules */
+export async function writeLongAds(opts: { brief: string; plans: PiecePlan[]; ctx: LongAdContext; prefer?: string; clock?: Deadline; saveMs?: number; lang?: Lang }): Promise<Round> {
   const { contact, ...shown } = opts.ctx;
   const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
   const settled = await Promise.allSettled(opts.plans.map(async (plan) => {
     const r = await timed((timeoutMs) => chat({
-      tier: "large", task: "content", messages: longAdMessages(opts.brief, plan, shown),
+      tier: "large", task: "content", messages: longAdMessages(opts.brief, plan, shown, opts.lang ?? "th"),
       maxTokens: 3000, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
       within: fallbackWriters(opts.prefer),
     }), WRITE_TIMEOUT_MS, cellMs, "ad");

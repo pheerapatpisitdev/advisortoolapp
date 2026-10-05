@@ -1,3 +1,5 @@
+import type { Lang } from "./output";
+
 /**
  * The first check on a generated post: the numbers, and the words.
  *
@@ -156,7 +158,8 @@ interface PremiumSpan {
  * only next to เบี้ย, วันละ, เดือนละ, ปีละ, ต่อเดือน, ต่อปี, ตกวันละ, ตกเดือนละ before it, or /เดือน,
  * /ปี, /วัน, ต่อ… after it. A benefit paid by the day, month or year (BENEFIT, COVER) is not.
  */
-function premiumSpans(text: string): PremiumSpan[] {
+function premiumSpans(text: string, lang: Lang = "th"): PremiumSpan[] {
+  if (lang === "en") return premiumSpansEn(text);
   const out: PremiumSpan[] = [];
   let prevEnd = 0;
   for (const a of amounts(text)) {
@@ -187,11 +190,54 @@ function premiumSpans(text: string): PremiumSpan[] {
 }
 
 /**
- * The amounts in a text said as a premium (premiumSpans). A long ad's model may write none of
- * these, true or not: the code prints every premium (spec 2026-10-05, "AI never writes a premium").
+ * English premiums (spec 2026-10-06), built as the Thai ones above: an amount said as money (THB,
+ * baht, ฿, a unit) or money-like right after "premium", next to "premium" or a period word before
+ * it ("a month", "per year", "daily"…) or a period after it ("a day", "per month", "/mo", "/yr",
+ * "monthly"…). A benefit paid by the period ("room & board 5,000 THB per day", "tax deduction up
+ * to 25,000 THB a year") or cover ("up to 25,000,000 THB a year") is not; an amount after
+ * "premium" is a premium whatever came before.
  */
-export function premiumAmounts(text: string): string[] {
-  return [...new Set(premiumSpans(text).map((p) => p.raw))];
+const PREMIUM_LEAD_EN = /\b(premiums?|per month|a month|monthly|per year|a year|yearly|annually|per day|a day|daily)\b[^\d\n]{0,12}$/i;
+const PREMIUM_TAIL_EN = /^\s*(?:\/\s*(?:mo|mth|month|yr|year|day|annum)\b|(?:per|a|an|each|every)\s+(?:month|year|day)\b|monthly\b|yearly\b|annually\b|daily\b)/i;
+const BENEFIT_EN = /cover|medical|hospital|room|board|tax|deduct|cash|benefit|pension|income|refund|limit|claim|compensat|payout|pays out|reimburse|salary|rent|mortgage|tuition|school|loan|bills?\b|expenses?|treatment|surgery/i;
+const COVER_EN = /(?:up to|maximum(?: of)?|max\.?|limit(?: of)?)\s*$/i;
+const BARE_LEAD_EN = /\bpremiums?\s*(?:(?:of|from|is|are|at|only|just|about|around|starting|:)\s*)*$/i;
+const CLAUSE_HEAD_EN = /(?:\b(?:pay(?:ing)?|premiums?|first-year|from|only|just|about|around|for|of|at)\s*)*$/i;
+
+function premiumSpansEn(text: string): PremiumSpan[] {
+  const out: PremiumSpan[] = [];
+  let prevEnd = 0;
+  for (const a of amounts(text)) {
+    const lineStart = text.lastIndexOf("\n", a.at - 1) + 1;
+    const since = Math.max(lineStart, prevEnd);
+    prevEnd = a.end;
+    if (a.raw.endsWith("%")) continue;
+    const tail = PREMIUM_TAIL_EN.exec(text.slice(a.end));
+    const before = text.slice(since, a.at);
+    const bare = BARE_LEAD_EN.test(before) && /,|\d{3}/.test(a.raw);
+    if (!a.priced && !a.unit && !tail && !bare) continue;
+    const lead = PREMIUM_LEAD_EN.exec(before);
+    const said = lead ? before.slice(0, lead.index) : before;
+    // the benefit word may sit before the period word or between it and the amount ("Daily cash of THB 1,000")
+    const benefit = BENEFIT_EN.test(lead ? before.slice(Math.max(0, lead.index - BENEFIT_REACH)) : said);
+    const premium = lead
+      ? /^premium/i.test(lead[1]) || !benefit
+      : bare || (Boolean(tail) && !benefit && !COVER_EN.test(said));
+    if (!premium) continue;
+    const startAt = lead ? since + lead.index : a.at;
+    const head = CLAUSE_HEAD_EN.exec(text.slice(since, startAt));
+    out.push({ raw: a.raw, from: head ? since + head.index : startAt, to: a.end + (tail ? tail[0].length : 0) });
+  }
+  return out;
+}
+
+/**
+ * The amounts in a text said as a premium (premiumSpans), in the text's language — English
+ * phrases for an English ad. A long ad's model may write none of these, true or not: the code
+ * prints every premium (spec 2026-10-05, "AI never writes a premium").
+ */
+export function premiumAmounts(text: string, lang: Lang = "th"): string[] {
+  return [...new Set(premiumSpans(text, lang).map((p) => p.raw))];
 }
 
 /**
@@ -243,7 +289,8 @@ export interface PersonPhrase {
  * The people a text speaks of, one sex and one age each (Thai digits read as Arabic). Both sexes
  * together, a child (ลูกชาย, เด็กชาย) and an age range are not one person, and are left out.
  */
-export function personPhrases(text: string): PersonPhrase[] {
+export function personPhrases(text: string, lang: Lang = "th"): PersonPhrase[] {
+  if (lang === "en") return personPhrasesEn(text);
   const read = arabic(text);
   const out: PersonPhrase[] = [];
   for (const m of read.matchAll(PERSON)) {
@@ -254,6 +301,39 @@ export function personPhrases(text: string): PersonPhrase[] {
     out.push({ phrase: text.slice(m.index, end).trim(), sex: m[1].endsWith("หญิง") ? "F" : "M", age: Number(m[3] ?? m[4]), at: m.index, end });
   }
   return out;
+}
+
+/** the English words for one adult of a sex; a child (son, girl…) is not one of them */
+const SEX_EN = String.raw`(?:women|woman|men|man|females?|males?|ladies|lady|gentlemen|gentleman)`;
+/** a sex word, then an age: "female, 35", "men aged 40", "woman (age 35)", "male 40 years old" */
+const PERSON_SEX_FIRST = new RegExp(String.raw`\b(${SEX_EN})\b[,:\s]*\(?\s*(?:(?:aged|age)\s*:?\s*)?(\d{1,2})(?![\d])(?![,.]\d)(?!\s*(?:%|thb|baht|million|k\b|minutes?|hours?|days?|weeks?|months?|kids?|children|plans?))`, "gi");
+/** an age, then a sex word: "a 35-year-old woman", "40 years old male" */
+const PERSON_AGE_FIRST = new RegExp(String.raw`(?<![\d,.])(\d{1,2})\s*-?\s*(?:years?|yrs?)\s*-?\s*old\b[,\s]*(${SEX_EN})\b`, "gi");
+/** the second of "men and women", or a sex word right after an age range's "–"/"to" */
+const NOT_ONE_BEFORE_EN = new RegExp(String.raw`\b${SEX_EN}\s*(?:and|&|or|\/)\s*$`, "i");
+const NOT_ONE_AFTER_EN = new RegExp(String.raw`^\s*(?:and|&|or|\/)\s*${SEX_EN}\b`, "i");
+/** an age that opens a range: "20–65", "30 to 40", "30 and over", "40+" */
+const RANGE_AFTER_EN = /^\s*(?:-?\s*(?:years?|yrs?)(?:\s*-?\s*old)?)?\s*(?:[–—-]\s*\d|to\s+\d|and\s+(?:over|above|up|older)|or\s+(?:over|older|above)|\+|plus\b)/i;
+const RANGE_BEFORE_EN = /(?:\d\s*(?:[–—-]|to)\s*|between\s*)$/i;
+
+/** English people (spec 2026-10-06), as personPhrases: one sex and one age each; both sexes, a child and a range are not one person. */
+function personPhrasesEn(text: string): PersonPhrase[] {
+  const out: PersonPhrase[] = [];
+  const sexOf = (w: string): "F" | "M" => (/^(?:wo|fe|lad)/i.test(w) ? "F" : "M");
+  for (const m of text.matchAll(PERSON_SEX_FIRST)) {
+    const end = m.index + m[0].length;
+    if (NOT_ONE_BEFORE_EN.test(text.slice(Math.max(0, m.index - 14), m.index))) continue;
+    if (RANGE_AFTER_EN.test(text.slice(end))) continue;
+    out.push({ phrase: m[0].trim(), sex: sexOf(m[1]), age: Number(m[2]), at: m.index, end });
+  }
+  for (const m of text.matchAll(PERSON_AGE_FIRST)) {
+    const end = m.index + m[0].length;
+    if (RANGE_BEFORE_EN.test(text.slice(Math.max(0, m.index - 12), m.index))) continue;
+    if (NOT_ONE_AFTER_EN.test(text.slice(end))) continue;
+    if (out.some((p) => p.at < end && m.index < p.end)) continue;
+    out.push({ phrase: m[0].trim(), sex: sexOf(m[2]), age: Number(m[1]), at: m.index, end });
+  }
+  return out.sort((a, b) => a.at - b.at);
 }
 
 /** float-safe identity for an amount: 3.38 and 3.380 are the same figure */

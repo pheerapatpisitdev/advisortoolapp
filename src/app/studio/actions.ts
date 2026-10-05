@@ -30,7 +30,7 @@ import { cleanDraft } from "@/lib/content/draft";
 import { writeDraft, type DraftWriteInput } from "@/lib/content/draft-run";
 import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run";
 import { proofread, type Fix } from "@/lib/content/proofread";
-import { ADS_MOVED, GOALS, LENGTHS, angleText, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
+import { ADS_MOVED, GOALS, LENGTHS, angleText, anglesFor, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
   DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
   getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
@@ -51,6 +51,7 @@ import { myPages, projectPage } from "@/lib/auth/pages";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
 import { getCampaign, listCampaignPieces, type AdCampaign } from "@/lib/ads/campaign-store";
 import { contactBlock, getPageContact } from "@/lib/ads/page-contact";
+import { campaignLang } from "@/lib/ads/campaign-lang";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
 import { payRound } from "@/lib/wallet/round";
 import { drawHoldThb } from "@/lib/wallet/money";
@@ -212,6 +213,8 @@ interface AdRound {
   table: PremiumTable;
   age: number;
   pick: Partial<HeadlinePick>;
+  /** "en" for iHealthy Ultra on an Expat Page (campaignLang, spec 2026-10-06); Thai otherwise */
+  lang: Lang;
 }
 
 export async function generateContent(given: GenerateInput): Promise<GenerateResult> {
@@ -237,13 +240,15 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
     // a campaign whose Page was disconnected since can be read but not written into
     if (!(await myPages()).some((p) => p.pageId === campaign.pageId)) return { ok: false, error: "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว" };
     const age = adAge(input.age);
+    // the campaign's language is derived, never sent: iHealthy Ultra on an Expat Page is English
+    const adLang = campaignLang(campaign.planHref, campaign.pageId);
     // a plan with no table at all is not a matter of age
-    if (!hasLadder(campaign.planHref)) return { ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด" };
+    if (!hasLadder(campaign.planHref, adLang)) return { ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด" };
     // an age the plan prices on no rung is said before anything is counted or held (review focus 1)
-    const table = premiumTable(campaign.planHref, age);
+    const table = premiumTable(campaign.planHref, age, undefined, adLang);
     if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
     // headlineFigures and headlineOwner settle a rung off the table to the middle row
-    ad = { campaign, table, age, pick: adPick(input.sex, input.rung) };
+    ad = { campaign, table, age, pick: adPick(input.sex, input.rung), lang: adLang };
     // only the count, the angle, the reader, the age and the headline's pick are read from the browser: everything
     // else is the campaign's, its writer too. The angle settles below (settleExpat), against
     // what an ad's menu offers, so ตัวเลขชัดๆ — a post's — becomes the AI's pick.
@@ -257,7 +262,9 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
   // the round's time starts with the request: the planner, the writers and the saves all fit in it
   const clock = deadline();
   // the tick holds only for an iHealthy Ultra post; anything else sent with it is written in Thai
-  const settled = settleExpat(input);
+  // an English campaign's round is English (campaignLang), its angle one the English ad menu offers;
+  // settleExpat holds the Organic tick to a post, as it always did
+  const settled = ad?.lang === "en" ? englishAd(input.href, input.angle) : settleExpat(input);
   const { expat } = settled;
   const lang = expat ? "en" : "th";
   const brief = briefFor(input.href, undefined, { expat });
@@ -373,23 +380,24 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
         // the campaign's earlier headlines first, so the planner's cut of the list keeps them
         const heads = earlier.flatMap((p) => (p.output.hooks[0] ? [p.output.hooks[0]] : []));
         const planned = await plan(
-          { brief: shownBrief, count, angle: [[focus, told].filter(Boolean).join(" — "), adOwnerLines(owner.line)].filter(Boolean).join("\n"), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang: "th" },
+          { brief: shownBrief, count, angle: [[focus, told].filter(Boolean).join(" — "), adOwnerLines(owner.line, lang)].filter(Boolean).join("\n"), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang },
           { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) },
         );
-        const contact = contactBlock(pageContact);
+        const contact = contactBlock(pageContact, lang);
         const ctx = { table: tableText(table), headline: headlineFigures(table, pick), owner: owner.line, contact, reader, focus, voice: (campaign.brandVoice ?? "").trim() };
         // every figure the ad carries is the code's: kept on the piece, an edit is checked against
         // them again (review focus 2) — the contacts too, whose Line ID and m.me link have digits
         const figures = `${ctx.table}\n${ctx.headline}\n${contact}`;
-        const written = await writeLongAds({ brief: shownBrief, plans: planned.plans, ctx, prefer: writeWith, clock, saveMs: SAVE_MS });
+        const written = await writeLongAds({ brief: shownBrief, plans: planned.plans, ctx, prefer: writeWith, clock, saveMs: SAVE_MS, lang });
         const planShare = planned.costThb / written.pieces.length;
         const rows = written.pieces.map((w) => {
-          const output: ContentOutput = { ...w.output, ad: { angle: w.output.ad?.angle ?? "", tone: "", reader, age, sex: owner.sex, head: owner.heading }, figures };
-          const checked = flagsFor(output, "th", `${brief.text}\n${figures}`, words, null);
+          // an English ad is marked and carries the English regulator line, as an English post (lang.ts)
+          const output: ContentOutput = inTongue({ ...w.output, ad: { angle: w.output.ad?.angle ?? "", tone: "", reader, age, sex: owner.sex, head: owner.heading }, figures });
+          const checked = flagsFor(output, lang, `${brief.text}\n${figures}`, words, null);
           // the model's own words against the brief alone, and no premium of the table restated
           // in them: the whole-text check above lets anything the code placed through
           // …and no person of another sex or age than the one the headline prices
-          const restated = [...restatedFigures(w.modelText ?? "", brief.text, table), ...otherPeople(w.modelText ?? "", owner.sex, age)];
+          const restated = [...restatedFigures(w.modelText ?? "", brief.text, table), ...otherPeople(w.modelText ?? "", owner.sex, age, lang)];
           return {
             planHref: brief.product.href, format: "ad" as const, angle, length: null, output: dressed(output),
             flags: { ...checked, numbers: [...new Set([...checked.numbers, ...restated])] },
@@ -429,6 +437,15 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
       if (hold) await releaseContentBudget(hold);
     }
   });
+}
+
+/**
+ * An English campaign's round settled: English, and the angle only if the English ad menu
+ * (anglesFor("ad", href, true)) offers it — anything else is the AI's pick, as settleExpat does.
+ */
+function englishAd(href: string, angle: string): { expat: boolean; angle: AngleId } {
+  const offered = anglesFor("ad", href, true).some((a) => a.id === angle);
+  return { expat: true, angle: angle === "custom" || offered ? (angle as AngleId) : "" };
 }
 
 /** หาทีม: a round from a picked topic (src/lib/content/recruit.ts), under the plan form's hourly limit. */

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { PiecePerson } from "@/lib/content/people";
-import { anglesFor, MAX_READER, NICHES, type AngleId } from "@/lib/content/prompt";
+import { anglesFor, EXPAT_NICHES, MAX_READER, NICHES, type AngleId } from "@/lib/content/prompt";
 import { adRoundCost } from "@/lib/ads/picture-picks";
 import { tableAge } from "@/lib/ads/room-view";
 import { PressBar } from "../ui/form-parts";
@@ -23,7 +23,8 @@ import { chip, field } from "./styles";
  *   press stays the last thing in the column.
  * The plan, Page, focus, voice and ภาพและโมเดล are the campaign's; the server reads them there.
  * In the create drawer (2026-10-05) `preview` is drawn beside the fields with the age, sex and
- * row chosen, for the figures the round will place.
+ * row chosen, for the figures the round will place. An English campaign (`lang` "en", spec
+ * 2026-10-06) offers the expat angles and readers, as Organic's expat tick does; the chrome stays Thai.
  */
 
 export interface WriteInput {
@@ -50,9 +51,11 @@ const AGE_DEFAULT = "30";
 /** how long the age must rest before its rows are asked for */
 const ROWS_WAIT_MS = 300;
 
-export function WriteForm({ campaignId, planHref, picks, writing, disabled, warning = null, folded, onWrite, preview, draft, onDraft, children }: {
+export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, disabled, warning = null, folded, onWrite, preview, draft, onDraft, children }: {
   campaignId: string;
   planHref: string;
+  /** the campaign's language (campaignLang): "en" offers the expat angles and readers */
+  lang?: "th" | "en";
   /** the campaign's saved writer, painter and person, for the price */
   picks: { writer: string | null; painter: string | null; person: PiecePerson | null };
   /** a round is being written: the press stays shut until it is back */
@@ -150,7 +153,7 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
               <span className="mb-1 block text-sm font-medium">มุมที่อยากเล่า <span className="font-normal text-[var(--ct-mute)]">(ไม่เลือกก็ได้)</span></span>
               <select value={angle} onChange={(e) => setAngle(e.target.value as AngleId)} className={field}>
                 <option value="">ให้ AI เลือก</option>
-                {anglesFor("ad", planHref).map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                {anglesFor("ad", planHref, lang === "en").map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
                 <option value="custom">พิมพ์เอง…</option>
               </select>
             </label>
@@ -169,7 +172,7 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
             <span id={`${formId}-reader`} className="mb-1.5 block text-sm font-medium">คนอ่านคือใคร</span>
             <div className="flex flex-wrap gap-2">
               <button type="button" aria-pressed={reader === ""} onClick={() => setReader("")} className={chip(reader === "")}>ทุกคน</button>
-              {NICHES.map((n) => (
+              {(lang === "en" ? EXPAT_NICHES : NICHES).map((n) => (
                 <button key={n} type="button" aria-pressed={reader === n} onClick={() => setReader(n)} className={chip(reader === n)}>{n}</button>
               ))}
             </div>

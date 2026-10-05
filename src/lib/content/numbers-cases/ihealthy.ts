@@ -35,8 +35,13 @@ function iHealthyPlan(lang: Lang) {
     product: "iHealthy Ultra",
     cases: CASES,
     claims: CLAIMS[lang],
-    // the premium table is Thai only: the English ad does not carry one
-    ...(en ? {} : { ladder: { term: "จ่ายเบี้ยถึงอายุ 99", firstYear: true, rungs: ["SMART", "BRONZE", "SILVER", "GOLD"].map((plan) => ({ plan })) } }),
+    // the premium table's rungs, the same in both languages (spec 2026-10-06): the English ad on
+    // an Expat Page carries the same figures, its term said as the English sheet says it
+    ladder: {
+      term: en ? `renewable up to age ${iHealthyFacts().terms.renewalToAge}` : "จ่ายเบี้ยถึงอายุ 99",
+      firstYear: true,
+      rungs: ["SMART", "BRONZE", "SILVER", "GOLD"].map((plan) => ({ plan })),
+    },
     price: (p, claims, today) => {
       const table = iHealthyTable(today);
       const plan = table.plans.find((x) => x.code === p.plan);

@@ -34,6 +34,7 @@ import { listLeadForms, type LeadForms } from "@/lib/ads/lead-forms";
 import { briefPick, painterPick, personPick, writerPick } from "@/lib/ads/picture-picks";
 import { contentProduct } from "@/lib/content/products";
 import { adAge, adPick } from "@/lib/ads/headline-input";
+import { campaignLang } from "@/lib/ads/campaign-lang";
 import { hasLadder, headlineFigures, middleRung, premiumTable, tableText } from "@/lib/content/premium-table";
 import type { PiecePerson } from "@/lib/content/people";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
@@ -122,6 +123,8 @@ export interface LaunchPiece {
   headline: string;
   primaryText: string;
   description: string;
+  /** "en": written in English (an Expat Page's iHealthy campaign, spec 2026-10-06); absent for Thai */
+  lang?: "en";
   hasPoster: boolean;
   poster: PosterSpec | null;
   /** who the picture was drawn with; null for none. A redraw sends it back, or the server would take the person off */
@@ -513,6 +516,8 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
       createdAt: p.createdAt,
       status: p.status,
       ...wordsOf(p),
+      // an English ad (an Expat Page's iHealthy campaign) is marked for its EN chip and English button
+      ...(p.output.lang === "en" ? { lang: "en" as const } : {}),
       hasPoster: Boolean(p.output.poster),
       poster: p.output.poster ?? null,
       person: p.output.person ?? null,
@@ -558,7 +563,8 @@ export async function tableRows(
     if (!campaign) return { ok: false, error: NO_CAMPAIGN };
     // a campaign whose Page was disconnected cannot be written into (generateContent says the same)
     if (!(await myPages()).some((p) => p.pageId === campaign.pageId)) return { ok: false, error: PAGE_GONE };
-    const table = premiumTable(campaign.planHref, age);
+    // an English campaign's rows are the English table's headings (campaignLang, spec 2026-10-06)
+    const table = premiumTable(campaign.planHref, age, undefined, campaignLang(campaign.planHref, campaign.pageId));
     if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
     return { ok: true, rows: table.rows.map((r, index) => ({ index, heading: r.heading })), middle: middleRung(table.rows.length) };
   } catch (e) {
@@ -582,9 +588,11 @@ export async function headlinePreview(
     if (!campaign) return { ok: false, error: NO_CAMPAIGN };
     // a campaign whose Page was disconnected cannot be written into (generateContent says the same)
     if (!(await myPages()).some((p) => p.pageId === campaign.pageId)) return { ok: false, error: PAGE_GONE };
-    if (!hasLadder(campaign.planHref)) return { ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด" };
+    // the round's language, so an English campaign previews the English figures it will carry
+    const lang = campaignLang(campaign.planHref, campaign.pageId);
+    if (!hasLadder(campaign.planHref, lang)) return { ok: false, error: "แบบประกันนี้ยังไม่มีตารางเบี้ยสำหรับแอด" };
     const age = adAge(pick?.age);
-    const table = premiumTable(campaign.planHref, age);
+    const table = premiumTable(campaign.planHref, age, undefined, lang);
     if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
     return { ok: true, headline: headlineFigures(table, adPick(pick?.sex, pick?.rung)), table: tableText(table) };
   } catch (e) {
@@ -1114,7 +1122,11 @@ export async function campaignRows(pageId: string): Promise<{ ok: true; rows: Ca
       return a ? `${a.name} (${a.id})` : actId;
     };
     const rows = await Promise.all(campaigns.map(async (c): Promise<CampaignRow> => {
-      const named = { id: c.id, name: titleOf(c), planName: contentProduct(c.planHref)?.name ?? c.planHref };
+      // an English campaign's row is marked (its EN chip); a Thai one is as it was
+      const named = {
+        id: c.id, name: titleOf(c), planName: contentProduct(c.planHref)?.name ?? c.planHref,
+        ...(campaignLang(c.planHref, c.pageId) === "en" ? { lang: "en" as const } : {}),
+      };
       try {
         const [pieces, sends] = await Promise.all([listCampaignPieces(c.id), listSends(c.id)]);
         const sent = new Set(sends.flatMap((s) => s.items.flatMap((i) => (i.pieceId ? [i.pieceId] : []))));

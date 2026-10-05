@@ -106,6 +106,18 @@ describe("campaignRows", () => {
     ]);
   });
 
+  it("marks an English campaign — iHealthy Ultra on an Expat Page (spec 2026-10-06) — and no Thai one", async () => {
+    const EXPAT = "112110731809903";
+    pages.myPages.mockResolvedValue([{ pageId: EXPAT, pageName: "Expat" }]);
+    camps.listCampaigns.mockResolvedValue([
+      { id: "C1", name: null, planHref: "/ihealthy-ultra", pageId: EXPAT },
+      { id: "C2", name: null, planHref: "/lifeprotect", pageId: EXPAT },
+    ]);
+    const res = await campaignRows(EXPAT);
+    expect(res.ok && res.rows.map((r) => r.lang)).toEqual(["en", undefined]);
+    expect(res.ok && "lang" in res.rows[1]).toBe(false);
+  });
+
   it("says something broke without the detail", async () => {
     camps.listCampaigns.mockRejectedValue(new Error("boom: secret detail"));
     const err = vi.spyOn(console, "error").mockImplementation(() => {});

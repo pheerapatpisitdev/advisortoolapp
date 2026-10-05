@@ -1,7 +1,8 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
 import { personPhrases, withoutPremiums } from "./check";
-import { CORE_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
+import type { Lang } from "./output";
+import { CORE_RULES, ENGLISH_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
 import type { PiecePlan } from "./plan";
 
 /**
@@ -36,6 +37,8 @@ const AD_SHORT_FIELDS = [
 
 /** Claims no one can prove; the writer is told never to make them. */
 export const BANNED_SUPERLATIVES = ["อันดับ 1", "ขายดีที่สุด", "คุ้มที่สุด", "ถูกที่สุด", "กล้าเทียบทุกบริษัท"] as const;
+/** the same, for an English ad on an Expat Page (spec 2026-10-06) */
+export const BANNED_SUPERLATIVES_EN = ["best", "cheapest", "No.1", "number one", "best-selling"] as const;
 
 /** Facebook's primary text allows 2,200 characters. */
 const PRIMARY_MAX = 2200;
@@ -79,11 +82,50 @@ function longAdSystem(): string {
 }
 
 /**
+ * An English long ad's system prompt (spec 2026-10-06): the same shape as the Thai one — the
+ * shared rules, then ENGLISH_RULES, which says which Thai rules an English piece leaves aside —
+ * with its format and lengths said in English.
+ */
+function longAdSystemEn(): string {
+  return [
+    "You write English Facebook ads for a life insurance agent in Thailand, read by expats living in Thailand.",
+    "What works: stop the scroll in the first line, then invite a chat. Never sell with fear.",
+    "",
+    CORE_RULES,
+    "",
+    "Long ad format (the system puts it together into one text; you write only your parts):",
+    `- opening: 1–2 lines. The first ${AD_LIMITS.fold} characters must make sense on their own, because Facebook folds the rest.`,
+    "- bullets: 5–8 lines, every one starting with 🥇, telling benefits from the product information only.",
+    "- cta: one line inviting a chat for a free premium quote, asking for their sex and age.",
+    "- hashtags: 6–12 tags, each starting with #.",
+    "- Never write a premium or any premium figure in words: the system adds the premium table.",
+    `- Never make a claim no one can prove: ${BANNED_SUPERLATIVES_EN.join(" · ")}`,
+    "",
+    "Lengths (in characters):",
+    `- headline: very short, 3–5 words, at most ${AD_LIMITS.headline} characters (shown under the picture, beside the button); a complete phrase.`,
+    `- description: very short, 3–5 words, at most ${AD_LIMITS.description} characters; complete, and any figure keeps its unit.`,
+    "",
+    "Answer in JSON only:",
+    `{"opening":"…","bullets":["🥇 …"],"cta":"…","hashtags":["#…"],"headline":"…","description":"…",${POSTER_JSON}}`,
+    POSTER_RULES,
+    "",
+    ENGLISH_RULES,
+  ].join("\n");
+}
+
+/**
  * Whose ad it is, for the planner (whose hooks become the openings) and the writer alike: the
  * 2026-10-05 ad's focus said ชาย 35 ปี ทุน 1 ล้าน while the code's figures were a woman's at 30.
  * This wins over the campaign's focus, which is still passed.
  */
-export function adOwnerLines(owner: string): string {
+export function adOwnerLines(owner: string, lang: Lang = "th"): string {
+  if (lang === "en") {
+    return [
+      `This ad is for: ${owner.trim()}`,
+      "Mention only this sex, age and cover if you mention any — never another age, sex or cover, and never a premium as a figure.",
+      "If the focus speaks of a different sex, age or cover, keep to this line and use the focus only as a theme.",
+    ].join("\n");
+  }
   return [
     `แอดนี้เป็นของ: ${owner.trim()}`,
     "ถ้าจะพูดถึงเพศ อายุ หรือทุน ให้พูดตามบรรทัดนี้เท่านั้น ห้ามพูดถึงอายุ เพศ หรือทุนอื่น และห้ามบอกเบี้ยเป็นตัวเลข",
@@ -95,10 +137,25 @@ export function adOwnerLines(owner: string): string {
  * One long ad's writer messages. The table and the headline figures are shown as facts it may
  * refer to; the contacts are not, because the code places them.
  */
-export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdContext, "contact">): ChatMessage[] {
+export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdContext, "contact">, lang: Lang = "th"): ChatMessage[] {
   const focus = ctx.focus.trim();
   const voice = ctx.voice.trim();
   const reader = ctx.reader.trim();
+  if (lang === "en") {
+    const en = [
+      `Product information:\n${brief}`,
+      `The premium table the system will add (you may refer to it, never repeat it):\n${ctx.table}`,
+      `The headline figures the system will add:\n${ctx.headline}`,
+      adOwnerLines(ctx.owner, "en"),
+      `Angle to use: ${p.angle}`,
+      `Hook (the direction of the opening, not word for word): ${p.hook}`,
+      reader ? `Who you are talking to: ${reader}` : "",
+      focus ? `What to stress: ${focus}` : "",
+      voice ? `Brand voice: ${voice}` : "",
+      "imagePrompt must describe a picture that fits this angle.",
+    ].filter(Boolean).join("\n\n");
+    return [{ role: "system", content: longAdSystemEn() }, { role: "user", content: en }];
+  }
   const user = [
     `ข้อมูลผลิตภัณฑ์:\n${brief}`,
     `ตารางเบี้ยที่ระบบจะใส่ให้ (อ้างถึงได้ แต่ห้ามเขียนซ้ำ):\n${ctx.table}`,

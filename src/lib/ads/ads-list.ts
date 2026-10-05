@@ -35,12 +35,14 @@ export function foldSplit(text: string, n: number): { before: string; after: str
 
 /**
  * The button under the post, as Facebook words it: the send's lead button for a lead form,
- * ดูเพิ่มเติม for traffic, and ส่งข้อความ for messages — and for an ad not sent yet.
+ * ดูเพิ่มเติม for traffic, and ส่งข้อความ for messages — and for an ad not sent yet. An English ad
+ * (spec 2026-10-06) shows Send message and Learn more, as Facebook words them for its readers.
  */
-export function ctaLabel(send: { objective: SendObjective; cta: LeadCta | null } | null): string {
-  if (!send || send.objective === "messages") return "ส่งข้อความ";
+export function ctaLabel(send: { objective: SendObjective; cta: LeadCta | null } | null, lang: "th" | "en" = "th"): string {
+  const en = lang === "en";
+  if (!send || send.objective === "messages") return en ? "Send message" : "ส่งข้อความ";
   if (send.objective === "leads") return CTA_LABEL[send.cta ?? "LEARN_MORE"];
-  return "ดูเพิ่มเติม";
+  return en ? "Learn more" : "ดูเพิ่มเติม";
 }
 
 /** The send a piece went up in: the first that holds it (the room hands sends newest first); null for none. */

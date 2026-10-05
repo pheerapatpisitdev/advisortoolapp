@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { ContentItem } from "@/lib/content/store";
 import { liveCount, type AdTab } from "@/lib/ads/campaign-view";
 import { ctaLabel, pickAd, sendOf, startTab } from "@/lib/ads/ads-list";
+import { campaignLang } from "@/lib/ads/campaign-lang";
 import { pictureRequest } from "@/lib/ads/picture-picks";
 import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
 import { AUTO } from "@/lib/content/models";
@@ -303,7 +304,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
               <AdPreview
                 key={picked.id}
                 piece={picked} productName={productName} pageName={campaign.pageName ?? "เพจของคุณ"} fold={rules.limits.fold}
-                cta={ctaLabel(sendOf(room.sends, picked.id))} picture={pictures[picked.id]}
+                cta={ctaLabel(sendOf(room.sends, picked.id), picked.lang ?? "th")} picture={pictures[picked.id]}
                 onEdit={() => setOpenId(picked.id)} onDraw={() => draw([picked.id])}
               />
             ) : (
@@ -322,12 +323,12 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
             <p role={roundNote.tone === "bad" ? "alert" : "status"} className={`mx-4 mt-4 rounded-lg border px-3 py-2 text-sm ${TONES[roundNote.tone]}`}>{roundNote.text}</p>
           )}
           <WriteForm
-            campaignId={campaign.id} planHref={campaign.planHref}
+            campaignId={campaign.id} planHref={campaign.planHref} lang={campaignLang(campaign.planHref, campaign.pageId)}
             picks={{ writer: campaign.writer, painter: campaign.painter, person: campaign.person }}
             writing={making > 0} disabled={!campaign.pageConnected}
             warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}
             folded={false} onWrite={(input) => void write(input)}
-            preview={(pick) => <HeadlinePreview campaignId={campaign.id} {...pick} />}
+            preview={(pick) => <HeadlinePreview campaignId={campaign.id} english={campaignLang(campaign.planHref, campaign.pageId) === "en"} {...pick} />}
             draft={draft} onDraft={setDraft}
           >
             <CampaignSettings

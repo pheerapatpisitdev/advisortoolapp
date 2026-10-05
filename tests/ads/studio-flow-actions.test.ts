@@ -720,3 +720,26 @@ describe("the create drawer's figure preview — headlinePreview, 2026-10-05", (
     expect(camps.getCampaign).not.toHaveBeenCalled();
   });
 });
+
+describe("an English campaign's figure preview and rows — spec 2026-10-06", () => {
+  const EXPAT_PAGE = "112110731809903";
+
+  it("previews the English figures the round will place for iHealthy Ultra on an Expat Page", async () => {
+    camps.getCampaign.mockResolvedValue(campaign({ planHref: "/ihealthy-ultra", pageId: EXPAT_PAGE }));
+    pages.myPages.mockResolvedValue([{ pageId: EXPAT_PAGE, pageName: "Expat Insurance Thailand by Phet" }]);
+    const table = premiumTable("/ihealthy-ultra", 30, undefined, "en")!;
+    const res = await headlinePreview(CAMPAIGN, { age: 30, sex: "F", rung: 3 });
+    expect(res).toEqual({ ok: true, headline: headlineFigures(table, { sex: "F", rung: 3 }), table: tableText(table) });
+    expect(res.ok && res.headline).toContain("💰 First-year premium 43,415 THB/yr (about 3,618 a month) (Female, 30)");
+    const rows = await tableRows(CAMPAIGN, 30);
+    expect(rows.ok && rows.rows[3]).toEqual({ index: 3, heading: "Medical cover up to THB 25,000,000 a year" });
+  });
+
+  it("keeps iHealthy Ultra on a Thai Page in Thai", async () => {
+    camps.getCampaign.mockResolvedValue(campaign({ planHref: "/ihealthy-ultra" }));
+    pages.myPages.mockResolvedValue([{ pageId: PAGE, pageName: "เพจ" }]);
+    const res = await headlinePreview(CAMPAIGN, { age: 30, sex: "F" });
+    const table = premiumTable("/ihealthy-ultra", 30)!;
+    expect(res).toEqual({ ok: true, headline: headlineFigures(table, { sex: "F" }), table: tableText(table) });
+  });
+});

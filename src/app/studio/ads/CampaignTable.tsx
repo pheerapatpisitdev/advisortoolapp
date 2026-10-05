@@ -256,6 +256,7 @@ export function CampaignTable({ rows, results, resultsError, fetchedAt, unsynced
                     <div className="flex flex-wrap items-center gap-2">
                       <Link href={open(row.id)} className="inline-flex min-h-11 items-center font-medium text-[var(--ct-accent)] hover:underline">{row.name}</Link>
                       <span className={`rounded-full px-2 py-0.5 text-xs ${state.tone}`}>{busy[row.id] ? "กำลังเปลี่ยน…" : state.label}</span>
+                      {row.lang === "en" && <span title="แอดภาษาอังกฤษ" className="rounded-full bg-[var(--ct-soft)] px-2 py-0.5 text-xs font-medium text-[var(--ct-accent)]">EN</span>}
                     </div>
                     <p className="mt-0.5 text-xs text-[var(--ct-mute)]">{row.planName}</p>
                     {error && <p role="alert" className="mt-1 break-words text-xs text-[var(--ct-alert)]">{error}</p>}

@@ -41,7 +41,7 @@ export interface PricedPlan {
   caseCount: number;
   /** case i priced today with these claim lines, or null when the engine cannot price it */
   price: (i: number, claims: string[], today: Date) => NumberSheet | null;
-  /** the rungs of the ad's premium table; absent when the plan has none (the English iHealthy) */
+  /** the rungs of the ad's premium table; absent when the plan has none */
   ladder?: {
     /** the term as the table says it, before lifelong() */
     term: string;

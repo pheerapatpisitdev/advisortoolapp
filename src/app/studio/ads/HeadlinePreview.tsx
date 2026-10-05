@@ -16,8 +16,10 @@ const WAIT_MS = 350;
 
 type Shown = { key: string; headline: string; table: string; error: null } | { key: string; headline: null; table: null; error: string };
 
-export function HeadlinePreview({ campaignId, age, sex, rung, ready }: {
+export function HeadlinePreview({ campaignId, english = false, age, sex, rung, ready }: {
   campaignId: string;
+  /** an English campaign (campaignLang): its figures come back in English, and the heading says so */
+  english?: boolean;
   /** the table age; null while the field is not a whole year 0–80 */
   age: number | null;
   sex: "F" | "M";
@@ -49,7 +51,10 @@ export function HeadlinePreview({ campaignId, age, sex, rung, ready }: {
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold">ตัวเลขที่จะอยู่ในแอด</h3>
+        <h3 className="text-sm font-semibold">
+          ตัวเลขที่จะอยู่ในแอด
+          {english && <span className="ml-2 rounded-full bg-[var(--ct-soft)] px-2 py-0.5 text-[0.7rem] font-medium text-[var(--ct-accent)]">EN · ภาษาอังกฤษ</span>}
+        </h3>
         <span role="status" aria-live="polite" className="text-xs text-[var(--ct-mute)]">
           {age === null || fresh ? "" : "กำลังโหลด…"}
         </span>

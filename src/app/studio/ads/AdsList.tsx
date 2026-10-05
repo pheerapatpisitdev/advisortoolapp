@@ -94,8 +94,9 @@ export function AdsList({ pieces, tab, onTab, counts, selected, onSelect, ticked
                     <span className={`block break-words text-sm leading-snug ${on ? "font-semibold" : "font-medium"}`}>
                       {p.headline || <span className="font-normal text-[var(--ct-mute)]">(ไม่มีหัวข้อ)</span>}
                     </span>
-                    {(chips.length > 0 || flagged || picture) && (
+                    {(chips.length > 0 || flagged || picture || p.lang === "en") && (
                       <span className="flex flex-wrap gap-1">
+                        {p.lang === "en" && <span className={chip} title="แอดภาษาอังกฤษ">EN</span>}
                         {chips.map((c) => <span key={c} className={chip}>{c}</span>)}
                         {flagged && (
                           <span className={`rounded-full px-2 py-0.5 text-[0.7rem] ${blocking ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-warn-bg)] text-[var(--ct-warn-ink)]"}`}>

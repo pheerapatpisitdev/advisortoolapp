@@ -36,6 +36,8 @@ export interface CampaignRow {
   liveLaunches: number;
   /** its pieces or sends could not be read: no counts, no sends, and the row says so */
   unreadable?: true;
+  /** "en": its ads are written in English (campaignLang, spec 2026-10-06); absent for a Thai one */
+  lang?: "en";
 }
 
 export const DASH = "—";
