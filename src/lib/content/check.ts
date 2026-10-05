@@ -199,7 +199,10 @@ function premiumSpans(text: string, lang: Lang = "th"): PremiumSpan[] {
  */
 const PREMIUM_LEAD_EN = /\b(premiums?|per month|a month|monthly|per year|a year|yearly|annually|per day|a day|daily)\b[^\d\n]{0,12}$/i;
 const PREMIUM_TAIL_EN = /^\s*(?:\/\s*(?:mo|mth|month|yr|year|day|annum)\b|(?:per|a|an|each|every)\s+(?:month|year|day)\b|monthly\b|yearly\b|annually\b|daily\b)/i;
-const BENEFIT_EN = /cover|medical|hospital|room|board|tax|deduct|cash|benefit|pension|income|refund|limit|claim|compensat|payout|pays out|reimburse|salary|rent|mortgage|tuition|school|loan|bills?\b|expenses?|treatment|surgery/i;
+// "costs" is a benefit's word ("out-of-pocket costs of THB 500,000") unless it prices the plan ("it costs only THB 54 a day")
+const BENEFIT_EN = /cover|medical|hospital|room|board|tax|deduct|cash|benefit|pension|income|refund|limit|claim|compensat|payout|pays out|reimburse|salary|rent|mortgage|tuition|school|loan|bills?\b|expens|treatment|surgery|stay|spend|save|\bcosts?\b(?!\s+(?:you\s+)?(?:only|just|from|about|around|less|under|as little|\d|THB|฿))/i;
+/** a benefit said right after the amount and its period: "Save THB 25,000 a year on tax" */
+const BENEFIT_AFTER_EN = /^\s*(?:on|in|of|for)\s+(?:your\s+)?(?:tax(?:es)?|bills?|costs?|expenses?|savings?|treatment)\b/i;
 const COVER_EN = /(?:up to|maximum(?: of)?|max\.?|limit(?: of)?)\s*$/i;
 const BARE_LEAD_EN = /\bpremiums?\s*(?:(?:of|from|is|are|at|only|just|about|around|starting|:)\s*)*$/i;
 const CLAUSE_HEAD_EN = /(?:\b(?:pay(?:ing)?|premiums?|first-year|from|only|just|about|around|for|of|at)\s*)*$/i;
@@ -215,11 +218,13 @@ function premiumSpansEn(text: string): PremiumSpan[] {
     const tail = PREMIUM_TAIL_EN.exec(text.slice(a.end));
     const before = text.slice(since, a.at);
     const bare = BARE_LEAD_EN.test(before) && /,|\d{3}/.test(a.raw);
-    if (!a.priced && !a.unit && !tail && !bare) continue;
+    // only money counts: "Pay in 12 monthly instalments" has a period after a count, not a premium
+    if (!a.priced && !a.unit && !bare) continue;
     const lead = PREMIUM_LEAD_EN.exec(before);
     const said = lead ? before.slice(0, lead.index) : before;
     // the benefit word may sit before the period word or between it and the amount ("Daily cash of THB 1,000")
-    const benefit = BENEFIT_EN.test(lead ? before.slice(Math.max(0, lead.index - BENEFIT_REACH)) : said);
+    const benefit = BENEFIT_EN.test(lead ? before.slice(Math.max(0, lead.index - BENEFIT_REACH)) : said)
+      || BENEFIT_AFTER_EN.test(text.slice(a.end + (tail ? tail[0].length : 0)));
     const premium = lead
       ? /^premium/i.test(lead[1]) || !benefit
       : bare || (Boolean(tail) && !benefit && !COVER_EN.test(said));
@@ -305,8 +310,11 @@ export function personPhrases(text: string, lang: Lang = "th"): PersonPhrase[] {
 
 /** the English words for one adult of a sex; a child (son, girl…) is not one of them */
 const SEX_EN = String.raw`(?:women|woman|men|man|females?|males?|ladies|lady|gentlemen|gentleman)`;
-/** a sex word, then an age: "female, 35", "men aged 40", "woman (age 35)", "male 40 years old" */
-const PERSON_SEX_FIRST = new RegExp(String.raw`\b(${SEX_EN})\b[,:\s]*\(?\s*(?:(?:aged|age)\s*:?\s*)?(\d{1,2})(?![\d])(?![,.]\d)(?!\s*(?:%|thb|baht|million|k\b|minutes?|hours?|days?|weeks?|months?|kids?|children|plans?))`, "gi");
+/**
+ * a sex word, then an age: "female, 35", "men aged 40", "woman (age 35)", "male 40 years old" —
+ * not a count: "2 years into her job", "3 times more", "1 of 3", a decade ("30s")
+ */
+const PERSON_SEX_FIRST = new RegExp(String.raw`\b(${SEX_EN})\b[,:\s]*\(?\s*(?:(?:aged|age)\s*:?\s*)?(\d{1,2})(?![\d])(?![,.]\d)(?!\s*(?:%|thb|baht|million|k\b|minutes?|hours?|days?|weeks?|months?|kids?|children|plans?|times\b|x\b|of\b|out of\b))(?!\s*-?\s*(?:years?|yrs?)\b(?!\s*-?\s*old))(?!'?s\b)`, "gi");
 /** an age, then a sex word: "a 35-year-old woman", "40 years old male" */
 const PERSON_AGE_FIRST = new RegExp(String.raw`(?<![\d,.])(\d{1,2})\s*-?\s*(?:years?|yrs?)\s*-?\s*old\b[,\s]*(${SEX_EN})\b`, "gi");
 /** the second of "men and women", or a sex word right after an age range's "–"/"to" */

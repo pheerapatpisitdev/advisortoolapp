@@ -79,6 +79,8 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
 }) {
   const router = useRouter();
   const { campaign, pieces, counts, connection } = room;
+  // the campaign's language (spec 2026-10-06), for the form's menus and the figure preview
+  const lang = campaignLang(campaign.planHref, campaign.pageId);
   const [tab, setTab] = useState<AdTab>(() => startTab(pieces, adAsked));
   const [wanted, setWanted] = useState<string | null>(adAsked);
   const [ticked, setTicked] = useState<Set<string>>(() => new Set());
@@ -323,12 +325,12 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
             <p role={roundNote.tone === "bad" ? "alert" : "status"} className={`mx-4 mt-4 rounded-lg border px-3 py-2 text-sm ${TONES[roundNote.tone]}`}>{roundNote.text}</p>
           )}
           <WriteForm
-            campaignId={campaign.id} planHref={campaign.planHref} lang={campaignLang(campaign.planHref, campaign.pageId)}
+            campaignId={campaign.id} planHref={campaign.planHref} lang={lang}
             picks={{ writer: campaign.writer, painter: campaign.painter, person: campaign.person }}
             writing={making > 0} disabled={!campaign.pageConnected}
             warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}
             folded={false} onWrite={(input) => void write(input)}
-            preview={(pick) => <HeadlinePreview campaignId={campaign.id} english={campaignLang(campaign.planHref, campaign.pageId) === "en"} {...pick} />}
+            preview={(pick) => <HeadlinePreview campaignId={campaign.id} english={lang === "en"} {...pick} />}
             draft={draft} onDraft={setDraft}
           >
             <CampaignSettings

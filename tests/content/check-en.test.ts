@@ -15,6 +15,7 @@ describe("English premium phrases", () => {
     ["From ฿48/day", "฿48"],
     ["Premium from THB 1,618", "THB 1,618"],
     ["just 1,618 baht monthly", "1,618 baht"],
+    ["It costs only THB 54 a day", "THB 54"],
     ["about THB 1,618/mo", "THB 1,618"],
   ])("flags %j", (text, amount) => {
     expect(premiumAmounts(text, "en")).toEqual([amount]);
@@ -27,6 +28,10 @@ describe("English premium phrases", () => {
     "Daily cash of THB 1,000 per day in hospital",
     "A 10% discount after 3 years with no claims",
     "Renewable up to age 98",
+    "Pay in 12 monthly instalments",
+    "Save THB 25,000 a year on tax",
+    "Out-of-pocket costs of THB 500,000 a year",
+    "A hospital stay of THB 80,000 per day",
   ])("does not flag %j", (text) => {
     expect(premiumAmounts(text, "en")).toEqual([]);
   });
@@ -55,6 +60,11 @@ describe("English person phrases", () => {
     "women aged 30 to 50",
     "a woman with 2 kids",
     "Female = 19,415 THB/yr",
+    "A woman 2 years into her job",
+    "men 3 times more likely",
+    "woman 1 of 3",
+    "Woman 30s",
+    "women in their 40s",
   ])("reads nobody in %j", (text) => {
     expect(personPhrases(text, "en")).toEqual([]);
   });

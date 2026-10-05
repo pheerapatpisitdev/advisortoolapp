@@ -1,6 +1,7 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
 import { personPhrases, withoutPremiums } from "./check";
+import { thbAfter } from "./premium-table";
 import type { Lang } from "./output";
 import { CORE_RULES, ENGLISH_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
 import type { PiecePlan } from "./plan";
@@ -110,7 +111,28 @@ function longAdSystemEn(): string {
     POSTER_RULES,
     "",
     ENGLISH_RULES,
+    AD_MONEY_EN,
   ].join("\n");
+}
+
+/**
+ * An English ad's money, as its code-placed table says it (spec 2026-10-06): this overrides
+ * ENGLISH_RULES's "THB 1,000", which Organic's posts keep. Told to the writer and the planner;
+ * assembleLongAd puts any "THB 25,000,000" the model writes anyway the same way round.
+ */
+export const AD_MONEY_EN = "In this ad, write money as the number then THB: 25,000,000 THB (this overrides “THB 1,000” above).";
+
+/** an English long ad's own words with every "THB 25,000,000" said "25,000,000 THB" */
+export function englishMoney(ad: LongAd): LongAd {
+  return {
+    ...ad,
+    opening: thbAfter(ad.opening),
+    bullets: ad.bullets.map(thbAfter),
+    cta: thbAfter(ad.cta),
+    hashtags: ad.hashtags,
+    headline: thbAfter(ad.headline),
+    description: thbAfter(ad.description),
+  };
 }
 
 /**
@@ -124,6 +146,7 @@ export function adOwnerLines(owner: string, lang: Lang = "th"): string {
       `This ad is for: ${owner.trim()}`,
       "Mention only this sex, age and cover if you mention any — never another age, sex or cover, and never a premium as a figure.",
       "If the focus speaks of a different sex, age or cover, keep to this line and use the focus only as a theme.",
+      AD_MONEY_EN,
     ].join("\n");
   }
   return [
@@ -263,7 +286,9 @@ export function parseLongAd(reply: string): LongAd | null {
  * that line is cut by characters). The headline figures, the table and the contacts are never
  * trimmed, and empty blocks are left out so no "." spacer is left dangling.
  */
-export function assembleLongAd(ad: LongAd, figures: { headline: string; table: string; contact: string }): string {
+export function assembleLongAd(given: LongAd, figures: { headline: string; table: string; contact: string }, lang: Lang = "th"): string {
+  // an English ad's own words say money as its table does; a Thai one is as written
+  const ad = lang === "en" ? englishMoney(given) : given;
   const len = (s: string) => [...s].length;
   const build = (opening: string, bullets: string[], cta: string, tags: string) =>
     [opening, figures.headline, bullets.join("\n"), figures.table, cta, figures.contact, tags]

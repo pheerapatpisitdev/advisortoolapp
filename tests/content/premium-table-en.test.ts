@@ -88,6 +88,26 @@ describe("the English table's words", () => {
     expect(EXPAT_NUMBERS_PLANS[HREF].ladder!.price(3, "F", 30, today)!.sumLine).toBe("Medical cover up to THB 25,000,000 a year");
   });
 
+  it("has no table, English or Thai, at an age the engine does not sell (5, 81)", () => {
+    for (const age of [5, 81]) {
+      expect(premiumTable(HREF, age, today, "en"), `en ${age}`).toBeNull();
+      expect(premiumTable(HREF, age, today), `th ${age}`).toBeNull();
+    }
+  });
+
+  it("leaves out a sex the engine will not price, and the headline gives way to the other", () => {
+    const sheet = { product: "X", sumLine: "Cover up to THB 1,000,000 a year", premiumLine: "", perDayLine: "", claims: [], annualSatang: 1_000_000, who: "", poster: { big: "", small: "" } };
+    const plan = {
+      ...EXPAT_NUMBERS_PLANS[HREF],
+      ladder: { term: "renewable up to age 98", firstYear: true, rungs: 1, price: (_r: number, sex: "M" | "F") => (sex === "F" ? sheet : null) },
+    };
+    const s = premiumTableOf(plan, 30, today, "en")!;
+    expect(s.rows[0].male).toBeNull();
+    expect(tableText(s)).not.toContain("Male");
+    expect(tableText(s)).toContain("Cover up to 1,000,000 THB a year\n🙆‍♀️ Female = 10,000 THB/yr (about 834 a month)");
+    expect(headlineFigures(s, { sex: "M" }).split("\n")[2]).toBe("💰 First-year premium 10,000 THB/yr (about 834 a month) (Female, 30)");
+  });
+
   it("say satang when a premium has them", () => {
     const plan = {
       ...EXPAT_NUMBERS_PLANS[HREF],
@@ -107,5 +127,25 @@ describe("the English table's words", () => {
     expect(restatedFigures("Cover up to 10,000,000 THB a year", "", t)).toEqual([]);
     expect(otherPeople("Perfect for a 35-year-old woman", "F", 30, "en")).toEqual(["35-year-old woman"]);
     expect(otherPeople("Perfect for a 30-year-old woman", "F", 30, "en")).toEqual([]);
+  });
+});
+
+describe("an English ad's own words", () => {
+  it("say money as the table does: the number, then THB", async () => {
+    const { assembleLongAd, AD_MONEY_EN, adOwnerLines, longAdMessages } = await import("@/lib/content/ads");
+    const ad = {
+      opening: "Medical cover up to THB 25,000,000 a year", bullets: ["🥇 Life cover of THB 50,000 included"], cta: "Message us",
+      hashtags: ["#Expat"], headline: "Up to THB 25,000,000", description: "", imagePrompt: "", poster: null,
+    };
+    const en = assembleLongAd(ad, { headline: "H", table: "T", contact: "C" }, "en");
+    expect(en).toContain("Medical cover up to 25,000,000 THB a year");
+    expect(en).toContain("🥇 Life cover of 50,000 THB included");
+    expect(en).not.toMatch(/THB \d/);
+    // a Thai ad, and an ad assembled without a language, are as written
+    expect(assembleLongAd(ad, { headline: "H", table: "T", contact: "C" })).toContain("up to THB 25,000,000");
+    expect(adOwnerLines("Female, 30", "en")).toContain(AD_MONEY_EN);
+    expect(adOwnerLines("หญิง อายุ 30 ปี")).not.toContain(AD_MONEY_EN);
+    const [system] = longAdMessages("brief", { angle: "a", hook: "h" }, { table: "T", headline: "H", owner: "Female, 30", reader: "", focus: "", voice: "" }, "en");
+    expect(system.content.trim().endsWith(AD_MONEY_EN)).toBe(true);
   });
 });

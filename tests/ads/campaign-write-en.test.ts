@@ -148,6 +148,16 @@ describe("an English campaign's round", () => {
     }
   });
 
+  it("puts THB after the number in the writer's own words, its headline too, and tells the planner so", async () => {
+    writes({ opening: "Medical cover up to THB 25,000,000 a year", headline: "Up to THB 25,000,000" });
+    await generateContent(sent);
+    const [row] = saved();
+    expect(row.output.body.split("\n")[0]).toBe("Medical cover up to 25,000,000 THB a year");
+    expect(row.output.hooks[0]).toBe("Up to 25,000,000 THB");
+    expect(row.flags.numbers).toEqual([]);
+    expect(callsFor("content-plan")[0].messages[1].content).toContain("write money as the number then THB");
+  });
+
   it("ends on Message us when the Page has no contacts", async () => {
     contacts.getPageContact.mockResolvedValue(null);
     await generateContent(sent);
