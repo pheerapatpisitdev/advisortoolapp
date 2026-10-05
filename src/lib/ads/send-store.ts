@@ -206,15 +206,16 @@ export async function listItems(sendId: string): Promise<AdSendItem[]> {
   return ((data ?? []) as ItemDb[]).map(itemFromDb);
 }
 
-/** A campaign's live sends, newest first, each with its items. A retired (superseded) send is left out. */
-export async function listSends(campaignId: string): Promise<(AdSend & { items: AdSendItem[] })[]> {
+/** A campaign's live sends, newest first, each with its items. A retired (superseded) send is left out unless includeSuperseded. */
+export async function listSends(
+  campaignId: string,
+  opts: { includeSuperseded?: boolean } = {},
+): Promise<(AdSend & { items: AdSendItem[] })[]> {
   const db = supabaseAdmin();
-  const { data, error } = await db
-    .from("ins_ad_send")
-    .select("*")
-    .eq("campaign_id", campaignId)
-    .eq("superseded", false)
-    .order("created_at", { ascending: false });
+  let q = db.from("ins_ad_send").select("*").eq("campaign_id", campaignId);
+  // results count a retired send too: its ads may already have spent money
+  if (!opts.includeSuperseded) q = q.eq("superseded", false);
+  const { data, error } = await q.order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   const sends = ((data ?? []) as SendDb[]).map(sendFromDb);
   if (sends.length === 0) return [];

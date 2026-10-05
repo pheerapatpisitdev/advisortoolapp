@@ -6,16 +6,16 @@ const off = { activatedAt: "2026-10-04T01:00:00Z", pausedAt: "2026-10-04T02:00:0
 const never = { activatedAt: null, pausedAt: null };
 
 describe("campaignState", () => {
-  it("is on when any send is switched on", () => expect(campaignState([off, on], 0)).toBe("on"));
+  it("is on when any send is switched on", () => expect(campaignState([off, on])).toBe("on"));
   it("is paused when sends exist but none is on", () => {
-    expect(campaignState([off, never], 3)).toBe("paused");
+    expect(campaignState([off, never])).toBe("paused");
   });
   it("is draft with no sends", () => {
-    expect(campaignState([], 2)).toBe("draft");
-    expect(campaignState([], 0)).toBe("draft");
+    expect(campaignState([])).toBe("draft");
+    expect(campaignState([])).toBe("draft");
   });
   it("counts a switch-on after a pause as on", () => {
-    expect(campaignState([{ activatedAt: "2026-10-04T03:00:00Z", pausedAt: "2026-10-04T02:00:00Z" }], 0)).toBe("on");
+    expect(campaignState([{ activatedAt: "2026-10-04T03:00:00Z", pausedAt: "2026-10-04T02:00:00Z" }])).toBe("on");
   });
 });
 

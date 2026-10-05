@@ -978,6 +978,11 @@ export async function updatePageContact(
   }
 }
 
+/** The first Thai day of a window of `days` days ending today (ins_ad_daily dates are the account's Thai days). */
+function bangkokSince(days: number, now = Date.now()): string {
+  return new Date(now + 7 * 3600000 - (days - 1) * 86400000).toISOString().slice(0, 10);
+}
+
 /**
  * What a Page's sent ads did over the last 7 or 30 days, by campaign and by piece, from the
  * ads sync's daily rows. A campaign or piece with no row is absent from the maps (the page
@@ -994,7 +999,7 @@ export async function campaignResults(
   try {
     if (!(await myPages()).some((p) => p.pageId === pageId)) return { ok: false, error: PAGE_NOT_CONNECTED };
     const campaigns = await listCampaigns(pageId);
-    const lists = await Promise.all(campaigns.map((c) => listSends(c.id)));
+    const lists = await Promise.all(campaigns.map((c) => listSends(c.id, { includeSuperseded: true })));
     const byCampaignAds = new Map<string, string[]>();
     const byPieceAds = new Map<string, string[]>();
     campaigns.forEach((c, i) => {
@@ -1009,7 +1014,7 @@ export async function campaignResults(
     const adIds = [...new Set([...byCampaignAds.values()].flat())];
     if (adIds.length === 0) return { ok: true, byCampaign: {}, byPiece: {}, fetchedAt: null };
 
-    const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    const since = bangkokSince(days);
     const rows: (DailyRow & { fetched_at: string })[] = [];
     for (let i = 0; i < adIds.length; i += 100) {
       const { data, error } = await supabaseAdmin()

@@ -57,11 +57,17 @@ beforeEach(() => {
   who.owner = true;
   db.calls.length = 0;
   db.fail = false;
-  db.rows = [r("A1", "10.5"), r("A2", 5, "2026-10-05T03:00:00Z"), r("B1", 1)];
+  db.rows = [r("A1", "10.5"), r("A2", 5, "2026-10-05T03:00:00Z"), r("B1", 1), r("OLD1", 20)];
   pages.myPages.mockResolvedValue([{ pageId: "P1", pageName: "x" }]);
   camps.listCampaigns.mockResolvedValue([{ id: "C1" }, { id: "C2" }]);
-  sends.listSends.mockImplementation(async (id: string) =>
-    id === "C1" ? [{ id: "S1", items: [item("p1", "A1"), item("p2", "A2"), item("p3", null)] }, { id: "S2", items: [item("p1", "B1")] }] : [],
+  sends.listSends.mockImplementation(async (id: string, opts?: { includeSuperseded?: boolean }) =>
+    id === "C1"
+      ? [
+          { id: "S1", items: [item("p1", "A1"), item("p2", "A2"), item("p3", null)] },
+          { id: "S2", items: [item("p1", "B1")] },
+          ...(opts?.includeSuperseded ? [{ id: "S3", items: [item("p2", "OLD1")] }] : []),
+        ]
+      : [],
   );
 });
 
@@ -70,20 +76,28 @@ describe("campaignResults", () => {
     const res = await campaignResults("P1", 7);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.byCampaign.C1).toEqual({ spend: 16.5, impressions: 300, clicks: 12, messaging: 6 });
+    expect(res.byCampaign.C1).toEqual({ spend: 36.5, impressions: 400, clicks: 16, messaging: 8 });
     expect(res.byCampaign.C2).toBeUndefined();
     expect(res.byPiece.p1.spend).toBe(11.5);
+    expect(res.byPiece.p2.spend).toBe(25); // a superseded send's ad spend counts
     expect(res.byPiece.p3).toBeUndefined();
     expect(res.fetchedAt).toBe("2026-10-05T03:00:00Z");
   });
   it("asks only for the window's days and the Page's ad ids", async () => {
-    await campaignResults("P1", 30);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-05T20:00:00Z"));
+    try { await campaignResults("P1", 30); } finally { vi.useRealTimers(); }
     expect(db.calls).toHaveLength(1);
     expect(db.calls[0].table).toBe("ins_ad_daily");
-    expect(db.calls[0].ids.sort()).toEqual(["A1", "A2", "B1"]);
-    const since = new Date(); since.setDate(since.getDate() - 30);
-    expect(db.calls[0].gte?.[0]).toBe("date");
-    expect(Math.abs(Date.parse(db.calls[0].gte![1]) - since.getTime())).toBeLessThan(2 * 86400000);
+    expect(db.calls[0].ids.sort()).toEqual(["A1", "A2", "B1", "OLD1"]);
+    // 2026-10-05 20:00 UTC is already 06 Oct in Bangkok: 30 days = 06 Oct and the 29 before
+    expect(db.calls[0].gte).toEqual(["date", "2026-09-07"]);
+  });
+  it("7 days is today and the 6 before, by the Thai date", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-05T20:00:00Z"));
+    try { await campaignResults("P1", 7); } finally { vi.useRealTimers(); }
+    expect(db.calls[0].gte).toEqual(["date", "2026-09-30"]);
   });
   it("reads 100 ad ids at a time", async () => {
     sends.listSends.mockResolvedValue([{ id: "S", items: Array.from({ length: 250 }, (_, i) => item(`p${i}`, `AD${i}`)) }]);

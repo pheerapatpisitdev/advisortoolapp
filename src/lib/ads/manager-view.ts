@@ -10,8 +10,7 @@ import { switchedOn } from "./sent-view";
 type SendTimes = { activatedAt: string | null; pausedAt: string | null };
 
 /** on: any send is switched on; paused: sends exist but none is on; draft: nothing sent yet. */
-export function campaignState(sends: SendTimes[], drafts: number): "on" | "paused" | "draft" {
-  void drafts; // a campaign with only drafts is still a draft; kept so callers can pass what they hold
+export function campaignState(sends: SendTimes[]): "on" | "paused" | "draft" {
   if (sends.some(switchedOn)) return "on";
   return sends.length > 0 ? "paused" : "draft";
 }

@@ -123,6 +123,12 @@ describe("reading sends", () => {
     expect(list[1].items.map((i) => i.pieceId)).toEqual(["P9"]);
   });
 
+  it("can include retired sends, by leaving the superseded filter off", async () => {
+    rowsByTable.ins_ad_send = [sendRow];
+    await listSends("C1", { includeSuperseded: true });
+    expect(calls[0].filters).toEqual([["campaign_id", "C1"]]);
+  });
+
   it("does not ask for items when there is no send", async () => {
     expect(await listSends("C1")).toEqual([]);
     expect(calls.map((c) => c.table)).toEqual(["ins_ad_send"]);
