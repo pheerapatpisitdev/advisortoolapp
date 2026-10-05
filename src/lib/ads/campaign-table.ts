@@ -58,7 +58,8 @@ export function resultCells(r: AdResult | null | undefined): ResultCells {
 }
 
 export interface TableLine {
-  state: "on" | "paused" | "draft";
+  /** unreadable: its sends could not be read, so whether it runs is not known */
+  state: "on" | "paused" | "draft" | "unreadable";
   /** the daily budget now running, or "—" */
   budget: string;
   cells: ResultCells;
@@ -66,11 +67,15 @@ export interface TableLine {
 
 export function tableLine(row: CampaignRow, result: AdResult | null | undefined): TableLine {
   const budget = onBudget(row.sends);
-  return { state: campaignState(row.sends), budget: budget === null ? DASH : money(budget), cells: resultCells(result) };
+  return { state: row.unreadable ? "unreadable" : campaignState(row.sends), budget: budget === null ? DASH : money(budget), cells: resultCells(result) };
 }
 
-/** The foot: counts and running budgets added; results added over the campaigns that have any, "—" when none has. */
-export function footLine(rows: CampaignRow[], results: Record<string, AdResult>): { drafts: number; sent: number; budget: string; cells: ResultCells } {
+/**
+ * The foot: counts and running budgets added over the campaigns that could be read (`unreadable`
+ * says how many could not); results added over the campaigns that have any, "—" when none has.
+ */
+export function footLine(all: CampaignRow[], results: Record<string, AdResult>): { drafts: number; sent: number; budget: string; cells: ResultCells; unreadable: number } {
+  const rows = all.filter((r) => !r.unreadable);
   const had = rows.flatMap((r) => (results[r.id] ? [results[r.id]] : []));
   const budgets = rows.map((r) => onBudget(r.sends)).filter((b): b is number => b !== null);
   return {
@@ -78,6 +83,7 @@ export function footLine(rows: CampaignRow[], results: Record<string, AdResult>)
     sent: rows.reduce((n, r) => n + r.sent, 0),
     budget: budgets.length === 0 ? DASH : money(budgets.reduce((a, b) => a + b, 0)),
     cells: resultCells(had.length === 0 ? null : totals(had)),
+    unreadable: all.length - rows.length,
   };
 }
 
@@ -99,11 +105,20 @@ export function switchPlan(sends: RowSend[]): { kind: "pause"; sends: RowSend[] 
   return next ? { kind: "activate", send: next } : null;
 }
 
-/** Why the switch is shut, for its title; null when it is not. */
-export function switchShut(sends: RowSend[]): string | null {
+export const UNREADABLE = "อ่านไม่ได้";
+
+/** Why the switch is shut, for its title; null when it is not. An unreadable row's sends are not known: shut. */
+export function switchShut(row: Pick<CampaignRow, "sends" | "unreadable">): string | null {
+  if (row.unreadable) return `${UNREADABLE} — โหลดหน้าใหม่แล้วลองอีกครั้ง`;
+  const { sends } = row;
   if (switchPlan(sends)) return null;
   if (sends.length === 0) return "ยังไม่มีแอดที่ส่งขึ้น Facebook — ส่งแอดจากแท็บโฆษณาก่อน จึงจะเปิด/หยุดได้";
   return "ชุดที่ส่งไปยังสร้างแอดบน Facebook ไม่ครบ — กด “ลองใหม่” ในแท็บโฆษณา (ส่งแล้ว) ก่อน จึงจะเปิดใช้ได้";
+}
+
+/** Why ลบแคมเปญ is shut: an unreadable row would ask without the live-sends warning. */
+export function deleteShut(row: Pick<CampaignRow, "unreadable">): string | null {
+  return row.unreadable ? "อ่านแคมเปญนี้ไม่ได้ — โหลดหน้าใหม่ก่อนลบ" : null;
 }
 
 /** The one question before the switch, in the sent tab's words (pauseQuestion / activateQuestion). */

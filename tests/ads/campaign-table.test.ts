@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { footLine, money, resultCells, switchPlan, switchQuestion, switchShut, tableLine, type CampaignRow, type RowSend } from "@/lib/ads/campaign-table";
+import { deleteShut, footLine, money, resultCells, switchPlan, switchQuestion, switchShut, tableLine, type CampaignRow, type RowSend } from "@/lib/ads/campaign-table";
 import { deleteQuestion } from "@/lib/ads/campaign-view";
 import { studioHref } from "@/lib/ads/manager-view";
 
@@ -65,7 +65,7 @@ describe("footLine", () => {
 describe("switchPlan / switchQuestion", () => {
   it("no send: no switch, saying why", () => {
     expect(switchPlan([])).toBeNull();
-    expect(switchShut([])).toContain("ยังไม่มีแอดที่ส่งขึ้น Facebook");
+    expect(switchShut({ sends: [] })).toContain("ยังไม่มีแอดที่ส่งขึ้น Facebook");
   });
   it("off: skips a newer send with no ad, or no Meta campaign or ad set, for the newest that can go on", () => {
     const sends = [
@@ -76,12 +76,12 @@ describe("switchPlan / switchQuestion", () => {
       send("OLDER", null, 3000),
     ];
     expect(switchPlan(sends)).toMatchObject({ kind: "activate", send: { id: "OK" } });
-    expect(switchShut(sends)).toBeNull();
+    expect(switchShut({ sends })).toBeNull();
   });
   it("off with no send that can go on: shut, saying to finish the send first", () => {
     const sends = [send("NO_ADS", null, 1000, "a", 0), { ...send("NO_SET", false, 1000), hasAdset: false }];
     expect(switchPlan(sends)).toBeNull();
-    expect(switchShut(sends)).toContain("ลองใหม่");
+    expect(switchShut({ sends })).toContain("ลองใหม่");
   });
   it("on: pauses every send that is on", () => {
     const plan = switchPlan([send("S1", true, 15000), send("S2", false, 1000), send("S3", true, 5000, "บัญชี B (act_2)")]);
@@ -123,4 +123,23 @@ describe("studioHref", () => {
     expect(studioHref({ page: null, campaign: null, tab: "campaigns", days: 7 })).toBe("/studio/ads?tab=campaigns");
   });
   it("encodes ids", () => expect(studioHref({ page: "a&b", campaign: null, tab: "page", days: 7 })).toBe("/studio/ads?page=a%26b&tab=page"));
+});
+
+describe("an unreadable campaign", () => {
+  const bad: CampaignRow = { ...row("X", []), drafts: 0, sent: 0, unreadable: true };
+  it("is shown as unreadable, not a draft", () => expect(tableLine(bad, undefined).state).toBe("unreadable"));
+  it("shuts the switch saying it could not be read, not that nothing was sent", () => {
+    const why = switchShut(bad);
+    expect(why).toContain("อ่านไม่ได้");
+    expect(why).not.toContain("ยังไม่มีแอด");
+  });
+  it("shuts ลบแคมเปญ, so it is never asked without the live-sends warning", () => {
+    expect(deleteShut(bad)).toBe("อ่านแคมเปญนี้ไม่ได้ — โหลดหน้าใหม่ก่อนลบ");
+    expect(deleteShut(row("A", []))).toBeNull();
+  });
+  it("is counted apart in the foot, its counts not added", () => {
+    const foot = footLine([row("A", [send("S1", true, 10000)], 2, 1), { ...bad, drafts: 9, sent: 9 }], {});
+    expect(foot).toMatchObject({ drafts: 2, sent: 1, budget: "฿100.00", unreadable: 1 });
+    expect(footLine([row("A", [])], {}).unreadable).toBe(0);
+  });
 });

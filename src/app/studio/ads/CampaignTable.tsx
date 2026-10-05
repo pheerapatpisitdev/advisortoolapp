@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AdResult } from "@/lib/ads/results";
-import { footLine, switchPlan, switchQuestion, switchShut, tableLine, type CampaignRow } from "@/lib/ads/campaign-table";
+import { deleteShut, footLine, switchPlan, switchQuestion, switchShut, tableLine, UNREADABLE, type CampaignRow } from "@/lib/ads/campaign-table";
 import { deleteQuestion } from "@/lib/ads/campaign-view";
 import { switchedOn } from "@/lib/ads/sent-view";
 import { ask } from "../ask";
@@ -20,10 +20,11 @@ import { TONES } from "./styles";
  * it is shut, saying why, while there is none to turn on or off. The table scrolls inside its own frame on a narrow screen.
  */
 
-const STATE: Record<"on" | "paused" | "draft", { label: string; tone: string }> = {
+const STATE: Record<"on" | "paused" | "draft" | "unreadable", { label: string; tone: string }> = {
   on: { label: "กำลังวิ่ง", tone: "bg-[var(--ct-soft)] text-[var(--ct-accent)]" },
   paused: { label: "หยุดไว้", tone: "bg-[var(--ct-ground)] text-[var(--ct-mute)]" },
   draft: { label: "ร่าง", tone: "border border-dashed border-[var(--ct-line)] text-[var(--ct-mute)]" },
+  unreadable: { label: UNREADABLE, tone: "border border-[var(--ct-alert-line)] text-[var(--ct-alert)]" },
 };
 
 const th = "border-b border-[var(--ct-line)] px-3 py-2 text-left text-xs font-medium whitespace-nowrap text-[var(--ct-mute)]";
@@ -79,7 +80,10 @@ function RowMenu({ row, open, pageId, disabled, onBusy, onError }: {
     setAt(r.bottom + 64 > window.innerHeight ? { bottom: window.innerHeight - r.top + 4, right } : { top: r.bottom + 4, right });
   }
 
+  const shutDelete = deleteShut(row);
+
   async function remove() {
+    if (shutDelete) return;
     setAt(null);
     const live = row.sends.filter(switchedOn).length;
     if (!(await ask(deleteQuestion({ title: row.name, live, sent: row.sent > 0 }), "ลบแคมเปญ"))) return;
@@ -113,7 +117,10 @@ function RowMenu({ row, open, pageId, disabled, onBusy, onError }: {
           ref={menu} role="menu" aria-label={`ตัวเลือกของแคมเปญ ${row.name}`} style={{ top: at.top, bottom: at.bottom, right: at.right }}
           className="fixed z-30 w-44 overflow-hidden rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-1 shadow-lg"
         >
-          <button type="button" role="menuitem" onClick={() => void remove()} className="flex min-h-11 w-full items-center px-3 text-left text-sm text-[var(--ct-alert)] hover:bg-[var(--ct-soft)]">
+          <button
+            type="button" role="menuitem" onClick={() => void remove()} disabled={shutDelete !== null} title={shutDelete ?? undefined}
+            className="flex min-h-11 w-full items-center px-3 text-left text-sm text-[var(--ct-alert)] enabled:hover:bg-[var(--ct-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
             ลบแคมเปญ
           </button>
         </div>
@@ -132,9 +139,9 @@ function Switch({ row, pageName, disabled, onBusy, onError }: {
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const plan = switchPlan(row.sends);
+  const plan = row.unreadable ? null : switchPlan(row.sends);
   const on = plan?.kind === "pause";
-  const shut = switchShut(row.sends);
+  const shut = switchShut(row);
 
   async function press() {
     if (!plan) return;
@@ -271,7 +278,9 @@ export function CampaignTable({ rows, results, resultsError, fetchedAt, pageId, 
             <tr className="bg-[var(--ct-ground)] font-medium">
               <td className="px-3 py-2" />
               <th scope="row" className="px-3 py-2 text-left">รวม {rows.length.toLocaleString("th-TH")} แคมเปญ</th>
-              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{foot.drafts.toLocaleString("th-TH")} · {foot.sent.toLocaleString("th-TH")}</td>
+              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{foot.drafts.toLocaleString("th-TH")} · {foot.sent.toLocaleString("th-TH")}
+                {foot.unreadable > 0 && <span className="block text-xs font-normal text-[var(--ct-alert)]">({UNREADABLE} {foot.unreadable.toLocaleString("th-TH")} แคมเปญ)</span>}
+              </td>
               <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{foot.budget}</td>
               {[foot.cells.spend, foot.cells.impressions, foot.cells.clicks, foot.cells.messaging, foot.cells.perChat].map((v, i) => (
                 <td key={i} className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{v}</td>
