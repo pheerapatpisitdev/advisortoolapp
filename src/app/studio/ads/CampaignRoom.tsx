@@ -8,8 +8,10 @@ import { campaignLang } from "@/lib/ads/campaign-lang";
 import { pictureRequest } from "@/lib/ads/picture-picks";
 import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
 import { AUTO } from "@/lib/content/models";
+import { claimPutForm, paperOrder } from "@/lib/ads/claim-form";
 import { inBin, pruneTicks, sendBlocker, settledPictures, toDraw, type PictureState } from "@/lib/ads/room-view";
 import type { PersonOption } from "../PersonPicker";
+import type { GenerateResult } from "../actions";
 import { ask } from "../ask";
 import { drawPicture, generateRound } from "../draw";
 import { AdEditor, type Room } from "./AdEditor";
@@ -52,6 +54,10 @@ import { WriteForm, type WriteDraft, type WriteInput } from "./WriteForm";
  * again if it fails. A drawn picture stays "done" until the refreshed piece shows it, so the
  * preview never offers a paid draw in between; a piece binned while waiting is not drawn. The
  * round's first new ad is picked once it is in.
+ *
+ * A รีวิวเคลม round (spec 2026-10-06 claim review) goes up as /api/content-claim's PUT with the
+ * campaign, the facts read in the drawer and the stickered papers (approval letters first); the
+ * drawer stays open while its papers are being read, as while a round runs.
  */
 
 type RoundNote = { tone: keyof typeof TONES; text: string } | null;
@@ -89,6 +95,8 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
   const [making, setMaking] = useState(0);
   const [roundNote, setRoundNote] = useState<RoundNote>(null);
   const [pictures, setPictures] = useState<Record<string, PictureState>>({});
+  // รีวิวเคลม's papers being read in the drawer
+  const [reading, setReading] = useState(false);
   // the press is held here as well as in state: two quick presses land before a re-render
   const running = useRef(false);
   const jobs = useRef<string[]>([]);
@@ -176,7 +184,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
     void drain();
   }
 
-  async function write({ angle, custom, reader, age, count, sex, rung, kind, sub }: WriteInput) {
+  async function write({ angle, custom, reader, age, count, sex, rung, kind, sub, claim }: WriteInput) {
     if (running.current) return;
     running.current = true;
     setMaking(count);
@@ -188,13 +196,24 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
         setRoundNote({ tone: "bad", text: "บันทึกตั้งค่าแคมเปญไม่สำเร็จ ยังไม่ได้สร้างแอด — ดูที่ “ตั้งค่าแคมเปญ” แล้วลองใหม่" });
         return;
       }
-      let res;
+      let res: GenerateResult;
       try {
-        // the campaign's plan, Page, focus, voice and writer stand in for the rest
-        res = await generateRound({
-          format: "ad", campaignId: campaign.id, count, angle, custom, reader, age, sex, rung, kind, sub,
-          href: "", length: null, hookTemplateId: null,
-        });
+        if (claim) {
+          // the facts and the stickered papers read in the drawer; the server never sees the photographs
+          const { done } = claim;
+          const form = claimPutForm({
+            campaign: campaign.id, facts: done.facts, count, angle: claim.angle, custom: claim.custom, reader,
+            table: claim.table, ...(claim.table ? { age, sex, ...(rung === undefined ? {} : { rung }) } : {}),
+            papers: paperOrder(done.papers.map((p) => p.kind)).map((at) => done.papers[at]),
+          });
+          res = await (await fetch("/api/content-claim", { method: "PUT", body: form })).json() as GenerateResult;
+        } else {
+          // the campaign's plan, Page, focus, voice and writer stand in for the rest
+          res = await generateRound({
+            format: "ad", campaignId: campaign.id, count, angle, custom, reader, age, sex, rung, kind, sub,
+            href: "", length: null, hookTemplateId: null,
+          });
+        }
       } catch {
         // the server carries on and saves the ads whatever happened to the connection
         setRoundNote({ tone: "warn", text: "การเชื่อมต่อหลุดระหว่างรอ แอดอาจสร้างเสร็จแล้ว ดูในแท็บ “ร่าง” ก่อนกดสร้างใหม่ — ชิ้นที่ยังไม่มีรูปกด “วาดรูป” ที่ตัวอย่างได้" });
@@ -320,7 +339,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
       </div>
 
       {drawerOpen && (
-        <CreateDrawer title={`สร้างโฆษณา · ${campaign.title}`} busy={making > 0} onClose={() => setDrawer(false)} confirmClose={confirmDrawerClose}>
+        <CreateDrawer title={`สร้างโฆษณา · ${campaign.title}`} busy={making > 0 || reading} onClose={() => setDrawer(false)} confirmClose={confirmDrawerClose}>
           {roundNote && (
             <p role={roundNote.tone === "bad" ? "alert" : "status"} className={`mx-4 mt-4 rounded-lg border px-3 py-2 text-sm ${TONES[roundNote.tone]}`}>{roundNote.text}</p>
           )}
@@ -329,7 +348,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
             picks={{ writer: campaign.writer, painter: campaign.painter, person: campaign.person }}
             writing={making > 0} disabled={!campaign.pageConnected}
             warning={campaign.pageConnected ? null : "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว"}
-            folded={false} onWrite={(input) => void write(input)}
+            folded={false} onWrite={(input) => void write(input)} onReading={setReading}
             preview={(pick) => <HeadlinePreview campaignId={campaign.id} english={lang === "en"} {...pick} />}
             draft={draft} onDraft={setDraft}
           >

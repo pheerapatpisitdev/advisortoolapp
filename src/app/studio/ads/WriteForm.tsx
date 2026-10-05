@@ -5,8 +5,11 @@ import { anglesFor, EXPAT_NICHES, MAX_READER, NICHES, readerFor, type AngleId } 
 import { adRoundCost } from "@/lib/ads/picture-picks";
 import { AD_KINDS, KIND_LABEL, KNOWLEDGE_SUBS, SUB_LABEL, type AdKind, type KnowledgeSub } from "@/lib/ads/ad-kind";
 import { tableAge } from "@/lib/ads/room-view";
+import { claimReady } from "@/lib/ads/claim-form";
+import { MAX_CLAIM_PIECES } from "@/lib/content/claim";
 import { PressBar } from "../ui/form-parts";
 import { tableRows } from "./actions";
+import { CLAIM_START, ClaimFields, type ClaimDone, type ClaimDraft } from "./ClaimFields";
 import { chip, field } from "./styles";
 
 /**
@@ -28,6 +31,10 @@ import { chip, field } from "./styles";
  * 2026-10-06) offers the expat angles and readers, as Organic's expat tick does; the chrome stays Thai.
  * At its top (spec 2026-10-06) the kind of ad — แอดยาว + ตารางเบี้ย, ตัวเลขชัดๆ, ความรู้ (with its
  * sub-kind chips), เล่าเป็นเรื่อง — kept per campaign in the draft; the long ad until another is picked.
+ * รีวิวเคลม (spec 2026-10-06 claim review) puts ClaimFields in the angle's place — the papers, the
+ * consent, อ่านใบเคลม and ใส่ตารางเบี้ย — and the age, sex and row (and the figure preview) show only
+ * with the table on; its round is 1–3 ads, and the press waits for the papers to be read. The
+ * papers and their read are not in the draft: they go when the drawer shuts.
  */
 
 export interface WriteInput {
@@ -39,6 +46,8 @@ export interface WriteInput {
   /** the kind of ad (ad-kind.ts), and a knowledge ad's sub-kind */
   kind: AdKind;
   sub?: KnowledgeSub;
+  /** a รีวิวเคลม round: the papers as read, the table switch and the claim angle (`angle` above is unused) */
+  claim?: { done: ClaimDone; table: boolean; angle: string; custom: string };
 }
 
 /** what was typed in the form, kept by its holder so a drawer shut and opened again shows it (2026-10-05) */
@@ -67,7 +76,7 @@ const AGE_DEFAULT = "30";
 /** how long the age must rest before its rows are asked for */
 const ROWS_WAIT_MS = 300;
 
-export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, disabled, warning = null, folded, onWrite, preview, draft, onDraft, children }: {
+export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, disabled, warning = null, folded, onWrite, onReading, preview, draft, onDraft, children }: {
   campaignId: string;
   planHref: string;
   /** the campaign's language (campaignLang): "en" offers the expat angles and readers */
@@ -83,6 +92,8 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
   /** a phone with the tools folded: only the press shows */
   folded: boolean;
   onWrite: (input: WriteInput) => void;
+  /** รีวิวเคลม's papers are being read: the drawer stays open until they are back */
+  onReading?: (on: boolean) => void;
   /** beside the fields on a desk (under them on a phone): drawn with the headline's choice */
   preview?: (pick: { age: number | null; sex: "F" | "M"; rung?: number; ready: boolean; kind: AdKind }) => ReactNode;
   /** what was typed before, to start from; the age kept in this browser is used only without it */
@@ -107,6 +118,13 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
   const [rows, setRows] = useState<Rows | null>(null);
   const [kind, setKind] = useState<AdKind>(draft?.kind ?? "long");
   const [sub, setSub] = useState<KnowledgeSub>(draft?.sub ?? "myth");
+  const [claim, setClaim] = useState<ClaimDraft>(CLAIM_START);
+  const [claimRead, setClaimRead] = useState<ClaimDone | null>(null);
+  const isClaim = kind === "claim";
+  // the age, sex and row are the table's: a รีวิวเคลม round without it asks none of them
+  const withTable = !isClaim || claim.table;
+  const max = isClaim ? MAX_CLAIM_PIECES : MAX_COUNT;
+  const n = Math.min(count, max);
   useEffect(() => {
     onDraft?.({ angle, custom, reader, ageText, count, sex, head, kind, sub });
   }, [onDraft, angle, custom, reader, ageText, count, sex, head, kind, sub]);
@@ -154,20 +172,28 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
     return () => window.clearInterval(tick);
   }, [writing]);
 
-  const customMissing = angle === "custom" && !custom.trim();
+  const customMissing = isClaim ? claim.angle === "custom" && !claim.custom.trim() : angle === "custom" && !custom.trim();
   // the press waits for the age's rows, so the row sent is one of the table the server prices
   const rowsPending = age !== null && shownRows === null;
+  const tableUnready = withTable && (age === null || rowsPending);
+  const claimUnready = isClaim && !claimReady({ files: claim.files.length, consent: claim.consent, read: claimRead !== null });
   const press = () => {
-    if (age === null || customMissing || rowsPending) return;
+    if (tableUnready || customMissing || claimUnready) return;
     onWrite({
-      angle, custom: angle === "custom" ? custom.trim() : "", reader: reader.trim(), age, count, sex, kind,
+      angle, custom: angle === "custom" ? custom.trim() : "", reader: reader.trim(), age: age ?? 0, count: n, sex, kind,
       ...(kind === "knowledge" ? { sub } : {}), ...(rung === undefined ? {} : { rung }),
+      ...(isClaim && claimRead ? {
+        claim: { done: claimRead, table: claim.table, angle: claim.angle, custom: claim.angle === "custom" ? claim.custom.trim() : "" },
+      } : {}),
     });
   };
 
+  // the figure preview beside the fields: none for a รีวิวเคลม round without the table
+  const side = Boolean(preview) && withTable;
+
   return (
     <>
-      <div className={`border-t border-[var(--ct-hair)] p-4 ${preview ? "grid gap-6 lg:grid-cols-2" : "space-y-4"} ${folded ? (preview ? "hidden lg:grid" : "hidden lg:block") : ""}`}>
+      <div className={`border-t border-[var(--ct-hair)] p-4 ${side ? "grid gap-6 lg:grid-cols-2" : "space-y-4"} ${folded ? (side ? "hidden lg:grid" : "hidden lg:block") : ""}`}>
         <fieldset disabled={writing} className="m-0 min-w-0 space-y-4 border-0 p-0">
           <legend className="sr-only">เขียนแอด</legend>
           <div>
@@ -188,6 +214,9 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
             )}
             <span className="mt-1 block text-xs text-[var(--ct-mute)]">{KIND_NOTE[kind]}</span>
           </div>
+          {isClaim ? (
+            <ClaimFields value={claim} onChange={setClaim} read={claimRead} onRead={setClaimRead} onReading={(on) => onReading?.(on)} count={n} />
+          ) : (
           <div>
             <label className="block">
               <span className="mb-1 block text-sm font-medium">มุมที่อยากเล่า <span className="font-normal text-[var(--ct-mute)]">(ไม่เลือกก็ได้)</span></span>
@@ -207,6 +236,7 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
               <span className="mt-1 block text-xs text-[var(--ct-mute)]">{angle ? "ทุกชิ้นเล่ามุมนี้ เปิดเรื่องคนละแบบ" : "แต่ละชิ้นเล่าคนละมุม"}</span>
             )}
           </div>
+          )}
 
           <div role="group" aria-labelledby={`${formId}-reader`}>
             <span id={`${formId}-reader`} className="mb-1.5 block text-sm font-medium">คนอ่านคือใคร</span>
@@ -222,6 +252,7 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
             </label>
           </div>
 
+          {withTable && (
           <label className="block">
             <span className="mb-1 block text-sm font-medium">อายุในตารางเบี้ย</span>
             <input
@@ -232,7 +263,9 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
               {age === null ? "ใส่อายุเป็นจำนวนเต็ม 0–80" : "ทุกแอดในรอบนี้คิดเบี้ยที่อายุนี้ ทั้งหญิงและชาย ระบบจำไว้ให้"}
             </span>
           </label>
+          )}
 
+          {withTable && (
           <div>
             <div role="group" aria-labelledby={`${formId}-sex`} aria-describedby={`${formId}-head-note`}>
               <span id={`${formId}-sex`} className="mb-1.5 block text-sm font-medium">เพศในหัวแอด</span>
@@ -260,22 +293,25 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
               {shownRows?.error ?? "หัวแอดใช้ทุนและเพศนี้ — ตารางยังแสดงครบทุกแถว"}
             </span>
           </div>
+          )}
         </fieldset>
-        {preview && <div className="min-w-0">{preview({ age, sex, kind, ready: !rowsPending, ...(rung === undefined ? {} : { rung }) })}</div>}
+        {preview && side && <div className="min-w-0">{preview({ age, sex, kind, ready: !rowsPending, ...(rung === undefined ? {} : { rung }) })}</div>}
       </div>
 
       {children}
 
       <PressBar
-        count={count} max={MAX_COUNT} onCount={setCount} unit="แอด"
-        label={writing ? "กำลังสร้างแอด…" : `สร้าง ${count} โฆษณา`}
+        count={n} max={max} onCount={setCount} unit="แอด"
+        label={writing ? "กำลังสร้างแอด…" : `สร้าง ${n} โฆษณา`}
         onPress={press}
-        disabled={writing || disabled || age === null || customMissing || rowsPending}
+        disabled={writing || disabled || tableUnready || customMissing || claimUnready}
         note={writing
           ? `กำลังเขียน ${seconds} วินาที${seconds > 60 ? " — นานกว่าปกติ แต่ยังทำงานอยู่" : " (ปกติ 20–40 วินาที)"}`
-          : kind === "numbers"
-            ? `${adRoundCost(count, picks, false)} ไม่วาดรูป (โปสเตอร์ตัวเลข) · ราว 20–40 วินาที`
-            : `${adRoundCost(count, picks)} รวมวาดรูป · ราว 20–40 วินาที`}
+          : claimUnready
+            ? "เลือกรูปเอกสาร ติ๊กความยินยอม แล้วกด อ่านใบเคลม ก่อนสร้าง"
+            : kind === "numbers"
+              ? `${adRoundCost(n, picks, false)} ไม่วาดรูป (โปสเตอร์ตัวเลข) · ราว 20–40 วินาที`
+              : `${adRoundCost(n, picks)} รวมวาดรูป · ราว 20–40 วินาที`}
         warning={warning}
       />
     </>

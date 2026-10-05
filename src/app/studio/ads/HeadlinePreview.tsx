@@ -12,7 +12,9 @@ import { TONES } from "./styles";
  * figures before paying. Nothing is asked until the age's rows are in (WriteForm's `ready`), so
  * the row is the one the round will use; a stale answer (the choice changed meanwhile) is dropped.
  * By the kind of ad (spec 2026-10-06): a ตัวเลขชัดๆ ad shows its numbers body and poster; a
- * ความรู้ or เล่าเป็นเรื่อง ad has no table, and shows the contacts block the code places.
+ * ความรู้ or เล่าเป็นเรื่อง ad has no table, and shows the contacts block the code places. A
+ * รีวิวเคลม ad with ใส่ตารางเบี้ย on (the only time it is drawn) carries the table and the contacts,
+ * without the headline lines.
  */
 
 /** how long a choice must rest before its figures are asked for */
@@ -86,6 +88,20 @@ export function HeadlinePreview({ campaignId, english = false, age, sex, rung, r
             </div>
           )}
           <p className="text-xs text-[var(--ct-mute)]">ทุกแอดในรอบนี้ใช้ตัวเลขและโปสเตอร์ชุดนี้ จากตารางเบี้ยในระบบ</p>
+        </div>
+      ) : kind === "claim" ? (
+        <div className={`space-y-3 transition-opacity ${fresh ? "" : "opacity-60"}`}>
+          <div>
+            <p className="mb-1 text-xs font-medium text-[var(--ct-mute)]">ตารางเบี้ย ต่อท้ายเรื่องเคลม</p>
+            <p className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg bg-[var(--ct-ground)] px-3 py-2 text-sm leading-relaxed tabular-nums">{shown.figures.table}</p>
+          </div>
+          {shown.figures.contact && (
+            <div>
+              <p className="mb-1 text-xs font-medium text-[var(--ct-mute)]">ช่องทางติดต่อท้ายแอด</p>
+              <p className="whitespace-pre-wrap rounded-lg bg-[var(--ct-ground)] px-3 py-2 text-sm leading-relaxed">{shown.figures.contact}</p>
+            </div>
+          )}
+          <p className="text-xs text-[var(--ct-mute)]">ทุกแอดในรอบนี้ใช้ตารางชุดนี้ จากตารางเบี้ยในระบบ</p>
         </div>
       ) : shown.figures.contact !== undefined ? (
         <div className={`space-y-3 transition-opacity ${fresh ? "" : "opacity-60"}`}>
