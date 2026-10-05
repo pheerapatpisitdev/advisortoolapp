@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PersonOption } from "../PersonPicker";
 import type { AdsStudioHome } from "./actions";
@@ -12,8 +13,8 @@ import { field, TONES } from "./styles";
 
 /**
  * /studio/ads, one page as Organic Studio is (owner, 2026-10-05): `Ads Studio · <Page>`, then the
- * tools and the desk. The tools start with the Page and the campaign to work on — "+ แคมเปญใหม่…"
- * turns them into the one form that makes one — and end with ตั้งค่าเพจ (the Page's contacts and
+ * tools and the desk. The tools start with the Page and its campaigns, listed to switch in one
+ * press — "+ แคมเปญใหม่" at the list's foot turns them into the one form that makes one — and end with ตั้งค่าเพจ (the Page's contacts and
  * the ad-account connection); the open campaign's room fills the rest (CampaignRoom). Every choice
  * is a new address, so a reload, the back button and a link all land where they were: ?page=,
  * ?campaign=, ?new=1.
@@ -32,7 +33,6 @@ const STEPS = [
   { title: "ติ๊กแล้วส่ง", text: "ติ๊กแอดในแท็บร่าง ส่งขึ้น Facebook แบบหยุดไว้ ตรวจแล้วค่อยเปิดใช้" },
 ];
 
-const NEW = "new";
 
 export function AdsStudio({ home, view, contact, rules, products, outcome, warn, detail }: {
   home: AdsStudioHome;
@@ -49,12 +49,10 @@ export function AdsStudio({ home, view, contact, rules, products, outcome, warn,
   const page = home.pages.find((p) => p.pageId === home.pageId) ?? null;
   const openId = view.kind === "room" ? view.room.campaign.id : view.kind === "error" ? view.id : null;
 
-  const pickCampaign = (value: string) => {
-    if (!page) return;
-    router.push(value === NEW
-      ? `/studio/ads?page=${encodeURIComponent(page.pageId)}&new=1${openId ? `&campaign=${encodeURIComponent(openId)}` : ""}`
-      : `/studio/ads?campaign=${encodeURIComponent(value)}`);
-  };
+  // a new campaign keeps the open one as the way back (ยกเลิก)
+  const newHref = page ? `/studio/ads?page=${encodeURIComponent(page.pageId)}&new=1${openId ? `&campaign=${encodeURIComponent(openId)}` : ""}` : "";
+  const item = (on: boolean) =>
+    `flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-transparent hover:bg-[var(--ct-ground)]"}`;
 
   const pickers = page && (
     <>
@@ -69,13 +67,27 @@ export function AdsStudio({ home, view, contact, rules, products, outcome, warn,
           </select>
         </label>
       )}
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium">แคมเปญ</span>
-        <select value={openId ?? NEW} onChange={(e) => pickCampaign(e.target.value)} className={`${field} font-medium`}>
-          {home.campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          <option value={NEW}>+ แคมเปญใหม่…</option>
-        </select>
-      </label>
+      {/* every campaign of the Page in sight, one press to switch (owner, 2026-10-05): a select hid
+          that a Page can have more than one */}
+      <nav aria-labelledby="ads-campaigns">
+        <span id="ads-campaigns" className="mb-1 block text-sm font-medium">
+          แคมเปญ{home.campaigns.length > 0 && <span className="font-normal text-[var(--ct-mute)]"> ({home.campaigns.length})</span>}
+        </span>
+        <ul className="space-y-1">
+          {home.campaigns.map((c) => (
+            <li key={c.id}>
+              <Link href={`/studio/ads?campaign=${encodeURIComponent(c.id)}`} aria-current={c.id === openId ? "page" : undefined} className={item(c.id === openId)}>
+                <span className="min-w-0 break-words">{c.name}</span>
+              </Link>
+            </li>
+          ))}
+          <li>
+            <Link href={newHref} aria-current={view.kind === "new" ? "page" : undefined} className={`${item(view.kind === "new")} text-[var(--ct-accent)]`}>
+              + แคมเปญใหม่
+            </Link>
+          </li>
+        </ul>
+      </nav>
     </>
   );
 
