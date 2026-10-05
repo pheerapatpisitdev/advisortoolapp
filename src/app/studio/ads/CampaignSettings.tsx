@@ -24,14 +24,15 @@ const NAME_MAX = 60;
 const TEXT_MAX = 120;
 
 /** ลบแคมเปญนี้: asks in the page, then deletes and opens the Page's next campaign. A refusal (an ad still switched on) shows under it. */
-function DeleteCampaign({ campaign, sent }: { campaign: Room["campaign"]; sent: boolean }) {
+function DeleteCampaign({ campaign, sent, live }: { campaign: Room["campaign"]; sent: boolean; live: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function run() {
-    const message = `ลบแคมเปญ "${campaign.title}" และแอดทั้งหมดในแคมเปญนี้ออกจาก Ads Studio?${sent
-      ? "\n\nแอดที่ส่งขึ้น Facebook แล้วจะยังอยู่ในตัวจัดการโฆษณา (หยุดไว้) ถ้าไม่ใช้แล้วให้ลบที่นั่นด้วย"
-      : ""}\n\nลบแล้วกู้คืนไม่ได้`;
+    // Facebook is never touched: a send switched on keeps spending, and only Ads Manager can stop it after
+    const message = `ลบแคมเปญ "${campaign.title}" และแอดทั้งหมดในแคมเปญนี้ออกจาก Ads Studio?${live > 0
+      ? `\n\n⚠️ มีแอดที่เปิดใช้อยู่ ${live} ชุด — จะยังวิ่งและใช้งบต่อบน Facebook หลังลบแล้วหยุดได้ที่ตัวจัดการโฆษณา (Ads Manager) เท่านั้น`
+      : sent ? "\n\nแอดที่ส่งขึ้น Facebook แล้วจะยังอยู่ในตัวจัดการโฆษณา (หยุดไว้) ถ้าไม่ใช้แล้วให้ลบที่นั่นด้วย" : ""}\n\nลบแล้วกู้คืนไม่ได้`;
     if (!(await ask(message, "ลบแคมเปญ"))) return;
     setBusy(true);
     setError(null);
@@ -55,7 +56,7 @@ function DeleteCampaign({ campaign, sent }: { campaign: Room["campaign"]; sent: 
   );
 }
 
-export function CampaignSettings({ campaign, productName, people, sent, folded, writing, saveFirst }: {
+export function CampaignSettings({ campaign, productName, people, sent, live, folded, writing, saveFirst }: {
   campaign: Room["campaign"];
   /** the plan's name, shown and not editable */
   productName: string;
@@ -63,6 +64,8 @@ export function CampaignSettings({ campaign, productName, people, sent, folded, 
   people: PersonOption[];
   /** some of its ads went to Facebook: deleting says they stay there */
   sent: boolean;
+  /** how many of its sends are switched on now: deleting leaves them running on Facebook */
+  live: number;
   /** a phone with the tools folded */
   folded: boolean;
   /** a round is being written: nothing here changes until it is back */
@@ -154,7 +157,7 @@ export function CampaignSettings({ campaign, productName, people, sent, folded, 
           </button>
         )}
         <Note note={note} />
-        <DeleteCampaign campaign={campaign} sent={sent} />
+        <DeleteCampaign campaign={campaign} sent={sent} live={live} />
       </Fold>
     </div>
   );

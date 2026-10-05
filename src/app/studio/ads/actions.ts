@@ -12,6 +12,7 @@ import {
 } from "@/lib/facebook/ads-manage-connection";
 import { adsManageMissingEnv, adsManageOauthIsConfigured, listAdAccounts, tokenExpiry, type TokenExpiry } from "@/lib/facebook/oauth";
 import * as launchStore from "@/lib/ads/launch-store";
+import { switchedOn } from "@/lib/ads/sent-view";
 import type { LaunchRow, LaunchStep as RowStep } from "@/lib/ads/launch-store";
 import { adEffectiveStatus, thVerifiedIdentity } from "@/lib/ads/launch";
 import { maxDailyBudgetThb } from "@/lib/ads/launch-limits";
@@ -655,27 +656,23 @@ export async function setAdStatus(pieceId: string, status: "draft" | "used" | "t
   }
 }
 
-/** a campaign with an ad spending stays: deleting it would take away the room's pause button */
-const LIVE_DELETE = "แคมเปญนี้มีแอดที่เปิดใช้อยู่ — หยุดแอดก่อนลบแคมเปญ";
-
 /**
- * Deletes a campaign from Ads Studio. Refused while any of its ads is switched on — a send
- * switched on and not paused since, or a piece's launch marked on — since the room is where it
- * would be paused. What was sent stays on Facebook, paused, and its send rows stay as history;
- * the pieces stay too, filed under no campaign (ads never show in Organic Studio). A send or
- * launch table that cannot be read refuses, rather than deleting a campaign that may be spending.
+ * Deletes a campaign from Ads Studio, whatever was sent from it (owner, 2026-10-05). Nothing on
+ * Facebook is touched: what was sent stays there as it is — a send switched on keeps running and
+ * spending, and is paused from Ads Manager from then on, which the page asks the owner to accept
+ * first. The send rows stay as history (their campaign set to none), and so do the pieces, filed
+ * under no campaign (ads never show in Organic Studio). How many sends were on is logged. A send
+ * table that cannot be read refuses, so the log never says nothing was running when it was.
  */
 export async function deleteAdCampaign(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireStaff("owner");
   try {
     const campaign = await getCampaign(id);
     if (!campaign) return { ok: false, error: NO_CAMPAIGN };
-    const [sends, pieces, accounts] = await Promise.all([listSends(campaign.id), listCampaignPieces(campaign.id), adManageAccounts()]);
-    const sendOn = sends.some((s) => s.activatedAt && (!s.pausedAt || Date.parse(s.pausedAt) < Date.parse(s.activatedAt)));
-    const rows = await Promise.all(pieces.flatMap((p) => accounts.map((a) => launchStore.findLaunch(p.id, a.id))));
-    if (sendOn || rows.some((r) => r?.activatedAt)) return { ok: false, error: LIVE_DELETE };
+    const [sends, pieces] = await Promise.all([listSends(campaign.id), listCampaignPieces(campaign.id)]);
+    const live = sends.filter(switchedOn).length;
     await deleteCampaign(campaign.id);
-    await audit("ads-campaign-delete", campaign.id, { ok: true, name: titleOf(campaign), pageId: campaign.pageId, sends: sends.length, pieces: pieces.length });
+    await audit("ads-campaign-delete", campaign.id, { ok: true, name: titleOf(campaign), pageId: campaign.pageId, sends: sends.length, live, pieces: pieces.length });
     revalidatePath("/studio/ads", "layout");
     return { ok: true };
   } catch (e) {

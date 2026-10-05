@@ -11,6 +11,7 @@ import { drawPicture, generateRound } from "../draw";
 import { AdCard, type PictureState } from "./AdCard";
 import { AdEditor, type Room } from "./AdEditor";
 import { CampaignSettings } from "./CampaignSettings";
+import { switchedOn } from "@/lib/ads/sent-view";
 import { Columns } from "./Columns";
 import type { AdRules } from "./rules";
 import { SendDialog } from "./SendDialog";
@@ -205,7 +206,7 @@ export function CampaignRoom({ room, pickers, pageSettings, productName, rules, 
               folded={folded} onWrite={(input) => void write(input)}
             >
               <CampaignSettings
-                campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} folded={folded}
+                campaign={campaign} productName={productName} people={people} sent={counts.sent > 0} live={room.sends.filter(switchedOn).length} folded={folded}
                 writing={making > 0} saveFirst={saveFirst}
               />
               {pageSettings(folded)}

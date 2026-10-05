@@ -592,17 +592,18 @@ describe("deleting a campaign", () => {
     expect(await deleteAdCampaign(CAMPAIGN)).toEqual({ ok: true });
   });
 
-  it("refuses while a send is switched on", async () => {
+  it("deletes a campaign whose send is switched on, leaving the ads on Facebook, and logs it", async () => {
+    // owner, 2026-10-05: what was sent runs on in Ads Manager; Studio only forgets the campaign
     sends.listSends.mockResolvedValueOnce([send({ activatedAt: "2026-10-04T06:00:00.000Z", pausedAt: "2026-10-04T05:00:00.000Z" })]);
-    const res = await deleteAdCampaign(CAMPAIGN);
-    expect(res).toMatchObject({ ok: false, error: expect.stringContaining("เปิดใช้อยู่") });
-    expect(camps.deleteCampaign).not.toHaveBeenCalled();
+    expect(await deleteAdCampaign(CAMPAIGN)).toEqual({ ok: true });
+    expect(camps.deleteCampaign).toHaveBeenCalledWith(CAMPAIGN);
+    expect(who.audit).toHaveBeenCalledWith("ads-campaign-delete", CAMPAIGN, expect.objectContaining({ live: 1 }));
   });
 
-  it("refuses while a piece's own launch is switched on", async () => {
-    store.findLaunch.mockImplementation(async (pieceId: string) => (pieceId === "p2" ? { id: "L1", activatedAt: "2026-10-04T02:00:00Z" } : null));
-    expect(await deleteAdCampaign(CAMPAIGN)).toMatchObject({ ok: false });
-    expect(camps.deleteCampaign).not.toHaveBeenCalled();
+  it("counts a send paused after it was switched on as not live", async () => {
+    sends.listSends.mockResolvedValueOnce([send({ activatedAt: "2026-10-04T05:00:00.000Z", pausedAt: "2026-10-04T06:00:00.000Z" })]);
+    expect(await deleteAdCampaign(CAMPAIGN)).toEqual({ ok: true });
+    expect(who.audit).toHaveBeenCalledWith("ads-campaign-delete", CAMPAIGN, expect.objectContaining({ live: 0 }));
   });
 
   it("says when there is no such campaign, and is the owner's alone", async () => {
