@@ -10,20 +10,19 @@ import { pickLook } from "@/lib/content/look-pick";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { AD_LIMITS, adOwnerLines, briefWithoutPremiums } from "@/lib/content/ads";
 import { briefFor } from "@/lib/content/brief";
-import { findWords, strayNumbers, type ContentWord } from "@/lib/content/check";
 import { parseTemplatize, templatizeMessages } from "@/lib/content/hooks";
 import { langOf, type ContentOutput, type Lang } from "@/lib/content/output";
 import { englishOutput } from "@/lib/content/lang";
 import { isLogoSpot } from "@/lib/content/logo";
 import { roundLogo } from "@/lib/content/logo-store";
-import { defaultPoster, parsePoster, posterText, THEMES, type PosterSpec, type Theme } from "@/lib/content/poster";
+import { defaultPoster, parsePoster, THEMES, type PosterSpec, type Theme } from "@/lib/content/poster";
 import { contentProduct } from "@/lib/content/products";
 import { POSES, type PiecePerson } from "@/lib/content/people";
 import { personPhotos } from "@/lib/content/people-store";
 import { formulaOf, type Formula } from "@/lib/content/formula";
 import { MAX_PIECES } from "@/lib/content/plan";
-import { checkPolicy } from "@/lib/content/policy";
-import { modeChecks, type ModeChecks } from "@/lib/content/mode-checks";
+import { checkedText, flagsFor } from "@/lib/content/flags";
+import { modeChecks } from "@/lib/content/mode-checks";
 import { subjectOf } from "@/lib/content/knowledge";
 import { writeKnowledge, type KnowledgeWriteInput } from "@/lib/content/knowledge-run";
 import { cleanDraft } from "@/lib/content/draft";
@@ -77,11 +76,6 @@ async function caller(): Promise<string> {
   return clientIp(await headers());
 }
 
-/** every line the checks read — all the hooks, since any may be posted, the tags, which are posted too, and the poster's words */
-function checkedText(o: Pick<ContentOutput, "hooks" | "body" | "closing" | "hashtags" | "poster">): string {
-  return [...o.hooks, o.body, o.closing, (o.hashtags ?? []).join(" "), posterText(o.poster)].join("\n");
-}
-
 /** the ceiling reached, as the owner is told it */
 const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว (กันไว้ให้บอทตอบลูกค้า) — เพิ่มงบได้ที่หน้า /admin/ai`;
 const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
@@ -100,22 +94,6 @@ const PLAN_MS = 50_000;
 const SAVE_MS = 20_000;
 /** a writer's one try (write.ts); the planner leaves at least this for the pieces */
 const WRITE_TRY_MS = 60_000;
-
-/**
- * `lang`: the piece's language — the round's for a piece just written (its output is not yet
- * marked), the stored piece's for an edit; an English one may carry no Thai (policy.ts).
- * `checks`: a plan-less mode's own (mode-checks.ts) — หาทีม's rules, every figure.
- */
-function flagsFor(o: ContentOutput, lang: Lang, brief: string, words: ContentWord[], fixes: Fix[] | null, checks: Partial<ModeChecks> = {}): Flags {
-  const text = checkedText(o);
-  return {
-    numbers: strayNumbers(text, brief, { every: checks.every }),
-    words: findWords(text, words),
-    policy: checkPolicy(text, { recruit: checks.recruit, lang }),
-    // a suggestion whose words were edited away cannot be applied any more
-    fixes: fixes ? fixes.filter((f) => text.includes(f.find)) : null,
-  };
-}
 
 export interface GenerateInput {
   href: string;
@@ -241,6 +219,8 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
   let ad: AdRound | null = null;
   if (input.format === "ad") {
     if (!input.campaignId) return { ok: false, error: ADS_MOVED };
+    // a claim ad is written from the papers the claim form read (/api/content-claim), never here
+    if (adKind(input.kind) === "claim") return { ok: false, error: "รีวิวเคลมสร้างจากเอกสารในฟอร์มรีวิวเคลมเท่านั้น" };
     try {
       await requireStaff("owner");
     } catch (e) {

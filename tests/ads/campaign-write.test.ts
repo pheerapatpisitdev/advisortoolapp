@@ -120,6 +120,12 @@ describe("an ad round is refused before anything is counted", () => {
     nothingSpent();
   });
 
+  it("for a รีวิวเคลม ad, which only the claim form writes", async () => {
+    expect(await generateContent({ ...sent, kind: "claim" })).toEqual({ ok: false, error: "รีวิวเคลมสร้างจากเอกสารในฟอร์มรีวิวเคลมเท่านั้น" });
+    expect(campaigns.getCampaign).not.toHaveBeenCalled();
+    nothingSpent();
+  });
+
   it("for anyone but the owner", async () => {
     viewer.owner = false;
     expect(await generateContent(sent)).toEqual({ ok: false, error: "ไม่มีสิทธิ์ใช้ส่วนนี้" });

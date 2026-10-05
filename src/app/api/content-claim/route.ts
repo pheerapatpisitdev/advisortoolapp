@@ -4,7 +4,8 @@ import { MAX_DOCS } from "@/lib/content/claim";
 import { ADS_MOVED } from "@/lib/content/prompt";
 import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
 import { readClaim, writeClaim } from "@/lib/content/claim-run";
-import { refuseUnless, requireMember } from "@/lib/auth/viewer";
+import { writeClaimAds } from "@/lib/ads/claim-ad-run";
+import { refuseUnless, requireMember, requireStaff } from "@/lib/auth/viewer";
 import { takeRound } from "@/lib/auth/quota";
 import { payRound } from "@/lib/wallet/round";
 import { projectPage } from "@/lib/auth/pages";
@@ -14,7 +15,8 @@ import { ceilingBeforeRound } from "@/lib/content/ceiling";
  * รีวิวเคลม, as plain requests: six photographs are more than a server action's one-megabyte
  * body takes, and a round of writing should not queue the page's other actions behind it.
  *
- * POST reads the papers; PUT writes the pieces. Each takes one of the agent's rounds
+ * POST reads the papers; PUT writes the pieces — or, with `campaign`, the owner's รีวิวเคลม ads
+ * into that Ads Studio campaign (claim-ad-run.ts). Each takes one of the agent's rounds
  * (src/lib/auth/quota.ts). Both refuse without the consent tick — the
  * page asks for it too, but the rule is the server's. The photographs POST receives are sent
  * to the model and dropped; only the stickered paper PUT receives is ever kept, and a piece
@@ -71,7 +73,9 @@ export async function PUT(req: NextRequest) {
   if (refused) return refused;
   const form = await req.formData().catch(() => null);
   if (!form) return bad("ข้อมูลไม่ครบ ลองใหม่อีกครั้งนะครับ");
-  if (form.get("format") === "ad") return bad(ADS_MOVED);
+  const campaign = String(form.get("campaign") ?? "");
+  // an ad is written into a campaign; Organic's own ad, without one, moved to Ads Studio
+  if (!campaign && form.get("format") === "ad") return bad(ADS_MOVED);
   if (form.get("consent") !== "on") return bad(NO_CONSENT);
   let facts: unknown;
   try {
@@ -85,6 +89,7 @@ export async function PUT(req: NextRequest) {
   const ratios = form.getAll("ratio").map(Number);
   if (files.length > MAX_PAPERS || ratios.length !== files.length || !ratios.every(okRatio)) return bad("ขนาดรูปเอกสารไม่ถูกต้อง ลองเลือกรูปใหม่นะครับ");
   if (!roundsPerHour(`claim-write:${clientIp(req.headers)}`)) return bad("สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ", 429);
+  if (campaign) return writeIntoCampaign(form, campaign, facts, files, ratios);
   // the Page whose project the round goes into, settled before a round is counted (owner, 2026-09-30)
   const project = await projectPage(String(form.get("page") ?? ""));
   if (!project.ok) return bad(project.error, 403);
@@ -104,5 +109,38 @@ export async function PUT(req: NextRequest) {
       logoSpot: String(form.get("logoSpot") ?? ""),
       angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
     }, project.pageId);
+  }));
+}
+
+/**
+ * รีวิวเคลม ads into an Ads Studio campaign: the owner's alone, as all of Ads Studio is, asked
+ * before a round is counted. The age, sex and row are read only with ใส่ตารางเบี้ย on; the
+ * campaign settles the Page, the product and the writer (writeClaimAds).
+ */
+async function writeIntoCampaign(form: FormData, campaignId: string, facts: unknown, files: File[], ratios: number[]): Promise<Response> {
+  let viewer;
+  try {
+    viewer = await requireStaff("owner");
+  } catch (e) {
+    return bad(e instanceof Error ? e.message : "ไม่มีสิทธิ์ใช้ส่วนนี้", 403);
+  }
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
+  const pass = await takeRound(viewer, "ai-claim");
+  if (!pass.ok) return bad(pass.refusal, 429);
+  const withTable = form.get("table") === "on";
+  // a field left out is absent, not 0: adAge takes an absent age as 30, adPick an absent row as the middle one
+  const num = (name: string) => (String(form.get(name) ?? "").trim() ? Number(form.get(name)) : undefined);
+  return Response.json(await payRound(pass, async () => {
+    const papers = await Promise.all(files.map(async (f, i) => ({ bytes: Buffer.from(await f.arrayBuffer()), mimeType: f.type, ratio: ratios[i] })));
+    return writeClaimAds({
+      campaignId, facts, count: Number(form.get("count")), papers, withTable,
+      angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
+      ...(withTable ? {
+        age: num("age"),
+        sex: form.get("sex") === "M" ? "M" as const : "F" as const,
+        rung: num("rung"),
+      } : {}),
+    });
   }));
 }

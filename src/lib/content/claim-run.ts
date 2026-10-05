@@ -34,10 +34,12 @@ const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
 export const READ_HOLD_THB = 0.5;
 /** six photographs and a long reply of boxes; a thinking model needs the room */
 const READ_TIMEOUT_MS = 120_000;
-const WRITE_TIMEOUT_MS = 60_000;
+export const WRITE_TIMEOUT_MS = 60_000;
 
-const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
-const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
+export const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
+export const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
+/** facts with nothing to tell (tooThin), as the owner is told it */
+export const THIN_FACTS = "AI อ่านโรคหรือยอดเงินจากเอกสารไม่ได้ — ลองรูปที่ชัดขึ้น หรือเล่าในช่อง “เล่าเพิ่ม” นะครับ";
 
 export type ReadResult = ({ ok: true; costThb: number } & ClaimRead) | { ok: false; error: string };
 
@@ -114,7 +116,7 @@ export function tooThin(f: ClaimFacts): boolean {
 
 export async function writeClaim(input: ClaimWriteInput, pageId: string | null): Promise<GenerateResult> {
   const facts = cleanFacts(input.facts);
-  if (tooThin(facts)) return { ok: false, error: "AI อ่านโรคหรือยอดเงินจากเอกสารไม่ได้ — ลองรูปที่ชัดขึ้น หรือเล่าในช่อง “เล่าเพิ่ม” นะครับ" };
+  if (tooThin(facts)) return { ok: false, error: THIN_FACTS };
   const count = Math.min(MAX_CLAIM_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
   const format: Format = input.format === "script" || input.format === "ad" ? input.format : "post";
   const length: Length | null = format === "script" ? (LENGTHS.find((l) => l.id === input.length)?.id ?? "60") : null;
@@ -182,7 +184,7 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
           : { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ", saved: 0 };
       }
       // a script is spoken to camera: no poster, so no paper on one
-      items.push(input.papers.length && format !== "script" ? await withPapers(item, input.papers) : item);
+      items.push(input.papers.length && format !== "script" ? await attachPapers(item, input.papers) : item);
     }
     return { ok: true, items, costThb: items.reduce((s, i) => s + i.costThb, 0), missing: count - items.length };
   } catch (e) {
@@ -199,7 +201,7 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
  * A failure leaves the piece with its plain poster: the words are the work, and the owner
  * is shown them rather than an error.
  */
-async function withPapers(item: ContentItem, papers: Paper[]): Promise<ContentItem> {
+export async function attachPapers(item: ContentItem, papers: Paper[]): Promise<ContentItem> {
   const paths: string[] = [];
   const dropAll = () => Promise.all(paths.map((p) => removeBackground(item.id, p)));
   try {
