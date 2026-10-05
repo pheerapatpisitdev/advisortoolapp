@@ -56,15 +56,21 @@ function starts(text: string, granularity: "grapheme" | "word"): number[] {
  * Where an ad's text is cut for its "see more" fold, in code points; the whole length when it
  * fits. The cut never splits a letter (a Thai vowel or tone mark with its consonant, an emoji
  * sequence): at the last whitespace at or before n, else the last word boundary, either one not
- * earlier than 0.6 n, else the last grapheme boundary at or before n.
+ * earlier than 0.6 n, else the last grapheme boundary at or before n. Where Intl.Segmenter is
+ * missing (older browsers) it cuts by code point: the last whitespace from 0.6 n to n, else n.
  */
 export function foldAt(text: string, n = 125): number {
   if (n <= 0) return 0;
   const cps = Array.from(text);
   if (cps.length <= n) return cps.length;
+  const floor = Math.ceil(0.6 * n);
+  // a browser without Intl.Segmenter: the last whitespace not earlier than 0.6 n, else n code points
+  if (typeof Intl === "undefined" || typeof Intl.Segmenter !== "function") {
+    for (let i = n; i >= floor; i--) if (/\s/.test(cps[i])) return i;
+    return n;
+  }
   const graphemes = starts(text, "grapheme");
   const isStart = new Set(graphemes);
-  const floor = Math.ceil(0.6 * n);
   for (let i = n; i >= floor; i--) if (isStart.has(i) && /\s/.test(cps[i])) return i;
   const words = starts(text, "word");
   for (let k = words.length - 1; k >= 0; k--) if (words[k] <= n && words[k] >= floor) return words[k];

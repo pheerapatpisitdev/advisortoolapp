@@ -96,7 +96,7 @@ export function AdPreview({ piece, productName, pageName, fold, cta, picture, on
           ))}
           {numbers.length > 0 && (
             <li className={`rounded-lg border px-3 py-2 text-sm ${TONES.warn}`}>
-              <span className="font-medium">ตัวเลขที่ไม่ได้มาจากข้อมูลแบบประกัน</span> — {numbers.join(", ")} ตรวจก่อนส่ง
+              <span className="font-medium">ตัวเลขหรือข้อความที่ต้องตรวจ</span> — {numbers.join(", ")} ตรวจก่อนส่ง
             </li>
           )}
         </ul>

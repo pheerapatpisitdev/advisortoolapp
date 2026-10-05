@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { campaignState, foldAt, onBudget, parseCreate, parseDays, parseTab, studioHref, totals, withCreate } from "@/lib/ads/manager-view";
 import { adAge, adPick } from "@/lib/ads/headline-input";
 
@@ -81,6 +81,18 @@ describe("foldAt", () => {
   it("counts code points, not UTF-16 units", () => {
     expect(foldAt("😀😀😀 😀😀😀", 5)).toBe(3);
     expect(foldAt("😀".repeat(200), 125)).toBe(125);
+  });
+  it("still cuts, by code point, where Intl.Segmenter is missing", () => {
+    vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
+    try {
+      expect(foldAt("aaa bbb ccc", 9)).toBe(7);
+      expect(foldAt("ab " + "x".repeat(60), 40)).toBe(40);
+      expect(foldAt("😀".repeat(200), 125)).toBe(125);
+      expect(foldAt("สั้นๆ", 125)).toBe(5);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(typeof Intl.Segmenter).toBe("function");
   });
 });
 
