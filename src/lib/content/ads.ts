@@ -1,6 +1,6 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
-import { withoutPremiums } from "./check";
+import { personPhrases, withoutPremiums } from "./check";
 import { CORE_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
 import type { PiecePlan } from "./plan";
 
@@ -115,13 +115,32 @@ export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdCont
 }
 
 /**
- * A brief without its premiums, for an ad round's planner and writer (spec 2026-10-05): each
- * clause that says an amount as a premium (check.ts) is cut, so "เบี้ย 1,548 บาท/เดือน (เฉลี่ย
- * วันละ 48 บาท)" is never there to copy beside the code's table, while the rest of its line —
- * the age, the sum, the term, "คุ้มครองถึงอายุ 40" — stays. The numbers check keeps the whole brief.
+ * Facts the brief says only inside a sample person's line: PLB's "คุ้มครองถึงอายุ 40", Life
+ * Treasure's "ส่งต่อได้ 1.7 เท่า", the pension example's บำนาญ. Such a line is kept without its person.
+ */
+const ONLY_THERE = /คุ้มครองถึงอายุ|เท่า|บำนาญ/;
+
+/**
+ * A brief for an ad round's planner and writer (spec 2026-10-05): no premium, and no sample person.
+ * Each clause that says an amount as a premium (check.ts) is cut, so "เบี้ย 1,548 บาท/เดือน (เฉลี่ย
+ * วันละ 48 บาท)" is never there to copy beside the code's table. A line about a sample person
+ * ("ผู้หญิงอายุ 35 ทุน 500,000 บาท …") goes whole — the second 2026-10-05 sample copied one —
+ * unless it holds a fact found nowhere else (ONLY_THERE): then only the person is cut. The numbers
+ * check keeps the whole brief.
  */
 export function briefWithoutPremiums(brief: string): string {
-  return withoutPremiums(brief);
+  return brief.split("\n").flatMap((line) => {
+    if (line.trim() === "") return [line];
+    const people = personPhrases(line);
+    let out = line;
+    if (people.length > 0) {
+      if (!ONLY_THERE.test(line)) return [];
+      for (const p of [...people].reverse()) out = out.slice(0, p.at) + out.slice(p.end);
+    }
+    out = withoutPremiums(out).replace(/[ \t]{2,}/g, " ").replace(/:\s*\(/g, " (");
+    // a line the cuts left empty goes, rather than standing as a blank line
+    return out.trim() === "" ? [] : [out];
+  }).join("\n");
 }
 
 export interface LongAd {

@@ -349,8 +349,16 @@ describe("otherPeople — the model may not speak of another person (2026-10-05)
   it.each([
     "ผู้ชายวัย 35 ที่ยังผ่อนบ้าน", "ชายอายุ 35 ปี ทุน 1,000,000", "ชาย 35 ปี", "ก่อนอายุ 60", "ถึงอายุ 99",
     "คุ้มครองถึงอายุ 85", "อายุ 20–65 ปี สมัครได้", "ทั้งหญิงและชาย", "ผู้หญิงหลายคนถามว่า", "จ่ายจบใน 19 ปี",
+    // re-review: both sexes, a child, a range
+    "ทั้งหญิงและชาย อายุ 20–65 ปี", "รับทั้งหญิงชาย อายุ 0–80 ปี", "หญิงชายอายุ 35", "ลูกชายอายุ 5 ขวบ", "ลูกชาย 5 ปี",
+    "เด็กชายอายุ 10", "ผู้ชายวัย 30–40", "ผู้ชายอายุ 30 ถึง 40 ปี", "ผู้ชายอายุ 40 ขึ้นไป", "ผู้ชายอายุ ๓๕ ปี",
   ])("leaves %s when the ad is a man of 35", (text) => {
     expect(otherPeople(text, "M", 35)).toEqual([]);
+  });
+
+  it("reads Thai digits", () => {
+    expect(otherPeople("ผู้หญิงอายุ ๓๕", "M", 35)).toEqual(["ผู้หญิงอายุ ๓๕"]);
+    expect(otherPeople("ชายอายุ ๔๐ ปี", "M", 35)).toEqual(["ชายอายุ ๔๐"]);
   });
 
   it("a woman's ad flags a man of the same age", () => {

@@ -1,4 +1,4 @@
-import { premiumAmounts, sameFigures, strayNumbers } from "./check";
+import { personPhrases, premiumAmounts, sameFigures, strayNumbers } from "./check";
 import { NUMBERS_PLANS } from "./numbers-plans";
 import { money, sexWord, type NumberSheet, type PricedPlan } from "./numbers";
 import { lifelong } from "./wording";
@@ -166,22 +166,10 @@ export function restatedFigures(modelText: string, brief: string, t: PremiumTabl
 }
 
 /**
- * A person the copy speaks of: ผู้หญิง, ผู้ชาย, หญิง or ชาย, then within a few letters อายุ N or
- * วัย N, or N ปี. Only after a sex word, so "ก่อนอายุ 60", "ถึงอายุ 99" and "อายุ 20–65 ปี" are not.
- */
-const PERSON = /(ผู้หญิง|ผู้ชาย|หญิง|ชาย)[^\d\n]{0,4}?(?:(?:อายุ|วัย)\s*(\d{1,2})(?!\d)|(\d{1,2})\s*ปี)/g;
-
-/**
- * The people in what the model itself wrote whose sex or age is not the ad's: its words must be
- * about the person the headline prices (headlineOwner), never "ผู้หญิงอายุ 35" beside a man's
- * premium (the 2026-10-05 ad). Checked with restatedFigures, once, when the ad is written.
+ * The people in what the model itself wrote whose sex or age is not the ad's (personPhrases): its
+ * words must be about the person the headline prices (headlineOwner), never "ผู้หญิงอายุ 35"
+ * beside a man's premium (the 2026-10-05 ad). Checked with restatedFigures, once, when the ad is written.
  */
 export function otherPeople(modelText: string, sex: "F" | "M", age: number): string[] {
-  const out: string[] = [];
-  for (const m of modelText.matchAll(PERSON)) {
-    const said = m[1].endsWith("หญิง") ? "F" : "M";
-    const n = Number(m[2] ?? m[3]);
-    if (said !== sex || n !== age) out.push(m[0].trim());
-  }
-  return [...new Set(out)];
+  return [...new Set(personPhrases(modelText).filter((p) => p.sex !== sex || p.age !== age).map((p) => p.phrase))];
 }

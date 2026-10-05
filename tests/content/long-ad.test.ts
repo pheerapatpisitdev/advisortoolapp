@@ -4,7 +4,7 @@ import { BANNED_SUPERLATIVES, assembleLongAd, briefWithoutPremiums, longAdMessag
 import type { PiecePlan } from "@/lib/content/plan";
 import { headlineFigures, premiumTable, tableText } from "@/lib/content/premium-table";
 import { NUMBERS_PLANS } from "@/lib/content/numbers-plans";
-import { premiumAmounts } from "@/lib/content/check";
+import { personPhrases, premiumAmounts } from "@/lib/content/check";
 import { briefFor } from "@/lib/content/brief";
 
 const ai = vi.hoisted(() => ({ chat: vi.fn() }));
@@ -80,10 +80,17 @@ describe("briefWithoutPremiums — the writer never sees a premium to copy", () 
   });
 
   it("cuts only the premium clause, keeping the rest of the line's facts", () => {
+    expect(briefWithoutPremiums("- ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40): เบี้ยเฉลี่ยวันละ 15 บาท"))
+      .toBe("- ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40)");
+  });
+
+  it("drops a sample person's line, but keeps a fact found only there without the person", () => {
+    expect(briefWithoutPremiums("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท จ่าย 9 ปี: เบี้ย 4,914 บาท/เดือน (เฉลี่ยวันละ 150 บาท)")).toBe("");
+    expect(briefWithoutPremiums("- เริ่มต้น: ผู้หญิงอายุ 35 ทุน 500,000 บาท (คุ้มครอง 1,000,000 บาท) เบี้ยเฉลี่ยวันละ 20 บาท")).toBe("");
     expect(briefWithoutPremiums("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40): เบี้ยเฉลี่ยวันละ 15 บาท"))
-      .toBe("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40)");
-    expect(briefWithoutPremiums("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท จ่าย 9 ปี: เบี้ย 4,914 บาท/เดือน (เฉลี่ยวันละ 150 บาท)"))
-      .toBe("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท จ่าย 9 ปี");
+      .toBe("- ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40)");
+    expect(briefWithoutPremiums("- ผู้ชายอายุ 45 ทุน 10,000,000 บาท ชำระเบี้ย 6 ปี: เบี้ย 86,400 บาท/เดือน (เฉลี่ยวันละ 2,631 บาท) (ส่งต่อได้ 1.7 เท่าของเบี้ยที่จ่ายรายปี)"))
+      .toBe("- ทุน 10,000,000 บาท ชำระเบี้ย 6 ปี (ส่งต่อได้ 1.7 เท่าของเบี้ยที่จ่ายรายปี)");
   });
 
   it("keeps CI 123's caution, PLB's cover ages and Life Treasure's multiples, without their premiums — review 2026-10-05", () => {
@@ -99,6 +106,18 @@ describe("briefWithoutPremiums — the writer never sees a premium to copy", () 
     expect(pension).toContain("บำนาญเดือนละ 10,000 บาท");
     expect(pension).toContain("ทุน 787,402 บาท");
     expect(pension).not.toContain("374");
+  });
+
+  it("shows no sample person in any plan's ad brief — the root of the 2026-10-05 ad's second sample", () => {
+    for (const href of Object.keys(NUMBERS_PLANS)) {
+      const b = briefFor(href);
+      if (!b) continue;
+      expect(personPhrases(briefWithoutPremiums(b.text)), href).toEqual([]);
+    }
+    const lp = briefWithoutPremiums(briefFor("/lifeprotect")!.text);
+    expect(lp).not.toContain("ทุน 500,000 บาท (คุ้มครอง 1,000,000 บาท)");
+    expect(lp).not.toMatch(/ผู้(หญิง|ชาย)/);
+    expect(lp).not.toMatch(/:\s*\(|:$/m);
   });
 
   it("no plan's brief keeps a line with a premium in it", () => {

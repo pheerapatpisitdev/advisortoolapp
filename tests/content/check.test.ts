@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimedNumbers, findWords, numbersIn, premiumAmounts, strayNumbers, type ContentWord } from "@/lib/content/check";
+import { claimedNumbers, findWords, numbersIn, personPhrases, premiumAmounts, strayNumbers, type ContentWord } from "@/lib/content/check";
 
 /**
  * The check that stands between a model's arithmetic and a post the owner puts their name to.
@@ -122,6 +122,8 @@ describe("premiumAmounts — an amount said as a premium is money (review, 2026-
   it.each([
     "เบี้ยเดือนละ 1,548 บาท", "วันละ 48 บาท", "1,548 บาท/เดือน", "เบี้ยเฉลี่ยวันละ 20 บาท",
     "แค่ 48 บาทต่อวัน", "48 บาท/วัน", "ปีละ 14,350 บาท", "เบี้ย 2 พัน", "คุ้มครองครอบครัว วันละ 48 บาท",
+    // re-review: cover only when คุ้มครอง is right before the amount; a premium after เบี้ย needs no บาท
+    "คุ้มครองครอบครัว เพียง 1,196 บาท/เดือน", "เบี้ย 1,548", "เบี้ยแค่ 14350 ต่อปี", "ตกเดือนละ 1,196",
   ])("flags %s", (text) => {
     expect(premiumAmounts(text)).toHaveLength(1);
   });
@@ -131,7 +133,23 @@ describe("premiumAmounts — an amount said as a premium is money (review, 2026-
     "คุ้มครองสูงสุด 60 ล้านบาทต่อปี", "ห้องเดี่ยวมาตรฐาน วันละ 5,000 บาท",
     "นำไปลดหย่อนภาษีเงินได้บุคคลธรรมดาได้สูงสุด 100,000 บาทต่อปี", "ชดเชยนอนโรงพยาบาลวันละ 1,000 บาท",
     "บำนาญเดือนละ 10,000 บาท", "ลดเบี้ย 10%", "จ่ายเบี้ยแค่ 6 ปี", "คุ้มครอง 1,000,000 บาท", "ก่อนอายุ 60",
+    "คุ้มครองสูงสุด 60 ล้านบาทต่อปี", "เบี้ยส่วน CI 123",
+    // household burdens, not premiums
+    "ผ่อนบ้านเดือนละ 20,000 บาท", "เงินเดือน 30,000 บาท/เดือน", "ค่าเทอมลูกปีละ 100,000 บาท", "รายจ่ายเดือนละ 30,000 บาท",
   ])("leaves %s", (text) => {
     expect(premiumAmounts(text)).toEqual([]);
+  });
+});
+
+describe("personPhrases — a person the copy speaks of", () => {
+  it("finds a sex word with an age, as said", () => {
+    expect(personPhrases("ผู้หญิงอายุ 35 ทุน 500,000 บาท · ชายอายุ ๔๐ ปี").map((p) => [p.phrase, p.sex, p.age])).toEqual([
+      ["ผู้หญิงอายุ 35", "F", 35], ["ชายอายุ ๔๐", "M", 40],
+    ]);
+  });
+  it("leaves both sexes, children and ranges", () => {
+    for (const t of ["ทั้งหญิงและชาย อายุ 20–65 ปี", "หญิงชายอายุ 35", "ลูกชายอายุ 5 ขวบ", "เด็กชายอายุ 10", "ผู้ชายวัย 30–40", "ผู้ชายอายุ 40 ขึ้นไป"]) {
+      expect(personPhrases(t), t).toEqual([]);
+    }
   });
 });
