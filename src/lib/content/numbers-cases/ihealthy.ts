@@ -38,7 +38,8 @@ function iHealthyPlan(lang: Lang) {
     // the premium table's rungs, the same in both languages (spec 2026-10-06): the English ad on
     // an Expat Page carries the same figures, its term said as the English sheet says it
     ladder: {
-      term: en ? `renewable up to age ${iHealthyFacts().terms.renewalToAge}` : "จ่ายเบี้ยถึงอายุ 99",
+      // no pay or cover period in the ad's table (owner, 2026-10-06): the premium and the plan are the point
+      term: "",
       firstYear: true,
       rungs: ["SMART", "BRONZE", "SILVER", "GOLD"].map((plan) => ({ plan })),
     },

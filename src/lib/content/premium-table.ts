@@ -99,7 +99,9 @@ export function hasLadder(href: string, lang: Lang = "th"): boolean {
 /** The exact lines of the ad's table block: the term (and the package's note), then a block per row. */
 export function tableText(t: PremiumTable): string {
   if (t.lang === "en") return tableTextEn(t);
-  const head = [`${t.firstYear ? "เบี้ยปีแรก " : ""}${t.term} (อายุ ${t.age} ปี)`, ...(t.note ? [`(${t.note})`] : [])].join("\n");
+  // a plan with no term to say (iHealthy, owner 2026-10-06: not the pay or cover period) heads with the premium kind alone
+  const said = [t.firstYear ? "เบี้ยปีแรก" : "", t.term].filter(Boolean).join(" ");
+  const head = [`${said} (อายุ ${t.age} ปี)`.trim(), ...(t.note ? [`(${t.note})`] : [])].join("\n");
   const blocks = t.rows.map((r) =>
     [
       r.heading,
@@ -113,7 +115,8 @@ export function tableText(t: PremiumTable): string {
 
 /** tableText in English: "First-year premium · renewable up to age 98 (age 30)", then a block per row */
 function tableTextEn(t: PremiumTable): string {
-  const head = [`${t.firstYear ? `First-year premium · ${t.term}` : capital(t.term)} (age ${t.age})`, ...(t.note ? [`(${t.note})`] : [])].join("\n");
+  const said = t.firstYear ? ["First-year premium", t.term].filter(Boolean).join(" · ") : capital(t.term);
+  const head = [`${said} (age ${t.age})`.trim(), ...(t.note ? [`(${t.note})`] : [])].join("\n");
   const blocks = t.rows.map((r) =>
     [
       r.heading,

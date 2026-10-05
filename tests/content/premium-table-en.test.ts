@@ -40,12 +40,20 @@ describe("the English iHealthy ladder", () => {
   });
 });
 
+describe("iHealthy's table says no pay or cover period (owner, 2026-10-06)", () => {
+  it("heads with the first-year premium and the age only, in both languages", () => {
+    const today = new Date("2026-10-06");
+    expect(tableText(premiumTable("/ihealthy-ultra", 30, today, "en")!).split("\n")[0]).toBe("First-year premium (age 30)");
+    expect(tableText(premiumTable("/ihealthy-ultra", 30, today)!).split("\n")[0]).toBe("เบี้ยปีแรก (อายุ 30 ปี)");
+  });
+});
+
 describe("the English table's words", () => {
   const t = premiumTable(HREF, 30, today, "en")!;
 
   it("are the golden text at 30", () => {
     expect(tableText(t)).toBe([
-      "First-year premium · renewable up to age 98 (age 30)",
+      "First-year premium (age 30)",
       "",
       "Medical cover up to 3,000,000 THB a year",
       "(A package with life cover of 50,000 THB and daily cash)",
