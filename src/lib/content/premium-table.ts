@@ -1,5 +1,5 @@
 import { personPhrases, premiumAmounts, sameFigures, strayNumbers } from "./check";
-import { EXPAT_NUMBERS_PLANS, NUMBERS_PLANS } from "./numbers-plans";
+import { EXPAT_NUMBERS_PLANS, NUMBERS_PLANS, lifelongSheet } from "./numbers-plans";
 import { money, sexWord, sexWordEn, type NumberSheet, type PricedPlan } from "./numbers";
 import type { Lang } from "./output";
 import { lifelong } from "./wording";
@@ -171,6 +171,34 @@ export function headlineFigures(t: PremiumTable, pick?: Partial<HeadlinePick>): 
   }
   const premium = `💰 ${t.firstYear ? "เบี้ยปีแรก" : "เบี้ย"} ${baht(annual)} บาท/ปี (ตกเดือนละ ${perMonth(annual)}) (${sexWord(sex)} อายุ ${t.age} ปี)`;
   return [t.product, sum, premium].join("\n");
+}
+
+/**
+ * The headline's own sheet (Ads Studio content types, spec 2026-10-06): the plan's ladder priced at
+ * the age for the row and sex the headline settles on (settle, as headlineFigures), with the rung
+ * of the ladder it is — the table leaves out rungs the engine will not sell at this age, so a
+ * table row is not always the ladder's rung of the same number. A ตัวเลขชัดๆ ad is this sheet's
+ * figures; an iHealthy ad's emphasis is this rung's plan. A Thai sheet says ตลอดชีพ, as Organic's
+ * do. Null when the plan cannot be priced at this age at all.
+ */
+export function headlineSheet(href: string, age: number, pick?: Partial<HeadlinePick>, today: Date = new Date(), lang: Lang = "th"): { rung: number; sex: "F" | "M"; sheet: NumberSheet } | null {
+  const plan = plansOf(lang)[href];
+  const ladder = plan?.ladder;
+  if (!plan || !ladder) return null;
+  const table = premiumTableOf(plan, age, today, lang);
+  if (!table) return null;
+  // the rungs the table kept, in its rows' order (premiumTableOf's own filter)
+  const kept: { rung: number; f: NumberSheet | null; m: NumberSheet | null }[] = [];
+  for (let r = 0; r < ladder.rungs; r++) {
+    const f = ladder.price(r, "F", age, today);
+    const m = ladder.price(r, "M", age, today);
+    if (f ?? m) kept.push({ rung: r, f, m });
+  }
+  const { rung, sex } = settle(table, pick);
+  const row = kept[rung];
+  const sheet = !row || sex === null ? null : sex === "F" ? row.f : row.m;
+  if (!row || !sheet || sex === null) return null;
+  return { rung: row.rung, sex, sheet: lang === "en" ? sheet : lifelongSheet(sheet) };
 }
 
 /**

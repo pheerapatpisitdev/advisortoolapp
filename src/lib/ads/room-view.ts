@@ -15,10 +15,16 @@ export function tableAge(text: string): number | null {
 /**
  * A piece whose poster has no picture yet (still drawing, or the draw failed), whatever its ad
  * holds. The send leaves such a piece out (actions.ts picturePending), so the card offers to
- * draw it.
+ * draw it. A ตัวเลขชัดๆ ad's poster is the numbers poster, never drawn over (spec 2026-10-06), so
+ * it waits for no picture.
  */
-export function picturePending(p: { poster: { background?: string } | null }): boolean {
-  return Boolean(p.poster && !p.poster.background);
+export function picturePending(p: { poster: { background?: string } | null; ad?: { kind?: string | null } | null }): boolean {
+  return Boolean(p.poster && !p.poster.background && p.ad?.kind !== "numbers");
+}
+
+/** The new pieces of a round that go on the drawing line: all but the ตัวเลขชัดๆ ads, whose poster is the numbers poster. */
+export function toDraw(items: { id: string; output: { ad?: { kind?: string } } }[]): string[] {
+  return items.filter((i) => i.output.ad?.kind !== "numbers").map((i) => i.id);
 }
 
 /** The link a send starts with: the campaign's plan page on the site. */

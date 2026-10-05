@@ -57,7 +57,7 @@ export function numberSheets(href: string, count: number, today: Date = new Date
 }
 
 /** every line of a sheet with ตลอดชีพ in place of 99 (wording.ts) — the engines say "ถึงอายุ 99" */
-function lifelongSheet(s: NumberSheet): NumberSheet {
+export function lifelongSheet(s: NumberSheet): NumberSheet {
   return {
     ...s,
     sumLine: lifelong(s.sumLine),

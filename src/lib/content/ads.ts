@@ -25,13 +25,13 @@ export const MAX_TONES = 2;
  */
 export const AD_LIMITS = { fold: 125, headline: 27, description: 27 } as const;
 
-const AD_HEAD = [
+export const AD_HEAD = [
   "คุณเป็นนักเขียนโฆษณา Facebook ภาษาไทยให้ตัวแทนประกันชีวิต",
   "แนวที่ได้ผลในไทย: หยุดสายตาในบรรทัดแรก แล้วชวนให้ทักแชท ไม่ขายด้วยความกลัว",
 ];
 
 /** The headline's and the description's lengths, the same for every kind of ad. */
-const AD_SHORT_FIELDS = [
+export const AD_SHORT_FIELDS = [
   `- headline: สั้นมาก 3–5 คำ ไม่เกิน ${AD_LIMITS.headline} ตัวอักษรนับรวมสระและวรรณยุกต์ (แสดงใต้ภาพ ข้างปุ่ม) ต้องเป็นประโยคที่จบในตัว`,
   `- description: สั้นมาก 3–5 คำ ไม่เกิน ${AD_LIMITS.description} ตัวอักษรนับรวมสระและวรรณยุกต์ ต้องจบในตัว ถ้ามีตัวเลขต้องมีหน่วยครบ`,
 ];
@@ -42,7 +42,7 @@ export const BANNED_SUPERLATIVES = ["อันดับ 1", "ขายดีท�
 export const BANNED_SUPERLATIVES_EN = ["best", "cheapest", "No.1", "number one", "best-selling"] as const;
 
 /** Facebook's primary text allows 2,200 characters. */
-const PRIMARY_MAX = 2200;
+export const PRIMARY_MAX = 2200;
 
 /**
  * What the code knows about a long ad's round: the premium table, the headline figures and whose

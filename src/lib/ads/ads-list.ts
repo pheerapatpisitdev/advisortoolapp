@@ -1,4 +1,5 @@
 import type { AdTab } from "./campaign-view";
+import { kindChip } from "./ad-kind";
 import { foldAt } from "./manager-view";
 import { CTA_LABEL, CTA_LABEL_EN } from "./sent-view";
 import type { LeadCta, SendObjective } from "./send-store";
@@ -50,9 +51,12 @@ export function sendOf<S extends { items: { pieceId: string | null }[] }>(sends:
   return sends.find((s) => s.items.some((i) => i.pieceId === pieceId)) ?? null;
 }
 
-/** A row's chips: whose premium at what age ("หญิง · อายุ 30"), then the row its headline names. */
-export function rowChips(ad: { age: number | null; sex: "F" | "M" | null; head: string | null } | null): string[] {
+/**
+ * A row's chips: a shorter kind of ad first ("ตัวเลขชัดๆ", "ความรู้ · เช็กลิสต์ก่อนซื้อ" — none for
+ * the long ad), whose premium at what age ("หญิง · อายุ 30"), then the row its headline names.
+ */
+export function rowChips(ad: { age: number | null; sex: "F" | "M" | null; head: string | null; kind?: string | null; sub?: string | null } | null): string[] {
   if (!ad) return [];
   const who = [ad.sex === "M" ? "ชาย" : ad.sex === "F" ? "หญิง" : "", ad.age !== null ? `อายุ ${ad.age}` : ""].filter(Boolean).join(" · ");
-  return [who, ad.head?.trim() ?? ""].filter(Boolean);
+  return [kindChip(ad) ?? "", who, ad.head?.trim() ?? ""].filter(Boolean);
 }

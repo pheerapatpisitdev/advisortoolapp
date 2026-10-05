@@ -4,6 +4,7 @@ import { iHealthyFacts } from "@/lib/ihealthy-facts";
 import { baseAt, iHealthyPricing } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import type { Lang } from "../output";
+import { IHEALTHY_RUNGS } from "../ihealthy-ad";
 import { definePlan, money, sexWord, sexWordEn } from "../numbers";
 import { priceLines } from "./price-lines";
 
@@ -41,7 +42,7 @@ function iHealthyPlan(lang: Lang) {
       // no pay or cover period in the ad's table (owner, 2026-10-06): the premium and the plan are the point
       term: "",
       firstYear: true,
-      rungs: ["SMART", "BRONZE", "SILVER", "GOLD"].map((plan) => ({ plan })),
+      rungs: IHEALTHY_RUNGS.map((plan) => ({ plan })),
     },
     price: (p, claims, today) => {
       const table = iHealthyTable(today);

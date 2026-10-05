@@ -36,10 +36,13 @@ import {
   getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
-import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds } from "@/lib/content/write";
+import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds, writeNumbersAds, writeShortAds } from "@/lib/content/write";
 import { adAge, adPick } from "@/lib/ads/headline-input";
-import { hasLadder, headlineFigures, headlineOwner, otherPeople, premiumTable, restatedFigures, tableText, type HeadlinePick, type PremiumTable } from "@/lib/content/premium-table";
-import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick } from "@/lib/content/numbers";
+import { adKind, adSub, type AdKind, type KnowledgeSub } from "@/lib/ads/ad-kind";
+import { kindSteer } from "@/lib/content/ad-kinds";
+import { adFactsPlan, numbersAdFigures } from "@/lib/content/ad-figures";
+import { hasLadder, headlineFigures, headlineOwner, headlineSheet, otherPeople, premiumTable, restatedFigures, tableText, type HeadlinePick, type PremiumTable } from "@/lib/content/premium-table";
+import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick, type NumberSheet } from "@/lib/content/numbers";
 import { numberSheets } from "@/lib/content/numbers-plans";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
 import { maybeOnPage, onPage, publishView } from "@/lib/content/publish-label";
@@ -157,6 +160,13 @@ export interface GenerateInput {
   sex?: "F" | "M";
   /** an ad's: the row of the table (an index into its rows) the headline names; the middle one when absent or off it */
   rung?: number;
+  /**
+   * an ad's kind (spec 2026-10-06): "long" (the long ad with its premium table), "numbers",
+   * "knowledge" or "story"; anything else is "long" (adKind)
+   */
+  kind?: string;
+  /** a knowledge ad's: "myth", "faq" or "checklist"; anything else a myth (adSub) */
+  sub?: string;
 }
 
 /** who an English round talks to when the owner names nobody */
@@ -215,6 +225,13 @@ interface AdRound {
   pick: Partial<HeadlinePick>;
   /** "en" for iHealthy Ultra on an Expat Page (campaignLang, spec 2026-10-06); Thai otherwise */
   lang: Lang;
+  /** what kind of ad the round writes (ad-kind.ts), and a knowledge ad's sub-kind */
+  kind: AdKind;
+  sub?: KnowledgeSub;
+  /** the headline's own sheet (headlineSheet): a ตัวเลขชัดๆ ad's figures; null when it cannot be priced */
+  sheet: NumberSheet | null;
+  /** an iHealthy round's headline plan, whose benefits its brief stresses (ihealthy-ad.ts); absent for any other plan */
+  adPlan?: string;
 }
 
 export async function generateContent(given: GenerateInput): Promise<GenerateResult> {
@@ -247,8 +264,15 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
     // an age the plan prices on no rung is said before anything is counted or held (review focus 1)
     const table = premiumTable(campaign.planHref, age, undefined, adLang);
     if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
+    const pick = adPick(input.sex, input.rung);
+    const kind = adKind(input.kind);
+    // the headline's sheet, settled as headlineFigures settles it: a ตัวเลขชัดๆ ad is its figures,
+    // and one that cannot be priced is refused here, before anything is counted (spec 2026-10-06)
+    const head = headlineSheet(campaign.planHref, age, pick, undefined, adLang);
+    if (kind === "numbers" && !head) return { ok: false, error: "แบบนี้คิดเบี้ยที่อายุ/เพศนี้ไม่ได้" };
+    const adPlan = adFactsPlan(campaign.planHref, head?.rung);
     // headlineFigures and headlineOwner settle a rung off the table to the middle row
-    ad = { campaign, table, age, pick: adPick(input.sex, input.rung), lang: adLang };
+    ad = { campaign, table, age, pick, lang: adLang, kind, sub: adSub(kind, input.sub), sheet: head?.sheet ?? null, ...(adPlan ? { adPlan } : {}) };
     // only the count, the angle, the reader, the age and the headline's pick are read from the browser: everything
     // else is the campaign's, its writer too. The angle settles below (settleExpat), against
     // what an ad's menu offers, so ตัวเลขชัดๆ — a post's — becomes the AI's pick.
@@ -267,7 +291,8 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
   const settled = ad?.lang === "en" ? englishAd(input.href, input.angle) : settleExpat(input);
   const { expat } = settled;
   const lang = expat ? "en" : "th";
-  const brief = briefFor(input.href, undefined, { expat });
+  // an iHealthy ad round's brief stresses what its headline plan's yearly limit pays for (ihealthy-ad.ts)
+  const brief = briefFor(input.href, undefined, ad?.adPlan ? { expat, adPlan: ad.adPlan } : { expat });
   if (!brief) return { ok: false, error: "ไม่พบผลิตภัณฑ์นี้" };
   if (!["post", "script", "ad"].includes(input.format)) return { ok: false, error: "เลือกประเภทงานก่อนนะครับ" };
   // ตัวเลขชัดๆ asked where it cannot be priced is refused below, as it always was, rather than
@@ -360,7 +385,7 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
       }
 
       if (ad) {
-        const { campaign, table, age, pick } = ad;
+        const { campaign, table, age, pick, kind, sub } = ad;
         // the planner and the writer never see the brief's premium samples to copy (2026-10-05);
         // the numbers check below still measures against the whole brief
         const shownBrief = briefWithoutPremiums(brief.text);
@@ -379,20 +404,37 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
         ]);
         // the campaign's earlier headlines first, so the planner's cut of the list keeps them
         const heads = earlier.flatMap((p) => (p.output.hooks[0] ? [p.output.hooks[0]] : []));
+        // a shorter kind tells the planner what it plans for; the long ad's planner is told as it always was
+        const steer = kind === "long" ? "" : kindSteer(kind, sub, lang);
         const planned = await plan(
-          { brief: shownBrief, count, angle: [[focus, told].filter(Boolean).join(" — "), adOwnerLines(owner.line, lang)].filter(Boolean).join("\n"), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang },
+          { brief: shownBrief, count, angle: [[focus, told].filter(Boolean).join(" — "), adOwnerLines(owner.line, lang), steer].filter(Boolean).join("\n"), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang },
           { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) },
         );
         const contact = contactBlock(pageContact, lang);
         const ctx = { table: tableText(table), headline: headlineFigures(table, pick), owner: owner.line, contact, reader, focus, voice: (campaign.brandVoice ?? "").trim() };
         // every figure the ad carries is the code's: kept on the piece, an edit is checked against
         // them again (review focus 2) — the contacts too, whose Line ID and m.me link have digits
-        const figures = `${ctx.table}\n${ctx.headline}\n${contact}`;
-        const written = await writeLongAds({ brief: shownBrief, plans: planned.plans, ctx, prefer: writeWith, clock, saveMs: SAVE_MS, lang });
-        const planShare = planned.costThb / written.pieces.length;
-        const rows = written.pieces.map((w) => {
+        // an iHealthy ad's benefit amounts are in its round's brief only: kept with its figures, an edit is checked against them too
+        const facts = ad.adPlan ? brief.text.split("\n").filter((l) => /^- /.test(l) && /\d/.test(l)).join("\n") : "";
+        // the kind's own figures: the long ad's table and headline; a ตัวเลขชัดๆ ad's sheet; the others' none but the contacts
+        const numbers = kind === "numbers" && ad.sheet ? numbersAdFigures(ad.sheet, theme, lang) : null;
+        const figures = kind === "long"
+          ? `${ctx.table}\n${ctx.headline}\n${contact}${facts ? `\n${facts}` : ""}`
+          : [numbers?.figures ?? "", contact, facts].filter(Boolean).join("\n");
+        const writeArgs = { brief: shownBrief, plans: planned.plans, ctx, prefer: writeWith, clock, saveMs: SAVE_MS, lang: lang as Lang };
+        // a ตัวเลขชัดๆ round's headlines come from the numbers headline call, written alongside the openings
+        const [written, numberHeads] = await Promise.all([
+          kind === "long" ? writeLongAds(writeArgs)
+            : numbers ? writeNumbersAds({ ...writeArgs, body: numbers.body, poster: { ...numbers.poster, ...(logo ? { logo } : {}) } })
+              : writeShortAds({ ...writeArgs, kind: kind === "story" ? "story" : "knowledge", ...(sub ? { sub } : {}) }),
+          numbers && ad.sheet ? headlines(planned.plans.map(() => ad.sheet!), { budgetMs: clock.budget(PLAN_MS, SAVE_MS), lang }) : Promise.resolve(null),
+        ]);
+        const planShare = (planned.costThb + (numberHeads?.costThb ?? 0)) / written.pieces.length;
+        const rows = written.pieces.map((w, i) => {
+          const said = numberHeads ? { ...w.output, hooks: [numberHeads.lines[i].headline] } : w.output;
+          const kindOf = w.output.ad?.kind ? { kind: w.output.ad.kind, ...(w.output.ad.sub ? { sub: w.output.ad.sub } : {}) } : {};
           // an English ad is marked and carries the English regulator line, as an English post (lang.ts)
-          const output: ContentOutput = inTongue({ ...w.output, ad: { angle: w.output.ad?.angle ?? "", tone: "", reader, age, sex: owner.sex, head: owner.heading }, figures });
+          const output: ContentOutput = inTongue({ ...said, ad: { angle: w.output.ad?.angle ?? "", tone: "", reader, age, sex: owner.sex, head: owner.heading, ...kindOf }, figures });
           const checked = flagsFor(output, lang, `${brief.text}\n${figures}`, words, null);
           // the model's own words against the brief alone, and no premium of the table restated
           // in them: the whole-text check above lets anything the code placed through

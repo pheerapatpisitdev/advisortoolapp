@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { audit, requireStaff } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
-import { cleanContact, getPageContact, savePageContact, type PageContact } from "@/lib/ads/page-contact";
+import { cleanContact, contactBlock, getPageContact, savePageContact, type PageContact } from "@/lib/ads/page-contact";
 import {
   getContent, type ContentItem,
 } from "@/lib/content/store";
@@ -35,9 +35,11 @@ import { briefPick, painterPick, personPick, writerPick } from "@/lib/ads/pictur
 import { contentProduct } from "@/lib/content/products";
 import { adAge, adPick } from "@/lib/ads/headline-input";
 import { campaignLang } from "@/lib/ads/campaign-lang";
-import { hasLadder, headlineFigures, middleRung, premiumTable, tableText } from "@/lib/content/premium-table";
+import { hasLadder, headlineFigures, headlineSheet, middleRung, premiumTable, tableText } from "@/lib/content/premium-table";
+import { adKind, type AdKind } from "@/lib/ads/ad-kind";
+import { numbersAdFigures } from "@/lib/content/ad-figures";
 import type { PiecePerson } from "@/lib/content/people";
-import { THEMES, type PosterSpec } from "@/lib/content/poster";
+import { THEMES, type PosterSpec, type Theme } from "@/lib/content/poster";
 import type { PolicyFinding } from "@/lib/content/policy";
 import { adAccounts, type AdAccount } from "@/lib/facebook/ads-connection";
 import { parseDays } from "@/lib/ads/manager-view";
@@ -135,7 +137,11 @@ export interface LaunchPiece {
    * headline shows on which row (null before the owner could pick them); null on pieces written
    * before the grid
    */
-  ad: { angle: string; tone: string; reader: string; age: number | null; sex: "F" | "M" | null; head: string | null } | null;
+  ad: {
+    angle: string; tone: string; reader: string; age: number | null; sex: "F" | "M" | null; head: string | null;
+    /** a shorter kind of ad (ad-kind.ts) and a knowledge ad's sub-kind; absent on a long ad */
+    kind?: "numbers" | "knowledge" | "story"; sub?: "myth" | "faq" | "checklist";
+  } | null;
   /** Facebook's advertising rules it trips (empty on pieces written before the rules were checked), and amounts not in the brief */
   flags: { policy: PolicyFinding[]; numbers: string[] };
   /** the newest live launch of the piece in any account */
@@ -525,6 +531,7 @@ export async function adCampaignRoom(id: string): Promise<AdCampaignRoom> {
         ? {
           angle: p.output.ad.angle, tone: p.output.ad.tone, reader: p.output.ad.reader ?? "", age: p.output.ad.age ?? null,
           sex: p.output.ad.sex ?? null, head: p.output.ad.head ?? null,
+          ...(p.output.ad.kind ? { kind: p.output.ad.kind } : {}), ...(p.output.ad.sub ? { sub: p.output.ad.sub } : {}),
         }
         : null,
       flags: { policy: p.flags?.policy ?? [], numbers: p.flags?.numbers ?? [] },
@@ -578,10 +585,17 @@ export async function tableRows(
  * desktop, 2026-10-05): the 💁‍♀️/💰 headline lines and the premium table, at the age, sex and row
  * chosen. The age and pick are cleaned as the round cleans them (adAge, adPick) and the text is
  * the round's own (headlineFigures, tableText), so what is previewed is what the ad carries.
+ *
+ * `kind` (spec 2026-10-06), cleaned as the round cleans it: a ตัวเลขชัดๆ ad previews its numbers
+ * body and poster (refused as the round refuses an unpriced sheet), a ความรู้ or เล่าเป็นเรื่อง ad
+ * the contacts block the code places; the long ad's answer is as it always was.
  */
 export async function headlinePreview(
-  campaignId: string, pick: { age: unknown; sex: unknown; rung?: unknown },
-): Promise<{ ok: true; headline: string; table: string } | { ok: false; error: string }> {
+  campaignId: string, pick: { age: unknown; sex: unknown; rung?: unknown; kind?: unknown },
+): Promise<
+  | { ok: true; headline: string; table: string; kind?: Exclude<AdKind, "long">; body?: string; poster?: PosterSpec; contact?: string }
+  | { ok: false; error: string }
+> {
   await requireStaff("owner");
   try {
     const campaign = await getCampaign(campaignId);
@@ -594,7 +608,17 @@ export async function headlinePreview(
     const age = adAge(pick?.age);
     const table = premiumTable(campaign.planHref, age, undefined, lang);
     if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
-    return { ok: true, headline: headlineFigures(table, adPick(pick?.sex, pick?.rung)), table: tableText(table) };
+    const chosen = adPick(pick?.sex, pick?.rung);
+    const base = { ok: true as const, headline: headlineFigures(table, chosen), table: tableText(table) };
+    const kind = adKind(pick?.kind);
+    if (kind === "long") return base;
+    if (kind === "numbers") {
+      const head = headlineSheet(campaign.planHref, age, chosen, undefined, lang);
+      if (!head) return { ok: false, error: "แบบนี้คิดเบี้ยที่อายุ/เพศนี้ไม่ได้" };
+      const { body, poster } = numbersAdFigures(head.sheet, themeOf(campaign.theme) as Theme | null, lang);
+      return { ...base, kind, body, poster };
+    }
+    return { ...base, kind, contact: contactBlock(await getPageContact(campaign.pageId), lang) };
   } catch (e) {
     console.error("headlinePreview failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
@@ -766,9 +790,10 @@ const refusedSend = (error: string, skipped?: Skipped[]): SendResult => ({ ok: f
 
 /**
  * A piece whose poster has no picture yet (still drawing, or the draw failed) has the plain
- * poster: sent like that, the ad would not be the one the owner saw.
+ * poster: sent like that, the ad would not be the one the owner saw. A ตัวเลขชัดๆ ad's poster is
+ * the numbers poster, never drawn over (spec 2026-10-06): it waits for nothing.
  */
-const picturePending = (p: ContentItem) => Boolean(p.output.poster && !p.output.poster.background);
+const picturePending = (p: ContentItem) => Boolean(p.output.poster && !p.output.poster.background && p.output.ad?.kind !== "numbers");
 
 /**
  * Where the send engine gets each piece's poster and words: the pieces already loaded, or the

@@ -1,4 +1,5 @@
 import { iHealthyFacts } from "@/lib/ihealthy-facts";
+import { iHealthyAdCaution, iHealthyAdFacts } from "./ihealthy-ad";
 import { EXPAT_HREF } from "./prompt";
 import { contentProduct, type ContentProduct, type Figures } from "./products";
 import { lifelong } from "./wording";
@@ -46,10 +47,18 @@ function expatBlock(): string[] {
   ];
 }
 
-export function briefFor(href: string, today: Date = new Date(), opts: { expat?: boolean } = {}): Brief | null {
+/**
+ * `adPlan`: an iHealthy Ultra ad round's headline plan (ihealthy-ad.ts, owner 2026-10-06) — what
+ * the yearly limit pays for on that plan goes in after the facts, in the round's language (English
+ * with `expat`), and the special waiting period for cancer into the cautions. Ignored for any other
+ * product; without it the brief is as it always was.
+ */
+export function briefFor(href: string, today: Date = new Date(), opts: { expat?: boolean; adPlan?: string } = {}): Brief | null {
   const product = contentProduct(href);
   if (!product) return null;
   const fig = figuresOf(product, today);
+  const adLang = opts.expat ? "en" : "th";
+  const ad = opts.adPlan && href === EXPAT_HREF ? iHealthyAdFacts(opts.adPlan, adLang) : [];
 
   // ตลอดชีพ, never "ถึงอายุ 99": the owner's word for these plans in content (wording.ts)
   const text = lifelong([
@@ -63,9 +72,11 @@ export function briefFor(href: string, today: Date = new Date(), opts: { expat?:
     "### ข้อเท็จจริงและตัวเลข (คัดลอกได้ตรงตัวเท่านั้น)",
     ...fig.facts,
     ...(fig.expired ? [NO_PRICES] : fig.prices),
+    ...ad,
     "",
     "### ข้อควรระวัง (ห้ามเขียนขัดกับข้อนี้)",
     ...product.cautions.map((c) => `- ${c}`),
+    ...(ad.length ? [`- ${iHealthyAdCaution(adLang)}`] : []),
     ...(opts.expat && href === EXPAT_HREF ? expatBlock() : []),
   ].join("\n"));
 

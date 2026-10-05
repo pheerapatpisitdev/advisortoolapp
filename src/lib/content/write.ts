@@ -1,6 +1,8 @@
 import { BudgetExceeded, chat, parseJsonReply } from "@/lib/ai/client";
 import { DISCLAIMER, TAX_LINE, type ContentOutput, type Lang } from "./output";
 import { assembleLongAd, englishMoney, longAdMessages, parseLongAd, type LongAdContext } from "./ads";
+import { assembleNumbersAd, assembleShortAd, englishShortMoney, numbersCta, numbersOpeningMessages, parseOpening, parseShortAd, shortAdMessages, shortCta } from "./ad-kinds";
+import type { KnowledgeSub } from "@/lib/ads/ad-kind";
 import { parsePoster, posterText, type PosterSpec } from "./poster";
 import { WRITERS } from "./models";
 import { headlineMessages, parseHeadlines, type NumberSheet } from "./numbers";
@@ -244,6 +246,87 @@ export async function writeLongAds(opts: { brief: string; plans: PiecePlan[]; ct
     const modelText = [ad.opening, ...ad.bullets, ad.cta, ad.hashtags.join(" "), ad.headline, ad.description, posterText(poster ?? undefined)]
       .filter(Boolean).join("\n");
     return { output: ownerWording(output), model: r.model, costThb: r.costThb, modelText };
+  }));
+  return gather(settled);
+}
+
+/**
+ * Ads Studio's ความรู้ and เล่าเป็นเรื่อง ads (spec 2026-10-06), one call each, in parallel, as
+ * writeLongAds: the model writes the opening, 3–6 points, the CTA and the hashtags with no premium
+ * table to see or place; the code puts the Page's contacts after the CTA.
+ */
+export async function writeShortAds(opts: {
+  brief: string; plans: PiecePlan[]; ctx: LongAdContext; kind: "knowledge" | "story"; sub?: KnowledgeSub;
+  prefer?: string; clock?: Deadline; saveMs?: number; lang?: Lang;
+}): Promise<Round> {
+  const { contact, table: _table, headline: _headline, ...shown } = opts.ctx;
+  void _table; void _headline;
+  const lang = opts.lang ?? "th";
+  const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
+  const settled = await Promise.allSettled(opts.plans.map(async (plan) => {
+    const r = await timed((timeoutMs) => chat({
+      tier: "large", task: "content", messages: shortAdMessages(opts.brief, plan, shown, opts.kind, opts.sub, lang),
+      maxTokens: 3000, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
+      within: fallbackWriters(opts.prefer),
+    }), WRITE_TIMEOUT_MS, cellMs, "ad");
+    const parsed = parseShortAd(r.text);
+    const ad = parsed && lang === "en" ? englishShortMoney(parsed) : parsed;
+    if (!ad) {
+      console.error(`content ${opts.kind} ad unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+      throw new UnreadableReply();
+    }
+    const poster = modelPoster(ad.poster);
+    const output: ContentOutput = {
+      hooks: [ad.headline],
+      angle: plan.angle,
+      body: assembleShortAd(ad, contact, lang),
+      closing: ad.description,
+      hashtags: [],
+      imagePrompt: ad.imagePrompt,
+      disclaimer: DISCLAIMER,
+      ...(poster ? { poster } : {}),
+      ad: { angle: plan.angle, tone: "", kind: opts.kind, ...(opts.sub ? { sub: opts.sub } : {}) },
+    };
+    const modelText = [ad.opening, ...ad.points, shortCta(ad, lang), ad.hashtags.join(" "), ad.headline, ad.description, posterText(poster ?? undefined)]
+      .filter(Boolean).join("\n");
+    return { output: ownerWording(output), model: r.model, costThb: r.costThb, modelText };
+  }));
+  return gather(settled);
+}
+
+/**
+ * Ads Studio's ตัวเลขชัดๆ ads (spec 2026-10-06): per plan one call for an opening line with no
+ * figure in it; the code puts the headline sheet's figures (`body`), the CTA line and the contacts
+ * under it, and the numbers poster on it (`poster`). The headline is the round's (headlines()),
+ * set on each piece after; hooks[0] is left empty here.
+ */
+export async function writeNumbersAds(opts: {
+  brief: string; plans: PiecePlan[]; ctx: LongAdContext; body: string; poster: PosterSpec;
+  prefer?: string; clock?: Deadline; saveMs?: number; lang?: Lang;
+}): Promise<Round> {
+  const { contact, table: _table, headline: _headline, ...shown } = opts.ctx;
+  void _table; void _headline;
+  const lang = opts.lang ?? "th";
+  const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
+  const settled = await Promise.allSettled(opts.plans.map(async (plan) => {
+    const r = await timed((timeoutMs) => chat({
+      tier: "large", task: "content", messages: numbersOpeningMessages(opts.brief, plan, shown, opts.body, lang),
+      maxTokens: 1200, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
+      within: fallbackWriters(opts.prefer),
+    }), WRITE_TIMEOUT_MS, cellMs, "ad");
+    const opening = parseOpening(r.text, plan.hook, lang);
+    const output: ContentOutput = {
+      hooks: [""],
+      angle: plan.angle,
+      body: assembleNumbersAd(opening, opts.body, contact, lang),
+      closing: numbersCta(lang),
+      hashtags: [],
+      imagePrompt: "",
+      disclaimer: DISCLAIMER,
+      poster: opts.poster,
+      ad: { angle: plan.angle, tone: "", kind: "numbers" },
+    };
+    return { output: ownerWording(output), model: r.model, costThb: r.costThb, modelText: opening };
   }));
   return gather(settled);
 }

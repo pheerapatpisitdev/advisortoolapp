@@ -68,9 +68,14 @@ export interface ContentOutput {
    * Studio, 2026-10-05) names its planned angle, who it is for and the age its table is priced
    * at, and whose premium its headline shows (`sex`) on which row (`head`, the row's heading);
    * `tone` is "". Ads written from a campaign's dimension queue (2026-10-04) keep their four
-   * dimensions and `combo`; ads from before the queue have only angle and tone.
+   * dimensions and `combo`; ads from before the queue have only angle and tone. `kind` (spec
+   * 2026-10-06) names a shorter kind of ad — ตัวเลขชัดๆ, ความรู้ (with its `sub`), เล่าเป็นเรื่อง;
+   * absent is the long ad, as every ad written before the kinds is.
    */
-  ad?: { angle: string; tone: string; reader?: string; age?: number; sex?: "F" | "M"; head?: string; hook?: string; persona?: string; style?: string; combo?: string };
+  ad?: {
+    angle: string; tone: string; reader?: string; age?: number; sex?: "F" | "M"; head?: string; hook?: string; persona?: string; style?: string; combo?: string;
+    kind?: "numbers" | "knowledge" | "story"; sub?: "myth" | "faq" | "checklist";
+  };
   /** who drew the photograph behind the poster, as the card names it ("GPT Image HD") */
   pictureBy?: string;
   /** a person from the library drawn into the picture, and their pose; a redraw keeps them */

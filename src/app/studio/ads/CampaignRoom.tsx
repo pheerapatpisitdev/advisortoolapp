@@ -8,7 +8,7 @@ import { campaignLang } from "@/lib/ads/campaign-lang";
 import { pictureRequest } from "@/lib/ads/picture-picks";
 import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
 import { AUTO } from "@/lib/content/models";
-import { inBin, pruneTicks, sendBlocker, settledPictures, type PictureState } from "@/lib/ads/room-view";
+import { inBin, pruneTicks, sendBlocker, settledPictures, toDraw, type PictureState } from "@/lib/ads/room-view";
 import type { PersonOption } from "../PersonPicker";
 import { ask } from "../ask";
 import { drawPicture, generateRound } from "../draw";
@@ -176,7 +176,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
     void drain();
   }
 
-  async function write({ angle, custom, reader, age, count, sex, rung }: WriteInput) {
+  async function write({ angle, custom, reader, age, count, sex, rung, kind, sub }: WriteInput) {
     if (running.current) return;
     running.current = true;
     setMaking(count);
@@ -192,7 +192,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
       try {
         // the campaign's plan, Page, focus, voice and writer stand in for the rest
         res = await generateRound({
-          format: "ad", campaignId: campaign.id, count, angle, custom, reader, age, sex, rung,
+          format: "ad", campaignId: campaign.id, count, angle, custom, reader, age, sex, rung, kind, sub,
           href: "", length: null, hookTemplateId: null,
         });
       } catch {
@@ -221,8 +221,8 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
     } finally {
       running.current = false;
       setMaking(0);
-      // every new piece goes on the drawing line
-      draw(made.map((i) => i.id));
+      // every new piece goes on the drawing line but a ตัวเลขชัดๆ ad, whose poster is the numbers poster
+      draw(toDraw(made));
     }
   }
 

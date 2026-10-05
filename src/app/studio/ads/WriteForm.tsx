@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { PiecePerson } from "@/lib/content/people";
 import { anglesFor, EXPAT_NICHES, MAX_READER, NICHES, readerFor, type AngleId } from "@/lib/content/prompt";
 import { adRoundCost } from "@/lib/ads/picture-picks";
+import { AD_KINDS, KIND_LABEL, KNOWLEDGE_SUBS, SUB_LABEL, type AdKind, type KnowledgeSub } from "@/lib/ads/ad-kind";
 import { tableAge } from "@/lib/ads/room-view";
 import { PressBar } from "../ui/form-parts";
 import { tableRows } from "./actions";
@@ -25,6 +26,8 @@ import { chip, field } from "./styles";
  * In the create drawer (2026-10-05) `preview` is drawn beside the fields with the age, sex and
  * row chosen, for the figures the round will place. An English campaign (`lang` "en", spec
  * 2026-10-06) offers the expat angles and readers, as Organic's expat tick does; the chrome stays Thai.
+ * At its top (spec 2026-10-06) the kind of ad — แอดยาว + ตารางเบี้ย, ตัวเลขชัดๆ, ความรู้ (with its
+ * sub-kind chips), เล่าเป็นเรื่อง — kept per campaign in the draft; the long ad until another is picked.
  */
 
 export interface WriteInput {
@@ -33,18 +36,30 @@ export interface WriteInput {
   sex: "F" | "M";
   /** the table row the headline names, an index into its rows; absent for the middle one */
   rung?: number;
+  /** the kind of ad (ad-kind.ts), and a knowledge ad's sub-kind */
+  kind: AdKind;
+  sub?: KnowledgeSub;
 }
 
 /** what was typed in the form, kept by its holder so a drawer shut and opened again shows it (2026-10-05) */
 export interface WriteDraft {
   angle: AngleId; custom: string; reader: string; ageText: string; count: number; sex: "F" | "M";
   head: { heading: string; index: number } | null;
+  kind?: AdKind;
+  sub?: KnowledgeSub;
 }
 
 /** the table's rows at an age, as the server gave them, or why there are none */
 type Rows = { age: number; rows: { index: number; heading: string }[]; middle: number; error: string | null };
 
 const MAX_COUNT = 4;
+/** what each kind is, under its chips */
+const KIND_NOTE: Record<AdKind, string> = {
+  long: "แอดยาว มีตารางเบี้ยทุกแถว",
+  numbers: "แอดสั้น ตัวเลขทุน-เบี้ยของหัวแอด ภาพเป็นโปสเตอร์ตัวเลข (ไม่วาดรูป AI)",
+  knowledge: "ให้ความรู้เกี่ยวกับประกันประเภทนี้ ผูกกับแบบนี้ ไม่มีตารางเบี้ย",
+  story: "เล่าสถานการณ์สมมติสั้นๆ แล้วหักมาที่แบบนี้ ไม่มีตารางเบี้ย — มุมที่เลือกใช้กำหนดเรื่อง",
+};
 const CUSTOM_MAX = 120;
 const AGE_KEY = "ads-table-age";
 const AGE_DEFAULT = "30";
@@ -68,7 +83,7 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
   folded: boolean;
   onWrite: (input: WriteInput) => void;
   /** beside the fields on a desk (under them on a phone): drawn with the headline's choice */
-  preview?: (pick: { age: number | null; sex: "F" | "M"; rung?: number; ready: boolean }) => ReactNode;
+  preview?: (pick: { age: number | null; sex: "F" | "M"; rung?: number; ready: boolean; kind: AdKind }) => ReactNode;
   /** what was typed before, to start from; the age kept in this browser is used only without it */
   draft?: WriteDraft | null;
   /** told of every change, for `draft` next time */
@@ -89,9 +104,11 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
    */
   const [head, setHead] = useState<{ heading: string; index: number } | null>(draft?.head ?? null);
   const [rows, setRows] = useState<Rows | null>(null);
+  const [kind, setKind] = useState<AdKind>(draft?.kind ?? "long");
+  const [sub, setSub] = useState<KnowledgeSub>(draft?.sub ?? "myth");
   useEffect(() => {
-    onDraft?.({ angle, custom, reader, ageText, count, sex, head });
-  }, [onDraft, angle, custom, reader, ageText, count, sex, head]);
+    onDraft?.({ angle, custom, reader, ageText, count, sex, head, kind, sub });
+  }, [onDraft, angle, custom, reader, ageText, count, sex, head, kind, sub]);
 
   // the age last used in this browser; the server render starts at 30 (a draft has its own)
   const hadDraft = useRef(Boolean(draft));
@@ -141,7 +158,10 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
   const rowsPending = age !== null && shownRows === null;
   const press = () => {
     if (age === null || customMissing || rowsPending) return;
-    onWrite({ angle, custom: angle === "custom" ? custom.trim() : "", reader: reader.trim(), age, count, sex, ...(rung === undefined ? {} : { rung }) });
+    onWrite({
+      angle, custom: angle === "custom" ? custom.trim() : "", reader: reader.trim(), age, count, sex, kind,
+      ...(kind === "knowledge" ? { sub } : {}), ...(rung === undefined ? {} : { rung }),
+    });
   };
 
   return (
@@ -149,6 +169,24 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
       <div className={`border-t border-[var(--ct-hair)] p-4 ${preview ? "grid gap-6 lg:grid-cols-2" : "space-y-4"} ${folded ? (preview ? "hidden lg:grid" : "hidden lg:block") : ""}`}>
         <fieldset disabled={writing} className="m-0 min-w-0 space-y-4 border-0 p-0">
           <legend className="sr-only">เขียนแอด</legend>
+          <div>
+            <div role="group" aria-labelledby={`${formId}-kind`}>
+              <span id={`${formId}-kind`} className="mb-1.5 block text-sm font-medium">แบบแอด</span>
+              <div className="flex flex-wrap gap-2">
+                {AD_KINDS.map((k) => (
+                  <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={chip(kind === k)}>{KIND_LABEL[k]}</button>
+                ))}
+              </div>
+            </div>
+            {kind === "knowledge" && (
+              <div role="group" aria-label="แบบความรู้" className="mt-2 flex flex-wrap gap-2">
+                {KNOWLEDGE_SUBS.map((k) => (
+                  <button key={k} type="button" aria-pressed={sub === k} onClick={() => setSub(k)} className={chip(sub === k)}>{SUB_LABEL[k]}</button>
+                ))}
+              </div>
+            )}
+            <span className="mt-1 block text-xs text-[var(--ct-mute)]">{KIND_NOTE[kind]}</span>
+          </div>
           <div>
             <label className="block">
               <span className="mb-1 block text-sm font-medium">มุมที่อยากเล่า <span className="font-normal text-[var(--ct-mute)]">(ไม่เลือกก็ได้)</span></span>
@@ -222,7 +260,7 @@ export function WriteForm({ campaignId, planHref, lang = "th", picks, writing, d
             </span>
           </div>
         </fieldset>
-        {preview && <div className="min-w-0">{preview({ age, sex, ready: !rowsPending, ...(rung === undefined ? {} : { rung }) })}</div>}
+        {preview && <div className="min-w-0">{preview({ age, sex, kind, ready: !rowsPending, ...(rung === undefined ? {} : { rung }) })}</div>}
       </div>
 
       {children}
