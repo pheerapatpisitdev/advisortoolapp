@@ -8,7 +8,7 @@ import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { OutOfTime, deadline, within, type Deadline } from "@/lib/content/deadline";
 import { pickLook } from "@/lib/content/look-pick";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
-import { briefWithoutPremiums } from "@/lib/content/ads";
+import { adOwnerLines, briefWithoutPremiums } from "@/lib/content/ads";
 import { briefFor } from "@/lib/content/brief";
 import { findWords, strayNumbers, type ContentWord } from "@/lib/content/check";
 import { parseTemplatize, templatizeMessages } from "@/lib/content/hooks";
@@ -372,6 +372,8 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
         // the planner and the writer never see the brief's premium samples to copy (2026-10-05);
         // the numbers check below still measures against the whole brief
         const shownBrief = briefWithoutPremiums(brief.text);
+        // whose ad it is goes to the planner too: its hooks become the openings
+        const owner = headlineOwner(table, pick);
         const focus = (campaign.hint ?? "").trim().slice(0, MAX_CUSTOM);
         // the Page's contacts are read before anything is paid for: a round that cannot place
         // them fails whole rather than writing ads that send nobody anywhere. The campaign's
@@ -386,11 +388,10 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
         // the campaign's earlier headlines first, so the planner's cut of the list keeps them
         const heads = earlier.flatMap((p) => (p.output.hooks[0] ? [p.output.hooks[0]] : []));
         const planned = await plan(
-          { brief: shownBrief, count, angle: [focus, told].filter(Boolean).join(" — "), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang: "th" },
+          { brief: shownBrief, count, angle: [[focus, told].filter(Boolean).join(" — "), adOwnerLines(owner.line)].filter(Boolean).join("\n"), avoid: [...heads, ...avoid], template: null, reader, goal: "", fact: "", lang: "th" },
           { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) },
         );
         const contact = contactBlock(pageContact);
-        const owner = headlineOwner(table, pick);
         const ctx = { table: tableText(table), headline: headlineFigures(table, pick), owner: owner.line, contact, reader, focus, voice: (campaign.brandVoice ?? "").trim() };
         // every figure the ad carries is the code's: kept on the piece, an edit is checked against
         // them again (review focus 2) — the contacts too, whose Line ID and m.me link have digits

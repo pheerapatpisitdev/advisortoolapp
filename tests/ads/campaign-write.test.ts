@@ -328,6 +328,17 @@ describe("the inputs of an ad round, cleaned", () => {
     expect(user).toContain("ชาย อายุ 35 ปี · ประกันชีวิตคุ้มครอง 1,000,000 บาท");
   });
 
+  it("tells the planner whose ad it is too, the same line as the writer — its hooks become the openings", async () => {
+    const t = premiumTable("/lifeprotect", 35)!;
+    await generateContent({ ...sent, age: 35, sex: "M", rung: 1 });
+    const planner = callsFor("content-plan")[0].messages[1].content;
+    expect(planner).toContain(`แอดนี้เป็นของ: ${headlineOwner(t, { sex: "M", rung: 1 }).line}`);
+    expect(planner).toContain("ชาย อายุ 35 ปี · ประกันชีวิตคุ้มครอง 1,000,000 บาท");
+    expect(planner).toContain("ห้ามพูดถึงอายุ เพศ หรือทุนอื่น");
+    // the focus still goes first, as before
+    expect(planner).toContain("มุมที่เจ้าของเพจอยากเล่า: เน้นครอบครัว — คุ้มครองครอบครัว\nแอดนี้เป็นของ:");
+  });
+
   it.each([
     [{ sex: "X", rung: 99 }, "F", 2], [{ sex: undefined, rung: "1" }, "F", 2], [{ sex: "M", rung: -1 }, "M", 2],
     [{ sex: "M", rung: 1.5 }, "M", 2], [{ sex: "M", rung: 5 }, "M", 5], [{ sex: "F", rung: 0 }, "F", 0],

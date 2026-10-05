@@ -79,6 +79,19 @@ function longAdSystem(): string {
 }
 
 /**
+ * Whose ad it is, for the planner (whose hooks become the openings) and the writer alike: the
+ * 2026-10-05 ad's focus said ชาย 35 ปี ทุน 1 ล้าน while the code's figures were a woman's at 30.
+ * This wins over the campaign's focus, which is still passed.
+ */
+export function adOwnerLines(owner: string): string {
+  return [
+    `แอดนี้เป็นของ: ${owner.trim()}`,
+    "ถ้าจะพูดถึงเพศ อายุ หรือทุน ให้พูดตามบรรทัดนี้เท่านั้น ห้ามพูดถึงอายุ เพศ หรือทุนอื่น และห้ามบอกเบี้ยเป็นตัวเลข",
+    "ถ้าสิ่งที่อยากเน้นพูดถึงเพศ อายุ หรือทุนที่ต่างจากนี้ ให้ยึดบรรทัดนี้ ใช้สิ่งที่อยากเน้นแค่เป็นแนวเรื่อง",
+  ].join("\n");
+}
+
+/**
  * One long ad's writer messages. The table and the headline figures are shown as facts it may
  * refer to; the contacts are not, because the code places them.
  */
@@ -90,12 +103,7 @@ export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdCont
     `ข้อมูลผลิตภัณฑ์:\n${brief}`,
     `ตารางเบี้ยที่ระบบจะใส่ให้ (อ้างถึงได้ แต่ห้ามเขียนซ้ำ):\n${ctx.table}`,
     `ตัวเลขเด่นที่ระบบจะใส่ให้:\n${ctx.headline}`,
-    // the 2026-10-05 ad: the focus said ชาย 35 ปี ทุน 1 ล้าน while the figures were a woman's at 30
-    [
-      `แอดนี้เป็นของ: ${ctx.owner.trim()}`,
-      "ถ้าจะพูดถึงเพศ อายุ หรือทุน ให้พูดตามบรรทัดนี้เท่านั้น ห้ามพูดถึงอายุ เพศ หรือทุนอื่น และห้ามบอกเบี้ยเป็นตัวเลข",
-      "ถ้าสิ่งที่อยากเน้นด้านล่างพูดถึงเพศ อายุ หรือทุนที่ต่างจากนี้ ให้ยึดบรรทัดนี้ ใช้สิ่งที่อยากเน้นแค่เป็นแนวเรื่อง",
-    ].join("\n"),
+    adOwnerLines(ctx.owner),
     `มุมที่ต้องใช้: ${p.angle}`,
     `ฮุก (ใช้เป็นแนวของ opening ไม่ต้องตรงคำ): ${p.hook}`,
     reader ? `กลุ่มคนที่พูดด้วย: ${reader}` : "",
