@@ -65,8 +65,11 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
   const [ageText, setAgeText] = useState(AGE_DEFAULT);
   const [count, setCount] = useState(2);
   const [sex, setSex] = useState<"F" | "M">("F");
-  /** the picked row's heading, so a pick survives an age whose table drops a row; null is the middle row */
-  const [head, setHead] = useState<string | null>(null);
+  /**
+   * the picked row: its heading, so the pick survives an age whose table drops a row, and its
+   * index, for an age whose headings change (Life Protect's doubled cover is gone at 60); null is the middle row
+   */
+  const [head, setHead] = useState<{ heading: string; index: number } | null>(null);
   const [rows, setRows] = useState<Rows | null>(null);
 
   // the age last used in this browser; the server render starts at 30
@@ -98,7 +101,8 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
     return () => { live = false; window.clearTimeout(wait); };
   }, [campaignId, age]);
   const shownRows = rows && rows.age === age ? rows : null;
-  const picked = shownRows ? shownRows.rows.findIndex((r) => r.heading === head) : -1;
+  const byHeading = shownRows && head ? shownRows.rows.findIndex((r) => r.heading === head.heading) : -1;
+  const picked = byHeading >= 0 ? byHeading : head && shownRows && head.index < shownRows.rows.length ? head.index : -1;
   const rung = shownRows && shownRows.rows.length > 0 ? (picked >= 0 ? picked : shownRows.middle) : undefined;
 
   const [seconds, setSeconds] = useState(0);
@@ -168,7 +172,7 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
           </label>
 
           <div>
-            <div role="group" aria-labelledby={`${formId}-sex`}>
+            <div role="group" aria-labelledby={`${formId}-sex`} aria-describedby={`${formId}-head-note`}>
               <span id={`${formId}-sex`} className="mb-1.5 block text-sm font-medium">เพศในหัวแอด</span>
               <div className="flex flex-wrap gap-2">
                 <button type="button" aria-pressed={sex === "F"} onClick={() => setSex("F")} className={chip(sex === "F")}>หญิง</button>
@@ -178,7 +182,11 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
             <label className="mt-3 block">
               <span className="mb-1 block text-sm font-medium">ทุนในหัวแอด</span>
               <select
-                value={rung ?? ""} onChange={(e) => setHead(shownRows?.rows[Number(e.target.value)]?.heading ?? null)}
+                value={rung ?? ""} aria-describedby={`${formId}-head-note`}
+                onChange={(e) => {
+                  const row = shownRows?.rows[Number(e.target.value)];
+                  setHead(row ? { heading: row.heading, index: row.index } : null);
+                }}
                 disabled={!shownRows || shownRows.rows.length === 0} className={field}
               >
                 {!shownRows || shownRows.rows.length === 0
@@ -186,7 +194,7 @@ export function WriteForm({ campaignId, planHref, picks, writing, disabled, warn
                   : shownRows.rows.map((r) => <option key={r.index} value={r.index}>{r.heading}</option>)}
               </select>
             </label>
-            <span className={`mt-1 block text-xs ${shownRows?.error ? "font-medium text-[var(--ct-alert)]" : "text-[var(--ct-mute)]"}`}>
+            <span id={`${formId}-head-note`} role="status" aria-live="polite" className={`mt-1 block text-xs ${shownRows?.error ? "font-medium text-[var(--ct-alert)]" : "text-[var(--ct-mute)]"}`}>
               {shownRows?.error ?? "หัวแอดใช้ทุนและเพศนี้ — ตารางยังแสดงครบทุกแถว"}
             </span>
           </div>

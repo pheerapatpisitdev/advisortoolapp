@@ -548,6 +548,8 @@ export async function tableRows(
   try {
     const campaign = await getCampaign(campaignId);
     if (!campaign) return { ok: false, error: NO_CAMPAIGN };
+    // a campaign whose Page was disconnected cannot be written into (generateContent says the same)
+    if (!(await myPages()).some((p) => p.pageId === campaign.pageId)) return { ok: false, error: PAGE_GONE };
     const table = premiumTable(campaign.planHref, age);
     if (!table) return { ok: false, error: `อายุ ${age} ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น` };
     return { ok: true, rows: table.rows.map((r, index) => ({ index, heading: r.heading })), middle: middleRung(table.rows.length) };

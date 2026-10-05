@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimedNumbers, findWords, numbersIn, strayNumbers, type ContentWord } from "@/lib/content/check";
+import { claimedNumbers, findWords, numbersIn, premiumAmounts, strayNumbers, type ContentWord } from "@/lib/content/check";
 
 /**
  * The check that stands between a model's arithmetic and a post the owner puts their name to.
@@ -116,4 +116,22 @@ it("reads English amounts as the Thai ones", () => {
   expect(strayNumbers("Up to THB 100 million a year", "- วงเงินค่ารักษาต่อปี ตั้งแต่ 1,000,000 ถึง 100,000,000 บาท")).toEqual([]);
   expect(claimedNumbers("3 reasons to look again")).toEqual([]);
   expect(claimedNumbers("THB 30")).toEqual([30]);
+});
+
+describe("premiumAmounts — an amount said as a premium is money (review, 2026-10-05)", () => {
+  it.each([
+    "เบี้ยเดือนละ 1,548 บาท", "วันละ 48 บาท", "1,548 บาท/เดือน", "เบี้ยเฉลี่ยวันละ 20 บาท",
+    "แค่ 48 บาทต่อวัน", "48 บาท/วัน", "ปีละ 14,350 บาท", "เบี้ย 2 พัน", "คุ้มครองครอบครัว วันละ 48 บาท",
+  ])("flags %s", (text) => {
+    expect(premiumAmounts(text)).toHaveLength(1);
+  });
+
+  it.each([
+    "เบี้ยสำหรับอายุ 35", "จ่ายเบี้ยแค่ 9 หรือ 19 ปี", "เบี้ยคงที่ถึง 99", "เบี้ยส่วน CI 123 คิดตามอายุจริง",
+    "คุ้มครองสูงสุด 60 ล้านบาทต่อปี", "ห้องเดี่ยวมาตรฐาน วันละ 5,000 บาท",
+    "นำไปลดหย่อนภาษีเงินได้บุคคลธรรมดาได้สูงสุด 100,000 บาทต่อปี", "ชดเชยนอนโรงพยาบาลวันละ 1,000 บาท",
+    "บำนาญเดือนละ 10,000 บาท", "ลดเบี้ย 10%", "จ่ายเบี้ยแค่ 6 ปี", "คุ้มครอง 1,000,000 บาท", "ก่อนอายุ 60",
+  ])("leaves %s", (text) => {
+    expect(premiumAmounts(text)).toEqual([]);
+  });
 });

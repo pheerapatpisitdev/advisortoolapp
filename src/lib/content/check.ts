@@ -49,6 +49,8 @@ interface Amount {
   value: number;
   /** said as money or a percentage, rather than a bare count */
   priced: boolean;
+  /** said with a unit: พัน, หมื่น, แสน, ล้าน, k, M… */
+  unit: boolean;
   /** where it starts and ends in the text */
   at: number;
   end: number;
@@ -61,7 +63,7 @@ function amounts(text: string): Amount[] {
     const n = Number(m[2].replace(/,/g, ""));
     if (!Number.isFinite(n)) continue;
     const end = m.index + m[0].trimEnd().length;
-    out.push({ raw: text.slice(m.index, end).trim(), value: n * (m[3] ? (UNIT[m[3]] ?? UNIT[m[3].toLowerCase()]) : 1), priced: Boolean(m[1] || m[4]), at: m.index, end });
+    out.push({ raw: text.slice(m.index, end).trim(), value: n * (m[3] ? (UNIT[m[3]] ?? UNIT[m[3].toLowerCase()]) : 1), priced: Boolean(m[1] || m[4]), unit: Boolean(m[3]), at: m.index, end });
   }
   return out;
 }
@@ -107,43 +109,92 @@ export function sameFigures(text: string, values: number[]): string[] {
 
 /**
  * A word that makes the amount after it a premium, with at most a few letters between them and
- * no digit: "เบี้ยเฉลี่ยวันละ 20", "เบี้ย 4,914", "ตกเดือนละ 1,800", "วันละ 48".
+ * no digit: "เบี้ยเฉลี่ยวันละ 20 บาท", "เบี้ย 4,914 บาท", "ตกเดือนละ 1,800 บาท", "ปีละ 14,350 บาท".
  */
-const PREMIUM_LEAD = /(เบี้ย|ตกวันละ|ตกเดือนละ|วันละ|เดือนละ|ต่อเดือน|ต่อปี)[^\d\n]{0,12}$/;
-/** what after an amount makes it a premium: "1,548 บาท/เดือน", "43,200 บาท ต่อปี" */
-const PREMIUM_TAIL = /^\s*(?:\/|ต่อ)\s*(?:เดือน|ปี)/;
-/** "6 ปี", "3 เดือน", "30 วัน": a length of time, even straight after เบี้ย ("จ่ายเบี้ยแค่ 6 ปี") */
-const DURATION = /^\s*(?:ปี|เดือน|วัน|งวด|ครั้ง|เท่า|แผน)/;
+const PREMIUM_LEAD = /(เบี้ย|ตกวันละ|ตกเดือนละ|วันละ|เดือนละ|ปีละ|ต่อเดือน|ต่อปี)[^\d\n]{0,12}$/;
+/** what after an amount makes it a premium: "1,548 บาท/เดือน", "48 บาทต่อวัน", "43,200 บาท ต่อปี" */
+const PREMIUM_TAIL = /^\s*(?:\/|ต่อ)\s*(?:เดือน|ปี|วัน)/;
 /**
  * Money paid out rather than paid in, said by the day, month or year: "ชดเชยนอนโรงพยาบาลวันละ
- * 1,000 บาท", "บำนาญเดือนละ 10,000 บาท". Only วันละ, เดือนละ and ต่อ… give way to these — an
- * amount after เบี้ย or ตก… is a premium whatever came before.
+ * 1,000 บาท", "บำนาญเดือนละ 10,000 บาท", "ห้องเดี่ยวมาตรฐาน วันละ 5,000 บาท". Only วันละ, เดือนละ,
+ * ปีละ and ต่อ… give way to these — an amount after เบี้ย or ตก… is a premium whatever came before.
  */
-const BENEFIT = /ชดเชย|บำนาญ|ค่ารักษา|ค่าห้อง|รายได้|ลดหย่อน|เงินคืน|รับเงิน|วงเงิน/;
+const BENEFIT = /ชดเชย|บำนาญ|ค่ารักษา|ห้อง|รายได้|ลดหย่อน|เงินคืน|รับเงิน|วงเงิน/;
+/**
+ * …and an amount whose only premium sign is after it ("60 ล้านบาทต่อปี") is cover when the clause
+ * says คุ้มครอง. Not before วันละ: "คุ้มครองครอบครัว วันละ 48 บาท" is the 2026-10-05 ad's premium.
+ */
+const COVER = /คุ้มครอง/;
+/** the words a premium clause starts with before its premium word: "(เฉลี่ยวันละ …", "จ่ายแค่ …" */
+const CLAUSE_HEAD = /(?:จ่าย|ชำระ)?(?:เบี้ย)?(?:ปีแรก)?(?:เฉลี่ย|แค่|เพียง|เริ่มต้น|เริ่ม)*\s*$/;
+
+/** a premium in a text: the amount as written, and the clause around it that says it */
+interface PremiumSpan {
+  raw: string;
+  from: number;
+  to: number;
+}
 
 /**
- * The amounts in a text said as a premium: next to เบี้ย, วันละ, เดือนละ, ต่อเดือน, ต่อปี, /เดือน,
- * /ปี, ตกวันละ or ตกเดือนละ. Coverage, ages, counts and percentages are not, and neither is a
- * benefit paid by the day or the month. A long ad's model may write none of these, true or not:
- * the code prints every premium (spec 2026-10-05, "AI never writes a premium").
+ * The amounts in a text said as a premium, with the clause that says each. An amount counts only
+ * as money — in baht (บาท, ฿, THB), with a unit (พัน, หมื่น, ล้าน…) or by the month, year or day
+ * after it — so "เบี้ยส่วน CI 123", "จ่ายเบี้ยแค่ 9 ปี" and "เบี้ยสำหรับอายุ 35" are not; and
+ * only next to เบี้ย, วันละ, เดือนละ, ปีละ, ต่อเดือน, ต่อปี, ตกวันละ, ตกเดือนละ before it, or /เดือน,
+ * /ปี, /วัน, ต่อ… after it. A benefit paid by the day, month or year (BENEFIT, COVER) is not.
  */
-export function premiumAmounts(text: string): string[] {
-  const out: string[] = [];
+function premiumSpans(text: string): PremiumSpan[] {
+  const out: PremiumSpan[] = [];
+  let prevEnd = 0;
   for (const a of amounts(text)) {
+    const lineStart = text.lastIndexOf("\n", a.at - 1) + 1;
+    // the words since the last amount on this line: the clause this one is said in
+    const since = Math.max(lineStart, prevEnd);
+    prevEnd = a.end;
     if (a.raw.endsWith("%")) continue;
     const after = text.slice(a.end);
-    if (DURATION.test(after) && !/บาท|฿|THB/i.test(a.raw)) continue;
-    const lineStart = text.lastIndexOf("\n", a.at - 1) + 1;
-    const before = text.slice(lineStart, a.at);
+    const tail = PREMIUM_TAIL.exec(after);
+    if (!a.priced && !a.unit && !tail) continue;
+    const before = text.slice(since, a.at);
     const lead = PREMIUM_LEAD.exec(before);
-    // the words just before the premium word, or before the amount when only its tail says so
-    const context = before.slice(Math.max(0, (lead ? lead.index : before.length) - 24), lead ? lead.index : before.length);
+    const said = lead ? before.slice(0, lead.index) : before;
     const premium = lead
-      ? /^(เบี้ย|ตก)/.test(lead[1]) || !BENEFIT.test(context)
-      : PREMIUM_TAIL.test(after) && !BENEFIT.test(context);
-    if (premium) out.push(a.raw);
+      ? /^(เบี้ย|ตก)/.test(lead[1]) || !BENEFIT.test(said)
+      : Boolean(tail) && !BENEFIT.test(said) && !COVER.test(said);
+    if (!premium) continue;
+    const startAt = lead ? since + lead.index : a.at;
+    const head = CLAUSE_HEAD.exec(text.slice(since, startAt));
+    out.push({ raw: a.raw, from: head ? since + head.index : startAt, to: a.end + (tail ? tail[0].length : 0) });
   }
-  return [...new Set(out)];
+  return out;
+}
+
+/**
+ * The amounts in a text said as a premium (premiumSpans). A long ad's model may write none of
+ * these, true or not: the code prints every premium (spec 2026-10-05, "AI never writes a premium").
+ */
+export function premiumAmounts(text: string): string[] {
+  return [...new Set(premiumSpans(text).map((p) => p.raw))];
+}
+
+/**
+ * A text with each premium clause cut out and the line tidied after it: the brackets and
+ * separators left empty go, and a line left with nothing but its bullet goes. The rest of the
+ * line — a sample case's age, sum, term, multiple — stays.
+ */
+export function withoutPremiums(text: string): string {
+  return text.split("\n").flatMap((line) => {
+    const spans = premiumSpans(line);
+    if (spans.length === 0) return [line];
+    let out = line;
+    for (const p of [...spans].reverse()) out = out.slice(0, p.from) + out.slice(p.to);
+    out = out
+      .replace(/\(\s*\)/g, "")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\s*([:·,;])(\s*[:·,;])+/g, "$1")
+      .replace(/[\s:·,;—–-]+$/, "")
+      .replace(/:\s*·\s*/g, ": ");
+    return /^[\s\-•*:·]*$/.test(out) ? [] : [out];
+  }).join("\n");
 }
 
 /** float-safe identity for an amount: 3.38 and 3.380 are the same figure */

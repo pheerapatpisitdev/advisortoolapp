@@ -1,6 +1,6 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
-import { premiumAmounts } from "./check";
+import { withoutPremiums } from "./check";
 import { CORE_RULES, POSTER_JSON, POSTER_RULES } from "./prompt";
 import type { PiecePlan } from "./plan";
 
@@ -115,13 +115,13 @@ export function longAdMessages(brief: string, p: PiecePlan, ctx: Omit<LongAdCont
 }
 
 /**
- * A brief without its premium lines, for an ad round's planner and writer (spec 2026-10-05): a
- * line that says any amount as a premium (premiumAmounts) is left out, so its sample cases —
- * "ผู้ชายอายุ 35 … เบี้ย 1,548 บาท/เดือน (เฉลี่ยวันละ 48 บาท)" — are never there to copy beside
- * the code's table. Coverage, ages, terms and cautions stay. The numbers check keeps the whole brief.
+ * A brief without its premiums, for an ad round's planner and writer (spec 2026-10-05): each
+ * clause that says an amount as a premium (check.ts) is cut, so "เบี้ย 1,548 บาท/เดือน (เฉลี่ย
+ * วันละ 48 บาท)" is never there to copy beside the code's table, while the rest of its line —
+ * the age, the sum, the term, "คุ้มครองถึงอายุ 40" — stays. The numbers check keeps the whole brief.
  */
 export function briefWithoutPremiums(brief: string): string {
-  return brief.split("\n").filter((line) => premiumAmounts(line).length === 0).join("\n");
+  return withoutPremiums(brief);
 }
 
 export interface LongAd {

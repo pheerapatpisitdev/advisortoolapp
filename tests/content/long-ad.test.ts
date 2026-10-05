@@ -4,6 +4,7 @@ import { BANNED_SUPERLATIVES, assembleLongAd, briefWithoutPremiums, longAdMessag
 import type { PiecePlan } from "@/lib/content/plan";
 import { headlineFigures, premiumTable, tableText } from "@/lib/content/premium-table";
 import { NUMBERS_PLANS } from "@/lib/content/numbers-plans";
+import { premiumAmounts } from "@/lib/content/check";
 import { briefFor } from "@/lib/content/brief";
 
 const ai = vi.hoisted(() => ({ chat: vi.fn() }));
@@ -78,11 +79,36 @@ describe("briefWithoutPremiums — the writer never sees a premium to copy", () 
     expect(briefWithoutPremiums(lines)).toBe(lines);
   });
 
+  it("cuts only the premium clause, keeping the rest of the line's facts", () => {
+    expect(briefWithoutPremiums("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40): เบี้ยเฉลี่ยวันละ 15 บาท"))
+      .toBe("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท ชำระเบี้ย 5 ปี (คุ้มครองถึงอายุ 40)");
+    expect(briefWithoutPremiums("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท จ่าย 9 ปี: เบี้ย 4,914 บาท/เดือน (เฉลี่ยวันละ 150 บาท)"))
+      .toBe("- ผู้ชายอายุ 35 ทุน 1,000,000 บาท จ่าย 9 ปี");
+  });
+
+  it("keeps CI 123's caution, PLB's cover ages and Life Treasure's multiples, without their premiums — review 2026-10-05", () => {
+    const ci = briefWithoutPremiums(briefFor("/ci123")!.text);
+    expect(ci).toContain("เบี้ยส่วน CI 123 คิดตามอายุจริง ปรับขึ้นเมื่ออายุมากขึ้น — ทุกราคาเป็นเบี้ยปีแรก");
+    const plb = briefWithoutPremiums(briefFor("/plb")!.text);
+    for (const age of [40, 45, 47, 50]) expect(plb).toContain(`คุ้มครองถึงอายุ ${age}`);
+    expect(plb).not.toMatch(/วันละ \d+ บาท/);
+    const lt = briefWithoutPremiums(briefFor("/lifetreasure")!.text);
+    for (const x of ["1.7", "1.8", "1.5"]) expect(lt).toContain(`ส่งต่อได้ ${x} เท่า`);
+    for (const gone of ["86,400", "2,631", "42,750", "33,300"]) expect(lt).not.toContain(gone);
+    const pension = briefWithoutPremiums(briefFor("/bumnan95")!.text);
+    expect(pension).toContain("บำนาญเดือนละ 10,000 บาท");
+    expect(pension).toContain("ทุน 787,402 บาท");
+    expect(pension).not.toContain("374");
+  });
+
   it("no plan's brief keeps a line with a premium in it", () => {
     for (const href of Object.keys(NUMBERS_PLANS)) {
       const b = briefFor(href);
       if (!b) continue;
-      for (const line of briefWithoutPremiums(b.text).split("\n")) expect(line, href).not.toMatch(/เบี้ย[^\d\n]{0,12}\d[\d,]*(?:\.\d+)?(?!\s*(?:ปี|เดือน|วัน|%)|[\d,.])|\d[\d,]*\s*บาท\/(เดือน|ปี)/);
+      for (const line of briefWithoutPremiums(b.text).split("\n")) {
+        expect(premiumAmounts(line), href).toEqual([]);
+        expect(line, href).not.toMatch(/\d\s*บาท\/(เดือน|ปี)|เบี้ย(ปีแรก)?(เฉลี่ย)?วันละ \d/);
+      }
     }
   });
 });

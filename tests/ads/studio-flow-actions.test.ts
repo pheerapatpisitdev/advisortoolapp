@@ -641,6 +641,12 @@ describe("the headline's rows on the writing form — the 2026-10-05 ad", () => 
     expect(await tableRows(CAMPAIGN, 55)).toEqual({ ok: false, error: "อายุ 55 ปี แบบนี้คิดเบี้ยไม่ได้ ลองอายุอื่น" });
   });
 
+  it("refuse a campaign whose Page is no longer connected, as the round does", async () => {
+    camps.getCampaign.mockResolvedValue(campaign());
+    pages.myPages.mockResolvedValue([]);
+    expect(await tableRows(CAMPAIGN, 30)).toEqual({ ok: false, error: "เพจนี้ไม่ได้เชื่อมกับระบบแล้ว" });
+  });
+
   it("are the owner's alone, and say when the campaign is gone", async () => {
     camps.getCampaign.mockResolvedValue(null);
     expect(await tableRows(CAMPAIGN, 30)).toEqual({ ok: false, error: "ไม่พบแคมเปญนี้" });
