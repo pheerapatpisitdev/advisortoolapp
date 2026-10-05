@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { costPer, sumResults } from "@/lib/ads/results";
+import { costPer, sumResults, unsyncedText } from "@/lib/ads/results";
 
 const row = (ad_id: string, o: Partial<{ spend: number | string; impressions: number; link_clicks: number; clicks: number; messaging_started: number }> = {}) => ({
   ad_id, spend: 10, impressions: 100, link_clicks: 5, clicks: 9, messaging_started: 1, ...o,
@@ -30,5 +30,13 @@ describe("costPer", () => {
   it("divides, and is null for none", () => {
     expect(costPer(100, 4)).toBe(25);
     expect(costPer(100, 0)).toBeNull();
+  });
+});
+
+describe("unsyncedText", () => {
+  it("names the account and says the figures wait for /admin/ads", () => {
+    const t = unsyncedText({ actId: "act_2", name: "บัญชีสตูดิโอ" });
+    expect(t).toContain("บัญชี บัญชีสตูดิโอ ยังไม่ได้เชื่อมดึงผลลัพธ์");
+    expect(t).toContain("ตัวเลขจะไม่ขึ้นจนกว่าจะเชื่อมที่");
   });
 });

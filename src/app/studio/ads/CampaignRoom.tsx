@@ -5,7 +5,7 @@ import type { ContentItem } from "@/lib/content/store";
 import { liveCount, type AdTab } from "@/lib/ads/campaign-view";
 import { ctaLabel, pickAd, sendOf, startTab } from "@/lib/ads/ads-list";
 import { pictureRequest } from "@/lib/ads/picture-picks";
-import type { AdResult } from "@/lib/ads/results";
+import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
 import { AUTO } from "@/lib/content/models";
 import { inBin, pruneTicks, sendBlocker, settledPictures, type PictureState } from "@/lib/ads/room-view";
 import type { PersonOption } from "../PersonPicker";
@@ -60,6 +60,8 @@ export interface RoomResults {
   error: string | null;
   fetchedAt: string | null;
   days: 7 | 30;
+  /** ad accounts the sends used whose results are not fetched */
+  unsynced: UnsyncedAccount[];
 }
 
 export function CampaignRoom({ room, pickers, productName, rules, people, adAsked, results }: {
@@ -270,7 +272,7 @@ export function CampaignRoom({ room, pickers, productName, rules, people, adAske
               pieces={pieces} tab={tab} onTab={chooseTab} counts={counts}
               selected={selected} onSelect={setWanted}
               ticked={ticked} onTick={tick}
-              results={results.byPiece} resultsNote={resultsNote}
+              results={results.byPiece} resultsNote={resultsNote} unsynced={results.unsynced}
               productName={productName} pictures={pictures}
               foot={(
                 <>

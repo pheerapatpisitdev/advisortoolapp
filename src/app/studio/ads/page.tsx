@@ -82,8 +82,8 @@ export default async function StudioAdsPage({ searchParams }: {
       view = {
         kind: "room", room, productName: productOf(room), people, adAsked: ad ?? null,
         results: results.ok
-          ? { byPiece: results.byPiece, error: null, fetchedAt: results.fetchedAt, days }
-          : { byPiece: {}, error: results.error, fetchedAt: null, days },
+          ? { byPiece: results.byPiece, error: null, fetchedAt: results.fetchedAt, days, unsynced: results.unsynced }
+          : { byPiece: {}, error: results.error, fetchedAt: null, days, unsynced: [] },
       };
     } else {
       view = { kind: "error", id: openId!, error: room?.error ?? "ไม่พบแคมเปญนี้แล้ว" };
@@ -103,6 +103,7 @@ export default async function StudioAdsPage({ searchParams }: {
       results: results?.ok ? results.byCampaign : {},
       resultsError: results && !results.ok ? results.error : null,
       fetchedAt: results?.ok ? results.fetchedAt : null,
+      unsynced: results?.ok ? results.unsynced : [],
     };
   }
 

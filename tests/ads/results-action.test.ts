@@ -25,6 +25,10 @@ const camps = vi.hoisted(() => ({ listCampaigns: vi.fn() }));
 vi.mock("@/lib/ads/campaign-store", () => camps);
 const sends = vi.hoisted(() => ({ listSends: vi.fn() }));
 vi.mock("@/lib/ads/send-store", () => sends);
+const synced = vi.hoisted(() => ({ adAccounts: vi.fn() }));
+vi.mock("@/lib/facebook/ads-connection", () => synced);
+const manage = vi.hoisted(() => ({ adManageAccounts: vi.fn() }));
+vi.mock("@/lib/facebook/ads-manage-connection", () => manage);
 
 type Call = { table: string; ids: string[]; gte: [string, string] | null; range: [number, number] | null };
 const db = vi.hoisted(() => ({ calls: [] as Call[], rows: [] as Record<string, unknown>[], fail: false, pages: null as null | ((c: Call) => Record<string, unknown>[]) }));
@@ -63,13 +67,15 @@ beforeEach(() => {
   db.pages = null;
   db.rows = [r("A1", "10.5"), r("A2", 5, "2026-10-05T03:00:00Z"), r("B1", 1), r("OLD1", 20)];
   pages.myPages.mockResolvedValue([{ pageId: "P1", pageName: "x" }]);
+  synced.adAccounts.mockResolvedValue([{ id: "act_1", name: "บัญชีดึงผล" }]);
+  manage.adManageAccounts.mockResolvedValue([{ id: "act_1", name: "บัญชี 1" }, { id: "act_2", name: "บัญชีสตูดิโอ" }]);
   camps.listCampaigns.mockResolvedValue([{ id: "C1" }, { id: "C2" }]);
   sends.listSends.mockImplementation(async (id: string, opts?: { includeSuperseded?: boolean }) =>
     id === "C1"
       ? [
-          { id: "S1", items: [item("p1", "A1"), item("p2", "A2"), item("p3", null)] },
-          { id: "S2", items: [item("p1", "B1")] },
-          ...(opts?.includeSuperseded ? [{ id: "S3", items: [item("p2", "OLD1")] }] : []),
+          { id: "S1", actId: "act_1", items: [item("p1", "A1"), item("p2", "A2"), item("p3", null)] },
+          { id: "S2", actId: "act_1", items: [item("p1", "B1")] },
+          ...(opts?.includeSuperseded ? [{ id: "S3", actId: "act_1", items: [item("p2", "OLD1")] }] : []),
         ]
       : [],
   );
@@ -86,6 +92,32 @@ describe("campaignResults", () => {
     expect(res.byPiece.p2.spend).toBe(25); // a superseded send's ad spend counts
     expect(res.byPiece.p3).toBeUndefined();
     expect(res.fetchedAt).toBe("2026-10-05T03:00:00Z");
+    expect(res.unsynced).toEqual([]);
+  });
+  it("names an account the sends used that the nightly read does not cover", async () => {
+    camps.listCampaigns.mockResolvedValue([{ id: "C1" }]);
+    sends.listSends.mockResolvedValue([
+      { id: "S1", actId: "act_1", items: [item("p1", "A1")] },
+      { id: "S2", actId: "act_2", items: [item("p2", "A2")] },
+      // a send that made no ad is no reason to warn
+      { id: "S3", actId: "act_3", items: [item("p3", null)] },
+    ]);
+    const res = await campaignResults("P1", 7);
+    expect(res.ok && res.unsynced).toEqual([{ actId: "act_2", name: "บัญชีสตูดิโอ" }]);
+  });
+  it("warns of no account when the synced list cannot be read, and still gives the figures", async () => {
+    synced.adAccounts.mockRejectedValue(new Error("boom"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await campaignResults("P1", 7);
+    err.mockRestore();
+    expect(res.ok && res.unsynced).toEqual([]);
+    expect(res.ok && res.byCampaign.C1.spend).toBe(36.5);
+  });
+  it("cleans the days the browser sent: anything but 30 is 7", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-05T20:00:00Z"));
+    try { await campaignResults("P1", 9999 as unknown as 7); } finally { vi.useRealTimers(); }
+    expect(db.calls[0].gte).toEqual(["date", "2026-09-30"]);
   });
   it("asks only for the window's days and the Page's ad ids", async () => {
     vi.useFakeTimers();
@@ -104,7 +136,7 @@ describe("campaignResults", () => {
     expect(db.calls[0].gte).toEqual(["date", "2026-09-30"]);
   });
   it("reads 100 ad ids at a time", async () => {
-    sends.listSends.mockResolvedValue([{ id: "S", items: Array.from({ length: 250 }, (_, i) => item(`p${i}`, `AD${i}`)) }]);
+    sends.listSends.mockResolvedValue([{ id: "S", actId: "act_1", items: Array.from({ length: 250 }, (_, i) => item(`p${i}`, `AD${i}`)) }]);
     camps.listCampaigns.mockResolvedValue([{ id: "C1" }]);
     await campaignResults("P1", 7);
     expect(db.calls.map((c) => c.ids.length)).toEqual([100, 100, 50]);
@@ -112,7 +144,7 @@ describe("campaignResults", () => {
   it("has no fetch time and reads nothing when nothing was sent", async () => {
     sends.listSends.mockResolvedValue([]);
     const res = await campaignResults("P1", 7);
-    expect(res).toEqual({ ok: true, byCampaign: {}, byPiece: {}, fetchedAt: null });
+    expect(res).toEqual({ ok: true, byCampaign: {}, byPiece: {}, fetchedAt: null, unsynced: [] });
     expect(db.calls).toHaveLength(0);
   });
   it("refuses a Page that is not the owner's", async () => {
@@ -131,7 +163,7 @@ describe("campaignResults", () => {
     expect(JSON.stringify(res)).not.toContain("secret detail");
   });
   it("pages past 1000 rows and counts every page", async () => {
-    sends.listSends.mockResolvedValue([{ id: "S", items: [item("p1", "A1")] }]);
+    sends.listSends.mockResolvedValue([{ id: "S", actId: "act_1", items: [item("p1", "A1")] }]);
     camps.listCampaigns.mockResolvedValue([{ id: "C1" }]);
     db.pages = (c) => (c.range![0] === 0 ? Array.from({ length: 1000 }, () => r("A1", 1)) : [r("A1", 1), r("A1", 1)]);
     const res = await campaignResults("P1", 30);

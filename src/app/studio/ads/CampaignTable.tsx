@@ -2,13 +2,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { AdResult } from "@/lib/ads/results";
+import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
 import { deleteShut, footLine, switchPlan, switchQuestion, switchShut, tableLine, UNREADABLE, type CampaignRow } from "@/lib/ads/campaign-table";
 import { deleteQuestion, liveCount } from "@/lib/ads/campaign-view";
 import { ask } from "../ask";
 import { activateSendAction, deleteAdCampaign, pauseSendAction } from "./actions";
 import { when } from "./SentSend";
 import { TONES } from "./styles";
+import { UnsyncedNote } from "./UnsyncedNote";
 
 /**
  * The แคมเปญ tab (desktop redesign, 2026-10-05): one dense row per campaign, as Ads Manager
@@ -185,13 +186,15 @@ function Switch({ row, pageName, disabled, onBusy, onError }: {
   );
 }
 
-export function CampaignTable({ rows, results, resultsError, fetchedAt, pageId, pageName, openId, open }: {
+export function CampaignTable({ rows, results, resultsError, fetchedAt, unsynced, pageId, pageName, openId, open }: {
   /** the Page's campaigns, or why they could not be read */
   rows: CampaignRow[] | { error: string };
   results: Record<string, AdResult>;
   /** the results could not be read: every result cell is "—" and a line says why */
   resultsError: string | null;
   fetchedAt: string | null;
+  /** ad accounts the sends used whose results are not fetched: a line each says so */
+  unsynced: UnsyncedAccount[];
   pageId: string;
   pageName: string;
   /** the campaign open, tinted in the table; null with none */
@@ -296,6 +299,7 @@ export function CampaignTable({ rows, results, resultsError, fetchedAt, pageId, 
           {fetchedAt ? `อัปเดตล่าสุด ${when(fetchedAt)}` : "ยังไม่มีผลลัพธ์ของแอดในช่วงนี้"} · ผลลัพธ์ดึงจาก Facebook วันละครั้ง อาจช้าได้ถึง 1 วัน
         </p>
       )}
+      <UnsyncedNote accounts={unsynced} />
     </div>
   );
 }

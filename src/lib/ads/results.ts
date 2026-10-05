@@ -59,3 +59,14 @@ export function sumResults(rows: DailyRow[], adIdsByKey: Map<string, string[]>):
 export function costPer(spend: number, n: number): number | null {
   return n > 0 ? spend / n : null;
 }
+
+/** An ad account the sends used that the nightly results read does not cover. */
+export interface UnsyncedAccount {
+  actId: string;
+  name: string;
+}
+
+/** The line for one such account, before the link to /admin/ads: its figures stay "—", not 0. */
+export function unsyncedText(a: UnsyncedAccount): string {
+  return `บัญชี ${a.name} ยังไม่ได้เชื่อมดึงผลลัพธ์ — ตัวเลขจะไม่ขึ้นจนกว่าจะเชื่อมที่`;
+}

@@ -4,9 +4,10 @@ import { defaultPoster, posterUrl } from "@/lib/content/poster";
 import { AD_TABS, type AdTab } from "@/lib/ads/campaign-view";
 import { rowChips } from "@/lib/ads/ads-list";
 import { resultCells } from "@/lib/ads/campaign-table";
-import type { AdResult } from "@/lib/ads/results";
+import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
 import type { PictureState } from "@/lib/ads/room-view";
 import type { RoomPiece } from "./AdEditor";
+import { UnsyncedNote } from "./UnsyncedNote";
 
 /**
  * The โฆษณา tab's left pane (Ads Studio desktop, 2026-10-05): the sub-tabs ร่าง · ส่งแล้ว ·
@@ -26,7 +27,7 @@ const TAB_EMPTY: Record<AdTab, string> = {
 };
 const chip = "max-w-full break-words rounded-full bg-[var(--ct-ground)] px-2 py-0.5 text-[0.7rem] text-[var(--ct-mute)]";
 
-export function AdsList({ pieces, tab, onTab, counts, selected, onSelect, ticked, onTick, results, resultsNote, productName, pictures, foot }: {
+export function AdsList({ pieces, tab, onTab, counts, selected, onSelect, ticked, onTick, results, resultsNote, unsynced, productName, pictures, foot }: {
   pieces: RoomPiece[];
   tab: AdTab;
   onTab: (t: AdTab) => void;
@@ -40,6 +41,8 @@ export function AdsList({ pieces, tab, onTab, counts, selected, onSelect, ticked
   results: Record<string, AdResult>;
   /** why results are missing, or when they were read; under the sent rows */
   resultsNote: string | null;
+  /** ad accounts the sends used whose results are not fetched: a line each, under the sent rows */
+  unsynced: UnsyncedAccount[];
   productName: string;
   pictures: Record<string, PictureState>;
   foot: ReactNode;
@@ -116,6 +119,7 @@ export function AdsList({ pieces, tab, onTab, counts, selected, onSelect, ticked
         </ul>
       )}
       {tab === "sent" && shown.length > 0 && resultsNote && <p className="text-xs text-[var(--ct-mute)]">{resultsNote}</p>}
+      {tab === "sent" && shown.length > 0 && <UnsyncedNote accounts={unsynced} />}
 
       {foot}
     </div>

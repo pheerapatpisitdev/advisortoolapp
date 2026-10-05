@@ -38,7 +38,8 @@ import { hasLadder, headlineFigures, middleRung, premiumTable, tableText } from 
 import type { PiecePerson } from "@/lib/content/people";
 import { THEMES, type PosterSpec } from "@/lib/content/poster";
 import type { PolicyFinding } from "@/lib/content/policy";
-import type { AdAccount } from "@/lib/facebook/ads-connection";
+import { adAccounts, type AdAccount } from "@/lib/facebook/ads-connection";
+import { parseDays } from "@/lib/ads/manager-view";
 import { saveContentEdits, setContentStatus, type EditResult } from "@/app/studio/actions";
 
 /**
@@ -1021,12 +1022,16 @@ function bangkokSince(days: number, now = Date.now()): string {
  * What a Page's sent ads did over the last 7 or 30 days, by campaign and by piece, from the
  * ads sync's daily rows. A campaign or piece with no row is absent from the maps (the page
  * shows "—", not 0). fetchedAt is when the newest row was synced; null when there is none.
+ * The rows are filled nightly only for the ad accounts connected for reading (/admin/ads), while
+ * sends go through Ads Studio's own accounts: `unsynced` names each account the sends used that
+ * the nightly read does not cover, so the page says why its figures stay "—" rather than seeming
+ * to have spent nothing. `days` comes from the browser and is cleaned here (parseDays).
  */
 export async function campaignResults(
   pageId: string,
-  days: 7 | 30,
+  days: unknown,
 ): Promise<
-  | { ok: true; byCampaign: Record<string, AdResult>; byPiece: Record<string, AdResult>; fetchedAt: string | null }
+  | { ok: true; byCampaign: Record<string, AdResult>; byPiece: Record<string, AdResult>; fetchedAt: string | null; unsynced: { actId: string; name: string }[] }
   | { ok: false; error: string }
 > {
   await requireStaff("owner");
@@ -1036,19 +1041,30 @@ export async function campaignResults(
     const lists = await Promise.all(campaigns.map((c) => listSends(c.id, { includeSuperseded: true })));
     const byCampaignAds = new Map<string, string[]>();
     const byPieceAds = new Map<string, string[]>();
+    const sentFrom = new Set<string>();
     campaigns.forEach((c, i) => {
       for (const send of lists[i]) {
         for (const item of send.items) {
           if (!item.adId) continue;
+          sentFrom.add(send.actId);
           byCampaignAds.set(c.id, [...(byCampaignAds.get(c.id) ?? []), item.adId]);
           if (item.pieceId) byPieceAds.set(item.pieceId, [...(byPieceAds.get(item.pieceId) ?? []), item.adId]);
         }
       }
     });
     const adIds = [...new Set([...byCampaignAds.values()].flat())];
-    if (adIds.length === 0) return { ok: true, byCampaign: {}, byPiece: {}, fetchedAt: null };
+    if (adIds.length === 0) return { ok: true, byCampaign: {}, byPiece: {}, fetchedAt: null, unsynced: [] };
 
-    const since = bangkokSince(days);
+    // which accounts the nightly read covers; a list that cannot be read names none, rather than hiding the figures
+    const [synced, manage] = await Promise.all([
+      adAccounts().catch((e) => { console.error("campaignResults: synced accounts unreadable:", e); return null; }),
+      adManageAccounts().catch(() => [] as AdAccount[]),
+    ]);
+    const unsynced = synced === null ? [] : [...sentFrom]
+      .filter((actId) => !synced.some((a) => a.id === actId))
+      .map((actId) => ({ actId, name: manage.find((a) => a.id === actId)?.name ?? actId }));
+
+    const since = bangkokSince(parseDays(days));
     const rows: (DailyRow & { fetched_at: string })[] = [];
     for (let i = 0; i < adIds.length; i += 100) {
       // PostgREST answers at most 1000 rows a request: page until a short page comes back
@@ -1074,6 +1090,7 @@ export async function campaignResults(
       byCampaign: Object.fromEntries(sumResults(rows, byCampaignAds)),
       byPiece: Object.fromEntries(sumResults(rows, byPieceAds)),
       fetchedAt,
+      unsynced,
     };
   } catch (e) {
     console.error("campaignResults failed:", e);

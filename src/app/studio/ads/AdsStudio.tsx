@@ -2,7 +2,7 @@
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { AdResult } from "@/lib/ads/results";
+import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
 import type { CampaignRow } from "@/lib/ads/campaign-table";
 import { parseCreate, studioHref, withCreate, type CreateMode } from "@/lib/ads/manager-view";
 import { liveCount } from "@/lib/ads/campaign-view";
@@ -39,6 +39,8 @@ export type StudioView =
     results: Record<string, AdResult>;
     resultsError: string | null;
     fetchedAt: string | null;
+    /** ad accounts the sends used whose results are not fetched */
+    unsynced: UnsyncedAccount[];
   }
   /** the ads tab: the open campaign's room, the ad named in the address, and its sent ads' results */
   | { kind: "room"; room: Room; productName: string; people: PersonOption[]; adAsked: string | null; results: RoomResults }
@@ -176,7 +178,7 @@ export function AdsStudio({ home, view, openId, days, contact, drawerPeople, rul
           {view.kind === "campaigns" ? (
             <div className="mt-4">
               <CampaignTable
-                rows={view.rows} results={view.results} resultsError={view.resultsError} fetchedAt={view.fetchedAt}
+                rows={view.rows} results={view.results} resultsError={view.resultsError} fetchedAt={view.fetchedAt} unsynced={view.unsynced}
                 pageId={page.pageId} pageName={page.pageName} openId={openId}
                 open={(id) => href({ tab: "ads", campaign: id })}
               />
