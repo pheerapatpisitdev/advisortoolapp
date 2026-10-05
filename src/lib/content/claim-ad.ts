@@ -161,5 +161,5 @@ export function claimAdPoster(ad: ClaimAd, facts: ClaimFacts, lang: Lang): Poste
     { kind: "footer", text: footer || "Message us about claims" },
   ];
   const theme = THEMES.includes(r.theme as never) && r.theme !== "photo" ? r.theme : "navy";
-  return parsePoster({ layout: "top", theme, blocks })!;
+  return parsePoster({ layout: "top", theme, blocks, lang: "en" })!;
 }

@@ -91,6 +91,11 @@ describe("claimAdPoster", () => {
     expect(en.blocks.find((b) => b.kind === "headline")?.text).toBe("Three nights, paid");
   });
 
+  it("marks the English poster lang en, and not the Thai one", () => {
+    expect(claimAdPoster(ad(), facts, "en").lang).toBe("en");
+    expect(claimAdPoster(ad(), facts, "th").lang).toBeUndefined();
+  });
+
   it("has no sub block without an amount", () => {
     expect(sub(claimAdPoster(ad(), { ...facts, paid: "" }, "th"))).toBeUndefined();
     expect(sub(claimAdPoster(ad(), { ...facts, paid: "" }, "en"))).toBeUndefined();
