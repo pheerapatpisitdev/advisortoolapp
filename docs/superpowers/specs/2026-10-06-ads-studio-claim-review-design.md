@@ -25,7 +25,7 @@ approved in chat ("ok ไปต่อ", "ทำอะไรต่อ").
    The age/sex/row pickers show only when the table is on.
 2. **อ่านใบเคลม** takes one `ai-claim` round and uses the existing `readClaim`. The drawer then shows:
    - the facts (bill, paid, self-paid, nights, illness, sex and age band);
-   - the papers with the AI stickers burnt in (`burn`); the owner may add stickers.
+   - the papers with the AI stickers burnt in (`burn`); more stickers are added at ตรวจแล้ว in the ad editor, which every claim ad must pass before a send.
    If the facts are too thin (`tooThin`), the round stops with the existing message. The read is
    held only in the drawer's state; closing the drawer drops it.
 3. **สร้าง** takes one `ai-claim` round. The server:
