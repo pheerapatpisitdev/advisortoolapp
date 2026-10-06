@@ -90,10 +90,9 @@ describe("lifeProtectQuoteText", () => {
   it("breaks the headline into the plan and its rider when one is quoted", () => {
     const text = lifeProtectQuoteText({
       sumAssured: 1_000_000, termLabel: "จ่ายถึงอายุ 99", age: 35, sex: "M", modes, death, cash: [],
-      rider: {
-        name: "สัญญาเพิ่มเติมพีบี ฟิต",
+      parts: {
         base: { mode: "monthly", total: 71_600, belowMinimum: false },
-        own: { mode: "monthly", total: 83_200, belowMinimum: false },
+        riders: [{ name: "สัญญาเพิ่มเติมพีบี ฟิต", own: { mode: "monthly", total: 83_200, belowMinimum: false } }],
       },
     });
     expect(text).toContain([
@@ -101,6 +100,24 @@ describe("lifeProtectQuoteText", () => {
       "- สัญญาหลัก 716 บาท/เดือน",
       "- สัญญาเพิ่มเติมพีบี ฟิต 832 บาท/เดือน",
       "รายเดือน 1,548 บาท",
+    ].join("\n"));
+  });
+
+  it("lists every rider in the headline, one a line under the plan's own share", () => {
+    const text = lifeProtectQuoteText({
+      sumAssured: 1_000_000, termLabel: "จ่ายถึงอายุ 99", age: 35, sex: "M", modes, death, cash: [],
+      parts: {
+        base: { mode: "monthly", total: 71_600, belowMinimum: false },
+        riders: [
+          { name: "สัญญาเพิ่มเติมพีบี ฟิต", own: { mode: "monthly", total: 33_200, belowMinimum: false } },
+          { name: "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB) แผน 1,000", own: { mode: "monthly", total: 50_000, belowMinimum: false } },
+        ],
+      },
+    });
+    expect(text).toContain([
+      "- สัญญาหลัก 716 บาท/เดือน",
+      "- สัญญาเพิ่มเติมพีบี ฟิต 332 บาท/เดือน",
+      "- สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB) แผน 1,000 500 บาท/เดือน",
     ].join("\n"));
   });
 

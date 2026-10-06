@@ -3,7 +3,7 @@ import { quote } from "@/calc/quote";
 import { getPlan } from "@/calc/plans/registry";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import {
-  lifeProtectModes, pickedRider, riderModes, termAt, totalModes,
+  addModes, lifeProtectModes, medicalModes, medicalPlansAt, pickedRider, riderModes, termAt, totalModes,
 } from "@/lib/lifeprotect-quote";
 import type { PayMode, Sex } from "@/calc/types";
 
@@ -179,5 +179,55 @@ describe("riderModes", () => {
     expect(pickedRider(table, { code: "PB", option: "NOPE" })).toBeUndefined();
     expect(pickedRider(table, { code: "AP", option: "FIT" })).toBeUndefined();
     expect(pickedRider(table, undefined)).toBeUndefined();
+  });
+});
+
+describe("the medical rider", () => {
+  const medical = table.medical!;
+
+  it("is MEB, sold 6 - 65 with the plans capped by age as the rules cap them", () => {
+    expect([medical.code, medical.name, medical.ageMin, medical.ageMax])
+      .toEqual(["MEB", "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)", 6, 65]);
+    expect(medicalPlansAt(table, medical, 5)).toEqual([]);
+    expect(medicalPlansAt(table, medical, 8)).toEqual([500]);
+    expect(medicalPlansAt(table, medical, 14)).toEqual([500, 1000]);
+    expect(medicalPlansAt(table, medical, 35)).toEqual([500, 1000, 2000, 3000, 4000, 5000]);
+    expect(medicalPlansAt(table, medical, 66)).toEqual([]);
+  });
+
+  /** MEB stacks with either waiver, and the page adds the three up as the engine does. */
+  it("agrees with the engine alone and beside a waiver, in every mode", () => {
+    const next = rng(20261007);
+    const pick = <T,>(xs: readonly T[]) => xs[Math.floor(next() * xs.length)];
+    for (let i = 0; i < 200; i++) {
+      const term = pick(table.terms);
+      const sex = pick(["M", "F"] as const);
+      const age = 20 + Math.floor(next() * 46);
+      const plan = pick(medicalPlansAt(table, medical, age));
+      const sumAssured = pick(SUMS);
+      const who = { sex, age, sumAssured };
+      const base = lifeProtectModes(table, term, who)!;
+      const wp = pickedRider(table, { code: "WP", option: pick(["FIT", "BEYOND"]) })!;
+      const waiver = riderModes(table, term, who, wp, base.find((m) => m.mode === "annual")!.total)!;
+      const meb = medicalModes(table, medical, age, plan)!;
+      const totals = totalModes(table, base, addModes(waiver, meb));
+      for (const mode of MODES) {
+        const q = quote({
+          planCode: "LIFEPROTECT", variant: term.variant, age, sex, mode, sumAssured,
+          riders: [{ code: "WP", option: wp.option.code }, { code: "MEB", plan }],
+        }, WHILE_CURRENT);
+        const label = `MEB ${plan} + WP ${wp.option.code} ${term.variant} ${sex} ${age} ${sumAssured} ${mode}`;
+        const row = q.items.find((it) => it.code === "MEB")!;
+        expect(row.eligible, `${label} — ${row.message}`).toBe(true);
+        expect(row.modal, label).toBe(meb.find((m) => m.mode === mode)!.total);
+        expect(q.totalModal, label).toBe(totals.find((m) => m.mode === mode)!.total);
+      }
+    }
+  });
+
+  it("will not quote a plan the age may not buy", () => {
+    expect(medicalModes(table, medical, 14, 2000)).toBeUndefined();
+    expect(medicalModes(table, medical, 5, 500)).toBeUndefined();
+    expect(medicalModes(table, medical, 14, 1000)).toBeDefined();
   });
 });

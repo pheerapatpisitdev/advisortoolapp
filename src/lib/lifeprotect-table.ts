@@ -1,7 +1,8 @@
 import { hasExpired } from "@/calc/calendar";
 import { getPlan } from "@/calc/plans/registry";
 import { baseRate } from "@/calc/lookup";
-import { baseAgeRange } from "@/calc/rules";
+import { baseAgeRange, riderAvailability } from "@/calc/rules";
+import { fixedPremiumByAgePlan } from "@/calc/lookup";
 import { PARENT_MAX_INSURED_AGE, premiumBasedRate } from "@/calc/riders/premium-based";
 import { waiverBenefit } from "@/calc/riders/waivers";
 import { cashValueSchedule, maturityValue } from "@/calc/cash-value";
@@ -91,6 +92,25 @@ export interface LifeProtectRider {
   options: LifeProtectRiderOption[];
 }
 
+/**
+ * The medical-expense rider, sold in fixed plans at a yearly premium set by age alone. It
+ * stacks with either premium waiver, so the page offers it as a choice of its own.
+ *
+ * The premium is the year's, not the contract's: it is renewed yearly and moves with the
+ * insured's age, unlike the base plan's level premium.
+ */
+export interface LifeProtectMedical {
+  code: string;
+  /** the contract's own name, e.g. "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB)" */
+  name: string;
+  ageMin: number;
+  ageMax: number;
+  /** every plan the rider is written in, smallest first */
+  plans: number[];
+  /** yearly premium in baht, [age - table ageMin][plan index]; null where this age may not buy that plan */
+  premiums: (number | null)[][];
+}
+
 export interface LifeProtectTable {
   planCode: string;
   ageMin: number;
@@ -115,6 +135,8 @@ export interface LifeProtectTable {
    * the page can price without asking a new question.
    */
   riders: LifeProtectRider[];
+  /** the medical-expense rider, when the plan carries it */
+  medical?: LifeProtectMedical;
 }
 
 const PLAN_CODE = "LIFEPROTECT";
@@ -132,6 +154,9 @@ const TERMS: { variant: string; label: string; short: string }[] = [
  * and the company sells them one or the other, which is why the page offers a choice of one.
  */
 const RIDERS = ["PB", "WP"];
+
+/** The medical-expense rider the page offers beside the premium waivers. */
+const MEDICAL = "MEB";
 
 /** Built once per process; `expired` is asked again on every call, as in legacy-table.ts. */
 let cached: Omit<LifeProtectTable, "expired"> | undefined;
@@ -245,6 +270,30 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
     }];
   });
 
+  /**
+   * The plans each age may buy are the engine's own (`riderAvailability`), so a cap by age —
+   * five hundred only up to ten — is read from the rules rather than copied into the page.
+   */
+  const medicalRule = rules.riders[MEDICAL];
+  const medicalRates = rates.riders[MEDICAL];
+  const medical: LifeProtectMedical | undefined = medicalRule && medicalRates?.kind === "fixedByAgePlan"
+    ? {
+        code: MEDICAL,
+        name: medicalRule.name,
+        ageMin: Math.max(ageMin, medicalRule.ageMin),
+        ageMax: Math.min(ageMax, medicalRule.ageMax),
+        plans: medicalRates.plans,
+        premiums: ages.map((age) => {
+          const a = riderAvailability(rules, rates, MEDICAL, { age, baseSumAssured: 0 });
+          return medicalRates.plans.map((plan) => {
+            if (!a.eligible || !a.plans?.includes(plan)) return null;
+            const premium = fixedPremiumByAgePlan(rates, MEDICAL, age, plan);
+            return premium ? premium : null;
+          });
+        }),
+      }
+    : undefined;
+
   cached = {
     planCode: PLAN_CODE,
     ageMin,
@@ -258,6 +307,7 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
     modeFactors: rates.modeFactors,
     terms,
     riders,
+    ...(medical ? { medical } : {}),
   };
   return { ...cached, expired };
 }

@@ -1,9 +1,9 @@
 import type { ModePremium } from "@/calc/mode-premiums";
-import { applyModeFactor, toHundredths } from "@/calc/money";
+import { applyModeFactor, applyModeFactorToFixed, toHundredths } from "@/calc/money";
 import type { DeathBenefit, PayMode, Sex } from "@/calc/types";
 import { premiumBasedAmounts, waivePeriod } from "@/calc/riders/premium-based";
 import type {
-  LifeProtectRider, LifeProtectRiderOption, LifeProtectTable, LifeProtectTerm,
+  LifeProtectMedical, LifeProtectRider, LifeProtectRiderOption, LifeProtectTable, LifeProtectTerm,
 } from "@/lib/lifeprotect-table";
 
 /** The ages the page quotes a surrender value at, besides the end of the contract. */
@@ -110,6 +110,42 @@ export function riderModes(
   return MODES.map((mode) => ({
     mode,
     total: premiumBasedAmounts(rate, baseAnnual, toHundredths(table.modeFactors[mode])).modal,
+    belowMinimum: false,
+  }));
+}
+
+/** The medical plans this age may buy, smallest first; empty outside the rider's ages. */
+export function medicalPlansAt(table: LifeProtectTable, medical: LifeProtectMedical, age: number): number[] {
+  const row = medical.premiums[age - table.ageMin] ?? [];
+  return medical.plans.filter((_, i) => typeof row[i] === "number");
+}
+
+/**
+ * The medical rider's premium this year in every payment mode, worked out the way
+ * fixed-by-plan.ts does: the year's premium, then the mode factor on it.
+ *
+ * Undefined when this age may not buy this plan.
+ */
+export function medicalModes(
+  table: LifeProtectTable, medical: LifeProtectMedical, age: number, plan: number,
+): ModePremium[] | undefined {
+  const premium = medical.premiums[age - table.ageMin]?.[medical.plans.indexOf(plan)];
+  if (premium === null || premium === undefined) return undefined;
+  const annual = toHundredths(premium);
+  return MODES.map((mode) => ({
+    mode,
+    total: applyModeFactorToFixed(annual, toHundredths(table.modeFactors[mode])),
+    belowMinimum: false,
+  }));
+}
+
+/** Instalments added up mode by mode; what is missing adds nothing. */
+export function addModes(...parts: (ModePremium[] | undefined)[]): ModePremium[] | undefined {
+  const present = parts.filter((p): p is ModePremium[] => p !== undefined);
+  if (present.length === 0) return undefined;
+  return MODES.map((mode) => ({
+    mode,
+    total: present.reduce((sum, p) => sum + (p.find((m) => m.mode === mode)?.total ?? 0), 0),
     belowMinimum: false,
   }));
 }

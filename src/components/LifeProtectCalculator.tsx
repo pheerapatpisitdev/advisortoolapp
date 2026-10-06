@@ -7,7 +7,7 @@ import { formatBaht } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import type { LifeProtectRider, LifeProtectTable } from "@/lib/lifeprotect-table";
 import {
-  cashAt, deathBenefitOf, lifeProtectModes, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
+  addModes, cashAt, deathBenefitOf, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
   riderWaiveYears, termAt, totalModes, type Payer, type RiderPick,
 } from "@/lib/lifeprotect-quote";
 import { cashProjection } from "@/lib/cash-projection";
@@ -145,6 +145,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const [pick, setPick] = useState<RiderPick | null>(null);
   /** the parent paying for a child, asked only when a child's rider is priced off them */
   const [payer, setPayer] = useState<Payer>(PAYER_START);
+  /** the medical plan quoted beside the plan, or none; it stacks with either waiver */
+  const [medicalPlan, setMedicalPlan] = useState<number | null>(null);
 
   const term = termAt(table, variant);
   // the picker only offers ages the plan takes, so a number here is always one of them
@@ -171,17 +173,38 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     : undefined;
 
   /**
-   * What the customer actually pays, plan and rider together. The instalment is settled on
+   * The medical rider's plans are capped by age, so a plan picked at one age may be more than
+   * the next age may buy. It walks down to the largest the age may have rather than dropping
+   * out, and moving the age back restores the plan that was picked.
+   */
+  const medical = table.medical;
+  const medicalPlans = medical && ageNum !== undefined ? medicalPlansAt(table, medical, ageNum) : [];
+  const medicalAt = medicalPlan === null ? undefined : [...medicalPlans].reverse().find((p) => p <= medicalPlan);
+  const medicalPrice = medical && ageNum !== undefined && medicalAt !== undefined && !table.expired
+    ? medicalModes(table, medical, ageNum, medicalAt)
+    : undefined;
+  const medicalName = medical && medicalAt !== undefined
+    ? `${medical.name} แผน ${medicalAt.toLocaleString("en-US")}`
+    : undefined;
+
+  /**
+   * What the customer actually pays, plan and riders together. The instalment is settled on
    * this rather than on the plan alone, because the company's monthly floor is a floor on
    * the whole premium — a plan just under it becomes payable monthly once a rider is added.
    */
-  const paid = modes ? totalModes(table, modes, riderPrice) : undefined;
+  const paid = modes ? totalModes(table, modes, addModes(riderPrice, medicalPrice)) : undefined;
   const headline = displayPremium(paid, table.expired);
   const paidAnnual = paid?.find((m) => m.mode === "annual");
   // the figure in the largest type stays the plan's own price; what the rider adds and the
   // two together are spelled out under it
   const basePart = headline && modes ? modes.find((m) => m.mode === headline.mode) : undefined;
   const riderPart = headline && riderPrice ? riderPrice.find((m) => m.mode === headline.mode) : undefined;
+  const medicalPart = headline && medicalPrice ? medicalPrice.find((m) => m.mode === headline.mode) : undefined;
+  /** each rider's share of the headline, one line apiece under the plan's own price */
+  const riderLines = [
+    ...(picked && riderPart ? [{ name: picked.option.name, own: riderPart }] : []),
+    ...(medicalName && medicalPart ? [{ name: medicalName, own: medicalPart }] : []),
+  ];
   // smallest instalment upward, so the block under the headline reads day, half-year, year
   const others = (paid ?? [])
     .filter((m) => m.mode !== headline?.mode && !m.belowMinimum)
@@ -220,8 +243,11 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const quoteText = who && headline && death
     ? lifeProtectQuoteText({
       sumAssured, termLabel: term.label, age: who.age, sex, modes: [headline, ...others], death, cash,
-      rider: picked && riderPart && basePart
-        ? { name: picked.option.name + payerWords, base: basePart, own: riderPart }
+      parts: basePart && riderLines.length > 0
+        ? {
+            base: basePart,
+            riders: riderLines.map((l, i) => (i === 0 && picked && riderPart ? { ...l, name: l.name + payerWords } : l)),
+          }
         : undefined,
     })
     : undefined;
@@ -241,7 +267,10 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     // a rider is priced off the plan's premium and off the term's own paying years, so a
     // button that quoted the plan alone would not be the two terms' prices side by side
     const withRider = picked ? riderModes(table, other, who, picked, yearly.total, payerFor) : undefined;
-    const total = yearly.total + (withRider?.find((m) => m.mode === "annual")?.total ?? 0);
+    // the medical premium is the same on every term, but leaving it off would make the
+    // button disagree with the total under it
+    const total = yearly.total + (withRider?.find((m) => m.mode === "annual")?.total ?? 0)
+      + (medicalPrice?.find((m) => m.mode === "annual")?.total ?? 0);
     return `${formatBaht(total)}${PER.annual}`;
   };
 
@@ -483,6 +512,44 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
             )}
           </div>
         )}
+
+        {medical && (
+          <div>
+            <span className="block text-sm text-[var(--lg-mute)]">ค่ารักษาพยาบาล (MEB) · เลือกแผน</span>
+            <div className="mt-1.5 grid grid-cols-4 gap-2">
+              {[null, ...medical.plans].map((p) => {
+                const on = p === null ? medicalPlan === null : medicalAt === p;
+                const offered = p === null || medicalPlans.includes(p);
+                return (
+                  <button
+                    key={p ?? "none"} type="button" disabled={!offered} aria-pressed={on}
+                    onClick={() => setMedicalPlan(p)}
+                    className={`rounded-sm border px-1 py-2.5 text-center text-sm tabular-nums transition-colors ${
+                      on ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                    }${offered ? "" : " opacity-40"}`}
+                  >
+                    {p === null ? "ไม่เอา" : p.toLocaleString("en-US")}
+                  </button>
+                );
+              })}
+            </div>
+            {medicalPlan !== null && medicalAt === undefined && (
+              <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
+                MEB รับอายุ {medical.ageMin} - {medical.ageMax} ปี · อายุนี้จึงยังไม่ได้รวมอยู่ในราคา
+              </p>
+            )}
+            {medicalAt !== undefined && medicalAt !== medicalPlan && (
+              <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
+                อายุนี้ซื้อได้สูงสุดแผน {medicalAt.toLocaleString("en-US")}
+              </p>
+            )}
+            {medicalAt !== undefined && (
+              <p className="mt-1.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
+                เบี้ย MEB เป็นเบี้ยปีนี้ ต่ออายุปีต่อปีและปรับตามอายุ
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {!inRange || !modes ? (
@@ -505,18 +572,22 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                   Muted labels with the figures in white on the display face: an agent
                   reading a yearly premium off the screen should not have to lean in.
                   With a rider they belong under the total instead, which is what is paid. */}
-              {riderPart && picked ? (
+              {riderLines.length > 0 ? (
                 <div className="mt-3 border-t border-[var(--lg-panel-line)] pt-3">
                   {/* the contract's full name is long enough to wrap on a phone; the figure
                       beside it never should, so it keeps the width it needs and the name takes
                       what is left */}
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 text-sm text-[var(--lg-mute)]">{picked.option.name}{payerWords}</span>
-                    <span className="lg-figure shrink-0 whitespace-nowrap tabular-nums text-[var(--lg-white)]">
-                      +{formatBaht(riderPart.total)}
-                      <span className="ml-1 text-sm text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
-                    </span>
-                  </div>
+                  {riderLines.map((l, i) => (
+                    <div key={l.name} className={`flex items-baseline justify-between gap-3${i > 0 ? " mt-1.5" : ""}`}>
+                      <span className="min-w-0 text-sm text-[var(--lg-mute)]">
+                        {l.name}{i === 0 && picked && riderPart ? payerWords : ""}
+                      </span>
+                      <span className="lg-figure shrink-0 whitespace-nowrap tabular-nums text-[var(--lg-white)]">
+                        +{formatBaht(l.own.total)}
+                        <span className="ml-1 text-sm text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
+                      </span>
+                    </div>
+                  ))}
                   <div className="mt-2 flex items-baseline justify-between gap-3">
                     <span className="text-sm text-[var(--lg-gold)]">รวมทั้งหมด</span>
                     <span className="lg-figure shrink-0 whitespace-nowrap text-xl tabular-nums">
@@ -525,11 +596,13 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                     </span>
                   </div>
                   <div className="mt-2.5">{instalments}</div>
-                  {/* neither of these contracts pays a baht to the family; they carry on
-                      paying the premium. Said here so the block below is not read as theirs */}
-                  <p className="mt-2.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
-                    สัญญาเพิ่มเติมนี้ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ
-                  </p>
+                  {/* neither waiver pays a baht to the family; they carry on paying the
+                      premium. Said here so the block below is not read as theirs */}
+                  {picked && riderPart && (
+                    <p className="mt-2.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
+                      {riderWords(picked.rider.name).short}ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="mt-2.5">{instalments}</div>
@@ -599,7 +672,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           )}
 
           <p className="border-t border-[var(--lg-panel-line)] pt-4 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
-            เบี้ยคงที่ตลอดระยะเวลาชำระ · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน
+            {medicalPart ? "เบี้ยสัญญาหลักคงที่ตลอดระยะเวลาชำระ · เบี้ย MEB ปรับตามอายุทุกปีที่ต่อสัญญา" : "เบี้ยคงที่ตลอดระยะเวลาชำระ"}
+            {" "}· เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน
           </p>
         </div>
       )}

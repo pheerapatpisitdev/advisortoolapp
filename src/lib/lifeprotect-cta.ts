@@ -51,11 +51,11 @@ export interface LifeProtectQuoteFacts {
   /** every instalment the company will take, headline first; the whole of what is paid */
   modes: ModePremium[];
   /**
-   * What the headline instalment is made of, when a rider is part of it: the base plan's
-   * share and the rider's own, both in the headline's mode. The total above is the figure
+   * What the headline instalment is made of, when riders are part of it: the base plan's
+   * share and each rider's own, all in the headline's mode. The total above is the figure
    * the customer pays, so the parts go under it rather than in place of it.
    */
-  rider?: { name: string; base: ModePremium; own: ModePremium };
+  parts?: { base: ModePremium; riders: { name: string; own: ModePremium }[] };
   death: DeathBenefit;
   cash: CashRow[];
 }
@@ -83,10 +83,10 @@ export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
     `💰 เบี้ยประมาณ ${formatBaht(headline.total)} บาท${PER[headline.mode]}` + (annual ? ` (ตกวันละ ${perDayText(annual.total)} บาท)` : ""),
     // the parts of that figure, so a customer reading a bigger number than the plan's own
     // price can see at once what the rest of it buys
-    ...(f.rider
+    ...(f.parts && f.parts.riders.length > 0
       ? [
-        `- สัญญาหลัก ${formatBaht(f.rider.base.total)} บาท${PER[f.rider.base.mode]}`,
-        `- ${f.rider.name} ${formatBaht(f.rider.own.total)} บาท${PER[f.rider.own.mode]}`,
+        `- สัญญาหลัก ${formatBaht(f.parts.base.total)} บาท${PER[f.parts.base.mode]}`,
+        ...f.parts.riders.map((r) => `- ${r.name} ${formatBaht(r.own.total)} บาท${PER[r.own.mode]}`),
       ]
       : []),
     // one instalment a line, smallest first, whichever the card headlines
@@ -122,7 +122,7 @@ export function lifeProtectCashText(cash: CashRow[]): string | undefined {
  * this. The wording is the owner's, kept as written — including the price claim and the tax
  * line, which were raised with them and kept. Every figure still comes from the rate table.
  */
-export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "rider"> & { coverToAge: number }): string {
+export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts"> & { coverToAge: number }): string {
   const [headline] = f.modes;
   const annual = f.modes.find((m) => m.mode === "annual");
   const baht = (n: number) => n.toLocaleString("en-US");
