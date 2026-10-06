@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_SUMS, lifeProtectSumNear, planInitialFromTable } from "@/lib/quote-pdf/pages";
 
 const offer = { sums: [500_000, 1_000_000], variants: ["A", "B"], ageMin: 20, ageMax: 59 };
 const q = (s: string) => new URLSearchParams(s);
@@ -23,5 +23,25 @@ describe("planInitialFromTable", () => {
     ["repeated key", `${good}&age=41`],
   ])("rejects %s", (_n, query) => {
     expect(planInitialFromTable(q(query), offer)).toBeUndefined();
+  });
+});
+
+describe("Life Protect's sums", () => {
+  it("run every fifty thousand from half a million to fifty million", () => {
+    expect(LIFEPROTECT_SUMS[0]).toBe(500_000);
+    expect(LIFEPROTECT_SUMS.at(-1)).toBe(50_000_000);
+    expect(LIFEPROTECT_SUMS).toContain(750_000);
+    expect(LIFEPROTECT_SUMS.every((s, i) => i === 0 || s - LIFEPROTECT_SUMS[i - 1] === 50_000)).toBe(true);
+  });
+
+  it.each([
+    [750_000, 750_000],
+    [760_000, 750_000],
+    [775_000, 800_000],
+    [120_000, 500_000],
+    [0, 500_000],
+    [99_000_000, 50_000_000],
+  ])("a typed %i lands on %i", (typed, sum) => {
+    expect(lifeProtectSumNear(typed)).toBe(sum);
   });
 });

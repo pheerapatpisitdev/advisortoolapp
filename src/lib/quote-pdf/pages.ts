@@ -12,14 +12,20 @@ export type PlanPage = "lifeprotect" | "easyprotect" | "ishield" | "lifetreasure
 export type PdfPage = PlanPage | "ihealthy-ultra";
 
 /**
- * The sums the slider offers: every half million up to ten, then every million up to fifty.
- * One step the whole way would be a hundred stops on a thumb-wide track; the coarser upper
- * half keeps the slider usable where the extra half-millions matter least.
+ * The sums the page offers: every fifty thousand from half a million to fifty million (owner,
+ * 2026-10-06 — a customer asked for 750,000). Too many stops for a thumb to land on exactly, so
+ * the slider goes near and the typed field beside it lands on the sum itself.
  */
-export const LIFEPROTECT_SUMS = [
-  ...Array.from({ length: 20 }, (_, i) => 500_000 * (i + 1)),
-  ...Array.from({ length: 40 }, (_, i) => 11_000_000 + 1_000_000 * i),
-];
+const LIFEPROTECT_STEP = 50_000;
+export const LIFEPROTECT_SUMS = Array.from({ length: 991 }, (_, i) => 500_000 + LIFEPROTECT_STEP * i);
+
+/** A typed sum moved onto the nearest step the page offers. */
+export function lifeProtectSumNear(typed: number): number {
+  const first = LIFEPROTECT_SUMS[0];
+  const last = LIFEPROTECT_SUMS[LIFEPROTECT_SUMS.length - 1];
+  const stepped = Math.round(typed / LIFEPROTECT_STEP) * LIFEPROTECT_STEP;
+  return Math.min(last, Math.max(first, stepped));
+}
 
 /**
  * The sums the slider offers: every hundred thousand from the plan's five-hundred-thousand

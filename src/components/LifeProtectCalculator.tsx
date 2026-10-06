@@ -20,7 +20,7 @@ import {
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
-import { LIFEPROTECT_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_SUMS, lifeProtectSumNear, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
@@ -105,6 +105,13 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   );
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
   const sumAssured = LIFEPROTECT_SUMS[sumIndex];
+  // the sum as it is being typed; null once it has landed on a step
+  const [sumTyped, setSumTyped] = useState<string | null>(null);
+  const settleSum = () => {
+    const digits = sumTyped?.replace(/\D/g, "") ?? "";
+    if (digits !== "") setSumIndex(LIFEPROTECT_SUMS.indexOf(lifeProtectSumNear(Number(digits))));
+    setSumTyped(null);
+  };
   const [variant, setVariant] = useState(TERM_START);
   const [age, setAge] = useState<LifeProtectAge>(AGE_START);
   const [sex, setSex] = useState<Sex>("M");
@@ -330,13 +337,29 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     <div className="space-y-6">
       <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
         <div>
-          <label htmlFor="lp-sum" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
-          <div className="lg-figure mt-1.5 text-3xl tabular-nums">
-            <span className="lg-metal-text">{sumAssured.toLocaleString("en-US")}</span>{" "}
+          <label htmlFor="lp-sum-typed" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
+          {/* the figure itself is the field: the slider goes near, typing lands on the exact sum */}
+          <div className="lg-figure mt-1.5 flex items-baseline gap-2 text-3xl tabular-nums">
+            <input
+              id="lp-sum-typed" type="text" inputMode="numeric" autoComplete="off"
+              value={sumTyped ?? sumAssured.toLocaleString("en-US")}
+              // a tap starts a fresh number (a click's mouseup undoes select(), so typing would
+              // land after the old digits); leaving it empty puts the old sum back
+              placeholder={sumAssured.toLocaleString("en-US")}
+              onFocus={() => setSumTyped("")}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                setSumTyped(digits === "" ? "" : Number(digits).toLocaleString("en-US"));
+              }}
+              onBlur={settleSum}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              className="lg-metal-text w-[11ch] border-b border-dashed border-[var(--lg-hair)] bg-transparent outline-none focus:border-[var(--lg-gold)]"
+            />
             <span className="text-lg text-[var(--lg-mute)]">บาท</span>
           </div>
+          <p className="mt-1 text-xs text-[var(--lg-mute)] opacity-70">แตะตัวเลขเพื่อพิมพ์ทุน · ขั้นละ 50,000</p>
           <input
-            id="lp-sum" type="range" min={0} max={LIFEPROTECT_SUMS.length - 1} step={1} value={sumIndex}
+            id="lp-sum" aria-label="ทุนประกัน" type="range" min={0} max={LIFEPROTECT_SUMS.length - 1} step={1} value={sumIndex}
             onChange={(e) => setSumIndex(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--lg-gold)]"
           />
