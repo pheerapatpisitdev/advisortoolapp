@@ -1,6 +1,6 @@
 /**
  * What sent ads have done, summed from ins_ad_daily rows (Ads Studio desktop, 2026-10-05).
- * Pure: the server door that reads the rows is campaignResults in app/studio/ads/actions.ts.
+ * Pure: the server door that reads the rows is boardAction in app/studio/ads/run-actions.ts.
  */
 
 export interface AdResult {

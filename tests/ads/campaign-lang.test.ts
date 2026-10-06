@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { campaignLang } from "@/lib/ads/campaign-lang";
 import { EXPAT_PAGES } from "@/lib/assistant/expat";
 import { contactBlock } from "@/lib/ads/page-contact";
-import { ctaLabel } from "@/lib/ads/ads-list";
 import { EXPAT_NICHES, NICHES, readerFor } from "@/lib/content/prompt";
 
 /**
@@ -38,21 +37,6 @@ describe("an English ad's contacts and button", () => {
     expect(contactBlock(c, "en")).toBe("👉 Phet\n📲 Line: @expatphet\n👉 Inbox: https://m.me/112110731809903");
     expect(contactBlock(null, "en")).toBe("Message us");
     expect(contactBlock(null)).toBe("ทักแชทได้เลย");
-  });
-
-  it("says Send message under an English ad not sent or sent for messages", () => {
-    expect(ctaLabel(null, "en")).toBe("Send message");
-    expect(ctaLabel({ objective: "messages", cta: null }, "en")).toBe("Send message");
-    expect(ctaLabel({ objective: "traffic", cta: null }, "en")).toBe("Learn more");
-    expect(ctaLabel(null)).toBe("ส่งข้อความ");
-  });
-
-  it("words a lead form's button in English", () => {
-    expect(ctaLabel({ objective: "leads", cta: "GET_QUOTE" }, "en")).toBe("Get quote");
-    expect(ctaLabel({ objective: "leads", cta: "SIGN_UP" }, "en")).toBe("Sign up");
-    expect(ctaLabel({ objective: "leads", cta: "LEARN_MORE" }, "en")).toBe("Learn more");
-    expect(ctaLabel({ objective: "leads", cta: null }, "en")).toBe("Learn more");
-    expect(ctaLabel({ objective: "leads", cta: "GET_QUOTE" })).toBe("รับใบเสนอราคา");
   });
 });
 

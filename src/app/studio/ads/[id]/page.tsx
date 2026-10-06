@@ -3,9 +3,8 @@ import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
-/** Where a campaign's room was before Ads Studio became one page (owner, 2026-10-04): an old link opens the campaign there. */
-export default async function OldCampaignRoom({ params }: { params: Promise<{ id: string }> }) {
+/** Where a campaign's room was (2026-10-04): Ads Studio has no campaigns since 2026-10-07, so an old link opens it. */
+export default async function OldCampaignRoom() {
   await gatePage("/studio/ads", "owner");
-  const { id } = await params;
-  redirect(`/studio/ads?campaign=${encodeURIComponent(id)}`);
+  redirect("/studio/ads");
 }

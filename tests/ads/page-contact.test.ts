@@ -27,7 +27,6 @@ vi.mock("@/lib/auth/pages", () => ({ myPages: async () => [{ pageId: "mine" }] }
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const { cleanContact, contactBlock, getPageContact, savePageContact } = await import("@/lib/ads/page-contact");
-const { pageContact, updatePageContact } = await import("@/app/studio/ads/actions");
 
 const none = { agentName: null, lineId: null, inboxUrl: null };
 beforeEach(() => { calls.length = 0; one = null; audits.length = 0; });
@@ -86,28 +85,6 @@ describe("the store", () => {
     await savePageContact("p1", { ...none, lineId: "paui" });
     expect(calls[0].op).toBe("upsert");
     expect(calls[0].payload).toMatchObject({ page_id: "p1", line_id: "paui", agent_name: null });
-  });
-});
-
-describe("the actions", () => {
-  it("refuse a Page that is not the owner's and write nothing", async () => {
-    expect(await updatePageContact("other", { lineId: "x" })).toEqual({ ok: false, error: "เพจนี้ยังไม่ได้เชื่อมกับระบบ" });
-    expect(await pageContact("other")).toEqual({ ok: false, error: "เพจนี้ยังไม่ได้เชื่อมกับระบบ" });
-    expect(calls).toEqual([]);
-  });
-  it("refuse a bad inbox without writing", async () => {
-    expect((await updatePageContact("mine", { inboxUrl: "http://x" })).ok).toBe(false);
-    expect(calls).toEqual([]);
-    expect(audits).toEqual([]);
-  });
-  it("save and read back for the owner's Page; an empty form clears", async () => {
-    expect(await updatePageContact("mine", { lineId: "@ab c" })).toEqual({ ok: true });
-    expect(calls[0].payload).toMatchObject({ line_id: "abc" });
-    expect(audits).toEqual([["ads-page-contact", "mine", { agentName: null, lineId: "abc", inboxUrl: null }]]);
-    calls.length = 0;
-    expect(await updatePageContact("mine", {})).toEqual({ ok: true });
-    expect(calls[0].op).toBe("delete");
-    expect(await pageContact("mine")).toEqual({ ok: true, contact: null });
   });
 });
 

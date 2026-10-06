@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { adKind, adSub, kindChip } from "@/lib/ads/ad-kind";
-import { rowChips } from "@/lib/ads/ads-list";
-import { picturePending, toDraw } from "@/lib/ads/room-view";
 import { assembleNumbersAd, assembleShortAd, numbersOpeningMessages, parseOpening, parseShortAd, shortAdMessages, type ShortAd } from "@/lib/content/ad-kinds";
 import { briefWithoutPremiums } from "@/lib/content/ads";
 import { briefFor } from "@/lib/content/brief";
@@ -29,14 +27,6 @@ describe("the kind as sent", () => {
     expect(kindChip({ kind: "claim" })).toBe("รีวิวเคลม");
     expect(adKind("claim")).toBe("claim");
     expect(kindChip(null)).toBeNull();
-    expect(rowChips({ sex: "F", age: 30, head: null, kind: "numbers" })).toEqual(["ตัวเลขชัดๆ", "หญิง · อายุ 30"]);
-    expect(rowChips({ sex: "F", age: 30, head: null })).toEqual(["หญิง · อายุ 30"]);
-  });
-
-  it("keeps a ตัวเลขชัดๆ ad off the drawing line: its numbers poster waits for no picture", () => {
-    expect(picturePending({ poster: {}, ad: { kind: "numbers" } })).toBe(false);
-    expect(picturePending({ poster: {}, ad: { kind: "story" } })).toBe(true);
-    expect(toDraw([{ id: "a", output: { ad: { kind: "numbers" } } }, { id: "b", output: { ad: { kind: "story" } } }, { id: "c", output: {} }])).toEqual(["b", "c"]);
   });
 });
 

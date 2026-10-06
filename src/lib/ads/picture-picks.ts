@@ -9,7 +9,7 @@ import { POSES, type PiecePerson } from "@/lib/content/people";
  *
  * What is stored is null for อัตโนมัติ / nobody / no brief. Only ids from the lists are kept: a
  * model name from the browser is never passed on. ไม่วาดภาพ is not offered — an ad written to a
- * picture style is not sent without its picture (room-view picturePending).
+ * picture style is not sent without its picture.
  *
  * Browser-safe: nothing here imports the AI client or the database.
  */
