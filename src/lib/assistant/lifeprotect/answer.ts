@@ -231,13 +231,12 @@ function sumBehind(
 }
 
 /**
- * The buttons under a quotation: the table, whichever terms this quote did not take, and the
- * way on. Titles are kept under twenty characters, which is all Messenger shows of one.
+ * The buttons under a quotation: whichever terms this quote did not take, and the way on.
+ * Titles are kept under twenty characters, which is all Messenger shows of one. No button for
+ * the table, because every quotation is followed by its pictures already.
  */
-function quoteReplies(table: LifeProtectTable, quoted: string, offerTable = true): string[] {
+function quoteReplies(table: LifeProtectTable, quoted: string): string[] {
   return [
-    // not when the table was just sent with the quote
-    ...(offerTable ? [ASK_FOR_TABLE] : []),
     ...table.terms.filter((t) => QUOTABLE.has(t.variant) && t.variant !== quoted).map((t) => t.label),
     WANTS_IN,
   ];
@@ -246,9 +245,13 @@ function quoteReplies(table: LifeProtectTable, quoted: string, offerTable = true
 /** The words a tapped button sends, which are the words the bot reads. */
 const ASK_FOR_TABLE = "ขอตารางมูลค่า";
 
-/** What the chart-and-table picture is, said over it when it follows a quotation. */
-function tableWords(table: LifeProtectTable): string {
-  return `กราฟและตารางมูลค่าทุกปีให้ดูด้วยครับ — เบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี`
+/**
+ * What the chart-and-table picture is, said over it when it follows a quotation. A couple has
+ * two of them, so each says whose it is.
+ */
+function tableWords(table: LifeProtectTable, whose?: { age: number; sex: "M" | "F" }): string {
+  const owner = whose ? `ของ${whose.sex === "M" ? "ชาย" : "หญิง"} อายุ ${whose.age} ` : "";
+  return `กราฟและตารางมูลค่าทุกปี${owner}ให้ดูด้วยครับ — เบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี`
     + ` ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี`;
 }
 /** Not "เอาแบบลดทุน": ลดทุน is one of the words that mean "too expensive", and the title
@@ -321,20 +324,23 @@ function answerQuote(slots: Routed): Reply {
   // buttons sit under, so it is the one the lead is opened against
   const figures = last >= 0 ? messages[last].figures : undefined;
   /**
-   * One insured gets the chart and the year-by-year table straight after the card, as the
-   * page shows them under its price — the chart moved off the card onto that picture
-   * (owner, 2026-10-06). A couple already has two cards on the screen, so theirs stays a
-   * button away rather than making four pictures of one answer.
+   * Every quotation is followed by the chart and the year-by-year table of the same
+   * arrangement, as the page shows them under its price — the chart moved off the card onto
+   * that picture (owner, 2026-10-06). A couple's two quotations come first, so each reads as
+   * the price it is, and then the two tables, each saying whose it is (owner, 2026-10-06:
+   * "ส่งการ์ดให้ลูกค้า ให้ส่งตารางมูลค่าตามไปด้วย", after a couple was sent cards alone).
    */
-  const withTable = people.length === 1;
+  const couple = people.length > 1;
+  const tables = messages.flatMap(({ card, table: tablePath }, i) =>
+    card && tablePath ? [{ text: tableWords(table, couple ? people[i] : undefined), card: tablePath }] : []);
   return {
-    messages: messages.flatMap(({ text, card, pdfPath, table: tablePath }) => [
-      { text, ...(card ? { card } : {}), ...withPdf(pdfPath) },
-      ...(withTable && card && tablePath ? [{ text: tableWords(table), card: tablePath }] : []),
-    ]),
+    messages: [
+      ...messages.map(({ text, card, pdfPath }) => ({ text, ...(card ? { card } : {}), ...withPdf(pdfPath) })),
+      ...tables,
+    ],
     priced: last >= 0,
     ...(figures ? { quote: figures } : {}),
-    ...(last >= 0 ? { replies: quoteReplies(table, variant, !withTable) } : {}),
+    ...(last >= 0 ? { replies: quoteReplies(table, variant) } : {}),
   };
 }
 
