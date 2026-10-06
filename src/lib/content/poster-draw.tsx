@@ -134,6 +134,55 @@ function Poster({ spec, canvas, photo, logo }: { spec: PosterSpec; canvas: Canva
 /** the words' share of a claim poster's height; the papers take the rest */
 const WORDS_SHARE = 0.44;
 
+/** the least of the room the words keep when the papers are asked to cover a share of the poster */
+const WORDS_MIN_SHARE = 0.28;
+/** beside the papers, the words keep at least this share of the usable width, and the papers take at most the rest */
+const WORDS_MIN_WIDTH_SHARE = 0.36;
+/** a paper at least this tall for its width (width over height) is a phone screenshot: it is laid beside the words */
+const TALL_RATIO = 0.9;
+
+/** How the words and the papers divide a poster, and what share of its area the papers cover. */
+export type PaperPlan =
+  | { side: false; wordsH: number; areaW: number; areaH: number; boxes: PaperBox[]; covered: number }
+  | { side: true; wordsW: number; areaW: number; areaH: number; boxes: PaperBox[]; covered: number };
+
+/**
+ * The poster's division between the words and the papers. Without a `share` it is รีวิวเคลม's
+ * fixed one: the words across the top (WORDS_SHARE), the papers below. With one (โชว์ผลงาน,
+ * owner 2026-10-07: 40% of the poster) the papers' area grows from that split a few pixels at a
+ * time until the papers themselves — not their area — cover `share` of the canvas, or the words
+ * are down to WORDS_MIN_SHARE of the room. Phone screenshots, too tall to reach it that way,
+ * are laid beside the words instead, full height, when that covers more.
+ */
+export function paperPlan(
+  ratios: number[], areaW: number, room: number, gap: number, cardGap: number, frame: number, canvas: Canvas, share?: number, aside = false,
+): PaperPlan {
+  const lay = (w: number, h: number) => {
+    const boxes = paperGrid(ratios, w, h, cardGap, frame);
+    return { boxes, covered: boxes.reduce((sum, b) => sum + b.w * b.h, 0) / (canvas.width * canvas.height) };
+  };
+  let areaH = room - Math.round(room * WORDS_SHARE) - gap;
+  let laid = lay(areaW, areaH);
+  if (share) {
+    const maxAreaH = room - Math.round(room * WORDS_MIN_SHARE) - gap;
+    while (laid.covered < share && areaH < maxAreaH) {
+      areaH = Math.min(maxAreaH, areaH + 8);
+      laid = lay(areaW, areaH);
+    }
+    if (laid.covered < share && !aside && ratios.every((r) => r <= TALL_RATIO)) {
+      const maxW = Math.round(areaW * (1 - WORDS_MIN_WIDTH_SHARE)) - gap;
+      let w = Math.round(areaW * 0.3);
+      let beside = lay(w, room);
+      while (beside.covered < share && w < maxW) {
+        w = Math.min(maxW, w + 8);
+        beside = lay(w, room);
+      }
+      if (beside.covered > laid.covered) return { side: true, wordsW: areaW - w - gap, areaW: w, areaH: room, ...beside };
+    }
+  }
+  return { side: false, wordsH: room - areaH - gap, areaW, areaH, ...laid };
+}
+
 /** Where a paper's card sits in the papers' area: its top-left corner and the paper's own size. */
 export interface PaperBox { left: number; top: number; w: number; h: number }
 
@@ -189,16 +238,17 @@ function DocumentPoster({ spec, canvas, papers, photo, logo }: {
   const c = POSTER_THEMES[spec.theme];
   const m = metrics(canvas, logo ? spec.logo?.spot : null);
   const room = canvas.height - m.padTop - m.padBottom;
-  const wordsH = Math.round(room * WORDS_SHARE);
-  // the words fitted to their share alone: a canvas whose usable height is that share (the
-  // logo's margin is already out of `room`)
-  const scale = fitScale(spec, { width: canvas.width, height: wordsH + 2 * m.padX }, false);
   const frame = Math.round(14 * m.k);
   // a person drawn into the photograph stands in its right third; the papers keep left of them
   const areaW = spec.personAside ? Math.round(m.usableWidth * PAPERS_BESIDE_PERSON) : m.usableWidth;
-  const areaH = room - wordsH - m.gap;
   const shown = papers.slice(0, 3);
-  const boxes = paperGrid(shown.map((p) => p.doc.ratio), areaW, areaH, Math.round(24 * m.k), frame);
+  const plan = paperPlan(shown.map((p) => p.doc.ratio), areaW, room, m.gap, Math.round(24 * m.k), frame, canvas, spec.paperShare, Boolean(spec.personAside));
+  const { boxes } = plan;
+  // the words fitted to their share alone: a canvas whose usable height is that share (the
+  // logo's margin is already out of `room`); beside the papers, a column of their own width
+  const scale = plan.side
+    ? fitScale(spec, { width: canvas.width, height: room + 2 * m.padX }, false, plan.wordsW)
+    : fitScale(spec, { width: canvas.width, height: plan.wordsH + 2 * m.padX }, false);
   const cover = Math.max(canvas.width, canvas.height);
 
   return (
@@ -207,7 +257,7 @@ function DocumentPoster({ spec, canvas, papers, photo, logo }: {
         width: "100%",
         height: "100%",
         display: "flex",
-        flexDirection: "column",
+        flexDirection: plan.side ? "row" : "column",
         padding: `${m.padTop}px ${m.padX}px ${m.padBottom}px`,
         backgroundImage: photo ? `url(${photo})` : `linear-gradient(160deg, ${c.from}, ${c.to})`,
         ...(photo ? { backgroundSize: `${cover}px ${cover}px`, backgroundPosition: "center" } : {}),
@@ -218,10 +268,14 @@ function DocumentPoster({ spec, canvas, papers, photo, logo }: {
       {photo && c.scrim !== null && (
         <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", display: "flex", backgroundImage: posterScrim(spec.theme, "top") }} />
       )}
-      <div style={{ display: "flex", flexDirection: "column", height: wordsH }}>
+      <div
+        style={plan.side
+          ? { display: "flex", flexDirection: "column", justifyContent: "center", width: plan.wordsW, height: room }
+          : { display: "flex", flexDirection: "column", height: plan.wordsH }}
+      >
         {lines(spec, m, scale, true)}
       </div>
-      <div style={{ display: "flex", position: "relative", width: areaW, height: areaH, marginTop: m.gap }}>
+      <div style={{ display: "flex", position: "relative", width: plan.areaW, height: plan.areaH, ...(plan.side ? { marginLeft: m.gap } : { marginTop: m.gap }) }}>
         {shown.map((p, i) => {
           const { left, top, w, h } = boxes[i];
           return (

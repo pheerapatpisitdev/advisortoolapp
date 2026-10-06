@@ -83,9 +83,12 @@ function estimateHeight(p: PosterSpec, m: Metrics, scale: number): number {
 }
 
 /** 1 when the poster fits as designed; otherwise the factor, stepped down, that makes it fit. */
-/** `withLogo`: false where the canvas given is a share of the poster that the logo's margin is already out of */
-export function fitScale(p: PosterSpec, c: Canvas, withLogo = true): number {
-  const m = metrics(c, withLogo ? p.logo?.spot : null);
+/**
+ * `withLogo`: false where the canvas given is a share of the poster that the logo's margin is already out of.
+ * `columnWidth`: the words stand in a column this wide, beside the papers (โชว์ผลงาน), not across the poster.
+ */
+export function fitScale(p: PosterSpec, c: Canvas, withLogo = true, columnWidth?: number): number {
+  const m = { ...metrics(c, withLogo ? p.logo?.spot : null), ...(columnWidth ? { usableWidth: columnWidth } : {}) };
   let scale = 1;
   // stepped rather than solved: shrinking changes how many lines each block wraps to
   for (let i = 0; i < 20 && estimateHeight(p, m, scale) > m.usableHeight; i++) scale *= 0.9;

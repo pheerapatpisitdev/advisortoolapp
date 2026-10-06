@@ -50,6 +50,12 @@ export interface PosterSpec {
    */
   documents?: PosterDocument[];
   /**
+   * โชว์ผลงาน (owner, 2026-10-07): the share of the poster's area the papers should cover, drawn
+   * larger than รีวิวเคลม's fixed layout where the words can spare the room (paperZone). Absent
+   * means the fixed layout.
+   */
+  paperShare?: number;
+  /**
    * รีวิวเคลม with a person from the library in the photograph: they stand in its right third,
    * so the papers keep to the left and leave them in sight.
    */
@@ -92,6 +98,9 @@ function readAiText(v: unknown): AiText | null {
 
 /** papers on one claim poster: more and each is too small to read */
 export const MAX_PAPERS = 3;
+/** the papers' share of a poster's area, as a spec may ask for it */
+export const MIN_PAPER_SHARE = 0.1;
+export const MAX_PAPER_SHARE = 0.6;
 
 export interface PosterDocument {
   path: string;
@@ -212,6 +221,7 @@ export function parsePoster(input: unknown): PosterSpec | null {
     blocks,
     ...(isBackgroundPath(raw.background) ? { background: raw.background } : {}),
     ...documentsOf(raw),
+    ...(typeof raw.paperShare === "number" && raw.paperShare >= MIN_PAPER_SHARE && raw.paperShare <= MAX_PAPER_SHARE ? { paperShare: raw.paperShare } : {}),
     ...(raw.personAside === true ? { personAside: true } : {}),
     ...(toLogo(raw.logo) ? { logo: toLogo(raw.logo)! } : {}),
     ...(readAiText(raw.aiText) ? { aiText: readAiText(raw.aiText)! } : {}),
