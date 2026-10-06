@@ -10,8 +10,22 @@ import { cardVersionFor } from "@/lib/card-theme";
  * needs to write a query string has no business shipping.
  */
 /**
- * What a card can be asked for. It is the quote's own input minus everything a customer
- * never picks in a chat: riders, a payer, the premium basis.
+ * The riders a Life Protect card carries, as its sales page picked them: one premium waiver
+ * (with the parent paying, for a child's พีบี) and a medical plan. Only the page writes them,
+ * and only the ones its price includes; a chat's card never has any.
+ */
+export interface CardRiders {
+  /** the waiver and its flavour, e.g. { code: "PB", option: "FIT" } */
+  waiver?: { code: string; option: string };
+  /** the parent a child's พีบี is priced off */
+  payer?: { sex: Sex; age: number };
+  /** the medical plan, e.g. 1000 */
+  medical?: number;
+}
+
+/**
+ * What a card can be asked for. It is the quote's own input minus what a customer never picks
+ * in a chat: the premium basis, and riders — except the ones the Life Protect page offers.
  */
 export interface PlanCardInput {
   kind: "plan";
@@ -27,6 +41,8 @@ export interface PlanCardInput {
    * link anyway, because what was asked for is worth keeping even though it changes nothing.
    */
   mode?: PayMode;
+  /** Life Protect only: the riders its page priced in */
+  riders?: CardRiders;
 }
 
 /**
@@ -70,6 +86,11 @@ function cardQuery(input: CardInput): string {
       sum: String(input.sumAssured),
     });
   if (input.mode) q.set("mode", input.mode);
+  // after the arrangement and before the fingerprint, the order canonical.ts keeps
+  const riders = input.kind === "plan" ? input.riders : undefined;
+  if (riders?.waiver) q.set("rider", `${riders.waiver.code}.${riders.waiver.option}`);
+  if (riders?.payer) q.set("payer", `${riders.payer.sex}${riders.payer.age}`);
+  if (riders?.medical !== undefined) q.set("meb", String(riders.medical));
   /**
    * The palette's fingerprint, so a re-coloured plan is not served from a cache keyed on an
    * address that did not change. Last, so the readable part of the link stays readable, and

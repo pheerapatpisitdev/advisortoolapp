@@ -7,7 +7,7 @@ import { bundleModePremiums, quoteBundle } from "@/calc/bundles/quote";
 import { formatBaht } from "@/calc/money";
 import { coverRows } from "@/lib/cover-rows";
 import { PAY_MODE_LABEL, type DeathBenefit, type PayMode, type QuoteInput, type QuoteResult, type Sex } from "@/calc/types";
-import type { BundleCardInput, CardInput, PlanCardInput } from "@/lib/card-link";
+import type { BundleCardInput, CardInput, CardRiders, PlanCardInput } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { cashProjection, type Projection } from "@/lib/cash-projection";
 import { ageTicks } from "@/lib/age-ticks";
@@ -18,6 +18,8 @@ import { coverEndsAt } from "@/lib/plb-quote";
 import { lifeTreasureTable } from "@/lib/lifetreasure-table";
 import { easyProtectTable } from "@/lib/easyprotect-table";
 import { displayPremium, perDayText } from "@/lib/legacy-cta";
+import { FIRST_MONTHLY_INSTALMENTS, firstMonthlyPayment } from "@/lib/first-payment";
+import { LIFEPROTECT_PLAN, lifeProtectPriced, type SplitRow } from "@/lib/lifeprotect-card";
 import { riderDiseases } from "@/calc/riders/diseases";
 import { ci123Stages } from "@/lib/ci123-table";
 import { stagePays } from "@/lib/ci123-cta";
@@ -96,12 +98,38 @@ export interface QuoteCard {
   premium: { amount: string; per: string } | null;
   /** "ตกวันละ 48 บาท" */
   perDay: string | null;
-  /** the instalments the headline did not take, smallest first, one to a line */
-  others: string[];
+  /**
+   * Every instalment the company will take, in the box the sales pages share
+   * (components/sales/PremiumSummary.tsx); null when no price may be shown.
+   */
+  summary: CardSummary | null;
+  /** said right under the box (a waiver adds nothing the family receives) */
+  priceNote?: string;
   /** the titled blocks of figures, in the order they are read */
   sections: CardSection[];
   /** drawn under the figures, for the plans whose cover rule has been read off their sheet */
   chart?: CardChart;
+  /** the small print under everything, as the page closes its quote */
+  footNotes?: string[];
+}
+
+/** One instalment in the box: the one the card headlines is set large, the others marked. */
+export interface SummaryRow {
+  label: string;
+  /** "17,200" */
+  amount: string;
+  main: boolean;
+  /** "ชำระเบี้ยครั้งแรก 2 งวด 3,096 บาท", under the monthly row */
+  after?: string;
+}
+
+/** The sales pages' "เบี้ยประกันที่ต้องชำระ" box, as the card draws it. */
+export interface CardSummary {
+  title: string;
+  /** largest instalment first */
+  rows: SummaryRow[];
+  /** what the headline instalment is made of, at the foot of the box, when riders are part of it */
+  split?: { title: string; rows: SplitRow[] };
 }
 
 /** How each instalment reads after the figure on the card. */
@@ -151,7 +179,38 @@ function planInputFrom(params: URLSearchParams): PlanCardInput | undefined {
   if (!who) return undefined;
   const sumAssured = Number(params.get("sum"));
   if (!Number.isInteger(sumAssured) || sumAssured <= 0) return undefined;
-  return { kind: "plan", planCode, variant, ...who, sumAssured, mode: modeFrom(params) };
+  const riders = ridersFrom(params);
+  if (riders === null || (riders && planCode !== LIFEPROTECT_PLAN)) return undefined;
+  return { kind: "plan", planCode, variant, ...who, sumAssured, mode: modeFrom(params), ...(riders ? { riders } : {}) };
+}
+
+/**
+ * The Life Protect page's riders named in a query: undefined when there are none, null when
+ * one is written in a shape no link of ours has. Whether they can be priced on this insured
+ * is the card's question (lib/lifeprotect-card.ts), not the reader's.
+ */
+function ridersFrom(params: URLSearchParams): CardRiders | undefined | null {
+  const rider = params.get("rider");
+  const payer = params.get("payer");
+  const meb = params.get("meb");
+  if (rider === null && payer === null && meb === null) return undefined;
+  const out: CardRiders = {};
+  if (rider !== null) {
+    const m = /^([A-Z0-9]+)\.([A-Z0-9_]+)$/.exec(rider);
+    if (!m) return null;
+    out.waiver = { code: m[1], option: m[2] };
+  }
+  if (payer !== null) {
+    const m = /^([MF])(\d{1,2})$/.exec(payer);
+    if (!m) return null;
+    out.payer = { sex: m[1] as Sex, age: Number(m[2]) };
+  }
+  if (meb !== null) {
+    const plan = Number(meb);
+    if (!Number.isInteger(plan) || plan <= 0) return null;
+    out.medical = plan;
+  }
+  return out;
 }
 
 /**
@@ -233,29 +292,41 @@ function cashRowsFor(
 
 /**
  * The premium as a card states it: one instalment in the largest type, the day rate under it,
- * and whatever instalments the headline did not take.
+ * and the sales pages' box of every instalment the company will take.
  *
  * Shared by both kinds of card because a card's price lines are the same question whatever is
  * being priced — and because when they were written twice, only one of the two remembered to
  * withhold the other instalments once the rate table had lapsed.
  */
-function premiumLines(modes: ModePremium[] | undefined, expired: boolean): {
+function premiumLines(
+  modes: ModePremium[] | undefined, expired: boolean, split?: CardSummary["split"],
+): {
   premium: QuoteCard["premium"];
   perDay: string | null;
-  others: string[];
+  summary: CardSummary | null;
 } {
   const headline = displayPremium(modes, expired);
   const annual = modes?.find((m) => m.mode === "annual");
   // a lapsed table has no price to show, and the other instalments are prices too.
-  // Smallest first, so with the day rate above them the block reads day, half-year, year.
-  const others = expired ? [] : (modes ?? [])
-    .filter((m) => m.mode !== headline?.mode && !m.belowMinimum)
-    .sort((a, b) => a.total - b.total)
-    .map((m) => `${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`);
+  // Largest first, as the box on the page lists them.
+  const payable = expired || !headline ? [] : (modes ?? [])
+    .filter((m) => !m.belowMinimum)
+    .sort((a, b) => b.total - a.total);
+  const first = modes && payable.length ? firstMonthlyPayment(modes) : undefined;
   return {
     premium: headline ? { amount: formatBaht(headline.total), per: PER_LABEL[headline.mode] } : null,
     perDay: headline && annual && !expired ? `ตกวันละ ${perDayText(annual.total)} บาท` : null,
-    others,
+    summary: payable.length
+      ? {
+          title: "เบี้ยประกันที่ต้องชำระ",
+          rows: payable.map((m) => ({
+            label: PAY_MODE_LABEL[m.mode], amount: formatBaht(m.total), main: m.mode === headline!.mode,
+            ...(m.mode === "monthly" && first !== undefined
+              ? { after: `ชำระเบี้ยครั้งแรก ${FIRST_MONTHLY_INSTALMENTS} งวด ${formatBaht(first)} บาท` } : {}),
+          })),
+          ...(split ? { split } : {}),
+        }
+      : null,
   };
 }
 
@@ -292,6 +363,7 @@ const TICK_GAP = 46;
  */
 function chartFor(
   plan: PlanBundle, input: PlanCardInput, death: DeathBenefit, annualSatang: number | null,
+  riderDue?: (years: number) => number[],
 ): CardChart | undefined {
   if (!plan.coverTopUp) return undefined;
   const factors = cashValueSchedule(input.planCode, input.variant, input.sex, input.age, 1000).map((r) => r.amount);
@@ -300,6 +372,8 @@ function chartFor(
   const p: Projection = cashProjection({
     factors, age: input.age, sumAssured: input.sumAssured, annualSatang,
     payYears: payYearsFor(plan, input.variant, input.age), death, topUp: plan.coverTopUp,
+    // the riders' premium is paid in too, as the page's drawing counts it
+    ...(riderDue ? { riderDue: riderDue(factors.length) } : {}),
   });
 
   const top = Math.max(...p.rows.map((r) => Math.max(r.cover, r.cashValue, r.premiumPaid ?? 0))) || 1;
@@ -422,8 +496,13 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
   // the company would refuse to issue is worse than no picture
   if (result.warnings.some((w) => w.level === "error")) return undefined;
 
+  // Life Protect is priced as its page prices it, so its riders are in the figures too
+  const lifeProtect = input.planCode === LIFEPROTECT_PLAN ? lifeProtectPriced(input, today) : undefined;
+  if (input.planCode === LIFEPROTECT_PLAN && !lifeProtect) return undefined;
   const modes = quoteModePremiums(quoteInput(input, "annual"), today);
-  const { premium, perDay: perDayLine, others } = premiumLines(modes, result.meta.expired);
+  const { premium, perDay: perDayLine, summary } = premiumLines(
+    lifeProtect ? lifeProtect.paid : modes, result.meta.expired, lifeProtect?.split,
+  );
 
   const sections: CardSection[] = [];
   const ownBenefits = planBenefitSection(input);
@@ -433,7 +512,9 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
     const death = deathSection(result.deathBenefit);
     sections.push(ownBenefits ? death : markRow(death, "largest"));
   }
-  const cashRows = cashRowsFor(input.planCode, input.variant, input.sex, input.age, input.sumAssured);
+  // the Life Protect page dropped its milestone list (owner, 2026-10-06) — the chart and the
+  // year-by-year table carry every one of them — so its card drops it too
+  const cashRows = lifeProtect ? [] : cashRowsFor(input.planCode, input.variant, input.sex, input.age, input.sumAssured);
   if (cashRows.length) {
     const cash = { title: CASH_TITLE, rows: cashRows };
     // a savings plan with no death block of its own (iSmart) is bought for what it ends on
@@ -445,7 +526,7 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
   const annual = modes?.find((m) => m.mode === "annual");
   const death = result.deathBenefit
     ?? { beforeAge: 0, sumBefore: result.sumAssured, sumFrom: result.sumAssured, alreadyPastAge: true };
-  const chart = chartFor(plan, input, death, result.meta.expired || !annual ? null : annual.total);
+  const chart = chartFor(plan, input, death, result.meta.expired || !annual ? null : annual.total, lifeProtect?.riderDue);
 
   // the W-family labels its packages "<product> · <term>" already, and a plan label in front
   // of that reads "Life Protect x 1.5 / x 2 · Life Protect x 2 · ชำระเบี้ย…"
@@ -457,9 +538,11 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
     insuredLine: `ทุน ${money(result.sumAssured)} บาท`,
     premium,
     perDay: perDayLine,
-    others,
+    summary,
+    ...(lifeProtect?.priceNote && summary ? { priceNote: lifeProtect.priceNote } : {}),
     sections,
     ...(chart ? { chart } : {}),
+    ...(lifeProtect ? { footNotes: lifeProtect.footNotes } : {}),
   };
 }
 
@@ -469,6 +552,8 @@ export interface ValueTableRow {
   age: number;
   /** the premium falling due that year, or "—" once the paying term is over */
   due: string;
+  /** what the riders cost that year, or "—"; present only on a table quoted with riders */
+  rider?: string;
   /** every premium paid up to and including this year; null when no price may be shown */
   paid: string | null;
   /** what surrendering returns; absent for a plan whose surrender table the company has not published */
@@ -496,6 +581,8 @@ export interface ValueTableCard {
 
 /** The same headings as the table on the sales page, in the same order. */
 const VALUE_COLUMNS = ["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
+/** the same, with the riders' premium in a column of its own, as the Life Protect page has it */
+const RIDER_COLUMNS = ["ปีที่", "อายุ", "เบี้ย/ปี", "สัญญาเพิ่มเติม", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
 /**
  * A plan that is protection and nothing else, which has no surrender column to show.
  *
@@ -592,11 +679,14 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
   if (!base?.eligible || result.sumAssured <= 0) return undefined;
   if (result.warnings.some((w) => w.level === "error")) return undefined;
 
+  const lifeProtect = input.planCode === LIFEPROTECT_PLAN ? lifeProtectPriced(input, today) : undefined;
+  if (input.planCode === LIFEPROTECT_PLAN && !lifeProtect) return undefined;
   const factors = cashValueSchedule(input.planCode, input.variant, input.sex, input.age, 1000).map((r) => r.amount);
   if (!plan.coverTopUp || factors.length < 2) return coverTableCard(plan, input, result, today);
 
   const annual = quoteModePremiums(quoteInput(input, "annual"), today)?.find((m) => m.mode === "annual");
   const annualSatang = result.meta.expired || !annual ? null : annual.total;
+  const riderDue = annualSatang === null ? undefined : lifeProtect?.riderDue?.(factors.length);
   const payYears = payYearsFor(plan, input.variant, input.age);
   const death = result.deathBenefit
     ?? { beforeAge: 0, sumBefore: result.sumAssured, sumFrom: result.sumAssured, alreadyPastAge: true };
@@ -605,6 +695,7 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
     factors, age: input.age, sumAssured: input.sumAssured, annualSatang, payYears, death,
     topUp: plan.coverTopUp, payout,
     ...(payout?.length ? { maturityPercent: plan.rules.base.maturity?.percentOfSumAssured } : {}),
+    ...(riderDue ? { riderDue } : {}),
   });
 
   const variantLabel = plan.variantLabels[input.variant];
@@ -615,13 +706,16 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
     insuredLine: `ทุน ${money(result.sumAssured)} บาท`,
     premiumLine: annualSatang === null
       ? "ขอราคาปัจจุบันได้ทางแชท"
-      : `เบี้ย ${baht(annualSatang)} บาทต่อปี · ชำระ ${payYears} ปี`,
-    columns: payout?.length ? PAYOUT_COLUMNS : VALUE_COLUMNS,
+      : `เบี้ย ${baht(annualSatang)} บาทต่อปี · ชำระ ${payYears} ปี`
+        // as the page's caption says it: a rider's premium can move from year to year
+        + (riderDue?.[0] ? ` · สัญญาเพิ่มเติมปีแรก ${baht(riderDue[0])} บาท` : ""),
+    columns: riderDue ? RIDER_COLUMNS : payout?.length ? PAYOUT_COLUMNS : VALUE_COLUMNS,
     rows: p.rows.map((r) => ({
       year: r.policyYear,
       age: r.age,
       // a dash rather than a nought: the year is not worth nothing, there is nothing to pay
       due: r.premiumDue ? baht(r.premiumDue) : "—",
+      ...(riderDue ? { rider: r.riderDue ? baht(r.riderDue) : "—" } : {}),
       paid: r.premiumPaid === null ? null : baht(r.premiumPaid),
       cash: baht(r.cashValue),
       cover: baht(r.cover),
@@ -678,7 +772,7 @@ function bundleCard(input: BundleCardInput, today: Date): QuoteCard | undefined 
   if (result.warnings.some((w) => w.level === "error" && w.code !== "MIN_MONTHLY")) return undefined;
 
   const modes = bundleModePremiums(bundle, input.tier, who, today);
-  const { premium, perDay: perDayLine, others } = premiumLines(modes, result.meta.expired);
+  const { premium, perDay: perDayLine, summary } = premiumLines(modes, result.meta.expired);
 
   // CI 123's benefit components are rows of the quote (the workbook itemises them) but not
   // contracts of their own, so "what this is made of" names the rider once
@@ -764,7 +858,7 @@ function bundleCard(input: BundleCardInput, today: Date): QuoteCard | undefined 
     insuredLine: tier.name,
     premium,
     perDay: perDayLine,
-    others,
+    summary,
     sections,
   };
 }

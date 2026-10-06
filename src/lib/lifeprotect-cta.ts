@@ -175,3 +175,46 @@ function instalmentLines(modes: ModePremium[]): string[] {
     return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`, ...firstPaymentLines(m)] : [];
   });
 }
+/**
+ * A rider's name as it fits on a button: every one of them opens with the same four words,
+ * and what the contract actually does is in the bracket after it. So the shared opening
+ * comes off and the bracket becomes the caption under the name — "พีบี" over "ผู้ชำระเบี้ย"
+ * rather than one line too long to read at a glance.
+ */
+const RIDER_PREFIX = "สัญญาเพิ่มเติม";
+export function riderWords(name: string): { short: string; what: string } {
+  const bare = name.replace(RIDER_PREFIX, "").trim();
+  const bracketed = /^(.*?)\s*\((.*)\)$/.exec(bare);
+  return bracketed ? { short: bracketed[1], what: bracketed[2] } : { short: bare, what: "" };
+}
+
+/**
+ * The sentences under the Life Protect quote, written once for the page and the card that
+ * pictures it, so the two cannot come to say different things.
+ */
+
+/** who a child's พีบี was priced off, said beside its name wherever its price is shown */
+export function payerWords(payer: { sex: Sex; age: number } | undefined): string {
+  return payer ? ` (ผู้ชำระเบี้ย${SEX_WORD[payer.sex]} ${payer.age} ปี)` : "";
+}
+
+/** neither waiver pays a baht to the family; they carry on paying the premium */
+export function waiverNote(riderName: string): string {
+  return `${riderWords(riderName).short}ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ`;
+}
+
+/** the last age the "bought for a child" note shows at */
+export const CHILD_NOTE_MAX_AGE = 15;
+
+/** the reason to start a child early, or undefined past the ages it is said at */
+export function childPriceNote(age: number): string | undefined {
+  return age <= CHILD_NOTE_MAX_AGE
+    ? `✦ เบี้ยล็อกที่อายุ${age === 0 ? "" : " "}${ageWord(age)} ตลอดระยะเวลาชำระ ยิ่งเริ่มเร็วยิ่งถูก`
+    : undefined;
+}
+
+/** the small print at the foot of the quote; the medical rider's premium is not level */
+export function lifeProtectFootnote(withMedical: boolean): string {
+  return (withMedical ? "เบี้ยสัญญาหลักคงที่ตลอดระยะเวลาชำระ · เบี้ย MEB ปรับตามอายุทุกปีที่ต่อสัญญา" : "เบี้ยคงที่ตลอดระยะเวลาชำระ")
+    + " · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน";
+}

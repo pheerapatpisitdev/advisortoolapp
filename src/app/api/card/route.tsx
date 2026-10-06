@@ -3,7 +3,7 @@ import path from "node:path";
 import { ImageResponse } from "next/og";
 import { highlighterUri } from "@/lib/highlighter";
 import type { NextRequest } from "next/server";
-import { cardInputFrom, quoteCard, type CardChart, type CardRow, type QuoteCard } from "@/lib/quote-card";
+import { cardInputFrom, quoteCard, type CardChart, type CardRow, type CardSummary, type QuoteCard } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { QUOTE_CARD_KEYS, toCanonical } from "./canonical";
 
@@ -29,7 +29,24 @@ const H = {
   premium: 132,
   noPrice: 62,
   perDay: 40,
-  others: 38,
+  /**
+   * The price block beside the family photo: as tall as the photo, so the box under it never
+   * runs into the picture — the page holds its headline to the photo's height the same way.
+   */
+  head: 248,
+  /** the premium box (components/sales/PremiumSummary.tsx), band by band */
+  boxGap: 18,
+  boxPad: 26,
+  boxTitle: 42,
+  boxRow: 46,
+  boxMain: 64,
+  boxAfter: 36,
+  splitGap: 14,
+  splitTitle: 34,
+  splitRow: 40,
+  /** a note's line, and the room above the first */
+  noteGap: 14,
+  noteLine: 32,
   /** the space above a divided section */
   gap: 36,
   hairline: 1,
@@ -67,12 +84,28 @@ function chartHeight(chart: CardChart | undefined): number {
   return H.gap + H.hairline + H.afterHairline + H.sectionTitle + chart.height + H.legend;
 }
 
+/**
+ * Lines a note takes. Thai is counted by code unit, vowel and tone marks included, so the
+ * count runs long and a note is given a line it may not need rather than drawn over what
+ * follows it.
+ */
+const NOTE_CHARS_PER_LINE = 58;
+const noteLines = (text: string) => Math.ceil(text.length / NOTE_CHARS_PER_LINE);
+const notesHeight = (notes: string[]) => notes.reduce((h, n) => h + noteLines(n) * H.noteLine, 0);
+
+function boxHeight(s: CardSummary): number {
+  return 2 * H.boxPad + H.boxTitle
+    + s.rows.reduce((h, r) => h + (r.main ? H.boxMain : H.boxRow) + (r.after ? H.boxAfter : 0), 0)
+    + (s.split ? 2 * H.splitGap + H.hairline + H.splitTitle + s.split.rows.length * H.splitRow : 0);
+}
+
 function heightOf(card: QuoteCard): number {
   return PAD * 2
     + H.plan + H.insured
-    + (card.premium ? H.premium : H.noPrice)
-    + (card.perDay ? H.perDay : 0)
-    + card.others.length * H.others
+    + (card.premium ? H.head : H.noPrice + (card.perDay ? H.perDay : 0))
+    + (card.summary ? H.boxGap + boxHeight(card.summary) : 0)
+    + (card.priceNote ? H.noteGap + notesHeight([card.priceNote]) : 0)
+    + (card.footNotes?.length ? H.gap + H.hairline + H.noteGap + notesHeight(card.footNotes) : 0)
     + card.sections.reduce((h, s) => h + (s.items?.length ? listSectionHeight(s.items) : sectionHeight(s.rows)), 0)
     + chartHeight(card.chart);
 }
@@ -89,11 +122,12 @@ const spacer = (height: number, background?: string) => (
  * to the text with room for the nib either side, and pulled left by that much so the words
  * still start where the lines above and below them do.
  */
-function Marked({ p, children }: { p: CardPalette; children: string }) {
+function Marked({ p, children, end = false }: { p: CardPalette; children: string; end?: boolean }) {
   return (
     <div
       style={{
-        display: "flex", padding: "2px 16px", marginLeft: -16, color: p.ink,
+        // at the end of a row the stroke reaches past the words on the right instead
+        display: "flex", padding: "2px 16px", ...(end ? { marginRight: -16 } : { marginLeft: -16 }), color: p.ink,
         backgroundImage: highlighterUri(p.highlighter), backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
       }}
     >
@@ -155,6 +189,102 @@ function ListRows({ title, items, p }: { title: string; items: string[]; p: Card
           <span style={{ display: "flex", flex: 1 }}>{item}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * The sales pages' "เบี้ยประกันที่ต้องชำระ" box: every instalment the company takes, the one
+ * the card headlines set large and the others marked, what paying monthly takes up front under
+ * the monthly row, and for a Life Protect with riders what the headline is made of.
+ */
+function Summary({ s, p }: { s: CardSummary; p: CardPalette }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+      <div style={spacer(H.boxGap)} />
+      <div
+        style={{
+          display: "flex", flexDirection: "column", flexShrink: 0, height: boxHeight(s),
+          padding: `${H.boxPad}px 32px`, borderRadius: 18, background: p.box, color: p.figure,
+        }}
+      >
+        <div style={{ ...band(H.boxTitle), alignItems: "center", fontSize: 26 }}>{s.title}</div>
+        {s.rows.map((r) => (
+          <div key={r.label} style={{ display: "flex", flexDirection: "column", flexShrink: 0, width: "100%" }}>
+            <div
+              style={{
+                ...band(r.main ? H.boxMain : H.boxRow), width: "100%",
+                justifyContent: "space-between", alignItems: "center",
+              }}
+            >
+              {/* two plain children, no fragment: the drawing library spaces a fragment's
+                  children as if they were one */}
+              {r.main
+                ? <div style={{ display: "flex", fontSize: 27, fontWeight: 600 }}>{r.label}</div>
+                : <div style={{ display: "flex", fontSize: 26 }}><Marked p={p}>{r.label}</Marked></div>}
+              {r.main
+                ? <div style={{ display: "flex", fontSize: 44, fontWeight: 600 }}>{`${r.amount} บาท`}</div>
+                : <div style={{ display: "flex", fontSize: 28 }}><Marked p={p} end>{`${r.amount} บาท`}</Marked></div>}
+            </div>
+            {r.after && (
+              <div style={{ ...band(H.boxAfter), justifyContent: "flex-end", alignItems: "center", fontSize: 22 }}>
+                <Marked p={p} end>{r.after}</Marked>
+              </div>
+            )}
+          </div>
+        ))}
+        {s.split && (
+          <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, width: "100%" }}>
+            <div style={spacer(H.splitGap)} />
+            <div style={spacer(H.hairline, p.rule)} />
+            <div style={spacer(H.splitGap)} />
+            <div style={{ ...band(H.splitTitle), alignItems: "center", fontSize: 21 }}>{s.split.title}</div>
+            {s.split.rows.map((r) => (
+              <div
+                key={r.label}
+                style={{ ...band(H.splitRow), width: "100%", justifyContent: "space-between", alignItems: "center", fontSize: 23 }}
+              >
+                <div style={{ display: "flex" }}>{r.label}</div>
+                <div style={{ display: "flex", flexShrink: 0, marginLeft: 20 }}>{`${r.amount} บาท`}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The page's four-pointed star, which the card's Thai faces do not have a glyph for. */
+const STAR = "✦";
+
+/** Sentences set small, each given the lines it was measured for. */
+function Notes({ notes, color, size }: { notes: string[]; color: string; size: number }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+      {notes.map((n) => {
+        const starred = n.startsWith(STAR);
+        return (
+          <div
+            key={n}
+            style={{
+              display: "flex", height: noteLines(n) * H.noteLine, flexShrink: 0,
+              fontSize: size, lineHeight: `${H.noteLine}px`, color,
+            }}
+          >
+            {/* drawn rather than typed: a missing glyph comes out as a box */}
+            {starred && (
+              <svg width={14} height={H.noteLine} viewBox={`0 0 14 ${H.noteLine}`} style={{ marginRight: 10, flexShrink: 0 }}>
+                <path
+                  d={`M7 ${H.noteLine / 2 - 7} Q8 ${H.noteLine / 2 - 1} 14 ${H.noteLine / 2} Q8 ${H.noteLine / 2 + 1} 7 ${H.noteLine / 2 + 7} Q6 ${H.noteLine / 2 + 1} 0 ${H.noteLine / 2} Q6 ${H.noteLine / 2 - 1} 7 ${H.noteLine / 2 - 7} Z`}
+                  fill={color}
+                />
+              </svg>
+            )}
+            <div style={{ display: "flex" }}>{starred ? n.slice(STAR.length).trim() : n}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -267,7 +397,7 @@ const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
  * which is the card's own, so it needs no cut-out. A card that cannot find it is drawn without
  * rather than not at all — a missing picture must never cost a customer their quote.
  */
-const PHOTO_SIZE = H.premium + H.perDay + 2 * H.others;
+const PHOTO_SIZE = H.head;
 async function loadPhoto(): Promise<string | undefined> {
   try {
     const file = await readFile(path.join(process.cwd(), "public/card/family.jpg"));
@@ -340,7 +470,12 @@ export async function GET(req: NextRequest) {
 
         {/* the premium and what it comes to, with the family at the right of them: the picture
             is laid over the corner of this block, so no band changes height */}
-        <div style={{ display: "flex", flexDirection: "column", position: "relative", flexShrink: 0 }}>
+        <div
+          style={{
+            display: "flex", flexDirection: "column", position: "relative", flexShrink: 0,
+            ...(card.premium ? { height: H.head } : {}),
+          }}
+        >
           {card.premium && photo && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -367,13 +502,15 @@ export async function GET(req: NextRequest) {
               <Marked p={p}>{card.perDay}</Marked>
             </div>
           )}
-          {card.others.map((line) => (
-            <div key={line} style={{ ...band(H.others), fontSize: 25, color: p.mute }}>
-              <Marked p={p}>{line}</Marked>
-            </div>
-          ))}
-
         </div>
+
+        {card.summary && <Summary s={card.summary} p={p} />}
+        {card.priceNote && (
+          <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+            <div style={spacer(H.noteGap)} />
+            <Notes notes={[card.priceNote]} color={p.mute} size={21} />
+          </div>
+        )}
 
         {card.sections.map((s) => (
           s.items?.length
@@ -381,6 +518,21 @@ export async function GET(req: NextRequest) {
             : <Rows key={s.title} title={s.title} rows={s.rows} p={p} />
         ))}
         {card.chart && <Chart chart={card.chart} p={p} />}
+        {card.footNotes?.length ? (
+          <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+            <div style={spacer(H.gap)} />
+            <div style={spacer(H.hairline, p.hair)} />
+            <div style={spacer(H.noteGap)} />
+            {/* the child's note in the plan's accent, as the page sets it; the small print muted */}
+            {card.footNotes.map((n, i) => (
+              <Notes
+                key={n} notes={[n]}
+                color={i < card.footNotes!.length - 1 ? p.accent : p.mute}
+                size={i < card.footNotes!.length - 1 ? 22 : 20}
+              />
+            ))}
+          </div>
+        ) : null}
 
       </div>
     ),

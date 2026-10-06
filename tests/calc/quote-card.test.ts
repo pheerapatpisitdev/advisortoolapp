@@ -80,8 +80,15 @@ describe("quoteCard", () => {
     expect(card.insuredLine).toBe("ทุน 1,000,000 บาท");
     expect(card.premium).toEqual({ amount: "2,583", per: "ต่อเดือน" });
     expect(card.perDay).toBe("ตกวันละ 79 บาท");
-    // smallest instalment first, one to a line
-    expect(card.others).toEqual(["ราย 6 เดือน 14,924 บาท", "รายปี 28,700 บาท"]);
+    // the page's box: largest first, the headline set large, the first two monthly instalments under it
+    expect(card.summary).toEqual({
+      title: "เบี้ยประกันที่ต้องชำระ",
+      rows: [
+        { label: "รายปี", amount: "28,700", main: false },
+        { label: "ราย 6 เดือน", amount: "14,924", main: false },
+        { label: "รายเดือน", amount: "2,583", main: true, after: "ชำระเบี้ยครั้งแรก 2 งวด 5,166 บาท" },
+      ],
+    });
   });
 
   it("bands the death benefit the way every other surface does", () => {
@@ -95,23 +102,36 @@ describe("quoteCard", () => {
     });
   });
 
+  /**
+   * The Life Protect page dropped its milestone list (owner, 2026-10-06) — the chart and the
+   * year-by-year table carry every one of them — and its card follows the page.
+   */
+  it("draws no milestone list for Life Protect, as its page shows none", () => {
+    expect(quoteCard(MAN35, WHILE_CURRENT)!.sections.map((s) => s.title)).toEqual([DEATH]);
+  });
+
+  /** Easy Protect's page still lists its milestones, so its card still does. */
+  const EASY35: CardInput = {
+    kind: "plan", planCode: "EASYPROTECT", variant: "W99F06A", age: 35, sex: "M", sumAssured: 1_000_000,
+  };
+
   it("quotes the surrender value at the milestones still ahead", () => {
-    expect(section(quoteCard(MAN35, WHILE_CURRENT)!, CASH)!.rows).toEqual([
-      { label: "อายุ 60 ปี", amount: "504,000" },
-      { label: "อายุ 70 ปี", amount: "633,000" },
-      { label: "อายุ 80 ปี", amount: "777,000" },
+    expect(section(quoteCard(EASY35, WHILE_CURRENT)!, CASH)!.rows).toEqual([
+      { label: "อายุ 60 ปี", amount: "503,000" },
+      { label: "อายุ 70 ปี", amount: "632,000" },
+      { label: "อายุ 80 ปี", amount: "776,000" },
       { label: "อายุ 99 ปี", amount: "1,000,000" },
     ]);
   });
 
   /** The order the bands are drawn in is the order the customer reads them. */
   it("puts what the family receives above what surrender would return", () => {
-    expect(quoteCard(MAN35, WHILE_CURRENT)!.sections.map((s) => s.title)).toEqual([DEATH, CASH]);
+    expect(quoteCard(EASY35, WHILE_CURRENT)!.sections.map((s) => s.title)).toEqual([DEATH, CASH]);
   });
 
   it("leaves out the milestones an older insured has already passed", () => {
-    const rows = section(quoteCard({ ...MAN35, age: 72 }, WHILE_CURRENT)!, CASH)!.rows;
-    expect(rows.map((r) => r.label)).toEqual(["อายุ 80 ปี", "อายุ 99 ปี"]);
+    const rows = section(quoteCard({ ...EASY35, age: 65 }, WHILE_CURRENT)!, CASH)!.rows;
+    expect(rows.map((r) => r.label)).toEqual(["อายุ 70 ปี", "อายุ 80 ปี", "อายุ 99 ปี"]);
   });
 
   /** A card is a picture of a price, and a lapsed table has no price to show. */
@@ -119,7 +139,7 @@ describe("quoteCard", () => {
     const card = quoteCard(MAN35, new Date("2027-04-01"))!;
     expect(card.premium).toBeNull();
     expect(card.perDay).toBeNull();
-    expect(card.others).toEqual([]);
+    expect(card.summary).toBeNull();
     // the benefits do not come from the rate table, so they are still true and still drawn
     expect(section(card, DEATH)!.rows[0].amount).toBe("2,000,000");
   });

@@ -39,6 +39,8 @@ export interface CardPalette {
   line: { cash: string; premium: string; cover: string };
   /** the yellow of the highlighter stroke behind the one figure a card wants read first */
   highlighter: string;
+  /** the sand fill behind the premium box, the page's --bot-sand-soft */
+  box: string;
 }
 
 /**
@@ -82,6 +84,7 @@ export const CARD_PALETTE: CardPalette = {
   line: { cash: "#022162", premium: "#7f7f7f", cover: "#c6bc99" },
   /* the one colour on the card that is not the deck's: it has to look like a pen */
   highlighter: "#ffe14d",
+  box: "#e7e3d4",
 };
 
 /**
@@ -115,7 +118,7 @@ export function cardPaletteVersion(palette: CardPalette): string {
   const canonical = [
     palette.ground, palette.groundDeep, palette.accent, palette.figure, palette.ink,
     palette.mute, palette.hair, palette.rule, palette.glow, palette.stripe,
-    palette.grid, palette.tint, palette.line.cash, palette.line.premium, palette.line.cover,
+    palette.grid, palette.tint, palette.line.cash, palette.line.premium, palette.line.cover, palette.box,
   ].join("|");
   // FNV-1a: a few lines, no dependency, and the same answer in the browser and on the server —
   // the link is written in both. Math.imul keeps the multiply in 32 bits.
@@ -128,7 +131,7 @@ export function cardPaletteVersion(palette: CardPalette): string {
 }
 
 /** Bump when a card gains or removes visible content without changing its palette. */
-const DRAWING_REVISION = "7";
+const DRAWING_REVISION = "8";
 
 /** The fingerprint of the palette and layout this card will be drawn in. */
 export function cardVersionFor(): string {

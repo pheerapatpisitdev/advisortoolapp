@@ -14,10 +14,10 @@ import { cashProjection } from "@/lib/cash-projection";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import {
-  ageWord, lifeProtectCashText, lifeProtectQuoteText,
-  type LifeProtectAge,
+  childPriceNote, lifeProtectCashText, lifeProtectFootnote, lifeProtectQuoteText, payerWords as payerWordsFor,
+  riderWords, waiverNote, type LifeProtectAge,
 } from "@/lib/lifeprotect-cta";
-import { cardPath, valueTablePath } from "@/lib/card-link";
+import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { LIFEPROTECT_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
@@ -44,23 +44,8 @@ const TERM_START = "WLF99H";
  * they came for. 35 is the age the hero already quotes and the middle of who buys this.
  */
 const AGE_START = 35;
-/** the last age the "bought for a child" note shows at */
-const CHILD_MAX_AGE = 15;
 /** The parent the page opens on when a child's rider needs one: the age the page opens on itself. */
 const PAYER_START: Payer = { sex: "M", age: AGE_START };
-
-/**
- * A rider's name as it fits on a button: every one of them opens with the same four words,
- * and what the contract actually does is in the bracket after it. So the shared opening
- * comes off and the bracket becomes the caption under the name — "พีบี" over "ผู้ชำระเบี้ย"
- * rather than one line too long to read at a glance.
- */
-const RIDER_PREFIX = "สัญญาเพิ่มเติม";
-function riderWords(name: string): { short: string; what: string } {
-  const bare = name.replace(RIDER_PREFIX, "").trim();
-  const bracketed = /^(.*?)\s*\((.*)\)$/.exec(bare);
-  return bracketed ? { short: bracketed[1], what: bracketed[2] } : { short: bare, what: "" };
-}
 
 /**
  * The ages a rider is sold at, as the button and its popup say them. A rider a parent can
@@ -247,17 +232,35 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         : "")
     : "";
 
+  /**
+   * The riders the price includes, written into the card links so the pictures show what the
+   * page shows (owner, 2026-10-06). Only priced ones: a rider picked at an age it is not sold
+   * at is not in the figures, so it is not in the picture either.
+   */
+  const cardRiders: CardRiders | undefined = picked && riderPart || medicalPart
+    ? {
+        ...(picked && riderPart ? { waiver: { code: picked.rider.code, option: picked.option.code } } : {}),
+        ...(picked && riderPart && payerFor ? { payer: payerFor } : {}),
+        ...(medicalPart && medicalAt !== undefined ? { medical: medicalAt } : {}),
+      }
+    : undefined;
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page
   const card = who && headline
-    ? cardPath({ kind: "plan", planCode: table.planCode, variant, age: who.age, sex, sumAssured, mode: headline.mode })
+    ? cardPath({
+        kind: "plan", planCode: table.planCode, variant, age: who.age, sex, sumAssured, mode: headline.mode,
+        ...(cardRiders ? { riders: cardRiders } : {}),
+      })
     : undefined;
   // the value table drawn the same way, from the same arrangement — and offered only where
   // there is a table to draw, so a button never points at a picture the engine would refuse
   const tableCard = who && projection
-    ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured })
+    ? valueTablePath({
+        kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured,
+        ...(cardRiders ? { riders: cardRiders } : {}),
+      })
     : undefined;
   // who the rider's price was read off, said beside its name wherever the price is shown
-  const payerWords = payerFor ? ` (ผู้ชำระเบี้ย${payerFor.sex === "M" ? "ชาย" : "หญิง"} ${payerFor.age} ปี)` : "";
+  const payerWords = payerWordsFor(payerFor);
   const quoteText = who && headline && death
     ? lifeProtectQuoteText({
       sumAssured, termLabel: term.label, age: who.age, sex, modes: [headline, ...others], death, cash,
@@ -608,7 +611,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                   premium. Said here so the block below is not read as theirs */}
               {picked && riderPart && (
                 <p className="mt-2.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
-                  {riderWords(picked.rider.name).short}ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ
+                  {waiverNote(picked.rider.name)}
                 </p>
               )}
             </div>
@@ -655,15 +658,12 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
             </div>
           )}
 
-          {ageNum !== undefined && ageNum <= CHILD_MAX_AGE && (
-            <p className="text-sm leading-relaxed text-[var(--lg-gold)]">
-              ✦ เบี้ยล็อกที่อายุ{ageNum === 0 ? "" : " "}{ageWord(ageNum)} ตลอดระยะเวลาชำระ ยิ่งเริ่มเร็วยิ่งถูก
-            </p>
+          {ageNum !== undefined && childPriceNote(ageNum) && (
+            <p className="text-sm leading-relaxed text-[var(--lg-gold)]">{childPriceNote(ageNum)}</p>
           )}
 
           <p className="border-t border-[var(--lg-panel-line)] pt-4 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
-            {medicalPart ? "เบี้ยสัญญาหลักคงที่ตลอดระยะเวลาชำระ · เบี้ย MEB ปรับตามอายุทุกปีที่ต่อสัญญา" : "เบี้ยคงที่ตลอดระยะเวลาชำระ"}
-            {" "}· เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน
+            {lifeProtectFootnote(Boolean(medicalPart))}
           </p>
         </div>
       )}

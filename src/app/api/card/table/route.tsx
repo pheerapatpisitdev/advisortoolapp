@@ -191,7 +191,9 @@ function Half(
          * — with a payout, with a surrender value, with neither — all draw from one path.
          */
         const cells = [
-          String(r.year), String(r.age), r.due, r.paid ?? "—",
+          String(r.year), String(r.age), r.due,
+          ...(r.rider === undefined ? [] : [r.rider]),
+          r.paid ?? "—",
           ...(r.payout === undefined ? [] : [r.payout]),
           ...(r.cash === undefined ? [] : [r.cash]),
           r.cover,

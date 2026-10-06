@@ -65,13 +65,19 @@ describe("quoteCard, for a bundle", () => {
   /**
    * 7,752 a year is the figure the golden test reads off the rate tables. The monthly
    * instalment is 698, under the company's 1,000 minimum, so it is neither the headline nor
-   * offered among the others.
+   * offered in the box.
    */
   it("headlines the yearly premium when the monthly one cannot be paid", () => {
     const card = quoteCard(MAN40, WHILE_CURRENT)!;
     expect(card.premium).toEqual({ amount: "7,752", per: "ต่อปี" });
     expect(card.perDay).toBe("ตกวันละ 22 บาท");
-    expect(card.others).toEqual(["ราย 6 เดือน 4,031 บาท"]);
+    expect(card.summary).toEqual({
+      title: "เบี้ยประกันที่ต้องชำระ",
+      rows: [
+        { label: "รายปี", amount: "7,752", main: true },
+        { label: "ราย 6 เดือน", amount: "4,031", main: false },
+      ],
+    });
   });
 
   it("says what the arrangement is made of", () => {
@@ -149,7 +155,7 @@ describe("quoteCard, for a bundle", () => {
     const card = quoteCard(MAN40, new Date("2027-04-01"))!;
     expect(card.premium).toBeNull();
     expect(card.perDay).toBeNull();
-    expect(card.others).toEqual([]);
+    expect(card.summary).toBeNull();
     expect(section(card, DEATH)!.rows[0].amount).toBe("1,150,000");
   });
 

@@ -26,9 +26,9 @@ describe("a quotation card and the value table beside it", () => {
       const quote = quoteCard(input, WHILE_CURRENT);
       const table = valueTableCard(input, WHILE_CURRENT);
       if (!quote || !table) return; // a plan that draws no table cannot disagree with one
-      const yearly = quote.others.find((line) => line.startsWith("รายปี"));
+      const yearly = quote.summary?.rows.find((r) => r.label === "รายปี");
       if (!yearly) return;
-      const figure = yearly.replace(/[^\d,]/g, "");
+      const figure = yearly.amount;
       expect(table.premiumLine).toContain(figure);
     });
   }
