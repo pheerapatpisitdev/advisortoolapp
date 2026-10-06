@@ -26,6 +26,8 @@ import { modeChecks } from "@/lib/content/mode-checks";
 import { subjectOf } from "@/lib/content/knowledge";
 import { writeKnowledge, type KnowledgeWriteInput } from "@/lib/content/knowledge-run";
 import { cleanDraft } from "@/lib/content/draft";
+import { occasionOf } from "@/lib/content/thanks";
+import { writeThanks, type ThanksWriteInput } from "@/lib/content/thanks-run";
 import { writeDraft, type DraftWriteInput } from "@/lib/content/draft-run";
 import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run";
 import { proofread, type Fix } from "@/lib/content/proofread";
@@ -521,6 +523,26 @@ export async function generateDraft(input: DraftWriteInput): Promise<GenerateRes
   const pass = await takeRound(viewer, "ai-draft");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeDraft(input, project.pageId));
+}
+
+/** ขอบคุณลูกค้า: a thank-you from a picked occasion (src/lib/content/thanks.ts), under the hourly limit. */
+export async function generateThanks(input: ThanksWriteInput): Promise<GenerateResult> {
+  const viewer = await requireMember();
+  if (input.format === "ad") return { ok: false, error: ADS_MOVED };
+  if (!perHour(`content:${await caller()}`)) {
+    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
+  }
+  // an occasion not given is said before a round is counted
+  if (!occasionOf(String(input.occasion ?? ""), typeof input.custom === "string" ? input.custom : "")) {
+    return { ok: false, error: "เลือกโอกาส หรือพิมพ์เองก่อนนะครับ" };
+  }
+  const project = await projectPage(input.page);
+  if (!project.ok) return project;
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
+  const pass = await takeRound(viewer, "ai-thanks");
+  if (!pass.ok) return { ok: false, error: pass.refusal };
+  return payRound(pass, () => writeThanks(input, project.pageId));
 }
 
 export interface ProofreadResult {

@@ -3,6 +3,7 @@ import type { PiecePerson } from "@/lib/content/people";
 import type { RecruitWriteInput } from "@/lib/content/recruit-run";
 import type { KnowledgeWriteInput } from "@/lib/content/knowledge-run";
 import type { DraftWriteInput } from "@/lib/content/draft-run";
+import type { ThanksWriteInput } from "@/lib/content/thanks-run";
 import type { DrawBackgroundResult, GenerateInput, GenerateResult } from "./actions";
 
 /** Order a piece's photograph through /api/content-draw, which is not queued behind the page's other actions. */
@@ -47,6 +48,16 @@ export async function recruitRound(input: RecruitWriteInput): Promise<GenerateRe
 /** A ความรู้ round through /api/content-knowledge, as recruitRound. */
 export async function knowledgeRound(input: KnowledgeWriteInput): Promise<GenerateResult> {
   const res = await fetch("/api/content-knowledge", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return await res.json() as GenerateResult;
+}
+
+/** A ขอบคุณลูกค้า round through /api/content-thanks, as recruitRound. */
+export async function thanksRound(input: ThanksWriteInput): Promise<GenerateResult> {
+  const res = await fetch("/api/content-thanks", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
