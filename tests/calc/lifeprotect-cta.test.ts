@@ -70,6 +70,7 @@ describe("lifeProtectQuoteText", () => {
       "",
       "💰 เบี้ยประมาณ 1,548 บาท/เดือน (ตกวันละ 48 บาท)",
       "รายเดือน 1,548 บาท",
+      "(ชำระเบี้ยครั้งแรก 2 งวด 3,096 บาท)",
       "ราย 6 เดือน 8,944 บาท",
       "รายปี 17,200 บาท",
       "",
@@ -143,6 +144,24 @@ describe("lifeProtectQuoteText", () => {
     ].join("\n"));
   });
 
+  /** The company collects the first two monthly instalments with the application. */
+  it("says paying monthly starts with two instalments, and what they come to", () => {
+    const monthly = (total: number) => ({ mode: "monthly" as const, total, belowMinimum: false });
+    const text = lifeProtectQuoteText({
+      sumAssured: 1_000_000, termLabel: "จ่าย 19 ปี", age: 14, sex: "M", death, cash: [],
+      modes: [monthly(180_816)],
+    });
+    expect(text).toContain("รายเดือน 1,808 บาท\n(ชำระเบี้ยครั้งแรก 2 งวด 3,616 บาท)");
+  });
+
+  it("says nothing of a first payment when monthly is not on offer", () => {
+    const text = lifeProtectQuoteText({
+      sumAssured: 500_000, termLabel: "จ่าย 9 ปี", age: 35, sex: "M", death, cash: [],
+      modes: [{ mode: "annual", total: 2_730_000, belowMinimum: false }],
+    });
+    expect(text).not.toContain("ครั้งแรก");
+  });
+
   it("says nothing of a rider when none is quoted", () => {
     const text = lifeProtectQuoteText({
       sumAssured: 1_000_000, termLabel: "จ่าย 9 ปี", age: 35, sex: "M", modes, death, cash: [],
@@ -193,6 +212,7 @@ describe("lifeProtectChatQuoteText", () => {
       "เช่น 9ปี, 19 ปี, 99 ปี",
       "",
       "รายเดือน 1,602 บาท",
+      "(ชำระเบี้ยครั้งแรก 2 งวด 3,204 บาท)",
       "ราย 6 เดือน 9,256 บาท",
       "รายปี 17,800 บาท",
       "",

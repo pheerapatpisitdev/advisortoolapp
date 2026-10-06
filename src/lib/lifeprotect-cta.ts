@@ -91,10 +91,7 @@ export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
       ]
       : []),
     // one instalment a line, smallest first, whichever the card headlines
-    ...INSTALMENT_ORDER.flatMap((mode) => {
-      const m = f.modes.find((x) => x.mode === mode);
-      return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`] : [];
-    }),
+    ...instalmentLines(f.modes),
     "",
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต",
     ...deathBenefitRows(f.death).map((r) => `- ${r.label} ${baht(r.amount)} บาท`),
@@ -144,10 +141,7 @@ export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts">
     "ทั้งนี้เราสามารถเลือกระยะเวลาในการออมได้",
     "เช่น 9ปี, 19 ปี, 99 ปี",
     "",
-    ...INSTALMENT_ORDER.flatMap((mode) => {
-      const m = f.modes.find((x) => x.mode === mode);
-      return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`] : [];
-    }),
+    ...instalmentLines(f.modes),
     "",
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต (ตุยเย่)",
     ...(doubles
@@ -170,3 +164,29 @@ export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts">
 }
 
 const INSTALMENT_ORDER: PayMode[] = ["monthly", "semi", "annual"];
+
+/** How many monthly instalments the company collects with the application. */
+export const FIRST_MONTHLY_INSTALMENTS = 2;
+
+/**
+ * What paying monthly takes up front: the company collects the first two instalments with
+ * the application and deducts monthly from the third (the bots' FAQ says the same). Undefined
+ * when monthly is not one of the instalments on offer.
+ */
+export function firstMonthlyPayment(modes: ModePremium[]): number | undefined {
+  const monthly = modes.find((m) => m.mode === "monthly" && !m.belowMinimum);
+  return monthly ? monthly.total * FIRST_MONTHLY_INSTALMENTS : undefined;
+}
+
+/** One instalment a line, smallest first, with what paying monthly takes up front under it. */
+function instalmentLines(modes: ModePremium[]): string[] {
+  const first = firstMonthlyPayment(modes);
+  return INSTALMENT_ORDER.flatMap((mode) => {
+    const m = modes.find((x) => x.mode === mode);
+    if (!m) return [];
+    const line = `${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`;
+    return mode === "monthly" && first !== undefined
+      ? [line, `(ชำระเบี้ยครั้งแรก ${FIRST_MONTHLY_INSTALMENTS} งวด ${formatBaht(first)} บาท)`]
+      : [line];
+  });
+}

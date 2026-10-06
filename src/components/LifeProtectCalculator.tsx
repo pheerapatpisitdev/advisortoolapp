@@ -13,7 +13,10 @@ import {
 import { cashProjection } from "@/lib/cash-projection";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
-import { ageWord, lifeProtectCashText, lifeProtectQuoteText, type LifeProtectAge } from "@/lib/lifeprotect-cta";
+import {
+  FIRST_MONTHLY_INSTALMENTS, ageWord, firstMonthlyPayment, lifeProtectCashText, lifeProtectQuoteText,
+  type LifeProtectAge,
+} from "@/lib/lifeprotect-cta";
 import { cardPath, valueTablePath } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
@@ -293,6 +296,9 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
    * paying years, or for a child's พีบี only until the child turns 25.
    */
   const waiveYears = (r: LifeProtectRider) => (ageNum !== undefined ? riderWaiveYears(r, term, ageNum) : undefined);
+
+  // paying monthly, the company collects the first two instalments with the application
+  const firstMonthly = headline?.mode === "monthly" && paid ? firstMonthlyPayment(paid) : undefined;
 
   /** The instalments the headline did not take, under the plan's own price or under the total. */
   const instalments = paidAnnual ? (
@@ -603,6 +609,12 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
               {/* What the headline did not take, one instalment a line and smallest first.
                   Muted labels with the figures in white on the display face: an agent
                   reading a yearly premium off the screen should not have to lean in. */}
+              {firstMonthly !== undefined && (
+                <p className="mt-2 text-sm text-[var(--lg-gold)]">
+                  ชำระเบี้ยครั้งแรก {FIRST_MONTHLY_INSTALMENTS} งวด{" "}
+                  <span className="lg-figure tabular-nums text-[var(--lg-white)]">{formatBaht(firstMonthly)}</span> บาท
+                </p>
+              )}
               <div className="mt-2.5">{instalments}</div>
               {/* neither waiver pays a baht to the family; they carry on paying the
                   premium. Said here so the block below is not read as theirs */}
