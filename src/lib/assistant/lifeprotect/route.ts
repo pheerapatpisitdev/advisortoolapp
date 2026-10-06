@@ -66,6 +66,11 @@ export interface Routed {
    * which is a customer who has stopped shopping by budget.
    */
   budget?: Budget;
+  /**
+   * This turn checks a figure the customer was told ("…เหลือ 1,500,000 ใช่ไหม"); the sum in it
+   * is not a request to price one. Read off this turn only and never carried.
+   */
+  checking?: true;
 }
 
 const SYSTEM = `คุณเป็นตัวช่วยของตัวแทนประกันชีวิต อ่านข้อความล่าสุดแล้วบอกว่าลูกค้าต้องการอะไร ตอบเป็น JSON เท่านั้น
@@ -183,11 +188,23 @@ export function boostedCoverIn(text: string): number | undefined {
  * left in the small-talk route where the model would answer it out of its own head.
  */
 const DEATH_BENEFIT_QUESTION =
-  /กี่เท่า|\d+(?:\.\d+)?\s*เท่า|สองเท่า|คูณ\s*(?:สอง|2)|\bx\s*2\b|ครอบครัวได้|ได้(?:รับ)?\s*เท่า(?:ไหร่|ไร)/i;
+  /กี่เท่า|\d+(?:\.\d+)?\s*เท่า|สองเท่า|คูณ\s*(?:สอง|2)|\bx\s*2\b|ครอบครัวได้|ได้(?:รับ)?\s*เท่า(?:ไหร่|ไร)|(?:เสียชีวิต|ตาย)\s*(?:หลัง|ก่อน|เกิน|ตอน)\s*(?:อายุ\s*)?\d+|คุ้มครอง\s*(?:จะ)?\s*(?:เหลือ|ลด)/i;
 
 /** Whether a message is asking what the plan pays on death. */
 export function asksAboutDeathBenefit(text: string): boolean {
   return DEATH_BENEFIT_QUESTION.test(text);
+}
+
+/**
+ * A customer checking a figure they were told — "…จะเหลือ 1,500,000 บาท ใช่ไหม" — rather than
+ * naming a sum to be priced. The figure in it is theirs to have right or wrong, and the answer
+ * is yes or no from the plan's rules, not the quotation again (chat 2026-10-06).
+ */
+const CONFIRMS = /ใช่\s*(?:ไหม|มั้ย|มั๊ย|หรือเปล่า|รึเปล่า|ป่าว)|จริง\s*(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า)|หรือเปล่า|รึเปล่า/;
+const NAMES_PREMIUM = /เบี้ย|ราคา/;
+
+function checksDeathBenefit(text: string): boolean {
+  return asksAboutDeathBenefit(text) && CONFIRMS.test(text) && !NAMES_PREMIUM.test(text);
 }
 
 /**
@@ -240,6 +257,7 @@ function clean(raw: Routed, history: ChatMessage[]): Routed {
   const out: Routed = { intent: ["quote", "plan_info", "other"].includes(raw.intent) ? raw.intent : "other" };
   const last = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
   if (out.intent === "other" && asksAboutDeathBenefit(last)) out.intent = "plan_info";
+  if (checksDeathBenefit(last)) { out.intent = "plan_info"; out.checking = true; }
 
   // the term written in the message wins over the model's: it is what the customer chose,
   // and on a visitor from /lifeprotect it is what is on their screen
@@ -321,6 +339,6 @@ export function mergeSlots(previous: Routed | null, current: Routed): Routed {
   // that completes the three things a quotation needs is a request for one
   const complete = ((merged.people?.length ?? 0) > 0 || (merged.age !== undefined && merged.sex !== undefined))
     && merged.coverWanted !== undefined;
-  if (supplied && (previous.intent === "quote" || complete)) merged.intent = "quote";
+  if (supplied && !current.checking && (previous.intent === "quote" || complete)) merged.intent = "quote";
   return merged;
 }

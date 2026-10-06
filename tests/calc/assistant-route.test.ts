@@ -69,6 +69,23 @@ describe("reading what the customer wants", () => {
     expect((await routeMessage(said("ทำทุน 1 ล้าน ครอบครัวได้ 2 ล้านจริงไหม"))).intent).toBe("plan_info");
   });
 
+  /**
+   * A 56-year-old quoted "ทุน 750,000 เพิ่มเป็น 1,500,000 ถึงอายุ 60" asked whether dying after
+   * sixty still pays 1,500,000. She had it backwards, and was sent the same quotation again
+   * instead of being told no (chat 2026-10-06).
+   */
+  it("hears a customer checking what the family receives as a question, not a new sum", async () => {
+    reply.text = JSON.stringify({ intent: "quote", coverWanted: 1500000 });
+    const routed = await routeMessage(said("ถ้าเสียชีวิตหลัง 60 ปีความคุ้มครองจะเหลือ 1,500,000 บาท ใช่ไหม"));
+    expect(routed.intent).toBe("plan_info");
+    expect(routed.checking).toBe(true);
+  });
+
+  it("still prices a message that asks what the family receives and what it costs", async () => {
+    reply.text = JSON.stringify({ intent: "quote", coverWanted: 2000000 });
+    expect((await routeMessage(said("ทุน 1 ล้าน ครอบครัวได้ 2 ล้านจริงไหม เบี้ยเท่าไหร่"))).intent).toBe("quote");
+  });
+
   it("falls back to a plain conversation when the model answers with rubbish", async () => {
     reply.text = "ไม่ใช่ JSON";
     // a greeting holds nothing to read, so the fallback is a plain turn carrying its own words
@@ -281,6 +298,15 @@ describe("carrying the conversation forward", () => {
   it("does not force a quote onto a turn that supplies nothing", () => {
     const merged = mergeSlots({ intent: "quote", coverWanted: 3_000_000 }, { intent: "plan_info" });
     expect(merged.intent).toBe("plan_info");
+  });
+
+  it("does not turn a customer checking a figure back into a quotation", () => {
+    const merged = mergeSlots(
+      { intent: "quote", age: 56, sex: "F", coverWanted: 1_500_000 },
+      { intent: "plan_info", coverWanted: 1_500_000, checking: true },
+    );
+    expect(merged.intent).toBe("plan_info");
+    expect(merged.coverWanted).toBe(1_500_000);
   });
 
   it("lets the newest turn overwrite what it names", () => {
