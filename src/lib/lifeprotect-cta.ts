@@ -121,7 +121,7 @@ export function lifeProtectCashText(cash: CashRow[]): string | undefined {
  * this. The wording is the owner's, kept as written — including the price claim and the tax
  * line, which were raised with them and kept. Every figure still comes from the rate table.
  */
-export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts"> & { coverToAge: number }): string {
+export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts" | "cash"> & { coverToAge: number }): string {
   const [headline] = f.modes;
   const annual = f.modes.find((m) => m.mode === "annual");
   const baht = (n: number) => n.toLocaleString("en-US");
@@ -152,14 +152,8 @@ export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts">
       ]
       : deathBenefitRows(f.death).map((r) => `- ${r.label} ${baht(r.amount)} บาท`)),
   ];
-  if (f.cash.length > 0) {
-    lines.push(
-      "", "🏦 มูลค่าเงินสดสะสม (หากเวนคืน)",
-      "เมื่อเราอายุมากขึ้น มองซ้ายมองขวา ไม่มีเงินที่ไหน ขายคืนโครงการ",
-      "ตามอายุดังนี้รับเงินสดไปเลย",
-      ...f.cash.map((r) => `- อายุ ${r.age} ปี ${baht(r.amount)} บาท`),
-    );
-  }
+  // the surrender values at four ages are gone, as from the page and its card (owner,
+  // 2026-10-06): the chart-and-table picture sent after this carries every year of them
   lines.push("", "📌 เบี้ยคงที่ตลอดระยะเวลาชำระ", "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน", "ลดหย่อนภาษีได้ 100,000 บาท");
   return lines.join("\n");
 }

@@ -5,6 +5,7 @@ import { baseSumAssuredLimits } from "@/calc/rules";
 import { valueTableCard } from "@/lib/quote-card";
 import { cardPath, valueTablePath } from "@/lib/card-link";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
+import { firstPaymentLines } from "@/lib/first-payment";
 import { coverIn, peopleIn } from "@/lib/assistant/common";
 import { priceFollowUps, type GuideItem, type PriceGap } from "./guide";
 
@@ -254,7 +255,10 @@ export function priceNamedPlan(text: string, code: string, label: string): Price
   const half = per("semi");
   const monthly = per("monthly");
   if (half && !half.belowMinimum) lines.push(`ราย 6 เดือน ${money(half.total)} บาท`);
-  if (monthly && !monthly.belowMinimum) lines.push(`รายเดือน ${money(monthly.total)} บาท`);
+  if (monthly && !monthly.belowMinimum) {
+    // what paying monthly takes up front, as the card's box and every sales page say it
+    lines.push(`รายเดือน ${money(monthly.total)} บาท`, ...firstPaymentLines(monthly));
+  }
   if (result.deathBenefit) lines.push("", "👪 ความคุ้มครองชีวิตเป็นไปตามตารางผลประโยชน์ของแบบนี้");
   if (result.meta.expired) {
     lines.push("", `⚠️ ตารางเบี้ยชุดนี้ (${result.meta.version}) หมดอายุ ${result.meta.expiresOn} แล้ว — ขอราคาปัจจุบันจากบริษัทก่อนใช้`);

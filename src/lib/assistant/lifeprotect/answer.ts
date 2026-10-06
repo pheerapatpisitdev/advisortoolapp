@@ -177,7 +177,7 @@ function quoteFor(
   table: LifeProtectTable, variant: string, who: { age: number; sex: "M" | "F" }, coverWanted: number,
   offer?: Routed["offer"],
   takenSum?: number,
-): Said & { figures?: QuoteFigures } {
+): Said & { figures?: QuoteFigures; table?: string } {
   const { age, sex } = who;
   if (age < table.ageMin || age > table.ageMax) {
     return { text: `อายุ ${age} ปี แบบนี้รับประกันอายุ ${table.ageMin}-${table.ageMax} ปีครับ ${HAND_OVER}` };
@@ -205,10 +205,10 @@ function quoteFor(
       sex,
       modes,
       death: deathBenefitOf(table, age, sumAssured),
-      cash: cashAt(term, sex, age, sumAssured, table.ageMin),
       coverToAge: table.coverToAge,
     }),
     card: cardPath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }),
+    table: valueTablePath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }),
     ...withPdf(quotePdfPath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured })),
     ...(annual ? { figures: { age, sex, plan: variant, sumAssured, annual: baht(annual.total), coverWanted } } : {}),
   };
@@ -234,9 +234,10 @@ function sumBehind(
  * The buttons under a quotation: the table, whichever terms this quote did not take, and the
  * way on. Titles are kept under twenty characters, which is all Messenger shows of one.
  */
-function quoteReplies(table: LifeProtectTable, quoted: string): string[] {
+function quoteReplies(table: LifeProtectTable, quoted: string, offerTable = true): string[] {
   return [
-    ASK_FOR_TABLE,
+    // not when the table was just sent with the quote
+    ...(offerTable ? [ASK_FOR_TABLE] : []),
     ...table.terms.filter((t) => QUOTABLE.has(t.variant) && t.variant !== quoted).map((t) => t.label),
     WANTS_IN,
   ];
@@ -244,6 +245,12 @@ function quoteReplies(table: LifeProtectTable, quoted: string): string[] {
 
 /** The words a tapped button sends, which are the words the bot reads. */
 const ASK_FOR_TABLE = "ขอตารางมูลค่า";
+
+/** What the chart-and-table picture is, said over it when it follows a quotation. */
+function tableWords(table: LifeProtectTable): string {
+  return `กราฟและตารางมูลค่าทุกปีให้ดูด้วยครับ — เบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี`
+    + ` ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี`;
+}
 /** Not "เอาแบบลดทุน": ลดทุน is one of the words that mean "too expensive", and the title
  * would come back as a fresh objection rather than as an acceptance. */
 const TAKES_OFFER = "เอาแบบนี้";
@@ -268,7 +275,8 @@ function answerValueTable(slots: Routed): Reply {
   const term = termAt(table, variant);
   return {
     messages: [{
-      text: `ส่งตารางมูลค่าทุกปีให้ดูครับ ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี — มีทั้งเบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี (แบบ${term.label})`,
+      // the picture opens with the chart since it moved off the quote card (owner, 2026-10-06)
+      text: `ส่งกราฟและตารางมูลค่าทุกปีให้ดูครับ ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี — มีทั้งเบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี (แบบ${term.label})`,
       card: valueTablePath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }),
     }],
     priced: true,
@@ -312,13 +320,21 @@ function answerQuote(slots: Routed): Reply {
   // a couple priced together is two quotations and one record; the last is the one the
   // buttons sit under, so it is the one the lead is opened against
   const figures = last >= 0 ? messages[last].figures : undefined;
+  /**
+   * One insured gets the chart and the year-by-year table straight after the card, as the
+   * page shows them under its price — the chart moved off the card onto that picture
+   * (owner, 2026-10-06). A couple already has two cards on the screen, so theirs stays a
+   * button away rather than making four pictures of one answer.
+   */
+  const withTable = people.length === 1;
   return {
-    messages: messages.map(({ text, card, pdfPath }) => ({
-      text, ...(card ? { card } : {}), ...withPdf(pdfPath),
-    })),
+    messages: messages.flatMap(({ text, card, pdfPath, table: tablePath }) => [
+      { text, ...(card ? { card } : {}), ...withPdf(pdfPath) },
+      ...(withTable && card && tablePath ? [{ text: tableWords(table), card: tablePath }] : []),
+    ]),
     priced: last >= 0,
     ...(figures ? { quote: figures } : {}),
-    ...(last >= 0 ? { replies: quoteReplies(table, variant) } : {}),
+    ...(last >= 0 ? { replies: quoteReplies(table, variant, !withTable) } : {}),
   };
 }
 

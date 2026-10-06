@@ -191,14 +191,13 @@ describe("lifeProtectChatQuoteText", () => {
     { mode: "semi", total: 925_600, belowMinimum: false },
   ];
   const death = { beforeAge: 60, sumBefore: 2_000_000, sumFrom: 1_000_000, alreadyPastAge: false };
-  const cash = [
-    { age: 60, amount: 187_000 }, { age: 70, amount: 395_000 },
-    { age: 80, amount: 625_000 }, { age: 99, amount: 1_025_000 },
-  ];
-
+  /**
+   * The owner's message, less the surrender values at four ages: those went from the page and
+   * its card on 2026-10-06, and the chart-and-table picture sent after the quote has every year.
+   */
   it("is the owner's message, word for word", () => {
     const text = lifeProtectChatQuoteText({
-      sumAssured: 1_000_000, termLabel: "จ่ายถึงอายุ 99", age: 42, sex: "F", modes, death, cash, coverToAge: 99,
+      sumAssured: 1_000_000, termLabel: "จ่ายถึงอายุ 99", age: 42, sex: "F", modes, death, coverToAge: 99,
     });
     expect(text).toBe([
       "🛡️ Life Protect",
@@ -220,14 +219,6 @@ describe("lifeProtectChatQuoteText", () => {
       "- เสียชีวิตก่อนอายุ 60 ปี ภาระหนี้สินเยอะเลย เพิ่มทุนเป็น 2,000,000 บาท",
       "- อายุ 60 ปีขึ้นไปรับทุน 1,000,000 บาท ตามเบี้ยจริง",
       "",
-      "🏦 มูลค่าเงินสดสะสม (หากเวนคืน)",
-      "เมื่อเราอายุมากขึ้น มองซ้ายมองขวา ไม่มีเงินที่ไหน ขายคืนโครงการ",
-      "ตามอายุดังนี้รับเงินสดไปเลย",
-      "- อายุ 60 ปี 187,000 บาท",
-      "- อายุ 70 ปี 395,000 บาท",
-      "- อายุ 80 ปี 625,000 บาท",
-      "- อายุ 99 ปี 1,025,000 บาท",
-      "",
       "📌 เบี้ยคงที่ตลอดระยะเวลาชำระ",
       "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน",
       "ลดหย่อนภาษีได้ 100,000 บาท",
@@ -237,7 +228,7 @@ describe("lifeProtectChatQuoteText", () => {
   it("drops the doubling pitch for an insured already past the age it stops at", () => {
     const past = { beforeAge: 60, sumBefore: 1_000_000, sumFrom: 1_000_000, alreadyPastAge: true };
     const text = lifeProtectChatQuoteText({
-      sumAssured: 1_000_000, termLabel: "จ่าย 9 ปี", age: 62, sex: "M", modes, death: past, cash: [], coverToAge: 99,
+      sumAssured: 1_000_000, termLabel: "จ่าย 9 ปี", age: 62, sex: "M", modes, death: past, coverToAge: 99,
     });
     expect(text).toContain("🛡️ Life Protect\nทุน 1,000,000 บาท\n\nชาย อายุ 62 · อย่างนี้ออม 9 ปี คุ้มครอง 99 ปี");
     expect(text).not.toContain("double");

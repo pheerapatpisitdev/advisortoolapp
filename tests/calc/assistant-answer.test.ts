@@ -20,7 +20,7 @@ const { asksValueTable, lifeProtectVariantIn } = await import("@/lib/assistant/l
 const { wantsToBuy } = await import("@/lib/assistant/common");
 const { lifeProtectTable } = await import("@/lib/lifeprotect-table");
 const { lifeProtectChatQuoteText } = await import("@/lib/lifeprotect-cta");
-const { cashAt, deathBenefitOf, lifeProtectModes, termAt } = await import("@/lib/lifeprotect-quote");
+const { deathBenefitOf, lifeProtectModes, termAt } = await import("@/lib/lifeprotect-quote");
 const { formatBaht } = await import("@/calc/money");
 const { quotePdfPath } = await import("@/lib/quote-pdf/link");
 
@@ -111,11 +111,22 @@ describe("a quote", () => {
       sex: "M",
       modes: lifeProtectModes(table, term, { sex: "M", age: 35, sumAssured: SUM })!,
       death: deathBenefitOf(table, 35, SUM),
-      cash: cashAt(term, "M", 35, SUM, table.ageMin),
       coverToAge: table.coverToAge,
     });
     expect(answer.messages[0].text).toContain(expected);
     expect(answer.priced).toBe(true);
+  });
+
+  /**
+   * The chart moved off the card onto the table's picture (owner, 2026-10-06), and the
+   * surrender values at four ages left the quote with it — so the picture follows the card.
+   */
+  it("follows the card with the chart and table of the same arrangement", async () => {
+    const answer = await answerQuestion(said("ชาย 35 ล้านนึง"), null);
+    expect(answer.messages[1].text).toContain("กราฟและตารางมูลค่าทุกปี");
+    expect(answer.messages[1].card)
+      .toMatch(/^\/api\/card\/table\?plan=LIFEPROTECT&variant=WLF19H&age=35&sex=M&sum=1000000&v=[0-9a-z]+-[0-9]+$/);
+    expect(answer.messages[0].text).not.toContain("มูลค่าเงินสดสะสม");
   });
 
   it("asks a model to read the message, never to word the price", async () => {
@@ -417,9 +428,16 @@ describe("the buttons under a cheaper arrangement", () => {
 describe("the buttons under a quotation", () => {
   beforeEach(() => { routed = { intent: "quote", age: 35, sex: "M", coverWanted: 1_000_000 }; });
 
-  it("offers the table, the terms not taken, and the way on", async () => {
+  /** The table came with the quote (2026-10-06), so the button for it would ask for it twice. */
+  it("offers the terms not taken and the way on", async () => {
     const answer = await answerQuestion(said("ชาย 35 ล้านนึง"), null);
-    expect(answer.replies).toEqual(["ขอตารางมูลค่า", "จ่าย 9 ปี", "จ่ายถึงอายุ 99", "สนใจสมัคร"]);
+    expect(answer.replies).toEqual(["จ่าย 9 ปี", "จ่ายถึงอายุ 99", "สนใจสมัคร"]);
+  });
+
+  it("still offers the table to a couple, whose tables were not sent", async () => {
+    routed = { intent: "quote", coverWanted: 2_000_000 };
+    const answer = await answerQuestion(said("ผญ 32 ผช33ค่ะ"), null);
+    expect(answer.replies?.[0]).toBe("ขอตารางมูลค่า");
   });
 
   it("never offers the term the customer is already looking at", async () => {
@@ -687,9 +705,11 @@ describe("a question asked alongside a price", () => {
   it("is answered after the quote, not instead of it", async () => {
     routed = { intent: "quote", age: 37, sex: "F", coverWanted: 1_000_000 };
     const answer = await answerQuestion(said("ญ 37 ลดหย่อนภาษีได้ไหม"), null);
-    expect(answer.messages).toHaveLength(2);
+    // the quote, its chart and table, then the answer
+    expect(answer.messages).toHaveLength(3);
     expect(answer.messages[0].card).toBeDefined();
-    expect(answer.messages[1].text).toContain("100,000");
+    expect(answer.messages[1].card).toContain("/api/card/table?");
+    expect(answer.messages[2].text).toContain("100,000");
   });
 });
 
