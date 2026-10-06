@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { AdResult, UnsyncedAccount } from "@/lib/ads/results";
+import type { MetaCampaign } from "@/lib/ads/meta-campaigns";
 import type { CampaignRow } from "@/lib/ads/campaign-table";
 import { parseCreate, studioHref, withCreate, type CreateMode } from "@/lib/ads/manager-view";
 import { liveCount } from "@/lib/ads/campaign-view";
@@ -12,6 +13,7 @@ import type { Room } from "./AdEditor";
 import { CampaignRoom, type RoomResults } from "./CampaignRoom";
 import { CampaignSettings } from "./CampaignSettings";
 import { CampaignTable } from "./CampaignTable";
+import { MetaCampaigns } from "./MetaCampaigns";
 import { Columns } from "./Columns";
 import { CreateDrawer } from "./CreateDrawer";
 import { NewCampaignForm } from "./NewCampaignForm";
@@ -41,6 +43,8 @@ export type StudioView =
     fetchedAt: string | null;
     /** ad accounts the sends used whose results are not fetched */
     unsynced: UnsyncedAccount[];
+    /** the campaigns built in Meta itself for this Page, read-only */
+    meta: { ok: true; campaigns: MetaCampaign[] } | { ok: false; error: string };
   }
   /** the ads tab: the open campaign's room, the ad named in the address, and its sent ads' results */
   | { kind: "room"; room: Room; productName: string; people: PersonOption[]; adAsked: string | null; results: RoomResults }
@@ -182,6 +186,9 @@ export function AdsStudio({ home, view, openId, days, contact, drawerPeople, rul
                 pageId={page.pageId} pageName={page.pageName} openId={openId}
                 open={(id) => href({ tab: "ads", campaign: id })}
               />
+              <div className="mt-6">
+                <MetaCampaigns result={view.meta} days={days} />
+              </div>
             </div>
           ) : view.kind === "room" ? (
             <CampaignRoom

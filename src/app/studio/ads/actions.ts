@@ -30,6 +30,7 @@ import {
 } from "@/lib/ads/send";
 import { graph } from "@/lib/ads/graph";
 import { sumResults, type AdResult, type DailyRow } from "@/lib/ads/results";
+import { groupMetaCampaigns, type MetaCampaign, type MetaRow } from "@/lib/ads/meta-campaigns";
 import type { CampaignRow } from "@/lib/ads/campaign-table";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listLeadForms, type LeadForms } from "@/lib/ads/lead-forms";
@@ -1133,6 +1134,50 @@ export async function campaignResults(
     };
   } catch (e) {
     console.error("campaignResults failed:", e);
+    return { ok: false, error: SOMETHING_BROKE };
+  }
+}
+
+/**
+ * The campaigns built in Meta Ads Manager by hand for one of the owner's Pages, read-only, with
+ * what their ads did over the last 7 or 30 days (owner, 2026-10-06). From the nightly rows the
+ * sync has tied to this Page (ins_ad_daily.page_id); Ads Studio's own sent ads are left out, as
+ * they are its campaigns' rows already. A campaign whose ads did not run in the range has no
+ * rows and is not listed.
+ */
+export async function metaCampaigns(
+  pageId: string,
+  days: unknown,
+): Promise<{ ok: true; campaigns: MetaCampaign[]; fetchedAt: string | null } | { ok: false; error: string }> {
+  await requireStaff("owner");
+  try {
+    if (!(await myPages()).some((p) => p.pageId === pageId)) return { ok: false, error: PAGE_NOT_CONNECTED };
+    const campaigns = await listCampaigns(pageId);
+    const lists = await Promise.all(campaigns.map((c) => listSends(c.id, { includeSuperseded: true })));
+    const studio = new Set(lists.flat().flatMap((send) => send.items.flatMap((item) => (item.adId ? [item.adId] : []))));
+
+    const since = bangkokSince(parseDays(days));
+    const rows: MetaRow[] = [];
+    // PostgREST answers at most 1000 rows a request: page until a short page comes back
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabaseAdmin()
+        .from("ins_ad_daily")
+        .select("ad_id, campaign_id, campaign_name, account_id, spend, impressions, link_clicks, messaging_started, fetched_at")
+        .eq("page_id", pageId)
+        .gte("date", since)
+        .order("date", { ascending: true })
+        .order("ad_id", { ascending: true })
+        .range(from, from + 999);
+      if (error) throw new Error(error.message);
+      const page = (data ?? []) as MetaRow[];
+      rows.push(...page);
+      if (page.length < 1000) break;
+    }
+    const names = new Map((await adAccounts().catch(() => [] as AdAccount[])).map((a) => [a.id, a.name]));
+    const fetchedAt = rows.reduce<string | null>((m, r) => (r.fetched_at && (!m || Date.parse(r.fetched_at) > Date.parse(m)) ? r.fetched_at : m), null);
+    return { ok: true, campaigns: groupMetaCampaigns(rows, studio, names), fetchedAt };
+  } catch (e) {
+    console.error("metaCampaigns failed:", e);
     return { ok: false, error: SOMETHING_BROKE };
   }
 }

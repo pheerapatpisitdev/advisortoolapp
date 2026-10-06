@@ -7,7 +7,7 @@ import { CONTENT_PRODUCTS, contentProduct } from "@/lib/content/products";
 import { listPeople } from "@/lib/content/people-store";
 import { peopleFor, visibleTo } from "@/lib/content/people-pages";
 import { pageConnections } from "@/lib/facebook/connection";
-import { adCampaignRoom, adsStudioHome, campaignResults, campaignRows, pageContact, type AdCampaignRoom } from "./actions";
+import { adCampaignRoom, adsStudioHome, campaignResults, campaignRows, metaCampaigns, pageContact, type AdCampaignRoom } from "./actions";
 import type { Room } from "./AdEditor";
 import { AdsStudio, type StudioView } from "./AdsStudio";
 
@@ -94,9 +94,9 @@ export default async function StudioAdsPage({ searchParams }: {
       ? { kind: "page", room, productName: productOf(room), people: await peopleOf(room.campaign.pageId) }
       : { kind: "page", room: null, productName: "", people: [] };
   } else {
-    const [rows, results] = home.pageId
-      ? await Promise.all([campaignRows(home.pageId), campaignResults(home.pageId, days)])
-      : [null, null];
+    const [rows, results, meta] = home.pageId
+      ? await Promise.all([campaignRows(home.pageId), campaignResults(home.pageId, days), metaCampaigns(home.pageId, days)])
+      : [null, null, null];
     view = {
       kind: "campaigns",
       rows: rows ? (rows.ok ? rows.rows : { error: rows.error }) : [],
@@ -104,6 +104,7 @@ export default async function StudioAdsPage({ searchParams }: {
       resultsError: results && !results.ok ? results.error : null,
       fetchedAt: results?.ok ? results.fetchedAt : null,
       unsynced: results?.ok ? results.unsynced : [],
+      meta: meta ?? { ok: true, campaigns: [] },
     };
   }
 
