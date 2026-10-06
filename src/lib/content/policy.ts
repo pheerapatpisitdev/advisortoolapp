@@ -245,10 +245,17 @@ export const RECRUIT_POLICY_RULES: PolicyRule[] = [
   },
 ];
 
-/** `lang`: the piece's language; "en" also stops any Thai in it (THAI_IN_ENGLISH) */
-export function checkPolicy(text: string, opts: { recruit?: boolean; lang?: Lang } = {}): PolicyFinding[] {
+/** the two recruit rules about income, which โชว์ผลงาน is read with: its pictures may show an agent's own results */
+const INCOME_RULES = RECRUIT_POLICY_RULES.filter((r) => r.code === "income_promise" || r.code === "income_guarantee");
+
+/**
+ * `lang`: the piece's language; "en" also stops any Thai in it (THAI_IN_ENGLISH).
+ * `recruit`: all of หาทีม's rules; `income`: only its two about income (no figure, no promise).
+ */
+export function checkPolicy(text: string, opts: { recruit?: boolean; income?: boolean; lang?: Lang } = {}): PolicyFinding[] {
   const out: PolicyFinding[] = [];
-  for (const rule of [...POLICY_RULES, ...POLICY_RULES_EN, ...(opts.recruit ? RECRUIT_POLICY_RULES : [])]) {
+  const extra = opts.recruit ? RECRUIT_POLICY_RULES : opts.income ? INCOME_RULES : [];
+  for (const rule of [...POLICY_RULES, ...POLICY_RULES_EN, ...extra]) {
     const every = new RegExp(rule.pattern.source, `${rule.pattern.flags}g`);
     for (const m of text.matchAll(every)) {
       const before = text.slice(Math.max(0, m.index - 14), m.index);

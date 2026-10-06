@@ -93,6 +93,6 @@ describe("where thank-yous are listed and checked", () => {
   });
 
   it("flags every figure, as ความรู้ does, and needs no recruit rules", () => {
-    expect(modeChecks("thanks", undefined)).toEqual({ recruit: false, every: true });
+    expect(modeChecks("thanks", undefined)).toEqual({ recruit: false, income: false, every: true });
   });
 });
