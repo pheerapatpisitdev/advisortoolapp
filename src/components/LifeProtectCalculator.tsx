@@ -653,34 +653,20 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
             </div>
           )}
 
-          {cash.length > 0 && (
+          {/* the milestone list of surrender values is gone (owner, 2026-10-06): the chart
+              and the year-by-year table already carry every one of them */}
+          {projection && (
             <div className="pt-1">
               <hr className="lg-rule" />
-              <div className="pt-4 text-sm text-[var(--lg-mute)]">มูลค่าเงินสดสะสม (หากเวนคืน)</div>
-              <dl className="mt-2 space-y-2">
-                {cash.map((row) => (
-                  <div key={row.age} className="flex items-baseline justify-between gap-3">
-                    <dt className="text-sm text-[var(--lg-mute)]">อายุ {row.age} ปี</dt>
-                    <dd className="lg-figure text-lg tabular-nums text-[var(--lg-white)]">
-                      {row.amount.toLocaleString("en-US")} บาท
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-
-              {projection && (
-                <>
-                  {/* a new term, age or sex is a different contract, so the readout goes back
-                      to its break-even year; dragging the sum alone keeps the year in view */}
-                  <CashValueChart key={`${variant}-${sex}-${who!.age}`} projection={projection} age={who!.age} />
-                  <CashValueTable
-                    projection={projection}
-                    caption={tableCaption}
-                    cardPath={tableCard}
-                    planName={getPlan(table.planCode)?.planLabel}
-                  />
-                </>
-              )}
+              {/* a new term, age or sex is a different contract, so the readout goes back
+                  to its break-even year; dragging the sum alone keeps the year in view */}
+              <CashValueChart key={`${variant}-${sex}-${who!.age}`} projection={projection} age={who!.age} />
+              <CashValueTable
+                projection={projection}
+                caption={tableCaption}
+                cardPath={tableCard}
+                planName={getPlan(table.planCode)?.planLabel}
+              />
             </div>
           )}
 
