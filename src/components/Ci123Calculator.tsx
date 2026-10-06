@@ -2,7 +2,6 @@
 import { useMemo, useState } from "react";
 import type { ModePremium } from "@/calc/mode-premiums";
 import type { PayMode, Sex } from "@/calc/types";
-import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
 import { displayPremium, perDayText } from "@/lib/legacy-cta";
 import { ci123QuoteText, stagePays, sumWords, type Ci123Age } from "@/lib/ci123-cta";
@@ -11,6 +10,7 @@ import { ContactButtons } from "@/components/sales/ContactButtons";
 import type { Ci123Table } from "@/lib/ci123-table";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
+import { PremiumSummary } from "@/components/sales/PremiumSummary";
 
 const PER_LABEL: Record<PayMode, string> = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" };
 const ROW_MODES: PayMode[] = ["annual", "semi", "monthly"];
@@ -49,9 +49,6 @@ export function Ci123Calculator({ table, sticky = false }: { table: Ci123Table; 
   const modes = at >= 0 ? rowToModes(table.premiums[sex][tier - 1][at]) : undefined;
   const headline = displayPremium(modes, table.expired);
   const annual = modes?.find((m) => m.mode === "annual");
-  const others = (modes ?? [])
-    .filter((m) => m.mode !== headline?.mode && !m.belowMinimum)
-    .sort((a, b) => a.total - b.total);
   const base = at >= 0 ? table.basePremiums[sex][at] : null;
 
   const card = typeof age === "number" && headline
@@ -137,27 +134,22 @@ export function Ci123Calculator({ table, sticky = false }: { table: Ci123Table; 
           <PanelPhoto />
           {headline && annual ? (
             <div>
-              <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน</div>
-              <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
-                <span className="lg-metal-text">{formatBaht(headline.total)}</span>
-                <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
-              </div>
-              <div className="mt-2.5 space-y-1 text-sm text-[var(--lg-mute)]">
-                {/* highlighted, as on the quote card: what the premium comes to by the day and per instalment */}
-                <div>
+              {/* as tall as the family photo in the corner, so the box after it never runs under the picture */}
+              <div className="min-h-[5.5rem] sm:min-h-[7.5rem]">
+                <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน</div>
+                <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
+                  <span className="lg-metal-text">{formatBaht(headline.total)}</span>
+                  <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
+                </div>
+                <div className="mt-2.5 text-sm text-[var(--lg-mute)]">
                   <Highlighted>
-                    ตกวันละ{" "}
-                    <span className="lg-figure tabular-nums">{perDayText(annual.total)}</span> บาท
+                    ตกวันละ <span className="lg-figure tabular-nums">{perDayText(annual.total)}</span> บาท
                   </Highlighted>
                 </div>
-                {others.map((m) => (
-                  <div key={m.mode}>
-                    <Highlighted>
-                      {PAY_MODE_LABEL[m.mode]}{" "}
-                      <span className="lg-figure tabular-nums">{formatBaht(m.total)}</span> บาท
-                    </Highlighted>
-                  </div>
-                ))}
+              </div>
+              {/* every instalment in the back-office calculator's box (owner, 2026-10-06) */}
+              <div className="mt-3">
+                <PremiumSummary modes={modes} main={headline.mode} />
               </div>
               {/* the two contracts itemised: the price is theirs together, and a customer who
                   is told only the total has no way to see what the rider alone costs */}

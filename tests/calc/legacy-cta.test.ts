@@ -126,7 +126,7 @@ describe("legacyQuoteText", () => {
       death: { beforeAge: 60, sumBefore: 3_000_000, sumFrom: 450_000, alreadyPastAge: false },
       diseaseCount: 31,
     });
-    expect(text).toContain("💰 เบี้ยประมาณ 1,501 บาท/เดือน (ตกวันละ 46 บาท)\nรายเดือน 1,501 บาท\nราย 6 เดือน 8,677 บาท\nรายปี 16,687 บาท");
+    expect(text).toContain("💰 เบี้ยประมาณ 1,501 บาท/เดือน (ตกวันละ 46 บาท)\nรายเดือน 1,501 บาท\n(ชำระเบี้ยครั้งแรก 2 งวด 3,003 บาท)\nราย 6 เดือน 8,677 บาท\nรายปี 16,687 บาท");
     expect(text).not.toContain("ต่ำกว่าขั้นต่ำ");
   });
 });

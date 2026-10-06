@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { Sex } from "@/calc/types";
-import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import { cashProjection } from "@/lib/cash-projection";
@@ -20,6 +19,7 @@ import { EASYPROTECT_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
+import { PremiumSummary } from "@/components/sales/PremiumSummary";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
@@ -195,27 +195,22 @@ export function EasyProtectCalculator({ table, sticky = false }: EasyProtectCalc
           <PanelPhoto />
           {headline && annual ? (
             <div>
-              <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน · {term.label}</div>
-              <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
-                <span className="lg-metal-text">{formatBaht(headline.total)}</span>
-                <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
-              </div>
-              <div className="mt-2.5 space-y-1 text-sm text-[var(--lg-mute)]">
-                {/* highlighted, as on the quote card: what the premium comes to by the day and per instalment */}
-                <div>
+              {/* as tall as the family photo in the corner, so the box after it never runs under the picture */}
+              <div className="min-h-[5.5rem] sm:min-h-[7.5rem]">
+                <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน · {term.label}</div>
+                <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
+                  <span className="lg-metal-text">{formatBaht(headline.total)}</span>
+                  <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
+                </div>
+                <div className="mt-2.5 text-sm text-[var(--lg-mute)]">
                   <Highlighted>
-                    ตกวันละ{" "}
-                    <span className="lg-figure tabular-nums">{perDayText(annual.total)}</span> บาท
+                    ตกวันละ <span className="lg-figure tabular-nums">{perDayText(annual.total)}</span> บาท
                   </Highlighted>
                 </div>
-                {others.map((m) => (
-                  <div key={m.mode}>
-                    <Highlighted>
-                      {PAY_MODE_LABEL[m.mode]}{" "}
-                      <span className="lg-figure tabular-nums">{formatBaht(m.total)}</span> บาท
-                    </Highlighted>
-                  </div>
-                ))}
+              </div>
+              {/* every instalment in the back-office calculator's box (owner, 2026-10-06) */}
+              <div className="mt-3">
+                <PremiumSummary modes={modes} main={headline.mode} />
               </div>
             </div>
           ) : (

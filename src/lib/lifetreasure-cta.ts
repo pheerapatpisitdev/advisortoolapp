@@ -5,6 +5,7 @@ import { formatBaht } from "@/calc/money";
 import { PER, perDayText } from "@/lib/legacy-cta";
 import { ageWord } from "@/lib/lifeprotect-cta";
 import type { CashRow } from "@/lib/lifeprotect-quote";
+import { firstPaymentLines } from "@/lib/first-payment";
 
 /** The age picker's value: an age the plan takes, or "over" for everyone past the last. */
 export type LifeTreasureAge = number | "over";
@@ -79,7 +80,7 @@ export function lifeTreasureQuoteText(f: LifeTreasureQuoteFacts): string {
     "",
     ...INSTALMENT_ORDER.flatMap((mode) => {
       const m = f.modes.find((x) => x.mode === mode);
-      return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`] : [];
+      return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`, ...firstPaymentLines(m)] : [];
     }),
     "",
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต",

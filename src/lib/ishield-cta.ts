@@ -5,6 +5,7 @@ import { formatBaht } from "@/calc/money";
 import { PER, perDayText } from "@/lib/legacy-cta";
 import { ageWord } from "@/lib/lifeprotect-cta";
 import type { CashRow } from "@/lib/lifeprotect-quote";
+import { firstPaymentLines } from "@/lib/first-payment";
 
 /** The age picker's value: an age some term still takes, or "over" for everyone past the last. */
 export type IShieldAge = number | "over";
@@ -72,7 +73,7 @@ export function iShieldQuoteText(f: IShieldQuoteFacts): string {
     "",
     ...INSTALMENT_ORDER.flatMap((mode) => {
       const m = f.modes.find((x) => x.mode === mode);
-      return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`] : [];
+      return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`, ...firstPaymentLines(m)] : [];
     }),
     "",
     "🩺 ตรวจพบโรคร้ายแรง",

@@ -3,6 +3,7 @@ import type { DeathBenefit, PayMode, Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
 import { deathBenefitRows } from "@/lib/death-benefit";
+import { firstPaymentLines } from "@/lib/first-payment";
 
 /**
  * The instalment to put in the largest type. A customer reads a monthly figure as what the
@@ -131,7 +132,7 @@ export function legacyQuoteText(f: LegacyQuoteFacts): string {
       const m = f.modes.find((x) => x.mode === mode);
       if (!m) return [];
       const line = `${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`;
-      return [m.belowMinimum ? `${line} (ต่ำกว่าขั้นต่ำ ${baht(f.minMonthly)} บาท บริษัทไม่รับชำระรายเดือน)` : line];
+      return [m.belowMinimum ? `${line} (ต่ำกว่าขั้นต่ำ ${baht(f.minMonthly)} บาท บริษัทไม่รับชำระรายเดือน)` : line, ...firstPaymentLines(m)];
     }),
     "",
     `🏥 ตรวจพบโรคร้ายแรง รับเงินสดเอง ${baht(f.critical)} บาท`,

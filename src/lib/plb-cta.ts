@@ -3,6 +3,7 @@ import type { PayMode, Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
 import { PER, perDayText } from "@/lib/legacy-cta";
+import { firstPaymentLines } from "@/lib/first-payment";
 
 /** The age picker's value: an age the plan takes, or "over" for everyone past the last. */
 export type PlbAge = number | "over";
@@ -72,7 +73,7 @@ export function plbQuoteText(f: PlbQuoteFacts): string {
     "",
     ...INSTALMENT_ORDER.flatMap((mode) => {
       const m = f.modes.find((x) => x.mode === mode);
-      return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`] : [];
+      return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`, ...firstPaymentLines(m)] : [];
     }),
     "",
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต",

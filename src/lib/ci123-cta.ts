@@ -4,6 +4,7 @@ import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht } from "@/calc/money";
 import { displayPremium, PER, perDayText } from "@/lib/legacy-cta";
 import type { Ci123Stage } from "@/lib/ci123-table";
+import { firstPaymentLines } from "@/lib/first-payment";
 
 const SEX_WORD: Record<Sex, string> = { M: "ชาย", F: "หญิง" };
 
@@ -79,7 +80,7 @@ export function ci123QuoteText(f: Ci123QuoteFacts): string {
       const m = f.modes.find((x) => x.mode === mode);
       if (!m) return [];
       const line = `${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`;
-      return [m.belowMinimum ? `${line} (ต่ำกว่าขั้นต่ำ ${baht(f.minMonthly)} บาท บริษัทไม่รับชำระรายเดือน)` : line];
+      return [m.belowMinimum ? `${line} (ต่ำกว่าขั้นต่ำ ${baht(f.minMonthly)} บาท บริษัทไม่รับชำระรายเดือน)` : line, ...firstPaymentLines(m)];
     }),
     "",
     `🏥 รับเงินก้อนตามระยะของโรค (${f.diseaseCount} โรค)`,

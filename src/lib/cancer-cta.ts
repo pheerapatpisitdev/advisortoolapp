@@ -5,6 +5,7 @@ import { formatBaht } from "@/calc/money";
 import { displayPremium, PER, perDayText } from "@/lib/legacy-cta";
 import { sumWords } from "@/lib/ci123-cta";
 import { CPR_STAGES, HIC_INVASIVE_EXTRA_DAYS, HIC_MAX_DAYS, cprStagePays } from "@/lib/cancer-benefits";
+import { firstPaymentLines } from "@/lib/first-payment";
 
 const SEX_WORD: Record<Sex, string> = { M: "ชาย", F: "หญิง" };
 
@@ -58,7 +59,7 @@ export function cancerQuoteText(f: CancerQuoteFacts): string {
       const m = f.modes.find((x) => x.mode === mode);
       if (!m) return [];
       const line = `${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`;
-      return [m.belowMinimum ? `${line} (ต่ำกว่าขั้นต่ำ ${baht(f.minMonthly)} บาท บริษัทไม่รับชำระรายเดือน)` : line];
+      return [m.belowMinimum ? `${line} (ต่ำกว่าขั้นต่ำ ${baht(f.minMonthly)} บาท บริษัทไม่รับชำระรายเดือน)` : line, ...firstPaymentLines(m)];
     }),
     "",
     "🔬 ตรวจพบมะเร็ง รับเงินก้อนตามระยะ",

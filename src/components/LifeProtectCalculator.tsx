@@ -14,7 +14,7 @@ import { cashProjection } from "@/lib/cash-projection";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import {
-  FIRST_MONTHLY_INSTALMENTS, ageWord, firstMonthlyPayment, lifeProtectCashText, lifeProtectQuoteText,
+  ageWord, lifeProtectCashText, lifeProtectQuoteText,
   type LifeProtectAge,
 } from "@/lib/lifeprotect-cta";
 import { cardPath, valueTablePath } from "@/lib/card-link";
@@ -25,6 +25,7 @@ import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
+import { PremiumSummary } from "@/components/sales/PremiumSummary";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
@@ -297,54 +298,17 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
    */
   const waiveYears = (r: LifeProtectRider) => (ageNum !== undefined ? riderWaiveYears(r, term, ageNum) : undefined);
 
-  // paying monthly, the company collects the first two instalments with the application
-  const firstMonthly = paid ? firstMonthlyPayment(paid) : undefined;
-
-  /** Every instalment the company will take, as the back-office calculator lists them. */
-  const payable = (paid ?? [])
-    .filter((m) => !m.belowMinimum)
-    .sort((a, b) => b.total - a.total);
 
   /**
-   * What is paid, in the back-office calculator's summary box (owner, 2026-10-06): every
-   * instalment a row, the one the card headlines in bold and the others highlighted, with
-   * what paying monthly takes up front under the monthly row, and last what the headline
-   * instalment is made of when riders are part of it.
+   * What is paid, in the box every sales calculator shares (owner, 2026-10-06), with what
+   * the headline instalment is made of at its foot when riders are part of it: contract by
+   * contract, to the satang so the lines add up. The contract's full name is long enough to
+   * wrap on a phone; the figure beside it never should, so it keeps the width it needs.
    */
-  const summary = paidAnnual && headline ? (
-    <div className="rounded-lg bg-[var(--bot-sand-soft)] p-4">
-      <div className="text-sm text-[var(--bot-navy)]">เบี้ยประกันที่ต้องชำระ</div>
-      <dl className="mt-2 space-y-1">
-        {payable.map((m) => {
-          const main = m.mode === headline.mode;
-          const amount = `${formatBaht(m.total)} บาท`;
-          return (
-            <div key={m.mode}>
-              <div className="flex items-baseline justify-between gap-3">
-                <dt className={`text-sm ${main ? "font-semibold text-[var(--bot-navy)]" : "text-[var(--bot-navy)]"}`}>
-                  {main ? PAY_MODE_LABEL[m.mode] : <Highlighted>{PAY_MODE_LABEL[m.mode]}</Highlighted>}
-                </dt>
-                <dd className={`tabular-nums ${main ? "text-2xl font-semibold text-[var(--bot-navy)]" : "text-[var(--bot-navy)]"}`}>
-                  {main ? amount : <Highlighted>{amount}</Highlighted>}
-                </dd>
-              </div>
-              {/* the company collects the first two monthly instalments with the application */}
-              {m.mode === "monthly" && firstMonthly !== undefined && (
-                <div className="mt-1 text-right text-xs text-[var(--bot-navy)]">
-                  <Highlighted>
-                    ชำระเบี้ยครั้งแรก {FIRST_MONTHLY_INSTALMENTS} งวด {formatBaht(firstMonthly)} บาท
-                  </Highlighted>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </dl>
-      {/* What the headline instalment is made of, contract by contract, to the satang so the
-          lines add up to it. The contract's full name is long enough to wrap on a phone; the
-          figure beside it never should, so it keeps the width it needs. */}
+  const summary = paid && headline ? (
+    <PremiumSummary modes={paid} main={headline.mode}>
       {basePart && riderLines.length > 0 && (
-        <div className="mt-3 border-t border-[var(--bot-line-strong)] pt-2.5">
+        <>
           <div className="text-xs text-[var(--bot-navy)] opacity-80">แยกตามสัญญา · {PAY_MODE_LABEL[headline.mode]}</div>
           <div className="mt-1.5 space-y-1">
             {[{ name: "สัญญาหลัก", own: basePart }, ...riderLines].map((l, i) => (
@@ -356,9 +320,9 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
               </div>
             ))}
           </div>
-        </div>
+        </>
       )}
-    </div>
+    </PremiumSummary>
   ) : null;
 
   return (
