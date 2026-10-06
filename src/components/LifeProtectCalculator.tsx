@@ -308,7 +308,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   /**
    * What is paid, in the back-office calculator's summary box (owner, 2026-10-06): every
    * instalment a row, the one the card headlines in bold and the others highlighted, with
-   * what paying monthly takes up front under the monthly row and the daily figure last.
+   * what paying monthly takes up front under the monthly row, and last what the headline
+   * instalment is made of when riders are part of it.
    */
   const summary = paidAnnual && headline ? (
     <div className="rounded-lg bg-[var(--bot-sand-soft)] p-4">
@@ -339,9 +340,24 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           );
         })}
       </dl>
-      <div className="mt-2 border-t border-[var(--bot-line-strong)] pt-2 text-xs text-[var(--bot-navy)] opacity-80">
-        ตกวันละ <span className="tabular-nums">{perDayText(paidAnnual.total)}</span> บาท
-      </div>
+      {/* What the headline instalment is made of, contract by contract, to the satang so the
+          lines add up to it. The contract's full name is long enough to wrap on a phone; the
+          figure beside it never should, so it keeps the width it needs. */}
+      {basePart && riderLines.length > 0 && (
+        <div className="mt-3 border-t border-[var(--bot-line-strong)] pt-2.5">
+          <div className="text-xs text-[var(--bot-navy)] opacity-80">แยกตามสัญญา · {PAY_MODE_LABEL[headline.mode]}</div>
+          <div className="mt-1.5 space-y-1">
+            {[{ name: "สัญญาหลัก", own: basePart }, ...riderLines].map((l, i) => (
+              <div key={l.name} className="flex items-baseline justify-between gap-3 text-sm text-[var(--bot-navy)]">
+                <span className="min-w-0">{l.name}{i === 1 && picked && riderPart ? payerWords : ""}</span>
+                <span className="shrink-0 whitespace-nowrap tabular-nums">
+                  {i > 0 ? "+" : ""}{formatSatang(l.own.total)} บาท
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   ) : null;
 
@@ -605,31 +621,24 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           <PanelPhoto />
           {headline && annual && basePart ? (
             <div>
-              <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน · {term.label}</div>
-              {/* the largest type is what is paid, riders and all (owner, 2026-10-06); the
-                  plan's own share and each rider's are spelled out under it */}
-              <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
-                <span className="lg-metal-text">{formatBaht(headline.total)}</span>
-                <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
-              </div>
-              {riderLines.length > 0 && (
-                <div className="mt-3 space-y-1.5 border-t border-[var(--lg-panel-line)] pt-3">
-                  {/* to the satang, so the lines add up to the figure above; the contract's
-                      full name is long enough to wrap on a phone, the figure beside it never
-                      should, so it keeps the width it needs and the name takes what is left */}
-                  {[{ name: "สัญญาหลัก", own: basePart }, ...riderLines].map((l, i) => (
-                    <div key={l.name} className="flex items-baseline justify-between gap-3">
-                      <span className="min-w-0 text-sm text-[var(--lg-mute)]">
-                        {l.name}{i === 1 && picked && riderPart ? payerWords : ""}
-                      </span>
-                      <span className="lg-figure shrink-0 whitespace-nowrap tabular-nums text-[var(--lg-white)]">
-                        {i > 0 ? "+" : ""}{formatSatang(l.own.total)}
-                        <span className="ml-1 text-sm text-[var(--lg-mute)]">บาท</span>
-                      </span>
-                    </div>
-                  ))}
+              {/* As tall as the family photo in the corner, so nothing after it runs under the
+                  picture: on a phone the photo is 6rem from 0.5rem down, on a wider screen 8rem,
+                  and the panel's own padding is 1.25rem. */}
+              <div className="min-h-[5.5rem] sm:min-h-[7.5rem]">
+                <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน · {term.label}</div>
+                {/* the largest type is what is paid, riders and all (owner, 2026-10-06) */}
+                <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
+                  <span className="lg-metal-text">{formatBaht(headline.total)}</span>
+                  <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
                 </div>
-              )}
+                {paidAnnual && (
+                  <div className="mt-2.5 text-sm text-[var(--lg-mute)]">
+                    <Highlighted>
+                      ตกวันละ <span className="lg-figure tabular-nums">{perDayText(paidAnnual.total)}</span> บาท
+                    </Highlighted>
+                  </div>
+                )}
+              </div>
               <div className="mt-3">{summary}</div>
               {/* neither waiver pays a baht to the family; they carry on paying the
                   premium. Said here so the block below is not read as theirs */}
