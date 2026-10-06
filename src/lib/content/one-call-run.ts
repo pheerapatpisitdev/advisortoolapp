@@ -105,7 +105,7 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
           flags: {
             numbers: strayNumbers(checkedText(w.output), r.yardstick, { every: r.checks?.every }),
             words: findWords(checkedText(w.output), words),
-            policy: checkPolicy(checkedText(w.output), { recruit: r.checks?.recruit }),
+            policy: checkPolicy(checkedText(w.output), { recruit: r.checks?.recruit, income: r.checks?.income }),
             fixes: null,
           },
           rateVersion: null, model: w.model, costThb: w.costThb, hookTemplateId: null,

@@ -34,9 +34,11 @@ import { RECRUIT_NAME } from "@/lib/content/recruit";
 import { KNOWLEDGE_NAME } from "@/lib/content/knowledge";
 import { DRAFT_NAME } from "@/lib/content/draft";
 import { THANKS_NAME } from "@/lib/content/thanks";
+import { SHOWCASE_NAME } from "@/lib/content/showcase";
 import { KnowledgeTools } from "./knowledge/KnowledgeTools";
 import { DraftTools } from "./draft/DraftTools";
 import { ThanksTools } from "./thanks/ThanksTools";
+import { ShowcaseTools } from "./showcase/ShowcaseTools";
 import { CLIP_HREF, CLIP_NAME, isReelPiece } from "@/lib/content/clip";
 import { ClipTools } from "./clip/ClipTools";
 import { ClipCard } from "./clip/ClipCard";
@@ -88,11 +90,11 @@ interface Props {
 
 
 /** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft, a thank-you — or a clip the agent filmed */
-type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft" | "thanks" | "clip";
-const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft", "thanks", "clip"];
+type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft" | "thanks" | "showcase" | "clip";
+const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft", "thanks", "showcase", "clip"];
 /** the tools in the "สร้างจาก" dropdown, in the order the owner reads them */
 const MODE_OPTIONS: readonly (readonly [Mode, string])[] = [
-  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME], ["thanks", THANKS_NAME], ["clip", CLIP_NAME],
+  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME], ["thanks", THANKS_NAME], ["showcase", SHOWCASE_NAME], ["clip", CLIP_NAME],
 ];
 
 const TABS: { id: ContentStatus; label: string }[] = [
@@ -1112,6 +1114,18 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 people={people} person={person} onPerson={setPerson} brief={brief} onBrief={setBrief} logo={logo}
                 left={left} rounds={spend.rounds} pending={pending} making={making}
                 run={(asked, fmt, send, paintWith, who, pictureBrief) => runRound(asked, fmt, send, (fresh) => {
+                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, pictureBrief, who);
+                })}
+              />
+          </div>
+          <div hidden={mode !== "showcase"}>
+              <ShowcaseTools
+                folded={!formOpen} formId={mode === "showcase" ? formId : undefined}
+                writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
+                people={people} person={person} onPerson={setPerson} brief={brief} onBrief={setBrief} logo={logo}
+                reader={reader} onReader={setReader} left={left} rounds={spend.rounds} pending={pending} making={making}
+                run={(asked, fmt, send, paintWith, who, pictureBrief) => runRound(asked, fmt, send, (fresh) => {
+                  // the photograph behind each new showcase poster, drawn as a plan round's are
                   if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, pictureBrief, who);
                 })}
               />

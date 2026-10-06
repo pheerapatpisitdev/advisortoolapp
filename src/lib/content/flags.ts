@@ -27,7 +27,7 @@ export function flagsFor(o: ContentOutput, lang: Lang, brief: string, words: Con
   return {
     numbers: strayNumbers(text, brief, { every: checks.every }),
     words: findWords(text, words),
-    policy: checkPolicy(text, { recruit: checks.recruit, lang }),
+    policy: checkPolicy(text, { recruit: checks.recruit, income: checks.income, lang }),
     // a suggestion whose words were edited away cannot be applied any more
     fixes: fixes ? fixes.filter((f) => text.includes(f.find)) : null,
   };

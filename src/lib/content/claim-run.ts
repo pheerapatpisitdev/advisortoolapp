@@ -12,6 +12,7 @@ import { OVERHEAD_THB, writerOf } from "./models";
 import type { ContentOutput } from "./output";
 import { checkPolicy } from "./policy";
 import { onPage } from "./publish-label";
+import { SHOWCASE_HREF } from "./showcase";
 import { MAX_PAPERS, posterText } from "./poster";
 import { LENGTHS, MAX_READER, type Format, type Length } from "./prompt";
 import {
@@ -28,12 +29,12 @@ import { ownerWording } from "./wording";
  */
 
 /** Gemini draws the tightest boxes of the three; the others read the words well enough if it is down */
-const READER = "gemini-3.7-flash";
-const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
+export const READER = "gemini-3.7-flash";
+export const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
 /** reading six photographs is about ฿0.1 on Gemini Flash; held at this so a fallback fits */
 export const READ_HOLD_THB = 0.5;
 /** six photographs and a long reply of boxes; a thinking model needs the room */
-const READ_TIMEOUT_MS = 120_000;
+export const READ_TIMEOUT_MS = 120_000;
 export const WRITE_TIMEOUT_MS = 60_000;
 
 export const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
@@ -224,7 +225,7 @@ export async function attachPapers(item: ContentItem, papers: Paper[]): Promise<
 /** A claim piece's i-th paper, for the editor to show and add stickers to; null when there is none. */
 export async function claimPaper(id: string, i: number): Promise<{ bytes: Buffer; mimeType: string } | null> {
   const item = await getContent(id);
-  const path = item?.planHref === CLAIM_HREF ? item.output.poster?.documents?.[i]?.path : null;
+  const path = item?.planHref === CLAIM_HREF || item?.planHref === SHOWCASE_HREF ? item.output.poster?.documents?.[i]?.path : null;
   if (!path) return null;
   const uri = await backgroundDataUri(path);
   const m = uri && /^data:([^;]+);base64,(.*)$/.exec(uri);
@@ -250,7 +251,7 @@ export async function checkPaper(id: string, replaced: Map<number, Paper>): Prom
     for (let attempt = 0; attempt < 3; attempt++) {
       const item = await getContent(id);
       const docs = item?.output.poster?.documents;
-      if (!item || item.planHref !== CLAIM_HREF || !docs?.length || !item.output.poster) {
+      if (!item || (item.planHref !== CLAIM_HREF && item.planHref !== SHOWCASE_HREF) || !docs?.length || !item.output.poster) {
         await dropAdded();
         return { ok: false, error: "ไม่พบรูปเอกสารของชิ้นนี้" };
       }

@@ -19,7 +19,7 @@ describe("every figure, when there is nothing to find one in", () => {
 
 describe("which checks a mode takes", () => {
   it("reads ความรู้ strictly: every figure", () => {
-    expect(modeChecks("knowledge", undefined)).toEqual({ recruit: false, every: true });
+    expect(modeChecks("knowledge", undefined)).toEqual({ recruit: false, income: false, every: true });
   });
 
   it("reads a recruiting draft with หาทีม's rules, and any other draft without them", () => {
@@ -29,8 +29,8 @@ describe("which checks a mode takes", () => {
   });
 
   it("keeps หาทีม's own, and a plan's none", () => {
-    expect(modeChecks("recruit", undefined)).toEqual({ recruit: true, every: false });
-    expect(modeChecks("/lifeprotect", undefined)).toEqual({ recruit: false, every: false });
+    expect(modeChecks("recruit", undefined)).toEqual({ recruit: true, income: false, every: false });
+    expect(modeChecks("/lifeprotect", undefined)).toEqual({ recruit: false, income: false, every: false });
   });
 });
 
@@ -61,6 +61,6 @@ describe("the rounds pass their checks to the runner", () => {
     const { writeDraft } = await import("@/lib/content/draft-run");
     const { oneCallRound } = await import("@/lib/content/one-call-run");
     await writeDraft({ draft: "ชวนมาร่วมทีม รายได้ 50,000 บาทต่อเดือน", count: 1 }, null);
-    expect(vi.mocked(oneCallRound).mock.calls.at(-1)![0]).toMatchObject({ yardstick: "ชวนมาร่วมทีม รายได้ 50,000 บาทต่อเดือน", checks: { recruit: true, every: false } });
+    expect(vi.mocked(oneCallRound).mock.calls.at(-1)![0]).toMatchObject({ yardstick: "ชวนมาร่วมทีม รายได้ 50,000 บาทต่อเดือน", checks: { recruit: true, income: false, every: false } });
   });
 });
