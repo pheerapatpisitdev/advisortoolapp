@@ -49,3 +49,12 @@ export function satangToBaht(satang: number): number {
 export function formatBaht(satang: number): string {
   return Math.floor(satang / 100).toLocaleString("en-US");
 }
+
+/**
+ * A premium to the satang, for the parts of a total. Parts dropped to whole baht one by one
+ * can come to a baht or two less than their total dropped once (1,629.00 + 93.66 + 85.50 is
+ * 1,808 whole, 1,807 part by part), so a breakdown shows what each part really is.
+ */
+export function formatSatang(satang: number): string {
+  return (satang / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

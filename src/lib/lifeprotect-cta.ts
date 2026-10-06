@@ -1,7 +1,7 @@
 import type { ModePremium } from "@/calc/mode-premiums";
 import type { DeathBenefit, PayMode, Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
-import { formatBaht } from "@/calc/money";
+import { formatBaht, formatSatang } from "@/calc/money";
 import { PER, perDayText } from "@/lib/legacy-cta";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import type { CashRow } from "@/lib/lifeprotect-quote";
@@ -85,8 +85,9 @@ export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
     // price can see at once what the rest of it buys
     ...(f.parts && f.parts.riders.length > 0
       ? [
-        `- สัญญาหลัก ${formatBaht(f.parts.base.total)} บาท${PER[f.parts.base.mode]}`,
-        ...f.parts.riders.map((r) => `- ${r.name} ${formatBaht(r.own.total)} บาท${PER[r.own.mode]}`),
+        // to the satang, so the parts add up to the figure above them
+        `- สัญญาหลัก ${formatSatang(f.parts.base.total)} บาท${PER[f.parts.base.mode]}`,
+        ...f.parts.riders.map((r) => `- ${r.name} ${formatSatang(r.own.total)} บาท${PER[r.own.mode]}`),
       ]
       : []),
     // one instalment a line, smallest first, whichever the card headlines

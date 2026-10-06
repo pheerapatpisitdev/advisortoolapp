@@ -97,9 +97,31 @@ describe("lifeProtectQuoteText", () => {
     });
     expect(text).toContain([
       "💰 เบี้ยประมาณ 1,548 บาท/เดือน (ตกวันละ 48 บาท)",
-      "- สัญญาหลัก 716 บาท/เดือน",
-      "- สัญญาเพิ่มเติมพีบี ฟิต 832 บาท/เดือน",
+      "- สัญญาหลัก 716.00 บาท/เดือน",
+      "- สัญญาเพิ่มเติมพีบี ฟิต 832.00 บาท/เดือน",
       "รายเดือน 1,548 บาท",
+    ].join("\n"));
+  });
+
+  /** 1,629.00 + 93.66 + 85.50 is 1,808 dropped to the baht once, 1,807 dropped part by part. */
+  it("gives the parts to the satang, so they add up to the total above them", () => {
+    const monthly = (total: number) => ({ mode: "monthly" as const, total, belowMinimum: false });
+    const text = lifeProtectQuoteText({
+      sumAssured: 1_000_000, termLabel: "จ่าย 19 ปี", age: 14, sex: "M", death, cash: [],
+      modes: [monthly(180_816)],
+      parts: {
+        base: monthly(162_900),
+        riders: [
+          { name: "สัญญาเพิ่มเติมพีบี บียอนด์", own: monthly(9_366) },
+          { name: "สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB) แผน 1,000", own: monthly(8_550) },
+        ],
+      },
+    });
+    expect(text).toContain([
+      "💰 เบี้ยประมาณ 1,808 บาท/เดือน",
+      "- สัญญาหลัก 1,629.00 บาท/เดือน",
+      "- สัญญาเพิ่มเติมพีบี บียอนด์ 93.66 บาท/เดือน",
+      "- สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB) แผน 1,000 85.50 บาท/เดือน",
     ].join("\n"));
   });
 
@@ -115,9 +137,9 @@ describe("lifeProtectQuoteText", () => {
       },
     });
     expect(text).toContain([
-      "- สัญญาหลัก 716 บาท/เดือน",
-      "- สัญญาเพิ่มเติมพีบี ฟิต 332 บาท/เดือน",
-      "- สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB) แผน 1,000 500 บาท/เดือน",
+      "- สัญญาหลัก 716.00 บาท/เดือน",
+      "- สัญญาเพิ่มเติมพีบี ฟิต 332.00 บาท/เดือน",
+      "- สัญญาเพิ่มเติมค่ารักษาพยาบาล (MEB) แผน 1,000 500.00 บาท/เดือน",
     ].join("\n"));
   });
 

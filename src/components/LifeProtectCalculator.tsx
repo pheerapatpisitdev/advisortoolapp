@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { markPdfReady } from "@/lib/quote-pdf/prepare";
 import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
-import { formatBaht } from "@/calc/money";
+import { formatBaht, formatSatang } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import type { LifeProtectRider, LifeProtectTable } from "@/lib/lifeprotect-table";
 import {
@@ -562,50 +562,40 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           {headline && annual && basePart ? (
             <div>
               <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน · {term.label}</div>
-              {/* the plan's own price keeps the largest type even when a rider is quoted with
-                  it, so what the plan costs and what the rider adds never read as one figure */}
+              {/* the largest type is what is paid, riders and all (owner, 2026-10-06); the
+                  plan's own share and each rider's are spelled out under it */}
               <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
-                <span className="lg-metal-text">{formatBaht(basePart.total)}</span>
+                <span className="lg-metal-text">{formatBaht(headline.total)}</span>
                 <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
               </div>
-              {/* What the headline did not take, one instalment a line and smallest first.
-                  Muted labels with the figures in white on the display face: an agent
-                  reading a yearly premium off the screen should not have to lean in.
-                  With a rider they belong under the total instead, which is what is paid. */}
-              {riderLines.length > 0 ? (
-                <div className="mt-3 border-t border-[var(--lg-panel-line)] pt-3">
-                  {/* the contract's full name is long enough to wrap on a phone; the figure
-                      beside it never should, so it keeps the width it needs and the name takes
-                      what is left */}
-                  {riderLines.map((l, i) => (
-                    <div key={l.name} className={`flex items-baseline justify-between gap-3${i > 0 ? " mt-1.5" : ""}`}>
+              {riderLines.length > 0 && (
+                <div className="mt-3 space-y-1.5 border-t border-[var(--lg-panel-line)] pt-3">
+                  {/* to the satang, so the lines add up to the figure above; the contract's
+                      full name is long enough to wrap on a phone, the figure beside it never
+                      should, so it keeps the width it needs and the name takes what is left */}
+                  {[{ name: "สัญญาหลัก", own: basePart }, ...riderLines].map((l, i) => (
+                    <div key={l.name} className="flex items-baseline justify-between gap-3">
                       <span className="min-w-0 text-sm text-[var(--lg-mute)]">
-                        {l.name}{i === 0 && picked && riderPart ? payerWords : ""}
+                        {l.name}{i === 1 && picked && riderPart ? payerWords : ""}
                       </span>
                       <span className="lg-figure shrink-0 whitespace-nowrap tabular-nums text-[var(--lg-white)]">
-                        +{formatBaht(l.own.total)}
-                        <span className="ml-1 text-sm text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
+                        {i > 0 ? "+" : ""}{formatSatang(l.own.total)}
+                        <span className="ml-1 text-sm text-[var(--lg-mute)]">บาท</span>
                       </span>
                     </div>
                   ))}
-                  <div className="mt-2 flex items-baseline justify-between gap-3">
-                    <span className="text-sm text-[var(--lg-gold)]">รวมทั้งหมด</span>
-                    <span className="lg-figure shrink-0 whitespace-nowrap text-xl tabular-nums">
-                      <span className="lg-metal-text">{formatBaht(headline.total)}</span>
-                      <span className="ml-1 text-sm text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
-                    </span>
-                  </div>
-                  <div className="mt-2.5">{instalments}</div>
-                  {/* neither waiver pays a baht to the family; they carry on paying the
-                      premium. Said here so the block below is not read as theirs */}
-                  {picked && riderPart && (
-                    <p className="mt-2.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
-                      {riderWords(picked.rider.name).short}ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ
-                    </p>
-                  )}
                 </div>
-              ) : (
-                <div className="mt-2.5">{instalments}</div>
+              )}
+              {/* What the headline did not take, one instalment a line and smallest first.
+                  Muted labels with the figures in white on the display face: an agent
+                  reading a yearly premium off the screen should not have to lean in. */}
+              <div className="mt-2.5">{instalments}</div>
+              {/* neither waiver pays a baht to the family; they carry on paying the
+                  premium. Said here so the block below is not read as theirs */}
+              {picked && riderPart && (
+                <p className="mt-2.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
+                  {riderWords(picked.rider.name).short}ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ
+                </p>
               )}
             </div>
           ) : (
