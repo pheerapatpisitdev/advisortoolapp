@@ -20,6 +20,7 @@ import { easyProtectTable } from "@/lib/easyprotect-table";
 import { displayPremium, perDayText } from "@/lib/legacy-cta";
 import { FIRST_MONTHLY_INSTALMENTS, firstMonthlyPayment } from "@/lib/first-payment";
 import { LIFEPROTECT_PLAN, lifeProtectPriced, type SplitRow } from "@/lib/lifeprotect-card";
+import { iShieldFootnote, levelPremiumFootnote, plbFootnote, priceLockNote } from "@/lib/plan-notes";
 import { riderDiseases } from "@/calc/riders/diseases";
 import { ci123Stages } from "@/lib/ci123-table";
 import { stagePays } from "@/lib/ci123-cta";
@@ -481,6 +482,28 @@ export function quoteCard(input: CardInput, today: Date = new Date()): QuoteCard
 }
 
 /**
+ * What a plan's sales page says under its quote, for the card that pictures it (owner,
+ * 2026-10-06); nothing for a plan whose page has no such lines.
+ */
+function planFootNotes(input: PlanCardInput): { footNotes: string[] } | Record<string, never> {
+  switch (input.planCode) {
+    case "EASYPROTECT": {
+      const table = easyProtectTable();
+      const term = table.terms.find((t) => t.variant === input.variant) ?? table.terms[0];
+      return { footNotes: [priceLockNote(input.age, `ตลอด ${term.payTerm} ปีที่ชำระ`), levelPremiumFootnote(table.saMin)] };
+    }
+    case "LIFETREASURE":
+      return { footNotes: [priceLockNote(input.age), levelPremiumFootnote(lifeTreasureTable().saMin)] };
+    case "ISHIELD":
+      return { footNotes: [iShieldFootnote(iShieldTable().illness.waitingDays)] };
+    case "PLB":
+      return { footNotes: [plbFootnote(false)] };
+    default:
+      return {};
+  }
+}
+
+/**
  * The card for an arrangement, or undefined when the plan cannot be issued to that insured
  * at that sum — a card that says nothing is worse than no card, and the chat still has its
  * own words for why.
@@ -536,7 +559,7 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
     summary,
     ...(lifeProtect?.priceNote && summary ? { priceNote: lifeProtect.priceNote } : {}),
     sections,
-    ...(lifeProtect ? { footNotes: lifeProtect.footNotes } : {}),
+    ...(lifeProtect ? { footNotes: lifeProtect.footNotes } : planFootNotes(input)),
   };
 }
 

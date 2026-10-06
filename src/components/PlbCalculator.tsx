@@ -15,6 +15,7 @@ import { PLB_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { PremiumSummary } from "@/components/sales/PremiumSummary";
+import { plbFootnote } from "@/lib/plan-notes";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
@@ -297,8 +298,7 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
           )}
 
           <p className="border-t border-[var(--lg-panel-line)] pt-4 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
-            เบี้ยคงที่ตลอดสัญญา · ทุนยิ่งสูง เบี้ยต่อพันยิ่งลด ลองเลื่อนทุนดูราคาต่อล้าน ·
-            เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน
+            {plbFootnote(true)}
           </p>
         </div>
       )}

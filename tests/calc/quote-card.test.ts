@@ -293,3 +293,30 @@ describe("the chart on a value table", () => {
     expect("chart" in quoteCard(LIFE_PROTECT, WHILE_CURRENT)!).toBe(false);
   });
 });
+
+/** Every card closes with what its page closes with (owner, 2026-10-06). */
+describe("the notes at the foot of a card", () => {
+  const at = (planCode: string, variant: string, age = 35, sumAssured = 1_000_000) =>
+    quoteCard({ kind: "plan", planCode, variant, age, sex: "M", sumAssured }, WHILE_CURRENT)!.footNotes;
+
+  it("says what each sales page says under its quote", () => {
+    expect(at("EASYPROTECT", "W99F06A")).toEqual([
+      "✦ เบี้ยล็อกที่อายุ 35 ตลอด 6 ปีที่ชำระ ยิ่งเริ่มเร็วยิ่งถูก",
+      expect.stringMatching(/^เบี้ยคงที่ตลอดระยะเวลาชำระ · ทุนขั้นต่ำ [\d,]+ บาท · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน$/),
+    ]);
+    expect(at("LIFETREASURE", "H99F18A", 45, 10_000_000)![0]).toBe("✦ เบี้ยล็อกที่อายุ 45 ตลอดระยะเวลาชำระ ยิ่งเริ่มเร็วยิ่งถูก");
+    expect(at("ISHIELD", "WLCI10")).toEqual([
+      "โรคร้ายแรงคุ้มครองหลังกรมธรรม์มีผลบังคับ 90 วัน · เมื่อรับผลประโยชน์ระยะเริ่มต้นแล้ว"
+        + " ทุนประกันจะลดลงตามสัดส่วนที่จ่ายไป · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน",
+    ]);
+  });
+
+  /** The page nudges its slider; a picture has none to nudge. */
+  it("leaves PLB's slider out of a picture", () => {
+    expect(at("PLB", "PLB10")).toEqual(["เบี้ยคงที่ตลอดสัญญา · ทุนยิ่งสูง เบี้ยต่อพันยิ่งลด · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน"]);
+  });
+
+  it("adds nothing to a plan whose page has no such lines", () => {
+    expect(at("ISMART", "W80F06")).toBeUndefined();
+  });
+});

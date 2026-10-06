@@ -11,7 +11,6 @@ import {
 } from "@/lib/lifetreasure-quote";
 import { lifeTreasureQuoteText, type LifeTreasureAge } from "@/lib/lifetreasure-cta";
 import { cardPath, valueTablePath } from "@/lib/card-link";
-import { ageWord } from "@/lib/lifeprotect-cta";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
@@ -20,6 +19,7 @@ import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { PremiumSummary } from "@/components/sales/PremiumSummary";
+import { priceLockNote, levelPremiumFootnote } from "@/lib/plan-notes";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
@@ -323,13 +323,12 @@ export function LifeTreasureCalculator({ table, sticky = false }: LifeTreasureCa
 
           {ageNum !== undefined && (
             <p className="text-sm leading-relaxed text-[var(--lg-gold)]">
-              ✦ เบี้ยล็อกที่อายุ{ageNum === 0 ? "" : " "}{ageWord(ageNum)} ตลอดระยะเวลาชำระ ยิ่งเริ่มเร็วยิ่งถูก
+              {priceLockNote(ageNum)}
             </p>
           )}
 
           <p className="border-t border-[var(--lg-panel-line)] pt-4 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
-            เบี้ยคงที่ตลอดระยะเวลาชำระ · ทุนขั้นต่ำ {table.saMin.toLocaleString("en-US")} บาท ·
-            เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน
+            {levelPremiumFootnote(table.saMin)}
           </p>
         </div>
       )}

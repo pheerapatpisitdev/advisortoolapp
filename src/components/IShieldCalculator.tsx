@@ -19,6 +19,7 @@ import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { PremiumSummary } from "@/components/sales/PremiumSummary";
+import { iShieldFootnote } from "@/lib/plan-notes";
 
 /** How each instalment reads on the card, where it labels a figure rather than follows it. */
 const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
@@ -308,8 +309,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
           )}
 
           <p className="border-t border-[var(--lg-panel-line)] pt-4 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
-            โรคร้ายแรงคุ้มครองหลังกรมธรรม์มีผลบังคับ {table.illness.waitingDays} วัน · เมื่อรับผลประโยชน์ระยะเริ่มต้นแล้ว
-            ทุนประกันจะลดลงตามสัดส่วนที่จ่ายไป · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน
+            {iShieldFootnote(table.illness.waitingDays)}
           </p>
         </div>
       )}
