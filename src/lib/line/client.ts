@@ -59,7 +59,8 @@ function quickReply(replies: string[]): { items: QuickReplyItem[] } {
  * one bubble — because the card is the thing the customer keeps. The buttons ride on the last
  * message, which is where LINE draws them.
  */
-export function toMessages(said: Said[], replies?: string[]): LineMessage[] {
+/** The said, in bubbles: an over-long text cut to what LINE allows, an empty one dropped. */
+function partsOf(said: Said[]): Said[] {
   const parts: Said[] = [];
   for (const s of said) {
     if ("text" in s) {
@@ -68,19 +69,47 @@ export function toMessages(said: Said[], replies?: string[]): LineMessage[] {
       for (let i = 0; i < s.text.length; i += MAX_TEXT) parts.push({ text: s.text.slice(i, i + MAX_TEXT) });
     } else parts.push(s);
   }
+  return parts;
+}
 
-  while (parts.length > MAX_MESSAGES) {
+/** Neighbouring words joined into one bubble while there are more than `limit` of them. */
+function mergeTexts(parts: Said[], limit: number): void {
+  while (parts.length > limit) {
     const i = parts.findIndex((p, k) => "text" in p && "text" in (parts[k + 1] ?? {})
       && p.text.length + (parts[k + 1] as { text: string }).text.length + 2 <= MAX_TEXT);
     if (i < 0) break;
     parts.splice(i, 2, { text: `${(parts[i] as { text: string }).text}\n\n${(parts[i + 1] as { text: string }).text}` });
   }
+}
 
-  const messages: LineMessage[] = parts.slice(0, MAX_MESSAGES).map((p) => ("text" in p
+function render(parts: Said[]): LineMessage[] {
+  return parts.map((p) => ("text" in p
     ? { type: "text", text: withoutParticles(p.text) }
     : { type: "image", originalContentUrl: p.image, previewImageUrl: p.image }));
+}
+
+export function toMessages(said: Said[], replies?: string[]): LineMessage[] {
+  const parts = partsOf(said);
+  mergeTexts(parts, MAX_MESSAGES);
+  const messages = render(parts.slice(0, MAX_MESSAGES));
   if (replies?.length && messages.length) messages[messages.length - 1].quickReply = quickReply(replies);
   return messages;
+}
+
+/**
+ * Everything the bot said, in replies of five: the first goes out as the reply, which is free,
+ * and only what does not fit goes as a push. Nothing is dropped — a couple's two value tables
+ * used to be cut off the end of the reply, which is what the customer came for as much as the
+ * cards. The buttons ride on the last message of the last batch.
+ */
+export function toBatches(said: Said[], replies?: string[]): LineMessage[][] {
+  const parts = partsOf(said);
+  mergeTexts(parts, MAX_MESSAGES);
+  const messages = render(parts);
+  if (replies?.length && messages.length) messages[messages.length - 1].quickReply = quickReply(replies);
+  const batches: LineMessage[][] = [];
+  for (let i = 0; i < messages.length; i += MAX_MESSAGES) batches.push(messages.slice(i, i + MAX_MESSAGES));
+  return batches;
 }
 
 const SEND_TIMEOUT_MS = 20_000;

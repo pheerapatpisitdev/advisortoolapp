@@ -1,7 +1,7 @@
 import { siteUrl } from "@/lib/site-url";
 import { hashUserId } from "@/lib/line/verify";
 import { claimEvent, loadSession, saveTurn } from "@/lib/chat/session";
-import { push, reply, showLoading, toMessages, type LineMessage, type Said } from "@/lib/line/client";
+import { push, reply, showLoading, toBatches, toMessages, MAX_MESSAGES, type LineMessage, type Said } from "@/lib/line/client";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { allow } from "@/lib/assistant/rate-limit";
 import { BudgetExceeded, TurnTimeout, withTurnDeadline } from "@/lib/ai/client";
@@ -63,6 +63,17 @@ async function answered(history: ChatMessage[], slots: Parameters<typeof answerA
       return await answerAny(history, slots, "line");
     }
   });
+}
+
+/** a value table's picture, whose own words can be spared when there are too many bubbles */
+const TABLE_PICTURE = "/api/card/table?";
+
+/** The first five as the reply, the rest as pushes, in order. */
+async function sayAll(replyToken: string, userId: string, batches: LineMessage[][]): Promise<void> {
+  const [first, ...rest] = batches;
+  if (!first) return;
+  await say(replyToken, userId, first);
+  for (const batch of rest) await push(userId, batch);
 }
 
 /** A reply, or — when its token lapsed while the model was thinking — a push. */
@@ -128,14 +139,21 @@ export async function handle(event: LineEvent, destination = "", opts: { started
     const answer = await answered(history, session.slots, turnBudgetMs(opts.startedAt));
 
     // the words first and each card after the words it belongs to, as on Messenger
-    const said: Said[] = answer.messages.flatMap((m) => [
-      ...(m.text ? [{ text: m.text }] : []),
+    const saidWith = (wordsOverTables: boolean): Said[] => answer.messages.flatMap((m) => [
+      ...(m.text && (wordsOverTables || !m.card?.includes(TABLE_PICTURE)) ? [{ text: m.text }] : []),
       ...(m.card ? [{ image: siteUrl(m.card) }] : []),
       // a link LINE draws as a tap-to-open line: the file is one tap from the route. The flag
       // opens it in the phone's own browser, because LINE's on Android shows a PDF as nothing
       ...(m.file ? [{ text: `${siteUrl(m.file)}&openExternalBrowser=1` }] : []),
     ]);
-    await say(replyToken, userId, toMessages(said, answer.replies));
+    /**
+     * A couple is two cards, two tables and a question, which is more than the five a reply
+     * holds. A push spends one of the month's 300, so the words over the tables go first — the
+     * picture says whose it is — and only what still does not fit is pushed after the reply.
+     */
+    let said = saidWith(true);
+    if (said.length > MAX_MESSAGES) said = saidWith(false);
+    await sayAll(replyToken, userId, toBatches(said, answer.replies));
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
 
     const spoken = answer.messages.map((m) => m.text).join("\n\n");

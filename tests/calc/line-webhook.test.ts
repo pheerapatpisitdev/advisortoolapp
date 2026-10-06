@@ -136,6 +136,66 @@ describe("a LINE customer's message", () => {
   });
 });
 
+/**
+ * A couple is two cards, two value tables and the PDF question: more than the five a reply
+ * holds. The tables used to be cut off the end, which left a LINE customer with the cards alone
+ * (owner, 2026-10-06).
+ */
+describe("a couple's quotations", () => {
+  const couple = async (): Promise<Answer> => ({
+    messages: [
+      { text: "หญิง 32", card: "/api/card?age=32" },
+      { text: "ชาย 33", card: "/api/card?age=33" },
+      { text: "กราฟและตารางมูลค่าทุกปีของหญิง อายุ 32", card: "/api/card/table?age=32" },
+      { text: "กราฟและตารางมูลค่าทุกปีของชาย อายุ 33", card: "/api/card/table?age=33" },
+      { text: "อยากได้เป็นไฟล์ PDF ไหมครับ?" },
+    ],
+    replies: ["ขอไฟล์ PDF", "สนใจสมัคร"],
+    slots: { intent: "quote" },
+    priced: true,
+  });
+
+  it("gets all four pictures: five in the reply, the rest pushed, none dropped", async () => {
+    answer.mockImplementation(couple);
+    await handle(said("ผญ 32 ผช 33 ทุน 1 ล้าน", { source: { type: "user", userId: "Ucouple1" }, webhookEventId: "ec1" }));
+    expect(replies).toHaveLength(1);
+    expect(replies[0]).toHaveLength(5);
+    const sent = [...replies, ...pushes].flat();
+    const images = sent.filter((m) => m.type === "image") as { originalContentUrl: string }[];
+    expect(images.map((m) => m.originalContentUrl.split("?")[0].replace(/^https?:\/\/[^/]+/, ""))).toEqual(
+      ["/api/card", "/api/card", "/api/card/table", "/api/card/table"]);
+    expect(images[2].originalContentUrl).toContain("age=32");
+    expect(images[3].originalContentUrl).toContain("age=33");
+  });
+
+  it("spares the words over the tables first, and puts the buttons on the very last message", async () => {
+    answer.mockImplementation(couple);
+    await handle(said("ผญ 32 ผช 33 ทุน 1 ล้าน", { source: { type: "user", userId: "Ucouple2" }, webhookEventId: "ec2" }));
+    const sent = [...replies, ...pushes].flat();
+    expect(sent.some((m) => m.type === "text" && m.text.includes("ตารางมูลค่า"))).toBe(false);
+    expect(sent.at(-1)).toMatchObject({ type: "text", text: expect.stringContaining("PDF") });
+    expect(sent.at(-1)!.quickReply?.items.map((i) => i.action.text)).toEqual(["ขอไฟล์ PDF", "สนใจสมัคร"]);
+    expect(sent.filter((m) => m.quickReply)).toHaveLength(1);
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0]).toHaveLength(2);
+  });
+
+  it("keeps a single customer's table words and sends no push", async () => {
+    answer.mockImplementation(async () => ({
+      messages: [
+        { text: "เบี้ยประมาณ…", card: "/api/card?x=1" },
+        { text: "กราฟและตารางมูลค่าทุกปีให้ดูครับ", card: "/api/card/table?x=1" },
+        { text: "อยากได้เป็นไฟล์ PDF ไหมครับ?" },
+      ],
+      replies: ["ขอไฟล์ PDF"], slots: { intent: "quote" }, priced: true,
+    }));
+    await handle(said("ชาย 35 ล้านนึง", { source: { type: "user", userId: "Ucouple3" }, webhookEventId: "ec3" }));
+    expect(pushes).toHaveLength(0);
+    expect(replies[0]).toHaveLength(5);
+    expect(replies[0].some((m) => m.type === "text" && m.text.includes("ตารางมูลค่า"))).toBe(true);
+  });
+});
+
 describe("a reply's shape", () => {
   it("never passes LINE's five, joining words before it drops a card", () => {
     const m = toMessages([
