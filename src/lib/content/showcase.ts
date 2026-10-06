@@ -27,6 +27,8 @@ export const SHOWCASE_HREF = "showcase";
 export const SHOWCASE_NAME = "โชว์ผลงาน";
 
 export { MAX_DOCS };
+/** the pictures from the app are the proof, so they cover this share of the poster's area (owner, 2026-10-07) */
+export const SHOWCASE_PAPER_SHARE = 0.4;
 export const MAX_SHOWCASE_PIECES = 3;
 export const MAX_SHOWCASE_CUSTOM = 120;
 
@@ -285,7 +287,7 @@ export function showcasePoster(raw: unknown, facts: ShowcaseFacts, hook: string)
     { kind: "footer", text: footer || FOOTER },
   ];
   const theme = THEMES.includes(r.theme as never) && r.theme !== "photo" ? r.theme : "navy";
-  return parsePoster({ layout: "top", theme, blocks })!;
+  return parsePoster({ layout: "top", theme, blocks, paperShare: SHOWCASE_PAPER_SHARE })!;
 }
 
 /** One showcase piece from a reply, or null when the reply has no hook or body. */
