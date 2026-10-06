@@ -67,8 +67,8 @@ export interface Routed {
    */
   budget?: Budget;
   /**
-   * This turn checks a figure the customer was told ("…เหลือ 1,500,000 ใช่ไหม"); the sum in it
-   * is not a request to price one. Read off this turn only and never carried.
+   * This turn checks a figure ("…เหลือ 1,500,000 ใช่ไหม"); the sum in it is not a request to
+   * price one, and the cover already known stands. Read off this turn only and never carried.
    */
   checking?: true;
 }
@@ -188,7 +188,7 @@ export function boostedCoverIn(text: string): number | undefined {
  * left in the small-talk route where the model would answer it out of its own head.
  */
 const DEATH_BENEFIT_QUESTION =
-  /กี่เท่า|\d+(?:\.\d+)?\s*เท่า|สองเท่า|คูณ\s*(?:สอง|2)|\bx\s*2\b|ครอบครัวได้|ได้(?:รับ)?\s*เท่า(?:ไหร่|ไร)|(?:เสียชีวิต|ตาย)\s*(?:หลัง|ก่อน|เกิน|ตอน)\s*(?:อายุ\s*)?\d+|คุ้มครอง\s*(?:จะ)?\s*(?:เหลือ|ลด)/i;
+  /กี่เท่า|\d+(?:\.\d+)?\s*เท่า|สองเท่า|คูณ\s*(?:สอง|2)|\bx\s*2\b|ครอบครัวได้|ได้(?:รับ)?\s*เท่า(?:ไหร่|ไร)|(?:เสียชีวิต|ตาย)\s*(?:หลัง|ก่อน|เกิน|ตอน)\s*(?:อายุ\s*)?\d+|(?:หลัง|ก่อน|เกิน)\s*อายุ\s*\d+|(?:ทุน|คุ้มครอง)\s*(?:จะ)?\s*(?:เหลือ|ลด)/i;
 
 /** Whether a message is asking what the plan pays on death. */
 export function asksAboutDeathBenefit(text: string): boolean {
@@ -196,9 +196,10 @@ export function asksAboutDeathBenefit(text: string): boolean {
 }
 
 /**
- * A customer checking a figure they were told — "…จะเหลือ 1,500,000 บาท ใช่ไหม" — rather than
- * naming a sum to be priced. The figure in it is theirs to have right or wrong, and the answer
- * is yes or no from the plan's rules, not the quotation again (chat 2026-10-06).
+ * A customer checking a figure — "หลังอายุ 60 แล้ว ทุนเหลือ 1,500,000 ใช่ไหม", from someone
+ * quoted 3,000,000 — rather than naming a sum to be priced. The answer is yes or no from the
+ * cover already on the table; read as a new sum, it was quoted "ทุน 750,000 เพิ่มเป็น
+ * 1,500,000" instead (chat 2026-10-06).
  */
 const CONFIRMS = /ใช่\s*(?:ไหม|มั้ย|มั๊ย|หรือเปล่า|รึเปล่า|ป่าว)|จริง\s*(?:ไหม|มั้ย|หรือเปล่า|รึเปล่า)|หรือเปล่า|รึเปล่า/;
 const NAMES_PREMIUM = /เบี้ย|ราคา/;
@@ -257,7 +258,8 @@ function clean(raw: Routed, history: ChatMessage[]): Routed {
   const out: Routed = { intent: ["quote", "plan_info", "other"].includes(raw.intent) ? raw.intent : "other" };
   const last = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
   if (out.intent === "other" && asksAboutDeathBenefit(last)) out.intent = "plan_info";
-  if (checksDeathBenefit(last)) { out.intent = "plan_info"; out.checking = true; }
+  const checking = checksDeathBenefit(last);
+  if (checking) { out.intent = "plan_info"; out.checking = true; }
 
   // the term written in the message wins over the model's: it is what the customer chose,
   // and on a visitor from /lifeprotect it is what is on their screen
@@ -284,7 +286,9 @@ function clean(raw: Routed, history: ChatMessage[]): Routed {
   else if (raw.sex === "M" || raw.sex === "F") out.sex = raw.sex;
   // "ทุน 2,500,000 เพิ่มเป็น 5,000,000" names both halves, and says outright which is which
   const boosted = boostedCoverIn(last);
-  if (boosted !== undefined) out.coverWanted = boosted;
+  // a figure being checked is not a cover being asked for: the one already quoted stands
+  if (checking) out.coverWanted = undefined;
+  else if (boosted !== undefined) out.coverWanted = boosted;
   else if (typeof raw.coverWanted === "number" && raw.coverWanted > 0) out.coverWanted = Math.trunc(raw.coverWanted);
   // the model first, the message itself when the model read no amount at all
   else out.coverWanted = coverIn(last);

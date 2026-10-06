@@ -734,6 +734,20 @@ describe("everything else", () => {
     expect(system).toContain("ห้ามขอข้อมูลที่ทราบแล้วซ้ำอีก");
   });
 
+  it("says what this customer's family receives either side of sixty, so a check is answered right", async () => {
+    routed = { intent: "quote", coverWanted: 1_500_000 };
+    chat.mockClear();
+    const answer = await answerQuestion(
+      said("หลังอายุ 60 แล้ว ทุนเหลือ 1,500,000 ใช่ไหม"),
+      { intent: "quote", age: 56, sex: "F", coverWanted: 3_000_000, variant: "WLF19H" },
+    );
+    expect(chat.mock.calls.map((c) => c[0].task)).toEqual(["route", "plan_info"]);
+    expect(answer.slots.coverWanted).toBe(3_000_000);
+    const system = chat.mock.calls[1][0].messages[0].content as string;
+    expect(system).toContain("เสียชีวิตก่อนอายุ 60 ครอบครัวได้รับ 3,000,000 บาท");
+    expect(system).toContain("ตั้งแต่อายุ 60 ปีขึ้นไปได้รับ 1,500,000 บาท");
+  });
+
   it("puts the engine's own premium in front of the model, so it cannot invent one", async () => {
     routed = { intent: "plan_info" };
     chat.mockClear();

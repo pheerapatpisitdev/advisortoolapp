@@ -561,11 +561,28 @@ function knownSoFar(slots: Routed, table: LifeProtectTable): string {
   const quoted = quotedFigures(slots, table);
   return `\n\nข้อมูลของลูกค้ารายนี้ที่ทราบแล้ว: ${bits.join(" · ")}\n`
     + "ห้ามขอข้อมูลที่ทราบแล้วซ้ำอีก\n"
+    + familyReceives(slots, table)
     + (quoted
       ? `เบี้ยที่คิดและส่งให้ลูกค้าไปแล้วคือ ${quoted}\n`
         + "ถ้าจะพูดถึงตัวเลขเบี้ย ให้ใช้ตัวเลขชุดนี้เท่านั้น คัดลอกมาตรงๆ ห้ามคำนวณเอง ห้ามประมาณ ห้ามปัดเศษ\n"
         + "ถ้าลูกค้าอยากได้เบี้ยของอายุ ทุน หรือแบบชำระอื่น ห้ามตอบเป็นตัวเลข ให้บอกว่าเดี๋ยวคิดให้ แล้วให้เขาบอกมา"
       : "ถ้าลูกค้าอยากได้เบี้ย ให้ขอเฉพาะข้อมูลที่ยังขาด ห้ามตอบตัวเลขเบี้ยเอง");
+}
+
+/**
+ * What this customer's family receives on death, before the booster age and after, worked out
+ * by the engine. "หลังอายุ 60 แล้ว ทุนเหลือ 1,500,000 ใช่ไหม" is answered from these two
+ * figures; left to halve the cover itself, the model has the plan's rule but not this sum.
+ */
+function familyReceives(slots: Routed, table: LifeProtectTable): string {
+  const { age, coverWanted } = slots;
+  if (age === undefined || coverWanted === undefined) return "";
+  const sum = sumBehind(table, age, coverWanted, slots.variant ?? FIRST_TERM, slots.offer, slots.takenSum);
+  const baht = (n: number) => n.toLocaleString("en-US");
+  const from = `ตั้งแต่อายุ ${table.boosterBeforeAge} ปีขึ้นไปได้รับ ${baht(sum)} บาท`;
+  return (age < table.boosterBeforeAge
+    ? `เสียชีวิตก่อนอายุ ${table.boosterBeforeAge} ครอบครัวได้รับ ${baht(sum * coverMultiple(table, age))} บาท · ${from}`
+    : `เสียชีวิต${from}`) + "\n";
 }
 
 /**

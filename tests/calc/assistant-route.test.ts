@@ -70,15 +70,22 @@ describe("reading what the customer wants", () => {
   });
 
   /**
-   * A 56-year-old quoted "ทุน 750,000 เพิ่มเป็น 1,500,000 ถึงอายุ 60" asked whether dying after
-   * sixty still pays 1,500,000. She had it backwards, and was sent the same quotation again
-   * instead of being told no (chat 2026-10-06).
+   * A 56-year-old asked for 3,000,000, then checked that dying after sixty leaves 1,500,000 —
+   * which it does. The bot read 1,500,000 as a new sum and quoted her "ทุน 750,000 เพิ่มเป็น
+   * 1,500,000" instead of saying yes (chat 2026-10-06).
    */
   it("hears a customer checking what the family receives as a question, not a new sum", async () => {
     reply.text = JSON.stringify({ intent: "quote", coverWanted: 1500000 });
-    const routed = await routeMessage(said("ถ้าเสียชีวิตหลัง 60 ปีความคุ้มครองจะเหลือ 1,500,000 บาท ใช่ไหม"));
-    expect(routed.intent).toBe("plan_info");
-    expect(routed.checking).toBe(true);
+    for (const text of [
+      "ถ้าเสียชีวิตหลัง 60 ปีความคุ้มครองจะเหลือ 1,500,000 บาท ใช่ไหม",
+      "หลังอายุ 60 แล้ว ทุนเหลือ 1,500,000 ใช่ไหม",
+    ]) {
+      const routed = await routeMessage(said(text));
+      expect(routed.intent).toBe("plan_info");
+      expect(routed.checking).toBe(true);
+      // the figure is hers to have right or wrong, not the cover she wants
+      expect(routed.coverWanted).toBeUndefined();
+    }
   });
 
   it("still prices a message that asks what the family receives and what it costs", async () => {
@@ -302,11 +309,11 @@ describe("carrying the conversation forward", () => {
 
   it("does not turn a customer checking a figure back into a quotation", () => {
     const merged = mergeSlots(
-      { intent: "quote", age: 56, sex: "F", coverWanted: 1_500_000 },
-      { intent: "plan_info", coverWanted: 1_500_000, checking: true },
+      { intent: "quote", age: 56, sex: "F", coverWanted: 3_000_000 },
+      { intent: "plan_info", checking: true },
     );
     expect(merged.intent).toBe("plan_info");
-    expect(merged.coverWanted).toBe(1_500_000);
+    expect(merged.coverWanted).toBe(3_000_000);
   });
 
   it("lets the newest turn overwrite what it names", () => {
