@@ -9,9 +9,12 @@ import type { AdRun, RunPatch } from "./run-store";
  * ยืดเวลา act on that ad set alone. Any other ad (built in Ads Manager, or from an old send whose
  * ad set holds several ads) can only be paused or switched on by itself (setAdStatus): its budget
  * is shared or set on its campaign. Each change is recorded only once Meta says success.
+ *
+ * เลิก (drop) closes a stuck run — one with no ad yet — so its post can be run again: the ad set,
+ * if one was made, is paused first (it would spend nothing without an ad, but must not wait there).
  */
 
-export type Control = "pause" | "resume" | "raise" | "extend";
+export type Control = "pause" | "resume" | "raise" | "extend" | "drop";
 // the arithmetic lives with the run's other figures, where the browser can use it too
 export { EXTEND_DAYS, extendedEnd, RAISE_FACTOR, raisedBudgetMinor } from "./run-path";
 
@@ -25,6 +28,9 @@ const AT_CAP = "งบถึงเพดานแล้ว";
 const BUSY = "กำลังเปลี่ยนแอดนี้อยู่ รอสักครู่แล้วลองใหม่";
 const UNCONFIRMED = "Facebook ไม่ยืนยันการเปลี่ยนแปลง";
 const BAD_ID = "ไอดีแอดไม่ถูกต้อง";
+const HAS_AD = "รายการนี้มีแอดแล้ว ใช้ปุ่มหยุดแทน";
+/** what a dropped run's error says, for the board and the audit */
+export const DROPPED = "เลิกแล้ว";
 
 /** A Meta id used as a Graph path: a stray "/" or "?" would reach a different endpoint. */
 const pathSafe = (id: string | null): id is string => !!id && /^\w+$/.test(id);
@@ -49,8 +55,13 @@ export async function controlRun(runId: string, control: Control, deps: {
   const cap = deps.capBaht ?? maxDailyBudgetThb();
 
   /** what the press would change, or why it may not */
-  const plan = (run: AdRun | null): { error: string } | { params: Record<string, string>; patch: RunPatch } => {
+  /** what the press would change (params null: nothing to ask Meta), or why it may not */
+  const plan = (run: AdRun | null): { error: string } | { params: Record<string, string> | null; patch: RunPatch } => {
     if (!run) return { error: NOT_FOUND };
+    if (control === "drop") {
+      if (run.adId) return { error: HAS_AD };
+      return { params: pathSafe(run.adsetId) ? { status: "PAUSED" } : null, patch: { pausedAt: now.toISOString(), error: DROPPED } };
+    }
     if (!pathSafe(run.adsetId)) return { error: NO_ADSET };
     switch (control) {
       case "pause":
@@ -73,8 +84,8 @@ export async function controlRun(runId: string, control: Control, deps: {
   const first = await store.getRun(runId);
   const checked = plan(first);
   if ("error" in checked) return { ok: false, error: checked.error };
-  const token = await deps.token(first!.actId);
-  if (!token) return { ok: false, error: NO_TOKEN };
+  const token = checked.params ? await deps.token(first!.actId) : null;
+  if (checked.params && !token) return { ok: false, error: NO_TOKEN };
 
   if (!(await store.claimRun(runId, RUN_CLAIM_STALE_MS, now))) return { ok: false, error: BUSY };
   try {
@@ -82,8 +93,11 @@ export async function controlRun(runId: string, control: Control, deps: {
     const run = await store.getRun(runId);
     const change = plan(run);
     if ("error" in change) return { ok: false, error: change.error };
-    const r = await post(fetchFn, token, run!.adsetId!, change.params);
-    if (!r.ok) return r;
+    if (change.params) {
+      if (!token) return { ok: false, error: NO_TOKEN };
+      const r = await post(fetchFn, token, run!.adsetId!, change.params);
+      if (!r.ok) return r;
+    }
     await store.saveRun(runId, change.patch);
     return { ok: true, run: { ...run!, ...change.patch } };
   } finally {

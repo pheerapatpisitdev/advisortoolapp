@@ -108,6 +108,29 @@ describe("controlRun", () => {
   });
 });
 
+describe("dropping a stuck run (เลิก)", () => {
+  it("pauses an ad set made without its ad and closes the run, so the post can run again", async () => {
+    run.adId = null;
+    const out = await controlRun("R1", "drop", deps());
+    expect(out.ok).toBe(true);
+    expect(sent).toEqual([{ method: "POST", path: "555", params: new URLSearchParams({ status: "PAUSED" }) }]);
+    expect(run).toMatchObject({ pausedAt: now.toISOString(), error: "เลิกแล้ว" });
+  });
+
+  it("closes a run that made nothing on Meta without asking Meta", async () => {
+    run.adId = null;
+    run.adsetId = null;
+    expect((await controlRun("R1", "drop", deps())).ok).toBe(true);
+    expect(sent).toHaveLength(0);
+    expect(run.pausedAt).toBe(now.toISOString());
+  });
+
+  it("refuses a run whose ad is made: that one is paused with หยุด", async () => {
+    expect(await controlRun("R1", "drop", deps())).toEqual({ ok: false, error: "รายการนี้มีแอดแล้ว ใช้ปุ่มหยุดแทน" });
+    expect(sent).toHaveLength(0);
+  });
+});
+
 describe("setAdStatus", () => {
   it("pauses or switches on one ad", async () => {
     expect(await setAdStatus("123", "PAUSED", "TOKEN", fetchFn)).toEqual({ ok: true });

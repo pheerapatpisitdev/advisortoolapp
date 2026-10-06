@@ -72,6 +72,14 @@ describe("creating and reading runs", () => {
     });
   });
 
+  it("answers null when the post already has an open run (the database's one-open-run index)", async () => {
+    insertOne = { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint \"ins_ad_run_one_open\"" } as { message: string } };
+    expect(await createRun({
+      pageId: "105", actId: "act_1", contentId: "C1", path: "boost", storyId: null,
+      dailyBudgetMinor: 20000, endAt: "2026-10-14T00:00:00Z", metaCampaignId: "900", createdBy: "U1",
+    })).toBeNull();
+  });
+
   it("throws the database's error from the insert", async () => {
     insertOne = { data: null, error: { message: "no such table" } };
     await expect(createRun({
@@ -154,5 +162,8 @@ describe("the migration", () => {
     expect(sql).toContain("alter table public.ins_ad_run enable row level security");
     expect(sql).toContain("alter table public.ins_ad_standing enable row level security");
     expect(sql).not.toMatch(/grant [^;]* to [^;]*\b(anon|authenticated)\b/i);
+  });
+  it("allows one open run per post: no ad yet and not dropped", () => {
+    expect(sql).toMatch(/create unique index if not exists ins_ad_run_one_open\s+on public\.ins_ad_run \(content_id\)\s+where ad_id is null and paused_at is null/);
   });
 });

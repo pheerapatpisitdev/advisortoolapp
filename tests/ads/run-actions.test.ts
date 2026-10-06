@@ -126,6 +126,19 @@ describe("runPostsAction", () => {
     expect(engine.runPosts.mock.calls[0][0].posts.map((p: { contentId: string }) => p.contentId)).toEqual(["C2"]);
   });
 
+  it("will not run a post that has a stuck run, pointing at ลองใหม่ / เลิก", async () => {
+    runStore.listRuns.mockResolvedValue([run({ adId: null, error: "Facebook ไม่รับ — x" })]);
+    const out = await ask(["C1"]);
+    expect(out).toMatchObject({ ok: true, outcomes: [{ contentId: "C1", ok: false, error: "โพสต์นี้มีรายการค้างอยู่ — กดลองใหม่หรือเลิกในแท็บผลแอดก่อน" }] });
+    expect(engine.runPosts).not.toHaveBeenCalled();
+  });
+
+  it("runs a post again once its stuck run was dropped", async () => {
+    runStore.listRuns.mockResolvedValue([run({ adId: null, pausedAt: iso(NOW), error: "เลิกแล้ว" })]);
+    await ask(["C1"]);
+    expect(engine.runPosts).toHaveBeenCalledTimes(1);
+  });
+
   it("does not call the engine when nothing is left to run", async () => {
     const out = await ask(["C3"]);
     expect(out).toMatchObject({ ok: true, outcomes: [{ contentId: "C3", ok: false }] });
@@ -141,7 +154,14 @@ describe("postsForAds", () => {
     if (!out.ok) throw new Error(out.error);
     expect(out.posts.map((p) => p.id).sort()).toEqual(["C1", "C2"]);
     expect(out.posts.find((p) => p.id === "C2")).toMatchObject({ live: true, path: { kind: "boost" } });
-    expect(out.posts.find((p) => p.id === "C1")).toMatchObject({ live: false, title: "มรดก 10 ล้าน", lastCostPerChat: null });
+    expect(out.posts.find((p) => p.id === "C1")).toMatchObject({ live: false, stuck: false, title: "มรดก 10 ล้าน", lastCostPerChat: null });
+  });
+
+  it("marks a post whose run is stuck", async () => {
+    runStore.listRuns.mockResolvedValue([run({ adId: null })]);
+    const out = await postsForAds("105");
+    if (!out.ok) throw new Error(out.error);
+    expect(out.posts.find((p) => p.id === "C1")).toMatchObject({ stuck: true, live: false });
   });
 
   it("refuses a Page that is not the owner's", async () => {
@@ -161,5 +181,13 @@ describe("boardAction", () => {
     expect(out.rows[0]).toMatchObject({ adId: "A1", title: "มรดก 10 ล้าน", status: "unknown", spend: 120, chats: 4 });
     expect(out.baseline).toBe(30);
     expect(out.controllable).toEqual(["A1"]);
+    expect(out.stuck).toEqual([]);
+  });
+
+  it("lists stuck runs with their post, so they can be retried or dropped", async () => {
+    runStore.listRuns.mockResolvedValue([run({ id: "R2", adId: null, error: "ไม่รู้ว่าขั้นนี้สำเร็จหรือไม่" }), run({ id: "R3", adId: null, pausedAt: iso(NOW) })]);
+    const out = await boardAction("105", 7);
+    if (!out.ok) throw new Error(out.error);
+    expect(out.stuck).toEqual([{ runId: "R2", contentId: "C1", title: "มรดก 10 ล้าน", poster: output.poster, error: "ไม่รู้ว่าขั้นนี้สำเร็จหรือไม่", createdAt: iso(NOW) }]);
   });
 });

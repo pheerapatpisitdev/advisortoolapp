@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AdRun, NewRun, RunPatch } from "@/lib/ads/run-store";
-import { FELL_BACK, OUT_OF_TIME, resumeRun, RUN_TIME_BUDGET_MS, runPosts, type RunDeps, type RunInput, type RunPost } from "@/lib/ads/run";
+import { FELL_BACK, OPEN_RUN, OUT_OF_TIME, resumeRun, RUN_TIME_BUDGET_MS, runPosts, type RunDeps, type RunInput, type RunPost } from "@/lib/ads/run";
 
 /**
  * A run puts each Organic post on Facebook as one ACTIVE ad set and ad under the Page's standing
@@ -18,6 +18,8 @@ let runs: AdRun[];
 let standing: Map<string, string>;
 let nextId: number;
 let clock: number;
+/** posts whose open run the database already holds (createRun answers null) */
+let openFor: Set<string>;
 
 const fetchFn = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = new URL(String(input));
@@ -53,6 +55,7 @@ const refuse = { status: 400, body: { error: { message: "Invalid parameter" } } 
 function memoryStore(): RunDeps["store"] {
   const store = {
     createRun: async (r: NewRun) => {
+      if (openFor.has(r.contentId)) return null;
       const run: AdRun = {
         id: `R${nextId++}`, createdAt: new Date(clock).toISOString(), pageId: r.pageId, actId: r.actId, contentId: r.contentId,
         path: r.path, storyId: r.storyId, dailyBudgetMinor: r.dailyBudgetMinor, endAt: r.endAt, metaCampaignId: r.metaCampaignId,
@@ -104,6 +107,7 @@ beforeEach(() => {
   nextId = 1;
   clock = Date.parse("2026-10-07T00:00:00Z");
   posterless = new Set();
+  openFor = new Set();
 });
 
 describe("a boost", () => {
@@ -150,6 +154,45 @@ describe("a boost", () => {
     expect(look.query.get("fields")).toBe("page_story_id");
     expect(sent.find((s) => s.path === "act_1/adcreatives")!.params.get("object_story_id")).toBe("105_88");
     expect(runs[0]).toMatchObject({ path: "boost", storyId: "105_88" });
+  });
+});
+
+describe("the standing campaign's state", () => {
+  it("refuses to run under a standing campaign paused in Ads Manager, and makes nothing", async () => {
+    standing.set("105|act_1", "777");
+    answer = meta((s) => (s.method === "GET" && s.path === "777" ? { status: 200, body: { effective_status: "PAUSED" } } : undefined));
+    const out = await runPosts(input([boost("C1", "105_77")]), deps());
+    expect(out).toEqual({ ok: false, error: "แคมเปญประจำ “AdvisorTool · ทักแชท · LuckyPlanner” ถูกหยุดใน Ads Manager — เปิดแคมเปญนั้นก่อนแล้วค่อยยิง" });
+    expect(creates()).toEqual([]);
+  });
+
+  it("stops rather than makes a second standing campaign when the check's answer is lost", async () => {
+    standing.set("105|act_1", "777");
+    answer = meta((s) => (s.method === "GET" && s.path === "777" ? "drop" : undefined));
+    const out = await runPosts(input([boost("C1", "105_77")]), deps());
+    expect(out.ok).toBe(false);
+    expect(creates()).toEqual([]);
+    expect(standing.get("105|act_1")).toBe("777");
+  });
+
+  it("makes a new one when Meta refuses to read the stored one (gone or not ours)", async () => {
+    standing.set("105|act_1", "777");
+    answer = meta((s) => (s.method === "GET" && s.path === "777" ? refuse : undefined));
+    await runPosts(input([boost("C1", "105_77")]), deps());
+    expect(creates()[0]).toBe("act_1/campaigns");
+    expect(standing.get("105|act_1")).toBe("900");
+  });
+});
+
+describe("a post with an open run", () => {
+  it("is left out with why, and the others go on", async () => {
+    openFor.add("C1");
+    const out = await runPosts(input([boost("C1", "105_77"), boost("C2", "105_78")]), deps());
+    expect(out).toMatchObject({ ok: true, outcomes: [
+      { contentId: "C1", runId: null, ok: false, error: OPEN_RUN },
+      { contentId: "C2", ok: true },
+    ] });
+    expect(creates().filter((p) => p === "act_1/adsets")).toHaveLength(1);
   });
 });
 

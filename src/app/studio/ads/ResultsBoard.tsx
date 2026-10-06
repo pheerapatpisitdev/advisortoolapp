@@ -5,7 +5,7 @@ import { posterUrl } from "@/lib/content/poster";
 import { STATUS_LABEL, type BoardRow, type BoardStatus } from "@/lib/ads/board";
 import { EXTEND_DAYS, extendedEnd, raisedBudgetMinor } from "@/lib/ads/run-path";
 import type { Control } from "@/lib/ads/run-controls";
-import { controlAdAction, controlRunAction, refreshResultsAction } from "./run-actions";
+import { controlAdAction, controlRunAction, refreshResultsAction, retryRunAction, type StuckRun } from "./run-actions";
 import { plain, TONES } from "./styles";
 
 /**
@@ -14,7 +14,9 @@ import { plain, TONES } from "./styles";
  * why. A run's ad (one post, its own ad set) has หยุด or เปิดต่อ, เพิ่มงบ and ยืดเวลา; the last two
  * ask first with the new figure. Any other ad has หยุด or เปิดต่อ when its account is connected
  * for making ads, and a link to Ads Manager. อัปเดตผลตอนนี้ reads the last days from Meta now,
- * as the nightly sync does.
+ * as the nightly sync does. Runs that stopped before their ad (a lost answer, a refusal, a closed
+ * dialog) are listed above as รายการค้าง with ลองใหม่ (carries on from the saved step) and เลิก
+ * (pauses what was made and frees the post to run again).
  */
 
 export interface BoardData {
@@ -23,6 +25,7 @@ export interface BoardData {
   baseline: number;
   fetchedAt: string | null;
   controllable: string[];
+  stuck: StuckRun[];
 }
 
 const baht = (n: number | null) => (n === null ? "—" : `฿${Math.round(n).toLocaleString("en-US")}`);
@@ -139,6 +142,45 @@ function Row({ row, canControl, capBaht }: { row: BoardRow; canControl: boolean;
   );
 }
 
+/** One stuck run: its post, why it stopped, ลองใหม่ and เลิก. */
+function Stuck({ s }: { s: StuckRun }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<"retry" | "drop" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function press(kind: "retry" | "drop") {
+    setBusy(kind);
+    setError(null);
+    try {
+      const out = kind === "retry" ? await retryRunAction(s.runId) : await controlRunAction(s.runId, "drop");
+      if (out.ok) router.refresh();
+      else setError(out.error ?? "ทำรายการไม่สำเร็จ");
+    } catch {
+      setError("การเชื่อมต่อหลุด ลองใหม่อีกครั้ง");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <li className="flex flex-wrap items-start gap-3 py-3">
+      {s.poster ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a drawn PNG from our own route
+        <img src={posterUrl(s.poster)} alt="" className="size-12 shrink-0 rounded-md object-cover" />
+      ) : <span className="size-12 shrink-0 rounded-md bg-[var(--ct-ground)]" />}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{s.title}</p>
+        <p className="mt-0.5 break-words text-xs text-[var(--ct-warn-ink)]">{s.error ?? `กำลังทำอยู่หรือหยุดกลางทาง · เริ่ม ${at(s.createdAt)}`}</p>
+        {error && <p role="alert" className="mt-1 text-xs text-[var(--ct-alert)]">{error}</p>}
+      </div>
+      <div className="flex gap-1.5">
+        <button type="button" disabled={busy !== null} onClick={() => press("retry")} className={plain}>{busy === "retry" ? "กำลังลอง…" : "ลองใหม่"}</button>
+        <button type="button" disabled={busy !== null} onClick={() => press("drop")} className={plain}>{busy === "drop" ? "กำลังเลิก…" : "เลิก"}</button>
+      </div>
+    </li>
+  );
+}
+
 export function ResultsBoard({ data, days, capBaht }: { data: BoardData; days: 7 | 30; capBaht: number }) {
   const router = useRouter();
   const [syncing, setSyncing] = useState(false);
@@ -184,6 +226,15 @@ export function ResultsBoard({ data, days, capBaht }: { data: BoardData; days: 7
         </button>
       </div>
       {syncNote && <p role="alert" className={`rounded-lg border px-3 py-2 text-sm ${TONES.warn}`}>{syncNote}</p>}
+
+      {data.stuck.length > 0 && (
+        <section aria-label="รายการค้าง" className={`rounded-xl border px-3 sm:px-4 ${TONES.warn}`}>
+          <h2 className="pt-3 text-sm font-medium">รายการค้าง {data.stuck.length} — ยิงไม่ครบ ยังไม่มีแอด</h2>
+          <ul className="divide-y divide-[var(--ct-warn-line)]">
+            {data.stuck.map((s) => <Stuck key={s.runId} s={s} />)}
+          </ul>
+        </section>
+      )}
 
       {data.rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-[var(--ct-line)] p-5 text-sm text-[var(--ct-mute)]">ยังไม่มีแอดที่รันในช่วงนี้ — เลือกโพสต์ในแท็บยิงแอด</p>

@@ -30,7 +30,7 @@ function keptBudget(): string {
   }
 }
 
-export function RunDialog({ pageId, pageName, posts, connection, resultsHref, onClose, onRan }: {
+export function RunDialog({ pageId, pageName, posts: picked, connection, resultsHref, onClose, onRan }: {
   pageId: string;
   pageName: string;
   posts: PostCard[];
@@ -41,6 +41,9 @@ export function RunDialog({ pageId, pageName, posts, connection, resultsHref, on
   onRan: (contentIds: string[]) => void;
 }) {
   const router = useRouter();
+  // the posts as they were when the dialog opened: the grid unticks the ones that ran (onRan),
+  // and the result lines must still name them
+  const [posts] = useState(() => picked);
   const accounts = connection.accounts.filter((a) => a.currency === "THB");
   const cap = connection.maxDailyBudgetThb;
   const [actId, setActId] = useState(accounts[0]?.id ?? "");

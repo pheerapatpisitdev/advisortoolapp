@@ -45,6 +45,8 @@ export const RUN_TIME_BUDGET_MS = 120_000;
 export const RUN_CLAIM_STALE_MS = 300_000;
 export const OUT_OF_TIME = "ส่งไม่ทันในรอบเดียว กดยิงอีกครั้งเพื่อยิงโพสต์ที่เหลือ";
 export const FELL_BACK = "บูสต์ไม่ได้ ทำเป็นแอดใหม่จากโพสต์แทน";
+/** the post has a run with no ad yet that was not dropped: the database allows one (ins_ad_run_one_open) */
+export const OPEN_RUN = "โพสต์นี้มีรายการค้างอยู่ — กดลองใหม่หรือเลิกในแท็บผลแอดก่อน";
 
 const NO_POSTS = "ยังไม่ได้เลือกโพสต์";
 const BAD_DAYS = "เลือกจำนวนวัน 3, 7 หรือ 14 วัน";
@@ -167,6 +169,7 @@ export async function runPosts(input: RunInput, deps: RunDeps): Promise<RunResul
       metaCampaignId: campaign.id,
       createdBy: input.createdBy,
     });
+    if (!run) { outcomes.push(skipped(p.contentId, OPEN_RUN)); continue; }
     outcomes.push(await drive(run.id, p.path.kind === "boost" ? p.path.postId : null, token, identity, sources, deps));
   }
   return { ok: true, outcomes };
@@ -192,20 +195,31 @@ export async function resumeRun(runId: string, deps: RunDeps): Promise<PostOutco
   return drive(runId, postId, token, identity, { post: deps.post, poster: deps.poster }, deps);
 }
 
-/** The Page's standing campaign in the account, made (ACTIVE) when there is none Meta still has. */
+/**
+ * The Page's standing campaign in the account. The stored one is used while Meta has it; one
+ * Meta deleted or archived, or refuses to read (gone, or no longer this login's), is replaced by a
+ * new one (ACTIVE). One the owner paused in Ads Manager is not used and not switched back on: the
+ * owner stopped every ad under it, and a new ad set there would never spend, so the run says so.
+ * A check whose answer was lost stops the run rather than make a second campaign.
+ */
 async function standingCampaign(
   input: RunInput,
   token: string,
   fetchFn: typeof fetch,
   store: RunDeps["store"],
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const name = `AdvisorTool · ทักแชท · ${input.pageName}`;
   const kept = await store.getStanding(input.pageId, input.actId);
   if (kept && /^\d+$/.test(kept)) {
     const r = await graph(fetchFn, token, `${kept}?fields=effective_status`);
+    if (!r.ok && !refused(r.error)) return { ok: false, error: r.error };
     const status = r.ok ? String(r.body.effective_status ?? "") : "";
+    if (r.ok && status === "PAUSED") {
+      return { ok: false, error: `แคมเปญประจำ “${name}” ถูกหยุดใน Ads Manager — เปิดแคมเปญนั้นก่อนแล้วค่อยยิง` };
+    }
     if (r.ok && status !== "DELETED" && status !== "ARCHIVED") return { ok: true, id: kept };
   }
-  const r = await graph(fetchFn, token, `${input.actId}/campaigns`, campaignParams(`AdvisorTool · ทักแชท · ${input.pageName}`, "messages", "ACTIVE"));
+  const r = await graph(fetchFn, token, `${input.actId}/campaigns`, campaignParams(name, "messages", "ACTIVE"));
   if (!r.ok) return { ok: false, error: r.error };
   const id = idOf(r.body);
   if (!id) return { ok: false, error: NO_ID };

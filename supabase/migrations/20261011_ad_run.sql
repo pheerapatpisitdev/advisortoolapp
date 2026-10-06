@@ -45,6 +45,11 @@ create table if not exists public.ins_ad_run (
 );
 create index if not exists ins_ad_run_page on public.ins_ad_run (page_id, created_at desc);
 create index if not exists ins_ad_run_content on public.ins_ad_run (content_id);
+-- โพสต์หนึ่งมีรายการค้าง (ยังไม่มีแอดและยังไม่ถูกเลิก) ได้ทีละรายการ: กดยิงซ้ำตอนเน็ตหลุดหรือสองแท็บพร้อมกัน
+-- จึงสร้างชุดโฆษณาซ้ำให้โพสต์เดียวกันไม่ได้ รายการค้างต้องลองใหม่หรือเลิกในแท็บผลแอดก่อน
+create unique index if not exists ins_ad_run_one_open
+  on public.ins_ad_run (content_id)
+  where ad_id is null and paused_at is null;
 
 alter table public.ins_ad_standing enable row level security;
 alter table public.ins_ad_run enable row level security;

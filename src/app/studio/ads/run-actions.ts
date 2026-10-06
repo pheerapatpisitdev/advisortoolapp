@@ -16,7 +16,7 @@ import { baselineCost } from "@/lib/ads/advice";
 import { boardRows, boardTotals, type BoardDaily, type BoardRow } from "@/lib/ads/board";
 import { costPer } from "@/lib/ads/results";
 import { postPath, type PostPath } from "@/lib/ads/run-path";
-import { resumeRun, runPosts, type PostOutcome, type RunDeps, type RunPost, type RunResult } from "@/lib/ads/run";
+import { OPEN_RUN, resumeRun, runPosts, type PostOutcome, type RunDeps, type RunPost, type RunResult } from "@/lib/ads/run";
 import * as runStore from "@/lib/ads/run-store";
 import type { AdRun } from "@/lib/ads/run-store";
 import { controlRun, setAdStatus, type Control, type ControlResult } from "@/lib/ads/run-controls";
@@ -48,6 +48,8 @@ export interface PostCard {
   createdAt: string;
   /** a run of it has its ad on and has not ended */
   live: boolean;
+  /** a run of it stopped before its ad and was not dropped: it is retried or dropped on ผลแอด first */
+  stuck: boolean;
   /** what a chat cost in its newest run, over the last 30 days; null with no chat or no run */
   lastCostPerChat: number | null;
 }
@@ -56,6 +58,18 @@ const titleOf = (p: ContentItem) => [...(p.output.hooks[0] ?? "")].slice(0, TITL
 
 /** A run whose ad is on, not paused and not past its end. */
 const isLive = (r: AdRun, now = Date.now()) => Boolean(r.adId) && !r.pausedAt && Date.parse(r.endAt) > now;
+/** A run with no ad yet that was not dropped — still being made, or stopped on the way (ins_ad_run_one_open). */
+const isStuck = (r: AdRun) => !r.adId && !r.pausedAt;
+
+/** A stuck run as ผลแอด lists it, with ลองใหม่ and เลิก. */
+export interface StuckRun {
+  runId: string;
+  contentId: string | null;
+  title: string;
+  poster: PosterSpec | null;
+  error: string | null;
+  createdAt: string;
+}
 
 /** The first Thai day of a window of `days` days ending today (ins_ad_daily dates are Thai days). */
 function bangkokSince(days: number, now = Date.now()): string {
@@ -148,6 +162,7 @@ export async function postsForAds(pageId: string): Promise<{ ok: true; posts: Po
           path: postPath(p, now),
           createdAt: p.createdAt,
           live: runs.some((r) => r.contentId === p.id && isLive(r, now.getTime())),
+          stuck: runs.some((r) => r.contentId === p.id && isStuck(r)),
           lastCostPerChat: sum ? costPer(sum.spend, sum.chats) : null,
         };
       }),
@@ -211,6 +226,7 @@ export async function runPostsAction(input: { pageId: string; actId: string; con
       const p = byId.get(id);
       const skip = (error: string) => left.push({ contentId: id, runId: null, ok: false, path: null, note: null, error });
       if (!p) { skip(NOT_THIS_PAGE); continue; }
+      if (runs.some((r) => r.contentId === id && isStuck(r))) { skip(OPEN_RUN); continue; }
       if (runs.some((r) => r.contentId === id && isLive(r, now.getTime()))) { skip(RUNNING); continue; }
       const path = postPath(p, now);
       if (path.kind === "scheduled") { skip("โพสต์นี้ยังไม่ขึ้นเพจ"); continue; }
@@ -291,7 +307,7 @@ async function adStatuses(ads: { adId: string; actId: string }[]): Promise<Map<s
 }
 
 export async function boardAction(pageId: string, days: unknown): Promise<
-  | { ok: true; rows: BoardRow[]; totals: ReturnType<typeof boardTotals>; baseline: number; fetchedAt: string | null; controllable: string[] }
+  | { ok: true; rows: BoardRow[]; totals: ReturnType<typeof boardTotals>; baseline: number; fetchedAt: string | null; controllable: string[]; stuck: StuckRun[] }
   | { ok: false; error: string }
 > {
   await requireStaff("owner");
@@ -332,6 +348,10 @@ export async function boardAction(pageId: string, days: unknown): Promise<
       baseline: baselineCost(month),
       fetchedAt,
       controllable: rows.filter((r) => canManage.has(r.actId)).map((r) => r.adId),
+      stuck: runs.filter(isStuck).map((r) => {
+        const post = r.contentId ? posts.get(r.contentId) : undefined;
+        return { runId: r.id, contentId: r.contentId, title: post?.title ?? "(โพสต์ถูกลบ)", poster: post?.poster ?? null, error: r.error, createdAt: r.createdAt };
+      }),
     };
   } catch (e) {
     console.error("boardAction failed:", e);
@@ -352,11 +372,11 @@ export async function refreshResultsAction(): Promise<{ ok: true; errors: string
   }
 }
 
-/** หยุด / เปิดต่อ / เพิ่มงบ / ยืดเวลา on a run's ad set (run-controls.ts), recorded whatever came of it. */
+/** หยุด / เปิดต่อ / เพิ่มงบ / ยืดเวลา on a run's ad set, or เลิก on a stuck run (run-controls.ts), recorded whatever came of it. */
 export async function controlRunAction(runId: string, control: Control): Promise<ControlResult> {
   await requireStaff("owner");
   try {
-    if (!["pause", "resume", "raise", "extend"].includes(control)) return { ok: false, error: SOMETHING_BROKE };
+    if (!["pause", "resume", "raise", "extend", "drop"].includes(control)) return { ok: false, error: SOMETHING_BROKE };
     const run = await runStore.getRun(runId);
     if (!run || !(await myPages()).some((p) => p.pageId === run.pageId)) return { ok: false, error: NOT_FOUND };
     const out = await controlRun(runId, control, { store: runStore, token: adManageToken });

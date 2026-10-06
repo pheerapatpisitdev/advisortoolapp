@@ -10,8 +10,8 @@ import { chip, field, solid } from "./styles";
  * ยิงแอด (spec 2026-10-07): the Page's Organic Studio posts as cards, ticked to run as Messenger
  * ads. ขึ้นเพจแล้ว (the default) is what is on the Page or scheduled for it — boosted as it stands;
  * ร่าง is what is not — made into a new ad from its words and picture. A card says how it would
- * run; one scheduled ahead, one already running, or one that cannot run is not tickable and says
- * why. The bar at the foot opens the run dialog with the ticked posts.
+ * run; one scheduled ahead, one already running, one with a stuck run (retried or dropped on
+ * ผลแอด first) or one that cannot run is not tickable and says why. The bar at the foot opens the run dialog with the ticked posts.
  */
 
 type Filter = "page" | "draft";
@@ -21,6 +21,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle:
 /** the line under a card's title, and whether it may be ticked */
 function lineOf(p: PostCard): { text: string; tone: "mute" | "warn" | "ok"; tickable: boolean } {
   if (p.live) return { text: "กำลังรัน", tone: "ok", tickable: false };
+  if (p.stuck) return { text: "ค้างอยู่ — ลองใหม่หรือเลิกในแท็บผลแอด", tone: "warn", tickable: false };
   switch (p.path.kind) {
     case "boost": return { text: "บนเพจ", tone: "mute", tickable: true };
     case "new": return { text: "ร่าง · ทำเป็นแอดใหม่", tone: "warn", tickable: true };

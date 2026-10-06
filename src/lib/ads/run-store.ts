@@ -86,7 +86,11 @@ function fromRow(r: Record<string, unknown>): AdRun {
   };
 }
 
-export async function createRun(r: NewRun): Promise<AdRun> {
+/**
+ * A new run, or null when the post already has an open one (no ad yet, not dropped): the
+ * database allows one (ins_ad_run_one_open), so two presses cannot both make an ad set for it.
+ */
+export async function createRun(r: NewRun): Promise<AdRun | null> {
   const { data, error } = await supabaseAdmin()
     .from("ins_ad_run")
     .insert({
@@ -102,6 +106,7 @@ export async function createRun(r: NewRun): Promise<AdRun> {
     })
     .select("*")
     .single();
+  if (error && (error as { code?: string }).code === "23505") return null;
   if (error) throw new Error(error.message);
   return fromRow(data as Record<string, unknown>);
 }
