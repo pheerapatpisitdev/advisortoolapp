@@ -2,6 +2,8 @@ import { siteUrl } from "@/lib/site-url";
 import { hashUserId } from "@/lib/line/verify";
 import { claimEvent, loadSession, saveTurn } from "@/lib/chat/session";
 import { push, reply, showLoading, toBatches, toMessages, MAX_MESSAGES, type LineMessage, type Said } from "@/lib/line/client";
+import { showQuotedMenu } from "@/lib/line/menu-link";
+import { wantsQuotedMenu } from "@/lib/line/rich-menu";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { allow } from "@/lib/assistant/rate-limit";
 import { BudgetExceeded, TurnTimeout, withTurnDeadline } from "@/lib/ai/client";
@@ -154,6 +156,8 @@ export async function handle(event: LineEvent, destination = "", opts: { started
     let said = saidWith(true);
     if (said.length > MAX_MESSAGES) said = saidWith(false);
     await sayAll(replyToken, userId, toBatches(said, answer.replies));
+    // after a Life Protect price the menu offers the table and the file instead of the plans
+    if (wantsQuotedMenu({ priced: answer.priced, product: productOf(answer.slots) })) await showQuotedMenu(userId);
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
 
     const spoken = answer.messages.map((m) => m.text).join("\n\n");

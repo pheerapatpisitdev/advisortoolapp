@@ -86,6 +86,9 @@ export const FORM_RECEIVED = "ขอบคุณครับ 🙏 เดี๋�
 
 export const WANTS_IN = "สนใจสมัคร";
 
+/** The words a tapped button sends, which are the words the Life Protect brain reads as a request for the table. */
+export const ASK_FOR_TABLE = "ขอตารางมูลค่า";
+
 /**
  * Everything an answer is except which plan it was about.
  *

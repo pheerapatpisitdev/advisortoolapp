@@ -22,6 +22,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/card": ["./src/app/api/card/*.ttf", "./public/card/family.jpg"],
     "/api/ihealthy-card": ["./src/app/api/card/*.ttf"],
+    // the LINE menus' pictures are drawn in the same faces, for a preview and for the build
+    "/api/line/menu-image": ["./src/app/api/card/*.ttf"],
+    "/api/line/rich-menu": ["./src/app/api/card/*.ttf"],
     // the content posters borrow the quote card's Thai faces rather than keep a second copy
     "/api/content-poster": POSTER_FILES,
     // posting draws the poster inside the page the owner pressed from — the workbench and the
