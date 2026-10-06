@@ -43,6 +43,8 @@ const baht = (n: number) => Math.floor(n).toLocaleString("en-US");
 const baht2 = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const field = "mt-1 w-full rounded border px-3 py-2";
+/** the yearly table's columns after the first, each ruled off from the one before it as the other plans' tables are */
+const COL = "border-l border-[var(--op-line)] px-[5px]";
 
 export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   const [age, setAge] = useState<number | "">(40);
@@ -282,28 +284,28 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                 <table className="w-full text-sm tabular-nums">
                   <thead>
                     <tr className="border-b border-[var(--op-line)] text-right text-[var(--op-mute)]">
-                      <th className="py-2 text-left">อายุ</th>
-                      <th className="py-2">ปีที่</th>
-                      <th className="py-2">เบี้ย</th>
-                      <th className="py-2">เบี้ยสะสม</th>
-                      <th className="py-2">มูลค่าเวนคืน</th>
-                      <th className="py-2">คุ้มครองชีวิต</th>
-                      <th className="py-2">บำนาญ</th>
-                      <th className="py-2">บำนาญสะสม</th>
+                      <th className="px-[5px] py-2 text-left">อายุ</th>
+                      <th className={`${COL} py-2`}>ปีที่</th>
+                      <th className={`${COL} py-2`}>เบี้ย</th>
+                      <th className={`${COL} py-2`}>เบี้ยสะสม</th>
+                      <th className={`${COL} py-2`}>มูลค่าเวนคืน</th>
+                      <th className={`${COL} py-2`}>คุ้มครองชีวิต</th>
+                      <th className={`${COL} py-2`}>บำนาญ</th>
+                      <th className={`${COL} py-2`}>บำนาญสะสม</th>
                     </tr>
                   </thead>
                   <tbody>
                     {q.illustration.map((y) => (
                       <tr key={y.age} className={`border-b border-[var(--op-line)] text-right ${y.pension ? "bg-[var(--op-figure-bg)]" : ""}`}>
-                        <td className="py-1.5 text-left">{y.age}</td>
-                        <td className="py-1.5">{y.policyYear}</td>
-                        <td className="py-1.5">{y.premium ? baht(y.premium) : "–"}</td>
+                        <td className="px-[5px] py-1.5 text-left">{y.age}</td>
+                        <td className={`${COL} py-1.5`}>{y.policyYear}</td>
+                        <td className={`${COL} py-1.5`}>{y.premium ? baht(y.premium) : "–"}</td>
                         {/* only while premiums are still being paid; after that it is one number repeated */}
-                        <td className="py-1.5">{y.premium ? baht(y.cumPremium) : "–"}</td>
-                        <td className="py-1.5">{y.cashValue ? baht(y.cashValue) : "–"}</td>
-                        <td className="py-1.5">{baht(y.deathBenefit)}</td>
-                        <td className="py-1.5">{y.pension ? baht(y.pension) : "–"}</td>
-                        <td className="py-1.5">{y.cumPension ? baht(y.cumPension) : "–"}</td>
+                        <td className={`${COL} py-1.5`}>{y.premium ? baht(y.cumPremium) : "–"}</td>
+                        <td className={`${COL} py-1.5`}>{y.cashValue ? baht(y.cashValue) : "–"}</td>
+                        <td className={`${COL} py-1.5`}>{baht(y.deathBenefit)}</td>
+                        <td className={`${COL} py-1.5`}>{y.pension ? baht(y.pension) : "–"}</td>
+                        <td className={`${COL} py-1.5`}>{y.cumPension ? baht(y.cumPension) : "–"}</td>
                       </tr>
                     ))}
                   </tbody>
