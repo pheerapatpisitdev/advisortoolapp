@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { adAccountToken, adAccounts, recordAdSync } from "@/lib/facebook/ads-connection";
 import { INSIGHT_FIELDS, dailyRowFromInsight, isExpiredToken, type Insight } from "./insights";
+import { fillAdPages } from "./ad-pages";
 import type { DailyRow } from "./types";
 
 /**
@@ -86,6 +87,10 @@ export async function syncAds(opts: { days?: number; now?: Date; fetchFn?: typeo
       result.errors.push({ actId: account.id, name: account.name, message });
       await recordAdSync(account.id, fetchedAt, message);
     }
+  }
+  // which Page each new ad promotes, for the campaigns built in Meta itself; never fails the sync
+  if (accounts.length > 0) {
+    await fillAdPages(fetchFn).catch((e) => console.error("syncAds: ad pages not filled:", e));
   }
   return result;
 }
