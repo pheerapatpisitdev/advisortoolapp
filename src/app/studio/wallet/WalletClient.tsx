@@ -5,7 +5,7 @@ import type { WalletEntry } from "@/lib/wallet/store";
 import { startTopUp, topUpStatus } from "./actions";
 
 const ROUND_NAMES: Record<string, string> = {
-  "ai-write": "เขียนโพสต์", "ai-recruit": "หาทีม", "ai-knowledge": "ความรู้", "ai-draft": "เขียนเอง",
+  "ai-write": "เขียนโพสต์", "ai-recruit": "หาทีม", "ai-knowledge": "ความรู้", "ai-draft": "เขียนเอง", "ai-thanks": "ขอบคุณลูกค้า",
   "ai-claim": "รีวิวเคลม", "ai-draw": "วาดภาพ", "ai-clip": "ถอดเสียงคลิป", "ai-edit": "ตัดต่อคลิป",
 };
 

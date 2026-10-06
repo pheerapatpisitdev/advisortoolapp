@@ -33,8 +33,10 @@ import { CLAIM_NAME } from "@/lib/content/claim";
 import { RECRUIT_NAME } from "@/lib/content/recruit";
 import { KNOWLEDGE_NAME } from "@/lib/content/knowledge";
 import { DRAFT_NAME } from "@/lib/content/draft";
+import { THANKS_NAME } from "@/lib/content/thanks";
 import { KnowledgeTools } from "./knowledge/KnowledgeTools";
 import { DraftTools } from "./draft/DraftTools";
+import { ThanksTools } from "./thanks/ThanksTools";
 import { CLIP_HREF, CLIP_NAME, isReelPiece } from "@/lib/content/clip";
 import { ClipTools } from "./clip/ClipTools";
 import { ClipCard } from "./clip/ClipCard";
@@ -85,12 +87,12 @@ interface Props {
 }
 
 
-/** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft — or a clip the agent filmed */
-type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft" | "clip";
-const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft", "clip"];
+/** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft, a thank-you — or a clip the agent filmed */
+type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft" | "thanks" | "clip";
+const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft", "thanks", "clip"];
 /** the tools in the "สร้างจาก" dropdown, in the order the owner reads them */
 const MODE_OPTIONS: readonly (readonly [Mode, string])[] = [
-  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME], ["clip", CLIP_NAME],
+  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME], ["thanks", THANKS_NAME], ["clip", CLIP_NAME],
 ];
 
 const TABS: { id: ContentStatus; label: string }[] = [
@@ -1095,6 +1097,17 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           <div hidden={mode !== "draft"}>
               <DraftTools
                 folded={!formOpen} formId={mode === "draft" ? formId : undefined}
+                writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
+                people={people} person={person} onPerson={setPerson} brief={brief} onBrief={setBrief} logo={logo}
+                left={left} rounds={spend.rounds} pending={pending} making={making}
+                run={(asked, fmt, send, paintWith, who, pictureBrief) => runRound(asked, fmt, send, (fresh) => {
+                  if (paintWith !== "none") void drawPictures(fresh.filter((i) => i.format !== "script"), paintWith, pictureBrief, who);
+                })}
+              />
+          </div>
+          <div hidden={mode !== "thanks"}>
+              <ThanksTools
+                folded={!formOpen} formId={mode === "thanks" ? formId : undefined}
                 writer={writer} onWriter={(w) => pick({ writer: w })} painter={painter} onPainter={(p) => pick({ painter: p })}
                 people={people} person={person} onPerson={setPerson} brief={brief} onBrief={setBrief} logo={logo}
                 left={left} rounds={spend.rounds} pending={pending} making={making}

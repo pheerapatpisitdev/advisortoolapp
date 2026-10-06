@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => ({ ok: true, paidBy: "staff" })), allowanceOf: vi.fn() }));
 const project = vi.hoisted(() => ({ projectPage: vi.fn() }));
 const done = { ok: true, items: [], costThb: 0, missing: 0 };
-const runs = vi.hoisted(() => ({ writeRecruit: vi.fn(), writeKnowledge: vi.fn(), writeDraft: vi.fn() }));
+const runs = vi.hoisted(() => ({ writeRecruit: vi.fn(), writeKnowledge: vi.fn(), writeDraft: vi.fn(), writeThanks: vi.fn() }));
 vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
 vi.mock("next/headers", () => ({ headers: async () => new Map([["x-real-ip", "1.2.3.4"]]) }));
 vi.mock("@/lib/auth/quota", () => quota);
@@ -13,12 +13,13 @@ vi.mock("@/lib/auth/pages", async (orig) => ({ ...(await orig<typeof import("@/l
 vi.mock("@/lib/content/recruit-run", () => ({ writeRecruit: runs.writeRecruit }));
 vi.mock("@/lib/content/knowledge-run", () => ({ writeKnowledge: runs.writeKnowledge }));
 vi.mock("@/lib/content/draft-run", () => ({ writeDraft: runs.writeDraft }));
+vi.mock("@/lib/content/thanks-run", () => ({ writeThanks: runs.writeThanks }));
 // the owner's ceiling, asked before the round (ceiling.ts): not reached
 vi.mock("@/lib/content/ceiling", () => ({ ceilingBeforeRound: vi.fn(async () => null) }));
 const store = vi.hoisted(() => ({ listContent: vi.fn(async () => []), countByStatus: vi.fn(async () => ({ draft: 0, used: 0, trashed: 0 })) }));
 vi.mock("@/lib/content/store", async (orig) => ({ ...(await orig<typeof import("@/lib/content/store")>()), ...store }));
 
-const { contentWorkbench, generateContent, generateDraft, generateKnowledge, generateRecruit } = await import("@/app/studio/actions");
+const { contentWorkbench, generateContent, generateDraft, generateKnowledge, generateRecruit, generateThanks } = await import("@/app/studio/actions");
 const { NOT_YOUR_PAGE } = await import("@/lib/auth/pages");
 const { CONTENT_PRODUCTS } = await import("@/lib/content/products");
 
@@ -35,6 +36,7 @@ describe("a round and its Page", () => {
       await generateRecruit({ topic: "t", count: 1, page: "p9" } as never),
       await generateKnowledge({ kind: "article", subject: "waiting", count: 1, page: "p9" } as never),
       await generateDraft({ draft: "ร่างของฉัน", count: 1, page: "p9" } as never),
+      await generateThanks({ occasion: "trust", count: 1, page: "p9" } as never),
     ];
     for (const r of results) expect(r).toEqual({ ok: false, error: NOT_YOUR_PAGE });
     expect(quota.takeRound).not.toHaveBeenCalled();
@@ -46,9 +48,11 @@ describe("a round and its Page", () => {
     await generateRecruit({ topic: "t", count: 1, page: "" } as never);
     await generateKnowledge({ kind: "article", subject: "waiting", count: 1 } as never);
     await generateDraft({ draft: "ร่างของฉัน", count: 1 } as never);
+    await generateThanks({ occasion: "trust", count: 1 } as never);
     expect(runs.writeRecruit).toHaveBeenCalledWith(expect.anything(), "p1");
     expect(runs.writeKnowledge).toHaveBeenCalledWith(expect.anything(), "p1");
     expect(runs.writeDraft).toHaveBeenCalledWith(expect.anything(), "p1");
+    expect(runs.writeThanks).toHaveBeenCalledWith(expect.anything(), "p1");
   });
 });
 
