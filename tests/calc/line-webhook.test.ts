@@ -12,6 +12,9 @@ import type { LineMessage } from "@/lib/line/client";
  */
 const replies: LineMessage[][] = [];
 const pushes: LineMessage[][] = [];
+const linked: [string, string][] = [];
+let aliasId: string | null = "rm-quoted";
+let menuApiFails = false;
 let replyFails = false;
 const session = {
   messages: [] as { role: "user" | "assistant"; content: string }[],
@@ -39,6 +42,8 @@ vi.mock("@/lib/line/client", async () => {
     },
     push: async (_to: string, m: LineMessage[]) => { pushes.push(m); },
     showLoading: async () => {},
+    richMenuIdOfAlias: async () => { if (menuApiFails) throw new Error("LINE 500"); return aliasId; },
+    linkRichMenu: async (user: string, id: string) => { linked.push([user, id]); },
   };
 });
 vi.mock("@/lib/chat/session", async () => {
@@ -65,6 +70,7 @@ vi.mock("@/lib/chat/record", () => ({
 vi.mock("@/lib/assistant/dispatch", () => ({ answerAny: answer }));
 
 const { handle } = await import("@/lib/line/conversation");
+const { forgetMenuIds } = await import("@/lib/line/menu-link");
 const { siteUrl } = await import("@/lib/site-url");
 const { toMessages } = await import("@/lib/line/client");
 const { verifySignature } = await import("@/lib/line/verify");
@@ -76,7 +82,8 @@ const said = (text: string, extra: object = {}) => ({
 
 beforeEach(() => {
   process.env.LINE_CHANNEL_SECRET = "secret";
-  replies.length = 0; pushes.length = 0; replyFails = false; claimed = true;
+  replies.length = 0; pushes.length = 0; linked.length = 0; replyFails = false; claimed = true;
+  aliasId = "rm-quoted"; menuApiFails = false; forgetMenuIds();
   session.messages = []; session.slots = null; session.handedOverAt = null;
   answer.mockReset();
   answer.mockImplementation(quoted);
@@ -193,6 +200,48 @@ describe("a couple's quotations", () => {
     expect(pushes).toHaveLength(0);
     expect(replies[0]).toHaveLength(5);
     expect(replies[0].some((m) => m.type === "text" && m.text.includes("ตารางมูลค่า"))).toBe(true);
+  });
+});
+
+/**
+ * The menu under the chat changes once a Life Protect price has been given (owner, 2026-10-06):
+ * the plans have been chosen, so the table, the file and the way on take their place.
+ */
+describe("the rich menu after a price", () => {
+  const priced = (product: string, isPriced = true) => async (): Promise<Answer> => ({
+    messages: [{ text: "เบี้ยประมาณ…", card: "/api/card?x=1" }],
+    slots: { intent: "quote", product } as never,
+    priced: isPriced,
+  });
+  const as = (n: number) => ({ source: { type: "user", userId: `Umenu${n}` }, webhookEventId: `em${n}` });
+
+  it("is the one for after a price, for a customer just quoted Life Protect", async () => {
+    answer.mockImplementation(priced("lifeprotect"));
+    await handle(said("ชาย 35 ล้านนึง", as(1)));
+    expect(linked).toEqual([["Umenu1", "rm-quoted"]]);
+  });
+
+  it("is left alone for a plan whose brain does not read the table button, or an answer with no price", async () => {
+    answer.mockImplementation(priced("legacy"));
+    await handle(said("ชาย 35 ล้านนึง", as(2)));
+    answer.mockImplementation(priced("lifeprotect", false));
+    await handle(said("ชาย 35 ล้านนึง", as(3)));
+    expect(linked).toEqual([]);
+  });
+
+  it("is left alone, quietly, when no such menu has been built", async () => {
+    aliasId = null;
+    answer.mockImplementation(priced("lifeprotect"));
+    await handle(said("ชาย 35 ล้านนึง", as(4)));
+    expect(linked).toEqual([]);
+    expect(replies).toHaveLength(1);
+  });
+
+  it("never costs the customer their answer when LINE's menu call fails", async () => {
+    menuApiFails = true;
+    answer.mockImplementation(priced("lifeprotect"));
+    await expect(handle(said("ชาย 35 ล้านนึง", as(5)))).resolves.toBeUndefined();
+    expect(replies).toHaveLength(1);
   });
 });
 

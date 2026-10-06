@@ -15,7 +15,7 @@ import { faqAnswer } from "./faq";
 import { PLAN_INFO_SYSTEM, SMALL_TALK_SYSTEM } from "./prompts";
 import { asksPayTerm, asksValueTable, mergeSlots, PLAN_CODE, routeMessage, type Routed } from "./route";
 import {
-  aboutCompany, affirms, APPLICATION_FORM, asksAboutCompany, asksCheaper, baht, type Budget,
+  aboutCompany, affirms, APPLICATION_FORM, ASK_FOR_TABLE, asksAboutCompany, asksCheaper, baht, type Budget,
   budgetIn, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, keepGivenFigures, one, peopleIn,
   type QuoteFigures, recentTurns, Reply, Said, saysFormDone, spoken, stallReply, stalls,
   WANTS_IN, wantsToBuy,
@@ -241,9 +241,6 @@ function quoteReplies(table: LifeProtectTable, quoted: string): string[] {
     WANTS_IN,
   ];
 }
-
-/** The words a tapped button sends, which are the words the bot reads. */
-const ASK_FOR_TABLE = "ขอตารางมูลค่า";
 
 /**
  * What the chart-and-table picture is, said over it when it follows a quotation. A couple has

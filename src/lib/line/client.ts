@@ -142,3 +142,74 @@ export async function push(to: string, messages: LineMessage[]): Promise<void> {
 export async function showLoading(userId: string): Promise<void> {
   await post("/chat/loading/start", { chatId: userId, loadingSeconds: 20 });
 }
+
+/* ── the rich menu ───────────────────────────────────────────────────────────────────────
+ * Nothing here is a message, so nothing here is counted against the month's pushes. */
+
+const DATA_API = "https://api-data.line.me/v2/bot";
+
+/** One call to LINE that is not a message; a body is JSON unless it is the menu's picture. */
+async function menuCall(
+  method: "GET" | "POST" | "DELETE", url: string, body?: unknown, type = "application/json",
+): Promise<Response> {
+  return fetch(url, {
+    method,
+    headers: { authorization: `Bearer ${token()}`, ...(body === undefined ? {} : { "content-type": type }) },
+    ...(body === undefined ? {} : { body: type === "application/json" ? JSON.stringify(body) : (body as BodyInit) }),
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+  });
+}
+
+async function menuOk(res: Response, what: string): Promise<Response> {
+  if (!res.ok) throw new Error(`LINE ${what} ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  return res;
+}
+
+/** A new menu, not yet drawn on: the picture goes up next. Returns LINE's id for it. */
+export async function createRichMenu(body: unknown): Promise<string> {
+  const res = await menuOk(await menuCall("POST", `${API}/richmenu`, body), "create menu");
+  return ((await res.json()) as { richMenuId: string }).richMenuId;
+}
+
+export async function uploadRichMenuImage(richMenuId: string, png: ArrayBuffer): Promise<void> {
+  await menuOk(await menuCall("POST", `${DATA_API}/richmenu/${richMenuId}/content`, png, "image/png"), "upload menu picture");
+}
+
+/** The menu every customer sees until they are given another. */
+export async function setDefaultRichMenu(richMenuId: string): Promise<void> {
+  await menuOk(await menuCall("POST", `${API}/user/all/richmenu/${richMenuId}`, {}), "set default menu");
+}
+
+/**
+ * Points an alias at a menu, making the alias if there is none yet. The bot finds the menu by
+ * its alias, so a rebuilt menu is picked up without anything being copied into the settings.
+ */
+export async function pointAliasAt(alias: string, richMenuId: string): Promise<void> {
+  const made = await menuCall("POST", `${API}/richmenu/alias`, { richMenuAliasId: alias, richMenuId });
+  if (made.ok) return;
+  // already taken, which on a rebuild is the usual case: move it instead
+  await menuOk(await menuCall("POST", `${API}/richmenu/alias/${alias}`, { richMenuId }), "move menu alias");
+}
+
+/** The menu an alias points at, or null when there is no such alias. */
+export async function richMenuIdOfAlias(alias: string): Promise<string | null> {
+  const res = await menuCall("GET", `${API}/richmenu/alias/${alias}`);
+  if (res.status === 404) return null;
+  await menuOk(res, "read menu alias");
+  return ((await res.json()) as { richMenuId: string }).richMenuId;
+}
+
+/** Shows this customer, and only this customer, that menu in place of the default. */
+export async function linkRichMenu(userId: string, richMenuId: string): Promise<void> {
+  await menuOk(await menuCall("POST", `${API}/user/${userId}/richmenu/${richMenuId}`, {}), "link menu");
+}
+
+/** Every menu the account holds, with the names this app gave them. */
+export async function listRichMenus(): Promise<{ richMenuId: string; name: string }[]> {
+  const res = await menuOk(await menuCall("GET", `${API}/richmenu/list`), "list menus");
+  return ((await res.json()) as { richmenus: { richMenuId: string; name: string }[] }).richmenus;
+}
+
+export async function deleteRichMenu(richMenuId: string): Promise<void> {
+  await menuOk(await menuCall("DELETE", `${API}/richmenu/${richMenuId}`), "delete menu");
+}
