@@ -7,8 +7,8 @@ import { formatBaht } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import type { LifeProtectRider, LifeProtectTable } from "@/lib/lifeprotect-table";
 import {
-  cashAt, deathBenefitOf, lifeProtectModes, payYears, pickedRider, riderModes, termAt, totalModes,
-  type RiderPick,
+  cashAt, deathBenefitOf, lifeProtectModes, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
+  riderWaiveYears, termAt, totalModes, type Payer, type RiderPick,
 } from "@/lib/lifeprotect-quote";
 import { cashProjection } from "@/lib/cash-projection";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
@@ -42,6 +42,8 @@ const TERM_START = "WLF99H";
 const AGE_START = 35;
 /** the last age the "bought for a child" note shows at */
 const CHILD_MAX_AGE = 15;
+/** The parent the page opens on when a child's rider needs one: the age the page opens on itself. */
+const PAYER_START: Payer = { sex: "M", age: AGE_START };
 
 /**
  * A rider's name as it fits on a button: every one of them opens with the same four words,
@@ -54,6 +56,14 @@ function riderWords(name: string): { short: string; what: string } {
   const bare = name.replace(RIDER_PREFIX, "").trim();
   const bracketed = /^(.*?)\s*\((.*)\)$/.exec(bare);
   return bracketed ? { short: bracketed[1], what: bracketed[2] } : { short: bare, what: "" };
+}
+
+/**
+ * The ages a rider is sold at, as the button and its popup say them. A rider a parent can
+ * also buy for a child has two windows with a gap between them, and both are said.
+ */
+function riderAges(r: LifeProtectRider): string {
+  return r.child ? `0-${r.child.ageMax}, ${r.ageMin}-${r.ageMax} ปี` : `${r.ageMin}-${r.ageMax} ปี`;
 }
 
 /** A flavour's name with the contract's own name taken off the front: "ฟิต", "บียอนด์". */
@@ -133,6 +143,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   }, [seeded]);
   /** the one rider the page is quoting beside the plan, or none — the company sells one or the other */
   const [pick, setPick] = useState<RiderPick | null>(null);
+  /** the parent paying for a child, asked only when a child's rider is priced off them */
+  const [payer, setPayer] = useState<Payer>(PAYER_START);
 
   const term = termAt(table, variant);
   // the picker only offers ages the plan takes, so a number here is always one of them
@@ -148,11 +160,14 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
    * them leaves the choice standing but unquoted rather than silently switching it off: the
    * button greys out and says so, and moving the age picker back restores it.
    */
-  const riderOffered = (r: LifeProtectRider) => ageNum !== undefined && ageNum >= r.ageMin && ageNum <= r.ageMax;
+  const riderOffered = (r: LifeProtectRider) => ageNum !== undefined && riderSoldAt(r, ageNum);
   const chosen = pickedRider(table, pick ?? undefined);
   const picked = chosen && riderOffered(chosen.rider) ? chosen : undefined;
+  // a child's พีบี is priced off the parent paying, so the page asks for them
+  const askPayer = picked !== undefined && ageNum !== undefined && needsParent(picked.rider, ageNum);
+  const payerFor = askPayer ? payer : undefined;
   const riderPrice = who && picked && annual && !table.expired
-    ? riderModes(table, term, who, picked, annual.total)
+    ? riderModes(table, term, who, picked, annual.total, payerFor)
     : undefined;
 
   /**
@@ -200,11 +215,13 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const tableCard = who && projection
     ? valueTablePath({ kind: "plan", planCode: table.planCode, variant: variant, age: who.age, sex, sumAssured })
     : undefined;
+  // who the rider's price was read off, said beside its name wherever the price is shown
+  const payerWords = payerFor ? ` (ผู้ชำระเบี้ย${payerFor.sex === "M" ? "ชาย" : "หญิง"} ${payerFor.age} ปี)` : "";
   const quoteText = who && headline && death
     ? lifeProtectQuoteText({
       sumAssured, termLabel: term.label, age: who.age, sex, modes: [headline, ...others], death, cash,
       rider: picked && riderPart && basePart
-        ? { name: picked.option.name, base: basePart, own: riderPart }
+        ? { name: picked.option.name + payerWords, base: basePart, own: riderPart }
         : undefined,
     })
     : undefined;
@@ -223,17 +240,16 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     if (!yearly) return undefined;
     // a rider is priced off the plan's premium and off the term's own paying years, so a
     // button that quoted the plan alone would not be the two terms' prices side by side
-    const withRider = picked ? riderModes(table, other, who, picked, yearly.total) : undefined;
+    const withRider = picked ? riderModes(table, other, who, picked, yearly.total, payerFor) : undefined;
     const total = yearly.total + (withRider?.find((m) => m.mode === "annual")?.total ?? 0);
     return `${formatBaht(total)}${PER.annual}`;
   };
 
   /**
-   * How many years of premium a rider would take over, for the note in its popup. Both are
-   * written from 16 and 20 up, past the age at which the contract shortens the period for a
-   * juvenile, so the term's paying years are the whole of it.
+   * How many years of premium a rider would take over, for the note in its popup: the term's
+   * paying years, or for a child's พีบี only until the child turns 25.
    */
-  const waiveYears = ageNum !== undefined && ageNum > CHILD_MAX_AGE ? payYears(term, ageNum) : undefined;
+  const waiveYears = (r: LifeProtectRider) => (ageNum !== undefined ? riderWaiveYears(r, term, ageNum) : undefined);
 
   /** The instalments the headline did not take, under the plan's own price or under the total. */
   const instalments = paidAnnual ? (
@@ -374,7 +390,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                       <span className="block text-sm">{words.short}</span>
                       {/* what the contract does, or the ages it is written over when this one is not */}
                       <span className="mt-0.5 block text-xs opacity-70">
-                        {offered ? words.what : `${r.ageMin}-${r.ageMax} ปี`}
+                        {offered ? words.what : riderAges(r)}
                       </span>
                     </button>
                     <Hint align={i === 0 ? "left" : "right"}>
@@ -388,8 +404,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                         </span>
                       ))}
                       <span className="mt-2 block border-t border-[var(--lg-panel-line)] pt-2 text-xs text-[var(--lg-mute)]">
-                        รับอายุ {r.ageMin} - {r.ageMax} ปี
-                        {offered && waiveYears ? ` · ยกเว้นเบี้ยที่เหลืออีก ${waiveYears} ปี` : ""}
+                        รับอายุ {riderAges(r)}
+                        {offered && waiveYears(r) ? ` · ยกเว้นเบี้ยที่เหลืออีก ${waiveYears(r)} ปี` : ""}
                       </span>
                       <span className="mt-1 block text-xs text-[var(--lg-mute)] opacity-75">
                         ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ
@@ -425,9 +441,43 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                 })}
               </div>
             )}
+            {askPayer && picked.rider.child && (
+              <div className="mt-3">
+                <label htmlFor="lp-payer-age" className="block text-sm text-[var(--lg-mute)]">
+                  ผู้ชำระเบี้ย (พ่อหรือแม่)
+                </label>
+                <div className="mt-1.5 grid grid-cols-2 gap-3">
+                  <select
+                    id="lp-payer-age" value={payer.age}
+                    onChange={(e) => setPayer({ ...payer, age: Number(e.target.value) })}
+                    className="w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
+                  >
+                    {Array.from(
+                      { length: picked.rider.child.payerMax - picked.rider.child.payerMin + 1 },
+                      (_, i) => picked.rider.child!.payerMin + i,
+                    ).map((a) => <option key={a} value={a}>{a} ปี</option>)}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["M", "F"] as Sex[]).map((s) => (
+                      <button
+                        key={s} type="button" onClick={() => setPayer({ ...payer, sex: s })} aria-pressed={payer.sex === s}
+                        className={`rounded-sm border py-2.5 text-sm transition-colors ${
+                          payer.sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                        }`}
+                      >
+                        {s === "M" ? "ชาย" : "หญิง"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-1.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
+                  ราคาพีบีคิดจากอายุและเพศของผู้ชำระเบี้ย · ยกเว้นเบี้ยจนเด็กอายุ 25
+                </p>
+              </div>
+            )}
             {chosen && !picked && (
               <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
-                {riderWords(chosen.rider.name).short} รับอายุ {chosen.rider.ageMin} - {chosen.rider.ageMax} ปี
+                {riderWords(chosen.rider.name).short} รับอายุ {riderAges(chosen.rider)}
                 {" "}· อายุนี้จึงยังไม่ได้รวมอยู่ในราคา
               </p>
             )}
@@ -461,7 +511,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                       beside it never should, so it keeps the width it needs and the name takes
                       what is left */}
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 text-sm text-[var(--lg-mute)]">{picked.option.name}</span>
+                    <span className="min-w-0 text-sm text-[var(--lg-mute)]">{picked.option.name}{payerWords}</span>
                     <span className="lg-figure shrink-0 whitespace-nowrap tabular-nums text-[var(--lg-white)]">
                       +{formatBaht(riderPart.total)}
                       <span className="ml-1 text-sm text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>

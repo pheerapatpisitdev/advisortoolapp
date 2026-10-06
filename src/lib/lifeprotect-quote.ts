@@ -1,7 +1,7 @@
 import type { ModePremium } from "@/calc/mode-premiums";
 import { applyModeFactor, toHundredths } from "@/calc/money";
 import type { DeathBenefit, PayMode, Sex } from "@/calc/types";
-import { premiumBasedAmounts } from "@/calc/riders/premium-based";
+import { premiumBasedAmounts, waivePeriod } from "@/calc/riders/premium-based";
 import type {
   LifeProtectRider, LifeProtectRiderOption, LifeProtectTable, LifeProtectTerm,
 } from "@/lib/lifeprotect-table";
@@ -16,6 +16,12 @@ export interface Insured {
   sex: Sex;
   age: number;
   sumAssured: number;
+}
+
+/** Whoever pays the premium, when it is not the insured. */
+export interface Payer {
+  sex: Sex;
+  age: number;
 }
 
 export function termAt(table: LifeProtectTable, variant: string): LifeProtectTerm {
@@ -63,19 +69,43 @@ export function pickedRider(table: LifeProtectTable, pick: RiderPick | undefined
 }
 
 /**
+ * True when this rider, at this insured's age, is a child's with a parent paying — and so
+ * cannot be quoted until the page has the parent's age and sex.
+ */
+export function needsParent(rider: LifeProtectRider, age: number): boolean {
+  return rider.child !== undefined && age <= rider.child.ageMax;
+}
+
+/** Whether the rider is sold at this insured's age at all, either way of paying for it. */
+export function riderSoldAt(rider: LifeProtectRider, age: number): boolean {
+  return needsParent(rider, age) || (age >= rider.ageMin && age <= rider.ageMax);
+}
+
+/** The years of premium the rider would waive, read the way the engine reads them. */
+export function riderWaiveYears(rider: LifeProtectRider, term: LifeProtectTerm, age: number): number {
+  return waivePeriod(rider.child !== undefined, age, payYears(term, age));
+}
+
+/**
  * The rider's own premium in every payment mode, worked out the way premium-based.ts does
  * from the base plan's yearly premium in satang.
  *
  * Undefined when the table holds no rate for this insured on this term — a missing rate is
- * the page's only permission to quote the contract, so it refuses rather than guesses.
+ * the page's only permission to quote the contract, so it refuses rather than guesses. A
+ * child's rider is read off the parent's row, and is undefined without a `payer` in range.
  *
  * `belowMinimum` is false on every instalment here: the company's monthly floor is a floor
  * on what the customer pays altogether, never on one contract's share of it.
  */
 export function riderModes(
   table: LifeProtectTable, term: LifeProtectTerm, who: Insured, picked: PickedRider, baseAnnual: number,
+  payer?: Payer,
 ): ModePremium[] | undefined {
-  const rate = picked.option.rates[term.variant]?.[who.sex]?.[who.age - table.ageMin];
+  const child = picked.rider.child;
+  const rate = child && needsParent(picked.rider, who.age)
+    ? payer && picked.option.childRates?.[payer.sex]?.[payer.age - child.payerMin]
+      ?.[riderWaiveYears(picked.rider, term, who.age)]
+    : picked.option.rates[term.variant]?.[who.sex]?.[who.age - table.ageMin];
   if (rate === null || rate === undefined) return undefined;
   return MODES.map((mode) => ({
     mode,

@@ -28,7 +28,16 @@ export type PremiumBasedRate = Pick<PremiumBasedResult, "plancode" | "period" | 
 /** Everything the lookup needs; the money is applied to it afterwards. */
 export type PremiumBasedLookup = Omit<PremiumBasedInput, "baseAnnual" | "mode">;
 
-const PARENT_MAX_INSURED_AGE = 15;
+/** The oldest insured a parent's plancode is written for; from 16 the spouse's takes over. */
+export const PARENT_MAX_INSURED_AGE = 15;
+
+/**
+ * How many years of premium the rider waives: the base plan's paying term, except that a
+ * payer-keyed rider on a child stops when the child turns 25.
+ */
+export function waivePeriod(byPayer: boolean, insuredAge: number, payTerm: number): number {
+  return byPayer && insuredAge <= PARENT_MAX_INSURED_AGE ? Math.min(payTerm, 25 - insuredAge) : payTerm;
+}
 
 /**
  * Excel Cal!F10/F11, D14/D15, G14/G15, H14/H15 — the row, then the money on it. The two
@@ -58,7 +67,7 @@ export function premiumBasedRate(rates: PlanRates, code: string, input: PremiumB
   const byPayer = rider.kind === "payorBenefit" || rider.by === "payer";
   const isParent = input.insuredAge <= PARENT_MAX_INSURED_AGE;
   const plancode = isParent ? opt.parent : opt.spouse;
-  const period = byPayer && isParent ? Math.min(input.payTerm, 25 - input.insuredAge) : input.payTerm;
+  const period = waivePeriod(byPayer, input.insuredAge, input.payTerm);
   const who = byPayer ? input.payer : { age: input.insuredAge, sex: input.insuredSex };
   if (!who) return undefined;
   const rate = rider.rates[plancode]?.[who.sex]?.[String(who.age)]?.[String(period)];

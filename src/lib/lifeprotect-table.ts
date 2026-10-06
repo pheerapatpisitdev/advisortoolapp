@@ -2,7 +2,7 @@ import { hasExpired } from "@/calc/calendar";
 import { getPlan } from "@/calc/plans/registry";
 import { baseRate } from "@/calc/lookup";
 import { baseAgeRange } from "@/calc/rules";
-import { premiumBasedRate } from "@/calc/riders/premium-based";
+import { PARENT_MAX_INSURED_AGE, premiumBasedRate } from "@/calc/riders/premium-based";
 import { waiverBenefit } from "@/calc/riders/waivers";
 import { cashValueSchedule, maturityValue } from "@/calc/cash-value";
 import type { CoverTopUp, PayMode, Sex } from "@/calc/types";
@@ -59,6 +59,12 @@ export interface LifeProtectRiderOption {
   covers?: string;
   /** rate per 100 baht of yearly base premium, [variant][sex][age - ageMin]; null where unsold */
   rates: Record<string, Record<Sex, (number | null)[]>>;
+  /**
+   * The same rate when a parent pays for a child, read off the parent's plancode:
+   * [payer sex][payer age - child.payerMin][waive period]; null where unsold. Present only
+   * on a rider with `child`.
+   */
+  childRates?: Record<Sex, (number | null)[][]>;
 }
 
 /**
@@ -74,9 +80,14 @@ export interface LifeProtectRider {
   name: string;
   /** what the contract does, in one sentence, when the agency has worded it; else absent */
   what?: string;
-  /** the ages the page may offer it at — the payer window already folded in, where there is one */
+  /** the ages the page may offer it at with the insured paying — the payer window folded in */
   ageMin: number;
   ageMax: number;
+  /**
+   * A payer-keyed rider is also sold on a child whose parent pays: up to `ageMax`, and only
+   * once the page has the parent's age (`payerMin`–`payerMax`) and sex. Absent otherwise.
+   */
+  child?: { ageMax: number; payerMin: number; payerMax: number };
   options: LifeProtectRiderOption[];
 }
 
@@ -179,10 +190,10 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
     const rider = rates.riders[code];
     if (!rule || rider?.kind !== "premiumBased") return [];
     /**
-     * The page asks for no payer of its own, so the insured is taken to pay their own
-     * premium — the same reading as everywhere else the app quotes without one. For a
-     * payer-keyed rider that makes the payer's own age window the page's, which is why พีบี
-     * starts at 20 here though the contract itself is written from birth.
+     * An adult is taken to pay their own premium — the same reading as everywhere else the
+     * app quotes without a payer. For a payer-keyed rider that makes the payer's own age
+     * window the adult's, which is why พีบี runs 20 - 70 here; a child is quoted with a
+     * parent paying instead (`child` below).
      */
     const byPayer = rider.by === "payer";
     const lo = Math.max(ageMin, rule.ageMin, byPayer ? rule.payer?.ageMin ?? 0 : 0);
@@ -194,6 +205,25 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
       });
       return found?.rate ?? null;
     };
+    /**
+     * A child cannot pay their own premium, so a payer-keyed rider on one is quoted with the
+     * parent's age and sex, which the page asks for. The rate turns on those and on the
+     * waive period alone, so the parent's rows are sent whole, one per period up to the
+     * longest a child can reach (a newborn's, to 25).
+     */
+    const childMax = Math.min(PARENT_MAX_INSURED_AGE, rule.ageMax);
+    const child = byPayer && rule.payer && rule.ageMin <= childMax && ageMin <= childMax
+      ? { ageMax: childMax, payerMin: rule.payer.ageMin, payerMax: rule.payer.ageMax }
+      : undefined;
+    const payerAges = child
+      ? Array.from({ length: child.payerMax - child.payerMin + 1 }, (_, i) => child.payerMin + i)
+      : [];
+    const periods = Array.from({ length: 26 }, (_, p) => p);
+    const childRatesFor = (plancode: string): Record<Sex, (number | null)[][]> => {
+      const at = (sex: Sex) => payerAges.map((payerAge) =>
+        periods.map((p) => rider.rates[plancode]?.[sex]?.[String(payerAge)]?.[String(p)] ?? null));
+      return { M: at("M"), F: at("F") };
+    };
     const words = waiverBenefit(code);
     return [{
       code,
@@ -201,6 +231,7 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
       what: words?.what,
       ageMin: lo,
       ageMax: hi,
+      ...(child ? { child } : {}),
       options: Object.entries(rider.options).map(([option, o]) => ({
         code: option,
         name: o.name,
@@ -209,6 +240,7 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
           M: ages.map((age) => rateAt(option, t.variant, "M", age)),
           F: ages.map((age) => rateAt(option, t.variant, "F", age)),
         }])),
+        ...(child ? { childRates: childRatesFor(o.parent) } : {}),
       })),
     }];
   });

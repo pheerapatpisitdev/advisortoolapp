@@ -29,8 +29,8 @@ const MODES: PayMode[] = ["annual", "semi", "monthly"];
 describe("the riders the page offers", () => {
   it("is the two that waive premiums, named as the company names them", () => {
     expect(table.riders.map((r) => [r.code, r.name, r.ageMin, r.ageMax])).toEqual([
-      // พีบี is written from birth, but the page has no payer of its own to ask about, so the
-      // insured pays their own premium and the payer's own window becomes the page's
+      // an adult pays their own premium, so the payer's own window is the adult's; a child's
+      // พีบี is quoted with a parent paying (riders' `child`, tested below)
       ["PB", "สัญญาเพิ่มเติมพีบี (ผู้ชำระเบี้ย)", 20, 70],
       ["WP", "สัญญาเพิ่มเติมดับบลิวพี (ยกเว้นเบี้ย)", 16, 70],
     ]);
@@ -128,6 +128,51 @@ describe("riderModes", () => {
     }, WHILE_CURRENT);
     expect(rider.find((m) => m.mode === "annual")!.total)
       .toBe(q.items.find((it) => it.code === "WP")!.annual);
+  });
+
+  /**
+   * A child cannot pay their own premium, so พีบี on one is read off the parent's row — the
+   * parent's age and sex, and a waive period cut short at the child's 25th birthday.
+   */
+  it("prices a child's พีบี off the parent paying, as the engine does", () => {
+    const pb = table.riders.find((r) => r.code === "PB")!;
+    expect(pb.child).toEqual({ ageMax: 15, payerMin: 20, payerMax: 70 });
+    const next = rng(20261006);
+    const pick = <T,>(xs: readonly T[]) => xs[Math.floor(next() * xs.length)];
+    for (let i = 0; i < 200; i++) {
+      const term = pick(table.terms);
+      const sex = pick(["M", "F"] as const);
+      const option = pick(pb.options);
+      const age = Math.floor(next() * 16);
+      const payer = { sex: pick(["M", "F"] as const), age: 20 + Math.floor(next() * 51) };
+      const sumAssured = pick(SUMS);
+      const who = { sex, age, sumAssured };
+      const base = lifeProtectModes(table, term, who)!;
+      const picked = pickedRider(table, { code: "PB", option: option.code })!;
+      const own = riderModes(table, term, who, picked, base.find((m) => m.mode === "annual")!.total, payer);
+      const label = `PB ${option.code} ${term.variant} ${sex} ${age} payer ${payer.sex} ${payer.age}`;
+      expect(own, label).toBeDefined();
+      for (const mode of MODES) {
+        const q = quote({
+          planCode: "LIFEPROTECT", variant: term.variant, age, sex, mode, sumAssured, payer,
+          riders: [{ code: "PB", option: option.code }],
+        }, WHILE_CURRENT);
+        const row = q.items.find((it) => it.code === "PB")!;
+        expect(row.eligible, `${label} ${mode} — ${row.message}`).toBe(true);
+        expect(row.modal, `${label} ${mode}`).toBe(own!.find((m) => m.mode === mode)!.total);
+      }
+    }
+  });
+
+  it("will not quote a child's พีบี without a parent in the payer's ages", () => {
+    const who = { sex: "M" as Sex, age: 14, sumAssured: 1_000_000 };
+    const term = termAt(table, "WLF19H");
+    const baseAnnual = lifeProtectModes(table, term, who)!.find((m) => m.mode === "annual")!.total;
+    const picked = pickedRider(table, { code: "PB", option: "FIT" })!;
+    expect(riderModes(table, term, who, picked, baseAnnual)).toBeUndefined();
+    expect(riderModes(table, term, who, picked, baseAnnual, { sex: "F", age: 19 })).toBeUndefined();
+    expect(riderModes(table, term, who, picked, baseAnnual, { sex: "F", age: 71 })).toBeUndefined();
+    expect(riderModes(table, term, who, picked, baseAnnual, { sex: "F", age: 40 })).toBeDefined();
   });
 
   it("refuses a flavour the table does not carry", () => {
