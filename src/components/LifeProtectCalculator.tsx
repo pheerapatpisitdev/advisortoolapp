@@ -609,11 +609,14 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
               {/* What the headline did not take, one instalment a line and smallest first.
                   Muted labels with the figures in white on the display face: an agent
                   reading a yearly premium off the screen should not have to lean in. */}
+              {/* highlighted like the instalments under it (owner, 2026-10-06) */}
               {firstMonthly !== undefined && (
-                <p className="mt-2 text-sm text-[var(--lg-gold)]">
-                  ชำระเบี้ยครั้งแรก {FIRST_MONTHLY_INSTALMENTS} งวด{" "}
-                  <span className="lg-figure tabular-nums text-[var(--lg-white)]">{formatBaht(firstMonthly)}</span> บาท
-                </p>
+                <div className="mt-2.5 text-sm text-[var(--lg-mute)]">
+                  <Highlighted>
+                    ชำระเบี้ยครั้งแรก {FIRST_MONTHLY_INSTALMENTS} งวด{" "}
+                    <span className="lg-figure tabular-nums">{formatBaht(firstMonthly)}</span> บาท
+                  </Highlighted>
+                </div>
               )}
               <div className="mt-2.5">{instalments}</div>
               {/* neither waiver pays a baht to the family; they carry on paying the
