@@ -83,3 +83,15 @@ describe("plain language, and where it has to stop", () => {
     expect(VOICE).toContain("วงเงินคุ้มครอง (ทุนประกัน)");
   });
 });
+
+describe("how the model calls the customer", () => {
+  it("says คุณ until the sex is known, then คุณผู้ชาย or คุณผู้หญิง", async () => {
+    const { addressLine } = await import("@/lib/assistant/prompts");
+    expect(VOICE).toContain('เรียกลูกค้าว่า "คุณ" จนกว่าจะรู้เพศ');
+    expect(addressLine(undefined)).toBe("");
+    expect(addressLine("M")).toContain('"คุณผู้ชาย"');
+    expect(addressLine("M")).not.toContain("คุณผู้หญิง");
+    expect(addressLine("F")).toContain('"คุณผู้หญิง"');
+    expect(addressLine("F")).not.toContain("คุณผู้ชาย");
+  });
+});

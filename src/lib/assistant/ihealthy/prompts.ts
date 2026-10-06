@@ -6,7 +6,7 @@ import {
 import { PHONE_ROW_LABEL, phoneColumns } from "@/lib/ihealthy-phone";
 import { iHealthyPricing, plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
-import { VOICE } from "../prompts";
+import { VOICE, addressLine } from "../prompts";
 import { arrangementFor } from "./quote";
 import type { HealthSlots } from "./route";
 
@@ -147,6 +147,7 @@ function known(slots: HealthSlots, today: Date): string {
   const quoted = quotedFigures(slots, today);
   return `\n\nข้อมูลของลูกค้ารายนี้ที่ทราบแล้ว: ${bits.join(" · ")}\n`
     + "ห้ามขอข้อมูลที่ทราบแล้วซ้ำอีก\n"
+    + addressLine(slots.sex)
     + (quoted
       ? `เบี้ยที่คิดและส่งให้ลูกค้าไปแล้วคือ ${quoted}\n`
         + "ถ้าจะพูดถึงตัวเลขเบี้ย ให้ใช้ตัวเลขชุดนี้เท่านั้น คัดลอกมาตรงๆ ห้ามคำนวณเอง ห้ามประมาณ ห้ามปัดเศษ\n"

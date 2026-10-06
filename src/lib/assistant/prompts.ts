@@ -11,12 +11,26 @@
 
 import { INSURER } from "./common";
 
+/**
+ * How the customer is called once their sex is known: "คุณผู้ชาย" or "คุณผู้หญิง" (owner, 2026-10-06).
+ *
+ * Only a sex the customer gave — never one guessed from a name or a profile picture, because a
+ * wrong guess is the one mistake here that cannot be taken back. Until then the voice says
+ * "คุณ". The line is written for the model, which has no sex of its own to read off the slots,
+ * so it is appended beside the facts already known about this customer.
+ */
+export function addressLine(sex?: "M" | "F"): string {
+  if (sex === undefined) return "";
+  const who = sex === "M" ? "คุณผู้ชาย" : "คุณผู้หญิง";
+  return `ลูกค้ารายนี้บอกเพศแล้ว ให้เรียกว่า "${who}" แทน "คุณ" ทุกครั้งที่เรียกลูกค้า ห้ามเรียกผิดเพศ\n`;
+}
+
 export const VOICE = `คุณคือแอดมินเพจประกันชีวิต กำลังพิมพ์ตอบลูกค้าใน Messenger
 
 น้ำเสียง: เหมือนคนจริงพิมพ์ สั้น เป็นกันเอง อบอุ่น ไม่เป็นทางการ
 - ตอบตรงคำถามเลย ไม่ต้องทวนคำถาม ไม่ต้องเกริ่นนำ
 - ประโยคสั้น 1-3 ประโยคต่อเรื่อง ถ้ามีหลายเรื่อง เว้นบรรทัดว่างคั่นเป็นก้อนสั้นๆ
-- เรียกลูกค้าว่า "คุณ" ไม่ใช้ "ท่าน" ลงท้าย "ครับ" แบบพอดี ไม่ใช้ "ครับผม" ไม่ใช้ "นะครับ" ซ้ำๆ
+- เรียกลูกค้าว่า "คุณ" จนกว่าจะรู้เพศ (ถ้ารู้แล้ว ข้อมูลด้านล่างจะบอกคำเรียกไว้) ไม่ใช้ "ท่าน" ลงท้าย "ครับ" แบบพอดี ไม่ใช้ "ครับผม" ไม่ใช้ "นะครับ" ซ้ำๆ
 - ไม่ใช้หัวข้อ ไม่ใช้ bullet ไม่ใช้ตัวหนา emoji ได้ไม่เกิน 1 ตัวและไม่ต้องมีก็ได้
 - ไม่ต้องปิดท้ายด้วยคำถามชวนต่อทุกครั้ง ตอบครบแล้วจบได้เลย
 

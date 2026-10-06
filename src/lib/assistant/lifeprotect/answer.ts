@@ -13,6 +13,7 @@ import { cashAt, deathBenefitOf, lifeProtectModes, termAt } from "@/lib/lifeprot
 import { lifeProtectTable, type LifeProtectTable } from "@/lib/lifeprotect-table";
 import { faqAnswer } from "./faq";
 import { PLAN_INFO_SYSTEM, SMALL_TALK_SYSTEM } from "./prompts";
+import { addressLine } from "../prompts";
 import { asksPayTerm, asksValueTable, mergeSlots, PLAN_CODE, routeMessage, type Routed } from "./route";
 import {
   aboutCompany, affirms, APPLICATION_FORM, ASK_FOR_TABLE, asksAboutCompany, asksCheaper, baht, type Budget,
@@ -564,6 +565,8 @@ function knownSoFar(slots: Routed, table: LifeProtectTable): string {
   const quoted = quotedFigures(slots, table);
   return `\n\nข้อมูลของลูกค้ารายนี้ที่ทราบแล้ว: ${bits.join(" · ")}\n`
     + "ห้ามขอข้อมูลที่ทราบแล้วซ้ำอีก\n"
+    // a couple was priced together, and one sex would be the wrong word for half of them
+    + addressLine(slots.people && slots.people.length > 1 ? undefined : slots.sex)
     + familyReceives(slots, table)
     + (quoted
       ? `เบี้ยที่คิดและส่งให้ลูกค้าไปแล้วคือ ${quoted}\n`
