@@ -1,6 +1,6 @@
 import { formatBaht } from "@/calc/money";
 import { Highlighted } from "@/components/Highlighted";
-import type { Projection } from "@/lib/cash-projection";
+import type { Projection, ProjectionRow } from "@/lib/cash-projection";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
 import { PdfPrepare } from "@/components/sales/PdfPrepare";
@@ -27,6 +27,8 @@ export interface CashValueTableProps {
 }
 
 const HEAD = ["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
+/** the same, with the riders' premium in a column of its own beside the plan's */
+const HEAD_RIDERS = ["ปีที่", "อายุ", "เบี้ย/ปี", "สัญญาเพิ่มเติม", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
 
 /** every column but the first is ruled off from the one before it */
 const RULE = "border-l border-l-white/10";
@@ -56,7 +58,11 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
    * at: a contract whose paying term the projection and the caller disagreed about would
    * otherwise state a total the table does not show.
    */
-  const paying = rows.filter((r) => r.premiumDue);
+  // a year is paid for when either the plan or a rider is: a rider can outlast the plan's term
+  const pays = (r: ProjectionRow) => Boolean(r.premiumDue || r.riderDue);
+  const riders = rows.some((r) => r.riderDue);
+  const head = riders ? HEAD_RIDERS : HEAD;
+  const paying = rows.filter(pays);
   const payingYears = paying.length;
   const totalPaid = paying.length ? paying[paying.length - 1].premiumPaid : null;
 
@@ -130,7 +136,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
         <table className="w-full border-collapse text-xs tabular-nums">
           <thead>
             <tr>
-              {HEAD.map((h, i) => (
+              {head.map((h, i) => (
                 <th
                   key={h}
                   scope="col"
@@ -139,7 +145,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                   className={`sticky top-0 z-[2] whitespace-nowrap border-b border-[var(--lg-hair)]
                     bg-[var(--lg-ground-deep)] px-[5px] py-[7px] text-[11px] font-normal text-[var(--lg-mute)]
                     ${i < 2 ? "text-left" : "text-right"} ${i > 0 ? RULE : ""}
-                    ${i === HEAD.length - 1 ? "pr-3" : ""}`}
+                    ${i === head.length - 1 ? "pr-3" : ""}`}
                 >
                   {h}
                 </th>
@@ -160,7 +166,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                * label there would be a number taken away to make room for a word.
                */
               const crossover = breakEven?.policyYear === r.policyYear;
-              const labelHere = crossover && !r.premiumDue;
+              const labelHere = crossover && !pays(r);
               /**
                * Every row is the same weight, including the early years worth nothing.
                *
@@ -187,6 +193,11 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                   <td className={`${CELL} ${RULE} text-right`}>
                     {r.premiumDue ? formatBaht(r.premiumDue) : "—"}
                   </td>
+                  {riders && (
+                    <td className={`${CELL} ${RULE} text-right`}>
+                      {r.riderDue ? formatBaht(r.riderDue) : "—"}
+                    </td>
+                  )}
                   {/* The running total stops when the paying does, rather than repeating the
                       same figure down the rest of the contract — thirty-six identical rows
                       are not a column, they are noise with a heading on it.
@@ -201,7 +212,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                   <td className={`${CELL} ${RULE} text-right ${labelHere ? "font-medium" : ""}`}>
                     {labelHere
                       ? <Highlighted>จุดคุ้มทุน &gt;</Highlighted>
-                      : r.premiumDue && r.premiumPaid !== null ? formatBaht(r.premiumPaid) : "—"}
+                      : pays(r) && r.premiumPaid !== null ? formatBaht(r.premiumPaid) : "—"}
                   </td>
                   <td className={`${CELL} ${RULE} text-right`}>
                     {crossover ? <Highlighted>{formatBaht(r.cashValue)}</Highlighted> : formatBaht(r.cashValue)}
@@ -217,7 +228,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           {totalPaid !== null && (
             <tfoot data-print-only className="hidden">
               <tr>
-                <td className={`${CELL} ${RULE} text-right`} colSpan={3}>รวมเบี้ยที่ชำระ</td>
+                <td className={`${CELL} ${RULE} text-right`} colSpan={riders ? 4 : 3}>รวมเบี้ยที่ชำระ</td>
                 <td className={`${CELL} ${RULE} text-right`}>{formatBaht(totalPaid)}</td>
                 <td className={`${CELL} ${RULE}`} />
                 <td className={`${CELL} ${RULE}`} />

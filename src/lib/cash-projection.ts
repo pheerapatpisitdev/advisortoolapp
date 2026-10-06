@@ -20,12 +20,14 @@ export interface ProjectionRow {
    * multiple of the sum assured, the surrender value, and 101% of the premiums paid so far
    */
   cover: number;
-  /**
-   * the premium falling due that year, riders included; 0 once nothing is left to pay, null
-   * with no price
-   */
+  /** the plan's premium falling due that year; 0 once the paying term is over, null with no price */
   premiumDue: number | null;
-  /** every premium due up to and including this year, riders included */
+  /**
+   * What the riders cost that year, kept in a column of its own (owner, 2026-10-06); present
+   * only when the projection was given riders, 0 in a year none is paid
+   */
+  riderDue?: number;
+  /** every premium due up to and including this year, the riders' included */
   premiumPaid: number | null;
   /** what surrendering at the end of that year returns */
   cashValue: number;
@@ -116,10 +118,10 @@ export function cashProjection(
   let planPaid = 0;
   const rows: ProjectionRow[] = factors.map((factor, i) => {
     const at = age + i;
-    const planDue = annualSatang === null ? null : i < payYears ? annualSatang : 0;
-    const due = planDue === null ? null : planDue + (riderDue?.[i] ?? 0);
-    if (due !== null) paid += due;
-    if (planDue !== null) planPaid += planDue;
+    const due = annualSatang === null ? null : i < payYears ? annualSatang : 0;
+    const extra = riderDue && due !== null ? riderDue[i] ?? 0 : undefined;
+    if (due !== null) paid += due + (extra ?? 0);
+    if (due !== null) planPaid += due;
     // the same ROUND(factor × sum / 1000) baht as cash-value.ts, then carried in satang
     const cashValue = Math.round((factor * sumAssured) / 1000) * 100;
     /**
@@ -136,6 +138,7 @@ export function cashProjection(
       age: at,
       cover: Math.max(...floors),
       premiumDue: due,
+      ...(extra === undefined ? {} : { riderDue: extra }),
       premiumPaid: annualSatang === null ? null : paid,
       cashValue,
       ...(() => {

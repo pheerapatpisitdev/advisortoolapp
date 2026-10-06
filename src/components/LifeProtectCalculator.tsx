@@ -222,7 +222,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         factors, age: who.age, sumAssured,
         annualSatang: table.expired || !annual ? null : annual.total,
         payYears: payYears(term, who.age), death, topUp: table.topUp,
-        // the premium column is what is paid, riders and all (owner, 2026-10-06)
+        // the riders' premium, which the table shows in a column of its own (owner, 2026-10-06)
         riderDue: riderDueByYear(
           table, term, who.age, factors.length,
           picked && riderAnnual !== undefined ? { rider: picked.rider, annual: riderAnnual } : undefined,
@@ -234,11 +234,11 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     ? `ทุนประกัน ${sumAssured.toLocaleString("en-US")} บาท · ${sex === "M" ? "ชาย" : "หญิง"} `
       + `${who.age === 0 ? "แรกเกิด" : `${who.age} ปี`} · ${term.short}`
       + (annual && paidAnnual && !table.expired
-        ? paidAnnual.total === annual.total
-          ? ` · เบี้ย ${formatBaht(annual.total)} บาท/ปี`
+        ? ` · เบี้ย ${formatBaht(annual.total)} บาท/ปี`
           // a rider's premium can move or stop from one year to the next, so the caption
-          // says which year its figure is and that the riders are in it
-          : ` · เบี้ยปีแรก ${formatBaht(paidAnnual.total)} บาท รวมสัญญาเพิ่มเติม`
+          // says which year its figure is; the table carries it in a column of its own
+          + (paidAnnual.total > annual.total
+            ? ` · สัญญาเพิ่มเติมปีแรก ${formatBaht(paidAnnual.total - annual.total)} บาท` : "")
           + (medicalPrice ? " · เบี้ย MEB ตามอัตราปัจจุบันของแต่ละอายุ" : "")
         : "")
     : "";

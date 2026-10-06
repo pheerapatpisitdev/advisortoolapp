@@ -187,11 +187,15 @@ describe("cashProjection · with riders", () => {
   const riderDue = Array.from({ length: 12 }, () => 100_000);
   const withRiders = cashProjection({ ...base, riderDue });
 
-  it("adds what the riders cost to each year's premium and to what has been paid", () => {
-    expect(withRiders.rows[0].premiumDue).toBe(annualSatang + 100_000);
-    expect(withRiders.rows[10].premiumDue).toBe(100_000);
-    expect(withRiders.rows[12].premiumDue).toBe(0);
+  it("keeps what the riders cost beside the plan's premium, and adds it to what has been paid", () => {
+    expect(withRiders.rows[0]).toMatchObject({ premiumDue: annualSatang, riderDue: 100_000 });
+    expect(withRiders.rows[10]).toMatchObject({ premiumDue: 0, riderDue: 100_000 });
+    expect(withRiders.rows[12]).toMatchObject({ premiumDue: 0, riderDue: 0 });
     expect(withRiders.rows[20].premiumPaid).toBe(alone.rows[20].premiumPaid! + 1_200_000);
+  });
+
+  it("has no rider column at all without riders", () => {
+    expect(alone.rows.some((r) => "riderDue" in r)).toBe(false);
   });
 
   /** The contract tops the cover up off the plan's own premiums; a rider's buy no extra cover. */
