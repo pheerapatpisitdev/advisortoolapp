@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adsetParams, campaignParams, creativeParams, LEAD_CTAS, LEAD_LINK, messengerLink, type AdGoal } from "@/lib/ads/graph";
+import { adParams, adsetParams, campaignParams, creativeParams, LEAD_CTAS, LEAD_LINK, messengerLink, pageStoryOf, storyCreativeParams, type AdGoal } from "@/lib/ads/graph";
 
 /**
  * The builders both ad engines share: what each object carries for a traffic ad and for a lead
@@ -91,5 +91,37 @@ describe("the creative", () => {
   it("offers the three lead buttons, quote first", () => {
     expect(LEAD_LINK).toBe("http://fb.me/");
     expect(LEAD_CTAS).toEqual(["GET_QUOTE", "SIGN_UP", "LEARN_MORE"]);
+  });
+});
+
+describe("an ACTIVE run (spec 2026-10-07)", () => {
+  it("can make the campaign ACTIVE, and stays PAUSED by default", () => {
+    expect(campaignParams("x", "messages", "ACTIVE").status).toBe("ACTIVE");
+    expect(campaignParams("x", "messages").status).toBe("PAUSED");
+  });
+
+  it("can make the ad set ACTIVE with an end time, sending end_time only when given", () => {
+    const base = { name: "n", campaignId: "C1", dailyBudgetMinor: 20000, identity: "VID1", goal: { objective: "messages" } as AdGoal, pageId: "111" };
+    const on = adsetParams({ ...base, endTime: "2026-10-14T00:00:00.000Z", status: "ACTIVE" });
+    expect(on.end_time).toBe("2026-10-14T00:00:00.000Z");
+    expect(on.status).toBe("ACTIVE");
+    const plain = adsetParams(base);
+    expect("end_time" in plain).toBe(false);
+    expect(plain.status).toBe("PAUSED");
+  });
+
+  it("can make the ad ACTIVE", () => {
+    expect(adParams({ name: "n", adsetId: "A1", creativeId: "K1", status: "ACTIVE" }).status).toBe("ACTIVE");
+    expect(adParams({ name: "n", adsetId: "A1", creativeId: "K1" }).status).toBe("PAUSED");
+  });
+
+  it("boosts a Page post by its story id", () => {
+    expect(storyCreativeParams({ name: "n", storyId: "105_77" })).toEqual({ name: "n", object_story_id: "105_77" });
+  });
+
+  it("reads a photo's page_story_id, only when it is <digits>_<digits>", () => {
+    expect(pageStoryOf({ page_story_id: "105_77" })).toBe("105_77");
+    expect(pageStoryOf({})).toBeNull();
+    expect(pageStoryOf({ page_story_id: "x/../y" })).toBeNull();
   });
 });

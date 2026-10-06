@@ -111,12 +111,15 @@ const CAMPAIGN_OBJECTIVE: Record<SendObjective, string> = {
   messages: "OUTCOME_ENGAGEMENT",
 };
 
-/** POST {act}/campaigns: traffic, leads or messages, paused, budget on the ad set. */
-export function campaignParams(name: string, objective: SendObjective = "traffic"): Record<string, string> {
+/** What a new object is made as: sends make everything PAUSED; a run (spec 2026-10-07) makes it ACTIVE. */
+export type MetaStatus = "PAUSED" | "ACTIVE";
+
+/** POST {act}/campaigns: traffic, leads or messages, paused unless asked, budget on the ad set. */
+export function campaignParams(name: string, objective: SendObjective = "traffic", status: MetaStatus = "PAUSED"): Record<string, string> {
   return {
     name,
     objective: CAMPAIGN_OBJECTIVE[objective],
-    status: "PAUSED",
+    status,
     special_ad_categories: "[]",
     is_adset_budget_sharing_enabled: "false",
   };
@@ -126,7 +129,7 @@ export function campaignParams(name: string, objective: SendObjective = "traffic
  * POST {act}/adsets: Thailand, 20 and up, Advantage+ audience, the verified Thai advertiser and
  * payer, paused. Traffic is optimised for link clicks to a website; leads for forms filled on
  * Facebook; messages for conversations started in Messenger. Leads and messages are tied to the
- * Page through promoted_object.
+ * Page through promoted_object. A run's ad set (spec 2026-10-07) is ACTIVE and ends at `endTime`.
  */
 export function adsetParams(a: {
   name: string;
@@ -135,6 +138,9 @@ export function adsetParams(a: {
   identity: string;
   goal: AdGoal;
   pageId: string;
+  /** when the ad set stops, ISO; none for a send */
+  endTime?: string;
+  status?: MetaStatus;
 }): Record<string, string> {
   const o = a.goal.objective;
   return {
@@ -149,7 +155,8 @@ export function adsetParams(a: {
     targeting: JSON.stringify({ geo_locations: { countries: ["TH"] }, age_min: 20, targeting_automation: { advantage_audience: 1 } }),
     regional_regulated_categories: JSON.stringify(["THAILAND_UNIVERSAL"]),
     regional_regulation_identities: JSON.stringify({ universal_beneficiary: a.identity, universal_payer: a.identity }),
-    status: "PAUSED",
+    ...(a.endTime ? { end_time: a.endTime } : {}),
+    status: a.status ?? "PAUSED",
   };
 }
 
@@ -195,12 +202,26 @@ export function creativeParams(c: {
   };
 }
 
-/** POST {act}/ads: the creative under the ad set, paused. */
-export function adParams(a: { name: string; adsetId: string; creativeId: string | null }): Record<string, string> {
+/** POST {act}/ads: the creative under the ad set, paused unless asked. */
+export function adParams(a: { name: string; adsetId: string; creativeId: string | null; status?: MetaStatus }): Record<string, string> {
   return {
     name: a.name,
     adset_id: a.adsetId,
     creative: JSON.stringify({ creative_id: a.creativeId }),
-    status: "PAUSED",
+    status: a.status ?? "PAUSED",
   };
+}
+
+/**
+ * POST {act}/adcreatives for a boost (spec 2026-10-07): the Page's post as it stands, so its
+ * likes and comments stay on the post. The ad set's Messenger destination carries the chat.
+ */
+export function storyCreativeParams(c: { name: string; storyId: string }): Record<string, string> {
+  return { name: c.name, object_story_id: c.storyId };
+}
+
+/** GET {photo}?fields=page_story_id: the post a picture went up in, "<page>_<post>", or null. */
+export function pageStoryOf(body: Record<string, unknown>): string | null {
+  const v = body.page_story_id;
+  return typeof v === "string" && /^\d+_\d+$/.test(v) ? v : null;
 }
