@@ -44,6 +44,12 @@ describe("a card's lead", () => {
       .toEqual({ amount: "1,150,000", note: "เมื่อเสียชีวิตก่อนอายุ 60" });
   });
 
+  /** Bought for the illness cover, so they keep the premium (owner, 2026-10-06). */
+  it("leaves the cancer and CI 123 sets on their premium", () => {
+    expect(lead({ kind: "bundle", bundleCode: "CANCER_SET", tier: 1, age: 40, sex: "M" })).toBeUndefined();
+    expect(lead({ kind: "bundle", bundleCode: "CI123_SET", tier: 1, age: 40, sex: "M" })).toBeUndefined();
+  });
+
   it("leaves a plan with no page and no death benefit on its premium", () => {
     expect(lead(plan("ISMART", "W80F06"))).toBeUndefined();
   });

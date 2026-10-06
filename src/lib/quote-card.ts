@@ -487,6 +487,9 @@ export function quoteCard(input: CardInput, today: Date = new Date()): QuoteCard
   return input.kind === "bundle" ? bundleCard(input, today) : planCard(input, today);
 }
 
+/** The one set that leads with มรดก; the others are bought for their illness cover. */
+const LEGACY_SET = "LEGACY_FAMILY";
+
 /** The figure a card leads with, written as the card draws it. */
 const legacyLine = (l: Legacy): QuoteCard["legacy"] => ({ amount: money(l.amount), ...(l.note ? { note: l.note } : {}) });
 
@@ -937,8 +940,10 @@ function bundleCard(input: BundleCardInput, today: Date): QuoteCard | undefined 
     insuredWho: `${SEX_WORD[input.sex]} ${input.age} ปี`,
     insuredLine: tier.name,
     premium,
-    // the set's own Life Protect pays on death, more before 60 — what its page leads with too
-    ...(result.deathBenefit ? { legacy: legacyLine(legacyFromDeath(result.deathBenefit)) } : {}),
+    // the legacy set leads with what the family inherits, as its page does; the cancer and
+    // CI 123 sets are bought for the illness cover, so they keep the premium (owner, 2026-10-06)
+    ...(input.bundleCode === LEGACY_SET && result.deathBenefit
+      ? { legacy: legacyLine(legacyFromDeath(result.deathBenefit)) } : {}),
     perDay: perDayLine,
     summary,
     sections,
