@@ -75,11 +75,11 @@ describe("the one question sent into a silence", () => {
     expect(calls[0].fn).toBe("ins_claim_followups");
   });
 
-  it("asks nothing the reader has to type an answer to", () => {
+  it("reads on its own, with the buttons or without them", () => {
+    // the Page's inbox draws no buttons, and they go once anything else is said (owner, 2026-10-06)
+    expect(FOLLOWUP_TEXT).not.toContain("กดปุ่ม");
     expect(FOLLOWUP_TEXT).not.toContain("สนใจไหม");
-    // the open question is what the buttons were competing with, and it is gone
-    expect(FOLLOWUP_TEXT).not.toContain("เป็นยังไงบ้าง");
-    expect(FOLLOWUP_TEXT).toContain("ไม่ต้องพิมพ์");
+    expect(FOLLOWUP_TEXT).toBe("ดูตัวเลขแล้วสงสัยตรงไหน ถามได้เลยครับ");
   });
 
   it("offers nothing the bot cannot answer, and nothing Messenger would cut", () => {

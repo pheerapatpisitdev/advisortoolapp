@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { formatBaht } from "@/calc/money";
 import type { Projection, ProjectionRow } from "@/lib/cash-projection";
 import { ageTicks } from "@/lib/age-ticks";
@@ -87,10 +87,23 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
     setPicked(Math.max(0, Math.min(rows.length - 1, Math.round(at - age))));
   };
 
-  const readout: [string, string, number | null][] = [
-    ["เบี้ยสะสม", PAID, here.premiumPaid],
-    ["มูลค่าเวนคืนเงินสด", GOLD, here.cashValue],
-    ["ความคุ้มครองเสียชีวิต", COVER, here.cover],
+  /**
+   * The break-even, ringed where the cash line crosses the paid line. Only on a plan that
+   * hands nothing back along the way: there the projection counts the instalments already
+   * received, the drawn line does not, and a ring sitting below the paid line would contradict
+   * the very sentence it stands for.
+   */
+  const paysAlong = rows.slice(0, -1).some((r) => r.payout);
+  const mark = breakEven && !paysAlong ? breakEven : null;
+
+  /**
+   * Each line named for what it means to the family first, the company's own term after it:
+   * "มูลค่าเวนคืนเงินสด" is the word on the contract, and the one a customer cannot read.
+   */
+  const readout: [string, string, string, number | null][] = [
+    ["เงินที่จ่ายไปแล้ว", "เบี้ยสะสม", PAID, here.premiumPaid],
+    ["เงินคืนถ้ายกเลิก", "มูลค่าเวนคืน", GOLD, here.cashValue],
+    ["ครอบครัวได้รับถ้าเสียชีวิต", "ความคุ้มครอง", COVER, here.cover],
   ];
 
   const legend = (
@@ -98,7 +111,7 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
       <div className="mb-2 border-b border-[var(--lg-panel-line)] pb-1.5 text-xs font-medium text-[var(--lg-white)]">
         อายุ {here.age} ปี · สิ้นปีที่ {here.policyYear}
       </div>
-      {readout.map(([label, colour, value]) => value === null ? null : (
+      {readout.map(([label, term, colour, value]) => value === null ? null : (
         <div key={label} className="flex items-baseline justify-between gap-3 py-0.5">
           <dt className="flex items-center gap-2 text-xs text-[var(--lg-mute)]">
             {/* a background, which paper drops unless told otherwise — and on paper these
@@ -107,7 +120,10 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
               className="inline-block h-2 w-2 rounded-full"
               style={{ background: colour, printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}
             />
-            {label}
+            <span>
+              {label}
+              <span className="ml-1 text-[10px] opacity-70">({term})</span>
+            </span>
           </dt>
           <dd className="text-sm tabular-nums text-[var(--lg-white)]">{formatBaht(value)}</dd>
         </div>
@@ -151,6 +167,7 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
           </text>
         </>
       )}
+      <text x={LEFT - 6} y={H - 8} fill="var(--lg-mute)" fontSize="9" textAnchor="end">อายุ</text>
       {ticks.map((at) => (
         <text key={at} x={x(at)} y={H - 8} fill="var(--lg-mute)" fontSize="10" textAnchor="middle">{at}</text>
       ))}
@@ -160,11 +177,28 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
         stroke="var(--lg-mute)" strokeWidth="1" strokeDasharray="3 3"
       />
 
+      {/* the money growing is the story, so the space under it is tinted */}
+      <polygon
+        fill={GOLD} fillOpacity="0.08" stroke="none"
+        points={`${x(age).toFixed(1)},${y(0).toFixed(1)} ${path((r) => r.cashValue)} ${x(rows[rows.length - 1].age).toFixed(1)},${y(0).toFixed(1)}`}
+      />
       <polyline fill="none" stroke={COVER} strokeWidth="1.5" strokeDasharray="4 3" points={coverPath} />
       {here.premiumPaid !== null && (
         <polyline fill="none" stroke={PAID} strokeWidth="1.5" strokeLinejoin="round" points={path((r) => r.premiumPaid!)} />
       )}
       <polyline fill="none" stroke={GOLD} strokeWidth="2" strokeLinejoin="round" points={path((r) => r.cashValue)} />
+
+      {mark && (
+        <g>
+          <circle cx={x(mark.age)} cy={y(mark.cashValue)} r="6" fill="none" stroke={GOLD} strokeWidth="1.25" />
+          <text
+            x={x(mark.age)} y={y(mark.cashValue) + 16} fill={GOLD} fontSize="9" fontWeight="600"
+            textAnchor={x(mark.age) > W - 60 ? "end" : "middle"}
+          >
+            จุดคุ้มทุน · อายุ {mark.age}
+          </text>
+        </g>
+      )}
 
       {([["cover", here.cover, COVER], ["paid", here.premiumPaid, PAID], ["cash", here.cashValue, GOLD]] as [string, number | null, string][])
         .map(([key, value, colour]) => value === null ? null : (
@@ -195,9 +229,94 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
         {legend}
         {drawing}
         <div className="mt-1.5 text-center text-[11px] text-[var(--lg-mute)] opacity-70">
-          ลากบนกราฟเพื่อดูตัวเลขของปีอื่น
+          แตะหรือลากบนกราฟ เพื่อดูตัวเลขของแต่ละปี
         </div>
+        <ReadingGuide projection={projection} age={age} paysAlong={paysAlong} />
       </div>
+    </div>
+  );
+}
+
+/** a short sample of a series' line, so the guide points at a line by its look, not a colour name */
+function Swatch({ colour, dashed = false }: { colour: string; dashed?: boolean }) {
+  return (
+    <svg width="22" height="10" viewBox="0 0 22 10" aria-hidden className="mt-1 shrink-0">
+      <line
+        x1="1" y1="5" x2="21" y2="5" stroke={colour} strokeWidth={dashed ? 2 : 2.5}
+        strokeDasharray={dashed ? "4 3" : undefined} strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * The chart read aloud, for the customer who has never read one: what each line is, which way
+ * is good, and the two or three ages worth remembering — every number taken from this
+ * contract, so an agent can point at the sentence and then at the line it describes.
+ */
+function ReadingGuide({ projection, age, paysAlong }: { projection: Projection; age: number; paysAlong: boolean }) {
+  const { rows, breakEven, maturityAge } = projection;
+  const last = rows[rows.length - 1];
+  const paidOff = rows.find((r) => r.premiumDue === 0);
+  const dropsAt = rows.find((r, i) => i > 0 && r.cover < rows[i - 1].cover * 0.9);
+
+  const items: [ReactNode, ReactNode][] = [
+    [
+      <Swatch key="s" colour={GOLD} />,
+      <>
+        <b>เส้นทึบเข้ม = เงินคืนถ้ายกเลิกกรมธรรม์</b> เส้นยิ่งชี้ขึ้น แปลว่าเงินในกรมธรรม์ยิ่งงอกเงยขึ้นทุกปี
+        {last.cashValue > 0 && <> — ถืออยู่จนอายุ {maturityAge} มีมูลค่า {formatBaht(last.cashValue)}</>}
+      </>,
+    ],
+  ];
+  if (last.premiumPaid !== null) {
+    items.push([
+      <Swatch key="s" colour={PAID} />,
+      <>
+        <b>เส้นทึบเทา = เงินที่จ่ายเบี้ยไปรวมทั้งหมด</b>
+        {paidOff
+          ? <> ไต่ขึ้นช่วงที่ยังจ่ายเบี้ย แล้ว<b>แบนราบตั้งแต่อายุ {paidOff.age}</b> เพราะจ่ายครบแล้ว รวม {formatBaht(last.premiumPaid)}</>
+          : <> รวมทั้งสัญญา {formatBaht(last.premiumPaid)}</>}
+      </>,
+    ]);
+    items.push([
+      <span key="s" className="mt-0.5 shrink-0 text-sm leading-none">✓</span>,
+      breakEven ? (
+        <>
+          <b>จุดสำคัญ: ตั้งแต่อายุ {breakEven.age}</b>{" "}
+          {paysAlong
+            ? <>เงินคืน รวมกับเงินที่ทยอยได้รับระหว่างทาง มากกว่าเงินที่จ่ายไป</>
+            : <>เส้นเข้มขึ้นไปอยู่เหนือเส้นเทา แปลว่าถ้ายกเลิก ได้เงินคืนมากกว่าที่จ่ายไป</>}
+        </>
+      ) : (
+        <>
+          <b>แผนนี้เน้นความคุ้มครอง</b> เงินคืนถ้ายกเลิกจะน้อยกว่าเงินที่จ่ายไป
+          ส่วนที่เหลือคือค่าความคุ้มครองตลอดสัญญา
+        </>
+      ),
+    ]);
+  }
+  items.push([
+    <Swatch key="s" colour={COVER} dashed />,
+    <>
+      <b>เส้นประ = เงินที่ครอบครัวได้รับ ถ้าผู้เอาประกันเสียชีวิต</b>{" "}
+      {dropsAt
+        ? <>{formatBaht(rows[0].cover)} ช่วงอายุ {age}–{dropsAt.age - 1} แล้วเป็น {formatBaht(dropsAt.cover)} ตั้งแต่อายุ {dropsAt.age}</>
+        : <>อย่างน้อย {formatBaht(rows[0].cover)} ตลอดสัญญา</>}
+    </>,
+  ]);
+
+  return (
+    <div className="mt-3 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] px-3 py-2.5">
+      <div className="mb-1.5 text-xs font-medium text-[var(--lg-white)]">วิธีอ่านกราฟนี้</div>
+      <ul className="space-y-1.5">
+        {items.map(([mark, text], i) => (
+          <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-[var(--lg-mute)] [&_b]:font-medium [&_b]:text-[var(--lg-white)]">
+            {mark}
+            <span>{text}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
