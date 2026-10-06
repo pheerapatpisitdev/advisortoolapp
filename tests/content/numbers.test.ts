@@ -26,6 +26,20 @@ describe("anglesFor", () => {
     expect(say).toMatch(/ห้ามเขียนแบบน่าสงสาร/);
     expect(say).toMatch(/ห้ามพูดถึงพ่อของลูก/);
   });
+  it("offers เบี้ยไม่ทิ้ง only on the plans whose premiums come back", () => {
+    const has = (href: string, f: "post" | "script" | "ad" = "post") => anglesFor(f, href).some((a) => a.id === "nowaste");
+    for (const href of ["/lifeprotect", "/easyprotect", "/lifetreasure", "/ishield", "/bumnan95"]) {
+      expect(has(href), href).toBe(true);
+      expect(has(href, "ad"), href).toBe(true);
+    }
+    for (const href of ["/plb", "/legacy", "/ci123", "/cancer", "/ihealthy-ultra"]) expect(has(href), href).toBe(false);
+  });
+  it("keeps เบี้ยไม่ทิ้ง from promising a return or an early surrender worth the premiums", () => {
+    const say = angleText("nowaste", "");
+    expect(say).toMatch(/ห้ามเรียกว่าการลงทุน/);
+    expect(say).toMatch(/ห้ามพูดถึงผลตอบแทนเป็นเปอร์เซ็นต์/);
+    expect(say).toMatch(/เวนคืนในช่วงปีแรกๆ จะได้น้อยกว่าเบี้ยที่จ่าย/);
+  });
   it("covers all ten content plans", () => {
     expect(NUMBERS_HREFS).toHaveLength(10);
   });

@@ -61,6 +61,10 @@ export const ANGLES = [
     say: "ตัวเลขชัดๆ — ระบบวางตัวเลขจากตารางเบี้ยให้เอง",
   },
   {
+    id: "nowaste", label: "เบี้ยไม่ทิ้ง",
+    say: "เบี้ยไม่ทิ้ง — ข้อดีของแบบนี้คือเบี้ยที่จ่ายไม่ได้หายไปเปล่าๆ เหมือนประกันที่จ่ายทิ้ง เล่าตามที่ข้อมูลผลิตภัณฑ์บอกเท่านั้น เช่น คุ้มครองตลอดชีพจึงได้รับเงินแน่นอน มีมูลค่าเวนคืน อยู่ครบสัญญาได้เงินคืน หรือได้รับเงินบำนาญ ห้ามเรียกว่าการลงทุน ห้ามพูดถึงผลตอบแทนเป็นเปอร์เซ็นต์ ห้ามยกตัวเลขมูลค่าเวนคืนที่ไม่มีในข้อมูล และถ้าพูดถึงการเวนคืน ต้องบอกด้วยว่าเวนคืนในช่วงปีแรกๆ จะได้น้อยกว่าเบี้ยที่จ่าย",
+  },
+  {
     id: "singlemom", label: "แม่เลี้ยงเดี่ยว (Single Mom)",
     say: "แม่เลี้ยงเดี่ยว (Single Mom) — พูดกับแม่ที่เลี้ยงลูกคนเดียวและเป็นรายได้หลักของบ้าน: ถ้าวันหนึ่งแม่ไม่อยู่ ลูกยังมีเงินก้อนไว้เรียนและใช้ชีวิตต่อได้ เขียนด้วยความเคารพและให้กำลังใจ ห้ามเขียนแบบน่าสงสาร ห้ามตัดสิน ห้ามพูดถึงพ่อของลูกหรือการเลิกรา ใช้ตัวเลขและความคุ้มครองจากข้อมูลผลิตภัณฑ์เท่านั้น",
   },
@@ -72,6 +76,17 @@ export const ANGLES = [
  * plans do not pay.
  */
 export const LIFE_HREFS = ["/lifeprotect", "/plb", "/easyprotect", "/lifetreasure", "/legacy", "/ishield"] as const;
+
+/**
+ * The plans whose premiums come back in some form, which alone take the เบี้ยไม่ทิ้ง angle
+ * (owner, 2026-10-06): whole life to 99, a surrender value, a full sum at maturity, or a
+ * pension. Not PLB, whose own cautions say a term that runs out pays nothing back, and not
+ * the health, critical-illness or Legacy riders, whose premiums are spent.
+ */
+export const NO_WASTE_HREFS = ["/lifeprotect", "/easyprotect", "/lifetreasure", "/ishield", "/bumnan95"] as const;
+
+/** The angles only some plans may take, and those plans. */
+const ANGLE_PLANS: Partial<Record<string, readonly string[]>> = { singlemom: LIFE_HREFS, nowaste: NO_WASTE_HREFS };
 
 /** The one page whose posts may be written in English, for expats living in Thailand. */
 export const EXPAT_HREF = "/ihealthy-ultra";
@@ -129,14 +144,14 @@ export const NUMBERS_HREFS = [
 
 /**
  * The angles the form may offer: ตัวเลขชัดๆ is a post's, and only for a plan it can price;
- * แม่เลี้ยงเดี่ยว is a life plan's (LIFE_HREFS). With
+ * แม่เลี้ยงเดี่ยว and เบี้ยไม่ทิ้ง only on the plans in ANGLE_PLANS. With
  * the expat tick the six expat angles lead, and the two that speak to Thai taxpayers and
  * parents (tax, child) go.
  */
 export function anglesFor(format: Format, href: string, expat = false): ((typeof ANGLES)[number] | (typeof EXPAT_ANGLES)[number])[] {
   const base = ANGLES
     .filter((a) => a.id !== "numbers" || (format === "post" && (NUMBERS_HREFS as readonly string[]).includes(href)))
-    .filter((a) => a.id !== "singlemom" || (LIFE_HREFS as readonly string[]).includes(href));
+    .filter((a) => ANGLE_PLANS[a.id]?.includes(href) ?? true);
   if (!expat) return base;
   return [...EXPAT_ANGLES, ...base.filter((a) => a.id !== "tax" && a.id !== "child")];
 }
