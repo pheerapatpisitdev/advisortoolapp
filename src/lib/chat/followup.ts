@@ -16,15 +16,17 @@ import type { Channel } from "./session";
 /**
  * What it asks.
  *
- * The first version of this opened with "ดูตัวเลขแล้วเป็นยังไงบ้างครับ", and of the customers
- * it reached, none answered. An open question is an instruction to type, and someone who does
- * not want to type has no way to obey it — so the buttons underneath read as decoration and
- * the whole message got silence.
+ * The first version opened with "ดูตัวเลขแล้วเป็นยังไงบ้างครับ" and got no answers, so the
+ * second asked "อยากดูแบบไหนต่อครับ กดปุ่มได้เลย ไม่ต้องพิมพ์" — a closed question whose answers
+ * were the buttons. That one read wrong wherever the buttons were not drawn: the Page's own
+ * inbox shows the words alone, and the buttons go once anything else is said, leaving a line
+ * that points at nothing (owner, 2026-10-06).
  *
- * What is here now is a closed question whose answers are the buttons themselves, and it says
- * out loud that typing is not required, because that is the objection.
+ * So the words now stand on their own: an invitation to ask about the figures just sent, which
+ * reads the same with the buttons or without them. The buttons stay underneath for whoever
+ * would rather tap than type.
  */
-export const FOLLOWUP_TEXT = "อยากดูแบบไหนต่อครับ กดปุ่มได้เลย ไม่ต้องพิมพ์";
+export const FOLLOWUP_TEXT = "ดูตัวเลขแล้วสงสัยตรงไหน ถามได้เลยครับ";
 
 /**
  * The buttons under it, which also puts them back on the screen: a message sent after quick
