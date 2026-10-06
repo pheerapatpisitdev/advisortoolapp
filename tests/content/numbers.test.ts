@@ -26,6 +26,19 @@ describe("anglesFor", () => {
     expect(say).toMatch(/ห้ามเขียนแบบน่าสงสาร/);
     expect(say).toMatch(/ห้ามพูดถึงพ่อของลูก/);
   });
+  it("offers พ่อแม่มือใหม่ and คู่แต่งงานใหม่ on the six life plans only", () => {
+    const has = (id: string, href: string) => anglesFor("ad", href).some((a) => a.id === id);
+    for (const id of ["newparent", "newlywed"]) {
+      for (const href of ["/lifeprotect", "/plb", "/easyprotect", "/lifetreasure", "/legacy", "/ishield"]) expect(has(id, href), `${id} ${href}`).toBe(true);
+      for (const href of ["/ihealthy-ultra", "/ci123", "/cancer", "/bumnan95"]) expect(has(id, href), `${id} ${href}`).toBe(false);
+    }
+  });
+  it("tells the model to write the new-family angles warmly, without fear", () => {
+    expect(angleText("newparent", "")).toMatch(/ห้ามขู่ให้กลัว/);
+    expect(angleText("newparent", "")).toMatch(/ลูกยังมีเงินก้อน/);
+    expect(angleText("newlywed", "")).toMatch(/ห้ามระบุเพศของคู่/);
+    expect(angleText("newlywed", "")).toMatch(/ไม่ต้องแบกภาระคนเดียว/);
+  });
   it("offers เบี้ยไม่ทิ้ง only on the plans whose premiums come back", () => {
     const has = (href: string, f: "post" | "script" | "ad" = "post") => anglesFor(f, href).some((a) => a.id === "nowaste");
     for (const href of ["/lifeprotect", "/easyprotect", "/lifetreasure", "/ishield", "/bumnan95"]) {

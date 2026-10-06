@@ -65,15 +65,23 @@ export const ANGLES = [
     say: "เบี้ยไม่ทิ้ง — ข้อดีของแบบนี้คือเบี้ยที่จ่ายไม่ได้หายไปเปล่าๆ เหมือนประกันที่จ่ายทิ้ง เล่าตามที่ข้อมูลผลิตภัณฑ์บอกเท่านั้น เช่น คุ้มครองตลอดชีพจึงได้รับเงินแน่นอน มีมูลค่าเวนคืน อยู่ครบสัญญาได้เงินคืน หรือได้รับเงินบำนาญ ห้ามเรียกว่าการลงทุน ห้ามพูดถึงผลตอบแทนเป็นเปอร์เซ็นต์ ห้ามยกตัวเลขมูลค่าเวนคืนที่ไม่มีในข้อมูล และถ้าพูดถึงการเวนคืน ต้องบอกด้วยว่าเวนคืนในช่วงปีแรกๆ จะได้น้อยกว่าเบี้ยที่จ่าย",
   },
   {
+    id: "newparent", label: "พ่อแม่มือใหม่ (เพิ่งมีลูก)",
+    say: "พ่อแม่มือใหม่ (เพิ่งมีลูก) — พูดกับพ่อแม่ที่เพิ่งมีลูก: ตอนนี้มีคนตัวเล็กที่ต้องพึ่งเราไปอีกหลายปี ถ้าวันหนึ่งพ่อหรือแม่ไม่อยู่ ลูกยังมีเงินก้อนไว้เติบโตและเรียนต่อได้ ถ้าข้อมูลผลิตภัณฑ์บอกว่ารับตั้งแต่แรกเกิด จะเล่าเรื่องทำให้ลูกด้วยก็ได้ เขียนอบอุ่นและให้กำลังใจ ห้ามขู่ให้กลัว ใช้ตัวเลขและความคุ้มครองจากข้อมูลผลิตภัณฑ์เท่านั้น",
+  },
+  {
+    id: "newlywed", label: "คู่แต่งงานใหม่",
+    say: "คู่แต่งงานใหม่ — พูดกับคู่ที่เพิ่งแต่งงานและเริ่มสร้างครอบครัวด้วยกัน อาจกำลังผ่อนบ้านหรือรถร่วมกัน: ประกันชีวิตคือการดูแลกันและกัน ถ้าวันหนึ่งคนหนึ่งไม่อยู่ อีกคนไม่ต้องแบกภาระคนเดียว เขียนอบอุ่น หวานได้แต่ไม่เลี่ยน ห้ามขู่ให้กลัว ห้ามระบุเพศของคู่ ใช้ตัวเลขและความคุ้มครองจากข้อมูลผลิตภัณฑ์เท่านั้น",
+  },
+  {
     id: "singlemom", label: "แม่เลี้ยงเดี่ยว (Single Mom)",
     say: "แม่เลี้ยงเดี่ยว (Single Mom) — พูดกับแม่ที่เลี้ยงลูกคนเดียวและเป็นรายได้หลักของบ้าน: ถ้าวันหนึ่งแม่ไม่อยู่ ลูกยังมีเงินก้อนไว้เรียนและใช้ชีวิตต่อได้ เขียนด้วยความเคารพและให้กำลังใจ ห้ามเขียนแบบน่าสงสาร ห้ามตัดสิน ห้ามพูดถึงพ่อของลูกหรือการเลิกรา ใช้ตัวเลขและความคุ้มครองจากข้อมูลผลิตภัณฑ์เท่านั้น",
   },
 ] as const;
 
 /**
- * The life plans, which alone take the แม่เลี้ยงเดี่ยว angle (owner, 2026-10-06): its whole
- * point is the sum the child is left with, which the health, critical-illness and pension
- * plans do not pay.
+ * The life plans, which alone take the angles about the people at home — แม่เลี้ยงเดี่ยว,
+ * พ่อแม่มือใหม่, คู่แต่งงานใหม่ (owner, 2026-10-06): their whole point is the sum the family
+ * is left with, which the health, critical-illness and pension plans do not pay.
  */
 export const LIFE_HREFS = ["/lifeprotect", "/plb", "/easyprotect", "/lifetreasure", "/legacy", "/ishield"] as const;
 
@@ -86,7 +94,9 @@ export const LIFE_HREFS = ["/lifeprotect", "/plb", "/easyprotect", "/lifetreasur
 export const NO_WASTE_HREFS = ["/lifeprotect", "/easyprotect", "/lifetreasure", "/ishield", "/bumnan95"] as const;
 
 /** The angles only some plans may take, and those plans. */
-const ANGLE_PLANS: Partial<Record<string, readonly string[]>> = { singlemom: LIFE_HREFS, nowaste: NO_WASTE_HREFS };
+const ANGLE_PLANS: Partial<Record<string, readonly string[]>> = {
+  newparent: LIFE_HREFS, newlywed: LIFE_HREFS, singlemom: LIFE_HREFS, nowaste: NO_WASTE_HREFS,
+};
 
 /** The one page whose posts may be written in English, for expats living in Thailand. */
 export const EXPAT_HREF = "/ihealthy-ultra";
