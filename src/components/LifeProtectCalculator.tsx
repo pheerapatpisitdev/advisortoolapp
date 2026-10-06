@@ -7,7 +7,7 @@ import { formatBaht, formatSatang } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
 import type { LifeProtectRider, LifeProtectTable } from "@/lib/lifeprotect-table";
 import {
-  addModes, cashAt, deathBenefitOf, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
+  addModes, cashAt, deathBenefitOf, riderDueByYear, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
   riderWaiveYears, termAt, totalModes, type Payer, type RiderPick,
 } from "@/lib/lifeprotect-quote";
 import { cashProjection } from "@/lib/cash-projection";
@@ -216,17 +216,31 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
    * the chart and the table without asking the server for anything.
    */
   const factors = who ? term.schedule[sex][who.age - table.ageMin] : null;
+  const riderAnnual = riderPrice?.find((m) => m.mode === "annual")?.total;
   const projection = who && death && factors
     ? cashProjection({
         factors, age: who.age, sumAssured,
         annualSatang: table.expired || !annual ? null : annual.total,
         payYears: payYears(term, who.age), death, topUp: table.topUp,
+        // the premium column is what is paid, riders and all (owner, 2026-10-06)
+        riderDue: riderDueByYear(
+          table, term, who.age, factors.length,
+          picked && riderAnnual !== undefined ? { rider: picked.rider, annual: riderAnnual } : undefined,
+          medicalPrice && medicalAt !== undefined ? { plan: medicalAt } : undefined,
+        ),
       })
     : undefined;
   const tableCaption = who
     ? `ทุนประกัน ${sumAssured.toLocaleString("en-US")} บาท · ${sex === "M" ? "ชาย" : "หญิง"} `
       + `${who.age === 0 ? "แรกเกิด" : `${who.age} ปี`} · ${term.short}`
-      + (annual && !table.expired ? ` · เบี้ย ${formatBaht(annual.total)} บาท/ปี` : "")
+      + (annual && paidAnnual && !table.expired
+        ? paidAnnual.total === annual.total
+          ? ` · เบี้ย ${formatBaht(annual.total)} บาท/ปี`
+          // a rider's premium can move or stop from one year to the next, so the caption
+          // says which year its figure is and that the riders are in it
+          : ` · เบี้ยปีแรก ${formatBaht(paidAnnual.total)} บาท รวมสัญญาเพิ่มเติม`
+          + (medicalPrice ? " · เบี้ย MEB ตามอัตราปัจจุบันของแต่ละอายุ" : "")
+        : "")
     : "";
 
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page

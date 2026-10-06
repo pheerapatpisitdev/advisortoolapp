@@ -109,6 +109,12 @@ export interface LifeProtectMedical {
   plans: number[];
   /** yearly premium in baht, [age - table ageMin][plan index]; null where this age may not buy that plan */
   premiums: (number | null)[][];
+  /**
+   * The yearly premium a contract already in force renews at, [age - ageMin][plan index],
+   * through the last age the rate table carries; null where it carries none. No cap by age
+   * here: a plan bought at ten stays that plan.
+   */
+  renewal: (number | null)[][];
 }
 
 export interface LifeProtectTable {
@@ -283,6 +289,10 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
         ageMin: Math.max(ageMin, medicalRule.ageMin),
         ageMax: Math.min(ageMax, medicalRule.ageMax),
         plans: medicalRates.plans,
+        renewal: Object.keys(medicalRates.premiums).map(Number)
+          .filter((age) => age >= Math.max(ageMin, medicalRule.ageMin))
+          .sort((a, b) => a - b)
+          .map((age) => medicalRates.premiums[String(age)].map((p) => (p ? p : null))),
         premiums: ages.map((age) => {
           const a = riderAvailability(rules, rates, MEDICAL, { age, baseSumAssured: 0 });
           return medicalRates.plans.map((plan) => {

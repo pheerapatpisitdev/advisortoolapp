@@ -171,3 +171,36 @@ describe("cashProjection · a plan whose top-up leaves the surrender value out",
     expect(p.rows[22]).toMatchObject({ policyYear: 23, premiumPaid: 50_841_500, cover: 50_841_500 });
   });
 });
+
+describe("cashProjection · with riders", () => {
+  const term = termAt(table, "WLF09H");
+  const age = 35;
+  const factors = term.schedule.M[age - table.ageMin]!;
+  const annualSatang = lifeProtectModes(table, term, { sex: "M", age, sumAssured: SUM })!
+    .find((m) => m.mode === "annual")!.total;
+  const base = {
+    factors, age, sumAssured: SUM, annualSatang, payYears: payYears(term, age),
+    death: deathBenefitOf(table, age, SUM), topUp: { premiumPercent: 101, includeCashValue: true },
+  };
+  const alone = cashProjection(base);
+  // a rider of 1,000 a year for the first twelve years: three past the plan's own nine
+  const riderDue = Array.from({ length: 12 }, () => 100_000);
+  const withRiders = cashProjection({ ...base, riderDue });
+
+  it("adds what the riders cost to each year's premium and to what has been paid", () => {
+    expect(withRiders.rows[0].premiumDue).toBe(annualSatang + 100_000);
+    expect(withRiders.rows[10].premiumDue).toBe(100_000);
+    expect(withRiders.rows[12].premiumDue).toBe(0);
+    expect(withRiders.rows[20].premiumPaid).toBe(alone.rows[20].premiumPaid! + 1_200_000);
+  });
+
+  /** The contract tops the cover up off the plan's own premiums; a rider's buy no extra cover. */
+  it("leaves the cover as the plan alone would have it", () => {
+    expect(withRiders.rows.map((r) => r.cover)).toEqual(alone.rows.map((r) => r.cover));
+  });
+
+  it("breaks even against everything paid, riders included", () => {
+    expect(withRiders.breakEven!.policyYear).toBeGreaterThanOrEqual(alone.breakEven!.policyYear);
+    expect(withRiders.breakEven!.cashValue).toBeGreaterThanOrEqual(withRiders.breakEven!.premiumPaid!);
+  });
+});

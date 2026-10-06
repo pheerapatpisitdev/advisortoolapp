@@ -20,9 +20,12 @@ export interface ProjectionRow {
    * multiple of the sum assured, the surrender value, and 101% of the premiums paid so far
    */
   cover: number;
-  /** the premium falling due that year; 0 once the paying term is over, null with no price */
+  /**
+   * the premium falling due that year, riders included; 0 once nothing is left to pay, null
+   * with no price
+   */
   premiumDue: number | null;
-  /** every premium due up to and including this year */
+  /** every premium due up to and including this year, riders included */
   premiumPaid: number | null;
   /** what surrendering at the end of that year returns */
   cashValue: number;
@@ -62,6 +65,12 @@ export interface ProjectionInput {
   annualSatang: number | null;
   /** how many years the premium is paid */
   payYears: number;
+  /**
+   * What the riders add to each policy year's premium, in satang, from the first year; a
+   * year past the end adds nothing. Counted in what is paid and in the break-even, never in
+   * the cover's top-up, which the contract works out on the plan's own premiums.
+   */
+  riderDue?: number[];
   death: DeathBenefit;
   topUp: CoverTopUp;
   /** the plan's yearly survival benefit, where it sells one — `rules.base.maturity.survivalPayout` */
@@ -93,7 +102,7 @@ function payoutIn(
 }
 
 export function cashProjection(
-  { factors, age, sumAssured, annualSatang, payYears, death, topUp, payout, maturityPercent }: ProjectionInput,
+  { factors, age, sumAssured, annualSatang, payYears, death, topUp, payout, maturityPercent, riderDue }: ProjectionInput,
 ): Projection {
   /**
    * Staying to the end pays what the rules promise, or the surrender value if that has grown
@@ -104,10 +113,13 @@ export function cashProjection(
     ? undefined
     : Math.round((sumAssured * maturityPercent) / 100) * 100;
   let paid = 0;
+  let planPaid = 0;
   const rows: ProjectionRow[] = factors.map((factor, i) => {
     const at = age + i;
-    const due = annualSatang === null ? null : i < payYears ? annualSatang : 0;
+    const planDue = annualSatang === null ? null : i < payYears ? annualSatang : 0;
+    const due = planDue === null ? null : planDue + (riderDue?.[i] ?? 0);
     if (due !== null) paid += due;
+    if (planDue !== null) planPaid += planDue;
     // the same ROUND(factor × sum / 1000) baht as cash-value.ts, then carried in satang
     const cashValue = Math.round((factor * sumAssured) / 1000) * 100;
     /**
@@ -118,7 +130,7 @@ export function cashProjection(
       * (topUp.sumAssuredMultiple ?? 1) * 100;
     const floors = [promised];
     if (topUp.includeCashValue) floors.push(cashValue);
-    if (annualSatang !== null) floors.push(Math.round((paid * topUp.premiumPercent) / 100));
+    if (annualSatang !== null) floors.push(Math.round((planPaid * topUp.premiumPercent) / 100));
     return {
       policyYear: i + 1,
       age: at,

@@ -3,8 +3,10 @@ import { quote } from "@/calc/quote";
 import { getPlan } from "@/calc/plans/registry";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import {
-  addModes, lifeProtectModes, medicalModes, medicalPlansAt, pickedRider, riderModes, termAt, totalModes,
+  addModes, lifeProtectModes, medicalModes, medicalPlansAt, pickedRider, riderDueByYear, riderModes, termAt,
+  totalModes,
 } from "@/lib/lifeprotect-quote";
+import { fixedPlanRiderPremium } from "@/calc/riders/fixed-by-plan";
 import type { PayMode, Sex } from "@/calc/types";
 
 /** The rate table behind the page lapses on 2027-03-31. */
@@ -229,5 +231,25 @@ describe("the medical rider", () => {
     expect(medicalModes(table, medical, 14, 2000)).toBeUndefined();
     expect(medicalModes(table, medical, 5, 500)).toBeUndefined();
     expect(medicalModes(table, medical, 14, 1000)).toBeDefined();
+  });
+});
+
+describe("riderDueByYear", () => {
+  const term = termAt(table, "WLF19H");
+  const pb = table.riders.find((r) => r.code === "PB")!;
+
+  /** A child's พีบี waives until 25, so at 14 it runs eleven of the plan's nineteen years. */
+  it("runs a child's waiver to 25 and the medical rider to the end of its rate table", () => {
+    const due = riderDueByYear(table, term, 14, 85, { rider: pb, annual: 50_000 }, { plan: 1000 });
+    const meb = (age: number) => fixedPlanRiderPremium(plan.rates, "MEB", { age, plan: 1000, mode: "annual" })!.annual;
+    expect(due[0]).toBe(50_000 + meb(14));
+    expect(due[10]).toBe(50_000 + meb(24));
+    expect(due[11]).toBe(meb(25));
+    expect(due[60]).toBe(meb(74));
+    expect(due[61]).toBe(0);
+  });
+
+  it("is nothing a year without riders", () => {
+    expect(riderDueByYear(table, term, 35, 64).every((d) => d === 0)).toBe(true);
   });
 });

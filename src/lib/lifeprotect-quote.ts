@@ -139,6 +139,29 @@ export function medicalModes(
   }));
 }
 
+/**
+ * What the riders add to each policy year's yearly premium, in satang, from the first year
+ * for `years` years — for the value table, which walks the contract a year at a time.
+ *
+ * A waiver costs the same each year it runs and runs as long as it waives (a child's พีบี
+ * stops at 25). The medical rider renews yearly at the premium for the insured's age that
+ * year, at today's rates, until the rate table runs out.
+ */
+export function riderDueByYear(
+  table: LifeProtectTable, term: LifeProtectTerm, age: number, years: number,
+  waiver?: { rider: LifeProtectRider; annual: number },
+  medical?: { plan: number },
+): number[] {
+  const waiveYears = waiver ? riderWaiveYears(waiver.rider, term, age) : 0;
+  const meb = table.medical;
+  const planAt = meb && medical ? meb.plans.indexOf(medical.plan) : -1;
+  return Array.from({ length: years }, (_, i) => {
+    const waived = waiver && i < waiveYears ? waiver.annual : 0;
+    const renewal = meb && planAt >= 0 ? meb.renewal[age + i - meb.ageMin]?.[planAt] : undefined;
+    return waived + (renewal ? toHundredths(renewal) : 0);
+  });
+}
+
 /** Instalments added up mode by mode; what is missing adds nothing. */
 export function addModes(...parts: (ModePremium[] | undefined)[]): ModePremium[] | undefined {
   const present = parts.filter((p): p is ModePremium[] => p !== undefined);
