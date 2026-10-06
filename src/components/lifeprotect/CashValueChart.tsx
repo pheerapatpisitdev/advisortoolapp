@@ -122,7 +122,7 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
             />
             <span>
               {label}
-              <span className="ml-1 text-[10px] opacity-70">({term})</span>
+              <span className="ml-1 whitespace-nowrap text-[10px] opacity-70">({term})</span>
             </span>
           </dt>
           <dd className="text-sm tabular-nums text-[var(--lg-white)]">{formatBaht(value)}</dd>
@@ -167,7 +167,7 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
           </text>
         </>
       )}
-      <text x={LEFT - 6} y={H - 8} fill="var(--lg-mute)" fontSize="9" textAnchor="end">อายุ</text>
+      <text x={LEFT - 14} y={H - 8} fill="var(--lg-mute)" fontSize="9" textAnchor="end">อายุ</text>
       {ticks.map((at) => (
         <text key={at} x={x(at)} y={H - 8} fill="var(--lg-mute)" fontSize="10" textAnchor="middle">{at}</text>
       ))}
@@ -191,8 +191,11 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
       {mark && (
         <g>
           <circle cx={x(mark.age)} cy={y(mark.cashValue)} r="6" fill="none" stroke={GOLD} strokeWidth="1.25" />
+          {/* a halo in the ground colour, so the label reads wherever it lands across a line */}
           <text
-            x={x(mark.age)} y={y(mark.cashValue) + 16} fill={GOLD} fontSize="9" fontWeight="600"
+            x={x(mark.age) + (x(mark.age) > W - 60 ? -8 : 0)} y={y(mark.cashValue) + 18}
+            fill={GOLD} fontSize="9" fontWeight="600"
+            stroke="var(--lg-ground-deep)" strokeWidth="3" paintOrder="stroke" strokeLinejoin="round"
             textAnchor={x(mark.age) > W - 60 ? "end" : "middle"}
           >
             จุดคุ้มทุน · อายุ {mark.age}
