@@ -401,7 +401,8 @@ describe("a couple written one to a line", () => {
     const known = { intent: "quote" as const, coverWanted: 1_000_000 };
     const answer = await answerQuestion(said("ญ40\nช49"), known);
     expect(answer.priced).toBe(true);
-    expect(answer.messages).toHaveLength(2);
+    // two quotes, then a table for each
+    expect(answer.messages).toHaveLength(4);
     expect(answer.messages[0].card).toContain("age=40&sex=F");
     expect(answer.messages[1].card).toContain("age=49&sex=M");
   });
@@ -434,10 +435,24 @@ describe("the buttons under a quotation", () => {
     expect(answer.replies).toEqual(["จ่าย 9 ปี", "จ่ายถึงอายุ 99", "สนใจสมัคร"]);
   });
 
-  it("still offers the table to a couple, whose tables were not sent", async () => {
+  /** A couple was sent two cards and a button for the tables (owner, 2026-10-06: send them along). */
+  it("sends a couple both tables after both quotes, each saying whose it is, and offers no button for them", async () => {
     routed = { intent: "quote", coverWanted: 2_000_000 };
     const answer = await answerQuestion(said("ผญ 32 ผช33ค่ะ"), null);
-    expect(answer.replies?.[0]).toBe("ขอตารางมูลค่า");
+    expect(answer.messages).toHaveLength(4);
+    expect(answer.messages.map((m) => m.card?.split("?")[0])).toEqual(["/api/card", "/api/card", "/api/card/table", "/api/card/table"]);
+    expect(answer.messages[2].card).toContain("age=32&sex=F");
+    expect(answer.messages[3].card).toContain("age=33&sex=M");
+    expect(answer.messages[2].text).toContain("ของหญิง อายุ 32");
+    expect(answer.messages[3].text).toContain("ของชาย อายุ 33");
+    expect(answer.replies).not.toContain("ขอตารางมูลค่า");
+  });
+
+  it("sends the table of the one a couple could be priced for", async () => {
+    routed = { intent: "quote", coverWanted: 2_000_000 };
+    const answer = await answerQuestion(said("ญ 37 กับ ช 95"), null);
+    expect(answer.messages.filter((m) => m.card?.includes("/api/card/table"))).toHaveLength(1);
+    expect(answer.messages.at(-1)!.card).toContain("age=37&sex=F");
   });
 
   it("never offers the term the customer is already looking at", async () => {
@@ -677,7 +692,8 @@ describe("a couple in one message", () => {
   it("prices each of them, in the order they were named", async () => {
     routed = { intent: "quote", coverWanted: 2_000_000 };
     const answer = await answerQuestion(said("ผญ 32 ผช33ค่ะ"), null);
-    expect(answer.messages).toHaveLength(2);
+    // the two quotes, then their tables (pinned below)
+    expect(answer.messages).toHaveLength(4);
     expect(answer.messages[0].text).toContain("หญิง อายุ 32");
     expect(answer.messages[1].text).toContain("ชาย อายุ 33");
     expect(answer.messages[0].card).toContain("age=32&sex=F");

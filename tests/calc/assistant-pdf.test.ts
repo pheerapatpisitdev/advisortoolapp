@@ -84,7 +84,9 @@ describe("a quotation the sales page can print", () => {
 
   it("remembers both of a couple, in the order they were named, and offers once", async () => {
     const a = await answerAny([{ role: "user", content: "ผญ 32 ผช 33 Life Protect ทุน 1 ล้าน" }], null, "facebook");
-    expect(a.messages.filter((m) => m.card).length).toBe(2);
+    // two quote cards and their two tables; only the quotes have a file
+    expect(a.messages.filter((m) => m.card).length).toBe(4);
+    expect(a.messages.filter((m) => m.pdfPath).length).toBe(2);
     expect(memoryOf(a)!.paths).toHaveLength(2);
     expect(memoryOf(a)!.paths![0]).toMatch(/age=32&sex=F/);
     expect(memoryOf(a)!.paths![1]).toMatch(/age=33&sex=M/);
