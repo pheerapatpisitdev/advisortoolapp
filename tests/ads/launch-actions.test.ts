@@ -72,8 +72,8 @@ vi.mock("@/lib/ads/send-store", () => sends);
 const studio = vi.hoisted(() => ({ saveContentEdits: vi.fn(), setContentStatus: vi.fn() }));
 vi.mock("@/app/studio/actions", () => studio);
 
+const { chooseAdManageAccounts } = await import("@/app/studio/ads/connection-actions");
 const {
-  chooseAdManageAccounts,
   adsStudioHome, createAdCampaign, adCampaignRoom, updateAdCampaign, saveAdCopy, setAdStatus,
 } = await import("@/app/studio/ads/actions");
 

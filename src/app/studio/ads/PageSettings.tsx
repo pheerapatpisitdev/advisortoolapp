@@ -3,7 +3,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PageContact } from "@/lib/ads/page-contact";
 import { errorNote, Note, okNote, type NoteState } from "../ui/editor-fields";
-import { chooseAdManageAccounts, updatePageContact, type Connection } from "./actions";
+import { updatePageContact } from "./actions";
+import { chooseAdManageAccounts } from "./connection-actions";
+import type { Connection } from "./connection";
 import { Fold } from "./Fold";
 import { field, plain, solid, TONES } from "./styles";
 
