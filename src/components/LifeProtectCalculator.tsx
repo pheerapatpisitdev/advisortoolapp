@@ -298,26 +298,50 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const waiveYears = (r: LifeProtectRider) => (ageNum !== undefined ? riderWaiveYears(r, term, ageNum) : undefined);
 
   // paying monthly, the company collects the first two instalments with the application
-  const firstMonthly = headline?.mode === "monthly" && paid ? firstMonthlyPayment(paid) : undefined;
+  const firstMonthly = paid ? firstMonthlyPayment(paid) : undefined;
 
-  /** The instalments the headline did not take, under the plan's own price or under the total. */
-  const instalments = paidAnnual ? (
-    <div className="space-y-1 text-sm text-[var(--lg-mute)]">
-      {/* highlighted, as on the quote card: what the premium comes to by the day and per instalment */}
-      <div>
-        <Highlighted>
-          ตกวันละ{" "}
-          <span className="lg-figure tabular-nums">{perDayText(paidAnnual.total)}</span> บาท
-        </Highlighted>
+  /** Every instalment the company will take, as the back-office calculator lists them. */
+  const payable = (paid ?? [])
+    .filter((m) => !m.belowMinimum)
+    .sort((a, b) => b.total - a.total);
+
+  /**
+   * What is paid, in the back-office calculator's summary box (owner, 2026-10-06): every
+   * instalment a row, the one the card headlines in bold and the others highlighted, with
+   * what paying monthly takes up front under the monthly row and the daily figure last.
+   */
+  const summary = paidAnnual && headline ? (
+    <div className="rounded-lg bg-[var(--bot-sand-soft)] p-4">
+      <div className="text-sm text-[var(--bot-navy)]">เบี้ยประกันที่ต้องชำระ</div>
+      <dl className="mt-2 space-y-1">
+        {payable.map((m) => {
+          const main = m.mode === headline.mode;
+          const amount = `${formatBaht(m.total)} บาท`;
+          return (
+            <div key={m.mode}>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className={`text-sm ${main ? "font-semibold text-[var(--bot-navy)]" : "text-[var(--bot-navy)]"}`}>
+                  {main ? PAY_MODE_LABEL[m.mode] : <Highlighted>{PAY_MODE_LABEL[m.mode]}</Highlighted>}
+                </dt>
+                <dd className={`tabular-nums ${main ? "text-2xl font-semibold text-[var(--bot-navy)]" : "text-[var(--bot-navy)]"}`}>
+                  {main ? amount : <Highlighted>{amount}</Highlighted>}
+                </dd>
+              </div>
+              {/* the company collects the first two monthly instalments with the application */}
+              {m.mode === "monthly" && firstMonthly !== undefined && (
+                <div className="mt-1 text-right text-xs text-[var(--bot-navy)]">
+                  <Highlighted>
+                    ชำระเบี้ยครั้งแรก {FIRST_MONTHLY_INSTALMENTS} งวด {formatBaht(firstMonthly)} บาท
+                  </Highlighted>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </dl>
+      <div className="mt-2 border-t border-[var(--bot-line-strong)] pt-2 text-xs text-[var(--bot-navy)] opacity-80">
+        ตกวันละ <span className="tabular-nums">{perDayText(paidAnnual.total)}</span> บาท
       </div>
-      {others.map((m) => (
-        <div key={m.mode}>
-          <Highlighted>
-            {PAY_MODE_LABEL[m.mode]}{" "}
-            <span className="lg-figure tabular-nums">{formatBaht(m.total)}</span> บาท
-          </Highlighted>
-        </div>
-      ))}
     </div>
   ) : null;
 
@@ -606,19 +630,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                   ))}
                 </div>
               )}
-              {/* What the headline did not take, one instalment a line and smallest first.
-                  Muted labels with the figures in white on the display face: an agent
-                  reading a yearly premium off the screen should not have to lean in. */}
-              {/* highlighted like the instalments under it (owner, 2026-10-06) */}
-              {firstMonthly !== undefined && (
-                <div className="mt-2.5 text-sm text-[var(--lg-mute)]">
-                  <Highlighted>
-                    ชำระเบี้ยครั้งแรก {FIRST_MONTHLY_INSTALMENTS} งวด{" "}
-                    <span className="lg-figure tabular-nums">{formatBaht(firstMonthly)}</span> บาท
-                  </Highlighted>
-                </div>
-              )}
-              <div className="mt-2.5">{instalments}</div>
+              <div className="mt-3">{summary}</div>
               {/* neither waiver pays a baht to the family; they carry on paying the
                   premium. Said here so the block below is not read as theirs */}
               {picked && riderPart && (
