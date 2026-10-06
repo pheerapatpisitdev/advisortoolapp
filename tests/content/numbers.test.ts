@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anglesFor, NUMBERS_HREFS } from "@/lib/content/prompt";
+import { anglesFor, angleText, NUMBERS_HREFS } from "@/lib/content/prompt";
 
 describe("anglesFor", () => {
   it("offers ตัวเลขชัดๆ only for a post on a plan that has number cases", () => {
@@ -10,6 +10,21 @@ describe("anglesFor", () => {
   });
   it("keeps every other angle everywhere", () => {
     expect(anglesFor("ad", "/plb").map((a) => a.id)).toContain("family");
+  });
+  it("offers แม่เลี้ยงเดี่ยว on the six life plans only, in every format", () => {
+    const has = (href: string, f: "post" | "script" | "ad" = "post") => anglesFor(f, href).some((a) => a.id === "singlemom");
+    for (const href of ["/lifeprotect", "/plb", "/easyprotect", "/lifetreasure", "/legacy", "/ishield"]) {
+      expect(has(href), href).toBe(true);
+      expect(has(href, "ad"), href).toBe(true);
+      expect(has(href, "script"), href).toBe(true);
+    }
+    for (const href of ["/ihealthy-ultra", "/ci123", "/cancer", "/bumnan95", "/group-insurance"]) expect(has(href), href).toBe(false);
+  });
+  it("tells the model to write แม่เลี้ยงเดี่ยว with respect, about what the child is left with", () => {
+    const say = angleText("singlemom", "");
+    expect(say).toMatch(/ลูกยังมีเงินก้อน/);
+    expect(say).toMatch(/ห้ามเขียนแบบน่าสงสาร/);
+    expect(say).toMatch(/ห้ามพูดถึงพ่อของลูก/);
   });
   it("covers all ten content plans", () => {
     expect(NUMBERS_HREFS).toHaveLength(10);

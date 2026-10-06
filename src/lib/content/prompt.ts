@@ -60,7 +60,18 @@ export const ANGLES = [
     id: "numbers", label: "ตัวเลขชัดๆ (เบี้ยต่อเดือน/ต่อวัน)",
     say: "ตัวเลขชัดๆ — ระบบวางตัวเลขจากตารางเบี้ยให้เอง",
   },
+  {
+    id: "singlemom", label: "แม่เลี้ยงเดี่ยว (Single Mom)",
+    say: "แม่เลี้ยงเดี่ยว (Single Mom) — พูดกับแม่ที่เลี้ยงลูกคนเดียวและเป็นรายได้หลักของบ้าน: ถ้าวันหนึ่งแม่ไม่อยู่ ลูกยังมีเงินก้อนไว้เรียนและใช้ชีวิตต่อได้ เขียนด้วยความเคารพและให้กำลังใจ ห้ามเขียนแบบน่าสงสาร ห้ามตัดสิน ห้ามพูดถึงพ่อของลูกหรือการเลิกรา ใช้ตัวเลขและความคุ้มครองจากข้อมูลผลิตภัณฑ์เท่านั้น",
+  },
 ] as const;
+
+/**
+ * The life plans, which alone take the แม่เลี้ยงเดี่ยว angle (owner, 2026-10-06): its whole
+ * point is the sum the child is left with, which the health, critical-illness and pension
+ * plans do not pay.
+ */
+export const LIFE_HREFS = ["/lifeprotect", "/plb", "/easyprotect", "/lifetreasure", "/legacy", "/ishield"] as const;
 
 /** The one page whose posts may be written in English, for expats living in Thailand. */
 export const EXPAT_HREF = "/ihealthy-ultra";
@@ -117,12 +128,15 @@ export const NUMBERS_HREFS = [
 ] as const;
 
 /**
- * The angles the form may offer: ตัวเลขชัดๆ is a post's, and only for a plan it can price. With
+ * The angles the form may offer: ตัวเลขชัดๆ is a post's, and only for a plan it can price;
+ * แม่เลี้ยงเดี่ยว is a life plan's (LIFE_HREFS). With
  * the expat tick the six expat angles lead, and the two that speak to Thai taxpayers and
  * parents (tax, child) go.
  */
 export function anglesFor(format: Format, href: string, expat = false): ((typeof ANGLES)[number] | (typeof EXPAT_ANGLES)[number])[] {
-  const base = ANGLES.filter((a) => a.id !== "numbers" || (format === "post" && (NUMBERS_HREFS as readonly string[]).includes(href)));
+  const base = ANGLES
+    .filter((a) => a.id !== "numbers" || (format === "post" && (NUMBERS_HREFS as readonly string[]).includes(href)))
+    .filter((a) => a.id !== "singlemom" || (LIFE_HREFS as readonly string[]).includes(href));
   if (!expat) return base;
   return [...EXPAT_ANGLES, ...base.filter((a) => a.id !== "tax" && a.id !== "child")];
 }
