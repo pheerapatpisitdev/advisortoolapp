@@ -3,7 +3,7 @@ import path from "node:path";
 import { ImageResponse } from "next/og";
 import { highlighterUri } from "@/lib/highlighter";
 import type { NextRequest } from "next/server";
-import { cardInputFrom, quoteCard, type CardChart, type CardRow, type CardSummary, type QuoteCard } from "@/lib/quote-card";
+import { cardInputFrom, quoteCard, type CardRow, type CardSummary, type QuoteCard } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { QUOTE_CARD_KEYS, toCanonical } from "./canonical";
 
@@ -55,8 +55,6 @@ const H = {
   row: 54,
   listLine: 29,
   listPadding: 10,
-  /** the strip of colour keys under the drawing */
-  legend: 46,
 };
 
 
@@ -79,10 +77,6 @@ function listSectionHeight(items: string[] | undefined): number {
     + items.reduce((height, item, index) => height + listItemHeight(item, index), 0);
 }
 
-function chartHeight(chart: CardChart | undefined): number {
-  if (!chart) return 0;
-  return H.gap + H.hairline + H.afterHairline + H.sectionTitle + chart.height + H.legend;
-}
 
 /**
  * Lines a note takes. Thai is counted by code unit, vowel and tone marks included, so the
@@ -106,8 +100,7 @@ function heightOf(card: QuoteCard): number {
     + (card.summary ? H.boxGap + boxHeight(card.summary) : 0)
     + (card.priceNote ? H.noteGap + notesHeight([card.priceNote]) : 0)
     + (card.footNotes?.length ? H.gap + H.hairline + H.noteGap + notesHeight(card.footNotes) : 0)
-    + card.sections.reduce((h, s) => h + (s.items?.length ? listSectionHeight(s.items) : sectionHeight(s.rows)), 0)
-    + chartHeight(card.chart);
+    + card.sections.reduce((h, s) => h + (s.items?.length ? listSectionHeight(s.items) : sectionHeight(s.rows)), 0);
 }
 
 /** A band that keeps its height whatever else is on the card. */
@@ -290,93 +283,6 @@ function Notes({ notes, color, size }: { notes: string[]; color: string; size: n
 }
 
 /**
- * The contract as three lines. The drawing library takes SVG elements but silently drops an
- * <img> holding an SVG data URI, which is how the first attempt at this came out blank — so
- * the shapes are written out here rather than handed over as a picture.
- */
-function Chart({ chart, p }: { chart: CardChart; p: CardPalette }) {
-  const { width: w, height: h } = chart;
-  /** a label placed over the drawing; the SVG itself carries no text at all */
-  const label = (style: React.CSSProperties) => ({
-    position: "absolute" as const, display: "flex", fontSize: 22, color: p.mute, ...style,
-  });
-  return (
-    <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
-      <div style={spacer(H.gap)} />
-      <div style={spacer(H.hairline, p.hair)} />
-      <div style={spacer(H.afterHairline)} />
-      <div style={{ ...band(H.sectionTitle), fontSize: 26, color: p.mute }}>{chart.title}</div>
-      <div style={{ display: "flex", position: "relative", width: w, height: h, flexShrink: 0 }}>
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-          <line x1={86} y1={h - 44} x2={w - 14} y2={h - 44} stroke={p.rule} strokeWidth={2} />
-          <line x1={86} y1={18} x2={86} y2={h - 44} stroke={p.rule} strokeWidth={2} />
-          {chart.grid && (
-            <line x1={86} y1={chart.grid.y} x2={w - 14} y2={chart.grid.y} stroke={p.rule} strokeWidth={2} />
-          )}
-          <polyline fill="none" stroke={p.line.cover} strokeWidth={4} strokeDasharray="10 7" points={chart.cover} />
-          {chart.premium && (
-            <polyline fill="none" stroke={p.line.premium} strokeWidth={4} points={chart.premium} />
-          )}
-          <polyline fill="none" stroke={p.line.cash} strokeWidth={5} points={chart.cash} />
-          {chart.breakEven && (
-            // the highlighter's yellow, as the value table marks the same year; ringed in ink so
-            // it still reads where it sits on top of the navy line
-            <circle cx={chart.breakEven.x} cy={chart.breakEven.y} r={11} fill={p.highlighter} stroke={p.figure} strokeWidth={3} />
-          )}
-        </svg>
-        <div style={label({ right: w - 78, top: 6, justifyContent: "flex-end" })}>{chart.topLabel}</div>
-        {chart.grid && (
-          <div style={label({ right: w - 78, top: chart.grid.y - 14, justifyContent: "flex-end" })}>
-            {chart.grid.label}
-          </div>
-        )}
-        <div style={label({ right: w - 78, top: h - 58, justifyContent: "flex-end" })}>0</div>
-        {/* set smaller than the axis figures: there is one of these every ten years, and at
-            the chart's own size they would otherwise crowd the line they belong to */}
-        {chart.ticks.map((t) => (
-          <div
-            key={t.label}
-            style={label({ left: t.x - 26, top: h - 28, width: 52, fontSize: 19, justifyContent: "center" })}
-          >
-            {t.label}
-          </div>
-        ))}
-      </div>
-      <div style={{ ...band(H.legend), alignItems: "center" }}>
-        {chart.legend.map((l) => (
-          <div key={l.label} style={{ display: "flex", alignItems: "center", marginRight: 34 }}>
-            {/* the cover's key is broken into two, because the line it stands for is dashed */}
-            {l.kind === "cover" ? (
-              <div style={{ display: "flex", alignItems: "center", marginRight: 12 }}>
-                <div style={{ display: "flex", width: 11, height: 5, background: p.line.cover }} />
-                <div style={{ display: "flex", width: 4, height: 5 }} />
-                <div style={{ display: "flex", width: 11, height: 5, background: p.line.cover }} />
-              </div>
-            ) : (
-              <div style={{ display: "flex", width: 26, height: 5, background: p.line[l.kind], marginRight: 12 }} />
-            )}
-            <div style={{ display: "flex", fontSize: 23, color: p.mute }}>{l.label}</div>
-          </div>
-        ))}
-        {chart.breakEven && (
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {/* a drawn dot rather than a bullet character — the Thai faces have no ● in them */}
-            <div
-              style={{
-                // room for the marker, which reaches back 16px past the words it sits behind
-                display: "flex", width: 16, height: 16, borderRadius: 8, marginRight: 26,
-                background: p.highlighter, border: `2px solid ${p.figure}`,
-              }}
-            />
-            <div style={{ display: "flex", fontSize: 23 }}><Marked p={p}>{chart.breakEven.label}</Marked></div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
  * The three faces, read off disk beside this file.
  *
  * They cannot be imported the way a component imports an image: what the bundler hands back
@@ -517,7 +423,6 @@ export async function GET(req: NextRequest) {
             ? <ListRows key={s.title} title={s.title} items={s.items} p={p} />
             : <Rows key={s.title} title={s.title} rows={s.rows} p={p} />
         ))}
-        {card.chart && <Chart chart={card.chart} p={p} />}
         {card.footNotes?.length ? (
           <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
             <div style={spacer(H.gap)} />

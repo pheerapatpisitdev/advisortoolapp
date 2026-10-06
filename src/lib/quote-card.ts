@@ -107,8 +107,6 @@ export interface QuoteCard {
   priceNote?: string;
   /** the titled blocks of figures, in the order they are read */
   sections: CardSection[];
-  /** drawn under the figures, for the plans whose cover rule has been read off their sheet */
-  chart?: CardChart;
   /** the small print under everything, as the page closes its quote */
   footNotes?: string[];
 }
@@ -348,7 +346,7 @@ function payYearsFor(plan: PlanBundle, variant: string, age: number): number {
   return plan.rates.base.payTerm?.[variant] ?? 0;
 }
 
-const CHART_W = 888, CHART_H = 300, CHART_LEFT = 86, CHART_RIGHT = 14, CHART_TOP = 18, CHART_BOTTOM = 44;
+const CHART_LEFT = 86, CHART_RIGHT = 14, CHART_TOP = 18, CHART_BOTTOM = 44;
 
 /** the least room between two ages under the card's drawing, in its own pixels */
 const TICK_GAP = 46;
@@ -363,8 +361,12 @@ const TICK_GAP = 46;
  */
 function chartFor(
   plan: PlanBundle, input: PlanCardInput, death: DeathBenefit, annualSatang: number | null,
-  riderDue?: (years: number) => number[],
+  riderDue: ((years: number) => number[]) | undefined, width: number,
 ): CardChart | undefined {
+  const CHART_W = width;
+  // as tall as a third of its width, so a table-wide drawing does not flatten its lines; never
+  // shorter than the 300 the card's 888-wide drawing had
+  const CHART_H = Math.max(300, Math.round(width / 3));
   if (!plan.coverTopUp) return undefined;
   const factors = cashValueSchedule(input.planCode, input.variant, input.sex, input.age, 1000).map((r) => r.amount);
   if (factors.length < 2) return undefined;
@@ -521,13 +523,6 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
     sections.push(ownBenefits || result.deathBenefit ? cash : markRow(cash, "last"));
   }
 
-  // the same figures the sections carry, drawn: a cover the plan does not step down from is
-  // still a line, and a card with no price still shows what the policy is worth
-  const annual = modes?.find((m) => m.mode === "annual");
-  const death = result.deathBenefit
-    ?? { beforeAge: 0, sumBefore: result.sumAssured, sumFrom: result.sumAssured, alreadyPastAge: true };
-  const chart = chartFor(plan, input, death, result.meta.expired || !annual ? null : annual.total, lifeProtect?.riderDue);
-
   // the W-family labels its packages "<product> · <term>" already, and a plan label in front
   // of that reads "Life Protect x 1.5 / x 2 · Life Protect x 2 · ชำระเบี้ย…"
   const variantLabel = plan.variantLabels[input.variant];
@@ -541,7 +536,6 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
     summary,
     ...(lifeProtect?.priceNote && summary ? { priceNote: lifeProtect.priceNote } : {}),
     sections,
-    ...(chart ? { chart } : {}),
     ...(lifeProtect ? { footNotes: lifeProtect.footNotes } : {}),
   };
 }
@@ -725,6 +719,32 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
       ...(r.cashValue === 0 ? { empty: true } : {}),
     })),
   };
+}
+
+/**
+ * The contract drawn as three lines, `width` pixels across, for the value table's picture —
+ * the chart moved there off the quote card (owner, 2026-10-06), as the page sets its chart
+ * over its table. Asked for apart from the table because the picture's width is the route's
+ * to decide, from the table's own rows and columns.
+ *
+ * The same figures the table carries: a cover the plan does not step down from is still a
+ * line, a picture with no price still shows what the policy is worth, and Life Protect's
+ * riders are in what is paid in, as on its page.
+ */
+export function valueTableChart(input: PlanCardInput, width: number, today: Date = new Date()): CardChart | undefined {
+  const plan = getPlan(input.planCode);
+  if (!plan) return undefined;
+  const result = quote(quoteInput(input, "annual"), today);
+  if (!result.items[0]?.eligible || result.sumAssured <= 0) return undefined;
+  if (result.warnings.some((w) => w.level === "error")) return undefined;
+  const lifeProtect = input.planCode === LIFEPROTECT_PLAN ? lifeProtectPriced(input, today) : undefined;
+  if (input.planCode === LIFEPROTECT_PLAN && !lifeProtect) return undefined;
+  const annual = quoteModePremiums(quoteInput(input, "annual"), today)?.find((m) => m.mode === "annual");
+  const death = result.deathBenefit
+    ?? { beforeAge: 0, sumBefore: result.sumAssured, sumFrom: result.sumAssured, alreadyPastAge: true };
+  return chartFor(
+    plan, input, death, result.meta.expired || !annual ? null : annual.total, lifeProtect?.riderDue, width,
+  );
 }
 
 /**

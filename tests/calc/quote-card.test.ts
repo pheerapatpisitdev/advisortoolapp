@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardInputFrom, cardPath, cardUrl, quoteCard, valueTableCard, type CardInput, type PlanCardInput, type QuoteCard } from "@/lib/quote-card";
+import { cardInputFrom, cardPath, cardUrl, quoteCard, valueTableCard, valueTableChart, type CardInput, type PlanCardInput, type QuoteCard } from "@/lib/quote-card";
 
 /** The rate table behind these figures lapses on 2027-03-31. */
 const WHILE_CURRENT = new Date("2026-09-05");
@@ -161,9 +161,12 @@ describe("quoteCard", () => {
       title: "ครอบครัวได้รับเมื่อเสียชีวิต",
       rows: [{ label: "ทุกช่วงอายุ ถึงอายุ 99", amount: "10,000,000", mark: true }],
     });
-    // the surrender table was extracted for this plan, so the card carries it and the chart
+    // the surrender table was extracted for this plan, so the card carries it, and its table the chart
     expect(section(card, CASH)).toBeDefined();
-    expect(card.chart).toBeDefined();
+    expect(valueTableChart(
+      { kind: "plan", planCode: "LIFETREASURE", variant: "H99F18A", age: 45, sex: "M", sumAssured: 10_000_000 },
+      888, WHILE_CURRENT,
+    )).toBeDefined();
     // a four-figure day rate is grouped like every other figure on the card
     expect(card.perDay).toBe("ตกวันละ 1,014 บาท");
   });
@@ -245,14 +248,14 @@ describe("the iShield card", () => {
   });
 });
 
-describe("the chart on a card", () => {
-  const lifeProtect = quoteCard(
-    { kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 1_000_000 },
-    new Date("2026-09-05"),
-  )!;
+/** On the value table's picture since 2026-10-06, drawn as wide as the table. */
+describe("the chart on a value table", () => {
+  const LIFE_PROTECT: PlanCardInput = {
+    kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 1_000_000,
+  };
 
   it("draws three lines over the whole contract, and rules the sum assured", () => {
-    const c = lifeProtect.chart!;
+    const c = valueTableChart(LIFE_PROTECT, 888, WHILE_CURRENT)!;
     expect(c.topLabel).toBe("2 ล้าน");
     expect(c.grid?.label).toBe("1 ล้าน");
     expect(c.ticks.map((t) => t.label)).toEqual(["35", "40", "50", "60", "70", "80", "90", "99"]);
@@ -263,20 +266,30 @@ describe("the chart on a card", () => {
     expect(c.breakEven?.label).toBe("เท่าทุนอายุ 98");
   });
 
+  it("spans the width it is given, ages and all", () => {
+    const wide = valueTableChart(LIFE_PROTECT, 1796, WHILE_CURRENT)!;
+    expect(wide.width).toBe(1796);
+    expect(wide.ticks.at(-1)!.x).toBe(1796 - 14);
+  });
+
   it("names the year iShield's surrender value overtakes its premiums", () => {
-    const card = quoteCard(
+    const chart = valueTableChart(
       { kind: "plan", planCode: "ISHIELD", variant: "WLCI10", age: 35, sex: "M", sumAssured: 1_000_000 },
-      new Date("2026-09-05"),
-    )!;
-    expect(card.chart?.breakEven?.label).toBe("เท่าทุนอายุ 60");
-    expect(card.chart?.topLabel).toBe("1 ล้าน");
+      888, WHILE_CURRENT,
+    );
+    expect(chart?.breakEven?.label).toBe("เท่าทุนอายุ 60");
+    expect(chart?.topLabel).toBe("1 ล้าน");
   });
 
   it("is left off a plan whose benefit sheet has not been read", () => {
-    const plb = quoteCard(
+    expect(valueTableChart(
       { kind: "plan", planCode: "PLB", variant: "PLB10", age: 35, sex: "M", sumAssured: 1_000_000 },
-      new Date("2026-09-05"),
-    );
-    expect(plb?.chart).toBeUndefined();
+      888, WHILE_CURRENT,
+    )).toBeUndefined();
+  });
+
+  /** The quote card no longer carries one: the owner moved it to the table. */
+  it("is not on the quote card", () => {
+    expect("chart" in quoteCard(LIFE_PROTECT, WHILE_CURRENT)!).toBe(false);
   });
 });

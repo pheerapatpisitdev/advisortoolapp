@@ -2,10 +2,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
-import { cardInputFrom, valueTableCard, type ValueTableCard, type ValueTableRow } from "@/lib/quote-card";
+import { cardInputFrom, valueTableCard, valueTableChart, type CardChart, type ValueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import { QUOTE_CARD_KEYS, toCanonical } from "../canonical";
+import { Chart, chartBlockHeight } from "../chart-drawing";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -220,9 +221,10 @@ function Half(
   );
 }
 
-function heightOf(card: ValueTableCard): number {
+function heightOf(card: ValueTableCard, chart: CardChart | undefined): number {
   const perHalf = card.rows.length;
   return PAD * 2
+    + (chart ? chartBlockHeight(chart) : 0)
     + H.plan + H.insured + H.premium
     + H.gap + H.hairline + H.afterHairline
     + H.caption + H.head + perHalf * H.row;
@@ -273,6 +275,8 @@ export async function GET(req: NextRequest) {
   const width = short ? half + PAD * 2 : wide;
   const stretch = (width - PAD * 2) / half;
   const cols = short ? narrow : narrow.map((c) => ({ ...c, w: Math.floor(c.w * stretch) }));
+  // the drawing as wide as the table it is read with
+  const chart = input.kind === "plan" ? valueTableChart(input, width - PAD * 2) : undefined;
 
   return new ImageResponse(
     (
@@ -312,6 +316,8 @@ export async function GET(req: NextRequest) {
           {card.premiumLine}
         </div>
 
+        {chart && <Chart chart={chart} p={p} />}
+
         <div style={spacer(H.gap)} />
         <div style={spacer(H.hairline, p.hair)} />
         <div style={spacer(H.afterHairline)} />
@@ -327,7 +333,7 @@ export async function GET(req: NextRequest) {
     ),
     {
       width,
-      height: heightOf(card),
+      height: heightOf(card, chart),
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
