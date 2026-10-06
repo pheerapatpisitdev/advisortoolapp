@@ -4,7 +4,9 @@ import { parseDays } from "@/lib/ads/manager-view";
 import { parseStudioTab } from "@/lib/ads/studio-url";
 import { CONTENT_PRODUCTS } from "@/lib/content/products";
 import { AdsStudio } from "./AdsStudio";
-import { adsPage, postsForAds } from "./run-actions";
+import { ResultsBoard } from "./ResultsBoard";
+import { adsPage, boardAction, postsForAds } from "./run-actions";
+import { TONES } from "./styles";
 
 export const dynamic = "force-dynamic";
 // a run makes several Meta requests per post, each allowed 30 s, and starts no new post after
@@ -29,6 +31,12 @@ export default async function StudioAdsPage({ searchParams }: {
   const days = parseDays(q.days);
   const home = await adsPage(q.page);
   const posts = tab === "post" && home.pageId ? await postsForAds(home.pageId) : null;
+  const board = tab === "results" && home.pageId ? await boardAction(home.pageId, days) : null;
+  const results = !board ? null : board.ok ? (
+    <ResultsBoard data={board} days={days} capBaht={home.connection.maxDailyBudgetThb} />
+  ) : (
+    <p role="alert" className={`mt-4 rounded-lg border px-3 py-2 text-sm ${TONES.bad}`}>อ่านผลแอดไม่ได้ — {board.error}</p>
+  );
 
   return (
     <AdsStudio
@@ -43,7 +51,7 @@ export default async function StudioAdsPage({ searchParams }: {
       detail={q.detail ?? null}
       posts={posts}
       planNames={Object.fromEntries(CONTENT_PRODUCTS.map((p) => [p.href, p.name]))}
-      results={null}
+      results={results}
     />
   );
 }

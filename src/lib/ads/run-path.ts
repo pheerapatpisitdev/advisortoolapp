@@ -52,3 +52,17 @@ export function endAtOf(now: Date, days: number): string {
 export function isRunDays(v: unknown): v is RunDays {
   return typeof v === "number" && (RUN_DAYS as readonly number[]).includes(v);
 }
+
+/** เพิ่มงบ: half as much again; ยืดเวลา: seven days more (run-controls.ts) */
+export const RAISE_FACTOR = 1.5;
+export const EXTEND_DAYS = 7;
+
+/** Half as much again, rounded up to whole baht, never over the cap. */
+export function raisedBudgetMinor(currentMinor: number, capBaht: number): number {
+  return Math.min(Math.ceil((currentMinor / 100) * RAISE_FACTOR), capBaht) * 100;
+}
+
+/** Seven days more, from the end, or from now once the end has passed. */
+export function extendedEnd(endAt: string, now: Date): string {
+  return new Date(Math.max(Date.parse(endAt), now.getTime()) + EXTEND_DAYS * 86_400_000).toISOString();
+}

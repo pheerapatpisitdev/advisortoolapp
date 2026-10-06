@@ -1,6 +1,7 @@
 import { graph } from "./graph";
 import { maxDailyBudgetThb } from "./launch-limits";
 import { RUN_CLAIM_STALE_MS } from "./run";
+import { extendedEnd, raisedBudgetMinor } from "./run-path";
 import type { AdRun, RunPatch } from "./run-store";
 
 /**
@@ -11,8 +12,8 @@ import type { AdRun, RunPatch } from "./run-store";
  */
 
 export type Control = "pause" | "resume" | "raise" | "extend";
-export const RAISE_FACTOR = 1.5;
-export const EXTEND_DAYS = 7;
+// the arithmetic lives with the run's other figures, where the browser can use it too
+export { EXTEND_DAYS, extendedEnd, RAISE_FACTOR, raisedBudgetMinor } from "./run-path";
 
 export type ControlResult = { ok: true; run: AdRun } | { ok: false; error: string };
 
@@ -27,16 +28,6 @@ const BAD_ID = "ไอดีแอดไม่ถูกต้อง";
 
 /** A Meta id used as a Graph path: a stray "/" or "?" would reach a different endpoint. */
 const pathSafe = (id: string | null): id is string => !!id && /^\w+$/.test(id);
-
-/** Half as much again, rounded up to whole baht, never over the cap. */
-export function raisedBudgetMinor(currentMinor: number, capBaht: number): number {
-  return Math.min(Math.ceil((currentMinor / 100) * RAISE_FACTOR), capBaht) * 100;
-}
-
-/** Seven days more, from the end, or from now once the end has passed. */
-export function extendedEnd(endAt: string, now: Date): string {
-  return new Date(Math.max(Date.parse(endAt), now.getTime()) + EXTEND_DAYS * 86_400_000).toISOString();
-}
 
 /** POSTs one change and checks Meta said success. */
 async function post(fetchFn: typeof fetch, token: string, id: string, params: Record<string, string>): Promise<{ ok: true } | { ok: false; error: string }> {
