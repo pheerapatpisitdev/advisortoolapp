@@ -21,6 +21,7 @@ import { displayPremium, perDayText } from "@/lib/legacy-cta";
 import { FIRST_MONTHLY_INSTALMENTS, firstMonthlyPayment } from "@/lib/first-payment";
 import { LIFEPROTECT_PLAN, lifeProtectPriced, type SplitRow } from "@/lib/lifeprotect-card";
 import { iShieldFootnote, levelPremiumFootnote, plbFootnote, priceLockNote } from "@/lib/plan-notes";
+import { legacyFromDeath, legacyLevel, type Legacy } from "@/lib/legacy-headline";
 import { riderDiseases } from "@/calc/riders/diseases";
 import { ci123Stages } from "@/lib/ci123-table";
 import { stagePays } from "@/lib/ci123-cta";
@@ -95,8 +96,13 @@ export interface QuoteCard {
   insuredWho: string;
   /** what was bought, e.g. "ทุน 1,000,000 บาท" — the insured is in insuredWho */
   insuredLine: string;
-  /** the instalment in the largest type; null when no price may be shown */
+  /** the instalment; null when no price may be shown */
   premium: { amount: string; per: string } | null;
+  /**
+   * What the family inherits, set in the largest type in the premium's place, as every sales
+   * page now leads (owner, 2026-10-06); absent for a plan with no death benefit to lead with.
+   */
+  legacy?: { amount: string; note?: string };
   /** "ตกวันละ 48 บาท" */
   perDay: string | null;
   /**
@@ -481,6 +487,34 @@ export function quoteCard(input: CardInput, today: Date = new Date()): QuoteCard
   return input.kind === "bundle" ? bundleCard(input, today) : planCard(input, today);
 }
 
+/** The figure a card leads with, written as the card draws it. */
+const legacyLine = (l: Legacy): QuoteCard["legacy"] => ({ amount: money(l.amount), ...(l.note ? { note: l.note } : {}) });
+
+/**
+ * What a plan's sales page leads with, worked out as the page works it out (lib/legacy-headline.ts):
+ * the doubled sum before 60 for Life Protect, the sum throughout for the others, with each
+ * page's own words under it. Undefined for a plan with no page to match (iSmart).
+ */
+function planLegacy(input: PlanCardInput, result: QuoteResult): Legacy | undefined {
+  const sum = result.sumAssured;
+  switch (input.planCode) {
+    case LIFEPROTECT_PLAN:
+      return result.deathBenefit ? legacyFromDeath(result.deathBenefit, sum) : undefined;
+    case "EASYPROTECT":
+      return legacyLevel(sum, `ทุกช่วงอายุ ถึงอายุ ${easyProtectTable().coverToAge}`);
+    case "LIFETREASURE":
+      return legacyLevel(sum, `ทุกช่วงอายุ ถึงอายุ ${lifeTreasureTable().coverToAge}`);
+    case "ISHIELD":
+      return legacyLevel(sum);
+    case "PLB": {
+      const term = plbTable().terms.find((t) => t.variant === input.variant);
+      return term ? legacyLevel(sum, `เสียชีวิตภายใน ${term.years} ปี`) : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
 /**
  * What a plan's sales page says under its quote, for the card that pictures it (owner,
  * 2026-10-06); nothing for a plan whose page has no such lines.
@@ -546,6 +580,8 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
     sections.push(ownBenefits || result.deathBenefit ? cash : markRow(cash, "last"));
   }
 
+  const legacy = planLegacy(input, result);
+
   // the W-family labels its packages "<product> · <term>" already, and a plan label in front
   // of that reads "Life Protect x 1.5 / x 2 · Life Protect x 2 · ชำระเบี้ย…"
   const variantLabel = plan.variantLabels[input.variant];
@@ -555,6 +591,7 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
     insuredWho: `${SEX_WORD[input.sex]} ${input.age} ปี`,
     insuredLine: `ทุน ${money(result.sumAssured)} บาท`,
     premium,
+    ...(legacy ? { legacy: legacyLine(legacy) } : {}),
     perDay: perDayLine,
     summary,
     ...(lifeProtect?.priceNote && summary ? { priceNote: lifeProtect.priceNote } : {}),
@@ -900,6 +937,8 @@ function bundleCard(input: BundleCardInput, today: Date): QuoteCard | undefined 
     insuredWho: `${SEX_WORD[input.sex]} ${input.age} ปี`,
     insuredLine: tier.name,
     premium,
+    // the set's own Life Protect pays on death, more before 60 — what its page leads with too
+    ...(result.deathBenefit ? { legacy: legacyLine(legacyFromDeath(result.deathBenefit)) } : {}),
     perDay: perDayLine,
     summary,
     sections,

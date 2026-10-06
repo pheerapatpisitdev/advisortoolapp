@@ -29,6 +29,10 @@ const H = {
   premium: 132,
   noPrice: 62,
   perDay: 40,
+  /** "มรดก", the inheritance figure, and the line under it, which take the premium's place */
+  legacyLabel: 54,
+  legacyFigure: 100,
+  legacyNote: 40,
   /**
    * The price block beside the family photo: as tall as the photo, so the box under it never
    * runs into the picture — the page holds its headline to the photo's height the same way.
@@ -389,7 +393,22 @@ export async function GET(req: NextRequest) {
               style={{ position: "absolute", right: 0, top: 0, width: PHOTO_SIZE, height: PHOTO_SIZE }}
             />
           )}
-          {card.premium ? (
+          {card.premium && card.legacy ? (
+            // what the family inherits leads, as on every sales page (owner, 2026-10-06); the
+            // premium is the box's to state, set large there
+            <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+              <div style={{ ...band(H.legacyLabel), alignItems: "flex-end", fontSize: 28, color: p.mute }}>มรดก</div>
+              <div style={{ ...band(H.legacyFigure), alignItems: "center" }}>
+                <div style={{ display: "flex", fontFamily: "Trirong", fontSize: 86, lineHeight: 1, color: p.figure }}>
+                  {card.legacy.amount}
+                </div>
+                <div style={{ display: "flex", fontSize: 30, color: p.mute, marginLeft: 16, paddingTop: 22 }}>บาท</div>
+              </div>
+              {card.legacy.note && (
+                <div style={{ ...band(H.legacyNote), alignItems: "center", fontSize: 26, color: p.mute }}>{card.legacy.note}</div>
+              )}
+            </div>
+          ) : card.premium ? (
             <div style={{ ...band(H.premium), alignItems: "baseline", paddingTop: 14 }}>
               <div style={{ display: "flex", fontFamily: "Trirong", fontSize: 86, lineHeight: 1, color: p.figure }}>
                 {card.premium.amount}

@@ -10,9 +10,9 @@ import { ContactButtons } from "@/components/sales/ContactButtons";
 import type { Ci123Table } from "@/lib/ci123-table";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
-import { PremiumSummary } from "@/components/sales/PremiumSummary";
+import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
+import { legacyFromDeath } from "@/lib/legacy-headline";
 
-const PER_LABEL: Record<PayMode, string> = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" };
 const ROW_MODES: PayMode[] = ["annual", "semi", "monthly"];
 
 /**
@@ -135,18 +135,8 @@ export function Ci123Calculator({ table, sticky = false }: { table: Ci123Table; 
           {headline && annual ? (
             <div>
               {/* as tall as the family photo in the corner, so the box after it never runs under the picture */}
-              <div className="min-h-[5.5rem] sm:min-h-[7.5rem]">
-                <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน</div>
-                <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
-                  <span className="lg-metal-text">{formatBaht(headline.total)}</span>
-                  <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
-                </div>
-                <div className="mt-2.5 text-sm text-[var(--lg-mute)]">
-                  <Highlighted>
-                    ตกวันละ <span className="lg-figure tabular-nums">{perDayText(annual.total)}</span> บาท
-                  </Highlighted>
-                </div>
-              </div>
+              {/* led by what the family inherits; the premium is the box's (owner, 2026-10-06) */}
+              <LegacyHeadline legacy={legacyFromDeath({ ...table.death, alreadyPastAge: (age as number) >= table.death.beforeAge })} perDay={perDayText(annual.total)} />
               {/* every instalment in the back-office calculator's box (owner, 2026-10-06) */}
               <div className="mt-3">
                 <PremiumSummary modes={modes} main={headline.mode} />

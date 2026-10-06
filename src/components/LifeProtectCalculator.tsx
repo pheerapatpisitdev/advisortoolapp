@@ -25,10 +25,8 @@ import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
-import { PremiumSummary } from "@/components/sales/PremiumSummary";
-
-/** How each instalment reads on the card, where it labels a figure rather than follows it. */
-const PER_LABEL = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" } as const;
+import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
+import { legacyFromDeath } from "@/lib/legacy-headline";
 
 const SUM_START_INDEX = LIFEPROTECT_SUMS.indexOf(1_000_000);
 /**
@@ -588,24 +586,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           <PanelPhoto />
           {headline && annual && basePart ? (
             <div>
-              {/* As tall as the family photo in the corner, so nothing after it runs under the
-                  picture: on a phone the photo is 6rem from 0.5rem down, on a wider screen 8rem,
-                  and the panel's own padding is 1.25rem. */}
-              <div className="min-h-[5.5rem] sm:min-h-[7.5rem]">
-                <div className="text-sm text-[var(--lg-mute)]">เบี้ยประกัน · {term.label}</div>
-                {/* the largest type is what is paid, riders and all (owner, 2026-10-06) */}
-                <div className="lg-figure mt-1 text-[2.6rem] leading-none tabular-nums">
-                  <span className="lg-metal-text">{formatBaht(headline.total)}</span>
-                  <span className="ml-2 text-base text-[var(--lg-mute)]">บาท {PER_LABEL[headline.mode]}</span>
-                </div>
-                {paidAnnual && (
-                  <div className="mt-2.5 text-sm text-[var(--lg-mute)]">
-                    <Highlighted>
-                      ตกวันละ <span className="lg-figure tabular-nums">{perDayText(paidAnnual.total)}</span> บาท
-                    </Highlighted>
-                  </div>
-                )}
-              </div>
+              {/* led by what the family inherits; the premium, riders and all, is the box's (owner, 2026-10-06) */}
+              <LegacyHeadline legacy={legacyFromDeath(death!, sumAssured)} perDay={paidAnnual ? perDayText(paidAnnual.total) : undefined} />
               <div className="mt-3">{summary}</div>
               {/* neither waiver pays a baht to the family; they carry on paying the
                   premium. Said here so the block below is not read as theirs */}
