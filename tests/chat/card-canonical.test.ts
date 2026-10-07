@@ -19,6 +19,8 @@ describe("the links the app writes", () => {
     expect(canonicalCardUrl(at(cardPath(plan)), QUOTE_CARD_KEYS)).toBeNull();
     expect(canonicalCardUrl(at(cardPath(bundle)), QUOTE_CARD_KEYS)).toBeNull();
     expect(canonicalCardUrl(at(valueTablePath(plan)), QUOTE_CARD_KEYS)).toBeNull();
+    // the chat's table, which carries the characters, is the same address in the same order
+    expect(canonicalCardUrl(at(valueTablePath(plan, { characters: true })), QUOTE_CARD_KEYS)).toBeNull();
     expect(canonicalCardUrl(at(diseaseCardPath("CI123")), DISEASE_CARD_KEYS)).toBeNull();
   });
 

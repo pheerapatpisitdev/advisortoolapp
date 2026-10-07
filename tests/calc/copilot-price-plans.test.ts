@@ -50,6 +50,9 @@ describe("iSmart, which has one package and needs no choosing", () => {
     expect(reply.cards?.[0]).toContain("/api/card?");
     expect(reply.cards?.[0]).toContain("plan=ISMART");
     expect(reply.cards?.[1]).toContain("/api/card/table?");
+    // the table carries the little people on its chart; the quote card has no chart to put them on
+    expect(reply.cards?.[1]).toContain("&fig=1&v=");
+    expect(reply.cards?.[0]).not.toContain("fig=");
   });
 
   it("has no PDF, because no sales page prints iSmart", () => {
@@ -162,7 +165,10 @@ describe("bugs the sweep found", () => {
         sumAssured: code === "LIFETREASURE" ? 10_000_000 : 1_000_000,
       });
       expect(reply.cards, label).toHaveLength(drawn ? 2 : 1);
-      if (drawn) expect(reply.cards?.[1], label).toContain("/api/card/table");
+      if (drawn) {
+        expect(reply.cards?.[1], label).toContain("/api/card/table");
+        expect(reply.cards?.[1], label).toContain("&fig=1&v=");
+      }
     }
   });
 

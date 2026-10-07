@@ -305,7 +305,7 @@ export function pricePlan(code: string, label: string, { people, sum, variant }:
   return {
     priced: true,
     text: lines.join("\n"),
-    cards: hasTable ? [cardPath(card), valueTablePath(card)] : [cardPath(card)],
+    cards: hasTable ? [cardPath(card), valueTablePath(card, { characters: true })] : [cardPath(card)],
     ...(pdfPath ? { pdfPath } : {}),
     guide: priceFollowUps({
       planCode: code, planLabel: label, variant: variant!,

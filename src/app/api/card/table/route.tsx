@@ -285,7 +285,9 @@ export async function GET(req: NextRequest) {
   const stretch = (width - PAD * 2) / half;
   const cols = short ? narrow : narrow.map((c) => ({ ...c, w: Math.floor(c.w * stretch) }));
   // the drawing as wide as the table it is read with
-  const chart = input.kind === "plan" ? valueTableChart(input, width - PAD * 2) : undefined;
+  // the characters are asked for by the link, which only a chat's table carries
+  const characters = req.nextUrl.searchParams.get("fig") === "1";
+  const chart = input.kind === "plan" ? valueTableChart(input, width - PAD * 2, undefined, { characters }) : undefined;
   /** one line to close on, chosen by the arrangement so the same table is always the same picture */
   const quote = quoteFor(
     ["plan", "variant", "age", "sex", "sum", "rider", "payer", "meb"].map((k) => req.nextUrl.searchParams.get(k) ?? "").join("|"),

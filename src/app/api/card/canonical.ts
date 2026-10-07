@@ -20,7 +20,7 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 
 /** the quote card and its value table: src/lib/card-link.ts cardQuery, in its order */
-export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "v"] as const;
+export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "fig", "v"] as const;
 /**
  * The quote card alone also reads `ph`, the bot's signed ask for a customer's photo
  * (src/lib/card-photo.ts). Not the table's: it draws no face, so a `ph` there is padding.

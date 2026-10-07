@@ -70,7 +70,7 @@ export interface BundleCardInput {
 export type CardInput = PlanCardInput | BundleCardInput;
 
 /** The arrangement, written the way a link carries it. */
-function cardQuery(input: CardInput): string {
+function cardQuery(input: CardInput, characters = false): string {
   const q = input.kind === "bundle"
     ? new URLSearchParams({
       bundle: input.bundleCode,
@@ -91,6 +91,8 @@ function cardQuery(input: CardInput): string {
   if (riders?.waiver) q.set("rider", `${riders.waiver.code}.${riders.waiver.option}`);
   if (riders?.payer) q.set("payer", `${riders.payer.sex}${riders.payer.age}`);
   if (riders?.medical !== undefined) q.set("meb", String(riders.medical));
+  // the chat's table only: the characters on the chart are asked for, not assumed
+  if (characters) q.set("fig", "1");
   /**
    * The palette's fingerprint, so a re-coloured plan is not served from a cache keyed on an
    * address that did not change. Last, so the readable part of the link stays readable, and
@@ -109,9 +111,12 @@ export function cardPath(input: CardInput): string {
  * The path the year-by-year value table is drawn at — the same arrangement, told as a table
  * rather than as a headline. Only for a plan: a bundle's worth is its parts', and a table of
  * one column per part is not a picture anybody reads on a phone.
+ *
+ * `characters` stands the little people on the chart's cash line. Only the table a chat sends
+ * asks for them; the sales page's saved picture and the PDF are drawn without.
  */
-export function valueTablePath(input: PlanCardInput): string {
-  return `/api/card/table?${cardQuery(input)}`;
+export function valueTablePath(input: PlanCardInput, opts: { characters?: boolean } = {}): string {
+  return `/api/card/table?${cardQuery(input, opts.characters)}`;
 }
 
 /** The same path against a host, for the channels that can only send an absolute URL. */
