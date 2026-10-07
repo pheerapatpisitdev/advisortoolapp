@@ -1,5 +1,6 @@
 import type { LegacySlots } from "./legacy/answer";
 import type { IShieldSlots } from "./ishield/answer";
+import type { PlbSlots } from "./plb/answer";
 import type { HealthSlots } from "./ihealthy/route";
 import type { Routed } from "./lifeprotect/route";
 import type { PdfPage } from "@/lib/quote-pdf/pages";
@@ -27,7 +28,7 @@ export interface Undecided {
  * A row written before the health brain existed has no `product` at all; `answerAny` reads
  * that as the life plan, which is the only thing it can have been.
  */
-export type AnySlots = Routed | HealthSlots | LegacySlots | IShieldSlots | Undecided;
+export type AnySlots = Routed | HealthSlots | LegacySlots | IShieldSlots | PlbSlots | Undecided;
 
 /**
  * What the bot remembers about the sales-page PDF, across every plan in one conversation.

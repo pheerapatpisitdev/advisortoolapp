@@ -1,17 +1,19 @@
 import type { ChatMessage } from "@/lib/ai/types";
-import { aboutAGroup, askWhich, askWhichAgain, pickedFromMenu, productByTopic, productNamedIn, type Product } from "./choose";
+import { aboutAGroup, askWhich, askWhichAgain, namedExplicitly, pickedFromMenu, productByTopic, productNamedIn, type Product } from "./choose";
 import {
-  aboutCompany, ageIn, asksAboutCompany, handOverForm, handOverGroup, peopleIn, tookUpTheOffer,
+  aboutCompany, ageIn, ASKS_SOMETHING, asksAboutCompany, asksAboutMoney, handOverForm, handOverGroup, peopleIn, tookUpTheOffer,
   wantsToBuy, type Reply,
 } from "./common";
 import { answerHealth } from "./ihealthy/answer";
 import { answerLegacy, type LegacySlots } from "./legacy/answer";
 import { answerIShield, type IShieldSlots } from "./ishield/answer";
+import { answerPlb, type PlbSlots } from "./plb/answer";
 import type { HealthSlots } from "./ihealthy/route";
 import { answerQuestion } from "./lifeprotect/answer";
 import type { Routed } from "./lifeprotect/route";
 import type { AnySlots, Undecided, WithIntro, WithPdf } from "./slots";
 import { withIntroPicture, withoutIntro } from "./intro";
+import { pricedAnswer } from "./priced";
 import { cleanPdfMemory, pdfTurn, withPdfOffer } from "./pdf";
 import { planNamedIn, priceNamedPlan } from "@/lib/copilot/price";
 import { asksPensionPrice, pensionNamedIn, pricePension } from "@/lib/copilot/pension-price";
@@ -60,9 +62,6 @@ export type AnyAnswer = Reply & {
   introFor?: true;
 };
 
-/** A message that asks something, as against one that announces an interest. */
-const ASKS_SOMETHING = /ไหม|มั้ย|หรือเปล่า|รึเปล่า|อะไร|เท่าไหร่|เท่าไร|กี่|ยังไง|อย่างไร|ทำไม|ที่ไหน|\?/;
-
 /**
  * A first message with nothing in it to answer: "สวัสดี", "สนใจ", "ขอรายละเอียด".
  *
@@ -77,9 +76,6 @@ function opensWithNothing(asked: string): boolean {
     && !peopleIn(asked).length && ageIn(asked) === undefined
     && !/[0-9๐-๙]/.test(asked) && !ASKS_SOMETHING.test(asked);
 }
-
-/** Words that make a question about a plan a question about its price. */
-const asksAboutMoney = (text: string) => /เบี้ย|ราคา|กี่บาท|ค่างวด|จ่ายเดือนละ|จ่ายปีละ|จ่ายเท่าไหร่|คิดให้|premium/i.test(text);
 
 /** What of a person is worth carrying from one contract to the other: not much, and not more. */
 interface Person {
@@ -330,10 +326,19 @@ async function routeAny(
     };
   }
 
-  if (now === "lifeprotect" || now === "ihealthy" || now === "legacy" || now === "ishield") {
+  /**
+   * iSmart, Life Treasure and Easy Protect, named inside a Protection Life conversation, are
+   * still priced on their own path below — not as the plan the conversation is on.
+   */
+  const otherPlan = planNamedIn(asked);
+  const namesAnotherPlan = now === "plb" && otherPlan !== undefined && otherPlan.code !== "PLB" && otherPlan.code !== "ISHIELD";
+  if (!namesAnotherPlan && (now === "lifeprotect" || now === "ihealthy" || now === "legacy" || now === "ishield" || now === "plb")) {
+    // "ประกันชีวิต", "เบี้ยทิ้ง" and "ออม" are words several plans answer to, and Protection Life
+    // is a life policy that pays nothing back: only a plan's own name takes a PLB conversation off it
+    const moveTo = now === "plb" && named && !namedExplicitly(named, asked) ? undefined : named;
     // the customer has named the other plan: only the person travels, because the sum, the
     // plan, the territory and any offer on the table all belong to the contract being left
-    if (named && named !== now) return run(named, history, personIn(stored), true, channel);
+    if (moveTo && moveTo !== now) return run(moveTo, history, personIn(stored), true, channel);
     return run(now, history, stored, false, channel);
   }
 
@@ -354,21 +359,10 @@ async function routeAny(
    * the most common unanswered question on the website (16 in a fortnight), from a button
    * the page itself offered. Named, it goes to its brain below.
    */
-  if (other && other.code !== "ISHIELD" && asksAboutMoney(asked)) {
+  if (other && other.code !== "ISHIELD" && other.code !== "PLB" && asksAboutMoney(asked)) {
     const priced = priceNamedPlan(asked, other.code, other.label);
     return {
-      messages: [
-        // the same words, written for wherever they are about to be read
-        {
-          text: writtenFor(channel, priced.text),
-          ...(priced.cards?.[0] ? { card: priced.cards[0] } : {}),
-          // beside the card it prints, where it is remembered for a later "ขอไฟล์ PDF"
-          ...(priced.pdfPath ? { pdfPath: priced.pdfPath } : {}),
-        },
-        ...(priced.cards?.slice(1) ?? []).map((card) => ({ text: "", card })),
-      ],
-      priced: priced.priced,
-      ...(priced.guide?.length ? { guide: priced.guide } : {}),
+      ...pricedAnswer(priced, channel),
       // a plan without a brain carries no conversation, so nothing is held between turns
       slots: { product: "undecided", ...personIn(stored) },
     };
@@ -483,6 +477,17 @@ async function run(
   product: Product, history: ChatMessage[], carried: AnySlots | Person | null, fresh: boolean,
   channel: Channel = "web",
 ): Promise<AnyAnswer> {
+  if (product === "plb") {
+    const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+    const { libraryQuestion, ...answer } = answerPlb(asked, fresh ? startPlb(carried as Person) : (carried as PlbSlots), channel);
+    // a question about the plan that the brain has no sentence for is the library's, as it was
+    // before PLB had a brain; the conversation stays on PLB either way
+    if (libraryQuestion) {
+      const text = await answerFromLibrary(history, asked, channel);
+      if (text) return { messages: [{ text }], ...(answer.replies ? { replies: answer.replies } : {}), slots: answer.slots, fromLibrary: true };
+    }
+    return answer;
+  }
   if (product === "legacy" || product === "ishield") {
     /**
      * The one brain that is given the message rather than the conversation.
@@ -532,6 +537,12 @@ function startLegacy({ age, sex }: Person): LegacySlots | null {
 function startIShield({ age, sex }: Person): IShieldSlots | null {
   if (age === undefined && sex === undefined) return null;
   return { product: "ishield", ...(age !== undefined ? { age } : {}), ...(sex ? { sex } : {}) };
+}
+
+/** The same for Protection Life: the person comes across, the sum and the term do not. */
+function startPlb({ age, sex }: Person): PlbSlots | null {
+  if (age === undefined && sex === undefined) return null;
+  return { product: "plb", ...(age !== undefined ? { age } : {}), ...(sex ? { sex } : {}) };
 }
 
 /** A health conversation begun from whatever the last one knew about the person. */

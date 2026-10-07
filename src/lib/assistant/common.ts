@@ -82,6 +82,11 @@ export function aboutCompany(question: string): string {
 export const APPLICATION_FORM = "https://ktaxaform.vercel.app/?ref=sa-9f3a";
 
 export const FORM_NEXT = "กรอกเสร็จแล้วแจ้งในแชทนี้ได้เลย เดี๋ยวแอดมินเช็กข้อมูลแล้วดูแลขั้นตอนต่อให้ครับ";
+/** Whether the premium may be set against income tax — the agency's sentence, for every plan that is a life policy. */
+export const TAX_RELIEF =
+  "ใช้ลดหย่อนภาษีได้ครับ ตามเบี้ยที่ชำระจริง สูงสุด 100,000 บาทต่อปี "
+  + "(นับรวมกับประกันชีวิตฉบับอื่นที่มีอยู่) ตามหลักเกณฑ์ของกรมสรรพากร";
+
 export const FORM_RECEIVED = "ขอบคุณครับ 🙏 เดี๋ยวแอดมินเช็กข้อมูลแล้วติดต่อกลับในแชทนี้ครับ";
 
 export const WANTS_IN = "สนใจสมัคร";
@@ -495,6 +500,12 @@ const ABOUT_COVER = /คุ้มครอง|ครอบคลุม|ได้
 export function saysUnwell(text: string): boolean {
   return OWN_HEALTH.test(text) || (HEALTH_QUESTION.test(text) && !ABOUT_COVER.test(text));
 }
+
+/** A message that asks something, as against one that announces an interest. */
+export const ASKS_SOMETHING = /ไหม|มั้ย|หรือเปล่า|รึเปล่า|อะไร|เท่าไหร่|เท่าไร|กี่|ยังไง|อย่างไร|ทำไม|ที่ไหน|\?/;
+
+/** A message about money, which is a request for a price rather than a question about the plan. */
+export const asksAboutMoney = (text: string) => /เบี้ย|ราคา|กี่บาท|ค่างวด|จ่ายเดือนละ|จ่ายปีละ|จ่ายเท่าไหร่|คิดให้|premium/i.test(text);
 
 /** What a bare thank-you is answered with where no model words the reply: one line, nothing asked. */
 export const THANKS_REPLY = "ยินดีครับ 🙏 สงสัยอะไรเพิ่มเติม ทักมาได้เลยนะครับ";

@@ -44,7 +44,7 @@ export function cleanHistory(raw: unknown): ChatMessage[] {
 }
 
 /** every product a brain writes into its slots (src/lib/assistant/slots.ts and the brains) */
-const PRODUCTS = new Set(["lifeprotect", "ihealthy", "legacy", "ishield", "undecided"]);
+const PRODUCTS = new Set(["lifeprotect", "ihealthy", "legacy", "ishield", "plb", "undecided"]);
 /** the whole of a real session's slots is a few hundred characters */
 const MAX_SLOTS_JSON = 4000;
 const MAX_STRING = 1000;
@@ -93,6 +93,7 @@ export function cleanSlots(raw: unknown): AnySlots | null {
   if (s.product !== undefined && !PRODUCTS.has(s.product as string)) return null;
   if (!ageOk(s.age) || !sexOk(s.sex)) return null;
   if (s.formSent !== undefined && s.formSent !== true) return null;
+  if (s.priced !== undefined && s.priced !== true) return null;
   if (s.people !== undefined) {
     if (!Array.isArray(s.people)) return null;
     for (const p of s.people) {
@@ -101,7 +102,7 @@ export function cleanSlots(raw: unknown): AnySlots | null {
       if (typeof age !== "number" || typeof sex !== "string" || !ageOk(age) || !sexOk(sex)) return null;
     }
   }
-  for (const k of ["coverWanted", "takenSum"]) {
+  for (const k of ["coverWanted", "takenSum", "sumAssured"]) {
     const v = s[k];
     if (v !== undefined && (typeof v !== "number" || v < 0 || v > 1e9)) return null;
   }

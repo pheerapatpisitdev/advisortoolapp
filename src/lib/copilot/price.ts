@@ -120,7 +120,7 @@ function yearsOf(label: string | undefined): number | undefined {
  * person's age or is written behind อายุ: "ไลฟ์ เทรเชอร์ ชาย 18 ปี" is an eighteen-year-old,
  * not the eighteen-year package. Someone who is both says "จ่าย 18 ปี" and is understood.
  */
-function variantAskedFor(
+export function variantAskedFor(
   text: string, variants: string[], labels: Record<string, string>, age?: number,
 ): string | undefined {
   const byTerm = (years: number) => variants.find((v) => yearsOf(labels[v]) === years);
@@ -138,6 +138,29 @@ function variantAskedFor(
   return undefined;
 }
 
+/** What a message asks of a plan: who, how much, how long — each only if it said so. */
+export interface PlanAsk {
+  people: { age: number; sex: "M" | "F" }[];
+  sum: number | undefined;
+  variant: string | undefined;
+}
+
+/**
+ * Read a message for what it asks of one plan. Nothing is priced here, which is what lets a
+ * brain keep the answer across turns and price it when the last piece arrives.
+ */
+export function readPlanAsk(text: string, code: string): PlanAsk {
+  const plan = getPlan(code);
+  const said = withoutPlanName(text);
+  const people = peopleIn(said);
+  const sum = coverIn(said);
+  const variants = plan?.rates.base.variants ?? [];
+  const variant = variants.length === 1
+    ? variants[0]
+    : plan ? variantAskedFor(said, variants, plan.variantLabels, people[0]?.age) : undefined;
+  return { people, sum, variant };
+}
+
 /**
  * Price one plan from one message, or say exactly what is missing.
  *
@@ -145,6 +168,11 @@ function variantAskedFor(
  * contract nobody asked about, and it would arrive looking like every correct one.
  */
 export function priceNamedPlan(text: string, code: string, label: string): PriceReply {
+  return pricePlan(code, label, readPlanAsk(text, code));
+}
+
+/** Price what has been asked, or say exactly what is missing — the half of the above that is not reading. */
+export function pricePlan(code: string, label: string, { people, sum, variant }: PlanAsk): PriceReply {
   const plan = getPlan(code);
   if (!plan) return { text: `ไม่พบข้อมูลแบบ ${label} ในระบบครับ`, priced: false };
 
@@ -166,13 +194,7 @@ export function priceNamedPlan(text: string, code: string, label: string): Price
     };
   }
 
-  const said = withoutPlanName(text);
-  const people = peopleIn(said);
-  const sum = coverIn(said);
   const variants = plan.rates.base.variants ?? [];
-  const variant = variants.length === 1
-    ? variants[0]
-    : variantAskedFor(said, variants, plan.variantLabels, people[0]?.age);
 
   const missing: string[] = [];
   /** the same gaps as `missing`, named rather than written out, for the buttons that fill them */
