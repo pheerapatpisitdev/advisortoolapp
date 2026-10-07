@@ -22,7 +22,7 @@ import { asksPayTerm, asksValueTable, mergeSlots, PLAN_CODE, routeMessage, type 
 import {
   aboutCompany, affirms, APPLICATION_FORM, ASK_FOR_TABLE, asksAboutCompany, asksCheaper, baht, type Budget,
   budgetIn, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, keepGivenFigures, one, peopleIn,
-  type QuoteFigures, recentTurns, Reply, Said, saysFormDone, spoken, stallReply, stalls,
+  type QuoteFigures, recentTurns, Reply, Said, saysFormDone, spoken, stallReply, stalls, thanksOnly,
   WANTS_IN, wantsToBuy,
 } from "../common";
 
@@ -87,6 +87,9 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
     const kept: Routed = { ...known, offer: undefined };
     return { ...one(stallReply(hasQuote(kept))), slots: kept };
   }
+  // a thank-you skips the router: it would hand back the figures from the turns before, and
+  // "ขอบคุณค่ะ" after a quote would be priced again. Only the small-talk model words the reply.
+  if (thanksOnly(asked)) return { ...(await answerSmallTalk(history, known)), slots: known };
   // the form is out and they say it is filled in: the agent takes it from here
   if (known.formSent && saysFormDone(asked)) return { ...one(FORM_RECEIVED), formDone: true, slots: known };
   // deciding to buy is answered with the form — unless a cheaper offer is on the table and the
@@ -110,6 +113,19 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
   // what the customer says about riders is read off the message, and only when the message is
   // not one of those answers — "ผู้ชำระเบี้ยต้องแถลงสุขภาพไหม" is about health, not a rider
   const riderAsked = faq ? undefined : ridersIn(asked);
+  /**
+   * A question about the conditions, from someone who already holds a quotation.
+   *
+   * "ต้องตรวจสุขภาพหรือไม่ มีระยะเวลารอคอยหรือไม่" was answered with the quotation again, card
+   * and all (Messenger, 2026-10-07): "สอบถาม" is a word that asks for a price, and the router
+   * hands back the sum from the turn before. With no figure and no money word of its own, the
+   * message asks nothing to be priced, so the written answer stands alone.
+   */
+  if (faq && hasQuote(known) && !ASKS_TO_PRICE_AGAIN.test(asked) && coverIn(asked) === undefined
+    && peopleIn(asked).length === 0 && !asksAboutCompany(asked) && !asksPayTerm(asked)
+    && !asksValueTable(asked) && !asksCheaper(asked)) {
+    return { ...one(faq), slots: known };
+  }
   const routed = mergeSlots(previous, await routeMessage(history));
   const slots: Routed = { ...routed, riders: mergeRiders(cleanRiders(previous?.riders), riderAsked) };
   // checked before the routes that speak: a question about the company is answered by the
@@ -637,6 +653,9 @@ function answerCheaper(slots: Routed): Answer {
     replies: [...(offered ? [TAKES_OFFER] : []), ASK_FOR_TABLE],
   };
 }
+
+/** a figure, or a word for money: what makes a conditions question also a request to price */
+const ASKS_TO_PRICE_AGAIN = /\d|เบี้ย|ราคา|เท่าไ|กี่บาท|ทุน/;
 
 /** Whether this customer has been given a premium: the three things a quote needs are known. */
 function hasQuote(slots: Routed): boolean {

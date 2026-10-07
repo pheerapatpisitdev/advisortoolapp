@@ -844,11 +844,54 @@ describe("everything else", () => {
   it("tells small talk what the customer already gave, so a goodbye is not an intake form", async () => {
     routed = { intent: "other" };
     chat.mockClear();
-    // a stall never reaches the model now; a thank-you still does
+    // a stall never reaches the model, and a thank-you only reaches the one that words the reply
     await answerQuestion(said("ขอบคุณค่ะ"), { intent: "quote", age: 38, sex: "M", coverWanted: 2_000_000 });
-    const system = chat.mock.calls[1][0].messages[0].content as string;
+    expect(chat.mock.calls.map((c) => c[0].task)).toEqual(["small_talk"]);
+    const system = chat.mock.calls[0][0].messages[0].content as string;
     expect(system).toContain("ชาย · อายุ 38 ปี · ครอบครัวได้รับ 2,000,000 บาท");
     expect(system).toContain("ห้ามขอข้อมูลที่ทราบแล้วซ้ำอีก");
+  });
+
+  /**
+   * "ขอบคุณค่ะ สำหรับข้อมูล", from a customer the bot had just quoted, was answered with the
+   * quotation again (Messenger, 2026-10-07). The router reads the whole thread, so it hands
+   * back the age, the sex and the sum from the turns before — and a turn that "supplies" all
+   * three, after a quote, is a request for a quote.
+   */
+  it("does not quote again to a customer who only says thank you", async () => {
+    routed = { intent: "other", age: 72, sex: "M", coverWanted: 1_000_000 };
+    worded = "ยินดีครับ 😊";
+    const before = { intent: "quote" as const, age: 72, sex: "M" as const, coverWanted: 1_000_000 };
+    for (const t of ["ขอบคุณค่ะ สำหรับข้อมูล", "ขอบคุณครับ", "ขอบคุณมากๆค่ะ 🙏", "ขอบคุณนะคะ"]) {
+      chat.mockClear();
+      const answer = await answerQuestion(said(t), before);
+      expect(answer.priced, t).toBeFalsy();
+      expect(answer.messages, t).toHaveLength(1);
+      expect(answer.messages[0].card, t).toBeUndefined();
+      expect(answer.messages[0].text, t).toBe("ยินดีครับ 😊");
+      expect(answer.slots.coverWanted, t).toBe(1_000_000);
+    }
+  });
+
+  /**
+   * "สอบถามเงื่อนไขเพิ่มเติมครับ ต้องตรวจสุขภาพหรือไม่ มีระยะเวลารอคอยหรือไม่", from a customer
+   * quoted a minute before, was answered with the quotation again (Messenger, 2026-10-07).
+   * "สอบถาม" is on the list of words that ask for a price, and the router hands back the sum
+   * from the turn before, so a question about conditions read as a request to price.
+   */
+  it("answers a question about conditions without quoting again", async () => {
+    routed = { intent: "other", age: 51, sex: "M", coverWanted: 1_000_000 };
+    const before = { intent: "quote" as const, age: 51, sex: "M" as const, coverWanted: 1_000_000 };
+    const answer = await answerQuestion(said("สอบถามเงื่อนไขเพิ่มเติมครับ ต้องตรวจสุขภาพหรือไม่ มีระยะเวลารอคอยหรือไม่"), before);
+    expect(answer.priced).toBeFalsy();
+    expect(answer.messages.some((m) => m.card)).toBe(false);
+    expect(answer.messages.map((m) => m.text).join("\n")).toContain("แถลงข้อมูลสุขภาพ");
+  });
+
+  it("still answers a thank-you that carries a question or a figure", async () => {
+    routed = { intent: "quote", age: 50, sex: "M", coverWanted: 2_000_000 };
+    const answer = await answerQuestion(said("ขอบคุณค่ะ แล้วทุน 2 ล้านล่ะ"), { intent: "quote", age: 50, sex: "M", coverWanted: 1_000_000 });
+    expect(answer.priced).toBe(true);
   });
 
   it("falls back to asking for the details when the model says nothing", async () => {
