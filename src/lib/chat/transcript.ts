@@ -30,7 +30,8 @@ const MAX_CHARS = 2000;
  * and the buttons it offered, since "the customer went quiet after the card" is a finding.
  */
 export function botTurn(messages: Said[], replies?: string[]): Turn | undefined {
-  const parts = messages.map((m) => (m.card ? `${m.text}\n[การ์ดใบเสนอ]` : m.text)).filter(Boolean);
+  // the intro picture is not a quotation, and the log is how a quotation's card is told from the rest
+  const parts = messages.map((m) => (m.card ? `${m.text}\n${m.card.startsWith("/intro/") ? "[รูปประกอบ]" : "[การ์ดใบเสนอ]"}`.trim() : m.text)).filter(Boolean);
   if (replies?.length) parts.push(`[ปุ่ม: ${replies.join(" | ")}]`);
   const text = parts.join("\n\n").trim();
   return text ? { role: "bot", text } : undefined;

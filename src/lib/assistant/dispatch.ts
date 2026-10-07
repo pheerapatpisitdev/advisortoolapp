@@ -10,7 +10,8 @@ import { answerIShield, type IShieldSlots } from "./ishield/answer";
 import type { HealthSlots } from "./ihealthy/route";
 import { answerQuestion } from "./lifeprotect/answer";
 import type { Routed } from "./lifeprotect/route";
-import type { AnySlots, Undecided, WithPdf } from "./slots";
+import type { AnySlots, Undecided, WithIntro, WithPdf } from "./slots";
+import { withIntroPicture, withoutIntro } from "./intro";
 import { cleanPdfMemory, pdfTurn, withPdfOffer } from "./pdf";
 import { planNamedIn, priceNamedPlan } from "@/lib/copilot/price";
 import { asksPensionPrice, pensionNamedIn, pricePension } from "@/lib/copilot/pension-price";
@@ -50,6 +51,13 @@ export type AnyAnswer = Reply & {
   guide?: GuideItem[];
   /** someone who wants to join the team, handed to the owner (recruit.ts) — never a customer */
   recruit?: true;
+  /**
+   * This answer came out of the Life Protect or iShield brain itself, which is what the intro
+   * picture (./intro) is for. Not the slots' product: a CI 123 or cancer quote asked in the
+   * middle of a Life Protect conversation keeps that conversation's slots and is not theirs.
+   * Taken off again before the answer leaves `answerAny`.
+   */
+  introFor?: true;
 };
 
 /** A message that asks something, as against one that announces an interest. */
@@ -120,7 +128,20 @@ function personIn(slots: AnySlots | null): Person {
  * settle one that has not begun; and where neither says anything, the customer is asked with
  * two buttons rather than guessed at.
  */
+/**
+ * One turn of the conversation. The intro picture (./intro) is decided here, around everything
+ * the turn might do, because it is the customer's and the turn can end in several places.
+ */
 export async function answerAny(
+  history: ChatMessage[], stored: AnySlots | null, channel: Channel = "web",
+  cameFor?: Product, pageId?: string, welcome?: PageWelcome,
+): Promise<AnyAnswer> {
+  const seen = Boolean((stored as WithIntro<AnySlots> | null)?.introSeen);
+  const answer = await answerTurn(history, withoutIntro(stored), channel, cameFor, pageId, welcome);
+  return withIntroPicture(answer, seen, channel);
+}
+
+async function answerTurn(
   history: ChatMessage[], stored: AnySlots | null, channel: Channel = "web",
   /**
    * What the advertisement that sent this customer was selling, where one did.
@@ -473,7 +494,7 @@ async function run(
     const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
     if (product === "ishield") {
       const previous = fresh ? startIShield(carried as Person) : (carried as IShieldSlots);
-      return answerIShield(asked, previous, channel);
+      return { ...answerIShield(asked, previous, channel), introFor: true };
     }
     const previous = fresh ? startLegacy(carried as Person) : (carried as LegacySlots);
     return answerLegacy(asked, previous, channel);
@@ -487,7 +508,7 @@ async function run(
   }
   const previous = fresh ? startLife(carried as Person) : (carried as Routed);
   const answer = await answerQuestion(history, previous);
-  return { ...answer, slots: { ...answer.slots, product: "lifeprotect" } };
+  return { ...answer, slots: { ...answer.slots, product: "lifeprotect" }, introFor: true };
 }
 
 /**
