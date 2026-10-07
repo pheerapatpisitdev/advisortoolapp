@@ -21,6 +21,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /** the quote card and its value table: src/lib/card-link.ts cardQuery, in its order */
 export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "v"] as const;
+/**
+ * The quote card alone also reads `ph`, the bot's signed ask for a customer's photo
+ * (src/lib/card-photo.ts). Not the table's: it draws no face, so a `ph` there is padding.
+ */
+export const QUOTE_CARD_ONLY_KEYS = [...QUOTE_CARD_KEYS, "ph"] as const;
 /** one contract's illnesses: src/lib/card-link.ts diseaseCardPath */
 export const DISEASE_CARD_KEYS = ["of"] as const;
 /** the health card and its table: src/lib/ihealthy-link.ts cardQuery and cardPath, the menu's fit=phone */

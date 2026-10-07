@@ -2,10 +2,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
 import { highlighterUri } from "@/lib/highlighter";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { cardInputFrom, quoteCard, type CardRow, type CardSummary, type QuoteCard } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
-import { QUOTE_CARD_KEYS, toCanonical } from "./canonical";
+import { QUOTE_CARD_ONLY_KEYS, toCanonical } from "./canonical";
+import { verifyCardPhoto } from "@/lib/card-photo";
+import { profileOn } from "@/lib/crm/names";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -300,6 +302,33 @@ function Notes({ notes, color, size }: { notes: string[]; color: string; size: n
 const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
 const loadFont = (file: string) => readFile(path.join(FONT_DIR, file));
 
+/** the customer's face beside who the card is for: inside the two bands it sits across */
+const AVATAR = H.plan + H.insured - 12;
+
+/**
+ * The customer's own photo, as the data URI the drawing library takes — or nothing.
+ *
+ * Only for a request carrying the bot's signed ask (src/lib/card-photo.ts). Meta is asked now,
+ * because the address it gives expires, and a Page that will not say, a customer with no
+ * picture or a slow answer all end the same way: the card is drawn without, as it always was.
+ */
+async function loadCustomerPhoto(token: string | null): Promise<string | undefined> {
+  const who = token ? verifyCardPhoto(token) : null;
+  if (!who) return undefined;
+  try {
+    const picture = (await profileOn(who.pageId, who.psid))?.picture;
+    if (!picture) return undefined;
+    const res = await fetch(picture, { cache: "no-store", signal: AbortSignal.timeout(4000) });
+    const type = res.headers.get("content-type") ?? "";
+    if (!res.ok || !/^image\/(jpeg|png)/.test(type)) return undefined;
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > 2_000_000) return undefined;
+    return `data:${type.split(";")[0]};base64,${bytes.toString("base64")}`;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * The family beside the premium, as the data URI the drawing library takes.
  *
@@ -326,19 +355,28 @@ async function loadPhoto(): Promise<string | undefined> {
  */
 export async function GET(req: NextRequest) {
   // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)
-  const moved = toCanonical(req, QUOTE_CARD_KEYS);
+  const moved = toCanonical(req, QUOTE_CARD_ONLY_KEYS);
   if (moved) return moved;
+  // a `ph` that does not verify (forged, or past its ten minutes) is padding like any other key
+  const ph = req.nextUrl.searchParams.get("ph");
+  if (ph !== null && !verifyCardPhoto(ph)) {
+    const plain = new URL(req.nextUrl);
+    plain.searchParams.delete("ph");
+    return NextResponse.redirect(plain, 308);
+  }
   const input = cardInputFrom(req.nextUrl.searchParams);
   const card = input ? quoteCard(input) : undefined;
   if (!input || !card) return new Response("ไม่พบแบบประกันตามที่ระบุ", { status: 400 });
   /** the theme the plan is sold under, so the card matches the page it was quoted from */
   const p = cardPaletteFor();
 
-  const [regular, semibold, display, photo] = await Promise.all([
+  const [regular, semibold, display, photo, face] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
     loadFont("Trirong-SemiBold.ttf"),
     loadPhoto(),
+    // a child's quote is not about the person writing, so their face stays off it
+    input.age >= 18 ? loadCustomerPhoto(req.nextUrl.searchParams.get("ph")) : undefined,
   ]);
 
   return new ImageResponse(
@@ -364,9 +402,21 @@ export async function GET(req: NextRequest) {
             width: "100%", justifyContent: "space-between", alignItems: "center",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ ...band(H.plan), fontSize: 27, fontWeight: 600, color: p.accent }}>{card.planLine}</div>
-            <div style={{ ...band(H.insured), fontSize: 27, color: p.mute }}>{card.insuredLine}</div>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {face && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={face} width={AVATAR} height={AVATAR} alt=""
+                style={{
+                  width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, marginRight: 18, flexShrink: 0,
+                  objectFit: "cover", border: `3px solid ${p.accent}`,
+                }}
+              />
+            )}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ ...band(H.plan), fontSize: 27, fontWeight: 600, color: p.accent }}>{card.planLine}</div>
+              <div style={{ ...band(H.insured), fontSize: 27, color: p.mute }}>{card.insuredLine}</div>
+            </div>
           </div>
           <div
             style={{
@@ -468,7 +518,10 @@ export async function GET(req: NextRequest) {
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
         { name: "Trirong", data: display, weight: 600, style: "normal" },
       ],
-      headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
+      // a card with a face on it is one customer's: never kept where anyone else could be served it
+      headers: {
+        "cache-control": face ? "private, no-store" : "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400",
+      },
     },
   );
 }

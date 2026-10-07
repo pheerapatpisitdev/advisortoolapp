@@ -2,7 +2,8 @@ import { siteUrl } from "@/lib/site-url";
 import { hashUserId } from "@/lib/facebook/verify";
 import { claimEvent, isMuted, loadSession, muteFor, saveSession, saveTurn } from "@/lib/chat/session";
 import { armFollowup, dropFollowup } from "@/lib/chat/followup";
-import { sendFile, sendImage, sendMessage, showTyping } from "@/lib/facebook/client";
+import { sendFile, sendImage, sendImageFile, sendMessage, showTyping } from "@/lib/facebook/client";
+import { withCustomerPhoto } from "@/lib/card-photo";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { allow } from "@/lib/assistant/rate-limit";
 import { BudgetExceeded, TurnTimeout, withTurnDeadline } from "@/lib/ai/client";
@@ -109,10 +110,36 @@ function ownWordsFor(pageId: string | undefined, text: string, slots: unknown) {
   return OWN_WORDS[languageOf(text, before)];
 }
 
+/**
+ * The card with the customer's own photo on it, uploaded to them — or false, and the plain card
+ * is sent as before. A card with a face is drawn for one person, so it is fetched here and
+ * handed to Messenger as a file instead of an address (see src/lib/card-photo.ts); every way it
+ * can fail (no Page, no picture, a slow Meta, an upload refused) leaves the customer their quote.
+ */
+const PHOTO_CARD_MS = 20_000;
+async function sendCardWithPhoto(
+  psid: string, cardPath: string, replies: string[] | undefined, pageId?: string,
+): Promise<boolean> {
+  if (!pageId || !process.env.ADMIN_SESSION_SECRET) return false;
+  try {
+    const path = withCustomerPhoto(cardPath, pageId, psid);
+    if (!path) return false;
+    const res = await fetch(siteUrl(path), { cache: "no-store", signal: AbortSignal.timeout(PHOTO_CARD_MS) });
+    // the route draws the plain card when it cannot get the photo, so only a private answer has a face on it
+    if (!res.ok || !/no-store/.test(res.headers.get("cache-control") ?? "")) return false;
+    await sendImageFile(psid, new Uint8Array(await res.arrayBuffer()), "quote.png", replies, pageId);
+    return true;
+  } catch (e) {
+    console.error("card with photo failed, sending the plain card:", e);
+    return false;
+  }
+}
+
 async function sendCard(
   psid: string, url: string, replies: string[] | undefined, pageId?: string,
-  cardUnsent: string = CARD_UNSENT,
+  cardUnsent: string = CARD_UNSENT, cardPath?: string,
 ): Promise<void> {
+  if (cardPath && await sendCardWithPhoto(psid, cardPath, replies, pageId)) return;
   try {
     await sendImage(psid, url, replies, pageId);
     return;
@@ -331,7 +358,7 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
       }
       // the card follows its own words, so the customer reads the quote before the picture of
       // it — and a couple priced together gets the pair in the order they were named
-      if (said.card) await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId, own.cardUnsent);
+      if (said.card) await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId, own.cardUnsent, said.card);
       if (said.file) await sendPdf(psid, said.file, last ? answer.replies : undefined, pageId, own);
     }
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
