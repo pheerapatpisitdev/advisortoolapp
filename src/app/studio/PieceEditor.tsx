@@ -409,7 +409,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
         <ClaimPaperCheck item={item} onChecked={onSaved} onPending={setStickersPending} />
       )}
 
-      {!locked && item.format !== "script" && <AiTextCheck key={item.id} item={item} poster={draft.poster} onChecked={onSaved} />}
+      {!locked && item.format !== "script" && <AiTextCheck key={`check-${item.id}`} item={item} poster={draft.poster} onChecked={onSaved} />}
 
       {item.format !== "script" && <div className="mt-4">
         <p className="mb-1.5 text-sm font-medium">รูปโพสต์</p>
@@ -526,7 +526,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
       )}
 
       {outputFormula(item.output) === "finish" && (item.format === "post" || item.format === "script") && (
-        <FinishCard key={item.id} item={item} output={output} format={item.format} onSaved={onSaved} />
+        <FinishCard key={`finish-${item.id}`} item={item} output={output} format={item.format} onSaved={onSaved} />
       )}
 
       {anything && (
