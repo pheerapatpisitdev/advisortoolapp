@@ -4,6 +4,7 @@ import { askShadow, recordShadow } from "../shadow";
 import type { ChatMessage } from "@/lib/ai/types";
 import { getPlan } from "@/calc/plans/registry";
 import { ageFromBirthdate, monthsOldIn, coverIn, peopleIn, recentTurns, sexIn } from "../common";
+import type { RidersWanted } from "./riders";
 
 /**
  * Re-exported where they have always been named from: these read a person out of a message,
@@ -71,6 +72,12 @@ export interface Routed {
    * price one, and the cover already known stands. Read off this turn only and never carried.
    */
   checking?: true;
+  /**
+   * The riders asked for so far, read off the customer's own words (./riders), never by the
+   * model. Carried, as the page carries them: a new sum is priced with the same riders until
+   * the customer says they do not want them.
+   */
+  riders?: RidersWanted;
 }
 
 const SYSTEM = `คุณเป็นตัวช่วยของตัวแทนประกันชีวิต อ่านข้อความล่าสุดแล้วบอกว่าลูกค้าต้องการอะไร ตอบเป็น JSON เท่านั้น
