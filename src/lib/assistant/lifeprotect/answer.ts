@@ -22,7 +22,7 @@ import { asksPayTerm, asksValueTable, mergeSlots, PLAN_CODE, routeMessage, type 
 import {
   aboutCompany, affirms, APPLICATION_FORM, ASK_FOR_TABLE, asksAboutCompany, asksCheaper, baht, type Budget,
   budgetIn, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, keepGivenFigures, one, peopleIn,
-  type QuoteFigures, recentTurns, Reply, Said, saysFormDone, spoken, stallReply, stalls,
+  type QuoteFigures, recentTurns, Reply, Said, saysFormDone, spoken, stallReply, stalls, thanksOnly,
   WANTS_IN, wantsToBuy,
 } from "../common";
 
@@ -87,6 +87,9 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
     const kept: Routed = { ...known, offer: undefined };
     return { ...one(stallReply(hasQuote(kept))), slots: kept };
   }
+  // a thank-you skips the router: it would hand back the figures from the turns before, and
+  // "ขอบคุณค่ะ" after a quote would be priced again. Only the small-talk model words the reply.
+  if (thanksOnly(asked)) return { ...(await answerSmallTalk(history, known)), slots: known };
   // the form is out and they say it is filled in: the agent takes it from here
   if (known.formSent && saysFormDone(asked)) return { ...one(FORM_RECEIVED), formDone: true, slots: known };
   // deciding to buy is answered with the form — unless a cheaper offer is on the table and the

@@ -353,3 +353,15 @@ describe("a sum and what it doubles to, said together", () => {
     expect(routed.coverWanted).toBe(5_000_000);
   });
 });
+
+describe("a thank-you", () => {
+  it("is heard in the ways people say it, and only when it is nothing but thanks", async () => {
+    const { thanksOnly } = await import("@/lib/assistant/common");
+    for (const t of ["ขอบคุณค่ะ สำหรับข้อมูล", "ขอบคุณครับ", "ขอบคุณมากๆค่ะ 🙏", "ขอบคุณนะคะ", "ขอบคุณที่ให้ข้อมูลครับ"]) {
+      expect(thanksOnly(t), t).toBe(true);
+    }
+    for (const t of ["ขอบคุณค่ะ แล้วทุน 2 ล้านล่ะ", "ขอบคุณค่ะ ขอตารางมูลค่า", "ขอบคุณ เบี้ยเท่าไหร่", "ขอบคุณค่ะ ขอปรึกษาแฟนก่อน", "สวัสดีค่ะ", "ค่ะ"]) {
+      expect(thanksOnly(t), t).toBe(false);
+    }
+  });
+});

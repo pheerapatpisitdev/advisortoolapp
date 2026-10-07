@@ -464,6 +464,23 @@ export function stalls(text: string): boolean {
   return STALLS.test(text) && !ASKS.test(text);
 }
 
+/** The words a bare thank-you is made of; whatever is left after taking them out is a request. */
+const THANKS_WORDS = /ขอบคุณ|ขอบใจ|มากๆ?|สำหรับ|ข้อมูล|คำแนะนำ|ที่|ให้|แนะนำ|ตอบ|ค่ะ|คะ|ครับ|นะ|จ้า|ค่า|คับ|เลย/g;
+
+/**
+ * Nothing but thanks — "ขอบคุณค่ะ สำหรับข้อมูล", "ขอบคุณครับ 🙏".
+ *
+ * It has to be told apart before the router reads it, because the router reads the whole
+ * thread: it hands back the age, the sex and the sum from the turns before, and a turn that
+ * "supplies" a quotation's three things after a quote is taken for a request for one — a
+ * customer who thanked the bot was sent the same quotation again (Messenger, 2026-10-07).
+ * A thank-you that also asks or names a figure is not this: it keeps its question.
+ */
+export function thanksOnly(text: string): boolean {
+  if (text.length > 40 || /\d/.test(text) || ASKS.test(text) || !/ขอบคุณ|ขอบใจ/.test(text)) return false;
+  return text.replace(THANKS_WORDS, "").replace(/[\s\p{P}\p{S}\p{Extended_Pictographic}ๆ]/gu, "") === "";
+}
+
 /**
  * Deciding to buy — "เอาแผนนี้", "สมัครยังไง", "ต้องทำยังไงต่อ", "ใช้เอกสารอะไรบ้าง". The one
  * message the whole campaign is for, and the one a model was wording on its own: it asked for
