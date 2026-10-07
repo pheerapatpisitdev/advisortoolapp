@@ -70,3 +70,24 @@ describe("an age said in months", () => {
     expect(peopleIn("หญิง 40 เดือนหน้า")).toEqual([{ age: 40, sex: "F" }]);
   });
 });
+
+describe("a date of birth sent on its own (2026-10-07)", () => {
+  const today = new Date("2026-10-07T05:00:00Z");
+
+  it("is an age wherever an age is read", () => {
+    expect(ageIn("20/6/2543")).toBeGreaterThanOrEqual(26);
+    expect(ageFromBirthdate("20/6/2543", today)).toBe(26);
+    expect(ageFromBirthdate("20/10/2543", today)).toBe(25);
+  });
+
+  it("is not read as the age of the day beside a sex word", () => {
+    expect(peopleIn("ชาย 20/6/2543")).toEqual([{ age: ageFromBirthdate("20/6/2543")!, sex: "M" }]);
+    expect(peopleIn("20/6/2543 ญ")).toEqual([{ age: ageFromBirthdate("20/6/2543")!, sex: "F" }]);
+  });
+
+  it("reads a month written in words", () => {
+    expect(ageFromBirthdate("เกิด 20 มิถุนายน 2543", today)).toBe(26);
+    expect(ageFromBirthdate("20 มิ.ย. 2543", today)).toBe(26);
+    expect(ageFromBirthdate("1 ธ.ค. พ.ศ. 2543", today)).toBe(25);
+  });
+});
