@@ -12,6 +12,7 @@ import { answerQuestion } from "./lifeprotect/answer";
 import type { Routed } from "./lifeprotect/route";
 import type { AnySlots, Undecided, WithIntro, WithPdf } from "./slots";
 import { withIntroPicture, withoutIntro } from "./intro";
+import { pricedAnswer } from "./priced";
 import { cleanPdfMemory, pdfTurn, withPdfOffer } from "./pdf";
 import { planNamedIn, priceNamedPlan } from "@/lib/copilot/price";
 import { asksPensionPrice, pensionNamedIn, pricePension } from "@/lib/copilot/pension-price";
@@ -357,18 +358,7 @@ async function routeAny(
   if (other && other.code !== "ISHIELD" && asksAboutMoney(asked)) {
     const priced = priceNamedPlan(asked, other.code, other.label);
     return {
-      messages: [
-        // the same words, written for wherever they are about to be read
-        {
-          text: writtenFor(channel, priced.text),
-          ...(priced.cards?.[0] ? { card: priced.cards[0] } : {}),
-          // beside the card it prints, where it is remembered for a later "ขอไฟล์ PDF"
-          ...(priced.pdfPath ? { pdfPath: priced.pdfPath } : {}),
-        },
-        ...(priced.cards?.slice(1) ?? []).map((card) => ({ text: "", card })),
-      ],
-      priced: priced.priced,
-      ...(priced.guide?.length ? { guide: priced.guide } : {}),
+      ...pricedAnswer(priced, channel),
       // a plan without a brain carries no conversation, so nothing is held between turns
       slots: { product: "undecided", ...personIn(stored) },
     };
