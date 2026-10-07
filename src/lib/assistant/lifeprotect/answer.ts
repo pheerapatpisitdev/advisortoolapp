@@ -283,7 +283,7 @@ function quoteFor(
   return {
     text: refused ? `${text}\n\n${refused}` : text,
     card: cardPath(card),
-    table: valueTablePath(card),
+    table: valueTablePath(card, { characters: true }),
     // the quote PDF carries no riders yet: one that disagrees with the card is worse than none
     ...(withRiders ? {} : withPdf(quotePdfPath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }))),
     ...(annual ? { figures: { age, sex, plan: variant, sumAssured, annual: baht(annual.total), coverWanted } } : {}),
@@ -402,7 +402,7 @@ function answerValueTable(slots: Routed): Reply {
     messages: [{
       // the picture opens with the chart since it moved off the quote card (owner, 2026-10-06)
       text: `ส่งกราฟและตารางมูลค่าทุกปีให้ดูครับ ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี — มีทั้งเบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี (แบบ${term.label})`,
-      card: valueTablePath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }),
+      card: valueTablePath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }, { characters: true }),
     }],
     priced: true,
     replies: [

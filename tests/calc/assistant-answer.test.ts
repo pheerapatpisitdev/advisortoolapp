@@ -125,7 +125,7 @@ describe("a quote", () => {
     const answer = await answerQuestion(said("ชาย 35 ล้านนึง"), null);
     expect(answer.messages[1].text).toContain("กราฟและตารางมูลค่าทุกปี");
     expect(answer.messages[1].card)
-      .toMatch(/^\/api\/card\/table\?plan=LIFEPROTECT&variant=WLF19H&age=35&sex=M&sum=1000000&v=[0-9a-z]+-[0-9]+$/);
+      .toMatch(/^\/api\/card\/table\?plan=LIFEPROTECT&variant=WLF19H&age=35&sex=M&sum=1000000&fig=1&v=[0-9a-z]+-[0-9]+$/);
     expect(answer.messages[0].text).not.toContain("มูลค่าเงินสดสะสม");
   });
 
@@ -487,7 +487,7 @@ describe("the value table", () => {
     expect(chat.mock.calls.map((c) => c[0].task)).toEqual(["route"]);
     expect(answer.messages).toHaveLength(1);
     expect(answer.messages[0].card)
-      .toMatch(/^\/api\/card\/table\?plan=LIFEPROTECT&variant=WLF19H&age=35&sex=M&sum=1000000&v=[0-9a-z]+-[0-9]+$/);
+      .toMatch(/^\/api\/card\/table\?plan=LIFEPROTECT&variant=WLF19H&age=35&sex=M&sum=1000000&fig=1&v=[0-9a-z]+-[0-9]+$/);
     expect(answer.messages[0].text).toContain("ตารางมูลค่าทุกปี");
   });
 

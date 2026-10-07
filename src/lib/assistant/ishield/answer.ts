@@ -451,7 +451,7 @@ function quoted(
    * Guarded by the drawing itself rather than by a list of plans that can draw one — the list
    * would be a second place to keep in step, and this asks the code that does the work.
    */
-  const table = valueTableCard(card, today) ? valueTablePath(card) : undefined;
+  const table = valueTableCard(card, today) ? valueTablePath(card, { characters: true }) : undefined;
   // on the quote and not on the table: the file is the sales page, which is the quote
   const pdfPath = quotePdfPath(card);
 
