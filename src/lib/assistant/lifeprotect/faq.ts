@@ -1,4 +1,4 @@
-import { HEALTH_DECLARATION, HEALTH_QUESTION } from "../common";
+import { HEALTH_DECLARATION, HEALTH_QUESTION, TAX_RELIEF } from "../common";
 
 /**
  * The five answers the agent types by hand every day, taken from the campaign's own inbox.
@@ -61,9 +61,7 @@ export const FAQ: FaqEntry[] = [
   {
     key: "tax",
     match: /ลดหย่อน|ภาษี|\btax\b/i,
-    answer:
-      "ใช้ลดหย่อนภาษีได้ครับ ตามเบี้ยที่ชำระจริง สูงสุด 100,000 บาทต่อปี "
-      + "(นับรวมกับประกันชีวิตฉบับอื่นที่มีอยู่) ตามหลักเกณฑ์ของกรมสรรพากร",
+    answer: TAX_RELIEF,
   },
   {
     key: "all_causes",

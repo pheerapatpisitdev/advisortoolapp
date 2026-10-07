@@ -82,6 +82,11 @@ export function aboutCompany(question: string): string {
 export const APPLICATION_FORM = "https://ktaxaform.vercel.app/?ref=sa-9f3a";
 
 export const FORM_NEXT = "กรอกเสร็จแล้วแจ้งในแชทนี้ได้เลย เดี๋ยวแอดมินเช็กข้อมูลแล้วดูแลขั้นตอนต่อให้ครับ";
+/** Whether the premium may be set against income tax — the agency's sentence, for every plan that is a life policy. */
+export const TAX_RELIEF =
+  "ใช้ลดหย่อนภาษีได้ครับ ตามเบี้ยที่ชำระจริง สูงสุด 100,000 บาทต่อปี "
+  + "(นับรวมกับประกันชีวิตฉบับอื่นที่มีอยู่) ตามหลักเกณฑ์ของกรมสรรพากร";
+
 export const FORM_RECEIVED = "ขอบคุณครับ 🙏 เดี๋ยวแอดมินเช็กข้อมูลแล้วติดต่อกลับในแชทนี้ครับ";
 
 export const WANTS_IN = "สนใจสมัคร";
