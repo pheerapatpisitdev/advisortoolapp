@@ -113,6 +113,19 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
   // what the customer says about riders is read off the message, and only when the message is
   // not one of those answers — "ผู้ชำระเบี้ยต้องแถลงสุขภาพไหม" is about health, not a rider
   const riderAsked = faq ? undefined : ridersIn(asked);
+  /**
+   * A question about the conditions, from someone who already holds a quotation.
+   *
+   * "ต้องตรวจสุขภาพหรือไม่ มีระยะเวลารอคอยหรือไม่" was answered with the quotation again, card
+   * and all (Messenger, 2026-10-07): "สอบถาม" is a word that asks for a price, and the router
+   * hands back the sum from the turn before. With no figure and no money word of its own, the
+   * message asks nothing to be priced, so the written answer stands alone.
+   */
+  if (faq && hasQuote(known) && !ASKS_TO_PRICE_AGAIN.test(asked) && coverIn(asked) === undefined
+    && peopleIn(asked).length === 0 && !asksAboutCompany(asked) && !asksPayTerm(asked)
+    && !asksValueTable(asked) && !asksCheaper(asked)) {
+    return { ...one(faq), slots: known };
+  }
   const routed = mergeSlots(previous, await routeMessage(history));
   const slots: Routed = { ...routed, riders: mergeRiders(cleanRiders(previous?.riders), riderAsked) };
   // checked before the routes that speak: a question about the company is answered by the
@@ -640,6 +653,9 @@ function answerCheaper(slots: Routed): Answer {
     replies: [...(offered ? [TAKES_OFFER] : []), ASK_FOR_TABLE],
   };
 }
+
+/** a figure, or a word for money: what makes a conditions question also a request to price */
+const ASKS_TO_PRICE_AGAIN = /\d|เบี้ย|ราคา|เท่าไ|กี่บาท|ทุน/;
 
 /** Whether this customer has been given a premium: the three things a quote needs are known. */
 function hasQuote(slots: Routed): boolean {

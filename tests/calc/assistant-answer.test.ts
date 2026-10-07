@@ -873,6 +873,21 @@ describe("everything else", () => {
     }
   });
 
+  /**
+   * "สอบถามเงื่อนไขเพิ่มเติมครับ ต้องตรวจสุขภาพหรือไม่ มีระยะเวลารอคอยหรือไม่", from a customer
+   * quoted a minute before, was answered with the quotation again (Messenger, 2026-10-07).
+   * "สอบถาม" is on the list of words that ask for a price, and the router hands back the sum
+   * from the turn before, so a question about conditions read as a request to price.
+   */
+  it("answers a question about conditions without quoting again", async () => {
+    routed = { intent: "other", age: 51, sex: "M", coverWanted: 1_000_000 };
+    const before = { intent: "quote" as const, age: 51, sex: "M" as const, coverWanted: 1_000_000 };
+    const answer = await answerQuestion(said("สอบถามเงื่อนไขเพิ่มเติมครับ ต้องตรวจสุขภาพหรือไม่ มีระยะเวลารอคอยหรือไม่"), before);
+    expect(answer.priced).toBeFalsy();
+    expect(answer.messages.some((m) => m.card)).toBe(false);
+    expect(answer.messages.map((m) => m.text).join("\n")).toContain("แถลงข้อมูลสุขภาพ");
+  });
+
   it("still answers a thank-you that carries a question or a figure", async () => {
     routed = { intent: "quote", age: 50, sex: "M", coverWanted: 2_000_000 };
     const answer = await answerQuestion(said("ขอบคุณค่ะ แล้วทุน 2 ล้านล่ะ"), { intent: "quote", age: 50, sex: "M", coverWanted: 1_000_000 });
