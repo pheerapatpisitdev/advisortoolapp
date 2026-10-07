@@ -63,3 +63,10 @@ export interface PdfMemory {
 }
 
 export type WithPdf<T> = T & { pdf?: PdfMemory };
+
+/**
+ * The intro picture has been sent (./intro). Kept on the conversation, beside the PDF's memory
+ * and for the same reason: it belongs to the customer, not to any one plan's brain, so it is
+ * taken off the slots before a brain sees them and written back onto whatever comes out.
+ */
+export type WithIntro<T> = T & { introSeen?: true };

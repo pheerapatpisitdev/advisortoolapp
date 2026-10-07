@@ -64,8 +64,10 @@ describe("a quotation the sales page can print", () => {
     expect(memoryOf(a)!.paths).toHaveLength(1);
     expect(memoryOf(a)!.paths![0]).toMatch(/page=lifeprotect&age=35&sex=M&sum=1000000/);
     expect(memoryOf(a)!.asked).toEqual(["lifeprotect"]);
+    // the first quotation is preceded by the intro picture, which carries no file
+    expect(a.messages[0]).toEqual({ text: "", card: "/intro/protect-compare.jpg" });
     // the quote's own message keeps the path, and is never the one that delivers it
-    expect(a.messages[0].pdfPath).toBe(memoryOf(a)!.paths![0]);
+    expect(a.messages.find((m) => m.pdfPath)!.pdfPath).toBe(memoryOf(a)!.paths![0]);
     expect(a.messages.some((m) => m.file)).toBe(false);
   });
 
@@ -84,8 +86,8 @@ describe("a quotation the sales page can print", () => {
 
   it("remembers both of a couple, in the order they were named, and offers once", async () => {
     const a = await answerAny([{ role: "user", content: "ผญ 32 ผช 33 Life Protect ทุน 1 ล้าน" }], null, "facebook");
-    // two quote cards and their two tables; only the quotes have a file
-    expect(a.messages.filter((m) => m.card).length).toBe(4);
+    // two quote cards and their two tables, behind the intro picture; only the quotes have a file
+    expect(a.messages.filter((m) => m.card && !m.card.startsWith("/intro/")).length).toBe(4);
     expect(a.messages.filter((m) => m.pdfPath).length).toBe(2);
     expect(memoryOf(a)!.paths).toHaveLength(2);
     expect(memoryOf(a)!.paths![0]).toMatch(/age=32&sex=F/);
