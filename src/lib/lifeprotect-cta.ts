@@ -121,7 +121,17 @@ export function lifeProtectCashText(cash: CashRow[]): string | undefined {
  * this. The wording is the owner's, kept as written — including the price claim and the tax
  * line, which were raised with them and kept. Every figure still comes from the rate table.
  */
-export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts" | "cash"> & { coverToAge: number }): string {
+export function lifeProtectChatQuoteText(
+  f: Omit<LifeProtectQuoteFacts, "parts" | "cash"> & {
+    coverToAge: number;
+    /**
+     * The riders on this quote, as the card writes them: what the headline is made of, a line
+     * on what a rider pays, the note under the price and the small print. With riders the
+     * small print is the card's, because "เบี้ยคงที่" is not true of a rider that renews yearly.
+     */
+    riders?: { split?: { title: string; rows: { label: string; amount: string }[] }; lines: string[]; footNotes: string[] };
+  },
+): string {
   const [headline] = f.modes;
   const annual = f.modes.find((m) => m.mode === "annual");
   const baht = (n: number) => n.toLocaleString("en-US");
@@ -139,10 +149,15 @@ export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts" 
     // "จ่ายถึงอายุ 99" reads "ออมถึงอายุ 99", "จ่าย 9 ปี" reads "ออม 9 ปี"
     `${SEX_WORD[f.sex]} อายุ ${ageWord(f.age)} · อย่างนี้ออม${f.termLabel.replace(/^จ่าย/, "")} คุ้มครอง ${f.coverToAge} ปี`,
     `💰 เบี้ยประมาณ ${formatBaht(headline.total)} บาท${PER[headline.mode]}` + (annual ? ` (ตกวันละ ${perDayText(annual.total)} บาท)` : ""),
+    ...(f.riders?.lines ?? []),
     "ทั้งนี้เราสามารถเลือกระยะเวลาในการออมได้",
     "เช่น 9ปี, 19 ปี, 99 ปี",
     "",
     ...instalmentLines(f.modes),
+    // what the instalment is made of, to the satang, so a bigger number than the plan's own
+    // price is seen to be the plan and its rider. Under the instalments, because it is in one
+    // of them (the page's headline mode) and the line above the list says another
+    ...(f.riders?.split ? ["", f.riders.split.title, ...f.riders.split.rows.map((r) => `- ${r.label} ${r.amount} บาท`)] : []),
     "",
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต (ตุยเย่)",
     ...(doubles
@@ -154,7 +169,11 @@ export function lifeProtectChatQuoteText(f: Omit<LifeProtectQuoteFacts, "parts" 
   ];
   // the surrender values at four ages are gone, as from the page and its card (owner,
   // 2026-10-06): the chart-and-table picture sent after this carries every year of them
-  lines.push("", "📌 เบี้ยคงที่ตลอดระยะเวลาชำระ", "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน", "ลดหย่อนภาษีได้ 100,000 บาท");
+  lines.push(
+    "",
+    ...(f.riders ? f.riders.footNotes.map((n) => `📌 ${n}`) : ["📌 เบี้ยคงที่ตลอดระยะเวลาชำระ", "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน"]),
+    "ลดหย่อนภาษีได้ 100,000 บาท",
+  );
   return lines.join("\n");
 }
 

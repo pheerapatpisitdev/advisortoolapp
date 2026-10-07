@@ -1,6 +1,7 @@
 import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
 import { cleanPdfMemory } from "@/lib/assistant/pdf";
+import { cleanRiders } from "@/lib/assistant/lifeprotect/riders";
 
 /**
  * What the home page's assistant accepts from the browser, made safe before it reaches a model.
@@ -105,9 +106,14 @@ export function cleanSlots(raw: unknown): AnySlots | null {
     if (v !== undefined && (typeof v !== "number" || v < 0 || v > 1e9)) return null;
   }
   if (Object.keys(s).length === 0) return null;
+  // the riders a Life Protect customer asked for are checked field by field, like the PDF
+  // memory: a bad field costs only that field (lifeprotect/riders.ts)
+  const { riders, ...withoutRiders } = s;
+  const cleanedRiders = riders === undefined ? undefined : cleanRiders(riders);
+  const checked = cleanedRiders ? { ...withoutRiders, riders: cleanedRiders } : withoutRiders;
   // the PDF memory is checked field by field, and a bad field costs only that field (pdf.ts)
-  if (s.pdf === undefined) return s as unknown as AnySlots;
-  const { pdf, ...rest } = s;
+  if (checked.pdf === undefined) return checked as unknown as AnySlots;
+  const { pdf, ...rest } = checked;
   const memory = cleanPdfMemory(pdf);
   return (memory ? { ...rest, pdf: memory } : rest) as unknown as AnySlots;
 }

@@ -5,13 +5,17 @@ import { getPlan } from "@/calc/plans/registry";
 import { baseSumAssuredLimits } from "@/calc/rules";
 import { sumAssuredFromPremium } from "@/calc/sa-from-premium";
 import { formatBaht } from "@/calc/money";
-import { cardPath, valueTablePath } from "@/lib/card-link";
+import { cardPath, valueTablePath, type CardRiders, type PlanCardInput } from "@/lib/card-link";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
 import { lifeProtectChatQuoteText } from "@/lib/lifeprotect-cta";
+import { lifeProtectPriced } from "@/lib/lifeprotect-card";
 import { lifeProtectFacts } from "@/lib/lifeprotect-facts";
 import { cashAt, deathBenefitOf, lifeProtectModes, termAt } from "@/lib/lifeprotect-quote";
 import { lifeProtectTable, type LifeProtectTable } from "@/lib/lifeprotect-table";
 import { faqAnswer } from "./faq";
+import {
+  cleanRiders, dailyButton, mergeRiders, payerIn, resolveRiders, ridersIn, type RidersWanted,
+} from "./riders";
 import { PLAN_INFO_SYSTEM, SMALL_TALK_SYSTEM } from "./prompts";
 import { addressLine } from "../prompts";
 import { asksPayTerm, asksValueTable, mergeSlots, PLAN_CODE, routeMessage, type Routed } from "./route";
@@ -57,6 +61,8 @@ function askForMissing(slots: Routed, table: LifeProtectTable): string {
       : `ครอบครัวได้รับ ${slots.coverWanted.toLocaleString("en-US")} บาท`);
   }
   if (slots.variant) known.push(table.terms.find((t) => t.variant === slots.variant)?.label ?? "");
+  const riderNames = ridersNamed(cleanRiders(slots.riders));
+  if (riderNames) known.push(riderNames);
 
   const missing: string[] = [];
   const example: string[] = [];
@@ -89,10 +95,32 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
     return { ...handOverForm(hasQuote(known)), slots: { ...known, offer: undefined, formSent: true } };
   }
 
-  const slots = mergeSlots(previous, await routeMessage(history));
+  // a child's พีบี waits for a parent, and the answer is a parent: "แม่ 35" is not a new insured,
+  // which is what the router would make of it, so it is read before the router is asked
+  const parent = waitsForParent(previous) && coverIn(asked) === undefined ? payerIn(asked) : undefined;
+  if (previous && parent) {
+    const slots: Routed = { ...previous, intent: "quote", riders: mergeRiders(cleanRiders(previous.riders), { payer: parent }) };
+    return { ...answerQuote(slots), slots };
+  }
+
+  // one of the answers the agency writes out by hand every day. A message can both ask for a
+  // price and ask one of these — "ญ 37 ลดหย่อนภาษีได้ไหม" — so it is added to the quote
+  // rather than replacing it.
+  const faq = faqAnswer(asked);
+  // what the customer says about riders is read off the message, and only when the message is
+  // not one of those answers — "ผู้ชำระเบี้ยต้องแถลงสุขภาพไหม" is about health, not a rider
+  const riderAsked = faq ? undefined : ridersIn(asked);
+  const routed = mergeSlots(previous, await routeMessage(history));
+  const slots: Routed = { ...routed, riders: mergeRiders(cleanRiders(previous?.riders), riderAsked) };
   // checked before the routes that speak: a question about the company is answered by the
   // agency's own sentence whatever else the turn was about
   if (asksAboutCompany(asked)) return { ...one(aboutCompany(asked)), slots };
+  // a rider asked for is a quote with the rider on it: the card, the table and the price the
+  // page would give, whatever the router thought the turn was about
+  if (riderAsked) {
+    const asking: Routed = { ...slots, intent: "quote" };
+    return { ...answerQuote(asking), slots: asking };
+  }
   if (asksPayTerm(asked)) return { ...answerPayTerm(slots), slots };
   if (asksValueTable(asked)) return { ...answerValueTable(slots), slots };
   if (asksCheaper(asked)) return answerCheaper(slots);
@@ -119,10 +147,6 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
     return { ...priced, slots: { ...taken, offer: priced.priced ? undefined : offer, ...(priced.priced ? { takenSum: sumTaken } : {}) } };
   }
 
-  // one of the answers the agency writes out by hand every day. A message can both ask for a
-  // price and ask one of these — "ญ 37 ลดหย่อนภาษีได้ไหม" — so it is added to the quote
-  // rather than replacing it.
-  const faq = faqAnswer(asked);
   if (slots.intent === "quote") {
     const quoted = answerQuote(slots);
     if (faq) quoted.messages.push({ text: faq });
@@ -178,6 +202,7 @@ function quoteFor(
   table: LifeProtectTable, variant: string, who: { age: number; sex: "M" | "F" }, coverWanted: number,
   offer?: Routed["offer"],
   takenSum?: number,
+  wanted?: RidersWanted,
 ): Said & { figures?: QuoteFigures; table?: string } {
   const { age, sex } = who;
   if (age < table.ageMin || age > table.ageMax) {
@@ -197,23 +222,105 @@ function quoteFor(
   const modes = lifeProtectModes(table, term, { sex, age, sumAssured });
   if (!modes) return { text: `อายุ ${age} ปี แบบนี้รับประกันอายุ ${table.ageMin}-${table.ageMax} ปีครับ ${HAND_OVER}` };
 
-  const annual = modes.find((m) => m.mode === "annual");
+  // the riders asked for, priced on this insured: the page's own price, from the page's own
+  // function, or the reason there is none — a rider is never priced by guesswork
+  let riders: CardRiders | undefined;
+  let refused: string | undefined;
+  if (wanted) {
+    const resolved = resolveRiders(table, who, wanted);
+    if (resolved.kind === "payer") return { text: askForParent(resolved) };
+    if (resolved.kind === "unsold") refused = resolved.text;
+    else riders = resolved.riders;
+  }
+  const input: PlanCardInput = {
+    kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured, ...(riders ? { riders } : {}),
+  };
+  const priced = riders ? lifeProtectPriced(input, new Date()) : undefined;
+  if (riders && !priced?.paid) refused = `สัญญาเพิ่มเติมนี้ผมคิดเบี้ยในแชทไม่ได้ครับ ${HAND_OVER}`;
+  const withRiders = riders && priced?.paid ? { riders, priced } : undefined;
+
+  const annual = (withRiders ? withRiders.priced.paid! : modes).find((m) => m.mode === "annual");
+  const text = lifeProtectChatQuoteText({
+    sumAssured,
+    termLabel: term.label,
+    age,
+    sex,
+    modes: withRiders ? withRiders.priced.paid! : modes,
+    death: deathBenefitOf(table, age, sumAssured),
+    coverToAge: table.coverToAge,
+    ...(withRiders
+      ? {
+          riders: {
+            ...(withRiders.priced.split ? { split: withRiders.priced.split } : {}),
+            lines: [
+              ...(withRiders.riders.medical !== undefined
+                ? [`🏥 นอนโรงพยาบาลได้เงินวันละ ${withRiders.riders.medical.toLocaleString("en-US")} บาท (MEB)`]
+                : []),
+              ...(withRiders.priced.priceNote ? [withRiders.priced.priceNote] : []),
+            ],
+            footNotes: withRiders.priced.footNotes,
+          },
+        }
+      : {}),
+  });
+  const card = withRiders ? input : { ...input, riders: undefined };
   return {
-    text: lifeProtectChatQuoteText({
-      sumAssured,
-      termLabel: term.label,
-      age,
-      sex,
-      modes,
-      death: deathBenefitOf(table, age, sumAssured),
-      coverToAge: table.coverToAge,
-    }),
-    card: cardPath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }),
-    table: valueTablePath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }),
-    ...withPdf(quotePdfPath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured })),
+    text: refused ? `${text}\n\n${refused}` : text,
+    card: cardPath(card),
+    table: valueTablePath(card),
+    // the quote PDF carries no riders yet: one that disagrees with the card is worse than none
+    ...(withRiders ? {} : withPdf(quotePdfPath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }))),
     ...(annual ? { figures: { age, sex, plan: variant, sumAssured, annual: baht(annual.total), coverWanted } } : {}),
   };
 }
+
+/** A child's พีบี is priced off the parent who pays it, so the parent is asked for. */
+function askForParent(r: { payerMin: number; payerMax: number }): string {
+  return "พีบีของเด็กคิดเบี้ยตามอายุกับเพศของผู้ปกครองที่เป็นผู้ชำระเบี้ยครับ"
+    + ` ขอหน่อยนะครับ (ผู้ปกครองอายุ ${r.payerMin}-${r.payerMax} ปี เช่น "แม่ 35") เดี๋ยวคิดให้เลย`;
+}
+
+/** What the customer asked for, in a few words, for the sentence that asks for the rest. */
+function ridersNamed(wanted: RidersWanted | undefined): string | undefined {
+  if (!wanted) return undefined;
+  const names = [
+    ...(wanted.waiver ? [wanted.waiver.option === "BEYOND" ? "สัญญาเพิ่มเติม Beyond" : "สัญญาเพิ่มเติม"] : []),
+    ...(wanted.medical !== undefined ? ["ค่าชดเชยรายวัน (นอน รพ.)"] : []),
+  ];
+  return names.length ? names.join(" + ") : undefined;
+}
+
+/**
+ * A child's พีบี is waiting for the parent, so the next message that gives one is the answer.
+ * Judged from what was said, not remembered separately: whoever was last priced still needs one.
+ */
+function waitsForParent(previous: Routed | null): boolean {
+  const wanted = cleanRiders(previous?.riders);
+  const who = previous?.people?.[0]
+    ?? (previous?.age !== undefined && previous.sex ? { age: previous.age, sex: previous.sex } : undefined);
+  return Boolean(wanted?.waiver && who && resolveRiders(lifeProtectTable(), who, wanted).kind === "payer");
+}
+
+/**
+ * The buttons that go with a quote carrying riders: the other flavour, the daily money when it
+ * is not on yet, and the way out. Each is worded so that the reader of the next message takes
+ * it back as what it says (riders.ts), or the button would do nothing.
+ */
+function riderReplies(table: LifeProtectTable, who: { age: number; sex: "M" | "F" }, wanted: RidersWanted | undefined): string[] {
+  if (!wanted) return [];
+  const resolved = resolveRiders(table, who, wanted);
+  if (resolved.kind === "payer") return [];
+  if (resolved.kind === "unsold") return [...(resolved.replies ?? []), NO_RIDERS];
+  const { waiver, medical } = resolved.riders;
+  const daily = medical === undefined ? resolveRiders(table, who, { medical: "any" }) : undefined;
+  return [
+    ...(waiver ? [waiver.option === "FIT" ? "เปลี่ยนเป็น Beyond" : "เปลี่ยนเป็นฟิต"] : []),
+    ...(daily?.kind === "ok" && daily.riders.medical !== undefined ? [dailyButton(daily.riders.medical)] : []),
+    NO_RIDERS,
+  ];
+}
+
+const NO_RIDERS = "ไม่เอาสัญญาเพิ่มเติม";
 
 /**
  * The sum assured behind the cover the customer named, on the arrangement in front of them.
@@ -236,9 +343,10 @@ function sumBehind(
  * Titles are kept under twenty characters, which is all Messenger shows of one. No button for
  * the table, because every quotation is followed by its pictures already.
  */
-function quoteReplies(table: LifeProtectTable, quoted: string): string[] {
+function quoteReplies(table: LifeProtectTable, quoted: string, riders: string[] = []): string[] {
   return [
     ...table.terms.filter((t) => QUOTABLE.has(t.variant) && t.variant !== quoted).map((t) => t.label),
+    ...riders,
     WANTS_IN,
   ];
 }
@@ -312,7 +420,8 @@ function answerQuote(slots: Routed): Reply {
   // offer is priced to-99, and quoting its sum on the first term would change the price
   const onOffer = slots.offer && slots.offer.coverWanted === coverWanted ? slots.offer.variant : undefined;
   const variant = slots.variant ?? onOffer ?? FIRST_TERM;
-  const messages = people.map((who) => quoteFor(table, variant, who, coverWanted, slots.offer, slots.takenSum));
+  const wanted = cleanRiders(slots.riders);
+  const messages = people.map((who) => quoteFor(table, variant, who, coverWanted, slots.offer, slots.takenSum, wanted));
 
   // the offer of the other terms belongs once, under the last price on the screen
   const last = messages.map((m) => Boolean(m.card)).lastIndexOf(true);
@@ -338,7 +447,7 @@ function answerQuote(slots: Routed): Reply {
     ],
     priced: last >= 0,
     ...(figures ? { quote: figures } : {}),
-    ...(last >= 0 ? { replies: quoteReplies(table, variant) } : {}),
+    ...(last >= 0 ? { replies: quoteReplies(table, variant, riderReplies(table, people[0], wanted)) } : {}),
   };
 }
 
