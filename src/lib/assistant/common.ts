@@ -482,6 +482,24 @@ export function thanksOnly(text: string): boolean {
 }
 
 /**
+ * A customer saying they have, or had, a condition — as against asking what the plan pays for.
+ *
+ * The shared pattern names cancer and the heart, and on a critical-illness contract those are
+ * as often the cover being asked about ("มะเร็งคุ้มครองไหม") as a condition being confessed. So
+ * a disease word counts only where the message is not about cover; the words that can only be
+ * about the customer's own health count wherever they are.
+ */
+const OWN_HEALTH = /โรคประจำตัว|แถลงสุขภาพ|ตรวจสุขภาพ|สุขภาพไม่ดี|กินยา|รักษาตัว|เคย\s*(?:เป็น|ป่วย|ผ่าตัด|รักษา)|กำลัง\s*(?:เป็น|รักษา)/;
+const ABOUT_COVER = /คุ้มครอง|ครอบคลุม|ได้เงิน|รับเงิน|เคลม|ถ้า\s*(?:เป็น|เจอ|ป่วย)|เจอโรค/;
+
+export function saysUnwell(text: string): boolean {
+  return OWN_HEALTH.test(text) || (HEALTH_QUESTION.test(text) && !ABOUT_COVER.test(text));
+}
+
+/** What a bare thank-you is answered with where no model words the reply: one line, nothing asked. */
+export const THANKS_REPLY = "ยินดีครับ 🙏 สงสัยอะไรเพิ่มเติม ทักมาได้เลยนะครับ";
+
+/**
  * Deciding to buy — "เอาแผนนี้", "สมัครยังไง", "ต้องทำยังไงต่อ", "ใช้เอกสารอะไรบ้าง". The one
  * message the whole campaign is for, and the one a model was wording on its own: it asked for
  * a name and a phone number the privacy page says are never asked for, and once promised to

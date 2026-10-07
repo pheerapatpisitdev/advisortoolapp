@@ -189,3 +189,24 @@ describe("a sum and a person in one line", () => {
     }
   });
 });
+
+describe("a customer already quoted", () => {
+  const quoted = { product: "legacy" as const, age: 40, sex: "M" as const, tier: 3, told: true as const };
+
+  it("is not quoted again for saying thank you (Messenger, 2026-10-07)", () => {
+    for (const said of ["ขอบคุณค่ะ สำหรับข้อมูล", "ขอบคุณครับ"]) {
+      const a = answer(said, quoted);
+      expect(a.priced, said).toBeFalsy();
+      expect(a.messages, said).toHaveLength(1);
+      expect(a.messages[0].card, said).toBeUndefined();
+      expect(a.slots, said).toMatchObject({ tier: 3 });
+    }
+  });
+
+  it("is told about the declaration, not quoted again, when asking about a health check", () => {
+    const a = answer("สอบถามเงื่อนไขเพิ่มเติมครับ ต้องตรวจสุขภาพหรือไม่ มีระยะเวลารอคอยหรือไม่", quoted);
+    expect(a.priced).toBeFalsy();
+    expect(a.messages[0].card).toBeUndefined();
+    expect(spoken(a)).toContain("แถลงข้อมูลสุขภาพ");
+  });
+});

@@ -885,7 +885,20 @@ describe("everything else", () => {
     const answer = await answerQuestion(said("สอบถามเงื่อนไขเพิ่มเติมครับ ต้องตรวจสุขภาพหรือไม่ มีระยะเวลารอคอยหรือไม่"), before);
     expect(answer.priced).toBeFalsy();
     expect(answer.messages.some((m) => m.card)).toBe(false);
-    expect(answer.messages.map((m) => m.text).join("\n")).toContain("แถลงข้อมูลสุขภาพ");
+    const text = answer.messages.map((m) => m.text).join("\n");
+    // the page's own answer to the health check, and an honest one to the waiting period
+    expect(text).toContain("ขึ้นกับอายุ ทุน และประวัติสุขภาพ");
+    expect(text).toContain("ยังไม่มีข้อมูลที่ยืนยันได้");
+    // and nothing invented: no number of days, no "ไม่มีระยะรอคอย"
+    expect(text).not.toMatch(/\d+\s*วัน|ไม่มีระยะ/);
+  });
+
+  it("still gives the declaration, not the check-up answer, to someone with a condition", async () => {
+    routed = { intent: "other" };
+    const answer = await answerQuestion(said("เป็นเบาหวาน ต้องตรวจสุขภาพไหม"), { intent: "quote", age: 51, sex: "M", coverWanted: 1_000_000 });
+    const text = answer.messages.map((m) => m.text).join("\n");
+    expect(text).toContain("แถลงข้อมูลสุขภาพ");
+    expect(text).not.toContain("ขึ้นกับอายุ ทุน");
   });
 
   it("still answers a thank-you that carries a question or a figure", async () => {

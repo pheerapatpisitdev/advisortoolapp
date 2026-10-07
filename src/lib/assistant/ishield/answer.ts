@@ -10,7 +10,7 @@ import { quotePdfPath } from "@/lib/quote-pdf/link";
 import diseases from "../../../../data/riders/ishield-diseases.json";
 import {
   aboutCompany, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, HEALTH_QUESTION,
-  peopleIn, saysFormDone, stallReply, stalls, WANTS_IN, wantsToBuy, type Reply,
+  peopleIn, saysFormDone, saysUnwell, stallReply, stalls, thanksOnly, THANKS_REPLY, WANTS_IN, wantsToBuy, type Reply,
 } from "../common";
 import { writtenFor, type Channel } from "../channel";
 import { CHOOSE_HEALTH, CHOOSE_LEGACY } from "../choose";
@@ -212,20 +212,6 @@ export function sumFromSaving(saving: number, who: { age: number; sex: "M" | "F"
   return Math.min(Math.max(tidy, min), max ?? raw);
 }
 
-/**
- * A customer saying they have, or had, a condition — as against asking what the plan pays for.
- *
- * The shared pattern names cancer and the heart, and on a critical-illness contract those are
- * as often the cover being asked about ("มะเร็งคุ้มครองไหม") as a condition being confessed. So
- * a disease word counts only where the message is not about cover; the words that can only be
- * about the customer's own health count wherever they are.
- */
-const OWN_HEALTH = /โรคประจำตัว|แถลงสุขภาพ|ตรวจสุขภาพ|สุขภาพไม่ดี|กินยา|รักษาตัว|เคย\s*(?:เป็น|ป่วย|ผ่าตัด|รักษา)|กำลัง\s*(?:เป็น|รักษา)/;
-const ABOUT_COVER = /คุ้มครอง|ครอบคลุม|ได้เงิน|รับเงิน|เคลม|ถ้า\s*(?:เป็น|เจอ|ป่วย)|เจอโรค/;
-
-export function saysUnwell(text: string): boolean {
-  return OWN_HEALTH.test(text) || (HEALTH_QUESTION.test(text) && !ABOUT_COVER.test(text));
-}
 
 /** The paying term as a customer says it, and as a button says it. */
 const termLabel = (variant: string) => `ส่ง ${Number(variant.replace(/\D/g, ""))} ปี`;
@@ -340,6 +326,8 @@ export function answerIShield(
   if (saysFormDone(asked)) {
     return { messages: [{ text: said(FORM_RECEIVED) }], formDone: true, slots };
   }
+  // a bare thank-you is not a request: left to the rest it is read as the sum again and priced
+  if (thanksOnly(asked)) return { messages: [{ text: said(THANKS_REPLY) }], slots };
   if (stalls(asked)) {
     return { messages: [{ text: said(stallReply(priced)) }], slots };
   }

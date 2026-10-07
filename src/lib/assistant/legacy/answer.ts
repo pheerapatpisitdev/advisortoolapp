@@ -4,8 +4,8 @@ import { cardPath } from "@/lib/quote-card";
 import { diseaseCardPath } from "@/lib/card-link";
 import { formatBaht } from "@/calc/money";
 import {
-  aboutCompany, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, peopleIn, saysFormDone, stallReply,
-  stalls, WANTS_IN, wantsToBuy, type Reply,
+  aboutCompany, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, peopleIn, saysFormDone, saysUnwell, stallReply,
+  stalls, thanksOnly, THANKS_REPLY, HEALTH_DECLARATION, WANTS_IN, wantsToBuy, type Reply,
 } from "../common";
 import { writtenFor, type Channel } from "../channel";
 import { CHOOSE_HEALTH, CHOOSE_LIFE } from "../choose";
@@ -183,6 +183,15 @@ export function answerLegacy(
   // two did not. The agency's own sentence, whatever else the conversation is about.
   if (asksAboutCompany(asked)) return { messages: [{ text: said(aboutCompany(asked)) }], slots };
 
+  /**
+   * A condition, or a question about a health check, answered before the form is.
+   *
+   * "ต้องตรวจสุขภาพหรือไม่" was answered with the quotation again (Messenger, 2026-10-07), and
+   * "เป็นเบาหวานสมัครได้ไหม" holds the word "สมัคร". Whether someone can be insured is the
+   * underwriter's answer, so they are told about the declaration and nothing is sent.
+   */
+  if (saysUnwell(asked)) return { messages: [{ text: said(HEALTH_DECLARATION) }], slots };
+
   if (wantsToBuy(asked, priced)) {
     const form = handOverForm(priced);
     // the flag the report counts and the inbox reads as "an agent has this one now"
@@ -195,6 +204,8 @@ export function answerLegacy(
   if (saysFormDone(asked)) {
     return { messages: [{ text: said(FORM_RECEIVED) }], formDone: true, slots };
   }
+  // a bare thank-you is not a request: left to the rest it is read as the tier again and priced
+  if (thanksOnly(asked)) return { messages: [{ text: said(THANKS_REPLY) }], slots };
   if (stalls(asked)) {
     return { messages: [{ text: said(stallReply(priced)) }], slots };
   }
