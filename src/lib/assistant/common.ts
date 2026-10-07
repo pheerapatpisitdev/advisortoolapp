@@ -654,7 +654,7 @@ function planNamePattern(): RegExp {
 const AGE_ALONE = new RegExp(String.raw`(?<!ถึง\s?)อายุ\s*(\d{1,2})(?!\d)(?:${MONTHS})?|^\s*(\d{1,2})\s*ปี`);
 
 export function ageIn(text: string): number | undefined {
-  return ageSaid(text)?.age;
+  return ageSaid(text)?.age ?? ageFromBirthdate(text);
 }
 
 /** `ageIn`, and whether the customer counted it in months. */
@@ -697,7 +697,8 @@ export function monthsOldIn(text: string): number | undefined {
  * to remember.
  */
 export function peopleIn(text: string): { age: number; sex: "M" | "F" }[] {
-  const said = text.replace(planNamePattern(), " ");
+  // a date of birth is not "20 ชาย": its day would be read as an age
+  const said = text.replace(planNamePattern(), " ").replace(new RegExp(BIRTHDATE_RE, "g"), " ");
   const out: { age: number; sex: "M" | "F" }[] = [];
   for (const m of said.matchAll(PERSON_RE)) {
     const word = m[1] ?? m[5] ?? "";
@@ -712,7 +713,7 @@ export function peopleIn(text: string): { age: number; sex: "M" | "F" }[] {
   // nobody paired, but one sex and one age in the same line are one person, whatever stands
   // between them: "ญ ทุน 1,000,000 อายุ 40", "อายุ 40 ทุน 1 ล้าน ผู้หญิง"
   const sex = sexIn(said);
-  const age = ageIn(said);
+  const age = ageIn(said) ?? ageFromBirthdate(text);
   return sex && age !== undefined ? [{ age, sex }] : [];
 }
 
@@ -724,11 +725,11 @@ export function peopleIn(text: string): { age: number; sex: "M" | "F" }[] {
  * different premium. An age is arithmetic on a calendar, so it is done here.
  */
 export function ageFromBirthdate(text: string, today: Date = new Date()): number | undefined {
-  const m = text.match(/(\d{1,2})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{4})/);
-  if (!m) return ageFromBirthYear(text, today);
-  const day = Number(m[1]);
-  const month = Number(m[2]);
-  const named = Number(m[3]);
+  const g = BIRTHDATE_RE.exec(text)?.groups;
+  if (!g) return ageFromBirthYear(text, today);
+  const day = Number(g.d ?? g.d2);
+  const month = g.m ? Number(g.m) : THAI_MONTHS.findIndex((names) => names.includes(g.name.replace(/\.$/, ""))) + 1;
+  const named = Number(g.y ?? g.y2);
   if (day < 1 || day > 31 || month < 1 || month > 12) return undefined;
   // a year in the 2500s is พ.ศ.; anything else is read as ค.ศ.
   const year = named >= 2400 ? named - 543 : named;
@@ -737,6 +738,24 @@ export function ageFromBirthdate(text: string, today: Date = new Date()): number
   const age = now.year - year - (passed ? 0 : 1);
   return age >= 0 && age <= 99 ? age : undefined;
 }
+
+/** The month names a customer writes a date with, in calendar order: spelled out, then abbreviated. */
+const THAI_MONTHS = [
+  ["มกราคม", "ม.ค"], ["กุมภาพันธ์", "ก.พ"], ["มีนาคม", "มี.ค"], ["เมษายน", "เม.ย"],
+  ["พฤษภาคม", "พ.ค"], ["มิถุนายน", "มิ.ย"], ["กรกฎาคม", "ก.ค"], ["สิงหาคม", "ส.ค"],
+  ["กันยายน", "ก.ย"], ["ตุลาคม", "ต.ค"], ["พฤศจิกายน", "พ.ย"], ["ธันวาคม", "ธ.ค"],
+];
+
+/**
+ * A full date of birth: "20/6/2543", "20-06-2000", "20 มิถุนายน 2543" or "20 มิ.ย. 2543".
+ *
+ * Without a flag, so `exec` has no state to carry; `new RegExp(BIRTHDATE_RE, "g")` where every
+ * date in a message is wanted.
+ */
+const BIRTHDATE_RE = new RegExp(
+  String.raw`(?<d>\d{1,2})\s*[/\-.]\s*(?<m>\d{1,2})\s*[/\-.]\s*(?<y>\d{4})(?!\d)`
+  + String.raw`|(?<d2>\d{1,2})\s*(?:เดือน\s*)?(?<name>${THAI_MONTHS.flat().map((n) => n.replace(/\./g, String.raw`\.`) + String.raw`\.?`).join("|")})\s*(?:พ\.?\s*ศ\.?|ค\.?\s*ศ\.?|ปี)?\s*(?<y2>\d{4})(?!\d)`,
+);
 
 /**
  * Today's date where the customer is, as numbers.
