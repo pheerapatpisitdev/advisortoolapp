@@ -115,6 +115,25 @@ export async function sendImage(
 }
 
 /**
+ * A picture uploaded with the message rather than fetched by Meta from a URL: a card carrying
+ * a customer's own photo is drawn for them alone, and `is_reusable: false` keeps it from
+ * being kept on Meta's side as an address anyone could be handed.
+ */
+export async function sendImageFile(
+  psid: string, bytes: Uint8Array, filename: string, replies?: string[], pageId?: string,
+): Promise<void> {
+  const form = new FormData();
+  form.append("recipient", JSON.stringify({ id: psid }));
+  form.append("messaging_type", "RESPONSE");
+  form.append("message", JSON.stringify({
+    attachment: { type: "image", payload: { is_reusable: false } },
+    ...(replies?.length ? { quick_replies: quickReplies(replies) } : {}),
+  }));
+  form.append("filedata", new Blob([bytes as BlobPart], { type: "image/png" }), filename);
+  await postForm("messages", form, pageId);
+}
+
+/**
  * A PDF as an attachment, uploaded with the message rather than fetched by Meta from a URL:
  * the file is printed on demand by a route that rate-limits strangers, and Meta's own fetch
  * would be one. `is_reusable: false` because nothing else will send this file again.
