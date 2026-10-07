@@ -20,7 +20,7 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 
 /** the quote card and its value table: src/lib/card-link.ts cardQuery, in its order */
-export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "v"] as const;
+export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "fig", "v"] as const;
 /** one contract's illnesses: src/lib/card-link.ts diseaseCardPath */
 export const DISEASE_CARD_KEYS = ["of"] as const;
 /** the health card and its table: src/lib/ihealthy-link.ts cardQuery and cardPath, the menu's fit=phone */

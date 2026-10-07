@@ -11,6 +11,7 @@ import type { BundleCardInput, CardInput, CardRiders, PlanCardInput } from "@/li
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { cashProjection, type Projection } from "@/lib/cash-projection";
 import { ageTicks } from "@/lib/age-ticks";
+import { placeFigures, type ChartFigure } from "@/lib/chart-figures";
 import { iShieldTable } from "@/lib/ishield-table";
 import { illnessBenefit } from "@/lib/ishield-quote";
 import { plbTable } from "@/lib/plb-table";
@@ -83,6 +84,8 @@ export interface CardChart {
   /** where the surrender value overtakes the premiums paid */
   breakEven: { x: number; y: number; label: string } | null;
   legend: { label: string; kind: "cash" | "premium" | "cover" }[];
+  /** the characters standing on the cash line, in the viewBox's units; none unless asked for */
+  figures: ChartFigure[];
 }
 
 export interface QuoteCard {
@@ -355,6 +358,9 @@ function payYearsFor(plan: PlanBundle, variant: string, age: number): number {
 
 const CHART_LEFT = 86, CHART_RIGHT = 14, CHART_TOP = 18, CHART_BOTTOM = 44;
 
+/** The characters' size: this at the widest drawing, shrinking with the drawing down to the floor. */
+const FIGURE_MAX = 1.35, FIGURE_MIN = 0.7, FIGURE_FULL_WIDTH = 1640;
+
 /** the least room between two ages under the card's drawing, in its own pixels */
 const TICK_GAP = 46;
 
@@ -368,7 +374,7 @@ const TICK_GAP = 46;
  */
 function chartFor(
   plan: PlanBundle, input: PlanCardInput, death: DeathBenefit, annualSatang: number | null,
-  riderDue: ((years: number) => number[]) | undefined, width: number,
+  riderDue: ((years: number) => number[]) | undefined, width: number, characters: boolean,
 ): CardChart | undefined {
   const CHART_W = width;
   // as tall as a third of its width, so a table-wide drawing does not flatten its lines; never
@@ -400,6 +406,24 @@ function chartFor(
     ? { y: Number(y(p.coverFloor).toFixed(1)), label: shortBaht(Math.round(p.coverFloor / 100)) }
     : null;
 
+  // the characters stand on the cash line, so they are placed from the same points it is drawn from
+  const cashPoints = p.rows.map((r) => ({ x: x(r.age), y: y(r.cashValue) }));
+  const cashAt = (at: number) => {
+    const i = cashPoints.findIndex((pt) => pt.x >= at);
+    if (i <= 0) return cashPoints[Math.max(0, i)].y;
+    const a = cashPoints[i - 1], b = cashPoints[i];
+    return a.y + ((b.y - a.y) * (at - a.x)) / (b.x - a.x);
+  };
+  const figures = characters
+    ? placeFigures({
+      startAge: input.age, endAge: p.maturityAge, x, yAt: cashAt,
+      left: CHART_LEFT, right: CHART_W - CHART_RIGHT, top: 0,
+      // as large as the drawing is wide, so a narrow card's people are not out of proportion
+      scale: Math.min(FIGURE_MAX, Math.max(FIGURE_MIN, (CHART_W / FIGURE_FULL_WIDTH) * FIGURE_MAX)),
+      ...(p.breakEven ? { avoidX: x(p.breakEven.age) } : {}),
+    })
+    : [];
+
   return {
     title: "ความคุ้มครอง เบี้ย และมูลค่าเงินสด",
     width: CHART_W,
@@ -423,6 +447,7 @@ function chartFor(
       { label: "เบี้ยสะสม (รายปี)", kind: "premium" },
       { label: "ความคุ้มครอง", kind: "cover" },
     ],
+    figures,
   };
 }
 
@@ -793,8 +818,13 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
  * The same figures the table carries: a cover the plan does not step down from is still a
  * line, a picture with no price still shows what the policy is worth, and Life Protect's
  * riders are in what is paid in, as on its page.
+ *
+ * `characters` stands the little people of each stage of life on the cash line, for the table a
+ * chat sends a customer.
  */
-export function valueTableChart(input: PlanCardInput, width: number, today: Date = new Date()): CardChart | undefined {
+export function valueTableChart(
+  input: PlanCardInput, width: number, today: Date = new Date(), opts: { characters?: boolean } = {},
+): CardChart | undefined {
   const plan = getPlan(input.planCode);
   if (!plan) return undefined;
   const result = quote(quoteInput(input, "annual"), today);
@@ -806,7 +836,7 @@ export function valueTableChart(input: PlanCardInput, width: number, today: Date
   const death = result.deathBenefit
     ?? { beforeAge: 0, sumBefore: result.sumAssured, sumFrom: result.sumAssured, alreadyPastAge: true };
   return chartFor(
-    plan, input, death, result.meta.expired || !annual ? null : annual.total, lifeProtect?.riderDue, width,
+    plan, input, death, result.meta.expired || !annual ? null : annual.total, lifeProtect?.riderDue, width, opts.characters ?? false,
   );
 }
 

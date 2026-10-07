@@ -88,6 +88,29 @@ export const CARD_PALETTE: CardPalette = {
 };
 
 /**
+ * The colours of the little people on a chat's value table (src/app/api/card/chart-figures.tsx).
+ *
+ * A cartoon is not drawn in the card's palette — skin, hair and a pair of trousers have no slot
+ * in it — so these are its own, held here for the same reason as the rest: a drawing cannot
+ * read a CSS variable. The navy, sand, olive and yellow on them are the palette's.
+ */
+export const FIGURE_COLORS = {
+  skin: "#f3d2b3",
+  hair: "#15181d",
+  blush: "#f4a6a0",
+  grey: "#9aa0ab",
+  silver: "#eceef2",
+  white: "#ffffff",
+  edge: "#c3c6cd",
+  suit: "#1f2b4d",
+  denim: "#3b4f86",
+  slacks: "#4d5563",
+  trousers: "#5a5f6b",
+  heel: "#7d3b4a",
+  lips: "#b23a48",
+} as const;
+
+/**
  * The palette to draw this card in.
  *
  * A function rather than the constant itself, because this used to choose by plan code and

@@ -260,6 +260,8 @@ describe("the conversation", () => {
     const table = priced.messages.find((m) => m.card?.includes("/api/card/table"));
     expect(table).toBeDefined();
     expect(table!.text).toContain("เงินเวนคืน");
+    // a chat's table carries the little people on its chart
+    expect(table!.card).toContain("&fig=1&v=");
   });
 
   /**

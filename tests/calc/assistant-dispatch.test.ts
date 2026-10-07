@@ -164,6 +164,7 @@ describe("a customer who has not said what they came for", () => {
     expect(answer.messages[1].card).toContain("age=33&sex=M");
     expect(answer.messages[2].card).toContain("age=54&sex=M");
     expect(answer.messages[3].card).toContain("/api/card/table?");
+    expect(answer.messages[3].card).toContain("&fig=1&v=");
   });
 
   it("prices all of them once the plan is settled", async () => {

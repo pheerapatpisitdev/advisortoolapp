@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { CardChart } from "@/lib/quote-card";
 import type { CardPalette } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
+import { figureShape } from "./chart-figures";
 
 /**
  * The cash-value drawing, as the value table's picture carries it — above the table, the way
@@ -76,6 +77,8 @@ export function Chart({ chart, p }: { chart: CardChart; p: CardPalette }) {
             <polyline fill="none" stroke={p.line.premium} strokeWidth={4} points={chart.premium} />
           )}
           <polyline fill="none" stroke={p.line.cash} strokeWidth={5} points={chart.cash} />
+          {/* standing on the line, under the break-even marker so the marker is never covered */}
+          {chart.figures.map(figureShape)}
           {chart.breakEven && (
             // the highlighter's yellow, as the value table marks the same year; ringed in ink so
             // it still reads where it sits on top of the navy line

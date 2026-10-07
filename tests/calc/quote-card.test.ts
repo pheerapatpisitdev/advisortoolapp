@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { valueTablePath } from "@/lib/card-link";
 import { cardInputFrom, cardPath, cardUrl, quoteCard, valueTableCard, valueTableChart, type CardInput, type PlanCardInput, type QuoteCard } from "@/lib/quote-card";
 
 /** The rate table behind these figures lapses on 2027-03-31. */
@@ -288,6 +289,56 @@ describe("the chart on a value table", () => {
     )).toBeUndefined();
   });
 
+  it("has nobody standing on it unless the characters are asked for", () => {
+    expect(valueTableChart(LIFE_PROTECT, 888, WHILE_CURRENT)!.figures).toEqual([]);
+  });
+
+  describe("with the characters a chat's card carries", () => {
+    const withFigures = (input: PlanCardInput, width = 1640) =>
+      valueTableChart(input, width, WHILE_CURRENT, { characters: true })!;
+
+    it("stands a 35-year-old's family, middle age and old age on the line", () => {
+      expect(withFigures(LIFE_PROTECT).figures.map((f) => f.kind)).toEqual(["adult", "kid", "mom", "mid", "senior"]);
+    });
+
+    it("keeps every figure above the axis and inside the drawing", () => {
+      for (const width of [888, 1640]) {
+        const c = withFigures(LIFE_PROTECT, width);
+        for (const f of c.figures) {
+          expect(f.x).toBeGreaterThan(0);
+          expect(f.x).toBeLessThan(c.width);
+          expect(f.y).toBeGreaterThan(0);
+          expect(f.y).toBeLessThanOrEqual(c.height - 44);
+        }
+      }
+    });
+
+    it("stands each figure on the cash line, not beside it", () => {
+      const c = withFigures(LIFE_PROTECT);
+      const points = c.cash.split(" ").map((pt) => pt.split(",").map(Number) as [number, number]);
+      for (const f of c.figures) {
+        const i = points.findIndex(([px]) => px >= f.x);
+        const [x0, y0] = points[Math.max(0, i - 1)];
+        const [x1, y1] = points[i];
+        const onLine = x1 === x0 ? y1 : y0 + ((y1 - y0) * (f.x - x0)) / (x1 - x0);
+        expect(f.y).toBeCloseTo(onLine, 0);
+      }
+    });
+
+    it("keeps clear of the break-even marker", () => {
+      const c = withFigures({ ...LIFE_PROTECT, age: 25, variant: "WLF99H" });
+      for (const f of c.figures) expect(Math.abs(f.x - c.breakEven!.x)).toBeGreaterThanOrEqual(20);
+    });
+
+    it("draws a child's chart with a child on it", () => {
+      expect(withFigures({ ...LIFE_PROTECT, age: 5 }).figures[0].kind).toBe("kid");
+    });
+
+    it("draws larger on a wider drawing", () => {
+      expect(withFigures(LIFE_PROTECT, 1640).figures[0].scale).toBeGreaterThan(withFigures(LIFE_PROTECT, 888).figures[0].scale);
+    });
+  });
+
   /** The quote card no longer carries one: the owner moved it to the table. */
   it("is not on the quote card", () => {
     expect("chart" in quoteCard(LIFE_PROTECT, WHILE_CURRENT)!).toBe(false);
@@ -318,5 +369,26 @@ describe("the notes at the foot of a card", () => {
 
   it("adds nothing to a plan whose page has no such lines", () => {
     expect(at("ISMART", "W80F06")).toBeUndefined();
+  });
+});
+
+/** Only the value table a chat sends carries the characters, so only its link asks for them. */
+describe("the value table's link", () => {
+  const plan: PlanCardInput = { kind: "plan", planCode: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 };
+
+  it("does not ask for the characters unless it is told to", () => {
+    expect(valueTablePath(plan)).not.toContain("fig=");
+    expect(cardPath(plan)).not.toContain("fig=");
+  });
+
+  it("asks for them just before the fingerprint, where the route reads them", () => {
+    const q = new URL(valueTablePath(plan, { characters: true }), "https://x.test").searchParams;
+    expect([...q.keys()].slice(-2)).toEqual(["fig", "v"]);
+    expect(q.get("fig")).toBe("1");
+  });
+
+  it("is still read as the same card", () => {
+    const q = new URL(valueTablePath(plan, { characters: true }), "https://x.test").searchParams;
+    expect(cardInputFrom(q)).toEqual(plan);
   });
 });
