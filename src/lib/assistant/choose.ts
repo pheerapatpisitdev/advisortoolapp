@@ -23,6 +23,24 @@ const NAMES: [Product, RegExp][] = [
 ];
 
 /**
+ * The names that mean one plan and nothing else, as against the words several plans answer to
+ * ("ประกันชีวิต", "เบี้ยทิ้ง", "ออม"). A conversation settled on Protection Life is moved off it
+ * only by one of these.
+ */
+const EXPLICIT: Partial<Record<Product, RegExp>> = {
+  lifeprotect: /life\s*protect|ไลฟ์\s*โพรเทค|ไลฟ์โปรเทค/i,
+  legacy: /มรดกเพื่อครอบครัว|มรดก\s*\+\s*โรคร้าย|\blegacy\b/i,
+  ishield: /i\s*-?\s*shield|ไอ\s*ชิลด์/i,
+  ihealthy: /ประกันสุขภาพ|ไอเฮลท์ตี้|ไอเฮลตี้|i\s*-?\s*healthy/i,
+  plb: /protection\s*life|\bplb\b|โพรเทคชั่น\s*ไลฟ์|พีแอลบี/i,
+};
+
+/** Whether a message holds the plan's own name rather than a word it shares with others. */
+export function namedExplicitly(product: Product, text: string): boolean {
+  return EXPLICIT[product]?.test(text) ?? false;
+}
+
+/**
  * A message about a company's staff rather than about the person writing it.
  *
  * None of the four plans below is sold this way — they are contracts a person takes out on
@@ -58,9 +76,12 @@ export function aboutAGroup(text: string): boolean {
 export function productNamedIn(text: string): Product | undefined {
   if (aboutAGroup(text)) return undefined;
   const named = NAMES.filter(([, re]) => re.test(text));
-  // the plan's own name wins over the generic words beside it: "Protection Life ประกันชีวิต"
-  // names a plan, and a customer who wrote its name chose it
-  if (named.some(([product]) => product === "plb")) return "plb";
+  if (named.some(([product]) => product === "plb")) {
+    // the plan's own name wins over the generic words beside it — "Protection Life ประกันชีวิต"
+    // names a plan — but not over another plan's own name: that is a comparison, which belongs
+    // to whoever is already answering
+    return named.some(([product]) => product !== "plb" && namedExplicitly(product, text)) ? undefined : "plb";
+  }
   return named.length === 1 ? named[0][0] : undefined;
 }
 

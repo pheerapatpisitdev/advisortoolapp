@@ -12,8 +12,9 @@ describe("PLB's written answers", () => {
     }
   });
 
-  it("answers tax relief with the one sentence Life Protect uses", () => {
-    expect(plbFaqAnswer("ลดหย่อนภาษีได้ไหม")).toBe(TAX_RELIEF);
+  it("answers tax relief with the one sentence Life Protect uses, for the terms that qualify", () => {
+    expect(plbFaqAnswer("ลดหย่อนภาษีได้ไหม", "PLB10")).toBe(TAX_RELIEF);
+    expect(plbFaqAnswer("ลดหย่อนภาษีได้ไหม", "PLB05")).not.toBe(TAX_RELIEF);
     expect(faqAnswer("ลดหย่อนภาษีได้ไหม")).toBe(TAX_RELIEF);
     expect(TAX_RELIEF).toContain("สูงสุด 100,000 บาทต่อปี");
   });

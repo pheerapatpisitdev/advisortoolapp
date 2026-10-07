@@ -6,6 +6,7 @@ import { plbModes } from "@/lib/plb-quote";
 import { plbTable } from "@/lib/plb-table";
 import { answerPlb, PLB_LABEL, type PlbAnswer, type PlbSlots } from "@/lib/assistant/plb/answer";
 import { PLB_WAITING } from "@/lib/assistant/plb/faq";
+import { TAX_RELIEF } from "@/lib/assistant/common";
 
 const text = (a: PlbAnswer) => a.messages.map((m) => m.text).join("\n");
 const cards = (a: PlbAnswer) => a.messages.filter((m) => m.card);
@@ -184,5 +185,78 @@ describe("the rest of what a customer says", () => {
     const a = start("เป็นเบาหวาน ทำได้ไหม", held().slots);
     expect(text(a)).toContain("แถลงข้อมูลสุขภาพ");
     expect(cards(a)).toHaveLength(0);
+  });
+});
+
+/**
+ * The whole-branch review (2026-10-07): after a quotation almost anything that was not a
+ * recognised question re-sent the card, and a refused quotation counted as one held.
+ */
+describe("a quotation already held is not re-sent for nothing", () => {
+  it("answers an acknowledgement, a vague question, and a written question with no card", () => {
+    for (const said of ["โอเคครับ", "ครับ", "👍", "สอบถามเงื่อนไขเพิ่มเติมครับ", "มีสัญญาเพิ่มเติมอะไรบ้าง", "เบี้ยลดหย่อนภาษีได้ไหม", "รอคอยนานเท่าไหร่", "จ่ายเบี้ยครบแล้วได้เงินคืนไหม"]) {
+      const a = start(said, held().slots);
+      expect(cards(a), said).toHaveLength(0);
+      expect(a.priced, said).toBeFalsy();
+      expect(a.messages, said).toHaveLength(1);
+    }
+  });
+
+  it("keeps the buttons on the short answer, so the customer can still change something", () => {
+    expect(start("โอเคครับ", held().slots).replies?.length).toBeGreaterThan(0);
+  });
+
+  it("re-prices when the customer changes something: 'ถ้าเป็นผู้หญิงล่ะ' is the same cover for a woman", () => {
+    const a = start("ถ้าเป็นผู้หญิงล่ะ", held().slots);
+    expect(a.priced).toBe(true);
+    expect(a.slots).toMatchObject({ sex: "F", age: 35, sumAssured: 1_000_000, variant: "PLB10" });
+  });
+
+  it("takes a bare 'สนใจ' after a quotation as taking up the form, once", () => {
+    const a = start("สนใจครับ", held().slots);
+    expect(a.slots.formSent).toBe(true);
+    expect(cards(a)).toHaveLength(0);
+  });
+
+  it("flags a question it has no sentence for, so the dispatcher can ask the library", () => {
+    expect(start("มีสัญญาเพิ่มเติมอะไรบ้าง", held().slots).libraryQuestion).toBe(true);
+    expect(start("โอเคครับ", held().slots).libraryQuestion).toBeFalsy();
+  });
+});
+
+describe("a refused quotation is not a quotation held", () => {
+  it("does not hand over the form for a contract the engine refused", () => {
+    const refused = start("PLB ชาย 35 ทุน 100,000 ชำระ 10 ปี");
+    expect(refused.priced).toBe(false);
+    const a = start("ตกลงครับ", refused.slots);
+    expect(a.slots.formSent).toBeUndefined();
+    expect(text(start("เดี๋ยวคิดดูก่อน", refused.slots))).not.toContain("ใบเสนออย่างเป็นทางการ");
+  });
+});
+
+describe("tax relief depends on the term", () => {
+  it("gives the agency's sentence for the terms of ten years and over", () => {
+    for (const v of ["PLB10", "PLB12", "PLB15"]) {
+      const a = start("ลดหย่อนภาษีได้ไหม", { ...held().slots, variant: v });
+      expect(text(a), v).toBe(TAX_RELIEF);
+    }
+  });
+
+  it("hands the five-year term, and a plan not yet chosen, to the admin", () => {
+    for (const slots of [{ ...held().slots, variant: "PLB05" }, { product: "plb" as const }]) {
+      const a = text(start("ลดหย่อนภาษีได้ไหม", slots));
+      expect(a).not.toBe(TAX_RELIEF);
+      expect(a).toContain("แอดมินเช็ก");
+    }
+  });
+});
+
+describe("the page's own over-age message", () => {
+  it("is told what PLB takes and pointed at Life Protect, not asked for an age it must refuse", () => {
+    const a = start("สนใจ Protection Life ทุน 1,000,000 อายุเกิน 59 ปี ขอแบบที่เหมาะกับอายุนี้");
+    expect(text(a)).toContain("Life Protect");
+    expect(a.replies).toContain("💰 Life Protect");
+    expect(a.priced).toBeFalsy();
+    expect(a.slots.age).toBeUndefined();
   });
 });

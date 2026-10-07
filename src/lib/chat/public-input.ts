@@ -93,6 +93,7 @@ export function cleanSlots(raw: unknown): AnySlots | null {
   if (s.product !== undefined && !PRODUCTS.has(s.product as string)) return null;
   if (!ageOk(s.age) || !sexOk(s.sex)) return null;
   if (s.formSent !== undefined && s.formSent !== true) return null;
+  if (s.priced !== undefined && s.priced !== true) return null;
   if (s.people !== undefined) {
     if (!Array.isArray(s.people)) return null;
     for (const p of s.people) {

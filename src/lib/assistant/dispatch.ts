@@ -1,7 +1,7 @@
 import type { ChatMessage } from "@/lib/ai/types";
-import { aboutAGroup, askWhich, askWhichAgain, pickedFromMenu, productByTopic, productNamedIn, type Product } from "./choose";
+import { aboutAGroup, askWhich, askWhichAgain, namedExplicitly, pickedFromMenu, productByTopic, productNamedIn, type Product } from "./choose";
 import {
-  aboutCompany, ageIn, asksAboutCompany, handOverForm, handOverGroup, peopleIn, tookUpTheOffer,
+  aboutCompany, ageIn, ASKS_SOMETHING, asksAboutCompany, asksAboutMoney, handOverForm, handOverGroup, peopleIn, tookUpTheOffer,
   wantsToBuy, type Reply,
 } from "./common";
 import { answerHealth } from "./ihealthy/answer";
@@ -62,9 +62,6 @@ export type AnyAnswer = Reply & {
   introFor?: true;
 };
 
-/** A message that asks something, as against one that announces an interest. */
-const ASKS_SOMETHING = /ไหม|มั้ย|หรือเปล่า|รึเปล่า|อะไร|เท่าไหร่|เท่าไร|กี่|ยังไง|อย่างไร|ทำไม|ที่ไหน|\?/;
-
 /**
  * A first message with nothing in it to answer: "สวัสดี", "สนใจ", "ขอรายละเอียด".
  *
@@ -79,12 +76,6 @@ function opensWithNothing(asked: string): boolean {
     && !peopleIn(asked).length && ageIn(asked) === undefined
     && !/[0-9๐-๙]/.test(asked) && !ASKS_SOMETHING.test(asked);
 }
-
-/** Words that make a question about a plan a question about its price. */
-/** the plan's own name, as against "ประกันชีวิต", which every life policy answers to */
-const LIFE_PROTECT_NAMED = /life\s*protect|ไลฟ์\s*โพรเทค|ไลฟ์โปรเทค/i;
-
-const asksAboutMoney = (text: string) => /เบี้ย|ราคา|กี่บาท|ค่างวด|จ่ายเดือนละ|จ่ายปีละ|จ่ายเท่าไหร่|คิดให้|premium/i.test(text);
 
 /** What of a person is worth carrying from one contract to the other: not much, and not more. */
 interface Person {
@@ -335,10 +326,16 @@ async function routeAny(
     };
   }
 
-  if (now === "lifeprotect" || now === "ihealthy" || now === "legacy" || now === "ishield" || now === "plb") {
-    // "ประกันชีวิต" is the generic word and Protection Life is a life policy: only an explicit
-    // Life Protect name takes a PLB conversation away from it
-    const moveTo = now === "plb" && named === "lifeprotect" && !LIFE_PROTECT_NAMED.test(asked) ? undefined : named;
+  /**
+   * iSmart, Life Treasure and Easy Protect, named inside a Protection Life conversation, are
+   * still priced on their own path below — not as the plan the conversation is on.
+   */
+  const otherPlan = planNamedIn(asked);
+  const namesAnotherPlan = now === "plb" && otherPlan !== undefined && otherPlan.code !== "PLB" && otherPlan.code !== "ISHIELD";
+  if (!namesAnotherPlan && (now === "lifeprotect" || now === "ihealthy" || now === "legacy" || now === "ishield" || now === "plb")) {
+    // "ประกันชีวิต", "เบี้ยทิ้ง" and "ออม" are words several plans answer to, and Protection Life
+    // is a life policy that pays nothing back: only a plan's own name takes a PLB conversation off it
+    const moveTo = now === "plb" && named && !namedExplicitly(named, asked) ? undefined : named;
     // the customer has named the other plan: only the person travels, because the sum, the
     // plan, the territory and any offer on the table all belong to the contract being left
     if (moveTo && moveTo !== now) return run(moveTo, history, personIn(stored), true, channel);
@@ -482,7 +479,14 @@ async function run(
 ): Promise<AnyAnswer> {
   if (product === "plb") {
     const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
-    return answerPlb(asked, fresh ? startPlb(carried as Person) : (carried as PlbSlots), channel);
+    const { libraryQuestion, ...answer } = answerPlb(asked, fresh ? startPlb(carried as Person) : (carried as PlbSlots), channel);
+    // a question about the plan that the brain has no sentence for is the library's, as it was
+    // before PLB had a brain; the conversation stays on PLB either way
+    if (libraryQuestion) {
+      const text = await answerFromLibrary(history, asked, channel);
+      if (text) return { messages: [{ text }], ...(answer.replies ? { replies: answer.replies } : {}), slots: answer.slots, fromLibrary: true };
+    }
+    return answer;
   }
   if (product === "legacy" || product === "ishield") {
     /**

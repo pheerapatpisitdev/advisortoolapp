@@ -501,6 +501,12 @@ export function saysUnwell(text: string): boolean {
   return OWN_HEALTH.test(text) || (HEALTH_QUESTION.test(text) && !ABOUT_COVER.test(text));
 }
 
+/** A message that asks something, as against one that announces an interest. */
+export const ASKS_SOMETHING = /ไหม|มั้ย|หรือเปล่า|รึเปล่า|อะไร|เท่าไหร่|เท่าไร|กี่|ยังไง|อย่างไร|ทำไม|ที่ไหน|\?/;
+
+/** A message about money, which is a request for a price rather than a question about the plan. */
+export const asksAboutMoney = (text: string) => /เบี้ย|ราคา|กี่บาท|ค่างวด|จ่ายเดือนละ|จ่ายปีละ|จ่ายเท่าไหร่|คิดให้|premium/i.test(text);
+
 /** What a bare thank-you is answered with where no model words the reply: one line, nothing asked. */
 export const THANKS_REPLY = "ยินดีครับ 🙏 สงสัยอะไรเพิ่มเติม ทักมาได้เลยนะครับ";
 
