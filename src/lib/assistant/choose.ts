@@ -1,7 +1,7 @@
 import type { Reply } from "./common";
 
 /** What this page sells, as the session records which one a customer came for. */
-export type Product = "lifeprotect" | "ihealthy" | "legacy" | "ishield";
+export type Product = "lifeprotect" | "ihealthy" | "legacy" | "ishield" | "plb";
 
 /**
  * A plan named outright — the only signal strong enough to move a conversation already under
@@ -15,6 +15,7 @@ export type Product = "lifeprotect" | "ihealthy" | "legacy" | "ishield";
  * none, so it has one. Whatever /admin/ads offers to copy has to be a word this list knows.
  */
 const NAMES: [Product, RegExp][] = [
+  ["plb", /protection\s*life|\bplb\b|โพรเทคชั่น\s*ไลฟ์|พีแอลบี/i],
   ["ihealthy", /ประกันสุขภาพ|ไอเฮลท์ตี้|ไอเฮลตี้|i\s*-?\s*healthy/i],
   ["legacy", /เบี้ยทิ้ง|มรดกเพื่อครอบครัว|มรดก\s*\+\s*โรคร้าย|\blegacy\b/i],
   ["ishield", /i\s*-?\s*shield|ไอ\s*ชิลด์|ออม/i],
@@ -57,6 +58,9 @@ export function aboutAGroup(text: string): boolean {
 export function productNamedIn(text: string): Product | undefined {
   if (aboutAGroup(text)) return undefined;
   const named = NAMES.filter(([, re]) => re.test(text));
+  // the plan's own name wins over the generic words beside it: "Protection Life ประกันชีวิต"
+  // names a plan, and a customer who wrote its name chose it
+  if (named.some(([product]) => product === "plb")) return "plb";
   return named.length === 1 ? named[0][0] : undefined;
 }
 

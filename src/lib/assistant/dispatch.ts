@@ -7,6 +7,7 @@ import {
 import { answerHealth } from "./ihealthy/answer";
 import { answerLegacy, type LegacySlots } from "./legacy/answer";
 import { answerIShield, type IShieldSlots } from "./ishield/answer";
+import { answerPlb, type PlbSlots } from "./plb/answer";
 import type { HealthSlots } from "./ihealthy/route";
 import { answerQuestion } from "./lifeprotect/answer";
 import type { Routed } from "./lifeprotect/route";
@@ -80,6 +81,9 @@ function opensWithNothing(asked: string): boolean {
 }
 
 /** Words that make a question about a plan a question about its price. */
+/** the plan's own name, as against "ประกันชีวิต", which every life policy answers to */
+const LIFE_PROTECT_NAMED = /life\s*protect|ไลฟ์\s*โพรเทค|ไลฟ์โปรเทค/i;
+
 const asksAboutMoney = (text: string) => /เบี้ย|ราคา|กี่บาท|ค่างวด|จ่ายเดือนละ|จ่ายปีละ|จ่ายเท่าไหร่|คิดให้|premium/i.test(text);
 
 /** What of a person is worth carrying from one contract to the other: not much, and not more. */
@@ -331,10 +335,13 @@ async function routeAny(
     };
   }
 
-  if (now === "lifeprotect" || now === "ihealthy" || now === "legacy" || now === "ishield") {
+  if (now === "lifeprotect" || now === "ihealthy" || now === "legacy" || now === "ishield" || now === "plb") {
+    // "ประกันชีวิต" is the generic word and Protection Life is a life policy: only an explicit
+    // Life Protect name takes a PLB conversation away from it
+    const moveTo = now === "plb" && named === "lifeprotect" && !LIFE_PROTECT_NAMED.test(asked) ? undefined : named;
     // the customer has named the other plan: only the person travels, because the sum, the
     // plan, the territory and any offer on the table all belong to the contract being left
-    if (named && named !== now) return run(named, history, personIn(stored), true, channel);
+    if (moveTo && moveTo !== now) return run(moveTo, history, personIn(stored), true, channel);
     return run(now, history, stored, false, channel);
   }
 
@@ -355,7 +362,7 @@ async function routeAny(
    * the most common unanswered question on the website (16 in a fortnight), from a button
    * the page itself offered. Named, it goes to its brain below.
    */
-  if (other && other.code !== "ISHIELD" && asksAboutMoney(asked)) {
+  if (other && other.code !== "ISHIELD" && other.code !== "PLB" && asksAboutMoney(asked)) {
     const priced = priceNamedPlan(asked, other.code, other.label);
     return {
       ...pricedAnswer(priced, channel),
@@ -473,6 +480,10 @@ async function run(
   product: Product, history: ChatMessage[], carried: AnySlots | Person | null, fresh: boolean,
   channel: Channel = "web",
 ): Promise<AnyAnswer> {
+  if (product === "plb") {
+    const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+    return answerPlb(asked, fresh ? startPlb(carried as Person) : (carried as PlbSlots), channel);
+  }
   if (product === "legacy" || product === "ishield") {
     /**
      * The one brain that is given the message rather than the conversation.
@@ -522,6 +533,12 @@ function startLegacy({ age, sex }: Person): LegacySlots | null {
 function startIShield({ age, sex }: Person): IShieldSlots | null {
   if (age === undefined && sex === undefined) return null;
   return { product: "ishield", ...(age !== undefined ? { age } : {}), ...(sex ? { sex } : {}) };
+}
+
+/** The same for Protection Life: the person comes across, the sum and the term do not. */
+function startPlb({ age, sex }: Person): PlbSlots | null {
+  if (age === undefined && sex === undefined) return null;
+  return { product: "plb", ...(age !== undefined ? { age } : {}), ...(sex ? { sex } : {}) };
 }
 
 /** A health conversation begun from whatever the last one knew about the person. */
