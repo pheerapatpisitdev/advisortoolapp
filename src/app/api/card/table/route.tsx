@@ -7,6 +7,7 @@ import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import { QUOTE_CARD_KEYS, toCanonical } from "../canonical";
 import { Chart, chartBlockHeight } from "../chart-drawing";
+import { quoteFor } from "@/lib/life-quotes";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -56,7 +57,14 @@ const H = {
   caption: 40,
   head: 44,
   row: 36,
+  /** the closing line: the room above it, and each line of it */
+  quoteGap: 34,
+  quoteLine: 42,
 };
+
+/** The closing line's size, and how many characters of it a line holds before it wraps. */
+const QUOTE_SIZE = 28;
+const quoteLines = (text: string, width: number) => Math.ceil(text.length / Math.floor(width / (QUOTE_SIZE * 0.6)));
 
 const CAPTION = "มูลค่าทุกปี ตั้งแต่ปีแรกจนครบสัญญา";
 /** A plan with no surrender column is not showing a value, it is showing a term. */
@@ -221,13 +229,14 @@ function Half(
   );
 }
 
-function heightOf(card: ValueTableCard, chart: CardChart | undefined): number {
+function heightOf(card: ValueTableCard, chart: CardChart | undefined, quote: string, width: number): number {
   const perHalf = card.rows.length;
   return PAD * 2
     + (chart ? chartBlockHeight(chart) : 0)
     + H.plan + H.insured + H.premium
     + H.gap + H.hairline + H.afterHairline
-    + H.caption + H.head + perHalf * H.row;
+    + H.caption + H.head + perHalf * H.row
+    + H.quoteGap + quoteLines(quote, width - PAD * 2) * H.quoteLine;
 }
 
 /**
@@ -277,6 +286,10 @@ export async function GET(req: NextRequest) {
   const cols = short ? narrow : narrow.map((c) => ({ ...c, w: Math.floor(c.w * stretch) }));
   // the drawing as wide as the table it is read with
   const chart = input.kind === "plan" ? valueTableChart(input, width - PAD * 2) : undefined;
+  /** one line to close on, chosen by the arrangement so the same table is always the same picture */
+  const quote = quoteFor(
+    ["plan", "variant", "age", "sex", "sum", "rider", "payer", "meb"].map((k) => req.nextUrl.searchParams.get(k) ?? "").join("|"),
+  );
 
   return new ImageResponse(
     (
@@ -329,11 +342,21 @@ export async function GET(req: NextRequest) {
           <Half columns={card.columns} rows={card.rows} p={p} cols={cols} half={width - PAD * 2} />
         </div>
 
+        <div
+          style={{
+            display: "flex", flexShrink: 0, justifyContent: "center", textAlign: "center",
+            width: width - PAD * 2, marginTop: H.quoteGap, fontSize: QUOTE_SIZE, lineHeight: `${H.quoteLine}px`,
+            color: p.accent,
+          }}
+        >
+          {quote}
+        </div>
+
       </div>
     ),
     {
       width,
-      height: heightOf(card, chart),
+      height: heightOf(card, chart, quote, width),
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
