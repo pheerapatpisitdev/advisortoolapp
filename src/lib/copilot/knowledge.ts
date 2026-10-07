@@ -386,7 +386,11 @@ function faqSection(question: string): string {
    * no second list of keywords here to fall out of date.
    */
   const all = [
-    ...LIFE_FAQ.map((f) => ({ plan: "Life Protect x 2", key: f.key, match: f.match, answer: f.answer })),
+    // one entry is built from the question; with none, it is shown with both of its halves
+    ...LIFE_FAQ.map((f) => ({
+      plan: "Life Protect x 2", key: f.key, match: f.match,
+      answer: typeof f.answer === "function" ? f.answer(question ?? "ตรวจสุขภาพ รอคอย") : f.answer,
+    })),
     // the health entries hold a function, because two of them are read off the contract
     // sheet at the moment they are asked rather than typed into the file
     ...HEALTH_FAQ.map((f) => ({ plan: "iHealthy Ultra", key: f.key, match: f.match, answer: f.answer() })),

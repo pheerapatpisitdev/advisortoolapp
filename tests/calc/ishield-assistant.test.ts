@@ -310,3 +310,15 @@ describe("the conversation", () => {
     expect(spoken(a)).not.toContain("70 โรค");
   });
 });
+
+describe("a customer already quoted, thanking", () => {
+  it("is not quoted again for saying thank you (Messenger, 2026-10-07)", async () => {
+    const { answerIShield } = await import("@/lib/assistant/ishield/answer");
+    for (const said of ["ขอบคุณค่ะ สำหรับข้อมูล", "ขอบคุณครับ"]) {
+      const a = answerIShield(said, { product: "ishield", age: 40, sex: "M", variant: "WLCI10", sumAssured: 1_000_000, told: true } as never);
+      expect(a.priced, said).toBeFalsy();
+      expect(a.messages, said).toHaveLength(1);
+      expect(a.messages[0].card, said).toBeUndefined();
+    }
+  });
+});

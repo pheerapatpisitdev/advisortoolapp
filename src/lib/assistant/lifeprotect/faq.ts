@@ -13,14 +13,48 @@ import { HEALTH_DECLARATION, HEALTH_QUESTION } from "../common";
 export interface FaqEntry {
   key: string;
   match: RegExp;
-  answer: string;
+  /** a sentence, or one built from the message when it may be asking two things at once */
+  answer: string | ((text: string) => string);
 }
+
+/** A condition the customer says they have, as against asking whether a check-up is needed. */
+const CONDITION = /โรคประจำตัว|มีโรค|เป็นโรค|ป่วยเป็น|เบาหวาน|ความดัน|ไทรอยด์|หอบ|ภูมิแพ้|มะเร็ง|หัวใจ|ผ่าตัด|กินยา|รักษาตัว|สุขภาพไม่ดี/;
+const ASKS_CHECKUP = /ตรวจสุขภาพ|ต้องตรวจ|ตรวจร่างกาย/;
+const ASKS_WAITING = /รอคอย|ระยะรอ/;
+
+/**
+ * Whether a health check is needed, and whether there is a waiting period.
+ *
+ * The first is the sales page's own answer (components/lifeprotect/Sections.tsx) with the
+ * company's Q&A item 9 — the plan is underwritten in the ordinary way — so the chat and the
+ * page say the same thing. The second is not in the company's Q&A at all: the waiting periods
+ * on file belong to the health and critical-illness contracts. It is not guessed at; the
+ * customer is told it is being checked, which is true (Messenger, 2026-10-07).
+ *
+ * Not for someone who says they have a condition: that is the declaration's, below, which must
+ * never be read as a promise to accept.
+ */
+const CHECKUP_ANSWER =
+  "ต้องตรวจสุขภาพหรือไม่ ขึ้นกับอายุ ทุน และประวัติสุขภาพครับ บริษัทพิจารณารับประกันแบบปกติ "
+  + "เบี้ยที่คิดให้เป็นเบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณา\n"
+  + "ถ้าอยากรู้ว่ากรณีของคุณต้องตรวจไหม เดี๋ยวแอดมินเช็กให้ก่อนสมัครได้เลยครับ";
+const WAITING_ANSWER =
+  "ระยะเวลารอคอยของแบบนี้ ผมยังไม่มีข้อมูลที่ยืนยันได้ครับ ไม่อยากตอบเดา "
+  + "เดี๋ยวแอดมินเช็กกับบริษัทแล้วกลับมาตอบในแชทนี้นะครับ";
 
 /**
  * Order matters: health is first because a message that mentions a condition and asks a
  * price is, above everything else, a message that must not be told it will be accepted.
  */
 export const FAQ: FaqEntry[] = [
+  {
+    key: "conditions",
+    match: /ตรวจสุขภาพ|ต้องตรวจ|ตรวจร่างกาย|รอคอย|ระยะรอ/,
+    answer: (text) => [
+      ASKS_CHECKUP.test(text) ? CHECKUP_ANSWER : "",
+      ASKS_WAITING.test(text) ? WAITING_ANSWER : "",
+    ].filter(Boolean).join("\n\n"),
+  },
   {
     key: "health",
     match: HEALTH_QUESTION,
@@ -60,5 +94,8 @@ export const FAQ: FaqEntry[] = [
 
 /** The written answer for a message, or undefined when it asks none of these. */
 export function faqAnswer(text: string): string | undefined {
-  return FAQ.find((e) => e.match.test(text))?.answer;
+  // someone who names a condition is the declaration's, never the check-up's
+  const entry = FAQ.find((e) => e.match.test(text) && !(e.key === "conditions" && CONDITION.test(text)));
+  if (!entry) return undefined;
+  return typeof entry.answer === "function" ? entry.answer(text) : entry.answer;
 }
