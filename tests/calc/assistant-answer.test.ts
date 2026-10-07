@@ -443,6 +443,8 @@ describe("the buttons under a quotation", () => {
     expect(answer.messages.map((m) => m.card?.split("?")[0])).toEqual(["/api/card", "/api/card", "/api/card/table", "/api/card/table"]);
     expect(answer.messages[2].card).toContain("age=32&sex=F");
     expect(answer.messages[3].card).toContain("age=33&sex=M");
+    // the tables carry the little people; the quote cards, which have no chart, do not
+    expect(answer.messages.map((m) => m.card?.includes("&fig=1&v="))).toEqual([false, false, true, true]);
     expect(answer.messages[2].text).toContain("ของหญิง อายุ 32");
     expect(answer.messages[3].text).toContain("ของชาย อายุ 33");
     expect(answer.replies).not.toContain("ขอตารางมูลค่า");
