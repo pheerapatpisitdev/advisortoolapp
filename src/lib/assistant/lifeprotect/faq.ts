@@ -27,9 +27,9 @@ const ASKS_WAITING = /รอคอย|ระยะรอ/;
  *
  * The first is the sales page's own answer (components/lifeprotect/Sections.tsx) with the
  * company's Q&A item 9 — the plan is underwritten in the ordinary way — so the chat and the
- * page say the same thing. The second is not in the company's Q&A at all: the waiting periods
- * on file belong to the health and critical-illness contracts. It is not guessed at; the
- * customer is told it is being checked, which is true (Messenger, 2026-10-07).
+ * page say the same thing. The second is not in the company's Q&A: the owner's answer is that the
+ * cover starts as soon as the policy is approved, so there is no waiting period to wait out
+ * (2026-10-07). The waiting periods on file belong to the health and critical-illness contracts.
  *
  * Not for someone who says they have a condition: that is the declaration's, below, which must
  * never be read as a promise to accept.
@@ -38,9 +38,7 @@ const CHECKUP_ANSWER =
   "ต้องตรวจสุขภาพหรือไม่ ขึ้นกับอายุ ทุน และประวัติสุขภาพครับ บริษัทพิจารณารับประกันแบบปกติ "
   + "เบี้ยที่คิดให้เป็นเบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณา\n"
   + "ถ้าอยากรู้ว่ากรณีของคุณต้องตรวจไหม เดี๋ยวแอดมินเช็กให้ก่อนสมัครได้เลยครับ";
-const WAITING_ANSWER =
-  "ระยะเวลารอคอยของแบบนี้ ผมยังไม่มีข้อมูลที่ยืนยันได้ครับ ไม่อยากตอบเดา "
-  + "เดี๋ยวแอดมินเช็กกับบริษัทแล้วกลับมาตอบในแชทนี้นะครับ";
+const WAITING_ANSWER = "คุ้มครองทันทีหลังกรมธรรม์อนุมัติครับ ไม่ต้องรอระยะรอคอย";
 
 /**
  * Order matters: health is first because a message that mentions a condition and asks a

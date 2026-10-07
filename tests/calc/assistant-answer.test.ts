@@ -886,11 +886,12 @@ describe("everything else", () => {
     expect(answer.priced).toBeFalsy();
     expect(answer.messages.some((m) => m.card)).toBe(false);
     const text = answer.messages.map((m) => m.text).join("\n");
-    // the page's own answer to the health check, and an honest one to the waiting period
+    // the page's own answer to the health check, and the owner's to the waiting period:
+    // the cover starts when the policy is approved
     expect(text).toContain("ขึ้นกับอายุ ทุน และประวัติสุขภาพ");
-    expect(text).toContain("ยังไม่มีข้อมูลที่ยืนยันได้");
-    // and nothing invented: no number of days, no "ไม่มีระยะรอคอย"
-    expect(text).not.toMatch(/\d+\s*วัน|ไม่มีระยะ/);
+    expect(text).toContain("คุ้มครองทันทีหลังกรมธรรม์อนุมัติ");
+    // and no number of days, which this plan does not have
+    expect(text).not.toMatch(/\d+\s*วัน/);
   });
 
   it("still gives the declaration, not the check-up answer, to someone with a condition", async () => {
