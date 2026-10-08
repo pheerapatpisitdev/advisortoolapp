@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_DIRECTION } from "@/lib/content/background";
+import type { Swatch } from "@/lib/content/palette";
 import {
   ACCEPTED_TYPES, AVOID_LINE, DESCRIBE_SYSTEM, appendToBrief, assemblePrompt, describeMessages, parseDescribed, splitPrompt,
   type Described,
@@ -21,15 +22,15 @@ const good = { ...sample("a calm scene."), summaryTh: "ฉากสงบ" };
 
 describe("parseDescribed", () => {
   it("reads clean JSON", () => {
-    expect(parseDescribed(reply(good))).toEqual(good);
+    expect(parseDescribed(reply(good))).toEqual({ ...good, palette: [] });
   });
 
   it("reads JSON inside a code fence", () => {
-    expect(parseDescribed("```json\n" + reply(good) + "\n```")).toEqual(good);
+    expect(parseDescribed("```json\n" + reply(good) + "\n```")).toEqual({ ...good, palette: [] });
   });
 
   it("reads JSON that follows a line of prose", () => {
-    expect(parseDescribed("Here is the description:\n" + reply(good))).toEqual(good);
+    expect(parseDescribed("Here is the description:\n" + reply(good))).toEqual({ ...good, palette: [] });
   });
 
   it.each([...KEYS, "summaryTh"])("is null when %s is missing", (key) => {
@@ -146,5 +147,87 @@ describe("the reading request", () => {
 
   it("accepts only jpeg, png and webp", () => {
     expect([...ACCEPTED_TYPES]).toEqual(["image/jpeg", "image/png", "image/webp"]);
+  });
+});
+
+const SWATCHES: Swatch[] = [
+  { hex: "#C41E3A", share: 38 }, { hex: "#FFFFFF", share: 22 }, { hex: "#D9C9A8", share: 25 }, { hex: "#1B2A49", share: 6 },
+];
+const USES = [
+  { hex: "#c41e3a", role: "Dominant", where: "paper banners" },
+  { hex: "#FFFFFF", role: "secondary", where: "clippings and string" },
+  { hex: "#1B2A49", role: "accent", where: "the scarf" },
+];
+
+describe("the colour palette", () => {
+  it("parseDescribed keeps how each colour is used, with the hex in capitals and the role in lower case", () => {
+    expect(parseDescribed(reply({ ...good, palette: USES }))?.palette).toEqual([
+      { hex: "#C41E3A", role: "dominant", where: "paper banners" },
+      { hex: "#FFFFFF", role: "secondary", where: "clippings and string" },
+      { hex: "#1B2A49", role: "accent", where: "the scarf" },
+    ]);
+  });
+
+  it("parseDescribed does not fail a read for a palette that is missing or wrong — the colours were measured, not asked", () => {
+    expect(parseDescribed(reply(good))?.palette).toEqual([]);
+    expect(parseDescribed(reply({ ...good, palette: "red and white" }))?.palette).toEqual([]);
+    const bad = [{ hex: "red", role: "accent", where: "x" }, { role: "accent", where: "x" }, { hex: "#112233", where: 5 }, null];
+    expect(parseDescribed(reply({ ...good, palette: bad }))?.palette).toEqual([]);
+  });
+
+  it("parseDescribed leaves out a role it does not know, and keeps the colour", () => {
+    expect(parseDescribed(reply({ ...good, palette: [{ hex: "#112233", role: "primary-ish", where: "the wall" }] }))?.palette)
+      .toEqual([{ hex: "#112233", role: "", where: "the wall" }]);
+  });
+
+  it("assemblePrompt writes the measured codes and shares, with the model's role and place for each, after Color and tone", () => {
+    const out = assemblePrompt({ ...sample("x."), palette: USES.map((u) => ({ ...u, hex: u.hex.toUpperCase(), role: u.role.toLowerCase() })) }, SWATCHES);
+    const lines = out.split("\n");
+    expect(lines[4]).toMatch(/^Color and tone:/);
+    expect(lines[5]).toBe(
+      "Color palette: #C41E3A dominant (paper banners, 38%); #FFFFFF secondary (clippings and string, 22%); #D9C9A8 (25%); #1B2A49 accent (the scarf, 6%)",
+    );
+  });
+
+  it("assemblePrompt uses the measured hex, never one the model made up, and shows a colour the model skipped", () => {
+    const d: Described = { ...sample("x."), palette: [{ hex: "#00FF00", role: "accent", where: "a made-up green" }] };
+    const line = assemblePrompt(d, [{ hex: "#C41E3A", share: 90 }]).split("\n").find((l) => l.startsWith("Color palette:"));
+    expect(line).toBe("Color palette: #C41E3A (90%)");
+  });
+
+  it("assemblePrompt writes no palette line when no colours were measured", () => {
+    expect(assemblePrompt(sample("x."))).not.toContain("Color palette");
+    expect(assemblePrompt(sample("x."), [])).not.toContain("Color palette");
+  });
+
+  it("assemblePrompt strips Thai and clips a place to 60 characters", () => {
+    const d: Described = { ...sample("x."), palette: [{ hex: "#C41E3A", role: "dominant", where: "ป้ายสีแดง " + "banner ".repeat(30) }] };
+    const line = assemblePrompt(d, [{ hex: "#C41E3A", share: 40 }]).split("\n").find((l) => l.startsWith("Color palette:"))!;
+    expect(line).not.toMatch(/[\u0E00-\u0E7F]/);
+    const place = line.match(/\((.*), 40%\)/)![1];
+    expect(place.length).toBeLessThanOrEqual(60);
+  });
+
+  it("assemblePrompt never drops the palette line to make room, and still fits", () => {
+    const long: Described = { ...sample(("word ".repeat(500)).trim()), palette: USES.map((u) => ({ ...u, hex: u.hex.toUpperCase(), role: "accent" })) };
+    const out = assemblePrompt(long, SWATCHES);
+    expect(out).toContain("Color palette:");
+    expect(out.length).toBeLessThanOrEqual(MAX_DIRECTION);
+    expect(out.endsWith(AVOID_LINE)).toBe(true);
+  });
+
+  it("splitPrompt gives the palette its own card", () => {
+    const parts = splitPrompt(assemblePrompt(sample("x."), SWATCHES));
+    expect(parts).toHaveLength(9);
+    expect(parts[5].heading).toBe("Color palette");
+  });
+
+  it("describeMessages lists the measured colours for the model to describe, and the system prompt asks for a palette", () => {
+    const m = describeMessages({ base64: "AAAA", mimeType: "image/jpeg" }, SWATCHES);
+    expect(m[1].content).toContain("#C41E3A 38%");
+    expect(m[1].content).toContain("#1B2A49 6%");
+    expect(m[1].content).toContain("palette");
+    expect(DESCRIBE_SYSTEM).toContain("palette");
+    expect(describeMessages({ base64: "AAAA", mimeType: "image/jpeg" })[1].content).not.toContain("#");
   });
 });

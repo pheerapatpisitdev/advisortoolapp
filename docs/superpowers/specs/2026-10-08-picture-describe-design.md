@@ -184,3 +184,12 @@ The system prompt tells the model to:
    `within: [gpt-5, claude-sonnet-5]` (as `poster-read.ts`; the large tier's chain ends in GLM,
    which is sent no picture), each try 25 s and the whole read 50 s (`within`), under the
    route's 60 s.
+7. **A Color palette card of measured hex codes** (owner, 2026-10-08). `Color and tone` stays the
+   overall mood; a new `Color palette` line follows it with up to six colours, each as
+   `#RRGGBB role (what has it, share%)`. The codes and shares are **measured in the browser**
+   from the picture's pixels (`lib/content/palette.ts`, counted on a 64 px copy of the canvas,
+   sent as `image.palette`, checked by `parseSwatches` in the route); the model is told the
+   measured colours and answers only each one's role and place, and the server writes the
+   measured hex whatever the model typed. The line is never dropped for length, and is left out
+   — not an error — when no colours were measured.
+

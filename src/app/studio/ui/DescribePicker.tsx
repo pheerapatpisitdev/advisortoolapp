@@ -29,7 +29,7 @@ export function DescribePicker({ onDone }: { onDone: (r: DescribeOk) => void }) 
     try {
       const shrunk = await shrinkImage(file);
       setState({ phase: "working", name: file.name, kb: Math.max(1, Math.round(shrunk.bytes / 1024)) });
-      const r = await describeCall(shrunk);
+      const r = await describeCall({ base64: shrunk.base64, mimeType: shrunk.mimeType, palette: shrunk.palette });
       if (r.ok) { setState({ phase: "idle" }); onDone(r); }
       else setState({ phase: "failed", error: r.error });
     } catch (e) {

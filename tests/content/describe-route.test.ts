@@ -41,9 +41,22 @@ describe("POST /api/content-describe", () => {
     expect(run.describePicture).not.toHaveBeenCalled();
   });
 
+  it("passes on the measured colours, checked: capitals, at most six, and nothing that is not a colour", async () => {
+    const palette = [{ hex: "#c41e3a", share: 38 }, { hex: "javascript:alert(1)", share: 20 }, { hex: "#FFFFFF", share: 22.4 }];
+    await post({ image: { base64: "AAAA", mimeType: "image/jpeg", palette } });
+    expect(run.describePicture).toHaveBeenCalledWith({
+      base64: "AAAA", mimeType: "image/jpeg", palette: [{ hex: "#C41E3A", share: 38 }, { hex: "#FFFFFF", share: 22 }],
+    });
+  });
+
+  it("reads a picture whose colours are missing or not a list, with none", async () => {
+    await post({ image: { base64: "AAAA", mimeType: "image/jpeg", palette: "red" } });
+    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/jpeg", palette: [] });
+  });
+
   it("hands a good picture to the engine, as it came, and returns its answer", async () => {
     const res = await post({ image: { base64: "AAAA", mimeType: "image/png" } });
-    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/png" });
+    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/png", palette: [] });
     expect(await res.json()).toEqual({ ok: true, prompt: "p", summaryTh: "s", costThb: 0.4 });
   });
 });

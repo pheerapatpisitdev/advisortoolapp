@@ -7,6 +7,7 @@ import { payRound } from "@/lib/wallet/round";
 import { ceilingBeforeRound } from "./ceiling";
 import { OutOfTime, within } from "./deadline";
 import { ACCEPTED_TYPES, MAX_IMAGE_BASE64, assemblePrompt, describeMessages, parseDescribed } from "./describe";
+import type { Swatch } from "./palette";
 import { contentCap, contentSpentThisMonth, holdContentBudget, releaseContentBudget } from "./store";
 
 /**
@@ -31,7 +32,8 @@ const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
 /** a read is cheaper and quicker than a picture, so twenty an hour against drawing's forty */
 const readPerHour = limiter(20, 60 * 60_000);
 
-export interface DescribeInput { base64: string; mimeType: string }
+/** `palette`: the picture's colours as the browser measured them (palette.ts), already checked by the route */
+export interface DescribeInput { base64: string; mimeType: string; palette?: Swatch[] }
 export type DescribeResult =
   | { ok: true; prompt: string; summaryTh: string; costThb: number }
   | { ok: false; error: string };
@@ -48,6 +50,7 @@ const TOO_SLOW = "AI ตอบไม่ทัน — ลองใหม่อี
 export async function describePicture(input: DescribeInput): Promise<DescribeResult> {
   const viewer = await requireMember();
   const { base64, mimeType } = input;
+  const palette = input.palette ?? [];
   if (!(ACCEPTED_TYPES as readonly string[]).includes(mimeType) || typeof base64 !== "string" || !base64 || base64.length > MAX_IMAGE_BASE64) {
     return fail(BAD_PICTURE);
   }
@@ -66,12 +69,12 @@ export async function describePicture(input: DescribeInput): Promise<DescribeRes
       if (!held.ok) return fail(tooDear(held.left));
       hold = held.id;
       const read = await within(chat({
-        tier: "large", task: DESCRIBE_TASK, messages: describeMessages({ base64, mimeType }),
+        tier: "large", task: DESCRIBE_TASK, messages: describeMessages({ base64, mimeType }, palette),
         json: true, maxTokens: 1500, timeoutMs: TRY_MS, prefer: READER, within: READ_FALLBACK,
       }), WHOLE_MS, "describe");
       const described = parseDescribed(read.text);
       if (!described) return fail(UNREADABLE);
-      return { ok: true, prompt: assemblePrompt(described), summaryTh: described.summaryTh, costThb: read.costThb };
+      return { ok: true, prompt: assemblePrompt(described, palette), summaryTh: described.summaryTh, costThb: read.costThb };
     } catch (e) {
       if (e instanceof BudgetExceeded) return fail(BUDGET_OUT);
       if (e instanceof OutOfTime) return fail(TOO_SLOW);

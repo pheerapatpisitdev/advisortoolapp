@@ -86,6 +86,23 @@ describe("describePicture", () => {
     }
   });
 
+  it("tells the model the measured colours, and writes the measured codes and shares into the prompt", async () => {
+    ai.chat.mockResolvedValueOnce(chatOk(JSON.stringify({
+      ...JSON.parse(ANSWER), palette: [{ hex: "#C41E3A", role: "dominant", where: "paper banners" }],
+    })));
+    const r = await describePicture({ ...IMG, palette: [{ hex: "#C41E3A", share: 38 }, { hex: "#FFFFFF", share: 22 }] });
+    expect((r as { prompt: string }).prompt).toContain("Color palette: #C41E3A dominant (paper banners, 38%); #FFFFFF (22%)");
+    const asked = ai.chat.mock.calls[0][0].messages[1].content as string;
+    expect(asked).toContain("#C41E3A 38%");
+    expect(asked).toContain("#FFFFFF 22%");
+  });
+
+  it("writes no palette line when no colours came with the picture, and still reads it", async () => {
+    const r = await describePicture(IMG);
+    expect(r).toMatchObject({ ok: true });
+    expect((r as { prompt: string }).prompt).not.toContain("Color palette");
+  });
+
   it("refuses the 21st read in an hour from one address, before taking a round", async () => {
     for (let i = 0; i < 20; i++) expect(await describePicture(IMG)).toMatchObject({ ok: true });
     quota.takeRound.mockClear();
