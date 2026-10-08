@@ -11,9 +11,9 @@ import { clearReadings, deleteReading } from "@/lib/content/describe-history";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function deleteReadingAction(id: string): Promise<{ ok: boolean }> {
-  if (typeof id !== "string" || !UUID.test(id)) return { ok: false };
+  const viewer = await requireMember().catch(() => null);
+  if (!viewer || typeof id !== "string" || !UUID.test(id)) return { ok: false };
   try {
-    const viewer = await requireMember();
     await deleteReading(viewer.agentId, id);
     return { ok: true };
   } catch (e) {
@@ -23,8 +23,9 @@ export async function deleteReadingAction(id: string): Promise<{ ok: boolean }> 
 }
 
 export async function clearReadingsAction(): Promise<{ ok: boolean }> {
+  const viewer = await requireMember().catch(() => null);
+  if (!viewer) return { ok: false };
   try {
-    const viewer = await requireMember();
     await clearReadings(viewer.agentId);
     return { ok: true };
   } catch (e) {
