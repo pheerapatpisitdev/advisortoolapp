@@ -22,7 +22,9 @@ import type { ChatLang } from "./expat";
 /** The words that ask for the file. "ขอตาราง" is not among them: it is the value table. */
 export const PDF_ASKED = /pdf|ไฟล์|ใบเสนอ/i;
 
-export const PDF_OFFER = "อยากได้เป็นไฟล์ PDF ไว้เก็บหรือส่งต่อให้ครอบครัวไหมครับ?";
+export const PDF_OFFER = "หากสงสัยหรือไม่เข้าใจส่วนไหนสามารถถามได้เลยนะคะ";
+/** The offer's earlier wording: a conversation begun before the change still ends with it. */
+const PDF_OFFER_BEFORE = "อยากได้เป็นไฟล์ PDF ไว้เก็บหรือส่งต่อให้ครอบครัวไหมครับ?";
 export const PDF_YES = "ขอไฟล์ PDF";
 export const PDF_NO = "ไม่เป็นไร";
 
@@ -138,7 +140,7 @@ export function pdfTurn(
   if (!memory || !holdsAQuote(memory)) return undefined;
   const kept = onward(memory);
   // the mark first: the words may have come back cut short
-  const offered = memory.offered === true || Boolean(lastSaid && [PDF_OFFER, PDF_OFFER_EN].some((o) => lastSaid.trimEnd().endsWith(o)));
+  const offered = memory.offered === true || Boolean(lastSaid && [PDF_OFFER, PDF_OFFER_BEFORE, PDF_OFFER_EN].some((o) => lastSaid.trimEnd().endsWith(o)));
 
   // the apply button stays under every answer here: the file is a step towards it, not instead
   if (offered && w.saysNo.test(asked)) {

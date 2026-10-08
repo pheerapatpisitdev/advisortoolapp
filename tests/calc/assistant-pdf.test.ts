@@ -18,7 +18,7 @@ const { PDF_ASKED, PDF_OFFER, PDF_YES, PDF_NO } = await import("@/lib/assistant/
 const { APPLICATION_FORM, FORM_RECEIVED, WANTS_IN } = await import("@/lib/assistant/common");
 import type { AnySlots, WithPdf } from "@/lib/assistant/slots";
 
-const OFFER = "อยากได้เป็นไฟล์ PDF ไว้เก็บหรือส่งต่อให้ครอบครัวไหมครับ?";
+const OFFER = "หากสงสัยหรือไม่เข้าใจส่วนไหนสามารถถามได้เลยนะคะ";
 const DECLINED = "ได้เลยครับ มีอะไรอยากถามต่อ พิมพ์มาได้เลย";
 const NO_PDF = "เบี้ยนี้ยังทำเป็นไฟล์ PDF ไม่ได้ครับ ส่งรูปใบเสนอให้แทนนะครับ";
 
