@@ -13,6 +13,9 @@ import { MAX_DIRECTION, stripThai } from "./background";
 
 export const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
+/** the longest picture the route takes, as base64: a 1,024 px JPEG is a few hundred KB, so this is generous and still far under the host's body limit */
+export const MAX_IMAGE_BASE64 = 2_800_000;
+
 export const AVOID_LINE = "Avoid: any text, logos, brand marks, watermarks, hospital settings, distorted hands.";
 
 export interface Described {
