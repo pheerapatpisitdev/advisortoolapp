@@ -1,6 +1,6 @@
 import type { ChatMessage } from "@/lib/ai/types";
 import { answerAny } from "@/lib/assistant/dispatch";
-import { productNamedIn } from "@/lib/assistant/choose";
+import { productByTopic, productNamedIn } from "@/lib/assistant/choose";
 import {
   asksAboutDeathBenefit, asksForPrice, asksPayTerm, asksValueTable,
 } from "@/lib/assistant/lifeprotect/route";
@@ -15,6 +15,7 @@ import { asksCancerPrice, cancerNamedIn } from "./cancer-price";
 import { PRICED_FOLLOW_UPS, type GuideItem } from "./guide";
 import { noteAfterAnswer } from "@/lib/assistant/unanswered";
 import { forTheWebsite } from "@/lib/assistant/channel";
+import { healthTopicsFor } from "@/lib/health-knowledge";
 
 /**
  * The assistant that answers out of this system's own knowledge, and out of nothing else.
@@ -173,8 +174,18 @@ export async function answerFromKnowledge(
    *
    * It is the dispatcher's own first test, so asking it here makes the two doors agree by
    * construction rather than by both being kept in step.
+   *
+   * The subject as well as the name, because the dispatcher reads both. On 2026-10-08
+   * "มีประกันโรคร้ายแรงไหม" (iShield by subject, no plan named) went to the library here, came
+   * back with no conversation, and the ten turns after it — age, sex, sum, "ขอดูตาราง" —
+   * followed it there: a premium in prose and never a card, where the inbox had quoted.
+   *
+   * Except a question the library holds a block for — "นอนโรงพยาบาลแบบไหนถึงเคลมได้" reads
+   * as health cover by subject, and is answered by the admission criteria, not by a brain
+   * that wants an age before it says anything.
    */
-  if (forTheEngine(question) || productNamedIn(question) || slots) {
+  const bySubject = Boolean(productByTopic(question)) && healthTopicsFor(question).length === 0;
+  if (forTheEngine(question) || productNamedIn(question) || bySubject || slots) {
     const turns: ChatMessage[] = [...history.slice(-6), { role: "user", content: question }];
     // said outright, because the wording depends on it: this side renders markdown
     const answer = await answerAny(turns, slots, "web");

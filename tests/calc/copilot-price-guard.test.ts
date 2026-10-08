@@ -98,6 +98,23 @@ describe("a question asked while a quotation is half-built", () => {
   });
 });
 
+describe("a message that names a plan's subject but not the plan", () => {
+  /**
+   * The inbox reads the subject as well as the name (dispatch.ts: `named ?? productByTopic`);
+   * the page read only the name. On 2026-10-08 "มีประกันโรคร้ายแรงไหม" opened a chat on the
+   * website, went to the library, came back with no conversation, and every turn after it —
+   * "20ปี", "ชายอายุ 35", "1000000", "ขอดูตาราง" — went to the library too: eleven messages,
+   * a premium in prose and never a card.
+   */
+  for (const q of ["มีประกันโรคร้ายแรงไหม", "ประกันมรดกทุน 1,000,000"]) {
+    it(`sends "${q}" to the engine, as the inbox does`, async () => {
+      await answerFromKnowledge(q);
+      expect(asked.dispatch).toBe(1);
+      expect(asked.model).toBe(0);
+    });
+  }
+});
+
 describe("a question about a rule", () => {
   /**
    * These name no plan, so no brain owns them and the library answers directly.
