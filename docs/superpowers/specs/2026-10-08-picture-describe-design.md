@@ -40,12 +40,12 @@ The cost goes through each user's own budget and wallet, as drawing does.
 | Brief → English → drawn | `inEnglish(request)` then `drawBackground` in `studio/actions.ts` | unchanged; an English brief goes through as is |
 | Reading a picture with a model | `chat({ messages: [{ images }], mediaResolution })`, `ChatImage` in `lib/ai/types.ts` | used as is |
 | Round control: per-hour limit, ceiling, wallet hold, content-budget hold, pay | `drawPerHour`, `ceilingBeforeRound`, `takeRound`, `holdContentBudget`, `payRound` | same helpers, new task name |
-| Spend by task | `lib/ai/ledger.ts` | new task `describe-picture`, so /admin/ai shows it apart |
+| Spend by task | `lib/ai/ledger.ts` | new task `content-describe-picture`, so /admin/ai shows it apart and the ceiling counts it |
 | Menu | `studioMenu` in `lib/shell/menu.ts`, icons in `components/shell/Sidebar.tsx` | one link, one new icon |
 
 ## Design
 
-### 1. The engine — `describePicture` (server action, `studio/describe.ts`)
+### 1. The engine — `describePicture` (`lib/content/describe-run.ts`, behind `POST /api/content-describe`)
 
 Input: one picture (base64 + mime type, already shrunk by the browser).
 Output: `{ ok: true, prompt: string, summaryTh: string, costThb: number } | { ok: false, error: string }`.
@@ -159,3 +159,20 @@ The system prompt tells the model to:
 - **Shrinking in the browser** on old iPhones (canvas size limits, HEIC): HEIC is not on the
   accepted list; say so rather than fail silently.
 - **Menu icon:** a new icon must match the stroke and size of the others.
+
+## Amendments found while planning (2026-10-08)
+
+1. **A route, not a server action.** Next runs a page's server actions one after another (see
+   the comment in `src/app/api/content-draw/route.ts`) and limits their body to 1 MB. The
+   engine is a plain function `describePicture` in `src/lib/content/describe-run.ts`, called by
+   `POST /api/content-describe` (`maxDuration = 60`), as drawing is.
+2. **Ledger task `content-describe-picture`**, not `describe-picture`: `contentBaht` in
+   `src/lib/content/store.ts` counts only tasks that start with `content`, so the ceiling would
+   not have seen the spend.
+3. **A describe is a round.** `ai-describe` joins `AI_ROUNDS` (`src/lib/auth/quota.ts`): a
+   non-owner's describe uses one of their ten free rounds, then their wallet; the owner pays
+   nothing of their own but is under the content ceiling. This follows from "same budget and
+   wallet as drawing"; it is not a separate allowance.
+4. **Hold amounts start at ฿1** (`DESCRIBE_HOLD_THB`, `ROUND_HOLD_THB["ai-describe"]`) and are
+   set from a measured call at the end of the build (plan, Task 6).
+
