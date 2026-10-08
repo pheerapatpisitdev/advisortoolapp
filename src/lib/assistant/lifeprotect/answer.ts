@@ -5,6 +5,8 @@ import { getPlan } from "@/calc/plans/registry";
 import { baseSumAssuredLimits } from "@/calc/rules";
 import { sumAssuredFromPremium } from "@/calc/sa-from-premium";
 import { formatBaht } from "@/calc/money";
+import type { ModePremium } from "@/calc/mode-premiums";
+import type { PayMode } from "@/calc/types";
 import { cardPath, valueTablePath, type CardRiders, type PlanCardInput } from "@/lib/card-link";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
 import { lifeProtectChatQuoteText } from "@/lib/lifeprotect-cta";
@@ -18,7 +20,7 @@ import {
 } from "./riders";
 import { PLAN_INFO_SYSTEM, SMALL_TALK_SYSTEM } from "./prompts";
 import { addressLine } from "../prompts";
-import { asksPayTerm, asksValueTable, mergeSlots, PLAN_CODE, routeMessage, type Routed } from "./route";
+import { asksPayTerm, asksValueTable, lifeProtectVariantIn, mergeSlots, PLAN_CODE, routeMessage, type Routed } from "./route";
 import {
   aboutCompany, affirms, APPLICATION_FORM, ASK_FOR_TABLE, asksAboutCompany, asksCheaper, baht, type Budget,
   budgetIn, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, keepGivenFigures, one, peopleIn,
@@ -103,7 +105,7 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
   const parent = waitsForParent(previous) && coverIn(asked) === undefined ? payerIn(asked) : undefined;
   if (previous && parent) {
     const slots: Routed = { ...previous, intent: "quote", riders: mergeRiders(cleanRiders(previous.riders), { payer: parent }) };
-    return { ...answerQuote(slots), slots };
+    return quoteAnswer(slots);
   }
 
   // one of the answers the agency writes out by hand every day. A message can both ask for a
@@ -135,7 +137,7 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
   // page would give, whatever the router thought the turn was about
   if (riderAsked) {
     const asking: Routed = { ...slots, intent: "quote" };
-    return { ...answerQuote(asking), slots: asking };
+    return quoteAnswer(asking);
   }
   if (asksPayTerm(asked)) return { ...answerPayTerm(slots), slots };
   if (asksValueTable(asked)) return { ...answerValueTable(slots), slots };
@@ -151,22 +153,30 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
    */
   const saidBudget = budgetIn(asked);
   const carried = peopleIn(asked).length > 0 && slots.coverWanted === undefined ? slots.budget : undefined;
-  const budget = saidBudget ?? carried;
+  // a quotation priced from a budget stays on it when the customer taps another term or names
+  // another person; a sum said outright has already dropped the budget (mergeSlots)
+  const stays = slots.budget !== undefined && slots.coverWanted !== undefined
+    && (lifeProtectVariantIn(asked) !== undefined || peopleIn(asked).length > 0) ? slots.budget : undefined;
+  const budget = saidBudget ?? carried ?? stays;
   if (budget && coverIn(asked) === undefined) return answerFromBudget(slots, budget);
   // a bare "เอา" takes the cheaper arrangement the bot last put on the table
   if (affirms(asked) && slots.offer) {
     const { offer } = slots;
     const taken: Routed = { ...slots, intent: "quote", coverWanted: offer.coverWanted, variant: offer.variant };
-    const priced = answerQuote(taken);
+    const priced = quoteAnswer(taken);
     // the offer is taken once; a second "ตกลง" is an acknowledgement, not a request for the same quotation again
     const sumTaken = offer.sumAssured;
-    return { ...priced, slots: { ...taken, offer: priced.priced ? undefined : offer, ...(priced.priced ? { takenSum: sumTaken } : {}) } };
+    return { ...priced, slots: { ...priced.slots, offer: priced.priced ? undefined : offer, ...(priced.priced ? { takenSum: sumTaken } : {}) } };
   }
 
   if (slots.intent === "quote") {
-    const quoted = answerQuote(slots);
-    if (faq) quoted.messages.push({ text: faq });
-    return { ...quoted, slots };
+    const quoted = quoteAnswer(slots);
+    if (faq) {
+      // the customer's own question is answered before the invitation, which stays the last word
+      const at = quoted.messages.findIndex((m) => m.text === BUDGET_INVITE);
+      quoted.messages.splice(at >= 0 ? at : quoted.messages.length, 0, { text: faq });
+    }
+    return quoted;
   }
   if (faq) return { ...one(faq), slots };
 
@@ -219,6 +229,8 @@ function quoteFor(
   offer?: Routed["offer"],
   takenSum?: number,
   wanted?: RidersWanted,
+  /** the instalment the customer said their budget in: it leads the quote, and is recorded on the card */
+  headline?: PayMode,
 ): Said & { figures?: QuoteFigures; table?: string } {
   const { age, sex } = who;
   if (age < table.ageMin || age > table.ageMax) {
@@ -249,19 +261,22 @@ function quoteFor(
     else riders = resolved.riders;
   }
   const input: PlanCardInput = {
-    kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured, ...(riders ? { riders } : {}),
+    kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured, ...(headline ? { mode: headline } : {}),
+    ...(riders ? { riders } : {}),
   };
   const priced = riders ? lifeProtectPriced(input, new Date()) : undefined;
   if (riders && !priced?.paid) refused = `สัญญาเพิ่มเติมนี้ผมคิดเบี้ยในแชทไม่ได้ครับ ${HAND_OVER}`;
   const withRiders = riders && priced?.paid ? { riders, priced } : undefined;
 
-  const annual = (withRiders ? withRiders.priced.paid! : modes).find((m) => m.mode === "annual");
+  const paid = withRiders ? withRiders.priced.paid! : modes;
+  const annual = paid.find((m) => m.mode === "annual");
   const text = lifeProtectChatQuoteText({
     sumAssured,
     termLabel: term.label,
     age,
     sex,
-    modes: withRiders ? withRiders.priced.paid! : modes,
+    // the first instalment is the headline: a customer who named a monthly budget reads monthly first
+    modes: headline ? [...paid.filter((m) => m.mode === headline), ...paid.filter((m) => m.mode !== headline)] : paid,
     death: deathBenefitOf(table, age, sumAssured),
     coverToAge: table.coverToAge,
     ...(withRiders
@@ -418,6 +433,12 @@ function answerValueTable(slots: Routed): Reply {
  * A couple asking together gets a quote each, in the order they named themselves, because
  * each of them is buying their own contract at their own age.
  */
+function quoteAnswer(slots: Routed): Answer {
+  const reply = answerQuote(slots);
+  const invited = reply.messages.some((m) => m.text === BUDGET_INVITE);
+  return { ...reply, slots: invited ? { ...slots, budgetAsked: true } : slots };
+}
+
 function answerQuote(slots: Routed): Reply {
   if (slots.variant && !QUOTABLE.has(slots.variant)) {
     return one(`ในแชทนี้ผมคิดให้ได้เฉพาะแบบ Life Protect x 2 ครับ สำหรับแบบอื่น ${HAND_OVER}`);
@@ -456,10 +477,14 @@ function answerQuote(slots: Routed): Reply {
   const couple = people.length > 1;
   const tables = messages.flatMap(({ card, table: tablePath }, i) =>
     card && tablePath ? [{ text: tableWords(table, couple ? people[i] : undefined), card: tablePath }] : []);
+  // once, after the first price and its table: the way into pricing by what the customer can
+  // pay. Not to a couple (whose money is it?) and not to a customer who has named a budget.
+  const invite = last >= 0 && !couple && !slots.budgetAsked && !slots.budget ? [{ text: BUDGET_INVITE }] : [];
   return {
     messages: [
       ...messages.map(({ text, card, pdfPath }) => ({ text, ...(card ? { card } : {}), ...withPdf(pdfPath) })),
       ...tables,
+      ...invite,
     ],
     priced: last >= 0,
     ...(figures ? { quote: figures } : {}),
@@ -495,29 +520,68 @@ function answerPayTerm(slots: Routed): Reply {
 }
 
 /**
- * "แพงไป" — answered with what is actually cheaper.
- *
- * The bot's first instinct was to offer the nine- and nineteen-year terms, which cost more a
- * year, not less. Two things genuinely lower the premium on this plan: paying to ninety-nine,
- * which is the cheapest term by the year, and a smaller cover, which lowers it in
- * proportion. Both are stated with the engine's figures, and the smaller cover is left on the
- * table so a bare "เอา" can take it.
+ * Sums are met in the steps the page's slider takes, so the sum a budget buys is one the page
+ * can open and the PDF can print.
  */
-/** Sums are quoted in tidy steps, because an agent writing an application writes a tidy sum. */
-const SUM_STEP = 10_000;
+const BUDGET_STEP = 50_000;
+
+/** What a budget buys on one term: the sum, its instalment, and whether the plan's monthly floor lifted it. */
+interface BudgetFit {
+  sum: number;
+  priced: ModePremium;
+  /** the instalment is over the budget, because the smallest monthly instalment the company takes is */
+  over: boolean;
+}
 
 /**
- * What a stated budget actually buys, on each of the three ways of paying for it.
+ * The biggest sum a budget buys on one term, or undefined when it does not reach the smallest
+ * contract the plan sells.
+ *
+ * Worked backwards from the instalment by the engine, then rounded down to a step and priced
+ * forwards again: the figure given back is what that sum costs, never what the customer said
+ * they would pay. If the rounded sum is still over (a rate with a satang's rounding), it steps
+ * down. The plan's minimum sum is a hard floor: a budget under it is told so, not lifted to it.
+ * The one thing allowed over the budget is the company's own monthly floor, and it is said.
+ */
+function fitBudget(
+  table: LifeProtectTable, variant: string, who: { sex: "M" | "F"; age: number }, budget: Budget,
+): BudgetFit | undefined {
+  const plan = getPlan(PLAN_CODE)!;
+  const { min, max } = baseSumAssuredLimits(plan.rules, variant);
+  const mode = budget.per === "month" ? "monthly" : "annual";
+  const instalment = (sumAssured: number) =>
+    lifeProtectModes(table, termAt(table, variant), { ...who, sumAssured })?.find((m) => m.mode === mode);
+
+  const raw = sumAssuredFromPremium(plan.rates, { variant, ...who, mode, targetPremium: budget.baht });
+  if (raw === undefined) return undefined;
+  let sum = Math.min(Math.floor(raw / BUDGET_STEP) * BUDGET_STEP, max ?? Infinity);
+  let priced = instalment(sum);
+  while (sum >= min && priced && priced.total > budget.baht * 100) { sum -= BUDGET_STEP; priced = instalment(sum); }
+  if (sum < min || !priced) return undefined;
+  if (!priced.belowMinimum) return { sum, priced, over: false };
+
+  // under the company's monthly floor: the next step up is the smallest that can be sold
+  const up = instalment(sum + BUDGET_STEP);
+  return up && !up.belowMinimum && sum + BUDGET_STEP <= (max ?? Infinity)
+    ? { sum: sum + BUDGET_STEP, priced: up, over: true }
+    : undefined;
+}
+
+/** Said once, after the first quotation and its table: the way into pricing by what the customer can pay. */
+export const BUDGET_INVITE = "หากลูกค้ามีงบต่อเดือนหรือต่อปี สามารถบอกมาเพื่อให้คำนวณทุนประกันได้เลยค่ะ";
+
+/**
+ * What a stated budget actually buys, as a quotation.
  *
  * A man wrote "ผมมีเดือนละ 1000 สามารถทำประกันแบบไหนได้บ้างครับ" and was sent a quotation for
  * a million baht of cover at 2,781 a month — the figure he had named was read as nothing at
- * all. The rate table runs both ways, so this is arithmetic: the sum is worked backwards from
- * the instalment, rounded down to a tidy figure so the premium quoted back is inside his
- * budget rather than a little over it, and then priced forwards again so the number he is
- * given is what that sum really costs.
+ * all. The rate table runs both ways, so this is arithmetic (fitBudget).
  *
- * All three terms, because the answer to "แบบไหนได้บ้าง" is the comparison: the same money
- * buys three times the cover on the longest term, and that is the whole of the decision.
+ * The answer is the quotation the customer would have had by naming the sum: the card, the
+ * year-by-year table and the PDF, on the term already in play (paying 19 years when none is).
+ * The other terms follow in a line each, because the same money buys three times the cover on
+ * the longest one, and that comparison is the decision. A tap on another term, or another
+ * person named, is answered from the same budget.
  */
 function answerFromBudget(slots: Routed, budget: Budget): Answer {
   const kept: Routed = { ...slots, budget, offer: undefined };
@@ -535,69 +599,87 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
   }
   if (table.expired || age < table.ageMin || age > table.ageMax) return { ...one(HAND_OVER), slots: kept };
 
-  const rates = getPlan(PLAN_CODE)!.rates;
-  const floor = baseSumAssuredLimits(getPlan(PLAN_CODE)!.rules, CHEAPEST_TERM).min;
-  const mode = budget.per === "month" ? "monthly" : "annual";
+  const who = { sex, age };
   const multiple = coverMultiple(table, age);
+  const mode: PayMode = budget.per === "month" ? "monthly" : "annual";
+  const variant = QUOTABLE.has(slots.variant ?? "") ? slots.variant! : FIRST_TERM;
+  const fits = [FIRST_TERM, "WLF09H", "WLF99H"].flatMap((v) => {
+    const fit = fitBudget(table, v, who, budget);
+    return fit ? [{ variant: v, label: termAt(table, v).label, fit }] : [];
+  });
+  const chosen = fits.find((f) => f.variant === variant);
 
-  const instalment = (variant: string, sumAssured: number) =>
-    lifeProtectModes(table, termAt(table, variant), { sex, age, sumAssured })?.find((m) => m.mode === mode);
-
-  const lines: string[] = [];
-  let overBudget = false;
-  // paying 19 years leads, as it does in the quotation (the owner, 2026-09-25)
-  for (const variant of [FIRST_TERM, "WLF09H", "WLF99H"]) {
-    const raw = sumAssuredFromPremium(rates, { variant, sex, age, mode, targetPremium: budget.baht });
-    if (raw === undefined) continue;
-    // rounded down, so what is quoted back fits inside the money they said they had
-    let sum = Math.floor(raw / SUM_STEP) * SUM_STEP;
-    let priced = instalment(variant, sum);
+  if (!chosen) {
     /**
-     * Rounding down can take the instalment under the smallest one the plan accepts — a
-     * budget of exactly a thousand a month lands there, since a thousand is the floor. The
-     * step back up is the only arrangement that can actually be sold, so it is the one quoted,
-     * and the customer is told it is over the figure they named rather than left to notice.
+     * The money does not reach the smallest contract on this term. Said plainly, with the
+     * figure it would take — a customer told only "ไม่ได้ครับ" has nothing to decide with — and
+     * never quoted at a sum the budget does not buy.
      */
-    if (priced?.belowMinimum) {
-      const up = instalment(variant, sum + SUM_STEP);
-      if (up && !up.belowMinimum) { sum += SUM_STEP; priced = up; overBudget = true; } else priced = undefined;
-    }
-    if (!priced || sum < floor) continue;
-    const label = table.terms.find((t) => t.variant === variant)?.label ?? variant;
-    lines.push(`• ${label} — ทุน ${money(sum)} บาท (ครอบครัวได้รับ ${money(sum * multiple)})`
-      + ` เบี้ย ${formatBaht(priced.total)} บาท/${per}`);
-  }
-
-  if (!lines.length) {
-    /**
-     * The money does not reach the smallest contract sold. Said plainly, with the figure it
-     * would take — a customer told only "ไม่ได้ครับ" has nothing to decide with.
-     */
-    const least = instalment(CHEAPEST_TERM, floor);
-    const term = table.terms.find((t) => t.variant === CHEAPEST_TERM)?.label ?? "";
+    const floor = baseSumAssuredLimits(getPlan(PLAN_CODE)!.rules, variant).min;
+    const least = lifeProtectModes(table, termAt(table, variant), { ...who, sumAssured: floor })?.find((m) => m.mode === mode);
     return {
       ...one(least
         ? `งบ${per}ละ ${money(budget.baht)} บาท ยังไม่ถึงทุนขั้นต่ำของแบบนี้ครับ 🙏\n`
-          + `ทุนต่ำสุดคือ ${money(floor)} บาท แบบ${term} เบี้ย ${formatBaht(least.total)} บาท/${per}\n`
-          + "ถ้าสนใจแบบนี้ หรืออยากดูประกันสุขภาพที่เบี้ยเริ่มต้นต่ำกว่า บอกได้เลยครับ"
+          + `ทุนต่ำสุดคือ ${money(floor)} บาท แบบ${termAt(table, variant).label} เบี้ย ${formatBaht(least.total)} บาท/${per}\n`
+          + "ถ้าสนใจแบบนี้ บอกได้เลยครับ หรือถ้าอยากดูแบบที่เบี้ยเริ่มต้นต่ำกว่า เช่น ประกันสุขภาพ ก็บอกได้เลยครับ"
         : HAND_OVER),
       slots: kept,
     };
   }
 
+  const wanted = cleanRiders(slots.riders);
+  const cover = chosen.fit.sum * multiple;
+  const quoted = quoteFor(table, variant, who, cover, undefined, chosen.fit.sum, wanted, mode);
+  const others = fits.filter((f) => f.variant !== variant);
+  const comparison = others.length
+    ? [
+      "งบเท่ากัน แบบอื่นได้ทุนประมาณนี้ครับ",
+      ...others.map((f) => `• ${f.label} — ทุน ${money(f.fit.sum)} บาท (ครอบครัวได้รับ ${money(f.fit.sum * multiple)})`
+        + ` เบี้ย ${formatBaht(f.fit.priced.total)} บาท/${per}`),
+      "จ่ายยาวกว่าได้ทุนมากกว่า — สนใจแบบไหน บอกได้เลยครับ",
+    ].join("\n")
+    : undefined;
+  const notes = [
+    ...(chosen.fit.over
+      ? [`(แบบชำระรายเดือนขั้นต่ำ ${money(table.minMonthly)} บาท/เดือน เบี้ยจึงเกินงบมานิดหน่อยครับ)`]
+      : []),
+    ...(wanted ? ["งบนี้คิดเฉพาะแบบหลักครับ เบี้ยสัญญาเพิ่มเติมบวกเพิ่มจากนี้"] : []),
+  ];
+  const intro = [
+    `งบ${per}ละ ${money(budget.baht)} บาท ${sex === "M" ? "ชาย" : "หญิง"}อายุ ${age} ปี `
+    + `ทำทุนได้สูงสุด ${money(chosen.fit.sum)} บาท แบบ${chosen.label} ครับ 💰`,
+    ...notes,
+  ].join("\n");
+
+  const slotsOut: Routed = { ...kept, variant, coverWanted: cover, takenSum: chosen.fit.sum };
   return {
-    ...one([
-      `งบ${per}ละ ${money(budget.baht)} บาท ${sex === "M" ? "ชาย" : "หญิง"}อายุ ${age} ปี ได้ทุนประมาณนี้ครับ 💰`,
-      ...lines,
-      ...(overBudget && budget.per === "month"
-        ? [`(แบบชำระรายเดือนขั้นต่ำ ${money(table.minMonthly)} บาท/เดือน เบี้ยจึงเกินงบมานิดหน่อยครับ)`]
-        : []),
-      "งบเท่ากัน จ่ายยาวกว่าได้ทุนมากกว่า — สนใจแบบไหน บอกได้เลยครับ เดี๋ยวส่งใบเสนอให้",
-    ].join("\n")),
-    slots: kept,
+    messages: [
+      { text: intro },
+      {
+        text: quoted.text,
+        ...(quoted.card ? { card: quoted.card } : {}),
+        ...withPdf(quoted.pdfPath),
+      },
+      ...(quoted.card && quoted.table ? [{ text: tableWords(table), card: quoted.table }] : []),
+      // last, so the PDF offer that follows a quotation is still the last word
+      ...(comparison ? [{ text: comparison }] : []),
+    ],
+    priced: Boolean(quoted.card),
+    ...(quoted.figures ? { quote: quoted.figures } : {}),
+    ...(quoted.card ? { replies: quoteReplies(table, variant, riderReplies(table, who, wanted)) } : {}),
+    slots: slotsOut,
   };
 }
 
+/**
+ * "แพงไป" — answered with what is actually cheaper.
+ *
+ * The bot's first instinct was to offer the nine- and nineteen-year terms, which cost more a
+ * year, not less. Two things genuinely lower the premium on this plan: paying to ninety-nine,
+ * which is the cheapest term by the year, and a smaller cover, which lowers it in
+ * proportion. Both are stated with the engine's figures, and the smaller cover is left on the
+ * table so a bare "เอา" can take it.
+ */
 function answerCheaper(slots: Routed): Answer {
   const table = lifeProtectTable();
   const { age, sex, coverWanted } = slots;
@@ -611,7 +693,9 @@ function answerCheaper(slots: Routed): Answer {
   const monthly = (variant: string, sum: number) =>
     lifeProtectModes(table, termAt(table, variant), { sex, age, sumAssured: sum })?.find((m) => m.mode === "monthly");
   const variant = slots.variant ?? FIRST_TERM;
-  const sumNow = slots.offer && slots.offer.coverWanted === coverWanted ? slots.offer.sumAssured : sumForCover(table, age, coverWanted);
+  const sumNow = slots.offer && slots.offer.coverWanted === coverWanted
+    ? slots.offer.sumAssured
+    : slots.takenSum ?? sumForCover(table, age, coverWanted);
   const lines: string[] = [];
 
   // the term: to-99 is the cheapest by the year, and worth naming if they are not on it
