@@ -1,15 +1,15 @@
 import { getPlan } from "@/calc/plans/registry";
 import { quote } from "@/calc/quote";
 import { baseAgeRange, baseSumAssuredLimits } from "@/calc/rules";
-import { sumAssuredFromPremium } from "@/calc/sa-from-premium";
 import { modePremiumsFrom } from "@/calc/mode-premiums";
 import { formatBaht } from "@/calc/money";
 import { cardPath, diseaseCardPath, valueTablePath } from "@/lib/card-link";
 import { valueTableCard } from "@/lib/quote-card";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
+import { ISHIELD_SUMS } from "@/lib/quote-pdf/pages";
 import diseases from "../../../../data/riders/ishield-diseases.json";
 import {
-  aboutCompany, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, HEALTH_QUESTION,
+  aboutCompany, asksAboutCompany, asksDiseaseList, budgetIn, BUDGET_INVITE, coverIn, type Budget, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, HEALTH_QUESTION,
   peopleIn, saysFormDone, saysUnwell, stallReply, stalls, thanksOnly, THANKS_REPLY, WANTS_IN, wantsToBuy, type Reply,
 } from "../common";
 import { writtenFor, type Channel } from "../channel";
@@ -26,9 +26,6 @@ export const ISHIELD = "ISHIELD";
  */
 const TERMS = ["WLCI05", "WLCI10", "WLCI15", "WLCI20"] as const;
 const OPENS_ON = "WLCI10";
-
-/** Sums are quoted in tidy steps, because an agent writing an application writes a tidy sum. */
-const SUM_STEP = 10_000;
 
 /**
  * What this brain remembers between turns.
@@ -59,6 +56,14 @@ export interface IShieldSlots {
   told?: true;
   /** the application form has gone; the bot says nothing more in this thread */
   formSent?: true;
+  /**
+   * What the customer said they can pay, while the sum on the table was bought with it. Held so
+   * a tap on another term, or another age, is answered from the same money; dropped the moment
+   * a sum is named outright.
+   */
+  budget?: Budget;
+  /** the customer has been invited to name a budget, once, under their first quotation */
+  budgetAsked?: true;
 }
 
 export type IShieldAnswer = Reply & { slots: IShieldSlots };
@@ -193,25 +198,50 @@ function ageSpan(): { min: number; max: number } {
   };
 }
 
-/**
- * A saving turned into the sum the contract is written for.
- *
- * Rounded down to a tidy step and held inside the plan's own limits, then priced forward
- * again — so the figure the customer is given is what that sum actually costs rather than
- * what they said they would pay. The two are close and they are not the same, and quoting
- * the second as if it were the first is quoting a premium nobody computed.
- */
-export function sumFromSaving(saving: number, who: { age: number; sex: "M" | "F"; variant: string }): number | undefined {
-  const r = rules();
-  const table = rates();
-  if (!r || !table) return undefined;
-  const raw = sumAssuredFromPremium(table, { ...who, mode: "monthly", targetPremium: saving });
-  if (raw === undefined) return undefined;
-  const { min, max } = baseSumAssuredLimits(r, who.variant);
-  const tidy = Math.floor(raw / SUM_STEP) * SUM_STEP;
-  return Math.min(Math.max(tidy, min), max ?? raw);
+/** What a budget buys on one term: the sum, its instalment in satang, and whether the monthly floor lifted it. */
+export interface BudgetFit {
+  sum: number;
+  total: number;
+  /** the instalment is over the budget, because the smallest monthly instalment the company takes is */
+  over: boolean;
 }
 
+/**
+ * The biggest sum a budget buys on one paying term, or undefined when it does not reach the
+ * plan's smallest sum.
+ *
+ * The sums are the sales page's own list (ISHIELD_SUMS), so what a budget buys is a sum the
+ * page can open and the PDF can print. Each is priced forwards, by the engine, in the mode the
+ * budget was named in: the figure given back is what that sum costs, never what the customer
+ * said they would pay. The plan's minimum is a hard floor — a budget under it is told so, not
+ * lifted to it. The one thing allowed over the budget is the company's monthly floor, and it
+ * is said.
+ */
+export function fitBudget(
+  who: { age: number; sex: "M" | "F"; variant: string }, budget: Budget, today: Date = new Date(),
+): BudgetFit | undefined {
+  const r = rules();
+  if (!r) return undefined;
+  const { min, max } = baseSumAssuredLimits(r, who.variant);
+  const mode = budget.per === "month" ? "monthly" : "annual";
+  const sums = ISHIELD_SUMS.filter((sum) => sum >= min && sum <= (max ?? Infinity));
+  const price = (sum: number) =>
+    modePremiumsFrom((m) => quote({ planCode: ISHIELD, ...who, sumAssured: sum, riders: [], mode: m }, today))
+      ?.find((m) => m.mode === mode);
+
+  let best = -1;
+  sums.forEach((sum, i) => {
+    const p = price(sum);
+    if (p && p.total <= budget.baht * 100) best = i;
+  });
+  if (best < 0) return undefined;
+  const fits = price(sums[best])!;
+  if (!fits.belowMinimum) return { sum: sums[best], total: fits.total, over: false };
+
+  // under the company's monthly floor: the next sum up is the smallest that can be sold
+  const up = sums[best + 1] === undefined ? undefined : price(sums[best + 1]);
+  return up && !up.belowMinimum ? { sum: sums[best + 1], total: up.total, over: true } : undefined;
+}
 
 /** The paying term as a customer says it, and as a button says it. */
 const termLabel = (variant: string) => `ส่ง ${Number(variant.replace(/\D/g, ""))} ปี`;
@@ -254,15 +284,25 @@ function filled(previous: IShieldSlots | null, asked: string): IShieldSlots {
     }
   }
 
+  /**
+   * A budget is read first, because it names its period and so cannot be mistaken for a sum or
+   * an age; a sum said outright ends the shopping by budget; and a bare monthly figure is the
+   * older, looser reading of a saving, tried last.
+   */
+  const periodic = budgetIn(asked);
+  const cover = periodic ? undefined : coverIn(asked);
+  const saving = periodic || cover !== undefined ? undefined : savingIn(asked);
+  if (cover !== undefined) delete slots.budget;
+  else if (periodic) slots.budget = periodic;
+  else if (saving !== undefined) slots.budget = { baht: saving, per: "month" };
+
   if (slots.age !== undefined && slots.sex && slots.variant) {
-    // a sum said outright is the sum; a saving is turned into one
-    const cover = coverIn(asked);
-    const saving = cover === undefined ? savingIn(asked) : undefined;
     if (cover !== undefined) {
       const { min, max } = baseSumAssuredLimits(rules()!, slots.variant);
       slots.sumAssured = Math.min(Math.max(cover, min), max ?? cover);
-    } else if (saving !== undefined) {
-      slots.sumAssured = sumFromSaving(saving, { age: slots.age, sex: slots.sex, variant: slots.variant });
+    } else if (slots.budget) {
+      // undefined when the money does not reach the plan's smallest sum: the answer says so
+      slots.sumAssured = fitBudget({ age: slots.age, sex: slots.sex, variant: slots.variant }, slots.budget)?.sum;
     }
   }
   return slots;
@@ -342,7 +382,16 @@ export function answerIShield(
    * already shown they are answering.
    */
   if (slots.age === undefined || !slots.sex) {
-    return { messages: [{ text: said(ASK_PERSON) }], slots };
+    // the money is kept in the slots, so it is acknowledged rather than asked for again
+    return {
+      messages: [{
+        text: said(slots.budget
+          ? `ได้เลยครับ งบ${perWord(slots.budget)}ละ ${slots.budget.baht.toLocaleString("en-US")} บาท 👍\n`
+            + "ขอเพศกับอายุด้วยครับ เดี๋ยวคิดให้ว่าได้ทุนเท่าไหร่ (เช่น ช 35)"
+          : ASK_PERSON),
+      }],
+      slots,
+    };
   }
 
   // said once per arrangement, and once per arrangement means once for this one — a customer
@@ -374,11 +423,54 @@ export function answerIShield(
     };
   }
 
+  if (slots.sumAssured === undefined && slots.budget) {
+    return { ...budgetShort(slots as IShieldSlots & { age: number; sex: "M" | "F"; variant: string }, slots.budget, said, today), slots };
+  }
+
   if (slots.sumAssured === undefined) {
     return { messages: [...opening, { text: said(ASK_COVER) }], replies: COVER_CHOICES, slots };
   }
 
   return quoted(slots as IShieldSlots & { age: number; sex: "M" | "F"; variant: string; sumAssured: number }, said, today);
+}
+
+const perWord = (b: Budget) => (b.per === "month" ? "เดือน" : "ปี");
+
+/**
+ * The money does not reach the plan's smallest sum on this term. Said plainly, with the
+ * figure it would take — a customer told only "ไม่ได้ครับ" has nothing to decide with — and
+ * with the other terms that the same money does reach, as buttons. Never quoted at a sum the
+ * budget does not buy.
+ */
+function budgetShort(
+  slots: IShieldSlots & { age: number; sex: "M" | "F"; variant: string }, budget: Budget,
+  said: (text: string) => string, today: Date,
+): Pick<IShieldAnswer, "messages" | "replies"> {
+  const per = perWord(budget);
+  const money = (n: number) => n.toLocaleString("en-US");
+  const { min } = baseSumAssuredLimits(rules()!, slots.variant);
+  const floor = ISHIELD_SUMS.find((sum) => sum >= min) ?? min;
+  const mode = budget.per === "month" ? "monthly" : "annual";
+  const least = modePremiumsFrom((m) => quote({
+    planCode: ISHIELD, variant: slots.variant, age: slots.age, sex: slots.sex, sumAssured: floor, riders: [], mode: m,
+  }, today))?.find((m) => m.mode === mode);
+
+  const years = (v: string) => Number(v.replace(/\D/g, ""));
+  const reach = TERMS.filter((v) => v !== slots.variant && takes(v, slots.age)).flatMap((v) => {
+    const fit = fitBudget({ age: slots.age, sex: slots.sex, variant: v }, budget, today);
+    return fit ? [{ variant: v, fit }] : [];
+  });
+  const lines = [
+    `งบ${per}ละ ${money(budget.baht)} บาท ยังไม่ถึงทุนขั้นต่ำของแบบชำระเบี้ย ${years(slots.variant)} ปีครับ 🙏`,
+    ...(least ? [`ทุนต่ำสุดคือ ${money(floor)} บาท เบี้ย ${formatBaht(least.total)} บาท/${per}`] : []),
+    ...(reach.length
+      ? [
+        "แต่งบเท่านี้ทำแบบอื่นได้ครับ",
+        ...reach.map((r) => `• ชำระเบี้ย ${years(r.variant)} ปี — ทุน ${money(r.fit.sum)} บาท เบี้ย ${formatBaht(r.fit.total)} บาท/${per}`),
+      ]
+      : ["ถ้าสนใจแบบนี้ ปรับงบหรือบอกได้เลยครับ"]),
+  ];
+  return { messages: [{ text: said(lines.join("\n")) }], replies: reach.map((r) => termLabel(r.variant)) };
 }
 
 /** Cross-sell by a name the dispatcher routes on, so the comparison costs the customer nothing. */
@@ -423,12 +515,25 @@ function quoted(
   const years = Number(slots.variant.replace(/\D/g, ""));
   const money = (n: number) => n.toLocaleString("en-US");
 
+  // the instalment the customer named their budget in leads; otherwise the monthly one, as before
+  const budget = slots.budget;
+  const fit = budget ? fitBudget(slots, budget, today) : undefined;
+  const premiumLine = budget?.per === "year" || !monthly
+    ? `เบี้ย ${formatBaht(annual.total)} บาท/ปี${monthly ? ` (เดือนละ ${formatBaht(monthly.total)} บาท)` : ""} จ่าย ${years} ปีแล้วจบ`
+    : `เบี้ย ${formatBaht(monthly.total)} บาท/เดือน (ปีละ ${formatBaht(annual.total)} บาท) จ่าย ${years} ปีแล้วจบ`;
   const lines = [
+    ...(budget
+      ? [
+        `งบ${perWord(budget)}ละ ${money(budget.baht)} บาท ทำทุนได้สูงสุด ${money(slots.sumAssured)} บาท ครับ 💰`,
+        ...(fit?.over
+          ? [`(แบบชำระรายเดือนขั้นต่ำ ${money(rules()?.minMonthlyTotal ?? 0)} บาท/เดือน เบี้ยจึงเกินงบมานิดหน่อยครับ)`]
+          : []),
+        "",
+      ]
+      : []),
     `iShield ชำระเบี้ย ${years} ปี สำหรับ${slots.sex === "M" ? "ชาย" : "หญิง"}อายุ ${slots.age} ปี`,
     `ทุนประกัน ${money(slots.sumAssured)} บาท`,
-    monthly
-      ? `เบี้ย ${formatBaht(monthly.total)} บาท/เดือน (ปีละ ${formatBaht(annual.total)} บาท) จ่าย ${years} ปีแล้วจบ`
-      : `เบี้ย ${formatBaht(annual.total)} บาท/ปี จ่าย ${years} ปีแล้วจบ`,
+    premiumLine,
     `เจอโรคร้ายระยะเริ่มต้นรับ ${money(Math.round(slots.sumAssured * ill.earlyPercent / 100))} บาท ระยะรุนแรงรับสูงสุด ${money(slots.sumAssured)} บาท`,
     maturity
       ? `อยู่ถึงอายุ ${maturity.age} ปี รับคืน ${money(Math.round(slots.sumAssured * maturity.percentOfSumAssured / 100))} บาทครับ`
@@ -462,6 +567,19 @@ function quoted(
    */
   const otherTerms = TERMS.filter((v) => v !== slots.variant && takes(v, slots.age)).map(termLabel);
 
+  // the same money on the other terms, a line each: the comparison is the decision
+  const comparison = budget
+    ? TERMS.filter((v) => v !== slots.variant && takes(v, slots.age)).flatMap((v) => {
+      const other = fitBudget({ age: slots.age, sex: slots.sex, variant: v }, budget, today);
+      return other
+        ? [`• ชำระเบี้ย ${Number(v.replace(/\D/g, ""))} ปี — ทุน ${money(other.sum)} บาท เบี้ย ${formatBaht(other.total)} บาท/${perWord(budget)}`]
+        : [];
+    })
+    : [];
+  // once, after the first price and its table: the way into pricing by what the customer can pay
+  const invite = !budget && !slots.budgetAsked;
+  if (invite) slots.budgetAsked = true;
+
   return {
     replies: [WANTS_IN, ...otherTerms, CHOOSE_HEALTH, CROSS_SELL],
     messages: [
@@ -474,6 +592,10 @@ function quoted(
           card: table,
         }]
         : []),
+      ...(comparison.length
+        ? [{ text: said(["งบเท่ากัน แบบอื่นได้ทุนประมาณนี้ครับ", ...comparison].join("\n")) }]
+        : []),
+      ...(invite ? [{ text: said(BUDGET_INVITE) }] : []),
       // its own bubble, and last, so the health button under it reads as an answer to it
       { text: said(HEALTH_GAP) },
     ],

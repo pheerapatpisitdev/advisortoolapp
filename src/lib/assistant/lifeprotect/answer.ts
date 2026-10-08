@@ -22,7 +22,7 @@ import { PLAN_INFO_SYSTEM, SMALL_TALK_SYSTEM } from "./prompts";
 import { addressLine } from "../prompts";
 import { asksPayTerm, asksValueTable, lifeProtectVariantIn, mergeSlots, PLAN_CODE, routeMessage, type Routed } from "./route";
 import {
-  aboutCompany, affirms, APPLICATION_FORM, ASK_FOR_TABLE, asksAboutCompany, asksCheaper, baht, type Budget,
+  aboutCompany, affirms, APPLICATION_FORM, ASK_FOR_TABLE, asksAboutCompany, asksCheaper, baht, BUDGET_INVITE, type Budget,
   budgetIn, coverIn, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, keepGivenFigures, one, peopleIn,
   type QuoteFigures, recentTurns, Reply, Said, saysFormDone, spoken, stallReply, stalls, thanksOnly,
   WANTS_IN, wantsToBuy,
@@ -567,8 +567,6 @@ function fitBudget(
     : undefined;
 }
 
-/** Said once, after the first quotation and its table: the way into pricing by what the customer can pay. */
-export const BUDGET_INVITE = "หากลูกค้ามีงบต่อเดือนหรือต่อปี สามารถบอกมาเพื่อให้คำนวณทุนประกันได้เลยค่ะ";
 
 /**
  * What a stated budget actually buys, as a quotation.

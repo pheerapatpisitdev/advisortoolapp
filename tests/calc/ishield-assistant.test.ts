@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { answerIShield, COVER_CHOICES, ishieldTermIn, savingIn, sumFromSaving, termFor } from "@/lib/assistant/ishield/answer";
+import { answerIShield, COVER_CHOICES, ishieldTermIn, fitBudget, savingIn, termFor } from "@/lib/assistant/ishield/answer";
 import { quote } from "@/calc/quote";
 import { formatBaht } from "@/calc/money";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
+import { ISHIELD_SUMS } from "@/lib/quote-pdf/pages";
+import { BUDGET_INVITE } from "@/lib/assistant/common";
 
 /** The rate table behind these figures is current on this date. */
 const WHILE_CURRENT = new Date("2026-09-05");
@@ -166,22 +168,27 @@ describe("the other paying terms, offered under the quotation", () => {
   });
 });
 
-describe("a saving turned into a sum", () => {
-  it("buys a tidy sum, priced at what that sum actually costs", () => {
-    const sum = sumFromSaving(3000, { age: 35, sex: "M", variant: "WLCI10" });
-    expect(sum).toBeDefined();
-    expect(sum! % 10_000).toBe(0);
-    // rounding the sum down means the premium lands at or under what the customer said
-    const priced = quote({
-      planCode: "ISHIELD", variant: "WLCI10", age: 35, sex: "M", mode: "monthly",
-      sumAssured: sum!, riders: [],
-    }, WHILE_CURRENT);
-    expect(priced.totalModal / 100).toBeLessThanOrEqual(3000);
+describe("a budget turned into a sum", () => {
+  const WHO = { age: 35, sex: "M" as const, variant: "WLCI10" };
+
+  it("buys the biggest sum on the sales page's list that fits, priced at what it actually costs", () => {
+    const fit = fitBudget(WHO, { baht: 3000, per: "month" }, WHILE_CURRENT);
+    expect(fit).toBeDefined();
+    expect(ISHIELD_SUMS).toContain(fit!.sum);
+    // the premium lands at or under what the customer said — the next sum up does not
+    expect(fit!.total / 100).toBeLessThanOrEqual(3000);
+    const next = ISHIELD_SUMS[ISHIELD_SUMS.indexOf(fit!.sum) + 1];
+    const priced = quote({ planCode: "ISHIELD", ...WHO, mode: "monthly", sumAssured: next, riders: [] }, WHILE_CURRENT);
+    expect(priced.totalModal / 100).toBeGreaterThan(3000);
   });
 
-  it("never sells below the plan's own minimum", () => {
-    const sum = sumFromSaving(500, { age: 35, sex: "M", variant: "WLCI10" });
-    expect(sum).toBeGreaterThanOrEqual(100_000);
+  it("reads a yearly budget in yearly instalments", () => {
+    const fit = fitBudget(WHO, { baht: 60_000, per: "year" }, WHILE_CURRENT);
+    expect(fit!.total / 100).toBeLessThanOrEqual(60_000);
+  });
+
+  it("never sells below the plan's own minimum: a budget that does not reach it buys nothing", () => {
+    expect(fitBudget(WHO, { baht: 500, per: "month" }, WHILE_CURRENT)).toBeUndefined();
   });
 });
 
@@ -230,11 +237,62 @@ describe("the conversation", () => {
   it("quotes the sum, the premium and what the contract pays back", () => {
     expect(priced.priced).toBe(true);
     expect(priced.messages[0].card).toContain("plan=ISHIELD");
-    // a saving lands on a sum the sales page's slider does not stop at, so there is no PDF of it
-    expect(priced.messages[0].card).toContain("sum=490000");
-    expect(priced.messages[0].pdfPath).toBeUndefined();
+    // a budget lands on a sum the sales page's slider stops at, so the page's PDF of it exists
+    const sum = Number(new URL(`https://x${priced.messages[0].card}`).searchParams.get("sum"));
+    expect(ISHIELD_SUMS).toContain(sum);
+    expect(priced.messages[0].pdfPath).toBeDefined();
     expect(spoken(priced)).toContain("ทุนประกัน");
     expect(spoken(priced)).toContain("85");
+  });
+
+  it("invites a budget once, after the first quote and its table, before the health line", () => {
+    const first = answer(COVER_CHOICES[0], { product: "ishield", age: 35, sex: "M", variant: "WLCI10" });
+    const texts = first.messages.map((m) => m.text);
+    const at = texts.indexOf(BUDGET_INVITE);
+    expect(at).toBeGreaterThan(0);
+    expect(first.messages[at - 1].card).toContain("/api/card/table");
+    expect(at).toBe(texts.length - 2);
+    expect(first.slots.budgetAsked).toBe(true);
+
+    const again = answer(COVER_CHOICES[1], first.slots);
+    expect(again.messages.some((m) => m.text === BUDGET_INVITE)).toBe(false);
+  });
+
+  it("quotes a budget as card, table and PDF, then stays on it for another term", () => {
+    const asked = answer("งบเดือนละ 3,000", { product: "ishield", age: 35, sex: "M", variant: "WLCI10" });
+    expect(asked.priced).toBe(true);
+    expect(spoken(asked)).toContain("งบเดือนละ 3,000 บาท");
+    expect(spoken(asked)).not.toContain(BUDGET_INVITE);
+    const sum10 = asked.slots.sumAssured!;
+    const then = answer("ส่ง 20 ปี", asked.slots);
+    expect(then.slots.variant).toBe("WLCI20");
+    expect(then.slots.budget).toEqual({ baht: 3000, per: "month" });
+    // the longer term is cheaper a year, so the same money buys at least as much cover
+    expect(then.slots.sumAssured!).toBeGreaterThanOrEqual(sum10);
+    expect(then.messages[0].card).toContain(`sum=${then.slots.sumAssured}`);
+  });
+
+  it("takes a yearly budget and leads with the yearly instalment", () => {
+    const asked = answer("ปีละ 60,000", { product: "ishield", age: 35, sex: "M", variant: "WLCI10" });
+    expect(asked.priced).toBe(true);
+    expect(asked.messages[0].text).toMatch(/เบี้ย [\d,]+ บาท\/ปี \(เดือนละ/);
+  });
+
+  it("keeps a budget given before the person, and prices it when they arrive", () => {
+    const first = answer("มีงบเดือนละ 3,000");
+    expect(spoken(first)).toContain("เพศกับอายุ");
+    expect(first.slots.budget).toEqual({ baht: 3000, per: "month" });
+    const then = answer("ชาย 35", first.slots);
+    expect(then.priced).toBe(true);
+  });
+
+  it("does not lift a budget to the minimum sum: it says the budget is short", () => {
+    const a = answer("งบเดือนละ 600", { product: "ishield", age: 35, sex: "M", variant: "WLCI10" });
+    expect(a.priced).toBeFalsy();
+    expect(a.messages.some((m) => m.card)).toBe(false);
+    expect(spoken(a)).toContain("ทุนขั้นต่ำ");
+    expect(spoken(a)).toContain("100,000");
+    expect(a.slots.sumAssured).toBeUndefined();
   });
 
   it("remembers the sales page's PDF of the same arrangement as the card", () => {

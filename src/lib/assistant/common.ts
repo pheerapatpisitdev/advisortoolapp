@@ -91,6 +91,12 @@ export const FORM_RECEIVED = "ขอบคุณครับ 🙏 เดี๋�
 
 export const WANTS_IN = "สนใจสมัคร";
 
+/**
+ * Said once, after a customer's first quotation and its table: the way into pricing by what
+ * they can pay. Shared by the plans that can be priced backwards from a budget.
+ */
+export const BUDGET_INVITE = "หากลูกค้ามีงบต่อเดือนหรือต่อปี สามารถบอกมาเพื่อให้คำนวณทุนประกันได้เลยค่ะ";
+
 /** The words a tapped button sends, which are the words the Life Protect brain reads as a request for the table. */
 export const ASK_FOR_TABLE = "ขอตารางมูลค่า";
 
