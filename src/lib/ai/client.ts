@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inWalletRound, meterCost } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
 import { monthSpend, recordUsage, spendSince } from "./ledger";
-import { IMAGE_CALLERS, TAKES_REFERENCES, type DrawnImage, type ReferenceImage } from "./images";
+import { IMAGE_CALLERS, TAKES_REFERENCES, withAspect, type Aspect, type DrawnImage, type ReferenceImage } from "./images";
 import { CALLERS, EMBEDDERS, JUDGE, type JudgeAnswer, type JudgeQuestion } from "./providers";
 import type { ChatMessage, ChatResult, ModelRow, Tier } from "./types";
 
@@ -392,8 +392,8 @@ export interface DrawResult extends DrawnImage {
 }
 
 /** Draws one picture, checking the month's budget first and recording what it cost. `prefer` is a model_configs id. */
-export async function drawImage({ task, prompt, prefer, references }: {
-  task: string; prompt: string; prefer?: string; references?: ReferenceImage[];
+export async function drawImage({ task, prompt, prefer, references, aspect }: {
+  task: string; prompt: string; prefer?: string; references?: ReferenceImage[]; aspect?: Aspect;
 }): Promise<DrawResult> {
   const config = await loadConfig();
   await assertWithinBudget(config);
@@ -414,7 +414,7 @@ export async function drawImage({ task, prompt, prefer, references }: {
     if (stalled.has(model.provider)) continue;
     try {
       const img = await IMAGE_CALLERS[model.provider]({
-        apiKey: keys[model.provider], model: model.model_name, prompt, params: model.params ?? {},
+        apiKey: keys[model.provider], model: model.model_name, prompt, params: withAspect(model.provider, model.params ?? {}, aspect),
         signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS), references,
       });
       const costThb = Number(model.price.perImageUsd ?? 0) * USD_TO_THB;

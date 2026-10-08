@@ -54,6 +54,21 @@ export function openAiEditForm(model: string, prompt: string, params: Record<str
   return form;
 }
 
+/** the shapes a cover is drawn in; everything else stays square */
+export type Aspect = "1:1" | "9:16" | "16:9";
+
+/**
+ * A model row's params with this picture's shape put in. Gemini takes the ratio itself; OpenAI
+ * only draws 1024x1536 and 1536x1024, the nearest, which cropToAspect then cuts to the ratio.
+ * Without an aspect the params are the row's own.
+ */
+export function withAspect(provider: string, params: Record<string, unknown>, aspect?: Aspect): Record<string, unknown> {
+  if (!aspect) return params;
+  if (provider === "google") return { ...params, aspect_ratio: aspect };
+  if (provider === "openai") return { ...params, size: aspect === "9:16" ? "1024x1536" : aspect === "16:9" ? "1536x1024" : "1024x1024" };
+  return params;
+}
+
 export interface DrawnImage {
   bytes: Buffer;
   mimeType: string;
