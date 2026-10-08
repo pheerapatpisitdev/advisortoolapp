@@ -28,8 +28,6 @@ const drawPerHour = limiter(40, 60 * 60_000);
 const ideasPerHour = limiter(30, 60 * 60_000);
 
 const TRANSLATE_MS = 40_000;
-/** the picture's two models at 90 s, its reading and its keeping come after: what is kept back from the round for them */
-const AFTER_DRAW_MS = 20_000;
 const SAVE_MS = 10_000;
 
 export type ThumbResult =

@@ -205,6 +205,18 @@ describe("Studio's own menu", () => {
     expect(hrefs.indexOf("/studio/describe")).toBeLessThan(hrefs.indexOf("/studio/ads"));
   });
 
+  it("lists ภาพปกคลิป right after Organic Studio, for the owner alone (owner, 2026-10-09)", () => {
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const owner = { ...who, owner: true, admin: true, publish: true, connect: true };
+    const links = studioMenu(owner).flatMap((g) => g.links);
+    const at = links.findIndex((l) => l.href === "/studio/write");
+    expect(links[at + 1]).toMatchObject({ href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image" });
+    const hrefs = (w?: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
+    for (const w of [undefined, who, { ...who, member: true }, { ...who, publish: true }, { ...who, admin: true, publish: true, connect: true }]) {
+      expect(hrefs(w as typeof who)).not.toContain("/studio/thumbnail");
+    }
+  });
+
   it("lists the ad launch for the owner alone (owner, 2026-10-04)", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w?: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);

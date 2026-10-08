@@ -288,6 +288,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio", label: "หน้ารวม", icon: "grid", hue: "#2b736f" },
     // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
     { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80" },
+    // video covers (owner, 2026-10-09): AI spend with no wallet behind it, so the owner's alone
+    { href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image", hue: "#2e5a80" },
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
@@ -311,7 +313,7 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     ...(who && !who.admin && !who.publish ? ["/studio"] : []),
     ...(who?.owner || who?.wallet !== true ? ["/studio/wallet"] : []),
     ...(who?.member ? [] : ["/studio/account"]),
-    ...(who?.owner ? [] : ["/studio/ads"]),
+    ...(who?.owner ? [] : ["/studio/ads", "/studio/thumbnail"]),
   ]);
   const shown = links.filter((l) => !hidden.has(l.href));
   const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];

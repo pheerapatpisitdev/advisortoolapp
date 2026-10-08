@@ -37,7 +37,7 @@ export interface Thumbnail {
   check: ThumbCheck | null;
   model: string;
   costThb: number;
-  /** a signed link, or null when the file is gone */
+  /** a signed link that saves the file when opened, or null when the file is gone */
   imageUrl: string | null;
 }
 
@@ -125,7 +125,7 @@ export async function listThumbnails(agentId: string): Promise<Thumbnail[]> {
   if (error) throw new Error(`history: ${error.message}`);
   const rows = (data ?? []) as { id: string; created_at: string; settings: unknown; model: string; cost_thb: number; image_path: string }[];
   if (!rows.length) return [];
-  const signed = await db.storage.from(BUCKET).createSignedUrls(rows.map((r) => r.image_path), SIGNED_SECONDS);
+  const signed = await db.storage.from(BUCKET).createSignedUrls(rows.map((r) => r.image_path), SIGNED_SECONDS, { download: true });
   const links = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl ?? null]));
   const out: Thumbnail[] = [];
   for (const r of rows) {
