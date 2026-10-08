@@ -37,7 +37,10 @@ and copy the prompt. A person's history is theirs alone and holds their latest 2
 Migration `supabase/migrations/20261012_describe_history.sql` (additive only):
 
 - Table `ins_describe_history`: `id uuid primary key default gen_random_uuid()`,
-  `agent_id uuid not null references public.agents(id) on delete cascade`,
+  `agent_id uuid not null` — **not a foreign key to `agents`**: a สมาชิกทั่วไป's id is a row of
+  `ins_members` (20261001_outside_members.sql dropped that key from the other tables), so one would
+  save nothing for them (final review, 2026-10-08; migration `20261013_describe_history_no_agent_fk.sql`
+  takes it off a table made with it),
   `created_at timestamptz not null default now()`,
   `prompt text not null check (char_length(prompt) <= 2500)`,
   `summary_th text not null check (char_length(summary_th) <= 300)`,
@@ -130,3 +133,12 @@ is applied. It is applied only on the owner's say-so, as with every production m
 - A picker for the history inside the บรีฟภาพเพิ่มเติม field; sharing a history between
   people; a team library; keeping the full-size picture; editing a saved prompt; search.
 - A time-based expiry (only the 200 cap).
+
+## Amendments found in the final review (2026-10-08)
+
+1. No foreign key from `agent_id` to `agents` (section 1).
+2. A storage `remove` that fails is an error where it matters: delete and clear throw **before**
+   deleting rows, so a thumbnail that stays can still be reached through its row; trim and the
+   insert's rollback log it. `clearReadings` also sweeps its member's folder of files no row points at.
+3. The route gives saving **8 seconds** (`within`); past that the read is answered `saved: false`.
+

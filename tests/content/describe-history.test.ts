@@ -19,7 +19,10 @@ const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const THUMB = "/9j/" + "A".repeat(100);
 const reading = (n = 0) => ({ prompt: `Subject: reading ${n}`, summaryTh: "ครอบครัวในสวน", palette: [{ hex: "#C41E3A", share: 38 }], thumbBase64: THUMB });
 
-beforeEach(() => historyDb.reset());
+beforeEach(() => {
+  historyDb.reset();
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+});
 
 describe("isThumbBase64", () => {
   it("takes a base64 JPEG within the limit", () => {
@@ -139,5 +142,60 @@ describe("deleteReading and clearReadings", () => {
     await clearReadings(A);
     expect(historyDb.rows.map((r) => r.id)).toEqual([other]);
     expect([...historyDb.files.keys()]).toEqual([`${B}/${other}.jpg`]);
+  });
+});
+
+describe("when storage fails to remove a file", () => {
+  it("keeps the row on a delete, so the thumbnail can still be reached and deleted again", async () => {
+    const id = await saveReading(A, reading(1));
+    historyDb.failNext.remove = true;
+    await expect(deleteReading(A, id)).rejects.toThrow();
+    expect(historyDb.rows).toHaveLength(1);
+    expect(historyDb.files.size).toBe(1);
+    await deleteReading(A, id);
+    expect(historyDb.rows).toHaveLength(0);
+    expect(historyDb.files.size).toBe(0);
+  });
+
+  it("keeps the rows on a clear, likewise", async () => {
+    await saveReading(A, reading(1));
+    historyDb.failNext.remove = true;
+    await expect(clearReadings(A)).rejects.toThrow();
+    expect(historyDb.rows).toHaveLength(1);
+  });
+
+  it("keeps the old rows when trimming cannot remove their files, logs it, and still saves the new reading", async () => {
+    for (let i = 0; i < HISTORY_MAX; i++) await saveReading(A, reading(i));
+    historyDb.failNext.remove = true;
+    const id = await saveReading(A, reading(999));
+    expect(historyDb.rows.some((r) => r.id === id)).toBe(true);
+    expect(historyDb.rows).toHaveLength(HISTORY_MAX + 1);
+    expect(console.error).toHaveBeenCalled();
+    await saveReading(A, reading(1000));
+    expect(historyDb.rows.filter((r) => r.agent_id === A)).toHaveLength(HISTORY_MAX);
+  });
+
+  it("still throws the insert's own error, and logs the thumbnail it could not take back", async () => {
+    historyDb.failNext.insert = true;
+    await expect(saveReading(A, reading())).rejects.toThrow(/history row/);
+    historyDb.reset();
+    historyDb.failNext.insert = true;
+    const bucket = (historyDb.client as unknown as { storage: { from(n: string): { remove(p: string[]): Promise<unknown> } } }).storage.from("describe-thumbs");
+    const spy = vi.spyOn(bucket, "remove").mockResolvedValueOnce({ data: null, error: { message: "remove failed" } });
+    await expect(saveReading(A, reading())).rejects.toThrow(/history row/);
+    expect(console.error).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
+
+describe("clearReadings sweeps the member's folder", () => {
+  it("also removes a file in it that no row points at, and no other member's", async () => {
+    await saveReading(A, reading(1));
+    historyDb.files.set(`${A}/stray-from-a-crash.jpg`, THUMB);
+    await saveReading(B, reading(2));
+    historyDb.files.set(`${B}/stray.jpg`, THUMB);
+    await clearReadings(A);
+    expect([...historyDb.files.keys()].filter((p) => p.startsWith(`${A}/`))).toEqual([]);
+    expect([...historyDb.files.keys()].filter((p) => p.startsWith(`${B}/`))).toHaveLength(2);
   });
 });

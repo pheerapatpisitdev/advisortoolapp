@@ -23,8 +23,8 @@ export const historyDb = {
   rows: [] as Row[],
   /** path → the thumbnail's base64 */
   files: new Map<string, string>(),
-  /** the next upload / insert answers an error, once */
-  failNext: {} as { upload?: boolean; insert?: boolean },
+  /** the next upload / insert / remove answers an error, once */
+  failNext: {} as { upload?: boolean; insert?: boolean; remove?: boolean },
   /** how many times the table or the bucket was asked for */
   calls: 0,
   clock: 0,
@@ -94,8 +94,15 @@ const bucket = {
     return { data: { path }, error: null };
   },
   async remove(paths: string[]) {
+    if (historyDb.failNext.remove) { historyDb.failNext.remove = false; return { data: null, error: { message: "remove failed" } }; }
     for (const p of paths) historyDb.files.delete(p);
     return { data: paths.map((path) => ({ name: path })), error: null };
+  },
+  /** the files directly under a folder, as Storage's list answers: { name } relative to it */
+  async list(folder: string) {
+    const prefix = `${folder}/`;
+    const names = [...historyDb.files.keys()].filter((p) => p.startsWith(prefix) && !p.slice(prefix.length).includes("/"));
+    return { data: names.map((p) => ({ name: p.slice(prefix.length) })), error: null };
   },
   async createSignedUrls(paths: string[]) {
     return {

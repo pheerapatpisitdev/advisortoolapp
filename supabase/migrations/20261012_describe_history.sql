@@ -5,7 +5,9 @@
 -- public URL (the server hands out signed links of an hour). Additive only.
 create table if not exists ins_describe_history (
   id uuid primary key default gen_random_uuid(),
-  agent_id uuid not null references public.agents(id) on delete cascade,
+  -- not a foreign key to agents: a สมาชิกทั่วไป's id is a row of ins_members, never of agents
+  -- (20261001_outside_members.sql dropped this same key from the other tables)
+  agent_id uuid not null,
   created_at timestamptz not null default now(),
   prompt text not null check (char_length(prompt) <= 2500),
   summary_th text not null check (char_length(summary_th) <= 300),

@@ -2,6 +2,7 @@ import { describePicture } from "@/lib/content/describe-run";
 import { ACCEPTED_TYPES, MAX_IMAGE_BASE64 } from "@/lib/content/describe";
 import { parseSwatches } from "@/lib/content/palette";
 import { isThumbBase64, saveReading } from "@/lib/content/describe-history";
+import { within } from "@/lib/content/deadline";
 import { refuseUnless, requireMember } from "@/lib/auth/viewer";
 
 /**
@@ -15,6 +16,9 @@ import { refuseUnless, requireMember } from "@/lib/auth/viewer";
  */
 
 export const maxDuration = 60;
+
+/** keeping a read is five calls to Supabase, which have no limit of their own: past this the read is answered unsaved, not lost to the function's 60 s */
+const SAVE_MS = 8_000;
 
 const bad = (error: string) => Response.json({ ok: false, error }, { status: 400 });
 
@@ -33,7 +37,10 @@ export async function POST(req: Request) {
   if (!isThumbBase64(thumb)) return Response.json({ ...read, saved: false });
   try {
     const viewer = await requireMember();
-    const id = await saveReading(viewer.agentId, { prompt: read.prompt, summaryTh: read.summaryTh, palette: parseSwatches(image.palette), thumbBase64: thumb });
+    const id = await within(
+      saveReading(viewer.agentId, { prompt: read.prompt, summaryTh: read.summaryTh, palette: parseSwatches(image.palette), thumbBase64: thumb }),
+      SAVE_MS, "save",
+    );
     return Response.json({ ...read, saved: true, id });
   } catch (e) {
     console.error("describe history not kept:", e);

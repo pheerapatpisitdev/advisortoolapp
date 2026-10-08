@@ -98,6 +98,19 @@ describe("the history", () => {
     expect(res.id).toBeUndefined();
   });
 
+  it("answers the read after 8 seconds even when keeping it hangs, so a slow store cannot cost the paid read", async () => {
+    vi.useFakeTimers();
+    try {
+      hist.saveReading.mockReturnValueOnce(new Promise(() => undefined));
+      const pending = post({ image: image() });
+      await vi.advanceTimersByTimeAsync(8_001);
+      const res = await (await pending).json();
+      expect(res).toMatchObject({ ok: true, prompt: "p", saved: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps nothing for a read that failed", async () => {
     run.describePicture.mockResolvedValueOnce({ ok: false, error: "อ่านรูปนี้ไม่สำเร็จ ลองรูปอื่นนะครับ" });
     const res = await (await post({ image: image() })).json();

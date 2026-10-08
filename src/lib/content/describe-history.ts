@@ -57,7 +57,8 @@ export async function saveReading(
     id, agent_id: agentId, prompt: r.prompt, summary_th: r.summaryTh.slice(0, SUMMARY_MAX), palette: r.palette, thumb_path: path,
   });
   if (ins.error) {
-    await db.storage.from(BUCKET).remove([path]);
+    const back = await db.storage.from(BUCKET).remove([path]);
+    if (back.error) console.error("describe history thumbnail not taken back:", path, back.error.message);
     throw new Error(`history row: ${ins.error.message}`);
   }
   await trim(agentId);
@@ -73,7 +74,9 @@ async function trim(agentId: string): Promise<void> {
     if (error) throw new Error(error.message);
     const old = (data ?? []) as { id: string; thumb_path: string }[];
     if (!old.length) return;
-    await db.storage.from(BUCKET).remove(old.map((o) => o.thumb_path));
+    // the rows stay while their files do: a file with no row is one nothing can find to delete
+    const gone = await db.storage.from(BUCKET).remove(old.map((o) => o.thumb_path));
+    if (gone.error) throw new Error(gone.error.message);
     const del = await db.from(TABLE).delete().in("id", old.map((o) => o.id));
     if (del.error) throw new Error(del.error.message);
   } catch (e) {
@@ -104,10 +107,22 @@ export async function deleteReading(agentId: string, id: string): Promise<void> 
   await removeWhere(agentId, id);
 }
 
-/** all of the member's own history */
+/**
+ * All of the member's own history — and any file left in their folder that no row points at (a
+ * save cut short, a delete that half failed), so "cleared" means no thumbnail of theirs is left.
+ */
 export async function clearReadings(agentId: string): Promise<void> {
   if (!UUID.test(agentId)) return;
   await removeWhere(agentId);
+  const files = supabaseAdmin().storage.from(BUCKET);
+  for (let pass = 0; pass < 10; pass++) {
+    const { data, error } = await files.list(agentId, { limit: 1000 });
+    if (error) throw new Error(`history: ${error.message}`);
+    const names = (data ?? []).map((f) => f.name).filter((n) => n && !n.includes("/"));
+    if (!names.length) return;
+    const gone = await files.remove(names.map((n) => `${agentId}/${n}`));
+    if (gone.error) throw new Error(`history: ${gone.error.message}`);
+  }
 }
 
 async function removeWhere(agentId: string, id?: string): Promise<void> {
@@ -117,7 +132,11 @@ async function removeWhere(agentId: string, id?: string): Promise<void> {
   const { data, error } = await find;
   if (error) throw new Error(`history: ${error.message}`);
   const paths = ((data ?? []) as { thumb_path: string }[]).map((r) => r.thumb_path);
-  if (paths.length) await db.storage.from(BUCKET).remove(paths);
+  if (paths.length) {
+    // before the rows go: a thumbnail that stays must stay reachable through its row, to be deleted again
+    const gone = await db.storage.from(BUCKET).remove(paths);
+    if (gone.error) throw new Error(`history: ${gone.error.message}`);
+  }
   let del = db.from(TABLE).delete().eq("agent_id", agentId);
   if (id) del = del.eq("id", id);
   const res = await del;
