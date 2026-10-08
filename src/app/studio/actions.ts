@@ -37,7 +37,7 @@ import { ADS_MOVED, GOALS, LENGTHS, angleText, anglesFor, MAX_FACT, MAX_READER, 
 import {
   DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
   getHookTemplate, holdContentBudget, hookMenu, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
-  saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
+  saveBackground, saveContent, saveOutputIf, setFixes, setStatus, recentHooks, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
 import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds, writeNumbersAds, writeShortAds } from "@/lib/content/write";
 import { adAge, adPick } from "@/lib/ads/headline-input";
@@ -332,11 +332,14 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
       const held = await holdContentBudget(estimate, cap);
       if (!held.ok) return { ok: false, error: tooDear("รอบนี้", held.left) };
       hold = held.id;
-      const [avoid, template, words] = await Promise.all([
+      // this Page's latest openings for the product, whatever became of them, then the asker's used ones
+      const [recent, used, template, words] = await Promise.all([
+        recentHooks(brief.product.href, project.pageId),
         usedHooks(),
         input.hookTemplateId ? getHookTemplate(input.hookTemplateId) : Promise.resolve(null),
         listWords(),
       ]);
+      const avoid = [...new Set([...recent, ...used])];
       // no formula chosen: the planner picks one for each piece from a short menu. The library is
       // Thai, so an English round and an ad (which has its own planner call) keep writing their own
       const menu = !template && lang !== "en" && input.format !== "ad" && angle !== "numbers" ? await hookMenu() : [];

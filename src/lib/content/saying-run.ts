@@ -4,9 +4,13 @@ import { formulaOf } from "./formula";
 import { oneCallRound } from "./one-call-run";
 import { cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Length } from "./prompt";
-import { MAX_SAYING_PIECES, parseSayingPiece, readSaying, SAYING_HREF, sayingFormat, sayingMessages, sayingTones, type SayingAsk } from "./saying";
+import {
+  MAX_SAYING_PIECES, parseSayingPiece, readSaying, SAYING_HREF, SAYING_SHAPES, sayingAims, sayingFormat, sayingMessages, sayingSpread, sayingTones, type SayingAsk,
+} from "./saying";
 
 export interface SayingWriteInput extends SayingAsk {
+  /** how the round's pieces differ, a SAYING_SPREADS id; anything else is ต่างประเด็น */
+  spread?: string;
   /** a tone id from SAYING_TONES; empty lets the round take them in turn */
   tone?: string;
   reader?: string;
@@ -38,10 +42,12 @@ export async function writeSaying(input: SayingWriteInput, pageId: string | null
   const reader = (typeof input.reader === "string" ? input.reader : "").trim().slice(0, MAX_READER);
   const count = Math.min(MAX_SAYING_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
   const tones = sayingTones(typeof input.tone === "string" ? input.tone : "", count);
+  // each round starts its points and shapes at a place of its own, so the next does not open as this one did
+  const aims = sayingAims(source, sayingSpread(input.spread), count, Math.floor(Math.random() * SAYING_SHAPES.length * 3));
   return oneCallRound({
     href: SAYING_HREF, format, length, loop, formula, count,
     writer: input.writer,
-    messages: (i) => sayingMessages(source, tones[i], reader, format, length, loop, formula),
+    messages: (i) => sayingMessages(source, tones[i], reader, format, length, loop, formula, aims[i]),
     parse: (reply, i) => parseSayingPiece(reply, source, tones[i].label, format),
     // a figure in the agent's own saying is theirs; any other is flagged for the owner to confirm
     yardstick: source.kind === "own" ? `${source.text} ${source.who}` : "",

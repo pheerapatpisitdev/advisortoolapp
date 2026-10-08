@@ -15,7 +15,7 @@ const order: string[] = [];
 
 const store = vi.hoisted(() => ({
   getContent: vi.fn(), saveOutput: vi.fn(), saveOutputIf: vi.fn(), recordPublishIf: vi.fn(), claimPublish: vi.fn(), deleteContent: vi.fn(),
-  removeBackground: vi.fn(), listWords: vi.fn(), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
+  removeBackground: vi.fn(), listWords: vi.fn(), recentHooks: vi.fn(async (): Promise<string[]> => []), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
   contentSpentThisMonth: vi.fn(), contentCap: vi.fn(), setFixes: vi.fn(), saveBackground: vi.fn(), setStatus: vi.fn(),
   listContent: vi.fn(), countByStatus: vi.fn(), recentLooks: vi.fn(async (): Promise<object[]> => []),
   usedHooks: vi.fn(async (): Promise<string[]> => []), saveContent: vi.fn(),

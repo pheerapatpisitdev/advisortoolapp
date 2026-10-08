@@ -27,6 +27,7 @@ const store = vi.hoisted(() => ({
   releaseContentBudget: vi.fn(async () => {}),
   usedHooks: vi.fn(async (): Promise<string[]> => []),
   listWords: vi.fn(async () => []),
+  recentHooks: vi.fn(async (): Promise<string[]> => []),
 }));
 
 vi.mock("@/lib/auth/viewer", async () => {

@@ -11,8 +11,9 @@ import { applyPosterWords, cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Format, type Length } from "./prompt";
 import { MAX_RECRUIT_PIECES, RECRUIT_HREF, parseRecruitPiece, recruitMessages, recruitTones, topicOf } from "./recruit";
 import {
-  contentCap, contentSpentThisMonth, holdContentBudget, listWords, releaseContentBudget, saveContent, type ContentItem,
+  contentCap, contentSpentThisMonth, holdContentBudget, listWords, recentHooks, releaseContentBudget, saveContent, type ContentItem,
 } from "./store";
+import { withAvoid } from "./one-call-run";
 import { fallbackWriters, UnreadableReply } from "./write";
 import { formulaOf, markFormula } from "./formula";
 import { ownerWording } from "./wording";
@@ -77,11 +78,11 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
     const held = await holdContentBudget(count * (writer.thb + OVERHEAD_THB), cap);
     if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอรอบนี้ — ลดจำนวนชิ้นหรือเลือกโมเดลประหยัด` };
     hold = held.id;
-    const words = await listWords();
+    const [words, avoid] = await Promise.all([listWords(), recentHooks(RECRUIT_HREF, pageId)]);
 
     const settled = await Promise.allSettled(recruitTones(input.tone ?? "", count).map(async (tone) => {
       const r = await chat({
-        tier: "large", task: "content", messages: recruitMessages(topic, tone, reader, format, length, loop, formula),
+        tier: "large", task: "content", messages: withAvoid(recruitMessages(topic, tone, reader, format, length, loop, formula), avoid),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),
       });
