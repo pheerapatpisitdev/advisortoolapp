@@ -5,8 +5,9 @@ import type { VideoSettings } from "@/lib/video/settings";
 import type { RenderProvider } from "@/lib/video/render-providers";
 import {
   checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings, resetSpend,
-  type KeyRow, type VideoKeyRow, type ModelRow, type ProviderCheck, type ProviderSpend, type Result, type Settings,
+  type KeyRow, type VideoKeyRow, type ModelRow, type ProviderCheck, type ProviderSpend, type Result, type Settings, type SpendDetail,
 } from "./actions";
+import { taskLabel } from "./task-labels";
 
 /**
  * What the last save said, and where on the page it belongs.
@@ -32,7 +33,7 @@ function Said({ note, where, className = "" }: { note?: Note; where: string; cla
  * A bar as well as a number: five figures in a column are five figures to compare by
  * reading, and the whole question here is which one is the expensive one.
  */
-function Spend({ spend, top }: { spend?: ProviderSpend; top: number }) {
+function Spend({ spend, top, open, onToggle }: { spend?: ProviderSpend; top: number; open: boolean; onToggle: () => void }) {
   if (!spend || spend.calls === 0) {
     return <span className="w-36 text-xs text-[var(--bot-ink-faint)]">ยังไม่มีค่าใช้จ่าย</span>;
   }
@@ -46,10 +47,95 @@ function Spend({ spend, top }: { spend?: ProviderSpend; top: number }) {
       <span className="mt-0.5 block h-1 w-full overflow-hidden rounded-full bg-[var(--bot-panel)]">
         <span className="block h-full rounded-full bg-[var(--bot-navy)]" style={{ width: `${(spend.baht / top) * 100}%` }} />
       </span>
-      <span className="mt-0.5 block text-[0.65rem] text-[var(--bot-ink-faint)]">
-        ครั้งละ ฿{per < 0.01 ? "<0.01" : per.toFixed(2)}
+      <span className="mt-0.5 flex items-baseline justify-between gap-1 text-[0.65rem] text-[var(--bot-ink-faint)]">
+        <span>ครั้งละ ฿{per < 0.01 ? "<0.01" : per.toFixed(2)}</span>
+        <button type="button" aria-expanded={open} onClick={onToggle} className="font-medium text-[var(--bot-navy)] hover:underline">
+          {open ? "ซ่อน ▴" : "ใช้ทำอะไร ▾"}
+        </button>
       </span>
     </span>
+  );
+}
+
+const thb = (n: number) => (n > 0 && n < 0.01 ? "<0.01" : n.toFixed(2));
+
+/** one job's line in a breakdown: what it was, who or what did it, and what it cost */
+interface Job { task: string; calls: number; baht: number; under: string[] }
+
+/**
+ * Jobs, dearest first, each with a bar against the dearest. A list rather than a table: on a
+ * phone a table's money column scrolled off to the right, and the money is the point.
+ */
+function Jobs({ jobs }: { jobs: Job[] }) {
+  const sorted = [...jobs].sort((a, b) => b.baht - a.baht || b.calls - a.calls);
+  const top = Math.max(sorted[0]?.baht ?? 0, 0.0001);
+  return (
+    <ul className="divide-y divide-[var(--bot-line)] text-xs">
+      {sorted.map((j) => (
+        <li key={j.task} className="flex items-start justify-between gap-3 py-1.5">
+          <span className="min-w-0">
+            <span className="block text-[var(--bot-ink)]">{taskLabel(j.task)}</span>
+            <span className="block text-[0.6rem] text-[var(--bot-ink-faint)]">{j.task}</span>
+            {j.under.map((u) => <span key={u} className="block break-words text-[0.65rem] text-[var(--bot-ink-mute)]">{u}</span>)}
+          </span>
+          <span className="w-24 shrink-0 text-right">
+            <span className="block font-semibold tabular-nums">฿{thb(j.baht)}</span>
+            <span className="block text-[0.65rem] tabular-nums text-[var(--bot-ink-faint)]">{j.calls.toLocaleString("th-TH")} ครั้ง</span>
+            <span className="mt-0.5 block h-1 w-full overflow-hidden rounded-full bg-[var(--bot-panel)]">
+              <span className="block h-full rounded-full bg-[var(--bot-navy)]" style={{ width: `${(j.baht / top) * 100}%` }} />
+            </span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * What one provider's money went on: a line per job, with the models that did it.
+ *
+ * The total says which company is expensive; this says why. A job that ran on two models
+ * (a fallback, or a model changed mid-month) shows both with their own share, so a dear
+ * model doing cheap work stands out.
+ */
+function Detail({ lines }: { lines: SpendDetail[] }) {
+  const by = new Map<string, SpendDetail[]>();
+  for (const l of lines) by.set(l.task, [...(by.get(l.task) ?? []), l]);
+  const jobs: Job[] = [...by.entries()].map(([task, ms]) => ({
+    task,
+    calls: ms.reduce((n, m) => n + m.calls, 0),
+    baht: ms.reduce((n, m) => n + m.baht, 0),
+    under: ms.map((m) => (ms.length > 1 ? `${m.model} · ${m.calls} ครั้ง ฿${thb(m.baht)}` : m.model)),
+  }));
+  return (
+    <div className="basis-full rounded bg-[var(--bot-band)] px-2 py-1">
+      <Jobs jobs={jobs} />
+    </div>
+  );
+}
+
+/**
+ * Every company's spend, one line per job: "the bot cost this much, Studio's pictures that
+ * much" — the question asked across the keys rather than down one of them.
+ */
+function ByJob({ spend }: { spend: ProviderSpend[] }) {
+  const by = new Map<string, { calls: number; baht: number; who: Set<string> }>();
+  for (const p of spend) {
+    for (const l of p.lines) {
+      const j = by.get(l.task) ?? { calls: 0, baht: 0, who: new Set<string>() };
+      j.calls += l.calls;
+      j.baht += l.baht;
+      j.who.add(PROVIDER_LABEL[p.provider] ?? p.provider);
+      by.set(l.task, j);
+    }
+  }
+  if (by.size === 0) return null;
+  const jobs: Job[] = [...by.entries()].map(([task, j]) => ({ task, calls: j.calls, baht: j.baht, under: [[...j.who].join(", ")] }));
+  return (
+    <details className="mt-3 rounded-md border border-[var(--bot-line)] p-2">
+      <summary className="cursor-pointer text-sm font-medium">ดูรวมทุกค่าย — ใช้ไปกับงานอะไรบ้าง ({jobs.length} งาน)</summary>
+      <div className="mt-2"><Jobs jobs={jobs} /></div>
+    </details>
   );
 }
 
@@ -86,6 +172,8 @@ function Status({ check }: { check?: ProviderCheck }) {
 const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic (Claude)", openai: "OpenAI (GPT)", google: "Google (Gemini)", zai: "Z.ai (GLM)",
   typesafe: "TypeSafe (Jev)",
+  // the clip renderers write to the same ledger; named here for the all-provider breakdown
+  rendi: "Rendi", aws: "AWS Lambda", gcp: "Google Cloud Run",
 };
 
 /** How a model's kind reads on the page. A judge answers in probabilities, never in words. */
@@ -115,6 +203,13 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
   const [testing, setTesting] = useState(false);
   const checkOf = (p: string) => checks?.find((c) => c.provider === p);
   const spendOf = (p: string) => spend.find((s) => s.provider === p);
+  /** which providers have their breakdown open */
+  const [opened, setOpened] = useState<Set<string>>(new Set());
+  const toggle = (p: string) => setOpened((o) => {
+    const n = new Set(o);
+    if (n.has(p)) n.delete(p); else n.add(p);
+    return n;
+  });
   /** the busiest line, so the others can be drawn as a share of it */
   const topSpend = Math.max(...spend.map((s) => s.baht), 0.0001);
   const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -227,7 +322,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
                   <span className={on ? "text-[var(--bot-ok)]" : "text-[var(--bot-ink-mute)]"}>{on ? "เปิด" : "ปิด"}</span>
                 </label>
                 <Status check={checkOf(p)} />
-                <Spend spend={spendOf(p)} top={topSpend} />
+                <Spend spend={spendOf(p)} top={topSpend} open={opened.has(p)} onToggle={() => toggle(p)} />
                 <span className="flex min-w-64 flex-1 items-center gap-2">
                   <input
                     type="password" placeholder="วางกุญแจใหม่" autoComplete="off"
@@ -244,10 +339,12 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
                   </button>
                 </span>
                 <Said note={note} where={`key:${p}`} className="basis-full" />
+                {opened.has(p) && spendOf(p) && <Detail lines={spendOf(p)!.lines} />}
               </div>
             );
           })}
         </div>
+        <ByJob spend={spend} />
       </Card>
 
       <Card title="ตัวตัดต่อวิดีโอ" hint="บริการที่ใช้ตัดคลิปเป็นรีล เก็บกุญแจแบบเดียวกับค่าย AI Rendi แสดง 4 ตัวท้าย ส่วน AWS และ Google แสดงว่าชี้ไปที่ไหน">
