@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_SIDE, MAX_UPLOAD_BYTES, fileProblem, shrunkSize } from "@/lib/content/picture-shrink";
+import { MAX_SIDE, MAX_UPLOAD_BYTES, THUMB_SIDE, fileProblem, shrunkSize } from "@/lib/content/picture-shrink";
 
 /** What the browser does to a picture before it is sent to be read: nothing over 1,024 px, nothing enlarged. */
 
@@ -15,6 +15,14 @@ describe("shrunkSize", () => {
 
   it("rounds the short side, for a tall picture too", () => {
     expect(shrunkSize(800, 4000)).toEqual({ w: 205, h: 1024 });
+  });
+});
+
+describe("shrunkSize for a thumbnail", () => {
+  it("brings the long side down to 256 and never enlarges", () => {
+    expect(THUMB_SIDE).toBe(256);
+    expect(shrunkSize(4000, 3000, THUMB_SIDE)).toEqual({ w: 256, h: 192 });
+    expect(shrunkSize(100, 80, THUMB_SIDE)).toEqual({ w: 100, h: 80 });
   });
 });
 

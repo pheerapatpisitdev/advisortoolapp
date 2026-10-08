@@ -1,5 +1,5 @@
 import { dominantColors, type Swatch } from "@/lib/content/palette";
-import { shrunkSize } from "@/lib/content/picture-shrink";
+import { THUMB_SIDE, shrunkSize } from "@/lib/content/picture-shrink";
 
 /**
  * A picture shrunk in the browser before it is sent to be read: the long side to 1,024 px as a
@@ -11,7 +11,25 @@ const CANNOT_OPEN = "เปิดรูปนี้ไม่ได้ ลอง�
 /** the long side of the copy the colours are counted from: 64 px is 4,000 pixels, plenty to tell the main colours */
 const COUNT_SIDE = 64;
 
-export interface Shrunk { base64: string; mimeType: "image/jpeg"; name: string; bytes: number; palette: Swatch[] }
+/** `thumb`: a THUMB_SIDE px JPEG of the picture, base64, for the member's history; "" when it could not be made (the read still goes ahead, and is not kept) */
+export interface Shrunk { base64: string; mimeType: "image/jpeg"; name: string; bytes: number; palette: Swatch[]; thumb: string }
+
+/** the history's thumbnail, drawn from the shrunken canvas */
+async function thumbOf(canvas: HTMLCanvasElement): Promise<string> {
+  try {
+    const { w, h } = shrunkSize(canvas.width, canvas.height, THUMB_SIDE);
+    const small = document.createElement("canvas");
+    small.width = w;
+    small.height = h;
+    const ctx = small.getContext("2d");
+    if (!ctx) return "";
+    ctx.drawImage(canvas, 0, 0, w, h);
+    const blob = await new Promise<Blob | null>((resolve) => small.toBlob(resolve, "image/jpeg", 0.7));
+    return blob ? await toBase64(blob) : "";
+  } catch {
+    return "";
+  }
+}
 
 /** the picture's main colours, counted from a small copy of the canvas; none when they cannot be read, which does not stop the read */
 function colorsOf(canvas: HTMLCanvasElement): Swatch[] {
@@ -55,5 +73,5 @@ export async function shrinkImage(file: File): Promise<Shrunk> {
   bitmap.close();
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
   if (!blob) throw new Error(CANNOT_OPEN);
-  return { base64: await toBase64(blob), mimeType: "image/jpeg", name: file.name, bytes: blob.size, palette: colorsOf(canvas) };
+  return { base64: await toBase64(blob), mimeType: "image/jpeg", name: file.name, bytes: blob.size, palette: colorsOf(canvas), thumb: await thumbOf(canvas) };
 }

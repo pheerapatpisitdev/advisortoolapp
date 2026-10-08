@@ -1,12 +1,14 @@
 "use client";
 import { useRef, useState } from "react";
 import { ACCEPTED_TYPES } from "@/lib/content/describe";
+import type { Swatch } from "@/lib/content/palette";
 import type { DescribeResult } from "@/lib/content/describe-run";
 import { fileProblem } from "@/lib/content/picture-shrink";
 import { describeCall } from "../describe-call";
 import { shrinkImage } from "./shrink-image";
 
-export type DescribeOk = Extract<DescribeResult, { ok: true }>;
+/** a good read; `thumbUrl` (the thumbnail the browser made, as a data link) and `palette` are what the browser knows, for showing the new history item at once */
+export type DescribeOk = Extract<DescribeResult, { ok: true }> & { thumbUrl?: string; palette?: Swatch[] };
 
 type State = { phase: "idle" } | { phase: "working"; name: string; kb: number | null } | { phase: "failed"; error: string };
 
@@ -29,8 +31,8 @@ export function DescribePicker({ onDone }: { onDone: (r: DescribeOk) => void }) 
     try {
       const shrunk = await shrinkImage(file);
       setState({ phase: "working", name: file.name, kb: Math.max(1, Math.round(shrunk.bytes / 1024)) });
-      const r = await describeCall({ base64: shrunk.base64, mimeType: shrunk.mimeType, palette: shrunk.palette });
-      if (r.ok) { setState({ phase: "idle" }); onDone(r); }
+      const r = await describeCall({ base64: shrunk.base64, mimeType: shrunk.mimeType, palette: shrunk.palette, thumb: shrunk.thumb });
+      if (r.ok) { setState({ phase: "idle" }); onDone({ ...r, palette: shrunk.palette, ...(shrunk.thumb ? { thumbUrl: `data:image/jpeg;base64,${shrunk.thumb}` } : {}) }); }
       else setState({ phase: "failed", error: r.error });
     } catch (e) {
       setState({ phase: "failed", error: e instanceof Error ? e.message : "อ่านรูปไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" });
