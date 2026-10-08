@@ -371,6 +371,43 @@ describe("the conversation", () => {
   });
 });
 
+describe("short answers after the plan has been described", () => {
+  /**
+   * The website, 2026-10-08: a man of 35 was asked what cover he wanted, typed "1000000", and
+   * was asked again — the bare number was tried as a monthly saving, which stops at 500,000.
+   * The question in front of him was the sum, so a bare figure of a sum's size is the sum.
+   */
+  const told = { product: "ishield" as const, age: 35, sex: "M" as const, variant: "WLCI10", told: true as const };
+
+  it("reads a bare figure of a sum's size as the sum asked for", () => {
+    for (const said of ["1000000", "1,000,000", "500000"]) {
+      const a = answer(said, told);
+      expect(a.priced, said).toBe(true);
+      expect(a.slots.sumAssured, said).toBe(Number(said.replace(/,/g, "")));
+    }
+  });
+
+  it("still reads a small bare figure as a monthly saving", () => {
+    expect(answer("3000", told).slots.budget).toEqual({ baht: 3000, per: "month" });
+  });
+
+  /**
+   * "20ปี", once the age is known, cannot be the age: it is one of the four terms the leaflet
+   * just listed. The same customer was quoted the ten-year term.
+   */
+  it("reads a bare term once the age is already known", () => {
+    for (const [said, variant] of [["20ปี", "WLCI20"], ["15 ปี", "WLCI15"], ["5ปี", "WLCI05"]] as const) {
+      const a = answer(said, told);
+      expect(a.slots.variant, said).toBe(variant);
+      expect(a.slots.termChosen, said).toBe(true);
+    }
+  });
+
+  it("does not take a bare number of years for a term before the age is known", () => {
+    expect(answer("20ปี").slots.variant).toBeUndefined();
+  });
+});
+
 describe("a customer already quoted, thanking", () => {
   it("is not quoted again for saying thank you (Messenger, 2026-10-07)", async () => {
     const { answerIShield } = await import("@/lib/assistant/ishield/answer");

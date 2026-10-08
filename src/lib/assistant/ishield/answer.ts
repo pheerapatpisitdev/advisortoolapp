@@ -187,6 +187,37 @@ export function ishieldTermIn(text: string): string | undefined {
   return years ? `WLCI${years.padStart(2, "0")}` : undefined;
 }
 
+/**
+ * A term said with nothing else — "20ปี", "15 ปี" — read only once the age is already known.
+ *
+ * Before that it is as likely to be the age the bot just asked for. After it, it can only be
+ * one of the four terms the leaflet listed: a man of 35 on the website typed "20ปี" and was
+ * quoted the ten-year term (2026-10-08).
+ */
+const TERM_ALONE = /^\s*(5|10|15|20)\s*ปี\s*$/;
+
+function bareTermIn(text: string): string | undefined {
+  const years = text.match(TERM_ALONE)?.[1];
+  return years ? `WLCI${years.padStart(2, "0")}` : undefined;
+}
+
+/**
+ * A sum typed as nothing but its figure — "1000000", "1,000,000".
+ *
+ * The bot asks for the sum and never for a saving, so a bare figure of a sum's size answers
+ * the question it was asked. It was tried as a monthly saving, which stops at 500,000, and a
+ * million came back as nothing (the website, 2026-10-08). Smaller bare figures — "3000" —
+ * are still a saving: no sum this plan sells is that small.
+ */
+const SMALLEST_BARE_SUM = 100_000;
+
+function bareSumIn(text: string): number | undefined {
+  const said = text.trim();
+  if (!/^\d{1,3}(?:,\d{3})+$|^\d+$/.test(said)) return undefined;
+  const baht = Number(said.replace(/,/g, ""));
+  return baht >= SMALLEST_BARE_SUM ? baht : undefined;
+}
+
 /** The widest age this plan is issued at under any of its terms, for the refusal to quote. */
 function ageSpan(): { min: number; max: number } {
   const r = rules();
@@ -273,7 +304,7 @@ function filled(previous: IShieldSlots | null, asked: string): IShieldSlots {
   }
 
   // a term named is the term, where it takes the customer; where it does not, the answer says so
-  const named = ishieldTermIn(asked);
+  const named = ishieldTermIn(asked) ?? (previous?.age !== undefined ? bareTermIn(asked) : undefined);
   if (named && (slots.age === undefined || takes(named, slots.age))) {
     slots.variant = named;
     slots.termChosen = true;
@@ -290,7 +321,7 @@ function filled(previous: IShieldSlots | null, asked: string): IShieldSlots {
    * older, looser reading of a saving, tried last.
    */
   const periodic = budgetIn(asked);
-  const cover = periodic ? undefined : coverIn(asked);
+  const cover = periodic ? undefined : coverIn(asked) ?? bareSumIn(asked);
   const saving = periodic || cover !== undefined ? undefined : savingIn(asked);
   if (cover !== undefined) delete slots.budget;
   else if (periodic) slots.budget = periodic;
