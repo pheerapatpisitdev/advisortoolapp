@@ -109,6 +109,9 @@ function Icon({ name }: { name: MenuIcon }) {
     // the agent's Studio wallet
     case "wallet":
       return <svg {...common}><path d="M4.5 7.5h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18V8l11-3v2.5M16.5 13.5h.01" /></svg>;
+    // a picture read into a prompt: a frame with a hill and a sun
+    case "image":
+      return <svg {...common}><path d="M4.5 5.5h15v13h-15zM4.5 15.5l4.5-4.5 4 4 2.5-2.5 4 4M15.5 9.5h.01" /></svg>;
     // อีซี่ โพรเทค 6 is sold on the premium having a last year, so its mark is a clock
     case "clock":
       return <svg {...common}><path d="M12 4.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zM12 8v4.3l3 1.7" /></svg>;

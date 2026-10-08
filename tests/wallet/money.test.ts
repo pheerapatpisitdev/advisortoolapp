@@ -41,6 +41,7 @@ describe("what a round holds", () => {
   it("is the round's hold times the multiplier, rounded up to a satang", () => {
     expect(holdSatang("ai-write", 2)).toBe(Math.ceil(ROUND_HOLD_THB["ai-write"] * 2 * 100));
     expect(holdSatang("ai-draw", 1.5)).toBe(Math.ceil(ROUND_HOLD_THB["ai-draw"] * 1.5 * 100));
+    expect(holdSatang("ai-describe", 2)).toBe(Math.ceil(ROUND_HOLD_THB["ai-describe"] * 2 * 100));
   });
 
   it("can be sized from a price in baht instead of the round's default, rounded up to a satang", () => {

@@ -47,6 +47,8 @@ export const ROUND_HOLD_THB: Record<AiRound, number> = {
   "ai-draw": 3,
   "ai-clip": 3,
   "ai-edit": 3,
+  // a picture read into a prompt: two measured reads cost ฿0.27 and ฿0.30 (2026-10-08); same as DESCRIBE_HOLD_THB
+  "ai-describe": 0.5,
 };
 
 /**

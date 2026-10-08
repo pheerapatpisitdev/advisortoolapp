@@ -63,7 +63,7 @@ describe("takeRound", () => {
     expect(await takeRound(agent, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41 });
     expect(db.rpc).toHaveBeenCalledWith("ins_take_free_round", {
       p_agent: agent.agentId, p_action: "ai-write", p_target: null,
-      p_limit: 10, p_from: "2026-09-30T17:00:00.000Z", p_rounds: ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft", "ai-thanks", "ai-showcase", "ai-clip", "ai-edit"],
+      p_limit: 10, p_from: "2026-09-30T17:00:00.000Z", p_rounds: ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft", "ai-thanks", "ai-showcase", "ai-clip", "ai-edit", "ai-describe"],
     });
     // the database wrote the line; nothing is written beside it, and no wallet is touched
     expect(db.insert).not.toHaveBeenCalled();
@@ -104,6 +104,13 @@ describe("takeRound", () => {
       .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: held, multiplier: 2 });
     expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, held, "ai-draw");
     expect(db.insert).toHaveBeenCalledWith({ agent_id: agent.agentId, action: "ai-draw", target: "piece-1", detail: { wallet: true } });
+  });
+
+  it("holds a picture reading's own price once the free rounds are used", async () => {
+    freeUsed();
+    expect(await takeRound(agent, "ai-describe"))
+      .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: 100, multiplier: 2 });
+    expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 100, "ai-describe");
   });
 
   it("holds the price it is told instead of the round's default, times the multiplier", async () => {
