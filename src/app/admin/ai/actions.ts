@@ -83,7 +83,12 @@ export interface ProviderSpend {
   baht: number;
   /** the tasks it was used for, busiest first — "copilot", "route", "plan_info"… */
   tasks: string[];
+  /** what it was asked to do, one line per task and model, dearest first: the card's detail */
+  lines: SpendDetail[];
 }
+
+/** one task on one model since the count began */
+export interface SpendDetail { task: string; model: string; calls: number; baht: number }
 
 function passphrase(): string {
   const s = process.env.ADMIN_SESSION_SECRET;
@@ -224,22 +229,24 @@ function byProvider(lines: SpendLine[], models: { provider: string; model_name: 
     ["lambda", "aws"] as const,
     ["cloudrun", "gcp"] as const,
   ]);
-  const acc = new Map<string, { calls: number; baht: number; tasks: Map<string, number> }>();
+  const acc = new Map<string, { calls: number; baht: number; tasks: Map<string, number>; lines: SpendDetail[] }>();
   for (const l of lines) {
     // a model the reference table no longer lists still cost money, and saying so under its
     // own name beats dropping the line and quietly under-reporting the month
     const provider = providerOf.get(l.model ?? "") ?? judgeVersionOf(l.model) ?? (l.model ? `${l.model} (ไม่รู้จักค่าย)` : "ไม่ทราบ");
-    const at = acc.get(provider) ?? { calls: 0, baht: 0, tasks: new Map<string, number>() };
+    const at = acc.get(provider) ?? { calls: 0, baht: 0, tasks: new Map<string, number>(), lines: [] };
     at.calls += l.calls;
     at.baht += l.baht;
     const task = l.task ?? "ไม่ระบุ";
     at.tasks.set(task, (at.tasks.get(task) ?? 0) + l.calls);
+    at.lines.push({ task, model: l.model ?? "ไม่ทราบ", calls: l.calls, baht: l.baht });
     acc.set(provider, at);
   }
   return [...acc.entries()]
     .map(([provider, v]) => ({
       provider, calls: v.calls, baht: v.baht,
       tasks: [...v.tasks.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t),
+      lines: v.lines.sort((a, b) => b.baht - a.baht || b.calls - a.calls),
     }))
     .sort((a, b) => b.baht - a.baht);
 }
