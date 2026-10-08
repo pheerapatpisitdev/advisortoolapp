@@ -109,8 +109,8 @@ describe("takeRound", () => {
   it("holds a picture reading's own price once the free rounds are used", async () => {
     freeUsed();
     expect(await takeRound(agent, "ai-describe"))
-      .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: 200, multiplier: 2 });
-    expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 200, "ai-describe");
+      .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: 100, multiplier: 2 });
+    expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 100, "ai-describe");
   });
 
   it("holds the price it is told instead of the round's default, times the multiplier", async () => {

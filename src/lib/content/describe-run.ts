@@ -18,8 +18,8 @@ export { MAX_IMAGE_BASE64 };
 
 /** content-*, so the owner's ceiling counts it (contentBaht in store.ts) */
 export const DESCRIBE_TASK = "content-describe-picture";
-/** what a read sets aside, in baht; set from a measured call (plan 2026-10-08, task 6) */
-export const DESCRIBE_HOLD_THB = 1;
+/** what a read sets aside, in baht: two measured reads cost ฿0.27 and ฿0.30 (2026-10-08), so half as much again, to the next ฿0.10 */
+export const DESCRIBE_HOLD_THB = 0.5;
 const DESCRIBE_MS = 45_000;
 
 /** a read is cheaper and quicker than a picture, so twenty an hour against drawing's forty */

@@ -48,6 +48,10 @@ beforeEach(() => {
 });
 
 describe("describePicture", () => {
+  it("sets aside ฿0.50 for a read: its two measured calls cost ฿0.27 and ฿0.30 (2026-10-08), with half as much again", () => {
+    expect(DESCRIBE_HOLD_THB).toBe(0.5);
+  });
+
   it("reads the picture, charges the round once and lets the hold go", async () => {
     const r = await describePicture(IMG);
     expect(r).toMatchObject({ ok: true, summaryTh: "ครอบครัวในสวน", costThb: 0.42 });
