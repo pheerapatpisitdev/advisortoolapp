@@ -12,6 +12,8 @@ import type { GenerateResult } from "../actions";
 import { draftRound } from "../draw";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { PictureBrief } from "../ui/PictureBrief";
+import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
+import { cleanPosterWords } from "@/lib/content/poster-words";
 import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
 
 /** เขียนเอง's tools (owner, 2026-09-29): the agent's draft and how many versions to polish it into (draft.ts). */
@@ -65,6 +67,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
   const [loop, setLoop] = useLoop();
   const [formula, setFormula] = useFormula();
   const [count, setCount] = useState(1);
+  const [posterWords, setPosterWords] = useState<PosterWordsValue>({});
 
   const blocked = !draft.trim() ? "พิมพ์ร่างก่อน" : null;
 
@@ -79,7 +82,8 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
     const round = { draft: draft.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count, writer,
-      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}), page: logo.page };
+      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}),
+      ...(format !== "script" && cleanPosterWords(posterWords) ? { posterWords: cleanPosterWords(posterWords) } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => draftRound(round), paintWith, person, brief.trim());
   }
@@ -125,6 +129,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
           <p className="text-xs text-[var(--ct-mute)]">เวอร์ชันในรอบนี้: {DRAFT_STYLES.slice(0, count).map((s) => s.label).join(" · ")}</p>
         </FormSection>
 
+        {format !== "script" && <PosterWords value={posterWords} onChange={setPosterWords} />}
         {format !== "script" && <LogoPicker {...logo} />}
         <PictureFold summary={pictureSummary({
           format, writer: pick.short, painter: paints.modelId ? paints.short : null,

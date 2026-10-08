@@ -79,4 +79,37 @@ describe("a one-call round", () => {
     await oneCallRound({ ...base, count: 1, formula: "finish", yardstick: "", parse: () => piece("ปมนี้ เฉลย") });
     expect(store.saveContent.mock.calls[0][0].output).toMatchObject({ formula: "finish", shareWhy: "voice", loops: [{ open: "หัว", close: "เฉลย" }] });
   });
+
+  describe("with the agent's own poster words", () => {
+    const withPoster = (headline: string): ContentOutput => ({
+      ...piece("ดี"),
+      poster: { layout: "bottom", theme: "navy", blocks: [{ kind: "headline", text: headline }, { kind: "sub", text: "รองของ AI" }] },
+    });
+    const flagsOf = () => store.saveContent.mock.calls[0][0].flags as { numbers: string[]; policy: { code: string }[] };
+
+    it("saves every piece of the round with their words on its poster and the writer's colours", async () => {
+      await oneCallRound({ ...base, yardstick: "", posterWords: { headline: "ทักมาเลย", footer: "LINE: abc" }, parse: () => withPoster("ของ AI") });
+      for (const [row] of store.saveContent.mock.calls) {
+        expect(row.output.poster).toMatchObject({ theme: "navy", blocks: [{ kind: "headline", text: "ทักมาเลย" }, { kind: "footer", text: "LINE: abc" }] });
+      }
+    });
+
+    it("does not flag a figure on their poster as the AI's, but still flags one in the post", async () => {
+      const out = { ...withPoster("x"), body: "เบี้ย 7,777 บาท" };
+      await oneCallRound({ ...base, count: 1, yardstick: "", posterWords: { headline: "เริ่มต้น 1,234 บาท" }, parse: () => out });
+      const numbers = flagsOf().numbers.join(" ");
+      expect(numbers).not.toContain("1,234");
+      expect(numbers).toContain("7,777");
+    });
+
+    it("still reads their words with the policy's rules", async () => {
+      await oneCallRound({ ...base, count: 1, yardstick: "", posterWords: { headline: "เบี้ยถูกที่สุดในประเทศ" }, parse: () => withPoster("x") });
+      expect(flagsOf().policy.length).toBeGreaterThan(0);
+    });
+
+    it("leaves the writer's poster as it was with no words", async () => {
+      await oneCallRound({ ...base, count: 1, yardstick: "", posterWords: null, parse: () => withPoster("ของ AI") });
+      expect(store.saveContent.mock.calls[0][0].output.poster?.blocks[0]).toEqual({ kind: "headline", text: "ของ AI" });
+    });
+  });
 });

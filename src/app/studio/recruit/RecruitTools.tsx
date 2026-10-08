@@ -14,6 +14,8 @@ import type { GenerateResult } from "../actions";
 import { recruitRound } from "../draw";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { PictureBrief } from "../ui/PictureBrief";
+import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
+import { cleanPosterWords } from "@/lib/content/poster-words";
 import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
 
 /**
@@ -73,6 +75,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   const [formula, setFormula] = useFormula();
   const [tone, setTone] = useState("");
   const [count, setCount] = useState(1);
+  const [posterWords, setPosterWords] = useState<PosterWordsValue>({});
 
   const blocked = topic === "custom" && !custom.trim() ? "พิมพ์หัวข้อ หรือเลือกจากรายการ" : null;
 
@@ -87,7 +90,8 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
     const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count, writer,
-      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}), page: logo.page };
+      ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}),
+      ...(format !== "script" && cleanPosterWords(posterWords) ? { posterWords: cleanPosterWords(posterWords) } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     await run(count, round.format, () => recruitRound(round), paintWith, person, brief.trim());
   }
@@ -159,6 +163,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
         </div>
         </FormSection>
 
+        {format !== "script" && <PosterWords value={posterWords} onChange={setPosterWords} />}
         {format !== "script" && <LogoPicker {...logo} />}
         <PictureFold summary={pictureSummary({
           format, writer: pick.short, painter: paints.modelId ? paints.short : null,

@@ -14,6 +14,7 @@ import { checkPolicy } from "./policy";
 import { onPage } from "./publish-label";
 import { SHOWCASE_HREF } from "./showcase";
 import { MAX_PAPERS, posterText } from "./poster";
+import { applyPosterWords, cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Format, type Length } from "./prompt";
 import {
   backgroundDataUri, contentCap, contentSpentThisMonth, getContent, holdContentBudget, listWords, releaseContentBudget,
@@ -87,6 +88,8 @@ export interface ClaimWriteInput {
   pro?: boolean;
   /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
   logoSpot?: string;
+  /** the agent's own words for the poster (poster-words.ts); a request body, so read before use */
+  posterWords?: unknown;
   /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   writer?: string;
@@ -106,8 +109,8 @@ export interface Paper {
 }
 
 /** every line the checks read, as the workbench's own checks read them */
-function checkedText(o: ContentOutput): string {
-  return [...o.hooks, o.body, o.closing, o.hashtags.join(" "), posterText(o.poster)].join("\n");
+function checkedText(o: ContentOutput, withPoster = true): string {
+  return [...o.hooks, o.body, o.closing, o.hashtags.join(" "), withPoster ? posterText(o.poster) : ""].join("\n");
 }
 
 /** Facts with nothing to tell: no illness, no amount and nothing from the owner is no story. */
@@ -126,6 +129,8 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
   const logo = format === "script" ? null
     : await roundLogo(pageId, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
   const yardstick = factsBlock(facts);
+  // the agent's own poster words are theirs to answer for: a figure on them is not the AI's to be flagged
+  const ownWords = cleanPosterWords(input.posterWords);
   let hold: string | null = null;
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
@@ -145,7 +150,7 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
         prefer: writer.model, within: fallbackWriters(writer.model),
       });
       const parsed = parseClaimPiece(r.text, facts, a.label, format);
-      const output = parsed && ownerWording(parsed);
+      const output = parsed && applyPosterWords(ownerWording(parsed), ownWords);
       if (!output) {
         console.error(`claim piece unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
         throw new UnreadableReply();
@@ -171,7 +176,7 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
         item = await saveContent({
           planHref: CLAIM_HREF, format, angle: "", length, output: w.output, pageId,
           flags: {
-            numbers: strayNumbers(checkedText(w.output), yardstick),
+            numbers: strayNumbers(checkedText(w.output, !ownWords), yardstick),
             words: findWords(checkedText(w.output), words),
             policy: checkPolicy(checkedText(w.output)),
             fixes: null,

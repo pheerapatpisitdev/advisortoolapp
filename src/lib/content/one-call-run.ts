@@ -9,6 +9,7 @@ import type { ContentOutput } from "./output";
 import type { ModeChecks } from "./mode-checks";
 import { checkPolicy } from "./policy";
 import { posterText } from "./poster";
+import { applyPosterWords, type OwnPosterWords } from "./poster-words";
 import type { Format, Length } from "./prompt";
 import {
   contentCap, contentSpentThisMonth, holdContentBudget, listWords, releaseContentBudget, saveContent, type ContentItem,
@@ -45,14 +46,16 @@ export interface OneCallRound {
   /** the writing formula the round was picked with (formula.ts) */
   formula: Formula | null;
   logoSpot?: string;
+  /** the agent's own poster words, laid in place of the writer's (poster-words.ts) */
+  posterWords?: OwnPosterWords | null;
   /** the Page whose project the pieces go into, as projectPage settled it; null for an agent with no Pages */
   pageId: string | null;
   /** names the round in the server log */
   label: string;
 }
 
-function checkedText(o: ContentOutput): string {
-  return [...o.hooks, o.body, o.closing, o.hashtags.join(" "), posterText(o.poster)].join("\n");
+function checkedText(o: ContentOutput, withPoster = true): string {
+  return [...o.hooks, o.body, o.closing, o.hashtags.join(" "), withPoster ? posterText(o.poster) : ""].join("\n");
 }
 
 export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
@@ -75,7 +78,7 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
         prefer: writer.model, within: fallbackWriters(writer.model),
       });
       const parsed = r.parse(reply.text, i);
-      const output = parsed && ownerWording(parsed);
+      const output = parsed && applyPosterWords(ownerWording(parsed), r.posterWords ?? null);
       if (!output) {
         console.error(`${r.label} piece unreadable (${reply.model}, ${reply.outputTokens} tokens):`, reply.text.length);
         throw new UnreadableReply();
@@ -98,12 +101,14 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
     }
 
     const items: ContentItem[] = [];
+    // the agent's own poster words are theirs to answer for: a figure on them is not the AI's to be flagged
+    const own = Boolean(r.posterWords);
     for (const w of written) {
       try {
         items.push(await saveContent({
           planHref: r.href, format: r.format, angle: "", length: r.length, output: w.output, pageId: r.pageId,
           flags: {
-            numbers: strayNumbers(checkedText(w.output), r.yardstick, { every: r.checks?.every }),
+            numbers: strayNumbers(checkedText(w.output, !own), r.yardstick, { every: r.checks?.every }),
             words: findWords(checkedText(w.output), words),
             policy: checkPolicy(checkedText(w.output), { recruit: r.checks?.recruit, income: r.checks?.income }),
             fixes: null,
