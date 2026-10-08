@@ -98,6 +98,15 @@ const TOPICS: [Product, RegExp][] = [
 ];
 
 /**
+ * "ประกันโรคร้ายแรง" on its own — what an advertisement's button says — is iShield (owner,
+ * 2026-10-08). Read ahead of the life topic below, because "ประกันโรคร้ายแรง 1 ล้าน" would
+ * otherwise be heard as Life Protect on the sum alone, and "1,000,000" as nothing at all.
+ */
+const CRITICAL_ILLNESS = /โรคร้าย/;
+/** The plans that have a critical-illness cover of their own, and are asked for by their own name. */
+const OTHER_ILLNESS_PLAN = /ci\s*-?\s*123|มะเร็ง|cancer/i;
+
+/**
  * The subject of a message, when only one of the two recognises it.
  *
  * A company's staff is nobody's subject here, for the reason `ABOUT_A_GROUP` gives: "ค่าห้อง
@@ -106,6 +115,7 @@ const TOPICS: [Product, RegExp][] = [
  */
 export function productByTopic(text: string): Product | undefined {
   if (aboutAGroup(text)) return undefined;
+  if (CRITICAL_ILLNESS.test(text) && !OTHER_ILLNESS_PLAN.test(text)) return "ishield";
   const found = TOPICS.filter(([, re]) => re.test(text));
   return found.length === 1 ? found[0][0] : undefined;
 }

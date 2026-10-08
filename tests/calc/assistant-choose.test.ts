@@ -87,6 +87,18 @@ describe("a message that names no plan but says what it is about", () => {
     }
   });
 
+  it("hears a critical-illness ad button as iShield, whatever the sum is written like", () => {
+    for (const said of ["ประกันโรคร้ายแรง 1,000,000", "ประกันโรคร้ายแรง 1 ล้าน", "ประกันโรคร้ายแรง", "อยากได้ประกันโรคร้าย"]) {
+      expect(productByTopic(said)).toBe("ishield");
+    }
+  });
+
+  it("leaves CI 123 and cancer to their own doors", () => {
+    for (const said of ["CI123 โรคร้ายแรง จ่ายตอนไหน", "ประกันโรคร้ายแรง มะเร็ง"]) {
+      expect(productByTopic(said)).not.toBe("ishield");
+    }
+  });
+
   it("does not mistake a health declaration for a health plan", () => {
     // someone buying life cover is asked to declare, and asks about it
     for (const said of ["ต้องตรวจสุขภาพไหม", "แถลงสุขภาพยังไง", "สุขภาพไม่ดีทำได้ไหม"]) {
