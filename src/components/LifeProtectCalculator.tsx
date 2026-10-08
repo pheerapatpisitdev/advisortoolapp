@@ -25,10 +25,16 @@ import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
+import { BudgetBox, BudgetOutcome, BudgetSwitch } from "@/components/sales/BudgetBox";
+import { budgetFit, type PageBudget } from "@/lib/budget-sum";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
 import { legacyFromDeath } from "@/lib/legacy-headline";
 
 const SUM_START_INDEX = LIFEPROTECT_SUMS.indexOf(1_000_000);
+/** The budget the field opens on when a visitor switches to naming one: the figure the agency hears most. */
+const BUDGET_START: PageBudget = { baht: 100_000, per: "year" };
+/** A sum on a term button, short enough for a third of a phone screen: "5.8 ล้าน", "8.5 แสน". */
+const sumShort = (n: number) => (n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(2)} ล้าน` : `${+(n / 100_000).toFixed(1)} แสน`);
 /**
  * The term the page opens on: the one that puts the smallest number in front of a stranger.
  * The other two are a tap away with their own prices already on them, so opening cheap costs
@@ -104,7 +110,9 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     [table.ageMin, table.ageMax],
   );
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
-  const sumAssured = LIFEPROTECT_SUMS[sumIndex];
+  // by what the visitor can pay instead of by a sum: the page finds the biggest sum that fits
+  const [byBudget, setByBudget] = useState(false);
+  const [budget, setBudget] = useState<PageBudget>(BUDGET_START);
   // the sum as it is being typed; null once it has landed on a step
   const [sumTyped, setSumTyped] = useState<string | null>(null);
   const settleSum = () => {
@@ -146,7 +154,19 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   // the picker only offers ages the plan takes, so a number here is always one of them
   const ageNum = typeof age === "number" ? age : undefined;
   const inRange = ageNum !== undefined;
-  const who = ageNum !== undefined ? { sex, age: ageNum, sumAssured } : undefined;
+  /**
+   * What the budget buys on a term: the biggest sum on the slider's list that fits, priced
+   * forwards by the page's own function. Undefined is a budget under the plan's smallest sum,
+   * which is said in words and never lifted to it.
+   */
+  const budgetOn = (variantCode: string) =>
+    byBudget && ageNum !== undefined && !table.expired
+      ? budgetFit(LIFEPROTECT_SUMS, (s) => lifeProtectModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }), budget)
+      : undefined;
+  const fit = budgetOn(variant);
+  const budgetShort = byBudget && ageNum !== undefined && !table.expired && !fit;
+  const sumAssured = fit ? fit.sum : LIFEPROTECT_SUMS[sumIndex];
+  const who = ageNum !== undefined && !budgetShort ? { sex, age: ageNum, sumAssured } : undefined;
 
   const modes = who ? lifeProtectModes(table, term, who) : undefined;
   const annual = modes?.find((m) => m.mode === "annual");
@@ -286,6 +306,11 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
    * one term fell under the monthly floor) could not be compared at a glance.
    */
   const buttonPrice = (v: string): string | undefined => {
+    // naming a budget, the button says what that money buys on the term
+    if (byBudget && ageNum !== undefined && !table.expired) {
+      const f = budgetOn(v);
+      return f ? `ทุน ${sumShort(f.sum)}` : "ไม่ถึงทุนต่ำสุด";
+    }
     if (!who || table.expired) return undefined;
     const other = termAt(table, v);
     const yearly = lifeProtectModes(table, other, who)?.find((m) => m.mode === "annual");
@@ -336,6 +361,30 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   return (
     <div className="space-y-6">
       <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
+        <BudgetSwitch
+          byBudget={byBudget}
+          onChange={(on) => {
+            // leaving the budget keeps the sum it bought, so the sum field does not jump back
+            if (!on && fit) setSumIndex(LIFEPROTECT_SUMS.indexOf(fit.sum));
+            setByBudget(on);
+          }}
+        />
+        {byBudget && (
+          <div>
+            <BudgetBox id="lp-budget" budget={budget} onChange={setBudget} />
+            {ageNum !== undefined && (
+              <BudgetOutcome
+                budget={budget} fit={fit} minMonthly={table.minMonthly}
+                least={(() => {
+                  const m = lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: LIFEPROTECT_SUMS[0] })
+                    ?.find((x) => x.mode === (budget.per === "month" ? "monthly" : "annual"));
+                  return m ? { sum: LIFEPROTECT_SUMS[0], total: m.total } : undefined;
+                })()}
+              />
+            )}
+          </div>
+        )}
+        {!byBudget && (
         <div>
           <label htmlFor="lp-sum-typed" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
           {/* the figure itself is the field: the slider goes near, typing lands on the exact sum */}
@@ -385,6 +434,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
             </p>
           )}
         </div>
+        )}
 
         <div>
           <span className="block text-sm text-[var(--lg-mute)]">งวดชำระเบี้ย</span>
@@ -600,7 +650,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         )}
       </div>
 
-      {!inRange || !modes ? (
+      {budgetShort ? null : !inRange || !modes ? (
         <div className="rounded-sm border border-[var(--lg-gold)] bg-[var(--lg-panel)] px-5 py-7 text-center text-sm leading-relaxed text-[var(--lg-white)]">
           แบบนี้รับถึงอายุ {table.ageMax} ปี ทักมาให้เราช่วยหาแบบที่เหมาะกับคุณ
         </div>

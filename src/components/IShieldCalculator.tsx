@@ -18,11 +18,17 @@ import { ISHIELD_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
+import { BudgetBox, BudgetOutcome, BudgetSwitch } from "@/components/sales/BudgetBox";
+import { budgetFit, type PageBudget } from "@/lib/budget-sum";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
 import { legacyLevel } from "@/lib/legacy-headline";
 import { iShieldFootnote } from "@/lib/plan-notes";
 
 const SUM_START_INDEX = ISHIELD_SUMS.indexOf(1_000_000);
+/** The budget the field opens on when a visitor switches to naming one. */
+const BUDGET_START: PageBudget = { baht: 5_000, per: "month" };
+/** A sum on a term button, short enough for a quarter of a phone screen: "1.5 ล้าน", "8 แสน". */
+const sumShort = (n: number) => (n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(2)} ล้าน` : `${+(n / 100_000).toFixed(1)} แสน`);
 /** The term the page opens on: ten years is the one the company's own proposal illustrates. */
 const TERM_START = "WLCI10";
 /** The age the page opens on — a real price before a visitor touches anything. */
@@ -49,7 +55,9 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
     [table.ageMin, table.ageMax],
   );
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
-  const sumAssured = ISHIELD_SUMS[sumIndex];
+  // by what the visitor can pay instead of by a sum: the page finds the biggest sum that fits
+  const [byBudget, setByBudget] = useState(false);
+  const [budget, setBudget] = useState<PageBudget>(BUDGET_START);
   const [wanted, setWanted] = useState(TERM_START);
   const [age, setAge] = useState<IShieldAge>(AGE_START);
   const [sex, setSex] = useState<Sex>("M");
@@ -79,7 +87,21 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
   // the wanted term when this age can have it, otherwise the nearest one it can
   const term = termAt(table, available.some((t) => t.variant === wanted) ? wanted : available[0]?.variant ?? wanted);
   const inRange = ageNum !== undefined && available.length > 0;
-  const who = inRange ? { sex, age: ageNum, sumAssured } : undefined;
+  /**
+   * What the budget buys on a term: the biggest sum on the slider's list, within the plan's
+   * limits, that fits — priced forwards by the page's own function. Undefined is a budget under
+   * the plan's smallest sum, which is said in words and never lifted to it.
+   */
+  const budgetSums = ISHIELD_SUMS.filter((s) => s >= table.saMin && s <= table.saMax);
+  const budgetOn = (variantCode: string) =>
+    byBudget && ageNum !== undefined && !table.expired
+      && termTakes(table, termAt(table, variantCode), ageNum)
+      ? budgetFit(budgetSums, (s) => iShieldModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }), budget)
+      : undefined;
+  const fit = inRange ? budgetOn(term.variant) : undefined;
+  const budgetShort = byBudget && inRange && !table.expired && !fit;
+  const sumAssured = fit ? fit.sum : ISHIELD_SUMS[sumIndex];
+  const who = inRange && !budgetShort ? { sex, age: ageNum, sumAssured } : undefined;
 
   const modes = who ? iShieldModes(table, term, who) : undefined;
   const headline = displayPremium(modes, table.expired);
@@ -127,6 +149,11 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
 
   /** The figure on a term button: that term's yearly premium, once there is an age. */
   const buttonPrice = (variant: string): string | undefined => {
+    // naming a budget, the button says what that money buys on the term
+    if (byBudget && ageNum !== undefined && !table.expired) {
+      const f = budgetOn(variant);
+      return f ? `ทุน ${sumShort(f.sum)}` : "ไม่ถึงทุนต่ำสุด";
+    }
     if (!who || table.expired) return undefined;
     const yearly = iShieldModes(table, termAt(table, variant), who)?.find((m) => m.mode === "annual");
     return yearly ? `${formatBaht(yearly.total)}${PER.annual}` : undefined;
@@ -135,6 +162,31 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
   return (
     <div className="space-y-6">
       <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
+        <BudgetSwitch
+          byBudget={byBudget}
+          onChange={(on) => {
+            // leaving the budget keeps the sum it bought, so the sum field does not jump back
+            if (!on && fit) setSumIndex(ISHIELD_SUMS.indexOf(fit.sum));
+            setByBudget(on);
+          }}
+        />
+        {byBudget && (
+          <div>
+            <BudgetBox id="is-budget" budget={budget} onChange={setBudget} />
+            {inRange && (
+              <BudgetOutcome
+                budget={budget} fit={fit} minMonthly={table.minMonthly}
+                least={(() => {
+                  const floor = budgetSums[0];
+                  const m = floor === undefined ? undefined : iShieldModes(table, term, { sex, age: ageNum, sumAssured: floor })
+                    ?.find((x) => x.mode === (budget.per === "month" ? "monthly" : "annual"));
+                  return m ? { sum: floor, total: m.total } : undefined;
+                })()}
+              />
+            )}
+          </div>
+        )}
+        {!byBudget && (
         <div>
           <label htmlFor="is-sum" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
           <div className="lg-figure mt-1.5 text-3xl tabular-nums">
@@ -160,6 +212,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
             บาท <span className="opacity-70">· ระยะเริ่มต้น {benefit.early.toLocaleString("en-US")} บาทต่อโรค</span>
           </p>
         </div>
+        )}
 
         <div>
           <span className="block text-sm text-[var(--lg-mute)]">ระยะเวลาชำระเบี้ย</span>
@@ -218,7 +271,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
         </div>
       </div>
 
-      {!inRange || !modes ? (
+      {budgetShort ? null : !inRange || !modes ? (
         <div className="rounded-sm border border-[var(--lg-gold)] bg-[var(--lg-panel)] px-5 py-7 text-center text-sm leading-relaxed text-[var(--lg-white)]">
           แบบนี้รับถึงอายุ {table.ageMax} ปี ทักมาให้เราช่วยหาแบบที่เหมาะกับคุณ
         </div>
