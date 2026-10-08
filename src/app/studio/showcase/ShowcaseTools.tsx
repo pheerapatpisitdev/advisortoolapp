@@ -15,6 +15,8 @@ import type { GenerateResult } from "../actions";
 import { PhotoDrop } from "../people/PhotoDrop";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { PictureBrief } from "../ui/PictureBrief";
+import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
+import { cleanPosterWords } from "@/lib/content/poster-words";
 import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
 import { burn, shrink, type Shrunk } from "../claim/redact";
 
@@ -84,6 +86,7 @@ export function ShowcaseTools({ writer, onWriter, painter, onPainter, people, pe
   const [custom, setCustom] = useState("");
   const [note, setNote] = useState("");
   const [count, setCount] = useState(1);
+  const [posterWords, setPosterWords] = useState<PosterWordsValue>({});
 
   /**
    * The consent is for these papers. It stayed ticked when the photos were swapped for the next
@@ -119,7 +122,7 @@ export function ShowcaseTools({ writer, onWriter, painter, onPainter, people, pe
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
     const papers = files;
-    const round = { format, length, loop: format === "script" && loop, formula, angle, custom: custom.trim(), reader: reader.trim(), note: note.trim(), count, writer };
+    const round = { format, length, loop: format === "script" && loop, formula, angle, custom: custom.trim(), reader: reader.trim(), note: note.trim(), count, writer, words: cleanPosterWords(posterWords) };
     // อัตโนมัติ settled at the press, on the money left then, as the plan form does
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     const pictureBrief = brief.trim();
@@ -173,6 +176,7 @@ export function ShowcaseTools({ writer, onWriter, painter, onPainter, people, pe
       if (round.loop) form.set("loop", "on");
       if (round.formula) form.set("formula", round.formula);
       if (round.format !== "script" && logo.spot) form.set("logoSpot", logo.spot);
+      if (round.format !== "script" && round.words) form.set("posterWords", JSON.stringify(round.words));
       // the project's Page: the round is written into it (2026-09-30)
       if (logo.page) form.set("page", logo.page);
       form.set("angle", round.angle);
@@ -277,6 +281,7 @@ export function ShowcaseTools({ writer, onWriter, painter, onPainter, people, pe
         </label>
         </FormSection>
 
+        {format !== "script" && <PosterWords value={posterWords} onChange={setPosterWords} />}
         {format !== "script" && <LogoPicker {...logo} />}
         <PictureFold summary={pictureSummary({
           format, writer: pick.short, painter: paints.modelId ? paints.short : null,

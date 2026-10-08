@@ -7,6 +7,7 @@ import { OVERHEAD_THB, writerOf } from "./models";
 import type { ContentOutput } from "./output";
 import { checkPolicy } from "./policy";
 import { posterText } from "./poster";
+import { applyPosterWords, cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Format, type Length } from "./prompt";
 import { MAX_RECRUIT_PIECES, RECRUIT_HREF, parseRecruitPiece, recruitMessages, recruitTones, topicOf } from "./recruit";
 import {
@@ -42,6 +43,8 @@ export interface RecruitWriteInput {
   pro?: boolean;
   /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
   logoSpot?: string;
+  /** the agent's own words for the poster (poster-words.ts); a request body, so read before use */
+  posterWords?: unknown;
   /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   count: number;
@@ -49,8 +52,8 @@ export interface RecruitWriteInput {
 }
 
 /** every line the checks read, as the workbench's own checks read them */
-function checkedText(o: ContentOutput): string {
-  return [...o.hooks, o.body, o.closing, o.hashtags.join(" "), posterText(o.poster)].join("\n");
+function checkedText(o: ContentOutput, withPoster = true): string {
+  return [...o.hooks, o.body, o.closing, o.hashtags.join(" "), withPoster ? posterText(o.poster) : ""].join("\n");
 }
 
 export async function writeRecruit(input: RecruitWriteInput, pageId: string | null): Promise<GenerateResult> {
@@ -64,6 +67,8 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
   const logo = format === "script" ? null
     : await roundLogo(pageId, isLogoSpot(input.logoSpot) ? input.logoSpot : null);
   const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
+  // the agent's own poster words are theirs to answer for: a figure on them is not the AI's to be flagged
+  const ownWords = cleanPosterWords(input.posterWords);
   let hold: string | null = null;
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
@@ -81,7 +86,7 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
         prefer: writer.model, within: fallbackWriters(writer.model),
       });
       const parsed = parseRecruitPiece(r.text, topic, tone.label, format);
-      const output = parsed && ownerWording(parsed);
+      const output = parsed && applyPosterWords(ownerWording(parsed), ownWords);
       if (!output) {
         console.error(`recruit piece unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
         throw new UnreadableReply();
@@ -107,7 +112,7 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
           planHref: RECRUIT_HREF, format, angle: "", length, output: w.output, pageId,
           flags: {
             // the topic's brief is the only place a figure may come from, and it has none of income
-            numbers: strayNumbers(checkedText(w.output), topic.brief),
+            numbers: strayNumbers(checkedText(w.output, !ownWords), topic.brief),
             words: findWords(checkedText(w.output), words),
             policy: checkPolicy(checkedText(w.output), { recruit: true }),
             fixes: null,

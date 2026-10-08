@@ -3,6 +3,7 @@ import { cleanDraft, draftMessages, DRAFT_HREF, MAX_DRAFT_PIECES, parseDraftPiec
 import { modeChecks } from "./mode-checks";
 import { formulaOf } from "./formula";
 import { oneCallRound } from "./one-call-run";
+import { cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Format, type Length } from "./prompt";
 
 export interface DraftWriteInput {
@@ -16,6 +17,8 @@ export interface DraftWriteInput {
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   logoSpot?: string;
+  /** the agent's own words for the poster (poster-words.ts); a request body, so read before use */
+  posterWords?: unknown;
   /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   count: number;
@@ -41,6 +44,6 @@ export async function writeDraft(input: DraftWriteInput, pageId: string | null):
     yardstick: draft,
     // a draft that recruits is read with หาทีม's rules: no income figure, even one it wrote itself
     checks: modeChecks(DRAFT_HREF, draft),
-    logoSpot: input.logoSpot, pageId, label: "draft",
+    logoSpot: input.logoSpot, posterWords: cleanPosterWords(input.posterWords), pageId, label: "draft",
   });
 }

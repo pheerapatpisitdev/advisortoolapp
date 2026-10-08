@@ -7,6 +7,7 @@ import {
 import { formulaOf } from "./formula";
 import { modeChecks } from "./mode-checks";
 import { oneCallRound } from "./one-call-run";
+import { cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Length } from "./prompt";
 import {
   cleanShowcaseFacts, MAX_DOCS, MAX_SHOWCASE_PIECES, parseShowcasePiece, parseShowcaseRead, SHOWCASE_HREF, showcaseAngleLines,
@@ -62,6 +63,8 @@ export interface ShowcaseWriteInput {
   /** the writing formula (formula.ts); posts and scripts */
   formula?: string | null;
   logoSpot?: string;
+  /** the agent's own words for the poster (poster-words.ts); a request body, so read before use */
+  posterWords?: unknown;
   /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   writer?: string;
@@ -92,7 +95,7 @@ export async function writeShowcase(input: ShowcaseWriteInput, pageId: string | 
     // the facts are where a figure may come from; one the AI brought in is flagged
     yardstick: showcaseFactsBlock(facts),
     checks: modeChecks(SHOWCASE_HREF, undefined),
-    logoSpot: input.logoSpot, pageId, label: "showcase",
+    logoSpot: input.logoSpot, posterWords: cleanPosterWords(input.posterWords), pageId, label: "showcase",
   });
   // a script is spoken to camera: no poster, so no pictures on one
   if (!round.ok || !input.papers.length || format === "script") return round;

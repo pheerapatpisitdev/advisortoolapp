@@ -2,6 +2,7 @@ import type { GenerateResult } from "@/app/studio/actions";
 import { modeChecks } from "./mode-checks";
 import { formulaOf } from "./formula";
 import { oneCallRound } from "./one-call-run";
+import { cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Length } from "./prompt";
 import { MAX_THANKS_PIECES, occasionOf, parseThanksPiece, THANKS_HREF, thanksFormat, thanksMessages, thanksTones } from "./thanks";
 
@@ -20,6 +21,8 @@ export interface ThanksWriteInput {
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   logoSpot?: string;
+  /** the agent's own words for the poster (poster-words.ts); a request body, so read before use */
+  posterWords?: unknown;
   /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   count: number;
@@ -45,6 +48,6 @@ export async function writeThanks(input: ThanksWriteInput, pageId: string | null
     // a thank-you has no figures of its own: every one is flagged for the owner to confirm
     yardstick: "",
     checks: modeChecks(THANKS_HREF, undefined),
-    logoSpot: input.logoSpot, pageId, label: "thanks",
+    logoSpot: input.logoSpot, posterWords: cleanPosterWords(input.posterWords), pageId, label: "thanks",
   });
 }

@@ -3,6 +3,7 @@ import { knowledgeFormat, knowledgeMessages, KNOWLEDGE_HREF, MAX_KNOWLEDGE_PIECE
 import { modeChecks } from "./mode-checks";
 import { formulaOf } from "./formula";
 import { oneCallRound } from "./one-call-run";
+import { cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Length } from "./prompt";
 
 export interface KnowledgeWriteInput {
@@ -20,6 +21,8 @@ export interface KnowledgeWriteInput {
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   logoSpot?: string;
+  /** the agent's own words for the poster (poster-words.ts); a request body, so read before use */
+  posterWords?: unknown;
   /** the Page the screen asks for; the action settles it (projectPage) and hands the runner the answer */
   page?: string;
   count: number;
@@ -44,6 +47,6 @@ export async function writeKnowledge(input: KnowledgeWriteInput, pageId: string 
     // general knowledge is allowed, so there is nothing to find a figure in: every one is flagged
     yardstick: "",
     checks: modeChecks(KNOWLEDGE_HREF, undefined),
-    logoSpot: input.logoSpot, pageId, label: "knowledge",
+    logoSpot: input.logoSpot, posterWords: cleanPosterWords(input.posterWords), pageId, label: "knowledge",
   });
 }
