@@ -16,7 +16,7 @@ import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { PictureBrief } from "../ui/PictureBrief";
 import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
 import { cleanPosterWords } from "@/lib/content/poster-words";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
+import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "../ui/form-parts";
 
 /** ความรู้'s tools (owner, 2026-09-29): a kind, a subject from its bank or the owner's own, the round — sells nothing (knowledge.ts). */
 
@@ -71,6 +71,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
   const [formula, setFormula] = useFormula();
+  const [avoid, setAvoid] = useAvoid();
   const [count, setCount] = useState(1);
   const [posterWords, setPosterWords] = useState<PosterWordsValue>({});
 
@@ -86,7 +87,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { kind, subject, custom: custom.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, formula, count, writer,
+    const round = { kind, subject, custom: custom.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, formula, avoid, count, writer,
       ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}),
       ...(format !== "script" && cleanPosterWords(posterWords) ? { posterWords: cleanPosterWords(posterWords) } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
@@ -138,6 +139,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
         <FormulaPicker value={formula} onChange={setFormula} />
+        <AvoidToggle value={avoid} onChange={setAvoid} />
 
         <FormSection title="เรื่องที่เล่า">
           <label className="block">

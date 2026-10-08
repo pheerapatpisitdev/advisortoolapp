@@ -650,6 +650,25 @@ describe("a round ticked for expats (spec 2026-10-02)", () => {
     expect(JSON.stringify(ai.chat.mock.calls[0][0].messages)).toMatch(/English/);
   });
 
+  it("tells the planner the Page's past openings, and none when กันซ้ำ is switched off (owner, 2026-10-09)", async () => {
+    store.recentHooks.mockResolvedValue(["ประโยคเปิดเดิมของเพจ"]);
+    const planned = () => JSON.stringify(ai.chat.mock.calls[0][0].messages);
+    const reply = () => ai.chat
+      .mockResolvedValueOnce({ text: JSON.stringify({ plans: [{ hook: "Hospital bills add up", angle: "a" }] }), model: "m", costThb: 0, outputTokens: 10 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ body: "Private hospitals charge in full.", closing: "Message us.", hashtags: [], imagePrompt: "a ward" }), model: "m", costThb: 0, outputTokens: 10 });
+    const ask = { href: "/ihealthy-ultra", format: "post" as const, angle: "expat_hospital", custom: "", length: null, count: 1, hookTemplateId: null, expat: true };
+    reply();
+    await generateContent(ask);
+    expect(planned()).toContain("ประโยคเปิดเดิมของเพจ");
+    ai.chat.mockReset();
+    store.recentHooks.mockClear();
+    reply();
+    await generateContent({ ...ask, avoid: false });
+    expect(store.recentHooks).not.toHaveBeenCalled();
+    expect(planned()).not.toContain("ประโยคเปิดเดิมของเพจ");
+    store.recentHooks.mockResolvedValue([]);
+  });
+
   it("gives an English post with no poster of its own, in the round's colour, an English one", async () => {
     ai.chat
       .mockResolvedValueOnce({ text: JSON.stringify({ plans: [{ hook: "Hospital bills in Bangkok add up fast", angle: "a" }] }), model: "m", costThb: 0, outputTokens: 10 })

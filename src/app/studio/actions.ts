@@ -109,6 +109,8 @@ export interface GenerateInput {
   loop?: boolean;
   /** the writing formula (formula.ts); posts and scripts */
   formula?: Formula | null;
+  /** กันซ้ำกับโพสต์เก่า: false turns the Page's past openings off for the round; a request body, so only false counts */
+  avoid?: boolean;
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   count: number;
@@ -334,8 +336,8 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
       hold = held.id;
       // this Page's latest openings for the product, whatever became of them, then the asker's used ones
       const [recent, used, template, words] = await Promise.all([
-        recentHooks(brief.product.href, project.pageId),
-        usedHooks(),
+        input.avoid === false ? Promise.resolve([]) : recentHooks(brief.product.href, project.pageId),
+        input.avoid === false ? Promise.resolve([]) : usedHooks(),
         input.hookTemplateId ? getHookTemplate(input.hookTemplateId) : Promise.resolve(null),
         listWords(),
       ]);

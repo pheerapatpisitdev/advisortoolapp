@@ -187,6 +187,36 @@ export function LoopToggle({ value, onChange }: { value: boolean; onChange: (on:
   );
 }
 
+const AVOID_KEY = "content-avoid";
+
+/** กันซ้ำกับโพสต์เก่า (owner, 2026-10-09): on unless switched off in this browser */
+export function useAvoid(): [boolean, (on: boolean) => void] {
+  const [avoid, setAvoidState] = useState(true);
+  useEffect(() => {
+    try { setAvoidState(localStorage.getItem(AVOID_KEY) !== "off"); } catch { /* storage unavailable */ }
+  }, []);
+  const setAvoid = (on: boolean) => {
+    setAvoidState(on);
+    try { localStorage.setItem(AVOID_KEY, on ? "on" : "off"); } catch { /* not kept */ }
+  };
+  return [avoid, setAvoid];
+}
+
+/** the Page's latest openings of this kind told to the writer not to repeat — store.ts recentHooks */
+export function AvoidToggle({ value, onChange }: { value: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className={`flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm ${value ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
+      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
+      <span>
+        <span className="font-medium">กันซ้ำกับโพสต์เก่า</span> <span className="text-[var(--ct-mute)]">(ระบบจำไว้ให้)</span>
+        <span className="mt-0.5 block text-xs text-[var(--ct-mute)]">
+          {value ? "AI จะไม่ใช้ประโยคเปิดซ้ำกับ 30 ชิ้นล่าสุดของเพจนี้ในหมวดเดียวกัน" : "ปิดอยู่ — AI อาจเขียนประโยคเปิดคล้ายชิ้นเก่าได้"}
+        </span>
+      </span>
+    </label>
+  );
+}
+
 const PRO_KEY = "content-pro";
 const FORMULA_KEY = "content-formula";
 

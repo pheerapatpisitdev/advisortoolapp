@@ -85,6 +85,8 @@ export interface ClaimWriteInput {
   loop?: boolean;
   /** the writing formula (formula.ts); posts and scripts */
   formula?: string | null;
+  /** กันซ้ำกับโพสต์เก่า: false turns the Page's past openings off for the round; a request body, so only false counts */
+  avoid?: boolean;
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
@@ -140,7 +142,7 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
     const held = await holdContentBudget(count * (writer.thb + OVERHEAD_THB), cap);
     if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอรอบนี้ — ลดจำนวนชิ้นหรือเลือกโมเดลประหยัด` };
     hold = held.id;
-    const [words, avoid] = await Promise.all([listWords(), recentHooks(CLAIM_HREF, pageId)]);
+    const [words, avoid] = await Promise.all([listWords(), (input.avoid === false ? Promise.resolve([]) : recentHooks(CLAIM_HREF, pageId))]);
 
     const angles = claimAngleLines({ angle: input.angle, custom: input.custom }, count);
     const reader = (input.reader ?? "").trim().slice(0, MAX_READER);

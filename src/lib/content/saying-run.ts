@@ -19,6 +19,8 @@ export interface SayingWriteInput extends SayingAsk {
   loop?: boolean;
   /** the writing formula (formula.ts); posts and scripts */
   formula?: string | null;
+  /** กันซ้ำกับโพสต์เก่า: false turns the Page's past openings off for the round; a request body, so only false counts */
+  avoid?: boolean;
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   logoSpot?: string;
@@ -45,6 +47,7 @@ export async function writeSaying(input: SayingWriteInput, pageId: string | null
   // each round starts its points and shapes at a place of its own, so the next does not open as this one did
   const aims = sayingAims(source, sayingSpread(input.spread), count, Math.floor(Math.random() * SAYING_SHAPES.length * 3));
   return oneCallRound({
+    avoid: input.avoid !== false,
     href: SAYING_HREF, format, length, loop, formula, count,
     writer: input.writer,
     messages: (i) => sayingMessages(source, tones[i], reader, format, length, loop, formula, aims[i]),

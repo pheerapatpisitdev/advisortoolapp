@@ -40,6 +40,8 @@ export interface RecruitWriteInput {
   loop?: boolean;
   /** the writing formula (formula.ts); posts and scripts */
   formula?: string | null;
+  /** กันซ้ำกับโพสต์เก่า: false turns the Page's past openings off for the round; a request body, so only false counts */
+  avoid?: boolean;
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
@@ -78,7 +80,7 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
     const held = await holdContentBudget(count * (writer.thb + OVERHEAD_THB), cap);
     if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอรอบนี้ — ลดจำนวนชิ้นหรือเลือกโมเดลประหยัด` };
     hold = held.id;
-    const [words, avoid] = await Promise.all([listWords(), recentHooks(RECRUIT_HREF, pageId)]);
+    const [words, avoid] = await Promise.all([listWords(), (input.avoid === false ? Promise.resolve([]) : recentHooks(RECRUIT_HREF, pageId))]);
 
     const settled = await Promise.allSettled(recruitTones(input.tone ?? "", count).map(async (tone) => {
       const r = await chat({
