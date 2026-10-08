@@ -114,10 +114,10 @@ export function DescribeBoard({ initial }: { initial: Reading[] | null }) {
                 >
                   {item.thumbUrl
                     // eslint-disable-next-line @next/next/no-img-element -- a signed link to a private file, or a data link just made
-                    ? <img src={item.thumbUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
-                    : <span aria-hidden="true" className="h-14 w-14 shrink-0 rounded-lg bg-[var(--ct-soft)]" />}
+                    ? <img src={item.thumbUrl} alt="" className="h-auto w-28 shrink-0 rounded-lg sm:w-40" />
+                    : <span aria-hidden="true" className="h-20 w-28 shrink-0 rounded-lg bg-[var(--ct-soft)] sm:h-24 sm:w-40" />}
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{item.summaryTh}</span>
+                    <span className="line-clamp-2 block text-sm">{item.summaryTh}</span>
                     <span className="mt-0.5 block text-xs text-[var(--ct-mute)]">{when(item.createdAt)}</span>
                     <span className="mt-1 flex gap-1" aria-hidden="true">
                       {item.palette.map((c) => <span key={c.hex} title={`${c.hex} ${c.share}%`} className="h-3 w-3 rounded-full border border-[var(--ct-line)]" style={{ background: c.hex }} />)}
