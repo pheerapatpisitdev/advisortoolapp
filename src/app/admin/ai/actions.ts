@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { clearAiConfigCache, testProviders, type ProviderCheck } from "@/lib/ai/client";
-import { monthSpend, monthStart, type SpendLine } from "@/lib/ai/ledger";
+import { monthSpend, monthStart, spendSince, type SpendLine } from "@/lib/ai/ledger";
 import { contentBaht, DEFAULT_CONTENT_CAP_THB } from "@/lib/content/store";
 import { EMBEDDERS, JUDGE } from "@/lib/ai/providers";
 import { checkBudgets } from "./budget";
@@ -13,6 +13,7 @@ import { parseAwsKey } from "@/lib/video/engines/lambda";
 import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
 
+const monthStartMs = () => monthStart().getTime();
 const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false };
 
 export type { ProviderCheck } from "@/lib/ai/client";
@@ -71,7 +72,9 @@ function failed(what: string, e: unknown): Result {
  * it yet and the key itself is the switch.
  */
 const JUDGE_ROW: ModelRow = { id: `${JUDGE.provider}-${JUDGE.model}`, provider: JUDGE.provider, kind: "judge", model_name: JUDGE.model, enabled: true, quality: null };
-export interface Settings { small_model: string | null; large_model: string | null; monthly_budget_thb: number | null; content_budget_thb: number | null }
+export interface Settings { small_model: string | null; large_model: string | null; monthly_budget_thb: number | null; content_budget_thb: number | null;
+  /** when the owner last pressed รีเซ็ตยอด this month; null = counting from the first of the month */
+  spend_reset_at?: string | null }
 
 /** What one provider has cost since the first of the month, and what it was asked to do. */
 export interface ProviderSpend {
@@ -103,25 +106,26 @@ export async function loadAiPage(): Promise<{
 }> {
   await requireStaff("admin");
   const supabase = supabaseAdmin();
+  const since = await spendSince();
   const [keys, models, prefs, settings, spend] = await Promise.all([
     supabase.from("ins_api_keys").select("provider, tail, enabled"),
     supabase.from("model_configs").select("id, provider, kind, model_name, enabled, params").order("provider").order("model_name"),
     supabase.from("ins_model_prefs").select("model_id, enabled"),
-    supabase.from("ins_ai_settings").select("small_model, large_model, monthly_budget_thb, content_budget_thb").maybeSingle(),
+    supabase.from("ins_ai_settings").select("small_model, large_model, monthly_budget_thb, content_budget_thb, spend_reset_at").maybeSingle(),
     // the model rather than the provider is what the ledger records, so the lines are joined
     // back to the model table below; the ledger has no column saying which company was paid
     //
     // It is allowed to fail. It used to take the whole page down with it — Promise.all rejects
     // on the first refusal — and this page is where the keys are, which is the first place
     // anybody goes when the AI is misbehaving. A missing figure is said on the page instead.
-    monthSpend(monthStart()).catch((e) => {
+    monthSpend(since).catch((e) => {
       console.error("อ่านยอดใช้ AI ไม่สำเร็จ:", e);
       return null;
     }),
   ]);
   // the ceiling leaves out what agents paid for from their wallets (src/lib/content/store.ts),
   // so the figure beside it does too, or the two disagree by exactly that (owner, 2026-09-30)
-  const contentSpent = spend ? Math.max(0, contentBaht(spend.lines) - (await walletChargedThb(monthStart()))) : null;
+  const contentSpent = spend ? Math.max(0, contentBaht(spend.lines) - (await walletChargedThb(since))) : null;
   const disabled = new Set((prefs.data ?? []).filter((p) => !p.enabled).map((p) => p.model_id));
   const heldKeys = (keys.data ?? []) as { provider: string; tail: string; enabled: boolean | null }[];
   // a settings row that cannot be read must not take the keys page down with it
@@ -150,7 +154,10 @@ export async function loadAiPage(): Promise<{
         })),
       JUDGE_ROW,
     ],
-    settings: settings.data ?? null,
+    // a reset from an earlier month no longer means anything, so the page is not told of it
+    settings: settings.data
+      ? { ...settings.data, spend_reset_at: since.getTime() > monthStartMs() ? settings.data.spend_reset_at : null }
+      : null,
     providers: [...PROVIDERS],
     spentThisMonth: spend ? spend.baht : null,
     spend: spend ? byProvider(spend.lines, (models.data ?? []) as { provider: string; model_name: string }[]) : [],
@@ -368,6 +375,25 @@ export async function saveSettings(smallModel: string, largeModel: string, month
   }
   clearAiConfigCache();
   revalidatePath("/admin/ai");
+  return { ok: true };
+}
+
+/**
+ * รีเซ็ตยอด: the month's figure, the budget guard and the content ceiling count from now.
+ * The ledger is not touched — every call stays in it, and the next month starts clean on its own.
+ */
+export async function resetSpend(): Promise<Result> {
+  await requireStaff("admin");
+  try {
+    const { error } = await supabaseAdmin().from("ins_ai_settings")
+      .upsert({ id: true, spend_reset_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: "id" });
+    if (error) return failed("รีเซ็ตยอดไม่สำเร็จ", error);
+  } catch (e) {
+    return failed("รีเซ็ตยอดไม่สำเร็จ", e);
+  }
+  clearAiConfigCache();
+  revalidatePath("/admin/ai");
+  revalidatePath("/admin");
   return { ok: true };
 }
 

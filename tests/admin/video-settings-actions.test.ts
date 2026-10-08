@@ -28,7 +28,7 @@ vi.mock("@/lib/auth/viewer", async () => {
 });
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/ai/client", () => ({ clearAiConfigCache: () => undefined, testProviders: async () => [] }));
-vi.mock("@/lib/ai/ledger", () => ({ monthStart: () => new Date(), monthSpend: async () => null }));
+vi.mock("@/lib/ai/ledger", () => ({ monthStart: () => new Date(), spendSince: async () => new Date(), monthSpend: async () => null }));
 vi.mock("@/lib/wallet/store", () => ({ walletChargedThb: async () => 0 }));
 vi.mock("@/lib/content/store", () => ({ contentBaht: () => 0, DEFAULT_CONTENT_CAP_THB: 30 }));
 vi.mock("@/lib/supabase/admin", () => ({

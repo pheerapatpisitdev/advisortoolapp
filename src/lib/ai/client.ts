@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inWalletRound, meterCost } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
-import { monthSpend, monthStart, recordUsage } from "./ledger";
+import { monthSpend, recordUsage, spendSince } from "./ledger";
 import { IMAGE_CALLERS, TAKES_REFERENCES, type DrawnImage, type ReferenceImage } from "./images";
 import { CALLERS, EMBEDDERS, JUDGE, type JudgeAnswer, type JudgeQuestion } from "./providers";
 import type { ChatMessage, ChatResult, ModelRow, Tier } from "./types";
@@ -102,7 +102,7 @@ export function clearAiConfigCache() {
  * cannot be read it is 0, and the guard stops sooner rather than later.
  */
 async function spentThisMonth(): Promise<number> {
-  const since = monthStart();
+  const since = await spendSince();
   const [spend, paidByAgents] = await Promise.all([monthSpend(since), walletChargedThb(since)]);
   return Math.max(0, spend.baht - paidByAgents);
 }

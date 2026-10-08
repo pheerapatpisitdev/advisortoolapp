@@ -15,6 +15,7 @@ vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/ai/client", () => ({ clearAiConfigCache: () => undefined, testProviders: async () => [] }));
 vi.mock("@/lib/ai/ledger", () => ({
   monthStart: () => new Date("2026-09-01T00:00:00Z"),
+  spendSince: async () => new Date("2026-09-01T00:00:00Z"),
   monthSpend: async () => { throw new Error("อ่านค่าใช้จ่าย AI ไม่ได้: boom"); },
 }));
 vi.mock("@/lib/content/store", () => ({ contentBaht: () => 0, DEFAULT_CONTENT_CAP_THB: 30 }));

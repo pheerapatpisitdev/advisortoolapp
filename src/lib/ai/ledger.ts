@@ -43,6 +43,26 @@ export function monthStart(now = new Date()): Date {
 }
 
 /**
+ * Where "this month's spend" starts counting: the first of the month, or the moment the owner
+ * pressed รีเซ็ตยอด on /admin/ai, whichever is later. Nothing is deleted — the ledger keeps every
+ * call — so a reset only moves the line the card and the budget guards count from, and a new
+ * month moves it past any reset. A settings row that cannot be read means the plain month start:
+ * the guard counts more, never less.
+ */
+export async function spendSince(now = new Date()): Promise<Date> {
+  const start = monthStart(now);
+  try {
+    const { data } = await supabaseAdmin().from("ins_ai_settings").select("spend_reset_at").maybeSingle();
+    const at = (data as { spend_reset_at: string | null } | null)?.spend_reset_at;
+    const reset = at ? new Date(at) : null;
+    return reset && !Number.isNaN(reset.getTime()) && reset > start ? reset : start;
+  } catch (e) {
+    console.error("spend_reset_at not read; counting from the month start:", e);
+    return start;
+  }
+}
+
+/**
  * One line of what was spent, in the ledger every reader sums: the AI client writes one per call
  * as it returns, and a clip's render service one per job it delivered (src/lib/video/jobs.ts).
  * Only counts and money, never anyone's words. A line that could not be written is logged, not

@@ -1,5 +1,5 @@
 import { currentScope, maySeePiece, pieceFilter } from "@/lib/auth/scope";
-import { admits, monthSpend, monthStart, release, reserve, sweepHolds, type SpendLine } from "@/lib/ai/ledger";
+import { admits, monthSpend, release, reserve, spendSince, sweepHolds, type SpendLine } from "@/lib/ai/ledger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { inWalletRound } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
@@ -119,7 +119,7 @@ export function contentBaht(lines: SpendLine[]): number {
  */
 export async function contentSpentThisMonth(): Promise<number> {
   await sweepHolds();
-  const since = monthStart();
+  const since = await spendSince();
   const [spend, paidByAgents] = await Promise.all([monthSpend(since, { holds: true }), walletChargedThb(since)]);
   return Math.max(0, contentBaht(spend.lines) - paidByAgents);
 }

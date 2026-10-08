@@ -1,6 +1,6 @@
 "use server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { monthSpend, monthStart } from "@/lib/ai/ledger";
+import { monthSpend, spendSince } from "@/lib/ai/ledger";
 import { pageConnection } from "@/lib/facebook/connection";
 import { adAccounts } from "@/lib/facebook/ads-connection";
 import { SUBSCRIBED_FIELDS } from "@/lib/facebook/oauth";
@@ -105,7 +105,7 @@ export async function loadOverview(): Promise<Overview> {
     orFailed("เพจ", () => pageConnection()),
     orFailed("คำถามค้างตอบ", () => openQuestions(1)),
     orFailed("บทสนทนา", () => conversationsSince(rangeStart("7d"))),
-    orFailed("ค่า AI", () => monthSpend(monthStart())),
+    orFailed("ค่า AI", async () => monthSpend(await spendSince())),
     orFailed("งบ AI", async () =>
       must(await supabase.from("ins_ai_settings").select("monthly_budget_thb").maybeSingle()) as
         { monthly_budget_thb: number | null } | null),

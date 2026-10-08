@@ -4,7 +4,7 @@ import { Card, Empty } from "../ui";
 import type { VideoSettings } from "@/lib/video/settings";
 import type { RenderProvider } from "@/lib/video/render-providers";
 import {
-  checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings,
+  checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings, resetSpend,
   type KeyRow, type VideoKeyRow, type ModelRow, type ProviderCheck, type ProviderSpend, type Result, type Settings,
 } from "./actions";
 
@@ -180,7 +180,20 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
               : "ส่งคำถามสั้นๆ ไปทุกค่ายเพื่อดูว่ากุญแจไหนยังใช้ได้ — ราคาไม่ถึงหนึ่งสตางค์"}
           </span>
           <Said note={note} where="test" />
-          <span className="ml-auto text-xs text-[var(--bot-ink-mute)]">
+          <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-[var(--bot-ink-mute)]">
+            <button
+              type="button" disabled={pending}
+              className="rounded border border-[var(--bot-line-strong)] px-2.5 py-1 font-medium text-[var(--bot-ink-foot)] hover:bg-[var(--bot-band)] disabled:opacity-40"
+              title="เริ่มนับยอดใช้ใหม่จากศูนย์ตั้งแต่ตอนนี้ — ประวัติการเรียก AI ไม่ถูกลบ"
+              onClick={() => {
+                if (!window.confirm("รีเซ็ตยอดใช้ AI เป็น ฿0 ใช่ไหม?\n\nยอดเดือนนี้และการเช็กงบจะเริ่มนับใหม่ตั้งแต่ตอนนี้ (ประวัติเดิมยังอยู่ ไม่ถูกลบ) และกลับมาใช้ได้ถ้าเคยหยุดเพราะงบเต็ม")) return;
+                run("reset", resetSpend, "รีเซ็ตยอดแล้ว — เริ่มนับใหม่จาก ฿0");
+              }}
+            >
+              {busy === "reset" ? "กำลังรีเซ็ต…" : "รีเซ็ตยอด"}
+            </button>
+            <Said note={note} where="reset" />
+            <span>
             {spentThisMonth === null
               ? <span className="text-[var(--bot-red-ink)]">อ่านยอดใช้ไม่สำเร็จ</span>
               : <>เดือนนี้ใช้ไป <b className="text-sm tabular-nums text-[var(--bot-ink)]">฿{baht(spentThisMonth)}</b></>}
@@ -190,6 +203,8 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
               : budget <= 0
                 ? <span className="text-[var(--bot-red-ink)]"> · งบ ฿{baht(budget)} — ระบบหยุดเรียก AI ทั้งหมด</span>
                 : <> จากงบ ฿{baht(budget)}{spentThisMonth !== null && <> ({Math.round((spentThisMonth / budget) * 100)}%)</>}</>}
+            {settings?.spend_reset_at && <span className="block text-[0.65rem] text-[var(--bot-ink-faint)]">นับตั้งแต่รีเซ็ต {new Date(settings.spend_reset_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })}</span>}
+            </span>
           </span>
         </div>
         <div className="space-y-2">
