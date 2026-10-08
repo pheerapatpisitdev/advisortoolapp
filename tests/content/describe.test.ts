@@ -42,6 +42,10 @@ describe("parseDescribed", () => {
     expect(parseDescribed(reply({ ...good, [key]: 5 }))).toBeNull();
   });
 
+  it.each([...KEYS])("is null when %s is all Thai — it would be stripped to nothing and still be paid for", (key) => {
+    expect(parseDescribed(reply({ ...good, [key]: "ฉากในสวนตอนเย็น" }))).toBeNull();
+  });
+
   it("is null for a reply with no JSON, and for an empty object", () => {
     expect(parseDescribed("I cannot describe this picture.")).toBeNull();
     expect(parseDescribed("{}")).toBeNull();
@@ -58,8 +62,8 @@ describe("assemblePrompt", () => {
     ].join("\n"));
   });
 
-  it("the Avoid line is the one the spec fixes", () => {
-    expect(AVOID_LINE).toBe("Avoid: any text, logos, brand marks, watermarks, hospital settings, distorted hands.");
+  it("the Avoid line is the one the spec fixes: it forbids copying the picture's words and marks, not words in general — the poster prompt that follows a brief draws its own headline", () => {
+    expect(AVOID_LINE).toBe("Avoid: reproducing any text, logos, brand marks or watermarks from the original picture; hospital settings; distorted hands.");
   });
 
   it("strips Thai a value carries over from the picture", () => {

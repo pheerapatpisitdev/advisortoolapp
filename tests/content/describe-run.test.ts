@@ -65,6 +65,27 @@ describe("describePicture", () => {
     expect(round.payRound).toHaveBeenCalledTimes(1);
   });
 
+  it("reads with a model that can see pictures, and no fallback that cannot (GLM drops images and would invent one)", async () => {
+    await describePicture(IMG);
+    expect(ai.chat.mock.calls[0][0]).toMatchObject({ prefer: "gemini-3.7-flash", within: ["gpt-5", "claude-sonnet-5"] });
+  });
+
+  it("gives up after 50 seconds however the fallbacks run, releasing the hold and delivering nothing", async () => {
+    vi.useFakeTimers();
+    try {
+      ai.chat.mockReturnValueOnce(new Promise(() => undefined));
+      const pending = describePicture(IMG);
+      await vi.advanceTimersByTimeAsync(50_001);
+      const r = await pending;
+      expect(r).toMatchObject({ ok: false });
+      expect(delivered(r)).toBe(false);
+      expect((r as { error: string }).error).toContain("ตอบไม่ทัน");
+      expect(store.releaseContentBudget).toHaveBeenCalledWith("hold-1");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("refuses the 21st read in an hour from one address, before taking a round", async () => {
     for (let i = 0; i < 20; i++) expect(await describePicture(IMG)).toMatchObject({ ok: true });
     quota.takeRound.mockClear();

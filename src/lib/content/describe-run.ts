@@ -5,6 +5,7 @@ import { takeRound } from "@/lib/auth/quota";
 import { requireMember } from "@/lib/auth/viewer";
 import { payRound } from "@/lib/wallet/round";
 import { ceilingBeforeRound } from "./ceiling";
+import { OutOfTime, within } from "./deadline";
 import { ACCEPTED_TYPES, MAX_IMAGE_BASE64, assemblePrompt, describeMessages, parseDescribed } from "./describe";
 import { contentCap, contentSpentThisMonth, holdContentBudget, releaseContentBudget } from "./store";
 
@@ -20,7 +21,12 @@ export { MAX_IMAGE_BASE64 };
 export const DESCRIBE_TASK = "content-describe-picture";
 /** what a read sets aside, in baht: two measured reads cost ฿0.27 and ฿0.30 (2026-10-08), so half as much again, to the next ฿0.10 */
 export const DESCRIBE_HOLD_THB = 0.5;
-const DESCRIBE_MS = 45_000;
+/** each provider's own try, and the whole read: a fallback starts its clock again, so the whole is bounded apart (the route allows 60 s) */
+const TRY_MS = 25_000;
+const WHOLE_MS = 50_000;
+/** the models that can see a picture, as the other picture readers pin them (poster-read.ts): the large tier's chain ends in GLM, which is sent no picture and would invent one */
+const READER = "gemini-3.7-flash";
+const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
 
 /** a read is cheaper and quicker than a picture, so twenty an hour against drawing's forty */
 const readPerHour = limiter(20, 60 * 60_000);
@@ -37,6 +43,7 @@ const UNREADABLE = "อ่านรูปนี้ไม่สำเร็จ �
 const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
 const tooDear = (left: number) => `งบสร้างคอนเทนต์เดือนนี้เหลือ ${left.toFixed(2)} บาท ไม่พออ่านรูปนี้ — เพิ่มงบได้ที่หน้า /admin/ai`;
 const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
+const TOO_SLOW = "AI ตอบไม่ทัน — ลองใหม่อีกครั้งนะครับ";
 
 export async function describePicture(input: DescribeInput): Promise<DescribeResult> {
   const viewer = await requireMember();
@@ -58,15 +65,16 @@ export async function describePicture(input: DescribeInput): Promise<DescribeRes
       const held = await holdContentBudget(DESCRIBE_HOLD_THB, cap);
       if (!held.ok) return fail(tooDear(held.left));
       hold = held.id;
-      const read = await chat({
+      const read = await within(chat({
         tier: "large", task: DESCRIBE_TASK, messages: describeMessages({ base64, mimeType }),
-        json: true, maxTokens: 1500, timeoutMs: DESCRIBE_MS,
-      });
+        json: true, maxTokens: 1500, timeoutMs: TRY_MS, prefer: READER, within: READ_FALLBACK,
+      }), WHOLE_MS, "describe");
       const described = parseDescribed(read.text);
       if (!described) return fail(UNREADABLE);
       return { ok: true, prompt: assemblePrompt(described), summaryTh: described.summaryTh, costThb: read.costThb };
     } catch (e) {
       if (e instanceof BudgetExceeded) return fail(BUDGET_OUT);
+      if (e instanceof OutOfTime) return fail(TOO_SLOW);
       console.error("picture not read:", e);
       return fail(UNREADABLE);
     } finally {

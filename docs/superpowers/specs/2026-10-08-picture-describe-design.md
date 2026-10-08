@@ -78,7 +78,7 @@ Camera: …
 Color and tone: …
 Texture: …
 Style and mood: …
-Avoid: any text, logos, brand marks, watermarks, hospital settings, distorted hands.
+Avoid: reproducing any text, logos, brand marks or watermarks from the original picture; hospital settings; distorted hands.
 ```
 
 - **"Avoid" is added by the server, always.** A brief makes `drawBackground` draw the whole
@@ -175,4 +175,12 @@ The system prompt tells the model to:
    wallet as drawing"; it is not a separate allowance.
 4. **Hold amounts start at ฿1** (`DESCRIBE_HOLD_THB`, `ROUND_HOLD_THB["ai-describe"]`) and are
    set from a measured call at the end of the build (plan, Task 6).
-
+5. **The Avoid line forbids copying, not words** (final review, 2026-10-08). Any brief makes
+   `drawBackground` draw the whole poster, and `posterPrompt` tells the model to draw the
+   headline it is given exactly; "Avoid: any text" in the brief fought that. The line is now
+   `Avoid: reproducing any text, logos, brand marks or watermarks from the original picture;
+   hospital settings; distorted hands.`
+6. **Reading is pinned to vision models and bounded as a whole**: `prefer: gemini-3.7-flash`,
+   `within: [gpt-5, claude-sonnet-5]` (as `poster-read.ts`; the large tier's chain ends in GLM,
+   which is sent no picture), each try 25 s and the whole read 50 s (`within`), under the
+   route's 60 s.

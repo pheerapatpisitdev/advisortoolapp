@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { MAX_DIRECTION } from "@/lib/content/background";
 import { appendToBrief } from "@/lib/content/describe";
 import { DescribePicker, type DescribeOk } from "./DescribePicker";
@@ -29,10 +29,15 @@ export function PictureBrief({ value, onChange, papers = false, note }: {
   const [read, setRead] = useState<{ summary: string; cost: number } | null>(null);
   const [tooLong, setTooLong] = useState(false);
 
+  // what the field holds now: a reading arrives 10–20 s after the picture was chosen, by a
+  // callback made then, and text typed meanwhile must be asked about, not replaced (review, 2026-10-08)
+  const latest = useRef(value);
+  useEffect(() => { latest.current = value; }, [value]);
+
   function done(r: DescribeOk) {
     setTooLong(false);
     setRead({ summary: r.summaryTh, cost: r.costThb });
-    if (value.trim()) { setPending(r); return; }
+    if (latest.current.trim()) { setPending(r); return; }
     setPending(null);
     onChange(r.prompt);
   }

@@ -16,7 +16,13 @@ export const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const
 /** the longest picture the route takes, as base64: a 1,024 px JPEG is a few hundred KB, so this is generous and still far under the host's body limit */
 export const MAX_IMAGE_BASE64 = 2_800_000;
 
-export const AVOID_LINE = "Avoid: any text, logos, brand marks, watermarks, hospital settings, distorted hands.";
+/**
+ * What the picture drawn from this brief must not have. It forbids copying the original's words
+ * and marks, not words in general: a brief makes drawBackground draw the whole poster, and
+ * posterPrompt then tells the model to draw the headline it is given — "avoid any text" would
+ * have fought that (final review, 2026-10-08).
+ */
+export const AVOID_LINE = "Avoid: reproducing any text, logos, brand marks or watermarks from the original picture; hospital settings; distorted hands.";
 
 export interface Described {
   subject: string;
@@ -49,6 +55,9 @@ export function parseDescribed(text: string): Described | null {
   for (const key of [...KEYS, "summaryTh"]) {
     const v = o[key];
     if (typeof v !== "string" || !v.trim()) return null;
+    // the seven prompt values are English: one that is all Thai is stripped to nothing by
+    // assemblePrompt, and an empty heading must not be delivered and paid for
+    if (key !== "summaryTh" && !stripThai(v)) return null;
     out[key] = v.trim();
   }
   return out as unknown as Described;
