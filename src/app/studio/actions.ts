@@ -28,6 +28,8 @@ import { writeKnowledge, type KnowledgeWriteInput } from "@/lib/content/knowledg
 import { cleanDraft } from "@/lib/content/draft";
 import { occasionOf } from "@/lib/content/thanks";
 import { writeThanks, type ThanksWriteInput } from "@/lib/content/thanks-run";
+import { readSaying } from "@/lib/content/saying";
+import { writeSaying, type SayingWriteInput } from "@/lib/content/saying-run";
 import { writeDraft, type DraftWriteInput } from "@/lib/content/draft-run";
 import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run";
 import { proofread, type Fix } from "@/lib/content/proofread";
@@ -551,6 +553,25 @@ export async function generateThanks(input: ThanksWriteInput): Promise<GenerateR
   const pass = await takeRound(viewer, "ai-thanks");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeThanks(input, project.pageId));
+}
+
+/** คำคม: a saying from a picked topic or the agent's own words (src/lib/content/saying.ts), under the hourly limit. */
+export async function generateSaying(input: SayingWriteInput): Promise<GenerateResult> {
+  const viewer = await requireMember();
+  if (input.format === "ad") return { ok: false, error: ADS_MOVED };
+  if (!perHour(`content:${await caller()}`)) {
+    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
+  }
+  // nothing to write from, or words too long for the poster, is said before a round is counted
+  const read = readSaying(input);
+  if (!read.ok) return { ok: false, error: read.error };
+  const project = await projectPage(input.page);
+  if (!project.ok) return project;
+  const ceiling = await ceilingBeforeRound(viewer);
+  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
+  const pass = await takeRound(viewer, "ai-saying");
+  if (!pass.ok) return { ok: false, error: pass.refusal };
+  return payRound(pass, () => writeSaying(input, project.pageId));
 }
 
 export interface ProofreadResult {
