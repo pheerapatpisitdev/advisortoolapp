@@ -10,7 +10,7 @@ import type { AnySlots, WithIntro } from "./slots";
  * The picture's own numbers are an example — 30,000 buys 2,000,000 — and it goes as it is,
  * without a line saying so, on the owner's instruction.
  */
-export const INTRO_PICTURE = "/intro/protect-compare.jpg";
+export const INTRO_PICTURE = "/intro/protect-compare-2.jpg";
 
 /** The inbox channels. The website draws every card together after its words, so "ahead of" means nothing there. */
 const CHANNELS_WITH_INTRO: Channel[] = ["facebook", "line"];

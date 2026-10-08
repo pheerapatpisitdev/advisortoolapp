@@ -65,7 +65,7 @@ describe("a quotation the sales page can print", () => {
     expect(memoryOf(a)!.paths![0]).toMatch(/page=lifeprotect&age=35&sex=M&sum=1000000/);
     expect(memoryOf(a)!.asked).toEqual(["lifeprotect"]);
     // the first quotation is preceded by the intro picture, which carries no file
-    expect(a.messages[0]).toEqual({ text: "", card: "/intro/protect-compare.jpg" });
+    expect(a.messages[0]).toEqual({ text: "", card: "/intro/protect-compare-2.jpg" });
     // the quote's own message keeps the path, and is never the one that delivers it
     expect(a.messages.find((m) => m.pdfPath)!.pdfPath).toBe(memoryOf(a)!.paths![0]);
     expect(a.messages.some((m) => m.file)).toBe(false);
