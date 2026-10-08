@@ -47,6 +47,8 @@ export const ROUND_HOLD_THB: Record<AiRound, number> = {
   "ai-draw": 3,
   "ai-clip": 3,
   "ai-edit": 3,
+  // a picture read into a prompt; set from a measured call at the end of the build (plan 2026-10-08)
+  "ai-describe": 1,
 };
 
 /**
