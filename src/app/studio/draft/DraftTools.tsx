@@ -165,7 +165,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
           </div>
         )}
 
-        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} />}
+        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} asPerson={Boolean(person)} />}
         </PictureFold>
       </div>
 

@@ -313,7 +313,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
           </div>
         )}
 
-        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} papers />}
+        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} asPerson={Boolean(person)} papers />}
         </PictureFold>
       </div>
 

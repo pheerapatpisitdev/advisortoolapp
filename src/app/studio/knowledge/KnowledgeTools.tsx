@@ -182,7 +182,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
           </div>
         )}
 
-        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} />}
+        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} asPerson={Boolean(person)} />}
         </PictureFold>
       </div>
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MAX_DIRECTION } from "@/lib/content/background";
 import type { Swatch } from "@/lib/content/palette";
 import {
-  ACCEPTED_TYPES, AVOID_LINE, DESCRIBE_SYSTEM, appendToBrief, assemblePrompt, describeMessages, parseDescribed, splitPrompt,
+  ACCEPTED_TYPES, AS_PERSON, AVOID_LINE, DESCRIBE_SYSTEM, appendToBrief, assemblePrompt, describeMessages, parseDescribed, splitPrompt,
   type Described,
 } from "@/lib/content/describe";
 
@@ -229,5 +229,34 @@ describe("the colour palette", () => {
     expect(m[1].content).toContain("palette");
     expect(DESCRIBE_SYSTEM).toContain("palette");
     expect(describeMessages({ base64: "AAAA", mimeType: "image/jpeg" })[1].content).not.toContain("#");
+  });
+});
+
+describe("drawing the picture with a person from the library instead", () => {
+  const img = { base64: "AAAA", mimeType: "image/jpeg" };
+
+  it("asks the model to write the main person as the one from the reference photos, keeping pose and clothes, never their looks", () => {
+    const asked = describeMessages(img, [], true)[1].content;
+    expect(AS_PERSON).toBe("the person from the reference photos");
+    expect(asked).toContain(AS_PERSON);
+    expect(asked).toMatch(/pose/);
+    expect(asked).toMatch(/clothing/);
+    expect(asked).toMatch(/Never describe .*face/);
+    expect(describeMessages(img)[1].content).not.toContain(AS_PERSON);
+  });
+
+  it("starts Subject with the reference person when the model forgot to", () => {
+    const out = assemblePrompt({ ...sample("x."), subject: "A smiling man in a cream sweater." }, [], true);
+    expect(out.split("\n")[0]).toBe("Subject: Main person: the person from the reference photos. A smiling man in a cream sweater.");
+  });
+
+  it("does not say it twice when the model already did", () => {
+    const out = assemblePrompt({ ...sample("x."), subject: "The person from the reference photos sits smiling." }, [], true);
+    expect(out.split("\n")[0]).toBe("Subject: The person from the reference photos sits smiling.");
+  });
+
+  it("leaves Subject alone without a person", () => {
+    const out = assemblePrompt({ ...sample("x."), subject: "A smiling man." });
+    expect(out.split("\n")[0]).toBe("Subject: A smiling man.");
   });
 });

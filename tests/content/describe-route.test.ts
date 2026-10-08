@@ -52,18 +52,18 @@ describe("POST /api/content-describe", () => {
     const palette = [{ hex: "#c41e3a", share: 38 }, { hex: "javascript:alert(1)", share: 20 }, { hex: "#FFFFFF", share: 22.4 }];
     await post({ image: { base64: "AAAA", mimeType: "image/jpeg", palette } });
     expect(run.describePicture).toHaveBeenCalledWith({
-      base64: "AAAA", mimeType: "image/jpeg", palette: [{ hex: "#C41E3A", share: 38 }, { hex: "#FFFFFF", share: 22 }],
+      base64: "AAAA", mimeType: "image/jpeg", palette: [{ hex: "#C41E3A", share: 38 }, { hex: "#FFFFFF", share: 22 }], asPerson: false,
     });
   });
 
   it("reads a picture whose colours are missing or not a list, with none", async () => {
     await post({ image: { base64: "AAAA", mimeType: "image/jpeg", palette: "red" } });
-    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/jpeg", palette: [] });
+    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/jpeg", palette: [], asPerson: false });
   });
 
   it("hands a good picture to the engine, as it came, and returns its answer", async () => {
     const res = await post({ image: { base64: "AAAA", mimeType: "image/png" } });
-    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/png", palette: [] });
+    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/png", palette: [], asPerson: false });
     expect(await res.json()).toEqual({ ok: true, prompt: "p", summaryTh: "s", costThb: 0.4, saved: false });
   });
 });
@@ -120,6 +120,15 @@ describe("the history", () => {
 
   it("hands the engine the picture and colours only, never the thumbnail", async () => {
     await post({ image: image() });
-    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/jpeg", palette: PALETTE });
+    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/jpeg", palette: PALETTE, asPerson: false });
+  });
+});
+
+describe("a read for a library person", () => {
+  it("passes asPerson only when it is exactly true", async () => {
+    await post({ image: { base64: "AAAA", mimeType: "image/jpeg", asPerson: true } });
+    expect(run.describePicture).toHaveBeenLastCalledWith(expect.objectContaining({ asPerson: true }));
+    await post({ image: { base64: "AAAA", mimeType: "image/jpeg", asPerson: "yes" } });
+    expect(run.describePicture).toHaveBeenLastCalledWith(expect.objectContaining({ asPerson: false }));
   });
 });

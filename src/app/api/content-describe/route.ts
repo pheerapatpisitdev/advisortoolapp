@@ -25,13 +25,15 @@ const bad = (error: string) => Response.json({ ok: false, error }, { status: 400
 export async function POST(req: Request) {
   const refused = await refuseUnless();
   if (refused) return refused;
-  const body = await req.json().catch(() => null) as { image?: { base64?: unknown; mimeType?: unknown; palette?: unknown; thumb?: unknown } } | null;
+  const body = await req.json().catch(() => null) as { image?: { base64?: unknown; mimeType?: unknown; palette?: unknown; thumb?: unknown; asPerson?: unknown } } | null;
   const image = body?.image;
   if (!image || typeof image.base64 !== "string" || typeof image.mimeType !== "string") return bad("ไม่พบรูปที่จะอ่าน");
   if (!(ACCEPTED_TYPES as readonly string[]).includes(image.mimeType) || !image.base64 || image.base64.length > MAX_IMAGE_BASE64) {
     return bad("ใช้ได้เฉพาะรูป jpg, png หรือ webp ที่ไม่ใหญ่เกินไป");
   }
-  const read = await describePicture({ base64: image.base64, mimeType: image.mimeType, palette: parseSwatches(image.palette) });
+  const read = await describePicture({
+    base64: image.base64, mimeType: image.mimeType, palette: parseSwatches(image.palette), asPerson: image.asPerson === true,
+  });
   if (!read.ok) return Response.json(read);
   const thumb = image.thumb;
   if (!isThumbBase64(thumb)) return Response.json({ ...read, saved: false });

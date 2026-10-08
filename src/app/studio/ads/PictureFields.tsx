@@ -87,6 +87,7 @@ export function PictureFields({ value, onChange, people, back }: {
 
       <PictureBrief
         value={brief} onChange={(b) => onChange({ brief: b })}
+        asPerson={Boolean(person)}
         note="ใช้กับภาพทุกแอดในแคมเปญนี้ · AI วาดทั้งโปสเตอร์รวมตัวหนังสือ ต้องตรวจตัวสะกดและตัวเลขก่อนส่ง"
       />
     </PictureFold>

@@ -16,12 +16,14 @@ import { DescribePicker, type DescribeOk } from "./DescribePicker";
  * On รีวิวเคลม the papers are the poster's words, so a brief steers only the picture behind
  * them — drawBackground never has the model draw words over a claim's papers.
  */
-export function PictureBrief({ value, onChange, papers = false, note }: {
+export function PictureBrief({ value, onChange, papers = false, note, asPerson = false }: {
   value: string;
   onChange: (next: string) => void;
   papers?: boolean;
   /** what the brief is used for, where it is not one round's (an Ads Studio campaign keeps its own) */
   note?: string;
+  /** a person from the people library is picked: "ถอดจากรูป" writes the main person as them, keeping pose and clothes */
+  asPerson?: boolean;
 }) {
   const id = useId();
   // a reading that waits for the choice between replacing and appending, and what to say about it
@@ -55,7 +57,7 @@ export function PictureBrief({ value, onChange, papers = false, note }: {
     <div className="block">
       <div className="mb-1 flex items-start justify-between gap-2">
         <label htmlFor={id} className="text-sm font-medium">บรีฟภาพเพิ่มเติม <span className="font-normal text-[var(--ct-mute)]">(ไม่ใส่ก็ได้)</span></label>
-        <DescribePicker onDone={done} />
+        <DescribePicker onDone={done} asPerson={asPerson} />
       </div>
       <textarea
         id={id} value={value} onChange={(e) => { onChange(e.target.value); setRead(null); }} maxLength={MAX_DIRECTION} rows={3}
@@ -71,6 +73,7 @@ export function PictureBrief({ value, onChange, papers = false, note }: {
       )}
       {tooLong && <span role="alert" className="mt-1 block text-xs text-[var(--ct-alert)]">ต่อท้ายแล้วเกิน {MAX_DIRECTION.toLocaleString("en-US")} ตัวอักษร — เลือกเขียนทับ หรือลบข้อความเดิมบางส่วนก่อน</span>}
       {read && <span className="mt-1 block text-xs text-[var(--ct-mute)]">รูปนี้: {read.summary} · ใช้ไป ฿{read.cost.toFixed(2)}</span>}
+      {asPerson && !read && <span className="mt-1 block text-xs text-[var(--ct-mute)]">เลือกคนจากคลังไว้: &quot;ถอดจากรูป&quot; จะใส่คนนั้นแทนคนหลักในรูป เก็บท่าทาง สีหน้า และเสื้อผ้าไว้</span>}
       <span className="mt-1 block text-xs text-[var(--ct-mute)]">
         {note ?? (papers
           ? "ใช้กับภาพพื้นหลังหลังเอกสารทุกชิ้นในรอบนี้"

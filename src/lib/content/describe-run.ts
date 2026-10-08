@@ -33,7 +33,8 @@ const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
 const readPerHour = limiter(20, 60 * 60_000);
 
 /** `palette`: the picture's colours as the browser measured them (palette.ts), already checked by the route */
-export interface DescribeInput { base64: string; mimeType: string; palette?: Swatch[] }
+/** `asPerson`: the picture will be drawn with a person from the people library, so the main person is written as them (describe.ts AS_PERSON) */
+export interface DescribeInput { base64: string; mimeType: string; palette?: Swatch[]; asPerson?: boolean }
 /** `saved` and `id` are the route's: whether the read was kept in the member's history, and under which id */
 export type DescribeResult =
   | { ok: true; prompt: string; summaryTh: string; costThb: number; saved?: boolean; id?: string }
@@ -52,6 +53,7 @@ export async function describePicture(input: DescribeInput): Promise<DescribeRes
   const viewer = await requireMember();
   const { base64, mimeType } = input;
   const palette = input.palette ?? [];
+  const asPerson = input.asPerson === true;
   if (!(ACCEPTED_TYPES as readonly string[]).includes(mimeType) || typeof base64 !== "string" || !base64 || base64.length > MAX_IMAGE_BASE64) {
     return fail(BAD_PICTURE);
   }
@@ -70,12 +72,12 @@ export async function describePicture(input: DescribeInput): Promise<DescribeRes
       if (!held.ok) return fail(tooDear(held.left));
       hold = held.id;
       const read = await within(chat({
-        tier: "large", task: DESCRIBE_TASK, messages: describeMessages({ base64, mimeType }, palette),
+        tier: "large", task: DESCRIBE_TASK, messages: describeMessages({ base64, mimeType }, palette, asPerson),
         json: true, maxTokens: 1500, timeoutMs: TRY_MS, prefer: READER, within: READ_FALLBACK,
       }), WHOLE_MS, "describe");
       const described = parseDescribed(read.text);
       if (!described) return fail(UNREADABLE);
-      return { ok: true, prompt: assemblePrompt(described, palette), summaryTh: described.summaryTh, costThb: read.costThb };
+      return { ok: true, prompt: assemblePrompt(described, palette, asPerson), summaryTh: described.summaryTh, costThb: read.costThb };
     } catch (e) {
       if (e instanceof BudgetExceeded) return fail(BUDGET_OUT);
       if (e instanceof OutOfTime) return fail(TOO_SLOW);

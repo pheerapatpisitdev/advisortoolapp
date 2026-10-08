@@ -317,7 +317,7 @@ export function ShowcaseTools({ writer, onWriter, painter, onPainter, people, pe
           </div>
         )}
 
-        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} papers />}
+        {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={onBrief} asPerson={Boolean(person)} papers />}
         </PictureFold>
       </div>
 

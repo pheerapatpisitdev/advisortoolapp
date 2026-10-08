@@ -103,6 +103,12 @@ describe("describePicture", () => {
     expect((r as { prompt: string }).prompt).not.toContain("Color palette");
   });
 
+  it("reads for a library person when asked: the model is told, and Subject names the reference person", async () => {
+    const r = await describePicture({ ...IMG, asPerson: true });
+    expect((r as { prompt: string }).prompt.split("\n")[0]).toMatch(/^Subject: Main person: the person from the reference photos\./);
+    expect(ai.chat.mock.calls[0][0].messages[1].content).toContain("the person from the reference photos");
+  });
+
   it("refuses the 21st read in an hour from one address, before taking a round", async () => {
     for (let i = 0; i < 20; i++) expect(await describePicture(IMG)).toMatchObject({ ok: true });
     quota.takeRound.mockClear();

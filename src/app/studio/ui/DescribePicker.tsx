@@ -17,7 +17,11 @@ type State = { phase: "idle" } | { phase: "working"; name: string; kb: number | 
  * Shared by the brief field and the ถอดรูปเป็น prompt page. While one picture is being read a
  * second click or a second file does nothing, so a double press cannot pay for two.
  */
-export function DescribePicker({ onDone }: { onDone: (r: DescribeOk) => void }) {
+export function DescribePicker({ onDone, asPerson = false }: {
+  onDone: (r: DescribeOk) => void;
+  /** a person from the people library will be drawn in: the main person is written as them (describe.ts AS_PERSON) */
+  asPerson?: boolean;
+}) {
   const input = useRef<HTMLInputElement>(null);
   const busy = useRef(false);
   const [state, setState] = useState<State>({ phase: "idle" });
@@ -31,7 +35,7 @@ export function DescribePicker({ onDone }: { onDone: (r: DescribeOk) => void }) 
     try {
       const shrunk = await shrinkImage(file);
       setState({ phase: "working", name: file.name, kb: Math.max(1, Math.round(shrunk.bytes / 1024)) });
-      const r = await describeCall({ base64: shrunk.base64, mimeType: shrunk.mimeType, palette: shrunk.palette, thumb: shrunk.thumb });
+      const r = await describeCall({ base64: shrunk.base64, mimeType: shrunk.mimeType, palette: shrunk.palette, thumb: shrunk.thumb, asPerson });
       if (r.ok) { setState({ phase: "idle" }); onDone({ ...r, palette: shrunk.palette, ...(shrunk.thumb ? { thumbUrl: `data:image/jpeg;base64,${shrunk.thumb}` } : {}) }); }
       else setState({ phase: "failed", error: r.error });
     } catch (e) {

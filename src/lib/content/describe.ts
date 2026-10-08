@@ -58,6 +58,19 @@ const HEADINGS: Record<Key, string> = {
   subject: "Subject", scene: "Scene", lighting: "Lighting", camera: "Camera", color: "Color and tone", texture: "Texture", style: "Style and mood",
 };
 
+/**
+ * How the main person is named when the picture will be drawn with a person from the people
+ * library instead (their photos go to the image model as references): pose, expression and
+ * clothes are kept from the picture, never the original person's looks (owner, 2026-10-08).
+ */
+export const AS_PERSON = "the person from the reference photos";
+
+const AS_PERSON_ASK = [
+  `The picture will be redrawn with a different, real person, whose reference photos the image model is given. In subject, write the main person as "${AS_PERSON}" and keep only their pose, expression, gesture, clothing and place in the frame.`,
+  "Never describe the main person's face, hair, skin, body, age, gender or ethnicity.",
+  "If there are other people, keep them as briefly described supporting figures, without detail of their faces.",
+].join(" ");
+
 /** a value longer than this is cut where a sentence ends, so seven of them and the headings can still be pared to fit */
 const MAX_VALUE = 500;
 /** what goes first when the whole is over the limit; subject, scene, style and the Avoid line never go */
@@ -119,10 +132,13 @@ function paletteLine(swatches: Swatch[], uses: PaletteUse[]): string | null {
   return `Color palette: ${items.join("; ")}`;
 }
 
-export function assemblePrompt(d: Described, swatches: Swatch[] = []): string {
+export function assemblePrompt(d: Described, swatches: Swatch[] = [], asPerson = false): string {
   const lines = new Map<Key | "palette", string>();
   for (const k of KEYS) {
-    lines.set(k, `${HEADINGS[k]}: ${clip(d[k])}`);
+    let value = clip(d[k]);
+    // the model is asked to name the library person; when it did not, the line says it anyway
+    if (k === "subject" && asPerson && !value.toLowerCase().includes(AS_PERSON)) value = `Main person: ${AS_PERSON}. ${value}`;
+    lines.set(k, `${HEADINGS[k]}: ${value}`);
     const palette = k === "color" ? paletteLine(swatches, d.palette ?? []) : null;
     if (palette) lines.set("palette", palette);
   }
@@ -160,12 +176,13 @@ export const DESCRIBE_SYSTEM = [
   "When the message lists colors measured from the picture, also answer palette: an array with one {hex, role, where} entry for each listed color, in the same order — hex copied exactly as listed, role one of dominant, secondary, accent, neutral, and where what in the picture has that color, at most 8 words. Do not guess other colors or change the codes.",
 ].join("\n");
 
-export function describeMessages(image: ChatImage, swatches: Swatch[] = []): ChatMessage[] {
+export function describeMessages(image: ChatImage, swatches: Swatch[] = [], asPerson = false): ChatMessage[] {
   const colors = swatches.length
     ? `\nColors measured from the picture, largest first: ${swatches.map((s) => `${s.hex} ${s.share}%`).join(", ")}.\nGive a palette entry for each of them.`
     : "";
+  const person = asPerson ? `\n${AS_PERSON_ASK}` : "";
   return [
     { role: "system", content: DESCRIBE_SYSTEM },
-    { role: "user", content: `Write the JSON for this picture.${colors}`, images: [image] },
+    { role: "user", content: `Write the JSON for this picture.${colors}${person}`, images: [image] },
   ];
 }

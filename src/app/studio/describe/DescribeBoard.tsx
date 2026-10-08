@@ -23,6 +23,8 @@ export function DescribeBoard({ initial }: { initial: Reading[] | null }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
+  // the picture will be drawn with a person from the people library (คลังบุคคล) in place of the main person
+  const [asPerson, setAsPerson] = useState(false);
 
   async function copy(key: string, text: string) {
     try {
@@ -63,7 +65,14 @@ export function DescribeBoard({ initial }: { initial: Reading[] | null }) {
   const btn = "min-h-9 shrink-0 rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)]";
   return (
     <div className="mt-5">
-      <div className="flex justify-start"><DescribePicker onDone={done} /></div>
+      <div className="flex flex-wrap items-center gap-3">
+        <DescribePicker onDone={done} asPerson={asPerson} />
+        <label className="inline-flex min-h-9 items-center gap-2 text-sm">
+          <input type="checkbox" checked={asPerson} onChange={(e) => setAsPerson(e.target.checked)} className="h-4 w-4" />
+          ใส่คนจากคลังบุคคลแทนคนในรูป
+        </label>
+      </div>
+      {asPerson && <p className="mt-1 text-xs text-[var(--ct-mute)]">Subject จะเขียนเป็นคนจากรูปอ้างอิง เก็บท่าทาง สีหน้า และเสื้อผ้าจากรูปนี้ ตอนวาดให้เลือกบุคคลในช่อง &quot;ใส่บุคคลในภาพ&quot; ด้วย</p>}
       {shown && (
         <div className="mt-5">
           <p className="text-sm text-[var(--ct-mute)]">รูปนี้: {shown.summaryTh}{shown.costThb !== undefined && ` · ใช้ไป ฿${shown.costThb.toFixed(2)}`}</p>

@@ -1294,7 +1294,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           )}
 
           {/* the owner's free direction for every picture of the round, shared with the other forms */}
-          {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={setBrief} />}
+          {format !== "script" && painter !== "none" && <PictureBrief value={brief} onChange={setBrief} asPerson={Boolean(person)} />}
           </PictureFold>
           </div>
 
