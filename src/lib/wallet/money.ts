@@ -33,7 +33,7 @@ export const DEFAULT_MULTIPLIER = 2;
  * What a round sets aside before it starts, in baht before the multiplier: the dearest round
  * of its kind, from the prices in src/lib/content/models.ts on 2026-09-30. A written round is
  * at most five pieces (MAX_PIECES) or six ads at Sonnet 5's ฿0.61 and ฿0.03 overhead each, about
- * ฿3.84; หาทีม, ความรู้, เขียนเอง, ขอบคุณลูกค้า, โชว์ผลงาน and รีวิวเคลม at most three pieces, about ฿1.92; a picture at most
+ * ฿3.84; หาทีม, ความรู้, เขียนเอง, ขอบคุณลูกค้า, โชว์ผลงาน, คำคม and รีวิวเคลม at most three pieces, about ฿1.92; a picture at most
  * Gemini's ฿2.41 with its translation. What is not spent comes back when the round is over.
  */
 export const ROUND_HOLD_THB: Record<AiRound, number> = {
@@ -43,6 +43,7 @@ export const ROUND_HOLD_THB: Record<AiRound, number> = {
   "ai-draft": 3,
   "ai-thanks": 3,
   "ai-showcase": 3,
+  "ai-saying": 3,
   "ai-claim": 3,
   "ai-draw": 3,
   "ai-clip": 3,

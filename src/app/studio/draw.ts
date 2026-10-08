@@ -4,6 +4,7 @@ import type { RecruitWriteInput } from "@/lib/content/recruit-run";
 import type { KnowledgeWriteInput } from "@/lib/content/knowledge-run";
 import type { DraftWriteInput } from "@/lib/content/draft-run";
 import type { ThanksWriteInput } from "@/lib/content/thanks-run";
+import type { SayingWriteInput } from "@/lib/content/saying-run";
 import type { DrawBackgroundResult, GenerateInput, GenerateResult } from "./actions";
 
 /** Order a piece's photograph through /api/content-draw, which is not queued behind the page's other actions. */
@@ -58,6 +59,16 @@ export async function knowledgeRound(input: KnowledgeWriteInput): Promise<Genera
 /** A ขอบคุณลูกค้า round through /api/content-thanks, as recruitRound. */
 export async function thanksRound(input: ThanksWriteInput): Promise<GenerateResult> {
   const res = await fetch("/api/content-thanks", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return await res.json() as GenerateResult;
+}
+
+/** A คำคม round through /api/content-saying, as recruitRound. */
+export async function sayingRound(input: SayingWriteInput): Promise<GenerateResult> {
+  const res = await fetch("/api/content-saying", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
