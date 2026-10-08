@@ -38,7 +38,8 @@ export type MenuIcon =
   | "calendar"
   | "quote"
   | "woman"
-  | "wallet";
+  | "wallet"
+  | "image";
 
 export interface MenuLink {
   href: string;
@@ -290,6 +291,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
+    // a picture read into a drawing prompt (owner, 2026-10-08): every agent's, the cost is theirs
+    { href: "/studio/describe", label: "ถอดรูปเป็น prompt", icon: "image", hue: "#302f79" },
     // puts an ad piece on Facebook as a paused ad: spends the owner's ad account, so the owner's alone (2026-10-04)
     { href: "/studio/ads", label: "Ads Studio", icon: "megaphone", hue: "#352f80" },
     // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
