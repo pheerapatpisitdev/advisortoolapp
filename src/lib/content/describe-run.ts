@@ -34,8 +34,9 @@ const readPerHour = limiter(20, 60 * 60_000);
 
 /** `palette`: the picture's colours as the browser measured them (palette.ts), already checked by the route */
 export interface DescribeInput { base64: string; mimeType: string; palette?: Swatch[] }
+/** `saved` and `id` are the route's: whether the read was kept in the member's history, and under which id */
 export type DescribeResult =
-  | { ok: true; prompt: string; summaryTh: string; costThb: number }
+  | { ok: true; prompt: string; summaryTh: string; costThb: number; saved?: boolean; id?: string }
   | { ok: false; error: string };
 
 const fail = (error: string): DescribeResult => ({ ok: false, error });

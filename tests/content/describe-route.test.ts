@@ -2,10 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /** POST /api/content-describe: signed in, a picture of an accepted kind and size, then the engine. */
 
-const auth = vi.hoisted(() => ({ refuseUnless: vi.fn(async (): Promise<Response | null> => null) }));
+const AGENT = "11111111-1111-4111-8111-111111111111";
+const auth = vi.hoisted(() => ({
+  refuseUnless: vi.fn(async (): Promise<Response | null> => null),
+  requireMember: vi.fn(async () => ({ agentId: "11111111-1111-4111-8111-111111111111", staff: null })),
+}));
 vi.mock("@/lib/auth/viewer", () => auth);
 const run = vi.hoisted(() => ({ describePicture: vi.fn() }));
 vi.mock("@/lib/content/describe-run", () => run);
+const hist = vi.hoisted(() => ({ saveReading: vi.fn() }));
+vi.mock("@/lib/content/describe-history", async (orig) => ({ ...(await orig<typeof import("@/lib/content/describe-history")>()), ...hist }));
 
 const { POST } = await import("@/app/api/content-describe/route");
 const { MAX_IMAGE_BASE64 } = await import("@/lib/content/describe");
@@ -18,6 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   auth.refuseUnless.mockResolvedValue(null);
   run.describePicture.mockResolvedValue({ ok: true, prompt: "p", summaryTh: "s", costThb: 0.4 });
+  hist.saveReading.mockResolvedValue("22222222-2222-4222-8222-222222222222");
 });
 
 describe("POST /api/content-describe", () => {
@@ -57,6 +64,49 @@ describe("POST /api/content-describe", () => {
   it("hands a good picture to the engine, as it came, and returns its answer", async () => {
     const res = await post({ image: { base64: "AAAA", mimeType: "image/png" } });
     expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/png", palette: [] });
-    expect(await res.json()).toEqual({ ok: true, prompt: "p", summaryTh: "s", costThb: 0.4 });
+    expect(await res.json()).toEqual({ ok: true, prompt: "p", summaryTh: "s", costThb: 0.4, saved: false });
+  });
+});
+
+describe("the history", () => {
+  const THUMB = "/9j/" + "A".repeat(200);
+  const PALETTE = [{ hex: "#C41E3A", share: 38 }];
+  const image = (extra: Record<string, unknown> = {}) => ({ base64: "AAAA", mimeType: "image/jpeg", palette: PALETTE, thumb: THUMB, ...extra });
+
+  it("keeps a good read for the signed-in member, with its thumbnail, and says so", async () => {
+    const res = await (await post({ image: image() })).json();
+    expect(hist.saveReading).toHaveBeenCalledTimes(1);
+    expect(hist.saveReading).toHaveBeenCalledWith(AGENT, { prompt: "p", summaryTh: "s", palette: PALETTE, thumbBase64: THUMB });
+    expect(res).toMatchObject({ ok: true, saved: true, id: "22222222-2222-4222-8222-222222222222" });
+  });
+
+  it.each([
+    ["is not a JPEG", { thumb: "iVBORw0KGgo" + "A".repeat(100) }],
+    ["is too long", { thumb: "/9j/" + "A".repeat(150_000) }],
+    ["is missing", { thumb: undefined }],
+    ["is not a string", { thumb: 7 }],
+  ])("reads but does not keep the picture when its thumbnail %s", async (_name, extra) => {
+    const res = await (await post({ image: image(extra) })).json();
+    expect(hist.saveReading).not.toHaveBeenCalled();
+    expect(res).toMatchObject({ ok: true, saved: false });
+  });
+
+  it("answers the read even when keeping it fails", async () => {
+    hist.saveReading.mockRejectedValueOnce(new Error("storage down"));
+    const res = await (await post({ image: image() })).json();
+    expect(res).toMatchObject({ ok: true, prompt: "p", saved: false });
+    expect(res.id).toBeUndefined();
+  });
+
+  it("keeps nothing for a read that failed", async () => {
+    run.describePicture.mockResolvedValueOnce({ ok: false, error: "อ่านรูปนี้ไม่สำเร็จ ลองรูปอื่นนะครับ" });
+    const res = await (await post({ image: image() })).json();
+    expect(hist.saveReading).not.toHaveBeenCalled();
+    expect(res).toEqual({ ok: false, error: "อ่านรูปนี้ไม่สำเร็จ ลองรูปอื่นนะครับ" });
+  });
+
+  it("hands the engine the picture and colours only, never the thumbnail", async () => {
+    await post({ image: image() });
+    expect(run.describePicture).toHaveBeenCalledWith({ base64: "AAAA", mimeType: "image/jpeg", palette: PALETTE });
   });
 });
