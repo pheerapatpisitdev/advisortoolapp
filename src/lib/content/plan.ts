@@ -1,6 +1,6 @@
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { ChatMessage } from "@/lib/ai/types";
-import { hookTemplateSection } from "./hooks";
+import { hookMenuSection, hookTemplateSection } from "./hooks";
 import { POLICY_RULES_TH } from "./policy";
 import { ENGLISH_RULES, LOOP_PLAN, steerLines, type Steer } from "./prompt";
 import { readShareWhy, type ShareWhy } from "./finish";
@@ -29,6 +29,8 @@ export interface PiecePlan {
   hook: string;
   /** สูตรอ่าน-ดูจนจบ: why a reader would pass this piece on (finish.ts); the writer writes to it */
   shareWhy?: ShareWhy;
+  /** the formula the planner chose from the menu, counted from 1; absent when it wrote the hook itself */
+  formulaNo?: number;
 }
 
 const SYSTEM = [
@@ -59,6 +61,8 @@ export function planMessages(opts: {
   angle: string;
   avoid: string[];
   template: { template: string; category: string } | null;
+  /** formulas the planner may choose from, one per piece, when the owner chose none */
+  menu?: { template: string; category: string }[];
   /** the hooks open a คลิปวนลูป, so each must also finish its closing */
   loop?: boolean;
   /** the writing formula: its hook rules (formula.ts) */
@@ -71,12 +75,10 @@ export function planMessages(opts: {
     opts.loop ? LOOP_PLAN : "",
     formulaHookRules(opts.formula ?? null),
     avoidSection(opts.avoid),
-    opts.template ? hookTemplateSection(opts.template) : "",
+    opts.template ? hookTemplateSection(opts.template) : opts.menu?.length ? hookMenuSection(opts.menu) : "",
     [
       opts.count > 1 ? `วางแผน ${opts.count} ชิ้นที่ต่างมุมกันชัดเจน` : "วางแผน 1 ชิ้นที่ดีที่สุด",
-      opts.formula === "finish"
-        ? 'รูปแบบ: {"plans":[{"angle":"…","hook":"…","shareWhy":"use"}]} ห้ามมีช่องอื่น'
-        : 'รูปแบบ: {"plans":[{"angle":"…","hook":"…"}]} ห้ามมีช่องอื่น',
+      `รูปแบบ: {"plans":[{"angle":"…","hook":"…"${opts.template ? "" : opts.menu?.length ? ',"f":1' : ""}${opts.formula === "finish" ? ',"shareWhy":"use"' : ""}}]} ห้ามมีช่องอื่น`,
     ].join("\n"),
   ].filter(Boolean).join("\n\n");
   return [
@@ -86,9 +88,10 @@ export function planMessages(opts: {
 }
 
 /** The plans, cut to what was asked for so a generous planner cannot make the writer bill more. */
-export function parsePlans(reply: string, expected: number): PiecePlan[] | null {
+export function parsePlans(reply: string, expected: number, menuSize = 0): PiecePlan[] | null {
   const raw = parseJsonReply<{ plans?: unknown }>(reply);
   if (!raw || !Array.isArray(raw.plans)) return null;
+  const used = new Set<number>();
   const plans = (raw.plans as unknown[]).flatMap((p) => {
     if (!p || typeof p !== "object") return [];
     const r = p as Record<string, unknown>;
@@ -96,7 +99,11 @@ export function parsePlans(reply: string, expected: number): PiecePlan[] | null 
     if (!hook) return [];
     const angle = typeof r.angle === "string" && r.angle.trim() ? r.angle.trim().slice(0, 300) : hook;
     const shareWhy = readShareWhy(r.shareWhy);
-    return [{ angle, hook, ...(shareWhy ? { shareWhy } : {}) }];
+    // a formula's number counts only inside the menu, and once: a repeat is the planner losing track
+    const no = Number(r.f);
+    const formulaNo = Number.isInteger(no) && no >= 1 && no <= menuSize && !used.has(no) ? no : 0;
+    if (formulaNo) used.add(formulaNo);
+    return [{ angle, hook, ...(shareWhy ? { shareWhy } : {}), ...(formulaNo ? { formulaNo } : {}) }];
   }).slice(0, Math.max(1, expected));
   return plans.length ? plans : null;
 }

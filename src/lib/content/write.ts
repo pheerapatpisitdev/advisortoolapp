@@ -119,7 +119,7 @@ function timed<T>(call: (timeoutMs: number | undefined) => Promise<T>, usual: nu
  */
 export async function plan(opts: Parameters<typeof planMessages>[0], limits: { budgetMs?: number } = {}): Promise<Planned> {
   const r = await timed((timeoutMs) => chat({ tier: "small", task: "content-plan", messages: planMessages(opts), maxTokens: 900, json: true, timeoutMs }), undefined, limits.budgetMs, "plan");
-  const plans = parsePlans(r.text, opts.count);
+  const plans = parsePlans(r.text, opts.count, opts.menu?.length ?? 0);
   if (!plans) throw new UnreadableReply();
   return { plans, model: r.model, costThb: r.costThb };
 }

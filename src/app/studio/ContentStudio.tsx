@@ -213,12 +213,12 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
   );
   return (
     <div>
-      <span id={`${id}-title`} className="mb-1 block text-sm font-medium">สูตรประโยคเปิด <span className="font-normal text-[var(--ct-mute)]">(ไม่ใช้ก็ได้)</span></span>
+      <span id={`${id}-title`} className="mb-1 block text-sm font-medium">สูตรประโยคเปิด <span className="font-normal text-[var(--ct-mute)]">(เลือกเองก็ได้)</span></span>
       <button
         type="button" aria-expanded={open} aria-controls={`${id}-panel`} aria-describedby={`${id}-title`} onClick={() => setOpen((o) => !o)}
         className="flex min-h-11 w-full items-start justify-between gap-2 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-left text-sm leading-snug hover:bg-[var(--ct-ground)]"
       >
-        <span className="min-w-0 flex-1">{chosen ? `“${chosen.template}”` : "ไม่ใช้สูตร — ให้ AI คิดเอง"}</span>
+        <span className="min-w-0 flex-1">{chosen ? `“${chosen.template}”` : "ให้ AI เลือกสูตรให้"}</span>
         <span className="flex shrink-0 items-center gap-1 text-[var(--ct-accent)]">
           {open ? "ปิด" : "เลือก"}
           <ChevronDownIcon className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -241,7 +241,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
             <p aria-live="polite" className="mt-1 text-xs text-[var(--ct-mute)]">{query.trim() ? `พบ ${shown.length} สูตร` : `ทั้งหมด ${hooks.length} สูตร`}</p>
           </div>
           <div role="radiogroup" aria-labelledby={`${id}-title`} className="max-h-72 divide-y divide-[var(--ct-hair)] overflow-y-auto overscroll-contain">
-            {option("", "ไม่ใช้สูตร — ให้ AI คิดเอง")}
+            {option("", "ให้ AI เลือกสูตรให้")}
             {shown.map((h) => option(h.id, (
               <>
                 “{h.template}”

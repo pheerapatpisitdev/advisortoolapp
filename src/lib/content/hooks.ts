@@ -47,6 +47,12 @@ export function normalizeTemplate(t: string): string {
   return t.replace(/\s+/g, " ").trim().slice(0, HOOK_TEMPLATE_MAX);
 }
 
+/** how to fill a formula's slots — the same whether the owner chose it or the planner did */
+const SLOT_RULES = [
+  "- ช่องที่เป็นจำนวนข้อ เช่น [N] หรือ [จำนวน]ข้อ คือจำนวนข้อที่ชิ้นนั้นจะเล่าจริง ให้ใช้ 3 ถึง 5 — ไม่ใช่ตัวเลขจากข้อมูลผลิตภัณฑ์",
+  "- ช่องที่เป็นเงิน ทุน เบี้ย อายุ หรือเปอร์เซ็นต์ ต้องคัดลอกจากข้อมูลผลิตภัณฑ์ตรงตัว",
+];
+
 /** The block that binds a round's hooks to one formula — for the planner, who writes the hooks. */
 export function hookTemplateSection(t: { template: string; category: string }): string {
   return [
@@ -54,8 +60,50 @@ export function hookTemplateSection(t: { template: string; category: string }): 
     `"${t.template}"`,
     "- hook ของทุกชิ้นต้องตามสูตรนี้: เติมช่องในวงเล็บเหลี่ยมให้เข้ากับแบบประกัน ห้ามเปลี่ยนโครงประโยค",
     "- ถ้ามีหลายชิ้น ให้เติมช่องต่างกันจนได้มุมที่ต่างกันจริง",
-    "- ช่องที่เป็นจำนวนข้อ เช่น [N] หรือ [จำนวน]ข้อ คือจำนวนข้อที่ชิ้นนั้นจะเล่าจริง ให้ใช้ 3 ถึง 5 — ไม่ใช่ตัวเลขจากข้อมูลผลิตภัณฑ์",
-    "- ช่องที่เป็นเงิน ทุน เบี้ย อายุ หรือเปอร์เซ็นต์ ต้องคัดลอกจากข้อมูลผลิตภัณฑ์ตรงตัว",
+    ...SLOT_RULES,
+  ].join("\n");
+}
+
+/** formulas the planner is offered each round: enough to choose from, few enough to read */
+export const HOOK_MENU_SIZE = 8;
+/** of those, how many are the ones that already went up on a Page the most */
+const MENU_PROVEN = 3;
+
+/**
+ * The formulas offered to the planner when the owner has not chosen one: the ones that have
+ * gone up on a Page most, then the rest drawn at random one category at a time — so the menu
+ * is not eight of the same shape, and a formula nobody has tried still gets its turn.
+ */
+export function pickHookMenu<T extends { id: string; category: string }>(
+  pool: T[], posted: Record<string, number>, size = HOOK_MENU_SIZE, rand: () => number = Math.random,
+): T[] {
+  const proven = pool.filter((h) => (posted[h.id] ?? 0) > 0).sort((a, b) => posted[b.id] - posted[a.id]).slice(0, Math.min(MENU_PROVEN, size));
+  const taken = new Set(proven.map((h) => h.id));
+  const rest = pool.filter((h) => !taken.has(h.id));
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  const byCategory = HOOK_CATEGORIES.map((c) => rest.filter((h) => h.category === c));
+  const menu = [...proven];
+  while (menu.length < size && byCategory.some((l) => l.length)) {
+    for (const list of byCategory) {
+      const next = list.shift();
+      if (next && menu.length < size) menu.push(next);
+    }
+  }
+  return menu;
+}
+
+/** The block that offers the planner a menu of formulas to choose from, one per piece. */
+export function hookMenuSection(menu: { template: string; category: string }[]): string {
+  return [
+    "สูตรประโยคเปิดให้เลือก — เลือกให้แต่ละชิ้นหนึ่งสูตรที่เข้ากับมุมของชิ้นนั้นที่สุด",
+    ...menu.map((m, i) => `${i + 1}. "${m.template}" (หมวด ${m.category})`),
+    '- ชิ้นที่ใช้สูตร: hook ต้องตามโครงสูตรนั้น เติมช่องในวงเล็บเหลี่ยมให้เข้ากับแบบประกัน ห้ามเปลี่ยนโครงประโยค และใส่เลขสูตรในช่อง "f"',
+    '- ถ้าไม่มีสูตรไหนเข้ากับมุมของชิ้นนั้นจริงๆ ให้ f เป็น 0 แล้วเขียน hook เอง — อย่าฝืนใช้สูตร',
+    "- ถ้ามีหลายชิ้น ใช้สูตรคนละอัน",
+    ...SLOT_RULES,
   ].join("\n");
 }
 

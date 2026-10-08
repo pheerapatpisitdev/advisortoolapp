@@ -34,7 +34,7 @@ import { proofread, type Fix } from "@/lib/content/proofread";
 import { ADS_MOVED, GOALS, LENGTHS, angleText, anglesFor, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
   DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
-  getHookTemplate, holdContentBudget, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
+  getHookTemplate, holdContentBudget, hookMenu, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
 import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds, writeNumbersAds, writeShortAds } from "@/lib/content/write";
@@ -335,6 +335,9 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
         input.hookTemplateId ? getHookTemplate(input.hookTemplateId) : Promise.resolve(null),
         listWords(),
       ]);
+      // no formula chosen: the planner picks one for each piece from a short menu. The library is
+      // Thai, so an English round and an ad (which has its own planner call) keep writing their own
+      const menu = !template && lang !== "en" && input.format !== "ad" && angle !== "numbers" ? await hookMenu() : [];
       const told = angleText(angle, custom);
 
       // ตัวเลขชัดๆ: every figure from the engine, only the headline from a model (spec 2026-09-24)
@@ -433,7 +436,7 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
 
       // the planner leaves the writers one try's time and the saves theirs; the writers take what
       // is left then, fallbacks included, and the saves still fit (deadline.ts, review 2026-10-01)
-      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, reader, goal, fact, loop, formula, lang }, { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) });
+      const planned = await plan({ brief: brief.text, count, angle: told, avoid, template, menu, reader, goal, fact, loop, formula, lang }, { budgetMs: clock.budget(PLAN_MS, WRITE_TRY_MS + SAVE_MS) });
       // the writer names the formula on each piece (markFormula), so nothing is added here
       const written = await write({ brief: brief.text, format: input.format, angle, custom, length, loop, formula, plans: planned.plans, reader, goal, fact, lang }, { prefer: writeWith, budgetMs: clock.budget(Infinity, SAVE_MS) });
 
@@ -444,9 +447,14 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
         output: input.format === "script" ? { ...w.output, ...(fact ? { fact } : {}), ...(loop ? { loop: true } : {}) } : inTongue(dressed(fact ? { ...w.output, fact } : w.output)),
         flags: flagsFor(w.output, lang, yardstick, words, null),
         rateVersion: brief.rateVersion, model: w.model, costThb: w.costThb + planShare,
-        hookTemplateId: template?.id ?? null,
+        // the owner's formula, or the one the planner took from the menu for this piece's hook
+        hookTemplateId: template?.id ?? (menu[(planned.plans.find((p) => p.hook === w.output.hooks[0])?.formulaNo ?? 0) - 1]?.id ?? null),
       })), project.pageId);
       if (template && saved.items.length) await countHookUse(template, saved.items.length).catch((e) => console.error("hook count failed:", e));
+      for (const m of menu) {
+        const n = saved.items.filter((i) => i.hookTemplateId === m.id).length;
+        if (n) await countHookUse(m, n).catch((e) => console.error("hook count failed:", e));
+      }
       // against the count asked for: a planner reply repaired short gives fewer plans, and the
       // owner is told rather than handed two posts for three
       return roundResult(saved, count, written.budgetHit);

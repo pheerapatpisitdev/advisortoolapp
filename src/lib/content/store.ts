@@ -5,7 +5,7 @@ import { inWalletRound } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
 import type { ContentWord, WordHit, WordKind } from "./check";
 import { removeClipsOf } from "./clip-store";
-import { isHookCategory, type HookCategory, type HookTemplate } from "./hooks";
+import { isHookCategory, pickHookMenu, type HookCategory, type HookTemplate } from "./hooks";
 import { readLook, type Look } from "./looks";
 import { ON_PAGE_STATES, POSTING_STALE_MS } from "./publish-label";
 import type { PolicyFinding } from "./policy";
@@ -475,6 +475,26 @@ export async function hookPostCounts(): Promise<Record<string, number>> {
   return counts;
 }
 
+/**
+ * The formulas offered to the planner when the owner chose none: a few that already went up on
+ * a Page and a draw of the rest, a category at a time (pickHookMenu). A library that cannot be
+ * read gives no menu, and the planner writes its own hooks as it did before.
+ */
+export async function hookMenu(): Promise<HookTemplate[]> {
+  try {
+    const [{ data, error }, posted] = await Promise.all([
+      supabaseAdmin().from("ins_hook_templates").select(HOOK_COLUMNS),
+      hookPostCounts(),
+    ]);
+    if (error) throw new Error(error.message);
+    // no example lines: the menu shows formulas only, and those are nobody's words
+    return pickHookMenu((data ?? []).map((r) => toTemplate(r as Record<string, unknown>, new Set())), posted);
+  } catch (e) {
+    console.error("hook menu not read:", e);
+    return [];
+  }
+}
+
 export async function getHookTemplate(id: string): Promise<HookTemplate | null> {
   const { data, error } = await supabaseAdmin().from("ins_hook_templates").select(HOOK_COLUMNS).eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
@@ -484,7 +504,7 @@ export async function getHookTemplate(id: string): Promise<HookTemplate | null> 
 }
 
 /** read-then-write, which can lose a count to a race; one owner clicking one button cannot race */
-export async function countHookUse(t: HookTemplate, by: number): Promise<void> {
+export async function countHookUse(t: { id: string; useCount: number }, by: number): Promise<void> {
   const { error } = await supabaseAdmin().from("ins_hook_templates").update({ use_count: t.useCount + by }).eq("id", t.id);
   if (error) throw new Error(error.message);
 }
