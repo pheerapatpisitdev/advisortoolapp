@@ -68,6 +68,11 @@ export interface Routed {
    */
   budget?: Budget;
   /**
+   * The customer has been invited to name a budget, once, after their first quotation. Carried
+   * so the invitation is not repeated under every price that follows.
+   */
+  budgetAsked?: true;
+  /**
    * This turn checks a figure ("…เหลือ 1,500,000 ใช่ไหม"); the sum in it is not a request to
    * price one, and the cover already known stands. Read off this turn only and never carried.
    */
@@ -343,8 +348,11 @@ export function mergeSlots(previous: Routed | null, current: Routed): Routed {
   if (merged.offer === undefined) merged.offer = previous.offer;
   if (merged.takenSum === undefined && merged.coverWanted === previous.coverWanted) merged.takenSum = previous.takenSum;
   if (merged.formSent === undefined) merged.formSent = previous.formSent;
-  // a sum named outright ends the shopping by budget; until then it is carried
-  merged.budget = merged.coverWanted === undefined ? previous.budget : undefined;
+  if (merged.budgetAsked === undefined) merged.budgetAsked = previous.budgetAsked;
+  // a sum named outright ends the shopping by budget; until then it is carried — and it is
+  // carried past a quotation that was priced from it, so a tap on another term or a word about
+  // another person is answered from the same money
+  merged.budget = current.coverWanted === undefined ? previous.budget : undefined;
 
   // decided last, because it asks what is known once everything has been carried over: a turn
   // that completes the three things a quotation needs is a request for one

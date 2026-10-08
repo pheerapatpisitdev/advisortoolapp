@@ -15,7 +15,7 @@ vi.mock("@/lib/ai/client", async () => {
   return { ...actual, chat };
 });
 
-const { answerQuestion } = await import("@/lib/assistant/lifeprotect/answer");
+const { answerQuestion, BUDGET_INVITE } = await import("@/lib/assistant/lifeprotect/answer");
 const { asksValueTable, lifeProtectVariantIn } = await import("@/lib/assistant/lifeprotect/route");
 const { wantsToBuy } = await import("@/lib/assistant/common");
 const { lifeProtectTable } = await import("@/lib/lifeprotect-table");
@@ -40,31 +40,64 @@ beforeEach(() => {
  * can be read backwards from, so it is.
  */
 describe("a budget instead of a sum", () => {
-  it("prices the cover it buys, on all three terms, inside the money named", async () => {
+  it("quotes the cover it buys as a card and a table, inside the money named", async () => {
     routed = { intent: "other" };
     const answer = await answerQuestion(
       said("ผมมีเดือนละ1000 สามารถทำประกันแบบไหนได้บ้างครับ"),
       { intent: "quote", age: 38, sex: "M" },
     );
-    const text = answer.messages.map((m) => m.text).join("\n");
     const table = lifeProtectTable();
-    for (const variant of ["WLF09H", "WLF19H", "WLF99H"]) {
+    const text = answer.messages.map((m) => m.text).join("\n");
+    // the quotation proper, then its chart and table, as for a sum named outright
+    expect(answer.priced).toBe(true);
+    expect(answer.messages.find((m) => (m.card && !m.card.includes("/api/card/table?")))).toBeDefined();
+    expect(answer.messages.find((m) => m.card?.includes("/api/card/table?"))).toBeDefined();
+    // the term in play is the first offer, paying 19 years; the other two follow in a line each
+    for (const variant of ["WLF09H", "WLF99H"]) {
       expect(text, variant).toContain(table.terms.find((t) => t.variant === variant)!.label);
     }
-    // every premium quoted is at or under the budget: the sum is rounded down, never up
+    // every instalment quoted is at or under the budget — except the plan's own monthly floor,
+    // which is said where it applies
     const premiums = [...text.matchAll(/เบี้ย ([\d,]+) บาท\/เดือน/g)].map((m) => Number(m[1].replace(/,/g, "")));
-    expect(premiums.length).toBe(3);
-    // the plan will not take a monthly instalment under its own floor, so the quote may land
-    // a few baht over the figure named — and says so where it does
+    expect(premiums.length).toBe(2);
     for (const p of premiums) expect(p).toBeLessThanOrEqual(1100);
     expect(text).toContain("ขั้นต่ำ");
-    // and the longest term buys the most cover for the same money
+    // the longest term buys the most cover for the same money
     const sums = [...text.matchAll(/ทุน ([\d,]+) บาท/g)].map((m) => Number(m[1].replace(/,/g, "")));
-    expect(sums[2]).toBeGreaterThan(sums[0]);
-    // paying 19 years is the first line, as it is the first quotation
-    expect(text.split("\n").find((l) => l.startsWith("• "))).toContain("จ่าย 19 ปี");
+    expect(Math.max(...sums)).toBeGreaterThan(sums[0]);
+    // the slots hold the sum behind the card, so the table, the form and "แพงไป" read the same figure
+    expect(answer.slots.takenSum).toBeGreaterThan(0);
+    expect(answer.slots.budget).toEqual({ baht: 1000, per: "month" });
     // the figures are the table's own: only the cheap router was asked anything
     expect(chat.mock.calls.map((c) => c[0].task)).toEqual(["route"]);
+  });
+
+  it("buys the biggest sum in 50,000 steps whose premium fits, and the next step does not", async () => {
+    routed = { intent: "other" };
+    const table = lifeProtectTable();
+    const answer = await answerQuestion(said("งบปีละ 100,000"), { intent: "quote", age: 35, sex: "M" });
+    const sum = answer.slots.takenSum!;
+    const annual = (s: number) =>
+      lifeProtectModes(table, termAt(table, "WLF19H"), { sex: "M", age: 35, sumAssured: s })!.find((m) => m.mode === "annual")!.total;
+    expect(sum % 50_000).toBe(0);
+    expect(annual(sum)).toBeLessThanOrEqual(100_000 * 100);
+    expect(annual(sum + 50_000)).toBeGreaterThan(100_000 * 100);
+    // and the card is drawn for that very sum
+    expect(answer.messages.find((m) => (m.card && !m.card.includes("/api/card/table?")))!.card).toContain(`sum=${sum}`);
+  });
+
+  it("stays on the budget when the customer taps another term", async () => {
+    routed = { intent: "other" };
+    const first = await answerQuestion(said("งบเดือนละ 5,000"), { intent: "quote", age: 35, sex: "M" });
+    routed = { intent: "other", variant: "WLF99H" };
+    const then = await answerQuestion(
+      [...said("งบเดือนละ 5,000"), { role: "assistant" as const, content: "..." }, { role: "user" as const, content: "ถึงอายุ 99" }],
+      first.slots,
+    );
+    expect(then.slots.variant).toBe("WLF99H");
+    // the longest term buys more than the nineteen-year one for the same 5,000 a month
+    expect(then.slots.takenSum!).toBeGreaterThan(first.slots.takenSum!);
+    expect(then.messages.find((m) => (m.card && !m.card.includes("/api/card/table?")))!.card).toContain("WLF99H");
   });
 
   it("asks who it is pricing for when only the money is known, and remembers it", async () => {
@@ -85,6 +118,30 @@ describe("a budget instead of a sum", () => {
     const text = answer.messages.map((m) => m.text).join("\n");
     expect(text).toContain("ขั้นต่ำ");
     expect(text).toContain("150,000");
+  });
+
+  it("never lifts a budget to the smallest sum: it says the budget is short", async () => {
+    routed = { intent: "other" };
+    const answer = await answerQuestion(said("งบเดือนละ 400"), { intent: "quote", age: 55, sex: "M" });
+    expect(answer.priced).toBeFalsy();
+    expect(answer.messages.some((m) => m.card)).toBe(false);
+    expect(answer.slots.takenSum).toBeUndefined();
+  });
+
+  it("invites a budget once, after the first quote and its table, and not to a couple", async () => {
+    routed = { intent: "quote", age: 35, sex: "M", coverWanted: 1_000_000 };
+    const first = await answerQuestion(said("ชาย 35 ล้านนึง"), null);
+    expect(first.messages.at(-1)!.text).toBe(BUDGET_INVITE);
+    expect(first.messages.at(-2)!.card).toContain("/api/card/table?");
+    expect(first.slots.budgetAsked).toBe(true);
+
+    routed = { intent: "quote", age: 35, sex: "M", coverWanted: 2_000_000 };
+    const again = await answerQuestion(said("ทุน 2 ล้านล่ะ"), first.slots);
+    expect(again.messages.some((m) => m.text === BUDGET_INVITE)).toBe(false);
+
+    routed = { intent: "quote", coverWanted: 1_000_000 };
+    const couple = await answerQuestion(said("ผญ 32 ผช33ค่ะ"), null);
+    expect(couple.messages.some((m) => m.text === BUDGET_INVITE)).toBe(false);
   });
 
   it("leaves a sum said outright alone", async () => {
@@ -724,10 +781,12 @@ describe("a question asked alongside a price", () => {
     routed = { intent: "quote", age: 37, sex: "F", coverWanted: 1_000_000 };
     const answer = await answerQuestion(said("ญ 37 ลดหย่อนภาษีได้ไหม"), null);
     // the quote, its chart and table, then the answer
-    expect(answer.messages).toHaveLength(3);
+    expect(answer.messages).toHaveLength(4);
     expect(answer.messages[0].card).toBeDefined();
     expect(answer.messages[1].card).toContain("/api/card/table?");
     expect(answer.messages[2].text).toContain("100,000");
+    // and the invitation to name a budget stays the last word
+    expect(answer.messages[3].text).toBe(BUDGET_INVITE);
   });
 });
 
