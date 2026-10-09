@@ -31,16 +31,86 @@ export interface SayingTopic {
   label: string;
   /** what the saying is about — all the writer is given */
   brief: string;
+  /**
+   * The topic's separate points, one to a piece when a round spreads them (owner, 2026-10-09):
+   * three pieces given the one brief wrote three sayings on its first phrase, "วันธรรมดา…".
+   * A topic the agent typed has none; it is looked at from LENSES instead.
+   */
+  points?: readonly string[];
 }
 
 export const SAYING_TOPICS: readonly SayingTopic[] = [
-  { id: "life", label: "ชีวิต", brief: "ชีวิตเปลี่ยนได้เสมอ ความสุขอยู่ในวันธรรมดา การใช้ชีวิตให้คุ้มค่าและมีสติกับสิ่งที่สำคัญ" },
-  { id: "family", label: "ครอบครัว", brief: "ครอบครัวและคนที่เรารัก การดูแลกันและกัน ความรักที่แสดงออกผ่านการคิดเผื่อคนข้างหลัง" },
-  { id: "money", label: "เงินและการออม", brief: "การใช้เงินอย่างมีสติ การออมทีละน้อย ความมั่นคงที่สร้างได้จากวินัยเล็กๆ ทุกวัน" },
-  { id: "plan", label: "การวางแผนล่วงหน้า", brief: "การคิดล่วงหน้า เตรียมพร้อมตั้งแต่วันที่ยังไม่มีปัญหา เพราะวันที่ต้องใช้มักมาโดยไม่บอกล่วงหน้า" },
-  { id: "unexpected", label: "เรื่องไม่คาดฝันและสุขภาพ", brief: "สุขภาพคือต้นทุนของทุกอย่าง เรื่องไม่คาดฝันเกิดได้กับทุกคน ใจที่พร้อมรับมือช่วยให้ผ่านวันยากๆ ไปได้" },
-  { id: "work", label: "การทำงานและความพยายาม", brief: "ความพยายาม ความอดทน การลงมือทำทุกวัน และการไม่ยอมแพ้แม้วันที่เหนื่อย" },
+  { id: "life", label: "ชีวิต", brief: "ชีวิตเปลี่ยนได้เสมอ ความสุขอยู่ในวันธรรมดา การใช้ชีวิตให้คุ้มค่าและมีสติกับสิ่งที่สำคัญ",
+    points: ["ชีวิตเปลี่ยนได้เสมอ ไม่มีใครรู้ว่าพรุ่งนี้จะเป็นอย่างไร", "ความสุขเล็กๆ ที่ซ่อนอยู่ในวันธรรมดา", "ใช้ชีวิตให้คุ้มค่า และมีสติกับสิ่งที่สำคัญจริงๆ"] },
+  { id: "family", label: "ครอบครัว", brief: "ครอบครัวและคนที่เรารัก การดูแลกันและกัน ความรักที่แสดงออกผ่านการคิดเผื่อคนข้างหลัง",
+    points: ["การดูแลกันและกันของคนในบ้าน", "ความรักที่แสดงออกผ่านการคิดเผื่อคนข้างหลัง", "เวลาที่ได้อยู่กับพ่อแม่และลูก ที่มีไม่มากอย่างที่คิด"] },
+  { id: "money", label: "เงินและการออม", brief: "การใช้เงินอย่างมีสติ การออมทีละน้อย ความมั่นคงที่สร้างได้จากวินัยเล็กๆ ทุกวัน",
+    points: ["ใช้เงินอย่างมีสติ แยกของจำเป็นออกจากของอยากได้", "ออมทีละน้อย แต่ทำอย่างสม่ำเสมอ", "ความมั่นคงที่ค่อยๆ สร้างจากวินัยเล็กๆ"] },
+  { id: "plan", label: "การวางแผนล่วงหน้า", brief: "การคิดล่วงหน้า เตรียมพร้อมตั้งแต่วันที่ยังไม่มีปัญหา เพราะวันที่ต้องใช้มักมาโดยไม่บอกล่วงหน้า",
+    points: ["เริ่มเตรียมตั้งแต่วันที่ยังไม่มีปัญหา", "วันที่ต้องใช้มักมาโดยไม่บอกล่วงหน้า", "การคิดล่วงหน้าคือการดูแลตัวเองในวันข้างหน้า"] },
+  { id: "unexpected", label: "เรื่องไม่คาดฝันและสุขภาพ", brief: "สุขภาพคือต้นทุนของทุกอย่าง เรื่องไม่คาดฝันเกิดได้กับทุกคน ใจที่พร้อมรับมือช่วยให้ผ่านวันยากๆ ไปได้",
+    points: ["สุขภาพคือต้นทุนของทุกอย่าง", "เรื่องไม่คาดฝันเกิดได้กับทุกคน", "ใจที่พร้อมรับมือช่วยให้ผ่านวันยากๆ ไปได้"] },
+  { id: "work", label: "การทำงานและความพยายาม", brief: "ความพยายาม ความอดทน การลงมือทำทุกวัน และการไม่ยอมแพ้แม้วันที่เหนื่อย",
+    points: ["ลงมือทำทุกวัน แม้ทีละก้าวเล็กๆ", "ความอดทนในวันที่เหนื่อย", "ไม่ยอมแพ้ และเริ่มใหม่ได้เสมอ"] },
 ];
+
+/** a typed topic's points: the same topic seen from three places */
+const LENSES = ["มองจากตัวเราเอง", "มองจากคนที่เรารัก", "มองจากวันข้างหน้า"];
+
+/**
+ * How a round's pieces differ (owner, 2026-10-09, a button on the form). ต่างประเด็น gives each
+ * piece its own point of the topic; ประเด็นเดียว หลายสำนวน keeps the whole topic for every piece.
+ * Either way each piece takes its own sentence shape and is told the others', since the pieces
+ * are written at once and none sees another.
+ */
+export const SAYING_SPREADS = [
+  { id: "points", label: "ต่างประเด็น", note: "แต่ละชิ้นพูดคนละประเด็นในหัวข้อ และใช้รูปประโยคต่างกัน" },
+  { id: "wording", label: "ประเด็นเดียว หลายสำนวน", note: "ทุกชิ้นพูดเรื่องเดียวกัน ต่างกันที่รูปประโยคและคำขึ้นต้น ไว้เลือกสำนวนที่ชอบ" },
+] as const;
+export type SayingSpread = (typeof SAYING_SPREADS)[number]["id"];
+export const sayingSpread = (v: unknown): SayingSpread => (v === "wording" ? "wording" : "points");
+
+/** The saying's sentence shapes, one to a piece. A round starts at a place of its own, so rounds differ too. */
+export const SAYING_SHAPES = [
+  "เปรียบเทียบกับสิ่งของหรือธรรมชาติที่เห็นได้ทุกวัน เช่น ร่ม ต้นไม้ สายฝน",
+  "ประโยคสองท่อนที่ตัดกัน เช่น วันนี้… พรุ่งนี้…",
+  "คำถามชวนคิด ที่คนอ่านตอบได้เองในใจ",
+  "รูป “ไม่ใช่… แต่คือ…”",
+  "ประโยคบอกเล่าสั้นๆ เรียบๆ จบในท่อนเดียว",
+];
+
+/**
+ * What each piece of a topic round is aimed at: its point (or the whole topic), its sentence
+ * shape, and what the round's other pieces took. `start` turns the lists so a new round does not
+ * open where the last did. The agent's own saying is theirs as typed: nothing to aim.
+ */
+export interface SayingAim {
+  /** the piece's own point of the topic; empty where it is given the whole topic */
+  point: string;
+  /** the lines the writer is given: point, shape, and the others' */
+  lines: string;
+}
+
+export function sayingAims(source: SayingSource, spread: SayingSpread, count: number, start = 0): SayingAim[] {
+  if (source.kind !== "topic") return Array.from({ length: count }, () => ({ point: "", lines: "" }));
+  const points = source.topic.points?.length ? source.topic.points : LENSES;
+  const turn = <T>(list: readonly T[], i: number) => list[(start + i) % list.length];
+  const pieces = Array.from({ length: count }, (_, i) => ({
+    point: spread === "points" ? turn(points, i) : "",
+    shape: turn(SAYING_SHAPES, i),
+  }));
+  return pieces.map((p, i) => {
+    const others = pieces.filter((_, j) => j !== i);
+    return { point: p.point, lines: [
+      p.point ? `ประเด็นของชิ้นนี้: ${p.point}` : "",
+      `รูปประโยคของคำคม: ${p.shape}`,
+      others.length === 0 ? ""
+        : spread === "points"
+          ? `ชิ้นอื่นในรอบเดียวกันพูดเรื่อง: ${others.map((o) => o.point).join(" / ")} — คำคมชิ้นนี้ต้องคนละเรื่อง และห้ามขึ้นต้นด้วยคำเดียวกับชิ้นอื่น`
+          : `ชิ้นอื่นในรอบเดียวกันใช้รูปประโยค: ${others.map((o) => o.shape).join(" / ")} — ชิ้นนี้ต้องขึ้นต้นด้วยคำที่ต่างออกไป`,
+    ].filter(Boolean).join("\n") };
+  });
+}
 
 export type SayingSource =
   | { kind: "topic"; topic: SayingTopic }
@@ -104,7 +174,7 @@ export function sayingTones(tone: string, count: number): { label: string; say: 
 export const sayingFormat = (format: unknown): "post" | "script" => (format === "script" ? "script" : "post");
 
 const SOURCE_RULE: Record<SayingSource["kind"], string> = {
-  topic: "1. แต่งคำคมขึ้นใหม่เองจาก “หัวข้อ” ยาวไม่เกิน 60 ตัวอักษร อ่านจบในอึดใจเดียว ห้ามยกคำคมหรือคำพูดที่มีอยู่แล้ว และห้ามอ้างว่าเป็นคำพูดของใคร",
+  topic: "1. แต่งคำคมขึ้นใหม่เองจาก “หัวข้อ” ยาวไม่เกิน 60 ตัวอักษร อ่านจบในอึดใจเดียว ห้ามยกคำคมหรือคำพูดที่มีอยู่แล้ว และห้ามอ้างว่าเป็นคำพูดของใคร ใช้ใจความหัวข้อเป็นแนวคิดเท่านั้น ห้ามยกวลีจากใจความมาขึ้นต้นคำคม",
   own: "1. ใช้ “คำคม” ที่ให้มาตามนั้นทุกตัวอักษร ห้ามแก้ ห้ามแต่งต่อ ถ้ามีชื่อผู้พูดให้ใช้ตามที่ให้มา ห้ามเล่าประวัติหรือเรื่องของคนนั้นเพิ่ม",
 };
 
@@ -164,15 +234,17 @@ export function sayingSystem(format: "post" | "script", kind: SayingSource["kind
   ].join("\n");
 }
 
+/** `aim`: the piece's point and shape (sayingAims); a piece with a point is given it, not the whole topic */
 export function sayingMessages(
   source: SayingSource, tone: { say: string }, reader: string, format: "post" | "script", length: Length | null, loop: boolean, formula: Formula | null,
+  aim: SayingAim = { point: "", lines: "" },
 ): ChatMessage[] {
   const what = source.kind === "topic"
-    ? [`หัวข้อ: ${source.topic.label}`, `ใจความของหัวข้อ:\n${source.topic.brief}`]
+    ? [`หัวข้อ: ${source.topic.label}`, aim.point ? "" : `ใจความของหัวข้อ:\n${source.topic.brief}`]
     : [`คำคม: “${source.text}”`, ...(source.who ? [`ผู้พูด: ${source.who}`] : [])];
   return [
     { role: "system", content: sayingSystem(format, source.kind, length, loop, formula) },
-    { role: "user", content: [...what, `วิธีเล่าของชิ้นนี้: ${tone.say}`, steerLines({ reader: reader.trim() })].filter(Boolean).join("\n\n") },
+    { role: "user", content: [...what, aim.lines, `วิธีเล่าของชิ้นนี้: ${tone.say}`, steerLines({ reader: reader.trim() })].filter(Boolean).join("\n\n") },
   ];
 }
 

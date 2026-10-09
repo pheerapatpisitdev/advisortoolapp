@@ -18,6 +18,8 @@ export interface ThanksWriteInput {
   loop?: boolean;
   /** the writing formula (formula.ts); posts and scripts */
   formula?: string | null;
+  /** กันซ้ำกับโพสต์เก่า: false turns the Page's past openings off for the round; a request body, so only false counts */
+  avoid?: boolean;
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   logoSpot?: string;
@@ -41,6 +43,7 @@ export async function writeThanks(input: ThanksWriteInput, pageId: string | null
   const count = Math.min(MAX_THANKS_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
   const tones = thanksTones(typeof input.tone === "string" ? input.tone : "", count);
   return oneCallRound({
+    avoid: input.avoid !== false,
     href: THANKS_HREF, format, length, loop, formula, count,
     writer: input.writer,
     messages: (i) => thanksMessages(occasion, tones[i], reader, format, length, loop, formula),

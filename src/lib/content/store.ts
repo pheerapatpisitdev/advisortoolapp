@@ -377,6 +377,27 @@ export async function usedHooks(limit = 40): Promise<string[]> {
   return ((data ?? []) as { output: ContentOutput }[]).map((r) => r.output?.hooks?.[0] ?? "").filter(Boolean);
 }
 
+/**
+ * The opening lines of the asker's latest pieces of one kind on one Page, newest first — what
+ * every Organic tool's round is told not to repeat (owner, 2026-10-09: three คำคม rounds opened
+ * alike). Every piece made counts, not only ใช้จริง: a draft left in รอตรวจ is still on the
+ * agent's screen, and one thrown away was most often thrown for being the same again. Fails soft:
+ * a round with no list is a round with nothing to avoid, not a round refused.
+ */
+export async function recentHooks(planHref: string, pageId: string | null, limit = 30): Promise<string[]> {
+  const only = await ownersFilter();
+  let q = supabaseAdmin().from("ins_content").select("output")
+    .eq("plan_href", planHref).neq("format", "ad").order("created_at", { ascending: false }).limit(limit);
+  q = pageId ? q.eq("page_id", pageId) : q.is("page_id", null);
+  if (only) q = q.or(only);
+  const { data, error } = await q;
+  if (error) {
+    console.error("อ่านประโยคเปิดเดิมไม่ได้:", error.message);
+    return [];
+  }
+  return ((data ?? []) as { output: ContentOutput }[]).map((r) => r.output?.hooks?.[0] ?? "").filter(Boolean);
+}
+
 export async function setFixes(item: ContentItem, fixes: Fix[]): Promise<void> {
   const { error } = await supabaseAdmin().from("ins_content")
     .update({ flags: { ...item.flags, fixes } }).eq("id", item.id);

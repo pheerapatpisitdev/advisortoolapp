@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_SAYING_OWN, parseSayingPiece, readSaying, SAYING_TONES, SAYING_TOPICS, sayingFormat, sayingMessages, sayingSystem, sayingTones,
-  type SayingSource,
+  MAX_SAYING_OWN, MAX_SAYING_PIECES, parseSayingPiece, readSaying, SAYING_TONES, SAYING_TOPICS, sayingAims, sayingFormat, sayingMessages,
+  sayingSpread, sayingSystem, sayingTones, type SayingSource,
 } from "@/lib/content/saying";
 import { modeChecks } from "@/lib/content/mode-checks";
 import { modeName } from "@/lib/content/modes";
@@ -147,5 +147,57 @@ describe("where sayings are listed and checked", () => {
 
   it("flags every figure, as ขอบคุณลูกค้า does", () => {
     expect(modeChecks("saying", undefined)).toEqual({ recruit: false, income: false, every: true });
+  });
+});
+
+describe("a round's pieces (owner, 2026-10-09: three sayings opened with วันธรรมดา)", () => {
+  it("each take their own point of the topic and their own shape, told the others'", () => {
+    const aims = sayingAims(fromTopic, "points", 3);
+    expect(new Set(aims.map((a) => a.point)).size).toBe(3);
+    expect(aims.map((a) => a.point)).toEqual(life.points);
+    for (const a of aims) expect(a.lines).toContain("ชิ้นอื่นในรอบเดียวกันพูดเรื่อง");
+    const shapes = aims.map((a) => a.lines.split("\n").find((l) => l.startsWith("รูปประโยค")));
+    expect(new Set(shapes).size).toBe(3);
+  });
+
+  it("given a point, are not given the whole topic, whose first phrase they all opened with", () => {
+    const [aim] = sayingAims(fromTopic, "points", 1);
+    const m = text(sayingMessages(fromTopic, SAYING_TONES[0], "", "post", null, false, null, aim));
+    expect(m).toContain(aim.point);
+    expect(m).not.toContain(life.brief);
+  });
+
+  it("keep the whole topic when one point is asked for, and differ in shape", () => {
+    const aims = sayingAims(fromTopic, "wording", 3);
+    expect(aims.every((a) => a.point === "")).toBe(true);
+    expect(new Set(aims.map((a) => a.lines)).size).toBe(3);
+    expect(text(sayingMessages(fromTopic, SAYING_TONES[0], "", "post", null, false, null, aims[0]))).toContain(life.brief);
+  });
+
+  it("start where the round says, so the next round does not open as this one did", () => {
+    expect(sayingAims(fromTopic, "points", 1, 1)[0].point).toBe(life.points![1]);
+    expect(sayingAims(fromTopic, "points", 1, 0)[0].lines).not.toBe(sayingAims(fromTopic, "points", 1, 1)[0].lines);
+  });
+
+  it("look at a typed topic from three places", () => {
+    const custom: SayingSource = { kind: "topic", topic: { id: "custom", label: "ความกล้า", brief: "ความกล้า" } };
+    expect(new Set(sayingAims(custom, "points", 3).map((a) => a.point)).size).toBe(3);
+  });
+
+  it("aim nothing at the agent's own saying", () => {
+    expect(sayingAims(own, "points", 2)).toEqual([{ point: "", lines: "" }, { point: "", lines: "" }]);
+  });
+
+  it("are spread by point unless one point is asked for", () => {
+    expect(sayingSpread("wording")).toBe("wording");
+    expect(sayingSpread(undefined)).toBe("points");
+    expect(sayingSpread("nope")).toBe("points");
+  });
+
+  it("every topic has three points and no figure", () => {
+    for (const t of SAYING_TOPICS) {
+      expect(t.points).toHaveLength(MAX_SAYING_PIECES);
+      for (const p of t.points!) expect(p).not.toMatch(/\d/);
+    }
   });
 });

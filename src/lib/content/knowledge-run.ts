@@ -18,6 +18,8 @@ export interface KnowledgeWriteInput {
   loop?: boolean;
   /** the writing formula (formula.ts); posts and scripts */
   formula?: string | null;
+  /** กันซ้ำกับโพสต์เก่า: false turns the Page's past openings off for the round; a request body, so only false counts */
+  avoid?: boolean;
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   logoSpot?: string;
@@ -39,6 +41,7 @@ export async function writeKnowledge(input: KnowledgeWriteInput, pageId: string 
   const formula = formulaOf(input, format);
   const reader = (typeof input.reader === "string" ? input.reader : "").trim().slice(0, MAX_READER);
   return oneCallRound({
+    avoid: input.avoid !== false,
     href: KNOWLEDGE_HREF, format, length, loop, formula,
     count: Math.min(MAX_KNOWLEDGE_PIECES, Math.max(1, Math.round(Number(input.count) || 1))),
     writer: input.writer,

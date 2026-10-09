@@ -62,6 +62,8 @@ export interface ShowcaseWriteInput {
   loop?: boolean;
   /** the writing formula (formula.ts); posts and scripts */
   formula?: string | null;
+  /** กันซ้ำกับโพสต์เก่า: false turns the Page's past openings off for the round; a request body, so only false counts */
+  avoid?: boolean;
   logoSpot?: string;
   /** the agent's own words for the poster (poster-words.ts); a request body, so read before use */
   posterWords?: unknown;
@@ -88,6 +90,7 @@ export async function writeShowcase(input: ShowcaseWriteInput, pageId: string | 
   const count = Math.min(MAX_SHOWCASE_PIECES, Math.max(1, Math.round(Number(input.count) || 1)));
   const angles = showcaseAngleLines({ angle: input.angle, custom: input.custom }, count);
   const round = await oneCallRound({
+    avoid: input.avoid !== false,
     href: SHOWCASE_HREF, format, length, loop, formula, count,
     writer: input.writer,
     messages: (i) => showcaseMessages(facts, angles[i], reader, format, length, loop, formula),
