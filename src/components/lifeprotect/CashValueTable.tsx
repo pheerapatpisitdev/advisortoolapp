@@ -1,3 +1,6 @@
+"use client";
+
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { formatBaht } from "@/calc/money";
 import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
@@ -9,12 +12,24 @@ import { SiteCredit } from "@/components/sales/SiteCredit";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { INSURER } from "@/lib/assistant/common";
 import { Sriracha } from "next/font/google";
+import { needsBraceRoom, penNotes, penSvgUri, type PenGeometry } from "@/app/api/card/table/pen-notes";
+import type { ValueTableCard } from "@/lib/quote-card";
+import { CARD_PALETTE } from "@/lib/card-theme";
 
 /** the red pen's handwriting, as on the value-table picture (src/app/api/card/table) */
 const pen = Sriracha({ weight: "400", subsets: ["thai"], display: "swap" });
 
-/** written beside the years after break-even, as the picture writes them (owner, 2026-10-10) */
-const GAIN_WORDS = ["เบี้ยไม่ทิ้งเปล่า", "สามารถเก็บเป็นเงินสด", "หลังเกษียณได้"];
+/**
+ * The page draws the picture's red-pen notes (pen-notes.ts) over its own table (owner,
+ * 2026-10-10: "make it look like this"). The notes are aimed in the picture's pixels, where a
+ * figure is set at 22px; the page sets them at 12px, so the page's measures are scaled up into
+ * the picture's units, the notes are worked out there, and the drawing is scaled back down.
+ */
+const PEN_SCALE = 12 / 22;
+/** the room above the table the cover note writes into, as the picture's caption band */
+const PEN_CAPTION = 26;
+/** a cell's side padding (CELL's px-[5px]) */
+const PEN_CELL_PAD = 5;
 
 export interface CashValueTableProps {
   projection: Projection;
@@ -58,6 +73,7 @@ const CELL = "whitespace-nowrap border-b border-white/5 px-[5px] py-1.5";
  */
 export function CashValueTable({ projection, caption, cardPath, planName, notes = true }: CashValueTableProps) {
   const { rows, breakEven, zeroYears, maturityAge } = projection;
+  const tableRef = useRef<HTMLTableElement>(null);
   if (!rows.length) return null;
 
   /**
@@ -76,18 +92,29 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
   const totalPaid = paying.length ? paying[paying.length - 1].premiumPaid : null;
 
   /**
-   * The red-pen brace down the surrender values after break-even, and its three lines — the
-   * page's half of the note the picture draws (pen-notes.ts). Only where four or more years
-   * follow break-even, and where the words fall on years whose premium has stopped, so they
-   * are written over dashes rather than over figures.
+   * The table as the picture reads it, so the red-pen notes are decided by the same rules on
+   * both: a brace on a premium that never moves, the last paying year, the first year's
+   * cover, the break-even arrow, and the brace down the years after it.
    */
-  const beIndex = breakEven ? rows.findIndex((r) => r.policyYear === breakEven.policyYear) : -1;
-  const after = beIndex + 1;
-  const gainMid = after + Math.floor((rows.length - after) / 2);
-  const gain = beIndex >= 0 && rows.length - after >= 4
-    && rows.slice(Math.max(after, gainMid - 2), gainMid + 3).every((r) => !pays(r));
-  // the brace stands just left of the widest figure it spans
-  const braceAt = gain ? `calc(${Math.max(...rows.slice(after).map((r) => formatBaht(r.cashValue).length))}ch + 12px)` : "";
+  const penCard: ValueTableCard = {
+    planLine: "", insuredWho: "", insuredLine: "", premiumLine: "",
+    columns: head,
+    rows: rows.map((r) => ({
+      year: r.policyYear,
+      age: r.age,
+      due: r.premiumDue ? formatBaht(r.premiumDue) : "—",
+      ...(riders ? { rider: r.riderDue ? formatBaht(r.riderDue) : "—" } : {}),
+      paid: pays(r) && r.premiumPaid !== null ? formatBaht(r.premiumPaid) : null,
+      cash: formatBaht(r.cashValue),
+      cover: formatBaht(r.cover),
+      breakEven: breakEven?.policyYear === r.policyYear || undefined,
+    })),
+  };
+  // which cells are ringed does not depend on where they are, so it is read without measuring
+  const rings = penNotes(penCard, { widths: head.map(() => 100), caption: 0, head: 0, row: 0, cellPad: 0 }).rings;
+  const ringed = (n: number, column: string) => rings.some((g) => g.row === n && g.column === column);
+  // room beside the premiums for the เบี้ยคงที่ brace and its word, as the picture makes (BRACE_ROOM)
+  const braceRoom = needsBraceRoom(penCard);
 
   return (
     <section className="print-table mt-3.5 border-t border-[var(--lg-panel-line)] pt-3">
@@ -156,7 +183,8 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           columns of `whitespace-nowrap` do not fit 375px and never will — there the headings
           still scroll away, which is the part of this not yet solved. */}
       <div className="-mx-2.5 mt-2.5 w-[calc(100%+1.25rem)] max-lg:overflow-x-auto">
-        <table className="w-full border-collapse text-xs tabular-nums">
+        <div className="relative" style={{ paddingTop: PEN_CAPTION }}>
+        <table ref={tableRef} className="w-full border-collapse text-xs tabular-nums">
           <thead>
             <tr>
               {head.map((h, i) => (
@@ -170,7 +198,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                   className={`sticky top-0 z-[2] whitespace-nowrap bg-[var(--bot-navy)] px-[5px] py-2
                     text-[12.5px] font-semibold text-white print:!text-black
                     ${i < 2 ? "text-left" : "text-right"} ${i > 0 ? "border-l border-l-white/35" : ""}
-                    ${i === head.length - 1 ? "pr-3" : ""}`}
+                    ${i === head.length - 1 ? "pr-3" : ""} ${braceRoom && h === "เบี้ย/ปี" ? "min-w-[8.5rem]" : ""}`}
                 >
                   {h}
                 </th>
@@ -212,7 +240,9 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
               return (
                 // no tint on the break-even row any more: its highlighted cells say it, as the owner asked
                 <tr key={r.policyYear}>
-                  <td className={`${CELL} text-left text-[var(--lg-mute)]`}>{r.policyYear}</td>
+                  <td className={`${CELL} text-left text-[var(--lg-mute)]`}>
+                    {ringed(n, "ปีที่") ? <Circled>{r.policyYear}</Circled> : r.policyYear}
+                  </td>
                   {/* the break-even year's age and surrender value, marked as the value-table picture marks them */}
                   <td className={`${CELL} ${RULE} text-left text-[var(--lg-mute)]`}>
                     {crossover ? <Highlighted>{r.age}</Highlighted> : r.age}
@@ -241,13 +271,12 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                       ? <Highlighted>จุดคุ้มทุน &gt;</Highlighted>
                       : pays(r) && r.premiumPaid !== null ? formatBaht(r.premiumPaid) : "—"}
                   </td>
-                  <td className={`${CELL} ${RULE} text-right ${gained ? "text-[var(--lg-gain)]" : ""} ${gain && n >= after ? "relative" : ""}`}>
-                    {gain && n >= after && (
-                      <GainBrace at={braceAt} first={n === after} last={n === rows.length - 1} middle={n === gainMid} />
-                    )}
+                  <td className={`${CELL} ${RULE} text-right ${gained ? "text-[var(--lg-gain)]" : ""}`}>
                     {crossover ? <Circled><Highlighted>{formatBaht(r.cashValue)}</Highlighted></Circled> : formatBaht(r.cashValue)}
                   </td>
-                  <td className={`${CELL} ${RULE} pr-3 text-right`}>{formatBaht(r.cover)}</td>
+                  <td className={`${CELL} ${RULE} pr-3 text-right`}>
+                    {ringed(n, "คุ้มครอง") ? <Circled>{formatBaht(r.cover)}</Circled> : formatBaht(r.cover)}
+                  </td>
                 </tr>
               );
             })}
@@ -266,6 +295,9 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
             </tfoot>
           )}
         </table>
+        {/* after the table, so the table is there to be measured when the layer first draws */}
+        <PenLayer card={penCard} table={tableRef} />
+        </div>
       </div>
 
       {notes && zeroYears > 0 && (
@@ -314,27 +346,59 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
 }
 
 /**
- * One row's piece of the red-pen brace: a line down the cell left of the figure, curled at the
- * two ends, pointed at the middle row — where the three lines are written to its left.
+ * The red-pen notes drawn over the table, aimed by measuring it: the column widths off the
+ * heading, the heading's height, and the rows' (one height, as the picture's are). Nothing is
+ * drawn until the table has been measured, and it is measured again whenever it changes size.
  */
-function GainBrace({ at, first, last, middle }: { at: string; first: boolean; last: boolean; middle: boolean }) {
+function PenLayer({ card, table }: { card: ValueTableCard; table: RefObject<HTMLTableElement | null> }) {
+  const [box, setBox] = useState<{ widths: number[]; head: number; row: number; width: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = table.current;
+    if (!el) return;
+    const measure = () => {
+      const heads = [...(el.tHead?.rows[0]?.cells ?? [])];
+      const body = el.tBodies[0];
+      if (!heads.length || !body || !body.rows.length) return;
+      const head = el.tHead!.getBoundingClientRect().height;
+      const row = body.getBoundingClientRect().height / body.rows.length;
+      setBox({ widths: heads.map((h) => h.getBoundingClientRect().width), head, row, width: el.offsetWidth, height: head + body.getBoundingClientRect().height });
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [table]);
+  if (!box) return null;
+
+  const up = (px: number) => px / PEN_SCALE;
+  const geo: PenGeometry = {
+    widths: box.widths.map(up), caption: up(PEN_CAPTION), head: up(box.head), row: up(box.row), cellPad: up(PEN_CELL_PAD),
+  };
+  const notes = penNotes(card, geo);
+  const width = box.width;
+  const height = PEN_CAPTION + box.height;
   return (
-    <span aria-hidden className="pointer-events-none absolute inset-y-0" style={{ right: at }}>
-      <span
-        className={`absolute right-0 w-[7px] border-l-2 border-[var(--lg-pen)]
-          ${first ? "top-1/2 rounded-tl-md border-t-2" : "top-0"} ${last ? "bottom-1/2 rounded-bl-md border-b-2" : "bottom-0"}`}
+    <div aria-hidden className="pointer-events-none absolute left-0 top-0 z-[1]" style={{ width, height }}>
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: penSvgUri(notes.strokes, up(width), up(height), CARD_PALETTE.pen),
+          backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+        }}
       />
-      {middle && (
-        <>
-          <span className="absolute right-[7px] top-1/2 w-[6px] border-t-2 border-[var(--lg-pen)]" />
-          <span
-            className={`${pen.className} absolute right-[17px] top-1/2 z-[1] -translate-y-1/2 -rotate-[4deg]
-              whitespace-nowrap text-right text-[15px] leading-[1.45] text-[var(--lg-pen)]`}
-          >
-            {GAIN_WORDS.map((w) => <span key={w} className="block">{w}</span>)}
-          </span>
-        </>
-      )}
-    </span>
+      {notes.labels.map((l) => (
+        <span
+          key={l.text}
+          className={`${pen.className} absolute whitespace-nowrap text-[var(--lg-pen)]`}
+          style={{
+            top: l.top * PEN_SCALE,
+            ...(l.left !== undefined ? { left: l.left * PEN_SCALE } : { right: (l.right ?? 0) * PEN_SCALE }),
+            fontSize: l.size * PEN_SCALE, lineHeight: 1.5, transform: `rotate(${l.tilt}deg)`,
+          }}
+        >
+          {l.text}
+        </span>
+      ))}
+    </div>
   );
 }
