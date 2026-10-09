@@ -40,6 +40,17 @@ export function lifeProtectSumNear(typed: number): number {
 }
 
 /**
+ * The sum a typed figure lands on. From the slider's first step up it is the nearest step; under
+ * it, the plan sells down to 150,000, so the figure is kept to the nearest fifty thousand (the
+ * grid links already use) instead of being lifted to half a million. The page puts such a sum in
+ * as one more stop.
+ */
+export function lifeProtectTypedSum(typed: number): number {
+  if (typed >= LIFEPROTECT_SUMS[0]) return lifeProtectSumNear(typed);
+  return Math.max(PLAN_MIN_SUM, Math.round(typed / 50_000) * 50_000);
+}
+
+/**
  * The sums the slider offers: every hundred thousand from the plan's five-hundred-thousand
  * floor to three million, then every half-million to ten. The fine steps sit where most of
  * this plan is written — a first policy, or a top-up on one — and the coarse ones above

@@ -20,7 +20,7 @@ import {
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
-import { LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectSumNear, planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
@@ -120,7 +120,13 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const [sumTyped, setSumTyped] = useState<string | null>(null);
   const settleSum = () => {
     const digits = sumTyped?.replace(/\D/g, "") ?? "";
-    if (digits !== "") setSumIndex(sums.indexOf(lifeProtectSumNear(Number(digits))));
+    if (digits !== "") {
+      const sum = lifeProtectTypedSum(Number(digits));
+      // a sum under the slider's first step (the plan sells from 150,000) becomes one more stop
+      const stops = sums.includes(sum) ? sums : [...sums, sum].sort((a, b) => a - b);
+      setSums(stops);
+      setSumIndex(stops.indexOf(sum));
+    }
     setSumTyped(null);
   };
   const [variant, setVariant] = useState(TERM_START);
@@ -420,7 +426,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
             className="mt-4 w-full accent-[var(--lg-gold)]"
           />
           <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
-            <span>5 แสน</span>
+            <span>{sumShort(sums[0])}</span>
             <span>50 ล้าน</span>
           </div>
           {/* the doubled sum sits under the sum being chosen, because it is the reason to choose

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectSumNear, planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectSumNear, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
 
 const offer = { sums: [500_000, 1_000_000], variants: ["A", "B"], ageMin: 20, ageMax: 59 };
 const q = (s: string) => new URLSearchParams(s);
@@ -51,5 +51,20 @@ describe("Life Protect's sums", () => {
     [99_000_000, 50_000_000],
   ])("a typed %i lands on %i", (typed, sum) => {
     expect(lifeProtectSumNear(typed)).toBe(sum);
+  });
+});
+
+describe("lifeProtectTypedSum", () => {
+  it.each([
+    [150_000, 150_000],
+    [300_000, 300_000],
+    [120_000, 150_000],
+    [10_000, 150_000],
+    [330_000, 350_000],
+    [499_999, 500_000],
+    [500_000, 500_000],
+    [1_000_000, 950_000],
+  ])("a typed %i lands on %i", (typed, sum) => {
+    expect(lifeProtectTypedSum(typed)).toBe(sum);
   });
 });
