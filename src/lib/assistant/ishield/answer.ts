@@ -444,7 +444,8 @@ export function answerIShield(
     return {
       messages: [{
         text: said(slots.budget
-          ? "รับทราบครับ ขอเพศกับอายุด้วย เดี๋ยวส่งรายละเอียดให้ครับ (เช่น ช/ญ 35)"
+          ? `ได้เลยครับ งบ${perWord(slots.budget)}ละ ${slots.budget.baht.toLocaleString("en-US")} บาท 👍\n`
+            + "ขอเพศกับอายุด้วยครับ เดี๋ยวคิดให้ว่าได้ทุนเท่าไหร่ (เช่น ช 35)"
           : ASK_PERSON),
       }],
       slots,
