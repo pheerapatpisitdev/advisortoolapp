@@ -1,4 +1,5 @@
 import { pngResponse } from "@/lib/draw-png";
+import { insuredFace } from "../../card/insured-face";
 import type { NextRequest } from "next/server";
 import { iHealthyTableCard, type IHealthyTableCard } from "@/lib/ihealthy-card";
 import {
@@ -64,10 +65,11 @@ export async function GET(req: NextRequest) {
           </div>
           <div
             style={{
-              display: "flex", flexShrink: 0, marginLeft: 24,
+              display: "flex", flexShrink: 0, marginLeft: 24, alignItems: "center", gap: 14,
               fontSize: 44, fontWeight: 600, lineHeight: 1, color: GOLD_LIT,
             }}
           >
+            {insuredFace(card.sex, 66)}
             {card.insuredWho}
           </div>
         </div>

@@ -95,6 +95,16 @@ export const CARD_PALETTE: CardPalette = {
 };
 
 /**
+ * The face beside "ชาย 35 ปี" / "หญิง 35 ปี" on every card (owner, 2026-10-09): a cartoon
+ * man in blue, a cartoon woman in pink. `ground` fills the round badge, `ring` edges it and
+ * dresses the shoulders.
+ */
+export const FACE_THEME = {
+  M: { ground: "#dcebfb", ring: "#3b82c4" },
+  F: { ground: "#fce4ef", ring: "#e0679a" },
+} as const;
+
+/**
  * The colours of the little people on a chat's value table (src/app/api/card/chart-figures.tsx).
  *
  * A cartoon is not drawn in the card's palette — skin, hair and a pair of trousers have no slot

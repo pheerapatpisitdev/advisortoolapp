@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pngResponse } from "@/lib/draw-png";
+import { insuredFace } from "./insured-face";
 import { highlighterUri } from "@/lib/highlighter";
 import { NextResponse, type NextRequest } from "next/server";
 import { cardInputFrom, quoteCard, type CardRow, type CardSummary, type QuoteCard } from "@/lib/quote-card";
@@ -419,10 +420,11 @@ export async function GET(req: NextRequest) {
           </div>
           <div
             style={{
-              display: "flex", flexShrink: 0, marginLeft: 24,
+              display: "flex", flexShrink: 0, marginLeft: 24, alignItems: "center", gap: 14,
               fontSize: 44, fontWeight: 600, lineHeight: 1, color: p.figure,
             }}
           >
+            {insuredFace(input.sex, 66)}
             {card.insuredWho}
           </div>
         </div>
