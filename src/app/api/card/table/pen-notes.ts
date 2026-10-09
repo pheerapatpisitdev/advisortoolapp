@@ -87,19 +87,21 @@ function arrow(x1: number, y1: number, cx: number, cy: number, x2: number, y2: n
   return [`M${x1.toFixed(1)} ${y1.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`, head(x2, y2, cx, cy)];
 }
 
-/** A curly brace standing `h` tall at x, its point to the left. */
+/**
+ * A curly brace standing `h` tall at x, its point to the left — drawn round, as a hand writes
+ * "{" (the owner's pick of four, 2026-10-10): each half swells out from its tip and draws in
+ * to the point, rather than running straight with the curls only at the ends.
+ */
 function brace(x: number, y: number, h: number, w = 20): string {
-  const r = Math.min(18, h / 6);
-  const m = x + w / 2;
   const mid = y + h / 2;
+  const r = Math.min(14, h / 8);
+  const f = (n: number) => n.toFixed(1);
   return [
-    `M${x + w} ${y}`,
-    `C${m} ${y} ${m} ${y} ${m} ${y + r}`,
-    `L${m} ${mid - r}`,
-    `C${m} ${mid} ${m} ${mid} ${x} ${mid}`,
-    `C${m} ${mid} ${m} ${mid} ${m} ${mid + r}`,
-    `L${m} ${y + h - r}`,
-    `C${m} ${y + h} ${m} ${y + h} ${x + w} ${y + h}`,
+    `M${f(x + w)} ${f(y)}`,
+    `Q${f(x + w * 0.25)} ${f(y)} ${f(x + w * 0.35)} ${f(y + h / 4)}`,
+    `Q${f(x + w * 0.45)} ${f(mid - r)} ${f(x)} ${f(mid)}`,
+    `Q${f(x + w * 0.45)} ${f(mid + r)} ${f(x + w * 0.35)} ${f(y + (h * 3) / 4)}`,
+    `Q${f(x + w * 0.25)} ${f(y + h)} ${f(x + w)} ${f(y + h)}`,
   ].join(" ");
 }
 
