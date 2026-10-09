@@ -145,7 +145,8 @@ export function lifeProtectChatQuoteText(
       : `ทุน ${baht(f.sumAssured)} บาท`,
     "",
     // "จ่ายถึงอายุ 99" reads "ออมถึงอายุ 99", "จ่าย 9 ปี" reads "ออม 9 ปี"
-    `${SEX_WORD[f.sex]} อายุ ${ageWord(f.age)} · ออม${f.termLabel.replace(/^จ่าย/, "")} คุ้มครอง ${f.coverToAge} ปี`,
+    `${SEX_WORD[f.sex]} อายุ ${ageWord(f.age)}`,
+    `ออม${f.termLabel.replace(/^จ่าย/, "")} คุ้มครอง ${f.coverToAge} ปี`,
     `💰 เบี้ยประมาณ ${formatBaht(headline.total)} บาท${PER[headline.mode]}` + (annual ? ` (วันละ ${perDayText(annual.total)} บาท)` : ""),
     ...(f.riders?.lines ?? []),
     "",

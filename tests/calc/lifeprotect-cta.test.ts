@@ -203,7 +203,8 @@ describe("lifeProtectChatQuoteText", () => {
       "🛡️ Life Protect",
       "ทุน 1,000,000 บาท เพิ่มเป็น 2,000,000 ถึงอายุ 60",
       "",
-      "หญิง อายุ 42 · ออมถึงอายุ 99 คุ้มครอง 99 ปี",
+      "หญิง อายุ 42",
+      "ออมถึงอายุ 99 คุ้มครอง 99 ปี",
       "💰 เบี้ยประมาณ 17,800 บาท/ปี (วันละ 49 บาท)",
       "",
       "รายเดือน 1,602 บาท",
@@ -225,7 +226,7 @@ describe("lifeProtectChatQuoteText", () => {
     const text = lifeProtectChatQuoteText({
       sumAssured: 1_000_000, termLabel: "จ่าย 9 ปี", age: 62, sex: "M", modes, death: past, coverToAge: 99,
     });
-    expect(text).toContain("🛡️ Life Protect\nทุน 1,000,000 บาท\n\nชาย อายุ 62 · ออม 9 ปี คุ้มครอง 99 ปี");
+    expect(text).toContain("🛡️ Life Protect\nทุน 1,000,000 บาท\n\nชาย อายุ 62\nออม 9 ปี คุ้มครอง 99 ปี");
     expect(text).not.toContain("double");
     expect(text).not.toContain("เพิ่มทุน");
   });
