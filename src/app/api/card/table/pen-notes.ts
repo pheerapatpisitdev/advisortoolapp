@@ -8,6 +8,7 @@ import type { ValueTableCard } from "@/lib/quote-card";
  *   - the last paying year ringed, an arrow from "หยุดส่งเบี้ย"
  *   - the first year's cover ringed, an arrow from "อนุมัติ คุ้มครองเลย"
  *   - an arrow from the break-even label over to the ringed surrender value
+ *   - a brace down the surrender values after break-even, "เบี้ยไม่ทิ้งเปล่า …" (2026-10-10)
  *
  * Each note is drawn only where its fact holds: a plan paid to the end has nothing to stop, a
  * premium that moves year to year is not "คงที่", a year still being paid at break-even has no
@@ -54,11 +55,16 @@ export const RING_PAD = 12;
 const BRACE_WORD = "เบี้ยคงที่";
 const STOP_WORD = "หยุดส่งเบี้ย";
 const COVER_WORD = "อนุมัติ คุ้มครองเลย";
+/** written beside the years the policy is worth more than was paid in, one line at a time */
+const GAIN_WORDS = ["เบี้ยไม่ทิ้งเปล่า", "สามารถเก็บเป็นเงินสด", "หลังเกษียณได้"];
+const GAIN_SIZE = 32;
+/** a line of the pen face at GAIN_SIZE, as the labels set it (lineHeight 1.5) */
+const GAIN_LINE = GAIN_SIZE * 1.5;
 /** the label the break-even row carries in the running-total column (route.tsx) */
 const BREAK_EVEN_LABEL_WIDTH = 132;
 
 /** every word the notes can write, for cutting the font down to them */
-export const PEN_TEXT = BRACE_WORD + STOP_WORD + COVER_WORD;
+export const PEN_TEXT = BRACE_WORD + STOP_WORD + COVER_WORD + GAIN_WORDS.join("");
 
 /** the room the brace and its word take, left of the premium figures */
 export const BRACE_ROOM = 170;
@@ -167,6 +173,28 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
     const from = end(paid) - g.cellPad - BREAK_EVEN_LABEL_WIDTH / 2;
     const ringLeft = end(cash) - g.cellPad + RING_PAD - (figureWidth(rows[be].cash!) + RING_PAD * 2);
     notes.strokes.push(...arrow(from, top(be) + 2, (from + ringLeft) / 2, top(be) - g.row * 1.9, ringLeft - 2, mid(be) - 6));
+  }
+
+  // ── เบี้ยไม่ทิ้งเปล่า: a brace down the surrender values from the year after break-even to the
+  // end, the words to its left. They are written over the premium and running-total columns, so
+  // only where both have stopped — a dash, not a figure, under the pen.
+  const after = be + 1;
+  if (be >= 0 && cash >= 0 && rows.length - after >= 4) {
+    const y = top(after) + 4;
+    const h = top(rows.length) - 4 - y;
+    const labelTop = y + h / 2 - (GAIN_WORDS.length * GAIN_LINE) / 2;
+    const first = Math.max(0, Math.floor((labelTop - top(0)) / g.row));
+    const last = Math.min(rows.length - 1, Math.floor((labelTop + GAIN_WORDS.length * GAIN_LINE - top(0)) / g.row));
+    const clear = rows.slice(first, last + 1).every((r) => r.due === "—" && r.paid === null);
+    if (clear) {
+      const widest = Math.max(...rows.slice(after).map((r) => figureWidth(r.cash ?? "")));
+      const right = end(cash) - g.cellPad - widest - 12;
+      const left = right - 20;
+      notes.strokes.push(brace(left, y, h));
+      GAIN_WORDS.forEach((text, i) => {
+        notes.labels.push({ text, right: total - (left - 10), top: labelTop + i * GAIN_LINE, size: GAIN_SIZE, tilt: -4 });
+      });
+    }
   }
 
   return notes;
