@@ -698,7 +698,7 @@ const THAI_PLAN_NAMES = [
   String.raw`ไลฟ์\s*(?:โพรเทค|โปรเทค)`,
   String.raw`ไอ\s*สมาร์ท`,
   String.raw`ไลฟ์\s*(?:เทรเชอร์|ทรีเชอร์|เทรชเชอร์)`,
-  String.raw`ไอ\s*ชิลด์`,
+  String.raw`ไอ\s*ชิลด์?`,
   String.raw`โพรเทคชั่น\s*ไลฟ์`,
   String.raw`ไอเฮลท์ตี้(?:\s*อัลตร้า)?`,
 ];

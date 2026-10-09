@@ -18,7 +18,7 @@ const NAMES: [Product, RegExp][] = [
   ["plb", /protection\s*life|\bplb\b|โพรเทคชั่น\s*ไลฟ์|พีแอลบี/i],
   ["ihealthy", /ประกันสุขภาพ|ไอเฮลท์ตี้|ไอเฮลตี้|i\s*-?\s*healthy/i],
   ["legacy", /เบี้ยทิ้ง|มรดกเพื่อครอบครัว|มรดก\s*\+\s*โรคร้าย|\blegacy\b/i],
-  ["ishield", /i\s*-?\s*shield|ไอ\s*ชิลด์|ออม/i],
+  ["ishield", /i\s*-?\s*shield|ไอ\s*ชิลด์?|ออม/i],
   ["lifeprotect", /life\s*protect|ไลฟ์\s*โพรเทค|ไลฟ์โปรเทค|ประกันชีวิต|เบี้ยไม่ทิ้ง/i],
 ];
 
@@ -30,7 +30,7 @@ const NAMES: [Product, RegExp][] = [
 const EXPLICIT: Partial<Record<Product, RegExp>> = {
   lifeprotect: /life\s*protect|ไลฟ์\s*โพรเทค|ไลฟ์โปรเทค/i,
   legacy: /มรดกเพื่อครอบครัว|มรดก\s*\+\s*โรคร้าย|\blegacy\b/i,
-  ishield: /i\s*-?\s*shield|ไอ\s*ชิลด์/i,
+  ishield: /i\s*-?\s*shield|ไอ\s*ชิลด์?/i,
   ihealthy: /ประกันสุขภาพ|ไอเฮลท์ตี้|ไอเฮลตี้|i\s*-?\s*healthy/i,
   plb: /protection\s*life|\bplb\b|โพรเทคชั่น\s*ไลฟ์|พีแอลบี/i,
 };

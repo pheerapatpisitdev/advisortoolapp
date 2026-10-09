@@ -129,9 +129,10 @@ function personIn(slots: AnySlots | null): Person {
  * the turn might do, because it is the customer's and the turn can end in several places.
  */
 export async function answerAny(
-  history: ChatMessage[], stored: AnySlots | null, channel: Channel = "web",
+  rawHistory: ChatMessage[], stored: AnySlots | null, channel: Channel = "web",
   cameFor?: Product, pageId?: string, welcome?: PageWelcome,
 ): Promise<AnyAnswer> {
+  const history = rawHistory.map((m) => (m.role === "user" ? { ...m, content: withoutInvisible(m.content) } : m));
   const seen = Boolean((stored as WithIntro<AnySlots> | null)?.introSeen);
   const answer = await answerTurn(history, withoutIntro(stored), channel, cameFor, pageId, welcome);
   return withIntroPicture(answer, seen, channel);
@@ -232,11 +233,28 @@ function withoutPdf(stored: WithPdf<AnySlots>): AnySlots {
   return slots;
 }
 
+/**
+ * Characters a customer's keyboard puts between words that nobody sees: the zero-width space
+ * LINE adds when Thai is typed or pasted, the joiners, the word joiner and the byte-order mark.
+ * Every reader below matches on neighbours — "ญ42", "เพศหญิงอายุ53" — and one of these between
+ * them made the message read as nothing, or as the wrong sex (LINE, 2026-10-07 and 10-09).
+ */
+export function withoutInvisible(text: string): string {
+  return text.replace(/[\u200b-\u200d\u2060\ufeff]/g, "");
+}
+
+/** "ล้างข้อมูล", "เริ่มใหม่": the customer wants the conversation emptied, whichever plan it was on. */
+const START_OVER = /ล้าง\s*(?:ข้อมูล|ค่า)|เริ่ม(?:ต้น)?\s*ใหม่|รีเซ็ต|\breset\b/i;
+
 /** Every turn that is not about the PDF: which plan, and which brain answers it. */
 async function routeAny(
   history: ChatMessage[], stored: AnySlots | null, channel: Channel, cameFor: Product | undefined,
 ): Promise<AnyAnswer> {
   const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+  // typed three times in a row to a bot that only repeated its last quotation (LINE, 2026-10-09)
+  if (START_OVER.test(asked)) {
+    return { ...askWhich("ล้างข้อมูลให้แล้วครับ 🙏 เริ่มใหม่ได้เลย"), slots: { product: "undecided" } };
+  }
   const now = settled(stored);
   const named = productNamedIn(asked);
 
