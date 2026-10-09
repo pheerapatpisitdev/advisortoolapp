@@ -171,7 +171,7 @@ export function cardPaletteVersion(palette: CardPalette): string {
 }
 
 /** Bump when a card gains or removes visible content without changing its palette. */
-const DRAWING_REVISION = "19";
+const DRAWING_REVISION = "20";
 
 /** The fingerprint of the palette and layout this card will be drawn in. */
 export function cardVersionFor(): string {

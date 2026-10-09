@@ -187,11 +187,12 @@ describe("cashProjection · with riders", () => {
   const riderDue = Array.from({ length: 12 }, () => 100_000);
   const withRiders = cashProjection({ ...base, riderDue });
 
-  it("keeps what the riders cost beside the plan's premium, and adds it to what has been paid", () => {
+  it("keeps what the riders cost beside the plan's premium, and out of what has been paid", () => {
     expect(withRiders.rows[0]).toMatchObject({ premiumDue: annualSatang, riderDue: 100_000 });
     expect(withRiders.rows[10]).toMatchObject({ premiumDue: 0, riderDue: 100_000 });
     expect(withRiders.rows[12]).toMatchObject({ premiumDue: 0, riderDue: 0 });
-    expect(withRiders.rows[20].premiumPaid).toBe(alone.rows[20].premiumPaid! + 1_200_000);
+    // a rider's premium is spent on the year's cover — เบี้ยทิ้ง (owner, 2026-10-10)
+    expect(withRiders.rows.map((r) => r.premiumPaid)).toEqual(alone.rows.map((r) => r.premiumPaid));
   });
 
   it("has no rider column at all without riders", () => {
@@ -203,8 +204,7 @@ describe("cashProjection · with riders", () => {
     expect(withRiders.rows.map((r) => r.cover)).toEqual(alone.rows.map((r) => r.cover));
   });
 
-  it("breaks even against everything paid, riders included", () => {
-    expect(withRiders.breakEven!.policyYear).toBeGreaterThanOrEqual(alone.breakEven!.policyYear);
-    expect(withRiders.breakEven!.cashValue).toBeGreaterThanOrEqual(withRiders.breakEven!.premiumPaid!);
+  it("breaks even on the plan's own premiums, as it would without the riders", () => {
+    expect(withRiders.breakEven!.policyYear).toBe(alone.breakEven!.policyYear);
   });
 });

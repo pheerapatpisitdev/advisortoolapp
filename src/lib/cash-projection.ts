@@ -27,7 +27,11 @@ export interface ProjectionRow {
    * only when the projection was given riders, 0 in a year none is paid
    */
   riderDue?: number;
-  /** every premium due up to and including this year, the riders' included */
+  /**
+   * every premium of the plan's own due up to and including this year. The riders' are not
+   * in it: they buy cover for the year and build no surrender value — "เบี้ยทิ้ง" (owner,
+   * 2026-10-10) — so counting them set the break-even later than it is, or never.
+   */
   premiumPaid: number | null;
   /** what surrendering at the end of that year returns */
   cashValue: number;
@@ -69,8 +73,9 @@ export interface ProjectionInput {
   payYears: number;
   /**
    * What the riders add to each policy year's premium, in satang, from the first year; a
-   * year past the end adds nothing. Counted in what is paid and in the break-even, never in
-   * the cover's top-up, which the contract works out on the plan's own premiums.
+   * year past the end adds nothing. Shown in a column of its own and counted nowhere else —
+   * not in what is paid, not in the break-even, not in the cover's top-up: a rider's premium
+   * is spent on the year's cover and comes back in no surrender value (owner, 2026-10-10).
    */
   riderDue?: number[];
   death: DeathBenefit;
@@ -114,13 +119,11 @@ export function cashProjection(
   const maturity = maturityPercent === undefined
     ? undefined
     : Math.round((sumAssured * maturityPercent) / 100) * 100;
-  let paid = 0;
   let planPaid = 0;
   const rows: ProjectionRow[] = factors.map((factor, i) => {
     const at = age + i;
     const due = annualSatang === null ? null : i < payYears ? annualSatang : 0;
     const extra = riderDue && due !== null ? riderDue[i] ?? 0 : undefined;
-    if (due !== null) paid += due + (extra ?? 0);
     if (due !== null) planPaid += due;
     // the same ROUND(factor × sum / 1000) baht as cash-value.ts, then carried in satang
     const cashValue = Math.round((factor * sumAssured) / 1000) * 100;
@@ -139,7 +142,7 @@ export function cashProjection(
       cover: Math.max(...floors),
       premiumDue: due,
       ...(extra === undefined ? {} : { riderDue: extra }),
-      premiumPaid: annualSatang === null ? null : paid,
+      premiumPaid: annualSatang === null ? null : planPaid,
       cashValue,
       ...(() => {
         const last = i + 1 === factors.length;

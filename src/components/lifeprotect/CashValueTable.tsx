@@ -90,7 +90,9 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
   const head = riders ? HEAD_RIDERS : HEAD;
   const paying = rows.filter(pays);
   const payingYears = paying.length;
+  // the plan's own premiums: what the riders cost is spent on the year's cover (เบี้ยทิ้ง)
   const totalPaid = paying.length ? paying[paying.length - 1].premiumPaid : null;
+  const riderTotal = rows.reduce((t, r) => t + (r.riderDue ?? 0), 0);
 
   /**
    * The table as the picture reads it, so the red-pen notes are decided by the same rules on
@@ -292,7 +294,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           {totalPaid !== null && (
             <tfoot data-print-only className="hidden">
               <tr>
-                <td className={`${CELL} ${RULE} text-right`} colSpan={riders ? 4 : 3}>รวมเบี้ยที่ชำระ</td>
+                <td className={`${CELL} ${RULE} text-right`} colSpan={riders ? 4 : 3}>{riders ? "รวมเบี้ยแบบหลัก" : "รวมเบี้ยที่ชำระ"}</td>
                 <td className={`${CELL} ${RULE} text-right`}>{formatBaht(totalPaid)}</td>
                 <td className={`${CELL} ${RULE}`} />
                 <td className={`${CELL} ${RULE}`} />
@@ -319,9 +321,19 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           cannot simply be dropped along with the repetition. */}
       {notes && totalPaid !== null && (
         <p className="mt-2.5 px-0.5 text-xs leading-[1.7] text-[var(--lg-mute)]">
-          จ่ายเบี้ยทั้งหมด{" "}
+          {riders ? "จ่ายเบี้ยแบบหลักทั้งหมด" : "จ่ายเบี้ยทั้งหมด"}{" "}
           <span className="font-medium tabular-nums text-[var(--lg-white)]">{formatBaht(totalPaid)}</span>{" "}
-          บาท ({payingYears} ปี) — ตั้งแต่ปีที่ {payingYears + 1} เป็นต้นไปไม่ต้องจ่ายเพิ่ม
+          บาท
+          {/* the riders' are said apart, and for what they are: the เบี้ยสะสม column and the
+              break-even leave them out (owner, 2026-10-10) */}
+          {riders && (
+            <>
+              {" "}· สัญญาเพิ่มเติมอีก{" "}
+              <span className="font-medium tabular-nums text-[var(--lg-white)]">{formatBaht(riderTotal)}</span>{" "}
+              บาท (เบี้ยทิ้ง ไม่มีมูลค่าเวนคืน)
+            </>
+          )}
+          {" "}({payingYears} ปี) — ตั้งแต่ปีที่ {payingYears + 1} เป็นต้นไปไม่ต้องจ่ายเพิ่ม
         </p>
       )}
       {notes && (
