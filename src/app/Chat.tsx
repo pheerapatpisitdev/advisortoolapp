@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { askCopilot } from "./actions";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
-import type { GuideItem } from "@/lib/copilot/guide";
+import type { GuideGroup, GuideItem } from "@/lib/copilot/guide";
 import { withoutParticles } from "@/lib/assistant/voice";
 import { trackMeta } from "@/components/meta/track";
 
@@ -86,9 +86,9 @@ function historyOf(turns: Turn[]): ChatMessage[] {
 /**
  * A row of questions to press.
  *
- * Under the last answer only. The page used to open with a set of them too — example
- * questions to start from — and the owner took those off (2026-10-01): the box you type in
- * is the whole of the opening.
+ * The same shape wherever it appears — under the heading before anything has been asked, and
+ * under the last answer afterwards — so that pressing a button always means the same thing.
+ * (Taken off the opening on 2026-10-01, put back on 2026-10-09 at the owner's word.)
  */
 function Chips(
   { items, onPick, disabled }: { items: GuideItem[]; onPick: (ask: string) => void; disabled?: boolean },
@@ -108,7 +108,7 @@ function Chips(
   );
 }
 
-export function Chat({ invite = false }: { invite?: boolean }) {
+export function Chat({ guide, invite = false }: { guide: GuideGroup[]; invite?: boolean }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   /**
    * What the pricing brain knows about the person being quoted, held here between questions.
@@ -119,6 +119,8 @@ export function Chat({ invite = false }: { invite?: boolean }) {
    */
   const [slots, setSlots] = useState<AnySlots | null>(null);
   const [draft, setDraft] = useState("");
+  /** whether the guide's other groups are open; closed until asked for */
+  const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   /** the scrolling part of the chat box, and the question the newest answer replies to */
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -138,6 +140,7 @@ export function Chat({ invite = false }: { invite?: boolean }) {
     setTurns([]);
     setSlots(null);
     setDraft("");
+    setMore(false);
   }
 
   /**
@@ -218,7 +221,10 @@ export function Chat({ invite = false }: { invite?: boolean }) {
             {/* the company name kept on one line: Thai wraps anywhere, and it split as กรุงไทยแอก / ซ่า */}
             <span className="whitespace-nowrap">กรุงไทย-แอกซ่า ประกันชีวิต</span>
           </h1>
-          <p className={`mt-1 text-sm text-[var(--hm-mute)] ${talking ? "max-sm:hidden" : ""}`}>
+          {/* On a short phone it gives way to the opening buttons, which are what the page is
+              for: the rate-table claim is in the line under the box too, and the other plans
+              are in the menu and behind the box's own last link. */}
+          <p className={`mt-1 text-sm text-[var(--hm-mute)] ${talking ? "max-sm:hidden" : "short:hidden"}`}>
             ถามเงื่อนไขก็ได้ ขอเบี้ยก็ได้ — เบี้ยคิดจากตารางจริง ตัวเดียวกับที่บอทและหน้าขายใช้ ·{" "}
             <Link href="/other-plans" className="underline underline-offset-2">แบบประกันอื่นๆ</Link>
           </p>
@@ -277,8 +283,36 @@ export function Chat({ invite = false }: { invite?: boolean }) {
         ref={scrollRef}
         // read out as it grows, so an answer is heard arriving and not only seen
         role="log" aria-live="polite" aria-busy={busy}
-        className={`flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-3 sm:p-4 ${talking ? "" : "hidden"}`}
+        className={`flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-3 sm:p-4`}
       >
+        {turns.length === 0 && (
+          /**
+           * The open groups only, and the rest behind a press.
+           *
+           * All three at once came to eleven buttons, which on a phone pushed the box you type
+           * in off the bottom of the screen — a guide that hides the thing it is guiding you
+           * to. The prices stay open because that is what people come to ask.
+           */
+          <div className="my-auto space-y-3 px-1 py-1 sm:space-y-4 sm:py-2 short:py-0">
+            {/* the headings under it say the same thing, so a short phone does without it */}
+            <p className="text-sm text-[var(--hm-mute)] short:hidden">ไม่รู้จะเริ่มตรงไหน กดเลือกได้เลย</p>
+            {guide.filter((group) => group.open || more).map((group) => (
+              <div key={group.title}>
+                <p className="mb-2 text-xs font-medium text-[var(--hm-mute)]">{group.title}</p>
+                <Chips items={group.items} onPick={ask} disabled={busy} />
+              </div>
+            ))}
+            {!more && guide.some((group) => !group.open) && (
+              <button
+                type="button" onClick={() => setMore(true)}
+                className="text-sm text-[var(--hm-accent)] underline underline-offset-2"
+              >
+                ดูแบบประกันอื่นและคำถามเพิ่มเติม
+              </button>
+            )}
+          </div>
+        )}
+
         {turns.map((t, i) => (
           <div
             key={i} ref={i === answered ? askedRef : undefined}
@@ -397,7 +431,7 @@ export function Chat({ invite = false }: { invite?: boolean }) {
 
       <form
         onSubmit={(e) => { e.preventDefault(); ask(draft); }}
-        className={`flex shrink-0 gap-2 bg-[var(--hm-panel)] p-3 ${talking ? "border-t border-[var(--hm-hair)]" : ""}`}
+        className="flex shrink-0 gap-2 border-t border-[var(--hm-hair)] bg-[var(--hm-panel)] p-3"
       >
         <input
           /* not disabled while an answer is on its way: a disabled field loses its focus, and

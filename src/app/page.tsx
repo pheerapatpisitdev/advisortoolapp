@@ -1,4 +1,5 @@
 import "./home-theme.css";
+import { openingGuide } from "@/lib/copilot/guide";
 import { Chat } from "./Chat";
 import { AppShell } from "@/components/shell/AppShell";
 import { inviteToTry } from "@/lib/auth/free-asks";
@@ -28,7 +29,8 @@ export default async function Home() {
       {/* No row kept free for the phone's menu button: the chat decides for itself whether its
           heading sits beside that button or under it — see `Chat`. */}
       <div className="mx-auto flex h-[100dvh] max-w-3xl flex-col px-4 pb-4 pt-3 sm:pb-5 lg:pt-5">
-        <Chat invite={invite} />
+        {/* built on the server from the plan registry, so a new plan brings its own button */}
+        <Chat guide={openingGuide()} invite={invite} />
       </div>
       </AppShell>
     </div>
