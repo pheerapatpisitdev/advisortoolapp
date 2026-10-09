@@ -420,6 +420,11 @@ const TRUST_QUESTION = /ใบอนุญาต|นายหน้า|ตัว
 export interface Budget {
   baht: number;
   per: "month" | "year";
+  /**
+   * Set when the customer named a daily figure ("วันละ 50"): `baht` is then that figure over a
+   * year, priced as an annual instalment, and this is what they said, so it is said back.
+   */
+  perDay?: number;
 }
 
 const A_MONTH = String.raw`เดือนละ|ต่อเดือน|รายเดือน|/\s*เดือน|ต่อ\s*เดือน`;
@@ -428,6 +433,20 @@ const AMOUNT = String.raw`([\d,]+(?:\.\d+)?)\s*(ล้าน|แสน|หมื
 const BUDGET_BEFORE = new RegExp(String.raw`(?:${A_MONTH}|${A_YEAR})\s*${AMOUNT}`);
 const BUDGET_AFTER = new RegExp(String.raw`${AMOUNT}\s*(?:บาท)?\s*(?:${A_MONTH}|${A_YEAR})`);
 const SAYS_MONTH = new RegExp(A_MONTH);
+
+/**
+ * A budget named by the day — "วันละ 50", "30 บาทต่อวัน" — which the adverts offer as buttons.
+ * Read as that many baht for each day of the year and priced as an annual instalment, so the
+ * company's monthly floor never applies to it. Left alone when the message is about the
+ * hospital rider, whose own figure is also "วันละ" something.
+ */
+const A_DAY = String.raw`วันละ|ต่อวัน|รายวัน|/\s*วัน|ต่อ\s*วัน`;
+const DAY_BEFORE = new RegExp(String.raw`(?:${A_DAY})\s*${AMOUNT}`);
+const DAY_AFTER = new RegExp(String.raw`${AMOUNT}\s*(?:บาท)?\s*(?:${A_DAY})`);
+const HOSPITAL_DAILY = /meb|เอ็ม\s*อี\s*บี|ชดเชย|ค่าห้อง|นอน|รพ|โรงพยาบาล|แอดมิด|admit|ผู้ป่วยใน/i;
+const SMALLEST_DAILY = 10;
+const LARGEST_DAILY = 2_000;
+const DAYS_A_YEAR = 365;
 const SCALE: Record<string, number> = { ล้าน: 1_000_000, แสน: 100_000, หมื่น: 10_000, พัน: 1_000 };
 
 /** The smallest and largest instalment worth reading as one rather than as something else. */
@@ -435,6 +454,13 @@ const SMALLEST_BUDGET = 300;
 const LARGEST_BUDGET = 2_000_000;
 
 export function budgetIn(text: string): Budget | undefined {
+  const day = HOSPITAL_DAILY.test(text) ? undefined : DAY_BEFORE.exec(text) ?? DAY_AFTER.exec(text);
+  if (day) {
+    const perDay = Number(day[1].replace(/,/g, "")) * (day[2] ? SCALE[day[2]] : 1);
+    return Number.isFinite(perDay) && perDay >= SMALLEST_DAILY && perDay <= LARGEST_DAILY
+      ? { baht: Math.round(perDay * DAYS_A_YEAR), per: "year", perDay: Math.round(perDay) }
+      : undefined;
+  }
   const m = BUDGET_BEFORE.exec(text) ?? BUDGET_AFTER.exec(text);
   if (!m) return undefined;
   const baht = Number(m[1].replace(/,/g, "")) * (m[2] ? SCALE[m[2]] : 1);

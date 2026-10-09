@@ -87,6 +87,46 @@ describe("a budget instead of a sum", () => {
     expect(answer.messages.find((m) => (m.card && !m.card.includes("/api/card/table?")))!.card).toContain(`sum=${sum}`);
   });
 
+  it("reads a budget by the day as that many baht over a year, and says it back by the day", async () => {
+    const { budgetIn } = await import("@/lib/assistant/common");
+    for (const day of [20, 30, 50, 70, 100]) {
+      for (const text of [`สนใจประกันมรดก ${day} บาทต่อวัน`, `วันละ ${day} บาท`, `${day}บาท/วัน`]) {
+        expect(budgetIn(text), text).toEqual({ baht: day * 365, per: "year", perDay: day });
+      }
+    }
+    // the hospital rider's own "วันละ" is not a budget, and neither is a bare number
+    expect(budgetIn("MEB วันละ 1000")).toBeUndefined();
+    expect(budgetIn("นอน รพ. วันละ 2,000")).toBeUndefined();
+    expect(budgetIn("อายุ 30")).toBeUndefined();
+    // a monthly or yearly budget is read as before
+    expect(budgetIn("เดือนละ 1000")).toEqual({ baht: 1000, per: "month" });
+  });
+
+  it.each([20, 30, 50, 70, 100])("prices %i baht a day as the annual instalment it adds up to", async (day) => {
+    routed = { intent: "other" };
+    const table = lifeProtectTable();
+    const answer = await answerQuestion(said(`${day} บาทต่อวัน`), { intent: "quote", age: 35, sex: "M" });
+    const text = answer.messages.map((m) => m.text).join("\n");
+    expect(answer.slots.budget).toEqual({ baht: day * 365, per: "year", perDay: day });
+    expect(text).toContain(`วันละ ${day} บาท (ปีละ ${(day * 365).toLocaleString("en-US")} บาท)`);
+    // never over the year it adds up to, and never below the plan's smallest sum
+    expect(answer.priced).toBe(true);
+    const sum = answer.slots.takenSum!;
+    expect(sum).toBeGreaterThanOrEqual(150_000);
+    const annual = lifeProtectModes(table, termAt(table, "WLF19H"), { sex: "M", age: 35, sumAssured: sum })!.find((m) => m.mode === "annual")!.total;
+    expect(annual).toBeLessThanOrEqual(day * 365 * 100);
+  });
+
+  it("asks for sex and age first when the day's budget comes alone", async () => {
+    routed = { intent: "other" };
+    const answer = await answerQuestion(said("สนใจประกันมรดก 30 บาทต่อวัน"), null);
+    const text = answer.messages.map((m) => m.text).join("\n");
+    expect(text).toContain("วันละ 30 บาท (ปีละ 10,950 บาท)");
+    expect(text).toContain("เพศกับอายุ");
+    expect(answer.slots.budget?.perDay).toBe(30);
+    expect(answer.slots.age).toBeUndefined();
+  });
+
   it("stays on the budget when the customer taps another term", async () => {
     routed = { intent: "other" };
     const first = await answerQuestion(said("งบเดือนละ 5,000"), { intent: "quote", age: 35, sex: "M" });

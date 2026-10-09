@@ -588,10 +588,14 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
   const { age, sex } = kept;
   const per = budget.per === "month" ? "เดือน" : "ปี";
   const money = (n: number) => n.toLocaleString("en-US");
+  // a budget said by the day is said back by the day, with the year it adds up to
+  const said = budget.perDay !== undefined
+    ? `วันละ ${money(budget.perDay)} บาท (ปีละ ${money(budget.baht)} บาท)`
+    : `${per}ละ ${money(budget.baht)} บาท`;
 
   if (age === undefined || sex === undefined) {
     return {
-      ...one(`ได้เลยครับ งบ${per}ละ ${money(budget.baht)} บาท 👍\n`
+      ...one(`ได้เลยครับ งบ${said} 👍\n`
         + 'ขอเพศกับอายุด้วยครับ เดี๋ยวคิดให้ว่าได้ทุนเท่าไหร่ (เช่น "ชาย 38")'),
       slots: kept,
     };
@@ -618,7 +622,7 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
     const least = lifeProtectModes(table, termAt(table, variant), { ...who, sumAssured: floor })?.find((m) => m.mode === mode);
     return {
       ...one(least
-        ? `งบ${per}ละ ${money(budget.baht)} บาท ยังไม่ถึงทุนขั้นต่ำของแบบนี้ครับ 🙏\n`
+        ? `งบ${said} ยังไม่ถึงทุนขั้นต่ำของแบบนี้ครับ 🙏\n`
           + `ทุนต่ำสุดคือ ${money(floor)} บาท แบบ${termAt(table, variant).label} เบี้ย ${formatBaht(least.total)} บาท/${per}\n`
           + "ถ้าสนใจแบบนี้ บอกได้เลยครับ หรือถ้าอยากดูแบบที่เบี้ยเริ่มต้นต่ำกว่า เช่น ประกันสุขภาพ ก็บอกได้เลยครับ"
         : HAND_OVER),
@@ -645,7 +649,7 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
     ...(wanted ? ["งบนี้คิดเฉพาะแบบหลักครับ เบี้ยสัญญาเพิ่มเติมบวกเพิ่มจากนี้"] : []),
   ];
   const intro = [
-    `งบ${per}ละ ${money(budget.baht)} บาท ${sex === "M" ? "ชาย" : "หญิง"}อายุ ${age} ปี `
+    `งบ${said} ${sex === "M" ? "ชาย" : "หญิง"}อายุ ${age} ปี `
     + `ทำทุนได้สูงสุด ${money(chosen.fit.sum)} บาท แบบ${chosen.label} ครับ 💰`,
     ...notes,
   ].join("\n");
