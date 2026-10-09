@@ -218,6 +218,13 @@ describe("the value table card", () => {
     expect(rows[9].paid).toBeNull();
   });
 
+  it("flags the years after break-even, and only those, for the green surrender figures", () => {
+    const rows = valueTableCard(NINE_YEARS, WHILE_CURRENT)!.rows;
+    const at = rows.findIndex((r) => r.breakEven);
+    expect(at).toBeGreaterThan(-1);
+    rows.forEach((r, i) => expect(Boolean(r.pastBreakEven)).toBe(i > at));
+  });
+
   it("marks the year the policy is first worth what has gone into it", () => {
     const marked = valueTableCard(NINE_YEARS, WHILE_CURRENT)!.rows.filter((r) => r.breakEven);
     expect(marked).toHaveLength(1);

@@ -155,6 +155,10 @@ body {
      The deck ranks its own series exactly this way: navy leads, grey and sand follow. */
   --lg-series-paid: var(--bot-grey);
   --lg-series-cover: var(--bot-sand);
+  /* the surrender figures after break-even; 5:1 on white, and dark enough to print */
+  --lg-gain: #15803d;
+  /* the red pen ringed round the break-even figure */
+  --lg-pen: #d62828;
 }
 
 .theme-legacy {

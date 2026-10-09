@@ -1,5 +1,6 @@
 import { formatBaht } from "@/calc/money";
 import { Highlighted } from "@/components/Highlighted";
+import { Circled } from "@/components/Circled";
 import type { Projection, ProjectionRow } from "@/lib/cash-projection";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
@@ -167,6 +168,8 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                */
               const crossover = breakEven?.policyYear === r.policyYear;
               const labelHere = crossover && !pays(r);
+              // the surrender figure goes green once the policy is worth more than was paid in
+              const gained = breakEven !== null && r.policyYear > breakEven.policyYear;
               /**
                * Every row is the same weight, including the early years worth nothing.
                *
@@ -214,8 +217,8 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                       ? <Highlighted>จุดคุ้มทุน &gt;</Highlighted>
                       : pays(r) && r.premiumPaid !== null ? formatBaht(r.premiumPaid) : "—"}
                   </td>
-                  <td className={`${CELL} ${RULE} text-right`}>
-                    {crossover ? <Highlighted>{formatBaht(r.cashValue)}</Highlighted> : formatBaht(r.cashValue)}
+                  <td className={`${CELL} ${RULE} text-right ${gained ? "text-[var(--lg-gain)]" : ""}`}>
+                    {crossover ? <Circled><Highlighted>{formatBaht(r.cashValue)}</Highlighted></Circled> : formatBaht(r.cashValue)}
                   </td>
                   <td className={`${CELL} ${RULE} pr-3 text-right`}>{formatBaht(r.cover)}</td>
                 </tr>

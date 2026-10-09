@@ -4,7 +4,7 @@ import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import { cardInputFrom, valueTableCard, valueTableChart, type CardChart, type ValueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
-import { highlighterUri } from "@/lib/highlighter";
+import { highlighterUri, loopUri } from "@/lib/highlighter";
 import { QUOTE_CARD_KEYS, toCanonical } from "../canonical";
 import { Chart, chartBlockHeight } from "../chart-drawing";
 import { quoteFor } from "@/lib/life-quotes";
@@ -129,13 +129,25 @@ const CELL_PAD = 11;
  * ladder down the table instead of a column.
  */
 function Cell(
-  { i, cols, height, color, rule, mark, highlighter, children }:
+  { i, cols, height, color, rule, mark, highlighter, pen, children }:
   {
     i: number; cols: typeof COLS; height: number; color: string; rule: string; children: string;
     /** drawn with the quote card's highlighter stroke behind the figure */
     mark?: boolean; highlighter?: string;
+    /** a loop in this colour drawn round the figure, as with a pen */
+    pen?: string;
   },
 ) {
+  const figure = mark && highlighter ? (
+    <div
+      style={{
+        display: "flex", padding: "1px 8px",
+        backgroundImage: highlighterUri(highlighter), backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+      }}
+    >
+      {children}
+    </div>
+  ) : children;
   return (
     <div
       style={{
@@ -150,16 +162,17 @@ function Cell(
         color,
       }}
     >
-      {mark && highlighter ? (
-        <div
-          style={{
-            display: "flex", padding: "1px 8px",
-            backgroundImage: highlighterUri(highlighter), backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
-          }}
-        >
-          {children}
+      {pen ? (
+        <div style={{ display: "flex", position: "relative", padding: "5px 12px" }}>
+          <div
+            style={{
+              position: "absolute", top: -4, bottom: -4, left: 0, right: 0,
+              backgroundImage: loopUri(pen), backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+            }}
+          />
+          {figure}
         </div>
-      ) : children}
+      ) : figure}
     </div>
   );
 }
@@ -202,7 +215,8 @@ function Half(
         const cells = [
           String(r.year), String(r.age), r.due,
           ...(r.rider === undefined ? [] : [r.rider]),
-          r.paid ?? "—",
+          // as the page does: where the running total has stopped, the break-even row says what it is
+          r.paid ?? (r.breakEven ? "จุดคุ้มทุน >" : "—"),
           ...(r.payout === undefined ? [] : [r.payout]),
           ...(r.cash === undefined ? [] : [r.cash]),
           r.cover,
@@ -214,10 +228,14 @@ function Half(
           >
             {cells.map((cell, i) => (
               <Cell
-                key={columns[i]} i={i} cols={cols} height={H.row} color={ink} rule={p.rule}
+                key={columns[i]} i={i} cols={cols} height={H.row} rule={p.rule}
+                // the surrender figure goes green once the policy is worth more than was paid in
+                color={r.pastBreakEven && columns[i] === "เวนคืนได้" ? p.gain : ink}
                 // the break-even year: the age it happens at and the surrender value that gets there
-                mark={r.breakEven && (columns[i] === "อายุ" || columns[i] === "เวนคืนได้")}
+                mark={r.breakEven && (columns[i] === "อายุ" || columns[i] === "เวนคืนได้" || (columns[i] === "เบี้ยสะสม" && r.paid === null))}
                 highlighter={p.highlighter}
+                // and the surrender value is ringed in red pen
+                pen={r.breakEven && columns[i] === "เวนคืนได้" ? p.pen : undefined}
               >
                 {cell}
               </Cell>

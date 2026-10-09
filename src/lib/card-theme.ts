@@ -39,6 +39,10 @@ export interface CardPalette {
   line: { cash: string; premium: string; cover: string };
   /** the yellow of the highlighter stroke behind the one figure a card wants read first */
   highlighter: string;
+  /** the surrender figures once the policy is worth more than was paid in */
+  gain: string;
+  /** the red pen: the loop drawn round the break-even figure */
+  pen: string;
   /** the sand fill behind the premium box, the page's --bot-sand-soft */
   box: string;
 }
@@ -84,6 +88,9 @@ export const CARD_PALETTE: CardPalette = {
   line: { cash: "#022162", premium: "#7f7f7f", cover: "#c6bc99" },
   /* the one colour on the card that is not the deck's: it has to look like a pen */
   highlighter: "#ffe14d",
+  /* 5:1 on white */
+  gain: "#15803d",
+  pen: "#d62828",
   box: "#e7e3d4",
 };
 

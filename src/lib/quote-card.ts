@@ -647,6 +647,8 @@ export interface ValueTableRow {
   breakEven?: boolean;
   /** a year that would return nothing at all on surrender */
   empty?: boolean;
+  /** a year after the break-even one: the surrender figure is green there (owner, 2026-10-09) */
+  pastBreakEven?: boolean;
 }
 
 export interface ValueTableCard {
@@ -806,6 +808,7 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
       // a dash in the last year: what maturity pays is the surrender column's own last figure
       ...(payout?.length ? { payout: r.payout ? baht(r.payout) : "—" } : {}),
       ...(p.breakEven?.policyYear === r.policyYear ? { breakEven: true } : {}),
+      ...(p.breakEven && r.policyYear > p.breakEven.policyYear ? { pastBreakEven: true } : {}),
       ...(r.cashValue === 0 ? { empty: true } : {}),
     })),
   };

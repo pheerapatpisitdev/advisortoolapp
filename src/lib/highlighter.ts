@@ -18,6 +18,23 @@ const SHAPE = (fill: string) =>
   + `<path fill='${fill}' fill-opacity='0.55' d='M3.6 9.6C25 8.1 48 10.4 72 8.6C82 8 90 8.9 97.6 8.2L96.8 13.9C87 14.8 79 13.6 70 14.5C47 16.1 25 13.9 2.6 15.4Z'/>`
   + `</svg>`;
 
+/**
+ * A loop drawn round a figure with a marker pen: an oval that does not quite close, with the
+ * tail running past where it began and a second, thinner pass over the top. Stroked rather
+ * than filled, so the width of the line is the pen's whatever the figure's width; the viewBox
+ * is stretched like the highlighter's, so a short figure and a long one both get a loop.
+ */
+const LOOP = (stroke: string) =>
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 44' preserveAspectRatio='none'>`
+  + `<path fill='none' stroke='${stroke}' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round' d='M20 8C40 2 80 1.5 102 8C116 12.5 118.5 28 104 36C84 44 38 43.5 18 37C3 32 2.5 16 17 9.5C30 4.2 62 2.5 92 5.5'/>`
+  + `<path fill='none' stroke='${stroke}' stroke-opacity='0.55' stroke-width='1.4' stroke-linecap='round' d='M24 7C50 3 82 3.5 100 9'/>`
+  + `</svg>`;
+
+/** The loop in one colour, as a data URI — see LOOP. */
+export function loopUri(color: string): string {
+  return `url("data:image/svg+xml,${encodeURIComponent(LOOP(color))}")`;
+}
+
 /** A data URI of the stroke in one colour, for a drawing that has to carry its own colour. */
 export function highlighterUri(color: string): string {
   return `url("data:image/svg+xml,${encodeURIComponent(SHAPE(color))}")`;
