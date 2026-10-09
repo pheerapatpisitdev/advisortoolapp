@@ -1,6 +1,7 @@
 import type { CoverRow } from "@/lib/cover-rows";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
+import { SiteCredit } from "@/components/sales/SiteCredit";
 import { PdfPrepare } from "@/components/sales/PdfPrepare";
 
 /**
@@ -86,9 +87,10 @@ export function CoverTable({ rows, caption, endsNote, cardPath, planName }: Cove
                 <th
                   key={h}
                   scope="col"
-                  className={`sticky top-0 z-[2] whitespace-nowrap border-b border-[var(--lg-hair)]
-                    bg-[var(--lg-ground-deep)] px-[5px] py-[7px] text-[11px] font-normal text-[var(--lg-mute)]
-                    ${i < 2 ? "text-left" : "text-right"} ${i > 0 ? RULE : ""}
+                  /* white on navy, as CashValueTable's heading and the picture's (owner, 2026-10-10) */
+                  className={`sticky top-0 z-[2] whitespace-nowrap bg-[var(--bot-navy)] px-[5px] py-2
+                    text-[12.5px] font-semibold text-white print:!text-black
+                    ${i < 2 ? "text-left" : "text-right"} ${i > 0 ? "border-l border-l-white/35" : ""}
                     ${i === HEAD.length - 1 ? "pr-3" : ""}`}
                 >
                   {h}
@@ -115,6 +117,7 @@ export function CoverTable({ rows, caption, endsNote, cardPath, planName }: Cove
       <p className="mt-3 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
         {endsNote} · แบบนี้เป็นความคุ้มครองล้วน ไม่มีมูลค่าเวนคืนและไม่มีเงินคืนเมื่อครบสัญญา
       </p>
+      <SiteCredit />
       <PdfPrepare />
     </section>
   );

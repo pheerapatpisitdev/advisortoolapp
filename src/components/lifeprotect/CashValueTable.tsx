@@ -5,8 +5,16 @@ import type { Projection, ProjectionRow } from "@/lib/cash-projection";
 import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
 import { PdfPrepare } from "@/components/sales/PdfPrepare";
+import { SiteCredit } from "@/components/sales/SiteCredit";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { INSURER } from "@/lib/assistant/common";
+import { Sriracha } from "next/font/google";
+
+/** the red pen's handwriting, as on the value-table picture (src/app/api/card/table) */
+const pen = Sriracha({ weight: "400", subsets: ["thai"], display: "swap" });
+
+/** written beside the years after break-even, as the picture writes them (owner, 2026-10-10) */
+const GAIN_WORDS = ["เบี้ยไม่ทิ้งเปล่า", "สามารถเก็บเป็นเงินสด", "หลังเกษียณได้"];
 
 export interface CashValueTableProps {
   projection: Projection;
@@ -66,6 +74,20 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
   const paying = rows.filter(pays);
   const payingYears = paying.length;
   const totalPaid = paying.length ? paying[paying.length - 1].premiumPaid : null;
+
+  /**
+   * The red-pen brace down the surrender values after break-even, and its three lines — the
+   * page's half of the note the picture draws (pen-notes.ts). Only where four or more years
+   * follow break-even, and where the words fall on years whose premium has stopped, so they
+   * are written over dashes rather than over figures.
+   */
+  const beIndex = breakEven ? rows.findIndex((r) => r.policyYear === breakEven.policyYear) : -1;
+  const after = beIndex + 1;
+  const gainMid = after + Math.floor((rows.length - after) / 2);
+  const gain = beIndex >= 0 && rows.length - after >= 4
+    && rows.slice(Math.max(after, gainMid - 2), gainMid + 3).every((r) => !pays(r));
+  // the brace stands just left of the widest figure it spans
+  const braceAt = gain ? `calc(${Math.max(...rows.slice(after).map((r) => formatBaht(r.cashValue).length))}ch + 12px)` : "";
 
   return (
     <section className="print-table mt-3.5 border-t border-[var(--lg-panel-line)] pt-3">
@@ -143,9 +165,11 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                   scope="col"
                   /* sticky alone is not enough: without the stack order the rows scroll
                      through the header's own text */
-                  className={`sticky top-0 z-[2] whitespace-nowrap border-b border-[var(--lg-hair)]
-                    bg-[var(--lg-ground-deep)] px-[5px] py-[7px] text-[11px] font-normal text-[var(--lg-mute)]
-                    ${i < 2 ? "text-left" : "text-right"} ${i > 0 ? RULE : ""}
+                  /* white on navy, heavy, as the picture's heading (owner, 2026-10-10); paper drops
+                     the fill (globals.css .print-table th), so there it prints black */
+                  className={`sticky top-0 z-[2] whitespace-nowrap bg-[var(--bot-navy)] px-[5px] py-2
+                    text-[12.5px] font-semibold text-white print:!text-black
+                    ${i < 2 ? "text-left" : "text-right"} ${i > 0 ? "border-l border-l-white/35" : ""}
                     ${i === head.length - 1 ? "pr-3" : ""}`}
                 >
                   {h}
@@ -154,7 +178,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {rows.map((r, n) => {
               /**
                * The lit row says what it is, in the space the running total left behind.
                *
@@ -217,7 +241,10 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                       ? <Highlighted>จุดคุ้มทุน &gt;</Highlighted>
                       : pays(r) && r.premiumPaid !== null ? formatBaht(r.premiumPaid) : "—"}
                   </td>
-                  <td className={`${CELL} ${RULE} text-right ${gained ? "text-[var(--lg-gain)]" : ""}`}>
+                  <td className={`${CELL} ${RULE} text-right ${gained ? "text-[var(--lg-gain)]" : ""} ${gain && n >= after ? "relative" : ""}`}>
+                    {gain && n >= after && (
+                      <GainBrace at={braceAt} first={n === after} last={n === rows.length - 1} middle={n === gainMid} />
+                    )}
                     {crossover ? <Circled><Highlighted>{formatBaht(r.cashValue)}</Highlighted></Circled> : formatBaht(r.cashValue)}
                   </td>
                   <td className={`${CELL} ${RULE} pr-3 text-right`}>{formatBaht(r.cover)}</td>
@@ -280,7 +307,34 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
         <p className="mt-1.5">รับประกันโดย {INSURER}</p>
         <p data-printed-at className="mt-1" />
       </div>
+      <SiteCredit />
       <PdfPrepare />
     </section>
+  );
+}
+
+/**
+ * One row's piece of the red-pen brace: a line down the cell left of the figure, curled at the
+ * two ends, pointed at the middle row — where the three lines are written to its left.
+ */
+function GainBrace({ at, first, last, middle }: { at: string; first: boolean; last: boolean; middle: boolean }) {
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-y-0" style={{ right: at }}>
+      <span
+        className={`absolute right-0 w-[7px] border-l-2 border-[var(--lg-pen)]
+          ${first ? "top-1/2 rounded-tl-md border-t-2" : "top-0"} ${last ? "bottom-1/2 rounded-bl-md border-b-2" : "bottom-0"}`}
+      />
+      {middle && (
+        <>
+          <span className="absolute right-[7px] top-1/2 w-[6px] border-t-2 border-[var(--lg-pen)]" />
+          <span
+            className={`${pen.className} absolute right-[17px] top-1/2 z-[1] -translate-y-1/2 -rotate-[4deg]
+              whitespace-nowrap text-right text-[15px] leading-[1.45] text-[var(--lg-pen)]`}
+          >
+            {GAIN_WORDS.map((w) => <span key={w} className="block">{w}</span>)}
+          </span>
+        </>
+      )}
+    </span>
   );
 }
