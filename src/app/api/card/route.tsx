@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ImageResponse } from "next/og";
+import { pngResponse } from "@/lib/draw-png";
 import { highlighterUri } from "@/lib/highlighter";
 import { NextResponse, type NextRequest } from "next/server";
 import { cardInputFrom, quoteCard, type CardRow, type CardSummary, type QuoteCard } from "@/lib/quote-card";
@@ -379,7 +379,7 @@ export async function GET(req: NextRequest) {
     input.age >= 18 ? loadCustomerPhoto(req.nextUrl.searchParams.get("ph")) : undefined,
   ]);
 
-  return new ImageResponse(
+  return pngResponse(
     (
       <div
         style={{

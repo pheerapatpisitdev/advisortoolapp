@@ -1,4 +1,4 @@
-import { ImageResponse } from "next/og";
+import { pngResponse } from "@/lib/draw-png";
 import type { NextRequest } from "next/server";
 import { iHealthyCard, type IHealthyCard } from "@/lib/ihealthy-card";
 import { WORDS } from "@/lib/ihealthy-words";
@@ -51,7 +51,9 @@ export async function GET(req: NextRequest) {
   // Chinese, Russian and Burmese need letters the Thai face does not have. Where they cannot
   // be had the card is drawn in Thai: a picture in the page's own language is a quote, and
   // one in empty boxes is not.
-  let extra = await scriptFonts(card.lang, JSON.stringify(card));
+  // the card's words and the language's own labels (the table's headings come from WORDS),
+  // since the drawing has no fallback face of its own for a letter left out of the cut
+  let extra = await scriptFonts(card.lang, JSON.stringify(card) + JSON.stringify(WORDS[card.lang]));
   if (extra === undefined) {
     const thai = new URLSearchParams(req.nextUrl.searchParams);
     thai.delete("l");
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
   const selected = card.columns.findIndex((c) => c.selected);
 
 
-  return new ImageResponse(
+  return pngResponse(
     (
       <div
         style={{

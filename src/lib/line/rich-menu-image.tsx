@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ImageResponse } from "next/og";
+import { pngResponse } from "@/lib/draw-png";
 import { CARD_PALETTE as P } from "@/lib/card-theme";
 import { menuAreas, type MenuSpec } from "@/lib/line/rich-menu";
 
@@ -26,7 +26,7 @@ export async function drawMenu(menu: MenuSpec): Promise<Response> {
   const areas = menuAreas(menu);
   const big = menu.height === 1686;
 
-  return new ImageResponse(
+  return pngResponse(
     (
       <div style={{ display: "flex", position: "relative", width: menu.width, height: menu.height, background: P.ground }}>
         {areas.map(({ bounds: b }, i) => {

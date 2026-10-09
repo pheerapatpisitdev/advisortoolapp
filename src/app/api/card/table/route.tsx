@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ImageResponse } from "next/og";
+import { pngResponse } from "@/lib/draw-png";
 import type { NextRequest } from "next/server";
 import { cardInputFrom, valueTableCard, valueTableChart, type CardChart, type ValueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
@@ -334,7 +334,7 @@ export async function GET(req: NextRequest) {
     ["plan", "variant", "age", "sex", "sum", "rider", "payer", "meb"].map((k) => req.nextUrl.searchParams.get(k) ?? "").join("|"),
   );
 
-  return new ImageResponse(
+  return pngResponse(
     (
       <div
         style={{

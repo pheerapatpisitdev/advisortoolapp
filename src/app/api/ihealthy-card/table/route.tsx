@@ -1,4 +1,4 @@
-import { ImageResponse } from "next/og";
+import { pngResponse } from "@/lib/draw-png";
 import type { NextRequest } from "next/server";
 import { iHealthyTableCard, type IHealthyTableCard } from "@/lib/ihealthy-card";
 import {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const card = iHealthyTableCard(req.nextUrl.searchParams);
 
 
-  return new ImageResponse(
+  return pngResponse(
     (
       <div
         style={{

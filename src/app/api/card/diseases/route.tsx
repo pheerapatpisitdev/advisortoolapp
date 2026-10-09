@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ImageResponse } from "next/og";
+import { pngResponse } from "@/lib/draw-png";
 import type { NextRequest } from "next/server";
 import { diseaseListFor } from "@/lib/copilot/knowledge";
 import { CARD_PALETTE, type CardPalette } from "@/lib/card-theme";
@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
     + H.gap + H.hairline + H.afterHairline
     + list.groups.reduce((n, g) => n + groupHeight(g.diseases, grouped), 0);
 
-  return new ImageResponse(
+  return pngResponse(
     (
       <div
         style={{
