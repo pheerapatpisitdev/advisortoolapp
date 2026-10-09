@@ -520,8 +520,9 @@ function answerPayTerm(slots: Routed): Reply {
 }
 
 /**
- * Sums are met in the steps the page's slider takes, so the sum a budget buys is one the page
- * can open and the PDF can print.
+ * Sums are met in the steps a link may name (fifty thousand — the page's slider steps coarser,
+ * and adds a linked sum as one more stop), so the sum a budget buys is one the page can open and
+ * the PDF can print.
  */
 const BUDGET_STEP = 50_000;
 

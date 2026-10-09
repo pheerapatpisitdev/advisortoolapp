@@ -12,18 +12,27 @@ export type PlanPage = "lifeprotect" | "easyprotect" | "ishield" | "lifetreasure
 export type PdfPage = PlanPage | "ihealthy-ultra";
 
 /**
- * The sums the page offers: every fifty thousand from half a million to fifty million (owner,
- * 2026-10-06 — a customer asked for 750,000). Too many stops for a thumb to land on exactly, so
- * the slider goes near and the typed field beside it lands on the sum itself.
+ * The sums the page offers: every hundred and fifty thousand from half a million to fifty million
+ * (owner, 2026-10-09 — it was every fifty thousand since 2026-10-06, finer than the agency sells).
+ * Still many stops for a thumb to land on exactly, so the slider goes near and the typed field
+ * beside it lands on the sum itself.
  */
-const LIFEPROTECT_STEP = 50_000;
-export const LIFEPROTECT_SUMS = Array.from({ length: 991 }, (_, i) => 500_000 + LIFEPROTECT_STEP * i);
+const LIFEPROTECT_FIRST = 500_000;
+export const LIFEPROTECT_STEP = 150_000;
+export const LIFEPROTECT_SUMS = Array.from({ length: 331 }, (_, i) => LIFEPROTECT_FIRST + LIFEPROTECT_STEP * i);
+
+/**
+ * The sums a link or PDF may name: the old every-fifty-thousand list. The chat quotes a million
+ * and other round figures the slider's steps skip, and a link for one of them must still open;
+ * the page puts the linked sum in as one more stop (see the calculator).
+ */
+export const LIFEPROTECT_LINK_SUMS = Array.from({ length: 991 }, (_, i) => LIFEPROTECT_FIRST + 50_000 * i);
 
 /** A typed sum moved onto the nearest step the page offers. */
 export function lifeProtectSumNear(typed: number): number {
   const first = LIFEPROTECT_SUMS[0];
   const last = LIFEPROTECT_SUMS[LIFEPROTECT_SUMS.length - 1];
-  const stepped = Math.round(typed / LIFEPROTECT_STEP) * LIFEPROTECT_STEP;
+  const stepped = LIFEPROTECT_FIRST + Math.round((typed - LIFEPROTECT_FIRST) / LIFEPROTECT_STEP) * LIFEPROTECT_STEP;
   return Math.min(last, Math.max(first, stepped));
 }
 
@@ -69,7 +78,7 @@ export const PLB_SUMS = [
 ];
 
 export const PLAN_PAGES: Record<PlanPage, { planCode: string; path: string; sums: readonly number[] }> = {
-  lifeprotect: { planCode: "LIFEPROTECT", path: "/lifeprotect", sums: LIFEPROTECT_SUMS },
+  lifeprotect: { planCode: "LIFEPROTECT", path: "/lifeprotect", sums: LIFEPROTECT_LINK_SUMS },
   easyprotect: { planCode: "EASYPROTECT", path: "/easyprotect", sums: EASYPROTECT_SUMS },
   ishield: { planCode: "ISHIELD", path: "/ishield", sums: ISHIELD_SUMS },
   lifetreasure: { planCode: "LIFETREASURE", path: "/lifetreasure", sums: LIFETREASURE_SUMS },

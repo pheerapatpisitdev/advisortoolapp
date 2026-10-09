@@ -20,7 +20,7 @@ import {
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
-import { LIFEPROTECT_SUMS, lifeProtectSumNear, planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectSumNear, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
@@ -30,7 +30,8 @@ import { budgetFit, type PageBudget } from "@/lib/budget-sum";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
 import { legacyFromDeath } from "@/lib/legacy-headline";
 
-const SUM_START_INDEX = LIFEPROTECT_SUMS.indexOf(1_000_000);
+// the nearest stop to a million, which is no longer one itself
+const SUM_START_INDEX = LIFEPROTECT_SUMS.indexOf(950_000);
 /** The budget the field opens on when a visitor switches to naming one: the figure the agency hears most. */
 const BUDGET_START: PageBudget = { baht: 100_000, per: "year" };
 /** A sum on a term button, short enough for a third of a phone screen: "5.8 ล้าน", "8.5 แสน". */
@@ -109,6 +110,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     () => Array.from({ length: table.ageMax - table.ageMin + 1 }, (_, i) => table.ageMin + i),
     [table.ageMin, table.ageMax],
   );
+  // the slider's stops; a link from the chat can add one more, a sum the steps skip (a million)
+  const [sums, setSums] = useState<readonly number[]>(LIFEPROTECT_SUMS);
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
   // by what the visitor can pay instead of by a sum: the page finds the biggest sum that fits
   const [byBudget, setByBudget] = useState(false);
@@ -117,7 +120,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const [sumTyped, setSumTyped] = useState<string | null>(null);
   const settleSum = () => {
     const digits = sumTyped?.replace(/\D/g, "") ?? "";
-    if (digits !== "") setSumIndex(LIFEPROTECT_SUMS.indexOf(lifeProtectSumNear(Number(digits))));
+    if (digits !== "") setSumIndex(sums.indexOf(lifeProtectSumNear(Number(digits))));
     setSumTyped(null);
   };
   const [variant, setVariant] = useState(TERM_START);
@@ -130,10 +133,14 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   // itself stays static; no query, or one this page cannot show, leaves the start values.
   useEffect(() => {
     const initial = planInitialFromTable(new URLSearchParams(window.location.search), {
-      sums: LIFEPROTECT_SUMS, variants: table.terms.map((t) => t.variant), ageMin: table.ageMin, ageMax: table.ageMax,
+      sums: LIFEPROTECT_LINK_SUMS, variants: table.terms.map((t) => t.variant), ageMin: table.ageMin, ageMax: table.ageMax,
     });
     if (initial) {
-      setSumIndex(LIFEPROTECT_SUMS.indexOf(initial.sumAssured));
+      const stops = LIFEPROTECT_SUMS.includes(initial.sumAssured)
+        ? LIFEPROTECT_SUMS
+        : [...LIFEPROTECT_SUMS, initial.sumAssured].sort((a, b) => a - b);
+      setSums(stops);
+      setSumIndex(stops.indexOf(initial.sumAssured));
       setVariant(initial.variant);
       setAge(initial.age as typeof age);
       setSex(initial.sex);
@@ -161,11 +168,11 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
    */
   const budgetOn = (variantCode: string) =>
     byBudget && ageNum !== undefined && !table.expired
-      ? budgetFit(LIFEPROTECT_SUMS, (s) => lifeProtectModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }), budget)
+      ? budgetFit(sums, (s) => lifeProtectModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }), budget)
       : undefined;
   const fit = budgetOn(variant);
   const budgetShort = byBudget && ageNum !== undefined && !table.expired && !fit;
-  const sumAssured = fit ? fit.sum : LIFEPROTECT_SUMS[sumIndex];
+  const sumAssured = fit ? fit.sum : sums[sumIndex];
   const who = ageNum !== undefined && !budgetShort ? { sex, age: ageNum, sumAssured } : undefined;
 
   const modes = who ? lifeProtectModes(table, term, who) : undefined;
@@ -365,7 +372,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           byBudget={byBudget}
           onChange={(on) => {
             // leaving the budget keeps the sum it bought, so the sum field does not jump back
-            if (!on && fit) setSumIndex(LIFEPROTECT_SUMS.indexOf(fit.sum));
+            if (!on && fit) setSumIndex(sums.indexOf(fit.sum));
             setByBudget(on);
           }}
         />
@@ -406,9 +413,9 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
             />
             <span className="text-lg text-[var(--lg-mute)]">บาท</span>
           </div>
-          <p className="mt-1 text-xs text-[var(--lg-mute)] opacity-70">แตะตัวเลขเพื่อพิมพ์ทุน · ขั้นละ 50,000</p>
+          <p className="mt-1 text-xs text-[var(--lg-mute)] opacity-70">แตะตัวเลขเพื่อพิมพ์ทุน · ขั้นละ 150,000</p>
           <input
-            id="lp-sum" aria-label="ทุนประกัน" type="range" min={0} max={LIFEPROTECT_SUMS.length - 1} step={1} value={sumIndex}
+            id="lp-sum" aria-label="ทุนประกัน" type="range" min={0} max={sums.length - 1} step={1} value={sumIndex}
             onChange={(e) => setSumIndex(Number(e.target.value))}
             className="mt-4 w-full accent-[var(--lg-gold)]"
           />
