@@ -7,8 +7,13 @@ const TALK = "1431905706931225";
 const WORKING = "103716981993581";
 
 describe("the voice a Page answers in", () => {
-  it("is the same for every Page: no particle at all", () => {
-    expect(voiceOf(LUCKY)).toBe("neutral");
+  it("is a woman's on LuckyPlanner (owner, 2026-10-09)", () => {
+    expect(voiceOf(LUCKY)).toBe("female");
+    expect(spokenBy(voiceOf(LUCKY), "รับทราบครับ ขอเพศกับอายุด้วย เดี๋ยวส่งรายละเอียดให้ครับ (เช่น ช/ญ 35)"))
+      .toBe("รับทราบค่ะ ขอเพศกับอายุด้วย เดี๋ยวส่งรายละเอียดให้ค่ะ (เช่น ช/ญ 35)");
+  });
+
+  it("is the same for every other Page: no particle at all", () => {
     expect(voiceOf(TALK)).toBe("neutral");
     expect(voiceOf(WORKING)).toBe("neutral");
   });

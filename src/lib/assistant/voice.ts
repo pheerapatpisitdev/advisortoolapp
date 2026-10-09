@@ -14,14 +14,22 @@
 export type Voice = "male" | "female" | "neutral";
 
 /**
- * Every Page now speaks without the particle (owner, 2026-10-03: "เอาออกให้หมดเลย").
+ * The Pages that have asked for a voice back. LuckyPlanner โชคดีที่มีแพลน speaks as a woman
+ * (owner, 2026-10-09: "ขอแก้ บริบท เป็นผู้หญิง").
+ */
+const VOICES: Record<string, Voice> = {
+  "105982528649026": "female", // LuckyPlanner โชคดีที่มีแพลน
+};
+
+/**
+ * Every other Page speaks without the particle (owner, 2026-10-03: "เอาออกให้หมดเลย").
  *
  * The line a customer reads ends where the sentence ends, with no ครับ or ค่ะ, so the same
- * words suit whoever is at the keyboard. The male and female voices stay in `spokenBy` for the
- * day a Page asks for one back; `voiceOf` is the one place that decides, and it decides for all.
+ * words suit whoever is at the keyboard. A Page named in `VOICES` has asked for one back;
+ * `voiceOf` is the one place that decides.
  */
-export function voiceOf(_pageId?: string): Voice {
-  return "neutral";
+export function voiceOf(pageId?: string): Voice {
+  return (pageId && VOICES[pageId]) || "neutral";
 }
 
 /**
