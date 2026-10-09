@@ -137,8 +137,9 @@ describe("a budget instead of a sum", () => {
     routed = { intent: "other" };
     const answer = await answerQuestion(said("สนใจประกันมรดก 30 บาทต่อวัน"), null);
     const text = answer.messages.map((m) => m.text).join("\n");
-    expect(text).toContain("วันละ 30 บาท (ปีละ 10,950 บาท)");
+    expect(text).toContain("รับทราบ");
     expect(text).toContain("เพศกับอายุ");
+    expect(text).toContain("ช/ญ 35");
     expect(answer.slots.budget?.perDay).toBe(30);
     expect(answer.slots.age).toBeUndefined();
   });
