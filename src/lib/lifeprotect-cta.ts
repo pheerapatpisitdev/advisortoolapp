@@ -141,12 +141,12 @@ export function lifeProtectChatQuoteText(
   const lines = [
     "🛡️ Life Protect",
     doubles
-      ? `ทุน ${baht(f.sumAssured)} บาท เพิ่มเป็น ${baht(f.death.sumBefore)} ถึงอายุ ${f.death.beforeAge}`
-      : `ทุน ${baht(f.sumAssured)} บาท`,
+      ? `💎 ทุน ${baht(f.sumAssured)} บาท เพิ่มเป็น ${baht(f.death.sumBefore)} ถึงอายุ ${f.death.beforeAge}`
+      : `💎 ทุน ${baht(f.sumAssured)} บาท`,
     "",
     // "จ่ายถึงอายุ 99" reads "ออมถึงอายุ 99", "จ่าย 9 ปี" reads "ออม 9 ปี"
-    `${SEX_WORD[f.sex]} อายุ ${ageWord(f.age)}`,
-    `ออม${f.termLabel.replace(/^จ่าย/, "")} คุ้มครอง ${f.coverToAge} ปี`,
+    `${f.sex === "F" ? "👩" : "👨"} ${SEX_WORD[f.sex]} อายุ ${ageWord(f.age)}`,
+    `🗓️ ออม${f.termLabel.replace(/^จ่าย/, "")} คุ้มครอง ${f.coverToAge} ปี`,
     `💰 เบี้ยประมาณ ${formatBaht(headline.total)} บาท${PER[headline.mode]}` + (annual ? ` (วันละ ${perDayText(annual.total)} บาท)` : ""),
     ...(f.riders?.lines ?? []),
     "",
@@ -160,8 +160,8 @@ export function lifeProtectChatQuoteText(
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต (ตุยเย่)",
     ...(doubles
       ? [
-        `- ก่อนอายุ ${f.death.beforeAge} ปี ${baht(f.death.sumBefore)} บาท`,
-        `- อายุ ${f.death.beforeAge} ปีขึ้นไป ${baht(f.death.sumFrom)} บาท`,
+        `🔸 ก่อนอายุ ${f.death.beforeAge} ปี ${baht(f.death.sumBefore)} บาท`,
+        `🔹 อายุ ${f.death.beforeAge} ปีขึ้นไป ${baht(f.death.sumFrom)} บาท`,
       ]
       : deathBenefitRows(f.death).map((r) => `- ${r.label} ${baht(r.amount)} บาท`)),
   ];
@@ -172,7 +172,7 @@ export function lifeProtectChatQuoteText(
     ...(f.riders
       ? f.riders.footNotes.map((n) => `📌 ${n}`)
       : ["📌 เบี้ยคงที่ตลอดระยะเวลาชำระ · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน"]),
-    "ลดหย่อนภาษีได้ 100,000 บาท",
+    "🧾 ลดหย่อนภาษีได้ 100,000 บาท",
   );
   return lines.join("\n");
 }

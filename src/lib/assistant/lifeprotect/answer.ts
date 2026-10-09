@@ -769,7 +769,7 @@ function otherTerms(table: LifeProtectTable, quoted: string): string {
   // the owner's wording: the first term named as saving ("ออม 9 ปี"), the rest as paying
   const rest = table.terms.filter((t) => QUOTABLE.has(t.variant) && t.variant !== quoted)
     .map((t, i) => (i === 0 ? t.label.replace(/^จ่าย/, "ออม") : t.label));
-  return `ถ้าอยากดูแบบ${rest.join(" หรือ ")} คุ้มครองถึง ${table.coverToAge} ปี หรือตารางมูลค่าทุกปี บอกได้เลย เดี๋ยวคิดให้ฮะ`;
+  return `💬 ถ้าอยากดูแบบ${rest.join(" หรือ ")} คุ้มครองถึง ${table.coverToAge} ปี หรือตารางมูลค่าทุกปี บอกได้เลย เดี๋ยวคิดให้ฮะ`;
 }
 
 /**
