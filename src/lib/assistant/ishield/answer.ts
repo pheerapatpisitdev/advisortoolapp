@@ -10,7 +10,7 @@ import { ISHIELD_SUMS } from "@/lib/quote-pdf/pages";
 import diseases from "../../../../data/riders/ishield-diseases.json";
 import {
   aboutCompany, asksAboutCompany, asksDiseaseList, budgetIn, BUDGET_INVITE, coverIn, type Budget, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, HEALTH_QUESTION,
-  ageIn, peopleIn, saysFormDone, saysUnwell, stallReply, stalls, thanksOnly, THANKS_REPLY, WANTS_IN, wantsToBuy, type Reply,
+  ageAlone, peopleIn, saysFormDone, saysUnwell, stallReply, stalls, thanksOnly, THANKS_REPLY, WANTS_IN, wantsToBuy, type Reply,
 } from "../common";
 import { writtenFor, type Channel } from "../channel";
 import { CHOOSE_HEALTH, CHOOSE_LEGACY } from "../choose";
@@ -282,14 +282,11 @@ const termLabel = (variant: string) => `ส่ง ${Number(variant.replace(/\D/g
  * just "53". `peopleIn` wants both beside each other, so a customer correcting the age alone
  * was answered with the old quotation twelve times running (LINE, 2026-10-09).
  *
- * Only with the word อายุ, or a message that is nothing but two digits: "20 ปี" on its own is a
- * paying term here, and a bare "5" is as likely to be a number of years as anyone's age.
+ * What counts as an age alone is `ageAlone`'s: "20 ปี" on its own is a paying term here.
  */
 function ageForKnownSex(asked: string, slots: IShieldSlots): { age: number; sex: "M" | "F" } | undefined {
-  if (!slots.sex) return undefined;
-  const bare = /^\s*(\d{2})\s*$/.exec(asked);
-  const age = bare ? Number(bare[1]) : /อายุ/.test(asked) ? ageIn(asked) : undefined;
-  return age !== undefined && age >= 0 && age <= 99 ? { age, sex: slots.sex } : undefined;
+  const age = ageAlone(asked);
+  return slots.sex && age !== undefined ? { age, sex: slots.sex } : undefined;
 }
 
 /** "ไม่ใช่", "ขอเปลี่ยนอายุ": the customer says the bot has them wrong, and says nothing to put it right. */

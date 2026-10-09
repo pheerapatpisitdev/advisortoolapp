@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { answerAny, withoutInvisible } from "@/lib/assistant/dispatch";
 import { answerIShield, type IShieldSlots } from "@/lib/assistant/ishield/answer";
-import { peopleIn } from "@/lib/assistant/common";
+import { ageAlone, peopleIn } from "@/lib/assistant/common";
+import { answerLegacy } from "@/lib/assistant/legacy/answer";
+import { answerPlb } from "@/lib/assistant/plb/answer";
 import { productNamedIn } from "@/lib/assistant/choose";
 
 // real messages from LINE, 2026-10-07 and 10-09: the keyboard put a zero-width space in them
@@ -61,5 +63,34 @@ describe("iShield written without its mark", () => {
   it("ไอชิลด is iShield", () => {
     expect(productNamedIn("ไอชิลด")).toBe("ishield");
     expect(productNamedIn("ไอชิลด์")).toBe("ishield");
+  });
+});
+
+describe("asked about 35, then 'อายุ 56'", () => {
+  const said = ["ขอเบี้ย อายุ 56", "เบี้ยอายุ 56 อีก", "แล้วอายุ 56 ล่ะ", "56", "ถ้า 56 ปี", "ขอ 56", "เปลี่ยนเป็น 56", "56 ปี"];
+
+  it.each(said)("legacy quotes %s at 56", (m) => {
+    const a = answerLegacy(m, { product: "legacy", age: 35, sex: "M", tier: 1, told: true }, "line");
+    expect(a.slots.age).toBe(56);
+    expect(a.slots.sex).toBe("M");
+  });
+
+  it.each(said)("iShield quotes %s at 56", (m) => {
+    const a = answerIShield(m, { ...quoted, age: 35, sex: "M", variant: "WLCI10", termChosen: undefined }, "line");
+    expect(a.slots.age).toBe(56);
+  });
+
+  it.each(said)("PLB quotes %s at 56", (m) => {
+    const a = answerPlb(m, { product: "plb", age: 35, sex: "M", sumAssured: 1_000_000 }, "line");
+    expect(a.slots.age).toBe(56);
+  });
+
+  it("keeps the numbers that are not ages", () => {
+    expect(ageAlone("20 ปี")).toBeUndefined();
+    expect(ageAlone("99")).toBeUndefined();
+    expect(ageAlone("คุ้มครองถึงอายุ 99 ไหม")).toBeUndefined();
+    expect(ageAlone("ทุน 1,000,000")).toBeUndefined();
+    expect(ageAlone("หลังอายุ 60 แล้ว ทุนเหลือ 1,500,000 ใช่ไหม")).toBeUndefined();
+    expect(ageAlone("อายุ 16")).toBe(16);
   });
 });

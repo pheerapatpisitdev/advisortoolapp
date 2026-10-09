@@ -5,7 +5,7 @@ import { plbTable } from "@/lib/plb-table";
 import { writtenFor, type Channel } from "../channel";
 import { CHOOSE_LIFE } from "../choose";
 import {
-  aboutCompany, ageIn, ASKS_SOMETHING, asksAboutCompany, asksAboutMoney, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION,
+  aboutCompany, ageAlone, ageIn, ASKS_SOMETHING, asksAboutCompany, asksAboutMoney, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION,
   saysFormDone, saysUnwell, sexIn, stallReply, stalls, thanksOnly, THANKS_REPLY, wantsToBuy, type Reply,
 } from "../common";
 import { pricedAnswer } from "../priced";
@@ -111,6 +111,7 @@ export function answerPlb(asked: string, previous: PlbSlots | null, channel: Cha
     const bare = /^\s*(\d{1,2})\s*$/.exec(asked);
     const loneAge = ageIn(asked) ?? (age === undefined && bare ? Number(bare[1]) : undefined);
     if (loneAge !== undefined && (age === undefined || /อายุ/.test(asked))) age = loneAge;
+    else if (ageAlone(asked) !== undefined) age = ageAlone(asked) as number;
     // a sex said on its own is a change: "ถ้าเป็นผู้หญิงล่ะ" is the same cover for a woman
     const loneSex = sexIn(asked);
     if (loneSex) sex = loneSex;

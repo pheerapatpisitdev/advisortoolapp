@@ -734,6 +734,25 @@ export function ageIn(text: string): number | undefined {
   return ageSaid(text)?.age ?? ageFromBirthdate(text);
 }
 
+/**
+ * An age said by itself to a conversation that already knows who is being priced — the customer
+ * who asked about 35 and now says "ขอเบี้ย อายุ 56", "56", "ถ้า 56 ปี", "เปลี่ยนเป็น 56".
+ *
+ * Without the word อายุ it has to be nothing but the number, a ปี after it, and the little words
+ * people put round it, and it has to be over twenty and under ninety: below that the same digits are a paying
+ * term ("20 ปี") and a bare "5" is anything at all. A younger age is read when it says อายุ.
+ * Never "ถึงอายุ 99" or "หลังอายุ 60", which are about the contract.
+ */
+export function ageAlone(text: string): number | undefined {
+  // "หลังอายุ 60 ทุนเหลือเท่าไหร่" is about the contract, not a new customer
+  if (/(?:ถึง|หลัง|ก่อน|ตั้งแต่|เกิน|จน|ครบ|ภายใน|ไม่เกิน)\s*อายุ/.test(text)) return undefined;
+  if (/อายุ/.test(text)) return ageSaid(text)?.age;
+  const m = /^\s*(?:ถ้า|ขอ|แล้ว|เปลี่ยนเป็น|เป็น)?\s*(\d{2})\s*(?:ปี)?\s*(?:ค่ะ|คะ|ครับ|ล่ะ|นะคะ|นะครับ|อีก)?\s*$/.exec(text);
+  const age = m ? Number(m[1]) : undefined;
+  // not 99, which is how long the contract runs and the usual answer to "จ่ายกี่ปี"
+  return age !== undefined && age > 20 && age < 90 ? age : undefined;
+}
+
 /** `ageIn`, and whether the customer counted it in months. */
 function ageSaid(text: string): { age: number; inMonths: boolean } | undefined {
   const m = AGE_ALONE.exec(text);
