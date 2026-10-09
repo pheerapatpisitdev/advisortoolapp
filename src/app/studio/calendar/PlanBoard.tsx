@@ -41,7 +41,7 @@ const TONE: Record<PlanState, string> = {
 const WEEKDAYS = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
 /** what a dragged rail piece carries: its own type, so dragged text is not read as a piece */
 const DRAG_TYPE = "application/x-plan-piece";
-const control = "inline-flex min-h-11 items-center gap-1 rounded-md border border-[var(--ct-line)] px-2 disabled:opacity-50";
+const control = "inline-flex min-h-tap items-center gap-1 rounded-md border border-[var(--ct-line)] px-2 disabled:opacity-50";
 
 export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUnplanned, today, listView }: {
   cells: MonthCell[]; planned: PlanCard[]; unplanned: PlanCard[]; today: string; listView: boolean;
@@ -93,7 +93,7 @@ export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUn
       <input
         type="date" min={today} value={dateOf(c)} aria-label={`${label} ${c.title}`}
         onChange={(e) => setDates((d) => ({ ...d, [c.id]: e.target.value }))}
-        className="min-h-11 rounded-md border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 text-xs"
+        className="min-h-tap rounded-md border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 text-xs"
       />
       <button type="button" disabled={busy} onClick={() => place(c, dateOf(c))} className={control}>{action}</button>
     </div>
@@ -143,7 +143,7 @@ export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUn
       {(byDay.get(openDay) ?? []).map(renderCard)}
       {(byDay.get(openDay) ?? []).length === 0 && <p className="text-xs text-[var(--ct-mute)]">วันนี้ยังไม่ได้วางแผน</p>}
       {mayPlanOn(openDay, today) && (
-        <Link href={`/studio/write?day=${openDay}`} className="inline-flex min-h-11 items-center text-sm text-[var(--ct-accent)] underline underline-offset-2">เขียนโพสต์ใหม่สำหรับวันนี้</Link>
+        <Link href={`/studio/write?day=${openDay}`} className="inline-flex min-h-tap items-center text-sm text-[var(--ct-accent)] underline underline-offset-2">เขียนโพสต์ใหม่สำหรับวันนี้</Link>
       )}
     </section>
   );
@@ -184,7 +184,7 @@ export function PlanBoard({ cells, planned: initialPlanned, unplanned: initialUn
                       type="button" aria-pressed={openDay === cell.day}
                       aria-label={`${thaiDayLabel(cell.day)} · ${list.length ? `${list.length} ชิ้น` : "ว่าง"}`}
                       onClick={() => setOpenDay(openDay === cell.day ? null : cell.day)}
-                      className="flex min-h-11 w-full items-start justify-between rounded-md px-1 text-xs text-[var(--ct-mute)] hover:bg-[var(--ct-soft)]"
+                      className="flex min-h-tap w-full items-start justify-between rounded-md px-1 text-xs text-[var(--ct-mute)] hover:bg-[var(--ct-soft)]"
                     >
                       <span>{Number(cell.day.slice(8))}</span>
                       {list.length > 0 && <span className="rounded-full bg-[var(--ct-soft)] px-1.5 font-medium text-[var(--ct-accent)] sm:hidden">{list.length}</span>}

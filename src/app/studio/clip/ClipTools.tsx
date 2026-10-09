@@ -29,7 +29,7 @@ export function ClipTools({ page, onItem, folded, formId }: {
   const [file, setFile] = useState<File | null>(null);
   const [brief, setBrief] = useState("");
   const { busy, progress, note, send } = useClipUpload(onItem);
-  const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
+  const field = "min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
   async function go() {
     if (!file) { input.current?.click(); return; }
@@ -42,7 +42,7 @@ export function ClipTools({ page, onItem, folded, formId }: {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-3 p-3">
       <div id={formId} className={folded ? "hidden lg:block" : ""}>
         <FormSection title="คลิปที่ถ่ายแล้ว">
           <p className="text-xs text-[var(--ct-mute)]">แนวตั้ง · 3–90 วินาที · .mp4 หรือ .mov · ไม่เกิน 300MB — ระบบถอดเสียง ร่างแคปชัน และตรวจคำให้</p>
@@ -51,7 +51,7 @@ export function ClipTools({ page, onItem, folded, formId }: {
             <input
               ref={input} id={`${id}-file`} type="file" accept={CLIP_ACCEPT} disabled={busy}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block w-full min-w-0 text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-solid file:border-[var(--ct-line)] file:bg-[var(--ct-panel)] file:px-3 file:text-sm"
+              className="block w-full min-w-0 text-sm file:mr-3 file:min-h-tap file:rounded-lg file:border file:border-solid file:border-[var(--ct-line)] file:bg-[var(--ct-panel)] file:px-3 file:text-sm"
             />
           </div>
           <div>
@@ -76,7 +76,7 @@ export function ClipTools({ page, onItem, folded, formId }: {
       {note && <p role="status" className="text-sm text-[var(--ct-mute)]">{note}</p>}
       <button
         type="button" onClick={go} disabled={busy}
-        className="min-h-11 w-full rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
+        className="min-h-tap w-full rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
       >
         {busy ? uploadLabel(progress) : file ? "อัปโหลดคลิป" : "เลือกไฟล์คลิป"}
       </button>

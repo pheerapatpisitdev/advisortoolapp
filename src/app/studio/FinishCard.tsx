@@ -67,7 +67,7 @@ export function FinishCard({ item, output, format, onSaved }: {
       <ul className="mt-1">
         {ticks.map((t) => (
           <li key={t.id}>
-            <label className="flex min-h-11 cursor-pointer items-center gap-2.5">
+            <label className="flex min-h-tap cursor-pointer items-center gap-2.5">
               <input type="checkbox" checked={done.includes(t.id)} disabled={saving} onChange={() => void toggle(t.id)} className="size-5 shrink-0" />
               <span>
                 {t.label}

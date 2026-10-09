@@ -26,7 +26,7 @@ export function PlanPanel({ item, suggestDay, onSaved }: { item: ContentItem; su
   }
 
   const plan = item.plan;
-  const button = "min-h-11 rounded-lg border border-[var(--ct-line)] px-3 text-sm disabled:opacity-50";
+  const button = "min-h-tap rounded-lg border border-[var(--ct-line)] px-3 text-sm disabled:opacity-50";
   return (
     <section aria-label="วางแผน" className="mt-4 space-y-2 rounded-xl border border-[var(--ct-line)] p-3">
       <h3 className="text-sm font-semibold">วางแผน</h3>
@@ -36,7 +36,7 @@ export function PlanPanel({ item, suggestDay, onSaved }: { item: ContentItem; su
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <input type="date" value={day} min={today} onChange={(e) => setDay(e.target.value)} aria-label="วันที่จะโพสต์" className="min-h-11 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 text-sm" />
+        <input type="date" value={day} min={today} onChange={(e) => setDay(e.target.value)} aria-label="วันที่จะโพสต์" className="min-h-tap rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 text-sm" />
         <button type="button" disabled={busy || !mayPlanOn(day, today) || plan?.day === day} onClick={() => run(() => planPiece({ id: item.id, day }))} className={`${button} bg-[var(--ct-solid)] font-medium text-[var(--ct-solid-ink)]`}>
           {plan ? "ย้ายไปวันนี้" : "วางแผน"}
         </button>

@@ -38,7 +38,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   return (
     <div className="max-w-[1000px] space-y-4">
       {backTo && (
-        <Link href={backTo} className="-ml-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+        <Link href={backTo} className="-ml-1 inline-flex min-h-tap items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
           ← {backTo.includes("open=") ? "กลับไปชิ้นงานที่แก้อยู่" : "กลับไป Organic Studio"}
         </Link>
       )}

@@ -113,8 +113,8 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
   };
   const flags = v?.flags;
   const captionWarnings = flags ? flags.words.length + flags.numbers.length + (flags.policy?.length ?? 0) : 0;
-  const button = "min-h-11 rounded-lg border border-[var(--ct-line)] px-4 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
-  const chip = (on: boolean) => `min-h-11 rounded-lg border px-3 text-sm ${on ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] hover:bg-[var(--ct-soft)]"}`;
+  const button = "min-h-tap rounded-lg border border-[var(--ct-line)] px-4 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
+  const chip = (on: boolean) => `min-h-tap rounded-lg border px-3 text-sm ${on ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] hover:bg-[var(--ct-soft)]"}`;
   // the editor needs words to cut by and a file to cut; a held Reel's editor only shows what was made
   const canEdit = Boolean(clipEditing && v && !v.expired && (v.transcript?.length ?? 0) > 0 && (!locked || edit?.proxyPath));
 
@@ -124,7 +124,7 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
   return (
     <section className="space-y-4 rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">
       <div>
-        <button type="button" onClick={leave} className="-ml-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+        <button type="button" onClick={leave} className="-ml-1 inline-flex min-h-tap items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
           <BackIcon className="size-4" />
           กลับไปรายการ
         </button>
@@ -214,7 +214,7 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
                 <ul className="mt-1">
                   {(v.spokenFlags ?? []).map((f, i) => (
                     <li key={i}>
-                      <button type="button" onClick={() => seek(f.at)} className="min-h-11 text-left text-[var(--ct-warn-ink)] underline decoration-dotted underline-offset-2">
+                      <button type="button" onClick={() => seek(f.at)} className="min-h-tap text-left text-[var(--ct-warn-ink)] underline decoration-dotted underline-offset-2">
                         <span className="tabular-nums">{clockOf(f.at)}</span> · {f.message}
                       </button>
                     </li>
@@ -225,7 +225,7 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
               )}
               <p className="mt-1 text-xs text-[var(--ct-mute)]">ระบบถอดเสียงอาจได้ยินผิด — กดเวลาเพื่อฟังตรงนั้น</p>
               <details className="mt-2">
-                <summary className="flex min-h-11 cursor-pointer items-center">ข้อความที่ถอดได้</summary>
+                <summary className="flex min-h-tap cursor-pointer items-center">ข้อความที่ถอดได้</summary>
                 <ol className="mt-1 space-y-1">
                   {v.transcript.map((s, i) => (
                     <li key={i} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-2">
@@ -242,7 +242,7 @@ export function ClipEditor({ item, planner, onSaved, onPublished, onStatus, onIt
 
       {v && (
         <details className="text-sm">
-          <summary className="flex min-h-11 cursor-pointer items-center text-[var(--ct-mute)]">ข้อความที่จะขึ้นพร้อมคลิป</summary>
+          <summary className="flex min-h-tap cursor-pointer items-center text-[var(--ct-mute)]">ข้อความที่จะขึ้นพร้อมคลิป</summary>
           <p className="whitespace-pre-line rounded-lg bg-[var(--ct-ground)] p-3 leading-relaxed">{reelDescription({ ...item.output, video: { ...v, caption } })}</p>
         </details>
       )}

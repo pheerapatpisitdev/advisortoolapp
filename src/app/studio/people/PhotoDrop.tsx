@@ -7,7 +7,7 @@ const ACCEPT = ["image/jpeg", "image/png", "image/webp"];
 /** an upload tray: a picture with an arrow rising out of it */
 function UploadIcon() {
   return (
-    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-7">
+    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="size-6">
       <path d="M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5M12 15V4.5M7.5 9 12 4.5 16.5 9" />
     </svg>
   );
@@ -74,7 +74,7 @@ export function PhotoDrop({ files, onChange, limit, minSide }: { files: File[]; 
         onDragOver={(e) => { e.preventDefault(); if (!full) setOver(true); }}
         onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); if (!full) take(e.dataTransfer.files); }}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-4 text-center transition-colors ${
           full ? "cursor-not-allowed border-[var(--ct-hair)] opacity-60"
             : over ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]"
               : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:border-[var(--ct-solid)] hover:bg-[var(--ct-soft)] hover:text-[var(--ct-accent)]"

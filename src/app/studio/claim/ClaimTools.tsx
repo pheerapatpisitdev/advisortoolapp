@@ -35,10 +35,10 @@ type ReadReply = ReadOk | { ok: false; error: string };
 const READ_THB = 0.2;
 
 const chip = (on: boolean) =>
-  `inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
+  `inline-flex min-h-tap items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
     ? "border-[var(--ct-solid)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]"
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
-const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
+const field = "min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
 export function ClaimTools({ writer, onWriter, painter, onPainter, people, person, onPerson, brief, onBrief, logo, rounds, reader, onReader, left, pending, making, run, folded, formId }: {
   writer: string;
@@ -204,7 +204,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
 
   return (
     <>
-      <div id={formId} className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>
+      <div id={formId} className={`space-y-3 p-3 ${folded ? "hidden lg:block" : ""}`}>
         <div>
           <span className="mb-1 block text-sm font-medium">เอกสารเคลม <span className="font-normal text-[var(--ct-mute)]">(ไม่เกิน {MAX_DOCS} รูป)</span></span>
           <PhotoDrop files={files} onChange={pickFiles} limit={MAX_DOCS} />

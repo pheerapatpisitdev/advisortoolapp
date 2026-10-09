@@ -12,7 +12,7 @@ export function TodayPlan({ items }: { items: { id: string; title: string }[] })
       <p className="flex items-center gap-2"><CalendarIcon className="size-4 shrink-0" />วันนี้มีงานตามแผน <b>{items.length} ชิ้น</b></p>
       <ul className="space-y-0.5 pl-6">
         {items.map((p) => (
-          <li key={p.id}><a href={`/studio/write?open=${p.id}`} className="inline-flex min-h-11 items-center underline underline-offset-2">{p.title}</a></li>
+          <li key={p.id}><a href={`/studio/write?open=${p.id}`} className="inline-flex min-h-tap items-center underline underline-offset-2">{p.title}</a></li>
         ))}
       </ul>
     </div>
