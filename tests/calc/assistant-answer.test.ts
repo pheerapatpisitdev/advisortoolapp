@@ -89,7 +89,7 @@ describe("a budget instead of a sum", () => {
 
   it("reads a budget by the day as that many baht over a year, and says it back by the day", async () => {
     const { budgetIn } = await import("@/lib/assistant/common");
-    for (const day of [20, 30, 50, 70, 100]) {
+    for (const day of [30, 50, 100, 150, 200]) {
       for (const text of [`สนใจประกันมรดก ${day} บาทต่อวัน`, `วันละ ${day} บาท`, `${day}บาท/วัน`]) {
         expect(budgetIn(text), text).toEqual({ baht: day * 365, per: "year", perDay: day });
       }
@@ -102,7 +102,7 @@ describe("a budget instead of a sum", () => {
     expect(budgetIn("เดือนละ 1000")).toEqual({ baht: 1000, per: "month" });
   });
 
-  it.each([20, 30, 50, 70, 100])("prices %i baht a day as the annual instalment it adds up to", async (day) => {
+  it.each([30, 50, 100, 150, 200])("prices %i baht a day as the annual instalment it adds up to", async (day) => {
     routed = { intent: "other" };
     const table = lifeProtectTable();
     const answer = await answerQuestion(said(`${day} บาทต่อวัน`), { intent: "quote", age: 35, sex: "M" });
