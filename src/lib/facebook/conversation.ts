@@ -15,7 +15,7 @@ import { attribute, openConversation, openLead, record, type RecordedEvent } fro
 import { WANTS_IN } from "@/lib/assistant/common";
 import { pagePathFor } from "@/lib/quote-pdf/link";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
-import { botTurn, keepTranscript } from "@/lib/chat/transcript";
+import { botTurn, keepTranscript, wroteJustBefore } from "@/lib/chat/transcript";
 import { isExpatPage, languageOf } from "@/lib/assistant/expat";
 import { loadWelcome } from "@/lib/chat/page-welcome-store";
 import type { PageWelcome } from "@/lib/assistant/page-welcome";
@@ -333,6 +333,16 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
     // nothing — a mark that was not there when this answer began is theirs, just now.
     const marked = (await loadSession("facebook", userHash)).mutedUntil;
     if (marked !== markedBefore && isMuted(marked)) return;
+    /**
+     * The Page's greeting is for a customer's first word. A second message typed before the
+     * first was answered reads an empty session too, and would send the welcome pictures and
+     * greeting on top of the first one's answer (2026-10-09), so it says nothing and leaves the
+     * session to the turn that is answering — its save is the one that must stand.
+     */
+    if (answer.messages[0]?.opening && (await wroteJustBefore("facebook", userHash, text))) {
+      await record(conversationId, ledger, productOf(session.slots));
+      return;
+    }
     for (const [i, said] of answer.messages.entries()) {
       // a second bubble arrives the way a person's would: after the dots, and after a pause
       // that scales with how much there was to type
