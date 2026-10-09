@@ -798,7 +798,9 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
       // a dash rather than a nought: the year is not worth nothing, there is nothing to pay
       due: r.premiumDue ? baht(r.premiumDue) : "—",
       ...(riderDue ? { rider: r.riderDue ? baht(r.riderDue) : "—" } : {}),
-      paid: r.premiumPaid === null ? null : baht(r.premiumPaid),
+      // the running total stops with the paying, as the page's table has it — a dash after
+      // the last premium, not the same figure repeated to the end of the contract
+      paid: r.premiumPaid === null || !(r.premiumDue || r.riderDue) ? null : baht(r.premiumPaid),
       cash: baht(r.cashValue),
       cover: baht(r.cover),
       // a dash in the last year: what maturity pays is the surrender column's own last figure

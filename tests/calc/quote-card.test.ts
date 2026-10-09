@@ -213,14 +213,18 @@ describe("the value table card", () => {
     expect(rows[8].due).toBe("54,600");
     // a dash, not a nought: there is nothing to pay, the year is not worth nothing
     expect(rows[9].due).toBe("—");
-    // and what has been paid stops climbing with it
-    expect(rows[8].paid).toBe(rows[9].paid);
+    // and the running total goes with it: shown for the paying years only (owner, 2026-10-09)
+    expect(rows[8].paid).not.toBeNull();
+    expect(rows[9].paid).toBeNull();
   });
 
   it("marks the year the policy is first worth what has gone into it", () => {
     const marked = valueTableCard(NINE_YEARS, WHILE_CURRENT)!.rows.filter((r) => r.breakEven);
     expect(marked).toHaveLength(1);
-    expect(Number(marked[0].cash!.replace(/,/g, ""))).toBeGreaterThanOrEqual(Number(marked[0].paid!.replace(/,/g, "")));
+    // the running total may already be a dash by then, so measure against the last one shown
+    const rows = valueTableCard(NINE_YEARS, WHILE_CURRENT)!.rows;
+    const lastPaid = rows.filter((r) => r.paid !== null).at(-1)!.paid!;
+    expect(Number(marked[0].cash!.replace(/,/g, ""))).toBeGreaterThanOrEqual(Number(lastPaid.replace(/,/g, "")));
   });
 });
 

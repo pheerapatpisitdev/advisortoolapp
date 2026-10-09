@@ -45,9 +45,10 @@ describe("the table iSmart is drawn as", () => {
     expect(card.premiumLine).toBe("เบี้ย 287,000 บาทต่อปี · ชำระ 6 ปี");
     expect(card.rows.slice(0, 6).map((r) => r.due)).toEqual(Array(6).fill("287,000"));
     expect(card.rows[6].due).toBe("—");
-    // ตารางแสดงผลประโยชน์ E: the premiums stop accumulating once they stop being paid
+    // the running total is shown for the paying years only (owner, 2026-10-09), then a dash
     expect(card.rows[5].paid).toBe("1,722,000");
-    expect(card.rows[35].paid).toBe("1,722,000");
+    expect(card.rows[6].paid).toBeNull();
+    expect(card.rows[35].paid).toBeNull();
   });
 
   it("hands back 1% of the sum for five years and 2% after that", () => {
