@@ -58,7 +58,7 @@ const H = {
   hairline: 1,
   afterHairline: 22,
   caption: 40,
-  head: 44,
+  head: 50,
   row: 36,
   /** the closing line: the room above it, and each line of it */
   quoteGap: 34,
@@ -204,9 +204,11 @@ function Half(
 ) {
   return (
     <div style={{ display: "flex", flexDirection: "column", width: half, flexShrink: 0 }}>
-      <div style={{ ...band(H.head), width: half, fontSize: 21, borderBottom: `1px solid ${p.hair}` }}>
+      {/* the column names on a navy bar, white and heavy (owner, 2026-10-10): set thin at 21 in
+          the body ink they were smaller than the figures under them and read as one more row */}
+      <div style={{ ...band(H.head), width: half, fontSize: 24, fontWeight: 600, background: p.figure }}>
         {columns.map((c, i) => (
-          <Cell key={c} i={i} cols={cols} height={H.head - 1} color={p.ink} rule={p.rule}>{c}</Cell>
+          <Cell key={c} i={i} cols={cols} height={H.head} color="#ffffff" rule="rgba(255,255,255,0.35)">{c}</Cell>
         ))}
       </div>
       {rows.map((r, n) => {

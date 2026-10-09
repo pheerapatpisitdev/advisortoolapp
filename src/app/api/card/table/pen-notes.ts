@@ -154,7 +154,8 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
     const ringLeft = end(cover) - g.cellPad + RING_PAD - (figureWidth(rows[0].cover) + RING_PAD * 2);
     // set well left of the ring, so the arrow comes down clear of the column's heading
     const labelRight = ringLeft - 56;
-    notes.labels.push({ text: COVER_WORD, right: total - labelRight, top: 0, size: 28, tilt: -3 });
+    // lifted clear of the navy heading bar, which its lower vowels used to dip into
+    notes.labels.push({ text: COVER_WORD, right: total - labelRight, top: -8, size: 28, tilt: -3 });
     notes.strokes.push(...arrow(labelRight + 4, g.caption * 0.6, ringLeft - 30, g.caption + g.head * 0.7, ringLeft + 4, top(0) + 8));
   }
 
