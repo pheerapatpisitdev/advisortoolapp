@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { valueTablePath } from "@/lib/card-link";
 import { cardInputFrom, cardPath, cardUrl, quoteCard, valueTableCard, valueTableChart, type CardInput, type PlanCardInput, type QuoteCard } from "@/lib/quote-card";
+import { getPlan } from "@/calc/plans/registry";
 
 /** The rate table behind these figures lapses on 2027-03-31. */
 const WHILE_CURRENT = new Date("2026-09-05");
@@ -111,28 +112,27 @@ describe("quoteCard", () => {
     expect(quoteCard(MAN35, WHILE_CURRENT)!.sections.map((s) => s.title)).toEqual([DEATH]);
   });
 
-  /** Easy Protect's page still lists its milestones, so its card still does. */
+  /**
+   * The other pages with a year-by-year table dropped their milestone lists too (owner,
+   * 2026-10-10: "we have the table"), and their cards follow.
+   */
   const EASY35: CardInput = {
     kind: "plan", planCode: "EASYPROTECT", variant: "W99F06A", age: 35, sex: "M", sumAssured: 1_000_000,
   };
 
-  it("quotes the surrender value at the milestones still ahead", () => {
-    expect(section(quoteCard(EASY35, WHILE_CURRENT)!, CASH)!.rows).toEqual([
-      { label: "อายุ 60 ปี", amount: "503,000" },
-      { label: "อายุ 70 ปี", amount: "632,000" },
-      { label: "อายุ 80 ปี", amount: "776,000" },
-      { label: "อายุ 99 ปี", amount: "1,000,000" },
-    ]);
+  it("draws no milestone list for Easy Protect, as its page shows the table instead", () => {
+    expect(quoteCard(EASY35, WHILE_CURRENT)!.sections.map((s) => s.title)).toEqual([DEATH]);
   });
 
-  /** The order the bands are drawn in is the order the customer reads them. */
-  it("puts what the family receives above what surrender would return", () => {
-    expect(quoteCard(EASY35, WHILE_CURRENT)!.sections.map((s) => s.title)).toEqual([DEATH, CASH]);
-  });
-
-  it("leaves out the milestones an older insured has already passed", () => {
-    const rows = section(quoteCard({ ...EASY35, age: 65 }, WHILE_CURRENT)!, CASH)!.rows;
-    expect(rows.map((r) => r.label)).toEqual(["อายุ 70 ปี", "อายุ 80 ปี", "อายุ 99 ปี"]);
+  /** A plan with no page table keeps its milestones, still ahead of the insured. */
+  it("keeps the milestones for a plan whose page has no table (iSmart)", () => {
+    const card = quoteCard(
+      { kind: "plan", planCode: "ISMART", variant: Object.keys(getPlan("ISMART")!.variantLabels)[0], age: 35, sex: "M", sumAssured: 1_000_000 },
+      WHILE_CURRENT,
+    );
+    const rows = card && section(card, CASH)?.rows;
+    expect(rows?.length).toBeGreaterThan(0);
+    expect(rows!.every((r) => r.label.startsWith("อายุ "))).toBe(true);
   });
 
   /** A card is a picture of a price, and a lapsed table has no price to show. */
@@ -162,8 +162,8 @@ describe("quoteCard", () => {
       title: "ครอบครัวได้รับเมื่อเสียชีวิต",
       rows: [{ label: "ทุกช่วงอายุ ถึงอายุ 99", amount: "10,000,000", mark: true }],
     });
-    // the surrender table was extracted for this plan, so the card carries it, and its table the chart
-    expect(section(card, CASH)).toBeDefined();
+    // its page shows the year-by-year table, so the card carries no milestone list; the table has the chart
+    expect(section(card, CASH)).toBeUndefined();
     expect(valueTableChart(
       { kind: "plan", planCode: "LIFETREASURE", variant: "H99F18A", age: 45, sex: "M", sumAssured: 10_000_000 },
       888, WHILE_CURRENT,
@@ -241,8 +241,8 @@ describe("the iShield card", () => {
     new Date("2026-09-05"),
   )!;
 
-  it("leads with what the contract pays, before what it is worth on surrender", () => {
-    expect(card.sections.map((s) => s.title)).toEqual(["รับเงินก้อนเมื่อ", "มูลค่าเงินสดสะสม (หากเวนคืน)"]);
+  it("leads with what the contract pays, and leaves the surrender values to its table", () => {
+    expect(card.sections.map((s) => s.title)).toEqual(["รับเงินก้อนเมื่อ"]);
     expect(card.sections[0].rows).toEqual([
       { label: "ตรวจพบโรคร้ายแรงระยะรุนแรง (50 โรค)", amount: "1,000,000", mark: true },
       { label: "ตรวจพบระยะเริ่มต้น (20 โรค) ต่อโรค", amount: "250,000" },

@@ -244,6 +244,8 @@ function quoteInput(input: PlanCardInput, mode: PayMode): QuoteInput {
 }
 
 const CASH_TITLE = "มูลค่าเงินสดสะสม (หากเวนคืน)";
+/** the plans whose page and value-table picture show every year, so no milestone list */
+const TABLE_PLANS = new Set([LIFEPROTECT_PLAN, "LIFETREASURE", "EASYPROTECT", "ISHIELD"]);
 
 /**
  * The death benefit as a card block. Shared rather than written per card, because the bands
@@ -599,9 +601,9 @@ function planCard(input: PlanCardInput, today: Date): QuoteCard | undefined {
     const death = deathSection(result.deathBenefit);
     sections.push(ownBenefits ? death : markRow(death, "largest"));
   }
-  // the Life Protect page dropped its milestone list (owner, 2026-10-06) — the chart and the
-  // year-by-year table carry every one of them — so its card drops it too
-  const cashRows = lifeProtect ? [] : cashRowsFor(input.planCode, input.variant, input.sex, input.age, input.sumAssured);
+  // the pages with a year-by-year table dropped their milestone list — Life Protect first
+  // (owner, 2026-10-06), the rest on 2026-10-10: "we have the table" — so their cards drop it too
+  const cashRows = TABLE_PLANS.has(input.planCode) ? [] : cashRowsFor(input.planCode, input.variant, input.sex, input.age, input.sumAssured);
   if (cashRows.length) {
     const cash = { title: CASH_TITLE, rows: cashRows };
     // a savings plan with no death block of its own (iSmart) is bought for what it ends on

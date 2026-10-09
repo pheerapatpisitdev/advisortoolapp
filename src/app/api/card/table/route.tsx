@@ -209,7 +209,7 @@ function Half(
           the body ink they were smaller than the figures under them and read as one more row */}
       <div style={{ ...band(H.head), width: half, fontSize: 24, fontWeight: 600, background: p.figure }}>
         {columns.map((c, i) => (
-          <Cell key={c} i={i} cols={cols} height={H.head} color="#ffffff" rule="rgba(255,255,255,0.35)">{c}</Cell>
+          <Cell key={c} i={i} cols={cols} height={H.head} color={p.ground} rule="rgba(255,255,255,0.35)">{c}</Cell>
         ))}
       </div>
       {rows.map((r, n) => {

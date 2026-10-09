@@ -320,18 +320,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
           {cash.length > 0 && (
             <div className="pt-1">
               <hr className="lg-rule" />
-              <div className="pt-4 text-sm text-[var(--lg-mute)]">มูลค่าเงินสดสะสม (หากเวนคืน)</div>
-              <dl className="mt-2 space-y-2">
-                {cash.map((row) => (
-                  <div key={row.age} className="flex items-baseline justify-between gap-3">
-                    <dt className="text-sm text-[var(--lg-mute)]">อายุ {row.age} ปี</dt>
-                    <dd className="lg-figure text-lg tabular-nums text-[var(--lg-white)]">
-                      {row.amount.toLocaleString("en-US")} บาท
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-
+              {/* the milestone list is gone (owner, 2026-10-10): the chart and the year-by-year table under it carry every age */}
               {projection && (
                 <>
                   {/* a new term, age or sex is a different contract, so the readout goes back

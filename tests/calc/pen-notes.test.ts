@@ -13,13 +13,15 @@ const notesFor = (input: PlanCardInput) => {
 const texts = (input: PlanCardInput) => notesFor(input).notes.labels.map((l) => l.text);
 
 describe("the red-pen notes on the value table (owner's markup, 2026-10-09)", () => {
-  it("writes all four on a contract paid for 19 years", () => {
+  it("writes all five on a contract paid for 19 years", () => {
     const { notes } = notesFor(MAN35);
-    expect(texts(MAN35)).toEqual(["เบี้ยคงที่", "หยุดส่งเบี้ย", "อนุมัติ คุ้มครองเลย"]);
+    // the last three are one note, written a line at a time beside the years after break-even (2026-10-10)
+    expect(texts(MAN35)).toEqual(["เบี้ยคงที่", "หยุดส่งเบี้ย", "อนุมัติ คุ้มครองเลย", "เบี้ยไม่ทิ้งเปล่า", "สามารถเก็บเป็นเงินสด", "หลังเกษียณได้"]);
     // the last paying year and the first year's cover are ringed
     expect(notes.rings).toEqual([{ row: 18, column: "ปีที่" }, { row: 0, column: "คุ้มครอง" }]);
-    // brace, stop arrow (line + head), cover arrow (line + head), break-even arrow (line + head)
-    expect(notes.strokes).toHaveLength(7);
+    // brace, stop arrow (line + head), cover arrow (line + head), break-even arrow (line + head),
+    // and the brace down the years after break-even
+    expect(notes.strokes).toHaveLength(8);
   });
 
   it("has nothing to stop on a contract paid to the end", () => {
@@ -32,7 +34,8 @@ describe("the red-pen notes on the value table (owner's markup, 2026-10-09)", ()
     const { card } = notesFor(MAN35);
     const unpriced = { ...card, rows: card.rows.map((r) => ({ ...r, due: "—", paid: null })) };
     const labels = penNotes(unpriced, GEO).labels.map((l) => l.text);
-    expect(labels).toEqual(["อนุมัติ คุ้มครองเลย"]);
+    // the note after break-even is about the surrender values, which are still shown
+    expect(labels).toEqual(["อนุมัติ คุ้มครองเลย", "เบี้ยไม่ทิ้งเปล่า", "สามารถเก็บเป็นเงินสด", "หลังเกษียณได้"]);
     expect(needsBraceRoom(unpriced)).toBe(false);
   });
 
