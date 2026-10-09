@@ -656,7 +656,7 @@ describe("a round ticked for expats (spec 2026-10-02)", () => {
     const reply = () => ai.chat
       .mockResolvedValueOnce({ text: JSON.stringify({ plans: [{ hook: "Hospital bills add up", angle: "a" }] }), model: "m", costThb: 0, outputTokens: 10 })
       .mockResolvedValueOnce({ text: JSON.stringify({ body: "Private hospitals charge in full.", closing: "Message us.", hashtags: [], imagePrompt: "a ward" }), model: "m", costThb: 0, outputTokens: 10 });
-    const ask = { href: "/ihealthy-ultra", format: "post" as const, angle: "expat_hospital", custom: "", length: null, count: 1, hookTemplateId: null, expat: true };
+    const ask = { href: "/ihealthy-ultra", format: "post" as const, angle: "expat_hospital" as const, custom: "", length: null, count: 1, hookTemplateId: null, expat: true };
     reply();
     await generateContent(ask);
     expect(planned()).toContain("ประโยคเปิดเดิมของเพจ");
