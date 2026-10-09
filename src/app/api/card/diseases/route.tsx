@@ -4,6 +4,7 @@ import { pngResponse } from "@/lib/draw-png";
 import type { NextRequest } from "next/server";
 import { diseaseListFor } from "@/lib/copilot/knowledge";
 import { CARD_PALETTE, type CardPalette } from "@/lib/card-theme";
+import { SiteFooter, SITE_FOOTER_H } from "../site-footer";
 import { DISEASE_CARD_KEYS, toCanonical } from "../canonical";
 
 export const runtime = "nodejs";
@@ -171,7 +172,8 @@ export async function GET(req: NextRequest) {
   const height = PAD * 2
     + H.title + (grouped ? H.count : 0)
     + H.gap + H.hairline + H.afterHairline
-    + list.groups.reduce((n, g) => n + groupHeight(g.diseases, grouped), 0);
+    + list.groups.reduce((n, g) => n + groupHeight(g.diseases, grouped), 0)
+    + SITE_FOOTER_H;
 
   return pngResponse(
     (
@@ -203,6 +205,7 @@ export async function GET(req: NextRequest) {
         {list.groups.map((g) => (
           <Group key={g.title} title={g.title} names={g.diseases} p={p} heading={grouped} />
         ))}
+        <SiteFooter color={p.mute} />
 
       </div>
     ),

@@ -4,6 +4,7 @@ import { pngResponse } from "@/lib/draw-png";
 import { insuredFace } from "./insured-face";
 import { highlighterUri } from "@/lib/highlighter";
 import { NextResponse, type NextRequest } from "next/server";
+import { SiteFooter, SITE_FOOTER_H } from "./site-footer";
 import { cardInputFrom, quoteCard, type CardRow, type CardSummary, type QuoteCard } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { QUOTE_CARD_ONLY_KEYS, toCanonical } from "./canonical";
@@ -107,7 +108,8 @@ function heightOf(card: QuoteCard): number {
     + (card.summary ? H.boxGap + boxHeight(card.summary) : 0)
     + (card.priceNote ? H.noteGap + notesHeight([card.priceNote]) : 0)
     + (card.footNotes?.length ? H.gap + H.hairline + H.noteGap + notesHeight(card.footNotes) : 0)
-    + card.sections.reduce((h, s) => h + (s.items?.length ? listSectionHeight(s.items) : sectionHeight(s.rows)), 0);
+    + card.sections.reduce((h, s) => h + (s.items?.length ? listSectionHeight(s.items) : sectionHeight(s.rows)), 0)
+    + SITE_FOOTER_H;
 }
 
 /** A band that keeps its height whatever else is on the card. */
@@ -508,6 +510,7 @@ export async function GET(req: NextRequest) {
             ))}
           </div>
         ) : null}
+        <SiteFooter color={p.mute} />
 
       </div>
     ),

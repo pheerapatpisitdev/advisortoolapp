@@ -261,8 +261,8 @@ export function cardQuery(table: IHealthyTable, v: IHealthyInitial): string {
   // Bump this when the card input contract changes. Without a cache key, an image already
   // cached by a browser, Messenger, or a CDN can survive after the calculator has switched
   // from the old 150,000-baht base to the 50,000-baht Health Ultra Package. 7: drawn with
-  // satori 0.33, which stacks Thai tone marks (src/lib/draw-png.ts).
-  return `${queryFrom(table, v)}&v=${cardPaletteVersion(CARD_PALETTE)}&cv=7`;
+  // satori 0.33, which stacks Thai tone marks (src/lib/draw-png.ts). 8: "Design by www.unitclub.app" footer.
+  return `${queryFrom(table, v)}&v=${cardPaletteVersion(CARD_PALETTE)}&cv=8`;
 }
 
 /**

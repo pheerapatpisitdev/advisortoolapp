@@ -11,6 +11,7 @@ import { BRACE_ROOM, PEN_TEXT, RING_PAD, needsBraceRoom, penNotes, penSvgUri, ty
 import { googleFontSubset } from "@/lib/google-font";
 import { Chart, chartBlockHeight } from "../chart-drawing";
 import { quoteFor } from "@/lib/life-quotes";
+import { SiteFooter, SITE_FOOTER_H } from "../site-footer";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -272,7 +273,8 @@ function heightOf(card: ValueTableCard, chart: CardChart | undefined, quote: str
     + H.plan + H.insured + H.premium
     + H.gap + H.hairline + H.afterHairline
     + H.caption + H.head + perHalf * H.row
-    + H.quoteGap + quoteLines(quote, width - PAD * 2) * H.quoteLine;
+    + H.quoteGap + quoteLines(quote, width - PAD * 2) * H.quoteLine
+    + SITE_FOOTER_H;
 }
 
 /**
@@ -423,6 +425,7 @@ export async function GET(req: NextRequest) {
         >
           {quote}
         </div>
+        <SiteFooter color={p.mute} />
 
       </div>
     ),
