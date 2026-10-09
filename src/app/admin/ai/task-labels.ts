@@ -45,6 +45,8 @@ const LABEL: Record<string, string> = {
   "content-showcase-read": "Studio — อ่านรูปผลงาน",
   "content-claim-read": "Studio — อ่านเอกสารเคลม",
   "content-describe-picture": "Studio — อ่านรูปเป็นพรอมต์",
+  "content-thumbnail": "Studio — ภาพปกคลิป",
+  "content-thumbnail-ideas": "Studio — คิดหัวปกคลิป",
   "content-clip": "Studio — ตัดคลิป (เลือกช่วง)",
   "content-edit": "Studio — เรนเดอร์คลิป",
   // trials and checks

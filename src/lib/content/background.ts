@@ -48,7 +48,7 @@ const PALETTE: Record<Theme, string> = {
 };
 
 /** what an insurance advertisement must never picture, whatever the scene */
-const AVOID = [
+export const AVOID = [
   "hospital gore, blood, injuries, needles close-up",
   "funerals, coffins, graves, grieving at a deathbed",
   "piles of cash, gold, gambling imagery",
