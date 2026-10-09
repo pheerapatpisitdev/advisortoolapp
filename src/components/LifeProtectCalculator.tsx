@@ -30,19 +30,21 @@ import { budgetFit, type PageBudget } from "@/lib/budget-sum";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
 import { legacyFromDeath } from "@/lib/legacy-headline";
 
-// the nearest stop to a million, which is no longer one itself
-const SUM_START_INDEX = LIFEPROTECT_SUMS.indexOf(950_000);
+/** The sum the page opens on (owner, 2026-10-10). A million is not one of the slider's steps, so it goes in as one more stop. */
+const SUM_START = 1_000_000;
+const START_SUMS: readonly number[] = LIFEPROTECT_SUMS.includes(SUM_START)
+  ? LIFEPROTECT_SUMS
+  : [...LIFEPROTECT_SUMS, SUM_START].sort((a, b) => a - b);
+const SUM_START_INDEX = START_SUMS.indexOf(SUM_START);
 /** The budget the field opens on when a visitor switches to naming one: the figure the agency hears most. */
 const BUDGET_START: PageBudget = { baht: 100_000, per: "year" };
 /** A sum on a term button, short enough for a third of a phone screen: "5.8 ล้าน", "8.5 แสน". */
 const sumShort = (n: number) => (n >= 1_000_000 ? `${+(n / 1_000_000).toFixed(2)} ล้าน` : `${+(n / 100_000).toFixed(1)} แสน`);
 /**
- * The term the page opens on: the one that puts the smallest number in front of a stranger.
- * The other two are a tap away with their own prices already on them, so opening cheap costs
- * nothing — and the figure the hero quotes comes from this term too, so the page does not
- * promise one price above the fold and show another below it.
+ * The term the page opens on: pay for 19 years (owner, 2026-10-10). The other two are a tap
+ * away with their own prices already on them.
  */
-const TERM_START = "WLF99H";
+const TERM_START = "WLF19H";
 /**
  * The age the page opens on. A visitor arriving from an ad sees a real price before touching
  * anything — an empty card asking to be filled in is one more thing to do before the number
@@ -111,7 +113,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     [table.ageMin, table.ageMax],
   );
   // the slider's stops; a link from the chat can add one more, a sum the steps skip (a million)
-  const [sums, setSums] = useState<readonly number[]>(LIFEPROTECT_SUMS);
+  const [sums, setSums] = useState<readonly number[]>(START_SUMS);
   const [sumIndex, setSumIndex] = useState(SUM_START_INDEX);
   // by what the visitor can pay instead of by a sum: the page finds the biggest sum that fits
   const [byBudget, setByBudget] = useState(false);
