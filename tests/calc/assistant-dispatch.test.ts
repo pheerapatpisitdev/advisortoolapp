@@ -246,7 +246,7 @@ describe("a sum and what it doubles to", () => {
       routed = r;
       const answer = await answerAny(said("ทุน 2,500,000 เพิ่มเป็น 5,000,000 หละคะ"), stored);
       expect(answer.priced, JSON.stringify(r)).toBe(true);
-      expect(answer.messages[0].text, JSON.stringify(r)).toContain("ทุน 2,500,000 บาท เพิ่มเป็น 5,000,000");
+      expect(answer.messages[0].text, JSON.stringify(r)).toContain("ทุน 2,500,000 บาท\n💵 แถมฟรี เพิ่มเป็น 5,000,000");
     }
   });
 });

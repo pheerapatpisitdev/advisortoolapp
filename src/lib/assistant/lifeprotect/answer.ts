@@ -764,12 +764,24 @@ function hasQuote(slots: Routed): boolean {
   return slots.age !== undefined && slots.sex !== undefined && slots.coverWanted !== undefined;
 }
 
-/** The terms this quote did not take, offered by name so the customer can ask for one. */
+/**
+ * The owner's promotion under the quote (2026-10-09): one place to edit when it changes or
+ * ends — the calendar and the KTC instalment offer are time-limited.
+ */
+const PROMO_LINES = [
+  "✅ เงินไม่ทิ้ง",
+  "✅ ไม่กินเปล่า เก็บออม",
+  "✅ มีมูลค่าเงินสดในบัญชีกู้ได้",
+  "KTC 0% 3-9 เดือน",
+  "Free ปฏิทินปีใหม่ 2570",
+];
+
+/** The terms this quote did not take, offered by name so the customer can ask for one, then the promotion. */
 function otherTerms(table: LifeProtectTable, quoted: string): string {
   // the owner's wording: the first term named as saving ("ออม 9 ปี"), the rest as paying
   const rest = table.terms.filter((t) => QUOTABLE.has(t.variant) && t.variant !== quoted)
     .map((t, i) => (i === 0 ? t.label.replace(/^จ่าย/, "ออม") : t.label));
-  return `💬 ถ้าอยากดูแบบ${rest.join(" หรือ ")} คุ้มครองถึง ${table.coverToAge} ปี หรือตารางมูลค่าทุกปี บอกได้เลย เดี๋ยวคิดให้ฮะ`;
+  return ["💬 ถ้าอยากดู", `แบบ${rest.join(" หรือ ")}`, `คุ้มครองถึง ${table.coverToAge} ปี`, "", ...PROMO_LINES].join("\n");
 }
 
 /**

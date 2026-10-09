@@ -261,7 +261,7 @@ describe("a quote", () => {
 
   it("offers the two terms it did not quote", async () => {
     const answer = await answerQuestion(said("ชาย 35 ล้านนึง"), null);
-    expect(answer.messages[0].text).toContain("ถ้าอยากดูแบบออม 9 ปี หรือ จ่ายถึงอายุ 99 คุ้มครองถึง 99 ปี");
+    expect(answer.messages[0].text).toContain("💬 ถ้าอยากดู\nแบบออม 9 ปี หรือ จ่ายถึงอายุ 99\nคุ้มครองถึง 99 ปี\n\n✅ เงินไม่ทิ้ง");
   });
 
   it("quotes the term the customer named", async () => {
@@ -321,14 +321,14 @@ describe("a quote", () => {
   it("reads the advert's own million as a sum assured, the way its artwork does", async () => {
     routed = { intent: "quote", age: 35, sex: "M", coverWanted: 1_000_000 };
     const answer = await answerQuestion(said("สนใจประกันมรดก ทุน 1,000,000 ชาย 35"), null);
-    expect(answer.messages[0].text).toContain("ทุน 1,000,000 บาท เพิ่มเป็น 2,000,000");
+    expect(answer.messages[0].text).toContain("ทุน 1,000,000 บาท\n💵 แถมฟรี เพิ่มเป็น 2,000,000");
     expect(answer.messages[0].card).toContain("sum=1000000");
   });
 
   it("reads the customer's number as what the family receives, not as the sum assured", async () => {
     routed = { intent: "quote", age: 45, sex: "F", coverWanted: 3_000_000 };
     const answer = await answerQuestion(said("ทุน3ล้าน"), null);
-    expect(answer.messages[0].text).toContain("ทุน 1,500,000 บาท เพิ่มเป็น 3,000,000");
+    expect(answer.messages[0].text).toContain("ทุน 1,500,000 บาท\n💵 แถมฟรี เพิ่มเป็น 3,000,000");
     expect(answer.messages[0].card).toContain("sum=1500000");
   });
 
@@ -820,8 +820,8 @@ describe("a couple in one message", () => {
   it("offers the other terms once, under the last price", async () => {
     routed = { intent: "quote", coverWanted: 2_000_000 };
     const answer = await answerQuestion(said("42 ญ กับช 56"), null);
-    expect(answer.messages[0].text).not.toContain("ถ้าอยากดูแบบ");
-    expect(answer.messages[1].text).toContain("ถ้าอยากดูแบบ");
+    expect(answer.messages[0].text).not.toContain("ถ้าอยากดู");
+    expect(answer.messages[1].text).toContain("ถ้าอยากดู");
   });
 
   it("prices the one it can when the other is out of range", async () => {
