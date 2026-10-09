@@ -241,7 +241,9 @@ function Half(
           ...(r.payout === undefined ? [] : [r.payout]),
           ...(r.cash === undefined ? [] : [r.cash]),
           r.cover,
-        ];
+        // a year with nothing to pay is left blank rather than dashed (owner, 2026-10-10); the
+        // rows keep their "—" for the pen notes, which read it
+        ].map((c) => (c === "—" ? "" : c));
         return (
           <div
             key={r.year}

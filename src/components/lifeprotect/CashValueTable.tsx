@@ -251,11 +251,12 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                     {crossover ? <Highlighted>{r.age}</Highlighted> : r.age}
                   </td>
                   <td className={`${CELL} ${RULE} text-right`}>
-                    {r.premiumDue ? formatBaht(r.premiumDue) : "—"}
+                    {/* a year with nothing to pay is left blank, not dashed (owner, 2026-10-10) */}
+                    {r.premiumDue ? formatBaht(r.premiumDue) : ""}
                   </td>
                   {riders && (
                     <td className={`${CELL} ${RULE} text-right`}>
-                      {r.riderDue ? formatBaht(r.riderDue) : "—"}
+                      {r.riderDue ? formatBaht(r.riderDue) : ""}
                     </td>
                   )}
                   {/* The running total stops when the paying does, rather than repeating the
@@ -272,7 +273,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                   <td className={`${CELL} ${RULE} text-right ${labelHere ? "font-medium" : ""}`}>
                     {labelHere
                       ? <Highlighted>จุดคุ้มทุน &gt;</Highlighted>
-                      : pays(r) && r.premiumPaid !== null ? formatBaht(r.premiumPaid) : "—"}
+                      : pays(r) && r.premiumPaid !== null ? formatBaht(r.premiumPaid) : ""}
                   </td>
                   <td className={`${CELL} ${RULE} text-right ${gained ? "text-[var(--lg-gain)]" : ""}`}>
                     {crossover ? <Circled><Highlighted>{formatBaht(r.cashValue)}</Highlighted></Circled> : formatBaht(r.cashValue)}

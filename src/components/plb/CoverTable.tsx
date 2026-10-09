@@ -105,8 +105,9 @@ export function CoverTable({ rows, caption, endsNote, cardPath, planName }: Cove
               <tr key={r.year} className={r.year === last.year ? "bg-[var(--lg-gold-glow)]" : undefined}>
                 <td className={`${CELL} text-left text-[var(--lg-mute)]`}>{r.year}</td>
                 <td className={`${CELL} ${RULE} text-left text-[var(--lg-mute)]`}>{r.age}</td>
-                <td className={`${CELL} ${RULE} text-right`}>{r.due}</td>
-                <td className={`${CELL} ${RULE} text-right`}>{r.paid ?? "—"}</td>
+                {/* a year with nothing to pay is left blank, not dashed (owner, 2026-10-10) */}
+                <td className={`${CELL} ${RULE} text-right`}>{r.due === "—" ? "" : r.due}</td>
+                <td className={`${CELL} ${RULE} text-right`}>{r.paid ?? ""}</td>
                 <td className={`${CELL} ${RULE} pr-3 text-right`}>{r.cover}</td>
               </tr>
             ))}
