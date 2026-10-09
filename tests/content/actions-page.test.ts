@@ -15,7 +15,7 @@ const order: string[] = [];
 
 const store = vi.hoisted(() => ({
   getContent: vi.fn(), saveOutput: vi.fn(), saveOutputIf: vi.fn(), recordPublishIf: vi.fn(), claimPublish: vi.fn(), deleteContent: vi.fn(),
-  removeBackground: vi.fn(), listWords: vi.fn(), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
+  removeBackground: vi.fn(), listWords: vi.fn(), recentHooks: vi.fn(async (): Promise<string[]> => []), holdContentBudget: vi.fn(), releaseContentBudget: vi.fn(),
   contentSpentThisMonth: vi.fn(), contentCap: vi.fn(), setFixes: vi.fn(), saveBackground: vi.fn(), setStatus: vi.fn(),
   listContent: vi.fn(), countByStatus: vi.fn(), recentLooks: vi.fn(async (): Promise<object[]> => []),
   usedHooks: vi.fn(async (): Promise<string[]> => []), saveContent: vi.fn(),
@@ -648,6 +648,25 @@ describe("a round ticked for expats (spec 2026-10-02)", () => {
     expect(posterText(o.poster)).not.toMatch(/[\u0E00-\u0E7F]/);
     // the headline was asked for in English
     expect(JSON.stringify(ai.chat.mock.calls[0][0].messages)).toMatch(/English/);
+  });
+
+  it("tells the planner the Page's past openings, and none when กันซ้ำ is switched off (owner, 2026-10-09)", async () => {
+    store.recentHooks.mockResolvedValue(["ประโยคเปิดเดิมของเพจ"]);
+    const planned = () => JSON.stringify(ai.chat.mock.calls[0][0].messages);
+    const reply = () => ai.chat
+      .mockResolvedValueOnce({ text: JSON.stringify({ plans: [{ hook: "Hospital bills add up", angle: "a" }] }), model: "m", costThb: 0, outputTokens: 10 })
+      .mockResolvedValueOnce({ text: JSON.stringify({ body: "Private hospitals charge in full.", closing: "Message us.", hashtags: [], imagePrompt: "a ward" }), model: "m", costThb: 0, outputTokens: 10 });
+    const ask = { href: "/ihealthy-ultra", format: "post" as const, angle: "expat_hospital" as const, custom: "", length: null, count: 1, hookTemplateId: null, expat: true };
+    reply();
+    await generateContent(ask);
+    expect(planned()).toContain("ประโยคเปิดเดิมของเพจ");
+    ai.chat.mockReset();
+    store.recentHooks.mockClear();
+    reply();
+    await generateContent({ ...ask, avoid: false });
+    expect(store.recentHooks).not.toHaveBeenCalled();
+    expect(planned()).not.toContain("ประโยคเปิดเดิมของเพจ");
+    store.recentHooks.mockResolvedValue([]);
   });
 
   it("gives an English post with no poster of its own, in the round's colour, an English one", async () => {

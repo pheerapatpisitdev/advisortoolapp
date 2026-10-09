@@ -3,7 +3,7 @@ import { chat, parseJsonReply } from "@/lib/ai/client";
 import { askShadow, recordShadow } from "../shadow";
 import type { ChatMessage } from "@/lib/ai/types";
 import { getPlan } from "@/calc/plans/registry";
-import { ageFromBirthdate, monthsOldIn, coverIn, peopleIn, recentTurns, sexIn } from "../common";
+import { ageAlone, ageFromBirthdate, monthsOldIn, coverIn, peopleIn, recentTurns, sexIn } from "../common";
 import type { RidersWanted } from "./riders";
 
 /**
@@ -289,6 +289,8 @@ function clean(raw: Routed, history: ChatMessage[]): Routed {
   else if (namedPeople.length) out.age = namedPeople[0].age;
   // "อายุ 8 เดือน" is a baby of nought, however the model counted it (review 2026-10-01)
   else if (monthsOldIn(last) !== undefined) out.age = monthsOldIn(last);
+  // "ขอเบี้ย อายุ 56", "56": an age said alone is read here, not left to the model
+  else if (ageAlone(last) !== undefined) out.age = ageAlone(last);
   else if (typeof raw.age === "number" && raw.age >= 0 && raw.age <= 99) out.age = Math.trunc(raw.age);
 
   // a birthdate leaves the sex standing alone, with no age beside it for `peopleIn` to pair

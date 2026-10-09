@@ -288,9 +288,9 @@ export function ClipEditStudio({ item, onItem, onClose }: {
       : notPrepared ? () => void open()
         : null;
 
-  const button = "min-h-11 rounded-lg border border-[var(--ct-line)] px-4 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
-  const field = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)] read-only:bg-[var(--ct-ground)]";
-  const chip = (on: boolean) => `inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm disabled:opacity-50 ${on ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] hover:bg-[var(--ct-soft)]"}`;
+  const button = "min-h-tap rounded-lg border border-[var(--ct-line)] px-4 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
+  const field = "min-h-tap w-full min-w-0 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)] read-only:bg-[var(--ct-ground)]";
+  const chip = (on: boolean) => `inline-flex min-h-tap items-center gap-2 rounded-lg border px-3 text-sm disabled:opacity-50 ${on ? "border-[var(--ct-accent)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] hover:bg-[var(--ct-soft)]"}`;
   const segments = v?.transcript ?? [];
   const suggestion = v?.hookSuggestion?.main?.trim() ? v.hookSuggestion : null;
   const loose = (draft?.subs ?? []).map((s, j) => ({ s, j })).filter(({ s }) => s.seg === undefined || !segments[s.seg]);
@@ -298,7 +298,7 @@ export function ClipEditStudio({ item, onItem, onClose }: {
   function subInput(s: Draft["subs"][number], j: number, dim: boolean) {
     return (
       <li key={j} className="grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-2">
-        <button type="button" onClick={() => seek(s.start)} className="min-h-11 text-left text-xs tabular-nums text-[var(--ct-accent)] underline-offset-2 hover:underline">{clockOf(s.start)}</button>
+        <button type="button" onClick={() => seek(s.start)} className="min-h-tap text-left text-xs tabular-nums text-[var(--ct-accent)] underline-offset-2 hover:underline">{clockOf(s.start)}</button>
         <input
           value={s.text} readOnly={readOnly} maxLength={120} aria-label={`ซับเวลา ${clockOf(s.start)}`}
           onChange={(e) => draft && change({ subs: draft.subs.map((x, k) => (k === j ? { ...x, text: e.target.value } : x)) })}
@@ -311,7 +311,7 @@ export function ClipEditStudio({ item, onItem, onClose }: {
   return (
     <section className="@container space-y-4 rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">
       <div>
-        <button type="button" onClick={() => void leave()} className="-ml-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+        <button type="button" onClick={() => void leave()} className="-ml-1 inline-flex min-h-tap items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
           <BackIcon className="size-4" />
           กลับไปหน้าคลิป
         </button>
@@ -421,13 +421,13 @@ export function ClipEditStudio({ item, onItem, onClose }: {
                     />
                   </label>
                   {suggestion && !readOnly && suggestion.main !== draft.hook.main && (
-                    <button type="button" onClick={() => change({ hook: { ...suggestion } })} className="min-h-11 text-left text-sm text-[var(--ct-accent)] underline decoration-dotted underline-offset-2">
+                    <button type="button" onClick={() => change({ hook: { ...suggestion } })} className="min-h-tap text-left text-sm text-[var(--ct-accent)] underline decoration-dotted underline-offset-2">
                       ใช้ที่ระบบแนะนำ: {suggestion.top ? `${suggestion.top} · ` : ""}{suggestion.main}
                     </button>
                   )}
                 </fieldset>
 
-                <label className="flex min-h-11 items-center gap-3 text-sm">
+                <label className="flex min-h-tap items-center gap-3 text-sm">
                   <input
                     type="checkbox" checked={draft.trimSilence} disabled={readOnly}
                     onChange={(e) => change({ trimSilence: e.target.checked })} className="size-5 shrink-0 accent-[var(--ct-accent)]"
@@ -445,7 +445,7 @@ export function ClipEditStudio({ item, onItem, onClose }: {
                       return (
                         <li key={i} className="space-y-1 p-2.5">
                           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                            <label className="flex min-h-11 min-w-0 items-start gap-3 py-1 text-sm">
+                            <label className="flex min-h-tap min-w-0 items-start gap-3 py-1 text-sm">
                               <input
                                 type="checkbox" checked={!isCut} disabled={readOnly}
                                 onChange={(e) => change({ cut: e.target.checked ? draft.cut.filter((n) => n !== i) : [...draft.cut, i].sort((a, b) => a - b) })}
@@ -453,7 +453,7 @@ export function ClipEditStudio({ item, onItem, onClose }: {
                               />
                               <span className={`min-w-0 break-words ${isCut ? "text-[var(--ct-mute)] line-through" : ""}`}>{s.text}</span>
                             </label>
-                            <button type="button" onClick={() => seek(s.start)} className="min-h-11 px-1 text-xs tabular-nums text-[var(--ct-accent)] underline-offset-2 hover:underline">{clockOf(s.start)}</button>
+                            <button type="button" onClick={() => seek(s.start)} className="min-h-tap px-1 text-xs tabular-nums text-[var(--ct-accent)] underline-offset-2 hover:underline">{clockOf(s.start)}</button>
                           </div>
                           {s.cut && s.why && <p className="pl-8 text-xs text-[var(--ct-warn-ink)]">ระบบแนะนำให้ตัด: {s.why}</p>}
                           {lines.length > 0 && <ul className="space-y-1 pl-8">{lines.map(({ x, j }) => subInput(x, j, isCut))}</ul>}
@@ -477,7 +477,7 @@ export function ClipEditStudio({ item, onItem, onClose }: {
             <div className="flex flex-wrap gap-2 border-t border-[var(--ct-hair)] pt-4">
               <button
                 type="button" onClick={() => void render()} disabled={readOnly || tooLongNow || tooShort}
-                className="min-h-11 rounded-lg bg-[var(--ct-solid)] px-5 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
+                className="min-h-tap rounded-lg bg-[var(--ct-solid)] px-5 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
               >
                 {busy === "render" ? "กำลังเริ่มสร้างคลิป…" : edit?.renderedPath ? "สร้างคลิปใหม่" : "สร้างคลิป"}
               </button>

@@ -8,7 +8,8 @@ import type { PiecePerson } from "@/lib/content/people";
 import { roundsNote, type Rounds } from "@/lib/wallet/note";
 import { LENGTHS, MAX_READER, type Format, type Length } from "@/lib/content/prompt";
 import {
-  MAX_SAYING_OWN, MAX_SAYING_PIECES, MAX_SAYING_TOPIC, MAX_SAYING_WHO, SAYING_NAME, SAYING_TONES, SAYING_TOPICS, sayingTones,
+  MAX_SAYING_OWN, MAX_SAYING_PIECES, MAX_SAYING_TOPIC, MAX_SAYING_WHO, SAYING_NAME, SAYING_SPREADS, SAYING_TONES, SAYING_TOPICS, sayingTones,
+  type SayingSpread,
 } from "@/lib/content/saying";
 import type { GenerateResult } from "../actions";
 import { sayingRound } from "../draw";
@@ -16,7 +17,7 @@ import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { PictureBrief } from "../ui/PictureBrief";
 import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
 import { cleanPosterWords } from "@/lib/content/poster-words";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
+import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "../ui/form-parts";
 
 /**
  * คำคม's tools (owner, 2026-10-09): let the AI write a saying from a topic, or type one's own and
@@ -79,8 +80,10 @@ export function SayingTools({ writer, onWriter, painter, onPainter, people, pers
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
   const [formula, setFormula] = useFormula();
+  const [avoid, setAvoid] = useAvoid();
   const [tone, setTone] = useState("");
   const [count, setCount] = useState(1);
+  const [spread, setSpread] = useState<SayingSpread>("points");
   const [posterWords, setPosterWords] = useState<PosterWordsValue>({});
 
   const blocked = source === "own"
@@ -97,7 +100,7 @@ export function SayingTools({ writer, onWriter, painter, onPainter, people, pers
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { source, topic, custom: custom.trim(), own: own.trim(), who: who.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula, count, writer,
+    const round = { source, topic, spread, custom: custom.trim(), own: own.trim(), who: who.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula, avoid, count, writer,
       ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}),
       ...(format !== "script" && cleanPosterWords(posterWords) ? { posterWords: cleanPosterWords(posterWords) } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
@@ -133,6 +136,18 @@ export function SayingTools({ writer, onWriter, painter, onPainter, people, pers
               </label>
             )}
             <p className="mt-1.5 text-xs text-[var(--ct-mute)]">AI แต่งคำคมใหม่ ไม่ยกคำของคนดัง แคปชันโยงเบาๆ เรื่องการเตรียมพร้อม ไม่ขายประกัน — ระบบตรวจให้ทุกชิ้น</p>
+            {/* how a round's pieces differ (owner, 2026-10-09): three pieces had opened alike */}
+            {count > 1 && (
+              <div role="group" aria-labelledby={`${id}-spread`} className="mt-3">
+                <span id={`${id}-spread`} className="mb-1.5 block text-sm font-medium">แต่ละชิ้น</span>
+                <div className="flex flex-wrap gap-2">
+                  {SAYING_SPREADS.map((s) => (
+                    <button key={s.id} type="button" aria-pressed={spread === s.id} onClick={() => setSpread(s.id)} className={chip(spread === s.id)}>{s.label}</button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-xs text-[var(--ct-mute)]">{SAYING_SPREADS.find((s) => s.id === spread)?.note}</p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
@@ -163,6 +178,7 @@ export function SayingTools({ writer, onWriter, painter, onPainter, people, pers
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
         <FormulaPicker value={formula} onChange={setFormula} />
+        <AvoidToggle value={avoid} onChange={setAvoid} />
 
         <FormSection title="เรื่องที่เล่า">
         <label className="block">

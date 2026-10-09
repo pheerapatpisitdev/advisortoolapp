@@ -51,7 +51,7 @@ const AI_WORDS: Record<ReturnType<typeof aiTextState>, string> = {
 export function PieceCard({ item, index, productName, busy, drawing, onEdit, onStatus, onDelete, onCopy, pick }: Props) {
   const blocking = (item.flags.policy ?? []).some((f) => f.severity === "block");
   const toCheck = item.flags.numbers.length + item.flags.words.length + (item.flags.policy?.length ?? 0);
-  const cell = "flex min-h-11 items-center justify-center gap-1.5 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
+  const cell = "flex min-h-tap items-center justify-center gap-1.5 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
   const picture = posterUrl(item.output.poster ?? defaultPoster(item.output.hooks[0], productName));
   const saver = usePictureSaver(picture, `poster-${item.id.slice(0, 8)}.png`);
 

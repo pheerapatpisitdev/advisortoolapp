@@ -139,8 +139,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   };
   const prev = shiftMonth(year, month, -1);
   const next = shiftMonth(year, month, 1);
-  const toggle = (on: boolean) => `inline-flex min-h-11 items-center rounded-full px-4 text-sm ${on ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`;
-  const navBtn = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm";
+  const toggle = (on: boolean) => `inline-flex min-h-tap items-center rounded-full px-4 text-sm ${on ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`;
+  const navBtn = "inline-flex min-h-tap min-w-11 items-center justify-center rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm";
 
   // the menu, the palette and the tabs come from ../layout.tsx
   return (

@@ -10,7 +10,7 @@ import { ISHIELD_SUMS } from "@/lib/quote-pdf/pages";
 import diseases from "../../../../data/riders/ishield-diseases.json";
 import {
   aboutCompany, asksAboutCompany, asksDiseaseList, budgetIn, BUDGET_INVITE, coverIn, type Budget, FORM_RECEIVED, handOverForm, HEALTH_DECLARATION, HEALTH_QUESTION,
-  peopleIn, saysFormDone, saysUnwell, stallReply, stalls, thanksOnly, THANKS_REPLY, WANTS_IN, wantsToBuy, type Reply,
+  ageAlone, peopleIn, saysFormDone, saysUnwell, stallReply, stalls, thanksOnly, THANKS_REPLY, WANTS_IN, wantsToBuy, type Reply,
 } from "../common";
 import { writtenFor, type Channel } from "../channel";
 import { CHOOSE_HEALTH, CHOOSE_LEGACY } from "../choose";
@@ -277,10 +277,25 @@ export function fitBudget(
 /** The paying term as a customer says it, and as a button says it. */
 const termLabel = (variant: string) => `ส่ง ${Number(variant.replace(/\D/g, ""))} ปี`;
 
+/**
+ * An age on its own, from a customer whose sex is already known: "อายุ 53", "ไม่ใช่ อายุ43", or
+ * just "53". `peopleIn` wants both beside each other, so a customer correcting the age alone
+ * was answered with the old quotation twelve times running (LINE, 2026-10-09).
+ *
+ * What counts as an age alone is `ageAlone`'s: "20 ปี" on its own is a paying term here.
+ */
+function ageForKnownSex(asked: string, slots: IShieldSlots): { age: number; sex: "M" | "F" } | undefined {
+  const age = ageAlone(asked);
+  return slots.sex && age !== undefined ? { age, sex: slots.sex } : undefined;
+}
+
+/** "ไม่ใช่", "ขอเปลี่ยนอายุ": the customer says the bot has them wrong, and says nothing to put it right. */
+const CORRECTING = /ไม่ใช่|ไม่ถูก|ผิด|(?:เปลี่ยน|แก้)\s*(?:อายุ|เพศ)/;
+
 /** Everything the message adds to what was already known. */
 function filled(previous: IShieldSlots | null, asked: string): IShieldSlots {
   const slots: IShieldSlots = { product: "ishield", ...previous };
-  const person = peopleIn(asked)[0];
+  const person = peopleIn(asked)[0] ?? ageForKnownSex(asked, slots);
   if (person) {
     slots.age = person.age;
     slots.sex = person.sex;
@@ -384,6 +399,15 @@ export function answerIShield(
   // "บริษัทอะไร" was answered with the quote again: the life brain had this check and these
   // two did not. The agency's own sentence, whatever else the conversation is about.
   if (asksAboutCompany(asked)) return { messages: [{ text: said(aboutCompany(asked)) }], slots };
+
+  // told they are wrong and not told what is right: ask, rather than quote the same person again
+  if (CORRECTING.test(asked) && previous && slots.age === previous.age && slots.sex === previous.sex
+    && slots.variant === previous.variant && slots.sumAssured === previous.sumAssured) {
+    return {
+      messages: [{ text: said("ขออภัยครับ 🙏 ขอทราบเพศกับอายุที่ถูกต้องอีกครั้งหน่อยครับ (เช่น ช 35)") }],
+      slots,
+    };
+  }
 
   if (wantsToBuy(asked, priced)) {
     const form = handOverForm(priced);

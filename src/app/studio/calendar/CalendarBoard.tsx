@@ -290,7 +290,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
       {setup.failed ? (
         <p role="alert" className="rounded-lg border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] p-3 text-sm text-[var(--ct-alert)]">
           โหลดรายชื่อเพจไม่สำเร็จ ยังตั้งเวลาไม่ได้ตอนนี้ —{" "}
-          <button type="button" onClick={() => router.refresh()} className="inline-flex min-h-11 items-center font-medium underline">ลองใหม่</button>
+          <button type="button" onClick={() => router.refresh()} className="inline-flex min-h-tap items-center font-medium underline">ลองใหม่</button>
         </p>
       ) : usable.length === 0 && (
         <p className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] p-3 text-sm text-[var(--ct-warn-ink)]">
@@ -345,7 +345,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
                   key={cell.day}
                   data-day={cell.day}
                   onClick={(e) => { if (dayItems.length > 0 || fillable(cell.day, today)) openSheet({ kind: "day", day: cell.day }, e.timeStamp); }}
-                  className={`min-h-12 p-0.5 transition-colors sm:min-h-24 sm:p-2 lg:min-h-36 ${!drag && dayItems.length === 0 && fillable(cell.day, today) ? "cursor-pointer hover:bg-[var(--ct-ground)]" : ""} ${isTarget && accepts ? "bg-[var(--ct-soft)]" : "bg-[var(--ct-panel)]"} ${cell.inMonth ? "" : "opacity-50"} ${drag && !accepts ? "opacity-40" : ""}`}
+                  className={`min-h-12 p-0.5 transition-colors sm:min-h-20 sm:p-1.5 lg:min-h-28 ${!drag && dayItems.length === 0 && fillable(cell.day, today) ? "cursor-pointer hover:bg-[var(--ct-ground)]" : ""} ${isTarget && accepts ? "bg-[var(--ct-soft)]" : "bg-[var(--ct-panel)]"} ${cell.inMonth ? "" : "opacity-50"} ${drag && !accepts ? "opacity-40" : ""}`}
                 >
                   {/* a phone: the chips would be a finger's width, so the day is the button and says how many */}
                   <div className="sm:hidden">
@@ -353,7 +353,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
                       <button
                         type="button" aria-label={`${thaiDayLabel(cell.day)} · ${dayItems.length} โพสต์`}
                         onClick={(e) => { e.stopPropagation(); openSheet({ kind: "day", day: cell.day }, e.timeStamp); }}
-                        className="flex min-h-11 w-full flex-col items-center justify-start gap-0.5 rounded-md hover:bg-[var(--ct-ground)]"
+                        className="flex min-h-tap w-full flex-col items-center justify-start gap-0.5 rounded-md hover:bg-[var(--ct-ground)]"
                       >
                         {dayNumber}
                         <span className={`min-w-5 rounded-full px-1 text-center text-xs font-medium leading-5 ${dayItems.some((i) => i.status === "failed") ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]"}`}>
@@ -364,12 +364,12 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
                       <button
                         type="button" aria-label={`${thaiDayLabel(cell.day)} · ยังไม่มีโพสต์ — เพิ่มโพสต์`}
                         onClick={(e) => { e.stopPropagation(); openSheet({ kind: "day", day: cell.day }, e.timeStamp); }}
-                        className="flex min-h-11 w-full justify-center rounded-md hover:bg-[var(--ct-ground)]"
+                        className="flex min-h-tap w-full justify-center rounded-md hover:bg-[var(--ct-ground)]"
                       >
                         {dayNumber}
                       </button>
                     ) : (
-                      <div className="flex min-h-11 justify-center">{dayNumber}</div>
+                      <div className="flex min-h-tap justify-center">{dayNumber}</div>
                     )}
                   </div>
                   <div className="hidden items-start justify-between gap-1 sm:flex">
@@ -399,7 +399,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
           {usable.length > 1 && (
             <label className="mt-2 block">
               <span className="mb-1 block text-xs text-[var(--ct-mute)]">ลงเพจ</span>
-              <select value={pageId} onChange={(e) => choosePage(e.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 py-1.5 text-sm">
+              <select value={pageId} onChange={(e) => choosePage(e.target.value)} className="min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 py-1.5 text-sm">
                 {usable.map((p) => <option key={p.pageId} value={p.pageId}>{p.pageName}</option>)}
               </select>
             </label>
@@ -492,7 +492,7 @@ function PostCard({ item, error, compact, repeated, dragging, onPointerDown, onO
       className={`relative select-none overflow-hidden rounded-md border ${repeated ? "border-[var(--ct-warn-line)]" : "border-[var(--ct-hair)]"} bg-[var(--ct-ground)] ${movable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${dragging ? "opacity-30" : ""}`}
       style={{ WebkitTouchCallout: "none" }}
     >
-      <div className="relative aspect-square w-full">
+      <div className="relative aspect-square w-full lg:aspect-[4/3]">
         <Thumb item={item} className="h-full w-full" />
         {item.pageName && !compact && <span className={`absolute left-1 top-1 ${tag}`}>{item.pageName}</span>}
         {/* the time and the state share the foot of the poster; the state's words give way when it is narrow.
@@ -513,7 +513,7 @@ function PostCard({ item, error, compact, repeated, dragging, onPointerDown, onO
         )}
       </div>
       {!compact && (
-        <div className="hidden p-1.5 lg:block">
+        <div className="hidden px-1.5 py-1 lg:block">
           <p className="line-clamp-2 text-xs font-medium leading-snug">{item.hook}</p>
           <p className="line-clamp-1 text-xs text-[var(--ct-mute)]">{item.planName}{item.unreviewed ? " · ยังไม่ได้ตรวจ" : ""}</p>
           {repeated && <p className="text-xs text-[var(--ct-warn-ink)]">แบบเดียวกับโพสต์ก่อนหน้า</p>}
@@ -627,7 +627,7 @@ function FillDay({ fill, pages, pageId, onPage, empty }: {
           {pages.length > 1 && (
             <label className="block">
               <span className="mb-1 block text-xs text-[var(--ct-mute)]">ลงเพจ</span>
-              <select value={pageId} onChange={(e) => onPage(e.target.value)} className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm">
+              <select value={pageId} onChange={(e) => onPage(e.target.value)} className="min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm">
                 {pages.map((p) => <option key={p.pageId} value={p.pageId}>{p.pageName}</option>)}
               </select>
             </label>
@@ -639,7 +639,7 @@ function FillDay({ fill, pages, pageId, onPage, empty }: {
                 <p className="line-clamp-2 min-w-0 flex-1 text-sm">{item.hook}</p>
                 <button
                   type="button" onClick={() => fill.place(item)}
-                  className="min-h-11 shrink-0 rounded-lg bg-[var(--ct-solid)] px-3 text-sm font-medium text-[var(--ct-solid-ink)]"
+                  className="min-h-tap shrink-0 rounded-lg bg-[var(--ct-solid)] px-3 text-sm font-medium text-[var(--ct-solid-ink)]"
                 >
                   วางวันนี้
                 </button>
@@ -652,7 +652,7 @@ function FillDay({ fill, pages, pageId, onPage, empty }: {
       <Link
         // this Page's project: a piece written for the day is this Page's (2026-09-30)
         href={workbenchHref({ day: fill.day, page: pageId })}
-        className="flex min-h-11 items-center justify-center rounded-lg border border-[var(--ct-accent)] px-3 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
+        className="flex min-h-tap items-center justify-center rounded-lg border border-[var(--ct-accent)] px-3 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
       >
         เขียนโพสต์ใหม่สำหรับวันนี้ใน Organic Studio
       </Link>
@@ -678,7 +678,7 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
     setBusy(false);
     if (ok) onDone();
   };
-  const btn = "inline-flex min-h-11 items-center rounded-lg border border-[var(--ct-line)] px-3 text-sm disabled:opacity-50";
+  const btn = "inline-flex min-h-tap items-center rounded-lg border border-[var(--ct-line)] px-3 text-sm disabled:opacity-50";
 
   return (
     <li className="rounded-lg border border-[var(--ct-hair)] p-3">
@@ -713,19 +713,19 @@ function SheetItem({ item, error, today, pages, pageId, onPage, run, onDone }: {
             {item.status !== "scheduled" && pages.length > 1 && (
               <label className="block">
                 <span className="mb-1 block text-xs text-[var(--ct-mute)]">ลงเพจ</span>
-                <select value={pageId} onChange={(e) => onPage(e.target.value)} className="min-h-11 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] p-2 text-sm">
+                <select value={pageId} onChange={(e) => onPage(e.target.value)} className="min-h-tap rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] p-2 text-sm">
                   {pages.map((p) => <option key={p.pageId} value={p.pageId}>{p.pageName}</option>)}
                 </select>
               </label>
             )}
             <label className="block">
               <span className="mb-1 block text-xs text-[var(--ct-mute)]">วันและเวลาโพสต์ (เวลาไทย)</span>
-              <input type="datetime-local" value={local} onChange={(e) => setLocal(e.target.value)} className="min-h-11 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] p-2 text-sm" />
+              <input type="datetime-local" value={local} onChange={(e) => setLocal(e.target.value)} className="min-h-tap rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] p-2 text-sm" />
             </label>
             <button
               type="button" disabled={busy || (item.status !== "scheduled" && !pageId)}
               onClick={() => act(({ confirmNumbers, confirmSpoken, confirmStale, force }) => scheduleAt({ id: item.id, local, pageId, confirmNumbers, confirmSpoken, confirmStale, force }))}
-              className="inline-flex min-h-11 items-center rounded-lg bg-[var(--ct-solid)] px-3 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
+              className="inline-flex min-h-tap items-center rounded-lg bg-[var(--ct-solid)] px-3 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
             >
               {busy ? "กำลังส่ง…" : item.status === "scheduled" ? "ย้ายเวลา" : "ตั้งเวลา"}
             </button>
@@ -757,7 +757,7 @@ export function MonthList({ items }: { items: BoardItem[] }) {
   const byDay = groupByDay(items);
   const days = [...byDay.keys()].sort();
   if (days.length === 0) {
-    return <p className="rounded-xl border border-dashed border-[var(--ct-line)] px-4 py-10 text-center text-sm text-[var(--ct-mute)]">เดือนนี้ยังไม่มีโพสต์ที่ลงเพจหรือตั้งเวลาไว้</p>;
+    return <p className="rounded-xl border border-dashed border-[var(--ct-line)] px-4 py-6 text-center text-sm text-[var(--ct-mute)]">เดือนนี้ยังไม่มีโพสต์ที่ลงเพจหรือตั้งเวลาไว้</p>;
   }
   return (
     <ul className="space-y-5">

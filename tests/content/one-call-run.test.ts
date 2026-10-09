@@ -7,7 +7,8 @@ const ai = vi.hoisted(() => ({ chat: vi.fn() }));
 const store = vi.hoisted(() => ({
   contentCap: vi.fn(async () => 30), contentSpentThisMonth: vi.fn(async () => 0),
   holdContentBudget: vi.fn(async () => ({ ok: true, id: "h1" })), releaseContentBudget: vi.fn(async () => undefined),
-  listWords: vi.fn(async () => []), saveContent: vi.fn(async (row: { output: ContentOutput; flags: unknown }) => ({ id: "c", ...row })),
+  listWords: vi.fn(async () => []),
+  recentHooks: vi.fn(async (): Promise<string[]> => []), saveContent: vi.fn(async (row: { output: ContentOutput; flags: unknown }) => ({ id: "c", ...row })),
 }));
 vi.mock("@/lib/ai/client", async (orig) => ({ ...(await orig<typeof import("@/lib/ai/client")>()), chat: ai.chat }));
 vi.mock("@/lib/content/store", () => store);
@@ -27,6 +28,24 @@ beforeEach(() => {
 });
 
 describe("a one-call round", () => {
+  it("tells each writer the Page's latest openings of this kind not to repeat (owner, 2026-10-09)", async () => {
+    store.recentHooks.mockResolvedValueOnce(["“วันธรรมดาที่ผ่านไปเงียบๆ”"]);
+    await oneCallRound({ ...base, href: "saying", yardstick: "", parse: () => piece("ดี") });
+    expect(store.recentHooks).toHaveBeenCalledWith("saying", "p1");
+    for (const [ask] of ai.chat.mock.calls) {
+      const last = (ask as { messages: { content: string }[] }).messages.at(-1)!.content;
+      expect(last).toMatch(/^x\n\n/);
+      expect(last).toContain("ห้ามซ้ำ");
+      expect(last).toContain("วันธรรมดาที่ผ่านไปเงียบๆ");
+    }
+  });
+
+  it("tells nothing where the agent's own words open the piece", async () => {
+    await oneCallRound({ ...base, avoid: false, yardstick: "", parse: () => piece("ดี") });
+    expect(store.recentHooks).not.toHaveBeenCalled();
+    expect((ai.chat.mock.calls[0][0] as { messages: { content: string }[] }).messages.at(-1)!.content).toBe("x");
+  });
+
   it("writes each piece into the round's Page", async () => {
     await oneCallRound({ ...base, count: 1, yardstick: "", parse: () => piece("ดี") });
     expect(store.saveContent.mock.calls[0][0]).toMatchObject({ pageId: "p1" });

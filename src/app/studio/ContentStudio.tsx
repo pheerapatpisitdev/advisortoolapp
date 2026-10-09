@@ -49,7 +49,7 @@ import { MODE_PLANS, modeName } from "@/lib/content/modes";
 import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./ui/icons";
 import { thaiDayLabel } from "@/lib/content/calendar";
 import { PlainText } from "./ui/editor-fields";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "./ui/form-parts";
+import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "./ui/form-parts";
 
 /**
  * The content workbench, laid out as the owner's Maryjane project lays out its run page:
@@ -122,11 +122,11 @@ const THEME_KEY = "content-poster-theme";
 const BRIEF_KEY = "content-picture-brief";
 
 const chip = (on: boolean) =>
-  `inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
+  `inline-flex min-h-tap items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
     ? "border-[var(--ct-solid)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]"
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
 
-const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
+const field = "min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
 /** the question before leaving an editor with words not yet saved */
 const LEAVE = "ยังไม่ได้บันทึกที่แก้ไว้ ออกเลยไหม?";
@@ -169,7 +169,7 @@ function PickToggle({ index, why, on, toggle }: { index: number; why?: string; o
     <button
       type="button" role="checkbox" aria-checked={on} aria-label={`เลือกชิ้น ${index + 1}${why ? ` (${why})` : ""}`}
       onClick={toggle} disabled={Boolean(why)}
-      className={`mb-1.5 flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium disabled:opacity-70 ${on ? "border-[var(--ct-accent)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]" : "border-[var(--ct-hair)] bg-[var(--ct-panel)] text-[var(--ct-mute)]"}`}
+      className={`mb-1.5 flex min-h-tap items-center gap-1.5 rounded-lg border px-3 text-sm font-medium disabled:opacity-70 ${on ? "border-[var(--ct-accent)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]" : "border-[var(--ct-hair)] bg-[var(--ct-panel)] text-[var(--ct-mute)]"}`}
     >
       <span className={`flex size-4 items-center justify-center rounded border ${on ? "border-transparent" : "border-[var(--ct-line)]"}`}>{on && <CheckIcon className="size-3.5" />}</span>
       {why ?? (on ? "เลือกแล้ว" : "เลือก")}
@@ -205,7 +205,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
       : hooks;
   }, [hooks, query]);
   const option = (key: string, label: React.ReactNode) => (
-    <label key={key || "none"} className={`flex min-h-11 cursor-pointer items-start gap-2.5 px-3 py-2 text-sm leading-snug hover:bg-[var(--ct-ground)] ${value === key ? "bg-[var(--ct-soft)]" : ""}`}>
+    <label key={key || "none"} className={`flex min-h-tap cursor-pointer items-start gap-2.5 px-3 py-2 text-sm leading-snug hover:bg-[var(--ct-ground)] ${value === key ? "bg-[var(--ct-soft)]" : ""}`}>
       <input
         type="radio" name={`${id}-hook`} value={key} checked={value === key} onChange={() => onChange(key)}
         className="mt-0.5 size-4 shrink-0 accent-[var(--ct-solid)]"
@@ -218,7 +218,7 @@ function HookPicker({ hooks, value, onChange }: { hooks: HookTemplate[]; value: 
       <span id={`${id}-title`} className="mb-1 block text-sm font-medium">สูตรประโยคเปิด <span className="font-normal text-[var(--ct-mute)]">(เลือกเองก็ได้)</span></span>
       <button
         type="button" aria-expanded={open} aria-controls={`${id}-panel`} aria-describedby={`${id}-title`} onClick={() => setOpen((o) => !o)}
-        className="flex min-h-11 w-full items-start justify-between gap-2 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-left text-sm leading-snug hover:bg-[var(--ct-ground)]"
+        className="flex min-h-tap w-full items-start justify-between gap-2 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-left text-sm leading-snug hover:bg-[var(--ct-ground)]"
       >
         <span className="min-w-0 flex-1">{chosen ? `“${chosen.template}”` : "ให้ AI เลือกสูตรให้"}</span>
         <span className="flex shrink-0 items-center gap-1 text-[var(--ct-accent)]">
@@ -364,6 +364,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
   const [formula, setFormula] = useFormula();
+  const [avoid, setAvoid] = useAvoid();
   const [logoSpot, setLogoSpot] = useLogoSpot();
   /** handed to the รีวิวเคลม and หาทีม forms, which carry the same logo */
   const logo = { page: project?.pageId, spot: logoSpot, onSpot: setLogoSpot };
@@ -627,7 +628,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     const pictureBrief = brief.trim();
     const pictureOf = person;
     await runRound(pieceCount, format, () => generateRound({
-      href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count,
+      href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, formula: format === "ad" ? null : formula, avoid, count,
       hookTemplateId: format === "ad" ? null : hookId || null, adAngles, adTones, writer,
       reader, expat: expatOn, goal: format === "ad" ? "" : goal, fact: format === "ad" ? "" : fact, theme,
       ...(format !== "script" && logoSpot ? { logoSpot } : {}), page: project?.pageId,
@@ -1014,7 +1015,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   });
 
   const usedLink = (
-    <Link href={calendarHref(project?.pageId)} className="inline-flex min-h-11 items-center text-xs font-medium text-[var(--ct-accent)] underline underline-offset-2">
+    <Link href={calendarHref(project?.pageId)} className="inline-flex min-h-tap items-center text-xs font-medium text-[var(--ct-accent)] underline underline-offset-2">
       ดูโพสต์ที่ลงเพจ/ตั้งเวลาไว้ในปฏิทิน →
     </Link>
   );
@@ -1026,18 +1027,18 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
         <p className="mt-1 text-sm text-[var(--ct-mute)]">AI เขียนจากข้อมูลจริงของแบบประกัน ตัวเลขทุกตัวมาจากตารางเบี้ย อ่านทวนก่อนโพสต์ทุกครั้ง</p>
       </div>
 
-      <div className="mt-5 grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_240px]">
+      <div className="mt-4 grid items-start gap-3 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_240px]">
         {/* ---------------------------------- tools ---------------------------------- */}
         {/* a desk: the form scrolls inside its own column; a phone: the page simply runs on */}
         <aside ref={tools} className="rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] lg:sticky lg:top-4 lg:max-h-[var(--tools-room,calc(100dvh-2rem))] lg:overflow-y-auto">
-          <div className="flex items-start justify-between gap-2 border-b border-[var(--ct-hair)] px-4 pb-3 pt-4">
+          <div className="flex items-start justify-between gap-2 border-b border-[var(--ct-hair)] px-3 py-2.5">
             <div>
               <h2 className="font-semibold">เครื่องมือ</h2>
               <p className="mt-0.5 text-xs text-[var(--ct-mute)]">เลือกแล้วกดสร้าง ชิ้นงานจะไปอยู่ที่ “รอตรวจ”</p>
             </div>
             <button
               type="button" aria-expanded={formOpen} aria-controls={formId} onClick={() => setFormOpen((o) => !o)}
-              className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-[var(--ct-line)] px-3 text-sm lg:hidden"
+              className="inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg border border-[var(--ct-line)] px-3 text-sm lg:hidden"
             >
               {formOpen ? "ซ่อนการตั้งค่า" : "ตั้งค่าการสร้าง"}
               <ChevronDownIcon className={`size-4 transition-transform ${formOpen ? "rotate-180" : ""}`} />
@@ -1051,7 +1052,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <span className="relative block">
                 <select
                   value={mode} onChange={(e) => setMode(e.target.value as Mode)}
-                  className="min-h-11 w-full appearance-none rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-2 pl-3 pr-10 text-sm font-medium outline-none focus:border-[var(--ct-accent)]"
+                  className="min-h-tap w-full appearance-none rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-2 pl-3 pr-10 text-sm font-medium outline-none focus:border-[var(--ct-accent)]"
                 >
                   {MODE_OPTIONS.map(([m, label]) => <option key={m} value={m}>{label}</option>)}
                 </select>
@@ -1147,7 +1148,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             <ClipTools page={project?.pageId} onItem={clipArrived} folded={!formOpen} formId={mode === "clip" ? formId : undefined} />
           </div>
           <div hidden={mode !== "plan"}>
-          <div id={mode === "plan" ? formId : undefined} className={`space-y-4 p-4 ${formOpen ? "" : "hidden lg:block"}`}>
+          <div id={mode === "plan" ? formId : undefined} className={`space-y-3 p-3 ${formOpen ? "" : "hidden lg:block"}`}>
           <label className="block">
             <span className="mb-1 block text-sm font-medium">แบบประกัน</span>
             <select value={href} onChange={(e) => pickPlan(e.target.value)} className={field}>
@@ -1170,6 +1171,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
           {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
           {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
+          <AvoidToggle value={avoid} onChange={setAvoid} />
 
           {format === "ad" && (
             <div className="space-y-3 rounded-lg bg-[var(--ct-ground)] p-3">
@@ -1198,7 +1200,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           <FormSection title="เรื่องที่เล่า">
           <div>
             {href === EXPAT_HREF && format === "post" && (
-              <label className={`mb-3 flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm ${expat ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
+              <label className={`mb-3 flex min-h-tap cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm ${expat ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-line)]"}`}>
                 <input type="checkbox" checked={expat} onChange={(e) => setExpat(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
                 <span className="font-medium">คอนเทนต์สำหรับ Expat (เขียนเป็นภาษาอังกฤษ)</span>
               </label>
@@ -1395,7 +1397,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 <button
                   key={t.id} type="button" role="tab" aria-selected={tab === t.id}
                   onClick={() => { setTab(t.id); setEditing(null); reload(t.id, plan).catch(() => say("load", "โหลดรายการไม่สำเร็จ ลองใหม่อีกครั้งนะครับ")); }}
-                  className={`inline-flex min-h-11 items-center gap-1 rounded-full px-4 text-sm ${tab === t.id ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}
+                  className={`inline-flex min-h-tap items-center gap-1 rounded-full px-4 text-sm ${tab === t.id ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}
                 >
                   {t.label} <span className="tabular-nums">{counts[t.id]}</span>
                 </button>
@@ -1406,7 +1408,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <select
                 value={plan}
                 onChange={(e) => { setPlan(e.target.value); setEditing(null); reload(tab, e.target.value).catch(() => say("load", "โหลดรายการไม่สำเร็จ ลองใหม่อีกครั้งนะครับ")); }}
-                className="min-h-11 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 py-1.5 text-sm"
+                className="min-h-tap rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-2 py-1.5 text-sm"
               >
                 <option value="">ทุกแบบ</option>
                 {products.map((p) => <option key={p.href} value={p.href}>{p.name}</option>)}
@@ -1420,14 +1422,14 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <span className="text-[var(--ct-mute)]">{bare.length} ชิ้นยังไม่มีภาพ</span>
               <button
                 type="button" onClick={drawBare}
-                className="min-h-11 rounded-lg border border-[var(--ct-accent)] px-3 font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
+                className="min-h-tap rounded-lg border border-[var(--ct-accent)] px-3 font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
               >
                 วาดภาพให้ {bare.length} ชิ้น · ราว ฿{(redraw.thb * bare.length).toFixed(2)}
               </button>
             </div>
           )}
           {tab !== "trashed" && !picking && pickable.length > 1 && (
-            <button type="button" onClick={startPicking} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+            <button type="button" onClick={startPicking} className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
               <CalendarIcon className="size-4" />ตั้งเวลาหลายชิ้น
             </button>
           )}
@@ -1435,15 +1437,15 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             <div className="sticky top-2 z-10 space-y-2 rounded-lg border border-[var(--ct-accent)] bg-[var(--ct-panel)] p-3 shadow-sm">
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <b>เลือก {picked.size} ชิ้น</b>
-                <button type="button" onClick={() => setPicked(new Set(pickable.map((i) => i.id)))} className="min-h-11 rounded-lg px-2 text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">เลือกทั้งหมด ({pickable.length})</button>
-                {picked.size > 0 && <button type="button" onClick={() => setPicked(new Set())} className="min-h-11 rounded-lg px-2 text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">ล้าง</button>}
+                <button type="button" onClick={() => setPicked(new Set(pickable.map((i) => i.id)))} className="min-h-tap rounded-lg px-2 text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">เลือกทั้งหมด ({pickable.length})</button>
+                {picked.size > 0 && <button type="button" onClick={() => setPicked(new Set())} className="min-h-tap rounded-lg px-2 text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">ล้าง</button>}
               </div>
               {pages === null ? (
                 <p className="text-sm text-[var(--ct-mute)]">กำลังโหลดรายชื่อเพจ…</p>
               ) : pagesFailed ? (
                 <p className="text-sm text-[var(--ct-alert)]">
                   โหลดรายชื่อเพจไม่สำเร็จ —{" "}
-                  <button type="button" onClick={loadPages} className="inline-flex min-h-11 items-center font-medium underline">ลองใหม่</button>
+                  <button type="button" onClick={loadPages} className="inline-flex min-h-tap items-center font-medium underline">ลองใหม่</button>
                 </p>
               ) : !pickPage ? (
                 <p className="text-sm text-[var(--ct-alert)]">เพจ {project?.pageName ?? "นี้"} ยังไม่ได้อนุญาตให้ระบบโพสต์ — เชื่อมเพจที่หน้าตั้งค่าเพจก่อน</p>
@@ -1452,11 +1454,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                   <span className="text-sm">ลง <b>{project?.pageName}</b></span>
                   <button
                     type="button" onClick={scheduleMany} disabled={picked.size === 0 || Boolean(sending) || !pickPage}
-                    className="min-h-11 rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
+                    className="min-h-tap rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50"
                   >
                     {sending ? `กำลังตั้งเวลา ${sending.done}/${sending.total}…` : `ตั้งเวลาวันว่างถัดไป ${picked.size} ชิ้น`}
                   </button>
-                  <button type="button" onClick={() => { setPicking(false); setPicked(new Set()); }} disabled={Boolean(sending)} className="min-h-11 rounded-lg px-3 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">ยกเลิก</button>
+                  <button type="button" onClick={() => { setPicking(false); setPicked(new Set()); }} disabled={Boolean(sending)} className="min-h-tap rounded-lg px-3 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">ยกเลิก</button>
                 </div>
               )}
               <p className="text-xs text-[var(--ct-mute)]">วันละชิ้น ในวันถัดไปที่เพจนี้ยังไม่มีโพสต์ เวลา 12:00 (วันนี้ถ้าเลย 12:00 แล้วเป็น 19:30) · ผ่านการตรวจเหมือนกดลงเพจทีละชิ้น</p>
@@ -1492,12 +1494,12 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           )}
 
           {items.length === 0 && !pending ? (
-            <div className="rounded-xl border border-dashed border-[var(--ct-line)] bg-[var(--ct-panel)] px-4 py-10 text-center text-sm text-[var(--ct-mute)]">
+            <div className="rounded-xl border border-dashed border-[var(--ct-line)] bg-[var(--ct-panel)] px-4 py-6 text-center text-sm text-[var(--ct-mute)]">
               {loadFailed ? (
                 <p>
                   โหลดรายการไม่สำเร็จ —{" "}
                   <button
-                    type="button" className="inline-flex min-h-11 items-center font-medium text-[var(--ct-accent)] underline"
+                    type="button" className="inline-flex min-h-tap items-center font-medium text-[var(--ct-accent)] underline"
                     onClick={() => { reload().catch(() => say("load", "โหลดรายการไม่สำเร็จ ลองใหม่อีกครั้งนะครับ")); }}
                   >
                     ลองใหม่
@@ -1571,7 +1573,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             <div className="flex justify-center">
               <button
                 type="button" onClick={loadMore} disabled={loadingMore}
-                className="min-h-11 rounded-full border border-[var(--ct-line)] bg-[var(--ct-panel)] px-5 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)] disabled:opacity-50"
+                className="min-h-tap rounded-full border border-[var(--ct-line)] bg-[var(--ct-panel)] px-5 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)] disabled:opacity-50"
               >
                 {loadingMore ? "กำลังโหลด…" : `โหลดเพิ่ม · แสดง ${items.length} จาก ${counts[tab]}`}
               </button>
@@ -1588,7 +1590,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
 
         {/* ------------------------------- used rail ------------------------------- */}
         <aside className="rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] lg:col-start-1 lg:row-start-2 xl:sticky xl:top-4 xl:col-start-3 xl:row-start-1">
-          <div className="border-b border-[var(--ct-hair)] p-4 pb-2">
+          <div className="border-b border-[var(--ct-hair)] px-3 pb-2 pt-2.5">
             <div className="flex items-end justify-between gap-2">
               <div>
                 <h2 className="font-semibold">ใช้จริง</h2>
@@ -1599,7 +1601,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             {usedLink}
           </div>
           {used.length === 0 ? (
-            <p className="m-4 rounded-lg border border-dashed border-[var(--ct-line)] px-3 py-6 text-center text-xs text-[var(--ct-mute)]">
+            <p className="m-3 rounded-lg border border-dashed border-[var(--ct-line)] px-3 py-4 text-center text-xs text-[var(--ct-mute)]">
               กด “ใช้จริง” ที่ชิ้นงาน แล้วจะย้ายมาอยู่ตรงนี้ — ระบบจะจำประโยคเปิดไว้เป็นสูตรใหม่ และไม่เขียนซ้ำ
             </p>
           ) : (
@@ -1627,7 +1629,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             {Math.min(used.length, 20) > 5 && (
               <button
                 type="button" aria-expanded={allUsed} onClick={() => setAllUsed((a) => !a)}
-                className="flex min-h-11 w-full items-center justify-center gap-1 border-t border-[var(--ct-hair)] text-sm text-[var(--ct-accent)] xl:hidden"
+                className="flex min-h-tap w-full items-center justify-center gap-1 border-t border-[var(--ct-hair)] text-sm text-[var(--ct-accent)] xl:hidden"
               >
                 {allUsed ? "ย่อรายการ" : `ดูทั้งหมด (${Math.min(used.length, 20)})`}
                 <ChevronDownIcon className={`size-4 transition-transform ${allUsed ? "rotate-180" : ""}`} />
@@ -1653,7 +1655,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             >
               <p className="flex-1 py-2.5"><PlainText text={t.text} /></p>
               {t.action && (
-                <button type="button" onClick={t.action.run} className="min-h-11 shrink-0 rounded-md px-3 font-medium text-[var(--ct-accent)] underline">
+                <button type="button" onClick={t.action.run} className="min-h-tap shrink-0 rounded-md px-3 font-medium text-[var(--ct-accent)] underline">
                   {t.action.label}
                 </button>
               )}

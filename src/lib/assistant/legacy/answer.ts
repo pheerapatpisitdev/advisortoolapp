@@ -4,7 +4,7 @@ import { cardPath } from "@/lib/quote-card";
 import { diseaseCardPath } from "@/lib/card-link";
 import { formatBaht } from "@/calc/money";
 import {
-  aboutCompany, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, peopleIn, saysFormDone, saysUnwell, stallReply,
+  aboutCompany, ageAlone, asksAboutCompany, asksDiseaseList, coverIn, FORM_RECEIVED, handOverForm, peopleIn, saysFormDone, saysUnwell, stallReply,
   stalls, thanksOnly, THANKS_REPLY, HEALTH_DECLARATION, WANTS_IN, wantsToBuy, type Reply,
 } from "../common";
 import { writtenFor, type Channel } from "../channel";
@@ -128,7 +128,10 @@ export function tierIn(text: string): number | undefined {
 /** Everything the message adds to what was already known. */
 function filled(previous: LegacySlots | null, asked: string): LegacySlots {
   const slots: LegacySlots = { product: "legacy", ...previous };
-  const person = peopleIn(asked)[0];
+  // an age on its own changes the age of the person already being priced: "ขอเบี้ย อายุ 56"
+  // was answered with the 35-year-old of the turn before (LINE, 2026-10-09)
+  const lone = ageAlone(asked);
+  const person = peopleIn(asked)[0] ?? (slots.sex && lone !== undefined ? { age: lone, sex: slots.sex } : undefined);
   if (person) {
     slots.age = person.age;
     slots.sex = person.sex;

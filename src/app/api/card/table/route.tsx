@@ -1,11 +1,14 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ImageResponse } from "next/og";
+import { pngResponse } from "@/lib/draw-png";
+import { insuredFace } from "../insured-face";
 import type { NextRequest } from "next/server";
 import { cardInputFrom, valueTableCard, valueTableChart, type CardChart, type ValueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { highlighterUri, loopUri } from "@/lib/highlighter";
 import { QUOTE_CARD_KEYS, toCanonical } from "../canonical";
+import { BRACE_ROOM, PEN_TEXT, RING_PAD, needsBraceRoom, penNotes, penSvgUri, type PenNotes } from "./pen-notes";
+import { googleFontSubset } from "@/lib/google-font";
 import { Chart, chartBlockHeight } from "../chart-drawing";
 import { quoteFor } from "@/lib/life-quotes";
 
@@ -67,6 +70,8 @@ const QUOTE_SIZE = 28;
 const quoteLines = (text: string, width: number) => Math.ceil(text.length / Math.floor(width / (QUOTE_SIZE * 0.6)));
 
 const CAPTION = "มูลค่าทุกปี ตั้งแต่ปีแรกจนครบสัญญา";
+/** the pen notes' handwriting: a Thai marker hand, under the SIL Open Font License */
+const PEN_FACE = "Sriracha";
 /** A plan with no surrender column is not showing a value, it is showing a term. */
 const COVER_CAPTION = "ความคุ้มครองทุกปี ตั้งแต่ปีแรกจนครบสัญญา";
 
@@ -163,7 +168,13 @@ function Cell(
       }}
     >
       {pen ? (
-        <div style={{ display: "flex", position: "relative", padding: "5px 12px" }}>
+        // pulled back by its own padding, so the ringed figure stays in line with the column
+        <div
+          style={{
+            display: "flex", position: "relative", padding: `5px ${RING_PAD}px`,
+            ...(cols[i].align === "flex-start" ? { marginLeft: -RING_PAD } : { marginRight: -RING_PAD }),
+          }}
+        >
           <div
             style={{
               position: "absolute", top: -4, bottom: -4, left: 0, right: 0,
@@ -184,8 +195,12 @@ const spacer = (height: number, background?: string) => (
 
 /** The years, under one row of column names. */
 function Half(
-  { columns, rows, p, cols, half }:
-  { columns: string[]; rows: ValueTableRow[]; p: CardPalette; cols: typeof COLS; half: number },
+  { columns, rows, p, cols, half, rings = [] }:
+  {
+    columns: string[]; rows: ValueTableRow[]; p: CardPalette; cols: typeof COLS; half: number;
+    /** further cells ringed in red pen, by the notes (pen-notes.ts) */
+    rings?: PenNotes["rings"];
+  },
 ) {
   return (
     <div style={{ display: "flex", flexDirection: "column", width: half, flexShrink: 0 }}>
@@ -235,7 +250,8 @@ function Half(
                 mark={r.breakEven && (columns[i] === "อายุ" || columns[i] === "เวนคืนได้" || (columns[i] === "เบี้ยสะสม" && r.paid === null))}
                 highlighter={p.highlighter}
                 // and the surrender value is ringed in red pen
-                pen={r.breakEven && columns[i] === "เวนคืนได้" ? p.pen : undefined}
+                pen={(r.breakEven && columns[i] === "เวนคืนได้") || rings.some((g) => g.row === n && g.column === columns[i])
+                  ? p.pen : undefined}
               >
                 {cell}
               </Cell>
@@ -258,7 +274,7 @@ function heightOf(card: ValueTableCard, chart: CardChart | undefined, quote: str
 }
 
 /**
- * The three faces, read off disk beside the quote card's own route — see the note there for
+ * The Plex faces, read off disk beside the quote card's own route — see the note there for
  * why they cannot simply be imported.
  */
 const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
@@ -284,10 +300,11 @@ export async function GET(req: NextRequest) {
   /** the theme the plan is sold under, so the sheet matches the page it was quoted from */
   const p = cardPaletteFor();
 
-  const [regular, semibold, display] = await Promise.all([
+  const [regular, semibold, pen] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
-    loadFont("Trirong-SemiBold.ttf"),
+    // a handwriting face for the pen notes; without it they are written in Plex
+    googleFontSubset(PEN_FACE, PEN_TEXT, "400"),
   ]);
 
   const { cols: narrow, half, width: wide } = layoutFor(card);
@@ -299,9 +316,15 @@ export async function GET(req: NextRequest) {
    * the same figures, at the same size, in one file.
    */
   const short = isShort(card);
-  const width = short ? half + PAD * 2 : wide;
-  const stretch = (width - PAD * 2) / half;
-  const cols = short ? narrow : narrow.map((c) => ({ ...c, w: Math.floor(c.w * stretch) }));
+  // a short table's premium column is only as wide as its figure: the brace needs room beside it
+  const room = short && needsBraceRoom(card) ? BRACE_ROOM : 0;
+  const width = (short ? half + PAD * 2 : wide) + room;
+  const stretch = (width - room - PAD * 2) / half;
+  const cols = (short ? narrow : narrow.map((c) => ({ ...c, w: Math.floor(c.w * stretch) })))
+    .map((c, i) => (i === 2 ? { ...c, w: c.w + room } : c));
+  // the agent's red-pen notes, aimed by the table's own geometry (pen-notes.ts)
+  const notes = penNotes(card, { widths: cols.map((c) => c.w), caption: H.caption, head: H.head, row: H.row, cellPad: CELL_PAD });
+  const tableHeight = H.caption + H.head + card.rows.length * H.row;
   // the drawing as wide as the table it is read with
   // the characters are asked for by the link, which only a chat's table carries
   const characters = req.nextUrl.searchParams.get("fig") === "1";
@@ -311,7 +334,7 @@ export async function GET(req: NextRequest) {
     ["plan", "variant", "age", "sex", "sum", "rider", "payer", "meb"].map((k) => req.nextUrl.searchParams.get(k) ?? "").join("|"),
   );
 
-  return new ImageResponse(
+  return pngResponse(
     (
       <div
         style={{
@@ -338,14 +361,15 @@ export async function GET(req: NextRequest) {
           </div>
           <div
             style={{
-              display: "flex", flexShrink: 0, marginLeft: 24,
+              display: "flex", flexShrink: 0, marginLeft: 24, alignItems: "center", gap: 14,
               fontSize: 42, fontWeight: 600, lineHeight: 1, color: p.figure,
             }}
           >
+            {insuredFace(input.sex, 64)}
             {card.insuredWho}
           </div>
         </div>
-        <div style={{ ...band(H.premium), fontFamily: "Trirong", fontSize: 30, color: p.figure }}>
+        <div style={{ ...band(H.premium), fontFamily: "Plex", fontWeight: 600, fontSize: 30, color: p.figure }}>
           {card.premiumLine}
         </div>
 
@@ -354,12 +378,38 @@ export async function GET(req: NextRequest) {
         <div style={spacer(H.gap)} />
         <div style={spacer(H.hairline, p.hair)} />
         <div style={spacer(H.afterHairline)} />
-        <div style={{ ...band(H.caption), fontSize: 25, color: p.accent }}>
-          {card.columns.includes("เวนคืนได้") ? CAPTION : COVER_CAPTION}
-        </div>
+        <div style={{ display: "flex", flexDirection: "column", position: "relative", width: width - PAD * 2, height: tableHeight, flexShrink: 0 }}>
+          <div style={{ ...band(H.caption), fontSize: 25, color: p.accent }}>
+            {card.columns.includes("เวนคืนได้") ? CAPTION : COVER_CAPTION}
+          </div>
 
-        <div style={{ display: "flex", width: width - PAD * 2, flexShrink: 0 }}>
-          <Half columns={card.columns} rows={card.rows} p={p} cols={cols} half={width - PAD * 2} />
+          <div style={{ display: "flex", width: width - PAD * 2, flexShrink: 0 }}>
+            <Half columns={card.columns} rows={card.rows} p={p} cols={cols} half={width - PAD * 2} rings={notes.rings} />
+          </div>
+
+          {/* over the table, as a pen would be */}
+          {notes.strokes.length > 0 && (
+            <div
+              style={{
+                position: "absolute", left: 0, top: 0, width: width - PAD * 2, height: tableHeight,
+                backgroundImage: penSvgUri(notes.strokes, width - PAD * 2, tableHeight, p.pen),
+                backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+              }}
+            />
+          )}
+          {notes.labels.map((l) => (
+            <div
+              key={l.text}
+              style={{
+                position: "absolute", display: "flex", top: l.top,
+                ...(l.left !== undefined ? { left: l.left } : { right: l.right }),
+                fontFamily: pen ? PEN_FACE : "Plex", fontSize: l.size, lineHeight: 1.5, color: p.pen,
+                transform: `rotate(${l.tilt}deg)`, whiteSpace: "nowrap",
+              }}
+            >
+              {l.text}
+            </div>
+          ))}
         </div>
 
         <div
@@ -380,7 +430,7 @@ export async function GET(req: NextRequest) {
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
-        { name: "Trirong", data: display, weight: 600, style: "normal" },
+        ...(pen ?? []),
       ],
       headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
     },

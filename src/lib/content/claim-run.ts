@@ -17,9 +17,10 @@ import { MAX_PAPERS, posterText } from "./poster";
 import { applyPosterWords, cleanPosterWords } from "./poster-words";
 import { LENGTHS, MAX_READER, type Format, type Length } from "./prompt";
 import {
-  backgroundDataUri, contentCap, contentSpentThisMonth, getContent, holdContentBudget, listWords, releaseContentBudget,
+  backgroundDataUri, contentCap, contentSpentThisMonth, getContent, holdContentBudget, listWords, recentHooks, releaseContentBudget,
   removeBackground, saveBackground, saveContent, saveOutputIf, type ContentItem,
 } from "./store";
+import { withAvoid } from "./one-call-run";
 import { fallbackWriters, UnreadableReply } from "./write";
 import { formulaOf, markFormula } from "./formula";
 import { ownerWording } from "./wording";
@@ -84,6 +85,8 @@ export interface ClaimWriteInput {
   loop?: boolean;
   /** the writing formula (formula.ts); posts and scripts */
   formula?: string | null;
+  /** กันซ้ำกับโพสต์เก่า: false turns the Page's past openings off for the round; a request body, so only false counts */
+  avoid?: boolean;
   /** สูตรคอนเทนต์โปร as a page loaded before there were two formulas sends it (2026-10-01) */
   pro?: boolean;
   /** where the Page's logo goes on the posters, and the Page (logo.ts); a script has no poster */
@@ -139,13 +142,13 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
     const held = await holdContentBudget(count * (writer.thb + OVERHEAD_THB), cap);
     if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอรอบนี้ — ลดจำนวนชิ้นหรือเลือกโมเดลประหยัด` };
     hold = held.id;
-    const words = await listWords();
+    const [words, avoid] = await Promise.all([listWords(), (input.avoid === false ? Promise.resolve([]) : recentHooks(CLAIM_HREF, pageId))]);
 
     const angles = claimAngleLines({ angle: input.angle, custom: input.custom }, count);
     const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
     const settled = await Promise.allSettled(angles.map(async (a) => {
       const r = await chat({
-        tier: "large", task: "content", messages: claimMessages(facts, a, reader, format, length, loop, formula),
+        tier: "large", task: "content", messages: withAvoid(claimMessages(facts, a, reader, format, length, loop, formula), avoid),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),
       });

@@ -12,8 +12,9 @@ import { posterText } from "./poster";
 import { applyPosterWords, type OwnPosterWords } from "./poster-words";
 import type { Format, Length } from "./prompt";
 import {
-  contentCap, contentSpentThisMonth, holdContentBudget, listWords, releaseContentBudget, saveContent, type ContentItem,
+  contentCap, contentSpentThisMonth, holdContentBudget, listWords, recentHooks, releaseContentBudget, saveContent, type ContentItem,
 } from "./store";
+import { avoidSection } from "./plan";
 import { fallbackWriters, UnreadableReply } from "./write";
 import { markFormula, type Formula } from "./formula";
 import { ownerWording } from "./wording";
@@ -52,6 +53,16 @@ export interface OneCallRound {
   pageId: string | null;
   /** names the round in the server log */
   label: string;
+  /** false where the agent's own words open the piece (เขียนเอง): theirs to repeat if they like */
+  avoid?: boolean;
+}
+
+/** The Page's latest openings of this kind, put after the writer's brief as lines not to repeat (owner, 2026-10-09). */
+export function withAvoid(messages: ChatMessage[], hooks: string[]): ChatMessage[] {
+  const said = avoidSection(hooks);
+  const last = messages.length - 1;
+  if (!said || last < 0 || messages[last].role !== "user") return messages;
+  return messages.map((m, i) => (i === last ? { ...m, content: `${m.content}\n\n${said}` } : m));
 }
 
 function checkedText(o: ContentOutput, withPoster = true): string {
@@ -69,11 +80,11 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
     const held = await holdContentBudget(r.count * (writer.thb + OVERHEAD_THB), cap);
     if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอรอบนี้ — ลดจำนวนชิ้นหรือเลือกโมเดลประหยัด` };
     hold = held.id;
-    const words = await listWords();
+    const [words, avoid] = await Promise.all([listWords(), r.avoid === false ? Promise.resolve([]) : recentHooks(r.href, r.pageId)]);
 
     const settled = await Promise.allSettled(Array.from({ length: r.count }, async (_, i) => {
       const reply = await chat({
-        tier: "large", task: "content", messages: r.messages(i),
+        tier: "large", task: "content", messages: withAvoid(r.messages(i), avoid),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),
       });

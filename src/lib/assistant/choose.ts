@@ -18,7 +18,7 @@ const NAMES: [Product, RegExp][] = [
   ["plb", /protection\s*life|\bplb\b|โพรเทคชั่น\s*ไลฟ์|พีแอลบี/i],
   ["ihealthy", /ประกันสุขภาพ|ไอเฮลท์ตี้|ไอเฮลตี้|i\s*-?\s*healthy/i],
   ["legacy", /เบี้ยทิ้ง|มรดกเพื่อครอบครัว|มรดก\s*\+\s*โรคร้าย|\blegacy\b/i],
-  ["ishield", /i\s*-?\s*shield|ไอ\s*ชิลด์|ออม/i],
+  ["ishield", /i\s*-?\s*shield|ไอ\s*ชิลด์?|(?<!เก็บ)ออม/i],
   ["lifeprotect", /life\s*protect|ไลฟ์\s*โพรเทค|ไลฟ์โปรเทค|ประกันชีวิต|เบี้ยไม่ทิ้ง/i],
 ];
 
@@ -30,7 +30,7 @@ const NAMES: [Product, RegExp][] = [
 const EXPLICIT: Partial<Record<Product, RegExp>> = {
   lifeprotect: /life\s*protect|ไลฟ์\s*โพรเทค|ไลฟ์โปรเทค/i,
   legacy: /มรดกเพื่อครอบครัว|มรดก\s*\+\s*โรคร้าย|\blegacy\b/i,
-  ishield: /i\s*-?\s*shield|ไอ\s*ชิลด์/i,
+  ishield: /i\s*-?\s*shield|ไอ\s*ชิลด์?/i,
   ihealthy: /ประกันสุขภาพ|ไอเฮลท์ตี้|ไอเฮลตี้|i\s*-?\s*healthy/i,
   plb: /protection\s*life|\bplb\b|โพรเทคชั่น\s*ไลฟ์|พีแอลบี/i,
 };
@@ -94,7 +94,8 @@ export function productNamedIn(text: string): Product | undefined {
  */
 const TOPICS: [Product, RegExp][] = [
   ["ihealthy", /ค่ารักษา|ค่าห้อง|เหมาจ่าย|ค่าหมอ|ผู้ป่วยใน|ผู้ป่วยนอก|\bopd\b|\bipd\b|แอดมิท|นอนโรงพยาบาล|นอน\s*รพ|ค่าผ่าตัด|วงเงินค่ารักษา/i],
-  ["lifeprotect", /ทุน\s*\d|ทุนประกัน|\d+\s*ล้าน|\d+\s*แสน|(?:จ่าย|ชำระ)\s*(?:เบี้ย)?\s*\d+\s*ปี|อายุ\s*99|เวนคืน|เสียชีวิต/i],
+  // "มรดกเก็บออม 50 บาทต่อวัน": a bare มรดก names no plan, but a daily budget beside it can only be this one
+  ["lifeprotect", /มรดก.*(?:ต่อวัน|วันละ|\/\s*วัน)|ทุน\s*\d|ทุนประกัน|\d+\s*ล้าน|\d+\s*แสน|(?:จ่าย|ชำระ)\s*(?:เบี้ย)?\s*\d+\s*ปี|อายุ\s*99|เวนคืน|เสียชีวิต/i],
 ];
 
 /**

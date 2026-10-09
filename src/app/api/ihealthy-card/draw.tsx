@@ -3,6 +3,7 @@ import path from "node:path";
 import type { CardCell, CardColumn, CardTableRow } from "@/lib/ihealthy-card";
 import { CARD_PALETTE } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
+import { googleFontSubset } from "@/lib/google-font";
 import type { Lang } from "@/lib/ihealthy-lang";
 import { WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 
@@ -200,17 +201,15 @@ export function widthOf(columns: number, geo: Geometry = geometryOf("th")): numb
   return PAD * 2 + geo.title + geo.col * columns;
 }
 
-/** The three faces, loaded once per request, in the shape `ImageResponse` wants them. */
+/** The two Plex weights, loaded once per request — every figure is Plex since 2026-10-09 (owner: one face). */
 export async function loadFonts() {
-  const [regular, semibold, display] = await Promise.all([
+  const [regular, semibold] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
-    loadFont("Trirong-SemiBold.ttf"),
   ]);
   return [
     { name: "Plex", data: regular, weight: 400 as const, style: "normal" as const },
     { name: "Plex", data: semibold, weight: 600 as const, style: "normal" as const },
-    { name: "Trirong", data: display, weight: 600 as const, style: "normal" as const },
   ];
 }
 
@@ -235,26 +234,7 @@ const SCRIPT_FAMILY: Partial<Record<Lang, string>> = {
 export async function scriptFonts(lang: Lang, text: string) {
   const family = SCRIPT_FAMILY[lang];
   if (family === undefined) return [];
-  try {
-    const letters = [...new Set(text)].join("");
-    const css = await fetch(
-      `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;600`
-        + `&text=${encodeURIComponent(letters)}`,
-      { signal: AbortSignal.timeout(4000) },
-    ).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`css ${r.status}`))));
-    // one @font-face a weight, each naming its weight and then its file
-    const faces = [...css.matchAll(/font-weight:\s*(\d+);[^}]*?src:\s*url\(([^)]+)\)/g)];
-    if (faces.length === 0) return undefined;
-    return await Promise.all(faces.map(async ([, weight, url]) => ({
-      name: family,
-      data: await fetch(url, { signal: AbortSignal.timeout(4000) })
-        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`font ${r.status}`)))),
-      weight: Number(weight) as 400 | 600,
-      style: "normal" as const,
-    })));
-  } catch {
-    return undefined;
-  }
+  return googleFontSubset(family, text);
 }
 
 /** One day at the edge, an hour in a browser — the same as every other card here. */

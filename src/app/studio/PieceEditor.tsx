@@ -54,9 +54,9 @@ const draftOf = (item: ContentItem, productName: string): Draft => ({
 });
 
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm leading-relaxed outline-none focus:border-[var(--ct-accent)] read-only:bg-[var(--ct-ground)]";
-const smallBtn = "min-h-11 rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-panel)] px-3 py-1.5 text-sm";
-const primary = "min-h-11 rounded-lg bg-[var(--ct-solid)] px-4 py-2 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50";
-const secondary = "min-h-11 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-4 py-2 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
+const smallBtn = "min-h-tap rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-panel)] px-3 py-1.5 text-sm";
+const primary = "min-h-tap rounded-lg bg-[var(--ct-solid)] px-4 py-2 text-sm font-medium text-[var(--ct-solid-ink)] disabled:opacity-50";
+const secondary = "min-h-tap rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-4 py-2 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
 
 const ON_PAGE_NOTE = "ชิ้นนี้ขึ้นเพจแล้ว แก้ที่นี่ไม่มีผลกับเพจ — แก้ในเพจโดยตรง";
 
@@ -353,7 +353,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
   return (
     <section ref={editorRoot} className="rounded-xl border-2 border-[var(--ct-accent)] bg-[var(--ct-panel)] p-4 pt-14 lg:pt-4">
       <div className="flex items-center justify-between gap-2">
-        <button type="button" onClick={leave} title="กลับไปรายการ (Esc)" className="-ml-1 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
+        <button type="button" onClick={leave} title="กลับไปรายการ (Esc)" className="-ml-1 inline-flex min-h-tap items-center gap-1 rounded-lg px-2 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
           <BackIcon className="size-4" />
           กลับไปรายการ
         </button>
@@ -382,7 +382,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
             {summary.map(([label, n, tone]) => (
               <a
                 key={label} href={`#${checksId}`}
-                className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 font-medium ${tone === "alert"
+                className={`inline-flex min-h-tap items-center gap-1.5 rounded-full border px-3 font-medium ${tone === "alert"
                   ? "border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]"
                   : "border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] text-[var(--ct-warn-ink)]"}`}
               >
@@ -463,7 +463,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
                     <button
                       type="button" disabled={busy} aria-label={`คัดลอก${label}`}
                       onClick={() => copy(label.startsWith("ข้อความหลัก") ? text : value, "คัดลอกแล้ว วางใน Ads Manager ได้เลย")}
-                      className="min-h-11 rounded-lg border border-[var(--ct-line)] px-3 text-sm font-normal hover:bg-[var(--ct-soft)] disabled:opacity-50"
+                      className="min-h-tap rounded-lg border border-[var(--ct-line)] px-3 text-sm font-normal hover:bg-[var(--ct-soft)] disabled:opacity-50"
                     >
                       คัดลอก
                     </button>
@@ -471,7 +471,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
                 </div>
                 {rows > 1
                   ? <AutoTextarea id={fieldId} value={value} minRows={rows} readOnly={locked} onChange={(e) => set(e.target.value)} className={field} />
-                  : <input id={fieldId} value={value} readOnly={locked} onChange={(e) => set(e.target.value)} className={`${field} min-h-11`} />}
+                  : <input id={fieldId} value={value} readOnly={locked} onChange={(e) => set(e.target.value)} className={`${field} min-h-tap`} />}
               </div>
             );
           })}
@@ -507,7 +507,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
         </label>
         <label className="mt-3 block">
           <span className="mb-1 block text-sm font-medium">แฮชแท็ก</span>
-          <input value={draft.tags} readOnly={locked} onChange={(e) => edit({ ...draft, tags: e.target.value })} className={`${field} min-h-11`} />
+          <input value={draft.tags} readOnly={locked} onChange={(e) => edit({ ...draft, tags: e.target.value })} className={`${field} min-h-tap`} />
         </label>
         </>
       )}
@@ -639,7 +639,7 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
 
       {item.output.imagePrompt && (
         <details className="mt-3 text-sm">
-          <summary className="flex min-h-11 cursor-pointer items-center text-[var(--ct-mute)]">คำสั่งวาดรูปประกอบ (ใช้กับเครื่องมือสร้างรูป)</summary>
+          <summary className="flex min-h-tap cursor-pointer items-center text-[var(--ct-mute)]">คำสั่งวาดรูปประกอบ (ใช้กับเครื่องมือสร้างรูป)</summary>
           <p className="mt-2 rounded-lg bg-[var(--ct-ground)] p-2 text-xs">{item.output.imagePrompt}</p>
         </details>
       )}

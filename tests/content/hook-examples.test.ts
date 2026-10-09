@@ -32,7 +32,7 @@ vi.mock("@/lib/auth/scope", async (orig) => ({
   currentScope: async () => ({ agents: ["a1"], unowned: false, pages: ["p1"], owner: { agentId: "a1", tenantId: "t1" } }),
 }));
 
-const { deleteContent, getHookTemplate, listHookTemplates, piecesWithPerson, usedHooks } = await import("@/lib/content/store");
+const { deleteContent, getHookTemplate, listHookTemplates, piecesWithPerson, recentHooks, usedHooks } = await import("@/lib/content/store");
 
 const template = (id: string, source: string | null, example: string | null = `hook of ${id}`) => ({
   id, category: "CLAIM", template: `สูตร ${id} [ช่อง]`, example_hook: example, source_content_id: source, use_count: 0, seed: false, created_at: "2026-09-30T00:00:00Z",
@@ -111,6 +111,16 @@ describe("the asker's own pieces only", () => {
     db.answers.ins_content = { data: [{ output: { hooks: ["ของฉัน"] } }], error: null };
     expect(await usedHooks()).toEqual(["ของฉัน"]);
     expect(scoped()).toEqual([RULE]);
+  });
+
+  it("are the openings a round is told not to repeat, of its kind on its Page, whatever became of them", async () => {
+    db.answers.ins_content = { data: [{ output: { hooks: ["คำคมเดิม"] } }], error: null };
+    expect(await recentHooks("saying", "p1")).toEqual(["คำคมเดิม"]);
+    expect(scoped()).toEqual([RULE]);
+    const steps = db.calls.filter((c) => c.table === "ins_content").map((c) => c.step);
+    expect(steps).toContainEqual(["eq", "plan_href", "saying"]);
+    expect(steps).toContainEqual(["eq", "page_id", "p1"]);
+    expect(steps.some((s) => s[0] === "eq" && s[1] === "status")).toBe(false);
   });
 
   it("are what a person's usage counts", async () => {

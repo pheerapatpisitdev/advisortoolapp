@@ -602,8 +602,7 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
 
   if (age === undefined || sex === undefined) {
     return {
-      ...one(`ได้เลยครับ งบ${said} 👍\n`
-        + 'ขอเพศกับอายุด้วยครับ เดี๋ยวคิดให้ว่าได้ทุนเท่าไหร่ (เช่น "ชาย 38")'),
+      ...one("รับทราบครับ ขอเพศกับอายุด้วย เดี๋ยวส่งรายละเอียดให้ครับ (เช่น ช/ญ 35)"),
       slots: kept,
     };
   }

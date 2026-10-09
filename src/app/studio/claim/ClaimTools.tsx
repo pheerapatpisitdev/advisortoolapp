@@ -17,7 +17,7 @@ import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { PictureBrief } from "../ui/PictureBrief";
 import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
 import { cleanPosterWords } from "@/lib/content/poster-words";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
+import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "../ui/form-parts";
 import { burn, shrink, type Shrunk } from "./redact";
 
 /**
@@ -35,10 +35,10 @@ type ReadReply = ReadOk | { ok: false; error: string };
 const READ_THB = 0.2;
 
 const chip = (on: boolean) =>
-  `inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
+  `inline-flex min-h-tap items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
     ? "border-[var(--ct-solid)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]"
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
-const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
+const field = "min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
 export function ClaimTools({ writer, onWriter, painter, onPainter, people, person, onPerson, brief, onBrief, logo, rounds, reader, onReader, left, pending, making, run, folded, formId }: {
   writer: string;
@@ -78,6 +78,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
   const [formula, setFormula] = useFormula();
+  const [avoid, setAvoid] = useAvoid();
   /** an angle id, "custom", or "" for ให้ AI เลือก */
   const [angle, setAngle] = useState("");
   const [custom, setCustom] = useState("");
@@ -119,7 +120,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
     const papers = files;
-    const round = { format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, angle, custom: custom.trim(), reader: reader.trim(), note: note.trim(), count, writer, words: cleanPosterWords(posterWords) };
+    const round = { format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, avoid, angle, custom: custom.trim(), reader: reader.trim(), note: note.trim(), count, writer, words: cleanPosterWords(posterWords) };
     // อัตโนมัติ settled at the press, on the money left then, as the plan form does
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     const pictureBrief = brief.trim();
@@ -203,7 +204,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
 
   return (
     <>
-      <div id={formId} className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>
+      <div id={formId} className={`space-y-3 p-3 ${folded ? "hidden lg:block" : ""}`}>
         <div>
           <span className="mb-1 block text-sm font-medium">เอกสารเคลม <span className="font-normal text-[var(--ct-mute)]">(ไม่เกิน {MAX_DOCS} รูป)</span></span>
           <PhotoDrop files={files} onChange={pickFiles} limit={MAX_DOCS} />
@@ -230,6 +231,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
         {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
+        <AvoidToggle value={avoid} onChange={setAvoid} />
 
         <FormSection title="เรื่องที่เล่า">
         <div>

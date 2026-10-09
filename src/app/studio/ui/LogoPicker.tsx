@@ -84,14 +84,14 @@ export function LogoPicker({ page, spot, onSpot }: { page?: string; spot: LogoSp
   }
 
   const chip = (on: boolean) =>
-    `flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-2 text-sm disabled:opacity-40 ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)]"}`;
+    `flex min-h-tap min-w-11 items-center justify-center rounded-lg border px-2 text-sm disabled:opacity-40 ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)]"}`;
 
   return (
     <div role="group" aria-labelledby={heading} className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span id={heading} className="text-sm font-medium">โลโก้{page ? "ของเพจนี้" : ""}</span>
         <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => upload(e.target.files?.[0])} />
-        <button type="button" disabled={busy || path === undefined} onClick={() => file.current?.click()} className="inline-flex min-h-11 items-center text-xs font-medium text-[var(--ct-accent)] disabled:opacity-50">
+        <button type="button" disabled={busy || path === undefined} onClick={() => file.current?.click()} className="inline-flex min-h-tap items-center text-xs font-medium text-[var(--ct-accent)] disabled:opacity-50">
           {busy ? "กำลังอัป…" : path ? "เปลี่ยนโลโก้" : "อัปโลโก้"}
         </button>
       </div>

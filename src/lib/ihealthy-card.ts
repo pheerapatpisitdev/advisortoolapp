@@ -61,6 +61,8 @@ export interface IHealthyCard {
   planLine: string;
   /** who it is for, e.g. "ชาย 35 ปี"; drawn large in the corner */
   insuredWho: string;
+  /** whose face is drawn beside it */
+  sex: "M" | "F";
   /** what it rides on: the base plan, its sum, the territory */
   insuredLine: string;
   /**
@@ -265,6 +267,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
     lang,
     planLine: `iHealthy Ultra ${planLabel(v.plan)}`,
     insuredWho: `${w.sex[v.sex]} ${w.years(v.age)}`,
+    sex: v.sex,
     insuredLine: `${w.baseWithSum(baseName, v.sumAssured)} ${w.baht} · ${territory}${cover ? ` · ${cover}` : ""}`,
     ...(headline ? { premium: { amount: formatBaht(headline.total), per: w.share.per[v.mode] } } : {}),
     lines: here === undefined ? [] : [
@@ -307,6 +310,8 @@ export interface IHealthyTableCard {
   headLine: string;
   /** who it is for, e.g. "ชาย 35 ปี"; drawn large in the corner */
   insuredWho: string;
+  /** whose face is drawn beside it */
+  sex: "M" | "F";
   /** what it rides on: the base plan, its sum, the territory */
   insuredLine: string;
   columns: CardColumn[];
@@ -320,6 +325,7 @@ export function iHealthyTableCard(query: URLSearchParams, today: Date = new Date
     // the bot sends this one in English on the Expat Pages; the other languages have no caller
     headLine: card.lang === "en" ? "iHealthy Ultra · Compare plans" : "iHealthy Ultra · เปรียบเทียบแผน",
     insuredWho: card.insuredWho,
+    sex: card.sex,
     insuredLine: card.insuredLine,
     // nothing is chosen yet, so nothing is lit
     columns: card.columns.map((c) => ({ ...c, selected: false })),

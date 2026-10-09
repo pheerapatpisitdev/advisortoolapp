@@ -42,6 +42,8 @@ export async function writeDraft(input: DraftWriteInput, pageId: string | null):
     parse: (reply, i) => parseDraftPiece(reply, draft, i, format),
     // the draft is where a figure may come from; one the AI brought in is flagged
     yardstick: draft,
+    // the opening is the agent's own draft: theirs to repeat if they like
+    avoid: false,
     // a draft that recruits is read with หาทีม's rules: no income figure, even one it wrote itself
     checks: modeChecks(DRAFT_HREF, draft),
     logoSpot: input.logoSpot, posterWords: cleanPosterWords(input.posterWords), pageId, label: "draft",

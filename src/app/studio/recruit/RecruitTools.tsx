@@ -16,7 +16,7 @@ import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { PictureBrief } from "../ui/PictureBrief";
 import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
 import { cleanPosterWords } from "@/lib/content/poster-words";
-import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
+import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "../ui/form-parts";
 
 /**
  * หาทีม's tools (owner, 2026-09-26): pick a topic and who it is for, set the round, press
@@ -27,10 +27,10 @@ import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBa
 const READER_KEY = "content-recruit-reader";
 
 const chip = (on: boolean) =>
-  `inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
+  `inline-flex min-h-tap items-center justify-center rounded-full border px-3.5 py-1.5 text-sm ${on
     ? "border-[var(--ct-solid)] bg-[var(--ct-solid)] text-[var(--ct-solid-ink)]"
     : "border-[var(--ct-line)] bg-[var(--ct-panel)] text-[var(--ct-ink)] hover:bg-[var(--ct-soft)]"}`;
-const field = "min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
+const field = "min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm outline-none focus:border-[var(--ct-accent)]";
 
 export function RecruitTools({ writer, onWriter, painter, onPainter, people, person, onPerson, brief, onBrief, logo, rounds, left, pending, making, run, folded, formId }: {
   writer: string;
@@ -73,6 +73,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   const [length, setLength] = useState<Length>("60");
   const [loop, setLoop] = useLoop();
   const [formula, setFormula] = useFormula();
+  const [avoid, setAvoid] = useAvoid();
   const [tone, setTone] = useState("");
   const [count, setCount] = useState(1);
   const [posterWords, setPosterWords] = useState<PosterWordsValue>({});
@@ -89,7 +90,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count, writer,
+    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, avoid, count, writer,
       ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}),
       ...(format !== "script" && cleanPosterWords(posterWords) ? { posterWords: cleanPosterWords(posterWords) } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
@@ -100,7 +101,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
 
   return (
     <>
-      <div id={formId} className={`space-y-4 p-4 ${folded ? "hidden lg:block" : ""}`}>
+      <div id={formId} className={`space-y-3 p-3 ${folded ? "hidden lg:block" : ""}`}>
         <div>
           <label className="block">
             <span className="mb-1 block text-sm font-medium">หัวข้อ</span>
@@ -133,6 +134,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
         {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
+        <AvoidToggle value={avoid} onChange={setAvoid} />
 
         <FormSection title="เรื่องที่เล่า">
         <div role="group" aria-labelledby={`${id}-reader`}>

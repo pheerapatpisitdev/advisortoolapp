@@ -55,17 +55,17 @@ export function HookLibrary({ items, posted }: { items: HookTemplate[]; posted: 
   }
 
   const chipCls = (on: boolean) =>
-    `inline-flex min-h-11 items-center rounded-full border px-3.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-panel)]"}`;
+    `inline-flex min-h-tap items-center rounded-full border px-3 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-panel)]"}`;
 
   return (
-    <div className="mt-5 space-y-4">
+    <div className="mt-4 space-y-3">
       <div>
         <label htmlFor={searchId} className="sr-only">ค้นหาสูตรประโยคเปิด</label>
         <div className="relative">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--ct-mute)]" />
           <input
             id={searchId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาสูตร เช่น ลูก, ภาษี, เรื่องที่ควรรู้"
-            className="min-h-11 w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-2.5 pl-9 pr-4 text-sm outline-none focus:border-[var(--ct-accent)]"
+            className="min-h-tap w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-2 pl-9 pr-4 text-sm outline-none focus:border-[var(--ct-accent)]"
           />
         </div>
       </div>
@@ -83,7 +83,7 @@ export function HookLibrary({ items, posted }: { items: HookTemplate[]; posted: 
       ) : (
         <ul className="divide-y divide-[var(--ct-hair)] rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)]">
           {shown.map((h) => (
-            <li key={h.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <li key={h.id} className="flex flex-wrap items-center gap-3 px-4 py-2">
               <div className="min-w-0 flex-1 basis-60">
                 <p className="text-sm">
                   “{h.template}”
@@ -98,8 +98,8 @@ export function HookLibrary({ items, posted }: { items: HookTemplate[]; posted: 
                 <span className={`block text-sm tabular-nums ${posted[h.id] ? "font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)]"}`}>ลงเพจ {posted[h.id] ?? 0}</span>
                 <span className="block text-xs tabular-nums text-[var(--ct-mute)]">เขียน {h.useCount}</span>
               </span>
-              <Link href={`/studio/write?hook=${h.id}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)]">ใช้อันนี้</Link>
-              <button type="button" onClick={() => copy(h)} aria-live="polite" className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">
+              <Link href={`/studio/write?hook=${h.id}`} className="inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)]">ใช้อันนี้</Link>
+              <button type="button" onClick={() => copy(h)} aria-live="polite" className="inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg px-2 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">
                 {copied === h.id ? <><CheckIcon className="size-4 text-[var(--ct-accent)]" />คัดลอกแล้ว</> : "คัดลอก"}
               </button>
             </li>

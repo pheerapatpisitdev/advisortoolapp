@@ -113,3 +113,11 @@ describe("a message that names no plan but says what it is about", () => {
     }
   });
 });
+
+describe("มรดกเก็บออม by the day", () => {
+  it("is Life Protect: เก็บออม is saving, not the iShield name, and a daily budget beside มรดก is this plan's", () => {
+    expect(productNamedIn("มรดกเก็บออม 50 บาทต่อวัน")).toBeUndefined();
+    expect(productByTopic("มรดกเก็บออม 50 บาทต่อวัน")).toBe("lifeprotect");
+    expect(productNamedIn("ออมเดือนละ 2,000 บาท")).toBe("ishield");
+  });
+});

@@ -20,11 +20,15 @@ const nextConfig: NextConfig = {
   // the quote cards draw Thai text, and the drawing library needs the font files themselves —
   // the health card reads the same two faces from where the other one keeps them
   outputFileTracingIncludes: {
-    "/api/card": ["./src/app/api/card/*.ttf", "./public/card/family.jpg"],
-    "/api/ihealthy-card": ["./src/app/api/card/*.ttf"],
+    // and since 2026-10-09 every picture draws with satori 0.33 and resvg (src/lib/draw-png.ts),
+    // so each drawing route needs their .wasm files as well as the faces
+    "/api/card": [...POSTER_FILES, "./public/card/family.jpg"],
+    "/api/card/**": POSTER_FILES,
+    "/api/ihealthy-card": POSTER_FILES,
+    "/api/ihealthy-card/**": POSTER_FILES,
     // the LINE menus' pictures are drawn in the same faces, for a preview and for the build
-    "/api/line/menu-image": ["./src/app/api/card/*.ttf"],
-    "/api/line/rich-menu": ["./src/app/api/card/*.ttf"],
+    "/api/line/menu-image": POSTER_FILES,
+    "/api/line/rich-menu": POSTER_FILES,
     // the content posters borrow the quote card's Thai faces rather than keep a second copy
     "/api/content-poster": POSTER_FILES,
     // posting draws the poster inside the page the owner pressed from — the workbench and the

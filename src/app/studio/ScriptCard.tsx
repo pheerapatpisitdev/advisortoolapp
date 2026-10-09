@@ -42,7 +42,7 @@ export function ScriptCard({ item, index, busy, onEdit, onStatus, onDelete, onCo
   const toCheck = item.flags.numbers.length + item.flags.words.length + (item.flags.policy?.length ?? 0);
   const list = scenes(item.output.hooks[0] ?? "", item.output.body, item.output.closing);
   const length = LENGTHS.find((l) => l.id === item.length)?.label;
-  const cell = "flex min-h-11 items-center justify-center gap-1.5 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
+  const cell = "flex min-h-tap items-center justify-center gap-1.5 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
 
   return (
     <article className={`flex flex-col overflow-hidden rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] ${item.status === "trashed" ? "opacity-70" : ""}`}>
