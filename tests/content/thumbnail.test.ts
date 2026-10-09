@@ -10,6 +10,12 @@ describe("thumbnailPrompt", () => {
     expect(p).toContain("เช็กก่อนสาย");
     expect(p).toContain("Draw only the words above");
   });
+  it("says each line of words appears once, after a first draw repeated the headline", () => {
+    expect(thumbnailPrompt(base)).toMatch(/exactly once.*never repeat/);
+  });
+  it("asks for a full-bleed picture, after a draw came with blurred bars", () => {
+    expect(thumbnailPrompt(base)).toMatch(/edge to edge.*no bars/);
+  });
   it("trims overlong words to the limits", () => {
     const p = thumbnailPrompt({ ...base, headline: "ก".repeat(MAX_HEADLINE + 30), sub: "ข".repeat(MAX_SUB + 30) });
     expect(p).toContain("ก".repeat(MAX_HEADLINE));

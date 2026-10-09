@@ -84,6 +84,8 @@ export function thumbnailPrompt(o: {
     "Absolute rules:",
     "- Draw only the words above: no other words, numbers, logos, watermarks, signatures or user-interface elements.",
     "- Keep every Thai word whole and correctly spelled; never split, invent or rearrange characters.",
+    "- Each line of words appears exactly once on the image: never repeat, duplicate or echo a line anywhere, even smaller.",
+    "- The picture fills the whole frame edge to edge: no bars, borders, letterboxing, blurred padding or smaller picture set inside the frame.",
     `- ${SAFE[o.size]}`,
     `- ${CROP}`,
     `- Avoid: ${AVOID.join("; ")}.`,
