@@ -266,7 +266,7 @@ describe("a quote", () => {
 
   it("quotes the term the customer named", async () => {
     const answer = await answerQuestion(said("จ่าย 19 ปีเท่าไหร่"), { intent: "quote", age: 35, sex: "M", coverWanted: 1_000_000 });
-    expect(answer.messages[0].text).toContain("อย่างนี้ออม 19 ปี คุ้มครอง 99 ปี");
+    expect(answer.messages[0].text).toContain("ออม 19 ปี คุ้มครอง 99 ปี");
     expect(answer.messages[0].card).toContain("variant=WLF19H");
   });
 

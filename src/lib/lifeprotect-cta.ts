@@ -115,7 +115,9 @@ export function lifeProtectCashText(cash: CashRow[]): string | undefined {
 }
 
 /**
- * The quote as the chat bot sends it, in the owner's own words (2026-09-23).
+ * The quote as the chat bot sends it, in the owner's own words (2026-09-23), cut short at the
+ * owner's request (2026-10-09): the price pitch and the "other terms" sentence are gone — the
+ * message that closes the quote already names the other terms.
  *
  * The copy button on the sales page keeps the plainer text above; only the bot talks like
  * this. The wording is the owner's, kept as written — including the price claim and the tax
@@ -138,20 +140,14 @@ export function lifeProtectChatQuoteText(
   const doubles = !f.death.alreadyPastAge;
   const lines = [
     "🛡️ Life Protect",
-    ...(doubles
-      ? [
-        `ทุน ${baht(f.sumAssured)} บาท เพิ่มเป็น ${baht(f.death.sumBefore)} ถึงอายุ ${f.death.beforeAge}`,
-        "ระบบ double ทุน ราคาเบี้ยถูกที่สุดจากประสบการณ์เท่าที่ผู้ขายทำงานมากกว่า 10 ปี",
-        "ยังไม่เห็นมีที่ไหนขาย",
-      ]
-      : [`ทุน ${baht(f.sumAssured)} บาท`]),
+    doubles
+      ? `ทุน ${baht(f.sumAssured)} บาท เพิ่มเป็น ${baht(f.death.sumBefore)} ถึงอายุ ${f.death.beforeAge}`
+      : `ทุน ${baht(f.sumAssured)} บาท`,
     "",
     // "จ่ายถึงอายุ 99" reads "ออมถึงอายุ 99", "จ่าย 9 ปี" reads "ออม 9 ปี"
-    `${SEX_WORD[f.sex]} อายุ ${ageWord(f.age)} · อย่างนี้ออม${f.termLabel.replace(/^จ่าย/, "")} คุ้มครอง ${f.coverToAge} ปี`,
-    `💰 เบี้ยประมาณ ${formatBaht(headline.total)} บาท${PER[headline.mode]}` + (annual ? ` (ตกวันละ ${perDayText(annual.total)} บาท)` : ""),
+    `${SEX_WORD[f.sex]} อายุ ${ageWord(f.age)} · ออม${f.termLabel.replace(/^จ่าย/, "")} คุ้มครอง ${f.coverToAge} ปี`,
+    `💰 เบี้ยประมาณ ${formatBaht(headline.total)} บาท${PER[headline.mode]}` + (annual ? ` (วันละ ${perDayText(annual.total)} บาท)` : ""),
     ...(f.riders?.lines ?? []),
-    "ทั้งนี้เราสามารถเลือกระยะเวลาในการออมได้",
-    "เช่น 9ปี, 19 ปี, 99 ปี",
     "",
     ...instalmentLines(f.modes),
     // what the instalment is made of, to the satang, so a bigger number than the plan's own
@@ -162,8 +158,8 @@ export function lifeProtectChatQuoteText(
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต (ตุยเย่)",
     ...(doubles
       ? [
-        `- เสียชีวิตก่อนอายุ ${f.death.beforeAge} ปี ภาระหนี้สินเยอะเลย เพิ่มทุนเป็น ${baht(f.death.sumBefore)} บาท`,
-        `- อายุ ${f.death.beforeAge} ปีขึ้นไปรับทุน ${baht(f.death.sumFrom)} บาท ตามเบี้ยจริง`,
+        `- ก่อนอายุ ${f.death.beforeAge} ปี ${baht(f.death.sumBefore)} บาท`,
+        `- อายุ ${f.death.beforeAge} ปีขึ้นไป ${baht(f.death.sumFrom)} บาท`,
       ]
       : deathBenefitRows(f.death).map((r) => `- ${r.label} ${baht(r.amount)} บาท`)),
   ];
@@ -171,7 +167,9 @@ export function lifeProtectChatQuoteText(
   // 2026-10-06): the chart-and-table picture sent after this carries every year of them
   lines.push(
     "",
-    ...(f.riders ? f.riders.footNotes.map((n) => `📌 ${n}`) : ["📌 เบี้ยคงที่ตลอดระยะเวลาชำระ", "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน"]),
+    ...(f.riders
+      ? f.riders.footNotes.map((n) => `📌 ${n}`)
+      : ["📌 เบี้ยคงที่ตลอดระยะเวลาชำระ · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน"]),
     "ลดหย่อนภาษีได้ 100,000 บาท",
   );
   return lines.join("\n");
