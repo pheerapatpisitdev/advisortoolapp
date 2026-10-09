@@ -164,7 +164,7 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
         </div>
       ) : (
         <div className="relative space-y-5 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-raise)] p-5">
-          <PanelPhoto />
+          <PanelPhoto sex={sex} age={age} />
           {headline && annual ? (
             <div>
               {/* as tall as the family photo in the corner, so the box after it never runs under the picture */}

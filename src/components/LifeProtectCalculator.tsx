@@ -669,7 +669,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         </div>
       ) : (
         <div className="relative space-y-5 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-raise)] p-5">
-          <PanelPhoto />
+          <PanelPhoto sex={sex} age={ageNum} />
           {headline && annual && basePart ? (
             <div>
               {/* led by what the family inherits; the premium, riders and all, is the box's (owner, 2026-10-06) */}
