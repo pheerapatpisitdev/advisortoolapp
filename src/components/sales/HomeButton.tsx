@@ -30,7 +30,7 @@ export function HomeButton() {
   return (
     <div className="relative">
         <Link
-        href="/"
+        href="/home"
         aria-label="กลับไปหน้าแรก"
         className="
           fixed right-3 top-3 z-40 flex items-center gap-1.5 rounded-full

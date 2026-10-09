@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   // Pages are the staff's with can_connect; the ad account is the back office's (2026-09-27);
   // the login that can spend money is the owner's alone
   const viewer = await getViewer();
-  if (!viewer) return NextResponse.redirect(`${origin}/login?next=${encodeURIComponent(home)}`);
+  if (!viewer) return NextResponse.redirect(`${origin}/?next=${encodeURIComponent(home)}`);
   if (!can(viewer, purpose === "ads-manage" ? "owner" : purpose === "ads" ? "admin" : "connect")) {
     return NextResponse.redirect(`${origin}/studio`);
   }

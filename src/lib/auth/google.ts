@@ -143,7 +143,7 @@ export async function exchangeCode(code: string, verifier: string, origin: strin
   return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as IdClaims;
 }
 
-/** What a login can come back as, besides a member: each has its words on /login (GOOGLE_ERRORS). */
+/** What a login can come back as, besides a member: each has its words on the sign-in page (GOOGLE_ERRORS). */
 export type GoogleError = "cancelled" | "state" | "unverified" | "suspended" | "closed" | "limit" | "broken" | "unconfigured";
 
 export const GOOGLE_ERRORS: Record<GoogleError, string> = {
@@ -157,9 +157,9 @@ export const GOOGLE_ERRORS: Record<GoogleError, string> = {
   unconfigured: "ยังไม่ได้ตั้งค่าการเข้าสู่ระบบด้วย Google",
 };
 
-/** /login with the reason in words, keeping where the visitor was headed. */
+/** The sign-in on the front page with the reason in words, keeping where the visitor was headed. */
 export function loginWithError(origin: string, error: GoogleError, next: string): string {
-  return `${origin}/login?${new URLSearchParams({ error, next })}`;
+  return `${origin}/?${new URLSearchParams({ error, next })}`;
 }
 
 export function googleError(code: unknown): string | null {

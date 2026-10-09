@@ -149,7 +149,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who }: {
   };
 
   const groups = menu ?? menuGroups(signedIn, who);
-  const home = brand ?? { href: "/", label: "advisortool" };
+  const home = brand ?? { href: "/home", label: "advisortool" };
 
   // a menu left open across a navigation covers the page that was just asked for
   useEffect(() => { setOpen(false); }, [path]);
@@ -282,13 +282,18 @@ function Account({ who, pushDown }: { who: Who | null; pushDown: boolean }) {
             <p className="truncate text-[0.7rem]" style={{ color: "var(--shell-mute)" }}>{who.member ? who.room : `ห้อง ${who.room}`}</p>
           </div>
           <form action={signOut}>
-            <button type="submit" className="shell-btn px-2 py-1 text-xs" style={{ color: "var(--shell-mute)" }} title="ออกจากระบบ">
-              ออกจากระบบ
+            {/* an icon as well as the words, and in the ink rather than the mute: small grey
+                text at the very foot was read as not being there (owner, 2026-10-10) */}
+            <button type="submit" className="shell-btn flex items-center gap-1.5 px-2.5 py-1.5 text-sm" style={{ color: "var(--shell-ink)" }} title="ออกจากระบบ">
+              <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" />
+              </svg>
+              <span className="rail:sr-only">ออกจากระบบ</span>
             </button>
           </form>
         </div>
       ) : (
-        <Link href="/login" className="shell-btn flex items-center justify-center px-2 py-1.5 text-sm no-underline" style={{ color: "var(--shell-ink)" }}>
+        <Link href="/" className="shell-btn flex items-center justify-center px-2 py-1.5 text-sm no-underline" style={{ color: "var(--shell-ink)" }}>
           เข้าสู่ระบบ
         </Link>
       )}

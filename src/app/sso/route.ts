@@ -11,15 +11,15 @@ export const dynamic = "force-dynamic";
  * Where UnitOS's menu lands (2026-09-28): the agent pressed advisortool inside UnitOS, and
  * UnitOS's edge function unitos-sso wrote a one-time ticket into the shared database after
  * checking their UnitOS key. The ticket is deleted as it is read, so it works once; it lives a
- * minute; and the agent is let in by the same rules as the code at /login, read afresh from
- * UnitOS's rows. Anything wrong goes to /login, which works anyway.
+ * minute; and the agent is let in by the same rules as the code typed on the front page, read afresh from
+ * UnitOS's rows. Anything wrong goes to the sign-in on the front page, which works anyway.
  *
  * Lands on the home page (2026-09-28, owner's call), not /studio: from UnitOS the agent
  * starts where everyone else does, and Studio is one click away in the menu.
  */
 export async function GET(req: Request) {
   const origin = requestOrigin(req);
-  const toLogin = () => NextResponse.redirect(`${origin}/login?next=${encodeURIComponent("/")}`);
+  const toLogin = () => NextResponse.redirect(`${origin}/`);
   const id = new URL(req.url).searchParams.get("t") ?? "";
   if (!/^[0-9a-f-]{36}$/.test(id)) return toLogin();
 

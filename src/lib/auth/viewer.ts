@@ -99,7 +99,7 @@ export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   if (!viewer) {
     // the page actually asked for, when the middleware passed it on; the caller's guess otherwise
     const asked = safeNext((await headers()).get("x-pathname"), next);
-    redirect(`/login?next=${encodeURIComponent(asked)}`);
+    redirect(`/?next=${encodeURIComponent(asked)}`);
   }
   if (perm && !can(viewer, perm)) redirect("/studio");
   return viewer;

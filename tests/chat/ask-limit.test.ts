@@ -47,8 +47,8 @@ describe("askCopilot for somebody not signed in", () => {
     jar.value = encodeAsks(3, KEY);
     const reply = await askCopilot(`ถาม ${ip()}`);
     expect(reply.text).toContain("ถามฟรีครบ 3 ข้อแล้ว");
-    expect(reply.text).toContain("[สมัครสมาชิก](/signup?next=/)");
-    expect(reply.text).toContain("[เข้าสู่ระบบ](/login?next=/)");
+    expect(reply.text).toContain("[สมัครสมาชิก](/signup?next=/home)");
+    expect(reply.text).toContain("[เข้าสู่ระบบ](/?next=/home)");
     expect(brain.answer).not.toHaveBeenCalled();
     expect(jar.set).not.toHaveBeenCalled();
   });

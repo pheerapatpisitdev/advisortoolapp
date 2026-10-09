@@ -233,7 +233,7 @@ export function Chat({ guide, invite = false }: { guide: GuideGroup[]; invite?: 
               which needs the height */}
           {invite && !talking && (
             <Link
-              href="/signup?next=/"
+              href="/signup?next=/home"
               className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--hm-line)] bg-[var(--hm-panel)] px-3.5 py-1.5 text-sm text-[var(--hm-ink)] no-underline hover:border-[var(--hm-line-strong)]"
             >
               <span aria-hidden>✨</span>

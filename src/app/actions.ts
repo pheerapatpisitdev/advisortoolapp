@@ -36,7 +36,7 @@ const OUT_OF_BUDGET = "ตอนนี้ผู้ช่วยปิดชั่
 const BROKEN = "ขออภัยครับ ระบบขัดข้องชั่วคราว ลองถามใหม่อีกครั้งนะครับ";
 const SIGN_UP =
   `ถามฟรีครบ ${FREE_ASKS} ข้อแล้วครับ สมัครสมาชิกฟรีเพื่อถามต่อได้ไม่จำกัด และได้ลองใช้ Studio ช่วยเขียนคอนเทนต์ฟรี 10 รอบ\n\n` +
-  "[สมัครสมาชิก](/signup?next=/) · [เข้าสู่ระบบ](/login?next=/)";
+  "[สมัครสมาชิก](/signup?next=/home) · [เข้าสู่ระบบ](/?next=/home)";
 
 /** Whoever is asking, as well as this can be known behind a proxy: the platform's x-real-ip first (see clientIp). */
 async function caller(): Promise<string> {

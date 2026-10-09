@@ -148,7 +148,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
 
   it("still offers the pages a customer is sent to", () => {
     const out = hrefs(false);
-    expect(out).toContain("/");
+    expect(out).toContain("/home");
     expect(out).toContain("/other-plans");
     for (const page of SALES_PAGES) expect(out).toContain(page.href);
   });
@@ -169,6 +169,16 @@ describe("what the menu shows to somebody who has not signed in", () => {
     );
   });
 
+  it("gives staff, who land on the main system after signing in, their way to the back office", () => {
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const offices = (w: typeof who | null) => menuGroups(false, w).flatMap((g) => g.links).filter((l) => l.label === "หลังบ้าน").map((l) => l.href);
+    expect(offices(null)).toEqual([]);
+    expect(offices(who)).toEqual([]);
+    expect(offices({ ...who, publish: true })).toEqual([]);
+    expect(offices({ ...who, connect: true })).toEqual(["/admin/messenger"]);
+    expect(offices({ ...who, admin: true, connect: true })).toEqual(["/admin"]);
+  });
+
   it("names no group a signed-out reader has nothing in", () => {
     // an empty heading is a heading that says something is being kept from you
     for (const group of menuGroups(false)) expect(group.links.length).toBeGreaterThan(0);
@@ -178,19 +188,19 @@ describe("what the menu shows to somebody who has not signed in", () => {
 describe("Studio's own menu", () => {
   it("lists Studio's pages and a way back to the main system", () => {
     const links = studioMenu().flatMap((g) => g.links);
-    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/"]);
+    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/home"]);
   });
 
   it("keeps the front page for admins and assistants, the back office for admins; agents start at the workbench", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
     // the calendar is every agent's: a Page's for those who post, a plan for the rest (owner, 2026-09-30)
-    expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/"]);
-    expect(hrefs({ ...who, admin: true, publish: true })).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/admin", "/"]);
+    expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/home"]);
+    expect(hrefs({ ...who, admin: true, publish: true })).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/admin", "/home"]);
     // an assistant has an agent's Studio and the front page to choose among their Pages (owner, 2026-10-02)
     expect(hrefs({ ...who, publish: true })).toEqual(["/studio", ...hrefs(who)]);
     // the Messenger stays with the "connect" tick, which the owner gives or takes on /admin/team
-    expect(hrefs({ ...who, publish: true, connect: true })).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/admin/messenger", "/"]);
+    expect(hrefs({ ...who, publish: true, connect: true })).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/admin/messenger", "/home"]);
   });
 
   it("lists ถอดรูปเป็น prompt for everyone who has Studio, right after the people library and before the ad launch", () => {

@@ -66,7 +66,7 @@ describe("GET /auth/google", () => {
   it("says so on /login when Google is not set up", async () => {
     vi.stubEnv("GOOGLE_CLIENT_ID", "");
     const res = await start(get("/auth/google?next=/"));
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/login?error=unconfigured&next=%2F`);
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/?error=unconfigured&next=%2F`);
   });
 });
 
@@ -90,27 +90,27 @@ describe("GET /auth/google/callback", () => {
   it("refuses a state that is not the one this browser began", async () => {
     const { cookie } = begun();
     const res = await callback(get("/auth/google/callback?code=c1&state=forged", cookie));
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/login?error=state&next=%2Fstudio`);
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/?error=state&next=%2Fstudio`);
     expect(session.startSession).not.toHaveBeenCalled();
   });
 
   it("refuses a callback from a browser that began nothing", async () => {
     const { login } = begun();
     const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`));
-    expect(res.headers.get("location")).toContain("/login?error=state");
+    expect(res.headers.get("location")).toContain("/?error=state");
   });
 
   it("comes back quietly when the visitor cancelled at Google", async () => {
     const { login, cookie } = begun();
     const res = await callback(get(`/auth/google/callback?error=access_denied&state=${login.state}`, cookie));
-    expect(res.headers.get("location")).toContain("/login?error=cancelled");
+    expect(res.headers.get("location")).toContain("/?error=cancelled");
   });
 
   it("refuses an ID token minted for another login", async () => {
     const { login, cookie } = begun();
     googleSays({ id_token: jwt(claims("someone-elses-nonce")) });
     const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
-    expect(res.headers.get("location")).toContain("/login?error=state");
+    expect(res.headers.get("location")).toContain("/?error=state");
     expect(members.memberFromGoogle).not.toHaveBeenCalled();
   });
 
@@ -119,7 +119,7 @@ describe("GET /auth/google/callback", () => {
     googleSays({ id_token: jwt(claims(login.nonce)) });
     members.memberFromGoogle.mockResolvedValue({ ok: false, error: "closed" });
     const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
-    expect(res.headers.get("location")).toContain("/login?error=closed");
+    expect(res.headers.get("location")).toContain("/?error=closed");
     expect(session.startSession).not.toHaveBeenCalled();
   });
 
@@ -128,6 +128,6 @@ describe("GET /auth/google/callback", () => {
     googleSays({ error: "invalid_grant" }, 400);
     vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
-    expect(res.headers.get("location")).toContain("/login?error=broken");
+    expect(res.headers.get("location")).toContain("/?error=broken");
   });
 });

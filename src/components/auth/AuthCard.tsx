@@ -19,7 +19,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
         </div>
         {children}
       </div>
-      <Link href="/" className="mt-5 text-sm text-[var(--bot-ink-mute)] underline underline-offset-2">กลับไปหน้าแรก</Link>
+      <Link href="/home" className="mt-5 text-sm text-[var(--bot-ink-mute)] underline underline-offset-2">ลองถาม AI ก่อน (ไม่ต้องล็อกอิน)</Link>
     </main>
   );
 }

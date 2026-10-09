@@ -263,7 +263,7 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       // different here — which is that the agent builds the arrangement themselves, plan by
       // rider, instead of being walked through one plan's own questions.
       { href: "/other-plans", label: "จัดแบบเอง", icon: "calc", hue: "#327d86" },
-      { href: "/", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
+      { href: "/home", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
     ],
@@ -274,7 +274,16 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
   for (const section of SALES_SECTIONS) {
     groups.push({ title: section.title, links: section.links });
   }
+  // staff land on the main system after signing in (owner, 2026-10-10), so the way to their
+  // own work is here too, not only inside Studio's menu
+  const office = officeFor(who);
+  if (office) groups.splice(1, 0, { links: [{ href: office, label: "หลังบ้าน", icon: "grid", hue: "#2b736f" }] });
   return groups;
+}
+
+/** The first page of the back office somebody may open: admins the overview, assistants who answer chats the inbox. */
+function officeFor(who?: Who | null): string | null {
+  return !who ? null : who.admin ? "/admin" : who.connect ? "/admin/messenger" : null;
 }
 
 /**
@@ -316,9 +325,9 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     ...(who?.owner ? [] : ["/studio/ads", "/studio/thumbnail"]),
   ]);
   const shown = links.filter((l) => !hidden.has(l.href));
-  const back: MenuLink[] = [{ href: "/", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
+  const back: MenuLink[] = [{ href: "/home", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
   // staff get a way to the back office, landing on the first page of it they may open
-  const office = !who ? null : who.admin ? "/admin" : who.connect ? "/admin/messenger" : null;
+  const office = officeFor(who);
   if (office) back.unshift({ href: office, label: "หลังบ้าน", icon: "grid", hue: "#2b736f" });
   return [{ title: "Studio", links: shown }, { links: back }];
 }

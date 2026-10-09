@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 /**
  * Where Google sends the visitor back. The login is taken only from the cookie this browser
  * got on the way out, and the cookie is spent here whatever the outcome. Anything wrong goes
- * back to /login with a code its page turns into words (GOOGLE_ERRORS).
+ * back to the sign-in on the front page with a code its page turns into words (GOOGLE_ERRORS).
  */
 export async function GET(req: Request) {
   const res = await finish(req);
