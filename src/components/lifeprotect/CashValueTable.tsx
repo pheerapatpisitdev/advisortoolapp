@@ -14,6 +14,7 @@ import { INSURER } from "@/lib/assistant/common";
 import { Sriracha } from "next/font/google";
 import { figureWidth, needsBraceRoom, penNotes, penSvgUri, type PenGeometry } from "@/app/api/card/table/pen-notes";
 import type { ValueTableCard } from "@/lib/quote-card";
+import { isBooster } from "@/lib/booster";
 import { CARD_PALETTE } from "@/lib/card-theme";
 
 /** the red pen's handwriting, as on the value-table picture (src/app/api/card/table) */
@@ -275,6 +276,10 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
                     {crossover ? <Circled><Highlighted>{formatBaht(r.cashValue)}</Highlighted></Circled> : formatBaht(r.cashValue)}
                   </td>
                   <td className={`${CELL} ${RULE} pr-3 text-right`}>
+                    {/* the x2 years say so before the cover figure, as the picture does (owner, 2026-10-10) */}
+                    {isBooster(r.cover, projection.coverFloor) && (
+                      <span className="mr-1.5 align-[1px] text-[9.5px] text-[var(--lg-gain)]">booster</span>
+                    )}
                     {ringed(n, "คุ้มครอง") ? <Circled>{formatBaht(r.cover)}</Circled> : formatBaht(r.cover)}
                   </td>
                 </tr>

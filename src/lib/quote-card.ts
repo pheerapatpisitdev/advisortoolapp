@@ -26,6 +26,7 @@ import { legacyFromDeath, legacyLevel, type Legacy } from "@/lib/legacy-headline
 import { riderDiseases } from "@/calc/riders/diseases";
 import { ci123Stages } from "@/lib/ci123-table";
 import { stagePays } from "@/lib/ci123-cta";
+import { isBooster } from "@/lib/booster";
 import {
   CANCER_DAILY_RIDER, CANCER_RIDER, CPR_STAGES, HIC_INVASIVE_EXTRA_DAYS, HIC_MAX_DAYS, cancerDeathTotals,
   cprStagePays, deathTotalsTitle,
@@ -651,6 +652,8 @@ export interface ValueTableRow {
   empty?: boolean;
   /** a year after the break-even one: the surrender figure is green there (owner, 2026-10-09) */
   pastBreakEven?: boolean;
+  /** a year the cover is twice the sum — the x2 booster — marked "booster" (owner, 2026-10-10) */
+  booster?: boolean;
 }
 
 export interface ValueTableCard {
@@ -812,6 +815,7 @@ export function valueTableCard(input: PlanCardInput, today: Date = new Date()): 
       ...(p.breakEven?.policyYear === r.policyYear ? { breakEven: true } : {}),
       ...(p.breakEven && r.policyYear > p.breakEven.policyYear ? { pastBreakEven: true } : {}),
       ...(r.cashValue === 0 ? { empty: true } : {}),
+      ...(isBooster(r.cover, p.coverFloor) ? { booster: true } : {}),
     })),
   };
 }

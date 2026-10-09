@@ -135,9 +135,11 @@ const CELL_PAD = 11;
  * ladder down the table instead of a column.
  */
 function Cell(
-  { i, cols, height, color, rule, mark, highlighter, pen, children }:
+  { i, cols, height, color, rule, mark, highlighter, pen, tag, children }:
   {
     i: number; cols: typeof COLS; height: number; color: string; rule: string; children: string;
+    /** a small word set before the figure, in its own colour: the x2 years' "booster" */
+    tag?: { text: string; color: string };
     /** drawn with the quote card's highlighter stroke behind the figure */
     mark?: boolean; highlighter?: string;
     /** a loop in this colour drawn round the figure, as with a pen */
@@ -168,6 +170,7 @@ function Cell(
         color,
       }}
     >
+      {tag && <div style={{ display: "flex", fontSize: 15, color: tag.color, marginRight: 8, paddingTop: 3 }}>{tag.text}</div>}
       {pen ? (
         // pulled back by its own padding, so the ringed figure stays in line with the column
         <div
@@ -255,6 +258,8 @@ function Half(
                 // and the surrender value is ringed in red pen
                 pen={(r.breakEven && columns[i] === "เวนคืนได้") || rings.some((g) => g.row === n && g.column === columns[i])
                   ? p.pen : undefined}
+                // the x2 years say so before the cover figure (owner, 2026-10-10)
+                tag={r.booster && columns[i] === "คุ้มครอง" ? { text: "booster", color: p.gain } : undefined}
               >
                 {cell}
               </Cell>
