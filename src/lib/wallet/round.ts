@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { asWho } from "@/lib/ai/who";
 import type { EditPass } from "@/lib/content/clip";
 import { chargeSatang, holdSatangFor } from "./money";
 import { releaseWallet, returnFreeRound, settleWallet } from "./store";
@@ -13,10 +14,11 @@ import { releaseWallet, returnFreeRound, settleWallet } from "./store";
  * running at once each have their own.
  */
 
-export type WalletPass = { ok: true; paidBy: "wallet"; holdId: string; heldSatang: number; multiplier: number };
+/** `agentId`: whose round it is, written on its ledger lines (src/lib/ai/who.ts) */
+export type WalletPass = { ok: true; paidBy: "wallet"; holdId: string; heldSatang: number; multiplier: number; agentId?: string };
 /** `auditId`: the round's line in ins_audit, renamed when the round is handed back */
-export type FreePass = { ok: true; paidBy: "free"; auditId: number };
-export type RoundPass = { ok: false; refusal: string } | { ok: true; paidBy: "staff" } | FreePass | WalletPass;
+export type FreePass = { ok: true; paidBy: "free"; auditId: number; agentId?: string };
+export type RoundPass = { ok: false; refusal: string } | { ok: true; paidBy: "staff"; agentId?: string } | FreePass | WalletPass;
 
 interface Meter { spentThb: number }
 const meters = new AsyncLocalStorage<Meter>();
@@ -65,6 +67,11 @@ async function runFree<R extends Outcome>(pass: FreePass, run: () => Promise<R>)
  * agent in fifteen minutes (ins_wallet_sweep_holds), so the error is in the agent's favour.
  */
 export async function payRound<R extends Outcome>(pass: Extract<RoundPass, { ok: true }>, run: () => Promise<R>): Promise<R> {
+  // the round's calls go down in the ledger under whoever took it, the owner included
+  return asWho(pass.agentId, () => paid(pass, run));
+}
+
+async function paid<R extends Outcome>(pass: Extract<RoundPass, { ok: true }>, run: () => Promise<R>): Promise<R> {
   if (pass.paidBy === "free") return runFree(pass, run);
   if (pass.paidBy !== "wallet") return run();
   const meter: Meter = { spentThb: 0 };

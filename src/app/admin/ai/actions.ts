@@ -6,6 +6,7 @@ import { monthSpend, monthStart, spendSince, type SpendLine } from "@/lib/ai/led
 import { contentBaht, DEFAULT_CONTENT_CAP_THB } from "@/lib/content/store";
 import { EMBEDDERS, JUDGE } from "@/lib/ai/providers";
 import { checkBudgets } from "./budget";
+import { usageByPerson, type PersonUse } from "./people";
 import { requireStaff } from "@/lib/auth/viewer";
 import { walletChargedThb } from "@/lib/wallet/store";
 import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/video/settings";
@@ -17,6 +18,7 @@ const monthStartMs = () => monthStart().getTime();
 const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false };
 
 export type { ProviderCheck } from "@/lib/ai/client";
+export type { PersonUse } from "./people";
 
 /**
  * The companies this system can call. xAI was here until 2026-09-17: the account was blocked
@@ -108,11 +110,13 @@ export async function loadAiPage(): Promise<{
   content: { spent: number | null; cap: number; fallback: number };
   /** the clip render services: how they are set, and the last four characters of each key held */
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
+  /** who used AI this month and how much; null when it could not be read */
+  people: PersonUse[] | null;
 }> {
   await requireStaff("admin");
   const supabase = supabaseAdmin();
   const since = await spendSince();
-  const [keys, models, prefs, settings, spend] = await Promise.all([
+  const [keys, models, prefs, settings, spend, people] = await Promise.all([
     supabase.from("ins_api_keys").select("provider, tail, enabled"),
     supabase.from("model_configs").select("id, provider, kind, model_name, enabled, params").order("provider").order("model_name"),
     supabase.from("ins_model_prefs").select("model_id, enabled"),
@@ -125,6 +129,11 @@ export async function loadAiPage(): Promise<{
     // anybody goes when the AI is misbehaving. A missing figure is said on the page instead.
     monthSpend(since).catch((e) => {
       console.error("อ่านยอดใช้ AI ไม่สำเร็จ:", e);
+      return null;
+    }),
+    // the same: a missing per-person figure is said on the page, never a page that will not open
+    usageByPerson(since).catch((e) => {
+      console.error("อ่านยอดใช้ AI รายคนไม่สำเร็จ:", e);
       return null;
     }),
   ]);
@@ -140,6 +149,7 @@ export async function loadAiPage(): Promise<{
   });
   const videoKeys = await renderKeysShown(heldKeys);
   return {
+    people,
     video: { settings: videoCfg, keys: videoKeys },
     keys: heldKeys
       .filter((k) => !(RENDER_PROVIDERS as readonly string[]).includes(k.provider))

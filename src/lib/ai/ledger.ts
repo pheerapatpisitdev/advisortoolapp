@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { currentWho } from "./who";
 
 /**
  * What the models have cost since a moment, summed in the database.
@@ -69,11 +70,20 @@ export async function spendSince(now = new Date()): Promise<Date> {
  * thrown: the work it is for is done, and its answer still goes out.
  */
 export async function recordUsage(model: string, task: string, inTok: number, outTok: number, costThb: number): Promise<void> {
-  const r = await supabaseAdmin().from("ins_usage_ledger").insert({
-    model, task, input_tokens: inTok, output_tokens: outTok, cost_thb: Number(costThb.toFixed(6)),
-  });
+  // whose question or round this call was for (src/lib/ai/who.ts); a customer bot's is no one's
+  const who = currentWho();
+  const line = { model, task, input_tokens: inTok, output_tokens: outTok, cost_thb: Number(costThb.toFixed(6)) };
+  const ledger = () => supabaseAdmin().from("ins_usage_ledger");
+  const named: Record<string, unknown> = who ? { ...line, agent_id: who.agentId, ask_id: who.askId } : line;
+  let r = await ledger().insert(named);
+  // the columns come by a migration and this code by a deploy: until both are in, the cost is
+  // still written, only without the name — the owner's budget reads it either way
+  if (who && r?.error?.code === COLUMN_MISSING) r = await ledger().insert(line);
   if (r?.error) console.error(`usage of ${task} not recorded:`, r.error.message);
 }
+
+/** PostgREST's code for a column it does not know */
+const COLUMN_MISSING = "PGRST204";
 
 /* ------------------------------ reservations ------------------------------ */
 

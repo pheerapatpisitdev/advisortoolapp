@@ -95,13 +95,13 @@ async function takeFreeRound(viewer: Viewer, round: AiRound, target: string | nu
 export async function takeRound(viewer: Viewer, round: AiRound, target: string | null = null, holdThb?: number): Promise<RoundPass> {
   // the owner has no allowance to count against; the content ceiling covers them. Assistants
   // used to be let through here too, until the owner gave them wallets (2026-10-02)
-  if (can(viewer, "owner")) return { ok: true, paidBy: "staff" };
+  if (can(viewer, "owner")) return { ok: true, paidBy: "staff", agentId: viewer.agentId };
   const freeId = await takeFreeRound(viewer, round, target).catch((e) => {
     console.error(`round ${round} not counted, refused:`, e);
     return undefined;
   });
   if (freeId === undefined) return { ok: false, refusal: UNCOUNTED };
-  if (freeId !== null) return { ok: true, paidBy: "free", auditId: freeId };
+  if (freeId !== null) return { ok: true, paidBy: "free", auditId: freeId, agentId: viewer.agentId };
   const refusal = overAllowance({ limit: FREE_ROUNDS, used: FREE_ROUNDS }) ?? "";
   // an unreadable wallet is a closed one: the round is refused, never let through unpaid
   const settings = await walletSettings().catch((e) => {
@@ -122,5 +122,5 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
   const { error } = await supabaseAdmin().from("ins_audit").insert({ agent_id: viewer.agentId, action: round, target, detail: { wallet: true } });
   // the round is paid for by the hold, so a lost line costs the count, not the money
   if (error) console.error(`round ${round} not counted:`, error.message);
-  return { ok: true, paidBy: "wallet", holdId, heldSatang, multiplier: settings.multiplier };
+  return { ok: true, paidBy: "wallet", holdId, heldSatang, multiplier: settings.multiplier, agentId: viewer.agentId };
 }

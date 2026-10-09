@@ -6,6 +6,7 @@ import { ASKS_COOKIE, ASKS_MAX_AGE_S, decodeAsks, encodeAsks, FREE_ASKS } from "
 import { sessionSecret } from "@/lib/auth/session";
 import { getViewer } from "@/lib/auth/viewer";
 import { BudgetExceeded } from "@/lib/ai/client";
+import { asWho } from "@/lib/ai/who";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
 import { cleanHistory, cleanSlots } from "@/lib/chat/public-input";
@@ -55,7 +56,8 @@ export async function askCopilot(
   const known = cleanSlots(slots);
 
   // a failed read of who is asking is somebody not signed in: they still get their free questions
-  const signedIn = Boolean(await getViewer().catch(() => null));
+  const viewer = await getViewer().catch(() => null);
+  const signedIn = Boolean(viewer);
   const jar = await cookies();
   const used = signedIn ? 0 : decodeAsks(jar.get(ASKS_COOKIE)?.value, sessionSecret());
   if (!signedIn && used >= FREE_ASKS) return { text: SIGN_UP, model: "—" };
@@ -66,7 +68,8 @@ export async function askCopilot(
   if (!signedIn && !(await claimWebAsk(ip))) return { text: SIGN_UP, model: "—" };
 
   try {
-    const answer = await answerFromKnowledge(asked, turns, known);
+    // free, but written down under who asked, so the owner sees who uses it (owner, 2026-10-10)
+    const answer = await asWho(viewer?.agentId, () => answerFromKnowledge(asked, turns, known));
     // only an answer counts: "busy" or a failure is no reason to spend one of the three
     if (!signedIn && !answer.failed) {
       jar.set(ASKS_COOKIE, encodeAsks(used + 1, sessionSecret()), {

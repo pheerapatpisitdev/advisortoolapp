@@ -38,7 +38,7 @@ beforeEach(() => {
   db.free = 41;
   db.freeError = null;
   db.rpc.mockImplementation(async () => ({ data: db.free, error: db.freeError }));
-  wallet.walletSettings.mockResolvedValue({ enabled: true, multiplier: 2 });
+  wallet.walletSettings.mockResolvedValue({ enabled: true, multiplier: 2, agentId: agent.agentId });
   wallet.holdWallet.mockResolvedValue("h1");
   wallet.walletFrozen.mockResolvedValue(false);
 });
@@ -46,21 +46,21 @@ beforeEach(() => {
 describe("takeRound", () => {
   it("lets the owner through, counting nothing", async () => {
     expect(await takeRound({ ...agent, staff: { owner: true, publish: true, connect: true, admin: true } }, "ai-write"))
-      .toEqual({ ok: true, paidBy: "staff" });
+      .toEqual({ ok: true, paidBy: "staff", agentId: agent.agentId });
     expect(db.insert).not.toHaveBeenCalled();
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
   it("gives an assistant the free rounds, then their own wallet, like any agent (owner, 2026-10-02)", async () => {
     const assistant: Viewer = { ...agent, staff: { owner: false, publish: true, connect: true, admin: true } };
-    expect(await takeRound(assistant, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41 });
+    expect(await takeRound(assistant, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41, agentId: agent.agentId });
     freeUsed();
     expect(await takeRound(assistant, "ai-write")).toMatchObject({ ok: true, paidBy: "wallet", holdId: "h1" });
     expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, holdSatang("ai-write", 2), "ai-write");
   });
 
   it("uses the free rounds first, counted and written down in one locked call, and carries the line's id", async () => {
-    expect(await takeRound(agent, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41 });
+    expect(await takeRound(agent, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41, agentId: agent.agentId });
     expect(db.rpc).toHaveBeenCalledWith("ins_take_free_round", {
       p_agent: agent.agentId, p_action: "ai-write", p_target: null,
       p_limit: 10, p_from: "2026-09-30T17:00:00.000Z", p_rounds: ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft", "ai-thanks", "ai-showcase", "ai-saying", "ai-clip", "ai-edit", "ai-describe"],
@@ -101,7 +101,7 @@ describe("takeRound", () => {
     freeUsed();
     const held = holdSatang("ai-draw", 2);
     expect(await takeRound(agent, "ai-draw", "piece-1"))
-      .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: held, multiplier: 2 });
+      .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: held, multiplier: 2, agentId: agent.agentId });
     expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, held, "ai-draw");
     expect(db.insert).toHaveBeenCalledWith({ agent_id: agent.agentId, action: "ai-draw", target: "piece-1", detail: { wallet: true } });
   });
@@ -109,14 +109,14 @@ describe("takeRound", () => {
   it("holds a picture reading's own price once the free rounds are used", async () => {
     freeUsed();
     expect(await takeRound(agent, "ai-describe"))
-      .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: 100, multiplier: 2 });
+      .toEqual({ ok: true, paidBy: "wallet", holdId: "h1", heldSatang: 100, multiplier: 2, agentId: agent.agentId });
     expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 100, "ai-describe");
   });
 
   it("holds the price it is told instead of the round's default, times the multiplier", async () => {
     freeUsed();
     const res = await takeRound(agent, "ai-draw", "piece-1", 0.46);
-    expect(res).toMatchObject({ ok: true, paidBy: "wallet", heldSatang: 92, multiplier: 2 });
+    expect(res).toMatchObject({ ok: true, paidBy: "wallet", heldSatang: 92, multiplier: 2, agentId: agent.agentId });
     expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 92, "ai-draw");
   });
 
@@ -150,7 +150,7 @@ describe("takeRound", () => {
 
   it("says the old words while the owner has the wallet off", async () => {
     freeUsed();
-    wallet.walletSettings.mockResolvedValueOnce({ enabled: false, multiplier: 2 });
+    wallet.walletSettings.mockResolvedValueOnce({ enabled: false, multiplier: 2, agentId: agent.agentId });
     const r = await takeRound(agent, "ai-write");
     expect(r.ok === false && r.refusal).toMatch(/รอบฟรีครบ 10 ครั้ง/);
     expect(wallet.holdWallet).not.toHaveBeenCalled();

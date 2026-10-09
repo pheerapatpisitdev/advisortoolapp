@@ -5,7 +5,7 @@ import type { VideoSettings } from "@/lib/video/settings";
 import type { RenderProvider } from "@/lib/video/render-providers";
 import {
   checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings, resetSpend,
-  type KeyRow, type VideoKeyRow, type ModelRow, type ProviderCheck, type ProviderSpend, type Result, type Settings, type SpendDetail,
+  type KeyRow, type VideoKeyRow, type ModelRow, type PersonUse, type ProviderCheck, type ProviderSpend, type Result, type Settings, type SpendDetail,
 } from "./actions";
 import { taskLabel } from "./task-labels";
 
@@ -140,6 +140,50 @@ function ByJob({ spend }: { spend: ProviderSpend[] }) {
 }
 
 /**
+ * Who used AI this month: chat questions and Studio work, per person (owner, 2026-10-10).
+ * Asking is free for now; this is the count the owner wants before choosing a price.
+ */
+function ByPerson({ people }: { people: PersonUse[] | null }) {
+  if (people === null) {
+    return <p className="mt-3 text-xs text-[var(--bot-red-ink)]">อ่านยอดใช้ AI รายคนไม่สำเร็จ</p>;
+  }
+  const named = people.filter((p) => p.agentId !== null).length;
+  return (
+    <details className="mt-3 rounded-md border border-[var(--bot-line)] p-2">
+      <summary className="cursor-pointer text-sm font-medium">ใครใช้ AI เดือนนี้ ({named} คน)</summary>
+      {people.length === 0 ? (
+        <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">ยังไม่มีข้อมูล — เริ่มบันทึกชื่อคนใช้ตั้งแต่วันที่อัปเดตนี้</p>
+      ) : (
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-xs tabular-nums">
+            <thead className="text-[var(--bot-ink-mute)]">
+              <tr>
+                <th className="py-1 text-left font-normal">คน</th>
+                <th className="py-1 text-right font-normal">ถามแชท (ครั้ง)</th>
+                <th className="py-1 text-right font-normal">แชท ฿</th>
+                <th className="py-1 text-right font-normal">Studio ฿</th>
+                <th className="py-1 text-right font-normal">รวม ฿</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.map((p) => (
+                <tr key={p.agentId ?? "-"} className={`border-t border-[var(--bot-line)] ${p.agentId === null ? "text-[var(--bot-ink-mute)]" : ""}`}>
+                  <td className="py-1 pr-2">{p.name}</td>
+                  <td className="py-1 text-right">{p.agentId === null ? "—" : p.asks.toLocaleString("th-TH")}</td>
+                  <td className="py-1 text-right">{thb(p.chatBaht)}</td>
+                  <td className="py-1 text-right">{thb(p.studioBaht)}</td>
+                  <td className="py-1 text-right font-medium">{thb(p.baht)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </details>
+  );
+}
+
+/**
  * The result of the last test, or a space where one has not been run.
  *
  * The reason a failure gives is shown rather than summarised. "ตัวไหนหยุดทำงาน" is only half
@@ -182,10 +226,10 @@ const KIND_LABEL: Record<string, string> = { text: "ข้อความ", imag
 /** The quality an image row is asked for, so one model at two prices reads as two choices. */
 const QUALITY_LABEL: Record<string, string> = { low: "คุณภาพต่ำ", medium: "คุณภาพมาตรฐาน", high: "คุณภาพสูง (คมชัด)" };
 
-export function AiClient({ keys, models, settings, providers, spentThisMonth, spend, content, video }: {
+export function AiClient({ keys, models, settings, providers, spentThisMonth, spend, content, video, people }: {
   keys: KeyRow[]; models: ModelRow[]; settings: Settings | null; providers: string[];
   spentThisMonth: number | null; spend: ProviderSpend[]; content: { spent: number | null; cap: number; fallback: number };
-  video: { settings: VideoSettings; keys: VideoKeyRow[] };
+  video: { settings: VideoSettings; keys: VideoKeyRow[] }; people: PersonUse[] | null;
 }) {
   const [pending, start] = useTransition();
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -345,6 +389,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
           })}
         </div>
         <ByJob spend={spend} />
+        <ByPerson people={people} />
       </Card>
 
       <Card title="ตัวตัดต่อวิดีโอ" hint="บริการที่ใช้ตัดคลิปเป็นรีล เก็บกุญแจแบบเดียวกับค่าย AI Rendi แสดง 4 ตัวท้าย ส่วน AWS และ Google แสดงว่าชี้ไปที่ไหน">
