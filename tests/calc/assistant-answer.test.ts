@@ -117,6 +117,22 @@ describe("a budget instead of a sum", () => {
     expect(annual).toBeLessThanOrEqual(day * 365 * 100);
   });
 
+  it("quotes 350 baht a day, and hands a budget that buys past 10 million to the admin", async () => {
+    routed = { intent: "other" };
+    const ok = await answerQuestion(said("วันละ 350 บาท"), { intent: "quote", age: 35, sex: "M" });
+    expect(ok.priced).toBe(true);
+    expect(ok.slots.takenSum!).toBeLessThanOrEqual(10_000_000);
+    for (const text of ["วันละ 3,500 บาท", "วันละ 2,000 บาท", "งบปีละ 1,000,000"]) {
+      const big = await answerQuestion(said(text), { intent: "quote", age: 35, sex: "M" });
+      const said_ = big.messages.map((m) => m.text).join("\n");
+      expect(big.priced, text).toBeFalsy();
+      expect(big.messages.some((m) => m.card), text).toBe(false);
+      expect(said_, text).toContain("แอดมิน");
+      expect(said_, text).not.toMatch(/\d{2},\d{3},\d{3}/);
+      expect(big.slots.takenSum, text).toBeUndefined();
+    }
+  });
+
   it("asks for sex and age first when the day's budget comes alone", async () => {
     routed = { intent: "other" };
     const answer = await answerQuestion(said("สนใจประกันมรดก 30 บาทต่อวัน"), null);

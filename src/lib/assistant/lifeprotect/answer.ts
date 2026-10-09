@@ -77,6 +77,13 @@ function askForMissing(slots: Routed, table: LifeProtectTable): string {
   return known.filter(Boolean).length ? `ได้เลยครับ ${known.filter(Boolean).join(" · ")} 👍\n${ask}` : ask;
 }
 
+/**
+ * The largest sum assured the bot quotes from a budget. Past it the cover is a case for the
+ * company's underwriting, and a card showing tens of millions raises hopes nobody has checked
+ * — so a budget that buys more is handed to the admin instead (owner, 2026-10-09).
+ */
+export const MAX_BUDGET_SUM = 10_000_000;
+
 const HAND_OVER = "เดี๋ยวแอดมินเช็กให้แล้วกลับมาตอบในแชทนี้ครับ ระหว่างนี้ถามเรื่อง Life Protect x 2 ได้เลย";
 
 export async function answerQuestion(history: ChatMessage[], previous: Routed | null): Promise<Answer> {
@@ -630,10 +637,18 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
     };
   }
 
+  // a budget that buys more than the bot quotes is the admin's to price, not a card's
+  if (chosen.fit.sum > MAX_BUDGET_SUM) {
+    return {
+      ...one(`งบ${said} ทำทุนได้ค่อนข้างสูง ต้องให้แอดมินคิดให้ละเอียดก่อนครับ\n${HAND_OVER}`),
+      slots: kept,
+    };
+  }
+
   const wanted = cleanRiders(slots.riders);
   const cover = chosen.fit.sum * multiple;
   const quoted = quoteFor(table, variant, who, cover, undefined, chosen.fit.sum, wanted, mode);
-  const others = fits.filter((f) => f.variant !== variant);
+  const others = fits.filter((f) => f.variant !== variant && f.fit.sum <= MAX_BUDGET_SUM);
   const comparison = others.length
     ? [
       "งบเท่ากัน แบบอื่นได้ทุนประมาณนี้ครับ",

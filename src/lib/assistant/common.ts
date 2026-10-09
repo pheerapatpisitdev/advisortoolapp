@@ -445,7 +445,6 @@ const DAY_BEFORE = new RegExp(String.raw`(?:${A_DAY})\s*${AMOUNT}`);
 const DAY_AFTER = new RegExp(String.raw`${AMOUNT}\s*(?:บาท)?\s*(?:${A_DAY})`);
 const HOSPITAL_DAILY = /meb|เอ็ม\s*อี\s*บี|ชดเชย|ค่าห้อง|นอน|รพ|โรงพยาบาล|แอดมิด|admit|ผู้ป่วยใน/i;
 const SMALLEST_DAILY = 10;
-const LARGEST_DAILY = 2_000;
 const DAYS_A_YEAR = 365;
 const SCALE: Record<string, number> = { ล้าน: 1_000_000, แสน: 100_000, หมื่น: 10_000, พัน: 1_000 };
 
@@ -457,7 +456,7 @@ export function budgetIn(text: string): Budget | undefined {
   const day = HOSPITAL_DAILY.test(text) ? undefined : DAY_BEFORE.exec(text) ?? DAY_AFTER.exec(text);
   if (day) {
     const perDay = Number(day[1].replace(/,/g, "")) * (day[2] ? SCALE[day[2]] : 1);
-    return Number.isFinite(perDay) && perDay >= SMALLEST_DAILY && perDay <= LARGEST_DAILY
+    return Number.isFinite(perDay) && perDay >= SMALLEST_DAILY && perDay * DAYS_A_YEAR <= LARGEST_BUDGET
       ? { baht: Math.round(perDay * DAYS_A_YEAR), per: "year", perDay: Math.round(perDay) }
       : undefined;
   }
