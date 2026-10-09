@@ -18,10 +18,9 @@ const font = (file: string) => readFile(path.join(FONT_DIR, file));
 const GUTTER = 14;
 
 export async function drawMenu(menu: MenuSpec): Promise<Response> {
-  const [regular, semibold, display] = await Promise.all([
+  const [regular, semibold] = await Promise.all([
     font("IBMPlexSansThai-Regular.ttf"),
     font("IBMPlexSansThai-SemiBold.ttf"),
-    font("Trirong-SemiBold.ttf"),
   ]);
   const areas = menuAreas(menu);
   const big = menu.height === 1686;
@@ -44,7 +43,7 @@ export async function drawMenu(menu: MenuSpec): Promise<Response> {
               }}
             >
               <div style={{
-                display: "flex", fontFamily: "Trirong", fontSize: big ? 120 : 100, lineHeight: 1.15,
+                display: "flex", fontFamily: "Plex", fontWeight: 600, fontSize: big ? 120 : 100, lineHeight: 1.15,
                 color: way ? P.ground : P.figure,
               }}>
                 {title}
@@ -66,7 +65,6 @@ export async function drawMenu(menu: MenuSpec): Promise<Response> {
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
-        { name: "Trirong", data: display, weight: 600, style: "normal" },
       ],
     },
   );

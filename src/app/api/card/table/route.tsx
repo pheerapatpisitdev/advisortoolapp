@@ -273,7 +273,7 @@ function heightOf(card: ValueTableCard, chart: CardChart | undefined, quote: str
 }
 
 /**
- * The three faces, read off disk beside the quote card's own route — see the note there for
+ * The Plex faces, read off disk beside the quote card's own route — see the note there for
  * why they cannot simply be imported.
  */
 const FONT_DIR = path.join(process.cwd(), "src/app/api/card");
@@ -299,10 +299,9 @@ export async function GET(req: NextRequest) {
   /** the theme the plan is sold under, so the sheet matches the page it was quoted from */
   const p = cardPaletteFor();
 
-  const [regular, semibold, display, pen] = await Promise.all([
+  const [regular, semibold, pen] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
-    loadFont("Trirong-SemiBold.ttf"),
     // a handwriting face for the pen notes; without it they are written in Plex
     googleFontSubset(PEN_FACE, PEN_TEXT, "400"),
   ]);
@@ -368,7 +367,7 @@ export async function GET(req: NextRequest) {
             {card.insuredWho}
           </div>
         </div>
-        <div style={{ ...band(H.premium), fontFamily: "Trirong", fontSize: 30, color: p.figure }}>
+        <div style={{ ...band(H.premium), fontFamily: "Plex", fontWeight: 600, fontSize: 30, color: p.figure }}>
           {card.premiumLine}
         </div>
 
@@ -429,7 +428,6 @@ export async function GET(req: NextRequest) {
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
-        { name: "Trirong", data: display, weight: 600, style: "normal" },
         ...(pen ?? []),
       ],
       headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },

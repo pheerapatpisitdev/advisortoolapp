@@ -163,10 +163,9 @@ export async function GET(req: NextRequest) {
   const total = list.groups.reduce((n, g) => n + g.diseases.length, 0);
   /** one list needs no headings inside it, and no line above saying what it is made of */
   const grouped = list.groups.length > 1;
-  const [regular, semibold, display] = await Promise.all([
+  const [regular, semibold] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
-    loadFont("Trirong-SemiBold.ttf"),
   ]);
 
   const height = PAD * 2
@@ -188,7 +187,7 @@ export async function GET(req: NextRequest) {
           color: p.ink,
         }}
       >
-        <div style={{ ...band(H.title), fontFamily: "Trirong", fontSize: 38, color: p.figure }}>
+        <div style={{ ...band(H.title), fontFamily: "Plex", fontWeight: 600, fontSize: 38, color: p.figure }}>
           {list.name} · คุ้มครอง {total} โรคร้ายแรง
         </div>
         {grouped && (
@@ -213,7 +212,6 @@ export async function GET(req: NextRequest) {
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
-        { name: "Trirong", data: display, weight: 600, style: "normal" },
       ],
       headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
     },

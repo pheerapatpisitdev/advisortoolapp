@@ -201,17 +201,15 @@ export function widthOf(columns: number, geo: Geometry = geometryOf("th")): numb
   return PAD * 2 + geo.title + geo.col * columns;
 }
 
-/** The three faces, loaded once per request, in the shape `ImageResponse` wants them. */
+/** The two Plex weights, loaded once per request — every figure is Plex since 2026-10-09 (owner: one face). */
 export async function loadFonts() {
-  const [regular, semibold, display] = await Promise.all([
+  const [regular, semibold] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
-    loadFont("Trirong-SemiBold.ttf"),
   ]);
   return [
     { name: "Plex", data: regular, weight: 400 as const, style: "normal" as const },
     { name: "Plex", data: semibold, weight: 600 as const, style: "normal" as const },
-    { name: "Trirong", data: display, weight: 600 as const, style: "normal" as const },
   ];
 }
 

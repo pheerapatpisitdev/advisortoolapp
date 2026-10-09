@@ -153,7 +153,7 @@ function Rows({ title, rows, p }: { title: string; rows: CardRow[]; p: CardPalet
             : <div style={{ display: "flex", fontSize: 27, color: p.mute }}>{r.label}</div>}
           <div
             style={{
-              display: "flex", fontFamily: "Trirong", fontSize: 34, color: p.ink,
+              display: "flex", fontFamily: "Plex", fontWeight: 600, fontSize: 34, color: p.ink,
               // the pen stroke is stretched to the figure, with room for the nib either side
               ...(r.mark ? {
                 padding: "4px 18px", marginRight: -18,
@@ -289,7 +289,7 @@ function Notes({ notes, color, size }: { notes: string[]; color: string; size: n
 }
 
 /**
- * The three faces, read off disk beside this file.
+ * The Plex faces, read off disk beside this file.
  *
  * They cannot be imported the way a component imports an image: what the bundler hands back
  * is a public asset path, which the drawing library cannot take and which the development
@@ -370,10 +370,9 @@ export async function GET(req: NextRequest) {
   /** the theme the plan is sold under, so the card matches the page it was quoted from */
   const p = cardPaletteFor();
 
-  const [regular, semibold, display, photo, face] = await Promise.all([
+  const [regular, semibold, photo, face] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
-    loadFont("Trirong-SemiBold.ttf"),
     loadPhoto(),
     // a child's quote is not about the person writing, so their face stays off it
     input.age >= 18 ? loadCustomerPhoto(req.nextUrl.searchParams.get("ph")) : undefined,
@@ -449,7 +448,7 @@ export async function GET(req: NextRequest) {
             <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
               <div style={{ ...band(H.legacyLabel), alignItems: "flex-end", fontSize: 28, color: p.mute }}>มรดก</div>
               <div style={{ ...band(H.legacyFigure), alignItems: "center" }}>
-                <div style={{ display: "flex", fontFamily: "Trirong", fontSize: 86, lineHeight: 1, color: p.figure }}>
+                <div style={{ display: "flex", fontFamily: "Plex", fontWeight: 600, fontSize: 86, lineHeight: 1, color: p.figure }}>
                   {card.legacy.amount}
                 </div>
                 <div style={{ display: "flex", fontSize: 30, color: p.mute, marginLeft: 16, paddingTop: 22 }}>บาท</div>
@@ -460,7 +459,7 @@ export async function GET(req: NextRequest) {
             </div>
           ) : card.premium ? (
             <div style={{ ...band(H.premium), alignItems: "baseline", paddingTop: 14 }}>
-              <div style={{ display: "flex", fontFamily: "Trirong", fontSize: 86, lineHeight: 1, color: p.figure }}>
+              <div style={{ display: "flex", fontFamily: "Plex", fontWeight: 600, fontSize: 86, lineHeight: 1, color: p.figure }}>
                 {card.premium.amount}
               </div>
               <div style={{ display: "flex", fontSize: 30, color: p.mute, marginLeft: 16 }}>
@@ -516,7 +515,6 @@ export async function GET(req: NextRequest) {
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
-        { name: "Trirong", data: display, weight: 600, style: "normal" },
       ],
       // a card with a face on it is one customer's: never kept where anyone else could be served it
       headers: {

@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
 
         {card.premium ? (
           <div style={{ ...band(H.premium), alignItems: "baseline", paddingTop: 12 }}>
-            <div style={{ display: "flex", fontFamily: "Trirong", fontSize: 82, lineHeight: 1, color: GOLD_LIT }}>
+            <div style={{ display: "flex", fontFamily: "Plex", fontWeight: 600, fontSize: 82, lineHeight: 1, color: GOLD_LIT }}>
               {card.premium.amount}
             </div>
             <div style={{ display: "flex", fontSize: 29, color: MUTE, marginLeft: 16 }}>
