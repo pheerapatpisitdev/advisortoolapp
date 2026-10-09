@@ -18,15 +18,18 @@ export type PdfPage = PlanPage | "ihealthy-ultra";
  * beside it lands on the sum itself.
  */
 const LIFEPROTECT_FIRST = 500_000;
+/** The plan's own smallest sum: a customer asking for 300,000 to reach the family is quoted 150,000. */
+const PLAN_MIN_SUM = 150_000;
 export const LIFEPROTECT_STEP = 150_000;
 export const LIFEPROTECT_SUMS = Array.from({ length: 331 }, (_, i) => LIFEPROTECT_FIRST + LIFEPROTECT_STEP * i);
 
 /**
- * The sums a link or PDF may name: the old every-fifty-thousand list. The chat quotes a million
- * and other round figures the slider's steps skip, and a link for one of them must still open;
- * the page puts the linked sum in as one more stop (see the calculator).
+ * The sums a link or PDF may name: every fifty thousand from the plan's smallest sum (150,000).
+ * The chat quotes a million, 250,000 (cover of 500,000 before sixty) and other figures the
+ * slider's steps skip, and a link for one of them must still open; the page puts the linked
+ * sum in as one more stop (see the calculator).
  */
-export const LIFEPROTECT_LINK_SUMS = Array.from({ length: 991 }, (_, i) => LIFEPROTECT_FIRST + 50_000 * i);
+export const LIFEPROTECT_LINK_SUMS = Array.from({ length: 998 }, (_, i) => PLAN_MIN_SUM + 50_000 * i);
 
 /** A typed sum moved onto the nearest step the page offers. */
 export function lifeProtectSumNear(typed: number): number {

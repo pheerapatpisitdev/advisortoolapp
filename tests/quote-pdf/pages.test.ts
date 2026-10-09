@@ -35,6 +35,12 @@ describe("Life Protect's sums", () => {
     expect(LIFEPROTECT_LINK_SUMS).toContain(1_000_000);
   });
 
+  it("a link may name the plan's own smallest sums, below the slider's first stop", () => {
+    expect(LIFEPROTECT_LINK_SUMS[0]).toBe(150_000);
+    expect(LIFEPROTECT_LINK_SUMS).toEqual(expect.arrayContaining([150_000, 250_000, 300_000]));
+    expect(LIFEPROTECT_LINK_SUMS.at(-1)).toBe(50_000_000);
+  });
+
   it.each([
     [650_000, 650_000],
     [700_000, 650_000],

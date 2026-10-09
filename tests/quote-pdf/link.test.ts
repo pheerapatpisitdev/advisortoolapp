@@ -27,6 +27,11 @@ describe("the PDF path for a quote", () => {
       .toMatch(/^\/api\/quote-pdf\?page=lifeprotect&age=35&sex=M&sum=750000&variant=WLF99H&v=.+$/);
   });
 
+  it("makes a path for a Life Protect sum under the slider's first stop: 250,000 is cover of 500,000 for a customer under sixty", () => {
+    expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 250_000 }))
+      .toMatch(/^\/api\/quote-pdf\?page=lifeprotect&age=35&sex=M&sum=250000&variant=WLF19H&v=.+$/);
+  });
+
   it("makes none for a sum the page cannot show", () => {
     expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 2_325_000 })).toBeUndefined();
   });
