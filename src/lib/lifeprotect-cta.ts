@@ -150,7 +150,8 @@ export function lifeProtectChatQuoteText(
     `💰 เบี้ยประมาณ ${formatBaht(headline.total)} บาท${PER[headline.mode]}` + (annual ? ` (วันละ ${perDayText(annual.total)} บาท)` : ""),
     ...(f.riders?.lines ?? []),
     "",
-    ...instalmentLines(f.modes),
+    // without the "first payment is two instalments" line the page's copy text keeps (owner, 2026-10-09)
+    ...instalmentLines(f.modes, false),
     // what the instalment is made of, to the satang, so a bigger number than the plan's own
     // price is seen to be the plan and its rider. Under the instalments, because it is in one
     // of them (the page's headline mode) and the line above the list says another
@@ -180,11 +181,11 @@ const INSTALMENT_ORDER: PayMode[] = ["monthly", "semi", "annual"];
 
 export { FIRST_MONTHLY_INSTALMENTS, firstMonthlyPayment } from "@/lib/first-payment";
 
-/** One instalment a line, smallest first, with what paying monthly takes up front under it. */
-function instalmentLines(modes: ModePremium[]): string[] {
+/** One instalment a line, smallest first, and by default what paying monthly takes up front under it. */
+function instalmentLines(modes: ModePremium[], withFirstPayment = true): string[] {
   return INSTALMENT_ORDER.flatMap((mode) => {
     const m = modes.find((x) => x.mode === mode);
-    return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`, ...firstPaymentLines(m)] : [];
+    return m ? [`${PAY_MODE_LABEL[m.mode]} ${formatBaht(m.total)} บาท`, ...(withFirstPayment ? firstPaymentLines(m) : [])] : [];
   });
 }
 /**
