@@ -12,7 +12,7 @@ import { SiteCredit } from "@/components/sales/SiteCredit";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { INSURER } from "@/lib/assistant/common";
 import { Sriracha } from "next/font/google";
-import { needsBraceRoom, penNotes, penSvgUri, type PenGeometry } from "@/app/api/card/table/pen-notes";
+import { figureWidth, needsBraceRoom, penNotes, penSvgUri, type PenGeometry } from "@/app/api/card/table/pen-notes";
 import type { ValueTableCard } from "@/lib/quote-card";
 import { CARD_PALETTE } from "@/lib/card-theme";
 
@@ -351,7 +351,15 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
  * drawn until the table has been measured, and it is measured again whenever it changes size.
  */
 function PenLayer({ card, table }: { card: ValueTableCard; table: RefObject<HTMLTableElement | null> }) {
-  const [box, setBox] = useState<{ widths: number[]; head: number; row: number; width: number; height: number } | null>(null);
+  const [box, setBox] = useState<{
+    widths: number[]; head: number; row: number; width: number; height: number;
+    /** each figure's real width on this device, in px: a phone's digits are wider than the estimate */
+    figures: Map<string, number>;
+  } | null>(null);
+  // re-measured when the figures change (a new sum or age), not on every render
+  const rowsRef = useRef(card.rows);
+  rowsRef.current = card.rows;
+  const figuresKey = card.rows.map((r) => `${r.year}:${r.due}:${r.cash}:${r.cover}`).join("|");
   useLayoutEffect(() => {
     const el = table.current;
     if (!el) return;
@@ -361,18 +369,39 @@ function PenLayer({ card, table }: { card: ValueTableCard; table: RefObject<HTML
       if (!heads.length || !body || !body.rows.length) return;
       const head = el.tHead!.getBoundingClientRect().height;
       const row = body.getBoundingClientRect().height / body.rows.length;
-      setBox({ widths: heads.map((h) => h.getBoundingClientRect().width), head, row, width: el.offsetWidth, height: head + body.getBoundingClientRect().height });
+      // set in a body cell's own font, numerals and all, and read back
+      const probe = document.createElement("span");
+      const cell = getComputedStyle(body.rows[0].cells[body.rows[0].cells.length - 1]);
+      Object.assign(probe.style, {
+        position: "absolute", visibility: "hidden", whiteSpace: "nowrap",
+        font: cell.font, fontVariantNumeric: cell.fontVariantNumeric, letterSpacing: cell.letterSpacing,
+      });
+      document.body.appendChild(probe);
+      const figures = new Map<string, number>();
+      for (const r of rowsRef.current) {
+        for (const f of [r.due, r.cash ?? "", r.cover, String(r.year)]) {
+          if (figures.has(f)) continue;
+          probe.textContent = f;
+          figures.set(f, probe.getBoundingClientRect().width);
+        }
+      }
+      probe.remove();
+      setBox({
+        widths: heads.map((h) => h.getBoundingClientRect().width), head, row,
+        width: el.offsetWidth, height: head + body.getBoundingClientRect().height, figures,
+      });
     };
     measure();
     const watch = new ResizeObserver(measure);
     watch.observe(el);
     return () => watch.disconnect();
-  }, [table]);
+  }, [table, figuresKey]);
   if (!box) return null;
 
   const up = (px: number) => px / PEN_SCALE;
   const geo: PenGeometry = {
     widths: box.widths.map(up), caption: up(PEN_CAPTION), head: up(box.head), row: up(box.row), cellPad: up(PEN_CELL_PAD),
+    measure: (f) => (box.figures.has(f) ? up(box.figures.get(f)!) : figureWidth(f)),
   };
   const notes = penNotes(card, geo);
   const width = box.width;

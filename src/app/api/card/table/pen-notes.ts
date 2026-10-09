@@ -25,6 +25,11 @@ export interface PenGeometry {
   row: number;
   /** a cell's own side padding */
   cellPad: number;
+  /**
+   * A figure's width in these units, where the drawing can measure it: the page does, since a
+   * phone's digits are wider than the picture's estimate (owner, 2026-10-10). figureWidth otherwise.
+   */
+  measure?: (s: string) => number;
 }
 
 export interface PenLabel {
@@ -124,12 +129,13 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
   const top = (n: number) => g.caption + g.head + n * g.row;
   const mid = (n: number) => top(n) + g.row / 2;
   const notes: PenNotes = { rings: [], strokes: [], labels: [] };
+  const widthOf = g.measure ?? figureWidth;
   const premium = columns.indexOf("เบี้ย/ปี");
 
   // ── เบี้ยคงที่: a brace down the premiums that never move
   const steady = paidConstantly(card);
   if (steady !== undefined && premium >= 0) {
-    const right = end(premium) - g.cellPad - figureWidth(rows[0].due) - 12;
+    const right = end(premium) - g.cellPad - widthOf(rows[0].due) - 12;
     const left = right - 20;
     const y = top(0) + 5;
     const h = top(steady) + g.row - 5 - y;
@@ -148,7 +154,7 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
       const labelLeft = x(Math.max(premium, 2)) + 24;
       const labelMid = mid(at);
       notes.labels.push({ text: STOP_WORD, left: labelLeft, top: labelMid - 22, size: 30, tilt: -4 });
-      const ringRight = g.cellPad + figureWidth(String(rows[last].year)) + RING_PAD;
+      const ringRight = g.cellPad + widthOf(String(rows[last].year)) + RING_PAD;
       notes.strokes.push(...arrow(labelLeft - 8, labelMid, ringRight + 60, labelMid - 8, ringRight + 2, mid(last) + 12));
     }
   }
@@ -157,7 +163,7 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
   const cover = columns.indexOf("คุ้มครอง");
   if (cover >= 0 && rows.length) {
     notes.rings.push({ row: 0, column: "คุ้มครอง" });
-    const ringLeft = end(cover) - g.cellPad + RING_PAD - (figureWidth(rows[0].cover) + RING_PAD * 2);
+    const ringLeft = end(cover) - g.cellPad + RING_PAD - (widthOf(rows[0].cover) + RING_PAD * 2);
     // set well left of the ring, so the arrow comes down clear of the column's heading
     const labelRight = ringLeft - 56;
     // lifted clear of the navy heading bar, which its lower vowels used to dip into
@@ -171,7 +177,7 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
   const be = rows.findIndex((r) => r.breakEven);
   if (be > 0 && paid >= 0 && cash > paid && rows[be].paid === null && rows[be].cash !== undefined) {
     const from = end(paid) - g.cellPad - BREAK_EVEN_LABEL_WIDTH / 2;
-    const ringLeft = end(cash) - g.cellPad + RING_PAD - (figureWidth(rows[be].cash!) + RING_PAD * 2);
+    const ringLeft = end(cash) - g.cellPad + RING_PAD - (widthOf(rows[be].cash!) + RING_PAD * 2);
     notes.strokes.push(...arrow(from, top(be) + 2, (from + ringLeft) / 2, top(be) - g.row * 1.9, ringLeft - 2, mid(be) - 6));
   }
 
@@ -187,8 +193,9 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
     const last = Math.min(rows.length - 1, Math.floor((labelTop + GAIN_WORDS.length * GAIN_LINE - top(0)) / g.row));
     const clear = rows.slice(first, last + 1).every((r) => r.due === "—" && r.paid === null);
     if (clear) {
-      const widest = Math.max(...rows.slice(after).map((r) => figureWidth(r.cash ?? "")));
-      const right = end(cash) - g.cellPad - widest - 12;
+      const widest = Math.max(...rows.slice(after).map((r) => widthOf(r.cash ?? "")));
+      // clear of the widest figure by more than the premium brace is: the owner found it touching (2026-10-10)
+      const right = end(cash) - g.cellPad - widest - 22;
       const left = right - 20;
       notes.strokes.push(brace(left, y, h));
       GAIN_WORDS.forEach((text, i) => {
