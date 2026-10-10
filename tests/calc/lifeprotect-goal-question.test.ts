@@ -81,12 +81,13 @@ describe("the goal question on Messenger", () => {
     expect(quoted.messages[0].text).toContain("งบวันละ 50 บาท");
   });
 
-  it.each(["line", "web"] as const)("leaves %s as it was: no question, and the words over the table", async (channel) => {
+  it.each(["line", "web"] as const)("leaves %s as it was: no question, words over the table, the comparison", async (channel) => {
     const quoted = await toQuestion(channel);
     const texts = quoted.messages.map((m) => m.text);
     expect(texts[0]).toContain("ทำทุนได้สูงสุด 350,000 บาท");
     expect(texts.some((t) => t.includes("เพื่ออะไร"))).toBe(false);
-    expect(texts[2]).toBe("กราฟและตารางมูลค่าทุกปี\nเบี้ยต่อปี | เวนคืน | ความคุ้มครอง");
+    expect(texts[2]).toContain("กราฟและตารางมูลค่าทุกปีให้ดูด้วยครับ");
+    expect(texts.at(-1)).toContain("งบเท่ากัน");
   });
 
   it("sends a sum quote's table without words on Messenger, and a couple's with whose it is", async () => {

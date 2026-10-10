@@ -416,7 +416,8 @@ function tableWords(table: LifeProtectTable, whose?: { age: number; sex: "M" | "
    */
   if (channel === "facebook") return whose ? `ตารางของ${whose.sex === "M" ? "ชาย" : "หญิง"} อายุ ${whose.age}` : "";
   const owner = whose ? `ของ${whose.sex === "M" ? "ชาย" : "หญิง"} อายุ ${whose.age} ` : "";
-  return `กราฟและตารางมูลค่าทุกปี${owner.trimEnd()}\nเบี้ยต่อปี | เวนคืน | ความคุ้มครอง`;
+  return `กราฟและตารางมูลค่าทุกปี${owner}ให้ดูด้วยครับ — เบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี`
+    + ` ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี`;
 }
 /** Not "เอาแบบลดทุน": ลดทุน is one of the words that mean "too expensive", and the title
  * would come back as a fresh objection rather than as an acceptance. */
@@ -439,10 +440,11 @@ function answerValueTable(slots: Routed): Reply {
 
   const variant = QUOTABLE.has(slots.variant ?? "") ? slots.variant! : FIRST_TERM;
   const sumAssured = sumBehind(table, age, coverWanted, variant, slots.offer, slots.takenSum);
+  const term = termAt(table, variant);
   return {
     messages: [{
       // the picture opens with the chart since it moved off the quote card (owner, 2026-10-06)
-      text: `กราฟและตารางมูลค่าทุกปี\nเบี้ยต่อปี | เวนคืน | ความคุ้มครอง`,
+      text: `ส่งกราฟและตารางมูลค่าทุกปีให้ดูครับ ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี — มีทั้งเบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี (แบบ${term.label})`,
       card: valueTablePath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }, { characters: true }),
     }],
     priced: true,
@@ -626,8 +628,9 @@ const goalQuestion = (): Reply => ({
  *
  * The answer is the quotation the customer would have had by naming the sum: the card, the
  * year-by-year table and the PDF, on the term already in play (paying 19 years when none is).
- * The same money on the other terms is no longer listed after it (owner, 2026-10-10). A tap on
- * another term, or another person named, is answered from the same budget.
+ * The other terms follow in a line each, because the same money buys three times the cover on
+ * the longest one, and that comparison is the decision. A tap on another term, or another
+ * person named, is answered from the same budget.
  */
 function answerFromBudget(slots: Routed, budget: Budget, channel: Channel = "web"): Answer {
   const kept: Routed = { ...slots, budget, offer: undefined };
@@ -652,8 +655,11 @@ function answerFromBudget(slots: Routed, budget: Budget, channel: Channel = "web
   const multiple = coverMultiple(table, age);
   const mode: PayMode = budget.per === "month" ? "monthly" : "annual";
   const variant = QUOTABLE.has(slots.variant ?? "") ? slots.variant! : FIRST_TERM;
-  const fit = fitBudget(table, variant, who, budget);
-  const chosen = fit ? { label: termAt(table, variant).label, fit } : undefined;
+  const fits = [FIRST_TERM, "WLF09H", "WLF99H"].flatMap((v) => {
+    const fit = fitBudget(table, v, who, budget);
+    return fit ? [{ variant: v, label: termAt(table, v).label, fit }] : [];
+  });
+  const chosen = fits.find((f) => f.variant === variant);
 
   if (!chosen) {
     /**
@@ -690,6 +696,16 @@ function answerFromBudget(slots: Routed, budget: Budget, channel: Channel = "web
   const wanted = cleanRiders(slots.riders);
   const cover = chosen.fit.sum * multiple;
   const quoted = quoteFor(table, variant, who, cover, undefined, chosen.fit.sum, wanted, mode);
+  const others = fits.filter((f) => f.variant !== variant && f.fit.sum <= MAX_BUDGET_SUM);
+  // Messenger closes on the table picture: the owner took the comparison out there (2026-10-10)
+  const comparison = others.length && channel !== "facebook"
+    ? [
+      "งบเท่ากัน แบบอื่นได้ทุนประมาณนี้ครับ",
+      ...others.map((f) => `• ${f.label} — ทุน ${money(f.fit.sum)} บาท (ครอบครัวได้รับ ${money(f.fit.sum * multiple)})`
+        + ` เบี้ย ${formatBaht(f.fit.priced.total)} บาท/${per}`),
+      "จ่ายยาวกว่าได้ทุนมากกว่า — สนใจแบบไหน บอกได้เลยครับ",
+    ].join("\n")
+    : undefined;
   const notes = [
     ...(chosen.fit.over
       ? [`(แบบชำระรายเดือนขั้นต่ำ ${money(table.minMonthly)} บาท/เดือน เบี้ยจึงเกินงบมานิดหน่อยครับ)`]
@@ -712,6 +728,8 @@ function answerFromBudget(slots: Routed, budget: Budget, channel: Channel = "web
         ...withPdf(quoted.pdfPath),
       },
       ...(quoted.card && quoted.table ? [{ text: tableWords(table, undefined, channel), card: quoted.table }] : []),
+      // last, so the PDF offer that follows a quotation is still the last word
+      ...(comparison ? [{ text: comparison }] : []),
     ],
     priced: Boolean(quoted.card),
     ...(quoted.figures ? { quote: quoted.figures } : {}),

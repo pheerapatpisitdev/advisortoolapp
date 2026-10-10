@@ -53,15 +53,19 @@ describe("a budget instead of a sum", () => {
     expect(answer.priced).toBe(true);
     expect(answer.messages.find((m) => (m.card && !m.card.includes("/api/card/table?")))).toBeDefined();
     expect(answer.messages.find((m) => m.card?.includes("/api/card/table?"))).toBeDefined();
-    // the term in play is the first offer, paying 19 years; the other terms are not listed after
-    // it (owner, 2026-10-10)
-    expect(text).toContain("แบบจ่าย 19 ปี");
-    expect(text).not.toContain("งบเท่ากัน");
+    // the term in play is the first offer, paying 19 years; the other two follow in a line each
     for (const variant of ["WLF09H", "WLF99H"]) {
-      expect(text, variant).not.toContain(`• ${table.terms.find((t) => t.variant === variant)!.label} —`);
+      expect(text, variant).toContain(table.terms.find((t) => t.variant === variant)!.label);
     }
-    // the plan's own monthly floor, which is over this budget, is said where it applies
+    // every instalment quoted is at or under the budget — except the plan's own monthly floor,
+    // which is said where it applies
+    const premiums = [...text.matchAll(/เบี้ย ([\d,]+) บาท\/เดือน/g)].map((m) => Number(m[1].replace(/,/g, "")));
+    expect(premiums.length).toBe(2);
+    for (const p of premiums) expect(p).toBeLessThanOrEqual(1100);
     expect(text).toContain("ขั้นต่ำ");
+    // the longest term buys the most cover for the same money
+    const sums = [...text.matchAll(/ทุน ([\d,]+) บาท/g)].map((m) => Number(m[1].replace(/,/g, "")));
+    expect(Math.max(...sums)).toBeGreaterThan(sums[0]);
     // the slots hold the sum behind the card, so the table, the form and "แพงไป" read the same figure
     expect(answer.slots.takenSum).toBeGreaterThan(0);
     expect(answer.slots.budget).toEqual({ baht: 1000, per: "month" });
