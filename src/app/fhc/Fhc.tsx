@@ -9,7 +9,9 @@ import {
   HOSPITAL_LABEL, LIFE_EXPECTANCY, LIFE_WANT_LABEL, PLANNER_AGE, RETIRE_AGES, type Hospital, type LifeWant, type RetireAge,
 } from "@/lib/plan/assumptions";
 import { defaultBudget, defaultRetireMonthly, type HealthNow } from "@/lib/plan/needs";
+import Link from "next/link";
 import { explainFhc, runFhc, type FhcReply, type FhcWords } from "./actions";
+import { saveFhcCustomer } from "./customers/actions";
 import { FhcResult } from "./FhcResult";
 
 /**
@@ -78,7 +80,7 @@ function Card({ title, children, className = "" }: { title: string; children: Re
   );
 }
 
-export function Fhc() {
+export function Fhc({ canSave = false }: { canSave?: boolean }) {
   const [mode, setMode] = useState<Mode>("customer");
   const agent = mode === "agent";
 
@@ -112,6 +114,15 @@ export function Fhc() {
   const [budgetTouched, setBudgetTouched] = useState(false);
   const [interviewer, setInterviewer] = useState("");
   const [idate, setIdate] = useState(today);
+  // the customer kept in the signed-in agent's list: what they gave, their consent, and how the save went
+  const [saveName, setSaveName] = useState("");
+  const [saveContact, setSaveContact] = useState("");
+  const [saveNote, setSaveNote] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [savedAs, setSavedAs] = useState<{ id: string; name: string } | null>(null);
+  const [saveError, setSaveError] = useState("");
+  // asked of the customer only once this check has not already been kept
+  const keeping = agent && canSave && !savedAs;
 
   const [result, setResult] = useState<Extract<FhcReply, { ok: true }> | null>(null);
   const [words, setWords] = useState<FhcWords | null>(null);
@@ -137,14 +148,20 @@ export function Fhc() {
   };
   const g = figures(input);
 
-  function submit() {
+  /** `save`: also keep the customer in the agent's list, once the check has come back */
+  function submit(save = false) {
     // a row without an age would drop out of the plan unseen
     if (people.some((p) => p.age === "")) {
       setError("ใส่อายุของคนในความดูแลให้ครบ หรือลบแถวที่ไม่ใช้ออก");
       return;
     }
+    if (save && (!saveName.trim() || !consent)) {
+      setError(!saveName.trim() ? "ใส่ชื่อลูกค้าก่อนเก็บเข้ารายชื่อ" : "ติ๊กยืนยันว่าลูกค้ายินยอมก่อนเก็บชื่อ");
+      return;
+    }
     const form = input;
     setError("");
+    setSaveError("");
     setWords(null);
     const mine = ++seq.current;
     setPending(true);
@@ -155,6 +172,14 @@ export function Fhc() {
       if (!reply.ok) { setError(reply.error); return; }
       setResult(reply);
       setEditing(false);
+      if (save) {
+        const kept = await saveFhcCustomer(form, reply.plan.order, {
+          name: saveName, contact: saveContact, note: saveNote, consent,
+        }).catch(() => ({ ok: false as const, error: "เก็บรายชื่อไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" }));
+        if (mine !== seq.current) return;
+        if (kept.ok) setSavedAs({ id: kept.id, name: saveName.trim() });
+        else setSaveError(kept.error);
+      }
       requestAnimationFrame(() => document.getElementById("fhc-result")?.scrollIntoView({ behavior: "smooth" }));
       // not awaited: the words come later, and the form must not stay busy waiting for them
       explainFhc(form, reply.plan.order)
@@ -181,6 +206,17 @@ export function Fhc() {
   if (result && !editing) {
     return (
       <div id="fhc-result" className="scroll-mt-20">
+        {savedAs && (
+          <p role="status" className="mb-4 rounded-sm border border-[var(--lg-gold)] bg-[var(--lg-panel)] p-3 text-sm text-[var(--lg-white)] print:hidden">
+            เก็บคุณ{savedAs.name}เข้ารายชื่อของคุณแล้ว{" "}
+            <Link href={`/fhc/customers/${savedAs.id}`} className="text-[var(--lg-gold)] underline">ดูสรุปว่าขาดอะไร</Link>
+          </p>
+        )}
+        {saveError && (
+          <p role="alert" className="mb-4 rounded-sm border border-[var(--bot-red)] p-3 text-sm text-[var(--lg-white)] print:hidden">
+            ตรวจเสร็จแล้ว แต่ยังไม่ได้เก็บรายชื่อ: {saveError}
+          </p>
+        )}
         <FhcResult
           result={result} words={words} agent={agent} interviewer={interviewer} idate={idate}
           names={people.map((p) => p.name.trim())}
@@ -380,6 +416,31 @@ export function Fhc() {
           </div>
         </Card>
 
+        {keeping && (
+          <Card title="เก็บเข้ารายชื่อลูกค้าของฉัน" className="sm:col-span-2">
+            <p className="text-xs leading-relaxed text-[var(--lg-mute)]">
+              ชื่อ ข้อมูลที่กรอก และผลตรวจนี้จะถูกเก็บไว้ในบัญชีของคุณ เห็นเฉพาะคุณ ไม่ติ๊กก็ตรวจอย่างเดียวได้ ไม่มีอะไรถูกเก็บ
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="ชื่อลูกค้า">
+                <input type="text" id="fhc-save-name" maxLength={100} className={`${INPUT} text-base`} value={saveName} onChange={(e) => setSaveName(e.target.value)} />
+              </Field>
+              <Field label="เบอร์โทร หรือ LINE (ไม่บังคับ)">
+                <input type="text" id="fhc-save-contact" maxLength={100} className={`${INPUT} text-base`} value={saveContact} onChange={(e) => setSaveContact(e.target.value)} />
+              </Field>
+            </div>
+            <Field label="โน้ตของตัวแทน (ไม่บังคับ)">
+              <input type="text" id="fhc-save-note" maxLength={300} className={`${INPUT} text-base`} value={saveNote} onChange={(e) => setSaveNote(e.target.value)} />
+            </Field>
+            <label className="flex items-start gap-3 text-sm text-[var(--lg-white)]" htmlFor="fhc-save-consent">
+              <input id="fhc-save-consent" type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span>
+                ลูกค้ายินยอมให้เก็บชื่อ ข้อมูลที่กรอก และผลตรวจนี้ไว้กับตัวแทนผู้ดูแล เพื่อติดต่อและเสนอแบบประกัน ลูกค้าขอลบได้ทุกเมื่อ
+              </span>
+            </label>
+          </Card>
+        )}
+
         {agent && (
           <Card title="ผู้ทำแบบสอบถาม" className="sm:col-span-2">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -394,13 +455,35 @@ export function Fhc() {
         )}
       </div>
 
+      {agent && !canSave && (
+        <p className="text-center text-sm text-[var(--lg-mute)]">
+          <Link href="/?next=/fhc" className="text-[var(--lg-gold)] underline">เข้าสู่ระบบ</Link> ก่อน จึงจะเก็บชื่อลูกค้าไว้ในรายชื่อของคุณได้
+        </p>
+      )}
       {error && <p className="text-center text-sm text-[var(--lg-gold)]">{error}</p>}
-      <button
-        type="button" onClick={submit} disabled={pending}
-        className="lg-metal-face w-full rounded-sm border border-[var(--lg-gold)] py-3.5 text-base font-medium disabled:opacity-60"
-      >
-        {pending ? "กำลังตรวจ…" : "ตรวจสุขภาพการเงิน"}
-      </button>
+      {keeping ? (
+        <>
+          <button
+            type="button" onClick={() => submit(true)} disabled={pending}
+            className="lg-metal-face w-full rounded-sm border border-[var(--lg-gold)] py-3.5 text-base font-medium disabled:opacity-60"
+          >
+            {pending ? "กำลังตรวจ…" : "ตรวจสุขภาพการเงิน และเก็บเข้ารายชื่อ"}
+          </button>
+          <button
+            type="button" onClick={() => submit(false)} disabled={pending}
+            className="w-full rounded-sm border border-[var(--lg-panel-line)] py-3 text-sm text-[var(--lg-mute)] disabled:opacity-60"
+          >
+            ตรวจอย่างเดียว ไม่เก็บชื่อ
+          </button>
+        </>
+      ) : (
+        <button
+          type="button" onClick={() => submit(false)} disabled={pending}
+          className="lg-metal-face w-full rounded-sm border border-[var(--lg-gold)] py-3.5 text-base font-medium disabled:opacity-60"
+        >
+          {pending ? "กำลังตรวจ…" : "ตรวจสุขภาพการเงิน"}
+        </button>
+      )}
     </div>
   );
 }

@@ -264,6 +264,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       // rider, instead of being walked through one plan's own questions.
       { href: "/other-plans", label: "จัดแบบเอง", icon: "calc", hue: "#327d86" },
       { href: "/home", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
+      // the customers an agent kept from the Financial Health Check, and what each still lacks (owner, 2026-10-10)
+      { href: "/fhc/customers", label: "ลูกค้า FHC ของฉัน", icon: "users", hue: "#33638a" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
     ],

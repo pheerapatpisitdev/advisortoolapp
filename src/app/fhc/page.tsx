@@ -1,3 +1,4 @@
+import { getViewer } from "@/lib/auth/viewer";
 import { Fhc } from "./Fhc";
 
 export const metadata = {
@@ -6,7 +7,9 @@ export const metadata = {
     "กรอกอายุ รายได้ เงินเก็บ หนี้ และคนที่คุณดูแล ดูคะแนนสุขภาพการเงินหกด้าน ห้าเหตุการณ์ที่ควบคุมไม่ได้ และแผนประกันพร้อมเบี้ยจริงที่พอดีกับงบ",
 };
 
-export default function FhcPage() {
+export default async function FhcPage() {
+  // only a signed-in agent or member can keep a customer; anyone else uses the check as before
+  const canSave = (await getViewer().catch(() => null)) !== null;
   return (
     <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-3xl sm:pb-10">
       <header className="pb-6 pt-8 print:hidden">
@@ -17,7 +20,7 @@ export default function FhcPage() {
           และแบบประกันไหนพอดีกับงบของคุณ ไม่ต้องให้เบอร์โทร
         </p>
       </header>
-      <Fhc />
+      <Fhc canSave={canSave} />
     </main>
   );
 }
