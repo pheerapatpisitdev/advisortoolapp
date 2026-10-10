@@ -15,7 +15,8 @@ import { can, type Viewer } from "./access";
  * (owner, 2026-10-02). The owner's content ceiling on /admin/ai still stands over the free rounds.
  *
  * Counted from 1 October 2026 in Thailand, so rounds used under the monthly allowance before
- * the change do not eat into the ten (owner, 2026-09-30).
+ * the change do not eat into the ten (owner, 2026-09-30). Moved to 10 October 2026 11:10 to give
+ * every agent their ten again, once (owner, 2026-10-10); wallet money was not touched.
  *
  * A round is a writing round, a หาทีม round, a รีวิวเคลม reading or a picture drawn — the
  * things that call a model on purpose. Counted from ins_audit, so deleting the piece a round
@@ -23,7 +24,7 @@ import { can, type Viewer } from "./access";
  * its line is renamed 'ai-returned', which this count does not look for (review, 2026-10-01).
  */
 export const FREE_ROUNDS = 10;
-export const FREE_ROUNDS_FROM = new Date("2026-10-01T00:00:00+07:00");
+export const FREE_ROUNDS_FROM = new Date("2026-10-10T11:10:00+07:00");
 
 export const AI_ROUNDS = ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft", "ai-thanks", "ai-showcase", "ai-saying", "ai-clip", "ai-edit", "ai-describe"] as const;
 export type AiRound = (typeof AI_ROUNDS)[number];
