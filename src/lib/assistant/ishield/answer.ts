@@ -622,15 +622,6 @@ function quoted(
    */
   const otherTerms = TERMS.filter((v) => v !== slots.variant && takes(v, slots.age)).map(termLabel);
 
-  // the same money on the other terms, a line each: the comparison is the decision
-  const comparison = budget
-    ? TERMS.filter((v) => v !== slots.variant && takes(v, slots.age)).flatMap((v) => {
-      const other = fitBudget({ age: slots.age, sex: slots.sex, variant: v }, budget, today);
-      return other
-        ? [`• ชำระเบี้ย ${Number(v.replace(/\D/g, ""))} ปี — ทุน ${money(other.sum)} บาท เบี้ย ${formatBaht(other.total)} บาท/${perWord(budget)}`]
-        : [];
-    })
-    : [];
   // once, after the first price and its table: the way into pricing by what the customer can pay
   const invite = !budget && !slots.budgetAsked;
   if (invite) slots.budgetAsked = true;
@@ -646,9 +637,6 @@ function quoted(
             + ` ตั้งแต่ปีแรกจนถึงอายุ ${maturity?.age ?? 85} ปี`),
           card: table,
         }]
-        : []),
-      ...(comparison.length
-        ? [{ text: said(["งบเท่ากัน แบบอื่นได้ทุนประมาณนี้ครับ", ...comparison].join("\n")) }]
         : []),
       ...(invite ? [{ text: said(BUDGET_INVITE) }] : []),
       // its own bubble, and last, so the health button under it reads as an answer to it

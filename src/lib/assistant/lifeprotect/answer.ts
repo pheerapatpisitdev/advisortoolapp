@@ -585,9 +585,8 @@ function fitBudget(
  *
  * The answer is the quotation the customer would have had by naming the sum: the card, the
  * year-by-year table and the PDF, on the term already in play (paying 19 years when none is).
- * The other terms follow in a line each, because the same money buys three times the cover on
- * the longest one, and that comparison is the decision. A tap on another term, or another
- * person named, is answered from the same budget.
+ * The same money on the other terms is no longer listed after it (owner, 2026-10-10). A tap on
+ * another term, or another person named, is answered from the same budget.
  */
 function answerFromBudget(slots: Routed, budget: Budget): Answer {
   const kept: Routed = { ...slots, budget, offer: undefined };
@@ -612,11 +611,8 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
   const multiple = coverMultiple(table, age);
   const mode: PayMode = budget.per === "month" ? "monthly" : "annual";
   const variant = QUOTABLE.has(slots.variant ?? "") ? slots.variant! : FIRST_TERM;
-  const fits = [FIRST_TERM, "WLF09H", "WLF99H"].flatMap((v) => {
-    const fit = fitBudget(table, v, who, budget);
-    return fit ? [{ variant: v, label: termAt(table, v).label, fit }] : [];
-  });
-  const chosen = fits.find((f) => f.variant === variant);
+  const fit = fitBudget(table, variant, who, budget);
+  const chosen = fit ? { label: termAt(table, variant).label, fit } : undefined;
 
   if (!chosen) {
     /**
@@ -647,15 +643,6 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
   const wanted = cleanRiders(slots.riders);
   const cover = chosen.fit.sum * multiple;
   const quoted = quoteFor(table, variant, who, cover, undefined, chosen.fit.sum, wanted, mode);
-  const others = fits.filter((f) => f.variant !== variant && f.fit.sum <= MAX_BUDGET_SUM);
-  const comparison = others.length
-    ? [
-      "งบเท่ากัน แบบอื่นได้ทุนประมาณนี้ครับ",
-      ...others.map((f) => `• ${f.label} — ทุน ${money(f.fit.sum)} บาท (ครอบครัวได้รับ ${money(f.fit.sum * multiple)})`
-        + ` เบี้ย ${formatBaht(f.fit.priced.total)} บาท/${per}`),
-      "จ่ายยาวกว่าได้ทุนมากกว่า — สนใจแบบไหน บอกได้เลยครับ",
-    ].join("\n")
-    : undefined;
   const notes = [
     ...(chosen.fit.over
       ? [`(แบบชำระรายเดือนขั้นต่ำ ${money(table.minMonthly)} บาท/เดือน เบี้ยจึงเกินงบมานิดหน่อยครับ)`]
@@ -678,8 +665,6 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
         ...withPdf(quoted.pdfPath),
       },
       ...(quoted.card && quoted.table ? [{ text: tableWords(table), card: quoted.table }] : []),
-      // last, so the PDF offer that follows a quotation is still the last word
-      ...(comparison ? [{ text: comparison }] : []),
     ],
     priced: Boolean(quoted.card),
     ...(quoted.figures ? { quote: quoted.figures } : {}),
