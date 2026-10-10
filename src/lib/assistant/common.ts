@@ -440,8 +440,10 @@ export interface Budget {
 const A_MONTH = String.raw`เดือนละ|ต่อเดือน|รายเดือน|/\s*เดือน|ต่อ\s*เดือน`;
 const A_YEAR = String.raw`ปีละ|ต่อปี|รายปี|/\s*ปี|ต่อ\s*ปี`;
 const AMOUNT = String.raw`([\d,]+(?:\.\d+)?)\s*(ล้าน|แสน|หมื่น|พัน)?`;
-const BUDGET_BEFORE = new RegExp(String.raw`(?:${A_MONTH}|${A_YEAR})\s*${AMOUNT}`);
-const BUDGET_AFTER = new RegExp(String.raw`${AMOUNT}\s*(?:บาท)?\s*(?:${A_MONTH}|${A_YEAR})`);
+const BUDGET_BEFORE = new RegExp(String.raw`(?:${A_MONTH}|${A_YEAR})\s*(?:ประมาณ|ไม่เกิน|ราวๆ|ราว|สัก)?\s*${AMOUNT}`);
+const BUDGET_AFTER = new RegExp(String.raw`${AMOUNT}\s*(?:บาท)?\s*(?:${A_MONTH}|${A_YEAR})`, "g");
+/** "ทุน 1 ล้าน เดือนละเท่าไหร่": the figure is the cover, and the period word asks for the premium. */
+const COVER_BEFORE = /ทุน(?:ประกัน)?\s*$/;
 const SAYS_MONTH = new RegExp(A_MONTH);
 
 /**
@@ -470,7 +472,8 @@ export function budgetIn(text: string): Budget | undefined {
       ? { baht: Math.round(perDay * DAYS_A_YEAR), per: "year", perDay: Math.round(perDay) }
       : undefined;
   }
-  const m = BUDGET_BEFORE.exec(text) ?? BUDGET_AFTER.exec(text);
+  const after = [...text.matchAll(BUDGET_AFTER)].find((a) => !COVER_BEFORE.test(text.slice(0, a.index)));
+  const m = BUDGET_BEFORE.exec(text) ?? after;
   if (!m) return undefined;
   const baht = Number(m[1].replace(/,/g, "")) * (m[2] ? SCALE[m[2]] : 1);
   if (!Number.isFinite(baht) || baht < SMALLEST_BUDGET || baht > LARGEST_BUDGET) return undefined;
@@ -621,9 +624,16 @@ const NOT_BEFORE_A_NUMBER = String.raw`(?!\d|[,.]\d|\s*(?:ล้าน|แสน
  * are the half-yearly instalment, and a number standing alone before เดือน is left alone.
  */
 const MONTHS = String.raw`\s*(เดือน)(?!ละ|นี้|หน้า|ที่|ก่อน)`;
+/**
+ * A paying term is not an age: "จ่าย 19 ปี ชาย 35" is a man of thirty-five, not a boy of nineteen.
+ * And a lone ช or ญ is a sex only standing on its own — "จ่าย 9 ปี ช่วยคิดให้หน่อย" is not a
+ * boy of nine, "ช่วย" is a word.
+ */
+const NOT_A_TERM = String.raw`(?<!(?:จ่าย|ชำระ|ส่ง|ผ่อน|นาน|ระยะเวลา|เบี้ย)\s*)`;
+const SEX_WORD_AFTER = String.raw`(?:ผู้หญิง|ผู้ชาย|ผญ|ผช|หญิง|ชาย|(?:ญ|ช)(?![\u0E01-\u0E5B]))`;
 const PERSON_RE = new RegExp(
   `(${SEX_WORD})\\s*(?:เพศ\\s*)?(?:อายุ\\s*)?(\\d{1,2})${NOT_BEFORE_A_NUMBER}(?:${MONTHS})?`
-  + `|${NOT_AFTER_A_NUMBER}(\\d{1,2})${NOT_BEFORE_A_NUMBER}\\s*(?:ปี)?\\s*(?:เพศ\\s*)?(${SEX_WORD})`,
+  + `|${NOT_AFTER_A_NUMBER}${NOT_A_TERM}(\\d{1,2})${NOT_BEFORE_A_NUMBER}\\s*(?:ปี)?\\s*(?:เพศ\\s*)?(${SEX_WORD_AFTER})`,
   "g",
 );
 

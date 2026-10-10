@@ -27,16 +27,19 @@ const AGE_THEN_SEX = new RegExp(
 const SEX_THEN_AGE = new RegExp(String.raw`(?<![\w'’])(${SEX})\s*[,/-]?\s*(?:aged?\s*)?(\d{1,2})(?![\d,.])`, "i");
 
 /** An age said as an age: "35 years old", "age 35", "aged 35", "I'm 35", "I'm actually 45". */
+// "I'm 35" first: "I'm 35, can I renew until age 80?" is a man of thirty-five, and an age said
+// as a limit — "until age 80", "max age 70", "over age 65" — is not the customer's own
 const AGE_SAID = [
-  /\b(\d{1,2})\s*(?:years?\s*old|yrs?\b|y\/?o\b)/i,
-  /\bage(?:d)?\s*(?:is\s*)?(\d{1,2})\b/i,
   /\b(?:i['’]?m|i\s+am)\s+(?:actually\s+|now\s+|turning\s+)?(\d{1,2})\b/i,
+  /\b(\d{1,2})\s*(?:years?\s*old|yrs?\b|y\/?o\b)/i,
+  /(?<!(?:until|till|up\s+to|to|max(?:imum)?|limit|over|after|beyond|by|past|above|below|under)\s+(?:the\s+)?)\bage(?:d)?\s*(?:is\s*)?(\d{1,2})\b/i,
 ];
 /** The whole message is the age. */
 const AGE_ONLY = /^\s*(\d{1,2})\s*[.!]?\s*$/;
 
-const FEMALE_WORD = /\b(?:female|woman|lady|girl|wife|mrs|ms)\b/i;
-const MALE_WORD = /\b(?:male|man|gentleman|boy|husband|mr)\b/i;
+// not "wife" or "husband": that is somebody else's sex, said by the customer about their other half
+const FEMALE_WORD = /\b(?:female|woman|lady|girl|mrs|ms)\b/i;
+const MALE_WORD = /\b(?:male|man|gentleman|boy|mr)\b/i;
 
 const sexOf = (word: string): "M" | "F" => (/^(?:female|woman|lady|girl|f)$/i.test(word) ? "F" : "M");
 

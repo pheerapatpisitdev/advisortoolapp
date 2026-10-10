@@ -147,8 +147,13 @@ export function pdfTurn(
     return { reply: { ...one(w.declined), replies: [w.onward] }, memory: { ...kept, declined: true } };
   }
 
+  // a bare "ครับ" / "สนใจ" is a yes to the file only where the file was asked about as a
+  // question; the Thai line now before the buttons invites questions, and the yes that comes
+  // after it is about the quote — it goes on to the form, not to a PDF nobody asked for
+  const askedAsQuestion = lang === "en"
+    || Boolean(lastSaid && lastSaid.trimEnd().endsWith(PDF_OFFER_BEFORE));
   const requested = (PDF_ASKED.test(asked) && !/\d/.test(asked))
-    || (offered && (affirms(asked) || w.saysSend.test(asked)));
+    || (offered && ((askedAsQuestion && affirms(asked)) || w.saysSend.test(asked)));
   if (!requested || belongsElsewhere(asked, lastSaid, w.applies)) return undefined;
 
   if (kept.paths?.length) {

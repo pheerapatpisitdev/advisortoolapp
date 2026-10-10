@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 
-/** Ten free AI rounds for every agent, once, counted from 1 October 2026 (owner, 2026-09-30). */
+/** Ten free AI rounds for every agent, once, counted from 10 October 2026 11:10 Thailand (owner, 2026-10-10). */
 
 const db = vi.hoisted(() => ({ count: 0, since: "" }));
 vi.mock("@/lib/supabase/admin", () => ({
@@ -41,11 +41,11 @@ describe("the free rounds", () => {
     expect(await allowanceOf({ ...agent, trial: true })).toEqual({ limit: 10, used: 0 });
   });
 
-  it("count every round since 1 October 2026 in Thailand, never from the start of a month", async () => {
+  it("count every round since 10 October 2026 11:10 in Thailand, never from the start of a month", async () => {
     db.count = 3;
     expect(await allowanceOf(agent)).toEqual({ limit: 10, used: 3 });
-    expect(db.since).toBe(new Date("2026-10-01T00:00:00+07:00").toISOString());
-    expect(FREE_ROUNDS_FROM.toISOString()).toBe("2026-09-30T17:00:00.000Z");
+    expect(db.since).toBe(new Date("2026-10-10T11:10:00+07:00").toISOString());
+    expect(FREE_ROUNDS_FROM.toISOString()).toBe("2026-10-10T04:10:00.000Z");
   });
 
   it("are not the owner's to count", async () => {

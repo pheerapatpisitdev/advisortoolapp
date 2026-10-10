@@ -32,7 +32,7 @@ const ASKS = /\?|\b(?:what|how|when|which|where|why|does|do|is|can|could)\b/i;
  * diabetes?", not "does the waiting period apply?" — the Thai list leaves out ซื้อได้ไหม for
  * the same reason, and a question answered with a hand-over is a question not answered.
  */
-const BUYS = /\bi(?:'d| would)? (?:like|want) to (?:apply|buy|sign up|purchase|get (?:it|this|covered))|sign me up|let'?s (?:do it|go ahead|apply)|^\s*(?:ok(?:ay)?,?\s*)?go ahead\b|i'?ll take (?:it|this|the \w+)|\bi(?:'| a)m in\b|how (?:do|can) i (?:apply|sign up)|^\s*apply(?: now)?\s*[.!]*\s*$|steps? to apply|how to apply|apply(?:ing)? please|application (?:steps|form|process)|send (?:me )?the (?:application )?form/i;
+const BUYS = /\bi(?:'d| would)? (?:like|want) to (?:apply|buy|sign up|purchase|get (?:it|this|covered))|sign me up|let'?s (?:do it|go ahead|apply)|^\s*(?:ok(?:ay)?,?\s*)?go ahead\b|i'?ll take (?:it|this|the \w+)|^\s*(?:ok(?:ay)?,?\s*)?i(?:'| a)m in\s*[.!]*\s*$|how (?:do|can) i (?:apply|sign up)|^\s*apply(?: now)?\s*[.!]*\s*$|steps? to apply|how to apply|apply(?:ing)? please|application (?:steps|form|process)|send (?:me )?the (?:application )?form/i;
 const NOT_BUYING = /claim|cancel|refund|renew/i;
 const FORM_DONE = /\b(?:done|filled|submitted|completed)\b|sent (?:it|them|the form)/i;
 const COMPANY = /which company|who is the insurer|what company|insurance company|is this legit|are you (?:licensed|real)/i;

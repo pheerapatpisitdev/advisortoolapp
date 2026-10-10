@@ -16,7 +16,9 @@ let interloper: (() => void) | null = null;
 let broken = false;
 const writes: { kind: string; values: Record<string, unknown> }[] = [];
 let clock = 0;
-const stamp = () => new Date(Date.UTC(2026, 9, 1, 3, 0, 0, ++clock)).toISOString();
+// a minute ago: a row older than a day is a new visit (session.ts MAX_AGE_HOURS), so a fixed date goes stale
+const base = Date.now() - 60_000;
+const stamp = () => new Date(base + ++clock).toISOString();
 
 vi.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: () => ({

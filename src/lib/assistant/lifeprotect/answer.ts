@@ -898,7 +898,9 @@ function quotedFigures(slots: Routed, table: LifeProtectTable): string | undefin
   if (!QUOTABLE.has(variant)) return undefined;
   if (age < table.ageMin || age > table.ageMax) return undefined;
 
-  const sumAssured = sumForCover(table, age, coverWanted);
+  // the sum behind the quote the customer was sent, not the one the cover would mean by itself:
+  // a budget buys 500,000 whose free cover is exactly 1,000,000, and 1,000,000 is read as a sum
+  const sumAssured = sumBehind(table, age, coverWanted, variant, slots.offer, slots.takenSum);
   if (sumAssured < baseSumAssuredLimits(getPlan(PLAN_CODE)!.rules, variant).min) return undefined;
   const modes = lifeProtectModes(table, termAt(table, variant), { sex, age, sumAssured });
   if (!modes) return undefined;

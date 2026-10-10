@@ -133,33 +133,32 @@ describe("asked for the file", () => {
     }
   });
 
-  it("reads เอาครับ after the offer as the file, not the form", async () => {
-    const first = await answerAny([{ role: "user", content: LIFE }], null, "facebook");
-    const a = await answerAny(thread([LIFE, first])("เอาครับ"), first.slots, "facebook");
-    expect(a.messages[0].file).toBe(memoryOf(first)!.paths![0]);
-    expect(spoken(a)).not.toContain(APPLICATION_FORM);
-
-    // and where the same last message also invited the form — which on its own reads a bare
-    // yes as applying (tookUpTheOffer) — the offer, asked last, still wins
-    const invited: ChatMessage[] = [
-      { role: "user", content: LIFE },
-      { role: "assistant", content: `${spoken(first)}\n\nพิมพ์ว่า "สนใจสมัคร" ได้เลยครับ\n\n${OFFER}` },
-      { role: "user", content: "เอาครับ" },
-    ];
-    const undecided = { product: "undecided" as const, pdf: memoryOf(first) } as AnySlots;
-    const b = await answerAny(invited, undecided, "facebook");
-    expect(b.messages[0].file).toBe(memoryOf(first)!.paths![0]);
-    expect(spoken(b)).not.toContain(APPLICATION_FORM);
-  });
-
-  for (const yes of ["เอาเลย", "เอาแบบนี้", "เอาอันนี้ครับ"]) {
-    it(`reads ${yes} after the offer as the file: the offer was the last question`, async () => {
+  // the line before the buttons invites questions now (ea5a47b6): a yes after it is about the quote
+  for (const yes of ["เอาครับ", "เอาเลย", "สนใจครับ", "โอเคค่ะ", "ครับ"]) {
+    it(`does not read ${yes} after the new offer line as a request for the file`, async () => {
       const first = await answerAny([{ role: "user", content: LIFE }], null, "facebook");
       const a = await answerAny(thread([LIFE, first])(yes), first.slots, "facebook");
-      expect(a.messages[0].file).toBe(memoryOf(first)!.paths![0]);
-      expect(spoken(a)).not.toContain(APPLICATION_FORM);
+      expect(a.messages.some((m) => m.file)).toBe(false);
     });
   }
+
+  it("still reads เอาครับ after the old wording of the offer, which asked about the file", async () => {
+    const first = await answerAny([{ role: "user", content: LIFE }], null, "facebook");
+    const old: ChatMessage[] = [
+      { role: "user", content: LIFE },
+      { role: "assistant", content: `${spoken(first)}\n\nอยากได้เป็นไฟล์ PDF ไว้เก็บหรือส่งต่อให้ครอบครัวไหมครับ?` },
+      { role: "user", content: "เอาครับ" },
+    ];
+    const a = await answerAny(old, first.slots, "facebook");
+    expect(a.messages[0].file).toBe(memoryOf(first)!.paths![0]);
+    expect(spoken(a)).not.toContain(APPLICATION_FORM);
+  });
+
+  it("still sends the file for the button's own words after the new offer line", async () => {
+    const first = await answerAny([{ role: "user", content: LIFE }], null, "facebook");
+    const a = await answerAny(thread([LIFE, first])("ขอไฟล์ PDF"), first.slots, "facebook");
+    expect(a.messages[0].file).toBe(memoryOf(first)!.paths![0]);
+  });
 
   it("still sends the form for สมัคร after the offer", async () => {
     const first = await answerAny([{ role: "user", content: LIFE }], null, "facebook");
@@ -440,7 +439,7 @@ describe("the buttons after the PDF's own turns", () => {
  * the website cuts a long answer at 2,000 characters, and the offer is its last line.
  */
 describe("an offer the history no longer shows", () => {
-  it("is still the question a yes answers", async () => {
+  it("no longer turns a bare yes into the file: the line before the buttons is not a question", async () => {
     const first = await answerAny([{ role: "user", content: LIFE }], null, "web");
     expect(memoryOf(first)!.offered).toBe(true);
     const cut: ChatMessage[] = [
@@ -449,8 +448,7 @@ describe("an offer the history no longer shows", () => {
       { role: "user", content: "เอาครับ" },
     ];
     const a = await answerAny(cut, first.slots, "web");
-    expect(a.messages[0].file).toBe(memoryOf(first)!.paths![0]);
-    expect(memoryOf(a)!.offered).toBeUndefined();
+    expect(a.messages.some((m) => m.file)).toBe(false);
   });
 
   it("is a no to the file for ไม่เป็นไร too", async () => {
