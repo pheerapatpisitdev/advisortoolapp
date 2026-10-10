@@ -16,7 +16,7 @@ vi.mock("@/lib/ai/client", async () => {
 });
 
 const { answerQuestion } = await import("@/lib/assistant/lifeprotect/answer");
-const { BUDGET_INVITE } = await import("@/lib/assistant/common");
+const { ABOUT_INSURER, BUDGET_INVITE } = await import("@/lib/assistant/common");
 const { asksValueTable, lifeProtectVariantIn } = await import("@/lib/assistant/lifeprotect/route");
 const { wantsToBuy } = await import("@/lib/assistant/common");
 const { lifeProtectTable } = await import("@/lib/lifeprotect-table");
@@ -367,7 +367,10 @@ describe("who stands behind the policy", () => {
   it("names the insurer alone, with no agents or licence numbers", async () => {
     routed = { intent: "other" };
     const answer = await answerQuestion(said("ของบริษัทอะไรครับ"), null);
-    expect(answer.messages[0].text).toBe("แบบประกันนี้รับประกันโดย บมจ. กรุงไทย-แอกซ่า ประกันชีวิต ครับ 🙏");
+    expect(answer.messages).toHaveLength(1);
+    expect(answer.messages[0].text).toBe(ABOUT_INSURER);
+    expect(answer.messages[0].text).toContain("รับประกันโดย บริษัท กรุงไทย-แอกซ่า ประกันชีวิต จำกัด (มหาชน)");
+    expect(answer.messages[0].text).toContain("AXA Group ดำเนินธุรกิจใน 51 ประเทศ");
     expect(answer.messages[0].text).not.toContain("6001028534");
     expect(answer.messages[0].text).not.toContain("ใบอนุญาต");
     // the question was answered; it does not then ask for details it may already have

@@ -46,7 +46,7 @@ describe("what the model is told", () => {
       expect(prompt).toContain("ห้ามยืนยันหรือปฏิเสธชื่อบริษัทที่ลูกค้าเอ่ยถึง");
       // asked outright, it names the insurer rather than refusing: "บ.ชื่ออะไรคะ" got
       // "ในส่วนนี้ผมไม่สามารถแจ้งชื่อบริษัทได้ครับ" from a model told only what not to say
-      expect(prompt).toContain("แบบประกันนี้รับประกันโดย บมจ. กรุงไทย-แอกซ่า ประกันชีวิต");
+      expect(prompt).toContain("รับประกันโดย บริษัท กรุงไทย-แอกซ่า ประกันชีวิต จำกัด (มหาชน)");
       expect(prompt).toContain("ห้ามอ้างว่ามีใบอนุญาตตัวแทนหรือนายหน้า");
       expect(prompt).toContain("ห้ามบอกว่าตัวเองเป็นคน");
     });
