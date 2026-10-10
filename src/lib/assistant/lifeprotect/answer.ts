@@ -395,8 +395,7 @@ function quoteReplies(table: LifeProtectTable, quoted: string, riders: string[] 
  */
 function tableWords(table: LifeProtectTable, whose?: { age: number; sex: "M" | "F" }): string {
   const owner = whose ? `ของ${whose.sex === "M" ? "ชาย" : "หญิง"} อายุ ${whose.age} ` : "";
-  return `กราฟและตารางมูลค่าทุกปี${owner}ให้ดูด้วยครับ — เบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี`
-    + ` ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี`;
+  return `กราฟและตารางมูลค่าทุกปี${owner.trimEnd()}\nเบี้ยต่อปี | เวนคืน | ความคุ้มครอง`;
 }
 /** Not "เอาแบบลดทุน": ลดทุน is one of the words that mean "too expensive", and the title
  * would come back as a fresh objection rather than as an acceptance. */
@@ -419,11 +418,10 @@ function answerValueTable(slots: Routed): Reply {
 
   const variant = QUOTABLE.has(slots.variant ?? "") ? slots.variant! : FIRST_TERM;
   const sumAssured = sumBehind(table, age, coverWanted, variant, slots.offer, slots.takenSum);
-  const term = termAt(table, variant);
   return {
     messages: [{
       // the picture opens with the chart since it moved off the quote card (owner, 2026-10-06)
-      text: `ส่งกราฟและตารางมูลค่าทุกปีให้ดูครับ ตั้งแต่ปีแรกจนครบสัญญาอายุ ${table.coverToAge} ปี — มีทั้งเบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี (แบบ${term.label})`,
+      text: `กราฟและตารางมูลค่าทุกปี\nเบี้ยต่อปี | เวนคืน | ความคุ้มครอง`,
       card: valueTablePath({ kind: "plan", planCode: PLAN_CODE, variant, age, sex, sumAssured }, { characters: true }),
     }],
     priced: true,
