@@ -21,10 +21,9 @@ const WORD: Record<Level, string> = { green: "ดี", yellow: "ควรปร�
 
 const BOX = "rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-4";
 
-export function FhcResult({ result, words, agent, interviewer, idate, names, onEdit }: {
+export function FhcResult({ result, words, interviewer, idate, names, onEdit }: {
   result: Extract<FhcReply, { ok: true }>;
   words: FhcWords | null;
-  agent: boolean;
   interviewer: string;
   idate: string;
   names: string[];
@@ -41,7 +40,7 @@ export function FhcResult({ result, words, agent, interviewer, idate, names, onE
 
   return (
     <div className="space-y-4">
-      {agent && (interviewer || named.length > 0) && (
+      {(interviewer || named.length > 0) && (
         <p className="hidden text-sm print:block">
           {interviewer && <>ผู้ทำแบบสอบถาม {interviewer}{idate && ` · ${idate}`}</>}
           {named.length > 0 && <> · คนในความดูแล: {named.join(", ")}</>}
@@ -111,14 +110,12 @@ export function FhcResult({ result, words, agent, interviewer, idate, names, onE
       <PlanView result={plan} prose={words?.prose ?? null} />
 
       <div className="grid gap-2 sm:grid-cols-3 print:hidden">
-        {agent && (
-          <button
-            type="button" onClick={() => window.print()}
-            className="rounded-sm border border-[var(--lg-gold)] py-3 text-sm text-[var(--lg-gold)]"
-          >
-            พิมพ์ / บันทึก PDF
-          </button>
-        )}
+        <button
+          type="button" onClick={() => window.print()}
+          className="rounded-sm border border-[var(--lg-gold)] py-3 text-sm text-[var(--lg-gold)]"
+        >
+          พิมพ์ / บันทึก PDF
+        </button>
         <button type="button" onClick={share} className="lg-metal-face rounded-sm border border-[var(--lg-gold)] py-3 text-sm font-medium">
           ส่งไป LINE
         </button>

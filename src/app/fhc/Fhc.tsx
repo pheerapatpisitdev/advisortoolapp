@@ -15,13 +15,12 @@ import { saveFhcCustomer } from "./customers/actions";
 import { FhcResult } from "./FhcResult";
 
 /**
- * The agency's FHC questionnaire as a form. One page for two people: a customer on their own,
- * or an agent sitting with one — the agent's mode adds the เฉลย reveals the paper version
- * teaches with, names, and the interviewer's line for the print-out. Names stay in this
+ * The agency's FHC questionnaire as a form, for an agent sitting with a customer (owner,
+ * 2026-10-10: the customer-on-their-own mode is gone) — with the เฉลย reveals the paper
+ * version teaches with, names, and the interviewer's line for the print-out. Names stay in this
  * component's state; the form sent to the server carries relations and ages only.
  */
 
-type Mode = "customer" | "agent";
 interface Row {
   relation: Relation;
   age: Money;
@@ -42,10 +41,10 @@ function Calc({ label, value, unit = "บาท" }: { label: string; value: stri
   );
 }
 
-/** Shown at once for a customer; behind a เฉลย button for an agent to reveal while teaching. */
-function Reveal({ agent, children }: { agent: boolean; children: React.ReactNode }) {
+/** Behind a เฉลย button for the agent to reveal while teaching. */
+function Reveal({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  if (!agent || open) return <>{children}</>;
+  if (open) return <>{children}</>;
   return (
     <button
       type="button" onClick={() => setOpen(true)}
@@ -80,9 +79,7 @@ function Card({ title, children, className = "" }: { title: string; children: Re
   );
 }
 
-export function Fhc({ canSave = false }: { canSave?: boolean }) {
-  const [mode, setMode] = useState<Mode>("customer");
-  const agent = mode === "agent";
+export function Fhc() {
 
   const [age, setAge] = useState(35);
   const [sex, setSex] = useState<"M" | "F">("M");
@@ -122,7 +119,7 @@ export function Fhc({ canSave = false }: { canSave?: boolean }) {
   const [savedAs, setSavedAs] = useState<{ id: string; name: string } | null>(null);
   const [saveError, setSaveError] = useState("");
   // asked of the customer only once this check has not already been kept
-  const keeping = agent && canSave && !savedAs;
+  const keeping = !savedAs;
 
   const [result, setResult] = useState<Extract<FhcReply, { ok: true }> | null>(null);
   const [words, setWords] = useState<FhcWords | null>(null);
@@ -188,20 +185,6 @@ export function Fhc({ canSave = false }: { canSave?: boolean }) {
     })();
   }
 
-  const modeSwitch = (
-    <div className="grid grid-cols-2 gap-2 print:hidden" role="group" aria-label="ใครเป็นคนกรอก">
-      {([["customer", "ลูกค้าทำเอง"], ["agent", "ตัวแทนทำกับลูกค้า"]] as [Mode, string][]).map(([m, label]) => (
-        <button
-          key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}
-          className={`rounded-sm border py-2.5 text-sm transition-colors ${
-            mode === m ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
 
   if (result && !editing) {
     return (
@@ -218,7 +201,7 @@ export function Fhc({ canSave = false }: { canSave?: boolean }) {
           </p>
         )}
         <FhcResult
-          result={result} words={words} agent={agent} interviewer={interviewer} idate={idate}
+          result={result} words={words} interviewer={interviewer} idate={idate}
           names={people.map((p) => p.name.trim())}
           onEdit={() => { setEditing(true); window.scrollTo({ top: 0 }); }}
         />
@@ -228,8 +211,6 @@ export function Fhc({ canSave = false }: { canSave?: boolean }) {
 
   return (
     <div className="space-y-5">
-      {modeSwitch}
-
       <div className="grid gap-5 sm:grid-cols-2">
         <Card title="ข้อมูลอายุ" className="sm:col-span-2">
           <div className="flex items-end justify-center gap-3">
@@ -303,7 +284,7 @@ export function Fhc({ canSave = false }: { canSave?: boolean }) {
         </Card>
 
         <Card title="ทรัพย์สินมี 2 ประเภท">
-          <Reveal agent={agent}>
+          <Reveal>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs text-[var(--lg-mute)]">ทรัพย์สินที่มองเห็น</p>
@@ -344,13 +325,11 @@ export function Fhc({ canSave = false }: { canSave?: boolean }) {
                     ลบ
                   </button>
                 </div>
-                {agent && (
-                  <input
-                    type="text" aria-label={`ชื่อคนที่ ${i + 1}`} placeholder="ชื่อ (ไม่บันทึกเข้าระบบ)"
-                    className={`${INPUT} mt-0 text-base`} value={p.name}
-                    onChange={(e) => setPeople(people.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
-                  />
-                )}
+                <input
+                  type="text" aria-label={`ชื่อคนที่ ${i + 1}`} placeholder="ชื่อ (ไม่บันทึกเข้าระบบ)"
+                  className={`${INPUT} mt-0 text-base`} value={p.name}
+                  onChange={(e) => setPeople(people.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                />
               </div>
             ))}
             {people.length < MAX_PEOPLE && (
@@ -371,7 +350,7 @@ export function Fhc({ canSave = false }: { canSave?: boolean }) {
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--lg-gold)] text-xs text-[var(--lg-gold)]">
                   {i + 1}
                 </span>
-                <Reveal agent={agent}><span className="text-[var(--lg-white)]">{e.name}</span></Reveal>
+                <Reveal><span className="text-[var(--lg-white)]">{e.name}</span></Reveal>
               </li>
             ))}
           </ol>
@@ -441,25 +420,18 @@ export function Fhc({ canSave = false }: { canSave?: boolean }) {
           </Card>
         )}
 
-        {agent && (
-          <Card title="ผู้ทำแบบสอบถาม" className="sm:col-span-2">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="ชื่อ-นามสกุล (ไม่บันทึกเข้าระบบ)">
-                <input type="text" className={`${INPUT} text-base`} value={interviewer} onChange={(e) => setInterviewer(e.target.value)} />
-              </Field>
-              <Field label="วันที่">
-                <input type="date" className={`${INPUT} text-base`} value={idate} onChange={(e) => setIdate(e.target.value)} />
-              </Field>
-            </div>
-          </Card>
-        )}
+        <Card title="ผู้ทำแบบสอบถาม" className="sm:col-span-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="ชื่อ-นามสกุล (ไม่บันทึกเข้าระบบ)">
+              <input type="text" className={`${INPUT} text-base`} value={interviewer} onChange={(e) => setInterviewer(e.target.value)} />
+            </Field>
+            <Field label="วันที่">
+              <input type="date" className={`${INPUT} text-base`} value={idate} onChange={(e) => setIdate(e.target.value)} />
+            </Field>
+          </div>
+        </Card>
       </div>
 
-      {agent && !canSave && (
-        <p className="text-center text-sm text-[var(--lg-mute)]">
-          <Link href="/?next=/fhc" className="text-[var(--lg-gold)] underline">เข้าสู่ระบบ</Link> ก่อน จึงจะเก็บชื่อลูกค้าไว้ในรายชื่อของคุณได้
-        </p>
-      )}
       {error && <p className="text-center text-sm text-[var(--lg-gold)]">{error}</p>}
       {keeping ? (
         <>
