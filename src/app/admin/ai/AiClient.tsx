@@ -215,6 +215,7 @@ function Status({ check }: { check?: ProviderCheck }) {
 
 const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic (Claude)", openai: "OpenAI (GPT)", google: "Google (Gemini)", zai: "Z.ai (GLM)",
+  typhoon: "Typhoon (SCB 10X)", moonshot: "Kimi (Moonshot)",
   typesafe: "TypeSafe (Jev)",
   // the clip renderers write to the same ledger; named here for the all-provider breakdown
   rendi: "Rendi", aws: "AWS Lambda", gcp: "Google Cloud Run",

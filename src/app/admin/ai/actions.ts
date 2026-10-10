@@ -25,7 +25,7 @@ export type { PersonUse } from "./people";
  * for want of credit, so every Grok call failed, and the owner asked for it to go rather than
  * sit in the chain costing a failed attempt whenever the fallback reached it.
  */
-const PROVIDERS = ["anthropic", "openai", "google", "zai", "typesafe"] as const;
+const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "moonshot", "typesafe"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 /**

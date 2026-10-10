@@ -91,4 +91,18 @@ describe("the order models are tried in", () => {
     const order = fallbackOrder([CHEAP, off], "small", null);
     expect(order.map((m) => m.model_name)).not.toContain(off.model_name);
   });
+
+  it("keeps the price ceiling when a free model is in the tier's list", () => {
+    /**
+     * Typhoon is free (priced 0) and sits at the end of the small tier. The ceiling is a
+     * multiple of the tier's cheapest model, and four times nothing is nothing — every model
+     * outside the list would have dropped out of the fallback the day the free one came in.
+     */
+    const FREE = { ...model("typhoon-v2.5-30b-a3b-instruct", 0, "typhoon"), price: { inputPerMTokUsd: 0, outputPerMTokUsd: 0 } } as ModelRow;
+    const OTHER = model("gemini-3.7-flash", 0.2);
+    const names = fallbackOrder([CHEAP, FREE, OTHER, DEAR], "small", null).map((m) => m.model_name);
+    expect(names).toContain("typhoon-v2.5-30b-a3b-instruct");
+    expect(names).toContain("gemini-3.7-flash");
+    expect(names).not.toContain("claude-sonnet-5");
+  });
 });

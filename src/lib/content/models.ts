@@ -80,5 +80,6 @@ const SHORT: Record<string, string> = {
   "claude-sonnet-5": "Sonnet 5", "gpt-5": "GPT-5", "gemini-3.7-flash": "Gemini Flash",
   "gpt-5-mini": "GPT-5 mini", "glm-5.3": "GLM-5.3", "glm-5.3-flash": "GLM Flash",
   "claude-haiku-4-5-20251001": "Haiku", "gemini-3.1-flash-lite": "Gemini Lite",
+  "typhoon-v2.5-30b-a3b-instruct": "Typhoon", "kimi-k2.6": "Kimi K2.6", "kimi-k3": "Kimi K3",
 };
 export const shortModel = (name: string | null | undefined): string => (name ? SHORT[name] ?? name : "");

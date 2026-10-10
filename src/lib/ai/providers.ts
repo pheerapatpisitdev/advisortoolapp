@@ -146,6 +146,30 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
   async zai(args) {
     return openAiCompatible("https://api.z.ai/api/paas/v4/chat/completions", args, { reasoning_effort: "low" });
   },
+
+  /**
+   * Typhoon (SCB 10X), a Thai-first model in the OpenAI chat format. Free while the owner's
+   * use stays light — 200 requests a minute, no published price — so it is priced 0 and sits
+   * at the end of the small tier (owner, 2026-10-10). Its chat model reads no pictures.
+   */
+  async typhoon(args) {
+    return openAiCompatible("https://api.opentyphoon.ai/v1/chat/completions", args);
+  },
+
+  /**
+   * Kimi (Moonshot), OpenAI chat format, reads pictures.
+   *
+   * Both models think before they answer and the thinking counts against max_tokens, the
+   * GPT-5 trouble of 2026-09-22 again. K2.6 can be told not to; K3 always thinks
+   * ("reasoning is always on", default effort "max"), so it is held to "low" unless a caller
+   * asks for more.
+   */
+  async moonshot(args) {
+    const extra = /^kimi-k3/.test(args.model)
+      ? { reasoning_effort: args.effort ?? "low" }
+      : { thinking: { type: "disabled" } };
+    return openAiCompatible("https://api.moonshot.ai/v1/chat/completions", args, extra, true);
+  },
 };
 
 /**
@@ -166,10 +190,10 @@ export function openAiReasoning(model: string, effort?: CallArgs["effort"]): { r
   return { reasoning_effort: effort ?? "minimal" };
 }
 
-async function openAiCompatible(url: string, { apiKey, model, messages, maxTokens, json, signal }: CallArgs, extra: Record<string, unknown> = {}): Promise<CallResult> {
+async function openAiCompatible(url: string, { apiKey, model, messages, maxTokens, json, signal }: CallArgs, extra: Record<string, unknown> = {}, readsPictures = false): Promise<CallResult> {
   const data = await postJson(url, { Authorization: `Bearer ${apiKey}` }, {
-    // GLM here reads no pictures; the words go without them
-    model, messages: messages.map((m) => ({ role: m.role, content: m.content })), max_tokens: maxTokens,
+    // GLM and Typhoon read no pictures; the words go without them
+    model, messages: messages.map((m) => (readsPictures ? openAiMessage(m) : { role: m.role, content: m.content })), max_tokens: maxTokens,
     ...(json ? { response_format: { type: "json_object" } } : {}),
     ...extra,
   }, signal);

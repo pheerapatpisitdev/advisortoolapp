@@ -14,8 +14,9 @@ const USD_TO_THB = 36;
  * call fails the next one is tried, so one provider being down does not take the bot down.
  */
 const TIER_PREFERENCE: Record<Tier, string[]> = {
-  small: ["gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001"],
-  large: ["claude-sonnet-5", "gpt-5", "gemini-3.7-flash", "glm-5.3"],
+  // Typhoon and Kimi last: there for when the others are down, or picked on the admin page (owner, 2026-10-10)
+  small: ["gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001", "typhoon-v2.5-30b-a3b-instruct", "kimi-k2.6"],
+  large: ["claude-sonnet-5", "gpt-5", "gemini-3.7-flash", "glm-5.3", "kimi-k2.6", "kimi-k3"],
 };
 
 export class BudgetExceeded extends Error {
@@ -191,7 +192,10 @@ export function fallbackOrder(models: ModelRow[], tier: Tier, chosen: string | n
 
   // the ceiling is measured against what this tier actually costs, so it moves with the
   // prices rather than against a number written here once
-  const baseline = preferred.length ? Math.min(...preferred.map(priceOf)) : undefined;
+  // over the priced models only: Typhoon is free, and four times nothing would shut every
+  // model outside the list out of the fallback
+  const priced = preferred.map(priceOf).filter((p) => p > 0);
+  const baseline = priced.length ? Math.min(...priced) : undefined;
   const rest = enabled
     .filter((m) => !preferred.includes(m))
     .filter((m) => baseline === undefined || priceOf(m) <= baseline * PRICE_CEILING)
