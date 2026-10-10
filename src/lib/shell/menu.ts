@@ -184,6 +184,9 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
  */
 export const SALES_PAGES: MenuLink[] = SALES_SECTIONS.flatMap((s) => s.links);
 
+/** What each customer the agent kept from the Financial Health Check still lacks. */
+const FHC_CUSTOMERS: MenuLink = { href: "/fhc/customers", label: "ลูกค้า FHC ของฉัน", icon: "users", hue: "#3d3578" };
+
 /**
  * The two menus: the back office's, and everybody else's.
  *
@@ -264,8 +267,6 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       // rider, instead of being walked through one plan's own questions.
       { href: "/other-plans", label: "จัดแบบเอง", icon: "calc", hue: "#327d86" },
       { href: "/home", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
-      // the customers an agent kept from the Financial Health Check, and what each still lacks (owner, 2026-10-10)
-      { href: "/fhc/customers", label: "ลูกค้า FHC ของฉัน", icon: "users", hue: "#33638a" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
     ],
@@ -274,7 +275,11 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
   // Sales pages are part of the calculator, so the sidebar keeps the user in the same tab.
   // `external` remains available for a genuinely off-site link added in the future.
   for (const section of SALES_SECTIONS) {
-    groups.push({ title: section.title, links: section.links });
+    // the agent's own list of Financial Health Check customers sits under the check itself
+    // (owner, 2026-10-10); it is not a sales page, so SALES_SECTIONS, which every sales page
+    // list reads, does not carry it
+    const links = section.title === "วางแผนประกัน" ? [...section.links, FHC_CUSTOMERS] : section.links;
+    groups.push({ title: section.title, links });
   }
   // staff land on the main system after signing in (owner, 2026-10-10), so the way to their
   // own work is here too, not only inside Studio's menu
@@ -379,7 +384,8 @@ const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet
 export function isCurrent(href: string, path: string): boolean {
   if (href === "/") return path === "/";
   // an overview with its pages beside it in the same menu: lit only on itself
-  if (href === "/admin" || href === "/studio") return path === href;
+  // the check beside the list of customers it filled
+  if (href === "/admin" || href === "/studio" || href === "/fhc") return path === href;
   return path === href || path.startsWith(`${href}/`);
 }
 
