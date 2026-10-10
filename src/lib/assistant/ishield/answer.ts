@@ -633,8 +633,7 @@ function quoted(
       ...(table
         ? [{
           // the picture opens with the chart since it moved off the quote card (owner, 2026-10-06)
-          text: said(`กราฟและตารางมูลค่าทุกปีให้ดูด้วยครับ — เบี้ยสะสม เงินเวนคืน และความคุ้มครองของแต่ละปี`
-            + ` ตั้งแต่ปีแรกจนถึงอายุ ${maturity?.age ?? 85} ปี`),
+          text: said(`กราฟและตารางมูลค่าทุกปี\nเบี้ยต่อปี | เวนคืน | ความคุ้มครอง`),
           card: table,
         }]
         : []),

@@ -317,7 +317,7 @@ describe("the conversation", () => {
   it("sends the year-by-year value table beside the quotation", () => {
     const table = priced.messages.find((m) => m.card?.includes("/api/card/table"));
     expect(table).toBeDefined();
-    expect(table!.text).toContain("เงินเวนคืน");
+    expect(table!.text).toBe("กราฟและตารางมูลค่าทุกปี\nเบี้ยต่อปี | เวนคืน | ความคุ้มครอง");
     // a chat's table carries the little people on its chart
     expect(table!.card).toContain("&fig=1&v=");
   });
