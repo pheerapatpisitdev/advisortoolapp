@@ -530,7 +530,7 @@ async function run(
     return { ...answer, slots: answer.slots };
   }
   const previous = fresh ? startLife(carried as Person) : (carried as Routed);
-  const answer = await answerQuestion(history, previous);
+  const answer = await answerQuestion(history, previous, channel);
   return { ...answer, slots: { ...answer.slots, product: "lifeprotect" }, introFor: true };
 }
 

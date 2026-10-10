@@ -20,6 +20,7 @@ import {
 } from "./riders";
 import { PLAN_INFO_SYSTEM, SMALL_TALK_SYSTEM } from "./prompts";
 import { addressLine } from "../prompts";
+import type { Channel } from "../channel";
 import { asksPayTerm, asksValueTable, lifeProtectVariantIn, mergeSlots, PLAN_CODE, routeMessage, type Routed } from "./route";
 import {
   aboutCompany, affirms, APPLICATION_FORM, ASK_FOR_TABLE, asksAboutCompany, asksCheaper, baht, BUDGET_INVITE, type Budget,
@@ -86,7 +87,9 @@ export const MAX_BUDGET_SUM = 10_000_000;
 
 const HAND_OVER = "เดี๋ยวแอดมินเช็กให้แล้วกลับมาตอบในแชทนี้ครับ ระหว่างนี้ถามเรื่อง Life Protect x 2 ได้เลย";
 
-export async function answerQuestion(history: ChatMessage[], previous: Routed | null): Promise<Answer> {
+export async function answerQuestion(
+  history: ChatMessage[], previous: Routed | null, channel: Channel = "web",
+): Promise<Answer> {
   const asked = lastAsked(history);
   const known: Routed = previous ?? { intent: "other" };
   // leaving to think it over needs no model and changes nothing the bot knows
@@ -112,7 +115,7 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
   const parent = waitsForParent(previous) && coverIn(asked) === undefined ? payerIn(asked) : undefined;
   if (previous && parent) {
     const slots: Routed = { ...previous, intent: "quote", riders: mergeRiders(cleanRiders(previous.riders), { payer: parent }) };
-    return quoteAnswer(slots);
+    return quoteAnswer(slots, channel);
   }
 
   // one of the answers the agency writes out by hand every day. A message can both ask for a
@@ -144,7 +147,7 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
   // page would give, whatever the router thought the turn was about
   if (riderAsked) {
     const asking: Routed = { ...slots, intent: "quote" };
-    return quoteAnswer(asking);
+    return quoteAnswer(asking, channel);
   }
   if (asksPayTerm(asked)) return { ...answerPayTerm(slots), slots };
   if (asksValueTable(asked)) return { ...answerValueTable(slots), slots };
@@ -164,20 +167,33 @@ export async function answerQuestion(history: ChatMessage[], previous: Routed | 
   // another person; a sum said outright has already dropped the budget (mergeSlots)
   const stays = slots.budget !== undefined && slots.coverWanted !== undefined
     && (lifeProtectVariantIn(asked) !== undefined || peopleIn(asked).length > 0) ? slots.budget : undefined;
-  const budget = saidBudget ?? carried ?? stays;
-  if (budget && coverIn(asked) === undefined) return answerFromBudget(slots, budget);
+  /**
+   * The reply to the question about what the insurance is for (Messenger only, owner
+   * 2026-10-10). Any answer goes on to the quotation — a tapped goal, a word of their own, a
+   * question — because the goal changes nothing that is priced. A new budget or sum is priced
+   * from what it says, by the lines above and below.
+   */
+  const answersGoal = known.goalPending && saidBudget === undefined && coverIn(asked) === undefined
+    ? slots.budget : undefined;
+  const budget = saidBudget ?? carried ?? stays ?? answersGoal;
+  if (budget && coverIn(asked) === undefined) {
+    const priced = answerFromBudget(slots, budget, channel);
+    // a question asked in place of a goal is answered ahead of the price, not dropped
+    if (answersGoal && faq && priced.priced) priced.messages.unshift({ text: faq });
+    return priced;
+  }
   // a bare "เอา" takes the cheaper arrangement the bot last put on the table
   if (affirms(asked) && slots.offer) {
     const { offer } = slots;
     const taken: Routed = { ...slots, intent: "quote", coverWanted: offer.coverWanted, variant: offer.variant };
-    const priced = quoteAnswer(taken);
+    const priced = quoteAnswer(taken, channel);
     // the offer is taken once; a second "ตกลง" is an acknowledgement, not a request for the same quotation again
     const sumTaken = offer.sumAssured;
     return { ...priced, slots: { ...priced.slots, offer: priced.priced ? undefined : offer, ...(priced.priced ? { takenSum: sumTaken } : {}) } };
   }
 
   if (slots.intent === "quote") {
-    const quoted = quoteAnswer(slots);
+    const quoted = quoteAnswer(slots, channel);
     if (faq) {
       // the customer's own question is answered before the invitation, which stays the last word
       const at = quoted.messages.findIndex((m) => m.text === BUDGET_INVITE);
@@ -393,7 +409,12 @@ function quoteReplies(table: LifeProtectTable, quoted: string, riders: string[] 
  * What the chart-and-table picture is, said over it when it follows a quotation. A couple has
  * two of them, so each says whose it is.
  */
-function tableWords(table: LifeProtectTable, whose?: { age: number; sex: "M" | "F" }): string {
+function tableWords(table: LifeProtectTable, whose?: { age: number; sex: "M" | "F" }, channel: Channel = "web"): string {
+  /**
+   * Messenger sends the picture on its own (owner, 2026-10-10: "เอาข้อความนี้ออก"). A couple's
+   * two pictures keep a short label each, or nobody could tell whose table is whose.
+   */
+  if (channel === "facebook") return whose ? `ตารางของ${whose.sex === "M" ? "ชาย" : "หญิง"} อายุ ${whose.age}` : "";
   const owner = whose ? `ของ${whose.sex === "M" ? "ชาย" : "หญิง"} อายุ ${whose.age} ` : "";
   return `กราฟและตารางมูลค่าทุกปี${owner.trimEnd()}\nเบี้ยต่อปี | เวนคืน | ความคุ้มครอง`;
 }
@@ -438,13 +459,13 @@ function answerValueTable(slots: Routed): Reply {
  * A couple asking together gets a quote each, in the order they named themselves, because
  * each of them is buying their own contract at their own age.
  */
-function quoteAnswer(slots: Routed): Answer {
-  const reply = answerQuote(slots);
+function quoteAnswer(slots: Routed, channel: Channel = "web"): Answer {
+  const reply = answerQuote(slots, channel);
   const invited = reply.messages.some((m) => m.text === BUDGET_INVITE);
   return { ...reply, slots: invited ? { ...slots, budgetAsked: true } : slots };
 }
 
-function answerQuote(slots: Routed): Reply {
+function answerQuote(slots: Routed, channel: Channel = "web"): Reply {
   if (slots.variant && !QUOTABLE.has(slots.variant)) {
     return one(`ในแชทนี้ผมคิดให้ได้เฉพาะแบบ Life Protect x 2 ครับ สำหรับแบบอื่น ${HAND_OVER}`);
   }
@@ -481,7 +502,7 @@ function answerQuote(slots: Routed): Reply {
    */
   const couple = people.length > 1;
   const tables = messages.flatMap(({ card, table: tablePath }, i) =>
-    card && tablePath ? [{ text: tableWords(table, couple ? people[i] : undefined), card: tablePath }] : []);
+    card && tablePath ? [{ text: tableWords(table, couple ? people[i] : undefined, channel), card: tablePath }] : []);
   // once, after the first price and its table: the way into pricing by what the customer can
   // pay. Not to a couple (whose money is it?) and not to a customer who has named a budget.
   const invite = last >= 0 && !couple && !slots.budgetAsked && !slots.budget ? [{ text: BUDGET_INVITE }] : [];
@@ -575,6 +596,28 @@ function fitBudget(
 
 
 /**
+ * What the insurance is for, asked on Messenger between the person and the first price from a
+ * budget — the owner's four goals, word for word (2026-10-10). Whichever is tapped, the quote
+ * that follows is the same Life Protect quote. Messenger shows twenty characters of a button,
+ * so the sentences are in the message and the buttons carry them short.
+ */
+const goalQuestion = (): Reply => ({
+  messages: [{
+    text: [
+      // the owner's line has no particle, and none is added: the voice rule turns a ครับ here into
+      // ค่ะ, which is wrong on a question, and the line reads the same in every Page's voice
+      "อยากทำประกันเพื่ออะไรเป็นหลัก",
+      "",
+      "1. อยากมีมรดกให้คนข้างหลัง",
+      "2. อยากมีเงินใช้ตอนเกษียณ",
+      "3. อยากเก็บเงินไว้ให้ลูกหรือคนที่รัก",
+      "4. อยากให้รายได้ของครอบครัวไม่ขาด ถ้าวันหนึ่งเราไม่อยู่",
+    ].join("\n"),
+  }],
+  replies: ["มรดกให้คนข้างหลัง", "เงินใช้ตอนเกษียณ", "เก็บเงินให้ลูก/คนรัก", "รายได้ครอบครัวไม่ขาด"],
+});
+
+/**
  * What a stated budget actually buys, as a quotation.
  *
  * A man wrote "ผมมีเดือนละ 1000 สามารถทำประกันแบบไหนได้บ้างครับ" and was sent a quotation for
@@ -586,7 +629,7 @@ function fitBudget(
  * The same money on the other terms is no longer listed after it (owner, 2026-10-10). A tap on
  * another term, or another person named, is answered from the same budget.
  */
-function answerFromBudget(slots: Routed, budget: Budget): Answer {
+function answerFromBudget(slots: Routed, budget: Budget, channel: Channel = "web"): Answer {
   const kept: Routed = { ...slots, budget, offer: undefined };
   const table = lifeProtectTable();
   const { age, sex } = kept;
@@ -638,6 +681,12 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
     };
   }
 
+  // Messenger asks what the insurance is for once, before the first price (owner, 2026-10-10);
+  // a customer already holding a quotation is not stopped to be asked
+  if (channel === "facebook" && !slots.goalAsked && slots.coverWanted === undefined) {
+    return { ...goalQuestion(), slots: { ...kept, goalAsked: true, goalPending: true } };
+  }
+
   const wanted = cleanRiders(slots.riders);
   const cover = chosen.fit.sum * multiple;
   const quoted = quoteFor(table, variant, who, cover, undefined, chosen.fit.sum, wanted, mode);
@@ -653,7 +702,7 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
     ...notes,
   ].join("\n");
 
-  const slotsOut: Routed = { ...kept, variant, coverWanted: cover, takenSum: chosen.fit.sum };
+  const slotsOut: Routed = { ...kept, variant, coverWanted: cover, takenSum: chosen.fit.sum, goalPending: undefined };
   return {
     messages: [
       { text: intro },
@@ -662,7 +711,7 @@ function answerFromBudget(slots: Routed, budget: Budget): Answer {
         ...(quoted.card ? { card: quoted.card } : {}),
         ...withPdf(quoted.pdfPath),
       },
-      ...(quoted.card && quoted.table ? [{ text: tableWords(table), card: quoted.table }] : []),
+      ...(quoted.card && quoted.table ? [{ text: tableWords(table, undefined, channel), card: quoted.table }] : []),
     ],
     priced: Boolean(quoted.card),
     ...(quoted.figures ? { quote: quoted.figures } : {}),

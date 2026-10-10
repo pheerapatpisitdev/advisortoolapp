@@ -72,6 +72,10 @@ export interface Routed {
    * so the invitation is not repeated under every price that follows.
    */
   budgetAsked?: true;
+  /** Messenger has asked what the insurance is for; asked once per conversation. */
+  goalAsked?: true;
+  /** that question is waiting for its answer, which goes on to the price from the budget */
+  goalPending?: true;
   /**
    * This turn checks a figure ("…เหลือ 1,500,000 ใช่ไหม"); the sum in it is not a request to
    * price one, and the cover already known stands. Read off this turn only and never carried.
@@ -351,6 +355,8 @@ export function mergeSlots(previous: Routed | null, current: Routed): Routed {
   if (merged.takenSum === undefined && merged.coverWanted === previous.coverWanted) merged.takenSum = previous.takenSum;
   if (merged.formSent === undefined) merged.formSent = previous.formSent;
   if (merged.budgetAsked === undefined) merged.budgetAsked = previous.budgetAsked;
+  if (merged.goalAsked === undefined) merged.goalAsked = previous.goalAsked;
+  if (merged.goalPending === undefined) merged.goalPending = previous.goalPending;
   // a sum named outright ends the shopping by budget; until then it is carried — and it is
   // carried past a quotation that was priced from it, so a tap on another term or a word about
   // another person is answered from the same money
