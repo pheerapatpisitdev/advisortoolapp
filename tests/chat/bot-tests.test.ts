@@ -48,9 +48,9 @@ describe("replaying a saved conversation", () => {
     expect((await runBotTest([{ say: "a", contains: [], not: [] }], silent)).ok).toBe(false);
   });
 
-  it("replays the real bot: a daily budget on LuckyPlanner asks for sex and age", async () => {
+  it("replays the real bot: an iShield saving asks for sex and age", async () => {
     const real: Turn = (history, slots) => answerAny(history, slots, "facebook", undefined, "105982528649026");
-    const run = await runBotTest([{ say: "มีงบออมเงิน 30 บาทต่อวัน", contains: ["10,950", "เพศ"], not: [] }], real);
+    const run = await runBotTest([{ say: "ออม+ประกันโรคร้าย เดือนละ 2,000 บาท", contains: ["2,000", "เพศ"], not: [] }], real);
     expect(run.ok).toBe(true);
   });
 });
