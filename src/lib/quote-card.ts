@@ -5,6 +5,7 @@ import { getPlan, type PlanBundle } from "@/calc/plans/registry";
 import { getBundle } from "@/calc/bundles/registry";
 import { bundleModePremiums, quoteBundle } from "@/calc/bundles/quote";
 import { formatBaht } from "@/calc/money";
+import { shortBaht } from "@/lib/short-baht";
 import { coverRows } from "@/lib/cover-rows";
 import { PAY_MODE_LABEL, type DeathBenefit, type PayMode, type QuoteInput, type QuoteResult, type Sex } from "@/calc/types";
 import type { BundleCardInput, CardInput, CardRiders, PlanCardInput } from "@/lib/card-link";
@@ -339,16 +340,6 @@ function premiumLines(
         }
       : null,
   };
-}
-
-/** 1,112,000 → "1.1 ล้าน", for the two labels the chart's vertical scale carries. */
-function shortBaht(baht: number): string {
-  if (baht >= 1_000_000) {
-    const m = baht / 1_000_000;
-    return `${m % 1 ? m.toFixed(1) : m.toFixed(0)} ล้าน`;
-  }
-  if (baht >= 100_000) return `${Math.round(baht / 100_000)} แสน`;
-  return money(baht);
 }
 
 /** How many years the premium is paid, whichever way the plan's tables state it. */

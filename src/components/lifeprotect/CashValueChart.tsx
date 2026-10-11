@@ -3,6 +3,7 @@ import { useState } from "react";
 import { formatBaht } from "@/calc/money";
 import type { Projection, ProjectionRow } from "@/lib/cash-projection";
 import { ageTicks } from "@/lib/age-ticks";
+import { shortBaht } from "@/lib/short-baht";
 
 const HEADING = "ความคุ้มครอง เบี้ย และมูลค่าเงินสด";
 
@@ -12,16 +13,6 @@ const GOLD = "var(--lg-gold)";
 /* Named for what they draw, not for a colour: on the ivory sales theme neither is grey. */
 const PAID = "var(--lg-series-paid)";
 const COVER = "var(--lg-series-cover)";
-
-/** 1,112,000 → "1.1 ล้าน". The vertical axis carries two labels, so they must read at a glance. */
-function short(baht: number): string {
-  if (baht >= 1_000_000) {
-    const m = baht / 1_000_000;
-    return `${m % 1 ? m.toFixed(1) : m.toFixed(0)} ล้าน`;
-  }
-  if (baht >= 100_000) return `${Math.round(baht / 100_000)} แสน`;
-  return baht.toLocaleString("en-US");
-}
 
 export interface CashValueChartProps {
   projection: Projection;
@@ -140,14 +131,14 @@ export function CashValueChart({ projection, age, onPaper = false }: CashValueCh
       <line x1={LEFT} y1={H - BOTTOM} x2={W - RIGHT} y2={H - BOTTOM} stroke="var(--lg-panel-line)" />
       <line x1={LEFT} y1={TOP} x2={LEFT} y2={H - BOTTOM} stroke="var(--lg-panel-line)" />
       <text x={LEFT - 6} y={y(top) + 4} fill="var(--lg-mute)" fontSize="10" textAnchor="end">
-        {short(Math.round(top / 100))}
+        {shortBaht(Math.round(top / 100))}
       </text>
       <text x={LEFT - 6} y={H - BOTTOM + 4} fill="var(--lg-mute)" fontSize="10" textAnchor="end">0</text>
       {grid !== null && (
         <>
           <line x1={LEFT} y1={y(grid)} x2={W - RIGHT} y2={y(grid)} stroke="var(--lg-panel-line)" />
           <text x={LEFT - 6} y={y(grid) + 4} fill="var(--lg-mute)" fontSize="10" textAnchor="end">
-            {short(Math.round(grid / 100))}
+            {shortBaht(Math.round(grid / 100))}
           </text>
         </>
       )}
