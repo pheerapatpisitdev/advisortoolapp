@@ -531,6 +531,16 @@ export async function countHookUse(t: { id: string; useCount: number }, by: numb
 }
 
 /**
+ * A formula out of the library, for the owner (review 2026-10-11: anything put in it was there
+ * for good). The pieces written with it keep their words; their link to it is cleared by the
+ * foreign key (on delete set null).
+ */
+export async function deleteHookTemplate(id: string): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_hook_templates").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/**
  * A new formula, unless the library already has it (same words, any case or spacing). The
  * hook it was drawn from is kept as its example, with the piece it came from: the example is
  * shown only to whoever may see that piece (examplesShown).

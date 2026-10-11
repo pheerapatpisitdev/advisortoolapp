@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { HOOK_CATEGORIES, HOOK_CATEGORY_LABEL, type HookCategory, type HookTemplate } from "@/lib/content/hooks";
 import { CheckIcon, SearchIcon } from "../ui/icons";
+import { ask } from "../ask";
+import { deleteHookFormula } from "../actions";
 
 /**
  * The formula library as Maryjane's hook-library shows it: a search, a chip per category, and
@@ -20,7 +22,10 @@ import { CheckIcon, SearchIcon } from "../ui/icons";
 
 const WEEK = 7 * 24 * 60 * 60_000;
 
-export function HookLibrary({ items, posted }: { items: HookTemplate[]; posted: Record<string, number> }) {
+export function HookLibrary({ items, posted, canDelete = false }: { items: HookTemplate[]; posted: Record<string, number>; canDelete?: boolean }) {
+  // taken out here at once; the server's own list follows on the next visit
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  const [failed, setFailed] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<HookCategory | "ALL">("ALL");
   const [copied, setCopied] = useState<string | null>(null);
@@ -33,17 +38,26 @@ export function HookLibrary({ items, posted }: { items: HookTemplate[]; posted: 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items
+      .filter((h) => !gone.has(h.id))
       .filter((h) =>
         (category === "ALL" || h.category === category)
         && (!q || h.template.toLowerCase().includes(q) || (h.exampleHook ?? "").toLowerCase().includes(q)))
       // what went up first, then what was written most; the list arrives in the second order already
       .sort((a, b) => (posted[b.id] ?? 0) - (posted[a.id] ?? 0));
-  }, [items, query, category, posted]);
+  }, [items, query, category, posted, gone]);
   const inCategory = useMemo(() => {
     const n = new Map<HookCategory, number>();
     for (const h of items) n.set(h.category, (n.get(h.category) ?? 0) + 1);
     return n;
   }, [items]);
+
+  async function remove(h: HookTemplate) {
+    if (!(await ask(`ลบสูตรนี้ออกจากคลัง?\n“${h.template}”\nชิ้นงานที่เขียนด้วยสูตรนี้ยังอยู่ครบ`, "ลบ"))) return;
+    setFailed(null);
+    const r = await deleteHookFormula(h.id).catch(() => ({ ok: false }));
+    if (r.ok) setGone((g) => new Set(g).add(h.id));
+    else setFailed(h.id);
+  }
 
   async function copy(h: HookTemplate) {
     try {
@@ -102,6 +116,11 @@ export function HookLibrary({ items, posted }: { items: HookTemplate[]; posted: 
               <button type="button" onClick={() => copy(h)} aria-live="polite" className="inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg px-2 text-sm text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]">
                 {copied === h.id ? <><CheckIcon className="size-4 text-[var(--ct-accent)]" />คัดลอกแล้ว</> : "คัดลอก"}
               </button>
+              {canDelete && (
+                <button type="button" onClick={() => remove(h)} className="inline-flex min-h-tap shrink-0 items-center rounded-lg px-2 text-sm text-[var(--ct-alert)] hover:bg-[var(--ct-ground)]">
+                  {failed === h.id ? "ลบไม่สำเร็จ ลองใหม่" : "ลบ"}
+                </button>
+              )}
             </li>
           ))}
         </ul>

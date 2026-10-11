@@ -1,6 +1,7 @@
 "use server";
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { revalidatePath } from "next/cache";
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
 import { MAX_DIRECTION, backgroundPrompt, posterPrompt, stripThai } from "@/lib/content/background";
 import { readPosterText, unreadPosterText } from "@/lib/content/poster-read";
@@ -35,7 +36,7 @@ import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run"
 import { proofread, type Fix } from "@/lib/content/proofread";
 import { ADS_MOVED, GOALS, LENGTHS, angleText, anglesFor, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
-  DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
+  DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, deleteHookTemplate, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
   getHookTemplate, holdContentBudget, hookMenu, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, recentHooks, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
@@ -645,11 +646,25 @@ async function learnFormula(item: ContentItem): Promise<void> {
   }
 }
 
+/** A formula out of the shared library: the owner's (owner, 2026-10-11). */
+export async function deleteHookFormula(id: string): Promise<{ ok: boolean }> {
+  await requireStaff("owner");
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return { ok: false };
+  try {
+    await deleteHookTemplate(id);
+    revalidatePath("/studio/hooks");
+    return { ok: true };
+  } catch (e) {
+    console.error("hook formula not deleted:", e);
+    return { ok: false };
+  }
+}
+
 /** a piece Facebook shows or holds stays out of the bin: throwing it away here would leave the post up */
 const ON_PAGE_TRASH = "ชิ้นนี้ขึ้นเพจหรือตั้งเวลาไว้แล้ว — ยกเลิกในปฏิทินโพสต์ก่อน แล้วค่อยทิ้ง";
 
 export async function setContentStatus(id: string, status: ContentStatus): Promise<{ ok: boolean; error?: string }> {
-  await requireMember();
+  const viewer = await requireMember();
   if (!isContentStatus(status)) return { ok: false };
   try {
     const item = await getContent(id);
@@ -661,7 +676,9 @@ export async function setContentStatus(id: string, status: ContentStatus): Promi
     // has gone back — awaited here, every ✓ใช้จริง waited on it and held the page's other actions
     // an ad's headline is written for Ads Studio, not as an organic hook: it stays out of the library
     const isAd = item.format === "ad" || Boolean(item.campaignId);
-    if (status === "used" && item.status !== "used" && !isAd) after(() => learnFormula(item));
+    // the library is everyone's menu, so only the team's ✓ใช้จริง adds to it (owner, 2026-10-11:
+    // any member's hook went in unreviewed, and could not be taken out)
+    if (status === "used" && item.status !== "used" && !isAd && viewer.staff) after(() => learnFormula(item));
     return { ok: true };
   } catch (e) {
     console.error("content status failed:", e);
