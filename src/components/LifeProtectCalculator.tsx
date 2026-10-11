@@ -20,7 +20,7 @@ import {
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
-import { LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_BUDGET_SUMS, LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
 import { largestAt } from "@/lib/highlighter";
@@ -170,13 +170,13 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const ageNum = typeof age === "number" ? age : undefined;
   const inRange = ageNum !== undefined;
   /**
-   * What the budget buys on a term: the biggest sum on the slider's list that fits, priced
-   * forwards by the page's own function. Undefined is a budget under the plan's smallest sum,
-   * which is said in words and never lifted to it.
+   * What the budget buys on a term: the biggest sum on the chat's fifty-thousand steps that
+   * fits, priced forwards by the page's own function. Undefined is a budget under the plan's
+   * smallest sum, which is said in words and never lifted to it.
    */
   const budgetOn = (variantCode: string) =>
     byBudget && ageNum !== undefined && !table.expired
-      ? budgetFit(sums, (s) => lifeProtectModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }), budget)
+      ? budgetFit(LIFEPROTECT_BUDGET_SUMS, (s) => lifeProtectModes(table, termAt(table, variantCode), { sex, age: ageNum, sumAssured: s }), budget)
       : undefined;
   const fit = budgetOn(variant);
   const budgetShort = byBudget && ageNum !== undefined && !table.expired && !fit;
@@ -379,8 +379,13 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         <BudgetSwitch
           byBudget={byBudget}
           onChange={(on) => {
-            // leaving the budget keeps the sum it bought, so the sum field does not jump back
-            if (!on && fit) setSumIndex(sums.indexOf(fit.sum));
+            // leaving the budget keeps the sum it bought, so the sum field does not jump back;
+            // a sum the slider's steps skip (750,000) becomes one more stop, as a typed one does
+            if (!on && fit) {
+              const stops = sums.includes(fit.sum) ? sums : [...sums, fit.sum].sort((a, b) => a - b);
+              setSums(stops);
+              setSumIndex(stops.indexOf(fit.sum));
+            }
             setByBudget(on);
           }}
         />
@@ -391,9 +396,10 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
               <BudgetOutcome
                 budget={budget} fit={fit} minMonthly={table.minMonthly}
                 least={(() => {
-                  const m = lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: LIFEPROTECT_SUMS[0] })
+                  const floor = LIFEPROTECT_BUDGET_SUMS[0];
+                  const m = lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: floor })
                     ?.find((x) => x.mode === (budget.per === "month" ? "monthly" : "annual"));
-                  return m ? { sum: LIFEPROTECT_SUMS[0], total: m.total } : undefined;
+                  return m ? { sum: floor, total: m.total } : undefined;
                 })()}
               />
             )}

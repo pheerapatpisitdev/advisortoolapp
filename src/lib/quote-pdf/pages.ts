@@ -31,6 +31,15 @@ export const LIFEPROTECT_SUMS = Array.from({ length: 331 }, (_, i) => LIFEPROTEC
  */
 export const LIFEPROTECT_LINK_SUMS = Array.from({ length: 998 }, (_, i) => PLAN_MIN_SUM + 50_000 * i);
 
+/**
+ * The sums a budget is fitted to on the page: the same fifty-thousand steps from 150,000 the
+ * chat fits a budget to, so the page and the bot buy the same sum with the same money (owner,
+ * 2026-10-11 — the slider's steps start at 500,000 and skip 750,000; a man of 35 with 2,000 a
+ * month was offered 650,000 by the page and 750,000 by the bot, and paying for 9 years was
+ * "under the smallest sum" on the page while the bot sold him 400,000).
+ */
+export const LIFEPROTECT_BUDGET_SUMS = LIFEPROTECT_LINK_SUMS;
+
 /** A typed sum moved onto the nearest step the page offers. */
 export function lifeProtectSumNear(typed: number): number {
   const first = LIFEPROTECT_SUMS[0];
