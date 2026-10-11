@@ -32,7 +32,11 @@ export type VideoInput = (
   narrator?: "F" | "M";
   /** แบบปกติ (photo, card, table) or Motion Graphic, the Premium one (owner, 2026-10-11) */
   style?: VideoStyle;
+  /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */
+  length?: VideoLength;
 };
+
+export type VideoLength = "full" | "short";
 
 export type VideoStyle = "classic" | "motion";
 
@@ -309,8 +313,39 @@ function healthCoverLine(f: QuoteVideoFacts): string {
 }
 
 /** The spoken lines, in the owner's casual wording (mockups, 2026-10-11), with the narrator's ending. */
-export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator: "F" | "M" = "F"): SceneScript[] {
-  return femaleScript(f, customer).map((s) => ({ key: s.key, voice: spokenBy(s.voice, narrator) }));
+export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator: "F" | "M" = "F", length: VideoLength = "full"): SceneScript[] {
+  const lines = length === "short" ? shortScript(f) : femaleScript(f, customer);
+  return lines.map((s) => ({ key: s.key, voice: spokenBy(s.voice, narrator) }));
+}
+
+/**
+ * The 15-second clip for a Page's Reels (owner, 2026-10-11): the hook, the price, the invitation —
+ * three scenes, three sentences, no greeting and no customer's name, since it goes up in public.
+ * The same wording as the long clip's, only less of it.
+ */
+function shortScript(f: QuoteVideoFacts): SceneScript[] {
+  const ask = "ทักมาขอใบเสนอได้เลยนะคะ";
+  if (f.product === "IHEALTHY") {
+    return [
+      { key: "lead", voice: `เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ` },
+      { key: "price", voice: `ปีแรกเดือนละ ${f.spokenPrice.amount} บาท รวมประกันชีวิตและค่าชดเชยรายวันค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  const years = f.payToEnd ? `ออมถึงอายุ ${f.coverToAge}` : `ออมเพียง ${f.payYears} ปี`;
+  if (f.product === "ISHIELD") {
+    const total = f.illness?.total;
+    return [
+      { key: "lead", voice: `คุ้มครองโรคร้ายแรง${total ? ` ${total} โรค` : ""} รับเงินก้อนสูงสุด ${spokenWithBaht(f.lead.baht)} ตั้งแต่ระยะเริ่มต้นค่ะ` },
+      { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท ${years} คุ้มครองถึงอายุ ${f.coverToAge} ค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  return [
+    { key: "lead", voice: `ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
+    { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท ${years} คุ้มครองถึงอายุ ${f.coverToAge} ค่ะ` },
+    { key: "contact", voice: ask },
+  ];
 }
 
 function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {

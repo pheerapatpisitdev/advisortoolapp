@@ -185,6 +185,37 @@ describe("Motion Graphic style (owner, 2026-10-11)", () => {
   });
 });
 
+describe("15-second clip (owner, 2026-10-11)", () => {
+  const lp = quoteVideoFacts({ variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+
+  it("is three scenes of one sentence each, with no greeting and no name", () => {
+    const s = quoteVideoScript(lp, "สมชาย", "F", "short");
+    expect(s.map((x) => x.key)).toEqual(["lead", "price", "contact"]);
+    expect(s.map((x) => x.voice)).toEqual([
+      "ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง 2 ล้านบาทค่ะ",
+      "ออมแค่วันละ 79 บาท ออมเพียง 19 ปี คุ้มครองถึงอายุ 99 ค่ะ",
+      "ทักมาขอใบเสนอได้เลยนะคะ",
+    ]);
+    for (const x of s) expect(x.voice).not.toContain("สมชาย");
+  });
+
+  it("speaks for iShield, iHealthy and the pay-to-99 term, and a man's endings", () => {
+    const is = quoteVideoFacts({ product: "ISHIELD", variant: "WLCI10", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+    expect(quoteVideoScript(is, "", "F", "short").map((x) => x.voice).slice(0, 2)).toEqual([
+      "คุ้มครองโรคร้ายแรง 70 โรค รับเงินก้อนสูงสุด 1 ล้านบาท ตั้งแต่ระยะเริ่มต้นค่ะ",
+      "ออมแค่วันละ 184 บาท ออมเพียง 10 ปี คุ้มครองถึงอายุ 85 ค่ะ",
+    ]);
+    const ihu = quoteVideoFacts({ product: "IHEALTHY", age: 35, sex: "M", plan: "GOLD", compare: [] }, TODAY)!;
+    expect(quoteVideoScript(ihu, "", "F", "short").map((x) => x.voice).slice(0, 2)).toEqual([
+      "เหมาจ่ายค่ารักษาสูงสุดถึง 25 ล้านบาทต่อปีค่ะ",
+      "ปีแรกเดือนละ 3,524 บาท รวมประกันชีวิตและค่าชดเชยรายวันค่ะ",
+    ]);
+    const to99 = quoteVideoFacts({ variant: "WLF99H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+    expect(quoteVideoScript(to99, "", "F", "short")[1].voice).toBe("ออมแค่วันละ 48 บาท ออมถึงอายุ 99 คุ้มครองถึงอายุ 99 ค่ะ");
+    expect(quoteVideoScript(lp, "", "M", "short")[2].voice).toBe("ทักมาขอใบเสนอได้เลยนะครับ");
+  });
+});
+
 describe("agent contact", () => {
   it("takes Thai phone numbers and LINE ids", () => {
     expect(cleanPhone(" 081-234-5678 ")).toBe("081-234-5678");

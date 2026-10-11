@@ -194,7 +194,10 @@ export async function produce(id: string, agentName: string): Promise<void> {
       ...(await photoDataUri(contactRow.photoPath).then((p) => (p ? { photo: p } : {}))),
     };
     const narrator: "F" | "M" = row.input.narrator === "M" ? "M" : "F";
-    const script = quoteVideoScript(facts, row.customer_name, narrator);
+    // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
+    const short = row.input.length === "short";
+    const customer = short ? "" : row.customer_name;
+    const script = quoteVideoScript(facts, customer, narrator, short ? "short" : "full");
 
     const spoken = await Promise.all(script.map((s) => speakThai(s.voice, VIDEO_TASK_VOICE, { narrator })));
     const pcms = spoken.map((s) => s.pcm);
@@ -221,14 +224,14 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const background = motion ? await renderPng(motionBackground(), { width: W, height: MOTION_BG_H }) : undefined;
     if (motion) plans.forEach((p, s) => {
       const sc = named.scenes[s];
-      const mctx = { facts, narrator, customer: row.customer_name, contact, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
+      const mctx = { facts, narrator, customer, contact, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
       files.set(sc.base, { body: background!, type: "image/png" });
       p.frames.forEach((fr, k) => draws.push({ name: sc.frames[k], draw: () => renderPng(motionFrame(p.key, mctx, fr.t ?? 0), { width: W, height: H }) }));
       files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });
     });
     else plans.forEach((p, s) => {
       const sc = named.scenes[s];
-      const ctx = { facts, narrator, customer: row.customer_name, contact, ...(chart ? { chart } : {}), words: script[s].voice.split(" ").filter(Boolean), panEnd };
+      const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words: script[s].voice.split(" ").filter(Boolean), panEnd };
       draws.push({ name: sc.base, draw: () => renderPng(sceneLayer(p.key, ctx, "base"), { width: W, height: H }) });
       p.frames.forEach((fr, k) => draws.push({ name: sc.frames[k], draw: () => renderPng(sceneLayer(p.key, ctx, "over", fr.state), { width: W, height: H }) }));
       files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });

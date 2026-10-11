@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
-import type { Product, VideoInput, VideoStyle } from "@/lib/quote-video/script";
+import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import { SaveVideoButton } from "./SaveVideoButton";
 import { addToCalendar, calendarCaption, makeVideo, myCost, myVideos, previewQuote, removeVideo, type Preview, type VideoItem } from "./actions";
 
@@ -104,11 +104,12 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   }
   const [cost, setCost] = useState<CostView | null>(firstCost);
   const [style, setStyle] = useState<VideoStyle>("classic");
+  const [length, setLength] = useState<VideoLength>("full");
   const line = costLine(cost, style);
 
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, style }
-    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, style });
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, style, length }
+    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, style, length });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -180,6 +181,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
           <div className="flex flex-wrap gap-2">
             {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(product === p.code)} onClick={() => pickProduct(p.code)}>{p.name}</button>)}
           </div>
+        </div>
+        <div>
+          <span className={label}>ความยาว</span>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={chip(length === "full")} onClick={() => setLength("full")}>เต็ม · ~50 วินาที</button>
+            <button type="button" className={chip(length === "short")} onClick={() => setLength("short")}>สั้น · ~15 วินาที (Reels)</button>
+          </div>
+          <p className="mt-1 text-xs text-[var(--ct-mute)]">{length === "short" ? "3 ฉาก: ตัวเลขเด่น · ราคา · ชวนทัก ไม่ใส่ชื่อลูกค้า เหมาะลงเพจเป็น Reels" : "เล่าครบ 5 ฉากพร้อมตารางมูลค่า ใส่ชื่อลูกค้าได้"}</p>
         </div>
         <div>
           <span className={label}>สไตล์วิดีโอ</span>
@@ -264,11 +273,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
             <p className="text-[var(--ct-mute)]">{preview && "error" in preview ? preview.error : "กำลังคิดราคา…"}</p>
           )}
         </div>
+        {length === "full" && (
         <div>
           <label htmlFor="qv-customer" className={label}>ชื่อลูกค้า (ไม่บังคับ)</label>
           <input id="qv-customer" className={field} value={customer} maxLength={40} placeholder="เช่น สมชาย" onChange={(e) => setCustomer(e.target.value)} />
           <p className="mt-1 text-xs text-[var(--ct-mute)]">ใส่แล้วเสียงพากย์จะทักชื่อ และขึ้นชื่อบนภาพในคลิป</p>
         </div>
+        )}
         {error && (
           <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">
             {error.text}{" "}
