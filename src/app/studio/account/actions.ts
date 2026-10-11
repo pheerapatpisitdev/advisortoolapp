@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { cleanName } from "@/lib/auth/member";
 import { setName } from "@/lib/auth/member-store";
 import { requireMember } from "@/lib/auth/viewer";
+import { cleanLine, cleanPhone, photoUrl, saveContact, savePhoto } from "@/lib/quote-video/contact";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -22,4 +23,39 @@ export async function renameMe(name: string): Promise<Result> {
   }
   revalidatePath("/studio", "layout");
   return { ok: true };
+}
+
+/**
+ * The phone, LINE and photo a วิดีโอนำเสนอ closes on (owner, 2026-10-11) — every agent's, UnitOS
+ * or member. The name shown beside them is the display name above (or UnitOS's).
+ */
+export async function saveMyContact(phone: string, line: string): Promise<Result> {
+  const viewer = await requireMember();
+  const p = cleanPhone(phone);
+  if (p === null || !p) return { ok: false, error: "เบอร์โทรไม่ถูกต้อง (ตัวเลข 9–15 หลัก)" };
+  const l = cleanLine(line);
+  if (l === null) return { ok: false, error: "LINE ID ใช้ได้แค่ตัวอักษรอังกฤษ ตัวเลข . _ - และ @ ข้างหน้า" };
+  try {
+    await saveContact(viewer.agentId, p, l);
+  } catch (e) {
+    console.error("contact not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+  return { ok: true };
+}
+
+/** A photo the browser has already made square and small (a JPEG of at most 600 KB). */
+export async function saveMyPhoto(form: FormData): Promise<Result & { url?: string }> {
+  const viewer = await requireMember();
+  const file = form.get("photo");
+  if (!(file instanceof Blob) || file.type !== "image/jpeg" || file.size === 0 || file.size > 600_000) {
+    return { ok: false, error: "รูปไม่ถูกต้อง ลองเลือกใหม่" };
+  }
+  try {
+    const path = await savePhoto(viewer.agentId, Buffer.from(await file.arrayBuffer()));
+    return { ok: true, url: (await photoUrl(path)) ?? undefined };
+  } catch (e) {
+    console.error("photo not saved:", e);
+    return { ok: false, error: "บันทึกรูปไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
 }

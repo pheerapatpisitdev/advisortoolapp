@@ -1,14 +1,33 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { STUDIO_FIELDS } from "@/components/auth/styles";
 import { gatePage } from "@/lib/auth/viewer";
+import { getContact, photoUrl } from "@/lib/quote-video/contact";
 import { AccountForm } from "./AccountForm";
+import { ContactForm } from "./ContactForm";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "บัญชีของฉัน | AdvisorTool" };
 
-/** A member's name, and the Google account they sign in with (owner, 2026-10-02). UnitOS agents manage theirs in UnitOS. */
+/**
+ * A member's name, and the Google account they sign in with (owner, 2026-10-02). UnitOS agents
+ * manage theirs in UnitOS. Since 2026-10-11 every agent's: the contact details a วิดีโอนำเสนอ
+ * closes on are kept here.
+ */
 export default async function AccountPage() {
   const viewer = await gatePage("/studio/account");
-  if (viewer.kind !== "member") redirect("/studio");
-  return <AccountForm name={viewer.name} email={viewer.code} />;
+  const contact = await getContact(viewer.agentId).catch((e) => {
+    console.error("contact not read:", e);
+    return { phone: "", line: "", photoPath: null };
+  });
+  const photo = await photoUrl(contact.photoPath);
+  return (
+    <div className="mx-auto max-w-md space-y-6" style={STUDIO_FIELDS}>
+      {viewer.kind === "member" ? (
+        <AccountForm name={viewer.name} email={viewer.code} />
+      ) : (
+        <h1 className="text-xl font-semibold">บัญชีของฉัน</h1>
+      )}
+      <ContactForm name={viewer.name} phone={contact.phone} line={contact.line} photo={photo} />
+    </div>
+  );
 }

@@ -49,6 +49,8 @@ const LABEL: Record<string, string> = {
   "content-thumbnail-ideas": "Studio — คิดหัวปกคลิป",
   "content-clip": "Studio — ตัดคลิป (เลือกช่วง)",
   "content-edit": "Studio — เรนเดอร์คลิป",
+  "quote-video-voice": "วิดีโอนำเสนอ — เสียงพากย์",
+  "quote-video-render": "วิดีโอนำเสนอ — รวมเป็นวิดีโอ",
   // trials and checks
   probe: "ทดสอบกุญแจ",
   "content-bakeoff": "ทดลองเทียบโมเดล",

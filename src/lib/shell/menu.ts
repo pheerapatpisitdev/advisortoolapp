@@ -306,6 +306,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80" },
     // video covers (owner, 2026-10-09): AI spend with no wallet behind it, so the owner's alone
     { href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image", hue: "#2e5a80" },
+    // a narrated clip of a quote (owner, 2026-10-11): the owner's alone in round one
+    { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80" },
     { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
     { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
     { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
@@ -316,7 +318,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
     // one too (2026-10-02), only the owner writes without one
     { href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b736f" },
-    // a member's own name and PIN; UnitOS agents manage theirs in UnitOS (owner, 2026-10-01)
+    // a member's own name and PIN; UnitOS agents manage theirs in UnitOS (owner, 2026-10-01);
+    // everyone's contact details for the วิดีโอนำเสนอ (owner, 2026-10-11)
     { href: "/studio/account", label: "บัญชีของฉัน", icon: "key", hue: "#2e4a7a" },
   ];
   // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
@@ -328,8 +331,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
   const hidden = new Set([
     ...(who && !who.admin && !who.publish ? ["/studio"] : []),
     ...(who?.owner || who?.wallet !== true ? ["/studio/wallet"] : []),
-    ...(who?.member ? [] : ["/studio/account"]),
-    ...(who?.owner ? [] : ["/studio/ads", "/studio/thumbnail"]),
+    // every agent's since 2026-10-11: the contact details a วิดีโอนำเสนอ closes on live there
+    ...(who?.owner ? [] : ["/studio/ads", "/studio/thumbnail", "/studio/quote-video"]),
   ]);
   const shown = links.filter((l) => !hidden.has(l.href));
   const back: MenuLink[] = [{ href: "/home", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];

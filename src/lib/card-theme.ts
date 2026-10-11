@@ -262,3 +262,15 @@ export const CLIP_STYLE_COLORS: Record<"box" | "outline" | "yellow", ClipStyleCo
   outline: { boxBg: null, color: "#ffffff", stroke: "6px #000000", hookTopBg: "#ffffff", hookTopInk: "#111111", hookMainBg: "rgba(0,0,0,0)", hookMainInk: "#ffffff" },
   yellow: { boxBg: "#facc15", color: "#111111", stroke: null, hookTopBg: "#111111", hookTopInk: "#facc15", hookMainBg: "#facc15", hookMainInk: "#111111" },
 };
+
+/**
+ * The วิดีโอนำเสนอ clip's own colours (owner, 2026-10-11), beside the card palette it is drawn in:
+ * the white of its ground and subtitle words, the yellow of the word being said, the paler navy
+ * of the cover's second bar and the wash behind an agent with no photo.
+ */
+export const QUOTE_VIDEO_COLORS = {
+  paper: "#ffffff",
+  spoken: "#ffe14d",
+  barAfter: "#4c6fbf",
+  noPhoto: "#e9edf6",
+} as const;
