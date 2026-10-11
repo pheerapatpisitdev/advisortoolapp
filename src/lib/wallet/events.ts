@@ -1,6 +1,6 @@
 import { stripe } from "@/lib/stripe/client";
 import { formatBaht } from "./money";
-import { clawBack, creditTopUp, linkPaymentIntent, markTopUp, type ClawbackKind } from "./store";
+import { clawBack, creditTopUp, linkPaymentIntent, markTopUp, topUpStatus, type ClawbackKind } from "./store";
 
 /**
  * What a Stripe event means for a wallet. Money is added here and nowhere else: when Stripe
@@ -118,6 +118,15 @@ async function applyClawback(a: Extract<WalletAction, { kind: "clawback" }>): Pr
     // a top-up paid before its PaymentIntent was kept: found once through Stripe, then written down
     const sessionId = await sessionOfPayment(a.paymentIntent);
     if (sessionId && await linkPaymentIntent(sessionId, a.paymentIntent)) r = await ask();
+    /**
+     * Stripe does not promise the order of its events: a refund can come while the credit it
+     * undoes is still being retried. Answered 200, it was never sent again, and the credit then
+     * landed in a wallet nobody froze (review, 2026-10-11). A top-up opened here and not yet
+     * credited throws instead — the webhook answers 500 and Stripe sends the refund again later.
+     */
+    else if (sessionId && (await topUpStatus(sessionId)) === "open") {
+      throw new Error(`stripe ${a.reason} ${a.ref} came before the credit of ${sessionId}; Stripe will send it again`);
+    }
   }
   if (r.result === "unknown") {
     console.error(

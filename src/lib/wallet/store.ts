@@ -152,6 +152,13 @@ export async function linkPaymentIntent(sessionId: string, paymentIntent: string
   return Array.isArray(data) && data.length > 0;
 }
 
+/** A top-up's status ('open' until Stripe's credit lands), or null when it was not opened here. */
+export async function topUpStatus(sessionId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin().from("ins_wallet_topups").select("status").eq("stripe_session_id", sessionId).maybeSingle();
+  if (error) throw new Error(`อ่านการเติมเงินไม่ได้: ${error.message}`);
+  return (data as { status: string } | null)?.status ?? null;
+}
+
 /** the owner lifting a freeze; the shortfall let go with it, or null when the wallet was not frozen */
 export async function unfreezeWallet(agentId: string, note: string): Promise<number | null> {
   const r = await call<number | string | null>("ins_wallet_unfreeze", { p_agent: agentId, p_note: note });

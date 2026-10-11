@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const wallet = vi.hoisted(() => ({ creditTopUp: vi.fn(), markTopUp: vi.fn(), clawBack: vi.fn(), linkPaymentIntent: vi.fn() }));
+const wallet = vi.hoisted(() => ({ creditTopUp: vi.fn(), markTopUp: vi.fn(), clawBack: vi.fn(), linkPaymentIntent: vi.fn(), topUpStatus: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
 const list = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/stripe/client", () => ({ stripe: () => ({ checkout: { sessions: { list } } }) }));
@@ -142,6 +142,24 @@ describe("taking a refund or a dispute back (owner, 2026-10-01)", () => {
     expect(list).toHaveBeenCalledWith({ payment_intent: "pi_1", limit: 1 });
     expect(wallet.linkPaymentIntent).toHaveBeenCalledWith("cs_old", "pi_1");
     expect(wallet.clawBack).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws a refund that came before its credit, so Stripe sends it again (review, 2026-10-11)", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_new", mode: "payment" }] });
+    wallet.linkPaymentIntent.mockResolvedValueOnce(false);
+    wallet.topUpStatus.mockResolvedValueOnce("open");
+    await expect(applyWalletAction(refund)).rejects.toThrow(/before the credit of cs_new/);
+  });
+
+  it("does not hold up a refund whose top-up is settled some other way", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_gone", mode: "payment" }] });
+    wallet.linkPaymentIntent.mockResolvedValueOnce(false);
+    wallet.topUpStatus.mockResolvedValueOnce("expired");
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await applyWalletAction(refund)).toBe("unknown");
+    err.mockRestore();
   });
 
   it("logs loudly, and takes nothing, when Stripe will not say (a restricted key) or the top-up is not ours", async () => {
