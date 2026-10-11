@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useRef } from "react";
 import { formatBaht } from "@/calc/money";
 import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
@@ -11,14 +11,10 @@ import { PdfPrepare } from "@/components/sales/PdfPrepare";
 import { SiteCredit } from "@/components/sales/SiteCredit";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { INSURER } from "@/lib/assistant/common";
-import { Sriracha } from "next/font/google";
-import { BLUE_PEN, figureWidth, needsBraceRoom, penNotes, penSvgUri, type PenGeometry } from "@/app/api/card/table/pen-notes";
+import { needsBraceRoom, penNotes } from "@/app/api/card/table/pen-notes";
+import { PenLayer } from "@/components/PenLayer";
 import type { ValueTableCard } from "@/lib/quote-card";
 import { isBooster } from "@/lib/booster";
-import { CARD_PALETTE } from "@/lib/card-theme";
-
-/** the red pen's handwriting, as on the value-table picture (src/app/api/card/table) */
-const pen = Sriracha({ weight: "400", subsets: ["thai"], display: "swap" });
 
 /**
  * The page draws the picture's red-pen notes (pen-notes.ts) over its own table (owner,
@@ -304,7 +300,12 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           )}
         </table>
         {/* after the table, so the table is there to be measured when the layer first draws */}
-        <PenLayer card={penCard} table={tableRef} />
+        <PenLayer
+          table={tableRef}
+          figures={penCard.rows.flatMap((r) => [r.due, r.cash ?? "", r.cover, String(r.year)])}
+          notes={(g) => penNotes(penCard, g)}
+          scale={PEN_SCALE} caption={PEN_CAPTION} cellPad={PEN_CELL_PAD}
+        />
         </div>
       </div>
 
@@ -360,96 +361,5 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
       <SiteCredit />
       <PdfPrepare />
     </section>
-  );
-}
-
-/**
- * The red-pen notes drawn over the table, aimed by measuring it: the column widths off the
- * heading, the heading's height, and the rows' (one height, as the picture's are). Nothing is
- * drawn until the table has been measured, and it is measured again whenever it changes size.
- */
-function PenLayer({ card, table }: { card: ValueTableCard; table: RefObject<HTMLTableElement | null> }) {
-  const [box, setBox] = useState<{
-    widths: number[]; head: number; row: number; width: number; height: number;
-    /** each figure's real width on this device, in px: a phone's digits are wider than the estimate */
-    figures: Map<string, number>;
-  } | null>(null);
-  // re-measured when the figures change (a new sum or age), not on every render
-  const rowsRef = useRef(card.rows);
-  rowsRef.current = card.rows;
-  const figuresKey = card.rows.map((r) => `${r.year}:${r.due}:${r.cash}:${r.cover}`).join("|");
-  useLayoutEffect(() => {
-    const el = table.current;
-    if (!el) return;
-    const measure = () => {
-      const heads = [...(el.tHead?.rows[0]?.cells ?? [])];
-      const body = el.tBodies[0];
-      if (!heads.length || !body || !body.rows.length) return;
-      const head = el.tHead!.getBoundingClientRect().height;
-      const row = body.getBoundingClientRect().height / body.rows.length;
-      // set in a body cell's own font, numerals and all, and read back
-      const probe = document.createElement("span");
-      const cell = getComputedStyle(body.rows[0].cells[body.rows[0].cells.length - 1]);
-      Object.assign(probe.style, {
-        position: "absolute", visibility: "hidden", whiteSpace: "nowrap",
-        font: cell.font, fontVariantNumeric: cell.fontVariantNumeric, letterSpacing: cell.letterSpacing,
-      });
-      document.body.appendChild(probe);
-      const figures = new Map<string, number>();
-      for (const r of rowsRef.current) {
-        for (const f of [r.due, r.cash ?? "", r.cover, String(r.year)]) {
-          if (figures.has(f)) continue;
-          probe.textContent = f;
-          figures.set(f, probe.getBoundingClientRect().width);
-        }
-      }
-      probe.remove();
-      setBox({
-        widths: heads.map((h) => h.getBoundingClientRect().width), head, row,
-        width: el.offsetWidth, height: head + body.getBoundingClientRect().height, figures,
-      });
-    };
-    measure();
-    const watch = new ResizeObserver(measure);
-    watch.observe(el);
-    return () => watch.disconnect();
-  }, [table, figuresKey]);
-  if (!box) return null;
-
-  const up = (px: number) => px / PEN_SCALE;
-  const geo: PenGeometry = {
-    widths: box.widths.map(up), caption: up(PEN_CAPTION), head: up(box.head), row: up(box.row), cellPad: up(PEN_CELL_PAD),
-    measure: (f) => (box.figures.has(f) ? up(box.figures.get(f)!) : figureWidth(f)),
-  };
-  const notes = penNotes(card, geo);
-  const width = box.width;
-  const height = PEN_CAPTION + box.height;
-  return (
-    <div aria-hidden className="pointer-events-none absolute left-0 top-0 z-[1]" style={{ width, height }}>
-      {([[notes.strokes, CARD_PALETTE.pen], [notes.blueStrokes, BLUE_PEN]] as const).map(([strokes, ink]) => strokes.length > 0 && (
-        <div
-          key={ink}
-          className="absolute inset-0"
-          style={{
-            backgroundImage: penSvgUri(strokes, up(width), up(height), ink),
-            backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
-          }}
-        />
-      ))}
-      {notes.labels.map((l) => (
-        <span
-          key={l.text}
-          className={`${pen.className} absolute whitespace-nowrap ${l.ink === "blue" ? "" : "text-[var(--lg-pen)]"}`}
-          style={{
-            ...(l.ink === "blue" ? { color: BLUE_PEN } : {}),
-            top: l.top * PEN_SCALE,
-            ...(l.left !== undefined ? { left: l.left * PEN_SCALE } : { right: (l.right ?? 0) * PEN_SCALE }),
-            fontSize: l.size * PEN_SCALE, lineHeight: 1.5, transform: `rotate(${l.tilt}deg)`,
-          }}
-        >
-          {l.text}
-        </span>
-      ))}
-    </div>
   );
 }

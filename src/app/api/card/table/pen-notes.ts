@@ -44,6 +44,8 @@ export interface PenLabel {
   tilt: number;
   /** the owner's second pen, blue (2026-10-11); red when left out */
   ink?: "blue";
+  /** run over with the highlighter, as the break-even word is (page only) */
+  mark?: true;
 }
 
 export interface PenNotes {
@@ -77,8 +79,10 @@ const GROWTH_SIZE = 28;
 const GROWTH_LINE = GROWTH_SIZE * 1.5;
 /** Thai marks above and below a letter take no width of their own */
 const THAI_MARKS = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g;
+/** A line of the pen face's width at `size`, near enough to know whether it fits somewhere. */
+export const penTextWidth = (text: string, size: number) => text.replace(THAI_MARKS, "").length * size * 0.6;
 /** A line of the blue words' width, near enough to know whether it fits beside the brace. */
-const penWidth = (text: string) => text.replace(THAI_MARKS, "").length * GROWTH_SIZE * 0.6;
+const penWidth = (text: string) => penTextWidth(text, GROWTH_SIZE);
 /** a line of the pen face at GAIN_SIZE, as the labels set it (lineHeight 1.5) */
 const GAIN_LINE = GAIN_SIZE * 1.5;
 /** the label the break-even row carries in the running-total column (route.tsx) */
@@ -91,7 +95,7 @@ export const PEN_TEXT = BRACE_WORD + STOP_WORD + COVER_WORD + GAIN_WORDS.join(""
 export const BRACE_ROOM = 170;
 
 /** An arrowhead at (x, y), pointing along the line from (fx, fy). */
-function head(x: number, y: number, fx: number, fy: number): string {
+export function head(x: number, y: number, fx: number, fy: number): string {
   const a = Math.atan2(y - fy, x - fx);
   const len = 16;
   const wing = (d: number) => `${(x - len * Math.cos(a + d)).toFixed(1)} ${(y - len * Math.sin(a + d)).toFixed(1)}`;
@@ -99,7 +103,7 @@ function head(x: number, y: number, fx: number, fy: number): string {
 }
 
 /** A gentle curve from one point to another through a control point, with a head at the end. */
-function arrow(x1: number, y1: number, cx: number, cy: number, x2: number, y2: number): string[] {
+export function arrow(x1: number, y1: number, cx: number, cy: number, x2: number, y2: number): string[] {
   return [`M${x1.toFixed(1)} ${y1.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`, head(x2, y2, cx, cy)];
 }
 
@@ -108,7 +112,7 @@ function arrow(x1: number, y1: number, cx: number, cy: number, x2: number, y2: n
  * "{" (the owner's pick of four, 2026-10-10): each half swells out from its tip and draws in
  * to the point, rather than running straight with the curls only at the ends.
  */
-function brace(x: number, y: number, h: number, w = 20): string {
+export function brace(x: number, y: number, h: number, w = 20): string {
   const mid = y + h / 2;
   const r = Math.min(14, h / 8);
   const f = (n: number) => n.toFixed(1);

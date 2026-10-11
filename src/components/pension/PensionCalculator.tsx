@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MoneyInput } from "@/components/MoneyInput";
 import { InsuredFields } from "@/components/InsuredFields";
 import {
@@ -9,6 +9,13 @@ import {
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { pensionQuoteText } from "@/lib/pension-cta";
 import { Highlighted } from "@/components/Highlighted";
+import { Circled } from "@/components/Circled";
+import { PenLayer } from "@/components/PenLayer";
+import { SiteCredit } from "@/components/sales/SiteCredit";
+import {
+  PENSION_CELL_PAD, PENSION_COLUMNS, PENSION_PEN_SCALE, pensionBraceRoom, pensionCells, pensionMarks,
+  pensionPenNotes, pensionRings, type PensionColumn,
+} from "@/lib/pension-pen-notes";
 
 /**
  * บำนาญ สมาร์ท 95's calculator, on its own sales page — the main contract worked from
@@ -45,6 +52,8 @@ const baht2 = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 
 const field = "mt-1 w-full rounded border px-3 py-2";
 /** the yearly table's columns after the first, each ruled off from the one before it as the other plans' tables are */
 const COL = "border-l border-[var(--op-line)] px-[5px]";
+/** the long headings, which take two lines when the pen's room leaves the table short of width */
+const WRAPS = new Set<string>(["มูลค่าเวนคืน", "บำนาญสะสม", "คุ้มครองชีวิต"]);
 
 export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   const [age, setAge] = useState<number | "">(40);
@@ -82,6 +91,17 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   const q = result?.ok ? result.quote : null;
   const who = { age: age === "" ? PENSION_LIMITS.ageMin : age, sex };
   const copyText = q ? pensionQuoteText(who, q) : undefined;
+
+  // the yearly table's pen notes (pension-pen-notes.ts): what is ringed, and the room the braces need
+  const tableRef = useRef<HTMLTableElement>(null);
+  const rows = q?.illustration ?? [];
+  const marks = pensionMarks(rows);
+  const rings = pensionRings(rows);
+  const ringed = (n: number, c: PensionColumn) => rings.some((g) => g.row === n && g.column === c);
+  // room left of the figures for the braces, on the rows a ring has not already widened:
+  // the premium brace and its word, and the guarantee's brace clear of the pension's rings
+  const braceRoom = pensionBraceRoom(rows);
+  const pensionRoom = marks.start >= 0;
 
   // switching keeps the same plan on screen: the new box starts at the figure the old one came to
   function switchBasis(next: PensionBasis) {
@@ -281,36 +301,57 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
             {/* open by default: the owner wants the year-by-year figures in view, not behind a press */}
             <h3 className="text-sm font-semibold">ตารางผลประโยชน์รายปี</h3>
               <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-sm tabular-nums">
-                  <thead>
-                    <tr className="border-b border-[var(--op-line)] text-right text-[var(--op-mute)]">
-                      <th className="px-[5px] py-2 text-left">อายุ</th>
-                      <th className={`${COL} py-2`}>ปีที่</th>
-                      <th className={`${COL} py-2`}>เบี้ย</th>
-                      <th className={`${COL} py-2`}>เบี้ยสะสม</th>
-                      <th className={`${COL} py-2`}>มูลค่าเวนคืน</th>
-                      <th className={`${COL} py-2`}>คุ้มครองชีวิต</th>
-                      <th className={`${COL} py-2`}>บำนาญ</th>
-                      <th className={`${COL} py-2`}>บำนาญสะสม</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {q.illustration.map((y) => (
-                      <tr key={y.age} className={`border-b border-[var(--op-line)] text-right ${y.pension ? "bg-[var(--op-figure-bg)]" : ""}`}>
-                        <td className="px-[5px] py-1.5 text-left">{y.age}</td>
-                        <td className={`${COL} py-1.5`}>{y.policyYear}</td>
-                        <td className={`${COL} py-1.5`}>{y.premium ? baht(y.premium) : "–"}</td>
-                        {/* only while premiums are still being paid; after that it is one number repeated */}
-                        <td className={`${COL} py-1.5`}>{y.premium ? baht(y.cumPremium) : "–"}</td>
-                        <td className={`${COL} py-1.5`}>{y.cashValue ? baht(y.cashValue) : "–"}</td>
-                        <td className={`${COL} py-1.5`}>{baht(y.deathBenefit)}</td>
-                        <td className={`${COL} py-1.5`}>{y.pension ? baht(y.pension) : "–"}</td>
-                        <td className={`${COL} py-1.5`}>{y.cumPension ? baht(y.cumPension) : "–"}</td>
+                {/* the pen notes are drawn over the table and scroll with it */}
+                <div className="relative min-w-full">
+                  <table ref={tableRef} className="w-full text-sm tabular-nums">
+                    <thead>
+                      <tr className="text-right">
+                        {PENSION_COLUMNS.map((h, i) => (
+                          <th
+                            key={h}
+                            scope="col"
+                            /* white on navy, as the other plans' tables (owner picked ก, 2026-10-11);
+                               paper drops the fill (globals.css .print-table th), so there it prints black */
+                            className={`bg-[var(--bot-navy)] px-[5px] py-2 align-bottom font-semibold text-white print:!text-black
+                              ${i === 0 ? "text-left" : "border-l border-l-white/35"}
+                              ${WRAPS.has(h) ? "" : "whitespace-nowrap"}`}
+                          >
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {q.illustration.map((y, n) => {
+                        const cells = pensionCells(y);
+                        return (
+                          <tr key={y.age} className={`border-b border-[var(--op-line)] text-right ${y.pension ? "bg-[var(--op-figure-bg)]" : ""}`}>
+                            {PENSION_COLUMNS.map((c, i) => (
+                              <td
+                                key={c}
+                                className={`whitespace-nowrap py-1.5 ${i === 0 ? "px-[5px] text-left" : COL}
+                                  ${!ringed(n, c) && c === "เบี้ย" && braceRoom ? "!pl-[50px]" : ""}
+                                  ${!ringed(n, c) && c === "บำนาญ" && pensionRoom ? "!pl-[44px]" : ""}
+                                  ${c === "บำนาญสะสม" && marks.breakEven >= 0 && n > marks.breakEven ? "font-medium text-[var(--lg-gain)]" : ""}`}
+                              >
+                                {ringed(n, c) ? <Circled>{cells[c]}</Circled> : cells[c]}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {/* after the table, so the table is there to be measured when the layer first draws */}
+                  <PenLayer
+                    table={tableRef}
+                    figures={q.illustration.flatMap((y) => Object.values(pensionCells(y)))}
+                    notes={(g) => pensionPenNotes(q.illustration, q.sumAssured, g)}
+                    scale={PENSION_PEN_SCALE} caption={0} cellPad={PENSION_CELL_PAD}
+                  />
+                </div>
               </div>
+              <SiteCredit />
           </section>
         )}
 
