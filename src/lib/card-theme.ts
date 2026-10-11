@@ -170,6 +170,9 @@ export function cardPaletteVersion(palette: CardPalette): string {
   return h.toString(36);
 }
 
+/** the owner's blue pen on the value table, beside the palette's red one (2026-10-11) */
+export const BLUE_PEN = "#1f5fbf";
+
 /** Bump when a card gains or removes visible content without changing its palette. */
 const DRAWING_REVISION = "23";
 

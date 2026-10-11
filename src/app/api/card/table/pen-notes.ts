@@ -56,8 +56,8 @@ export interface PenNotes {
   labels: PenLabel[];
 }
 
-/** the owner's blue pen, beside the red one (card-theme's pen) */
-export const BLUE_PEN = "#1f5fbf";
+/** the owner's blue pen, beside the red one; its colour lives with the card palette */
+export { BLUE_PEN } from "@/lib/card-theme";
 
 /** A figure's width at the table's 22px, near enough to aim a pen at. */
 export const figureWidth = (s: string) => [...s].reduce((w, c) => w + (c === "," ? 6 : 12.6), 0);
