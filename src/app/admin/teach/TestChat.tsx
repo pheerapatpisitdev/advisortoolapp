@@ -12,7 +12,7 @@ import { reportProblem, teachLesson, tryBot, type Tried } from "./actions";
  * customers' transcripts and leads.
  */
 
-interface PageChoice { id: string; name: string; expat: boolean }
+export interface PageChoice { id: string; name: string; expat: boolean }
 
 type Turn =
   | { role: "user"; text: string }
@@ -38,7 +38,11 @@ const field = "w-full rounded-lg border border-[var(--bot-line-strong)] bg-[var(
 /** what the bot remembers of its own turn: its words, as the inbox keeps them */
 const spoken = (t: Tried) => t.messages.map((m) => m.text).filter(Boolean).join("\n");
 
-export function TestChat({ pages }: { pages: PageChoice[] }) {
+/**
+ * `question` opens the teaching panel on its own, for a question brought from elsewhere — the
+ * unanswered list in /admin/crm links here with it — before anything has been said in the chat.
+ */
+export function TestChat({ pages, question }: { pages: PageChoice[]; question?: string }) {
   const [pageId, setPageId] = useState(pages.find((p) => !p.expat)?.id ?? pages[0].id);
   const [cameFor, setCameFor] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -46,6 +50,7 @@ export function TestChat({ pages }: { pages: PageChoice[] }) {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string>();
   const [teaching, setTeaching] = useState<number>();
+  const [brought, setBrought] = useState(question?.trim() || undefined);
   const [pending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
   const page = pages.find((p) => p.id === pageId)!;
@@ -53,7 +58,7 @@ export function TestChat({ pages }: { pages: PageChoice[] }) {
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [turns.length, pending]);
 
   function restart() {
-    setTurns([]); setSlots(null); setError(undefined); setTeaching(undefined);
+    setTurns([]); setSlots(null); setError(undefined); setTeaching(undefined); setBrought(undefined);
   }
 
   /** Sends `text` after `before`, from the slots the bot had at that point. */
@@ -202,6 +207,15 @@ export function TestChat({ pages }: { pages: PageChoice[] }) {
           onClose={() => setTeaching(undefined)}
           onSaved={() => askAgain(teaching)}
         />
+      ) : brought ? (
+        <TeachPanel
+          key={`brought:${brought}`}
+          question={brought}
+          answer=""
+          page={page}
+          onClose={() => setBrought(undefined)}
+          onSaved={() => { const q = brought; setBrought(undefined); ask(q, [], null); }}
+        />
       ) : (
         <aside className="rounded-xl border border-dashed border-[var(--bot-line)] p-4 text-sm text-[var(--bot-ink-mute)]">
           <p className="font-medium text-[var(--bot-ink)]">สอนบอทยังไง</p>
@@ -283,12 +297,12 @@ function TeachPanel({ question, answer, page, onClose, onSaved }: {
         >
           {pending ? "กำลังบันทึก…" : "บันทึกและลองใหม่"}
         </button>
-        <button
+        {answer && <button
           type="button" onClick={report} disabled={pending || Boolean(note)}
           className="rounded-lg border border-[var(--bot-line-strong)] px-3 py-2 text-sm hover:bg-[var(--bot-band)] disabled:opacity-40"
         >
           แจ้งปัญหาให้ทีมแก้
-        </button>
+        </button>}
         <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-[var(--bot-ink-mute)] hover:bg-[var(--bot-band)]">
           ยกเลิก
         </button>

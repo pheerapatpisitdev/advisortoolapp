@@ -106,7 +106,7 @@ export function Leads(
           </span>
           <span className="hidden sm:inline">· เขียนคำตอบไว้แล้วกด “ตอบแล้ว” ข้อนั้นจะหายจากรายการ</span>
           <Link
-            href="/admin/knowledge"
+            href="/admin/teach"
             className="ml-auto whitespace-nowrap rounded-lg border border-[var(--bot-line)] px-2.5 py-1.5 text-xs text-[var(--bot-ink-foot)] no-underline hover:bg-[var(--bot-band)]"
           >
             เขียนคำตอบ →
@@ -126,7 +126,7 @@ export function Leads(
                 </div>
                 <span className="flex shrink-0 items-center gap-1.5">
                   <Link
-                    href="/admin/knowledge"
+                    href={`/admin/teach?q=${encodeURIComponent(u.question.slice(0, 200))}`}
                     className="whitespace-nowrap px-1.5 py-1.5 text-xs text-[var(--bot-ink-mute)] hover:text-[var(--bot-ink-foot)]"
                   >
                     เขียนคำตอบ
