@@ -186,6 +186,8 @@ function appendRiders(q: URLSearchParams, riders: AttachedRider[] | undefined): 
  *
  * One `r` per rider, its fields separated by colons in the order the engine takes them:
  * `r=MEB:1000`, `r=DCI::500000`, and a rider sold in named variants as `r=CODE:::แผน S`.
+ * A rider priced on the payer adds the payer's age and sex after the variant:
+ * `r=PB:::FIT:38:M`.
  * Positional and not named because the card
  * link already carries eight keys and these are three more apiece; an empty field is a field
  * this rider does not have, and trailing ones are simply not written.
@@ -196,7 +198,10 @@ function appendRiders(q: URLSearchParams, riders: AttachedRider[] | undefined): 
  */
 export function riderParams(riders: AttachedRider[]): string[] {
   return riders.map((r) => {
-    const fields = [r.code, r.plan ?? "", r.sumAssured ?? "", r.option ?? ""].map(String);
+    const fields = [
+      r.code, r.plan ?? "", r.sumAssured ?? "", r.option ?? "",
+      ...(r.payer ? [r.payer.age, r.payer.sex] : []),
+    ].map(String);
     while (fields.length > 1 && fields[fields.length - 1] === "") fields.pop();
     return fields.join(":");
   });
@@ -230,7 +235,8 @@ const MOST_RIDERS = 8;
  * wrote it looked.
  *
  * A colon inside a variant's own code is kept rather than treated as another separator —
- * the option is the last field, so everything after the third colon belongs to it.
+ * everything after the third colon belongs to the option, except a payer's age and sex at
+ * the very end, which are read off first: no variant the company sells ends in `:38:M`.
  */
 export function ridersFrom(raw: string[]): AttachedRider[] {
   const byCode = new Map<string, AttachedRider>();
@@ -238,15 +244,26 @@ export function ridersFrom(raw: string[]): AttachedRider[] {
     if (byCode.size >= MOST_RIDERS) break;
     const [code, plan, sum, ...rest] = one.split(":");
     if (code === undefined || code === "" || byCode.has(code)) continue;
-    const option = rest.join(":");
+    const payer = payerFrom(rest);
+    const option = (payer ? rest.slice(0, -2) : rest).join(":");
     byCode.set(code, {
       code,
       ...(countFrom(plan) === undefined ? {} : { plan: countFrom(plan)! }),
       ...(countFrom(sum) === undefined ? {} : { sumAssured: countFrom(sum)! }),
       ...(option === "" ? {} : { option }),
+      ...(payer ? { payer } : {}),
     });
   }
   return [...byCode.values()];
+}
+
+/** The payer's age and sex from the end of a rider's fields, when that is what they are. */
+function payerFrom(rest: string[]): AttachedRider["payer"] | undefined {
+  if (rest.length < 3) return undefined;
+  const [age, sex] = rest.slice(-2);
+  const n = countFrom(age);
+  if (n === undefined || n > 120 || (sex !== "M" && sex !== "F")) return undefined;
+  return { age: n, sex };
 }
 
 /**

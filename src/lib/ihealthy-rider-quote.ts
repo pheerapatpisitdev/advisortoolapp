@@ -9,6 +9,7 @@
  */
 import { quote } from "@/calc/quote";
 import { getPlan, type PlanBundle } from "@/calc/plans/registry";
+import { PARENT_MAX_INSURED_AGE } from "@/calc/riders/premium-based";
 import {
   CANNOT_BUY, disabledRiders, packageExactSumAssured, packageSeq, requiredRiders, riderAvailability,
 } from "@/calc/rules";
@@ -38,9 +39,10 @@ function neverWithHealth(plan: PlanBundle): Set<string> {
  * The riders priced on somebody other than the insured — PB, which keeps the premiums paid if
  * the parent or spouse paying them dies or is disabled.
  *
- * The page asks for one person. Handed that person as their own payer, the engine prices PB on
- * the insured's age and sex, which is a figure for a contract nobody can buy: PB is written on
- * a parent or a spouse. Left off until the page asks who pays, rather than quoted wrong.
+ * The page's own pickers describe one person, so the payer travels with the rider itself:
+ * ticking PB opens the payer's sex and age under it, and they reach the engine as the quote's
+ * payer. Without them the engine says to fill the age in rather than guessing — it was once
+ * handed the insured as their own payer, which priced a PB nobody can buy.
  */
 function pricedOnAnotherPayer(plan: PlanBundle): Set<string> {
   return new Set(Object.entries(plan.rates.riders)
@@ -53,6 +55,8 @@ export interface AttachedRider {
   sumAssured?: number;
   plan?: number;
   option?: string;
+  /** who pays the premiums, for a rider priced on them (PB) */
+  payer?: { age: number; sex: Sex };
 }
 
 export interface RiderQuoteInput {
@@ -87,6 +91,11 @@ export interface RiderChoice {
   /** the package pins this rider's sum assured here, and says so in these words */
   exactSumAssured?: number;
   exactMessage?: string;
+  /**
+   * Present for a rider priced on whoever pays the premiums: who that is at this age — a
+   * parent while the insured is a child, a spouse after — and the ages the company accepts.
+   */
+  payer?: { relation: "parent" | "spouse"; ageMin: number; ageMax: number };
 }
 
 /**
@@ -159,11 +168,19 @@ function parseRider(raw: unknown, plan: PlanBundle): AttachedRider | undefined {
   if (r.sumAssured !== undefined && !isCount(r.sumAssured, SUM_MAX)) return undefined;
   if (r.plan !== undefined && !isCount(r.plan, SUM_MAX)) return undefined;
   if (r.option !== undefined && !isLabel(r.option)) return undefined;
+  let payer: AttachedRider["payer"];
+  if (r.payer !== undefined) {
+    if (typeof r.payer !== "object" || r.payer === null) return undefined;
+    const p = r.payer as Record<string, unknown>;
+    if (!isCount(p.age, AGE_MAX) || (p.sex !== "M" && p.sex !== "F")) return undefined;
+    payer = { age: p.age, sex: p.sex };
+  }
   return {
     code: r.code,
     ...(r.sumAssured === undefined ? {} : { sumAssured: r.sumAssured as number }),
     ...(r.plan === undefined ? {} : { plan: r.plan as number }),
     ...(r.option === undefined ? {} : { option: r.option as string }),
+    ...(payer === undefined ? {} : { payer }),
   };
 }
 
@@ -255,7 +272,8 @@ export function priceRiders(input: RiderQuoteInput): RiderQuoteResult {
   // off voids the whole quote, so it is not the agent's to tick. Here that names only the
   // health rider the page is about, which the customer's own pickers upstairs already set.
   const required = new Set(requiredRiders(plan.rules, seq));
-  const never = new Set([...neverWithHealth(plan), ...pricedOnAnotherPayer(plan)]);
+  const never = neverWithHealth(plan);
+  const onPayer = pricedOnAnotherPayer(plan);
   const ctx = { age: asked.age, baseSumAssured: asked.sumAssured };
 
   // A rider this age cannot buy stays on the list, greyed, carrying its reason. Taking it
@@ -267,10 +285,17 @@ export function priceRiders(input: RiderQuoteInput): RiderQuoteResult {
     if (code === THE_HEALTH_RIDER || never.has(code) || required.has(code) || off.has(code)) continue;
     const a = riderAvailability(plan.rules, plan.rates, code, ctx);
     const exact = packageExactSumAssured(plan.rules, seq, code);
+    const payerAges = plan.rules.riders[code]?.payer;
     available.push({
       code, name: a.name, ageRange: a.ageRange, eligible: a.eligible, reason: a.reason,
       saMin: a.saMin, saMax: a.saMax, plans: a.plans, options: a.options,
       exactSumAssured: exact?.amount, exactMessage: exact?.message,
+      ...(onPayer.has(code) ? {
+        payer: {
+          relation: asked.age <= PARENT_MAX_INSURED_AGE ? "parent" as const : "spouse" as const,
+          ageMin: payerAges?.ageMin ?? 0, ageMax: payerAges?.ageMax ?? AGE_MAX,
+        },
+      } : {}),
     });
   }
 
@@ -293,13 +318,12 @@ export function priceRiders(input: RiderQuoteInput): RiderQuoteResult {
     );
   }
 
+  // The payer the agent typed under PB, and nobody otherwise: no other rider here is priced
+  // on the payer, and a PB with no payer is one the engine asks to have filled in.
+  const payer = attached.find((r) => onPayer.has(r.code))?.payer;
   const result = quote({
     planCode: PLAN_CODE, variant: asked.base, age: asked.age, sex: asked.sex, mode: asked.mode,
-    basis: "sumAssured", sumAssured: asked.sumAssured,
-    // The page asks for no payer of its own, so the insured is taken to pay their own
-    // premiums. A payor rider bought for a child needs a real parent, and the engine says so
-    // rather than being handed a guess.
-    payer: { age: asked.age, sex: asked.sex },
+    basis: "sumAssured", sumAssured: asked.sumAssured, payer,
     riders: [
       { code: THE_HEALTH_RIDER, option: asked.plan, territory: asked.territory, coverage: asked.coverage },
       ...[...required].filter((c) => c !== THE_HEALTH_RIDER).map((code) => ({
@@ -316,8 +340,7 @@ export function priceRiders(input: RiderQuoteInput): RiderQuoteResult {
     mode,
     mode === asked.mode ? result : quote({
       planCode: PLAN_CODE, variant: asked.base, age: asked.age, sex: asked.sex, mode,
-      basis: "sumAssured", sumAssured: asked.sumAssured,
-      payer: { age: asked.age, sex: asked.sex },
+      basis: "sumAssured", sumAssured: asked.sumAssured, payer,
       riders: [
         { code: THE_HEALTH_RIDER, option: asked.plan, territory: asked.territory, coverage: asked.coverage },
         ...[...required].filter((c) => c !== THE_HEALTH_RIDER).map((code) => ({

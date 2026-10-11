@@ -108,6 +108,13 @@ export interface IHealthyWords {
   foldTitle: string;
   /** the fold's headings, one per kind of cover */
   riderGroups: { health: string; critical: string; accident: string; life: string; waiver: string };
+  /** the payer block under PB: who pays at this age, the age box and its unit, the accepted ages */
+  payerTitle: (relation: "parent" | "spouse") => string;
+  payerAgeLabel: string;
+  payerAgeUnit: string;
+  payerAges: (min: number, max: number) => string;
+  /** the payer named after PB's own line in the bill */
+  payerNote: (sex: string, age: number) => string;
   pricingFailed: string;
   retry: string;
   pricing: string;
@@ -339,6 +346,11 @@ const th: IHealthyWords = {
 
   foldTitle: "แนบสัญญาเพิ่มเติมอื่น",
   riderGroups: { health: "สุขภาพ", critical: "โรคร้ายแรง / มะเร็ง", accident: "อุบัติเหตุ", life: "คุ้มครองชีวิต", waiver: "ยกเว้นเบี้ย" },
+  payerTitle: (r) => `ผู้ชำระเบี้ย (${r === "parent" ? "พ่อหรือแม่" : "คู่สมรส"})`,
+  payerAgeLabel: "อายุผู้ชำระเบี้ย",
+  payerAgeUnit: "ปี",
+  payerAges: (a, b) => `รับผู้ชำระเบี้ยอายุ ${a}–${b} ปี`,
+  payerNote: (sex, age) => `ผู้ชำระเบี้ย ${sex} ${age} ปี`,
   pricingFailed: "คิดเบี้ยไม่สำเร็จ",
   retry: "ลองอีกครั้ง",
   pricing: "กำลังคิดเบี้ย",
@@ -479,6 +491,11 @@ const en: IHealthyWords = {
 
   foldTitle: "Add other riders",
   riderGroups: { health: "Health", critical: "Critical illness / cancer", accident: "Accident", life: "Extra life cover", waiver: "Premium waiver" },
+  payerTitle: (r) => `Premium payer (${r === "parent" ? "parent" : "spouse"})`,
+  payerAgeLabel: "Payer's age",
+  payerAgeUnit: "years",
+  payerAges: (a, b) => `Payers aged ${a}–${b} are accepted`,
+  payerNote: (sex, age) => `payer ${sex.toLowerCase()}, ${age}`,
   pricingFailed: "Could not calculate the premium",
   retry: "Try again",
   pricing: "Calculating…",
@@ -555,6 +572,7 @@ const en: IHealthyWords = {
       "อายุผู้ชำระเบี้ยไม่อยู่ในเกณฑ์": "The payer's age is outside the accepted range",
       "ไม่สามารถซื้อคู่กับ MEX, MEB หรือ iHealthy Ultra": "Cannot be bought together with MEX, MEB or iHealthy Ultra",
       "ต้องซื้อคู่กับ CPR": "Must be bought together with CPR",
+      "กรอกอายุผู้ชำระเบี้ย": "Enter the payer's age",
     },
     ages: (a, b) => `age ${a} – ${b}`,
     issueAges: (a, b) => `Issue ages ${a} – ${b}`,
@@ -678,6 +696,11 @@ const zh: IHealthyWords = {
 
   foldTitle: "添加其他附加合同",
   riderGroups: { health: "医疗", critical: "重大疾病 / 癌症", accident: "意外", life: "附加寿险", waiver: "保费豁免" },
+  payerTitle: (r) => `保费支付人（${r === "parent" ? "父亲或母亲" : "配偶"}）`,
+  payerAgeLabel: "支付人年龄",
+  payerAgeUnit: "岁",
+  payerAges: (a, b) => `支付人年龄须为 ${a}–${b} 岁`,
+  payerNote: (sex, age) => `支付人 ${sex} ${age}岁`,
   pricingFailed: "保费计算失败",
   retry: "重试",
   pricing: "正在计算保费…",
@@ -753,6 +776,7 @@ const zh: IHealthyWords = {
       "อายุผู้ชำระเบี้ยไม่อยู่ในเกณฑ์": "付款人年龄不符合条件",
       "ไม่สามารถซื้อคู่กับ MEX, MEB หรือ iHealthy Ultra": "不能与 MEX、MEB 或 iHealthy Ultra 一起购买",
       "ต้องซื้อคู่กับ CPR": "必须与 CPR 一起购买",
+      "กรอกอายุผู้ชำระเบี้ย": "请填写支付人年龄",
     },
     ages: (a, b) => `${a} – ${b}岁`,
     issueAges: (a, b) => `投保年龄 ${a} – ${b}岁`,
@@ -870,6 +894,11 @@ const ru: IHealthyWords = {
 
   foldTitle: "Добавить другие дополнительные договоры",
   riderGroups: { health: "Здоровье", critical: "Тяжёлые заболевания / рак", accident: "Несчастный случай", life: "Дополнительное страхование жизни", waiver: "Освобождение от взносов" },
+  payerTitle: (r) => `Плательщик взносов (${r === "parent" ? "отец или мать" : "супруг(а)"})`,
+  payerAgeLabel: "Возраст плательщика",
+  payerAgeUnit: "лет",
+  payerAges: (a, b) => `Принимаются плательщики ${a}–${b} лет`,
+  payerNote: (sex, age) => `плательщик ${sex}, ${age} лет`,
   pricingFailed: "Не удалось рассчитать взнос",
   retry: "Повторить",
   pricing: "Рассчитываем взнос…",
@@ -946,6 +975,7 @@ const ru: IHealthyWords = {
       "อายุผู้ชำระเบี้ยไม่อยู่ในเกณฑ์": "Возраст плательщика вне допустимых пределов",
       "ไม่สามารถซื้อคู่กับ MEX, MEB หรือ iHealthy Ultra": "Нельзя купить вместе с MEX, MEB или iHealthy Ultra",
       "ต้องซื้อคู่กับ CPR": "Покупается только вместе с CPR",
+      "กรอกอายุผู้ชำระเบี้ย": "Укажите возраст плательщика",
     },
     ages: (a, b) => `${a} – ${b} лет`,
     issueAges: (a, b) => `Возраст страхования ${a} – ${b} лет`,
@@ -1062,6 +1092,11 @@ const my: IHealthyWords = {
 
   foldTitle: "အခြား ဖြည့်စွက်စာချုပ်များ ထည့်ရန်",
   riderGroups: { health: "ကျန်းမာရေး", critical: "ပြင်းထန်သောရောဂါ / ကင်ဆာ", accident: "မတော်တဆမှု", life: "အသက်အာမခံ ထပ်ဆောင်း", waiver: "ပရီမီယံ ကင်းလွတ်ခွင့်" },
+  payerTitle: (r) => `ပရီမီယံပေးသူ (${r === "parent" ? "မိဘ" : "ခင်ပွန်း/ဇနီး"})`,
+  payerAgeLabel: "ပေးသူ၏ အသက်",
+  payerAgeUnit: "နှစ်",
+  payerAges: (a, b) => `အသက် ${a}–${b} နှစ် ပေးသူများကို လက်ခံသည်`,
+  payerNote: (sex, age) => `ပေးသူ ${sex} အသက် ${age} နှစ်`,
   pricingFailed: "ပရီမီယံ တွက်ချက်၍ မရပါ",
   retry: "ထပ်ကြိုးစားရန်",
   pricing: "ပရီမီယံ တွက်ချက်နေသည်…",
@@ -1138,6 +1173,7 @@ const my: IHealthyWords = {
       "อายุผู้ชำระเบี้ยไม่อยู่ในเกณฑ์": "ပရီမီယံပေးသူ၏ အသက်သည် သတ်မှတ်ချက်နှင့် မကိုက်ညီပါ",
       "ไม่สามารถซื้อคู่กับ MEX, MEB หรือ iHealthy Ultra": "MEX၊ MEB သို့မဟုတ် iHealthy Ultra နှင့်အတူ ဝယ်၍မရပါ",
       "ต้องซื้อคู่กับ CPR": "CPR နှင့်အတူသာ ဝယ်နိုင်သည်",
+      "กรอกอายุผู้ชำระเบี้ย": "ပေးသူ၏ အသက်ကို ဖြည့်ပါ",
     },
     ages: (a, b) => `${a} – ${b} နှစ်`,
     issueAges: (a, b) => `အာမခံနိုင်သည့် အသက် ${a} – ${b} နှစ်`,

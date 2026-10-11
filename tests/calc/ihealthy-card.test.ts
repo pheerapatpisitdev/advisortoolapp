@@ -29,6 +29,20 @@ describe("the riders in a card link", () => {
     expect(ridersFrom(riderParams(riders))).toEqual(riders);
   });
 
+  it("carries PB's payer after its variant, and reads it back", () => {
+    const pb = { code: "PB", option: "FIT", payer: { age: 38, sex: "M" as const } };
+    expect(riderParams([pb])).toEqual(["PB:::FIT:38:M"]);
+    expect(ridersFrom(["PB:::FIT:38:M"])).toEqual([pb]);
+    // a variant with no payer after it is still the whole option
+    expect(ridersFrom(["X:::แผน S"])).toEqual([{ code: "X", option: "แผน S" }]);
+  });
+
+  it("prices PB on the card at the payer the link names", () => {
+    const card = cardAt("age=35&sex=M&base=WLF99H&sa=1000000&plan=GOLD&mode=annual&r=PB%3A%3A%3AFIT%3A33%3AF");
+    const none = cardAt("age=35&sex=M&base=WLF99H&sa=1000000&plan=GOLD&mode=annual&r=");
+    expect(card.premium?.amount).not.toEqual(none.premium?.amount);
+  });
+
   it("keeps a colon inside a variant's own name", () => {
     expect(ridersFrom(["X:::a:b"])).toEqual([{ code: "X", option: "a:b" }]);
   });

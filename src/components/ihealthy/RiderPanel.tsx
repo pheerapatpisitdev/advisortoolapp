@@ -136,7 +136,9 @@ function grouped(available: RiderChoice[]): { heading?: keyof IHealthyWords["rid
 
 /** What a rider starts at when it is ticked: the package's pinned sum, the smallest plan or
  *  the first variant it sells, and its own floor where it takes a sum of its own. */
-function opening(c: RiderChoice, standard?: { code: string; plan: number }): RiderPick {
+function opening(
+  c: RiderChoice, standard: { code: string; plan: number } | undefined, insuredSex: "M" | "F",
+): RiderPick {
   // Ticked back on, the agency's rider comes back at the agency's plan rather than at the
   // smallest the company sells — which is what it was ticked with in the first place.
   if (standard && c.code === standard.code) return { plan: standard.plan };
@@ -145,6 +147,12 @@ function opening(c: RiderChoice, standard?: { code: string; plan: number }): Rid
     ...(c.options && c.options.length > 0 ? { option: c.options[0].code } : {}),
     ...(c.exactSumAssured !== undefined ? { sumAssured: c.exactSumAssured }
       : c.saMin !== undefined ? { sumAssured: startingSum(c) } : {}),
+    // A spouse is usually the other sex, and a parent is a guess either way; the age is left
+    // for the agent to type, because no age the page could pick would be anybody's.
+    ...(c.payer ? {
+      payerSex: c.payer.relation === "spouse" && insuredSex === "M" ? "F" as const : "M" as const,
+      payerAge: "" as const,
+    } : {}),
   };
 }
 
@@ -161,6 +169,7 @@ function seed(
     ...(r.plan === undefined ? {} : { plan: r.plan }),
     ...(r.sumAssured === undefined ? {} : { sumAssured: r.sumAssured }),
     ...(r.option === undefined ? {} : { option: r.option }),
+    ...(r.payer === undefined ? {} : { payerSex: r.payer.sex, payerAge: r.payer.age }),
   }]));
 }
 
@@ -289,11 +298,24 @@ export function RiderPanel(
     setChosen((prev) => {
       const next = { ...prev };
       if (c.code in next) delete next[c.code];
-      else next[c.code] = opening(c, standard);
+      else next[c.code] = opening(c, standard, sex);
       return next;
     });
   const amend = (code: string, part: RiderPick) =>
     setChosen((prev) => ({ ...prev, [code]: { ...prev[code], ...part } }));
+
+  /** The payer typed under a rider priced on them, as the bill names it. */
+  const payerOf = (code: string): string | undefined => {
+    const pick = chosen[code];
+    const choice = result?.available.find((c) => c.code === code);
+    if (!choice?.payer || !pick?.payerSex || typeof pick.payerAge !== "number") return undefined;
+    return w.payerNote(w.sex[pick.payerSex], pick.payerAge);
+  };
+  /** The engine's objection to the payer — no age yet, or one it will not write — if any. */
+  const payerProblem = (code: string): string | undefined => {
+    const row = result?.items.find((i) => i.code === code);
+    return row && !row.eligible && row.message ? w.rider(row.message) : undefined;
+  };
 
   const control =
     "rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-2 py-1.5 text-sm tabular-nums text-[var(--lg-white)]";
@@ -394,6 +416,39 @@ export function RiderPanel(
                           </span>
                         </label>
                       )}
+                      {on && c.payer && (
+                        <div className="ml-6 flex basis-full flex-wrap items-center gap-2.5 border-l-2 border-[var(--lg-gold)] py-1.5 pl-3">
+                          <span className="text-sm font-medium text-[var(--lg-white)]">{w.payerTitle(c.payer.relation)}</span>
+                          <span role="group" aria-label={w.payerTitle(c.payer.relation)} className="inline-flex overflow-hidden rounded-sm border border-[var(--lg-panel-line)]">
+                            {(["M", "F"] as const).map((x) => (
+                              <button
+                                key={x} type="button" aria-pressed={picked.payerSex === x}
+                                onClick={() => amend(c.code, { payerSex: x })}
+                                className={`px-3 py-1 text-sm ${picked.payerSex === x
+                                  ? "bg-[var(--lg-gold)] text-[var(--lg-ground)]"
+                                  : "bg-[var(--lg-raise)] text-[var(--lg-white)]"}`}
+                              >
+                                {w.sex[x]}
+                              </button>
+                            ))}
+                          </span>
+                          <label className="flex items-center gap-1.5">
+                            <span className="sr-only">{w.payerAgeLabel}</span>
+                            <input
+                              type="text" inputMode="numeric" placeholder={w.payerAgeLabel}
+                              className={`w-20 ${control}`} value={picked.payerAge ?? ""}
+                              onChange={(e) => {
+                                const digits = e.target.value.replace(/\D/g, "").slice(0, 3);
+                                amend(c.code, { payerAge: digits === "" ? "" : Number(digits) });
+                              }}
+                            />
+                            <span className="text-xs text-[var(--lg-mute)]">{w.payerAgeUnit}</span>
+                          </label>
+                          <span className={`basis-full text-xs ${payerProblem(c.code) ? "text-[var(--lg-gold)]" : "text-[var(--lg-mute)]"}`}>
+                            {payerProblem(c.code) ?? w.payerAges(c.payer.ageMin, c.payer.ageMax)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -409,6 +464,7 @@ export function RiderPanel(
                 <div key={i.code} className="flex items-baseline justify-between gap-3">
                   <dt className="text-[var(--lg-mute)]">
                     {i.code.startsWith(HEALTH_RIDER) ? HEALTH_RIDER_NAME : w.rider(i.name)}
+                    {i.eligible && payerOf(i.code) && ` (${payerOf(i.code)})`}
                   </dt>
                   <dd
                     className={`lg-figure tabular-nums ${i.eligible ? "text-[var(--lg-white)]" : "text-[var(--lg-gold)]"}`}

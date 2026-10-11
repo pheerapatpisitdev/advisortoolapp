@@ -15,6 +15,9 @@ export interface RiderPick {
   sumAssured?: number | "";
   plan?: number;
   option?: string;
+  /** the payer under a rider priced on them; the age is "" until it is typed */
+  payerSex?: "M" | "F";
+  payerAge?: number | "";
 }
 
 /**
@@ -39,6 +42,10 @@ export function attachedRiders(chosen: Record<string, RiderPick>): AttachedRider
     ...(typeof pick.sumAssured === "number" ? { sumAssured: pick.sumAssured } : {}),
     ...(pick.plan === undefined ? {} : { plan: pick.plan }),
     ...(pick.option === undefined ? {} : { option: pick.option }),
+    // Sent only once there is an age to send: a payer with no age is not one the engine can
+    // price, and it says so itself when the rider arrives without one.
+    ...(pick.payerSex !== undefined && typeof pick.payerAge === "number"
+      ? { payer: { age: pick.payerAge, sex: pick.payerSex } } : {}),
   }));
 }
 
