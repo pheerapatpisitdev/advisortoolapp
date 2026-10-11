@@ -126,10 +126,13 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
         },
       }, signal);
     const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
+    const usage = data.usageMetadata;
     return {
       text,
-      inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
-      outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+      inputTokens: usage?.promptTokenCount ?? 0,
+      // thinking is billed at the output rate and is not in the answer's own count; leaving it
+      // out recorded a reply after 238 tokens of thought as 12 (review, 2026-10-11)
+      outputTokens: (usage?.candidatesTokenCount ?? 0) + (usage?.thoughtsTokenCount ?? 0),
     };
   },
 
