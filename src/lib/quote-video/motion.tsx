@@ -26,10 +26,10 @@ const RED = C.motionRed;
 const GREEN = C.motionGreen;
 const SIDE = 64;
 
-type Kind = "up" | "pop" | "left" | "fade" | "grow" | "stroke" | "count";
-interface Anim { at: number; dur: number; kind: Kind }
+export type Kind = "up" | "pop" | "left" | "fade" | "grow" | "stroke" | "count";
+export interface Anim { at: number; dur: number; kind: Kind }
 const DUR: Record<Kind, number> = { up: 0.7, pop: 0.55, left: 0.6, fade: 0.6, grow: 0.9, stroke: 1.6, count: 1.4 };
-const a = (at: number, kind: Kind, dur = DUR[kind]): Anim => ({ at, dur, kind });
+export const a = (at: number, kind: Kind, dur = DUR[kind]): Anim => ({ at, dur, kind });
 
 /** When each element of a scene moves, in scene seconds. */
 export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number): Record<string, Anim> {
@@ -90,10 +90,10 @@ export const motionWindows = (key: SceneKey, f: QuoteVideoFacts, voiceSec: numbe
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
-const easeBack = (x: number) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
+export const easeBack = (x: number) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
 
 /** How an element looks at scene time t: its opacity and transform, from its kind. */
-function look(an: Anim | undefined, t: number): { opacity: number; transform?: string; p: number } {
+export function look(an: Anim | undefined, t: number): { opacity: number; transform?: string; p: number } {
   if (!an) return { opacity: 1, p: 1 };
   const p = clamp01((t - an.at) / an.dur);
   if (p <= 0 && an.kind !== "stroke" && an.kind !== "count") return { opacity: 0, p: 0 };
@@ -117,11 +117,11 @@ export interface MotionContext {
   voiceSec: number;
 }
 
-const abs = (s: React.CSSProperties): React.CSSProperties => ({ display: "flex", position: "absolute", ...s });
-const box = (s: React.CSSProperties = {}): React.CSSProperties => ({ display: "flex", ...s });
+export const abs = (s: React.CSSProperties): React.CSSProperties => ({ display: "flex", position: "absolute", ...s });
+export const box = (s: React.CSSProperties = {}): React.CSSProperties => ({ display: "flex", ...s });
 const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
-function El({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSProperties; children?: ReactNode }) {
+export function El({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSProperties; children?: ReactNode }) {
   const l = look(an, t);
   return <div style={{ display: "flex", ...style, opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}) }}>{children}</div>;
 }
@@ -135,7 +135,7 @@ function Header({ f, title }: { f: QuoteVideoFacts; title: string }) {
   );
 }
 
-function Subtitle({ words, t, voiceSec }: { words: string[]; t: number; voiceSec: number }) {
+export function Subtitle({ words, t, voiceSec }: { words: string[]; t: number; voiceSec: number }) {
   const total = words.reduce((n, w) => n + w.length, 0) || 1;
   const LEAD = 0.35;
   let acc = 0;
@@ -158,7 +158,7 @@ function Subtitle({ words, t, voiceSec }: { words: string[]; t: number; voiceSec
  * A path drawn as p goes 0 → 1. A plain function, not a component: the drawing library drops a
  * component rendered inside an <svg> (the same reason insured-face.tsx is one).
  */
-function stroke({ d, len, p, color, width, cap = "round" }: { d: string; len: number; p: number; color: string; width: number; cap?: "round" | "butt" }) {
+export function stroke({ d, len, p, color, width, cap = "round" }: { d: string; len: number; p: number; color: string; width: number; cap?: "round" | "butt" }) {
   return <path d={d} fill="none" stroke={color} strokeWidth={width} strokeLinecap={cap} strokeLinejoin="round" strokeDasharray={`${len} ${len}`} strokeDashoffset={Math.round(len * (1 - p))} />;
 }
 

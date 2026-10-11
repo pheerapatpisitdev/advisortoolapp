@@ -6,7 +6,7 @@ import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { SaveVideoButton } from "./SaveVideoButton";
-import { addToCalendar, calendarCaption, makeVideo, myCost, myVideos, previewQuote, removeVideo, type Preview, type VideoItem } from "./actions";
+import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, removeVideo, type FhcChoice, type Preview, type VideoItem } from "./actions";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
@@ -52,8 +52,10 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages, eleven }: {
+export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages, eleven, fhc }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
+  /** the agent's FHC customers, for วิดีโอสรุป FHC (owner, 2026-10-12) */
+  fhc: FhcChoice[];
   /** the ages each product sells at, for the age dropdown */
   ages: Record<Product, { min: number; max: number }>;
   /** the Pages the owner may put a clip on; empty for everyone else, who see no button */
@@ -62,7 +64,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   eleven: ElevenChoice[];
 }) {
   // a plan page's shortcut (owner, 2026-10-11) fills the form with the quote it was showing
-  const startProduct = start?.product ?? "LIFEPROTECT";
+  const startProduct = start?.product && start.product !== "FHC" ? start.product : "LIFEPROTECT";
+  // a quote, or one FHC customer's summary (the customer page's button opens this one)
+  const [kind, setKind] = useState<"quote" | "fhc">(start?.product === "FHC" ? "fhc" : "quote");
+  const [fhcId, setFhcId] = useState(start?.fhc && fhc.some((c) => c.id === start.fhc) ? start.fhc : fhc[0]?.id ?? "");
+  // the name goes in unless the agent takes the tick off (owner, 2026-10-12)
+  const [withName, setWithName] = useState(true);
+  const fhcPick = fhc.find((c) => c.id === fhcId);
   const startVariant = startProduct !== "IHEALTHY" && start?.variant && TERMS[startProduct].some((x) => x.variant === start.variant)
     ? start.variant : startProduct === "IHEALTHY" ? DEFAULT_TERM.LIFEPROTECT : DEFAULT_TERM[startProduct];
   const [product, setProduct] = useState<Product>(startProduct);
@@ -145,7 +153,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   // where the clip begins: a sum (or plan), or what the customer can save each month / year
   const [source, setSource] = useState<"sum" | "month" | "year">("sum");
   const [budget, setBudget] = useState("3,000");
-  const line = costLine(cost, style);
+  // an FHC summary costs what a แบบปกติ clip does: ฿5 (owner, 2026-10-12)
+  const line = costLine(cost, kind === "fhc" ? "classic" : style);
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const input = (): VideoInput => (product === "IHEALTHY"
@@ -167,12 +176,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   const seq = useRef(0);
   useEffect(() => {
     const n = ++seq.current;
+    if (kind === "fhc") return;
     const t = setTimeout(() => {
       previewQuote(input()).then((p) => { if (n === seq.current) setPreview(p); }).catch(() => undefined);
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, sex, age, sum, variant, plan, compare, source, budget]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget]);
 
   // a clip still being made is asked about every few seconds
   const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
@@ -190,7 +200,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     setBusy(true);
     setError(null);
     try {
-      const r = await makeVideo(input(), customer);
+      const r = kind === "fhc"
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}) })
+        : await makeVideo(input(), customer);
       if (!r.ok) setError({ text: r.error, contact: r.needContact });
       else setItems(await myVideos());
       setCost(await myCost());
@@ -224,13 +236,46 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   return (
     <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className={`${card} space-y-4`}>
-        <h2 className="font-semibold">ข้อมูลใบเสนอ</h2>
+        <h2 className="font-semibold">{kind === "fhc" ? "วิดีโอสรุป Financial Health Check" : "ข้อมูลใบเสนอ"}</h2>
         <div>
-          <span className={label}>แบบประกัน</span>
+          <span className={label}>ทำวิดีโอเรื่อง</span>
           <div className="flex flex-wrap gap-2">
-            {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(product === p.code)} onClick={() => pickProduct(p.code)}>{p.name}</button>)}
+            {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(kind === "quote" && product === p.code)} onClick={() => { setKind("quote"); pickProduct(p.code); }}>{p.name}</button>)}
+            <button type="button" className={chip(kind === "fhc")} onClick={() => setKind("fhc")}>สรุป FHC</button>
           </div>
         </div>
+        {kind === "fhc" && (
+          <div className="space-y-3">
+            {fhc.length === 0 ? (
+              <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
+                ยังไม่มีลูกค้า FHC — ตรวจสุขภาพการเงินกับลูกค้าแล้วกดเก็บรายชื่อก่อน{" "}
+                <Link href="/fhc" className="font-medium underline">ไปที่ Financial Health Check</Link>
+              </p>
+            ) : (
+              <>
+                <div>
+                  <label htmlFor="qv-fhc" className={label}>ลูกค้า (จากรายชื่อ FHC ของฉัน)</label>
+                  <select id="qv-fhc" className={field} value={fhcId} onChange={(e) => setFhcId(e.target.value)}>
+                    {fhc.map((c) => <option key={c.id} value={c.id}>{`${c.name} · ${c.line}`}</option>)}
+                  </select>
+                  {fhcPick && <p className="mt-1 text-xs text-[var(--ct-mute)]">{fhcPick.open}</p>}
+                </div>
+                <label className="flex items-start gap-2 text-sm" htmlFor="qv-fhc-name">
+                  <input id="qv-fhc-name" type="checkbox" className="mt-1 h-4 w-4" checked={withName} onChange={(e) => setWithName(e.target.checked)} />
+                  <span>
+                    ใส่ชื่อ &quot;คุณ{fhcPick?.name ?? "…"}&quot; ในเสียงและบนจอ
+                    <span className="block text-xs text-[var(--ct-mute)]">เอาติ๊กออก = เสียงพูด &quot;สวัสดีค่ะ&quot; เฉยๆ</span>
+                  </span>
+                </label>
+                <p className="text-xs text-[var(--ct-mute)]">
+                  แบบ Motion Graphic 6 ฉาก ~70 วินาที: ผล 6 ด้าน · ขาดเท่าไร · 5 เหตุการณ์ · แผนที่แนะนำ · ช่องทางติดต่อ
+                  ตัวเลขมาจากผลตรวจวันที่เก็บ ไม่โชว์รายได้ ค่าใช้จ่าย หนี้ เป็นข้อมูลส่วนตัว ส่งให้ลูกค้าคนนี้เท่านั้น ลงเพจไม่ได้
+                </p>
+              </>
+            )}
+          </div>
+        )}
+        {kind === "quote" && (<>
         <div>
           <span className={label}>ความยาว</span>
           <div className="flex flex-wrap gap-2">
@@ -247,6 +292,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
           </div>
           <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
         </div>
+        </>)}
         {eleven.length > 0 && (
           <div>
             <span className={label}>AI เสียงพากย์</span>
@@ -275,6 +321,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               ))}
           </div>
         </div>
+        {kind === "quote" && (<>
         <div>
           <span className={label}>เริ่มจาก</span>
           <div className="flex flex-wrap gap-2">
@@ -378,6 +425,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
           <p className="mt-1 text-xs text-[var(--ct-mute)]">ใส่แล้วเสียงพากย์จะทักชื่อ และขึ้นชื่อบนภาพในคลิป</p>
         </div>
         )}
+        </>)}
         {error && (
           <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">
             {error.text}{" "}
@@ -391,7 +439,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
           </p>
         )}
         <button
-          type="button" onClick={make} disabled={busy || !ok || Boolean(line?.blocked)}
+          type="button" onClick={make} disabled={busy || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked)}
           className="rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
         >
           {busy ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
@@ -419,7 +467,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
             <div className="flex flex-wrap gap-2">
               {v.status === "done" && v.save && v.watch && <SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} />}
               {v.status === "done" && <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
-              {v.status === "done" && pages.length > 0 && !v.named && (
+              {v.status === "done" && pages.length > 0 && !v.named && !v.personal && (
                 <button type="button" className={small} onClick={() => openCalendar(v.id)}>เพิ่มลงปฏิทินเพจ</button>
               )}
               {(v.status === "done" || v.status === "failed") && (
@@ -436,8 +484,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               </div>
             )}
             {deleteError?.id === v.id && <p role="alert" className="text-xs text-[var(--ct-alert)]">{deleteError.text}</p>}
-            {v.status === "done" && pages.length > 0 && v.named && (
-              <p className="text-xs text-[var(--ct-mute)]">คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ</p>
+            {v.status === "done" && pages.length > 0 && (v.named || v.personal) && (
+              <p className="text-xs text-[var(--ct-mute)]">{v.personal ? "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ไม่มีปุ่มลงเพจ" : "คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ"}</p>
             )}
             {cal?.id === v.id && (
               <div className="space-y-2 rounded-lg border border-[var(--ct-line)] p-2 text-sm">

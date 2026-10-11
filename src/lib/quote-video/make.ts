@@ -17,9 +17,11 @@ import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import { getContact, photoDataUri } from "./contact";
 import { CHART_W, panEndFor, sceneLayer, tableImage, type Contact } from "./draw";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
+import { FHC_PRICE_SATANG, fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
+import { fhcFrame, fhcWindows } from "./fhc-motion";
 import { motionBackground, motionFrame, motionWindows, MOTION_BG_H, MOTION_FPS } from "./motion";
 import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput, type VideoStyle } from "./script";
-import { clipLength, H, planScenes, W } from "./timeline";
+import { clipLength, H, planScenes, W, type ScenePlan } from "./timeline";
 
 /**
  * Making one วิดีโอนำเสนอ clip (owner, 2026-10-11; spec docs/superpowers/specs/2026-10-11-quote-video-design.md).
@@ -49,19 +51,23 @@ export const FREE_VIDEOS = 2;
 export const VIDEO_PRICE_SATANG: Record<VideoStyle, number> = { classic: 500, motion: 1000 };
 /** an ElevenLabs voice on top of the style's price (owner, 2026-10-11: +฿2) */
 export const ELEVEN_EXTRA_SATANG = 200;
-const styleOf = (v: VideoInput): VideoStyle => (v.style === "motion" ? "motion" : "classic");
-export const videoPrice = (v: VideoInput): number => VIDEO_PRICE_SATANG[styleOf(v)] + (v.voice ? ELEVEN_EXTRA_SATANG : 0);
+const styleOf = (v: ClipInput): VideoStyle => (v.style === "motion" ? "motion" : "classic");
+/** an FHC summary is ฿5 whatever its look (owner, 2026-10-12) */
+export const videoPrice = (v: ClipInput): number =>
+  (isFhcInput(v) ? FHC_PRICE_SATANG : VIDEO_PRICE_SATANG[styleOf(v)]) + (v.voice ? ELEVEN_EXTRA_SATANG : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
 
 export type VideoStatus = "drawing" | "rendering" | "done" | "failed";
 export type { VideoInput } from "./script";
+/** what a clip's row holds: a quote, or an FHC summary (fhc.ts) */
+export type ClipInput = VideoInput | FhcVideoInput;
 export interface VideoRow {
   id: string;
   agent_id: string;
   created_at: string;
   updated_at: string;
-  input: VideoInput;
+  input: ClipInput;
   customer_name: string;
   status: VideoStatus;
   job: { id: string; tokenHash: string; startedAt: string } | null;
@@ -113,7 +119,7 @@ export async function costView(viewer: Viewer): Promise<CostView> {
  * Starts a clip's row and says who pays: the owner nothing, then the agent's two free clips,
  * then the wallet — the hold set aside before anything is spent. A refusal is the words to show.
  */
-export async function createVideo(viewer: Viewer, input: VideoInput, customer: string): Promise<{ id: string } | { refusal: string }> {
+export async function createVideo(viewer: Viewer, input: ClipInput, customer: string): Promise<{ id: string } | { refusal: string }> {
   let pay: Partial<VideoRow> = { paid_by: "staff" };
   if (!can(viewer, "owner")) {
     if ((await freeUsed(viewer.agentId)) < FREE_VIDEOS) pay = { paid_by: "free" };
@@ -198,16 +204,66 @@ interface DrawPlan { tokenHash: string; secs: number[] }
  * script, the scenes and their file names, what each picture shows. produce and every scene
  * drawer work it out the same way, so only the voice lengths travel between them.
  */
-async function clipParts(row: VideoRow, agentName: string, secs: number[]) {
-  const facts = quoteVideoFacts(row.input);
-  if (!facts) throw new Error("quote not priced");
-  const contactRow = await getContact(row.agent_id);
-  const contact: Contact = {
+type BuildOpts = Parameters<typeof buildJob>[2];
+interface ClipParts {
+  script: { key: string; voice: string }[];
+  motion: boolean;
+  plans: ScenePlan[];
+  named: ReturnType<typeof nameFiles>;
+  /** what ffmpeg needs besides the scenes: the classic table's pan, or the Motion background's drift */
+  build: BuildOpts;
+  layers: { photo: boolean };
+  sceneDraws: (s: number) => { name: string; draw: () => Promise<Buffer> }[];
+}
+
+async function contactOf(agentId: string, agentName: string): Promise<Contact> {
+  const contactRow = await getContact(agentId);
+  return {
     name: agentName, phone: contactRow.phone,
     ...(contactRow.line ? { line: contactRow.line } : {}),
     ...(await photoDataUri(contactRow.photoPath).then((p) => (p ? { photo: p } : {}))),
   };
-  const narrator: "F" | "M" = row.input.narrator === "M" ? "M" : "F";
+}
+
+const narratorOf = (input: ClipInput): "F" | "M" => (input.narrator === "M" ? "M" : "F");
+
+/** the lines a clip speaks, in scene order */
+function spokenLines(row: VideoRow): { key: string; voice: string }[] {
+  if (isFhcInput(row.input)) return fhcScript(row.input.fhc, row.customer_name, narratorOf(row.input));
+  const facts = quoteVideoFacts(row.input);
+  if (!facts) throw new Error("quote not priced");
+  const short = row.input.length === "short";
+  return quoteVideoScript(facts, short ? "" : row.customer_name, narratorOf(row.input), short ? "short" : "full");
+}
+
+/** An FHC summary's parts: always the Motion Graphic world, six scenes (fhc-motion.tsx). */
+async function fhcParts(row: VideoRow & { input: FhcVideoInput }, agentName: string, secs: number[]): Promise<ClipParts> {
+  const facts = row.input.fhc;
+  const narrator = narratorOf(row.input);
+  const customer = row.customer_name;
+  const contact = await contactOf(row.agent_id, agentName);
+  const script = fhcScript(facts, customer, narrator);
+  if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: fhcWindows(s.key, facts), fps: MOTION_FPS })));
+  const named = nameFiles(plans, plans.map(() => undefined));
+  const sceneDraws = (s: number) => {
+    const p = plans[s];
+    const ctx = { facts, narrator, customer, contact, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
+    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(fhcFrame(p.key, ctx, fr.t ?? 0), { width: W, height: H }) }));
+  };
+  return { script, motion: true, plans, named, build: { driftHeight: MOTION_BG_H }, layers: { photo: false }, sceneDraws };
+}
+
+async function clipParts(row: VideoRow, agentName: string, secs: number[]): Promise<ClipParts> {
+  if (isFhcInput(row.input)) return fhcParts(row as VideoRow & { input: FhcVideoInput }, agentName, secs);
+  return quoteParts(row as VideoRow & { input: VideoInput }, agentName, secs);
+}
+
+async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: string, secs: number[]): Promise<ClipParts> {
+  const facts = quoteVideoFacts(row.input);
+  if (!facts) throw new Error("quote not priced");
+  const contact = await contactOf(row.agent_id, agentName);
+  const narrator = narratorOf(row.input);
   // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
   const short = row.input.length === "short";
   const customer = short ? "" : row.customer_name;
@@ -239,7 +295,11 @@ async function clipParts(row: VideoRow, agentName: string, secs: number[]) {
       ...(sc.layer?.kind === "table" ? [{ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }) }] : []),
     ];
   };
-  return { facts, script, motion, plans, named, panEnd, table, sceneDraws };
+  return {
+    script, motion, plans, named, sceneDraws,
+    build: motion ? { driftHeight: MOTION_BG_H } : { tableHeight: table.height, panEnd },
+    layers: { photo: layers.includes("photo") },
+  };
 }
 
 /** one file into the clip's folder; a dropped connection is tried twice more (hundreds go up per clip) */
@@ -272,11 +332,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
     if (error || !row) throw new Error("row not read");
     const gcpKey = await providerKey("gcp");
     if (!gcpKey) throw new Error("no gcp key");
-    const facts = quoteVideoFacts(row.input);
-    if (!facts) throw new Error("quote not priced");
-    const narrator: "F" | "M" = row.input.narrator === "M" ? "M" : "F";
-    const short = row.input.length === "short";
-    const spokenScript = quoteVideoScript(facts, short ? "" : row.customer_name, narrator, short ? "short" : "full");
+    const narrator = narratorOf(row.input);
+    const spokenScript = spokenLines(row);
 
     const speak = (s: { voice: string }) => speakLine(s.voice, VIDEO_TASK_VOICE, { narrator, voice: row.input.voice });
     // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
@@ -285,20 +342,20 @@ export async function produce(id: string, agentName: string): Promise<void> {
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
     lap(`voice done (${spokenScript.length} lines${row.input.voice ? ", ElevenLabs" : ""})`);
     const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-    const { motion, plans, named, panEnd, table } = await clipParts(row, agentName, secs);
+    const { motion, plans, named, build, layers } = await clipParts(row, agentName, secs);
     const total = clipLength(plans);
 
     // the files every scene shares, or that need no drawing
     const files = new Map<string, { body: Buffer | string; type: string }>();
     files.set(named.audio, { body: mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE), type: "audio/wav" });
-    const family = await readFile(join(process.cwd(), "public/card/family.jpg"));
+    const family = layers.photo ? await readFile(join(process.cwd(), "public/card/family.jpg")) : undefined;
     // the Motion Graphic style: one drifting background under every scene
     const background = motion ? await renderPng(motionBackground(), { width: W, height: MOTION_BG_H }) : undefined;
     plans.forEach((p, s) => {
       const sc = named.scenes[s];
       if (background) files.set(sc.base, { body: background, type: "image/png" });
       files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });
-      if (sc.layer?.kind === "photo") files.set(sc.layer.name, { body: family, type: "image/jpeg" });
+      if (sc.layer?.kind === "photo" && family) files.set(sc.layer.name, { body: family, type: "image/jpeg" });
     });
     const drawToken = randomBytes(32).toString("hex");
     const plan: DrawPlan = { tokenHash: hashToken(drawToken), secs };
@@ -328,7 +385,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
         signed.push(d.signedUrl);
       }
     }
-    const built = buildJob(plans, named, motion ? { driftHeight: MOTION_BG_H } : { tableHeight: table.height, panEnd });
+    const built = buildJob(plans, named, build);
     const job = { inputs: named.files.map((f, i) => ({ name: f.name, url: signed[i] })), command: built.command, outputs: built.outputs };
 
     const out = await bucket().createSignedUploadUrl(`${id}/quote.mp4`);

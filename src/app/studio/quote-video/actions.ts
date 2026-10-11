@@ -10,9 +10,12 @@ import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, type CostView, type VideoStatus } from "@/lib/quote-video/make";
+import { costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
+import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
+import { getCustomer, listCustomers } from "@/lib/fhc/customers";
+import { GAP_WORD } from "@/lib/fhc/gaps";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
 
@@ -44,6 +47,8 @@ export interface VideoItem {
   paid: string | null;
   /** a clip with a customer's name stays off Pages */
   named: boolean;
+  /** an FHC summary: one customer's money, never on a Page */
+  personal: boolean;
 }
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
@@ -90,6 +95,68 @@ function checkedQuote(v: VideoInput): VideoInput | string {
     return `ทุนประกัน ${min.toLocaleString("en-US")} – ${max.toLocaleString("en-US")} บาท ทีละ 50,000`;
   }
   return { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
+}
+
+/** an FHC summary is one customer's money: it never goes to a Page (owner, 2026-10-12) */
+const FHC_PRIVATE = "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ลงเพจไม่ได้";
+
+export interface FhcChoice {
+  id: string;
+  name: string;
+  /** "ชาย 35 · 12 ต.ค." */
+  line: string;
+  /** "ชีวิต ไม่พอ · โรคร้ายแรง ขาด" — what is still open */
+  open: string;
+}
+
+/** the agent's own FHC customers for the form's list; one more when the address named another the viewer may see (the owner) */
+export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
+  const viewer = await requireMember();
+  const own = await listCustomers(viewer, false);
+  const rows: { id: string; name: string; sex: "M" | "F"; age: number; createdAt: string; gaps: { label?: string; key: string; state: "missing" | "short" | "ok" }[] }[] = [...own];
+  if (also && !own.some((c) => c.id === also)) {
+    const extra = await getCustomer(viewer, also, can(viewer, "owner")).catch(() => null);
+    if (extra) rows.unshift(extra);
+  }
+  const AREA: Record<string, string> = { life: "ชีวิต", health: "สุขภาพ", ci: "โรคร้ายแรง", retire: "เกษียณ" };
+  return rows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    line: `${SEX[c.sex]} ${c.age} · ${new Date(c.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", timeZone: "Asia/Bangkok" })}`,
+    open: c.gaps.filter((g) => g.state !== "ok").map((g) => `${AREA[g.key] ?? g.key} ${GAP_WORD[g.state]}`).join(" · ") || "ครบทุกด้าน",
+  }));
+}
+
+/**
+ * วิดีโอสรุป FHC (owner, 2026-10-12): one saved customer's check as a clip. The figures are copied
+ * from the check as it was saved; the name goes in only when the agent leaves it ticked.
+ */
+export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string }): Promise<Made> {
+  const viewer = await requireMember();
+  if (typeof customerId !== "string") return { ok: false, error: "เลือกลูกค้า" };
+  const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
+  if (!c) return { ok: false, error: "ไม่พบลูกค้าคนนี้ในรายชื่อ FHC ของคุณ" };
+  const eleven = elevenVoice(v?.voice);
+  if (eleven && !can(viewer, "owner")) return { ok: false, error: "เสียง ElevenLabs ยังเปิดให้เฉพาะเจ้าของ" };
+  const contact = await getContact(viewer.agentId);
+  if (!viewer.name.trim() || !contact.phone) {
+    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
+  }
+  const input: FhcVideoInput = {
+    product: "FHC", customerId: c.id, age: c.age, sex: c.sex,
+    narrator: eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", ...(eleven ? { voice: eleven.id } : {}),
+    style: "motion", length: "full", fhc: fhcVideoFacts(c),
+  };
+  try {
+    const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "");
+    if ("refusal" in made) return { ok: false, error: made.refusal };
+    const { id } = made;
+    after(() => asWho(viewer.agentId, () => produce(id, viewer.name.trim())));
+    return { ok: true, id };
+  } catch (e) {
+    console.error("fhc video not started:", e instanceof Error ? e.message : "unknown error");
+    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
 }
 
 const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ในอายุนี้ ลองเปลี่ยนอายุ ทุน หรือแผน";
@@ -158,6 +225,7 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   const row = await videoOf(viewer.agentId, id).catch(() => null);
   if (!row || row.status !== "done") return { ok: false, error: "ไม่พบวิดีโอนี้" };
   if (row.customer_name) return { ok: false, error: NAMED };
+  if (isFhcInput(row.input)) return { ok: false, error: FHC_PRIVATE };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
 }
@@ -169,6 +237,7 @@ export async function addToCalendar(id: string, pageId: string, caption: string)
   const row = await videoOf(viewer.agentId, id).catch(() => null);
   if (!row || row.status !== "done") return { ok: false, error: "ไม่พบวิดีโอนี้" };
   if (row.customer_name) return { ok: false, error: NAMED };
+  if (isFhcInput(row.input)) return { ok: false, error: FHC_PRIVATE };
   try {
     await sendToCalendar(row, pageId, typeof caption === "string" ? caption : "");
     return { ok: true, pageId };
@@ -191,13 +260,29 @@ export async function myVideos(): Promise<VideoItem[]> {
   const viewer = await requireMember();
   const list = await listVideos(viewer.agentId);
   return Promise.all(list.map(async (v) => {
+    const done = v.status === "done" && v.video_path;
+    const links = async (file: string) => ({
+      watch: done ? await videoLink(v.video_path!, 3600) : null,
+      save: done ? await videoLink(v.video_path!, 3600, file) : null,
+      // a link that can go to a customer: a week
+      share: done ? await videoLink(v.video_path!, 7 * 24 * 3600) : null,
+    });
+    if (isFhcInput(v.input)) {
+      const input = v.input;
+      const file = `สรุปFHC-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
+      const who = `สรุป FHC · ${SEX[input.sex]} ${input.age}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""}`;
+      return {
+        id: v.id, named: true, personal: true, createdAt: v.created_at,
+        title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
+        status: v.status, error: v.error, fileName: file, ...(await links(file)), paid: paidLine(v),
+      };
+    }
     const input = v.input;
     const product = productOf(input);
     const what = input.product === "IHEALTHY"
       ? planWord(input.plan)
       : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${input.length === "short" ? " (สั้น 15 วิ)" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
-    const done = v.status === "done" && v.video_path;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,
@@ -206,16 +291,18 @@ export async function myVideos(): Promise<VideoItem[]> {
       title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
       status: v.status,
       error: v.error,
-      watch: done ? await videoLink(v.video_path!, 3600) : null,
-      save: done ? await videoLink(v.video_path!, 3600, file) : null,
+      personal: false,
       fileName: file,
-      // a link that can go to a customer: a week
-      share: done ? await videoLink(v.video_path!, 7 * 24 * 3600) : null,
-      paid: v.paid_by === "free"
-        ? (v.status === "failed" ? "คืนสิทธิ์ฟรีแล้ว" : "ใช้สิทธิ์ฟรี")
-        : v.paid_by === "wallet"
-          ? (v.status === "failed" ? "คืนเงินแล้ว" : v.charged_satang !== null ? `หักจากกระเป๋า ${formatBaht(Number(v.charged_satang))}` : "กันเงินไว้ระหว่างทำ")
-          : null,
+      ...(await links(file)),
+      paid: paidLine(v),
     };
   }));
+}
+
+function paidLine(v: VideoRow): string | null {
+  return v.paid_by === "free"
+    ? (v.status === "failed" ? "คืนสิทธิ์ฟรีแล้ว" : "ใช้สิทธิ์ฟรี")
+    : v.paid_by === "wallet"
+      ? (v.status === "failed" ? "คืนเงินแล้ว" : v.charged_satang !== null ? `หักจากกระเป๋า ${formatBaht(Number(v.charged_satang))}` : "กันเงินไว้ระหว่างทำ")
+      : null;
 }

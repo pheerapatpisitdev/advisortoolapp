@@ -9,7 +9,10 @@ import type { Product } from "./script";
 export const VIDEO_PAGE = "/studio/quote-video";
 
 export interface VideoStart {
-  product: Product;
+  /** "FHC": วิดีโอสรุป FHC of the customer named by `fhc` (owner, 2026-10-12) */
+  product: Product | "FHC";
+  /** the FHC customer's id */
+  fhc?: string;
   sex?: "M" | "F";
   age?: number;
   sumAssured?: number;
@@ -32,7 +35,15 @@ const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 /** what an address asked the form to start with; anything unreadable is left out */
+/** the customer page's button: the Studio form open on that customer's summary */
+export const fhcVideoHref = (customerId: string) => `${VIDEO_PAGE}?${new URLSearchParams({ product: "FHC", fhc: customerId }).toString()}`;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function videoStartFrom(params: Record<string, string | string[] | undefined>): VideoStart | undefined {
+  if (one(params.product) === "FHC") {
+    const id = one(params.fhc);
+    return { product: "FHC", ...(id && UUID.test(id) ? { fhc: id } : {}) };
+  }
   const product = one(params.product) as Product | undefined;
   if (!product || !PRODUCTS.includes(product)) return undefined;
   const sex = one(params.sex);

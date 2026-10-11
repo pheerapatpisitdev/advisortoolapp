@@ -8,7 +8,7 @@ import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { videoStartFrom } from "@/lib/quote-video/link";
 import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
-import { myCost, myVideos } from "./actions";
+import { fhcChoices, myCost, myVideos } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 
 export const dynamic = "force-dynamic";
@@ -43,13 +43,18 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     console.error("quote videos not read:", e);
     return null;
   });
+  const start = videoStartFrom(await searchParams);
+  const fhc = await fhcChoices(start?.fhc).catch((e) => {
+    console.error("fhc customers not read:", e);
+    return [];
+  });
   return (
     <div className="max-w-5xl">
       <h1 className="text-xl font-semibold">วิดีโอนำเสนอ</h1>
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปแนวตั้งพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={videoStartFrom(await searchParams)} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} />
     </div>
   );
 }

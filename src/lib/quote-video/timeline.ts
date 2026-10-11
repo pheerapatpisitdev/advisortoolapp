@@ -1,4 +1,8 @@
+import type { FhcSceneKey } from "./fhc";
 import type { SceneKey } from "./script";
+
+/** a quote clip's scenes, or an FHC summary's (fhc.ts) */
+export type AnySceneKey = SceneKey | FhcSceneKey;
 
 /**
  * When everything in the clip happens (owner, 2026-10-11: the free effects — transitions, count-up,
@@ -37,8 +41,8 @@ export interface OverlayState {
 /** The pan down the value table, scene "value": from `at`, for `dur`. */
 export interface Pan { at: number; dur: number }
 
-export interface ScenePlan {
-  key: SceneKey;
+export interface ScenePlan<K extends AnySceneKey = AnySceneKey> {
+  key: K;
   /** where the scene starts in the finished clip */
   start: number;
   /** how long the scene's own stream runs (it overlaps the next by XFADE) */
@@ -109,7 +113,7 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000;
  * Every scene's length and frames, from how long each voice line runs. A scene lasts its voice
  * plus LEAD and TAIL; the value scene at least long enough for its pan and the pen ring.
  */
-export function planScenes(lines: ({ key: SceneKey; voice: string; voiceSec: number } & SceneMotion)[]): ScenePlan[] {
+export function planScenes<K extends AnySceneKey>(lines: ({ key: K; voice: string; voiceSec: number } & SceneMotion)[]): ScenePlan<K>[] {
   let start = 0;
   return lines.map(({ key, voice, voiceSec, ...motion }, i) => {
     const words = wordTimes(voice, voiceSec);
@@ -165,7 +169,7 @@ export function planScenes(lines: ({ key: SceneKey; voice: string; voiceSec: num
       };
       const frames = [...ts].filter((x) => x >= 0 && x < dur).sort((a, b) => a - b)
         .map((t) => ({ t, state: { word: wordAt(t), count: 1, sweep: [], bars: [1, 1] as [number, number], ring: 0, callout: false, t } }));
-      const plan: ScenePlan = { key, start: r3(start), dur: r3(dur), voiceAt: r3(start + LEAD), frames };
+      const plan: ScenePlan<K> = { key, start: r3(start), dur: r3(dur), voiceAt: r3(start + LEAD), frames };
       start += dur - (i < lines.length - 1 ? XFADE : 0);
       return plan;
     }
@@ -178,7 +182,7 @@ export function planScenes(lines: ({ key: SceneKey; voice: string; voiceSec: num
       if (k !== last) frames.push({ t, state });
       last = k;
     }
-    const plan: ScenePlan = { key, start: r3(start), dur: r3(dur), voiceAt: r3(start + LEAD), frames, ...(pan ? { pan } : {}) };
+    const plan: ScenePlan<K> = { key, start: r3(start), dur: r3(dur), voiceAt: r3(start + LEAD), frames, ...(pan ? { pan } : {}) };
     start += dur - (i < lines.length - 1 ? XFADE : 0);
     return plan;
   });
