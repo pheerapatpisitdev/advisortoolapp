@@ -5,6 +5,7 @@ import { push, reply, showLoading, toBatches, toMessages, MAX_MESSAGES, type Lin
 import { showQuotedMenu } from "@/lib/line/menu-link";
 import { wantsQuotedMenu } from "@/lib/line/rich-menu";
 import { answerAny } from "@/lib/assistant/dispatch";
+import { countLessonHit, loadLessons } from "@/lib/chat/lessons-store";
 import { allow } from "@/lib/assistant/rate-limit";
 import { BudgetExceeded, TurnTimeout, withTurnDeadline } from "@/lib/ai/client";
 import { turnBudgetMs } from "@/lib/chat/batch";
@@ -60,13 +61,15 @@ function productOf(slots: unknown): string | null {
  * reasoning as Messenger's (src/lib/facebook/conversation.ts).
  */
 async function answered(history: ChatMessage[], slots: Parameters<typeof answerAny>[1], turnMs: number) {
+  // the answers the owner taught word for word (/admin/teach); only those taught for every Page reach LINE
+  const lessons = await loadLessons();
   return withTurnDeadline(turnMs, async () => {
     try {
-      return await answerAny(history, slots, "line");
+      return await answerAny(history, slots, "line", undefined, undefined, undefined, lessons);
     } catch (e) {
       if (e instanceof BudgetExceeded || e instanceof TurnTimeout) throw e;
       console.error("answer failed, trying once more:", e);
-      return await answerAny(history, slots, "line");
+      return await answerAny(history, slots, "line", undefined, undefined, undefined, lessons);
     }
   });
 }
@@ -170,6 +173,7 @@ export async function handle(event: LineEvent, destination = "", opts: { started
   await showLoading(userId).catch(() => {});
   try {
     const answer = await answered(history, session.slots, turnBudgetMs(opts.startedAt));
+    if (answer.taught) countLessonHit(answer.taught);
 
     // the words first and each card after the words it belongs to, as on Messenger
     const saidWith = (wordsOverTables: boolean): Said[] => answer.messages.flatMap((m) => [
