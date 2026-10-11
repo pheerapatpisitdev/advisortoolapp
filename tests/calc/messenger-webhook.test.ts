@@ -24,9 +24,13 @@ const quoted = async (): Promise<Answer> => ({
 const answer = vi.fn(quoted);
 /** how many of the next picture sends Messenger will refuse */
 let imageFailures = 0;
+/** the text send (counting from 0 for each test) that Messenger will refuse, once */
+let textFailsAt: number | null = null;
+let textTries = 0;
 
 vi.mock("@/lib/facebook/client", () => ({
   sendMessage: async (_psid: string, text: string, replies?: string[]) => {
+    if (textTries++ === textFailsAt) throw new Error("Messenger 500: An unexpected error has occurred");
     sent.text.push(text); sent.replies.push(replies);
   },
   sendImage: async (_psid: string, url: string, replies?: string[]) => {
@@ -86,7 +90,7 @@ beforeEach(() => {
   process.env.FB_APP_ID = "app-1";
   process.env.FB_APP_SECRET = "secret";
   sent.text = []; sent.images = []; sent.replies = []; saved.length = 0; kept.length = 0; turns.length = 0;
-  imageFailures = 0; files.length = 0; fileFails = false;
+  imageFailures = 0; files.length = 0; fileFails = false; textFailsAt = null; textTries = 0;
   followups.armed.length = 0; followups.dropped.length = 0;
   session.messages = []; session.slots = null; session.mutedUntil = null; session.handedOverAt = null;
   answer.mockReset();
@@ -108,6 +112,32 @@ describe("a customer's message", () => {
   it("is ignored when it carries no words at all", async () => {
     await handle({ sender: { id: "psid" }, message: { mid: "m0" } });
     expect(answer).not.toHaveBeenCalled();
+  });
+});
+
+/** A send that fails partway through an answer (review, 2026-10-11). */
+describe("an answer cut short by Messenger", () => {
+  const twoBubbles = async (): Promise<Answer> => ({
+    messages: [{ text: "ใบเสนอ ชาย 35 ทุน 1,000,000" }, { text: "อยากดูแบบจ่าย 9 ปีไหมครับ" }],
+    slots: { product: "lifeprotect", age: 35, sex: "M", sumAssured: 1_000_000 } as unknown as Answer["slots"],
+    priced: true,
+  });
+
+  it("keeps the turn and adds no apology once part of it is out", async () => {
+    answer.mockImplementation(twoBubbles);
+    textFailsAt = 1;
+    await handle({ sender: { id: "psid" }, message: { mid: "m1", text: "ชาย 35 ทุน 1 ล้าน" } });
+    expect(sent.text).toEqual(["ใบเสนอ ชาย 35 ทุน 1,000,000"]);
+    expect(turns).toHaveLength(1);
+    expect((turns[0] as { slots: { age: number } }).slots.age).toBe(35);
+  });
+
+  it("still apologises when nothing went out", async () => {
+    answer.mockImplementation(twoBubbles);
+    textFailsAt = 0;
+    await expect(handle({ sender: { id: "psid" }, message: { mid: "m1", text: "ชาย 35 ทุน 1 ล้าน" } })).rejects.toThrow();
+    expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏"]);
+    expect(turns).toHaveLength(0);
   });
 });
 

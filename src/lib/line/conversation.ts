@@ -75,7 +75,19 @@ async function sayAll(replyToken: string, userId: string, batches: LineMessage[]
   const [first, ...rest] = batches;
   if (!first) return;
   await say(replyToken, userId, first);
-  for (const batch of rest) await push(userId, batch);
+  /**
+   * The reply is out. A push after it that fails (the month's 300 spent) cuts the answer
+   * short and nothing more: the turn is still saved, and an apology now would follow words
+   * the customer already has — and could not be sent anyway (review, 2026-10-11).
+   */
+  for (const batch of rest) {
+    try {
+      await push(userId, batch);
+    } catch (e) {
+      console.error("[line] answer cut short, turn kept:", e);
+      return;
+    }
+  }
 }
 
 /** A reply, or — when its token lapsed while the model was thinking — a push. */
@@ -157,7 +169,10 @@ export async function handle(event: LineEvent, destination = "", opts: { started
     if (said.length > MAX_MESSAGES) said = saidWith(false);
     await sayAll(replyToken, userId, toBatches(said, answer.replies));
     // after a Life Protect price the menu offers the table and the file instead of the plans
-    if (wantsQuotedMenu({ priced: answer.priced, product: productOf(answer.slots) })) await showQuotedMenu(userId);
+    // a menu that will not switch is not worth an apology after a whole answer
+    if (wantsQuotedMenu({ priced: answer.priced, product: productOf(answer.slots) })) {
+      await showQuotedMenu(userId).catch((e) => console.error("[line] quoted menu not shown:", e));
+    }
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
 
     const spoken = answer.messages.map((m) => m.text).join("\n\n");

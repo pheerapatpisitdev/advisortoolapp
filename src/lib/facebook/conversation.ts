@@ -343,33 +343,52 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
       await record(conversationId, ledger, productOf(session.slots));
       return;
     }
-    for (const [i, said] of answer.messages.entries()) {
-      // a second bubble arrives the way a person's would: after the dots, and after a pause
-      // that scales with how much there was to type
-      if (i > 0) {
-        await showTyping(psid, pageId).catch(() => {});
-        await pause(Math.min(2500, 400 + said.text.length * 15));
-      }
-      // the buttons ride on whatever lands last, because anything sent after them clears them
-      const last = i === answer.messages.length - 1;
-      // the Page's greeting comes with its pictures ahead of it; one that will not send is
-      // skipped, because the words are the greeting and the pictures only introduce it
-      if (said.opening) {
-        for (const picture of welcome?.pictures ?? []) {
-          // an upload is a full URL already; a file of the site's own is a path on it
-          await sendImage(psid, picture.startsWith("/") ? siteUrl(picture) : picture, undefined, pageId)
-            .catch((e) => console.error("welcome picture failed, greeting without it:", e));
+    /**
+     * A send that fails once part of the answer is out (Meta's 5xx, the send's own timeout)
+     * ends the sending, not the turn: the session is still saved, so the age and sum given
+     * here are not asked for again, and no apology follows words the customer already has
+     * (review, 2026-10-11). Nothing out yet is the old failure, with its apology.
+     */
+    let spoke = false;
+    try {
+      for (const [i, said] of answer.messages.entries()) {
+        // a second bubble arrives the way a person's would: after the dots, and after a pause
+        // that scales with how much there was to type
+        if (i > 0) {
+          await showTyping(psid, pageId).catch(() => {});
+          await pause(Math.min(2500, 400 + said.text.length * 15));
+        }
+        // the buttons ride on whatever lands last, because anything sent after them clears them
+        const last = i === answer.messages.length - 1;
+        // the Page's greeting comes with its pictures ahead of it; one that will not send is
+        // skipped, because the words are the greeting and the pictures only introduce it
+        if (said.opening) {
+          for (const picture of welcome?.pictures ?? []) {
+            // an upload is a full URL already; a file of the site's own is a path on it
+            await sendImage(psid, picture.startsWith("/") ? siteUrl(picture) : picture, undefined, pageId)
+              .catch((e) => console.error("welcome picture failed, greeting without it:", e));
+          }
+        }
+        // a bubble with no words is a picture or a file on its own: a couple's second card, their
+        // second PDF, whose words were said once before the first
+        if (said.text) {
+          await sendMessage(psid, said.text, last && !said.card && !said.file ? answer.replies : undefined, { pageId });
+          spoke = true;
+        }
+        // the card follows its own words, so the customer reads the quote before the picture of
+        // it — and a couple priced together gets the pair in the order they were named
+        if (said.card) {
+          await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId, own.cardUnsent, said.card);
+          spoke = true;
+        }
+        if (said.file) {
+          await sendPdf(psid, said.file, last ? answer.replies : undefined, pageId, own);
+          spoke = true;
         }
       }
-      // a bubble with no words is a picture or a file on its own: a couple's second card, their
-      // second PDF, whose words were said once before the first
-      if (said.text) {
-        await sendMessage(psid, said.text, last && !said.card && !said.file ? answer.replies : undefined, { pageId });
-      }
-      // the card follows its own words, so the customer reads the quote before the picture of
-      // it — and a couple priced together gets the pair in the order they were named
-      if (said.card) await sendCard(psid, siteUrl(said.card), last ? answer.replies : undefined, pageId, own.cardUnsent, said.card);
-      if (said.file) await sendPdf(psid, said.file, last ? answer.replies : undefined, pageId, own);
+    } catch (e) {
+      if (!spoke) throw e;
+      console.error("[messenger] answer cut short, turn kept:", e);
     }
     await keepTranscript({ ...thread, product: productOf(answer.slots) }, [botTurn(answer.messages, answer.replies)]);
     const spoken = answer.messages.map((m) => m.text).join("\n\n");

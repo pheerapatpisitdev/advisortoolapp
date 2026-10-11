@@ -16,6 +16,8 @@ const linked: [string, string][] = [];
 let aliasId: string | null = "rm-quoted";
 let menuApiFails = false;
 let replyFails = false;
+let pushFails = false;
+let turnsSaved = 0;
 const session = {
   messages: [] as { role: "user" | "assistant"; content: string }[],
   slots: null as unknown,
@@ -40,7 +42,10 @@ vi.mock("@/lib/line/client", async () => {
       if (replyFails) throw new Error("LINE 400: Invalid reply token");
       replies.push(m);
     },
-    push: async (_to: string, m: LineMessage[]) => { pushes.push(m); },
+    push: async (_to: string, m: LineMessage[]) => {
+      if (pushFails) throw new Error("LINE 429: You have reached your monthly limit.");
+      pushes.push(m);
+    },
     showLoading: async () => {},
     richMenuIdOfAlias: async () => { if (menuApiFails) throw new Error("LINE 500"); return aliasId; },
     linkRichMenu: async (user: string, id: string) => { linked.push([user, id]); },
@@ -53,7 +58,7 @@ vi.mock("@/lib/chat/session", async () => {
     claimEvent: async () => claimed,
     loadSession: async () => session,
     saveSession: async () => {},
-    saveTurn: async () => {},
+    saveTurn: async () => { turnsSaved += 1; },
   };
 });
 /** the transcript is the same code on both channels; the Messenger test checks what it keeps */
@@ -82,7 +87,7 @@ const said = (text: string, extra: object = {}) => ({
 
 beforeEach(() => {
   process.env.LINE_CHANNEL_SECRET = "secret";
-  replies.length = 0; pushes.length = 0; linked.length = 0; replyFails = false; claimed = true;
+  replies.length = 0; pushes.length = 0; linked.length = 0; replyFails = false; pushFails = false; turnsSaved = 0; claimed = true;
   aliasId = "rm-quoted"; menuApiFails = false; forgetMenuIds();
   session.messages = []; session.slots = null; session.handedOverAt = null;
   answer.mockReset();
@@ -185,6 +190,16 @@ describe("a couple's quotations", () => {
     expect(sent.filter((m) => m.quickReply)).toHaveLength(1);
     expect(pushes).toHaveLength(1);
     expect(pushes[0]).toHaveLength(2);
+  });
+
+  it("keeps the turn and sends no apology when the push after the reply fails (review, 2026-10-11)", async () => {
+    answer.mockImplementation(couple);
+    pushFails = true;
+    await handle(said("ผญ 32 ผช 33 ทุน 1 ล้าน", { source: { type: "user", userId: "Ucouple4" }, webhookEventId: "ec4" }));
+    expect(replies).toHaveLength(1);
+    expect(replies[0]).toHaveLength(5);
+    expect(turnsSaved).toBe(1);
+    expect([...replies, ...pushes].flat().some((m) => m.type === "text" && m.text.includes("ขัดข้อง"))).toBe(false);
   });
 
   it("keeps a single customer's table words and sends no push", async () => {
