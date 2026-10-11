@@ -13,6 +13,8 @@ import {
   ageAlone, peopleIn, saysFormDone, saysUnwell, stallReply, stalls, thanksOnly, THANKS_REPLY, WANTS_IN, wantsToBuy, type Reply,
 } from "../common";
 import { writtenFor, type Channel } from "../channel";
+import { noteAfterAnswer } from "../unanswered";
+import { ADMIN_CHECKS, coverFor, forTheAdmin, pageAnswer } from "./faq";
 import { CHOOSE_HEALTH, CHOOSE_LEGACY } from "../choose";
 
 export const ISHIELD = "ISHIELD";
@@ -428,6 +430,23 @@ export function answerIShield(
   }
 
   /**
+   * A question, answered — not the quotation again (owner, 2026-10-11). Only a message that
+   * changes nothing the quotation is built from: "ชาย 40 มะเร็งคุ้มครองไหม" is a new person to
+   * price, and is priced. Fixed sentences only (./faq.ts); what they cannot answer, after a
+   * quotation, is the admin's, and is written down for /admin/crm.
+   */
+  if (changesNothing(previous, slots)) {
+    const cover = coverFor(asked, slots.sumAssured);
+    if (cover) return { messages: [{ text: said(cover) }], slots };
+    const page = pageAnswer(asked);
+    if (page) return { messages: [{ text: said(page) }], slots };
+    if (priced && forTheAdmin(asked)) {
+      noteAfterAnswer({ question: asked, route: "brain", product: "ishield" });
+      return { messages: [{ text: said(ADMIN_CHECKS) }], slots };
+    }
+  }
+
+  /**
    * The question comes before the leaflet.
    *
    * Someone who has just pressed a button will answer one thing, and that willingness was
@@ -490,6 +509,14 @@ export function answerIShield(
 }
 
 const perWord = (b: Budget) => (b.per === "month" ? "เดือน" : "ปี");
+
+/** Whether this message left everything a quotation is built from as it was. */
+function changesNothing(before: IShieldSlots | null, after: IShieldSlots): boolean {
+  const was = before ?? ({} as Partial<IShieldSlots>);
+  return was.age === after.age && was.sex === after.sex && was.variant === after.variant
+    && was.sumAssured === after.sumAssured
+    && was.budget?.baht === after.budget?.baht && was.budget?.per === after.budget?.per;
+}
 
 /**
  * The money does not reach the plan's smallest sum on this term. Said plainly, with the
