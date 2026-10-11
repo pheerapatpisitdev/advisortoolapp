@@ -80,7 +80,7 @@ describe("a turn's clock", () => {
 describe("what is still to come", () => {
   it("hands each event the same sender's later events in the batch", async () => {
     const seen: [string, string[]][] = [];
-    await eachBySender(["a1", "b1", "a2", "a3"], (e) => e[0], async (e, later) => { seen.push([e, later]); });
+    await eachBySender(["a1", "b1", "a2", "a3"], (e) => e[0], async (e, later) => { seen.push([e, later]); }, "test");
     expect(seen.filter(([e]) => e.startsWith("a"))).toEqual([["a1", ["a2", "a3"]], ["a2", ["a3"]], ["a3", []]]);
     expect(seen.find(([e]) => e === "b1")).toEqual(["b1", []]);
   });
