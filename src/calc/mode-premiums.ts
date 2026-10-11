@@ -23,6 +23,11 @@ export const MODES: PayMode[] = ["annual", "semi", "monthly"];
  * row once went out as "รายปี 0 บาท · ราย 6 เดือน 0 บาท · รายเดือน 3,000 บาท" — two
  * instalments nobody can buy printed as if they were free. Only the zero is read here: a
  * monthly instalment under the plan's floor is still a real figure, marked `belowMinimum`.
+ *
+ * Neither is a refused arrangement whose riders still add up (review 2026-10-11): PLB for a
+ * man of 60 is refused, its accident and daily-cash riders were not, and /other-plans showed
+ * "รายปี 1,500 · ราย 6 เดือน 780" under the refusal. Any error but the monthly floor is "cannot
+ * be priced".
  */
 export function modePremiumsFrom(
   quoteFor: (mode: PayMode) => QuoteResult | undefined,
@@ -30,6 +35,7 @@ export function modePremiumsFrom(
   const priced = MODES.map((mode) => {
     const result = quoteFor(mode);
     if (!result || !(result.totalModal > 0)) return undefined;
+    if (result.warnings.some((w) => w.level === "error" && w.code !== "MIN_MONTHLY")) return undefined;
     return { mode, total: result.totalModal, belowMinimum: result.warnings.some((w) => w.code === "MIN_MONTHLY") };
   });
   return priced.every((p) => p !== undefined) ? (priced as ModePremium[]) : undefined;

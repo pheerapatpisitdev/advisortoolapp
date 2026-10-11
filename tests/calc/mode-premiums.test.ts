@@ -74,3 +74,25 @@ describe("modePremiumsFrom", () => {
     expect(modePremiumsFrom((mode) => (mode === "annual" ? { ...r, totalModal: 0 } : r))).toBeUndefined();
   });
 });
+
+/** A refused base plan is not priced by its riders (review 2026-10-11, /other-plans). */
+describe("a base plan the engine refuses", () => {
+  const today = new Date("2026-10-11T05:00:00Z");
+  it("has no price when PLB is refused at 60, riders or not", () => {
+    const at60: QuoteInput = {
+      planCode: "PLB", variant: "PLB10", age: 60, sex: "M", mode: "annual", sumAssured: 1_000_000,
+      riders: [{ code: "AP", sumAssured: 500_000 }, { code: "MEB", plan: 1000 }],
+    };
+    expect(quote(at60, today).totalAnnual).toBeGreaterThan(0);
+    expect(quoteModePremiums(at60, today)).toBeUndefined();
+  });
+
+  it("has no price under the plan's smallest sum", () => {
+    expect(quoteModePremiums({ ...plb, variant: "PLB10", age: 30, sumAssured: 100_000 }, today)).toBeUndefined();
+  });
+
+  it("still prices a monthly instalment under the floor, marked", () => {
+    expect(quoteModePremiums(plb, TODAY)!.find((m) => m.mode === "monthly")!.belowMinimum).toBe(true);
+  });
+});
+
