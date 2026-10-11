@@ -23,8 +23,9 @@ interface Row {
 
 let held: { at: number; lessons: Lesson[] } | undefined;
 
-export async function loadLessons(): Promise<Lesson[]> {
-  if (held && Date.now() - held.at < FRESH_MS) return held.lessons;
+/** `fresh` reads the table now — the test chat, which must show a lesson the moment it is saved. */
+export async function loadLessons({ fresh = false } = {}): Promise<Lesson[]> {
+  if (!fresh && held && Date.now() - held.at < FRESH_MS) return held.lessons;
   try {
     const { data, error } = await supabaseAdmin()
       .from("ins_faq")
@@ -43,11 +44,6 @@ export async function loadLessons(): Promise<Lesson[]> {
     console.warn("อ่านคำตอบที่สอนไว้ไม่ได้:", e instanceof Error ? e.message : e);
     return held?.lessons ?? [];
   }
-}
-
-/** Forgets the held list, so the next message reads the table — after a save in /admin/teach. */
-export function forgetLessons(): void {
-  held = undefined;
 }
 
 /** One more customer answered by this lesson; counted on the side, never in the customer's way. */

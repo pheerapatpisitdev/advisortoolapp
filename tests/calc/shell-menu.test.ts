@@ -165,7 +165,8 @@ describe("what the menu shows to somebody who has not signed in", () => {
       // /admin/wallet (กระเป๋าเงินตัวแทน) joined on 2026-09-30 with the Studio wallet
       // /admin/members (สมาชิกทั่วไป) joined on 2026-10-01 with sign-up for people outside UnitOS
       // /admin/welcome (ข้อความต้อนรับ) joined on 2026-10-04: each Page's greeting
-      ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/members", "/admin/knowledge", "/admin/messenger", "/admin/welcome", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
+      // /admin/teach (ห้องสอนบอท) joined on 2026-10-11: the test chat and taught answers
+      ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/members", "/admin/knowledge", "/admin/teach", "/admin/messenger", "/admin/welcome", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
     );
   });
 
