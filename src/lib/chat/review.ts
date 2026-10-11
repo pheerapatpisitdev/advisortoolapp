@@ -21,6 +21,8 @@ const LOOKBACK_FIRST_MS = 86_400_000;
 /** what is read in one go, newest threads kept; roughly ฿1-2 of Gemini Flash at most */
 const MAX_CHARS = 40_000;
 const MAX_ROWS = 3000;
+/** what one select returns at most, whatever is asked for */
+const PAGE_ROWS = 1000;
 const MAX_ITEMS = 8;
 
 /** the cheap reader the content bake-off found best value for Thai, and two like it behind it */
@@ -151,12 +153,25 @@ export async function runChatReview(now = new Date()): Promise<ReviewResult> {
   const since = new Date(from).toISOString();
   const until = now.toISOString();
 
-  const { data, error } = await db.from("ins_transcripts")
-    .select("at, channel, user_hash, role, text, product")
-    .gte("at", since).lt("at", until)
-    .order("at", { ascending: true }).limit(MAX_ROWS);
-  if (error) return { ok: false, conversations: 0, items: 0, costThb: 0, error: error.message };
-  const rows = (data ?? []) as Row[];
+  /**
+   * Newest first, a page at a time up to the cap: a busy day past it loses its oldest lines,
+   * not today's — the review never comes back for either, since `until` moves on. One select
+   * stops at a thousand rows whatever `limit` says, so the 3,000 was always 1,000, and the
+   * oldest of them (review, 2026-10-11). Read back in the order they were said.
+   */
+  const rows: Row[] = [];
+  for (let from = 0; from < MAX_ROWS; from += PAGE_ROWS) {
+    const { data, error } = await db.from("ins_transcripts")
+      .select("at, channel, user_hash, role, text, product")
+      .gte("at", since).lt("at", until)
+      .order("at", { ascending: false }).order("id", { ascending: false })
+      .range(from, Math.min(from + PAGE_ROWS, MAX_ROWS) - 1);
+    if (error) return { ok: false, conversations: 0, items: 0, costThb: 0, error: error.message };
+    const got = (data ?? []) as Row[];
+    rows.push(...got);
+    if (got.length < PAGE_ROWS) break;
+  }
+  rows.reverse();
 
   const save = async (review: { conversations: number; summary: string; model: string | null; costThb: number }, items: ReviewItem[]) => {
     const ins = await db.from("ins_chat_reviews").insert({

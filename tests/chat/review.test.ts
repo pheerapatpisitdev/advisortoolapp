@@ -8,8 +8,12 @@ const reviews: Record<string, unknown>[] = [];
 const items: Record<string, unknown>[] = [];
 
 function query(table: string) {
+  let newestFirst = false;
+  let bounds: [number, number] | null = null;
   const q = {
-    select: () => q, eq: () => q, gte: () => q, lt: () => q, order: () => q, limit: () => q,
+    select: () => q, eq: () => q, gte: () => q, lt: () => q, limit: () => q,
+    order: (col: string, o?: { ascending?: boolean }) => { if (col === "at") newestFirst = o?.ascending === false; return q; },
+    range: (from: number, to: number) => { bounds = [from, to]; return q; },
     maybeSingle: async () => ({ data: table === "ins_chat_reviews" && lastUntil ? { until: lastUntil } : null, error: null }),
     insert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
       if (table === "ins_chat_reviews") {
@@ -20,11 +24,18 @@ function query(table: string) {
       return Promise.resolve({ error: null });
     },
     then: (resolve: (v: unknown) => void) => resolve({
-      data: table === "ins_transcripts" ? transcripts : table === "ins_faq" ? [{ question: "ลดหย่อนภาษีได้ไหม" }] : [],
+      data: table === "ins_transcripts" ? readTranscripts(newestFirst, bounds) : table === "ins_faq" ? [{ question: "ลดหย่อนภาษีได้ไหม" }] : [],
       error: null,
     }),
   };
   return q;
+}
+/** as the database answers: in the order asked for, a thousand rows at most */
+function readTranscripts(newestFirst: boolean, bounds: [number, number] | null): Row[] {
+  const ordered = [...transcripts].sort((a, b) => a.at.localeCompare(b.at));
+  if (newestFirst) ordered.reverse();
+  const [from, to] = bounds ?? [0, 999];
+  return ordered.slice(from, Math.min(to, from + 999) + 1);
 }
 vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => ({ from: query }) }));
 
@@ -112,6 +123,16 @@ describe("runChatReview", () => {
     expect(chat.mock.calls[0][0]).toMatchObject({ task: "chat-review", prefer: "gemini-3.7-flash", json: true });
     expect(reviews[0]).toMatchObject({ summary: "ลูกค้าถามเรื่องบัตรเครดิต", conversations: 1, cost_thb: 0.12 });
     expect(items[0]).toMatchObject({ review_id: 1, kind: "agent", answer: "ได้ครับ ตัดบัตรเครดิตได้" });
+  });
+
+  it("keeps a busy day's newest lines past a thousand, in the order they were said (review, 2026-10-11)", async () => {
+    transcripts = Array.from({ length: 3_200 }, (_, i) =>
+      row(`u${Math.floor(i / 2)}`, i % 2 ? "bot" : "customer", `ข้อความ ${i}`, new Date(Date.parse("2026-09-25T00:00:00Z") + i * 1000).toISOString()));
+    chat.mockResolvedValue({ text: JSON.stringify({ summary: "วันยุ่ง", items: [] }), model: "m", provider: "google", inputTokens: 1, outputTokens: 1, costThb: 0 });
+    await runChatReview(new Date("2026-09-26T01:00:00Z"));
+    const prompt = chat.mock.calls.at(-1)![0].messages[1].content as string;
+    expect(prompt).toContain("ข้อความ 3199");
+    expect(prompt).not.toContain("ข้อความ 100\n");
   });
 
   it("starts where the last review stopped", async () => {

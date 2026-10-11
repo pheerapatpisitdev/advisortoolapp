@@ -246,11 +246,15 @@ export function authorizeUrl(origin: string, state: string, purpose: LoginPurpos
   return `${DIALOG}?${params}`;
 }
 
+/** a Graph that hangs fails here instead of holding the login callback to the function's limit */
+const GRAPH_TIMEOUT_MS = 15_000;
+
 async function graph<T>(path: string, params: Record<string, string>, token?: string): Promise<T> {
   const url = `${GRAPH}${path}?${new URLSearchParams(params)}`;
   const res = await fetch(url, {
     headers: token ? { authorization: `Bearer ${token}` } : {},
     cache: "no-store",
+    signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
   });
   const body = (await res.json()) as T & { error?: { message?: string } };
   if (!res.ok || body.error) throw new Error(body.error?.message ?? `${path} ${res.status}`);
@@ -344,6 +348,7 @@ export async function subscribePage(page: FacebookPage): Promise<string[]> {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${page.accessToken}` },
     body: JSON.stringify({ subscribed_fields: SUBSCRIBED_FIELDS.join(",") }),
+    signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
   });
   const body = (await res.json()) as { success?: boolean; error?: { message?: string } };
   if (!res.ok || body.error) throw new Error(body.error?.message ?? `subscribe ${res.status}`);
@@ -354,6 +359,7 @@ export async function unsubscribePage(pageId: string, pageToken: string): Promis
   const res = await fetch(`${GRAPH}/${pageId}/subscribed_apps`, {
     method: "DELETE",
     headers: { authorization: `Bearer ${pageToken}` },
+    signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`unsubscribe ${res.status}: ${(await res.text()).slice(0, 120)}`);
 }

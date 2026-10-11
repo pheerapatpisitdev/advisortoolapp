@@ -45,7 +45,8 @@ async function* insights(actId: string, token: string, since: string, until: str
   });
   let url: string | undefined = `${GRAPH}/${actId}/insights?${params}`;
   while (url) {
-    const res = await fetchFn(url, { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
+    // a page of insights that hangs fails the account, not the whole nightly run
+    const res = await fetchFn(url, { headers: { authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(20_000) });
     const body = (await res.json()) as { data?: Insight[]; paging?: { next?: string }; error?: { code?: number; message?: string } };
     if (!res.ok || body.error) {
       if (isExpiredToken(body.error)) throw new Error(EXPIRED);
