@@ -181,8 +181,21 @@ async function fail(id: string, why: unknown): Promise<void> {
   await clearInputs(id).catch(() => undefined);
 }
 
+/**
+ * The page's own time limit is 300 s (page.tsx maxDuration, the Hobby plan's most): past this the
+ * making gives up on its own, so the row says failed and the hold goes back, rather than the
+ * platform killing it mid-way with the row left drawing (owner, 2026-10-12: a Premium clip did).
+ */
+const PRODUCE_BUDGET_MS = 270_000;
+
 /** The whole making, up to Cloud Run taking the job. Never throws: a failure is written to the row. */
 export async function produce(id: string, agentName: string): Promise<void> {
+  const t0 = Date.now();
+  // how long each step took, in the log, to see where a clip runs out of time
+  const lap = (what: string) => console.log(`quote video ${id}: ${what} at ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  const inTime = (what: string) => {
+    if (Date.now() - t0 > PRODUCE_BUDGET_MS) throw new Error(`out of time while ${what}`);
+  };
   try {
     const { data: row, error } = await rows().select("*").eq("id", id).single<VideoRow>();
     if (error || !row) throw new Error("row not read");
@@ -207,6 +220,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const spoken = row.input.voice ? await pool(script, 2, speak) : await Promise.all(script.map(speak));
     const pcms = spoken.map((s) => s.pcm);
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
+    lap(`voice done (${script.length} lines${row.input.voice ? ", ElevenLabs" : ""})`);
     const motion = row.input.style === "motion";
     const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
     const plans = planScenes(script.map((s, i) => ({
@@ -248,8 +262,15 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const upload = (name: string, body: Buffer | string, type: string) => bucket()
       .upload(`${id}/${name}`, body, { contentType: type, upsert: true })
       .then(({ error: e }) => { if (e) throw new Error(`upload ${name}: ${e.message}`); });
-    for (const d of draws) uploads.push(upload(d.name, await d.draw(), "image/png"));
+    lap(`drawing ${draws.length} pictures (${motion ? "motion" : "classic"})`);
+    for (const [i, d] of draws.entries()) {
+      uploads.push(upload(d.name, await d.draw(), "image/png"));
+      if (i % 50 === 49) { lap(`drew ${i + 1}/${draws.length}`); inTime(`drawing (${i + 1}/${draws.length})`); }
+    }
+    lap("drawn");
     await Promise.all(uploads);
+    lap("uploaded");
+    inTime("uploading");
     await pool([...files.entries()], 8, ([name, f]) => upload(name, f.body, f.type));
 
     const paths = named.files.map((f) => `${id}/${f.name}`);
@@ -280,6 +301,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     // recorded before the run is asked, so a callback that comes back at once finds it
     await setRow(id, { status: "rendering", duration_sec: total, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
     await cloudRunEngine(gcpKey).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
+    lap("handed to Cloud Run");
   } catch (e) {
     await fail(id, e);
   }
