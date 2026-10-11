@@ -221,6 +221,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
           { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#33638a" },
           // back in the menu on 2026-09-26 (owner): the daily บทเรียนจากแชท waits here for ใช้
           { href: "/admin/knowledge", label: "สอน AI", icon: "spark", hue: "#2e4a7a" },
+          // try the bot as a customer, and teach it an answer word for word (owner, 2026-10-11)
+          { href: "/admin/teach", label: "ห้องสอนบอท", icon: "chat", hue: "#3a4f86" },
         ],
       },
       {
@@ -369,6 +371,7 @@ const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet
   "/admin/wallet": "admin",
   "/admin/members": "admin",
   "/admin/knowledge": "admin",
+  "/admin/teach": "admin",
   "/admin/messenger": "connect",
   "/admin/welcome": "admin",
   // the Pages' settings, not where a post is made: the admins' since 2026-10-02 (owner)

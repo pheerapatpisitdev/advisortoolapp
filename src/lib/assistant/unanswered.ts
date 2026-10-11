@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -127,7 +128,19 @@ export async function recordUnanswered(entry: Unanswered): Promise<void> {
  * the console, which is the lesson from the version of this that reported success while every
  * insert was being rejected.
  */
+/**
+ * A turn played in /admin/teach's test chat. The owner trying the bot out is not a customer
+ * whose question went unanswered, and /admin/crm would fill with the owner's own tries.
+ */
+const rehearsal = new AsyncLocalStorage<true>();
+
+/** Runs a turn as a rehearsal: nothing it fails to answer is written down. */
+export function rehearse<T>(turn: () => Promise<T>): Promise<T> {
+  return rehearsal.run(true, turn);
+}
+
 export function noteAfterAnswer(entry: Unanswered): void {
+  if (rehearsal.getStore()) return;
   try {
     after(() => recordUnanswered(entry));
   } catch {
