@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { providerKey } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
 import { asWho } from "@/lib/ai/who";
-import { speakThai, TTS_RATE } from "@/lib/ai/tts";
+import { speakLine, TTS_RATE } from "@/lib/ai/tts";
 import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
 import { can } from "@/lib/auth/access";
@@ -47,7 +47,10 @@ export const FREE_VIDEOS = 2;
  * The wallet holds the price when the clip is asked for and takes it when the clip is done.
  */
 export const VIDEO_PRICE_SATANG: Record<VideoStyle, number> = { classic: 500, motion: 1000 };
+/** an ElevenLabs voice on top of the style's price (owner, 2026-10-11: +฿2) */
+export const ELEVEN_EXTRA_SATANG = 200;
 const styleOf = (v: VideoInput): VideoStyle => (v.style === "motion" ? "motion" : "classic");
+export const videoPrice = (v: VideoInput): number => VIDEO_PRICE_SATANG[styleOf(v)] + (v.voice ? ELEVEN_EXTRA_SATANG : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
 
@@ -117,7 +120,7 @@ export async function createVideo(viewer: Viewer, input: VideoInput, customer: s
     else {
       const s = await walletSettings().catch(() => null);
       if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${FREE_VIDEOS} ครั้งแล้ว` };
-      const held = VIDEO_PRICE_SATANG[styleOf(input)];
+      const held = videoPrice(input);
       const hold = await holdWallet(viewer.agentId, held, VIDEO_ROUND).catch((e) => {
         console.error("quote video hold failed:", e);
         return null;
@@ -199,7 +202,9 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const customer = short ? "" : row.customer_name;
     const script = quoteVideoScript(facts, customer, narrator, short ? "short" : "full");
 
-    const spoken = await Promise.all(script.map((s) => speakThai(s.voice, VIDEO_TASK_VOICE, { narrator })));
+    const speak = (s: { voice: string }) => speakLine(s.voice, VIDEO_TASK_VOICE, { narrator, voice: row.input.voice });
+    // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
+    const spoken = row.input.voice ? await pool(script, 2, speak) : await Promise.all(script.map(speak));
     const pcms = spoken.map((s) => s.pcm);
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
     const motion = row.input.style === "motion";

@@ -2,7 +2,9 @@
 import { after } from "next/server";
 import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
+import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
+import { elevenVoice } from "@/lib/voice/elevenlabs";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -64,7 +66,10 @@ function checked(v: VideoInput): VideoInput | string {
   const worked = budget ? resolveBudget(checkedAsked, budget) : checkedAsked;
   if (typeof worked === "string") return worked;
   const c = worked;
-  return { ...c, narrator: v.narrator === "M" ? "M" : "F", style: v.style === "motion" ? "motion" : "classic", length: v.length === "short" ? "short" : "full" };
+  // an ElevenLabs voice sets the endings itself: a man's voice says ครับ
+  const eleven = elevenVoice(v.voice);
+  const narrator = eleven ? eleven.sex : v.narrator === "M" ? "M" : "F";
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style: v.style === "motion" ? "motion" : "classic", length: v.length === "short" ? "short" : "full" };
 }
 
 function checkedQuote(v: VideoInput): VideoInput | string {
@@ -106,6 +111,8 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
   const c = checked(v);
   if (typeof c === "string") return { ok: false, error: c };
   if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
+  // ElevenLabs is the owner's alone for now (owner, 2026-10-11)
+  if (c.voice && !can(viewer, "owner")) return { ok: false, error: "เสียง ElevenLabs ยังเปิดให้เฉพาะเจ้าของ" };
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
@@ -189,7 +196,7 @@ export async function myVideos(): Promise<VideoItem[]> {
     const what = input.product === "IHEALTHY"
       ? planWord(input.plan)
       : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${input.length === "short" ? " (สั้น 15 วิ)" : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${input.length === "short" ? " (สั้น 15 วิ)" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const done = v.status === "done" && v.video_path;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {

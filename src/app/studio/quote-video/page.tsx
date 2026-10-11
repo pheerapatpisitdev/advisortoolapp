@@ -1,3 +1,4 @@
+import { providerKey } from "@/lib/ai/client";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
@@ -6,6 +7,7 @@ import { iShieldTable } from "@/lib/ishield-table";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { videoStartFrom } from "@/lib/quote-video/link";
+import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { myCost, myVideos } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 
@@ -34,6 +36,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     ISHIELD: { min: is.ageMin, max: is.ageMax },
     IHEALTHY: { min: ihu.ageMin, max: ihu.ageMax },
   };
+  // the ElevenLabs voices: the owner's alone for now, and only while a key is saved (owner, 2026-10-11)
+  const eleven = can(viewer, "owner") && (await providerKey(ELEVENLABS).catch(() => null)) ? ELEVEN_VOICES : [];
   const cost = await myCost();
   const initial = await myVideos().catch((e) => {
     console.error("quote videos not read:", e);
@@ -45,7 +49,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปแนวตั้งพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} start={videoStartFrom(await searchParams)} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={videoStartFrom(await searchParams)} />
     </div>
   );
 }

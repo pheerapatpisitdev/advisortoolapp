@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
+import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { SaveVideoButton } from "./SaveVideoButton";
 import { addToCalendar, calendarCaption, makeVideo, myCost, myVideos, previewQuote, removeVideo, type Preview, type VideoItem } from "./actions";
 
@@ -39,18 +40,26 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const NARRATOR_KEY = "quote-video-narrator";
+const VOICE_KEY = "quote-video-eleven";
+/** Gemini's two narrators and their samples (owner, 2026-10-11) */
+const GEMINI = [
+  { n: "F" as const, name: "ผู้หญิง", tag: "Kore", sample: "/voice-samples/gemini-F.mp3" },
+  { n: "M" as const, name: "ผู้ชาย", tag: "Orus", sample: "/voice-samples/gemini-M.mp3" },
+];
 const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10" } as const;
 /** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
 const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages }: {
+export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages, eleven }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
   /** the ages each product sells at, for the age dropdown */
   ages: Record<Product, { min: number; max: number }>;
   /** the Pages the owner may put a clip on; empty for everyone else, who see no button */
   pages: { id: string; name: string }[];
+  /** the ElevenLabs voices this viewer may pick; empty hides the AI-voice switch */
+  eleven: ElevenChoice[];
 }) {
   // a plan page's shortcut (owner, 2026-10-11) fills the form with the quote it was showing
   const startProduct = start?.product ?? "LIFEPROTECT";
@@ -66,6 +75,34 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     setNarrator(n);
     try { localStorage.setItem(NARRATOR_KEY, n); } catch { /* not remembered, still used */ }
   }
+  // the AI-voice switch (owner, 2026-10-11): an ElevenLabs voice's id, or "" for Gemini
+  const [voice, setVoice] = useState("");
+  const [elevenPick, setElevenPick] = useState(eleven[0]?.id ?? "");
+  useEffect(() => {
+    try {
+      const kept = localStorage.getItem(VOICE_KEY) ?? "";
+      if (eleven.some((v) => v.id === kept)) { setVoice(kept); setElevenPick(kept); }
+    } catch { /* storage closed: Gemini stands */ }
+  }, [eleven]);
+  function pickVoice(id: string) {
+    setVoice(id);
+    if (id) setElevenPick(id);
+    try { localStorage.setItem(VOICE_KEY, id); } catch { /* not remembered, still used */ }
+  }
+  // one sample plays at a time
+  const player = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
+  function playSample(src: string) {
+    const was = player.current;
+    was?.pause();
+    if (playing === src) { setPlaying(null); return; }
+    const a = new Audio(src);
+    a.onended = () => setPlaying(null);
+    player.current = a;
+    setPlaying(src);
+    a.play().catch(() => setPlaying(null));
+  }
+  useEffect(() => () => player.current?.pause(), []);
   const [plan, setPlan] = useState(start?.plan && ihuPlans.some((p) => p.code === start.plan) ? start.plan : "GOLD");
   const [compare, setCompare] = useState<string[]>([]);
   const [sex, setSex] = useState<"M" | "F">(start?.sex ?? "M");
@@ -112,8 +149,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, style, length, budget: budgetOf() }
-    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, style, length, budget: budgetOf() });
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, ...(voice ? { voice } : {}), style, length, budget: budgetOf() }
+    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, ...(voice ? { voice } : {}), style, length, budget: budgetOf() });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -210,11 +247,32 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
           </div>
           <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
         </div>
+        {eleven.length > 0 && (
+          <div>
+            <span className={label}>AI เสียงพากย์</span>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={chip(!voice)} onClick={() => pickVoice("")}>Gemini · มาตรฐาน</button>
+              <button type="button" className={chip(Boolean(voice))} onClick={() => pickVoice(elevenPick)}>ElevenLabs · เสียงเหมือนคน +2 บาท</button>
+            </div>
+            <p className="mt-1 text-xs text-[var(--ct-mute)]">{voice ? "เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs" : "เสียง AI ของ Google ราคาเดิม"}</p>
+          </div>
+        )}
         <div>
           <span className={label}>เสียงพากย์</span>
-          <div className="flex gap-2">
-            <button type="button" className={chip(narrator === "F")} onClick={() => pickNarrator("F")}>ผู้หญิง</button>
-            <button type="button" className={chip(narrator === "M")} onClick={() => pickNarrator("M")}>ผู้ชาย</button>
+          <div className="grid gap-2">
+            {voice
+              ? eleven.map((v) => (
+                <div key={v.id} className="flex flex-wrap items-center gap-2">
+                  <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· {v.tag}</span></button>
+                  <button type="button" className={small} onClick={() => playSample(v.sample)}>{playing === v.sample ? "■ หยุด" : "▶ ฟังตัวอย่าง"}</button>
+                </div>
+              ))
+              : GEMINI.map((g) => (
+                <div key={g.n} className="flex flex-wrap items-center gap-2">
+                  <button type="button" className={chip(narrator === g.n)} onClick={() => pickNarrator(g.n)}>{g.name} <span className="font-normal opacity-80">· {g.tag}</span></button>
+                  <button type="button" className={small} onClick={() => playSample(g.sample)}>{playing === g.sample ? "■ หยุด" : "▶ ฟังตัวอย่าง"}</button>
+                </div>
+              ))}
           </div>
         </div>
         <div>

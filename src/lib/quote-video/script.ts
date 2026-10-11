@@ -30,6 +30,8 @@ export type VideoInput = (
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
+  /** an ElevenLabs voice's id when the clip is read by one, Gemini's narrator otherwise (owner, 2026-10-11) */
+  voice?: string;
   /** แบบปกติ (photo, card, table) or Motion Graphic, the Premium one (owner, 2026-10-11) */
   style?: VideoStyle;
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */

@@ -1,5 +1,6 @@
 import { providerKey } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
+import { ELEVEN_MODEL, ELEVENLABS, speakEleven } from "@/lib/voice/elevenlabs";
 
 /**
  * Thai speech from Gemini (owner, 2026-10-11: the วิดีโอนำเสนอ voice). Uses the Google key the
@@ -69,4 +70,24 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
   const costThb = ((inTok * PRICE.in + outTok * PRICE.out) / 1e6) * THB_PER_USD;
   await recordUsage(TTS_MODEL, task, inTok, outTok, costThb);
   return { pcm: Buffer.from(data, "base64"), costThb };
+}
+
+/**
+ * One line read by the voice a clip asked for (owner, 2026-10-11: the AI-voice switch): an
+ * ElevenLabs voice when `voice` names one, Gemini's narrator otherwise. Same PCM either way;
+ * the cost goes on the ledger under `task` (ElevenLabs' credits as its output count).
+ */
+export async function speakLine(text: string, task: string, opts: { narrator?: Narrator; voice?: string; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
+  if (!opts.voice) return speakThai(text, task, opts);
+  const key = await providerKey(ELEVENLABS);
+  if (!key) throw new TtsError("ยังไม่ได้ตั้งค่าคีย์ ElevenLabs");
+  let spoken: Awaited<ReturnType<typeof speakEleven>>;
+  try {
+    spoken = await speakEleven(key, text, opts.voice, { fetch: opts.fetch });
+  } catch (e) {
+    console.error("tts eleven:", e instanceof Error ? e.message.slice(0, 200) : "unknown error");
+    throw new TtsError("ทำเสียงพากย์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+  }
+  await recordUsage(ELEVEN_MODEL, task, 0, spoken.credits, spoken.costThb);
+  return { pcm: spoken.pcm, costThb: spoken.costThb };
 }
