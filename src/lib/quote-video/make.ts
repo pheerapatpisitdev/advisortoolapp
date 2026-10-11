@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { providerKey } from "@/lib/ai/client";
@@ -187,15 +187,86 @@ async function fail(id: string, why: unknown): Promise<void> {
  * platform killing it mid-way with the row left drawing (owner, 2026-10-12: a Premium clip did).
  */
 const PRODUCE_BUDGET_MS = 270_000;
+/** the drawing route, one scene per call (owner, 2026-10-12: a Premium clip drew too long in one) */
+export const VIDEO_DRAW_PATH = "/api/quote-video/draw";
+/** what produce keeps for the scene drawers: the voice lengths, and the secret they must bring */
+const planPath = (id: string) => `${id}/plan.json`;
+interface DrawPlan { tokenHash: string; secs: number[] }
 
-/** The whole making, up to Cloud Run taking the job. Never throws: a failure is written to the row. */
+/**
+ * Everything about a clip that follows from its row and how long each line was spoken: the
+ * script, the scenes and their file names, what each picture shows. produce and every scene
+ * drawer work it out the same way, so only the voice lengths travel between them.
+ */
+async function clipParts(row: VideoRow, agentName: string, secs: number[]) {
+  const facts = quoteVideoFacts(row.input);
+  if (!facts) throw new Error("quote not priced");
+  const contactRow = await getContact(row.agent_id);
+  const contact: Contact = {
+    name: agentName, phone: contactRow.phone,
+    ...(contactRow.line ? { line: contactRow.line } : {}),
+    ...(await photoDataUri(contactRow.photoPath).then((p) => (p ? { photo: p } : {}))),
+  };
+  const narrator: "F" | "M" = row.input.narrator === "M" ? "M" : "F";
+  // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
+  const short = row.input.length === "short";
+  const customer = short ? "" : row.customer_name;
+  const script = quoteVideoScript(facts, customer, narrator, short ? "short" : "full");
+  if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
+  const motion = row.input.style === "motion";
+  const plans = planScenes(script.map((s, i) => ({
+    key: s.key, voice: s.voice, voiceSec: secs[i],
+    ...(motion ? { windows: motionWindows(s.key, facts, secs[i]), fps: MOTION_FPS } : sceneMotion(facts, s.key)),
+  })));
+  const layers = plans.map((p) => (motion ? undefined : p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
+  const named = nameFiles(plans, layers);
+  const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" ? valueTableChart(planInput(row.input), CHART_W) : undefined;
+  const panEnd = panEndFor(facts);
+  const table = tableImage(facts);
+  /** one scene's pictures: its base (classic), every overlay frame, and the value table */
+  const sceneDraws = (s: number): { name: string; draw: () => Promise<Buffer> }[] => {
+    const p = plans[s];
+    const sc = named.scenes[s];
+    const words = script[s].voice.split(" ").filter(Boolean);
+    if (motion) {
+      const mctx = { facts, narrator, customer, contact, words, voiceSec: secs[s] };
+      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(motionFrame(p.key, mctx, fr.t ?? 0), { width: W, height: H }) }));
+    }
+    const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, panEnd };
+    return [
+      { name: sc.base, draw: () => renderPng(sceneLayer(p.key, ctx, "base"), { width: W, height: H }) },
+      ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(sceneLayer(p.key, ctx, "over", fr.state), { width: W, height: H }) })),
+      ...(sc.layer?.kind === "table" ? [{ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }) }] : []),
+    ];
+  };
+  return { facts, script, motion, plans, named, panEnd, table, sceneDraws };
+}
+
+/** one file into the clip's folder; a dropped connection is tried twice more (hundreds go up per clip) */
+async function upload(id: string, name: string, body: Buffer | string, type: string): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const { error: e } = await bucket().upload(`${id}/${name}`, body, { contentType: type, upsert: true });
+      if (!e) return;
+      if (attempt >= 3) throw new Error(e.message);
+    } catch (e) {
+      if (attempt >= 3) throw new Error(`upload ${name}: ${e instanceof Error ? e.message : "failed"}`);
+    }
+    await new Promise((r) => setTimeout(r, 1000 * attempt));
+  }
+}
+/** uploads in flight beside the drawing, at most */
+const UPLOADS_IN_FLIGHT = 8;
+
+/**
+ * The whole making, up to Cloud Run taking the job. Never throws: a failure is written to the row.
+ * The voice and the files every scene shares are made here; each scene's pictures are drawn by a
+ * call of its own to the drawing route (drawScene), all at once, so no one call draws a whole clip.
+ */
 export async function produce(id: string, agentName: string): Promise<void> {
   const t0 = Date.now();
   // how long each step took, in the log, to see where a clip runs out of time
   const lap = (what: string) => console.log(`quote video ${id}: ${what} at ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  const inTime = (what: string) => {
-    if (Date.now() - t0 > PRODUCE_BUDGET_MS) throw new Error(`out of time while ${what}`);
-  };
   try {
     const { data: row, error } = await rows().select("*").eq("id", id).single<VideoRow>();
     if (error || !row) throw new Error("row not read");
@@ -203,75 +274,49 @@ export async function produce(id: string, agentName: string): Promise<void> {
     if (!gcpKey) throw new Error("no gcp key");
     const facts = quoteVideoFacts(row.input);
     if (!facts) throw new Error("quote not priced");
-    const contactRow = await getContact(row.agent_id);
-    const contact: Contact = {
-      name: agentName, phone: contactRow.phone,
-      ...(contactRow.line ? { line: contactRow.line } : {}),
-      ...(await photoDataUri(contactRow.photoPath).then((p) => (p ? { photo: p } : {}))),
-    };
     const narrator: "F" | "M" = row.input.narrator === "M" ? "M" : "F";
-    // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
     const short = row.input.length === "short";
-    const customer = short ? "" : row.customer_name;
-    const script = quoteVideoScript(facts, customer, narrator, short ? "short" : "full");
+    const spokenScript = quoteVideoScript(facts, short ? "" : row.customer_name, narrator, short ? "short" : "full");
 
     const speak = (s: { voice: string }) => speakLine(s.voice, VIDEO_TASK_VOICE, { narrator, voice: row.input.voice });
     // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
-    const spoken = row.input.voice ? await pool(script, 2, speak) : await Promise.all(script.map(speak));
+    const spoken = row.input.voice ? await pool(spokenScript, 2, speak) : await Promise.all(spokenScript.map(speak));
     const pcms = spoken.map((s) => s.pcm);
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
-    lap(`voice done (${script.length} lines${row.input.voice ? ", ElevenLabs" : ""})`);
-    const motion = row.input.style === "motion";
+    lap(`voice done (${spokenScript.length} lines${row.input.voice ? ", ElevenLabs" : ""})`);
     const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-    const plans = planScenes(script.map((s, i) => ({
-      key: s.key, voice: s.voice, voiceSec: secs[i],
-      ...(motion ? { windows: motionWindows(s.key, facts, secs[i]), fps: MOTION_FPS } : sceneMotion(facts, s.key)),
-    })));
-    const layers = plans.map((p) => (motion ? undefined : p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
-    const named = nameFiles(plans, layers);
-    const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" ? valueTableChart(planInput(row.input), CHART_W) : undefined;
-    const panEnd = panEndFor(facts);
-    const table = tableImage(facts);
+    const { motion, plans, named, panEnd, table } = await clipParts(row, agentName, secs);
     const total = clipLength(plans);
 
-    // every file the job reads, as bytes, by its input name
+    // the files every scene shares, or that need no drawing
     const files = new Map<string, { body: Buffer | string; type: string }>();
     files.set(named.audio, { body: mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE), type: "audio/wav" });
     const family = await readFile(join(process.cwd(), "public/card/family.jpg"));
-    const draws: { name: string; draw: () => Promise<Buffer> }[] = [];
-    // the Motion Graphic style: one drifting background under every scene, every frame drawn whole
+    // the Motion Graphic style: one drifting background under every scene
     const background = motion ? await renderPng(motionBackground(), { width: W, height: MOTION_BG_H }) : undefined;
-    if (motion) plans.forEach((p, s) => {
+    plans.forEach((p, s) => {
       const sc = named.scenes[s];
-      const mctx = { facts, narrator, customer, contact, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
-      files.set(sc.base, { body: background!, type: "image/png" });
-      p.frames.forEach((fr, k) => draws.push({ name: sc.frames[k], draw: () => renderPng(motionFrame(p.key, mctx, fr.t ?? 0), { width: W, height: H }) }));
-      files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });
-    });
-    else plans.forEach((p, s) => {
-      const sc = named.scenes[s];
-      const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words: script[s].voice.split(" ").filter(Boolean), panEnd };
-      draws.push({ name: sc.base, draw: () => renderPng(sceneLayer(p.key, ctx, "base"), { width: W, height: H }) });
-      p.frames.forEach((fr, k) => draws.push({ name: sc.frames[k], draw: () => renderPng(sceneLayer(p.key, ctx, "over", fr.state), { width: W, height: H }) }));
+      if (background) files.set(sc.base, { body: background, type: "image/png" });
       files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });
       if (sc.layer?.kind === "photo") files.set(sc.layer.name, { body: family, type: "image/jpeg" });
-      if (sc.layer?.kind === "table") draws.push({ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }) });
     });
-    // one at a time keeps the drawing's memory flat; uploads run beside it
-    const uploads: Promise<void>[] = [];
-    const upload = (name: string, body: Buffer | string, type: string) => bucket()
-      .upload(`${id}/${name}`, body, { contentType: type, upsert: true })
-      .then(({ error: e }) => { if (e) throw new Error(`upload ${name}: ${e.message}`); });
-    lap(`drawing ${draws.length} pictures (${motion ? "motion" : "classic"})`);
-    for (const [i, d] of draws.entries()) {
-      uploads.push(upload(d.name, await d.draw(), "image/png"));
-      if (i % 50 === 49) { lap(`drew ${i + 1}/${draws.length}`); inTime(`drawing (${i + 1}/${draws.length})`); }
-    }
-    lap("drawn");
-    await Promise.all(uploads);
-    lap("uploaded");
-    inTime("uploading");
-    await pool([...files.entries()], 8, ([name, f]) => upload(name, f.body, f.type));
+    const drawToken = randomBytes(32).toString("hex");
+    const plan: DrawPlan = { tokenHash: hashToken(drawToken), secs };
+    files.set("plan.json", { body: JSON.stringify(plan), type: "text/plain" });
+    await pool([...files.entries()], 8, ([name, f]) => upload(id, name, f.body, f.type));
+    lap(`shared files up; drawing ${plans.length} scenes (${motion ? "motion" : "classic"}, ${plans.reduce((n, p) => n + p.frames.length, 0)} frames)`);
+
+    // every scene at once, each in its own call and its own time
+    const left = Math.max(10_000, PRODUCE_BUDGET_MS - (Date.now() - t0));
+    const drawn = await Promise.all(plans.map((_, s) => fetch(siteUrl(VIDEO_DRAW_PATH), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, scene: s, token: drawToken, agentName }),
+      signal: AbortSignal.timeout(left),
+    }).then(async (r) => (r.ok ? null : `scene ${s}: ${r.status} ${(await r.text()).slice(0, 120)}`), (e) => `scene ${s}: ${e instanceof Error ? e.name : "no answer"}`)));
+    const missed = drawn.filter(Boolean);
+    if (missed.length) throw new Error(`scenes not drawn — ${missed.join("; ")}`);
+    lap("all scenes drawn");
 
     const paths = named.files.map((f) => `${id}/${f.name}`);
     const signed: string[] = [];
@@ -305,6 +350,38 @@ export async function produce(id: string, agentName: string): Promise<void> {
   } catch (e) {
     await fail(id, e);
   }
+}
+
+/**
+ * One scene's pictures drawn and filed (the drawing route, called by produce). Only for a clip
+ * still drawing, and only with the secret produce left beside it. Throws on any failure; produce
+ * then fails the clip.
+ */
+export async function drawScene(id: string, scene: number, token: string, agentName: string): Promise<"drawn" | "refused"> {
+  const t0 = Date.now();
+  const { data: row, error } = await rows().select("*").eq("id", id).maybeSingle<VideoRow>();
+  if (error) throw new Error(`row not read: ${error.message}`);
+  if (!row || row.status !== "drawing") return "refused";
+  const { data: blob } = await bucket().download(planPath(id));
+  if (!blob) return "refused";
+  const plan = JSON.parse(await blob.text()) as DrawPlan;
+  const a = Buffer.from(hashToken(token));
+  const b = Buffer.from(String(plan.tokenHash));
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return "refused";
+  const parts = await clipParts(row, agentName, plan.secs);
+  if (!Number.isInteger(scene) || scene < 0 || scene >= parts.plans.length) return "refused";
+  const draws = parts.sceneDraws(scene);
+  // one at a time keeps the drawing's memory flat; uploads run beside it
+  const inFlight = new Set<Promise<void>>();
+  for (const d of draws) {
+    const u = upload(id, d.name, await d.draw(), "image/png");
+    inFlight.add(u);
+    void u.then(() => inFlight.delete(u), () => undefined);
+    if (inFlight.size >= UPLOADS_IN_FLIGHT) await Promise.race(inFlight);
+  }
+  await Promise.all(inFlight);
+  console.log(`quote video ${id}: scene ${scene} (${parts.plans[scene].key}) ${draws.length} pictures in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  return "drawn";
 }
 
 /** one of an agent's own clips, not deleted; null when there is none */
