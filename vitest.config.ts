@@ -7,5 +7,10 @@ export default defineConfig({
   css: { postcss: {} },
   // .tsx drawn in a test (the posters) uses the automatic runtime, as Next compiles it
   esbuild: { jsx: "automatic" },
-  test: { include: ["tests/**/*.test.ts"], environment: "node" },
+  test: {
+    include: ["tests/**/*.test.ts"],
+    // throwaway probes a session leaves while hunting a bug: no assertions, not the suite
+    exclude: ["tests/scratch/**", "**/node_modules/**"],
+    environment: "node",
+  },
 });
