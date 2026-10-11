@@ -1,9 +1,11 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { fhcVideoHref } from "@/lib/quote-video/link";
 import { useState } from "react";
 import { moveFhcCustomer, removeFhcCustomer } from "../actions";
 
-/** LINE and copy for the saved check, deleting the customer, and — owner only — handing them to another agent. */
+/** A summary video of the saved check (owner, 2026-10-12), LINE and copy for it, deleting the customer, and — owner only — handing them to another agent. */
 
 const BTN = "rounded-sm border py-3 text-sm";
 
@@ -43,7 +45,8 @@ export function CustomerActions({ id, name, message, owner }: { id: string; name
   return (
     <section className="space-y-3 print:hidden">
       <div className="grid gap-2 sm:grid-cols-2">
-        <button type="button" onClick={line} className={`${BTN} lg-metal-face border-[var(--lg-gold)] font-medium`}>ส่งไป LINE</button>
+        <Link href={fhcVideoHref(id)} className={`${BTN} lg-metal-face border-[var(--lg-gold)] text-center font-medium sm:col-span-2`}>สร้างวิดีโอสรุป</Link>
+        <button type="button" onClick={line} className={`${BTN} border-[var(--lg-gold)] text-[var(--lg-gold)]`}>ส่งไป LINE</button>
         <button type="button" onClick={copy} className={`${BTN} border-[var(--lg-gold)] text-[var(--lg-gold)]`}>คัดลอกข้อความ</button>
       </div>
       {note && <p role="status" className="text-center text-sm text-[var(--lg-gold)]">{note}</p>}

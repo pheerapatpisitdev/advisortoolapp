@@ -15,6 +15,7 @@ export const NAMED = "คลิปที่มีชื่อลูกค้า 
 export async function sendToCalendar(row: VideoRow, pageId: string, caption: string): Promise<ContentItem> {
   if (row.status !== "done" || !row.video_path) throw new Error("not a finished video");
   if (row.customer_name) throw new Error(NAMED);
+  if (row.input.product === "FHC") throw new Error("an FHC summary is never put on a Page");
   const store = supabaseAdmin().storage;
   const { data: file, error } = await store.from(VIDEO_BUCKET).download(row.video_path);
   if (error || !file) throw new Error(`video not read: ${error?.message}`);
