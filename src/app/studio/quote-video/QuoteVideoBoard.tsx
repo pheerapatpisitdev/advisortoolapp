@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { CostView, VideoInput } from "@/lib/quote-video/make";
+import type { CostView } from "@/lib/quote-video/make";
+import type { Product, VideoInput } from "@/lib/quote-video/script";
 import { makeVideo, myCost, myVideos, previewQuote, type Preview, type VideoItem } from "./actions";
 
 const chip = (on: boolean) =>
@@ -24,7 +25,25 @@ function costLine(c: CostView | null): { text: string; blocked: boolean; topUp: 
     : { text: `ยอดในกระเป๋าไม่พอ (ต้องมีอย่างน้อย ${c.need} · ยอดคงเหลือ ${c.balance})`, blocked: true, topUp: true };
 }
 
-export function QuoteVideoBoard({ ageMin, ageMax, initial, cost: firstCost }: { ageMin: number; ageMax: number; initial: VideoItem[] | null; cost: CostView | null }) {
+const PRODUCTS: { code: Product; name: string; page: string }[] = [
+  { code: "LIFEPROTECT", name: "Life Protect", page: "/lifeprotect" },
+  { code: "ISHIELD", name: "iShield", page: "/ishield" },
+  { code: "IHEALTHY", name: "iHealthy Ultra", page: "/ihealthy-ultra" },
+];
+const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number }[]> = {
+  LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }],
+  ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
+};
+const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10" } as const;
+/** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
+const MAX_COMPARE = 3;
+
+export interface PlanChoice { code: string; name: string }
+
+export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost }: { ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null }) {
+  const [product, setProduct] = useState<Product>("LIFEPROTECT");
+  const [plan, setPlan] = useState("GOLD");
+  const [compare, setCompare] = useState<string[]>([]);
   const [sex, setSex] = useState<"M" | "F">("M");
   const [age, setAge] = useState("35");
   const [sum, setSum] = useState("1,000,000");
@@ -38,7 +57,18 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial, cost: firstCost }: { 
   const [cost, setCost] = useState<CostView | null>(firstCost);
   const line = costLine(cost);
 
-  const input = (): VideoInput => ({ variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")) });
+  const input = (): VideoInput => (product === "IHEALTHY"
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan) }
+    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")) });
+
+  function pickProduct(p: Product) {
+    setProduct(p);
+    if (p !== "IHEALTHY") setVariant(DEFAULT_TERM[p]);
+  }
+  function toggleCompare(code: string) {
+    if (code === plan) return;
+    setCompare((was) => (was.includes(code) ? was.filter((c) => c !== code) : was.length < MAX_COMPARE - 1 ? [...was, code] : was));
+  }
 
   // the figures under the form follow what is typed, a moment after typing stops
   const seq = useRef(0);
@@ -49,7 +79,7 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial, cost: firstCost }: { 
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sex, age, sum, variant]);
+  }, [product, sex, age, sum, variant, plan, compare]);
 
   // a clip still being made is asked about every few seconds
   const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
@@ -96,7 +126,9 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial, cost: firstCost }: { 
         <h2 className="font-semibold">ข้อมูลใบเสนอ</h2>
         <div>
           <span className={label}>แบบประกัน</span>
-          <p className="text-sm">Life Protect x 2</p>
+          <div className="flex flex-wrap gap-2">
+            {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(product === p.code)} onClick={() => pickProduct(p.code)}>{p.name}</button>)}
+          </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -109,32 +141,54 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial, cost: firstCost }: { 
           <div>
             <label htmlFor="qv-age" className={label}>อายุ</label>
             <input id="qv-age" inputMode="numeric" className={field} value={age} onChange={(e) => setAge(e.target.value.replace(/[^\d]/g, "").slice(0, 2))} />
-            <p className="mt-1 text-xs text-[var(--ct-mute)]">{ageMin}–{ageMax} ปี</p>
           </div>
-          <div>
-            <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
-            <input
-              id="qv-sum" inputMode="numeric" className={field} value={sum}
-              onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, "").slice(0, 8)); setSum(n ? n.toLocaleString("en-US") : ""); }}
-            />
-            <p className="mt-1 text-xs text-[var(--ct-mute)]">500,000 – 50,000,000 ทีละ 50,000</p>
-          </div>
-          <div>
-            <span className={label}>ชำระเบี้ย</span>
-            <div className="flex gap-2">
-              <button type="button" className={chip(variant === "WLF09H")} onClick={() => setVariant("WLF09H")}>9 ปี</button>
-              <button type="button" className={chip(variant === "WLF19H")} onClick={() => setVariant("WLF19H")}>19 ปี</button>
+          {product !== "IHEALTHY" && (
+            <>
+              <div>
+                <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
+                <input
+                  id="qv-sum" inputMode="numeric" className={field} value={sum}
+                  onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, "").slice(0, 8)); setSum(n ? n.toLocaleString("en-US") : ""); }}
+                />
+                <p className="mt-1 text-xs text-[var(--ct-mute)]">ทีละ 50,000</p>
+              </div>
+              <div>
+                <span className={label}>ชำระเบี้ย</span>
+                <div className="flex flex-wrap gap-2">
+                  {TERMS[product].map((x) => <button key={x.variant} type="button" className={chip(variant === x.variant)} onClick={() => setVariant(x.variant)}>{x.years} ปี</button>)}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        {product === "IHEALTHY" && (
+          <div className="space-y-3">
+            <div>
+              <span className={label}>แผนหลัก</span>
+              <div className="flex flex-wrap gap-2">
+                {ihuPlans.map((p) => <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => { setPlan(p.code); setCompare((c) => c.filter((x) => x !== p.code)); }}>{p.name}</button>)}
+              </div>
+            </div>
+            <div>
+              <span className={label}>แผนที่จะเทียบในวิดีโอ (ไม่บังคับ เลือกได้อีก {MAX_COMPARE - 1} แผน)</span>
+              <div className="flex flex-wrap gap-2">
+                {ihuPlans.filter((p) => p.code !== plan).map((p) => (
+                  <button key={p.code} type="button" className={chip(compare.includes(p.code))} onClick={() => toggleCompare(p.code)}
+                    disabled={!compare.includes(p.code) && compare.length >= MAX_COMPARE - 1}>{p.name}</button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-[var(--ct-mute)]">ไม่เลือก = ไม่มีช่วงเทียบแผน · พื้นที่ประเทศไทย ทุนชีวิต 50,000 ค่าชดเชยรายวัน 1,000 ตามค่าเริ่มต้นหน้า iHealthy Ultra</p>
             </div>
           </div>
-        </div>
+        )}
         <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
           {ok ? (
             <div className="space-y-0.5">
-              <div className="flex justify-between gap-2"><span>มรดก</span><b>{ok.legacy} บาท</b></div>
+              <div className="flex justify-between gap-2"><span>{ok.lead.label}</span><b>{ok.lead.amount} บาท</b></div>
               {ok.prices.map((p) => (
                 <div key={p.label} className="flex justify-between gap-2"><span>{p.label}</span><b>{p.amount} บาท</b></div>
               ))}
-              <p className="text-xs text-[var(--ct-mute)]">{ok.perDay} · ตัวเลขชุดเดียวกับหน้า /lifeprotect</p>
+              <p className="text-xs text-[var(--ct-mute)]">{ok.mark} · ตัวเลขชุดเดียวกับหน้า {PRODUCTS.find((p) => p.code === product)?.page}</p>
             </div>
           ) : (
             <p className="text-[var(--ct-mute)]">{preview && "error" in preview ? preview.error : "กำลังคิดราคา…"}</p>

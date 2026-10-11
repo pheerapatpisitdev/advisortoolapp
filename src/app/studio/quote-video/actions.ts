@@ -2,20 +2,24 @@
 import { after } from "next/server";
 import { asWho } from "@/lib/ai/who";
 import { requireMember } from "@/lib/auth/viewer";
-import { lifeProtectTable } from "@/lib/lifeprotect-table";
+import { iHealthyTable } from "@/lib/ihealthy-table";
+import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { costView, createVideo, listVideos, planInput, produce, videoLink, type CostView, type VideoInput, type VideoStatus } from "@/lib/quote-video/make";
+import { costView, createVideo, listVideos, produce, videoLink, type CostView, type VideoStatus } from "@/lib/quote-video/make";
 import { formatBaht } from "@/lib/wallet/money";
-import { cleanCustomerName, quoteVideoFacts } from "@/lib/quote-video/script";
+import { cleanCustomerName, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
 
-const VARIANTS = ["WLF09H", "WLF19H"] as const;
-const SUM_MIN = 500_000;
-const SUM_MAX = 50_000_000;
+/** the paying terms each product's clip offers, as its page names them */
+const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number }[]> = {
+  LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }],
+  ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
+};
 const SUM_STEP = 50_000;
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra" };
 
-export interface Preview { legacy: string; perDay: string; prices: { label: string; amount: string; main: boolean }[] }
+export interface Preview { lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean } [] }
 export interface VideoItem {
   id: string;
   createdAt: string;
@@ -30,31 +34,51 @@ export interface VideoItem {
 }
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
-function checked(v: VideoInput): VideoInput | string {
-  const t = lifeProtectTable();
-  if (!VARIANTS.includes(v.variant as (typeof VARIANTS)[number])) return "เลือกระยะชำระ 9 หรือ 19 ปี";
-  if (v.sex !== "M" && v.sex !== "F") return "เลือกเพศ";
-  if (!Number.isInteger(v.age) || v.age < t.ageMin || v.age > t.ageMax) return `อายุต้องอยู่ระหว่าง ${t.ageMin}–${t.ageMax} ปี`;
-  if (!Number.isInteger(v.sumAssured) || v.sumAssured < SUM_MIN || v.sumAssured > SUM_MAX || v.sumAssured % SUM_STEP) {
-    return "ทุนประกัน 500,000 – 50,000,000 บาท ทีละ 50,000";
+function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
+  if (product === "ISHIELD") {
+    const t = iShieldTable();
+    return { min: t.saMin, max: t.saMax };
   }
-  return { variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
+  return { min: 500_000, max: 50_000_000 };
 }
+
+/** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
+function checked(v: VideoInput): VideoInput | string {
+  if (v.sex !== "M" && v.sex !== "F") return "เลือกเพศ";
+  if (!Number.isInteger(v.age) || v.age < 0 || v.age > 99) return "ใส่อายุให้ถูกต้อง";
+  if (v.product === "IHEALTHY") {
+    const codes = new Set(iHealthyTable().plans.map((p) => p.code));
+    if (!codes.has(v.plan)) return "เลือกแผน";
+    const compare = [...new Set((Array.isArray(v.compare) ? v.compare : []).filter((c) => codes.has(c) && c !== v.plan))].slice(0, 2);
+    return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: v.plan, compare };
+  }
+  const product = productOf(v);
+  if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";
+  const term = TERMS[product].find((x) => x.variant === v.variant);
+  if (!term) return "เลือกระยะชำระเบี้ย";
+  const { min, max } = sumLimits(product);
+  if (!Number.isInteger(v.sumAssured) || v.sumAssured < min || v.sumAssured > max || v.sumAssured % SUM_STEP) {
+    return `ทุนประกัน ${min.toLocaleString("en-US")} – ${max.toLocaleString("en-US")} บาท ทีละ 50,000`;
+  }
+  return { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
+}
+
+const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ในอายุนี้ ลองเปลี่ยนอายุ ทุน หรือแผน";
 
 export async function previewQuote(v: VideoInput): Promise<Preview | { error: string }> {
   await requireMember();
   const c = checked(v);
   if (typeof c === "string") return { error: c };
-  const f = quoteVideoFacts(planInput(c));
-  if (!f) return { error: "แผนนี้คิดราคาไม่ได้ ลองเปลี่ยนอายุหรือทุน" };
-  return { legacy: f.legacy, perDay: f.perDay, prices: f.prices };
+  const f = quoteVideoFacts(c);
+  if (!f) return { error: NOT_PRICED };
+  return { lead: { label: f.lead.label, amount: f.lead.amount }, mark: f.leadMark, prices: f.prices };
 }
 
 export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
   const viewer = await requireMember();
   const c = checked(v);
   if (typeof c === "string") return { ok: false, error: c };
-  if (!quoteVideoFacts(planInput(c))) return { ok: false, error: "แผนนี้คิดราคาไม่ได้ ลองเปลี่ยนอายุหรือทุน" };
+  if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
@@ -73,6 +97,7 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
 }
 
 const SEX = { M: "ชาย", F: "หญิง" } as const;
+const planWord = (code: string) => code.charAt(0) + code.slice(1).toLowerCase();
 const sumWords = (n: number) => (n % 1_000_000 === 0 ? `${n / 1_000_000} ล้าน` : n.toLocaleString("en-US"));
 
 /** how the next clip would be paid for */
@@ -88,10 +113,14 @@ export async function myVideos(): Promise<VideoItem[]> {
   const viewer = await requireMember();
   const list = await listVideos(viewer.agentId);
   return Promise.all(list.map(async (v) => {
-    const years = v.input.variant === "WLF09H" ? 9 : 19;
-    const who = `${SEX[v.input.sex]} ${v.input.age} · ${sumWords(v.input.sumAssured)} · ${years} ปี`;
+    const input = v.input;
+    const product = productOf(input);
+    const what = input.product === "IHEALTHY"
+      ? planWord(input.plan)
+      : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`;
+    const who = `${NAMES[product]} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const done = v.status === "done" && v.video_path;
-    const file = `LifeProtect-${v.customer_name || `${SEX[v.input.sex]}${v.input.age}`}.mp4`;
+    const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,
       createdAt: v.created_at,

@@ -49,19 +49,31 @@ export interface ScenePlan {
 }
 
 const COUNT: Anim = { at: 0.3, dur: 1.4, steps: 24 };
-const SWEEPS: Record<SceneKey, Anim[]> = {
-  legacy: [{ at: 0.9, dur: 0.7, steps: 8 }],
-  price: [{ at: 0.8, dur: 0.7, steps: 8 }, { at: 1.1, dur: 0.7, steps: 8 }],
-  cover: [{ at: 0.8, dur: 0.7, steps: 8 }],
-  value: [],
-  contact: [],
-};
 const BARS: [Anim, Anim] = [{ at: 0.15, dur: 0.9, steps: 10 }, { at: 0.55, dur: 0.9, steps: 10 }];
 const RING_STEPS = 12;
 const RING_DUR = 1.0;
 
-/** which scenes count a figure up */
-export const COUNTS: Record<SceneKey, boolean> = { legacy: true, price: true, cover: false, value: false, contact: false };
+/** How a scene moves, besides its subtitle (script.ts `sceneMotion` says it per product). */
+export interface SceneMotion {
+  /** a figure counted up from nought */
+  count?: boolean;
+  /** highlighter strokes: a few at the start, or `spread` through the voice, one per row read */
+  sweeps?: number;
+  spread?: boolean;
+  /** Life Protect's two death-benefit bars */
+  bars?: boolean;
+  /** the value table's pan, the callout and the pen ring round the break-even */
+  pan?: boolean;
+  /** the pen ring round the main plan of a comparison */
+  ring?: boolean;
+}
+
+function sweepAnims(m: SceneMotion, voiceSec: number): Anim[] {
+  const n = m.sweeps ?? 0;
+  if (!m.spread) return Array.from({ length: n }, (_, i) => ({ at: 0.8 + i * 0.3, dur: 0.7, steps: 8 }));
+  // one row lit as the voice reaches it, more or less: spaced over the first 85% of the line
+  return Array.from({ length: n }, (_, i) => ({ at: LEAD + (i * voiceSec * 0.85) / n, dur: 0.6, steps: 8 }));
+}
 
 /** progress of an animation at time t, stepped: 0 before, 1 after, k/steps between */
 function stepped(a: Anim, t: number): number {
@@ -92,27 +104,28 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000;
  * Every scene's length and frames, from how long each voice line runs. A scene lasts its voice
  * plus LEAD and TAIL; the value scene at least long enough for its pan and the pen ring.
  */
-export function planScenes(lines: { key: SceneKey; voice: string; voiceSec: number }[]): ScenePlan[] {
+export function planScenes(lines: ({ key: SceneKey; voice: string; voiceSec: number } & SceneMotion)[]): ScenePlan[] {
   let start = 0;
-  return lines.map(({ key, voice, voiceSec }, i) => {
+  return lines.map(({ key, voice, voiceSec, ...motion }, i) => {
     const words = wordTimes(voice, voiceSec);
     let dur = LEAD + voiceSec + TAIL;
     let pan: Pan | undefined;
     let ring: Anim | undefined;
     let calloutAt: number | undefined;
-    if (key === "value") {
+    if (motion.pan) {
       pan = { at: 1.2, dur: Math.max(4, Math.min(8, voiceSec * 0.5)) };
       calloutAt = pan.at + pan.dur + 0.2;
       ring = { at: calloutAt + 0.2, dur: RING_DUR, steps: RING_STEPS };
       dur = Math.max(dur, ring.at + ring.dur + 1.5);
     }
-    const sweeps = SWEEPS[key];
+    if (motion.ring && !motion.pan) ring = { at: 0.9, dur: RING_DUR, steps: RING_STEPS };
+    const sweeps = sweepAnims(motion, voiceSec);
     const times = new Set<number>([0]);
     for (const w of words) times.add(r3(w.from));
     times.add(r3(words.length ? words[words.length - 1].to : LEAD));
-    if (COUNTS[key]) for (const t of stepTimes(COUNT)) times.add(r3(t));
+    if (motion.count) for (const t of stepTimes(COUNT)) times.add(r3(t));
     for (const s of sweeps) for (const t of stepTimes(s)) times.add(r3(t));
-    if (key === "cover") for (const b of BARS) for (const t of stepTimes(b)) times.add(r3(t));
+    if (motion.bars) for (const b of BARS) for (const t of stepTimes(b)) times.add(r3(t));
     if (ring) for (const t of stepTimes(ring)) times.add(r3(t));
     if (calloutAt !== undefined) times.add(r3(calloutAt));
 
@@ -122,9 +135,9 @@ export function planScenes(lines: { key: SceneKey; voice: string; voiceSec: numb
       if (words.length && t >= words[words.length - 1].to - 1e-6) word = words.length;
       return {
         word,
-        count: COUNTS[key] ? stepped(COUNT, t) : 1,
+        count: motion.count ? stepped(COUNT, t) : 1,
         sweep: sweeps.map((s) => stepped(s, t)),
-        bars: key === "cover" ? [stepped(BARS[0], t), stepped(BARS[1], t)] : [1, 1],
+        bars: motion.bars ? [stepped(BARS[0], t), stepped(BARS[1], t)] : [1, 1],
         ring: ring ? stepped(ring, t) : 0,
         callout: calloutAt !== undefined && t >= calloutAt - 1e-6,
       };

@@ -12,7 +12,7 @@ import { clipLength, FPS, H, W, XFADE, type ScenePlan } from "./timeline";
  * is one WAV already laid out on the clip's timeline (mixNarration).
  */
 
-export const TRANSITIONS: Record<string, string> = { legacy: "fade", price: "slideleft", cover: "zoomin", value: "slideleft", contact: "fade" };
+export const TRANSITIONS: Record<string, string> = { lead: "fade", price: "slideleft", cover: "zoomin", value: "slideleft", compare: "slideleft", contact: "fade" };
 const f3 = (n: number) => n.toFixed(3);
 
 /** A file the job reads, before it has a link: its input name and what it is. */

@@ -62,11 +62,11 @@ function Swept({ p, children, size }: { p: number; children: ReactNode; size: nu
 function Header({ f, layer }: { f: QuoteVideoFacts; layer: Layer }) {
   return (
     <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 80, justifyContent: "space-between", alignItems: "flex-start" }}>
-      <div style={box({ flexDirection: "column" })}>
+      <div style={box({ flexDirection: "column", flexShrink: 1, minWidth: 0, marginRight: 20 })}>
         <div style={box({ fontSize: 40, fontWeight: 600, color: P.accent })}>{f.planLine}</div>
-        <div style={box({ fontSize: 36, color: P.mute })}>{f.insuredLine}</div>
+        <div style={box({ fontSize: f.insuredLine.length > 30 ? 30 : 36, color: P.mute })}>{f.insuredLine}</div>
       </div>
-      <div style={box({ alignItems: "center" })}>
+      <div style={box({ alignItems: "center", flexShrink: 0 })}>
         {insuredFace(f.sex, 76)}
         <div style={box({ fontSize: 52, fontWeight: 600, color: P.figure, marginLeft: 14 })}>{f.insuredWho}</div>
       </div>
@@ -97,7 +97,7 @@ function Footer({ layer }: { layer: Layer }) {
 const money = (n: number) => n.toLocaleString("en-US");
 const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
-function Legacy({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   return (
     <>
@@ -106,16 +106,16 @@ function Legacy({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState
           จัดทำสำหรับ <span style={{ fontWeight: 600, color: P.figure, marginLeft: 12 }}>คุณ{c.customer}</span>
         </On>
       )}
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 40, fontSize: 46, color: P.mute }}>มรดก</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 40, fontSize: 46, color: P.mute }}>{f.lead.label}</On>
       <div style={abs({ left: SIDE, top: PHOTO.y + PHOTO.h + 100, alignItems: "flex-end" })}>
-        <On layer={layer} own="over" style={{ fontSize: 170, fontWeight: 600, color: P.figure, lineHeight: 1 }}>{money(countAt(f.legacyBaht, s.count))}</On>
+        <On layer={layer} own="over" style={{ fontSize: f.lead.amount.length > 9 ? 140 : 170, fontWeight: 600, color: P.figure, lineHeight: 1 }}>{money(countAt(f.lead.baht, s.count))}</On>
         <On layer={layer} own="base" style={{ fontSize: 56, color: P.mute, marginLeft: 24, marginBottom: 14 }}>บาท</On>
       </div>
-      {f.legacyNote && (
-        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 300, fontSize: 40, color: P.mute }}>{f.legacyNote}</On>
+      {f.lead.note && (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 300, fontSize: 40, color: P.mute }}>{f.lead.note}</On>
       )}
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 370 }}>
-        <Swept p={s.sweep[0] ?? 1} size={52}>{f.perDay}</Swept>
+        <Swept p={s.sweep[0] ?? 1} size={52}>{f.leadMark}</Swept>
       </On>
     </>
   );
@@ -125,9 +125,9 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
   const f = c.facts;
   return (
     <>
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>เบี้ยประกันที่ต้องชำระ</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.priceTitle}</On>
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 340 }}>
-        <Swept p={s.sweep[0] ?? 1} size={78}>{f.perDay}</Swept>
+        <Swept p={s.sweep[0] ?? 1} size={f.leadMark.length > 18 ? 62 : 78}>{f.leadMark}</Swept>
       </On>
       <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 520, flexDirection: "column", background: layer === "base" ? P.box : "transparent", borderRadius: 36, padding: "40px 50px" })}>
         {f.prices.map((r) => (
@@ -141,19 +141,54 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
           </div>
         ))}
       </div>
-      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1080, flexWrap: "wrap" }}>
-        <Swept p={s.sweep[1] ?? 1} size={46}>{`จ่ายเบี้ยแค่ ${f.payYears} ปี`}</Swept>
-        <div style={box({ width: 40 })} />
-        <Swept p={s.sweep[1] ?? 1} size={46}>เบี้ยคงที่ตลอด</Swept>
-      </On>
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 1220, fontSize: 52, color: P.pen, transform: "rotate(-3deg)" }}>
-        {`จ่ายครบอายุ ${f.lastPayAge} แล้วหยุดส่ง`}
-      </On>
+      {f.pills.length > 0 && (
+        <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1080, flexWrap: "wrap" }}>
+          {f.pills.map((pill, i) => (
+            <div key={pill} style={box({ marginRight: i < f.pills.length - 1 ? 40 : 0 })}><Swept p={s.sweep[1] ?? 1} size={46}>{pill}</Swept></div>
+          ))}
+        </On>
+      )}
+      {f.penNote && (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 1220, fontSize: 52, color: P.pen, transform: "rotate(-3deg)" }}>
+          {f.penNote}
+        </On>
+      )}
+      {f.priceNotes.length > 0 && (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? 1330 : 1080, flexDirection: "column", fontSize: 34, color: P.mute }}>
+          {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 10 })}>{n}</div>)}
+        </On>
+      )}
+    </>
+  );
+}
+
+/** iShield's lump sums and iHealthy's cover, one row each, lit as the voice reads them */
+function RowsCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const f = c.facts;
+  const tight = f.cover.length > 4;
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.coverTitle}</On>
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 360, flexDirection: "column" })}>
+        {f.cover.map((r, i) => (
+          <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginBottom: tight ? 26 : 40 })}>
+            <On layer={layer} own="over" style={{ flexShrink: 1 }}><Swept p={s.sweep[i] ?? 1} size={tight ? 40 : 42}>{r.label}</Swept></On>
+            <On layer={layer} own="base" style={{ fontSize: tight ? 44 : 52, fontWeight: 600, color: P.ink, marginLeft: 24, flexShrink: 0 }}>{/^[\d,]+$/.test(r.amount) ? `${r.amount} บาท` : r.amount}</On>
+          </div>
+        ))}
+      </div>
+      {f.coverNote && (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1200, fontSize: 32, color: P.mute }}>{f.coverNote}</On>
+      )}
+      {f.product !== "IHEALTHY" && f.coverPen && (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, justifyContent: "flex-end", top: 1060, fontSize: 52, color: P.pen, transform: "rotate(-2deg)" }}>{f.coverPen}</On>
+      )}
     </>
   );
 }
 
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
   const f = c.facts;
   const [first, second] = f.cover;
   const beforeAge = Number(first.label.match(/(\d+)/)?.[1] ?? f.coverToAge);
@@ -172,7 +207,7 @@ function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
   );
   return (
     <>
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>ครอบครัวได้รับเมื่อเสียชีวิต</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.coverTitle}</On>
       <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 350, justifyContent: "space-between", alignItems: "center" })}>
         <On layer={layer} own="over"><Swept p={s.sweep[0] ?? 1} size={46}>{first.label}</Swept></On>
         <On layer={layer} own="base" style={{ fontSize: 60, fontWeight: 600, color: P.ink }}>{`${first.amount} บาท`}</On>
@@ -193,17 +228,15 @@ function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
         {second && <div style={abs({ left: firstW, width: 60, justifyContent: "center", fontSize: 34, color: P.mute })}>{String(beforeAge)}</div>}
         <div style={abs({ left: chartW, width: 60, justifyContent: "center", fontSize: 34, color: P.mute })}>{String(f.coverToAge)}</div>
       </On>
-      <On layer={layer} own="base" style={{ position: "absolute", right: SIDE, top: 1240, fontSize: 54, color: P.pen, transform: "rotate(-2deg)" }}>
-        {`คุ้มครองถึงอายุ ${f.coverToAge} ปี`}
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, justifyContent: "flex-end", top: 1240, fontSize: 54, color: P.pen, transform: "rotate(-2deg)" }}>
+        {f.coverPen}
       </On>
     </>
   );
 }
 
 /** the value table's ring: the red pen drawn round the break-even figure as p goes 0 → 1 */
-function Ring({ p, x, y }: { p: number; x: number; y: number }) {
-  const rx = 130;
-  const ry = 44;
+function Ring({ p, x, y, rx = 130, ry = 44 }: { p: number; x: number; y: number; rx?: number; ry?: number }) {
   const len = 2 * Math.PI * Math.sqrt((rx * rx + ry * ry) / 2) + 40;
   return (
     <svg width={rx * 2 + 30} height={ry * 2 + 30} viewBox={`0 0 ${rx * 2 + 30} ${ry * 2 + 30}`} style={{ position: "absolute", left: x - rx - 15, top: y - ry - 15 }}>
@@ -251,6 +284,49 @@ function Value({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
   );
 }
 
+/** iHealthy: the plans the agent picked, side by side, the main one ringed in red pen */
+function Compare({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const plans = c.facts.compare ?? [];
+  const labelW = 250;
+  const colW = Math.floor((W - SIDE * 2 - labelW) / Math.max(1, plans.length));
+  const top = 380;
+  const rowH = 110;
+  const rows: [string, (p: (typeof plans)[number]) => string][] = [
+    ["วงเงิน/ปี", (p) => p.ceiling],
+    ["ค่าห้อง/วัน", (p) => p.room],
+    ["ผู้ป่วยนอก/ปี", (p) => p.opd],
+    ["รายเดือน", (p) => `${p.monthly} บาท`],
+  ];
+  const mainAt = plans.findIndex((p) => p.main);
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>เทียบแผน iHealthy Ultra</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top, flexDirection: "column", width: W - SIDE * 2 }}>
+        <div style={box({ height: rowH })}>
+          <div style={box({ width: labelW })} />
+          {plans.map((p) => (
+            <div key={p.name} style={box({ width: colW, height: rowH - 16, alignItems: "center", justifyContent: "center", background: P.figure, color: C.paper, fontSize: 44, fontWeight: 600, borderRadius: 18, marginRight: 8 })}>{p.name}</div>
+          ))}
+        </div>
+        {rows.map(([label, value], r) => (
+          <div key={label} style={box({ height: rowH, alignItems: "center", background: r % 2 ? "transparent" : P.stripe })}>
+            <div style={box({ width: labelW, fontSize: 36, color: P.mute, paddingLeft: 12 })}>{label}</div>
+            {plans.map((p) => (
+              <div key={p.name} style={box({ width: colW, justifyContent: "center", fontSize: p.main ? 42 : 38, fontWeight: p.main ? 600 : 400, color: p.main ? P.figure : P.ink, marginRight: 8, ...(p.main ? { background: P.tint, height: rowH } : {}), alignItems: "center" })}>{value(p)}</div>
+            ))}
+          </div>
+        ))}
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: top + rowH * 5 + 40, fontSize: 34, color: P.mute }}>ต่ออายุได้ถึงอายุ 98 · เบี้ยปีแรก ปีต่อไปคิดตามอายุที่เพิ่มขึ้น</On>
+      {mainAt >= 0 && s.ring > 0 && (
+        <On layer={layer} own="over" style={{ position: "absolute", left: 0, top: 0, width: W, height: H }}>
+          <Ring p={s.ring} x={SIDE + labelW + mainAt * (colW + 8) + colW / 2} y={top + (rowH * 5) / 2} rx={Math.round(colW / 2) + 24} ry={Math.round((rowH * 5) / 2) + 10} />
+        </On>
+      )}
+    </>
+  );
+}
+
 function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
   const k = c.contact;
   const initial = [...k.name.trim()][0] ?? "?";
@@ -288,7 +364,8 @@ const DONE: OverlayState = { word: -1, count: 1, sweep: [1, 1], bars: [1, 1], ri
 /** One layer of one scene, as a full 1080×1920 picture. */
 export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: OverlayState = DONE) {
   const body = {
-    legacy: <Legacy c={c} layer={layer} s={state} />,
+    lead: <Lead c={c} layer={layer} s={state} />,
+    compare: <Compare c={c} layer={layer} s={state} />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,
@@ -310,10 +387,11 @@ export { chartBlockHeight };
 
 /** The whole value table as one tall picture, without its header (drawn on the base). */
 export function tableImage(f: QuoteVideoFacts) {
-  const height = f.rows.length * ROW_H;
+  const all = f.rows ?? [];
+  const height = Math.max(ROW_H, all.length * ROW_H);
   const el = (
     <div style={{ display: "flex", flexDirection: "column", width: TABLE.w, height, background: C.paper, fontFamily: "Plex", fontSize: 28, color: P.ink }}>
-      {f.rows.map((r, i) => {
+      {all.map((r, i) => {
         const cells = [String(r.year), String(r.age), r.due, r.paid ?? "", r.cash ?? "", r.cover];
         return (
           <div key={r.year} style={box({ height: ROW_H, alignItems: "center", background: i % 2 ? "rgba(2,33,98,0.045)" : C.paper })}>
@@ -341,7 +419,7 @@ export function tableImage(f: QuoteVideoFacts) {
 
 /** where the pan stops: the break-even row a little above the window's middle, or the table's end */
 export function panEndFor(f: QuoteVideoFacts): number {
-  const tableH = f.rows.length * ROW_H;
+  const tableH = (f.rows?.length ?? 0) * ROW_H;
   const max = Math.max(0, tableH - TABLE.h);
   if (!f.breakEven) return max;
   return Math.min(max, Math.max(0, f.breakEven.index * ROW_H - Math.round(TABLE.h * 0.55)));

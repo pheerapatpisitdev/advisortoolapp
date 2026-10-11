@@ -1,5 +1,6 @@
 import { gatePage } from "@/lib/auth/viewer";
-import { lifeProtectTable } from "@/lib/lifeprotect-table";
+import { iHealthyTable } from "@/lib/ihealthy-table";
+import { planLabel } from "@/lib/ihealthy-facts";
 import { myCost, myVideos } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 
@@ -16,7 +17,7 @@ export const metadata = {
 export default async function QuoteVideoPage() {
   // every agent's (owner, 2026-10-11): two free clips, then the wallet
   await gatePage("/studio/quote-video");
-  const t = lifeProtectTable();
+  const ihuPlans = iHealthyTable().plans.map((p) => ({ code: p.code, name: planLabel(p.code) }));
   const cost = await myCost();
   const initial = await myVideos().catch((e) => {
     console.error("quote videos not read:", e);
@@ -28,7 +29,7 @@ export default async function QuoteVideoPage() {
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปแนวตั้งพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ageMin={t.ageMin} ageMax={t.ageMax} initial={initial} cost={cost} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} initial={initial} cost={cost} />
     </div>
   );
 }

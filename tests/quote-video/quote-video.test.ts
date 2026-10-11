@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { cleanLine, cleanPhone } from "@/lib/quote-video/contact";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "@/lib/quote-video/job";
-import { cleanCustomerName, quoteVideoFacts, quoteVideoScript, spokenBaht } from "@/lib/quote-video/script";
+import { cleanCustomerName, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
 import { clipLength, LEAD, planScenes, XFADE } from "@/lib/quote-video/timeline";
 
 const TODAY = new Date("2026-10-11T00:00:00+07:00");
-const input = { kind: "plan" as const, planCode: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
+const input = { variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
 
 describe("quote video script", () => {
   const f = quoteVideoFacts(input, TODAY)!;
 
   it("takes the card's and the table's figures", () => {
-    expect(f.legacy).toBe("2,000,000");
+    expect(f.lead).toMatchObject({ label: "มรดก", amount: "2,000,000", baht: 2_000_000 });
     expect(f.perDayAmount).toBe("79");
     expect(f.spokenPrice).toEqual({ per: "เดือนละ", amount: "2,583" });
     expect(f.payYears).toBe(19);
@@ -43,15 +43,15 @@ describe("quote video script", () => {
     expect(spokenBaht(750_000)).toBe("750,000");
   });
 
-  it("refuses another plan", () => {
-    expect(quoteVideoFacts({ ...input, planCode: "PLB" }, TODAY)).toBeUndefined();
+  it("refuses an age the plan does not sell at", () => {
+    expect(quoteVideoFacts({ ...input, age: 90 }, TODAY)).toBeUndefined();
   });
 });
 
 describe("quote video timeline and job", () => {
   const f = quoteVideoFacts(input, TODAY)!;
   const script = quoteVideoScript(f);
-  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: [12, 10, 9, 16, 4.5][i] })));
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: [12, 10, 9, 16, 4.5][i], ...sceneMotion(f, s.key) })));
 
   it("overlaps scenes by the cross-fade and starts each voice after LEAD", () => {
     for (let i = 1; i < plans.length; i++) expect(plans[i].start).toBeCloseTo(plans[i - 1].start + plans[i - 1].dur - XFADE, 3);
@@ -71,7 +71,7 @@ describe("quote video timeline and job", () => {
   });
 
   it("lists frames for the concat demuxer and builds one command", () => {
-    const layers = plans.map((p) => (p.key === "legacy" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
+    const layers = plans.map((p) => (p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
     const named = nameFiles(plans, layers);
     const list = concatList(plans[0], named.scenes[0].frames);
     expect(list.startsWith("ffconcat version 1.0\n")).toBe(true);
@@ -92,6 +92,39 @@ describe("quote video timeline and job", () => {
     expect(wav.readUInt8(44 + 24000 * 2 * 0.5 - 1)).toBe(0);
     expect(wav.readUInt8(44 + 24000 * 2 * 0.5)).toBe(1);
     expect(pcmSeconds(pcm)).toBe(1);
+  });
+});
+
+describe("iShield and iHealthy Ultra clips (owner, 2026-10-11)", () => {
+  it("leads iShield with the critical-illness lump sum and walks its value table", () => {
+    const f = quoteVideoFacts({ product: "ISHIELD", variant: "WLCI10", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+    expect(f.lead).toMatchObject({ label: "รับเงินก้อนเมื่อตรวจพบโรคร้ายแรง", amount: "1,000,000" });
+    expect(f.breakEven).toMatchObject({ age: 60, cash: "676,000" });
+    const lines = quoteVideoScript(f, "สมชาย").map((s) => s.voice);
+    expect(lines[0]).toBe("สวัสดีค่ะ คุณสมชาย ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ อายุ 35 ทำทุน 1 ล้าน ถ้าตรวจเจอโรคร้ายแรง รับเงินก้อนทันที 1 ล้านบาทค่ะ");
+    expect(lines[1]).toBe("ค่าใช้จ่ายตกแค่วันละ 184 บาท หรือเดือนละ 6,028 บาท จ่ายแค่ 10 ปีก็จบ แต่ดูแลยาวถึงอายุ 85 เลยค่ะ");
+    expect(lines[2]).toBe("ตรวจเจอโรคร้ายระยะรุนแรง 50 โรค รับ 1 ล้าน เจอระยะเริ่มต้นอีก 20 โรค รับโรคละ 250,000 ถ้าเป็นอะไรไป ครอบครัวได้ 1 ล้าน และถ้าอยู่ครบอายุ 85 ก็รับคืน 1 ล้านค่ะ");
+    expect(lines[3]).toContain("พออายุ 60 ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ 676,000 บาท");
+    expect(sceneMotion(f, "cover")).toEqual({ sweeps: 4, spread: true });
+  });
+
+  it("leads iHealthy with the yearly ceiling, says a first-year price and compares the plans picked", () => {
+    const f = quoteVideoFacts({ product: "IHEALTHY", age: 35, sex: "M", plan: "GOLD", compare: ["SILVER", "DIAMOND"] }, TODAY)!;
+    expect(f.lead).toMatchObject({ label: "วงเงินค่ารักษาต่อปี", baht: 25_000_000 });
+    expect(f.perDayAmount).toBeUndefined();
+    expect(f.compare?.map((p) => [p.name, p.main])).toEqual([["Silver", false], ["Gold", true], ["Diamond", false]]);
+    const lines = quoteVideoScript(f, "สมชาย");
+    expect(lines.map((s) => s.key)).toEqual(["lead", "price", "cover", "compare", "contact"]);
+    expect(lines[0].voice).toBe("สวัสดีค่ะ คุณสมชาย ขอเล่าแผนประกันสุขภาพนี้ให้ฟังสั้นๆ นะคะ แผน Gold เหมาจ่ายค่ารักษาสูงสุดถึง 25 ล้านบาทต่อปีค่ะ");
+    expect(lines[1].voice).toBe("ปีแรกค่าใช้จ่ายเดือนละ 3,524 บาท รวมประกันชีวิตกับค่าชดเชยรายวันไว้แล้วค่ะ");
+    expect(lines[2].voice).toBe("ค่าห้องวันละ 9,000 บาท ผ่าตัดเล็ก อุบัติเหตุ และรักษามะเร็ง จ่ายตามจริง มีผู้ป่วยนอกปีละ 12,000 บาท และนอนโรงพยาบาลรับเพิ่มวันละ 1,000 บาทค่ะ");
+    expect(lines[3].voice).toBe("ถ้าอยากเทียบ แผน Silver วงเงิน 15 ล้าน เดือนละ 2,768 บาท และแผน Diamond วงเงิน 70 ล้าน เดือนละ 6,152 บาท ต่ออายุได้ถึงอายุ 98 เลยค่ะ");
+  });
+
+  it("skips the comparison when no other plan is picked", () => {
+    const f = quoteVideoFacts({ product: "IHEALTHY", age: 35, sex: "F", plan: "SILVER", compare: [] }, TODAY)!;
+    expect(f.compare).toBeUndefined();
+    expect(quoteVideoScript(f).map((s) => s.key)).toEqual(["lead", "price", "cover", "contact"]);
   });
 });
 

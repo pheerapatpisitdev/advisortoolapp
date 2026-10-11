@@ -5,7 +5,6 @@ import { providerKey } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
 import { asWho } from "@/lib/ai/who";
 import { speakThai, TTS_RATE } from "@/lib/ai/tts";
-import type { PlanCardInput } from "@/lib/card-link";
 import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
 import { can } from "@/lib/auth/access";
@@ -18,7 +17,7 @@ import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import { getContact, photoDataUri } from "./contact";
 import { CHART_W, panEndFor, sceneLayer, tableImage, type Contact } from "./draw";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
-import { quoteVideoFacts, quoteVideoScript } from "./script";
+import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput } from "./script";
 import { clipLength, H, planScenes, W } from "./timeline";
 
 /**
@@ -48,7 +47,7 @@ export const VIDEO_HOLD_THB = 2.5;
 export const VIDEO_ROUND = "quote-video";
 
 export type VideoStatus = "drawing" | "rendering" | "done" | "failed";
-export interface VideoInput { variant: string; age: number; sex: "M" | "F"; sumAssured: number }
+export type { VideoInput } from "./script";
 export interface VideoRow {
   id: string;
   agent_id: string;
@@ -74,9 +73,6 @@ const rows = () => supabaseAdmin().from("ins_quote_videos");
 const bucket = () => supabaseAdmin().storage.from(VIDEO_BUCKET);
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
-export const planInput = (v: VideoInput): PlanCardInput => ({
-  kind: "plan", planCode: "LIFEPROTECT", variant: v.variant, age: v.age, sex: v.sex, sumAssured: v.sumAssured,
-});
 
 /** How the next clip would be paid for, as the board says it under the button. */
 export type CostView =
@@ -183,8 +179,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     if (error || !row) throw new Error("row not read");
     const gcpKey = await providerKey("gcp");
     if (!gcpKey) throw new Error("no gcp key");
-    const input = planInput(row.input);
-    const facts = quoteVideoFacts(input);
+    const facts = quoteVideoFacts(row.input);
     if (!facts) throw new Error("quote not priced");
     const contactRow = await getContact(row.agent_id);
     const contact: Contact = {
@@ -197,10 +192,10 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const spoken = await Promise.all(script.map((s) => speakThai(s.voice, VIDEO_TASK_VOICE)));
     const pcms = spoken.map((s) => s.pcm);
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
-    const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: pcmSeconds(pcms[i], TTS_RATE) })));
-    const layers = plans.map((p) => (p.key === "legacy" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
+    const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: pcmSeconds(pcms[i], TTS_RATE), ...sceneMotion(facts, s.key) })));
+    const layers = plans.map((p) => (p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
     const named = nameFiles(plans, layers);
-    const chart = valueTableChart(input, CHART_W);
+    const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" ? valueTableChart(planInput(row.input), CHART_W) : undefined;
     const panEnd = panEndFor(facts);
     const table = tableImage(facts);
     const total = clipLength(plans);
