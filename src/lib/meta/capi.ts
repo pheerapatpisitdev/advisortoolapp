@@ -70,6 +70,8 @@ export async function sendConversion(event: Conversion): Promise<void> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
       cache: "no-store",
+      // awaited by /api/meta/events: a Graph that hangs must not hold the route to its limit
+      signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) console.error("ส่งเหตุการณ์ไป Meta ไม่สำเร็จ:", res.status);
   } catch (e) {
