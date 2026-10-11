@@ -2,7 +2,7 @@
  * What the agent's fold costs, worked out by the engine.
  *
  * Everything the customer sees on the page is priced in the browser from the slim table in
- * ihealthy-table.ts. This is the rest of the bill: the riders the agency offers alongside the
+ * ihealthy-table.ts. This is the rest of the bill: the riders the company sells alongside the
  * health cover, which carry eligibility rules — age bands, plan caps, sums the package pins —
  * that the browser has no business keeping a second copy of, and whose rate tables it would
  * have to download to price.
@@ -19,16 +19,34 @@ const PLAN_CODE = "LIFEPROTECT";
 /** The health rider is the page's whole subject; it is never one of the extras. */
 const THE_HEALTH_RIDER = "IHU";
 /**
- * The riders this page offers alongside the health cover, and nothing else.
+ * The riders the company will never put on the same contract as the health cover.
  *
- * The company sells thirteen with these base plans; the agency sells two of them here — the
- * daily cash it attaches as standard, and the disability cover that keeps the premiums being
- * paid. This is the agency's own choice, not a company rule: the engine still knows about the
- * other eleven and the back-office calculator still offers them, which is why this list lives
- * at the page's own edge rather than in `data/rules/`. Order follows `riderOrder` so the fold
- * reads the way the rest of the calculator does.
+ * Every other rider the base plan sells is offered here, the way the back-office calculator
+ * offers them — the agency used to keep this page to two, and the owner opened it to all of
+ * them on 2026-10-12. A rider whose own rules refuse iHealthy Ultra outright (HIC today) is
+ * not greyed with a reason but left off, because no tick and no age could ever make it
+ * attachable on a page that always carries iHealthy Ultra. Read from the rules rather than
+ * listed, so a conflict the company adds later leaves the fold on its own.
  */
-const OFFERED = new Set(["MEB", "DCI"]);
+function neverWithHealth(plan: PlanBundle): Set<string> {
+  return new Set((plan.rules.conflicts ?? [])
+    .filter((c) => c.with.includes(THE_HEALTH_RIDER))
+    .map((c) => c.rider));
+}
+
+/**
+ * The riders priced on somebody other than the insured — PB, which keeps the premiums paid if
+ * the parent or spouse paying them dies or is disabled.
+ *
+ * The page asks for one person. Handed that person as their own payer, the engine prices PB on
+ * the insured's age and sex, which is a figure for a contract nobody can buy: PB is written on
+ * a parent or a spouse. Left off until the page asks who pays, rather than quoted wrong.
+ */
+function pricedOnAnotherPayer(plan: PlanBundle): Set<string> {
+  return new Set(Object.entries(plan.rates.riders)
+    .filter(([, r]) => r.kind === "premiumBased" && r.by === "payer")
+    .map(([code]) => code));
+}
 
 export interface AttachedRider {
   code: string;
@@ -188,6 +206,27 @@ function parseRequest(raw: unknown, plan: PlanBundle, bases: string[]): ParsedRe
 }
 
 /**
+ * The engine's rows with each rider's endorsements added into the rider's own line.
+ *
+ * CI 123 is priced as a main benefit plus endorsements, and the engine lists them the way the
+ * workbook does: one row each, coded `CI123:<cover>`. Each costs money and is part of the one
+ * contract. On this page they read as five more riders — a card counting "สัญญาเพิ่มเติม 6
+ * รายการ" for one tick, and rows of English cover names at nought baht in the bill — so the
+ * figure goes into the rider's line and the row itself goes.
+ */
+function withEndorsementsFolded<T extends { code: string; modal: number }>(items: T[]): T[] {
+  const parents = new Map(items.filter((i) => !i.code.includes(":")).map((i) => [i.code, { ...i }]));
+  const out: T[] = [];
+  for (const i of items) {
+    const parent = i.code.includes(":") ? parents.get(i.code.slice(0, i.code.indexOf(":"))) : undefined;
+    if (parent) parent.modal += i.modal;
+    else if (!i.code.includes(":")) out.push(parents.get(i.code)!);
+    else out.push(i);
+  }
+  return out;
+}
+
+/**
  * The arrangement priced by the engine itself — the same `quote()` the back-office
  * calculator runs — rather than by the browser's slim table, because the moment a rider is
  * attached the arrangement stops being slim.
@@ -216,6 +255,7 @@ export function priceRiders(input: RiderQuoteInput): RiderQuoteResult {
   // off voids the whole quote, so it is not the agent's to tick. Here that names only the
   // health rider the page is about, which the customer's own pickers upstairs already set.
   const required = new Set(requiredRiders(plan.rules, seq));
+  const never = new Set([...neverWithHealth(plan), ...pricedOnAnotherPayer(plan)]);
   const ctx = { age: asked.age, baseSumAssured: asked.sumAssured };
 
   // A rider this age cannot buy stays on the list, greyed, carrying its reason. Taking it
@@ -224,7 +264,7 @@ export function priceRiders(input: RiderQuoteInput): RiderQuoteResult {
   // A rider the package does not sell is a different matter: it is not on offer here at all.
   const available: RiderChoice[] = [];
   for (const code of plan.riderOrder) {
-    if (!OFFERED.has(code) || required.has(code) || off.has(code)) continue;
+    if (code === THE_HEALTH_RIDER || never.has(code) || required.has(code) || off.has(code)) continue;
     const a = riderAvailability(plan.rules, plan.rates, code, ctx);
     const exact = packageExactSumAssured(plan.rules, seq, code);
     available.push({
@@ -294,6 +334,7 @@ export function priceRiders(input: RiderQuoteInput): RiderQuoteResult {
     total: byMode.get(mode)!.items.filter((i) => i.eligible && isExtra(i.code))
       .reduce((sum, i) => sum + i.modal, 0),
   }));
+  const rows = withEndorsementsFolded(result.items);
 
   // Why a tick was left out is the engine's to say, and it says two different things: a
   // package does not sell this rider at all, an eight-year-old is too young for that one.
@@ -301,12 +342,12 @@ export function priceRiders(input: RiderQuoteInput): RiderQuoteResult {
   const why = new Map(result.availability.map((a) => [a.code, a]));
   return {
     available,
-    items: result.items.map((i) => ({
+    items: rows.map((i) => ({
       code: i.code, name: i.name, modal: i.modal, eligible: i.eligible, message: i.message,
     })),
     totalModal: result.totalModal,
     extras,
-    extraCodes: result.items.filter((i) => i.eligible && isExtra(i.code)).map((i) => i.code),
+    extraCodes: rows.filter((i) => i.eligible && isExtra(i.code)).map((i) => i.code),
     deathBenefit: result.deathBenefit,
     warnings: [
       ...(asked.unreadable.length > 0 ? [`มีสัญญาเพิ่มเติม ${asked.unreadable.length} รายการที่อ่านไม่ออก จึงไม่ได้คิดเบี้ยให้`] : []),

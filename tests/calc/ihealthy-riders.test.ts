@@ -15,42 +15,52 @@ const offered = (r: { available: { code: string; eligible: boolean }[] }) =>
   r.available.filter((a) => a.eligible).map((a) => a.code);
 
 describe("priceWithRiders", () => {
-  it("offers the two riders the agency sells here, and no others", async () => {
+  it("offers every rider the company sells with this base", async () => {
     const r = await priceWithRiders({ ...ADULT, riders: [] });
-    // The company sells thirteen with this base. Two are the agency's choice for this page;
-    // the back-office calculator still offers the rest.
-    expect(r.available.map((a) => a.code)).toEqual(["MEB", "DCI"]);
-    expect(offered(r)).toEqual(["MEB", "DCI"]);
+    // Thirteen with this base: the health cover is the page itself, HIC is never sold beside
+    // it, and PB is written on a payer this page does not ask about.
+    const all = ["WP", "AP", "ECARE", "MEX", "MEB", "DCI", "PLS", "CPR", "RRSS", "CI123"];
+    expect(r.available.map((a) => a.code)).toEqual(all);
+    expect(offered(r)).toEqual(all);
   });
 
-  it("will not price a rider this page does not offer, however it is asked for", async () => {
-    const r = await priceWithRiders({ ...ADULT, riders: [{ code: "AP", sumAssured: 1_000_000 }] });
-    expect(r.items.some((i) => i.code === "AP")).toBe(false);
+  it.each(["HIC", "PB"])("will not price %s, however it is asked for", async (code) => {
+    const r = await priceWithRiders({ ...ADULT, riders: [{ code, sumAssured: 1_000, option: "FIT" }] });
+    expect(r.items.some((i) => i.code === code)).toBe(false);
     expect(r.totalModal).toBe(r.items.reduce((sum, i) => sum + i.modal, 0));
   });
 
-  it("offers the package the same two", async () => {
+  it("offers the package only what the package sells", async () => {
     const r = await priceWithRiders({ ...PACKAGE, riders: [] });
-    expect(r.available.map((a) => a.code)).toEqual(["MEB", "DCI"]);
+    expect(r.available.map((a) => a.code)).toEqual(["AP", "MEX", "MEB", "DCI", "RRSS"]);
+  });
+
+  it("prices CI 123 as one line, its endorsements included", async () => {
+    const r = await priceWithRiders({ ...ADULT, riders: [{ code: "CI123", sumAssured: 500_000 }] });
+    expect(r.extraCodes).toEqual(["CI123"]);
+    expect(r.items.filter((i) => i.code.startsWith("CI123")).map((i) => i.code)).toEqual(["CI123"]);
+    const annual = r.extras.find((e) => e.mode === "annual")!.total;
+    expect(r.items.find((i) => i.code === "CI123")!.modal).toBe(annual);
+    expect(r.totalModal).toBe(r.items.reduce((sum, i) => sum + i.modal, 0));
   });
 
   it("greys the rider a child is too young for", async () => {
     const r = await priceWithRiders({ ...ADULT, age: 8, sex: "M", riders: [] });
     const greyed = r.available.filter((a) => !a.eligible);
-    expect(greyed.map((a) => a.code)).toEqual(["DCI"]);
+    expect(greyed.map((a) => a.code)).toEqual(["WP", "ECARE", "DCI", "PLS"]);
     // greyed, not gone: the agent asked whether the rider can be added, and "20 - 65 ปี"
     // beside the reason is the answer
     for (const a of greyed) {
       expect(a.reason).toBeTruthy();
       expect(a.ageRange).toMatch(/\d+ - \d+ ปี/);
     }
-    expect(offered(r)).toEqual(["MEB"]);
+    expect(offered(r)).toEqual(["AP", "MEX", "MEB", "CPR", "RRSS", "CI123"]);
   });
 
-  it("keeps both at age 8, with the one he is too young for greyed", async () => {
+  it("keeps the package's riders at age 8, with the one he is too young for greyed", async () => {
     const r = await priceWithRiders({ ...PACKAGE, age: 8, sex: "M", riders: [] });
-    expect(r.available.map((a) => a.code)).toEqual(["MEB", "DCI"]);
-    expect(offered(r)).toEqual(["MEB"]);
+    expect(r.available.map((a) => a.code)).toEqual(["AP", "MEX", "MEB", "DCI", "RRSS"]);
+    expect(offered(r)).toEqual(["AP", "MEX", "MEB", "RRSS"]);
   });
 
   it("prices an attached rider on top of the base and the health plan", async () => {
@@ -138,7 +148,7 @@ describe("priceWithRiders", () => {
         { code: "นี่ไม่ใช่รหัส", sumAssured: 1 },
       ],
     });
-    expect(r.available.map((a) => a.code)).toEqual(["MEB", "DCI"]);
+    expect(r.available.map((a) => a.code)).toContain("AP");
     expect(r.extraCodes).toEqual(["MEB"]);
     expect(r.totalModal).toBeGreaterThan(0);
     expect(r.warnings.some((w) => w.includes("อ่านไม่ออก"))).toBe(true);
