@@ -62,7 +62,10 @@ export function concatList(plan: ScenePlan, frames: string[]): string {
  * zooming slowly, or the table panning), the overlay frames on top; then the scenes cross-faded.
  * `tableHeight`: the value table picture's height, for the pan; `panEnd`: where it stops.
  */
-export function buildJob(plans: ScenePlan[], named: ReturnType<typeof nameFiles>, opts: { tableHeight?: number; panEnd?: number }): Omit<FfmpegJob, "inputs"> & { inputNames: string[] } {
+export function buildJob(
+  plans: ScenePlan[], named: ReturnType<typeof nameFiles>,
+  opts: { tableHeight?: number; panEnd?: number; driftHeight?: number },
+): Omit<FfmpegJob, "inputs"> & { inputNames: string[] } {
   const args: string[] = [];
   const order: string[] = [];
   const add = (name: string, pre: string) => {
@@ -77,7 +80,10 @@ export function buildJob(plans: ScenePlan[], named: ReturnType<typeof nameFiles>
     const d = f3(p.dur);
     const bi = add(sc.base, `-loop 1 -framerate ${FPS} -t ${d}`);
     let cur = `b${s}`;
-    f.push(`[${bi}:v]format=rgba,setsar=1[${cur}]`);
+    // the Motion Graphic style's base is one tall background, drifting slowly upward over the scene
+    f.push(opts.driftHeight
+      ? `[${bi}:v]crop=w=${W}:h=${H}:x=0:y='${opts.driftHeight - H}*(${s % 2 ? "1-" : ""}t/${d})',format=rgba,setsar=1[${cur}]`
+      : `[${bi}:v]format=rgba,setsar=1[${cur}]`);
     if (sc.layer?.kind === "photo") {
       const li = add(sc.layer.name, `-loop 1 -framerate ${FPS} -t ${d}`);
       const frames = Math.ceil(p.dur * FPS);

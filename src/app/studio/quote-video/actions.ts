@@ -49,7 +49,7 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
 function checked(v: VideoInput): VideoInput | string {
   const c = checkedQuote(v);
-  return typeof c === "string" ? c : { ...c, narrator: v.narrator === "M" ? "M" : "F" };
+  return typeof c === "string" ? c : { ...c, narrator: v.narrator === "M" ? "M" : "F", style: v.style === "motion" ? "motion" : "classic" };
 }
 
 function checkedQuote(v: VideoInput): VideoInput | string {
@@ -171,7 +171,7 @@ export async function myVideos(): Promise<VideoItem[]> {
     const what = input.product === "IHEALTHY"
       ? planWord(input.plan)
       : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const done = v.status === "done" && v.video_path;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {

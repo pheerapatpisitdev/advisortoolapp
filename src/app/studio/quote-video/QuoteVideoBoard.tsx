@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
-import type { Product, VideoInput } from "@/lib/quote-video/script";
+import type { Product, VideoInput, VideoStyle } from "@/lib/quote-video/script";
 import { addToCalendar, calendarCaption, makeVideo, myCost, myVideos, previewQuote, removeVideo, type Preview, type VideoItem } from "./actions";
 
 const chip = (on: boolean) =>
@@ -16,14 +16,15 @@ const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle:
 const STATUS: Record<VideoItem["status"], string> = { drawing: "กำลังทำเสียงและภาพ…", rendering: "กำลังรวมเป็นวิดีโอ…", done: "เสร็จ", failed: "ไม่สำเร็จ" };
 
 /** what the next clip costs, under the button */
-function costLine(c: CostView | null): { text: string; blocked: boolean; topUp: boolean } | null {
+function costLine(c: CostView | null, style: VideoStyle): { text: string; blocked: boolean; topUp: boolean } | null {
   if (!c) return null;
   if (c.kind === "staff") return { text: "เจ้าของใช้ฟรี", blocked: false, topUp: false };
   if (c.kind === "free") return { text: `ใช้วิดีโอฟรี 1 ครั้ง · เหลือ ${c.left}/${c.of} ครั้ง`, blocked: false, topUp: false };
   if (c.kind === "closed") return { text: "ใช้วิดีโอฟรีครบแล้ว", blocked: true, topUp: false };
-  return c.enough
-    ? { text: `ใช้วิดีโอฟรีครบแล้ว · หักจากกระเป๋าประมาณ ${c.about} (ยอดคงเหลือ ${c.balance})`, blocked: false, topUp: false }
-    : { text: `ยอดในกระเป๋าไม่พอ (ต้องมีอย่างน้อย ${c.need} · ยอดคงเหลือ ${c.balance})`, blocked: true, topUp: true };
+  const p = c.prices[style];
+  return p.enough
+    ? { text: `ใช้วิดีโอฟรีครบแล้ว · หักจากกระเป๋า ${p.price} (ยอดคงเหลือ ${c.balance})`, blocked: false, topUp: false }
+    : { text: `ยอดในกระเป๋าไม่พอ (คลิปนี้ ${p.price} · ยอดคงเหลือ ${c.balance})`, blocked: true, topUp: true };
 }
 
 const PRODUCTS: { code: Product; name: string; page: string }[] = [
@@ -101,11 +102,12 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     setItems((was) => was?.filter((v) => v.id !== id) ?? was);
   }
   const [cost, setCost] = useState<CostView | null>(firstCost);
-  const line = costLine(cost);
+  const [style, setStyle] = useState<VideoStyle>("classic");
+  const line = costLine(cost, style);
 
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator }
-    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator });
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, style }
+    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, style });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -177,6 +179,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
           <div className="flex flex-wrap gap-2">
             {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(product === p.code)} onClick={() => pickProduct(p.code)}>{p.name}</button>)}
           </div>
+        </div>
+        <div>
+          <span className={label}>สไตล์วิดีโอ</span>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={chip(style === "classic")} onClick={() => setStyle("classic")}>แบบปกติ · 5 บาท</button>
+            <button type="button" className={chip(style === "motion")} onClick={() => setStyle("motion")}>Motion Graphic · 10 บาท</button>
+          </div>
+          <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
         </div>
         <div>
           <span className={label}>เสียงพากย์</span>

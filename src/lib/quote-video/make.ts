@@ -10,14 +10,15 @@ import { valueTableChart } from "@/lib/quote-card";
 import { can } from "@/lib/auth/access";
 import type { Viewer } from "@/lib/auth/access";
 import { siteUrl } from "@/lib/site-url";
-import { chargeSatang, formatBaht, holdSatangFor } from "@/lib/wallet/money";
+import { formatBaht } from "@/lib/wallet/money";
 import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, walletSettings } from "@/lib/wallet/store";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import { getContact, photoDataUri } from "./contact";
 import { CHART_W, panEndFor, sceneLayer, tableImage, type Contact } from "./draw";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
-import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput } from "./script";
+import { motionBackground, motionFrame, motionWindows, MOTION_BG_H, MOTION_FPS } from "./motion";
+import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput, type VideoStyle } from "./script";
 import { clipLength, H, planScenes, W } from "./timeline";
 
 /**
@@ -41,8 +42,12 @@ const RENDER_COST_THB = 0.01 * 36;
 export const FAILED = "ทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง";
 /** every agent's free clips, once (owner, 2026-10-11) */
 export const FREE_VIDEOS = 2;
-/** set aside per clip before the multiplier: a clip costs about ฿1 (voice + render) */
-export const VIDEO_HOLD_THB = 2.5;
+/**
+ * What a clip costs an agent, fixed (owner, 2026-10-11): ฿5 แบบปกติ, ฿10 Motion Graphic (Premium).
+ * The wallet holds the price when the clip is asked for and takes it when the clip is done.
+ */
+export const VIDEO_PRICE_SATANG: Record<VideoStyle, number> = { classic: 500, motion: 1000 };
+const styleOf = (v: VideoInput): VideoStyle => (v.style === "motion" ? "motion" : "classic");
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
 
@@ -78,7 +83,8 @@ export const hashToken = (token: string) => createHash("sha256").update(token).d
 export type CostView =
   | { kind: "staff" }
   | { kind: "free"; left: number; of: number }
-  | { kind: "wallet"; balance: string; about: string; enough: boolean; need: string }
+  /** the price of each style, and whether the wallet holds it */
+  | { kind: "wallet"; balance: string; prices: Record<VideoStyle, { price: string; enough: boolean }> }
   | { kind: "closed" };
 
 /** the agent's free clips used: those not failed (a failed one is handed back) */
@@ -95,9 +101,9 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   if (used < FREE_VIDEOS) return { kind: "free", left: FREE_VIDEOS - used, of: FREE_VIDEOS };
   const s = await walletSettings().catch(() => null);
   if (!s?.enabled) return { kind: "closed" };
-  const need = holdSatangFor(VIDEO_HOLD_THB, s.multiplier);
   const balance = await balanceSatang(viewer.agentId);
-  return { kind: "wallet", balance: formatBaht(balance), about: formatBaht(holdSatangFor(1, s.multiplier)), enough: balance >= need, need: formatBaht(need) };
+  const priced = (style: VideoStyle) => ({ price: formatBaht(VIDEO_PRICE_SATANG[style]), enough: balance >= VIDEO_PRICE_SATANG[style] });
+  return { kind: "wallet", balance: formatBaht(balance), prices: { classic: priced("classic"), motion: priced("motion") } };
 }
 
 /**
@@ -111,7 +117,7 @@ export async function createVideo(viewer: Viewer, input: VideoInput, customer: s
     else {
       const s = await walletSettings().catch(() => null);
       if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${FREE_VIDEOS} ครั้งแล้ว` };
-      const held = holdSatangFor(VIDEO_HOLD_THB, s.multiplier);
+      const held = VIDEO_PRICE_SATANG[styleOf(input)];
       const hold = await holdWallet(viewer.agentId, held, VIDEO_ROUND).catch((e) => {
         console.error("quote video hold failed:", e);
         return null;
@@ -121,7 +127,7 @@ export async function createVideo(viewer: Viewer, input: VideoInput, customer: s
           ? "กระเป๋าเงินถูกพักไว้ชั่วคราว — ติดต่อสำนักงานนะครับ"
           : `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"` };
       }
-      pay = { paid_by: "wallet", hold_id: hold, held_satang: held, multiplier: s.multiplier };
+      pay = { paid_by: "wallet", hold_id: hold, held_satang: held, multiplier: 1 };
     }
   }
   const { data, error } = await rows().insert({ agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
@@ -193,8 +199,13 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const spoken = await Promise.all(script.map((s) => speakThai(s.voice, VIDEO_TASK_VOICE, { narrator })));
     const pcms = spoken.map((s) => s.pcm);
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
-    const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: pcmSeconds(pcms[i], TTS_RATE), ...sceneMotion(facts, s.key) })));
-    const layers = plans.map((p) => (p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
+    const motion = row.input.style === "motion";
+    const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
+    const plans = planScenes(script.map((s, i) => ({
+      key: s.key, voice: s.voice, voiceSec: secs[i],
+      ...(motion ? { windows: motionWindows(s.key, facts, secs[i]), fps: MOTION_FPS } : sceneMotion(facts, s.key)),
+    })));
+    const layers = plans.map((p) => (motion ? undefined : p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
     const named = nameFiles(plans, layers);
     const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" ? valueTableChart(planInput(row.input), CHART_W) : undefined;
     const panEnd = panEndFor(facts);
@@ -206,7 +217,16 @@ export async function produce(id: string, agentName: string): Promise<void> {
     files.set(named.audio, { body: mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE), type: "audio/wav" });
     const family = await readFile(join(process.cwd(), "public/card/family.jpg"));
     const draws: { name: string; draw: () => Promise<Buffer> }[] = [];
-    plans.forEach((p, s) => {
+    // the Motion Graphic style: one drifting background under every scene, every frame drawn whole
+    const background = motion ? await renderPng(motionBackground(), { width: W, height: MOTION_BG_H }) : undefined;
+    if (motion) plans.forEach((p, s) => {
+      const sc = named.scenes[s];
+      const mctx = { facts, narrator, customer: row.customer_name, contact, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
+      files.set(sc.base, { body: background!, type: "image/png" });
+      p.frames.forEach((fr, k) => draws.push({ name: sc.frames[k], draw: () => renderPng(motionFrame(p.key, mctx, fr.t ?? 0), { width: W, height: H }) }));
+      files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });
+    });
+    else plans.forEach((p, s) => {
       const sc = named.scenes[s];
       const ctx = { facts, narrator, customer: row.customer_name, contact, ...(chart ? { chart } : {}), words: script[s].voice.split(" ").filter(Boolean), panEnd };
       draws.push({ name: sc.base, draw: () => renderPng(sceneLayer(p.key, ctx, "base"), { width: W, height: H }) });
@@ -234,7 +254,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
         signed.push(d.signedUrl);
       }
     }
-    const built = buildJob(plans, named, { tableHeight: table.height, panEnd });
+    const built = buildJob(plans, named, motion ? { driftHeight: MOTION_BG_H } : { tableHeight: table.height, panEnd });
     const job = { inputs: named.files.map((f, i) => ({ name: f.name, url: signed[i] })), command: built.command, outputs: built.outputs };
 
     const out = await bucket().createSignedUploadUrl(`${id}/quote.mp4`);
@@ -283,7 +303,8 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
     const cost = Number(row.cost_thb ?? 0) + RENDER_COST_THB;
     let charged: number | null = null;
     if (row.paid_by === "wallet" && row.hold_id && row.held_satang) {
-      charged = await settleWallet(row.hold_id, chargeSatang(cost, Number(row.multiplier ?? 1), Number(row.held_satang)), cost)
+      // the price is fixed: the whole hold is the charge
+      charged = await settleWallet(row.hold_id, Number(row.held_satang), cost)
         .catch((e) => { console.error("quote video settle failed:", e); return null; });
     }
     await setRow(row.id, { cost_thb: cost, ...(charged !== null ? { charged_satang: charged } : {}) }).catch(() => undefined);

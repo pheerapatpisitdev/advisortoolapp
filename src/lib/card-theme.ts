@@ -273,4 +273,12 @@ export const QUOTE_VIDEO_COLORS = {
   spoken: "#ffe14d",
   barAfter: "#4c6fbf",
   noPhoto: "#e9edf6",
+  /* the Motion Graphic style (owner, 2026-10-11): a navy world, gold figures, sky shapes */
+  motionNavy: "#022162",
+  motionGold: "#ffd23f",
+  motionSky: "#4c7fd6",
+  motionRed: "#e5484d",
+  motionGreen: "#1f9d55",
+  coinSide: "#e8b923",
+  coinTop: "#ffe680",
 } as const;

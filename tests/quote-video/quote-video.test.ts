@@ -3,6 +3,7 @@ import { cleanLine, cleanPhone } from "@/lib/quote-video/contact";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "@/lib/quote-video/job";
 import { cleanCustomerName, pageCaption, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
 import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
+import { motionWindows, MOTION_FPS } from "@/lib/quote-video/motion";
 import { clipLength, LEAD, planScenes, XFADE } from "@/lib/quote-video/timeline";
 
 const TODAY = new Date("2026-10-11T00:00:00+07:00");
@@ -25,9 +26,9 @@ describe("quote video script", () => {
   it("speaks the owner's approved lines", () => {
     const lines = quoteVideoScript(f, "คุณสมชาย").map((s) => s.voice);
     expect(lines[0]).toBe("สวัสดีค่ะ คุณสมชาย ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ อายุ 35 ทำทุน 1 ล้าน ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง 2 ล้านบาทค่ะ");
-    expect(lines[1]).toBe("ค่าใช้จ่ายตกแค่วันละ 79 บาท หรือเดือนละ 2,583 บาท จ่ายแค่ 19 ปีก็จบ ราคาไม่ขึ้นเลยตลอดที่จ่ายค่ะ");
+    expect(lines[1]).toBe("ออมแค่วันละ 79 บาท หรือเดือนละ 2,583 บาท ออมเพียง 19 ปีก็ครบ ยอดออมเท่าเดิมตลอดค่ะ");
     expect(lines[2]).toBe("ถ้าเป็นอะไรไปก่อนอายุ 60 ครอบครัวได้ 2 ล้าน หลังจากนั้นได้ 1 ล้าน และดูแลยาวไปถึงอายุ 99 เลยค่ะ");
-    expect(lines[3]).toBe("ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน จ่ายครบตอนอายุ 53 แล้วเงินก็ยังโตทุกปี พออายุ 64 ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ 553,000 บาท มากกว่าที่จ่ายไปทั้งหมดแล้วค่ะ");
+    expect(lines[3]).toBe("ที่ชอบที่สุดคือ เงินที่ออมไปไม่หายไปไหน ออมครบตอนอายุ 53 แล้วเงินก็ยังโตทุกปี พออายุ 64 ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ 553,000 บาท มากกว่าที่ออมไปทั้งหมดแล้วค่ะ");
     expect(lines[4]).toBe("คุณสมชายสนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ");
   });
 
@@ -44,8 +45,12 @@ describe("quote video script", () => {
     expect(g.pills).toEqual(["จ่ายเบี้ยถึงอายุ 99", "เบี้ยคงที่ตลอด"]);
     expect(g.penNote).toBeUndefined();
     const lines = quoteVideoScript(g).map((s) => s.voice);
-    expect(lines[1]).toContain("จ่ายสบายๆ ถึงอายุ 99");
-    for (const l of lines) expect(l).not.toMatch(/ก็จบ|จ่ายครบตอนอายุ/);
+    expect(lines[1]).toContain("ออมสบายๆ ถึงอายุ 99");
+    for (const l of lines) expect(l).not.toMatch(/ก็จบ|ก็ครบ|ออมครบตอนอายุ/);
+  });
+
+  it("says ออม, not จ่าย, for a plan that builds cash (owner, 2026-10-11)", () => {
+    for (const l of quoteVideoScript(f).map((s) => s.voice)) expect(l).not.toMatch(/จ่าย|ค่าใช้จ่าย/);
   });
 
   it("says คุณผู้ชาย / คุณผู้หญิง without a name", () => {
@@ -123,7 +128,7 @@ describe("iShield and iHealthy Ultra clips (owner, 2026-10-11)", () => {
     const lines = quoteVideoScript(f, "สมชาย").map((s) => s.voice);
     // the owner's corrected wording (2026-10-11): early stage first, the major stage "รวมสูงสุด", nothing stacked
     expect(lines[0]).toBe("สวัสดีค่ะ คุณสมชาย ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ อายุ 35 ทำทุน 1 ล้าน คุ้มครองโรคร้ายแรง 70 โรค จ่ายเป็นเงินก้อนตั้งแต่ระยะเริ่มต้นเลยค่ะ");
-    expect(lines[1]).toBe("ค่าใช้จ่ายตกแค่วันละ 184 บาท หรือเดือนละ 6,028 บาท เบี้ยเท่าเดิมทุกปี จ่ายแค่ 10 ปีก็จบ แต่ดูแลยาวถึงอายุ 85 เลยค่ะ");
+    expect(lines[1]).toBe("ออมแค่วันละ 184 บาท หรือเดือนละ 6,028 บาท เบี้ยเท่าเดิมทุกปี ออมเพียง 10 ปีก็ครบ แต่ดูแลยาวถึงอายุ 85 เลยค่ะ");
     expect(lines[2]).toBe("เจอระยะเริ่มต้น 20 โรค รับก่อนเลยโรคละ 250,000 เป็นคนละโรคก็เคลมได้อีก ถ้าถึงระยะรุนแรง 50 โรค รับรวมสูงสุด 1 ล้าน ถ้าไม่ได้เคลมเลย เป็นอะไรไปครอบครัวได้ 1 ล้าน อยู่ครบอายุ 85 ก็รับคืน 1 ล้านค่ะ");
     expect(lines[3]).toContain("พออายุ 60 ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ 676,000 บาท");
     for (const l of lines) expect(l).not.toContain("ทันที");
@@ -165,6 +170,18 @@ describe("shortcut and Page caption (owner, 2026-10-11)", () => {
     expect(pageCaption(f)).toBe("มรดก 2 ล้าน สำหรับครอบครัว\nคุณผู้ชายอายุ 35 ทุน 1 ล้าน ตกวันละ 79 บาท จ่ายแค่ 19 ปี\nคุ้มครองถึงอายุ 99 · เงินไม่หายไปไหน เวนคืนได้\n\nทักแชทขอใบเสนอของคุณได้เลย");
     const h = quoteVideoFacts({ product: "IHEALTHY", age: 35, sex: "F", plan: "GOLD", compare: [] }, TODAY)!;
     expect(pageCaption(h).split("\n")[0]).toBe("ประกันสุขภาพเหมาจ่าย แผน Gold วงเงิน 25 ล้านบาทต่อปี");
+  });
+});
+
+describe("Motion Graphic style (owner, 2026-10-11)", () => {
+  it("draws a frame every 1/12 s while something moves, each frame knowing its time", () => {
+    const f = quoteVideoFacts({ variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+    const s = quoteVideoScript(f);
+    const [lead] = planScenes([{ key: "lead", voice: s[0].voice, voiceSec: 12, windows: motionWindows("lead", f, 12), fps: MOTION_FPS }]);
+    expect(lead.frames.every((fr) => typeof fr.state.t === "number")).toBe(true);
+    const moving = lead.frames.filter((fr) => fr.t <= 2.4);
+    expect(moving.length).toBeGreaterThanOrEqual(2.4 * MOTION_FPS);
+    expect(lead.frames.length).toBeLessThan(200);
   });
 });
 

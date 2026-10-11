@@ -30,6 +30,8 @@ export interface OverlayState {
   bars: [number, number];
   ring: number;
   callout: boolean;
+  /** the Motion Graphic style: the scene time the frame is drawn at (motion.tsx works out the rest) */
+  t?: number;
 }
 
 /** The pan down the value table, scene "value": from `at`, for `dur`. */
@@ -66,6 +68,9 @@ export interface SceneMotion {
   pan?: boolean;
   /** the pen ring round the main plan of a comparison */
   ring?: boolean;
+  /** the Motion Graphic style: when its elements move; frames are drawn at `fps` inside these */
+  windows?: [number, number][];
+  fps?: number;
 }
 
 function sweepAnims(m: SceneMotion, voiceSec: number): Anim[] {
@@ -142,6 +147,28 @@ export function planScenes(lines: ({ key: SceneKey; voice: string; voiceSec: num
         callout: calloutAt !== undefined && t >= calloutAt - 1e-6,
       };
     };
+
+    if (motion.windows) {
+      // the Motion Graphic style: a frame every 1/fps while anything moves, one per word otherwise
+      const fps = motion.fps ?? 12;
+      const ts = new Set<number>([0]);
+      for (const [from, to] of motion.windows) {
+        for (let x = Math.max(0, from); x < to + 1 / fps; x += 1 / fps) ts.add(r3(Math.min(x, to)));
+      }
+      for (const w of words) ts.add(r3(w.from));
+      ts.add(r3(words.length ? words[words.length - 1].to : LEAD));
+      const wordAt = (t: number) => {
+        let word = -1;
+        for (let k = 0; k < words.length; k++) if (t >= words[k].from - 1e-6) word = k;
+        if (words.length && t >= words[words.length - 1].to - 1e-6) word = words.length;
+        return word;
+      };
+      const frames = [...ts].filter((x) => x >= 0 && x < dur).sort((a, b) => a - b)
+        .map((t) => ({ t, state: { word: wordAt(t), count: 1, sweep: [], bars: [1, 1] as [number, number], ring: 0, callout: false, t } }));
+      const plan: ScenePlan = { key, start: r3(start), dur: r3(dur), voiceAt: r3(start + LEAD), frames };
+      start += dur - (i < lines.length - 1 ? XFADE : 0);
+      return plan;
+    }
 
     const frames: ScenePlan["frames"] = [];
     let last = "";

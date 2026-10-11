@@ -13,7 +13,9 @@ import type { SceneMotion } from "./timeline";
  * Three products: Life Protect (มรดก), iShield (a lump sum on a critical illness) and iHealthy
  * Ultra (a health plan, compared against the plans the agent picks). The spoken lines are the
  * owner's casual wording, approved in the mockups the same day: no "เบี้ย", "เสียชีวิต" or
- * "เวนคืน" in the voice — "ค่าใช้จ่าย", "ถ้าเป็นอะไรไป", "ขอเงินก้อนคืน". The screen keeps the
+ * "เวนคืน" in the voice — "ถ้าเป็นอะไรไป", "ขอเงินก้อนคืน" — and for the plans that build a
+ * cash value, "ออม" where it said "จ่าย" (owner, 2026-10-11: ออมต่อปี, ออมเพียง 19 ปี).
+ * iHealthy Ultra keeps "ค่าใช้จ่าย": a health plan builds nothing to save. The screen keeps the
  * cards' own words. Words in a line are separated by single spaces: the subtitles light up one
  * of those pieces at a time.
  */
@@ -28,7 +30,11 @@ export type VideoInput = (
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
+  /** แบบปกติ (photo, card, table) or Motion Graphic, the Premium one (owner, 2026-10-11) */
+  style?: VideoStyle;
 };
+
+export type VideoStyle = "classic" | "motion";
 
 /** A man ends his sentences with ครับ, a woman with ค่ะ / นะคะ (owner, 2026-10-11). */
 export function spokenBy(line: string, narrator: "F" | "M" = "F"): string {
@@ -330,11 +336,11 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
 
   const value = f.payToEnd
     ? (f.breakEven
-      ? `ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน มูลค่าเงินสดโตขึ้นทุกปี พออายุ ${f.breakEven.age} ขอคืนได้ ${f.breakEven.cash} บาท มากกว่าที่จ่ายไปทั้งหมดค่ะ`
-      : "ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน มูลค่าเงินสดโตขึ้นทุกปี ขอคืนได้ตามตารางเลยค่ะ")
+      ? `ที่ชอบที่สุดคือ เงินที่ออมไปไม่หายไปไหน มูลค่าเงินสดโตขึ้นทุกปี พออายุ ${f.breakEven.age} ขอคืนได้ ${f.breakEven.cash} บาท มากกว่าที่ออมไปทั้งหมดค่ะ`
+      : "ที่ชอบที่สุดคือ เงินที่ออมไปไม่หายไปไหน มูลค่าเงินสดโตขึ้นทุกปี ขอคืนได้ตามตารางเลยค่ะ")
     : f.breakEven
-    ? `ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน จ่ายครบตอนอายุ ${f.lastPayAge} แล้วเงินก็ยังโตทุกปี พออายุ ${f.breakEven.age} ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ ${f.breakEven.cash} บาท มากกว่าที่จ่ายไปทั้งหมดแล้วค่ะ`
-    : `ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน จ่ายครบตอนอายุ ${f.lastPayAge} แล้วเงินก็ยังโตทุกปี ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ตามตารางเลยค่ะ`;
+    ? `ที่ชอบที่สุดคือ เงินที่ออมไปไม่หายไปไหน ออมครบตอนอายุ ${f.lastPayAge} แล้วเงินก็ยังโตทุกปี พออายุ ${f.breakEven.age} ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ ${f.breakEven.cash} บาท มากกว่าที่ออมไปทั้งหมดแล้วค่ะ`
+    : `ที่ชอบที่สุดคือ เงินที่ออมไปไม่หายไปไหน ออมครบตอนอายุ ${f.lastPayAge} แล้วเงินก็ยังโตทุกปี ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ตามตารางเลยค่ะ`;
 
   if (f.product === "ISHIELD") {
     const row = (re: RegExp) => f.cover.find((r) => re.test(r.label));
@@ -351,7 +357,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     ].filter(Boolean);
     return [
       { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ทำทุน ${spokenBaht(digits(f.insuredLine))} คุ้มครองโรคร้ายแรง${ill ? ` ${ill.total} โรค` : ""} จ่ายเป็นเงินก้อนตั้งแต่ระยะเริ่มต้นเลยค่ะ` },
-      { key: "price", voice: `ค่าใช้จ่ายตกแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท เบี้ยเท่าเดิมทุกปี จ่ายแค่ ${f.payYears} ปีก็จบ แต่ดูแลยาวถึงอายุ ${f.coverToAge} เลยค่ะ` },
+      { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท เบี้ยเท่าเดิมทุกปี ออมเพียง ${f.payYears} ปีก็ครบ แต่ดูแลยาวถึงอายุ ${f.coverToAge} เลยค่ะ` },
       { key: "cover", voice: `${parts.join(" ")}ค่ะ` },
       { key: "value", voice: value },
       { key: "contact", voice: closing },
@@ -367,8 +373,8 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   return [
     { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
     { key: "price", voice: f.payToEnd
-      ? `ค่าใช้จ่ายตกแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท จ่ายสบายๆ ถึงอายุ ${f.coverToAge} ราคาไม่ขึ้นเลยตลอดที่จ่ายค่ะ`
-      : `ค่าใช้จ่ายตกแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท จ่ายแค่ ${f.payYears} ปีก็จบ ราคาไม่ขึ้นเลยตลอดที่จ่ายค่ะ` },
+      ? `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ออมสบายๆ ถึงอายุ ${f.coverToAge} ยอดออมเท่าเดิมตลอดค่ะ`
+      : `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ออมเพียง ${f.payYears} ปีก็ครบ ยอดออมเท่าเดิมตลอดค่ะ` },
     { key: "cover", voice: cover },
     { key: "value", voice: value },
     { key: "contact", voice: closing },
