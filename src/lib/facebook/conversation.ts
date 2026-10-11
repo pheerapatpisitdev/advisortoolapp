@@ -19,6 +19,7 @@ import { GATHER_MS, botTurn, gathered, keepTranscript, wroteJustBefore } from "@
 import { isExpatPage, languageOf } from "@/lib/assistant/expat";
 import { loadWelcome } from "@/lib/chat/page-welcome-store";
 import { countLessonHit, loadLessons } from "@/lib/chat/lessons-store";
+import { loadIntroPictures } from "@/lib/chat/intro-store";
 import type { Lesson } from "@/lib/assistant/lessons";
 import type { PageWelcome } from "@/lib/assistant/page-welcome";
 import { BROKEN_EN, BUSY_EN, CARD_UNSENT_EN, OUT_OF_BUDGET_EN, WANTS_IN_EN } from "@/lib/assistant/ihealthy-en/words";
@@ -38,15 +39,15 @@ import { rememberAdArrival, takeAdArrival } from "./ad-arrival";
 async function answered(
   history: ChatMessage[], slots: Parameters<typeof answerAny>[1],
   cameFor: Parameters<typeof answerAny>[3], turnMs: number, pageId?: string, welcome?: PageWelcome,
-  lessons?: readonly Lesson[],
+  lessons?: readonly Lesson[], intro?: readonly string[],
 ) {
   return withTurnDeadline(turnMs, async () => {
     try {
-      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome, lessons);
+      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome, lessons, intro);
     } catch (e) {
       if (e instanceof BudgetExceeded || e instanceof TurnTimeout) throw e;
       console.error("answer failed, trying once more:", e);
-      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome, lessons);
+      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome, lessons, intro);
     }
   });
 }
@@ -365,8 +366,10 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
     const welcome = isExpatPage(pageId) ? undefined : await loadWelcome(pageId);
     // the answers the owner taught word for word (/admin/teach); the Expat Pages have their own bot
     const lessons = isExpatPage(pageId) ? undefined : await loadLessons();
+    // the pictures ahead of a first quotation, this Page's own or the set for every Page (/admin/teach)
+    const intro = isExpatPage(pageId) ? undefined : await loadIntroPictures(pageId);
     const answer = await answered(
-      history, startsOver ? null : session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId, welcome, lessons,
+      history, startsOver ? null : session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId, welcome, lessons, intro,
     );
     if (answer.taught) countLessonHit(answer.taught);
     // the model takes seconds, and an agent watching the thread answers inside them. Their

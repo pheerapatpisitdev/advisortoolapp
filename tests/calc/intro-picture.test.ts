@@ -85,3 +85,23 @@ describe("the intro picture", () => {
     expect(turn?.text.match(/\[การ์ดใบเสนอ\]/g)).toHaveLength(1);
   });
 });
+
+/** The pictures as /admin/teach sets them (owner, 2026-10-11): a set for every Page, and a Page's own. */
+describe("the intro pictures a Page sets", () => {
+  const quote = () => ({ messages: [{ text: "x", card: "/api/card?x" }], priced: true, slots: { product: "x" }, introFor: true }) as never;
+
+  it("sends the Page's pictures, in order, ahead of the quotation", () => {
+    const a = withIntroPicture(quote(), false, "facebook", ["https://s/a.jpg", "https://s/b.jpg"]);
+    expect(a.messages.map((m) => m.card)).toEqual(["https://s/a.jpg", "https://s/b.jpg", "/api/card?x"]);
+    expect((a.slots as { introSeen?: boolean }).introSeen).toBe(true);
+  });
+
+  it("sends none when the set is empty", () => {
+    expect(withIntroPicture(quote(), false, "facebook", []).messages).toHaveLength(1);
+  });
+
+  it("reaches the customer through answerAny", async () => {
+    const a = await answerAny(said("ชาย 35 ทุน 1 ล้าน"), lifeBefore, "facebook", undefined, undefined, undefined, undefined, ["https://s/own.jpg"]);
+    expect(a.messages[0]).toEqual({ text: "", card: "https://s/own.jpg" });
+  });
+});

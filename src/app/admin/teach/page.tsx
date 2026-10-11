@@ -8,6 +8,8 @@ import { TaughtList } from "./TaughtList";
 import { TeachTabs } from "./TeachTabs";
 import { TestsList } from "./TestsList";
 import { listBotTests, listTaught } from "./actions";
+import { IntroPictures } from "./IntroPictures";
+import { listIntro } from "./intro-actions";
 
 export const dynamic = "force-dynamic";
 /** a turn can reach a model, and a model is given up to a minute by the inbox too */
@@ -20,13 +22,14 @@ export const metadata: Metadata = { title: "ห้องสอนบอท | Adv
  */
 export default async function TeachPage({ searchParams }: { searchParams: Promise<{ q?: string; tab?: string }> }) {
   await gatePage("/admin/teach", "admin");
-  const [pages, taught, tests, params] = await Promise.all([
+  const [pages, taught, tests, intro, params] = await Promise.all([
     pageConnections().catch((e) => {
       console.error("pages unreadable:", e);
       return null;
     }),
     listTaught(),
     listBotTests(),
+    listIntro(),
     searchParams,
   ]);
   // a question brought from /admin/crm's unanswered list opens the teaching panel with it
@@ -64,6 +67,13 @@ export default async function TeachPage({ searchParams }: { searchParams: Promis
                   content: tests.ok
                     ? <TestsList initial={tests.tests} pages={choices} />
                     : <Card title="อ่านชุดเทสไม่สำเร็จ"><Empty>{tests.error}</Empty></Card>,
+                },
+                {
+                  key: "pictures",
+                  label: "รูปที่บอทส่ง",
+                  content: intro.ok
+                    ? <IntroPictures rows={intro.rows} builtIn={intro.builtIn} pages={choices} />
+                    : <Card title="อ่านรูปไม่สำเร็จ"><Empty>{intro.error}</Empty></Card>,
                 },
               ]}
             />
