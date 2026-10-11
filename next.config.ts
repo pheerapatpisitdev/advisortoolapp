@@ -44,6 +44,15 @@ const nextConfig: NextConfig = {
     // the quote PDF launches the bundled Chrome, whose brotli-packed binary is read from disk
     "/api/quote-pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
   },
+  // Sentry reports the Node server only (src/instrumentation.ts), but the edge build bundles
+  // whatever the instrumentation file can import, and it put 140 kB of an SDK that never runs
+  // there in front of every page request: in the edge build it resolves to nothing
+  webpack(config, { nextRuntime }) {
+    if (nextRuntime === "edge") {
+      config.resolve.alias = { ...config.resolve.alias, "@sentry/nextjs": false };
+    }
+    return config;
+  },
   // the workbench was /content until the owner renamed it Studio (2026-09-27); old bookmarks
   // and links keep working, query and all (?open=…, ?hook=…)
   async redirects() {

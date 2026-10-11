@@ -1,23 +1,21 @@
-import * as Sentry from "@sentry/nextjs";
-import { SENTRY_COMMON } from "@/lib/sentry-options";
+import type { Instrumentation } from "next";
 
 /**
- * Server errors to Sentry. Most failures here are caught and written with console.error — a
- * webhook's after(), a cron, a picture that would not draw — and a caught error never reaches
- * onRequestError, so console.error itself is reported too. Before this they reached only
- * Vercel's log, which nobody reads (review, 2026-10-11).
+ * Server errors to Sentry (src/sentry.server.ts). Before this they reached only Vercel's log,
+ * which nobody reads (review, 2026-10-11).
  *
- * The server only. Sentry in the browser put 82 kB on every page (shared JS 103 → 185 kB),
- * which a customer arriving from an advert on a phone pays for; what breaks here breaks on
- * the server — the bots, the webhooks, the crons, the wallet.
+ * The Node server only, loaded on demand. Sentry in the browser put 82 kB on every page
+ * (shared JS 103 → 185 kB) and in the middleware 56 kB (32 → 88 kB) — paid by a customer
+ * arriving from an advert on a phone — while what breaks here breaks on the server: the
+ * bots, the webhooks, the crons, the wallet.
  */
-export function register() {
-  Sentry.init({
-    ...SENTRY_COMMON,
-    dsn: process.env.SENTRY_DSN,
-    integrations: [Sentry.captureConsoleIntegration({ levels: ["error"] })],
-  });
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") await import("./sentry.server");
 }
 
 /** an error a route, an action or a page threw without catching */
-export const onRequestError = Sentry.captureRequestError;
+export const onRequestError: Instrumentation.onRequestError = async (...args) => {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { captureRequestError } = await import("./sentry.server");
+  captureRequestError(...args);
+};
