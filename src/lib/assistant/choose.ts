@@ -18,13 +18,15 @@ const NAMES: [Product, RegExp][] = [
   ["plb", /protection\s*life|\bplb\b|โพรเทคชั่น\s*ไลฟ์|พีแอลบี/i],
   ["ihealthy", /ประกันสุขภาพ|ไอเฮลท์ตี้|ไอเฮลตี้|i\s*-?\s*healthy/i],
   ["legacy", /เบี้ยทิ้ง|มรดกเพื่อครอบครัว|มรดก\s*\+\s*โรคร้าย|\blegacy\b/i],
-  ["ishield", /i\s*-?\s*shield|ไอ\s*ชิลด์?|(?<!เก็บ)ออม/i],
+  // "ออม" on its own is every savings plan's word, and named iShield on a Life Protect Page that sells
+  // nothing else ("มีงบออมเงิน 30 บาทต่อวัน", 2026-10-11): only ออม beside โรคร้าย is this plan (owner)
+  ["ishield", /i\s*-?\s*shield|ไอ\s*ชิลด์?|ออม\s*\+?\s*(?:ประกัน)?\s*โรคร้าย/i],
   ["lifeprotect", /life\s*protect|ไลฟ์\s*โพรเทค|ไลฟ์โปรเทค|ประกันชีวิต|เบี้ยไม่ทิ้ง/i],
 ];
 
 /**
  * The names that mean one plan and nothing else, as against the words several plans answer to
- * ("ประกันชีวิต", "เบี้ยทิ้ง", "ออม"). A conversation settled on Protection Life is moved off it
+ * ("ประกันชีวิต", "เบี้ยทิ้ง", "ออม+ประกันโรคร้าย"). A conversation settled on Protection Life is moved off it
  * only by one of these.
  */
 const EXPLICIT: Partial<Record<Product, RegExp>> = {

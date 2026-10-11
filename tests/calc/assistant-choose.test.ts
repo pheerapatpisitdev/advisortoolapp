@@ -118,6 +118,18 @@ describe("มรดกเก็บออม by the day", () => {
   it("is Life Protect: เก็บออม is saving, not the iShield name, and a daily budget beside มรดก is this plan's", () => {
     expect(productNamedIn("มรดกเก็บออม 50 บาทต่อวัน")).toBeUndefined();
     expect(productByTopic("มรดกเก็บออม 50 บาทต่อวัน")).toBe("lifeprotect");
-    expect(productNamedIn("ออมเดือนละ 2,000 บาท")).toBe("ishield");
+  });
+});
+
+describe("ออม names iShield only beside โรคร้าย (owner, 2026-10-11)", () => {
+  it("leaves a bare ออม to the Page's plan or the menu", () => {
+    for (const said of ["มีงบออมเงิน 30 บาทต่อวัน", "ออมเดือนละ 2,000 บาท", "อยากออมเงิน"]) {
+      expect(productNamedIn(said)).toBeUndefined();
+    }
+  });
+  it("is iShield with โรคร้าย beside it", () => {
+    for (const said of ["ออม+ประกันโรคร้าย", "ออม + ประกันโรคร้าย", "ออมประกันโรคร้าย เดือนละ 2,000", "🌱 มรดก+ออม+โรคร้าย"]) {
+      expect(productNamedIn(said)).toBe("ishield");
+    }
   });
 });
