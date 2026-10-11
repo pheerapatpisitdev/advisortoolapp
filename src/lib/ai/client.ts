@@ -346,6 +346,14 @@ export async function chat({ tier, task, messages, maxTokens = 700, json, mediaR
         ? fallbackOrder(config.models, tier, prefer, liveKeys(config))
         : candidates(config, tier);
   if (only && chain.length === 0) throw new Error(`โมเดล ${only} ใช้ไม่ได้ในตอนนี้`);
+  /**
+   * A reply that stopped at maxTokens, kept in case nobody does better. Cut-off words were
+   * returned as an answer: a post that ends mid-sentence, a JSON reply that would not parse
+   * (paid for and lost) or that closeBrackets "repaired" by dropping its last fields (review,
+   * 2026-10-11). The next model is asked first; only words that every model cut short go back
+   * as they are, as before — never JSON, which a repair would quietly shorten.
+   */
+  let cutShort: ChatResult | undefined;
   for (const model of chain) {
     const call = CALLERS[model.provider];
     if (!call) continue;
@@ -366,10 +374,19 @@ export async function chat({ tier, task, messages, maxTokens = 700, json, mediaR
        * it is recorded above; then the next model is asked.
        */
       if (!r.text.trim()) throw new Error(`empty reply after ${r.outputTokens} tokens`);
-      return { text: r.text, model: model.model_name, provider: model.provider, inputTokens: r.inputTokens, outputTokens: r.outputTokens, costThb };
+      const result = { text: r.text, model: model.model_name, provider: model.provider, inputTokens: r.inputTokens, outputTokens: r.outputTokens, costThb };
+      if (r.truncated) {
+        cutShort ??= result;
+        throw new Error(`cut off at ${maxTokens} tokens`);
+      }
+      return result;
     } catch (e) {
       tried.push(`${model.model_name}: ${e instanceof Error ? e.message : e}`);
     }
+  }
+  if (cutShort && !json) {
+    console.warn(`[ai] ${task}: every model stopped at ${maxTokens} tokens; the first one's words go back cut short`);
+    return cutShort;
   }
   if (tried.length === 0) throw new Error("ไม่มีคีย์ผู้ให้บริการ AI ที่ใช้ได้ในตอนนี้");
   throw new Error(`ไม่มีผู้ให้บริการ AI ที่ตอบได้\n${tried.join("\n")}`);

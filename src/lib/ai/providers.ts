@@ -22,6 +22,8 @@ export interface CallResult {
   text: string;
   inputTokens: number;
   outputTokens: number;
+  /** the reply stopped at maxTokens, mid-answer, rather than where the model finished */
+  truncated?: boolean;
 }
 
 const TIMEOUT_MS = 25_000;
@@ -93,7 +95,10 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
     }, signal);
     const text = (data.content ?? []).filter((c: { type: string }) => c.type === "text")
       .map((c: { text: string }) => c.text).join("");
-    return { text, inputTokens: data.usage?.input_tokens ?? 0, outputTokens: data.usage?.output_tokens ?? 0 };
+    return {
+      text, inputTokens: data.usage?.input_tokens ?? 0, outputTokens: data.usage?.output_tokens ?? 0,
+      truncated: data.stop_reason === "max_tokens",
+    };
   },
 
   async openai({ apiKey, model, messages, maxTokens, json, signal, effort }) {
@@ -108,6 +113,7 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
       text: data.choices?.[0]?.message?.content ?? "",
       inputTokens: data.usage?.prompt_tokens ?? 0,
       outputTokens: data.usage?.completion_tokens ?? 0,
+      truncated: data.choices?.[0]?.finish_reason === "length",
     };
   },
 
@@ -133,6 +139,7 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
       // thinking is billed at the output rate and is not in the answer's own count; leaving it
       // out recorded a reply after 238 tokens of thought as 12 (review, 2026-10-11)
       outputTokens: (usage?.candidatesTokenCount ?? 0) + (usage?.thoughtsTokenCount ?? 0),
+      truncated: data.candidates?.[0]?.finishReason === "MAX_TOKENS",
     };
   },
 
@@ -204,6 +211,7 @@ async function openAiCompatible(url: string, { apiKey, model, messages, maxToken
     text: data.choices?.[0]?.message?.content ?? "",
     inputTokens: data.usage?.prompt_tokens ?? 0,
     outputTokens: data.usage?.completion_tokens ?? 0,
+    truncated: data.choices?.[0]?.finish_reason === "length",
   };
 }
 

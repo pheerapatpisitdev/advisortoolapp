@@ -25,7 +25,7 @@ describe("Typhoon", () => {
     expect(sent().url).toBe("https://api.opentyphoon.ai/v1/chat/completions");
     expect(sent().auth).toBe("Bearer k");
     expect(sent().body.max_tokens).toBe(200);
-    expect(res).toEqual({ text: "สวัสดีครับ", inputTokens: 7, outputTokens: 3 });
+    expect(res).toEqual({ text: "สวัสดีครับ", inputTokens: 7, outputTokens: 3, truncated: false });
   });
 
   it("sends the words without the pictures — its chat model reads none", async () => {

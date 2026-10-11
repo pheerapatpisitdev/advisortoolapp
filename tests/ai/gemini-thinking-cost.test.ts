@@ -29,3 +29,14 @@ describe("what a Gemini reply costs", () => {
     expect((await ask()).outputTokens).toBe(12);
   });
 });
+
+describe("a Gemini reply cut off", () => {
+  it("says so when it stopped at maxOutputTokens", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: '{"a":1,"b' }] }, finishReason: "MAX_TOKENS" }],
+      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 50 },
+    }), { status: 200 })));
+    const r = await CALLERS.google({ apiKey: "k", model: "gemini-3.1-flash-lite", messages: [{ role: "user", content: "x" }], maxTokens: 50 });
+    expect(r.truncated).toBe(true);
+  });
+});
