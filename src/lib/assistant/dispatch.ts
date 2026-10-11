@@ -134,11 +134,13 @@ function personIn(slots: AnySlots | null): Person {
 export async function answerAny(
   rawHistory: ChatMessage[], stored: AnySlots | null, channel: Channel = "web",
   cameFor?: Product, pageId?: string, welcome?: PageWelcome, lessons?: readonly Lesson[],
+  /** the pictures ahead of a first quotation, as /admin/teach sets them for this Page; the built-in one when unset */
+  intro?: readonly string[],
 ): Promise<AnyAnswer> {
   const history = rawHistory.map((m) => (m.role === "user" ? { ...m, content: withoutInvisible(m.content) } : m));
   const seen = Boolean((stored as WithIntro<AnySlots> | null)?.introSeen);
   const answer = await answerTurn(history, withoutIntro(stored), channel, cameFor, pageId, welcome, lessons);
-  return withIntroPicture(answer, seen, channel);
+  return withIntroPicture(answer, seen, channel, intro);
 }
 
 async function answerTurn(

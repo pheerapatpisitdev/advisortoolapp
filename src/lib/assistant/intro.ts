@@ -12,6 +12,13 @@ import type { AnySlots, WithIntro } from "./slots";
  */
 export const INTRO_PICTURE = "/intro/protect-compare-2.jpg";
 
+/**
+ * The pictures a Page sends instead, set in /admin/teach (owner, 2026-10-11): a set for every
+ * Page and LINE, and a Page's own where it has one. Read by the caller and handed in; an empty
+ * set sends the quotation with no picture ahead of it.
+ */
+export const MAX_INTRO_PICTURES = 3;
+
 /** The inbox channels. The website draws every card together after its words, so "ahead of" means nothing there. */
 const CHANNELS_WITH_INTRO: Channel[] = ["facebook", "line"];
 
@@ -30,16 +37,18 @@ export function withoutIntro(stored: AnySlots | null): AnySlots | null {
  *
  * A bubble with no words and a card is a picture on its own, which every channel already sends.
  */
-export function withIntroPicture(answer: AnyAnswer, seen: boolean, channel: Channel): AnyAnswer {
+export function withIntroPicture(
+  answer: AnyAnswer, seen: boolean, channel: Channel, pictures: readonly string[] = [INTRO_PICTURE],
+): AnyAnswer {
   // only the two brains the owner chose — about cover for the family, not health or illness
   // benefits — and marked by the dispatcher, which knows who quoted
   const { introFor, ...rest } = answer;
   if (seen) return { ...rest, slots: { ...rest.slots, introSeen: true } as WithIntro<AnySlots> };
   const quoted = rest.priced && rest.messages.some((m) => m.card);
-  if (!introFor || !quoted || !CHANNELS_WITH_INTRO.includes(channel)) return rest;
+  if (!introFor || !quoted || !CHANNELS_WITH_INTRO.includes(channel) || !pictures.length) return rest;
   return {
     ...rest,
-    messages: [{ text: "", card: INTRO_PICTURE }, ...rest.messages],
+    messages: [...pictures.slice(0, MAX_INTRO_PICTURES).map((card) => ({ text: "", card })), ...rest.messages],
     slots: { ...rest.slots, introSeen: true } as WithIntro<AnySlots>,
   };
 }

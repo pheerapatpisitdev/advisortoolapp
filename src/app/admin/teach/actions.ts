@@ -7,6 +7,7 @@ import { isExpatPage } from "@/lib/assistant/expat";
 import { teachable } from "@/lib/assistant/lessons";
 import { recordUnanswered, rehearse } from "@/lib/assistant/unanswered";
 import { loadLessons } from "@/lib/chat/lessons-store";
+import { loadIntroPictures } from "@/lib/chat/intro-store";
 import { loadWelcome } from "@/lib/chat/page-welcome-store";
 import { pageConnections } from "@/lib/facebook/connection";
 import { cleanTurns as cleanTestTurns, runBotTest, type TestRun, type TestTurn } from "@/lib/chat/bot-tests";
@@ -76,12 +77,13 @@ async function turnFor(pageId: unknown, cameFor: unknown) {
   const page = await pageOf(pageId).catch(() => undefined);
   const product = PRODUCTS.includes(cameFor as Product) ? (cameFor as Product) : undefined;
   const expat = isExpatPage(page);
-  const [welcome, lessons] = await Promise.all([
+  const [welcome, lessons, intro] = await Promise.all([
     expat ? undefined : loadWelcome(page),
     expat ? undefined : loadLessons({ fresh: true }),
+    expat ? undefined : loadIntroPictures(page, { fresh: true }),
   ]);
   return (history: ChatMessage[], slots: AnySlots | null) =>
-    rehearse(() => answerAny(history, slots, "facebook", product, page, welcome, lessons));
+    rehearse(() => answerAny(history, slots, "facebook", product, page, welcome, lessons, intro));
 }
 
 export async function tryBot(
