@@ -99,6 +99,41 @@ const HEALTH_RIDER_NAME = "iHealthy Ultra";
  */
 const SETTLE_MS = 300;
 
+/**
+ * Where a rider's sum starts when its floor is not a sum anybody is quoted at.
+ *
+ * CI 123 is written from 100,000, but it also carries a minimum premium of 1,000 a year, and
+ * at most adult ages 100,000 falls under it — so a tick at the floor came back "ไม่คุ้มครอง",
+ * which reads as the rider being unavailable rather than the sum being too small.
+ */
+const OPENING_SUM: Record<string, number> = { CI123: 500_000 };
+
+/**
+ * The fold's headings, in the order they are read, and the riders under each.
+ *
+ * Twelve riders in the company's own order read as one long list; grouped by what they pay
+ * for, the agent finds the one the customer asked about. A heading with nothing on offer under
+ * it is not drawn, and a rider no group names is listed after them all without one.
+ */
+const GROUPS: { key: keyof IHealthyWords["riderGroups"]; codes: string[] }[] = [
+  { key: "health", codes: ["MEB", "MEX"] },
+  { key: "critical", codes: ["DCI", "CI123", "RRSS", "CPR"] },
+  { key: "accident", codes: ["AP", "ECARE"] },
+  { key: "life", codes: ["PLS"] },
+  { key: "waiver", codes: ["WP"] },
+];
+
+/** The riders on offer under their headings; `heading` is undefined for the ungrouped tail. */
+function grouped(available: RiderChoice[]): { heading?: keyof IHealthyWords["riderGroups"]; riders: RiderChoice[] }[] {
+  const named = new Set(GROUPS.flatMap((g) => g.codes));
+  const sections = GROUPS.map((g) => ({
+    heading: g.key,
+    riders: g.codes.flatMap((code) => available.filter((c) => c.code === code)),
+  }));
+  const rest = available.filter((c) => !named.has(c.code));
+  return [...sections, { heading: undefined, riders: rest }].filter((s) => s.riders.length > 0);
+}
+
 /** What a rider starts at when it is ticked: the package's pinned sum, the smallest plan or
  *  the first variant it sells, and its own floor where it takes a sum of its own. */
 function opening(c: RiderChoice, standard?: { code: string; plan: number }): RiderPick {
@@ -109,7 +144,7 @@ function opening(c: RiderChoice, standard?: { code: string; plan: number }): Rid
     ...(c.plans && c.plans.length > 0 ? { plan: c.plans[0] } : {}),
     ...(c.options && c.options.length > 0 ? { option: c.options[0].code } : {}),
     ...(c.exactSumAssured !== undefined ? { sumAssured: c.exactSumAssured }
-      : c.saMin !== undefined ? { sumAssured: c.saMin } : {}),
+      : c.saMin !== undefined ? { sumAssured: startingSum(c) } : {}),
   };
 }
 
@@ -127,6 +162,14 @@ function seed(
     ...(r.sumAssured === undefined ? {} : { sumAssured: r.sumAssured }),
     ...(r.option === undefined ? {} : { option: r.option }),
   }]));
+}
+
+/** The floor, or the page's own opening sum where that is higher and still inside the bounds. */
+function startingSum(c: RiderChoice): number {
+  const floor = c.saMin ?? 0;
+  const wanted = OPENING_SUM[c.code];
+  if (wanted === undefined || wanted < floor) return floor;
+  return c.saMax === undefined ? wanted : Math.min(wanted, c.saMax);
 }
 
 /** The bounds the rider is written between, where it has them. */
@@ -289,64 +332,73 @@ export function RiderPanel(
           <p className="text-sm text-[var(--lg-mute)]">{w.pricing}</p>
         ) : (
           <>
-            {result.available.map((c) => {
-              const on = c.code in chosen && c.eligible;
-              const picked = chosen[c.code];
-              const name = w.rider(c.name);
-              return (
-                <div
-                  key={c.code}
-                  className={`flex flex-wrap items-center gap-2.5 print:hidden ${c.eligible ? "" : "opacity-55"}`}
-                >
-                  <label className="flex flex-1 items-center gap-2.5 text-sm text-[var(--lg-white)]">
-                    <input
-                      type="checkbox" checked={on} disabled={!c.eligible} onChange={() => toggle(c)}
-                      className="h-4 w-4 shrink-0 accent-[var(--lg-gold)]"
-                    />
-                    {name}
-                    {/* the rider's name wraps on a phone; "0 - 60 ปี" broken over two lines
-                        reads as two different numbers */}
-                    <span className="shrink-0 whitespace-nowrap text-xs text-[var(--lg-mute)]">{w.rider(c.ageRange)}</span>
-                  </label>
-                  {!c.eligible && (
-                    <span className="text-xs text-[var(--lg-mute)]">{c.reason && w.rider(c.reason)}</span>
-                  )}
-                  {on && c.options && c.options.length > 0 && (
-                    <select
-                      aria-label={w.optionOf(name)} className={control} value={picked.option ?? ""}
-                      onChange={(e) => amend(c.code, { option: e.target.value })}
+            {grouped(result.available).map((section) => (
+              <div key={section.heading ?? "rest"} className="space-y-3 print:hidden">
+                {section.heading && (
+                  <h4 className="pt-1 text-xs font-semibold tracking-wide text-[var(--lg-gold)]">
+                    {w.riderGroups[section.heading]}
+                  </h4>
+                )}
+                {section.riders.map((c) => {
+                  const on = c.code in chosen && c.eligible;
+                  const picked = chosen[c.code];
+                  const name = w.rider(c.name);
+                  return (
+                    <div
+                      key={c.code}
+                      className={`flex flex-wrap items-center gap-2.5 print:hidden ${c.eligible ? "" : "opacity-55"}`}
                     >
-                      {c.options.map((o) => <option key={o.code} value={o.code}>{w.rider(o.name)}</option>)}
-                    </select>
-                  )}
-                  {on && c.plans && c.plans.length > 0 && (
-                    <select
-                      aria-label={w.planOf(name)} className={control} value={picked.plan ?? ""}
-                      onChange={(e) => amend(c.code, { plan: Number(e.target.value) })}
-                    >
-                      {c.plans.map((p) => (
-                        <option key={p} value={p}>{p.toLocaleString("en-US")}</option>
-                      ))}
-                    </select>
-                  )}
-                  {on && c.exactSumAssured !== undefined && (
-                    <span className="text-xs text-[var(--lg-mute)]">{c.exactMessage && w.rider(c.exactMessage)}</span>
-                  )}
-                  {on && c.exactSumAssured === undefined && c.saMin !== undefined && (
-                    <label className="flex items-center gap-2">
-                      <span className="sr-only">{w.sumOfRider(name)}</span>
-                      <MoneyInput
-                        className={`w-32 ${control}`} value={picked.sumAssured ?? ""} max={c.saMax}
-                        onChange={(v) => amend(c.code, { sumAssured: v })}
-                      />
-                      <span className="whitespace-nowrap text-xs tabular-nums text-[var(--lg-mute)]">
-                        {range(c)}
-                      </span>
-                    </label>
-                  )}
-                </div>
-              );
-            })}
+                      <label className="flex flex-1 items-center gap-2.5 text-sm text-[var(--lg-white)]">
+                        <input
+                          type="checkbox" checked={on} disabled={!c.eligible} onChange={() => toggle(c)}
+                          className="h-4 w-4 shrink-0 accent-[var(--lg-gold)]"
+                        />
+                        {name}
+                        {/* the rider's name wraps on a phone; "0 - 60 ปี" broken over two lines
+                            reads as two different numbers */}
+                        <span className="shrink-0 whitespace-nowrap text-xs text-[var(--lg-mute)]">{w.rider(c.ageRange)}</span>
+                      </label>
+                      {!c.eligible && (
+                        <span className="text-xs text-[var(--lg-mute)]">{c.reason && w.rider(c.reason)}</span>
+                      )}
+                      {on && c.options && c.options.length > 0 && (
+                        <select
+                          aria-label={w.optionOf(name)} className={control} value={picked.option ?? ""}
+                          onChange={(e) => amend(c.code, { option: e.target.value })}
+                        >
+                          {c.options.map((o) => <option key={o.code} value={o.code}>{w.rider(o.name)}</option>)}
+                        </select>
+                      )}
+                      {on && c.plans && c.plans.length > 0 && (
+                        <select
+                          aria-label={w.planOf(name)} className={control} value={picked.plan ?? ""}
+                          onChange={(e) => amend(c.code, { plan: Number(e.target.value) })}
+                        >
+                          {c.plans.map((p) => (
+                            <option key={p} value={p}>{p.toLocaleString("en-US")}</option>
+                          ))}
+                        </select>
+                      )}
+                      {on && c.exactSumAssured !== undefined && (
+                        <span className="text-xs text-[var(--lg-mute)]">{c.exactMessage && w.rider(c.exactMessage)}</span>
+                      )}
+                      {on && c.exactSumAssured === undefined && c.saMin !== undefined && (
+                        <label className="flex items-center gap-2">
+                          <span className="sr-only">{w.sumOfRider(name)}</span>
+                          <MoneyInput
+                            className={`w-32 ${control}`} value={picked.sumAssured ?? ""} max={c.saMax}
+                            onChange={(v) => amend(c.code, { sumAssured: v })}
+                          />
+                          <span className="whitespace-nowrap text-xs tabular-nums text-[var(--lg-mute)]">
+                            {range(c)}
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
             {/* the figures, not the pickers: a screen reader hears the new total when the
                 answer lands, and hears it once, because the wait is announced by aria-busy */}
             <dl

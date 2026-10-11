@@ -85,7 +85,18 @@ describe("the rider engine's lines", () => {
     for (const age of [0, 5, 8, 12, 16, 30, 55, 65, 70, 74, 80]) {
       for (const b of t.bases) {
         for (const riders of [[], [{ code: "MEB", plan: 1000 }], [{ code: "MEB", plan: 5000 }],
-          [{ code: "DCI", sumAssured: 100_000 }], [{ code: "DCI", sumAssured: 200_000 }], [{ code: "XYZ" }]]) {
+          [{ code: "DCI", sumAssured: 100_000 }], [{ code: "DCI", sumAssured: 200_000 }], [{ code: "XYZ" }],
+          // every other rider the fold offers, and the pairs the rules object to
+          [{ code: "MEX", option: "1200" }], [{ code: "RRSS", option: "แผน S" }],
+          [{ code: "CI123", sumAssured: 100_000 }], [{ code: "CI123", sumAssured: 500_000 }],
+          [{ code: "CPR", sumAssured: 300_000 }], [{ code: "PLS", option: "PLS05", sumAssured: 300_000 }],
+          [{ code: "PLS", option: "PLS15", sumAssured: 5_000_000 }],
+          [{ code: "AP", sumAssured: 500_000 }], [{ code: "ECARE", sumAssured: 100_000 }],
+          [{ code: "AP", sumAssured: 5_000_000 }, { code: "ECARE", sumAssured: 5_000_000 }],
+          [{ code: "WP", option: "FIT" }], [{ code: "PB", option: "BEYOND" }],
+          [{ code: "WP", option: "FIT" }, { code: "PB", option: "FIT" }],
+          [{ code: "CPR", sumAssured: 300_000 }, { code: "DCI", sumAssured: 200_000 }],
+          [{ code: "HIC", sumAssured: 1000 }]]) {
           const r = priceRiders({
             base: b.variant, age, sex: "M", sumAssured: b.fixedSum ?? 1_000_000, mode: "annual",
             plan: "GOLD", territory: "ประเทศไทย", coverage: "Full Coverage", riders,
