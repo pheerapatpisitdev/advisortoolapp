@@ -12,7 +12,7 @@ import { SiteCredit } from "@/components/sales/SiteCredit";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { INSURER } from "@/lib/assistant/common";
 import { Sriracha } from "next/font/google";
-import { figureWidth, needsBraceRoom, penNotes, penSvgUri, type PenGeometry } from "@/app/api/card/table/pen-notes";
+import { BLUE_PEN, figureWidth, needsBraceRoom, penNotes, penSvgUri, type PenGeometry } from "@/app/api/card/table/pen-notes";
 import type { ValueTableCard } from "@/lib/quote-card";
 import { isBooster } from "@/lib/booster";
 import { CARD_PALETTE } from "@/lib/card-theme";
@@ -426,18 +426,22 @@ function PenLayer({ card, table }: { card: ValueTableCard; table: RefObject<HTML
   const height = PEN_CAPTION + box.height;
   return (
     <div aria-hidden className="pointer-events-none absolute left-0 top-0 z-[1]" style={{ width, height }}>
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage: penSvgUri(notes.strokes, up(width), up(height), CARD_PALETTE.pen),
-          backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
-        }}
-      />
+      {([[notes.strokes, CARD_PALETTE.pen], [notes.blueStrokes, BLUE_PEN]] as const).map(([strokes, ink]) => strokes.length > 0 && (
+        <div
+          key={ink}
+          className="absolute inset-0"
+          style={{
+            backgroundImage: penSvgUri(strokes, up(width), up(height), ink),
+            backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
+          }}
+        />
+      ))}
       {notes.labels.map((l) => (
         <span
           key={l.text}
-          className={`${pen.className} absolute whitespace-nowrap text-[var(--lg-pen)]`}
+          className={`${pen.className} absolute whitespace-nowrap ${l.ink === "blue" ? "" : "text-[var(--lg-pen)]"}`}
           style={{
+            ...(l.ink === "blue" ? { color: BLUE_PEN } : {}),
             top: l.top * PEN_SCALE,
             ...(l.left !== undefined ? { left: l.left * PEN_SCALE } : { right: (l.right ?? 0) * PEN_SCALE }),
             fontSize: l.size * PEN_SCALE, lineHeight: 1.5, transform: `rotate(${l.tilt}deg)`,

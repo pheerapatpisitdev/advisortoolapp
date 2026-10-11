@@ -7,7 +7,7 @@ import { cardInputFrom, valueTableCard, valueTableChart, type CardChart, type Va
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { highlighterUri, loopUri } from "@/lib/highlighter";
 import { QUOTE_CARD_KEYS, toCanonical } from "../canonical";
-import { BRACE_ROOM, PEN_TEXT, RING_PAD, needsBraceRoom, penNotes, penSvgUri, type PenNotes } from "./pen-notes";
+import { BLUE_PEN, BRACE_ROOM, PEN_TEXT, RING_PAD, needsBraceRoom, penNotes, penSvgUri, type PenNotes } from "./pen-notes";
 import { googleFontSubset } from "@/lib/google-font";
 import { Chart, chartBlockHeight } from "../chart-drawing";
 import { quoteFor } from "@/lib/life-quotes";
@@ -399,22 +399,23 @@ export async function GET(req: NextRequest) {
           </div>
 
           {/* over the table, as a pen would be */}
-          {notes.strokes.length > 0 && (
+          {([[notes.strokes, p.pen], [notes.blueStrokes, BLUE_PEN]] as const).map(([strokes, ink]) => strokes.length > 0 && (
             <div
+              key={ink}
               style={{
                 position: "absolute", left: 0, top: 0, width: width - PAD * 2, height: tableHeight,
-                backgroundImage: penSvgUri(notes.strokes, width - PAD * 2, tableHeight, p.pen),
+                backgroundImage: penSvgUri(strokes, width - PAD * 2, tableHeight, ink),
                 backgroundSize: "100% 100%", backgroundRepeat: "no-repeat",
               }}
             />
-          )}
+          ))}
           {notes.labels.map((l) => (
             <div
               key={l.text}
               style={{
                 position: "absolute", display: "flex", top: l.top,
                 ...(l.left !== undefined ? { left: l.left } : { right: l.right }),
-                fontFamily: pen ? PEN_FACE : "Plex", fontSize: l.size, lineHeight: 1.5, color: p.pen,
+                fontFamily: pen ? PEN_FACE : "Plex", fontSize: l.size, lineHeight: 1.5, color: l.ink === "blue" ? BLUE_PEN : p.pen,
                 transform: `rotate(${l.tilt}deg)`, whiteSpace: "nowrap",
               }}
             >

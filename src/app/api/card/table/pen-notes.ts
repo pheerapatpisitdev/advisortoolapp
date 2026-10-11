@@ -9,6 +9,7 @@ import type { ValueTableCard } from "@/lib/quote-card";
  *   - the first year's cover ringed, an arrow from "อนุมัติ คุ้มครองเลย"
  *   - an arrow from the break-even label over to the ringed surrender value
  *   - a brace down the surrender values after break-even, "เบี้ยไม่ทิ้งเปล่า …" (2026-10-10)
+ *   - in blue, a brace down the surrender values before break-even, "เงินโตทุกปี …" (2026-10-11)
  *
  * Each note is drawn only where its fact holds: a plan paid to the end has nothing to stop, a
  * premium that moves year to year is not "คงที่", a year still being paid at break-even has no
@@ -41,6 +42,8 @@ export interface PenLabel {
   size: number;
   /** a pen is never held quite level */
   tilt: number;
+  /** the owner's second pen, blue (2026-10-11); red when left out */
+  ink?: "blue";
 }
 
 export interface PenNotes {
@@ -48,8 +51,13 @@ export interface PenNotes {
   rings: { row: number; column: string }[];
   /** every stroke, as SVG path data in the overlay's own pixels */
   strokes: string[];
+  /** the same, in the blue pen */
+  blueStrokes: string[];
   labels: PenLabel[];
 }
+
+/** the owner's blue pen, beside the red one (card-theme's pen) */
+export const BLUE_PEN = "#1f5fbf";
 
 /** A figure's width at the table's 22px, near enough to aim a pen at. */
 export const figureWidth = (s: string) => [...s].reduce((w, c) => w + (c === "," ? 6 : 12.6), 0);
@@ -63,13 +71,21 @@ const COVER_WORD = "อนุมัติ คุ้มครองเลย";
 /** written beside the years the policy is worth more than was paid in, one line at a time */
 const GAIN_WORDS = ["เบี้ยไม่ทิ้งเปล่า", "สามารถเก็บเป็นเงินสด", "หลังเกษียณได้"];
 const GAIN_SIZE = 32;
+/** written beside the years the surrender value is still climbing to what was paid in (owner, 2026-10-11) */
+const GROWTH_WORDS = ["เงินโตทุกปี", "เวนคืน", "เมื่อฉุกเฉิน"];
+const GROWTH_SIZE = 28;
+const GROWTH_LINE = GROWTH_SIZE * 1.5;
+/** Thai marks above and below a letter take no width of their own */
+const THAI_MARKS = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g;
+/** A line of the blue words' width, near enough to know whether it fits beside the brace. */
+const penWidth = (text: string) => text.replace(THAI_MARKS, "").length * GROWTH_SIZE * 0.6;
 /** a line of the pen face at GAIN_SIZE, as the labels set it (lineHeight 1.5) */
 const GAIN_LINE = GAIN_SIZE * 1.5;
 /** the label the break-even row carries in the running-total column (route.tsx) */
 const BREAK_EVEN_LABEL_WIDTH = 132;
 
 /** every word the notes can write, for cutting the font down to them */
-export const PEN_TEXT = BRACE_WORD + STOP_WORD + COVER_WORD + GAIN_WORDS.join("");
+export const PEN_TEXT = BRACE_WORD + STOP_WORD + COVER_WORD + GAIN_WORDS.join("") + GROWTH_WORDS.join("");
 
 /** the room the brace and its word take, left of the premium figures */
 export const BRACE_ROOM = 170;
@@ -130,7 +146,7 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
   const total = end(g.widths.length - 1);
   const top = (n: number) => g.caption + g.head + n * g.row;
   const mid = (n: number) => top(n) + g.row / 2;
-  const notes: PenNotes = { rings: [], strokes: [], labels: [] };
+  const notes: PenNotes = { rings: [], strokes: [], blueStrokes: [], labels: [] };
   const widthOf = g.measure ?? figureWidth;
   const premium = columns.indexOf("เบี้ย/ปี");
 
@@ -202,6 +218,37 @@ export function penNotes(card: ValueTableCard, g: PenGeometry): PenNotes {
       notes.strokes.push(brace(left, y, h));
       GAIN_WORDS.forEach((text, i) => {
         notes.labels.push({ text, right: total - (left - 10), top: labelTop + i * GAIN_LINE, size: GAIN_SIZE, tilt: -4 });
+      });
+    }
+  }
+
+  // ── เงินโตทุกปี: in blue, a brace down the surrender values before break-even — the years
+  // the money grows and can be taken out in an emergency (owner's sketch, 2026-10-11) — the
+  // words inside the column, left of the brace, clear of the running total's figures
+  if (be >= 4 && cash >= 0) {
+    const y = top(0) + 4;
+    const h = top(be) - 4 - y;
+    const widest = Math.max(...rows.slice(0, be).map((r) => widthOf(r.cash ?? "")));
+    const right = end(cash) - g.cellPad - widest - 22;
+    const left = right - 20;
+    const words = GROWTH_WORDS.length * GROWTH_LINE;
+    /**
+     * Centred on the brace when the words fit inside the column, as in the owner's sketch. On a
+     * phone the column is narrow and they would run over the running total's figures, so they
+     * go down to the years it has stopped — its cells empty — or are not written at all.
+     */
+    const fits = left - 8 - x(cash) >= Math.max(...GROWTH_WORDS.map(penWidth));
+    let labelTop: number | undefined = y + h / 2 - words / 2;
+    if (!fits) {
+      const stopped = rows.findIndex((r, i) => i < be && r.paid === null);
+      const room = stopped < 0 ? 0 : top(be) - top(stopped);
+      labelTop = room >= words ? top(stopped) + (room - words) / 2 : undefined;
+    }
+    notes.blueStrokes.push(brace(left, y, h));
+    if (labelTop !== undefined) {
+      const at = labelTop;
+      GROWTH_WORDS.forEach((text, i) => {
+        notes.labels.push({ text, right: total - (left - 8), top: at + i * GROWTH_LINE, size: GROWTH_SIZE, tilt: -4, ink: "blue" });
       });
     }
   }
