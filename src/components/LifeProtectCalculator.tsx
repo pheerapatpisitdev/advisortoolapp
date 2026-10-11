@@ -20,6 +20,7 @@ import {
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { LIFEPROTECT_BUDGET_SUMS, LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
@@ -744,7 +745,10 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         </div>
       )}
 
-      <ContactButtons copyText={quoteText} secondCopy={secondCopy} cardPath={card} tableCardPath={tableCard} />
+      <ContactButtons
+        copyText={quoteText} secondCopy={secondCopy} cardPath={card} tableCardPath={tableCard}
+        videoHref={who ? videoStartHref({ product: "LIFEPROTECT", sex, age: who.age, sumAssured, variant }) : undefined}
+      />
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">

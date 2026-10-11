@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { cleanLine, cleanPhone } from "@/lib/quote-video/contact";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "@/lib/quote-video/job";
-import { cleanCustomerName, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
+import { cleanCustomerName, pageCaption, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
+import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
 import { clipLength, LEAD, planScenes, XFADE } from "@/lib/quote-video/timeline";
 
 const TODAY = new Date("2026-10-11T00:00:00+07:00");
@@ -105,13 +106,17 @@ describe("quote video timeline and job", () => {
 describe("iShield and iHealthy Ultra clips (owner, 2026-10-11)", () => {
   it("leads iShield with the critical-illness lump sum and walks its value table", () => {
     const f = quoteVideoFacts({ product: "ISHIELD", variant: "WLCI10", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
-    expect(f.lead).toMatchObject({ label: "รับเงินก้อนเมื่อตรวจพบโรคร้ายแรง", amount: "1,000,000" });
+    expect(f.lead).toMatchObject({ label: "รับเงินก้อนสูงสุดเมื่อตรวจพบโรคร้ายแรง", amount: "1,000,000", note: "คุ้มครอง 70 โรค · จ่ายตั้งแต่ระยะเริ่มต้น" });
     expect(f.breakEven).toMatchObject({ age: 60, cash: "676,000" });
+    expect(f.pills).toEqual(["จ่ายเบี้ยแค่ 10 ปี", "เบี้ยเท่าเดิมทุกปี"]);
+    expect(f.cover.map((r) => r.label)).toEqual(["ตรวจพบระยะเริ่มต้น (20 โรค) ต่อโรค", "ระยะรุนแรง (50 โรค) รวมสูงสุด", "เสียชีวิต", "อยู่ครบสัญญาอายุ 85 ปี"]);
     const lines = quoteVideoScript(f, "สมชาย").map((s) => s.voice);
-    expect(lines[0]).toBe("สวัสดีค่ะ คุณสมชาย ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ อายุ 35 ทำทุน 1 ล้าน ถ้าตรวจเจอโรคร้ายแรง รับเงินก้อนทันที 1 ล้านบาทค่ะ");
-    expect(lines[1]).toBe("ค่าใช้จ่ายตกแค่วันละ 184 บาท หรือเดือนละ 6,028 บาท จ่ายแค่ 10 ปีก็จบ แต่ดูแลยาวถึงอายุ 85 เลยค่ะ");
-    expect(lines[2]).toBe("ตรวจเจอโรคร้ายระยะรุนแรง 50 โรค รับ 1 ล้าน เจอระยะเริ่มต้นอีก 20 โรค รับโรคละ 250,000 ถ้าเป็นอะไรไป ครอบครัวได้ 1 ล้าน และถ้าอยู่ครบอายุ 85 ก็รับคืน 1 ล้านค่ะ");
+    // the owner's corrected wording (2026-10-11): early stage first, the major stage "รวมสูงสุด", nothing stacked
+    expect(lines[0]).toBe("สวัสดีค่ะ คุณสมชาย ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ อายุ 35 ทำทุน 1 ล้าน คุ้มครองโรคร้ายแรง 70 โรค จ่ายเป็นเงินก้อนตั้งแต่ระยะเริ่มต้นเลยค่ะ");
+    expect(lines[1]).toBe("ค่าใช้จ่ายตกแค่วันละ 184 บาท หรือเดือนละ 6,028 บาท เบี้ยเท่าเดิมทุกปี จ่ายแค่ 10 ปีก็จบ แต่ดูแลยาวถึงอายุ 85 เลยค่ะ");
+    expect(lines[2]).toBe("เจอระยะเริ่มต้น 20 โรค รับก่อนเลยโรคละ 250,000 เป็นคนละโรคก็เคลมได้อีก ถ้าถึงระยะรุนแรง 50 โรค รับรวมสูงสุด 1 ล้าน ถ้าไม่ได้เคลมเลย เป็นอะไรไปครอบครัวได้ 1 ล้าน อยู่ครบอายุ 85 ก็รับคืน 1 ล้านค่ะ");
     expect(lines[3]).toContain("พออายุ 60 ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ 676,000 บาท");
+    for (const l of lines) expect(l).not.toContain("ทันที");
     expect(sceneMotion(f, "cover")).toEqual({ sweeps: 4, spread: true });
   });
 
@@ -132,6 +137,24 @@ describe("iShield and iHealthy Ultra clips (owner, 2026-10-11)", () => {
     const f = quoteVideoFacts({ product: "IHEALTHY", age: 35, sex: "F", plan: "SILVER", compare: [] }, TODAY)!;
     expect(f.compare).toBeUndefined();
     expect(quoteVideoScript(f).map((s) => s.key)).toEqual(["lead", "price", "cover", "contact"]);
+  });
+});
+
+describe("shortcut and Page caption (owner, 2026-10-11)", () => {
+  it("carries a plan page's quote into the Studio form and reads it back", () => {
+    const href = videoStartHref({ product: "ISHIELD", sex: "F", age: 40, sumAssured: 2_000_000, variant: "WLCI20" });
+    expect(href).toBe("/studio/quote-video?product=ISHIELD&sex=F&age=40&sum=2000000&variant=WLCI20");
+    const q = Object.fromEntries(new URL(href, "https://x").searchParams);
+    expect(videoStartFrom(q)).toEqual({ product: "ISHIELD", sex: "F", age: 40, sumAssured: 2_000_000, variant: "WLCI20" });
+    expect(videoStartFrom({ product: "PLB" })).toBeUndefined();
+    expect(videoStartFrom({ product: "IHEALTHY", plan: "<script>", age: "abc" })).toEqual({ product: "IHEALTHY" });
+  });
+
+  it("writes a Page caption from the clip's figures, never a name", () => {
+    const f = quoteVideoFacts({ variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+    expect(pageCaption(f)).toBe("มรดก 2 ล้าน สำหรับครอบครัว\nคุณผู้ชายอายุ 35 ทุน 1 ล้าน ตกวันละ 79 บาท จ่ายแค่ 19 ปี\nคุ้มครองถึงอายุ 99 · เงินไม่หายไปไหน เวนคืนได้\n\nทักแชทขอใบเสนอของคุณได้เลย");
+    const h = quoteVideoFacts({ product: "IHEALTHY", age: 35, sex: "F", plan: "GOLD", compare: [] }, TODAY)!;
+    expect(pageCaption(h).split("\n")[0]).toBe("ประกันสุขภาพเหมาจ่าย แผน Gold วงเงิน 25 ล้านบาทต่อปี");
   });
 });
 

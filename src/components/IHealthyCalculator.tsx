@@ -24,6 +24,7 @@ import { deathBenefitRows } from "@/lib/death-benefit";
 import type { AttachedRider } from "@/lib/ihealthy-rider-quote";
 import type { Attached } from "@/components/ihealthy/RiderPanel";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { LinkButton } from "@/components/sales/LinkButton";
 import { iHealthyQuoteText, type IHealthyCtaFacts } from "@/lib/ihealthy-cta";
 import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
@@ -637,7 +638,10 @@ export function IHealthyCalculator(
       </div>
 
       <div className="print:hidden">
-        <ContactButtons copyText={quoteText} cardPath={picture} words={w.contact} />
+        <ContactButtons
+          copyText={quoteText} cardPath={picture} words={w.contact}
+          videoHref={plan ? videoStartHref({ product: "IHEALTHY", sex, age, plan: plan.code }) : undefined}
+        />
       </div>
 
       {sticky && (quoteText || picture) && (

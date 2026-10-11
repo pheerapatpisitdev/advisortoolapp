@@ -257,6 +257,13 @@ export async function produce(id: string, agentName: string): Promise<void> {
   }
 }
 
+/** one of an agent's own clips, not deleted; null when there is none */
+export async function videoOf(agentId: string, id: string): Promise<VideoRow | null> {
+  const { data, error } = await rows().select("*").eq("id", id).eq("agent_id", agentId).is("deleted_at", null).maybeSingle<VideoRow>();
+  if (error) throw new Error(`video not read: ${error.message}`);
+  return data ?? null;
+}
+
 export async function videoOfJob(jobId: string): Promise<VideoRow | null> {
   const { data, error } = await rows().select("*").eq("job->>id", jobId).maybeSingle<VideoRow>();
   if (error) throw new Error(`video of job not read: ${error.message}`);
@@ -288,7 +295,7 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
 
 /** An agent's clips, newest first; any stuck past the time limit is marked failed on the way. */
 export async function listVideos(agentId: string, limit = 30): Promise<VideoRow[]> {
-  const { data, error } = await rows().select("*").eq("agent_id", agentId).order("created_at", { ascending: false }).limit(limit);
+  const { data, error } = await rows().select("*").eq("agent_id", agentId).is("deleted_at", null).order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`videos not read: ${error.message}`);
   const list = (data ?? []) as VideoRow[];
   const now = Date.now();
@@ -300,6 +307,24 @@ export async function listVideos(agentId: string, limit = 30): Promise<VideoRow[
     }
   }
   return list;
+}
+
+/**
+ * An agent's own clip deleted (owner, 2026-10-11): its files go, the row is marked and stays, so
+ * the free clips and the wallet's lines are not undone. Not while it is being made.
+ */
+export async function deleteVideo(agentId: string, id: string): Promise<"deleted" | "busy" | "missing"> {
+  const { data, error } = await rows().update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", id).eq("agent_id", agentId).is("deleted_at", null).in("status", ["done", "failed"]).select("id").maybeSingle();
+  if (error) throw new Error(`video ${id} not deleted: ${error.message}`);
+  if (!data) {
+    const { data: still } = await rows().select("status").eq("id", id).eq("agent_id", agentId).is("deleted_at", null).maybeSingle();
+    return still ? "busy" : "missing";
+  }
+  const { data: files } = await bucket().list(id, { limit: 1000 });
+  const paths = (files ?? []).map((o) => `${id}/${o.name}`);
+  for (let i = 0; i < paths.length; i += 100) await bucket().remove(paths.slice(i, i + 100)).catch(() => undefined);
+  return "deleted";
 }
 
 /** a link to watch, or to save under a file name (download), good for `seconds` */

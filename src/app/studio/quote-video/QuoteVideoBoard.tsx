@@ -2,8 +2,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
+import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput } from "@/lib/quote-video/script";
-import { makeVideo, myCost, myVideos, previewQuote, type Preview, type VideoItem } from "./actions";
+import { addToCalendar, calendarCaption, makeVideo, myCost, myVideos, previewQuote, removeVideo, type Preview, type VideoItem } from "./actions";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
@@ -41,8 +42,16 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost }: { ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null }) {
-  const [product, setProduct] = useState<Product>("LIFEPROTECT");
+export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost, start, pages }: {
+  ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
+  /** the Pages the owner may put a clip on; empty for everyone else, who see no button */
+  pages: { id: string; name: string }[];
+}) {
+  // a plan page's shortcut (owner, 2026-10-11) fills the form with the quote it was showing
+  const startProduct = start?.product ?? "LIFEPROTECT";
+  const startVariant = startProduct !== "IHEALTHY" && start?.variant && TERMS[startProduct].some((x) => x.variant === start.variant)
+    ? start.variant : startProduct === "IHEALTHY" ? DEFAULT_TERM.LIFEPROTECT : DEFAULT_TERM[startProduct];
+  const [product, setProduct] = useState<Product>(startProduct);
   const [narrator, setNarrator] = useState<"F" | "M">("F");
   // the voice picked last time, kept in this browser only (owner, 2026-10-11)
   useEffect(() => {
@@ -52,18 +61,42 @@ export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost }: { ihuPla
     setNarrator(n);
     try { localStorage.setItem(NARRATOR_KEY, n); } catch { /* not remembered, still used */ }
   }
-  const [plan, setPlan] = useState("GOLD");
+  const [plan, setPlan] = useState(start?.plan && ihuPlans.some((p) => p.code === start.plan) ? start.plan : "GOLD");
   const [compare, setCompare] = useState<string[]>([]);
-  const [sex, setSex] = useState<"M" | "F">("M");
-  const [age, setAge] = useState("35");
-  const [sum, setSum] = useState("1,000,000");
-  const [variant, setVariant] = useState("WLF19H");
+  const [sex, setSex] = useState<"M" | "F">(start?.sex ?? "M");
+  const [age, setAge] = useState(String(start?.age ?? 35));
+  const [sum, setSum] = useState((start?.sumAssured ?? 1_000_000).toLocaleString("en-US"));
+  const [variant, setVariant] = useState(startVariant);
   const [customer, setCustomer] = useState("");
   const [preview, setPreview] = useState<Preview | { error: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
   const [copied, setCopied] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ id: string; text: string } | null>(null);
+
+  // the owner's calendar panel, one clip at a time
+  const [cal, setCal] = useState<{ id: string; page: string; caption: string; busy: boolean; error?: string; done?: string } | null>(null);
+  async function openCalendar(id: string) {
+    setCal({ id, page: pages[0]?.id ?? "", caption: "", busy: true });
+    const r = await calendarCaption(id).catch(() => ({ ok: false as const, error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
+    setCal((c) => (c?.id === id ? (r.ok ? { ...c, caption: r.caption, busy: false } : { ...c, busy: false, error: r.error }) : c));
+  }
+  async function sendCalendar() {
+    if (!cal) return;
+    setCal({ ...cal, busy: true, error: undefined });
+    const r = await addToCalendar(cal.id, cal.page, cal.caption).catch(() => ({ ok: false as const, error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
+    setCal((c) => (c ? (r.ok ? { ...c, busy: false, done: r.pageId } : { ...c, busy: false, error: r.error }) : c));
+  }
+
+  async function remove(id: string) {
+    setDeleteError(null);
+    const r = await removeVideo(id).catch(() => ({ ok: false as const, error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
+    setConfirming(null);
+    if (!r.ok) { setDeleteError({ id, text: r.error }); return; }
+    setItems((was) => was?.filter((v) => v.id !== id) ?? was);
+  }
   const [cost, setCost] = useState<CostView | null>(firstCost);
   const line = costLine(cost);
 
@@ -254,10 +287,49 @@ export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost }: { ihuPla
             </div>
             {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
             {v.watch && <video src={v.watch} controls playsInline preload="metadata" className="w-full max-w-[220px] rounded-lg" style={{ aspectRatio: "9 / 16" }} />}
-            {v.status === "done" && (
-              <div className="flex flex-wrap gap-2">
-                {v.save && <a href={v.save} className={small}>บันทึกวิดีโอ</a>}
-                <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>
+            <div className="flex flex-wrap gap-2">
+              {v.status === "done" && v.save && <a href={v.save} className={small}>บันทึกวิดีโอ</a>}
+              {v.status === "done" && <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
+              {v.status === "done" && pages.length > 0 && !v.named && (
+                <button type="button" className={small} onClick={() => openCalendar(v.id)}>เพิ่มลงปฏิทินเพจ</button>
+              )}
+              {(v.status === "done" || v.status === "failed") && (
+                <button type="button" className={`${small} text-[var(--ct-alert)]`} onClick={() => setConfirming(v.id)}>ลบ</button>
+              )}
+            </div>
+            {confirming === v.id && (
+              <div role="alertdialog" aria-label="ยืนยันการลบ" className="space-y-2 rounded-lg bg-[var(--ct-alert-bg)] p-2 text-xs text-[var(--ct-alert)]">
+                <p>ลบวิดีโอนี้? ลิงก์ที่ส่งให้ลูกค้าไปแล้วจะเปิดไม่ได้</p>
+                <div className="flex gap-2">
+                  <button type="button" className="min-h-9 rounded-lg bg-[var(--ct-alert)] px-3 text-sm text-[var(--ct-panel)]" onClick={() => remove(v.id)}>ลบเลย</button>
+                  <button type="button" className={small} onClick={() => setConfirming(null)}>ไม่ลบ</button>
+                </div>
+              </div>
+            )}
+            {deleteError?.id === v.id && <p role="alert" className="text-xs text-[var(--ct-alert)]">{deleteError.text}</p>}
+            {v.status === "done" && pages.length > 0 && v.named && (
+              <p className="text-xs text-[var(--ct-mute)]">คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ</p>
+            )}
+            {cal?.id === v.id && (
+              <div className="space-y-2 rounded-lg border border-[var(--ct-line)] p-2 text-sm">
+                {cal.done ? (
+                  <p>เพิ่มลงปฏิทินแล้ว · <Link href={`/studio/calendar?page=${encodeURIComponent(cal.done)}`} className="underline">ไปที่ปฏิทินโพสต์</Link> (อยู่ในแถบรอตั้งเวลา)</p>
+                ) : (
+                  <>
+                    <label htmlFor={`cal-page-${v.id}`} className="block text-xs font-medium">ลงเพจ</label>
+                    <select id={`cal-page-${v.id}`} className={field} value={cal.page} onChange={(e) => setCal({ ...cal, page: e.target.value })}>
+                      {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <label htmlFor={`cal-cap-${v.id}`} className="block text-xs font-medium">แคปชัน (แก้ได้)</label>
+                    <textarea id={`cal-cap-${v.id}`} rows={6} className={field} value={cal.caption} onChange={(e) => setCal({ ...cal, caption: e.target.value })} />
+                    <p className="text-xs text-[var(--ct-mute)]">ท้ายคลิปมีชื่อ เบอร์ และ LINE ของคุณ ลูกค้าที่เห็นโพสต์จะทักคุณโดยตรง</p>
+                    {cal.error && <p role="alert" className="text-xs text-[var(--ct-alert)]">{cal.error}</p>}
+                    <div className="flex gap-2">
+                      <button type="button" disabled={cal.busy || !cal.page} onClick={sendCalendar} className="min-h-9 rounded-lg bg-[var(--ct-solid)] px-3 text-sm text-[var(--ct-solid-ink)] disabled:opacity-50">{cal.busy ? "กำลังเพิ่ม…" : "เพิ่มลงปฏิทิน"}</button>
+                      <button type="button" className={small} onClick={() => setCal(null)}>ปิด</button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

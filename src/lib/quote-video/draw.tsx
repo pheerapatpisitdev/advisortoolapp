@@ -180,7 +180,7 @@ function RowsCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlaySt
         ))}
       </div>
       {f.coverNote && (
-        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1200, fontSize: 32, color: P.mute }}>{f.coverNote}</On>
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1200, fontSize: 36, color: P.mute }}>{f.coverNote}</On>
       )}
       {f.product !== "IHEALTHY" && f.coverPen && (
         <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, justifyContent: "flex-end", top: 1060, fontSize: 52, color: P.pen, transform: "rotate(-2deg)" }}>{f.coverPen}</On>

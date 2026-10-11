@@ -14,6 +14,7 @@ import { cardPath, diseaseCardPath, valueTablePath } from "@/lib/card-link";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { ISHIELD_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { getPlan } from "@/calc/plans/registry";
 import { Highlighted } from "@/components/Highlighted";
@@ -346,7 +347,10 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
 
       {/* the illness list goes out with or without a price: "โรคอะไรบ้าง" is asked before
           anyone has given an age. Not in the sticky bar — five buttons do not fit a phone */}
-      <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} diseaseCardPath={diseaseCardPath("ISHIELD")} />
+      <ContactButtons
+        copyText={quoteText} cardPath={card} tableCardPath={tableCard} diseaseCardPath={diseaseCardPath("ISHIELD")}
+        videoHref={who ? videoStartHref({ product: "ISHIELD", sex, age: who.age, sumAssured, variant: term.variant }) : undefined}
+      />
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">

@@ -1,6 +1,7 @@
 import type { PlanCardInput } from "@/lib/card-link";
 import { iHealthyCard } from "@/lib/ihealthy-card";
 import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
+import { iShieldTable } from "@/lib/ishield-table";
 import { LIFEPROTECT_PLAN } from "@/lib/lifeprotect-card";
 import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import type { SceneMotion } from "./timeline";
@@ -76,6 +77,8 @@ export interface QuoteVideoFacts {
   totalPaid?: string;
   breakEven?: { age: number; cash: string; index: number };
   compare?: ComparePlan[];
+  /** iShield: how many illnesses each stage covers */
+  illness?: { early: number; major: number; total: number };
   /** iHealthy: the plan's name, "Gold" */
   planName?: string;
   /** iHealthy: what each kind of cover pays, for the voice */
@@ -114,17 +117,14 @@ function planFacts(v: Extract<VideoInput, { variant: string }>, today: Date): Qu
   const spoken = card.summary.rows.find((r) => r.label === "รายเดือน") ?? main;
   const lifeProtect = product === LIFEPROTECT_PLAN;
   const coverToAge = last.age + 1;
-  const lump = lifeProtect ? undefined : section.rows[0];
-  return {
+  const facts: QuoteVideoFacts = {
     product,
     planLine: card.planLine,
     insuredWho: card.insuredWho,
     insuredLine: card.insuredLine,
     sex: v.sex,
     age: v.age,
-    lead: lifeProtect
-      ? { label: "มรดก", amount: card.legacy.amount, baht: digits(card.legacy.amount), ...(card.legacy.note ? { note: card.legacy.note } : {}) }
-      : { label: "รับเงินก้อนเมื่อตรวจพบโรคร้ายแรง", amount: lump!.amount, baht: digits(lump!.amount) },
+    lead: { label: "มรดก", amount: card.legacy.amount, baht: digits(card.legacy.amount), ...(card.legacy.note ? { note: card.legacy.note } : {}) },
     leadMark: card.perDay,
     perDayAmount: card.perDay.replace(/[^\d,]/g, ""),
     priceTitle: card.summary.title,
@@ -145,6 +145,45 @@ function planFacts(v: Extract<VideoInput, { variant: string }>, today: Date): Qu
     totalPaid: lastPaid.paid,
     ...(be?.cash ? { breakEven: { age: be.age, cash: be.cash, index: beIndex } } : {}),
     ...(card.footNotes?.[0] ? { footNote: card.footNotes[0] } : {}),
+  };
+  return lifeProtect ? facts : iShieldShape(facts, card.footNotes?.[0], paying.length, coverToAge);
+}
+
+/**
+ * iShield as its own page tells it (owner, 2026-10-11: the first script was wrong): a lump sum
+ * from the early stage of 70 illnesses, the early stage read first and claimable again for
+ * another illness; the major stage pays up to the whole sum less what the early stage paid;
+ * the death and maturity sums are the full sum only when nothing was claimed. The premium is
+ * level. Sources: src/components/ishield/Sections.tsx and src/lib/assistant/ishield/faq.ts.
+ */
+function iShieldShape(f: QuoteVideoFacts, footNote: string | undefined, payYears: number, coverToAge: number): QuoteVideoFacts {
+  const ill = iShieldTable().illness;
+  const find = (re: RegExp) => f.cover.find((r) => re.test(r.label));
+  const major = find(/ระยะรุนแรง/);
+  const early = find(/ระยะเริ่มต้น/);
+  const death = find(/เสียชีวิต/);
+  const maturity = find(/ครบสัญญา/);
+  const cover: CoverRow[] = [
+    ...(early ? [{ label: `ตรวจพบระยะเริ่มต้น (${ill.earlyCount} โรค) ต่อโรค`, amount: early.amount, mark: true }] : []),
+    ...(major ? [{ label: `ระยะรุนแรง (${ill.majorCount} โรค) รวมสูงสุด`, amount: major.amount, mark: true }] : []),
+    ...(death ? [{ label: "เสียชีวิต", amount: death.amount, mark: true }] : []),
+    ...(maturity ? [{ label: maturity.label, amount: maturity.amount, mark: true }] : []),
+  ];
+  return {
+    ...f,
+    lead: {
+      label: "รับเงินก้อนสูงสุดเมื่อตรวจพบโรคร้ายแรง",
+      amount: major?.amount ?? f.lead.amount,
+      baht: digits(major?.amount ?? f.lead.amount),
+      note: `คุ้มครอง ${ill.earlyCount + ill.majorCount} โรค · จ่ายตั้งแต่ระยะเริ่มต้น`,
+    },
+    pills: [`จ่ายเบี้ยแค่ ${payYears} ปี`, "เบี้ยเท่าเดิมทุกปี"],
+    penNote: `คุ้มครองถึงอายุ ${coverToAge}`,
+    cover,
+    coverPen: undefined,
+    coverNote: `ระยะรุนแรงหักส่วนที่จ่ายระยะเริ่มต้นไปแล้ว · รับระยะเริ่มต้นแล้ว ทุนและมูลค่าเวนคืนลดลงตามสัดส่วน · ไม่คุ้มครองโรคร้ายแรง ${ill.waitingDays} วันแรก`,
+    ...(footNote ? { footNote } : {}),
+    illness: { early: ill.earlyCount, major: ill.majorCount, total: ill.earlyCount + ill.majorCount },
   };
 }
 
@@ -288,17 +327,21 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     : `ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน จ่ายครบตอนอายุ ${f.lastPayAge} แล้วเงินก็ยังโตทุกปี ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ตามตารางเลยค่ะ`;
 
   if (f.product === "ISHIELD") {
-    const [major, early, death, maturity] = f.cover;
-    const count = (label?: string) => label?.match(/\((\d+) โรค\)/)?.[1];
+    const row = (re: RegExp) => f.cover.find((r) => re.test(r.label));
+    const early = row(/ระยะเริ่มต้น/);
+    const major = row(/ระยะรุนแรง/);
+    const death = row(/เสียชีวิต/);
+    const maturity = row(/ครบสัญญา/);
+    const ill = f.illness;
     const parts = [
-      major && `ตรวจเจอโรคร้ายระยะรุนแรง${count(major.label) ? ` ${count(major.label)} โรค` : ""} รับ ${spokenBaht(digits(major.amount))}`,
-      early && `เจอระยะเริ่มต้นอีก${count(early.label) ? ` ${count(early.label)} โรค` : ""} รับโรคละ ${spokenBaht(digits(early.amount))}`,
-      death && `ถ้าเป็นอะไรไป ครอบครัวได้ ${spokenBaht(digits(death.amount))}`,
-      maturity && `และถ้าอยู่ครบอายุ ${f.coverToAge} ก็รับคืน ${spokenBaht(digits(maturity.amount))}`,
+      early && `เจอระยะเริ่มต้น${ill ? ` ${ill.early} โรค` : ""} รับก่อนเลยโรคละ ${spokenBaht(digits(early.amount))} เป็นคนละโรคก็เคลมได้อีก`,
+      major && `ถ้าถึงระยะรุนแรง${ill ? ` ${ill.major} โรค` : ""} รับรวมสูงสุด ${spokenBaht(digits(major.amount))}`,
+      death && `ถ้าไม่ได้เคลมเลย เป็นอะไรไปครอบครัวได้ ${spokenBaht(digits(death.amount))}`,
+      maturity && `อยู่ครบอายุ ${f.coverToAge} ก็รับคืน ${spokenBaht(digits(maturity.amount))}`,
     ].filter(Boolean);
     return [
-      { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าตรวจเจอโรคร้ายแรง รับเงินก้อนทันที ${spokenWithBaht(f.lead.baht)}ค่ะ` },
-      { key: "price", voice: `ค่าใช้จ่ายตกแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท จ่ายแค่ ${f.payYears} ปีก็จบ แต่ดูแลยาวถึงอายุ ${f.coverToAge} เลยค่ะ` },
+      { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ทำทุน ${spokenBaht(digits(f.insuredLine))} คุ้มครองโรคร้ายแรง${ill ? ` ${ill.total} โรค` : ""} จ่ายเป็นเงินก้อนตั้งแต่ระยะเริ่มต้นเลยค่ะ` },
+      { key: "price", voice: `ค่าใช้จ่ายตกแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท เบี้ยเท่าเดิมทุกปี จ่ายแค่ ${f.payYears} ปีก็จบ แต่ดูแลยาวถึงอายุ ${f.coverToAge} เลยค่ะ` },
       { key: "cover", voice: `${parts.join(" ")}ค่ะ` },
       { key: "value", voice: value },
       { key: "contact", voice: closing },
@@ -330,4 +373,39 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
     case "compare": return { ring: true };
     case "contact": return {};
   }
+}
+
+/**
+ * The words a clip goes up to a Page with (owner, 2026-10-11): from the clip's own figures, never
+ * the customer's name — a clip that carries one does not go to a Page at all. The admin edits it.
+ */
+export function pageCaption(f: QuoteVideoFacts): string {
+  const who = `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  const ask = "ทักแชทขอใบเสนอของคุณได้เลย";
+  if (f.product === "IHEALTHY") {
+    return [
+      `ประกันสุขภาพเหมาจ่าย แผน ${f.planName} วงเงิน ${spokenBaht(f.lead.baht)}บาทต่อปี`,
+      `${who} ปีแรกเดือนละ ${f.spokenPrice.amount} บาท`,
+      `ต่ออายุได้ถึงอายุ ${f.coverToAge}`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  const sum = spokenBaht(digits(f.insuredLine));
+  if (f.product === "ISHIELD") {
+    return [
+      `โรคร้ายแรง ${f.illness?.total ?? ""} โรค จ่ายเงินก้อนตั้งแต่ระยะเริ่มต้น`.replace("  ", " "),
+      `${who} ทุน ${sum} ตกวันละ ${f.perDayAmount} บาท จ่ายแค่ ${f.payYears} ปี เบี้ยเท่าเดิมทุกปี`,
+      `คุ้มครองถึงอายุ ${f.coverToAge}`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  return [
+    `มรดก ${spokenBaht(f.lead.baht)} สำหรับครอบครัว`,
+    `${who} ทุน ${sum} ตกวันละ ${f.perDayAmount} บาท จ่ายแค่ ${f.payYears} ปี`,
+    `คุ้มครองถึงอายุ ${f.coverToAge} · เงินไม่หายไปไหน เวนคืนได้`,
+    "",
+    ask,
+  ].join("\n");
 }

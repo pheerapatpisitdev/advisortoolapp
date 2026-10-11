@@ -1,13 +1,15 @@
 "use server";
 import { after } from "next/server";
 import { asWho } from "@/lib/ai/who";
-import { requireMember } from "@/lib/auth/viewer";
+import { myPages } from "@/lib/auth/pages";
+import { getViewer, requireMember, requireStaff } from "@/lib/auth/viewer";
+import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { costView, createVideo, listVideos, produce, videoLink, type CostView, type VideoStatus } from "@/lib/quote-video/make";
+import { costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, type CostView, type VideoStatus } from "@/lib/quote-video/make";
 import { formatBaht } from "@/lib/wallet/money";
-import { cleanCustomerName, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
+import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
 
@@ -31,6 +33,8 @@ export interface VideoItem {
   share: string | null;
   /** "ใช้สิทธิ์ฟรี", "หักจากกระเป๋า ฿1.90"; null for the owner's */
   paid: string | null;
+  /** a clip with a customer's name stays off Pages */
+  named: boolean;
 }
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
@@ -105,6 +109,55 @@ const SEX = { M: "ชาย", F: "หญิง" } as const;
 const planWord = (code: string) => code.charAt(0) + code.slice(1).toLowerCase();
 const sumWords = (n: number) => (n % 1_000_000 === 0 ? `${n / 1_000_000} ล้าน` : n.toLocaleString("en-US"));
 
+/** deletes one of the asker's own clips */
+export async function removeVideo(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const viewer = await requireMember();
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id)) return { ok: false, error: "ไม่พบวิดีโอนี้" };
+  try {
+    const r = await deleteVideo(viewer.agentId, id);
+    if (r === "busy") return { ok: false, error: "วิดีโอนี้กำลังสร้างอยู่ รอให้เสร็จก่อนจึงลบได้" };
+    if (r === "missing") return { ok: false, error: "ไม่พบวิดีโอนี้" };
+    return { ok: true };
+  } catch (e) {
+    console.error("quote video not deleted:", e instanceof Error ? e.message : "unknown error");
+    return { ok: false, error: "ลบไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+}
+
+/**
+ * A finished clip onto a Page's posting calendar (owner, 2026-10-11): the owner's alone, and only
+ * a clip without a customer's name — the name would go up on a public Page.
+ */
+export async function calendarCaption(id: string): Promise<{ ok: true; caption: string } | { ok: false; error: string }> {
+  const viewer = await requireStaff("owner");
+  const row = await videoOf(viewer.agentId, id).catch(() => null);
+  if (!row || row.status !== "done") return { ok: false, error: "ไม่พบวิดีโอนี้" };
+  if (row.customer_name) return { ok: false, error: NAMED };
+  const f = quoteVideoFacts(row.input);
+  return { ok: true, caption: f ? pageCaption(f) : "" };
+}
+
+export async function addToCalendar(id: string, pageId: string, caption: string): Promise<{ ok: true; pageId: string } | { ok: false; error: string }> {
+  const viewer = await requireStaff("owner");
+  const pages = await myPages().catch(() => []);
+  if (!pages.some((p) => p.pageId === pageId)) return { ok: false, error: "เลือกเพจที่จะลง" };
+  const row = await videoOf(viewer.agentId, id).catch(() => null);
+  if (!row || row.status !== "done") return { ok: false, error: "ไม่พบวิดีโอนี้" };
+  if (row.customer_name) return { ok: false, error: NAMED };
+  try {
+    await sendToCalendar(row, pageId, typeof caption === "string" ? caption : "");
+    return { ok: true, pageId };
+  } catch (e) {
+    console.error("quote video not put on the calendar:", e instanceof Error ? e.message : "unknown error");
+    return { ok: false, error: "เพิ่มลงปฏิทินไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+}
+
+/** whether the person looking at a sales page is an agent who can make a clip (VideoButton) */
+export async function canMakeVideo(): Promise<boolean> {
+  return Boolean(await getViewer().catch(() => null));
+}
+
 /** how the next clip would be paid for */
 export async function myCost(): Promise<CostView | null> {
   const viewer = await requireMember();
@@ -128,6 +181,7 @@ export async function myVideos(): Promise<VideoItem[]> {
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,
+      named: Boolean(v.customer_name),
       createdAt: v.created_at,
       title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
       status: v.status,

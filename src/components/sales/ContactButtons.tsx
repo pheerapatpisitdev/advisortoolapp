@@ -1,6 +1,7 @@
 import { CopyButton } from "./CopyButton";
 import { SendButton } from "./SendButton";
 import { CardButton } from "./CardButton";
+import { VideoButton } from "./VideoButton";
 import type { ContactWords } from "@/lib/ihealthy-words";
 
 /**
@@ -9,7 +10,7 @@ import type { ContactWords } from "@/lib/ihealthy-words";
  * Facebook Page — the owner took them all out (2026-09-23).
  */
 export function ContactButtons(
-  { copyText, secondCopy, cardPath, tableCardPath, tableLabel, diseaseCardPath, compact = false, words }:
+  { copyText, secondCopy, cardPath, tableCardPath, tableLabel, diseaseCardPath, videoHref, compact = false, words }:
     {
       copyText?: string; cardPath?: string;
       /** a second message to paste after the first, with the words on its own button */
@@ -18,6 +19,8 @@ export function ContactButtons(
       tableLabel?: { full: string; compact: string };
       /** the contract's illnesses as a picture — the same for every customer, so it needs no quote */
       diseaseCardPath?: string;
+      /** วิดีโอนำเสนอ in Studio, started from this quote — shown to signed-in agents only */
+      videoHref?: string;
       compact?: boolean;
       /** the buttons' labels in another language; each button keeps its own Thai without it */
       words?: ContactWords;
@@ -50,6 +53,9 @@ export function ContactButtons(
           label={{ full: "บันทึกรายชื่อโรคร้ายแรง", compact: "โรค" }}
           className={`${shape} border border-[var(--lg-gold)] text-[var(--lg-gold)]`}
         />
+      )}
+      {videoHref && !compact && (
+        <VideoButton href={videoHref} className={`${shape} bg-[var(--lg-gold)] text-[var(--lg-ground)]`} />
       )}
       {copyText && (
         <>
