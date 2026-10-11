@@ -34,14 +34,13 @@ describe("the pen notes on the บำนาญ 95 yearly table", () => {
     expect(m.steady).toBe(true);
   });
 
-  it("rings the last premium, the first pension, each step up and the break-even total", () => {
+  it("rings the last premium, the first pension and each step up", () => {
     expect(pensionRings(rows)).toEqual([
       { row: at(rows, 59), column: "เบี้ย" },
       { row: at(rows, 60), column: "บำนาญ" },
       { row: at(rows, 76), column: "บำนาญ" },
       { row: at(rows, 81), column: "บำนาญ" },
       { row: at(rows, 86), column: "บำนาญ" },
-      { row: at(rows, 81), column: "บำนาญสะสม" },
     ]);
   });
 
@@ -50,9 +49,14 @@ describe("the pen notes on the บำนาญ 95 yearly table", () => {
     expect(words(n)).toEqual(expect.arrayContaining([
       "เบี้ย", "คงที่", "หยุดส่งเบี้ย", "เริ่มรับบำนาญ อายุ 60",
       "บำนาญเพิ่มเป็น 20% ของทุน", "บำนาญเพิ่มเป็น 25% ของทุน", "บำนาญเพิ่มเป็น 30% ของทุน",
-      "จุดคุ้มทุน", "รับประกันจ่าย 15 ปีแรก", "(อายุ 60–74)",
+      "รับประกันจ่าย 15 ปีแรก", "(อายุ 60–74)",
     ]));
-    expect(n.labels.find((l) => l.text === "จุดคุ้มทุน")?.mark).toBe(true);
+  });
+
+  it("draws no จุดคุ้มทุน: the owner took it off this plan (2026-10-11)", () => {
+    const n = pensionPenNotes(rows, q.sumAssured, GEO);
+    expect(words(n).some((w) => /คุ้มทุน|เกินเบี้ย/.test(w))).toBe(false);
+    expect(pensionRings(rows).some((r) => r.column === "บำนาญสะสม")).toBe(false);
   });
 
   it("writes the guarantee in blue, beside a blue brace over its fifteen years", () => {

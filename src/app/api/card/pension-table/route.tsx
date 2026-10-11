@@ -11,7 +11,7 @@ import { googleFontSubset } from "@/lib/google-font";
 import { SiteFooter, SITE_FOOTER_H } from "../site-footer";
 import { PENSION_AGES, quotePension, type PensionAge, type PensionPay } from "@/calc/pension/engine";
 import {
-  PENSION_COLUMNS, PENSION_PEN_TEXT, pensionCells, pensionMarks, pensionPenNotes, pensionFigure,
+  PENSION_COLUMNS, PENSION_PEN_TEXT, pensionCells, pensionPenNotes, pensionFigure,
 } from "@/lib/pension-pen-notes";
 
 export const runtime = "nodejs";
@@ -98,7 +98,6 @@ export async function GET(req: NextRequest) {
     googleFontSubset(PEN_FACE, PENSION_PEN_TEXT, "400"),
   ]);
 
-  const marks = pensionMarks(rows);
   // the same notes as the page's, aimed by this table's own geometry; the ring stands RING_PAD
   // out beside a figure that does not move, so half of it is passed as the ring's reach
   const notes = pensionPenNotes(rows, q.sumAssured, {
@@ -173,7 +172,7 @@ export async function GET(req: NextRequest) {
                       justifyContent: i < 2 ? "flex-start" : "flex-end", paddingLeft: CELL_PAD, paddingRight: CELL_PAD,
                       ...(i > 0 ? { borderLeft: `1px solid ${p.rule}` } : {}),
                       // the pension received goes green once it is more than was paid in
-                      color: c === "บำนาญสะสม" && marks.breakEven >= 0 && n > marks.breakEven ? p.gain : p.ink,
+                      color: p.ink,
                     }}
                   >
                     {ringed(n, c) ? (

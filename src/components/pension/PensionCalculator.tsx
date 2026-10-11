@@ -332,7 +332,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                                 className={`whitespace-nowrap py-1.5 ${i === 0 ? "px-[5px] text-left" : COL}
                                   ${!ringed(n, c) && c === "เบี้ย" && braceRoom ? "!pl-[50px]" : ""}
                                   ${!ringed(n, c) && c === "บำนาญ" && pensionRoom ? "!pl-[44px]" : ""}
-                                  ${c === "บำนาญสะสม" && marks.breakEven >= 0 && n > marks.breakEven ? "font-medium text-[var(--lg-gain)]" : ""}`}
+                                  `}
                               >
                                 {ringed(n, c) ? <Circled>{cells[c]}</Circled> : cells[c]}
                               </td>

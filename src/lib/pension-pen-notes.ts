@@ -13,7 +13,9 @@ import {
  *   - the first pension ringed, an arrow from "เริ่มรับบำนาญ อายุ N"
  *   - in blue, a brace down the fifteen guaranteed pensions, "รับประกันจ่าย 15 ปีแรก …"
  *   - each step up in the pension ringed, "บำนาญเพิ่มเป็น N% ของทุน"
- *   - the first year the pension received passes every premium paid ringed, "จุดคุ้มทุน …"
+ *
+ * No จุดคุ้มทุน: the owner took it off this plan (2026-10-11). `breakEven` is still worked out,
+ * for nothing to draw.
  *
  * Each is drawn only where its fact holds. The words are written in the cells the table
  * leaves empty — premium, running total and surrender value once a pension is being paid —
@@ -94,7 +96,6 @@ export function pensionRings(rows: PensionYear[]): { row: number; column: Pensio
     ...(m.lastPaid >= 0 ? [{ row: m.lastPaid, column: "เบี้ย" as const }] : []),
     ...(m.start >= 0 ? [{ row: m.start, column: "บำนาญ" as const }] : []),
     ...m.steps.map((row) => ({ row, column: "บำนาญ" as const })),
-    ...(m.breakEven >= 0 ? [{ row: m.breakEven, column: "บำนาญสะสม" as const }] : []),
   ];
 }
 
@@ -107,6 +108,8 @@ const GUARANTEE_WORDS = (from: number, to: number) => [
   `รับประกันจ่าย ${GUARANTEED_YEARS} ปีแรก`, `(อายุ ${from}–${to})`, "เสียชีวิตก่อน ครอบครัว", "ได้รับส่วนที่เหลือ",
 ];
 const BREAK_EVEN_WORDS = ["จุดคุ้มทุน", "บำนาญรวม", "เกินเบี้ย", "ที่ส่งแล้ว"];
+/** the owner took the break-even note off บำนาญ 95's table (2026-10-11) */
+const SHOW_BREAK_EVEN = false;
 /** every letter the notes can write, for cutting the picture's pen face down to them */
 export const PENSION_PEN_TEXT = [
   ...BRACE_WORDS, STOP_WORD, "เริ่มรับบำนาญ อายุ", "บำนาญเพิ่มเป็น ของทุน",
@@ -253,9 +256,8 @@ export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenG
     pointAt([`บำนาญเพิ่มเป็น ${percentOf(rows[n].pension, sumAssured)} ของทุน`], n, "บำนาญ", [n, n + 1, n - 1]);
   }
 
-  // ── จุดคุ้มทุน: in the empty cells to the left, under the break-even row, an arrow along the
-  // line below that row over to the ringed running total
-  if (m.breakEven >= 0) {
+  // ── จุดคุ้มทุน: not on this plan (owner, 2026-10-11)
+  if (SHOW_BREAK_EVEN && m.breakEven >= 0) {
     const be = m.breakEven;
     const n = take([be + 1, be + 2, be + 3, be + 4], BREAK_EVEN_WORDS.length, false);
     if (n !== undefined) {
