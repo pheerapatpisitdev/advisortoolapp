@@ -5,6 +5,7 @@ import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
+import type { VideoSize } from "@/lib/quote-video/timeline";
 import { SaveVideoButton } from "./SaveVideoButton";
 import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, removeVideo, type FhcChoice, type Preview, type VideoItem } from "./actions";
 
@@ -40,6 +41,33 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const NARRATOR_KEY = "quote-video-narrator";
+const SIZE_KEY = "quote-video-size";
+/** the three shapes (owner, 2026-10-11, mockup https://claude.ai/artifact/8bhEgAdp4pCBiv581F1weq) */
+const SIZE_CHOICES: { size: VideoSize; name: string; use: string; shape: [number, number]; hint: string }[] = [
+  { size: "portrait", name: "แนวตั้ง 9:16", use: "Reels · Stories · TikTok · LINE VOOM", shape: [16, 28], hint: "เหมาะกับดูบนมือถือและลงเพจเป็น Reels" },
+  { size: "square", name: "จัตุรัส 1:1", use: "ฟีด Facebook / Instagram · แชท LINE", shape: [24, 24], hint: "ดูได้เต็มช่องในฟีดและแชท ไม่ต้องหมุนมือถือ · ลงปฏิทินเพจไม่ได้ (Reels รับแค่แนวตั้ง)" },
+  { size: "landscape", name: "แนวนอน 16:9", use: "YouTube · เปิดให้ลูกค้าดูบน iPad / ทีวี", shape: [32, 18], hint: "เหมาะเปิดบน iPad / ทีวี หรือ YouTube · บนมือถือจะเป็นแถบสั้นๆ ถ้าไม่หมุนจอ · ลงปฏิทินเพจไม่ได้" },
+];
+const ASPECT: Record<VideoSize, string> = { portrait: "9 / 16", square: "1 / 1", landscape: "16 / 9" };
+
+function SizePicker({ size, pick }: { size: VideoSize; pick: (s: VideoSize) => void }) {
+  const hint = SIZE_CHOICES.find((c) => c.size === size)?.hint;
+  return (
+    <div>
+      <span className={label}>ขนาดวิดีโอ</span>
+      <div className="flex flex-wrap gap-2">
+        {SIZE_CHOICES.map((c) => (
+          <button key={c.size} type="button" onClick={() => pick(c.size)}
+            className={`flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm ${size === c.size ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}>
+            <span aria-hidden className="shrink-0 rounded-[3px] border-2 border-current opacity-80" style={{ width: c.shape[0], height: c.shape[1] }} />
+            <span><span className="block font-medium">{c.name}</span><span className="block text-xs opacity-80">{c.use}</span></span>
+          </button>
+        ))}
+      </div>
+      {hint && <p className="mt-1 text-xs text-[var(--ct-mute)]">{hint}</p>}
+    </div>
+  );
+}
 const VOICE_KEY = "quote-video-eleven";
 /** Gemini's two narrators and their samples (owner, 2026-10-11) */
 const GEMINI = [
@@ -71,6 +99,18 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   // the name goes in unless the agent takes the tick off (owner, 2026-10-12)
   const [withName, setWithName] = useState(true);
   const fhcPick = fhc.find((c) => c.id === fhcId);
+  // the size picked last time, kept in this browser only (owner, 2026-10-11: like the voice)
+  const [size, setSize] = useState<VideoSize>("portrait");
+  useEffect(() => {
+    try {
+      const kept = localStorage.getItem(SIZE_KEY);
+      if (kept === "square" || kept === "landscape") setSize(kept);
+    } catch { /* storage closed: portrait stands */ }
+  }, []);
+  function pickSize(s: VideoSize) {
+    setSize(s);
+    try { localStorage.setItem(SIZE_KEY, s); } catch { /* not remembered, still used */ }
+  }
   const startVariant = startProduct !== "IHEALTHY" && start?.variant && TERMS[startProduct].some((x) => x.variant === start.variant)
     ? start.variant : startProduct === "IHEALTHY" ? DEFAULT_TERM.LIFEPROTECT : DEFAULT_TERM[startProduct];
   const [product, setProduct] = useState<Product>(startProduct);
@@ -158,8 +198,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, ...(voice ? { voice } : {}), style, length, budget: budgetOf() }
-    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, ...(voice ? { voice } : {}), style, length, budget: budgetOf() });
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() }
+    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -201,7 +241,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     setError(null);
     try {
       const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}) })
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), size })
         : await makeVideo(input(), customer);
       if (!r.ok) setError({ text: r.error, contact: r.needContact });
       else setItems(await myVideos());
@@ -260,6 +300,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
                   </select>
                   {fhcPick && <p className="mt-1 text-xs text-[var(--ct-mute)]">{fhcPick.open}</p>}
                 </div>
+                <SizePicker size={size} pick={pickSize} />
                 <label className="flex items-start gap-2 text-sm" htmlFor="qv-fhc-name">
                   <input id="qv-fhc-name" type="checkbox" className="mt-1 h-4 w-4" checked={withName} onChange={(e) => setWithName(e.target.checked)} />
                   <span>
@@ -292,6 +333,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
           </div>
           <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
         </div>
+        {style === "motion" && length === "full"
+          ? <SizePicker size={size} pick={pickSize} />
+          : <p className="-mt-2 text-xs text-[var(--ct-mute)]">{length === "short" ? "คลิปสั้นเป็นแนวตั้งเสมอ (ทำไว้ลง Reels)" : "แบบปกติเป็นแนวตั้ง · เลือกจัตุรัสหรือแนวนอนได้ที่ Motion Graphic"}</p>}
         </>)}
         {eleven.length > 0 && (
           <div>
@@ -463,11 +507,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               </span>
             </div>
             {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
-            {v.watch && <video src={v.watch} controls playsInline preload="metadata" className="w-full max-w-[220px] rounded-lg" style={{ aspectRatio: "9 / 16" }} />}
+            {v.watch && <video src={v.watch} controls playsInline preload="metadata" className={`w-full rounded-lg ${v.size === "landscape" ? "max-w-[300px]" : v.size === "square" ? "max-w-[260px]" : "max-w-[220px]"}`} style={{ aspectRatio: ASPECT[v.size] }} />}
             <div className="flex flex-wrap gap-2">
               {v.status === "done" && v.save && v.watch && <SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} />}
               {v.status === "done" && <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
-              {v.status === "done" && pages.length > 0 && !v.named && !v.personal && (
+              {v.status === "done" && pages.length > 0 && !v.named && !v.personal && v.size === "portrait" && (
                 <button type="button" className={small} onClick={() => openCalendar(v.id)}>เพิ่มลงปฏิทินเพจ</button>
               )}
               {(v.status === "done" || v.status === "failed") && (
@@ -484,8 +528,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               </div>
             )}
             {deleteError?.id === v.id && <p role="alert" className="text-xs text-[var(--ct-alert)]">{deleteError.text}</p>}
-            {v.status === "done" && pages.length > 0 && (v.named || v.personal) && (
-              <p className="text-xs text-[var(--ct-mute)]">{v.personal ? "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ไม่มีปุ่มลงเพจ" : "คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ"}</p>
+            {v.status === "done" && pages.length > 0 && (v.named || v.personal || v.size !== "portrait") && (
+              <p className="text-xs text-[var(--ct-mute)]">{v.personal ? "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ไม่มีปุ่มลงเพจ" : v.named ? "คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ" : "ลงปฏิทินเพจ (Reels) ได้เฉพาะคลิปแนวตั้ง"}</p>
             )}
             {cal?.id === v.id && (
               <div className="space-y-2 rounded-lg border border-[var(--ct-line)] p-2 text-sm">

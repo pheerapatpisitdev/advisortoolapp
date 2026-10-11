@@ -4,7 +4,7 @@ import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
 import { iShieldTable } from "@/lib/ishield-table";
 import { LIFEPROTECT_PLAN } from "@/lib/lifeprotect-card";
 import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card";
-import type { SceneMotion } from "./timeline";
+import type { SceneMotion, VideoSize } from "./timeline";
 
 /**
  * วิดีโอนำเสนอ (owner, 2026-10-11): what the scenes show and say, taken from the same quote the
@@ -36,6 +36,8 @@ export type VideoInput = (
   style?: VideoStyle;
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */
   length?: VideoLength;
+  /** portrait unless a square or landscape Motion Graphic clip was asked for (owner, 2026-10-11; timeline.ts) */
+  size?: VideoSize;
   /** the clip began from what the customer can save: the sum or plan above is what that buys (budget.ts) */
   budget?: { baht: number; per: "month" | "year" };
 };

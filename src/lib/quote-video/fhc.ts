@@ -3,6 +3,7 @@ import type { EventKey } from "@/lib/fhc/assumptions";
 import type { EventRow, Level, Score, ScoreKey } from "@/lib/fhc/health";
 import type { AreaKey, PlanResult } from "@/lib/plan/recommend";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
+import type { VideoSize } from "./timeline";
 
 /**
  * วิดีโอสรุป FHC (owner, 2026-10-12, mockup https://claude.ai/artifact/Xqp7tTo91YeiiQTxECVbiw):
@@ -56,6 +57,8 @@ export interface FhcVideoInput {
   voice?: string;
   style: "motion";
   length: "full";
+  /** portrait, square or landscape (owner, 2026-10-12: the FHC summary comes in every size) */
+  size?: VideoSize;
   fhc: FhcVideoFacts;
 }
 

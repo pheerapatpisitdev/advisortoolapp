@@ -1,7 +1,7 @@
 import { CLIP_BUCKET, CLIP_HREF, MAX_CAPTION, NO_FLAGS, clipOutput, clipPath, type ClipVideo } from "@/lib/content/clip";
 import { saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { VIDEO_BUCKET, type VideoRow } from "./make";
+import { clipSize, VIDEO_BUCKET, type VideoRow } from "./make";
 
 /**
  * A finished วิดีโอนำเสนอ put on a Page's posting calendar (owner, 2026-10-11): a clip piece of
@@ -16,6 +16,7 @@ export async function sendToCalendar(row: VideoRow, pageId: string, caption: str
   if (row.status !== "done" || !row.video_path) throw new Error("not a finished video");
   if (row.customer_name) throw new Error(NAMED);
   if (row.input.product === "FHC") throw new Error("an FHC summary is never put on a Page");
+  if (clipSize(row.input) !== "portrait") throw new Error("only a portrait clip goes up as a Reel");
   const store = supabaseAdmin().storage;
   const { data: file, error } = await store.from(VIDEO_BUCKET).download(row.video_path);
   if (error || !file) throw new Error(`video not read: ${error?.message}`);
