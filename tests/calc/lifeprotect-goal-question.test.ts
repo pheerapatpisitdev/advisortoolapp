@@ -37,19 +37,23 @@ describe("the goal question on Messenger", () => {
     return answerQuestion(said("ญ 41"), { intent: "other", budget }, channel);
   }
 
-  it("asks what the insurance is for, with the four goals as buttons, before any price", async () => {
+  it("asks what the insurance is for, with the five goals as buttons, before any price", async () => {
     const asked = await toQuestion();
     expect(asked.messages).toHaveLength(1);
-    expect(asked.messages[0].text.split("\n")[0]).toBe("อยากทำประกันเพื่ออะไรเป็นหลัก");
+    expect(asked.messages[0].text.split("\n")[0]).toBe("ขอสอบถามเพิ่มเติมค่ะ อยากทำประกันเพื่ออะไรเป็นหลัก");
+    expect(asked.messages[0].text).toContain("2. แก่ชราอยากมีเงินใช้");
     expect(asked.messages[0].text).toContain("4. อยากให้รายได้ของครอบครัวไม่ขาด ถ้าวันหนึ่งเราไม่อยู่");
-    expect(asked.replies).toEqual(["มรดกให้คนข้างหลัง", "เงินใช้ตอนเกษียณ", "เก็บเงินให้ลูก/คนรัก", "รายได้ครอบครัวไม่ขาด"]);
+    expect(asked.messages[0].text).toContain("5. อยากจะเก็บเงินชั่วคราวเพื่อเป้าหมาย 10 ปีหรือ 20 ปี");
+    expect(asked.replies).toEqual(["มรดกให้คนข้างหลัง", "แก่ชรามีเงินใช้", "เก็บเงินให้ลูก/คนรัก", "รายได้ครอบครัวไม่ขาด", "เก็บเงินชั่วคราว"]);
+    // no figure on a button: the router would read it as an age or a paying term
+    for (const r of asked.replies!) expect(r).not.toMatch(/\d/);
     // Messenger cuts a button title at twenty characters
     for (const r of asked.replies!) expect([...r].length, r).toBeLessThanOrEqual(20);
     expect(asked.priced).toBeFalsy();
     expect(asked.messages.some((m) => m.card)).toBe(false);
   });
 
-  it.each(["มรดกให้คนข้างหลัง", "เงินใช้ตอนเกษียณ", "เก็บเงินให้ลูก/คนรัก", "รายได้ครอบครัวไม่ขาด", "ไม่แน่ใจค่ะ"])(
+  it.each(["มรดกให้คนข้างหลัง", "แก่ชรามีเงินใช้", "เก็บเงินให้ลูก/คนรัก", "รายได้ครอบครัวไม่ขาด", "เก็บเงินชั่วคราว", "ไม่แน่ใจค่ะ"])(
     "goes on to the quote from the budget when the customer answers %s",
     async (reply) => {
       const asked = await toQuestion();
