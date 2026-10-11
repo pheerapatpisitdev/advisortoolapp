@@ -38,12 +38,14 @@ export function groupBySender<T>(items: T[], senderOf: (item: T) => string | und
 export async function eachBySender<T>(
   items: T[],
   senderOf: (item: T) => string | undefined,
-  handle: (item: T) => Promise<void>,
+  // `later`: the same sender's events still to come in this batch — a message with another
+  // message behind it in hand is part of a burst the later one answers (src/lib/chat/transcript.ts)
+  handle: (item: T, later: T[]) => Promise<void>,
   label: string,
 ): Promise<void> {
   await Promise.allSettled(groupBySender(items, senderOf).map(async (group) => {
-    for (const item of group) {
-      await handle(item).catch((e) => console.error(`${label} event failed:`, e));
+    for (const [i, item] of group.entries()) {
+      await handle(item, group.slice(i + 1)).catch((e) => console.error(`${label} event failed:`, e));
     }
   }));
 }

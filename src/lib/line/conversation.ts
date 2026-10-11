@@ -110,7 +110,7 @@ async function say(replyToken: string, userId: string, messages: LineMessage[]):
  * the Page's id, so the report can tell which account a conversation came in on. `startedAt`
  * is when the batch began, as on Messenger.
  */
-export async function handle(event: LineEvent, destination = "", opts: { startedAt?: number } = {}): Promise<void> {
+export async function handle(event: LineEvent, destination = "", opts: { startedAt?: number; followed?: boolean } = {}): Promise<void> {
   // a person, one to one: a group or a room is not a customer asking for a quotation
   if (event.source?.type && event.source.type !== "user") return;
   if (event.type !== "message" || event.message?.type !== "text") return;
@@ -151,6 +151,11 @@ export async function handle(event: LineEvent, destination = "", opts: { started
 
   // a moment for the next message, as on Messenger: the latest of a burst answers for it all
   await showLoading(userId).catch(() => {});
+  // a message with the next one already in hand waits for nothing: that one answers for both
+  if (opts.followed) {
+    await record(conversationId, ledger, productOf(session.slots));
+    return;
+  }
   await pause(gatherMs());
   const burst = await gathered("line", userHash, text);
   if (!burst.latest) {

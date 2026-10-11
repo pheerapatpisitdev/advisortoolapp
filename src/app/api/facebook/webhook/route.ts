@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { verifySignature, verifyTokenMatches } from "@/lib/facebook/verify";
 import { handle } from "@/lib/facebook/conversation";
-import { customerOf, type Messaging } from "@/lib/facebook/events";
+import { customerOf, textOf, type Messaging } from "@/lib/facebook/events";
 import { eachBySender } from "@/lib/chat/batch";
 
 export const runtime = "nodejs";
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       const who = customerOf(m);
       return who ? `${pageId ?? ""}:${who}` : undefined;
     },
-    ({ m, pageId }) => handle(m, pageId, { startedAt }),
+    ({ m, pageId }, later) => handle(m, pageId, { startedAt, followed: later.some((e) => Boolean(textOf(e.m))) }),
     "facebook",
   ));
 

@@ -199,7 +199,7 @@ async function sendPdf(
  * `startedAt` is when the webhook's batch began (Date.now()), so a turn late in a long batch
  * gets only the time the function has left; left out, the turn has its full TURN_MS.
  */
-export async function handle(event: Messaging, pageId?: string, opts: { startedAt?: number } = {}): Promise<void> {
+export async function handle(event: Messaging, pageId?: string, opts: { startedAt?: number; followed?: boolean } = {}): Promise<void> {
   // on an echo the sender is the page, so the thread is named by who it was sent to
   const psid = customerOf(event);
   if (!psid) return;
@@ -303,6 +303,11 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
    * a burst answers for all of it, and the others say nothing (src/lib/chat/transcript.ts).
    */
   await showTyping(psid, pageId).catch(() => {});
+  // a message with the next one already in hand waits for nothing: that one answers for both
+  if (opts.followed) {
+    await record(conversationId, ledger, productOf(session.slots));
+    return;
+  }
   await pause(gatherMs());
   const burst = await gathered("facebook", userHash, text);
   if (!burst.latest) {

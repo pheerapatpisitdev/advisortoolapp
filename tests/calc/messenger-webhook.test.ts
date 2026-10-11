@@ -661,3 +661,12 @@ describe("a PDF the customer asked for", () => {
     expect(files[1].replies).toEqual(["สนใจสมัคร"]);
   });
 });
+
+describe("a burst inside one webhook call", () => {
+  it("leaves a message with another behind it unanswered, for that one to answer", async () => {
+    burst.gathered.mockClear();
+    await handle({ sender: { id: "psid-batch" }, message: { mid: "mx1", text: "ชาย 35" } }, undefined, { followed: true });
+    expect(answer).not.toHaveBeenCalled();
+    expect(burst.gathered).not.toHaveBeenCalled();
+  });
+});

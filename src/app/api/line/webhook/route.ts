@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
   after(() => eachBySender(
     events,
     (event) => event.source?.userId,
-    (event) => handle(event, destination, { startedAt }),
+    (event, later) => handle(event, destination, {
+      startedAt,
+      followed: later.some((e) => e.type === "message" && e.message?.type === "text" && Boolean(e.message.text?.trim())),
+    }),
     "line",
   ));
 
