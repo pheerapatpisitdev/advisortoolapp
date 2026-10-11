@@ -28,6 +28,34 @@ export interface AdsPage {
   syncStatus: Record<string, AdSyncStatus> | null;
   /** when each account's login stops working, by account id; missing where Meta would not say */
   expiry: Record<string, TokenExpiry>;
+  /** what could not be read, in words for the page; the figures leave it out */
+  readFailures: string[];
+}
+
+const PAGE = 500;
+
+/**
+ * Every row a query finds, a page at a time, or the words for why not.
+ *
+ * A single select stops at a thousand rows and reports success, and one that fails returns no
+ * rows — either way the page drew a figure that looked real (review, 2026-10-11; the CRM's
+ * reader learned the same, src/lib/crm/load.ts). `order` must make the order total.
+ */
+async function everyRow<T>(
+  what: string,
+  page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<{ rows: T[]; failure?: string }> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    if (error) {
+      console.error(`[admin/ads] ${what}: ${error.message}`);
+      return { rows: [], failure: what };
+    }
+    const got = (data ?? []) as T[];
+    rows.push(...got);
+    if (got.length < PAGE) return { rows };
+  }
 }
 
 /** A local calendar day as `YYYY-MM-DD`, for a `date` column. */
@@ -74,9 +102,12 @@ export async function loadAds(range: AdsRange = "7d"): Promise<AdsPage> {
   const [accounts, choices, rows, leads, conversations, newest, statuses] = await Promise.all([
     adAccounts().catch(() => [] as AdAccount[]),
     pendingChoices(),
-    supabase.from("ins_ad_daily").select("*").gte("date", dayKey(start)),
-    supabase.from("ins_leads").select("ad_id").gte("created_at", since),
-    supabase.from("ins_conversations").select("ad_id, priced_at, form_sent_at").gte("started_at", since),
+    everyRow<DailyRow>("ผลโฆษณารายวัน", (from, to) => supabase.from("ins_ad_daily").select("*").gte("date", dayKey(start))
+      .order("date").order("ad_id").range(from, to)),
+    everyRow<{ ad_id: string | null }>("ลีด", (from, to) => supabase.from("ins_leads").select("ad_id").gte("created_at", since)
+      .order("created_at").order("id").range(from, to)),
+    everyRow<{ ad_id: string | null }>("แชท", (from, to) => supabase.from("ins_conversations").select("ad_id, priced_at, form_sent_at")
+      .gte("started_at", since).order("started_at").order("id").range(from, to)),
     supabase.from("ins_ad_daily").select("fetched_at").order("fetched_at", { ascending: false }).limit(1).maybeSingle(),
     adSyncStatuses().catch(() => null),
   ]);
@@ -91,9 +122,9 @@ export async function loadAds(range: AdsRange = "7d"): Promise<AdsPage> {
     ((v ?? []) as T[]).filter((r) => Boolean(r.ad_id));
 
   const summary = summariseAds(
-    (rows.data ?? []) as DailyRow[],
-    fromAds<AdLead & { ad_id: string | null }>(leads.data) as AdLead[],
-    fromAds<AdConversation & { ad_id: string | null }>(conversations.data) as AdConversation[],
+    rows.rows,
+    fromAds<AdLead & { ad_id: string | null }>(leads.rows) as AdLead[],
+    fromAds<AdConversation & { ad_id: string | null }>(conversations.rows) as AdConversation[],
   );
   return {
     range,
@@ -103,6 +134,7 @@ export async function loadAds(range: AdsRange = "7d"): Promise<AdsPage> {
     lastFetchedAt: (newest.data as { fetched_at: string } | null)?.fetched_at ?? null,
     syncStatus: statuses ? Object.fromEntries(statuses) : null,
     expiry,
+    readFailures: [rows, leads, conversations].flatMap((r) => (r.failure ? [r.failure] : [])),
   };
 }
 

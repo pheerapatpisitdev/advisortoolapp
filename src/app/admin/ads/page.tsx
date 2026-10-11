@@ -181,7 +181,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   const params = await searchParams;
   const range: AdsRange = params.range === "30d" ? "30d" : "7d";
   const outcome = OUTCOMES[params.fb ?? ""];
-  const { accounts, choices, summary: figures, lastFetchedAt, syncStatus, expiry } = await loadAds(range);
+  const { accounts, choices, summary: figures, lastFetchedAt, syncStatus, expiry, readFailures } = await loadAds(range);
   /**
    * Campaign names repeat across ad accounts — the agency has "มรดก" and "Life Protect x 2"
    * in more than one — so the account is what tells two identical-looking rows apart.
@@ -200,6 +200,13 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
               ข้อความจาก Facebook (ภาษาอังกฤษ ส่งให้คนดูแลระบบได้เลย): <span className="break-all">{params.detail}</span>
             </span>
           )}
+        </p>
+      )}
+
+      {/* a read that failed is said, never drawn as a zero */}
+      {readFailures.length > 0 && (
+        <p role="alert" className={`rounded-md px-3 py-2 text-sm ${TONES.bad}`}>
+          ดึงข้อมูล{readFailures.join(" ")}ไม่สำเร็จ ตัวเลขด้านล่างยังไม่ครบ กดรีเฟรชอีกครั้ง
         </p>
       )}
 
