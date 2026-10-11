@@ -105,11 +105,15 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   const [cost, setCost] = useState<CostView | null>(firstCost);
   const [style, setStyle] = useState<VideoStyle>("classic");
   const [length, setLength] = useState<VideoLength>("full");
+  // where the clip begins: a sum (or plan), or what the customer can save each month / year
+  const [source, setSource] = useState<"sum" | "month" | "year">("sum");
+  const [budget, setBudget] = useState("3,000");
   const line = costLine(cost, style);
 
+  const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, style, length }
-    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, style, length });
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, style, length, budget: budgetOf() }
+    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, style, length, budget: budgetOf() });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -131,7 +135,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, sex, age, sum, variant, plan, compare]);
+  }, [product, sex, age, sum, variant, plan, compare, source, budget]);
 
   // a clip still being made is asked about every few seconds
   const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
@@ -172,6 +176,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   }
 
   const ok = preview && !("error" in preview) ? preview : null;
+  const resolvedPlan = ok?.resolved.plan ? ihuPlans.find((p) => p.code === ok.resolved.plan)?.name : undefined;
+  /** what the budget bought, to keep and adjust by hand */
+  function keepResolved() {
+    if (!ok) return;
+    if (ok.resolved.sum) setSum(ok.resolved.sum.toLocaleString("en-US"));
+    if (ok.resolved.plan) setPlan(ok.resolved.plan);
+    setSource("sum");
+  }
   return (
     <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className={`${card} space-y-4`}>
@@ -205,6 +217,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
             <button type="button" className={chip(narrator === "M")} onClick={() => pickNarrator("M")}>ผู้ชาย</button>
           </div>
         </div>
+        <div>
+          <span className={label}>เริ่มจาก</span>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : "ทุนประกัน"}</button>
+            <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>งบต่อเดือน</button>
+            <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>งบต่อปี</button>
+          </div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <span className={label}>เพศ</span>
@@ -221,8 +241,19 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               ))}
             </select>
           </div>
+          {source !== "sum" && (
+            <div>
+              <label htmlFor="qv-budget" className={label}>{source === "month" ? "งบที่ลูกค้าออมไหวต่อเดือน (บาท)" : "งบที่ลูกค้าออมไหวต่อปี (บาท)"}</label>
+              <input
+                id="qv-budget" inputMode="numeric" className={field} value={budget}
+                onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, "").slice(0, 8)); setBudget(n ? n.toLocaleString("en-US") : ""); }}
+              />
+              <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+            </div>
+          )}
           {product !== "IHEALTHY" && (
             <>
+              {source === "sum" && (
               <div>
                 <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
                 <input
@@ -231,6 +262,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
                 />
                 <p className="mt-1 text-xs text-[var(--ct-mute)]">ทีละ 50,000</p>
               </div>
+              )}
               <div>
                 <span className={label}>ชำระเบี้ย</span>
                 <div className="flex flex-wrap gap-2">
@@ -242,12 +274,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
         </div>
         {product === "IHEALTHY" && (
           <div className="space-y-3">
+            {source === "sum" && (
             <div>
               <span className={label}>แผนหลัก</span>
               <div className="flex flex-wrap gap-2">
                 {ihuPlans.map((p) => <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => { setPlan(p.code); setCompare((c) => c.filter((x) => x !== p.code)); }}>{p.name}</button>)}
               </div>
             </div>
+            )}
             <div>
               <span className={label}>แผนที่จะเทียบในวิดีโอ (ไม่บังคับ เลือกได้อีก {MAX_COMPARE - 1} แผน)</span>
               <div className="flex flex-wrap gap-2">
@@ -267,6 +301,12 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               {ok.prices.map((p) => (
                 <div key={p.label} className="flex justify-between gap-2"><span>{p.label}</span><b>{p.amount} บาท</b></div>
               ))}
+              {source !== "sum" && (
+                <p className="font-medium">
+                  {ok.resolved.sum ? `คิดทุนให้: ${ok.resolved.sum.toLocaleString("en-US")} บาท` : `เลือกแผนให้: ${resolvedPlan ?? ""}`}{" "}
+                  <button type="button" className="underline" onClick={keepResolved}>ใช้ค่านี้แล้วแก้เอง</button>
+                </p>
+              )}
               <p className="text-xs text-[var(--ct-mute)]">{ok.mark} · ตัวเลขชุดเดียวกับหน้า {PRODUCTS.find((p) => p.code === product)?.page}</p>
             </div>
           ) : (

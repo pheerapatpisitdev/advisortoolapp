@@ -4,6 +4,7 @@ import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "@/lib
 import { cleanCustomerName, pageCaption, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
 import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
 import { motionWindows, MOTION_FPS } from "@/lib/quote-video/motion";
+import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { clipLength, LEAD, planScenes, XFADE } from "@/lib/quote-video/timeline";
 
 const TODAY = new Date("2026-10-11T00:00:00+07:00");
@@ -213,6 +214,55 @@ describe("15-second clip (owner, 2026-10-11)", () => {
     const to99 = quoteVideoFacts({ variant: "WLF99H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
     expect(quoteVideoScript(to99, "", "F", "short")[1].voice).toBe("ออมแค่วันละ 48 บาท ออมถึงอายุ 99 คุ้มครองถึงอายุ 99 ค่ะ");
     expect(quoteVideoScript(lp, "", "M", "short")[2].voice).toBe("ทักมาขอใบเสนอได้เลยนะครับ");
+  });
+});
+
+describe("a clip from a budget (owner, 2026-10-11)", () => {
+  const lp = { variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 500_000 };
+
+  it("buys the biggest sum whose instalment fits, and never one that does not", () => {
+    const got = resolveBudget(lp, { baht: 3_000, per: "month" }, TODAY) as typeof lp;
+    expect(got.sumAssured).toBe(1_150_000);
+    const f = quoteVideoFacts(got, TODAY)!;
+    const monthly = Number(f.prices.find((p) => p.label === "รายเดือน")!.amount.replace(/,/g, ""));
+    expect(monthly).toBeLessThanOrEqual(3_000);
+    const next = quoteVideoFacts({ ...got, sumAssured: 1_200_000 }, TODAY)!;
+    expect(Number(next.prices.find((p) => p.label === "รายเดือน")!.amount.replace(/,/g, ""))).toBeGreaterThan(3_000);
+  });
+
+  it("says so, with the smallest sum's price, when the budget is too small", () => {
+    const r = resolveBudget(lp, { baht: 500, per: "month" }, TODAY);
+    expect(typeof r === "string" && r).toMatch(/^งบนี้ยังไม่พอสำหรับทุนต่ำสุด 500,000 \(เริ่มที่เดือนละ [\d,.]+ บาท\)$/);
+  });
+
+  it("works for iShield and a yearly budget", () => {
+    const got = resolveBudget({ product: "ISHIELD", variant: "WLCI10", age: 35, sex: "M", sumAssured: 500_000 }, { baht: 100_000, per: "year" }, TODAY) as { sumAssured: number };
+    expect(got.sumAssured).toBe(1_000_000);
+    const f = quoteVideoFacts(got as never, TODAY)!;
+    expect(Number(f.prices.find((p) => p.label === "รายปี")!.amount.replace(/,/g, ""))).toBeLessThanOrEqual(100_000);
+  });
+
+  it("picks the richest iHealthy plan the monthly budget pays for", () => {
+    const base = { product: "IHEALTHY" as const, age: 35, sex: "M" as const, plan: "SMART", compare: ["GOLD"] };
+    expect((resolveBudget(base, { baht: 3_600, per: "month" }, TODAY) as { plan: string }).plan).toBe("GOLD");
+    expect((resolveBudget(base, { baht: 2_000, per: "month" }, TODAY) as { plan: string }).plan).toBe("BRONZE");
+    // the plan it settles on is not also a plan to compare against
+    expect((resolveBudget(base, { baht: 3_600, per: "month" }, TODAY) as { compare: string[] }).compare).toEqual([]);
+    expect(resolveBudget(base, { baht: 1_000, per: "month" }, TODAY)).toBe("งบนี้ยังไม่พอสำหรับแผนต่ำสุด Smart (เริ่มที่เดือนละ 1,616 บาท)");
+  });
+
+  it("checks the budget itself", () => {
+    expect(cleanBudget({ baht: 3000.7, per: "month" })).toEqual({ baht: 3000, per: "month" });
+    expect(cleanBudget({ baht: 100, per: "month" })).toMatch(/ต่อเดือน/);
+    expect(cleanBudget({ baht: 5000, per: "week" })).toBe("ใส่งบให้ถูกต้อง");
+  });
+
+  it("says what the customer saves in the opening line", () => {
+    const got = resolveBudget(lp, { baht: 3_000, per: "month" }, TODAY)!;
+    const f = quoteVideoFacts(got as never, TODAY)!;
+    expect(f.budget).toEqual({ per: "month", amount: "2,970" });
+    expect(quoteVideoScript(f)[0].voice).toBe("สวัสดีค่ะ ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ คุณผู้ชายอายุ 35 ถ้าออมเดือนละ 2,970 บาท ทำทุน 1,150,000 ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง 2.3 ล้านบาทค่ะ");
+    expect(quoteVideoScript(f, "", "F", "short")[0].voice).toBe("ถ้าออมเดือนละ 2,970 บาท ครอบครัวได้เงินก้อนสูงสุดถึง 2.3 ล้านบาทค่ะ");
   });
 });
 

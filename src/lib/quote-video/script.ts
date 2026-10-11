@@ -34,6 +34,8 @@ export type VideoInput = (
   style?: VideoStyle;
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */
   length?: VideoLength;
+  /** the clip began from what the customer can save: the sum or plan above is what that buys (budget.ts) */
+  budget?: { baht: number; per: "month" | "year" };
 };
 
 export type VideoLength = "full" | "short";
@@ -89,6 +91,8 @@ export interface QuoteVideoFacts {
   totalPaid?: string;
   breakEven?: { age: number; cash: string; index: number };
   compare?: ComparePlan[];
+  /** the clip began from a budget: the instalment the customer saves, in the mode they named */
+  budget?: { per: "month" | "year"; amount: string };
   /** iShield: how many illnesses each stage covers */
   illness?: { early: number; major: number; total: number };
   /** iHealthy: the plan's name, "Gold" */
@@ -107,8 +111,11 @@ export const planInput = (v: Extract<VideoInput, { variant: string }>): PlanCard
 
 /** The facts for an arrangement; undefined for anything the clip cannot state (no price, not sold). */
 export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteVideoFacts | undefined {
-  if (v.product === "IHEALTHY") return iHealthyFacts(v, today);
-  return planFacts(v, today);
+  const f = v.product === "IHEALTHY" ? iHealthyFacts(v, today) : planFacts(v, today);
+  if (!f || !v.budget) return f;
+  // a clip begun from a budget says what the customer saves, in the instalment they named
+  const row = f.prices.find((p) => p.label === (v.budget!.per === "month" ? "รายเดือน" : "รายปี"));
+  return row ? { ...f, budget: { per: v.budget.per, amount: row.amount } } : f;
 }
 
 function planFacts(v: Extract<VideoInput, { variant: string }>, today: Date): QuoteVideoFacts | undefined {
@@ -266,7 +273,7 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
 }
 
 /** the iHealthy plans in the card's column order, by code: the card draws every plan, in the benefit sheet's order, when no `fit` is asked for */
-const iHealthyPlanCodes = (): string[] => benefitSheet().plans.map((p) => p.code);
+export const iHealthyPlanCodes = (): string[] => benefitSheet().plans.map((p) => p.code);
 
 /** "1 ล้าน", "1.5 ล้าน", "800,000" — how a sum is said aloud */
 export function spokenBaht(baht: number): string {
@@ -290,6 +297,12 @@ export function cleanCustomerName(raw: string | undefined | null): string {
 }
 
 export interface SceneScript { key: SceneKey; voice: string }
+
+/** "ถ้าออมเดือนละ 2,970 บาท " — what the customer saves, when the clip began from a budget; nothing otherwise */
+function budgetLead(f: QuoteVideoFacts, lead: string): string {
+  if (!f.budget) return "";
+  return `${lead}${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท `;
+}
 
 /** How each kind of iHealthy cover is said aloud */
 const SAID: Record<string, string> = {
@@ -327,7 +340,7 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
   const ask = "ทักมาขอใบเสนอได้เลยนะคะ";
   if (f.product === "IHEALTHY") {
     return [
-      { key: "lead", voice: `เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ` },
+      { key: "lead", voice: `${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ` },
       { key: "price", voice: `ปีแรกเดือนละ ${f.spokenPrice.amount} บาท รวมประกันชีวิตและค่าชดเชยรายวันค่ะ` },
       { key: "contact", voice: ask },
     ];
@@ -336,13 +349,13 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
   if (f.product === "ISHIELD") {
     const total = f.illness?.total;
     return [
-      { key: "lead", voice: `คุ้มครองโรคร้ายแรง${total ? ` ${total} โรค` : ""} รับเงินก้อนสูงสุด ${spokenWithBaht(f.lead.baht)} ตั้งแต่ระยะเริ่มต้นค่ะ` },
+      { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}คุ้มครองโรคร้ายแรง${total ? ` ${total} โรค` : ""} รับเงินก้อนสูงสุด ${spokenWithBaht(f.lead.baht)} ตั้งแต่ระยะเริ่มต้นค่ะ` },
       { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท ${years} คุ้มครองถึงอายุ ${f.coverToAge} ค่ะ` },
       { key: "contact", voice: ask },
     ];
   }
   return [
-    { key: "lead", voice: `ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
+    { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}${f.budget ? "" : "ถ้าเป็นอะไรไป "}ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
     { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท ${years} คุ้มครองถึงอายุ ${f.coverToAge} ค่ะ` },
     { key: "contact", voice: ask },
   ];
@@ -359,7 +372,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   if (f.product === "IHEALTHY") {
     const others = (f.compare ?? []).filter((p) => !p.main);
     return [
-      { key: "lead", voice: `${hello} ขอเล่าแผนประกันสุขภาพนี้ให้ฟังสั้นๆ นะคะ ${name ? "" : `${who} `}แผน ${f.planName} เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`.replace(/\s+/g, " ") },
+      { key: "lead", voice: `${hello} ขอเล่าแผนประกันสุขภาพนี้ให้ฟังสั้นๆ นะคะ ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}แผน ${f.planName} เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`.replace(/\s+/g, " ") },
       { key: "price", voice: `ปีแรกค่าใช้จ่ายเดือนละ ${f.spokenPrice.amount} บาท รวมประกันชีวิตกับค่าชดเชยรายวันไว้แล้วค่ะ` },
       { key: "cover", voice: healthCoverLine(f) },
       ...(others.length
@@ -391,7 +404,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
       maturity && `อยู่ครบอายุ ${f.coverToAge} ก็รับคืน ${spokenBaht(digits(maturity.amount))}`,
     ].filter(Boolean);
     return [
-      { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ทำทุน ${spokenBaht(digits(f.insuredLine))} คุ้มครองโรคร้ายแรง${ill ? ` ${ill.total} โรค` : ""} จ่ายเป็นเงินก้อนตั้งแต่ระยะเริ่มต้นเลยค่ะ` },
+      { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ${budgetLead(f, "ถ้าออม")}ทำทุน ${spokenBaht(digits(f.insuredLine))} คุ้มครองโรคร้ายแรง${ill ? ` ${ill.total} โรค` : ""} จ่ายเป็นเงินก้อนตั้งแต่ระยะเริ่มต้นเลยค่ะ` },
       { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท เบี้ยเท่าเดิมทุกปี ออมเพียง ${f.payYears} ปีก็ครบ แต่ดูแลยาวถึงอายุ ${f.coverToAge} เลยค่ะ` },
       { key: "cover", voice: `${parts.join(" ")}ค่ะ` },
       { key: "value", voice: value },
@@ -406,7 +419,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     ? `ถ้าเป็นอะไรไปก่อนอายุ ${beforeAge} ครอบครัวได้ ${spokenBaht(digits(first.amount))} หลังจากนั้นได้ ${spokenBaht(digits(second.amount))} และดูแลยาวไปถึงอายุ ${f.coverToAge} เลยค่ะ`
     : `ถ้าเป็นอะไรไป ครอบครัวได้ ${spokenBaht(digits(first.amount))} และดูแลยาวไปถึงอายุ ${f.coverToAge} เลยค่ะ`;
   return [
-    { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
+    { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ${budgetLead(f, "ถ้าออม")}ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
     { key: "price", voice: f.payToEnd
       ? `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ออมสบายๆ ถึงอายุ ${f.coverToAge} ยอดออมเท่าเดิมตลอดค่ะ`
       : `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ออมเพียง ${f.payYears} ปีก็ครบ ยอดออมเท่าเดิมตลอดค่ะ` },

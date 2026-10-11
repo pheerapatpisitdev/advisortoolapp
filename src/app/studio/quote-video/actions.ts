@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
+import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
@@ -21,7 +22,11 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
 const SUM_STEP = 50_000;
 const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra" };
 
-export interface Preview { lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean } [] }
+export interface Preview {
+  lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
+  /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out) */
+  resolved: { sum?: number; plan?: string };
+}
 export interface VideoItem {
   id: string;
   createdAt: string;
@@ -50,8 +55,16 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
 
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
 function checked(v: VideoInput): VideoInput | string {
-  const c = checkedQuote(v);
-  return typeof c === "string" ? c : { ...c, narrator: v.narrator === "M" ? "M" : "F", style: v.style === "motion" ? "motion" : "classic", length: v.length === "short" ? "short" : "full" };
+  // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
+  const budget = v.budget ? cleanBudget(v.budget) : undefined;
+  if (typeof budget === "string") return budget;
+  const asked = budget && v.product !== "IHEALTHY" ? { ...v, sumAssured: 500_000 } : v;
+  const checkedAsked = checkedQuote(asked);
+  if (typeof checkedAsked === "string") return checkedAsked;
+  const worked = budget ? resolveBudget(checkedAsked, budget) : checkedAsked;
+  if (typeof worked === "string") return worked;
+  const c = worked;
+  return { ...c, narrator: v.narrator === "M" ? "M" : "F", style: v.style === "motion" ? "motion" : "classic", length: v.length === "short" ? "short" : "full" };
 }
 
 function checkedQuote(v: VideoInput): VideoInput | string {
@@ -82,7 +95,10 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
   if (typeof c === "string") return { error: c };
   const f = quoteVideoFacts(c);
   if (!f) return { error: NOT_PRICED };
-  return { lead: { label: f.lead.label, amount: f.lead.amount }, mark: f.leadMark, prices: f.prices };
+  return {
+    lead: { label: f.lead.label, amount: f.lead.amount }, mark: f.leadMark, prices: f.prices,
+    resolved: c.product === "IHEALTHY" ? { plan: c.plan } : { sum: c.sumAssured },
+  };
 }
 
 export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
