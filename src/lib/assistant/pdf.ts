@@ -173,6 +173,11 @@ export function pdfTurn(
 
 /** A quote's picture, as against a value table's or a list of illnesses'. */
 const QUOTE_CARD = /^\/api\/(?:card|ihealthy-card)\?/;
+/**
+ * The pension plan's yearly table, which is the whole of its quote's picture: it stands for a
+ * quote no page prints, so the file asked for after it is not the quote before it.
+ */
+const PENSION_TABLE = /^\/api\/card\/pension-table\?/;
 
 const PDF_PAGES: readonly string[] = [...Object.keys(PLAN_PAGES), "ihealthy-ultra"];
 const isPdfPage = (v: unknown): v is PdfPage => typeof v === "string" && PDF_PAGES.includes(v);
@@ -216,7 +221,7 @@ export function cleanPdfMemory(raw: unknown): PdfMemory | undefined {
  * The quotes remembered are every one on the answer with a PDF — both of a couple, in the
  * order they were named — or, where nothing on the answer has a PDF, the last quote card, so
  * the customer who asks for a file of a plan no page prints is sent the picture instead. A
- * priced answer with neither (the pension plan) is remembered as having none, so the file
+ * priced answer with neither (the pension plan, whose yearly table is no quote card) is remembered as having none, so the file
  * asked for next is not the quote before it. A value table or a list of illnesses is not a
  * quote and leaves the memory alone.
  *
@@ -233,7 +238,9 @@ export function withPdfOffer(answer: AnyAnswer, memory: PdfMemory | undefined, l
 
   const base: PdfMemory = { asked: memory?.asked ?? [], ...(memory?.declined ? { declined: true as const } : {}) };
   if (!paths.length && !card) {
-    if (answer.priced && !answer.messages.some((m) => m.card)) return remember(answer, { ...base, latestHasNoPdf: true });
+    if (answer.priced && !answer.messages.some((m) => m.card && !PENSION_TABLE.test(m.card))) {
+      return remember(answer, { ...base, latestHasNoPdf: true });
+    }
     return memory ? remember(answer, onward(memory)) : answer;
   }
   if (!paths.length) return remember(answer, { ...base, card });

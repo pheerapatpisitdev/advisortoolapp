@@ -119,6 +119,29 @@ export function valueTablePath(input: PlanCardInput, opts: { characters?: boolea
   return `/api/card/table?${cardQuery(input, opts.characters)}`;
 }
 
+/** What a บำนาญ สมาร์ท 95 table picture is drawn from: the person, the pension age, the paying term and the sum. */
+export interface PensionTableInput {
+  age: number;
+  sex: Sex;
+  /** the age the pension starts: 55, 60, 65 or 70 */
+  start: number;
+  pay: "6" | "untilAnnuity";
+  sumAssured: number;
+}
+
+/**
+ * The path the pension plan's yearly table is drawn at (src/app/api/card/pension-table). Priced
+ * from the sum, which is what every other way in (a monthly pension, a premium) comes to, so one
+ * contract is one address whichever figure the customer started from.
+ */
+export function pensionTablePath(input: PensionTableInput): string {
+  const q = new URLSearchParams({
+    age: String(input.age), sex: input.sex, start: String(input.start), pay: input.pay,
+    sum: String(input.sumAssured), v: cardVersionFor(),
+  });
+  return `/api/card/pension-table?${q.toString()}`;
+}
+
 /** The same path against a host, for the channels that can only send an absolute URL. */
 export function cardUrl(origin: string, input: CardInput): string {
   return new URL(cardPath(input), origin).toString();

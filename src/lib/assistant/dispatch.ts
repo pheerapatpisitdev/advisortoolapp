@@ -298,7 +298,8 @@ async function routeAny(
   if (pensionNamedIn(asked) && asksPensionPrice(asked)) {
     const priced = pricePension(asked);
     return {
-      messages: [{ text: writtenFor(channel, priced.text) }],
+      // the price, and under it the yearly table as a picture
+      messages: [{ text: writtenFor(channel, priced.text), ...(priced.cards?.[0] ? { card: priced.cards[0] } : {}) }],
       priced: priced.priced,
       ...(priced.guide?.length ? { guide: priced.guide } : {}),
       slots: stored ?? { product: "undecided", ...personIn(stored) },

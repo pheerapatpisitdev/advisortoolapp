@@ -26,6 +26,8 @@ export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex
  * (src/lib/card-photo.ts). Not the table's: it draws no face, so a `ph` there is padding.
  */
 export const QUOTE_CARD_ONLY_KEYS = [...QUOTE_CARD_KEYS, "ph"] as const;
+/** the pension plan's yearly table: src/lib/card-link.ts pensionTablePath, in its order */
+export const PENSION_TABLE_KEYS = ["age", "sex", "start", "pay", "sum", "v"] as const;
 /** one contract's illnesses: src/lib/card-link.ts diseaseCardPath */
 export const DISEASE_CARD_KEYS = ["of"] as const;
 /** the health card and its table: src/lib/ihealthy-link.ts cardQuery and cardPath, the menu's fit=phone */

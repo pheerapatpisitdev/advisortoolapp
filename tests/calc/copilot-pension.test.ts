@@ -158,3 +158,32 @@ describe("riders in the chat", () => {
     expect(asksPensionPrice("บำนาญ 95 ยกเว้นเบี้ยคืออะไร")).toBe(false);
   });
 });
+
+/** The yearly table goes with every priced answer, as a picture (owner, 2026-10-11). */
+describe("the pension answer's table picture", () => {
+  it("is sent under a priced answer, for the contract priced", () => {
+    const r = pricePension("บำนาญ สมาร์ท 95 ชาย 40 รับบำนาญ 60 เดือนละ 10,000 จ่ายจนรับบำนาญ");
+    expect(r.priced).toBe(true);
+    expect(r.cards).toHaveLength(1);
+    const q = new URLSearchParams(r.cards![0].split("?")[1]);
+    expect(r.cards![0].startsWith("/api/card/pension-table?")).toBe(true);
+    expect([...q.keys()]).toEqual(["age", "sex", "start", "pay", "sum", "v"]);
+    expect(Object.fromEntries(q)).toMatchObject({ age: "40", sex: "M", start: "60", pay: "untilAnnuity", sum: "787402" });
+    expect(r.text).toContain("ตารางรายปีอยู่ในรูปด้านล่าง");
+  });
+
+  it("is not sent while the answer is still asking", () => {
+    const r = pricePension("บำนาญ สมาร์ท 95 ชาย 40 รับบำนาญ 60 เดือนละ 10,000");
+    expect(r.priced).toBe(false);
+    expect(r.cards).toBeUndefined();
+  });
+
+  it("draws the same contract from the sum as the chat priced from the pension", () => {
+    const r = pricePension("บำนาญ สมาร์ท 95 หญิง 55 รับบำนาญ 70 เดือนละ 6,350 จ่าย 6 ปี");
+    const q = new URLSearchParams(r.cards![0].split("?")[1]);
+    const again = quotePension({
+      age: 55, sex: "F", annuityAge: 70, pay: "6", mode: "annual", basis: "sumAssured", amount: Number(q.get("sum")),
+    });
+    expect(again.ok && again.quote.monthlyPension).toBe(6_350);
+  });
+});

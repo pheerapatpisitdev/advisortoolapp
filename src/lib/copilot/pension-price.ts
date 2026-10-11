@@ -3,6 +3,7 @@ import {
   availablePensionAges, PENSION_AGES, premiumRange, quotePension, WAIVER_LABEL,
   type PensionBasis, type PensionMode, type PensionPay, type PensionRiders, type WaiverOption,
 } from "@/calc/pension/engine";
+import { pensionTablePath } from "@/lib/card-link";
 import type { GuideItem } from "./guide";
 import type { PriceReply } from "./price";
 
@@ -316,7 +317,8 @@ export function pricePension(text: string): PriceReply {
     `เพิ่มเป็นปีละ ${lastBand.annual.toLocaleString("en-US")} บาท ตั้งแต่อายุ ${lastBand.fromAge} · รับประกันจ่าย 15 ปีแรก`,
     `รวมรับบำนาญถึงอายุ 95 ประมาณ ${q.totalPension.toLocaleString("en-US")} บาท จากเบี้ย${q.riders.length ? "สัญญาหลัก" : ""}รวม ${floorBaht(q.totalPremium)} บาท`,
     "",
-    "เบี้ยใช้ลดหย่อนภาษีได้ตามเกณฑ์สรรพากร · ดูตารางรายปีและคำนวณภาษีได้ที่ [เครื่องคิดบำนาญ](/bumnan95)",
+    // the yearly table goes as a picture under these words (owner, 2026-10-11)
+    "เบี้ยใช้ลดหย่อนภาษีได้ตามเกณฑ์สรรพากร · ตารางรายปีอยู่ในรูปด้านล่าง · คำนวณภาษีได้ที่ [เครื่องคิดบำนาญ](/bumnan95)",
     `เบี้ยมาตรฐาน ตารางเวอร์ชัน A2026-1 · อาจต่างไปตามผลพิจารณารับประกัน${q.riders.length ? "" : " · ยังไม่รวมสัญญาเพิ่มเติม"}`,
   ];
   const others = availablePensionAges(who!.age, pay!).filter((a) => a !== q.plan.annuityStartAge);
@@ -324,6 +326,8 @@ export function pricePension(text: string): PriceReply {
   return {
     priced: true,
     text: lines.join("\n"),
+    // the year-by-year table, with the /bumnan95 page's pen notes, drawn for the chat to send
+    cards: [pensionTablePath({ age: who!.age, sex: who!.sex, start: q.plan.annuityStartAge, pay: pay!, sumAssured: q.sumAssured })],
     guide: [
       ...others.map((a) => ({ label: `ถ้ารับบำนาญอายุ ${a}`, ask: ask([...keep, `รับบำนาญ ${a}`]) })),
       pay === "6"

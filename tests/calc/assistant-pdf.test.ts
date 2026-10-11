@@ -361,8 +361,9 @@ describe("a message that only sounds like a request for the file", () => {
 });
 
 /**
- * A quote no page prints, and with no picture either, is the latest quote all the same
- * (final review, item 2): the file of the quote before it is the wrong plan's.
+ * A quote no page prints, and with no quote card either — the pension plan, which sends only
+ * its yearly table — is the latest quote all the same (final review, item 2): the file of the
+ * quote before it is the wrong plan's.
  */
 describe("a quote with neither a PDF nor a card", () => {
   it("is not answered with the file of the quote before it", async () => {
@@ -370,7 +371,9 @@ describe("a quote with neither a PDF nor a card", () => {
     const pension = "บำนาญ ชาย 40 เดือนละ 10,000 รับบำนาญ 60 จ่ายจนรับบำนาญ";
     const second = await answerAny(thread([LIFE, first])(pension), first.slots, "facebook");
     expect(second.priced).toBe(true);
-    expect(second.messages.some((m) => m.card || m.pdfPath)).toBe(false);
+    expect(second.messages.some((m) => m.pdfPath)).toBe(false);
+    // its yearly table, which is no quote card (owner, 2026-10-11)
+    expect(second.messages.map((m) => m.card).filter(Boolean)).toEqual([expect.stringMatching(/^\/api\/card\/pension-table\?/)]);
     expect(memoryOf(second)!.paths).toBeUndefined();
     expect(memoryOf(second)!.latestHasNoPdf).toBe(true);
 

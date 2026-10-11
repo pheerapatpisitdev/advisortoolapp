@@ -106,15 +106,25 @@ const STOP_WORD = "หยุดส่งเบี้ย";
 const GUARANTEE_WORDS = (from: number, to: number) => [
   `รับประกันจ่าย ${GUARANTEED_YEARS} ปีแรก`, `(อายุ ${from}–${to})`, "เสียชีวิตก่อน ครอบครัว", "ได้รับส่วนที่เหลือ",
 ];
-/** short lines, to fit the cover column's width */
 const BREAK_EVEN_WORDS = ["จุดคุ้มทุน", "บำนาญรวม", "เกินเบี้ย", "ที่ส่งแล้ว"];
+/** every letter the notes can write, for cutting the picture's pen face down to them */
+export const PENSION_PEN_TEXT = [
+  ...BRACE_WORDS, STOP_WORD, "เริ่มรับบำนาญ อายุ", "บำนาญเพิ่มเป็น ของทุน",
+  ...GUARANTEE_WORDS(0, 0), ...BREAK_EVEN_WORDS, "0123456789%()–",
+].join("");
+
 /** a year's pension as a share of the sum assured, as the contract states its bands */
 const percentOf = (pension: number, sumAssured: number) => `${Math.round((pension / sumAssured) * 100)}%`;
 
 /** Whether the premium column needs room made for the brace and its word beside the figures. */
 export const pensionBraceRoom = (rows: PensionYear[]) => pensionMarks(rows).steady;
 
-export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenGeometry): PenNotes {
+/**
+ * `ring` is how far a ring reaches left of its figure, either side of it, in picture units: the
+ * page's Circled pads both sides and pushes the figure over; the picture's ring stands out
+ * beside a figure that stays put, so it passes half its RING_PAD.
+ */
+export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenGeometry, ring = RING_PX / PENSION_PEN_SCALE): PenNotes {
   const notes: PenNotes = { rings: [], strokes: [], blueStrokes: [], labels: [] };
   if (!rows.length) return notes;
   const m = pensionMarks(rows);
@@ -125,7 +135,6 @@ export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenG
   const top = (n: number) => g.caption + g.head + n * g.row;
   const mid = (n: number) => top(n) + g.row / 2;
   const widthOf = g.measure ?? figureWidth;
-  const ring = RING_PX / PENSION_PEN_SCALE;
   const cells = rows.map(pensionCells);
   /** the left edge of a figure as the table sets it, right-aligned, ringed or not */
   const figureLeft = (n: number, c: PensionColumn, ringed = false) =>
@@ -244,38 +253,18 @@ export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenG
     pointAt([`บำนาญเพิ่มเป็น ${percentOf(rows[n].pension, sumAssured)} ของทุน`], n, "บำนาญ", [n, n + 1, n - 1]);
   }
 
-  // ── จุดคุ้มทุน: under the ringed running total, in the cover column beside it, which the
-  // break-even year empties (the death benefit is what is left of the premiums, so nothing
-  // from here) — or, where that column is not beside it or still shows a figure, in the
-  // empty cells to the left
+  // ── จุดคุ้มทุน: in the empty cells to the left, under the break-even row, an arrow along the
+  // line below that row over to the ringed running total
   if (m.breakEven >= 0) {
     const be = m.breakEven;
-    const total = col("บำนาญสะสม");
-    const cover = col("คุ้มครองชีวิต");
-    const wordsWide = Math.max(...BREAK_EVEN_WORDS.map((t) => penTextWidth(t, SIZE)));
-    const span = Math.ceil((BREAK_EVEN_WORDS.length * LINE) / g.row);
-    const coverClear = cover === total + 1 && be + span < rows.length
-      && Array.from({ length: span + 1 }, (_, i) => be + i).every((r) => !cells[r]["คุ้มครองชีวิต"])
-      && wordsWide <= g.widths[cover] - g.cellPad;
-    if (coverClear) {
-      const left = x(cover) + g.cellPad;
-      const labelTop = top(be + 1) + 4;
-      write(BREAK_EVEN_WORDS, left, labelTop);
+    const n = take([be + 1, be + 2, be + 3, be + 4], BREAK_EVEN_WORDS.length, false);
+    if (n !== undefined) {
+      const labelTop = blockTop(n, BREAK_EVEN_WORDS.length);
+      const w = write(BREAK_EVEN_WORDS, writeFrom, labelTop);
       notes.labels[notes.labels.length - BREAK_EVEN_WORDS.length].mark = true;
-      // up from the word and back into the ring's lower right
-      const toX = end(total) - g.cellPad - ring * 0.6;
-      const toY = mid(be) + g.row * 0.42;
-      notes.strokes.push(...arrow(left + 4, labelTop + 6, left - 6, toY + 4, toX, toY));
-    } else {
-      const n = take([be + 1, be + 2, be + 3, be + 4], BREAK_EVEN_WORDS.length, false);
-      if (n !== undefined) {
-        const labelTop = blockTop(n, BREAK_EVEN_WORDS.length);
-        const w = write(BREAK_EVEN_WORDS, writeFrom, labelTop);
-        notes.labels[notes.labels.length - BREAK_EVEN_WORDS.length].mark = true;
-        const fromX = writeFrom + w + 8;
-        const toX = figureLeft(be, "บำนาญสะสม", true) - 2;
-        notes.strokes.push(...reach(fromX, labelTop + LINE, toX, mid(be) + g.row * 0.25, top(be + 1), total));
-      }
+      const fromX = writeFrom + w + 8;
+      const toX = figureLeft(be, "บำนาญสะสม", true) - 2;
+      notes.strokes.push(...reach(fromX, labelTop + LINE, toX, mid(be) + g.row * 0.25, top(be + 1), col("บำนาญสะสม")));
     }
   }
 
