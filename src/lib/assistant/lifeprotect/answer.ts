@@ -599,24 +599,25 @@ function fitBudget(
 
 /**
  * What the insurance is for, asked on Messenger between the person and the first price from a
- * budget — the owner's four goals, word for word (2026-10-10). Whichever is tapped, the quote
- * that follows is the same Life Protect quote. Messenger shows twenty characters of a button,
- * so the sentences are in the message and the buttons carry them short.
+ * budget — the owner's goals, word for word (2026-10-10; reworded with a fifth on 2026-10-11).
+ * Whichever is tapped, the quote that follows is the same Life Protect quote (owner, 2026-10-11:
+ * the fifth too). Messenger shows twenty characters of a button, so the sentences are in the
+ * message and the buttons carry them short — and with no figures, which the router would read
+ * as an age or a paying term.
  */
 const goalQuestion = (): Reply => ({
   messages: [{
     text: [
-      // the owner's line has no particle, and none is added: the voice rule turns a ครับ here into
-      // ค่ะ, which is wrong on a question, and the line reads the same in every Page's voice
-      "อยากทำประกันเพื่ออะไรเป็นหลัก",
+      "ขอสอบถามเพิ่มเติมค่ะ อยากทำประกันเพื่ออะไรเป็นหลัก",
       "",
       "1. อยากมีมรดกให้คนข้างหลัง",
-      "2. อยากมีเงินใช้ตอนเกษียณ",
+      "2. แก่ชราอยากมีเงินใช้",
       "3. อยากเก็บเงินไว้ให้ลูกหรือคนที่รัก",
       "4. อยากให้รายได้ของครอบครัวไม่ขาด ถ้าวันหนึ่งเราไม่อยู่",
+      "5. อยากจะเก็บเงินชั่วคราวเพื่อเป้าหมาย 10 ปีหรือ 20 ปี",
     ].join("\n"),
   }],
-  replies: ["มรดกให้คนข้างหลัง", "เงินใช้ตอนเกษียณ", "เก็บเงินให้ลูก/คนรัก", "รายได้ครอบครัวไม่ขาด"],
+  replies: ["มรดกให้คนข้างหลัง", "แก่ชรามีเงินใช้", "เก็บเงินให้ลูก/คนรัก", "รายได้ครอบครัวไม่ขาด", "เก็บเงินชั่วคราว"],
 });
 
 /**
