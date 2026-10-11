@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoStyle } from "@/lib/quote-video/script";
+import { SaveVideoButton } from "./SaveVideoButton";
 import { addToCalendar, calendarCaption, makeVideo, myCost, myVideos, previewQuote, removeVideo, type Preview, type VideoItem } from "./actions";
 
 const chip = (on: boolean) =>
@@ -307,7 +308,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
             {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
             {v.watch && <video src={v.watch} controls playsInline preload="metadata" className="w-full max-w-[220px] rounded-lg" style={{ aspectRatio: "9 / 16" }} />}
             <div className="flex flex-wrap gap-2">
-              {v.status === "done" && v.save && <a href={v.save} className={small}>บันทึกวิดีโอ</a>}
+              {v.status === "done" && v.save && v.watch && <SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} />}
               {v.status === "done" && <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
               {v.status === "done" && pages.length > 0 && !v.named && (
                 <button type="button" className={small} onClick={() => openCalendar(v.id)}>เพิ่มลงปฏิทินเพจ</button>

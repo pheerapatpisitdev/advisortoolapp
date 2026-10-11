@@ -30,6 +30,8 @@ export interface VideoItem {
   error: string | null;
   watch: string | null;
   save: string | null;
+  /** the file's name when it is saved or shared */
+  fileName: string;
   share: string | null;
   /** "ใช้สิทธิ์ฟรี", "หักจากกระเป๋า ฿1.90"; null for the owner's */
   paid: string | null;
@@ -183,6 +185,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       error: v.error,
       watch: done ? await videoLink(v.video_path!, 3600) : null,
       save: done ? await videoLink(v.video_path!, 3600, file) : null,
+      fileName: file,
       // a link that can go to a customer: a week
       share: done ? await videoLink(v.video_path!, 7 * 24 * 3600) : null,
       paid: v.paid_by === "free"
