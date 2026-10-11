@@ -1,0 +1,25 @@
+#!/bin/sh
+# Before anything reaches main — which Vercel deploys to production — the types and the whole
+# test suite must pass (owner, 2026-10-11). Other branches push as they are.
+#
+# Turned on per clone with:  git config core.hooksPath .githooks
+# An emergency push past it:  git push --no-verify
+
+to_main=no
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  [ "$remote_ref" = "refs/heads/main" ] && to_main=yes
+done
+[ "$to_main" = yes ] || exit 0
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+echo "pre-push: checking types and tests before main goes to production…"
+if ! npx tsc --noEmit; then
+  echo "pre-push: types do not check — nothing pushed." >&2
+  exit 1
+fi
+if ! npx vitest run --reporter=dot >/tmp/advisortool-pre-push.log 2>&1; then
+  tail -40 /tmp/advisortool-pre-push.log >&2
+  echo "pre-push: tests failed — nothing pushed (full log: /tmp/advisortool-pre-push.log)." >&2
+  exit 1
+fi
+echo "pre-push: types and tests pass."
