@@ -1,6 +1,7 @@
 "use server";
 import { headers } from "next/headers";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
+import { getViewer } from "@/lib/auth/viewer";
 import {
   cleanFhc, events, figures, scores, toPlanInput, type EventRow, type FhcFigures, type Score,
 } from "@/lib/fhc/health";
@@ -15,7 +16,11 @@ import { recommend, type PlanResult } from "@/lib/plan/recommend";
  * The check's two calls: the figures first (the model picks the plan's order, 8 s at
  * most), then the words — the check's summary and the plan's folded advice, side by side.
  * Both recompute from the form; only the order comes back from the browser, checked.
+ *
+ * Each asks who is calling: the page's gate does not cover its actions, and both spend the AI
+ * budget the Messenger and LINE bots run on (review, 2026-10-11).
  */
+const SIGN_IN_FIRST = "กรุณาเข้าสู่ระบบก่อน";
 
 const allowRun = limiter(20, 60_000);
 const allowExplain = limiter(6, 60_000);
@@ -25,6 +30,7 @@ export type FhcReply =
   | { ok: false; error: string };
 
 export async function runFhc(raw: unknown): Promise<FhcReply> {
+  if (!(await getViewer())) return { ok: false, error: SIGN_IN_FIRST };
   const f = cleanFhc(raw);
   if (typeof f === "string") return { ok: false, error: f };
   if (!allowRun(clientIp(await headers()))) return { ok: false, error: "กดถี่เกินไป รอสักครู่แล้วลองใหม่นะครับ" };
@@ -42,6 +48,7 @@ export interface FhcWords {
 
 /** `order` is the one runFhc used, so the words follow the same plan */
 export async function explainFhc(raw: unknown, order?: unknown): Promise<FhcWords | null> {
+  if (!(await getViewer())) return null;
   const f = cleanFhc(raw);
   if (typeof f === "string") return null;
   const p = toPlanInput(f);
