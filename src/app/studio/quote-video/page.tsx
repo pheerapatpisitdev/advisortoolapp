@@ -2,6 +2,8 @@ import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
 import { iHealthyTable } from "@/lib/ihealthy-table";
+import { iShieldTable } from "@/lib/ishield-table";
+import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { videoStartFrom } from "@/lib/quote-video/link";
 import { myCost, myVideos } from "./actions";
@@ -22,7 +24,16 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   const viewer = await gatePage("/studio/quote-video");
   // putting a clip on a Page's calendar is the owner's alone (owner, 2026-10-11)
   const pages = can(viewer, "owner") ? (await myPages().catch(() => [])).map((p) => ({ id: p.pageId, name: p.pageName })) : [];
-  const ihuPlans = iHealthyTable().plans.map((p) => ({ code: p.code, name: planLabel(p.code) }));
+  const ihu = iHealthyTable();
+  const ihuPlans = ihu.plans.map((p) => ({ code: p.code, name: planLabel(p.code) }));
+  // the ages each product's dropdown offers, from its own rate table (owner, 2026-10-11: a dropdown)
+  const lp = lifeProtectTable();
+  const is = iShieldTable();
+  const ages = {
+    LIFEPROTECT: { min: lp.ageMin, max: lp.ageMax },
+    ISHIELD: { min: is.ageMin, max: is.ageMax },
+    IHEALTHY: { min: ihu.ageMin, max: ihu.ageMax },
+  };
   const cost = await myCost();
   const initial = await myVideos().catch((e) => {
     console.error("quote videos not read:", e);
@@ -34,7 +45,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปแนวตั้งพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ihuPlans={ihuPlans} initial={initial} cost={cost} pages={pages} start={videoStartFrom(await searchParams)} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} start={videoStartFrom(await searchParams)} />
     </div>
   );
 }

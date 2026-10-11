@@ -32,7 +32,8 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "IHEALTHY", name: "iHealthy Ultra", page: "/ihealthy-ultra" },
 ];
 const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number }[]> = {
-  LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }],
+  // จ่ายถึงอายุ 99 is Life Protect's third term (owner, 2026-10-11: it had gone missing)
+  LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }, { variant: "WLF99H", years: 99 }],
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const NARRATOR_KEY = "quote-video-narrator";
@@ -42,8 +43,10 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost, start, pages }: {
+export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
+  /** the ages each product sells at, for the age dropdown */
+  ages: Record<Product, { min: number; max: number }>;
   /** the Pages the owner may put a clip on; empty for everyone else, who see no button */
   pages: { id: string; name: string }[];
 }) {
@@ -106,6 +109,8 @@ export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost, start, pag
 
   function pickProduct(p: Product) {
     setProduct(p);
+    // an age the new product does not sell at is pulled onto its range
+    setAge((a) => String(Math.min(ages[p].max, Math.max(ages[p].min, Number(a) || 35))));
     if (p !== "IHEALTHY") setVariant(DEFAULT_TERM[p]);
   }
   function toggleCompare(code: string) {
@@ -190,7 +195,11 @@ export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost, start, pag
           </div>
           <div>
             <label htmlFor="qv-age" className={label}>อายุ</label>
-            <input id="qv-age" inputMode="numeric" className={field} value={age} onChange={(e) => setAge(e.target.value.replace(/[^\d]/g, "").slice(0, 2))} />
+            <select id="qv-age" className={field} value={age} onChange={(e) => setAge(e.target.value)}>
+              {Array.from({ length: ages[product].max - ages[product].min + 1 }, (_, i) => ages[product].min + i).map((a) => (
+                <option key={a} value={String(a)}>{a} ปี</option>
+              ))}
+            </select>
           </div>
           {product !== "IHEALTHY" && (
             <>
@@ -205,7 +214,7 @@ export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost, start, pag
               <div>
                 <span className={label}>ชำระเบี้ย</span>
                 <div className="flex flex-wrap gap-2">
-                  {TERMS[product].map((x) => <button key={x.variant} type="button" className={chip(variant === x.variant)} onClick={() => setVariant(x.variant)}>{x.years} ปี</button>)}
+                  {TERMS[product].map((x) => <button key={x.variant} type="button" className={chip(variant === x.variant)} onClick={() => setVariant(x.variant)}>{x.years === 99 ? "ถึงอายุ 99" : `${x.years} ปี`}</button>)}
                 </div>
               </div>
             </>

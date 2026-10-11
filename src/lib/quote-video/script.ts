@@ -73,6 +73,8 @@ export interface QuoteVideoFacts {
   coverToAge: number;
   payYears?: number;
   lastPayAge?: number;
+  /** premiums run to the end of the contract (Life Protect's จ่ายถึงอายุ 99): there is no "จบ" to say */
+  payToEnd?: boolean;
   rows?: ValueTableRow[];
   totalPaid?: string;
   breakEven?: { age: number; cash: string; index: number };
@@ -117,6 +119,7 @@ function planFacts(v: Extract<VideoInput, { variant: string }>, today: Date): Qu
   const spoken = card.summary.rows.find((r) => r.label === "รายเดือน") ?? main;
   const lifeProtect = product === LIFEPROTECT_PLAN;
   const coverToAge = last.age + 1;
+  const payToEnd = paying.length === table.rows.length;
   const facts: QuoteVideoFacts = {
     product,
     planLine: card.planLine,
@@ -130,8 +133,11 @@ function planFacts(v: Extract<VideoInput, { variant: string }>, today: Date): Qu
     priceTitle: card.summary.title,
     prices: card.summary.rows.map((r) => ({ label: r.label, amount: r.amount, main: r.main })),
     spokenPrice: { per: spoken.label === "รายปี" ? "ปีละ" : spoken.label === "ราย 6 เดือน" ? "งวดละ" : "เดือนละ", amount: spoken.amount },
-    pills: lifeProtect ? [`จ่ายเบี้ยแค่ ${paying.length} ปี`, "เบี้ยคงที่ตลอด"] : [`จ่ายเบี้ยแค่ ${paying.length} ปี`, `คุ้มครองถึงอายุ ${coverToAge}`],
-    penNote: `จ่ายครบอายุ ${paying[paying.length - 1].age} แล้วหยุดส่ง`,
+    pills: payToEnd
+      ? [`จ่ายเบี้ยถึงอายุ ${coverToAge}`, "เบี้ยคงที่ตลอด"]
+      : lifeProtect ? [`จ่ายเบี้ยแค่ ${paying.length} ปี`, "เบี้ยคงที่ตลอด"] : [`จ่ายเบี้ยแค่ ${paying.length} ปี`, `คุ้มครองถึงอายุ ${coverToAge}`],
+    ...(payToEnd ? {} : { penNote: `จ่ายครบอายุ ${paying[paying.length - 1].age} แล้วหยุดส่ง` }),
+    ...(payToEnd ? { payToEnd } : {}),
     priceNotes: [],
     coverTitle: section.title,
     cover: section.rows.map((r) => ({ label: r.label, amount: r.amount, mark: Boolean(r.mark) })),
@@ -322,7 +328,11 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     ];
   }
 
-  const value = f.breakEven
+  const value = f.payToEnd
+    ? (f.breakEven
+      ? `ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน มูลค่าเงินสดโตขึ้นทุกปี พออายุ ${f.breakEven.age} ขอคืนได้ ${f.breakEven.cash} บาท มากกว่าที่จ่ายไปทั้งหมดค่ะ`
+      : "ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน มูลค่าเงินสดโตขึ้นทุกปี ขอคืนได้ตามตารางเลยค่ะ")
+    : f.breakEven
     ? `ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน จ่ายครบตอนอายุ ${f.lastPayAge} แล้วเงินก็ยังโตทุกปี พออายุ ${f.breakEven.age} ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ ${f.breakEven.cash} บาท มากกว่าที่จ่ายไปทั้งหมดแล้วค่ะ`
     : `ที่ชอบที่สุดคือ เงินที่จ่ายไปไม่หายไปไหน จ่ายครบตอนอายุ ${f.lastPayAge} แล้วเงินก็ยังโตทุกปี ถ้าอยากได้เงินก้อนคืน ก็ขอคืนได้ตามตารางเลยค่ะ`;
 
@@ -356,7 +366,9 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     : `ถ้าเป็นอะไรไป ครอบครัวได้ ${spokenBaht(digits(first.amount))} และดูแลยาวไปถึงอายุ ${f.coverToAge} เลยค่ะ`;
   return [
     { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
-    { key: "price", voice: `ค่าใช้จ่ายตกแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท จ่ายแค่ ${f.payYears} ปีก็จบ ราคาไม่ขึ้นเลยตลอดที่จ่ายค่ะ` },
+    { key: "price", voice: f.payToEnd
+      ? `ค่าใช้จ่ายตกแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท จ่ายสบายๆ ถึงอายุ ${f.coverToAge} ราคาไม่ขึ้นเลยตลอดที่จ่ายค่ะ`
+      : `ค่าใช้จ่ายตกแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท จ่ายแค่ ${f.payYears} ปีก็จบ ราคาไม่ขึ้นเลยตลอดที่จ่ายค่ะ` },
     { key: "cover", voice: cover },
     { key: "value", voice: value },
     { key: "contact", voice: closing },

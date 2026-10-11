@@ -38,6 +38,16 @@ describe("quote video script", () => {
     for (const l of lines) expect(l).not.toMatch(/ค่ะ|คะ/);
   });
 
+  it("tells จ่ายถึงอายุ 99 without a paying term that ends (owner, 2026-10-11)", () => {
+    const g = quoteVideoFacts({ variant: "WLF99H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+    expect(g.payToEnd).toBe(true);
+    expect(g.pills).toEqual(["จ่ายเบี้ยถึงอายุ 99", "เบี้ยคงที่ตลอด"]);
+    expect(g.penNote).toBeUndefined();
+    const lines = quoteVideoScript(g).map((s) => s.voice);
+    expect(lines[1]).toContain("จ่ายสบายๆ ถึงอายุ 99");
+    for (const l of lines) expect(l).not.toMatch(/ก็จบ|จ่ายครบตอนอายุ/);
+  });
+
   it("says คุณผู้ชาย / คุณผู้หญิง without a name", () => {
     const lines = quoteVideoScript(f).map((s) => s.voice);
     expect(lines[0]).toContain("คุณผู้ชายอายุ 35");

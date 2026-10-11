@@ -15,7 +15,7 @@ import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Produc
 
 /** the paying terms each product's clip offers, as its page names them */
 const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number }[]> = {
-  LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }],
+  LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }, { variant: "WLF99H", years: 99 }],
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const SUM_STEP = 50_000;
@@ -170,7 +170,7 @@ export async function myVideos(): Promise<VideoItem[]> {
     const product = productOf(input);
     const what = input.product === "IHEALTHY"
       ? planWord(input.plan)
-      : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`;
+      : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     const who = `${NAMES[product]} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const done = v.status === "done" && v.video_path;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
