@@ -19,9 +19,10 @@ import { CHART_W, panEndFor, sceneLayer, tableImage, type Contact } from "./draw
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
 import { FHC_PRICE_SATANG, fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
-import { motionBackground, motionFrame, motionWindows, MOTION_BG_H, MOTION_FPS } from "./motion";
+import { motionBackground, motionBgHeight, motionFrame, motionWindows, MOTION_FPS } from "./motion";
+import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput, type VideoStyle } from "./script";
-import { clipLength, H, planScenes, W, type ScenePlan } from "./timeline";
+import { clipLength, H, planScenes, SIZES, sizeOf, W, type ScenePlan, type VideoSize } from "./timeline";
 
 /**
  * Making one วิดีโอนำเสนอ clip (owner, 2026-10-11; spec docs/superpowers/specs/2026-10-11-quote-video-design.md).
@@ -205,7 +206,18 @@ interface DrawPlan { tokenHash: string; secs: number[] }
  * drawer work it out the same way, so only the voice lengths travel between them.
  */
 type BuildOpts = Parameters<typeof buildJob>[2];
+/**
+ * The clip's shape (owner, 2026-10-11): a Motion Graphic quote or an FHC summary in the size asked
+ * for; the classic style and the 15-second clip always portrait.
+ */
+export function clipSize(input: ClipInput): VideoSize {
+  if (input.length === "short") return "portrait";
+  if (!isFhcInput(input) && input.style !== "motion") return "portrait";
+  return sizeOf(input);
+}
+
 interface ClipParts {
+  size: VideoSize;
   script: { key: string; voice: string }[];
   motion: boolean;
   plans: ScenePlan[];
@@ -239,6 +251,8 @@ function spokenLines(row: VideoRow): { key: string; voice: string }[] {
 /** An FHC summary's parts: always the Motion Graphic world, six scenes (fhc-motion.tsx). */
 async function fhcParts(row: VideoRow & { input: FhcVideoInput }, agentName: string, secs: number[]): Promise<ClipParts> {
   const facts = row.input.fhc;
+  const size = clipSize(row.input);
+  const dims = SIZES[size];
   const narrator = narratorOf(row.input);
   const customer = row.customer_name;
   const contact = await contactOf(row.agent_id, agentName);
@@ -249,9 +263,10 @@ async function fhcParts(row: VideoRow & { input: FhcVideoInput }, agentName: str
   const sceneDraws = (s: number) => {
     const p = plans[s];
     const ctx = { facts, narrator, customer, contact, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
-    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(fhcFrame(p.key, ctx, fr.t ?? 0), { width: W, height: H }) }));
+    const frame = (t: number) => (size === "portrait" ? fhcFrame(p.key, ctx, t) : wideFhcFrame(p.key, ctx, t, size));
+    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }) }));
   };
-  return { script, motion: true, plans, named, build: { driftHeight: MOTION_BG_H }, layers: { photo: false }, sceneDraws };
+  return { size, script, motion: true, plans, named, build: { driftHeight: motionBgHeight(dims), size: dims }, layers: { photo: false }, sceneDraws };
 }
 
 async function clipParts(row: VideoRow, agentName: string, secs: number[]): Promise<ClipParts> {
@@ -264,6 +279,8 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
   if (!facts) throw new Error("quote not priced");
   const contact = await contactOf(row.agent_id, agentName);
   const narrator = narratorOf(row.input);
+  const size = clipSize(row.input);
+  const dims = SIZES[size];
   // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
   const short = row.input.length === "short";
   const customer = short ? "" : row.customer_name;
@@ -286,7 +303,8 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
     const words = script[s].voice.split(" ").filter(Boolean);
     if (motion) {
       const mctx = { facts, narrator, customer, contact, words, voiceSec: secs[s] };
-      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(motionFrame(p.key, mctx, fr.t ?? 0), { width: W, height: H }) }));
+      const frame = (t: number) => (size === "portrait" ? motionFrame(p.key, mctx, t) : wideQuoteFrame(p.key, mctx, t, size));
+      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }) }));
     }
     const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, panEnd };
     return [
@@ -297,7 +315,8 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
   };
   return {
     script, motion, plans, named, sceneDraws,
-    build: motion ? { driftHeight: MOTION_BG_H } : { tableHeight: table.height, panEnd },
+    size,
+    build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height, panEnd },
     layers: { photo: layers.includes("photo") },
   };
 }
@@ -342,7 +361,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
     lap(`voice done (${spokenScript.length} lines${row.input.voice ? ", ElevenLabs" : ""})`);
     const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-    const { motion, plans, named, build, layers } = await clipParts(row, agentName, secs);
+    const { size, motion, plans, named, build, layers } = await clipParts(row, agentName, secs);
     const total = clipLength(plans);
 
     // the files every scene shares, or that need no drawing
@@ -350,7 +369,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
     files.set(named.audio, { body: mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE), type: "audio/wav" });
     const family = layers.photo ? await readFile(join(process.cwd(), "public/card/family.jpg")) : undefined;
     // the Motion Graphic style: one drifting background under every scene
-    const background = motion ? await renderPng(motionBackground(), { width: W, height: MOTION_BG_H }) : undefined;
+    const dims = SIZES[size];
+    const background = motion ? await renderPng(motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) }) : undefined;
     plans.forEach((p, s) => {
       const sc = named.scenes[s];
       if (background) files.set(sc.base, { body: background, type: "image/png" });

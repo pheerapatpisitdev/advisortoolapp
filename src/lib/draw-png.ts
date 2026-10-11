@@ -76,7 +76,19 @@ export async function drawPng(
 ): Promise<Buffer> {
   await ensureWasm();
   const svg = await satori(element, { width: size.width, height: size.height, fonts, loadAdditionalAsset });
-  return Buffer.from(new Resvg(svg, { fitTo: { mode: "width", value: size.width } }).render().asPng());
+  // the wasm side's memory is freed here, not left to the garbage collector: a process drawing a
+  // clip's hundreds of frames otherwise runs out of it ("unreachable", 2026-10-12)
+  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size.width } });
+  try {
+    const image = resvg.render();
+    try {
+      return Buffer.from(image.asPng());
+    } finally {
+      image.free();
+    }
+  } finally {
+    resvg.free();
+  }
 }
 
 /**

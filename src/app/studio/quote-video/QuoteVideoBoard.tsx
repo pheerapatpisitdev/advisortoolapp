@@ -5,6 +5,7 @@ import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
+import type { VideoSize } from "@/lib/quote-video/timeline";
 import { SaveVideoButton } from "./SaveVideoButton";
 import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, removeVideo, type FhcChoice, type Preview, type VideoItem } from "./actions";
 
@@ -40,6 +41,50 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const NARRATOR_KEY = "quote-video-narrator";
+const SIZE_KEY = "quote-video-size";
+/** the rest of step 4, remembered too (owner, 2026-10-12) */
+const LENGTH_KEY = "quote-video-length";
+const STYLE_KEY = "quote-video-style";
+/** the three shapes (owner, 2026-10-11, mockup https://claude.ai/artifact/8bhEgAdp4pCBiv581F1weq) */
+const SIZE_CHOICES: { size: VideoSize; name: string; use: string; shape: [number, number]; hint: string }[] = [
+  { size: "portrait", name: "แนวตั้ง 9:16", use: "Reels · Stories · TikTok · LINE VOOM", shape: [16, 28], hint: "เหมาะกับดูบนมือถือและลงเพจเป็น Reels" },
+  { size: "square", name: "จัตุรัส 1:1", use: "ฟีด Facebook / Instagram · แชท LINE", shape: [24, 24], hint: "ดูได้เต็มช่องในฟีดและแชท ไม่ต้องหมุนมือถือ · ลงปฏิทินเพจไม่ได้ (Reels รับแค่แนวตั้ง)" },
+  { size: "landscape", name: "แนวนอน 16:9", use: "YouTube · เปิดให้ลูกค้าดูบน iPad / ทีวี", shape: [32, 18], hint: "เหมาะเปิดบน iPad / ทีวี หรือ YouTube · บนมือถือจะเป็นแถบสั้นๆ ถ้าไม่หมุนจอ · ลงปฏิทินเพจไม่ได้" },
+];
+const ASPECT: Record<VideoSize, string> = { portrait: "9 / 16", square: "1 / 1", landscape: "16 / 9" };
+
+/** one numbered step of the form, with what it holds in a few words beside its heading */
+function Step({ n, title, summary, first, children }: { n: number; title: string; summary: string; first?: boolean; children: React.ReactNode }) {
+  return (
+    <section className={`space-y-3 ${first ? "pb-4" : "border-t border-[var(--ct-hair)] py-4"}`}>
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--ct-solid)] text-xs font-semibold text-[var(--ct-solid-ink)]">{n}</span>
+        <h2 className="font-semibold">{title}</h2>
+        {summary && <span className="ml-auto min-w-0 truncate text-right text-xs text-[var(--ct-mute)]">{summary}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function SizePicker({ size, pick }: { size: VideoSize; pick: (s: VideoSize) => void }) {
+  const hint = SIZE_CHOICES.find((c) => c.size === size)?.hint;
+  return (
+    <div>
+      <span className={label}>ขนาดวิดีโอ</span>
+      <div className="flex flex-wrap gap-2">
+        {SIZE_CHOICES.map((c) => (
+          <button key={c.size} type="button" onClick={() => pick(c.size)}
+            className={`flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm ${size === c.size ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}>
+            <span aria-hidden className="shrink-0 rounded-[3px] border-2 border-current opacity-80" style={{ width: c.shape[0], height: c.shape[1] }} />
+            <span><span className="block font-medium">{c.name}</span><span className="block text-xs opacity-80">{c.use}</span></span>
+          </button>
+        ))}
+      </div>
+      {hint && <p className="mt-1 text-xs text-[var(--ct-mute)]">{hint}</p>}
+    </div>
+  );
+}
 const VOICE_KEY = "quote-video-eleven";
 /** Gemini's two narrators and their samples (owner, 2026-10-11) */
 const GEMINI = [
@@ -71,6 +116,18 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   // the name goes in unless the agent takes the tick off (owner, 2026-10-12)
   const [withName, setWithName] = useState(true);
   const fhcPick = fhc.find((c) => c.id === fhcId);
+  // the size picked last time, kept in this browser only (owner, 2026-10-11: like the voice)
+  const [size, setSize] = useState<VideoSize>("portrait");
+  useEffect(() => {
+    try {
+      const kept = localStorage.getItem(SIZE_KEY);
+      if (kept === "square" || kept === "landscape") setSize(kept);
+    } catch { /* storage closed: portrait stands */ }
+  }, []);
+  function pickSize(s: VideoSize) {
+    setSize(s);
+    try { localStorage.setItem(SIZE_KEY, s); } catch { /* not remembered, still used */ }
+  }
   const startVariant = startProduct !== "IHEALTHY" && start?.variant && TERMS[startProduct].some((x) => x.variant === start.variant)
     ? start.variant : startProduct === "IHEALTHY" ? DEFAULT_TERM.LIFEPROTECT : DEFAULT_TERM[startProduct];
   const [product, setProduct] = useState<Product>(startProduct);
@@ -85,16 +142,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   }
   // the AI-voice switch (owner, 2026-10-11): an ElevenLabs voice's id, or "" for Gemini
   const [voice, setVoice] = useState("");
-  const [elevenPick, setElevenPick] = useState(eleven[0]?.id ?? "");
   useEffect(() => {
     try {
       const kept = localStorage.getItem(VOICE_KEY) ?? "";
-      if (eleven.some((v) => v.id === kept)) { setVoice(kept); setElevenPick(kept); }
+      if (eleven.some((v) => v.id === kept)) setVoice(kept);
     } catch { /* storage closed: Gemini stands */ }
   }, [eleven]);
   function pickVoice(id: string) {
     setVoice(id);
-    if (id) setElevenPick(id);
     try { localStorage.setItem(VOICE_KEY, id); } catch { /* not remembered, still used */ }
   }
   // one sample plays at a time
@@ -150,6 +205,21 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   const [cost, setCost] = useState<CostView | null>(firstCost);
   const [style, setStyle] = useState<VideoStyle>("classic");
   const [length, setLength] = useState<VideoLength>("full");
+  // step 4 as it was left last time, in this browser only (owner, 2026-10-12)
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(STYLE_KEY) === "motion") setStyle("motion");
+      if (localStorage.getItem(LENGTH_KEY) === "short") setLength("short");
+    } catch { /* storage closed: the defaults stand */ }
+  }, []);
+  function pickStyle(v: VideoStyle) {
+    setStyle(v);
+    try { localStorage.setItem(STYLE_KEY, v); } catch { /* not remembered, still used */ }
+  }
+  function pickLength(v: VideoLength) {
+    setLength(v);
+    try { localStorage.setItem(LENGTH_KEY, v); } catch { /* not remembered, still used */ }
+  }
   // where the clip begins: a sum (or plan), or what the customer can save each month / year
   const [source, setSource] = useState<"sum" | "month" | "year">("sum");
   const [budget, setBudget] = useState("3,000");
@@ -158,8 +228,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, ...(voice ? { voice } : {}), style, length, budget: budgetOf() }
-    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, ...(voice ? { voice } : {}), style, length, budget: budgetOf() });
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() }
+    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -201,7 +271,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     setError(null);
     try {
       const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}) })
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), size })
         : await makeVideo(input(), customer);
       if (!r.ok) setError({ text: r.error, contact: r.needContact });
       else setItems(await myVideos());
@@ -233,218 +303,259 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     if (ok.resolved.plan) setPlan(ok.resolved.plan);
     setSource("sum");
   }
+  // what each step holds, in a few words beside its heading (mockup https://claude.ai/artifact/3eguSuTE45fiV8WnHymyfC)
+  const termWord = (v: string) => {
+    const x = product !== "IHEALTHY" ? TERMS[product].find((t) => t.variant === v) : undefined;
+    return x ? (x.years === 99 ? "ถึงอายุ 99" : `${x.years} ปี`) : "";
+  };
+  const sumWord = (n: number) => (n % 1_000_000 === 0 ? `${n / 1_000_000} ล้าน` : n.toLocaleString("en-US"));
+  const sizeLocked = kind === "quote" && (length === "short" || style !== "motion");
+  const shownSize = sizeLocked ? "portrait" : size;
+  const voiceWord = voice ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs" : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
+  const summary = {
+    what: kind === "fhc" ? "สรุป FHC" : PRODUCTS.find((p) => p.code === product)?.name ?? "",
+    who: kind === "fhc"
+      ? fhcPick?.name ?? ""
+      : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length === "full" ? ` · คุณ${customer.trim()}` : ""}`,
+    plan: product === "IHEALTHY"
+      ? (source === "sum" ? ihuPlans.find((p) => p.code === plan)?.name ?? "" : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
+      : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
+    look: [
+      kind === "quote" ? (length === "short" ? "สั้น" : "เต็ม") : "",
+      kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : "",
+      SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",
+      voiceWord,
+    ].filter(Boolean).join(" · "),
+  };
+  const money = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const n = Number(e.target.value.replace(/[^\d]/g, "").slice(0, 8));
+    return n ? n.toLocaleString("en-US") : "";
+  };
   return (
     <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className={`${card} space-y-4`}>
-        <h2 className="font-semibold">{kind === "fhc" ? "วิดีโอสรุป Financial Health Check" : "ข้อมูลใบเสนอ"}</h2>
-        <div>
-          <span className={label}>ทำวิดีโอเรื่อง</span>
+      <div className={`${card} pb-0 lg:pb-5`}>
+        <Step n={1} title="ทำวิดีโอเรื่อง" summary={summary.what} first>
           <div className="flex flex-wrap gap-2">
             {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(kind === "quote" && product === p.code)} onClick={() => { setKind("quote"); pickProduct(p.code); }}>{p.name}</button>)}
             <button type="button" className={chip(kind === "fhc")} onClick={() => setKind("fhc")}>สรุป FHC</button>
           </div>
-        </div>
-        {kind === "fhc" && (
-          <div className="space-y-3">
-            {fhc.length === 0 ? (
-              <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
-                ยังไม่มีลูกค้า FHC — ตรวจสุขภาพการเงินกับลูกค้าแล้วกดเก็บรายชื่อก่อน{" "}
-                <Link href="/fhc" className="font-medium underline">ไปที่ Financial Health Check</Link>
-              </p>
-            ) : (
-              <>
-                <div>
-                  <label htmlFor="qv-fhc" className={label}>ลูกค้า (จากรายชื่อ FHC ของฉัน)</label>
-                  <select id="qv-fhc" className={field} value={fhcId} onChange={(e) => setFhcId(e.target.value)}>
-                    {fhc.map((c) => <option key={c.id} value={c.id}>{`${c.name} · ${c.line}`}</option>)}
-                  </select>
-                  {fhcPick && <p className="mt-1 text-xs text-[var(--ct-mute)]">{fhcPick.open}</p>}
-                </div>
-                <label className="flex items-start gap-2 text-sm" htmlFor="qv-fhc-name">
-                  <input id="qv-fhc-name" type="checkbox" className="mt-1 h-4 w-4" checked={withName} onChange={(e) => setWithName(e.target.checked)} />
-                  <span>
-                    ใส่ชื่อ &quot;คุณ{fhcPick?.name ?? "…"}&quot; ในเสียงและบนจอ
-                    <span className="block text-xs text-[var(--ct-mute)]">เอาติ๊กออก = เสียงพูด &quot;สวัสดีค่ะ&quot; เฉยๆ</span>
-                  </span>
-                </label>
-                <p className="text-xs text-[var(--ct-mute)]">
-                  แบบ Motion Graphic 6 ฉาก ~70 วินาที: ผล 6 ด้าน · ขาดเท่าไร · 5 เหตุการณ์ · แผนที่แนะนำ · ช่องทางติดต่อ
-                  ตัวเลขมาจากผลตรวจวันที่เก็บ ไม่โชว์รายได้ ค่าใช้จ่าย หนี้ เป็นข้อมูลส่วนตัว ส่งให้ลูกค้าคนนี้เท่านั้น ลงเพจไม่ได้
+        </Step>
+
+        {kind === "fhc" ? (
+          <>
+            <Step n={2} title="ลูกค้า" summary={summary.who}>
+              {fhc.length === 0 ? (
+                <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
+                  ยังไม่มีลูกค้า FHC — ตรวจสุขภาพการเงินกับลูกค้าแล้วกดเก็บรายชื่อก่อน{" "}
+                  <Link href="/fhc" className="font-medium underline">ไปที่ Financial Health Check</Link>
                 </p>
-              </>
-            )}
-          </div>
-        )}
-        {kind === "quote" && (<>
-        <div>
-          <span className={label}>ความยาว</span>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={chip(length === "full")} onClick={() => setLength("full")}>เต็ม · ~50 วินาที</button>
-            <button type="button" className={chip(length === "short")} onClick={() => setLength("short")}>สั้น · ~15 วินาที (Reels)</button>
-          </div>
-          <p className="mt-1 text-xs text-[var(--ct-mute)]">{length === "short" ? "3 ฉาก: ตัวเลขเด่น · ราคา · ชวนทัก ไม่ใส่ชื่อลูกค้า เหมาะลงเพจเป็น Reels" : "เล่าครบ 5 ฉากพร้อมตารางมูลค่า ใส่ชื่อลูกค้าได้"}</p>
-        </div>
-        <div>
-          <span className={label}>สไตล์วิดีโอ</span>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={chip(style === "classic")} onClick={() => setStyle("classic")}>แบบปกติ · 5 บาท</button>
-            <button type="button" className={chip(style === "motion")} onClick={() => setStyle("motion")}>Motion Graphic · 10 บาท</button>
-          </div>
-          <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
-        </div>
-        </>)}
-        {eleven.length > 0 && (
-          <div>
-            <span className={label}>AI เสียงพากย์</span>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={chip(!voice)} onClick={() => pickVoice("")}>Gemini · มาตรฐาน</button>
-              <button type="button" className={chip(Boolean(voice))} onClick={() => pickVoice(elevenPick)}>ElevenLabs · เสียงเหมือนคน +2 บาท</button>
-            </div>
-            <p className="mt-1 text-xs text-[var(--ct-mute)]">{voice ? "เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs" : "เสียง AI ของ Google ราคาเดิม"}</p>
-          </div>
-        )}
-        <div>
-          <span className={label}>เสียงพากย์</span>
-          <div className="grid gap-2">
-            {voice
-              ? eleven.map((v) => (
-                <div key={v.id} className="flex flex-wrap items-center gap-2">
-                  <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· {v.tag}</span></button>
-                  <button type="button" className={small} onClick={() => playSample(v.sample)}>{playing === v.sample ? "■ หยุด" : "▶ ฟังตัวอย่าง"}</button>
-                </div>
-              ))
-              : GEMINI.map((g) => (
-                <div key={g.n} className="flex flex-wrap items-center gap-2">
-                  <button type="button" className={chip(narrator === g.n)} onClick={() => pickNarrator(g.n)}>{g.name} <span className="font-normal opacity-80">· {g.tag}</span></button>
-                  <button type="button" className={small} onClick={() => playSample(g.sample)}>{playing === g.sample ? "■ หยุด" : "▶ ฟังตัวอย่าง"}</button>
-                </div>
-              ))}
-          </div>
-        </div>
-        {kind === "quote" && (<>
-        <div>
-          <span className={label}>เริ่มจาก</span>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : "ทุนประกัน"}</button>
-            <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>งบต่อเดือน</button>
-            <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>งบต่อปี</button>
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <span className={label}>เพศ</span>
-            <div className="flex gap-2">
-              <button type="button" className={chip(sex === "M")} onClick={() => setSex("M")}>ชาย</button>
-              <button type="button" className={chip(sex === "F")} onClick={() => setSex("F")}>หญิง</button>
-            </div>
-          </div>
-          <div>
-            <label htmlFor="qv-age" className={label}>อายุ</label>
-            <select id="qv-age" className={field} value={age} onChange={(e) => setAge(e.target.value)}>
-              {Array.from({ length: ages[product].max - ages[product].min + 1 }, (_, i) => ages[product].min + i).map((a) => (
-                <option key={a} value={String(a)}>{a} ปี</option>
-              ))}
-            </select>
-          </div>
-          {source !== "sum" && (
-            <div>
-              <label htmlFor="qv-budget" className={label}>{source === "month" ? "งบที่ลูกค้าออมไหวต่อเดือน (บาท)" : "งบที่ลูกค้าออมไหวต่อปี (บาท)"}</label>
-              <input
-                id="qv-budget" inputMode="numeric" className={field} value={budget}
-                onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, "").slice(0, 8)); setBudget(n ? n.toLocaleString("en-US") : ""); }}
-              />
-              <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
-            </div>
-          )}
-          {product !== "IHEALTHY" && (
-            <>
-              {source === "sum" && (
-              <div>
-                <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
-                <input
-                  id="qv-sum" inputMode="numeric" className={field} value={sum}
-                  onChange={(e) => { const n = Number(e.target.value.replace(/[^\d]/g, "").slice(0, 8)); setSum(n ? n.toLocaleString("en-US") : ""); }}
-                />
-                <p className="mt-1 text-xs text-[var(--ct-mute)]">ทีละ 50,000</p>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="qv-fhc" className={label}>ลูกค้า (จากรายชื่อ FHC ของฉัน)</label>
+                    <select id="qv-fhc" className={field} value={fhcId} onChange={(e) => setFhcId(e.target.value)}>
+                      {fhc.map((c) => <option key={c.id} value={c.id}>{`${c.name} · ${c.line}`}</option>)}
+                    </select>
+                    {fhcPick && <p className="mt-1 text-xs text-[var(--ct-mute)]">{fhcPick.open}</p>}
+                  </div>
+                  <label className="flex items-start gap-2 text-sm" htmlFor="qv-fhc-name">
+                    <input id="qv-fhc-name" type="checkbox" className="mt-1 h-4 w-4" checked={withName} onChange={(e) => setWithName(e.target.checked)} />
+                    <span>
+                      ใส่ชื่อ &quot;คุณ{fhcPick?.name ?? "…"}&quot; ในเสียงและบนจอ
+                      <span className="block text-xs text-[var(--ct-mute)]">เอาติ๊กออก = เสียงพูด &quot;สวัสดีค่ะ&quot; เฉยๆ</span>
+                    </span>
+                  </label>
+                </>
               )}
-              <div>
-                <span className={label}>ชำระเบี้ย</span>
-                <div className="flex flex-wrap gap-2">
-                  {TERMS[product].map((x) => <button key={x.variant} type="button" className={chip(variant === x.variant)} onClick={() => setVariant(x.variant)}>{x.years === 99 ? "ถึงอายุ 99" : `${x.years} ปี`}</button>)}
+            </Step>
+            <Step n={3} title="ผลตรวจ" summary="จากวันที่เก็บ">
+              <p className="text-xs text-[var(--ct-mute)]">
+                Motion Graphic 6 ฉาก ~70 วินาที: ผล 6 ด้าน · ขาดเท่าไร · 5 เหตุการณ์ · แผนที่แนะนำ · ช่องทางติดต่อ ·
+                ตัวเลขมาจากผลตรวจวันที่เก็บ ไม่โชว์รายได้ ค่าใช้จ่าย หนี้ เป็นข้อมูลส่วนตัว ส่งให้ลูกค้าคนนี้เท่านั้น ลงเพจไม่ได้
+              </p>
+            </Step>
+          </>
+        ) : (
+          <>
+            <Step n={2} title="ลูกค้า" summary={summary.who}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <span className={label}>เพศ</span>
+                  <div className="flex gap-2">
+                    <button type="button" className={chip(sex === "M")} onClick={() => setSex("M")}>ชาย</button>
+                    <button type="button" className={chip(sex === "F")} onClick={() => setSex("F")}>หญิง</button>
+                  </div>
                 </div>
+                <div>
+                  <label htmlFor="qv-age" className={label}>อายุ</label>
+                  <select id="qv-age" className={field} value={age} onChange={(e) => setAge(e.target.value)}>
+                    {Array.from({ length: ages[product].max - ages[product].min + 1 }, (_, i) => ages[product].min + i).map((a) => (
+                      <option key={a} value={String(a)}>{a} ปี</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {length === "full" ? (
+                <div>
+                  <label htmlFor="qv-customer" className={label}>ชื่อลูกค้า (ไม่บังคับ)</label>
+                  <input id="qv-customer" className={field} value={customer} maxLength={40} placeholder="เช่น สมชาย" onChange={(e) => setCustomer(e.target.value)} />
+                  <p className="mt-1 text-xs text-[var(--ct-mute)]">ใส่แล้วเสียงพากย์จะทักชื่อ และขึ้นชื่อบนภาพในคลิป</p>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--ct-mute)]">คลิปสั้นไม่ใส่ชื่อลูกค้า (ทำไว้ลงเพจ)</p>
+              )}
+            </Step>
+
+            <Step n={3} title="แผน" summary={summary.plan}>
+              <div>
+                <span className={label}>เริ่มจาก</span>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : "ทุนประกัน"}</button>
+                  <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>งบต่อเดือน</button>
+                  <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>งบต่อปี</button>
+                </div>
+              </div>
+              {(source !== "sum" || product !== "IHEALTHY") && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {source !== "sum" ? (
+                    <div>
+                      <label htmlFor="qv-budget" className={label}>{source === "month" ? "งบที่ลูกค้าออมไหวต่อเดือน (บาท)" : "งบที่ลูกค้าออมไหวต่อปี (บาท)"}</label>
+                      <input id="qv-budget" inputMode="numeric" className={field} value={budget} onChange={(e) => setBudget(money(e))} />
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label htmlFor="qv-sum" className={label}>ทุนประกัน (บาท)</label>
+                      <input id="qv-sum" inputMode="numeric" className={field} value={sum} onChange={(e) => setSum(money(e))} />
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ทีละ 50,000</p>
+                    </div>
+                  )}
+                  {product !== "IHEALTHY" && (
+                    <div>
+                      <span className={label}>ชำระเบี้ย</span>
+                      <div className="flex flex-wrap gap-2">
+                        {TERMS[product].map((x) => <button key={x.variant} type="button" className={chip(variant === x.variant)} onClick={() => setVariant(x.variant)}>{x.years === 99 ? "ถึงอายุ 99" : `${x.years} ปี`}</button>)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {product === "IHEALTHY" && (
+                <>
+                  {source === "sum" && (
+                    <div>
+                      <span className={label}>แผนหลัก</span>
+                      <div className="flex flex-wrap gap-2">
+                        {ihuPlans.map((p) => <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => { setPlan(p.code); setCompare((c) => c.filter((x) => x !== p.code)); }}>{p.name}</button>)}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <span className={label}>แผนที่จะเทียบในวิดีโอ (ไม่บังคับ เลือกได้อีก {MAX_COMPARE - 1} แผน)</span>
+                    <div className="flex flex-wrap gap-2">
+                      {ihuPlans.filter((p) => p.code !== plan).map((p) => (
+                        <button key={p.code} type="button" className={chip(compare.includes(p.code))} onClick={() => toggleCompare(p.code)}
+                          disabled={!compare.includes(p.code) && compare.length >= MAX_COMPARE - 1}>{p.name}</button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--ct-mute)]">ไม่เลือก = ไม่มีช่วงเทียบแผน · พื้นที่ประเทศไทย ทุนชีวิต 50,000 ค่าชดเชยรายวัน 1,000 ตามค่าเริ่มต้นหน้า iHealthy Ultra</p>
+                  </div>
+                </>
+              )}
+              <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
+                {ok ? (
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between gap-2"><span>{ok.lead.label}</span><b>{ok.lead.amount} บาท</b></div>
+                    {ok.prices.map((p) => (
+                      <div key={p.label} className="flex justify-between gap-2"><span>{p.label}</span><b>{p.amount} บาท</b></div>
+                    ))}
+                    {source !== "sum" && (
+                      <p className="font-medium">
+                        {ok.resolved.sum ? `คิดทุนให้: ${ok.resolved.sum.toLocaleString("en-US")} บาท` : `เลือกแผนให้: ${resolvedPlan ?? ""}`}{" "}
+                        <button type="button" className="underline" onClick={keepResolved}>ใช้ค่านี้แล้วแก้เอง</button>
+                      </p>
+                    )}
+                    <p className="text-xs text-[var(--ct-mute)]">{ok.mark} · ตัวเลขชุดเดียวกับหน้า {PRODUCTS.find((p) => p.code === product)?.page}</p>
+                  </div>
+                ) : (
+                  <p className="text-[var(--ct-mute)]">{preview && "error" in preview ? preview.error : "กำลังคิดราคา…"}</p>
+                )}
+              </div>
+            </Step>
+          </>
+        )}
+
+        <Step n={4} title="หน้าตาวิดีโอ" summary={summary.look}>
+          {kind === "quote" && (
+            <>
+              <div>
+                <span className={label}>ความยาว</span>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={chip(length === "full")} onClick={() => pickLength("full")}>เต็ม · ~50 วินาที</button>
+                  <button type="button" className={chip(length === "short")} onClick={() => pickLength("short")}>สั้น · ~15 วินาที (Reels)</button>
+                </div>
+                <p className="mt-1 text-xs text-[var(--ct-mute)]">{length === "short" ? "3 ฉาก: ตัวเลขเด่น · ราคา · ชวนทัก ไม่ใส่ชื่อลูกค้า เหมาะลงเพจเป็น Reels" : "เล่าครบ 5 ฉากพร้อมตารางมูลค่า ใส่ชื่อลูกค้าได้"}</p>
+              </div>
+              <div>
+                <span className={label}>สไตล์</span>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · 5 บาท</button>
+                  <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · 10 บาท</button>
+                </div>
+                <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
               </div>
             </>
           )}
-        </div>
-        {product === "IHEALTHY" && (
-          <div className="space-y-3">
-            {source === "sum" && (
+          {sizeLocked ? (
             <div>
-              <span className={label}>แผนหลัก</span>
-              <div className="flex flex-wrap gap-2">
-                {ihuPlans.map((p) => <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => { setPlan(p.code); setCompare((c) => c.filter((x) => x !== p.code)); }}>{p.name}</button>)}
-              </div>
-            </div>
-            )}
-            <div>
-              <span className={label}>แผนที่จะเทียบในวิดีโอ (ไม่บังคับ เลือกได้อีก {MAX_COMPARE - 1} แผน)</span>
-              <div className="flex flex-wrap gap-2">
-                {ihuPlans.filter((p) => p.code !== plan).map((p) => (
-                  <button key={p.code} type="button" className={chip(compare.includes(p.code))} onClick={() => toggleCompare(p.code)}
-                    disabled={!compare.includes(p.code) && compare.length >= MAX_COMPARE - 1}>{p.name}</button>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-[var(--ct-mute)]">ไม่เลือก = ไม่มีช่วงเทียบแผน · พื้นที่ประเทศไทย ทุนชีวิต 50,000 ค่าชดเชยรายวัน 1,000 ตามค่าเริ่มต้นหน้า iHealthy Ultra</p>
-            </div>
-          </div>
-        )}
-        <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
-          {ok ? (
-            <div className="space-y-0.5">
-              <div className="flex justify-between gap-2"><span>{ok.lead.label}</span><b>{ok.lead.amount} บาท</b></div>
-              {ok.prices.map((p) => (
-                <div key={p.label} className="flex justify-between gap-2"><span>{p.label}</span><b>{p.amount} บาท</b></div>
-              ))}
-              {source !== "sum" && (
-                <p className="font-medium">
-                  {ok.resolved.sum ? `คิดทุนให้: ${ok.resolved.sum.toLocaleString("en-US")} บาท` : `เลือกแผนให้: ${resolvedPlan ?? ""}`}{" "}
-                  <button type="button" className="underline" onClick={keepResolved}>ใช้ค่านี้แล้วแก้เอง</button>
-                </p>
-              )}
-              <p className="text-xs text-[var(--ct-mute)]">{ok.mark} · ตัวเลขชุดเดียวกับหน้า {PRODUCTS.find((p) => p.code === product)?.page}</p>
+              <span className={label}>ขนาดวิดีโอ</span>
+              <p className="text-xs text-[var(--ct-mute)]">{length === "short" ? "คลิปสั้นเป็นแนวตั้งเสมอ (ทำไว้ลง Reels)" : "แบบปกติเป็นแนวตั้ง · เลือกจัตุรัสหรือแนวนอนได้ที่ Motion Graphic"}</p>
             </div>
           ) : (
-            <p className="text-[var(--ct-mute)]">{preview && "error" in preview ? preview.error : "กำลังคิดราคา…"}</p>
+            <SizePicker size={size} pick={pickSize} />
           )}
+          <div>
+            <span className={label}>เสียงพากย์</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {GEMINI.map((g) => (
+                <span key={g.n} className="inline-flex items-center gap-2">
+                  <button type="button" className={chip(!voice && narrator === g.n)} onClick={() => { pickVoice(""); pickNarrator(g.n); }}>{g.name} <span className="font-normal opacity-80">· {g.tag}</span></button>
+                  <button type="button" className={small} onClick={() => playSample(g.sample)} aria-label={`ฟังตัวอย่างเสียง${g.name}`}>{playing === g.sample ? "■ หยุด" : "▶ ฟัง"}</button>
+                </span>
+              ))}
+              {eleven.map((v) => (
+                <span key={v.id} className="inline-flex items-center gap-2">
+                  <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· ElevenLabs +2 บาท</span></button>
+                  <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■ หยุด" : "▶ ฟัง"}</button>
+                </span>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-[var(--ct-mute)]">{voice ? "เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs" : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้</p>
+          </div>
+        </Step>
+
+        {/* the cost and the button: pinned to the foot of a phone's screen, so they are always in view */}
+        <div className="sticky bottom-0 -mx-5 space-y-2 border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] px-5 pb-4 pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] lg:static lg:mx-0 lg:px-0 lg:pb-0 lg:shadow-none">
+          {error && (
+            <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">
+              {error.text}{" "}
+              {error.contact && <Link href="/studio/account" className="font-medium underline">ไปที่บัญชีของฉัน</Link>}
+            </p>
+          )}
+          {line && (
+            <p className={`rounded-lg px-3 py-2 text-sm ${line.blocked ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-soft)]"}`}>
+              {line.text}{" "}
+              {line.topUp && <Link href="/studio/wallet" className="font-medium underline">เติมเงิน</Link>}
+            </p>
+          )}
+          <button
+            type="button" onClick={make} disabled={busy || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked)}
+            className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50 lg:w-auto"
+          >
+            {busy ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
+          </button>
+          <p className="hidden text-xs text-[var(--ct-mute)] lg:block">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นในรายการ</p>
         </div>
-        {length === "full" && (
-        <div>
-          <label htmlFor="qv-customer" className={label}>ชื่อลูกค้า (ไม่บังคับ)</label>
-          <input id="qv-customer" className={field} value={customer} maxLength={40} placeholder="เช่น สมชาย" onChange={(e) => setCustomer(e.target.value)} />
-          <p className="mt-1 text-xs text-[var(--ct-mute)]">ใส่แล้วเสียงพากย์จะทักชื่อ และขึ้นชื่อบนภาพในคลิป</p>
-        </div>
-        )}
-        </>)}
-        {error && (
-          <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">
-            {error.text}{" "}
-            {error.contact && <Link href="/studio/account" className="font-medium underline">ไปที่บัญชีของฉัน</Link>}
-          </p>
-        )}
-        {line && (
-          <p className={`rounded-lg px-3 py-2 text-sm ${line.blocked ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-soft)]"}`}>
-            {line.text}{" "}
-            {line.topUp && <Link href="/studio/wallet" className="font-medium underline">เติมเงิน</Link>}
-          </p>
-        )}
-        <button
-          type="button" onClick={make} disabled={busy || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked)}
-          className="rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
-        </button>
-        <p className="text-xs text-[var(--ct-mute)]">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นในรายการ</p>
       </div>
 
       <div className={`${card} space-y-3`}>
@@ -463,11 +574,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               </span>
             </div>
             {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
-            {v.watch && <video src={v.watch} controls playsInline preload="metadata" className="w-full max-w-[220px] rounded-lg" style={{ aspectRatio: "9 / 16" }} />}
+            {v.watch && <video src={v.watch} controls playsInline preload="metadata" className={`w-full rounded-lg ${v.size === "landscape" ? "max-w-[300px]" : v.size === "square" ? "max-w-[260px]" : "max-w-[220px]"}`} style={{ aspectRatio: ASPECT[v.size] }} />}
             <div className="flex flex-wrap gap-2">
               {v.status === "done" && v.save && v.watch && <SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} />}
               {v.status === "done" && <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
-              {v.status === "done" && pages.length > 0 && !v.named && !v.personal && (
+              {v.status === "done" && pages.length > 0 && !v.named && !v.personal && v.size === "portrait" && (
                 <button type="button" className={small} onClick={() => openCalendar(v.id)}>เพิ่มลงปฏิทินเพจ</button>
               )}
               {(v.status === "done" || v.status === "failed") && (
@@ -484,8 +595,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               </div>
             )}
             {deleteError?.id === v.id && <p role="alert" className="text-xs text-[var(--ct-alert)]">{deleteError.text}</p>}
-            {v.status === "done" && pages.length > 0 && (v.named || v.personal) && (
-              <p className="text-xs text-[var(--ct-mute)]">{v.personal ? "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ไม่มีปุ่มลงเพจ" : "คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ"}</p>
+            {v.status === "done" && pages.length > 0 && (v.named || v.personal || v.size !== "portrait") && (
+              <p className="text-xs text-[var(--ct-mute)]">{v.personal ? "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ไม่มีปุ่มลงเพจ" : v.named ? "คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ" : "ลงปฏิทินเพจ (Reels) ได้เฉพาะคลิปแนวตั้ง"}</p>
             )}
             {cal?.id === v.id && (
               <div className="space-y-2 rounded-lg border border-[var(--ct-line)] p-2 text-sm">

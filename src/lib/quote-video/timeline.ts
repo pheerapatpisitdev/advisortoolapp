@@ -15,6 +15,20 @@ export type AnySceneKey = SceneKey | FhcSceneKey;
 
 export const W = 1080;
 export const H = 1920;
+
+/**
+ * The clip's shape (owner, 2026-10-11, mockup https://claude.ai/artifact/8bhEgAdp4pCBiv581F1weq):
+ * portrait for Reels and the phone, square for a feed or a LINE chat, landscape for an iPad, a TV
+ * or YouTube. Only the Motion Graphic style and the FHC summary come in all three; the classic
+ * style and the 15-second clip stay portrait.
+ */
+export type VideoSize = "portrait" | "square" | "landscape";
+export const SIZES: Record<VideoSize, { w: number; h: number }> = {
+  portrait: { w: W, h: H },
+  square: { w: 1080, h: 1080 },
+  landscape: { w: 1920, h: 1080 },
+};
+export const sizeOf = (v: { size?: unknown }): VideoSize => (v.size === "square" || v.size === "landscape" ? v.size : "portrait");
 export const FPS = 30;
 /** the cross-fade between scenes */
 export const XFADE = 0.5;

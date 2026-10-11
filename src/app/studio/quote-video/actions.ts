@@ -10,7 +10,8 @@ import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipSize, costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
@@ -49,6 +50,8 @@ export interface VideoItem {
   named: boolean;
   /** an FHC summary: one customer's money, never on a Page */
   personal: boolean;
+  /** only a portrait clip goes on a Page (as a Reel) */
+  size: VideoSize;
 }
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
@@ -74,7 +77,11 @@ function checked(v: VideoInput): VideoInput | string {
   // an ElevenLabs voice sets the endings itself: a man's voice says ครับ
   const eleven = elevenVoice(v.voice);
   const narrator = eleven ? eleven.sex : v.narrator === "M" ? "M" : "F";
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style: v.style === "motion" ? "motion" : "classic", length: v.length === "short" ? "short" : "full" };
+  const style = v.style === "motion" ? "motion" : "classic";
+  const length = v.length === "short" ? "short" : "full";
+  // square and landscape are the Motion Graphic style's, the full clip's (owner, 2026-10-11)
+  const size = style === "motion" && length === "full" ? sizeOf(v) : "portrait";
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style, length, size };
 }
 
 function checkedQuote(v: VideoInput): VideoInput | string {
@@ -131,7 +138,7 @@ export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
  * วิดีโอสรุป FHC (owner, 2026-10-12): one saved customer's check as a clip. The figures are copied
  * from the check as it was saved; the name goes in only when the agent leaves it ticked.
  */
-export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string }): Promise<Made> {
+export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; size?: VideoSize }): Promise<Made> {
   const viewer = await requireMember();
   if (typeof customerId !== "string") return { ok: false, error: "เลือกลูกค้า" };
   const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
@@ -145,7 +152,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   const input: FhcVideoInput = {
     product: "FHC", customerId: c.id, age: c.age, sex: c.sex,
     narrator: eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", ...(eleven ? { voice: eleven.id } : {}),
-    style: "motion", length: "full", fhc: fhcVideoFacts(c),
+    style: "motion", length: "full", size: sizeOf(v ?? {}), fhc: fhcVideoFacts(c),
   };
   try {
     const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "");
@@ -158,6 +165,10 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
     return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
 }
+
+/** a Page's calendar posts Reels, and a Reel is portrait (owner, 2026-10-11) */
+const NOT_PORTRAIT = "ลงปฏิทินเพจได้เฉพาะคลิปแนวตั้ง";
+const SIZE_WORD: Record<VideoSize, string> = { portrait: "", square: " · จัตุรัส", landscape: " · แนวนอน" };
 
 const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ในอายุนี้ ลองเปลี่ยนอายุ ทุน หรือแผน";
 
@@ -226,6 +237,7 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   if (!row || row.status !== "done") return { ok: false, error: "ไม่พบวิดีโอนี้" };
   if (row.customer_name) return { ok: false, error: NAMED };
   if (isFhcInput(row.input)) return { ok: false, error: FHC_PRIVATE };
+  if (clipSize(row.input) !== "portrait") return { ok: false, error: NOT_PORTRAIT };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
 }
@@ -238,6 +250,7 @@ export async function addToCalendar(id: string, pageId: string, caption: string)
   if (!row || row.status !== "done") return { ok: false, error: "ไม่พบวิดีโอนี้" };
   if (row.customer_name) return { ok: false, error: NAMED };
   if (isFhcInput(row.input)) return { ok: false, error: FHC_PRIVATE };
+  if (clipSize(row.input) !== "portrait") return { ok: false, error: NOT_PORTRAIT };
   try {
     await sendToCalendar(row, pageId, typeof caption === "string" ? caption : "");
     return { ok: true, pageId };
@@ -270,9 +283,9 @@ export async function myVideos(): Promise<VideoItem[]> {
     if (isFhcInput(v.input)) {
       const input = v.input;
       const file = `สรุปFHC-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
-      const who = `สรุป FHC · ${SEX[input.sex]} ${input.age}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""}`;
+      const who = `สรุป FHC${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""}`;
       return {
-        id: v.id, named: true, personal: true, createdAt: v.created_at,
+        id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
         status: v.status, error: v.error, fileName: file, ...(await links(file)), paid: paidLine(v),
       };
@@ -282,7 +295,7 @@ export async function myVideos(): Promise<VideoItem[]> {
     const what = input.product === "IHEALTHY"
       ? planWord(input.plan)
       : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${input.length === "short" ? " (สั้น 15 วิ)" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${input.length === "short" ? " (สั้น 15 วิ)" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,
@@ -292,6 +305,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       status: v.status,
       error: v.error,
       personal: false,
+      size: clipSize(input),
       fileName: file,
       ...(await links(file)),
       paid: paidLine(v),

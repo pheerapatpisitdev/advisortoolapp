@@ -313,15 +313,13 @@ function CoverRows({ c, t }: { c: MotionContext; t: number }) {
   );
 }
 
-/** the premiums paid and the surrender value, year by year, as two lines in a 900×520 box */
-function chartPaths(f: QuoteVideoFacts) {
+/** the premiums paid and the surrender value, year by year, as two lines in a w×h box (900×520 on a portrait clip) */
+export function chartPaths(f: QuoteVideoFacts, w = 900, h = 520) {
   const rows = f.rows ?? [];
   let paid = 0;
   const paidAt = rows.map((r) => (r.paid ? (paid = num(r.paid)) : paid));
   const cash = rows.map((r) => num(r.cash ?? "0"));
   const top = Math.max(1, ...paidAt, ...cash);
-  const w = 900;
-  const h = 520;
   const x = (i: number) => Math.round((i / Math.max(1, rows.length - 1)) * w);
   const y = (v: number) => Math.round(h - (v / top) * h);
   const line = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(i)} ${y(v)}`).join(" ");
@@ -467,14 +465,25 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
   );
 }
 
-/** The tall navy background with soft circles, panned slowly by ffmpeg under every scene. */
-export function motionBackground() {
+/** how much taller than the clip its background is: the drift ffmpeg pans over */
+const DRIFT = MOTION_BG_H - H;
+/** the background's height for a clip of this frame (MOTION_BG_H for a portrait one) */
+export const motionBgHeight = (size: { h: number } = { h: H }) => size.h + DRIFT;
+
+/**
+ * The tall navy background with soft circles, panned slowly by ffmpeg under every scene. A square
+ * or landscape clip's is as wide as its frame, the circles spread across it in the same places.
+ */
+export function motionBackground(size: { w: number; h: number } = { w: W, h: H }) {
+  const bgH = motionBgHeight(size);
+  const x = (v: number) => Math.round((v / W) * size.w);
+  const y = (v: number) => Math.round((v / MOTION_BG_H) * bgH);
   return (
-    <div style={{ display: "flex", position: "relative", width: W, height: MOTION_BG_H, background: NAVY, overflow: "hidden" }}>
-      <div style={abs({ left: -200, top: -120, width: 720, height: 720, borderRadius: 360, background: SKY, opacity: 0.18 })} />
-      <div style={abs({ left: 820, top: 900, width: 520, height: 520, borderRadius: 260, background: GOLD, opacity: 0.1 })} />
-      <div style={abs({ left: 300, top: 1700, width: 860, height: 860, borderRadius: 430, background: SKY, opacity: 0.16 })} />
-      <div style={abs({ left: -160, top: 1250, width: 380, height: 380, borderRadius: 190, background: GOLD, opacity: 0.08 })} />
+    <div style={{ display: "flex", position: "relative", width: size.w, height: bgH, background: NAVY, overflow: "hidden" }}>
+      <div style={abs({ left: x(-200), top: y(-120), width: 720, height: 720, borderRadius: 360, background: SKY, opacity: 0.18 })} />
+      <div style={abs({ left: x(820), top: y(900), width: 520, height: 520, borderRadius: 260, background: GOLD, opacity: 0.1 })} />
+      <div style={abs({ left: x(300), top: y(1700), width: 860, height: 860, borderRadius: 430, background: SKY, opacity: 0.16 })} />
+      <div style={abs({ left: x(-160), top: y(1250), width: 380, height: 380, borderRadius: 190, background: GOLD, opacity: 0.08 })} />
     </div>
   );
 }

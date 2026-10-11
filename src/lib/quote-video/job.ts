@@ -65,8 +65,11 @@ export function concatList(plan: ScenePlan, frames: string[]): string {
  */
 export function buildJob(
   plans: ScenePlan[], named: ReturnType<typeof nameFiles>,
-  opts: { tableHeight?: number; panEnd?: number; driftHeight?: number },
+  opts: { tableHeight?: number; panEnd?: number; driftHeight?: number; size?: { w: number; h: number } },
 ): Omit<FfmpegJob, "inputs"> & { inputNames: string[] } {
+  // the clip's frame: portrait unless a square or landscape one was asked for
+  const fw = opts.size?.w ?? W;
+  const fh = opts.size?.h ?? H;
   const args: string[] = [];
   const order: string[] = [];
   const add = (name: string, pre: string) => {
@@ -83,7 +86,7 @@ export function buildJob(
     let cur = `b${s}`;
     // the Motion Graphic style's base is one tall background, drifting slowly upward over the scene
     f.push(opts.driftHeight
-      ? `[${bi}:v]crop=w=${W}:h=${H}:x=0:y='${opts.driftHeight - H}*(${s % 2 ? "1-" : ""}t/${d})',format=rgba,setsar=1[${cur}]`
+      ? `[${bi}:v]crop=w=${fw}:h=${fh}:x=0:y='${opts.driftHeight - fh}*(${s % 2 ? "1-" : ""}t/${d})',format=rgba,setsar=1[${cur}]`
       : `[${bi}:v]format=rgba,setsar=1[${cur}]`);
     if (sc.layer?.kind === "photo") {
       const li = add(sc.layer.name, `-loop 1 -framerate ${FPS} -t ${d}`);
@@ -117,7 +120,7 @@ export function buildJob(
     args.join(" ").trim(),
     `-filter_complex "${f.join(";")}"`,
     `-map "[v]" -map ${aIdx}:a`,
-    `-t ${f3(total)} -s ${W}x${H}`,
+    `-t ${f3(total)} -s ${fw}x${fh}`,
     "-c:v libx264 -preset medium -crf 21 -pix_fmt yuv420p -profile:v high -r 30",
     "-c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart {{out_1}}",
   ].join(" ");
