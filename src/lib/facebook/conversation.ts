@@ -18,6 +18,8 @@ import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
 import { GATHER_MS, botTurn, gathered, keepTranscript, wroteJustBefore } from "@/lib/chat/transcript";
 import { isExpatPage, languageOf } from "@/lib/assistant/expat";
 import { loadWelcome } from "@/lib/chat/page-welcome-store";
+import { countLessonHit, loadLessons } from "@/lib/chat/lessons-store";
+import type { Lesson } from "@/lib/assistant/lessons";
 import type { PageWelcome } from "@/lib/assistant/page-welcome";
 import { BROKEN_EN, BUSY_EN, CARD_UNSENT_EN, OUT_OF_BUDGET_EN, WANTS_IN_EN } from "@/lib/assistant/ihealthy-en/words";
 import { rememberAdArrival, takeAdArrival } from "./ad-arrival";
@@ -36,14 +38,15 @@ import { rememberAdArrival, takeAdArrival } from "./ad-arrival";
 async function answered(
   history: ChatMessage[], slots: Parameters<typeof answerAny>[1],
   cameFor: Parameters<typeof answerAny>[3], turnMs: number, pageId?: string, welcome?: PageWelcome,
+  lessons?: readonly Lesson[],
 ) {
   return withTurnDeadline(turnMs, async () => {
     try {
-      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome);
+      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome, lessons);
     } catch (e) {
       if (e instanceof BudgetExceeded || e instanceof TurnTimeout) throw e;
       console.error("answer failed, trying once more:", e);
-      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome);
+      return await answerAny(history, slots, "facebook", cameFor, pageId, welcome, lessons);
     }
   });
 }
@@ -360,7 +363,12 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
   try {
     // how this Page greets (/admin/welcome); the Expat Pages answer in their own bot and have none
     const welcome = isExpatPage(pageId) ? undefined : await loadWelcome(pageId);
-    const answer = await answered(history, startsOver ? null : session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId, welcome);
+    // the answers the owner taught word for word (/admin/teach); the Expat Pages have their own bot
+    const lessons = isExpatPage(pageId) ? undefined : await loadLessons();
+    const answer = await answered(
+      history, startsOver ? null : session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId, welcome, lessons,
+    );
+    if (answer.taught) countLessonHit(answer.taught);
     // the model takes seconds, and an agent watching the thread answers inside them. Their
     // words are already in the customer's phone by now, so the bot says nothing and records
     // nothing — a mark that was not there when this answer began is theirs, just now.

@@ -26,6 +26,7 @@ import { recruitReply } from "./recruit";
 import { isExpatPage } from "./expat";
 import { answerExpat, expatLanguage } from "./ihealthy-en/door";
 import type { PageWelcome } from "./page-welcome";
+import { matchLesson, type Lesson } from "./lessons";
 
 /** The last line of the menu, which is how a turn knows the menu was the last thing said. */
 const ASKED_WHICH = "สนใจแบบไหนครับ";
@@ -60,6 +61,8 @@ export type AnyAnswer = Reply & {
    * Taken off again before the answer leaves `answerAny`.
    */
   introFor?: true;
+  /** the id of the taught answer (./lessons) this turn was answered with, word for word */
+  taught?: string;
 };
 
 /**
@@ -130,11 +133,11 @@ function personIn(slots: AnySlots | null): Person {
  */
 export async function answerAny(
   rawHistory: ChatMessage[], stored: AnySlots | null, channel: Channel = "web",
-  cameFor?: Product, pageId?: string, welcome?: PageWelcome,
+  cameFor?: Product, pageId?: string, welcome?: PageWelcome, lessons?: readonly Lesson[],
 ): Promise<AnyAnswer> {
   const history = rawHistory.map((m) => (m.role === "user" ? { ...m, content: withoutInvisible(m.content) } : m));
   const seen = Boolean((stored as WithIntro<AnySlots> | null)?.introSeen);
-  const answer = await answerTurn(history, withoutIntro(stored), channel, cameFor, pageId, welcome);
+  const answer = await answerTurn(history, withoutIntro(stored), channel, cameFor, pageId, welcome, lessons);
   return withIntroPicture(answer, seen, channel);
 }
 
@@ -159,6 +162,8 @@ async function answerTurn(
    * menu. Read by the caller, so nothing in here waits on the database.
    */
   welcome?: PageWelcome,
+  /** the answers the owner taught word for word (/admin/teach), read by the caller like `welcome` */
+  lessons?: readonly Lesson[],
 ): Promise<AnyAnswer> {
   const asked = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
   const lastSaid = [...history].reverse().find((m) => m.role === "assistant")?.content;
@@ -198,6 +203,24 @@ async function answerTurn(
   const turn = pdfTurn(asked, lastSaid, memory, channel);
   if (turn) {
     return { ...turn.reply, slots: { ...(slots ?? { product: "undecided" }), pdf: turn.memory } as WithPdf<AnySlots> };
+  }
+
+  /**
+   * A question the owner taught an answer for, answered with that answer as it was written.
+   *
+   * After the PDF, whose "ขอไฟล์" is about the quote just sent, and ahead of everything else —
+   * the greeting included, since a taught question is the opposite of a message that says
+   * nothing. The conversation is carried through untouched, so a quotation in progress picks
+   * up again at the next message.
+   */
+  const lesson = lessons?.length ? matchLesson(asked, lessons, pageId) : undefined;
+  if (lesson) {
+    const kept = slots ?? { product: "undecided" as const };
+    return {
+      messages: [{ text: writtenFor(channel, lesson.answer) }],
+      slots: (memory ? { ...kept, pdf: memory } : kept) as AnySlots,
+      taught: lesson.id,
+    };
   }
 
   /**
