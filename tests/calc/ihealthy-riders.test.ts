@@ -17,15 +17,15 @@ const offered = (r: { available: { code: string; eligible: boolean }[] }) =>
 describe("priceWithRiders", () => {
   it("offers every rider the company sells with this base", async () => {
     const r = await priceWithRiders({ ...ADULT, riders: [] });
-    // Thirteen with this base: the health cover is the page itself, HIC is never sold beside
-    // it, and PB is written on a payer this page does not ask about.
-    const all = ["WP", "AP", "ECARE", "MEX", "MEB", "DCI", "PLS", "CPR", "RRSS", "CI123"];
+    // Thirteen with this base: the health cover is the page itself and HIC is never sold
+    // beside it.
+    const all = ["PB", "WP", "AP", "ECARE", "MEX", "MEB", "DCI", "PLS", "CPR", "RRSS", "CI123"];
     expect(r.available.map((a) => a.code)).toEqual(all);
     expect(offered(r)).toEqual(all);
   });
 
-  it.each(["HIC", "PB"])("will not price %s, however it is asked for", async (code) => {
-    const r = await priceWithRiders({ ...ADULT, riders: [{ code, sumAssured: 1_000, option: "FIT" }] });
+  it.each(["HIC"])("will not price %s, however it is asked for", async (code) => {
+    const r = await priceWithRiders({ ...ADULT, riders: [{ code, sumAssured: 1_000 }] });
     expect(r.items.some((i) => i.code === code)).toBe(false);
     expect(r.totalModal).toBe(r.items.reduce((sum, i) => sum + i.modal, 0));
   });
@@ -33,6 +33,35 @@ describe("priceWithRiders", () => {
   it("offers the package only what the package sells", async () => {
     const r = await priceWithRiders({ ...PACKAGE, riders: [] });
     expect(r.available.map((a) => a.code)).toEqual(["AP", "MEX", "MEB", "DCI", "RRSS"]);
+  });
+
+  it("prices PB on the payer typed under it, not on the insured", async () => {
+    const man = { ...ADULT, sex: "M" as const };
+    const r = await priceWithRiders({ ...man, riders: [{ code: "PB", option: "FIT", payer: { age: 33, sex: "F" } }] });
+    const pb = r.items.find((i) => i.code === "PB")!;
+    expect(pb.eligible).toBe(true);
+    expect(pb.modal).toBe(513_420);
+    expect(r.available.find((a) => a.code === "PB")!.payer).toEqual({ relation: "spouse", ageMin: 20, ageMax: 70 });
+  });
+
+  it("names a child's payer a parent", async () => {
+    const r = await priceWithRiders({ ...ADULT, age: 8, sex: "M", plan: "BRONZE",
+      riders: [{ code: "PB", option: "FIT", payer: { age: 38, sex: "M" } }] });
+    expect(r.available.find((a) => a.code === "PB")!.payer?.relation).toBe("parent");
+    expect(r.items.find((i) => i.code === "PB")!.modal).toBe(30_704);
+  });
+
+  it("asks for the payer's age rather than guessing one", async () => {
+    const r = await priceWithRiders({ ...ADULT, riders: [{ code: "PB", option: "FIT" }] });
+    const pb = r.items.find((i) => i.code === "PB")!;
+    expect(pb.eligible).toBe(false);
+    expect(pb.message).toBe("กรอกอายุผู้ชำระเบี้ย");
+    expect(r.extraCodes).not.toContain("PB");
+  });
+
+  it("refuses a payer outside the ages the company writes", async () => {
+    const r = await priceWithRiders({ ...ADULT, riders: [{ code: "PB", option: "FIT", payer: { age: 72, sex: "F" } }] });
+    expect(r.items.find((i) => i.code === "PB")!.message).toBe("อายุผู้ชำระเบี้ยไม่อยู่ในเกณฑ์");
   });
 
   it("prices CI 123 as one line, its endorsements included", async () => {
@@ -54,7 +83,7 @@ describe("priceWithRiders", () => {
       expect(a.reason).toBeTruthy();
       expect(a.ageRange).toMatch(/\d+ - \d+ ปี/);
     }
-    expect(offered(r)).toEqual(["AP", "MEX", "MEB", "CPR", "RRSS", "CI123"]);
+    expect(offered(r)).toEqual(["PB", "AP", "MEX", "MEB", "CPR", "RRSS", "CI123"]);
   });
 
   it("keeps the package's riders at age 8, with the one he is too young for greyed", async () => {
@@ -195,6 +224,13 @@ describe("attachedRiders", () => {
     const [ap] = attachedRiders({ AP: { sumAssured: "" } });
     expect(ap).toEqual({ code: "AP" });
     expect("sumAssured" in ap).toBe(false);
+  });
+
+  it("sends the payer once the age is typed, and not before", () => {
+    expect(attachedRiders({ PB: { option: "FIT", payerSex: "F", payerAge: "" } }))
+      .toEqual([{ code: "PB", option: "FIT" }]);
+    expect(attachedRiders({ PB: { option: "FIT", payerSex: "F", payerAge: 33 } }))
+      .toEqual([{ code: "PB", option: "FIT", payer: { age: 33, sex: "F" } }]);
   });
 
   it("sends nothing when nothing is ticked", () => {

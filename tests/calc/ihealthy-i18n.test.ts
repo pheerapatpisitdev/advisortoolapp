@@ -96,7 +96,9 @@ describe("the rider engine's lines", () => {
           [{ code: "WP", option: "FIT" }], [{ code: "PB", option: "BEYOND" }],
           [{ code: "WP", option: "FIT" }, { code: "PB", option: "FIT" }],
           [{ code: "CPR", sumAssured: 300_000 }, { code: "DCI", sumAssured: 200_000 }],
-          [{ code: "HIC", sumAssured: 1000 }]]) {
+          [{ code: "HIC", sumAssured: 1000 }],
+          [{ code: "PB", option: "FIT" }], [{ code: "PB", option: "FIT", payer: { age: 33, sex: "F" as const } }],
+          [{ code: "PB", option: "FIT", payer: { age: 72, sex: "F" as const } }]]) {
           const r = priceRiders({
             base: b.variant, age, sex: "M", sumAssured: b.fixedSum ?? 1_000_000, mode: "annual",
             plan: "GOLD", territory: "ประเทศไทย", coverage: "Full Coverage", riders,
