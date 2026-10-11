@@ -10,11 +10,20 @@ import { recordUsage } from "@/lib/ai/ledger";
 
 export const TTS_MODEL = "gemini-2.5-flash-preview-tts";
 export const TTS_VOICE = "Kore";
+/**
+ * The narrator a clip is read by (owner, 2026-10-11): Kore for a woman, Orus for a man — picked
+ * from samples. Each is asked for in its own words, so a man's voice is not told to sound like a woman.
+ */
+export const TTS_VOICES = { F: "Kore", M: "Orus" } as const;
+export type Narrator = keyof typeof TTS_VOICES;
 export const TTS_RATE = 24000;
 const THB_PER_USD = 36;
 /** USD per million tokens: text in, audio out (Gemini 2.5 Flash TTS list price) */
 const PRICE = { in: 0.5, out: 10 };
-const STYLE = "พูดแบบสบายๆ เป็นกันเอง อบอุ่น เหมือนเล่าให้เพื่อนฟัง ไม่เป็นทางการ: ";
+const STYLE: Record<Narrator, string> = {
+  F: "พูดแบบสบายๆ เป็นกันเอง อบอุ่น เหมือนเล่าให้เพื่อนฟัง ไม่เป็นทางการ: ",
+  M: "พูดด้วยเสียงผู้ชาย แบบสบายๆ เป็นกันเอง อบอุ่น น่าเชื่อถือ ไม่เป็นทางการ: ",
+};
 const TIMEOUT_MS = 90_000;
 
 export class TtsError extends Error {}
@@ -26,7 +35,8 @@ interface GeminiAudio {
 }
 
 /** One line spoken, and what it cost in baht; the cost also goes on the ledger under `task` (attributed by asWho). */
-export async function speakThai(text: string, task: string, opts: { voice?: string; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
+export async function speakThai(text: string, task: string, opts: { narrator?: Narrator; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
+  const narrator = opts.narrator ?? "F";
   const key = await providerKey("google");
   if (!key) throw new TtsError("ยังไม่ได้ตั้งค่าคีย์ Google สำหรับเสียงพากย์");
   const f = opts.fetch ?? fetch;
@@ -36,10 +46,10 @@ export async function speakThai(text: string, task: string, opts: { voice?: stri
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: STYLE + text }] }],
+        contents: [{ parts: [{ text: STYLE[narrator] + text }] }],
         generationConfig: {
           responseModalities: ["AUDIO"],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: opts.voice ?? TTS_VOICE } } },
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICES[narrator] } } },
         },
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),

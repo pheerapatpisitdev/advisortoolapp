@@ -21,9 +21,18 @@ export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY";
 export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact";
 
 /** What the agent asked for. A row written before products existed has no `product`: Life Protect. */
-export type VideoInput =
+export type VideoInput = (
   | { product?: "LIFEPROTECT" | "ISHIELD"; variant: string; age: number; sex: "M" | "F"; sumAssured: number }
-  | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[] };
+  | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[] }
+) & {
+  /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
+  narrator?: "F" | "M";
+};
+
+/** A man ends his sentences with ครับ, a woman with ค่ะ / นะคะ (owner, 2026-10-11). */
+export function spokenBy(line: string, narrator: "F" | "M" = "F"): string {
+  return narrator === "M" ? line.replace(/นะคะ/g, "นะครับ").replace(/ค่ะ/g, "ครับ") : line;
+}
 
 export const productOf = (v: VideoInput): Product => v.product ?? "LIFEPROTECT";
 
@@ -248,8 +257,12 @@ function healthCoverLine(f: QuoteVideoFacts): string {
   return `${parts.join(" ")}ค่ะ`;
 }
 
-/** The spoken lines, in the owner's casual wording (mockups, 2026-10-11). */
-export function quoteVideoScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
+/** The spoken lines, in the owner's casual wording (mockups, 2026-10-11), with the narrator's ending. */
+export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator: "F" | "M" = "F"): SceneScript[] {
+  return femaleScript(f, customer).map((s) => ({ key: s.key, voice: spokenBy(s.voice, narrator) }));
+}
+
+function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   const name = cleanCustomerName(customer);
   const hello = name ? `สวัสดีค่ะ คุณ${name}` : "สวัสดีค่ะ";
   const who = name ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;

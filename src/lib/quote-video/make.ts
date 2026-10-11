@@ -187,9 +187,10 @@ export async function produce(id: string, agentName: string): Promise<void> {
       ...(contactRow.line ? { line: contactRow.line } : {}),
       ...(await photoDataUri(contactRow.photoPath).then((p) => (p ? { photo: p } : {}))),
     };
-    const script = quoteVideoScript(facts, row.customer_name);
+    const narrator: "F" | "M" = row.input.narrator === "M" ? "M" : "F";
+    const script = quoteVideoScript(facts, row.customer_name, narrator);
 
-    const spoken = await Promise.all(script.map((s) => speakThai(s.voice, VIDEO_TASK_VOICE)));
+    const spoken = await Promise.all(script.map((s) => speakThai(s.voice, VIDEO_TASK_VOICE, { narrator })));
     const pcms = spoken.map((s) => s.pcm);
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
     const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: pcmSeconds(pcms[i], TTS_RATE), ...sceneMotion(facts, s.key) })));
@@ -207,7 +208,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const draws: { name: string; draw: () => Promise<Buffer> }[] = [];
     plans.forEach((p, s) => {
       const sc = named.scenes[s];
-      const ctx = { facts, customer: row.customer_name, contact, ...(chart ? { chart } : {}), words: script[s].voice.split(" ").filter(Boolean), panEnd };
+      const ctx = { facts, narrator, customer: row.customer_name, contact, ...(chart ? { chart } : {}), words: script[s].voice.split(" ").filter(Boolean), panEnd };
       draws.push({ name: sc.base, draw: () => renderPng(sceneLayer(p.key, ctx, "base"), { width: W, height: H }) });
       p.frames.forEach((fr, k) => draws.push({ name: sc.frames[k], draw: () => renderPng(sceneLayer(p.key, ctx, "over", fr.state), { width: W, height: H }) }));
       files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });

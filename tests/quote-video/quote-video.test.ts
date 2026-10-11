@@ -30,6 +30,13 @@ describe("quote video script", () => {
     expect(lines[4]).toBe("คุณสมชายสนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ");
   });
 
+  it("ends every line with ครับ when a man reads it (owner, 2026-10-11)", () => {
+    const lines = quoteVideoScript(f, "สมชาย", "M").map((s) => s.voice);
+    expect(lines[0]).toBe("สวัสดีครับ คุณสมชาย ขอเล่าแผนนี้ให้ฟังสั้นๆ นะครับ อายุ 35 ทำทุน 1 ล้าน ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง 2 ล้านบาทครับ");
+    expect(lines[4]).toBe("คุณสมชายสนใจ ทักมาคุยกันได้เลยนะครับ ยินดีช่วยดูแผนให้ครับ");
+    for (const l of lines) expect(l).not.toMatch(/ค่ะ|คะ/);
+  });
+
   it("says คุณผู้ชาย / คุณผู้หญิง without a name", () => {
     const lines = quoteVideoScript(f).map((s) => s.voice);
     expect(lines[0]).toContain("คุณผู้ชายอายุ 35");

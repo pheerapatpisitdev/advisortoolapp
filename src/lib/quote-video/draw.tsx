@@ -29,6 +29,8 @@ const SIDE = 70;
 export interface Contact { name: string; phone: string; line?: string; photo?: string }
 export interface DrawContext {
   facts: QuoteVideoFacts;
+  /** who reads the clip: the closing card ends as the voice does */
+  narrator?: "F" | "M";
   customer: string;
   contact: Contact;
   chart?: CardChart;
@@ -337,7 +339,7 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
       </On>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 320, flexDirection: "column", fontSize: 88, fontWeight: 600, color: P.figure, lineHeight: 1.3 }}>
         <div style={box({})}>ทักมาคุยกันได้เลย</div>
-        <div style={box({})}>ยินดีช่วยดูแผนให้ค่ะ</div>
+        <div style={box({})}>{c.narrator === "M" ? "ยินดีช่วยดูแผนให้ครับ" : "ยินดีช่วยดูแผนให้ค่ะ"}</div>
       </On>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 660, border: `3px solid ${P.hair}`, borderRadius: 44, padding: 44, alignItems: "center" }}>
         {k.photo ? (

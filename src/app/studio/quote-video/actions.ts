@@ -44,6 +44,11 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
 
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
 function checked(v: VideoInput): VideoInput | string {
+  const c = checkedQuote(v);
+  return typeof c === "string" ? c : { ...c, narrator: v.narrator === "M" ? "M" : "F" };
+}
+
+function checkedQuote(v: VideoInput): VideoInput | string {
   if (v.sex !== "M" && v.sex !== "F") return "เลือกเพศ";
   if (!Number.isInteger(v.age) || v.age < 0 || v.age > 99) return "ใส่อายุให้ถูกต้อง";
   if (v.product === "IHEALTHY") {

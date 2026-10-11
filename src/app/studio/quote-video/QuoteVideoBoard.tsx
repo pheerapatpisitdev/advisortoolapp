@@ -34,6 +34,7 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
   LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }],
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
+const NARRATOR_KEY = "quote-video-narrator";
 const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10" } as const;
 /** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
 const MAX_COMPARE = 3;
@@ -42,6 +43,15 @@ export interface PlanChoice { code: string; name: string }
 
 export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost }: { ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null }) {
   const [product, setProduct] = useState<Product>("LIFEPROTECT");
+  const [narrator, setNarrator] = useState<"F" | "M">("F");
+  // the voice picked last time, kept in this browser only (owner, 2026-10-11)
+  useEffect(() => {
+    try { if (localStorage.getItem(NARRATOR_KEY) === "M") setNarrator("M"); } catch { /* storage closed: the default stands */ }
+  }, []);
+  function pickNarrator(n: "F" | "M") {
+    setNarrator(n);
+    try { localStorage.setItem(NARRATOR_KEY, n); } catch { /* not remembered, still used */ }
+  }
   const [plan, setPlan] = useState("GOLD");
   const [compare, setCompare] = useState<string[]>([]);
   const [sex, setSex] = useState<"M" | "F">("M");
@@ -58,8 +68,8 @@ export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost }: { ihuPla
   const line = costLine(cost);
 
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan) }
-    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")) });
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator }
+    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -128,6 +138,13 @@ export function QuoteVideoBoard({ ihuPlans, initial, cost: firstCost }: { ihuPla
           <span className={label}>แบบประกัน</span>
           <div className="flex flex-wrap gap-2">
             {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(product === p.code)} onClick={() => pickProduct(p.code)}>{p.name}</button>)}
+          </div>
+        </div>
+        <div>
+          <span className={label}>เสียงพากย์</span>
+          <div className="flex gap-2">
+            <button type="button" className={chip(narrator === "F")} onClick={() => pickNarrator("F")}>ผู้หญิง</button>
+            <button type="button" className={chip(narrator === "M")} onClick={() => pickNarrator("M")}>ผู้ชาย</button>
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
