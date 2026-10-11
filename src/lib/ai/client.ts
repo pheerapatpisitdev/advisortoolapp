@@ -5,6 +5,7 @@ import { walletChargedThb } from "@/lib/wallet/store";
 import { monthSpend, recordUsage, spendSince } from "./ledger";
 import { IMAGE_CALLERS, TAKES_REFERENCES, withAspect, type Aspect, type DrawnImage, type ReferenceImage } from "./images";
 import { CALLERS, EMBEDDERS, JUDGE, type JudgeAnswer, type JudgeQuestion } from "./providers";
+import { ELEVENLABS, listVoices } from "@/lib/voice/elevenlabs";
 import type { ChatMessage, ChatResult, ModelRow, Tier } from "./types";
 
 const USD_TO_THB = 36;
@@ -524,6 +525,8 @@ export interface ProviderCheck {
   model?: string;
   /** what the provider said when it refused, trimmed and with anything key-shaped removed */
   error?: string;
+  /** a line under the chip when the check learned something worth showing — ElevenLabs' voice count */
+  note?: string;
 }
 
 /** Long enough for a cold provider, short enough that five of them do not hang the page. */
@@ -593,12 +596,29 @@ async function checkJudge(apiKey: string): Promise<ProviderCheck> {
   }
 }
 
+/** ElevenLabs speaks rather than writes, so it is asked for its voice list, which costs no credit. */
+async function checkElevenLabs(apiKey: string): Promise<ProviderCheck> {
+  const provider = ELEVENLABS;
+  const began = Date.now();
+  try {
+    const voices = await listVoices(apiKey, AbortSignal.timeout(CHECK_TIMEOUT_MS));
+    return { provider, state: "ok", ms: Date.now() - began, note: `${voices.length} เสียง` };
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    return {
+      provider, state: "failed", ms: Date.now() - began,
+      error: scrub(raw.includes("timeout") || raw.includes("abort") ? `ไม่ตอบภายใน ${CHECK_TIMEOUT_MS / 1000} วินาที` : raw),
+    };
+  }
+}
+
 export async function testProviders(providers: string[]): Promise<ProviderCheck[]> {
   const config = await loadConfig();
   return Promise.all(providers.map(async (provider): Promise<ProviderCheck> => {
     const apiKey = config.keys[provider];
     if (!apiKey) return { provider, state: "no-key", ms: 0 };
     if (provider === JUDGE.provider) return checkJudge(apiKey);
+    if (provider === ELEVENLABS) return checkElevenLabs(apiKey);
 
     // an enabled model first, because that is what the bot would actually reach for; a
     // disabled one still proves the key, which is the question being asked

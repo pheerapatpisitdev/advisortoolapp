@@ -195,9 +195,10 @@ function Status({ check }: { check?: ProviderCheck }) {
   const chip = "inline-block rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap";
   if (check.state === "ok") {
     return (
-      <span className="flex w-28 items-baseline gap-1.5">
+      <span className="flex w-28 flex-wrap items-baseline gap-x-1.5">
         <span className={`${chip} bg-[var(--bot-ok-soft)] text-[var(--bot-ok)]`}>ใช้ได้</span>
         <span className="text-[0.65rem] tabular-nums text-[var(--bot-ink-faint)]">{(check.ms / 1000).toFixed(1)}s</span>
+        {check.note && <span className="basis-full text-[0.65rem] text-[var(--bot-ink-mute)]">{check.note}</span>}
       </span>
     );
   }
@@ -216,7 +217,7 @@ function Status({ check }: { check?: ProviderCheck }) {
 const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Anthropic (Claude)", openai: "OpenAI (GPT)", google: "Google (Gemini)", zai: "Z.ai (GLM)",
   typhoon: "Typhoon (SCB 10X)", moonshot: "Kimi (Moonshot)",
-  typesafe: "TypeSafe (Jev)",
+  typesafe: "TypeSafe (Jev)", elevenlabs: "ElevenLabs (เสียงพากย์)",
   // the clip renderers write to the same ledger; named here for the all-provider breakdown
   rendi: "Rendi", aws: "AWS Lambda", gcp: "Google Cloud Run",
 };

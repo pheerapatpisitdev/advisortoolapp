@@ -24,8 +24,11 @@ export type { PersonUse } from "./people";
  * The companies this system can call. xAI was here until 2026-09-17: the account was blocked
  * for want of credit, so every Grok call failed, and the owner asked for it to go rather than
  * sit in the chain costing a failed attempt whenever the fallback reached it.
+ *
+ * ElevenLabs (voice-over) has no row in model_configs, so like TypeSafe it is never in the
+ * chain; it is listed so its key can be set and tested here (owner, 2026-10-11).
  */
-const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "moonshot", "typesafe"] as const;
+const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "moonshot", "typesafe", "elevenlabs"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 /**
