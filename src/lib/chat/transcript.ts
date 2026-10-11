@@ -106,3 +106,49 @@ export async function wroteJustBefore(channel: Channel, userHash: string, text: 
     return false;
   }
 }
+
+/**
+ * How long the bot waits after a message for the next one (owner, 2026-10-11: five seconds).
+ *
+ * Messenger and LINE send each message as its own call, and each was answered alone: "ชาย 35"
+ * then "ทุน 2 ล้าน" two seconds later got two answers that crossed — the first asking for the
+ * sum the second had just given, the second sending the plan menu. Every answer is this much
+ * later, the typing dots showing; in return a burst is read as one message.
+ */
+export const GATHER_MS = 5_000;
+
+/** What a burst is allowed to reach back to: older lines than this were a different moment. */
+const GATHER_REACH_MS = 60_000;
+
+/**
+ * After the wait: whether this message is still the customer's latest, and if it is, every
+ * line they sent since the bot or an agent last spoke, in order — what this turn answers.
+ *
+ * Read from the transcript, which each turn writes before it waits, so a message that came in
+ * during the wait is already there. A turn that is not the latest answers nothing: the latest
+ * answers for all of them. When the transcript cannot be read the turn answers its own words,
+ * as before.
+ */
+export async function gathered(channel: Channel, userHash: string, text: string): Promise<{ latest: boolean; text: string }> {
+  const mine = kept(text);
+  try {
+    const since = new Date(Date.now() - GATHER_REACH_MS).toISOString();
+    const { data, error } = await supabaseAdmin()
+      .from("ins_transcripts")
+      .select("role, text")
+      .eq("channel", channel).eq("user_hash", userHash)
+      .gte("at", since)
+      .order("at", { ascending: true }).order("id", { ascending: true })
+      .limit(50);
+    if (error || !data?.length) return { latest: true, text };
+    const rows = data as { role: string; text: string }[];
+    const lastSpoken = rows.map((r) => r.role).lastIndexOf("bot");
+    const lastAgent = rows.map((r) => r.role).lastIndexOf("agent");
+    const pending = rows.slice(Math.max(lastSpoken, lastAgent) + 1).filter((r) => r.role === "customer").map((r) => r.text);
+    if (!pending.length || pending.at(-1) !== mine) return { latest: pending.at(-1) === undefined, text };
+    // this message is the latest: it speaks for the burst. Its own words stay unscrubbed.
+    return { latest: true, text: [...pending.slice(0, -1), text].join("\n") };
+  } catch {
+    return { latest: true, text };
+  }
+}

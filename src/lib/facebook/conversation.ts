@@ -15,7 +15,7 @@ import { attribute, openConversation, openLead, record, type RecordedEvent } fro
 import { WANTS_IN } from "@/lib/assistant/common";
 import { pagePathFor } from "@/lib/quote-pdf/link";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
-import { botTurn, keepTranscript, wroteJustBefore } from "@/lib/chat/transcript";
+import { GATHER_MS, botTurn, gathered, keepTranscript, wroteJustBefore } from "@/lib/chat/transcript";
 import { isExpatPage, languageOf } from "@/lib/assistant/expat";
 import { loadWelcome } from "@/lib/chat/page-welcome-store";
 import type { PageWelcome } from "@/lib/assistant/page-welcome";
@@ -57,6 +57,8 @@ async function answered(
  */
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** the wait for a burst; a test sets GATHER_MS=0 rather than wait five seconds a turn */
+const gatherMs = () => (process.env.GATHER_MS !== undefined ? Number(process.env.GATHER_MS) : GATHER_MS);
 
 /** Whether the application form has already been handed to this customer. */
 function handedOver(slots: unknown): boolean {
@@ -296,8 +298,21 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
     return;
   }
 
-  const wantsIn = text.trim() === WANTS_IN || text.trim() === WANTS_IN_EN;
-  const own = ownWordsFor(pageId, text, session.slots);
+  /**
+   * A moment for the next message, the dots showing (owner, 2026-10-11): the latest message of
+   * a burst answers for all of it, and the others say nothing (src/lib/chat/transcript.ts).
+   */
+  await showTyping(psid, pageId).catch(() => {});
+  await pause(gatherMs());
+  const burst = await gathered("facebook", userHash, text);
+  if (!burst.latest) {
+    await record(conversationId, ledger, productOf(session.slots));
+    return;
+  }
+  const asked = burst.text;
+
+  const wantsIn = asked.trim() === WANTS_IN || asked.trim() === WANTS_IN_EN;
+  const own = ownWordsFor(pageId, asked, session.slots);
 
   /**
    * The agent answering by hand pauses the bot, and this message ends the pause: the customer
@@ -317,7 +332,7 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
     return;
   }
 
-  const history: ChatMessage[] = [...session.messages, { role: "user", content: text }];
+  const history: ChatMessage[] = [...session.messages, { role: "user", content: asked }];
 
   /**
    * The plan the advertisement was about, worked out once and only while it can still matter.
@@ -352,7 +367,8 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
      * greeting on top of the first one's answer (2026-10-09), so it says nothing and leaves the
      * session to the turn that is answering — its save is the one that must stand.
      */
-    if (answer.messages[0]?.opening && (await wroteJustBefore("facebook", userHash, text))) {
+    // a burst gathered into this turn is answered here, greeting and all
+    if (answer.messages[0]?.opening && asked === text && (await wroteJustBefore("facebook", userHash, text))) {
       await record(conversationId, ledger, productOf(session.slots));
       return;
     }
@@ -412,7 +428,7 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
     // from the same customer answered beside this one is merged with, not written over
     await saveTurn("facebook", userHash, {
       base: session,
-      added: [{ role: "user", content: text }, { role: "assistant", content: spoken }],
+      added: [{ role: "user", content: asked }, { role: "assistant", content: spoken }],
       slots: answer.slots,
       conversationId,
     });

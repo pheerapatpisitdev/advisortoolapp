@@ -12,7 +12,11 @@ import type { ChatMessage } from "@/lib/ai/types";
 import { openConversation, openLead, record, type RecordedEvent } from "@/lib/chat/record";
 import { WANTS_IN } from "@/lib/assistant/common";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
-import { botTurn, keepTranscript } from "@/lib/chat/transcript";
+import { GATHER_MS, botTurn, gathered, keepTranscript } from "@/lib/chat/transcript";
+
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** the wait for a burst; a test sets GATHER_MS=0 rather than wait five seconds a turn */
+const gatherMs = () => (process.env.GATHER_MS !== undefined ? Number(process.env.GATHER_MS) : GATHER_MS);
 
 /**
  * One event from the LINE official account, answered — the same brains, the same session
@@ -145,8 +149,18 @@ export async function handle(event: LineEvent, destination = "", opts: { started
     return;
   }
 
-  const wantsIn = text === WANTS_IN;
-  const history: ChatMessage[] = [...session.messages, { role: "user", content: text }];
+  // a moment for the next message, as on Messenger: the latest of a burst answers for it all
+  await showLoading(userId).catch(() => {});
+  await pause(gatherMs());
+  const burst = await gathered("line", userHash, text);
+  if (!burst.latest) {
+    await record(conversationId, ledger, productOf(session.slots));
+    return;
+  }
+  const asked = burst.text;
+
+  const wantsIn = asked === WANTS_IN;
+  const history: ChatMessage[] = [...session.messages, { role: "user", content: asked }];
 
   await showLoading(userId).catch(() => {});
   try {
@@ -181,7 +195,7 @@ export async function handle(event: LineEvent, destination = "", opts: { started
     // a second message answered beside this one is merged with, not written over
     await saveTurn("line", userHash, {
       base: session,
-      added: [{ role: "user", content: text }, { role: "assistant", content: spoken }],
+      added: [{ role: "user", content: asked }, { role: "assistant", content: spoken }],
       slots: answer.slots,
       conversationId,
     });

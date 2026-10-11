@@ -83,6 +83,8 @@ vi.mock("@/lib/facebook/from-ad", async (orig) => ({ ...(await orig<typeof impor
 
 /** what the transcript kept, by speaker — the daily review reads these */
 const kept: { role: string; text: string }[] = [];
+/** what the wait for a burst found: by default the message is the latest and stands alone */
+const burst = vi.hoisted(() => ({ gathered: vi.fn(async (_c: string, _u: string, text: string) => ({ latest: true, text })) }));
 vi.mock("@/lib/chat/transcript", async () => {
   const actual = await vi.importActual<typeof import("@/lib/chat/transcript")>("@/lib/chat/transcript");
   return {
@@ -90,6 +92,7 @@ vi.mock("@/lib/chat/transcript", async () => {
     keepTranscript: async (_t: unknown, turns: ({ role: string; text: string } | undefined)[]) => {
       for (const t of turns) if (t) kept.push(t);
     },
+    gathered: burst.gathered,
   };
 });
 
@@ -121,6 +124,25 @@ describe("a customer's message", () => {
   it("is ignored when it carries no words at all", async () => {
     await handle({ sender: { id: "psid" }, message: { mid: "m0" } });
     expect(answer).not.toHaveBeenCalled();
+  });
+});
+
+/** Messages sent in a burst are answered once, by the latest (owner, 2026-10-11). */
+describe("a burst of messages", () => {
+  it("answers nothing for a message a later one speaks for", async () => {
+    burst.gathered.mockResolvedValueOnce({ latest: false, text: "ชาย 35" });
+    await handle({ sender: { id: "psid-burst" }, message: { mid: "mb1", text: "ชาย 35" } });
+    expect(answer).not.toHaveBeenCalled();
+    expect(sent.text).toEqual([]);
+    expect(turns).toHaveLength(0);
+  });
+
+  it("answers the latest with every line of the burst, and saves them as one", async () => {
+    burst.gathered.mockResolvedValueOnce({ latest: true, text: "ชาย 35\nทุน 2 ล้าน" });
+    await handle({ sender: { id: "psid-burst" }, message: { mid: "mb2", text: "ทุน 2 ล้าน" } });
+    const [history] = answer.mock.calls[0] as unknown as [{ role: string; content: string }[]];
+    expect(history.at(-1)).toEqual({ role: "user", content: "ชาย 35\nทุน 2 ล้าน" });
+    expect((turns[0] as { added: { content: string }[] }).added[0].content).toBe("ชาย 35\nทุน 2 ล้าน");
   });
 });
 

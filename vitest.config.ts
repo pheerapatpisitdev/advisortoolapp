@@ -12,5 +12,8 @@ export default defineConfig({
     // throwaway probes a session leaves while hunting a bug: no assertions, not the suite
     exclude: ["tests/scratch/**", "**/node_modules/**"],
     environment: "node",
+    // the bots wait five seconds for a customer's next message (src/lib/chat/transcript.ts);
+    // a test does not
+    env: { GATHER_MS: "0" },
   },
 });
