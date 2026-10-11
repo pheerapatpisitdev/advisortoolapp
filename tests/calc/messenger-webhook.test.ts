@@ -72,6 +72,15 @@ vi.mock("@/lib/chat/session", async () => {
 
 vi.mock("@/lib/assistant/dispatch", () => ({ answerAny: answer }));
 
+/** adverts tapped mid-thread, held for the next message (src/lib/facebook/ad-arrival.ts) */
+const arrivals = new Map<string, { source?: string; ad_id?: string; ref?: string }>();
+vi.mock("@/lib/facebook/ad-arrival", () => ({
+  rememberAdArrival: async (u: string, r: { ad_id?: string }) => { arrivals.set(u, r); },
+  takeAdArrival: async (u: string) => { const r = arrivals.get(u); arrivals.delete(u); return r; },
+}));
+const fromAd = vi.hoisted(() => ({ productFromAd: vi.fn(async (): Promise<{ product: string; from: string } | undefined> => undefined) }));
+vi.mock("@/lib/facebook/from-ad", async (orig) => ({ ...(await orig<typeof import("@/lib/facebook/from-ad")>()), ...fromAd }));
+
 /** what the transcript kept, by speaker — the daily review reads these */
 const kept: { role: string; text: string }[] = [];
 vi.mock("@/lib/chat/transcript", async () => {
@@ -138,6 +147,41 @@ describe("an answer cut short by Messenger", () => {
     await expect(handle({ sender: { id: "psid" }, message: { mid: "m1", text: "ชาย 35 ทุน 1 ล้าน" } })).rejects.toThrow();
     expect(sent.text).toEqual(["ขออภัยครับ ระบบขัดข้องชั่วคราว เดี๋ยวแอดมินกลับมาตอบให้นะครับ 🙏"]);
     expect(turns).toHaveLength(0);
+  });
+});
+
+/** A returning customer's advert tap arrives alone, before their words (review, 2026-10-11). */
+describe("an advert tapped mid-thread", () => {
+  beforeEach(() => { arrivals.clear(); fromAd.productFromAd.mockReset(); fromAd.productFromAd.mockResolvedValue(undefined); });
+
+  it("is kept for the next message, which answers for the advert's plan", async () => {
+    fromAd.productFromAd.mockResolvedValue({ product: "ishield", from: "ad" });
+    session.slots = { product: "lifeprotect", age: 35, sex: "M" };
+    session.messages = [{ role: "user", content: "ชาย 35" }];
+    await handle({ sender: { id: "psid-ad" }, referral: { source: "ADS", ad_id: "ad-9" } });
+    expect(answer).not.toHaveBeenCalled();
+    await handle({ sender: { id: "psid-ad" }, message: { mid: "m-ad", text: "สนใจครับ" } });
+    expect(fromAd.productFromAd).toHaveBeenCalledWith({ source: "ADS", ad_id: "ad-9", ref: undefined }, undefined);
+    const [, slots, , cameFor] = answer.mock.calls[0] as unknown as [unknown, unknown, string, string];
+    expect(cameFor).toBe("ishield");
+    // a thread settled on another plan starts the advert's plan
+    expect(slots).toBeNull();
+  });
+
+  it("steers one message only", async () => {
+    fromAd.productFromAd.mockResolvedValue({ product: "ishield", from: "ad" });
+    await handle({ sender: { id: "psid-ad2" }, referral: { source: "ADS", ad_id: "ad-9" } });
+    await handle({ sender: { id: "psid-ad2" }, message: { mid: "m-a1", text: "สนใจครับ" } });
+    await handle({ sender: { id: "psid-ad2" }, message: { mid: "m-a2", text: "ชาย 40" } });
+    expect(fromAd.productFromAd).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not used again when the message carried the advert itself", async () => {
+    fromAd.productFromAd.mockResolvedValue({ product: "ishield", from: "ad" });
+    session.slots = { product: "ishield" };
+    await handle({ sender: { id: "psid-ad3" }, referral: { source: "ADS", ad_id: "ad-9" } });
+    await handle({ sender: { id: "psid-ad3" }, message: { mid: "m-b1", text: "สนใจ", referral: { source: "ADS", ad_id: "ad-9" } } });
+    expect(arrivals.size).toBe(0);
   });
 });
 

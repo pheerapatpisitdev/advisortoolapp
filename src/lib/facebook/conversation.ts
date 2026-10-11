@@ -20,6 +20,7 @@ import { isExpatPage, languageOf } from "@/lib/assistant/expat";
 import { loadWelcome } from "@/lib/chat/page-welcome-store";
 import type { PageWelcome } from "@/lib/assistant/page-welcome";
 import { BROKEN_EN, BUSY_EN, CARD_UNSENT_EN, OUT_OF_BUDGET_EN, WANTS_IN_EN } from "@/lib/assistant/ihealthy-en/words";
+import { rememberAdArrival, takeAdArrival } from "./ad-arrival";
 
 /**
  * The answer, with one more attempt before giving up — both inside the turn's clock.
@@ -238,7 +239,12 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
 
   // a typed message and a tapped button are both the customer's words; an echo is not
   const text = textOf(event);
-  if (!text) return;
+  if (!text) {
+    // an advert tapped by someone already in a thread arrives alone: kept for their next words
+    const tapped = event.message ? undefined : referralOf(event);
+    if (tapped) await rememberAdArrival(userHash, tapped, pageId);
+    return;
+  }
 
   // a redelivery of an event already answered must not answer it a second time
   const key = eventKey(event);
@@ -256,7 +262,9 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
    * later is a second visit, and carrying the old id into it would report one arrival where
    * there were two.
    */
-  const referral = referralOf(event);
+  // taken every turn, so a tap whose own message carried the advert too is not used again later
+  const tappedEarlier = await takeAdArrival(userHash);
+  const referral = referralOf(event) ?? tappedEarlier;
   let conversationId = session.conversationId;
   if (!conversationId) {
     conversationId = await openConversation(
@@ -321,13 +329,18 @@ export async function handle(event: Messaging, pageId?: string, opts: { startedA
   const cameFor = referral || event.postback?.payload
     ? await productFromAd(referral, event.postback?.payload)
     : undefined;
+  /**
+   * An advert tapped mid-thread for another plan starts that plan: a conversation settled on
+   * Life Protect would otherwise go on answering Life Protect to someone who just tapped iShield.
+   */
+  const startsOver = Boolean(!referralOf(event) && tappedEarlier && cameFor && productOf(session.slots) !== cameFor.product);
   if (cameFor) console.info(`[ad] ${userHash.slice(0, 8)} มาจากโฆษณา ${cameFor.product} (${cameFor.from})`);
 
   await showTyping(psid, pageId).catch(() => {});
   try {
     // how this Page greets (/admin/welcome); the Expat Pages answer in their own bot and have none
     const welcome = isExpatPage(pageId) ? undefined : await loadWelcome(pageId);
-    const answer = await answered(history, session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId, welcome);
+    const answer = await answered(history, startsOver ? null : session.slots, cameFor?.product, turnBudgetMs(opts.startedAt), pageId, welcome);
     // the model takes seconds, and an agent watching the thread answers inside them. Their
     // words are already in the customer's phone by now, so the bot says nothing and records
     // nothing — a mark that was not there when this answer began is theirs, just now.
