@@ -9,6 +9,7 @@ import { recordUnanswered, rehearse } from "@/lib/assistant/unanswered";
 import { loadLessons } from "@/lib/chat/lessons-store";
 import { loadWelcome } from "@/lib/chat/page-welcome-store";
 import { pageConnections } from "@/lib/facebook/connection";
+import { cleanTurns as cleanTestTurns, runBotTest, type TestRun, type TestTurn } from "@/lib/chat/bot-tests";
 import type { Product } from "@/lib/assistant/choose";
 import type { AnySlots } from "@/lib/assistant/slots";
 import type { ChatMessage } from "@/lib/ai/types";
@@ -67,23 +68,33 @@ function cleanTurns(history: unknown): ChatMessage[] {
   });
 }
 
+/**
+ * The inbox's own turn for one Page, rehearsed: what tryBot plays once and a saved test replays
+ * message by message. The Page's greeting and the taught answers are read once per call.
+ */
+async function turnFor(pageId: unknown, cameFor: unknown) {
+  const page = await pageOf(pageId).catch(() => undefined);
+  const product = PRODUCTS.includes(cameFor as Product) ? (cameFor as Product) : undefined;
+  const expat = isExpatPage(page);
+  const [welcome, lessons] = await Promise.all([
+    expat ? undefined : loadWelcome(page),
+    expat ? undefined : loadLessons({ fresh: true }),
+  ]);
+  return (history: ChatMessage[], slots: AnySlots | null) =>
+    rehearse(() => answerAny(history, slots, "facebook", product, page, welcome, lessons));
+}
+
 export async function tryBot(
   history: unknown, slots: unknown, pageId: unknown, cameFor: unknown,
 ): Promise<Result<{ tried: Tried }>> {
   await requireStaff("admin");
   const turns = cleanTurns(history);
   if (turns.at(-1)?.role !== "user" || !turns.at(-1)!.content.trim()) return { ok: false, error: "พิมพ์ข้อความก่อนส่ง" };
-  const page = await pageOf(pageId).catch(() => undefined);
-  const product = PRODUCTS.includes(cameFor as Product) ? (cameFor as Product) : undefined;
   try {
-    const expat = isExpatPage(page);
-    const [welcome, lessons] = await Promise.all([
-      expat ? undefined : loadWelcome(page),
-      expat ? undefined : loadLessons({ fresh: true }),
-    ]);
+    const play = await turnFor(pageId, cameFor);
     // the session the browser holds is the browser's: it is only ever handed back to the bot
     const stored = slots && typeof slots === "object" ? (slots as AnySlots) : null;
-    const answer = await rehearse(() => answerAny(turns, stored, "facebook", product, page, welcome, lessons));
+    const answer = await play(turns, stored);
     return {
       ok: true,
       tried: {
@@ -245,5 +256,106 @@ export async function updateTaught(id: string, input: TeachInput & { strict: boo
   } catch (e) {
     console.error("taught answer not saved:", e);
     return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+}
+
+/** A saved conversation as the ชุดเทส tab lists it, with its last run. */
+export interface BotTest {
+  id: string;
+  name: string;
+  pageId: string | null;
+  cameFor: string | null;
+  turns: TestTurn[];
+  lastRunAt: string | null;
+  lastOk: boolean | null;
+  lastResult: TestRun | null;
+}
+
+const MOST_TESTS = 200;
+
+function testOf(r: Record<string, unknown>): BotTest {
+  return {
+    id: String(r.id),
+    name: String(r.name),
+    pageId: r.page_id ? String(r.page_id) : null,
+    cameFor: r.came_for ? String(r.came_for) : null,
+    turns: cleanTestTurns(r.turns),
+    lastRunAt: r.last_run_at ? String(r.last_run_at) : null,
+    lastOk: typeof r.last_ok === "boolean" ? r.last_ok : null,
+    lastResult: (r.last_result as TestRun | null) ?? null,
+  };
+}
+
+export async function listBotTests(): Promise<Result<{ tests: BotTest[] }>> {
+  await requireStaff("admin");
+  try {
+    const { data, error } = await supabaseAdmin().from("ins_bot_tests")
+      .select("id, name, page_id, came_for, turns, last_run_at, last_ok, last_result")
+      .order("created_at", { ascending: false }).limit(MOST_TESTS);
+    if (error) throw new Error(error.message);
+    return { ok: true, tests: ((data ?? []) as Record<string, unknown>[]).map(testOf) };
+  } catch (e) {
+    console.error("bot tests unreadable:", e);
+    return { ok: false, error: "อ่านชุดเทสไม่สำเร็จ ลองรีเฟรชหน้านี้" };
+  }
+}
+
+/** Saves a conversation from the test chat as a test: its name, its Page, and each message's checks. */
+export async function saveBotTest(name: string, pageId: string | null, cameFor: string | null, turns: unknown): Promise<Result<{ id: string }>> {
+  await requireStaff("admin");
+  const title = String(name ?? "").trim().slice(0, 120);
+  const clean = cleanTestTurns(turns);
+  if (!title) return { ok: false, error: "ตั้งชื่อชุดเทสก่อนบันทึก" };
+  if (!clean.length) return { ok: false, error: "ยังไม่มีข้อความลูกค้าให้เก็บ" };
+  const page = pageId ? await pageOf(pageId).catch(() => undefined) : null;
+  const product = PRODUCTS.includes(cameFor as Product) ? cameFor : null;
+  try {
+    const { data, error } = await supabaseAdmin().from("ins_bot_tests")
+      .insert({ name: title, page_id: page ?? null, came_for: product, turns: clean })
+      .select("id").single();
+    if (error) throw new Error(error.message);
+    const id = String((data as { id: unknown }).id);
+    await audit("bot-test-save", id, { name: title, turns: clean.length });
+    return { ok: true, id };
+  } catch (e) {
+    console.error("bot test not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+}
+
+/**
+ * Replays one saved test against the bot as it is now, and keeps the result beside it. A test
+ * whose turns reach a model is paid for like any other turn, which the tab says before running.
+ */
+export async function runBotTestNow(id: string): Promise<Result<{ test: BotTest }>> {
+  await requireStaff("admin");
+  try {
+    const db = supabaseAdmin();
+    const { data, error } = await db.from("ins_bot_tests")
+      .select("id, name, page_id, came_for, turns, last_run_at, last_ok, last_result").eq("id", id).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return { ok: false, error: "ไม่พบชุดเทสนี้" };
+    const test = testOf(data as Record<string, unknown>);
+    const run = await runBotTest(test.turns, await turnFor(test.pageId, test.cameFor));
+    const at = new Date().toISOString();
+    const saved = await db.from("ins_bot_tests").update({ last_run_at: at, last_ok: run.ok, last_result: run }).eq("id", id);
+    if (saved.error) console.error("bot test result not kept:", saved.error.message);
+    return { ok: true, test: { ...test, lastRunAt: at, lastOk: run.ok, lastResult: run } };
+  } catch (e) {
+    console.error("bot test run failed:", e);
+    return { ok: false, error: "รันชุดเทสไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+}
+
+export async function deleteBotTest(id: string): Promise<Result> {
+  await requireStaff("admin");
+  try {
+    const { error } = await supabaseAdmin().from("ins_bot_tests").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    await audit("bot-test-delete", id);
+    return { ok: true };
+  } catch (e) {
+    console.error("bot test not deleted:", e);
+    return { ok: false, error: "ลบไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
 }

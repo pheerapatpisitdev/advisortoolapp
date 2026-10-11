@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { teachable } from "@/lib/assistant/lessons";
 import type { AnySlots } from "@/lib/assistant/slots";
-import { reportProblem, teachLesson, tryBot, type Tried } from "./actions";
+import { reportProblem, saveBotTest, teachLesson, tryBot, type Tried } from "./actions";
+import { TESTS_CHANGED } from "./TestsList";
 
 /**
  * The test chat: one Page's inbox, played by the owner as the customer.
@@ -51,6 +52,7 @@ export function TestChat({ pages, question }: { pages: PageChoice[]; question?: 
   const [error, setError] = useState<string>();
   const [teaching, setTeaching] = useState<number>();
   const [brought, setBrought] = useState(question?.trim() || undefined);
+  const [saving, setSaving] = useState(false);
   const [pending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
   const page = pages.find((p) => p.id === pageId)!;
@@ -58,7 +60,7 @@ export function TestChat({ pages, question }: { pages: PageChoice[]; question?: 
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [turns.length, pending]);
 
   function restart() {
-    setTurns([]); setSlots(null); setError(undefined); setTeaching(undefined); setBrought(undefined);
+    setTurns([]); setSlots(null); setError(undefined); setTeaching(undefined); setBrought(undefined); setSaving(false);
   }
 
   /** Sends `text` after `before`, from the slots the bot had at that point. */
@@ -119,6 +121,13 @@ export function TestChat({ pages, question }: { pages: PageChoice[]; question?: 
           >
             เริ่มใหม่
           </button>
+          <button
+            type="button" onClick={() => { setSaving(true); setTeaching(undefined); setBrought(undefined); }}
+            disabled={pending || !turns.some((t) => t.role === "bot")}
+            className="rounded-lg border border-[var(--bot-line-strong)] px-3 py-1.5 text-sm hover:bg-[var(--bot-band)] disabled:opacity-40"
+          >
+            เก็บเป็นชุดเทส
+          </button>
           <span className="text-xs text-[var(--bot-ink-mute)]">ทดลองเท่านั้น · ไม่ส่งถึงลูกค้า</span>
         </div>
 
@@ -167,7 +176,7 @@ export function TestChat({ pages, question }: { pages: PageChoice[]; question?: 
                 {t.tried.model && <span>{t.tried.model}</span>}
                 {!page.expat && (
                   <button
-                    type="button" onClick={() => setTeaching(i)}
+                    type="button" onClick={() => { setTeaching(i); setSaving(false); }}
                     className="rounded-full border border-[var(--bot-line-strong)] px-2 py-0.5 text-[var(--bot-navy)] hover:bg-[var(--bot-band)]"
                   >
                     ✎ สอน
@@ -198,7 +207,15 @@ export function TestChat({ pages, question }: { pages: PageChoice[]; question?: 
         </form>
       </section>
 
-      {teaching !== undefined && turns[teaching]?.role === "bot" && turns[teaching - 1]?.role === "user" ? (
+      {saving ? (
+        <SaveTest
+          says={turns.flatMap((t, i) => (t.role === "user" && turns[i + 1]?.role === "bot"
+            ? [{ say: t.text, said: spoken((turns[i + 1] as { tried: Tried }).tried) }] : []))}
+          pageId={pageId}
+          cameFor={cameFor}
+          onClose={() => setSaving(false)}
+        />
+      ) : teaching !== undefined && turns[teaching]?.role === "bot" && turns[teaching - 1]?.role === "user" ? (
         <TeachPanel
           key={teaching}
           question={(turns[teaching - 1] as { text: string }).text}
@@ -305,6 +322,72 @@ function TeachPanel({ question, answer, page, onClose, onSaved }: {
         </button>}
         <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-[var(--bot-ink-mute)] hover:bg-[var(--bot-band)]">
           ยกเลิก
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * The conversation so far, saved as a test: a name, and for each customer message the words its
+ * answer should and should not contain — empty is only "answers at all". Words are separated by
+ * commas; the bot's answer this time is shown beside them to copy from.
+ */
+function SaveTest({ says, pageId, cameFor, onClose }: {
+  says: { say: string; said: string }[]; pageId: string; cameFor: string; onClose: () => void;
+}) {
+  const [name, setName] = useState(says[0]?.say.slice(0, 60) ?? "");
+  const [checks, setChecks] = useState(says.map(() => ({ contains: "", not: "" })));
+  const [error, setError] = useState<string>();
+  const [done, setDone] = useState(false);
+  const [pending, start] = useTransition();
+  const split = (v: string) => v.split(/[,，]/).map((w) => w.trim()).filter(Boolean);
+  const set = (i: number, k: "contains" | "not", v: string) => setChecks((c) => c.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+
+  function save() {
+    setError(undefined);
+    start(async () => {
+      const res = await saveBotTest(name, pageId, cameFor || null,
+        says.map((s, i) => ({ say: s.say, contains: split(checks[i].contains), not: split(checks[i].not) })));
+      if (!res.ok) { setError(res.error); return; }
+      setDone(true);
+      window.dispatchEvent(new Event(TESTS_CHANGED));
+    });
+  }
+
+  return (
+    <aside className="grid max-h-[80vh] gap-3 overflow-y-auto rounded-xl border border-[var(--bot-line)] bg-[var(--bot-surface)] p-4 lg:sticky lg:top-4" aria-label="เก็บเป็นชุดเทส">
+      <h2 className="text-sm font-semibold">เก็บเป็นชุดเทส</h2>
+      <label className="grid gap-1 text-xs text-[var(--bot-ink-mute)]">
+        ชื่อชุดเทส
+        <input id="test-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className={field} />
+      </label>
+      <p className="text-xs text-[var(--bot-ink-mute)]">ใส่คำที่คำตอบ “ควรมี” หรือ “ไม่ควรมี” คั่นด้วยจุลภาค ปล่อยว่างได้ (แค่ต้องตอบ)</p>
+      {says.map((s, i) => (
+        <div key={i} className="grid gap-1.5 rounded-lg border border-[var(--bot-line)] p-2.5">
+          <p className="text-sm"><b>ลูกค้า:</b> {s.say}</p>
+          <p className="line-clamp-3 whitespace-pre-wrap text-xs text-[var(--bot-ink-mute)]">บอทตอบครั้งนี้: {s.said}</p>
+          <input
+            id={`test-contains-${i}`} value={checks[i].contains} onChange={(e) => set(i, "contains", e.target.value)}
+            placeholder="ควรมีคำว่า เช่น Life Protect, อยากทำประกันเพื่ออะไร" className={field}
+          />
+          <input
+            id={`test-not-${i}`} value={checks[i].not} onChange={(e) => set(i, "not", e.target.value)}
+            placeholder="ไม่ควรมีคำว่า เช่น iShield" className={field}
+          />
+        </div>
+      ))}
+      {error && <p className="text-xs text-[var(--bot-red-ink)]">{error}</p>}
+      {done && <p className="text-xs text-[var(--bot-ok)]">บันทึกแล้ว ดูและรันได้ที่แท็บชุดเทส</p>}
+      <div className="flex gap-2">
+        <button
+          type="button" onClick={save} disabled={pending || done || !name.trim() || !says.length}
+          className="rounded-lg bg-[var(--bot-navy)] px-3 py-2 text-sm text-[var(--bot-surface)] disabled:opacity-40"
+        >
+          {pending ? "กำลังบันทึก…" : "บันทึกชุดเทส"}
+        </button>
+        <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-[var(--bot-ink-mute)] hover:bg-[var(--bot-band)]">
+          {done ? "ปิด" : "ยกเลิก"}
         </button>
       </div>
     </aside>
