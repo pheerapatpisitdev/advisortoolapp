@@ -31,7 +31,7 @@ describe("ElevenLabs speech", () => {
     const f = answer();
     const out = await speakLine("ทักมาได้เลยครับ", "quote-video-voice", { voice: "abc", fetch: f as unknown as typeof fetch });
     expect(out.pcm.length).toBe(48_000);
-    expect(String(f.mock.calls[0][0])).toContain("api.elevenlabs.io");
+    expect(String((f.mock.calls[0] as unknown as [string])[0])).toContain("api.elevenlabs.io");
     expect(usage).toHaveBeenCalledWith("eleven_v3", "quote-video-voice", 0, 56, out.costThb);
   });
 
