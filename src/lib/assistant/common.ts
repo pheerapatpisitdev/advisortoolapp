@@ -746,9 +746,12 @@ function planNamePattern(): RegExp {
  * shown four arrangements including two no company would issue him, and said so.
  *
  * "ถึงอายุ" is excluded: "คุ้มครองถึงอายุ 99 ไหม" is a question about the contract, and reading
- * ninety-nine as the customer's age would answer somebody who does not exist.
+ * ninety-nine as the customer's age would answer somebody who does not exist. So are the other
+ * words `ageAlone` refuses — "ผู้ชาย คุ้มครองจนอายุ 85 ใช่ไหม" was read as a man of 85 through
+ * `peopleIn`'s sex-plus-age fallback, and his quote was wiped (review, 2026-10-11).
  */
-const AGE_ALONE = new RegExp(String.raw`(?<!ถึง\s?)อายุ\s*(\d{1,2})(?!\d)(?:${MONTHS})?|^\s*(\d{1,2})\s*ปี`);
+const CONTRACT_AGE = String.raw`(?:ถึง|หลัง|ก่อน|ตั้งแต่|เกิน|จน|ครบ|ภายใน)\s*`;
+const AGE_ALONE = new RegExp(String.raw`(?<!${CONTRACT_AGE})อายุ\s*(\d{1,2})(?!\d)(?:${MONTHS})?|^\s*(\d{1,2})\s*ปี`);
 
 export function ageIn(text: string): number | undefined {
   return ageSaid(text)?.age ?? ageFromBirthdate(text);
@@ -765,7 +768,7 @@ export function ageIn(text: string): number | undefined {
  */
 export function ageAlone(text: string): number | undefined {
   // "หลังอายุ 60 ทุนเหลือเท่าไหร่" is about the contract, not a new customer
-  if (/(?:ถึง|หลัง|ก่อน|ตั้งแต่|เกิน|จน|ครบ|ภายใน|ไม่เกิน)\s*อายุ/.test(text)) return undefined;
+  if (new RegExp(`${CONTRACT_AGE}อายุ`).test(text)) return undefined;
   if (/อายุ/.test(text)) return ageSaid(text)?.age;
   const m = /^\s*(?:ถ้า|ขอ|แล้ว|เปลี่ยนเป็น|เป็น)?\s*(\d{2})\s*(?:ปี)?\s*(?:ค่ะ|คะ|ครับ|ล่ะ|นะคะ|นะครับ|อีก)?\s*$/.exec(text);
   const age = m ? Number(m[1]) : undefined;
