@@ -17,7 +17,7 @@ export const maxDuration = 300;
 
 export const metadata = {
   title: "วิดีโอนำเสนอ | AdvisorTool",
-  description: "สร้างคลิปนำเสนอแบบประกันแนวตั้ง พร้อมเสียงพากย์และซับไทย",
+  description: "สร้างคลิปนำเสนอแบบประกัน พร้อมเสียงพากย์และซับไทย",
 };
 
 // the menu, the palette and the tabs come from ../layout.tsx
@@ -52,7 +52,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     <div className="max-w-5xl">
       <h1 className="text-xl font-semibold">วิดีโอนำเสนอ</h1>
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
-        ใส่ข้อมูลลูกค้า แล้วได้คลิปแนวตั้งพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
+        ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
       <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} />
     </div>
