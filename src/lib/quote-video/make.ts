@@ -8,7 +8,11 @@ import { speakThai, TTS_RATE } from "@/lib/ai/tts";
 import type { PlanCardInput } from "@/lib/card-link";
 import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
+import { can } from "@/lib/auth/access";
+import type { Viewer } from "@/lib/auth/access";
 import { siteUrl } from "@/lib/site-url";
+import { chargeSatang, formatBaht, holdSatangFor } from "@/lib/wallet/money";
+import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, walletSettings } from "@/lib/wallet/store";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import { getContact, photoDataUri } from "./contact";
@@ -36,6 +40,12 @@ const LINK_SECONDS = 2 * 3600;
 /** a Cloud Run run of one clip: a couple of CPU-minutes, in baht */
 const RENDER_COST_THB = 0.01 * 36;
 export const FAILED = "ทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง";
+/** every agent's free clips, once (owner, 2026-10-11) */
+export const FREE_VIDEOS = 2;
+/** set aside per clip before the multiplier: a clip costs about ฿1 (voice + render) */
+export const VIDEO_HOLD_THB = 2.5;
+/** the round name on the wallet's hold and charge lines */
+export const VIDEO_ROUND = "quote-video";
 
 export type VideoStatus = "drawing" | "rendering" | "done" | "failed";
 export interface VideoInput { variant: string; age: number; sex: "M" | "F"; sumAssured: number }
@@ -51,7 +61,14 @@ export interface VideoRow {
   video_path: string | null;
   duration_sec: number | null;
   error: string | null;
+  paid_by: PaidBy | null;
+  hold_id: string | null;
+  held_satang: number | null;
+  multiplier: number | null;
+  cost_thb: number;
+  charged_satang: number | null;
 }
+export type PaidBy = "staff" | "free" | "wallet";
 
 const rows = () => supabaseAdmin().from("ins_quote_videos");
 const bucket = () => supabaseAdmin().storage.from(VIDEO_BUCKET);
@@ -61,10 +78,68 @@ export const planInput = (v: VideoInput): PlanCardInput => ({
   kind: "plan", planCode: "LIFEPROTECT", variant: v.variant, age: v.age, sex: v.sex, sumAssured: v.sumAssured,
 });
 
-export async function createVideo(agentId: string, input: VideoInput, customer: string): Promise<string> {
-  const { data, error } = await rows().insert({ agent_id: agentId, input, customer_name: customer }).select("id").single();
-  if (error || !data) throw new Error(`video not created: ${error?.message}`);
-  return data.id as string;
+/** How the next clip would be paid for, as the board says it under the button. */
+export type CostView =
+  | { kind: "staff" }
+  | { kind: "free"; left: number; of: number }
+  | { kind: "wallet"; balance: string; about: string; enough: boolean; need: string }
+  | { kind: "closed" };
+
+/** the agent's free clips used: those not failed (a failed one is handed back) */
+async function freeUsed(agentId: string): Promise<number> {
+  const { count, error } = await rows().select("id", { count: "exact", head: true })
+    .eq("agent_id", agentId).eq("paid_by", "free").neq("status", "failed");
+  if (error) throw new Error(`free clips not counted: ${error.message}`);
+  return count ?? 0;
+}
+
+export async function costView(viewer: Viewer): Promise<CostView> {
+  if (can(viewer, "owner")) return { kind: "staff" };
+  const used = await freeUsed(viewer.agentId);
+  if (used < FREE_VIDEOS) return { kind: "free", left: FREE_VIDEOS - used, of: FREE_VIDEOS };
+  const s = await walletSettings().catch(() => null);
+  if (!s?.enabled) return { kind: "closed" };
+  const need = holdSatangFor(VIDEO_HOLD_THB, s.multiplier);
+  const balance = await balanceSatang(viewer.agentId);
+  return { kind: "wallet", balance: formatBaht(balance), about: formatBaht(holdSatangFor(1, s.multiplier)), enough: balance >= need, need: formatBaht(need) };
+}
+
+/**
+ * Starts a clip's row and says who pays: the owner nothing, then the agent's two free clips,
+ * then the wallet — the hold set aside before anything is spent. A refusal is the words to show.
+ */
+export async function createVideo(viewer: Viewer, input: VideoInput, customer: string): Promise<{ id: string } | { refusal: string }> {
+  let pay: Partial<VideoRow> = { paid_by: "staff" };
+  if (!can(viewer, "owner")) {
+    if ((await freeUsed(viewer.agentId)) < FREE_VIDEOS) pay = { paid_by: "free" };
+    else {
+      const s = await walletSettings().catch(() => null);
+      if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${FREE_VIDEOS} ครั้งแล้ว` };
+      const held = holdSatangFor(VIDEO_HOLD_THB, s.multiplier);
+      const hold = await holdWallet(viewer.agentId, held, VIDEO_ROUND).catch((e) => {
+        console.error("quote video hold failed:", e);
+        return null;
+      });
+      if (!hold) {
+        return { refusal: (await walletFrozen(viewer.agentId).catch(() => false))
+          ? "กระเป๋าเงินถูกพักไว้ชั่วคราว — ติดต่อสำนักงานนะครับ"
+          : `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"` };
+      }
+      pay = { paid_by: "wallet", hold_id: hold, held_satang: held, multiplier: s.multiplier };
+    }
+  }
+  const { data, error } = await rows().insert({ agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
+  if (error || !data) {
+    if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
+    throw new Error(`video not created: ${error?.message}`);
+  }
+  return { id: data.id as string };
+}
+
+/** the wallet's hold, if any, given back in full */
+async function release(row: Pick<VideoRow, "hold_id" | "paid_by">): Promise<void> {
+  if (row.paid_by !== "wallet" || !row.hold_id) return;
+  await releaseWallet(row.hold_id).catch((e) => console.error("quote video hold not released:", e));
 }
 
 async function setRow(id: string, patch: Partial<VideoRow>): Promise<void> {
@@ -94,7 +169,10 @@ async function clearInputs(id: string): Promise<void> {
 
 async function fail(id: string, why: unknown): Promise<void> {
   console.error(`quote video ${id} failed:`, why instanceof Error ? why.message : "unknown error");
-  await setRow(id, { status: "failed", error: FAILED }).catch(() => undefined);
+  // only the writer that moves the row to failed gives the hold back
+  const { data } = await rows().update({ status: "failed", error: FAILED, updated_at: new Date().toISOString() })
+    .eq("id", id).in("status", ["drawing", "rendering"]).select("hold_id, paid_by").maybeSingle();
+  if (data) await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
   await clearInputs(id).catch(() => undefined);
 }
 
@@ -116,7 +194,9 @@ export async function produce(id: string, agentName: string): Promise<void> {
     };
     const script = quoteVideoScript(facts, row.customer_name);
 
-    const pcms = await Promise.all(script.map((s) => speakThai(s.voice, VIDEO_TASK_VOICE)));
+    const spoken = await Promise.all(script.map((s) => speakThai(s.voice, VIDEO_TASK_VOICE)));
+    const pcms = spoken.map((s) => s.pcm);
+    await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
     const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: pcmSeconds(pcms[i], TTS_RATE) })));
     const layers = plans.map((p) => (p.key === "legacy" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
     const named = nameFiles(plans, layers);
@@ -191,12 +271,23 @@ export async function videoOfJob(jobId: string): Promise<VideoRow | null> {
 export async function finishVideo(row: VideoRow, state: "done" | "failed", outPath?: string): Promise<void> {
   if (row.status !== "rendering") return;
   if (state === "done" && outPath === `${row.id}/quote.mp4`) {
-    await setRow(row.id, { status: "done", video_path: outPath, error: null });
+    // the row moves once: a callback sent twice settles once
+    const { data, error } = await rows().update({ status: "done", video_path: outPath, error: null, updated_at: new Date().toISOString() })
+      .eq("id", row.id).eq("status", "rendering").select("id").maybeSingle();
+    if (error) throw new Error(`video ${row.id} not finished: ${error.message}`);
+    if (!data) return;
     await asWho(row.agent_id, () => recordUsage("cloudrun", VIDEO_TASK_RENDER, 0, 0, RENDER_COST_THB));
+    const cost = Number(row.cost_thb ?? 0) + RENDER_COST_THB;
+    let charged: number | null = null;
+    if (row.paid_by === "wallet" && row.hold_id && row.held_satang) {
+      charged = await settleWallet(row.hold_id, chargeSatang(cost, Number(row.multiplier ?? 1), Number(row.held_satang)), cost)
+        .catch((e) => { console.error("quote video settle failed:", e); return null; });
+    }
+    await setRow(row.id, { cost_thb: cost, ...(charged !== null ? { charged_satang: charged } : {}) }).catch(() => undefined);
+    await clearInputs(row.id);
   } else {
-    await setRow(row.id, { status: "failed", error: FAILED });
+    await fail(row.id, new Error("render failed"));
   }
-  await clearInputs(row.id);
 }
 
 /** An agent's clips, newest first; any stuck past the time limit is marked failed on the way. */

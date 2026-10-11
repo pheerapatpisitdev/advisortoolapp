@@ -25,8 +25,8 @@ interface GeminiAudio {
   error?: { message?: string };
 }
 
-/** One line spoken; the cost goes on the ledger under `task` (attributed by asWho). */
-export async function speakThai(text: string, task: string, opts: { voice?: string; fetch?: typeof fetch } = {}): Promise<Buffer> {
+/** One line spoken, and what it cost in baht; the cost also goes on the ledger under `task` (attributed by asWho). */
+export async function speakThai(text: string, task: string, opts: { voice?: string; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
   const key = await providerKey("google");
   if (!key) throw new TtsError("ยังไม่ได้ตั้งค่าคีย์ Google สำหรับเสียงพากย์");
   const f = opts.fetch ?? fetch;
@@ -56,6 +56,7 @@ export async function speakThai(text: string, task: string, opts: { voice?: stri
   }
   const inTok = body.usageMetadata?.promptTokenCount ?? 0;
   const outTok = body.usageMetadata?.candidatesTokenCount ?? 0;
-  await recordUsage(TTS_MODEL, task, inTok, outTok, ((inTok * PRICE.in + outTok * PRICE.out) / 1e6) * THB_PER_USD);
-  return Buffer.from(data, "base64");
+  const costThb = ((inTok * PRICE.in + outTok * PRICE.out) / 1e6) * THB_PER_USD;
+  await recordUsage(TTS_MODEL, task, inTok, outTok, costThb);
+  return { pcm: Buffer.from(data, "base64"), costThb };
 }

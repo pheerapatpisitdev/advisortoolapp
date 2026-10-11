@@ -1,6 +1,6 @@
 import { gatePage } from "@/lib/auth/viewer";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
-import { myVideos } from "./actions";
+import { myCost, myVideos } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 
 export const dynamic = "force-dynamic";
@@ -14,9 +14,10 @@ export const metadata = {
 
 // the menu, the palette and the tabs come from ../layout.tsx
 export default async function QuoteVideoPage() {
-  // the owner's alone in round one (owner, 2026-10-11)
-  await gatePage("/studio/quote-video", "owner");
+  // every agent's (owner, 2026-10-11): two free clips, then the wallet
+  await gatePage("/studio/quote-video");
   const t = lifeProtectTable();
+  const cost = await myCost();
   const initial = await myVideos().catch((e) => {
     console.error("quote videos not read:", e);
     return null;
@@ -27,7 +28,7 @@ export default async function QuoteVideoPage() {
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปแนวตั้งพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ageMin={t.ageMin} ageMax={t.ageMax} initial={initial} />
+      <QuoteVideoBoard ageMin={t.ageMin} ageMax={t.ageMax} initial={initial} cost={cost} />
     </div>
   );
 }

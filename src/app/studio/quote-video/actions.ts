@@ -1,13 +1,14 @@
 "use server";
 import { after } from "next/server";
 import { asWho } from "@/lib/ai/who";
-import { requireStaff } from "@/lib/auth/viewer";
+import { requireMember } from "@/lib/auth/viewer";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { createVideo, listVideos, planInput, produce, videoLink, type VideoInput, type VideoStatus } from "@/lib/quote-video/make";
+import { costView, createVideo, listVideos, planInput, produce, videoLink, type CostView, type VideoInput, type VideoStatus } from "@/lib/quote-video/make";
+import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, quoteVideoFacts } from "@/lib/quote-video/script";
 
-/** วิดีโอนำเสนอ (owner, 2026-10-11): the owner's alone in round one. */
+/** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
 
 const VARIANTS = ["WLF09H", "WLF19H"] as const;
 const SUM_MIN = 500_000;
@@ -24,6 +25,8 @@ export interface VideoItem {
   watch: string | null;
   save: string | null;
   share: string | null;
+  /** "ใช้สิทธิ์ฟรี", "หักจากกระเป๋า ฿1.90"; null for the owner's */
+  paid: string | null;
 }
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
@@ -39,7 +42,7 @@ function checked(v: VideoInput): VideoInput | string {
 }
 
 export async function previewQuote(v: VideoInput): Promise<Preview | { error: string }> {
-  await requireStaff("owner");
+  await requireMember();
   const c = checked(v);
   if (typeof c === "string") return { error: c };
   const f = quoteVideoFacts(planInput(c));
@@ -48,7 +51,7 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
 }
 
 export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
-  const viewer = await requireStaff("owner");
+  const viewer = await requireMember();
   const c = checked(v);
   if (typeof c === "string") return { ok: false, error: c };
   if (!quoteVideoFacts(planInput(c))) return { ok: false, error: "แผนนี้คิดราคาไม่ได้ ลองเปลี่ยนอายุหรือทุน" };
@@ -57,7 +60,9 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
   }
   try {
-    const id = await createVideo(viewer.agentId, c, cleanCustomerName(customer));
+    const made = await createVideo(viewer, c, cleanCustomerName(customer));
+    if ("refusal" in made) return { ok: false, error: made.refusal };
+    const { id } = made;
     // the making outlives this answer: the board polls the row
     after(() => asWho(viewer.agentId, () => produce(id, viewer.name.trim())));
     return { ok: true, id };
@@ -70,8 +75,17 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
 const SEX = { M: "ชาย", F: "หญิง" } as const;
 const sumWords = (n: number) => (n % 1_000_000 === 0 ? `${n / 1_000_000} ล้าน` : n.toLocaleString("en-US"));
 
+/** how the next clip would be paid for */
+export async function myCost(): Promise<CostView | null> {
+  const viewer = await requireMember();
+  return costView(viewer).catch((e) => {
+    console.error("quote video cost not read:", e);
+    return null;
+  });
+}
+
 export async function myVideos(): Promise<VideoItem[]> {
-  const viewer = await requireStaff("owner");
+  const viewer = await requireMember();
   const list = await listVideos(viewer.agentId);
   return Promise.all(list.map(async (v) => {
     const years = v.input.variant === "WLF09H" ? 9 : 19;
@@ -88,6 +102,11 @@ export async function myVideos(): Promise<VideoItem[]> {
       save: done ? await videoLink(v.video_path!, 3600, file) : null,
       // a link that can go to a customer: a week
       share: done ? await videoLink(v.video_path!, 7 * 24 * 3600) : null,
+      paid: v.paid_by === "free"
+        ? (v.status === "failed" ? "คืนสิทธิ์ฟรีแล้ว" : "ใช้สิทธิ์ฟรี")
+        : v.paid_by === "wallet"
+          ? (v.status === "failed" ? "คืนเงินแล้ว" : v.charged_satang !== null ? `หักจากกระเป๋า ${formatBaht(Number(v.charged_satang))}` : "กันเงินไว้ระหว่างทำ")
+          : null,
     };
   }));
 }

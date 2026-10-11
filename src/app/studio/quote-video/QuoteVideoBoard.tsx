@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { VideoInput } from "@/lib/quote-video/make";
-import { makeVideo, myVideos, previewQuote, type Preview, type VideoItem } from "./actions";
+import type { CostView, VideoInput } from "@/lib/quote-video/make";
+import { makeVideo, myCost, myVideos, previewQuote, type Preview, type VideoItem } from "./actions";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
@@ -13,7 +13,18 @@ const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no
 const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" });
 const STATUS: Record<VideoItem["status"], string> = { drawing: "กำลังทำเสียงและภาพ…", rendering: "กำลังรวมเป็นวิดีโอ…", done: "เสร็จ", failed: "ไม่สำเร็จ" };
 
-export function QuoteVideoBoard({ ageMin, ageMax, initial }: { ageMin: number; ageMax: number; initial: VideoItem[] | null }) {
+/** what the next clip costs, under the button */
+function costLine(c: CostView | null): { text: string; blocked: boolean; topUp: boolean } | null {
+  if (!c) return null;
+  if (c.kind === "staff") return { text: "เจ้าของใช้ฟรี", blocked: false, topUp: false };
+  if (c.kind === "free") return { text: `ใช้วิดีโอฟรี 1 ครั้ง · เหลือ ${c.left}/${c.of} ครั้ง`, blocked: false, topUp: false };
+  if (c.kind === "closed") return { text: "ใช้วิดีโอฟรีครบแล้ว", blocked: true, topUp: false };
+  return c.enough
+    ? { text: `ใช้วิดีโอฟรีครบแล้ว · หักจากกระเป๋าประมาณ ${c.about} (ยอดคงเหลือ ${c.balance})`, blocked: false, topUp: false }
+    : { text: `ยอดในกระเป๋าไม่พอ (ต้องมีอย่างน้อย ${c.need} · ยอดคงเหลือ ${c.balance})`, blocked: true, topUp: true };
+}
+
+export function QuoteVideoBoard({ ageMin, ageMax, initial, cost: firstCost }: { ageMin: number; ageMax: number; initial: VideoItem[] | null; cost: CostView | null }) {
   const [sex, setSex] = useState<"M" | "F">("M");
   const [age, setAge] = useState("35");
   const [sum, setSum] = useState("1,000,000");
@@ -24,6 +35,8 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial }: { ageMin: number; a
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
   const [copied, setCopied] = useState<string | null>(null);
+  const [cost, setCost] = useState<CostView | null>(firstCost);
+  const line = costLine(cost);
 
   const input = (): VideoInput => ({ variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")) });
 
@@ -43,7 +56,11 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial }: { ageMin: number; a
   useEffect(() => {
     if (!pending) return;
     const t = setInterval(() => { myVideos().then(setItems).catch(() => undefined); }, 4000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      // a clip that ended may have given a free clip or money back
+      myCost().then(setCost).catch(() => undefined);
+    };
   }, [pending]);
 
   async function make() {
@@ -53,6 +70,7 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial }: { ageMin: number; a
       const r = await makeVideo(input(), customer);
       if (!r.ok) setError({ text: r.error, contact: r.needContact });
       else setItems(await myVideos());
+      setCost(await myCost());
     } catch {
       setError({ text: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" });
     } finally {
@@ -133,8 +151,14 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial }: { ageMin: number; a
             {error.contact && <Link href="/studio/account" className="font-medium underline">ไปที่บัญชีของฉัน</Link>}
           </p>
         )}
+        {line && (
+          <p className={`rounded-lg px-3 py-2 text-sm ${line.blocked ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-soft)]"}`}>
+            {line.text}{" "}
+            {line.topUp && <Link href="/studio/wallet" className="font-medium underline">เติมเงิน</Link>}
+          </p>
+        )}
         <button
-          type="button" onClick={make} disabled={busy || !ok}
+          type="button" onClick={make} disabled={busy || !ok || Boolean(line?.blocked)}
           className="rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
         >
           {busy ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
@@ -151,7 +175,7 @@ export function QuoteVideoBoard({ ageMin, ageMax, initial }: { ageMin: number; a
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-medium">{v.title}</p>
-                <p className="text-xs text-[var(--ct-mute)]">{when(v.createdAt)}</p>
+                <p className="text-xs text-[var(--ct-mute)]">{when(v.createdAt)}{v.paid ? ` · ${v.paid}` : ""}</p>
               </div>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${v.status === "done" ? "bg-[var(--ct-soft)] text-[var(--ct-accent)]" : v.status === "failed" ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}>
                 {STATUS[v.status]}

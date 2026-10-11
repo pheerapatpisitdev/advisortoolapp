@@ -188,19 +188,19 @@ describe("what the menu shows to somebody who has not signed in", () => {
 describe("Studio's own menu", () => {
   it("lists Studio's pages and a way back to the main system", () => {
     const links = studioMenu().flatMap((g) => g.links);
-    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/home"]);
+    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/quote-video", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/home"]);
   });
 
   it("keeps the front page for admins and assistants, the back office for admins; agents start at the workbench", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
     // the calendar is every agent's: a Page's for those who post, a plan for the rest (owner, 2026-09-30)
-    expect(hrefs(who)).toEqual(["/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/home"]);
-    expect(hrefs({ ...who, admin: true, publish: true })).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/admin", "/home"]);
+    expect(hrefs(who)).toEqual(["/studio/write", "/studio/quote-video", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/home"]);
+    expect(hrefs({ ...who, admin: true, publish: true })).toEqual(["/studio", "/studio/write", "/studio/quote-video", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/admin", "/home"]);
     // an assistant has an agent's Studio and the front page to choose among their Pages (owner, 2026-10-02)
     expect(hrefs({ ...who, publish: true })).toEqual(["/studio", ...hrefs(who)]);
     // the Messenger stays with the "connect" tick, which the owner gives or takes on /admin/team
-    expect(hrefs({ ...who, publish: true, connect: true })).toEqual(["/studio", "/studio/write", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/admin/messenger", "/home"]);
+    expect(hrefs({ ...who, publish: true, connect: true })).toEqual(["/studio", "/studio/write", "/studio/quote-video", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/admin/messenger", "/home"]);
   });
 
   it("lists ถอดรูปเป็น prompt for everyone who has Studio, right after the people library and before the ad launch", () => {
@@ -273,10 +273,10 @@ describe("Studio's own menu", () => {
     expect(hrefs(base)).toContain("/studio/account");
   });
 
-  it("keeps วิดีโอนำเสนอ the owner's in round one (owner, 2026-10-11)", () => {
-    const base = { name: "ก", room: "r", publish: true, connect: false, admin: true, owner: false };
+  it("gives every agent วิดีโอนำเสนอ: two free clips, then the wallet (owner, 2026-10-11)", () => {
+    const base = { name: "ก", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (who: typeof base) => studioMenu(who).flatMap((g) => g.links.map((l) => l.href));
-    expect(hrefs(base)).not.toContain("/studio/quote-video");
+    expect(hrefs(base)).toContain("/studio/quote-video");
     expect(hrefs({ ...base, owner: true })).toContain("/studio/quote-video");
   });
 
