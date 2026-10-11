@@ -16,6 +16,7 @@
   "dependencies": {
     "@aws-sdk/client-lambda": "^3.1145.0",
     "@resvg/resvg-wasm": "2.6.2",
+    "@sentry/nextjs": "10.75.3",
     "@sparticuz/chromium": "^153.0.0",
     "@supabase/supabase-js": "^2.114.0",
     "next": "15.5.25",
