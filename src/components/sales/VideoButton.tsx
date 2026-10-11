@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { canMakeVideo } from "@/app/studio/quote-video/actions";
+import { canMakeVideo } from "./video-access";
 
 /** asked once per page load, whichever buttons ask */
 let asked: Promise<boolean> | null = null;

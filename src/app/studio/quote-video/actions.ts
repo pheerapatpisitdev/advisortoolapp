@@ -2,7 +2,7 @@
 import { after } from "next/server";
 import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
-import { getViewer, requireMember, requireStaff } from "@/lib/auth/viewer";
+import { requireMember, requireStaff } from "@/lib/auth/viewer";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
@@ -151,11 +151,6 @@ export async function addToCalendar(id: string, pageId: string, caption: string)
     console.error("quote video not put on the calendar:", e instanceof Error ? e.message : "unknown error");
     return { ok: false, error: "เพิ่มลงปฏิทินไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
-}
-
-/** whether the person looking at a sales page is an agent who can make a clip (VideoButton) */
-export async function canMakeVideo(): Promise<boolean> {
-  return Boolean(await getViewer().catch(() => null));
 }
 
 /** how the next clip would be paid for */
