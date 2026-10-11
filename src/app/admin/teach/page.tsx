@@ -4,6 +4,9 @@ import { pageConnections } from "@/lib/facebook/connection";
 import { isExpatPage } from "@/lib/assistant/expat";
 import { Card, Empty } from "../ui";
 import { TestChat } from "./TestChat";
+import { TaughtList } from "./TaughtList";
+import { TeachTabs } from "./TeachTabs";
+import { listTaught } from "./actions";
 
 export const dynamic = "force-dynamic";
 /** a turn can reach a model, and a model is given up to a minute by the inbox too */
@@ -14,12 +17,18 @@ export const metadata: Metadata = { title: "ห้องสอนบอท | Adv
  * ห้องสอนบอท (owner, 2026-10-11): the owner talks to the bot as a customer of one Page, sees
  * where each answer came from, and teaches an answer word for word where the bot's was wrong.
  */
-export default async function TeachPage() {
+export default async function TeachPage({ searchParams }: { searchParams: Promise<{ q?: string; tab?: string }> }) {
   await gatePage("/admin/teach", "admin");
-  const pages = await pageConnections().catch((e) => {
-    console.error("pages unreadable:", e);
-    return null;
-  });
+  const [pages, taught, params] = await Promise.all([
+    pageConnections().catch((e) => {
+      console.error("pages unreadable:", e);
+      return null;
+    }),
+    listTaught(),
+    searchParams,
+  ]);
+  // a question brought from /admin/crm's unanswered list opens the teaching panel with it
+  const brought = typeof params.q === "string" ? params.q.slice(0, 200) : undefined;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -33,7 +42,24 @@ export default async function TeachPage() {
       ) : !pages.length ? (
         <Card title="ยังไม่มีเพจ"><Empty>เชื่อมเพจที่หน้า Messenger ก่อน</Empty></Card>
       ) : (
-        <TestChat pages={pages.map((p) => ({ id: p.pageId, name: p.pageName, expat: isExpatPage(p.pageId) }))} />
+        (() => {
+          const choices = pages.map((p) => ({ id: p.pageId, name: p.pageName, expat: isExpatPage(p.pageId) }));
+          return (
+            <TeachTabs
+              first={params.tab}
+              tabs={[
+                { key: "chat", label: "แชททดลอง", content: <TestChat pages={choices} question={brought} /> },
+                {
+                  key: "taught",
+                  label: taught.ok ? `คำตอบที่สอนไว้ (${taught.rows.length})` : "คำตอบที่สอนไว้",
+                  content: taught.ok
+                    ? <TaughtList initial={taught.rows} pages={choices} />
+                    : <Card title="อ่านรายการไม่สำเร็จ"><Empty>{taught.error}</Empty></Card>,
+                },
+              ]}
+            />
+          );
+        })()
       )}
     </div>
   );

@@ -22,6 +22,7 @@ vi.mock("@/lib/chat/page-welcome-store", () => ({ loadWelcome: async () => undef
 vi.mock("@/lib/chat/lessons-store", () => ({
   loadLessons: async () => [{ id: "tax", question: "ลดหย่อนภาษีได้ไหม", answer: "ได้ครับ สูงสุด 100,000 บาท", phrasings: [], pageId: null }],
 }));
+const updated: { row: Record<string, unknown>; id: unknown }[] = [];
 vi.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: () => ({
     from: () => ({
@@ -29,11 +30,22 @@ vi.mock("@/lib/supabase/admin", () => ({
         inserted.push(row);
         return { select: () => ({ single: async () => ({ data: { id: "new-id" }, error: null }) }) };
       },
+      update: (row: Record<string, unknown>) => ({
+        eq: async (_: string, id: unknown) => { updated.push({ row, id }); return { error: null }; },
+      }),
+      select: () => ({
+        order: () => ({
+          limit: async () => ({
+            data: [{ id: "a", question: "ลดหย่อนภาษีได้ไหม", answer: "ได้", phrasings: null, page_id: null, strict: true, enabled: true, hits: 3, last_hit_at: null, updated_at: "2026-10-11T00:00:00Z" }],
+            error: null,
+          }),
+        }),
+      }),
     }),
   }),
 }));
 
-const { teachLesson, tryBot } = await import("@/app/admin/teach/actions");
+const { listTaught, teachLesson, tryBot, updateTaught } = await import("@/app/admin/teach/actions");
 const { noteAfterAnswer, rehearse } = await import("@/lib/assistant/unanswered");
 
 describe("the test chat", () => {
@@ -80,5 +92,31 @@ describe("teaching an answer", () => {
   it("refuses a Page that is not connected", async () => {
     const res = await teachLesson({ question: "สาขาอุดรมีไหม", answer: "มีค่ะ", phrasings: [], pageId: "999" });
     expect(res).toEqual({ ok: false, error: "ไม่พบเพจนี้" });
+  });
+});
+
+describe("the taught answers", () => {
+  it("are listed with how often they answered", async () => {
+    const res = await listTaught();
+    expect(res.ok && res.rows[0]).toMatchObject({ id: "a", strict: true, hits: 3, phrasings: [], pageId: null });
+  });
+
+  it("can become a note for the model, figure and all", async () => {
+    updated.length = 0;
+    const res = await updateTaught("a", { question: "ทุน 1 ล้านเบี้ยเท่าไหร่", answer: "แล้วแต่อายุ", phrasings: [], pageId: null, strict: false });
+    expect(res).toEqual({ ok: true });
+    expect(updated[0]).toMatchObject({ id: "a", row: { strict: false, question: "ทุน 1 ล้านเบี้ยเท่าไหร่" } });
+  });
+
+  it("cannot become บังคับตอบ with a figure in the question", async () => {
+    const res = await updateTaught("a", { question: "ทุน 1 ล้านเบี้ยเท่าไหร่", answer: "แล้วแต่อายุ", phrasings: [], pageId: null, strict: true });
+    expect(res.ok).toBe(false);
+  });
+
+  it("are taught as notes for the model when asked to", async () => {
+    inserted.length = 0;
+    const res = await teachLesson({ question: "ทุน 1 ล้านเบี้ยเท่าไหร่", answer: "แล้วแต่อายุ", phrasings: [], pageId: null, strict: false });
+    expect(res.ok).toBe(true);
+    expect(inserted[0]).toMatchObject({ strict: false });
   });
 });

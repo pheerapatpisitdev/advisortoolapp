@@ -115,6 +115,8 @@ export interface TeachInput {
   phrasings: string[];
   /** this Page only, or every Page and LINE */
   pageId: string | null;
+  /** บังคับตอบ (the default here) or a note for the model */
+  strict?: boolean;
 }
 
 /**
@@ -129,7 +131,8 @@ export async function teachLesson(input: TeachInput): Promise<Result<{ id: strin
   const phrasings = [...new Set((Array.isArray(input?.phrasings) ? input.phrasings : [])
     .map((p) => String(p).trim().slice(0, MAX_Q)).filter(Boolean))].slice(0, MAX_PHRASINGS);
   if (question.length < 2 || answer.length < 2) return { ok: false, error: "พิมพ์คำถามและคำตอบก่อนบันทึก" };
-  const numbered = [question, ...phrasings].find((q) => !teachable(q));
+  const strict = input?.strict ?? true;
+  const numbered = strict ? [question, ...phrasings].find((q) => !teachable(q)) : undefined;
   if (numbered) {
     return {
       ok: false,
@@ -140,11 +143,11 @@ export async function teachLesson(input: TeachInput): Promise<Result<{ id: strin
   if (input?.pageId && !pageId) return { ok: false, error: "ไม่พบเพจนี้" };
   try {
     const { data, error } = await supabaseAdmin().from("ins_faq")
-      .insert({ question, answer, phrasings, page_id: pageId, strict: true, enabled: true })
+      .insert({ question, answer, phrasings, page_id: pageId, strict, enabled: true })
       .select("id").single();
     if (error) throw new Error(error.message);
     const id = String((data as { id: unknown }).id);
-    await audit("teach-lesson", id, { question, pageId, phrasings: phrasings.length });
+    await audit("teach-lesson", id, { question, pageId, strict, phrasings: phrasings.length });
     revalidatePath("/admin/knowledge");
     return { ok: true, id };
   } catch (e) {
@@ -166,4 +169,81 @@ export async function reportProblem(asked: string, said: string, pageId: string 
   await recordUnanswered({ question: `${question} → บอทตอบ: ${answer}`, route: "ห้องสอนบอท", intent: "report" });
   await audit("teach-report", pageId, { question });
   return { ok: true };
+}
+
+/** One row of ins_faq as the คำตอบที่สอนไว้ tab lists it: taught answers and the model's notes alike. */
+export interface Taught {
+  id: string;
+  question: string;
+  answer: string;
+  phrasings: string[];
+  pageId: string | null;
+  /** บังคับตอบ: sent word for word; otherwise a note the model reads */
+  strict: boolean;
+  enabled: boolean;
+  hits: number;
+  lastHitAt: string | null;
+  updatedAt: string;
+}
+
+/** more than the owner will write by hand; the tab filters in the browser */
+const MOST_TAUGHT = 500;
+
+export async function listTaught(): Promise<Result<{ rows: Taught[] }>> {
+  await requireStaff("admin");
+  try {
+    const { data, error } = await supabaseAdmin().from("ins_faq")
+      .select("id, question, answer, phrasings, page_id, strict, enabled, hits, last_hit_at, updated_at")
+      .order("updated_at", { ascending: false }).limit(MOST_TAUGHT);
+    if (error) throw new Error(error.message);
+    return {
+      ok: true,
+      rows: ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        id: String(r.id),
+        question: String(r.question),
+        answer: String(r.answer),
+        phrasings: Array.isArray(r.phrasings) ? r.phrasings.map(String) : [],
+        pageId: r.page_id ? String(r.page_id) : null,
+        strict: Boolean(r.strict),
+        enabled: Boolean(r.enabled),
+        hits: Number(r.hits ?? 0),
+        lastHitAt: r.last_hit_at ? String(r.last_hit_at) : null,
+        updatedAt: String(r.updated_at),
+      })),
+    };
+  } catch (e) {
+    console.error("taught answers unreadable:", e);
+    return { ok: false, error: "อ่านรายการไม่สำเร็จ ลองรีเฟรชหน้านี้" };
+  }
+}
+
+/**
+ * Saves an edit, and the switch between บังคับตอบ and a note for the model. Switching a row to
+ * บังคับตอบ is held to the same rule as teaching one: no question with a figure in it.
+ */
+export async function updateTaught(id: string, input: TeachInput & { strict: boolean }): Promise<Result> {
+  await requireStaff("admin");
+  if (typeof id !== "string" || !id) return { ok: false, error: "ไม่พบรายการนี้" };
+  const question = String(input?.question ?? "").trim().slice(0, MAX_Q);
+  const answer = String(input?.answer ?? "").trim().slice(0, MAX_A);
+  const phrasings = [...new Set((Array.isArray(input?.phrasings) ? input.phrasings : [])
+    .map((p) => String(p).trim().slice(0, MAX_Q)).filter(Boolean))].slice(0, MAX_PHRASINGS);
+  const strict = Boolean(input?.strict);
+  if (question.length < 2 || answer.length < 2) return { ok: false, error: "พิมพ์คำถามและคำตอบก่อนบันทึก" };
+  const numbered = strict ? [question, ...phrasings].find((q) => !teachable(q)) : undefined;
+  if (numbered) return { ok: false, error: `“${numbered}” มีตัวเลข ใช้แบบบังคับตอบไม่ได้ เลือก “ให้ AI อ้างอิง” แทน` };
+  const pageId = input?.pageId ? await pageOf(input.pageId).catch(() => undefined) : null;
+  if (input?.pageId && !pageId) return { ok: false, error: "ไม่พบเพจนี้" };
+  try {
+    const { error } = await supabaseAdmin().from("ins_faq")
+      .update({ question, answer, phrasings, page_id: pageId, strict, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    await audit("teach-edit", id, { question, strict, pageId });
+    revalidatePath("/admin/knowledge");
+    return { ok: true };
+  } catch (e) {
+    console.error("taught answer not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
 }

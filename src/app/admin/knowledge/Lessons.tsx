@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { teachable } from "@/lib/assistant/lessons";
 import { applyLesson, reviewChatsNow, skipLesson, type ChatReview, type Lesson } from "./actions";
 
 /**
@@ -73,6 +74,14 @@ function LessonRow({ lesson, onGone }: { lesson: Lesson; onGone: () => void }) {
           className="rounded-lg bg-[var(--bot-navy)] px-4 py-2 text-sm text-[var(--bot-surface)] disabled:opacity-40"
         >
           {pending ? "กำลังบันทึก…" : "ใช้"}
+        </button>
+        <button
+          type="button" disabled={pending || unchecked || !q.trim() || !a.trim() || !teachable(q)}
+          title={teachable(q) ? "บอทจะส่งคำตอบนี้ทุกคำเมื่อลูกค้าถามคำถามนี้" : "คำถามมีตัวเลข ใช้แบบบังคับตอบไม่ได้"}
+          onClick={() => act(() => applyLesson(lesson.id, q, a, true))}
+          className="rounded-lg border border-[var(--bot-navy)] px-4 py-2 text-sm text-[var(--bot-navy)] hover:bg-[var(--bot-navy-soft)] disabled:opacity-40"
+        >
+          ใช้แบบบังคับตอบ
         </button>
         <button
           type="button" disabled={pending}

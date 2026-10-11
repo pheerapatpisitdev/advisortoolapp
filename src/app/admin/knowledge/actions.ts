@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { ContentWord, WordKind } from "@/lib/content/check";
 import { addWord, deleteWord, listWords } from "@/lib/content/store";
 import { requireStaff } from "@/lib/auth/viewer";
+import { teachable } from "@/lib/assistant/lessons";
 
 /**
  * What the assistant knows on top of the plan rules.
@@ -197,15 +198,20 @@ export async function listLessons(): Promise<{ review: ChatReview | null; lesson
 }
 
 /** The owner's ใช้: the answer as they left it, into the notes the AI reads. */
-export async function applyLesson(id: number, question: string, answer: string): Promise<Result> {
+/**
+ * `strict` saves it as a taught answer the bot sends word for word (/admin/teach) rather than a
+ * note the model reads — refused for a question with a figure in it, for the reason teachable gives.
+ */
+export async function applyLesson(id: number, question: string, answer: string, strict = false): Promise<Result> {
   await requireStaff("admin");
   const q = question.trim().slice(0, MAX_Q);
   const a = answer.trim().slice(0, MAX_A);
   if (q.length < 4 || a.length < 4) return { ok: false, error: "คำถามหรือคำตอบสั้นเกินไปครับ" };
   if (/\[ตรวจ:/.test(a)) return { ok: false, error: "ยังมีจุด [ตรวจ: …] ในคำตอบ แก้ให้เรียบร้อยก่อนกดใช้นะครับ" };
+  if (strict && !teachable(q)) return { ok: false, error: "คำถามนี้มีตัวเลข ใช้แบบบังคับตอบไม่ได้ กด “ใช้” ให้ AI อ้างอิงแทน" };
   try {
     const db = supabaseAdmin();
-    const faq = await db.from("ins_faq").insert({ question: q, answer: a, enabled: true }).select("id").single();
+    const faq = await db.from("ins_faq").insert({ question: q, answer: a, enabled: true, strict: Boolean(strict) }).select("id").single();
     if (faq.error || !faq.data) throw new Error(faq.error?.message ?? "no row");
     const { error } = await db.from("ins_chat_review_items")
       .update({ status: "used", faq_id: (faq.data as { id: string }).id, decided_at: new Date().toISOString(), question: q, answer: a })
