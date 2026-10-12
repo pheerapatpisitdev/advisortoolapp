@@ -87,6 +87,12 @@ export interface IHealthyWords {
   /** the benefit table's row title for the same rider, which carries its figure in the cell */
   dailyCashRow: string;
   riderCount: (count: number) => string;
+  /** each rider's short name on a card, and the pieces after it */
+  riderShort: Record<string, string>;
+  riderVariant: Record<string, string>;
+  sumShort: (sum: string) => string;
+  planShort: (plan: string) => string;
+  andMore: (count: number) => string;
   dciTitle: (sum: string) => string;
   dciNote: string;
   death: DeathWords;
@@ -309,6 +315,23 @@ const th: IHealthyWords = {
   dailyCash: (perDay) => `ค่าชดเชยรายวัน ${n(perDay)} บาท`,
   dailyCashRow: "ค่าชดเชยรายวัน",
   riderCount: (count) => `สัญญาเพิ่มเติม ${count} รายการ`,
+  riderShort: {
+    MEB: "ค่ารักษาพยาบาล MEB",
+    MEX: "ค่ารักษาพยาบาลพิเศษ MEX",
+    DCI: "โรคร้ายแรง DCI",
+    CI123: "โรคร้ายแรง CI 123",
+    CPR: "มะเร็ง CPR",
+    RRSS: "โรคร้ายโซชิลด์",
+    AP: "อุบัติเหตุ AP",
+    ECARE: "อุบัติเหตุ ECARE",
+    PLS: "คุ้มครองชีวิต",
+    WP: "ยกเว้นเบี้ย WP",
+    PB: "ผู้ชำระเบี้ย PB",
+  },
+  riderVariant: { FIT: "ฟิต", BEYOND: "บียอนด์" },
+  sumShort: (s) => `ทุน ${s}`,
+  planShort: (p) => `แผน ${p}`,
+  andMore: (c) => `และอีก ${c} รายการ`,
   dciTitle: (sum) => `DCI คุ้มครองโรคร้ายแรง ${sum} บาท · 31 โรค`,
   dciNote: "เป็นไปตามคำนิยามและเงื่อนไขในกรมธรรม์",
   death: {
@@ -450,6 +473,23 @@ const en: IHealthyWords = {
   dailyCash: (perDay) => `Daily hospital cash ${n(perDay)} baht`,
   dailyCashRow: "Daily hospital cash",
   riderCount: (count) => `${count} additional riders`,
+  riderShort: {
+    MEB: "Medical expense MEB",
+    MEX: "Extra medical MEX",
+    DCI: "Critical illness DCI",
+    CI123: "Critical illness CI 123",
+    CPR: "Cancer CPR",
+    RRSS: "So Shield critical illness",
+    AP: "Accident AP",
+    ECARE: "Accident ECARE",
+    PLS: "Extra life cover",
+    WP: "Premium waiver WP",
+    PB: "Payor benefit PB",
+  },
+  riderVariant: { FIT: "Fit", BEYOND: "Beyond" },
+  sumShort: (s) => `sum ${s}`,
+  planShort: (p) => `plan ${p}`,
+  andMore: (c) => `and ${c} more`,
   dciTitle: (sum) => `DCI critical illness cover ${sum} baht · 31 illnesses`,
   dciNote: "As defined in, and subject to the conditions of, the policy",
   death: {
@@ -656,6 +696,23 @@ const zh: IHealthyWords = {
   dailyCash: (perDay) => `住院每日津贴 ${n(perDay)} 泰铢`,
   dailyCashRow: "住院每日津贴",
   riderCount: (count) => `附加合同 ${count} 项`,
+  riderShort: {
+    MEB: "医疗费用 MEB",
+    MEX: "额外医疗 MEX",
+    DCI: "重大疾病 DCI",
+    CI123: "重大疾病 CI 123",
+    CPR: "癌症 CPR",
+    RRSS: "So Shield 重大疾病",
+    AP: "意外 AP",
+    ECARE: "意外 ECARE",
+    PLS: "附加寿险",
+    WP: "保费豁免 WP",
+    PB: "付款人保障 PB",
+  },
+  riderVariant: { FIT: "Fit", BEYOND: "Beyond" },
+  sumShort: (s) => `保额 ${s}`,
+  planShort: (p) => `计划 ${p}`,
+  andMore: (c) => `另有 ${c} 项`,
   dciTitle: (sum) => `DCI 重大疾病保障 ${sum} 泰铢 · 31种疾病`,
   dciNote: "以保单中的定义及条件为准",
   death: {
@@ -852,6 +909,23 @@ const ru: IHealthyWords = {
   dailyCash: (perDay) => `Суточные при госпитализации ${n(perDay)} бат`,
   dailyCashRow: "Суточные при госпитализации",
   riderCount: (count) => `Дополнительных договоров: ${count}`,
+  riderShort: {
+    MEB: "Мед. расходы MEB",
+    MEX: "Доп. мед. расходы MEX",
+    DCI: "Тяжёлые заболевания DCI",
+    CI123: "Тяжёлые заболевания CI 123",
+    CPR: "Рак CPR",
+    RRSS: "So Shield — тяжёлые заболевания",
+    AP: "Несчастный случай AP",
+    ECARE: "Несчастный случай ECARE",
+    PLS: "Доп. страхование жизни",
+    WP: "Освобождение от взносов WP",
+    PB: "Защита плательщика PB",
+  },
+  riderVariant: { FIT: "Fit", BEYOND: "Beyond" },
+  sumShort: (s) => `сумма ${s}`,
+  planShort: (p) => `план ${p}`,
+  andMore: (c) => `и ещё ${c}`,
   dciTitle: (sum) => `DCI — критические заболевания ${sum} бат · 31 заболевание`,
   dciNote: "Согласно определениям и условиям полиса",
   death: {
@@ -1050,6 +1124,23 @@ const my: IHealthyWords = {
   dailyCash: (perDay) => `ဆေးရုံတက် နေ့စဉ်ထောက်ပံ့ငွေ ${n(perDay)} ဘတ်`,
   dailyCashRow: "ဆေးရုံတက် နေ့စဉ်ထောက်ပံ့ငွေ",
   riderCount: (count) => `ဖြည့်စွက်စာချုပ် ${count} ခု`,
+  riderShort: {
+    MEB: "ဆေးကုသစရိတ် MEB",
+    MEX: "အပိုဆေးကုသစရိတ် MEX",
+    DCI: "ပြင်းထန်သောရောဂါ DCI",
+    CI123: "ပြင်းထန်သောရောဂါ CI 123",
+    CPR: "ကင်ဆာ CPR",
+    RRSS: "So Shield ပြင်းထန်သောရောဂါ",
+    AP: "မတော်တဆမှု AP",
+    ECARE: "မတော်တဆမှု ECARE",
+    PLS: "အသက်အာမခံ ထပ်ဆောင်း",
+    WP: "ပရီမီယံ ကင်းလွတ်ခွင့် WP",
+    PB: "ပေးသူ အကာအကွယ် PB",
+  },
+  riderVariant: { FIT: "Fit", BEYOND: "Beyond" },
+  sumShort: (s) => `အာမခံငွေ ${s}`,
+  planShort: (p) => `အစီအစဉ် ${p}`,
+  andMore: (c) => `နောက်ထပ် ${c} ခု`,
   dciTitle: (sum) => `DCI ပြင်းထန်သောရောဂါ အကာအကွယ် ${sum} ဘတ် · ရောဂါ 31 မျိုး`,
   dciNote: "ပေါ်လစီပါ အဓိပ္ပာယ်ဖွင့်ဆိုချက်နှင့် စည်းကမ်းချက်များအတိုင်း",
   death: {

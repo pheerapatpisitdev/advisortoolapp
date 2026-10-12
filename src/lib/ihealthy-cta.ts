@@ -65,10 +65,11 @@ export interface IHealthyCtaFacts {
    */
   shown: IHealthyShown | undefined;
   /**
-   * What the attached riders are called, already in the reader's language. The engine names
-   * them in Thai, and `shown.standard.label` is that Thai; left out, the Thai is used.
+   * What the attached riders are called, a line each, already in the reader's language. The
+   * engine names them in Thai, and `shown.standard.label` is that Thai; left out, the Thai is
+   * used.
    */
-  standardLabel?: string;
+  standardLabel?: string | string[];
 }
 
 /**
@@ -139,7 +140,9 @@ export function iHealthyQuoteText(f: IHealthyCtaFacts, w: IHealthyWords = WORDS.
     // the daily cash the agency attaches as standard; above the age it is written at there
     // is no line rather than a line of nothing. Its premium is what says whether it is on the
     // arrangement at all, which is the last thing a premium is read for here.
-    ...(shown.standard && shown.standard.total > 0 ? [`- ${f.standardLabel ?? shown.standard.label}`] : []),
+    ...(shown.standard && shown.standard.total > 0
+      ? [f.standardLabel ?? shown.standard.label].flat().map((l) => `- ${l}`)
+      : []),
     "",
     // one instalment a line, smallest first, whichever the card is showing
     ...INSTALMENT_ORDER.flatMap((mode) => {

@@ -9,7 +9,7 @@ import { BenefitTable } from "@/components/ihealthy/BenefitTable";
 import { PHONE_PLANS } from "@/lib/ihealthy-phone";
 import { RiderPanel } from "@/components/ihealthy/RiderPanel";
 import {
-  MODES, dailyCashLabel, deathBenefitOf, iHealthyPricing, shownAt,
+  MODES, deathBenefitOf, iHealthyPricing, shownAt,
   type IHealthyPricing, type IHealthyShown,
 } from "@/lib/ihealthy-quote";
 
@@ -29,6 +29,7 @@ import { LinkButton } from "@/components/sales/LinkButton";
 import { iHealthyQuoteText, type IHealthyCtaFacts } from "@/lib/ihealthy-cta";
 import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
 import { WORDS, baseWords } from "@/lib/ihealthy-words";
+import { riderLines } from "@/lib/ihealthy-rider-lines";
 import { Highlighted } from "@/components/Highlighted";
 import { markPdfReady, registerPrepare } from "@/lib/quote-pdf/prepare";
 
@@ -124,14 +125,10 @@ export function IHealthyCalculator(
     : undefined;
   const answered = foldRequest && attached?.at === arrangementKey(foldRequest) ? attached : undefined;
   const extras = answered && {
-    // One rider gets its own name, as the daily cash always had; more than one is a count,
-    // because a card that listed them would be the fold written out twice. The name is built
-    // from the plan actually attached and never from the agency's own: the agent may pick
-    // five thousand a day, and the card used to charge for that under the word "1,000".
-    label: answered.codes.length === 1 && answered.codes[0] === table.standard.code
-      && answered.dailyCash !== null
-      ? dailyCashLabel(answered.dailyCash)
-      : `สัญญาเพิ่มเติม ${answered.codes.length} รายการ`,
+    // Each rider by name with what was picked for it, the daily cash from the plan actually
+    // attached and never the agency's own: the agent may pick five thousand a day, and the
+    // card used to charge for that under the word "1,000".
+    label: riderLines(WORDS.th, answered.riders, answered.codes).join(" · "),
     premiums: answered.premiums,
   };
 
@@ -289,19 +286,17 @@ export function IHealthyCalculator(
     shown,
   };
   /**
-   * What the card calls the attached riders, in the reader's language. `extras.label` and the
-   * table's own label are Thai because the quote text is built from them; this is the same
-   * decision — one rider by name, more than one as a count — said for the screen.
+   * What the card calls the attached riders, a line each in the reader's language — the same
+   * lines the card picture draws, from the same `riderLines`. `extras.label` is the Thai the
+   * table keeps for itself.
    */
-  const standardLine = answered
-    ? answered.codes.length === 1 && answered.codes[0] === table.standard.code && answered.dailyCash !== null
-      ? w.dailyCash(answered.dailyCash)
-      : w.riderCount(answered.codes.length)
-    : standardPlan !== null ? w.dailyCash(standardPlan) : undefined;
+  const standardLines = answered
+    ? riderLines(w, answered.riders, answered.codes)
+    : standardPlan !== null ? [w.dailyCash(standardPlan)] : undefined;
   const bases = (b: (typeof table.bases)[number]) => baseWords(w, b.variant, b);
   // In the language the page is read in: the text goes to the customer the page is shown to.
   const quoteText = iHealthyQuoteText(
-    { ...cta, baseLabel: bases(base).label, standardLabel: standardLine }, w,
+    { ...cta, baseLabel: bases(base).label, standardLabel: standardLines }, w,
   );
   const territoryName = (t: string) => w.territory[t] ?? t;
   // Show the list from the moment DCI is ticked, not only after its premium round trip has
@@ -500,7 +495,8 @@ export function IHealthyCalculator(
                       it, so it is priced into the figure the customer is quoted instead of
                       being added on afterwards. The fold below opens with it ticked, and its
                       premium is now read only to know whether it is on at all. */}
-                  {shown.standard && shown.standard.total > 0 && <li>{standardLine ?? shown.standard.label}</li>}
+                  {shown.standard && shown.standard.total > 0
+                    && (standardLines ?? [shown.standard.label]).map((l) => <li key={l}>{l}</li>)}
                 </ul>
                 <div className="border-t border-[var(--lg-panel-line)] pt-4">
                   <div className="text-sm text-[var(--lg-mute)]">{w.totalPremium(w.mode[mode])}</div>
