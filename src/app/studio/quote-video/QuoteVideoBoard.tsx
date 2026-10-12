@@ -7,7 +7,8 @@ import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-v
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { SaveVideoButton } from "./SaveVideoButton";
-import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, removeVideo, type FhcChoice, type Preview, type VideoItem } from "./actions";
+import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, removeVideo, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
+import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
@@ -97,8 +98,10 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages, eleven, fhc }: {
+export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
+  /** Gemini's voice used up for the day, and when it comes back; null while it is there */
+  quota: VoiceQuota | null;
   /** the agent's FHC customers, for วิดีโอสรุป FHC (owner, 2026-10-12) */
   fhc: FhcChoice[];
   /** the ages each product sells at, for the age dropdown */
@@ -203,6 +206,16 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     setItems((was) => was?.filter((v) => v.id !== id) ?? was);
   }
   const [cost, setCost] = useState<CostView | null>(firstCost);
+  // the voice-used-up warning (owner, 2026-10-12, mockup ข): gone by itself when the day turns over
+  const [quota, setQuota] = useState<VoiceQuota | null>(firstQuota);
+  useEffect(() => {
+    if (!quota) return;
+    const t = setTimeout(() => setQuota(null), Math.max(0, Date.parse(quota.until) - Date.now()) + 5000);
+    return () => clearTimeout(t);
+  }, [quota]);
+  const refreshQuota = () => voiceQuota().then(setQuota).catch(() => undefined);
+  /** an ElevenLabs voice instead, of the narrator's sex where there is one */
+  const elevenInstead = eleven.find((v) => v.sex === narrator) ?? eleven[0];
   const [style, setStyle] = useState<VideoStyle>("classic");
   const [length, setLength] = useState<VideoLength>("full");
   // step 4 as it was left last time, in this browser only (owner, 2026-10-12)
@@ -261,8 +274,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     const t = setInterval(() => { myVideos().then(setItems).catch(() => undefined); }, 4000);
     return () => {
       clearInterval(t);
-      // a clip that ended may have given a free clip or money back
+      // a clip that ended may have given a free clip or money back, or found the voice used up
       myCost().then(setCost).catch(() => undefined);
+      refreshQuota();
     };
   }, [pending]);
 
@@ -273,8 +287,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
       const r = kind === "fhc"
         ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), size })
         : await makeVideo(input(), customer);
-      if (!r.ok) setError({ text: r.error, contact: r.needContact });
-      else setItems(await myVideos());
+      if (!r.ok) {
+        setError({ text: r.error, contact: r.needContact });
+        refreshQuota();
+      } else setItems(await myVideos());
       setCost(await myCost());
     } catch {
       setError({ text: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" });
@@ -311,6 +327,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   const sumWord = (n: number) => (n % 1_000_000 === 0 ? `${n / 1_000_000} ล้าน` : n.toLocaleString("en-US"));
   const sizeLocked = kind === "quote" && (length === "short" || style !== "motion");
   const shownSize = sizeLocked ? "portrait" : size;
+  // a Gemini-voiced clip would only fail while the voice is used up
+  const voiceBlocked = Boolean(quota) && !voice;
   const voiceWord = voice ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs" : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
   const summary = {
     what: kind === "fhc" ? "สรุป FHC" : PRODUCTS.find((p) => p.code === product)?.name ?? "",
@@ -542,6 +560,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               {error.contact && <Link href="/studio/account" className="font-medium underline">ไปที่บัญชีของฉัน</Link>}
             </p>
           )}
+          {voiceBlocked && quota && (
+            <p role="status" className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]">
+              {voiceFullNotice(quota.clock)}
+              {elevenInstead && (
+                <>{" "}หรือ <button type="button" className="font-semibold underline" onClick={() => pickVoice(elevenInstead.id)}>เปลี่ยนไปใช้เสียง ElevenLabs</button> ซึ่งทำได้ทันที</>
+              )}
+            </p>
+          )}
           {line && (
             <p className={`rounded-lg px-3 py-2 text-sm ${line.blocked ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-soft)]"}`}>
               {line.text}{" "}
@@ -549,7 +575,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
             </p>
           )}
           <button
-            type="button" onClick={make} disabled={busy || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked)}
+            type="button" onClick={make} disabled={busy || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked) || voiceBlocked}
             className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50 lg:w-auto"
           >
             {busy ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
@@ -574,6 +600,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               </span>
             </div>
             {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
+            {v.voiceFull && <p className="text-xs text-[var(--ct-mute)]">ไม่เสียเงิน และไม่นับเป็นคลิปฟรี</p>}
             {v.watch && <video src={v.watch} controls playsInline preload="metadata" className={`w-full rounded-lg ${v.size === "landscape" ? "max-w-[300px]" : v.size === "square" ? "max-w-[260px]" : "max-w-[220px]"}`} style={{ aspectRatio: ASPECT[v.size] }} />}
             <div className="flex flex-wrap gap-2">
               {v.status === "done" && v.save && v.watch && <SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} />}

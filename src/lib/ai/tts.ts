@@ -28,11 +28,13 @@ const STYLE: Record<Narrator, string> = {
 const TIMEOUT_MS = 90_000;
 
 export class TtsError extends Error {}
+/** Gemini's daily cap on the voice model is used up (owner, 2026-10-12): no line speaks until midnight Pacific */
+export class TtsQuotaError extends TtsError {}
 
 interface GeminiAudio {
   candidates?: { content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] } }[];
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
-  error?: { message?: string };
+  error?: { message?: string; details?: unknown[] };
 }
 
 /** One line spoken, and what it cost in baht; the cost also goes on the ledger under `task` (attributed by asWho). */
@@ -63,6 +65,10 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
   const data = body.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData?.data;
   if (!res.ok || !data) {
     console.error(`tts: ${res.status}`, body.error?.message?.slice(0, 200) ?? "no audio");
+    // the per-day quota, not the per-minute one: QuotaFailure names it "…PerDay…"
+    if (res.status === 429 && JSON.stringify(body.error?.details ?? []).includes("PerDay")) {
+      throw new TtsQuotaError("เสียงพากย์ของวันนี้ใช้ครบแล้ว");
+    }
     throw new TtsError("ทำเสียงพากย์ไม่สำเร็จ ลองใหม่อีกครั้ง");
   }
   const inTok = body.usageMetadata?.promptTokenCount ?? 0;
