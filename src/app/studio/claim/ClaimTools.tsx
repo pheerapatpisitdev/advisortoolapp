@@ -6,7 +6,7 @@ import { LogoPicker } from "../ui/LogoPicker";
 import {
   CLAIM_ANGLES, FACT_LIMIT, MAX_CLAIM_CUSTOM, MAX_CLAIM_PIECES, MAX_DOCS, claimAngleLines, type ClaimFacts, type DocRead,
 } from "@/lib/content/claim";
-import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, writerOf } from "@/lib/content/models";
+import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, WRITERS, painterFor, writerOf } from "@/lib/content/models";
 import type { PiecePerson } from "@/lib/content/people";
 import { roundsNote, type Rounds } from "@/lib/wallet/note";
 import { MAX_PAPERS } from "@/lib/content/poster";
@@ -19,6 +19,7 @@ import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
 import { cleanPosterWords } from "@/lib/content/poster-words";
 import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "../ui/form-parts";
 import { burn, shrink, type Shrunk } from "./redact";
+import { PainterOptions } from "@/app/studio/ui/prices";
 
 /**
  * รีวิวเคลม's tools, one press like a plan's (owner, 2026-09-25): add the papers, tick the
@@ -298,7 +299,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
             <span className="mb-1 block text-sm font-medium">ภาพประกอบ</span>
             <select value={painter} onChange={(e) => onPainter(e.target.value)} className={field}>
               <option value={AUTO}>อัตโนมัติ</option>
-              {PAINTERS.map((p) => <option key={p.id} value={p.id}>{p.label}{p.thb > 0 ? ` · ฿${p.thb.toFixed(2)} ต่อภาพ` : ""}</option>)}
+              <PainterOptions />
             </select>
             <span className="mt-1 block text-xs text-[var(--ct-mute)]">
               {painter === AUTO

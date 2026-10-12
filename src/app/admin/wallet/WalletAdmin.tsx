@@ -1,9 +1,10 @@
 "use client";
 import { useState, useTransition } from "react";
 import { formatBaht } from "@/lib/wallet/money";
+import { PRICE_ITEMS, priceBaht, type PriceGroup, type Prices } from "@/lib/wallet/prices";
 import type { FrozenWallet, WalletRow, WalletSettings } from "@/lib/wallet/store";
 import { Card, Empty } from "../ui";
-import { adjustAgentWallet, saveWallet, unfreezeAgentWallet, type Result } from "./actions";
+import { adjustAgentWallet, savePrices, saveWallet, unfreezeAgentWallet, type Result } from "./actions";
 
 /**
  * The same look as /admin/ai (its Card, tokens and input classes), so the two settings pages
@@ -32,8 +33,12 @@ async function ask(fn: () => Promise<Result>, ok: string): Promise<{ ok: boolean
   }
 }
 
-export function WalletAdmin({ settings, rows, frozen = [] }: {
+export function WalletAdmin({ settings, rows, frozen = [], prices, canPrice }: {
   settings: WalletSettings | null;
+  /** the fixed prices agents pay (owner, 2026-10-12) */
+  prices: Prices;
+  /** the owner's alone to change; an admin sees them */
+  canPrice: boolean;
   rows: WalletRow[] | null;
   /** wallets a refund or a dispute froze; null when they cannot be read */
   frozen?: FrozenWallet[] | null;
@@ -65,7 +70,7 @@ export function WalletAdmin({ settings, rows, frozen = [] }: {
             เปิดให้ตัวแทนเติมเงินและใช้ AI ต่อจากกระเป๋าเมื่อรอบฟรีหมด
           </label>
           <label className="block text-sm">
-            <span className="block text-xs text-[var(--bot-ink-mute)]">ตัวคูณราคา (ต้นทุนจริงของ AI × ตัวคูณ, 1 ถึง 10)</span>
+            <span className="block text-xs text-[var(--bot-ink-mute)]">ตัวคูณราคา สำหรับเขียนโพสต์และตัดต่อคลิป (ต้นทุนจริงของ AI × ตัวคูณ, 1 ถึง 10) · รูปและวิดีโอใช้ราคาด้านล่าง</span>
             <input inputMode="decimal" value={multiplier} onChange={(e) => setMultiplier(e.target.value)} className={`mt-1 w-32 ${input}`} />
           </label>
           <div className="flex flex-wrap items-center gap-3">
@@ -76,6 +81,8 @@ export function WalletAdmin({ settings, rows, frozen = [] }: {
           </div>
         </div>
       </Card>
+
+      <PriceCard prices={prices} canPrice={canPrice} />
 
       {frozen === null ? (
         <Card title="กระเป๋าที่ถูกพัก">
@@ -201,5 +208,71 @@ function FrozenRow({ wallet, row }: { wallet: FrozenWallet; row?: WalletRow }) {
       </form>
       {said && <div className="mt-2"><Said {...said} /></div>}
     </li>
+  );
+}
+
+const GROUPS: { group: PriceGroup; title: string }[] = [
+  { group: "picture", title: "รูปภาพ" },
+  { group: "video", title: "วิดีโอนำเสนอ" },
+];
+
+/**
+ * The fixed prices agents pay, typed in baht (owner, 2026-10-12). Each beside what one costs the
+ * providers, about, and red when the price is not above it — a price is the owner's to set, so a
+ * low one is said, not refused.
+ */
+function PriceCard({ prices, canPrice }: { prices: Prices; canPrice: boolean }) {
+  const [typed, setTyped] = useState<Record<string, string>>(
+    () => Object.fromEntries(PRICE_ITEMS.map((i) => [i.key, priceBaht(prices[i.key]).replace(/,/g, "")])),
+  );
+  const [said, setSaid] = useState<{ ok: boolean; text: string }>();
+  const [pending, start] = useTransition();
+  const save = () => {
+    setSaid(undefined);
+    start(async () => setSaid(await ask(() => savePrices(typed), "บันทึกราคาแล้ว")));
+  };
+  return (
+    <Card title="ราคาต่อชิ้น" hint={`ตัวแทนจ่ายตามนี้เมื่อใช้รอบฟรีหมดแล้ว และเห็นราคานี้ในหน้ากระเป๋าเงิน · ต้นทุนเป็นตัวเลขประมาณ ช่องสีแดงคือราคาไม่เกินต้นทุน${canPrice ? "" : " · เจ้าของเท่านั้นที่แก้ราคาได้"}`}>
+      <div className="space-y-4">
+        {GROUPS.map(({ group, title }) => (
+          <div key={group}>
+            <h3 className="mb-1 text-xs font-semibold text-[var(--bot-ink-mute)]">{title}</h3>
+            <div className="divide-y divide-[var(--bot-line)]">
+              {PRICE_ITEMS.filter((i) => i.group === group).map((i) => {
+                const v = Number(typed[i.key]);
+                const low = !(v > i.costThb);
+                return (
+                  <label key={i.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm">
+                    <span className="min-w-0 flex-1">{i.label}</span>
+                    <span className={`text-xs tabular-nums ${low ? "font-semibold text-[var(--bot-red-ink)]" : "text-[var(--bot-ink-mute)]"}`}>
+                      ต้นทุน ≈ ฿{i.costThb.toFixed(2)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="text-[var(--bot-ink-mute)]">{i.extra ? "+฿" : "฿"}</span>
+                      <input
+                        id={`price-${i.key}`} inputMode="decimal" value={typed[i.key]} disabled={!canPrice}
+                        onChange={(e) => setTyped((t) => ({ ...t, [i.key]: e.target.value }))}
+                        aria-label={`ราคา ${i.label}`}
+                        className={`w-24 text-right tabular-nums ${input}`}
+                      />
+                      <span className="w-10 text-xs text-[var(--bot-ink-mute)]">/{i.unit}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <p className="text-xs text-[var(--bot-ink-mute)]">เขียนโพสต์ 8 แบบ และถอดเสียง/ตัดต่อคลิป ยังคิดต้นทุนจริง × ตัวคูณด้านบน</p>
+        {canPrice && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={save} disabled={pending} className={primary}>
+              {pending ? "กำลังบันทึก…" : "บันทึกราคา"}
+            </button>
+            {said && <Said {...said} />}
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }

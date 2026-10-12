@@ -64,9 +64,6 @@ export interface FhcVideoInput {
 
 export const isFhcInput = (v: { product?: string }): v is FhcVideoInput => v.product === "FHC";
 
-/** ฿5 a clip, whichever voice (owner, 2026-10-12: cheaper, so agents use FHC more) */
-export const FHC_PRICE_SATANG = 500;
-
 const SHORT_LABEL: Record<ScoreKey, string> = {
   emergency: "เงินสำรองฉุกเฉิน", saving: "เงินเหลือต่อเดือน", debt: "ภาระหนี้", life: "คุ้มครองชีวิต",
   healthCi: "ค่ารักษา โรคร้าย", retire: "เงินเกษียณ",

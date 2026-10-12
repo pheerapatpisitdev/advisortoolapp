@@ -2,6 +2,7 @@
  * What the owner types on /admin/wallet, read on the server: the browser is not the guard
  * (the same rule as src/app/admin/ai/budget.ts).
  */
+import { DEFAULT_PRICES, MAX_PRICE_SATANG, PRICE_ITEMS, type Prices } from "./prices";
 
 export const MAX_MULTIPLIER = 10;
 /** the most one adjustment moves, either way: a slip of the finger should not be ฿100,000 (owner, 2026-09-30) */
@@ -31,4 +32,21 @@ export function readUnfreeze(note: string): { ok: true; note: string } | { ok: f
   const reason = String(note ?? "").trim();
   if (!reason) return { ok: false, error: "ต้องใส่เหตุผลทุกครั้ง" };
   return { ok: true, note: reason.slice(0, 200) };
+}
+
+/**
+ * The owner's price list as typed on /admin/wallet (owner, 2026-10-12): every price in baht, two
+ * decimals at most, from ฿0.01 to ฿1,000. All or nothing: one bad price saves none of them.
+ */
+export function readPrices(raw: Record<string, string>): { ok: true; prices: Prices } | { ok: false; error: string } {
+  const prices = { ...DEFAULT_PRICES };
+  for (const item of PRICE_ITEMS) {
+    const t = String(raw?.[item.key] ?? "").trim();
+    const v = Number(t);
+    if (!/^\d+(\.\d{1,2})?$/.test(t) || !(v > 0) || v * 100 > MAX_PRICE_SATANG) {
+      return { ok: false, error: `ราคา "${item.label}" ต้องเป็นบาท ตั้งแต่ 0.01 ถึง ${(MAX_PRICE_SATANG / 100).toLocaleString("en-US")} ทศนิยมไม่เกิน 2 ตำแหน่ง` };
+    }
+    prices[item.key] = Math.round(v * 100);
+  }
+  return { ok: true, prices };
 }

@@ -3,7 +3,7 @@ import { useEffect, useId, useState } from "react";
 import { workbenchHref } from "@/lib/content/workbench-link";
 import type { LogoSpot } from "@/lib/content/logo";
 import { LogoPicker } from "../ui/LogoPicker";
-import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, writerOf } from "@/lib/content/models";
+import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, WRITERS, painterFor, writerOf } from "@/lib/content/models";
 import type { PiecePerson } from "@/lib/content/people";
 import { roundsNote, type Rounds } from "@/lib/wallet/note";
 import { LENGTHS, MAX_READER, type Format, type Length } from "@/lib/content/prompt";
@@ -15,6 +15,7 @@ import { PictureBrief } from "../ui/PictureBrief";
 import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
 import { cleanPosterWords } from "@/lib/content/poster-words";
 import { FormatPicker, FormSection, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useFormula, useLoop } from "../ui/form-parts";
+import { PainterOptions } from "@/app/studio/ui/prices";
 
 /** เขียนเอง's tools (owner, 2026-09-29): the agent's draft and how many versions to polish it into (draft.ts). */
 
@@ -148,7 +149,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
             <span className="mb-1 block text-sm font-medium">ภาพประกอบ</span>
             <select value={painter} onChange={(e) => onPainter(e.target.value)} className={field}>
               <option value={AUTO}>อัตโนมัติ</option>
-              {PAINTERS.map((p) => <option key={p.id} value={p.id}>{p.label}{p.thb > 0 ? ` · ฿${p.thb.toFixed(2)} ต่อภาพ` : ""}</option>)}
+              <PainterOptions />
             </select>
             <span className="mt-1 block text-xs text-[var(--ct-mute)]">
               {painter === AUTO

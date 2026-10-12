@@ -1,8 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { audit, requireStaff } from "@/lib/auth/viewer";
-import { readAdjust, readMultiplier, readUnfreeze } from "@/lib/wallet/admin-input";
-import { adjustWallet, saveWalletSettings, unfreezeWallet } from "@/lib/wallet/store";
+import { readAdjust, readMultiplier, readPrices, readUnfreeze } from "@/lib/wallet/admin-input";
+import { adjustWallet, saveWalletPrices, saveWalletSettings, unfreezeWallet } from "@/lib/wallet/store";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
 export type Result = { ok: true } | { ok: false; error: string };
@@ -21,6 +21,26 @@ export async function saveWallet(enabled: boolean, multiplier: string): Promise<
   }
   await audit("wallet-settings", null, { enabled: enabled === true, multiplier: m.value });
   revalidatePath("/admin/wallet");
+  return { ok: true };
+}
+
+/**
+ * The fixed prices agents pay (owner, 2026-10-12: "ให้ผมตั้งราคา"). The owner's alone, like a
+ * hand on a balance: an admin may switch the wallet, not set what things cost.
+ */
+export async function savePrices(raw: Record<string, string>): Promise<Result> {
+  await requireStaff("owner");
+  const p = readPrices(raw);
+  if (!p.ok) return p;
+  try {
+    await saveWalletPrices(p.prices);
+  } catch (e) {
+    console.error("wallet prices not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261026_wallet_prices ถูก apply แล้ว" };
+  }
+  await audit("wallet-prices", null, p.prices);
+  revalidatePath("/admin/wallet");
+  revalidatePath("/studio", "layout");
   return { ok: true };
 }
 

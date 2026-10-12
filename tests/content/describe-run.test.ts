@@ -26,8 +26,12 @@ vi.mock("@/lib/content/store", () => store);
 const round = vi.hoisted(() => ({ payRound: vi.fn(async (_pass: unknown, run: () => Promise<unknown>) => run()) }));
 vi.mock("@/lib/wallet/round", async (orig) => ({ ...(await orig<typeof import("@/lib/wallet/round")>()), ...round }));
 
+const prices = vi.hoisted(() => ({ walletPrices: vi.fn() }));
+vi.mock("@/lib/wallet/store", () => prices);
+
 const { describePicture, DESCRIBE_HOLD_THB, DESCRIBE_TASK } = await import("@/lib/content/describe-run");
 const { delivered } = await import("@/lib/wallet/round");
+const { DEFAULT_PRICES } = await import("@/lib/wallet/prices");
 const { MAX_IMAGE_BASE64 } = await import("@/lib/content/describe");
 
 const IMG = { base64: "AAAA", mimeType: "image/jpeg" };
@@ -41,6 +45,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   ip.current = `10.1.0.${++n}`;
   quota.takeRound.mockResolvedValue({ ok: true, paidBy: "staff" });
+  prices.walletPrices.mockResolvedValue(DEFAULT_PRICES);
   store.contentSpentThisMonth.mockResolvedValue(1);
   store.contentCap.mockResolvedValue(30);
   store.holdContentBudget.mockResolvedValue({ ok: true, id: "hold-1" });
@@ -59,7 +64,8 @@ describe("describePicture", () => {
     expect(ai.chat).toHaveBeenCalledTimes(1);
     expect(ai.chat.mock.calls[0][0]).toMatchObject({ tier: "large", task: DESCRIBE_TASK, json: true });
     expect(DESCRIBE_TASK).toBe("content-describe-picture");
-    expect(quota.takeRound).toHaveBeenCalledWith(expect.anything(), "ai-describe", null, DESCRIBE_HOLD_THB);
+    // the wallet holds the owner's fixed price (฿1, owner 2026-10-12); the content budget its cost
+    expect(quota.takeRound).toHaveBeenCalledWith(expect.anything(), "ai-describe", null, { satang: 100 });
     expect(store.holdContentBudget).toHaveBeenCalledWith(DESCRIBE_HOLD_THB, 30);
     expect(store.releaseContentBudget).toHaveBeenCalledWith("hold-1");
     expect(round.payRound).toHaveBeenCalledTimes(1);

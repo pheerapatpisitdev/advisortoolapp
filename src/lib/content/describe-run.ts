@@ -3,7 +3,8 @@ import { BudgetExceeded, chat } from "@/lib/ai/client";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { takeRound } from "@/lib/auth/quota";
 import { requireMember } from "@/lib/auth/viewer";
-import { payRound } from "@/lib/wallet/round";
+import { chargeFixed, payRound } from "@/lib/wallet/round";
+import { walletPrices } from "@/lib/wallet/store";
 import { ceilingBeforeRound } from "./ceiling";
 import { OutOfTime, within } from "./deadline";
 import { ACCEPTED_TYPES, MAX_IMAGE_BASE64, assemblePrompt, describeMessages, parseDescribed } from "./describe";
@@ -20,7 +21,7 @@ export { MAX_IMAGE_BASE64 };
 
 /** content-*, so the owner's ceiling counts it (contentBaht in store.ts) */
 export const DESCRIBE_TASK = "content-describe-picture";
-/** what a read sets aside, in baht: two measured reads cost ฿0.27 and ฿0.30 (2026-10-08), so half as much again, to the next ฿0.10 */
+/** what a read sets aside of the owner's content budget, in baht: two measured reads cost ฿0.27 and ฿0.30 (2026-10-08), so half as much again, to the next ฿0.10 */
 export const DESCRIBE_HOLD_THB = 0.5;
 /** each provider's own try, and the whole read: a fallback starts its clock again, so the whole is bounded apart (the route allows 60 s) */
 const TRY_MS = 25_000;
@@ -61,10 +62,13 @@ export async function describePicture(input: DescribeInput): Promise<DescribeRes
   // the ceiling before the round is counted, so a round it would refuse costs nobody a free round
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return fail(capReached(ceiling));
-  const pass = await takeRound(viewer, "ai-describe", null, DESCRIBE_HOLD_THB);
+  // a fixed price the owner sets (owner, 2026-10-12: ฿1 — src/lib/wallet/prices.ts)
+  const price = (await walletPrices()).describe;
+  const pass = await takeRound(viewer, "ai-describe", null, { satang: price });
   if (!pass.ok) return fail(pass.refusal);
   return payRound(pass, async (): Promise<DescribeResult> => {
     let hold: string | null = null;
+    chargeFixed(price);
     try {
       const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
       if (spent >= cap) return fail(capReached(cap));

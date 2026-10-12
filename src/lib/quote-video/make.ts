@@ -11,13 +11,14 @@ import { can } from "@/lib/auth/access";
 import type { Viewer } from "@/lib/auth/access";
 import { siteUrl } from "@/lib/site-url";
 import { formatBaht } from "@/lib/wallet/money";
-import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, walletSettings } from "@/lib/wallet/store";
+import type { Prices } from "@/lib/wallet/prices";
+import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, walletPrices, walletSettings } from "@/lib/wallet/store";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import { getContact, photoDataUri } from "./contact";
 import { CHART_W, panEndFor, sceneLayer, tableImage, type Contact } from "./draw";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
-import { FHC_PRICE_SATANG, fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
+import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
 import { motionBackground, motionBgHeight, motionFrame, motionWindows, MOTION_FPS } from "./motion";
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
@@ -47,16 +48,13 @@ export const FAILED = "ทำวิดีโอไม่สำเร็จ ล�
 /** every agent's free clips, once (owner, 2026-10-11) */
 export const FREE_VIDEOS = 2;
 /**
- * What a clip costs an agent, fixed (owner, 2026-10-11): ฿5 แบบปกติ, ฿10 Motion Graphic (Premium).
- * The wallet holds the price when the clip is asked for and takes it when the clip is done.
+ * What a clip costs an agent, fixed, from the owner's price list (src/lib/wallet/prices.ts,
+ * /admin/wallet — owner 2026-10-12): ฿5 แบบปกติ, ฿10 Motion Graphic, ฿3 an FHC summary whatever
+ * its look, and an ElevenLabs voice on top (+฿2). The wallet holds the price when the clip is
+ * asked for and takes it when the clip is done.
  */
-export const VIDEO_PRICE_SATANG: Record<VideoStyle, number> = { classic: 500, motion: 1000 };
-/** an ElevenLabs voice on top of the style's price (owner, 2026-10-11: +฿2) */
-export const ELEVEN_EXTRA_SATANG = 200;
-const styleOf = (v: ClipInput): VideoStyle => (v.style === "motion" ? "motion" : "classic");
-/** an FHC summary is ฿5 whatever its look (owner, 2026-10-12) */
-export const videoPrice = (v: ClipInput): number =>
-  (isFhcInput(v) ? FHC_PRICE_SATANG : VIDEO_PRICE_SATANG[styleOf(v)]) + (v.voice ? ELEVEN_EXTRA_SATANG : 0);
+export const videoPrice = (v: ClipInput, prices: Prices): number =>
+  (isFhcInput(v) ? prices.videoFhc : v.style === "motion" ? prices.videoMotion : prices.videoClassic) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
 
@@ -94,8 +92,8 @@ export const hashToken = (token: string) => createHash("sha256").update(token).d
 export type CostView =
   | { kind: "staff" }
   | { kind: "free"; left: number; of: number }
-  /** the price of each style, and whether the wallet holds it */
-  | { kind: "wallet"; balance: string; prices: Record<VideoStyle, { price: string; enough: boolean }> }
+  /** the price of each look (an FHC summary its own), and whether the wallet holds it */
+  | { kind: "wallet"; balance: string; prices: Record<VideoStyle | "fhc", { price: string; enough: boolean }> }
   | { kind: "closed" };
 
 /** the agent's free clips used: those not failed (a failed one is handed back) */
@@ -106,15 +104,23 @@ async function freeUsed(agentId: string): Promise<number> {
   return count ?? 0;
 }
 
+/** the free clips an agent has left, for the wallet page (owner, 2026-10-12) */
+export async function freeVideosLeft(agentId: string): Promise<number> {
+  return Math.max(0, FREE_VIDEOS - await freeUsed(agentId));
+}
+
 export async function costView(viewer: Viewer): Promise<CostView> {
   if (can(viewer, "owner")) return { kind: "staff" };
   const used = await freeUsed(viewer.agentId);
   if (used < FREE_VIDEOS) return { kind: "free", left: FREE_VIDEOS - used, of: FREE_VIDEOS };
   const s = await walletSettings().catch(() => null);
   if (!s?.enabled) return { kind: "closed" };
-  const balance = await balanceSatang(viewer.agentId);
-  const priced = (style: VideoStyle) => ({ price: formatBaht(VIDEO_PRICE_SATANG[style]), enough: balance >= VIDEO_PRICE_SATANG[style] });
-  return { kind: "wallet", balance: formatBaht(balance), prices: { classic: priced("classic"), motion: priced("motion") } };
+  const [balance, prices] = await Promise.all([balanceSatang(viewer.agentId), walletPrices()]);
+  const priced = (satang: number) => ({ price: formatBaht(satang), enough: balance >= satang });
+  return {
+    kind: "wallet", balance: formatBaht(balance),
+    prices: { classic: priced(prices.videoClassic), motion: priced(prices.videoMotion), fhc: priced(prices.videoFhc) },
+  };
 }
 
 /**
@@ -128,7 +134,7 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     else {
       const s = await walletSettings().catch(() => null);
       if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${FREE_VIDEOS} ครั้งแล้ว` };
-      const held = videoPrice(input);
+      const held = videoPrice(input, await walletPrices());
       const hold = await holdWallet(viewer.agentId, held, VIDEO_ROUND).catch((e) => {
         console.error("quote video hold failed:", e);
         return null;

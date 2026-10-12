@@ -8,6 +8,7 @@ vi.mock("@/lib/ai/ledger", () => ({ recordUsage: (...a: unknown[]) => usage(...a
 import { speakLine } from "@/lib/ai/tts";
 import { ELEVEN_VOICES, elevenVoice, speakEleven } from "@/lib/voice/elevenlabs";
 import { videoPrice } from "@/lib/quote-video/make";
+import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 
 const pcm = Buffer.alloc(48_000, 1);
 const answer = (status = 200) => vi.fn(async () => new Response(status === 200 ? pcm : "nope", { status, headers: { "character-cost": "56" } }));
@@ -51,8 +52,10 @@ describe("the voices and the price", () => {
 
   it("an ElevenLabs voice adds ฿2 to the style's price", () => {
     const base = { variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
-    expect(videoPrice(base)).toBe(500);
-    expect(videoPrice({ ...base, voice: "abc" })).toBe(700);
-    expect(videoPrice({ ...base, style: "motion", voice: "abc" })).toBe(1200);
+    expect(videoPrice(base, DEFAULT_PRICES)).toBe(500);
+    expect(videoPrice({ ...base, voice: "abc" }, DEFAULT_PRICES)).toBe(700);
+    expect(videoPrice({ ...base, style: "motion", voice: "abc" }, DEFAULT_PRICES)).toBe(1200);
+    // the owner's own list, not the defaults, once saved
+    expect(videoPrice({ ...base, voice: "abc" }, { ...DEFAULT_PRICES, videoClassic: 800, elevenExtra: 300 })).toBe(1100);
   });
 });
