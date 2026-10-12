@@ -2,9 +2,7 @@ import "../home-theme.css";
 import { openingGuide } from "@/lib/copilot/guide";
 import { Chat } from "../Chat";
 import { AppShell } from "@/components/shell/AppShell";
-import { inviteToTry } from "@/lib/auth/free-asks";
-import { memberSettings } from "@/lib/auth/member-store";
-import { getViewer, whoOf } from "@/lib/auth/viewer";
+import { gatePage, whoOf } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -14,12 +12,8 @@ export const metadata = {
 };
 
 export default async function Home() {
-  // the "ลอง Studio ฟรี" bar (owner, 2026-10-01); a read that fails hides it rather than the page
-  const [viewer, settings] = await Promise.all([
-    getViewer().catch(() => null),
-    memberSettings().catch(() => null),
-  ]);
-  const invite = inviteToTry(Boolean(viewer), settings?.signupOpen === true);
+  // members only (owner, 2026-10-12: "เป็นระบบปิด"): somebody not signed in signs in first
+  const viewer = await gatePage("/home");
   return (
     <div className="home-chat">
       {/* who is signed in, for the foot of the menu: their name and ออกจากระบบ, or เข้าสู่ระบบ */}
@@ -31,7 +25,7 @@ export default async function Home() {
           heading sits beside that button or under it — see `Chat`. */}
       <div className="mx-auto flex h-[100dvh] max-w-3xl flex-col px-4 pb-4 pt-3 sm:pb-5 lg:pt-5">
         {/* built on the server from the plan registry, so a new plan brings its own button */}
-        <Chat guide={openingGuide()} invite={invite} />
+        <Chat guide={openingGuide()} />
       </div>
       </AppShell>
     </div>

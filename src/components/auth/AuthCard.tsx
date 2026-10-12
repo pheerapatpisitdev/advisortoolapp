@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 /**
  * The frame of the doors in — sign-in and sign-up (owner, 2026-10-01).
  *
@@ -19,7 +17,6 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
         </div>
         {children}
       </div>
-      <Link href="/home" className="mt-5 text-sm text-[var(--bot-ink-mute)] underline underline-offset-2">ลองถาม AI ก่อน (ไม่ต้องล็อกอิน)</Link>
     </main>
   );
 }

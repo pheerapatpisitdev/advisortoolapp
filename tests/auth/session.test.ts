@@ -139,7 +139,7 @@ describe("the session's key", () => {
   });
 
   it("gives each cookie a key of its own", () => {
-    const keys = (["session", "free-asks", "oauth-state"] as const).map((p) => deriveKey(SECRET, p));
+    const keys = (["session", "oauth-state", "google-login"] as const).map((p) => deriveKey(SECRET, p));
     expect(new Set(keys).size).toBe(3);
     expect(keys).not.toContain(SECRET);
   });
