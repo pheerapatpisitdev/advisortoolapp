@@ -4,9 +4,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/app/studio/wallet/actions", () => ({ startTopUp: vi.fn(), topUpStatus: vi.fn() }));
 const { WalletClient } = await import("@/app/studio/wallet/WalletClient");
+const { DEFAULT_PRICES } = await import("@/lib/wallet/prices");
 
 const draw = (multiplier: number, enabled = true) => renderToStaticMarkup(createElement(WalletClient, {
   enabled, multiplier, balanceSatang: 0, entries: [], rounds: { used: 0, limit: 10 }, paid: null,
+  videos: { left: 1, of: 2 }, prices: DEFAULT_PRICES,
 }));
 
 describe("the top-up buttons (owner, 2026-10-01)", () => {
@@ -30,11 +32,32 @@ describe("the top-up buttons (owner, 2026-10-01)", () => {
   });
 });
 
+describe("the price list (owner, 2026-10-12)", () => {
+  it("shows every fixed price, and the free clips left", () => {
+    const html = draw(2);
+    expect(html).toContain('id="prices"');
+    expect(html).toContain("วิดีโอฟรีเหลือ 1/2");
+    for (const price of ["฿5 / คลิป", "฿10 / คลิป", "฿3 / คลิป", "+฿2 / คลิป", "฿1 / รูป", "฿2 / รูป", "฿5 / รูป", "฿1 / ครั้ง"]) {
+      expect(html).toContain(price);
+    }
+    expect(html).toContain("เฉลี่ยไม่ถึง ฿1.50 / ชิ้น");
+  });
+
+  it("follows the owner's own prices", () => {
+    const html = renderToStaticMarkup(createElement(WalletClient, {
+      enabled: true, multiplier: 2, balanceSatang: 0, entries: [], rounds: { used: 0, limit: 10 }, paid: null,
+      videos: null, prices: { ...DEFAULT_PRICES, drawStandard: 150 },
+    }));
+    expect(html).toContain("฿1.50 / รูป");
+    expect(html).not.toContain("วิดีโอฟรีเหลือ");
+  });
+});
+
 describe("a frozen wallet (owner, 2026-10-01)", () => {
   const frozen = renderToStaticMarkup(createElement(WalletClient, {
     enabled: true, multiplier: 2, balanceSatang: 0, frozen: true, entries: [
       { id: "e1", kind: "clawback", amountSatang: -1500, round: null, note: "คืนเงินยอดเติมผ่าน Stripe รวม ฿100.00", createdAt: "2026-10-01T03:00:00Z" },
-    ], rounds: { used: 10, limit: 10 }, paid: null,
+    ], rounds: { used: 10, limit: 10 }, paid: null, videos: null, prices: DEFAULT_PRICES,
   }));
 
   it("says it is paused and to contact the office", () => {

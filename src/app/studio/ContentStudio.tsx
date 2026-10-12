@@ -50,6 +50,7 @@ import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./u
 import { thaiDayLabel } from "@/lib/content/calendar";
 import { PlainText } from "./ui/editor-fields";
 import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "./ui/form-parts";
+import { PainterOptions } from "@/app/studio/ui/prices";
 
 /**
  * The content workbench, laid out as the owner's Maryjane project lays out its run page:
@@ -1281,7 +1282,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               <span className="mb-1 block text-sm font-medium">ภาพประกอบ</span>
               <select value={painter} onChange={(e) => pick({ painter: e.target.value })} className={field}>
                 <option value={AUTO}>อัตโนมัติ</option>
-                {PAINTERS.map((p) => <option key={p.id} value={p.id}>{p.label}{p.thb > 0 ? ` · ฿${p.thb.toFixed(2)} ต่อภาพ` : ""}</option>)}
+                <PainterOptions />
               </select>
               <span className="mt-1 block text-xs text-[var(--ct-mute)]">
                 {painter === AUTO

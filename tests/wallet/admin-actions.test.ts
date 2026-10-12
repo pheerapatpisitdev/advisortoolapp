@@ -7,10 +7,10 @@ vi.mock("@/lib/auth/viewer", async () => {
   return { ...asOwner, requireStaff: staff.requireStaff };
 });
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-const wallet = vi.hoisted(() => ({ saveWalletSettings: vi.fn(async () => {}), adjustWallet: vi.fn(), unfreezeWallet: vi.fn() }));
+const wallet = vi.hoisted(() => ({ saveWalletSettings: vi.fn(async () => {}), saveWalletPrices: vi.fn(async () => {}), adjustWallet: vi.fn(), unfreezeWallet: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
 
-const { adjustAgentWallet, saveWallet, unfreezeAgentWallet } = await import("@/app/admin/wallet/actions");
+const { adjustAgentWallet, savePrices, saveWallet, unfreezeAgentWallet } = await import("@/app/admin/wallet/actions");
 const { OWNER } = await import("../helpers/signed-in");
 const AGENT = "00000000-0000-4000-8000-000000000002";
 
@@ -33,6 +33,29 @@ describe("saveWallet", () => {
   it("refuses a multiplier out of range and saves nothing", async () => {
     expect(await saveWallet(true, "0.5")).toMatchObject({ ok: false });
     expect(wallet.saveWalletSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe("savePrices (owner, 2026-10-12)", () => {
+  const typed = {
+    drawStandard: "1", drawSharp: "2", drawGemini: "5", describe: "1",
+    videoClassic: "5", videoMotion: "10", videoFhc: "3", elevenExtra: "2.50",
+  };
+
+  it("saves every price in satang, the owner's alone", async () => {
+    expect(await savePrices(typed)).toEqual({ ok: true });
+    expect(staff.requireStaff).toHaveBeenCalledWith("owner");
+    expect(wallet.saveWalletPrices).toHaveBeenCalledWith({
+      drawStandard: 100, drawSharp: 200, drawGemini: 500, describe: 100,
+      videoClassic: 500, videoMotion: 1000, videoFhc: 300, elevenExtra: 250,
+    });
+  });
+
+  it("saves none of them when one is not a price", async () => {
+    for (const bad of ["", "0", "-1", "1.234", "abc", "1001"]) {
+      expect(await savePrices({ ...typed, drawSharp: bad })).toMatchObject({ ok: false, error: expect.stringContaining("วาดรูป คมชัด") });
+    }
+    expect(wallet.saveWalletPrices).not.toHaveBeenCalled();
   });
 });
 

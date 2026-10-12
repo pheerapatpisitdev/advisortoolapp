@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { DEFAULT_MULTIPLIER } from "./money";
+import { cleanPrices, DEFAULT_PRICES, type Prices } from "./prices";
 
 /**
  * The wallet's reads and writes. Every change of a balance is one of the database functions
@@ -46,6 +47,30 @@ export async function saveWalletSettings(s: WalletSettings): Promise<void> {
     { onConflict: "id" },
   );
   if (error) throw new Error(`บันทึกการตั้งค่ากระเป๋าเงินไม่ได้: ${error.message}`);
+}
+
+/**
+ * The owner's fixed prices (src/lib/wallet/prices.ts). Read apart from walletSettings, and never
+ * throws: a column not yet there, or a read that fails, is the default prices — a wallet that
+ * cannot read its price list still charges what the owner chose on 2026-10-12.
+ */
+export async function walletPrices(): Promise<Prices> {
+  try {
+    const { data, error } = await supabaseAdmin().from("ins_ai_settings").select("wallet_prices").maybeSingle();
+    if (error) throw new Error(error.message);
+    return cleanPrices(data?.wallet_prices);
+  } catch (e) {
+    console.error("wallet prices unreadable, using the defaults:", e instanceof Error ? e.message : e);
+    return { ...DEFAULT_PRICES };
+  }
+}
+
+export async function saveWalletPrices(prices: Prices): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_ai_settings").upsert(
+    { id: true, wallet_prices: cleanPrices(prices), updated_at: new Date().toISOString() },
+    { onConflict: "id" },
+  );
+  if (error) throw new Error(`บันทึกราคาไม่ได้: ${error.message}`);
 }
 
 /**

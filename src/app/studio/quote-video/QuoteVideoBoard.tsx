@@ -5,6 +5,7 @@ import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
+import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { SaveVideoButton } from "./SaveVideoButton";
 import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, removeVideo, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
@@ -20,7 +21,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle:
 const STATUS: Record<VideoItem["status"], string> = { drawing: "กำลังทำเสียงและภาพ…", rendering: "กำลังรวมเป็นวิดีโอ…", done: "เสร็จ", failed: "ไม่สำเร็จ" };
 
 /** what the next clip costs, under the button */
-function costLine(c: CostView | null, style: VideoStyle): { text: string; blocked: boolean; topUp: boolean } | null {
+function costLine(c: CostView | null, style: VideoStyle | "fhc"): { text: string; blocked: boolean; topUp: boolean } | null {
   if (!c) return null;
   if (c.kind === "staff") return { text: "เจ้าของใช้ฟรี", blocked: false, topUp: false };
   if (c.kind === "free") return { text: `ใช้วิดีโอฟรี 1 ครั้ง · เหลือ ${c.left}/${c.of} ครั้ง`, blocked: false, topUp: false };
@@ -98,8 +99,10 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota }: {
+export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
+  /** the owner's price list (/admin/wallet), for the prices on the chips */
+  prices: Prices;
   /** Gemini's voice used up for the day, and when it comes back; null while it is there */
   quota: VoiceQuota | null;
   /** the agent's FHC customers, for วิดีโอสรุป FHC (owner, 2026-10-12) */
@@ -236,8 +239,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   // where the clip begins: a sum (or plan), or what the customer can save each month / year
   const [source, setSource] = useState<"sum" | "month" | "year">("sum");
   const [budget, setBudget] = useState("3,000");
-  // an FHC summary costs what a แบบปกติ clip does: ฿5 (owner, 2026-10-12)
-  const line = costLine(cost, kind === "fhc" ? "classic" : style);
+  // an FHC summary has its own price, whatever its look (owner, 2026-10-12: ฿3)
+  const line = costLine(cost, kind === "fhc" ? "fhc" : style);
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const input = (): VideoInput => (product === "IHEALTHY"
@@ -517,8 +520,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               <div>
                 <span className={label}>สไตล์</span>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · 5 บาท</button>
-                  <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · 10 บาท</button>
+                  <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices.videoClassic)} บาท</button>
+                  <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices.videoMotion)} บาท</button>
                 </div>
                 <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
               </div>
@@ -543,7 +546,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
               ))}
               {eleven.map((v) => (
                 <span key={v.id} className="inline-flex items-center gap-2">
-                  <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· ElevenLabs +2 บาท</span></button>
+                  <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· ElevenLabs +{priceBaht(prices.elevenExtra)} บาท</span></button>
                   <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■ หยุด" : "▶ ฟัง"}</button>
                 </span>
               ))}

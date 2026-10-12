@@ -6,7 +6,7 @@ import { LogoPicker } from "../ui/LogoPicker";
 import {
   FACT_LIMIT, MAX_DOCS, MAX_SHOWCASE_CUSTOM, MAX_SHOWCASE_PIECES, SHOWCASE_ANGLES, showcaseAngleLines, type ShowcaseDocRead, type ShowcaseFacts,
 } from "@/lib/content/showcase";
-import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, writerOf } from "@/lib/content/models";
+import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, WRITERS, painterFor, writerOf } from "@/lib/content/models";
 import type { PiecePerson } from "@/lib/content/people";
 import { roundsNote, type Rounds } from "@/lib/wallet/note";
 import { MAX_PAPERS } from "@/lib/content/poster";
@@ -19,6 +19,7 @@ import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
 import { cleanPosterWords } from "@/lib/content/poster-words";
 import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "../ui/form-parts";
 import { burn, shrink, type Shrunk } from "../claim/redact";
+import { PainterOptions } from "@/app/studio/ui/prices";
 
 /**
  * โชว์ผลงาน's tools (owner, 2026-10-06), as รีวิวเคลม's are: add the pictures from the app, tick
@@ -302,7 +303,7 @@ export function ShowcaseTools({ writer, onWriter, painter, onPainter, people, pe
             <span className="mb-1 block text-sm font-medium">ภาพประกอบ</span>
             <select value={painter} onChange={(e) => onPainter(e.target.value)} className={field}>
               <option value={AUTO}>อัตโนมัติ</option>
-              {PAINTERS.map((p) => <option key={p.id} value={p.id}>{p.label}{p.thb > 0 ? ` · ฿${p.thb.toFixed(2)} ต่อภาพ` : ""}</option>)}
+              <PainterOptions />
             </select>
             <span className="mt-1 block text-xs text-[var(--ct-mute)]">
               {painter === AUTO

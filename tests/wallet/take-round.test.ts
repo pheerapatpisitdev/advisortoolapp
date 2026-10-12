@@ -120,6 +120,23 @@ describe("takeRound", () => {
     expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 92, "ai-draw");
   });
 
+  it("holds a fixed price as it is, untouched by the multiplier (owner, 2026-10-12)", async () => {
+    freeUsed();
+    const res = await takeRound(agent, "ai-draw", "piece-1", { satang: 500 });
+    expect(res).toMatchObject({ ok: true, paidBy: "wallet", heldSatang: 500, multiplier: 2 });
+    expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, 500, "ai-draw");
+  });
+
+  it("keeps the round's default hold when a fixed price is not a positive whole number of satang", async () => {
+    freeUsed();
+    const held = holdSatang("ai-draw", 2);
+    for (const bad of [0, -100, 1.5, NaN]) {
+      wallet.holdWallet.mockClear();
+      await takeRound(agent, "ai-draw", "piece-1", { satang: bad });
+      expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, held, "ai-draw");
+    }
+  });
+
   it("keeps the round's default hold when the price it is told is not a positive number", async () => {
     freeUsed();
     const held = holdSatang("ai-draw", 2);

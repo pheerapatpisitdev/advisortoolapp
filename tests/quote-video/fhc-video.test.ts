@@ -4,9 +4,10 @@ import { gapsOf } from "@/lib/fhc/gaps";
 import { FIXED_PICK } from "@/lib/plan/order";
 import { realPricer } from "@/lib/plan/pricer";
 import { recommend } from "@/lib/plan/recommend";
-import { FHC_PRICE_SATANG, fhcScript, fhcVideoFacts, isFhcInput, scoreValue, spokenList, type FhcVideoFacts } from "@/lib/quote-video/fhc";
+import { fhcScript, fhcVideoFacts, isFhcInput, scoreValue, spokenList, type FhcVideoFacts } from "@/lib/quote-video/fhc";
 import { fhcWindows } from "@/lib/quote-video/fhc-motion";
 import { videoPrice } from "@/lib/quote-video/make";
+import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 import { fhcVideoHref, videoStartFrom } from "@/lib/quote-video/link";
 import { MOTION_FPS } from "@/lib/quote-video/motion";
 import { TRANSITIONS } from "@/lib/quote-video/job";
@@ -121,11 +122,11 @@ it("spokenList joins as Thai says it", () => {
 describe("วิดีโอสรุป FHC clip", () => {
   const f = somchai();
 
-  it("costs ฿5 (owner, 2026-10-12)", () => {
+  it("costs ฿3, and ฿2 more with an ElevenLabs voice (owner, 2026-10-12)", () => {
     const input = { product: "FHC" as const, customerId: "x", age: 35, sex: "M" as const, style: "motion" as const, length: "full" as const, fhc: f };
     expect(isFhcInput(input)).toBe(true);
-    expect(videoPrice(input)).toBe(FHC_PRICE_SATANG);
-    expect(FHC_PRICE_SATANG).toBe(500);
+    expect(videoPrice(input, DEFAULT_PRICES)).toBe(300);
+    expect(videoPrice({ ...input, voice: "abc" }, DEFAULT_PRICES)).toBe(500);
   });
 
   it("plans six motion scenes, each with its frames and a transition", () => {

@@ -320,6 +320,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
     // one too (2026-10-02), only the owner writes without one
     { href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b736f" },
+    // what everything costs from the wallet, as the owner priced it (owner, 2026-10-12)
+    { href: "/studio/wallet#prices", label: "ราคา", icon: "wallet", hue: "#2b736f" },
     // a member's own name and PIN; UnitOS agents manage theirs in UnitOS (owner, 2026-10-01);
     // everyone's contact details for the วิดีโอนำเสนอ (owner, 2026-10-11)
     { href: "/studio/account", label: "บัญชีของฉัน", icon: "key", hue: "#2e4a7a" },
@@ -333,6 +335,7 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
   const hidden = new Set([
     ...(who && !who.admin && !who.publish ? ["/studio"] : []),
     ...(who?.owner || who?.wallet !== true ? ["/studio/wallet"] : []),
+    ...(who?.prices !== true ? ["/studio/wallet#prices"] : []),
     // every agent's since 2026-10-11: the contact details a วิดีโอนำเสนอ closes on live there
     ...(who?.owner ? [] : ["/studio/ads", "/studio/thumbnail"]),
   ]);
@@ -359,12 +362,14 @@ export interface Who {
   owner: boolean;
   /** Studio only: the owner has the wallet on and this is not the owner (owner, 2026-09-30; assistants 2026-10-02) */
   wallet?: boolean;
+  /** Studio only: the wallet is on, so the price list is in the menu — the owner's too (owner, 2026-10-12) */
+  prices?: boolean;
   /** a member outside UnitOS (owner, 2026-10-01): their account page, and no room to name */
   member?: boolean;
 }
 
 /** What each back-office page asks of the person opening it, as agreed on 2026-09-27. */
-const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet" | "member">> = {
+const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet" | "prices" | "member">> = {
   "/admin": "admin",
   "/admin/crm": "admin",
   "/admin/ai": "admin",

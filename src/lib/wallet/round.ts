@@ -20,13 +20,31 @@ export type WalletPass = { ok: true; paidBy: "wallet"; holdId: string; heldSatan
 export type FreePass = { ok: true; paidBy: "free"; auditId: number; agentId?: string };
 export type RoundPass = { ok: false; refusal: string } | { ok: true; paidBy: "staff"; agentId?: string } | FreePass | WalletPass;
 
-interface Meter { spentThb: number }
+/** `fixedSatang`: the round's fixed price, once the round knows it (chargeFixed); null charges the cost */
+interface Meter { spentThb: number; fixedSatang: number | null }
 const meters = new AsyncLocalStorage<Meter>();
 
 /** a call's cost, added to the wallet round it belongs to; outside one it is only the owner's */
 export function meterCost(thb: number): void {
   const meter = meters.getStore();
   if (meter && Number.isFinite(thb) && thb > 0) meter.spentThb += thb;
+}
+
+/**
+ * Prices the wallet round this runs in at a fixed price instead of its cost (owner, 2026-10-12:
+ * a picture, a read of a picture — src/lib/wallet/prices.ts). Called once the round knows what
+ * it will make: a picture by the painter actually chosen. Outside a wallet round — the owner, a
+ * free round — it does nothing. The charge still never passes the hold.
+ */
+export function chargeFixed(satang: number): void {
+  const meter = meters.getStore();
+  if (meter && Number.isSafeInteger(satang) && satang >= 0) meter.fixedSatang = satang;
+}
+
+/** what a delivered wallet round is charged: its fixed price, or its cost times the multiplier — never past the hold */
+export function roundCharge(meter: Meter, pass: WalletPass): number {
+  if (meter.fixedSatang !== null) return Math.min(meter.fixedSatang, pass.heldSatang);
+  return chargeSatang(meter.spentThb, pass.multiplier, pass.heldSatang);
 }
 
 /** inside a round the agent pays for: the owner's content ceiling does not stand over it */
@@ -74,7 +92,7 @@ export async function payRound<R extends Outcome>(pass: Extract<RoundPass, { ok:
 async function paid<R extends Outcome>(pass: Extract<RoundPass, { ok: true }>, run: () => Promise<R>): Promise<R> {
   if (pass.paidBy === "free") return runFree(pass, run);
   if (pass.paidBy !== "wallet") return run();
-  const meter: Meter = { spentThb: 0 };
+  const meter: Meter = { spentThb: 0, fixedSatang: null };
   let result: R;
   try {
     result = await meters.run(meter, run);
@@ -86,11 +104,11 @@ async function paid<R extends Outcome>(pass: Extract<RoundPass, { ok: true }>, r
     if (delivered(result)) {
       // the charge never passes the hold, so a round that cost more is undercharged; said once
       // in the log so the owner can raise ROUND_HOLD_THB (src/lib/wallet/money.ts) (owner, 2026-09-30)
-      const wanted = holdSatangFor(meter.spentThb, pass.multiplier);
+      const wanted = meter.fixedSatang ?? holdSatangFor(meter.spentThb, pass.multiplier);
       if (wanted > pass.heldSatang) {
         console.warn(`wallet hold ${pass.holdId}: the round cost ${wanted} satang with the multiplier but held ${pass.heldSatang}; charged the hold`);
       }
-      await settleWallet(pass.holdId, chargeSatang(meter.spentThb, pass.multiplier, pass.heldSatang), meter.spentThb);
+      await settleWallet(pass.holdId, roundCharge(meter, pass), meter.spentThb);
     } else {
       await releaseWallet(pass.holdId);
     }

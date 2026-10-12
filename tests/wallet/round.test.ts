@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const wallet = vi.hoisted(() => ({ settleWallet: vi.fn(), releaseWallet: vi.fn(), returnFreeRound: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
 
-const { delivered, inWalletRound, meterCost, payRound } = await import("@/lib/wallet/round");
+const { chargeFixed, delivered, inWalletRound, meterCost, payRound } = await import("@/lib/wallet/round");
 
 const pass = { ok: true as const, paidBy: "wallet" as const, holdId: "h1", heldSatang: 1000, multiplier: 2 };
 
@@ -54,6 +54,45 @@ describe("payRound on a wallet round", () => {
     });
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it("charges a fixed price instead of the cost once the round names one (owner, 2026-10-12)", async () => {
+    await payRound(pass, async () => {
+      meterCost(2.41);
+      chargeFixed(500);
+      return { ok: true };
+    });
+    // the cost is still written down beside the charge, for the owner's margin
+    expect(wallet.settleWallet).toHaveBeenCalledWith("h1", 500, expect.closeTo(2.41, 9));
+  });
+
+  it("never charges a fixed price past the hold", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await payRound({ ...pass, heldSatang: 100 }, async () => {
+      chargeFixed(500);
+      return { ok: true };
+    });
+    expect(wallet.settleWallet).toHaveBeenCalledWith("h1", 100, 0);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("gives a fixed-price round that delivered nothing its whole hold back", async () => {
+    await payRound(pass, async () => {
+      chargeFixed(500);
+      return { ok: false };
+    });
+    expect(wallet.settleWallet).not.toHaveBeenCalled();
+    expect(wallet.releaseWallet).toHaveBeenCalledWith("h1");
+  });
+
+  it("does nothing with a fixed price outside a wallet round", async () => {
+    expect(() => chargeFixed(500)).not.toThrow();
+    await payRound({ ok: true, paidBy: "staff" }, async () => {
+      chargeFixed(500);
+      return { ok: true };
+    });
+    expect(wallet.settleWallet).not.toHaveBeenCalled();
   });
 
   it("is a wallet round only inside the run", async () => {

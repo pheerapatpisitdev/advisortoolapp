@@ -8,6 +8,7 @@ import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { videoStartFrom } from "@/lib/quote-video/link";
 import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
+import { walletPrices } from "@/lib/wallet/store";
 import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 
@@ -38,7 +39,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   };
   // the ElevenLabs voices: the owner's alone for now, and only while a key is saved (owner, 2026-10-11)
   const eleven = can(viewer, "owner") && (await providerKey(ELEVENLABS).catch(() => null)) ? ELEVEN_VOICES : [];
-  const cost = await myCost();
+  const [cost, prices] = await Promise.all([myCost(), walletPrices()]);
   const initial = await myVideos().catch((e) => {
     console.error("quote videos not read:", e);
     return null;
@@ -56,7 +57,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} />
     </div>
   );
 }

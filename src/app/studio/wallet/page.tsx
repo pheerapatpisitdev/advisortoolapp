@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { allowanceOf } from "@/lib/auth/quota";
-import { walletEntries, walletSettings, walletStatus } from "@/lib/wallet/store";
+import { FREE_VIDEOS, freeVideosLeft } from "@/lib/quote-video/make";
+import { walletEntries, walletPrices, walletSettings, walletStatus } from "@/lib/wallet/store";
+import { PriceList } from "./PriceList";
 import { WalletClient } from "./WalletClient";
 
 export const dynamic = "force-dynamic";
@@ -18,14 +20,23 @@ export const metadata: Metadata = { title: "กระเป๋าเงิน | 
 export default async function WalletPage({ searchParams }: { searchParams: Promise<{ paid?: string }> }) {
   const viewer = await gatePage("/studio/wallet");
   const { paid } = await searchParams;
+  const prices = await walletPrices();
   if (can(viewer, "owner")) {
-    return <p className="text-sm text-[var(--ct-mute)]">เจ้าของระบบใช้ AI ใน Studio ได้โดยไม่ต้องเติมเงินครับ</p>;
+    // the owner pays nothing, but sees the list the agents see (owner, 2026-10-12)
+    const settings = await walletSettings().catch(() => ({ enabled: false, multiplier: 2 }));
+    return (
+      <div className="mx-auto max-w-xl space-y-6">
+        <p className="text-sm text-[var(--ct-mute)]">เจ้าของระบบใช้ AI ใน Studio ได้โดยไม่ต้องเติมเงินครับ ด้านล่างคือราคาที่ตัวแทนเห็น แก้ได้ที่หลังบ้าน › กระเป๋าเงินตัวแทน</p>
+        <PriceList prices={prices} multiplier={settings.multiplier} />
+      </div>
+    );
   }
-  const [settings, wallet, entries, allowance] = await Promise.all([
+  const [settings, wallet, entries, allowance, videosLeft] = await Promise.all([
     walletSettings().catch(() => ({ enabled: false, multiplier: 2 })),
     walletStatus(viewer.agentId).catch(() => ({ satang: 0, frozen: false })),
     walletEntries(viewer.agentId).catch(() => []),
     allowanceOf(viewer),
+    freeVideosLeft(viewer.agentId).catch(() => null),
   ]);
   return (
     <WalletClient
@@ -35,6 +46,8 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
       frozen={wallet.frozen}
       entries={entries}
       rounds={{ used: allowance.used, limit: allowance.limit ?? 0 }}
+      videos={videosLeft === null ? null : { left: videosLeft, of: FREE_VIDEOS }}
+      prices={prices}
       paid={typeof paid === "string" ? paid : null}
     />
   );

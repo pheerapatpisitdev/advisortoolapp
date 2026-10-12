@@ -60,10 +60,10 @@ import { getCampaign, listCampaignPieces, type AdCampaign } from "@/lib/ads/camp
 import { contactBlock, getPageContact } from "@/lib/ads/page-contact";
 import { campaignLang } from "@/lib/ads/campaign-lang";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
-import { payRound } from "@/lib/wallet/round";
-import { drawHoldThb } from "@/lib/wallet/money";
+import { chargeFixed, payRound } from "@/lib/wallet/round";
 import type { Rounds } from "@/lib/wallet/note";
-import { walletView } from "@/lib/wallet/store";
+import { pictureSatang } from "@/lib/wallet/prices";
+import { walletPrices, walletView } from "@/lib/wallet/store";
 
 /**
  * The content workbench's doors, open to anyone who finds the page — the owner put it in the
@@ -1034,18 +1034,19 @@ export async function drawBackground(id: string, request = "", painter?: string,
   // asked before the piece is read: a piece that is not theirs costs a look, not a round
   const seen = await getContent(id).catch(() => null);
   if (!seen) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
-  // What a wallet round sets aside is this picture's own price, not the dearest one's: five
-  // pictures start at once and a flat ฿3 hold (฿6 after the multiplier) each needed ฿30 of
-  // money that would have paid ฿5 (owner, 2026-09-30). But it is the dearest this picture can
-  // reach — the painter's fallbacks, and Gemini when a person is in it — or a picture that fell
-  // back, or gained a person, was charged no more than a cheaper hold (review, 2026-10-01).
+  // A picture has a fixed price the owner sets (owner, 2026-10-12: มาตรฐาน ฿1, คมชัด ฿2, Gemini
+  // ฿5 — src/lib/wallet/prices.ts). The wallet sets aside the price of the painter this picture
+  // would be drawn by — Gemini when a person is in it — and is charged the price of the one
+  // actually chosen, which is never dearer. A fallback to another model when the chosen one is
+  // down costs the agent nothing more: they pay for what they picked.
   // The piece's own person is settled here, from this read, and the round draws that one: read
   // again inside the round, a person put on meanwhile was drawn by Gemini at a hold priced
   // without them. Whether their photos exist is only known inside the round, so a person is the
-  // dearer guess. "none" prices at 0: the default hold stays.
+  // dearer guess. "none" has no price: the default hold stays.
   if (person === undefined) person = seen.output.person ?? null;
-  const priced = drawHoldThb({ painter, withPerson: Boolean(person), request });
-  const pass = await takeRound(viewer, "ai-draw", id, priced > 0 ? priced : undefined);
+  const prices = await walletPrices();
+  const priced = pictureSatang(prices, painterFor(painter, Infinity, Boolean(person)).id);
+  const pass = await takeRound(viewer, "ai-draw", id, priced ? { satang: priced } : undefined);
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, async (): Promise<DrawBackgroundResult> => {
     let hold: string | null = null;
@@ -1064,6 +1065,9 @@ export async function drawBackground(id: string, request = "", painter?: string,
       // person in it is drawn by Gemini whatever was picked, and priced so
       const chosen = painterFor(painter, cap - spent, Boolean(found?.photos.length));
       if (!chosen.modelId) return { ok: false, error: "งบคอนเทนต์เหลือน้อย อัตโนมัติจึงไม่วาดภาพ เลือกโมเดลวาดเองได้ครับ" };
+      // the agent pays the chosen painter's fixed price, whatever the drawing costs (owner, 2026-10-12)
+      const price = pictureSatang(prices, chosen.id);
+      if (price !== null) chargeFixed(price);
       // the picture's price set aside first (plus the request's translation), so forty orders at once cannot all fit in the last baht
       // a brief is translated and, when the model draws the words too, they are read back: a second small call
       const held = await holdContentBudget(chosen.thb + OVERHEAD_THB * (request.trim() ? 2 : 1), cap);

@@ -6,6 +6,7 @@ import {
   posterUrl, type BlockKind, type PosterSpec, type SizeId,
 } from "@/lib/content/poster";
 import { PAINTERS, painterFor } from "@/lib/content/models";
+import { paintPrice, usePrices } from "./ui/prices";
 import type { PiecePerson } from "@/lib/content/people";
 import { SAVE_LABEL, usePictureSaver } from "./savePicture";
 import { PersonPicker, type PersonOption } from "./PersonPicker";
@@ -76,8 +77,10 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the ids, not the arrays' identity
   }, [drawnWith?.id, drawnWith?.pose, peopleKey]);
   const [painter, setPainter] = useState("standard");
-  // a person's photos go to Gemini Image whatever the painter, so it is priced as that
-  const price = `~฿${painterFor(painter, Infinity, Boolean(person)).thb.toFixed(2)}`;
+  // the agent's price, not the drawing's cost (owner, 2026-10-12); a person's photos go to
+  // Gemini Image whatever the painter, so it is priced as that
+  const prices = usePrices();
+  const price = paintPrice(prices, painterFor(painter, Infinity, Boolean(person)).id) ?? "";
   const [drawing, setDrawing] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
   const shut = Boolean(pictureLocked || readOnly);
@@ -215,7 +218,7 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
               <span className="mr-1 font-medium">วาดด้วย</span>
               {PAINTERS.filter((p) => p.modelId).map((p) => (
                 <button key={p.id} type="button" aria-pressed={painter === p.id} onClick={() => setPainter(p.id)} className={chip(painter === p.id)}>
-                  {p.label} ฿{p.thb.toFixed(2)}
+                  {p.label} {paintPrice(prices, p.id)}
                 </button>
               ))}
             </div>}
