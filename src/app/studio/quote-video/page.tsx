@@ -8,7 +8,7 @@ import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { videoStartFrom } from "@/lib/quote-video/link";
 import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
-import { fhcChoices, myCost, myVideos } from "./actions";
+import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +43,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     console.error("quote videos not read:", e);
     return null;
   });
+  // Gemini's voice used up for the day: the form warns before anyone asks (owner, 2026-10-12)
+  const quota = await voiceQuota();
   const start = videoStartFrom(await searchParams);
   const fhc = await fhcChoices(start?.fhc).catch((e) => {
     console.error("fhc customers not read:", e);
@@ -54,7 +56,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} />
     </div>
   );
 }

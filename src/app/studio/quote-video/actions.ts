@@ -10,7 +10,8 @@ import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { clipSize, costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipSize, costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { bangkokClock, VOICE_FULL, voiceFullNotice } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
@@ -52,6 +53,8 @@ export interface VideoItem {
   personal: boolean;
   /** only a portrait clip goes on a Page (as a Reel) */
   size: VideoSize;
+  /** failed because Gemini's voice was used up for the day */
+  voiceFull: boolean;
 }
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
@@ -104,6 +107,28 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   return { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
 }
 
+export interface VoiceQuota { until: string; clock: string }
+
+/**
+ * Gemini's voice used up for the day (owner, 2026-10-12, mockup ข): when it comes back, or null.
+ * A wrong answer here only hides the warning; the clip itself still fails with the reason.
+ */
+export async function voiceQuota(): Promise<VoiceQuota | null> {
+  await requireMember();
+  const until = await voiceFullUntil().catch((e) => {
+    console.error("voice quota not read:", e instanceof Error ? e.message : "unknown error");
+    return null;
+  });
+  return until ? { until: until.toISOString(), clock: bangkokClock(until) } : null;
+}
+
+/** a Gemini-voiced clip is not started while the voice is used up: it would only fail */
+async function voiceRefusal(voice: string | undefined): Promise<string | null> {
+  if (voice) return null;
+  const q = await voiceQuota();
+  return q ? voiceFullNotice(q.clock) : null;
+}
+
 /** an FHC summary is one customer's money: it never goes to a Page (owner, 2026-10-12) */
 const FHC_PRIVATE = "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ลงเพจไม่ได้";
 
@@ -149,6 +174,8 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
   }
+  const full = await voiceRefusal(eleven?.id);
+  if (full) return { ok: false, error: full };
   const input: FhcVideoInput = {
     product: "FHC", customerId: c.id, age: c.age, sex: c.sex,
     narrator: eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", ...(eleven ? { voice: eleven.id } : {}),
@@ -195,6 +222,8 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
   }
+  const full = await voiceRefusal(c.voice);
+  if (full) return { ok: false, error: full };
   try {
     const made = await createVideo(viewer, c, c.length === "short" ? "" : cleanCustomerName(customer));
     if ("refusal" in made) return { ok: false, error: made.refusal };
@@ -287,7 +316,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, fileName: file, ...(await links(file)), paid: paidLine(v),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), fileName: file, ...(await links(file)), paid: paidLine(v),
       };
     }
     const input = v.input;
@@ -304,6 +333,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
       status: v.status,
       error: v.error,
+      voiceFull: isVoiceFull(v),
       personal: false,
       size: clipSize(input),
       fileName: file,
@@ -312,6 +342,8 @@ export async function myVideos(): Promise<VideoItem[]> {
     };
   }));
 }
+
+const isVoiceFull = (v: VideoRow) => v.status === "failed" && Boolean(v.error?.startsWith(VOICE_FULL));
 
 function paidLine(v: VideoRow): string | null {
   return v.paid_by === "free"

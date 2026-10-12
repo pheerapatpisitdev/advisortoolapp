@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { providerKey } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
 import { asWho } from "@/lib/ai/who";
-import { speakLine, TTS_RATE } from "@/lib/ai/tts";
+import { speakLine, TTS_RATE, TtsQuotaError } from "@/lib/ai/tts";
 import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
 import { can } from "@/lib/auth/access";
@@ -23,6 +23,7 @@ import { motionBackground, motionBgHeight, motionFrame, motionWindows, MOTION_FP
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput, type VideoStyle } from "./script";
 import { clipLength, H, planScenes, SIZES, sizeOf, W, type ScenePlan, type VideoSize } from "./timeline";
+import { VOICE_FULL, voiceDay, voiceFullText } from "./voice-quota";
 
 /**
  * Making one วิดีโอนำเสนอ clip (owner, 2026-10-11; spec docs/superpowers/specs/2026-10-11-quote-video-design.md).
@@ -182,10 +183,23 @@ async function clearInputs(id: string): Promise<void> {
 async function fail(id: string, why: unknown): Promise<void> {
   console.error(`quote video ${id} failed:`, why instanceof Error ? why.message : "unknown error");
   // only the writer that moves the row to failed gives the hold back
-  const { data } = await rows().update({ status: "failed", error: FAILED, updated_at: new Date().toISOString() })
+  // Gemini's voice used up for the day: the card says when to try again, and marks the day (voiceFullUntil)
+  const error = why instanceof TtsQuotaError ? voiceFullText(voiceDay().until) : FAILED;
+  const { data } = await rows().update({ status: "failed", error, updated_at: new Date().toISOString() })
     .eq("id", id).in("status", ["drawing", "rendering"]).select("hold_id, paid_by").maybeSingle();
   if (data) await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
   await clearInputs(id).catch(() => undefined);
+}
+
+/**
+ * When Gemini's voice comes back, if a clip has hit its daily cap since the day turned over
+ * (owner, 2026-10-12): the board then warns before anyone asks for a Gemini-voiced clip.
+ */
+export async function voiceFullUntil(now = new Date()): Promise<Date | null> {
+  const { from, until } = voiceDay(now);
+  const { data, error } = await rows().select("id").like("error", `${VOICE_FULL}%`).gte("updated_at", from.toISOString()).limit(1);
+  if (error) throw new Error(`voice quota not read: ${error.message}`);
+  return data?.length ? until : null;
 }
 
 /**
