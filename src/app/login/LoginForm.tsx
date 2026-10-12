@@ -5,6 +5,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { Field, FormError } from "@/components/auth/fields";
 import { INPUT, MUTE, PRIMARY } from "@/components/auth/styles";
 import { signIn } from "./actions";
+import { SignupVideo } from "./SignupVideo";
 
 type Tab = "member" | "unitos";
 
@@ -66,7 +67,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null 
     }`;
 
   return (
-    <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์">
+    <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์" below={<SignupVideo />}>
       {notice && <p role="status" className="mt-4 rounded-lg bg-[var(--bot-band)] px-3 py-2 text-center text-sm text-[var(--bot-ink)]">{notice}</p>}
       <div role="tablist" className="mt-6 flex gap-1 rounded-lg bg-[var(--bot-band)] p-1">
         <button type="button" role="tab" aria-selected={tab === "member"} className={tabClass("member")} onClick={() => pick("member")}>สมาชิกทั่วไป</button>
