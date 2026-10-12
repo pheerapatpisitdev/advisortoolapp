@@ -133,8 +133,8 @@ export function needsBraceRoom(card: ValueTableCard): boolean {
   return paidConstantly(card) !== undefined;
 }
 
-/** The last year of a premium that never moves, or undefined when there is no such run. */
-function paidConstantly(card: ValueTableCard): number | undefined {
+/** The last year of a premium that never moves, or undefined when there is no such run (the clip uses it too). */
+export function paidConstantly(card: Pick<ValueTableCard, "rows">): number | undefined {
   const { rows } = card;
   if (rows.length < 2 || rows[0].due === "—") return undefined;
   let last = 0;

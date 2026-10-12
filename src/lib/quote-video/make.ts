@@ -16,7 +16,8 @@ import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, w
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import { getContact, photoDataUri } from "./contact";
-import { CHART_W, panEndFor, sceneLayer, tableImage, type Contact } from "./draw";
+import { CHART_W, sceneLayer, tableImage, type Contact } from "./draw";
+import { noteDrawing, tablePlan } from "./table-pen";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
@@ -307,14 +308,17 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
   const script = quoteVideoScript(facts, customer, narrator, short ? "short" : "full");
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const motion = row.input.style === "motion";
+  // the classic value scene: where the table stops and which pen note is written at each stop
+  const valueAt = script.findIndex((s) => s.key === "value");
+  const pen = !motion && valueAt >= 0 ? tablePlan(facts, script[valueAt].voice, secs[valueAt]) : undefined;
   const plans = planScenes(script.map((s, i) => ({
     key: s.key, voice: s.voice, voiceSec: secs[i],
-    ...(motion ? { windows: motionWindows(s.key, facts, secs[i]), fps: MOTION_FPS } : sceneMotion(facts, s.key)),
+    ...(motion ? { windows: motionWindows(s.key, facts, secs[i], s.voice), fps: MOTION_FPS } : sceneMotion(facts, s.key)),
+    ...(pen && i === valueAt ? { table: pen.plan } : {}),
   })));
   const layers = plans.map((p) => (motion ? undefined : p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
-  const named = nameFiles(plans, layers);
+  const named = nameFiles(plans, layers, plans.map((_, i) => (pen && i === valueAt ? pen.notes.length : 0)));
   const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" ? valueTableChart(planInput(row.input), CHART_W) : undefined;
-  const panEnd = panEndFor(facts);
   const table = tableImage(facts);
   /** one scene's pictures: its base (classic), every overlay frame, and the value table */
   const sceneDraws = (s: number): { name: string; draw: () => Promise<Buffer> }[] => {
@@ -324,19 +328,25 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
     if (motion) {
       const mctx = { facts, narrator, customer, contact, words, voiceSec: secs[s] };
       const frame = (t: number) => (size === "portrait" ? motionFrame(p.key, mctx, t) : wideQuoteFrame(p.key, mctx, t, size));
-      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }) }));
+      // the value scene writes its pen notes in the handwriting face
+      const withPen = { pen: p.key === "value" };
+      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }, withPen) }));
     }
-    const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, panEnd };
+    const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, ...(pen ? { notes: pen.notes } : {}) };
+    const withPen = { pen: p.key === "value" };
     return [
       { name: sc.base, draw: () => renderPng(sceneLayer(p.key, ctx, "base"), { width: W, height: H }) },
-      ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(sceneLayer(p.key, ctx, "over", fr.state), { width: W, height: H }) })),
+      ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(sceneLayer(p.key, ctx, "over", fr.state), { width: W, height: H }, withPen) })),
       ...(sc.layer?.kind === "table" ? [{ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }) }] : []),
+      ...(sc.layer?.pens ?? []).map((name, k) => ({
+        name, draw: () => renderPng(noteDrawing(pen!.notes[k], table.height), { width: table.width, height: table.height }, withPen),
+      })),
     ];
   };
   return {
     script, motion, plans, named, sceneDraws,
     size,
-    build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height, panEnd },
+    build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height },
     layers: { photo: layers.includes("photo") },
   };
 }

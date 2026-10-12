@@ -17,12 +17,13 @@ export const TRANSITIONS: Record<string, string> = { lead: "fade", price: "slide
 const f3 = (n: number) => n.toFixed(3);
 
 /** A file the job reads, before it has a link: its input name and what it is. */
-export interface JobFile { name: string; kind: "audio" | "base" | "photo" | "table" | "list" | "frame"; scene?: number; frame?: number }
+export interface JobFile { name: string; kind: "audio" | "base" | "photo" | "table" | "pen" | "list" | "frame"; scene?: number; frame?: number }
 
-export interface SceneFiles { base: string; layer?: { kind: "photo" | "table"; name: string }; list: string; frames: string[] }
+/** a scene's files; `pens`: the value table's finished pen notes, one transparent layer each */
+export interface SceneFiles { base: string; layer?: { kind: "photo" | "table"; name: string; pens?: string[] }; list: string; frames: string[] }
 
-/** Names every file of the clip, in_1 the narration. */
-export function nameFiles(plans: ScenePlan[], layers: ("photo" | "table" | undefined)[]): { audio: string; scenes: SceneFiles[]; files: JobFile[] } {
+/** Names every file of the clip, in_1 the narration. `pens`: how many pen-note layers the scene's table has. */
+export function nameFiles(plans: ScenePlan[], layers: ("photo" | "table" | undefined)[], pens: number[] = []): { audio: string; scenes: SceneFiles[]; files: JobFile[] } {
   let n = 0;
   const next = () => `in_${++n}`;
   const files: JobFile[] = [];
@@ -32,8 +33,17 @@ export function nameFiles(plans: ScenePlan[], layers: ("photo" | "table" | undef
     const base = next();
     files.push({ name: base, kind: "base", scene: s });
     const lk = layers[s];
-    const layer = lk ? { kind: lk, name: next() } : undefined;
-    if (layer) files.push({ name: layer.name, kind: lk!, scene: s });
+    const layer: SceneFiles["layer"] = lk ? { kind: lk, name: next() } : undefined;
+    if (layer) {
+      files.push({ name: layer.name, kind: layer.kind, scene: s });
+      if (layer.kind === "table" && pens[s]) {
+        layer.pens = Array.from({ length: pens[s] }, (_, k) => {
+          const name = next();
+          files.push({ name, kind: "pen", scene: s, frame: k });
+          return name;
+        });
+      }
+    }
     const list = next();
     files.push({ name: list, kind: "list", scene: s });
     const frames = p.frames.map((_, k) => {
@@ -59,13 +69,28 @@ export function concatList(plan: ScenePlan, frames: string[]): string {
 }
 
 /**
+ * How far down the table stands at time t, as an ffmpeg expression: each move eased in and out
+ * (smoothstep), from where the one before left it.
+ */
+export function tableY(moves: { at: number; dur: number; to: number }[]): string {
+  let from = 0;
+  const terms = moves.map((m) => {
+    const q = `clip((t-${f3(m.at)})/${f3(m.dur)},0,1)`;
+    const d = m.to - from;
+    from = m.to;
+    return `(${d})*(3*${q}*${q}-2*${q}*${q}*${q})`;
+  });
+  return terms.length ? terms.join("+") : "0";
+}
+
+/**
  * The command. Per scene: the base looped for the scene's length, the moving layer (the photo
- * zooming slowly, or the table panning), the overlay frames on top; then the scenes cross-faded.
- * `tableHeight`: the value table picture's height, for the pan; `panEnd`: where it stops.
+ * zooming slowly, or the table moving and stopping, its finished pen notes moving with it), the
+ * overlay frames on top; then the scenes cross-faded. `tableHeight`: the value table picture's height.
  */
 export function buildJob(
   plans: ScenePlan[], named: ReturnType<typeof nameFiles>,
-  opts: { tableHeight?: number; panEnd?: number; driftHeight?: number; size?: { w: number; h: number } },
+  opts: { tableHeight?: number; driftHeight?: number; size?: { w: number; h: number } },
 ): Omit<FfmpegJob, "inputs"> & { inputNames: string[] } {
   // the clip's frame: portrait unless a square or landscape one was asked for
   const fw = opts.size?.w ?? W;
@@ -96,12 +121,19 @@ export function buildJob(
         + `zoompan=z='1+0.12*on/${frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${PHOTO.w}x${PHOTO.h}:fps=${FPS},setsar=1[ph${s}]`);
       f.push(`[${cur}][ph${s}]overlay=x=${PHOTO.x}:y=${PHOTO.y}[m${s}]`);
       cur = `m${s}`;
-    } else if (sc.layer?.kind === "table" && opts.tableHeight && p.pan) {
+    } else if (sc.layer?.kind === "table" && opts.tableHeight) {
       const li = add(sc.layer.name, `-loop 1 -framerate ${FPS} -t ${d}`);
-      const end = Math.max(0, opts.panEnd ?? 0);
-      const q = `clip((t-${f3(p.pan.at)})/${f3(p.pan.dur)},0,1)`;
-      f.push(`[${li}:v]crop=w=${TABLE.w}:h=${Math.min(TABLE.h, opts.tableHeight)}:x=0:y='${end}*(3*${q}*${q}-2*${q}*${q}*${q})',setsar=1[tb${s}]`);
-      f.push(`[${cur}][tb${s}]overlay=x=${TABLE.x}:y=${TABLE.y}[m${s}]`);
+      const crop = `crop=w=${TABLE.w}:h=${Math.min(TABLE.h, opts.tableHeight)}:x=0:y='${tableY(p.table?.moves ?? [])}'`;
+      f.push(`[${li}:v]${crop},format=rgba,setsar=1[tb${s}]`);
+      let table = `tb${s}`;
+      // each finished pen note: cut the same way, so it moves with the table, and shown from when it is done
+      (sc.layer.pens ?? []).forEach((name, k) => {
+        const ni = add(name, `-loop 1 -framerate ${FPS} -t ${d}`);
+        f.push(`[${ni}:v]${crop},format=rgba,setsar=1[pn${s}_${k}]`);
+        f.push(`[${table}][pn${s}_${k}]overlay=0:0:enable='gte(t,${f3(p.table?.shown[k] ?? 0)})'[tp${s}_${k}]`);
+        table = `tp${s}_${k}`;
+      });
+      f.push(`[${cur}][${table}]overlay=x=${TABLE.x}:y=${TABLE.y}[m${s}]`);
       cur = `m${s}`;
     }
     const oi = add(sc.list, "-f concat -safe 0");
