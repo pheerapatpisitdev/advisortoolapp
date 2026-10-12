@@ -7,9 +7,10 @@ import { deathBenefitRows, type BenefitRow as DeathRow } from "@/lib/death-benef
 import { initialFrom, ridersFrom } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import {
-  MODES, dailyCashLabel, deathBenefitOf, iHealthyPricing, plansFor,
+  MODES, deathBenefitOf, iHealthyPricing, plansFor,
 } from "@/lib/ihealthy-quote";
 import { priceRiders } from "@/lib/ihealthy-rider-quote";
+import { riderLines } from "@/lib/ihealthy-rider-lines";
 import { parseLang, type Lang } from "@/lib/ihealthy-lang";
 import { baseWords, WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 import { translateFacts } from "@/lib/ihealthy-translate";
@@ -102,34 +103,6 @@ const millions = (w: IHealthyWords, baht: number) => {
 };
 
 /**
- * What the attached riders are called on one line.
- *
- * The same rule the card on the page follows: one rider gets its own name, more than one is
- * a count — a card that listed them would be the agent's fold written out twice, on a
- * picture the customer is meant to be able to read at a glance.
- *
- * The name is built from the plan actually attached. Reading it off the agency's standard
- * instead is how this came to promise a thousand baht a day over a five-thousand premium,
- * two inches above its own table row saying five thousand.
- */
-function extrasLabel(codes: string[], standardCode: string, attachedPlan: number | null): string {
-  if (codes.length === 1 && codes[0] === standardCode && attachedPlan !== null) {
-    return dailyCashLabel(attachedPlan);
-  }
-  return `สัญญาเพิ่มเติม ${codes.length} รายการ`;
-}
-
-/** The same name in the reader's language: the Thai above is what the engine is handed. */
-function extrasWords(
-  w: IHealthyWords, codes: string[], standardCode: string, attachedPlan: number | null,
-): string {
-  if (codes.length === 1 && codes[0] === standardCode && attachedPlan !== null) {
-    return w.dailyCash(attachedPlan);
-  }
-  return w.riderCount(codes.length);
-}
-
-/**
  * The quote a link asks for, drawn from the rate tables as they stand today.
  *
  * Nothing is refused: `initialFrom` walks any query at all — including none — to an
@@ -179,7 +152,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
    */
   const extras = query.has("r")
     ? {
-        label: extrasLabel(priced.extraCodes, table.standard.code, attachedDailyCash),
+        label: riderLines(WORDS.th, asked, priced.extraCodes).join(" · "),
         premiums: priced.extras,
       }
     : undefined;
@@ -259,9 +232,12 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
   const baseRow = table.bases.find((b) => b.variant === v.base);
   const baseName = baseRow ? baseWords(w, baseRow.variant, baseRow).label : v.base;
   const territory = w.territory[v.territory] ?? v.territory;
-  const standardLabel = extras === undefined
-    ? standardPlan !== null ? w.dailyCash(standardPlan) : undefined
-    : extrasWords(w, priced.extraCodes, table.standard.code, attachedDailyCash);
+  // Each priced rider on its own line, in what was picked for it: the customer can see what
+  // the premium buys, where "สัญญาเพิ่มเติม 3 รายการ" told them nothing. Past four the card
+  // names three and counts the rest; the page's own card says the same through `riderLines`.
+  const standardLabels = extras === undefined
+    ? standardPlan !== null ? [w.dailyCash(standardPlan)] : undefined
+    : riderLines(w, asked, priced.extraCodes);
 
   return {
     lang,
@@ -276,7 +252,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
       // An emptied fold is not on the arrangement at all, so it is not named. Its premium is
       // still what says so, which is the one thing a premium is still read for here.
       ...(here.standard && (here.standard.premiums.find((m) => m.mode === v.mode)?.total ?? 0) > 0
-        ? [{ label: standardLabel ?? here.standard.label }]
+        ? (standardLabels ?? [here.standard.label]).map((label) => ({ label }))
         : []),
     ],
     ...(headline?.belowMinimum

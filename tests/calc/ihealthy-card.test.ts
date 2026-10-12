@@ -140,13 +140,30 @@ describe("iHealthyCard", () => {
     );
   });
 
-  it("counts the riders rather than listing them, once there is more than one", () => {
+  it("names each rider on its own line, with what was picked for it", () => {
     const card = cardAt(`${OPENING}&r=MEB%3A1000&r=DCI%3A%3A500000`);
-    expect(card.lines.some((l) => l.label === "สัญญาเพิ่มเติม 2 รายการ")).toBe(true);
+    const labels = card.lines.map((l) => l.label);
+    expect(labels).toContain("ค่าชดเชยรายวัน 1,000 บาท");
+    expect(labels).toContain("โรคร้ายแรง DCI ทุน 500,000");
     const bare = cardAt(`${OPENING}&r=MEB%3A1000`);
     expect(Number(card.premium!.amount.replace(/,/g, ""))).toBeGreaterThan(
       Number(bare.premium!.amount.replace(/,/g, "")),
     );
+  });
+
+  it("names PB with its payer, and counts past four", () => {
+    const pb = cardAt("age=35&sex=M&base=WLF99H&sa=1000000&plan=GOLD&mode=annual&r=PB%3A%3A%3AFIT%3A33%3AF");
+    expect(pb.lines.map((l) => l.label)).toContain("ผู้ชำระเบี้ย PB ฟิต (หญิง 33 ปี)");
+    const six = cardAt("age=35&sex=M&base=WLF99H&sa=1000000&plan=GOLD&mode=annual"
+      + "&r=MEB%3A1000&r=CI123%3A%3A500000&r=AP%3A%3A500000&r=MEX%3A%3A%3A1200&r=RRSS%3A%3A%3A%E0%B9%81%E0%B8%9C%E0%B8%99%20S&r=WP%3A%3A%3AFIT");
+    const labels = six.lines.map((l) => l.label);
+    expect(labels).toContain("และอีก 3 รายการ");
+    expect(labels.filter((l) => !l.startsWith("ไลฟ์") && !l.startsWith("iHealthy"))).toHaveLength(4);
+  });
+
+  it("names the riders in the reader's language", () => {
+    const en = iHealthyCard(query("age=35&sex=M&base=WLF99H&sa=1000000&plan=GOLD&mode=annual&r=PB%3A%3A%3AFIT%3A33%3AF&l=en"), WHILE_CURRENT);
+    expect(en.lines.map((l) => l.label)).toContain("Payor benefit PB Fit (Female 33 yrs)");
   });
 
   it("refuses a rider the age cannot buy rather than pricing it", () => {

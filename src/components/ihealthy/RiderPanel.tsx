@@ -4,6 +4,7 @@ import { formatBaht } from "@/calc/money";
 import type { PayMode } from "@/calc/types";
 import { WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 import { MoneyInput } from "@/components/MoneyInput";
+import { RIDER_GROUPS } from "@/lib/ihealthy-rider-lines";
 import { priceWithRiders } from "@/app/ihealthy-ultra/actions";
 import type { RiderChoice, RiderQuoteInput, RiderQuoteResult } from "@/app/ihealthy-ultra/actions";
 import {
@@ -108,25 +109,12 @@ const SETTLE_MS = 300;
  */
 const OPENING_SUM: Record<string, number> = { CI123: 500_000 };
 
-/**
- * The fold's headings, in the order they are read, and the riders under each.
- *
- * Twelve riders in the company's own order read as one long list; grouped by what they pay
- * for, the agent finds the one the customer asked about. A heading with nothing on offer under
- * it is not drawn, and a rider no group names is listed after them all without one.
- */
-const GROUPS: { key: keyof IHealthyWords["riderGroups"]; codes: string[] }[] = [
-  { key: "health", codes: ["MEB", "MEX"] },
-  { key: "critical", codes: ["DCI", "CI123", "RRSS", "CPR"] },
-  { key: "accident", codes: ["AP", "ECARE"] },
-  { key: "life", codes: ["PLS"] },
-  { key: "waiver", codes: ["WP"] },
-];
-
 /** The riders on offer under their headings; `heading` is undefined for the ungrouped tail. */
 function grouped(available: RiderChoice[]): { heading?: keyof IHealthyWords["riderGroups"]; riders: RiderChoice[] }[] {
-  const named = new Set(GROUPS.flatMap((g) => g.codes));
-  const sections = GROUPS.map((g) => ({
+  const named = new Set<string>(RIDER_GROUPS.flatMap((g) => g.codes));
+  // A heading with nothing on offer under it is not drawn, and a rider no group names is
+  // listed after them all without one.
+  const sections = RIDER_GROUPS.map((g) => ({
     heading: g.key,
     riders: g.codes.flatMap((code) => available.filter((c) => c.code === code)),
   }));
