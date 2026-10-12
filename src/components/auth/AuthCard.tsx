@@ -5,7 +5,11 @@
  * edge and the chat box's shadow, the mark at the top. The card used to take Tailwind's default
  * border, which is the text colour — a black box on grey that looked like another website.
  */
-export function AuthCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+export function AuthCard({ title, subtitle, children, below }: {
+  title: string; subtitle?: string; children: React.ReactNode;
+  /** under the card, at its width: the how-to video on the sign-in page (owner, 2026-10-13) */
+  below?: React.ReactNode;
+}) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--bot-band)] px-4 py-8 text-[var(--bot-ink)]">
       <div className="w-full max-w-sm rounded-2xl border border-[var(--bot-line)] bg-[var(--bot-surface)] p-6 shadow-[0_1px_2px_rgba(54,33,31,0.05),0_18px_36px_-20px_rgba(54,33,31,0.35)] sm:p-7">
@@ -17,6 +21,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
         </div>
         {children}
       </div>
+      {below && <div className="mt-4 w-full max-w-sm">{below}</div>}
     </main>
   );
 }
