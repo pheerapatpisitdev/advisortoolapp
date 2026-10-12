@@ -92,27 +92,19 @@ describe("the slots the page hands back", () => {
 
 /* ------------------------------ askCopilot itself ------------------------------ */
 
-const jar = vi.hoisted(() => ({ ip: 0, set: vi.fn() }));
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ "x-real-ip": `10.9.0.${jar.ip}` }),
-  cookies: async () => ({ get: () => undefined, set: jar.set }),
-}));
-const who = vi.hoisted(() => ({ viewer: null as unknown }));
+const who = vi.hoisted(() => ({ viewer: { kind: "member", agentId: "m0" } as unknown, n: 0 }));
 vi.mock("@/lib/auth/viewer", () => ({ getViewer: async () => who.viewer }));
 const brain = vi.hoisted(() => ({ answer: vi.fn() }));
 vi.mock("@/lib/copilot/answer", () => ({ answerFromKnowledge: brain.answer }));
-const daily = vi.hoisted(() => ({ claim: vi.fn(async () => true) }));
-vi.mock("@/lib/chat/web-asks", () => ({ claimWebAsk: daily.claim }));
-process.env.ADMIN_SESSION_SECRET = "test-secret";
 
 const { askCopilot } = await import("@/app/actions");
 
 beforeEach(() => {
   vi.clearAllMocks();
-  who.viewer = null;
-  jar.ip += 1;
+  // a member of their own each time, so the eight-a-minute burst limit never gets in the way
+  who.n += 1;
+  who.viewer = { kind: "member", agentId: `m${who.n}` };
   brain.answer.mockResolvedValue({ text: "คำตอบ", model: "m" });
-  daily.claim.mockResolvedValue(true);
 });
 
 describe("askCopilot", () => {
@@ -123,20 +115,6 @@ describe("askCopilot", () => {
       { product: "nope" } as never,
     );
     expect(brain.answer).toHaveBeenCalledWith("ทุน 1 ล้าน", [{ role: "user", content: "ชาย 35" }], null);
-  });
-
-  it("counts a visitor without a cookie against their address's day, and stops at it", async () => {
-    daily.claim.mockResolvedValue(false);
-    const reply = await askCopilot("ถาม");
-    expect(daily.claim).toHaveBeenCalledWith(`10.9.0.${jar.ip}`);
-    expect(reply.text).toContain("[สมัครสมาชิก]");
-    expect(brain.answer).not.toHaveBeenCalled();
-  });
-
-  it("does not count a member, who asks without limit", async () => {
-    who.viewer = { kind: "member", agentId: "m1" };
-    expect((await askCopilot("ถาม")).text).toBe("คำตอบ");
-    expect(daily.claim).not.toHaveBeenCalled();
   });
 
   it("answers nothing to a question that is not text", async () => {

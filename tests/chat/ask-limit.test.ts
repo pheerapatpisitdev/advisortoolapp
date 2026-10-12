@@ -1,81 +1,51 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { encodeAsks } from "@/lib/auth/free-asks";
 
-/** ถาม AI: three free questions for somebody not signed in, then an invitation (owner, 2026-10-01). */
+/** ถาม AI is for members only (owner, 2026-10-12: "เป็นระบบปิด"); the three free questions are gone. */
 
-const KEY = "test-secret";
-process.env.ADMIN_SESSION_SECRET = KEY;
-
-const jar = vi.hoisted(() => ({ value: undefined as string | undefined, set: vi.fn(), ip: 0 }));
-vi.mock("next/headers", () => ({
-  // a fresh address per test, so the eight-a-minute burst limit never gets in the way
-  headers: async () => new Headers({ "x-real-ip": `10.0.0.${jar.ip}` }),
-  cookies: async () => ({ get: () => (jar.value === undefined ? undefined : { value: jar.value }), set: jar.set }),
-}));
-const who = vi.hoisted(() => ({ viewer: null as unknown }));
+const who = vi.hoisted(() => ({ viewer: null as unknown, n: 0 }));
 vi.mock("@/lib/auth/viewer", () => ({ getViewer: async () => who.viewer }));
 const brain = vi.hoisted(() => ({ answer: vi.fn() }));
 vi.mock("@/lib/copilot/answer", () => ({ answerFromKnowledge: brain.answer }));
-// the per-address daily count has its own tests (copilot-input, web-asks); here it always allows
-vi.mock("@/lib/chat/web-asks", () => ({ claimWebAsk: async () => true }));
 
 const { askCopilot } = await import("@/app/actions");
 
 beforeEach(() => {
   vi.clearAllMocks();
-  jar.value = undefined;
   who.viewer = null;
+  who.n += 1;
   brain.answer.mockResolvedValue({ text: "คำตอบ", model: "m" });
-  jar.ip += 1;
 });
-const ip = () => jar.ip;
-
-const written = () => jar.set.mock.calls.at(-1)?.[1] as string | undefined;
 
 describe("askCopilot for somebody not signed in", () => {
-  it("answers the first three and counts each in the signed cookie", async () => {
-    for (const used of [0, 1, 2]) {
-      jar.value = used === 0 ? undefined : encodeAsks(used, KEY);
-      expect(await askCopilot(`ถาม ${used}-${ip()}`)).toEqual({ text: "คำตอบ", model: "m" });
-      expect(written()).toBe(encodeAsks(used + 1, KEY));
-    }
-    const options = jar.set.mock.calls[0][2];
-    expect(options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/" });
-  });
-
-  it("invites them to sign up on the fourth, without asking the model", async () => {
-    jar.value = encodeAsks(3, KEY);
-    const reply = await askCopilot(`ถาม ${ip()}`);
-    expect(reply.text).toContain("ถามฟรีครบ 3 ข้อแล้ว");
-    expect(reply.text).toContain("[สมัครสมาชิก](/signup?next=/home)");
+  it("asks them to sign in, without asking the model", async () => {
+    const reply = await askCopilot("iShield อายุ 40 เบี้ยเท่าไร");
+    expect(reply.text).toContain("ใช้ได้เฉพาะสมาชิก");
     expect(reply.text).toContain("[เข้าสู่ระบบ](/?next=/home)");
     expect(brain.answer).not.toHaveBeenCalled();
-    expect(jar.set).not.toHaveBeenCalled();
   });
 
-  it("treats a forged count as used up", async () => {
-    jar.value = "0.forged";
-    expect((await askCopilot(`ถาม ${ip()}`)).text).toContain("ถามฟรีครบ 3 ข้อแล้ว");
+  it("treats a failed read of who is asking as nobody", async () => {
+    vi.doMock("@/lib/auth/viewer", () => ({ getViewer: async () => { throw new Error("db down"); } }));
+    vi.resetModules();
+    const { askCopilot: fresh } = await import("@/app/actions");
+    expect((await fresh("ถาม")).text).toContain("ใช้ได้เฉพาะสมาชิก");
     expect(brain.answer).not.toHaveBeenCalled();
-  });
-
-  it("does not count an answer that failed", async () => {
-    brain.answer.mockResolvedValue({ text: "ขัดข้อง", model: "—", failed: true });
-    await askCopilot(`ถาม ${ip()}`);
-    brain.answer.mockRejectedValue(new Error("boom"));
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    await askCopilot(`ถาม ${ip()}-b`);
-    expect(logged).toHaveBeenCalled();
-    logged.mockRestore();
-    expect(jar.set).not.toHaveBeenCalled();
+    vi.doUnmock("@/lib/auth/viewer");
   });
 });
 
 describe("askCopilot for somebody signed in", () => {
-  it("answers without counting, however many they have asked", async () => {
-    who.viewer = { kind: "member", agentId: "m1" };
-    jar.value = encodeAsks(3, KEY);
-    expect(await askCopilot(`ถาม ${ip()}`)).toEqual({ text: "คำตอบ", model: "m" });
-    expect(jar.set).not.toHaveBeenCalled();
+  it("answers, however many they have asked", async () => {
+    who.viewer = { kind: "member", agentId: `m${who.n}` };
+    for (const i of [1, 2, 3, 4]) expect(await askCopilot(`ถาม ${i}`)).toEqual({ text: "คำตอบ", model: "m" });
+  });
+
+  it("stops one person asking more than eight a minute", async () => {
+    who.viewer = { kind: "member", agentId: `burst${who.n}` };
+    const replies = [];
+    for (let i = 0; i < 9; i++) replies.push(await askCopilot(`ถาม ${i}`));
+    expect(replies.slice(0, 8).every((r) => r.text === "คำตอบ")).toBe(true);
+    expect(replies[8]).toMatchObject({ failed: true });
+    expect(brain.answer).toHaveBeenCalledTimes(8);
   });
 });

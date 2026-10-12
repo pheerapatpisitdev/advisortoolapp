@@ -24,5 +24,7 @@ export async function LoginDoor({ searchParams }: { searchParams: DoorParams }) 
   if (await getViewer()) redirect(next);
   // settings that cannot be read hide the sign-up link rather than the door
   const settings = await memberSettings().catch(() => ({ signupOpen: false }));
-  return <LoginForm next={next} signupOpen={settings.signupOpen} error={googleError(params.error)} />;
+  // sent here from ถาม AI, which is for members only since 2026-10-12: say why the chat is not there
+  const notice = next === "/home" && params.next !== undefined ? "เข้าระบบก่อนเพื่อใช้ถาม AI" : null;
+  return <LoginForm next={next} signupOpen={settings.signupOpen} error={googleError(params.error)} notice={notice} />;
 }

@@ -33,7 +33,11 @@ function GoogleG() {
  * `error` is why Google sent somebody back (/login?error=…, src/lib/auth/google.ts); it opens
  * the member tab, where it is said.
  */
-export function LoginForm({ next, signupOpen, error: googleError }: { next: string; signupOpen: boolean; error: string | null }) {
+export function LoginForm({ next, signupOpen, error: googleError, notice = null }: {
+  next: string; signupOpen: boolean; error: string | null;
+  /** why somebody was sent here, said above the tabs (door.tsx) */
+  notice?: string | null;
+}) {
   // the member tab is for people who can still sign up; while sign-up is off a visitor is
   // almost surely a UnitOS agent, so that tab opens first (both stay available)
   const [tab, setTab] = useState<Tab>(signupOpen || googleError ? "member" : "unitos");
@@ -63,6 +67,7 @@ export function LoginForm({ next, signupOpen, error: googleError }: { next: stri
 
   return (
     <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์">
+      {notice && <p role="status" className="mt-4 rounded-lg bg-[var(--bot-band)] px-3 py-2 text-center text-sm text-[var(--bot-ink)]">{notice}</p>}
       <div role="tablist" className="mt-6 flex gap-1 rounded-lg bg-[var(--bot-band)] p-1">
         <button type="button" role="tab" aria-selected={tab === "member"} className={tabClass("member")} onClick={() => pick("member")}>สมาชิกทั่วไป</button>
         <button type="button" role="tab" aria-selected={tab === "unitos"} className={tabClass("unitos")} onClick={() => pick("unitos")}>ตัวแทน UnitOS</button>
