@@ -5,6 +5,8 @@ import { CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
 import type { QuoteVideoFacts, SceneKey } from "./script";
+import { COLS, ROW_H, TABLE } from "./table-geo";
+import { noteInWindow, type TableNote } from "./table-pen";
 import { countAt, H, W, type OverlayState } from "./timeline";
 
 /**
@@ -18,12 +20,7 @@ import { countAt, H, W, type OverlayState } from "./timeline";
  */
 
 export const PHOTO = { x: 190, y: 330, w: 700, h: 540 } as const;
-/** the window the value table pans through */
-export const TABLE = { x: 60, y: 820, w: 960, h: 760 } as const;
-export const ROW_H = 52;
-/** the value table's columns: ปีที่ อายุ เบี้ย/ปี เบี้ยสะสม เวนคืนได้ คุ้มครอง */
-const COLS = [90, 100, 170, 200, 200, 200] as const;
-const CASH_X = COLS[0] + COLS[1] + COLS[2] + COLS[3];
+export { ROW_H, TABLE };
 const SIDE = 70;
 
 export interface Contact { name: string; phone: string; line?: string; photo?: string }
@@ -36,8 +33,8 @@ export interface DrawContext {
   chart?: CardChart;
   /** the words of this scene's line, for the subtitle */
   words: string[];
-  /** the value scene: where the pan ends, in the table's own pixels */
-  panEnd?: number;
+  /** the value scene: its pen notes, each with where the table stands while it is written (table-pen.tsx) */
+  notes?: (TableNote & { at: number })[];
 }
 
 type Layer = "base" | "over";
@@ -252,11 +249,7 @@ function Ring({ p, x, y, rx = 130, ry = 44 }: { p: number; x: number; y: number;
 }
 
 function Value({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
-  const f = c.facts;
   const chart = c.chart;
-  const be = f.breakEven;
-  const ringY = be && c.panEnd !== undefined ? TABLE.y + be.index * ROW_H - c.panEnd + ROW_H / 2 : undefined;
-  const ringX = TABLE.x + CASH_X + COLS[4] / 2;
   return (
     <>
       {chart && (
@@ -271,17 +264,11 @@ function Value({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
       </On>
       {/* the window's frame, under the subtitle */}
       <On layer={layer} own="base" style={{ position: "absolute", left: TABLE.x, top: TABLE.y + TABLE.h, width: TABLE.w, height: 3, background: P.hair }} />
-      {be && ringY !== undefined && (
-        <On layer={layer} own="over" style={{ position: "absolute", left: 0, top: 0, width: W, height: H }}>
-          {s.callout && (
-            <div style={abs({ left: TABLE.x + 20, top: Math.max(TABLE.y + 10, ringY - 150), background: C.paper, border: `4px solid ${P.pen}`, borderRadius: 24, padding: "10px 22px", flexDirection: "column", color: P.pen, fontWeight: 600, fontSize: 34 })}>
-              <div style={box({})}>{`จุดคุ้มทุน อายุ ${be.age}`}</div>
-              <div style={box({ fontSize: 30 })}>{`เวนคืน ${be.cash} > จ่ายไป ${f.totalPaid}`}</div>
-            </div>
-          )}
-          {s.ring > 0 && <Ring p={s.ring} x={ringX} y={ringY} />}
-        </On>
-      )}
+      {/* the note being written: on the overlay until it is finished, then a layer of the table's own (job.ts) */}
+      {layer === "over" && (c.notes ?? []).map((n, i) => {
+        const p = s.pen?.[i] ?? 0;
+        return p > 0 && p <= 1 ? <div key={n.beat} style={abs({ left: 0, top: 0, width: W, height: H })}>{noteInWindow(n, p)}</div> : null;
+      })}
     </>
   );
 }
@@ -361,7 +348,7 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
   );
 }
 
-const DONE: OverlayState = { word: -1, count: 1, sweep: [1, 1], bars: [1, 1], ring: 0, callout: false };
+const DONE: OverlayState = { word: -1, count: 1, sweep: [1, 1], bars: [1, 1], ring: 0 };
 
 /** One layer of one scene, as a full 1080×1920 picture. */
 export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: OverlayState = DONE) {
@@ -394,7 +381,8 @@ export function tableImage(f: QuoteVideoFacts) {
   const el = (
     <div style={{ display: "flex", flexDirection: "column", width: TABLE.w, height, background: C.paper, fontFamily: "Plex", fontSize: 28, color: P.ink }}>
       {all.map((r, i) => {
-        const cells = [String(r.year), String(r.age), r.due, r.paid ?? "", r.cash ?? "", r.cover];
+        // a premium no longer due is left blank, as on the card: the pen writes there
+        const cells = [String(r.year), String(r.age), r.due === "—" ? "" : r.due, r.paid ?? "", r.cash ?? "", r.cover];
         return (
           <div key={r.year} style={box({ height: ROW_H, alignItems: "center", background: i % 2 ? "rgba(2,33,98,0.045)" : C.paper })}>
             {cells.map((v, k) => (
@@ -417,12 +405,4 @@ export function tableImage(f: QuoteVideoFacts) {
     </div>
   );
   return { el, width: TABLE.w, height };
-}
-
-/** where the pan stops: the break-even row a little above the window's middle, or the table's end */
-export function panEndFor(f: QuoteVideoFacts): number {
-  const tableH = (f.rows?.length ?? 0) * ROW_H;
-  const max = Math.max(0, tableH - TABLE.h);
-  if (!f.breakEven) return max;
-  return Math.min(max, Math.max(0, f.breakEven.index * ROW_H - Math.round(TABLE.h * 0.55)));
 }

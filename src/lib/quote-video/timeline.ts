@@ -47,13 +47,27 @@ export interface OverlayState {
   sweep: number[];
   bars: [number, number];
   ring: number;
-  callout: boolean;
   /** the Motion Graphic style: the scene time the frame is drawn at (motion.tsx works out the rest) */
   t?: number;
+  /**
+   * the value table's pen notes, one each: 0..1 while it is being written in the overlay, then
+   * held at 1 a moment, then 2 — on the table layer from there on, moving with it (job.ts)
+   */
+  pen?: number[];
 }
 
-/** The pan down the value table, scene "value": from `at`, for `dur`. */
-export interface Pan { at: number; dur: number }
+/** One move of the value table down its window: from `at`, for `dur`, to `to` pixels down. */
+export interface TableMove { at: number; dur: number; to: number }
+/**
+ * The classic value scene's table (owner, 2026-10-13): it moves and stops, and at each stop a pen
+ * note is written over it. A note is drawn in the overlay while the table stands still, then from
+ * `at + dur` it is part of the table's own layers, so it travels with the next move.
+ */
+export interface TablePlan { moves: TableMove[]; draws: { at: number; dur: number }[] }
+/** how long a finished note stays in the overlay after its layer has come in, so neither blinks */
+export const PEN_HANDOVER = 0.2;
+/** the frames a second while a note is being written */
+const PEN_FPS = 15;
 
 export interface ScenePlan<K extends AnySceneKey = AnySceneKey> {
   key: K;
@@ -63,7 +77,8 @@ export interface ScenePlan<K extends AnySceneKey = AnySceneKey> {
   dur: number;
   /** where its voice starts, in the finished clip */
   voiceAt: number;
-  pan?: Pan;
+  /** the classic value scene: the table's moves, and when each finished note joins the table */
+  table?: { moves: TableMove[]; shown: number[] };
   /** the overlay frames: each shown from `t` (scene time) until the next one */
   frames: { t: number; state: OverlayState }[];
 }
@@ -82,8 +97,8 @@ export interface SceneMotion {
   spread?: boolean;
   /** Life Protect's two death-benefit bars */
   bars?: boolean;
-  /** the value table's pan, the callout and the pen ring round the break-even */
-  pan?: boolean;
+  /** the value table's moves and the pen notes written at its stops */
+  table?: TablePlan;
   /** the pen ring round the main plan of a comparison */
   ring?: boolean;
   /** the Motion Graphic style: when its elements move; frames are drawn at `fps` inside these */
@@ -125,23 +140,20 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /**
  * Every scene's length and frames, from how long each voice line runs. A scene lasts its voice
- * plus LEAD and TAIL; the value scene at least long enough for its pan and the pen ring.
+ * plus LEAD and TAIL; the value scene at least long enough for its table's moves and pen notes.
  */
 export function planScenes<K extends AnySceneKey>(lines: ({ key: K; voice: string; voiceSec: number } & SceneMotion)[]): ScenePlan<K>[] {
   let start = 0;
   return lines.map(({ key, voice, voiceSec, ...motion }, i) => {
     const words = wordTimes(voice, voiceSec);
     let dur = LEAD + voiceSec + TAIL;
-    let pan: Pan | undefined;
     let ring: Anim | undefined;
-    let calloutAt: number | undefined;
-    if (motion.pan) {
-      pan = { at: 1.2, dur: Math.max(4, Math.min(8, voiceSec * 0.5)) };
-      calloutAt = pan.at + pan.dur + 0.2;
-      ring = { at: calloutAt + 0.2, dur: RING_DUR, steps: RING_STEPS };
-      dur = Math.max(dur, ring.at + ring.dur + 1.5);
+    const pens: Anim[] = (motion.table?.draws ?? []).map((d) => ({ at: d.at, dur: d.dur, steps: Math.max(4, Math.round(d.dur * PEN_FPS)) }));
+    if (motion.table) {
+      const ends = [...motion.table.moves.map((m) => m.at + m.dur), ...pens.map((d) => d.at + d.dur + PEN_HANDOVER)];
+      dur = Math.max(dur, Math.max(0, ...ends) + 1.5);
     }
-    if (motion.ring && !motion.pan) ring = { at: 0.9, dur: RING_DUR, steps: RING_STEPS };
+    if (motion.ring) ring = { at: 0.9, dur: RING_DUR, steps: RING_STEPS };
     const sweeps = sweepAnims(motion, voiceSec);
     const times = new Set<number>([0]);
     for (const w of words) times.add(r3(w.from));
@@ -150,7 +162,10 @@ export function planScenes<K extends AnySceneKey>(lines: ({ key: K; voice: strin
     for (const s of sweeps) for (const t of stepTimes(s)) times.add(r3(t));
     if (motion.bars) for (const b of BARS) for (const t of stepTimes(b)) times.add(r3(t));
     if (ring) for (const t of stepTimes(ring)) times.add(r3(t));
-    if (calloutAt !== undefined) times.add(r3(calloutAt));
+    for (const d of pens) {
+      for (const t of stepTimes(d)) times.add(r3(t));
+      times.add(r3(d.at + d.dur + PEN_HANDOVER));
+    }
 
     const stateAt = (t: number): OverlayState => {
       let word = -1;
@@ -162,7 +177,7 @@ export function planScenes<K extends AnySceneKey>(lines: ({ key: K; voice: strin
         sweep: sweeps.map((s) => stepped(s, t)),
         bars: motion.bars ? [stepped(BARS[0], t), stepped(BARS[1], t)] : [1, 1],
         ring: ring ? stepped(ring, t) : 0,
-        callout: calloutAt !== undefined && t >= calloutAt - 1e-6,
+        ...(pens.length ? { pen: pens.map((d) => (t >= d.at + d.dur + PEN_HANDOVER - 1e-6 ? 2 : stepped(d, t))) } : {}),
       };
     };
 
@@ -182,7 +197,7 @@ export function planScenes<K extends AnySceneKey>(lines: ({ key: K; voice: strin
         return word;
       };
       const frames = [...ts].filter((x) => x >= 0 && x < dur).sort((a, b) => a - b)
-        .map((t) => ({ t, state: { word: wordAt(t), count: 1, sweep: [], bars: [1, 1] as [number, number], ring: 0, callout: false, t } }));
+        .map((t) => ({ t, state: { word: wordAt(t), count: 1, sweep: [], bars: [1, 1] as [number, number], ring: 0, t } }));
       const plan: ScenePlan<K> = { key, start: r3(start), dur: r3(dur), voiceAt: r3(start + LEAD), frames };
       start += dur - (i < lines.length - 1 ? XFADE : 0);
       return plan;
@@ -196,7 +211,8 @@ export function planScenes<K extends AnySceneKey>(lines: ({ key: K; voice: strin
       if (k !== last) frames.push({ t, state });
       last = k;
     }
-    const plan: ScenePlan<K> = { key, start: r3(start), dur: r3(dur), voiceAt: r3(start + LEAD), frames, ...(pan ? { pan } : {}) };
+    const table = motion.table ? { moves: motion.table.moves, shown: pens.map((d) => r3(d.at + d.dur)) } : undefined;
+    const plan: ScenePlan<K> = { key, start: r3(start), dur: r3(dur), voiceAt: r3(start + LEAD), frames, ...(table ? { table } : {}) };
     start += dur - (i < lines.length - 1 ? XFADE : 0);
     return plan;
   });

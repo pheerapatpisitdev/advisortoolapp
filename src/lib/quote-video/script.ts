@@ -439,7 +439,8 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
     case "lead": return { count: true, sweeps: 1 };
     case "price": return { count: true, sweeps: f.pills.length ? 2 : 1 };
     case "cover": return f.coverStyle === "bars" ? { bars: true, sweeps: 1 } : { sweeps: f.cover.length, spread: true };
-    case "value": return { pan: true };
+    // the classic table's moves and pen notes come from the voice (table-pen.ts tablePlan)
+    case "value": return {};
     case "compare": return { ring: true };
     case "contact": return {};
   }

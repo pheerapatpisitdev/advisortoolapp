@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
+import { CHART_WRITE, chartNotes } from "./chart-pen";
+import { beatCues, penBeats } from "./pen";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { countAt, H, W } from "./timeline";
 
@@ -31,8 +33,11 @@ export interface Anim { at: number; dur: number; kind: Kind }
 const DUR: Record<Kind, number> = { up: 0.7, pop: 0.55, left: 0.6, fade: 0.6, grow: 0.9, stroke: 1.6, count: 1.4 };
 export const a = (at: number, kind: Kind, dur = DUR[kind]): Anim => ({ at, dur, kind });
 
-/** When each element of a scene moves, in scene seconds. */
-export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number): Record<string, Anim> {
+/**
+ * When each element of a scene moves, in scene seconds. `voice`: the scene's line, which the value
+ * scene's pen notes wait on (chart-pen.tsx); without it they are left off.
+ */
+export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, voice?: string): Record<string, Anim> {
   switch (key) {
     case "lead":
       return {
@@ -67,10 +72,19 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number):
     }
     case "value": {
       const late = Math.max(3.6, Math.min(8, voiceSec * 0.55));
-      return {
+      const s: Record<string, Anim> = {
         kicker: a(0.2, "up"), axes: a(0.2, "fade"), paid: a(0.4, "stroke", 1.6), cash: a(1.4, "stroke", 2.2),
-        stop: a(1.2, "fade"), dot: a(late - 1.6, "pop"), card: a(late, "pop"), legend: a(0.8, "fade"),
+        dot: a(late - 1.6, "pop"), card: a(late, "pop"), legend: a(0.8, "fade"), ages: a(0.3, "fade"),
       };
+      // the pen notes (owner, 2026-10-13), each as the voice reaches it; the dot and the card come with the break-even's
+      for (const cue of voice ? beatCues(penBeats(f), voice, voiceSec) : []) {
+        s[`pen_${cue.beat}`] = a(cue.at, "stroke", CHART_WRITE[cue.beat]);
+        if (cue.beat === "breakEven") {
+          s.dot = a(cue.at, "pop");
+          s.card = a(cue.at + 1.0, "pop");
+        }
+      }
+      return s;
     }
     case "compare": {
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
@@ -85,8 +99,8 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number):
 }
 
 /** the windows a scene moves in, for the frames timeline.ts draws */
-export const motionWindows = (key: SceneKey, f: QuoteVideoFacts, voiceSec: number): [number, number][] =>
-  Object.values(motionSpec(key, f, voiceSec)).map((x) => [x.at, x.at + x.dur]);
+export const motionWindows = (key: SceneKey, f: QuoteVideoFacts, voiceSec: number, voice?: string): [number, number][] =>
+  Object.values(motionSpec(key, f, voiceSec, voice)).map((x) => [x.at, x.at + x.dur]);
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -329,15 +343,18 @@ export function chartPaths(f: QuoteVideoFacts, w = 900, h = 520) {
     paid: line(paidAt), paidLen: Math.ceil(len(paidAt)) + 4, cash: line(cash), cashLen: Math.ceil(len(cash)) + 4,
     be: f.breakEven ? { x: x(f.breakEven.index), y: y(cash[f.breakEven.index]) } : undefined,
     stop: stop > 0 ? { x: x(stop - 1), y: y(paidAt[stop - 1]) } : undefined, w, h,
+    // for the pen notes (chart-pen.tsx): where a year and a figure fall
+    x, y, paidAt, cashAt: cash,
   };
 }
 
 function Value({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
-  const s = motionSpec("value", f, c.voiceSec);
+  const s = motionSpec("value", f, c.voiceSec, c.words.join(" "));
   const g = chartPaths(f);
   const L = 90;
-  const T = 360;
+  // lower than it was, for the pen notes' words above the chart (owner, 2026-10-13)
+  const T = 420;
   const be = f.breakEven;
   const last = f.rows?.[f.rows.length - 1];
   return (
@@ -351,15 +368,14 @@ function Value({ c, t }: { c: MotionContext; t: number }) {
           {stroke({ d: g.cash, len: g.cashLen, p: look(s.cash, t).p, color: GOLD, width: 11 })}
           {g.be && look(s.dot, t).opacity > 0 && <circle cx={g.be.x} cy={g.be.y} r={Math.round(24 * (0.4 + 0.6 * easeBack(look(s.dot, t).p)))} fill={RED} />}
         </svg>
-        <El an={s.legend} t={t} style={{ position: "absolute", left: 0, top: g.h + 40, fontSize: 32, color: WHITE }}>
+        {/* the legend at the right, under the axis: the brace's word takes the left */}
+        <El an={s.legend} t={t} style={{ position: "absolute", right: 10, top: g.h + 100, fontSize: 32, color: WHITE }}>
           <div style={box({ marginRight: 40 })}>— เบี้ยที่จ่าย</div>
           <div style={box({ color: GOLD })}>— มูลค่าเงินสด</div>
         </El>
-        {g.stop && !f.payToEnd && (
-          <El an={s.stop} t={t} style={{ position: "absolute", left: Math.max(0, g.stop.x - 160), top: Math.max(0, g.stop.y - 80), width: 320, justifyContent: "center", fontSize: 32, color: WHITE }}>{`หยุดส่ง อายุ ${f.lastPayAge}`}</El>
-        )}
+        <div style={abs({ left: 10, top: 10, width: g.w, height: g.h })}>{chartNotes(f, g, 1, (name) => look(s[name], t))}</div>
       </div>
-      <El an={s.card} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1040, flexDirection: "column", background: WHITE, color: NAVY, borderRadius: 36, padding: "26px 40px", borderLeft: `18px solid ${RED}` }}>
+      <El an={s.card} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1130, flexDirection: "column", background: WHITE, color: NAVY, borderRadius: 36, padding: "26px 40px", borderLeft: `18px solid ${RED}` }}>
         {be ? (
           <div style={box({ flexDirection: "column" })}>
             <div style={box({ fontSize: 38, fontWeight: 700, color: RED })}>{`จุดคุ้มทุน อายุ ${be.age}`}</div>

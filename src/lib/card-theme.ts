@@ -279,6 +279,9 @@ export const QUOTE_VIDEO_COLORS = {
   motionSky: "#4c7fd6",
   motionRed: "#e5484d",
   motionGreen: "#1f9d55",
+  /* the pen notes on the Motion chart (owner, 2026-10-13): the card's red and blue, lifted to read on navy */
+  motionPen: "#ff6b6b",
+  motionBluePen: "#8cc4ff",
   coinSide: "#e8b923",
   coinTop: "#ffe680",
 } as const;

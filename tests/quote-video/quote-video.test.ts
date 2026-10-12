@@ -6,6 +6,9 @@ import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
 import { motionWindows, MOTION_FPS } from "@/lib/quote-video/motion";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { clipLength, LEAD, planScenes, XFADE } from "@/lib/quote-video/timeline";
+import { beatCues, penBeats } from "@/lib/quote-video/pen";
+import { tablePlan } from "@/lib/quote-video/table-pen";
+import { tableY } from "@/lib/quote-video/job";
 
 const TODAY = new Date("2026-10-11T00:00:00+07:00");
 const input = { variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
@@ -75,7 +78,9 @@ describe("quote video script", () => {
 describe("quote video timeline and job", () => {
   const f = quoteVideoFacts(input, TODAY)!;
   const script = quoteVideoScript(f);
-  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: [12, 10, 9, 16, 4.5][i], ...sceneMotion(f, s.key) })));
+  const secs = [12, 10, 9, 16, 4.5];
+  const pen = tablePlan(f, script[3].voice, secs[3]);
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], ...sceneMotion(f, s.key), ...(s.key === "value" ? { table: pen.plan } : {}) })));
 
   it("overlaps scenes by the cross-fade and starts each voice after LEAD", () => {
     for (let i = 1; i < plans.length; i++) expect(plans[i].start).toBeCloseTo(plans[i - 1].start + plans[i - 1].dur - XFADE, 3);
@@ -90,17 +95,21 @@ describe("quote video timeline and job", () => {
       const words = script.find((s) => s.key === p.key)!.voice.split(" ").length;
       expect(p.frames[p.frames.length - 1].state.word).toBe(words);
     }
+    // every pen note written and handed over to the table's layers by the scene's end
     const value = plans.find((p) => p.key === "value")!;
-    expect(value.frames.at(-1)!.state).toMatchObject({ ring: 1, callout: true });
+    expect(value.frames.at(-1)!.state.pen).toEqual([2, 2, 2, 2, 2]);
   });
 
   it("lists frames for the concat demuxer and builds one command", () => {
     const layers = plans.map((p) => (p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
-    const named = nameFiles(plans, layers);
+    const named = nameFiles(plans, layers, plans.map((p) => (p.key === "value" ? pen.notes.length : 0)));
     const list = concatList(plans[0], named.scenes[0].frames);
     expect(list.startsWith("ffconcat version 1.0\n")).toBe(true);
     expect(list.trim().split("\n").at(-1)).toBe(`file ${named.scenes[0].frames.at(-1)}`);
-    const job = buildJob(plans, named, { tableHeight: 3000, panEnd: 1200 });
+    const job = buildJob(plans, named, { tableHeight: 3000 });
+    // the five finished notes ride on the table, each shown from when it is written
+    expect(named.files.filter((x) => x.kind === "pen")).toHaveLength(5);
+    expect(job.command.match(/overlay=0:0:enable='gte\(t,/g)).toHaveLength(5);
     expect(job.command).toContain("xfade=transition=slideleft");
     expect(job.command).toContain("zoompan=");
     expect(job.command).toContain("-f concat -safe 0 -i {{");
@@ -116,6 +125,49 @@ describe("quote video timeline and job", () => {
     expect(wav.readUInt8(44 + 24000 * 2 * 0.5 - 1)).toBe(0);
     expect(wav.readUInt8(44 + 24000 * 2 * 0.5)).toBe(1);
     expect(pcmSeconds(pcm)).toBe(1);
+  });
+});
+
+describe("pen notes on the value scene (owner, 2026-10-13)", () => {
+  const f = quoteVideoFacts(input, TODAY)!;
+  const voice = quoteVideoScript(f)[3].voice;
+
+  it("writes the card's five notes for Life Protect paid 19 years, each on its own word", () => {
+    expect(penBeats(f)).toEqual(["steady", "stop", "growth", "breakEven", "gain"]);
+    const cues = beatCues(penBeats(f), voice, 16);
+    const said = (w: string) => voice.split(" ").findIndex((x) => x.startsWith(w));
+    expect(said("ออมครบ")).toBeGreaterThan(0);
+    for (let i = 1; i < cues.length; i++) expect(cues[i].at).toBeGreaterThan(cues[i - 1].at);
+  });
+
+  it("has nothing to stop on a plan paid to 99", () => {
+    const to99 = quoteVideoFacts({ ...input, variant: "WLF99H" }, TODAY)!;
+    expect(penBeats(to99)).not.toContain("stop");
+  });
+
+  it("moves the table only while no note is being written, and never past its foot", () => {
+    const { plan, notes } = tablePlan(f, voice, 16);
+    expect(notes.map((n) => n.beat)).toEqual(["steady", "stop", "growth", "breakEven", "gain"]);
+    for (const m of plan.moves) {
+      for (const d of plan.draws) expect(m.at + m.dur <= d.at + 1e-6 || m.at >= d.at + d.dur).toBe(true);
+      expect(m.to).toBeLessThanOrEqual((f.rows!.length * 52) - 760);
+    }
+    // the break-even comes to stand about a third of the way down the window
+    const be = notes.find((n) => n.beat === "breakEven")!;
+    expect(be.at).toBe(f.breakEven!.index * 52 - 228);
+  });
+
+  it("moves the table in eased steps, each from where the last left it", () => {
+    expect(tableY([])).toBe("0");
+    const y = tableY([{ at: 1, dur: 1, to: 300 }, { at: 3, dur: 1, to: 500 }]);
+    expect(y).toContain("(300)*");
+    expect(y).toContain("(200)*");
+  });
+
+  it("writes iShield's notes too", () => {
+    const ish = quoteVideoFacts({ product: "ISHIELD", variant: "WLCI10", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
+    expect(penBeats(ish)).toContain("breakEven");
+    expect(tablePlan(ish, quoteVideoScript(ish)[3].voice, 15).notes.length).toBeGreaterThan(2);
   });
 });
 

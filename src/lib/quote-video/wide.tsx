@@ -3,6 +3,7 @@ import { QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
+import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
 import { abs, box, chartPaths, easeBack, El, look, motionSpec, stroke, type Anim } from "./motion";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { countAt, SIZES, type VideoSize } from "./timeline";
@@ -342,10 +343,13 @@ function CoverRows({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
 
 function Value({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
-  const s = motionSpec("value", f, c.voiceSec);
+  const s = motionSpec("value", f, c.voiceSec, c.words.join(" "));
   const cw = g.px(560, 1040);
-  const ch = g.px(330, 480);
+  // the landscape chart a little lower than it was, for the pen notes above and below it (owner, 2026-10-13)
+  const ch = g.px(330, 400);
   const p = chartPaths(f, cw, ch);
+  // the notes are laid out for the portrait chart, 900×520
+  const k = Math.min(cw / 900, ch / 520);
   const be = f.breakEven;
   const last = f.rows?.[f.rows.length - 1];
   return (
@@ -353,20 +357,18 @@ function Value({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
       <Header g={g} left="เงินไม่หายไปไหน" right={f.insuredWho} />
       <Kicker g={g} an={s.kicker} t={t} text="มูลค่าเงินสดโตทุกปี" />
       <Body g={g} style={{ alignItems: "center" }}>
-        <div style={box({ position: "relative", flexDirection: "column", width: cw + 20, flexShrink: 0 })}>
+        <div style={box({ position: "relative", flexDirection: "column", width: cw + 20, flexShrink: 0, paddingTop: Math.round(NOTES_ABOVE * k), paddingBottom: Math.round(NOTES_BELOW * k) })}>
           <svg width={cw + 20} height={ch + 20} viewBox={`-10 -10 ${cw + 20} ${ch + 20}`}>
             <line x1={0} y1={ch} x2={cw} y2={ch} stroke="rgba(255,255,255,0.4)" strokeWidth={4} opacity={look(s.axes, t).opacity} />
             {stroke({ d: p.paid, len: p.paidLen, p: look(s.paid, t).p, color: "rgba(255,255,255,0.8)", width: 8 })}
             {stroke({ d: p.cash, len: p.cashLen, p: look(s.cash, t).p, color: GOLD, width: 10 })}
             {p.be && look(s.dot, t).opacity > 0 && <circle cx={p.be.x} cy={p.be.y} r={Math.round(20 * (0.4 + 0.6 * easeBack(look(s.dot, t).p)))} fill={RED} />}
           </svg>
-          <El an={s.legend} t={t} style={{ marginTop: 14, fontSize: g.px(24, 30), color: WHITE }}>
-            <div style={box({ marginRight: 30 })}>— เบี้ยที่จ่าย</div>
+          <El an={s.legend} t={t} style={{ position: "absolute", right: 10, top: Math.round(NOTES_ABOVE * k) + 10 + ch + Math.round(100 * k), fontSize: g.px(22, 26), color: WHITE }}>
+            <div style={box({ marginRight: 24 })}>— เบี้ยที่จ่าย</div>
             <div style={box({ color: GOLD })}>— มูลค่าเงินสด</div>
           </El>
-          {p.stop && !f.payToEnd && (
-            <El an={s.stop} t={t} style={{ position: "absolute", left: Math.max(0, p.stop.x - 140), top: Math.max(0, p.stop.y - 60), width: 280, justifyContent: "center", fontSize: g.px(24, 30), color: WHITE }}>{`หยุดส่ง อายุ ${f.lastPayAge}`}</El>
-          )}
+          <div style={abs({ left: 10, top: Math.round(NOTES_ABOVE * k) + 10, width: cw, height: ch })}>{chartNotes(f, p, k, (name) => look(s[name], t))}</div>
         </div>
         <El an={s.card} t={t} style={{ flex: 1, marginLeft: g.px(24, 60), flexDirection: "column", background: WHITE, color: NAVY, borderRadius: 32, padding: g.px("20px 24px", "28px 36px"), borderLeft: `${g.px(12, 16)}px solid ${RED}` }}>
           {be ? (
