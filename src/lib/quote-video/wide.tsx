@@ -4,7 +4,7 @@ import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
-import { abs, box, chartPaths, easeBack, El, look, motionSpec, stroke, type Anim } from "./motion";
+import { abs, box, chartPaths, easeBack, El, look, motionSpec, pensionSteps, pensionTimeline, stroke, type Anim } from "./motion";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { countAt, SIZES, type VideoSize } from "./timeline";
 
@@ -230,9 +230,9 @@ function Price({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
               <g opacity={look(s.coin3, t).opacity}><ellipse cx={35} cy={38} rx={26} ry={7} fill={C.coinTop} /></g>
             </svg>
             <div style={box({ flexDirection: "column", marginLeft: g.px(24, 44) })}>
-              <El an={s.small} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{daily ? "ตกวันละ" : "ปีแรก เดือนละ"}</El>
-              <El an={s.big} t={t} style={{ fontSize: g.px(daily ? 120 : 84, daily ? 220 : 150), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{daily ?? main?.amount ?? ""}</El>
-              <El an={s.unit} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{daily ? "บาทเท่านั้น" : "บาท"}</El>
+              <El an={s.small} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : "ปีแรก เดือนละ")}</El>
+              <El an={s.big} t={t} style={{ fontSize: f.priceBig ? g.px(62, 116) : g.px(daily ? 120 : 84, daily ? 220 : 150), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
+              <El an={s.unit} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : "บาท")}</El>
             </div>
           </div>
           {f.pills.length > 0 && (
@@ -310,6 +310,46 @@ function CoverBars({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             {age(x2, String(f.coverToAge), GOLD)}
           </El>
         </div>
+      </Body>
+    </>
+  );
+}
+
+/** บำนาญ 95's steps up, the portrait scene's drawing (motion.tsx pensionSteps) at this frame's size */
+function CoverSteps({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  const top = g.px(190, 200);
+  const w = g.wide ? 1300 : g.w - g.side * 2;
+  return (
+    <>
+      <Header g={g} left={f.coverTitle} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text="ยิ่งอายุมาก ยิ่งได้มากขึ้น" />
+      <div style={abs({ left: g.wide ? Math.round((g.w - w) / 2) : g.side, top, width: w, height: g.bottom - top })}>
+        {pensionSteps(f, s, t, w, g.bottom - top, g.px(0.72, 0.8))}
+      </div>
+    </>
+  );
+}
+
+/** บำนาญ 95's years, the portrait scene's drawing (motion.tsx pensionTimeline), with the total beside it */
+function PensionValue({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const p = f.pension;
+  const s = motionSpec("value", f, c.voiceSec, c.words.join(" "));
+  if (!p) return null;
+  const cw = g.px(560, 1060);
+  return (
+    <>
+      <Header g={g} left="รับบำนาญทุกปี" right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text="เงินใช้ทุกปี ถึงอายุ 95" />
+      <Body g={g} style={{ alignItems: "center" }}>
+        <div style={box({ width: cw, height: g.bottom - g.top, flexShrink: 0 })}>{pensionTimeline(f, s, t, cw, g.bottom - g.top, g.px(0.7, 0.8))}</div>
+        <El an={s.card} t={t} style={{ flex: 1, marginLeft: g.px(24, 60), flexDirection: "column", background: WHITE, color: NAVY, borderRadius: 32, padding: g.px("20px 24px", "28px 36px"), borderLeft: `${g.px(12, 16)}px solid ${SKY}` }}>
+          <div style={box({ fontSize: g.px(26, 36), fontWeight: 700 })}>รวมรับบำนาญถึงอายุ 95 ประมาณ</div>
+          <div style={box({ fontSize: g.px(40, 60), fontWeight: 700 })}>{`${countAt(p.totalPension, look(s.count, t).p).toLocaleString("en-US")} บาท`}</div>
+          <div style={box({ fontSize: g.px(22, 28), marginTop: 10, color: NAVY, opacity: 0.8 })}>{`รับประกันจ่าย 15 ปีแรก (อายุ ${p.start}–${p.guaranteeTo})`}</div>
+        </El>
       </Body>
     </>
   );
@@ -439,8 +479,8 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
   const body = {
     lead: <Lead g={g} c={c} t={t} />,
     price: <Price g={g} c={c} t={t} />,
-    cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
-    value: <Value g={g} c={c} t={t} />,
+    cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
+    value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
     contact: (
       <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title="สนใจรายละเอียดเพิ่มเติม" header={c.facts.insuredWho}

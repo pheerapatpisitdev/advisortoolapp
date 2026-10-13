@@ -7,6 +7,7 @@ import {
   type PensionBasis, type PensionMode, type PensionPay, type PensionRiders, type WaiverOption,
 } from "@/calc/pension/engine";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { pensionQuoteText } from "@/lib/pension-cta";
 import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
@@ -355,7 +356,10 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
           </section>
         )}
 
-        <ContactButtons copyText={copyText} />
+        <ContactButtons
+          copyText={copyText}
+          videoHref={q && age !== "" ? videoStartHref({ product: "PENSION", sex, age, sumAssured: q.sumAssured, annuityAge: chosenAge, pay }) : undefined}
+        />
         {sticky && copyText && (
           <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
             <ContactButtons copyText={copyText} compact />

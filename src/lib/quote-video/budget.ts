@@ -7,6 +7,7 @@ import { iShieldTable } from "@/lib/ishield-table";
 import { lifeProtectModes, termAt as lifeProtectTermAt } from "@/lib/lifeprotect-quote";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { ISHIELD_SUMS, LIFEPROTECT_BUDGET_SUMS } from "@/lib/quote-pdf/pages";
+import { pensionFromBudget } from "./pension";
 import { iHealthyPlanCodes } from "./script";
 import type { VideoInput } from "./script";
 
@@ -14,7 +15,7 @@ import type { VideoInput } from "./script";
  * วิดีโอนำเสนอ from a budget (owner, 2026-10-11): the agent gives what the customer can save and
  * the plan is worked out for them — the biggest sum whose instalment fits (Life Protect, iShield:
  * the sales pages' own budgetFit on their own sum lists) or the richest health plan whose
- * instalment fits (iHealthy Ultra). What comes back is an ordinary arrangement, so everything
+ * instalment fits (iHealthy Ultra), or the sum the premium buys to the baht (บำนาญ 95). What comes back is an ordinary arrangement, so everything
  * after it — facts, script, drawing — is the clip it always was.
  */
 
@@ -64,6 +65,9 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
     const plan = codes[best];
     return { ...v, plan, compare: v.compare.filter((c) => c !== plan), budget } as VideoInput;
   }
+
+  // บำนาญ 95: the engine works a sum out of a premium itself, to the baht (pension.ts)
+  if (v.product === "PENSION") return pensionFromBudget(v, budget);
 
   const product = v.product === "ISHIELD" ? "ISHIELD" : "LIFEPROTECT";
   if (product === "ISHIELD") {

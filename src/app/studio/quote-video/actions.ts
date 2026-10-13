@@ -17,6 +17,8 @@ import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { getCustomer, listCustomers } from "@/lib/fhc/customers";
+import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
+import { checkedPension } from "@/lib/quote-video/pension";
 import { GAP_WORD } from "@/lib/fhc/gaps";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
@@ -27,12 +29,12 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const SUM_STEP = 50_000;
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
-  /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out) */
-  resolved: { sum?: number; plan?: string };
+  /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out); บำนาญ 95's monthly pension too */
+  resolved: { sum?: number; plan?: string; monthly?: number };
 }
 export interface VideoItem {
   id: string;
@@ -96,6 +98,7 @@ function checkedQuote(v: VideoInput): VideoInput | string {
     const compare = [...new Set((Array.isArray(v.compare) ? v.compare : []).filter((c) => codes.has(c) && c !== v.plan))].slice(0, 2);
     return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: v.plan, compare };
   }
+  if (v.product === "PENSION") return checkedPension(v);
   const product = productOf(v);
   if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";
   const term = TERMS[product].find((x) => x.variant === v.variant);
@@ -207,7 +210,8 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
   if (!f) return { error: NOT_PRICED };
   return {
     lead: { label: f.lead.label, amount: f.lead.amount }, mark: f.leadMark, prices: f.prices,
-    resolved: c.product === "IHEALTHY" ? { plan: c.plan } : { sum: c.sumAssured },
+    resolved: c.product === "IHEALTHY" ? { plan: c.plan }
+      : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht } : { sum: c.sumAssured },
   };
 }
 
@@ -323,7 +327,9 @@ export async function myVideos(): Promise<VideoItem[]> {
     const product = productOf(input);
     const what = input.product === "IHEALTHY"
       ? planWord(input.plan)
-      : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
+      : input.product === "PENSION"
+        ? `เดือนละ ${Math.round(input.sumAssured * MONTHLY_FACTOR_FIRST).toLocaleString("en-US")} · รับ ${input.annuityAge} · ${input.pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
+        : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${input.length === "short" ? " (สั้น 15 วิ)" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {

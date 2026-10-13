@@ -19,6 +19,9 @@ export interface VideoStart {
   variant?: string;
   /** iHealthy's plan code */
   plan?: string;
+  /** บำนาญ 95: the age the pension starts, and how the premiums are paid */
+  annuityAge?: number;
+  pay?: "6" | "untilAnnuity";
 }
 
 export function videoStartHref(s: VideoStart): string {
@@ -28,10 +31,12 @@ export function videoStartHref(s: VideoStart): string {
   if (s.sumAssured !== undefined) q.set("sum", String(s.sumAssured));
   if (s.variant) q.set("variant", s.variant);
   if (s.plan) q.set("plan", s.plan);
+  if (s.annuityAge !== undefined) q.set("start", String(s.annuityAge));
+  if (s.pay) q.set("pay", s.pay);
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 /** what an address asked the form to start with; anything unreadable is left out */
@@ -51,6 +56,8 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const sum = Number(one(params.sum));
   const variant = one(params.variant);
   const plan = one(params.plan);
+  const start = Number(one(params.start));
+  const pay = one(params.pay);
   return {
     product,
     ...(sex === "M" || sex === "F" ? { sex } : {}),
@@ -58,5 +65,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...(Number.isInteger(sum) && sum > 0 && sum <= 100_000_000 ? { sumAssured: sum } : {}),
     ...(variant && /^[A-Z0-9]{3,12}$/.test(variant) ? { variant } : {}),
     ...(plan && /^[A-Z]{3,12}$/.test(plan) ? { plan } : {}),
+    ...([55, 60, 65, 70].includes(start) ? { annuityAge: start } : {}),
+    ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),
   };
 }
