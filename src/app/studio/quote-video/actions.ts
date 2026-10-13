@@ -10,7 +10,8 @@ import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { clipSize, costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, VOICE_FULL, voiceFullNotice } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { formatBaht } from "@/lib/wallet/money";
@@ -57,6 +58,8 @@ export interface VideoItem {
   size: VideoSize;
   /** failed because Gemini's voice was used up for the day */
   voiceFull: boolean;
+  /** a clip still being made: how far, as read now (progress.ts); null once done or failed */
+  progress: ProgressState | null;
 }
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
@@ -305,6 +308,20 @@ export async function myCost(): Promise<CostView | null> {
 export async function myVideos(): Promise<VideoItem[]> {
   const viewer = await requireMember();
   const list = await listVideos(viewer.agentId);
+  const making = (v: VideoRow) => v.status === "drawing" || v.status === "rendering";
+  const est = list.some(making) ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
+  const now = Date.now();
+  // how far a clip being made is: the board runs the bar on from here between its reads
+  const progressOf = (v: VideoRow): ProgressState | null => {
+    if (v.status !== "drawing" && v.status !== "rendering") return null;
+    const started = v.status === "rendering" ? Date.parse(v.job?.startedAt ?? "") : NaN;
+    return {
+      status: v.status, note: readNote(v.progress),
+      sinceStart: Math.max(0, (now - Date.parse(v.created_at)) / 1000),
+      sinceRender: Number.isFinite(started) ? Math.max(0, (now - started) / 1000) : null,
+      est: est[clipKind(v.input as { fhc?: unknown; style?: unknown; length?: unknown })],
+    };
+  };
   return Promise.all(list.map(async (v) => {
     const done = v.status === "done" && v.video_path;
     const links = async (file: string) => ({
@@ -320,7 +337,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, voiceFull: isVoiceFull(v), fileName: file, ...(await links(file)), paid: paidLine(v),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v), fileName: file, ...(await links(file)), paid: paidLine(v),
       };
     }
     const input = v.input;
@@ -340,6 +357,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       status: v.status,
       error: v.error,
       voiceFull: isVoiceFull(v),
+      progress: progressOf(v),
       personal: false,
       size: clipSize(input),
       fileName: file,

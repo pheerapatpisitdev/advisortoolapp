@@ -7,6 +7,7 @@ import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-v
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import type { VideoSize } from "@/lib/quote-video/timeline";
+import { ClipProgress } from "./ClipProgress";
 import { SaveVideoButton } from "./SaveVideoButton";
 import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, removeVideo, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
 import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
@@ -663,10 +664,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                 <p className="text-sm font-medium">{v.title}</p>
                 <p className="text-xs text-[var(--ct-mute)]">{when(v.createdAt)}{v.paid ? ` · ${v.paid}` : ""}</p>
               </div>
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${v.status === "done" ? "bg-[var(--ct-soft)] text-[var(--ct-accent)]" : v.status === "failed" ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}>
-                {STATUS[v.status]}
-              </span>
+              {!v.progress && (
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${v.status === "done" ? "bg-[var(--ct-soft)] text-[var(--ct-accent)]" : v.status === "failed" ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-ground)] text-[var(--ct-mute)]"}`}>
+                  {STATUS[v.status]}
+                </span>
+              )}
             </div>
+            {v.progress && <ClipProgress state={v.progress} />}
             {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
             {v.voiceFull && <p className="text-xs text-[var(--ct-mute)]">ไม่เสียเงิน และไม่นับเป็นคลิปฟรี</p>}
             {v.watch && <video src={v.watch} controls playsInline preload="metadata" className={`w-full rounded-lg ${v.size === "landscape" ? "max-w-[300px]" : v.size === "square" ? "max-w-[260px]" : "max-w-[220px]"}`} style={{ aspectRatio: ASPECT[v.size] }} />}
