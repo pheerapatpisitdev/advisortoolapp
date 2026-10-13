@@ -66,6 +66,7 @@ one-time 10 (`FREE_ROUNDS`, `FREE_ROUNDS_FROM` in `src/lib/auth/quota.ts`):
 - Free วิดีโอนำเสนอ clips stay 2, once (`FREE_VIDEOS`), not per period.
 - Past the 10: the wallet at the fixed prices, exactly as for agents.
 - Switch off: members are back on the one-time 10, like agents.
+- UnitOS agents keep the one-time 10: the monthly 10 is what a member pays for (owner chose ข, 2026-10-13).
 
 /membership shows "Studio ฟรีเหลือ 7/10 รอบ · ได้ 10 รอบใหม่ 15 พ.ย."; /studio/wallet's line reads the
 same allowance, so it changes without new code there.
