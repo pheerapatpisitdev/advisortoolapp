@@ -9,7 +9,8 @@ import {
  * contract's own milestones are:
  *
  *   - a red brace down the premiums while they are paid and never move, "เบี้ยคงที่"
- *   - the last premium ringed, an arrow from "หยุดส่งเบี้ย"
+ *   - the last paying year's ปีที่ ringed, as the other plans' tables ring it (owner, 2026-10-14),
+ *     an arrow from "หยุดส่งเบี้ย"
  *   - the first pension ringed, an arrow from "เริ่มรับบำนาญ อายุ N"
  *   - in blue, a brace down the fifteen guaranteed pensions, "รับประกันจ่าย 15 ปีแรก …"
  *   - each step up in the pension ringed, "บำนาญเพิ่มเป็น N% ของทุน"
@@ -89,11 +90,14 @@ export function pensionMarks(rows: PensionYear[]): PensionMarks {
   };
 }
 
-/** The cells the notes ring, which the table draws itself (Circled). */
-export function pensionRings(rows: PensionYear[]): { row: number; column: PensionColumn }[] {
+/**
+ * The cells the notes ring, which the table draws itself (Circled). The last paying year is
+ * ringed in `stopColumn`: its ปีที่, or its อายุ on a table that has no ปีที่ (the clip's).
+ */
+export function pensionRings(rows: PensionYear[], stopColumn: "ปีที่" | "อายุ" = "ปีที่"): { row: number; column: PensionColumn }[] {
   const m = pensionMarks(rows);
   return [
-    ...(m.lastPaid >= 0 ? [{ row: m.lastPaid, column: "เบี้ย" as const }] : []),
+    ...(m.lastPaid >= 0 ? [{ row: m.lastPaid, column: stopColumn }] : []),
     ...(m.start >= 0 ? [{ row: m.start, column: "บำนาญ" as const }] : []),
     ...m.steps.map((row) => ({ row, column: "บำนาญ" as const })),
   ];
@@ -126,7 +130,11 @@ export const pensionBraceRoom = (rows: PensionYear[]) => pensionMarks(rows).stea
  * page's Circled pads both sides and pushes the figure over; the picture's ring stands out
  * beside a figure that stays put, so it passes half its RING_PAD.
  */
-export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenGeometry & { penSize?: number }, ring = RING_PX / PENSION_PEN_SCALE): PenNotes {
+export function pensionPenNotes(
+  rows: PensionYear[], sumAssured: number,
+  g: PenGeometry & { penSize?: number; leftColumns?: number; ringOver?: number },
+  ring = RING_PX / PENSION_PEN_SCALE,
+): PenNotes {
   const notes: PenNotes = { rings: [], strokes: [], blueStrokes: [], labels: [] };
   // the hand's size: the page's and the chat picture's, or a larger one for a clip's bigger table
   const SIZE = g.penSize ?? PEN_SIZE;
@@ -144,8 +152,18 @@ export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenG
   /** the left edge of a figure as the table sets it, right-aligned, ringed or not */
   const figureLeft = (n: number, c: PensionColumn, ringed = false) =>
     end(col(c)) - g.cellPad - widthOf(cells[n][c]) - (ringed ? 2 * ring : 0);
-  const ringMid = (n: number, c: PensionColumn) => (figureLeft(n, c, true) + end(col(c)) - g.cellPad) / 2;
-  notes.rings = pensionRings(rows);
+  /**
+   * a ring's right edge. `ringOver` is how far a ring stands out past the figure's end: none on
+   * the page, whose ring pushes its figure over, its own padding in the pictures, where the
+   * figure stays put. Most columns are set right; the first `leftColumns` are set left (the
+   * chat picture sets อายุ and ปีที่ so), the ring then standing out past the figure's start.
+   */
+  const over = g.ringOver ?? 0;
+  const ringRight = (n: number, c: PensionColumn) => col(c) < (g.leftColumns ?? 1)
+    ? x(col(c)) + g.cellPad + widthOf(cells[n][c]) + over
+    : end(col(c)) - g.cellPad + over;
+  const stopColumn = g.widths[col("ปีที่")] > 0 ? "ปีที่" : "อายุ";
+  notes.rings = pensionRings(rows, stopColumn);
 
   /**
    * The empty cells a pension year leaves — premium, running total, surrender value — taken a
@@ -185,30 +203,30 @@ export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenG
     const paying = rows.flatMap((r, i) => (r.premium > 0 ? [i] : []));
     const first = paying[0];
     const last = paying[paying.length - 1];
-    // aimed at the plain figures; the last one's ring sits under the brace's end, so the
-    // brace stops just above it rather than the column being widened for one row
     const right = Math.min(...paying.map((n) => figureLeft(n, "เบี้ย"))) - 4;
     const left = right - 20;
     const y = top(first) + 5;
-    const h = (last === m.lastPaid ? top(last) + 2 : top(last) + g.row - 5) - y;
+    const h = top(last) + g.row - 5 - y;
     notes.strokes.push(brace(left, y, h));
     BRACE_WORDS.forEach((text, i) => {
       notes.labels.push({ text, right: total - (left - 2), top: y + h / 2 - LINE + i * LINE, size: SIZE, tilt: -5 });
     });
   }
 
-  // ── หยุดส่งเบี้ย: the last premium ringed, the word under it in the column it has emptied
+  // ── หยุดส่งเบี้ย: the last paying year ringed, the word under it in the premium column it
+  // has emptied, an arrow from the word's start rising first, in that empty column, and then
+  // over into the ring's right side, so it never runs across the next year's figures
   if (m.lastPaid >= 0) {
     const n = take([m.lastPaid + 1, m.lastPaid + 2, m.lastPaid + 3], 1, false);
     if (n !== undefined) {
       const labelTop = blockTop(n, 1);
-      const w = write([STOP_WORD], writeFrom, labelTop, undefined, -4);
-      // from just past the word's end, curling up and back into the ring above it
-      const fromX = writeFrom + w + 8;
+      const labelLeft = writeFrom + 34;
+      write([STOP_WORD], labelLeft, labelTop, undefined, -4);
+      const fromX = labelLeft - 8;
       const fromY = labelTop + LINE / 2;
-      const toX = Math.min(ringMid(m.lastPaid, "เบี้ย") + 20, end(col("เบี้ย")) - g.cellPad - 6);
-      const toY = mid(m.lastPaid) + g.row * 0.42;
-      notes.strokes.push(...arrow(fromX, fromY, Math.max(fromX, toX) + 40, fromY + 6, toX, toY));
+      const toX = ringRight(m.lastPaid, stopColumn) + 2;
+      const toY = mid(m.lastPaid) + g.row * 0.2;
+      notes.strokes.push(...arrow(fromX, fromY, fromX - 6, toY, toX, toY));
     }
   }
 

@@ -104,6 +104,8 @@ export async function GET(req: NextRequest) {
     widths: COLS, caption: H.caption, head: H.head, row: H.row, cellPad: CELL_PAD,
     // Plex's figures at 22px run a little wider than the value table's estimate
     measure: (f) => figureWidth(f) * 1.07,
+    // อายุ and ปีที่ are set left here (below)
+    leftColumns: 2, ringOver: RING_PAD,
   }, RING_PAD / 2);
   const ringed = (n: number, c: string) => notes.rings.some((g) => g.row === n && g.column === c);
   const tableHeight = H.caption + H.head + rows.length * H.row;
@@ -177,7 +179,7 @@ export async function GET(req: NextRequest) {
                   >
                     {ringed(n, c) ? (
                       // pulled back by its own padding, so the ringed figure stays in line with the column
-                      <div style={{ display: "flex", position: "relative", padding: `5px ${RING_PAD}px`, marginRight: -RING_PAD }}>
+                      <div style={{ display: "flex", position: "relative", padding: `5px ${RING_PAD}px`, ...(i < 2 ? { marginLeft: -RING_PAD } : { marginRight: -RING_PAD }) }}>
                         <div
                           style={{
                             position: "absolute", top: -4, bottom: -4, left: 0, right: 0,

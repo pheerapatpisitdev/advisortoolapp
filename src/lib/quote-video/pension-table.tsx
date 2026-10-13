@@ -32,6 +32,8 @@ export const PENSION_VIDEO_COLUMNS = PENSION_COLUMNS.filter((c) => WIDTHS[c] > 0
 const CELL_PAD = 14;
 /** the room a ring takes beside its figure */
 const RING = 15;
+/** how far a ring in the first column reaches left of its figure: short of the table's edge */
+const LEFT_RING = CELL_PAD - 3;
 const FONT = 26;
 /** the hand's size: larger than the page's 24, for the clip's 26px figures */
 const PEN = 30;
@@ -47,9 +49,12 @@ export function pensionTableImage(f: QuoteVideoFacts) {
   const notes = p
     ? pensionPenNotes(rows, p.sumAssured, {
       widths: PENSION_COLUMNS.map((c) => WIDTHS[c]), caption: 0, head: 0, row: ROW_H, cellPad: CELL_PAD, measure: fig, penSize: PEN,
+      // the one ring the notes aim at here is the อายุ one, standing past its figure by the rest of its padding
+      ringOver: 2 * RING - LEFT_RING,
     }, RING / 2)
     : { rings: [], strokes: [], blueStrokes: [], labels: [] };
-  const rings = pensionRings(rows);
+  // the clip's table has no ปีที่, so the last paying year is ringed at its อายุ
+  const rings = pensionRings(rows, "อายุ");
   const ringed = (n: number, c: PensionColumn) => rings.some((g) => g.row === n && g.column === c);
   const el = (
     <div style={{ display: "flex", flexDirection: "column", position: "relative", width: TABLE.w, height, background: C.paper, fontFamily: "Plex", fontSize: FONT, color: P.ink }}>
@@ -67,7 +72,7 @@ export function pensionTableImage(f: QuoteVideoFacts) {
               >
                 {ringed(n, c.name) ? (
                   // pulled back by its own padding, so the ringed figure stays in line with the column
-                  <div style={{ display: "flex", position: "relative", padding: `4px ${RING}px`, marginRight: -RING }}>
+                  <div style={{ display: "flex", position: "relative", padding: `4px ${RING}px`, ...(i === 0 ? { marginLeft: -LEFT_RING } : { marginRight: -RING }) }}>
                     <div style={{ position: "absolute", top: -4, bottom: -4, left: 0, right: 0, backgroundImage: loopUri(P.pen), backgroundSize: "100% 100%", backgroundRepeat: "no-repeat" }} />
                     {cells[c.name]}
                   </div>
