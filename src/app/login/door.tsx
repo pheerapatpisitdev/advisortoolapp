@@ -18,13 +18,13 @@ export type DoorParams = Promise<{ next?: string; error?: string }>;
 export async function LoginDoor({ searchParams }: { searchParams: DoorParams }) {
   const params = await searchParams;
   // "/" is this door now, so being sent back to it would go round forever: older links say
-  // next=/ for the chat, which lives at /home
+  // next=/ for the chat; they land on the main page, /home
   const asked = safeNext(params.next, "/home");
   const next = asked === "/" || asked.startsWith("/?") || asked.startsWith("/#") ? "/home" : asked;
   if (await getViewer()) redirect(next);
   // settings that cannot be read hide the sign-up link rather than the door
   const settings = await memberSettings().catch(() => ({ signupOpen: false }));
   // sent here from ถาม AI, which is for members only since 2026-10-12: say why the chat is not there
-  const notice = next === "/home" && params.next !== undefined ? "เข้าระบบก่อนเพื่อใช้ถาม AI" : null;
+  const notice = next === "/ask" && params.next !== undefined ? "เข้าระบบก่อนเพื่อใช้ถาม AI" : null;
   return <LoginForm next={next} signupOpen={settings.signupOpen} error={googleError(params.error)} notice={notice} />;
 }

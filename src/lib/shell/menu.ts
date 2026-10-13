@@ -267,7 +267,9 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
     links: [
       // จัดแบบเอง (/other-plans), the build-it-yourself calculator, was first here until the
       // owner took it out altogether (2026-10-13); every sales page below prices its own plan
-      { href: "/home", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
+      // งานวันนี้ (owner chose option ข, 2026-10-14); the chat it held moved to /ask
+      { href: "/home", label: "หน้าหลัก", icon: "home", hue: "#2b4673" },
+      { href: "/ask", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
       // a member's 30-day pass: its end, the rounds left, renewing (owner, 2026-10-13)

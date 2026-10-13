@@ -87,9 +87,10 @@ beforeEach(() => {
 describe("gatePage", () => {
   it("turns an expired member from /home and from Studio to the membership page", async () => {
     await expect(gatePage("/home")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
+    await expect(gatePage("/ask")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
     await expect(gatePage("/studio/write")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
     await expect(gatePage("/studio")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
-    expect(nav.redirect).toHaveBeenCalledTimes(3);
+    expect(nav.redirect).toHaveBeenCalledTimes(4);
   });
 
   it("lets a member with a live pass in", async () => {
@@ -105,7 +106,7 @@ describe("gatePage", () => {
   });
 
   it("never consults the pass for the membership page or any page outside /home and Studio", async () => {
-    for (const page of ["/membership", "/admin/members", "/studios", "/homepage"]) {
+    for (const page of ["/membership", "/admin/members", "/studios", "/homepage", "/asking"]) {
       expect(await gatePage(page)).toMatchObject({ kind: "member" });
     }
     expect(access.memberAccess).not.toHaveBeenCalled();

@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 /**
  * The front page is the way in (owner, 2026-10-10): Studio's sign-in, and where every gate sends
- * somebody not signed in. Nothing saying where to go means /home. The chat that used to be here
- * is at /home, for members only since 2026-10-12.
+ * somebody not signed in. Nothing saying where to go means /home, งานวันนี้. The chat that used to
+ * be here is at /ask (/home until 2026-10-14), for members only since 2026-10-12.
  */
 export default function Front({ searchParams }: { searchParams: DoorParams }) {
   return <LoginDoor searchParams={searchParams} />;
