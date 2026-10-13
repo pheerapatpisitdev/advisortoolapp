@@ -194,6 +194,8 @@ function GrantForm({ member, onDone }: { member: MemberSummary; onDone: (r: Resu
       <button disabled={pending} className="min-h-11 rounded-md bg-[var(--bot-navy)] px-4 text-sm font-medium text-white disabled:opacity-50">
         {pending ? "กำลังบันทึก…" : `เพิ่ม ${days.trim() || "0"} วัน`}
       </button>
+      {/* any row ends the one-time trial, granted days included (review, 2026-10-13) */}
+      <p className="basis-full text-xs text-[var(--bot-ink-mute)]">สมาชิกที่ยังไม่เคยเข้าใช้ จะไม่ได้วันทดลองฟรีอีก เมื่อเพิ่มวันให้แล้ว</p>
     </form>
   );
 }

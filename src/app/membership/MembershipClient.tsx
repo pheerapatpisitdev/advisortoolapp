@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { priceLabel } from "@/components/shell/PassReminder";
-import { daysLeft, PASS_DAYS, type PassRow, type Period } from "@/lib/members/pass";
+import { daysLeft, onTrial, PASS_DAYS, type PassRow, type Period } from "@/lib/members/pass";
 import { CARD_FROM_THB, formatBaht } from "@/lib/wallet/money";
 import { passConfirmed, startPass } from "./actions";
 
@@ -98,8 +98,13 @@ export function MembershipClient({ on, pass, now, rounds, passRounds, priceSatan
 
   const nowDate = new Date(now);
   const live = pass.status === "live" ? pass : null;
-  // a trial with a paid month stacked after it is no longer "free until": it reads as paid
-  const trial = live?.kind === "trial" && live.periodEnd === live.end;
+  // the owner's list uses the same rule (review, 2026-10-13); the view has no period start or
+  // row id, which onTrial does not read, so the period's end stands in for its start
+  const trial = live != null && onTrial({
+    status: "live",
+    end: new Date(live.end),
+    period: { rowId: 0, kind: live.kind, start: new Date(live.periodEnd), end: new Date(live.periodEnd) },
+  });
   const left = live ? daysLeft(new Date(live.end), nowDate) : 0;
   const card = priceSatang >= CARD_FROM_THB * 100;
   const method = card ? "พร้อมเพย์ หรือ บัตร" : "จ่ายด้วยพร้อมเพย์";

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const wallet = vi.hoisted(() => ({ creditTopUp: vi.fn(), markTopUp: vi.fn(), clawBack: vi.fn(), linkPaymentIntent: vi.fn(), topUpStatus: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
-const pass = vi.hoisted(() => ({ addPaidPass: vi.fn(), revokePaidPass: vi.fn() }));
+const pass = vi.hoisted(() => ({ addPaidPass: vi.fn(), revokePaidPass: vi.fn(), linkPassPaymentIntent: vi.fn() }));
 vi.mock("@/lib/members/pass-store", () => pass);
 const list = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/stripe/client", () => ({ stripe: () => ({ checkout: { sessions: { list } } }) }));
@@ -27,6 +27,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   // a refund looks for a pass first; most refunds are of top-ups, where it finds none
   pass.revokePaidPass.mockReset().mockResolvedValue("unknown");
+  pass.linkPassPaymentIntent.mockReset().mockResolvedValue(false);
 });
 
 describe("what a Stripe event does to a wallet", () => {
@@ -286,8 +287,24 @@ describe("a member pass bought through Stripe (owner, 2026-10-13)", () => {
     expect(err).not.toHaveBeenCalled();
     err.mockRestore();
     expect(list).toHaveBeenCalledWith({ payment_intent: "pi_p", limit: 1 });
+    // it looked for a pass row missing its payment first, and found none (review, 2026-10-13)
+    expect(pass.linkPassPaymentIntent).toHaveBeenCalledWith("cs_pass", "pi_p");
+    expect(pass.revokePaidPass).toHaveBeenCalledTimes(1);
     expect(wallet.linkPaymentIntent).not.toHaveBeenCalled();
     expect(wallet.topUpStatus).not.toHaveBeenCalled();
+  });
+
+  it("links a pass kept without its PaymentIntent and takes it back (review, 2026-10-13)", async () => {
+    pass.revokePaidPass.mockResolvedValueOnce("unknown").mockResolvedValueOnce("revoked");
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_pass", mode: "payment", metadata: { purpose: "member_pass", member_id: MEMBER } }] });
+    pass.linkPassPaymentIntent.mockResolvedValueOnce(true);
+    expect(await applyWalletAction(refund)).toBe("pass-revoked");
+    expect(pass.linkPassPaymentIntent).toHaveBeenCalledWith("cs_pass", "pi_p");
+    expect(pass.revokePaidPass).toHaveBeenCalledTimes(2);
+    expect(pass.revokePaidPass).toHaveBeenLastCalledWith({ paymentIntent: "pi_p", reason: "refund", ref: "ch_p" });
+    expect(wallet.clawBack).toHaveBeenCalledTimes(1);
+    expect(wallet.linkPaymentIntent).not.toHaveBeenCalled();
   });
 
   it("still holds a top-up's refund that came before its credit, through the open top-up", async () => {

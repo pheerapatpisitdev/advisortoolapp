@@ -32,10 +32,12 @@ describe("the member pass the owner types (owner, 2026-10-13)", () => {
     expect(readPassSettings({ enabled: false, baht: " 149.50 ", trialDays: "0", rounds: "0" }))
       .toEqual({ ok: true, value: { enabled: false, satang: 14950, trialDays: 0, rounds: 0 } });
     expect(readPassSettings({ ...typed, baht: "1000", trialDays: "30", rounds: "100" })).toMatchObject({ ok: true });
+    // ฿10 is Stripe's smallest THB charge (review, 2026-10-13)
+    expect(readPassSettings({ ...typed, baht: "10" })).toMatchObject({ ok: true, value: { satang: 1000 } });
   });
 
-  it("refuses a price of nothing, over ฿1,000, or with a third decimal place", () => {
-    for (const baht of ["0", "1001", "9.999", "", "abc", "-5", "0.99"]) {
+  it("refuses a price under ฿10, over ฿1,000, or with a third decimal place", () => {
+    for (const baht of ["0", "9", "9.99", "1001", "9.999", "", "abc", "-5", "0.99"]) {
       expect(readPassSettings({ ...typed, baht })).toMatchObject({ ok: false });
     }
   });

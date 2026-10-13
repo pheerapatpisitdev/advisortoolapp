@@ -1,5 +1,5 @@
 import { PASS_PURPOSE } from "@/lib/members/pass-checkout";
-import { addPaidPass, revokePaidPass } from "@/lib/members/pass-store";
+import { addPaidPass, linkPassPaymentIntent, revokePaidPass } from "@/lib/members/pass-store";
 import { stripe } from "@/lib/stripe/client";
 import { formatBaht } from "./money";
 import { clawBack, creditTopUp, linkPaymentIntent, markTopUp, topUpStatus, type ClawbackKind } from "./store";
@@ -146,6 +146,11 @@ async function applyClawback(a: Extract<WalletAction, { kind: "clawback" }>): Pr
      * refund again once the pass is there.
      */
     if (session?.purpose === PASS_PURPOSE) {
+      // or the pass is there without its PaymentIntent: write it on, then take the pass back (review, 2026-10-13)
+      if (await linkPassPaymentIntent(session.id, a.paymentIntent)) {
+        const again = await revokePaidPass({ paymentIntent: a.paymentIntent, reason: a.reason, ref: a.ref });
+        if (again !== "unknown") return `pass-${again}`;
+      }
       throw new Error(`stripe ${a.reason} ${a.ref} came before the pass of ${session.id}; Stripe will send it again`);
     }
     // a top-up paid before its PaymentIntent was kept: found once through Stripe, then written down

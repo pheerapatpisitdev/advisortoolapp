@@ -88,6 +88,15 @@ export function passState(rows: PassRow[], now: Date): PassState {
   return { status: "expired", end: (ended[ended.length - 1] ?? last).end };
 }
 
+/**
+ * On the free trial right now: live in a trial period that is also the pass's last. A member who
+ * paid during the trial has a paid month stacked after it and counts as paid (review, 2026-10-13).
+ */
+export function onTrial(state: PassState): boolean {
+  return state.status === "live" && state.period.kind === "trial"
+    && state.period.end.getTime() === state.end.getTime();
+}
+
 export function daysLeft(end: Date, now: Date): number {
   return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / DAY_MS));
 }

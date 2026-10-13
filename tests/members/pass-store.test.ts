@@ -10,7 +10,7 @@ vi.mock("@/lib/supabase/admin", () => ({
     from: (table: string) => {
       const next = () => Promise.resolve({ data: null, error: null, ...(db.results.shift() ?? {}) });
       const chain: Record<string, unknown> = {};
-      for (const op of ["select", "insert", "upsert", "eq", "in", "gte", "order", "limit"]) {
+      for (const op of ["select", "insert", "upsert", "update", "eq", "is", "in", "gte", "order", "limit"]) {
         chain[op] = (arg?: unknown, arg2?: unknown) => { db.calls.push({ table, op, arg, arg2 }); return chain; };
       }
       chain.maybeSingle = () => next();
@@ -73,6 +73,25 @@ describe("revokePaidPass", () => {
   it("is duplicate when already revoked", async () => {
     db.results = [{ data: { id: 7, member_id: "m1" } }, { error: { code: "23505", message: "" } }];
     expect(await store.revokePaidPass(a)).toBe("duplicate");
+  });
+});
+
+describe("linkPassPaymentIntent (review, 2026-10-13)", () => {
+  it("writes the payment on the session's paid row that has none, and says it did", async () => {
+    db.results = [{ data: [{ id: 7 }] }];
+    expect(await store.linkPassPaymentIntent("cs_1", "pi_1")).toBe(true);
+    expect(sent("update")).toEqual([[{ payment_intent: "pi_1" }, undefined]]);
+    expect(sent("eq")).toEqual([["stripe_session_id", "cs_1"], ["kind", "paid"]]);
+    expect(sent("is")).toEqual([["payment_intent", null]]);
+    expect(db.calls.every((c) => c.table === "ins_member_passes")).toBe(true);
+  });
+  it("is false when no row changed", async () => {
+    db.results = [{ data: [] }];
+    expect(await store.linkPassPaymentIntent("cs_1", "pi_1")).toBe(false);
+  });
+  it("throws on a database error", async () => {
+    db.results = [{ error: { message: "boom" } }];
+    await expect(store.linkPassPaymentIntent("cs_1", "pi_1")).rejects.toThrow("boom");
   });
 });
 

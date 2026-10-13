@@ -131,6 +131,18 @@ export async function revokePaidPass(a: {
   throw new Error(`ยกเลิกการต่ออายุไม่ได้: ${error.message}`);
 }
 
+/**
+ * A pass whose Checkout came back without a PaymentIntent cannot be found by its refund. Found
+ * through Stripe once, the payment is written on the paid row so revokePaidPass can take it
+ * back (review, 2026-10-13). True when a row took it.
+ */
+export async function linkPassPaymentIntent(sessionId: string, paymentIntent: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin().from(TABLE).update({ payment_intent: paymentIntent })
+    .eq("stripe_session_id", sessionId).eq("kind", "paid").is("payment_intent", null).select("id");
+  if (error) throw new Error(`บันทึก payment intent ของการต่ออายุไม่ได้: ${error.message}`);
+  return Array.isArray(data) && data.length > 0;
+}
+
 export async function passPaid(sessionId: string, memberId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin().from(TABLE).select("id")
     .eq("kind", "paid").eq("stripe_session_id", sessionId).eq("member_id", memberId).limit(1);

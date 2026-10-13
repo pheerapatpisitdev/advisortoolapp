@@ -61,6 +61,13 @@ describe("grantPassDays", () => {
     expect(viewer.audit).not.toHaveBeenCalled();
   });
 
+  it("refuses a caller who is not staff, and adds nothing (review, 2026-10-13)", async () => {
+    viewer.requireStaff.mockRejectedValueOnce(new Error("forbidden"));
+    await expect(grantPassDays(ID, "30", "เหตุผล")).rejects.toThrow();
+    expect(grant).not.toHaveBeenCalled();
+    expect(viewer.audit).not.toHaveBeenCalled();
+  });
+
   it("says so when the save fails, and audits nothing", async () => {
     grant.mockRejectedValueOnce(new Error("boom"));
     expect(await grantPassDays(ID, "30", "เหตุผล")).toMatchObject({ ok: false });
@@ -108,6 +115,16 @@ describe("listMembers with the pass (owner, 2026-10-13)", () => {
     });
     // one read of the ledger for the whole list, not one per member
     expect(db.log.filter((l) => l.table === "ins_member_passes")).toHaveLength(1);
+  });
+
+  it("shows a member who paid during the trial as paid, not trial (review, 2026-10-13)", async () => {
+    db.on("ins_ai_settings", { data: { member_pass_enabled: true, member_pass_satang: 9900, member_trial_days: 3, member_pass_rounds: 5 } });
+    db.on("ins_member_passes", { data: [
+      row(2, "trial", "trial", 3, "2026-10-13T00:00:00.000Z"),
+      row(4, "trial", "paid", 30, "2026-10-13T06:00:00.000Z"),
+    ] });
+    const list = await listMembers();
+    expect(list.find((m) => m.id === "trial")).toMatchObject({ pass: { status: "live", end: "2026-11-15T00:00:00.000Z", trial: false } });
   });
 
   it("is today's list while the switch is off: no pass, the one-time ten from the same moment", async () => {

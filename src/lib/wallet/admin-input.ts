@@ -53,6 +53,8 @@ export function readPrices(raw: Record<string, string>): { ok: true; prices: Pri
 }
 
 /** the member pass's bounds (owner, 2026-10-13): a slip of the finger should not price a month at ฿10,000 */
+// Stripe will not charge less than ฿10 (review, 2026-10-13)
+export const MIN_PASS_BAHT = 10;
 export const MAX_PASS_BAHT = 1000;
 export const MAX_TRIAL_DAYS = 30;
 export const MAX_PASS_ROUNDS = 100;
@@ -73,8 +75,8 @@ export function readPassSettings(raw: { enabled: boolean; baht: string; trialDay
   { ok: true; value: PassSettings } | { ok: false; error: string } {
   const t = String(raw?.baht ?? "").trim();
   const baht = Number(t);
-  if (!/^\d+(\.\d{1,2})?$/.test(t) || baht < 1 || baht > MAX_PASS_BAHT) {
-    return { ok: false, error: `ราคาต่อ 30 วันต้องเป็นบาท ตั้งแต่ 1 ถึง ${MAX_PASS_BAHT.toLocaleString("en-US")} ทศนิยมไม่เกิน 2 ตำแหน่ง` };
+  if (!/^\d+(\.\d{1,2})?$/.test(t) || baht < MIN_PASS_BAHT || baht > MAX_PASS_BAHT) {
+    return { ok: false, error: `ราคาต่อ 30 วันต้องเป็นบาท ตั้งแต่ ${MIN_PASS_BAHT} ถึง ${MAX_PASS_BAHT.toLocaleString("en-US")} ทศนิยมไม่เกิน 2 ตำแหน่ง` };
   }
   const trialDays = wholeIn(raw?.trialDays, 0, MAX_TRIAL_DAYS);
   if (trialDays === null) return { ok: false, error: `วันทดลองใช้ต้องเป็นจำนวนเต็ม ตั้งแต่ 0 ถึง ${MAX_TRIAL_DAYS}` };

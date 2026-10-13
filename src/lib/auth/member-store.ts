@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { passState, roundsFrom } from "@/lib/members/pass";
+import { onTrial, passState, roundsFrom } from "@/lib/members/pass";
 import { passRowsOf, passSettings } from "@/lib/members/pass-store";
 import type { MemberRow } from "./access";
 import { AI_ROUNDS, FREE_ROUNDS, FREE_ROUNDS_FROM } from "./quota";
@@ -131,7 +131,7 @@ export async function listMembers(limit = 200): Promise<MemberSummary[]> {
       balanceSatang: balance.get(r.id) ?? 0, freeUsed: used[i], freeLimit: windows[i].limit,
       pass: !settings.enabled ? null
         : s.status === "none" ? { status: "none", end: null, trial: false }
-        : { status: s.status, end: s.end.toISOString(), trial: s.status === "live" && s.period.kind === "trial" },
+        : { status: s.status, end: s.end.toISOString(), trial: onTrial(s) },
     };
   });
 }

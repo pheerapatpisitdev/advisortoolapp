@@ -4,6 +4,7 @@ import {
   passState,
   daysLeft,
   roundsFrom,
+  onTrial,
   DEFAULT_PASS_SETTINGS,
   type PassRow,
   type PassKind,
@@ -108,5 +109,24 @@ describe("roundsFrom", () => {
     expect(roundsFrom(passState(rows, at("2026-11-01")), on)).toBeNull();
     expect(roundsFrom({ status: "none" }, on)).toBeNull();
     expect(roundsFrom(passState(rows, at("2026-10-14")), DEFAULT_PASS_SETTINGS)).toBeNull();
+  });
+});
+
+describe("onTrial (review, 2026-10-13)", () => {
+  it("is true only while the trial is the live and last period", () => {
+    const rows = [row(1, "trial", 3, "2026-10-13")];
+    expect(onTrial(passState(rows, at("2026-10-14")))).toBe(true);
+  });
+  it("is false once a paid month is stacked after the trial", () => {
+    const rows = [row(1, "trial", 3, "2026-10-13"), row(2, "paid", 30, "2026-10-14")];
+    const s = passState(rows, at("2026-10-14"));
+    expect(s.status === "live" && s.period.kind).toBe("trial");
+    expect(onTrial(s)).toBe(false);
+  });
+  it("is false for a paid or granted period, an expired pass or none", () => {
+    expect(onTrial(passState([row(1, "paid", 30, "2026-10-13")], at("2026-10-14")))).toBe(false);
+    expect(onTrial(passState([row(1, "granted", 5, "2026-10-13")], at("2026-10-14")))).toBe(false);
+    expect(onTrial(passState([row(1, "trial", 3, "2026-10-13")], at("2026-11-01")))).toBe(false);
+    expect(onTrial({ status: "none" })).toBe(false);
   });
 });
