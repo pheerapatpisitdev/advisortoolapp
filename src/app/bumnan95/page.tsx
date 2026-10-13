@@ -1,9 +1,7 @@
 import { pensionFacts } from "@/lib/pension-facts";
-import { Hero } from "@/components/pension/Hero";
+import { CalcTitle } from "@/components/sales/CalcTitle";
 import { PensionCalculator } from "@/components/pension/PensionCalculator";
-import {
-  Disclaimer, FaqSection, TaxSection, WhatItPaysSection, WhySection,
-} from "@/components/pension/Sections";
+import { Disclaimer } from "@/components/pension/Sections";
 
 export const metadata = {
   title: "บำนาญ สมาร์ท 95 — รับบำนาญทุกปีจนถึงอายุ 95",
@@ -13,27 +11,17 @@ export const metadata = {
 };
 
 /**
- * The problem retirement has, the calculator, what the contract pays, why an annuity, what
- * it takes off this year's tax, and what is still being worried about.
- *
- * The calculator comes second, not last: the reader of this page has one question — "what
- * does 10,000 a month cost me" — and every section after it is for someone who has seen the
- * answer and is deciding.
+ * An agents' tool since 2026-10-14 (owner: the system is closed, so the selling went and the
+ * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
 export default function PensionPage() {
   const facts = pensionFacts();
   return (
     <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
-      <Hero facts={facts} />
+      <CalcTitle name="บำนาญ สมาร์ท 95" kind="ประกันบำนาญ ลดหย่อนภาษีได้" facts={[`เริ่มรับบำนาญอายุ ${facts.pensionAges.join(" ")} ปี`, `รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
         <PensionCalculator sticky />
       </section>
-      <div className="mt-12">
-        <WhatItPaysSection facts={facts} />
-      </div>
-      <WhySection />
-      <TaxSection />
-      <FaqSection facts={facts} />
       <Disclaimer facts={facts} />
     </main>
   );

@@ -7,7 +7,7 @@ import type { Product } from "./script";
  *
  * The same answers the chat bots give, from the same sources — src/lib/assistant/lifeprotect/faq.ts,
  * src/lib/assistant/ishield/faq.ts (the /ishield page's own), src/lib/assistant/ihealthy/faq.ts and
- * the /bumnan95 page (src/components/pension/Sections.tsx) — said for the voice: shorter, a woman's
+ * the /bumnan95 page (its FAQ, removed 2026-10-14; see git history of src/components/pension/Sections.tsx) — said for the voice: shorter, a woman's
  * endings (script.ts makes them a man's), and without the words the voice never says (เบี้ย,
  * เสียชีวิต, เวนคืน). Not one fact is added to or taken from the bots' answers.
  */

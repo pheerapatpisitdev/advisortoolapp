@@ -25,7 +25,7 @@ const ASKS_WAITING = /รอคอย|ระยะรอ/;
 /**
  * Whether a health check is needed, and whether there is a waiting period.
  *
- * The first is the sales page's own answer (components/lifeprotect/Sections.tsx) with the
+ * The first is the sales page's own answer (the page's FAQ, removed 2026-10-14; see git history of components/lifeprotect/Sections.tsx) with the
  * company's Q&A item 9 — the plan is underwritten in the ordinary way — so the chat and the
  * page say the same thing. The second is not in the company's Q&A: the owner's answer is that the
  * cover starts as soon as the policy is approved, so there is no waiting period to wait out

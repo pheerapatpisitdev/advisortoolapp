@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Calculator } from "./Calculator";
@@ -70,18 +69,10 @@ function LangToggle() {
 }
 
 function HealthPage() {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-8 flex flex-col items-center">
-        <Image
-          src={lang === "en" ? "/group-insurance/health-en.png" : "/group-insurance/health.png"}
-          alt={t("healthTitle")}
-          width={1200}
-          height={640}
-          priority
-          className="mb-4 h-auto w-full max-w-4xl object-contain"
-        />
         <div className="text-center">
           <h1 className="text-2xl font-bold tracking-tight">{t("healthTitle")}</h1>
           <p className="mt-0.5 text-[var(--gi-mute)]">{t("healthSubtitle")}</p>
@@ -94,17 +85,10 @@ function HealthPage() {
 }
 
 function AccidentPage() {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-8 flex flex-col items-center">
-        <Image
-          src={lang === "en" ? "/group-insurance/pa-en.png" : "/group-insurance/pa.png"}
-          alt={t("paTitle")}
-          width={1200}
-          height={640}
-          className="mb-4 h-auto w-full max-w-4xl object-contain"
-        />
         <div className="text-center">
           <h1 className="text-2xl font-bold tracking-tight">{t("paTitle")}</h1>
           <p className="mt-0.5 text-[var(--gi-mute)]">{t("paSubtitle")}</p>

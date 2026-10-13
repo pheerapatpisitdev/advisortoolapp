@@ -1,10 +1,8 @@
 import { LifeProtectCalculator } from "@/components/LifeProtectCalculator";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectFacts } from "@/lib/lifeprotect-facts";
-import { Hero } from "@/components/lifeprotect/Hero";
-import {
-  ChildSection, Disclaimer, DoubleSection, FaqSection, TermsSection, WhySection,
-} from "@/components/lifeprotect/Sections";
+import { CalcTitle } from "@/components/sales/CalcTitle";
+import { Disclaimer } from "@/components/lifeprotect/Sections";
 
 export const metadata = {
   title: "Life Protect x 2 — ทำทุน 1 ล้าน ครอบครัวได้ 2 ล้าน",
@@ -13,9 +11,8 @@ export const metadata = {
 };
 
 /**
- * What is this, what does it cost, why twice the sum, what else is true of it, which term,
- * who else is it for, what am I still worried about. The doubled sum is the page's pitch, so
- * its panel comes straight after the price rather than after the reasons.
+ * An agents' tool since 2026-10-14 (owner: the system is closed, so the selling went and the
+ * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
 export default async function LifeProtectPage() {
   const table = lifeProtectTable();
@@ -26,15 +23,10 @@ export default async function LifeProtectPage() {
   // without the prose lines growing too long to follow.
   return (
     <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
-      <Hero facts={facts} />
+      <CalcTitle name="Life Protect x 2" kind="ประกันชีวิตตลอดชีพ" facts={[`คุ้มครองถึงอายุ ${facts.coverToAge}`, `รับแรกเกิด–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
         <LifeProtectCalculator table={table} sticky />
       </section>
-      <DoubleSection facts={facts} />
-      <WhySection facts={facts} />
-      <TermsSection facts={facts} />
-      <ChildSection facts={facts} />
-      <FaqSection facts={facts} />
       <Disclaimer facts={facts} />
     </main>
   );

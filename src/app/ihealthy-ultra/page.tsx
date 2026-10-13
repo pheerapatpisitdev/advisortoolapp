@@ -4,7 +4,8 @@ import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iHealthyFacts } from "@/lib/ihealthy-facts";
 import { initialFrom, type IHealthyQuery } from "@/lib/ihealthy-link";
 import type { IHealthyInitial } from "@/lib/ihealthy-choice";
-import { Disclaimer, Hero, TermsSection } from "@/components/ihealthy/Sections";
+import { Disclaimer, TermsSection } from "@/components/ihealthy/Sections";
+import { CalcTitle } from "@/components/sales/CalcTitle";
 import { arrangementKey } from "@/components/ihealthy/rider-request";
 import { priceRiders } from "@/lib/ihealthy-rider-quote";
 import type { Attached } from "@/components/ihealthy/RiderPanel";
@@ -99,6 +100,7 @@ export default async function IHealthyPage(
   // paragraphs are in the route chunk either way — a comment here once claimed otherwise.
   const { rows, plans, copayPercent } = facts;
   const initialAttached = foldQuote(table.standard.code, initial);
+  const top = w.bigBaht(Math.max(...plans.map((p) => p.annualMax)));
   return (
     <main lang={HTML_LANG[lang]} className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
       <LangSwitch lang={lang} label={w.switchLabel} />
@@ -109,7 +111,17 @@ export default async function IHealthyPage(
           {w.translationNote}
         </p>
       )}
-      <Hero facts={facts} w={w} />
+      {/* an agents' tool since 2026-10-14: the name and the three figures the old hero led with */}
+      <CalcTitle
+        name="iHealthy Ultra"
+        tight
+        kind={w.eyebrow.split(" · ")[0]}
+        facts={[
+          `${w.maxPerYear} ${top.num} ${top.unit}`,
+          `${w.choosePlans} ${plans.length} ${w.plansUnit}`,
+          `${w.renewTo} ${facts.terms.renewalToAge} ${w.yearsUnit}`,
+        ]}
+      />
       {/* The customer's version of an expired rate table: "go and fetch a new rate file" is
           the operator's sentence, not one to put at the top of a page a customer arrived at
           from an advert. */}
