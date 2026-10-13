@@ -28,6 +28,7 @@ import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput, type VideoStyle } from "./script";
 import { clipLength, H, planScenes, SIZES, sizeOf, W, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay, voiceFullText } from "./voice-quota";
+import { clipKind, DEFAULT_ESTIMATES, estimatesFrom, type ClipKind, type Estimate, type ProgressNote } from "./progress";
 
 /**
  * Making one วิดีโอนำเสนอ clip (owner, 2026-10-11; spec docs/superpowers/specs/2026-10-11-quote-video-design.md).
@@ -83,6 +84,8 @@ export interface VideoRow {
   multiplier: number | null;
   cost_thb: number;
   charged_satang: number | null;
+  /** how far the making is (progress.ts): written by produce, read by the board */
+  progress: unknown;
 }
 export type PaidBy = "staff" | "free" | "wallet";
 
@@ -169,6 +172,42 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
 async function release(row: Pick<VideoRow, "hold_id" | "paid_by">): Promise<void> {
   if (row.paid_by !== "wallet" || !row.hold_id) return;
   await releaseWallet(row.hold_id).catch((e) => console.error("quote video hold not released:", e));
+}
+
+/**
+ * How far the making is, on the row for the board's bar (progress.ts). updated_at is left alone,
+ * and only a clip still drawing is written: a late write never lands on a rendered or failed one.
+ */
+async function noteProgress(id: string, note: ProgressNote): Promise<void> {
+  const { error } = await rows().update({ progress: note }).eq("id", id).eq("status", "drawing");
+  if (error) console.error(`quote video ${id}: progress not written:`, error.message);
+}
+
+/** each kind's estimate, read again after this long */
+const ESTIMATE_TTL_MS = 10 * 60_000;
+let estimates: { at: number; value: Record<ClipKind, Estimate> } | null = null;
+
+/**
+ * How long each kind of clip takes to make, from the finished ones (progress.ts estimatesFrom):
+ * before its render starts, and the render. Kept for a while; the defaults when unreadable.
+ */
+export async function clipEstimates(now = Date.now()): Promise<Record<ClipKind, Estimate>> {
+  if (estimates && now - estimates.at < ESTIMATE_TTL_MS) return estimates.value;
+  const { data, error } = await rows().select("input, created_at, updated_at, job")
+    .eq("status", "done").is("deleted_at", null).not("job", "is", null).order("created_at", { ascending: false }).limit(300);
+  if (error) {
+    console.error("quote video estimates not read:", error.message);
+    return DEFAULT_ESTIMATES;
+  }
+  const samples = (data ?? []).flatMap((r: Pick<VideoRow, "input" | "created_at" | "updated_at" | "job">) => {
+    const started = Date.parse(r.job?.startedAt ?? "");
+    const asked = Date.parse(r.created_at);
+    const done = Date.parse(r.updated_at);
+    if (![started, asked, done].every(Number.isFinite)) return [];
+    return [{ kind: clipKind(r.input as { fhc?: unknown; style?: unknown; length?: unknown }), pre: (started - asked) / 1000, render: (done - started) / 1000 }];
+  });
+  estimates = { at: now, value: estimatesFrom(samples) };
+  return estimates.value;
 }
 
 async function setRow(id: string, patch: Partial<VideoRow>): Promise<void> {
@@ -396,7 +435,13 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const narrator = narratorOf(row.input);
     const spokenScript = spokenLines(row);
 
-    const speak = (s: { voice: string }) => speakLine(s.voice, VIDEO_TASK_VOICE, { narrator, voice: row.input.voice });
+    // the board's bar (progress.ts): each write waits for the one before, so the count never goes back
+    let noted: Promise<void> = Promise.resolve();
+    const note = (n: ProgressNote) => { noted = noted.then(() => noteProgress(id, n)).catch(() => undefined); };
+    let lines = 0;
+    note({ step: "voice", done: 0, of: spokenScript.length });
+    const speak = (s: { voice: string }) => speakLine(s.voice, VIDEO_TASK_VOICE, { narrator, voice: row.input.voice })
+      .then((r) => { note({ step: "voice", done: ++lines, of: spokenScript.length }); return r; });
     // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
     const spoken = row.input.voice ? await pool(spokenScript, 2, speak) : await Promise.all(spokenScript.map(speak));
     const pcms = spoken.map((s) => s.pcm);
@@ -422,7 +467,10 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const drawToken = randomBytes(32).toString("hex");
     const plan: DrawPlan = { tokenHash: hashToken(drawToken), secs };
     files.set("plan.json", { body: JSON.stringify(plan), type: "text/plain" });
+    note({ step: "files", done: 0, of: 0 });
     await pool([...files.entries()], 8, ([name, f]) => upload(id, name, f.body, f.type));
+    let scenes = 0;
+    note({ step: "draw", done: 0, of: plans.length });
     lap(`shared files up; drawing ${plans.length} scenes (${motion ? "motion" : "classic"}, ${plans.reduce((n, p) => n + p.frames.length, 0)} frames)`);
 
     // every scene at once, each in its own call and its own time
@@ -432,10 +480,15 @@ export async function produce(id: string, agentName: string): Promise<void> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id, scene: s, token: drawToken, agentName }),
       signal: AbortSignal.timeout(left),
-    }).then(async (r) => (r.ok ? null : `scene ${s}: ${r.status} ${(await r.text()).slice(0, 120)}`), (e) => `scene ${s}: ${e instanceof Error ? e.name : "no answer"}`)));
+    }).then(async (r) => {
+      if (!r.ok) return `scene ${s}: ${r.status} ${(await r.text()).slice(0, 120)}`;
+      note({ step: "draw", done: ++scenes, of: plans.length });
+      return null;
+    }, (e) => `scene ${s}: ${e instanceof Error ? e.name : "no answer"}`)));
     const missed = drawn.filter(Boolean);
     if (missed.length) throw new Error(`scenes not drawn — ${missed.join("; ")}`);
     lap("all scenes drawn");
+    note({ step: "submit", done: 0, of: 0 });
 
     const paths = named.files.map((f) => `${id}/${f.name}`);
     const signed: string[] = [];
@@ -462,6 +515,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const payLink = await bucket().createSignedUrl(payloadPath, LINK_SECONDS);
     if (payLink.error || !payLink.data?.signedUrl) throw new Error("no payload link");
 
+    // the last progress write lands before the row leaves "drawing" (it writes only a drawing row)
+    await noted;
     // recorded before the run is asked, so a callback that comes back at once finds it
     await setRow(id, { status: "rendering", duration_sec: total, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
     await cloudRunEngine(gcpKey).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
