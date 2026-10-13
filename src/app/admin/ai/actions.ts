@@ -28,7 +28,7 @@ export type { PersonUse } from "./people";
  * ElevenLabs (voice-over) has no row in model_configs, so like TypeSafe it is never in the
  * chain; it is listed so its key can be set and tested here (owner, 2026-10-11).
  */
-const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "moonshot", "typesafe", "elevenlabs"] as const;
+const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "moonshot", "openrouter", "typesafe", "elevenlabs"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 /**

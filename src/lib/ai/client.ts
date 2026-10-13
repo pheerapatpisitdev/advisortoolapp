@@ -16,8 +16,9 @@ const USD_TO_THB = 36;
  */
 const TIER_PREFERENCE: Record<Tier, string[]> = {
   // Typhoon and Kimi last: there for when the others are down, or picked on the admin page (owner, 2026-10-10)
-  small: ["gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001", "typhoon-v2.5-30b-a3b-instruct", "kimi-k2.6"],
-  large: ["claude-sonnet-5", "gpt-5", "gemini-3.7-flash", "glm-5.3", "kimi-k2.6", "kimi-k3"],
+  // OpenRouter after them: our own first models again through one more door, for when every key of ours fails (owner, 2026-10-14)
+  small: ["gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001", "typhoon-v2.5-30b-a3b-instruct", "kimi-k2.6", "google/gemini-3.1-flash-lite"],
+  large: ["claude-sonnet-5", "gpt-5", "gemini-3.7-flash", "glm-5.3", "kimi-k2.6", "kimi-k3", "anthropic/claude-sonnet-5"],
 };
 
 export class BudgetExceeded extends Error {

@@ -180,6 +180,21 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
       : { thinking: { type: "disabled" } };
     return openAiCompatible("https://api.moonshot.ai/v1/chat/completions", args, extra, true);
   },
+
+  /**
+   * OpenRouter, one key for many companies' models, in the OpenAI chat format; model names
+   * carry their maker ("google/gemini-3.1-flash-lite"). The last link of each tier's chain,
+   * for when every key of our own has failed (owner, 2026-10-14, option ก: the same models
+   * we already use, so a customer reads the same voice).
+   *
+   * Its own `reasoning` field, held to "low" unless a caller asks for more: Sonnet 5 thinks
+   * when a request says nothing, and the thinking counts against max_tokens — the GPT-5
+   * trouble of 2026-09-22. `exclude` keeps the thinking out of the reply's text.
+   */
+  async openrouter(args) {
+    return openAiCompatible("https://openrouter.ai/api/v1/chat/completions", args,
+      { reasoning: { effort: args.effort ?? "low", exclude: true } }, true);
+  },
 };
 
 /**
