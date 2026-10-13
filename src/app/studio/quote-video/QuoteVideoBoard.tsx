@@ -675,13 +675,21 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   <button type="button" className={small} onClick={() => playSample(g.sample)} aria-label={`ฟังตัวอย่างเสียง${g.name}`}>{playing === g.sample ? "■ หยุด" : "▶ ฟัง"}</button>
                 </span>
               ))}
-              {eleven.map((v) => (
-                <span key={v.id} className="inline-flex items-center gap-2">
-                  <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· ElevenLabs +{priceBaht(prices.elevenExtra)} บาท</span></button>
-                  <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■ หยุด" : "▶ ฟัง"}</button>
-                </span>
-              ))}
             </div>
+            {/* ElevenLabs' voices, a row each for men and women (owner, 2026-10-13: every member, free choice) */}
+            {eleven.length > 0 && (["M", "F"] as const).map((sex) => (
+              <div key={sex} className="mt-3">
+                <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">ElevenLabs {sex === "M" ? "ผู้ชาย" : "ผู้หญิง"} · เหมือนคนพูด +{priceBaht(prices.elevenExtra)} บาท</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {eleven.filter((v) => v.sex === sex).map((v) => (
+                    <span key={v.id} className="inline-flex items-center gap-1.5">
+                      <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· {v.tag}{v.adminOnly ? " · แอดมิน" : ""}</span></button>
+                      <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■" : "▶"}</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
             <p className="mt-1 text-xs text-[var(--ct-mute)]">{voice ? "เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs" : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้</p>
           </div>
         </Step>

@@ -8,7 +8,7 @@ import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { availablePensionAges, PENSION_LIMITS } from "@/calc/pension/engine";
 import { videoStartFrom } from "@/lib/quote-video/link";
-import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
+import { elevenVoicesFor, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
 import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
@@ -45,7 +45,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       .map((a) => [a, availablePensionAges(a, pay)]),
   )])) as Record<"6" | "untilAnnuity", Record<number, number[]>>;
   // the ElevenLabs voices: the owner's alone for now, and only while a key is saved (owner, 2026-10-11)
-  const eleven = can(viewer, "owner") && (await providerKey(ELEVENLABS).catch(() => null)) ? ELEVEN_VOICES : [];
+  // every member picks an ElevenLabs voice freely; the two cloned ones are the owner's (owner, 2026-10-13)
+  const eleven = (await providerKey(ELEVENLABS).catch(() => null)) ? elevenVoicesFor(can(viewer, "owner")) : [];
   const [cost, prices] = await Promise.all([myCost(), walletPrices()]);
   const initial = await myVideos().catch((e) => {
     console.error("quote videos not read:", e);
