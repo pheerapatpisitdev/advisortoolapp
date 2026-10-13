@@ -57,7 +57,7 @@ While `member_pass_enabled` is on, a member's free rounds are **10 per pass peri
 one-time 10 (`FREE_ROUNDS`, `FREE_ROUNDS_FROM` in `src/lib/auth/quota.ts`):
 
 - A period is the span of one positive ledger row (trial 3 days, paid 30 days, granted N days),
-  placed where `passEnd` places it — a pass bought early starts at the old end, so its 10 rounds
+  placed where `passPeriods` places it — a pass bought early starts at the old end, so its 10 rounds
   start then too.
 - `allowanceOf(viewer)` for a member counts `AI_ROUNDS` in `ins_audit` from the current period's
   start; `limit` = 10 (`member_pass_rounds` setting, owner-editable, default 10).
@@ -89,20 +89,25 @@ New table `ins_member_passes` (append-only ledger; the live end date is derived)
 | column | type | note |
 |---|---|---|
 | id | bigserial pk | |
-| member_id | uuid not null → ins_members.id | |
-| kind | text | `trial` · `paid` · `granted` · `revoked` |
-| days | int | +30, +3, +N; `revoked` rows carry the negative days of the pass they cancel |
+| member_id | uuid not null → ins_members.id on delete cascade | |
+| kind | text check in (`trial`,`paid`,`granted`,`revoked`) | |
+| days | int not null | 30, 3, N; 0 on a `revoked` row |
+| revokes | bigint null → ins_member_passes.id, unique | the `paid` row a `revoked` row cancels |
 | amount_satang | int null | what Stripe charged, for `paid` |
 | stripe_session_id | text unique null | idempotency for webhook retries |
-| payment_intent | text null | to find the pass on refund/dispute |
+| payment_intent | text null, indexed | to find the pass on refund/dispute |
 | note | text null | owner's note for `granted`, reason for `revoked` |
 | created_by | uuid null | owner for `granted` |
 | created_at | timestamptz default now() | |
 
-**End date** = fold over rows in `created_at` order: `end = max(end, created_at) + days` for
-positive rows; a `revoked` row subtracts its days from `end` (never below its own `created_at`).
-One pure function `passEnd(rows, now)` in `src/lib/members/pass.ts`, unit-tested; no stored end
-column to drift. A member's rows are few (one per month), read per request with the viewer.
+Unique partial index: one `trial` row per member (`where kind = 'trial'`), so two first visits at
+once write one trial.
+
+**Periods**: the positive rows (`trial`, `paid`, `granted`) not cancelled by a `revoked` row, in
+`created_at` order, each placed at `start = max(previous end, created_at)`, `end = start + days`.
+A cancelled pass drops out of the chain and later periods move up. One pure function
+`passPeriods(rows)` in `src/lib/members/pass.ts`, unit-tested; no stored end column to drift.
+The live period is the one with `start <= now < end`; the pass ends at the last period's end.
 
 Settings in `ins_ai_settings`: `member_pass_enabled bool default false`,
 `member_pass_satang int default 9900`, `member_trial_days int default 3`,
@@ -122,14 +127,14 @@ member, ever: written only when the member has no rows at all.
    `pass` → insert a `paid` row (+30, `amount_total`, session id unique). Top-up sessions keep
    their current path; `actionFor` branches on `purpose` first.
 3. `charge.refunded` / `charge.dispute.created` whose payment intent belongs to a `paid` pass row →
-   insert a `revoked` row (−30) with the reason. Partial refunds revoke the whole pass (simplest,
+   insert a `revoked` row pointing at it (`revokes`), with the reason. Partial refunds revoke the whole pass (simplest,
    owner can grant days back). Unknown intents fall through to the wallet clawback path as today.
 
 Failures: a paid session that cannot be matched is logged `loud` like the wallet path.
 
 ## Testing
 
-- `passEnd`: trial only, paid on top of trial, renew early, renew after expiry, revoke, grant.
+- `passPeriods`: trial only, paid on top of trial, renew early, renew after expiry, revoke, grant.
 - `actionFor`: pass sessions vs top-up sessions, unpaid, wrong currency, refund of a pass intent.
 - Rounds: count from the current period's start; early renewal does not reset until the old end;
   switch off falls back to the one-time 10.
