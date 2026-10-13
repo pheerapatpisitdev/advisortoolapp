@@ -14,7 +14,7 @@ import { cashProjection } from "@/lib/cash-projection";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import {
-  childPriceNote, lifeProtectCashText, lifeProtectFootnote, lifeProtectQuoteText, payerWords as payerWordsFor,
+  childPriceNote, lifeProtectFootnote, lifeProtectQuoteText, payerWords as payerWordsFor,
   riderWords, waiverNote, type LifeProtectAge,
 } from "@/lib/lifeprotect-cta";
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
@@ -313,8 +313,6 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         : undefined,
     })
     : undefined;
-  const cashText = quoteText ? lifeProtectCashText(cash) : undefined;
-  const secondCopy = cashText ? { text: cashText, full: "คัดลอกมูลค่าขายคืน", compact: "ขายคืน" } : undefined;
 
   /**
    * The figure on a term button: that term's yearly premium, once there is an age. Yearly on
@@ -676,7 +674,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
           <ContactButtons
-            copyText={quoteText} secondCopy={secondCopy} cardPath={card} tableCardPath={tableCard}
+            copyText={quoteText} cardPath={card} tableCardPath={tableCard}
             videoHref={who ? videoStartHref({ product: "LIFEPROTECT", sex, age: who.age, sumAssured, variant }) : undefined}
           />
         </div>
@@ -758,7 +756,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
-          <ContactButtons copyText={quoteText} secondCopy={secondCopy} cardPath={card} tableCardPath={tableCard} compact />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} compact />
         </div>
       )}
     </div>
