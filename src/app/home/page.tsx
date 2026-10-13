@@ -1,39 +1,93 @@
 import "../home-theme.css";
-import { openingGuide } from "@/lib/copilot/guide";
-import { Chat } from "../Chat";
 import { AppShell } from "@/components/shell/AppShell";
 import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
+import { can } from "@/lib/auth/access";
+import { myPages } from "@/lib/auth/pages";
+import { allowanceOf } from "@/lib/auth/quota";
 import { gatePage, whoOf } from "@/lib/auth/viewer";
+import { countByStatus, listPublished } from "@/lib/content/store";
+import { listCustomers } from "@/lib/fhc/customers";
+import { buildToday } from "@/lib/home/today";
 import { memberAccess } from "@/lib/members/access";
+import { listVideos } from "@/lib/quote-video/make";
+import { walletView } from "@/lib/wallet/store";
+import { HomeToday } from "./HomeToday";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "AdvisorTool",
-  description: "ถามเงื่อนไขแบบประกันและคิดเบี้ยจากตารางจริง ตอบจากข้อมูลในระบบเท่านั้น",
+  title: "หน้าหลัก | AdvisorTool",
+  description: "งานวันนี้: ยอดเงิน รอบ Studio โพสต์วันนี้ ลูกค้า FHC และงานที่ค้างอยู่",
 };
 
+/** a figure that cannot be read is left off the page, and said in the log */
+const orNull = (what: string) => (e: unknown): null => {
+  console.error(`home: ${what} not read:`, e);
+  return null;
+};
+
+/** midnight to midnight in Bangkok, the day the agent is living in */
+function bangkokDay(now: Date): [Date, Date] {
+  const ymd = now.toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  const start = new Date(`${ymd}T00:00:00+07:00`);
+  return [start, new Date(start.getTime() + 24 * 60 * 60 * 1000)];
+}
+
+const snippet = (s: string | undefined) => {
+  const line = (s ?? "").split("\n")[0].trim();
+  return line.length > 40 ? `${line.slice(0, 40)}…` : line;
+};
+
+/**
+ * The main page after signing in: งานวันนี้ (owner chose option ข, 2026-10-14). The chat that
+ * was here is at /ask.
+ */
 export default async function Home() {
-  // members only (owner, 2026-10-12: "เป็นระบบปิด"): somebody not signed in signs in first
+  // members only (owner, 2026-10-12: "เป็นระบบปิด"); an expired member renews first
   const viewer = await gatePage("/home");
-  // a member's last three days: the bar over the chat (owner, 2026-10-13)
-  const reminder = await reminderOf(viewer, memberAccess);
+  const now = new Date();
+  const owner = can(viewer, "owner");
+  const [from, to] = bangkokDay(now);
+
+  const [reminder, access, wallet, allowance, pages, drafts, customers, videos] = await Promise.all([
+    reminderOf(viewer, memberAccess),
+    memberAccess(viewer).catch(orNull("pass")),
+    // the owner pays for nothing and has no wallet (2026-10-02)
+    owner ? null : walletView(viewer.agentId),
+    allowanceOf(viewer).catch(orNull("rounds")),
+    myPages().catch(() => []),
+    countByStatus().then((c) => c.draft).catch(orNull("drafts")),
+    listCustomers(viewer, false).catch(orNull("fhc customers")),
+    listVideos(viewer.agentId, 10).catch(orNull("clips")),
+  ]);
+
+  const names = new Map(pages.map((p) => [p.pageId, p.pageName]));
+  const posts = names.size === 0 ? null : await listPublished(from, to)
+    .then((list) => list.filter((p) => p.publish?.pageId && names.has(p.publish.pageId) && p.publish.at).map((p) => ({
+      at: p.publish!.at!, pageName: names.get(p.publish!.pageId!)!, text: snippet(p.output.hooks[0]),
+    })))
+    .catch(orNull("today's posts"));
+
+  const today = buildToday({
+    now,
+    name: viewer.name,
+    passEnd: access?.gated && access.state.status === "live" ? access.state.end : null,
+    walletSatang: wallet?.satang ?? null,
+    rounds: allowance && allowance.limit !== null ? { limit: allowance.limit, used: allowance.used } : null,
+    postsToday: posts,
+    drafts,
+    customers,
+    clipsMaking: videos && videos
+      .filter((v) => v.status === "drawing" || v.status === "rendering")
+      .map((v) => ({ id: v.id, label: v.customer_name ? `วิดีโอนำเสนอ · ${v.customer_name}` : "วิดีโอนำเสนอ", status: v.status as "drawing" | "rendering" })),
+  });
+
   return (
     <div className="home-chat">
-      {/* who is signed in, for the foot of the menu: their name and ออกจากระบบ, or เข้าสู่ระบบ */}
       <AppShell who={whoOf(viewer)}>
-      {/* The page is exactly the screen, so the chat box can be the rest of it after the
-          heading — a conversation that scrolls inside its own frame rather than a column of
-          answers with the box you type in stranded somewhere down the page. */}
-      {/* No row kept free for the phone's menu button: the chat decides for itself whether its
-          heading sits beside that button or under it — see `Chat`. */}
-      <div className="mx-auto flex h-[100dvh] max-w-3xl flex-col px-4 pb-4 pt-3 sm:pb-5 lg:pt-5">
-        {/* inside the screen-tall column, so the chat gives up the bar's height; clear of the
-            phone's menu button, which is fixed at the top left */}
-        {reminder && <div className="mb-2 shrink-0 max-lg:ml-12"><PassReminder {...reminder} /></div>}
-        {/* built on the server from the plan registry, so a new plan brings its own button */}
-        <Chat guide={openingGuide()} />
-      </div>
+        <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 pb-10 pt-3 lg:pt-6">
+          <HomeToday today={today} notice={reminder && <PassReminder {...reminder} />} />
+        </div>
       </AppShell>
     </div>
   );

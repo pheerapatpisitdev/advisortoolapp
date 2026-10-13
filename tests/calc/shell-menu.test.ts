@@ -150,6 +150,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
   it("still offers the pages a customer is sent to", () => {
     const out = hrefs(false);
     expect(out).toContain("/home");
+    expect(out).toContain("/ask");
     expect(out).not.toContain("/other-plans");
     for (const page of SALES_PAGES) expect(out).toContain(page.href);
   });
@@ -186,12 +187,12 @@ describe("what the menu shows to somebody who has not signed in", () => {
     for (const group of menuGroups(false)) expect(group.links.length).toBeGreaterThan(0);
   });
 
-  it("gives a member their membership page beside ถาม AI and Studio, and nobody else (owner, 2026-10-13)", () => {
+  it("gives a member their membership page beside หน้าหลัก, ถาม AI and Studio, and nobody else (owner, 2026-10-13)", () => {
     const who = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false };
     // the main menu a member reads: AppShell outside the back office draws menuGroups(false, who)
     const first = menuGroups(false, { ...who, member: true })[0].links;
-    expect(first.map((l) => l.href)).toEqual(["/home", "/studio", "/membership"]);
-    expect(first[2]).toMatchObject({ label: "สมาชิก", icon: "key", hue: "#2b736f" });
+    expect(first.map((l) => l.href)).toEqual(["/home", "/ask", "/studio", "/membership"]);
+    expect(first[3]).toMatchObject({ label: "สมาชิก", icon: "key", hue: "#2b736f" });
     const hrefs = (w: typeof who | null) => [...menuGroups(false, w), ...menuGroups(true, w)].flatMap((g) => g.links.map((l) => l.href));
     for (const w of [who, { ...who, owner: true, admin: true, publish: true, connect: true }, null]) expect(hrefs(w)).not.toContain("/membership");
   });
