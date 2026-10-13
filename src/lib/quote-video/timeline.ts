@@ -104,7 +104,11 @@ export interface SceneMotion {
   /** the Motion Graphic style: when its elements move; frames are drawn at `fps` inside these */
   windows?: [number, number][];
   fps?: number;
+  /** silence after the voice, when not TAIL: a looping clip's last scene runs straight back to its opening */
+  tail?: number;
 }
+/** a looping clip's last silence (owner, 2026-10-13) */
+export const LOOP_TAIL = 0.3;
 
 function sweepAnims(m: SceneMotion, voiceSec: number): Anim[] {
   const n = m.sweeps ?? 0;
@@ -146,7 +150,7 @@ export function planScenes<K extends AnySceneKey>(lines: ({ key: K; voice: strin
   let start = 0;
   return lines.map(({ key, voice, voiceSec, ...motion }, i) => {
     const words = wordTimes(voice, voiceSec);
-    let dur = LEAD + voiceSec + TAIL;
+    let dur = LEAD + voiceSec + (motion.tail ?? TAIL);
     let ring: Anim | undefined;
     const pens: Anim[] = (motion.table?.draws ?? []).map((d) => ({ at: d.at, dur: d.dur, steps: Math.max(4, Math.round(d.dur * PEN_FPS)) }));
     if (motion.table) {

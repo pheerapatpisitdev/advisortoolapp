@@ -7,6 +7,7 @@ import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
 import { abs, box, chartPaths, easeBack, El, look, motionSpec, pensionSteps, pensionTimeline, stroke, type Anim } from "./motion";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { countAt, SIZES, type VideoSize } from "./timeline";
+import type { Extra } from "./told";
 
 /**
  * The square (1080×1080) and landscape (1920×1080) clips (owner, 2026-10-11, mockup
@@ -110,12 +111,13 @@ function Subtitle({ g, words, t, voiceSec }: { g: Geo; words: string[]; t: numbe
   );
 }
 
-function Frame({ g, words, t, voiceSec, children }: { g: Geo; words: string[]; t: number; voiceSec: number; children: ReactNode }) {
+function Frame({ g, words, t, voiceSec, children, foot }: { g: Geo; words: string[]; t: number; voiceSec: number; children: ReactNode; foot?: string }) {
   return (
     <div style={{ display: "flex", position: "relative", width: g.w, height: g.h, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {children}
       <Subtitle g={g} words={words} t={t} voiceSec={voiceSec} />
-      <div style={abs({ left: 0, width: g.w, bottom: 14, justifyContent: "center", fontSize: 22, color: WHITE, opacity: 0.6 })}>Design by www.unitclub.app</div>
+      {/* a looping clip's foot says how to reach the agent (owner, 2026-10-13, choice ก) */}
+      <div style={abs({ left: 0, width: g.w, bottom: 14, justifyContent: "center", fontSize: foot ? 24 : 22, color: foot ? GOLD : WHITE, opacity: foot ? 0.95 : 0.6, fontWeight: foot ? 600 : 400 })}>{foot ?? "Design by www.unitclub.app"}</div>
     </div>
   );
 }
@@ -162,6 +164,10 @@ function ContactScene({ g, s, t, title, header, customer, narrator, contact, not
 
 export interface WideQuoteContext {
   facts: QuoteVideoFacts;
+  /** โจทย์การเล่า (told.ts) */
+  headline?: string[];
+  loop?: boolean;
+  extra?: Extra;
   customer: string;
   narrator?: "F" | "M";
   contact: Contact;
@@ -169,7 +175,7 @@ export interface WideQuoteContext {
   voiceSec: number;
 }
 
-function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+function Lead({ g, c, t, strip }: { g: Geo; c: WideQuoteContext; t: number; strip?: boolean }) {
   const f = c.facts;
   const s = motionSpec("lead", f, c.voiceSec);
   const shieldW = g.px(330, 500);
@@ -193,13 +199,134 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
         </div>
         <div style={box({ flexDirection: "column", flex: 1, marginLeft: g.px(40, 80) })}>
           {c.customer && <El an={s.name} t={t} style={{ fontSize: g.px(32, 42), color: WHITE, marginBottom: 12 }}>จัดทำสำหรับ <span style={{ color: GOLD, fontWeight: 600, marginLeft: 10 }}>คุณ{c.customer}</span></El>}
+          {c.headline?.length ? (
+            <div style={box({ flexDirection: "column", marginBottom: g.px(14, 24) })}>
+              {c.headline.map((h, i) => <div key={i} style={box({ fontSize: g.px(40, 58), fontWeight: 700, color: i === 0 ? WHITE : GOLD, lineHeight: 1.2 })}>{h}</div>)}
+            </div>
+          ) : null}
           <El an={s.kicker} t={t} style={{ fontSize: g.px(44, 64), fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
           <El an={s.big} t={t} style={{ fontSize: big, fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{n0.toLocaleString("en-US")}</El>
           <El an={s.note} t={t} style={{ fontSize: g.px(28, 40), color: WHITE, opacity: 0.85 }}>{`บาท${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
           <El an={s.mark} t={t} style={{ marginTop: g.px(20, 30) }}>
             <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "6px 30px", fontSize: g.px(34, 48), fontWeight: 600 })}>{f.leadMark}</div>
           </El>
+          {strip && <AgentStrip g={g} k={c.contact} />}
         </div>
+      </Body>
+    </>
+  );
+}
+
+/** the agent, small, under a looping clip's last scene */
+function AgentStrip({ g, k }: { g: Geo; k: Contact }) {
+  const initial = [...k.name.trim()][0] ?? "?";
+  const face = g.px(80, 110);
+  return (
+    <div style={box({ marginTop: g.px(18, 28), background: WHITE, color: NAVY, borderRadius: 28, padding: g.px("12px 20px", "16px 26px"), alignItems: "center" })}>
+      {k.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={k.photo} width={face} height={face} style={{ borderRadius: face / 2, objectFit: "cover" }} alt="" />
+      ) : (
+        <div style={box({ width: face, height: face, borderRadius: face / 2, background: C.noPhoto, alignItems: "center", justifyContent: "center", fontSize: g.px(40, 54), fontWeight: 700 })}>{initial}</div>
+      )}
+      <div style={box({ flexDirection: "column", marginLeft: 22, flexShrink: 1 })}>
+        <div style={box({ fontSize: g.px(30, 40), fontWeight: 700 })}>{`ทักแชท ${k.name}`}</div>
+        <div style={box({ fontSize: g.px(24, 32) })}>{[`โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ")}</div>
+      </div>
+    </div>
+  );
+}
+
+function StoryScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const s = motionSpec("story", c.facts, c.voiceSec);
+  const pts = c.extra?.story.points ?? [];
+  return (
+    <>
+      <Header g={g} left={c.facts.planLine} right={c.facts.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text="ลองนึกภาพ" />
+      <Body g={g} style={{ flexDirection: "column", justifyContent: "center" }}>
+        {pts.map((pt, i) => (
+          <El key={i} an={s[`pt${i}`]} t={t} style={{ alignItems: "center", background: i === pts.length - 1 ? GOLD : "rgba(255,255,255,0.1)", color: i === pts.length - 1 ? NAVY : WHITE, borderRadius: 30, padding: g.px("16px 26px", "20px 34px"), marginBottom: g.px(16, 22), fontSize: g.px(42, 56), fontWeight: 600 }}>{pt}</El>
+        ))}
+      </Body>
+    </>
+  );
+}
+
+function QaScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const s = motionSpec("qa", c.facts, c.voiceSec);
+  const qas = c.extra?.qas ?? [];
+  return (
+    <>
+      <Header g={g} left={c.facts.planLine} right={c.facts.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text="คำถามที่เจอบ่อย" />
+      <Body g={g}>
+        <Grid g={g} cols={g.wide ? 2 : 1} gap={g.px(20, 40)}>
+          {qas.map((q, i) => (
+            <div key={q.key} style={box({ flexDirection: "column" })}>
+              <El an={s[`q${i}`]} t={t} style={{ alignItems: "flex-start", background: WHITE, color: NAVY, borderRadius: 26, padding: g.px("14px 22px", "20px 28px"), fontSize: g.px(34, 44), fontWeight: 700 }}>
+                <div style={box({ background: GOLD, borderRadius: 16, padding: "2px 14px", fontSize: g.px(26, 32), marginRight: 16, flexShrink: 0 })}>ถาม</div>
+                <div style={box({ flexShrink: 1 })}>{q.q}</div>
+              </El>
+              <El an={s[`a${i}`]} t={t} style={{ fontSize: g.px(30, 38), color: WHITE, marginTop: 14, lineHeight: 1.4 }}>{q.a}</El>
+            </div>
+          ))}
+        </Grid>
+      </Body>
+    </>
+  );
+}
+
+function VersusScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const s = motionSpec("versus", c.facts, c.voiceSec);
+  const v = c.extra?.versus;
+  if (!v) return null;
+  const right = /^[\d,]+$/.test(v.right.amount) ? countAt(num(v.right.amount), look(s.count, t).p).toLocaleString("en-US") : v.right.amount;
+  const cardW = Math.floor((g.w - g.side * 2 - g.px(110, 160)) / 2);
+  const side = (an: Anim | undefined, label: string, amount: string, unit: string, main: boolean) => (
+    <El an={an} t={t} style={{ width: cardW, flexDirection: "column", ...card(g, main), color: main ? NAVY : WHITE, padding: g.px("24px 26px", "34px 40px") }}>
+      <div style={box({ fontSize: g.px(30, 42), fontWeight: main ? 600 : 400 })}>{label}</div>
+      <div style={box({ alignItems: "flex-end", flexWrap: "wrap" })}>
+        <div style={box({ fontSize: g.px(64, 104), fontWeight: 700, lineHeight: 1.15 })}>{amount}</div>
+        <div style={box({ fontSize: g.px(28, 38), marginLeft: 12, marginBottom: g.px(10, 16) })}>{unit}</div>
+      </div>
+    </El>
+  );
+  return (
+    <>
+      <Header g={g} left={c.facts.planLine} right={c.facts.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={c.facts.product === "PENSION" ? "ลดหย่อนภาษีระหว่างทำงาน" : "เก็บเงินเอง กับ แผนนี้"} />
+      <Body g={g} style={{ flexDirection: "column", justifyContent: "center" }}>
+        <div style={box({ alignItems: "center" })}>
+          {side(s.left, v.left.label, v.left.amount, v.left.unit, false)}
+          <El an={s.vs} t={t} style={{ width: g.px(110, 160), justifyContent: "center" }}>
+            <div style={box({ width: g.px(80, 110), height: g.px(80, 110), borderRadius: 60, background: GOLD, color: NAVY, fontSize: g.px(32, 42), fontWeight: 700, alignItems: "center", justifyContent: "center" })}>{c.facts.product === "PENSION" ? "→" : "vs"}</div>
+          </El>
+          {side(s.right, v.right.label, right, v.right.unit, true)}
+        </div>
+        <El an={s.note} t={t} style={{ marginTop: g.px(26, 40), justifyContent: "center" }}>
+          <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 30px", fontSize: g.px(32, 42), fontWeight: 600 })}>{v.note}</div>
+        </El>
+      </Body>
+    </>
+  );
+}
+
+function StepsScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const s = motionSpec("steps", c.facts, c.voiceSec);
+  const steps = c.extra?.steps ?? [];
+  const dot = g.px(90, 130);
+  return (
+    <>
+      <Header g={g} left={c.facts.planLine} right={c.facts.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text="เริ่มง่ายๆ 3 ขั้น" />
+      <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "flex-start" : "stretch", justifyContent: "center" }}>
+        {steps.map((st, i) => (
+          <El key={i} an={s[`st${i}`]} t={t} style={{ flexDirection: g.wide ? "column" : "row", alignItems: "center", ...(g.wide ? { flex: 1 } : {}), marginBottom: g.wide ? 0 : 30, marginRight: g.wide && i < steps.length - 1 ? 40 : 0 }}>
+            <div style={box({ width: dot, height: dot, borderRadius: dot / 2, background: i === steps.length - 1 ? GOLD : WHITE, color: NAVY, fontSize: g.px(46, 64), fontWeight: 700, alignItems: "center", justifyContent: "center", flexShrink: 0, ...(g.wide ? { marginBottom: 26 } : { marginRight: 30 }) })}>{String(i + 1)}</div>
+            <div style={box({ fontSize: g.px(42, 48), fontWeight: 600, color: WHITE, ...(g.wide ? { textAlign: "center", justifyContent: "center" } : {}) })}>{st}</div>
+          </El>
+        ))}
       </Body>
     </>
   );
@@ -482,12 +609,19 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
     value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
-    contact: (
+    // a looping clip ends on its opening, held, with the agent under the figure (owner, 2026-10-13, choice ก)
+    contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} strip /> : (
       <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title="สนใจรายละเอียดเพิ่มเติม" header={c.facts.insuredWho}
         customer={c.customer} narrator={c.narrator} contact={c.contact} note={c.facts.footNote} />
     ),
+    story: <StoryScene g={g} c={c} t={t} />,
+    qa: <QaScene g={g} c={c} t={t} />,
+    versus: <VersusScene g={g} c={c} t={t} />,
+    steps: <StepsScene g={g} c={c} t={t} />,
   }[key];
-  return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec}>{body}</Frame>;
+  const k = c.contact;
+  const foot = c.loop ? [k.name, `โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ") : undefined;
+  return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec} foot={foot}>{body}</Frame>;
 }
 
 // ——— the FHC summary ———

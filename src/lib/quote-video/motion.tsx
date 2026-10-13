@@ -5,6 +5,7 @@ import { beatCues, penBeats } from "./pen";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { pensionBars } from "./pension";
 import { countAt, H, LEAD, W, wordTimes } from "./timeline";
+import type { Extra } from "./told";
 
 /**
  * The Motion Graphic style of วิดีโอนำเสนอ (owner, 2026-10-11: "แค่โมชันกราฟิกอธิบายแบบประกัน",
@@ -109,7 +110,23 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
     }
     case "contact":
       return { title: a(0.2, "up"), card: a(0.8, "up"), note: a(1.4, "fade") };
+    // the longer clips' scenes (told.ts): each line in as the voice reaches it, more or less
+    case "story":
+      return { kicker: a(0.2, "up"), face: a(0.4, "pop"), ...spread("pt", 3, voiceSec, 1.0) };
+    case "qa":
+      return { kicker: a(0.2, "up"), q0: a(0.6, "left"), a0: a(1.2, "fade"), q1: a(Math.max(2, voiceSec * 0.5), "left"), a1: a(Math.max(2.6, voiceSec * 0.5 + 0.6), "fade") };
+    case "versus":
+      return { kicker: a(0.2, "up"), left: a(0.6, "left"), vs: a(Math.max(1.4, voiceSec * 0.35), "pop"), right: a(Math.max(1.8, voiceSec * 0.4), "pop"), count: a(Math.max(1.8, voiceSec * 0.4), "count"), note: a(Math.max(3, voiceSec * 0.7), "fade") };
+    case "steps":
+      return { kicker: a(0.2, "up"), ...spread("st", 3, voiceSec, 0.9) };
   }
+}
+
+/** n items brought in one after another over the first 80% of the voice, named prefix0, prefix1, … */
+function spread(prefix: string, n: number, voiceSec: number, from: number): Record<string, Anim> {
+  const out: Record<string, Anim> = {};
+  for (let i = 0; i < n; i++) out[`${prefix}${i}`] = a(from + (i * Math.max(1, voiceSec * 0.8 - from)) / n, "left");
+  return out;
 }
 
 /**
@@ -153,6 +170,10 @@ export function look(an: Anim | undefined, t: number): { opacity: number; transf
 
 export interface MotionContext {
   facts: QuoteVideoFacts;
+  /** โจทย์การเล่า (told.ts): the hook's headline over the opening, whether the clip loops, the longer clips' scenes */
+  headline?: string[];
+  loop?: boolean;
+  extra?: Extra;
   customer: string;
   narrator?: "F" | "M";
   contact: { name: string; phone: string; line?: string; photo?: string };
@@ -214,12 +235,18 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
     <>
       <Header f={f} title={f.planLine} />
       {c.customer && <El an={s.name} t={t} style={{ position: "absolute", left: SIDE, top: 170, fontSize: 42, color: WHITE }}>จัดทำสำหรับ <span style={{ color: GOLD, fontWeight: 600, marginLeft: 12 }}>คุณ{c.customer}</span></El>}
-      <div style={abs({ left: (W - 400) / 2, top: 290, width: 400, height: 430 })}>
-        <svg width={400} height={430} viewBox="0 0 120 130">
+      {c.headline?.length ? (
+        // the hook's headline above the shield (owner, 2026-10-13, mockup §5): there from the first frame
+        <div style={abs({ left: SIDE, width: W - SIDE * 2, top: c.customer ? 250 : 190, flexDirection: "column", alignItems: "center" })}>
+          {c.headline.map((h, i) => <div key={i} style={box({ fontSize: 62, fontWeight: 700, color: i === 0 ? WHITE : GOLD, lineHeight: 1.25 })}>{h}</div>)}
+        </div>
+      ) : null}
+      <div style={abs({ left: (W - 400) / 2, top: c.headline?.length ? 400 : 290, width: 400, height: c.headline?.length ? 340 : 430 })}>
+        <svg width={400} height={c.headline?.length ? 340 : 430} viewBox="0 0 120 130">
           {stroke({ d: "M60 8 L108 26 V62 C108 94 86 114 60 124 C34 114 12 94 12 62 V26 Z", len: 330, p: shield, color: GOLD, width: 5 })}
         </svg>
-        <El an={s.family} t={t} style={{ position: "absolute", left: 0, top: 0, width: 400, height: 430 }}>
-          <svg width={400} height={430} viewBox="0 0 120 130">
+        <El an={s.family} t={t} style={{ position: "absolute", left: 0, top: 0, width: 400, height: c.headline?.length ? 340 : 430 }}>
+          <svg width={400} height={c.headline?.length ? 340 : 430} viewBox="0 0 120 130">
             <circle cx={45} cy={56} r={9} fill={WHITE} /><circle cx={75} cy={56} r={9} fill={WHITE} /><circle cx={60} cy={74} r={7} fill={WHITE} />
             <path d="M30 96 C32 76 58 76 60 96 Z M60 96 C62 76 88 76 90 96 Z" fill={WHITE} />
           </svg>
@@ -614,6 +641,135 @@ function Contact({ c, t }: { c: MotionContext; t: number }) {
   );
 }
 
+/** the agent, small, under a looping clip's last scene */
+function AgentStrip({ c, top }: { c: MotionContext; top: number }) {
+  const k = c.contact;
+  const initial = [...k.name.trim()][0] ?? "?";
+  return (
+    <div style={abs({ left: SIDE, width: W - SIDE * 2, top, background: WHITE, color: NAVY, borderRadius: 36, padding: "22px 30px", alignItems: "center" })}>
+      {k.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={k.photo} width={120} height={120} style={{ borderRadius: 60, objectFit: "cover" }} alt="" />
+      ) : (
+        <div style={box({ width: 120, height: 120, borderRadius: 60, background: C.noPhoto, alignItems: "center", justifyContent: "center", fontSize: 60, fontWeight: 700 })}>{initial}</div>
+      )}
+      <div style={box({ flexDirection: "column", marginLeft: 30, flexShrink: 1 })}>
+        <div style={box({ fontSize: 46, fontWeight: 700 })}>{`ทักแชท ${k.name}`}</div>
+        <div style={box({ fontSize: 38 })}>{[`โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ")}</div>
+      </div>
+    </div>
+  );
+}
+
+/** A looping clip's last scene (owner, 2026-10-13, choice ก): the opening's picture, held, and the agent beneath it. */
+function LoopEnd({ c, t }: { c: MotionContext; t: number }) {
+  // the opening as it stands once everything has come in, so the replay starts where this ends
+  return (
+    <>
+      <Lead c={c} t={Math.max(t, 4)} />
+      <AgentStrip c={c} top={1260} />
+    </>
+  );
+}
+
+function Kicker({ an, t, text }: { an?: Anim; t: number; text: string }) {
+  return <El an={an} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 60, fontWeight: 600, color: WHITE }}>{text}</El>;
+}
+
+function StoryScene({ c, t }: { c: MotionContext; t: number }) {
+  const s = motionSpec("story", c.facts, c.voiceSec);
+  const pts = c.extra?.story.points ?? [];
+  return (
+    <>
+      <Header f={c.facts} title="ลองนึกภาพ" />
+      <Kicker an={s.kicker} t={t} text="ลองนึกภาพ" />
+      <El an={s.face} t={t} style={{ position: "absolute", left: (W - 260) / 2, top: 320, width: 260, height: 260, borderRadius: 130, background: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
+        <svg width={180} height={180} viewBox="0 0 120 130">
+          <circle cx={45} cy={56} r={9} fill={WHITE} /><circle cx={75} cy={56} r={9} fill={WHITE} /><circle cx={60} cy={74} r={7} fill={WHITE} />
+          <path d="M30 96 C32 76 58 76 60 96 Z M60 96 C62 76 88 76 90 96 Z" fill={WHITE} />
+        </svg>
+      </El>
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 660, flexDirection: "column" })}>
+        {pts.map((pt, i) => (
+          <El key={i} an={s[`pt${i}`]} t={t} style={{ alignItems: "center", background: i === pts.length - 1 ? GOLD : "rgba(255,255,255,0.1)", color: i === pts.length - 1 ? NAVY : WHITE, borderRadius: 36, padding: "26px 36px", marginBottom: 28, fontSize: 54, fontWeight: 600 }}>{pt}</El>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function QaScene({ c, t }: { c: MotionContext; t: number }) {
+  const s = motionSpec("qa", c.facts, c.voiceSec);
+  const qas = c.extra?.qas ?? [];
+  return (
+    <>
+      <Header f={c.facts} title={c.facts.planLine} />
+      <Kicker an={s.kicker} t={t} text="คำถามที่เจอบ่อย" />
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 330, flexDirection: "column" })}>
+        {qas.map((q, i) => (
+          <div key={q.key} style={box({ flexDirection: "column", marginBottom: 50 })}>
+            <El an={s[`q${i}`]} t={t} style={{ alignItems: "flex-start", background: WHITE, color: NAVY, borderRadius: 32, padding: "22px 30px", fontSize: 48, fontWeight: 700 }}>
+              <div style={box({ background: GOLD, borderRadius: 20, padding: "2px 18px", fontSize: 36, marginRight: 22, flexShrink: 0 })}>ถาม</div>
+              <div style={box({ flexShrink: 1 })}>{q.q}</div>
+            </El>
+            <El an={s[`a${i}`]} t={t} style={{ fontSize: 42, color: WHITE, marginTop: 22, lineHeight: 1.45, paddingLeft: 10 }}>{q.a}</El>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function VersusScene({ c, t }: { c: MotionContext; t: number }) {
+  const s = motionSpec("versus", c.facts, c.voiceSec);
+  const v = c.extra?.versus;
+  if (!v) return null;
+  const right = /^[\d,]+$/.test(v.right.amount) ? countAt(num(v.right.amount), look(s.count, t).p).toLocaleString("en-US") : v.right.amount;
+  return (
+    <>
+      <Header f={c.facts} title={c.facts.planLine} />
+      <Kicker an={s.kicker} t={t} text={c.facts.product === "PENSION" ? "ลดหย่อนภาษีระหว่างทำงาน" : "เก็บเงินเอง กับ แผนนี้"} />
+      <El an={s.left} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 330, flexDirection: "column", background: "rgba(255,255,255,0.1)", border: "3px solid rgba(255,255,255,0.22)", borderRadius: 40, padding: "36px 44px" }}>
+        <div style={box({ fontSize: 44, opacity: 0.85 })}>{v.left.label}</div>
+        <div style={box({ alignItems: "flex-end" })}>
+          <div style={box({ fontSize: 110, fontWeight: 700 })}>{v.left.amount}</div>
+          <div style={box({ fontSize: 42, marginLeft: 16, marginBottom: 18 })}>{v.left.unit}</div>
+        </div>
+      </El>
+      <El an={s.vs} t={t} style={{ position: "absolute", left: (W - 130) / 2, top: 660, width: 130, height: 130, borderRadius: 65, background: GOLD, color: NAVY, fontSize: 48, fontWeight: 700, alignItems: "center", justifyContent: "center" }}>{c.facts.product === "PENSION" ? "→" : "vs"}</El>
+      <El an={s.right} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 830, flexDirection: "column", background: WHITE, color: NAVY, borderRadius: 40, padding: "36px 44px" }}>
+        <div style={box({ fontSize: 44, fontWeight: 600 })}>{v.right.label}</div>
+        <div style={box({ alignItems: "flex-end" })}>
+          <div style={box({ fontSize: 130, fontWeight: 700 })}>{right}</div>
+          <div style={box({ fontSize: 42, marginLeft: 16, marginBottom: 22 })}>{v.right.unit}</div>
+        </div>
+      </El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 1220, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "10px 34px", fontSize: 44, fontWeight: 600 })}>{v.note}</div>
+      </El>
+    </>
+  );
+}
+
+function StepsScene({ c, t }: { c: MotionContext; t: number }) {
+  const s = motionSpec("steps", c.facts, c.voiceSec);
+  const steps = c.extra?.steps ?? [];
+  return (
+    <>
+      <Header f={c.facts} title={c.facts.planLine} />
+      <Kicker an={s.kicker} t={t} text="เริ่มง่ายๆ 3 ขั้น" />
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 360, flexDirection: "column" })}>
+        {steps.map((st, i) => (
+          <El key={i} an={s[`st${i}`]} t={t} style={{ alignItems: "center", marginBottom: 60 }}>
+            <div style={box({ width: 140, height: 140, borderRadius: 70, background: i === steps.length - 1 ? GOLD : WHITE, color: NAVY, fontSize: 70, fontWeight: 700, alignItems: "center", justifyContent: "center", marginRight: 40, flexShrink: 0 })}>{String(i + 1)}</div>
+            <div style={box({ fontSize: 54, fontWeight: 600, color: WHITE, flexShrink: 1 })}>{st}</div>
+          </El>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /** One frame of a Motion Graphic scene at scene time t: transparent, over the drifting background. */
 export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
   const body = {
@@ -622,13 +778,21 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
     cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
-    contact: <Contact c={c} t={t} />,
+    contact: c.loop ? <LoopEnd c={c} t={t} /> : <Contact c={c} t={t} />,
+    story: <StoryScene c={c} t={t} />,
+    qa: <QaScene c={c} t={t} />,
+    versus: <VersusScene c={c} t={t} />,
+    steps: <StepsScene c={c} t={t} />,
   }[key];
+  const k = c.contact;
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {body}
       <Subtitle words={c.words} t={t} voiceSec={c.voiceSec} />
-      <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: 26, color: WHITE, opacity: 0.6 })}>Design by www.unitclub.app</div>
+      {/* a looping clip has no closing card to wait for: every scene's foot says how to reach the agent */}
+      <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: c.loop ? 30 : 26, color: c.loop ? GOLD : WHITE, opacity: c.loop ? 0.95 : 0.6, fontWeight: c.loop ? 600 : 400 })}>
+        {c.loop ? [k.name, `โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ") : "Design by www.unitclub.app"}
+      </div>
     </div>
   );
 }

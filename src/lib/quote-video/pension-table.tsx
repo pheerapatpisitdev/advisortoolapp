@@ -2,7 +2,7 @@ import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card
 import { loopUri } from "@/lib/highlighter";
 import { PENSION_COLUMNS, pensionCells, pensionPenNotes, pensionRings, type PensionColumn } from "@/lib/pension-pen-notes";
 import type { QuoteVideoFacts } from "./script";
-import { ROW_H, TABLE } from "./table-geo";
+import { ROW_H, TABLE, type Rect } from "./table-geo";
 import { PEN_FACE } from "./table-pen";
 import { LEAD, wordTimes, type TablePlan } from "./timeline";
 
@@ -104,9 +104,9 @@ export function pensionTableImage(f: QuoteVideoFacts) {
  * the last premiums, the first pension and its guarantee when the voice says "15", then to 95
  * when it says "รวม". The notes are in the picture already, so nothing is written in the overlay.
  */
-export function pensionTablePlan(f: QuoteVideoFacts, voice: string, voiceSec: number): { plan: TablePlan; notes: [] } {
+export function pensionTablePlan(f: QuoteVideoFacts, voice: string, voiceSec: number, win: Rect = TABLE): { plan: TablePlan; notes: [] } {
   const rows = f.pension?.years ?? [];
-  const max = Math.max(0, rows.length * ROW_H - TABLE.h);
+  const max = Math.max(0, rows.length * ROW_H - win.h);
   const clamp = (y: number) => Math.round(Math.max(0, Math.min(max, y)));
   const words = wordTimes(voice, voiceSec);
   const cue = (re: RegExp, share: number) => words.find((w) => re.test(w.word))?.from ?? LEAD + share * voiceSec;

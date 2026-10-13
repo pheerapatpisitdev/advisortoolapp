@@ -5,7 +5,7 @@ import {
   STEADY_WORD, STOP_WORD, type PenBeat, type Stroke,
 } from "./pen";
 import type { QuoteVideoFacts } from "./script";
-import { CELL_PAD, colX, ROW_H, TABLE } from "./table-geo";
+import { CELL_PAD, colX, ROW_H, TABLE, type Rect } from "./table-geo";
 import { PEN_HANDOVER, type TablePlan } from "./timeline";
 
 /**
@@ -54,7 +54,8 @@ const mid = (n: number) => n * ROW_H + ROW_H / 2;
 const blankPremium = (r: NonNullable<QuoteVideoFacts["rows"]>[number]) => r.due === "—" && r.paid === null;
 
 /** Every note this table earns, placed — a note with no clear room for its words is left out, as on the card. */
-export function tableNotes(f: QuoteVideoFacts): TableNote[] {
+/** `win`: the window the table is seen through — where each note wants the table to stand depends on its height */
+export function tableNotes(f: QuoteVideoFacts, win: Rect = TABLE): TableNote[] {
   const rows = f.rows ?? [];
   const be = f.breakEven?.index ?? -1;
   const notes: TableNote[] = [];
@@ -83,7 +84,7 @@ export function tableNotes(f: QuoteVideoFacts): TableNote[] {
       const ry = 22;
       const lx = colX(2) - 14;
       notes.push({
-        beat, to: mid(last) - TABLE.h * 0.45,
+        beat, to: mid(last) - win.h * 0.45,
         strokes: [red(ring(cx, mid(last), rx, ry)), ...arrow([lx - 6, mid(at)], [100, mid(at) - 10], [cx + rx * 0.75, mid(last) + ry * 0.8]).map((s) => red(s))],
         labels: [{ text: STOP_WORD, x: lx, anchor: "start", y: mid(at) - LINE / 2, tilt: -4, ink: RED }],
       });
@@ -101,7 +102,7 @@ export function tableNotes(f: QuoteVideoFacts): TableNote[] {
       const wordsTop = room >= words ? top(stopped) + (room - words) / 2 : undefined;
       const fits = wordsTop !== undefined && Math.max(...GROWTH_WORDS.map((t) => penTextWidth(t, SIZE))) <= left - 10 - colX(3);
       notes.push({
-        beat, to: fits ? wordsTop + words / 2 - TABLE.h / 2 : top(be) - TABLE.h * 0.6,
+        beat, to: fits ? wordsTop + words / 2 - win.h / 2 : top(be) - win.h * 0.6,
         strokes: [{ s: braceLeft(left, y, h), ink: BLUE, width: INK }],
         labels: fits ? GROWTH_WORDS.map((text, i) => ({ text, x: left - 10, anchor: "end" as const, y: wordsTop + i * LINE, tilt: -4, ink: BLUE })) : [],
       });
@@ -119,7 +120,7 @@ export function tableNotes(f: QuoteVideoFacts): TableNote[] {
         strokes.unshift(...arrow([from, top(be) + 4], [(from + ringLeft) / 2 + 10, top(be) - ROW_H * 1.9], [ringLeft - 14, mid(be) - 8]).map((s) => red(s)));
         labels.push({ text: `${BREAK_EVEN_WORD} >`, x: colX(4) - CELL_PAD, anchor: "end", y: top(be) + 9, tilt: -2, ink: RED, chip: true });
       }
-      notes.push({ beat, to: top(be) - TABLE.h * 0.3, strokes, labels });
+      notes.push({ beat, to: top(be) - win.h * 0.3, strokes, labels });
     }
     if (beat === "gain") {
       const after = be + 1;
@@ -134,7 +135,7 @@ export function tableNotes(f: QuoteVideoFacts): TableNote[] {
       const widest = Math.max(...rows.slice(after, after + span).map((r) => fig(r.cash ?? "")));
       const left = colX(5) - CELL_PAD - widest - 22 - 22;
       notes.push({
-        beat, to: y + h + 10 - TABLE.h,
+        beat, to: y + h + 10 - win.h,
         strokes: [red(braceLeft(left, y, h))],
         labels: GAIN_WORDS.map((text, i) => ({ text, x: left - 10, anchor: "end" as const, y: wordsTop + i * LINE, tilt: -4, ink: RED })),
       });
@@ -144,16 +145,16 @@ export function tableNotes(f: QuoteVideoFacts): TableNote[] {
 }
 
 /** how far the table can move: its foot at the window's foot */
-const maxMove = (f: QuoteVideoFacts) => Math.max(0, (f.rows?.length ?? 0) * ROW_H - TABLE.h);
+const maxMove = (f: QuoteVideoFacts, win: Rect) => Math.max(0, (f.rows?.length ?? 0) * ROW_H - win.h);
 
 /**
  * When the table moves and each note is written, from the value line's words. Each note waits for
  * its cue in the voice and for the note before it; the table moves first if the note is not in
  * view, then stands while the note is written. `at` on each note: where the table stood.
  */
-export function tablePlan(f: QuoteVideoFacts, voice: string, voiceSec: number): { plan: TablePlan; notes: (TableNote & { at: number })[] } {
-  const notes = tableNotes(f);
-  const max = maxMove(f);
+export function tablePlan(f: QuoteVideoFacts, voice: string, voiceSec: number, win: Rect = TABLE): { plan: TablePlan; notes: (TableNote & { at: number })[] } {
+  const notes = tableNotes(f, win);
+  const max = maxMove(f, win);
   const clamp = (y: number) => Math.round(Math.max(0, Math.min(max, y)));
   const moves: TablePlan["moves"] = [];
   const draws: TablePlan["draws"] = [];
@@ -178,7 +179,7 @@ export function tablePlan(f: QuoteVideoFacts, voice: string, voiceSec: number): 
   // a table with no notes still walks down to where the break-even (or its end) shows
   if (!notes.length) {
     const be = f.breakEven?.index;
-    const to = clamp(be === undefined ? max : top(be) - TABLE.h * 0.3);
+    const to = clamp(be === undefined ? max : top(be) - win.h * 0.3);
     if (to > 0) moves.push({ at: 1.2, dur: Math.max(2, Math.min(6, voiceSec * 0.4)), to });
   }
   return { plan: { moves, draws }, notes: placed };
@@ -221,10 +222,10 @@ export function noteDrawing(n: TableNote, height: number, p = 1, from = 0) {
 }
 
 /** a note being written, inside the table's window, the table standing `at` pixels down */
-export function noteInWindow(n: TableNote & { at: number }, p: number) {
+export function noteInWindow(n: TableNote & { at: number }, p: number, win: Rect = TABLE) {
   return (
-    <div style={{ display: "flex", position: "absolute", left: TABLE.x, top: TABLE.y, width: TABLE.w, height: TABLE.h }}>
-      {noteDrawing(n, TABLE.h, p, n.at)}
+    <div style={{ display: "flex", position: "absolute", left: win.x, top: win.y, width: win.w, height: win.h }}>
+      {noteDrawing(n, win.h, p, n.at)}
     </div>
   );
 }

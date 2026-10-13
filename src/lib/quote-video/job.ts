@@ -1,5 +1,5 @@
 import type { FfmpegJob } from "@/lib/video/command";
-import { PHOTO, TABLE } from "./draw";
+import { PHOTO, TABLE, type Rect } from "./table-geo";
 import { clipLength, FPS, H, W, XFADE, type ScenePlan } from "./timeline";
 
 /**
@@ -13,8 +13,11 @@ import { clipLength, FPS, H, W, XFADE, type ScenePlan } from "./timeline";
  */
 
 export const TRANSITIONS: Record<string, string> = { lead: "fade", price: "slideleft", cover: "zoomin", value: "slideleft", compare: "slideleft", contact: "fade",
+  story: "fade", qa: "slideleft", versus: "zoomin", steps: "slideleft",
   fhcOpen: "fade", fhcScores: "slideleft", fhcGaps: "slideleft", fhcEvents: "zoomin", fhcPlan: "slideleft", fhcContact: "fade" };
 const f3 = (n: number) => n.toFixed(3);
+/** past this length a clip is encoded with the faster preset */
+export const LONG_CLIP_SEC = 70;
 
 /** A file the job reads, before it has a link: its input name and what it is. */
 export interface JobFile { name: string; kind: "audio" | "base" | "photo" | "table" | "pen" | "list" | "frame"; scene?: number; frame?: number }
@@ -90,11 +93,14 @@ export function tableY(moves: { at: number; dur: number; to: number }[]): string
  */
 export function buildJob(
   plans: ScenePlan[], named: ReturnType<typeof nameFiles>,
-  opts: { tableHeight?: number; driftHeight?: number; size?: { w: number; h: number } },
+  opts: { tableHeight?: number; driftHeight?: number; size?: { w: number; h: number }; photo?: Rect; table?: Rect },
 ): Omit<FfmpegJob, "inputs"> & { inputNames: string[] } {
   // the clip's frame: portrait unless a square or landscape one was asked for
   const fw = opts.size?.w ?? W;
   const fh = opts.size?.h ?? H;
+  // the classic clip's photo box and table window, for its shape (table-geo.ts CLASSIC_BOXES)
+  const photo = opts.photo ?? PHOTO;
+  const tableWin = opts.table ?? TABLE;
   const args: string[] = [];
   const order: string[] = [];
   const add = (name: string, pre: string) => {
@@ -117,13 +123,13 @@ export function buildJob(
       const li = add(sc.layer.name, `-loop 1 -framerate ${FPS} -t ${d}`);
       const frames = Math.ceil(p.dur * FPS);
       // a slow push-in, 1.00 → 1.12 over the scene; scaled up first so the zoom does not judder
-      f.push(`[${li}:v]scale=${PHOTO.w * 2}:${PHOTO.h * 2}:force_original_aspect_ratio=increase,crop=${PHOTO.w * 2}:${PHOTO.h * 2},`
-        + `zoompan=z='1+0.12*on/${frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${PHOTO.w}x${PHOTO.h}:fps=${FPS},setsar=1[ph${s}]`);
-      f.push(`[${cur}][ph${s}]overlay=x=${PHOTO.x}:y=${PHOTO.y}[m${s}]`);
+      f.push(`[${li}:v]scale=${photo.w * 2}:${photo.h * 2}:force_original_aspect_ratio=increase,crop=${photo.w * 2}:${photo.h * 2},`
+        + `zoompan=z='1+0.12*on/${frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${photo.w}x${photo.h}:fps=${FPS},setsar=1[ph${s}]`);
+      f.push(`[${cur}][ph${s}]overlay=x=${photo.x}:y=${photo.y}[m${s}]`);
       cur = `m${s}`;
     } else if (sc.layer?.kind === "table" && opts.tableHeight) {
       const li = add(sc.layer.name, `-loop 1 -framerate ${FPS} -t ${d}`);
-      const crop = `crop=w=${TABLE.w}:h=${Math.min(TABLE.h, opts.tableHeight)}:x=0:y='${tableY(p.table?.moves ?? [])}'`;
+      const crop = `crop=w=${tableWin.w}:h=${Math.min(tableWin.h, opts.tableHeight)}:x=0:y='${tableY(p.table?.moves ?? [])}'`;
       f.push(`[${li}:v]${crop},format=rgba,setsar=1[tb${s}]`);
       let table = `tb${s}`;
       // each finished pen note: cut the same way, so it moves with the table, and shown from when it is done
@@ -133,7 +139,7 @@ export function buildJob(
         f.push(`[${table}][pn${s}_${k}]overlay=0:0:enable='gte(t,${f3(p.table?.shown[k] ?? 0)})'[tp${s}_${k}]`);
         table = `tp${s}_${k}`;
       });
-      f.push(`[${cur}][${table}]overlay=x=${TABLE.x}:y=${TABLE.y}[m${s}]`);
+      f.push(`[${cur}][${table}]overlay=x=${tableWin.x}:y=${tableWin.y}[m${s}]`);
       cur = `m${s}`;
     }
     const oi = add(sc.list, "-f concat -safe 0");
@@ -153,7 +159,8 @@ export function buildJob(
     `-filter_complex "${f.join(";")}"`,
     `-map "[v]" -map ${aIdx}:a`,
     `-t ${f3(total)} -s ${fw}x${fh}`,
-    "-c:v libx264 -preset medium -crf 21 -pix_fmt yuv420p -profile:v high -r 30",
+    // a ~90 s or 2-minute clip encodes faster (owner, 2026-10-13): Cloud Run stops a run at 15 minutes
+    `-c:v libx264 -preset ${total > LONG_CLIP_SEC ? "veryfast" : "medium"} -crf 21 -pix_fmt yuv420p -profile:v high -r 30`,
     "-c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart {{out_1}}",
   ].join(" ");
   return { command, inputNames: order, outputs: [{ name: "out_1", file: "quote.mp4", contentType: "video/mp4" }] };

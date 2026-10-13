@@ -11,7 +11,9 @@ import { OVERHEAD_THB, PAINTERS } from "@/lib/content/models";
 
 export type PriceKey =
   | "drawStandard" | "drawSharp" | "drawGemini" | "describe"
-  | "videoClassic" | "videoMotion" | "videoFhc" | "elevenExtra";
+  | "videoClassic" | "videoMotion" | "videoFhc" | "elevenExtra"
+  /** the longer clips (owner, 2026-10-13): ~90 seconds and ~2 minutes, in each look */
+  | "videoLongClassic" | "videoLongMotion" | "videoMaxClassic" | "videoMaxMotion";
 
 export type Prices = Record<PriceKey, number>;
 
@@ -25,6 +27,11 @@ export const DEFAULT_PRICES: Prices = {
   videoMotion: 1000,
   videoFhc: 300,
   elevenExtra: 200,
+  // the owner's yes to the plan of 2026-10-13: ฿8 / ฿15 for ~90 s, ฿10 / ฿20 for ~2 min
+  videoLongClassic: 800,
+  videoLongMotion: 1500,
+  videoMaxClassic: 1000,
+  videoMaxMotion: 2000,
 };
 
 const paint = (id: string): number => (PAINTERS.find((p) => p.id === id)?.thb ?? 0) + OVERHEAD_THB;
@@ -41,6 +48,10 @@ export type PriceGroup = "video" | "picture";
 export const PRICE_ITEMS: { key: PriceKey; group: PriceGroup; label: string; unit: string; costThb: number; extra?: true }[] = [
   { key: "videoClassic", group: "video", label: "วิดีโอแบบปกติ (รวมคลิปสั้น 15 วินาที)", unit: "คลิป", costThb: 0.4 },
   { key: "videoMotion", group: "video", label: "วิดีโอ Motion Graphic", unit: "คลิป", costThb: 0.4 },
+  { key: "videoLongClassic", group: "video", label: "วิดีโอแบบปกติ ยาว ~90 วินาที", unit: "คลิป", costThb: 0.7 },
+  { key: "videoLongMotion", group: "video", label: "วิดีโอ Motion Graphic ยาว ~90 วินาที", unit: "คลิป", costThb: 0.8 },
+  { key: "videoMaxClassic", group: "video", label: "วิดีโอแบบปกติ 2 นาที", unit: "คลิป", costThb: 0.9 },
+  { key: "videoMaxMotion", group: "video", label: "วิดีโอ Motion Graphic 2 นาที", unit: "คลิป", costThb: 1.1 },
   { key: "videoFhc", group: "video", label: "วิดีโอสรุป FHC", unit: "คลิป", costThb: 0.4 },
   { key: "elevenExtra", group: "video", label: "เสียง ElevenLabs (บวกเพิ่มต่อคลิป)", unit: "คลิป", costThb: 1, extra: true },
   { key: "drawStandard", group: "picture", label: "วาดรูป มาตรฐาน", unit: "รูป", costThb: paint("standard") },
@@ -74,4 +85,14 @@ export function pictureSatang(prices: Prices, painterId: string): number | null 
 export function priceBaht(satang: number): string {
   const baht = satang / 100;
   return Number.isInteger(baht) ? baht.toLocaleString("en-US") : baht.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * The price key of a quote clip of this look and length (owner, 2026-10-13): the 15-second and the
+ * ~50-second clips share their look's price, the longer two have their own.
+ */
+export function videoPriceKey(style: "classic" | "motion", length: "short" | "full" | "long" | "max"): PriceKey {
+  if (length === "long") return style === "motion" ? "videoLongMotion" : "videoLongClassic";
+  if (length === "max") return style === "motion" ? "videoMaxMotion" : "videoMaxClassic";
+  return style === "motion" ? "videoMotion" : "videoClassic";
 }

@@ -5,7 +5,8 @@ import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card
 import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
 import type { QuoteVideoFacts, SceneKey } from "./script";
-import { COLS, ROW_H, TABLE } from "./table-geo";
+import type { Extra } from "./told";
+import { COLS, PHOTO, ROW_H, TABLE } from "./table-geo";
 import { noteInWindow, type TableNote } from "./table-pen";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { countAt, H, W, type OverlayState } from "./timeline";
@@ -20,8 +21,7 @@ import { countAt, H, W, type OverlayState } from "./timeline";
  * inside PHOTO) and the value table (a pan, inside TABLE) — the base leaves those boxes empty.
  */
 
-export const PHOTO = { x: 190, y: 330, w: 700, h: 540 } as const;
-export { ROW_H, TABLE };
+export { PHOTO, ROW_H, TABLE };
 const SIDE = 70;
 
 export interface Contact { name: string; phone: string; line?: string; photo?: string }
@@ -36,19 +36,24 @@ export interface DrawContext {
   words: string[];
   /** the value scene: its pen notes, each with where the table stands while it is written (table-pen.tsx) */
   notes?: (TableNote & { at: number })[];
+  /** โจทย์การเล่า (told.ts): the hook's headline over the opening, and whether the clip loops */
+  headline?: string[];
+  loop?: boolean;
+  /** what the longer clips' extra scenes show */
+  extra?: Extra;
 }
 
-type Layer = "base" | "over";
-const box = (s: CSSProperties = {}): CSSProperties => ({ display: "flex", ...s });
-const abs = (s: CSSProperties): CSSProperties => ({ display: "flex", position: "absolute", ...s });
+export type Layer = "base" | "over";
+export const box = (s: CSSProperties = {}): CSSProperties => ({ display: "flex", ...s });
+export const abs = (s: CSSProperties): CSSProperties => ({ display: "flex", position: "absolute", ...s });
 
 /** what is drawn on this layer shows; the other layer keeps its place, unseen */
-function On({ layer, own, style, children }: { layer: Layer; own: Layer; style?: CSSProperties; children?: ReactNode }) {
+export function On({ layer, own, style, children }: { layer: Layer; own: Layer; style?: CSSProperties; children?: ReactNode }) {
   return <div style={{ display: "flex", ...style, ...(layer === own ? {} : { opacity: 0 }) }}>{children}</div>;
 }
 
 /** the highlighter stroke behind a phrase, drawn left to right as p goes 0 → 1 */
-function Swept({ p, children, size }: { p: number; children: ReactNode; size: number }) {
+export function Swept({ p, children, size }: { p: number; children: ReactNode; size: number }) {
   return (
     <div style={box({ position: "relative", padding: "2px 18px", marginLeft: -18 })}>
       <div style={abs({ left: 0, top: 0, bottom: 0, width: `${Math.round(p * 100)}%`, overflow: "hidden" })}>
@@ -86,10 +91,44 @@ function Subtitle({ words, word }: { words: string[]; word: number }) {
   );
 }
 
-function Footer({ layer }: { layer: Layer }) {
+/** the agent's name and how to reach them, in a line: a looping clip's footer and its closing strip */
+export const contactLine = (k: Contact) => [k.name, `โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ");
+
+/** a looping clip has no closing card to wait for (owner, 2026-10-13, choice ก): every scene's footer says how to reach the agent */
+function Footer({ layer, c }: { layer: Layer; c: DrawContext }) {
   return (
-    <On layer={layer} own="base" style={{ position: "absolute", left: 0, right: 0, bottom: 44, justifyContent: "center", fontSize: 28, color: P.mute }}>
-      Design by www.unitclub.app
+    <On layer={layer} own="base" style={{ position: "absolute", left: 0, right: 0, bottom: 44, justifyContent: "center", fontSize: c.loop ? 32 : 28, color: c.loop ? P.accent : P.mute, fontWeight: c.loop ? 600 : 400 }}>
+      {c.loop ? contactLine(c.contact) : "Design by www.unitclub.app"}
+    </On>
+  );
+}
+
+/** the hook's headline, a navy band over the foot of the family photo (owner, 2026-10-13, mockup §5) */
+function Headline({ c, layer }: { c: DrawContext; layer: Layer }) {
+  if (!c.headline?.length) return null;
+  return (
+    <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: PHOTO.y + PHOTO.h - (c.headline.length > 1 ? 190 : 120), flexDirection: "column", alignItems: "center", background: P.figure, borderRadius: 28, padding: "20px 30px" }}>
+      {c.headline.map((h, i) => <div key={i} style={box({ fontSize: 56, fontWeight: 600, color: i === 0 ? C.paper : P.highlighter, lineHeight: 1.25 })}>{h}</div>)}
+    </On>
+  );
+}
+
+/** the agent, small, under a looping clip's last scene */
+function AgentStrip({ c, layer, top }: { c: DrawContext; layer: Layer; top: number }) {
+  const k = c.contact;
+  const initial = [...k.name.trim()][0] ?? "?";
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top, border: `3px solid ${P.hair}`, borderRadius: 32, padding: "22px 30px", alignItems: "center" }}>
+      {k.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={k.photo} width={120} height={120} style={{ borderRadius: 60, objectFit: "cover" }} alt="" />
+      ) : (
+        <div style={box({ width: 120, height: 120, borderRadius: 60, background: C.noPhoto, alignItems: "center", justifyContent: "center", fontSize: 60, fontWeight: 600, color: P.figure })}>{initial}</div>
+      )}
+      <div style={box({ flexDirection: "column", marginLeft: 30, flexShrink: 1 })}>
+        <div style={box({ fontSize: 46, fontWeight: 600, color: P.ink })}>{`ทักแชท ${k.name}`}</div>
+        <div style={box({ fontSize: 38, color: P.mute })}>{[`โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ")}</div>
+      </div>
     </On>
   );
 }
@@ -117,6 +156,113 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 370 }}>
         <Swept p={s.sweep[0] ?? 1} size={52}>{f.leadMark}</Swept>
       </On>
+      <Headline c={c} layer={layer} />
+    </>
+  );
+}
+
+/**
+ * A looping clip's last scene (owner, 2026-10-13, choice ก): the opening's picture again — the
+ * photo, the headline, the figure — so the replay runs on without a cut, and the agent beneath it.
+ */
+function LoopEnd({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  return (
+    <>
+      <Lead c={c} layer={layer} s={{ ...s, count: 1, sweep: [1] }} />
+      <AgentStrip c={c} layer={layer} top={PHOTO.y + PHOTO.h + 470} />
+    </>
+  );
+}
+
+const kicker = (layer: Layer, text: string) => (
+  <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{text}</On>
+);
+
+/** the longer clips: the customer's story, in two or three lines lit as the voice reaches them */
+function StoryScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const pts = c.extra?.story.points ?? [];
+  return (
+    <>
+      {kicker(layer, "ลองนึกภาพ")}
+      <On layer={layer} own="base" style={{ position: "absolute", left: (W - 240) / 2, top: 360 }}>{insuredFace(c.facts.sex, 240)}</On>
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 700, flexDirection: "column" })}>
+        {pts.map((pt, i) => (
+          <div key={i} style={box({ alignItems: "center", marginBottom: 56 })}>
+            <On layer={layer} own="base" style={{ width: 70, height: 70, borderRadius: 35, background: P.figure, color: C.paper, fontSize: 40, fontWeight: 600, alignItems: "center", justifyContent: "center", marginRight: 34, flexShrink: 0 }}>{String(i + 1)}</On>
+            <On layer={layer} own="over"><Swept p={s.sweep[i] ?? 1} size={60}>{pt}</Swept></On>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** two questions customers ask, each answered as the bots answer it (qa.ts) */
+function QaScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const qas = c.extra?.qas ?? [];
+  return (
+    <>
+      {kicker(layer, "คำถามที่เจอบ่อย")}
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 360, flexDirection: "column" })}>
+        {qas.map((q, i) => (
+          <div key={q.key} style={box({ flexDirection: "column", marginBottom: 70 })}>
+            <div style={box({ alignItems: "flex-start" })}>
+              <On layer={layer} own="base" style={{ background: P.figure, color: C.paper, borderRadius: 22, padding: "6px 22px", fontSize: 38, fontWeight: 600, marginRight: 26, marginTop: 8, flexShrink: 0 }}>ถาม</On>
+              <On layer={layer} own="over" style={{ flexShrink: 1 }}><Swept p={s.sweep[i] ?? 1} size={54}>{q.q}</Swept></On>
+            </div>
+            <On layer={layer} own="base" style={{ fontSize: 44, color: P.ink, marginTop: 24, lineHeight: 1.45 }}>{q.a}</On>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+const plainNumber = (s: string) => /^[\d,]+$/.test(s);
+
+/** saving alone against the plan (บำนาญ 95: the tax, owner 2026-10-13) */
+function VersusScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const v = c.extra?.versus;
+  if (!v) return null;
+  const right = plainNumber(v.right.amount) ? money(countAt(num(v.right.amount), s.count)) : v.right.amount;
+  return (
+    <>
+      {kicker(layer, c.facts.product === "PENSION" ? "ลดหย่อนภาษีระหว่างทำงาน" : "เก็บเงินเอง กับ แผนนี้")}
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 360, flexDirection: "column", background: P.box, borderRadius: 36, padding: "40px 50px" }}>
+        <div style={box({ fontSize: 44, color: P.mute })}>{v.left.label}</div>
+        <div style={box({ alignItems: "flex-end" })}>
+          <div style={box({ fontSize: 110, fontWeight: 600, color: P.ink, lineHeight: 1.15 })}>{v.left.amount}</div>
+          <div style={box({ fontSize: 44, color: P.mute, marginLeft: 18, marginBottom: 16 })}>{v.left.unit}</div>
+        </div>
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: (W - 120) / 2, top: 690, width: 120, height: 120, borderRadius: 60, background: P.figure, color: C.paper, fontSize: 44, fontWeight: 600, alignItems: "center", justifyContent: "center" }}>
+        {c.facts.product === "PENSION" ? "→" : "vs"}
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 840, height: 300, border: `5px solid ${P.figure}`, borderRadius: 36 }} />
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE + 50, top: 880, fontSize: 44, color: P.figure, fontWeight: 600 }}>{v.right.label}</On>
+      <div style={abs({ left: SIDE + 50, top: 950, alignItems: "flex-end" })}>
+        <On layer={layer} own="over" style={{ fontSize: 130, fontWeight: 600, color: P.figure, lineHeight: 1.1 }}>{right}</On>
+        <On layer={layer} own="base" style={{ fontSize: 44, color: P.mute, marginLeft: 18, marginBottom: 18 }}>{v.right.unit}</On>
+      </div>
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1220 }}><Swept p={s.sweep[0] ?? 1} size={50}>{v.note}</Swept></On>
+    </>
+  );
+}
+
+/** how to start, in three steps */
+function StepsScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const steps = c.extra?.steps ?? [];
+  return (
+    <>
+      {kicker(layer, "เริ่มง่ายๆ 3 ขั้น")}
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 400, flexDirection: "column" })}>
+        {steps.map((st, i) => (
+          <div key={i} style={box({ alignItems: "center", marginBottom: 80 })}>
+            <On layer={layer} own="base" style={{ width: 130, height: 130, borderRadius: 65, background: i === steps.length - 1 ? P.highlighter : P.figure, color: i === steps.length - 1 ? P.ink : C.paper, fontSize: 64, fontWeight: 600, alignItems: "center", justifyContent: "center", marginRight: 40, flexShrink: 0 }}>{String(i + 1)}</On>
+            <On layer={layer} own="over" style={{ flexShrink: 1 }}><Swept p={s.sweep[i] ?? 1} size={54}>{st}</Swept></On>
+          </div>
+        ))}
+      </div>
     </>
   );
 }
@@ -425,14 +571,18 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,
-    contact: <ContactScene c={c} layer={layer} />,
+    contact: c.loop ? <LoopEnd c={c} layer={layer} s={state} /> : <ContactScene c={c} layer={layer} />,
+    story: <StoryScene c={c} layer={layer} s={state} />,
+    qa: <QaScene c={c} layer={layer} s={state} />,
+    versus: <VersusScene c={c} layer={layer} s={state} />,
+    steps: <StepsScene c={c} layer={layer} s={state} />,
   }[key];
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: layer === "base" ? C.paper : "transparent", fontFamily: "Plex", color: P.ink }}>
-      {key !== "contact" && <Header f={c.facts} layer={layer} />}
+      {(key !== "contact" || c.loop) && <Header f={c.facts} layer={layer} />}
       {body}
       {layer === "over" && <Subtitle words={c.words} word={state.word} />}
-      <Footer layer={layer} />
+      <Footer layer={layer} c={c} />
     </div>
   );
 }
