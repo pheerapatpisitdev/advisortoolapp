@@ -184,6 +184,9 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
  */
 export const SALES_PAGES: MenuLink[] = SALES_SECTIONS.flatMap((s) => s.links);
 
+/** An outside member's pass page, in both menus a member reads (owner, 2026-10-13). */
+const MEMBERSHIP: MenuLink = { href: "/membership", label: "สมาชิก", icon: "key", hue: "#2b736f" };
+
 /** What each customer the agent kept from the Financial Health Check still lacks. */
 const FHC_CUSTOMERS: MenuLink = { href: "/fhc/customers", label: "ลูกค้า FHC ของฉัน", icon: "users", hue: "#3d3578" };
 
@@ -271,6 +274,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       { href: "/home", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
+      // a member's 30-day pass: its end, the rounds left, renewing (owner, 2026-10-13)
+      ...(who?.member ? [MEMBERSHIP] : []),
     ],
   }];
 
@@ -340,6 +345,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     ...(who?.owner ? [] : ["/studio/ads", "/studio/thumbnail"]),
   ]);
   const shown = links.filter((l) => !hidden.has(l.href));
+  // a member renews from inside Studio too, just before their account (owner, 2026-10-13)
+  if (who?.member) shown.splice(shown.findIndex((l) => l.href === "/studio/account"), 0, MEMBERSHIP);
   const back: MenuLink[] = [{ href: "/home", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
   // staff get a way to the back office, landing on the first page of it they may open
   const office = officeFor(who);

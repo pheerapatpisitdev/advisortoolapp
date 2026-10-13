@@ -9,8 +9,10 @@ vi.mock("@/lib/auth/viewer", async () => {
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const wallet = vi.hoisted(() => ({ saveWalletSettings: vi.fn(async () => {}), saveWalletPrices: vi.fn(async () => {}), adjustWallet: vi.fn(), unfreezeWallet: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
+const pass = vi.hoisted(() => ({ savePassSettings: vi.fn(async () => {}) }));
+vi.mock("@/lib/members/pass-store", () => pass);
 
-const { adjustAgentWallet, savePrices, saveWallet, unfreezeAgentWallet } = await import("@/app/admin/wallet/actions");
+const { adjustAgentWallet, saveMemberPass, savePrices, saveWallet, unfreezeAgentWallet } = await import("@/app/admin/wallet/actions");
 const { OWNER } = await import("../helpers/signed-in");
 const AGENT = "00000000-0000-4000-8000-000000000002";
 
@@ -110,5 +112,32 @@ describe("unfreezeAgentWallet (owner, 2026-10-01)", () => {
   it("says so when the wallet was not frozen", async () => {
     wallet.unfreezeWallet.mockResolvedValueOnce(null);
     expect(await unfreezeAgentWallet(AGENT, "เหตุผล")).toEqual({ ok: false, error: "กระเป๋านี้ไม่ได้ถูกพักอยู่" });
+  });
+});
+
+describe("saveMemberPass (owner, 2026-10-13)", () => {
+  const typed = { enabled: true, baht: "99", trialDays: "3", rounds: "10" };
+
+  it("saves the switch, the price in satang, the trial and the rounds", async () => {
+    expect(await saveMemberPass(typed)).toEqual({ ok: true });
+    expect(pass.savePassSettings).toHaveBeenCalledWith({ enabled: true, satang: 9900, trialDays: 3, rounds: 10 });
+  });
+
+  it("is the owner's alone: an admin who is not the owner saves nothing", async () => {
+    await saveMemberPass(typed);
+    expect(staff.requireStaff).toHaveBeenCalledWith("owner");
+    staff.requireStaff.mockRejectedValueOnce(new Error("ไม่มีสิทธิ์ใช้ส่วนนี้"));
+    await expect(saveMemberPass(typed)).rejects.toThrow("ไม่มีสิทธิ์");
+    expect(pass.savePassSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves nothing when a value is out of range", async () => {
+    expect(await saveMemberPass({ ...typed, baht: "0" })).toMatchObject({ ok: false });
+    expect(pass.savePassSettings).not.toHaveBeenCalled();
+  });
+
+  it("says so when the save fails", async () => {
+    pass.savePassSettings.mockRejectedValueOnce(new Error("boom"));
+    expect(await saveMemberPass(typed)).toMatchObject({ ok: false });
   });
 });

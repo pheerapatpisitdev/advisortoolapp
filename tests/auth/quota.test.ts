@@ -21,8 +21,15 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 vi.mock("@/lib/wallet/store", () => ({ walletSettings: vi.fn(), holdWallet: vi.fn() }));
+// not gated unless a test says so: an agent's rounds never depend on a member's pass
+const access = vi.hoisted(() => ({ memberAccess: vi.fn() }));
+vi.mock("@/lib/members/access", async (orig) => ({
+  ...(await orig<typeof import("@/lib/members/access")>()),
+  memberAccess: access.memberAccess,
+}));
 
-const { allowanceOf, FREE_ROUNDS, FREE_ROUNDS_FROM, overAllowance } = await import("@/lib/auth/quota");
+const { allowanceOf, freeWindow, FREE_ROUNDS, FREE_ROUNDS_FROM, overAllowance } = await import("@/lib/auth/quota");
+const { DEFAULT_PASS_SETTINGS } = await import("@/lib/members/pass");
 
 const agent: Viewer = {
   kind: "unitos", agentId: "00000000-0000-4000-8000-000000000002", code: "1", name: "a", tenantId: "t", tenantSlug: "t", tenantName: "t",
@@ -30,8 +37,10 @@ const agent: Viewer = {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   db.count = 0;
   db.since = "";
+  access.memberAccess.mockResolvedValue({ gated: false });
 });
 
 describe("the free rounds", () => {
@@ -57,6 +66,45 @@ describe("the free rounds", () => {
     db.count = 4;
     expect(await allowanceOf({ ...agent, staff: { owner: false, publish: true, connect: true, admin: true } }))
       .toEqual({ limit: 10, used: 4 });
+  });
+});
+
+describe("a member's rounds under the pass (owner, 2026-10-13)", () => {
+  const member: Viewer = { ...agent, kind: "member", tenantId: null };
+  const on = { ...DEFAULT_PASS_SETTINGS, enabled: true, rounds: 10 };
+  const start = new Date("2026-10-12T03:00:00Z");
+  const live = { status: "live", period: { rowId: 1, kind: "paid", start, end: new Date("2026-11-11T03:00:00Z") }, end: new Date("2026-11-11T03:00:00Z") };
+
+  it("are the pass's rounds, counted from the live period's start", async () => {
+    access.memberAccess.mockResolvedValue({ gated: true, state: live, settings: on });
+    expect(await freeWindow(member)).toEqual({ limit: 10, from: start });
+    db.count = 4;
+    expect(await allowanceOf(member)).toEqual({ limit: 10, used: 4 });
+    expect(db.since).toBe(start.toISOString());
+  });
+
+  it("are the one-time ten while the switch is off", async () => {
+    access.memberAccess.mockResolvedValue({ gated: false });
+    expect(await freeWindow(member)).toEqual({ limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM });
+  });
+
+  it("fall back to the one-time ten when the pass is not live", async () => {
+    access.memberAccess.mockResolvedValue({ gated: true, state: { status: "expired", end: start }, settings: on });
+    expect(await freeWindow(member)).toEqual({ limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM });
+  });
+
+  it("let an unreadable pass throw on a display page, as an unreadable count does", async () => {
+    access.memberAccess.mockRejectedValue(new Error("down"));
+    await expect(allowanceOf(member)).rejects.toThrow("down");
+  });
+
+  it("are an agent's one-time ten, whatever the pass says", async () => {
+    expect(await freeWindow(agent)).toEqual({ limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM });
+  });
+
+  it("are never looked up for the owner", async () => {
+    await allowanceOf({ ...agent, staff: { owner: true, publish: true, connect: true, admin: true } });
+    expect(access.memberAccess).not.toHaveBeenCalled();
   });
 });
 

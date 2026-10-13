@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const wallet = vi.hoisted(() => ({ creditTopUp: vi.fn(), markTopUp: vi.fn(), clawBack: vi.fn(), linkPaymentIntent: vi.fn(), topUpStatus: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
+const pass = vi.hoisted(() => ({ addPaidPass: vi.fn(), revokePaidPass: vi.fn(), linkPassPaymentIntent: vi.fn() }));
+vi.mock("@/lib/members/pass-store", () => pass);
 const list = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/stripe/client", () => ({ stripe: () => ({ checkout: { sessions: { list } } }) }));
 
@@ -21,7 +23,12 @@ const dispute = (over: object = {}) => ({
   id: "dp_1", object: "dispute", currency: "thb", amount: 10000, charge: "ch_1", payment_intent: "pi_1", ...over,
 });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // a refund looks for a pass first; most refunds are of top-ups, where it finds none
+  pass.revokePaidPass.mockReset().mockResolvedValue("unknown");
+  pass.linkPassPaymentIntent.mockReset().mockResolvedValue(false);
+});
 
 describe("what a Stripe event does to a wallet", () => {
   it("credits a completed session that is paid, with what Stripe charged", () => {
@@ -187,5 +194,142 @@ describe("taking a refund or a dispute back (owner, 2026-10-01)", () => {
     expect(await applyWalletAction({ kind: "ignore", why: "payment_intent.succeeded" })).toBe("ignored");
     expect(err).toHaveBeenCalledTimes(1);
     err.mockRestore();
+  });
+});
+
+describe("a member pass bought through Stripe (owner, 2026-10-13)", () => {
+  const MEMBER = "00000000-0000-4000-8000-000000000003";
+  const passSession = (over: object = {}) => session({ client_reference_id: MEMBER, amount_total: 9900, metadata: { purpose: "member_pass", member_id: MEMBER }, ...over });
+
+  it("reads a paid pass session as a pass, with what Stripe charged", () => {
+    expect(actionFor(ev("checkout.session.completed", passSession({ payment_intent: "pi_p" }))))
+      .toEqual({ kind: "pass", sessionId: "cs_test_1", memberId: MEMBER, satang: 9900, paymentIntent: "pi_p" });
+    expect(actionFor(ev("checkout.session.async_payment_succeeded", passSession()))).toMatchObject({ kind: "pass", paymentIntent: null });
+  });
+
+  it("keeps a session without the pass purpose a top-up, however its metadata looks", () => {
+    expect(actionFor(ev("checkout.session.completed", session()))).toMatchObject({ kind: "credit" });
+    for (const metadata of [null, "member_pass", { purpose: "other" }, { agent_id: AGENT, amount_satang: "10000" }]) {
+      expect(actionFor(ev("checkout.session.completed", session({ metadata })))).toMatchObject({ kind: "credit" });
+    }
+  });
+
+  it("waits, quietly, on a pass not paid yet", () => {
+    const a = actionFor(ev("checkout.session.completed", passSession({ payment_status: "unpaid" })));
+    expect(a).toMatchObject({ kind: "ignore" });
+    expect(a).not.toHaveProperty("loud");
+  });
+
+  it("says aloud a paid pass it cannot credit", () => {
+    for (const over of [{ currency: "usd" }, { client_reference_id: null }, { client_reference_id: "x" }, { amount_total: 0 }, { mode: "subscription" }, { id: null }]) {
+      const a = actionFor(ev("checkout.session.completed", passSession(over)));
+      expect(a).toMatchObject({ kind: "ignore", loud: true });
+      expect((a as { why: string }).why).toContain("pass");
+    }
+  });
+
+  it("adds the pass once; Stripe sending it again is a repeat (Review Focus 2)", async () => {
+    pass.addPaidPass.mockResolvedValueOnce("added").mockResolvedValueOnce("duplicate");
+    const a = { kind: "pass" as const, sessionId: "cs_p", memberId: MEMBER, satang: 9900, paymentIntent: "pi_p" };
+    expect(await applyWalletAction(a)).toBe("added");
+    expect(await applyWalletAction(a)).toBe("duplicate");
+    expect(pass.addPaidPass).toHaveBeenCalledWith({ sessionId: "cs_p", memberId: MEMBER, satang: 9900, paymentIntent: "pi_p" });
+    expect(pass.addPaidPass).toHaveBeenCalledTimes(2);
+    expect(wallet.creditTopUp).not.toHaveBeenCalled();
+  });
+
+  it("says aloud a pass paid for a member who is not here", async () => {
+    pass.addPaidPass.mockResolvedValueOnce("unknown");
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await applyWalletAction({ kind: "pass", sessionId: "cs_p", memberId: MEMBER, satang: 9900, paymentIntent: null })).toBe("unknown");
+    expect(err).toHaveBeenCalledTimes(1);
+    expect(String(err.mock.calls[0][0])).toContain(MEMBER);
+    err.mockRestore();
+  });
+
+  it("throws when the database does, so Stripe sends the pass again", async () => {
+    pass.addPaidPass.mockRejectedValueOnce(new Error("db down"));
+    await expect(applyWalletAction({ kind: "pass", sessionId: "cs_p", memberId: MEMBER, satang: 9900, paymentIntent: null })).rejects.toThrow("db down");
+  });
+
+  const refund = { kind: "clawback" as const, reason: "refund" as const, paymentIntent: "pi_p", ref: "ch_p", satang: 9900, note: "คืนเงิน" };
+
+  it("takes a refunded pass back and leaves the wallets alone", async () => {
+    pass.revokePaidPass.mockResolvedValueOnce("revoked").mockResolvedValueOnce("duplicate");
+    expect(await applyWalletAction(refund)).toBe("pass-revoked");
+    expect(pass.revokePaidPass).toHaveBeenCalledWith({ paymentIntent: "pi_p", reason: "refund", ref: "ch_p" });
+    expect(await applyWalletAction(refund)).toBe("pass-duplicate");
+    expect(wallet.clawBack).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("takes a disputed pass back the same way", async () => {
+    pass.revokePaidPass.mockResolvedValueOnce("revoked");
+    expect(await applyWalletAction({ ...refund, reason: "dispute", ref: "dp_p" })).toBe("pass-revoked");
+    expect(pass.revokePaidPass).toHaveBeenCalledWith({ paymentIntent: "pi_p", reason: "dispute", ref: "dp_p" });
+    expect(wallet.clawBack).not.toHaveBeenCalled();
+  });
+
+  it("still claws a top-up's refund back when no pass has that payment (Review Focus 3)", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "clawed", agentId: AGENT, claimedSatang: 9900, debitedSatang: 9900, shortfallSatang: 0 });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await applyWalletAction(refund)).toBe("clawed");
+    warn.mockRestore();
+    expect(pass.revokePaidPass).toHaveBeenCalledTimes(1);
+    expect(wallet.clawBack).toHaveBeenCalledWith({ paymentIntent: "pi_p", kind: "refund", ref: "ch_p", satang: 9900, note: "คืนเงิน" });
+  });
+
+  it("throws a pass's refund that came before its pass, so Stripe sends it again (review, 2026-10-13)", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_pass", mode: "payment", metadata: { purpose: "member_pass", member_id: MEMBER } }] });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(applyWalletAction(refund)).rejects.toThrow(/before the pass of cs_pass/);
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+    expect(list).toHaveBeenCalledWith({ payment_intent: "pi_p", limit: 1 });
+    // it looked for a pass row missing its payment first, and found none (review, 2026-10-13)
+    expect(pass.linkPassPaymentIntent).toHaveBeenCalledWith("cs_pass", "pi_p");
+    expect(pass.revokePaidPass).toHaveBeenCalledTimes(1);
+    expect(wallet.linkPaymentIntent).not.toHaveBeenCalled();
+    expect(wallet.topUpStatus).not.toHaveBeenCalled();
+  });
+
+  it("links a pass kept without its PaymentIntent and takes it back (review, 2026-10-13)", async () => {
+    pass.revokePaidPass.mockResolvedValueOnce("unknown").mockResolvedValueOnce("revoked");
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_pass", mode: "payment", metadata: { purpose: "member_pass", member_id: MEMBER } }] });
+    pass.linkPassPaymentIntent.mockResolvedValueOnce(true);
+    expect(await applyWalletAction(refund)).toBe("pass-revoked");
+    expect(pass.linkPassPaymentIntent).toHaveBeenCalledWith("cs_pass", "pi_p");
+    expect(pass.revokePaidPass).toHaveBeenCalledTimes(2);
+    expect(pass.revokePaidPass).toHaveBeenLastCalledWith({ paymentIntent: "pi_p", reason: "refund", ref: "ch_p" });
+    expect(wallet.clawBack).toHaveBeenCalledTimes(1);
+    expect(wallet.linkPaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it("still holds a top-up's refund that came before its credit, through the open top-up", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_new", mode: "payment", metadata: { agent_id: AGENT, amount_satang: "9900" } }] });
+    wallet.linkPaymentIntent.mockResolvedValueOnce(false);
+    wallet.topUpStatus.mockResolvedValueOnce("open");
+    await expect(applyWalletAction(refund)).rejects.toThrow(/before the credit of cs_new/);
+    expect(wallet.linkPaymentIntent).toHaveBeenCalledWith("cs_new", "pi_p");
+  });
+
+  it("still links an old top-up's session that has no metadata, and claws it back", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" }).mockResolvedValueOnce({ result: "clawed", agentId: AGENT });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_old", mode: "payment" }] });
+    wallet.linkPaymentIntent.mockResolvedValueOnce(true);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await applyWalletAction(refund)).toBe("clawed");
+    warn.mockRestore();
+    expect(wallet.linkPaymentIntent).toHaveBeenCalledWith("cs_old", "pi_p");
+    expect(wallet.clawBack).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws when the pass lookup fails, touching no wallet, so Stripe sends the refund again", async () => {
+    pass.revokePaidPass.mockRejectedValueOnce(new Error("db down"));
+    await expect(applyWalletAction(refund)).rejects.toThrow("db down");
+    expect(wallet.clawBack).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,11 @@ import { actionFor, applyWalletAction } from "@/lib/wallet/events";
  * charge.refunded and charge.dispute.created must be ticked on the same endpoint in the Stripe
  * Dashboard too. A repeat of those is harmless as well — the clawback keys on the refunded total
  * and on the dispute's id (src/lib/wallet/events.ts).
+ *
+ * And the member pass (owner, 2026-10-13): a paid session with metadata purpose "member_pass"
+ * adds a 30-day pass instead of crediting a wallet, and a refund or dispute of its payment takes
+ * the pass back. The same events carry it — nothing more to tick in the Dashboard — and a repeat
+ * is harmless: the pass keys on the session, its revocation on the pass it undoes.
  */
 
 export const runtime = "nodejs";

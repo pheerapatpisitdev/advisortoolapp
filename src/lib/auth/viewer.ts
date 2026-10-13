@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { memberAccess, passOpen } from "@/lib/members/access";
+import { PASS_PAGE } from "@/lib/members/pass";
 import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { admit, admitMember, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type Viewer } from "./access";
@@ -90,9 +92,16 @@ export async function refuseUnless(perm?: Perm): Promise<Response | null> {
   return null;
 }
 
+/** the pages an outside member needs a live pass for: ถาม AI and Studio (owner, 2026-10-13) */
+const passPage = (next: string) => next === "/home" || next === "/studio" || next.startsWith("/studio/");
+
 /**
  * For pages. Somebody not signed in is sent to sign in and brought back; somebody signed in
  * without the permission goes to Studio, which every agent may use, rather than to an error.
+ *
+ * An outside member whose pass has run out is sent to renew it instead (owner, 2026-10-13).
+ * Only a member is ever asked about a pass. A pass that cannot be read throws to the error
+ * page: a redirect on it would loop or turn away a member who has paid.
  */
 export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   const viewer = await getViewer();
@@ -100,6 +109,9 @@ export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
     // the page actually asked for, when the middleware passed it on; the caller's guess otherwise
     const asked = safeNext((await headers()).get("x-pathname"), next);
     redirect(`/?next=${encodeURIComponent(asked)}`);
+  }
+  if (viewer.kind === "member" && passPage(next) && !passOpen(await memberAccess(viewer))) {
+    redirect(`${PASS_PAGE}?expired=1`);
   }
   if (perm && !can(viewer, perm)) redirect("/studio");
   return viewer;

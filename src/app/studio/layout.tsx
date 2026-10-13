@@ -1,7 +1,9 @@
 import "./theme.css";
 import { AppShell } from "@/components/shell/AppShell";
+import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
 import { can } from "@/lib/auth/access";
 import { gatePage, whoOf } from "@/lib/auth/viewer";
+import { memberAccess } from "@/lib/members/access";
 import { studioMenu } from "@/lib/shell/menu";
 import { walletPrices, walletSettings } from "@/lib/wallet/store";
 import { ThemeSwitch } from "./ThemeSwitch";
@@ -19,7 +21,8 @@ export default async function ContentLayout({ children }: { children: React.Reac
   // the wallet is in the menu only while the owner has it on, and never for the owner, who writes
   // without one (owner, 2026-09-30; assistants got theirs 2026-10-02); a settings read that fails
   // hides it rather than the page
-  const [settings, prices] = await Promise.all([walletSettings().catch(() => null), walletPrices()]);
+  // and a member's last three days, as a bar over every Studio page (owner, 2026-10-13)
+  const [settings, prices, reminder] = await Promise.all([walletSettings().catch(() => null), walletPrices(), reminderOf(viewer, memberAccess)]);
   const wallet = can(viewer, "owner") ? false : settings?.enabled === true;
   // the price list in the menu while the wallet is on, for the owner too, who sees what agents pay (owner, 2026-10-12)
   const who = { ...whoOf(viewer)!, wallet, prices: settings?.enabled === true };
@@ -27,7 +30,10 @@ export default async function ContentLayout({ children }: { children: React.Reac
     <div className="content-page">
       <AppShell menu={studioMenu(who)} brand={{ href: who?.admin || who?.publish ? "/studio" : "/studio/write", label: "Studio" }} footer={<ThemeSwitch />} who={who}>
         {/* pt-16 below lg: the phone's menu button is fixed at the top left */}
-        <div className="mx-auto max-w-[1400px] px-4 pb-10 pt-16 lg:pt-6"><PricesProvider prices={prices}>{children}</PricesProvider></div>
+        <div className="mx-auto max-w-[1400px] px-4 pb-10 pt-16 lg:pt-6">
+          {reminder && <div className="mb-4"><PassReminder {...reminder} /></div>}
+          <PricesProvider prices={prices}>{children}</PricesProvider>
+        </div>
       </AppShell>
     </div>
   );

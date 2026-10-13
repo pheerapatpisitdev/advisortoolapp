@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { saveMemberSettings, setStatus } from "@/lib/auth/member-store";
 import { audit, memberById, requireStaff } from "@/lib/auth/viewer";
+import { grantPass } from "@/lib/members/pass-store";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
 export type Result = { ok: true } | { ok: false; error: string };
@@ -37,6 +38,30 @@ export async function setMemberStatus(id: string, status: string): Promise<Resul
     return FAILED;
   }
   await audit(status === "suspended" ? "member-suspend" : "member-reinstate", id);
+  revalidatePath("/admin/members");
+  return { ok: true };
+}
+
+/**
+ * Days given by hand (owner, 2026-10-13): a member who paid some other way, or a goodwill
+ * extension. Always with a note, so the ledger says why. Stacks after whatever is live.
+ */
+export async function grantPassDays(id: string, days: string, note: string): Promise<Result> {
+  const viewer = await requireStaff("admin");
+  if (typeof id !== "string" || !UUID.test(id)) return NOT_FOUND;
+  const t = String(days ?? "").trim();
+  const n = Number(t);
+  if (!/^\d+$/.test(t) || n < 1 || n > 365) return { ok: false, error: "จำนวนวันต้องเป็นจำนวนเต็ม ตั้งแต่ 1 ถึง 365" };
+  const reason = String(note ?? "").trim().slice(0, 200);
+  if (!reason) return { ok: false, error: "ต้องใส่หมายเหตุทุกครั้ง" };
+  try {
+    if (!(await memberById(id))) return NOT_FOUND;
+    await grantPass(id, n, reason, viewer.agentId);
+  } catch (e) {
+    console.error("member pass days not granted:", e);
+    return FAILED;
+  }
+  await audit("member-pass-grant", id, { days: n, note: reason });
   revalidatePath("/admin/members");
   return { ok: true };
 }

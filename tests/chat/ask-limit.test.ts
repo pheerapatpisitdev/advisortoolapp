@@ -6,6 +6,11 @@ const who = vi.hoisted(() => ({ viewer: null as unknown, n: 0 }));
 vi.mock("@/lib/auth/viewer", () => ({ getViewer: async () => who.viewer }));
 const brain = vi.hoisted(() => ({ answer: vi.fn() }));
 vi.mock("@/lib/copilot/answer", () => ({ answerFromKnowledge: brain.answer }));
+// the pass is switched off here: these cases are about the chat, not the membership (owner, 2026-10-13)
+vi.mock("@/lib/members/access", async (orig) => ({
+  ...(await orig<typeof import("@/lib/members/access")>()),
+  memberAccess: async () => ({ gated: false }),
+}));
 
 const { askCopilot } = await import("@/app/actions");
 

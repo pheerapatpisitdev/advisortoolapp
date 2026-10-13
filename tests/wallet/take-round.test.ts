@@ -21,8 +21,16 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 const wallet = vi.hoisted(() => ({ walletSettings: vi.fn(), holdWallet: vi.fn(), walletFrozen: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
+// not gated unless a test says so: the cases below are about agents, whom no pass touches
+const access = vi.hoisted(() => ({ memberAccess: vi.fn() }));
+vi.mock("@/lib/members/access", async (orig) => ({
+  ...(await orig<typeof import("@/lib/members/access")>()),
+  memberAccess: access.memberAccess,
+}));
 
-const { takeRound } = await import("@/lib/auth/quota");
+const { takeRound, FREE_ROUNDS, FREE_ROUNDS_FROM } = await import("@/lib/auth/quota");
+const { PASS_EXPIRED, PASS_UNREADABLE } = await import("@/lib/members/access");
+const { DEFAULT_PASS_SETTINGS } = await import("@/lib/members/pass");
 const { holdSatang } = await import("@/lib/wallet/money");
 
 const agent: Viewer = {
@@ -41,6 +49,7 @@ beforeEach(() => {
   wallet.walletSettings.mockResolvedValue({ enabled: true, multiplier: 2, agentId: agent.agentId });
   wallet.holdWallet.mockResolvedValue("h1");
   wallet.walletFrozen.mockResolvedValue(false);
+  access.memberAccess.mockResolvedValue({ gated: false });
 });
 
 describe("takeRound", () => {
@@ -180,5 +189,63 @@ describe("takeRound", () => {
     const r = await takeRound(agent, "ai-write");
     err.mockRestore();
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("takeRound for an outside member (owner, 2026-10-13)", () => {
+  const member: Viewer = { ...agent, kind: "member", agentId: "00000000-0000-4000-8000-000000000009", tenantId: null };
+  const on = { ...DEFAULT_PASS_SETTINGS, enabled: true, rounds: 10 };
+  const start = new Date("2026-10-12T03:00:00Z");
+  const live = { status: "live", period: { rowId: 1, kind: "paid", start, end: new Date(start.getTime() + 30 * 86_400_000) }, end: new Date(start.getTime() + 30 * 86_400_000) };
+
+  it("refuses an expired member without counting a round", async () => {
+    access.memberAccess.mockResolvedValue({ gated: true, state: { status: "expired", end: start }, settings: on });
+    expect(await takeRound(member, "ai-write")).toEqual({ ok: false, refusal: PASS_EXPIRED });
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(wallet.holdWallet).not.toHaveBeenCalled();
+  });
+
+  it("refuses a member with no pass at all the same way", async () => {
+    access.memberAccess.mockResolvedValue({ gated: true, state: { status: "none" }, settings: on });
+    expect(await takeRound(member, "ai-write")).toEqual({ ok: false, refusal: PASS_EXPIRED });
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses when the pass cannot be read, rather than let the round through", async () => {
+    access.memberAccess.mockRejectedValue(new Error("down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await takeRound(member, "ai-write")).toEqual({ ok: false, refusal: PASS_UNREADABLE });
+    err.mockRestore();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("counts a live member's free rounds from the period's start, reading the pass once", async () => {
+    access.memberAccess.mockResolvedValue({ gated: true, state: live, settings: on });
+    expect(await takeRound(member, "ai-write")).toMatchObject({ ok: true, paidBy: "free" });
+    expect(db.rpc).toHaveBeenCalledWith("ins_take_free_round", expect.objectContaining({
+      p_agent: member.agentId, p_limit: 10, p_from: start.toISOString(),
+    }));
+    expect(access.memberAccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("says the period's own number when its rounds are used and the wallet is off", async () => {
+    access.memberAccess.mockResolvedValue({ gated: true, state: live, settings: { ...on, rounds: 25 } });
+    freeUsed();
+    wallet.walletSettings.mockResolvedValueOnce({ enabled: false, multiplier: 2, agentId: member.agentId });
+    const r = await takeRound(member, "ai-write");
+    expect(r.ok === false && r.refusal).toMatch(/รอบฟรีครบ 25 ครั้ง/);
+  });
+
+  it("keeps the one-time ten while the switch is off", async () => {
+    access.memberAccess.mockResolvedValue({ gated: false });
+    expect(await takeRound(member, "ai-write")).toMatchObject({ ok: true, paidBy: "free" });
+    expect(db.rpc).toHaveBeenCalledWith("ins_take_free_round", expect.objectContaining({
+      p_limit: FREE_ROUNDS, p_from: FREE_ROUNDS_FROM.toISOString(),
+    }));
+  });
+
+  it("never asks about a pass for the owner", async () => {
+    await takeRound({ ...agent, staff: { owner: true, publish: true, connect: true, admin: true } }, "ai-write");
+    expect(access.memberAccess).not.toHaveBeenCalled();
   });
 });
