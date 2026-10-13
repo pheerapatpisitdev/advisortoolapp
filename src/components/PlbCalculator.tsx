@@ -216,7 +216,7 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
         </div>
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
-          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel={{ full: "บันทึกตารางความคุ้มครอง", compact: "ตาราง" }} />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางความคุ้มครอง" />
         </div>
       </div>
 
@@ -301,7 +301,7 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
-          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel={{ full: "บันทึกตารางความคุ้มครอง", compact: "ตาราง" }} compact />
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางความคุ้มครอง" compact />
         </div>
       )}
     </div>

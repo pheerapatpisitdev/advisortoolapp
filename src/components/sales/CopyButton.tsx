@@ -23,19 +23,7 @@ export function CopyButton(
   }, [copied]);
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.setAttribute("readonly", "");
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
+    await copyText(text);
     setCopied(true);
   };
 
@@ -44,4 +32,21 @@ export function CopyButton(
       {copied ? words?.copied ?? "คัดลอกแล้ว ✓" : compact ? words?.compact ?? "คัดลอก" : words?.full ?? "คัดลอกข้อความ"}
     </button>
   );
+}
+
+/** The text on the clipboard, by the async API or, where that is refused, a hidden textarea. */
+export async function copyText(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
 }

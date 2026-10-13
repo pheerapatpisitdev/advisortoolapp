@@ -185,9 +185,18 @@ export interface ShareWords {
 
 /** The labels the shared sales buttons carry; each defaults to its Thai on every other page. */
 export interface ContactWords {
-  card: { full: string; compact: string; working: string; copied: string; failed: string };
-  send: { full: string; compact: string; copied: string; copiedCompact: string };
   copy: { full: string; compact: string; copied: string };
+  /** the one send button and the panel it opens (owner, 2026-10-14, option ก) */
+  kit: {
+    open: string; choose: string; card: string; table: string; diseases: string; text: string;
+    /** the panel's send button, by what is ticked */
+    send: (pictures: number, text: boolean) => string;
+    save: string; working: string; loading: string; nothing: string;
+    /** after a send on a phone: the text is on the clipboard too, for an app that drops it */
+    sent: string;
+    /** after a send on a computer: pictures downloaded, text copied */
+    saved: string;
+  };
 }
 
 // ---------- the rider engine's lines ----------
@@ -253,10 +262,14 @@ function riderReader(p: RiderPhrases): (thai: string) => string {
   return read;
 }
 
-const THAI_CONTACT: ContactWords = {
-  card: { full: "ส่งการ์ด", compact: "การ์ด", working: "กำลังสร้าง…", copied: "คัดลอกรูปแล้ว ✓", failed: "เปิดรูปในแท็บใหม่" },
-  send: { full: "ส่งให้ลูกค้า", compact: "ส่งต่อ", copied: "คัดลอกแล้ว เปิด Inbox ✓", copiedCompact: "คัดลอกแล้ว ✓" },
+export const THAI_CONTACT: ContactWords = {
   copy: { full: "คัดลอกข้อความ", compact: "คัดลอก", copied: "คัดลอกแล้ว ✓" },
+  kit: {
+    open: "ส่งให้ลูกค้า", choose: "เลือกสิ่งที่จะส่ง", card: "การ์ด", table: "ตาราง", diseases: "รายชื่อโรค", text: "ข้อความ",
+    send: (n, t) => (n && t ? `ส่ง ${n} รูป + ข้อความ` : n ? `ส่ง ${n} รูป` : "ส่งข้อความ"),
+    save: "บันทึกรูปลงเครื่อง", working: "กำลังเตรียม…", loading: "กำลังสร้าง…", nothing: "เลือกอย่างน้อย 1 อย่าง",
+    sent: "ส่งแล้ว ✓ ข้อความคัดลอกไว้ วางต่อได้", saved: "ดาวน์โหลดรูปแล้ว · คัดลอกข้อความแล้ว ✓",
+  },
 };
 
 const th: IHealthyWords = {
@@ -524,9 +537,13 @@ const en: IHealthyWords = {
   },
 
   contact: {
-    card: { full: "Send card", compact: "Card", working: "Creating…", copied: "Image copied ✓", failed: "Open image in a new tab" },
-    send: { full: "Send to customer", compact: "Share", copied: "Copied — opening Inbox ✓", copiedCompact: "Copied ✓" },
     copy: { full: "Copy text", compact: "Copy", copied: "Copied ✓" },
+    kit: {
+      open: "Send to customer", choose: "Choose what to send", card: "Card", table: "Table", diseases: "Illnesses", text: "Text",
+      send: (n, t) => (n && t ? `Send ${n} image${n > 1 ? "s" : ""} + text` : n ? `Send ${n} image${n > 1 ? "s" : ""}` : "Send text"),
+      save: "Save images", working: "Preparing…", loading: "Creating…", nothing: "Choose at least one",
+      sent: "Sent ✓ Text copied too, paste it if needed", saved: "Images downloaded · text copied ✓",
+    },
   },
 
   foldTitle: "Add other riders",
@@ -746,9 +763,13 @@ const zh: IHealthyWords = {
   },
 
   contact: {
-    card: { full: "发送卡片", compact: "卡片", working: "正在生成…", copied: "图片已复制 ✓", failed: "在新标签页打开图片" },
-    send: { full: "发送给客户", compact: "分享", copied: "已复制，正在打开收件箱 ✓", copiedCompact: "已复制 ✓" },
     copy: { full: "复制文字", compact: "复制", copied: "已复制 ✓" },
+    kit: {
+      open: "发送给客户", choose: "选择要发送的内容", card: "卡片", table: "表格", diseases: "疾病列表", text: "文字",
+      send: (n, t) => (n && t ? `发送 ${n} 张图片 + 文字` : n ? `发送 ${n} 张图片` : "发送文字"),
+      save: "保存图片", working: "正在准备…", loading: "正在生成…", nothing: "请至少选择一项",
+      sent: "已发送 ✓ 文字也已复制，可直接粘贴", saved: "图片已下载 · 文字已复制 ✓",
+    },
   },
 
   foldTitle: "添加其他附加合同",
@@ -960,10 +981,13 @@ const ru: IHealthyWords = {
   },
 
   contact: {
-    // the compact four share one row at the bottom of a phone, so each is a single short word
-    card: { full: "Отправить карточку", compact: "Фото", working: "Создаём…", copied: "Изображение скопировано ✓", failed: "Открыть изображение в новой вкладке" },
-    send: { full: "Отправить клиенту", compact: "Послать", copied: "Скопировано, открываем Inbox ✓", copiedCompact: "Скопировано ✓" },
     copy: { full: "Скопировать текст", compact: "Копия", copied: "Скопировано ✓" },
+    kit: {
+      open: "Отправить клиенту", choose: "Что отправить", card: "Карточка", table: "Таблица", diseases: "Болезни", text: "Текст",
+      send: (n, t) => (n && t ? `Отправить фото (${n}) + текст` : n ? `Отправить фото (${n})` : "Отправить текст"),
+      save: "Сохранить фото", working: "Готовим…", loading: "Создаём…", nothing: "Выберите хотя бы одно",
+      sent: "Отправлено ✓ Текст тоже скопирован", saved: "Фото скачаны · текст скопирован ✓",
+    },
   },
 
   foldTitle: "Добавить другие дополнительные договоры",
@@ -1175,10 +1199,13 @@ const my: IHealthyWords = {
   },
 
   contact: {
-    // the compact four share one row at the bottom of a phone, so each is one short word
-    card: { full: "ကတ် ပို့ရန်", compact: "ပုံ", working: "ပြုလုပ်နေသည်…", copied: "ပုံ ကူးယူပြီး ✓", failed: "ပုံကို တက်ဘ်အသစ်တွင် ဖွင့်ရန်" },
-    send: { full: "ဖောက်သည်ထံ ပို့ရန်", compact: "ပို့", copied: "ကူးယူပြီး Inbox ဖွင့်နေသည် ✓", copiedCompact: "ကူးပြီး ✓" },
     copy: { full: "စာသား ကူးယူရန်", compact: "ကူး", copied: "ကူးယူပြီး ✓" },
+    kit: {
+      open: "ဖောက်သည်ထံ ပို့ရန်", choose: "ပို့မည့်အရာ ရွေးပါ", card: "ကတ်", table: "ဇယား", diseases: "ရောဂါစာရင်း", text: "စာသား",
+      send: (n, t) => (n && t ? `ပုံ ${n} ပုံ + စာသား ပို့ရန်` : n ? `ပုံ ${n} ပုံ ပို့ရန်` : "စာသား ပို့ရန်"),
+      save: "ပုံများ သိမ်းရန်", working: "ပြင်ဆင်နေသည်…", loading: "ပြုလုပ်နေသည်…", nothing: "အနည်းဆုံး တစ်ခု ရွေးပါ",
+      sent: "ပို့ပြီး ✓ စာသားကိုလည်း ကူးထားသည်", saved: "ပုံများ ဒေါင်းလုဒ်ပြီး · စာသား ကူးပြီး ✓",
+    },
   },
 
   foldTitle: "အခြား ဖြည့်စွက်စာချုပ်များ ထည့်ရန်",
