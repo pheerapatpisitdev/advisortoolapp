@@ -742,3 +742,51 @@ body:has(.theme-legacy) {
   .shell-btn:hover .shell-chip,
   .shell-btn:active .shell-chip { transform: none; }
 }
+
+/* ── a plan calculator in two columns on a wide screen ───────────────────────
+   Owner chose option ก (2026-10-14) and asked for it on a tablet held sideways: the inputs,
+   with the buttons under them (owner, same day), sit on the left and stay put while the
+   result, the chart and the year-by-year table scroll on the right. iHealthy Ultra stays
+   one column at every width (owner, same day).
+
+   Decided by the room the page has, not the window: the value table is laid out in full on a
+   wide screen (no scroll box, so its header can stick to the page — see CashValueTable) and
+   needs about 31rem, which beside an 18rem left column means a page area of 53rem. That is a
+   landscape iPad with the menu open (1133px and up), or a 1024px screen with the menu
+   folded; narrower, the calculator is one column as before. The page is made a container only
+   from 1024px, where the phone's fixed bottom bar is hidden: a container is the containing
+   block for anything fixed inside it.
+
+   On one column `calc-side` is `display: contents`, so the inputs and the buttons are items of
+   the calculator's own flex column and the buttons' order-2 puts them after the result, where
+   they always were. No row gap in the grid: the left column spans many implicit rows, and a
+   gap between each empty row would add up; the right column is spaced by margins. */
+@media (min-width: 1024px) {
+  .calc-page { container-type: inline-size; }
+}
+@container (min-width: 53rem) {
+  .calc-split {
+    display: grid;
+    grid-template-columns: 18rem minmax(0, 1fr);
+    column-gap: 1.5rem;
+    row-gap: 0;
+    align-items: start;
+  }
+  .calc-split > * {
+    grid-column: 2;
+    margin-bottom: 1.5rem;
+  }
+  .calc-split > .calc-side {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    grid-column: 1;
+    grid-row: 1 / span 40;
+    position: sticky;
+    top: 1rem;
+    /* a long left column on a short screen scrolls inside itself rather than out of reach */
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    margin-bottom: 0;
+  }
+}

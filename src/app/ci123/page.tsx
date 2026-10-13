@@ -16,7 +16,7 @@ export const metadata = {
 export default async function Ci123Page() {
   const table = ci123Table();
   return (
-    <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
+    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="CI 123" kind="ประกันโรคร้ายแรง" facts={[`คุ้มครอง ${table.diseaseCount} โรค`, "จ่ายตามระยะของโรค", `รับแรกเกิด–${table.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
         <Ci123Calculator table={table} sticky />

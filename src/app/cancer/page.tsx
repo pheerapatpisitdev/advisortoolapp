@@ -16,7 +16,7 @@ export const metadata = {
 export default async function CancerPage() {
   const table = cancerTable();
   return (
-    <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
+    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Cancer" kind="ประกันมะเร็ง" facts={["จ่ายตามระยะของมะเร็ง", "ค่าชดเชยรายวันเมื่อนอนโรงพยาบาล", `รับแรกเกิด–${table.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
         <CancerCalculator table={table} sticky />

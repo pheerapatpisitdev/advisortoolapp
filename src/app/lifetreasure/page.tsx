@@ -18,7 +18,7 @@ export default async function LifeTreasurePage() {
   const table = lifeTreasureTable();
   const facts = lifeTreasureFacts();
   return (
-    <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
+    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Life Treasure" kind="ประกันชีวิตตลอดชีพเพื่อการส่งต่อ" facts={["จ่าย 6 12 หรือ 18 ปี", `คุ้มครองถึงอายุ ${facts.coverToAge}`, `รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`, `ทุนเริ่ม ${facts.saMinShort}`]} />
       <section id="calc" className="scroll-mt-4">
         <LifeTreasureCalculator table={table} sticky />

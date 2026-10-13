@@ -161,114 +161,124 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
   };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
-        <BudgetSwitch
-          byBudget={byBudget}
-          onChange={(on) => {
-            // leaving the budget keeps the sum it bought, so the sum field does not jump back
-            if (!on && fit) setSumIndex(ISHIELD_SUMS.indexOf(fit.sum));
-            setByBudget(on);
-          }}
-        />
-        {byBudget && (
-          <div>
-            <BudgetBox id="is-budget" budget={budget} onChange={setBudget} />
-            {inRange && (
-              <BudgetOutcome
-                budget={budget} fit={fit} minMonthly={table.minMonthly}
-                least={(() => {
-                  const floor = budgetSums[0];
-                  const m = floor === undefined ? undefined : iShieldModes(table, term, { sex, age: ageNum, sumAssured: floor })
-                    ?.find((x) => x.mode === (budget.per === "month" ? "monthly" : "annual"));
-                  return m ? { sum: floor, total: m.total } : undefined;
-                })()}
-              />
-            )}
-          </div>
-        )}
-        {!byBudget && (
-        <div>
-          <label htmlFor="is-sum" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
-          <div className="lg-figure mt-1.5 text-3xl tabular-nums">
-            <span className="lg-metal-text">{sumAssured.toLocaleString("en-US")}</span>{" "}
-            <span className="text-lg text-[var(--lg-mute)]">บาท</span>
-          </div>
-          <input
-            id="is-sum" type="range" min={0} max={ISHIELD_SUMS.length - 1} step={1} value={sumIndex}
-            onChange={(e) => setSumIndex(Number(e.target.value))}
-            className="mt-4 w-full accent-[var(--lg-gold)]"
+    <div className="calc-split flex flex-col gap-6">
+      {/* the left column on a wide screen (calc-side); on one column it dissolves (contents) */}
+      <div className="calc-side contents">
+        <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
+          <BudgetSwitch
+            byBudget={byBudget}
+            onChange={(on) => {
+              // leaving the budget keeps the sum it bought, so the sum field does not jump back
+              if (!on && fit) setSumIndex(ISHIELD_SUMS.indexOf(fit.sum));
+              setByBudget(on);
+            }}
           />
-          <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
-            <span>1 แสน</span>
-            <span>5 ล้าน</span>
-          </div>
-          {/* what a diagnosis pays sits under the sum being chosen, because it is the reason
-              to choose it — this plan is bought for the illness, not for the funeral */}
-          <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
-            ตรวจพบโรคร้ายแรงระยะรุนแรง รับ{" "}
-            <span className="lg-figure text-lg tabular-nums text-[var(--lg-gold)]">
-              {benefit.major.toLocaleString("en-US")}
-            </span>{" "}
-            บาท <span className="opacity-70">· ระยะเริ่มต้น {benefit.early.toLocaleString("en-US")} บาทต่อโรค</span>
-          </p>
-        </div>
-        )}
-
-        <div>
-          <span className="block text-sm text-[var(--lg-mute)]">ระยะเวลาชำระเบี้ย</span>
-          <div className="mt-1.5 grid grid-cols-4 gap-2">
-            {table.terms.map((t) => {
-              const takes = ageNum !== undefined && termTakes(table, t, ageNum);
-              const on = t.variant === term.variant && takes;
-              const price = takes ? buttonPrice(t.variant) : undefined;
-              return (
-                <button
-                  key={t.variant} type="button" disabled={!takes} aria-pressed={on}
-                  onClick={() => setWanted(t.variant)}
-                  className={`rounded-sm border px-1 py-2.5 text-center transition-colors ${
-                    on ? "lg-metal-face border-[var(--lg-gold)] font-medium"
-                      : takes ? "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                        : "border-[var(--lg-panel-line)] text-[var(--lg-mute)] opacity-35"
-                  }`}
-                >
-                  <span className="block text-sm">{t.short}</span>
-                  {price
-                    ? <span className="mt-0.5 block text-[11px] tabular-nums opacity-80">{price}</span>
-                    : !takes && <span className="mt-0.5 block text-[11px] opacity-80">ถึง {t.ageMax}</span>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+          {byBudget && (
+            <div>
+              <BudgetBox id="is-budget" budget={budget} onChange={setBudget} />
+              {inRange && (
+                <BudgetOutcome
+                  budget={budget} fit={fit} minMonthly={table.minMonthly}
+                  least={(() => {
+                    const floor = budgetSums[0];
+                    const m = floor === undefined ? undefined : iShieldModes(table, term, { sex, age: ageNum, sumAssured: floor })
+                      ?.find((x) => x.mode === (budget.per === "month" ? "monthly" : "annual"));
+                    return m ? { sum: floor, total: m.total } : undefined;
+                  })()}
+                />
+              )}
+            </div>
+          )}
+          {!byBudget && (
           <div>
-            <label htmlFor="is-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
-            <select
-              id="is-age" value={age}
-              onChange={(e) => setAge(e.target.value === "over" ? "over" : Number(e.target.value))}
-              className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
-            >
-              {AGES.map((a) => <option key={a} value={a}>{a === 0 ? "แรกเกิด" : `${a} ปี`}</option>)}
-              <option value="over">{table.ageMax + 1} ปีขึ้นไป</option>
-            </select>
+            <label htmlFor="is-sum" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
+            <div className="lg-figure mt-1.5 text-3xl tabular-nums">
+              <span className="lg-metal-text">{sumAssured.toLocaleString("en-US")}</span>{" "}
+              <span className="text-lg text-[var(--lg-mute)]">บาท</span>
+            </div>
+            <input
+              id="is-sum" type="range" min={0} max={ISHIELD_SUMS.length - 1} step={1} value={sumIndex}
+              onChange={(e) => setSumIndex(Number(e.target.value))}
+              className="mt-4 w-full accent-[var(--lg-gold)]"
+            />
+            <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
+              <span>1 แสน</span>
+              <span>5 ล้าน</span>
+            </div>
+            {/* what a diagnosis pays sits under the sum being chosen, because it is the reason
+                to choose it — this plan is bought for the illness, not for the funeral */}
+            <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
+              ตรวจพบโรคร้ายแรงระยะรุนแรง รับ{" "}
+              <span className="lg-figure text-lg tabular-nums text-[var(--lg-gold)]">
+                {benefit.major.toLocaleString("en-US")}
+              </span>{" "}
+              บาท <span className="opacity-70">· ระยะเริ่มต้น {benefit.early.toLocaleString("en-US")} บาทต่อโรค</span>
+            </p>
           </div>
+          )}
+  
           <div>
-            <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
-            <div className="mt-1.5 grid grid-cols-2 gap-2">
-              {(["M", "F"] as Sex[]).map((s) => (
-                <button
-                  key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
-                  className={`rounded-sm border py-2.5 text-sm transition-colors ${
-                    sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                  }`}
-                >
-                  {s === "M" ? "ชาย" : "หญิง"}
-                </button>
-              ))}
+            <span className="block text-sm text-[var(--lg-mute)]">ระยะเวลาชำระเบี้ย</span>
+            <div className="mt-1.5 grid grid-cols-4 gap-2">
+              {table.terms.map((t) => {
+                const takes = ageNum !== undefined && termTakes(table, t, ageNum);
+                const on = t.variant === term.variant && takes;
+                const price = takes ? buttonPrice(t.variant) : undefined;
+                return (
+                  <button
+                    key={t.variant} type="button" disabled={!takes} aria-pressed={on}
+                    onClick={() => setWanted(t.variant)}
+                    className={`rounded-sm border px-1 py-2.5 text-center transition-colors ${
+                      on ? "lg-metal-face border-[var(--lg-gold)] font-medium"
+                        : takes ? "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                          : "border-[var(--lg-panel-line)] text-[var(--lg-mute)] opacity-35"
+                    }`}
+                  >
+                    <span className="block text-sm">{t.short}</span>
+                    {price
+                      ? <span className="mt-0.5 block text-[11px] tabular-nums opacity-80">{price}</span>
+                      : !takes && <span className="mt-0.5 block text-[11px] opacity-80">ถึง {t.ageMax}</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
+  
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="is-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
+              <select
+                id="is-age" value={age}
+                onChange={(e) => setAge(e.target.value === "over" ? "over" : Number(e.target.value))}
+                className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
+              >
+                {AGES.map((a) => <option key={a} value={a}>{a === 0 ? "แรกเกิด" : `${a} ปี`}</option>)}
+                <option value="over">{table.ageMax + 1} ปีขึ้นไป</option>
+              </select>
+            </div>
+            <div>
+              <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                {(["M", "F"] as Sex[]).map((s) => (
+                  <button
+                    key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
+                    className={`rounded-sm border py-2.5 text-sm transition-colors ${
+                      sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                    }`}
+                  >
+                    {s === "M" ? "ชาย" : "หญิง"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
+        <div className="order-2">
+          <ContactButtons
+            copyText={quoteText} cardPath={card} tableCardPath={tableCard} diseaseCardPath={diseaseCardPath("ISHIELD")}
+            videoHref={who ? videoStartHref({ product: "ISHIELD", sex, age: who.age, sumAssured, variant: term.variant }) : undefined}
+          />
         </div>
       </div>
 
@@ -347,10 +357,6 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
 
       {/* the illness list goes out with or without a price: "โรคอะไรบ้าง" is asked before
           anyone has given an age. Not in the sticky bar — five buttons do not fit a phone */}
-      <ContactButtons
-        copyText={quoteText} cardPath={card} tableCardPath={tableCard} diseaseCardPath={diseaseCardPath("ISHIELD")}
-        videoHref={who ? videoStartHref({ product: "ISHIELD", sex, age: who.age, sumAssured, variant: term.variant }) : undefined}
-      />
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">

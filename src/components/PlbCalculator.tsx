@@ -132,84 +132,91 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
-        <div>
-          <label htmlFor="plb-sum" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
-          <div className="lg-figure mt-1.5 text-3xl tabular-nums">
-            <span className="lg-metal-text">{sumAssured.toLocaleString("en-US")}</span>{" "}
-            <span className="text-lg text-[var(--lg-mute)]">บาท</span>
-          </div>
-          <input
-            id="plb-sum" type="range" min={0} max={PLB_SUMS.length - 1} step={1} value={sumIndex}
-            onChange={(e) => setSumIndex(Number(e.target.value))}
-            className="mt-4 w-full accent-[var(--lg-gold)]"
-          />
-          <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
-            <span>3 แสน</span>
-            <span>5 ล้าน</span>
-          </div>
-          {/* what the family receives sits under the sum being chosen, because for this plan
-              the two are the same number — and saying so here is the whole contract */}
-          <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
-            เสียชีวิตระหว่างสัญญา ครอบครัวรับ{" "}
-            <span className="lg-figure text-lg tabular-nums text-[var(--lg-gold)]">
-              {sumAssured.toLocaleString("en-US")}
-            </span>{" "}
-            บาท <span className="opacity-70">· ทุกสาเหตุ ตามเงื่อนไขกรมธรรม์</span>
-          </p>
-        </div>
-
-        <div>
-          <span className="block text-sm text-[var(--lg-mute)]">คุ้มครองและชำระเบี้ยกี่ปี</span>
-          <div className="mt-1.5 grid grid-cols-4 gap-2">
-            {table.terms.map((t) => {
-              const on = t.variant === term.variant;
-              const price = buttonPrice(t.variant);
-              return (
-                <button
-                  key={t.variant} type="button" aria-pressed={on}
-                  onClick={() => setVariant(t.variant)}
-                  className={`rounded-sm border px-1 py-2.5 text-center transition-colors ${
-                    on ? "lg-metal-face border-[var(--lg-gold)] font-medium"
-                      : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                  }`}
-                >
-                  <span className="block text-sm">{t.short}</span>
-                  {price && <span className="mt-0.5 block text-[11px] tabular-nums opacity-80">{price}</span>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+    <div className="calc-split flex flex-col gap-6">
+      {/* the left column on a wide screen (calc-side); on one column it dissolves (contents) */}
+      <div className="calc-side contents">
+        <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
           <div>
-            <label htmlFor="plb-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
-            <select
-              id="plb-age" value={age}
-              onChange={(e) => setAge(e.target.value === "over" ? "over" : Number(e.target.value))}
-              className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
-            >
-              {AGES.map((a) => <option key={a} value={a}>{a} ปี</option>)}
-              <option value="over">{table.ageMax + 1} ปีขึ้นไป</option>
-            </select>
+            <label htmlFor="plb-sum" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
+            <div className="lg-figure mt-1.5 text-3xl tabular-nums">
+              <span className="lg-metal-text">{sumAssured.toLocaleString("en-US")}</span>{" "}
+              <span className="text-lg text-[var(--lg-mute)]">บาท</span>
+            </div>
+            <input
+              id="plb-sum" type="range" min={0} max={PLB_SUMS.length - 1} step={1} value={sumIndex}
+              onChange={(e) => setSumIndex(Number(e.target.value))}
+              className="mt-4 w-full accent-[var(--lg-gold)]"
+            />
+            <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
+              <span>3 แสน</span>
+              <span>5 ล้าน</span>
+            </div>
+            {/* what the family receives sits under the sum being chosen, because for this plan
+                the two are the same number — and saying so here is the whole contract */}
+            <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
+              เสียชีวิตระหว่างสัญญา ครอบครัวรับ{" "}
+              <span className="lg-figure text-lg tabular-nums text-[var(--lg-gold)]">
+                {sumAssured.toLocaleString("en-US")}
+              </span>{" "}
+              บาท <span className="opacity-70">· ทุกสาเหตุ ตามเงื่อนไขกรมธรรม์</span>
+            </p>
           </div>
+  
           <div>
-            <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
-            <div className="mt-1.5 grid grid-cols-2 gap-2">
-              {(["M", "F"] as Sex[]).map((s) => (
-                <button
-                  key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
-                  className={`rounded-sm border py-2.5 text-sm transition-colors ${
-                    sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                  }`}
-                >
-                  {s === "M" ? "ชาย" : "หญิง"}
-                </button>
-              ))}
+            <span className="block text-sm text-[var(--lg-mute)]">คุ้มครองและชำระเบี้ยกี่ปี</span>
+            <div className="mt-1.5 grid grid-cols-4 gap-2">
+              {table.terms.map((t) => {
+                const on = t.variant === term.variant;
+                const price = buttonPrice(t.variant);
+                return (
+                  <button
+                    key={t.variant} type="button" aria-pressed={on}
+                    onClick={() => setVariant(t.variant)}
+                    className={`rounded-sm border px-1 py-2.5 text-center transition-colors ${
+                      on ? "lg-metal-face border-[var(--lg-gold)] font-medium"
+                        : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                    }`}
+                  >
+                    <span className="block text-sm">{t.short}</span>
+                    {price && <span className="mt-0.5 block text-[11px] tabular-nums opacity-80">{price}</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
+  
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="plb-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
+              <select
+                id="plb-age" value={age}
+                onChange={(e) => setAge(e.target.value === "over" ? "over" : Number(e.target.value))}
+                className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
+              >
+                {AGES.map((a) => <option key={a} value={a}>{a} ปี</option>)}
+                <option value="over">{table.ageMax + 1} ปีขึ้นไป</option>
+              </select>
+            </div>
+            <div>
+              <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                {(["M", "F"] as Sex[]).map((s) => (
+                  <button
+                    key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
+                    className={`rounded-sm border py-2.5 text-sm transition-colors ${
+                      sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                    }`}
+                  >
+                    {s === "M" ? "ชาย" : "หญิง"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
+        <div className="order-2">
+          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel={{ full: "บันทึกตารางความคุ้มครอง", compact: "ตาราง" }} />
         </div>
       </div>
 
@@ -291,7 +298,6 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
         </div>
       )}
 
-      <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel={{ full: "บันทึกตารางความคุ้มครอง", compact: "ตาราง" }} />
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">

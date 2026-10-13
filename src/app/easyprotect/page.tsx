@@ -18,7 +18,7 @@ export default async function EasyProtectPage() {
   const table = easyProtectTable();
   const facts = easyProtectFacts();
   return (
-    <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
+    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Easy Protect 6" kind="ประกันชีวิตตลอดชีพ" facts={[`คุ้มครองถึงอายุ ${facts.coverToAge}`, `รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`, `ทุนเริ่ม ${facts.saMinShort}`]} />
       <section id="calc" className="scroll-mt-4">
         <EasyProtectCalculator table={table} sticky />

@@ -22,7 +22,7 @@ export default async function LifeProtectPage() {
   // desktop get a wider one, which the chart and the year-by-year table spend on themselves
   // without the prose lines growing too long to follow.
   return (
-    <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
+    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Life Protect x 2" kind="ประกันชีวิตตลอดชีพ" facts={[`คุ้มครองถึงอายุ ${facts.coverToAge}`, `รับแรกเกิด–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
         <LifeProtectCalculator table={table} sticky />

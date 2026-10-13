@@ -18,7 +18,7 @@ export default async function IShieldPage() {
   const table = iShieldTable();
   const facts = iShieldFacts();
   return (
-    <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
+    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="iShield" kind="ประกันชีวิตและโรคร้ายแรงตลอดชีพ" facts={["จ่าย 5 ถึง 20 ปี", `คุ้มครองถึงอายุ ${facts.maturityAge}`, `รับแรกเกิด–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
         <IShieldCalculator table={table} sticky />

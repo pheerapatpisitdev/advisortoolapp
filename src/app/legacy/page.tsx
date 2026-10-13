@@ -30,7 +30,7 @@ export default async function LegacyPage() {
   const table = legacyTable();
   const facts = legacyFacts();
   return (
-    <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
+    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="มรดกเพื่อครอบครัว" facts={[`รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
         <LegacyCalculator table={table} sticky />
