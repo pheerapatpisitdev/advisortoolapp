@@ -278,6 +278,15 @@ describe("Studio's own menu", () => {
     expect(studioMenu().flatMap((g) => g.links).map((l) => l.href)).not.toContain("/studio/wallet");
   });
 
+  it("lists ราคา only for whoever has no กระเป๋าเงิน: the wallet page holds the prices (owner, 2026-10-13)", () => {
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false, wallet: true, prices: true };
+    const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
+    expect(hrefs(who)).toContain("/studio/wallet");
+    expect(hrefs(who)).not.toContain("/studio/wallet#prices");
+    expect(hrefs({ ...who, owner: true, wallet: false })).toContain("/studio/wallet#prices");
+    expect(hrefs({ ...who, owner: true, wallet: false, prices: false })).not.toContain("/studio/wallet#prices");
+  });
+
   it("gives every agent their account page: a member's name, everyone's contact details (owner, 2026-10-01, 2026-10-11)", () => {
     const base = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false, wallet: true };
     const hrefs = (who: typeof base & { member?: boolean }) => studioMenu(who).flatMap((g) => g.links.map((l) => l.href));

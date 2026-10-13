@@ -81,7 +81,9 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
         <p className="text-sm text-[var(--ct-mute)]">ยอดในกระเป๋า</p>
         <p className="mt-1 text-3xl font-semibold tabular-nums">{formatBaht(balance)}</p>
         <p className="mt-2 text-sm text-[var(--ct-mute)]">
-          รอบ AI ฟรีเหลือ {freeLeft}/{rounds.limit}{videos ? ` · วิดีโอฟรีเหลือ ${videos.left}/${videos.of}` : ""} · หมดแล้วจึงตัดจากกระเป๋าตามราคาด้านล่าง
+          รอบ AI ฟรีเหลือ {freeLeft}/{rounds.limit}{videos ? ` · วิดีโอฟรีเหลือ ${videos.left}/${videos.of}` : ""} · หมดแล้วจึงตัดจากกระเป๋าตามราคา ·{" "}
+          {/* the way to the price list, now the menu has no ราคา of its own for agents (owner, 2026-10-13) */}
+          <a href="#prices" className="font-medium text-[var(--ct-ink)] underline underline-offset-2">ดูราคา</a>
         </p>
         {frozen && (
           <p className="mt-3 text-sm font-medium text-[var(--ct-warn-ink)]" role="status">

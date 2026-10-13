@@ -333,10 +333,13 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
   // agent's Studio starts at the workbench
   // the wallet is listed only while the owner has it on (who.wallet is worked out once in the
   // layout, false for the owner): an agent is not sent to a page that says it is switched off
+  const noWallet = who?.owner || who?.wallet !== true;
   const hidden = new Set([
     ...(who && !who.admin && !who.publish ? ["/studio"] : []),
-    ...(who?.owner || who?.wallet !== true ? ["/studio/wallet"] : []),
-    ...(who?.prices !== true ? ["/studio/wallet#prices"] : []),
+    ...(noWallet ? ["/studio/wallet"] : []),
+    // ราคา only for whoever has no กระเป๋าเงิน (the owner): the wallet page holds the prices,
+    // two items to one page read as a duplicate (owner, 2026-10-13)
+    ...(who?.prices !== true || !noWallet ? ["/studio/wallet#prices"] : []),
     // every agent's since 2026-10-11: the contact details a วิดีโอนำเสนอ closes on live there
     ...(who?.owner ? [] : ["/studio/ads", "/studio/thumbnail"]),
   ]);
