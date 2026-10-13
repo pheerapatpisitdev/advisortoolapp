@@ -36,7 +36,14 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "LIFEPROTECT", name: "Life Protect", page: "/lifeprotect" },
   { code: "ISHIELD", name: "iShield", page: "/ishield" },
   { code: "IHEALTHY", name: "iHealthy Ultra", page: "/ihealthy-ultra" },
+  { code: "PENSION", name: "บำนาญ 95", page: "/bumnan95" },
 ];
+/** the plans with a list of paying terms by variant */
+const termed = (p: Product): p is "LIFEPROTECT" | "ISHIELD" => p === "LIFEPROTECT" || p === "ISHIELD";
+type PensionPay = "6" | "untilAnnuity";
+const PENSION_STARTS = [55, 60, 65, 70];
+/** the monthly pension in a sum, as the engine and the page say it (calc/pension/engine.ts MONTHLY_FACTOR_FIRST) */
+const pensionMonthly = (sum: number) => Math.round(sum * 0.0127);
 const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number }[]> = {
   // จ่ายถึงอายุ 99 is Life Protect's third term (owner, 2026-10-11: it had gone missing)
   LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }, { variant: "WLF99H", years: 99 }],
@@ -99,7 +106,7 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices }: {
+export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
   /** the owner's price list (/admin/wallet), for the prices on the chips */
   prices: Prices;
@@ -109,6 +116,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   fhc: FhcChoice[];
   /** the ages each product sells at, for the age dropdown */
   ages: Record<Product, { min: number; max: number }>;
+  /** บำนาญ 95: the pension ages each age may choose, for each way of paying */
+  pensionAges: Record<PensionPay, Record<number, number[]>>;
   /** the Pages the owner may put a clip on; empty for everyone else, who see no button */
   pages: { id: string; name: string }[];
   /** the ElevenLabs voices this viewer may pick; empty hides the AI-voice switch */
@@ -134,8 +143,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     setSize(s);
     try { localStorage.setItem(SIZE_KEY, s); } catch { /* not remembered, still used */ }
   }
-  const startVariant = startProduct !== "IHEALTHY" && start?.variant && TERMS[startProduct].some((x) => x.variant === start.variant)
-    ? start.variant : startProduct === "IHEALTHY" ? DEFAULT_TERM.LIFEPROTECT : DEFAULT_TERM[startProduct];
+  const startVariant = termed(startProduct) && start?.variant && TERMS[startProduct].some((x) => x.variant === start.variant)
+    ? start.variant : termed(startProduct) ? DEFAULT_TERM[startProduct] : DEFAULT_TERM.LIFEPROTECT;
   const [product, setProduct] = useState<Product>(startProduct);
   const [narrator, setNarrator] = useState<"F" | "M">("F");
   // the voice picked last time, kept in this browser only (owner, 2026-10-11)
@@ -179,6 +188,19 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   const [sum, setSum] = useState((start?.sumAssured ?? 1_000_000).toLocaleString("en-US"));
   const [variant, setVariant] = useState(startVariant);
   const [customer, setCustomer] = useState("");
+  // บำนาญ 95 (owner, 2026-10-13): when the pension starts, how it is paid for, and how much a month
+  const [annuityAge, setAnnuityAge] = useState(start?.annuityAge ?? 60);
+  const [pay, setPay] = useState<PensionPay>(start?.pay ?? "untilAnnuity");
+  const startPension = startProduct === "PENSION" ? start?.sumAssured : undefined;
+  const [monthly, setMonthly] = useState((startPension ? pensionMonthly(startPension) : 10_000).toLocaleString("en-US"));
+  // the page's own sum, sent as it is until the monthly figure is typed over, so the clip prices as the page did
+  const [pensionSum, setPensionSum] = useState<number | undefined>(startPension);
+  const startsFor = (a: number, p: PensionPay) => pensionAges[p]?.[a] ?? [];
+  const pensionStart = (() => {
+    const ok = startsFor(Number(age), pay);
+    return ok.includes(annuityAge) ? annuityAge : ok[ok.length - 1] ?? annuityAge;
+  })();
+  const pensionYears = pay === "6" ? 6 : Math.max(0, pensionStart - Number(age));
   const [preview, setPreview] = useState<Preview | { error: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
@@ -243,15 +265,23 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
   const line = costLine(cost, kind === "fhc" ? "fhc" : style);
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
+  const look = { narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() };
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() }
-    : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() });
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...look }
+    : product === "PENSION"
+      ? {
+          product, sex, age: Number(age), annuityAge: pensionStart, pay, ...look,
+          // from the monthly pension typed, or the page's own sum; a budget works the sum out itself
+          sumAssured: pensionSum ?? 0,
+          ...(source === "sum" && pensionSum === undefined ? { monthly: Number(monthly.replace(/[^\d]/g, "")) } : {}),
+        }
+      : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() });
 
   function pickProduct(p: Product) {
     setProduct(p);
     // an age the new product does not sell at is pulled onto its range
     setAge((a) => String(Math.min(ages[p].max, Math.max(ages[p].min, Number(a) || 35))));
-    if (p !== "IHEALTHY") setVariant(DEFAULT_TERM[p]);
+    if (termed(p)) setVariant(DEFAULT_TERM[p]);
   }
   function toggleCompare(code: string) {
     if (code === plan) return;
@@ -268,7 +298,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum]);
 
   // a clip still being made is asked about every few seconds
   const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
@@ -320,11 +350,15 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
     if (!ok) return;
     if (ok.resolved.sum) setSum(ok.resolved.sum.toLocaleString("en-US"));
     if (ok.resolved.plan) setPlan(ok.resolved.plan);
+    if (ok.resolved.monthly) {
+      setMonthly(ok.resolved.monthly.toLocaleString("en-US"));
+      setPensionSum(ok.resolved.sum);
+    }
     setSource("sum");
   }
   // what each step holds, in a few words beside its heading (mockup https://claude.ai/artifact/3eguSuTE45fiV8WnHymyfC)
   const termWord = (v: string) => {
-    const x = product !== "IHEALTHY" ? TERMS[product].find((t) => t.variant === v) : undefined;
+    const x = termed(product) ? TERMS[product].find((t) => t.variant === v) : undefined;
     return x ? (x.years === 99 ? "ถึงอายุ 99" : `${x.years} ปี`) : "";
   };
   const sumWord = (n: number) => (n % 1_000_000 === 0 ? `${n / 1_000_000} ล้าน` : n.toLocaleString("en-US"));
@@ -340,6 +374,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
       : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length === "full" ? ` · คุณ${customer.trim()}` : ""}`,
     plan: product === "IHEALTHY"
       ? (source === "sum" ? ihuPlans.find((p) => p.code === plan)?.name ?? "" : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
+      : product === "PENSION"
+        ? `${source === "sum" ? `บำนาญเดือนละ ${monthly}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · รับ ${pensionStart} · ${pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" ? (length === "short" ? "สั้น" : "เต็ม") : "",
@@ -428,10 +464,33 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
             </Step>
 
             <Step n={3} title="แผน" summary={summary.plan}>
+              {product === "PENSION" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <span className={label}>เริ่มรับบำนาญอายุ</span>
+                    <div className="flex flex-wrap gap-2">
+                      {PENSION_STARTS.map((a) => (
+                        <button key={a} type="button" className={`${chip(pensionStart === a)} disabled:cursor-not-allowed disabled:opacity-40`} onClick={() => setAnnuityAge(a)}
+                          disabled={!startsFor(Number(age), pay).includes(a)}>{a}</button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--ct-mute)]">รับบำนาญถึงอายุ 95 · อายุที่เลือกไม่ได้จะกดไม่ได้</p>
+                  </div>
+                  <div>
+                    <span className={label}>ชำระเบี้ย</span>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className={chip(pay === "6")} onClick={() => setPay("6")}>6 ปี</button>
+                      <button type="button" className={chip(pay === "untilAnnuity")} onClick={() => setPay("untilAnnuity")}>
+                        {pay === "untilAnnuity" && pensionYears > 0 ? `จนถึงอายุรับบำนาญ (${pensionYears} ปี)` : "จนถึงอายุรับบำนาญ"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div>
                 <span className={label}>เริ่มจาก</span>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : "ทุนประกัน"}</button>
+                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : product === "PENSION" ? "บำนาญต่อเดือน" : "ทุนประกัน"}</button>
                   <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>งบต่อเดือน</button>
                   <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>งบต่อปี</button>
                 </div>
@@ -442,7 +501,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
                     <div>
                       <label htmlFor="qv-budget" className={label}>{source === "month" ? "งบที่ลูกค้าออมไหวต่อเดือน (บาท)" : "งบที่ลูกค้าออมไหวต่อปี (บาท)"}</label>
                       <input id="qv-budget" inputMode="numeric" className={field} value={budget} onChange={(e) => setBudget(money(e))} />
-                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : product === "PENSION" ? "ระบบคิดทุนจากงบนี้ ด้วยเครื่องคิดเดียวกับหน้า บำนาญ 95" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                    </div>
+                  ) : product === "PENSION" ? (
+                    <div>
+                      <label htmlFor="qv-monthly" className={label}>บำนาญที่อยากได้ต่อเดือน (บาท)</label>
+                      <input id="qv-monthly" inputMode="numeric" className={field} value={monthly} onChange={(e) => { setMonthly(money(e)); setPensionSum(undefined); }} />
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ทุนประกัน 75,000 – 20 ล้านบาท</p>
                     </div>
                   ) : (
                     <div>
@@ -451,7 +516,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, initial, cost: firstCost, star
                       <p className="mt-1 text-xs text-[var(--ct-mute)]">ทีละ 50,000</p>
                     </div>
                   )}
-                  {product !== "IHEALTHY" && (
+                  {termed(product) && (
                     <div>
                       <span className={label}>ชำระเบี้ย</span>
                       <div className="flex flex-wrap gap-2">

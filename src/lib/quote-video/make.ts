@@ -19,6 +19,7 @@ import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import { getContact, photoDataUri } from "./contact";
 import { CHART_W, sceneLayer, tableImage, type Contact } from "./draw";
 import { noteDrawing, tablePlan } from "./table-pen";
+import { pensionTableImage, pensionTablePlan } from "./pension-table";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
@@ -318,7 +319,10 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
   const motion = row.input.style === "motion";
   // the classic value scene: where the table stops and which pen note is written at each stop
   const valueAt = script.findIndex((s) => s.key === "value");
-  const pen = !motion && valueAt >= 0 ? tablePlan(facts, script[valueAt].voice, secs[valueAt]) : undefined;
+  // บำนาญ 95's table carries its notes in the picture, and only walks down (pension-table.tsx)
+  const pen = !motion && valueAt >= 0
+    ? (facts.pension ? pensionTablePlan : tablePlan)(facts, script[valueAt].voice, secs[valueAt])
+    : undefined;
   const plans = planScenes(script.map((s, i) => ({
     key: s.key, voice: s.voice, voiceSec: secs[i],
     ...(motion ? { windows: motionWindows(s.key, facts, secs[i], s.voice), fps: MOTION_FPS } : sceneMotion(facts, s.key)),
@@ -327,7 +331,7 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
   const layers = plans.map((p) => (motion ? undefined : p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
   const named = nameFiles(plans, layers, plans.map((_, i) => (pen && i === valueAt ? pen.notes.length : 0)));
   const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" ? valueTableChart(planInput(row.input), CHART_W) : undefined;
-  const table = tableImage(facts);
+  const table = facts.pension ? pensionTableImage(facts) : tableImage(facts);
   /** one scene's pictures: its base (classic), every overlay frame, and the value table */
   const sceneDraws = (s: number): { name: string; draw: () => Promise<Buffer> }[] => {
     const p = plans[s];
@@ -345,7 +349,7 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
     return [
       { name: sc.base, draw: () => renderPng(sceneLayer(p.key, ctx, "base"), { width: W, height: H }) },
       ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(sceneLayer(p.key, ctx, "over", fr.state), { width: W, height: H }, withPen) })),
-      ...(sc.layer?.kind === "table" ? [{ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }) }] : []),
+      ...(sc.layer?.kind === "table" ? [{ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }, { pen: Boolean(facts.pension) }) }] : []),
       ...(sc.layer?.pens ?? []).map((name, k) => ({
         name, draw: () => renderPng(noteDrawing(pen!.notes[k], table.height), { width: table.width, height: table.height }, withPen),
       })),

@@ -3,7 +3,8 @@ import { QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
 import type { QuoteVideoFacts, SceneKey } from "./script";
-import { countAt, H, W } from "./timeline";
+import { pensionBars } from "./pension";
+import { countAt, H, LEAD, W, wordTimes } from "./timeline";
 
 /**
  * The Motion Graphic style of วิดีโอนำเสนอ (owner, 2026-10-11: "แค่โมชันกราฟิกอธิบายแบบประกัน",
@@ -57,6 +58,18 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return s;
     }
     case "cover": {
+      if (f.coverStyle === "steps") {
+        // บำนาญ 95: each step grown as the voice reaches it, more or less
+        const s: Record<string, Anim> = { kicker: a(0.2, "up"), axis: a(0.3, "stroke", 1.0) };
+        const n = Math.max(1, f.cover.length);
+        f.cover.forEach((_, i) => {
+          const at = 0.6 + (i * Math.max(1, voiceSec * 0.75)) / n;
+          s[`bar${i}`] = a(at, "grow");
+          s[`lab${i}`] = a(at + 0.4, "fade");
+        });
+        s.pen = a(Math.min(voiceSec, 0.8 + voiceSec * 0.75), "fade");
+        return s;
+      }
       if (f.coverStyle === "bars") {
         return {
           kicker: a(0.2, "up"), axis: a(0.3, "stroke", 1.2), m0: a(0.5, "pop"), bar0: a(0.8, "grow"), l0: a(1.4, "fade"),
@@ -71,6 +84,7 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return s;
     }
     case "value": {
+      if (f.pension) return pensionValueSpec(voiceSec, voice);
       const late = Math.max(3.6, Math.min(8, voiceSec * 0.55));
       const s: Record<string, Anim> = {
         kicker: a(0.2, "up"), axes: a(0.2, "fade"), paid: a(0.4, "stroke", 1.6), cash: a(1.4, "stroke", 2.2),
@@ -96,6 +110,21 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
     case "contact":
       return { title: a(0.2, "up"), card: a(0.8, "up"), note: a(1.4, "fade") };
   }
+}
+
+/**
+ * บำนาญ 95's value scene: the years drawn out left to right, then the fifteen guaranteed pensions
+ * bracketed when the voice says "15", and the total pension counted up when it says "รวม".
+ */
+function pensionValueSpec(voiceSec: number, voice?: string): Record<string, Anim> {
+  const words = voice ? wordTimes(voice, voiceSec) : [];
+  const cue = (re: RegExp, share: number) => words.find((w) => re.test(w.word))?.from ?? LEAD + share * voiceSec;
+  const fifteen = Math.max(1.4, cue(/^15$|รับประกัน/, 0.1));
+  const total = Math.max(fifteen + 1.6, cue(/^รวม/, 0.7));
+  return {
+    kicker: a(0.2, "up"), axes: a(0.2, "fade"), ages: a(0.3, "fade"), bars: a(0.4, "stroke", 2.6), legend: a(1.0, "fade"),
+    brace: a(fifteen, "stroke", 1.0), guarantee: a(fifteen + 0.4, "fade"), card: a(total, "pop"), count: a(total, "count"),
+  };
 }
 
 /** the windows a scene moves in, for the frames timeline.ts draws */
@@ -228,9 +257,9 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
           <g opacity={look(s.coin3, t).opacity}><ellipse cx={35} cy={38} rx={26} ry={7} fill={C.coinTop} /></g>
         </svg>
         <div style={box({ flexDirection: "column", marginLeft: 40 })}>
-          <El an={s.small} t={t} style={{ fontSize: 42, color: WHITE }}>{daily ? "ตกวันละ" : "ปีแรก เดือนละ"}</El>
-          <El an={s.big} t={t} style={{ fontSize: 170, fontWeight: 700, color: GOLD, lineHeight: 1 }}>{daily ?? main?.amount ?? ""}</El>
-          <El an={s.unit} t={t} style={{ fontSize: 42, color: WHITE }}>{daily ? "บาทเท่านั้น" : "บาท"}</El>
+          <El an={s.small} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : "ปีแรก เดือนละ")}</El>
+          <El an={s.big} t={t} style={{ fontSize: 170, fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
+          <El an={s.unit} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : "บาท")}</El>
         </div>
       </div>
       <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 560, flexDirection: "column" })}>
@@ -245,7 +274,8 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
           </El>
         ))}
       </div>
-      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 1100, flexWrap: "wrap" })}>
+      {/* under the price cards: four of them (บำนาญ 95 lists every instalment) reach further down */}
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: Math.max(1100, 560 + f.prices.length * 150 + 10), flexWrap: "wrap" })}>
         {f.pills.map((pill, i) => (
           <El key={pill} an={s[`pill${i}`]} t={t} style={{ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 30px", fontSize: 38, fontWeight: 600, marginRight: 22, marginBottom: 16 }}>{`✓ ${pill}`}</El>
         ))}
@@ -301,6 +331,128 @@ function CoverBars({ c, t }: { c: MotionContext; t: number }) {
           <div style={abs({ left: x2 - 60, width: 120, justifyContent: "center", fontSize: 44, color: GOLD })}>{String(f.coverToAge)}</div>
         </El>
       </div>
+    </>
+  );
+}
+
+/** บำนาญ 95: the pension's four steps up, as bars that grow in turn (`w`×`h`: the drawing's room) */
+export function pensionSteps(f: QuoteVideoFacts, s: Record<string, Anim>, t: number, w: number, h: number, big = 1) {
+  const bands = f.pension?.bands ?? [];
+  const gap = Math.round(28 * big);
+  const barW = Math.floor((w - gap * Math.max(0, bands.length - 1)) / Math.max(1, bands.length));
+  const labels = Math.round(170 * big);
+  const base = h - labels;
+  const tall = base - Math.round(20 * big);
+  const most = Math.max(1, ...bands.map((b) => b.percent));
+  return (
+    <div style={box({ position: "relative", width: w, height: h })}>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        {bands.map((b, i) => {
+          const g = look(s[`bar${i}`], t);
+          const bh = Math.round((b.percent / most) * tall * g.p);
+          return g.opacity ? <rect key={b.from} x={i * (barW + gap)} y={base - bh} width={barW} height={bh} rx={Math.round(16 * big)} fill={i === bands.length - 1 ? GOLD : SKY} /> : null;
+        })}
+        {stroke({ d: `M0 ${base} L${w} ${base}`, len: w, p: look(s.axis, t).p, color: WHITE, width: Math.round(8 * big) })}
+      </svg>
+      {bands.map((b, i) => {
+        const bh = Math.round((b.percent / most) * tall);
+        const last = i === bands.length - 1;
+        return (
+          <El key={b.from} an={s[`lab${i}`]} t={t} style={{ position: "absolute", left: i * (barW + gap), top: 0, width: barW, height: h }}>
+            <div style={abs({ left: 0, width: barW, top: base - bh + Math.round(14 * big), justifyContent: "center", fontSize: Math.round(50 * big), fontWeight: 700, color: last ? NAVY : WHITE })}>{`${b.percent}%`}</div>
+            <div style={abs({ left: 0, width: barW, top: base + Math.round(16 * big), flexDirection: "column", alignItems: "center" })}>
+              <div style={box({ fontSize: Math.round(34 * big), color: WHITE, opacity: 0.85 })}>{`อายุ ${b.from}–${b.to}`}</div>
+              <div style={box({ fontSize: Math.round(40 * big), fontWeight: 700, color: last ? GOLD : WHITE })}>{b.annual}</div>
+              <div style={box({ fontSize: Math.round(28 * big), color: WHITE, opacity: 0.75 })}>บาท/ปี</div>
+            </div>
+          </El>
+        );
+      })}
+    </div>
+  );
+}
+
+function CoverSteps({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  return (
+    <>
+      <Header f={f} title={f.coverTitle} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 64, fontWeight: 700, color: WHITE }}>ยิ่งอายุมาก ยิ่งได้มากขึ้น</El>
+      {f.pension && <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 290, fontSize: 40, color: GOLD }}>{`เริ่มเดือนละ ${f.pension.monthly} บาท ตั้งแต่อายุ ${f.pension.start}`}</El>}
+      <div style={abs({ left: SIDE, top: 420, width: W - SIDE * 2, height: 760 })}>{pensionSteps(f, s, t, W - SIDE * 2, 760)}</div>
+      <El an={s.pen} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1230, justifyContent: "flex-end", fontSize: 40, color: WHITE, opacity: 0.85 }}>{f.coverPen ?? ""}</El>
+    </>
+  );
+}
+
+/**
+ * บำนาญ 95's years as bars (`w`×`h`): each premium while it is paid, then each pension, the
+ * fifteen guaranteed ones in sky blue and bracketed. Shared by the portrait and the wide clips.
+ */
+export function pensionTimeline(f: QuoteVideoFacts, s: Record<string, Anim>, t: number, w: number, h: number, big = 1) {
+  const p = f.pension;
+  if (!p) return null;
+  // the guarantee's words and bracket go above the tallest bar, clear of the later, larger pensions
+  const roomTop = Math.round(150 * big);
+  const roomBottom = Math.round(70 * big);
+  const chartH = h - roomTop - roomBottom;
+  const g = pensionBars(p, w, chartH);
+  const drawn = look(s.bars, t).p * g.bars.length;
+  const color = { premium: "rgba(255,255,255,0.55)", guaranteed: SKY, pension: GOLD } as const;
+  const br = look(s.brace, t);
+  const gBars = g.guarantee ? Math.min(...g.bars.filter((b) => b.kind === "guaranteed").map((b) => b.y)) + roomTop - Math.round(14 * big) : 0;
+  const gTop = Math.round(70 * big);
+  const age = (x: number, text: string, c: string) => (
+    <div key={text + x} style={abs({ left: x - Math.round(60 * big), width: Math.round(120 * big), top: roomTop + chartH + Math.round(12 * big), justifyContent: "center", fontSize: Math.round(36 * big), color: c })}>{text}</div>
+  );
+  return (
+    <div style={box({ position: "relative", width: w, height: h })}>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        <line x1={0} y1={roomTop + chartH} x2={w} y2={roomTop + chartH} stroke="rgba(255,255,255,0.4)" strokeWidth={4} opacity={look(s.axes, t).opacity} />
+        {g.bars.map((b, i) => {
+          const grown = Math.max(0, Math.min(1, drawn - i));
+          const bh = Math.round(b.h * grown);
+          return grown > 0 ? <rect key={b.age} x={b.x} y={roomTop + chartH - bh} width={b.w} height={bh} fill={color[b.kind]} /> : null;
+        })}
+        {g.guarantee && br.p > 0 && stroke({
+          d: `M${g.guarantee.x0} ${gBars} L${g.guarantee.x0} ${gTop} L${g.guarantee.x1} ${gTop} L${g.guarantee.x1} ${gBars}`,
+          len: g.guarantee.x1 - g.guarantee.x0 + 2 * (gBars - gTop) + 4, p: br.p, color: SKY, width: Math.round(5 * big),
+        })}
+      </svg>
+      {g.guarantee && (
+        <El an={s.guarantee} t={t} style={{ position: "absolute", left: Math.max(0, g.guarantee.x0 - Math.round(40 * big)), top: gTop - Math.round(62 * big), fontSize: Math.round(38 * big), fontWeight: 700, color: SKY, whiteSpace: "nowrap" }}>
+          {`รับประกันจ่าย 15 ปีแรก`}
+        </El>
+      )}
+      <El an={s.ages} t={t} style={{ position: "absolute", left: 0, top: 0, width: w, height: h }}>
+        {age(Math.round(g.xOf(f.age)), String(f.age), WHITE)}
+        {age(g.xOf(p.start), String(p.start), GOLD)}
+        {age(Math.min(w - Math.round(30 * big), g.xOf(95)), "95", GOLD)}
+      </El>
+    </div>
+  );
+}
+
+function PensionValue({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const p = f.pension;
+  const s = motionSpec("value", f, c.voiceSec, c.words.join(" "));
+  if (!p) return null;
+  return (
+    <>
+      <Header f={f} title="รับบำนาญทุกปี" />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 600, color: WHITE }}>{`เงินใช้ทุกปี ถึงอายุ 95`}</El>
+      <div style={abs({ left: SIDE, top: 330, width: W - SIDE * 2, height: 660 })}>{pensionTimeline(f, s, t, W - SIDE * 2, 660)}</div>
+      <El an={s.legend} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1010, justifyContent: "center", fontSize: 32, color: WHITE }}>
+        <div style={box({ marginRight: 36, color: "rgba(255,255,255,0.75)" })}>■ เบี้ยที่ออม</div>
+        <div style={box({ marginRight: 36, color: SKY })}>■ 15 ปีแรก</div>
+        <div style={box({ color: GOLD })}>■ บำนาญ</div>
+      </El>
+      <El an={s.card} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1110, flexDirection: "column", background: WHITE, color: NAVY, borderRadius: 36, padding: "26px 40px", borderLeft: `18px solid ${SKY}` }}>
+        <div style={box({ fontSize: 38, fontWeight: 700, color: NAVY })}>รวมรับบำนาญถึงอายุ 95 ประมาณ</div>
+        <div style={box({ fontSize: 76, fontWeight: 700 })}>{`${countAt(p.totalPension, look(s.count, t).p).toLocaleString("en-US")} บาท`}</div>
+      </El>
     </>
   );
 }
@@ -467,8 +619,8 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
   const body = {
     lead: <Lead c={c} t={t} />,
     price: <Price c={c} t={t} />,
-    cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : <CoverRows c={c} t={t} />,
-    value: <Value c={c} t={t} />,
+    cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} /> : <CoverRows c={c} t={t} />,
+    value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
     contact: <Contact c={c} t={t} />,
   }[key];

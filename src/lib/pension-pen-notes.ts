@@ -99,9 +99,8 @@ export function pensionRings(rows: PensionYear[]): { row: number; column: Pensio
   ];
 }
 
-/** the hand's size for every word, in picture units, and its line */
-const SIZE = 24;
-const LINE = SIZE * 1.5;
+/** the hand's size for every word, in picture units; its line is half as much again */
+const PEN_SIZE = 24;
 const BRACE_WORDS = ["เบี้ย", "คงที่"];
 const STOP_WORD = "หยุดส่งเบี้ย";
 const GUARANTEE_WORDS = (from: number, to: number) => [
@@ -127,8 +126,11 @@ export const pensionBraceRoom = (rows: PensionYear[]) => pensionMarks(rows).stea
  * page's Circled pads both sides and pushes the figure over; the picture's ring stands out
  * beside a figure that stays put, so it passes half its RING_PAD.
  */
-export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenGeometry, ring = RING_PX / PENSION_PEN_SCALE): PenNotes {
+export function pensionPenNotes(rows: PensionYear[], sumAssured: number, g: PenGeometry & { penSize?: number }, ring = RING_PX / PENSION_PEN_SCALE): PenNotes {
   const notes: PenNotes = { rings: [], strokes: [], blueStrokes: [], labels: [] };
+  // the hand's size: the page's and the chat picture's, or a larger one for a clip's bigger table
+  const SIZE = g.penSize ?? PEN_SIZE;
+  const LINE = SIZE * 1.5;
   if (!rows.length) return notes;
   const m = pensionMarks(rows);
   const col = (c: PensionColumn) => PENSION_COLUMNS.indexOf(c);

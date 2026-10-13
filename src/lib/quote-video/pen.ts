@@ -1,4 +1,6 @@
 import { paidConstantly } from "@/app/api/card/table/pen-notes";
+// บำนาญ 95's table notes are written in the same face (pension-table.tsx)
+import { PENSION_PEN_TEXT } from "@/lib/pension-pen-notes";
 import type { QuoteVideoFacts } from "./script";
 import { LEAD, wordTimes } from "./timeline";
 
@@ -21,7 +23,7 @@ export const GROWTH_WORDS = ["เงินโตทุกปี", "เวนค�
 export const GAIN_WORDS = ["เบี้ยไม่ทิ้งเปล่า", "สามารถเก็บเป็นเงินสด", "หลังเกษียณได้"];
 export const BREAK_EVEN_WORD = "จุดคุ้มทุน";
 /** every letter the pen face writes, for cutting the font down to them */
-export const PEN_TEXT = [STEADY_WORD, STOP_WORD, ...GROWTH_WORDS, ...GAIN_WORDS, BREAK_EVEN_WORD, "อายุ 0123456789"].join("");
+export const PEN_TEXT = [STEADY_WORD, STOP_WORD, ...GROWTH_WORDS, ...GAIN_WORDS, BREAK_EVEN_WORD, "อายุ 0123456789", PENSION_PEN_TEXT, "% ของทุนประกัน"].join("");
 
 /** a year anything is paid in: the premium, or the riders on a table quoted with them */
 const pays = (r: NonNullable<QuoteVideoFacts["rows"]>[number]) => r.due !== "—" || (r.rider !== undefined && r.rider !== "—");

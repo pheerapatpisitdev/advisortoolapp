@@ -1,12 +1,13 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Chart, chartBlockHeight } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
-import { CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
+import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { COLS, ROW_H, TABLE } from "./table-geo";
 import { noteInWindow, type TableNote } from "./table-pen";
+import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { countAt, H, W, type OverlayState } from "./timeline";
 
 /**
@@ -126,7 +127,7 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
     <>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.priceTitle}</On>
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 340 }}>
-        <Swept p={s.sweep[0] ?? 1} size={f.leadMark.length > 18 ? 62 : 78}>{f.leadMark}</Swept>
+        <Swept p={s.sweep[0] ?? 1} size={(f.priceMark ?? f.leadMark).length > 18 ? 62 : 78}>{f.priceMark ?? f.leadMark}</Swept>
       </On>
       <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 520, flexDirection: "column", background: layer === "base" ? P.box : "transparent", borderRadius: 36, padding: "40px 50px" })}>
         {f.prices.map((r) => (
@@ -186,8 +187,53 @@ function RowsCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlaySt
   );
 }
 
+/**
+ * บำนาญ 95: the pension's steps up as bars — 15%, 20%, 25%, 30% of the sum — each grown as the
+ * voice reaches it, its ages and yearly pension under it.
+ */
+function StepsCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const f = c.facts;
+  const bands = f.pension?.bands ?? [];
+  const chartW = W - SIDE * 2;
+  const gap = 28;
+  const barW = Math.floor((chartW - gap * Math.max(0, bands.length - 1)) / Math.max(1, bands.length));
+  const top = 520;
+  const tall = 520;
+  const most = Math.max(1, ...bands.map((b) => b.percent));
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.coverTitle}</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 330, fontSize: 70, fontWeight: 600, color: P.figure }}>ยิ่งอายุมาก ยิ่งได้มากขึ้น</On>
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 0, width: chartW, height: H }}>
+        {bands.map((b, i) => {
+          const p = s.sweep[i] ?? 1;
+          const h = Math.round((b.percent / most) * tall * p);
+          const x = i * (barW + gap);
+          return p > 0 ? (
+            <div key={b.from} style={abs({ left: x, top: 0, width: barW, height: H })}>
+              <div style={abs({ left: 0, top: top + tall - h, width: barW, height: Math.max(4, h), background: i === bands.length - 1 ? P.highlighter : P.figure, borderRadius: "14px 14px 0 0", justifyContent: "center", paddingTop: 16, fontSize: 48, fontWeight: 600, color: i === bands.length - 1 ? P.ink : C.paper })}>
+                {p >= 1 ? `${b.percent}%` : ""}
+              </div>
+              <div style={abs({ left: 0, top: top + tall + 22, width: barW, flexDirection: "column", alignItems: "center" })}>
+                <div style={box({ fontSize: 34, color: P.mute })}>{`อายุ ${b.from}–${b.to}`}</div>
+                <div style={box({ fontSize: 42, fontWeight: 600, color: P.ink })}>{b.annual}</div>
+                <div style={box({ fontSize: 30, color: P.mute })}>บาท/ปี</div>
+              </div>
+            </div>
+          ) : null;
+        })}
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: top + tall, width: chartW, height: 4, background: P.rule }} />
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, justifyContent: "flex-end", top: top + tall + 210, fontSize: 52, color: P.pen, transform: "rotate(-2deg)" }}>
+        {f.coverPen}
+      </On>
+    </>
+  );
+}
+
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
+  if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
   const f = c.facts;
   const [first, second] = f.cover;
   const beforeAge = Number(first.label.match(/(\d+)/)?.[1] ?? f.coverToAge);
@@ -248,18 +294,39 @@ function Ring({ p, x, y, rx = 130, ry = 44 }: { p: number; x: number; y: number;
   );
 }
 
+/** บำนาญ 95: what the table is about, above it — the guarantee, and the pension it pays in all (no premiums beside it: owner, 2026-10-13) */
+function PensionValueTop({ c, layer }: { c: DrawContext; layer: Layer }) {
+  const p = c.facts.pension;
+  if (!p) return null;
+  return (
+    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 250, flexDirection: "column" }}>
+      <div style={box({ fontSize: 46, fontWeight: 600, color: BLUE_PEN })}>{`รับประกันจ่าย 15 ปีแรก (อายุ ${p.start}–${p.guaranteeTo})`}</div>
+      <div style={box({ fontSize: 40, color: P.mute, marginTop: 36 })}>รวมรับบำนาญถึงอายุ 95 ประมาณ</div>
+      <div style={box({ alignItems: "flex-end" })}>
+        <div style={box({ fontSize: 112, fontWeight: 600, color: P.figure, lineHeight: 1.15 })}>{money(p.totalPension)}</div>
+        <div style={box({ fontSize: 48, color: P.mute, marginLeft: 20, marginBottom: 16 })}>บาท</div>
+      </div>
+    </On>
+  );
+}
+
 function Value({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const chart = c.chart;
+  // บำนาญ 95's own columns (pension-table.tsx); the other plans' value table otherwise
+  const heads = c.facts.pension
+    ? PENSION_VIDEO_COLUMNS.map((x, i) => ({ h: x.head, w: x.width, left: i === 0 }))
+    : ["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"].map((h, i) => ({ h, w: COLS[i], left: i < 2 }));
   return (
     <>
+      <PensionValueTop c={c} layer={layer} />
       {chart && (
         <On layer={layer} own="base" style={{ position: "absolute", left: SIDE - 10, top: 190 }}>
           <Chart chart={chart} p={P} />
         </On>
       )}
       <On layer={layer} own="base" style={{ position: "absolute", left: TABLE.x, top: TABLE.y - 60, width: TABLE.w, height: 60, background: P.figure, color: C.paper, fontSize: 28, alignItems: "center" }}>
-        {["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"].map((h, i) => (
-          <div key={h} style={box({ width: COLS[i], justifyContent: i < 2 ? "flex-start" : "flex-end", paddingLeft: i < 2 ? 14 : 0, paddingRight: i < 2 ? 0 : 14 })}>{h}</div>
+        {heads.map(({ h, w, left }) => (
+          <div key={h} style={box({ width: w, justifyContent: left ? "flex-start" : "flex-end", paddingLeft: left ? 14 : 0, paddingRight: left ? 0 : 14 })}>{h}</div>
         ))}
       </On>
       {/* the window's frame, under the subtitle */}

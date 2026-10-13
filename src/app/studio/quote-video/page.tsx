@@ -6,6 +6,7 @@ import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { planLabel } from "@/lib/ihealthy-facts";
+import { availablePensionAges, PENSION_LIMITS } from "@/calc/pension/engine";
 import { videoStartFrom } from "@/lib/quote-video/link";
 import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
@@ -36,7 +37,13 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     LIFEPROTECT: { min: lp.ageMin, max: lp.ageMax },
     ISHIELD: { min: is.ageMin, max: is.ageMax },
     IHEALTHY: { min: ihu.ageMin, max: ihu.ageMax },
+    PENSION: { min: PENSION_LIMITS.ageMin, max: PENSION_LIMITS.ageMax },
   };
+  // บำนาญ 95: the pension ages each age may choose, for each way of paying (the engine's own plans)
+  const pensionAges = Object.fromEntries((["6", "untilAnnuity"] as const).map((pay) => [pay, Object.fromEntries(
+    Array.from({ length: PENSION_LIMITS.ageMax - PENSION_LIMITS.ageMin + 1 }, (_, i) => PENSION_LIMITS.ageMin + i)
+      .map((a) => [a, availablePensionAges(a, pay)]),
+  )])) as Record<"6" | "untilAnnuity", Record<number, number[]>>;
   // the ElevenLabs voices: the owner's alone for now, and only while a key is saved (owner, 2026-10-11)
   const eleven = can(viewer, "owner") && (await providerKey(ELEVENLABS).catch(() => null)) ? ELEVEN_VOICES : [];
   const [cost, prices] = await Promise.all([myCost(), walletPrices()]);
@@ -57,7 +64,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} />
     </div>
   );
 }

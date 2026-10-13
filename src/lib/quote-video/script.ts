@@ -4,6 +4,8 @@ import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
 import { iShieldTable } from "@/lib/ishield-table";
 import { LIFEPROTECT_PLAN } from "@/lib/lifeprotect-card";
 import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card";
+import type { PensionPay } from "@/calc/pension/engine";
+import { pensionVideoFacts, roughBaht, type PensionVideoFacts } from "./pension";
 import type { SceneMotion, VideoSize } from "./timeline";
 
 /**
@@ -15,18 +17,21 @@ import type { SceneMotion, VideoSize } from "./timeline";
  * owner's casual wording, approved in the mockups the same day: no "เบี้ย", "เสียชีวิต" or
  * "เวนคืน" in the voice — "ถ้าเป็นอะไรไป", "ขอเงินก้อนคืน" — and for the plans that build a
  * cash value, "ออม" where it said "จ่าย" (owner, 2026-10-11: ออมต่อปี, ออมเพียง 19 ปี).
+ * บำนาญ สมาร์ท 95 is the fourth (owner, 2026-10-13; pension.ts): a monthly pension from an age.
  * iHealthy Ultra keeps "ค่าใช้จ่าย": a health plan builds nothing to save. The screen keeps the
  * cards' own words. Words in a line are separated by single spaces: the subtitles light up one
  * of those pieces at a time.
  */
 
-export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY";
+export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION";
 export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact";
 
 /** What the agent asked for. A row written before products existed has no `product`: Life Protect. */
 export type VideoInput = (
   | { product?: "LIFEPROTECT" | "ISHIELD"; variant: string; age: number; sex: "M" | "F"; sumAssured: number }
   | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[] }
+  /** the sum the pension is paid from; the form may send the monthly pension instead (pension.ts checkedPension) */
+  | { product: "PENSION"; age: number; sex: "M" | "F"; annuityAge: number; pay: PensionPay; sumAssured: number; monthly?: number }
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
@@ -69,6 +74,10 @@ export interface QuoteVideoFacts {
   lead: { label: string; amount: string; baht: number; note?: string };
   /** the highlighted line under it: "ตกวันละ 79 บาท"; iHealthy's first-year monthly price */
   leadMark: string;
+  /** the price scene's highlighted line where it is not the lead's (บำนาญ 95: the monthly instalment) */
+  priceMark?: string;
+  /** the Motion price scene's big figure where it is not the daily or first-year monthly price (บำนาญ 95: ออมปีละ) */
+  priceBig?: { label: string; amount: string; unit: string };
   /** "79"; none for iHealthy, whose price is a first year's and not a standing daily one */
   perDayAmount?: string;
   priceTitle: string;
@@ -82,8 +91,8 @@ export interface QuoteVideoFacts {
   priceNotes: string[];
   coverTitle: string;
   cover: CoverRow[];
-  /** Life Protect draws its two death benefits as bars; the others list their rows */
-  coverStyle: "bars" | "rows";
+  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; the others list their rows */
+  coverStyle: "bars" | "rows" | "steps";
   coverPen?: string;
   coverNote?: string;
   coverToAge: number;
@@ -104,6 +113,8 @@ export interface QuoteVideoFacts {
   /** iHealthy: what each kind of cover pays, for the voice */
   benefits?: { label: string; amount: string }[];
   footNote?: string;
+  /** บำนาญ 95: the pension's schedule (pension.ts) */
+  pension?: PensionVideoFacts;
 }
 
 const digits = (s: string) => Number(s.replace(/[^\d]/g, ""));
@@ -115,7 +126,7 @@ export const planInput = (v: Extract<VideoInput, { variant: string }>): PlanCard
 
 /** The facts for an arrangement; undefined for anything the clip cannot state (no price, not sold). */
 export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteVideoFacts | undefined {
-  const f = v.product === "IHEALTHY" ? iHealthyFacts(v, today) : planFacts(v, today);
+  const f = v.product === "IHEALTHY" ? iHealthyFacts(v, today) : v.product === "PENSION" ? pensionVideoFacts(v) : planFacts(v, today);
   if (!f || !v.budget) return f;
   // a clip begun from a budget says what the customer saves, in the instalment they named
   const row = f.prices.find((p) => p.label === (v.budget!.per === "month" ? "รายเดือน" : "รายปี"));
@@ -342,6 +353,14 @@ export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator
  */
 function shortScript(f: QuoteVideoFacts): SceneScript[] {
   const ask = "ทักมาขอใบเสนอได้เลยนะคะ";
+  if (f.product === "PENSION" && f.pension) {
+    const p = f.pension;
+    return [
+      { key: "lead", voice: `${f.budget ? budgetLead(f, "ถ้าออม") : "ออมวันนี้ "}ตั้งแต่อายุ ${p.start} รับบำนาญเดือนละ ${p.monthly} บาท ไปจนถึงอายุ 95 ค่ะ` },
+      { key: "price", voice: `ออมเดือนละ ${f.spokenPrice.amount} บาท เพียง ${f.payYears} ปี แถมลดหย่อนภาษีได้ค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
   if (f.product === "IHEALTHY") {
     return [
       { key: "lead", voice: `${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ` },
@@ -372,6 +391,8 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   const closing = name
     ? `คุณ${name}สนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ`
     : "สนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ";
+
+  if (f.product === "PENSION" && f.pension) return pensionScript(f, f.pension, hello, who, closing, Boolean(name));
 
   if (f.product === "IHEALTHY") {
     const others = (f.compare ?? []).filter((p) => !p.main);
@@ -433,6 +454,29 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   ];
 }
 
+/**
+ * บำนาญ 95's five lines (owner, 2026-10-13, mockup https://claude.ai/artifact/MYHhrcJkg8h58gk2DZ8ij2):
+ * the monthly pension and when it runs, the instalments and the tax, the steps up, the fifteen
+ * guaranteed years and the total pension — said roughly, never against the premiums (choice 1ก).
+ */
+function pensionScript(f: QuoteVideoFacts, p: PensionVideoFacts, hello: string, who: string, closing: string, named: boolean): SceneScript[] {
+  const annual = f.prices.find((r) => r.main)?.amount ?? "";
+  const later = p.bands.slice(1);
+  // "6 ล้านบาท" runs together as it is said; a figure in digits keeps its space
+  const rough = roughBaht(p.totalPension);
+  const total = rough.endsWith("ล้าน") ? `${rough}บาท` : `${rough} บาท`;
+  const steps = later.map((b, i) => (i === 0
+    ? `อายุ ${b.from} เพิ่มเป็นปีละ ${b.annual} บาท`
+    : i === later.length - 1 ? `และตั้งแต่ ${b.from} ได้ปีละ ${b.annual} บาท` : `อายุ ${b.from} ปีละ ${b.annual} บาท`));
+  return [
+    { key: "lead", voice: `${hello} ขอเล่าแผนบำนาญนี้ให้ฟังสั้นๆ นะคะ ${named ? "" : `${who} `}อยากมีเงินใช้ทุกเดือนหลังเกษียณ ${budgetLead(f, "ถ้าออม")}ตั้งแต่อายุ ${p.start} รับบำนาญเดือนละ ${p.monthly} บาท ไปจนถึงอายุ 95 เลยค่ะ`.replace(/\s+/g, " ") },
+    { key: "price", voice: `ออมปีละ ${annual} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ออมเพียง ${f.payYears} ปีก็ครบ ยอดออมเท่าเดิมตลอด แล้วยังนำไปลดหย่อนภาษีได้ด้วยค่ะ` },
+    { key: "cover", voice: `ยิ่งอายุมาก ยิ่งได้มากขึ้นค่ะ ${steps.join(" ")}ค่ะ` },
+    { key: "value", voice: `ที่ชอบที่สุดคือ บำนาญ 15 ปีแรกรับประกันจ่าย ถ้าเป็นอะไรไปก่อน ครอบครัวยังได้ส่วนที่เหลือ รวมรับบำนาญถึงอายุ 95 ประมาณ ${total}ค่ะ` },
+    { key: "contact", voice: closing },
+  ];
+}
+
 /** How each scene of this clip moves (timeline.ts draws the frames from it). */
 export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
   switch (key) {
@@ -453,6 +497,16 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
 export function pageCaption(f: QuoteVideoFacts): string {
   const who = `${SEX_WHO[f.sex]}อายุ ${f.age}`;
   const ask = "ทักแชทขอใบเสนอของคุณได้เลย";
+  if (f.product === "PENSION" && f.pension) {
+    const p = f.pension;
+    return [
+      `บำนาญเดือนละ ${p.monthly} บาท ตั้งแต่อายุ ${p.start} ถึง 95`,
+      `${who} ออมเดือนละ ${f.spokenPrice.amount} บาท จ่ายแค่ ${f.payYears} ปี เบี้ยลดหย่อนภาษีได้`,
+      `บำนาญเพิ่มตามอายุ · รับประกันจ่าย 15 ปีแรก`,
+      "",
+      ask,
+    ].join("\n");
+  }
   if (f.product === "IHEALTHY") {
     return [
       `ประกันสุขภาพเหมาจ่าย แผน ${f.planName} วงเงิน ${spokenBaht(f.lead.baht)}บาทต่อปี`,
