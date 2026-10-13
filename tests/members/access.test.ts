@@ -43,10 +43,11 @@ describe("memberAccess", () => {
     expect(passOpen(a)).toBe(false);
   });
   it("does not write a trial when rows exist (even all revoked)", async () => {
-    store.passRows.mockResolvedValue([row("2026-09-01T00:00:00Z")]);
+    const revoked: PassRow = { id: 2, kind: "revoked", days: 0, revokes: 1, createdAt: "2026-09-02T00:00:00Z", amountSatang: null, note: null };
+    store.passRows.mockResolvedValue([row("2026-09-01T00:00:00Z"), revoked]);
     const a = await memberAccess(member, now);
     expect(store.ensureTrial).not.toHaveBeenCalled();
-    expect(a.gated && a.state.status).toBe("expired");
+    expect(a.gated && a.state.status).toBe("none");
     expect(passOpen(a)).toBe(false);
   });
   it("rejects when the store does", async () => {
