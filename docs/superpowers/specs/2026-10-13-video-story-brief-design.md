@@ -50,3 +50,45 @@ Owner's answers: 1 ค, 2–9 as recommended, open to every agent.
 - `src/lib/quote-video/progress.ts` (pure, browser-safe) turns a clip's state into
   `{ pct, text, leftSec }`; `ClipProgress.tsx` ticks it every second between the board's 4-second
   polls and never lets the % go back.
+
+## Rounds 1–5 — as built (owner: "ทำต่อทั้งหมดให้เสร็จ", 2026-10-13)
+
+Built together on `feat/quote-video-brief`, not one round at a time, at the owner's word.
+
+- `brief.ts` — the choices (hooks, audiences, stories per product with the facts that back them),
+  `cleanBrief`, the checks (`lineProblem`, `writtenProblems`: figures only from the quote or the
+  agent's note, the voice's banned words, no greeting, no repeated invitation, lengths) and the fixed
+  lines (`fallbackLines`) for every hook × product.
+- `writer.ts` — one small-tier call (Gemini Flash Lite answered in ~4 s), checked field by field,
+  asked once more with the reasons, then the fixed line for what still fails. Ledgered as
+  `quote-video-brief` against the agent. A clip made without ดูสคริปต์ is written in `produce` and
+  the lines kept on the row's `input`, so every scene drawer tells the same lines.
+- `told.ts` — scene order per length; the four new scenes (`story`, `qa`, `versus`, `steps`) and what
+  they say and show. `qa.ts` — the bots' answers said for the voice, no fact added or dropped.
+- `script.ts` — the hook opens before the plan's own lead sentence ("แผนนี้ อายุ 35 ทำทุน…"); the
+  written closing follows "สนใจ ทักมาคุยกันได้เลยนะคะ"; a loop puts the invitation (and the name) at
+  the end of the price scene and closes on the hanging line. No brief: today's clip word for word.
+  A man's voice now also turns a question's คะ into ครับ.
+- Renderers — headline band over the photo (classic) / above the shield (Motion); loop ending = the
+  opening held, nothing else (owner, 2026-10-13, choice ข: no agent card, no agent line under the
+  scenes — the voice's invitation in the price scene is the clip's only call); the four scenes in
+  classic portrait, Motion portrait, Motion square/landscape, and the new `classic-wide.tsx`.
+- Classic in every shape — `table-geo.ts CLASSIC_BOXES` moves the photo box and table window per
+  size; `job.ts`, `table-pen.tsx`, `pension-table.tsx` take the window as a parameter (portrait
+  unchanged, tests prove it). A square classic clip has no chart beside the table (no room); a
+  landscape one has it at 760 px.
+- Prices `videoLongClassic/Motion`, `videoMaxClassic/Motion` (฿8/฿15, ฿10/฿20) in the stored price
+  list, which fills new keys from defaults: no migration.
+- Clips over 70 s encode with `-preset veryfast`; a clip is given up on after 20 minutes (was 15):
+  Cloud Run's task timeout is 900 s and a 2-minute clip's render is ~2× a 50-second one's.
+- A clip over 90 s has no "ลงปฏิทินเพจ" (Facebook Reels' limit).
+
+### Differences from the mockup
+
+- A looping clip shows no agent at all (owner's later choice ข): no card at the end, no line under
+  the scenes. Its last scene is its opening.
+- ดูสคริปต์ again after editing reads the edits back without a model call (no try used); ↻ สุ่มใหม่
+  writes again (one of three tries).
+- New agents start on "ให้ระบบเลือก": every new clip opens on a hook unless the agent picks
+  "ตรงไปตรงมา". The choice is remembered per browser.
+- The 15-second clip gets the hook too (~20 s).

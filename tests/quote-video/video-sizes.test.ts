@@ -20,10 +20,10 @@ describe("video sizes (owner, 2026-10-11)", () => {
     expect(SIZES.landscape).toEqual({ w: 1920, h: 1080 });
   });
 
-  it("gives square and landscape to Motion Graphic and the FHC summary only; classic and the short clip stay portrait", () => {
+  it("gives every clip the shape asked for (owner, 2026-10-13: classic and the short clip too)", () => {
     expect(clipSize({ ...lp, style: "motion", size: "landscape" })).toBe("landscape");
-    expect(clipSize({ ...lp, style: "classic", size: "landscape" })).toBe("portrait");
-    expect(clipSize({ ...lp, style: "motion", length: "short", size: "square" })).toBe("portrait");
+    expect(clipSize({ ...lp, style: "classic", size: "landscape" })).toBe("landscape");
+    expect(clipSize({ ...lp, style: "motion", length: "short", size: "square" })).toBe("square");
     expect(clipSize({ product: "FHC", customerId: "x", age: 35, sex: "M", style: "motion", length: "full", size: "square", fhc: {} as FhcVideoFacts })).toBe("square");
     // a row written before sizes existed
     expect(clipSize({ ...lp, style: "motion" })).toBe("portrait");

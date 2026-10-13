@@ -12,7 +12,10 @@ import type { Viewer } from "@/lib/auth/access";
 import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
 import { siteUrl } from "@/lib/site-url";
 import { formatBaht } from "@/lib/wallet/money";
-import type { Prices } from "@/lib/wallet/prices";
+import { videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
+
+/** the prices the board shows under its button: each look and length, and the FHC summary */
+const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc"];
 import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, walletPrices, walletSettings } from "@/lib/wallet/store";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
@@ -25,8 +28,13 @@ import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
 import { motionBackground, motionBgHeight, motionFrame, motionWindows, MOTION_FPS } from "./motion";
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
-import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput, type VideoStyle } from "./script";
-import { clipLength, H, planScenes, SIZES, sizeOf, W, type ScenePlan, type VideoSize } from "./timeline";
+import { WIDE_CHART_W, wideSceneLayer } from "./classic-wide";
+import { CLASSIC_BOXES } from "./table-geo";
+import { extraOf, linesOf, loops, readLength, type Told } from "./told";
+import { writes } from "./brief";
+import { writeLines } from "./writer";
+import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput } from "./script";
+import { clipLength, LOOP_TAIL, planScenes, SIZES, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay, voiceFullText } from "./voice-quota";
 import { clipKind, DEFAULT_ESTIMATES, estimatesFrom, type ClipKind, type Estimate, type ProgressNote } from "./progress";
 
@@ -43,8 +51,11 @@ export const VIDEO_BUCKET = "quote-video";
 export const VIDEO_TASK_VOICE = "quote-video-voice";
 export const VIDEO_TASK_RENDER = "quote-video-render";
 export const VIDEO_CALLBACK_PATH = "/api/quote-video/job";
-/** a clip still drawing or rendering after this long has failed */
-export const VIDEO_TIMEOUT_MS = 15 * 60_000;
+/**
+ * a clip still drawing or rendering after this long has failed: the drawing's 5 minutes and Cloud
+ * Run's 15 (its task timeout), with room — a 2-minute clip renders for longer (owner, 2026-10-13)
+ */
+export const VIDEO_TIMEOUT_MS = 20 * 60_000;
 const LINK_SECONDS = 2 * 3600;
 /** a Cloud Run run of one clip: a couple of CPU-minutes, in baht */
 const RENDER_COST_THB = 0.01 * 36;
@@ -58,7 +69,7 @@ export const FREE_VIDEOS = 2;
  * asked for and takes it when the clip is done.
  */
 export const videoPrice = (v: ClipInput, prices: Prices): number =>
-  (isFhcInput(v) ? prices.videoFhc : v.style === "motion" ? prices.videoMotion : prices.videoClassic) + (v.voice ? prices.elevenExtra : 0);
+  (isFhcInput(v) ? prices.videoFhc : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
 
@@ -99,7 +110,7 @@ export type CostView =
   | { kind: "staff" }
   | { kind: "free"; left: number; of: number }
   /** the price of each look (an FHC summary its own), and whether the wallet holds it */
-  | { kind: "wallet"; balance: string; prices: Record<VideoStyle | "fhc", { price: string; enough: boolean }> }
+  | { kind: "wallet"; balance: string; prices: Partial<Record<PriceKey, { price: string; enough: boolean }>> }
   | { kind: "closed" };
 
 /** the agent's free clips used: those not failed (a failed one is handed back) */
@@ -125,7 +136,7 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   const priced = (satang: number) => ({ price: formatBaht(satang), enough: balance >= satang });
   return {
     kind: "wallet", balance: formatBaht(balance),
-    prices: { classic: priced(prices.videoClassic), motion: priced(prices.videoMotion), fhc: priced(prices.videoFhc) },
+    prices: Object.fromEntries(VIDEO_KEYS.map((k) => [k, priced(prices[k])])),
   };
 }
 
@@ -280,12 +291,14 @@ type BuildOpts = Parameters<typeof buildJob>[2];
  * for; the classic style and the 15-second clip always portrait.
  */
 export function clipSize(input: ClipInput): VideoSize {
-  if (input.length === "short") return "portrait";
-  if (!isFhcInput(input) && input.style !== "motion") return "portrait";
+  // every clip in every shape since 2026-10-13 (owner: "ทุกวิดีโอ สามารถเลือกขนาดได้")
   return sizeOf(input);
 }
 
-interface ClipParts {
+/** how a quote clip is told: its brief and the lines written to it (told.ts) */
+const toldOf = (input: VideoInput): Told => ({ ...(input.brief ? { brief: input.brief } : {}), ...(input.lines ? { lines: input.lines } : {}) });
+
+export interface ClipParts {
   size: VideoSize;
   script: { key: string; voice: string }[];
   motion: boolean;
@@ -313,8 +326,8 @@ function spokenLines(row: VideoRow): { key: string; voice: string }[] {
   if (isFhcInput(row.input)) return fhcScript(row.input.fhc, row.customer_name, narratorOf(row.input));
   const facts = quoteVideoFacts(row.input);
   if (!facts) throw new Error("quote not priced");
-  const short = row.input.length === "short";
-  return quoteVideoScript(facts, short ? "" : row.customer_name, narratorOf(row.input), short ? "short" : "full");
+  const length = readLength(row.input.length);
+  return quoteVideoScript(facts, length === "short" ? "" : row.customer_name, narratorOf(row.input), length, toldOf(row.input));
 }
 
 /** An FHC summary's parts: always the Motion Graphic world, six scenes (fhc-motion.tsx). */
@@ -344,32 +357,46 @@ async function clipParts(row: VideoRow, agentName: string, secs: number[]): Prom
 }
 
 async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: string, secs: number[]): Promise<ClipParts> {
+  return quotePartsFor(row, await contactOf(row.agent_id, agentName), secs);
+}
+
+/** A quote clip's parts, the agent's contact in hand: no database, so a local render draws the same clip. */
+export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: VideoInput }, contact: Contact, secs: number[]): ClipParts {
   const facts = quoteVideoFacts(row.input);
   if (!facts) throw new Error("quote not priced");
-  const contact = await contactOf(row.agent_id, agentName);
   const narrator = narratorOf(row.input);
   const size = clipSize(row.input);
   const dims = SIZES[size];
   // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
-  const short = row.input.length === "short";
-  const customer = short ? "" : row.customer_name;
-  const script = quoteVideoScript(facts, customer, narrator, short ? "short" : "full");
+  const length = readLength(row.input.length);
+  const customer = length === "short" ? "" : row.customer_name;
+  const told = toldOf(row.input);
+  const script = quoteVideoScript(facts, customer, narrator, length, told);
+  const loop = loops(told);
+  // what the brief puts on screen: the hook's headline, and the longer clips' scenes
+  const shown = { ...(linesOf(facts, told) ? { headline: linesOf(facts, told)!.headline } : {}), loop, extra: extraOf(facts, told) };
+  const boxes = CLASSIC_BOXES[size];
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const motion = row.input.style === "motion";
   // the classic value scene: where the table stops and which pen note is written at each stop
   const valueAt = script.findIndex((s) => s.key === "value");
   // บำนาญ 95's table carries its notes in the picture, and only walks down (pension-table.tsx)
   const pen = !motion && valueAt >= 0
-    ? (facts.pension ? pensionTablePlan : tablePlan)(facts, script[valueAt].voice, secs[valueAt])
+    ? (facts.pension ? pensionTablePlan : tablePlan)(facts, script[valueAt].voice, secs[valueAt], boxes.table)
     : undefined;
   const plans = planScenes(script.map((s, i) => ({
     key: s.key, voice: s.voice, voiceSec: secs[i],
     ...(motion ? { windows: motionWindows(s.key, facts, secs[i], s.voice), fps: MOTION_FPS } : sceneMotion(facts, s.key)),
     ...(pen && i === valueAt ? { table: pen.plan } : {}),
+    ...(loop && i === script.length - 1 ? { tail: LOOP_TAIL } : {}),
   })));
-  const layers = plans.map((p) => (motion ? undefined : p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
+  // a looping clip's last scene is its opening again, photo and all (owner, 2026-10-13, choice ก)
+  const layers = plans.map((p) => (motion ? undefined
+    : p.key === "lead" || (loop && p.key === "contact") ? "photo" as const : p.key === "value" ? "table" as const : undefined));
   const named = nameFiles(plans, layers, plans.map((_, i) => (pen && i === valueAt ? pen.notes.length : 0)));
-  const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" ? valueTableChart(planInput(row.input), CHART_W) : undefined;
+  // a landscape clip's chart stands beside the table, narrower; a square one has no room for it
+  const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" && size !== "square"
+    ? valueTableChart(planInput(row.input), size === "landscape" ? WIDE_CHART_W : CHART_W) : undefined;
   const table = facts.pension ? pensionTableImage(facts) : tableImage(facts);
   /** one scene's pictures: its base (classic), every overlay frame, and the value table */
   const sceneDraws = (s: number): { name: string; draw: () => Promise<Buffer> }[] => {
@@ -377,17 +404,19 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
     const sc = named.scenes[s];
     const words = script[s].voice.split(" ").filter(Boolean);
     if (motion) {
-      const mctx = { facts, narrator, customer, contact, words, voiceSec: secs[s] };
+      const mctx = { facts, narrator, customer, contact, words, voiceSec: secs[s], ...shown };
       const frame = (t: number) => (size === "portrait" ? motionFrame(p.key, mctx, t) : wideQuoteFrame(p.key, mctx, t, size));
       // the value scene writes its pen notes in the handwriting face
       const withPen = { pen: p.key === "value" };
       return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }, withPen) }));
     }
-    const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, ...(pen ? { notes: pen.notes } : {}) };
+    const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, ...(pen ? { notes: pen.notes } : {}), ...shown };
     const withPen = { pen: p.key === "value" };
+    const layer = (which: "base" | "over", state?: (typeof p.frames)[number]["state"]) => (size === "portrait"
+      ? sceneLayer(p.key, ctx, which, state) : wideSceneLayer(p.key, ctx, which, size, state));
     return [
-      { name: sc.base, draw: () => renderPng(sceneLayer(p.key, ctx, "base"), { width: W, height: H }) },
-      ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(sceneLayer(p.key, ctx, "over", fr.state), { width: W, height: H }, withPen) })),
+      { name: sc.base, draw: () => renderPng(layer("base"), { width: dims.w, height: dims.h }) },
+      ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(layer("over", fr.state), { width: dims.w, height: dims.h }, withPen) })),
       ...(sc.layer?.kind === "table" ? [{ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }, { pen: Boolean(facts.pension) }) }] : []),
       ...(sc.layer?.pens ?? []).map((name, k) => ({
         name, draw: () => renderPng(noteDrawing(pen!.notes[k], table.height), { width: table.width, height: table.height }, withPen),
@@ -397,7 +426,7 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
   return {
     script, motion, plans, named, sceneDraws,
     size,
-    build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height },
+    build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height, size: dims, photo: boxes.photo, table: boxes.table },
     layers: { photo: layers.includes("photo") },
   };
 }
@@ -433,6 +462,16 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const gcpKey = await providerKey("gcp");
     if (!gcpKey) throw new Error("no gcp key");
     const narrator = narratorOf(row.input);
+    // a brief the agent did not preview is written now, and kept with the clip so every scene drawer tells the same lines
+    if (!isFhcInput(row.input) && writes(row.input.brief) && !row.input.lines) {
+      const facts = quoteVideoFacts(row.input);
+      if (facts) {
+        const { lines } = await writeLines(facts, row.input.brief, readLength(row.input.length));
+        row.input = { ...row.input, lines };
+        await setRow(id, { input: row.input });
+        lap("lines written to the brief");
+      }
+    }
     const spokenScript = spokenLines(row);
 
     // the board's bar (progress.ts): each write waits for the one before, so the count never goes back

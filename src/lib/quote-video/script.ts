@@ -7,6 +7,8 @@ import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card"
 import type { PensionPay } from "@/calc/pension/engine";
 import { pensionVideoFacts, roughBaht, type PensionVideoFacts } from "./pension";
 import type { SceneMotion, VideoSize } from "./timeline";
+import type { VideoBrief, WrittenLines } from "./brief";
+import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
 
 /**
  * วิดีโอนำเสนอ (owner, 2026-10-11): what the scenes show and say, taken from the same quote the
@@ -24,7 +26,9 @@ import type { SceneMotion, VideoSize } from "./timeline";
  */
 
 export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION";
-export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact";
+export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact"
+  /** the longer clips' own (told.ts, owner 2026-10-13): the customer's story, a comparison, two questions, how to start */
+  | "story" | "versus" | "qa" | "steps";
 
 /** What the agent asked for. A row written before products existed has no `product`: Life Protect. */
 export type VideoInput = (
@@ -45,15 +49,21 @@ export type VideoInput = (
   size?: VideoSize;
   /** the clip began from what the customer can save: the sum or plan above is what that buys (budget.ts) */
   budget?: { baht: number; per: "month" | "year" };
+  /** โจทย์การเล่า (owner, 2026-10-13; brief.ts): how it opens, the story, the customer, whether it loops */
+  brief?: VideoBrief;
+  /** the sentences written to the brief, checked (writer.ts); absent until they are written */
+  lines?: WrittenLines;
 };
 
-export type VideoLength = "full" | "short";
+/** 15 s, ~50 s, ~90 s, ~2 min (owner, 2026-10-13: "สูงสุดถึง 2 นาที"; told.ts sceneOrder) */
+export type VideoLength = "short" | "full" | "long" | "max";
 
 export type VideoStyle = "classic" | "motion";
 
 /** A man ends his sentences with ครับ, a woman with ค่ะ / นะคะ (owner, 2026-10-11). */
 export function spokenBy(line: string, narrator: "F" | "M" = "F"): string {
-  return narrator === "M" ? line.replace(/นะคะ/g, "นะครับ").replace(/ค่ะ/g, "ครับ") : line;
+  // a question's คะ too, where it ends a word (not คะแนน)
+  return narrator === "M" ? line.replace(/นะคะ/g, "นะครับ").replace(/ค่ะ/g, "ครับ").replace(/คะ(?=\s|$)/g, "ครับ") : line;
 }
 
 export const productOf = (v: VideoInput): Product => v.product ?? "LIFEPROTECT";
@@ -340,10 +350,59 @@ function healthCoverLine(f: QuoteVideoFacts): string {
   return `${parts.join(" ")}ค่ะ`;
 }
 
-/** The spoken lines, in the owner's casual wording (mockups, 2026-10-11), with the narrator's ending. */
-export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator: "F" | "M" = "F", length: VideoLength = "full"): SceneScript[] {
-  const lines = length === "short" ? shortScript(f) : femaleScript(f, customer);
-  return lines.map((s) => ({ key: s.key, voice: spokenBy(s.voice, narrator) }));
+/**
+ * The spoken lines, in the owner's casual wording (mockups, 2026-10-11), with the narrator's ending.
+ *
+ * Told to a brief (owner, 2026-10-13; told.ts): the hook opens before the plan's own lead sentence
+ * and the closing ends on the brief's line; a looping clip asks for the chat at the end of its
+ * price scene and closes on a hanging line that runs into the opening. The longer lengths add the
+ * customer's story, a comparison, two questions and how to start. The price, cover and value
+ * lines are always the fixed ones: the value table's pen notes are timed to their words.
+ */
+export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator: "F" | "M" = "F", length: VideoLength = "full", told: Told = {}): SceneScript[] {
+  const short = length === "short";
+  const name = short ? "" : cleanCustomerName(customer);
+  const base = short ? shortScript(f) : femaleScript(f, name);
+  const middle = base.filter((s) => s.key !== "lead" && s.key !== "contact");
+  const w = linesOf(f, told);
+  const loop = loops(told);
+  let lead = base[0].voice;
+  let contact = base[base.length - 1].voice;
+  if (w) {
+    // the name opens the clip, unless it loops: then the opening follows the closing's hanging line
+    lead = `${name && !loop ? `คุณ${name} ` : ""}${w.hook} ${short ? base[0].voice : leadFact(f, name)}`;
+    if (loop) contact = w.loopClose ?? "";
+    else if (!short) contact = `${name ? `คุณ${name}` : ""}สนใจ ทักมาคุยกันได้เลยนะคะ ${w.close ?? ""}`;
+  }
+  const lines: SceneScript[] = sceneOrder(middle.map((m) => m.key), length).map((key) => {
+    if (key === "lead") return { key, voice: lead };
+    if (key === "contact") return { key, voice: contact };
+    const own = middle.find((m) => m.key === key);
+    if (own) return own;
+    return { key, voice: extraVoice(key as "story" | "qa" | "versus" | "steps", f, told) };
+  });
+  if (loop) {
+    // the invitation moves to the end of the price scene (owner's choice ก): the closing is the loop's
+    const price = lines.find((l) => l.key === "price");
+    if (price) price.voice = `${price.voice} ${short ? "ทักมาขอใบเสนอได้เลยนะคะ" : `${name ? `คุณ${name}` : ""}สนใจ ทักมาคุยกันได้เลยนะคะ`}`;
+  }
+  return lines.map((s) => ({ key: s.key, voice: spokenBy(s.voice.replace(/\s+/g, " ").trim(), narrator) }));
+}
+
+/** The plan's lead sentence without a greeting: what follows a written hook. */
+function leadFact(f: QuoteVideoFacts, name: string): string {
+  const who = name ? `อายุ ${f.age}` : `${SEX_WHO[f.sex]}อายุ ${f.age}`;
+  if (f.product === "PENSION" && f.pension) {
+    return `แผนนี้ ${name ? "" : `${who} `}${budgetLead(f, "ถ้าออม")}ตั้งแต่อายุ ${f.pension.start} รับบำนาญเดือนละ ${f.pension.monthly} บาท ไปจนถึงอายุ 95 เลยค่ะ`;
+  }
+  if (f.product === "IHEALTHY") {
+    return `แผน ${f.planName} ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`;
+  }
+  const sum = spokenBaht(digits(f.insuredLine));
+  if (f.product === "ISHIELD") {
+    return `แผนนี้ ${who} ${budgetLead(f, "ถ้าออม")}ทำทุน ${sum} คุ้มครองโรคร้ายแรง${f.illness ? ` ${f.illness.total} โรค` : ""} จ่ายเป็นเงินก้อนตั้งแต่ระยะเริ่มต้นเลยค่ะ`;
+  }
+  return `แผนนี้ ${who} ${budgetLead(f, "ถ้าออม")}ทำทุน ${sum} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ`;
 }
 
 /**
@@ -487,6 +546,11 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
     case "value": return {};
     case "compare": return { ring: true };
     case "contact": return {};
+    // one highlighter a point, a question, a step as the voice reaches it; the comparison counted up
+    case "story": return { sweeps: 3, spread: true };
+    case "qa": return { sweeps: 2, spread: true };
+    case "versus": return { count: true, sweeps: 1 };
+    case "steps": return { sweeps: 3, spread: true };
   }
 }
 

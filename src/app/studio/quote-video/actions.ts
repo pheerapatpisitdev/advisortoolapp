@@ -21,6 +21,10 @@ import { getCustomer, listCustomers } from "@/lib/fhc/customers";
 import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
 import { checkedPension } from "@/lib/quote-video/pension";
 import { GAP_WORD } from "@/lib/fhc/gaps";
+import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
+import { readLength } from "@/lib/quote-video/told";
+import { writeLines } from "@/lib/quote-video/writer";
+import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
 
@@ -34,6 +38,8 @@ const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
+  /** the stories this quote backs, for โจทย์การเล่า (brief.ts storiesFor) */
+  stories: { key: string; name: string }[];
   /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out); บำนาญ 95's monthly pension too */
   resolved: { sum?: number; plan?: string; monthly?: number };
 }
@@ -58,6 +64,8 @@ export interface VideoItem {
   size: VideoSize;
   /** failed because Gemini's voice was used up for the day */
   voiceFull: boolean;
+  /** longer than a Reel may be (90 s): it goes to the customer, not to a Page */
+  overReel?: boolean;
   /** a clip still being made: how far, as read now (progress.ts); null once done or failed */
   progress?: ProgressState | null;
 }
@@ -86,10 +94,65 @@ function checked(v: VideoInput): VideoInput | string {
   const eleven = elevenVoice(v.voice);
   const narrator = eleven ? eleven.sex : v.narrator === "M" ? "M" : "F";
   const style = v.style === "motion" ? "motion" : "classic";
-  const length = v.length === "short" ? "short" : "full";
-  // square and landscape are the Motion Graphic style's, the full clip's (owner, 2026-10-11)
-  const size = style === "motion" && length === "full" ? sizeOf(v) : "portrait";
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style, length, size };
+  const length = readLength(v.length);
+  // every clip in every shape (owner, 2026-10-13)
+  const size = sizeOf(v);
+  // โจทย์การเล่า: the brief, and the lines the agent saw (and may have edited) — checked again here
+  const facts = quoteVideoFacts(c);
+  const brief = facts ? cleanBrief(v.brief, facts) : undefined;
+  let lines: WrittenLines | undefined;
+  if (facts && writes(brief) && v.lines) {
+    const l = cleanLines(v.lines);
+    const bad = writtenProblems(l, facts, { loop: Boolean(brief.loop), story: length === "long" || length === "max", note: brief.note });
+    const first = Object.entries(bad)[0];
+    if (first) return `${FIELD_WORD[first[0]] ?? "ประโยค"}: ${first[1]}`;
+    lines = l;
+  }
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style, length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
+}
+
+/** what each written field is called on the board, for a refusal */
+const FIELD_WORD: Record<string, string> = { hook: "ประโยคเปิด", headline: "พาดหัว", close: "ประโยคปิด", loopClose: "ประโยควนลูป", story: "เรื่องของลูกค้า", points: "ข้อความบนจอ" };
+
+/** lines as the board sent them back, each a string or a list of strings */
+function cleanLines(raw: WrittenLines): WrittenLines {
+  const t = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "");
+  const list = (v: unknown) => (Array.isArray(v) ? v.map(t).filter(Boolean).slice(0, 3) : []);
+  const kinds = ["question", "shock", "myth", "story", "list"] as const;
+  return {
+    kind: kinds.includes(raw?.kind as (typeof kinds)[number]) ? raw.kind : "question",
+    hook: t(raw?.hook), headline: list(raw?.headline),
+    ...(raw?.close ? { close: t(raw.close) } : {}), ...(raw?.loopClose ? { loopClose: t(raw.loopClose) } : {}),
+    ...(raw?.story ? { story: t(raw.story) } : {}), ...(raw?.points ? { points: list(raw.points) } : {}),
+  };
+}
+
+export interface ScriptPreview {
+  lines?: WrittenLines;
+  /** every line the clip will speak, as the narrator says it */
+  script: SceneScript[];
+  /** whether a model wrote the lines (false: the fixed ones stood in) */
+  written: boolean;
+}
+
+/**
+ * ดูสคริปต์ (owner, 2026-10-13): the lines a brief is told with, written now, and the whole clip's
+ * voice with them. Free; the board allows three more tries per clip. `seed` asks for another try.
+ */
+export async function previewScript(v: VideoInput, customer: string, seed = 0, rewrite = true): Promise<ScriptPreview | { error: string }> {
+  const viewer = await requireMember();
+  // lines sent back without a rewrite are the agent's own edits: checked, then spoken as they are
+  const c = checked(rewrite ? { ...v, lines: undefined } : v);
+  if (typeof c === "string") return { error: c };
+  const f = quoteVideoFacts(c);
+  if (!f) return { error: NOT_PRICED };
+  const length = readLength(c.length);
+  const name = length === "short" ? "" : cleanCustomerName(customer);
+  if (!writes(c.brief)) return { script: quoteVideoScript(f, name, c.narrator, length, {}), written: false };
+  const brief = c.brief;
+  if (!rewrite && c.lines) return { lines: c.lines, script: quoteVideoScript(f, name, c.narrator, length, { brief, lines: c.lines }), written: true };
+  const got = await asWho(viewer.agentId, () => writeLines(f, brief, length, Number.isInteger(seed) ? seed : 0));
+  return { lines: got.lines, script: quoteVideoScript(f, name, c.narrator, length, { brief, lines: got.lines }), written: got.written };
 }
 
 function checkedQuote(v: VideoInput): VideoInput | string {
@@ -201,6 +264,10 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
 
 /** a Page's calendar posts Reels, and a Reel is portrait (owner, 2026-10-11) */
 const NOT_PORTRAIT = "ลงปฏิทินเพจได้เฉพาะคลิปแนวตั้ง";
+const LENGTH_WORD = { short: " (สั้น 15 วิ)", full: "", long: " (ยาว 90 วิ)", max: " (2 นาที)" } as const;
+/** a Facebook Reel's longest (owner, 2026-10-13, plan §7): a 2-minute clip goes to the customer directly */
+const REEL_MAX_SEC = 90;
+const TOO_LONG = "คลิปยาวเกิน 90 วินาที ลงเพจเป็น Reels ไม่ได้ ส่งให้ลูกค้าโดยตรงได้";
 const SIZE_WORD: Record<VideoSize, string> = { portrait: "", square: " · จัตุรัส", landscape: " · แนวนอน" };
 
 const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ในอายุนี้ ลองเปลี่ยนอายุ ทุน หรือแผน";
@@ -213,6 +280,7 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
   if (!f) return { error: NOT_PRICED };
   return {
     lead: { label: f.lead.label, amount: f.lead.amount }, mark: f.leadMark, prices: f.prices,
+    stories: storiesFor(f).map((x) => ({ key: x.key, name: x.name })),
     resolved: c.product === "IHEALTHY" ? { plan: c.plan }
       : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht } : { sum: c.sumAssured },
   };
@@ -287,6 +355,7 @@ export async function addToCalendar(id: string, pageId: string, caption: string)
   if (row.customer_name) return { ok: false, error: NAMED };
   if (isFhcInput(row.input)) return { ok: false, error: FHC_PRIVATE };
   if (clipSize(row.input) !== "portrait") return { ok: false, error: NOT_PORTRAIT };
+  if (Number(row.duration_sec ?? 0) > REEL_MAX_SEC) return { ok: false, error: TOO_LONG };
   try {
     await sendToCalendar(row, pageId, typeof caption === "string" ? caption : "");
     return { ok: true, pageId };
@@ -347,7 +416,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       : input.product === "PENSION"
         ? `เดือนละ ${Math.round(input.sumAssured * MONTHLY_FACTOR_FIRST).toLocaleString("en-US")} · รับ ${input.annuityAge} · ${input.pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${input.length === "short" ? " (สั้น 15 วิ)" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,
@@ -358,6 +427,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       error: v.error,
       voiceFull: isVoiceFull(v),
       progress: progressOf(v),
+      overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC,
       personal: false,
       size: clipSize(input),
       fileName: file,

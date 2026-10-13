@@ -8,6 +8,8 @@ describe("the owner's price list", () => {
     expect(DEFAULT_PRICES).toEqual({
       drawStandard: 100, drawSharp: 200, drawGemini: 500, describe: 100,
       videoClassic: 500, videoMotion: 1000, videoFhc: 300, elevenExtra: 200,
+      // the longer clips (owner, 2026-10-13)
+      videoLongClassic: 800, videoLongMotion: 1500, videoMaxClassic: 1000, videoMaxMotion: 2000,
     });
   });
 

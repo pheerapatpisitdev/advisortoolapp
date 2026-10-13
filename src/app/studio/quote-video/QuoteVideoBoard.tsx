@@ -5,11 +5,13 @@ import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
-import { priceBaht, type Prices } from "@/lib/wallet/prices";
+import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
+import type { VideoBrief, WrittenLines } from "@/lib/quote-video/brief";
+import { REWRITES, StoryBrief, type ScriptState } from "./StoryBrief";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ClipProgress } from "./ClipProgress";
 import { SaveVideoButton } from "./SaveVideoButton";
-import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, removeVideo, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
+import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, removeVideo, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
 import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
 
 const chip = (on: boolean) =>
@@ -22,12 +24,13 @@ const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle:
 const STATUS: Record<VideoItem["status"], string> = { drawing: "กำลังทำเสียงและภาพ…", rendering: "กำลังรวมเป็นวิดีโอ…", done: "เสร็จ", failed: "ไม่สำเร็จ" };
 
 /** what the next clip costs, under the button */
-function costLine(c: CostView | null, style: VideoStyle | "fhc"): { text: string; blocked: boolean; topUp: boolean } | null {
+function costLine(c: CostView | null, key: PriceKey): { text: string; blocked: boolean; topUp: boolean } | null {
   if (!c) return null;
   if (c.kind === "staff") return { text: "เจ้าของใช้ฟรี", blocked: false, topUp: false };
   if (c.kind === "free") return { text: `ใช้วิดีโอฟรี 1 ครั้ง · เหลือ ${c.left}/${c.of} ครั้ง`, blocked: false, topUp: false };
   if (c.kind === "closed") return { text: "ใช้วิดีโอฟรีครบแล้ว", blocked: true, topUp: false };
-  const p = c.prices[style];
+  const p = c.prices[key];
+  if (!p) return null;
   return p.enough
     ? { text: `ใช้วิดีโอฟรีครบแล้ว · หักจากกระเป๋า ${p.price} (ยอดคงเหลือ ${c.balance})`, blocked: false, topUp: false }
     : { text: `ยอดในกระเป๋าไม่พอ (คลิปนี้ ${p.price} · ยอดคงเหลือ ${c.balance})`, blocked: true, topUp: true };
@@ -55,6 +58,15 @@ const SIZE_KEY = "quote-video-size";
 /** the rest of step 4, remembered too (owner, 2026-10-12) */
 const LENGTH_KEY = "quote-video-length";
 const STYLE_KEY = "quote-video-style";
+/** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
+const BRIEF_KEY = "quote-video-brief";
+/** the four lengths (owner, 2026-10-13: up to 2 minutes; told.ts sceneOrder) */
+const LENGTH_CHOICES: { length: VideoLength; name: string; hint: string }[] = [
+  { length: "short", name: "สั้น · ~15 วินาที", hint: "3 ฉาก: ตัวเลขเด่น · ราคา · ชวนทัก ไม่ใส่ชื่อลูกค้า เหมาะลงเพจเป็น Reels" },
+  { length: "full", name: "เต็ม · ~50 วินาที", hint: "เล่าครบ 5 ฉากพร้อมตารางมูลค่า ใส่ชื่อลูกค้าได้" },
+  { length: "long", name: "ยาว · ~90 วินาที", hint: "7 ฉาก: เพิ่มเรื่องของลูกค้า และถาม-ตอบ 2 ข้อ" },
+  { length: "max", name: "2 นาที", hint: "9 ฉาก: เพิ่มเรื่องของลูกค้า เทียบกับเก็บเงินเอง ถาม-ตอบ และขั้นตอนเริ่มต้น · ยาวเกิน Reels ส่งให้ลูกค้าโดยตรง" },
+];
 /** the three shapes (owner, 2026-10-11, mockup https://claude.ai/artifact/8bhEgAdp4pCBiv581F1weq) */
 const SIZE_CHOICES: { size: VideoSize; name: string; use: string; shape: [number, number]; hint: string }[] = [
   { size: "portrait", name: "แนวตั้ง 9:16", use: "Reels · Stories · TikTok · LINE VOOM", shape: [16, 28], hint: "เหมาะกับดูบนมือถือและลงเพจเป็น Reels" },
@@ -62,6 +74,7 @@ const SIZE_CHOICES: { size: VideoSize; name: string; use: string; shape: [number
   { size: "landscape", name: "แนวนอน 16:9", use: "YouTube · เปิดให้ลูกค้าดูบน iPad / ทีวี", shape: [32, 18], hint: "เหมาะเปิดบน iPad / ทีวี หรือ YouTube · บนมือถือจะเป็นแถบสั้นๆ ถ้าไม่หมุนจอ · ลงปฏิทินเพจไม่ได้" },
 ];
 const ASPECT: Record<VideoSize, string> = { portrait: "9 / 16", square: "1 / 1", landscape: "16 / 9" };
+const HOOK_WORD: Record<VideoBrief["hook"], string> = { question: "ถามสะกิด", shock: "ตัวเลขช็อก", myth: "สวนความเชื่อ", story: "เล่าเรื่อง", list: "ลิสต์ 3 ข้อ", plain: "ตรงไปตรงมา", auto: "ระบบเลือกฮุก" };
 
 /** one numbered step of the form, with what it holds in a few words beside its heading */
 function Step({ n, title, summary, first, children }: { n: number; title: string; summary: string; first?: boolean; children: React.ReactNode }) {
@@ -244,11 +257,25 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const elevenInstead = eleven.find((v) => v.sex === narrator) ?? eleven[0];
   const [style, setStyle] = useState<VideoStyle>("classic");
   const [length, setLength] = useState<VideoLength>("full");
+  // โจทย์การเล่า (owner, 2026-10-13): a new agent starts on ให้ระบบเลือก, so every clip opens on a hook
+  const [brief, setBriefState] = useState<VideoBrief>({ hook: "auto" });
+  const [script, setScript] = useState<ScriptState | null>(null);
+  const [scriptBusy, setScriptBusy] = useState(false);
+  const [scriptError, setScriptError] = useState<string | null>(null);
+  const [rewrites, setRewrites] = useState(REWRITES);
+  const [seed, setSeed] = useState(0);
+  function setBrief(b: VideoBrief) {
+    setBriefState(b);
+    try { localStorage.setItem(BRIEF_KEY, JSON.stringify({ hook: b.hook, audience: b.audience, loop: b.loop })); } catch { /* not remembered, still used */ }
+  }
   // step 4 as it was left last time, in this browser only (owner, 2026-10-12)
   useEffect(() => {
     try {
       if (localStorage.getItem(STYLE_KEY) === "motion") setStyle("motion");
-      if (localStorage.getItem(LENGTH_KEY) === "short") setLength("short");
+      const l = localStorage.getItem(LENGTH_KEY);
+      if (l === "short" || l === "long" || l === "max") setLength(l);
+      const b = JSON.parse(localStorage.getItem(BRIEF_KEY) ?? "null") as Partial<VideoBrief> | null;
+      if (b && typeof b.hook === "string") setBrief({ hook: b.hook, ...(b.audience ? { audience: b.audience } : {}), ...(b.loop ? { loop: true } : {}) });
     } catch { /* storage closed: the defaults stand */ }
   }, []);
   function pickStyle(v: VideoStyle) {
@@ -262,11 +289,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // where the clip begins: a sum (or plan), or what the customer can save each month / year
   const [source, setSource] = useState<"sum" | "month" | "year">("sum");
   const [budget, setBudget] = useState("3,000");
-  // an FHC summary has its own price, whatever its look (owner, 2026-10-12: ฿3)
-  const line = costLine(cost, kind === "fhc" ? "fhc" : style);
+  // an FHC summary has its own price, whatever its look (owner, 2026-10-12: ฿3); a quote clip its look's and length's
+  const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length));
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
-  const look = { narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() };
+  const look = { narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
   const input = (): VideoInput => (product === "IHEALTHY"
     ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...look }
     : product === "PENSION"
@@ -276,7 +303,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           sumAssured: pensionSum ?? 0,
           ...(source === "sum" && pensionSum === undefined ? { monthly: Number(monthly.replace(/[^\d]/g, "")) } : {}),
         }
-      : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf() });
+      : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -301,6 +328,32 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum]);
 
+  // the script shown is the one for what the form holds: anything changed, and it is written again
+  useEffect(() => {
+    setScript(null);
+    setScriptError(null);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice]);
+
+  /** ดูสคริปต์: written to the brief (again: another try), or the agent's edits read back */
+  async function showScript(again: boolean) {
+    setScriptBusy(true);
+    setScriptError(null);
+    const next = again ? seed + 1 : seed;
+    try {
+      const edited = !again && script?.lines;
+      const r = await previewScript(input(), customer, next, !edited);
+      if ("error" in r) setScriptError(r.error);
+      else {
+        setScript(r);
+        if (again) { setSeed(next); setRewrites((n) => n - 1); }
+      }
+    } catch {
+      setScriptError("เขียนสคริปต์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setScriptBusy(false);
+    }
+  }
+
   // a clip still being made is asked about every few seconds
   const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
   useEffect(() => {
@@ -324,7 +377,12 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
         refreshQuota();
-      } else setItems(await myVideos());
+      } else {
+        setItems(await myVideos());
+        // the next clip gets its own three tries
+        setRewrites(REWRITES);
+        setScript(null);
+      }
       setCost(await myCost());
     } catch {
       setError({ text: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" });
@@ -363,23 +421,24 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     return x ? (x.years === 99 ? "ถึงอายุ 99" : `${x.years} ปี`) : "";
   };
   const sumWord = (n: number) => (n % 1_000_000 === 0 ? `${n / 1_000_000} ล้าน` : n.toLocaleString("en-US"));
-  const sizeLocked = kind === "quote" && (length === "short" || style !== "motion");
-  const shownSize = sizeLocked ? "portrait" : size;
+  // every clip comes in every shape (owner, 2026-10-13)
+  const shownSize = size;
   // a Gemini-voiced clip would only fail while the voice is used up
   const voiceBlocked = Boolean(quota) && !voice;
   const voiceWord = voice ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs" : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
   const summary = {
+    brief: [HOOK_WORD[brief.hook], brief.loop ? "วนลูป" : ""].filter(Boolean).join(" · "),
     what: kind === "fhc" ? "สรุป FHC" : PRODUCTS.find((p) => p.code === product)?.name ?? "",
     who: kind === "fhc"
       ? fhcPick?.name ?? ""
-      : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length === "full" ? ` · คุณ${customer.trim()}` : ""}`,
+      : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length !== "short" ? ` · คุณ${customer.trim()}` : ""}`,
     plan: product === "IHEALTHY"
       ? (source === "sum" ? ihuPlans.find((p) => p.code === plan)?.name ?? "" : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
       : product === "PENSION"
         ? `${source === "sum" ? `บำนาญเดือนละ ${monthly}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · รับ ${pensionStart} · ${pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
-      kind === "quote" ? (length === "short" ? "สั้น" : "เต็ม") : "",
+      kind === "quote" ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
       kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : "",
       SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",
       voiceWord,
@@ -453,7 +512,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   </select>
                 </div>
               </div>
-              {length === "full" ? (
+              {length !== "short" ? (
                 <div>
                   <label htmlFor="qv-customer" className={label}>ชื่อลูกค้า (ไม่บังคับ)</label>
                   <input id="qv-customer" className={field} value={customer} maxLength={40} placeholder="เช่น สมชาย" onChange={(e) => setCustomer(e.target.value)} />
@@ -572,35 +631,41 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           </>
         )}
 
-        <Step n={4} title="หน้าตาวิดีโอ" summary={summary.look}>
+        {kind === "quote" && (
+          <Step n={4} title="โจทย์การเล่า" summary={summary.brief}>
+            <StoryBrief
+              brief={brief} setBrief={setBrief} stories={ok?.stories ?? []} longClip={length === "long" || length === "max"}
+              script={script} setLines={(l: WrittenLines) => setScript((was) => (was ? { ...was, lines: l } : was))}
+              busy={scriptBusy} rewritesLeft={rewrites} onPreview={(again) => void showScript(again)} error={scriptError}
+            />
+          </Step>
+        )}
+
+        <Step n={kind === "quote" ? 5 : 4} title="หน้าตาวิดีโอ" summary={summary.look}>
           {kind === "quote" && (
             <>
               <div>
                 <span className={label}>ความยาว</span>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(length === "full")} onClick={() => pickLength("full")}>เต็ม · ~50 วินาที</button>
-                  <button type="button" className={chip(length === "short")} onClick={() => pickLength("short")}>สั้น · ~15 วินาที (Reels)</button>
+                  {LENGTH_CHOICES.map((c) => (
+                    <button key={c.length} type="button" className={chip(length === c.length)} onClick={() => pickLength(c.length)}>
+                      {c.name} <span className="font-normal opacity-80">· {priceBaht(prices[videoPriceKey(style, c.length)])} บาท</span>
+                    </button>
+                  ))}
                 </div>
-                <p className="mt-1 text-xs text-[var(--ct-mute)]">{length === "short" ? "3 ฉาก: ตัวเลขเด่น · ราคา · ชวนทัก ไม่ใส่ชื่อลูกค้า เหมาะลงเพจเป็น Reels" : "เล่าครบ 5 ฉากพร้อมตารางมูลค่า ใส่ชื่อลูกค้าได้"}</p>
+                <p className="mt-1 text-xs text-[var(--ct-mute)]">{LENGTH_CHOICES.find((c) => c.length === length)?.hint}</p>
               </div>
               <div>
                 <span className={label}>สไตล์</span>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices.videoClassic)} บาท</button>
-                  <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices.videoMotion)} บาท</button>
+                  <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", length)])} บาท</button>
+                  <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices[videoPriceKey("motion", length)])} บาท</button>
                 </div>
                 <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
               </div>
             </>
           )}
-          {sizeLocked ? (
-            <div>
-              <span className={label}>ขนาดวิดีโอ</span>
-              <p className="text-xs text-[var(--ct-mute)]">{length === "short" ? "คลิปสั้นเป็นแนวตั้งเสมอ (ทำไว้ลง Reels)" : "แบบปกติเป็นแนวตั้ง · เลือกจัตุรัสหรือแนวนอนได้ที่ Motion Graphic"}</p>
-            </div>
-          ) : (
-            <SizePicker size={size} pick={pickSize} />
-          )}
+          <SizePicker size={size} pick={pickSize} />
           <div>
             <span className={label}>เสียงพากย์</span>
             <div className="flex flex-wrap items-center gap-2">
@@ -677,7 +742,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             <div className="flex flex-wrap gap-2">
               {v.status === "done" && v.save && v.watch && <SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} />}
               {v.status === "done" && <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
-              {v.status === "done" && pages.length > 0 && !v.named && !v.personal && v.size === "portrait" && (
+              {v.status === "done" && pages.length > 0 && !v.named && !v.personal && v.size === "portrait" && !v.overReel && (
                 <button type="button" className={small} onClick={() => openCalendar(v.id)}>เพิ่มลงปฏิทินเพจ</button>
               )}
               {(v.status === "done" || v.status === "failed") && (
@@ -694,8 +759,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               </div>
             )}
             {deleteError?.id === v.id && <p role="alert" className="text-xs text-[var(--ct-alert)]">{deleteError.text}</p>}
-            {v.status === "done" && pages.length > 0 && (v.named || v.personal || v.size !== "portrait") && (
-              <p className="text-xs text-[var(--ct-mute)]">{v.personal ? "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ไม่มีปุ่มลงเพจ" : v.named ? "คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ" : "ลงปฏิทินเพจ (Reels) ได้เฉพาะคลิปแนวตั้ง"}</p>
+            {v.status === "done" && pages.length > 0 && (v.named || v.personal || v.size !== "portrait" || v.overReel) && (
+              <p className="text-xs text-[var(--ct-mute)]">{v.personal ? "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ไม่มีปุ่มลงเพจ" : v.named ? "คลิปที่มีชื่อลูกค้าไม่มีปุ่มลงเพจ" : v.overReel ? "คลิปยาวเกิน 90 วินาที ลงเพจเป็น Reels ไม่ได้ ส่งให้ลูกค้าโดยตรง" : "ลงปฏิทินเพจ (Reels) ได้เฉพาะคลิปแนวตั้ง"}</p>
             )}
             {cal?.id === v.id && (
               <div className="space-y-2 rounded-lg border border-[var(--ct-line)] p-2 text-sm">
