@@ -7,6 +7,7 @@ import { asWho } from "@/lib/ai/who";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
 import { cleanHistory, cleanSlots } from "@/lib/chat/public-input";
+import { memberAccess, PASS_EXPIRED_CHAT, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
 
 /**
  * The home page's assistant, for people signed in only (owner, 2026-10-12: "เป็นระบบปิด").
@@ -46,6 +47,13 @@ export async function askCopilot(
   const viewer = await getViewer().catch(() => null);
   if (!viewer) return { text: SIGN_IN, model: "—" };
   if (!allow(`copilot:${viewer.agentId}`)) return { text: BUSY, model: "—", failed: true };
+  // an outside member asks while their pass is live (owner, 2026-10-13); unreadable is no answer
+  const access = await memberAccess(viewer).catch((e) => {
+    console.error("copilot refused, pass unreadable:", e);
+    return null;
+  });
+  if (!access) return { text: PASS_UNREADABLE, model: "—", failed: true };
+  if (!passOpen(access)) return { text: PASS_EXPIRED_CHAT, model: "—" };
 
   try {
     // free, but written down under who asked, so the owner sees who uses it (owner, 2026-10-10)

@@ -1,3 +1,5 @@
+import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
+import { roundsFrom } from "@/lib/members/pass";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatBaht, holdSatang, holdSatangFor } from "@/lib/wallet/money";
 import type { RoundPass } from "@/lib/wallet/round";
@@ -35,12 +37,35 @@ export interface Allowance {
   used: number;
 }
 
+export interface FreeWindow {
+  limit: number;
+  from: Date;
+}
+
+const ONE_TIME: FreeWindow = { limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM };
+
+/** the free rounds a gated member's live pass carries, else the one-time ten */
+function windowOf(access: Awaited<ReturnType<typeof memberAccess>>): FreeWindow {
+  return (access.gated && roundsFrom(access.state, access.settings)) || ONE_TIME;
+}
+
+/**
+ * Which free rounds count: a member with a live pass has the pass's rounds, counted afresh from
+ * the period's start (owner, 2026-10-13); everyone else the one-time ten. memberAccess reads
+ * nothing for a UnitOS agent or while the switch is off. Throws when the pass cannot be read.
+ */
+export async function freeWindow(viewer: Viewer): Promise<FreeWindow> {
+  return windowOf(await memberAccess(viewer));
+}
+
 export async function allowanceOf(viewer: Viewer): Promise<Allowance> {
   if (can(viewer, "owner")) return { limit: null, used: 0 };
+  // display pages: an unreadable pass throws, as an unreadable count does
+  const { limit, from } = await freeWindow(viewer);
   const { count, error } = await supabaseAdmin().from("ins_audit").select("id", { count: "exact", head: true })
-    .eq("agent_id", viewer.agentId).in("action", [...AI_ROUNDS]).gte("at", FREE_ROUNDS_FROM.toISOString());
+    .eq("agent_id", viewer.agentId).in("action", [...AI_ROUNDS]).gte("at", from.toISOString());
   if (error) throw new Error(`อ่านโควตาไม่ได้: ${error.message}`);
-  return { limit: FREE_ROUNDS, used: count ?? 0 };
+  return { limit, used: count ?? 0 };
 }
 
 /** The refusal to show, or null when a round may start. */
@@ -65,11 +90,12 @@ export const WALLET_FROZEN = "กระเป๋าเงินถูกพั�
  * counts and writes the round down in one go, so ten rounds sent at 9 of 10 used no longer all
  * read "9" and all run free (review, 2026-10-01). The line's id, so a round that gave nothing
  * can be handed back; null when the free rounds are used. Throws when the database does.
+ * Counted in the window takeRound already read (freeWindow's rule), so the pass is read once.
  */
-async function takeFreeRound(viewer: Viewer, round: AiRound, target: string | null): Promise<number | null> {
+async function takeFreeRound(viewer: Viewer, round: AiRound, target: string | null, { limit, from }: FreeWindow): Promise<number | null> {
   const { data, error } = await supabaseAdmin().rpc("ins_take_free_round", {
     p_agent: viewer.agentId, p_action: round, p_target: target,
-    p_limit: FREE_ROUNDS, p_from: FREE_ROUNDS_FROM.toISOString(), p_rounds: [...AI_ROUNDS],
+    p_limit: limit, p_from: from.toISOString(), p_rounds: [...AI_ROUNDS],
   });
   if (error) throw new Error(`ins_take_free_round: ${error.message}`);
   if (data === null || data === undefined) return null;
@@ -98,13 +124,22 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
   // the owner has no allowance to count against; the content ceiling covers them. Assistants
   // used to be let through here too, until the owner gave them wallets (2026-10-02)
   if (can(viewer, "owner")) return { ok: true, paidBy: "staff", agentId: viewer.agentId };
-  const freeId = await takeFreeRound(viewer, round, target).catch((e) => {
+  // an outside member needs a live pass for any round (owner, 2026-10-13); a pass that cannot
+  // be read refuses the round, never lets it through. Read once: the window comes from it too
+  const access = await memberAccess(viewer).catch((e) => {
+    console.error(`round ${round} refused, pass unreadable:`, e);
+    return null;
+  });
+  if (!access) return { ok: false, refusal: PASS_UNREADABLE };
+  if (!passOpen(access)) return { ok: false, refusal: PASS_EXPIRED };
+  const window = windowOf(access);
+  const freeId = await takeFreeRound(viewer, round, target, window).catch((e) => {
     console.error(`round ${round} not counted, refused:`, e);
     return undefined;
   });
   if (freeId === undefined) return { ok: false, refusal: UNCOUNTED };
   if (freeId !== null) return { ok: true, paidBy: "free", auditId: freeId, agentId: viewer.agentId };
-  const refusal = overAllowance({ limit: FREE_ROUNDS, used: FREE_ROUNDS }) ?? "";
+  const refusal = overAllowance({ limit: window.limit, used: window.limit }) ?? "";
   // an unreadable wallet is a closed one: the round is refused, never let through unpaid
   const settings = await walletSettings().catch((e) => {
     console.error("wallet settings unreadable:", e);

@@ -9,6 +9,7 @@ import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
 import { can } from "@/lib/auth/access";
 import type { Viewer } from "@/lib/auth/access";
+import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
 import { siteUrl } from "@/lib/site-url";
 import { formatBaht } from "@/lib/wallet/money";
 import type { Prices } from "@/lib/wallet/prices";
@@ -131,6 +132,13 @@ export async function costView(viewer: Viewer): Promise<CostView> {
 export async function createVideo(viewer: Viewer, input: ClipInput, customer: string): Promise<{ id: string } | { refusal: string }> {
   let pay: Partial<VideoRow> = { paid_by: "staff" };
   if (!can(viewer, "owner")) {
+    // an outside member makes clips while their pass is live (owner, 2026-10-13); unreadable refuses
+    const access = await memberAccess(viewer).catch((e) => {
+      console.error("quote video refused, pass unreadable:", e);
+      return null;
+    });
+    if (!access) return { refusal: PASS_UNREADABLE };
+    if (!passOpen(access)) return { refusal: PASS_EXPIRED };
     if ((await freeUsed(viewer.agentId)) < FREE_VIDEOS) pay = { paid_by: "free" };
     else {
       const s = await walletSettings().catch(() => null);
