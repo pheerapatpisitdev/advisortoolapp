@@ -2,7 +2,9 @@ import "../home-theme.css";
 import { openingGuide } from "@/lib/copilot/guide";
 import { Chat } from "../Chat";
 import { AppShell } from "@/components/shell/AppShell";
+import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
 import { gatePage, whoOf } from "@/lib/auth/viewer";
+import { memberAccess } from "@/lib/members/access";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,8 @@ export const metadata = {
 export default async function Home() {
   // members only (owner, 2026-10-12: "เป็นระบบปิด"): somebody not signed in signs in first
   const viewer = await gatePage("/home");
+  // a member's last three days: the bar over the chat (owner, 2026-10-13)
+  const reminder = await reminderOf(viewer, memberAccess);
   return (
     <div className="home-chat">
       {/* who is signed in, for the foot of the menu: their name and ออกจากระบบ, or เข้าสู่ระบบ */}
@@ -24,6 +28,9 @@ export default async function Home() {
       {/* No row kept free for the phone's menu button: the chat decides for itself whether its
           heading sits beside that button or under it — see `Chat`. */}
       <div className="mx-auto flex h-[100dvh] max-w-3xl flex-col px-4 pb-4 pt-3 sm:pb-5 lg:pt-5">
+        {/* inside the screen-tall column, so the chat gives up the bar's height; clear of the
+            phone's menu button, which is fixed at the top left */}
+        {reminder && <div className="mb-2 shrink-0 max-lg:ml-12"><PassReminder {...reminder} /></div>}
         {/* built on the server from the plan registry, so a new plan brings its own button */}
         <Chat guide={openingGuide()} />
       </div>

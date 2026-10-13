@@ -1,0 +1,172 @@
+"use client";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { priceLabel } from "@/components/shell/PassReminder";
+import { daysLeft, PASS_DAYS, type PassRow, type Period } from "@/lib/members/pass";
+import { CARD_FROM_THB, formatBaht } from "@/lib/wallet/money";
+import { passConfirmed, startPass } from "./actions";
+
+/** The pass as the page reads it: PassState with its dates as ISO strings. */
+export type PassView =
+  | { status: "live"; kind: Period["kind"]; end: string; periodEnd: string }
+  | { status: "expired"; end: string }
+  | { status: "none" };
+
+const TZ = "Asia/Bangkok";
+const fullDate = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { timeZone: TZ, day: "numeric", month: "short", year: "numeric" });
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { timeZone: TZ, day: "numeric", month: "short" });
+
+/** one line of the history, in the mockup's words (owner, 2026-10-13) */
+function historyLabel(r: PassRow): string {
+  switch (r.kind) {
+    case "trial": return `ทดลองใช้ฟรี · +${r.days} วัน`;
+    case "paid": return `จ่าย ${priceLabel(r.amountSatang ?? 0)} · +${r.days} วัน`;
+    case "granted": return `เพิ่มให้โดยเจ้าของ · +${r.days} วัน${r.note ? ` · ${r.note}` : ""}`;
+    // the webhook notes "refund …" or "dispute …" (src/lib/members/pass-store.ts revokePaidPass)
+    case "revoked": return r.note?.startsWith("dispute") ? "ยกเลิกเพราะโต้แย้งการชำระเงิน" : "ยกเลิกเพราะคืนเงิน";
+  }
+}
+
+/** polls every two seconds for up to thirty after Stripe sends the member back */
+const POLL_MS = 2000;
+const POLL_TRIES = 15;
+
+export function MembershipClient({ on, pass, now, rounds, passRounds, priceSatang, balanceSatang, rows, paid }: {
+  /** false while the owner has the pass switched off: members use the app free */
+  on: boolean;
+  pass: PassView;
+  now: string;
+  /** this period's free Studio rounds; null when they could not be counted or there is no live pass */
+  rounds: { left: number; limit: number } | null;
+  /** what a renewal brings, from the owner's settings */
+  passRounds: number;
+  priceSatang: number;
+  /** null when the wallet could not be read */
+  balanceSatang: number | null;
+  rows: PassRow[];
+  /** the Checkout Session Stripe came back with, if any */
+  paid: string | null;
+}) {
+  const router = useRouter();
+  const [waiting, setWaiting] = useState<"checking" | "late" | null>(paid ? "checking" : null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  useEffect(() => {
+    if (!paid) return;
+    let tries = 0;
+    let stop = false;
+    const tick = async () => {
+      if (stop) return;
+      const done = await passConfirmed(paid).catch(() => false);
+      if (stop) return;
+      if (done) {
+        setWaiting(null);
+        // the status above was read before the days came: read the page again
+        router.refresh();
+        return;
+      }
+      if (++tries >= POLL_TRIES) {
+        setWaiting("late");
+        router.refresh();
+        return;
+      }
+      setTimeout(tick, POLL_MS);
+    };
+    void tick();
+    return () => { stop = true; };
+  }, [paid, router]);
+
+  const renew = () => start(async () => {
+    setError(null);
+    const r = await startPass();
+    if (r.ok) window.location.assign(r.url);
+    else setError(r.error);
+  });
+
+  if (!on) {
+    return (
+      <div className="mx-auto max-w-xl space-y-6">
+        <section className="rounded-xl bg-[var(--ct-soft)] p-5 text-[var(--ct-accent)]">
+          <p className="text-sm">สถานะสมาชิก</p>
+          <p className="mt-1 text-2xl font-semibold">ตอนนี้สมาชิกใช้งานได้ฟรี</p>
+          <p className="mt-1 text-sm">ถาม AI และ Studio ใช้ได้ตามปกติ</p>
+        </section>
+      </div>
+    );
+  }
+
+  const nowDate = new Date(now);
+  const live = pass.status === "live" ? pass : null;
+  // a trial with a paid month stacked after it is no longer "free until": it reads as paid
+  const trial = live?.kind === "trial" && live.periodEnd === live.end;
+  const left = live ? daysLeft(new Date(live.end), nowDate) : 0;
+  const card = priceSatang >= CARD_FROM_THB * 100;
+  const method = card ? "พร้อมเพย์ หรือ บัตร" : "จ่ายด้วยพร้อมเพย์";
+  const history = [...rows].reverse();
+
+  return (
+    <div className="mx-auto max-w-xl space-y-5">
+      <h1 className="text-xl font-semibold">สมาชิก</h1>
+
+      {live ? (
+        <section className={`rounded-xl p-5 ${trial ? "bg-[var(--ct-warn-bg)] text-[var(--ct-warn-ink)]" : "bg-[var(--ct-soft)] text-[var(--ct-accent)]"}`}>
+          <p className="text-sm">สถานะสมาชิก</p>
+          <p className="mt-1 text-2xl font-semibold">{trial ? "ทดลองใช้ฟรีถึง" : "ใช้ได้ถึง"} {fullDate(live.end)}</p>
+          <p className="mt-1 text-sm">เหลือ {left} วัน · ถาม AI ไม่จำกัด</p>
+        </section>
+      ) : (
+        <section className="rounded-xl bg-[var(--ct-alert-bg)] p-5 text-[var(--ct-alert)]">
+          <p className="text-sm">สถานะสมาชิก</p>
+          <p className="mt-1 text-2xl font-semibold">หมดอายุแล้ว</p>
+          <p className="mt-1 text-sm">
+            {pass.status === "expired" ? `เมื่อ ${fullDate(pass.end)} · ` : ""}ต่ออายุเพื่อใช้ถาม AI และ Studio ต่อ (ได้ Studio ฟรี {passRounds} รอบใหม่)
+          </p>
+        </section>
+      )}
+
+      {waiting === "checking" && <p className="text-sm font-medium" role="status">กำลังยืนยันการชำระเงิน…</p>}
+      {waiting === "late" && <p className="text-sm" role="status">ยังไม่ได้รับการยืนยันจาก Stripe — วันจะเพิ่มเข้ามาเองเมื่อ Stripe แจ้ง ลองเปิดหน้านี้ใหม่ภายหลังนะครับ</p>}
+
+      {live && rounds && (
+        <section className="rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
+          <p className="font-semibold">Studio ฟรีเหลือ {rounds.left}/{rounds.limit} รอบ</p>
+          <p className="mt-1 text-sm text-[var(--ct-mute)]">
+            {trial
+              ? `ช่วงทดลองได้ ${rounds.limit} รอบ · จ่ายแล้วได้ ${passRounds} รอบใหม่ทุก ${PASS_DAYS} วัน`
+              : `ได้ ${passRounds} รอบใหม่ ${shortDate(live.periodEnd)} · รอบที่เหลือไม่สะสม · เกินแล้วหักกระเป๋าตามราคา`}
+          </p>
+        </section>
+      )}
+
+      <div className="space-y-2">
+        <button type="button" disabled={pending} onClick={renew}
+          className="block w-full rounded-xl bg-[var(--ct-solid)] px-4 py-3 text-center font-semibold text-[var(--ct-solid-ink)] disabled:opacity-50">
+          {live && !trial ? "ต่ออายุอีก" : "ต่ออายุ"} {PASS_DAYS} วัน {priceLabel(priceSatang)}
+          <span className="block text-xs font-normal opacity-85">
+            {live && !trial ? `นับต่อจาก ${shortDate(live.end)} · ${method}` : method}
+          </span>
+        </button>
+        {error && <p className="text-sm text-[var(--ct-alert)]" role="alert">{error}</p>}
+        {trial && <p className="text-xs text-[var(--ct-mute)]">จ่ายตอนนี้ วันทดลองที่เหลือไม่หาย {PASS_DAYS} วันนับต่อจาก {shortDate(live.end)}</p>}
+        {!live && balanceSatang !== null && balanceSatang > 0 && (
+          <p className="text-xs text-[var(--ct-mute)]">เงินในกระเป๋า Studio {formatBaht(balanceSatang)} ยังอยู่ครบ ใช้ได้อีกเมื่อต่ออายุ</p>
+        )}
+      </div>
+
+      {history.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium">ประวัติ</h2>
+          <ul className="divide-y divide-[var(--ct-hair)] rounded-xl border border-[var(--ct-hair)]">
+            {history.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+                <span className="min-w-0">{historyLabel(r)}</span>
+                <span className="shrink-0 tabular-nums text-[var(--ct-mute)]">{fullDate(r.createdAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
