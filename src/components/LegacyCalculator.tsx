@@ -96,61 +96,68 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
     : undefined;
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
-        <div>
-          <label htmlFor="legacy-sum" className="block text-sm text-[var(--lg-mute)]">
-            อยากให้ครอบครัวได้รับเท่าไหร่
-          </label>
-          <div className="lg-figure mt-1.5 text-3xl tabular-nums">
-            <span className="lg-metal-text">{(millions * 1_000_000).toLocaleString("en-US")}</span>{" "}
-            <span className="text-lg text-[var(--lg-mute)]">บาท</span>
-          </div>
-          <input
-            id="legacy-sum" type="range" min={1} max={table.tiers} step={1} value={millions}
-            onChange={(e) => setMillions(Number(e.target.value))}
-            className="mt-4 w-full accent-[var(--lg-gold)]"
-          />
-          <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
-            <span>1 ล้าน</span>
-            <span>{table.tiers} ล้าน</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+    <div className="calc-split flex flex-col gap-6">
+      {/* the left column on a wide screen (calc-side); on one column it dissolves (contents) */}
+      <div className="calc-side contents">
+        <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
           <div>
-            <label htmlFor="legacy-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
-            {/* a picker rather than a number field: on a phone it opens the wheel instead of
-                the keypad, and there is no way to arrive at an age nobody is */}
-            <select
-              id="legacy-age" value={age}
-              onChange={(e) => setAge(e.target.value === "" || e.target.value === "other"
-                ? (e.target.value as LegacyAge)
-                : Number(e.target.value))}
-              className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
-            >
-              <option value="">เลือกอายุ</option>
-              {AGES.map((a) => <option key={a} value={a}>{a} ปี</option>)}
-              <option value="other">อายุอื่น</option>
-            </select>
-          </div>
-          <div>
-            <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
-            <div className="mt-1.5 grid grid-cols-2 gap-2">
-              {(["M", "F"] as Sex[]).map((s) => (
-                <button
-                  key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
-                  className={`rounded-sm border py-2.5 text-sm transition-colors ${
-                    sex === s
-                      ? "lg-metal-face border-[var(--lg-gold)] font-medium"
-                      : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                  }`}
-                >
-                  {s === "M" ? "ชาย" : "หญิง"}
-                </button>
-              ))}
+            <label htmlFor="legacy-sum" className="block text-sm text-[var(--lg-mute)]">
+              อยากให้ครอบครัวได้รับเท่าไหร่
+            </label>
+            <div className="lg-figure mt-1.5 text-3xl tabular-nums">
+              <span className="lg-metal-text">{(millions * 1_000_000).toLocaleString("en-US")}</span>{" "}
+              <span className="text-lg text-[var(--lg-mute)]">บาท</span>
+            </div>
+            <input
+              id="legacy-sum" type="range" min={1} max={table.tiers} step={1} value={millions}
+              onChange={(e) => setMillions(Number(e.target.value))}
+              className="mt-4 w-full accent-[var(--lg-gold)]"
+            />
+            <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
+              <span>1 ล้าน</span>
+              <span>{table.tiers} ล้าน</span>
             </div>
           </div>
+  
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="legacy-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
+              {/* a picker rather than a number field: on a phone it opens the wheel instead of
+                  the keypad, and there is no way to arrive at an age nobody is */}
+              <select
+                id="legacy-age" value={age}
+                onChange={(e) => setAge(e.target.value === "" || e.target.value === "other"
+                  ? (e.target.value as LegacyAge)
+                  : Number(e.target.value))}
+                className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
+              >
+                <option value="">เลือกอายุ</option>
+                {AGES.map((a) => <option key={a} value={a}>{a} ปี</option>)}
+                <option value="other">อายุอื่น</option>
+              </select>
+            </div>
+            <div>
+              <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                {(["M", "F"] as Sex[]).map((s) => (
+                  <button
+                    key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
+                    className={`rounded-sm border py-2.5 text-sm transition-colors ${
+                      sex === s
+                        ? "lg-metal-face border-[var(--lg-gold)] font-medium"
+                        : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                    }`}
+                  >
+                    {s === "M" ? "ชาย" : "หญิง"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
+        <div className="order-2">
+          <ContactButtons copyText={quoteText} cardPath={card} diseaseCardPath={diseaseCardPath("DCI")} />
         </div>
       </div>
 
@@ -228,7 +235,6 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
       )}
 
       {/* the illness list goes out with or without a price, as on iShield */}
-      <ContactButtons copyText={quoteText} cardPath={card} diseaseCardPath={diseaseCardPath("DCI")} />
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">

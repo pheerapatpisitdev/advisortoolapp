@@ -1,10 +1,8 @@
 import { LegacyCalculator } from "@/components/LegacyCalculator";
 import { legacyTable } from "@/lib/legacy-table";
 import { legacyFacts } from "@/lib/legacy-facts";
-import { Hero } from "@/components/legacy/Hero";
-import {
-  DifferenceSection, DiseaseSection, Disclaimer, FaqSection, StructureSection, WhySection,
-} from "@/components/legacy/Sections";
+import { CalcTitle } from "@/components/sales/CalcTitle";
+import { DiseaseSection, Disclaimer } from "@/components/legacy/Sections";
 
 export const metadata = {
   title: "มรดกเพื่อครอบครัว — เตรียมเงินก้อนให้คนข้างหลัง",
@@ -24,20 +22,20 @@ export const metadata = {
 // One column at every width, the same measure as /lifeprotect: a phone gets the narrowest
 // it can hold, a tablet and a desktop a wider one, without the prose lines growing too
 // long to follow.
+/**
+ * An agents' tool since 2026-10-14 (owner: the system is closed, so the selling went and the
+ * calculator stays): the plan's name and facts, the calculator, and the legal lines.
+ */
 export default async function LegacyPage() {
   const table = legacyTable();
   const facts = legacyFacts();
   return (
-    <main className="mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10">
-      <Hero facts={facts} />
+    <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
+      <CalcTitle name="มรดกเพื่อครอบครัว" facts={[`รับอายุ ${facts.ageMin}–${facts.ageMax} ปี`]} />
       <section id="calc" className="scroll-mt-4">
         <LegacyCalculator table={table} sticky />
       </section>
-      <WhySection />
-      <DifferenceSection facts={facts} />
-      <StructureSection facts={facts} />
       <DiseaseSection />
-      <FaqSection facts={facts} />
       <Disclaimer facts={facts} />
     </main>
   );

@@ -202,7 +202,7 @@ function planFacts(v: Extract<VideoInput, { variant: string }>, today: Date): Qu
  * from the early stage of 70 illnesses, the early stage read first and claimable again for
  * another illness; the major stage pays up to the whole sum less what the early stage paid;
  * the death and maturity sums are the full sum only when nothing was claimed. The premium is
- * level. Sources: src/components/ishield/Sections.tsx and src/lib/assistant/ishield/faq.ts.
+ * level. Sources: the iShield page FAQ (removed 2026-10-14, in git history) and src/lib/assistant/ishield/faq.ts.
  */
 function iShieldShape(f: QuoteVideoFacts, footNote: string | undefined, payYears: number, coverToAge: number): QuoteVideoFacts {
   const ill = iShieldTable().illness;

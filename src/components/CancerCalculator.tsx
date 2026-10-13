@@ -62,67 +62,74 @@ export function CancerCalculator({ table, sticky = false }: { table: CancerTable
     : undefined;
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
-        <div>
-          <span className="block text-sm text-[var(--lg-mute)]">ทุนคุ้มครองโรคมะเร็ง</span>
-          <div className="lg-figure mt-1.5 text-3xl tabular-nums">
-            <span className="lg-metal-text">{t.cpr.toLocaleString("en-US")}</span>{" "}
-            <span className="text-lg text-[var(--lg-mute)]">บาท</span>
-          </div>
-          <div className="mt-1 text-sm text-[var(--lg-mute)]">
-            + ชดเชยนอนโรงพยาบาล{" "}
-            <span className="lg-figure tabular-nums text-[var(--lg-white)]">วันละ {t.hic.toLocaleString("en-US")}</span> บาท
-          </div>
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            {table.tiers.map((x, i) => (
-              <button
-                key={x.cpr + "-" + x.hic} type="button" onClick={() => setTier(i + 1)} aria-pressed={tier === i + 1}
-                className={`rounded-sm border py-2 text-sm leading-tight tabular-nums transition-colors ${
-                  tier === i + 1
-                    ? "lg-metal-face border-[var(--lg-gold)] font-medium"
-                    : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                }`}
-              >
-                {sumWords(x.cpr)}
-                <span className="block text-[0.68rem] opacity-80">วันละ {x.hic.toLocaleString("en-US")}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+    <div className="calc-split flex flex-col gap-6">
+      {/* the left column on a wide screen (calc-side); on one column it dissolves (contents) */}
+      <div className="calc-side contents">
+        <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
           <div>
-            <label htmlFor="cancer-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
-            <select
-              id="cancer-age" value={age}
-              onChange={(e) => setAge(e.target.value === "" || e.target.value === "other"
-                ? (e.target.value as CancerAge)
-                : Number(e.target.value))}
-              className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
-            >
-              <option value="">เลือกอายุ</option>
-              {AGES.map((a) => <option key={a} value={a}>{a === 0 ? "ต่ำกว่า 1 ปี" : `${a} ปี`}</option>)}
-              <option value="other">อายุอื่น</option>
-            </select>
-          </div>
-          <div>
-            <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
-            <div className="mt-1.5 grid grid-cols-2 gap-2">
-              {(["M", "F"] as Sex[]).map((s) => (
+            <span className="block text-sm text-[var(--lg-mute)]">ทุนคุ้มครองโรคมะเร็ง</span>
+            <div className="lg-figure mt-1.5 text-3xl tabular-nums">
+              <span className="lg-metal-text">{t.cpr.toLocaleString("en-US")}</span>{" "}
+              <span className="text-lg text-[var(--lg-mute)]">บาท</span>
+            </div>
+            <div className="mt-1 text-sm text-[var(--lg-mute)]">
+              + ชดเชยนอนโรงพยาบาล{" "}
+              <span className="lg-figure tabular-nums text-[var(--lg-white)]">วันละ {t.hic.toLocaleString("en-US")}</span> บาท
+            </div>
+            <div className="mt-4 grid grid-cols-4 gap-2">
+              {table.tiers.map((x, i) => (
                 <button
-                  key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
-                  className={`rounded-sm border py-2.5 text-sm transition-colors ${
-                    sex === s
+                  key={x.cpr + "-" + x.hic} type="button" onClick={() => setTier(i + 1)} aria-pressed={tier === i + 1}
+                  className={`rounded-sm border py-2 text-sm leading-tight tabular-nums transition-colors ${
+                    tier === i + 1
                       ? "lg-metal-face border-[var(--lg-gold)] font-medium"
                       : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
                   }`}
                 >
-                  {s === "M" ? "ชาย" : "หญิง"}
+                  {sumWords(x.cpr)}
+                  <span className="block text-[0.68rem] opacity-80">วันละ {x.hic.toLocaleString("en-US")}</span>
                 </button>
               ))}
             </div>
           </div>
+  
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="cancer-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
+              <select
+                id="cancer-age" value={age}
+                onChange={(e) => setAge(e.target.value === "" || e.target.value === "other"
+                  ? (e.target.value as CancerAge)
+                  : Number(e.target.value))}
+                className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
+              >
+                <option value="">เลือกอายุ</option>
+                {AGES.map((a) => <option key={a} value={a}>{a === 0 ? "ต่ำกว่า 1 ปี" : `${a} ปี`}</option>)}
+                <option value="other">อายุอื่น</option>
+              </select>
+            </div>
+            <div>
+              <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                {(["M", "F"] as Sex[]).map((s) => (
+                  <button
+                    key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
+                    className={`rounded-sm border py-2.5 text-sm transition-colors ${
+                      sex === s
+                        ? "lg-metal-face border-[var(--lg-gold)] font-medium"
+                        : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                    }`}
+                  >
+                    {s === "M" ? "ชาย" : "หญิง"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
+        <div className="order-2">
+          <ContactButtons copyText={quoteText} cardPath={card} />
         </div>
       </div>
 
@@ -261,7 +268,6 @@ export function CancerCalculator({ table, sticky = false }: { table: CancerTable
         <AllTiers table={table} age={age} sex={sex} tier={tier} onPick={setTier} />
       )}
 
-      <ContactButtons copyText={quoteText} cardPath={card} />
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">

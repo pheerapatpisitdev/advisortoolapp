@@ -116,103 +116,114 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   }
 
   return (
-    <div className="pension-tool space-y-6">
-        <div className="grid gap-6">
-          <div className="space-y-4 rounded-lg border border-[var(--op-line)] bg-[var(--op-panel)] p-4">
-            <InsuredFields age={age} sex={sex} ageRange={{ min: PENSION_LIMITS.ageMin, max: PENSION_LIMITS.ageMax }}
-                           onChange={(p) => { if (p.age !== undefined) setAge(p.age); if (p.sex) setSex(p.sex); }} />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium">ชำระเบี้ย</label>
-                <select className={field} value={pay} onChange={(e) => setPay(e.target.value as PensionPay)}>
-                  <option value="untilAnnuity">จนถึงอายุรับบำนาญ</option>
-                  <option value="6">6 ปี</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium">เริ่มรับบำนาญอายุ</label>
-                <select className={field} value={chosenAge} disabled={!ages.length}
-                        onChange={(e) => setAnnuityAge(Number(e.target.value))}>
-                  {ages.map((a) => <option key={a} value={a}>{a} ปี</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <span className="block text-sm font-medium">คำนวณจาก</span>
-              <div role="radiogroup" aria-label="คำนวณจาก" className="mt-1 grid grid-cols-3 gap-1 rounded-lg border border-[var(--op-line)] p-1">
-                {(Object.keys(BASIS_TAB) as PensionBasis[]).map((b) => (
-                  <button key={b} type="button" role="radio" aria-checked={basis === b} onClick={() => switchBasis(b)}
-                          className={`rounded-md px-2 py-2 text-sm font-medium ${basis === b
-                            ? "bg-[var(--op-accent)] text-[var(--op-panel)]"
-                            : "text-[var(--op-mute)] hover:bg-[var(--op-figure-bg)]"}`}>
-                    {BASIS_TAB[b]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium">{BASIS_LABEL[basis]} (บาท)</label>
-                <MoneyInput value={amount} onChange={setAmount} className={field} hint={BASIS_HINT[basis]} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium">งวดชำระ</label>
-                <select className={field} value={mode} onChange={(e) => setMode(e.target.value as PensionMode)}>
-                  {(Object.keys(MODE_LABEL) as PensionMode[]).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <fieldset className="space-y-3 border-t border-[var(--op-line)] pt-4">
-              <legend className="text-sm font-semibold">สัญญาเพิ่มเติม</legend>
+    <div className="pension-tool calc-split flex flex-col gap-6">
+        {/* contents: its two panels are items of the calculator itself, so the inputs can join the left column */}
+        <div className="contents">
+          {/* the left column on a wide screen (calc-side); on one column it dissolves (contents) */}
+          <div className="calc-side contents">
+            <div className="space-y-4 rounded-lg border border-[var(--op-line)] bg-[var(--op-panel)] p-4">
+              <InsuredFields age={age} sex={sex} ageRange={{ min: PENSION_LIMITS.ageMin, max: PENSION_LIMITS.ageMax }}
+                             onChange={(p) => { if (p.age !== undefined) setAge(p.age); if (p.sex) setSex(p.sex); }} />
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium">ยกเว้นเบี้ย</label>
-                  <select className={field} value={waiver} onChange={(e) => setWaiver(e.target.value as typeof waiver)}>
-                    <option value="none">ไม่ซื้อ</option>
-                    <option value="WP">WP — ผู้เอาประกันเป็นอะไรไป</option>
-                    <option value="PB">PB — ผู้ชำระเบี้ยเป็นอะไรไป</option>
+                  <label className="block text-sm font-medium">ชำระเบี้ย</label>
+                  <select className={field} value={pay} onChange={(e) => setPay(e.target.value as PensionPay)}>
+                    <option value="untilAnnuity">จนถึงอายุรับบำนาญ</option>
+                    <option value="6">6 ปี</option>
                   </select>
                 </div>
-                {waiver !== "none" && (
-                  <div>
-                    <label className="block text-sm font-medium">แผน</label>
-                    <select className={field} value={waiverOption} onChange={(e) => setWaiverOption(e.target.value as WaiverOption)}>
-                      <option value="FIT">Fit (เสียชีวิต/ทุพพลภาพ)</option>
-                      <option value="BEYOND">Beyond (+โรคร้ายแรง)</option>
-                    </select>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium">เริ่มรับบำนาญอายุ</label>
+                  <select className={field} value={chosenAge} disabled={!ages.length}
+                          onChange={(e) => setAnnuityAge(Number(e.target.value))}>
+                    {ages.map((a) => <option key={a} value={a}>{a} ปี</option>)}
+                  </select>
+                </div>
               </div>
-              {waiver === "PB" && (
+              <div>
+                <span className="block text-sm font-medium">คำนวณจาก</span>
+                <div role="radiogroup" aria-label="คำนวณจาก" className="mt-1 grid grid-cols-3 gap-1 rounded-lg border border-[var(--op-line)] p-1">
+                  {(Object.keys(BASIS_TAB) as PensionBasis[]).map((b) => (
+                    <button key={b} type="button" role="radio" aria-checked={basis === b} onClick={() => switchBasis(b)}
+                            className={`rounded-md px-2 py-2 text-sm font-medium ${basis === b
+                              ? "bg-[var(--op-accent)] text-[var(--op-panel)]"
+                              : "text-[var(--op-mute)] hover:bg-[var(--op-figure-bg)]"}`}>
+                      {BASIS_TAB[b]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium">{BASIS_LABEL[basis]} (บาท)</label>
+                  <MoneyInput value={amount} onChange={setAmount} className={field} hint={BASIS_HINT[basis]} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">งวดชำระ</label>
+                  <select className={field} value={mode} onChange={(e) => setMode(e.target.value as PensionMode)}>
+                    {(Object.keys(MODE_LABEL) as PensionMode[]).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
+                  </select>
+                </div>
+              </div>
+  
+              <fieldset className="space-y-3 border-t border-[var(--op-line)] pt-4">
+                <legend className="text-sm font-semibold">สัญญาเพิ่มเติม</legend>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium">อายุผู้ชำระเบี้ย</label>
-                    <input type="number" inputMode="numeric" min={20} max={70} className={field} value={payerAge}
-                           onChange={(e) => setPayerAge(e.target.value === "" ? "" : Number(e.target.value))} />
-                    <p className="mt-1 text-xs text-[var(--op-mute)]">20–70 ปี</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium">เพศผู้ชำระเบี้ย</label>
-                    <select className={field} value={payerSex} onChange={(e) => setPayerSex(e.target.value as "M" | "F")}>
-                      <option value="M">ชาย</option>
-                      <option value="F">หญิง</option>
+                    <label className="block text-sm font-medium">ยกเว้นเบี้ย</label>
+                    <select className={field} value={waiver} onChange={(e) => setWaiver(e.target.value as typeof waiver)}>
+                      <option value="none">ไม่ซื้อ</option>
+                      <option value="WP">WP — ผู้เอาประกันเป็นอะไรไป</option>
+                      <option value="PB">PB — ผู้ชำระเบี้ยเป็นอะไรไป</option>
                     </select>
                   </div>
+                  {waiver !== "none" && (
+                    <div>
+                      <label className="block text-sm font-medium">แผน</label>
+                      <select className={field} value={waiverOption} onChange={(e) => setWaiverOption(e.target.value as WaiverOption)}>
+                        <option value="FIT">Fit (เสียชีวิต/ทุพพลภาพ)</option>
+                        <option value="BEYOND">Beyond (+โรคร้ายแรง)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
-              )}
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input type="checkbox" checked={dciOn} onChange={(e) => setDciOn(e.target.checked)} />
-                DCI — โรคร้ายแรง
-              </label>
-              {dciOn && (
-                <div>
-                  <label className="block text-sm font-medium">ทุน DCI (บาท)</label>
-                  <MoneyInput value={dciSum} onChange={setDciSum} className={field}
-                              hint={`${DCI_LIMITS.saMin.toLocaleString("en-US")}–${DCI_LIMITS.saMax.toLocaleString("en-US")} บาท · อายุ ${DCI_LIMITS.ageMin}–${DCI_LIMITS.ageMax} ปี · คุ้มครองถึงอายุ ${DCI_LIMITS.coverToAge}`} />
-                </div>
-              )}
-            </fieldset>
+                {waiver === "PB" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium">อายุผู้ชำระเบี้ย</label>
+                      <input type="number" inputMode="numeric" min={20} max={70} className={field} value={payerAge}
+                             onChange={(e) => setPayerAge(e.target.value === "" ? "" : Number(e.target.value))} />
+                      <p className="mt-1 text-xs text-[var(--op-mute)]">20–70 ปี</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium">เพศผู้ชำระเบี้ย</label>
+                      <select className={field} value={payerSex} onChange={(e) => setPayerSex(e.target.value as "M" | "F")}>
+                        <option value="M">ชาย</option>
+                        <option value="F">หญิง</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={dciOn} onChange={(e) => setDciOn(e.target.checked)} />
+                  DCI — โรคร้ายแรง
+                </label>
+                {dciOn && (
+                  <div>
+                    <label className="block text-sm font-medium">ทุน DCI (บาท)</label>
+                    <MoneyInput value={dciSum} onChange={setDciSum} className={field}
+                                hint={`${DCI_LIMITS.saMin.toLocaleString("en-US")}–${DCI_LIMITS.saMax.toLocaleString("en-US")} บาท · อายุ ${DCI_LIMITS.ageMin}–${DCI_LIMITS.ageMax} ปี · คุ้มครองถึงอายุ ${DCI_LIMITS.coverToAge}`} />
+                  </div>
+                )}
+              </fieldset>
+            </div>
+            {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
+            <div className="order-2">
+              <ContactButtons
+                copyText={copyText}
+                videoHref={q && age !== "" ? videoStartHref({ product: "PENSION", sex, age, sumAssured: q.sumAssured, annuityAge: chosenAge, pay }) : undefined}
+              />
+            </div>
           </div>
 
           <div className="space-y-4 rounded-lg border border-[var(--op-line)] bg-[var(--op-panel)] p-4">
@@ -298,7 +309,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
         </div>
 
         {q && (
-          <section className="mt-6 rounded-lg border border-[var(--op-line)] bg-[var(--op-panel)] p-4">
+          <section className="rounded-lg border border-[var(--op-line)] bg-[var(--op-panel)] p-4">
             {/* open by default: the owner wants the year-by-year figures in view, not behind a press */}
             <h3 className="text-sm font-semibold">ตารางผลประโยชน์รายปี</h3>
               <div className="mt-3 overflow-x-auto">
@@ -356,10 +367,6 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
           </section>
         )}
 
-        <ContactButtons
-          copyText={copyText}
-          videoHref={q && age !== "" ? videoStartHref({ product: "PENSION", sex, age, sumAssured: q.sumAssured, annuityAge: chosenAge, pay }) : undefined}
-        />
         {sticky && copyText && (
           <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
             <ContactButtons copyText={copyText} compact />

@@ -11,7 +11,7 @@ import diseases from "../../../../data/riders/ishield-diseases.json";
  *      seventy (data/riders/ishield-diseases.json, the list /ishield shows), and what that pays
  *      on the customer's sum;
  *   2. the seven questions /ishield answers under คำถามที่พบบ่อย, in the page's own words
- *      (src/components/ishield/Sections.tsx) — the owner has read those;
+ *      (the FAQ removed 2026-10-14 from src/components/ishield/Sections.tsx) — the owner has read those;
  *   3. anything else: the admin checks and answers in the chat, and the question is written
  *      down for /admin/crm. Tax relief is here until the owner gives a confirmed sentence.
  */

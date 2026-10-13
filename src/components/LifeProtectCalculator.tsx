@@ -375,301 +375,311 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   ) : null;
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
-        <BudgetSwitch
-          byBudget={byBudget}
-          onChange={(on) => {
-            // leaving the budget keeps the sum it bought, so the sum field does not jump back;
-            // a sum the slider's steps skip (750,000) becomes one more stop, as a typed one does
-            if (!on && fit) {
-              const stops = sums.includes(fit.sum) ? sums : [...sums, fit.sum].sort((a, b) => a - b);
-              setSums(stops);
-              setSumIndex(stops.indexOf(fit.sum));
-            }
-            setByBudget(on);
-          }}
-        />
-        {byBudget && (
-          <div>
-            <BudgetBox id="lp-budget" budget={budget} onChange={setBudget} />
-            {ageNum !== undefined && (
-              <BudgetOutcome
-                budget={budget} fit={fit} minMonthly={table.minMonthly}
-                least={(() => {
-                  const floor = LIFEPROTECT_BUDGET_SUMS[0];
-                  const m = lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: floor })
-                    ?.find((x) => x.mode === (budget.per === "month" ? "monthly" : "annual"));
-                  return m ? { sum: floor, total: m.total } : undefined;
-                })()}
-              />
-            )}
-          </div>
-        )}
-        {!byBudget && (
-        <div>
-          <label htmlFor="lp-sum-typed" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
-          {/* the figure itself is the field: the slider goes near, typing lands on the exact sum */}
-          <div className="lg-figure mt-1.5 flex items-baseline gap-2 text-3xl tabular-nums">
-            <input
-              id="lp-sum-typed" type="text" inputMode="numeric" autoComplete="off"
-              value={sumTyped ?? sumAssured.toLocaleString("en-US")}
-              // a tap starts a fresh number (a click's mouseup undoes select(), so typing would
-              // land after the old digits); leaving it empty puts the old sum back
-              placeholder={sumAssured.toLocaleString("en-US")}
-              onFocus={() => setSumTyped("")}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
-                setSumTyped(digits === "" ? "" : Number(digits).toLocaleString("en-US"));
-              }}
-              onBlur={settleSum}
-              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-              className="lg-metal-text w-[11ch] border-b border-dashed border-[var(--lg-hair)] bg-transparent outline-none focus:border-[var(--lg-gold)]"
-            />
-            <span className="text-lg text-[var(--lg-mute)]">บาท</span>
-          </div>
-          <p className="mt-1 text-xs text-[var(--lg-mute)] opacity-70">แตะตัวเลขเพื่อพิมพ์ทุน · ขั้นละ 150,000</p>
-          <input
-            id="lp-sum" aria-label="ทุนประกัน" type="range" min={0} max={sums.length - 1} step={1} value={sumIndex}
-            onChange={(e) => setSumIndex(Number(e.target.value))}
-            className="mt-4 w-full accent-[var(--lg-gold)]"
+    <div className="calc-split flex flex-col gap-6">
+      {/* the left column on a wide screen (calc-side); on one column it dissolves (contents) */}
+      <div className="calc-side contents">
+        <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">
+          <BudgetSwitch
+            byBudget={byBudget}
+            onChange={(on) => {
+              // leaving the budget keeps the sum it bought, so the sum field does not jump back;
+              // a sum the slider's steps skip (750,000) becomes one more stop, as a typed one does
+              if (!on && fit) {
+                const stops = sums.includes(fit.sum) ? sums : [...sums, fit.sum].sort((a, b) => a - b);
+                setSums(stops);
+                setSumIndex(stops.indexOf(fit.sum));
+              }
+              setByBudget(on);
+            }}
           />
-          <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
-            <span>{sumShort(sums[0])}</span>
-            <span>50 ล้าน</span>
-          </div>
-          {/* the doubled sum sits under the sum being chosen, because it is the reason to choose
-              it; once the insured is past the booster age the line tells the plain truth instead */}
-          {ageNum !== undefined && ageNum >= table.boosterBeforeAge ? (
-            <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
-              ครอบครัวได้รับ{" "}
-              <span className="lg-figure text-lg tabular-nums text-[var(--lg-white)]">{sumAssured.toLocaleString("en-US")}</span> บาท
-              {" "}· ตั้งแต่อายุ {table.boosterBeforeAge} คุ้มครองเท่าทุน
-            </p>
-          ) : (
-            <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
-              เสียชีวิตก่อนอายุ {table.boosterBeforeAge} ครอบครัวได้{" "}
-              <span className="lg-figure text-lg tabular-nums text-[var(--lg-gold)]">
-                {deathBenefitOf(table, 0, sumAssured).sumBefore.toLocaleString("en-US")}
-              </span>{" "}
-              บาท <span className="opacity-70">(2 เท่าของทุน)</span>
-            </p>
+          {byBudget && (
+            <div>
+              <BudgetBox id="lp-budget" budget={budget} onChange={setBudget} />
+              {ageNum !== undefined && (
+                <BudgetOutcome
+                  budget={budget} fit={fit} minMonthly={table.minMonthly}
+                  least={(() => {
+                    const floor = LIFEPROTECT_BUDGET_SUMS[0];
+                    const m = lifeProtectModes(table, term, { sex, age: ageNum, sumAssured: floor })
+                      ?.find((x) => x.mode === (budget.per === "month" ? "monthly" : "annual"));
+                    return m ? { sum: floor, total: m.total } : undefined;
+                  })()}
+                />
+              )}
+            </div>
           )}
-        </div>
-        )}
-
-        <div>
-          <span className="block text-sm text-[var(--lg-mute)]">งวดชำระเบี้ย</span>
-          <div className="mt-1.5 grid grid-cols-3 gap-2">
-            {table.terms.map((t) => {
-              const on = t.variant === variant;
-              const price = buttonPrice(t.variant);
-              return (
-                <button
-                  key={t.variant} type="button" onClick={() => setVariant(t.variant)} aria-pressed={on}
-                  className={`rounded-sm border px-2 py-2.5 text-center transition-colors ${
-                    on ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                  }`}
-                >
-                  <span className="block text-sm">{t.short}</span>
-                  {price && <span className="mt-0.5 block text-xs tabular-nums opacity-80">{price}</span>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+          {!byBudget && (
           <div>
-            <label htmlFor="lp-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
-            {/* a picker rather than a number field: on a phone it opens the wheel instead of
-                the keypad, and there is no way to arrive at an age nobody is */}
-            <select
-              id="lp-age" value={age}
-              onChange={(e) => setAge(e.target.value === "over" ? "over" : Number(e.target.value))}
-              className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
-            >
-              {AGES.map((a) => <option key={a} value={a}>{a === 0 ? "แรกเกิด" : `${a} ปี`}</option>)}
-              <option value="over">{table.ageMax + 1} ปีขึ้นไป</option>
-            </select>
-          </div>
-          <div>
-            <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
-            <div className="mt-1.5 grid grid-cols-2 gap-2">
-              {(["M", "F"] as Sex[]).map((s) => (
-                <button
-                  key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
-                  className={`rounded-sm border py-2.5 text-sm transition-colors ${
-                    sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                  }`}
-                >
-                  {s === "M" ? "ชาย" : "หญิง"}
-                </button>
-              ))}
+            <label htmlFor="lp-sum-typed" className="block text-sm text-[var(--lg-mute)]">ทุนประกัน</label>
+            {/* the figure itself is the field: the slider goes near, typing lands on the exact sum */}
+            <div className="lg-figure mt-1.5 flex items-baseline gap-2 text-3xl tabular-nums">
+              <input
+                id="lp-sum-typed" type="text" inputMode="numeric" autoComplete="off"
+                value={sumTyped ?? sumAssured.toLocaleString("en-US")}
+                // a tap starts a fresh number (a click's mouseup undoes select(), so typing would
+                // land after the old digits); leaving it empty puts the old sum back
+                placeholder={sumAssured.toLocaleString("en-US")}
+                onFocus={() => setSumTyped("")}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 9);
+                  setSumTyped(digits === "" ? "" : Number(digits).toLocaleString("en-US"));
+                }}
+                onBlur={settleSum}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                className="lg-metal-text w-[11ch] border-b border-dashed border-[var(--lg-hair)] bg-transparent outline-none focus:border-[var(--lg-gold)]"
+              />
+              <span className="text-lg text-[var(--lg-mute)]">บาท</span>
             </div>
-          </div>
-        </div>
-
-        {table.riders.length > 0 && (
-          <div>
-            <span className="block text-sm text-[var(--lg-mute)]">สัญญาเพิ่มเติม · เลือกได้อย่างใดอย่างหนึ่ง</span>
-            <div className="mt-1.5 grid grid-cols-3 gap-2">
-              <button
-                type="button" onClick={() => setPick(null)} aria-pressed={pick === null}
-                className={`rounded-sm border px-2 py-2.5 text-center transition-colors ${
-                  pick === null ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                }`}
-              >
-                <span className="block text-sm">ไม่เอา</span>
-                <span className="mt-0.5 block text-xs opacity-70">เฉพาะแบบหลัก</span>
-              </button>
-              {table.riders.map((r, i) => {
-                const on = pick?.code === r.code;
-                const offered = riderOffered(r);
-                const words = riderWords(r.name);
-                return (
-                  <div key={r.code} className="group relative">
-                    <button
-                      type="button" disabled={!offered} aria-pressed={on}
-                      onClick={() => setPick({ code: r.code, option: r.options[0].code })}
-                      className={`h-full w-full rounded-sm border px-2 py-2.5 text-center transition-colors ${
-                        on ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                      }${offered ? "" : " opacity-40"}`}
-                    >
-                      <span className="block text-sm">{words.short}</span>
-                      {/* what the contract does, or the ages it is written over when this one is not */}
-                      <span className="mt-0.5 block text-xs opacity-70">
-                        {offered ? words.what : riderAges(r)}
-                      </span>
-                    </button>
-                    <Hint align={i === 0 ? "left" : "right"}>
-                      <span className="block text-sm font-medium text-[var(--lg-white)]">{r.name}</span>
-                      {r.what && (
-                        <span className="mt-1 block text-xs leading-relaxed text-[var(--lg-mute)]">{r.what}</span>
-                      )}
-                      {r.options.map((o) => o.covers && (
-                        <span key={o.code} className="mt-1.5 block text-xs leading-relaxed text-[var(--lg-mute)]">
-                          <span className="text-[var(--lg-gold)]">{optionWord(r.name, o.name)}</span> · {o.covers}
-                        </span>
-                      ))}
-                      <span className="mt-2 block border-t border-[var(--lg-panel-line)] pt-2 text-xs text-[var(--lg-mute)]">
-                        รับอายุ {riderAges(r)}
-                        {offered && waiveYears(r) ? ` · ยกเว้นเบี้ยที่เหลืออีก ${waiveYears(r)} ปี` : ""}
-                      </span>
-                      <span className="mt-1 block text-xs text-[var(--lg-mute)] opacity-75">
-                        ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ
-                      </span>
-                    </Hint>
-                  </div>
-                );
-              })}
+            <p className="mt-1 text-xs text-[var(--lg-mute)] opacity-70">แตะตัวเลขเพื่อพิมพ์ทุน · ขั้นละ 150,000</p>
+            <input
+              id="lp-sum" aria-label="ทุนประกัน" type="range" min={0} max={sums.length - 1} step={1} value={sumIndex}
+              onChange={(e) => setSumIndex(Number(e.target.value))}
+              className="mt-4 w-full accent-[var(--lg-gold)]"
+            />
+            <div className="mt-1 flex justify-between text-xs text-[var(--lg-mute)] opacity-70">
+              <span>{sumShort(sums[0])}</span>
+              <span>50 ล้าน</span>
             </div>
-            {chosen && (
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {chosen.rider.options.map((o, i) => {
-                  const on = pick?.option === o.code;
-                  return (
-                    <div key={o.code} className="group relative">
-                      <button
-                        type="button" aria-pressed={on}
-                        onClick={() => setPick({ code: chosen.rider.code, option: o.code })}
-                        className={`h-full w-full rounded-sm border px-2 py-2 text-center text-sm transition-colors ${
-                          on ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                        }`}
-                      >
-                        {optionWord(chosen.rider.name, o.name)}
-                      </button>
-                      {o.covers && (
-                        <Hint align={i === 0 ? "left" : "right"}>
-                          <span className="block text-sm font-medium text-[var(--lg-white)]">{o.name}</span>
-                          <span className="mt-1 block text-xs leading-relaxed text-[var(--lg-mute)]">คุ้มครอง{o.covers}</span>
-                        </Hint>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {askPayer && picked.rider.child && (
-              <div className="mt-3">
-                <label htmlFor="lp-payer-age" className="block text-sm text-[var(--lg-mute)]">
-                  ผู้ชำระเบี้ย (พ่อหรือแม่)
-                </label>
-                <div className="mt-1.5 grid grid-cols-2 gap-3">
-                  <select
-                    id="lp-payer-age" value={payer.age}
-                    onChange={(e) => setPayer({ ...payer, age: Number(e.target.value) })}
-                    className="w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
-                  >
-                    {Array.from(
-                      { length: picked.rider.child.payerMax - picked.rider.child.payerMin + 1 },
-                      (_, i) => picked.rider.child!.payerMin + i,
-                    ).map((a) => <option key={a} value={a}>{a} ปี</option>)}
-                  </select>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(["M", "F"] as Sex[]).map((s) => (
-                      <button
-                        key={s} type="button" onClick={() => setPayer({ ...payer, sex: s })} aria-pressed={payer.sex === s}
-                        className={`rounded-sm border py-2.5 text-sm transition-colors ${
-                          payer.sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                        }`}
-                      >
-                        {s === "M" ? "ชาย" : "หญิง"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
-                  ราคาพีบีคิดจากอายุและเพศของผู้ชำระเบี้ย · ยกเว้นเบี้ยจนเด็กอายุ 25
-                </p>
-              </div>
-            )}
-            {chosen && !picked && (
-              <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
-                {riderWords(chosen.rider.name).short} รับอายุ {riderAges(chosen.rider)}
-                {" "}· อายุนี้จึงยังไม่ได้รวมอยู่ในราคา
+            {/* the doubled sum sits under the sum being chosen, because it is the reason to choose
+                it; once the insured is past the booster age the line tells the plain truth instead */}
+            {ageNum !== undefined && ageNum >= table.boosterBeforeAge ? (
+              <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
+                ครอบครัวได้รับ{" "}
+                <span className="lg-figure text-lg tabular-nums text-[var(--lg-white)]">{sumAssured.toLocaleString("en-US")}</span> บาท
+                {" "}· ตั้งแต่อายุ {table.boosterBeforeAge} คุ้มครองเท่าทุน
+              </p>
+            ) : (
+              <p className="mt-4 text-sm leading-relaxed text-[var(--lg-mute)]">
+                เสียชีวิตก่อนอายุ {table.boosterBeforeAge} ครอบครัวได้{" "}
+                <span className="lg-figure text-lg tabular-nums text-[var(--lg-gold)]">
+                  {deathBenefitOf(table, 0, sumAssured).sumBefore.toLocaleString("en-US")}
+                </span>{" "}
+                บาท <span className="opacity-70">(2 เท่าของทุน)</span>
               </p>
             )}
           </div>
-        )}
-
-        {medical && (
+          )}
+  
           <div>
-            <span className="block text-sm text-[var(--lg-mute)]">ค่ารักษาพยาบาล (MEB) · เลือกแผน</span>
-            <div className="mt-1.5 grid grid-cols-4 gap-2">
-              {[null, ...medical.plans].map((p) => {
-                const on = p === null ? medicalPlan === null : medicalAt === p;
-                const offered = p === null || medicalPlans.includes(p);
+            <span className="block text-sm text-[var(--lg-mute)]">งวดชำระเบี้ย</span>
+            <div className="mt-1.5 grid grid-cols-3 gap-2">
+              {table.terms.map((t) => {
+                const on = t.variant === variant;
+                const price = buttonPrice(t.variant);
                 return (
                   <button
-                    key={p ?? "none"} type="button" disabled={!offered} aria-pressed={on}
-                    onClick={() => setMedicalPlan(p)}
-                    className={`rounded-sm border px-1 py-2.5 text-center text-sm tabular-nums transition-colors ${
+                    key={t.variant} type="button" onClick={() => setVariant(t.variant)} aria-pressed={on}
+                    className={`rounded-sm border px-2 py-2.5 text-center transition-colors ${
                       on ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
-                    }${offered ? "" : " opacity-40"}`}
+                    }`}
                   >
-                    {p === null ? "ไม่เอา" : p.toLocaleString("en-US")}
+                    <span className="block text-sm">{t.short}</span>
+                    {price && <span className="mt-0.5 block text-xs tabular-nums opacity-80">{price}</span>}
                   </button>
                 );
               })}
             </div>
-            {medicalPlan !== null && medicalAt === undefined && (
-              <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
-                MEB รับอายุ {medical.ageMin} - {medical.ageMax} ปี · อายุนี้จึงยังไม่ได้รวมอยู่ในราคา
-              </p>
-            )}
-            {medicalAt !== undefined && medicalAt !== medicalPlan && (
-              <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
-                อายุนี้ซื้อได้สูงสุดแผน {medicalAt.toLocaleString("en-US")}
-              </p>
-            )}
-            {medicalAt !== undefined && (
-              <p className="mt-1.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
-                เบี้ย MEB เป็นเบี้ยปีนี้ ต่ออายุปีต่อปีและปรับตามอายุ
-              </p>
-            )}
           </div>
-        )}
+  
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="lp-age" className="block text-sm text-[var(--lg-mute)]">อายุ</label>
+              {/* a picker rather than a number field: on a phone it opens the wheel instead of
+                  the keypad, and there is no way to arrive at an age nobody is */}
+              <select
+                id="lp-age" value={age}
+                onChange={(e) => setAge(e.target.value === "over" ? "over" : Number(e.target.value))}
+                className="mt-1.5 w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
+              >
+                {AGES.map((a) => <option key={a} value={a}>{a === 0 ? "แรกเกิด" : `${a} ปี`}</option>)}
+                <option value="over">{table.ageMax + 1} ปีขึ้นไป</option>
+              </select>
+            </div>
+            <div>
+              <span className="block text-sm text-[var(--lg-mute)]">เพศ</span>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                {(["M", "F"] as Sex[]).map((s) => (
+                  <button
+                    key={s} type="button" onClick={() => setSex(s)} aria-pressed={sex === s}
+                    className={`rounded-sm border py-2.5 text-sm transition-colors ${
+                      sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                    }`}
+                  >
+                    {s === "M" ? "ชาย" : "หญิง"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+  
+          {table.riders.length > 0 && (
+            <div>
+              <span className="block text-sm text-[var(--lg-mute)]">สัญญาเพิ่มเติม · เลือกได้อย่างใดอย่างหนึ่ง</span>
+              <div className="mt-1.5 grid grid-cols-3 gap-2">
+                <button
+                  type="button" onClick={() => setPick(null)} aria-pressed={pick === null}
+                  className={`rounded-sm border px-2 py-2.5 text-center transition-colors ${
+                    pick === null ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                  }`}
+                >
+                  <span className="block text-sm">ไม่เอา</span>
+                  <span className="mt-0.5 block text-xs opacity-70">เฉพาะแบบหลัก</span>
+                </button>
+                {table.riders.map((r, i) => {
+                  const on = pick?.code === r.code;
+                  const offered = riderOffered(r);
+                  const words = riderWords(r.name);
+                  return (
+                    <div key={r.code} className="group relative">
+                      <button
+                        type="button" disabled={!offered} aria-pressed={on}
+                        onClick={() => setPick({ code: r.code, option: r.options[0].code })}
+                        className={`h-full w-full rounded-sm border px-2 py-2.5 text-center transition-colors ${
+                          on ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                        }${offered ? "" : " opacity-40"}`}
+                      >
+                        <span className="block text-sm">{words.short}</span>
+                        {/* what the contract does, or the ages it is written over when this one is not */}
+                        <span className="mt-0.5 block text-xs opacity-70">
+                          {offered ? words.what : riderAges(r)}
+                        </span>
+                      </button>
+                      <Hint align={i === 0 ? "left" : "right"}>
+                        <span className="block text-sm font-medium text-[var(--lg-white)]">{r.name}</span>
+                        {r.what && (
+                          <span className="mt-1 block text-xs leading-relaxed text-[var(--lg-mute)]">{r.what}</span>
+                        )}
+                        {r.options.map((o) => o.covers && (
+                          <span key={o.code} className="mt-1.5 block text-xs leading-relaxed text-[var(--lg-mute)]">
+                            <span className="text-[var(--lg-gold)]">{optionWord(r.name, o.name)}</span> · {o.covers}
+                          </span>
+                        ))}
+                        <span className="mt-2 block border-t border-[var(--lg-panel-line)] pt-2 text-xs text-[var(--lg-mute)]">
+                          รับอายุ {riderAges(r)}
+                          {offered && waiveYears(r) ? ` · ยกเว้นเบี้ยที่เหลืออีก ${waiveYears(r)} ปี` : ""}
+                        </span>
+                        <span className="mt-1 block text-xs text-[var(--lg-mute)] opacity-75">
+                          ช่วยเรื่องการชำระเบี้ย ไม่ได้เพิ่มทุนที่ครอบครัวได้รับ
+                        </span>
+                      </Hint>
+                    </div>
+                  );
+                })}
+              </div>
+              {chosen && (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {chosen.rider.options.map((o, i) => {
+                    const on = pick?.option === o.code;
+                    return (
+                      <div key={o.code} className="group relative">
+                        <button
+                          type="button" aria-pressed={on}
+                          onClick={() => setPick({ code: chosen.rider.code, option: o.code })}
+                          className={`h-full w-full rounded-sm border px-2 py-2 text-center text-sm transition-colors ${
+                            on ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                          }`}
+                        >
+                          {optionWord(chosen.rider.name, o.name)}
+                        </button>
+                        {o.covers && (
+                          <Hint align={i === 0 ? "left" : "right"}>
+                            <span className="block text-sm font-medium text-[var(--lg-white)]">{o.name}</span>
+                            <span className="mt-1 block text-xs leading-relaxed text-[var(--lg-mute)]">คุ้มครอง{o.covers}</span>
+                          </Hint>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {askPayer && picked.rider.child && (
+                <div className="mt-3">
+                  <label htmlFor="lp-payer-age" className="block text-sm text-[var(--lg-mute)]">
+                    ผู้ชำระเบี้ย (พ่อหรือแม่)
+                  </label>
+                  <div className="mt-1.5 grid grid-cols-2 gap-3">
+                    <select
+                      id="lp-payer-age" value={payer.age}
+                      onChange={(e) => setPayer({ ...payer, age: Number(e.target.value) })}
+                      className="w-full appearance-none rounded-sm border border-[var(--lg-panel-line)] bg-[var(--lg-raise)] px-3 py-2.5 text-lg tabular-nums text-[var(--lg-white)]"
+                    >
+                      {Array.from(
+                        { length: picked.rider.child.payerMax - picked.rider.child.payerMin + 1 },
+                        (_, i) => picked.rider.child!.payerMin + i,
+                      ).map((a) => <option key={a} value={a}>{a} ปี</option>)}
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["M", "F"] as Sex[]).map((s) => (
+                        <button
+                          key={s} type="button" onClick={() => setPayer({ ...payer, sex: s })} aria-pressed={payer.sex === s}
+                          className={`rounded-sm border py-2.5 text-sm transition-colors ${
+                            payer.sex === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                          }`}
+                        >
+                          {s === "M" ? "ชาย" : "หญิง"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
+                    ราคาพีบีคิดจากอายุและเพศของผู้ชำระเบี้ย · ยกเว้นเบี้ยจนเด็กอายุ 25
+                  </p>
+                </div>
+              )}
+              {chosen && !picked && (
+                <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
+                  {riderWords(chosen.rider.name).short} รับอายุ {riderAges(chosen.rider)}
+                  {" "}· อายุนี้จึงยังไม่ได้รวมอยู่ในราคา
+                </p>
+              )}
+            </div>
+          )}
+  
+          {medical && (
+            <div>
+              <span className="block text-sm text-[var(--lg-mute)]">ค่ารักษาพยาบาล (MEB) · เลือกแผน</span>
+              <div className="mt-1.5 grid grid-cols-4 gap-2">
+                {[null, ...medical.plans].map((p) => {
+                  const on = p === null ? medicalPlan === null : medicalAt === p;
+                  const offered = p === null || medicalPlans.includes(p);
+                  return (
+                    <button
+                      key={p ?? "none"} type="button" disabled={!offered} aria-pressed={on}
+                      onClick={() => setMedicalPlan(p)}
+                      className={`rounded-sm border px-1 py-2.5 text-center text-sm tabular-nums transition-colors ${
+                        on ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                      }${offered ? "" : " opacity-40"}`}
+                    >
+                      {p === null ? "ไม่เอา" : p.toLocaleString("en-US")}
+                    </button>
+                  );
+                })}
+              </div>
+              {medicalPlan !== null && medicalAt === undefined && (
+                <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
+                  MEB รับอายุ {medical.ageMin} - {medical.ageMax} ปี · อายุนี้จึงยังไม่ได้รวมอยู่ในราคา
+                </p>
+              )}
+              {medicalAt !== undefined && medicalAt !== medicalPlan && (
+                <p className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">
+                  อายุนี้ซื้อได้สูงสุดแผน {medicalAt.toLocaleString("en-US")}
+                </p>
+              )}
+              {medicalAt !== undefined && (
+                <p className="mt-1.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
+                  เบี้ย MEB เป็นเบี้ยปีนี้ ต่ออายุปีต่อปีและปรับตามอายุ
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+        {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
+        <div className="order-2">
+          <ContactButtons
+            copyText={quoteText} secondCopy={secondCopy} cardPath={card} tableCardPath={tableCard}
+            videoHref={who ? videoStartHref({ product: "LIFEPROTECT", sex, age: who.age, sumAssured, variant }) : undefined}
+          />
+        </div>
       </div>
 
       {budgetShort ? null : !inRange || !modes ? (
@@ -745,10 +755,6 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         </div>
       )}
 
-      <ContactButtons
-        copyText={quoteText} secondCopy={secondCopy} cardPath={card} tableCardPath={tableCard}
-        videoHref={who ? videoStartHref({ product: "LIFEPROTECT", sex, age: who.age, sumAssured, variant }) : undefined}
-      />
 
       {sticky && (quoteText || card) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
