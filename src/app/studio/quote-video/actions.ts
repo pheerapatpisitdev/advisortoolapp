@@ -59,7 +59,7 @@ export interface VideoItem {
   /** failed because Gemini's voice was used up for the day */
   voiceFull: boolean;
   /** a clip still being made: how far, as read now (progress.ts); null once done or failed */
-  progress: ProgressState | null;
+  progress?: ProgressState | null;
 }
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
