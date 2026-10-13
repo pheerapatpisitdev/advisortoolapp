@@ -4,7 +4,8 @@ import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
-import { elevenVoice } from "@/lib/voice/elevenlabs";
+import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS } from "@/lib/voice/elevenlabs";
+import { providerKey } from "@/lib/ai/client";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -193,10 +194,21 @@ export async function voiceQuota(): Promise<VoiceQuota | null> {
 
 /** a Gemini-voiced clip is not started while the voice is used up: it would only fail */
 async function voiceRefusal(voice: string | undefined): Promise<string | null> {
-  if (voice) return null;
+  if (voice) {
+    // ElevenLabs' month runs low: say so before anything is held or spent (owner, 2026-10-13)
+    const key = await providerKey(ELEVENLABS).catch(() => null);
+    if (!key) return "เสียง ElevenLabs ใช้ไม่ได้ตอนนี้ เลือกเสียง Gemini แทน";
+    const left = await elevenCreditsLeft(key).catch((e) => {
+      console.error("eleven credits not read:", e instanceof Error ? e.message : "unknown error");
+      return Infinity;
+    });
+    return left < ELEVEN_RESERVE ? "เสียง ElevenLabs ของเดือนนี้ใกล้หมดแล้ว เลือกเสียง Gemini แทน" : null;
+  }
   const q = await voiceQuota();
   return q ? voiceFullNotice(q.clock) : null;
 }
+
+const ADMIN_VOICE = "เสียงนี้ใช้ได้เฉพาะแอดมิน เลือกเสียงอื่นแทน";
 
 /** an FHC summary is one customer's money: it never goes to a Page (owner, 2026-10-12) */
 const FHC_PRIVATE = "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ลงเพจไม่ได้";
@@ -238,7 +250,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
   if (!c) return { ok: false, error: "ไม่พบลูกค้าคนนี้ในรายชื่อ FHC ของคุณ" };
   const eleven = elevenVoice(v?.voice);
-  if (eleven && !can(viewer, "owner")) return { ok: false, error: "เสียง ElevenLabs ยังเปิดให้เฉพาะเจ้าของ" };
+  if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
@@ -291,8 +303,8 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
   const c = checked(v);
   if (typeof c === "string") return { ok: false, error: c };
   if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
-  // ElevenLabs is the owner's alone for now (owner, 2026-10-11)
-  if (c.voice && !can(viewer, "owner")) return { ok: false, error: "เสียง ElevenLabs ยังเปิดให้เฉพาะเจ้าของ" };
+  // every member's since 2026-10-13, but the two cloned voices are the owner's
+  if (elevenVoice(c.voice)?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
