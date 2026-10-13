@@ -51,6 +51,7 @@
   - `interface PassSettings { enabled: boolean; satang: number; trialDays: number; rounds: number }`
   - `DEFAULT_PASS_SETTINGS: PassSettings = { enabled: false, satang: 9900, trialDays: 3, rounds: 10 }`
   - constants `PASS_DAYS = 30`, `REMIND_DAYS = 3`, `DAY_MS = 86_400_000`, `PASS_PAGE = "/membership"`
+  - `roundsFrom(state: PassState, settings: PassSettings): { limit: number; from: Date } | null` — `{ limit: settings.rounds, from: state.period.start }` when `settings.enabled` and `state.status === "live"`, else `null` (callers fall back to the one-time 10). Shared by Task 3 (`freeWindow`) and Task 6 (`listMembers`).
 
 - [ ] **Step 1: Write the migration** `20261027_member_pass.sql`: table `public.ins_member_passes` with the columns in the spec's Data table (`member_id uuid not null references public.ins_members(id) on delete cascade`, `kind text not null check (kind in ('trial','paid','granted','revoked'))`, `days int not null check (days >= 0)`, `revokes bigint unique references public.ins_member_passes(id)`, `stripe_session_id text unique`, `payment_intent text`), index on `(member_id, created_at)` and on `payment_intent`, `create unique index ins_member_passes_one_trial on public.ins_member_passes(member_id) where kind = 'trial'`, RLS enabled with no policies (server-only, like the wallet tables); and `alter table public.ins_ai_settings add column if not exists member_pass_enabled boolean not null default false, add column if not exists member_pass_satang int not null default 9900, add column if not exists member_trial_days int not null default 3, add column if not exists member_pass_rounds int not null default 10;`
 
@@ -61,6 +62,7 @@
   - `a revoked pass drops out and later periods move up`: trial @10-01, paid#2 @10-02, paid#3 @10-03, revoked(revokes: 2) → periods are trial and #3 only, #3 runs 10-04 → 11-03.
   - `granted days are a period of their own`: granted 5d after a paid period starts at the paid end.
   - `no rows is none`; `daysLeft` is 0 once past, 1 for any part of a day left.
+  - `roundsFrom`: live + enabled → `{ limit: 10, from: period.start }`; expired, none, or `enabled: false` → `null`.
 
 - [ ] **Step 3: Run** `npx vitest run tests/members/pass.test.ts` — Expected: FAIL (module not found).
 
@@ -120,7 +122,7 @@ git commit -m "feat(members): pass ledger and its periods"
 
 **Interfaces:**
 - Consumes: `memberAccess`, `passOpen`, `PASS_EXPIRED`, `PASS_EXPIRED_CHAT`, `PASS_UNREADABLE`, `PASS_PAGE`.
-- Produces: `freeWindow(viewer: Viewer): Promise<{ limit: number; from: Date }>` exported from `quota.ts` — gated live member → `{ limit: settings.rounds, from: state.period.start }`; otherwise `{ limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM }`. `allowanceOf` and `takeFreeRound` use it (the RPC already takes `p_limit`/`p_from`).
+- Produces: `freeWindow(viewer: Viewer): Promise<{ limit: number; from: Date }>` exported from `quota.ts` — gated member → `roundsFrom(access.state, access.settings)` when not null; otherwise `{ limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM }`. `allowanceOf` and `takeFreeRound` use it (the RPC already takes `p_limit`/`p_from`).
 
 - [ ] **Step 1: Write failing tests:**
   - `gatePage("/home")` and `gatePage("/studio/write")` for an expired member call `redirect("/membership?expired=1")`; `gatePage("/membership")` and `gatePage("/admin/members")` never consult `memberAccess`; a UnitOS viewer is never redirected (mock `next/navigation`, `next/headers`, `@/lib/members/access`).
@@ -182,11 +184,11 @@ git commit -m "feat(members): pass ledger and its periods"
 
 **Interfaces:**
 - Produces: `readPassSettings(raw: { enabled: boolean; baht: string; trialDays: string; rounds: string }): { ok: true; value: PassSettings } | { ok: false; error: string }` — baht a whole or 2-decimal number 1–1000 → satang; trial days integer 0–30; rounds integer 0–100.
-- Produces: `savePassSettings(raw)` action in `admin/wallet/actions.ts` — **owner only** (`requireStaff("owner")`), audit `"member-pass-settings"`, revalidate `/admin/wallet` and `/admin/members`.
-- Produces: `MemberSummary` gains `pass: { status: "none" | "live" | "expired"; end: string | null; trial: boolean } | null` (null when the switch is off) and `freeLimit: number`; `freeUsed` counts from `freeWindow`'s `from` for each member (computed from `passRowsOf`, not one `memberAccess` per member).
+- Produces: `saveMemberPass(raw)` action in `admin/wallet/actions.ts` (named apart from the store's `savePassSettings`) — **owner only** (`requireStaff("owner")`), audit `"member-pass-settings"`, revalidate `/admin/wallet` and `/admin/members`.
+- Produces: `MemberSummary` gains `pass: { status: "none" | "live" | "expired"; end: string | null; trial: boolean } | null` (null when the switch is off) and `freeLimit: number`; `freeUsed` counts from each member's window: `roundsFrom(passState(rows, now), settings)` from `passRowsOf`, falling back to `FREE_ROUNDS`/`FREE_ROUNDS_FROM` (not one `memberAccess` per member).
 - Produces: `grantPassDays(id: string, days: string, note: string)` action in `admin/members/actions.ts` — `requireStaff("admin")`, days integer 1–365, note trimmed ≤ 200 chars and required, `grantPass(id, n, note, viewer.agentId)`, audit `"member-pass-grant"`.
 
-- [ ] **Step 1: Write failing tests:** `readPassSettings` accepts `"99"` → 9900, rejects `"0"`, `"1001"`, `"9.999"`, trial `"31"`, rounds `"-1"`; `savePassSettings` refuses an admin who is not the owner; `grantPassDays` rejects `"0"`, `"366"`, an empty note, a bad uuid, and saves `30` with the note.
+- [ ] **Step 1: Write failing tests:** `readPassSettings` accepts `"99"` → 9900, rejects `"0"`, `"1001"`, `"9.999"`, trial `"31"`, rounds `"-1"`; `saveMemberPass` refuses an admin who is not the owner; `grantPassDays` rejects `"0"`, `"366"`, an empty note, a bad uuid, and saves `30` with the note.
 - [ ] **Step 2: Run** — Expected: FAIL.
 - [ ] **Step 3: Implement.** `WalletAdmin.tsx`: box "ค่าสมาชิกทั่วไป" with the switch "เก็บค่าสมาชิกทั่วไป (ปิดอยู่ = สมาชิกทุกคนใช้ฟรีเหมือนวันนี้)", fields "ราคาต่อ 30 วัน (บาท)", "ทดลองใช้ฟรี (วัน)", "Studio ฟรีต่อ 30 วัน (รอบ)", note "ราคาต่ำกว่า ฿150 จ่ายได้แค่พร้อมเพย์", editable only when `canPrice`. `MembersAdmin.tsx`: tiles จ่ายอยู่ / ทดลองใช้ / หมดอายุ / ค่าสมาชิกเดือนนี้ (from `passRevenueSatang(monthStart())`), column "ใช้ได้ถึง" as chips (green paid/granted live, amber trial or ≤ 3 days, red expired), "รอบฟรี" as `{used}/{limit}`, and a "เพิ่มวัน" inline form (days, note). Hint on `/admin/members` reads the switch state.
 - [ ] **Step 4: Run** `npx vitest run && npx tsc --noEmit -p .` — Expected: whole suite PASS.
