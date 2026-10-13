@@ -278,6 +278,38 @@ describe("a member pass bought through Stripe (owner, 2026-10-13)", () => {
     expect(wallet.clawBack).toHaveBeenCalledWith({ paymentIntent: "pi_p", kind: "refund", ref: "ch_p", satang: 9900, note: "คืนเงิน" });
   });
 
+  it("throws a pass's refund that came before its pass, so Stripe sends it again (review, 2026-10-13)", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_pass", mode: "payment", metadata: { purpose: "member_pass", member_id: MEMBER } }] });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(applyWalletAction(refund)).rejects.toThrow(/before the pass of cs_pass/);
+    expect(err).not.toHaveBeenCalled();
+    err.mockRestore();
+    expect(list).toHaveBeenCalledWith({ payment_intent: "pi_p", limit: 1 });
+    expect(wallet.linkPaymentIntent).not.toHaveBeenCalled();
+    expect(wallet.topUpStatus).not.toHaveBeenCalled();
+  });
+
+  it("still holds a top-up's refund that came before its credit, through the open top-up", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_new", mode: "payment", metadata: { agent_id: AGENT, amount_satang: "9900" } }] });
+    wallet.linkPaymentIntent.mockResolvedValueOnce(false);
+    wallet.topUpStatus.mockResolvedValueOnce("open");
+    await expect(applyWalletAction(refund)).rejects.toThrow(/before the credit of cs_new/);
+    expect(wallet.linkPaymentIntent).toHaveBeenCalledWith("cs_new", "pi_p");
+  });
+
+  it("still links an old top-up's session that has no metadata, and claws it back", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "unknown" }).mockResolvedValueOnce({ result: "clawed", agentId: AGENT });
+    list.mockResolvedValueOnce({ data: [{ id: "cs_old", mode: "payment" }] });
+    wallet.linkPaymentIntent.mockResolvedValueOnce(true);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await applyWalletAction(refund)).toBe("clawed");
+    warn.mockRestore();
+    expect(wallet.linkPaymentIntent).toHaveBeenCalledWith("cs_old", "pi_p");
+    expect(wallet.clawBack).toHaveBeenCalledTimes(2);
+  });
+
   it("throws when the pass lookup fails, touching no wallet, so Stripe sends the refund again", async () => {
     pass.revokePaidPass.mockRejectedValueOnce(new Error("db down"));
     await expect(applyWalletAction(refund)).rejects.toThrow("db down");

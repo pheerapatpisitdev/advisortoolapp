@@ -115,12 +115,15 @@ export function actionFor(event: { type: string; data: { object: unknown } }): W
  * PaymentIntent was kept with it (20261001_wallet_refunds_free_rounds.sql). The live key is
  * restricted to Checkout Sessions; reading them should be within that, but if Stripe says no,
  * this says so in the log and gives up: the refund is then the owner's to take back by hand.
+ * Its purpose tells a member pass's session from a top-up's (owner, 2026-10-13).
  */
-async function sessionOfPayment(paymentIntent: string): Promise<string | null> {
+async function sessionOfPayment(paymentIntent: string): Promise<{ id: string; purpose: string | null } | null> {
   try {
     const list = await stripe().checkout.sessions.list({ payment_intent: paymentIntent, limit: 1 });
     const s = list.data[0];
-    return s && s.mode === "payment" ? s.id : null;
+    if (!s || s.mode !== "payment") return null;
+    const purpose = purposeOf(s.metadata);
+    return { id: s.id, purpose: typeof purpose === "string" ? purpose : null };
   } catch (e) {
     console.error(`stripe: could not look up the Checkout Session of ${paymentIntent} (does the key read Checkout Sessions?):`, e);
     return null;
@@ -134,8 +137,18 @@ async function applyClawback(a: Extract<WalletAction, { kind: "clawback" }>): Pr
   const ask = () => clawBack({ paymentIntent: a.paymentIntent, kind: a.reason, ref: a.ref, satang: a.satang, note: a.note });
   let r = await ask();
   if (r.result === "unknown") {
+    const session = await sessionOfPayment(a.paymentIntent);
+    const sessionId = session?.id ?? null;
+    /**
+     * A pass's refund that came before its pass: no paid pass carries this payment yet (the
+     * lookup above said so), so its credit is still being retried. Answered 200, the pass would
+     * land later with nothing to take it back (review, 2026-10-13) — thrown, Stripe sends the
+     * refund again once the pass is there.
+     */
+    if (session?.purpose === PASS_PURPOSE) {
+      throw new Error(`stripe ${a.reason} ${a.ref} came before the pass of ${session.id}; Stripe will send it again`);
+    }
     // a top-up paid before its PaymentIntent was kept: found once through Stripe, then written down
-    const sessionId = await sessionOfPayment(a.paymentIntent);
     if (sessionId && await linkPaymentIntent(sessionId, a.paymentIntent)) r = await ask();
     /**
      * Stripe does not promise the order of its events: a refund can come while the credit it
@@ -149,8 +162,9 @@ async function applyClawback(a: Extract<WalletAction, { kind: "clawback" }>): Pr
   }
   if (r.result === "unknown") {
     console.error(
-      `STRIPE ${a.reason.toUpperCase()} NOT TAKEN BACK: ${a.ref} (payment ${a.paymentIntent}, ${a.satang} satang) matches no top-up here — `
-      + "if it is a Studio top-up, take the money back and freeze the wallet by hand on /admin/wallet",
+      `STRIPE ${a.reason.toUpperCase()} NOT TAKEN BACK: ${a.ref} (payment ${a.paymentIntent}, ${a.satang} satang) matches no top-up or member pass here — `
+      + "if it is a Studio top-up, take the money back and freeze the wallet by hand on /admin/wallet; "
+      + "it may also be a member pass, which a person must take back by hand",
     );
   } else if (r.result === "clawed") {
     // the owner should know a wallet was frozen even before opening /admin/wallet
