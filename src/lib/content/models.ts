@@ -12,12 +12,19 @@
  */
 
 export interface Writer { id: string; model: string; label: string; short: string; thb: number }
+
+/** OpenRouter's free Gemma 4: no price, a shared daily quota, and prompts its hosts may keep */
+export const FREE_WRITER_MODEL = "google/gemma-4-31b-it:free";
 export interface Painter { id: string; modelId: string | null; label: string; short: string; thb: number }
 
 export const WRITERS: Writer[] = [
   { id: "best", model: "claude-sonnet-5", label: "ดีที่สุด", short: "Sonnet 5", thb: 0.61 },
   { id: "balanced", model: "gpt-5", label: "สมดุล", short: "GPT-5", thb: 0.51 },
   { id: "cheap", model: "gemini-3.7-flash", label: "ประหยัด", short: "Gemini Flash", thb: 0.1 },
+  // Gemma 4 free through OpenRouter, for everyone (owner, 2026-10-14, option ข, mockup
+  // https://claude.ai/artifact/JGLq4PPoks27spZiFeQAnD): never in the bake-off, so offered as
+  // a trial; when its daily quota is used up the piece is written by ประหยัด instead
+  { id: "free", model: FREE_WRITER_MODEL, label: "ทดลองฟรี", short: "Gemma 4 ฟรี", thb: 0 },
 ];
 
 export const PAINTERS: Painter[] = [

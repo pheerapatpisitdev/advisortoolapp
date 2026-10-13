@@ -192,8 +192,9 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
    * trouble of 2026-09-22. `exclude` keeps the thinking out of the reply's text.
    */
   async openrouter(args) {
-    return openAiCompatible("https://openrouter.ai/api/v1/chat/completions", args,
-      { reasoning: { effort: args.effort ?? "low", exclude: true } }, true);
+    // the free Gemma does not reason; it is sent nothing about reasoning
+    const extra = args.model.endsWith(":free") ? {} : { reasoning: { effort: args.effort ?? "low", exclude: true } };
+    return openAiCompatible("https://openrouter.ai/api/v1/chat/completions", args, extra, true);
   },
 };
 

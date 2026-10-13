@@ -73,3 +73,28 @@ describe("OpenRouter in the fallback chain", () => {
     expect(ids).not.toContain("openrouter-large");
   });
 });
+
+describe("the free Gemma", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const row = (id: string, provider: string, model_name: string, i: number, o: number) =>
+    ({ id, provider, kind: "text", model_name, enabled: true, price: { inputPerMTokUsd: i, outputPerMTokUsd: o } });
+  const models = [
+    row("gemini-small", "google", "gemini-3.1-flash-lite", 0.1, 0.4),
+    row("sonnet", "anthropic", "claude-sonnet-5", 3, 15),
+    row("openrouter-gemma-free", "openrouter", "google/gemma-4-31b-it:free", 0, 0),
+  ];
+  const keys = { google: "g", anthropic: "a", openrouter: "o" };
+
+  it("is never reached by a fallback chain, at any tier", () => {
+    for (const tier of ["small", "large"] as const) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(fallbackOrder(models as any, tier, null, keys).map((m) => m.id)).not.toContain("openrouter-gemma-free");
+    }
+  });
+
+  it("is sent nothing about reasoning", async () => {
+    const sent = stub();
+    await CALLERS.openrouter({ apiKey: "k", model: "google/gemma-4-31b-it:free", messages: [{ role: "user", content: "x" }], maxTokens: 50 });
+    expect(sent().body.reasoning).toBeUndefined();
+  });
+});

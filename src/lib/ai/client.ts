@@ -154,6 +154,13 @@ async function record(model: string, task: string, inTok: number, outTok: number
  */
 const PRICE_CEILING = 4;
 
+/**
+ * OpenRouter's free models ("…:free"): a shared daily quota, and hosts that may keep what they
+ * are sent. Used only where picked by name (Studio's ทดลองฟรี); never reached by a fallback,
+ * so a customer's chat is never sent to one (owner, 2026-10-14).
+ */
+export const isFreeModel = (name: string) => name.endsWith(":free");
+
 /** What a call on this model costs per million tokens, in and out weighted as they are used. */
 const priceOf = (m: ModelRow) => m.price.inputPerMTokUsd + m.price.outputPerMTokUsd / 4;
 
@@ -199,7 +206,7 @@ export function fallbackOrder(models: ModelRow[], tier: Tier, chosen: string | n
   const priced = preferred.map(priceOf).filter((p) => p > 0);
   const baseline = priced.length ? Math.min(...priced) : undefined;
   const rest = enabled
-    .filter((m) => !preferred.includes(m))
+    .filter((m) => !preferred.includes(m) && !isFreeModel(m.model_name))
     .filter((m) => baseline === undefined || priceOf(m) <= baseline * PRICE_CEILING)
     .sort((a, b) => priceOf(a) - priceOf(b));
 
@@ -209,7 +216,8 @@ export function fallbackOrder(models: ModelRow[], tier: Tier, chosen: string | n
    * nothing. Refusing to answer at all is worse than answering dearly, and this only happens
    * when the preference list has gone stale against the model table.
    */
-  if (out.length === 0 && enabled.length > 0) return [...enabled].sort((a, b) => priceOf(a) - priceOf(b));
+  const paid = enabled.filter((m) => !isFreeModel(m.model_name));
+  if (out.length === 0 && paid.length > 0) return [...paid].sort((a, b) => priceOf(a) - priceOf(b));
   return out;
 }
 

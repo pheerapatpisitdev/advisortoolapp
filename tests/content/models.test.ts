@@ -3,8 +3,8 @@ import { AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, PAINTERS, WRITERS, pai
 import { fallbackWriters } from "@/lib/content/write";
 
 describe("the models the owner may pick", () => {
-  it("offers the three writers the bake-off kept, Sonnet first and the default", () => {
-    expect(WRITERS.map((w) => w.model)).toEqual(["claude-sonnet-5", "gpt-5", "gemini-3.7-flash"]);
+  it("offers the three writers the bake-off kept, Sonnet first and the default, then the free trial", () => {
+    expect(WRITERS.map((w) => w.model)).toEqual(["claude-sonnet-5", "gpt-5", "gemini-3.7-flash", "google/gemma-4-31b-it:free"]);
     expect(writerOf("best").model).toBe("claude-sonnet-5");
   });
 
@@ -70,7 +70,8 @@ describe("the models the owner may pick", () => {
     });
 
     it("lets the dearer picks fall back across the list, and nothing when no pick", () => {
-      expect(fallbackWriters("claude-sonnet-5")).toEqual(WRITERS.map((w) => w.model));
+      // across the paid list only: the free writer's shared quota is never a paid pick's fallback
+      expect(fallbackWriters("claude-sonnet-5")).toEqual(WRITERS.filter((w) => w.thb > 0).map((w) => w.model));
       expect(fallbackWriters(undefined)).toBeUndefined();
     });
   });

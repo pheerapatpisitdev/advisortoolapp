@@ -259,7 +259,8 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, sp
   /** the busiest line, so the others can be drawn as a share of it */
   const topSpend = Math.max(...spend.map((s) => s.baht), 0.0001);
   const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const textModels = models.filter((m) => m.kind === "text");
+  // a free model ("…:free") is for Studio's ทดลองฟรี only, never the chat's tiers (owner, 2026-10-14)
+  const textModels = models.filter((m) => m.kind === "text" && !m.model_name.endsWith(":free"));
 
   const budget = settings?.monthly_budget_thb != null ? Number(settings.monthly_budget_thb) : null;
 
