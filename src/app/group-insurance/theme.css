@@ -11,8 +11,7 @@
 
    The tokens are --gi-* and set on the page's own wrapper. They are deliberately not the
    --lg-* ones the sales components read: a page that defined those without wearing the theme
-   would be lying to anything that inherited them, which is the same reason other-plans/theme.css
-   gives for its --op-*. */
+   would be lying to anything that inherited them. */
 .group-insurance {
   color-scheme: light;
 

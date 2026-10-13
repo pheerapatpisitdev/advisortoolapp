@@ -141,7 +141,7 @@ function planSection(code: string, name: string, rules: PlanRules): string {
       : getPlan(code)?.rules.base.premiumBasis
         // its figures run the other way, and its own brain takes them that way round
         ? "- คิดเบี้ยในแชทนี้ได้ — บอกอายุ เพศ และเงินที่อยากจ่ายต่อเดือน (ระบบบอกทุนที่ได้) หรือทุนประกันที่ต้องการ"
-        : "- **คิดเบี้ยในแชทนี้ไม่ได้** ตอบเรื่องเงื่อนไขได้อย่างเดียว เบี้ยต้องไปที่หน้าแบบประกันอื่นๆ (/other-plans)",
+        : "- **คิดเบี้ยในแชทนี้ไม่ได้** ตอบเรื่องเงื่อนไขได้อย่างเดียว",
   ];
   const b = rules.base;
 
@@ -462,7 +462,7 @@ export async function assembleKnowledge(
      * the per-plan lines alone would have left the assistant refusing anyway.
      */
     `**สำคัญ:** แชทนี้คิดเบี้ยให้ได้เฉพาะแบบเหล่านี้: ${priceableNames().join(", ")}, ${PENSION_LABEL}, ${CI123_LABEL} (แบบชุดคู่ Life Protect x 2), ${CANCER_LABEL} (แพ็กเกจมะเร็ง หน้า /cancer) และ iHealthy Ultra`,
-    "แบบที่ไม่อยู่ในรายการนี้ ตอบได้แต่เรื่องเงื่อนไข ห้ามเสนอว่าจะคิดเบี้ยให้ และให้ชี้ไปที่หน้า /other-plans แทน",
+    "แบบที่ไม่อยู่ในรายการนี้ ตอบได้แต่เรื่องเงื่อนไข ห้ามเสนอว่าจะคิดเบี้ยให้",
     "",
     plans,
     // fetched by its name, like the illness lists: the spine above already says it exists and

@@ -6,7 +6,7 @@ import { APPLICATION_FORM, FORM_NEXT } from "./common";
  *
  * The answer is the same answer — the same rules, the same premium, the same card — but it is
  * not written the same way twice. The website renders markdown and can follow a path of its
- * own; a page's inbox renders nothing and has no idea what "/other-plans" would mean. Sharing
+ * own; a page's inbox renders nothing and has no idea what "/lifeprotect" would mean. Sharing
  * the wording between the two without saying which is which is how a customer who arrived
  * through an advertisement came to be shown "**iSmart 80/6**" and a link they could not press.
  */
@@ -97,5 +97,5 @@ export function formattingRule(channel: Channel): string {
     : "\n\nช่องทางนี้เป็นกล่องข้อความของเพจ ซึ่งแสดงข้อความล้วน:")
       + " ห้ามใช้มาร์กดาวน์ (ห้ามใช้ ** หรือ [ข้อความ](ลิงก์))"
       + " ถ้าจะอ้างถึงหน้าเว็บ ให้เขียนที่อยู่เต็มเท่านั้น"
-      + ` เช่น ${siteUrl("/other-plans")}`;
+      + ` เช่น ${siteUrl("/lifeprotect")}`;
 }

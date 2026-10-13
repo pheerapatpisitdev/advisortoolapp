@@ -229,7 +229,7 @@ export default function PrivacyPage() {
       </section>
 
       <p className="mt-10 text-sm">
-        <Link href="/other-plans" className="text-[var(--bot-ink-mute)] underline">ไปหน้าคำนวณเบี้ย</Link>
+        <Link href="/" className="text-[var(--bot-ink-mute)] underline">กลับหน้าแรก</Link>
       </p>
     </main>
   );

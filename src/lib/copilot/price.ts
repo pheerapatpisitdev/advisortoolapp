@@ -5,6 +5,7 @@ import { baseSumAssuredLimits } from "@/calc/rules";
 import { valueTableCard } from "@/lib/quote-card";
 import { cardPath, valueTablePath } from "@/lib/card-link";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
+import { PLAN_PAGES, pageForPlan } from "@/lib/quote-pdf/pages";
 import { firstPaymentLines } from "@/lib/first-payment";
 import { coverIn, peopleIn } from "@/lib/assistant/common";
 import { priceFollowUps, type GuideItem, type PriceGap } from "./guide";
@@ -186,10 +187,12 @@ export function pricePlan(code: string, label: string, { people, sum, variant }:
    * maintains it.
    */
   if (plan.rules.base.premiumBasis) {
+    // the plan's own sales page has the right box; /other-plans did until the owner took it out
+    const page = pageForPlan(code);
     return {
       priced: false,
       text: `แบบ **${label}** คิดเบี้ยแบบกรอกทุนไม่ได้ครับ — แบบนี้ทำกลับกัน คือ**กรอกเบี้ยที่อยากจ่าย แล้วระบบบอกว่าได้ทุนเท่าไหร่**\n\n`
-        + `ใช้ที่ [หน้าแบบประกันอื่นๆ](/other-plans) จะเห็นช่องกรอกที่ถูกต้องครับ\n\n`
+        + (page ? `ใช้ที่ [หน้า ${label}](${PLAN_PAGES[page].path}) จะเห็นช่องกรอกที่ถูกต้องครับ\n\n` : "")
         + `ส่วนเงื่อนไขของ ${label} เช่น ช่วงอายุหรือสัญญาเพิ่มเติม ถามผมได้เลย`,
     };
   }
@@ -240,7 +243,7 @@ export function pricePlan(code: string, label: string, { people, sum, variant }:
     result = quote(input);
   } catch (e) {
     console.error("คิดเบี้ยไม่สำเร็จ:", e);
-    return { text: `คิดเบี้ย ${label} ไม่สำเร็จครับ ลองที่ [หน้าแบบประกันอื่นๆ](/other-plans) ดูนะครับ`, priced: false };
+    return { text: `คิดเบี้ย ${label} ไม่สำเร็จครับ ลองถามใหม่อีกครั้งนะครับ`, priced: false };
   }
 
   /**
@@ -253,7 +256,7 @@ export function pricePlan(code: string, label: string, { people, sum, variant }:
       priced: false,
       text: `แบบ **${label}** ยังคิดให้ไม่ได้ด้วยเงื่อนไขนี้ครับ\n\n`
         + (blocking.length ? blocking.map((w) => `- ${w.message}`).join("\n") : "- อยู่นอกช่วงที่แบบนี้รับประกัน")
-        + `\n\nลองปรับอายุหรือทุนดู หรือดูที่ [หน้าแบบประกันอื่นๆ](/other-plans)`,
+        + `\n\nลองปรับอายุหรือทุนดูนะครับ`,
     };
   }
 

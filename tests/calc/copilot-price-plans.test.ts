@@ -107,7 +107,7 @@ describe("iShield, which is filled in the other way round", () => {
     const reply = priceNamedPlan("iShield ชาย 35 ทุน 1 ล้าน เบี้ยเท่าไหร่", "ISHIELD", "iShield");
     expect(reply.priced).toBe(false);
     expect(reply.text).toContain("กรอกเบี้ยที่อยากจ่าย");
-    expect(reply.text).toContain("/other-plans");
+    expect(reply.text).toContain("](/ishield)");
     expect(reply.cards).toBeUndefined();
   });
 });

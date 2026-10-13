@@ -29,6 +29,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 const { answerAny } = await import("@/lib/assistant/dispatch");
+const { forMessenger } = await import("@/lib/assistant/channel");
 const said = (content: string) => [{ role: "user" as const, content }];
 beforeEach(() => { chat.mockClear(); routed = { intent: "other" }; });
 
@@ -116,23 +117,27 @@ describe("which door the message came through", () => {
    * the wording without saying which side asked is how a customer who arrived through an
    * advertisement came to be shown "**iSmart 80/6**" and a link they could not press.
    */
-  // below Life Treasure's smallest sum, so the answer is a refusal with a name and a page in it
+  // below Life Treasure's smallest sum, so the answer is a refusal with the plan's name in bold
   const ask = "Life Treasure ชาย 40 ทุน 1 ล้าน จ่าย 6 ปี เบี้ยเท่าไหร่";
 
   it("writes markdown for the website, which draws it", async () => {
     const a = await answerAny(said(ask), null, "web");
     expect(a.messages[0].text).toContain("**Life Treasure**");
-    expect(a.messages[0].text).toContain("](/other-plans)");
   });
 
-  it("writes plain words and a whole address for the inbox, which draws neither", async () => {
+  it("writes plain words for the inbox, which draws no markdown", async () => {
     const a = await answerAny(said(ask), null, "facebook");
     const text = a.messages[0].text;
     expect(text).toContain("Life Treasure");
     expect(text).not.toContain("**");
     expect(text).not.toMatch(/\]\(/);
+  });
+
+  it("gives the inbox a whole address for a link", () => {
     // a relative path means nothing to someone reading it in Messenger
-    expect(text).toMatch(/https?:\/\/\S+\/other-plans/);
+    const text = forMessenger("ใช้ที่ [หน้า iShield](/ishield) ครับ");
+    expect(text).toMatch(/หน้า iShield https?:\/\/\S+\/ishield/);
+    expect(text).not.toMatch(/\]\(/);
   });
 
   it("keeps a quotation's figures identical either way", async () => {
@@ -148,7 +153,7 @@ describe("which door the message came through", () => {
     await answerAny(said("HIC ซื้อคู่กับ MEB ได้ไหม"), null, "facebook");
     const system = chat.mock.calls.at(-1)![0].messages[0].content as string;
     expect(system).toContain("ห้ามใช้มาร์กดาวน์");
-    expect(system).toMatch(/https?:\/\/\S+\/other-plans/);
+    expect(system).toMatch(/https?:\/\/\S+\/lifeprotect/);
 
     chat.mockClear();
     await answerAny(said("HIC ซื้อคู่กับ MEB ได้ไหม"), null, "web");

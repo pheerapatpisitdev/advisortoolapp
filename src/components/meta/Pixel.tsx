@@ -18,7 +18,7 @@ const SAFE = /^[0-9]+$/.test(PIXEL);
 
 const CALCULATORS = new Set([
   "/lifeprotect", "/plb", "/easyprotect", "/lifetreasure", "/legacy", "/ishield",
-  "/ci123", "/cancer", "/ihealthy-ultra", "/bumnan95", "/group-insurance", "/other-plans", "/fhc",
+  "/ci123", "/cancer", "/ihealthy-ultra", "/bumnan95", "/group-insurance", "/fhc",
 ]);
 
 function skipped(path: string): boolean {

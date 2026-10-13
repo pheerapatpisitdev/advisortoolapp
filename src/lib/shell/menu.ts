@@ -177,10 +177,9 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
 /**
  * The same eleven, flat.
  *
- * `/other-plans` lists them as cards in one grid and has no use for the headings, and the
- * test that checks none of the pages on disk has been left out of the menu counts them here.
- * Derived rather than written twice, so a page added to a section cannot go missing from the
- * grid — which is the way round this went wrong when the list lived inside the calculator.
+ * The test that checks none of the pages on disk has been left out of the menu counts them
+ * here. Derived rather than written twice, so a page added to a section cannot go missing
+ * from a list that reads it.
  */
 export const SALES_PAGES: MenuLink[] = SALES_SECTIONS.flatMap((s) => s.links);
 
@@ -266,11 +265,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
   const groups: MenuGroup[] = [{
     title: "งานขาย",
     links: [
-      // "จัดแบบเอง" rather than "คำนวณเบี้ย": every sales page in this menu works out a
-      // premium too, so naming this one after the arithmetic said nothing about what is
-      // different here — which is that the agent builds the arrangement themselves, plan by
-      // rider, instead of being walked through one plan's own questions.
-      { href: "/other-plans", label: "จัดแบบเอง", icon: "calc", hue: "#327d86" },
+      // จัดแบบเอง (/other-plans), the build-it-yourself calculator, was first here until the
+      // owner took it out altogether (2026-10-13); every sales page below prices its own plan
       { href: "/home", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },

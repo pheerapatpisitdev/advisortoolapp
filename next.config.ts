@@ -64,6 +64,9 @@ const nextConfig: NextConfig = {
       // the plain planner, until the owner took it out (2026-10-01): the health check asks the
       // same questions first and ends on the same plan
       { source: "/plan", destination: "/fhc", permanent: true },
+      // จัดแบบเอง, the build-it-yourself calculator, until the owner took it out (2026-10-13):
+      // old chat replies linked to it, and asking the chat is how a price is had now
+      { source: "/other-plans", destination: "/home", permanent: false },
     ];
   },
 };

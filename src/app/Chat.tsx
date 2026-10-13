@@ -222,11 +222,9 @@ export function Chat({ guide }: { guide: GuideGroup[] }) {
             <span className="whitespace-nowrap">กรุงไทย-แอกซ่า ประกันชีวิต</span>
           </h1>
           {/* On a short phone it gives way to the opening buttons, which are what the page is
-              for: the rate-table claim is in the line under the box too, and the other plans
-              are in the menu and behind the box's own last link. */}
+              for: the rate-table claim is in the line under the box too. */}
           <p className={`mt-1 text-sm text-[var(--hm-mute)] ${talking ? "max-sm:hidden" : "short:hidden"}`}>
-            ถามเงื่อนไขก็ได้ ขอเบี้ยก็ได้ — เบี้ยคิดจากตารางจริง ตัวเดียวกับที่บอทและหน้าขายใช้ ·{" "}
-            <Link href="/other-plans" className="underline underline-offset-2">แบบประกันอื่นๆ</Link>
+            ถามเงื่อนไขก็ได้ ขอเบี้ยก็ได้ — เบี้ยคิดจากตารางจริง ตัวเดียวกับที่บอทและหน้าขายใช้
           </p>
         </div>
         </div>

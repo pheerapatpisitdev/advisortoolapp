@@ -78,7 +78,7 @@ describe("the guide the page opens with", () => {
       const plan = getPlan(named.code)!;
       // iShield answers by explaining itself; every other plan must produce a figure
       if (plan.rules.base.premiumBasis) {
-        expect(reply.text, item.label).toContain("/other-plans");
+        expect(reply.text, item.label).toContain("กรอกเบี้ยที่อยากจ่าย");
         continue;
       }
       expect(reply.priced, item.label).toBe(true);

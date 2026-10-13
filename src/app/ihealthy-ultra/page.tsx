@@ -110,9 +110,9 @@ export default async function IHealthyPage(
         </p>
       )}
       <Hero facts={facts} w={w} />
-      {/* The customer's version of the same fact. `ExpiryBanner` tells the agency's own
-          operator to go and fetch a new rate file, which is not a sentence to put at the top
-          of a page a customer arrived at from an advert. */}
+      {/* The customer's version of an expired rate table: "go and fetch a new rate file" is
+          the operator's sentence, not one to put at the top of a page a customer arrived at
+          from an advert. */}
       {table.expired && (
         <p className="mb-4 rounded-sm border border-[var(--lg-gold)] px-4 py-3 text-sm text-[var(--lg-gold)]">
           {w.expiredTable(table.expiresOn)}
