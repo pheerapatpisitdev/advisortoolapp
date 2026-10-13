@@ -13,6 +13,7 @@ import { largestAt } from "@/lib/highlighter";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
 import { legacyFromDeath } from "@/lib/legacy-headline";
+import { formatBaht, formatSatang } from "@/calc/money";
 
 /**
  * The card opens on a priced example rather than empty. A cold visitor should meet a number,
@@ -85,6 +86,20 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
     : undefined;
 
   const headline = displayPremium(modes, table.expired);
+  // each contract's own premium: the base row from the server, the rider the rest of the total
+  const contracts = useMemo(() => {
+    const base = typeof age === "number" ? table.basePremiums[sex][age - table.ageMin] : null;
+    if (!modes || !base) return undefined;
+    const annual = modes.find((m) => m.mode === "annual")!.total;
+    const monthly = modes.find((m) => m.mode === "monthly");
+    return {
+      base: { annual: base[0], monthly: base[2] },
+      rider: { annual: annual - base[0], monthly: monthly ? monthly.total - base[2] : 0 },
+      total: { annual, monthly: monthly?.total ?? 0 },
+      // the column goes when the company will not take this sum monthly
+      showMonthly: Boolean(monthly && !monthly.belowMinimum),
+    };
+  }, [table, age, sex, modes]);
   const annual = modes?.find((m) => m.mode === "annual");
 
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page
@@ -179,7 +194,19 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
               <LegacyHeadline legacy={legacyFromDeath(death!)} perDay={perDayText(annual.total)} />
               {/* every instalment in the back-office calculator's box (owner, 2026-10-06) */}
               <div className="mt-3">
-                <PremiumSummary modes={modes} main={headline.mode} />
+                <PremiumSummary modes={modes} main={headline.mode}>
+                  {contracts && (
+                    <ContractTable
+                      rows={[
+                        { name: "สัญญาหลัก", note: `${table.contracts.base.name} · ถึงอายุ ${table.contracts.base.coverToAge}`,
+                          sum: table.contracts.base.sumAssured, ...contracts.base },
+                        { name: "สัญญาเพิ่มเติม", note: `${table.contracts.rider.name.replace(/^สัญญาเพิ่มเติม/, "")} · ถึงอายุ ${table.contracts.rider.coverToAge} · เบี้ยปรับตามอายุ`,
+                          sum: table.critical[millions - 1], ...contracts.rider },
+                      ]}
+                      total={contracts.total} showMonthly={contracts.showMonthly}
+                    />
+                  )}
+                </PremiumSummary>
               </div>
             </div>
           ) : (
@@ -241,6 +268,53 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
           <ContactButtons copyText={quoteText} cardPath={card} compact />
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Each contract on its own row — its sum and what it costs — under the total the customer
+ * pays (owner, 2026-10-14, option ก on mockup https://claude.ai/artifact/9R91Y7qR6Qre26uY2QfcuQ).
+ * The yearly figure is whole baht as in the box above; the monthly keeps its satang, so the
+ * two rows add up to the total beneath them.
+ */
+function ContractTable({ rows, total, showMonthly }: {
+  rows: { name: string; note: string; sum: number; annual: number; monthly: number }[];
+  total: { annual: number; monthly: number };
+  showMonthly: boolean;
+}) {
+  const cell = "px-1.5 py-1.5 text-right whitespace-nowrap tabular-nums";
+  return (
+    <div className="-mx-1 overflow-x-auto">
+      <table className="w-full border-collapse text-xs text-[var(--bot-navy)]">
+        <thead>
+          <tr className="bg-[var(--bot-navy)] text-[var(--bot-surface)]">
+            <th className="px-1.5 py-1.5 text-left font-medium">สัญญา</th>
+            <th className={`${cell} font-medium`}>ทุน</th>
+            <th className={`${cell} font-medium`}>รายปี</th>
+            {showMonthly && <th className={`${cell} font-medium`}>รายเดือน</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.name} className="border-b border-[var(--bot-line-strong)] align-top">
+              <td className="px-1.5 py-1.5 font-medium" style={{ minWidth: "5.25rem" }}>
+                {r.name}
+                <span className="block text-[0.7rem] font-normal leading-snug opacity-75">{r.note}</span>
+              </td>
+              <td className={cell}>{r.sum.toLocaleString("en-US")}</td>
+              <td className={cell}>{formatBaht(r.annual)}</td>
+              {showMonthly && <td className={cell}>{formatSatang(r.monthly)}</td>}
+            </tr>
+          ))}
+          <tr className="font-semibold">
+            <td className="px-1.5 py-1.5">รวม</td>
+            <td className={cell} />
+            <td className={cell}>{formatBaht(total.annual)}</td>
+            {showMonthly && <td className={cell}>{formatSatang(total.monthly)}</td>}
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }

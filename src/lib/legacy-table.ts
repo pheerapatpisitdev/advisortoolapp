@@ -3,6 +3,7 @@ import { bundleAgeRange, bundleModePremiums, quoteBundle } from "@/calc/bundles/
 import { MODES } from "@/calc/mode-premiums";
 import { riderDiseases } from "@/calc/riders/diseases";
 import type { DeathBenefit, Sex } from "@/calc/types";
+import { getPlan } from "@/calc/plans/registry";
 
 /**
  * Every price the legacy page can ever show, worked out on the server.
@@ -46,6 +47,18 @@ export interface LegacyTable {
    * the page first did, overstates the smallest plan by 150,000 baht.
    */
   critical: number[];
+  /**
+   * [age - ageMin] = [annual, semi, monthly], in satang: the base policy alone. Its sum is
+   * the same at every tier, so one row per age serves all ten; the rider's share of a tier is
+   * that tier's total less this (owner, 2026-10-14: the page shows each contract's sum and
+   * premium).
+   */
+  basePremiums: Record<Sex, (readonly number[] | null)[]>;
+  /** what the page calls the two contracts, and how long each covers */
+  contracts: {
+    base: { name: string; sumAssured: number; coverToAge: number };
+    rider: { name: string; coverToAge: number };
+  };
 }
 
 const BUNDLE = getBundle("LEGACY_FAMILY")!;
@@ -78,6 +91,14 @@ export function legacyTable(today: Date = new Date()): LegacyTable {
 
   const forSex = (sex: Sex) => tiers.map((tier) => ages.map((age) => priceRow(tier, sex, age)));
 
+  // the base policy's own line of the quote, in each instalment
+  const baseRow = (sex: Sex, age: number): readonly number[] | null => {
+    const row = MODES.map((mode) => quoteBundle(BUNDLE, 1, { age, sex, mode }, today)?.items[0]?.modal);
+    return row.every((v): v is number => typeof v === "number" && v > 0) ? row : null;
+  };
+  const plan = getPlan(BUNDLE.planCode)!;
+  const riderCode = BUNDLE.tiers[0].riders[0].code;
+
   // a quote at each side of the booster age gives both sets of bands without recomputing them
   const death = tiers.map((tier) => ({
     under: quoteBundle(BUNDLE, tier, { age: RANGE.min, sex: "M", mode: "annual" }, today)!.deathBenefit!,
@@ -94,6 +115,12 @@ export function legacyTable(today: Date = new Date()): LegacyTable {
     premiums: { M: forSex("M"), F: forSex("F") },
     death,
     critical: BUNDLE.tiers.map((t) => t.riders.reduce((sum, r) => sum + (r.sumAssured ?? 0), 0)),
+    basePremiums: { M: ages.map((age) => baseRow("M", age)), F: ages.map((age) => baseRow("F", age)) },
+    contracts: {
+      // the variant names the age it runs to: WLF99H is whole life to 99
+      base: { name: "Life Protect x 2", sumAssured: BUNDLE.tiers[0].sumAssured, coverToAge: Number(/\d+/.exec(BUNDLE.variant)?.[0] ?? 99) },
+      rider: { name: plan.rules.riders[riderCode]?.name ?? riderCode, coverToAge: plan.rules.riders[riderCode]?.coverToAge ?? RANGE.max },
+    },
   };
   return { ...cached, expired };
 }
