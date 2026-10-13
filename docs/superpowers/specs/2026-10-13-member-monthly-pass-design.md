@@ -6,7 +6,8 @@ Date: 2026-10-13 · Owner decisions in this conversation (all chosen by the owne
 
 Outside members (`viewer.kind === "member"`, Google sign-in, `ins_members`) pay ฿99 for 30 days
 to use the system. Without a live pass they cannot open ถาม AI (/home) or Studio. With one, ถาม AI
-is unlimited; Studio stays as today (10 free rounds, then the wallet at the fixed prices).
+is unlimited and Studio comes with 10 free AI rounds per pass period; past them, the wallet at the
+fixed prices.
 
 Supersedes the per-question pricing mockup of the same day (free 5/day then ฿0.50): not built.
 
@@ -15,6 +16,7 @@ Supersedes the per-question pricing mockup of the same day (free 5/day then ฿0
 | Question | Choice |
 |---|---|
 | What the fee buys | Entry to /home + Studio, ถาม AI unlimited; Studio work still from the wallet |
+| Studio rounds | 10 free AI rounds every 30-day period (owner, on review) — replaces the one-time 10 for members |
 | How members pay | A 30-day pass bought each time (PromptPay or card), no auto-renew |
 | Collect how | ก: its own Stripe Checkout (PromptPay at ฿99), not from the wallet balance |
 | Price | ฿99 / 30 days, owner-editable (changed from ฿199 on review) |
@@ -49,9 +51,28 @@ No email, LINE or push (not asked for).
 
 **Sign-in landing**: unchanged (/home). An expired member is sent on to /membership by the gate.
 
+## Studio rounds for members
+
+While `member_pass_enabled` is on, a member's free rounds are **10 per pass period** instead of the
+one-time 10 (`FREE_ROUNDS`, `FREE_ROUNDS_FROM` in `src/lib/auth/quota.ts`):
+
+- A period is the span of one positive ledger row (trial 3 days, paid 30 days, granted N days),
+  placed where `passEnd` places it — a pass bought early starts at the old end, so its 10 rounds
+  start then too.
+- `allowanceOf(viewer)` for a member counts `AI_ROUNDS` in `ins_audit` from the current period's
+  start; `limit` = 10 (`member_pass_rounds` setting, owner-editable, default 10).
+- Unused rounds do not carry over. Rounds handed back ('ai-returned') stay uncounted, as today.
+- Every period gets 10, whatever its length: the 3-day trial and an owner's เพิ่มวัน too.
+- Free วิดีโอนำเสนอ clips stay 2, once (`FREE_VIDEOS`), not per period.
+- Past the 10: the wallet at the fixed prices, exactly as for agents.
+- Switch off: members are back on the one-time 10, like agents.
+
+/membership shows "Studio ฟรีเหลือ 7/10 รอบ · ได้ 10 รอบใหม่ 15 พ.ย."; /studio/wallet's line reads the
+same allowance, so it changes without new code there.
+
 ## Owner side
 
-**/admin/wallet** — new box "ค่าสมาชิกทั่วไป": price per 30 days (฿99), trial days (3),
+**/admin/wallet** — new box "ค่าสมาชิกทั่วไป": price per 30 days (฿99), trial days (3), Studio rounds per period (10),
 on/off switch. Owner-only to edit, like the price table.
 
 **/admin/members** — existing table gains:
@@ -83,7 +104,8 @@ One pure function `passEnd(rows, now)` in `src/lib/members/pass.ts`, unit-tested
 column to drift. A member's rows are few (one per month), read per request with the viewer.
 
 Settings in `ins_ai_settings`: `member_pass_enabled bool default false`,
-`member_pass_satang int default 9900`, `member_trial_days int default 3`.
+`member_pass_satang int default 9900`, `member_trial_days int default 3`,
+`member_pass_rounds int default 10`.
 
 Trial: a `trial` row is written the first time `passOf(member)` finds no rows (new signup, or an
 existing member on first visit after launch), so the 3 days count from that visit. One trial per
@@ -108,6 +130,8 @@ Failures: a paid session that cannot be matched is logged `loud` like the wallet
 
 - `passEnd`: trial only, paid on top of trial, renew early, renew after expiry, revoke, grant.
 - `actionFor`: pass sessions vs top-up sessions, unpaid, wrong currency, refund of a pass intent.
+- Rounds: count from the current period's start; early renewal does not reset until the old end;
+  switch off falls back to the one-time 10.
 - Gate: member expired/live/switch off, UnitOS agent never gated (`/home`, a Studio page,
   `askCopilot`, `takeRound`).
 - Menu: no change for agents; members get "สมาชิก" in the main menu.
