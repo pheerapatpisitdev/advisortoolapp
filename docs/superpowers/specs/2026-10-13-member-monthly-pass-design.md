@@ -4,7 +4,7 @@ Date: 2026-10-13 · Owner decisions in this conversation (all chosen by the owne
 
 ## Goal
 
-Outside members (`viewer.kind === "member"`, Google sign-in, `ins_members`) pay ฿199 for 30 days
+Outside members (`viewer.kind === "member"`, Google sign-in, `ins_members`) pay ฿99 for 30 days
 to use the system. Without a live pass they cannot open ถาม AI (/home) or Studio. With one, ถาม AI
 is unlimited; Studio stays as today (10 free rounds, then the wallet at the fixed prices).
 
@@ -16,8 +16,8 @@ Supersedes the per-question pricing mockup of the same day (free 5/day then ฿0
 |---|---|
 | What the fee buys | Entry to /home + Studio, ถาม AI unlimited; Studio work still from the wallet |
 | How members pay | A 30-day pass bought each time (PromptPay or card), no auto-renew |
-| Collect how | ก: its own Stripe Checkout, not from the wallet balance |
-| Price | ฿199 / 30 days, owner-editable |
+| Collect how | ก: its own Stripe Checkout (PromptPay at ฿99), not from the wallet balance |
+| Price | ฿99 / 30 days, owner-editable (changed from ฿199 on review) |
 | Trial | 3 days, for new signups and for every existing member from launch day |
 
 ## Who is affected
@@ -31,8 +31,8 @@ Supersedes the per-question pricing mockup of the same day (free 5/day then ฿0
 
 **/membership** (new page, always reachable by a signed-in member, outside the gate):
 - Status line: "ใช้ได้ถึง 12 พ.ย. 2569 · เหลือ 30 วัน" / "ทดลองใช้ฟรีถึง …" / "หมดอายุแล้ว".
-- Button "ต่ออายุ 30 วัน ฿199" → Stripe Checkout. Card allowed because ฿199 ≥ `CARD_FROM_THB` (฿150);
-  if the owner sets a price under ฿150 the card is left out, as with top-ups.
+- Button "ต่ออายุ 30 วัน ฿99" → Stripe Checkout. PromptPay only: ฿99 < `CARD_FROM_THB` (฿150), so the card is left out, as with small top-ups;
+  a price the owner raises to ฿150 or more offers the card too.
 - History: each pass (trial / paid / added by the owner / taken back) with dates.
 - Return from Stripe: same "กำลังยืนยันการชำระเงิน…" waiting pattern as the wallet page.
 
@@ -51,7 +51,7 @@ No email, LINE or push (not asked for).
 
 ## Owner side
 
-**/admin/wallet** — new box "ค่าสมาชิกทั่วไป": price per 30 days (฿199), trial days (3),
+**/admin/wallet** — new box "ค่าสมาชิกทั่วไป": price per 30 days (฿99), trial days (3),
 on/off switch. Owner-only to edit, like the price table.
 
 **/admin/members** — existing table gains:
@@ -83,7 +83,7 @@ One pure function `passEnd(rows, now)` in `src/lib/members/pass.ts`, unit-tested
 column to drift. A member's rows are few (one per month), read per request with the viewer.
 
 Settings in `ins_ai_settings`: `member_pass_enabled bool default false`,
-`member_pass_satang int default 19900`, `member_trial_days int default 3`.
+`member_pass_satang int default 9900`, `member_trial_days int default 3`.
 
 Trial: a `trial` row is written the first time `passOf(member)` finds no rows (new signup, or an
 existing member on first visit after launch), so the 3 days count from that visit. One trial per
