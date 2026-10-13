@@ -34,9 +34,9 @@ describe("the pen notes on the บำนาญ 95 yearly table", () => {
     expect(m.steady).toBe(true);
   });
 
-  it("rings the last premium, the first pension and each step up", () => {
+  it("rings the last paying year, the first pension and each step up", () => {
     expect(pensionRings(rows)).toEqual([
-      { row: at(rows, 59), column: "เบี้ย" },
+      { row: at(rows, 59), column: "ปีที่" },
       { row: at(rows, 60), column: "บำนาญ" },
       { row: at(rows, 76), column: "บำนาญ" },
       { row: at(rows, 81), column: "บำนาญ" },
