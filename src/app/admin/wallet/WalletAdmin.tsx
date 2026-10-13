@@ -1,10 +1,11 @@
 "use client";
 import { useState, useTransition } from "react";
+import type { PassSettings } from "@/lib/members/pass";
 import { formatBaht } from "@/lib/wallet/money";
 import { PRICE_ITEMS, priceBaht, type PriceGroup, type Prices } from "@/lib/wallet/prices";
 import type { FrozenWallet, WalletRow, WalletSettings } from "@/lib/wallet/store";
 import { Card, Empty } from "../ui";
-import { adjustAgentWallet, savePrices, saveWallet, unfreezeAgentWallet, type Result } from "./actions";
+import { adjustAgentWallet, saveMemberPass, savePrices, saveWallet, unfreezeAgentWallet, type Result } from "./actions";
 
 /**
  * The same look as /admin/ai (its Card, tokens and input classes), so the two settings pages
@@ -33,8 +34,10 @@ async function ask(fn: () => Promise<Result>, ok: string): Promise<{ ok: boolean
   }
 }
 
-export function WalletAdmin({ settings, rows, frozen = [], prices, canPrice }: {
+export function WalletAdmin({ settings, rows, frozen = [], prices, pass = null, canPrice }: {
   settings: WalletSettings | null;
+  /** the outside members' 30-day pass (owner, 2026-10-13); null when it cannot be read */
+  pass?: PassSettings | null;
   /** the fixed prices agents pay (owner, 2026-10-12) */
   prices: Prices;
   /** the owner's alone to change; an admin sees them */
@@ -83,6 +86,8 @@ export function WalletAdmin({ settings, rows, frozen = [], prices, canPrice }: {
       </Card>
 
       <PriceCard prices={prices} canPrice={canPrice} />
+
+      <MemberPassCard pass={pass} canPrice={canPrice} />
 
       {frozen === null ? (
         <Card title="กระเป๋าที่ถูกพัก">
@@ -268,6 +273,71 @@ function PriceCard({ prices, canPrice }: { prices: Prices; canPrice: boolean }) 
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={save} disabled={pending} className={primary}>
               {pending ? "กำลังบันทึก…" : "บันทึกราคา"}
+            </button>
+            {said && <Said {...said} />}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/** satang as the owner types baht: 9900 → "99", 14950 → "149.50" */
+const typedBaht = (satang: number) => (satang % 100 === 0 ? String(satang / 100) : (satang / 100).toFixed(2));
+
+/**
+ * What outside members pay for 30 days (owner, 2026-10-13). Off, members use the app free as
+ * before. The owner's alone to change, like the price list; other admins see it read-only.
+ */
+function MemberPassCard({ pass, canPrice }: { pass: PassSettings | null; canPrice: boolean }) {
+  const [enabled, setEnabled] = useState(pass?.enabled ?? false);
+  const [baht, setBaht] = useState(pass ? typedBaht(pass.satang) : "");
+  const [trialDays, setTrialDays] = useState(String(pass?.trialDays ?? ""));
+  const [rounds, setRounds] = useState(String(pass?.rounds ?? ""));
+  const [said, setSaid] = useState<{ ok: boolean; text: string }>();
+  const [pending, start] = useTransition();
+
+  if (!pass) {
+    return (
+      <Card title="ค่าสมาชิกทั่วไป">
+        <Empty>อ่านการตั้งค่าค่าสมาชิกไม่ได้ — ตรวจว่า migration 20261027_member_pass ถูก apply แล้ว</Empty>
+      </Card>
+    );
+  }
+
+  const save = () => {
+    setSaid(undefined);
+    start(async () => setSaid(await ask(() => saveMemberPass({ enabled, baht, trialDays, rounds }), "บันทึกแล้ว")));
+  };
+  const field = (label: string, id: string, value: string, set: (v: string) => void, mode: "decimal" | "numeric") => (
+    <label htmlFor={id} className="block text-xs text-[var(--bot-ink-mute)]">
+      {label}
+      <input id={id} inputMode={mode} value={value} disabled={!canPrice} onChange={(e) => set(e.target.value)}
+             className={`mt-1 block w-32 text-right tabular-nums text-[var(--bot-ink)] ${input}`} />
+    </label>
+  );
+
+  return (
+    <Card title="ค่าสมาชิกทั่วไป" hint={`สมาชิกทั่วไปที่สมัครด้วย Google จ่ายรายเดือนเพื่อใช้แอป · ตัวแทน UnitOS พนักงาน และเจ้าของไม่เปลี่ยน${canPrice ? "" : " · เจ้าของเท่านั้นที่แก้ได้"}`}>
+      <div className="space-y-3">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+          <input type="checkbox" checked={enabled} disabled={!canPrice} onChange={(e) => setEnabled(e.target.checked)} className="size-5" />
+          เก็บค่าสมาชิกทั่วไป (ปิดอยู่ = สมาชิกทุกคนใช้ฟรีเหมือนวันนี้)
+        </label>
+        <div className="flex flex-wrap gap-4">
+          {field("ราคาต่อ 30 วัน (บาท)", "pass-price", baht, setBaht, "decimal")}
+          {field("ทดลองใช้ฟรี (วัน)", "trial-days", trialDays, setTrialDays, "numeric")}
+          {field("Studio ฟรีต่อ 30 วัน (รอบ)", "pass-rounds", rounds, setRounds, "numeric")}
+        </div>
+        <p className="text-xs text-[var(--bot-ink-mute)]">
+          ราคาต่ำกว่า ฿150 จ่ายได้แค่พร้อมเพย์ (ค่าธรรมเนียมบัตรสูง) · {pass.trialDays > 0
+            ? `เปิดสวิตช์แล้ว สมาชิกที่มีอยู่ได้ทดลอง ${pass.trialDays} วัน นับจากครั้งแรกที่เข้าใช้หลังเปิด`
+            : "ทดลองใช้ 0 วัน = สมาชิกต้องจ่ายก่อนจึงใช้ได้"}
+        </p>
+        {canPrice && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={save} disabled={pending} className={primary}>
+              {pending ? "กำลังบันทึก…" : "บันทึก"}
             </button>
             {said && <Said {...said} />}
           </div>

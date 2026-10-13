@@ -99,9 +99,11 @@ describe("listMembers", () => {
     ] });
     db.on("ins_wallets", { data: [{ agent_id: "m1", balance_satang: 5000 }] });
     db.on("ins_audit", (steps) => ({ count: has(steps, "eq", "agent_id", "m1") ? 14 : 3 }));
+    // the pass switched off (nothing saved): no pass column, the one-time ten (owner, 2026-10-13)
+    db.on("ins_ai_settings", { data: null });
     expect(await store.listMembers()).toEqual([
-      { id: "m2", name: "ข", email: "b@gmail.com", status: "suspended", createdAt: "2026-10-02T00:00:00Z", balanceSatang: 0, freeUsed: 3 },
-      { id: "m1", name: "ก", email: "a@gmail.com", status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 5000, freeUsed: 10 },
+      { id: "m2", name: "ข", email: "b@gmail.com", status: "suspended", createdAt: "2026-10-02T00:00:00Z", balanceSatang: 0, freeUsed: 3, freeLimit: 10, pass: null },
+      { id: "m1", name: "ก", email: "a@gmail.com", status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 5000, freeUsed: 10, freeLimit: 10, pass: null },
     ]);
   });
 });

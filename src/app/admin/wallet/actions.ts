@@ -1,7 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { audit, requireStaff } from "@/lib/auth/viewer";
-import { readAdjust, readMultiplier, readPrices, readUnfreeze } from "@/lib/wallet/admin-input";
+import { savePassSettings } from "@/lib/members/pass-store";
+import { readAdjust, readMultiplier, readPassSettings, readPrices, readUnfreeze } from "@/lib/wallet/admin-input";
 import { adjustWallet, saveWalletPrices, saveWalletSettings, unfreezeWallet } from "@/lib/wallet/store";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
@@ -41,6 +42,26 @@ export async function savePrices(raw: Record<string, string>): Promise<Result> {
   await audit("wallet-prices", null, p.prices);
   revalidatePath("/admin/wallet");
   revalidatePath("/studio", "layout");
+  return { ok: true };
+}
+
+/**
+ * What outside members pay for 30 days, their free trial and their Studio rounds (owner,
+ * 2026-10-13). The owner's alone, like the price list: the box is read-only for other admins.
+ */
+export async function saveMemberPass(raw: { enabled: boolean; baht: string; trialDays: string; rounds: string }): Promise<Result> {
+  await requireStaff("owner");
+  const p = readPassSettings(raw);
+  if (!p.ok) return p;
+  try {
+    await savePassSettings(p.value);
+  } catch (e) {
+    console.error("member pass settings not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261027_member_pass ถูก apply แล้ว" };
+  }
+  await audit("member-pass-settings", null, { ...p.value });
+  revalidatePath("/admin/wallet");
+  revalidatePath("/admin/members");
   return { ok: true };
 }
 

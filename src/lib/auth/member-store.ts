@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { passState, roundsFrom } from "@/lib/members/pass";
+import { passRowsOf, passSettings } from "@/lib/members/pass-store";
 import type { MemberRow } from "./access";
 import { AI_ROUNDS, FREE_ROUNDS, FREE_ROUNDS_FROM } from "./quota";
 
@@ -87,11 +89,19 @@ export interface MemberSummary {
   status: "active" | "suspended";
   createdAt: string;
   balanceSatang: number;
-  /** free rounds used, at most FREE_ROUNDS */
+  /** free rounds used in the member's current window, at most freeLimit */
   freeUsed: number;
+  /** the live pass's rounds, or the one-time FREE_ROUNDS (owner, 2026-10-13) */
+  freeLimit: number;
+  /** null while the owner has the pass switched off; `end` is the last period's end */
+  pass: { status: "none" | "live" | "expired"; end: string | null; trial: boolean } | null;
 }
 
-/** The newest members for the owner's page, each with their wallet and their free rounds. */
+/**
+ * The newest members for the owner's page, each with their wallet, their pass and their free
+ * rounds. The pass ledger is read once for the whole list; each member's rounds are counted from
+ * their live period, or from FREE_ROUNDS_FROM like before the pass (owner, 2026-10-13).
+ */
 export async function listMembers(limit = 200): Promise<MemberSummary[]> {
   const { data, error } = await supabaseAdmin().from("ins_members")
     .select("id, name, email, status, created_at").order("created_at", { ascending: false }).limit(limit);
@@ -103,15 +113,25 @@ export async function listMembers(limit = 200): Promise<MemberSummary[]> {
     .select("agent_id, balance_satang").in("agent_id", ids);
   if (walletError) throw new Error(`อ่านกระเป๋าสมาชิกไม่ได้: ${walletError.message}`);
   const balance = new Map(((wallets ?? []) as { agent_id: string; balance_satang: number }[]).map((w) => [w.agent_id, Number(w.balance_satang)]));
+  const [settings, ledger] = await Promise.all([passSettings(), passRowsOf(ids)]);
+  const now = new Date();
+  const states = rows.map((r) => passState(ledger.get(r.id) ?? [], now));
   // one count per member: a select of the rounds themselves would stop at 1000 rows
-  const used = await Promise.all(rows.map(async (r) => {
+  const windows = states.map((s) => roundsFrom(s, settings) ?? { limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM });
+  const used = await Promise.all(rows.map(async (r, i) => {
     const { count, error: e } = await supabaseAdmin().from("ins_audit").select("id", { count: "exact", head: true })
-      .eq("agent_id", r.id).in("action", [...AI_ROUNDS]).gte("at", FREE_ROUNDS_FROM.toISOString());
+      .eq("agent_id", r.id).in("action", [...AI_ROUNDS]).gte("at", windows[i].from.toISOString());
     if (e) throw new Error(`อ่านรอบฟรีไม่ได้: ${e.message}`);
-    return Math.min(count ?? 0, FREE_ROUNDS);
+    return Math.min(count ?? 0, windows[i].limit);
   }));
-  return rows.map((r, i) => ({
-    id: r.id, name: r.name, email: r.email, status: r.status, createdAt: r.created_at,
-    balanceSatang: balance.get(r.id) ?? 0, freeUsed: used[i],
-  }));
+  return rows.map((r, i) => {
+    const s = states[i];
+    return {
+      id: r.id, name: r.name, email: r.email, status: r.status, createdAt: r.created_at,
+      balanceSatang: balance.get(r.id) ?? 0, freeUsed: used[i], freeLimit: windows[i].limit,
+      pass: !settings.enabled ? null
+        : s.status === "none" ? { status: "none", end: null, trial: false }
+        : { status: s.status, end: s.end.toISOString(), trial: s.status === "live" && s.period.kind === "trial" },
+    };
+  });
 }
