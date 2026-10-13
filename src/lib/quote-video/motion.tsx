@@ -641,35 +641,11 @@ function Contact({ c, t }: { c: MotionContext; t: number }) {
   );
 }
 
-/** the agent, small, under a looping clip's last scene */
-function AgentStrip({ c, top }: { c: MotionContext; top: number }) {
-  const k = c.contact;
-  const initial = [...k.name.trim()][0] ?? "?";
-  return (
-    <div style={abs({ left: SIDE, width: W - SIDE * 2, top, background: WHITE, color: NAVY, borderRadius: 36, padding: "22px 30px", alignItems: "center" })}>
-      {k.photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={k.photo} width={120} height={120} style={{ borderRadius: 60, objectFit: "cover" }} alt="" />
-      ) : (
-        <div style={box({ width: 120, height: 120, borderRadius: 60, background: C.noPhoto, alignItems: "center", justifyContent: "center", fontSize: 60, fontWeight: 700 })}>{initial}</div>
-      )}
-      <div style={box({ flexDirection: "column", marginLeft: 30, flexShrink: 1 })}>
-        <div style={box({ fontSize: 46, fontWeight: 700 })}>{`ทักแชท ${k.name}`}</div>
-        <div style={box({ fontSize: 38 })}>{[`โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ")}</div>
-      </div>
-    </div>
-  );
-}
 
-/** A looping clip's last scene (owner, 2026-10-13, choice ก): the opening's picture, held, and the agent beneath it. */
+/** A looping clip's last scene (owner, 2026-10-13, choices ก and ข): the opening's picture, held, and nothing else. */
 function LoopEnd({ c, t }: { c: MotionContext; t: number }) {
   // the opening as it stands once everything has come in, so the replay starts where this ends
-  return (
-    <>
-      <Lead c={c} t={Math.max(t, 4)} />
-      <AgentStrip c={c} top={1260} />
-    </>
-  );
+  return <Lead c={c} t={Math.max(t, 4)} />;
 }
 
 function Kicker({ an, t, text }: { an?: Anim; t: number; text: string }) {
@@ -784,15 +760,11 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
     versus: <VersusScene c={c} t={t} />,
     steps: <StepsScene c={c} t={t} />,
   }[key];
-  const k = c.contact;
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {body}
       <Subtitle words={c.words} t={t} voiceSec={c.voiceSec} />
-      {/* a looping clip has no closing card to wait for: every scene's foot says how to reach the agent */}
-      <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: c.loop ? 30 : 26, color: c.loop ? GOLD : WHITE, opacity: c.loop ? 0.95 : 0.6, fontWeight: c.loop ? 600 : 400 })}>
-        {c.loop ? [k.name, `โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ") : "Design by www.unitclub.app"}
-      </div>
+      <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: 26, color: WHITE, opacity: 0.6 })}>Design by www.unitclub.app</div>
     </div>
   );
 }

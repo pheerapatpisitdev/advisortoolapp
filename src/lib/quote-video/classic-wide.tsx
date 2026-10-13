@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Chart } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
-import { abs, box, contactLine, On, Swept, type DrawContext, type Layer } from "./draw";
+import { abs, box, On, Swept, type DrawContext, type Layer } from "./draw";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import type { SceneKey } from "./script";
 import { CLASSIC_BOXES, COLS, type Rect } from "./table-geo";
@@ -79,10 +79,10 @@ function Subtitle({ g, words, word }: { g: Geo; words: string[]; word: number })
   );
 }
 
-function Footer({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer }) {
+function Footer({ g, layer }: { g: Geo; layer: Layer }) {
   return (
-    <On layer={layer} own="base" style={{ position: "absolute", left: 0, width: g.w, bottom: 16, justifyContent: "center", fontSize: c.loop ? 24 : 20, color: c.loop ? P.accent : P.mute, fontWeight: c.loop ? 600 : 400 }}>
-      {c.loop ? contactLine(c.contact) : "Design by www.unitclub.app"}
+    <On layer={layer} own="base" style={{ position: "absolute", left: 0, width: g.w, bottom: 16, justifyContent: "center", fontSize: 20, color: P.mute }}>
+      Design by www.unitclub.app
     </On>
   );
 }
@@ -96,13 +96,12 @@ function Right({ g, from, children, style }: { g: Geo; from: number; children: R
 
 // ——— the scenes ———
 
-function Lead({ g, c, layer, s, strip }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState; strip?: boolean }) {
+function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const from = g.photo.x + g.photo.w + g.px(36, 60);
   return (
-    // the loop's last scene adds the agent's card: it takes the body's whole height, without the name line and the note
-    <Right g={g} from={from} style={strip ? { justifyContent: "center" } : { top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
-      {c.customer && !strip && (
+    <Right g={g} from={from} style={{ top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
+      {c.customer && (
         <On layer={layer} own="base" style={{ fontSize: g.px(28, 36), color: P.ink, marginBottom: 10 }}>
           จัดทำสำหรับ <span style={{ fontWeight: 600, color: P.figure, marginLeft: 10 }}>คุณ{c.customer}</span>
         </On>
@@ -118,32 +117,12 @@ function Lead({ g, c, layer, s, strip }: { g: Geo; c: DrawContext; layer: Layer;
         <On layer={layer} own="over" style={{ fontSize: g.px(f.lead.amount.length > 9 ? 60 : f.lead.amount.length > 7 ? 70 : 92, f.lead.amount.length > 9 ? 120 : 140), fontWeight: 600, color: P.figure, lineHeight: 1.1 }}>{money(countAt(f.lead.baht, s.count))}</On>
         <On layer={layer} own="base" style={{ fontSize: g.px(30, 44), color: P.mute, marginLeft: 12, marginBottom: 8 }}>บาท</On>
       </div>
-      {f.lead.note && !strip && <On layer={layer} own="base" style={{ fontSize: g.px(24, 32), color: P.mute, marginTop: 6 }}>{f.lead.note}</On>}
+      {f.lead.note && <On layer={layer} own="base" style={{ fontSize: g.px(24, 32), color: P.mute, marginTop: 6 }}>{f.lead.note}</On>}
       <On layer={layer} own="over" style={{ marginTop: g.px(14, 22) }}><Swept p={s.sweep[0] ?? 1} size={g.px(36, 46)}>{f.leadMark}</Swept></On>
-      {strip && <AgentStrip g={g} c={c} layer={layer} />}
     </Right>
   );
 }
 
-function AgentStrip({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer }) {
-  const k = c.contact;
-  const initial = [...k.name.trim()][0] ?? "?";
-  const face = g.px(76, 100);
-  return (
-    <On layer={layer} own="base" style={{ marginTop: g.px(18, 28), border: `3px solid ${P.hair}`, borderRadius: 24, padding: g.px("12px 18px", "16px 24px"), alignItems: "center" }}>
-      {k.photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={k.photo} width={face} height={face} style={{ borderRadius: face / 2, objectFit: "cover" }} alt="" />
-      ) : (
-        <div style={box({ width: face, height: face, borderRadius: face / 2, background: C.noPhoto, alignItems: "center", justifyContent: "center", fontSize: g.px(38, 50), fontWeight: 600, color: P.figure })}>{initial}</div>
-      )}
-      <div style={box({ flexDirection: "column", marginLeft: 20, flexShrink: 1 })}>
-        <div style={box({ fontSize: g.px(28, 38), fontWeight: 600, color: P.ink })}>{`ทักแชท ${k.name}`}</div>
-        <div style={box({ fontSize: g.px(22, 30), color: P.mute })}>{[`โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ")}</div>
-      </div>
-    </On>
-  );
-}
 
 function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
@@ -514,7 +493,8 @@ export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size
     cover: <Cover g={g} c={c} layer={layer} s={state} />,
     value: <Value g={g} c={c} layer={layer} s={state} />,
     compare: <Compare g={g} c={c} layer={layer} s={state} />,
-    contact: c.loop ? <Lead g={g} c={c} layer={layer} s={{ ...state, count: 1, sweep: [1] }} strip /> : <ContactScene g={g} c={c} layer={layer} />,
+    // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
+    contact: c.loop ? <Lead g={g} c={c} layer={layer} s={{ ...state, count: 1, sweep: [1] }} /> : <ContactScene g={g} c={c} layer={layer} />,
     story: <StoryScene g={g} c={c} layer={layer} s={state} />,
     qa: <QaScene g={g} c={c} layer={layer} s={state} />,
     versus: <VersusScene g={g} c={c} layer={layer} s={state} />,
@@ -525,7 +505,7 @@ export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size
       {(key !== "contact" || c.loop) && <Header g={g} c={c} layer={layer} />}
       {body}
       {layer === "over" && <Subtitle g={g} words={c.words} word={state.word} />}
-      <Footer g={g} c={c} layer={layer} />
+      <Footer g={g} layer={layer} />
     </div>
   );
 }

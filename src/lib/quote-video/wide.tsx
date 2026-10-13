@@ -111,13 +111,12 @@ function Subtitle({ g, words, t, voiceSec }: { g: Geo; words: string[]; t: numbe
   );
 }
 
-function Frame({ g, words, t, voiceSec, children, foot }: { g: Geo; words: string[]; t: number; voiceSec: number; children: ReactNode; foot?: string }) {
+function Frame({ g, words, t, voiceSec, children }: { g: Geo; words: string[]; t: number; voiceSec: number; children: ReactNode }) {
   return (
     <div style={{ display: "flex", position: "relative", width: g.w, height: g.h, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {children}
       <Subtitle g={g} words={words} t={t} voiceSec={voiceSec} />
-      {/* a looping clip's foot says how to reach the agent (owner, 2026-10-13, choice ก) */}
-      <div style={abs({ left: 0, width: g.w, bottom: 14, justifyContent: "center", fontSize: foot ? 24 : 22, color: foot ? GOLD : WHITE, opacity: foot ? 0.95 : 0.6, fontWeight: foot ? 600 : 400 })}>{foot ?? "Design by www.unitclub.app"}</div>
+      <div style={abs({ left: 0, width: g.w, bottom: 14, justifyContent: "center", fontSize: 22, color: WHITE, opacity: 0.6 })}>Design by www.unitclub.app</div>
     </div>
   );
 }
@@ -175,7 +174,7 @@ export interface WideQuoteContext {
   voiceSec: number;
 }
 
-function Lead({ g, c, t, strip }: { g: Geo; c: WideQuoteContext; t: number; strip?: boolean }) {
+function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
   const s = motionSpec("lead", f, c.voiceSec);
   const shieldW = g.px(330, 500);
@@ -210,32 +209,12 @@ function Lead({ g, c, t, strip }: { g: Geo; c: WideQuoteContext; t: number; stri
           <El an={s.mark} t={t} style={{ marginTop: g.px(20, 30) }}>
             <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "6px 30px", fontSize: g.px(34, 48), fontWeight: 600 })}>{f.leadMark}</div>
           </El>
-          {strip && <AgentStrip g={g} k={c.contact} />}
         </div>
       </Body>
     </>
   );
 }
 
-/** the agent, small, under a looping clip's last scene */
-function AgentStrip({ g, k }: { g: Geo; k: Contact }) {
-  const initial = [...k.name.trim()][0] ?? "?";
-  const face = g.px(80, 110);
-  return (
-    <div style={box({ marginTop: g.px(18, 28), background: WHITE, color: NAVY, borderRadius: 28, padding: g.px("12px 20px", "16px 26px"), alignItems: "center" })}>
-      {k.photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={k.photo} width={face} height={face} style={{ borderRadius: face / 2, objectFit: "cover" }} alt="" />
-      ) : (
-        <div style={box({ width: face, height: face, borderRadius: face / 2, background: C.noPhoto, alignItems: "center", justifyContent: "center", fontSize: g.px(40, 54), fontWeight: 700 })}>{initial}</div>
-      )}
-      <div style={box({ flexDirection: "column", marginLeft: 22, flexShrink: 1 })}>
-        <div style={box({ fontSize: g.px(30, 40), fontWeight: 700 })}>{`ทักแชท ${k.name}`}</div>
-        <div style={box({ fontSize: g.px(24, 32) })}>{[`โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ")}</div>
-      </div>
-    </div>
-  );
-}
 
 function StoryScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const s = motionSpec("story", c.facts, c.voiceSec);
@@ -609,8 +588,8 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
     value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
-    // a looping clip ends on its opening, held, with the agent under the figure (owner, 2026-10-13, choice ก)
-    contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} strip /> : (
+    // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
+    contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} /> : (
       <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title="สนใจรายละเอียดเพิ่มเติม" header={c.facts.insuredWho}
         customer={c.customer} narrator={c.narrator} contact={c.contact} note={c.facts.footNote} />
     ),
@@ -619,9 +598,7 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     versus: <VersusScene g={g} c={c} t={t} />,
     steps: <StepsScene g={g} c={c} t={t} />,
   }[key];
-  const k = c.contact;
-  const foot = c.loop ? [k.name, `โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ") : undefined;
-  return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec} foot={foot}>{body}</Frame>;
+  return <Frame g={g} words={c.words} t={t} voiceSec={c.voiceSec}>{body}</Frame>;
 }
 
 // ——— the FHC summary ———

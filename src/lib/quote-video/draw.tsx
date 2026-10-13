@@ -91,14 +91,10 @@ function Subtitle({ words, word }: { words: string[]; word: number }) {
   );
 }
 
-/** the agent's name and how to reach them, in a line: a looping clip's footer and its closing strip */
-export const contactLine = (k: Contact) => [k.name, `โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ");
-
-/** a looping clip has no closing card to wait for (owner, 2026-10-13, choice ก): every scene's footer says how to reach the agent */
-function Footer({ layer, c }: { layer: Layer; c: DrawContext }) {
+function Footer({ layer }: { layer: Layer }) {
   return (
-    <On layer={layer} own="base" style={{ position: "absolute", left: 0, right: 0, bottom: 44, justifyContent: "center", fontSize: c.loop ? 32 : 28, color: c.loop ? P.accent : P.mute, fontWeight: c.loop ? 600 : 400 }}>
-      {c.loop ? contactLine(c.contact) : "Design by www.unitclub.app"}
+    <On layer={layer} own="base" style={{ position: "absolute", left: 0, right: 0, bottom: 44, justifyContent: "center", fontSize: 28, color: P.mute }}>
+      Design by www.unitclub.app
     </On>
   );
 }
@@ -113,25 +109,6 @@ function Headline({ c, layer }: { c: DrawContext; layer: Layer }) {
   );
 }
 
-/** the agent, small, under a looping clip's last scene */
-function AgentStrip({ c, layer, top }: { c: DrawContext; layer: Layer; top: number }) {
-  const k = c.contact;
-  const initial = [...k.name.trim()][0] ?? "?";
-  return (
-    <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top, border: `3px solid ${P.hair}`, borderRadius: 32, padding: "22px 30px", alignItems: "center" }}>
-      {k.photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={k.photo} width={120} height={120} style={{ borderRadius: 60, objectFit: "cover" }} alt="" />
-      ) : (
-        <div style={box({ width: 120, height: 120, borderRadius: 60, background: C.noPhoto, alignItems: "center", justifyContent: "center", fontSize: 60, fontWeight: 600, color: P.figure })}>{initial}</div>
-      )}
-      <div style={box({ flexDirection: "column", marginLeft: 30, flexShrink: 1 })}>
-        <div style={box({ fontSize: 46, fontWeight: 600, color: P.ink })}>{`ทักแชท ${k.name}`}</div>
-        <div style={box({ fontSize: 38, color: P.mute })}>{[`โทร ${k.phone}`, k.line ? `LINE ${k.line}` : ""].filter(Boolean).join(" · ")}</div>
-      </div>
-    </On>
-  );
-}
 
 const money = (n: number) => n.toLocaleString("en-US");
 const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
@@ -163,15 +140,11 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
 
 /**
  * A looping clip's last scene (owner, 2026-10-13, choice ก): the opening's picture again — the
- * photo, the headline, the figure — so the replay runs on without a cut, and the agent beneath it.
+ * photo, the headline, the figure — so the replay runs on without a cut. No agent's card and no
+ * agent's line under the scenes (owner, 2026-10-13, choice ข): the voice asks for the chat.
  */
 function LoopEnd({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
-  return (
-    <>
-      <Lead c={c} layer={layer} s={{ ...s, count: 1, sweep: [1] }} />
-      <AgentStrip c={c} layer={layer} top={PHOTO.y + PHOTO.h + 470} />
-    </>
-  );
+  return <Lead c={c} layer={layer} s={{ ...s, count: 1, sweep: [1] }} />;
 }
 
 const kicker = (layer: Layer, text: string) => (
@@ -582,7 +555,7 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
       {(key !== "contact" || c.loop) && <Header f={c.facts} layer={layer} />}
       {body}
       {layer === "over" && <Subtitle words={c.words} word={state.word} />}
-      <Footer layer={layer} c={c} />
+      <Footer layer={layer} />
     </div>
   );
 }

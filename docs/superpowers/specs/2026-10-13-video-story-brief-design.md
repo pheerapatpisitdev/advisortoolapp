@@ -70,7 +70,8 @@ Built together on `feat/quote-video-brief`, not one round at a time, at the owne
   the end of the price scene and closes on the hanging line. No brief: today's clip word for word.
   A man's voice now also turns a question's คะ into ครับ.
 - Renderers — headline band over the photo (classic) / above the shield (Motion); loop ending = the
-  opening held + agent strip, agent's name/phone/LINE in every scene's footer; the four scenes in
+  opening held, nothing else (owner, 2026-10-13, choice ข: no agent card, no agent line under the
+  scenes — the voice's invitation in the price scene is the clip's only call); the four scenes in
   classic portrait, Motion portrait, Motion square/landscape, and the new `classic-wide.tsx`.
 - Classic in every shape — `table-geo.ts CLASSIC_BOXES` moves the photo box and table window per
   size; `job.ts`, `table-pen.tsx`, `pension-table.tsx` take the window as a parameter (portrait
@@ -84,9 +85,8 @@ Built together on `feat/quote-video-brief`, not one round at a time, at the owne
 
 ### Differences from the mockup
 
-- The agent strip in a looping clip is in every scene's footer line (name · phone · LINE) and as a
-  card in the last scene, rather than a strip under every scene from the price on — the value
-  table's window leaves no room for a strip.
+- A looping clip shows no agent at all (owner's later choice ข): no card at the end, no line under
+  the scenes. Its last scene is its opening.
 - ดูสคริปต์ again after editing reads the edits back without a model call (no try used); ↻ สุ่มใหม่
   writes again (one of three tries).
 - New agents start on "ให้ระบบเลือก": every new clip opens on a hook unless the agent picks

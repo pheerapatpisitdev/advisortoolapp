@@ -85,7 +85,7 @@ export function StoryBrief({ brief, setBrief, stories, longClip, script, setLine
         <span>
           <span className="font-medium">คลิปวนลูป ↻</span> <span className="text-[var(--ct-mute)]">(ระบบจำไว้ให้)</span>
           <span className="mt-0.5 block text-xs text-[var(--ct-mute)]">
-            ประโยคปิดพูดค้างไว้ แล้ววนกลับไปต่อที่ประโยคเปิด คนดูจะดูซ้ำโดยไม่รู้ตัว · การชวนทักแชทย้ายไปไว้กลางคลิป ชื่อ เบอร์ LINE ขึ้นท้ายจอทุกฉาก
+            ประโยคปิดพูดค้างไว้ แล้ววนกลับไปต่อที่ประโยคเปิด คนดูจะดูซ้ำโดยไม่รู้ตัว · การชวนทักแชทย้ายไปไว้กลางคลิป · ไม่มีการ์ดตัวแทนตอนท้าย
             {plain ? " · ใช้กับฮุก ตรงไปตรงมา ไม่ได้" : ""}
           </span>
         </span>
