@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
 import { allowanceOf } from "@/lib/auth/quota";
-import { gatePage, whoOf, type Viewer } from "@/lib/auth/viewer";
+import { gatePage, type Viewer } from "@/lib/auth/viewer";
+import { shellWho } from "@/lib/shell/who";
 import { memberAccess } from "@/lib/members/access";
 import type { PassState } from "@/lib/members/pass";
 import { passRows } from "@/lib/members/pass-store";
@@ -71,10 +72,10 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
   );
 }
 
-function Frame({ viewer, children }: { viewer: Viewer; children: React.ReactNode }) {
+async function Frame({ viewer, children }: { viewer: Viewer; children: React.ReactNode }) {
   return (
     <div className="content-page">
-      <AppShell who={whoOf(viewer)}>
+      <AppShell who={await shellWho(viewer)}>
         {/* pt-16 below lg: the phone's menu button is fixed at the top left */}
         <div className="px-4 pb-10 pt-16 lg:pt-6">{children}</div>
       </AppShell>

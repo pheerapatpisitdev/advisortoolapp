@@ -39,7 +39,8 @@ export type MenuIcon =
   | "quote"
   | "woman"
   | "wallet"
-  | "image";
+  | "image"
+  | "back";
 
 export interface MenuLink {
   href: string;
@@ -183,7 +184,7 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
  */
 export const SALES_PAGES: MenuLink[] = SALES_SECTIONS.flatMap((s) => s.links);
 
-/** An outside member's pass page, in both menus a member reads (owner, 2026-10-13). */
+/** An outside member's pass page, in the account box of every menu a member reads (owner, 2026-10-13). */
 const MEMBERSHIP: MenuLink = { href: "/membership", label: "สมาชิก", icon: "key", hue: "#2b736f" };
 
 /** What each customer the agent kept from the Financial Health Check still lacks. */
@@ -196,8 +197,8 @@ const FHC_CUSTOMERS: MenuLink = { href: "/fhc/customers", label: "ลูกค�
  * whole site as well — the calculator, the assistant, the content workbench and all eleven
  * sales pages under the back office's seven — and the tools the owner opens /admin for were
  * a third of a long column. The owner asked for the back office's menu to hold only the back
- * office (2026-09-23). The rest of the site is one click away on the mark at the top, which
- * goes home.
+ * office (2026-09-23). The rest of the site is one click away on ระบบหลัก, its first line
+ * since 2026-10-14.
  *
  * Everywhere else the back office is not in it at all. A gate is a different thing from a
  * sign: naming the pages tells a stranger the shape of the tool and where to knock. What is
@@ -206,21 +207,31 @@ const FHC_CUSTOMERS: MenuLink = { href: "/fhc/customers", label: "ลูกค�
  */
 export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
   if (signedIn) {
+    /**
+     * Grouped by the job the owner opens the page for (owner chose ข, 2026-10-14): until then
+     * "ผู้ช่วย AI" held the wallets and the members, and the bot's own pages were split between
+     * it and "ช่องทาง". The way back to the main system is the first line, as it is in Studio's.
+     */
     const groups: MenuGroup[] = [
       {
         links: [
+          BACK_HOME,
           { href: "/admin", label: "ภาพรวม", icon: "grid", hue: "#2b736f" },
-          { href: "/admin/crm", label: "ลูกค้า", icon: "users", hue: "#33638a" },
         ],
       },
       {
-        title: "ผู้ช่วย AI",
+        title: "ลูกค้าและแชท",
         links: [
-          { href: "/admin/ai", label: "ตั้งค่า AI", icon: "key", hue: "#2b4673" },
-          // the agents' Studio wallets: on or off, the multiplier, a hand on a balance (owner, 2026-09-30)
-          { href: "/admin/wallet", label: "กระเป๋าเงินตัวแทน", icon: "wallet", hue: "#2b736f" },
-          // members outside UnitOS who signed up themselves (owner, 2026-10-01)
-          { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#33638a" },
+          // the people who wrote to the Pages; "ลูกค้า FHC ของฉัน" is the agent's own list
+          { href: "/admin/crm", label: "ลูกค้าจากแชท", icon: "users", hue: "#33638a" },
+          { href: "/admin/messenger", label: "Messenger", icon: "chat", hue: "#2b2e73" },
+        ],
+      },
+      {
+        title: "บอท",
+        links: [
+          // what each Page says to a customer who has not said anything yet (owner, 2026-10-04)
+          { href: "/admin/welcome", label: "ข้อความต้อนรับ", icon: "chat", hue: "#2d2f76" },
           // back in the menu on 2026-09-26 (owner): the daily บทเรียนจากแชท waits here for ใช้
           { href: "/admin/knowledge", label: "สอน AI", icon: "spark", hue: "#2e4a7a" },
           // try the bot as a customer, and teach it an answer word for word (owner, 2026-10-11)
@@ -228,32 +239,47 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
         ],
       },
       {
-        title: "ช่องทาง",
+        title: "การตลาด",
         links: [
-          { href: "/admin/messenger", label: "Messenger", icon: "chat", hue: "#2b2e73" },
-          // what each Page says to a customer who has not said anything yet (owner, 2026-10-04)
-          { href: "/admin/welcome", label: "ข้อความต้อนรับ", icon: "chat", hue: "#2d2f76" },
           // the same Page connection, seen from the content workbench: can it post, what went up
           { href: "/admin/posting", label: "ออโต้โพสต์", icon: "pen", hue: "#302f79" },
-          // the advertising account sits next to the inbox it fills
           { href: "/admin/ads", label: "ADS", icon: "megaphone", hue: "#352f80" },
+        ],
+      },
+      {
+        title: "คนและเงิน",
+        links: [
+          // the owner's list of assistants, and nobody else's business
+          { href: "/admin/team", label: "ทีมงาน", icon: "users", hue: "#472f8a" },
+          // members outside UnitOS who signed up themselves (owner, 2026-10-01)
+          { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#33638a" },
+          // the agents' Studio wallets: on or off, the multiplier, a hand on a balance (owner, 2026-09-30)
+          { href: "/admin/wallet", label: "กระเป๋าเงินตัวแทน", icon: "wallet", hue: "#2b736f" },
+          // which tools people use most and what they cost (owner, 2026-10-14): it names every
+          // agent's spend, so the owner's
+          { href: "/admin/stats", label: "สถิติการใช้งาน", icon: "pulse", hue: "#2b5f73" },
+        ],
+      },
+      {
+        title: "ตั้งค่าระบบ",
+        links: [
+          { href: "/admin/ai", label: "ตั้งค่า AI", icon: "key", hue: "#2b4673" },
           { href: "/admin/api", label: "MCP", icon: "plug", hue: "#3e338a" },
         ],
       },
     ];
-    if (!who) return groups;
-    // the owner's list of assistants, and nobody else's business; with it, which tools people
-    // use most and what they cost (owner, 2026-10-14), since it names every agent's spend
-    if (who.owner) {
-      groups.push({ links: [
-        { href: "/admin/stats", label: "สถิติการใช้งาน", icon: "pulse", hue: "#2b5f73" },
-        { href: "/admin/team", label: "ทีมงาน", icon: "users", hue: "#472f8a" },
-      ] });
-    }
-    // an assistant sees the doors they may open; a sign on a locked door is still a sign
-    return groups
-      .map((g) => ({ ...g, links: g.links.filter((l) => who[BACK_OFFICE_PERM[l.href] ?? "owner"]) }))
+    // an assistant sees the doors they may open; a sign on a locked door is still a sign. With
+    // nobody named, the owner's own pages stay out, as they always have
+    const may = (href: string) => {
+      const perm = BACK_OFFICE_PERM[href];
+      if (!perm) return true;
+      return who ? who[perm] : perm !== "owner";
+    };
+    const shown = groups
+      .map((g) => ({ ...g, links: g.links.filter((l) => may(l.href)) }))
       .filter((g) => g.links.length > 0);
+    // somebody with no back-office page at all has no back-office menu, way home or not
+    return shown.some((g) => g.links.some((l) => l.href.startsWith("/admin"))) ? shown : [];
   }
 
   /**
@@ -268,34 +294,31 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
    * ประกันภัยกลุ่ม, read as a mistake however well meant — so the owner took this one out.
    * The page is still both things; it is now reached from one place.
    */
+  // staff land on the main system after signing in (owner, 2026-10-10), so the way to their
+  // own work is here too, not only inside Studio's menu
+  const office = officeFor(who);
   const groups: MenuGroup[] = [{
-    title: "งานขาย",
+    // the agent's own work first, the pages they send customers after it (owner chose ข,
+    // 2026-10-14); the membership pass moved to the account box at the foot, with the wallet
+    title: "งานของฉัน",
     links: [
       // จัดแบบเอง (/other-plans), the build-it-yourself calculator, was first here until the
       // owner took it out altogether (2026-10-13); every sales page below prices its own plan
       // งานวันนี้ (owner chose option ข, 2026-10-14); the chat it held moved to /ask
       { href: "/home", label: "หน้าหลัก", icon: "home", hue: "#2b4673" },
+      // the agent's own Financial Health Check customers (owner, 2026-10-10): their work, not a
+      // sales page, so up here rather than under วางแผนประกัน since 2026-10-14
+      FHC_CUSTOMERS,
       { href: "/ask", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
-      // a member's 30-day pass: its end, the rounds left, renewing (owner, 2026-10-13)
-      ...(who?.member ? [MEMBERSHIP] : []),
+      ...(office ? [{ href: office, label: "หลังบ้าน", icon: "grid" as const, hue: "#2b736f" }] : []),
     ],
   }];
 
   // Sales pages are part of the calculator, so the sidebar keeps the user in the same tab.
   // `external` remains available for a genuinely off-site link added in the future.
-  for (const section of SALES_SECTIONS) {
-    // the agent's own list of Financial Health Check customers sits under the check itself
-    // (owner, 2026-10-10); it is not a sales page, so SALES_SECTIONS, which every sales page
-    // list reads, does not carry it
-    const links = section.title === "วางแผนประกัน" ? [...section.links, FHC_CUSTOMERS] : section.links;
-    groups.push({ title: section.title, links });
-  }
-  // staff land on the main system after signing in (owner, 2026-10-10), so the way to their
-  // own work is here too, not only inside Studio's menu
-  const office = officeFor(who);
-  if (office) groups.splice(1, 0, { links: [{ href: office, label: "หลังบ้าน", icon: "grid", hue: "#2b736f" }] });
+  for (const section of SALES_SECTIONS) groups.push({ title: section.title, links: section.links });
   return groups;
 }
 
@@ -308,57 +331,70 @@ function officeFor(who?: Who | null): string | null {
  * Studio's own menu. Pressing Studio leaves the application's menu behind for this one, so
  * the workbench reads as a place of its own (owner, 2026-09-27) — its pages down the side
  * where the tab row used to be, and one way back out. New Studio tools are added here.
+ *
+ * Under two headings since 2026-10-14 (owner chose ข): what makes a piece, and what plans and
+ * keeps them. The wallet, the price list, the pass and the account went to the account box at
+ * the foot (`accountLinks`), the way back to the top, where the back office has it too.
  */
 export function studioMenu(who?: Who | null): MenuGroup[] {
-  const links: MenuLink[] = [
-    // the front page: a card per Page with these tools under it, for admins (owner, 2026-09-28)
-    { href: "/studio", label: "หน้ารวม", icon: "grid", hue: "#2b736f" },
+  // staff get a way to the back office, landing on the first page of it they may open
+  const office = officeFor(who);
+  const top: MenuLink[] = [
+    BACK_HOME,
+    ...(office ? [{ href: office, label: "หลังบ้าน", icon: "grid" as const, hue: "#2b736f" }] : []),
+    // the front page: a card per Page with these tools under it, for the admins and the
+    // assistants, who choose among their own Pages there (owner, 2026-09-28, kept 2026-10-02);
+    // every other agent's Studio starts at the workbench
+    ...(!who || who.admin || who.publish ? [{ href: "/studio", label: "หน้ารวม", icon: "grid" as const, hue: "#2b736f" }] : []),
+  ];
+  const make: MenuLink[] = [
+    // a narrated clip of a quote (owner, 2026-10-11): every agent's, two free then the wallet
+    { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80" },
     // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
     { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80" },
     // video covers (owner, 2026-10-09): every agent's and member's since 2026-10-14, paid as a picture
     { href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image", hue: "#2e5a80" },
-    // a narrated clip of a quote (owner, 2026-10-11): every agent's, two free then the wallet
-    { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80" },
-    { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
-    { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
-    { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
     // a picture read into a drawing prompt (owner, 2026-10-08): every agent's, the cost is theirs
     { href: "/studio/describe", label: "ถอดรูปเป็น prompt", icon: "image", hue: "#302f79" },
     // puts an ad piece on Facebook as a paused ad: spends the owner's ad account, so the owner's alone (2026-10-04)
-    { href: "/studio/ads", label: "Ads Studio", icon: "megaphone", hue: "#352f80" },
-    // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
-    // one too (2026-10-02), only the owner writes without one
-    { href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b736f" },
-    // what everything costs from the wallet, as the owner priced it (owner, 2026-10-12)
-    { href: "/studio/wallet#prices", label: "ราคา", icon: "wallet", hue: "#2b736f" },
+    ...(who?.owner ? [{ href: "/studio/ads", label: "Ads Studio", icon: "megaphone" as const, hue: "#352f80" }] : []),
+  ];
+  const keep: MenuLink[] = [
+    // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
+    // plan for everyone else (2026-09-30)
+    { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
+    { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
+    { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
+  ];
+  return [{ links: top }, { title: "สร้างงาน", links: make }, { title: "วางแผนและคลัง", links: keep }];
+}
+
+/** The first line of Studio's menu and the back office's: back to where the agent's day starts. */
+const BACK_HOME: MenuLink = { href: "/home", label: "ระบบหลัก", icon: "back", hue: "#2b5f73" };
+
+/**
+ * The account box at the foot of every menu, the same in all three (owner chose ข, 2026-10-14).
+ * Until then the account page was in Studio's menu alone, the pass in two menus and the wallet
+ * in one, so a member who wanted to change their name had to know to open Studio first.
+ */
+export function accountLinks(who?: Who | null): MenuLink[] {
+  if (!who) return [];
+  // the wallet is listed only while the owner has it on (who.wallet is worked out once on the
+  // server, false for the owner): an agent is not sent to a page that says it is switched off
+  const noWallet = who.owner || who.wallet !== true;
+  return [
     // a member's own name and PIN; UnitOS agents manage theirs in UnitOS (owner, 2026-10-01);
     // everyone's contact details for the วิดีโอนำเสนอ (owner, 2026-10-11)
     { href: "/studio/account", label: "บัญชีของฉัน", icon: "key", hue: "#2e4a7a" },
-  ];
-  // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
-  // plan for everyone else (2026-09-30); the front page is the admins' and the assistants', who
-  // choose among their own Pages there (owner, 2026-09-29, kept 2026-10-02) — every other
-  // agent's Studio starts at the workbench
-  // the wallet is listed only while the owner has it on (who.wallet is worked out once in the
-  // layout, false for the owner): an agent is not sent to a page that says it is switched off
-  const noWallet = who?.owner || who?.wallet !== true;
-  const hidden = new Set([
-    ...(who && !who.admin && !who.publish ? ["/studio"] : []),
-    ...(noWallet ? ["/studio/wallet"] : []),
+    // an agent's own wallet, to write past the free rounds (owner, 2026-09-30); assistants have
+    // one too (2026-10-02), only the owner writes without one
+    ...(!noWallet ? [{ href: "/studio/wallet", label: "กระเป๋าเงิน", icon: "wallet" as const, hue: "#2b736f" }] : []),
     // ราคา only for whoever has no กระเป๋าเงิน (the owner): the wallet page holds the prices,
     // two items to one page read as a duplicate (owner, 2026-10-13)
-    ...(who?.prices !== true || !noWallet ? ["/studio/wallet#prices"] : []),
-    // every agent's since 2026-10-11: the contact details a วิดีโอนำเสนอ closes on live there
-    ...(who?.owner ? [] : ["/studio/ads"]),
-  ]);
-  const shown = links.filter((l) => !hidden.has(l.href));
-  // a member renews from inside Studio too, just before their account (owner, 2026-10-13)
-  if (who?.member) shown.splice(shown.findIndex((l) => l.href === "/studio/account"), 0, MEMBERSHIP);
-  const back: MenuLink[] = [{ href: "/home", label: "กลับระบบหลัก", icon: "home", hue: "#2b5f73" }];
-  // staff get a way to the back office, landing on the first page of it they may open
-  const office = officeFor(who);
-  if (office) back.unshift({ href: office, label: "หลังบ้าน", icon: "grid", hue: "#2b736f" });
-  return [{ title: "Studio", links: shown }, { links: back }];
+    ...(noWallet && who.prices === true ? [{ href: "/studio/wallet#prices", label: "ราคา", icon: "wallet" as const, hue: "#2b736f" }] : []),
+    // a member's 30-day pass: its end, the rounds left, renewing (owner, 2026-10-13)
+    ...(who.member ? [MEMBERSHIP] : []),
+  ];
 }
 
 /**
@@ -374,9 +410,9 @@ export interface Who {
   connect: boolean;
   admin: boolean;
   owner: boolean;
-  /** Studio only: the owner has the wallet on and this is not the owner (owner, 2026-09-30; assistants 2026-10-02) */
+  /** the owner has the wallet on and this is not the owner (owner, 2026-09-30; assistants 2026-10-02) */
   wallet?: boolean;
-  /** Studio only: the wallet is on, so the price list is in the menu — the owner's too (owner, 2026-10-12) */
+  /** the wallet is on, so the price list is in the menu — the owner's too (owner, 2026-10-12) */
   prices?: boolean;
   /** a member outside UnitOS (owner, 2026-10-01): their account page, and no room to name */
   member?: boolean;

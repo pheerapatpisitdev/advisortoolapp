@@ -5,7 +5,8 @@ import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { allowanceOf } from "@/lib/auth/quota";
-import { gatePage, whoOf } from "@/lib/auth/viewer";
+import { gatePage } from "@/lib/auth/viewer";
+import { shellWho } from "@/lib/shell/who";
 import { countByStatus, listPublished } from "@/lib/content/store";
 import { listCustomers } from "@/lib/fhc/customers";
 import { whenShort } from "@/lib/home/history";
@@ -98,7 +99,7 @@ export default async function Home() {
 
   return (
     <div className="home-chat">
-      <AppShell who={whoOf(viewer)}>
+      <AppShell who={await shellWho(viewer)}>
         <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 pb-10 pt-3 lg:pt-6">
           <HomeToday today={today} notice={reminder && <PassReminder {...reminder} />} history={history} />
           {referral && <ReferralCard card={referral} now={now.toISOString()} />}

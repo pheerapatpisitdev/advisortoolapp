@@ -3,7 +3,8 @@ import { openingGuide } from "@/lib/copilot/guide";
 import { Chat } from "../Chat";
 import { AppShell } from "@/components/shell/AppShell";
 import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
-import { gatePage, whoOf } from "@/lib/auth/viewer";
+import { gatePage } from "@/lib/auth/viewer";
+import { shellWho } from "@/lib/shell/who";
 import { memberAccess } from "@/lib/members/access";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export default async function Ask() {
   return (
     <div className="home-chat">
       {/* who is signed in, for the foot of the menu: their name and ออกจากระบบ, or เข้าสู่ระบบ */}
-      <AppShell who={whoOf(viewer)}>
+      <AppShell who={await shellWho(viewer)}>
       {/* The page is exactly the screen, so the chat box can be the rest of it after the
           heading — a conversation that scrolls inside its own frame rather than a column of
           answers with the box you type in stranded somewhere down the page. */}
