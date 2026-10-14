@@ -1,5 +1,7 @@
 import Link from "next/link";
+import type { HistItem } from "@/lib/home/history";
 import { SHORTCUTS, type Today, type TodoKind } from "@/lib/home/today";
+import { HistoryList } from "./HistoryList";
 
 /**
  * งานวันนี้, drawn (owner chose option ข, 2026-10-14). Colours are the home theme's --hm-*
@@ -14,8 +16,11 @@ const PILL: Record<TodoKind, { word: string; style: React.CSSProperties }> = {
 
 const card = "rounded-xl border border-[var(--hm-hair)] bg-[var(--hm-panel)]";
 
-/** `notice` is the member's pass bar, drawn under the greeting as the mockup has it */
-export function HomeToday({ today, notice }: { today: Today; notice?: React.ReactNode }) {
+/**
+ * `notice` is the member's pass bar, drawn under the greeting as the mockup has it. `history` is
+ * the latest of ประวัติการทำงาน (option ก, 2026-10-14), under งานค้าง; null when unread.
+ */
+export function HomeToday({ today, notice, history }: { today: Today; notice?: React.ReactNode; history: (HistItem & { when: string })[] | null }) {
   return (
     <div className="flex flex-col gap-4">
       <header className="max-lg:ml-12">
@@ -44,27 +49,43 @@ export function HomeToday({ today, notice }: { today: Today; notice?: React.Reac
       )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <section className={`${card} min-w-0 px-4 py-3.5`}>
-          <h2 className="mb-2 text-base font-semibold">งานค้าง</h2>
-          {today.todos.length === 0 ? (
-            <p className="py-2 text-sm text-[var(--hm-mute)]">ไม่มีงานค้างตอนนี้ เริ่มจากทางลัดด้านข้างได้เลย</p>
-          ) : (
-            <ul className="m-0 flex list-none flex-col p-0">
-              {today.todos.map((t, n) => (
-                <li key={t.key} className={`flex items-start gap-2.5 py-2.5 ${n ? "border-t border-[var(--hm-hair)]" : "pt-0.5"}`}>
-                  <span className="mt-0.5 shrink-0 rounded-full border px-2 text-xs" style={PILL[t.kind].style}>{PILL[t.kind].word}</span>
-                  <div className="min-w-0 flex-1 text-[15px] leading-snug">
-                    {t.title}
-                    <small className="block text-[13px] text-[var(--hm-mute)]">{t.note}</small>
-                  </div>
-                  <Link href={t.href} className="mt-0.5 shrink-0 text-sm font-semibold text-[var(--hm-accent)]">{t.action}</Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <div className="flex min-w-0 flex-col gap-4">
+          <section className={`${card} min-w-0 px-4 py-3.5`}>
+            <h2 className="mb-2 text-base font-semibold">งานค้าง</h2>
+            {today.todos.length === 0 ? (
+              <p className="py-2 text-sm text-[var(--hm-mute)]">ไม่มีงานค้างตอนนี้ เริ่มจากทางลัดด้านข้างได้เลย</p>
+            ) : (
+              <ul className="m-0 flex list-none flex-col p-0">
+                {today.todos.map((t, n) => (
+                  <li key={t.key} className={`flex items-start gap-2.5 py-2.5 ${n ? "border-t border-[var(--hm-hair)]" : "pt-0.5"}`}>
+                    <span className="mt-0.5 shrink-0 rounded-full border px-2 text-xs" style={PILL[t.kind].style}>{PILL[t.kind].word}</span>
+                    <div className="min-w-0 flex-1 text-[15px] leading-snug">
+                      {t.title}
+                      <small className="block text-[13px] text-[var(--hm-mute)]">{t.note}</small>
+                    </div>
+                    <Link href={t.href} className="mt-0.5 shrink-0 text-sm font-semibold text-[var(--hm-accent)]">{t.action}</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-        <section className={`${card} min-w-0 px-4 py-3.5`}>
+          {history && (
+            <section className={`${card} min-w-0 px-4 py-3.5`}>
+              <h2 className="mb-2 flex items-baseline justify-between gap-2 text-base font-semibold">
+                ประวัติการทำงาน
+                <Link href="/home/history" className="text-sm font-semibold text-[var(--hm-accent)]">ดูทั้งหมด →</Link>
+              </h2>
+              {history.length === 0 ? (
+                <p className="py-2 text-sm text-[var(--hm-mute)]">ยังไม่มีงานใน 30 วันที่ผ่านมา</p>
+              ) : (
+                <HistoryList items={history} />
+              )}
+            </section>
+          )}
+        </div>
+
+        <section className={`${card} min-w-0 self-start px-4 py-3.5`}>
           <h2 className="mb-2 text-base font-semibold">ทางลัด</h2>
           <div className="flex flex-col gap-1.5">
             {SHORTCUTS.map((s) => (

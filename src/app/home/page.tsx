@@ -7,6 +7,8 @@ import { allowanceOf } from "@/lib/auth/quota";
 import { gatePage, whoOf } from "@/lib/auth/viewer";
 import { countByStatus, listPublished } from "@/lib/content/store";
 import { listCustomers } from "@/lib/fhc/customers";
+import { whenShort } from "@/lib/home/history";
+import { readHistory } from "@/lib/home/history-read";
 import { buildToday } from "@/lib/home/today";
 import { memberAccess } from "@/lib/members/access";
 import { listVideos } from "@/lib/quote-video/make";
@@ -17,8 +19,12 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "หน้าหลัก | AdvisorTool",
-  description: "งานวันนี้: ยอดเงิน รอบ Studio โพสต์วันนี้ ลูกค้า FHC และงานที่ค้างอยู่",
+  description: "งานวันนี้: ยอดเงิน รอบ Studio โพสต์วันนี้ ลูกค้า FHC งานที่ค้างอยู่ และประวัติการทำงาน",
 };
+
+/** the lines on ประวัติการทำงาน's card, from this many days back */
+const HISTORY_SHOWN = 6;
+const HISTORY_DAYS = 30;
 
 /** a figure that cannot be read is left off the page, and said in the log */
 const orNull = (what: string) => (e: unknown): null => {
@@ -49,7 +55,7 @@ export default async function Home() {
   const owner = can(viewer, "owner");
   const [from, to] = bangkokDay(now);
 
-  const [reminder, access, wallet, allowance, pages, drafts, customers, videos] = await Promise.all([
+  const [reminder, access, wallet, allowance, pages, drafts, customers, videos, history] = await Promise.all([
     reminderOf(viewer, memberAccess),
     memberAccess(viewer).catch(orNull("pass")),
     // the owner pays for nothing and has no wallet (2026-10-02)
@@ -59,6 +65,10 @@ export default async function Home() {
     countByStatus().then((c) => c.draft).catch(orNull("drafts")),
     listCustomers(viewer, false).catch(orNull("fhc customers")),
     listVideos(viewer.agentId, 10).catch(orNull("clips")),
+    // ประวัติการทำงาน's card: the latest few of the last 30 days; the rest are on /home/history
+    readHistory(viewer, new Date(now.getTime() - HISTORY_DAYS * 24 * 60 * 60 * 1000), now, HISTORY_SHOWN)
+      .then((list) => list.slice(0, HISTORY_SHOWN).map((h) => ({ ...h, when: whenShort(h.at, now) })))
+      .catch(orNull("history")),
   ]);
 
   const names = new Map(pages.map((p) => [p.pageId, p.pageName]));
@@ -86,7 +96,7 @@ export default async function Home() {
     <div className="home-chat">
       <AppShell who={whoOf(viewer)}>
         <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 pb-10 pt-3 lg:pt-6">
-          <HomeToday today={today} notice={reminder && <PassReminder {...reminder} />} />
+          <HomeToday today={today} notice={reminder && <PassReminder {...reminder} />} history={history} />
         </div>
       </AppShell>
     </div>
