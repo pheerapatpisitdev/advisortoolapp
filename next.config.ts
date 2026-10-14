@@ -67,6 +67,8 @@ const nextConfig: NextConfig = {
       // จัดแบบเอง, the build-it-yourself calculator, until the owner took it out (2026-10-13):
       // old chat replies linked to it, and asking the chat is how a price is had now
       { source: "/other-plans", destination: "/home", permanent: false },
+      // MCP / API, the keys for other systems, until the owner took it out (2026-10-15)
+      { source: "/admin/api", destination: "/admin", permanent: false },
     ];
   },
 };

@@ -265,7 +265,7 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
         title: "ตั้งค่าระบบ",
         links: [
           { href: "/admin/ai", label: "ตั้งค่า AI", icon: "key", hue: "#2b4673" },
-          { href: "/admin/api", label: "MCP", icon: "plug", hue: "#3e338a" },
+          // MCP / API, the keys for other systems, went on 2026-10-15 (owner): nobody held one
         ],
       },
     ];
@@ -441,7 +441,6 @@ const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet
   // the Pages' settings, not where a post is made: the admins' since 2026-10-02 (owner)
   "/admin/posting": "admin",
   "/admin/ads": "admin",
-  "/admin/api": "admin",
   "/admin/team": "owner",
   "/admin/stats": "owner",
 };
