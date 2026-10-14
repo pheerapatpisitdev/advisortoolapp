@@ -29,5 +29,6 @@ grant all on public.ins_super_admins to service_role;
 -- The team page is the Super Admin's now: who added an assistant may be a Super Admin's id.
 alter table public.ins_staff drop constraint if exists ins_staff_added_by_fkey;
 
--- The address is the owner's to give; added at rollout:
--- insert into public.ins_super_admins (email, name) values ('<gmail>', 'Super Admin');
+-- the address the owner gave on 2026-10-15
+insert into public.ins_super_admins (email, name) values ('pheerapatpisit.dev@gmail.com', 'Super Admin')
+on conflict (email) do nothing;
