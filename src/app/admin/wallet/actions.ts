@@ -50,7 +50,7 @@ export async function savePrices(raw: Record<string, string>): Promise<Result> {
  * What outside members pay for 30 days, their free trial and their Studio rounds (owner,
  * 2026-10-13). The owner's alone, like the price list: the box is read-only for other admins.
  */
-export async function saveMemberPass(raw: { enabled: boolean; baht: string; trialDays: string; rounds: string }): Promise<Result> {
+export async function saveMemberPass(raw: { enabled: boolean; baht: string; trialDays: string; rounds: string; videos: string }): Promise<Result> {
   await requireStaff("owner");
   const p = readPassSettings(raw);
   if (!p.ok) return p;
@@ -58,7 +58,7 @@ export async function saveMemberPass(raw: { enabled: boolean; baht: string; tria
     await savePassSettings(p.value);
   } catch (e) {
     console.error("member pass settings not saved:", e);
-    return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261027_member_pass ถูก apply แล้ว" };
+    return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261027_member_pass และ 20261104_member_pass_videos ถูก apply แล้ว" };
   }
   await audit("member-pass-settings", null, { ...p.value });
   revalidatePath("/admin/wallet");

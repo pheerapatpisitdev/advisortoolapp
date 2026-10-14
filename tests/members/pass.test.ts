@@ -4,6 +4,7 @@ import {
   passState,
   daysLeft,
   roundsFrom,
+  videosFrom,
   onTrial,
   DEFAULT_PASS_SETTINGS,
   type PassRow,
@@ -109,6 +110,20 @@ describe("roundsFrom", () => {
     expect(roundsFrom(passState(rows, at("2026-11-01")), on)).toBeNull();
     expect(roundsFrom({ status: "none" }, on)).toBeNull();
     expect(roundsFrom(passState(rows, at("2026-10-14")), DEFAULT_PASS_SETTINGS)).toBeNull();
+  });
+});
+
+describe("videosFrom (owner, 2026-10-14)", () => {
+  const on = { ...DEFAULT_PASS_SETTINGS, enabled: true };
+  const rows = [row(1, "trial", 3, "2026-10-13"), row(2, "paid", 30, "2026-10-14")];
+  it("counts the period's own clips afresh from its start, each period anew", () => {
+    expect(videosFrom(passState(rows, at("2026-10-14")), on)).toEqual({ limit: 2, from: at("2026-10-13") });
+    expect(videosFrom(passState(rows, at("2026-10-20")), { ...on, videos: 4 })).toEqual({ limit: 4, from: at("2026-10-16") });
+  });
+  it("expired, none or switched off gives null: the one-time two apply", () => {
+    expect(videosFrom(passState(rows, at("2026-12-01")), on)).toBeNull();
+    expect(videosFrom({ status: "none" }, on)).toBeNull();
+    expect(videosFrom(passState(rows, at("2026-10-14")), DEFAULT_PASS_SETTINGS)).toBeNull();
   });
 });
 

@@ -25,12 +25,12 @@ describe("an adjustment the owner types", () => {
 });
 
 describe("the member pass the owner types (owner, 2026-10-13)", () => {
-  const typed = { enabled: true, baht: "99", trialDays: "3", rounds: "10" };
+  const typed = { enabled: true, baht: "99", trialDays: "3", rounds: "10", videos: "2" };
 
   it("is a price in baht made into satang, trial days and free rounds", () => {
-    expect(readPassSettings(typed)).toEqual({ ok: true, value: { enabled: true, satang: 9900, trialDays: 3, rounds: 10 } });
-    expect(readPassSettings({ enabled: false, baht: " 149.50 ", trialDays: "0", rounds: "0" }))
-      .toEqual({ ok: true, value: { enabled: false, satang: 14950, trialDays: 0, rounds: 0 } });
+    expect(readPassSettings(typed)).toEqual({ ok: true, value: { enabled: true, satang: 9900, trialDays: 3, rounds: 10, videos: 2 } });
+    expect(readPassSettings({ enabled: false, baht: " 149.50 ", trialDays: "0", rounds: "0", videos: "0" }))
+      .toEqual({ ok: true, value: { enabled: false, satang: 14950, trialDays: 0, rounds: 0, videos: 0 } });
     expect(readPassSettings({ ...typed, baht: "1000", trialDays: "30", rounds: "100" })).toMatchObject({ ok: true });
     // ฿10 is Stripe's smallest THB charge (review, 2026-10-13)
     expect(readPassSettings({ ...typed, baht: "10" })).toMatchObject({ ok: true, value: { satang: 1000 } });
@@ -45,6 +45,11 @@ describe("the member pass the owner types (owner, 2026-10-13)", () => {
   it("refuses trial days past 30 and rounds below zero or past 100, whole numbers only", () => {
     for (const trialDays of ["31", "-1", "1.5", ""]) expect(readPassSettings({ ...typed, trialDays })).toMatchObject({ ok: false });
     for (const rounds of ["-1", "101", "2.5", ""]) expect(readPassSettings({ ...typed, rounds })).toMatchObject({ ok: false });
+  });
+
+  it("takes free clips from 0 to 20, whole numbers only (owner, 2026-10-14)", () => {
+    expect(readPassSettings({ ...typed, videos: "20" })).toMatchObject({ ok: true, value: { videos: 20 } });
+    for (const videos of ["-1", "21", "1.5", ""]) expect(readPassSettings({ ...typed, videos })).toMatchObject({ ok: false });
   });
 });
 

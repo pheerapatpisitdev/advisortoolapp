@@ -59,6 +59,7 @@ export const MIN_PASS_BAHT = 10;
 export const MAX_PASS_BAHT = 1000;
 export const MAX_TRIAL_DAYS = 30;
 export const MAX_PASS_ROUNDS = 100;
+export const MAX_PASS_VIDEOS = 20;
 
 /** A whole number from min to max, or null. */
 function wholeIn(s: string, min: number, max: number): number | null {
@@ -72,7 +73,7 @@ function wholeIn(s: string, min: number, max: number): number | null {
  * The member pass as typed on /admin/wallet (owner, 2026-10-13): the price per 30 days in baht
  * (two decimals at most, ฿1 to ฿1,000), the free trial in days, the Studio rounds per 30 days.
  */
-export function readPassSettings(raw: { enabled: boolean; baht: string; trialDays: string; rounds: string }):
+export function readPassSettings(raw: { enabled: boolean; baht: string; trialDays: string; rounds: string; videos: string }):
   { ok: true; value: PassSettings } | { ok: false; error: string } {
   const t = String(raw?.baht ?? "").trim();
   const baht = Number(t);
@@ -83,7 +84,9 @@ export function readPassSettings(raw: { enabled: boolean; baht: string; trialDay
   if (trialDays === null) return { ok: false, error: `วันทดลองใช้ต้องเป็นจำนวนเต็ม ตั้งแต่ 0 ถึง ${MAX_TRIAL_DAYS}` };
   const rounds = wholeIn(raw?.rounds, 0, MAX_PASS_ROUNDS);
   if (rounds === null) return { ok: false, error: `รอบ Studio ฟรีต้องเป็นจำนวนเต็ม ตั้งแต่ 0 ถึง ${MAX_PASS_ROUNDS}` };
-  return { ok: true, value: { enabled: raw?.enabled === true, satang: Math.round(baht * 100), trialDays, rounds } };
+  const videos = wholeIn(raw?.videos, 0, MAX_PASS_VIDEOS);
+  if (videos === null) return { ok: false, error: `วิดีโอฟรีต้องเป็นจำนวนเต็ม ตั้งแต่ 0 ถึง ${MAX_PASS_VIDEOS}` };
+  return { ok: true, value: { enabled: raw?.enabled === true, satang: Math.round(baht * 100), trialDays, rounds, videos } };
 }
 
 export const MAX_REFERRAL_DAYS = 30;

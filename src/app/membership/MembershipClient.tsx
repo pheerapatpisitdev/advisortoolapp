@@ -39,15 +39,56 @@ function historyLabel(r: PassRow): string {
 const POLL_MS = 2000;
 const POLL_TRIES = 15;
 
-export function MembershipClient({ on, pass, now, rounds, passRounds, priceSatang, balanceSatang, rows, paid, referral = null }: {
+/** a used-up bar: what is left of how many */
+function Meter({ label, left, of, unit }: { label: string; left: number; of: number; unit: string }) {
+  const share = of > 0 ? Math.min(100, Math.round((left / of) * 100)) : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-sm tabular-nums">
+        <span>{label}</span>
+        <span><b>{left}</b> / {of} {unit}</span>
+      </div>
+      <div className="h-[7px] overflow-hidden rounded-full bg-[var(--ct-soft)]" role="presentation">
+        <div className="h-full rounded-full bg-[var(--ct-solid)]" style={{ width: `${share}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** what every 30 days brings, on the live and the expired page alike (owner, 2026-10-14; mockup YK9xNTXv) */
+function PassGets({ rounds, videos, detail }: { rounds: number; videos: number; detail: boolean }) {
+  const items: [string, string][] = [
+    ["ถาม AI ไม่จำกัด", "วางแผนประกัน ถามเบี้ย ถามเงื่อนไข"],
+    [`Studio ฟรี ${rounds} รอบ`, "เขียนโพสต์ วาดรูป ภาพปกคลิป ถอดรูปเป็น prompt"],
+    ...(videos > 0 ? [[`วิดีโอนำเสนอฟรี ${videos} คลิป`, "คลิปนำเสนอแบบประกันพร้อมเสียงพากย์"] as [string, string]] : []),
+  ];
+  return (
+    <ul className="space-y-1.5">
+      {items.map(([what, more]) => (
+        <li key={what} className="grid grid-cols-[1.25rem_1fr] gap-1.5 text-sm">
+          <span aria-hidden className="font-bold text-[var(--bot-ok)]">✓</span>
+          <span>
+            {what}
+            {detail && <span className="block text-xs text-[var(--ct-mute)]">{more}</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function MembershipClient({ on, pass, now, rounds, videos, passRounds, passVideos, priceSatang, balanceSatang, rows, paid, referral = null }: {
   /** false while the owner has the pass switched off: members use the app free */
   on: boolean;
   pass: PassView;
   now: string;
   /** this period's free Studio rounds; null when they could not be counted or there is no live pass */
   rounds: { left: number; limit: number } | null;
+  /** this period's free วิดีโอนำเสนอ; null when they could not be counted or there is no live pass */
+  videos: { left: number; of: number } | null;
   /** what a renewal brings, from the owner's settings */
   passRounds: number;
+  passVideos: number;
   priceSatang: number;
   /** null when the wallet could not be read */
   balanceSatang: number | null;
@@ -135,22 +176,38 @@ export function MembershipClient({ on, pass, now, rounds, passRounds, priceSatan
           <p className="text-sm">สถานะสมาชิก</p>
           <p className="mt-1 text-2xl font-semibold">หมดอายุแล้ว</p>
           <p className="mt-1 text-sm">
-            {pass.status === "expired" ? `เมื่อ ${fullDate(pass.end)} · ` : ""}ต่ออายุเพื่อใช้ถาม AI และ Studio ต่อ (ได้ Studio ฟรี {passRounds} รอบใหม่)
+            {pass.status === "expired" ? `เมื่อ ${fullDate(pass.end)} · ` : ""}ต่ออายุเพื่อใช้ต่อ
           </p>
+        </section>
+      )}
+
+      {!live && (
+        <section className="space-y-2 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
+          <p className="font-semibold">ต่ออายุ {priceLabel(priceSatang)} ได้ {PASS_DAYS} วัน</p>
+          <PassGets rounds={passRounds} videos={passVideos} detail={false} />
         </section>
       )}
 
       {waiting === "checking" && <p className="text-sm font-medium" role="status">กำลังยืนยันการชำระเงิน…</p>}
       {waiting === "late" && <p className="text-sm" role="status">ยังไม่ได้รับการยืนยันจาก Stripe — วันจะเพิ่มเข้ามาเองเมื่อ Stripe แจ้ง ลองเปิดหน้านี้ใหม่ภายหลังนะครับ</p>}
 
-      {live && rounds && (
-        <section className="rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
-          <p className="font-semibold">Studio ฟรีเหลือ {rounds.left}/{rounds.limit} รอบ</p>
-          <p className="mt-1 text-sm text-[var(--ct-mute)]">
+      {live && (rounds || videos) && (
+        <section className="space-y-2.5 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
+          <p className="font-semibold">รอบนี้เหลือ</p>
+          {rounds && <Meter label="Studio ฟรี" left={rounds.left} of={rounds.limit} unit="รอบ" />}
+          {videos && videos.of > 0 && <Meter label="วิดีโอนำเสนอฟรี" left={videos.left} of={videos.of} unit="คลิป" />}
+          <p className="text-sm text-[var(--ct-mute)]">
             {trial
-              ? `ช่วงทดลองได้ ${rounds.limit} รอบ · จ่ายแล้วได้ ${passRounds} รอบใหม่ทุก ${PASS_DAYS} วัน`
-              : `ได้ ${passRounds} รอบใหม่ ${shortDate(live.periodEnd)} · รอบที่เหลือไม่สะสม · เกินแล้วหักกระเป๋าตามราคา`}
+              ? `ช่วงทดลองได้ตามนี้ · จ่ายแล้วได้ใหม่ทุก ${PASS_DAYS} วัน`
+              : `ได้ใหม่ ${shortDate(live.periodEnd)} · ที่เหลือไม่สะสม · เกินแล้วหักกระเป๋าตามราคา`}
           </p>
+        </section>
+      )}
+
+      {live && (
+        <section className="space-y-2 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4">
+          <p className="font-semibold">ทุก {PASS_DAYS} วันได้</p>
+          <PassGets rounds={passRounds} videos={passVideos} detail />
         </section>
       )}
 

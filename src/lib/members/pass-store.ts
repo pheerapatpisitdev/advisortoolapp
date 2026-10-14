@@ -30,7 +30,7 @@ const code = (e: { code?: string } | null) => e?.code;
 
 export async function passSettings(): Promise<PassSettings> {
   const { data, error } = await supabaseAdmin().from("ins_ai_settings")
-    .select("member_pass_enabled, member_pass_satang, member_trial_days, member_pass_rounds").maybeSingle();
+    .select("member_pass_enabled, member_pass_satang, member_trial_days, member_pass_rounds, member_pass_videos").maybeSingle();
   if (error) throw new Error(`อ่านการตั้งค่าสมาชิกรายเดือนไม่ได้: ${error.message}`);
   if (!data) return DEFAULT_PASS_SETTINGS;
   return {
@@ -38,6 +38,7 @@ export async function passSettings(): Promise<PassSettings> {
     satang: data.member_pass_satang ?? DEFAULT_PASS_SETTINGS.satang,
     trialDays: data.member_trial_days ?? DEFAULT_PASS_SETTINGS.trialDays,
     rounds: data.member_pass_rounds ?? DEFAULT_PASS_SETTINGS.rounds,
+    videos: data.member_pass_videos ?? DEFAULT_PASS_SETTINGS.videos,
   };
 }
 
@@ -49,6 +50,7 @@ export async function savePassSettings(s: PassSettings): Promise<void> {
       member_pass_satang: s.satang,
       member_trial_days: s.trialDays,
       member_pass_rounds: s.rounds,
+      member_pass_videos: s.videos,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "id" },

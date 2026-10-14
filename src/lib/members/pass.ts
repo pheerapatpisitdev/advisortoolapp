@@ -33,6 +33,8 @@ export interface PassSettings {
   satang: number;
   trialDays: number;
   rounds: number;
+  /** วิดีโอนำเสนอ free clips per period (owner, 2026-10-14) */
+  videos: number;
 }
 
 export const DAY_MS = 86_400_000;
@@ -46,6 +48,7 @@ export const DEFAULT_PASS_SETTINGS: PassSettings = {
   satang: 9900,
   trialDays: 3,
   rounds: 10,
+  videos: 2,
 };
 
 /**
@@ -112,4 +115,16 @@ export function roundsFrom(
 ): { limit: number; from: Date } | null {
   if (!settings.enabled || state.status !== "live") return null;
   return { limit: settings.rounds, from: state.period.start };
+}
+
+/**
+ * The free วิดีโอนำเสนอ clips a live pass carries, counted from the live period's start (owner,
+ * 2026-10-14). null means no pass allowance: callers fall back to the one-time two.
+ */
+export function videosFrom(
+  state: PassState,
+  settings: PassSettings,
+): { limit: number; from: Date } | null {
+  if (!settings.enabled || state.status !== "live") return null;
+  return { limit: settings.videos, from: state.period.start };
 }

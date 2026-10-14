@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { allowanceOf } from "@/lib/auth/quota";
-import { FREE_VIDEOS, freeVideosLeft } from "@/lib/quote-video/make";
+import { freeVideosLeft } from "@/lib/quote-video/make";
 import { walletEntries, walletPrices, walletSettings, walletStatus } from "@/lib/wallet/store";
 import { PriceList } from "./PriceList";
 import { WalletClient } from "./WalletClient";
@@ -36,7 +36,7 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
     walletStatus(viewer.agentId).catch(() => ({ satang: 0, frozen: false })),
     walletEntries(viewer.agentId).catch(() => []),
     allowanceOf(viewer),
-    freeVideosLeft(viewer.agentId).catch(() => null),
+    freeVideosLeft(viewer).catch(() => null),
   ]);
   return (
     <WalletClient
@@ -46,7 +46,7 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
       frozen={wallet.frozen}
       entries={entries}
       rounds={{ used: allowance.used, limit: allowance.limit ?? 0 }}
-      videos={videosLeft === null ? null : { left: videosLeft, of: FREE_VIDEOS }}
+      videos={videosLeft}
       prices={prices}
       paid={typeof paid === "string" ? paid : null}
     />
