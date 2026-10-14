@@ -13,7 +13,6 @@ vi.mock("@/lib/auth/google-super", () => supers);
 
 const { GET: start } = await import("@/app/auth/google/route");
 const { GET: callback } = await import("@/app/auth/google/callback/route");
-const { GET: startBackoffice } = await import("@/app/backoffice/google/route");
 const { newLogin, sealLogin } = await import("@/lib/auth/google");
 
 const ORIGIN = "https://advisortool.example";
@@ -169,55 +168,6 @@ describe("GET /auth/google/callback", () => {
   });
 });
 
-describe("the Super Admin's sign-in at /backoffice (owner, 2026-10-15)", () => {
-  const begun = () => {
-    const login = newLogin("/admin", Date.now(), "backoffice");
-    return { login, cookie: `ins_google=${sealLogin(login)}` };
-  };
-
-  it("starts a login marked backoffice, through the same callback Google knows", async () => {
-    const res = await startBackoffice(get("/backoffice/google"));
-    expect(res.headers.get("location")).toContain(encodeURIComponent(`${ORIGIN}/auth/google/callback`));
-    const cookie = res.headers.get("set-cookie")!.split(";")[0].split("=")[1];
-    const body = JSON.parse(Buffer.from(cookie.split(".")[0], "base64url").toString());
-    expect(body).toMatchObject({ mode: "backoffice", next: "/admin" });
-  });
-
-  it("says so on /backoffice when Google is not set up", async () => {
-    vi.stubEnv("GOOGLE_CLIENT_ID", "");
-    const res = await startBackoffice(get("/backoffice/google"));
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/backoffice?error=unconfigured`);
-  });
-
-  it("signs a listed address in and lands on /admin, never making a member", async () => {
-    const { login, cookie } = begun();
-    googleSays({ id_token: jwt(claims(login.nonce, { email: "Boss@Gmail.com" })) });
-    supers.superFromGoogle.mockResolvedValue({ ok: true, id: "s1" });
-    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/admin`);
-    expect(supers.superFromGoogle).toHaveBeenCalledWith({ ok: true, sub: "g-1", email: "boss@gmail.com", name: "สมชาย" });
-    expect(session.startSession).toHaveBeenCalledWith("s1");
-    expect(members.memberFromGoogle).not.toHaveBeenCalled();
-  });
-
-  it("turns any other Gmail back to /backoffice, with no session and no member", async () => {
-    const { login, cookie } = begun();
-    googleSays({ id_token: jwt(claims(login.nonce)) });
-    supers.superFromGoogle.mockResolvedValue({ ok: false, error: "denied", listed: false });
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/backoffice?error=denied`);
-    expect(session.startSession).not.toHaveBeenCalled();
-    expect(members.memberFromGoogle).not.toHaveBeenCalled();
-  });
-
-  it("sends a cancelled backoffice login back to /backoffice, not the members' door", async () => {
-    const { login, cookie } = begun();
-    const res = await callback(get(`/auth/google/callback?error=access_denied&state=${login.state}`, cookie));
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/backoffice?error=cancelled`);
-  });
-});
-
 describe("the Super Admin on the front page's Google button (owner, 2026-10-15)", () => {
   const begun = () => {
     const login = newLogin("/home");
@@ -232,6 +182,14 @@ describe("the Super Admin on the front page's Google button (owner, 2026-10-15)"
     expect(res.headers.get("location")).toBe(`${ORIGIN}/admin`);
     expect(session.startSession).toHaveBeenCalledWith("s1");
     expect(members.memberFromGoogle).not.toHaveBeenCalled();
+  });
+
+  it("brings the Super Admin back to the back-office page they were sent from", async () => {
+    const login = newLogin("/admin/wallet");
+    googleSays({ id_token: jwt(claims(login.nonce)) });
+    supers.superFromGoogle.mockResolvedValue({ ok: true, id: "s1" });
+    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, `ins_google=${sealLogin(login)}`));
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/admin/wallet`);
   });
 
   it("refuses a Super Admin address on another Google account, rather than making it a member", async () => {

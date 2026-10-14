@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { clientIp } from "@/lib/assistant/rate-limit";
-import { backofficeWithError, checkIdToken, exchangeCode, GOOGLE_COOKIE, GOOGLE_COOKIE_PATH, loginWithError, readLogin } from "@/lib/auth/google";
+import { checkIdToken, exchangeCode, GOOGLE_COOKIE, GOOGLE_COOKIE_PATH, loginWithError, readLogin } from "@/lib/auth/google";
 import { memberFromGoogle } from "@/lib/auth/google-member";
 import { superFromGoogle } from "@/lib/auth/google-super";
 import { startSession } from "@/lib/auth/session";
@@ -37,12 +37,7 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
   const params = new URL(req.url).searchParams;
   const login = readLogin(cookieFrom(req, GOOGLE_COOKIE));
   const next = login?.next ?? "/studio";
-  // the Super Admin's login goes back to /backoffice, never to the members' door (owner, 2026-10-15)
-  const backoffice = login?.mode === "backoffice";
-  const back = (error: Parameters<typeof loginWithError>[1]) => ({
-    res: NextResponse.redirect(backoffice ? backofficeWithError(origin, error) : loginWithError(origin, error, next)),
-    created: false,
-  });
+  const back = (error: Parameters<typeof loginWithError>[1]) => ({ res: NextResponse.redirect(loginWithError(origin, error, next)), created: false });
 
   if (params.get("error")) return back("cancelled");
   const code = params.get("code");
@@ -55,15 +50,16 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
   try {
     const user = checkIdToken(await exchangeCode(code, login.verifier, origin), login.nonce);
     if (!user.ok) return back(user.error);
-    // the Super Admin comes in at /backoffice or with the members' button on the front page
-    // (owner, 2026-10-15), and is never made a member. At /backoffice nobody else gets in; on the
-    // front page anybody whose address is not a Super Admin's carries on as a member.
+    // the Super Admin comes in with the members' button on the front page (owner, 2026-10-15;
+    // /backoffice, their own door, went the same day) and is never made a member. Anybody whose
+    // address is not a Super Admin's carries on as a member.
     const admin = await superFromGoogle(user);
     if (admin.ok) {
       id = admin.id;
-      to = "/admin";
-    } else if (backoffice || admin.listed) {
-      console.warn(`${backoffice ? "backoffice" : "front-page"} sign-in refused for ${user.email}`);
+      // back to the back-office page they were sent from, else its front page
+      to = next === "/admin" || next.startsWith("/admin/") ? next : "/admin";
+    } else if (admin.listed) {
+      console.warn(`sign-in refused for Super Admin address ${user.email}`);
       return back(admin.error);
     } else {
       const member = await memberFromGoogle(user, clientIp(req.headers));

@@ -69,6 +69,10 @@ const nextConfig: NextConfig = {
       { source: "/other-plans", destination: "/home", permanent: false },
       // MCP / API, the keys for other systems, until the owner took it out (2026-10-15)
       { source: "/admin/api", destination: "/admin", permanent: false },
+      // the Super Admin's own door, until the owner took it out (2026-10-15): they sign in with
+      // the Google button on the front page
+      { source: "/backoffice", destination: "/", permanent: false },
+      { source: "/backoffice/:path*", destination: "/", permanent: false },
     ];
   },
 };

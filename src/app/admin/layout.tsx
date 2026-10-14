@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "หลังบ้าน | AdvisorTo
 
 /**
  * The back office, for the owner and the assistants the owner names (2026-09-27); for the Super
- * Admin alone since 2026-10-15, who signs in with Google at /backoffice.
+ * Admin alone since 2026-10-15, who signs in with the Google button on the front page.
  *
  * It was open at its address from 2026-09-22, by the owner's choice at the time; now that
  * advisortool shares UnitOS's database, the door is UnitOS's: an agent signs in with their own
@@ -28,7 +28,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // are sent back to /home
   const viewer = await gatePage("/admin", "backoffice");
   const who = await shellWho(viewer);
-  if (!who) redirect("/backoffice");
+  if (!who) redirect("/?next=%2Fadmin");
   return (
     // named for where it is, as Studio's menu is (owner chose ข, 2026-10-14); no way out to the
     // front of the app: the Super Admin has none (2026-10-15)

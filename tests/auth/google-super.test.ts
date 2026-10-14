@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { superFromRow } from "@/lib/auth/google-super";
 
-describe("who a Google account is at /backoffice (owner, 2026-10-15)", () => {
+describe("whether a Google account is the Super Admin (owner, 2026-10-15)", () => {
   const row = { id: "s1", email: "boss@gmail.com", google_sub: null, revoked_at: null };
 
   it("turns away an address nobody listed", () => {

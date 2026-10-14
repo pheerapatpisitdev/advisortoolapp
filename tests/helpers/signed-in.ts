@@ -20,7 +20,7 @@ export const OWNER: Viewer = {
   staff: { owner: true, publish: true, connect: true, admin: true },
 };
 
-/** The Super Admin, signed in at /backoffice (owner, 2026-10-15): the back office's only user. */
+/** The Super Admin, signed in with Google (owner, 2026-10-15): the back office's only user. */
 export const SUPER: Viewer = {
   kind: "super",
   agentId: "00000000-0000-4000-8000-0000000000ad",

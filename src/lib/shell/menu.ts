@@ -326,7 +326,7 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
 
 /**
  * The way to the back office from the front of the app: none since 2026-10-15 (owner). It is
- * the Super Admin's alone, who signs in at /backoffice and never sees the front.
+ * the Super Admin's alone, who signs in with the front page's Google button and never sees the front.
  */
 function officeFor(who?: Who | null): string | null {
   return who?.super ? "/admin" : null;

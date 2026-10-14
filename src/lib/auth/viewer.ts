@@ -130,8 +130,6 @@ const passPage = (next: string) => next === "/home" || next.startsWith("/home/")
 export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   const viewer = await getViewer();
   if (!viewer) {
-    // the back office has a door of its own, the Super Admin's (owner, 2026-10-15)
-    if (next === "/admin" || next.startsWith("/admin/")) redirect("/backoffice");
     // the page actually asked for, when the middleware passed it on; the caller's guess otherwise
     const asked = safeNext((await headers()).get("x-pathname"), next);
     redirect(`/?next=${encodeURIComponent(asked)}`);

@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { GoogleError } from "./google";
 
 /**
- * Who a Google account is at /backoffice (owner, 2026-10-15). Only an address the owner listed in
+ * Whether a Google account is the Super Admin (owner, 2026-10-15). Only an address the owner listed in
  * ins_super_admins gets in; anybody else is turned away, and nobody is ever made a member here.
  * The first sign-in ties the row to that Google account, so somebody who later takes over the
  * address at Google (a deleted Gmail reissued, a renamed Workspace user) is not let in by it.

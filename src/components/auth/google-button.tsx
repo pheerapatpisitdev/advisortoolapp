@@ -1,4 +1,4 @@
-/** Shared by the members' sign-in (src/app/login/LoginForm.tsx) and the Super Admin's (/backoffice). */
+/** Shared by the members' sign-in (src/app/login/LoginForm.tsx) and, until 2026-10-15, the Super Admin's own door (/backoffice). */
 
 /** Google's own look for its button: white, a grey edge, the four-colour G (their branding rules). */
 export const GOOGLE =
