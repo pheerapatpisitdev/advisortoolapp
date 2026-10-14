@@ -9,7 +9,7 @@ import { PENSION_TABLE_KEYS, toCanonical } from "../canonical";
 import { RING_PAD, figureWidth, penSvgUri } from "../table/pen-notes";
 import { googleFontSubset } from "@/lib/google-font";
 import { SiteFooter, SITE_FOOTER_H } from "../site-footer";
-import { PENSION_AGES, quotePension, type PensionAge, type PensionPay } from "@/calc/pension/engine";
+import { PENSION_AGES, quotePension, type PensionAge, type PensionBand, type PensionPay } from "@/calc/pension/engine";
 import {
   PENSION_COLUMNS, PENSION_PEN_TEXT, pensionCells, pensionPenNotes, pensionFigure,
 } from "@/lib/pension-pen-notes";
@@ -58,6 +58,14 @@ const H = {
 };
 
 const CAPTION = "บำนาญทุกปี ตั้งแต่ปีแรกจนอายุ 95";
+
+/**
+ * The staircase above the table, as on /bumnan95 (PensionBandChart.tsx): each bar as wide as the
+ * years it pays and as tall as the yearly pension (owner, 2026-10-14, option ก on mockup
+ * https://claude.ai/artifact/67RoYtWxWrrC85Gn5uBbYP).
+ */
+const CHART = { caption: 40, above: 50, tall: 260, under: 80, after: 34, gap: 8 };
+const CHART_H = CHART.caption + CHART.above + CHART.tall + CHART.under + CHART.after;
 /** the pen notes' handwriting, as on the value table */
 const PEN_FACE = "Sriracha";
 
@@ -119,7 +127,7 @@ export async function GET(req: NextRequest) {
   const closing = `รวมรับบำนาญถึงอายุ 95 ประมาณ ${pensionFigure(q.totalPension)} บาท จากเบี้ยรวม ${pensionFigure(q.totalPremium)} บาท`;
 
   const height = PAD * 2 + H.plan + H.insured + H.premium + H.gap + H.hairline + H.afterHairline
-    + tableHeight + H.closingGap + H.closing + SITE_FOOTER_H;
+    + CHART_H + tableHeight + H.closingGap + H.closing + SITE_FOOTER_H;
 
   return pngResponse(
     (
@@ -144,6 +152,8 @@ export async function GET(req: NextRequest) {
         <div style={band(H.gap)} />
         <div style={{ ...band(H.hairline), background: p.hair }} />
         <div style={band(H.afterHairline)} />
+
+        <BandChart bands={q.bands} p={p} />
 
         <div style={{ display: "flex", flexDirection: "column", position: "relative", width: TABLE_W, height: tableHeight, flexShrink: 0 }}>
           <div style={{ ...band(H.caption), fontSize: 25, color: p.accent }}>{CAPTION}</div>
@@ -248,5 +258,38 @@ export async function GET(req: NextRequest) {
       ],
       headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
     },
+  );
+}
+
+function BandChart({ bands, p }: { bands: PensionBand[]; p: ReturnType<typeof cardPaletteFor> }) {
+  const years = (b: PensionBand) => b.toAge - b.fromAge + 1;
+  const total = bands.reduce((s, b) => s + years(b), 0);
+  const top = Math.max(...bands.map((b) => b.annual));
+  const base = CHART.caption + CHART.above + CHART.tall;
+  let x = 0;
+  const bars = bands.map((b, i) => {
+    const w = (years(b) / total) * TABLE_W;
+    const left = x + (i === 0 ? 0 : CHART.gap / 2);
+    const width = w - (i === 0 || i === bands.length - 1 ? CHART.gap / 2 : CHART.gap);
+    x += w;
+    return { b, left, width, height: Math.round((b.annual / top) * CHART.tall) };
+  });
+  const label = (key: string, left: number, width: number, top: number, extra: object, text: string) => (
+    <div key={key} style={{ position: "absolute", display: "flex", justifyContent: "center", left, width, top, ...extra }}>{text}</div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", position: "relative", width: TABLE_W, height: CHART_H, flexShrink: 0 }}>
+      <div style={{ ...band(CHART.caption), fontSize: 25, color: p.accent }}>บำนาญต่อปี ตามช่วงอายุ</div>
+      <div style={{ position: "absolute", left: 0, top: base, width: TABLE_W, height: 2, background: p.hair }} />
+      {/* yoga places an absolute box against its own parent, so every piece sits straight in here */}
+      {bars.flatMap(({ b, left, width, height }) => [
+        <div key={`${b.fromAge}:bar`} style={{ position: "absolute", left, top: base - height, width, height, background: p.figure, borderRadius: "6px 6px 0 0" }} />,
+        label(`${b.fromAge}:sum`, left, width, base - height - 46, { fontSize: 30, fontWeight: 600, color: p.ink }, pensionFigure(b.annual)),
+        label(`${b.fromAge}:pct`, left, width, base - 56, { fontSize: 28, color: p.ground }, `${Math.round(b.percent * 100)}%`),
+        label(`${b.fromAge}:age`, left, width, base + 8, { fontSize: 25, color: p.mute }, `อายุ ${b.fromAge}–${b.toAge}`),
+        label(`${b.fromAge}:yrs`, left, width, base + 42, { fontSize: 25, color: p.mute }, `${years(b)} ปี`),
+      ])}
+    </div>
   );
 }

@@ -174,7 +174,7 @@ export function cardPaletteVersion(palette: CardPalette): string {
 export const BLUE_PEN = "#1f5fbf";
 
 /** Bump when a card gains or removes visible content without changing its palette. */
-const DRAWING_REVISION = "24";
+const DRAWING_REVISION = "25";
 
 /** The fingerprint of the palette and layout this card will be drawn in. */
 export function cardVersionFor(): string {
