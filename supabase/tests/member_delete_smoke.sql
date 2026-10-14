@@ -18,7 +18,7 @@ begin
   insert into ins_audit (agent_id, action, target) values (null, 'member-suspend', gone::text);
   insert into ins_session_epochs (agent_id, not_before) values (gone, now());
   insert into ins_referral_codes (owner_id, owner_kind, code) values (gone, 'member', 'SMOKEDEL1');
-  insert into ins_referrals (friend_id, referrer_id) values (kept, gone);
+  insert into ins_referrals (friend_id, referrer_id, referrer_kind) values (kept, gone, 'member');
 
   -- an active member is refused, and keeps everything
   begin
