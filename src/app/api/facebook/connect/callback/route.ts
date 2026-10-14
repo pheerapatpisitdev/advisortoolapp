@@ -40,7 +40,7 @@ async function finish(req: Request): Promise<NextResponse> {
   const origin = requestOrigin(req);
   const params = new URL(req.url).searchParams;
   const purpose = statePurpose(params.get("state"), cookieFrom(req, STATE_COOKIE));
-  const home = purpose === "ads-manage" ? "/studio/ads" : purpose === "ads" ? "/admin/ads" : "/admin/messenger";
+  const home = purpose === "ads-manage" ? "/studio/ads" : purpose === "ads" ? "/admin/ads" : "/admin/pages";
 
   const back = (outcome: string, detail?: string, warn?: string) => {
     const q = new URLSearchParams({ fb: outcome });

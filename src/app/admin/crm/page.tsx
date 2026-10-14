@@ -9,6 +9,7 @@ import { Charts } from "./Charts";
 import { Leads } from "./Leads";
 import { PlanRuns } from "./PlanRuns";
 import { gatePage } from "@/lib/auth/viewer";
+import { PageHead } from "../ui";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "ลูกค้า | AdvisorTool" };
@@ -22,7 +23,6 @@ const RANGES: { key: Range; label: string }[] = [
 const TABS = [
   { key: "recent", label: "ลูกค้าล่าสุด" },
   { key: "follow", label: "ต้องตามต่อ" },
-  { key: "unanswered", label: "คำถามที่ตอบไม่ได้" },
 ] as const;
 
 type Tab = (typeof TABS)[number]["key"];
@@ -32,7 +32,7 @@ function isRange(v: string | undefined): v is Range {
 }
 
 function isTab(v: string | undefined): v is Tab {
-  return v === "recent" || v === "follow" || v === "unanswered";
+  return v === "recent" || v === "follow";
 }
 
 /**
@@ -63,11 +63,11 @@ export default async function CrmPage(
   const counts = {
     recent: leads?.total,
     follow: following?.total,
-    unanswered: unanswered?.total,
   } satisfies Record<Tab, number | undefined>;
 
   return (
     <div className="space-y-5">
+      <PageHead title="ลูกค้าจากแชท" hint="คนที่ทักเพจ ได้เบี้ยไปแล้ว และต้องตามต่อ" />
       <div className="flex flex-wrap items-center gap-2">
         {RANGES.map((r) => (
           <Link
@@ -125,9 +125,16 @@ export default async function CrmPage(
         <Leads
           tab={tab}
           leads={tab === "follow" ? following : leads}
-          unanswered={unanswered}
         />
       </div>
+
+      {/* the list itself moved to สอนบอท (owner chose ข, 2026-10-15): it is the bot's to-do list */}
+      {unanswered && unanswered.total > 0 && (
+        <p className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--bot-sand-line)] bg-[var(--bot-sand-soft)] px-3.5 py-2.5 text-sm text-[var(--bot-sand-ink)]">
+          คำถามที่บอทตอบไม่ได้ {unanswered.total.toLocaleString("en-US")} ข้อ อยู่ที่หน้า สอนบอท
+          <Link href="/admin/teach?tab=unanswered" className="rounded border border-[var(--bot-sand-line)] bg-white px-2.5 py-1 text-xs text-[var(--bot-ink-foot)] no-underline">ไปดู</Link>
+        </p>
+      )}
 
       <p className="rounded-lg border border-[var(--bot-line-strong)] bg-[var(--bot-navy-soft)] px-3.5 py-3 text-xs leading-relaxed text-[var(--bot-navy)]">
         ชื่อกับรูปดึงสดจาก Facebook ตอนเปิดหน้านี้ ไม่ได้เก็บลงฐานข้อมูล ·

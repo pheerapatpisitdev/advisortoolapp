@@ -211,7 +211,7 @@ export function PageSettings({ pageId, contact, connection, outcome, warn, detai
           {warn === "pages" && (
             <p role="alert" className={`rounded-lg border px-3 py-3 text-sm font-medium ${TONES.bad}`}>
               สิทธิ์อินบ็อกซ์ของเพจ (pages_messaging) อาจหลุดไปตอนเชื่อมบัญชีโฆษณานี้ — บอทอาจตอบข้อความไม่ได้แล้ว
-              ไปเชื่อมเพจใหม่ที่ <a href="/admin/messenger" className="underline">/admin/messenger</a> ตอนนี้เลย
+              แจ้ง Super Admin ให้เชื่อมเพจใหม่ตอนนี้เลย
             </p>
           )}
           {shown && <p role="status" className={`rounded-lg border px-3 py-2 text-sm ${TONES[shown.tone]}`}>{shown.text}</p>}

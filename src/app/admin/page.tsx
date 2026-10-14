@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { loadOverview } from "./overview";
-import { Card, Empty } from "./ui";
+import { Card, Empty, PageHead } from "./ui";
 import { gatePage } from "@/lib/auth/viewer";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +42,7 @@ export default async function OverviewPage() {
 
   return (
     <>
+      <PageHead title="ภาพรวม" hint="เรื่องที่ค้างอยู่ และตัวเลข 7 วันล่าสุด" />
       <Card title="ต้องจัดการ" hint="ขึ้นเฉพาะเรื่องที่ค้างอยู่จริง — ไม่มีอะไรค้างก็ว่างไว้">
         {attention.length === 0 ? (
           <Empty>ไม่มีอะไรค้างครับ ระบบทำงานปกติ</Empty>

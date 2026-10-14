@@ -255,7 +255,7 @@ export function PublishPanel({ item, hook, beforePublish, onPublished, drawing, 
   } else if (!setup.pages.some((p) => p.canPost)) {
     body = (
       <p className="text-sm text-[var(--ct-mute)]">
-        ยังไม่ได้อนุญาตให้ระบบโพสต์ลงเพจ — ไปเชื่อมเพจใหม่ที่ <a href="/admin/messenger" className="font-medium text-[var(--ct-accent)] underline">หน้าตั้งค่าเพจ</a>
+        เพจนี้ยังไม่ได้อนุญาตให้ระบบโพสต์ — แจ้ง Super Admin ให้เชื่อมเพจใหม่
       </p>
     );
   } else {

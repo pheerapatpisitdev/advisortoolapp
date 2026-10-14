@@ -148,7 +148,7 @@ export async function clear(
   const page = mine.find((pg) => pg.pageId === input.pageId);
   if (!page) return { ok: false, error: "ไม่พบเพจนี้ในเพจที่คุณดูแล — เลือกเพจก่อน" };
   if (!page.scopes.includes(POST_SCOPE)) {
-    return { ok: false, error: `เพจ ${page.pageName} ยังไม่ได้เปิดสิทธิ์โพสต์ — เชื่อมเพจใหม่ที่หน้า /admin/messenger แล้วกดอนุญาตให้โพสต์` };
+    return { ok: false, error: `เพจ ${page.pageName} ยังไม่ได้เปิดสิทธิ์โพสต์ — แจ้ง Super Admin ให้เชื่อมเพจใหม่ แล้วกดอนุญาตให้โพสต์` };
   }
   const token = await pageToken(page.pageId);
   if (!token) return { ok: false, error: "ไม่พบการเชื่อมต่อของเพจนี้" };

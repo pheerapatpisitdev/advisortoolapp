@@ -9,7 +9,7 @@ import type { PersonRow, SystemRow, ToolRow } from "@/lib/stats/usage";
  * (five first, the rest a click away).
  */
 
-type Person = PersonRow & { name: string; room: string | null; member: boolean };
+type Person = PersonRow & { name: string; room: string | null; member: boolean; /** what is in their wallet now, null with none */ balanceSatang: number | null };
 
 const PEOPLE_SHOWN = 5;
 const COST_SHOWN = 6;
@@ -33,7 +33,8 @@ function Bar({ value, max, soft }: { value: number; max: number; soft?: boolean 
   );
 }
 
-export function StatsView({ tools, system, daily, people }: { tools: ToolRow[]; system: SystemRow[]; daily: { day: string; uses: number }[]; people: Person[] }) {
+/** which half to draw: the tools and the charts, or the people (owner chose ข, 2026-10-15) */
+export function StatsView({ show, tools, system, daily, people }: { show: "tool" | "person"; tools: ToolRow[]; system: SystemRow[]; daily: { day: string; uses: number }[]; people: Person[] }) {
   const [sort, setSort] = useState<"uses" | "thb">("uses");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [everyone, setEveryone] = useState(false);
@@ -50,6 +51,8 @@ export function StatsView({ tools, system, daily, people }: { tools: ToolRow[]; 
 
   return (
     <div className="flex flex-col gap-4">
+      {show === "tool" ? (
+        <>
       <section className={card}>
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-semibold">เครื่องมือที่ใช้มากที่สุด</h2>
@@ -155,8 +158,10 @@ export function StatsView({ tools, system, daily, people }: { tools: ToolRow[]; 
         </section>
       </div>
 
+        </>
+      ) : (
       <section className={card}>
-        <h2 className="mb-2 text-base font-semibold">ผู้ใช้ที่ใช้มากที่สุด</h2>
+        <h2 className="mb-2 text-base font-semibold">รายคน</h2>
         {people.length === 0 ? (
           <p className="py-4 text-center text-sm text-[var(--bot-ink-mute)]">ยังไม่มีใครใช้งานในช่วงนี้</p>
         ) : (
@@ -170,6 +175,7 @@ export function StatsView({ tools, system, daily, people }: { tools: ToolRow[]; 
                   <th className={th}>ใช้บ่อยสุด</th>
                   <th className={`${th} text-right`}>ค่า AI</th>
                   <th className={`${th} text-right`}>จ่ายจากกระเป๋า</th>
+                  <th className={`${th} text-right`}>คงเหลือ</th>
                 </tr>
               </thead>
               <tbody>
@@ -185,6 +191,7 @@ export function StatsView({ tools, system, daily, people }: { tools: ToolRow[]; 
                     <td className={td}>{p.topTool}</td>
                     <td className={`${td} text-right`}>{baht(p.thb)}</td>
                     <td className={`${td} text-right`}>{p.paidSatang ? baht(p.paidSatang / 100) : "–"}</td>
+                    <td className={`${td} text-right`}>{p.balanceSatang === null ? "–" : `฿${(p.balanceSatang / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -197,6 +204,7 @@ export function StatsView({ tools, system, daily, people }: { tools: ToolRow[]; 
           </button>
         )}
       </section>
+      )}
     </div>
   );
 }

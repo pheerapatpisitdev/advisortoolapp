@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
-import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { monthStart } from "@/lib/ai/ledger";
-import { passSettings } from "@/lib/members/pass-store";
-import { referralReport, referralSettings } from "@/lib/referrals/store";
-import { frozenWallets, walletPrices, walletSettings, walletSummary } from "@/lib/wallet/store";
+import { frozenWallets, walletSettings, walletSummary } from "@/lib/wallet/store";
+import { PageHead } from "../ui";
 import { WalletAdmin } from "./WalletAdmin";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "กระเป๋าเงินตัวแทน | AdvisorTool" };
+export const metadata: Metadata = { title: "กระเป๋าเงิน | AdvisorTool" };
 
+/**
+ * กระเป๋าเงิน: the switch, every wallet's line, and the frozen ones. Its prices, the members'
+ * pass and ชวนเพื่อน moved to /admin/prices on 2026-10-15 (owner chose ข).
+ */
 export default async function AdminWalletPage() {
-  const viewer = await gatePage("/admin/wallet", "backoffice");
-  const [settings, rows, frozen, prices, pass, referral, report] = await Promise.all([
+  await gatePage("/admin/wallet", "backoffice");
+  const [settings, rows, frozen] = await Promise.all([
     walletSettings().catch((e) => {
       console.error("wallet settings unreadable:", e);
       return null;
@@ -26,25 +28,11 @@ export default async function AdminWalletPage() {
       console.error("frozen wallets unreadable:", e);
       return null;
     }),
-    // never throws: the defaults when the column is not there yet
-    walletPrices(),
-    // the outside members' 30-day pass (owner, 2026-10-13); null before 20261027_member_pass
-    passSettings().catch((e) => {
-      console.error("member pass settings unreadable:", e);
-      return null;
-    }),
-    // เพื่อนชวนเพื่อน (owner, 2026-10-14); null before 20261103_referrals
-    referralSettings().catch((e) => {
-      console.error("referral settings unreadable:", e);
-      return null;
-    }),
-    referralReport().catch((e) => {
-      console.error("referral report unreadable:", e);
-      return null;
-    }),
   ]);
   return (
-    <WalletAdmin settings={settings} rows={rows} frozen={frozen} prices={prices} pass={pass}
-                 referral={referral} report={report} canPrice={can(viewer, "backoffice")} />
+    <>
+      <PageHead title="กระเป๋าเงิน" hint="เปิดปิดกระเป๋า ยอดเติมและคงเหลือของแต่ละคน และกระเป๋าที่ถูกพัก" />
+      <WalletAdmin settings={settings} rows={rows} frozen={frozen} />
+    </>
   );
 }

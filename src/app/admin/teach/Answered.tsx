@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { markQuestionAnswered } from "./actions";
+import { markQuestionAnswered } from "../crm/actions";
 
 /**
  * "ตอบแล้ว" on one question the assistant could not answer.

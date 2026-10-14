@@ -44,7 +44,7 @@ export interface HomePage {
 export interface HomeInput {
   room: string;
   name: string;
-  /** may post to the Pages, and so may open the calendar (and, an admin, /admin/posting) */
+  /** may post to the Pages, and so may open the calendar */
   publish: boolean;
   /** the owner: Ads Studio is theirs alone, so only their cards carry its tile */
   owner: boolean;
@@ -116,7 +116,6 @@ export function homeCards(input: HomeInput): HomeCard[] {
       (n) => `${n} คน`, "ยังไม่มีคน",
     ),
   });
-  const settings = (status: string): HomeTile => ({ key: "settings", href: "/admin/posting", label: "การตั้งค่า", status });
 
   if (input.publish && input.pages && input.pages.length > 0) {
     return input.pages.map((p) => ({
@@ -134,8 +133,7 @@ export function homeCards(input: HomeInput): HomeCard[] {
         },
         hooks,
         people(p.pageId),
-        // /admin/posting is the admins' since 2026-10-02: an assistant's card has no door they cannot open
-        ...(input.admin ? [settings(p.canPost ? "เชื่อมต่อ Facebook แล้ว" : "ยังไม่ให้สิทธิ์โพสต์")] : []),
+        // the การตั้งค่า tile (/admin/posting) went with the back office to the Super Admin (2026-10-15)
       ],
     }));
   }
@@ -150,7 +148,8 @@ export function homeCards(input: HomeInput): HomeCard[] {
   };
   // posting staff with nothing to show: the way to connect a Page, or word that the list failed
   // posting staff with no Page of their own: the owner ties Pages to them on /admin/team
-  if (input.publish && !input.admin && input.pages) return [{ ...room, subtitle: "ยังไม่มีเพจที่ดูแล — ให้เจ้าของเพิ่มที่หน้าทีมงาน" }];
-  if (input.publish) room.tiles.push(settings(input.pages ? "ยังไม่ได้เชื่อมต่อ" : "อ่านรายชื่อเพจไม่ได้"));
+  if (input.publish && !input.admin && input.pages) return [{ ...room, subtitle: "ยังไม่มีเพจที่ดูแล — ให้ Super Admin เพิ่มที่หน้าทีมงาน" }];
+  // the การตั้งค่า tile that stood here led to /admin/posting, the Super Admin's since 2026-10-15
+  if (input.publish) return [{ ...room, subtitle: input.pages ? "ยังไม่มีเพจที่เชื่อมไว้ — แจ้ง Super Admin ให้เชื่อมเพจ" : "อ่านรายชื่อเพจไม่ได้ ลองเปิดใหม่อีกครั้ง" }];
   return [room];
 }

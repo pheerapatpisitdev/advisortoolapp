@@ -26,7 +26,7 @@ describe("the Studio home", () => {
   it("draws a card for every connected Page, the calendar filtered to it", () => {
     const cards = homeCards(base);
     expect(cards.map((c) => c.title)).toEqual(["Diamond Wealth Planner", "ประกัน talk"]);
-    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "calendar", "hooks", "people", "settings"]);
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "calendar", "hooks", "people"]);
     expect(tile(cards, 0, "calendar")).toMatchObject({ href: "/studio/calendar?page=p1", status: "ตั้งเวลาไว้ 3 โพสต์" });
     expect(tile(cards, 1, "calendar")?.status).toBe("ยังไม่มีรายการตั้งเวลา");
   });
@@ -42,8 +42,8 @@ describe("the Studio home", () => {
     expect(tile(cards, 0, "write")).toMatchObject({ href: "/studio/write?page=p1", status: "ร่าง 5 ชิ้น" });
     expect(tile(cards, 0, "hooks")?.status).toBe("30 สูตร");
     expect(tile(cards, 0, "people")?.status).toBe("ยังไม่มีคน");
-    expect(tile(cards, 0, "settings")).toMatchObject({ href: "/admin/posting", status: "เชื่อมต่อ Facebook แล้ว" });
-    expect(tile(cards, 1, "settings")?.status).toBe("ยังไม่ให้สิทธิ์โพสต์");
+    // the การตั้งค่า tile went with /admin/posting to the Super Admin (2026-10-15): no door an agent cannot open
+    expect(tile(cards, 0, "settings")).toBeUndefined();
   });
 
   it("counts each Page's own drafts on its card (owner, 2026-09-30)", () => {
@@ -77,18 +77,18 @@ describe("the Studio home", () => {
     expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people"]);
   });
 
-  it("sends staff with no Page connected to connect one", () => {
+  it("tells staff with no Page connected to ask the Super Admin, with no settings to open (2026-10-15)", () => {
     const cards = homeCards({ ...base, pages: [] });
     expect(cards).toHaveLength(1);
-    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people", "settings"]);
-    expect(tile(cards, 0, "settings")?.status).toBe("ยังไม่ได้เชื่อมต่อ");
-    expect(homeCards({ ...base, pages: null })[0].tiles.at(-1)?.status).toBe("อ่านรายชื่อเพจไม่ได้");
+    expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people"]);
+    expect(cards[0].subtitle).toBe("ยังไม่มีเพจที่เชื่อมไว้ — แจ้ง Super Admin ให้เชื่อมเพจ");
+    expect(homeCards({ ...base, pages: null })[0].subtitle).toBe("อ่านรายชื่อเพจไม่ได้ ลองเปิดใหม่อีกครั้ง");
   });
 
   it("tells posting staff with no Page of their own to ask the owner, with no settings to open", () => {
     const cards = homeCards({ ...base, admin: false, pages: [] });
     expect(cards).toHaveLength(1);
-    expect(cards[0].subtitle).toBe("ยังไม่มีเพจที่ดูแล — ให้เจ้าของเพิ่มที่หน้าทีมงาน");
+    expect(cards[0].subtitle).toBe("ยังไม่มีเพจที่ดูแล — ให้ Super Admin เพิ่มที่หน้าทีมงาน");
     expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "hooks", "people"]);
   });
 
@@ -101,7 +101,7 @@ describe("the Studio home", () => {
 
     it("sits after Organic Studio on each Page's card, to that Page's campaigns", () => {
       const cards = homeCards({ ...owner, adCampaigns: new Map([["p1", { campaigns: 2, launched: 3 }]]) });
-      expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "ads", "calendar", "hooks", "people", "settings"]);
+      expect(cards[0].tiles.map((t) => t.key)).toEqual(["write", "ads", "calendar", "hooks", "people"]);
       expect(tile(cards, 0, "ads")).toMatchObject({ href: "/studio/ads?page=p1", label: "Ads Studio", status: "2 แคมเปญ · ยิงแล้ว 3" });
     });
 

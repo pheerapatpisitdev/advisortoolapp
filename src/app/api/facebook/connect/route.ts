@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const origin = requestOrigin(req);
   const wanted = new URL(req.url).searchParams.get("for");
   const purpose: LoginPurpose = wanted === "ads-manage" ? "ads-manage" : wanted === "ads" ? "ads" : "pages";
-  const home = purpose === "ads-manage" ? "/studio/ads" : purpose === "ads" ? "/admin/ads" : "/admin/messenger";
+  const home = purpose === "ads-manage" ? "/studio/ads" : purpose === "ads" ? "/admin/ads" : "/admin/pages";
   // Pages and the ad account are the Super Admin's since 2026-10-15 (owner);
   // the login that can spend money is the owner's alone
   const viewer = await getViewer();

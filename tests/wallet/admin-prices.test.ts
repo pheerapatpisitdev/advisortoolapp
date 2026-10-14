@@ -2,18 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-/** The owner's price table on /admin/wallet (owner, 2026-10-12). */
+/** The owner's price table (owner, 2026-10-12), on /admin/prices since 2026-10-15 (owner chose ข). */
 
-vi.mock("@/app/admin/wallet/actions", () => ({ savePrices: vi.fn(), saveWallet: vi.fn(), adjustAgentWallet: vi.fn(), unfreezeAgentWallet: vi.fn(), saveMemberPass: vi.fn() }));
-const { WalletAdmin } = await import("@/app/admin/wallet/WalletAdmin");
+vi.mock("@/app/admin/wallet/actions", () => ({ savePrices: vi.fn(), saveWallet: vi.fn(), adjustAgentWallet: vi.fn(), unfreezeAgentWallet: vi.fn(), saveMemberPass: vi.fn(), saveReferral: vi.fn() }));
+const { PricesAdmin } = await import("@/app/admin/prices/PricesAdmin");
 const { DEFAULT_PRICES } = await import("@/lib/wallet/prices");
 
 const { DEFAULT_PASS_SETTINGS } = await import("@/lib/members/pass");
 
-const draw = (canPrice: boolean, prices = DEFAULT_PRICES, pass: typeof DEFAULT_PASS_SETTINGS | null = DEFAULT_PASS_SETTINGS) =>
-  renderToStaticMarkup(createElement(WalletAdmin, {
-    settings: { enabled: true, multiplier: 2 }, rows: [], frozen: [], prices, pass, canPrice,
-  }));
+// the Super Admin's alone since 2026-10-15, so there is no read-only way to draw it any more
+const draw = (_editable: true, prices = DEFAULT_PRICES, pass: typeof DEFAULT_PASS_SETTINGS | null = DEFAULT_PASS_SETTINGS) =>
+  renderToStaticMarkup(createElement(PricesAdmin, { prices, pass, referral: null, report: null }));
 
 describe("the price table", () => {
   it("shows each price in baht for the owner to change, with a save button", () => {
@@ -24,11 +23,10 @@ describe("the price table", () => {
     expect(html).toContain("บันทึกราคา");
   });
 
-  it("is read-only for an admin who is not the owner", () => {
-    const html = draw(false);
-    expect(html).not.toContain("บันทึกราคา");
-    expect(html).toContain("เจ้าของเท่านั้นที่แก้ราคาได้");
-    expect(html).toMatch(/id="price-drawStandard"[^>]*disabled/);
+  it("has no read-only mode: the back office is the Super Admin's alone (2026-10-15)", () => {
+    const html = draw(true);
+    expect(html).not.toContain("เจ้าของเท่านั้น");
+    expect(html).not.toMatch(/id="price-drawStandard"[^>]*disabled/);
   });
 
   it("marks a price that is not above its cost", () => {
@@ -50,11 +48,8 @@ describe("the member pass box (owner, 2026-10-13)", () => {
     expect(html).toContain("ราคาต่ำกว่า ฿150 จ่ายได้แค่พร้อมเพย์");
   });
 
-  it("is read-only for an admin who is not the owner", () => {
-    const html = draw(false);
-    expect(html).toContain("เจ้าของเท่านั้นที่แก้ได้");
-    expect(html).toMatch(/id="pass-price"[^>]*disabled/);
-    expect(html).toMatch(/id="pass-price"[^>]*value="99"/);
+  it("opens with the pass's own price", () => {
+    expect(draw(true)).toMatch(/id="pass-price"[^>]*value="99"/);
   });
 
   it("says so when the settings cannot be read", () => {

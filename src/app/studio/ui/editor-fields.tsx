@@ -13,20 +13,17 @@ export type NoteState = { kind: "ok" | "error"; text: string } | null;
 export const okNote = (text: string): NoteState => ({ kind: "ok", text });
 export const errorNote = (text: string): NoteState => ({ kind: "error", text });
 
-const SETTINGS_HREF = "/admin/messenger";
-
 /**
- * A message from the server, with the plumbing taken out. Facebook's permission name and the
- * settings page's address mean nothing to the owner; the page becomes a link in her words.
+ * A message from the server, with the plumbing taken out. Facebook's permission name means
+ * nothing to the owner. The Pages are connected in the back office, which is the Super Admin's
+ * alone since 2026-10-15, so the message names who to ask rather than linking to a door that
+ * would only send an agent back to /home.
  */
 export function PlainText({ text }: { text: string }) {
-  const link = <a href={SETTINGS_HREF} className="font-medium underline">หน้าตั้งค่าเพจ</a>;
   if (/pages_manage_posts|ยังไม่ได้เปิดสิทธิ์โพสต์|ยังไม่มีเพจที่เปิดสิทธิ์โพสต์/.test(text)) {
-    return <>ยังไม่ได้อนุญาตให้ระบบโพสต์ลงเพจ — ไปเชื่อมเพจใหม่ที่ {link}</>;
+    return <>เพจนี้ยังไม่ได้อนุญาตให้ระบบโพสต์ — แจ้ง Super Admin ให้เชื่อมเพจใหม่</>;
   }
-  const parts = text.split(/(?:หน้า\s*)?\/admin\/messenger/);
-  if (parts.length === 1) return <>{text}</>;
-  return <>{parts.map((p, i) => <span key={i}>{p}{i < parts.length - 1 && link}</span>)}</>;
+  return <>{text.replace(/(?:หน้า\s*)?\/admin\/messenger/g, "หลังบ้าน (Super Admin)")}</>;
 }
 
 export function Note({ note, className = "" }: { note: NoteState; className?: string }) {

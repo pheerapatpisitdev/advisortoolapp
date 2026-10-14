@@ -27,7 +27,7 @@ export async function saveWelcomeAction(pageId: string, input: unknown): Promise
     return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
   await audit("page-welcome", pageId, { mode: read.value.mode, product: read.value.product ?? null, pictures: read.value.pictures.length });
-  revalidatePath("/admin/welcome");
+  revalidatePath("/admin/teach");
   return { ok: true };
 }
 
@@ -41,6 +41,6 @@ export async function resetWelcomeAction(pageId: string): Promise<Result> {
     return { ok: false, error: "คืนค่าเดิมไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
   await audit("page-welcome-reset", pageId);
-  revalidatePath("/admin/welcome");
+  revalidatePath("/admin/teach");
   return { ok: true };
 }

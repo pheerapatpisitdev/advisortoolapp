@@ -63,7 +63,7 @@ export interface CrmPage {
   failed: string[];
 }
 
-type Tab = "recent" | "follow" | "unanswered";
+type Tab = "recent" | "follow";
 
 export async function loadCrm(range: Range = "7d", tab: Tab = "recent"): Promise<CrmPage> {
   await requireStaff("backoffice");
@@ -269,7 +269,19 @@ export async function markQuestionAnswered(id: number): Promise<{ ok: true } | {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
+  revalidatePath("/admin/teach");
   revalidatePath("/admin/crm");
   revalidatePath("/admin");
   return { ok: true };
+}
+
+/** The questions the bot had no answer for, for สอนบอท's tab (owner chose ข, 2026-10-15). */
+export async function loadUnanswered(): Promise<OpenQuestions | null> {
+  await requireStaff("backoffice");
+  try {
+    return await openQuestions(UNANSWERED_LIMIT);
+  } catch (e) {
+    console.error(`${READ_FAILED} (คำถามที่ตอบไม่ได้):`, e);
+    return null;
+  }
 }
