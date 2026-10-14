@@ -6,6 +6,7 @@ import type { LegacyAge } from "@/lib/legacy-cta";
 import { displayPremium, legacyQuoteText, perDayText } from "@/lib/legacy-cta";
 import { cardPath, diseaseCardPath } from "@/lib/card-link";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import type { LegacyTable } from "@/lib/legacy-table";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { Highlighted } from "@/components/Highlighted";
@@ -172,7 +173,11 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
         </div>
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
-          <ContactButtons copyText={quoteText} cardPath={card} diseaseCardPath={diseaseCardPath("DCI")} />
+          <ContactButtons
+            copyText={quoteText} cardPath={card} diseaseCardPath={diseaseCardPath("DCI")}
+            // วิดีโอนำเสนอ of the legacy on screen (owner, 2026-10-14)
+            videoHref={typeof age === "number" && modes ? videoStartHref({ product: "LEGACY", sex, age, tier: millions }) : undefined}
+          />
         </div>
       </div>
 

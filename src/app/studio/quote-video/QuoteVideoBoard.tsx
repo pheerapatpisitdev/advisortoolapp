@@ -41,7 +41,10 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "ISHIELD", name: "iShield", page: "/ishield" },
   { code: "IHEALTHY", name: "iHealthy Ultra", page: "/ihealthy-ultra" },
   { code: "PENSION", name: "บำนาญ 95", page: "/bumnan95" },
+  { code: "LEGACY", name: "มรดก", page: "/legacy" },
 ];
+/** มรดก's sizes (owner, 2026-10-14): the bundle's ten tiers, a million each */
+const LEGACY_TIERS = Array.from({ length: 10 }, (_, i) => i + 1);
 /** the plans with a list of paying terms by variant */
 const termed = (p: Product): p is "LIFEPROTECT" | "ISHIELD" => p === "LIFEPROTECT" || p === "ISHIELD";
 type PensionPay = "6" | "untilAnnuity";
@@ -202,6 +205,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [sum, setSum] = useState((start?.sumAssured ?? 1_000_000).toLocaleString("en-US"));
   const [variant, setVariant] = useState(startVariant);
   const [customer, setCustomer] = useState("");
+  // มรดก (owner, 2026-10-14): how many millions the family receives
+  const [tier, setTier] = useState(start?.tier ?? 1);
   // บำนาญ 95 (owner, 2026-10-13): when the pension starts, how it is paid for, and how much a month
   const [annuityAge, setAnnuityAge] = useState(start?.annuityAge ?? 60);
   const [pay, setPay] = useState<PensionPay>(start?.pay ?? "untilAnnuity");
@@ -303,7 +308,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           sumAssured: pensionSum ?? 0,
           ...(source === "sum" && pensionSum === undefined ? { monthly: Number(monthly.replace(/[^\d]/g, "")) } : {}),
         }
-      : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look });
+      : product === "LEGACY"
+        // a budget works the tier out itself
+        ? { product, sex, age: Number(age), tier, ...look }
+        : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -326,7 +334,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier]);
 
   // the script shown is the one for what the form holds: anything changed, and it is written again
   useEffect(() => {
@@ -409,6 +417,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     if (!ok) return;
     if (ok.resolved.sum) setSum(ok.resolved.sum.toLocaleString("en-US"));
     if (ok.resolved.plan) setPlan(ok.resolved.plan);
+    if (ok.resolved.tier) setTier(ok.resolved.tier);
     if (ok.resolved.monthly) {
       setMonthly(ok.resolved.monthly.toLocaleString("en-US"));
       setPensionSum(ok.resolved.sum);
@@ -436,6 +445,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       ? (source === "sum" ? ihuPlans.find((p) => p.code === plan)?.name ?? "" : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
       : product === "PENSION"
         ? `${source === "sum" ? `บำนาญเดือนละ ${monthly}` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · รับ ${pensionStart} · ${pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
+      : product === "LEGACY"
+        ? (source === "sum" ? `มรดก ${tier} ล้าน` : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
@@ -550,18 +561,30 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               <div>
                 <span className={label}>เริ่มจาก</span>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : product === "PENSION" ? "บำนาญต่อเดือน" : "ทุนประกัน"}</button>
-                  <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>งบต่อเดือน</button>
-                  <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>งบต่อปี</button>
+                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : product === "PENSION" ? "บำนาญต่อเดือน" : product === "LEGACY" ? "ขนาดมรดก" : "ทุนประกัน"}</button>
+                  <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>{product === "LEGACY" ? "งบเดือน" : "งบต่อเดือน"}</button>
+                  <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>{product === "LEGACY" ? "งบปี" : "งบต่อปี"}</button>
                 </div>
               </div>
-              {(source !== "sum" || product !== "IHEALTHY") && (
+              {product === "LEGACY" && source === "sum" && (
+                <div>
+                  <span className={label}>ขนาดมรดก</span>
+                  <div className="flex flex-wrap gap-2">
+                    {LEGACY_TIERS.map((n) => <button key={n} type="button" className={chip(tier === n)} onClick={() => setTier(n)}>{n} ล้าน</button>)}
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--ct-mute)]">ครอบครัวได้รับเท่านี้ (ก่อนอายุ 60 ได้มากกว่า) · รับอายุ 20–65 ปี</p>
+                </div>
+              )}
+              {(source !== "sum" || (product !== "IHEALTHY" && product !== "LEGACY")) && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {source !== "sum" ? (
                     <div>
-                      <label htmlFor="qv-budget" className={label}>{source === "month" ? "งบที่ลูกค้าออมไหวต่อเดือน (บาท)" : "งบที่ลูกค้าออมไหวต่อปี (บาท)"}</label>
+                      <label htmlFor="qv-budget" className={label}>{product === "LEGACY"
+                        ? (source === "month" ? "งบที่ลูกค้าจ่ายไหวต่อเดือน (บาท)" : "งบที่ลูกค้าจ่ายไหวต่อปี (บาท)")
+                        : source === "month" ? "งบที่ลูกค้าออมไหวต่อเดือน (บาท)" : "งบที่ลูกค้าออมไหวต่อปี (บาท)"}</label>
                       <input id="qv-budget" inputMode="numeric" className={field} value={budget} onChange={(e) => setBudget(money(e))} />
-                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : product === "PENSION" ? "ระบบคิดทุนจากงบนี้ ด้วยเครื่องคิดเดียวกับหน้า บำนาญ 95" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : product === "PENSION" ? "ระบบคิดทุนจากงบนี้ ด้วยเครื่องคิดเดียวกับหน้า บำนาญ 95"
+                        : product === "LEGACY" ? "ระบบเลือกขนาดมรดกที่ใหญ่ที่สุดที่ค่าใช้จ่ายปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
                     </div>
                   ) : product === "PENSION" ? (
                     <div>
@@ -617,7 +640,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     ))}
                     {source !== "sum" && (
                       <p className="font-medium">
-                        {ok.resolved.sum ? `คิดทุนให้: ${ok.resolved.sum.toLocaleString("en-US")} บาท` : `เลือกแผนให้: ${resolvedPlan ?? ""}`}{" "}
+                        {ok.resolved.tier ? `เลือกขนาดให้: มรดก ${ok.resolved.tier} ล้าน` : ok.resolved.sum ? `คิดทุนให้: ${ok.resolved.sum.toLocaleString("en-US")} บาท` : `เลือกแผนให้: ${resolvedPlan ?? ""}`}{" "}
                         <button type="button" className="underline" onClick={keepResolved}>ใช้ค่านี้แล้วแก้เอง</button>
                       </p>
                     )}

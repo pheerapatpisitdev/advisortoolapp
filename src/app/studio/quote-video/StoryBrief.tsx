@@ -16,7 +16,7 @@ const label = "mb-1 block text-sm font-medium";
 const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)] inline-flex items-center disabled:opacity-50";
 
 const SCENE_WORD: Record<SceneKey, string> = {
-  lead: "เปิด", price: "ราคา", cover: "คุ้มครอง", value: "มูลค่า", compare: "เทียบแผน", contact: "ปิด",
+  lead: "เปิด", price: "ราคา", cover: "คุ้มครอง", value: "มูลค่า", compare: "เทียบแผน", critical: "โรคร้ายแรง", contact: "ปิด",
   story: "เรื่องลูกค้า", versus: "เทียบ", qa: "ถาม-ตอบ", steps: "เริ่มต้น",
 };
 /** how many times a clip's lines may be written again (owner, 2026-10-13: 3) */

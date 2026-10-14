@@ -21,6 +21,7 @@ import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video
 import { getCustomer, listCustomers } from "@/lib/fhc/customers";
 import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
 import { checkedPension } from "@/lib/quote-video/pension";
+import { checkedLegacy } from "@/lib/quote-video/legacy";
 import { GAP_WORD } from "@/lib/fhc/gaps";
 import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
 import { readLength } from "@/lib/quote-video/told";
@@ -35,14 +36,14 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const SUM_STEP = 50_000;
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
   /** the stories this quote backs, for โจทย์การเล่า (brief.ts storiesFor) */
   stories: { key: string; name: string }[];
-  /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out); บำนาญ 95's monthly pension too */
-  resolved: { sum?: number; plan?: string; monthly?: number };
+  /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out); บำนาญ 95's monthly pension too; มรดก's tier */
+  resolved: { sum?: number; plan?: string; monthly?: number; tier?: number };
 }
 export interface VideoItem {
   id: string;
@@ -85,7 +86,8 @@ function checked(v: VideoInput): VideoInput | string {
   // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
   const budget = v.budget ? cleanBudget(v.budget) : undefined;
   if (typeof budget === "string") return budget;
-  const asked = budget && v.product !== "IHEALTHY" ? { ...v, sumAssured: 500_000 } : v;
+  const asked = !budget || v.product === "IHEALTHY" ? v
+    : v.product === "LEGACY" ? { ...v, tier: 1 } : { ...v, sumAssured: 500_000 };
   const checkedAsked = checkedQuote(asked);
   if (typeof checkedAsked === "string") return checkedAsked;
   const worked = budget ? resolveBudget(checkedAsked, budget) : checkedAsked;
@@ -166,6 +168,7 @@ function checkedQuote(v: VideoInput): VideoInput | string {
     return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: v.plan, compare };
   }
   if (v.product === "PENSION") return checkedPension(v);
+  if (v.product === "LEGACY") return checkedLegacy(v);
   const product = productOf(v);
   if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";
   const term = TERMS[product].find((x) => x.variant === v.variant);
@@ -294,7 +297,8 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
     lead: { label: f.lead.label, amount: f.lead.amount }, mark: f.leadMark, prices: f.prices,
     stories: storiesFor(f).map((x) => ({ key: x.key, name: x.name })),
     resolved: c.product === "IHEALTHY" ? { plan: c.plan }
-      : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht } : { sum: c.sumAssured },
+      : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht }
+      : c.product === "LEGACY" ? { tier: c.tier } : { sum: c.sumAssured },
   };
 }
 
@@ -427,6 +431,8 @@ export async function myVideos(): Promise<VideoItem[]> {
       ? planWord(input.plan)
       : input.product === "PENSION"
         ? `เดือนละ ${Math.round(input.sumAssured * MONTHLY_FACTOR_FIRST).toLocaleString("en-US")} · รับ ${input.annuityAge} · ${input.pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
+        : input.product === "LEGACY"
+        ? `มรดก ${input.tier} ล้าน`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
