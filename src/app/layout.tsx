@@ -3,6 +3,7 @@ import { studioThemeScript } from "@/lib/content/studio-theme";
 import { RAIL_KEY } from "@/lib/shell/menu";
 import { siteOrigin } from "@/lib/site-url";
 import { MetaPixel } from "@/components/meta/Pixel";
+import { CountOpen } from "@/components/stats/CountOpen";
 import "./globals.css";
 
 /**
@@ -49,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       {/* The ground under everything, including the back office, which paints no ground of
           its own. Written as the palette rather than as a Tailwind grey so that there is one
           place a colour is decided and this is not a second one. */}
-      <body className="min-h-screen bg-[var(--bot-band)] text-[var(--bot-ink)] antialiased">{children}<MetaPixel /></body>
+      <body className="min-h-screen bg-[var(--bot-band)] text-[var(--bot-ink)] antialiased">{children}<MetaPixel /><CountOpen /></body>
     </html>
   );
 }

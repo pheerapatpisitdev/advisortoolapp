@@ -242,8 +242,14 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       },
     ];
     if (!who) return groups;
-    // the owner's list of assistants, and nobody else's business
-    if (who.owner) groups.push({ links: [{ href: "/admin/team", label: "ทีมงาน", icon: "users", hue: "#472f8a" }] });
+    // the owner's list of assistants, and nobody else's business; with it, which tools people
+    // use most and what they cost (owner, 2026-10-14), since it names every agent's spend
+    if (who.owner) {
+      groups.push({ links: [
+        { href: "/admin/stats", label: "สถิติการใช้งาน", icon: "pulse", hue: "#2b5f73" },
+        { href: "/admin/team", label: "ทีมงาน", icon: "users", hue: "#472f8a" },
+      ] });
+    }
     // an assistant sees the doors they may open; a sign on a locked door is still a sign
     return groups
       .map((g) => ({ ...g, links: g.links.filter((l) => who[BACK_OFFICE_PERM[l.href] ?? "owner"]) }))
@@ -392,6 +398,7 @@ const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet
   "/admin/ads": "admin",
   "/admin/api": "admin",
   "/admin/team": "owner",
+  "/admin/stats": "owner",
 };
 
 /**
