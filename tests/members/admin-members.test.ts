@@ -144,7 +144,7 @@ describe("listMembers with the pass (owner, 2026-10-13)", () => {
 describe("the member list on /admin/members (owner, 2026-10-13)", () => {
   type Summary = Awaited<ReturnType<typeof listMembers>>[number];
   const m = (id: string, pass: Summary["pass"], freeUsed = 2, freeLimit = 10): Summary =>
-    ({ id, name: id, email: `${id}@gmail.com`, status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 0, freeUsed, freeLimit, pass });
+    ({ id, name: id, email: `${id}@gmail.com`, status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 0, freeUsed, freeLimit, footprint: null, pass });
   const members = [
     m("paid", { status: "live", end: "2026-11-11T00:00:00.000Z", trial: false }, 3, 10),
     m("soon", { status: "live", end: "2026-10-15T00:00:00.000Z", trial: false }),
@@ -169,6 +169,15 @@ describe("the member list on /admin/members (owner, 2026-10-13)", () => {
     expect(html).toMatch(chip("red", "ยังไม่เคยใช้"));
     expect(html).toContain("3/10");
     expect(html).toContain("เพิ่มวัน");
+  });
+
+  it("offers ลบ on suspended members only (owner 2ข, 2026-10-14)", () => {
+    const html = draw(false, 0, [
+      { ...members[0], pass: null },
+      { ...members[1], pass: null, status: "suspended", footprint: { pieces: 3, customers: 1, people: 0 } },
+    ]);
+    expect(html.match(/>ลบ</g)).toHaveLength(1);
+    expect(html.indexOf(">ลบ<")).toBeGreaterThan(html.indexOf("soon@gmail.com"));
   });
 
   it("shows — on the money tile when the revenue cannot be read", () => {

@@ -99,11 +99,35 @@ describe("listMembers", () => {
     ] });
     db.on("ins_wallets", { data: [{ agent_id: "m1", balance_satang: 5000 }] });
     db.on("ins_audit", (steps) => ({ count: has(steps, "eq", "agent_id", "m1") ? 14 : 3 }));
+    // what ลบ would take, counted for the suspended one only (owner, 2026-10-14)
+    db.on("ins_content", (steps) => ({ count: has(steps, "eq", "agent_id", "m2") ? 12 : 99 }));
+    db.on("ins_fhc_customers", { count: 4 });
+    db.on("ins_people", { count: 0 });
     // the pass switched off (nothing saved): no pass column, the one-time ten (owner, 2026-10-13)
     db.on("ins_ai_settings", { data: null });
     expect(await store.listMembers()).toEqual([
-      { id: "m2", name: "ข", email: "b@gmail.com", status: "suspended", createdAt: "2026-10-02T00:00:00Z", balanceSatang: 0, freeUsed: 3, freeLimit: 10, pass: null },
-      { id: "m1", name: "ก", email: "a@gmail.com", status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 5000, freeUsed: 10, freeLimit: 10, pass: null },
+      { id: "m2", name: "ข", email: "b@gmail.com", status: "suspended", createdAt: "2026-10-02T00:00:00Z", balanceSatang: 0, freeUsed: 3, freeLimit: 10, footprint: { pieces: 12, customers: 4, people: 0 }, pass: null },
+      { id: "m1", name: "ก", email: "a@gmail.com", status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 5000, freeUsed: 10, freeLimit: 10, footprint: null, pass: null },
     ]);
+  });
+});
+
+describe("purgeMember", () => {
+  it("runs the one-transaction delete and hands back the files to clear", async () => {
+    db.on("rpc:ins_member_delete", { data: { pieces: ["p1"], people: ["h1"], videos: [], logos: ["logos/a.png", 3] } });
+    expect(await store.purgeMember("m1")).toEqual({ ok: true, files: { pieces: ["p1"], people: ["h1"], videos: [], logos: ["logos/a.png"] } });
+    expect(db.log.find((l) => l.table === "rpc:ins_member_delete")?.steps[0].args[0]).toEqual({ p_member: "m1" });
+  });
+
+  it("names the two refusals the database raises", async () => {
+    db.on("rpc:ins_member_delete", { error: { message: "member-not-suspended" } });
+    expect(await store.purgeMember("m1")).toEqual({ ok: false, why: "not-suspended" });
+    db.on("rpc:ins_member_delete", { error: { message: "member-not-found" } });
+    expect(await store.purgeMember("m1")).toEqual({ ok: false, why: "not-found" });
+  });
+
+  it("throws on any other failure", async () => {
+    db.on("rpc:ins_member_delete", { error: { message: "boom" } });
+    await expect(store.purgeMember("m1")).rejects.toThrow("boom");
   });
 });
