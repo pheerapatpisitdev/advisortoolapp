@@ -166,37 +166,39 @@ describe("what the menu shows to somebody who has not signed in", () => {
    */
   it("gives the back office its own tools and nothing else", () => {
     expect(hrefs(true).sort()).toEqual(
-      // /admin/knowledge (สอน AI) left the menu on 2026-09-23 and came back on 2026-09-26, with
-      // the daily บทเรียนจากแชท on it. /admin/posting (ออโต้โพสต์) was asked for on 2026-09-25
-      // /admin/wallet (กระเป๋าเงินตัวแทน) joined on 2026-09-30 with the Studio wallet
-      // /admin/members (สมาชิกทั่วไป) joined on 2026-10-01 with sign-up for people outside UnitOS
-      // /admin/welcome (ข้อความต้อนรับ) joined on 2026-10-04: each Page's greeting
-      // /admin/teach (ห้องสอนบอท) joined on 2026-10-11: the test chat and taught answers
-      // /home (ระบบหลัก) is its first line since 2026-10-14, as it is in Studio's
-      ["/home", "/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/members", "/admin/knowledge", "/admin/teach", "/admin/messenger", "/admin/welcome", "/admin/posting", "/admin/ads"].sort(),
+      // eleven pages since 2026-10-15 (owner chose ข; thirteen before): Messenger + ออโต้โพสต์ became เพจและช่องทาง
+      // (/admin/pages); สอน AI, ห้องสอนบอท and ข้อความต้อนรับ became สอนบอท (/admin/teach);
+      // ราคาและโปรโมชัน (/admin/prices) left กระเป๋าเงิน. /home (ระบบหลัก) is its first line for
+      // anybody but the Super Admin, as it is in Studio's
+      ["/home", "/admin", "/admin/crm", "/admin/pages", "/admin/teach", "/admin/ads", "/admin/team", "/admin/members",
+        "/admin/wallet", "/admin/prices", "/admin/stats", "/admin/ai"].sort(),
     );
   });
 
-  it("groups the back office by the job, with the way back first (owner chose ข, 2026-10-14)", () => {
-    const owner = { name: "a", room: "r", publish: true, connect: true, admin: true, owner: true };
-    const groups = menuGroups(true, owner);
-    expect(groups.map((g) => g.title ?? null)).toEqual([null, "ลูกค้าและแชท", "บอท", "การตลาด", "คนและเงิน", "ตั้งค่าระบบ"]);
-    expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
-      ["/home", "/admin"],
-      ["/admin/crm", "/admin/messenger"],
-      ["/admin/welcome", "/admin/knowledge", "/admin/teach"],
-      ["/admin/posting", "/admin/ads"],
-      ["/admin/team", "/admin/members", "/admin/wallet", "/admin/stats"],
-      ["/admin/ai"],
+  it("groups the back office's eleven pages by the job, each with a mark of its own (owner chose ข, 2026-10-15)", () => {
+    const superAdmin = { name: "x", room: "Super Admin", publish: true, connect: true, admin: true, owner: true, super: true };
+    const groups = menuGroups(true, superAdmin);
+    expect(groups.map((g) => g.title ?? null)).toEqual([null, "ลูกค้าและบอท", "การตลาด", "ผู้ใช้", "เงิน", "รายงาน", "ตั้งค่าระบบ"]);
+    expect(groups.map((g) => g.links.map((l) => l.label))).toEqual([
+      ["ภาพรวม"],
+      ["ลูกค้าจากแชท", "เพจและช่องทาง", "สอนบอท"],
+      ["โฆษณา"],
+      ["ทีมงาน", "สมาชิกทั่วไป"],
+      ["กระเป๋าเงิน", "ราคาและโปรโมชัน"],
+      ["การใช้งานและค่า AI"],
+      ["ตั้งค่า AI และระบบ"],
     ]);
-    expect(groups[1].links[0].label).toBe("ลูกค้าจากแชท");
-    // an assistant who answers chats: the way back and the inbox, nothing else
-    const chats = menuGroups(true, { ...owner, publish: false, admin: false, owner: false });
-    expect(chats.flatMap((g) => g.links.map((l) => l.href))).toEqual(["/home", "/admin/messenger"]);
-    // an admin who is not the owner: no team and no spend
-    const admin = menuGroups(true, { ...owner, owner: false }).flatMap((g) => g.links.map((l) => l.href));
-    expect(admin).not.toContain("/admin/team");
-    expect(admin).not.toContain("/admin/stats");
+    const links = groups.flatMap((g) => g.links);
+    expect(links).toHaveLength(11);
+    expect(new Set(links.map((l) => l.icon)).size).toBe(links.length);
+    expect(new Set(links.map((l) => l.hue)).size).toBe(links.length);
+  });
+
+  it("lists every back-office page whoever's ticks are passed: they are the Super Admin's alone (2026-10-15)", () => {
+    const nobody = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
+    const pages = (w: typeof nobody) => menuGroups(true, w).flatMap((g) => g.links.map((l) => l.href)).filter((h) => h.startsWith("/admin"));
+    expect(pages(nobody)).toEqual(pages({ ...nobody, owner: true, admin: true, connect: true, publish: true }));
+    expect(pages(nobody)).toHaveLength(11);
   });
 
   it("gives no agent a way to the back office, the owner's own account included (owner, 2026-10-15)", () => {
@@ -328,13 +330,6 @@ describe("Studio's own menu", () => {
     expect(hrefs(who)).not.toContain("/studio/ads");
     expect(hrefs({ ...who, member: true } as typeof who)).not.toContain("/studio/ads");
     expect(hrefs()).not.toContain("/studio/ads");
-  });
-
-  it("opens no back-office page to an assistant who only posts (owner, 2026-10-02)", () => {
-    const who = { name: "a", room: "r", publish: true, connect: false, admin: false, owner: false };
-    expect(menuGroups(true, who)).toEqual([]);
-    // ออโต้โพสต์ is the Pages' settings, not where a post is made: the admins'
-    expect(menuGroups(true, { ...who, admin: true }).flatMap((g) => g.links.map((l) => l.href))).toContain("/admin/posting");
   });
 
   it("gives every agent วิดีโอนำเสนอ: two free clips, then the wallet (owner, 2026-10-11)", () => {

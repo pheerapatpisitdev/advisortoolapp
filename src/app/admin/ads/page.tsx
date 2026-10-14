@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card, Empty, Stat } from "../ui";
+import { Card, Empty, PageHead, Stat } from "../ui";
 import { loadAds } from "./actions";
 import { AccountPicker } from "./AccountPicker";
 import { SyncButton } from "./SyncButton";
@@ -192,6 +192,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
 
   return (
     <div className="space-y-5">
+      <PageHead title="โฆษณา" hint="ผลบัญชีโฆษณาจาก Meta อ่านอย่างเดียว ดึงตัวเลขวันละครั้งตอน 10:00" />
       {outcome && (
         <p className={`rounded-md px-3 py-2 text-sm ${TONES[outcome.tone]}`}>
           {outcome.text}

@@ -34,9 +34,9 @@ describe("costPer", () => {
 });
 
 describe("unsyncedText", () => {
-  it("names the account and says the figures wait for /admin/ads", () => {
+  it("names the account and says the figures wait for the Super Admin to connect it", () => {
     const t = unsyncedText({ actId: "act_2", name: "บัญชีสตูดิโอ" });
     expect(t).toContain("บัญชี บัญชีสตูดิโอ ยังไม่ได้เชื่อมดึงผลลัพธ์");
-    expect(t).toContain("ตัวเลขจะไม่ขึ้นจนกว่าจะเชื่อมที่");
+    expect(t).toContain("ตัวเลขจะไม่ขึ้นจนกว่า Super Admin จะเชื่อมบัญชีนี้ที่หลังบ้าน");
   });
 });

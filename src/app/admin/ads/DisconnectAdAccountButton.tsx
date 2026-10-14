@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { disconnectAdAccount } from "./actions";
-import { ActionError, useAction } from "../messenger/useAction";
+import { ActionError, useAction } from "../pages/useAction";
 
 /** Asks twice in the page itself, for the reason DisconnectButton in messenger/ gives. */
 export function DisconnectAdAccountButton({ actId }: { actId: string }) {

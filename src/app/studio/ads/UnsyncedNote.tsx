@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { unsyncedText, type UnsyncedAccount } from "@/lib/ads/results";
 
 /**
@@ -11,8 +10,7 @@ export function UnsyncedNote({ accounts }: { accounts: UnsyncedAccount[] }) {
     <ul className="space-y-1">
       {accounts.map((a) => (
         <li key={a.actId} className="text-xs font-medium text-[var(--ct-alert)]">
-          {unsyncedText(a)}{" "}
-          <Link href="/admin/ads" className="underline underline-offset-2">/admin/ads</Link>
+          {unsyncedText(a)}
         </li>
       ))}
     </ul>

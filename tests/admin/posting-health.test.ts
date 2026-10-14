@@ -63,7 +63,7 @@ describe("what Facebook's refusal means for posting", () => {
     expect(c.status).toBe("bad");
     if (c.status !== "bad") return;
     expect(c.advice).toMatch(/ยืนยันตัวตน 2 ขั้นตอน/);
-    expect(c.advice).toMatch(/Messenger/);
+    expect(c.advice).toMatch(/เพจและช่องทาง/);
     expect(c.detail).toMatch(/#200/);
   });
 

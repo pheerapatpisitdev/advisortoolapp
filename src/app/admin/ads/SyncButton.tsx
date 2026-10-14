@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { syncNow } from "./actions";
-import { ActionError, useAction } from "../messenger/useAction";
+import { ActionError, useAction } from "../pages/useAction";
 import type { SyncResult } from "@/lib/ads/sync";
 
 /**

@@ -115,6 +115,25 @@ function Icon({ name }: { name: MenuIcon }) {
     // the way back to the main system, from Studio and the back office
     case "back":
       return <svg {...common}><path d="M10 6.5 4.5 12l5.5 5.5M5 12h14.5" /></svg>;
+    // the back office's own marks since 2026-10-15 (owner chose ข), one per page so none repeats:
+    // เพจและช่องทาง, a flag on its pole
+    case "flag":
+      return <svg {...common}><path d="M6 20.5V4M6 4.5h11l-2.5 4 2.5 4H6" /></svg>;
+    // สอนบอท, the bot's face
+    case "bot":
+      return <svg {...common}><path d="M5.5 8.5h13v10h-13zM12 8.5V5M12 4.5h.01M9.5 13h.01M14.5 13h.01M9.5 16h5M3.5 12.5v2M20.5 12.5v2" /></svg>;
+    // ทีมงาน, a staff badge on its clip
+    case "badge":
+      return <svg {...common}><path d="M6.5 5.5h11v15h-11zM10 3.5h4v3h-4zM12 12.2a2 2 0 1 0 0-.01M9 17.5c.5-1.5 1.6-2.3 3-2.3s2.5.8 3 2.3" /></svg>;
+    // ราคาและโปรโมชัน, a price tag
+    case "tag":
+      return <svg {...common}><path d="M4 4.5h7.5l8.5 8.5-7 7-8.5-8.5zM8 8.5h.01" /></svg>;
+    // การใช้งานและค่า AI, bars rising
+    case "chart":
+      return <svg {...common}><path d="M4.5 19.5h15M7 16.5v-4M11 16.5v-8M15 16.5V10M19 16.5V6" /></svg>;
+    // ตั้งค่า AI และระบบ, a gear
+    case "gear":
+      return <svg {...common}><path d="M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM12 3.5v2.3M12 18.2v2.3M3.5 12h2.3M18.2 12h2.3M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6" /></svg>;
     // อีซี่ โพรเทค 6 is sold on the premium having a last year, so its mark is a clock
     case "clock":
       return <svg {...common}><path d="M12 4.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zM12 8v4.3l3 1.7" /></svg>;

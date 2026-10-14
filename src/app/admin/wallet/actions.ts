@@ -41,7 +41,7 @@ export async function savePrices(raw: Record<string, string>): Promise<Result> {
     return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261026_wallet_prices ถูก apply แล้ว" };
   }
   await audit("wallet-prices", null, p.prices);
-  revalidatePath("/admin/wallet");
+  revalidatePath("/admin/prices");
   revalidatePath("/studio", "layout");
   return { ok: true };
 }
@@ -61,7 +61,7 @@ export async function saveMemberPass(raw: { enabled: boolean; baht: string; tria
     return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261027_member_pass และ 20261104_member_pass_videos ถูก apply แล้ว" };
   }
   await audit("member-pass-settings", null, { ...p.value });
-  revalidatePath("/admin/wallet");
+  revalidatePath("/admin/prices");
   revalidatePath("/admin/members");
   return { ok: true };
 }
@@ -81,7 +81,7 @@ export async function saveReferral(raw: { enabled: boolean; days: string; daysCa
     return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261103_referrals ถูก apply แล้ว" };
   }
   await audit("referral-settings", null, { ...r.value });
-  revalidatePath("/admin/wallet");
+  revalidatePath("/admin/prices");
   return { ok: true };
 }
 

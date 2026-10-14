@@ -21,3 +21,20 @@ export function Stat({ label, value, sub }: { label: string; value: string; sub?
 export function Empty({ children }: { children: React.ReactNode }) {
   return <p className="rounded-md border border-dashed border-[var(--bot-line)] px-3 py-6 text-center text-sm text-[var(--bot-ink-mute)]">{children}</p>;
 }
+
+/**
+ * The head of every back-office page, the same everywhere (owner chose ข, 2026-10-15): the
+ * page's name and one line on what it is for. Until then some pages had a heading and a line,
+ * some only a card's title, and สอน AI had none at all.
+ */
+export function PageHead({ title, hint, children }: { title: string; hint: string; children?: React.ReactNode }) {
+  return (
+    <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-lg font-semibold text-[var(--bot-ink)]">{title}</h1>
+        <p className="text-sm text-[var(--bot-ink-mute)]">{hint}</p>
+      </div>
+      {children}
+    </header>
+  );
+}

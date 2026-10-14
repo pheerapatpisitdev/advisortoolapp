@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { cancelPendingAds, connectAdAccounts } from "./actions";
-import { ActionError, useAction } from "../messenger/useAction";
+import { ActionError, useAction } from "../pages/useAction";
 
 export interface Choice { id: string; name: string }
 

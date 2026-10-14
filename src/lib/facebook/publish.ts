@@ -40,9 +40,9 @@ export function explain(body: GraphError, status: number): PublishError {
   const code = e.code;
   // 200 and 10 are permission errors; 190 is a token Facebook no longer accepts
   if (code === 200 || code === 10 || (code !== undefined && code >= 200 && code < 300)) {
-    return new PublishError("เพจนี้ยังไม่ได้เปิดสิทธิ์โพสต์ให้ระบบ — เชื่อมเพจใหม่ที่หน้าตั้งค่าเพจ (/admin/messenger) แล้วกดอนุญาตให้โพสต์", code);
+    return new PublishError("เพจนี้ยังไม่ได้เปิดสิทธิ์โพสต์ให้ระบบ — แจ้ง Super Admin ให้เชื่อมเพจใหม่ แล้วกดอนุญาตให้โพสต์", code);
   }
-  if (code === 190) return new PublishError("การเชื่อมเพจหมดอายุ — เชื่อมเพจใหม่ที่หน้า /admin/messenger", code);
+  if (code === 190) return new PublishError("การเชื่อมเพจหมดอายุ — แจ้ง Super Admin ให้เชื่อมเพจใหม่", code);
   if (code === 368) return new PublishError("Facebook บล็อกการโพสต์ชั่วคราว (โพสต์ถี่หรือเนื้อหาติดนโยบาย) ลองใหม่ภายหลัง", code);
   return new PublishError(`Facebook ไม่รับโพสต์: ${e.error_user_msg || e.message || `HTTP ${status}`}`, code);
 }

@@ -6,7 +6,6 @@ import { Empty } from "../ui";
 type Flag = "publish" | "connect" | "admin";
 const FLAGS: { key: Flag; label: string; hint: string }[] = [
   { key: "publish", label: "ลงโพสต์ / ตั้งเวลา", hint: "ปฏิทินโพสต์ และส่งโพสต์ขึ้นเพจ" },
-  { key: "connect", label: "เชื่อมเพจ", hint: "ไม่มีผลแล้ว: การเชื่อมเพจย้ายไปหลังบ้านของ Super Admin (2026-10-15)" },
   { key: "admin", label: "เห็นทุกเพจ", hint: "ใน Studio เห็นทุกเพจและงานของทีมทั้งหมด (ไม่ได้เข้าหลังบ้าน)" },
 ];
 

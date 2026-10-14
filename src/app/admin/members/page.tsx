@@ -3,7 +3,7 @@ import { gatePage } from "@/lib/auth/viewer";
 import { listMembers, memberSettings } from "@/lib/auth/member-store";
 import { monthStart } from "@/lib/ai/ledger";
 import { passRevenueSatang, passSettings } from "@/lib/members/pass-store";
-import { Card } from "../ui";
+import { Card, PageHead } from "../ui";
 import { MembersAdmin } from "./MembersAdmin";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +42,12 @@ export default async function MembersPage() {
     ? `${WHO}จ่ายค่าสมาชิก ฿${price(pass.satang)} ต่อ 30 วัน ได้ Studio ฟรี ${pass.rounds} รอบทุก 30 วัน`
     : `${WHO}รอบฟรี 10 รอบ แล้วเติมเงินในกระเป๋า`;
   return (
-    <Card title="สมาชิกทั่วไป" hint={hint}>
+    <>
+    <PageHead title="สมาชิกทั่วไป" hint="คนนอก UnitOS ที่สมัครเองด้วย Google · ตั้งราคาค่าสมาชิกที่หน้าราคาและโปรโมชัน" />
+    <Card title="สมาชิก" hint={hint}>
       <MembersAdmin settings={settings} members={members} passOn={pass?.enabled === true}
                     revenueSatang={revenue} now={new Date().toISOString()} />
     </Card>
+    </>
   );
 }

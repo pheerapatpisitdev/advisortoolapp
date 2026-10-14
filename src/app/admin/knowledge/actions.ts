@@ -63,7 +63,7 @@ export async function addNote(question: string, answer: string): Promise<Result>
   try {
     const { error } = await supabaseAdmin().from("ins_faq").insert({ question: q, answer: a, enabled: true });
     if (error) throw new Error(error.message);
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("เพิ่มบันทึกไม่สำเร็จ:", e);
@@ -76,7 +76,7 @@ export async function setNoteEnabled(id: string, enabled: boolean): Promise<Resu
   try {
     const { error } = await supabaseAdmin().from("ins_faq").update({ enabled: Boolean(enabled) }).eq("id", id);
     if (error) throw new Error(error.message);
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("เปิด/ปิดบันทึกไม่สำเร็จ:", e);
@@ -89,7 +89,7 @@ export async function deleteNote(id: string): Promise<Result> {
   try {
     const { error } = await supabaseAdmin().from("ins_faq").delete().eq("id", id);
     if (error) throw new Error(error.message);
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("ลบบันทึกไม่สำเร็จ:", e);
@@ -120,7 +120,7 @@ export async function addContentWord(word: string, kind: WordKind, fix: string):
   if (kind === "misspelling" && !f) return { ok: false, error: "คำสะกดผิดต้องใส่คำที่ถูกด้วยครับ" };
   try {
     await addWord(w, kind, kind === "misspelling" ? f : null);
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("เพิ่มคำไม่สำเร็จ:", e);
@@ -132,7 +132,7 @@ export async function removeContentWord(word: string): Promise<Result> {
   await requireStaff("backoffice");
   try {
     await deleteWord(word);
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("ลบคำไม่สำเร็จ:", e);
@@ -217,7 +217,7 @@ export async function applyLesson(id: number, question: string, answer: string, 
       .update({ status: "used", faq_id: (faq.data as { id: string }).id, decided_at: new Date().toISOString(), question: q, answer: a })
       .eq("id", id);
     if (error) console.error("บันทึกสถานะบทเรียนไม่สำเร็จ:", error.message);
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("ใช้บทเรียนไม่สำเร็จ:", e);
@@ -231,7 +231,7 @@ export async function skipLesson(id: number): Promise<Result> {
     const { error } = await supabaseAdmin().from("ins_chat_review_items")
       .update({ status: "skipped", decided_at: new Date().toISOString() }).eq("id", id);
     if (error) throw new Error(error.message);
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("ข้ามบทเรียนไม่สำเร็จ:", e);
@@ -246,7 +246,7 @@ export async function reviewChatsNow(): Promise<Result> {
     const { runChatReview } = await import("@/lib/chat/review");
     const r = await runChatReview();
     if (!r.ok) return { ok: false, error: `สรุปไม่สำเร็จ: ${r.error ?? ""}` };
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("สรุปแชทไม่สำเร็จ:", e);

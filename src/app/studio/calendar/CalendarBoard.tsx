@@ -294,7 +294,7 @@ export function CalendarBoard({ cells, items, errors, today, setup, defaultPage 
         </p>
       ) : usable.length === 0 && (
         <p className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] p-3 text-sm text-[var(--ct-warn-ink)]">
-          ยังไม่ได้อนุญาตให้ระบบโพสต์ลงเพจ — ไปเชื่อมเพจใหม่ที่ <Link href="/admin/messenger" className="font-medium underline">หน้าตั้งค่าเพจ</Link>
+          เพจนี้ยังไม่ได้อนุญาตให้ระบบโพสต์ — แจ้ง Super Admin ให้เชื่อมเพจใหม่
         </p>
       )}
 
