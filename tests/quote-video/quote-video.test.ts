@@ -214,7 +214,7 @@ describe("shortcut and Page caption (owner, 2026-10-11)", () => {
     expect(href).toBe("/studio/quote-video?product=ISHIELD&sex=F&age=40&sum=2000000&variant=WLCI20");
     const q = Object.fromEntries(new URL(href, "https://x").searchParams);
     expect(videoStartFrom(q)).toEqual({ product: "ISHIELD", sex: "F", age: 40, sumAssured: 2_000_000, variant: "WLCI20" });
-    expect(videoStartFrom({ product: "PLB" })).toBeUndefined();
+    expect(videoStartFrom({ product: "EASYPROTECT" })).toBeUndefined();
     expect(videoStartFrom({ product: "IHEALTHY", plan: "<script>", age: "abc" })).toEqual({ product: "IHEALTHY" });
   });
 

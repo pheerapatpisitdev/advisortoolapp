@@ -5,6 +5,7 @@ import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card
 import { abs, box, On, Swept, type DrawContext, type Layer } from "./draw";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
+import { leadBig, leadPill } from "./plb";
 import type { SceneKey } from "./script";
 import { CLASSIC_BOXES, COLS, type Rect } from "./table-geo";
 import { noteInWindow } from "./table-pen";
@@ -100,7 +101,7 @@ function Right({ g, from, children, style }: { g: Geo; from: number; children: R
 function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const from = g.photo.x + g.photo.w + g.px(36, 60);
-  if (f.legacy) return <LegacyLead g={g} c={c} layer={layer} s={s} from={from} />;
+  if (f.legacy || f.plb) return <LegacyLead g={g} c={c} layer={layer} s={s} from={from} />;
   return (
     <Right g={g} from={from} style={{ top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
       {c.customer && (
@@ -126,9 +127,10 @@ function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ove
 }
 
 
-/** มรดก's opening beside the photo (draw.tsx LegacyLead): the legacy, the most the family receives counted up, who it is for */
+/** มรดก's opening beside the photo (draw.tsx LegacyLead): the legacy, the most the family receives counted up, who it is for; Protection Life's likewise */
 function LegacyLead({ g, c, layer, s, from }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState; from: number }) {
   const f = c.facts;
+  const big = leadBig(f);
   return (
     <Right g={g} from={from} style={{ top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
       {c.customer && (
@@ -142,13 +144,54 @@ function LegacyLead({ g, c, layer, s, from }: { g: Geo; c: DrawContext; layer: L
         </On>
       ) : null}
       <On layer={layer} own="base" style={{ ...kickerStyle(g) }}>{f.planLine}</On>
-      <On layer={layer} own="base" style={{ fontSize: g.px(80, 120), fontWeight: 600, color: P.figure, lineHeight: 1.15 }}>{`มรดก ${f.legacy!.tier} ล้าน`}</On>
+      <On layer={layer} own="base" style={{ fontSize: big.length > 16 ? g.px(48, 92) : g.px(80, 120), fontWeight: 600, color: P.figure, lineHeight: 1.15 }}>{big}</On>
       <On layer={layer} own="base" style={{ fontSize: g.px(28, 38), color: P.mute, marginTop: g.px(6, 12) }}>{f.lead.label}</On>
       <On layer={layer} own="over" style={{ marginTop: g.px(6, 10) }}><Swept p={s.sweep[0] ?? 1} size={g.px(48, 68)}>{`${money(countAt(f.lead.baht, s.count))} บาท`}</Swept></On>
       <div style={box({ marginTop: g.px(14, 24) })}>
-        <On layer={layer} own="base" style={{ border: `3px solid ${P.accent}`, borderRadius: 40, padding: "2px 24px", fontSize: g.px(28, 36), color: P.accent }}>{f.insuredWho}</On>
+        <On layer={layer} own="base" style={{ border: `3px solid ${P.accent}`, borderRadius: 40, padding: "2px 24px", fontSize: g.px(28, 36), color: P.accent }}>{leadPill(f)}</On>
       </div>
     </Right>
+  );
+}
+
+/** Protection Life's terms side by side (draw.tsx TermsScene), in a square or landscape frame */
+function Terms({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
+  const p = c.facts.plb;
+  if (!p) return null;
+  const listW = g.wide ? 980 : g.w - g.side * 2;
+  const rowH = g.px(84, 96);
+  const gap = g.px(14, 18);
+  const listTop = g.top + g.px(70, 80);
+  const rows = (
+    <div style={abs({ left: g.side, top: listTop, width: listW, flexDirection: "column" })}>
+      {p.terms.map((r) => (
+        <div key={r.years} style={box({ position: "relative", width: listW, height: rowH, marginBottom: gap })}>
+          <On layer={layer} own="base" style={{ position: "absolute", left: 0, top: 0, width: listW, height: rowH, borderRadius: 22, border: `3px solid ${r.on ? P.figure : P.hair}`, background: r.on ? P.box : C.paper }} />
+          {r.on ? (
+            <On layer={layer} own="over" style={{ position: "absolute", left: 30, top: 0, height: rowH, alignItems: "center" }}><Swept p={s.sweep[0] ?? 1} size={g.px(40, 46)}>{`${r.years} ปี · ถึง ${r.endAge}`}</Swept></On>
+          ) : (
+            <On layer={layer} own="base" style={{ position: "absolute", left: 30, top: 0, height: rowH, alignItems: "center", fontSize: g.px(36, 42), color: P.mute }}>{`${r.years} ปี · ถึง ${r.endAge}`}</On>
+          )}
+          <On layer={layer} own="base" style={{ position: "absolute", right: 30, top: 0, height: rowH, alignItems: "center", fontSize: r.on ? g.px(42, 50) : g.px(36, 42), fontWeight: r.on ? 600 : 400, color: r.on ? P.figure : P.mute }}>{`${r.annual}/ปี`}</On>
+        </div>
+      ))}
+    </div>
+  );
+  const after = listTop + p.terms.length * (rowH + gap) + g.px(14, 0);
+  const sideX = g.wide ? g.side + listW + 70 : g.side;
+  const sideTop = g.wide ? listTop + 20 : after;
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top, ...kickerStyle(g) }}>เลือกระยะได้ตามภาระ</On>
+      {rows}
+      <div style={abs({ left: sideX, top: sideTop, width: g.wide ? g.w - sideX - g.side : g.w - g.side * 2, flexDirection: "column", alignItems: "flex-start" })}>
+        <On layer={layer} own="over"><Swept p={s.sweep[1] ?? 1} size={g.px(40, 48)}>{`รวมจ่าย ${p.years} ปี ${p.total} บาท`}</Swept></On>
+        <div style={box({ alignItems: "center", marginTop: g.px(14, 30), flexDirection: g.wide ? "column" : "row", ...(g.wide ? { alignItems: "flex-start" } : {}) })}>
+          {p.tax && <On layer={layer} own="base" style={{ border: `3px solid ${P.accent}`, borderRadius: 40, padding: "2px 24px", fontSize: g.px(30, 38), color: P.accent, marginRight: 24, marginBottom: g.wide ? 24 : 0 }}>ลดหย่อนภาษีได้</On>}
+          <On layer={layer} own="base" style={{ fontSize: g.px(24, 28), color: P.mute }}>ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน</On>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -279,6 +322,35 @@ function Cover({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
   const chartW = g.wide ? 940 : g.w - g.side * 2;
   const tall = g.px(300, 420);
   const y = g.wide ? g.top + 90 : g.top + 260;
+  if (f.coverStyle === "flat" && f.plb) {
+    // Protection Life: one flat bar from the insured's age to the term's end (draw.tsx FlatCover)
+    const p = f.plb;
+    const barW = g.w - g.side * 2;
+    const barTop = g.top + g.px(150, 170);
+    const barH = g.px(120, 150);
+    const grow = s.sweep[0] ?? 1;
+    return (
+      <>
+        <div style={abs({ left: g.side, top: g.top, flexDirection: "column", width: barW })}>
+          <On layer={layer} own="base" style={kickerStyle(g)}>{f.coverTitle}</On>
+          <On layer={layer} own="base" style={{ fontSize: g.px(34, 42), color: P.ink, marginTop: g.px(6, 10) }}>{f.cover[0]?.label ?? ""}</On>
+        </div>
+        <On layer={layer} own="over" style={{ position: "absolute", left: g.side, top: barTop, width: Math.max(8, Math.round(barW * grow)), height: barH, background: P.figure, borderRadius: 22, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          {grow >= 1 ? <div style={box({ fontSize: g.px(48, 60), fontWeight: 600, color: C.paper })}>{`${f.lead.amount} บาท ทุกปี`}</div> : null}
+        </On>
+        <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: barTop + barH + 14, width: barW, height: 5, background: P.rule }} />
+        <On layer={layer} own="base" style={{ position: "absolute", left: g.side, width: barW, top: barTop + barH + 34, justifyContent: "space-between", alignItems: "center", fontSize: g.px(32, 38), color: P.mute }}>
+          <div style={box({})}>{`อายุ ${f.age}`}</div>
+          <div style={box({ fontSize: g.px(38, 46), fontWeight: 600, color: P.figure })}>{`${p.years} ปี`}</div>
+          <div style={box({})}>{`อายุ ${p.endAge}`}</div>
+        </On>
+        <div style={abs({ left: g.side, width: barW, top: barTop + barH + g.px(120, 130), justifyContent: "space-between", alignItems: "center" })}>
+          <On layer={layer} own="over"><Swept p={s.sweep[1] ?? 1} size={g.px(40, 48)}>จ่ายเท่าไหร่ คุ้มครองเท่านั้นปี</Swept></On>
+          {g.wide && <On layer={layer} own="base" style={{ fontSize: 46, color: P.pen, transform: "rotate(-2deg)" }}>{`คุ้มครองถึงอายุ ${p.endAge}`}</On>}
+        </div>
+      </>
+    );
+  }
   if (f.coverStyle === "bands") {
     // มรดก: the bands as a staircase (draw.tsx BandsCover), the exact figures beside or above it
     const bands = f.legacy?.bands ?? [];
@@ -572,6 +644,7 @@ export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size
     value: <Value g={g} c={c} layer={layer} s={state} />,
     compare: <Compare g={g} c={c} layer={layer} s={state} />,
     critical: <Critical g={g} c={c} layer={layer} s={state} />,
+    terms: <Terms g={g} c={c} layer={layer} s={state} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} layer={layer} s={{ ...state, count: 1, sweep: [1] }} /> : <ContactScene g={g} c={c} layer={layer} />,
     story: <StoryScene g={g} c={c} layer={layer} s={state} />,

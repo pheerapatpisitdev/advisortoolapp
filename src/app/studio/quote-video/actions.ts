@@ -22,6 +22,7 @@ import { getCustomer, listCustomers } from "@/lib/fhc/customers";
 import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
 import { checkedPension } from "@/lib/quote-video/pension";
 import { checkedLegacy } from "@/lib/quote-video/legacy";
+import { checkedPlb } from "@/lib/quote-video/plb";
 import { GAP_WORD } from "@/lib/fhc/gaps";
 import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
 import { readLength } from "@/lib/quote-video/told";
@@ -36,7 +37,7 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const SUM_STEP = 50_000;
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
@@ -87,7 +88,9 @@ function checked(v: VideoInput): VideoInput | string {
   const budget = v.budget ? cleanBudget(v.budget) : undefined;
   if (typeof budget === "string") return budget;
   const asked = !budget || v.product === "IHEALTHY" ? v
-    : v.product === "LEGACY" ? { ...v, tier: 1 } : { ...v, sumAssured: 500_000 };
+    : v.product === "LEGACY" ? { ...v, tier: 1 }
+    // Protection Life's stand-in must be one of its page's steps
+    : v.product === "PLB" ? { ...v, sumAssured: 300_000 } : { ...v, sumAssured: 500_000 };
   const checkedAsked = checkedQuote(asked);
   if (typeof checkedAsked === "string") return checkedAsked;
   const worked = budget ? resolveBudget(checkedAsked, budget) : checkedAsked;
@@ -169,6 +172,7 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   }
   if (v.product === "PENSION") return checkedPension(v);
   if (v.product === "LEGACY") return checkedLegacy(v);
+  if (v.product === "PLB") return checkedPlb(v);
   const product = productOf(v);
   if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";
   const term = TERMS[product].find((x) => x.variant === v.variant);
@@ -433,6 +437,8 @@ export async function myVideos(): Promise<VideoItem[]> {
         ? `เดือนละ ${Math.round(input.sumAssured * MONTHLY_FACTOR_FIRST).toLocaleString("en-US")} · รับ ${input.annuityAge} · ${input.pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
         : input.product === "LEGACY"
         ? `มรดก ${input.tier} ล้าน`
+        : input.product === "PLB"
+        ? `${sumWords(input.sumAssured)} · ${input.variant.slice(3).replace(/^0/, "")} ปี`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;

@@ -5,6 +5,7 @@ import { beatCues, penBeats } from "./pen";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { pensionBars } from "./pension";
 import { bandAges, shortBaht, stairs } from "./legacy";
+import { leadBig, leadPill } from "./plb";
 import { countAt, H, LEAD, W, wordTimes } from "./timeline";
 import type { Extra } from "./told";
 
@@ -60,6 +61,10 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return s;
     }
     case "cover": {
+      if (f.coverStyle === "flat") {
+        // Protection Life: the bar drawn out from the insured's age to the term's end, then the rule
+        return { kicker: a(0.2, "up"), sub: a(0.5, "fade"), bar: a(0.8, "grow", 1.4), ends: a(1.6, "fade"), years: a(2.0, "pop"), rule: a(Math.max(2.6, voiceSec * 0.6), "up"), pen: a(Math.max(3.2, voiceSec * 0.8), "fade") };
+      }
       if (f.coverStyle === "steps" || f.coverStyle === "bands") {
         // บำนาญ 95's steps, มรดก's bands: each grown as the voice reaches it, more or less
         const s: Record<string, Anim> = { kicker: a(0.2, "up"), axis: a(0.3, "stroke", 1.0) };
@@ -108,6 +113,17 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
         kicker: a(0.2, "up"), icon: a(0.4, "pop"), sub: a(0.9, "up"), big: a(1.3, "pop"), count: a(1.3, "count"),
         unit: a(1.6, "fade"), note: a(Math.max(2.6, voiceSec * 0.65), "up"), pill: a(Math.max(3.2, voiceSec * 0.8), "pop"),
       };
+    case "terms": {
+      // Protection Life: the terms in one after another, the chosen one popped, the total and the tax under them
+      const s: Record<string, Anim> = { kicker: a(0.2, "up") };
+      const n = f.plb?.terms.length ?? 0;
+      for (let i = 0; i < n; i++) s[`row${i}`] = a(0.6 + i * 0.35, "left");
+      s.on = a(Math.max(0.6 + n * 0.35, voiceSec * 0.4), "pop");
+      s.total = a(Math.max(2.4, voiceSec * 0.6), "up");
+      s.pill = a(Math.max(3.0, voiceSec * 0.8), "pop");
+      s.note = a(Math.max(3.2, voiceSec * 0.85), "fade");
+      return s;
+    }
     case "compare": {
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
       (f.compare ?? []).forEach((_, i) => { s[`col${i}`] = a(0.8 + i * 0.5, "pop"); });
@@ -257,6 +273,7 @@ export function shieldFamily(s: Record<string, Anim>, t: number, w: number, h: n
  */
 function LegacyLead({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
+  const big = leadBig(f);
   const s = motionSpec("lead", f, c.voiceSec);
   const n = countAt(f.lead.baht, look(s.count, t).p);
   const head = c.headline?.length ?? 0;
@@ -272,13 +289,13 @@ function LegacyLead({ c, t }: { c: MotionContext; t: number }) {
       ) : null}
       <div style={abs({ left: (W - 330) / 2, top: 280 + y, width: 330, height: 355 })}>{shieldFamily(s, t, 330, 355)}</div>
       <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 650 + y, justifyContent: "center", fontSize: 50, fontWeight: 600, color: WHITE, opacity: 0.9 }}>{f.planLine}</El>
-      <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 760 + y, justifyContent: "center", fontSize: 140, fontWeight: 700, color: GOLD, lineHeight: 1.1 }}>{`มรดก ${f.legacy!.tier} ล้าน`}</El>
+      <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 760 + y, justifyContent: "center", fontSize: big.length > 16 ? 112 : 140, fontWeight: 700, color: GOLD, lineHeight: 1.1 }}>{big}</El>
       <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 945 + y, justifyContent: "center", fontSize: 46, color: WHITE }}>{f.lead.label}</El>
       <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1025 + y, justifyContent: "center" }}>
         <div style={box({ background: GOLD, color: NAVY, borderRadius: 44, padding: "6px 40px", fontSize: 72, fontWeight: 700 })}>{`${n.toLocaleString("en-US")} บาท`}</div>
       </El>
       <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1170 + y, justifyContent: "center" }}>
-        <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 30px", fontSize: 40 })}>{f.insuredWho}</div>
+        <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 30px", fontSize: 40 })}>{leadPill(f)}</div>
       </El>
     </>
   );
@@ -286,7 +303,7 @@ function LegacyLead({ c, t }: { c: MotionContext; t: number }) {
 
 function Lead({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
-  if (f.legacy) return <LegacyLead c={c} t={t} />;
+  if (f.legacy || f.plb) return <LegacyLead c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shield = look(s.shield, t).p;
   const n = countAt(f.lead.baht, look(s.count, t).p);
@@ -501,6 +518,106 @@ function Critical({ c, t }: { c: MotionContext; t: number }) {
       <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1220, justifyContent: "center" }}>
         <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 40, fontWeight: 600 })}>{`✓ โรคร้ายแรงคุ้มครองถึงอายุ ${l.criticalToAge}`}</div>
       </El>
+    </>
+  );
+}
+
+/**
+ * Protection Life's cover (owner, 2026-10-14): one flat bar drawn out from the insured's age to the
+ * term's end, the whole sum on it every year, the years under it. Shared by the portrait and the
+ * wide clips (`w`: the bar's width; `big`: the type's scale).
+ */
+export function plbTimeline(f: QuoteVideoFacts, s: Record<string, Anim>, t: number, w: number, big = 1) {
+  const p = f.plb;
+  if (!p) return null;
+  const g = look(s.bar, t);
+  const barH = Math.round(170 * big);
+  const bw = Math.max(Math.round(20 * big), Math.round(w * g.p));
+  return (
+    <div style={box({ flexDirection: "column", width: w })}>
+      <div style={box({ position: "relative", width: w, height: barH })}>
+        {g.opacity ? (
+          <div style={abs({ left: 0, top: 0, width: bw, height: barH, background: GOLD, borderRadius: Math.round(26 * big), alignItems: "center", justifyContent: "center", overflow: "hidden" })}>
+            {g.p >= 0.98 ? <div style={box({ fontSize: Math.round(62 * big), fontWeight: 700, color: NAVY })}>{`${f.lead.amount} บาท ทุกปี`}</div> : null}
+          </div>
+        ) : null}
+      </div>
+      <El an={s.ends} t={t} style={{ width: w, marginTop: Math.round(18 * big), justifyContent: "space-between", alignItems: "center", fontSize: Math.round(42 * big), color: WHITE }}>
+        <div style={box({})}>{`อายุ ${f.age}`}</div>
+        <El an={s.years} t={t} style={{ background: WHITE, color: NAVY, borderRadius: 40, padding: `${Math.round(4 * big)}px ${Math.round(30 * big)}px`, fontSize: Math.round(46 * big), fontWeight: 700 }}>{`${p.years} ปี`}</El>
+        <div style={box({})}>{`อายุ ${p.endAge}`}</div>
+      </El>
+    </div>
+  );
+}
+
+function CoverFlat({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const p = f.plb;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!p) return null;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 700, color: WHITE }}>{f.coverTitle}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 46, color: WHITE, opacity: 0.9 }}>{f.cover[0]?.label ?? ""}</El>
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: (W - 260) / 2, top: 400, width: 260, height: 280 }}>{shieldFamily({ shield: a(0, "stroke"), family: a(0.6, "pop") }, t, 260, 280)}</El>
+      <div style={abs({ left: SIDE, top: 760, width: W - SIDE * 2 })}>{plbTimeline(f, s, t, W - SIDE * 2)}</div>
+      <El an={s.rule} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1090, justifyContent: "center" }}>
+        <div style={box({ background: WHITE, color: NAVY, borderRadius: 36, padding: "22px 40px", fontSize: 50, fontWeight: 700 })}>จ่ายเท่าไหร่ คุ้มครองเท่านั้นปี</div>
+      </El>
+      <El an={s.pen} t={t} style={{ position: "absolute", left: 0, width: W, top: 1250, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 40, fontWeight: 600 })}>{`✓ คุ้มครองถึงอายุ ${p.endAge}`}</div>
+      </El>
+    </>
+  );
+}
+
+/**
+ * Protection Life's terms (owner, 2026-10-14) as cards in a column, the chosen one gold, the whole
+ * term's total under them, the tax pill only for 10–15 years and the plain fact in small type.
+ * Shared by the portrait and the wide clips (`w`: the column's width).
+ */
+export function plbTermCards(f: QuoteVideoFacts, s: Record<string, Anim>, t: number, w: number, big = 1) {
+  const p = f.plb;
+  if (!p) return null;
+  return (
+    <div style={box({ flexDirection: "column", width: w })}>
+      {p.terms.map((r, i) => (
+        <El key={r.years} an={r.on ? s.on : s[`row${i}`]} t={t} style={{
+          justifyContent: "space-between", alignItems: "center", width: w, borderRadius: Math.round(32 * big),
+          padding: `${Math.round((r.on ? 24 : 18) * big)}px ${Math.round(36 * big)}px`, marginBottom: Math.round(18 * big),
+          background: r.on ? GOLD : "rgba(255,255,255,0.1)", border: `3px solid ${r.on ? GOLD : "rgba(255,255,255,0.22)"}`,
+          color: r.on ? NAVY : WHITE, fontSize: Math.round((r.on ? 48 : 42) * big), fontWeight: r.on ? 700 : 400,
+        }}>
+          <div style={box({})}>{`${r.years} ปี · ถึง ${r.endAge}`}</div>
+          <div style={box({})}>{`${r.annual}/ปี`}</div>
+        </El>
+      ))}
+    </div>
+  );
+}
+
+function Terms({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const p = f.plb;
+  const s = motionSpec("terms", f, c.voiceSec);
+  if (!p) return null;
+  const after = 330 + p.terms.length * 140 + 30;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 700, color: WHITE }}>เลือกระยะได้ตามภาระ</El>
+      <div style={abs({ left: SIDE, top: 330, width: W - SIDE * 2 })}>{plbTermCards(f, s, t, W - SIDE * 2)}</div>
+      <El an={s.total} t={t} style={{ position: "absolute", left: 0, width: W, top: after, justifyContent: "center", fontSize: 52, color: WHITE }}>
+        รวมจ่าย {p.years} ปี <span style={{ color: GOLD, fontWeight: 700, marginLeft: 14 }}>{`${p.total} บาท`}</span>
+      </El>
+      {p.tax && (
+        <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: after + 110, justifyContent: "center" }}>
+          <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>✓ ลดหย่อนภาษีได้</div>
+        </El>
+      )}
+      <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: after + (p.tax ? 220 : 110), justifyContent: "center", fontSize: 32, color: WHITE, opacity: 0.75 }}>ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน</El>
     </>
   );
 }
@@ -906,10 +1023,11 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
     lead: <Lead c={c} t={t} />,
     price: <Price c={c} t={t} />,
     cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
-      : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : <CoverRows c={c} t={t} />,
+      : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
     critical: <Critical c={c} t={t} />,
+    terms: <Terms c={c} t={t} />,
     contact: c.loop ? <LoopEnd c={c} t={t} /> : <Contact c={c} t={t} />,
     story: <StoryScene c={c} t={t} />,
     qa: <QaScene c={c} t={t} />,

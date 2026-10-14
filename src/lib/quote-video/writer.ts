@@ -28,14 +28,14 @@ function factLines(f: QuoteVideoFacts): string[] {
     `ผู้เอาประกัน: ${f.insuredWho}`,
     `${f.lead.label}: ${f.lead.amount} บาท${f.lead.note ? ` (${f.lead.note})` : ""}`,
     ...(f.perDayAmount ? [`ตกวันละ: ${f.perDayAmount} บาท`] : []),
-    `${f.product === "LEGACY" ? "ค่าใช้จ่าย (ปีแรก)" : `ยอดออม${f.product === "IHEALTHY" ? " (ปีแรก)" : ""}`}: ${f.prices.map((p) => `${p.label} ${p.amount} บาท`).join(" · ")}`,
+    `${f.product === "LEGACY" ? "ค่าใช้จ่าย (ปีแรก)" : f.product === "PLB" ? "ค่าใช้จ่าย (เท่าเดิมทุกปี)" : `ยอดออม${f.product === "IHEALTHY" ? " (ปีแรก)" : ""}`}: ${f.prices.map((p) => `${p.label} ${p.amount} บาท`).join(" · ")}`,
     ...(f.payYears && !f.payToEnd ? [`ออม ${f.payYears} ปี ครบตอนอายุ ${f.lastPayAge}`] : []),
     ...(f.payToEnd ? [`ออมถึงอายุ ${f.coverToAge} ยอดเท่าเดิมตลอด`] : []),
     `คุ้มครองถึงอายุ ${f.coverToAge}`,
     ...f.cover.map((r) => `${r.label}: ${r.amount}`),
     ...(f.breakEven ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
     ...(f.illness ? [`โรคร้ายแรง ${f.illness.total} โรค ระยะเริ่มต้น ${f.illness.early} โรค ระยะรุนแรง ${f.illness.major} โรค โรคร้ายแรงคุ้มครองหลัง 90 วันแรก`] : []),
-    ...(f.budget ? [`ลูกค้า${f.product === "LEGACY" ? "จ่ายไหว" : "ออมไหว"} ${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท`] : []),
+    ...(f.budget ? [`ลูกค้า${f.product === "LEGACY" || f.product === "PLB" ? "จ่ายไหว" : "ออมไหว"} ${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท`] : []),
   ];
   if (f.legacy) {
     const l = f.legacy;
@@ -43,6 +43,15 @@ function factLines(f: QuoteVideoFacts): string[] {
       `โรคร้ายแรงคุ้มครองถึงอายุ ${l.criticalToAge} ประกันชีวิตคุ้มครองถึงอายุ ${l.coverToAge}`,
       "ค่าใช้จ่ายที่ให้คือปีแรก ส่วนโรคร้ายแรงปรับตามอายุในปีถัดไป",
       ...l.bands.map((b) => `ถ้าเป็นอะไรไปช่วงอายุ ${b.from}–${b.to} ครอบครัวได้ ${b.amount.toLocaleString("en-US")} บาท`));
+  }
+  if (f.plb) {
+    const p = f.plb;
+    out.push(`ทุน ${p.sumShort} (${p.sum.toLocaleString("en-US")} บาท) คุ้มครอง ${p.years} ปี ถึงอายุ ${p.endAge} จ่ายกี่ปีก็คุ้มครองเท่านั้นปี`,
+      `ถ้าเป็นอะไรไปภายใน ${p.years} ปี ครอบครัวได้ ${p.sum.toLocaleString("en-US")} บาท`,
+      `ค่าใช้จ่ายเท่าเดิมทุกปี รวมจ่ายทั้งหมด ${p.total} บาท`,
+      "เป็นความคุ้มครองล้วน อยู่ครบสัญญาแล้วสิ้นสุด ไม่มีเงินคืน (ห้ามพูดถึงเงินคืนเป็นข้อดี)",
+      `เลือกระยะได้ ${p.terms.map((r) => `${r.years} ปี (ปีละ ${r.annual} บาท)`).join(" · ")}`,
+      p.tax ? "ค่าใช้จ่ายนำไปลดหย่อนภาษีได้ตามเกณฑ์สรรพากร" : "ระยะ 5 ปี ห้ามพูดเรื่องภาษี");
   }
   if (f.pension) {
     const p = f.pension;
@@ -82,6 +91,8 @@ function prompt(f: QuoteVideoFacts, b: VideoBrief, length: VideoLength, kind: Wr
     "กฎ:",
     f.product === "LEGACY"
       ? "- ห้ามใช้คำว่า เบี้ย เสียชีวิต ตาย เวนคืน ออม เงินคืน ใช้ \"ค่าใช้จ่าย\" \"ถ้าเป็นอะไรไป\" แทน แผนนี้ไม่มีเงินคืน"
+      : f.product === "PLB"
+      ? "- ห้ามใช้คำว่า เบี้ย เสียชีวิต ตาย เวนคืน ออม เงินคืน ระยะรอคอย ตั้งแต่วันนี้ ใช้ \"ค่าใช้จ่าย\" \"ถ้าเป็นอะไรไป\" แทน แผนนี้ไม่มีเงินคืน และห้ามพูดว่าคุ้มครองตั้งแต่เมื่อไหร่"
       : "- ห้ามใช้คำว่า เบี้ย เสียชีวิต ตาย เวนคืน ใช้ \"ออม\" \"ถ้าเป็นอะไรไป\" \"ขอเงินก้อนคืน\" แทน",
     "- ห้ามพูดถึงผลตอบแทน ดอกเบี้ย เปอร์เซ็นต์ กำไร ห้ามใช้คำว่า การันตี ทันที",
     "- ห้ามใส่ตัวเลขที่ไม่อยู่ในข้อมูลของแผน ห้ามเขียนตัวเลขเป็นคำ (สองล้าน)",

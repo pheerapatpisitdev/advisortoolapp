@@ -62,6 +62,9 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     // มรดก (owner, 2026-10-14): one year's money kept against what the family receives, as iHealthy's — no value to compare
     : f.product === "LEGACY"
       ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "ครอบครัวได้เงินก้อนสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "ค่าใช้จ่ายปีแรก ส่วนโรคร้ายแรงปรับตามอายุ" }
+    // Protection Life (owner, 2026-10-14): the whole term's money kept against what the family receives within it; the screen says it pays nothing at the end
+    : f.product === "PLB" && f.plb
+      ? { left: { label: `เก็บเงินเอง ${f.plb.years} ปี`, amount: f.plb.total, unit: "บาท" }, right: { label: `ครอบครัวได้ภายใน ${f.plb.years} ปี`, amount: f.lead.amount, unit: "บาท" }, note: "ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน" }
       : {
         left: { label: f.payToEnd ? `เก็บเงินเองถึงอายุ ${f.lastPayAge}` : `เก็บเงินเอง ${f.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" },
         right: { label: f.product === "ISHIELD" ? "รับเงินก้อนสูงสุด" : "ครอบครัวได้เงินก้อน", amount: bahtSaid(f.lead.baht), unit: "บาท" },
@@ -69,10 +72,12 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
       };
   const third = f.product === "PENSION"
     ? `อนุมัติแล้วเริ่มออม รับบำนาญตั้งแต่อายุ ${f.pension?.start ?? ""}`
-    : f.product === "ISHIELD" ? "อนุมัติแล้วเริ่มคุ้มครอง โรคร้ายแรงหลัง 90 วัน" : "อนุมัติแล้วเริ่มคุ้มครอง";
+    : f.product === "ISHIELD" ? "อนุมัติแล้วเริ่มคุ้มครอง โรคร้ายแรงหลัง 90 วัน"
+    // Protection Life: when its cover starts is not confirmed (assistant/plb/faq.ts PLB_WAITING), so nothing is said of it
+    : f.product === "PLB" ? "บริษัทพิจารณาแล้วรับกรมธรรม์" : "อนุมัติแล้วเริ่มคุ้มครอง";
   return {
     story: { points: w.points ?? [] },
-    qas: pickQas(f.product, told.brief?.story),
+    qas: pickQas(f.product, told.brief?.story, f.plb?.variant),
     versus,
     steps: ["ทักมาคุยกัน", "รับใบเสนอ กรอกใบคำขอ", third],
   };
@@ -94,6 +99,9 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
       if (f.product === "PENSION") {
         return `ระหว่างที่ยังทำงาน ยอดออมปีละ ${x.versus.left.amount} บาท นำไปลดหย่อนภาษีได้ตามเกณฑ์สรรพากร ยิ่งฐานภาษีสูง ยิ่งประหยัดได้มากค่ะ`;
       }
+      if (f.product === "PLB" && f.plb) {
+        return `ถ้าเก็บเงินเอง ${f.plb.years} ปี ก็มีเงิน ${f.plb.total} บาท แต่แผนนี้ ถ้าเป็นอะไรไปในช่วง ${f.plb.years} ปีนี้ ครอบครัวได้เงินก้อนถึง ${x.versus.right.amount} บาทค่ะ`;
+      }
       if (f.product === "LEGACY") {
         return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนถึง ${x.versus.right.amount} บาทค่ะ`;
       }
@@ -114,7 +122,7 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
 
 /** a clip's scenes in order, for its length (the opening and the plan's own middle as script.ts builds them) */
 export function sceneOrder(middle: SceneKey[], length: VideoLength): SceneKey[] {
-  // middle: the plan's scenes between the opening and the closing — price, cover, value, compare or critical
+  // middle: the plan's scenes between the opening and the closing — price, cover, value, compare, critical or terms
   if (length === "short") return ["lead", "price", "contact"];
   if (length === "full") return ["lead", ...middle, "contact"];
   if (length === "long") return ["lead", "story", ...middle, "qa", "contact"];
