@@ -93,7 +93,7 @@ export async function refuseUnless(perm?: Perm): Promise<Response | null> {
 }
 
 /** the pages an outside member needs a live pass for: หน้าหลัก, ถาม AI and Studio (owner, 2026-10-13; /ask since 2026-10-14) */
-const passPage = (next: string) => next === "/home" || next === "/ask" || next === "/studio" || next.startsWith("/studio/");
+const passPage = (next: string) => next === "/home" || next.startsWith("/home/") || next === "/ask" || next === "/studio" || next.startsWith("/studio/");
 
 /**
  * For pages. Somebody not signed in is sent to sign in and brought back; somebody signed in

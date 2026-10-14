@@ -2,20 +2,10 @@
 import { useEffect, useState, useTransition } from "react";
 import { cardAllowed, formatBaht, perPostUnder, postsFor, TOPUP_THB, type TopUpThb } from "@/lib/wallet/money";
 import type { Prices } from "@/lib/wallet/prices";
+import { entryLabel } from "@/lib/wallet/labels";
 import type { WalletEntry } from "@/lib/wallet/store";
 import { PriceList } from "./PriceList";
 import { startTopUp, topUpStatus } from "./actions";
-
-const ROUND_NAMES: Record<string, string> = {
-  "ai-write": "เขียนโพสต์", "ai-recruit": "หาทีม", "ai-knowledge": "ความรู้", "ai-draft": "เขียนเอง", "ai-thanks": "ขอบคุณลูกค้า", "ai-showcase": "โชว์ผลงาน", "ai-saying": "คำคม",
-  "ai-claim": "รีวิวเคลม", "ai-draw": "วาดภาพ", "ai-clip": "ถอดเสียงคลิป", "ai-edit": "ตัดต่อคลิป", "ai-describe": "ถอดรูปเป็น prompt", "quote-video": "วิดีโอนำเสนอ",
-};
-
-const entryLabel = (e: WalletEntry) =>
-  e.kind === "topup" ? "เติมเงิน"
-    : e.kind === "charge" ? ROUND_NAMES[e.round ?? ""] ?? "ใช้ AI"
-    : e.kind === "clawback" ? `หักคืน${e.note ? ` (${e.note})` : ""}`
-    : `ปรับโดยเจ้าของ${e.note ? ` (${e.note})` : ""}`;
 
 const signed = (satang: number) => `${satang >= 0 ? "+" : "−"}${formatBaht(Math.abs(satang))}`;
 
