@@ -2,7 +2,8 @@ import "../../home-theme.css";
 import Link from "next/link";
 import { AppShell } from "@/components/shell/AppShell";
 import { can } from "@/lib/auth/access";
-import { gatePage, whoOf } from "@/lib/auth/viewer";
+import { gatePage } from "@/lib/auth/viewer";
+import { shellWho } from "@/lib/shell/who";
 import {
   byDay, isHistKind, KIND_FILTERS, matches, monthLabel, monthOptions, monthRange, parseMonth, shiftMonth, summarize,
   FIRST_MONTH, type Month,
@@ -63,7 +64,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="home-chat">
-      <AppShell who={whoOf(viewer)}>
+      <AppShell who={await shellWho(viewer)}>
         <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 pb-10 pt-3 lg:pt-6">
           <header className="max-lg:ml-12">
             <Link href="/home" className="text-sm text-[var(--hm-accent)]">← หน้าหลัก</Link>

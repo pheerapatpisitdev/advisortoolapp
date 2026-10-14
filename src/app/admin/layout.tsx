@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
-import { gatePage, whoOf } from "@/lib/auth/viewer";
+import { gatePage } from "@/lib/auth/viewer";
+import { shellWho } from "@/lib/shell/who";
 import type { Metadata } from "next";
 
 /**
@@ -23,11 +24,13 @@ export const metadata: Metadata = { title: "หลังบ้าน | AdvisorTo
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const viewer = await gatePage("/admin");
-  const who = whoOf(viewer);
+  const who = await shellWho(viewer);
   // posting is done in Studio; the back office is the admins' and the Messenger is "connect"'s (owner, 2026-10-02)
   if (!who || !(who.admin || who.connect)) redirect("/studio");
   return (
-    <AppShell signedIn who={who}>
+    // named for where it is, as Studio's menu is (owner chose ข, 2026-10-14); the mark opens
+    // the first page here the viewer may, the way out is ระบบหลัก at the top of the menu
+    <AppShell signedIn who={who} brand={{ href: who.admin ? "/admin" : "/admin/messenger", label: "หลังบ้าน" }}>
       <div className="mx-auto max-w-5xl p-4 pt-16 sm:p-6 sm:pt-16 lg:pt-6">{children}</div>
     </AppShell>
   );

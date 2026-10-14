@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/login/actions";
-import { isCurrent, menuGroups, RAIL_KEY, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
+import { accountLinks, isCurrent, menuGroups, RAIL_KEY, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
 
 /** the name at the top of the menu, and where it leads */
 export type Brand = { href: string; label: string };
@@ -112,6 +112,9 @@ function Icon({ name }: { name: MenuIcon }) {
     // a picture read into a prompt: a frame with a hill and a sun
     case "image":
       return <svg {...common}><path d="M4.5 5.5h15v13h-15zM4.5 15.5l4.5-4.5 4 4 2.5-2.5 4 4M15.5 9.5h.01" /></svg>;
+    // the way back to the main system, from Studio and the back office
+    case "back":
+      return <svg {...common}><path d="M10 6.5 4.5 12l5.5 5.5M5 12h14.5" /></svg>;
     // อีซี่ โพรเทค 6 is sold on the premium having a last year, so its mark is a clock
     case "clock":
       return <svg {...common}><path d="M12 4.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zM12 8v4.3l3 1.7" /></svg>;
@@ -124,7 +127,15 @@ function Icon({ name }: { name: MenuIcon }) {
  * different things, and naming the pages on the calculator tells a stranger the shape of
  * the tool.
  */
-export function Sidebar({ signedIn, menu, brand, footer, who }: {
+/**
+ * Who is looking, as the sales pages learn it: they are built ahead of time and served to
+ * whoever an advertisement sends, so they cannot ask on the server. The menu asks once the
+ * page is up (owner chose ข, 2026-10-14), so an agent standing on one has the same menu as on
+ * /home. Kept for the tab's life: moving between sales pages does not ask again or flicker.
+ */
+let seen: Who | null | undefined;
+
+export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
   signedIn: boolean;
   menu?: MenuGroup[];
   brand?: Brand;
@@ -133,6 +144,22 @@ export function Sidebar({ signedIn, menu, brand, footer, who }: {
   who?: Who | null;
 }) {
   const path = usePathname();
+  const [found, setFound] = useState<Who | null | undefined>(seen);
+  useEffect(() => {
+    if (given !== undefined || seen !== undefined) return;
+    let live = true;
+    fetch("/api/shell/who", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { who?: Who | null } | null) => {
+        if (!j) return;
+        seen = j.who ?? null;
+        if (live) setFound(seen);
+      })
+      .catch(() => { /* the menu a customer sees, which is what it already shows */ });
+    return () => { live = false; };
+  }, [given]);
+  // a page that did not ask, and nobody signed in: no account box, as before
+  const who = given !== undefined ? given : found ?? undefined;
   const [open, setOpen] = useState(false);
   const [folded, setFolded] = useState(false);
 
@@ -268,30 +295,57 @@ export function Sidebar({ signedIn, menu, brand, footer, who }: {
 }
 
 /**
- * The foot of the menu: who is signed in and the way out, or the way in. Only on the pages
- * that ask who is looking (Studio and the back office) — a customer sent to a sales page by
- * an advertisement has no account here and is not offered one.
+ * The foot of the menu: who is signed in, their own pages, and the way out — or the way in.
+ * Not on a page that never asked who is looking and found nobody: a customer sent to a sales
+ * page by an advertisement has no account here and is not offered one.
+ *
+ * The same in all three menus since 2026-10-14 (owner chose ข): บัญชีของฉัน, the wallet or the
+ * price list, the membership pass, then ออกจากระบบ.
  */
 function Account({ who, pushDown }: { who: Who | null; pushDown: boolean }) {
+  const path = usePathname();
   return (
     <div className={`${pushDown ? "mt-auto " : ""}border-t pt-3`} style={{ borderColor: "var(--shell-line)" }}>
       {who ? (
-        <div className="flex items-center gap-2 px-2 rail:flex-col rail:px-0">
-          <div className="min-w-0 flex-1 rail:sr-only">
+        <>
+          <div className="mb-1 min-w-0 px-2 rail:sr-only">
             <p className="truncate text-sm font-medium" style={{ color: "var(--shell-ink)" }}>{who.name}</p>
             <p className="truncate text-[0.7rem]" style={{ color: "var(--shell-mute)" }}>{who.member ? who.room : `ห้อง ${who.room}`}</p>
           </div>
-          <form action={signOut}>
-            {/* an icon as well as the words, and in the ink rather than the mute: small grey
-                text at the very foot was read as not being there (owner, 2026-10-10) */}
-            <button type="submit" className="shell-btn flex items-center gap-1.5 px-2.5 py-1.5 text-sm" style={{ color: "var(--shell-ink)" }} title="ออกจากระบบ">
-              <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
-                <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" />
-              </svg>
-              <span className="rail:sr-only">ออกจากระบบ</span>
-            </button>
-          </form>
-        </div>
+          <ul className="space-y-0.5">
+            {accountLinks(who).map((link) => {
+              const here = isCurrent(link.href, path);
+              return (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    aria-current={here ? "page" : undefined}
+                    title={link.label}
+                    className="shell-btn flex items-center gap-2.5 px-2 py-1 text-[0.8rem] no-underline rail:justify-center rail:px-0"
+                    style={{ ["--hue" as string]: link.hue, color: here ? "var(--shell-active)" : "var(--shell-ink)", fontWeight: here ? 600 : 400 }}
+                  >
+                    <span className="shell-chip"><Icon name={link.icon} /></span>
+                    <span className="min-w-0 truncate rail:sr-only">{link.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+            <li>
+              <form action={signOut}>
+                {/* an icon as well as the words, and in the ink rather than the mute: small grey
+                    text at the very foot was read as not being there (owner, 2026-10-10) */}
+                <button type="submit" className="shell-btn flex w-full items-center gap-2.5 px-2 py-1 text-[0.8rem] rail:justify-center rail:px-0" style={{ color: "var(--shell-ink)" }} title="ออกจากระบบ">
+                  <span className="inline-flex h-[1.65rem] w-[1.65rem] shrink-0 items-center justify-center">
+                    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+                      <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" />
+                    </svg>
+                  </span>
+                  <span className="rail:sr-only">ออกจากระบบ</span>
+                </button>
+              </form>
+            </li>
+          </ul>
+        </>
       ) : (
         <Link href="/" className="shell-btn flex items-center justify-center px-2 py-1.5 text-sm no-underline" style={{ color: "var(--shell-ink)" }}>
           เข้าสู่ระบบ

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { isCurrent, menuGroups, SALES_PAGES, SALES_SECTIONS, studioMenu } from "@/lib/shell/menu";
+import { accountLinks, isCurrent, menuGroups, SALES_PAGES, SALES_SECTIONS, studioMenu } from "@/lib/shell/menu";
 
 /**
  * The menu is the answer to "what is there", so a link in it that goes nowhere is worse than
@@ -21,9 +21,13 @@ describe("every place the menu says you can go", () => {
   it("is a page that exists", () => {
     const agent = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false, wallet: true };
     const member = { ...agent, member: true };
-    for (const group of [...menuGroups(true), ...menuGroups(false), ...menuGroups(false, member), ...studioMenu(), ...studioMenu(agent), ...studioMenu(member)]) {
+    const owner = { ...agent, owner: true, admin: true, publish: true, connect: true, wallet: false, prices: true };
+    const account = [agent, member, owner].flatMap((w) => accountLinks(w));
+    for (const group of [...menuGroups(true), ...menuGroups(true, owner), ...menuGroups(false), ...menuGroups(false, member), ...studioMenu(), ...studioMenu(agent), ...studioMenu(member), ...studioMenu(owner), { links: account }]) {
       for (const link of group.links) {
-        expect(routeExists(link.href), `${link.label} → ${link.href}`).toBe(true);
+        // a link to a part of a page is a link to the page
+        const href = link.href.split("#")[0];
+        expect(routeExists(href), `${link.label} → ${link.href}`).toBe(true);
       }
     }
   });
@@ -168,8 +172,31 @@ describe("what the menu shows to somebody who has not signed in", () => {
       // /admin/members (สมาชิกทั่วไป) joined on 2026-10-01 with sign-up for people outside UnitOS
       // /admin/welcome (ข้อความต้อนรับ) joined on 2026-10-04: each Page's greeting
       // /admin/teach (ห้องสอนบอท) joined on 2026-10-11: the test chat and taught answers
-      ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/members", "/admin/knowledge", "/admin/teach", "/admin/messenger", "/admin/welcome", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
+      // /home (ระบบหลัก) is its first line since 2026-10-14, as it is in Studio's
+      ["/home", "/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/members", "/admin/knowledge", "/admin/teach", "/admin/messenger", "/admin/welcome", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
     );
+  });
+
+  it("groups the back office by the job, with the way back first (owner chose ข, 2026-10-14)", () => {
+    const owner = { name: "a", room: "r", publish: true, connect: true, admin: true, owner: true };
+    const groups = menuGroups(true, owner);
+    expect(groups.map((g) => g.title ?? null)).toEqual([null, "ลูกค้าและแชท", "บอท", "การตลาด", "คนและเงิน", "ตั้งค่าระบบ"]);
+    expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
+      ["/home", "/admin"],
+      ["/admin/crm", "/admin/messenger"],
+      ["/admin/welcome", "/admin/knowledge", "/admin/teach"],
+      ["/admin/posting", "/admin/ads"],
+      ["/admin/team", "/admin/members", "/admin/wallet", "/admin/stats"],
+      ["/admin/ai", "/admin/api"],
+    ]);
+    expect(groups[1].links[0].label).toBe("ลูกค้าจากแชท");
+    // an assistant who answers chats: the way back and the inbox, nothing else
+    const chats = menuGroups(true, { ...owner, publish: false, admin: false, owner: false });
+    expect(chats.flatMap((g) => g.links.map((l) => l.href))).toEqual(["/home", "/admin/messenger"]);
+    // an admin who is not the owner: no team and no spend
+    const admin = menuGroups(true, { ...owner, owner: false }).flatMap((g) => g.links.map((l) => l.href));
+    expect(admin).not.toContain("/admin/team");
+    expect(admin).not.toContain("/admin/stats");
   });
 
   it("gives staff, who land on the main system after signing in, their way to the back office", () => {
@@ -187,45 +214,74 @@ describe("what the menu shows to somebody who has not signed in", () => {
     for (const group of menuGroups(false)) expect(group.links.length).toBeGreaterThan(0);
   });
 
-  it("gives a member their membership page beside หน้าหลัก, ถาม AI and Studio, and nobody else (owner, 2026-10-13)", () => {
+  it("puts the agent's own work first: หน้าหลัก, their FHC customers, ถาม AI, Studio, then the back office (owner chose ข, 2026-10-14)", () => {
     const who = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false };
-    // the main menu a member reads: AppShell outside the back office draws menuGroups(false, who)
-    const first = menuGroups(false, { ...who, member: true })[0].links;
-    expect(first.map((l) => l.href)).toEqual(["/home", "/ask", "/studio", "/membership"]);
-    expect(first[3]).toMatchObject({ label: "สมาชิก", icon: "key", hue: "#2b736f" });
-    const hrefs = (w: typeof who | null) => [...menuGroups(false, w), ...menuGroups(true, w)].flatMap((g) => g.links.map((l) => l.href));
-    for (const w of [who, { ...who, owner: true, admin: true, publish: true, connect: true }, null]) expect(hrefs(w)).not.toContain("/membership");
+    const first = (w: typeof who | null) => menuGroups(false, w)[0];
+    expect(first({ ...who, member: true } as typeof who).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio"]);
+    expect(first({ ...who, admin: true }).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio", "/admin"]);
+    expect(first(null).title).toBe("งานของฉัน");
+    // the membership pass is in the account box now, in no menu's list
+    const hrefs = (w: typeof who | null) => [...menuGroups(false, w), ...menuGroups(true, w), ...studioMenu(w)].flatMap((g) => g.links.map((l) => l.href));
+    for (const w of [who, { ...who, member: true } as typeof who, null]) expect(hrefs(w)).not.toContain("/membership");
+  });
+});
+
+describe("the account box at the foot of every menu (owner chose ข, 2026-10-14)", () => {
+  const base = { name: "ก", room: "r", publish: false, connect: false, admin: false, owner: false };
+  const hrefs = (w: Parameters<typeof accountLinks>[0]) => accountLinks(w).map((l) => l.href);
+
+  it("is empty for somebody not signed in", () => {
+    expect(accountLinks(null)).toEqual([]);
+    expect(accountLinks()).toEqual([]);
+  });
+
+  it("gives everyone their account page; a member their pass after the wallet", () => {
+    expect(hrefs(base)).toEqual(["/studio/account"]);
+    expect(hrefs({ ...base, wallet: true, prices: true })).toEqual(["/studio/account", "/studio/wallet"]);
+    expect(hrefs({ ...base, member: true, wallet: true, prices: true })).toEqual(["/studio/account", "/studio/wallet", "/membership"]);
+    expect(accountLinks({ ...base, member: true }).find((l) => l.href === "/membership")).toMatchObject({ label: "สมาชิก", icon: "key", hue: "#2b736f" });
+  });
+
+  it("gives the wallet to every agent and assistant while it is on; only the owner writes without one (owner, 2026-10-02)", () => {
+    const who = { ...base, wallet: true };
+    expect(hrefs(who)).toContain("/studio/wallet");
+    expect(hrefs({ ...who, publish: true })).toContain("/studio/wallet");
+    expect(hrefs({ ...who, connect: true })).toContain("/studio/wallet");
+    expect(hrefs({ ...who, admin: true })).toContain("/studio/wallet");
+    expect(hrefs({ ...who, owner: true })).not.toContain("/studio/wallet");
+    expect(hrefs({ ...base, wallet: false })).not.toContain("/studio/wallet");
+    expect(hrefs(base)).not.toContain("/studio/wallet");
+  });
+
+  it("lists ราคา only for whoever has no กระเป๋าเงิน: the wallet page holds the prices (owner, 2026-10-13)", () => {
+    const who = { ...base, wallet: true, prices: true };
+    expect(hrefs(who)).not.toContain("/studio/wallet#prices");
+    expect(hrefs({ ...who, owner: true, wallet: false })).toContain("/studio/wallet#prices");
+    expect(hrefs({ ...who, owner: true, wallet: false, prices: false })).not.toContain("/studio/wallet#prices");
   });
 });
 
 describe("Studio's own menu", () => {
-  it("lists Studio's pages and a way back to the main system", () => {
-    const links = studioMenu().flatMap((g) => g.links);
-    expect(links.map((l) => l.href)).toEqual(["/studio", "/studio/write", "/studio/thumbnail", "/studio/quote-video", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/home"]);
+  it("lists Studio's pages under two headings, the way back first (owner chose ข, 2026-10-14)", () => {
+    const groups = studioMenu();
+    expect(groups.map((g) => g.title ?? null)).toEqual([null, "สร้างงาน", "วางแผนและคลัง"]);
+    expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
+      ["/home", "/studio"],
+      ["/studio/quote-video", "/studio/write", "/studio/thumbnail", "/studio/describe"],
+      ["/studio/calendar", "/studio/hooks", "/studio/people"],
+    ]);
+    expect(groups[0].links[0]).toMatchObject({ label: "ระบบหลัก", icon: "back" });
   });
 
-  it("keeps the front page for admins and assistants, the back office for admins; agents start at the workbench", () => {
+  it("keeps the front page for admins and assistants, the back office for staff; agents start at the workbench", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
-    const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
-    // the calendar is every agent's: a Page's for those who post, a plan for the rest (owner, 2026-09-30)
-    expect(hrefs(who)).toEqual(["/studio/write", "/studio/thumbnail", "/studio/quote-video", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/home"]);
-    expect(hrefs({ ...who, admin: true, publish: true })).toEqual(["/studio", "/studio/write", "/studio/thumbnail", "/studio/quote-video", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/admin", "/home"]);
+    const top = (w: typeof who) => studioMenu(w)[0].links.map((l) => l.href);
+    expect(top(who)).toEqual(["/home"]);
+    expect(top({ ...who, admin: true, publish: true })).toEqual(["/home", "/admin", "/studio"]);
     // an assistant has an agent's Studio and the front page to choose among their Pages (owner, 2026-10-02)
-    expect(hrefs({ ...who, publish: true })).toEqual(["/studio", ...hrefs(who)]);
+    expect(top({ ...who, publish: true })).toEqual(["/home", "/studio"]);
     // the Messenger stays with the "connect" tick, which the owner gives or takes on /admin/team
-    expect(hrefs({ ...who, publish: true, connect: true })).toEqual(["/studio", "/studio/write", "/studio/thumbnail", "/studio/quote-video", "/studio/calendar", "/studio/hooks", "/studio/people", "/studio/describe", "/studio/account", "/admin/messenger", "/home"]);
-  });
-
-  it("lists ถอดรูปเป็น prompt for everyone who has Studio, right after the people library and before the ad launch", () => {
-    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
-    const owner = { ...who, owner: true, admin: true, publish: true, connect: true };
-    for (const w of [who, { ...who, member: true } as typeof who, { ...who, publish: true }, { ...who, admin: true, publish: true }, owner]) {
-      const links = studioMenu(w).flatMap((g) => g.links);
-      const at = links.findIndex((l) => l.href === "/studio/people");
-      expect(links[at + 1]).toMatchObject({ href: "/studio/describe", label: "ถอดรูปเป็น prompt", icon: "image" });
-    }
-    const hrefs = studioMenu(owner).flatMap((g) => g.links).map((l) => l.href);
-    expect(hrefs.indexOf("/studio/describe")).toBeLessThan(hrefs.indexOf("/studio/ads"));
+    expect(top({ ...who, publish: true, connect: true })).toEqual(["/home", "/admin/messenger", "/studio"]);
   });
 
   it("lists ภาพปกคลิป right after Organic Studio, for everyone who has Studio (owner, 2026-10-09; opened to all 2026-10-14)", () => {
@@ -235,7 +291,16 @@ describe("Studio's own menu", () => {
       const links = studioMenu(w as typeof who).flatMap((g) => g.links);
       const at = links.findIndex((l) => l.href === "/studio/write");
       expect(links[at + 1]).toMatchObject({ href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image" });
+      expect(links.map((l) => l.href)).toContain("/studio/describe");
     }
+    const hrefs = studioMenu(owner).flatMap((g) => g.links).map((l) => l.href);
+    expect(hrefs.indexOf("/studio/describe")).toBeLessThan(hrefs.indexOf("/studio/ads"));
+  });
+
+  it("keeps the wallet, the prices, the pass and the account out of Studio's list: they are in the account box", () => {
+    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false, wallet: true, prices: true, member: true };
+    const hrefs = studioMenu(who).flatMap((g) => g.links).map((l) => l.href);
+    for (const h of ["/studio/wallet", "/studio/wallet#prices", "/membership", "/studio/account"]) expect(hrefs).not.toContain(h);
   });
 
   it("lists the ad launch for the owner alone (owner, 2026-10-04)", () => {
@@ -259,55 +324,11 @@ describe("Studio's own menu", () => {
     expect(menuGroups(true, { ...who, admin: true }).flatMap((g) => g.links.map((l) => l.href))).toContain("/admin/posting");
   });
 
-  it("gives the wallet to every agent and assistant; only the owner writes without one (owner, 2026-10-02)", () => {
-    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false, wallet: true };
-    const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
-    expect(hrefs(who)).toContain("/studio/wallet");
-    expect(hrefs({ ...who, publish: true })).toContain("/studio/wallet");
-    expect(hrefs({ ...who, connect: true })).toContain("/studio/wallet");
-    expect(hrefs({ ...who, admin: true })).toContain("/studio/wallet");
-    expect(hrefs({ ...who, owner: true })).not.toContain("/studio/wallet");
-  });
-
-  it("hides the wallet while the owner has it off, and when nobody says either way", () => {
-    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
-    const hrefs = (w: typeof who & { wallet?: boolean }) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
-    expect(hrefs({ ...who, wallet: false })).not.toContain("/studio/wallet");
-    expect(hrefs(who)).not.toContain("/studio/wallet");
-    expect(studioMenu().flatMap((g) => g.links).map((l) => l.href)).not.toContain("/studio/wallet");
-  });
-
-  it("lists ราคา only for whoever has no กระเป๋าเงิน: the wallet page holds the prices (owner, 2026-10-13)", () => {
-    const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false, wallet: true, prices: true };
-    const hrefs = (w: typeof who) => studioMenu(w).flatMap((g) => g.links).map((l) => l.href);
-    expect(hrefs(who)).toContain("/studio/wallet");
-    expect(hrefs(who)).not.toContain("/studio/wallet#prices");
-    expect(hrefs({ ...who, owner: true, wallet: false })).toContain("/studio/wallet#prices");
-    expect(hrefs({ ...who, owner: true, wallet: false, prices: false })).not.toContain("/studio/wallet#prices");
-  });
-
-  it("gives every agent their account page: a member's name, everyone's contact details (owner, 2026-10-01, 2026-10-11)", () => {
-    const base = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false, wallet: true };
-    const hrefs = (who: typeof base & { member?: boolean }) => studioMenu(who).flatMap((g) => g.links.map((l) => l.href));
-    expect(hrefs({ ...base, member: true })).toContain("/studio/account");
-    expect(hrefs(base)).toContain("/studio/account");
-  });
-
   it("gives every agent วิดีโอนำเสนอ: two free clips, then the wallet (owner, 2026-10-11)", () => {
     const base = { name: "ก", room: "r", publish: false, connect: false, admin: false, owner: false };
     const hrefs = (who: typeof base) => studioMenu(who).flatMap((g) => g.links.map((l) => l.href));
     expect(hrefs(base)).toContain("/studio/quote-video");
     expect(hrefs({ ...base, owner: true })).toContain("/studio/quote-video");
-  });
-
-  it("gives a member their membership page, before their account (owner, 2026-10-13)", () => {
-    const base = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false, wallet: true };
-    const links = (who: typeof base & { member?: boolean }) => studioMenu(who).flatMap((g) => g.links);
-    const member = links({ ...base, member: true });
-    const at = member.findIndex((l) => l.href === "/membership");
-    expect(member[at]).toMatchObject({ label: "สมาชิก", icon: "key", hue: "#2b736f" });
-    expect(member[at + 1].href).toBe("/studio/account");
-    expect(links(base).map((l) => l.href)).not.toContain("/membership");
   });
 
 
