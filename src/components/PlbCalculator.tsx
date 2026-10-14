@@ -11,6 +11,7 @@ import { cardPath, valueTablePath } from "@/lib/card-link";
 import { coverRows } from "@/lib/cover-rows";
 import { CoverTable } from "@/components/plb/CoverTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
+import { videoStartHref } from "@/lib/quote-video/link";
 import { PLB_SUMS, planInitialFromTable } from "@/lib/quote-pdf/pages";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
@@ -216,7 +217,11 @@ export function PlbCalculator({ table, sticky = false }: PlbCalculatorProps) {
         </div>
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
-          <ContactButtons copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางความคุ้มครอง" />
+          <ContactButtons
+            copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel="ตารางความคุ้มครอง"
+            // วิดีโอนำเสนอ of the cover on screen (owner, 2026-10-14)
+            videoHref={who && modes ? videoStartHref({ product: "PLB", sex, age: who.age, sumAssured, variant: term.variant }) : undefined}
+          />
         </div>
       </div>
 

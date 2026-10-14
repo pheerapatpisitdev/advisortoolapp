@@ -6,6 +6,7 @@ import { iHealthyTable } from "@/lib/ihealthy-table";
 import { iShieldTable } from "@/lib/ishield-table";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { legacyTable } from "@/lib/legacy-table";
+import { plbTable } from "@/lib/plb-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { availablePensionAges, PENSION_LIMITS } from "@/calc/pension/engine";
 import { videoStartFrom } from "@/lib/quote-video/link";
@@ -35,12 +36,14 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   const lp = lifeProtectTable();
   const is = iShieldTable();
   const lg = legacyTable();
+  const pb = plbTable();
   const ages = {
     LIFEPROTECT: { min: lp.ageMin, max: lp.ageMax },
     ISHIELD: { min: is.ageMin, max: is.ageMax },
     IHEALTHY: { min: ihu.ageMin, max: ihu.ageMax },
     PENSION: { min: PENSION_LIMITS.ageMin, max: PENSION_LIMITS.ageMax },
     LEGACY: { min: lg.ageMin, max: lg.ageMax },
+    PLB: { min: pb.ageMin, max: pb.ageMax },
   };
   // บำนาญ 95: the pension ages each age may choose, for each way of paying (the engine's own plans)
   const pensionAges = Object.fromEntries((["6", "untilAnnuity"] as const).map((pay) => [pay, Object.fromEntries(

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
+import type { PlbVariant } from "@/lib/quote-video/plb";
+import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 import type { VideoBrief, WrittenLines } from "@/lib/quote-video/brief";
@@ -42,19 +44,24 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "IHEALTHY", name: "iHealthy Ultra", page: "/ihealthy-ultra" },
   { code: "PENSION", name: "บำนาญ 95", page: "/bumnan95" },
   { code: "LEGACY", name: "มรดก", page: "/legacy" },
+  { code: "PLB", name: "Protection Life", page: "/plb" },
 ];
+/** Protection Life's sums as its page's slider steps them (owner, 2026-10-14): "3 แสน", "1.5 ล้าน" */
+const plbSumWord = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000} ล้าน` : `${n / 100_000} แสน`);
 /** มรดก's sizes (owner, 2026-10-14): the bundle's ten tiers, a million each */
 const LEGACY_TIERS = Array.from({ length: 10 }, (_, i) => i + 1);
 /** the plans with a list of paying terms by variant */
-const termed = (p: Product): p is "LIFEPROTECT" | "ISHIELD" => p === "LIFEPROTECT" || p === "ISHIELD";
+const termed = (p: Product): p is "LIFEPROTECT" | "ISHIELD" | "PLB" => p === "LIFEPROTECT" || p === "ISHIELD" || p === "PLB";
 type PensionPay = "6" | "untilAnnuity";
 const PENSION_STARTS = [55, 60, 65, 70];
 /** the monthly pension in a sum, as the engine and the page say it (calc/pension/engine.ts MONTHLY_FACTOR_FIRST) */
 const pensionMonthly = (sum: number) => Math.round(sum * 0.0127);
-const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number }[]> = {
+const TERMS: Record<"LIFEPROTECT" | "ISHIELD" | "PLB", { variant: string; years: number }[]> = {
   // จ่ายถึงอายุ 99 is Life Protect's third term (owner, 2026-10-11: it had gone missing)
   LIFEPROTECT: [{ variant: "WLF09H", years: 9 }, { variant: "WLF19H", years: 19 }, { variant: "WLF99H", years: 99 }],
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
+  // Protection Life (owner, 2026-10-14): paid and covered alike
+  PLB: [{ variant: "PLB05", years: 5 }, { variant: "PLB10", years: 10 }, { variant: "PLB12", years: 12 }, { variant: "PLB15", years: 15 }],
 };
 const NARRATOR_KEY = "quote-video-narrator";
 const SIZE_KEY = "quote-video-size";
@@ -117,7 +124,7 @@ const GEMINI = [
   { n: "F" as const, name: "ผู้หญิง", tag: "Kore", sample: "/voice-samples/gemini-F.mp3" },
   { n: "M" as const, name: "ผู้ชาย", tag: "Orus", sample: "/voice-samples/gemini-M.mp3" },
 ];
-const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10" } as const;
+const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10", PLB: "PLB12" } as const;
 /** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
 const MAX_COMPARE = 3;
 
@@ -311,6 +318,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       : product === "LEGACY"
         // a budget works the tier out itself
         ? { product, sex, age: Number(age), tier, ...look }
+      : product === "PLB"
+        ? { product, variant: variant as PlbVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
         : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look });
 
   function pickProduct(p: Product) {
@@ -318,6 +327,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     // an age the new product does not sell at is pulled onto its range
     setAge((a) => String(Math.min(ages[p].max, Math.max(ages[p].min, Number(a) || 35))));
     if (termed(p)) setVariant(DEFAULT_TERM[p]);
+    // Protection Life's sums are its page's steps: anything else opens on its page's 1 ล้าน
+    if (p === "PLB") setSum((was) => (PLB_SUMS.includes(Number(was.replace(/[^\d]/g, ""))) ? was : "1,000,000"));
   }
   function toggleCompare(code: string) {
     if (code === plan) return;
@@ -561,9 +572,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               <div>
                 <span className={label}>เริ่มจาก</span>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : product === "PENSION" ? "บำนาญต่อเดือน" : product === "LEGACY" ? "ขนาดมรดก" : "ทุนประกัน"}</button>
-                  <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>{product === "LEGACY" ? "งบเดือน" : "งบต่อเดือน"}</button>
-                  <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>{product === "LEGACY" ? "งบปี" : "งบต่อปี"}</button>
+                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : product === "PENSION" ? "บำนาญต่อเดือน" : product === "LEGACY" ? "ขนาดมรดก" : product === "PLB" ? "ทุน" : "ทุนประกัน"}</button>
+                  <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>{product === "LEGACY" || product === "PLB" ? "งบเดือน" : "งบต่อเดือน"}</button>
+                  <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>{product === "LEGACY" || product === "PLB" ? "งบปี" : "งบต่อปี"}</button>
                 </div>
               </div>
               {product === "LEGACY" && source === "sum" && (
@@ -576,21 +587,30 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                 </div>
               )}
               {(source !== "sum" || (product !== "IHEALTHY" && product !== "LEGACY")) && (
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className={`grid gap-4 ${product === "PLB" ? "" : "sm:grid-cols-2"}`}>
                   {source !== "sum" ? (
                     <div>
-                      <label htmlFor="qv-budget" className={label}>{product === "LEGACY"
+                      <label htmlFor="qv-budget" className={label}>{product === "LEGACY" || product === "PLB"
                         ? (source === "month" ? "งบที่ลูกค้าจ่ายไหวต่อเดือน (บาท)" : "งบที่ลูกค้าจ่ายไหวต่อปี (บาท)")
                         : source === "month" ? "งบที่ลูกค้าออมไหวต่อเดือน (บาท)" : "งบที่ลูกค้าออมไหวต่อปี (บาท)"}</label>
                       <input id="qv-budget" inputMode="numeric" className={field} value={budget} onChange={(e) => setBudget(money(e))} />
                       <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : product === "PENSION" ? "ระบบคิดทุนจากงบนี้ ด้วยเครื่องคิดเดียวกับหน้า บำนาญ 95"
-                        : product === "LEGACY" ? "ระบบเลือกขนาดมรดกที่ใหญ่ที่สุดที่ค่าใช้จ่ายปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                        : product === "LEGACY" ? "ระบบเลือกขนาดมรดกที่ใหญ่ที่สุดที่ค่าใช้จ่ายปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
+                        : product === "PLB" ? "ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า Protection Life) ที่ค่าใช้จ่ายไม่เกินงบ ในระยะที่เลือก · รายเดือนขั้นต่ำ 1,000 บาท" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
                     </div>
                   ) : product === "PENSION" ? (
                     <div>
                       <label htmlFor="qv-monthly" className={label}>บำนาญที่อยากได้ต่อเดือน (บาท)</label>
                       <input id="qv-monthly" inputMode="numeric" className={field} value={monthly} onChange={(e) => { setMonthly(money(e)); setPensionSum(undefined); }} />
                       <p className="mt-1 text-xs text-[var(--ct-mute)]">ทุนประกัน 75,000 – 20 ล้านบาท</p>
+                    </div>
+                  ) : product === "PLB" ? (
+                    <div>
+                      <span className={label}>ทุนประกัน</span>
+                      <div className="flex flex-wrap gap-2">
+                        {PLB_SUMS.map((n) => <button key={n} type="button" className={chip(Number(sum.replace(/[^\d]/g, "")) === n)} onClick={() => setSum(n.toLocaleString("en-US"))}>{plbSumWord(n)}</button>)}
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ถ้าเป็นอะไรไปในช่วงสัญญา ครอบครัวได้เท่าทุน · รับอายุ 20–59 ปี</p>
                     </div>
                   ) : (
                     <div>
@@ -601,7 +621,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   )}
                   {termed(product) && (
                     <div>
-                      <span className={label}>ชำระเบี้ย</span>
+                      <span className={label}>{product === "PLB" ? "ระยะเวลา (จ่ายเท่าไหร่ คุ้มครองเท่านั้น)" : "ชำระเบี้ย"}</span>
                       <div className="flex flex-wrap gap-2">
                         {TERMS[product].map((x) => <button key={x.variant} type="button" className={chip(variant === x.variant)} onClick={() => setVariant(x.variant)}>{x.years === 99 ? "ถึงอายุ 99" : `${x.years} ปี`}</button>)}
                       </div>
