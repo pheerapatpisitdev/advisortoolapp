@@ -23,14 +23,14 @@ describe("memberFromGoogle", () => {
   it("lets a member back in, whether or not sign-up is open", async () => {
     store.memberByGoogleSub.mockResolvedValue(row());
     store.memberSettings.mockResolvedValue({ signupOpen: false });
-    expect(await memberFromGoogle(user, "1.2.3.4")).toEqual({ ok: true, id: "m1" });
+    expect(await memberFromGoogle(user, "1.2.3.4")).toEqual({ ok: true, id: "m1", created: false });
     expect(store.createMember).not.toHaveBeenCalled();
     expect(store.setEmail).not.toHaveBeenCalled();
   });
 
   it("keeps the email up to date when Google's has changed", async () => {
     store.memberByGoogleSub.mockResolvedValue(row({ email: "old@gmail.com" }));
-    expect(await memberFromGoogle(user, "1.2.3.4")).toEqual({ ok: true, id: "m1" });
+    expect(await memberFromGoogle(user, "1.2.3.4")).toEqual({ ok: true, id: "m1", created: false });
     expect(store.setEmail).toHaveBeenCalledWith("m1", "somchai@gmail.com");
   });
 
@@ -41,7 +41,7 @@ describe("memberFromGoogle", () => {
 
   it("opens an account for somebody new, named as Google names them", async () => {
     store.signupsFromIp.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
-    expect(await memberFromGoogle(user, "1.2.3.4")).toEqual({ ok: true, id: "m9" });
+    expect(await memberFromGoogle(user, "1.2.3.4")).toEqual({ ok: true, id: "m9", created: true });
     expect(store.createMember).toHaveBeenCalledWith({ googleSub: "g-1", email: "somchai@gmail.com", name: "สมชาย ใจดี", ip: "1.2.3.4" });
     expect(store.deleteMember).not.toHaveBeenCalled();
   });
@@ -72,6 +72,6 @@ describe("memberFromGoogle", () => {
   it("signs in the account another tab opened a moment before", async () => {
     store.memberByGoogleSub.mockResolvedValueOnce(null).mockResolvedValueOnce(row({ id: "m7" }));
     store.createMember.mockResolvedValue({ ok: false, taken: true });
-    expect(await memberFromGoogle(user, "1.2.3.4")).toEqual({ ok: true, id: "m7" });
+    expect(await memberFromGoogle(user, "1.2.3.4")).toEqual({ ok: true, id: "m7", created: false });
   });
 });

@@ -1,5 +1,6 @@
 import { PASS_PURPOSE } from "@/lib/members/pass-checkout";
 import { addPaidPass, linkPassPaymentIntent, revokePaidPass } from "@/lib/members/pass-store";
+import { revokeReferral, rewardReferral } from "@/lib/referrals/store";
 import { stripe } from "@/lib/stripe/client";
 import { formatBaht } from "./money";
 import { clawBack, creditTopUp, linkPaymentIntent, markTopUp, topUpStatus, type ClawbackKind } from "./store";
@@ -18,6 +19,9 @@ import { clawBack, creditTopUp, linkPaymentIntent, markTopUp, topUpStatus, type 
  * A member's 30-day pass is bought through the same webhook (owner, 2026-10-13): a paid session
  * whose metadata says purpose "member_pass" adds a paid pass instead of crediting a wallet, and a
  * refund or dispute of that payment takes the pass back instead of touching a wallet.
+ *
+ * A friend's first pass also rewards whoever invited them (เพื่อนชวนเพื่อน, owner 2026-10-14), and
+ * its refund takes the reward back — src/lib/referrals/store.ts.
  */
 
 export type WalletAction =
@@ -130,10 +134,20 @@ async function sessionOfPayment(paymentIntent: string): Promise<{ id: string; pu
   }
 }
 
+/**
+ * A pass taken back also takes back what it earned whoever invited its member. Run on a repeat
+ * too: a reward still standing after a first try that failed half way is taken back the second time.
+ */
+async function passTakenBack(a: Extract<WalletAction, { kind: "clawback" }>, p: "revoked" | "duplicate"): Promise<string> {
+  const note = a.reason === "dispute" ? "เพื่อนโต้แย้งการชำระเงิน" : "เพื่อนขอเงินคืน";
+  await revokeReferral(a.paymentIntent, note);
+  return `pass-${p}`;
+}
+
 async function applyClawback(a: Extract<WalletAction, { kind: "clawback" }>): Promise<string> {
   // a pass's payment is never a top-up's: when a pass has it, no wallet is touched (owner, 2026-10-13)
   const p = await revokePaidPass({ paymentIntent: a.paymentIntent, reason: a.reason, ref: a.ref });
-  if (p !== "unknown") return `pass-${p}`;
+  if (p !== "unknown") return passTakenBack(a, p);
   const ask = () => clawBack({ paymentIntent: a.paymentIntent, kind: a.reason, ref: a.ref, satang: a.satang, note: a.note });
   let r = await ask();
   if (r.result === "unknown") {
@@ -149,7 +163,7 @@ async function applyClawback(a: Extract<WalletAction, { kind: "clawback" }>): Pr
       // or the pass is there without its PaymentIntent: write it on, then take the pass back (review, 2026-10-13)
       if (await linkPassPaymentIntent(session.id, a.paymentIntent)) {
         const again = await revokePaidPass({ paymentIntent: a.paymentIntent, reason: a.reason, ref: a.ref });
-        if (again !== "unknown") return `pass-${again}`;
+        if (again !== "unknown") return passTakenBack(a, again);
       }
       throw new Error(`stripe ${a.reason} ${a.ref} came before the pass of ${session.id}; Stripe will send it again`);
     }
@@ -198,8 +212,11 @@ export async function applyWalletAction(a: WalletAction): Promise<string> {
         `STRIPE PASS NOT ADDED: session ${a.sessionId} (payment ${a.paymentIntent ?? "?"}, ${a.satang} satang) took money at Stripe `
         + `for member ${a.memberId}, who does not exist here — a person must look`,
       );
+      return r;
     }
-    return r;
+    // on a repeat too: a reward that failed the first time is given when Stripe sends it again
+    const reward = await rewardReferral(a.sessionId);
+    return reward === "days" || reward === "satang" || reward === "capped" ? `${r}+referral-${reward}` : r;
   }
   const r = await creditTopUp(a.sessionId, a.agentId, a.satang, a.paymentIntent);
   // paid at Stripe, but not a top-up opened here for this agent: a person must look

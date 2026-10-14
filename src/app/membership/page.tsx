@@ -7,6 +7,7 @@ import { gatePage, whoOf, type Viewer } from "@/lib/auth/viewer";
 import { memberAccess } from "@/lib/members/access";
 import type { PassState } from "@/lib/members/pass";
 import { passRows } from "@/lib/members/pass-store";
+import { referralCard } from "@/lib/referrals/card";
 import { balanceSatang } from "@/lib/wallet/store";
 import { MembershipClient, type PassView } from "./MembershipClient";
 
@@ -45,9 +46,11 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
   const { settings } = access;
   const live = access.state.status === "live";
   // the extras degrade: a count or a balance that cannot be read is left off the page
-  const [allowance, balance] = await Promise.all([
+  const [allowance, balance, referral] = await Promise.all([
     live ? allowanceOf(viewer).catch((e) => { console.error("membership: rounds unreadable:", e); return null; }) : null,
     !live ? balanceSatang(viewer.agentId).catch((e) => { console.error("membership: balance unreadable:", e); return null; }) : null,
+    // ชวนเพื่อน (owner, 2026-10-14): left off when the switch is off or it cannot be read
+    referralCard(viewer).catch((e) => { console.error("membership: referral card unreadable:", e); return null; }),
   ]);
 
   return (
@@ -62,6 +65,7 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
         balanceSatang={balance}
         rows={rows}
         paid={typeof paid === "string" ? paid : null}
+        referral={referral}
       />
     </Frame>
   );

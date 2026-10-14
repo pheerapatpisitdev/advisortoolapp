@@ -1,7 +1,8 @@
 // The monthly pass for outside members (owner, 2026-10-13). Browser-safe: no server imports.
 // The ledger (ins_member_passes) only appends; the live end date is derived here, never stored.
 
-export type PassKind = "trial" | "paid" | "granted" | "revoked";
+/** referral: free days for a friend who paid (src/lib/referrals, owner 2026-10-14) */
+export type PassKind = "trial" | "paid" | "granted" | "referral" | "revoked";
 
 export interface PassRow {
   id: number;
@@ -16,7 +17,7 @@ export interface PassRow {
 
 export interface Period {
   rowId: number;
-  kind: "trial" | "paid" | "granted";
+  kind: "trial" | "paid" | "granted" | "referral";
   start: Date;
   end: Date;
 }

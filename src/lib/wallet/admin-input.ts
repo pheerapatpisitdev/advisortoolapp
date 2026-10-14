@@ -3,6 +3,7 @@
  * (the same rule as src/app/admin/ai/budget.ts).
  */
 import type { PassSettings } from "@/lib/members/pass";
+import type { ReferralSettings } from "@/lib/referrals/referral";
 import { DEFAULT_PRICES, MAX_PRICE_SATANG, PRICE_ITEMS, type Prices } from "./prices";
 
 export const MAX_MULTIPLIER = 10;
@@ -83,4 +84,26 @@ export function readPassSettings(raw: { enabled: boolean; baht: string; trialDay
   const rounds = wholeIn(raw?.rounds, 0, MAX_PASS_ROUNDS);
   if (rounds === null) return { ok: false, error: `รอบ Studio ฟรีต้องเป็นจำนวนเต็ม ตั้งแต่ 0 ถึง ${MAX_PASS_ROUNDS}` };
   return { ok: true, value: { enabled: raw?.enabled === true, satang: Math.round(baht * 100), trialDays, rounds } };
+}
+
+export const MAX_REFERRAL_DAYS = 30;
+export const MAX_REFERRAL_DAYS_CAP = 365;
+export const MAX_REFERRAL_BAHT = 100;
+export const MAX_REFERRAL_BAHT_CAP = 5000;
+
+/**
+ * เพื่อนชวนเพื่อน as typed on /admin/wallet (owner, 2026-10-14): a member's free days per friend
+ * and a month's most, and a UnitOS agent's baht per friend and a month's most.
+ */
+export function readReferralSettings(raw: { enabled: boolean; days: string; daysCap: string; baht: string; bahtCap: string }):
+  { ok: true; value: ReferralSettings } | { ok: false; error: string } {
+  const days = wholeIn(raw?.days, 0, MAX_REFERRAL_DAYS);
+  if (days === null) return { ok: false, error: `วันฟรีต่อเพื่อนต้องเป็นจำนวนเต็ม ตั้งแต่ 0 ถึง ${MAX_REFERRAL_DAYS}` };
+  const daysCap = wholeIn(raw?.daysCap, 0, MAX_REFERRAL_DAYS_CAP);
+  if (daysCap === null) return { ok: false, error: `วันฟรีสูงสุดต่อเดือนต้องเป็นจำนวนเต็ม ตั้งแต่ 0 ถึง ${MAX_REFERRAL_DAYS_CAP}` };
+  const baht = wholeIn(raw?.baht, 0, MAX_REFERRAL_BAHT);
+  if (baht === null) return { ok: false, error: `เงินต่อเพื่อนต้องเป็นบาทเต็ม ตั้งแต่ 0 ถึง ${MAX_REFERRAL_BAHT}` };
+  const bahtCap = wholeIn(raw?.bahtCap, 0, MAX_REFERRAL_BAHT_CAP);
+  if (bahtCap === null) return { ok: false, error: `เงินสูงสุดต่อเดือนต้องเป็นบาทเต็ม ตั้งแต่ 0 ถึง ${MAX_REFERRAL_BAHT_CAP.toLocaleString("en-US")}` };
+  return { ok: true, value: { enabled: raw?.enabled === true, days, daysCap, satang: baht * 100, satangCap: bahtCap * 100 } };
 }

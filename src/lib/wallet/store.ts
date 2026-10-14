@@ -13,7 +13,8 @@ export type TopUpStatus = "open" | "paid" | "failed" | "expired";
 export interface WalletEntry {
   id: string;
   /** clawback: taken back after Stripe refunded or a bank disputed a top-up (owner, 2026-10-01) */
-  kind: "topup" | "charge" | "adjust" | "clawback";
+  /** referral: baht for a friend who paid for their first pass, or taken back after its refund (owner, 2026-10-14) */
+  kind: "topup" | "charge" | "adjust" | "clawback" | "referral";
   amountSatang: number;
   round: string | null;
   note: string | null;

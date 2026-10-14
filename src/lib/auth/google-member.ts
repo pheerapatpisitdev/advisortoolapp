@@ -17,13 +17,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export async function memberFromGoogle(
   user: { sub: string; email: string; name: string },
   ip: string,
-): Promise<{ ok: true; id: string } | { ok: false; error: GoogleError }> {
+): Promise<{ ok: true; id: string; created: boolean } | { ok: false; error: GoogleError }> {
   const known = await memberByGoogleSub(user.sub);
   if (known) {
     if (known.status !== "active") return { ok: false, error: "suspended" };
     // Google lets people change their address; the owner's list should show the one in use
     if (known.email !== user.email) await setEmail(known.id, user.email);
-    return { ok: true, id: known.id };
+    return { ok: true, id: known.id, created: false };
   }
 
   if (!(await memberSettings()).signupOpen) return { ok: false, error: "closed" };
@@ -33,11 +33,12 @@ export async function memberFromGoogle(
   const made = await createMember({ googleSub: user.sub, email: user.email, name, ip });
   if (!made.ok) {
     const winner = await memberByGoogleSub(user.sub);
-    return winner && winner.status === "active" ? { ok: true, id: winner.id } : { ok: false, error: "broken" };
+    return winner && winner.status === "active" ? { ok: true, id: winner.id, created: false } : { ok: false, error: "broken" };
   }
   if ((await signupsFromIp(ip, since)) > SIGNUPS_PER_IP_PER_DAY) {
     await deleteMember(made.id);
     return { ok: false, error: "limit" };
   }
-  return { ok: true, id: made.id };
+  // `created` lets the sign-in tie a new account to whoever invited it (src/lib/referrals)
+  return { ok: true, id: made.id, created: true };
 }

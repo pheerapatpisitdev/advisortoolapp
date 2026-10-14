@@ -34,14 +34,17 @@ function GoogleG() {
  * `error` is why Google sent somebody back (/login?error=…, src/lib/auth/google.ts); it opens
  * the member tab, where it is said.
  */
-export function LoginForm({ next, signupOpen, error: googleError, notice = null }: {
+export function LoginForm({ next, signupOpen, error: googleError, notice = null, invitedBy = null }: {
   next: string; signupOpen: boolean; error: string | null;
   /** why somebody was sent here, said above the tabs (door.tsx) */
   notice?: string | null;
+  /** the first name of whoever sent the invitation link this visitor came through (src/lib/referrals) */
+  invitedBy?: string | null;
 }) {
   // the member tab is for people who can still sign up; while sign-up is off a visitor is
-  // almost surely a UnitOS agent, so that tab opens first (both stay available)
-  const [tab, setTab] = useState<Tab>(signupOpen || googleError ? "member" : "unitos");
+  // almost surely a UnitOS agent, so that tab opens first (both stay available). An invited
+  // friend signs up with Google, so theirs is the member tab too
+  const [tab, setTab] = useState<Tab>(signupOpen || googleError || invitedBy ? "member" : "unitos");
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
   const clear = () => setError(undefined);
@@ -68,6 +71,14 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null 
 
   return (
     <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์" below={<SignupVideo />}>
+      {invitedBy && (
+        <div className="mt-4 flex items-center gap-3 rounded-lg bg-[var(--bot-sand-soft)] px-3 py-2.5 text-sm text-[var(--bot-sand-ink)]">
+          <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--bot-navy)] font-semibold text-[var(--bot-surface)]">
+            {Array.from(invitedBy)[0]}
+          </span>
+          <p><b>คุณ{invitedBy}</b> ชวนคุณมาใช้ AdvisorTool<br />เครื่องคิดเบี้ย ถาม AI และ Studio ทำโพสต์</p>
+        </div>
+      )}
       {notice && <p role="status" className="mt-4 rounded-lg bg-[var(--bot-band)] px-3 py-2 text-center text-sm text-[var(--bot-ink)]">{notice}</p>}
       <div role="tablist" className="mt-6 flex gap-1 rounded-lg bg-[var(--bot-band)] p-1">
         <button type="button" role="tab" aria-selected={tab === "member"} className={tabClass("member")} onClick={() => pick("member")}>สมาชิกทั่วไป</button>

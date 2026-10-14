@@ -4,6 +4,8 @@ import { checkIdToken, exchangeCode, GOOGLE_COOKIE, GOOGLE_COOKIE_PATH, loginWit
 import { memberFromGoogle } from "@/lib/auth/google-member";
 import { startSession } from "@/lib/auth/session";
 import { requestOrigin } from "@/lib/facebook/origin";
+import { REF_COOKIE } from "@/lib/referrals/referral";
+import { attachReferral } from "@/lib/referrals/store";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +15,10 @@ export const dynamic = "force-dynamic";
  * back to the sign-in on the front page with a code its page turns into words (GOOGLE_ERRORS).
  */
 export async function GET(req: Request) {
-  const res = await finish(req);
+  const { res, created } = await finish(req);
   res.cookies.set(GOOGLE_COOKIE, "", { path: GOOGLE_COOKIE_PATH, maxAge: 0 });
+  // an invitation is spent by the account it made; one that made none is kept for its 30 days
+  if (created) res.cookies.set(REF_COOKIE, "", { path: "/", maxAge: 0 });
   return res;
 }
 
@@ -27,18 +31,19 @@ function cookieFrom(req: Request, name: string): string | null {
   return null;
 }
 
-async function finish(req: Request): Promise<NextResponse> {
+async function finish(req: Request): Promise<{ res: NextResponse; created: boolean }> {
   const origin = requestOrigin(req);
   const params = new URL(req.url).searchParams;
   const login = readLogin(cookieFrom(req, GOOGLE_COOKIE));
   const next = login?.next ?? "/studio";
-  const back = (error: Parameters<typeof loginWithError>[1]) => NextResponse.redirect(loginWithError(origin, error, next));
+  const back = (error: Parameters<typeof loginWithError>[1]) => ({ res: NextResponse.redirect(loginWithError(origin, error, next)), created: false });
 
   if (params.get("error")) return back("cancelled");
   const code = params.get("code");
   if (!login || !code || params.get("state") !== login.state) return back("state");
 
   let id: string;
+  let created: boolean;
   // startSession and the redirect stay outside: a failure past this point is the system's
   try {
     const user = checkIdToken(await exchangeCode(code, login.verifier, origin), login.nonce);
@@ -46,10 +51,14 @@ async function finish(req: Request): Promise<NextResponse> {
     const member = await memberFromGoogle(user, clientIp(req.headers));
     if (!member.ok) return back(member.error);
     id = member.id;
+    created = member.created;
   } catch (e) {
     console.error("google sign-in failed:", e);
     return back("broken");
   }
+  // who invited a new account (เพื่อนชวนเพื่อน, owner 2026-10-14); failing to note it never stops the sign-in
+  const invited = created ? cookieFrom(req, REF_COOKIE) : null;
+  if (invited) await attachReferral(id, invited).catch((e) => console.error(`referral of new member ${id} not noted:`, e));
   await startSession(id);
-  return NextResponse.redirect(`${origin}${next}`);
+  return { res: NextResponse.redirect(`${origin}${next}`), created };
 }
