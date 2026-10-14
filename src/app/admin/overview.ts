@@ -92,7 +92,7 @@ function must<T>(res: { data: T; error: { message: string } | null }): T {
 }
 
 export async function loadOverview(): Promise<Overview> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const supabase = supabaseAdmin();
 
   /**

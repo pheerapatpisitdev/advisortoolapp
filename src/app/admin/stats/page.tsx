@@ -17,7 +17,7 @@ const baht = (n: number) => `฿${n.toLocaleString("en-US", { maximumFractionDig
  * alone: it names every agent and what they spent.
  */
 export default async function StatsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await gatePage("/admin/stats", "owner");
+  await gatePage("/admin/stats", "backoffice");
   const now = new Date();
   const period = parsePeriod((await searchParams).p, now);
   const [from, to] = periodRange(period, now);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { admit, admitMember, can, type AgentRow, type MemberRow, type StaffRow } from "@/lib/auth/access";
+import { admit, admitMember, admitSuper, can, type AgentRow, type MemberRow, type StaffRow } from "@/lib/auth/access";
 
 const room = (over: Partial<NonNullable<AgentRow["tenant"]>> = {}): NonNullable<AgentRow["tenant"]> => ({
   id: "t1", slug: "83g", name: "83G", status: "active", config: null, key_epoch: null, ...over,
@@ -85,6 +85,30 @@ describe("can", () => {
 
   it("gives nobody anything when nobody is signed in", () => {
     expect(can(null, "publish")).toBe(false);
+    expect(can(null, "backoffice")).toBe(false);
+  });
+
+  it("keeps the back office from every agent, the owner included (owner, 2026-10-15)", () => {
+    const owner = admit(agent(), staff({ is_owner: true, can_admin: true, can_connect: true }), Date.now());
+    expect(can(owner, "backoffice")).toBe(false);
+    expect(can(admit(agent(), staff({ can_admin: true, can_connect: true }), Date.now()), "backoffice")).toBe(false);
+  });
+});
+
+describe("admitSuper (owner, 2026-10-15)", () => {
+  const row = { id: "s1", email: "boss@gmail.com", name: null, revoked_at: null };
+
+  it("lets the Super Admin in with the back office and every permission it asks for", () => {
+    const v = admitSuper(row, Date.now());
+    expect(v).toMatchObject({ kind: "super", agentId: "s1", code: "boss@gmail.com", name: "boss@gmail.com", tenantName: "Super Admin", staff: null });
+    for (const perm of ["backoffice", "publish", "connect", "admin", "owner"] as const) expect(can(v, perm)).toBe(true);
+  });
+
+  it("ends sessions issued before a revocation", () => {
+    const at = Date.parse("2026-10-15T00:00:00Z");
+    expect(admitSuper({ ...row, revoked_at: "2026-10-15T00:00:00Z" }, at - 1)).toBeNull();
+    expect(admitSuper({ ...row, revoked_at: "2026-10-15T00:00:00Z" }, at + 1)).not.toBeNull();
+    expect(admitSuper(null, at)).toBeNull();
   });
 });
 

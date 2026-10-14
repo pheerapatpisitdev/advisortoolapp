@@ -94,7 +94,7 @@ async function pendingChoices(): Promise<{ id: string; name: string }[]> {
 }
 
 export async function loadAds(range: AdsRange = "7d"): Promise<AdsPage> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const supabase = supabaseAdmin();
   const start = rangeStart(range);
   const since = start.toISOString();
@@ -140,7 +140,7 @@ export async function loadAds(range: AdsRange = "7d"): Promise<AdsPage> {
 
 /** The button. Same code the cron runs, called directly rather than through its own route. */
 export async function syncNow(): Promise<SyncResult> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const result = await syncAds();
   revalidatePath("/admin/ads");
   return result;
@@ -148,7 +148,7 @@ export async function syncNow(): Promise<SyncResult> {
 
 /** Finishes a login where the person may read more than one ad account — all the chosen ones. */
 export async function connectAdAccounts(ids: string[]): Promise<string[]> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (ids.length === 0) throw new Error("ยังไม่ได้เลือกบัญชีโฆษณา");
   const pending = await readPendingAds();
   if (!pending) throw new Error("การเชื่อมต่อหมดอายุแล้ว กดเชื่อมบัญชีโฆษณาใหม่อีกครั้ง");
@@ -170,13 +170,13 @@ export async function connectAdAccounts(ids: string[]): Promise<string[]> {
 }
 
 export async function cancelPendingAds(): Promise<void> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   await clearPendingAds();
   revalidatePath("/admin/ads");
 }
 
 export async function disconnectAdAccount(actId: string): Promise<void> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   await clearAdAccount(actId);
   await audit("disconnect-ads", actId);
   revalidatePath("/admin/ads");

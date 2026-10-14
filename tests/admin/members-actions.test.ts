@@ -21,7 +21,7 @@ describe("the back office's members", () => {
     await saveSignupSettings(true);
     await setMemberStatus(ID, "suspended");
     expect(viewer.requireStaff).toHaveBeenCalledTimes(2);
-    expect(viewer.requireStaff).toHaveBeenCalledWith("admin");
+    expect(viewer.requireStaff).toHaveBeenCalledWith("backoffice");
   });
 
   it("switches sign-up and writes it down", async () => {
@@ -62,7 +62,7 @@ describe("deleting a member for good (owner, 2026-10-14)", () => {
     suspended();
     store.purgeMember.mockResolvedValue({ ok: true, files: FILES });
     expect(await deleteMemberForGood(ID, "  somchai@GMAIL.com ")).toEqual({ ok: true });
-    expect(viewer.requireStaff).toHaveBeenCalledWith("admin");
+    expect(viewer.requireStaff).toHaveBeenCalledWith("backoffice");
     expect(store.purgeMember).toHaveBeenCalledWith(ID);
     expect(files.clearMemberFiles).toHaveBeenCalledWith(ID, FILES);
     expect(viewer.audit).toHaveBeenCalledWith("member-delete", ID, { name: "สมชาย" });

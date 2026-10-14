@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "ทีมงาน | AdvisorTool" };
 
 /** The owner's assistants: who may post to the Page, connect it, or open the back office. */
 export default async function TeamPage() {
-  await gatePage("/admin/team", "owner");
+  await gatePage("/admin/team", "backoffice");
   const [rows, connected] = await Promise.all([listStaff(), pageConnections().catch(() => [])]);
   const pages = connected.map((p) => ({ pageId: p.pageId, pageName: p.pageName }));
   return (

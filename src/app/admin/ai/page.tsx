@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AiPage() {
-  await gatePage("/admin/ai", "admin");
+  await gatePage("/admin/ai", "backoffice");
   const data = await loadAiPage();
   return <AiClient {...data} />;
 }

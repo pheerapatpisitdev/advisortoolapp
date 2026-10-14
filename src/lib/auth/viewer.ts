@@ -5,7 +5,7 @@ import { memberAccess, passOpen } from "@/lib/members/access";
 import { PASS_PAGE } from "@/lib/members/pass";
 import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { admit, admitMember, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type Viewer } from "./access";
+import { admit, admitMember, admitSuper, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
 import { sessionNotBefore } from "./epoch";
 import { safeNext } from "./next";
 import { readSession } from "./session";
@@ -35,6 +35,15 @@ export async function memberById(id: string): Promise<MemberRow | null> {
   const { data, error } = await supabaseAdmin().from("ins_members").select(MEMBER_COLUMNS).eq("id", id).maybeSingle();
   if (error) throw new Error(`อ่านข้อมูลสมาชิกไม่ได้: ${error.message}`);
   return (data as MemberRow | null) ?? null;
+}
+
+const SUPER_COLUMNS = "id, email, name, revoked_at";
+
+/** A Super Admin who runs the back office (owner, 2026-10-15), or null. */
+export async function superAdminById(id: string): Promise<SuperAdminRow | null> {
+  const { data, error } = await supabaseAdmin().from("ins_super_admins").select(SUPER_COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw new Error(`อ่านข้อมูลผู้ดูแลระบบไม่ได้: ${error.message}`);
+  return (data as SuperAdminRow | null) ?? null;
 }
 
 export async function staffRow(agentId: string): Promise<StaffRow | null> {
@@ -67,19 +76,29 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   ]);
   if (notBefore !== null && session.issuedAt < notBefore) return null;
   if (agent) return admit(agent, staff, session.issuedAt);
-  // not UnitOS's: a member who signed up here, or nobody (owner, 2026-10-01)
-  return admitMember(await memberById(session.agentId), session.issuedAt);
+  // not UnitOS's: a member who signed up here (owner, 2026-10-01), the Super Admin
+  // (2026-10-15), or nobody
+  const member = await memberById(session.agentId);
+  if (member) return admitMember(member, session.issuedAt);
+  return admitSuper(await superAdminById(session.agentId), session.issuedAt);
 });
 
-/** For server actions and routes: a layout's gate does not cover an action, so each one asks. */
+/**
+ * For server actions and routes: a layout's gate does not cover an action, so each one asks.
+ * The front of the app's: the Super Admin runs the back office only (owner, 2026-10-15), so
+ * Studio's rounds, the wallet and the rest are refused to them here.
+ */
 export async function requireMember(): Promise<Viewer> {
   const viewer = await getViewer();
   if (!viewer) throw new Error("กรุณาเข้าสู่ระบบก่อน");
+  if (viewer.kind === "super") throw new Error("ส่วนนี้สำหรับตัวแทนและสมาชิก");
   return viewer;
 }
 
+/** The back office asks for "backoffice", which only the Super Admin has; the front asks for the rest. */
 export async function requireStaff(perm: Perm): Promise<Viewer> {
-  const viewer = await requireMember();
+  const viewer = perm === "backoffice" ? await getViewer() : await requireMember();
+  if (!viewer) throw new Error("กรุณาเข้าสู่ระบบก่อน");
   if (!can(viewer, perm)) throw new Error("ไม่มีสิทธิ์ใช้ส่วนนี้");
   return viewer;
 }
@@ -88,6 +107,8 @@ export async function requireStaff(perm: Perm): Promise<Viewer> {
 export async function refuseUnless(perm?: Perm): Promise<Response | null> {
   const viewer = await getViewer();
   if (!viewer) return Response.json({ ok: false, error: "กรุณาเข้าสู่ระบบก่อน" }, { status: 401 });
+  // the Super Admin's routes ask for "backoffice"; every other route is the front's
+  if (viewer.kind === "super" && perm !== "backoffice") return Response.json({ ok: false, error: "ส่วนนี้สำหรับตัวแทนและสมาชิก" }, { status: 403 });
   if (perm && !can(viewer, perm)) return Response.json({ ok: false, error: "ไม่มีสิทธิ์ใช้ส่วนนี้" }, { status: 403 });
   return null;
 }
@@ -97,7 +118,10 @@ const passPage = (next: string) => next === "/home" || next.startsWith("/home/")
 
 /**
  * For pages. Somebody not signed in is sent to sign in and brought back; somebody signed in
- * without the permission goes to Studio, which every agent may use, rather than to an error.
+ * without the permission goes to Studio, which every agent may use, rather than to an error —
+ * or, turned away from the back office, to /home (owner, 2026-10-15).
+ *
+ * The Super Admin has the back office only: any other page sends them back to /admin.
  *
  * An outside member whose pass has run out is sent to renew it instead (owner, 2026-10-13).
  * Only a member is ever asked about a pass. A pass that cannot be read throws to the error
@@ -106,6 +130,8 @@ const passPage = (next: string) => next === "/home" || next.startsWith("/home/")
 export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   const viewer = await getViewer();
   if (!viewer) {
+    // the back office has a door of its own, the Super Admin's (owner, 2026-10-15)
+    if (next === "/admin" || next.startsWith("/admin/")) redirect("/backoffice");
     // the page actually asked for, when the middleware passed it on; the caller's guess otherwise
     const asked = safeNext((await headers()).get("x-pathname"), next);
     redirect(`/?next=${encodeURIComponent(asked)}`);
@@ -113,7 +139,9 @@ export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   if (viewer.kind === "member" && passPage(next) && !passOpen(await memberAccess(viewer))) {
     redirect(`${PASS_PAGE}?expired=1`);
   }
-  if (perm && !can(viewer, perm)) redirect("/studio");
+  const office = next === "/admin" || next.startsWith("/admin/");
+  if (viewer.kind === "super" && !office) redirect("/admin");
+  if (perm && !can(viewer, perm)) redirect(office ? "/home" : "/studio");
   return viewer;
 }
 
@@ -128,6 +156,7 @@ export function whoOf(viewer: Viewer | null): Who | null {
     admin: can(viewer, "admin"),
     owner: can(viewer, "owner"),
     member: viewer.kind === "member",
+    super: viewer.kind === "super",
   };
 }
 
@@ -152,13 +181,16 @@ export async function audit(action: string, target: string | null, detail?: Reco
 export async function displayNames(ids: string[]): Promise<Record<string, string>> {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return {};
-  const [agents, members] = await Promise.all([
+  const [agents, members, supers] = await Promise.all([
     supabaseAdmin().from("agents").select("id, name, agent_code").in("id", unique),
     supabaseAdmin().from("ins_members").select("id, name, email").in("id", unique),
+    supabaseAdmin().from("ins_super_admins").select("id, name, email").in("id", unique),
   ]);
   if (agents.error) console.error("agent names unreadable:", agents.error.message);
   if (members.error) console.error("member names unreadable:", members.error.message);
+  if (supers.error) console.error("super admin names unreadable:", supers.error.message);
   const names: Record<string, string> = {};
+  for (const s of (supers.data ?? []) as { id: string; name: string | null; email: string }[]) names[s.id] = s.name?.trim() || s.email;
   for (const m of (members.data ?? []) as { id: string; name: string | null; email: string }[]) names[m.id] = m.name?.trim() || m.email;
   for (const a of (agents.data ?? []) as { id: string; name: string | null; agent_code: string }[]) names[a.id] = a.name?.trim() || a.agent_code;
   return names;

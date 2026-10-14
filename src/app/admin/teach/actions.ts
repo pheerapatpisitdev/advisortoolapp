@@ -89,7 +89,7 @@ async function turnFor(pageId: unknown, cameFor: unknown) {
 export async function tryBot(
   history: unknown, slots: unknown, pageId: unknown, cameFor: unknown,
 ): Promise<Result<{ tried: Tried }>> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const turns = cleanTurns(history);
   if (turns.at(-1)?.role !== "user" || !turns.at(-1)!.content.trim()) return { ok: false, error: "พิมพ์ข้อความก่อนส่ง" };
   try {
@@ -138,7 +138,7 @@ export interface TeachInput {
  * customer gives an age or a sum, and one fixed answer would be sent to everyone who does.
  */
 export async function teachLesson(input: TeachInput): Promise<Result<{ id: string }>> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const question = String(input?.question ?? "").trim().slice(0, MAX_Q);
   const answer = String(input?.answer ?? "").trim().slice(0, MAX_A);
   const phrasings = [...new Set((Array.isArray(input?.phrasings) ? input.phrasings : [])
@@ -175,7 +175,7 @@ export async function teachLesson(input: TeachInput): Promise<Result<{ id: strin
  * for whoever fixes the bot next.
  */
 export async function reportProblem(asked: string, said: string, pageId: string | null): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const question = String(asked ?? "").trim().slice(0, 150);
   if (!question) return { ok: false, error: "ไม่มีข้อความให้แจ้ง" };
   const answer = String(said ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
@@ -203,7 +203,7 @@ export interface Taught {
 const MOST_TAUGHT = 500;
 
 export async function listTaught(): Promise<Result<{ rows: Taught[] }>> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { data, error } = await supabaseAdmin().from("ins_faq")
       .select("id, question, answer, phrasings, page_id, strict, enabled, hits, last_hit_at, updated_at")
@@ -235,7 +235,7 @@ export async function listTaught(): Promise<Result<{ rows: Taught[] }>> {
  * บังคับตอบ is held to the same rule as teaching one: no question with a figure in it.
  */
 export async function updateTaught(id: string, input: TeachInput & { strict: boolean }): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (typeof id !== "string" || !id) return { ok: false, error: "ไม่พบรายการนี้" };
   const question = String(input?.question ?? "").trim().slice(0, MAX_Q);
   const answer = String(input?.answer ?? "").trim().slice(0, MAX_A);
@@ -289,7 +289,7 @@ function testOf(r: Record<string, unknown>): BotTest {
 }
 
 export async function listBotTests(): Promise<Result<{ tests: BotTest[] }>> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { data, error } = await supabaseAdmin().from("ins_bot_tests")
       .select("id, name, page_id, came_for, turns, last_run_at, last_ok, last_result")
@@ -304,7 +304,7 @@ export async function listBotTests(): Promise<Result<{ tests: BotTest[] }>> {
 
 /** Saves a conversation from the test chat as a test: its name, its Page, and each message's checks. */
 export async function saveBotTest(name: string, pageId: string | null, cameFor: string | null, turns: unknown): Promise<Result<{ id: string }>> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const title = String(name ?? "").trim().slice(0, 120);
   const clean = cleanTestTurns(turns);
   if (!title) return { ok: false, error: "ตั้งชื่อชุดเทสก่อนบันทึก" };
@@ -330,7 +330,7 @@ export async function saveBotTest(name: string, pageId: string | null, cameFor: 
  * whose turns reach a model is paid for like any other turn, which the tab says before running.
  */
 export async function runBotTestNow(id: string): Promise<Result<{ test: BotTest }>> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const db = supabaseAdmin();
     const { data, error } = await db.from("ins_bot_tests")
@@ -350,7 +350,7 @@ export async function runBotTestNow(id: string): Promise<Result<{ test: BotTest 
 }
 
 export async function deleteBotTest(id: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { error } = await supabaseAdmin().from("ins_bot_tests").delete().eq("id", id);
     if (error) throw new Error(error.message);

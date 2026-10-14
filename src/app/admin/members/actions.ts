@@ -14,7 +14,7 @@ const FAILED: Result = { ok: false, error: "บันทึกไม่สำเ
 
 /** The owner's switch: whether a Google account with no member yet is given one (owner, 2026-10-01). */
 export async function saveSignupSettings(open: boolean): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     await saveMemberSettings({ signupOpen: open === true });
   } catch (e) {
@@ -28,7 +28,7 @@ export async function saveSignupSettings(open: boolean): Promise<Result> {
 
 /** A suspended member is out on their next click (src/lib/auth/access.ts admitMember). */
 export async function setMemberStatus(id: string, status: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (typeof id !== "string" || !UUID.test(id)) return NOT_FOUND;
   if (status !== "active" && status !== "suspended") return { ok: false, error: "สถานะไม่ถูกต้อง" };
   try {
@@ -48,7 +48,7 @@ export async function setMemberStatus(id: string, status: string): Promise<Resul
  * extension. Always with a note, so the ledger says why. Stacks after whatever is live.
  */
 export async function grantPassDays(id: string, days: string, note: string): Promise<Result> {
-  const viewer = await requireStaff("admin");
+  const viewer = await requireStaff("backoffice");
   if (typeof id !== "string" || !UUID.test(id)) return NOT_FOUND;
   const t = String(days ?? "").trim();
   const n = Number(t);
@@ -73,7 +73,7 @@ export async function grantPassDays(id: string, days: string, note: string): Pro
  * the delete is the one trace left, with their name so the log still reads.
  */
 export async function deleteMemberForGood(id: string, typedEmail: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (typeof id !== "string" || !UUID.test(id)) return NOT_FOUND;
   let name: string;
   try {

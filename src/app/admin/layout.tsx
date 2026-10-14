@@ -14,7 +14,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "หลังบ้าน | AdvisorTool" };
 
 /**
- * The back office, for the owner and the assistants the owner names (2026-09-27).
+ * The back office, for the owner and the assistants the owner names (2026-09-27); for the Super
+ * Admin alone since 2026-10-15, who signs in with Google at /backoffice.
  *
  * It was open at its address from 2026-09-22, by the owner's choice at the time; now that
  * advisortool shares UnitOS's database, the door is UnitOS's: an agent signs in with their own
@@ -23,14 +24,15 @@ export const metadata: Metadata = { title: "หลังบ้าน | AdvisorTo
  * action.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const viewer = await gatePage("/admin");
+  // the Super Admin's alone since 2026-10-15 (owner): agents, the owner's own account included,
+  // are sent back to /home
+  const viewer = await gatePage("/admin", "backoffice");
   const who = await shellWho(viewer);
-  // posting is done in Studio; the back office is the admins' and the Messenger is "connect"'s (owner, 2026-10-02)
-  if (!who || !(who.admin || who.connect)) redirect("/studio");
+  if (!who) redirect("/backoffice");
   return (
-    // named for where it is, as Studio's menu is (owner chose ข, 2026-10-14); the mark opens
-    // the first page here the viewer may, the way out is ระบบหลัก at the top of the menu
-    <AppShell signedIn who={who} brand={{ href: who.admin ? "/admin" : "/admin/messenger", label: "หลังบ้าน" }}>
+    // named for where it is, as Studio's menu is (owner chose ข, 2026-10-14); no way out to the
+    // front of the app: the Super Admin has none (2026-10-15)
+    <AppShell signedIn who={who} brand={{ href: "/admin", label: "หลังบ้าน" }}>
       <div className="mx-auto max-w-5xl p-4 pt-16 sm:p-6 sm:pt-16 lg:pt-6">{children}</div>
     </AppShell>
   );

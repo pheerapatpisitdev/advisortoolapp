@@ -9,7 +9,7 @@ import { savePicture } from "@/lib/chat/page-welcome-store";
  * until the greeting that holds it is saved.
  */
 export async function POST(req: NextRequest) {
-  const refused = await refuseUnless("admin");
+  const refused = await refuseUnless("backoffice");
   if (refused) return refused;
   const form = await req.formData().catch(() => null);
   const file = form?.get("picture");

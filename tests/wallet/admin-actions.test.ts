@@ -29,7 +29,7 @@ describe("saveWallet", () => {
 
   it("is open to an admin: the switch and the multiplier are not the owner's alone", async () => {
     await saveWallet(true, "2");
-    expect(staff.requireStaff).toHaveBeenCalledWith("admin");
+    expect(staff.requireStaff).toHaveBeenCalledWith("backoffice");
   });
 
   it("refuses a multiplier out of range and saves nothing", async () => {
@@ -47,7 +47,7 @@ describe("savePrices (owner, 2026-10-12)", () => {
 
   it("saves every price in satang, the owner's alone", async () => {
     expect(await savePrices(typed)).toEqual({ ok: true });
-    expect(staff.requireStaff).toHaveBeenCalledWith("owner");
+    expect(staff.requireStaff).toHaveBeenCalledWith("backoffice");
     expect(wallet.saveWalletPrices).toHaveBeenCalledWith({
       drawStandard: 100, drawSharp: 200, drawGemini: 500, describe: 100,
       videoClassic: 500, videoMotion: 1000, videoFhc: 300, elevenExtra: 250,
@@ -72,7 +72,7 @@ describe("adjustAgentWallet", () => {
 
   it("asks for the owner, not just an admin, and moves nothing for anyone else", async () => {
     await adjustAgentWallet(AGENT, "20", "ของขวัญ");
-    expect(staff.requireStaff).toHaveBeenCalledWith("owner");
+    expect(staff.requireStaff).toHaveBeenCalledWith("backoffice");
     staff.requireStaff.mockRejectedValueOnce(new Error("ไม่มีสิทธิ์ใช้ส่วนนี้"));
     await expect(adjustAgentWallet(AGENT, "20", "ของขวัญ")).rejects.toThrow("ไม่มีสิทธิ์");
     expect(wallet.adjustWallet).toHaveBeenCalledTimes(1);
@@ -99,7 +99,7 @@ describe("unfreezeAgentWallet (owner, 2026-10-01)", () => {
   it("is the owner's alone, like an adjustment", async () => {
     wallet.unfreezeWallet.mockResolvedValueOnce(0);
     await unfreezeAgentWallet(AGENT, "x");
-    expect(staff.requireStaff).toHaveBeenCalledWith("owner");
+    expect(staff.requireStaff).toHaveBeenCalledWith("backoffice");
     staff.requireStaff.mockRejectedValueOnce(new Error("ไม่มีสิทธิ์ใช้ส่วนนี้"));
     await expect(unfreezeAgentWallet(AGENT, "x")).rejects.toThrow("ไม่มีสิทธิ์");
     expect(wallet.unfreezeWallet).toHaveBeenCalledTimes(1);
@@ -127,7 +127,7 @@ describe("saveMemberPass (owner, 2026-10-13)", () => {
 
   it("is the owner's alone: an admin who is not the owner saves nothing", async () => {
     await saveMemberPass(typed);
-    expect(staff.requireStaff).toHaveBeenCalledWith("owner");
+    expect(staff.requireStaff).toHaveBeenCalledWith("backoffice");
     staff.requireStaff.mockRejectedValueOnce(new Error("ไม่มีสิทธิ์ใช้ส่วนนี้"));
     await expect(saveMemberPass(typed)).rejects.toThrow("ไม่มีสิทธิ์");
     expect(pass.savePassSettings).toHaveBeenCalledTimes(1);

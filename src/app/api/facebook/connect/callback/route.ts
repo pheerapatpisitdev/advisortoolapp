@@ -52,7 +52,7 @@ async function finish(req: Request): Promise<NextResponse> {
   // the state proves the login began here; the session proves who is finishing it
   const viewer = await getViewer();
   if (!viewer) return NextResponse.redirect(`${origin}/?next=${encodeURIComponent(home)}`);
-  if (!can(viewer, purpose === "ads-manage" ? "owner" : purpose === "ads" ? "admin" : "connect")) {
+  if (!can(viewer, purpose === "ads-manage" ? "owner" : "backoffice")) {
     return NextResponse.redirect(`${origin}/studio`);
   }
 

@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "ห้องสอนบอท | Adv
  * where each answer came from, and teaches an answer word for word where the bot's was wrong.
  */
 export default async function TeachPage({ searchParams }: { searchParams: Promise<{ q?: string; tab?: string }> }) {
-  await gatePage("/admin/teach", "admin");
+  await gatePage("/admin/teach", "backoffice");
   const [pages, taught, tests, intro, params] = await Promise.all([
     pageConnections().catch((e) => {
       console.error("pages unreadable:", e);

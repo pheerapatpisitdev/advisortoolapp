@@ -117,7 +117,7 @@ export async function loadAiPage(): Promise<{
   /** who used AI this month and how much; null when it could not be read */
   people: PersonUse[] | null;
 }> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const supabase = supabaseAdmin();
   const since = await spendSince();
   const [keys, models, prefs, settings, spend, people] = await Promise.all([
@@ -293,7 +293,7 @@ async function storeKey(provider: string, value: string): Promise<Result> {
 }
 
 export async function saveApiKey(provider: string, key: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (!PROVIDERS.includes(provider as Provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
   const value = cleanKey(key);
   if (value.length < 8) return { ok: false, error: "กุญแจสั้นเกินไป — วางกุญแจทั้งเส้นอีกครั้ง" };
@@ -309,7 +309,7 @@ export async function saveApiKey(provider: string, key: string): Promise<Result>
  * breaks — and what is stored is the minified JSON gcpKeyFromUpload makes.
  */
 export async function saveRenderKey(provider: RenderProvider, key: string, gcp?: { region: string; job: string }): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (!(RENDER_PROVIDERS as readonly string[]).includes(provider)) return { ok: false, error: "บริการไม่ถูกต้อง" };
   if (provider === "gcp") {
     const stored = gcpKeyFromUpload(String(key ?? ""), String(gcp?.region ?? ""), String(gcp?.job ?? ""));
@@ -328,7 +328,7 @@ export async function saveRenderKey(provider: RenderProvider, key: string, gcp?:
 
 /** Which service renders clips, whether the others are tried when it cannot, and Rendi's time limit. */
 export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (s?.engine !== "rendi" && s?.engine !== "lambda" && s?.engine !== "cloudrun") return { ok: false, error: "ตัวตัดต่อไม่ถูกต้อง" };
   if (typeof s.fallback !== "boolean") return { ok: false, error: "ค่าสำรองไม่ถูกต้อง" };
   if (typeof s.enabled !== "boolean") return { ok: false, error: "ค่าเปิดตัดต่อไม่ถูกต้อง" };
@@ -349,7 +349,7 @@ export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
  * wanted again. For TypeSafe it is also the shadow's off switch.
  */
 export async function setProviderEnabled(provider: string, enabled: boolean): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (!PROVIDERS.includes(provider as Provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
   try {
     const { error } = await supabaseAdmin().from("ins_api_keys").update({ enabled: Boolean(enabled) }).eq("provider", provider);
@@ -363,7 +363,7 @@ export async function setProviderEnabled(provider: string, enabled: boolean): Pr
 }
 
 export async function setModelEnabled(id: string, enabled: boolean): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (!id || typeof id !== "string") return { ok: false, error: "ไม่รู้จักโมเดลนี้" };
   try {
     const { error } = await supabaseAdmin().from("ins_model_prefs")
@@ -382,7 +382,7 @@ export async function setModelEnabled(id: string, enabled: boolean): Promise<Res
  * are read here, by the rules in ./budget.ts — the browser is not the guard.
  */
 export async function saveSettings(smallModel: string, largeModel: string, monthlyBudget: string, contentBudget: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const budgets = checkBudgets(monthlyBudget, contentBudget, DEFAULT_CONTENT_CAP_THB);
   if (!budgets.ok) return budgets;
   try {
@@ -404,7 +404,7 @@ export async function saveSettings(smallModel: string, largeModel: string, month
  * The ledger is not touched — every call stays in it, and the next month starts clean on its own.
  */
 export async function resetSpend(): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { error } = await supabaseAdmin().from("ins_ai_settings")
       .upsert({ id: true, spend_reset_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: "id" });
@@ -425,6 +425,6 @@ export async function resetSpend(): Promise<Result> {
  * page that spends money every time it is opened is a page nobody should have written.
  */
 export async function checkKeys(): Promise<ProviderCheck[]> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   return testProviders([...PROVIDERS]);
 }

@@ -16,7 +16,7 @@ async function isOurPage(pageId: unknown): Promise<boolean> {
 }
 
 export async function saveWelcomeAction(pageId: string, input: unknown): Promise<Result> {
-  const viewer = await requireStaff("admin");
+  const viewer = await requireStaff("backoffice");
   if (!(await isOurPage(pageId))) return { ok: false, error: "ไม่พบเพจนี้" };
   const read = readWelcomeInput(input, bucketPrefix());
   if (!read.ok) return read;
@@ -32,7 +32,7 @@ export async function saveWelcomeAction(pageId: string, input: unknown): Promise
 }
 
 export async function resetWelcomeAction(pageId: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   if (!(await isOurPage(pageId))) return { ok: false, error: "ไม่พบเพจนี้" };
   try {
     await resetWelcome(pageId);

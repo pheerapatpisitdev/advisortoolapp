@@ -137,7 +137,7 @@ export default async function MessengerAdminPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await gatePage("/admin/messenger", "connect");
+  await gatePage("/admin/messenger", "backoffice");
   const params = await searchParams;
   const outcome = OUTCOMES[String(params.fb ?? "")];
   const detail = typeof params.detail === "string" ? params.detail : undefined;

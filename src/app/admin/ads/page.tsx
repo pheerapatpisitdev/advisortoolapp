@@ -177,7 +177,7 @@ function Cells({ t }: { t: Tally }) {
 }
 
 export default async function AdsPage({ searchParams }: { searchParams: Promise<{ range?: string; fb?: string; detail?: string }> }) {
-  await gatePage("/admin/ads", "admin");
+  await gatePage("/admin/ads", "backoffice");
   const params = await searchParams;
   const range: AdsRange = params.range === "30d" ? "30d" : "7d";
   const outcome = OUTCOMES[params.fb ?? ""];

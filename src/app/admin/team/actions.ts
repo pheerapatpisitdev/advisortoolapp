@@ -35,7 +35,7 @@ type Joined = {
 };
 
 export async function listStaff(): Promise<StaffMember[]> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   const { data, error } = await supabaseAdmin().from("ins_staff")
     .select("agent_id, is_owner, can_publish, can_connect, can_admin, created_at, agent:agents!ins_staff_agent_id_fkey(agent_code, name, tenant:tenants(slug, name))")
     .order("is_owner", { ascending: false }).order("created_at");
@@ -56,7 +56,7 @@ export async function listStaff(): Promise<StaffMember[]> {
 
 /** Who a code belongs to, shown before เพิ่ม so the owner adds the person they meant. */
 export async function lookUpAgent(code: string): Promise<{ ok: true; name: string; room: string } | { ok: false; error: string }> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   if (!/^\d{6}$/.test(code.trim())) return { ok: false, error: "กรอกรหัสตัวแทน 6 หลัก" };
   const agents = await agentsByCode(code.trim());
   if (agents.length > 1) return { ok: false, error: "รหัสนี้มีในมากกว่าหนึ่งห้อง — เพิ่มจากที่นี่ไม่ได้" };
@@ -66,7 +66,7 @@ export async function lookUpAgent(code: string): Promise<{ ok: true; name: strin
 }
 
 export async function addStaff(code: string): Promise<{ ok: boolean; error?: string }> {
-  const me = await requireStaff("owner");
+  const me = await requireStaff("backoffice");
   const found = await agentsByCode(code.trim());
   const agent = found.length === 1 ? found[0] : null;
   if (!agent || !admit(agent, null, Date.now())) return { ok: false, error: "ไม่พบรหัสนี้ใน UnitOS หรือห้องของเขายังไม่เปิดใช้" };
@@ -79,7 +79,7 @@ export async function addStaff(code: string): Promise<{ ok: boolean; error?: str
 }
 
 export async function setStaffFlags(agentId: string, flags: { publish: boolean; connect: boolean; admin: boolean }): Promise<{ ok: boolean; error?: string }> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   const { data, error } = await supabaseAdmin().from("ins_staff")
     .update({ can_publish: flags.publish, can_connect: flags.connect, can_admin: flags.admin })
     .eq("agent_id", agentId).eq("is_owner", false).select("agent_id");
@@ -91,7 +91,7 @@ export async function setStaffFlags(agentId: string, flags: { publish: boolean; 
 }
 
 export async function removeStaff(agentId: string): Promise<{ ok: boolean; error?: string }> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   const { data, error } = await supabaseAdmin().from("ins_staff")
     .delete().eq("agent_id", agentId).eq("is_owner", false).select("agent_id");
   if (error) return { ok: false, error: `เอาออกไม่สำเร็จ: ${error.message}` };
@@ -108,7 +108,7 @@ export async function removeStaff(agentId: string): Promise<{ ok: boolean; error
  * review). Never the owner's row: the owner sees every Page.
  */
 export async function setStaffPages(agentId: string, pageIds: string[]): Promise<{ ok: boolean; error?: string }> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   const connected = new Set((await pageConnections()).map((p) => p.pageId));
   const ids = [...new Set(pageIds.filter((p): p is string => typeof p === "string" && connected.has(p)))];
   const db = supabaseAdmin();

@@ -199,14 +199,28 @@ describe("what the menu shows to somebody who has not signed in", () => {
     expect(admin).not.toContain("/admin/stats");
   });
 
-  it("gives staff, who land on the main system after signing in, their way to the back office", () => {
+  it("gives no agent a way to the back office, the owner's own account included (owner, 2026-10-15)", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
-    const offices = (w: typeof who | null) => menuGroups(false, w).flatMap((g) => g.links).filter((l) => l.label === "หลังบ้าน").map((l) => l.href);
+    const offices = (w: typeof who | null) => [...menuGroups(false, w), ...studioMenu(w ?? undefined)].flatMap((g) => g.links).filter((l) => l.label === "หลังบ้าน").map((l) => l.href);
     expect(offices(null)).toEqual([]);
     expect(offices(who)).toEqual([]);
     expect(offices({ ...who, publish: true })).toEqual([]);
-    expect(offices({ ...who, connect: true })).toEqual(["/admin/messenger"]);
-    expect(offices({ ...who, admin: true, connect: true })).toEqual(["/admin"]);
+    expect(offices({ ...who, connect: true })).toEqual([]);
+    expect(offices({ ...who, admin: true, connect: true })).toEqual([]);
+    expect(offices({ ...who, owner: true, admin: true, connect: true, publish: true })).toEqual([]);
+  });
+
+  it("gives the Super Admin the back office with no way back to the front (owner, 2026-10-15)", () => {
+    const superAdmin = { name: "x@gmail.com", room: "Super Admin", publish: true, connect: true, admin: true, owner: true, super: true };
+    const back = menuGroups(true, superAdmin).flatMap((g) => g.links.map((l) => l.href));
+    expect(back).not.toContain("/home");
+    expect(back).toContain("/admin/wallet");
+    expect(back).toContain("/admin/team");
+    expect(back).toContain("/admin/stats");
+    // on a public page, only the way back to the back office
+    expect(menuGroups(false, superAdmin).flatMap((g) => g.links.map((l) => l.href))).toEqual(["/admin"]);
+    // no account page, wallet, price list or pass
+    expect(accountLinks(superAdmin)).toEqual([]);
   });
 
   it("names no group a signed-out reader has nothing in", () => {
@@ -214,11 +228,11 @@ describe("what the menu shows to somebody who has not signed in", () => {
     for (const group of menuGroups(false)) expect(group.links.length).toBeGreaterThan(0);
   });
 
-  it("puts the agent's own work first: หน้าหลัก, their FHC customers, ถาม AI, Studio, then the back office (owner chose ข, 2026-10-14)", () => {
+  it("puts the agent's own work first: หน้าหลัก, their FHC customers, ถาม AI, Studio (owner chose ข, 2026-10-14)", () => {
     const who = { name: "ก", room: "สมาชิกทั่วไป", publish: false, connect: false, admin: false, owner: false };
     const first = (w: typeof who | null) => menuGroups(false, w)[0];
     expect(first({ ...who, member: true } as typeof who).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio"]);
-    expect(first({ ...who, admin: true }).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio", "/admin"]);
+    expect(first({ ...who, admin: true }).links.map((l) => l.href)).toEqual(["/home", "/fhc/customers", "/ask", "/studio"]);
     expect(first(null).title).toBe("งานของฉัน");
     // the membership pass is in the account box now, in no menu's list
     const hrefs = (w: typeof who | null) => [...menuGroups(false, w), ...menuGroups(true, w), ...studioMenu(w)].flatMap((g) => g.links.map((l) => l.href));
@@ -273,15 +287,14 @@ describe("Studio's own menu", () => {
     expect(groups[0].links[0]).toMatchObject({ label: "ระบบหลัก", icon: "back" });
   });
 
-  it("keeps the front page for admins and assistants, the back office for staff; agents start at the workbench", () => {
+  it("keeps the front page for admins and assistants; agents start at the workbench; no back office (owner, 2026-10-15)", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const top = (w: typeof who) => studioMenu(w)[0].links.map((l) => l.href);
     expect(top(who)).toEqual(["/home"]);
-    expect(top({ ...who, admin: true, publish: true })).toEqual(["/home", "/admin", "/studio"]);
+    expect(top({ ...who, admin: true, publish: true })).toEqual(["/home", "/studio"]);
     // an assistant has an agent's Studio and the front page to choose among their Pages (owner, 2026-10-02)
     expect(top({ ...who, publish: true })).toEqual(["/home", "/studio"]);
-    // the Messenger stays with the "connect" tick, which the owner gives or takes on /admin/team
-    expect(top({ ...who, publish: true, connect: true })).toEqual(["/home", "/admin/messenger", "/studio"]);
+    expect(top({ ...who, publish: true, connect: true })).toEqual(["/home", "/studio"]);
   });
 
   it("lists ภาพปกคลิป right after Organic Studio, for everyone who has Studio (owner, 2026-10-09; opened to all 2026-10-14)", () => {
