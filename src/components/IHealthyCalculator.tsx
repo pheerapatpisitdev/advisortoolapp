@@ -651,7 +651,7 @@ export function IHealthyCalculator(
       <div className="print:hidden">
         <ContactButtons
           copyText={quoteText} cardPath={picture} words={w.contact}
-          videoHref={plan ? videoStartHref({ product: "IHEALTHY", sex, age, plan: plan.code, ...(videoSetup ? { setup: videoSetup } : {}) }) : undefined}
+          videoHref={plan ? videoStartHref({ product: "IHEALTHY", sex, age, plan: plan.code, ...(videoSetup ? { setup: videoSetup } : {}), lang }) : undefined}
         />
       </div>
 

@@ -12,6 +12,9 @@ import { plbVideoFacts, termsSaid, type PlbVariant, type PlbVideoFacts } from ".
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
 import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
+import { VIDEO_WORDS, type VideoLang } from "./video-words";
+import { WORDS } from "@/lib/ihealthy-words";
+import { foreignScript } from "./ihealthy-foreign";
 
 /**
  * วิดีโอนำเสนอ (owner, 2026-10-11): what the scenes show and say, taken from the same quote the
@@ -43,7 +46,8 @@ export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "conta
 export type VideoInput = (
   | { product?: "LIFEPROTECT" | "ISHIELD"; variant: string; age: number; sex: "M" | "F"; sumAssured: number }
   /** `setup`: the iHealthy Ultra page's base, sum, territory, coverage and riders as its address writes them (ihealthy-setup.ts); absent = the page's defaults */
-  | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[]; setup?: string }
+  /** `lang`: the language the clip is told in (owner, 2026-10-15; video-words.ts); absent = Thai */
+  | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[]; setup?: string; lang?: VideoLang }
   /** the sum the pension is paid from; the form may send the monthly pension instead (pension.ts checkedPension) */
   | { product: "PENSION"; age: number; sex: "M" | "F"; annuityAge: number; pay: PensionPay; sumAssured: number; monthly?: number }
   /** มรดกเพื่อครอบครัว: the tier, 1–10, which is the millions the family receives (legacy.ts) */
@@ -82,13 +86,16 @@ export function spokenBy(line: string, narrator: "F" | "M" = "F"): string {
 
 export const productOf = (v: VideoInput): Product => v.product ?? "LIFEPROTECT";
 
-export interface PriceRow { label: string; amount: string; main: boolean }
+/** `per`: the instalment a row is, where its label is not the Thai one (a clip in another language) */
+export interface PriceRow { label: string; amount: string; main: boolean; per?: "month" | "year" | "half" }
 export interface CoverRow { label: string; amount: string; mark: boolean }
-export interface ComparePlan { name: string; ceiling: string; room: string; opd: string; monthly: string; main: boolean }
+export interface ComparePlan { name: string; ceiling: string; room: string; opd: string; monthly: string; main: boolean; ceilingBaht?: number }
 
 /** Everything the clip shows, as the cards state it. Parts a product has not got are absent. */
 export interface QuoteVideoFacts {
   product: Product;
+  /** the language the screen and the voice are in; absent = Thai (only iHealthy Ultra has others) */
+  lang?: VideoLang;
   planLine: string;
   insuredWho: string;
   insuredLine: string;
@@ -163,7 +170,8 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
     : planFacts(v, today);
   if (!f || !v.budget) return f;
   // a clip begun from a budget says what the customer saves, in the instalment they named
-  const row = f.prices.find((p) => p.label === (v.budget!.per === "month" ? "รายเดือน" : "รายปี"));
+  const per = v.budget.per;
+  const row = f.prices.find((p) => (p.per ? p.per === per : p.label === (per === "month" ? "รายเดือน" : "รายปี")));
   return row ? { ...f, budget: { per: v.budget.per, amount: row.amount } } : f;
 }
 
@@ -266,7 +274,14 @@ function cellOf(rows: { label: string; cells: { text: string }[]; span?: string 
 }
 
 function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: Date): QuoteVideoFacts | undefined {
-  const card = iHealthyCard(setupQuery(v), today);
+  const query = setupQuery(v);
+  const card = iHealthyCard(query, today);
+  // another language: the same card read in it (ihealthy-card.ts `l=`), row for row and column
+  // for column; the Thai card is still the one looked into, its labels being the keys
+  const lang: VideoLang = v.lang ?? "th";
+  const shown = lang === "th" ? card : iHealthyCard(new URLSearchParams([...query, ["l", lang]]), today);
+  const w = WORDS[lang];
+  const vw = VIDEO_WORDS[lang];
   const at = card.columns.findIndex((c) => c.selected);
   const col = card.columns[at];
   if (!col || !col.sold || !card.premium) return undefined;
@@ -274,56 +289,77 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
   if (!card.insuredWho.endsWith(` ${v.age} ปี`)) return undefined;
   const price = (label: string, i: number) => card.premiumRows.find((r) => r.label === label)?.cells[i]?.text ?? "";
   const monthly = price("รายเดือน", at);
+  const PER: Record<string, PriceRow["per"]> = { รายเดือน: "month", รายปี: "year", "ราย 6 เดือน": "half" };
   const prices = card.premiumRows
-    .map((r) => ({ label: r.label, amount: r.cells[at]?.text ?? "", main: r.label === "รายเดือน" }))
+    .map((r, k) => ({ label: shown.premiumRows[k]?.label ?? r.label, amount: r.cells[at]?.text ?? "", main: r.label === "รายเดือน", per: PER[r.label] }))
     .filter((r) => digits(r.amount) > 0);
   if (!monthly || prices.length === 0) return undefined;
-  const benefits = card.rows
-    .filter((r) => r.label !== "วงเงินค่ารักษาต่อปี")
-    .map((r) => ({ label: r.label, amount: r.span ? r.span.split(" · ")[0] : r.cells[at]?.text ?? "" }))
-    .filter((b) => b.amount && b.amount !== "-");
+  /** a benefit row in Thai, for the voice, and as it is shown */
+  const kept = card.rows
+    .map((r, k) => ({ r, k }))
+    .filter(({ r }) => r.label !== "วงเงินค่ารักษาต่อปี");
+  const amountOf = (r: (typeof card.rows)[number]) => (r.span ? r.span.split(" · ")[0] : r.cells[at]?.text ?? "");
+  const both = kept
+    .map(({ r, k }) => ({
+      thai: { label: r.label, amount: amountOf(r) },
+      // the card's "as charged" runs long in Russian and Burmese: the clip's row says it shorter
+      shown: { label: shown.rows[k]?.label ?? r.label, amount: amountOf(r) === "ตามที่จ่ายจริง" ? vw.asCharged : shown.rows[k] ? amountOf(shown.rows[k]) : amountOf(r) },
+    }))
+    .filter((b) => b.thai.amount && b.thai.amount !== "-");
+  const benefits = both.map((b) => b.thai);
   // the base plan and the health plan are the card's first two lines; the rest are what the page attached
   const daily = benefits.some((b) => b.label === "ค่าชดเชยรายวัน");
   const riders = Math.max(0, card.lines.length - 2 - (daily ? 1 : 0));
   const includes = ["ประกันชีวิต", ...(daily ? ["ค่าชดเชยรายวัน"] : []), ...(riders ? ["สัญญาเพิ่มเติม"] : [])];
   const wanted = new Set([v.plan, ...v.compare]);
   const codes = iHealthyPlanCodes();
+  const perDay = new RegExp(`\\s*${w.perDay.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`);
   const compare = card.columns
     .map((c, i) => ({ c, i, code: codes[i] }))
     .filter(({ c, code }) => c.sold && code && wanted.has(code))
     .slice(0, 3)
     .map(({ c, i }) => ({
-      name: c.name, ceiling: c.ceiling, main: i === at,
-      room: (cellOf(card.rows, "ค่าห้องและค่าอาหาร", i) ?? "-").replace(" ต่อวัน", ""),
-      opd: cellOf(card.rows, "ผู้ป่วยนอก OPD", i) ?? "-",
+      name: c.name, ceiling: shown.columns[i]?.ceiling ?? c.ceiling, main: i === at,
+      room: (cellOf(shown.rows, shown.rows[cardRowAt(card.rows, "ค่าห้องและค่าอาหาร")]?.label ?? "", i) ?? "-").replace(perDay, ""),
+      opd: cellOf(shown.rows, shown.rows[cardRowAt(card.rows, "ผู้ป่วยนอก OPD")]?.label ?? "", i) ?? "-",
       monthly: price("รายเดือน", i),
+      ceilingBaht: ceilingBaht(c.ceiling),
     }));
-  const ceilingNum = Number.parseFloat(col.ceiling.replace(/,/g, ""));
-  const ceiling = Math.round(ceilingNum * (col.ceiling.includes("ล้าน") ? 1_000_000 : 1));
+  const ceiling = ceilingBaht(col.ceiling);
   if (!Number.isFinite(ceiling) || ceiling <= 0) return undefined;
   return {
     product: "IHEALTHY",
-    planLine: card.planLine,
-    insuredWho: card.insuredWho,
-    insuredLine: card.insuredLine,
+    ...(lang !== "th" ? { lang } : {}),
+    planLine: shown.planLine,
+    insuredWho: shown.insuredWho,
+    insuredLine: shown.insuredLine,
     sex: v.sex,
     age: v.age,
     planName: col.name,
-    lead: { label: "วงเงินค่ารักษาต่อปี", amount: ceiling.toLocaleString("en-US"), baht: ceiling },
-    leadMark: `เบี้ยปีแรก เดือนละ ${monthly} บาท`,
-    priceTitle: "เบี้ยประกันปีแรก",
+    lead: { label: w.annualLimit, amount: ceiling.toLocaleString("en-US"), baht: ceiling },
+    leadMark: vw.leadMark(monthly),
+    priceTitle: vw.priceTitle,
     prices,
     spokenPrice: { per: "เดือนละ", amount: monthly },
     pills: [],
-    priceNotes: [card.lines.map((l) => l.label).join(" · "), "เบี้ยปีแรก ปีต่อไปคิดตามอายุที่เพิ่มขึ้น"],
-    coverTitle: `แผน ${col.name} คุ้มครอง`,
-    cover: benefits.map((b) => ({ label: b.label, amount: b.amount, mark: true })),
+    priceNotes: [shown.lines.map((l) => l.label).join(" · "), w.firstYearOnly],
+    coverTitle: vw.coverTitle(col.name),
+    cover: both.map((b) => ({ label: b.shown.label, amount: b.shown.amount, mark: true })),
     coverStyle: "rows",
     coverToAge: 98,
     benefits,
     includes,
     ...(compare.length >= 2 ? { compare } : {}),
   };
+}
+
+/** where the Thai card has the row of this name, so the same row of a card in another language is found */
+const cardRowAt = (rows: { label: string }[], label: string) => rows.findIndex((r) => r.label === label);
+
+/** "15 ล้าน" → 15,000,000 */
+function ceilingBaht(thai: string): number {
+  const n = Number.parseFloat(thai.replace(/,/g, ""));
+  return Math.round(n * (thai.includes("ล้าน") ? 1_000_000 : 1));
 }
 
 /** the iHealthy plans in the card's column order, by code: the card draws every plan, in the benefit sheet's order, when no `fit` is asked for */
@@ -399,6 +435,8 @@ function healthCoverLine(f: QuoteVideoFacts): string {
 export function quoteVideoScript(f: QuoteVideoFacts, customer?: string, narrator: "F" | "M" = "F", length: VideoLength = "full", told: Told = {}): SceneScript[] {
   const short = length === "short";
   const name = short ? "" : cleanCustomerName(customer);
+  // another language (owner, 2026-10-15): its own fixed lines, the 15-second clip or the whole one, no brief
+  if (f.lang && f.lang !== "th") return foreignScript(f, f.lang, name, short);
   const base = short ? shortScript(f) : femaleScript(f, name);
   const middle = base.filter((s) => s.key !== "lead" && s.key !== "contact");
   const w = linesOf(f, told);

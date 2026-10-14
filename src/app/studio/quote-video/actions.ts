@@ -27,6 +27,8 @@ import { checkedLegacy } from "@/lib/quote-video/legacy";
 import { checkedPlb } from "@/lib/quote-video/plb";
 import { GAP_WORD } from "@/lib/fhc/gaps";
 import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
+import { readVideoLang } from "@/lib/quote-video/video-words";
+import { LANG_NAME } from "@/lib/ihealthy-lang";
 import { readLength } from "@/lib/quote-video/told";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
@@ -100,16 +102,19 @@ function checked(v: VideoInput): VideoInput | string {
   const worked = budget ? resolveBudget(checkedAsked, budget) : checkedAsked;
   if (typeof worked === "string") return worked;
   const c = worked;
+  // another language (owner, 2026-10-15): Gemini's narrator, fixed lines, the 15-second clip or the whole one
+  const foreign = c.product === "IHEALTHY" && readVideoLang(c.lang) !== "th";
   // an ElevenLabs voice sets the endings itself: a man's voice says ครับ
-  const eleven = elevenVoice(v.voice);
+  const eleven = foreign ? undefined : elevenVoice(v.voice);
   const narrator = eleven ? eleven.sex : v.narrator === "M" ? "M" : "F";
   const style = v.style === "motion" ? "motion" : "classic";
-  const length = readLength(v.length);
+  const askedLength = readLength(v.length);
+  const length = foreign && askedLength !== "short" ? "full" : askedLength;
   // every clip in every shape (owner, 2026-10-13)
   const size = sizeOf(v);
   // โจทย์การเล่า: the brief, and the lines the agent saw (and may have edited) — checked again here
   const facts = quoteVideoFacts(c);
-  const brief = facts ? cleanBrief(v.brief, facts) : undefined;
+  const brief = facts && !foreign ? cleanBrief(v.brief, facts) : undefined;
   let lines: WrittenLines | undefined;
   if (facts && writes(brief) && v.lines) {
     const l = cleanLines(v.lines);
@@ -173,7 +178,8 @@ function checkedQuote(v: VideoInput): VideoInput | string {
     if (!codes.has(v.plan)) return "เลือกแผน";
     const compare = [...new Set((Array.isArray(v.compare) ? v.compare : []).filter((c) => codes.has(c) && c !== v.plan))].slice(0, 2);
     const setup = cleanSetup(v.setup);
-    return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: v.plan, compare, ...(setup ? { setup } : {}) };
+    const lang = readVideoLang(v.lang);
+    return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: v.plan, compare, ...(setup ? { setup } : {}), ...(lang !== "th" ? { lang } : {}) };
   }
   if (v.product === "PENSION") return checkedPension(v);
   if (v.product === "LEGACY") return checkedLegacy(v);
@@ -445,7 +451,7 @@ export async function myVideos(): Promise<VideoItem[]> {
     const input = v.input;
     const product = productOf(input);
     const what = input.product === "IHEALTHY"
-      ? planWord(input.plan)
+      ? `${planWord(input.plan)}${input.lang && input.lang !== "th" ? ` · ${LANG_NAME[readVideoLang(input.lang)]}` : ""}`
       : input.product === "PENSION"
         ? `เดือนละ ${Math.round(input.sumAssured * MONTHLY_FACTOR_FIRST).toLocaleString("en-US")} · รับ ${input.annuityAge} · ${input.pay === "6" ? "จ่าย 6 ปี" : "จ่ายจนรับ"}`
         : input.product === "LEGACY"

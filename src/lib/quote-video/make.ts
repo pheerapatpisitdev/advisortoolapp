@@ -38,6 +38,7 @@ import { writeLines } from "./writer";
 import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput } from "./script";
 import { clipLength, LOOP_TAIL, planScenes, SIZES, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay, voiceFullText } from "./voice-quota";
+import { readVideoLang, SCRIPT_FAMILY, wordsLetters, type VideoLang } from "./video-words";
 import { clipKind, DEFAULT_ESTIMATES, estimatesFrom, type ClipKind, type Estimate, type ProgressNote } from "./progress";
 
 /**
@@ -344,6 +345,10 @@ async function contactOf(agentId: string, agentName: string): Promise<Contact> {
 
 const narratorOf = (input: ClipInput): "F" | "M" => (input.narrator === "M" ? "M" : "F");
 
+/** the language a clip is told in: an iHealthy clip's own choice (owner, 2026-10-15), Thai for every other */
+export const langOfInput = (input: ClipInput): VideoLang =>
+  (!isFhcInput(input) && input.product === "IHEALTHY" ? readVideoLang(input.lang) : "th");
+
 /** the lines a clip speaks, in scene order */
 function spokenLines(row: VideoRow): { key: string; voice: string }[] {
   if (isFhcInput(row.input)) return fhcScript(row.input.fhc, row.customer_name, narratorOf(row.input));
@@ -384,9 +389,12 @@ async function quoteParts(row: VideoRow & { input: VideoInput }, agentName: stri
 }
 
 /** A quote clip's parts, the agent's contact in hand: no database, so a local render draws the same clip. */
-export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: VideoInput }, contact: Contact, secs: number[]): ClipParts {
+export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: VideoInput }, agentContact: Contact, secs: number[]): ClipParts {
   const facts = quoteVideoFacts(row.input);
   if (!facts) throw new Error("quote not priced");
+  // the agent's รายละเอียดเพิ่มเติม is written in Thai: a clip in another language leaves it out
+  const lang = facts.lang ?? "th";
+  const contact: Contact = lang === "th" ? agentContact : { ...agentContact, more: undefined };
   const narrator = narratorOf(row.input);
   const size = clipSize(row.input);
   const dims = SIZES[size];
@@ -422,6 +430,11 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" && productOf(row.input) !== "PLB" && size !== "square"
     ? valueTableChart(planInput(row.input), size === "landscape" ? WIDE_CHART_W : CHART_W) : undefined;
   const table = facts.pension ? pensionTableImage(facts) : tableImage(facts);
+  // Chinese, Russian and Burmese letters come from a face of their own, cut to what this clip shows
+  const family = SCRIPT_FAMILY[lang];
+  const script$ = family
+    ? { script: { family, text: [JSON.stringify(facts), ...script.map((x) => x.voice), wordsLetters(lang), customer, contact.name, contact.line ?? ""].join("") } }
+    : {};
   /** one scene's pictures: its base (classic), every overlay frame, and the value table */
   const sceneDraws = (s: number): { name: string; draw: () => Promise<Buffer> }[] => {
     const p = plans[s];
@@ -432,15 +445,15 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
       const frame = (t: number) => (size === "portrait" ? motionFrame(p.key, mctx, t) : wideQuoteFrame(p.key, mctx, t, size));
       // the value scene writes its pen notes in the handwriting face
       const withPen = { pen: p.key === "value" };
-      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }, withPen) }));
+      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }, { ...withPen, ...script$ }) }));
     }
     const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, ...(pen ? { notes: pen.notes } : {}), ...shown };
     const withPen = { pen: p.key === "value" };
     const layer = (which: "base" | "over", state?: (typeof p.frames)[number]["state"]) => (size === "portrait"
       ? sceneLayer(p.key, ctx, which, state) : wideSceneLayer(p.key, ctx, which, size, state));
     return [
-      { name: sc.base, draw: () => renderPng(layer("base"), { width: dims.w, height: dims.h }) },
-      ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(layer("over", fr.state), { width: dims.w, height: dims.h }, withPen) })),
+      { name: sc.base, draw: () => renderPng(layer("base"), { width: dims.w, height: dims.h }, script$) },
+      ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(layer("over", fr.state), { width: dims.w, height: dims.h }, { ...withPen, ...script$ }) })),
       ...(sc.layer?.kind === "table" ? [{ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }, { pen: Boolean(facts.pension) }) }] : []),
       ...(sc.layer?.pens ?? []).map((name, k) => ({
         name, draw: () => renderPng(noteDrawing(pen!.notes[k], table.height), { width: table.width, height: table.height }, withPen),
@@ -503,13 +516,17 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const note = (n: ProgressNote) => { noted = noted.then(() => noteProgress(id, n)).catch(() => undefined); };
     let lines = 0;
     note({ step: "voice", done: 0, of: spokenScript.length });
-    const speak = (s: { voice: string }) => speakLine(sayNumbers(s.voice), VIDEO_TASK_VOICE, { narrator, voice: row.input.voice })
+    // figures become Thai words for a Thai voice only; another language's voice reads its own lines, and
+    // the ElevenLabs voices are Thai ones, so it is Gemini's narrator (owner, 2026-10-15)
+    const lang = langOfInput(row.input);
+    const voiceId = lang === "th" ? row.input.voice : undefined;
+    const speak = (s: { voice: string }) => speakLine(lang === "th" ? sayNumbers(s.voice) : s.voice, VIDEO_TASK_VOICE, { narrator, voice: voiceId, lang })
       .then((r) => { note({ step: "voice", done: ++lines, of: spokenScript.length }); return r; });
     // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
-    const spoken = row.input.voice ? await pool(spokenScript, 2, speak) : await Promise.all(spokenScript.map(speak));
+    const spoken = voiceId ? await pool(spokenScript, 2, speak) : await Promise.all(spokenScript.map(speak));
     const pcms = spoken.map((s) => s.pcm);
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
-    lap(`voice done (${spokenScript.length} lines${row.input.voice ? ", ElevenLabs" : ""})`);
+    lap(`voice done (${spokenScript.length} lines${voiceId ? ", ElevenLabs" : ""}${lang === "th" ? "" : `, ${lang}`})`);
     const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
     const { size, motion, plans, named, build, layers } = await clipParts(row, agentName, secs);
     const total = clipLength(plans);

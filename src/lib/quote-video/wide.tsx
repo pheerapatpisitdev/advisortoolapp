@@ -9,6 +9,7 @@ import { leadBig, leadPill } from "./plb";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { countAt, SIZES, type VideoSize } from "./timeline";
 import type { Extra } from "./told";
+import { preparedLine, VIDEO_WORDS, wordsOf, type VideoWords } from "./video-words";
 
 /**
  * The square (1080×1080) and landscape (1920×1080) clips (owner, 2026-10-11, mockup
@@ -125,19 +126,23 @@ function Frame({ g, words, t, voiceSec, children }: { g: Geo; words: string[]; t
 interface Contact { name: string; phone: string; line?: string; more?: string; photo?: string }
 
 /** the agent's card, shared by both kinds of clip */
-function ContactScene({ g, s, t, title, header, customer, narrator, contact, note }: {
+function ContactScene({ g, s, t, title, header, customer, narrator, contact, note, vw = VIDEO_WORDS.th }: {
   g: Geo; s: Record<string, Anim>; t: number; title: string; header: string; customer: string; narrator?: "F" | "M"; contact: Contact; note?: string;
+  /** the clip's language (video-words.ts); Thai unless an iHealthy clip asked for another */
+  vw?: VideoWords;
 }) {
+  const [said, help] = vw.contactLines(narrator ?? "F");
+  const thai = vw === VIDEO_WORDS.th;
   const k = contact;
   const initial = [...k.name.trim()][0] ?? "?";
   const face = g.px(150, 200);
   return (
     <>
-      <Header g={g} left={customer ? `สำหรับ คุณ${customer}` : title} right={header} />
+      <Header g={g} left={customer ? vw.contactFor(customer) : title} right={header} />
       <Body g={g} top={g.px(130, 170)} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
-        <El an={s.title} t={t} style={{ flexDirection: "column", fontSize: g.px(64, 84), fontWeight: 700, color: WHITE, lineHeight: 1.3, ...(g.wide ? { width: 760 } : {}) }}>
-          <div style={box({})}>ทักมาคุยกันได้เลย</div>
-          <div style={box({ color: GOLD })}>{narrator === "M" ? "ยินดีช่วยดูแผนให้ครับ" : "ยินดีช่วยดูแผนให้ค่ะ"}</div>
+        <El an={s.title} t={t} style={{ flexDirection: "column", fontSize: g.px(thai ? 64 : 52, thai ? 84 : 68), fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight, ...(g.wide ? { width: 760 } : {}) }}>
+          <div style={box({})}>{said}</div>
+          <div style={box({ color: GOLD })}>{help}</div>
         </El>
         <div style={box({ flexDirection: "column", flex: 1, marginLeft: g.wide ? 40 : 0, marginTop: g.wide ? 0 : 40 })}>
           <El an={s.card} t={t} style={{ background: WHITE, color: NAVY, borderRadius: 40, padding: g.px(30, 40), alignItems: "center" }}>
@@ -149,7 +154,7 @@ function ContactScene({ g, s, t, title, header, customer, narrator, contact, not
             )}
             <div style={box({ flexDirection: "column", marginLeft: 36, flexShrink: 1 })}>
               <div style={box({ fontSize: g.px(46, 56), fontWeight: 700 })}>{k.name}</div>
-              <div style={box({ fontSize: g.px(36, 44), marginTop: 6 })}>{`โทร ${k.phone}`}</div>
+              <div style={box({ fontSize: g.px(36, 44), marginTop: 6 })}>{`${vw.phone} ${k.phone}`}</div>
               {k.line && <div style={box({ fontSize: g.px(36, 44) })}>{`LINE ${k.line}`}</div>}
             </div>
           </El>
@@ -338,6 +343,7 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const shieldH = Math.round(shieldW * 1.075);
   const n0 = countAt(f.lead.baht, look(s.count, t).p);
   const big = g.px(f.lead.amount.length > 9 ? 96 : 110, f.lead.amount.length > 9 ? 150 : 176);
+  const vw = wordsOf(f);
   return (
     <>
       <Header g={g} left={f.planLine} right={f.insuredWho} />
@@ -354,7 +360,7 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
           </El>
         </div>
         <div style={box({ flexDirection: "column", flex: 1, marginLeft: g.px(40, 80) })}>
-          {c.customer && <El an={s.name} t={t} style={{ fontSize: g.px(32, 42), color: WHITE, marginBottom: 12 }}>จัดทำสำหรับ <span style={{ color: GOLD, fontWeight: 600, marginLeft: 10 }}>คุณ{c.customer}</span></El>}
+          {c.customer && <El an={s.name} t={t} style={{ fontSize: g.px(32, 42), color: WHITE, marginBottom: 12 }}>{preparedLine(vw, c.customer).map((p, i) => <span key={i} style={{ ...(p.name ? { color: GOLD, fontWeight: 600 } : {}), marginLeft: i ? 10 : 0 }}>{p.text}</span>)}</El>}
           {c.headline?.length ? (
             <div style={box({ flexDirection: "column", marginBottom: g.px(14, 24) })}>
               {c.headline.map((h, i) => <div key={i} style={box({ fontSize: g.px(40, 58), fontWeight: 700, color: i === 0 ? WHITE : GOLD, lineHeight: 1.2 })}>{h}</div>)}
@@ -362,7 +368,7 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
           ) : null}
           <El an={s.kicker} t={t} style={{ fontSize: g.px(44, 64), fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
           <El an={s.big} t={t} style={{ fontSize: big, fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{n0.toLocaleString("en-US")}</El>
-          <El an={s.note} t={t} style={{ fontSize: g.px(28, 40), color: WHITE, opacity: 0.85 }}>{`บาท${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
+          <El an={s.note} t={t} style={{ fontSize: g.px(28, 40), color: WHITE, opacity: 0.85 }}>{`${vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
           <El an={s.mark} t={t} style={{ marginTop: g.px(20, 30) }}>
             <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "6px 30px", fontSize: g.px(34, 48), fontWeight: 600 })}>{f.leadMark}</div>
           </El>
@@ -482,6 +488,7 @@ function Price({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   };
   const main = f.prices.find((p) => p.main);
   const daily = f.perDayAmount;
+  const vw = wordsOf(f);
   return (
     <>
       <Header g={g} left={f.priceTitle} right={f.insuredWho} />
@@ -493,9 +500,9 @@ function Price({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
               <g opacity={look(s.coin3, t).opacity}><ellipse cx={35} cy={38} rx={26} ry={7} fill={C.coinTop} /></g>
             </svg>
             <div style={box({ flexDirection: "column", marginLeft: g.px(24, 44) })}>
-              <El an={s.small} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : "ปีแรก เดือนละ")}</El>
+              <El an={s.small} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : vw.firstYearMonthly)}</El>
               <El an={s.big} t={t} style={{ fontSize: f.priceBig ? g.px(62, 116) : g.px(daily ? 120 : 84, daily ? 220 : 150), fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
-              <El an={s.unit} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : "บาท")}</El>
+              <El an={s.unit} t={t} style={{ fontSize: g.px(32, 50), color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : vw.baht)}</El>
             </div>
           </div>
           {f.pills.length > 0 && (
@@ -702,10 +709,11 @@ function Compare({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const ringP = look(s.ring, t).p;
   const lab = g.px(22, 30);
   const val = (main: boolean, a: number, b: number): React.CSSProperties => ({ fontSize: g.px(a, b), fontWeight: 700, color: main ? NAVY : GOLD });
+  const vw = wordsOf(f);
   return (
     <>
-      <Header g={g} left="เลือกแผนที่ใช่" right={f.insuredWho} />
-      <Kicker g={g} an={s.kicker} t={t} text="เทียบแผน iHealthy Ultra" />
+      <Header g={g} left={vw.compareHeader} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={vw.compareTitle} />
       <div style={abs({ left, top: g.px(190, 200), width: total })}>
         {plans.map((p, i) => (
           <El key={p.name} an={s[`col${i}`]} t={t} style={{
@@ -713,13 +721,13 @@ function Compare({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             background: p.main ? WHITE : "rgba(255,255,255,0.1)", border: `4px solid ${p.main ? GOLD : "rgba(255,255,255,0.22)"}`, color: p.main ? NAVY : WHITE,
           }}>
             <div style={box({ fontSize: g.px(36, 54), fontWeight: 700 })}>{p.name}</div>
-            <div style={box({ fontSize: lab, marginTop: 16, opacity: 0.8 })}>วงเงิน/ปี</div>
+            <div style={box({ fontSize: lab, marginTop: 16, opacity: 0.8 })}>{vw.compareRows[0]}</div>
             <div style={box(val(p.main, 40, 60))}>{p.ceiling}</div>
-            <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>ค่าห้อง/วัน</div>
+            <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>{vw.compareRows[1]}</div>
             <div style={box({ fontSize: g.px(30, 46), fontWeight: 600 })}>{p.room}</div>
-            <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>ผู้ป่วยนอก/ปี</div>
+            <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>{vw.compareRows[2]}</div>
             <div style={box({ fontSize: g.px(30, 46), fontWeight: 600 })}>{p.opd}</div>
-            <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>เดือนละ</div>
+            <div style={box({ fontSize: lab, marginTop: 12, opacity: 0.8 })}>{vw.perMonth}</div>
             <div style={box({ fontSize: g.px(36, 54), fontWeight: 700 })}>{p.monthly}</div>
           </El>
         ))}
@@ -731,7 +739,7 @@ function Compare({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
           </svg>
         </div>
       )}
-      <El an={s.note} t={t} style={{ position: "absolute", left: g.side, width: g.w - g.side * 2, top: g.px(190, 200) + colH + 20, justifyContent: g.wide ? "center" : "flex-start", fontSize: g.px(22, 28), color: WHITE, opacity: 0.85 }}>{`ต่ออายุได้ถึงอายุ ${f.coverToAge} · เบี้ยปีแรก ปีต่อไปคิดตามอายุที่เพิ่มขึ้น`}</El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: g.side, width: g.w - g.side * 2, top: g.px(190, 200) + colH + 20, justifyContent: g.wide ? "center" : "flex-start", fontSize: g.px(22, 28), color: WHITE, opacity: 0.85 }}>{vw.renewNote(f.coverToAge)}</El>
     </>
   );
 }
@@ -750,8 +758,8 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     terms: <Terms g={g} c={c} t={t} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} /> : (
-      <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title="สนใจรายละเอียดเพิ่มเติม" header={c.facts.insuredWho}
-        customer={c.customer} narrator={c.narrator} contact={c.contact} note={c.facts.footNote} />
+      <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title={wordsOf(c.facts).contactMore} header={c.facts.insuredWho}
+        customer={c.customer} narrator={c.narrator} contact={c.contact} note={c.facts.footNote} vw={wordsOf(c.facts)} />
     ),
     story: <StoryScene g={g} c={c} t={t} />,
     qa: <QaScene g={g} c={c} t={t} />,

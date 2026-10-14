@@ -39,11 +39,40 @@ function loadPenFont() {
   return penFont;
 }
 
-export async function renderPng(element: ReactNode, size: { width: number; height: number }, opts: { pen?: boolean } = {}): Promise<Buffer> {
-  const [f, pen] = await Promise.all([loadFonts(), opts.pen ? loadPenFont() : undefined]);
+/**
+ * A face for a script Plex has not got (a วิดีโอนำเสนอ clip in Chinese, Russian or Burmese, owner
+ * 2026-10-15): fetched once a process for the letters asked, as the iHealthy card does. A clip
+ * draws hundreds of frames from the same letters, so the last one asked is kept.
+ */
+let scriptFont: { key: string; faces: Promise<DrawFont[] | undefined> } | null = null;
+function loadScriptFont(family: string, text: string) {
+  const key = `${family}\n${[...new Set(text)].sort().join("")}`;
+  if (scriptFont?.key !== key) {
+    const faces = googleFontSubset(family, text).then((f) => {
+      if (!f && scriptFont?.key === key) scriptFont = null;
+      return f;
+    });
+    scriptFont = { key, faces };
+  }
+  return scriptFont.faces;
+}
+
+export async function renderPng(
+  element: ReactNode,
+  size: { width: number; height: number },
+  opts: { pen?: boolean; script?: { family: string; text: string } } = {},
+): Promise<Buffer> {
+  const [f, pen, script] = await Promise.all([
+    loadFonts(),
+    opts.pen ? loadPenFont() : undefined,
+    opts.script ? loadScriptFont(opts.script.family, opts.script.text) : undefined,
+  ]);
+  // a clip in a script without its face would be boxes where the words go: no picture rather than that
+  if (opts.script && !script) throw new Error(`font ${opts.script.family} not loaded`);
   return drawPng(element, size, [
     { name: "Plex", data: f.regular, weight: 400, style: "normal" },
     { name: "Plex", data: f.semibold, weight: 600, style: "normal" },
     ...(pen ?? []),
+    ...(script ?? []),
   ]);
 }

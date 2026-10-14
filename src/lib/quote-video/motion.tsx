@@ -8,6 +8,7 @@ import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
 import { countAt, H, LEAD, W, wordTimes } from "./timeline";
 import type { Extra } from "./told";
+import { preparedLine, wordsOf } from "./video-words";
 
 /**
  * The Motion Graphic style of วิดีโอนำเสนอ (owner, 2026-10-11: "แค่โมชันกราฟิกอธิบายแบบประกัน",
@@ -307,10 +308,11 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
   const s = motionSpec("lead", f, c.voiceSec);
   const shield = look(s.shield, t).p;
   const n = countAt(f.lead.baht, look(s.count, t).p);
+  const vw = wordsOf(f);
   return (
     <>
       <Header f={f} title={f.planLine} />
-      {c.customer && <El an={s.name} t={t} style={{ position: "absolute", left: SIDE, top: 170, fontSize: 42, color: WHITE }}>จัดทำสำหรับ <span style={{ color: GOLD, fontWeight: 600, marginLeft: 12 }}>คุณ{c.customer}</span></El>}
+      {c.customer && <El an={s.name} t={t} style={{ position: "absolute", left: SIDE, top: 170, fontSize: 42, color: WHITE }}>{preparedLine(vw, c.customer).map((p, i) => <span key={i} style={{ ...(p.name ? { color: GOLD, fontWeight: 600 } : {}), marginLeft: i ? 12 : 0 }}>{p.text}</span>)}</El>}
       {c.headline?.length ? (
         // the hook's headline above the shield (owner, 2026-10-13, mockup §5): there from the first frame
         <div style={abs({ left: SIDE, width: W - SIDE * 2, top: c.customer ? 250 : 190, flexDirection: "column", alignItems: "center" })}>
@@ -330,7 +332,7 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
       </div>
       <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 760, justifyContent: "center", fontSize: 58, fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
       <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 850, justifyContent: "center", fontSize: f.lead.amount.length > 9 ? 130 : 150, fontWeight: 700, color: GOLD }}>{n.toLocaleString("en-US")}</El>
-      <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1040, justifyContent: "center", fontSize: 38, color: WHITE, opacity: 0.85 }}>{`บาท${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1040, justifyContent: "center", fontSize: 38, color: WHITE, opacity: 0.85 }}>{`${vw.baht}${f.lead.note ? ` · ${f.lead.note}` : ""}`}</El>
       <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1130, justifyContent: "center" }}>
         <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "8px 34px", fontSize: 44, fontWeight: 600 })}>{f.leadMark}</div>
       </El>
@@ -351,6 +353,7 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
   };
   const main = f.prices.find((p) => p.main);
   const daily = f.perDayAmount;
+  const vw = wordsOf(f);
   return (
     <>
       <Header f={f} title={f.priceTitle} />
@@ -360,9 +363,9 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
           <g opacity={look(s.coin3, t).opacity}><ellipse cx={35} cy={38} rx={26} ry={7} fill={C.coinTop} /></g>
         </svg>
         <div style={box({ flexDirection: "column", marginLeft: 40 })}>
-          <El an={s.small} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : "ปีแรก เดือนละ")}</El>
+          <El an={s.small} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.label ?? (daily ? "ตกวันละ" : vw.firstYearMonthly)}</El>
           <El an={s.big} t={t} style={{ fontSize: 170, fontWeight: 700, color: GOLD, lineHeight: 1 }}>{f.priceBig?.amount ?? daily ?? main?.amount ?? ""}</El>
-          <El an={s.unit} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : "บาท")}</El>
+          <El an={s.unit} t={t} style={{ fontSize: 42, color: WHITE }}>{f.priceBig?.unit ?? (daily ? "บาทเท่านั้น" : vw.baht)}</El>
         </div>
       </div>
       <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 560, flexDirection: "column" })}>
@@ -848,10 +851,11 @@ function Compare({ c, t }: { c: MotionContext; t: number }) {
   const colW = Math.floor((W - SIDE * 2 - gap * (plans.length - 1)) / Math.max(1, plans.length));
   const mainAt = plans.findIndex((p) => p.main);
   const ringP = look(s.ring, t).p;
+  const vw = wordsOf(f);
   return (
     <>
-      <Header f={f} title="เลือกแผนที่ใช่" />
-      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 600, color: WHITE }}>เทียบแผน iHealthy Ultra</El>
+      <Header f={f} title={vw.compareHeader} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: f.lang && f.lang !== "th" ? 48 : 58, fontWeight: 600, color: WHITE }}>{vw.compareTitle}</El>
       <div style={abs({ left: SIDE, top: 360, width: W - SIDE * 2 })}>
         {plans.map((p, i) => (
           <El key={p.name} an={s[`col${i}`]} t={t} style={{
@@ -859,13 +863,13 @@ function Compare({ c, t }: { c: MotionContext; t: number }) {
             background: p.main ? WHITE : "rgba(255,255,255,0.1)", border: `4px solid ${p.main ? GOLD : "rgba(255,255,255,0.22)"}`, color: p.main ? NAVY : WHITE,
           }}>
             <div style={box({ fontSize: 46, fontWeight: 700 })}>{p.name}</div>
-            <div style={box({ fontSize: 30, marginTop: 24, opacity: 0.8 })}>วงเงิน/ปี</div>
+            <div style={box({ fontSize: 30, marginTop: 24, opacity: 0.8 })}>{vw.compareRows[0]}</div>
             <div style={box({ fontSize: 54, fontWeight: 700, color: p.main ? NAVY : GOLD })}>{p.ceiling}</div>
-            <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>ค่าห้อง/วัน</div>
+            <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>{vw.compareRows[1]}</div>
             <div style={box({ fontSize: 40, fontWeight: 600 })}>{p.room}</div>
-            <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>ผู้ป่วยนอก/ปี</div>
+            <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>{vw.compareRows[2]}</div>
             <div style={box({ fontSize: 40, fontWeight: 600 })}>{p.opd}</div>
-            <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>เดือนละ</div>
+            <div style={box({ fontSize: 30, marginTop: 20, opacity: 0.8 })}>{vw.perMonth}</div>
             <div style={box({ fontSize: 48, fontWeight: 700 })}>{p.monthly}</div>
           </El>
         ))}
@@ -877,7 +881,7 @@ function Compare({ c, t }: { c: MotionContext; t: number }) {
           </svg>
         </div>
       )}
-      <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1260, fontSize: 32, color: WHITE, opacity: 0.85 }}>{`ต่ออายุได้ถึงอายุ ${f.coverToAge} · เบี้ยปีแรก ปีต่อไปคิดตามอายุที่เพิ่มขึ้น`}</El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1260, fontSize: 32, color: WHITE, opacity: 0.85 }}>{vw.renewNote(f.coverToAge)}</El>
     </>
   );
 }
@@ -888,12 +892,14 @@ function Contact({ c, t }: { c: MotionContext; t: number }) {
   const k = c.contact;
   const initial = [...k.name.trim()][0] ?? "?";
   const more = k.more ? k.more.split("\n") : [];
+  const vw = wordsOf(f);
+  const [said, help] = vw.contactLines(c.narrator ?? "F");
   return (
     <>
-      <Header f={f} title={c.customer ? `สำหรับ คุณ${c.customer}` : "สนใจรายละเอียดเพิ่มเติม"} />
-      <El an={s.title} t={t} style={{ position: "absolute", left: SIDE, top: 260, flexDirection: "column", fontSize: 84, fontWeight: 700, color: WHITE, lineHeight: 1.3 }}>
-        <div style={box({})}>ทักมาคุยกันได้เลย</div>
-        <div style={box({ color: GOLD })}>{c.narrator === "M" ? "ยินดีช่วยดูแผนให้ครับ" : "ยินดีช่วยดูแผนให้ค่ะ"}</div>
+      <Header f={f} title={c.customer ? vw.contactFor(c.customer) : vw.contactMore} />
+      <El an={s.title} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 260, flexDirection: "column", fontSize: f.lang && f.lang !== "th" ? 68 : 84, fontWeight: 700, color: WHITE, lineHeight: vw.lineHeight }}>
+        <div style={box({})}>{said}</div>
+        <div style={box({ color: GOLD })}>{help}</div>
       </El>
       <El an={s.card} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 620, background: WHITE, color: NAVY, borderRadius: 48, padding: 44, alignItems: "center" }}>
         {k.photo ? (
@@ -904,7 +910,7 @@ function Contact({ c, t }: { c: MotionContext; t: number }) {
         )}
         <div style={box({ flexDirection: "column", marginLeft: 40, flexShrink: 1 })}>
           <div style={box({ fontSize: 56, fontWeight: 700 })}>{k.name}</div>
-          <div style={box({ fontSize: 44, marginTop: 8 })}>{`โทร ${k.phone}`}</div>
+          <div style={box({ fontSize: 44, marginTop: 8 })}>{`${vw.phone} ${k.phone}`}</div>
           {k.line && <div style={box({ fontSize: 44 })}>{`LINE ${k.line}`}</div>}
         </div>
       </El>

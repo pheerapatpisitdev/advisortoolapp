@@ -10,6 +10,7 @@ import type { SceneKey } from "./script";
 import { CLASSIC_BOXES, COLS, type Rect } from "./table-geo";
 import { noteInWindow } from "./table-pen";
 import { countAt, SIZES, type OverlayState, type VideoSize } from "./timeline";
+import { preparedLine, wordsOf } from "./video-words";
 
 /**
  * The classic style in a square (1080×1080) or landscape (1920×1080) frame (owner, 2026-10-13:
@@ -102,11 +103,12 @@ function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ove
   const f = c.facts;
   const from = g.photo.x + g.photo.w + g.px(36, 60);
   if (f.legacy || f.plb) return <LegacyLead g={g} c={c} layer={layer} s={s} from={from} />;
+  const vw = wordsOf(f);
   return (
     <Right g={g} from={from} style={{ top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
       {c.customer && (
         <On layer={layer} own="base" style={{ fontSize: g.px(28, 36), color: P.ink, marginBottom: 10 }}>
-          จัดทำสำหรับ <span style={{ fontWeight: 600, color: P.figure, marginLeft: 10 }}>คุณ{c.customer}</span>
+          {preparedLine(vw, c.customer).map((p, i) => <span key={i} style={{ ...(p.name ? { fontWeight: 600, color: P.figure } : {}), marginLeft: i ? 10 : 0 }}>{p.text}</span>)}
         </On>
       )}
       {c.headline?.length ? (
@@ -118,7 +120,7 @@ function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ove
       {/* the square's column is ~460 wide: a seven-figure sum and its บาท must fit */}
       <div style={box({ alignItems: "flex-end" })}>
         <On layer={layer} own="over" style={{ fontSize: g.px(f.lead.amount.length > 9 ? 60 : f.lead.amount.length > 7 ? 70 : 92, f.lead.amount.length > 9 ? 120 : 140), fontWeight: 600, color: P.figure, lineHeight: 1.1 }}>{money(countAt(f.lead.baht, s.count))}</On>
-        <On layer={layer} own="base" style={{ fontSize: g.px(30, 44), color: P.mute, marginLeft: 12, marginBottom: 8 }}>บาท</On>
+        <On layer={layer} own="base" style={{ fontSize: g.px(30, 44), color: P.mute, marginLeft: 12, marginBottom: 8 }}>{vw.baht}</On>
       </div>
       {f.lead.note && <On layer={layer} own="base" style={{ fontSize: g.px(24, 32), color: P.mute, marginTop: 6 }}>{f.lead.note}</On>}
       <On layer={layer} own="over" style={{ marginTop: g.px(14, 22) }}><Swept p={s.sweep[0] ?? 1} size={g.px(36, 46)}>{f.leadMark}</Swept></On>
@@ -224,6 +226,7 @@ function Critical({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s:
 function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const mark = f.priceMark ?? f.leadMark;
+  const baht = wordsOf(f).baht;
   // a column of its own: the drawing library lays a fragment out as a row
   const words = (
     <div style={box({ flexDirection: "column", alignItems: "flex-start" })}>
@@ -248,8 +251,8 @@ function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
         <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginTop: g.px(4, 8), marginBottom: g.px(4, 8) })}>
           <On layer={layer} own="base" style={{ fontSize: g.px(r.main ? 34 : 30, r.main ? 42 : 36), fontWeight: r.main ? 600 : 400, color: r.main ? P.figure : P.ink }}>{r.label}</On>
           {r.main
-            ? <On layer={layer} own="over" style={{ fontSize: g.px(54, 72), fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count))} บาท`}</On>
-            : <On layer={layer} own="base" style={{ fontSize: g.px(32, 40), color: P.ink }}>{`${r.amount} บาท`}</On>}
+            ? <On layer={layer} own="over" style={{ fontSize: g.px(54, 72), fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count))} ${baht}`}</On>
+            : <On layer={layer} own="base" style={{ fontSize: g.px(32, 40), color: P.ink }}>{`${r.amount} ${baht}`}</On>}
         </div>
       ))}
     </div>
@@ -269,6 +272,7 @@ function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
 
 function RowsCover({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
+  const baht = wordsOf(f).baht;
   const n = f.cover.length;
   const two = g.wide && n > 3;
   const half = two ? Math.ceil(n / 2) : n;
@@ -276,7 +280,7 @@ function RowsCover({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s
   const row = (r: (typeof f.cover)[number], i: number) => (
     <div key={r.label} style={box({ width: colW, justifyContent: "space-between", alignItems: "center", marginBottom: g.px(n > 4 ? 14 : 24, 30) })}>
       <On layer={layer} own="over" style={{ flexShrink: 1 }}><Swept p={s.sweep[i] ?? 1} size={g.px(n > 4 ? 30 : 34, 38)}>{r.label}</Swept></On>
-      <On layer={layer} own="base" style={{ fontSize: g.px(n > 4 ? 32 : 38, 44), fontWeight: 600, color: P.ink, marginLeft: 20, flexShrink: 0 }}>{/^[\d,]+$/.test(r.amount) ? `${r.amount} บาท` : r.amount}</On>
+      <On layer={layer} own="base" style={{ fontSize: g.px(n > 4 ? 32 : 38, 44), fontWeight: 600, color: P.ink, marginLeft: 20, flexShrink: 0 }}>{/^[\d,]+$/.test(r.amount) ? `${r.amount} ${baht}` : r.amount}</On>
     </div>
   );
   return (
@@ -481,17 +485,18 @@ function Ring({ p, x, y, rx, ry }: { p: number; x: number; y: number; rx: number
 
 function Compare({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const plans = c.facts.compare ?? [];
+  const vw = wordsOf(c.facts);
   const labelW = g.px(200, 280);
   const colW = Math.floor((g.w - g.side * 2 - labelW) / Math.max(1, plans.length));
   const top = g.top + g.px(50, 60);
   const rowH = g.px(92, 104);
   const rows: [string, (p: (typeof plans)[number]) => string][] = [
-    ["วงเงิน/ปี", (p) => p.ceiling], ["ค่าห้อง/วัน", (p) => p.room], ["ผู้ป่วยนอก/ปี", (p) => p.opd], ["รายเดือน", (p) => `${p.monthly} บาท`],
+    [vw.compareRows[0], (p) => p.ceiling], [vw.compareRows[1], (p) => p.room], [vw.compareRows[2], (p) => p.opd], [vw.compareRows[3], (p) => `${p.monthly} ${vw.baht}`],
   ];
   const mainAt = plans.findIndex((p) => p.main);
   return (
     <>
-      <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top - 10, ...kickerStyle(g) }}>เทียบแผน iHealthy Ultra</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top - 10, ...kickerStyle(g) }}>{vw.compareTitle}</On>
       <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top, flexDirection: "column", width: g.w - g.side * 2 }}>
         <div style={box({ height: rowH })}>
           <div style={box({ width: labelW })} />
@@ -517,12 +522,15 @@ function ContactScene({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer })
   const k = c.contact;
   const initial = [...k.name.trim()][0] ?? "?";
   const face = g.px(170, 220);
+  const vw = wordsOf(c.facts);
+  const [said, help] = vw.contactLines(c.narrator ?? "F");
+  const big = g.px(c.facts.lang && c.facts.lang !== "th" ? 50 : 62, c.facts.lang && c.facts.lang !== "th" ? 68 : 84);
   return (
     <div style={abs({ left: g.side, width: g.w - g.side * 2, top: g.px(90, 130), height: g.bottom - g.px(90, 130), flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" })}>
       <On layer={layer} own="base" style={{ flexDirection: "column", ...(g.wide ? { width: 820 } : {}) }}>
-        <div style={box({ fontSize: g.px(34, 44), fontWeight: 600, color: P.accent })}>{c.customer ? `สำหรับ คุณ${c.customer}` : "สนใจรายละเอียดเพิ่มเติม"}</div>
-        <div style={box({ fontSize: g.px(62, 84), fontWeight: 600, color: P.figure, lineHeight: 1.3, marginTop: 12 })}>ทักมาคุยกันได้เลย</div>
-        <div style={box({ fontSize: g.px(62, 84), fontWeight: 600, color: P.figure, lineHeight: 1.3 })}>{c.narrator === "M" ? "ยินดีช่วยดูแผนให้ครับ" : "ยินดีช่วยดูแผนให้ค่ะ"}</div>
+        <div style={box({ fontSize: g.px(34, 44), fontWeight: 600, color: P.accent })}>{c.customer ? vw.contactFor(c.customer) : vw.contactMore}</div>
+        <div style={box({ fontSize: big, fontWeight: 600, color: P.figure, lineHeight: vw.lineHeight, marginTop: 12 })}>{said}</div>
+        <div style={box({ fontSize: big, fontWeight: 600, color: P.figure, lineHeight: vw.lineHeight })}>{help}</div>
       </On>
       <div style={box({ flexDirection: "column", flex: 1, marginLeft: g.wide ? 40 : 0, marginTop: g.wide ? 0 : 36 })}>
         <On layer={layer} own="base" style={{ border: `3px solid ${P.hair}`, borderRadius: 36, padding: g.px(30, 40), alignItems: "center" }}>
@@ -534,7 +542,7 @@ function ContactScene({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer })
           )}
           <div style={box({ flexDirection: "column", marginLeft: 34, flexShrink: 1 })}>
             <div style={box({ fontSize: g.px(44, 56), fontWeight: 600, color: P.ink })}>{k.name}</div>
-            <div style={box({ fontSize: g.px(34, 44), color: P.mute, marginTop: 6 })}>{`โทร ${k.phone}`}</div>
+            <div style={box({ fontSize: g.px(34, 44), color: P.mute, marginTop: 6 })}>{`${vw.phone} ${k.phone}`}</div>
             {k.line && <div style={box({ fontSize: g.px(34, 44), color: P.mute })}>{`LINE ${k.line}`}</div>}
           </div>
         </On>

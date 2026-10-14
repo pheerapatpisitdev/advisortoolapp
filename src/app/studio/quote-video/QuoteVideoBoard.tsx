@@ -15,6 +15,8 @@ import { ClipProgress } from "./ClipProgress";
 import { SaveVideoButton } from "./SaveVideoButton";
 import { addToCalendar, calendarCaption, makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, removeVideo, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
 import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
+import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
+import { LANG_NAME } from "@/lib/ihealthy-lang";
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
@@ -67,6 +69,8 @@ const NARRATOR_KEY = "quote-video-narrator";
 const SIZE_KEY = "quote-video-size";
 /** the rest of step 4, remembered too (owner, 2026-10-12) */
 const LENGTH_KEY = "quote-video-length";
+/** the language an iHealthy clip was told in last time (owner, 2026-10-15) */
+const LANG_KEY = "quote-video-lang";
 const STYLE_KEY = "quote-video-style";
 /** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
 const BRIEF_KEY = "quote-video-brief";
@@ -270,7 +274,25 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   /** an ElevenLabs voice instead, of the narrator's sex where there is one */
   const elevenInstead = eleven.find((v) => v.sex === narrator) ?? eleven[0];
   const [style, setStyle] = useState<VideoStyle>("classic");
-  const [length, setLength] = useState<VideoLength>("full");
+  const [pickedLength, setLength] = useState<VideoLength>("full");
+  // ภาษาในวิดีโอ (owner, 2026-10-15, mockup https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb): iHealthy Ultra only
+  // the iHealthy page's shortcut opens in the language the page was read in; otherwise the one kept
+  const fromPage = start?.product === "IHEALTHY";
+  const [lang, setLang] = useState<VideoLang>(fromPage ? start?.lang ?? "th" : "th");
+  useEffect(() => {
+    if (fromPage) return;
+    try {
+      const kept = localStorage.getItem(LANG_KEY);
+      if ((VIDEO_LANGS as readonly string[]).includes(kept ?? "")) setLang(kept as VideoLang);
+    } catch { /* storage closed: Thai stands */ }
+  }, [fromPage]);
+  function pickLang(l: VideoLang) {
+    setLang(l);
+    try { localStorage.setItem(LANG_KEY, l); } catch { /* not remembered, still used */ }
+  }
+  /** another language: fixed lines, Gemini's narrator, the 15-second clip or the whole one */
+  const foreign = kind === "quote" && product === "IHEALTHY" && lang !== "th";
+  const length: VideoLength = foreign && pickedLength !== "short" ? "full" : pickedLength;
   // โจทย์การเล่า (owner, 2026-10-13): a new agent starts on ให้ระบบเลือก, so every clip opens on a hook
   const [brief, setBriefState] = useState<VideoBrief>({ hook: "auto" });
   const [script, setScript] = useState<ScriptState | null>(null);
@@ -307,9 +329,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length));
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
-  const look = { narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
+  const look = foreign
+    ? { narrator, style, length, size, budget: budgetOf() }
+    : { narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...look }
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...(foreign ? { lang } : {}), ...look }
     : product === "PENSION"
       ? {
           product, sex, age: Number(age), annuityAge: pensionStart, pay, ...look,
@@ -353,7 +377,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   useEffect(() => {
     setScript(null);
     setScriptError(null);
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, setup]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, setup, lang]);
 
   /** ดูสคริปต์: written to the brief (again: another try), or the agent's edits read back */
   async function showScript(again: boolean) {
@@ -446,14 +470,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // every clip comes in every shape (owner, 2026-10-13)
   const shownSize = size;
   // a Gemini-voiced clip would only fail while the voice is used up
-  const voiceBlocked = Boolean(quota) && !voice;
-  const voiceWord = voice ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs" : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
+  const voiceBlocked = Boolean(quota) && (!voice || foreign);
+  const voiceWord = voice && !foreign ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs" : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
   const summary = {
     brief: [HOOK_WORD[brief.hook], brief.loop ? "วนลูป" : ""].filter(Boolean).join(" · "),
-    what: kind === "fhc" ? "สรุป FHC" : PRODUCTS.find((p) => p.code === product)?.name ?? "",
+    what: kind === "fhc" ? "สรุป FHC" : `${PRODUCTS.find((p) => p.code === product)?.name ?? ""}${foreign ? ` · ${LANG_NAME[lang]}` : ""}`,
     who: kind === "fhc"
       ? fhcPick?.name ?? ""
-      : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length !== "short" ? ` · คุณ${customer.trim()}` : ""}`,
+      : `${sex === "M" ? "ชาย" : "หญิง"} ${age}${customer.trim() && length !== "short" ? ` · ${foreign ? "" : "คุณ"}${customer.trim()}` : ""}`,
     plan: product === "IHEALTHY"
       ? (source === "sum" ? ihuPlans.find((p) => p.code === plan)?.name ?? "" : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`)
       : product === "PENSION"
@@ -480,6 +504,19 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(kind === "quote" && product === p.code)} onClick={() => { setKind("quote"); pickProduct(p.code); }}>{p.name}</button>)}
             <button type="button" className={chip(kind === "fhc")} onClick={() => setKind("fhc")}>สรุป FHC</button>
           </div>
+          {kind === "quote" && product === "IHEALTHY" && (
+            <div>
+              <span className={label}>ภาษาในวิดีโอ</span>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="ภาษาในวิดีโอ">
+                {VIDEO_LANGS.map((l) => <button key={l} type="button" lang={l} className={chip(lang === l)} onClick={() => pickLang(l)}>{LANG_NAME[l]}</button>)}
+              </div>
+              <p className="mt-1 text-xs text-[var(--ct-mute)]">
+                {foreign
+                  ? "เสียงพากย์ คำบรรยาย และตัวหนังสือบนจอเป็นภาษานี้ทั้งคลิป บทแปลไว้ตายตัว ตัวเลขจากใบเสนอเดิม · ครั้งหน้าเปิดมาเป็นภาษาเดิม"
+                  : "เลือกภาษาอื่นได้ สำหรับลูกค้าต่างชาติ · ครั้งหน้าเปิดมาเป็นภาษาเดิม"}
+              </p>
+            </div>
+          )}
         </Step>
 
         {kind === "fhc" ? (
@@ -539,8 +576,12 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               {length !== "short" ? (
                 <div>
                   <label htmlFor="qv-customer" className={label}>ชื่อลูกค้า (ไม่บังคับ)</label>
-                  <input id="qv-customer" className={field} value={customer} maxLength={40} placeholder="เช่น สมชาย" onChange={(e) => setCustomer(e.target.value)} />
-                  <p className="mt-1 text-xs text-[var(--ct-mute)]">ใส่แล้วเสียงพากย์จะทักชื่อ และขึ้นชื่อบนภาพในคลิป</p>
+                  <input id="qv-customer" className={field} value={customer} maxLength={40} placeholder={foreign ? "เช่น Anna" : "เช่น สมชาย"} onChange={(e) => setCustomer(e.target.value)} />
+                  <p className="mt-1 text-xs text-[var(--ct-mute)]">
+                    {foreign
+                      ? `พิมพ์ชื่อเป็นตัวอังกฤษ เสียงพากย์จะทัก "Hello, ${customer.trim() || "Anna"}" และขึ้นชื่อบนภาพในคลิป`
+                      : "ใส่แล้วเสียงพากย์จะทักชื่อ และขึ้นชื่อบนภาพในคลิป"}
+                  </p>
                 </div>
               ) : (
                 <p className="text-xs text-[var(--ct-mute)]">คลิปสั้นไม่ใส่ชื่อลูกค้า (ทำไว้ลงเพจ)</p>
@@ -688,7 +729,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           </>
         )}
 
-        {kind === "quote" && (
+        {kind === "quote" && foreign && (
+          <Step n={4} title="โจทย์การเล่า" summary="บทมาตรฐาน">
+            <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
+              {LANG_NAME[lang]} ใช้บทมาตรฐานที่แปลไว้ตายตัว ตรวจคำได้ทุกคำ ขั้นนี้จึงไม่ต้องเลือก · อยากใช้โจทย์การเล่า เลือกภาษา <b>ไทย</b>
+            </p>
+          </Step>
+        )}
+        {kind === "quote" && !foreign && (
           <Step n={4} title="โจทย์การเล่า" summary={summary.brief}>
             <StoryBrief
               brief={brief} setBrief={setBrief} stories={ok?.stories ?? []} longClip={length === "long" || length === "max"}
@@ -704,7 +752,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               <div>
                 <span className={label}>ความยาว</span>
                 <div className="flex flex-wrap gap-2">
-                  {LENGTH_CHOICES.map((c) => (
+                  {LENGTH_CHOICES.filter((c) => !foreign || c.length === "short" || c.length === "full").map((c) => (
                     <button key={c.length} type="button" className={chip(length === c.length)} onClick={() => pickLength(c.length)}>
                       {c.name} <span className="font-normal opacity-80">· {priceBaht(prices[videoPriceKey(style, c.length)])} บาท</span>
                     </button>
@@ -728,13 +776,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             <div className="flex flex-wrap items-center gap-2">
               {GEMINI.map((g) => (
                 <span key={g.n} className="inline-flex items-center gap-2">
-                  <button type="button" className={chip(!voice && narrator === g.n)} onClick={() => { pickVoice(""); pickNarrator(g.n); }}>{g.name} <span className="font-normal opacity-80">· {g.tag}</span></button>
+                  <button type="button" className={chip((!voice || foreign) && narrator === g.n)} onClick={() => { pickVoice(""); pickNarrator(g.n); }}>{g.name} <span className="font-normal opacity-80">· {g.tag}</span></button>
                   <button type="button" className={small} onClick={() => playSample(g.sample)} aria-label={`ฟังตัวอย่างเสียง${g.name}`}>{playing === g.sample ? "■ หยุด" : "▶ ฟัง"}</button>
                 </span>
               ))}
             </div>
             {/* ElevenLabs' voices, a row each for men and women (owner, 2026-10-13: every member, free choice) */}
-            {eleven.length > 0 && (["M", "F"] as const).map((sex) => (
+            {eleven.length > 0 && !foreign && (["M", "F"] as const).map((sex) => (
               <div key={sex} className="mt-3">
                 <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">ElevenLabs {sex === "M" ? "ผู้ชาย" : "ผู้หญิง"} · เหมือนคนพูด +{priceBaht(prices.elevenExtra)} บาท</span>
                 <div className="flex flex-wrap items-center gap-2">
@@ -747,7 +795,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                 </div>
               </div>
             ))}
-            <p className="mt-1 text-xs text-[var(--ct-mute)]">{voice ? "เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs" : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้</p>
+            <p className="mt-1 text-xs text-[var(--ct-mute)]">
+              {foreign
+                ? `เสียง AI ของ Google พูด${LANG_NAME[lang]} · เสียง ElevenLabs ซ่อนไว้ เพราะเป็นเสียงคนไทย`
+                : voice ? "เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs" : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้
+            </p>
           </div>
         </Step>
 
@@ -762,7 +814,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           {voiceBlocked && quota && (
             <p role="status" className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]">
               {voiceFullNotice(quota.clock)}
-              {elevenInstead && (
+              {elevenInstead && !foreign && (
                 <>{" "}หรือ <button type="button" className="font-semibold underline" onClick={() => pickVoice(elevenInstead.id)}>เปลี่ยนไปใช้เสียง ElevenLabs</button> ซึ่งทำได้ทันที</>
               )}
             </p>

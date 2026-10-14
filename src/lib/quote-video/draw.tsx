@@ -12,6 +12,7 @@ import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
 import { countAt, H, W, type OverlayState } from "./timeline";
+import { preparedLine, wordsOf } from "./video-words";
 
 /**
  * The pictures of the วิดีโอนำเสนอ clip (owner, 2026-10-11), 1080×1920, in the card's palette.
@@ -119,17 +120,18 @@ const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   if (f.legacy || f.plb) return <LegacyLead c={c} layer={layer} s={s} />;
+  const vw = wordsOf(f);
   return (
     <>
       {c.customer && (
         <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 240, fontSize: 44, color: P.ink }}>
-          จัดทำสำหรับ <span style={{ fontWeight: 600, color: P.figure, marginLeft: 12 }}>คุณ{c.customer}</span>
+          {preparedLine(vw, c.customer).map((p, i) => <span key={i} style={{ ...(p.name ? { fontWeight: 600, color: P.figure } : {}), marginLeft: i ? 12 : 0 }}>{p.text}</span>)}
         </On>
       )}
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 40, fontSize: 46, color: P.mute }}>{f.lead.label}</On>
       <div style={abs({ left: SIDE, top: PHOTO.y + PHOTO.h + 100, alignItems: "flex-end" })}>
         <On layer={layer} own="over" style={{ fontSize: f.lead.amount.length > 9 ? 140 : 170, fontWeight: 600, color: P.figure, lineHeight: 1 }}>{money(countAt(f.lead.baht, s.count))}</On>
-        <On layer={layer} own="base" style={{ fontSize: 56, color: P.mute, marginLeft: 24, marginBottom: 14 }}>บาท</On>
+        <On layer={layer} own="base" style={{ fontSize: 56, color: P.mute, marginLeft: 24, marginBottom: 14 }}>{vw.baht}</On>
       </div>
       {f.lead.note && (
         <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 300, fontSize: 40, color: P.mute }}>{f.lead.note}</On>
@@ -276,6 +278,7 @@ function StepsScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
 
 function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
+  const baht = wordsOf(f).baht;
   return (
     <>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.priceTitle}</On>
@@ -287,9 +290,9 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
           <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginTop: 10, marginBottom: 10 })}>
             <On layer={layer} own="base" style={{ fontSize: r.main ? 50 : 44, fontWeight: r.main ? 600 : 400, color: r.main ? P.figure : P.ink }}>{r.label}</On>
             {r.main ? (
-              <On layer={layer} own="over" style={{ fontSize: 88, fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count))} บาท`}</On>
+              <On layer={layer} own="over" style={{ fontSize: 88, fontWeight: 600, color: P.figure }}>{`${money(countAt(num(r.amount), s.count))} ${baht}`}</On>
             ) : (
-              <On layer={layer} own="base" style={{ fontSize: 48, color: P.ink }}>{`${r.amount} บาท`}</On>
+              <On layer={layer} own="base" style={{ fontSize: 48, color: P.ink }}>{`${r.amount} ${baht}`}</On>
             )}
           </div>
         ))}
@@ -318,6 +321,7 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
 /** iShield's lump sums and iHealthy's cover, one row each, lit as the voice reads them */
 function RowsCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
+  const baht = wordsOf(f).baht;
   const tight = f.cover.length > 4;
   return (
     <>
@@ -326,7 +330,7 @@ function RowsCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlaySt
         {f.cover.map((r, i) => (
           <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginBottom: tight ? 26 : 40 })}>
             <On layer={layer} own="over" style={{ flexShrink: 1 }}><Swept p={s.sweep[i] ?? 1} size={tight ? 40 : 42}>{r.label}</Swept></On>
-            <On layer={layer} own="base" style={{ fontSize: tight ? 44 : 52, fontWeight: 600, color: P.ink, marginLeft: 24, flexShrink: 0 }}>{/^[\d,]+$/.test(r.amount) ? `${r.amount} บาท` : r.amount}</On>
+            <On layer={layer} own="base" style={{ fontSize: tight ? 44 : 52, fontWeight: 600, color: P.ink, marginLeft: 24, flexShrink: 0 }}>{/^[\d,]+$/.test(r.amount) ? `${r.amount} ${baht}` : r.amount}</On>
           </div>
         ))}
       </div>
@@ -637,20 +641,21 @@ function Value({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
 /** iHealthy: the plans the agent picked, side by side, the main one ringed in red pen */
 function Compare({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const plans = c.facts.compare ?? [];
+  const vw = wordsOf(c.facts);
   const labelW = 250;
   const colW = Math.floor((W - SIDE * 2 - labelW) / Math.max(1, plans.length));
   const top = 380;
   const rowH = 110;
   const rows: [string, (p: (typeof plans)[number]) => string][] = [
-    ["วงเงิน/ปี", (p) => p.ceiling],
-    ["ค่าห้อง/วัน", (p) => p.room],
-    ["ผู้ป่วยนอก/ปี", (p) => p.opd],
-    ["รายเดือน", (p) => `${p.monthly} บาท`],
+    [vw.compareRows[0], (p) => p.ceiling],
+    [vw.compareRows[1], (p) => p.room],
+    [vw.compareRows[2], (p) => p.opd],
+    [vw.compareRows[3], (p) => `${p.monthly} ${vw.baht}`],
   ];
   const mainAt = plans.findIndex((p) => p.main);
   return (
     <>
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>เทียบแผน iHealthy Ultra</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{vw.compareTitle}</On>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top, flexDirection: "column", width: W - SIDE * 2 }}>
         <div style={box({ height: rowH })}>
           <div style={box({ width: labelW })} />
@@ -667,7 +672,7 @@ function Compare({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayStat
           </div>
         ))}
       </On>
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: top + rowH * 5 + 40, fontSize: 34, color: P.mute }}>ต่ออายุได้ถึงอายุ 98 · เบี้ยปีแรก ปีต่อไปคิดตามอายุที่เพิ่มขึ้น</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: top + rowH * 5 + 40, fontSize: 34, color: P.mute }}>{vw.renewNote(c.facts.coverToAge)}</On>
       {mainAt >= 0 && s.ring > 0 && (
         <On layer={layer} own="over" style={{ position: "absolute", left: 0, top: 0, width: W, height: H }}>
           <Ring p={s.ring} x={SIDE + labelW + mainAt * (colW + 8) + colW / 2} y={top + (rowH * 5) / 2} rx={Math.round(colW / 2) + 24} ry={Math.round((rowH * 5) / 2) + 10} />
@@ -681,14 +686,16 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
   const k = c.contact;
   const initial = [...k.name.trim()][0] ?? "?";
   const more = k.more ? k.more.split("\n") : [];
+  const vw = wordsOf(c.facts);
+  const [said, help] = vw.contactLines(c.narrator ?? "F");
   return (
     <>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 220, fontSize: 44, fontWeight: 600, color: P.accent }}>
-        {c.customer ? `สำหรับ คุณ${c.customer}` : "สนใจรายละเอียดเพิ่มเติม"}
+        {c.customer ? vw.contactFor(c.customer) : vw.contactMore}
       </On>
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 320, flexDirection: "column", fontSize: 88, fontWeight: 600, color: P.figure, lineHeight: 1.3 }}>
-        <div style={box({})}>ทักมาคุยกันได้เลย</div>
-        <div style={box({})}>{c.narrator === "M" ? "ยินดีช่วยดูแผนให้ครับ" : "ยินดีช่วยดูแผนให้ค่ะ"}</div>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 320, flexDirection: "column", fontSize: c.facts.lang && c.facts.lang !== "th" ? 72 : 88, fontWeight: 600, color: P.figure, lineHeight: vw.lineHeight }}>
+        <div style={box({})}>{said}</div>
+        <div style={box({})}>{help}</div>
       </On>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 660, border: `3px solid ${P.hair}`, borderRadius: 44, padding: 44, alignItems: "center" }}>
         {k.photo ? (
@@ -699,7 +706,7 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
         )}
         <div style={box({ flexDirection: "column", marginLeft: 44, flexShrink: 1 })}>
           <div style={box({ fontSize: 58, fontWeight: 600, color: P.ink })}>{k.name}</div>
-          <div style={box({ fontSize: 46, color: P.mute, marginTop: 10 })}>{`โทร ${k.phone}`}</div>
+          <div style={box({ fontSize: 46, color: P.mute, marginTop: 10 })}>{`${vw.phone} ${k.phone}`}</div>
           {k.line && <div style={box({ fontSize: 46, color: P.mute })}>{`LINE ${k.line}`}</div>}
         </div>
       </On>

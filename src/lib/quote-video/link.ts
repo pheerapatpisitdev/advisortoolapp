@@ -1,6 +1,7 @@
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import { cleanSetup } from "./ihealthy-setup";
 import type { Product } from "./script";
+import { readVideoLang, type VideoLang } from "./video-words";
 
 /**
  * The shortcut from a plan's sales page into วิดีโอนำเสนอ (owner, 2026-10-11, option ก): the
@@ -28,6 +29,8 @@ export interface VideoStart {
   pay?: "6" | "untilAnnuity";
   /** มรดก: the tier, 1–10 million */
   tier?: number;
+  /** iHealthy: the language the page was read in, which the clip starts in (owner, 2026-10-15); absent = Thai */
+  lang?: VideoLang;
 }
 
 export function videoStartHref(s: VideoStart): string {
@@ -41,6 +44,7 @@ export function videoStartHref(s: VideoStart): string {
   if (s.annuityAge !== undefined) q.set("start", String(s.annuityAge));
   if (s.pay) q.set("pay", s.pay);
   if (s.tier !== undefined) q.set("tier", String(s.tier));
+  if (s.lang && s.lang !== "th") q.set("lang", s.lang);
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
@@ -70,6 +74,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const pay = one(params.pay);
   const tier = Number(one(params.tier));
   const setup = product === "IHEALTHY" ? cleanSetup(one(params.ihu)) : undefined;
+  const lang = product === "IHEALTHY" ? readVideoLang(one(params.lang)) : "th";
   const plb = product === "PLB";
   return {
     product,
@@ -82,5 +87,6 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),
     ...(Number.isInteger(tier) && tier >= 1 && tier <= 10 ? { tier } : {}),
     ...(setup ? { setup } : {}),
+    ...(lang !== "th" ? { lang } : {}),
   };
 }
