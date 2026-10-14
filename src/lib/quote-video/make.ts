@@ -396,7 +396,8 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     : p.key === "lead" || (loop && p.key === "contact") ? "photo" as const : p.key === "value" ? "table" as const : undefined));
   const named = nameFiles(plans, layers, plans.map((_, i) => (pen && i === valueAt ? pen.notes.length : 0)));
   // a landscape clip's chart stands beside the table, narrower; a square one has no room for it
-  const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" && size !== "square"
+  // Protection Life has a variant but no value table, so no chart
+  const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" && productOf(row.input) !== "PLB" && size !== "square"
     ? valueTableChart(planInput(row.input), size === "landscape" ? WIDE_CHART_W : CHART_W) : undefined;
   const table = facts.pension ? pensionTableImage(facts) : tableImage(facts);
   /** one scene's pictures: its base (classic), every overlay frame, and the value table */

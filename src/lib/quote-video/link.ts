@@ -1,3 +1,4 @@
+import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { Product } from "./script";
 
 /**
@@ -39,8 +40,10 @@ export function videoStartHref(s: VideoStart): string {
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+/** Protection Life's terms and sums: only the /plb page's own are read from an address */
+const PLB_TERMS = ["PLB05", "PLB10", "PLB12", "PLB15"];
 
 /** what an address asked the form to start with; anything unreadable is left out */
 /** the customer page's button: the Studio form open on that customer's summary */
@@ -62,12 +65,13 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const start = Number(one(params.start));
   const pay = one(params.pay);
   const tier = Number(one(params.tier));
+  const plb = product === "PLB";
   return {
     product,
     ...(sex === "M" || sex === "F" ? { sex } : {}),
     ...(Number.isInteger(age) && age >= 0 && age <= 99 ? { age } : {}),
-    ...(Number.isInteger(sum) && sum > 0 && sum <= 100_000_000 ? { sumAssured: sum } : {}),
-    ...(variant && /^[A-Z0-9]{3,12}$/.test(variant) ? { variant } : {}),
+    ...(Number.isInteger(sum) && sum > 0 && sum <= 100_000_000 && (!plb || PLB_SUMS.includes(sum)) ? { sumAssured: sum } : {}),
+    ...(variant && /^[A-Z0-9]{3,12}$/.test(variant) && (!plb || PLB_TERMS.includes(variant)) ? { variant } : {}),
     ...(plan && /^[A-Z]{3,12}$/.test(plan) ? { plan } : {}),
     ...([55, 60, 65, 70].includes(start) ? { annuityAge: start } : {}),
     ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),

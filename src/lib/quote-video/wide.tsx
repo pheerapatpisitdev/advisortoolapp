@@ -4,7 +4,8 @@ import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
-import { abs, box, chartPaths, easeBack, El, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, shieldFamily, stroke, type Anim } from "./motion";
+import { abs, box, chartPaths, easeBack, El, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
+import { leadBig, leadPill } from "./plb";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { countAt, SIZES, type VideoSize } from "./timeline";
 import type { Extra } from "./told";
@@ -177,6 +178,7 @@ export interface WideQuoteContext {
 /** มรดก's opening (motion.tsx LegacyLead) side by side: the shield on the left, the legacy and the most the family receives on the right */
 function LegacyLead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
+  const big = leadBig(f);
   const s = motionSpec("lead", f, c.voiceSec);
   const shieldW = g.px(300, 460);
   const n0 = countAt(f.lead.baht, look(s.count, t).p);
@@ -193,13 +195,13 @@ function LegacyLead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
             </div>
           ) : null}
           <El an={s.kicker} t={t} style={{ fontSize: g.px(34, 46), fontWeight: 600, color: WHITE, opacity: 0.9 }}>{f.planLine}</El>
-          <El an={s.big} t={t} style={{ fontSize: g.px(84, 130), fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{`มรดก ${f.legacy!.tier} ล้าน`}</El>
+          <El an={s.big} t={t} style={{ fontSize: big.length > 16 ? g.px(64, 100) : g.px(84, 130), fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{big}</El>
           <El an={s.note} t={t} style={{ fontSize: g.px(30, 42), color: WHITE, marginTop: g.px(6, 12) }}>{f.lead.label}</El>
           <El an={s.mark} t={t} style={{ marginTop: g.px(10, 16) }}>
             <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "4px 30px", fontSize: g.px(48, 66), fontWeight: 700 })}>{`${n0.toLocaleString("en-US")} บาท`}</div>
           </El>
           <El an={s.mark} t={t} style={{ marginTop: g.px(14, 22) }}>
-            <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "2px 26px", fontSize: g.px(28, 36) })}>{f.insuredWho}</div>
+            <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "2px 26px", fontSize: g.px(28, 36) })}>{leadPill(f)}</div>
           </El>
         </div>
       </Body>
@@ -228,6 +230,65 @@ function CoverBands({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
           ))}
         </div>
       )}
+    </>
+  );
+}
+
+/** Protection Life's flat bar (motion.tsx plbTimeline) across the frame, the rule and the end age under it */
+function CoverFlat({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const p = f.plb;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!p) return null;
+  const w = g.w - g.side * 2;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={f.coverTitle} />
+      <Body g={g} style={{ flexDirection: "column" }}>
+        <El an={s.sub} t={t} style={{ fontSize: g.px(36, 44), color: WHITE, opacity: 0.9, marginBottom: g.px(30, 40) }}>{f.cover[0]?.label ?? ""}</El>
+        {plbTimeline(f, s, t, w, g.px(0.8, 0.9))}
+        <div style={box({ marginTop: g.px(40, 50), alignItems: "center", justifyContent: "space-between", width: w })}>
+          <El an={s.rule} t={t} style={{ background: WHITE, color: NAVY, borderRadius: 32, padding: g.px("14px 28px", "18px 36px"), fontSize: g.px(38, 48), fontWeight: 700 }}>จ่ายเท่าไหร่ คุ้มครองเท่านั้นปี</El>
+          {g.wide && (
+            <El an={s.pen} t={t} style={{ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 30px", fontSize: 38, fontWeight: 600 }}>{`✓ คุ้มครองถึงอายุ ${p.endAge}`}</El>
+          )}
+        </div>
+      </Body>
+    </>
+  );
+}
+
+/** Protection Life's terms (motion.tsx plbTermCards): the cards on the left, the total and the tax on the right of a landscape frame */
+function Terms({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const p = f.plb;
+  const s = motionSpec("terms", f, c.voiceSec);
+  if (!p) return null;
+  const listW = g.wide ? 1000 : g.w - g.side * 2;
+  const big = g.px(0.78, 0.86);
+  const side = (
+    <div style={box({ flexDirection: "column", alignItems: "flex-start", ...(g.wide ? { marginLeft: 70, flex: 1 } : { marginTop: 4 }) })}>
+      <El an={s.total} t={t} style={{ fontSize: g.px(38, 46), color: WHITE, flexDirection: g.wide ? "column" : "row", alignItems: g.wide ? "flex-start" : "center" }}>
+        <div style={box({})}>{`รวมจ่าย ${p.years} ปี`}</div>
+        <div style={box({ color: GOLD, fontWeight: 700, marginLeft: g.wide ? 0 : 14, fontSize: g.px(42, 64) })}>{`${p.total} บาท`}</div>
+      </El>
+      <div style={box({ alignItems: "center", marginTop: g.px(12, 26), flexDirection: g.wide ? "column" : "row", ...(g.wide ? { alignItems: "flex-start" } : {}) })}>
+        {p.tax && (
+          <El an={s.pill} t={t} style={{ background: GREEN, color: WHITE, borderRadius: 40, padding: "6px 26px", fontSize: g.px(30, 38), fontWeight: 600, marginRight: 22, marginBottom: g.wide ? 22 : 0 }}>✓ ลดหย่อนภาษีได้</El>
+        )}
+        <El an={s.note} t={t} style={{ fontSize: g.px(24, 28), color: WHITE, opacity: 0.75 }}>ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน</El>
+      </div>
+    </div>
+  );
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text="เลือกระยะได้ตามภาระ" />
+      <Body g={g} top={g.px(170, 200)} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        {plbTermCards(f, s, t, listW, big)}
+        {side}
+      </Body>
     </>
   );
 }
@@ -266,7 +327,7 @@ function Critical({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
 
 function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
-  if (f.legacy) return <LegacyLead g={g} c={c} t={t} />;
+  if (f.legacy || f.plb) return <LegacyLead g={g} c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shieldW = g.px(330, 500);
   const shieldH = Math.round(shieldW * 1.075);
@@ -677,10 +738,11 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     lead: <Lead g={g} c={c} t={t} />,
     price: <Price g={g} c={c} t={t} />,
     cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} />
-      : c.facts.coverStyle === "bands" ? <CoverBands g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
+      : c.facts.coverStyle === "bands" ? <CoverBands g={g} c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
     value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
     critical: <Critical g={g} c={c} t={t} />,
+    terms: <Terms g={g} c={c} t={t} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} /> : (
       <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title="สนใจรายละเอียดเพิ่มเติม" header={c.facts.insuredWho}

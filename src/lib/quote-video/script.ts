@@ -7,6 +7,7 @@ import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card"
 import type { PensionPay } from "@/calc/pension/engine";
 import { pensionVideoFacts, roughBaht, type PensionVideoFacts } from "./pension";
 import { legacyVideoFacts, type LegacyVideoFacts } from "./legacy";
+import { plbVideoFacts, termsSaid, type PlbVariant, type PlbVideoFacts } from "./plb";
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
 import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
@@ -22,15 +23,18 @@ import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
  * cash value, "ออม" where it said "จ่าย" (owner, 2026-10-11: ออมต่อปี, ออมเพียง 19 ปี).
  * บำนาญ สมาร์ท 95 is the fourth (owner, 2026-10-13; pension.ts): a monthly pension from an age.
  * มรดกเพื่อครอบครัว is the fifth (owner, 2026-10-14; legacy.ts): the /legacy bundle, a tier of 1–10 million.
- * iHealthy Ultra and มรดก keep "ค่าใช้จ่าย": neither builds anything to save. The screen keeps the
+ * Protection Life is the sixth (owner, 2026-10-14; plb.ts): the /plb term cover, 5–15 years.
+ * iHealthy Ultra, มรดก and Protection Life keep "ค่าใช้จ่าย": none builds anything to save. The screen keeps the
  * cards' own words. Words in a line are separated by single spaces: the subtitles light up one
  * of those pieces at a time.
  */
 
-export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY";
+export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB";
 export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact"
   /** มรดก's fourth scene, where the others have their value table: the critical-illness lump sum */
   | "critical"
+  /** Protection Life's fourth scene, where the others have their value table: the four terms side by side */
+  | "terms"
   /** the longer clips' own (told.ts, owner 2026-10-13): the customer's story, a comparison, two questions, how to start */
   | "story" | "versus" | "qa" | "steps";
 
@@ -42,6 +46,8 @@ export type VideoInput = (
   | { product: "PENSION"; age: number; sex: "M" | "F"; annuityAge: number; pay: PensionPay; sumAssured: number; monthly?: number }
   /** มรดกเพื่อครอบครัว: the tier, 1–10, which is the millions the family receives (legacy.ts) */
   | { product: "LEGACY"; age: number; sex: "M" | "F"; tier: number }
+  /** Protection Life: a term (paid and covered alike) and a sum from the /plb page's steps (plb.ts) */
+  | { product: "PLB"; variant: PlbVariant; age: number; sex: "M" | "F"; sumAssured: number }
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
@@ -107,8 +113,8 @@ export interface QuoteVideoFacts {
   priceNotes: string[];
   coverTitle: string;
   cover: CoverRow[];
-  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; มรดก its bands as a staircase; the others list their rows */
-  coverStyle: "bars" | "rows" | "steps" | "bands";
+  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; มรดก its bands as a staircase; Protection Life one flat bar; the others list their rows */
+  coverStyle: "bars" | "rows" | "steps" | "bands" | "flat";
   coverPen?: string;
   coverNote?: string;
   coverToAge: number;
@@ -133,6 +139,8 @@ export interface QuoteVideoFacts {
   pension?: PensionVideoFacts;
   /** มรดก: the bands, the critical-illness sum, the first year's price (legacy.ts) */
   legacy?: LegacyVideoFacts;
+  /** Protection Life: the term, the sum, the four terms side by side (plb.ts) */
+  plb?: PlbVideoFacts;
 }
 
 const digits = (s: string) => Number(s.replace(/[^\d]/g, ""));
@@ -147,6 +155,7 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
   const f = v.product === "IHEALTHY" ? iHealthyFacts(v, today)
     : v.product === "PENSION" ? pensionVideoFacts(v)
     : v.product === "LEGACY" ? legacyVideoFacts(v, today)
+    : v.product === "PLB" ? plbVideoFacts(v, today)
     : planFacts(v, today);
   if (!f || !v.budget) return f;
   // a clip begun from a budget says what the customer saves, in the instalment they named
@@ -154,7 +163,7 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
   return row ? { ...f, budget: { per: v.budget.per, amount: row.amount } } : f;
 }
 
-function planFacts(v: Extract<VideoInput, { variant: string }>, today: Date): QuoteVideoFacts | undefined {
+function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { product: "PLB" }>, today: Date): QuoteVideoFacts | undefined {
   const product = productOf(v);
   const input = planInput(v);
   const card = quoteCard(input, today);
@@ -409,6 +418,9 @@ function leadFact(f: QuoteVideoFacts, name: string): string {
   if (f.product === "LEGACY" && f.legacy) {
     return `แผนนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ด้วยค่าใช้จ่าย")}ทำมรดก ${f.legacy.tier} ล้าน ${legacyLeadLine(f.legacy)}`;
   }
+  if (f.product === "PLB" && f.plb) {
+    return `แผนนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ด้วยค่าใช้จ่าย")}${plbLeadLine(f.plb)}`;
+  }
   if (f.product === "IHEALTHY") {
     return `แผน ${f.planName} ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`;
   }
@@ -438,6 +450,13 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
     return [
       { key: "lead", voice: `${budgetLead(f, "ด้วยค่าใช้จ่าย")}${f.budget ? "" : "ถ้าเป็นอะไรไป "}ครอบครัวได้เงินก้อนสูงสุดถึง ${bahtSaid(f.lead.baht)}ค่ะ` },
       { key: "price", voice: `ค่าใช้จ่ายปีแรกแค่วันละ ${f.legacy.perDay} บาท คุ้มครองถึงอายุ ${f.legacy.coverToAge} ค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  if (f.product === "PLB" && f.plb) {
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ด้วยค่าใช้จ่าย")}ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อน ${bahtSaid(f.plb.sum)}ค่ะ` },
+      { key: "price", voice: `ค่าใช้จ่ายแค่วันละ ${f.plb.perDay} บาท คุ้มครอง ${f.plb.years} ปีค่ะ` },
       { key: "contact", voice: ask },
     ];
   }
@@ -474,6 +493,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
 
   if (f.product === "PENSION" && f.pension) return pensionScript(f, f.pension, hello, who, closing, Boolean(name));
   if (f.product === "LEGACY" && f.legacy) return legacyScript(f, f.legacy, hello, who, closing);
+  if (f.product === "PLB" && f.plb) return plbScript(f, f.plb, hello, who, closing);
 
   if (f.product === "IHEALTHY") {
     const others = (f.compare ?? []).filter((p) => !p.main);
@@ -587,17 +607,41 @@ function legacyScript(f: QuoteVideoFacts, l: LegacyVideoFacts, hello: string, wh
   ];
 }
 
+/** "ทำทุน 1 ล้าน ถ้าเป็นอะไรไปในช่วง 12 ปีนี้ ครอบครัวได้เงินก้อน 1,000,000 บาทค่ะ" */
+function plbLeadLine(p: PlbVideoFacts): string {
+  return `ทำทุน ${p.sumShort} ถ้าเป็นอะไรไปในช่วง ${p.years} ปีนี้ ครอบครัวได้เงินก้อน ${bahtSaid(p.sum)}ค่ะ`;
+}
+
+/**
+ * Protection Life's five lines (owner, 2026-10-14, mockup https://claude.ai/artifact/WHryu9gcuXHCxg2P2ibBR9):
+ * the sum the family receives within the term, the level price (ค่าใช้จ่าย, never ออม), the cover
+ * flat to the term's end, and the four terms — tax relief only for the 10-, 12- and 15-year ones.
+ * No waiting period, no "from today": neither is confirmed.
+ */
+function plbScript(f: QuoteVideoFacts, p: PlbVideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  return [
+    { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ปี ${budgetLead(f, "ด้วยค่าใช้จ่าย")}${plbLeadLine(p)}` },
+    { key: "price", voice: `ค่าใช้จ่ายแค่วันละ ${p.perDay} บาท หรือปีละ ${p.annual} บาท เท่าเดิมทุกปีตลอด ${p.years} ปีค่ะ` },
+    { key: "cover", voice: `คุ้มครองเต็ม ${bahtSaid(p.sum)}ทุกปี ไปจนถึงอายุ ${p.endAge} จ่ายกี่ปี ก็คุ้มครองเท่านั้นปีค่ะ` },
+    { key: "terms", voice: `ที่ชอบที่สุดคือ เลือกระยะได้ ${termsSaid(p.terms)} ปี อย่างแผนนี้ ${p.years} ปี รวมจ่ายทั้งหมด ${p.total} บาท แต่ครอบครัวได้ความคุ้มครองถึง ${p.sumShort}${p.tax ? " แถมลดหย่อนภาษีได้ด้วย" : ""}ค่ะ` },
+    { key: "contact", voice: closing },
+  ];
+}
+
 /** How each scene of this clip moves (timeline.ts draws the frames from it). */
 export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
   switch (key) {
     case "lead": return { count: true, sweeps: 1 };
     case "price": return { count: true, sweeps: f.pills.length ? 2 : 1 };
-    case "cover": return f.coverStyle === "bars" ? { bars: true, sweeps: 1 } : { sweeps: f.cover.length, spread: true };
+    // Protection Life's flat bar grown, then its rule lit
+    case "cover": return f.coverStyle === "bars" ? { bars: true, sweeps: 1 } : f.coverStyle === "flat" ? { sweeps: 2, spread: true } : { sweeps: f.cover.length, spread: true };
     // the classic table's moves and pen notes come from the voice (table-pen.ts tablePlan)
     case "value": return {};
     case "compare": return { ring: true };
     // มรดก's lump sum counted up, its line under it lit
     case "critical": return { count: true, sweeps: 1 };
+    // Protection Life's chosen term lit, then the total under the rows
+    case "terms": return { sweeps: 2, spread: true };
     case "contact": return {};
     // one highlighter a point, a question, a step as the voice reaches it; the comparison counted up
     case "story": return { sweeps: 3, spread: true };
@@ -630,6 +674,16 @@ export function pageCaption(f: QuoteVideoFacts): string {
       `มรดก ${l.tier} ล้าน สำหรับครอบครัว ถ้าเป็นอะไรไป ครอบครัวได้สูงสุด ${f.lead.amount} บาท`,
       `${who} ค่าใช้จ่ายปีแรกตกวันละ ${l.perDay} บาท (ปีละ ${l.annual} บาท)`,
       `ตรวจพบโรคร้ายแรง 1 ใน ${l.diseaseCount} โรค รับเงินก้อน ${l.critical.toLocaleString("en-US")} บาท · คุ้มครองถึงอายุ ${l.coverToAge}`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "PLB" && f.plb) {
+    const p = f.plb;
+    return [
+      `Protection Life คุ้มครองชีวิต ${p.sumShort} ถ้าเป็นอะไรไปภายใน ${p.years} ปี ครอบครัวได้ ${f.lead.amount} บาท`,
+      `${who} ค่าใช้จ่ายตกวันละ ${p.perDay} บาท (ปีละ ${p.annual} บาท) เท่าเดิมทุกปี`,
+      `คุ้มครองถึงอายุ ${p.endAge} · เลือกระยะได้ ${termsSaid(p.terms)} ปี${p.tax ? " · ลดหย่อนภาษีได้" : ""}`,
       "",
       ask,
     ].join("\n");

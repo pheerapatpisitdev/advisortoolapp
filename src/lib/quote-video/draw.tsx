@@ -10,6 +10,7 @@ import { COLS, PHOTO, ROW_H, TABLE } from "./table-geo";
 import { noteInWindow, type TableNote } from "./table-pen";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
+import { leadBig, leadPill } from "./plb";
 import { countAt, H, W, type OverlayState } from "./timeline";
 
 /**
@@ -116,7 +117,7 @@ const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
 function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
-  if (f.legacy) return <LegacyLead c={c} layer={layer} s={s} />;
+  if (f.legacy || f.plb) return <LegacyLead c={c} layer={layer} s={s} />;
   return (
     <>
       {c.customer && (
@@ -143,11 +144,13 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
 /**
  * มรดก's opening (owner, 2026-10-14, mockup https://claude.ai/artifact/55oEG3PjdupXzKPkTHbU75):
  * under the family photo the plan's name, the legacy in the largest type, then the most the
- * family receives counted up under the highlighter, and who it is for.
+ * family receives counted up under the highlighter, and who it is for. Protection Life's the
+ * same (mockup https://claude.ai/artifact/WHryu9gcuXHCxg2P2ibBR9): "คุ้มครองชีวิต 1 ล้าน", and
+ * the pill says until when.
  */
 function LegacyLead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
-  const l = f.legacy!;
+  const big = leadBig(f);
   const y = PHOTO.y + PHOTO.h + 30;
   return (
     <>
@@ -157,12 +160,12 @@ function LegacyLead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
         </On>
       )}
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.planLine}</On>
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y + 60, fontSize: 130, fontWeight: 600, color: P.figure, lineHeight: 1.1 }}>{`มรดก ${l.tier} ล้าน`}</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y + 60, fontSize: big.length > 16 ? 106 : 130, fontWeight: 600, color: P.figure, lineHeight: 1.1 }}>{big}</On>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y + 230, fontSize: 44, color: P.mute }}>{f.lead.label}</On>
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: y + 295 }}>
         <Swept p={s.sweep[0] ?? 1} size={76}>{`${money(countAt(f.lead.baht, s.count))} บาท`}</Swept>
       </On>
-      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y + 420, border: `3px solid ${P.accent}`, borderRadius: 40, padding: "4px 30px", fontSize: 40, color: P.accent }}>{f.insuredWho}</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y + 420, border: `3px solid ${P.accent}`, borderRadius: 40, padding: "4px 30px", fontSize: 40, color: P.accent }}>{leadPill(f)}</On>
       <Headline c={c} layer={layer} />
     </>
   );
@@ -450,7 +453,77 @@ function Critical({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlaySta
   );
 }
 
+/**
+ * Protection Life (owner, 2026-10-14): the cover as one flat bar — the whole sum every year from
+ * the insured's age to the end of the term, the term's years in the middle — and the plan's rule
+ * in a line under it: as many years as are paid, so many are covered.
+ */
+function FlatCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const f = c.facts;
+  const p = f.plb;
+  if (!p) return null;
+  const chartW = W - SIDE * 2;
+  const top = 560;
+  const barH = 200;
+  const grow = s.sweep[0] ?? 1;
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.coverTitle}</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 340, fontSize: 52, color: P.ink }}>{f.cover[0]?.label ?? ""}</On>
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: top, width: Math.max(8, Math.round(chartW * grow)), height: barH, background: P.figure, borderRadius: 24, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        {grow >= 1 ? <div style={box({ fontSize: 66, fontWeight: 600, color: C.paper })}>{`${f.lead.amount} บาท ทุกปี`}</div> : null}
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: top + barH + 20, width: chartW, height: 6, background: P.rule }} />
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: top + barH + 6, width: 6, height: 40, background: P.rule }} />
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE + chartW - 6, top: top + barH + 6, width: 6, height: 40, background: P.rule }} />
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: chartW, top: top + barH + 56, justifyContent: "space-between", alignItems: "center", fontSize: 44, color: P.mute }}>
+        <div style={box({})}>{`อายุ ${f.age}`}</div>
+        <div style={box({ fontSize: 50, fontWeight: 600, color: P.figure })}>{`${p.years} ปี`}</div>
+        <div style={box({})}>{`อายุ ${p.endAge}`}</div>
+      </On>
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: top + barH + 200 }}><Swept p={s.sweep[1] ?? 1} size={54}>จ่ายเท่าไหร่ คุ้มครองเท่านั้นปี</Swept></On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: chartW, justifyContent: "flex-end", top: top + barH + 330, fontSize: 52, color: P.pen, transform: "rotate(-2deg)" }}>{`คุ้มครองถึงอายุ ${p.endAge}`}</On>
+    </>
+  );
+}
+
+/**
+ * Protection Life's fourth scene, where the others have their value table (owner, 2026-10-14):
+ * the terms this age can buy side by side, the chosen one lit, what the chosen one costs in all,
+ * tax relief for the 10-, 12- and 15-year terms only, and in small type that it pays nothing at
+ * its end (never voiced).
+ */
+function TermsScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const p = c.facts.plb;
+  if (!p) return null;
+  const rowH = 118;
+  const top = 360;
+  const after = top + p.terms.length * (rowH + 22) + 30;
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>เลือกระยะได้ตามภาระ</On>
+      {p.terms.map((r, i) => (
+        <div key={r.years} style={abs({ left: SIDE, width: W - SIDE * 2, top: top + i * (rowH + 22), height: rowH })}>
+          <On layer={layer} own="base" style={{ position: "absolute", left: 0, top: 0, width: W - SIDE * 2, height: rowH, borderRadius: 26, border: `3px solid ${r.on ? P.figure : P.hair}`, background: r.on ? P.box : C.paper }} />
+          {r.on ? (
+            <On layer={layer} own="over" style={{ position: "absolute", left: 36, top: 0, height: rowH, alignItems: "center" }}><Swept p={s.sweep[0] ?? 1} size={52}>{`${r.years} ปี · ถึง ${r.endAge}`}</Swept></On>
+          ) : (
+            <On layer={layer} own="base" style={{ position: "absolute", left: 36, top: 0, height: rowH, alignItems: "center", fontSize: 48, color: P.mute }}>{`${r.years} ปี · ถึง ${r.endAge}`}</On>
+          )}
+          <On layer={layer} own="base" style={{ position: "absolute", right: 36, top: 0, height: rowH, alignItems: "center", fontSize: r.on ? 56 : 48, fontWeight: r.on ? 600 : 400, color: r.on ? P.figure : P.mute }}>{`${r.annual}/ปี`}</On>
+        </div>
+      ))}
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: after }}><Swept p={s.sweep[1] ?? 1} size={52}>{`รวมจ่าย ${p.years} ปี ${p.total} บาท`}</Swept></On>
+      {p.tax && (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: after + 110, border: `3px solid ${P.accent}`, borderRadius: 40, padding: "4px 30px", fontSize: 42, color: P.accent }}>ลดหย่อนภาษีได้</On>
+      )}
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: after + (p.tax ? 210 : 110), fontSize: 32, color: P.mute }}>ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน</On>
+    </>
+  );
+}
+
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "bands") return <BandsCover c={c} layer={layer} s={s} />;
@@ -643,6 +716,7 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     lead: <Lead c={c} layer={layer} s={state} />,
     compare: <Compare c={c} layer={layer} s={state} />,
     critical: <Critical c={c} layer={layer} s={state} />,
+    terms: <TermsScene c={c} layer={layer} s={state} />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,
