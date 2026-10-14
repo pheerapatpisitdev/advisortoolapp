@@ -106,10 +106,12 @@ export function WalletAdmin({ settings, rows, frozen = [], prices, pass = null, 
           : rows.length === 0 ? <Empty>ยังไม่มีใครเติมเงิน</Empty>
           : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[34rem] text-sm">
+              <table className="w-full min-w-[48rem] text-sm">
                 <thead>
                   <tr className="border-b border-[var(--bot-line)] text-left text-[var(--bot-ink-mute)]">
                     <th className="py-2 pr-3">ตัวแทน</th>
+                    <th className="py-2 pr-3">สังกัด</th>
+                    <th className="py-2 pr-3">หน่วย</th>
                     <th className="py-2 pr-3 text-right">คงเหลือ</th>
                     <th className="py-2 pr-3 text-right">เติมเดือนนี้</th>
                     <th className="py-2 pr-3 text-right">ใช้เดือนนี้</th>
@@ -143,6 +145,8 @@ function Row({ row }: { row: WalletRow }) {
     <>
       <tr className="border-b border-[var(--bot-line)]">
         <td className="py-1.5 pr-3">{row.name || "(ไม่มีชื่อ)"} <span className="text-xs text-[var(--bot-ink-faint)]">{row.code}</span></td>
+        <td className="py-1.5 pr-3">{row.isMember ? <MemberTag /> : row.tenant ?? "–"}</td>
+        <td className="py-1.5 pr-3">{row.unit ?? "–"}</td>
         <td className="py-1.5 pr-3 text-right font-semibold tabular-nums">{formatBaht(row.balanceSatang)}</td>
         <td className="py-1.5 pr-3 text-right tabular-nums">{formatBaht(row.toppedUpSatang)}</td>
         <td className="py-1.5 pr-3 text-right tabular-nums">{formatBaht(row.chargedSatang)}</td>
@@ -152,7 +156,7 @@ function Row({ row }: { row: WalletRow }) {
       </tr>
       {(open || said) && (
         <tr className="border-b border-[var(--bot-line)]">
-          <td colSpan={5} className="py-3">
+          <td colSpan={7} className="py-3">
             {open && (
               <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); apply(); }}>
                 <label className="text-xs text-[var(--bot-ink-mute)]">
@@ -172,6 +176,11 @@ function Row({ row }: { row: WalletRow }) {
       )}
     </>
   );
+}
+
+/** an outside member's wallet (สมาชิกทั่วไป): no สังกัด or หน่วย */
+function MemberTag() {
+  return <span className="rounded-full bg-[var(--bot-line)] px-2 py-0.5 text-xs text-[var(--bot-ink-mute)]">สมาชิกทั่วไป</span>;
 }
 
 /**
@@ -194,7 +203,11 @@ function FrozenRow({ wallet, row }: { wallet: FrozenWallet; row?: WalletRow }) {
   return (
     <li className="rounded border border-[var(--bot-line)] p-3 text-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span>{row?.name || "(ไม่มีชื่อ)"} <span className="text-xs text-[var(--bot-ink-faint)]">{row?.code ?? wallet.agentId}</span></span>
+        <span>
+          {row?.name || "(ไม่มีชื่อ)"} <span className="text-xs text-[var(--bot-ink-faint)]">{row?.code ?? wallet.agentId}</span>
+          {row?.isMember ? <> <MemberTag /></>
+            : (row?.tenant || row?.unit) && <span className="text-xs text-[var(--bot-ink-mute)]"> · {[row.tenant, row.unit && `หน่วย${row.unit}`].filter(Boolean).join(" · ")}</span>}
+        </span>
         <span className="text-xs text-[var(--bot-ink-mute)]">
           พักตั้งแต่ {new Date(wallet.frozenAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "medium", timeStyle: "short" })}
         </span>
