@@ -5,6 +5,8 @@ import { clearAiConfigCache, testProviders, type ProviderCheck } from "@/lib/ai/
 import { monthSpend, monthStart, spendSince, type SpendLine } from "@/lib/ai/ledger";
 import { contentBaht, DEFAULT_CONTENT_CAP_THB } from "@/lib/content/store";
 import { EMBEDDERS, JUDGE } from "@/lib/ai/providers";
+import { TTS_MODEL } from "@/lib/ai/tts";
+import { ELEVEN_MODEL, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { checkBudgets } from "./budget";
 import { usageByPerson, type PersonUse } from "./people";
 import { requireStaff } from "@/lib/auth/viewer";
@@ -242,6 +244,10 @@ function byProvider(lines: SpendLine[], models: { provider: string; model_name: 
     ["rendi", "rendi"] as const,
     ["lambda", "aws"] as const,
     ["cloudrun", "gcp"] as const,
+    // the วิดีโอนำเสนอ voices (owner, 2026-10-15): priced in code too, so the reference table
+    // has neither, and ElevenLabs' row read "ยังไม่มีค่าใช้จ่าย" over ฿28 of clips
+    [TTS_MODEL, "google"] as const,
+    [ELEVEN_MODEL, ELEVENLABS] as const,
   ]);
   const acc = new Map<string, { calls: number; baht: number; tasks: Map<string, number>; lines: SpendDetail[] }>();
   for (const l of lines) {
