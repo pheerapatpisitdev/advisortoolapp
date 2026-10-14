@@ -263,6 +263,21 @@ export function IHealthyCalculator(
     : undefined;
 
   /**
+   * The same arrangement for วิดีโอนำเสนอ (owner, 2026-10-14): the clip prices what this page
+   * prices — the base, its sum, the territory, the coverage and the fold — rather than the
+   * opening's defaults. Age, sex and plan travel on their own; the Studio form owns those.
+   */
+  const videoSetup = plan
+    ? queryFrom(table, {
+        age, sex, base: base.variant, sumAssured, mode,
+        plan: plan.code,
+        territory: territory ?? wantTerritory,
+        coverage: coverage ?? wantCoverage,
+        riders: answered?.riders ?? picked,
+      })
+    : undefined;
+
+  /**
    * The quote the page hands over is the whole arrangement on screen: the base plan, the
    * health rider, and whatever the fold has attached — the same three the card totals. The
    * fold's own riders are named as one line rather than listed, because a summary that
@@ -636,7 +651,7 @@ export function IHealthyCalculator(
       <div className="print:hidden">
         <ContactButtons
           copyText={quoteText} cardPath={picture} words={w.contact}
-          videoHref={plan ? videoStartHref({ product: "IHEALTHY", sex, age, plan: plan.code }) : undefined}
+          videoHref={plan ? videoStartHref({ product: "IHEALTHY", sex, age, plan: plan.code, ...(videoSetup ? { setup: videoSetup } : {}) }) : undefined}
         />
       </div>
 

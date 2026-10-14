@@ -1,4 +1,5 @@
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
+import { cleanSetup } from "./ihealthy-setup";
 import type { Product } from "./script";
 
 /**
@@ -20,6 +21,8 @@ export interface VideoStart {
   variant?: string;
   /** iHealthy's plan code */
   plan?: string;
+  /** iHealthy: the page's base, sum, territory, coverage and riders, as its address writes them (ihealthy-setup.ts) */
+  setup?: string;
   /** บำนาญ 95: the age the pension starts, and how the premiums are paid */
   annuityAge?: number;
   pay?: "6" | "untilAnnuity";
@@ -34,6 +37,7 @@ export function videoStartHref(s: VideoStart): string {
   if (s.sumAssured !== undefined) q.set("sum", String(s.sumAssured));
   if (s.variant) q.set("variant", s.variant);
   if (s.plan) q.set("plan", s.plan);
+  if (s.setup) q.set("ihu", s.setup);
   if (s.annuityAge !== undefined) q.set("start", String(s.annuityAge));
   if (s.pay) q.set("pay", s.pay);
   if (s.tier !== undefined) q.set("tier", String(s.tier));
@@ -65,6 +69,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const start = Number(one(params.start));
   const pay = one(params.pay);
   const tier = Number(one(params.tier));
+  const setup = product === "IHEALTHY" ? cleanSetup(one(params.ihu)) : undefined;
   const plb = product === "PLB";
   return {
     product,
@@ -76,5 +81,6 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...([55, 60, 65, 70].includes(start) ? { annuityAge: start } : {}),
     ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),
     ...(Number.isInteger(tier) && tier >= 1 && tier <= 10 ? { tier } : {}),
+    ...(setup ? { setup } : {}),
   };
 }

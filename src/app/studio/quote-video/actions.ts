@@ -9,6 +9,8 @@ import { providerKey } from "@/lib/ai/client";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
+import { iHealthyCard } from "@/lib/ihealthy-card";
+import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
 import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
@@ -45,6 +47,8 @@ export interface Preview {
   stories: { key: string; name: string }[];
   /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out); บำนาญ 95's monthly pension too; มรดก's tier */
   resolved: { sum?: number; plan?: string; monthly?: number; tier?: number };
+  /** iHealthy from its page (owner, 2026-10-14): the page's arrangement the clip is priced on */
+  setup?: { line: string; riders: string };
 }
 export interface VideoItem {
   id: string;
@@ -168,7 +172,8 @@ function checkedQuote(v: VideoInput): VideoInput | string {
     const codes = new Set(iHealthyTable().plans.map((p) => p.code));
     if (!codes.has(v.plan)) return "เลือกแผน";
     const compare = [...new Set((Array.isArray(v.compare) ? v.compare : []).filter((c) => codes.has(c) && c !== v.plan))].slice(0, 2);
-    return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: v.plan, compare };
+    const setup = cleanSetup(v.setup);
+    return { product: "IHEALTHY", sex: v.sex, age: v.age, plan: v.plan, compare, ...(setup ? { setup } : {}) };
   }
   if (v.product === "PENSION") return checkedPension(v);
   if (v.product === "LEGACY") return checkedLegacy(v);
@@ -303,7 +308,15 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
     resolved: c.product === "IHEALTHY" ? { plan: c.plan }
       : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht }
       : c.product === "LEGACY" ? { tier: c.tier } : { sum: c.sumAssured },
+    ...(c.product === "IHEALTHY" && c.setup ? { setup: setupWords(c) } : {}),
   };
+}
+
+/** the page's arrangement in the form's words: the base, sum and territory, then what is attached */
+function setupWords(c: Extract<VideoInput, { product: "IHEALTHY" }>): { line: string; riders: string } {
+  const card = iHealthyCard(setupQuery(c));
+  const attached = card.lines.slice(2).map((l) => l.label);
+  return { line: card.insuredLine, riders: attached.length ? attached.join(" · ") : "ไม่มี" };
 }
 
 export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
