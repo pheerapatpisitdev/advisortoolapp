@@ -146,7 +146,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
 
   it("keeps every back-office page out of it", () => {
     const out = hrefs(false);
-    for (const secret of ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/knowledge", "/admin/messenger", "/admin/ads", "/admin/api"]) {
+    for (const secret of ["/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/knowledge", "/admin/messenger", "/admin/ads"]) {
       expect(out, secret).not.toContain(secret);
     }
   });
@@ -173,7 +173,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
       // /admin/welcome (ข้อความต้อนรับ) joined on 2026-10-04: each Page's greeting
       // /admin/teach (ห้องสอนบอท) joined on 2026-10-11: the test chat and taught answers
       // /home (ระบบหลัก) is its first line since 2026-10-14, as it is in Studio's
-      ["/home", "/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/members", "/admin/knowledge", "/admin/teach", "/admin/messenger", "/admin/welcome", "/admin/posting", "/admin/ads", "/admin/api"].sort(),
+      ["/home", "/admin", "/admin/crm", "/admin/ai", "/admin/wallet", "/admin/members", "/admin/knowledge", "/admin/teach", "/admin/messenger", "/admin/welcome", "/admin/posting", "/admin/ads"].sort(),
     );
   });
 
@@ -187,7 +187,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
       ["/admin/welcome", "/admin/knowledge", "/admin/teach"],
       ["/admin/posting", "/admin/ads"],
       ["/admin/team", "/admin/members", "/admin/wallet", "/admin/stats"],
-      ["/admin/ai", "/admin/api"],
+      ["/admin/ai"],
     ]);
     expect(groups[1].links[0].label).toBe("ลูกค้าจากแชท");
     // an assistant who answers chats: the way back and the inbox, nothing else

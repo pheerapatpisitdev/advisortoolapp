@@ -4,7 +4,7 @@ import { monthSpend, spendSince } from "@/lib/ai/ledger";
 import { pageConnection } from "@/lib/facebook/connection";
 import { adAccounts } from "@/lib/facebook/ads-connection";
 import { SUBSCRIBED_FIELDS } from "@/lib/facebook/oauth";
-import { tablesMeta } from "@/lib/api/service";
+import { tablesMeta } from "@/calc/plans/tables-meta";
 import { daysUntil } from "@/calc/calendar";
 import { conversationsSince, openQuestions, READ_FAILED } from "@/lib/crm/load";
 import { rangeStart, summarise } from "@/lib/crm/summary";
