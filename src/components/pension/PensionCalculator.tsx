@@ -8,6 +8,7 @@ import {
 } from "@/calc/pension/engine";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
+import { pensionTablePath } from "@/lib/card-link";
 import { pensionQuoteText } from "@/lib/pension-cta";
 import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
@@ -92,6 +93,8 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   const q = result?.ok ? result.quote : null;
   const who = { age: age === "" ? PENSION_LIMITS.ageMin : age, sex };
   const copyText = q ? pensionQuoteText(who, q) : undefined;
+  // the yearly table as the chat sends it: the main contract only, priced from the sum
+  const tableCard = q && age !== "" ? pensionTablePath({ age, sex, start: chosenAge, pay, sumAssured: q.sumAssured }) : undefined;
 
   // the yearly table's pen notes (pension-pen-notes.ts): what is ringed, and the room the braces need
   const tableRef = useRef<HTMLTableElement>(null);
@@ -220,7 +223,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
             {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
             <div className="order-2">
               <ContactButtons
-                copyText={copyText}
+                copyText={copyText} tableCardPath={tableCard} tableLabel="ตารางรายปี"
                 videoHref={q && age !== "" ? videoStartHref({ product: "PENSION", sex, age, sumAssured: q.sumAssured, annuityAge: chosenAge, pay }) : undefined}
               />
             </div>
@@ -369,7 +372,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
 
         {sticky && copyText && (
           <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
-            <ContactButtons copyText={copyText} compact />
+            <ContactButtons copyText={copyText} tableCardPath={tableCard} compact />
           </div>
         )}
     </div>
