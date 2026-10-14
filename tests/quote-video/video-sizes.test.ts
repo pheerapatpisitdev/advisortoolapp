@@ -49,7 +49,7 @@ describe("video sizes (owner, 2026-10-11)", () => {
 });
 
 describe("square and landscape scenes draw", () => {
-  const contact = { name: "ภีรพัฒน์", phone: "0812345678" };
+  const contact = { name: "ภีรพัฒน์", phone: "0812345678", more: "ตัวแทนประกันชีวิต กรุงไทย-แอกซ่า\nใบอนุญาตเลขที่ 6501012345" };
   const today = new Date("2026-10-11T00:00:00+07:00");
   const quotes = [
     quoteVideoFacts(lp, today)!,

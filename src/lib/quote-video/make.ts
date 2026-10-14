@@ -316,6 +316,7 @@ async function contactOf(agentId: string, agentName: string): Promise<Contact> {
   return {
     name: agentName, phone: contactRow.phone,
     ...(contactRow.line ? { line: contactRow.line } : {}),
+    ...(contactRow.more ? { more: contactRow.more } : {}),
     ...(await photoDataUri(contactRow.photoPath).then((p) => (p ? { photo: p } : {}))),
   };
 }

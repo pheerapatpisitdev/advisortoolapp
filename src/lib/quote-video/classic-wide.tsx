@@ -538,6 +538,11 @@ function ContactScene({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer })
             {k.line && <div style={box({ fontSize: g.px(34, 44), color: P.mute })}>{`LINE ${k.line}`}</div>}
           </div>
         </On>
+        {k.more && (
+          <On layer={layer} own="base" style={{ flexDirection: "column", fontSize: g.px(34, 44), color: P.ink, lineHeight: 1.45, marginTop: 30 }}>
+            {k.more.split("\n").map((m, i) => <div key={i} style={box({})}>{m}</div>)}
+          </On>
+        )}
         {c.facts.footNote && <On layer={layer} own="base" style={{ fontSize: g.px(20, 26), color: P.mute, marginTop: 18 }}>{c.facts.footNote}</On>}
       </div>
     </div>

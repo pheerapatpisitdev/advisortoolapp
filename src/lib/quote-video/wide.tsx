@@ -122,7 +122,7 @@ function Frame({ g, words, t, voiceSec, children }: { g: Geo; words: string[]; t
   );
 }
 
-interface Contact { name: string; phone: string; line?: string; photo?: string }
+interface Contact { name: string; phone: string; line?: string; more?: string; photo?: string }
 
 /** the agent's card, shared by both kinds of clip */
 function ContactScene({ g, s, t, title, header, customer, narrator, contact, note }: {
@@ -153,6 +153,11 @@ function ContactScene({ g, s, t, title, header, customer, narrator, contact, not
               {k.line && <div style={box({ fontSize: g.px(36, 44) })}>{`LINE ${k.line}`}</div>}
             </div>
           </El>
+          {k.more && (
+            <El an={s.card} t={t} style={{ flexDirection: "column", marginTop: 30, fontSize: g.px(36, 44), color: WHITE, lineHeight: 1.45 }}>
+              {k.more.split("\n").map((m, i) => <div key={i} style={box({})}>{m}</div>)}
+            </El>
+          )}
           {note && <El an={s.note} t={t} style={{ marginTop: 22, fontSize: g.px(24, 28), color: WHITE, opacity: 0.75 }}>{note}</El>}
         </div>
       </Body>
