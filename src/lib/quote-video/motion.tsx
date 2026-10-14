@@ -4,6 +4,7 @@ import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { pensionBars } from "./pension";
+import { bandAges, shortBaht, stairs } from "./legacy";
 import { countAt, H, LEAD, W, wordTimes } from "./timeline";
 import type { Extra } from "./told";
 
@@ -59,8 +60,8 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return s;
     }
     case "cover": {
-      if (f.coverStyle === "steps") {
-        // บำนาญ 95: each step grown as the voice reaches it, more or less
+      if (f.coverStyle === "steps" || f.coverStyle === "bands") {
+        // บำนาญ 95's steps, มรดก's bands: each grown as the voice reaches it, more or less
         const s: Record<string, Anim> = { kicker: a(0.2, "up"), axis: a(0.3, "stroke", 1.0) };
         const n = Math.max(1, f.cover.length);
         f.cover.forEach((_, i) => {
@@ -101,6 +102,12 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       }
       return s;
     }
+    case "critical":
+      // มรดก: the illness named, the lump sum popped in and counted up, the life cover staying on
+      return {
+        kicker: a(0.2, "up"), icon: a(0.4, "pop"), sub: a(0.9, "up"), big: a(1.3, "pop"), count: a(1.3, "count"),
+        unit: a(1.6, "fade"), note: a(Math.max(2.6, voiceSec * 0.65), "up"), pill: a(Math.max(3.2, voiceSec * 0.8), "pop"),
+      };
     case "compare": {
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
       (f.compare ?? []).forEach((_, i) => { s[`col${i}`] = a(0.8 + i * 0.5, "pop"); });
@@ -226,8 +233,60 @@ export function stroke({ d, len, p, color, width, cap = "round" }: { d: string; 
   return <path d={d} fill="none" stroke={color} strokeWidth={width} strokeLinecap={cap} strokeLinejoin="round" strokeDasharray={`${len} ${len}`} strokeDashoffset={Math.round(len * (1 - p))} />;
 }
 
+/** the shield drawn and the family popped into it, in a w×h box: the opening's picture */
+export function shieldFamily(s: Record<string, Anim>, t: number, w: number, h: number) {
+  return (
+    <div style={box({ position: "relative", width: w, height: h, flexShrink: 0 })}>
+      <svg width={w} height={h} viewBox="0 0 120 130">
+        {stroke({ d: "M60 8 L108 26 V62 C108 94 86 114 60 124 C34 114 12 94 12 62 V26 Z", len: 330, p: look(s.shield, t).p, color: GOLD, width: 5 })}
+      </svg>
+      <El an={s.family} t={t} style={{ position: "absolute", left: 0, top: 0, width: w, height: h }}>
+        <svg width={w} height={h} viewBox="0 0 120 130">
+          <circle cx={45} cy={56} r={9} fill={WHITE} /><circle cx={75} cy={56} r={9} fill={WHITE} /><circle cx={60} cy={74} r={7} fill={WHITE} />
+          <path d="M30 96 C32 76 58 76 60 96 Z M60 96 C62 76 88 76 90 96 Z" fill={WHITE} />
+        </svg>
+      </El>
+    </div>
+  );
+}
+
+/**
+ * มรดก's opening (owner, 2026-10-14, mockup https://claude.ai/artifact/55oEG3PjdupXzKPkTHbU75):
+ * the shield and the family, the legacy in gold, the most the family receives counted up in a
+ * highlighted band, who it is for.
+ */
+function LegacyLead({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("lead", f, c.voiceSec);
+  const n = countAt(f.lead.baht, look(s.count, t).p);
+  const head = c.headline?.length ?? 0;
+  const y = head ? 120 : 0;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      {c.customer && <El an={s.name} t={t} style={{ position: "absolute", left: SIDE, top: 170, fontSize: 42, color: WHITE }}>จัดทำสำหรับ <span style={{ color: GOLD, fontWeight: 600, marginLeft: 12 }}>คุณ{c.customer}</span></El>}
+      {head ? (
+        <div style={abs({ left: SIDE, width: W - SIDE * 2, top: c.customer ? 250 : 190, flexDirection: "column", alignItems: "center" })}>
+          {c.headline!.map((h, i) => <div key={i} style={box({ fontSize: 62, fontWeight: 700, color: i === 0 ? WHITE : GOLD, lineHeight: 1.25 })}>{h}</div>)}
+        </div>
+      ) : null}
+      <div style={abs({ left: (W - 330) / 2, top: 280 + y, width: 330, height: 355 })}>{shieldFamily(s, t, 330, 355)}</div>
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 650 + y, justifyContent: "center", fontSize: 50, fontWeight: 600, color: WHITE, opacity: 0.9 }}>{f.planLine}</El>
+      <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 760 + y, justifyContent: "center", fontSize: 140, fontWeight: 700, color: GOLD, lineHeight: 1.1 }}>{`มรดก ${f.legacy!.tier} ล้าน`}</El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 945 + y, justifyContent: "center", fontSize: 46, color: WHITE }}>{f.lead.label}</El>
+      <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1025 + y, justifyContent: "center" }}>
+        <div style={box({ background: GOLD, color: NAVY, borderRadius: 44, padding: "6px 40px", fontSize: 72, fontWeight: 700 })}>{`${n.toLocaleString("en-US")} บาท`}</div>
+      </El>
+      <El an={s.mark} t={t} style={{ position: "absolute", left: 0, width: W, top: 1170 + y, justifyContent: "center" }}>
+        <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "4px 30px", fontSize: 40 })}>{f.insuredWho}</div>
+      </El>
+    </>
+  );
+}
+
 function Lead({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
+  if (f.legacy) return <LegacyLead c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shield = look(s.shield, t).p;
   const n = countAt(f.lead.baht, look(s.count, t).p);
@@ -359,6 +418,101 @@ function CoverBars({ c, t }: { c: MotionContext; t: number }) {
         </El>
       </div>
     </>
+  );
+}
+
+/**
+ * มรดก: what the family receives by age, as a staircase (legacy.ts stairs) — each bar as wide as
+ * its years and as tall as its sum, grown in turn, its sum over it and its ages under it.
+ * Shared by the portrait and the wide clips (`w`×`h`: the drawing's room).
+ */
+export function legacyStairs(f: QuoteVideoFacts, s: Record<string, Anim>, t: number, w: number, h: number, big = 1) {
+  const bands = f.legacy?.bands ?? [];
+  const labels = Math.round(80 * big);
+  const above = Math.round(80 * big);
+  const base = h - labels;
+  const tall = base - above;
+  const bars = stairs(bands, w, tall, Math.round(150 * big), Math.round(60 * big));
+  const gap = Math.round(6 * big);
+  const color = (i: number) => (i === 0 ? GOLD : i === 1 ? SKY : "rgba(255,255,255,0.45)");
+  return (
+    <div style={box({ position: "relative", width: w, height: h })}>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        {bars.map((b, i) => {
+          const g = look(s[`bar${i}`], t);
+          const bh = Math.round(b.h * g.p);
+          return g.opacity ? <rect key={b.band.from} x={b.x + gap} y={base - bh} width={b.w - gap * 2} height={bh} rx={Math.round(14 * big)} fill={color(i)} /> : null;
+        })}
+        {stroke({ d: `M0 ${base} L${w} ${base}`, len: w, p: look(s.axis, t).p, color: WHITE, width: Math.round(8 * big) })}
+      </svg>
+      {bars.map((b, i) => (
+        <El key={b.band.from} an={s[`lab${i}`]} t={t} style={{ position: "absolute", left: b.x, top: 0, width: b.w, height: h }}>
+          <div style={abs({ left: 0, width: b.w, top: base - b.h - Math.round(66 * big), justifyContent: "center", fontSize: Math.round(46 * big), fontWeight: 700, color: i === 0 ? GOLD : WHITE })}>{shortBaht(b.band.amount)}</div>
+          <div style={abs({ left: 0, width: b.w, top: base + Math.round(14 * big), justifyContent: "center", fontSize: Math.round(36 * big), color: WHITE, opacity: 0.85 })}>{bandAges(b.band, i, bands)}</div>
+        </El>
+      ))}
+    </div>
+  );
+}
+
+function CoverBands({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 700, color: WHITE }}>{f.coverTitle}</El>
+      <div style={abs({ left: SIDE, top: 330, width: W - SIDE * 2, height: 620 })}>{legacyStairs(f, s, t, W - SIDE * 2, 620)}</div>
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 990, flexDirection: "column" })}>
+        {f.cover.map((r, i) => (
+          <El key={r.label} an={s[`lab${i}`]} t={t} style={{ justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.1)", borderRadius: 28, padding: "12px 30px", marginBottom: 14, fontSize: 40, color: WHITE }}>
+            <div style={box({})}>{r.label}</div>
+            <div style={box({ fontWeight: 700, color: i === 0 ? GOLD : WHITE })}>{`${r.amount} บาท`}</div>
+          </El>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/**
+ * มรดก's fourth scene (owner, 2026-10-14): the illness named, a heart with a cross, the lump sum
+ * the insured receives counted up, and the life cover that stays on for the family.
+ */
+function Critical({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const l = f.legacy;
+  const s = motionSpec("critical", f, c.voiceSec);
+  if (!l) return null;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 190, justifyContent: "center", fontSize: 54, fontWeight: 700, color: WHITE }}>{`ตรวจพบโรคร้ายแรง 1 ใน ${l.diseaseCount} โรค`}</El>
+      <El an={s.icon} t={t} style={{ position: "absolute", left: (W - 240) / 2, top: 300, width: 240, height: 240 }}>{heartCross(240)}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: 0, width: W, top: 580, justifyContent: "center", fontSize: 54, color: WHITE }}>รับเงินก้อนไว้รักษาตัวเอง</El>
+      <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 670, justifyContent: "center" }}>
+        <div style={box({ background: GOLD, color: NAVY, borderRadius: 50, padding: "0 50px", fontSize: 150, fontWeight: 700, lineHeight: 1.2 })}>{countAt(l.critical, look(s.count, t).p).toLocaleString("en-US")}</div>
+      </El>
+      <El an={s.unit} t={t} style={{ position: "absolute", left: 0, width: W, top: 880, justifyContent: "center", fontSize: 50, color: WHITE }}>บาท</El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 990, flexDirection: "column", alignItems: "center", background: WHITE, color: NAVY, borderRadius: 36, padding: "26px 36px" }}>
+        <div style={box({ fontSize: 44, fontWeight: 700 })}>จ่ายครั้งเดียว</div>
+        <div style={box({ fontSize: 42 })}>ประกันชีวิตหลักยังอยู่ต่อให้ครอบครัว</div>
+      </El>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1220, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 40, fontWeight: 600 })}>{`✓ โรคร้ายแรงคุ้มครองถึงอายุ ${l.criticalToAge}`}</div>
+      </El>
+    </>
+  );
+}
+
+/** a heart with a cross on it, in a box of `size` (a plain function: see `stroke`) */
+export function heartCross(size: number) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120">
+      <path d="M60 104 C28 82 10 64 10 42 C10 24 24 12 40 12 C50 12 56 18 60 24 C64 18 70 12 80 12 C96 12 110 24 110 42 C110 64 92 82 60 104 Z" fill={RED} />
+      <rect x={52} y={34} width={16} height={44} rx={3} fill={WHITE} />
+      <rect x={38} y={48} width={44} height={16} rx={3} fill={WHITE} />
+    </svg>
   );
 }
 
@@ -751,9 +905,11 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
   const body = {
     lead: <Lead c={c} t={t} />,
     price: <Price c={c} t={t} />,
-    cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} /> : <CoverRows c={c} t={t} />,
+    cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
+      : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
+    critical: <Critical c={c} t={t} />,
     contact: c.loop ? <LoopEnd c={c} t={t} /> : <Contact c={c} t={t} />,
     story: <StoryScene c={c} t={t} />,
     qa: <QaScene c={c} t={t} />,

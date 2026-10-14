@@ -6,6 +6,7 @@ import { LIFEPROTECT_PLAN } from "@/lib/lifeprotect-card";
 import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import type { PensionPay } from "@/calc/pension/engine";
 import { pensionVideoFacts, roughBaht, type PensionVideoFacts } from "./pension";
+import { legacyVideoFacts, type LegacyVideoFacts } from "./legacy";
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
 import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
@@ -20,13 +21,16 @@ import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
  * "เวนคืน" in the voice — "ถ้าเป็นอะไรไป", "ขอเงินก้อนคืน" — and for the plans that build a
  * cash value, "ออม" where it said "จ่าย" (owner, 2026-10-11: ออมต่อปี, ออมเพียง 19 ปี).
  * บำนาญ สมาร์ท 95 is the fourth (owner, 2026-10-13; pension.ts): a monthly pension from an age.
- * iHealthy Ultra keeps "ค่าใช้จ่าย": a health plan builds nothing to save. The screen keeps the
+ * มรดกเพื่อครอบครัว is the fifth (owner, 2026-10-14; legacy.ts): the /legacy bundle, a tier of 1–10 million.
+ * iHealthy Ultra and มรดก keep "ค่าใช้จ่าย": neither builds anything to save. The screen keeps the
  * cards' own words. Words in a line are separated by single spaces: the subtitles light up one
  * of those pieces at a time.
  */
 
-export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION";
+export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY";
 export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact"
+  /** มรดก's fourth scene, where the others have their value table: the critical-illness lump sum */
+  | "critical"
   /** the longer clips' own (told.ts, owner 2026-10-13): the customer's story, a comparison, two questions, how to start */
   | "story" | "versus" | "qa" | "steps";
 
@@ -36,6 +40,8 @@ export type VideoInput = (
   | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[] }
   /** the sum the pension is paid from; the form may send the monthly pension instead (pension.ts checkedPension) */
   | { product: "PENSION"; age: number; sex: "M" | "F"; annuityAge: number; pay: PensionPay; sumAssured: number; monthly?: number }
+  /** มรดกเพื่อครอบครัว: the tier, 1–10, which is the millions the family receives (legacy.ts) */
+  | { product: "LEGACY"; age: number; sex: "M" | "F"; tier: number }
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
@@ -101,8 +107,8 @@ export interface QuoteVideoFacts {
   priceNotes: string[];
   coverTitle: string;
   cover: CoverRow[];
-  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; the others list their rows */
-  coverStyle: "bars" | "rows" | "steps";
+  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; มรดก its bands as a staircase; the others list their rows */
+  coverStyle: "bars" | "rows" | "steps" | "bands";
   coverPen?: string;
   coverNote?: string;
   coverToAge: number;
@@ -125,6 +131,8 @@ export interface QuoteVideoFacts {
   footNote?: string;
   /** บำนาญ 95: the pension's schedule (pension.ts) */
   pension?: PensionVideoFacts;
+  /** มรดก: the bands, the critical-illness sum, the first year's price (legacy.ts) */
+  legacy?: LegacyVideoFacts;
 }
 
 const digits = (s: string) => Number(s.replace(/[^\d]/g, ""));
@@ -136,7 +144,10 @@ export const planInput = (v: Extract<VideoInput, { variant: string }>): PlanCard
 
 /** The facts for an arrangement; undefined for anything the clip cannot state (no price, not sold). */
 export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteVideoFacts | undefined {
-  const f = v.product === "IHEALTHY" ? iHealthyFacts(v, today) : v.product === "PENSION" ? pensionVideoFacts(v) : planFacts(v, today);
+  const f = v.product === "IHEALTHY" ? iHealthyFacts(v, today)
+    : v.product === "PENSION" ? pensionVideoFacts(v)
+    : v.product === "LEGACY" ? legacyVideoFacts(v, today)
+    : planFacts(v, today);
   if (!f || !v.budget) return f;
   // a clip begun from a budget says what the customer saves, in the instalment they named
   const row = f.prices.find((p) => p.label === (v.budget!.per === "month" ? "รายเดือน" : "รายปี"));
@@ -395,6 +406,9 @@ function leadFact(f: QuoteVideoFacts, name: string): string {
   if (f.product === "PENSION" && f.pension) {
     return `แผนนี้ ${name ? "" : `${who} `}${budgetLead(f, "ถ้าออม")}ตั้งแต่อายุ ${f.pension.start} รับบำนาญเดือนละ ${f.pension.monthly} บาท ไปจนถึงอายุ 95 เลยค่ะ`;
   }
+  if (f.product === "LEGACY" && f.legacy) {
+    return `แผนนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ด้วยค่าใช้จ่าย")}ทำมรดก ${f.legacy.tier} ล้าน ${legacyLeadLine(f.legacy)}`;
+  }
   if (f.product === "IHEALTHY") {
     return `แผน ${f.planName} ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`;
   }
@@ -417,6 +431,13 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
     return [
       { key: "lead", voice: `${f.budget ? budgetLead(f, "ถ้าออม") : "ออมวันนี้ "}ตั้งแต่อายุ ${p.start} รับบำนาญเดือนละ ${p.monthly} บาท ไปจนถึงอายุ 95 ค่ะ` },
       { key: "price", voice: `ออมเดือนละ ${f.spokenPrice.amount} บาท เพียง ${f.payYears} ปี แถมลดหย่อนภาษีได้ค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
+  if (f.product === "LEGACY" && f.legacy) {
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ด้วยค่าใช้จ่าย")}${f.budget ? "" : "ถ้าเป็นอะไรไป "}ครอบครัวได้เงินก้อนสูงสุดถึง ${bahtSaid(f.lead.baht)}ค่ะ` },
+      { key: "price", voice: `ค่าใช้จ่ายปีแรกแค่วันละ ${f.legacy.perDay} บาท คุ้มครองถึงอายุ ${f.legacy.coverToAge} ค่ะ` },
       { key: "contact", voice: ask },
     ];
   }
@@ -452,6 +473,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     : "สนใจ ทักมาคุยกันได้เลยนะคะ ยินดีช่วยดูแผนให้ค่ะ";
 
   if (f.product === "PENSION" && f.pension) return pensionScript(f, f.pension, hello, who, closing, Boolean(name));
+  if (f.product === "LEGACY" && f.legacy) return legacyScript(f, f.legacy, hello, who, closing);
 
   if (f.product === "IHEALTHY") {
     const others = (f.compare ?? []).filter((p) => !p.main);
@@ -536,6 +558,35 @@ function pensionScript(f: QuoteVideoFacts, p: PensionVideoFacts, hello: string, 
   ];
 }
 
+/** "1,150,000 บาท": a figure said as the mockup says it, in digits (say-numbers.ts reads it out) */
+const bahtSaid = (baht: number) => `${baht.toLocaleString("en-US")} บาท`;
+
+/** "ถ้าเป็นอะไรไปก่อนอายุ 60 ครอบครัวได้เงินก้อนถึง 1,150,000 บาทค่ะ": the most the family receives, and until when */
+function legacyLeadLine(l: LegacyVideoFacts): string {
+  const [first] = l.bands;
+  const before = l.bands.length > 1 ? `ก่อนอายุ ${first.to + 1} ` : "";
+  return `ถ้าเป็นอะไรไป${before ? "" : " "}${before}ครอบครัวได้เงินก้อนถึง ${bahtSaid(first.amount)}ค่ะ`;
+}
+
+/**
+ * มรดกเพื่อครอบครัว's five lines (owner, 2026-10-14, mockup https://claude.ai/artifact/55oEG3PjdupXzKPkTHbU75):
+ * the legacy and the most the family receives, the first year's price (ค่าใช้จ่าย, never ออม) and
+ * that the critical-illness part rises with age, the bands by age, the critical-illness lump sum.
+ */
+function legacyScript(f: QuoteVideoFacts, l: LegacyVideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  const [a, b] = l.bands;
+  const cover = b
+    ? `ถ้าเป็นอะไรไปก่อนอายุ ${b.from} ครอบครัวได้ ${bahtSaid(a.amount)} ${l.bands.length > 2 ? `อายุ ${b.from} ถึง ${b.to} ได้ ${bahtSaid(b.amount)} ` : ""}และยังดูแลต่อไปถึงอายุ ${l.coverToAge} ค่ะ`
+    : `ถ้าเป็นอะไรไป ครอบครัวได้ ${bahtSaid(a.amount)} ดูแลไปถึงอายุ ${l.coverToAge} ค่ะ`;
+  return [
+    { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ปี ${budgetLead(f, "ด้วยค่าใช้จ่าย")}ทำมรดก ${l.tier} ล้าน ${legacyLeadLine(l)}` },
+    { key: "price", voice: `ค่าใช้จ่ายปีแรกแค่วันละ ${l.perDay} บาท หรือปีละ ${l.annual} บาท${l.monthly ? ` หรือเดือนละ ${l.monthly} บาท` : ""}ค่ะ ส่วนคุ้มครองโรคร้ายแรงจะปรับตามอายุในปีถัดไปนะคะ` },
+    { key: "cover", voice: cover },
+    { key: "critical", voice: `ที่ชอบที่สุดคือ ถ้าตรวจพบโรคร้ายแรง 1 ใน ${l.diseaseCount} โรค รับเงินก้อนไว้รักษาตัวเอง ${bahtSaid(l.critical)} แล้วประกันชีวิตหลักยังอยู่ต่อให้ครอบครัวค่ะ` },
+    { key: "contact", voice: closing },
+  ];
+}
+
 /** How each scene of this clip moves (timeline.ts draws the frames from it). */
 export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
   switch (key) {
@@ -545,6 +596,8 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
     // the classic table's moves and pen notes come from the voice (table-pen.ts tablePlan)
     case "value": return {};
     case "compare": return { ring: true };
+    // มรดก's lump sum counted up, its line under it lit
+    case "critical": return { count: true, sweeps: 1 };
     case "contact": return {};
     // one highlighter a point, a question, a step as the voice reaches it; the comparison counted up
     case "story": return { sweeps: 3, spread: true };
@@ -567,6 +620,16 @@ export function pageCaption(f: QuoteVideoFacts): string {
       `บำนาญเดือนละ ${p.monthly} บาท ตั้งแต่อายุ ${p.start} ถึง 95`,
       `${who} ออมเดือนละ ${f.spokenPrice.amount} บาท จ่ายแค่ ${f.payYears} ปี เบี้ยลดหย่อนภาษีได้`,
       `บำนาญเพิ่มตามอายุ · รับประกันจ่าย 15 ปีแรก`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "LEGACY" && f.legacy) {
+    const l = f.legacy;
+    return [
+      `มรดก ${l.tier} ล้าน สำหรับครอบครัว ถ้าเป็นอะไรไป ครอบครัวได้สูงสุด ${f.lead.amount} บาท`,
+      `${who} ค่าใช้จ่ายปีแรกตกวันละ ${l.perDay} บาท (ปีละ ${l.annual} บาท)`,
+      `ตรวจพบโรคร้ายแรง 1 ใน ${l.diseaseCount} โรค รับเงินก้อน ${l.critical.toLocaleString("en-US")} บาท · คุ้มครองถึงอายุ ${l.coverToAge}`,
       "",
       ask,
     ].join("\n");

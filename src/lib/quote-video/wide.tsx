@@ -4,7 +4,7 @@ import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
-import { abs, box, chartPaths, easeBack, El, look, motionSpec, pensionSteps, pensionTimeline, stroke, type Anim } from "./motion";
+import { abs, box, chartPaths, easeBack, El, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, shieldFamily, stroke, type Anim } from "./motion";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { countAt, SIZES, type VideoSize } from "./timeline";
 import type { Extra } from "./told";
@@ -174,8 +174,99 @@ export interface WideQuoteContext {
   voiceSec: number;
 }
 
+/** มรดก's opening (motion.tsx LegacyLead) side by side: the shield on the left, the legacy and the most the family receives on the right */
+function LegacyLead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("lead", f, c.voiceSec);
+  const shieldW = g.px(300, 460);
+  const n0 = countAt(f.lead.baht, look(s.count, t).p);
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Body g={g} top={g.px(130, 150)} style={{ alignItems: "center" }}>
+        {shieldFamily(s, t, shieldW, Math.round(shieldW * 1.075))}
+        <div style={box({ flexDirection: "column", flex: 1, marginLeft: g.px(36, 80) })}>
+          {c.customer && <El an={s.name} t={t} style={{ fontSize: g.px(30, 42), color: WHITE, marginBottom: 12 }}>จัดทำสำหรับ <span style={{ color: GOLD, fontWeight: 600, marginLeft: 10 }}>คุณ{c.customer}</span></El>}
+          {c.headline?.length ? (
+            <div style={box({ flexDirection: "column", marginBottom: g.px(12, 20) })}>
+              {c.headline.map((h, i) => <div key={i} style={box({ fontSize: g.px(38, 56), fontWeight: 700, color: i === 0 ? WHITE : GOLD, lineHeight: 1.2 })}>{h}</div>)}
+            </div>
+          ) : null}
+          <El an={s.kicker} t={t} style={{ fontSize: g.px(34, 46), fontWeight: 600, color: WHITE, opacity: 0.9 }}>{f.planLine}</El>
+          <El an={s.big} t={t} style={{ fontSize: g.px(84, 130), fontWeight: 700, color: GOLD, lineHeight: 1.15 }}>{`มรดก ${f.legacy!.tier} ล้าน`}</El>
+          <El an={s.note} t={t} style={{ fontSize: g.px(30, 42), color: WHITE, marginTop: g.px(6, 12) }}>{f.lead.label}</El>
+          <El an={s.mark} t={t} style={{ marginTop: g.px(10, 16) }}>
+            <div style={box({ background: GOLD, color: NAVY, borderRadius: 40, padding: "4px 30px", fontSize: g.px(48, 66), fontWeight: 700 })}>{`${n0.toLocaleString("en-US")} บาท`}</div>
+          </El>
+          <El an={s.mark} t={t} style={{ marginTop: g.px(14, 22) }}>
+            <div style={box({ border: `3px solid ${WHITE}`, color: WHITE, borderRadius: 40, padding: "2px 26px", fontSize: g.px(28, 36) })}>{f.insuredWho}</div>
+          </El>
+        </div>
+      </Body>
+    </>
+  );
+}
+
+/** มรดก's staircase (motion.tsx legacyStairs) at this frame's size, the exact figures beside it on a landscape frame */
+function CoverBands({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  const top = g.px(190, 200);
+  const w = g.wide ? 1000 : g.w - g.side * 2;
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={f.coverTitle} />
+      <div style={abs({ left: g.side, top, width: w, height: g.bottom - top })}>{legacyStairs(f, s, t, w, g.bottom - top, g.px(0.72, 0.8))}</div>
+      {g.wide && (
+        <div style={abs({ left: g.side + w + 60, width: g.w - g.side * 2 - w - 60, top: top + 40, flexDirection: "column" })}>
+          {f.cover.map((r, i) => (
+            <El key={r.label} an={s[`lab${i}`]} t={t} style={{ ...card(g), flexDirection: "column", padding: "16px 28px", marginBottom: 18, color: WHITE }}>
+              <div style={box({ fontSize: 32, opacity: 0.85 })}>{r.label}</div>
+              <div style={box({ fontSize: 46, fontWeight: 700, color: i === 0 ? GOLD : WHITE })}>{`${r.amount} บาท`}</div>
+            </El>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** มรดก's critical-illness lump sum (motion.tsx Critical): the heart on the left, the sum and what stays on the right */
+function Critical({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const l = f.legacy;
+  const s = motionSpec("critical", f, c.voiceSec);
+  if (!l) return null;
+  const icon = g.px(200, 340);
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={`ตรวจพบโรคร้ายแรง 1 ใน ${l.diseaseCount} โรค`} />
+      <Body g={g} style={{ alignItems: "center" }}>
+        <El an={s.icon} t={t} style={{ width: icon, height: icon, flexShrink: 0 }}>{heartCross(icon)}</El>
+        <div style={box({ flexDirection: "column", flex: 1, marginLeft: g.px(36, 80) })}>
+          <El an={s.sub} t={t} style={{ fontSize: g.px(40, 54), color: WHITE }}>รับเงินก้อนไว้รักษาตัวเอง</El>
+          <div style={box({ alignItems: "flex-end", marginTop: g.px(8, 14) })}>
+            <El an={s.big} t={t} style={{ background: GOLD, color: NAVY, borderRadius: 40, padding: "0 34px", fontSize: g.px(96, 140), fontWeight: 700, lineHeight: 1.2 }}>{countAt(l.critical, look(s.count, t).p).toLocaleString("en-US")}</El>
+            <El an={s.unit} t={t} style={{ fontSize: g.px(36, 50), color: WHITE, marginLeft: 18, marginBottom: 14 }}>บาท</El>
+          </div>
+          <El an={s.note} t={t} style={{ flexDirection: "column", background: WHITE, color: NAVY, borderRadius: 30, padding: g.px("14px 24px", "20px 32px"), marginTop: g.px(20, 30) }}>
+            <div style={box({ fontSize: g.px(30, 40), fontWeight: 700 })}>จ่ายครั้งเดียว</div>
+            <div style={box({ fontSize: g.px(28, 38) })}>ประกันชีวิตหลักยังอยู่ต่อให้ครอบครัว</div>
+          </El>
+          <El an={s.pill} t={t} style={{ marginTop: g.px(14, 22) }}>
+            <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "6px 26px", fontSize: g.px(28, 36), fontWeight: 600 })}>{`✓ โรคร้ายแรงคุ้มครองถึงอายุ ${l.criticalToAge}`}</div>
+          </El>
+        </div>
+      </Body>
+    </>
+  );
+}
+
 function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
+  if (f.legacy) return <LegacyLead g={g} c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shieldW = g.px(330, 500);
   const shieldH = Math.round(shieldW * 1.075);
@@ -585,9 +676,11 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
   const body = {
     lead: <Lead g={g} c={c} t={t} />,
     price: <Price g={g} c={c} t={t} />,
-    cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
+    cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} />
+      : c.facts.coverStyle === "bands" ? <CoverBands g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
     value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
+    critical: <Critical g={g} c={c} t={t} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} /> : (
       <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title="สนใจรายละเอียดเพิ่มเติม" header={c.facts.insuredWho}

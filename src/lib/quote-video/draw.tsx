@@ -9,6 +9,7 @@ import type { Extra } from "./told";
 import { COLS, PHOTO, ROW_H, TABLE } from "./table-geo";
 import { noteInWindow, type TableNote } from "./table-pen";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
+import { bandAges, shortBaht, stairs } from "./legacy";
 import { countAt, H, W, type OverlayState } from "./timeline";
 
 /**
@@ -115,6 +116,7 @@ const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
 function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
+  if (f.legacy) return <LegacyLead c={c} layer={layer} s={s} />;
   return (
     <>
       {c.customer && (
@@ -133,6 +135,34 @@ function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }
       <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: PHOTO.y + PHOTO.h + 370 }}>
         <Swept p={s.sweep[0] ?? 1} size={52}>{f.leadMark}</Swept>
       </On>
+      <Headline c={c} layer={layer} />
+    </>
+  );
+}
+
+/**
+ * มรดก's opening (owner, 2026-10-14, mockup https://claude.ai/artifact/55oEG3PjdupXzKPkTHbU75):
+ * under the family photo the plan's name, the legacy in the largest type, then the most the
+ * family receives counted up under the highlighter, and who it is for.
+ */
+function LegacyLead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const f = c.facts;
+  const l = f.legacy!;
+  const y = PHOTO.y + PHOTO.h + 30;
+  return (
+    <>
+      {c.customer && (
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 240, fontSize: 44, color: P.ink }}>
+          จัดทำสำหรับ <span style={{ fontWeight: 600, color: P.figure, marginLeft: 12 }}>คุณ{c.customer}</span>
+        </On>
+      )}
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.planLine}</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y + 60, fontSize: 130, fontWeight: 600, color: P.figure, lineHeight: 1.1 }}>{`มรดก ${l.tier} ล้าน`}</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y + 230, fontSize: 44, color: P.mute }}>{f.lead.label}</On>
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: y + 295 }}>
+        <Swept p={s.sweep[0] ?? 1} size={76}>{`${money(countAt(f.lead.baht, s.count))} บาท`}</Swept>
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: y + 420, border: `3px solid ${P.accent}`, borderRadius: 40, padding: "4px 30px", fontSize: 40, color: P.accent }}>{f.insuredWho}</On>
       <Headline c={c} layer={layer} />
     </>
   );
@@ -350,9 +380,80 @@ function StepsCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
   );
 }
 
+/**
+ * มรดก: what the family receives by age as a staircase — each bar as wide as its years, as tall
+ * as its sum — grown as the voice reaches it, the exact figures listed under it.
+ */
+function BandsCover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const f = c.facts;
+  const bands = f.legacy?.bands ?? [];
+  const chartW = W - SIDE * 2;
+  const top = 420;
+  const tall = 440;
+  const bars = stairs(bands, chartW, tall, 150, 70);
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>{f.coverTitle}</On>
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 0, width: chartW, height: H }}>
+        {bars.map((b, i) => {
+          const p = s.sweep[i] ?? 1;
+          const h = Math.round(b.h * p);
+          return p > 0 ? (
+            <div key={b.band.from} style={abs({ left: b.x, top: 0, width: b.w, height: H })}>
+              <div style={abs({ left: 4, top: top + tall - h, width: b.w - 8, height: Math.max(4, h), background: i === 0 ? P.figure : i === 1 ? C.barAfter : P.box, borderRadius: "12px 12px 0 0" })} />
+              {p >= 1 && <div style={abs({ left: 0, top: top + tall - h - 62, width: b.w, justifyContent: "center", fontSize: 42, fontWeight: 600, color: P.ink })}>{shortBaht(b.band.amount)}</div>}
+            </div>
+          ) : null;
+        })}
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: top + tall, width: chartW, height: 4, background: P.rule }} />
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: top + tall + 16, width: chartW, height: 60 }}>
+        {bars.map((b, i) => <div key={b.band.from} style={abs({ left: b.x, width: b.w, justifyContent: "center", fontSize: 36, color: P.mute })}>{bandAges(b.band, i, bands)}</div>)}
+      </On>
+      <div style={abs({ left: SIDE, width: chartW, top: top + tall + 110, flexDirection: "column" })}>
+        {f.cover.map((r, i) => (
+          <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginBottom: 26 })}>
+            <On layer={layer} own="over" style={{ flexShrink: 1 }}><Swept p={s.sweep[i] ?? 1} size={44}>{r.label}</Swept></On>
+            <On layer={layer} own="base" style={{ fontSize: 52, fontWeight: 600, color: P.ink, marginLeft: 24, flexShrink: 0 }}>{`${r.amount} บาท`}</On>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/**
+ * มรดก's fourth scene, where the others have their value table (owner, 2026-10-14): a critical
+ * illness pays the insured a lump sum once, counted up under the highlighter, and the life
+ * cover stays on for the family.
+ */
+function Critical({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const f = c.facts;
+  const l = f.legacy;
+  if (!l) return null;
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 48, fontWeight: 600, color: P.accent }}>{`ตรวจพบโรคร้ายแรง 1 ใน ${l.diseaseCount} โรค`}</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 350, fontSize: 70, fontWeight: 600, color: P.figure }}>รับเงินก้อนไว้รักษาตัวเอง</On>
+      <div style={abs({ left: SIDE, top: 500, alignItems: "flex-end" })}>
+        <On layer={layer} own="over"><Swept p={s.sweep[0] ?? 1} size={150}>{money(countAt(l.critical, s.count))}</Swept></On>
+        <On layer={layer} own="base" style={{ fontSize: 60, color: P.mute, marginLeft: 24, marginBottom: 24 }}>บาท</On>
+      </div>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 780, flexDirection: "column", background: P.box, borderRadius: 36, padding: "36px 46px" }}>
+        <div style={box({ fontSize: 46, fontWeight: 600, color: P.ink })}>จ่ายครั้งเดียว</div>
+        <div style={box({ fontSize: 46, color: P.ink, marginTop: 8 })}>ประกันชีวิตหลักยังอยู่ต่อให้ครอบครัว</div>
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1100, justifyContent: "flex-end", fontSize: 52, color: P.pen, transform: "rotate(-2deg)" }}>
+        {`โรคร้ายแรงคุ้มครองถึงอายุ ${l.criticalToAge}`}
+      </On>
+    </>
+  );
+}
+
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
+  if (c.facts.coverStyle === "bands") return <BandsCover c={c} layer={layer} s={s} />;
   const f = c.facts;
   const [first, second] = f.cover;
   const beforeAge = Number(first.label.match(/(\d+)/)?.[1] ?? f.coverToAge);
@@ -541,6 +642,7 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
   const body = {
     lead: <Lead c={c} layer={layer} s={state} />,
     compare: <Compare c={c} layer={layer} s={state} />,
+    critical: <Critical c={c} layer={layer} s={state} />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,
