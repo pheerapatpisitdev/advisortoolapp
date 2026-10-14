@@ -12,7 +12,7 @@ export type Result = { ok: true } | { ok: false; error: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function saveWallet(enabled: boolean, multiplier: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const m = readMultiplier(multiplier);
   if (!m.ok) return m;
   try {
@@ -31,7 +31,7 @@ export async function saveWallet(enabled: boolean, multiplier: string): Promise<
  * hand on a balance: an admin may switch the wallet, not set what things cost.
  */
 export async function savePrices(raw: Record<string, string>): Promise<Result> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   const p = readPrices(raw);
   if (!p.ok) return p;
   try {
@@ -51,7 +51,7 @@ export async function savePrices(raw: Record<string, string>): Promise<Result> {
  * 2026-10-13). The owner's alone, like the price list: the box is read-only for other admins.
  */
 export async function saveMemberPass(raw: { enabled: boolean; baht: string; trialDays: string; rounds: string; videos: string }): Promise<Result> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   const p = readPassSettings(raw);
   if (!p.ok) return p;
   try {
@@ -71,7 +71,7 @@ export async function saveMemberPass(raw: { enabled: boolean; baht: string; tria
  * friend who pays, and each one's most a month. The owner's alone, like the pass's price.
  */
 export async function saveReferral(raw: { enabled: boolean; days: string; daysCap: string; baht: string; bahtCap: string }): Promise<Result> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   const r = readReferralSettings(raw);
   if (!r.ok) return r;
   try {
@@ -90,7 +90,7 @@ export async function saveReferral(raw: { enabled: boolean; days: string; daysCa
  * set its multiplier (owner, 2026-09-30).
  */
 export async function adjustAgentWallet(agentId: string, baht: string, note: string): Promise<Result> {
-  const viewer = await requireStaff("owner");
+  const viewer = await requireStaff("backoffice");
   if (typeof agentId !== "string" || !UUID.test(agentId)) return { ok: false, error: "ไม่พบตัวแทนนี้" };
   const a = readAdjust(baht, note);
   if (!a.ok) return a;
@@ -112,7 +112,7 @@ export async function adjustAgentWallet(agentId: string, baht: string, note: str
  * it, take it with ปรับยอด first. What was let go is in the audit line.
  */
 export async function unfreezeAgentWallet(agentId: string, note: string): Promise<Result> {
-  await requireStaff("owner");
+  await requireStaff("backoffice");
   if (typeof agentId !== "string" || !UUID.test(agentId)) return { ok: false, error: "ไม่พบตัวแทนนี้" };
   const n = readUnfreeze(note);
   if (!n.ok) return n;

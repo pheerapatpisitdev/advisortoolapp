@@ -215,7 +215,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
     const groups: MenuGroup[] = [
       {
         links: [
-          BACK_HOME,
+          // the Super Admin has no front of the app to go back to (owner, 2026-10-15)
+          ...(who?.super ? [] : [BACK_HOME]),
           { href: "/admin", label: "ภาพรวม", icon: "grid", hue: "#2b736f" },
         ],
       },
@@ -294,8 +295,9 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
    * ประกันภัยกลุ่ม, read as a mistake however well meant — so the owner took this one out.
    * The page is still both things; it is now reached from one place.
    */
-  // staff land on the main system after signing in (owner, 2026-10-10), so the way to their
-  // own work is here too, not only inside Studio's menu
+  // the Super Admin on a public page: the way back to the back office and nothing of the front
+  // (owner, 2026-10-15)
+  if (who?.super) return [{ links: [{ href: "/admin", label: "หลังบ้าน", icon: "grid", hue: "#2b736f" }] }];
   const office = officeFor(who);
   const groups: MenuGroup[] = [{
     // the agent's own work first, the pages they send customers after it (owner chose ข,
@@ -322,9 +324,12 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
   return groups;
 }
 
-/** The first page of the back office somebody may open: admins the overview, assistants who answer chats the inbox. */
+/**
+ * The way to the back office from the front of the app: none since 2026-10-15 (owner). It is
+ * the Super Admin's alone, who signs in at /backoffice and never sees the front.
+ */
 function officeFor(who?: Who | null): string | null {
-  return !who ? null : who.admin ? "/admin" : who.connect ? "/admin/messenger" : null;
+  return who?.super ? "/admin" : null;
 }
 
 /**
@@ -379,6 +384,8 @@ const BACK_HOME: MenuLink = { href: "/home", label: "ระบบหลัก", 
  */
 export function accountLinks(who?: Who | null): MenuLink[] {
   if (!who) return [];
+  // the Super Admin's box is their address and ออกจากระบบ, which the box draws itself (2026-10-15)
+  if (who.super) return [];
   // the wallet is listed only while the owner has it on (who.wallet is worked out once on the
   // server, false for the owner): an agent is not sent to a page that says it is switched off
   const noWallet = who.owner || who.wallet !== true;
@@ -416,10 +423,12 @@ export interface Who {
   prices?: boolean;
   /** a member outside UnitOS (owner, 2026-10-01): their account page, and no room to name */
   member?: boolean;
+  /** the Super Admin (owner, 2026-10-15): the back office only, no way back to the front */
+  super?: boolean;
 }
 
 /** What each back-office page asks of the person opening it, as agreed on 2026-09-27. */
-const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet" | "prices" | "member">> = {
+const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet" | "prices" | "member" | "super">> = {
   "/admin": "admin",
   "/admin/crm": "admin",
   "/admin/ai": "admin",

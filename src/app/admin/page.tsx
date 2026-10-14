@@ -36,7 +36,7 @@ function Figure({ label, value, note }: { label: string; value: string; note?: s
 }
 
 export default async function OverviewPage() {
-  await gatePage("/admin", "admin");
+  await gatePage("/admin", "backoffice");
   const { attention, week } = await loadOverview();
   const n = (v: number) => v.toLocaleString("en-US");
 

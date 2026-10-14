@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "MCP / API | AdvisorTool" };
  * partner's brief, or into a model that is about to call it.
  */
 export default async function ApiPage() {
-  await gatePage("/admin/api", "admin");
+  await gatePage("/admin/api", "backoffice");
   const rows = await listKeys();
   const base = siteUrl("/api/v1");
 

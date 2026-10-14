@@ -23,11 +23,11 @@ export async function GET(req: Request) {
   const wanted = new URL(req.url).searchParams.get("for");
   const purpose: LoginPurpose = wanted === "ads-manage" ? "ads-manage" : wanted === "ads" ? "ads" : "pages";
   const home = purpose === "ads-manage" ? "/studio/ads" : purpose === "ads" ? "/admin/ads" : "/admin/messenger";
-  // Pages are the staff's with can_connect; the ad account is the back office's (2026-09-27);
+  // Pages and the ad account are the Super Admin's since 2026-10-15 (owner);
   // the login that can spend money is the owner's alone
   const viewer = await getViewer();
   if (!viewer) return NextResponse.redirect(`${origin}/?next=${encodeURIComponent(home)}`);
-  if (!can(viewer, purpose === "ads-manage" ? "owner" : purpose === "ads" ? "admin" : "connect")) {
+  if (!can(viewer, purpose === "ads-manage" ? "owner" : "backoffice")) {
     return NextResponse.redirect(`${origin}/studio`);
   }
   const ready = purpose === "ads-manage" ? adsManageOauthIsConfigured()

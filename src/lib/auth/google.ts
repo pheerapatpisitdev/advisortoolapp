@@ -50,6 +50,12 @@ export interface PendingLogin {
   nonce: string;
   /** where to go once signed in, already passed through safeNext */
   next: string;
+  /**
+   * "backoffice": the Super Admin's sign-in at /backoffice (owner, 2026-10-15), which only lets
+   * in a listed address and never makes a member. Absent: a member's. It rides in the signed
+   * cookie, so the one callback URL Google knows serves both.
+   */
+  mode?: "backoffice";
   /** ms */
   expires: number;
 }
@@ -71,8 +77,8 @@ export function googleCookieOptions() {
 
 const token = (bytes: number) => randomBytes(bytes).toString("base64url");
 
-export function newLogin(next: string, now: number = Date.now()): PendingLogin {
-  return { state: token(16), verifier: token(32), nonce: token(16), next, expires: now + LOGIN_TTL_MS };
+export function newLogin(next: string, now: number = Date.now(), mode?: "backoffice"): PendingLogin {
+  return { state: token(16), verifier: token(32), nonce: token(16), next, expires: now + LOGIN_TTL_MS, ...(mode ? { mode } : {}) };
 }
 
 function mac(body: string): string {
@@ -100,6 +106,7 @@ export function readLogin(raw: string | null | undefined, now: number = Date.now
   }
   if (typeof login.expires !== "number" || login.expires <= now) return null;
   if (![login.state, login.verifier, login.nonce, login.next].every((s) => typeof s === "string" && s)) return null;
+  if (login.mode !== undefined && login.mode !== "backoffice") return null;
   return login;
 }
 
@@ -144,7 +151,7 @@ export async function exchangeCode(code: string, verifier: string, origin: strin
 }
 
 /** What a login can come back as, besides a member: each has its words on the sign-in page (GOOGLE_ERRORS). */
-export type GoogleError = "cancelled" | "state" | "unverified" | "suspended" | "closed" | "limit" | "broken" | "unconfigured";
+export type GoogleError = "cancelled" | "state" | "unverified" | "suspended" | "closed" | "limit" | "broken" | "unconfigured" | "denied";
 
 export const GOOGLE_ERRORS: Record<GoogleError, string> = {
   cancelled: "ยกเลิกการเข้าสู่ระบบด้วย Google แล้ว",
@@ -155,12 +162,21 @@ export const GOOGLE_ERRORS: Record<GoogleError, string> = {
   limit: "สมัครจากเครือข่ายนี้ครบแล้ว กรุณาลองใหม่พรุ่งนี้",
   broken: "ระบบขัดข้อง ลองใหม่อีกครั้ง",
   unconfigured: "ยังไม่ได้ตั้งค่าการเข้าสู่ระบบด้วย Google",
+  // /backoffice: a Google account that is not a Super Admin's (owner, 2026-10-15)
+  denied: "อีเมลนี้ไม่มีสิทธิ์เข้าหลังบ้าน",
 };
 
 /** The sign-in on the front page with the reason in words, keeping where the visitor was headed. */
 export function loginWithError(origin: string, error: GoogleError, next: string): string {
   return `${origin}/?${new URLSearchParams({ error, next })}`;
 }
+
+/** The Super Admin's sign-in with the reason in words (owner, 2026-10-15). */
+export function backofficeWithError(origin: string, error: GoogleError): string {
+  return `${origin}${BACKOFFICE_PATH}?${new URLSearchParams({ error })}`;
+}
+
+export const BACKOFFICE_PATH = "/backoffice";
 
 export function googleError(code: unknown): string | null {
   return typeof code === "string" && Object.hasOwn(GOOGLE_ERRORS, code) ? GOOGLE_ERRORS[code as GoogleError] : null;

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { clientIp } from "@/lib/assistant/rate-limit";
-import { checkIdToken, exchangeCode, GOOGLE_COOKIE, GOOGLE_COOKIE_PATH, loginWithError, readLogin } from "@/lib/auth/google";
+import { backofficeWithError, checkIdToken, exchangeCode, GOOGLE_COOKIE, GOOGLE_COOKIE_PATH, loginWithError, readLogin } from "@/lib/auth/google";
 import { memberFromGoogle } from "@/lib/auth/google-member";
+import { superFromGoogle } from "@/lib/auth/google-super";
 import { startSession } from "@/lib/auth/session";
 import { requestOrigin } from "@/lib/facebook/origin";
 import { REF_COOKIE } from "@/lib/referrals/referral";
@@ -36,7 +37,12 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
   const params = new URL(req.url).searchParams;
   const login = readLogin(cookieFrom(req, GOOGLE_COOKIE));
   const next = login?.next ?? "/studio";
-  const back = (error: Parameters<typeof loginWithError>[1]) => ({ res: NextResponse.redirect(loginWithError(origin, error, next)), created: false });
+  // the Super Admin's login goes back to /backoffice, never to the members' door (owner, 2026-10-15)
+  const backoffice = login?.mode === "backoffice";
+  const back = (error: Parameters<typeof loginWithError>[1]) => ({
+    res: NextResponse.redirect(backoffice ? backofficeWithError(origin, error) : loginWithError(origin, error, next)),
+    created: false,
+  });
 
   if (params.get("error")) return back("cancelled");
   const code = params.get("code");
@@ -48,6 +54,15 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
   try {
     const user = checkIdToken(await exchangeCode(code, login.verifier, origin), login.nonce);
     if (!user.ok) return back(user.error);
+    if (backoffice) {
+      const admin = await superFromGoogle(user);
+      if (!admin.ok) {
+        console.warn(`backoffice sign-in refused for ${user.email}`);
+        return back(admin.error);
+      }
+      await startSession(admin.id);
+      return { res: NextResponse.redirect(`${origin}/admin`), created: false };
+    }
     const member = await memberFromGoogle(user, clientIp(req.headers));
     if (!member.ok) return back(member.error);
     id = member.id;

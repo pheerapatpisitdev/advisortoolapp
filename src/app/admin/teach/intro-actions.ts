@@ -23,7 +23,7 @@ async function scopeOf(scope: unknown): Promise<string | undefined> {
 }
 
 export async function listIntro(): Promise<Result<{ rows: IntroRow[]; builtIn: string }>> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     return { ok: true, rows: await introRows({ fresh: true }), builtIn: INTRO_PICTURE };
   } catch (e) {
@@ -33,7 +33,7 @@ export async function listIntro(): Promise<Result<{ rows: IntroRow[]; builtIn: s
 }
 
 export async function saveIntro(scope: string, pictures: unknown): Promise<Result> {
-  const viewer = await requireStaff("admin");
+  const viewer = await requireStaff("backoffice");
   const at = await scopeOf(scope).catch(() => undefined);
   if (!at) return { ok: false, error: "ไม่พบเพจนี้" };
   const list = Array.isArray(pictures) ? pictures : [];
@@ -54,7 +54,7 @@ export async function saveIntro(scope: string, pictures: unknown): Promise<Resul
 
 /** A Page back on the set for every Page; the set for every Page back on the built-in picture. */
 export async function resetIntro(scope: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const at = await scopeOf(scope).catch(() => undefined);
   if (!at) return { ok: false, error: "ไม่พบเพจนี้" };
   try {

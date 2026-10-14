@@ -28,11 +28,18 @@ export interface StaffRow {
   can_admin: boolean;
 }
 
-export type Perm = "publish" | "connect" | "admin" | "owner";
+/**
+ * "backoffice" is the Super Admin's alone (owner, 2026-10-15): every page and action under
+ * /admin asks for it. The other four keep their meaning at the front of the app.
+ */
+export type Perm = "publish" | "connect" | "admin" | "owner" | "backoffice";
 
 export interface Viewer {
-  /** a UnitOS agent, or a member who signed up here (src/lib/auth/member.ts, owner 2026-10-01) */
-  kind: "unitos" | "member";
+  /**
+   * a UnitOS agent, a member who signed up here (src/lib/auth/member.ts, owner 2026-10-01), or
+   * the Super Admin who runs the back office and nothing else (owner, 2026-10-15)
+   */
+  kind: "unitos" | "member" | "super";
   agentId: string;
   /** the agent's 6-digit code; a member's Google email */
   code: string;
@@ -116,8 +123,46 @@ export function admitMember(member: MemberRow | null, issuedAt: number): Viewer 
   };
 }
 
-/** The owner may do everything; an assistant exactly what was ticked; an agent none of it. */
+/** A Super Admin's row in ins_super_admins, as src/lib/auth/viewer.ts reads it. */
+export interface SuperAdminRow {
+  id: string;
+  email: string;
+  name: string | null;
+  revoked_at: string | null;
+}
+
+/** What the back office's menu says in place of a room. */
+export const SUPER_ROOM = "Super Admin";
+
+/**
+ * The Super Admin (owner, 2026-10-15): the back office, all of it, and none of the front of the
+ * app — gatePage sends them back to /admin from anywhere else. A revocation after the session
+ * was issued ends it.
+ */
+export function admitSuper(row: SuperAdminRow | null, issuedAt: number): Viewer | null {
+  if (!row) return null;
+  if (row.revoked_at && issuedAt < Date.parse(row.revoked_at)) return null;
+  return {
+    kind: "super",
+    agentId: row.id,
+    code: row.email,
+    name: row.name?.trim() || row.email,
+    tenantId: null,
+    tenantSlug: "",
+    tenantName: SUPER_ROOM,
+    trial: false,
+    staff: null,
+  };
+}
+
+/**
+ * The Super Admin may do everything the back office asks; nobody else may open it, the owner's
+ * UnitOS account included (owner, 2026-10-15). At the front, the owner may do everything, an
+ * assistant exactly what was ticked, an agent none of it.
+ */
 export function can(viewer: Viewer | null, perm: Perm): boolean {
+  if (viewer?.kind === "super") return true;
+  if (perm === "backoffice") return false;
   const staff = viewer?.staff;
   if (!staff) return false;
   if (staff.owner) return true;

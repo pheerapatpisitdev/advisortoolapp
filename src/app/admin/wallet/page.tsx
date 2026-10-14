@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "กระเป๋าเงินตัวแทน | AdvisorTool" };
 
 export default async function AdminWalletPage() {
-  const viewer = await gatePage("/admin/wallet", "admin");
+  const viewer = await gatePage("/admin/wallet", "backoffice");
   const [settings, rows, frozen, prices, pass, referral, report] = await Promise.all([
     walletSettings().catch((e) => {
       console.error("wallet settings unreadable:", e);
@@ -45,6 +45,6 @@ export default async function AdminWalletPage() {
   ]);
   return (
     <WalletAdmin settings={settings} rows={rows} frozen={frozen} prices={prices} pass={pass}
-                 referral={referral} report={report} canPrice={can(viewer, "owner")} />
+                 referral={referral} report={report} canPrice={can(viewer, "backoffice")} />
   );
 }

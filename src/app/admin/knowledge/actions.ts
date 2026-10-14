@@ -39,7 +39,7 @@ export interface Note {
 }
 
 export async function listNotes(): Promise<Note[]> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { data, error } = await supabaseAdmin()
       .from("ins_faq").select("id, question, answer, enabled, updated_at")
@@ -56,7 +56,7 @@ export async function listNotes(): Promise<Note[]> {
 }
 
 export async function addNote(question: string, answer: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const q = question.trim().slice(0, MAX_Q);
   const a = answer.trim().slice(0, MAX_A);
   if (q.length < 4 || a.length < 4) return { ok: false, error: "พิมพ์คำถามและคำตอบให้ยาวกว่านี้หน่อยครับ" };
@@ -72,7 +72,7 @@ export async function addNote(question: string, answer: string): Promise<Result>
 }
 
 export async function setNoteEnabled(id: string, enabled: boolean): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { error } = await supabaseAdmin().from("ins_faq").update({ enabled: Boolean(enabled) }).eq("id", id);
     if (error) throw new Error(error.message);
@@ -85,7 +85,7 @@ export async function setNoteEnabled(id: string, enabled: boolean): Promise<Resu
 }
 
 export async function deleteNote(id: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { error } = await supabaseAdmin().from("ins_faq").delete().eq("id", id);
     if (error) throw new Error(error.message);
@@ -108,12 +108,12 @@ export async function deleteNote(id: string): Promise<Result> {
 const MAX_WORD = 60;
 
 export async function listContentWords(): Promise<ContentWord[]> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   return listWords();
 }
 
 export async function addContentWord(word: string, kind: WordKind, fix: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const w = word.trim().slice(0, MAX_WORD);
   const f = fix.trim().slice(0, MAX_WORD);
   if (!w) return { ok: false, error: "พิมพ์คำก่อนนะครับ" };
@@ -129,7 +129,7 @@ export async function addContentWord(word: string, kind: WordKind, fix: string):
 }
 
 export async function removeContentWord(word: string): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     await deleteWord(word);
     revalidatePath("/admin/knowledge");
@@ -165,7 +165,7 @@ export interface Lesson {
 }
 
 export async function listLessons(): Promise<{ review: ChatReview | null; lessons: Lesson[] }> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const db = supabaseAdmin();
     const [rev, items] = await Promise.all([
@@ -203,7 +203,7 @@ export async function listLessons(): Promise<{ review: ChatReview | null; lesson
  * note the model reads — refused for a question with a figure in it, for the reason teachable gives.
  */
 export async function applyLesson(id: number, question: string, answer: string, strict = false): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   const q = question.trim().slice(0, MAX_Q);
   const a = answer.trim().slice(0, MAX_A);
   if (q.length < 4 || a.length < 4) return { ok: false, error: "คำถามหรือคำตอบสั้นเกินไปครับ" };
@@ -226,7 +226,7 @@ export async function applyLesson(id: number, question: string, answer: string, 
 }
 
 export async function skipLesson(id: number): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { error } = await supabaseAdmin().from("ins_chat_review_items")
       .update({ status: "skipped", decided_at: new Date().toISOString() }).eq("id", id);
@@ -241,7 +241,7 @@ export async function skipLesson(id: number): Promise<Result> {
 
 /** The same review the morning cron runs, on the owner's press. */
 export async function reviewChatsNow(): Promise<Result> {
-  await requireStaff("admin");
+  await requireStaff("backoffice");
   try {
     const { runChatReview } = await import("@/lib/chat/review");
     const r = await runChatReview();

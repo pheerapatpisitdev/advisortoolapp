@@ -23,7 +23,7 @@ export const metadata: Metadata = {
  * through a paid advertisement.
  */
 export default async function KnowledgePage() {
-  await gatePage("/admin/knowledge", "admin");
+  await gatePage("/admin/knowledge", "backoffice");
   const [notes, words, { review, lessons }] = await Promise.all([listNotes(), listContentWords(), listLessons()]);
   return (
     <>

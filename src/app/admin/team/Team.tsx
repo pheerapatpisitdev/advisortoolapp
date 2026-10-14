@@ -6,8 +6,8 @@ import { Empty } from "../ui";
 type Flag = "publish" | "connect" | "admin";
 const FLAGS: { key: Flag; label: string; hint: string }[] = [
   { key: "publish", label: "ลงโพสต์ / ตั้งเวลา", hint: "ปฏิทินโพสต์ และส่งโพสต์ขึ้นเพจ" },
-  { key: "connect", label: "เชื่อมเพจ", hint: "เชื่อมหรือตัดการเชื่อมเพจกับระบบ" },
-  { key: "admin", label: "หลังบ้าน", hint: "ลูกค้า, ตั้งค่า AI, สอน AI, ADS, MCP" },
+  { key: "connect", label: "เชื่อมเพจ", hint: "ไม่มีผลแล้ว: การเชื่อมเพจย้ายไปหลังบ้านของ Super Admin (2026-10-15)" },
+  { key: "admin", label: "เห็นทุกเพจ", hint: "ใน Studio เห็นทุกเพจและงานของทีมทั้งหมด (ไม่ได้เข้าหลังบ้าน)" },
 ];
 
 /**
@@ -106,7 +106,7 @@ export function Team({ rows, pages }: { rows: StaffMember[]; pages: { pageId: st
                   </button>
                   {/* the Pages they look after (owner, 2026-09-29): admins see every one anyway */}
                   {m.admin ? (
-                    <p className="w-full text-xs text-[var(--bot-ink-mute)]">เพจที่ดูแล: เห็นทุกเพจ (มีสิทธิ์หลังบ้าน)</p>
+                    <p className="w-full text-xs text-[var(--bot-ink-mute)]">เพจที่ดูแล: เห็นทุกเพจ</p>
                   ) : m.publish && (() => {
                     // ties to a Page no longer connected are not shown, sent back or counted
                     const live = m.pages.filter((id) => pages.some((p) => p.pageId === id));

@@ -36,7 +36,7 @@ beforeEach(() => {
 describe("grantPassDays", () => {
   it("adds the days with the note and the admin's name on it", async () => {
     expect(await grantPassDays(ID, "30", "  โอนพร้อมเพย์ตรง 13 ต.ค. ")).toEqual({ ok: true });
-    expect(viewer.requireStaff).toHaveBeenCalledWith("admin");
+    expect(viewer.requireStaff).toHaveBeenCalledWith("backoffice");
     expect(grant).toHaveBeenCalledWith(ID, 30, "โอนพร้อมเพย์ตรง 13 ต.ค.", "owner-id");
     expect(viewer.audit).toHaveBeenCalledWith("member-pass-grant", ID, { days: 30, note: "โอนพร้อมเพย์ตรง 13 ต.ค." });
   });

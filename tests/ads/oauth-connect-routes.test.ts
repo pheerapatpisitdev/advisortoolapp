@@ -13,8 +13,10 @@ process.env.FB_APP_SECRET = "s";
 // the viewer can be swapped per test; the audit is a spy so the new branch's record can be checked
 const who = vi.hoisted(() => ({ viewer: undefined as unknown, audit: vi.fn(async () => {}) }));
 vi.mock("@/lib/auth/viewer", async () => {
-  const { asOwner, OWNER } = await import("../helpers/signed-in");
-  return { ...asOwner, getViewer: async () => who.viewer ?? OWNER, audit: who.audit };
+  // the Super Admin connects the Pages and the ad account (owner, 2026-10-15); Studio's ads-manage
+  // login is the owner agent's, which the Super Admin passes too
+  const { asOwner, SUPER } = await import("../helpers/signed-in");
+  return { ...asOwner, getViewer: async () => who.viewer ?? SUPER, audit: who.audit };
 });
 const fb = vi.hoisted(() => ({
   tokenFromCode: vi.fn(async () => "user-token"),
@@ -55,6 +57,20 @@ const back = (state: string, cookie?: string) =>
   callback(new Request(`${ORIGIN}/api/facebook/connect/callback?code=c1&state=${encodeURIComponent(state)}`, {
     headers: cookie === undefined ? {} : { cookie },
   }));
+
+describe("who may connect a Page (owner, 2026-10-15)", () => {
+  it("sends the owner's agent account away: Pages and the ad account are the Super Admin's", async () => {
+    const { OWNER } = await import("../helpers/signed-in");
+    who.viewer = OWNER;
+    for (const q of ["", "?for=ads"]) {
+      const res = await connect(new Request(`${ORIGIN}/api/facebook/connect${q}`));
+      expect(res.headers.get("location")).toBe(`${ORIGIN}/studio`);
+    }
+    // Ads Studio's own login stays the owner agent's
+    const manage = await connect(new Request(`${ORIGIN}/api/facebook/connect?for=ads-manage`));
+    expect(manage.headers.get("location")).not.toBe(`${ORIGIN}/studio`);
+  });
+});
 
 describe("starting a Facebook login", () => {
   it("puts the state's nonce in a short-lived, httpOnly cookie only the callback sees", async () => {

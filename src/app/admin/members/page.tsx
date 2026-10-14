@@ -18,7 +18,7 @@ const price = (satang: number) => (satang % 100 === 0 ? String(satang / 100) : (
  * suspension. With the pass on, each member's pass too, and days given by hand (owner, 2026-10-13).
  */
 export default async function MembersPage() {
-  await gatePage("/admin/members", "admin");
+  await gatePage("/admin/members", "backoffice");
   const [settings, members, pass, revenue] = await Promise.all([
     memberSettings().catch((e) => {
       console.error("member settings unreadable:", e);

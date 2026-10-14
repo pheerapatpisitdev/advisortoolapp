@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "ข้อความต้อนรับ | AdvisorTool" };
 
 export default async function AdminWelcomePage() {
-  await gatePage("/admin/welcome", "admin");
+  await gatePage("/admin/welcome", "backoffice");
   const [pages, saved] = await Promise.all([
     pageConnections().then((all) => all.filter((p) => !isExpatPage(p.pageId))).catch((e) => {
       console.error("pages unreadable:", e);
