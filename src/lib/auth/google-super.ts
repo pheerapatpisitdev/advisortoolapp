@@ -23,15 +23,21 @@ export function superFromRow(
   return { ok: true, id: row.id, bind: !row.google_sub };
 }
 
+/**
+ * `listed` says whether the address is a Super Admin's at all: the members' Google button on the
+ * front page (owner, 2026-10-15) lets a Super Admin in too, and anybody else carries on as a
+ * member. A listed address on another Google account, or revoked, is refused there as well.
+ */
 export async function superFromGoogle(
   user: { sub: string; email: string; name: string },
-): Promise<{ ok: true; id: string } | { ok: false; error: GoogleError }> {
+): Promise<{ ok: true; id: string } | { ok: false; error: GoogleError; listed: boolean }> {
   const db = supabaseAdmin();
   const { data, error } = await db.from("ins_super_admins")
     .select("id, email, google_sub, revoked_at").eq("email", user.email).maybeSingle();
   if (error) throw new Error(`อ่านข้อมูลผู้ดูแลระบบไม่ได้: ${error.message}`);
-  const found = superFromRow((data as SuperAdminLogin | null) ?? null, user);
-  if (!found.ok) return found;
+  const row = (data as SuperAdminLogin | null) ?? null;
+  const found = superFromRow(row, user);
+  if (!found.ok) return { ...found, listed: row !== null };
   if (found.bind) {
     // only while still unbound: two first sign-ins at once cannot tie it to two accounts
     const { data: bound, error: bindError } = await db.from("ins_super_admins")
@@ -41,7 +47,7 @@ export async function superFromGoogle(
     if (!bound) {
       // somebody bound it first: let in only if that was this same Google account
       const { data: now } = await db.from("ins_super_admins").select("google_sub").eq("id", found.id).maybeSingle();
-      if ((now as { google_sub: string | null } | null)?.google_sub !== user.sub) return { ok: false, error: "denied" };
+      if ((now as { google_sub: string | null } | null)?.google_sub !== user.sub) return { ok: false, error: "denied", listed: true };
     }
   }
   return { ok: true, id: found.id };

@@ -36,6 +36,7 @@ beforeEach(() => {
   viewer.getViewer.mockResolvedValue(null);
   members.memberFromGoogle.mockResolvedValue({ ok: true, id: "m1", created: false });
   referrals.attachReferral.mockResolvedValue("attached");
+  supers.superFromGoogle.mockResolvedValue({ ok: false, error: "denied", listed: false });
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -202,7 +203,7 @@ describe("the Super Admin's sign-in at /backoffice (owner, 2026-10-15)", () => {
   it("turns any other Gmail back to /backoffice, with no session and no member", async () => {
     const { login, cookie } = begun();
     googleSays({ id_token: jwt(claims(login.nonce)) });
-    supers.superFromGoogle.mockResolvedValue({ ok: false, error: "denied" });
+    supers.superFromGoogle.mockResolvedValue({ ok: false, error: "denied", listed: false });
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
     expect(res.headers.get("location")).toBe(`${ORIGIN}/backoffice?error=denied`);
@@ -214,5 +215,41 @@ describe("the Super Admin's sign-in at /backoffice (owner, 2026-10-15)", () => {
     const { login, cookie } = begun();
     const res = await callback(get(`/auth/google/callback?error=access_denied&state=${login.state}`, cookie));
     expect(res.headers.get("location")).toBe(`${ORIGIN}/backoffice?error=cancelled`);
+  });
+});
+
+describe("the Super Admin on the front page's Google button (owner, 2026-10-15)", () => {
+  const begun = () => {
+    const login = newLogin("/home");
+    return { login, cookie: `ins_google=${sealLogin(login)}` };
+  };
+
+  it("lands a listed address in the back office, never making a member", async () => {
+    const { login, cookie } = begun();
+    googleSays({ id_token: jwt(claims(login.nonce)) });
+    supers.superFromGoogle.mockResolvedValue({ ok: true, id: "s1" });
+    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/admin`);
+    expect(session.startSession).toHaveBeenCalledWith("s1");
+    expect(members.memberFromGoogle).not.toHaveBeenCalled();
+  });
+
+  it("refuses a Super Admin address on another Google account, rather than making it a member", async () => {
+    const { login, cookie } = begun();
+    googleSays({ id_token: jwt(claims(login.nonce)) });
+    supers.superFromGoogle.mockResolvedValue({ ok: false, error: "denied", listed: true });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/?error=denied&next=%2Fhome`);
+    expect(session.startSession).not.toHaveBeenCalled();
+    expect(members.memberFromGoogle).not.toHaveBeenCalled();
+  });
+
+  it("lets everybody else carry on as a member", async () => {
+    const { login, cookie } = begun();
+    googleSays({ id_token: jwt(claims(login.nonce)) });
+    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/home`);
+    expect(session.startSession).toHaveBeenCalledWith("m1");
   });
 });

@@ -49,24 +49,28 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
   if (!login || !code || params.get("state") !== login.state) return back("state");
 
   let id: string;
-  let created: boolean;
+  let created = false;
+  let to = next;
   // startSession and the redirect stay outside: a failure past this point is the system's
   try {
     const user = checkIdToken(await exchangeCode(code, login.verifier, origin), login.nonce);
     if (!user.ok) return back(user.error);
-    if (backoffice) {
-      const admin = await superFromGoogle(user);
-      if (!admin.ok) {
-        console.warn(`backoffice sign-in refused for ${user.email}`);
-        return back(admin.error);
-      }
-      await startSession(admin.id);
-      return { res: NextResponse.redirect(`${origin}/admin`), created: false };
+    // the Super Admin comes in at /backoffice or with the members' button on the front page
+    // (owner, 2026-10-15), and is never made a member. At /backoffice nobody else gets in; on the
+    // front page anybody whose address is not a Super Admin's carries on as a member.
+    const admin = await superFromGoogle(user);
+    if (admin.ok) {
+      id = admin.id;
+      to = "/admin";
+    } else if (backoffice || admin.listed) {
+      console.warn(`${backoffice ? "backoffice" : "front-page"} sign-in refused for ${user.email}`);
+      return back(admin.error);
+    } else {
+      const member = await memberFromGoogle(user, clientIp(req.headers));
+      if (!member.ok) return back(member.error);
+      id = member.id;
+      created = member.created;
     }
-    const member = await memberFromGoogle(user, clientIp(req.headers));
-    if (!member.ok) return back(member.error);
-    id = member.id;
-    created = member.created;
   } catch (e) {
     console.error("google sign-in failed:", e);
     return back("broken");
@@ -75,5 +79,5 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
   const invited = created ? cookieFrom(req, REF_COOKIE) : null;
   if (invited) await attachReferral(id, invited).catch((e) => console.error(`referral of new member ${id} not noted:`, e));
   await startSession(id);
-  return { res: NextResponse.redirect(`${origin}${next}`), created };
+  return { res: NextResponse.redirect(`${origin}${to}`), created };
 }
