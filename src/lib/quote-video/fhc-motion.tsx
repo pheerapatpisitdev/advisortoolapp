@@ -58,7 +58,7 @@ export interface FhcMotionContext {
   facts: FhcVideoFacts;
   customer: string;
   narrator?: "F" | "M";
-  contact: { name: string; phone: string; line?: string; photo?: string };
+  contact: { name: string; phone: string; line?: string; more?: string; photo?: string };
   words: string[];
   voiceSec: number;
 }
@@ -245,6 +245,7 @@ function Contact({ c, t }: { c: FhcMotionContext; t: number }) {
   const s = fhcSpec("fhcContact", f);
   const k = c.contact;
   const initial = [...k.name.trim()][0] ?? "?";
+  const more = k.more ? k.more.split("\n") : [];
   return (
     <>
       <Header f={f} title={c.customer ? `สำหรับ คุณ${c.customer}` : "คุยรายละเอียดได้เลย"} />
@@ -265,9 +266,15 @@ function Contact({ c, t }: { c: FhcMotionContext; t: number }) {
           {k.line && <div style={box({ fontSize: 44 })}>{`LINE ${k.line}`}</div>}
         </div>
       </El>
-      <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1020, fontSize: 30, color: WHITE, opacity: 0.75 }}>
-        ตัวเลขเป็นของวันที่ตรวจ เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท
-      </El>
+      {/* the foot note runs on under รายละเอียดเพิ่มเติม, however many lines it wraps to */}
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: more.length ? 990 : 1020, flexDirection: "column" })}>
+        {more.length > 0 && (
+          <El an={s.card} t={t} style={{ flexDirection: "column", fontSize: 44, color: WHITE, lineHeight: 1.45, marginBottom: 24 }}>
+            {more.map((m, i) => <div key={i} style={box({})}>{m}</div>)}
+          </El>
+        )}
+        <El an={s.note} t={t} style={{ fontSize: 30, color: WHITE, opacity: 0.75 }}>ตัวเลขเป็นของวันที่ตรวจ เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท</El>
+      </div>
     </>
   );
 }

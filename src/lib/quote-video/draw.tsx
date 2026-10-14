@@ -26,7 +26,8 @@ import { countAt, H, W, type OverlayState } from "./timeline";
 export { PHOTO, ROW_H, TABLE };
 const SIDE = 70;
 
-export interface Contact { name: string; phone: string; line?: string; photo?: string }
+/** more: รายละเอียดเพิ่มเติม (owner, 2026-10-14, option ข), up to 2 lines shown under the card */
+export interface Contact { name: string; phone: string; line?: string; more?: string; photo?: string }
 export interface DrawContext {
   facts: QuoteVideoFacts;
   /** who reads the clip: the closing card ends as the voice does */
@@ -679,6 +680,7 @@ function Compare({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayStat
 function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
   const k = c.contact;
   const initial = [...k.name.trim()][0] ?? "?";
+  const more = k.more ? k.more.split("\n") : [];
   return (
     <>
       <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 220, fontSize: 44, fontWeight: 600, color: P.accent }}>
@@ -701,9 +703,15 @@ function ContactScene({ c, layer }: { c: DrawContext; layer: Layer }) {
           {k.line && <div style={box({ fontSize: 46, color: P.mute })}>{`LINE ${k.line}`}</div>}
         </div>
       </On>
-      {c.facts.footNote && (
-        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1080, fontSize: 32, color: P.mute }}>{c.facts.footNote}</On>
-      )}
+      {/* the foot note runs on under รายละเอียดเพิ่มเติม, however many lines it wraps to */}
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: more.length ? 1050 : 1080, flexDirection: "column" })}>
+        {more.length > 0 && (
+          <On layer={layer} own="base" style={{ flexDirection: "column", fontSize: 44, color: P.ink, lineHeight: 1.45, marginBottom: 24 }}>
+            {more.map((m, i) => <div key={i} style={box({})}>{m}</div>)}
+          </On>
+        )}
+        {c.facts.footNote && <On layer={layer} own="base" style={{ fontSize: 32, color: P.mute }}>{c.facts.footNote}</On>}
+      </div>
     </>
   );
 }

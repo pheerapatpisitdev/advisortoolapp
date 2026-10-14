@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { cleanName } from "@/lib/auth/member";
 import { setName } from "@/lib/auth/member-store";
 import { requireMember } from "@/lib/auth/viewer";
-import { cleanLine, cleanPhone, photoUrl, saveContact, savePhoto } from "@/lib/quote-video/contact";
+import { cleanLine, cleanMore, cleanPhone, MORE_MAX, photoUrl, saveContact, savePhoto } from "@/lib/quote-video/contact";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -27,16 +27,19 @@ export async function renameMe(name: string): Promise<Result> {
 
 /**
  * The phone, LINE and photo a วิดีโอนำเสนอ closes on (owner, 2026-10-11) — every agent's, UnitOS
- * or member. The name shown beside them is the display name above (or UnitOS's).
+ * or member — and the รายละเอียดเพิ่มเติม under the card (2026-10-14). The name shown beside
+ * them is the display name above (or UnitOS's).
  */
-export async function saveMyContact(phone: string, line: string): Promise<Result> {
+export async function saveMyContact(phone: string, line: string, more: string): Promise<Result> {
   const viewer = await requireMember();
   const p = cleanPhone(phone);
   if (p === null || !p) return { ok: false, error: "เบอร์โทรไม่ถูกต้อง (ตัวเลข 9–15 หลัก)" };
   const l = cleanLine(line);
   if (l === null) return { ok: false, error: "LINE ID ใช้ได้แค่ตัวอักษรอังกฤษ ตัวเลข . _ - และ @ ข้างหน้า" };
+  const m = cleanMore(more);
+  if (m === null) return { ok: false, error: `รายละเอียดเพิ่มเติมได้ไม่เกิน 2 บรรทัด ${MORE_MAX} ตัวอักษร` };
   try {
-    await saveContact(viewer.agentId, p, l);
+    await saveContact(viewer.agentId, p, l, m);
   } catch (e) {
     console.error("contact not saved:", e);
     return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };

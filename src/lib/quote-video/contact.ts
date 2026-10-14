@@ -4,12 +4,15 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 /**
  * How customers reach an agent (owner, 2026-10-11): the phone, LINE and photo the closing scene
  * of a วิดีโอนำเสนอ shows, edited in บัญชีของฉัน. The name is the agent's display name, kept
- * where it always was. Name and phone are needed for a clip; photo and LINE are not.
+ * where it always was. Name and phone are needed for a clip; photo, LINE and the รายละเอียดเพิ่มเติม
+ * under the card (owner, 2026-10-14) are not.
  */
 
 export const CONTACT_BUCKET = "agent-contact";
-export interface AgentContact { phone: string; line: string; photoPath: string | null }
-const EMPTY: AgentContact = { phone: "", line: "", photoPath: null };
+export interface AgentContact { phone: string; line: string; more: string; photoPath: string | null }
+const EMPTY: AgentContact = { phone: "", line: "", more: "", photoPath: null };
+export const MORE_MAX = 80;
+export const MORE_LINES = 2;
 
 const table = () => supabaseAdmin().from("ins_agent_contact");
 const bucket = () => supabaseAdmin().storage.from(CONTACT_BUCKET);
@@ -30,14 +33,21 @@ export function cleanLine(raw: string): string | null {
   return /^@?[A-Za-z0-9._-]{1,40}$/.test(s) ? s : null;
 }
 
-export async function getContact(agentId: string): Promise<AgentContact> {
-  const { data, error } = await table().select("phone, line_id, photo_path").eq("agent_id", agentId).maybeSingle();
-  if (error) throw new Error(`contact not read: ${error.message}`);
-  return data ? { phone: data.phone ?? "", line: data.line_id ?? "", photoPath: data.photo_path ?? null } : EMPTY;
+/** รายละเอียดเพิ่มเติม: free text, at most 2 lines and 80 characters so it fits under the card */
+export function cleanMore(raw: string): string | null {
+  const lines = raw.replace(/\r/g, "").split("\n").map((l) => l.replace(/[\p{Cc}\s]+/gu, " ").trim()).filter(Boolean);
+  const s = lines.join("\n");
+  return lines.length <= MORE_LINES && [...s].length <= MORE_MAX ? s : null;
 }
 
-export async function saveContact(agentId: string, phone: string, line: string): Promise<void> {
-  const { error } = await table().upsert({ agent_id: agentId, phone, line_id: line, updated_at: new Date().toISOString() }, { onConflict: "agent_id" });
+export async function getContact(agentId: string): Promise<AgentContact> {
+  const { data, error } = await table().select("phone, line_id, more, photo_path").eq("agent_id", agentId).maybeSingle();
+  if (error) throw new Error(`contact not read: ${error.message}`);
+  return data ? { phone: data.phone ?? "", line: data.line_id ?? "", more: data.more ?? "", photoPath: data.photo_path ?? null } : EMPTY;
+}
+
+export async function saveContact(agentId: string, phone: string, line: string, more: string): Promise<void> {
+  const { error } = await table().upsert({ agent_id: agentId, phone, line_id: line, more, updated_at: new Date().toISOString() }, { onConflict: "agent_id" });
   if (error) throw new Error(`contact not saved: ${error.message}`);
 }
 

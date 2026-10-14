@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanLine, cleanPhone } from "@/lib/quote-video/contact";
+import { cleanLine, cleanMore, cleanPhone } from "@/lib/quote-video/contact";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "@/lib/quote-video/job";
 import { cleanCustomerName, pageCaption, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
 import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
@@ -327,5 +327,14 @@ describe("agent contact", () => {
     expect(cleanLine("@somying.plan")).toBe("@somying.plan");
     expect(cleanLine("")).toBe("");
     expect(cleanLine("สมหญิง")).toBeNull();
+  });
+
+  it("takes รายละเอียดเพิ่มเติม of up to 2 lines and 80 characters (owner, 2026-10-14)", () => {
+    expect(cleanMore("")).toBe("");
+    expect(cleanMore("  ตัวแทนประกันชีวิต   กรุงไทย-แอกซ่า \r\n\n ใบอนุญาตเลขที่ 6501012345 ")).toBe("ตัวแทนประกันชีวิต กรุงไทย-แอกซ่า\nใบอนุญาตเลขที่ 6501012345");
+    expect(cleanMore("ก\tข")).toBe("ก ข");
+    expect(cleanMore("หนึ่ง\nสอง\nสาม")).toBeNull();
+    expect(cleanMore("ก".repeat(80))).toBe("ก".repeat(80));
+    expect(cleanMore("ก".repeat(81))).toBeNull();
   });
 });

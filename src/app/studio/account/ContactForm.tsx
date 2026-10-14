@@ -6,6 +6,8 @@ import { saveMyContact, saveMyPhoto, type Result } from "./actions";
 
 const CARD = "space-y-4 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 const SIDE = 512;
+/** as cleanMore in src/lib/quote-video/contact.ts (that file is server-only) */
+const MORE_MAX = 80;
 
 /** the picked photo, cut square from its middle and made small, as a JPEG */
 async function squareJpeg(file: File): Promise<Blob> {
@@ -20,9 +22,10 @@ async function squareJpeg(file: File): Promise<Blob> {
 
 /**
  * ข้อมูลติดต่อในวิดีโอนำเสนอ (owner, 2026-10-11): what a customer sees at the end of a clip.
- * Name and phone are needed to make one; photo and LINE are not.
+ * Name and phone are needed to make one; photo, LINE and รายละเอียดเพิ่มเติม (2026-10-14) are not.
  */
-export function ContactForm({ name, phone, line, photo }: { name: string; phone: string; line: string; photo: string | null }) {
+export function ContactForm({ name, phone, line, more, photo }: { name: string; phone: string; line: string; more: string; photo: string | null }) {
+  const [moreLen, setMoreLen] = useState([...more].length);
   const [shown, setShown] = useState(photo);
   const [result, setResult] = useState<Result>();
   const [photoError, setPhotoError] = useState<string>();
@@ -51,11 +54,11 @@ export function ContactForm({ name, phone, line, photo }: { name: string; phone:
     <form method="post" className={CARD} onSubmit={(e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       const fd = new FormData(e.currentTarget);
-      start(async () => setResult(await saveMyContact(String(fd.get("phone") ?? ""), String(fd.get("line") ?? ""))));
+      start(async () => setResult(await saveMyContact(String(fd.get("phone") ?? ""), String(fd.get("line") ?? ""), String(fd.get("more") ?? ""))));
     }}>
       <div>
         <h2 className="font-semibold">ข้อมูลติดต่อในวิดีโอนำเสนอ</h2>
-        <p className={`mt-1 text-sm ${MUTE}`}>ลูกค้าเห็นรูป ชื่อ เบอร์ และ LINE นี้ในช่วงปิดท้ายของวิดีโอ</p>
+        <p className={`mt-1 text-sm ${MUTE}`}>ลูกค้าเห็นรูป ชื่อ เบอร์ LINE และรายละเอียดเพิ่มเติมนี้ในช่วงปิดท้ายของวิดีโอ</p>
       </div>
       <div className="flex items-center gap-4">
         <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ct-soft)] text-2xl font-semibold">
@@ -77,6 +80,9 @@ export function ContactForm({ name, phone, line, photo }: { name: string; phone:
       </Field>
       <Field id="contact-line" label="LINE ID (ไม่บังคับ)" hint="ใส่ได้ทั้ง @ไอดี ของ LINE OA หรือไอดีส่วนตัว">
         <input id="contact-line" name="line" defaultValue={line} maxLength={41} placeholder="@yourline" className={INPUT} onChange={() => setResult(undefined)} />
+      </Field>
+      <Field id="contact-more" label="รายละเอียดเพิ่มเติม (ไม่บังคับ)" hint={`เช่น ตำแหน่ง ใบอนุญาต เพจ Facebook หรือเวลาที่สะดวกให้ติดต่อ · ไม่เกิน 2 บรรทัด · ${moreLen}/${MORE_MAX}`}>
+        <textarea id="contact-more" name="more" defaultValue={more} maxLength={MORE_MAX} rows={2} placeholder="ตัวแทนประกันชีวิต กรุงไทย-แอกซ่า" className={INPUT} onChange={(e) => { setMoreLen([...e.target.value].length); setResult(undefined); }} />
       </Field>
       {result && (result.ok ? <p role="status" className="text-sm text-[var(--bot-ok)]">บันทึกแล้ว</p> : <FormError>{result.error}</FormError>)}
       <button disabled={pending} className={PRIMARY}>บันทึกข้อมูลติดต่อ</button>
