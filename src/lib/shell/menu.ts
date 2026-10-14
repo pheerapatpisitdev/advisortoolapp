@@ -309,7 +309,7 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio", label: "หน้ารวม", icon: "grid", hue: "#2b736f" },
     // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
     { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80" },
-    // video covers (owner, 2026-10-09): AI spend with no wallet behind it, so the owner's alone
+    // video covers (owner, 2026-10-09): every agent's and member's since 2026-10-14, paid as a picture
     { href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image", hue: "#2e5a80" },
     // a narrated clip of a quote (owner, 2026-10-11): every agent's, two free then the wallet
     { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80" },
@@ -343,7 +343,7 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     // two items to one page read as a duplicate (owner, 2026-10-13)
     ...(who?.prices !== true || !noWallet ? ["/studio/wallet#prices"] : []),
     // every agent's since 2026-10-11: the contact details a วิดีโอนำเสนอ closes on live there
-    ...(who?.owner ? [] : ["/studio/ads", "/studio/thumbnail"]),
+    ...(who?.owner ? [] : ["/studio/ads"]),
   ]);
   const shown = links.filter((l) => !hidden.has(l.href));
   // a member renews from inside Studio too, just before their account (owner, 2026-10-13)

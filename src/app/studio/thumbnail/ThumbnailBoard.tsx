@@ -1,13 +1,18 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import type { PiecePerson } from "@/lib/content/people";
 import { PAINTERS } from "@/lib/content/models";
 import { MAX_HEADLINE, MAX_SUB, MAX_TOPIC, SIZES, STYLES, type Idea, type ThumbSize, type ThumbStyle } from "@/lib/content/thumbnail";
 import type { ThumbCheck, ThumbSettings, Thumbnail } from "@/lib/content/thumbnail-history";
+import { formatBaht } from "@/lib/wallet/money";
+import type { Rounds } from "@/lib/wallet/note";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
+import { paintPrice, usePrices } from "../ui/prices";
 
 /** the cover on show: one just made, or one opened from the history */
-interface Shown { id?: string; url: string; settings: ThumbSettings; check: ThumbCheck | null; model: string; costThb: number; note?: string }
+/** `paid`: what this cover took, said under one just made (an agent's free round or wallet baht) */
+interface Shown { id?: string; url: string; settings: ThumbSettings; check: ThumbCheck | null; model: string; costThb: number; note?: string; paid?: string }
 
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-3.5 py-1.5 text-sm disabled:opacity-50 ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
@@ -19,7 +24,17 @@ const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle:
 
 const PAINTER_CHOICES = PAINTERS.filter((p) => p.modelId);
 
-export function ThumbnailBoard({ people, initial }: { people: PersonOption[]; initial: Thumbnail[] | null }) {
+/** what an agent has to draw with: free rounds, then the wallet (owner chose ก, 2026-10-14) */
+function roundsLine(r: Rounds): { text: string; topUp: boolean } {
+  const left = Math.max(0, r.limit - r.used);
+  if (left > 0) return { text: `รอบฟรีเหลือ ${left} จาก ${r.limit} ครั้ง · หมดแล้วหักจากกระเป๋าเงินตามราคาโมเดล`, topUp: false };
+  if (r.wallet) return { text: `รอบฟรีหมดแล้ว · หักจากกระเป๋าเงินตามราคาโมเดล · คงเหลือ ${formatBaht(r.wallet.satang)}`, topUp: true };
+  return { text: `ใช้รอบฟรีครบ ${r.limit} ครั้งแล้ว`, topUp: false };
+}
+
+export function ThumbnailBoard({ people, initial, owner, rounds: initialRounds }: { people: PersonOption[]; initial: Thumbnail[] | null; owner: boolean; rounds: Rounds | null }) {
+  const prices = usePrices();
+  const [rounds, setRounds] = useState<Rounds | null>(initialRounds);
   const [size, setSize] = useState<ThumbSize>("9:16");
   const [topic, setTopic] = useState("");
   const [ideas, setIdeas] = useState<Idea[]>([]);
@@ -65,13 +80,20 @@ export function ThumbnailBoard({ people, initial }: { people: PersonOption[]; in
     try {
       const res = await fetch("/api/content-thumbnail", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ settings: used, painter }) });
       const data = await res.json().catch(() => null) as
-        | { ok: true; dataUrl: string; check: ThumbCheck; model: string; costThb: number; saved: boolean; id?: string; note?: string }
+        | { ok: true; dataUrl: string; check: ThumbCheck; model: string; costThb: number; paidBy: "free" | "wallet" | "staff"; chargedSatang?: number; saved: boolean; id?: string; note?: string }
         | { ok: false; error: string } | null;
       if (!data || !data.ok) {
         setError(data && !data.ok ? data.error : "สร้างภาพปกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ");
         return;
       }
-      setShown({ id: data.id, url: data.dataUrl, settings: used, check: data.check, model: data.model, costThb: data.costThb, note: data.note });
+      const charged = data.chargedSatang ?? 0;
+      const paid = data.paidBy === "free" ? "ใช้รอบฟรี 1 ครั้ง" : data.paidBy === "wallet" ? `หักกระเป๋าเงิน ${formatBaht(charged)}` : undefined;
+      setShown({ id: data.id, url: data.dataUrl, settings: used, check: data.check, model: data.model, costThb: data.costThb, note: data.note, paid });
+      // the line above the button follows what this cover took, without a reload
+      setRounds((r) => !r ? r
+        : data.paidBy === "free" ? { ...r, used: r.used + 1 }
+        : data.paidBy === "wallet" && r.wallet ? { ...r, used: Math.max(r.used, r.limit), wallet: { ...r.wallet, satang: Math.max(0, r.wallet.satang - charged) } }
+        : r);
       if (data.saved && data.id) {
         const added: Thumbnail = { id: data.id, createdAt: new Date().toISOString(), settings: used, check: data.check, model: data.model, costThb: data.costThb, imageUrl: data.dataUrl };
         setItems((list) => (list === null ? list : [added, ...list.filter((i) => i.id !== added.id)]));
@@ -181,7 +203,7 @@ export function ThumbnailBoard({ people, initial }: { people: PersonOption[]; in
           <div role="radiogroup" className="flex flex-wrap gap-1.5">
             {PAINTER_CHOICES.map((p) => (
               <button key={p.id} type="button" role="radio" aria-checked={painter === p.id} onClick={() => setPainter(p.id)} className={chip(painter === p.id)}>
-                {p.short} <span className="text-xs opacity-70">฿{p.thb.toFixed(2)}</span>
+                {p.short} <span className="text-xs opacity-70">{owner ? `฿${p.thb.toFixed(2)}` : paintPrice(prices, p.id)}</span>
               </button>
             ))}
           </div>
@@ -189,6 +211,15 @@ export function ThumbnailBoard({ people, initial }: { people: PersonOption[]; in
         </section>
 
         <div>
+          {rounds && (() => {
+            const line = roundsLine(rounds);
+            return (
+              <p className="mb-2 text-sm text-[var(--ct-mute)]">
+                {line.text}
+                {line.topUp && <> · <Link href="/studio/wallet" className="underline">เติมเงิน</Link></>}
+              </p>
+            );
+          })()}
           <button type="button" onClick={make} disabled={!ready} className="min-h-11 w-full rounded-lg bg-[var(--ct-solid)] px-4 text-sm font-medium text-white disabled:opacity-50">
             {busy ? "กำลังสร้างภาพปก… (ราว 30–60 วินาที)" : "สร้างภาพปก"}
           </button>
@@ -204,7 +235,7 @@ export function ThumbnailBoard({ people, initial }: { people: PersonOption[]; in
               {/* eslint-disable-next-line @next/next/no-img-element -- a data link just made, or a signed link to a private file */}
               <img src={shown.url} alt={`ภาพปก: ${shown.settings.headline}`} style={{ aspectRatio: ratio(shown.settings.size) }} className={`rounded-xl border border-[var(--ct-hair)] object-cover ${shown.settings.size === "9:16" ? "max-h-[70vh] w-auto max-w-full" : "w-full"}`} />
               {checkLine(shown.check)}
-              <p className="text-xs text-[var(--ct-mute)]">{shown.model} · ใช้ไป ฿{shown.costThb.toFixed(2)}</p>
+              <p className="text-xs text-[var(--ct-mute)]">{shown.model}{owner ? ` · ใช้ไป ฿${shown.costThb.toFixed(2)}` : shown.paid ? ` · ${shown.paid}` : ""}</p>
               {shown.note && <p className="text-sm text-[var(--ct-mute)]">{shown.note}</p>}
               <div className="flex flex-wrap gap-2">
                 <a href={shown.url} download={`cover-${shown.settings.size.replace(":", "x")}.jpg`} className={`${btn} inline-flex items-center`}>ดาวน์โหลด</a>
