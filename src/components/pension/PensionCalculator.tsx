@@ -14,6 +14,7 @@ import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
 import { PenLayer } from "@/components/PenLayer";
 import { SiteCredit } from "@/components/sales/SiteCredit";
+import { PensionBandChart } from "./PensionBandChart";
 import {
   PENSION_CELL_PAD, PENSION_COLUMNS, PENSION_PEN_SCALE, pensionBraceRoom, pensionCells, pensionMarks,
   pensionPenNotes, pensionRings, type PensionColumn,
@@ -280,24 +281,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                     <dd className="text-lg font-semibold tabular-nums"><Highlighted>{baht(q.monthlyPension)} บาท/เดือน</Highlighted></dd>
                   </div>
                 </dl>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--op-line)] text-left text-[var(--op-mute)]">
-                      <th className="py-2">อายุ</th>
-                      <th className="py-2 text-right">% ของทุน</th>
-                      <th className="py-2 text-right">บำนาญต่อปี</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {q.bands.map((b) => (
-                      <tr key={b.fromAge} className="border-b border-[var(--op-line)]">
-                        <td className="py-2">{b.fromAge}–{b.toAge}</td>
-                        <td className="py-2 text-right tabular-nums">{Math.round(b.percent * 100)}%</td>
-                        <td className="py-2 text-right tabular-nums">{baht(b.annual)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <PensionBandChart bands={q.bands} />
                 <p className="text-sm">
                   รับบำนาญรวมถึงอายุ 95 <span className="font-semibold tabular-nums">{baht(q.totalPension)} บาท</span>
                   {" "}จากเบี้ยสัญญาหลักรวม {baht(q.totalPremium)} บาท
