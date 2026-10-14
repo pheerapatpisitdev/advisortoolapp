@@ -26,6 +26,12 @@ export interface WalletRow {
   balanceSatang: number;
   toppedUpSatang: number;
   chargedSatang: number;
+  /** สังกัด, "Krungthai-AXA Life " dropped (83G); null for an outside member or before 20261031_wallet_unit */
+  tenant: string | null;
+  /** หน่วย from the agent's profile */
+  unit: string | null;
+  /** an outside member (สมาชิกทั่วไป), not an agent */
+  isMember: boolean;
 }
 
 async function call<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
@@ -257,5 +263,8 @@ export async function walletSummary(since: Date): Promise<WalletRow[]> {
   return (rows ?? []).map((r) => ({
     agentId: String(r.agent_id), name: String(r.name ?? ""), code: String(r.code ?? ""),
     balanceSatang: Number(r.balance_satang), toppedUpSatang: Number(r.topped_up_satang), chargedSatang: Number(r.charged_satang),
+    tenant: r.tenant ? String(r.tenant).replace(/^Krungthai-AXA Life\s+/i, "") : null,
+    unit: r.unit ? String(r.unit) : null,
+    isMember: r.is_member === true,
   }));
 }
