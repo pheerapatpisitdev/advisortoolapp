@@ -191,6 +191,32 @@ export async function loadAiPage(): Promise<{
 }
 
 /**
+ * What each company cost since the count began this month, and who asked: for การใช้งานและค่า AI
+ * (owner chose ข, 2026-10-15). Either half that cannot be read comes back null, never a page
+ * that will not open.
+ */
+export async function loadSpend(): Promise<{ spend: ProviderSpend[] | null; people: PersonUse[] | null; since: string }> {
+  await requireStaff("backoffice");
+  const since = await spendSince();
+  const [models, lines, people] = await Promise.all([
+    supabaseAdmin().from("model_configs").select("provider, model_name"),
+    monthSpend(since).catch((e) => {
+      console.error("อ่านยอดใช้ AI ไม่สำเร็จ:", e);
+      return null;
+    }),
+    usageByPerson(since).catch((e) => {
+      console.error("อ่านยอดใช้ AI รายคนไม่สำเร็จ:", e);
+      return null;
+    }),
+  ]);
+  return {
+    spend: lines ? byProvider(lines.lines, (models.data ?? []) as { provider: string; model_name: string }[]) : null,
+    people,
+    since: since.toISOString(),
+  };
+}
+
+/**
  * What to show of each render key. Rendi's is its last four characters. AWS's is one string of
  * four parts, so the tail says nothing; its region and function name are not secret and say which
  * function is wired, so they are read out of the decrypted key here and only they are returned —

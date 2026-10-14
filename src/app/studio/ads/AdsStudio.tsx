@@ -154,7 +154,7 @@ export function AdsStudio({ home, view, openId, days, contact, drawerPeople, rul
 
       {!page ? (
         <p className="mt-5 rounded-xl border border-dashed border-[var(--ct-line)] p-5 text-sm text-[var(--ct-mute)]">
-          ยังไม่มีเพจที่เชื่อมกับระบบ — เชื่อมเพจที่ <a href="/admin/messenger" className="font-medium text-[var(--ct-accent)] underline">หน้าตั้งค่าเพจ</a> ก่อน
+          ยังไม่มีเพจที่เชื่อมกับระบบ — แจ้ง Super Admin ให้เชื่อมเพจก่อน
         </p>
       ) : home.error ? (
         <p role="alert" className={`mt-5 rounded-lg border px-3 py-2 text-sm ${TONES.bad}`}>อ่านรายการแคมเปญไม่ได้ — {home.error}</p>

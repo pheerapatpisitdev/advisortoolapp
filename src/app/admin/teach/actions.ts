@@ -161,7 +161,7 @@ export async function teachLesson(input: TeachInput): Promise<Result<{ id: strin
     if (error) throw new Error(error.message);
     const id = String((data as { id: unknown }).id);
     await audit("teach-lesson", id, { question, pageId, strict, phrasings: phrasings.length });
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true, id };
   } catch (e) {
     console.error("lesson not saved:", e);
@@ -253,7 +253,7 @@ export async function updateTaught(id: string, input: TeachInput & { strict: boo
       .eq("id", id);
     if (error) throw new Error(error.message);
     await audit("teach-edit", id, { question, strict, pageId });
-    revalidatePath("/admin/knowledge");
+    revalidatePath("/admin/teach");
     return { ok: true };
   } catch (e) {
     console.error("taught answer not saved:", e);

@@ -133,15 +133,15 @@ export async function loadOverview(): Promise<Overview> {
     attention.push({
       id: "page", urgency: "wait",
       title: "ตรวจสถานะเพจไม่สำเร็จ ลองเปิดใหม่",
-      detail: "ระบบอ่านสถานะการเชื่อมเพจไม่ได้ในครั้งนี้ บอทอาจยังตอบปกติ — ถ้าเปิดใหม่แล้วยังขึ้นอีก ให้ดูที่หน้าเชื่อมเพจ",
-      href: "/admin/messenger", action: "ดูหน้าเชื่อมเพจ",
+      detail: "ระบบอ่านสถานะการเชื่อมเพจไม่ได้ในครั้งนี้ บอทอาจยังตอบปกติ — ถ้าเปิดใหม่แล้วยังขึ้นอีก ให้ดูที่หน้าเพจและช่องทาง",
+      href: "/admin/pages", action: "ดูหน้าเพจและช่องทาง",
     });
   } else if (!connection) {
     attention.push({
       id: "page", urgency: "soon",
       title: "ยังไม่ได้เชื่อมเพจเฟซบุ๊ก",
       detail: "บอทยังตอบข้อความในเพจไม่ได้ และยังไม่มีข้อมูลลูกค้าเข้าระบบ",
-      href: "/admin/messenger", action: "ไปเชื่อมเพจ",
+      href: "/admin/pages", action: "ไปเชื่อมเพจ",
     });
   } else {
     /**
@@ -155,7 +155,7 @@ export async function loadOverview(): Promise<Overview> {
         id: "subscribe", urgency: "soon",
         title: "เชื่อมเพจแล้ว แต่ยังไม่ได้สมัครรับข้อความ",
         detail: `ระบบยังไม่ได้รับ${missing.map((f) => FIELD_WORDS[f] ?? "ข้อมูลบางอย่าง").join(", ")} — กดปุ่มสมัครรับอีกครั้งที่หน้าเชื่อมเพจ`,
-        href: "/admin/messenger", action: "กดสมัครรับ",
+        href: "/admin/pages", action: "กดสมัครรับ",
       });
     }
   }
@@ -165,7 +165,7 @@ export async function loadOverview(): Promise<Overview> {
       id: "unanswered", urgency: "wait",
       title: `มีคำถามที่ผู้ช่วยตอบเองไม่ได้ ${asked} ข้อ`,
       detail: "อ่านแล้วเขียนคำตอบไว้ แล้วกด “ตอบแล้ว” — ครั้งหน้าระบบจะตอบได้เองโดยไม่ต้องเสียค่า AI",
-      href: "/admin/crm?tab=unanswered", action: "ไปอ่าน",
+      href: "/admin/teach?tab=unanswered", action: "ไปสอนบอท",
     });
   }
 
@@ -176,7 +176,7 @@ export async function loadOverview(): Promise<Overview> {
       id: "rates", urgency: meta.expired ? "soon" : "wait",
       title: meta.expired ? "ตารางเบี้ยหมดอายุแล้ว" : `ตารางเบี้ยเหลืออีก ${left} วัน`,
       detail: `ชุด ${meta.version} ใช้ได้ถึง ${meta.expiresOn} — ขอชุดใหม่จากบริษัทไว้ก่อน`,
-      href: "/admin/ai", action: "ดูรายละเอียด",
+      href: "/admin/ai#rates", action: "ดูรายละเอียด",
     });
   }
 
@@ -185,7 +185,7 @@ export async function loadOverview(): Promise<Overview> {
       id: "budget", urgency: aiCost >= budget ? "soon" : "wait",
       title: aiCost >= budget ? "ค่า AI เดือนนี้เต็มงบแล้ว" : "ค่า AI เดือนนี้ใกล้เต็มงบ",
       detail: `ใช้ไป ${aiCost.toFixed(2)} จาก ${budget} บาท — เต็มงบแล้วผู้ช่วยจะหยุดตอบทั้งเว็บและเพจ`,
-      href: "/admin/ai", action: "ดูการใช้งาน",
+      href: "/admin/stats?tab=provider", action: "ดูการใช้งาน",
     });
   }
 
@@ -199,13 +199,13 @@ export async function loadOverview(): Promise<Overview> {
       id: "ads", urgency: "wait",
       title: "ตรวจบัญชีโฆษณาไม่สำเร็จ ลองเปิดใหม่",
       detail: "ระบบอ่านสถานะการเชื่อมบัญชีโฆษณาไม่ได้ในครั้งนี้ — ไม่ได้แปลว่าหลุดการเชื่อม",
-      href: "/admin/ads", action: "ดูหน้า ADS",
+      href: "/admin/ads", action: "ดูหน้าโฆษณา",
     });
   } else if (ads.length === 0) {
     attention.push({
       id: "ads", urgency: "wait",
       title: "ยังไม่ได้เชื่อมบัญชีโฆษณา",
-      detail: "หน้า ADS จะบอกได้ว่าโฆษณาแต่ละชิ้นได้ลูกค้ากี่คน ตกคนละกี่บาท",
+      detail: "หน้าโฆษณาจะบอกได้ว่าโฆษณาแต่ละชิ้นได้ลูกค้ากี่คน ตกคนละกี่บาท",
       href: "/admin/ads", action: "ไปเชื่อม",
     });
   } else if (newestAd !== FAILED) {
@@ -214,7 +214,7 @@ export async function loadOverview(): Promise<Overview> {
       attention.push({
         id: "ads-stale", urgency: "wait",
         title: fetchedAt ? "ตัวเลขโฆษณาค้างเกิน 2 วัน" : "ยังไม่เคยดึงตัวเลขโฆษณา",
-        detail: "ตัวดึงรายวันอาจติดขัด หรือการเชื่อมบัญชีโฆษณาหมดอายุ — กดดึงเองได้ที่หน้า ADS",
+        detail: "ตัวดึงรายวันอาจติดขัด หรือการเชื่อมบัญชีโฆษณาหมดอายุ — กดดึงเองได้ที่หน้าโฆษณา",
         href: "/admin/ads", action: "ไปดึง",
       });
     }

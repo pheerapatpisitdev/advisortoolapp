@@ -73,7 +73,7 @@ export type PostingCheck =
   | { status: "unknown"; note: string }
   | { status: "bad"; advice: string; detail: string };
 
-const RECONNECT = "แล้วเชื่อมเพจใหม่ที่หน้า Messenger";
+const RECONNECT = "แล้วกดเชื่อมต่อเพจเพิ่มที่หน้าเพจและช่องทาง";
 
 /**
  * What a refusal from Facebook means for posting, in words the owner can act on.
@@ -113,7 +113,7 @@ export function explainCheck(code: number, message: string): Exclude<PostingChec
       advice: `เพจนี้ยังไม่ได้อนุญาตให้ระบบจัดการโพสต์ — ${RECONNECT} แล้วกดอนุญาตให้จัดการโพสต์ของเพจ`,
     };
   }
-  return { status: "bad", detail: message, advice: "Facebook ตอบกลับผิดปกติ ลองเปิดหน้านี้ใหม่ ถ้ายังเป็นอยู่ให้เชื่อมเพจใหม่ที่หน้า Messenger" };
+  return { status: "bad", detail: message, advice: "Facebook ตอบกลับผิดปกติ ลองเปิดหน้านี้ใหม่ ถ้ายังเป็นอยู่ให้กดเชื่อมต่อเพจเพิ่มที่หน้าเพจและช่องทาง" };
 }
 
 /**

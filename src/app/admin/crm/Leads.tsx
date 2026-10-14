@@ -1,9 +1,6 @@
-import Link from "next/link";
-import { Answered } from "./Answered";
 import { BotResume } from "./BotResume";
 import type { LeadView, Listed } from "./actions";
-import type { OpenQuestions } from "@/lib/crm/load";
-import { intentName, planName } from "@/lib/crm/plans";
+import { planName } from "@/lib/crm/plans";
 import { UNDECIDED } from "@/lib/crm/types";
 
 /**
@@ -86,60 +83,9 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 export function Leads(
-  { tab, leads, unanswered }: { tab: string; leads: Listed<LeadView> | null; unanswered: OpenQuestions | null },
+  { tab, leads }: { tab: string; leads: Listed<LeadView> | null },
 ) {
   const box = "rounded-b-xl border border-t-0 border-[var(--bot-line)] bg-white overflow-x-auto";
-
-  if (tab === "unanswered") {
-    if (!unanswered) {
-      return <div className={box}><Empty>อ่านข้อมูลไม่สำเร็จ — ลองเปิดหน้านี้ใหม่อีกครั้ง</Empty></div>;
-    }
-    const { rows, total, canMark } = unanswered;
-    return (
-      <div className={box}>
-        {/* the way to the notes page: it is kept out of the menu on purpose, so this is the door */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--bot-line)] px-4 py-2.5 text-xs text-[var(--bot-ink-mute)]">
-          <span>
-            {rows.length < total
-              ? `แสดง ${rows.length} จาก ${total.toLocaleString("en-US")} ข้อ (ใหม่สุดก่อน)`
-              : `ยังค้างตอบ ${total.toLocaleString("en-US")} ข้อ`}
-          </span>
-          <span className="hidden sm:inline">· เขียนคำตอบไว้แล้วกด “ตอบแล้ว” ข้อนั้นจะหายจากรายการ</span>
-          <Link
-            href="/admin/teach"
-            className="ml-auto whitespace-nowrap rounded-lg border border-[var(--bot-line)] px-2.5 py-1.5 text-xs text-[var(--bot-ink-foot)] no-underline hover:bg-[var(--bot-band)]"
-          >
-            เขียนคำตอบ →
-          </Link>
-        </div>
-        {rows.length === 0 ? (
-          <Empty>ไม่มีคำถามค้างตอบ</Empty>
-        ) : (
-          <ul className="divide-y divide-[var(--bot-line)]">
-            {rows.map((u) => (
-              <li key={u.id} className="flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-[var(--bot-ink)]">{u.question}</p>
-                  <p className="mt-1 text-xs text-[var(--bot-ink-faint)]">
-                    {planName(u.product)} · {intentName(u.intent)} · {ago(u.at)}
-                  </p>
-                </div>
-                <span className="flex shrink-0 items-center gap-1.5">
-                  <Link
-                    href={`/admin/teach?q=${encodeURIComponent(u.question.slice(0, 200))}`}
-                    className="whitespace-nowrap px-1.5 py-1.5 text-xs text-[var(--bot-ink-mute)] hover:text-[var(--bot-ink-foot)]"
-                  >
-                    เขียนคำตอบ
-                  </Link>
-                  {canMark && <Answered id={u.id} />}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  }
 
   if (!leads) {
     return <div className={box}><Empty>อ่านข้อมูลไม่สำเร็จ — ลองเปิดหน้านี้ใหม่อีกครั้ง</Empty></div>;

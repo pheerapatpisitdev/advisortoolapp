@@ -66,7 +66,7 @@ export interface UnsyncedAccount {
   name: string;
 }
 
-/** The line for one such account, before the link to /admin/ads: its figures stay "—", not 0. */
+/** The line for one such account: its figures stay "—", not 0, until the Super Admin connects it on /admin/ads. */
 export function unsyncedText(a: UnsyncedAccount): string {
-  return `บัญชี ${a.name} ยังไม่ได้เชื่อมดึงผลลัพธ์ — ตัวเลขจะไม่ขึ้นจนกว่าจะเชื่อมที่`;
+  return `บัญชี ${a.name} ยังไม่ได้เชื่อมดึงผลลัพธ์ — ตัวเลขจะไม่ขึ้นจนกว่า Super Admin จะเชื่อมบัญชีนี้ที่หลังบ้าน`;
 }

@@ -40,7 +40,13 @@ export type MenuIcon =
   | "woman"
   | "wallet"
   | "image"
-  | "back";
+  | "back"
+  | "flag"
+  | "bot"
+  | "badge"
+  | "tag"
+  | "chart"
+  | "gear";
 
 export interface MenuLink {
   href: string;
@@ -208,11 +214,17 @@ const FHC_CUSTOMERS: MenuLink = { href: "/fhc/customers", label: "ลูกค�
 export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
   if (signedIn) {
     /**
-     * Grouped by the job the owner opens the page for (owner chose ข, 2026-10-14): until then
-     * "ผู้ช่วย AI" held the wallets and the members, and the bot's own pages were split between
-     * it and "ช่องทาง". The way back to the main system is the first line, as it is in Studio's.
+     * Eleven pages under six jobs (owner chose ข, 2026-10-15; review
+     * https://claude.ai/artifact/VDF2tf4VGA1DSAkJUcVtJm, mockup
+     * https://claude.ai/artifact/QN3oQ24fyLBTFnuwZrNs84). It was thirteen: Messenger and
+     * ออโต้โพสต์ read the same connection, สอน AI / ห้องสอนบอท / ข้อความต้อนรับ all taught the bot,
+     * and the cost of AI was on four pages. Each page has its own mark; none repeats.
+     *
+     * Every page here is the Super Admin's alone (gatePage "backoffice"), so the list is not
+     * filtered by anybody's ticks any more — it was, by admin / connect / owner, until the back
+     * office left the agents on 2026-10-15, after which the filter never hid anything.
      */
-    const groups: MenuGroup[] = [
+    return [
       {
         links: [
           // the Super Admin has no front of the app to go back to (owner, 2026-10-15)
@@ -221,66 +233,56 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
         ],
       },
       {
-        title: "ลูกค้าและแชท",
+        title: "ลูกค้าและบอท",
         links: [
           // the people who wrote to the Pages; "ลูกค้า FHC ของฉัน" is the agent's own list
-          { href: "/admin/crm", label: "ลูกค้าจากแชท", icon: "users", hue: "#33638a" },
-          { href: "/admin/messenger", label: "Messenger", icon: "chat", hue: "#2b2e73" },
-        ],
-      },
-      {
-        title: "บอท",
-        links: [
-          // what each Page says to a customer who has not said anything yet (owner, 2026-10-04)
-          { href: "/admin/welcome", label: "ข้อความต้อนรับ", icon: "chat", hue: "#2d2f76" },
-          // back in the menu on 2026-09-26 (owner): the daily บทเรียนจากแชท waits here for ใช้
-          { href: "/admin/knowledge", label: "สอน AI", icon: "spark", hue: "#2e4a7a" },
-          // try the bot as a customer, and teach it an answer word for word (owner, 2026-10-11)
-          { href: "/admin/teach", label: "ห้องสอนบอท", icon: "chat", hue: "#3a4f86" },
+          { href: "/admin/crm", label: "ลูกค้าจากแชท", icon: "chat", hue: "#2b6a7a" },
+          // which Pages are connected, and whether the bot answers and the workbench posts on each
+          { href: "/admin/pages", label: "เพจและช่องทาง", icon: "flag", hue: "#2b5f80" },
+          // try the bot as a customer, teach it, and set what it sends a newcomer
+          { href: "/admin/teach", label: "สอนบอท", icon: "bot", hue: "#2b5486" },
         ],
       },
       {
         title: "การตลาด",
         links: [
-          // the same Page connection, seen from the content workbench: can it post, what went up
-          { href: "/admin/posting", label: "ออโต้โพสต์", icon: "pen", hue: "#302f79" },
-          { href: "/admin/ads", label: "ADS", icon: "megaphone", hue: "#352f80" },
+          { href: "/admin/ads", label: "โฆษณา", icon: "megaphone", hue: "#2e4a86" },
         ],
       },
       {
-        title: "คนและเงิน",
+        title: "ผู้ใช้",
         links: [
-          // the owner's list of assistants, and nobody else's business
-          { href: "/admin/team", label: "ทีมงาน", icon: "users", hue: "#472f8a" },
+          // the assistants: who may post to which Page in Studio
+          { href: "/admin/team", label: "ทีมงาน", icon: "badge", hue: "#334084" },
           // members outside UnitOS who signed up themselves (owner, 2026-10-01)
-          { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#33638a" },
-          // the agents' Studio wallets: on or off, the multiplier, a hand on a balance (owner, 2026-09-30)
-          { href: "/admin/wallet", label: "กระเป๋าเงินตัวแทน", icon: "wallet", hue: "#2b736f" },
-          // which tools people use most and what they cost (owner, 2026-10-14): it names every
-          // agent's spend, so the owner's
-          { href: "/admin/stats", label: "สถิติการใช้งาน", icon: "pulse", hue: "#2b5f73" },
+          { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#3a3784" },
+        ],
+      },
+      {
+        title: "เงิน",
+        links: [
+          // the Studio wallets: on or off, the multiplier, a hand on a balance (owner, 2026-09-30)
+          { href: "/admin/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#443283" },
+          // the price of each piece, the members' pass and ชวนเพื่อน
+          { href: "/admin/prices", label: "ราคาและโปรโมชัน", icon: "tag", hue: "#4f2f82" },
+        ],
+      },
+      {
+        title: "รายงาน",
+        links: [
+          // which tools people use, who used them, and what each AI company cost (owner, 2026-10-14)
+          { href: "/admin/stats", label: "การใช้งานและค่า AI", icon: "chart", hue: "#5b2e80" },
         ],
       },
       {
         title: "ตั้งค่าระบบ",
         links: [
-          { href: "/admin/ai", label: "ตั้งค่า AI", icon: "key", hue: "#2b4673" },
-          // MCP / API, the keys for other systems, went on 2026-10-15 (owner): nobody held one
+          // keys, models, the budget, the clip renderers and the premium tables in force
+          // (MCP / API, the keys for other systems, went on 2026-10-15: nobody held one)
+          { href: "/admin/ai", label: "ตั้งค่า AI และระบบ", icon: "gear", hue: "#682d7c" },
         ],
       },
     ];
-    // an assistant sees the doors they may open; a sign on a locked door is still a sign. With
-    // nobody named, the owner's own pages stay out, as they always have
-    const may = (href: string) => {
-      const perm = BACK_OFFICE_PERM[href];
-      if (!perm) return true;
-      return who ? who[perm] : perm !== "owner";
-    };
-    const shown = groups
-      .map((g) => ({ ...g, links: g.links.filter((l) => may(l.href)) }))
-      .filter((g) => g.links.length > 0);
-    // somebody with no back-office page at all has no back-office menu, way home or not
-    return shown.some((g) => g.links.some((l) => l.href.startsWith("/admin"))) ? shown : [];
   }
 
   /**
@@ -427,23 +429,6 @@ export interface Who {
   super?: boolean;
 }
 
-/** What each back-office page asks of the person opening it, as agreed on 2026-09-27. */
-const BACK_OFFICE_PERM: Record<string, keyof Omit<Who, "name" | "room" | "wallet" | "prices" | "member" | "super">> = {
-  "/admin": "admin",
-  "/admin/crm": "admin",
-  "/admin/ai": "admin",
-  "/admin/wallet": "admin",
-  "/admin/members": "admin",
-  "/admin/knowledge": "admin",
-  "/admin/teach": "admin",
-  "/admin/messenger": "connect",
-  "/admin/welcome": "admin",
-  // the Pages' settings, not where a post is made: the admins' since 2026-10-02 (owner)
-  "/admin/posting": "admin",
-  "/admin/ads": "admin",
-  "/admin/team": "owner",
-  "/admin/stats": "owner",
-};
 
 /**
  * Whether a link is the page being looked at.

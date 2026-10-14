@@ -48,7 +48,7 @@ export async function connectPages(pageIds: string[]): Promise<string[]> {
    * and the person can try the failed Page again without another trip through Facebook.
    */
   if (failures.length === 0) await clearPending();
-  revalidatePath("/admin/messenger");
+  revalidatePath("/admin/pages");
   return failures;
 }
 
@@ -75,13 +75,13 @@ export async function disconnectPage(pageId: string) {
   await audit("disconnect-page", pageId);
   const stillLegacy = (await pageConnections()).find((c) => c.pageId === pageId && c.legacy);
   if (stillLegacy) await clearConnection();
-  revalidatePath("/admin/messenger");
+  revalidatePath("/admin/pages");
 }
 
 export async function cancelPending() {
   await requireStaff("backoffice");
   await clearPending();
-  revalidatePath("/admin/messenger");
+  revalidatePath("/admin/pages");
 }
 
 
@@ -105,5 +105,5 @@ export async function refreshSubscription(pageId: string) {
     pageId: connection.pageId, pageName: connection.pageName, token, scopes: connection.scopes, fields,
   });
   if (connection.legacy) await clearConnection();
-  revalidatePath("/admin/messenger");
+  revalidatePath("/admin/pages");
 }

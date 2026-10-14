@@ -88,7 +88,7 @@ describe("finishing a Facebook login", () => {
   it("connects with the cookie of the browser that began it, and spends the cookie", async () => {
     const { state, nonce } = await begin();
     const res = await back(state, `other=1; ${STATE_COOKIE}=${nonce}`);
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/admin/messenger?fb=connected`);
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/admin/pages?fb=connected`);
     expect(store.saveConnection).toHaveBeenCalled();
     expect(res.cookies.get(STATE_COOKIE)?.value).toBe("");
     expect(res.headers.get("set-cookie")).toContain(`Path=${STATE_COOKIE_PATH}`);
@@ -100,7 +100,7 @@ describe("finishing a Facebook login", () => {
     const other = await begin();
     for (const cookie of [undefined, `${STATE_COOKIE}=`, `${STATE_COOKIE}=${other.nonce}`]) {
       const res = await back(state, cookie);
-      expect(res.headers.get("location")).toBe(`${ORIGIN}/admin/messenger?fb=state`);
+      expect(res.headers.get("location")).toBe(`${ORIGIN}/admin/pages?fb=state`);
       expect(res.cookies.get(STATE_COOKIE)?.value).toBe("");
     }
     expect(fb.tokenFromCode).not.toHaveBeenCalled();
@@ -233,7 +233,7 @@ describe("the ads-manage login", () => {
     }));
     expect(cancelled.headers.get("location")).toBe(`${ORIGIN}/studio/ads?fb=cancelled`);
     const stale = await back(state, undefined);
-    expect(stale.headers.get("location")).toBe(`${ORIGIN}/admin/messenger?fb=state`);
+    expect(stale.headers.get("location")).toBe(`${ORIGIN}/admin/pages?fb=state`);
     fb.tokenFromCode.mockRejectedValueOnce(new Error("boom"));
     const failed = await back(state, `${STATE_COOKIE}=${nonce}`);
     expect(failed.headers.get("location")).toBe(`${ORIGIN}/studio/ads?fb=failed&detail=boom`);
