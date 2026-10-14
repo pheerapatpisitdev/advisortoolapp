@@ -1,8 +1,9 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { saveMemberSettings, setStatus } from "@/lib/auth/member-store";
+import { purgeMember, saveMemberSettings, setStatus } from "@/lib/auth/member-store";
 import { audit, memberById, requireStaff } from "@/lib/auth/viewer";
 import { grantPass } from "@/lib/members/pass-store";
+import { clearMemberFiles } from "@/lib/members/purge-files";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
 export type Result = { ok: true } | { ok: false; error: string };
@@ -62,6 +63,35 @@ export async function grantPassDays(id: string, days: string, note: string): Pro
     return FAILED;
   }
   await audit("member-pass-grant", id, { days: n, note: reason });
+  revalidatePath("/admin/members");
+  return { ok: true };
+}
+
+/**
+ * ลบสมาชิก for good (owner, 2026-10-14): only a suspended member (2ข), and only once the admin has
+ * typed their email. Everything of theirs goes, payment history included (1ข). The audit row of
+ * the delete is the one trace left, with their name so the log still reads.
+ */
+export async function deleteMemberForGood(id: string, typedEmail: string): Promise<Result> {
+  await requireStaff("admin");
+  if (typeof id !== "string" || !UUID.test(id)) return NOT_FOUND;
+  let name: string;
+  try {
+    const member = await memberById(id);
+    if (!member) return NOT_FOUND;
+    if (member.status !== "suspended") return { ok: false, error: "ต้องระงับสมาชิกก่อน จึงจะลบได้" };
+    if (String(typedEmail ?? "").trim().toLowerCase() !== member.email.toLowerCase()) {
+      return { ok: false, error: "อีเมลที่พิมพ์ไม่ตรงกับอีเมลของสมาชิก" };
+    }
+    name = member.name;
+    const gone = await purgeMember(id);
+    if (!gone.ok) return gone.why === "not-found" ? NOT_FOUND : { ok: false, error: "ต้องระงับสมาชิกก่อน จึงจะลบได้" };
+    await clearMemberFiles(id, gone.files);
+  } catch (e) {
+    console.error("member not deleted:", e);
+    return { ok: false, error: "ลบไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+  await audit("member-delete", id, { name });
   revalidatePath("/admin/members");
   return { ok: true };
 }

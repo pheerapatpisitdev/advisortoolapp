@@ -55,6 +55,32 @@ export async function deleteMember(id: string): Promise<void> {
   if (error) throw new Error(`ลบบัญชีไม่สำเร็จ: ${error.message}`);
 }
 
+export interface MemberFiles {
+  /** ins_content ids: each has a folder in content-media and content-video */
+  pieces: string[];
+  /** ins_people ids: each has a folder of photos in content-people */
+  people: string[];
+  /** ins_quote_videos ids: each has a folder in quote-video */
+  videos: string[];
+  /** content-media paths of the member's logos */
+  logos: string[];
+}
+
+/**
+ * ลบสมาชิก for good (owner, 2026-10-14): every row of theirs, in one transaction
+ * (supabase/migrations/20261104_member_delete.sql). The database refuses one that is not
+ * suspended. Returns the Storage files the rows pointed at, for the caller to clear.
+ */
+export async function purgeMember(id: string): Promise<{ ok: true; files: MemberFiles } | { ok: false; why: "not-found" | "not-suspended" }> {
+  const { data, error } = await supabaseAdmin().rpc("ins_member_delete", { p_member: id });
+  if (error?.message.includes("member-not-found")) return { ok: false, why: "not-found" };
+  if (error?.message.includes("member-not-suspended")) return { ok: false, why: "not-suspended" };
+  if (error) throw new Error(`ลบสมาชิกไม่สำเร็จ: ${error.message}`);
+  const d = (data ?? {}) as Partial<Record<keyof MemberFiles, unknown>>;
+  const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  return { ok: true, files: { pieces: list(d.pieces), people: list(d.people), videos: list(d.videos), logos: list(d.logos) } };
+}
+
 export async function signupsFromIp(ip: string, since: Date): Promise<number> {
   const { count, error } = await supabaseAdmin().from("ins_members").select("id", { count: "exact", head: true })
     .eq("signup_ip", ip).gte("created_at", since.toISOString());
@@ -93,6 +119,8 @@ export interface MemberSummary {
   freeUsed: number;
   /** the live pass's rounds, or the one-time FREE_ROUNDS (owner, 2026-10-13) */
   freeLimit: number;
+  /** what a delete would take, counted for suspended members only (the only ones ลบ shows on) */
+  footprint: { pieces: number; customers: number; people: number } | null;
   /** null while the owner has the pass switched off; `end` is the last period's end */
   pass: { status: "none" | "live" | "expired"; end: string | null; trial: boolean } | null;
 }
@@ -124,14 +152,25 @@ export async function listMembers(limit = 200): Promise<MemberSummary[]> {
     if (e) throw new Error(`อ่านรอบฟรีไม่ได้: ${e.message}`);
     return Math.min(count ?? 0, windows[i].limit);
   }));
+  const footprints = await Promise.all(rows.map((r) => (r.status === "suspended" ? footprintOf(r.id) : null)));
   return rows.map((r, i) => {
     const s = states[i];
     return {
       id: r.id, name: r.name, email: r.email, status: r.status, createdAt: r.created_at,
-      balanceSatang: balance.get(r.id) ?? 0, freeUsed: used[i], freeLimit: windows[i].limit,
+      balanceSatang: balance.get(r.id) ?? 0, freeUsed: used[i], freeLimit: windows[i].limit, footprint: footprints[i],
       pass: !settings.enabled ? null
         : s.status === "none" ? { status: "none", end: null, trial: false }
         : { status: s.status, end: s.end.toISOString(), trial: onTrial(s) },
     };
   });
+}
+
+async function footprintOf(id: string): Promise<NonNullable<MemberSummary["footprint"]>> {
+  const count = async (table: "ins_content" | "ins_fhc_customers" | "ins_people") => {
+    const { count: n, error } = await supabaseAdmin().from(table).select("id", { count: "exact", head: true }).eq("agent_id", id);
+    if (error) throw new Error(`นับงานของสมาชิกไม่ได้: ${error.message}`);
+    return n ?? 0;
+  };
+  const [pieces, customers, people] = await Promise.all([count("ins_content"), count("ins_fhc_customers"), count("ins_people")]);
+  return { pieces, customers, people };
 }

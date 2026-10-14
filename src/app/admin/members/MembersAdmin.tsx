@@ -3,7 +3,7 @@ import { Fragment, useMemo, useState, useTransition } from "react";
 // types only: member-store and quota read the database, and this runs in the browser
 import type { MemberSettings, MemberSummary } from "@/lib/auth/member-store";
 import { daysLeft, REMIND_DAYS } from "@/lib/members/pass";
-import { grantPassDays, saveSignupSettings, setMemberStatus, type Result } from "./actions";
+import { deleteMemberForGood, grantPassDays, saveSignupSettings, setMemberStatus, type Result } from "./actions";
 
 const baht = (satang: number) => `฿${(satang / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const day = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "2-digit" });
@@ -60,6 +60,7 @@ export function MembersAdmin({ settings, members, passOn = false, revenueSatang 
   const [open, setOpen] = useState(settings?.signupOpen ?? false);
   const [query, setQuery] = useState("");
   const [granting, setGranting] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [note, setNote] = useState<{ text: string; ok: boolean }>();
   const [pending, start] = useTransition();
   const say = (r: Result, done: string) => setNote(r.ok ? { text: done, ok: true } : { text: r.error, ok: false });
@@ -127,7 +128,7 @@ export function MembersAdmin({ settings, members, passOn = false, revenueSatang 
                       {passOn && (
                         <>
                           <button type="button" className="underline" aria-expanded={granting === m.id}
-                                  onClick={() => setGranting(granting === m.id ? null : m.id)}>เพิ่มวัน</button>
+                                  onClick={() => { setGranting(granting === m.id ? null : m.id); setDeleting(null); }}>เพิ่มวัน</button>
                           {" · "}
                         </>
                       )}
@@ -138,8 +139,25 @@ export function MembersAdmin({ settings, members, passOn = false, revenueSatang 
                               ))}>
                         {m.status === "active" ? "ระงับ" : "เปิดคืน"}
                       </button>
+                      {/* only once suspended (owner 2ข): no slip of the hand on someone still working */}
+                      {m.status === "suspended" && (
+                        <>
+                          {" · "}
+                          <button type="button" className="font-medium text-[var(--bot-red-ink)] underline" aria-expanded={deleting === m.id}
+                                  onClick={() => { setDeleting(deleting === m.id ? null : m.id); setGranting(null); }}>ลบ</button>
+                        </>
+                      )}
                     </td>
                   </tr>
+                  {deleting === m.id && m.status === "suspended" && (
+                    <tr>
+                      <td colSpan={columns} className="pb-3">
+                        <DeleteForm member={m} signupOpen={settings?.signupOpen ?? false} now={clock}
+                                    onCancel={() => setDeleting(null)}
+                                    onDone={(r, done) => { say(r, done); if (r.ok) setDeleting(null); }} />
+                      </td>
+                    </tr>
+                  )}
                   {passOn && granting === m.id && (
                     <tr>
                       <td colSpan={columns} className="pb-3">
@@ -196,6 +214,77 @@ function GrantForm({ member, onDone }: { member: MemberSummary; onDone: (r: Resu
       </button>
       {/* any row ends the one-time trial, granted days included (review, 2026-10-13) */}
       <p className="basis-full text-xs text-[var(--bot-ink-mute)]">สมาชิกที่ยังไม่เคยเข้าใช้ จะไม่ได้วันทดลองฟรีอีก เมื่อเพิ่มวันให้แล้ว</p>
+    </form>
+  );
+}
+
+/**
+ * ลบ for good (owner, 2026-10-14; mockup https://claude.ai/artifact/FfJbMNuPTwXHFhy1y7NZwn):
+ * what goes, the way back in while sign-up is open, and the member's email typed to confirm.
+ * Payment history goes too (owner 1ข).
+ */
+function DeleteForm({ member, signupOpen, now, onCancel, onDone }: {
+  member: MemberSummary;
+  signupOpen: boolean;
+  now: Date;
+  onCancel: () => void;
+  onDone: (r: Result, done: string) => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [pending, start] = useTransition();
+  const matches = typed.trim().toLowerCase() === member.email.toLowerCase();
+  const f = member.footprint;
+  const left = member.pass?.status === "live" && member.pass.end ? daysLeft(new Date(member.pass.end), now) : 0;
+  return (
+    <form className="space-y-3 rounded-lg border border-dashed border-[var(--bot-red-ink)] bg-[var(--bot-red-soft)] p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!matches) return;
+            start(async () => {
+              try {
+                onDone(await deleteMemberForGood(member.id, typed), `ลบ ${member.name} แล้ว`);
+              } catch {
+                onDone({ ok: false, error: "ลบไม่สำเร็จ — เน็ตหลุดหรือเซิร์ฟเวอร์ไม่ตอบ ลองใหม่อีกครั้ง" }, "");
+              }
+            });
+          }}>
+      <p className="font-semibold text-[var(--bot-red-ink)]">ลบ {member.name} ถาวร — กู้คืนไม่ได้</p>
+      <div className="grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold text-[var(--bot-ink-mute)]">จะถูกลบไปด้วย</p>
+          <ul className="list-disc pl-5">
+            <li>บัญชี และการเข้าระบบทุกเครื่อง</li>
+            <li>งานใน Studio {f ? <b>{f.pieces} ชิ้น</b> : null} (โพสต์ รูป วิดีโอ)</li>
+            <li>รายชื่อลูกค้า {f ? <b>{f.customers} คน</b> : null}{f && f.people > 0 ? <> และคนในภาพ <b>{f.people} คน</b></> : null}</li>
+            <li>เงินในกระเป๋า <b>{baht(member.balanceSatang)}</b> (ระบบไม่คืนเงินให้เอง)</li>
+            {left > 0 && <li>วันสมาชิกที่เหลือ <b>{left} วัน</b></li>}
+            <li>ประวัติการจ่ายเงิน (เติมกระเป๋า + ค่าสมาชิก)</li>
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-[var(--bot-ink-mute)]">เก็บไว้</p>
+          <ul className="list-disc pl-5">
+            <li>บันทึกว่าใครลบ เมื่อไร</li>
+            <li>ค่าใช้ AI ยังนับในยอดรวม แต่ไม่มีชื่อแล้ว</li>
+          </ul>
+        </div>
+      </div>
+      {signupOpen && (
+        <p className="rounded-md bg-[var(--bot-sand-soft)] px-3 py-2 text-xs text-[var(--bot-sand-ink)]">
+          ตอนนี้ยังเปิดรับสมัครอยู่ ถ้าเขากดเข้าด้วย Google อีก จะได้บัญชีใหม่ทันที ถ้าต้องการกันไม่ให้กลับมา ให้คงไว้แค่ <b>ระงับ</b>
+        </p>
+      )}
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="min-w-60 flex-1 text-xs text-[var(--bot-ink-mute)]">
+          พิมพ์อีเมล {member.email} เพื่อยืนยัน
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" placeholder={member.email}
+                 className="mt-1 block min-h-11 w-full rounded-md border px-3 py-2 text-sm text-[var(--bot-ink)]" />
+        </label>
+        <button type="button" onClick={onCancel} className="min-h-11 rounded-md border px-4 text-sm">ยกเลิก</button>
+        <button disabled={!matches || pending} className="min-h-11 rounded-md bg-[var(--bot-red-ink)] px-4 text-sm font-medium text-white disabled:opacity-40">
+          {pending ? "กำลังลบ…" : "ลบถาวร"}
+        </button>
+      </div>
     </form>
   );
 }
