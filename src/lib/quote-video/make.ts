@@ -10,7 +10,8 @@ import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
 import { can } from "@/lib/auth/access";
 import type { Viewer } from "@/lib/auth/access";
-import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
+import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen, type MemberAccess } from "@/lib/members/access";
+import { videosFrom } from "@/lib/members/pass";
 import { siteUrl } from "@/lib/site-url";
 import { formatBaht } from "@/lib/wallet/money";
 import { videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
@@ -61,7 +62,7 @@ const LINK_SECONDS = 2 * 3600;
 /** a Cloud Run run of one clip: a couple of CPU-minutes, in baht */
 const RENDER_COST_THB = 0.01 * 36;
 export const FAILED = "ทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง";
-/** every agent's free clips, once (owner, 2026-10-11) */
+/** every agent's free clips, once (owner, 2026-10-11); a member's pass carries its own (freeClips) */
 export const FREE_VIDEOS = 2;
 /**
  * What a clip costs an agent, fixed, from the owner's price list (src/lib/wallet/prices.ts,
@@ -114,23 +115,42 @@ export type CostView =
   | { kind: "wallet"; balance: string; prices: Partial<Record<PriceKey, { price: string; enough: boolean }>> }
   | { kind: "closed" };
 
-/** the agent's free clips used: those not failed (a failed one is handed back) */
-async function freeUsed(agentId: string): Promise<number> {
-  const { count, error } = await rows().select("id", { count: "exact", head: true })
+/** Which free clips count: since `from` when it is set, else every one ever made. */
+export interface FreeClips {
+  limit: number;
+  from: Date | null;
+}
+
+/**
+ * A member with a live pass has the pass's clips, counted afresh from the period's start (owner,
+ * 2026-10-14, option ก); everyone else the two, once. Throws when the pass cannot be read.
+ */
+export async function freeClips(viewer: Viewer, access?: MemberAccess): Promise<FreeClips> {
+  const a = access ?? await memberAccess(viewer);
+  return (a.gated && videosFrom(a.state, a.settings)) || { limit: FREE_VIDEOS, from: null };
+}
+
+/** the agent's free clips used in the window: those not failed (a failed one is handed back) */
+async function freeUsed(agentId: string, from: Date | null): Promise<number> {
+  let q = rows().select("id", { count: "exact", head: true })
     .eq("agent_id", agentId).eq("paid_by", "free").neq("status", "failed");
+  if (from) q = q.gte("created_at", from.toISOString());
+  const { count, error } = await q;
   if (error) throw new Error(`free clips not counted: ${error.message}`);
   return count ?? 0;
 }
 
-/** the free clips an agent has left, for the wallet page (owner, 2026-10-12) */
-export async function freeVideosLeft(agentId: string): Promise<number> {
-  return Math.max(0, FREE_VIDEOS - await freeUsed(agentId));
+/** the free clips an agent has left of how many, for the wallet and membership pages (owner, 2026-10-12) */
+export async function freeVideosLeft(viewer: Viewer): Promise<{ left: number; of: number }> {
+  const { limit, from } = await freeClips(viewer);
+  return { left: Math.max(0, limit - await freeUsed(viewer.agentId, from)), of: limit };
 }
 
 export async function costView(viewer: Viewer): Promise<CostView> {
   if (can(viewer, "owner")) return { kind: "staff" };
-  const used = await freeUsed(viewer.agentId);
-  if (used < FREE_VIDEOS) return { kind: "free", left: FREE_VIDEOS - used, of: FREE_VIDEOS };
+  const { limit, from } = await freeClips(viewer);
+  const used = await freeUsed(viewer.agentId, from);
+  if (used < limit) return { kind: "free", left: limit - used, of: limit };
   const s = await walletSettings().catch(() => null);
   if (!s?.enabled) return { kind: "closed" };
   const [balance, prices] = await Promise.all([balanceSatang(viewer.agentId), walletPrices()]);
@@ -142,7 +162,7 @@ export async function costView(viewer: Viewer): Promise<CostView> {
 }
 
 /**
- * Starts a clip's row and says who pays: the owner nothing, then the agent's two free clips,
+ * Starts a clip's row and says who pays: the owner nothing, then the agent's free clips (freeClips),
  * then the wallet — the hold set aside before anything is spent. A refusal is the words to show.
  */
 export async function createVideo(viewer: Viewer, input: ClipInput, customer: string): Promise<{ id: string } | { refusal: string }> {
@@ -155,10 +175,11 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     });
     if (!access) return { refusal: PASS_UNREADABLE };
     if (!passOpen(access)) return { refusal: PASS_EXPIRED };
-    if ((await freeUsed(viewer.agentId)) < FREE_VIDEOS) pay = { paid_by: "free" };
+    const { limit, from } = await freeClips(viewer, access);
+    if ((await freeUsed(viewer.agentId, from)) < limit) pay = { paid_by: "free" };
     else {
       const s = await walletSettings().catch(() => null);
-      if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${FREE_VIDEOS} ครั้งแล้ว` };
+      if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${limit} ครั้งแล้ว` };
       const held = videoPrice(input, await walletPrices());
       const hold = await holdWallet(viewer.agentId, held, VIDEO_ROUND).catch((e) => {
         console.error("quote video hold failed:", e);

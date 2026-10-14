@@ -40,12 +40,13 @@ describe("the price table", () => {
 
 describe("the member pass box (owner, 2026-10-13)", () => {
   it("shows the switch and the three numbers for the owner, with a save button", () => {
-    const html = draw(true, DEFAULT_PRICES, { enabled: true, satang: 14950, trialDays: 3, rounds: 10 });
+    const html = draw(true, DEFAULT_PRICES, { enabled: true, satang: 14950, trialDays: 3, rounds: 10, videos: 2 });
     expect(html).toContain("ค่าสมาชิกทั่วไป");
     expect(html).toContain("เก็บค่าสมาชิกทั่วไป (ปิดอยู่ = สมาชิกทุกคนใช้ฟรีเหมือนวันนี้)");
     expect(html).toMatch(/id="pass-price"[^>]*value="149.50"/);
     expect(html).toMatch(/id="trial-days"[^>]*value="3"/);
     expect(html).toMatch(/id="pass-rounds"[^>]*value="10"/);
+    expect(html).toMatch(/id="pass-videos"[^>]*value="2"/);
     expect(html).toContain("ราคาต่ำกว่า ฿150 จ่ายได้แค่พร้อมเพย์");
   });
 

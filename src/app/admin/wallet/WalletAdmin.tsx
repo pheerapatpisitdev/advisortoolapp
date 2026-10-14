@@ -314,6 +314,7 @@ function MemberPassCard({ pass, canPrice }: { pass: PassSettings | null; canPric
   const [baht, setBaht] = useState(pass ? typedBaht(pass.satang) : "");
   const [trialDays, setTrialDays] = useState(String(pass?.trialDays ?? ""));
   const [rounds, setRounds] = useState(String(pass?.rounds ?? ""));
+  const [videos, setVideos] = useState(String(pass?.videos ?? ""));
   const [said, setSaid] = useState<{ ok: boolean; text: string }>();
   const [pending, start] = useTransition();
 
@@ -327,7 +328,7 @@ function MemberPassCard({ pass, canPrice }: { pass: PassSettings | null; canPric
 
   const save = () => {
     setSaid(undefined);
-    start(async () => setSaid(await ask(() => saveMemberPass({ enabled, baht, trialDays, rounds }), "บันทึกแล้ว")));
+    start(async () => setSaid(await ask(() => saveMemberPass({ enabled, baht, trialDays, rounds, videos }), "บันทึกแล้ว")));
   };
   const field = (label: string, id: string, value: string, set: (v: string) => void, mode: "decimal" | "numeric") => (
     <label htmlFor={id} className="block text-xs text-[var(--bot-ink-mute)]">
@@ -348,6 +349,8 @@ function MemberPassCard({ pass, canPrice }: { pass: PassSettings | null; canPric
           {field("ราคาต่อ 30 วัน (บาท)", "pass-price", baht, setBaht, "decimal")}
           {field("ทดลองใช้ฟรี (วัน)", "trial-days", trialDays, setTrialDays, "numeric")}
           {field("Studio ฟรีต่อ 30 วัน (รอบ)", "pass-rounds", rounds, setRounds, "numeric")}
+          {/* วิดีโอนำเสนอ per period, counted afresh like the rounds (owner, 2026-10-14) */}
+          {field("วิดีโอฟรีต่อ 30 วัน (คลิป)", "pass-videos", videos, setVideos, "numeric")}
         </div>
         <p className="text-xs text-[var(--bot-ink-mute)]">
           ราคาต่ำกว่า ฿150 จ่ายได้แค่พร้อมเพย์ (ค่าธรรมเนียมบัตรสูง) · {pass.trialDays > 0
