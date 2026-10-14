@@ -10,6 +10,7 @@ import { ISHIELD_SUMS, LIFEPROTECT_BUDGET_SUMS } from "@/lib/quote-pdf/pages";
 import { legacyFromBudget } from "./legacy";
 import { pensionFromBudget } from "./pension";
 import { plbFromBudget } from "./plb";
+import { setupQuery } from "./ihealthy-setup";
 import { iHealthyPlanCodes } from "./script";
 import type { VideoInput } from "./script";
 
@@ -56,7 +57,8 @@ export function resolveBudget(v: VideoInput, budget: Budget, today: Date = new D
   const page: PageBudget = { baht: budget.baht, per: budget.per };
   if (v.product === "IHEALTHY") {
     const codes = iHealthyPlanCodes();
-    const card = iHealthyCard(new URLSearchParams({ age: String(v.age), sex: v.sex }), today);
+    // priced on the page's own arrangement when the clip came from it, the defaults otherwise
+    const card = iHealthyCard(setupQuery({ age: v.age, sex: v.sex, setup: v.setup }), today);
     const row = card.premiumRows.find((r) => r.label === (budget.per === "month" ? "รายเดือน" : "รายปี"));
     if (!row) return NOT_SOLD;
     const price = (i: number) => Number((row.cells[i]?.text ?? "").replace(/[^\d]/g, "")) || 0;

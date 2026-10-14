@@ -1,6 +1,7 @@
 import type { PlanCardInput } from "@/lib/card-link";
 import { iHealthyCard } from "@/lib/ihealthy-card";
 import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
+import { setupQuery } from "./ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { LIFEPROTECT_PLAN } from "@/lib/lifeprotect-card";
 import { quoteCard, valueTableCard, type ValueTableRow } from "@/lib/quote-card";
@@ -41,7 +42,8 @@ export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "conta
 /** What the agent asked for. A row written before products existed has no `product`: Life Protect. */
 export type VideoInput = (
   | { product?: "LIFEPROTECT" | "ISHIELD"; variant: string; age: number; sex: "M" | "F"; sumAssured: number }
-  | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[] }
+  /** `setup`: the iHealthy Ultra page's base, sum, territory, coverage and riders as its address writes them (ihealthy-setup.ts); absent = the page's defaults */
+  | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[]; setup?: string }
   /** the sum the pension is paid from; the form may send the monthly pension instead (pension.ts checkedPension) */
   | { product: "PENSION"; age: number; sex: "M" | "F"; annuityAge: number; pay: PensionPay; sumAssured: number; monthly?: number }
   /** มรดกเพื่อครอบครัว: the tier, 1–10, which is the millions the family receives (legacy.ts) */
@@ -134,6 +136,8 @@ export interface QuoteVideoFacts {
   planName?: string;
   /** iHealthy: what each kind of cover pays, for the voice */
   benefits?: { label: string; amount: string }[];
+  /** iHealthy: what the price is made of, as said aloud: "ประกันชีวิต", "ค่าชดเชยรายวัน", "สัญญาเพิ่มเติม" */
+  includes?: string[];
   footNote?: string;
   /** บำนาญ 95: the pension's schedule (pension.ts) */
   pension?: PensionVideoFacts;
@@ -262,7 +266,7 @@ function cellOf(rows: { label: string; cells: { text: string }[]; span?: string 
 }
 
 function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: Date): QuoteVideoFacts | undefined {
-  const card = iHealthyCard(new URLSearchParams({ age: String(v.age), sex: v.sex, plan: v.plan }), today);
+  const card = iHealthyCard(setupQuery(v), today);
   const at = card.columns.findIndex((c) => c.selected);
   const col = card.columns[at];
   if (!col || !col.sold || !card.premium) return undefined;
@@ -278,6 +282,10 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     .filter((r) => r.label !== "วงเงินค่ารักษาต่อปี")
     .map((r) => ({ label: r.label, amount: r.span ? r.span.split(" · ")[0] : r.cells[at]?.text ?? "" }))
     .filter((b) => b.amount && b.amount !== "-");
+  // the base plan and the health plan are the card's first two lines; the rest are what the page attached
+  const daily = benefits.some((b) => b.label === "ค่าชดเชยรายวัน");
+  const riders = Math.max(0, card.lines.length - 2 - (daily ? 1 : 0));
+  const includes = ["ประกันชีวิต", ...(daily ? ["ค่าชดเชยรายวัน"] : []), ...(riders ? ["สัญญาเพิ่มเติม"] : [])];
   const wanted = new Set([v.plan, ...v.compare]);
   const codes = iHealthyPlanCodes();
   const compare = card.columns
@@ -313,6 +321,7 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     coverStyle: "rows",
     coverToAge: 98,
     benefits,
+    includes,
     ...(compare.length >= 2 ? { compare } : {}),
   };
 }
@@ -347,6 +356,14 @@ export interface SceneScript { key: SceneKey; voice: string }
 function budgetLead(f: QuoteVideoFacts, lead: string): string {
   if (!f.budget) return "";
   return `${lead}${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท `;
+}
+
+/** "ประกันชีวิต", "ประกันชีวิตและค่าชดเชยรายวัน" (or กับ), "ประกันชีวิต ค่าชดเชยรายวัน และสัญญาเพิ่มเติม" */
+export function includesSaid(f: QuoteVideoFacts, and = "และ"): string {
+  const w = f.includes ?? ["ประกันชีวิต"];
+  if (w.length === 1) return w[0];
+  if (w.length === 2) return `${w[0]}${and}${w[1]}`;
+  return `${w.slice(0, -1).join(" ")} และ${w[w.length - 1]}`;
 }
 
 /** How each kind of iHealthy cover is said aloud */
@@ -463,7 +480,7 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
   if (f.product === "IHEALTHY") {
     return [
       { key: "lead", voice: `${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ` },
-      { key: "price", voice: `ปีแรกเดือนละ ${f.spokenPrice.amount} บาท รวมประกันชีวิตและค่าชดเชยรายวันค่ะ` },
+      { key: "price", voice: `ปีแรกเดือนละ ${f.spokenPrice.amount} บาท รวม${includesSaid(f)}ค่ะ` },
       { key: "contact", voice: ask },
     ];
   }
@@ -499,7 +516,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     const others = (f.compare ?? []).filter((p) => !p.main);
     return [
       { key: "lead", voice: `${hello} ขอเล่าแผนประกันสุขภาพนี้ให้ฟังสั้นๆ นะคะ ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}แผน ${f.planName} เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`.replace(/\s+/g, " ") },
-      { key: "price", voice: `ปีแรกค่าใช้จ่ายเดือนละ ${f.spokenPrice.amount} บาท รวมประกันชีวิตกับค่าชดเชยรายวันไว้แล้วค่ะ` },
+      { key: "price", voice: `ปีแรกค่าใช้จ่ายเดือนละ ${f.spokenPrice.amount} บาท รวม${includesSaid(f, "กับ")}ไว้แล้วค่ะ` },
       { key: "cover", voice: healthCoverLine(f) },
       ...(others.length
         ? [{ key: "compare" as const, voice: `ถ้าอยากเทียบ ${others.map((p) => `แผน ${p.name} วงเงิน ${p.ceiling} เดือนละ ${p.monthly} บาท`).join(" และ")} ต่ออายุได้ถึงอายุ ${f.coverToAge} เลยค่ะ` }]

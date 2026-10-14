@@ -207,6 +207,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   useEffect(() => () => player.current?.pause(), []);
   const [plan, setPlan] = useState(start?.plan && ihuPlans.some((p) => p.code === start.plan) ? start.plan : "GOLD");
   const [compare, setCompare] = useState<string[]>([]);
+  // iHealthy from its page (owner, 2026-10-14): the page's base, sum, territory, coverage and riders
+  const [setup, setSetup] = useState(startProduct === "IHEALTHY" ? start?.setup : undefined);
   const [sex, setSex] = useState<"M" | "F">(start?.sex ?? "M");
   const [age, setAge] = useState(String(start?.age ?? 35));
   const [sum, setSum] = useState((start?.sumAssured ?? 1_000_000).toLocaleString("en-US"));
@@ -307,7 +309,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const look = { narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
   const input = (): VideoInput => (product === "IHEALTHY"
-    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...look }
+    ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...look }
     : product === "PENSION"
       ? {
           product, sex, age: Number(age), annuityAge: pensionStart, pay, ...look,
@@ -345,13 +347,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup]);
 
   // the script shown is the one for what the form holds: anything changed, and it is written again
   useEffect(() => {
     setScript(null);
     setScriptError(null);
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, setup]);
 
   /** ดูสคริปต์: written to the brief (again: another try), or the agent's edits read back */
   async function showScript(again: boolean) {
@@ -631,6 +633,18 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               )}
               {product === "IHEALTHY" && (
                 <>
+                  {setup && (
+                    <div className="space-y-1 rounded-lg border-[1.5px] border-[var(--ct-accent)] px-4 py-3 text-sm">
+                      <p className="font-semibold">ใช้แผนจากหน้า iHealthy Ultra</p>
+                      {ok?.setup && (
+                        <ul className="list-disc pl-5">
+                          <li>{ok.setup.line}</li>
+                          <li>สัญญาเพิ่มเติม: {ok.setup.riders}</li>
+                        </ul>
+                      )}
+                      <button type="button" className="text-xs text-[var(--ct-mute)] underline" onClick={() => setSetup(undefined)}>กลับไปใช้ค่าเริ่มต้น</button>
+                    </div>
+                  )}
                   {source === "sum" && (
                     <div>
                       <span className={label}>แผนหลัก</span>
@@ -647,7 +661,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                           disabled={!compare.includes(p.code) && compare.length >= MAX_COMPARE - 1}>{p.name}</button>
                       ))}
                     </div>
-                    <p className="mt-1 text-xs text-[var(--ct-mute)]">ไม่เลือก = ไม่มีช่วงเทียบแผน · พื้นที่ประเทศไทย ทุนชีวิต 50,000 ค่าชดเชยรายวัน 1,000 ตามค่าเริ่มต้นหน้า iHealthy Ultra</p>
+                    <p className="mt-1 text-xs text-[var(--ct-mute)]">ไม่เลือก = ไม่มีช่วงเทียบแผน{setup ? "" : " · พื้นที่ประเทศไทย ทุนชีวิต 50,000 ค่าชดเชยรายวัน 1,000 ตามค่าเริ่มต้นหน้า iHealthy Ultra"}</p>
                   </div>
                 </>
               )}
