@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readAdjust, readMultiplier, readPassSettings } from "@/lib/wallet/admin-input";
+import { readAdjust, readMultiplier, readPassSettings, readReferralSettings } from "@/lib/wallet/admin-input";
 
 describe("the multiplier the owner types", () => {
   it("is a number from 1 to 10", () => {
@@ -45,5 +45,19 @@ describe("the member pass the owner types (owner, 2026-10-13)", () => {
   it("refuses trial days past 30 and rounds below zero or past 100, whole numbers only", () => {
     for (const trialDays of ["31", "-1", "1.5", ""]) expect(readPassSettings({ ...typed, trialDays })).toMatchObject({ ok: false });
     for (const rounds of ["-1", "101", "2.5", ""]) expect(readPassSettings({ ...typed, rounds })).toMatchObject({ ok: false });
+  });
+});
+
+describe("เพื่อนชวนเพื่อน as the owner types it", () => {
+  const ok = { enabled: true, days: "3", daysCap: "30", baht: "10", bahtCap: "100" };
+  it("reads days and whole baht, made into satang", () => {
+    expect(readReferralSettings(ok)).toEqual({ ok: true, value: { enabled: true, days: 3, daysCap: 30, satang: 1000, satangCap: 10000 } });
+    expect(readReferralSettings({ ...ok, enabled: "yes" as unknown as boolean })).toMatchObject({ ok: true, value: { enabled: false } });
+  });
+
+  it("refuses what is out of range or not a whole number", () => {
+    for (const over of [{ days: "31" }, { days: "-1" }, { days: "2.5" }, { daysCap: "366" }, { baht: "101" }, { baht: "9.50" }, { bahtCap: "5001" }, { bahtCap: "" }]) {
+      expect(readReferralSettings({ ...ok, ...over })).toMatchObject({ ok: false });
+    }
   });
 });

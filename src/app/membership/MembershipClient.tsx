@@ -1,8 +1,11 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { ReferralCard } from "@/components/referral/ReferralCard";
 import { priceLabel } from "@/components/shell/PassReminder";
 import { daysLeft, onTrial, PASS_DAYS, type PassRow, type Period } from "@/lib/members/pass";
+import type { ReferralCardData } from "@/lib/referrals/card";
+import { shortName } from "@/lib/referrals/referral";
 import { CARD_FROM_THB, formatBaht } from "@/lib/wallet/money";
 import { passConfirmed, startPass } from "./actions";
 
@@ -22,8 +25,13 @@ function historyLabel(r: PassRow): string {
     case "trial": return `ทดลองใช้ฟรี · +${r.days} วัน`;
     case "paid": return `จ่าย ${priceLabel(r.amountSatang ?? 0)} · +${r.days} วัน`;
     case "granted": return `เพิ่มให้โดยเจ้าของ · +${r.days} วัน${r.note ? ` · ${r.note}` : ""}`;
+    // the note is the friend's name (supabase/migrations/20261103_referrals.sql)
+    case "referral": return `ชวนเพื่อน${r.note ? ` · คุณ${shortName(r.note)}` : ""} · +${r.days} วัน`;
     // the webhook notes "refund …" or "dispute …" (src/lib/members/pass-store.ts revokePaidPass)
-    case "revoked": return r.note?.startsWith("dispute") ? "ยกเลิกเพราะโต้แย้งการชำระเงิน" : "ยกเลิกเพราะคืนเงิน";
+    case "revoked": return r.note?.startsWith("dispute") ? "ยกเลิกเพราะโต้แย้งการชำระเงิน"
+      // a friend's refund takes back the days they earned; the note says which (src/lib/wallet/events.ts)
+      : r.note?.startsWith("เพื่อน") ? `ยกเลิกวันชวนเพื่อน เพราะ${r.note}`
+      : "ยกเลิกเพราะคืนเงิน";
   }
 }
 
@@ -31,7 +39,7 @@ function historyLabel(r: PassRow): string {
 const POLL_MS = 2000;
 const POLL_TRIES = 15;
 
-export function MembershipClient({ on, pass, now, rounds, passRounds, priceSatang, balanceSatang, rows, paid }: {
+export function MembershipClient({ on, pass, now, rounds, passRounds, priceSatang, balanceSatang, rows, paid, referral = null }: {
   /** false while the owner has the pass switched off: members use the app free */
   on: boolean;
   pass: PassView;
@@ -46,6 +54,8 @@ export function MembershipClient({ on, pass, now, rounds, passRounds, priceSatan
   rows: PassRow[];
   /** the Checkout Session Stripe came back with, if any */
   paid: string | null;
+  /** ชวนเพื่อน (owner, 2026-10-14); null when off or unreadable */
+  referral?: ReferralCardData | null;
 }) {
   const router = useRouter();
   const [waiting, setWaiting] = useState<"checking" | "late" | null>(paid ? "checking" : null);
@@ -143,6 +153,8 @@ export function MembershipClient({ on, pass, now, rounds, passRounds, priceSatan
           </p>
         </section>
       )}
+
+      {referral && <ReferralCard card={referral} now={now} />}
 
       <div className="space-y-2">
         <button type="button" disabled={pending} onClick={renew}

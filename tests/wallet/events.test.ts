@@ -4,6 +4,8 @@ const wallet = vi.hoisted(() => ({ creditTopUp: vi.fn(), markTopUp: vi.fn(), cla
 vi.mock("@/lib/wallet/store", () => wallet);
 const pass = vi.hoisted(() => ({ addPaidPass: vi.fn(), revokePaidPass: vi.fn(), linkPassPaymentIntent: vi.fn() }));
 vi.mock("@/lib/members/pass-store", () => pass);
+const referral = vi.hoisted(() => ({ rewardReferral: vi.fn(), revokeReferral: vi.fn() }));
+vi.mock("@/lib/referrals/store", () => referral);
 const list = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/stripe/client", () => ({ stripe: () => ({ checkout: { sessions: { list } } }) }));
 
@@ -28,6 +30,9 @@ beforeEach(() => {
   // a refund looks for a pass first; most refunds are of top-ups, where it finds none
   pass.revokePaidPass.mockReset().mockResolvedValue("unknown");
   pass.linkPassPaymentIntent.mockReset().mockResolvedValue(false);
+  // most passes were bought by nobody's friend
+  referral.rewardReferral.mockReset().mockResolvedValue("none");
+  referral.revokeReferral.mockReset().mockResolvedValue("none");
 });
 
 describe("what a Stripe event does to a wallet", () => {
@@ -268,6 +273,46 @@ describe("a member pass bought through Stripe (owner, 2026-10-13)", () => {
     expect(await applyWalletAction({ ...refund, reason: "dispute", ref: "dp_p" })).toBe("pass-revoked");
     expect(pass.revokePaidPass).toHaveBeenCalledWith({ paymentIntent: "pi_p", reason: "dispute", ref: "dp_p" });
     expect(wallet.clawBack).not.toHaveBeenCalled();
+  });
+
+  it("rewards whoever invited the member, on the pass and on its repeat (เพื่อนชวนเพื่อน, owner 2026-10-14)", async () => {
+    pass.addPaidPass.mockResolvedValueOnce("added").mockResolvedValueOnce("duplicate");
+    referral.rewardReferral.mockResolvedValueOnce("days").mockResolvedValueOnce("done");
+    const a = { kind: "pass" as const, sessionId: "cs_p", memberId: MEMBER, satang: 9900, paymentIntent: "pi_p" };
+    expect(await applyWalletAction(a)).toBe("added+referral-days");
+    expect(await applyWalletAction(a)).toBe("duplicate");
+    expect(referral.rewardReferral).toHaveBeenNthCalledWith(1, "cs_p");
+    expect(referral.rewardReferral).toHaveBeenNthCalledWith(2, "cs_p");
+  });
+
+  it("rewards nobody for a pass paid for a member who is not here", async () => {
+    pass.addPaidPass.mockResolvedValueOnce("unknown");
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await applyWalletAction({ kind: "pass", sessionId: "cs_p", memberId: MEMBER, satang: 9900, paymentIntent: null });
+    err.mockRestore();
+    expect(referral.rewardReferral).not.toHaveBeenCalled();
+  });
+
+  it("throws when the reward cannot be written, so Stripe sends the pass again and the reward is tried again", async () => {
+    pass.addPaidPass.mockResolvedValueOnce("added");
+    referral.rewardReferral.mockRejectedValueOnce(new Error("db down"));
+    await expect(applyWalletAction({ kind: "pass", sessionId: "cs_p", memberId: MEMBER, satang: 9900, paymentIntent: null })).rejects.toThrow("db down");
+  });
+
+  it("takes the reward back with the pass, and again on the repeat", async () => {
+    pass.revokePaidPass.mockResolvedValueOnce("revoked").mockResolvedValueOnce("duplicate");
+    expect(await applyWalletAction(refund)).toBe("pass-revoked");
+    expect(await applyWalletAction({ ...refund, reason: "dispute", ref: "dp_p" })).toBe("pass-duplicate");
+    expect(referral.revokeReferral).toHaveBeenNthCalledWith(1, "pi_p", "เพื่อนขอเงินคืน");
+    expect(referral.revokeReferral).toHaveBeenNthCalledWith(2, "pi_p", "เพื่อนโต้แย้งการชำระเงิน");
+  });
+
+  it("takes no reward back for a top-up's refund", async () => {
+    wallet.clawBack.mockResolvedValueOnce({ result: "clawed", agentId: AGENT, claimedSatang: 9900, debitedSatang: 9900, shortfallSatang: 0 });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await applyWalletAction(refund);
+    warn.mockRestore();
+    expect(referral.revokeReferral).not.toHaveBeenCalled();
   });
 
   it("still claws a top-up's refund back when no pass has that payment (Review Focus 3)", async () => {

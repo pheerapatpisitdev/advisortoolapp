@@ -10,4 +10,5 @@ export const entryLabel = (e: Pick<WalletEntry, "kind" | "round" | "note">) =>
   e.kind === "topup" ? "เติมเงิน"
     : e.kind === "charge" ? ROUND_NAMES[e.round ?? ""] ?? "ใช้ AI"
     : e.kind === "clawback" ? `หักคืน${e.note ? ` (${e.note})` : ""}`
+    : e.kind === "referral" ? `ชวนเพื่อน${e.note ? ` · ${e.note}` : ""}`
     : `ปรับโดยเจ้าของ${e.note ? ` (${e.note})` : ""}`;
