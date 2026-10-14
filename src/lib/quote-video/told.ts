@@ -59,6 +59,9 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     ? { left: { label: "ออมปีละ", amount: annual, unit: "บาท" }, right: { label: "นำไปลดหย่อนภาษีได้", amount: "✓", unit: "ตามเกณฑ์สรรพากร" }, note: "ยิ่งฐานภาษีสูง ยิ่งประหยัดภาษีได้มาก" }
     : f.product === "IHEALTHY"
       ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "วงเงินค่ารักษาต่อปี", amount: bahtSaid(f.lead.baht), unit: "บาท" }, note: "ปีแรก ปีต่อไปคิดตามอายุที่เพิ่มขึ้น" }
+    // มรดก (owner, 2026-10-14): one year's money kept against what the family receives, as iHealthy's — no value to compare
+    : f.product === "LEGACY"
+      ? { left: { label: "เก็บเงินเองปีละ", amount: annual, unit: "บาท" }, right: { label: "ครอบครัวได้เงินก้อนสูงสุด", amount: f.lead.amount, unit: "บาท" }, note: "ค่าใช้จ่ายปีแรก ส่วนโรคร้ายแรงปรับตามอายุ" }
       : {
         left: { label: f.payToEnd ? `เก็บเงินเองถึงอายุ ${f.lastPayAge}` : `เก็บเงินเอง ${f.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" },
         right: { label: f.product === "ISHIELD" ? "รับเงินก้อนสูงสุด" : "ครอบครัวได้เงินก้อน", amount: bahtSaid(f.lead.baht), unit: "บาท" },
@@ -91,6 +94,9 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
       if (f.product === "PENSION") {
         return `ระหว่างที่ยังทำงาน ยอดออมปีละ ${x.versus.left.amount} บาท นำไปลดหย่อนภาษีได้ตามเกณฑ์สรรพากร ยิ่งฐานภาษีสูง ยิ่งประหยัดได้มากค่ะ`;
       }
+      if (f.product === "LEGACY") {
+        return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินแค่นั้น แต่แผนนี้ ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนถึง ${x.versus.right.amount} บาทค่ะ`;
+      }
       if (f.product === "IHEALTHY") {
         return `ถ้าเก็บเงินเองปีละ ${x.versus.left.amount} บาท ก็มีเงินรักษาแค่นั้น แต่แผนนี้ เหมาจ่ายค่ารักษาได้ถึง ${x.versus.right.amount}บาทต่อปีค่ะ`;
       }
@@ -108,7 +114,7 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
 
 /** a clip's scenes in order, for its length (the opening and the plan's own middle as script.ts builds them) */
 export function sceneOrder(middle: SceneKey[], length: VideoLength): SceneKey[] {
-  // middle: the plan's scenes between the opening and the closing — price, cover, value or compare
+  // middle: the plan's scenes between the opening and the closing — price, cover, value, compare or critical
   if (length === "short") return ["lead", "price", "contact"];
   if (length === "full") return ["lead", ...middle, "contact"];
   if (length === "long") return ["lead", "story", ...middle, "qa", "contact"];

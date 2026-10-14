@@ -4,6 +4,7 @@ import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { abs, box, On, Swept, type DrawContext, type Layer } from "./draw";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
+import { bandAges, shortBaht, stairs } from "./legacy";
 import type { SceneKey } from "./script";
 import { CLASSIC_BOXES, COLS, type Rect } from "./table-geo";
 import { noteInWindow } from "./table-pen";
@@ -99,6 +100,7 @@ function Right({ g, from, children, style }: { g: Geo; from: number; children: R
 function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const from = g.photo.x + g.photo.w + g.px(36, 60);
+  if (f.legacy) return <LegacyLead g={g} c={c} layer={layer} s={s} from={from} />;
   return (
     <Right g={g} from={from} style={{ top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
       {c.customer && (
@@ -123,6 +125,58 @@ function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ove
   );
 }
 
+
+/** มรดก's opening beside the photo (draw.tsx LegacyLead): the legacy, the most the family receives counted up, who it is for */
+function LegacyLead({ g, c, layer, s, from }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState; from: number }) {
+  const f = c.facts;
+  return (
+    <Right g={g} from={from} style={{ top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
+      {c.customer && (
+        <On layer={layer} own="base" style={{ fontSize: g.px(28, 36), color: P.ink, marginBottom: 10 }}>
+          จัดทำสำหรับ <span style={{ fontWeight: 600, color: P.figure, marginLeft: 10 }}>คุณ{c.customer}</span>
+        </On>
+      )}
+      {c.headline?.length ? (
+        <On layer={layer} own="base" style={{ flexDirection: "column", background: P.figure, borderRadius: 22, padding: g.px("12px 20px", "16px 26px"), marginBottom: g.px(16, 26) }}>
+          {c.headline.map((h, i) => <div key={i} style={box({ fontSize: g.px(34, 48), fontWeight: 600, color: i === 0 ? C.paper : P.highlighter, lineHeight: 1.25 })}>{h}</div>)}
+        </On>
+      ) : null}
+      <On layer={layer} own="base" style={{ ...kickerStyle(g) }}>{f.planLine}</On>
+      <On layer={layer} own="base" style={{ fontSize: g.px(80, 120), fontWeight: 600, color: P.figure, lineHeight: 1.15 }}>{`มรดก ${f.legacy!.tier} ล้าน`}</On>
+      <On layer={layer} own="base" style={{ fontSize: g.px(28, 38), color: P.mute, marginTop: g.px(6, 12) }}>{f.lead.label}</On>
+      <On layer={layer} own="over" style={{ marginTop: g.px(6, 10) }}><Swept p={s.sweep[0] ?? 1} size={g.px(48, 68)}>{`${money(countAt(f.lead.baht, s.count))} บาท`}</Swept></On>
+      <div style={box({ marginTop: g.px(14, 24) })}>
+        <On layer={layer} own="base" style={{ border: `3px solid ${P.accent}`, borderRadius: 40, padding: "2px 24px", fontSize: g.px(28, 36), color: P.accent }}>{f.insuredWho}</On>
+      </div>
+    </Right>
+  );
+}
+
+/** มรดก's critical-illness lump sum (draw.tsx Critical), in a square or landscape frame */
+function Critical({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
+  const l = c.facts.legacy;
+  if (!l) return null;
+  const note = (
+    <On layer={layer} own="base" style={{ flexDirection: "column", background: P.box, borderRadius: 30, padding: g.px("22px 30px", "30px 40px"), ...(g.wide ? { width: 680 } : { marginTop: 24 }) }}>
+      <div style={box({ fontSize: g.px(32, 38), fontWeight: 600, color: P.ink })}>จ่ายครั้งเดียว</div>
+      <div style={box({ fontSize: g.px(32, 36), color: P.ink, marginTop: 6 })}>ประกันชีวิตหลักยังอยู่ต่อให้ครอบครัว</div>
+      <div style={box({ fontSize: g.px(32, 38), color: P.pen, marginTop: g.px(14, 24), transform: "rotate(-2deg)" })}>{`โรคร้ายแรงคุ้มครองถึงอายุ ${l.criticalToAge}`}</div>
+    </On>
+  );
+  return (
+    <div style={abs({ left: g.side, width: g.w - g.side * 2, top: g.top, height: g.bottom - g.top, alignItems: g.wide ? "center" : "flex-start", flexDirection: g.wide ? "row" : "column", justifyContent: g.wide ? "space-between" : "flex-start" })}>
+      <div style={box({ flexDirection: "column", alignItems: "flex-start" })}>
+        <On layer={layer} own="base" style={kickerStyle(g)}>{`ตรวจพบโรคร้ายแรง 1 ใน ${l.diseaseCount} โรค`}</On>
+        <On layer={layer} own="base" style={{ fontSize: g.px(50, 64), fontWeight: 600, color: P.figure, marginTop: g.px(8, 16) }}>รับเงินก้อนไว้รักษาตัวเอง</On>
+        <div style={box({ alignItems: "flex-end", marginTop: g.px(14, 24) })}>
+          <On layer={layer} own="over"><Swept p={s.sweep[0] ?? 1} size={g.px(100, 130)}>{money(countAt(l.critical, s.count))}</Swept></On>
+          <On layer={layer} own="base" style={{ fontSize: g.px(40, 52), color: P.mute, marginLeft: 18, marginBottom: 18 }}>บาท</On>
+        </div>
+      </div>
+      {note}
+    </div>
+  );
+}
 
 function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
@@ -225,6 +279,30 @@ function Cover({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
   const chartW = g.wide ? 940 : g.w - g.side * 2;
   const tall = g.px(300, 420);
   const y = g.wide ? g.top + 90 : g.top + 260;
+  if (f.coverStyle === "bands") {
+    // มรดก: the bands as a staircase (draw.tsx BandsCover), the exact figures beside or above it
+    const bands = f.legacy?.bands ?? [];
+    const steps = stairs(bands, chartW, g.px(240, 380), g.px(140, 170), 60);
+    const lift = g.px(42, 52);
+    return (
+      <>
+        <div style={abs({ left: g.side, top: g.top, flexDirection: "column", width: g.wide ? 720 : chartW })}>
+          <On layer={layer} own="base" style={kickerStyle(g)}>{f.coverTitle}</On>
+          {f.cover.map((r, i) => (
+            <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", marginTop: g.px(4, 20) })}>
+              <On layer={layer} own="over" style={{ flexShrink: 1 }}><Swept p={s.sweep[i] ?? 1} size={g.px(30, 40)}>{r.label}</Swept></On>
+              <On layer={layer} own="base" style={{ fontSize: g.px(34, 44), fontWeight: 600, color: P.ink, flexShrink: 0, marginLeft: 16 }}>{`${r.amount} บาท`}</On>
+            </div>
+          ))}
+        </div>
+        <Bars g={g} layer={layer} x={g.wide ? g.w - g.side - chartW : g.side} y={g.wide ? y + lift : g.top + 300} w={chartW} tall={g.px(240, 380)} bars={steps.map((b, i) => ({
+          x: b.x + 3, w: b.w - 6, h: b.h, p: s.sweep[i] ?? 1,
+          color: i === 0 ? P.figure : i === 1 ? C.barAfter : P.box, ink: i < 2 ? C.paper : P.ink, label: shortBaht(b.band.amount),
+          under: <div style={box({ fontSize: g.px(24, 30), color: P.mute })}>{bandAges(b.band, i, bands)}</div>,
+        }))} />
+      </>
+    );
+  }
   if (f.coverStyle === "steps") {
     const bands = f.pension?.bands ?? [];
     const gap = 22;
@@ -493,6 +571,7 @@ export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size
     cover: <Cover g={g} c={c} layer={layer} s={state} />,
     value: <Value g={g} c={c} layer={layer} s={state} />,
     compare: <Compare g={g} c={c} layer={layer} s={state} />,
+    critical: <Critical g={g} c={c} layer={layer} s={state} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} layer={layer} s={{ ...state, count: 1, sweep: [1] }} /> : <ContactScene g={g} c={c} layer={layer} />,
     story: <StoryScene g={g} c={c} layer={layer} s={state} />,

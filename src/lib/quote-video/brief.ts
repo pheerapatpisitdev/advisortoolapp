@@ -60,6 +60,9 @@ export const STORIES: StoryAngle[] = [
   { key: "tax", product: "PENSION", name: "ลดหย่อนภาษี", about: "ระหว่างที่ยังทำงาน ยอดออมนำไปลดหย่อนภาษีได้ตามเกณฑ์สรรพากร" },
   { key: "guarantee", product: "PENSION", name: "รับประกันจ่าย 15 ปีแรก", about: "บำนาญ 15 ปีแรกรับประกันจ่าย ถ้าเป็นอะไรไปก่อน ครอบครัวยังได้ส่วนที่เหลือ" },
   { key: "steps", product: "PENSION", name: "ยิ่งอายุมาก ยิ่งได้มาก", about: "บำนาญเพิ่มเป็นขั้นตามอายุ ช่วงที่ค่าใช้จ่ายสุขภาพมักเพิ่มขึ้น", when: (f) => (f.pension?.bands.length ?? 0) > 1 },
+  { key: "family", product: "LEGACY", name: "เงินก้อนให้ครอบครัว", about: "ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อน ดูแลคนที่รักแทนเรา" },
+  { key: "illness", product: "LEGACY", name: "ป่วยหนัก ได้เงินก้อนรักษาตัวเอง", about: "ตรวจพบโรคร้ายแรงรับเงินก้อนไว้รักษาตัวเอง แล้วประกันชีวิตหลักยังอยู่ต่อให้ครอบครัว" },
+  { key: "light", product: "LEGACY", name: "ค่าใช้จ่ายปีแรกเบา", about: "ค่าใช้จ่ายปีแรกตกวันละไม่กี่บาท แลกกับเงินก้อนใหญ่ให้ครอบครัว ส่วนโรคร้ายแรงปรับตามอายุ" },
 ];
 
 export const storiesFor = (f: QuoteVideoFacts): StoryAngle[] => STORIES.filter((s) => s.product === f.product && (!s.when || s.when(f)));
@@ -136,6 +139,11 @@ export function allowedNumbers(f: QuoteVideoFacts, note = ""): Set<number> {
   for (const b of f.benefits ?? []) add(b.amount.match(/[\d,]+/)?.[0]);
   for (const c of f.compare ?? []) { add(c.monthly); add(c.opd.match(/[\d,]+/)?.[0]); add(c.room.match(/[\d,]+/)?.[0]); }
   if (f.budget) add(f.budget.amount);
+  if (f.legacy) {
+    const l = f.legacy;
+    add(l.tier); add(l.critical); add(l.diseaseCount); add(l.criticalToAge); add(l.coverToAge); add(l.perDay); add(l.annual); add(l.monthly);
+    for (const b of l.bands) { add(b.from); add(b.to); add(b.to + 1); add(b.amount); }
+  }
   if (f.pension) {
     const p = f.pension;
     add(p.start); add(p.monthly); add(p.guaranteeTo); add(p.sumAssured);
@@ -184,6 +192,8 @@ export function lineProblem(text: string, f: QuoteVideoFacts, max: number, note 
   for (const x of FORBIDDEN) if (x.re.test(t)) return x.why;
   // iShield's cover waits 90 days for an illness: nothing written may promise otherwise (owner, 2026-10-11)
   if (f.product === "ISHIELD" && /รับเลย|ได้เลยตั้งแต่วันแรก/.test(t)) return "สัญญาว่ารับได้ตั้งแต่วันแรก";
+  // มรดก is mostly a critical-illness rider that builds no value: what is paid is ค่าใช้จ่าย, never ออม (owner, 2026-10-14)
+  if (f.product === "LEGACY" && /ออม|เงินคืน|ขอคืน/.test(t)) return "ใช้คำว่า ออม หรือเงินคืน (แบบนี้ใช้คำว่า ค่าใช้จ่าย)";
   const allowed = allowedNumbers(f, note);
   const stray = numbersIn(t).find((n, i, all) => !allowed.has(n) && !(i > 0 && all[i - 1] === n * 1_000_000));
   if (stray !== undefined) return `มีตัวเลข ${stray.toLocaleString("en-US")} ที่ไม่อยู่ในใบเสนอ`;
@@ -240,6 +250,7 @@ export function settleHook(b: VideoBrief, f: QuoteVideoFacts, seed = 0): Exclude
     early: ["myth", "question"], income: ["story", "question"], many: ["list", "shock"], maturity: ["myth", "list"],
     lump: ["question", "shock"], room: ["shock", "list"], compare: ["list", "question"],
     salary: ["question", "story"], tax: ["shock", "list"], guarantee: ["myth", "list"], steps: ["list", "shock"],
+    family: ["question", "story"], illness: ["myth", "question"], light: ["shock", "list"],
   };
   const pool = suits[b.story ?? ""] ?? ["question", "shock"];
   return pool[Math.abs(seed + f.age) % pool.length];
@@ -262,30 +273,35 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       ISHIELD: "ถ้าวันหนึ่งหมอบอกว่าเป็นโรคร้ายแรง คุณมีเงินก้อนพร้อมรักษาหรือยังคะ",
       IHEALTHY: "ถ้าต้องนอนโรงพยาบาลพรุ่งนี้ ค่ารักษาจะมาจากไหนคะ",
       PENSION: "เกษียณแล้ว อยากมีเงินเข้าบัญชีทุกเดือนไหมคะ",
+      LEGACY: "ถ้าพรุ่งนี้คุณไม่อยู่ ครอบครัวจะมีเงินก้อนดูแลต่อไหมคะ",
     },
     shock: {
       LIFEPROTECT: perDay ? `วันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
       ISHIELD: perDay ? `วันละ ${perDay} บาท แลกกับเงินก้อนสูงสุด ${lead} ตอนป่วยหนัก` : `เงินก้อนสูงสุด ${lead} ตอนป่วยหนัก`,
       IHEALTHY: `เดือนละ ${monthly} บาท ได้วงเงินค่ารักษาถึง ${lead}ต่อปี`,
       PENSION: `ออมวันนี้ แล้วรับเดือนละ ${f.pension?.monthly ?? ""} บาท ไปจนถึงอายุ 95`,
+      LEGACY: perDay ? `ค่าใช้จ่ายปีแรกวันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
     },
     myth: {
       LIFEPROTECT: "หลายคนคิดว่าประกันชีวิตคือเงินที่จ่ายทิ้ง แต่แผนนี้ เงินที่ออมไว้ไม่หายไปไหนค่ะ",
       ISHIELD: "หลายคนคิดว่าต้องป่วยหนักก่อนถึงจะได้เงิน แต่แผนนี้จ่ายตั้งแต่ระยะเริ่มต้นค่ะ",
       IHEALTHY: "หลายคนคิดว่ามีสวัสดิการก็พอแล้ว แต่ค่ารักษาโรงพยาบาลเอกชนไม่ใช่น้อยๆ ค่ะ",
       PENSION: "หลายคนคิดว่าเกษียณแล้วจะมีเงินพอใช้ แต่ไม่มีใครจ่ายเงินเดือนให้เราอีกแล้วค่ะ",
+      LEGACY: "หลายคนคิดว่าประกันชีวิตดูแลแค่ครอบครัว แต่แผนนี้ ป่วยหนักก็ได้เงินก้อนไว้รักษาตัวเองค่ะ",
     },
     story: {
       LIFEPROTECT: `ลองนึกภาพนะคะ ${aud?.scene ?? "คนที่คุณรักต้องใช้ชีวิตต่อ"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
       ISHIELD: `ลองนึกภาพนะคะ ${aud?.scene ?? "ชีวิตกำลังไปได้ดี"} แล้ววันหนึ่งหมอบอกว่าต้องรักษาตัวยาว`,
       IHEALTHY: `ลองนึกภาพนะคะ ${aud?.scene ?? "ชีวิตกำลังไปได้ดี"} แล้ววันหนึ่งต้องนอนโรงพยาบาล`,
       PENSION: `ลองนึกภาพนะคะ ${aud?.scene ?? "วันที่เลิกทำงาน"} แต่ค่าใช้จ่ายยังมีทุกเดือน`,
+      LEGACY: `ลองนึกภาพนะคะ ${aud?.scene ?? "คนที่คุณรักต้องใช้ชีวิตต่อ"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
     },
     list: {
       LIFEPROTECT: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ${f.payToEnd ? "ยอดออมเท่าเดิมตลอด" : `ออมแค่ ${f.payYears} ปี`} สอง เงินก้อนให้ครอบครัว ${lead} สาม เงินที่ออมไม่หายไปไหน`,
       ISHIELD: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง คุ้มครอง ${f.illness?.total ?? ""} โรค สอง จ่ายตั้งแต่ระยะเริ่มต้น สาม ยอดออมเท่าเดิมทุกปี`.replace("  ", " "),
       IHEALTHY: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง เหมาจ่ายค่ารักษา สอง รวมค่าชดเชยรายวันไว้แล้ว สาม ต่ออายุได้ถึงอายุ ${f.coverToAge}`,
       PENSION: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง รับบำนาญทุกเดือนถึงอายุ 95 สอง นำไปลดหย่อนภาษีได้ สาม 15 ปีแรกรับประกันจ่าย",
+      LEGACY: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง เงินก้อนให้ครอบครัว ${lead} สอง ป่วยหนักได้เงินก้อนรักษาตัว สาม ประกันชีวิตยังอยู่ต่อ`,
     },
   };
   const heads: Record<typeof kind, Record<Product, string[]>> = {
@@ -294,30 +310,35 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       ISHIELD: ["ถ้าป่วยหนักวันนี้", "มีเงินก้อนพร้อมไหม?"],
       IHEALTHY: ["นอนโรงพยาบาลพรุ่งนี้", "ค่ารักษามาจากไหน?"],
       PENSION: ["เกษียณแล้ว", "อยากมีเงินเดือนไหม?"],
+      LEGACY: ["ถ้าพรุ่งนี้คุณไม่อยู่", "ครอบครัวมีเงินก้อนไหม?"],
     },
     shock: {
       LIFEPROTECT: perDay ? [`วันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       ISHIELD: perDay ? [`วันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       IHEALTHY: [`เดือนละ ${monthly} บาท`, `วงเงิน ${lead}/ปี`],
       PENSION: [`รับเดือนละ ${f.pension?.monthly ?? ""} บาท`, "ไปจนถึงอายุ 95"],
+      LEGACY: perDay ? [`ปีแรกวันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
     },
     myth: {
       LIFEPROTECT: ["ประกันชีวิต", "คือเงินจ่ายทิ้ง จริงไหม?"],
       ISHIELD: ["ต้องป่วยหนักก่อน", "ถึงจะได้เงิน จริงไหม?"],
       IHEALTHY: ["มีสวัสดิการแล้ว", "พอจริงไหม?"],
       PENSION: ["เกษียณแล้ว", "เงินพอใช้จริงไหม?"],
+      LEGACY: ["ประกันชีวิต", "ดูแลแค่ครอบครัว จริงไหม?"],
     },
     story: {
       LIFEPROTECT: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
       ISHIELD: ["ถ้าต้องรักษาตัวยาว", "รายได้จะมาจากไหน?"],
       IHEALTHY: ["ถ้าต้องนอนโรงพยาบาล", "ใครจ่ายค่ารักษา?"],
       PENSION: ["วันที่เลิกทำงาน", "เงินเดือนมาจากไหน?"],
+      LEGACY: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
     },
     list: {
       LIFEPROTECT: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       ISHIELD: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       IHEALTHY: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       PENSION: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
+      LEGACY: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
     },
   };
   const loops: Record<typeof kind, string> = {
@@ -332,18 +353,21 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     ISHIELD: "ยินดีช่วยดูแผนให้คุณพร้อมทุกเมื่อค่ะ",
     IHEALTHY: "ยินดีช่วยดูแผนสุขภาพให้ค่ะ",
     PENSION: "ยินดีช่วยวางแผนเกษียณให้ค่ะ",
+    LEGACY: "ยินดีช่วยดูแผนมรดกให้ครอบครัวของคุณค่ะ",
   };
   const tails: Record<Product, string> = {
     LIFEPROTECT: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรักแทนคุณค่ะ",
     ISHIELD: "แผนนี้คือเงินก้อนที่ให้คุณรักษาตัวได้โดยไม่ต้องห่วงรายได้ค่ะ",
     IHEALTHY: "แผนนี้ดูแลค่ารักษาให้ คุณจะได้ตั้งใจหายป่วยอย่างเดียวค่ะ",
     PENSION: "แผนนี้คือเงินเดือนที่คุณจ่ายให้ตัวเองไว้ใช้หลังเกษียณค่ะ",
+    LEGACY: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรัก และดูแลตัวคุณเองตอนป่วยหนักค่ะ",
   };
   const points: Record<Product, string[]> = {
     LIFEPROTECT: ["ภาระยังอยู่", "คนที่รักยังต้องใช้เงิน", "เงินก้อนดูแลแทนคุณ"],
     ISHIELD: ["ป่วยหนักทำงานไม่ได้", "ค่าใช้จ่ายยังมีทุกเดือน", "เงินก้อนแทนรายได้"],
     IHEALTHY: ["ค่ารักษาสูงขึ้นทุกปี", "เงินเก็บไม่หายไปกับบิล", "เหมาจ่ายตามจริง"],
     PENSION: ["รายได้ประจำหายไป", "ค่าใช้จ่ายยังมีทุกเดือน", "บำนาญจ่ายแทนเงินเดือน"],
+    LEGACY: ["ภาระยังอยู่", "ป่วยหนักต้องใช้เงินก้อน", "มรดกดูแลทั้งสองทาง"],
   };
   return {
     kind,

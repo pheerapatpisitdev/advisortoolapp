@@ -28,15 +28,22 @@ function factLines(f: QuoteVideoFacts): string[] {
     `ผู้เอาประกัน: ${f.insuredWho}`,
     `${f.lead.label}: ${f.lead.amount} บาท${f.lead.note ? ` (${f.lead.note})` : ""}`,
     ...(f.perDayAmount ? [`ตกวันละ: ${f.perDayAmount} บาท`] : []),
-    `ยอดออม${f.product === "IHEALTHY" ? " (ปีแรก)" : ""}: ${f.prices.map((p) => `${p.label} ${p.amount} บาท`).join(" · ")}`,
+    `${f.product === "LEGACY" ? "ค่าใช้จ่าย (ปีแรก)" : `ยอดออม${f.product === "IHEALTHY" ? " (ปีแรก)" : ""}`}: ${f.prices.map((p) => `${p.label} ${p.amount} บาท`).join(" · ")}`,
     ...(f.payYears && !f.payToEnd ? [`ออม ${f.payYears} ปี ครบตอนอายุ ${f.lastPayAge}`] : []),
     ...(f.payToEnd ? [`ออมถึงอายุ ${f.coverToAge} ยอดเท่าเดิมตลอด`] : []),
     `คุ้มครองถึงอายุ ${f.coverToAge}`,
     ...f.cover.map((r) => `${r.label}: ${r.amount}`),
     ...(f.breakEven ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),
     ...(f.illness ? [`โรคร้ายแรง ${f.illness.total} โรค ระยะเริ่มต้น ${f.illness.early} โรค ระยะรุนแรง ${f.illness.major} โรค โรคร้ายแรงคุ้มครองหลัง 90 วันแรก`] : []),
-    ...(f.budget ? [`ลูกค้าออมไหว ${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท`] : []),
+    ...(f.budget ? [`ลูกค้า${f.product === "LEGACY" ? "จ่ายไหว" : "ออมไหว"} ${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท`] : []),
   ];
+  if (f.legacy) {
+    const l = f.legacy;
+    out.push(`มรดก ${l.tier} ล้าน`, `ตรวจพบโรคร้ายแรง 1 ใน ${l.diseaseCount} โรค รับเงินก้อนไว้รักษาตัวเอง ${l.critical.toLocaleString("en-US")} บาท จ่ายครั้งเดียว แล้วประกันชีวิตหลักยังอยู่ต่อให้ครอบครัว`,
+      `โรคร้ายแรงคุ้มครองถึงอายุ ${l.criticalToAge} ประกันชีวิตคุ้มครองถึงอายุ ${l.coverToAge}`,
+      "ค่าใช้จ่ายที่ให้คือปีแรก ส่วนโรคร้ายแรงปรับตามอายุในปีถัดไป",
+      ...l.bands.map((b) => `ถ้าเป็นอะไรไปช่วงอายุ ${b.from}–${b.to} ครอบครัวได้ ${b.amount.toLocaleString("en-US")} บาท`));
+  }
   if (f.pension) {
     const p = f.pension;
     out.push(`บำนาญเดือนละ ${p.monthly} บาท ตั้งแต่อายุ ${p.start} ถึงอายุ 95`, `รับประกันจ่าย 15 ปีแรก`, "ยอดออมลดหย่อนภาษีได้ตามเกณฑ์สรรพากร",
@@ -73,7 +80,9 @@ function prompt(f: QuoteVideoFacts, b: VideoBrief, length: VideoLength, kind: Wr
     ...(b.note ? [`ตัวแทนอยากเน้น: ${b.note}`] : []),
     "",
     "กฎ:",
-    "- ห้ามใช้คำว่า เบี้ย เสียชีวิต ตาย เวนคืน ใช้ \"ออม\" \"ถ้าเป็นอะไรไป\" \"ขอเงินก้อนคืน\" แทน",
+    f.product === "LEGACY"
+      ? "- ห้ามใช้คำว่า เบี้ย เสียชีวิต ตาย เวนคืน ออม เงินคืน ใช้ \"ค่าใช้จ่าย\" \"ถ้าเป็นอะไรไป\" แทน แผนนี้ไม่มีเงินคืน"
+      : "- ห้ามใช้คำว่า เบี้ย เสียชีวิต ตาย เวนคืน ใช้ \"ออม\" \"ถ้าเป็นอะไรไป\" \"ขอเงินก้อนคืน\" แทน",
     "- ห้ามพูดถึงผลตอบแทน ดอกเบี้ย เปอร์เซ็นต์ กำไร ห้ามใช้คำว่า การันตี ทันที",
     "- ห้ามใส่ตัวเลขที่ไม่อยู่ในข้อมูลของแผน ห้ามเขียนตัวเลขเป็นคำ (สองล้าน)",
     "- ห้ามสัญญาเกินแบบประกัน ห้ามอีโมจิ ห้ามลิงก์ ห้ามทักทาย",

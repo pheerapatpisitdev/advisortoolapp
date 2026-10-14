@@ -1,5 +1,6 @@
 import { iHealthyFacts } from "@/lib/ihealthy-facts";
 import { iShieldFacts } from "@/lib/ishield-facts";
+import { legacyTable } from "@/lib/legacy-table";
 import type { Product } from "./script";
 
 /**
@@ -7,7 +8,9 @@ import type { Product } from "./script";
  *
  * The same answers the chat bots give, from the same sources — src/lib/assistant/lifeprotect/faq.ts,
  * src/lib/assistant/ishield/faq.ts (the /ishield page's own), src/lib/assistant/ihealthy/faq.ts and
- * the /bumnan95 page (its FAQ, removed 2026-10-14; see git history of src/components/pension/Sections.tsx) — said for the voice: shorter, a woman's
+ * the /bumnan95 page (its FAQ, removed 2026-10-14; see git history of src/components/pension/Sections.tsx), and for มรดก
+ * the /legacy page's own lines (LegacyCalculator.tsx: the footnote, the critical-illness note, the
+ * contracts' ages; legacy-table.ts: the monthly minimum) — said for the voice: shorter, a woman's
  * endings (script.ts makes them a man's), and without the words the voice never says (เบี้ย,
  * เสียชีวิต, เวนคืน). Not one fact is added to or taken from the bots' answers.
  */
@@ -44,6 +47,16 @@ export function productQas(product: Product): SpokenQa[] {
         { key: "monthly", q: "จ่ายรายเดือนได้ไหม", a: "ได้ค่ะ เลือกรายเดือน ราย 6 เดือน หรือรายปีก็ได้" },
       ];
     }
+    case "LEGACY": {
+      const t = legacyTable();
+      return [
+        { key: "rises", q: "ค่าใช้จ่ายขึ้นทุกปีไหม", a: "ส่วนโรคร้ายแรงคิดตามอายุ จึงปรับขึ้นในปีถัดไปค่ะ ตัวเลขในคลิปนี้คือปีแรก" },
+        { key: "after", q: "เคลมโรคร้ายแรงแล้ว ประกันชีวิตยังอยู่ไหม", a: "ยังอยู่ค่ะ โรคร้ายแรงจ่ายครั้งเดียวแล้วสิ้นสุด ประกันชีวิตหลักยังอยู่ต่อให้ครอบครัว" },
+        { key: "until", q: "คุ้มครองถึงอายุเท่าไหร่", a: `โรคร้ายแรงคุ้มครองถึงอายุ ${t.contracts.rider.coverToAge} ส่วนประกันชีวิตดูแลถึงอายุ ${t.contracts.base.coverToAge} ค่ะ` },
+        { key: "count", q: "โรคร้ายแรงคุ้มครองกี่โรค", a: `${t.diseaseCount} โรค ตามคำนิยามในกรมธรรม์ค่ะ` },
+        { key: "monthly", q: "จ่ายรายเดือนได้ไหม", a: `ได้ค่ะ ถ้ายอดรายเดือนถึง ${t.minMonthlyTotal.toLocaleString("en-US")} บาท ไม่ถึงก็เลือกราย 6 เดือนหรือรายปี` },
+      ];
+    }
     case "PENSION":
       return [
         { key: "pay", q: "ออม 6 ปี กับออมจนรับบำนาญ ต่างกันยังไง", a: "ทุนเท่ากันได้บำนาญเท่ากันค่ะ แบบ 6 ปีออมต่อปีมากกว่าแต่จบเร็ว อีกแบบออมน้อยกว่าแต่นานกว่า" },
@@ -60,6 +73,7 @@ const FIRST: Record<string, string[]> = {
   early: ["again", "waiting"], income: ["lump", "level"], many: ["level", "again"], maturity: ["maturity", "level"],
   lump: ["waiting", "rises"], room: ["waiting", "health"], compare: ["rises", "tax"],
   salary: ["known", "after"], tax: ["tax", "pay"], guarantee: ["known", "pay"], steps: ["known", "after"],
+  family: ["until", "after"], illness: ["after", "count"], light: ["rises", "monthly"],
 };
 
 /** the two questions a clip answers, for its product and story */

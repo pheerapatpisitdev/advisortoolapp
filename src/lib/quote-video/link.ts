@@ -22,6 +22,8 @@ export interface VideoStart {
   /** บำนาญ 95: the age the pension starts, and how the premiums are paid */
   annuityAge?: number;
   pay?: "6" | "untilAnnuity";
+  /** มรดก: the tier, 1–10 million */
+  tier?: number;
 }
 
 export function videoStartHref(s: VideoStart): string {
@@ -33,10 +35,11 @@ export function videoStartHref(s: VideoStart): string {
   if (s.plan) q.set("plan", s.plan);
   if (s.annuityAge !== undefined) q.set("start", String(s.annuityAge));
   if (s.pay) q.set("pay", s.pay);
+  if (s.tier !== undefined) q.set("tier", String(s.tier));
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 /** what an address asked the form to start with; anything unreadable is left out */
@@ -58,6 +61,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const plan = one(params.plan);
   const start = Number(one(params.start));
   const pay = one(params.pay);
+  const tier = Number(one(params.tier));
   return {
     product,
     ...(sex === "M" || sex === "F" ? { sex } : {}),
@@ -67,5 +71,6 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...(plan && /^[A-Z]{3,12}$/.test(plan) ? { plan } : {}),
     ...([55, 60, 65, 70].includes(start) ? { annuityAge: start } : {}),
     ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),
+    ...(Number.isInteger(tier) && tier >= 1 && tier <= 10 ? { tier } : {}),
   };
 }
