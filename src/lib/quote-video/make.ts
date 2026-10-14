@@ -5,6 +5,7 @@ import { providerKey } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
 import { asWho } from "@/lib/ai/who";
 import { speakLine, TTS_RATE, TtsQuotaError } from "@/lib/ai/tts";
+import { sayNumbers } from "./say-numbers";
 import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
 import { can } from "@/lib/auth/access";
@@ -479,7 +480,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const note = (n: ProgressNote) => { noted = noted.then(() => noteProgress(id, n)).catch(() => undefined); };
     let lines = 0;
     note({ step: "voice", done: 0, of: spokenScript.length });
-    const speak = (s: { voice: string }) => speakLine(s.voice, VIDEO_TASK_VOICE, { narrator, voice: row.input.voice })
+    const speak = (s: { voice: string }) => speakLine(sayNumbers(s.voice), VIDEO_TASK_VOICE, { narrator, voice: row.input.voice })
       .then((r) => { note({ step: "voice", done: ++lines, of: spokenScript.length }); return r; });
     // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
     const spoken = row.input.voice ? await pool(spokenScript, 2, speak) : await Promise.all(spokenScript.map(speak));
