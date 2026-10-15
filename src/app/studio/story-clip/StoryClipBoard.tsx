@@ -31,7 +31,6 @@ const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
 const label = "mb-1 block text-sm font-medium";
-const card = "rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no-underline hover:bg-[var(--ct-soft)] inline-flex items-center";
 
 /** the stories still to come, as the mockup listed them */
@@ -341,14 +340,19 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const voiceWord = look.voice ? eleven.find((v) => v.id === look.voice)?.name ?? "ElevenLabs" : look.narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
 
   return (
-    <div className="mt-5 space-y-5">
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className={`${card} pb-0 lg:pb-5`}>
+    // Organic Studio's desk (owner, 2026-10-15, mockup https://claude.ai/artifact/8B39tj4VDgrd9RsdCC23RL, option ค):
+    // the form in a tools column that scrolls on its own, the clips on the squared desk beside it
+    <div className="mt-5 grid items-start gap-3 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="@container min-w-0 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4 pb-0 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+        <div className="-mx-4 -mt-4 mb-4 border-b border-[var(--ct-hair)] px-4 py-2.5">
+          <h2 className="font-semibold">เครื่องมือ</h2>
+          <p className="mt-0.5 text-xs text-[var(--ct-mute)]">เลือกแล้วกดสร้าง คลิปจะขึ้นบนโต๊ะ “กำลังสร้าง”</p>
+        </div>
           <Step n={1} title="เลือกเรื่อง" summary={info.name} first>
             {(["story", "knowledge", "family", "after"] as const).map((shelf) => (
               <div key={shelf}>
                 <span className="mb-1.5 block text-xs font-medium text-[var(--ct-mute)]">{SHELF_NAME[shelf]}</span>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2 @sm:grid-cols-2">
                   {STORY_TOPICS.filter((x) => x.shelf === shelf).map((x) => (
                     <button key={x.key} type="button" onClick={() => pickTopic(x.key)} aria-pressed={topic === x.key}
                       className={`rounded-xl border p-3 text-left ${topic === x.key ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)] hover:border-[var(--ct-line)]"}`}>
@@ -369,7 +373,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
           </Step>
 
           <Step n={2} title="ตัวละคร" summary={`ผู้เล่า: คุณ · ${knowledge ? "คนที่สงสัย" : "ตัวเอก"}: ${name ? `คุณ${name}` : "คนทั่วไป"}`}>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 @md:grid-cols-2">
               <div className="min-w-0 space-y-2">
                 <span className={label}>ผู้เล่าเรื่อง (คุณ)</span>
                 <p className="text-xs text-[var(--ct-mute)]">ขึ้นท้ายคลิปพร้อมชื่อ เบอร์ และ LINE จากบัญชีของฉัน · เลือกครั้งเดียว จำไว้ในเครื่องนี้</p>
@@ -408,7 +412,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   <button type="button" className={chip(withHome)} onClick={() => setWithHome(true)}>ใส่ตัวเลขของบ้านลูกค้า</button>
                 </div>
                 {showsHome && info.home === "spend" && (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 @sm:grid-cols-2">
                     <div>
                       <label htmlFor="sc-monthly" className={label}>ค่าใช้จ่ายของบ้าน ต่อเดือน (บาท)</label>
                       <input id="sc-monthly" inputMode="numeric" className={field} value={monthly} onChange={(e) => setMonthly(digits(e.target.value, 7))} />
@@ -420,7 +424,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   </div>
                 )}
                 {showsHome && info.home === "school" && (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 @sm:grid-cols-2">
                     <div>
                       <label htmlFor="sc-child" className={label}>อายุลูกตอนนี้</label>
                       <select id="sc-child" className={field} value={childAge} onChange={(e) => setChildAge(e.target.value)}>
@@ -443,7 +447,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
               </div>
             )}
             {info.ask === "due" && (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 @sm:grid-cols-2">
                 <div>
                   <label htmlFor="sc-due" className={label}>วันครบกำหนด</label>
                   <input id="sc-due" type="date" className={field} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -463,7 +467,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
               info.ask ? null : <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">{afterSale ? "ตัวเลขในคลิปมาจากสัญญาและเกณฑ์การเคลมในระบบ ไม่ต้องใส่อะไรเพิ่ม" : "ตอนนี้ไม่มีตัวเลขเบี้ย ใช้ได้กับลูกค้าทุกคนและลงเพจได้ทันที"}</p>
             ) : (
             <>
-            {!info.figureRequired && <div className="grid gap-2 sm:grid-cols-3">
+            {!info.figureRequired && <div className="grid gap-2 @sm:grid-cols-3">
               <button type="button" onClick={() => setWithFigure(false)} className={`rounded-xl border p-3 text-left ${!withFigure ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)]"}`}>
                 <b className="block text-sm">ไม่ใช้</b><span className="text-xs text-[var(--ct-mute)]">เรื่องทั่วไป ไม่มีตัวเลขเบี้ย ลงเพจหรือทำแอดได้</span>
               </button>
@@ -494,7 +498,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   {topic === "pool48" && <p className="mt-1 text-xs text-[var(--ct-mute)]">{PLAN_STORY[plan]} ให้ตรงกับสิ่งที่แบบนี้จ่ายจริง</p>}
                   {info.plans && <p className="mt-1 text-xs text-[var(--ct-mute)]">เรื่องนี้ใช้ {plans.map((p) => p.name).join(" หรือ ")} ให้ตรงกับสิ่งที่แบบนี้จ่ายจริง</p>}
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 @sm:grid-cols-3">
                   <div>
                     <label htmlFor="sc-term" className={label}>ระยะชำระ</label>
                     <select id="sc-term" className={field} value={variant} onChange={(e) => setVariant(e.target.value)}>
@@ -560,8 +564,22 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             </div>
           </Step>
 
-          {/* the cost and the button: pinned to the foot of a phone's screen, so they are always in view */}
-          <div className="sticky bottom-0 -mx-5 space-y-2 border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] px-5 pb-4 pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] lg:static lg:mx-0 lg:px-0 lg:pb-0 lg:shadow-none">
+          {/* the opening scene, at the foot of the tools (owner, 2026-10-15: no third column) */}
+          <section className="space-y-2 border-t border-[var(--ct-hair)] py-4" aria-label="ตัวอย่างฉากเปิด">
+            <div className="mx-auto max-w-[220px]">
+              {afterSale
+                ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimihu" || topic === "claimish"} />
+                : knowledge
+                ? <KnowPreview hero={heroFace} title={info.name} size={look.size} />
+                : family
+                  ? <FamilyPreview info={info} hero={heroFace} partner={partnerFace} size={look.size} />
+                  : <OpeningPreview hero={heroFace} narrator={narratorFace} palette={look.palette} size={look.size} />}
+            </div>
+            <p className="text-center text-xs text-[var(--ct-mute)]">{afterSale ? "ฉากเปิด" : knowledge ? "ฉากเปิด · คนที่สงสัย" : family ? "ฉากเปิด · ครอบครัวของตัวเอก" : `ฉากเปิด · วงแดงคือตัวเอก${name ? ` (คุณ${name})` : ""}`}</p>
+          </section>
+
+          {/* the cost and the button: pinned to the foot of the tools, so they are always in view */}
+          <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] px-4 pb-4 pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.08)]">
             {error && (
               <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">
                 {error.text}{" "}
@@ -579,29 +597,17 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             )}
             <button
               type="button" onClick={make} disabled={busy || !ready || Boolean(line?.blocked) || voiceBlocked}
-              className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50 lg:w-auto"
+              className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
             >
               {busy ? "กำลังเริ่ม…" : "สร้างคลิป"}
             </button>
-            <p className="hidden text-xs text-[var(--ct-mute)] lg:block">ใช้เวลาประมาณ 2–3 นาที ปิดหน้านี้ได้ คลิปจะขึ้นในรายการ</p>
+            <p className="hidden text-xs text-[var(--ct-mute)] lg:block">ใช้เวลาประมาณ 2–3 นาที ปิดหน้านี้ได้ คลิปจะขึ้นบนโต๊ะ</p>
           </div>
-        </div>
-
-        <aside className="space-y-2 lg:sticky lg:top-6 lg:self-start" aria-label="ตัวอย่างฉากเปิด">
-          <div className="mx-auto max-w-[300px] lg:max-w-none">
-            {afterSale
-              ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimihu" || topic === "claimish"} />
-              : knowledge
-              ? <KnowPreview hero={heroFace} title={info.name} size={look.size} />
-              : family
-                ? <FamilyPreview info={info} hero={heroFace} partner={partnerFace} size={look.size} />
-                : <OpeningPreview hero={heroFace} narrator={narratorFace} palette={look.palette} size={look.size} />}
-          </div>
-          <p className="text-center text-xs text-[var(--ct-mute)]">{afterSale ? "ฉากเปิด" : knowledge ? "ฉากเปิด · คนที่สงสัย" : family ? "ฉากเปิด · ครอบครัวของตัวเอก" : `ฉากเปิด · วงแดงคือตัวเอก${name ? ` (คุณ${name})` : ""}`}</p>
         </aside>
-      </div>
 
-      <ClipList items={items} setItems={setItems} pages={pages} />
+      <section aria-label="วิดีโอที่สร้างแล้ว" className="studio-desk min-w-0 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
+        <ClipList items={items} setItems={setItems} pages={pages} />
+      </section>
     </div>
   );
 }

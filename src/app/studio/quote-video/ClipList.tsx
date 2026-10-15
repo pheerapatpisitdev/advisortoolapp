@@ -3,18 +3,29 @@ import Link from "next/link";
 import { useState } from "react";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ClipProgress } from "./ClipProgress";
+import { PostPanel } from "./PostPanel";
 import { SaveVideoButton } from "./SaveVideoButton";
-import { addToCalendar, calendarCaption, removeVideo, type VideoItem } from "./actions";
+import { addToCalendar, calendarCaption, removeVideo, type ClipPost, type VideoItem } from "./actions";
 
 /**
  * The clips an agent has made, with what can be done with each: watch, save, copy the link,
  * put on a Page's calendar (the owner's), delete. วิดีโอนำเสนอ and คลิปเล่าเรื่อง list theirs
  * the same way; each board owns the list and keeps asking about clips still being made.
+ *
+ * Laid on the desk as Organic Studio's pieces are (owner, 2026-10-15, mockup
+ * https://claude.ai/artifact/8B39tj4VDgrd9RsdCC23RL): a tab for each state, the clips as cards
+ * several to a row, and a card opened full width while its words, its calendar or its delete is.
  */
 
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
-const card = "rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no-underline hover:bg-[var(--ct-soft)] inline-flex items-center";
+type Tab = "all" | "making" | "done" | "failed";
+const TABS: { id: Tab; label: string; has: (v: VideoItem) => boolean }[] = [
+  { id: "all", label: "ทั้งหมด", has: () => true },
+  { id: "making", label: "กำลังสร้าง", has: (v) => v.status === "drawing" || v.status === "rendering" },
+  { id: "done", label: "เสร็จ", has: (v) => v.status === "done" },
+  { id: "failed", label: "ไม่สำเร็จ", has: (v) => v.status === "failed" },
+];
 const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" });
 const STATUS: Record<VideoItem["status"], string> = { drawing: "กำลังทำเสียงและภาพ…", rendering: "กำลังรวมเป็นวิดีโอ…", done: "เสร็จ", failed: "ไม่สำเร็จ" };
 const ASPECT: Record<VideoSize, string> = { portrait: "9 / 16", square: "1 / 1", landscape: "16 / 9" };
@@ -27,6 +38,10 @@ export function ClipList({ items, setItems, pages }: {
   const [copied, setCopied] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<{ id: string; text: string } | null>(null);
+  const [tab, setTab] = useState<Tab>("all");
+  // the one clip whose words are open
+  const [writing, setWriting] = useState<string | null>(null);
+  const gotPost = (id: string, post: ClipPost) => setItems((was) => was?.map((v) => (v.id === id ? { ...v, post } : v)) ?? was);
 
   // the owner's calendar panel, one clip at a time
   const [cal, setCal] = useState<{ id: string; page: string; caption: string; busy: boolean; error?: string; done?: string } | null>(null);
@@ -61,13 +76,37 @@ export function ClipList({ items, setItems, pages }: {
     }
   }
 
+  const shown = items?.filter(TABS.find((t) => t.id === tab)!.has) ?? null;
   return (
-    <div className={`${card} space-y-3`}>
-      <h2 className="font-semibold">วิดีโอที่สร้างแล้ว</h2>
-      {items === null && <p className="text-sm text-[var(--ct-mute)]">อ่านรายการไม่ได้ตอนนี้</p>}
-      {items?.length === 0 && <p className="text-sm text-[var(--ct-mute)]">ยังไม่มีวิดีโอ</p>}
-      {items?.map((v) => (
-        <div key={v.id} className="space-y-2 rounded-lg border border-[var(--ct-line)] p-3">
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div role="tablist" aria-label="สถานะวิดีโอ" className="inline-flex flex-wrap items-center gap-1 rounded-full border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-1">
+          {TABS.map((t) => (
+            <button
+              key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+              className={`inline-flex min-h-tap items-center gap-1 rounded-full px-4 text-sm ${tab === t.id ? "bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}
+            >
+              {t.label} <span className="tabular-nums">{items?.filter(t.has).length ?? 0}</span>
+            </button>
+          ))}
+        </div>
+        <h2 className="sr-only">วิดีโอที่สร้างแล้ว</h2>
+      </div>
+      {items === null && <p className="rounded-lg bg-[var(--ct-panel)] px-3 py-2 text-sm text-[var(--ct-mute)]">อ่านรายการไม่ได้ตอนนี้</p>}
+      {shown?.length === 0 && (
+        <p className="rounded-lg border border-dashed border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-8 text-center text-sm text-[var(--ct-mute)]">
+          {tab === "all" ? "ยังไม่มีวิดีโอ — เลือกในเครื่องมือแล้วกด “สร้างวิดีโอ” คลิปจะขึ้นตรงนี้" : "ไม่มีวิดีโอในแถบนี้"}
+        </p>
+      )}
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr))]">
+      {shown?.map((v) => {
+        const open = writing === v.id || confirming === v.id || cal?.id === v.id;
+        const video = v.watch && <video src={v.watch} controls playsInline preload="metadata" className={`w-full rounded-lg bg-[var(--ct-ground)] ${open ? (v.size === "landscape" ? "max-w-[300px]" : v.size === "square" ? "max-w-[260px]" : "max-w-[220px]") : ""}`} style={{ aspectRatio: ASPECT[v.size] }} />;
+        return (
+        <div key={v.id} className={`@container min-w-0 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-3 ${open ? "col-span-full" : ""}`}>
+          <div className={open ? "grid items-start gap-3 @2xl:grid-cols-[auto_minmax(0,1fr)]" : "space-y-2"}>
+          {video}
+          <div className="min-w-0 space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-medium">{v.title}</p>
@@ -82,7 +121,6 @@ export function ClipList({ items, setItems, pages }: {
           {v.progress && <ClipProgress state={v.progress} />}
           {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
           {v.voiceFull && <p className="text-xs text-[var(--ct-mute)]">ไม่เสียเงิน และไม่นับเป็นคลิปฟรี</p>}
-          {v.watch && <video src={v.watch} controls playsInline preload="metadata" className={`w-full rounded-lg ${v.size === "landscape" ? "max-w-[300px]" : v.size === "square" ? "max-w-[260px]" : "max-w-[220px]"}`} style={{ aspectRatio: ASPECT[v.size] }} />}
           <div className="flex flex-wrap gap-2">
             {v.status === "done" && v.save && v.watch && <SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} />}
             {v.status === "done" && <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}
@@ -93,6 +131,17 @@ export function ClipList({ items, setItems, pages }: {
               <button type="button" className={`${small} text-[var(--ct-alert)]`} onClick={() => setConfirming(v.id)}>ลบ</button>
             )}
           </div>
+          {v.status === "done" && writing !== v.id && (
+            <button
+              type="button" onClick={() => setWriting(v.id)}
+              className="inline-flex min-h-9 items-center rounded-lg border border-[var(--ct-accent)] px-3 text-sm font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
+            >
+              {v.post ? (v.post.kind === "customer" ? "ดูข้อความส่งลูกค้า" : "ดูข้อความโพสต์") : v.named || v.personal ? "✎ เขียนข้อความส่งลูกค้าด้วย AI" : "✎ เขียนข้อความโพสต์ด้วย AI"}
+            </button>
+          )}
+          {writing === v.id && (
+            <PostPanel id={v.id} post={v.post} customer={v.named || v.personal} onPost={(p) => gotPost(v.id, p)} onClose={() => setWriting(null)} />
+          )}
           {confirming === v.id && (
             <div role="alertdialog" aria-label="ยืนยันการลบ" className="space-y-2 rounded-lg bg-[var(--ct-alert-bg)] p-2 text-xs text-[var(--ct-alert)]">
               <p>ลบวิดีโอนี้? ลิงก์ที่ส่งให้ลูกค้าไปแล้วจะเปิดไม่ได้</p>
@@ -128,8 +177,12 @@ export function ClipList({ items, setItems, pages }: {
               )}
             </div>
           )}
+          </div>
+          </div>
         </div>
-      ))}
+        );
+      })}
+      </div>
     </div>
   );
 }

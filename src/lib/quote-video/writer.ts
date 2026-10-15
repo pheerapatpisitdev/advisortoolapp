@@ -22,7 +22,7 @@ const TIMEOUT_MS = 20_000;
 
 type Field = "hook" | "headline" | "close" | "loopClose" | "story" | "points";
 
-function factLines(f: QuoteVideoFacts): string[] {
+export function factLines(f: QuoteVideoFacts): string[] {
   const out = [
     `แบบประกัน: ${f.planLine}`,
     `ผู้เอาประกัน: ${f.insuredWho}`,
