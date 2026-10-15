@@ -14,7 +14,7 @@ import { iHealthyCard } from "@/lib/ihealthy-card";
 import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, VOICE_FULL, voiceFullNotice } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
@@ -34,6 +34,8 @@ import { LANG_NAME } from "@/lib/ihealthy-lang";
 import { readLength } from "@/lib/quote-video/told";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
+import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
+import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
 
@@ -79,7 +81,14 @@ export interface VideoItem {
   overReel?: boolean;
   /** a clip still being made: how far, as read now (progress.ts); null once done or failed */
   progress?: ProgressState | null;
+  /** the words the AI wrote to go with it, and the writes left (post-text.ts) */
+  post?: ClipPost | null;
 }
+export interface ClipPost { text: string; tone: PostText["tone"]; voice: PostText["voice"]; kind: PostText["kind"]; left: number }
+const clipPost = (raw: unknown): ClipPost | null => {
+  const p = readPostText(raw);
+  return p ? { text: p.text, tone: p.tone, voice: p.voice, kind: p.kind, left: Math.max(0, POST_TRIES - p.tries) } : null;
+};
 export type Made = { ok: true; id: string } | { ok: false; error: string; needContact?: boolean };
 
 function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
@@ -434,6 +443,9 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   if (row.customer_name) return { ok: false, error: NAMED };
   if (isFhcInput(row.input)) return { ok: false, error: FHC_PRIVATE };
   if (clipSize(row.input) !== "portrait") return { ok: false, error: NOT_PORTRAIT };
+  // the words the agent's AI wrote for this clip, as they kept them (owner, 2026-10-15)
+  const post = readPostText(row.post_text);
+  if (post?.kind === "post") return { ok: true, caption: post.text };
   if (isStoryInput(row.input)) return { ok: true, caption: storyCaption(row.input) };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
@@ -503,7 +515,7 @@ export async function myVideos(board: "quote" | "story" = "quote"): Promise<Vide
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v), fileName: file, ...(await links(file)), paid: paidLine(v),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v), fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
       };
     }
     if (isStoryInput(v.input)) {
@@ -516,7 +528,7 @@ export async function myVideos(board: "quote" | "story" = "quote"): Promise<Vide
         id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
         status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
-        overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v),
+        overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
       };
     }
     const input = v.input;
@@ -547,8 +559,81 @@ export async function myVideos(board: "quote" | "story" = "quote"): Promise<Vide
       fileName: file,
       ...(await links(file)),
       paid: paidLine(v),
+      post: clipPost(v.post_text),
     };
   }));
+}
+
+/** What a clip's words are written from, or null when the clip cannot say. */
+function postBasis(row: VideoRow): PostBasis | null {
+  const input = row.input;
+  if (isFhcInput(input)) {
+    // one customer's money: the message says what the clip covers, and no figure of it
+    return linesBasis("customer", "คลิปสรุปผลตรวจสุขภาพการเงิน (Financial Health Check) ของลูกค้าคนนี้", [
+      "ในคลิปมี ผลตรวจ 6 ด้าน · ยังขาดเรื่องไหน · เหตุการณ์ที่อาจเกิดขึ้น · แผนที่แนะนำ · ช่องทางติดต่อ",
+      "เป็นข้อมูลส่วนตัว ห้ามใส่ตัวเลขใดๆ ในข้อความ",
+    ], row.customer_name || undefined, true);
+  }
+  if (isStoryInput(input)) {
+    const topic = STORY_TOPICS.find((x) => x.key === input.topic)?.name ?? "คลิปเล่าเรื่อง";
+    const facts = storyCaption(input).split("\n").map((l) => l.replace(/^\*/, "").trim()).filter((l) => l && !l.startsWith("#"));
+    if (input.figure) {
+      const f = input.figure;
+      facts.push(`ตัวอย่างเบี้ย ${planName(f.plan)} ${SEX[f.sex]} อายุ ${f.age} ทุน ${f.sumAssured.toLocaleString("en-US")} บาท ปีละ ${f.annual.toLocaleString("en-US")} บาท (เดือนละ ${f.monthly.toLocaleString("en-US")} บาท)`);
+    }
+    if (input.ladder) facts.push(...input.ladder.rows.map((r) => `Life Protect ${SEX[input.ladder!.sex]} อายุ ${r.age} เบี้ยปีละ ${r.annual.toLocaleString("en-US")} บาท`));
+    if (input.home?.kind === "spend") facts.push(`ค่าใช้จ่ายบ้านเดือนละ ${input.home.monthly.toLocaleString("en-US")} บาท ลูกยังต้องพึ่งอีก ${input.home.years} ปี`);
+    if (input.home?.kind === "school") facts.push(`ลูกอายุ ${input.home.childAge} ค่าเรียนปีละ ${input.home.tuition.toLocaleString("en-US")} บาท`);
+    if (input.due?.amount) facts.push(`เบี้ยที่ต้องชำระ ${input.due.amount.toLocaleString("en-US")} บาท`);
+    return linesBasis(row.customer_name ? "customer" : "post", `คลิปเล่าเรื่อง "${topic}"`, facts, row.customer_name || undefined);
+  }
+  const f = quoteVideoFacts(input);
+  if (!f) return null;
+  const lang = input.product === "IHEALTHY" && readVideoLang(input.lang) !== "th" ? LANG_NAME[readVideoLang(input.lang)] : undefined;
+  return quoteBasis(f, row.customer_name, lang);
+}
+
+/**
+ * ข้อความโพสต์ (owner, 2026-10-15, option ก): the AI writes the words to go up with a clip —
+ * free, three writes a clip. A write that does not come back is not counted.
+ */
+export async function writePostText(id: string, tone: unknown, voice: unknown): Promise<{ ok: true; post: ClipPost } | { ok: false; error: string }> {
+  const viewer = await requireMember();
+  const row = await videoOf(viewer.agentId, id).catch(() => null);
+  if (!row || row.status !== "done") return { ok: false, error: "ไม่พบวิดีโอนี้" };
+  const was = readPostText(row.post_text);
+  if (was && was.tries >= POST_TRIES) return { ok: false, error: `เขียนครบ ${POST_TRIES} ครั้งแล้ว แก้ข้อความเองได้ในช่องนี้` };
+  const basis = postBasis(row);
+  if (!basis) return { ok: false, error: NOT_PRICED };
+  const t = readTone(tone);
+  const v = readVoice(voice);
+  const text = await asWho(viewer.agentId, () => writePost(basis, t, v));
+  if (!text) return { ok: false, error: "AI เขียนไม่สำเร็จ ลองกดใหม่อีกครั้ง (ไม่นับครั้ง)" };
+  const post: PostText = { text, tone: t, voice: v, kind: basis.kind, tries: (was?.tries ?? 0) + 1, writtenAt: new Date().toISOString() };
+  try {
+    await savePost(viewer.agentId, id, post);
+  } catch (e) {
+    console.error("clip post not kept:", e instanceof Error ? e.message : "unknown error");
+    return { ok: false, error: "เก็บข้อความไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+  return { ok: true, post: clipPost(post)! };
+}
+
+/** the agent's own edit of the words, kept with the clip; the writes used stay as they were */
+export async function keepPostText(id: string, text: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+  const viewer = await requireMember();
+  if (typeof text !== "string" || !text.trim()) return { ok: false, error: "ข้อความว่าง" };
+  if (text.length > 2000) return { ok: false, error: "ข้อความยาวเกิน 2,000 ตัวอักษร" };
+  const row = await videoOf(viewer.agentId, id).catch(() => null);
+  const was = row ? readPostText(row.post_text) : null;
+  if (!row || !was) return { ok: false, error: "ไม่พบข้อความของวิดีโอนี้" };
+  try {
+    await savePost(viewer.agentId, id, { ...was, text: text.trim() });
+    return { ok: true };
+  } catch (e) {
+    console.error("clip post edit not kept:", e instanceof Error ? e.message : "unknown error");
+    return { ok: false, error: "เก็บข้อความไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
 }
 
 const isVoiceFull = (v: VideoRow) => v.status === "failed" && Boolean(v.error?.startsWith(VOICE_FULL));

@@ -22,7 +22,6 @@ const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
 const label = "mb-1 block text-sm font-medium";
-const card = "rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no-underline hover:bg-[var(--ct-soft)] inline-flex items-center";
 
 /** what the next clip costs, under the button (คลิปเล่าเรื่อง's board too) */
@@ -462,9 +461,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     return n ? n.toLocaleString("en-US") : "";
   };
   return (
-    // the desk's squared paper under the cards, as Organic Studio's (owner, 2026-10-15)
-    <div className="studio-desk mt-5 grid gap-5 rounded-xl border border-[var(--ct-hair)] p-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className={`${card} pb-0 lg:pb-5`}>
+    // Organic Studio's desk (owner, 2026-10-15, mockup https://claude.ai/artifact/8B39tj4VDgrd9RsdCC23RL, option ค):
+    // the form in a tools column that scrolls on its own, the clips on the squared desk beside it
+    <div className="mt-5 grid items-start gap-3 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="@container min-w-0 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4 pb-0 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+        <div className="-mx-4 -mt-4 mb-4 border-b border-[var(--ct-hair)] px-4 py-2.5">
+          <h2 className="font-semibold">เครื่องมือ</h2>
+          <p className="mt-0.5 text-xs text-[var(--ct-mute)]">เลือกแล้วกดสร้าง คลิปจะขึ้นบนโต๊ะ “กำลังสร้าง”</p>
+        </div>
         <Step n={1} title="ทำวิดีโอเรื่อง" summary={summary.what} first>
           <div className="flex flex-wrap gap-2">
             {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(kind === "quote" && product === p.code)} onClick={() => { setKind("quote"); pickProduct(p.code); }}>{p.name}</button>)}
@@ -522,7 +526,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ) : (
           <>
             <Step n={2} title="ลูกค้า" summary={summary.who}>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 @sm:grid-cols-2">
                 <div>
                   <span className={label}>เพศ</span>
                   <div className="flex gap-2">
@@ -556,7 +560,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
 
             <Step n={3} title="แผน" summary={summary.plan}>
               {product === "PENSION" && (
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 @sm:grid-cols-2">
                   <div>
                     <span className={label}>เริ่มรับบำนาญอายุ</span>
                     <div className="flex flex-wrap gap-2">
@@ -596,7 +600,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                 </div>
               )}
               {(source !== "sum" || (product !== "IHEALTHY" && product !== "LEGACY")) && (
-                <div className={`grid gap-4 ${product === "PLB" ? "" : "sm:grid-cols-2"}`}>
+                <div className={`grid gap-4 ${product === "PLB" ? "" : "@sm:grid-cols-2"}`}>
                   {source !== "sum" ? (
                     <div>
                       <label htmlFor="qv-budget" className={label}>{product === "LEGACY" || product === "PLB"
@@ -771,7 +775,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         </Step>
 
         {/* the cost and the button: pinned to the foot of a phone's screen, so they are always in view */}
-        <div className="sticky bottom-0 -mx-5 space-y-2 border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] px-5 pb-4 pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] lg:static lg:mx-0 lg:px-0 lg:pb-0 lg:shadow-none">
+        <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] px-4 pb-4 pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.08)]">
           {error && (
             <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">
               {error.text}{" "}
@@ -794,15 +798,17 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           )}
           <button
             type="button" onClick={make} disabled={busy || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked) || voiceBlocked}
-            className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50 lg:w-auto"
+            className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
           </button>
-          <p className="hidden text-xs text-[var(--ct-mute)] lg:block">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นในรายการ</p>
+          <p className="hidden text-xs text-[var(--ct-mute)] lg:block">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นบนโต๊ะ</p>
         </div>
-      </div>
+      </aside>
 
-      <ClipList items={items} setItems={setItems} pages={pages} />
+      <section aria-label="วิดีโอที่สร้างแล้ว" className="studio-desk min-w-0 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
+        <ClipList items={items} setItems={setItems} pages={pages} />
+      </section>
     </div>
   );
 }

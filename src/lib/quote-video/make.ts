@@ -108,6 +108,8 @@ export interface VideoRow {
   charged_satang: number | null;
   /** how far the making is (progress.ts): written by produce, read by the board */
   progress: unknown;
+  /** the words the agent's AI wrote to go with it (post-text.ts); absent before the column is */
+  post_text?: unknown;
 }
 export type PaidBy = "staff" | "free" | "wallet";
 
@@ -756,4 +758,10 @@ export async function deleteVideo(agentId: string, id: string): Promise<"deleted
 export async function videoLink(path: string, seconds: number, download?: string): Promise<string | null> {
   const { data } = await bucket().createSignedUrl(path, seconds, download ? { download } : undefined);
   return data?.signedUrl ?? null;
+}
+
+/** keeps the words written to go with a clip (post-text.ts); updated_at is left alone, as the estimates read it */
+export async function savePost(agentId: string, id: string, post: unknown): Promise<void> {
+  const { error } = await rows().update({ post_text: post }).eq("id", id).eq("agent_id", agentId).is("deleted_at", null);
+  if (error) throw new Error(`clip post not saved: ${error.message}`);
 }
