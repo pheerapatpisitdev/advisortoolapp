@@ -21,7 +21,7 @@ const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)]"}`;
 
 function Steps({ at }: { at: number }) {
-  const names = ["ยินยอม", "อัดเสียง", "ฟังตัวอย่าง", "อนุมัติ"];
+  const names = ["ยินยอม", "อัดเสียง", "ฟังตัวอย่าง", "ใช้งาน"];
   return (
     <ol className="flex flex-wrap gap-1.5 text-xs" aria-label="ขั้นตอน">
       {names.map((n, i) => (
@@ -219,7 +219,7 @@ export function VoiceBoard({ name, price, extra, pending, texts, previewUrl, act
         <b className="block">นี่คือเสียงโคลนของคุณ</b>
         {previewUrl ? <audio controls src={previewUrl} className="w-full" /> : <p className="text-sm text-[var(--ct-mute)]">ทำตัวอย่างเสียงไม่สำเร็จ แต่เสียงโคลนพร้อมแล้ว</p>}
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={BTN} disabled={busy} onClick={() => step(() => keepVoice(pending.id))}>ใช้เสียงนี้ ส่งให้แอดมินตรวจ</button>
+          <button type="button" className={BTN} disabled={busy} onClick={() => step(() => keepVoice(pending.id))}>ใช้เสียงนี้</button>
           <button type="button" className={GHOST} disabled={busy || left <= 0} onClick={() => step(() => recordAgain(pending.id))}>ไม่เหมือน อัดใหม่ (ฟรีอีก {Math.max(0, left)} ครั้ง)</button>
         </div>
         {alert}
@@ -242,7 +242,7 @@ export function VoiceBoard({ name, price, extra, pending, texts, previewUrl, act
       <Steps at={0} />
       <b className="block">{active ? "อัดเสียงของฉันใหม่" : "โคลนเสียงของคุณ ใช้พากย์ทุกคลิป"}</b>
       <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
-        {active ? `อัดใหม่ฟรี เหลือ ${redosLeft} ครั้งในปีนี้ · เสียงเดิมใช้ได้จนเสียงใหม่ผ่านการตรวจ`
+        {active ? `อัดใหม่ฟรี เหลือ ${redosLeft} ครั้งในปีนี้ · เสียงเดิมใช้ได้จนกดใช้เสียงใหม่`
           : price ? `ค่าเปิดใช้ ฿${price} ครั้งเดียว · หลังจากนั้นคลิปละ +฿${extra} เท่าเสียง ElevenLabs · ถ้าไม่ผ่านการตรวจ คืนเงินเต็มจำนวน`
           : `เปิดใช้ฟรี · คลิปละ +฿${extra} เท่าเสียง ElevenLabs`}
       </p>

@@ -29,7 +29,7 @@ export default async function StoryClipPage() {
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));
   const mine = keyed ? await myVoiceChoice(viewer.agentId).catch(() => null) : null;
   const eleven = keyed ? [...(mine ? [mine] : []), ...elevenVoicesFor(can(viewer, "owner"))] : [];
-  const canClone = keyed && !mine && (await mayClone(viewer).catch(() => false));
+  const canClone = keyed && !mine && mayClone(viewer);
   const [cost, prices, quota] = await Promise.all([myCost(), walletPrices(), voiceQuota()]);
   const initial = await myVideos("story").catch((e) => {
     console.error("story videos not read:", e);
