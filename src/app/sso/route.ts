@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { admit } from "@/lib/auth/access";
+import { noteLogin } from "@/lib/auth/login-log";
 import { startSession } from "@/lib/auth/session";
 import { agentById, staffRow } from "@/lib/auth/viewer";
 import { requestOrigin } from "@/lib/facebook/origin";
@@ -35,5 +36,6 @@ export async function GET(req: Request) {
   if (!admit(agent, staff, Date.now())) return toLogin();
 
   await startSession(agentId);
+  await noteLogin(agentId, "sso", req.headers);
   return NextResponse.redirect(`${origin}/`);
 }

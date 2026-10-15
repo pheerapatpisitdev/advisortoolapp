@@ -5,6 +5,7 @@ import { clientIp } from "@/lib/assistant/rate-limit";
 import { admit } from "@/lib/auth/access";
 import { safeNext } from "@/lib/auth/next";
 import { endEverySession } from "@/lib/auth/epoch";
+import { noteLogin } from "@/lib/auth/login-log";
 import { endSession, readSession, startSession } from "@/lib/auth/session";
 import { agentsByCode, staffRow } from "@/lib/auth/viewer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -134,6 +135,7 @@ export async function signIn(formData: FormData): Promise<{ error: string } | un
   const { error: okError } = await supabase.from("ins_login_attempts").update({ ok: true }).eq("id", attempt.id);
   if (okError) console.error("signIn: could not mark the attempt a success", okError);
   await startSession(agentId);
+  await noteLogin(agentId, "code", await headers());
   redirect(next);
 }
 

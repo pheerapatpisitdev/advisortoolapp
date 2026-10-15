@@ -62,6 +62,9 @@ export const currentScope = cache(async (): Promise<Scope> => {
   }
   if (!viewer) return NONE;
   const owner = { agentId: viewer.agentId, tenantId: viewer.tenantId };
+  // the Super Admin sees everybody's work, members' and every agent's alike, for ประวัติผู้ใช้
+  // (owner, 2026-10-15); an admin among the staff still sees the staff's pool only
+  if (viewer.kind === "super") return { agents: null, unowned: true, pages: null, owner };
   // a Page's pieces are for whoever looks after it; a list that cannot be read shows none
   const pages = [...(await myPageIds().catch(() => new Set<string>()))];
   if (can(viewer, "admin")) return { agents: await staffAgentIds(), unowned: true, pages, owner };

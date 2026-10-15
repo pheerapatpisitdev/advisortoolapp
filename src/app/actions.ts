@@ -4,6 +4,7 @@ import { allow } from "@/lib/assistant/rate-limit";
 import { getViewer } from "@/lib/auth/viewer";
 import { BudgetExceeded } from "@/lib/ai/client";
 import { asWho } from "@/lib/ai/who";
+import { keepAsk } from "@/lib/ai/asks";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
 import { cleanHistory, cleanSlots } from "@/lib/chat/public-input";
@@ -56,8 +57,13 @@ export async function askCopilot(
   if (!passOpen(access)) return { text: PASS_EXPIRED_CHAT, model: "—" };
 
   try {
-    // free, but written down under who asked, so the owner sees who uses it (owner, 2026-10-10)
-    return await asWho(viewer.agentId, () => answerFromKnowledge(asked, turns, known));
+    // free, but written down under who asked, so the owner sees who uses it (owner, 2026-10-10);
+    // the words too, for the Super Admin's ประวัติผู้ใช้ (owner chose ก, 2026-10-15)
+    return await asWho(viewer.agentId, async () => {
+      const got = await answerFromKnowledge(asked, turns, known);
+      await keepAsk(viewer.agentId, asked, got.text, got.model, Boolean(got.failed));
+      return got;
+    });
   } catch (e) {
     if (e instanceof BudgetExceeded) return { text: OUT_OF_BUDGET, model: "—" };
     console.error("copilot failed:", e);

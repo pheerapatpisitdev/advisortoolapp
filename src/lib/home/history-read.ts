@@ -22,8 +22,19 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 const firstHook = (v: unknown) => (Array.isArray(v) && typeof v[0] === "string" ? v[0] : "");
 
 export async function readHistory(viewer: Viewer, from: Date, to: Date, limit: number): Promise<HistItem[]> {
+  return (await readHistoryOf(viewer.agentId, can(viewer, "owner"), from, to, limit)).items;
+}
+
+/**
+ * The same lines for anyone: one person's (`who`), or everybody's when `who` is null — the
+ * Super Admin's ประวัติผู้ใช้ (owner, 2026-10-15). `unowned` adds the pieces that carry no agent
+ * (written before 2026-09-27, all the owner's). `by` says whose each line is, by its key.
+ */
+export async function readHistoryOf(
+  who: string | null, unowned: boolean, from: Date, to: Date, limit: number,
+): Promise<{ items: HistItem[]; by: Map<string, string | null> }> {
   const db = supabaseAdmin();
-  const me = viewer.agentId;
+  const me = who;
   const lo = from.toISOString();
   const hi = to.toISOString();
 
@@ -38,32 +49,34 @@ export async function readHistory(viewer: Viewer, from: Date, to: Date, limit: n
     }
   };
 
-  const piecesQ = db.from("ins_content").select("id, created_at, format, plan_href, campaign_id, hooks:output->hooks")
+  /** the person's rows only, or everybody's */
+  const mine = <Q,>(q: Q, column = "agent_id"): Q => (me ? (q as unknown as { eq(c: string, v: string): Q }).eq(column, me) : q);
+  const piecesQ = db.from("ins_content").select("id, agent_id, created_at, format, plan_href, campaign_id, hooks:output->hooks")
     .neq("status", "trashed").gte("created_at", lo).lt("created_at", hi)
     .order("created_at", { ascending: false }).limit(limit);
 
   const [pieces, posts, videos, customers, thumbnails, readings, sends, entries, pages] = await Promise.all([
-    read("pieces", can(viewer, "owner") ? piecesQ.or(`agent_id.eq.${me},agent_id.is.null`) : piecesQ.eq("agent_id", me)),
-    read("posts", db.from("ins_audit").select("id, at, action, target, detail")
-      .eq("agent_id", me).in("action", POST_ACTIONS).gte("at", lo).lt("at", hi)
+    read("pieces", !me ? piecesQ : unowned ? piecesQ.or(`agent_id.eq.${me},agent_id.is.null`) : piecesQ.eq("agent_id", me)),
+    read("posts", mine(db.from("ins_audit").select("id, agent_id, at, action, target, detail"))
+      .in("action", POST_ACTIONS).gte("at", lo).lt("at", hi)
       .order("at", { ascending: false }).limit(limit)),
-    read("clips", db.from("ins_quote_videos").select("id, created_at, input, customer_name, status")
-      .eq("agent_id", me).is("deleted_at", null).gte("created_at", lo).lt("created_at", hi)
+    read("clips", mine(db.from("ins_quote_videos").select("id, agent_id, created_at, input, customer_name, status"))
+      .is("deleted_at", null).gte("created_at", lo).lt("created_at", hi)
       .order("created_at", { ascending: false }).limit(limit)),
-    read("fhc", db.from("ins_fhc_customers").select("id, created_at, name, gaps")
-      .eq("agent_id", me).gte("created_at", lo).lt("created_at", hi)
+    read("fhc", mine(db.from("ins_fhc_customers").select("id, agent_id, created_at, name, gaps"))
+      .gte("created_at", lo).lt("created_at", hi)
       .order("created_at", { ascending: false }).limit(limit)),
-    read("thumbnails", db.from("ins_thumbnail_history").select("id, created_at")
-      .eq("agent_id", me).gte("created_at", lo).lt("created_at", hi)
+    read("thumbnails", mine(db.from("ins_thumbnail_history").select("id, agent_id, created_at"))
+      .gte("created_at", lo).lt("created_at", hi)
       .order("created_at", { ascending: false }).limit(limit)),
-    read("readings", db.from("ins_describe_history").select("id, created_at, summary_th")
-      .eq("agent_id", me).gte("created_at", lo).lt("created_at", hi)
+    read("readings", mine(db.from("ins_describe_history").select("id, agent_id, created_at, summary_th"))
+      .gte("created_at", lo).lt("created_at", hi)
       .order("created_at", { ascending: false }).limit(limit)),
-    read("ad sends", db.from("ins_ad_send").select("id, created_at, campaign_id, page_id, objective, daily_budget_minor, currency, error")
-      .eq("created_by", me).eq("superseded", false).gte("created_at", lo).lt("created_at", hi)
+    read("ad sends", mine(db.from("ins_ad_send").select("id, created_by, created_at, campaign_id, page_id, objective, daily_budget_minor, currency, error"), "created_by")
+      .eq("superseded", false).gte("created_at", lo).lt("created_at", hi)
       .order("created_at", { ascending: false }).limit(limit)),
-    read("wallet", db.from("ins_wallet_entries").select("id, kind, amount_satang, round, note, created_at")
-      .eq("agent_id", me).gte("created_at", lo).lt("created_at", hi)
+    read("wallet", mine(db.from("ins_wallet_entries").select("id, agent_id, kind, amount_satang, round, note, created_at"))
+      .gte("created_at", lo).lt("created_at", hi)
       .order("created_at", { ascending: false }).limit(limit)),
     myPages().catch(() => []),
   ]);
@@ -119,5 +132,16 @@ export async function readHistory(viewer: Viewer, from: Date, to: Date, limit: n
       round: str(r.round) || null, note: str(r.note) || null, createdAt: str(r.created_at),
     })),
   };
-  return buildHistory(src);
+  const owner = (r: Row, column = "agent_id") => str(r[column]) || null;
+  const by = new Map<string, string | null>([
+    ...pieces.map((r) => [`piece-${str(r.id)}`, owner(r)] as const),
+    ...posts.map((r) => [`post-${String(r.id)}`, owner(r)] as const),
+    ...videos.map((r) => [`clip-${str(r.id)}`, owner(r)] as const),
+    ...customers.map((r) => [`fhc-${str(r.id)}`, owner(r)] as const),
+    ...thumbnails.map((r) => [`thumb-${str(r.id)}`, owner(r)] as const),
+    ...readings.map((r) => [`read-${str(r.id)}`, owner(r)] as const),
+    ...sends.map((r) => [`send-${str(r.id)}`, owner(r, "created_by")] as const),
+    ...entries.map((r) => [`money-${str(r.id)}`, owner(r)] as const),
+  ]);
+  return { items: buildHistory(src), by };
 }

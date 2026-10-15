@@ -39,15 +39,25 @@ async function mayDraw(spec: PosterSpec): Promise<Response | null> {
     spec.logo ? mayUseLogo(spec.logo.path).catch(() => false) : true,
   ]);
   if (!seen.every(Boolean) || !logo) return new Response("ไม่พบรูปนี้", { status: 404 });
-  if (seen.some((p) => p?.format === "ad")) return refuseUnless("owner");
+  if (seen.some((p) => p?.format === "ad")) return refuseUnlessEither("owner");
   return null;
+}
+
+/**
+ * The front's permission, or the Super Admin's: the back office's ประวัติผู้ใช้ shows anybody's
+ * posters (owner, 2026-10-15), and refuseUnless keeps the Super Admin out of the front's routes.
+ */
+async function refuseUnlessEither(perm?: "owner"): Promise<Response | null> {
+  const front = await refuseUnless(perm);
+  if (!front) return null;
+  return (await refuseUnless("backoffice")) ? front : null;
 }
 
 /** drawing is free but not nothing; a script asking a thousand times an hour is not a person */
 const allow = limiter(400, 60 * 60_000);
 
 export async function GET(req: NextRequest) {
-  const refused = await refuseUnless();
+  const refused = await refuseUnlessEither();
   if (refused) return refused;
   const who = clientIp(req.headers);
   if (!allow(`poster:${who}`)) return new Response("ขอรูปถี่เกินไป รอสักครู่นะครับ", { status: 429 });

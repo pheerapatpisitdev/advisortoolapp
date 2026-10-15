@@ -3,6 +3,7 @@ import { clientIp } from "@/lib/assistant/rate-limit";
 import { checkIdToken, exchangeCode, GOOGLE_COOKIE, GOOGLE_COOKIE_PATH, loginWithError, readLogin } from "@/lib/auth/google";
 import { memberFromGoogle } from "@/lib/auth/google-member";
 import { superFromGoogle } from "@/lib/auth/google-super";
+import { noteLogin } from "@/lib/auth/login-log";
 import { startSession } from "@/lib/auth/session";
 import { requestOrigin } from "@/lib/facebook/origin";
 import { REF_COOKIE } from "@/lib/referrals/referral";
@@ -46,6 +47,7 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
 
   let id: string;
   let created = false;
+  let how: "google" | "super" = "google";
   let to = next;
   // startSession and the redirect stay outside: a failure past this point is the system's
   try {
@@ -57,6 +59,7 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
     const admin = await superFromGoogle(user);
     if (admin.ok) {
       id = admin.id;
+      how = "super";
       // back to the back-office page they were sent from, else its front page
       to = next === "/admin" || next.startsWith("/admin/") ? next : "/admin";
     } else if (admin.listed) {
@@ -76,6 +79,7 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
   const invited = created ? cookieFrom(req, REF_COOKIE) : null;
   if (invited) await attachReferral(id, invited).catch((e) => console.error(`referral of new member ${id} not noted:`, e));
   await startSession(id);
+  await noteLogin(id, how, req.headers);
   // the owner's LINE hears of a new member (owner chose ก, 2026-10-15), after the answer, so the
   // sign-in waits for nothing; alertNewMember never throws
   if (created) after(() => alertNewMember(id));

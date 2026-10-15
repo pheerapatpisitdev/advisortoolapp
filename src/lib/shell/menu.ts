@@ -260,6 +260,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
           { href: "/admin/team", label: "ทีมงาน", icon: "badge", hue: "#334084" },
           // members outside UnitOS who signed up themselves (owner, 2026-10-01)
           { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#3a3784" },
+          // everybody's whole history: every transaction and everything made (owner, 2026-10-15)
+          { href: "/admin/history", label: "ประวัติผู้ใช้", icon: "clock", hue: "#3d3684" },
           // เสียงของฉัน: the voice slots, the pilot's invites, and the cloned voices to hear (owner, 2026-10-15)
           { href: "/admin/voices", label: "เสียงของตัวแทน", icon: "pulse", hue: "#3f3584" },
         ],
