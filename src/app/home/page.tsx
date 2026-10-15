@@ -94,7 +94,12 @@ export default async function Home() {
     customers,
     clipsMaking: videos && videos
       .filter((v) => v.status === "drawing" || v.status === "rendering")
-      .map((v) => ({ id: v.id, label: v.customer_name ? `วิดีโอนำเสนอ · ${v.customer_name}` : "วิดีโอนำเสนอ", status: v.status as "drawing" | "rendering" })),
+      .map((v) => {
+        // a คลิปเล่าเรื่อง is made on its own board (owner, 2026-10-15)
+        const story = (v.input as { product?: string }).product === "STORY";
+        const what = story ? "คลิปเล่าเรื่อง" : "วิดีโอนำเสนอ";
+        return { id: v.id, label: v.customer_name ? `${what} · ${v.customer_name}` : what, status: v.status as "drawing" | "rendering", href: story ? "/studio/story-clip" : "/studio/quote-video" };
+      }),
   });
 
   return (

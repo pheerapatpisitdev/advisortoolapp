@@ -27,7 +27,7 @@ export interface TodayInput {
   /** the viewer's own FHC customers, newest first; null when unread */
   customers: { id: string; name: string; createdAt: string; gaps: Gap[] }[] | null;
   /** the viewer's clips still being made */
-  clipsMaking: { id: string; label: string; status: "drawing" | "rendering" }[] | null;
+  clipsMaking: { id: string; label: string; status: "drawing" | "rendering"; href?: string }[] | null;
 }
 
 export type Tone = "plain" | "warn";
@@ -126,7 +126,7 @@ export function buildToday(i: TodayInput): Today {
     todos.push({
       key: `clip-${c.id}`, kind: "clip", title: c.label,
       note: c.status === "rendering" ? "กำลังตัดต่อคลิป" : "กำลังวาดภาพในคลิป",
-      href: "/studio/quote-video", action: "ดู",
+      href: c.href ?? "/studio/quote-video", action: "ดู",
     });
   }
   for (const c of (i.customers ?? []).filter((c) => open(c.gaps).length > 0).slice(0, FHC_SHOWN)) {

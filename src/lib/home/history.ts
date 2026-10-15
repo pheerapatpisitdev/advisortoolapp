@@ -127,12 +127,13 @@ export function buildHistory(s: HistSources): HistItem[] {
   }
 
   for (const v of s.videos) {
-    const plan = v.fhc ? "สรุป FHC" : `วิดีโอนำเสนอ ${PRODUCT_NAME[v.product ?? "LIFEPROTECT"] ?? ""}`.trim();
+    const story = v.product === "STORY";
+    const plan = v.fhc ? "สรุป FHC" : story ? "คลิปเล่าเรื่อง" : `วิดีโอนำเสนอ ${PRODUCT_NAME[v.product ?? "LIFEPROTECT"] ?? ""}`.trim();
     items.push({
       key: `clip-${v.id}`, kind: "clip", word: KIND_WORD.clip, at: v.createdAt,
       title: v.customer ? `${plan} · ${v.customer}` : plan,
-      note: [VIDEO_STATE[v.status] ?? v.status, v.fhc ? "" : v.motion ? "Motion Graphic" : "ปกติ"].filter(Boolean).join(" · "),
-      href: "/studio/quote-video",
+      note: [VIDEO_STATE[v.status] ?? v.status, v.fhc || story ? "" : v.motion ? "Motion Graphic" : "ปกติ"].filter(Boolean).join(" · "),
+      href: story ? "/studio/story-clip" : "/studio/quote-video",
       action: v.status === "done" ? "ดูคลิป" : "เปิด",
     });
   }

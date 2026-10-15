@@ -10,6 +10,8 @@ describe("the owner's price list", () => {
       videoClassic: 500, videoMotion: 1000, videoFhc: 300, elevenExtra: 200,
       // the longer clips (owner, 2026-10-13)
       videoLongClassic: 800, videoLongMotion: 1500, videoMaxClassic: 1000, videoMaxMotion: 2000,
+      // คลิปเล่าเรื่อง (owner, 2026-10-15): the classic clip's price until the owner sets its own
+      videoStory: 500,
     });
   });
 

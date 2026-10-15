@@ -12,7 +12,7 @@ export type ProgressStep = "voice" | "files" | "draw" | "submit";
 /** what produce has done, on the row: `done` of `of` lines spoken or scenes drawn */
 export interface ProgressNote { step: ProgressStep; done: number; of: number }
 
-export type ClipKind = `${"classic" | "motion"}-${"short" | "full" | "long" | "max"}` | "fhc";
+export type ClipKind = `${"classic" | "motion"}-${"short" | "full" | "long" | "max"}` | "fhc" | "story";
 /** seconds: from asking to the render starting, and the render itself */
 export interface Estimate { pre: number; render: number }
 
@@ -31,6 +31,8 @@ export const DEFAULT_ESTIMATES: Record<ClipKind, Estimate> = {
   "motion-long": { pre: 80, render: 280 },
   "motion-max": { pre: 110, render: 370 },
   fhc: { pre: 45, render: 155 },
+  // คลิปเล่าเรื่อง (owner, 2026-10-15): guessed as an FHC summary until it has its own
+  story: { pre: 60, render: 155 },
 };
 /** fewer finished clips of a kind than this, and its default stands */
 export const MIN_SAMPLES = 3;
@@ -39,8 +41,9 @@ export const RECENT = 20;
 /** a render longer than this is a clip that hung, not a measure */
 export const MAX_RENDER_SEC = 15 * 60;
 
-export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown }): ClipKind {
+export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown }): ClipKind {
   if (input.fhc) return "fhc";
+  if (input.product === "STORY") return "story";
   const length = input.length === "short" || input.length === "long" || input.length === "max" ? input.length : "full";
   return `${input.style === "motion" ? "motion" : "classic"}-${length}`;
 }
