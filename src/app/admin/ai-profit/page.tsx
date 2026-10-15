@@ -14,11 +14,11 @@ export const metadata: Metadata = { title: "กำไรค่า AI | AdvisorTo
  * กำไรค่า AI (owner, 2026-10-15; mockup https://claude.ai/artifact/AtZX1kdb8bWBLLtBSEGUZc):
  * what the AI cost, what people paid for it, and the difference. The owner chose ก: the cost is
  * the system's own estimate, with no box for the companies' real bills. See src/lib/stats/ai-profit.ts.
+ * The money customers transferred in, and that money less the cost, since 2026-10-15 (owner chose ก).
  */
 
 const baht = (n: number) => `฿${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const signed = (n: number) => (n < 0 ? `−${baht(n)}` : baht(n));
-const verdict = (n: number) => (n < 0 ? `ขาดทุน ${baht(n)}` : n > 0 ? `กำไร ${baht(n)}` : "เท่าทุน");
 const tone = (n: number) => (n < 0 ? "text-[var(--bot-red-ink)]" : n > 0 ? "text-[var(--bot-ok)]" : "");
 
 const th = "bg-[var(--bot-navy)] px-2.5 py-2 text-left font-semibold whitespace-nowrap text-white";
@@ -45,7 +45,7 @@ export default async function AiProfitPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHead title="กำไรค่า AI" hint="ค่า AI ที่จ่ายให้บริษัท AI เทียบกับที่เก็บจากผู้ใช้ตามราคาที่เราตั้ง">
+      <PageHead title="กำไรค่า AI" hint="ค่า AI ที่จ่ายให้บริษัท AI เทียบกับที่เก็บจากผู้ใช้ และเงินที่ลูกค้าโอนเข้า">
         <nav aria-label="ช่วงเวลา" className="flex flex-wrap gap-1.5">
           {chips.map((c) => (
             <Link
@@ -71,29 +71,51 @@ export default async function AiProfitPage({ searchParams }: { searchParams: Pro
   );
 }
 
+const box = "rounded-lg border border-[var(--bot-line)] bg-[var(--bot-surface)] p-4 min-w-0";
+
+/** one line of the sum: what it is, the sum written out, and what came of it */
+function Result({ what, eq, thb, word }: { what: string; eq: string; thb: number; word: [string, string] }) {
+  const below = thb < 0;
+  return (
+    <div className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3 ${below
+      ? "border-[var(--bot-red)] bg-[var(--bot-red-soft)]"
+      : "border-[var(--bot-ok-line)] bg-[var(--bot-ok-soft)]"}`}>
+      <div className="min-w-0">
+        <div className="text-xs text-[var(--bot-ink-mute)]">{what}</div>
+        <div className="text-sm tabular-nums">{eq}</div>
+      </div>
+      <div className={`text-2xl font-semibold tabular-nums ${below ? "text-[var(--bot-red-ink)]" : "text-[var(--bot-ok)]"}`}>
+        {thb === 0 ? "เท่าทุน" : `${below ? word[1] : word[0]} ${baht(thb)}`}
+      </div>
+    </div>
+  );
+}
+
 function ProfitView({ p }: { p: Profit }) {
-  const loss = p.profitThb < 0;
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-[var(--bot-line)] bg-[var(--bot-surface)] p-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className={box}>
           <div className="text-xs text-[var(--bot-ink-mute)]">① ค่า AI ที่จ่ายให้บริษัท AI (ต้นทุน)</div>
           <div className="mt-1 text-3xl font-semibold tabular-nums">{baht(p.cost.thb)}</div>
           <div className="mt-0.5 text-xs text-[var(--bot-ink-mute)]">ระบบคำนวณจากจำนวนที่ใช้ × ราคาของแต่ละรุ่น (1 ดอลลาร์ = 36 บาท)</div>
         </div>
-        <div className="rounded-lg border border-[var(--bot-line)] bg-[var(--bot-surface)] p-4">
+        <div className={box}>
           <div className="text-xs text-[var(--bot-ink-mute)]">② ค่า AI ที่เก็บจากผู้ใช้ (ราคาที่เราตั้ง)</div>
           <div className="mt-1 text-3xl font-semibold tabular-nums">{baht(p.revenue.thb)}</div>
           <div className="mt-0.5 text-xs text-[var(--bot-ink-mute)]">หักจากกระเป๋าเงินเมื่อใช้งาน + ค่าสมาชิกที่ขายได้</div>
         </div>
+        <div className={box}>
+          <div className="text-xs text-[var(--bot-ink-mute)]">③ เงินที่ลูกค้าโอนเข้าบัญชี</div>
+          <div className="mt-1 text-3xl font-semibold tabular-nums">{signed(p.moneyIn.thb)}</div>
+          <div className="mt-0.5 text-xs text-[var(--bot-ink-mute)]">
+            เติมกระเป๋า {p.moneyIn.topups.count.toLocaleString("en-US")} ครั้ง + ค่าสมาชิก {p.moneyIn.passes.count.toLocaleString("en-US")} ครั้ง · หักเงินที่คืนลูกค้าแล้ว
+          </div>
+        </div>
       </div>
 
-      <div className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3 ${loss
-        ? "border-[var(--bot-red)] bg-[var(--bot-red-soft)]"
-        : "border-[var(--bot-ok-line)] bg-[var(--bot-ok-soft)]"}`}>
-        <div className="text-sm tabular-nums">② {baht(p.revenue.thb)} − ① {baht(p.cost.thb)} =</div>
-        <div className={`text-2xl font-semibold tabular-nums ${loss ? "text-[var(--bot-red-ink)]" : "text-[var(--bot-ink)]"}`}>{verdict(p.profitThb)}</div>
-      </div>
+      <Result what="กำไรจากการใช้งาน" eq={`② ${baht(p.revenue.thb)} − ① ${baht(p.cost.thb)} =`} thb={p.profitThb} word={["กำไร", "ขาดทุน"]} />
+      <Result what="เงินสดเข้า หักค่า AI" eq={`③ ${signed(p.moneyIn.thb)} − ① ${baht(p.cost.thb)} =`} thb={p.cashThb} word={["เหลือ", "ขาด"]} />
 
       <Card title="แยกว่ากำไรหรือขาดทุนตรงไหน">
         <div className="overflow-x-auto">
@@ -121,6 +143,29 @@ function ProfitView({ p }: { p: Profit }) {
             </tbody>
           </table>
         </div>
+      </Card>
+
+      <Card title="③ เงินที่ลูกค้าโอนเข้า">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead><tr><th className={th}>รายการ</th><th className={`${th} text-right`}>ครั้ง</th><th className={`${th} text-right`}>จำนวนเงิน</th></tr></thead>
+            <tbody>
+              {([
+                ["เติมเงินเข้ากระเป๋า (บัตร / PromptPay)", p.moneyIn.topups],
+                ["ค่าสมาชิกทั่วไป", p.moneyIn.passes],
+                ["คืนเงิน / ลูกค้าขอเงินคืนจากธนาคาร", p.moneyIn.refunds],
+              ] as const).map(([name, x]) => (
+                <tr key={name}><td className={td}>{name}</td><td className={`${td} ${r}`}>{x.count.toLocaleString("en-US")}</td><td className={`${td} ${r}`}>{signed(x.thb)}</td></tr>
+              ))}
+              <tr className="font-semibold"><td className="px-2.5 py-2">รวมเงินเข้าจริง</td><td className="px-2.5 py-2" /><td className={`px-2.5 py-2 ${r}`}>{signed(p.moneyIn.thb)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        {p.unspentThb != null && (
+          <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">
+            เงินในกระเป๋าที่ลูกค้ายังไม่ได้ใช้ตอนนี้ <b className="text-[var(--bot-ink)]">{baht(p.unspentThb)}</b> เป็นเงินที่ลูกค้ายังใช้แลกงาน AI ได้อีก
+          </p>
+        )}
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">

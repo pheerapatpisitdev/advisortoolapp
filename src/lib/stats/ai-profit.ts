@@ -13,6 +13,10 @@ import { ROUND_NAMES } from "@/lib/wallet/labels";
  * Revenue is what was taken from wallets as rounds were delivered (`charge` entries), plus the
  * members' passes sold. A top-up is not revenue until it is spent: until then it is the
  * person's money, and a refund gives it back.
+ *
+ * Money in (owner chose ก, 2026-10-15) is the other way of looking: what customers actually
+ * transferred — top-ups and passes — less what went back to them, set against the same cost.
+ * Both lines show, because money still in a wallet is AI work still owed.
  */
 
 export interface ProfitInput {
@@ -22,7 +26,13 @@ export interface ProfitInput {
   charges: { round: string | null; satang: number }[];
   /** passes sold (+satang) and passes refunded (−satang of the pass they cancel) */
   passes: { satang: number }[];
+  /** `topup` (+satang) and `clawback` (−satang) entries: money transferred in, and money handed back */
+  moneyIn: { kind: "topup" | "clawback"; satang: number }[];
+  /** what is in every wallet now, not spent yet; null when it could not be read */
+  unspentSatang: number | null;
 }
+
+export interface MoneyLine { count: number; thb: number }
 
 export interface ProfitItem { key: string; name: string; count: number; thb: number }
 
@@ -33,6 +43,11 @@ export interface Profit {
   profitThb: number;
   /** the part people asked for, against what they paid: the bots are left out */
   userProfitThb: number;
+  /** what customers transferred in, less refunds (refunds are below zero) */
+  moneyIn: { thb: number; topups: MoneyLine; passes: MoneyLine; refunds: MoneyLine };
+  /** money in − cost */
+  cashThb: number;
+  unspentThb: number | null;
 }
 
 export const PASS_KEY = "member-pass";
@@ -64,6 +79,15 @@ export function buildProfit(i: ProfitInput): Profit {
     items.set(PASS_KEY, { key: PASS_KEY, name: "ค่าสมาชิกทั่วไป", count: sold, thb });
   }
 
+  const topups = { count: 0, thb: 0 }, refunds = { count: 0, thb: 0 };
+  for (const m of i.moneyIn) {
+    const at = m.kind === "topup" ? topups : refunds;
+    at.count += 1;
+    at.thb += m.satang / 100;
+  }
+  const pass = items.get(PASS_KEY) ?? { count: 0, thb: 0 };
+  const inThb = topups.thb + pass.thb + refunds.thb;
+
   const costThb = userThb + systemThb;
   const revenueThb = [...items.values()].reduce((n, x) => n + x.thb, 0);
   return {
@@ -77,5 +101,13 @@ export function buildProfit(i: ProfitInput): Profit {
     },
     profitThb: round2(revenueThb - costThb),
     userProfitThb: round2(revenueThb - userThb),
+    moneyIn: {
+      thb: round2(inThb),
+      topups: { count: topups.count, thb: round2(topups.thb) },
+      passes: { count: pass.count, thb: round2(pass.thb) },
+      refunds: { count: refunds.count, thb: round2(refunds.thb) },
+    },
+    cashThb: round2(inThb - costThb),
+    unspentThb: i.unspentSatang == null ? null : round2(i.unspentSatang / 100),
   };
 }

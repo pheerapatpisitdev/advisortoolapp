@@ -5,21 +5,27 @@ import { all } from "./usage-read";
 
 /**
  * Reads what กำไรค่า AI counts for one period [from, to): the ledger's lines, the wallets'
- * charges and the members' passes. A table that cannot be read throws, so the page says so
- * rather than showing a profit that is quietly wrong.
+ * charges, top-ups and refunds, and the members' passes; and what is in the wallets now. A
+ * table that cannot be read throws, so the page says so rather than showing a profit that is
+ * quietly wrong.
  */
 export async function readProfit(from: Date, to: Date): Promise<Profit> {
   const db = supabaseAdmin();
   const lo = from.toISOString();
   const hi = to.toISOString();
-  const [models, ledger, charges, passes] = await Promise.all([
+  const [models, ledger, wallet, passes, balances] = await Promise.all([
     db.from("model_configs").select("provider, model_name"),
     all("ledger", (a, b) => db.from("ins_usage_ledger").select("model, agent_id, cost_thb")
       .gte("created_at", lo).lt("created_at", hi).order("created_at").order("id").range(a, b)),
-    all("wallet", (a, b) => db.from("ins_wallet_entries").select("round, amount_satang")
-      .eq("kind", "charge").gte("created_at", lo).lt("created_at", hi).order("created_at").order("id").range(a, b)),
+    all("wallet", (a, b) => db.from("ins_wallet_entries").select("kind, round, amount_satang")
+      .in("kind", ["charge", "topup", "clawback"]).gte("created_at", lo).lt("created_at", hi).order("created_at").order("id").range(a, b)),
     all("passes", (a, b) => db.from("ins_member_passes").select("kind, amount_satang, revokes")
       .in("kind", ["paid", "revoked"]).gte("created_at", lo).lt("created_at", hi).order("id").range(a, b)),
+    // what is in the wallets now: the same however far back the period goes
+    all("balances", (a, b) => db.from("ins_wallets").select("balance_satang").order("agent_id").range(a, b)).catch((e) => {
+      console.error("ai profit: wallet balances not read:", e);
+      return null;
+    }),
   ]);
   if (models.error) throw new Error(`models: ${models.error.message}`);
 
@@ -35,9 +41,14 @@ export async function readProfit(from: Date, to: Date): Promise<Profit> {
   return buildProfit({
     providerOf: providerMap((models.data ?? []) as { provider: string; model_name: string }[]),
     ledger: ledger.map((r) => ({ model: typeof r.model === "string" ? r.model : null, agentId: typeof r.agent_id === "string" ? r.agent_id : null, thb: Number(r.cost_thb ?? 0) })),
-    charges: charges.map((r) => ({ round: typeof r.round === "string" ? r.round : null, satang: Number(r.amount_satang ?? 0) })),
+    charges: wallet.filter((r) => r.kind === "charge").map((r) => ({ round: typeof r.round === "string" ? r.round : null, satang: Number(r.amount_satang ?? 0) })),
     passes: passes.map((p) => ({
       satang: p.kind === "paid" ? Number(p.amount_satang ?? 0) : -(sold.get(Number(p.revokes)) ?? 0),
     })).filter((p) => p.satang !== 0),
+    // a clawback is what a refund took back from a wallet; a shortfall it could not take is paid
+    // later by more clawbacks, so over time they add up to what was refunded
+    moneyIn: wallet.filter((r) => r.kind === "topup" || r.kind === "clawback")
+      .map((r) => ({ kind: r.kind as "topup" | "clawback", satang: Number(r.amount_satang ?? 0) })),
+    unspentSatang: balances ? balances.reduce((n, r) => n + Number(r.balance_satang ?? 0), 0) : null,
   });
 }
