@@ -4,8 +4,9 @@ import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectModes, termAt as lifeProtectTerm } from "@/lib/lifeprotect-quote";
 import { DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, faceOf, FACES } from "@/lib/story/faces";
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, topicOf, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
+import { festivalGreeting } from "./story-after";
 import { knowEpisode, type KnowSceneKey } from "./story-knowledge";
 import { sizeOf, type VideoSize } from "./timeline";
 
@@ -59,6 +60,10 @@ export interface StoryVideoInput {
   ladder?: StoryLadder;
   /** เสาหลักหายไป and ค่าเรียนลูก: the household's own numbers, as the agent typed them */
   home?: StoryHome;
+  /** เตือนชำระเบี้ย: the day the premium falls due (YYYY-MM-DD), and how much if the agent said */
+  due?: { date: string; amount?: number };
+  /** เทศกาล: which one */
+  festival?: Festival;
 }
 
 /** a month's spending and the years the children lean on it ("spend"); a child's age and a year's fees ("school") */
@@ -146,8 +151,22 @@ const pickable = (v: unknown): v is string => typeof v === "string" && FACES.som
  * kept only where the topic shows one: a plan's for กองกลาง 48 คน and ทุนประกัน กับ เบี้ย, the
  * ladder (`ladder: true`) for ยังหนุ่ม ไม่ต้องมี, worked out here for the hero's sex.
  */
+/** a premium's due day as the agent typed it, or the words for what is wrong */
+export function storyDue(v: unknown): { date: string; amount?: number } | string {
+  const o = (v ?? {}) as Record<string, unknown>;
+  const date = String(o.date ?? "");
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const d = m ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : null;
+  if (!m || !d || d.getUTCDate() !== Number(m[3]) || d.getUTCMonth() !== Number(m[2]) - 1) return "ใส่วันครบกำหนดชำระเบี้ย";
+  if (o.amount === undefined || o.amount === null || o.amount === "") return { date };
+  const amount = Number(o.amount);
+  if (!Number.isInteger(amount) || amount < 1 || amount > 10_000_000) return "ยอดเบี้ย 1 – 10,000,000 บาท";
+  return { date, amount };
+}
+
 export function checkedStory(
-  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "home"> & { figure?: unknown; ladder?: unknown; home?: unknown }, narrator: "F" | "M", voice?: string,
+  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "home" | "due" | "festival"> & { figure?: unknown; ladder?: unknown; home?: unknown; due?: unknown; festival?: unknown },
+  narrator: "F" | "M", voice?: string,
 ): StoryVideoInput | string {
   const topic = topicOf(String(v.topic ?? ""));
   if (!topic) return "เลือกเรื่อง";
@@ -168,6 +187,19 @@ export function checkedStory(
     if (topic.plans && !topic.plans.includes(f.plan)) return `เรื่องนี้ใช้เบี้ยของ ${topic.plans.map(planName).join(" หรือ ")}`;
     figure = f;
   }
+  if (topic.figureRequired && !figure) return "ใส่แบบที่ลูกค้าซื้อ";
+  let due: { date: string; amount?: number } | undefined;
+  if (topic.ask === "due") {
+    const d = storyDue(v.due);
+    if (typeof d === "string") return d;
+    due = d;
+  }
+  let festival: Festival | undefined;
+  if (topic.ask === "festival") {
+    const f = FESTIVALS.find((x) => x.key === v.festival);
+    if (!f) return "เลือกเทศกาล";
+    festival = f.key;
+  }
   let home: StoryHome | undefined;
   if (v.home && topic.home) {
     const h = storyHome(topic, v.home);
@@ -184,6 +216,7 @@ export function checkedStory(
     product: "STORY", topic: topic.key, narrator, ...(voice ? { voice } : {}), style: "story", length: "full",
     size: sizeOf(v), palette: v.palette === "color" ? "color" : "reveal",
     faces: { narrator: narratorFace, hero, ...(partner ? { partner } : {}) }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}), ...(home ? { home } : {}),
+    ...(due ? { due } : {}), ...(festival ? { festival } : {}),
   };
 }
 
@@ -247,17 +280,27 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
   tuition: ["ลูกยังต้องเรียนอีกกี่ปี ถ้าวันหนึ่งพ่อแม่ไม่อยู่ ใครจ่าย?", "ประกันชีวิตทุนเท่าค่าเรียน ช่วยให้ลูกเรียนจนจบ"],
   prebaby: ["ก่อนมีลูก ต้องเตรียมอะไร?", "ประกันสุขภาพแม่ ประกันชีวิตพ่อแม่ และเงินสำรอง เตรียมก่อน อุ่นใจกว่า"],
   eldercare: ["ถ้าคนที่ดูแลพ่อแม่ ล้มป่วยเสียเอง?", "ประกันโรคร้ายแรงจ่ายเงินก้อนตามเงื่อนไข ใช้รักษาตัว และดูแลพ่อแม่ต่อได้"],
+  deliver: ["ขอบคุณที่ไว้วางใจ", "สรุปสิ่งที่ได้จากกรมธรรม์ เบี้ยที่ต้องจ่าย และสิ่งที่ควรรู้"],
+  claimihu: ["ป่วยต้องนอนโรงพยาบาล เคลมประกันสุขภาพยังไง?", "โรงพยาบาลคู่สัญญาไม่ต้องสำรองจ่าย สำรองจ่ายแล้วยื่นเอกสารเบิกคืนได้"],
+  claimish: ["ตรวจเจอโรคร้ายแรง เคลมยังไง?", "ประกันโรคร้ายแรงจ่ายตามระยะของโรค เจอเมื่อไร ทักตัวแทนทันที"],
+  remind: ["ใกล้ครบกำหนดชำระเบี้ย", "จ่ายให้ตรงเวลา ความคุ้มครองจะได้ต่อเนื่อง"],
+  birthday: ["สุขสันต์วันเกิด", "ขอให้สุขภาพแข็งแรง มีความสุขมาก ๆ"],
+  festival: ["", ""],
 };
 
 /** the caption a story clip goes up on a Page with: no customer, no premium of anyone's */
 export function storyCaption(input: StoryVideoInput): string {
+  if (input.topic === "festival") {
+    const g = festivalGreeting(input.festival ?? "newyear");
+    return [g.title.filter(Boolean).join(" "), g.wish, "", `#${FESTIVALS.find((f) => f.key === input.festival)?.name ?? "เทศกาล"} #ด้วยความห่วงใย`].join("\n");
+  }
   if (input.topic !== "pool48") {
     return [
       ...EPISODE_CAPTION[input.topic],
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
       ...(input.figure || input.ladder ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : planName(input.figure!.plan)} เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท`] : []),
       "",
-      topicOf(input.topic)?.shelf === "family" ? "#ครอบครัว #ประกันชีวิต" : "#ความรู้ประกัน #ประกันชีวิต",
+      { family: "#ครอบครัว #ประกันชีวิต", after: "#ดูแลหลังการขาย #ประกันชีวิต" }[topicOf(input.topic)?.shelf as string] ?? "#ความรู้ประกัน #ประกันชีวิต",
     ].join("\n");
   }
   return [

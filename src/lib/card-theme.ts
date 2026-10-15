@@ -306,4 +306,8 @@ export const STORY_CLIP_COLORS = {
   struck: "#8b8c90",
   /* the phone around the form's preview */
   bezel: "#111317",
+  /* หลังการขาย: the birthday cake's icing, and a Songkran bowl of water */
+  cake: "#f3c9c0",
+  water: "#cfe3ea",
+  waterInk: "#3b7ea1",
 } as const;
