@@ -8,6 +8,9 @@ create table if not exists public.ins_prompt_drafts (
   agent_id uuid not null,
   brief jsonb not null,
   script jsonb not null,
+  -- the clip this draft was made into (ins_quote_videos.id): claimed by one conditional update, so a
+  -- second press of สร้างคลิป is refused; given back when the clip fails or cannot be paid for
+  made_clip_id uuid,
   created_at timestamptz not null default now()
 );
 create index if not exists ins_prompt_drafts_agent_created on public.ins_prompt_drafts (agent_id, created_at desc);

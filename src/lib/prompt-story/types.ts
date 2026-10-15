@@ -24,6 +24,8 @@ export interface PromptStoryInput {
   pictures?: (string | null)[];
   /** the written draft this clip was made from: a second press of the same draft is refused */
   draftId?: string;
+  /** a picture redrawn and being cut in: its wallet hold, taken when the cut is done, given back if it fails */
+  redraw?: { hold: string; satang: number; thb: number };
 }
 
 export const isPromptStory = (v: { product?: string }): v is PromptStoryInput => v.product === "FREESTORY";

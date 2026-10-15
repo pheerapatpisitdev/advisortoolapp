@@ -58,5 +58,7 @@ describe("migration", () => {
     expect(sql).toMatch(/enable row level security/);
     expect(sql).toMatch(/revoke all on public\.ins_prompt_drafts from public, anon, authenticated/);
     expect(sql).not.toMatch(/create policy/);
+    // the clip a draft was made into: the one claim that stops a second press
+    expect(sql).toMatch(/made_clip_id uuid/);
   });
 });

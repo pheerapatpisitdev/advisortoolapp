@@ -16,3 +16,20 @@ export async function draftsLastHour(agentId: string): Promise<number> {
   if (error) throw new Error(error.message);
   return count ?? 0;
 }
+
+/**
+ * The draft taken for one clip, in one conditional update: true only for the agent's own draft not
+ * yet made into a clip. A second press, or someone else's draft, gets false.
+ */
+export async function claimDraft(agentId: string, draftId: string, clipId: string): Promise<boolean> {
+  const { data, error } = await drafts().update({ made_clip_id: clipId })
+    .eq("id", draftId).eq("agent_id", agentId).is("made_clip_id", null).select("id").maybeSingle();
+  if (error) throw new Error(`draft not claimed: ${error.message}`);
+  return Boolean(data);
+}
+
+/** the draft given back, only if it is still held by this clip */
+export async function releaseDraft(draftId: string, clipId: string): Promise<void> {
+  const { error } = await drafts().update({ made_clip_id: null }).eq("id", draftId).eq("made_clip_id", clipId);
+  if (error) console.error("draft not given back:", error.message);
+}

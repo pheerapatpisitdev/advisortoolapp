@@ -32,6 +32,7 @@ import { topicOf } from "@/lib/story/topics";
 import { isPromptStory, promptPicturePrice, promptPicturesPrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
+import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
 import { freeFrame, freeHandText, freeWindows } from "@/lib/prompt-story/frames";
 import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
@@ -184,7 +185,7 @@ export async function costView(viewer: Viewer): Promise<CostView> {
  * Starts a clip's row and says who pays: the owner nothing, then the agent's free clips (freeClips),
  * then the wallet — the hold set aside before anything is spent. A refusal is the words to show.
  */
-export async function createVideo(viewer: Viewer, input: ClipInput, customer: string): Promise<{ id: string } | { refusal: string }> {
+export async function createVideo(viewer: Viewer, input: ClipInput, customer: string, id?: string): Promise<{ id: string } | { refusal: string }> {
   let pay: Partial<VideoRow> = { paid_by: "staff" };
   if (!can(viewer, "owner")) {
     // an outside member makes clips while their pass is live (owner, 2026-10-13); unreadable refuses
@@ -214,7 +215,7 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
-  const { data, error } = await rows().insert({ agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
+  const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
     throw new Error(`video not created: ${error?.message}`);
@@ -310,15 +311,25 @@ async function fail(id: string, why: unknown): Promise<void> {
   // Gemini's voice used up for the day: the card says when to try again, and marks the day (voiceFullUntil)
   const error = why instanceof TtsQuotaError ? voiceFullText(voiceDay().until) : FAILED;
   const { data } = await rows().update({ status: "failed", error, updated_at: new Date().toISOString() })
-    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by").maybeSingle();
+    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input").maybeSingle();
   if (data) {
     await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
+    // a คลิปตามโจทย์ that failed gives its draft back, to be made again
+    const input = (data as Pick<VideoRow, "input">).input;
+    if (input && isPromptStory(input) && input.draftId) await releaseDraft(input.draftId, id);
     await clearInputs(id).catch(() => undefined);
     return;
   }
   // a finished clip being cut again (redrawPicture): the cut it had stands, paid already, and stays redrawable
   const { data: kept } = await rows().update({ status: "done", error: RECUT_FAILED, updated_at: new Date().toISOString() })
-    .eq("id", id).in("status", ["drawing", "rendering"]).not("video_path", "is", null).select("id").maybeSingle();
+    .eq("id", id).in("status", ["drawing", "rendering"]).not("video_path", "is", null).select("id, input").maybeSingle();
+  // the redrawn picture is not in the clip: its hold goes back
+  const input = (kept as Pick<VideoRow, "input"> | null)?.input;
+  if (input && isPromptStory(input) && input.redraw) {
+    const { redraw, ...rest } = input;
+    await releaseWallet(redraw.hold).catch((e) => console.error("redraw hold not released:", e));
+    await setRow(id, { input: rest }).catch(() => undefined);
+  }
   await clearInputs(id, Boolean(kept)).catch(() => undefined);
 }
 
@@ -420,18 +431,18 @@ function freeScript(input: PromptStoryInput, customer: string, narrator: "F" | "
   ];
 }
 
-/** a filed picture as the drawing takes it; null for a scene left on paper */
-async function pictureUri(path: string | null | undefined): Promise<string | null> {
-  if (!path) return null;
+/** a filed picture, as it was drawn */
+async function pictureFile(path: string): Promise<Buffer> {
   const { data } = await bucket().download(path);
   if (!data) throw new Error(`picture ${path.split("/").pop()} not read`);
-  return `data:image/png;base64,${Buffer.from(await data.arrayBuffer()).toString("base64")}`;
+  return Buffer.from(await data.arrayBuffer());
 }
 
 /**
- * A คลิปตามโจทย์'s parts (prompt-story/frames.tsx): each scene its picture full bleed with the
- * words over it, a frame every 1/MOTION_FPS as the picture pushes in, then the agent's card on
- * the story clips' paper. Each scene's picture is read from the clip's folder when it is drawn.
+ * A คลิปตามโจทย์'s parts (prompt-story/frames.tsx): each scene on the story clips' paper, its
+ * picture filed once as the scene's photo layer, full frame, which ffmpeg scales to cover and
+ * pushes in slowly (buildJob's photo zoom, 1.00 → 1.12), with transparent frames of the words over
+ * it, one per word; then the agent's card. A scene whose picture fell back has the paper only.
  */
 async function freeParts(row: VideoRow & { input: PromptStoryInput }, agentName: string, secs: number[]): Promise<ClipParts> {
   const input = row.input;
@@ -444,7 +455,8 @@ async function freeParts(row: VideoRow & { input: PromptStoryInput }, agentName:
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const card = Object.values(contactSpec()).map((x): [number, number] => [x.at, x.at + x.dur]);
   const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
-  const named = nameFiles(plans, plans.map(() => undefined));
+  const pictureAt = (s: number) => (plans[s].key === "freeScene" ? input.pictures?.[s] ?? null : null);
+  const named = nameFiles(plans, plans.map((_, s) => (pictureAt(s) ? "photo" as const : undefined)));
   const hand = freeHandText(input) + contact.name;
   const sceneDraws = (s: number) => {
     const p = plans[s];
@@ -455,15 +467,19 @@ async function freeParts(row: VideoRow & { input: PromptStoryInput }, agentName:
       const c = ctx as unknown as StoryContext;
       return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(storyFrame("storyContact", c, fr.t ?? 0), dimsOf, { hand }) }));
     }
-    let picture: Promise<string | null> | undefined;
-    const pic = () => (picture ??= pictureUri(input.pictures?.[s]));
-    return p.frames.map((fr, k) => ({
-      name: named.scenes[s].frames[k],
-      draw: async () => renderPng(freeFrame(input.scenes[s], await pic(), ctx, fr.t ?? 0), dimsOf, { hand }),
-    }));
+    const path = pictureAt(s);
+    const layer = named.scenes[s].layer;
+    return [
+      ...(path && layer ? [{ name: layer.name, draw: () => pictureFile(path) }] : []),
+      ...p.frames.map((fr, k) => ({
+        name: named.scenes[s].frames[k],
+        draw: () => renderPng(freeFrame(input.scenes[s], Boolean(path), ctx, fr.t ?? 0), dimsOf, { hand }),
+      })),
+    ];
   };
   return {
-    size, script, motion: true, plans, named, build: { size: dims }, layers: { photo: false }, sceneDraws,
+    // the photo box is the whole frame; layers.photo stays false, as that is the family photo of a quote clip
+    size, script, motion: true, plans, named, build: { size: dims, photo: { x: 0, y: 0, w: dims.w, h: dims.h } }, layers: { photo: false }, sceneDraws,
     background: () => renderPng(storyBackground(size), { width: dims.w, height: dims.h }),
   };
 }
@@ -829,8 +845,9 @@ const reasonWords = (r: string) => r.replace(/^(voice|screen|picture): /, (_, f:
 
 /**
  * Starts a คลิปตามโจทย์ (spec 2026-10-16, Money): the script, as the agent may have edited it, is
- * checked again — a scene that breaks the rules is refused by number — and a draft already made
- * into a clip that has not failed is not made twice. Then it is paid for as every clip is
+ * checked again — a scene that breaks the rules is refused by number — and the draft is claimed
+ * for this clip in one conditional update (claimDraft), so it is not made twice; it is given back
+ * when the clip cannot be paid for or fails. Then it is paid for as every clip is
  * (createVideo): one hold of the clip and every picture, or the pictures alone on a free clip.
  */
 export async function createPromptStory(viewer: Viewer, input: PromptStoryInput, customer: string): Promise<{ id: string } | { refusal: string }> {
@@ -841,13 +858,18 @@ export async function createPromptStory(viewer: Viewer, input: PromptStoryInput,
   if (title.length) return { refusal: `ชื่อคลิปใช้ไม่ได้ — ${title.map((r) => r.replace(/^screen: /, "")).join(", ")}` };
   const caption = checkScene({ voice: input.caption, screen: "", picture: "" }, allowed);
   if (caption.length) return { refusal: `ข้อความโพสต์ใช้ไม่ได้ — ${caption.map((r) => r.replace(/^voice: /, "")).join(", ")}` };
-  if (input.draftId) {
-    const { data, error } = await rows().select("id").eq("agent_id", viewer.agentId).eq("input->>draftId", input.draftId)
-      .neq("status", "failed").is("deleted_at", null).limit(1);
-    if (error) throw new Error(`clips of the draft not read: ${error.message}`);
-    if (data?.length) return { refusal: "บทนี้กดสร้างคลิปไปแล้ว ดูคลิปในรายการด้านล่าง" };
+  if (!input.draftId) return { refusal: "เขียนบทก่อน แล้วค่อยกดสร้างคลิป" };
+  // the draft is taken for this clip in one step: a second press, at once or later, finds it taken
+  const id = randomUUID();
+  if (!(await claimDraft(viewer.agentId, input.draftId, id))) return { refusal: "บทนี้กดสร้างคลิปไปแล้ว ดูคลิปในรายการด้านล่าง" };
+  try {
+    const made = await createVideo(viewer, input, customer, id);
+    if ("refusal" in made) await releaseDraft(input.draftId, id);
+    return made;
+  } catch (e) {
+    await releaseDraft(input.draftId, id);
+    throw e;
   }
-  return createVideo(viewer, input, customer);
 }
 
 const BUSY = "คลิปนี้กำลังทำอยู่ รอให้เสร็จก่อนแล้วค่อยวาดใหม่";
@@ -855,7 +877,8 @@ const BUSY = "คลิปนี้กำลังทำอยู่ รอใ�
 /**
  * วาดภาพฉากนี้ใหม่ (spec 2026-10-16): one scene's picture of the agent's own finished คลิปตามโจทย์
  * drawn again for one picture's price (the owner free), and the clip cut again from the voice kept
- * with it — the voice is never asked again. A picture that cannot be drawn gives the money back and
+ * with it — the voice is never asked again. The picture's price is held until the new cut is done
+ * (finishVideo takes it); a picture that cannot be drawn, or a cut that fails, gives it back and
  * leaves the clip as it was. The answer comes once the clip is taken; the drawing and the cut are
  * handed to `run` (the action passes Next's after), or awaited here when none is given.
  */
@@ -922,14 +945,10 @@ export async function redrawPicture(
       await upload(id, picName(scene), png, "image/png");
       const pictures = input.scenes.map((_, s) => input.pictures?.[s] ?? null);
       pictures[scene] = `${id}/${picName(scene)}`;
-      const next: PromptStoryInput = { ...input, pictures };
-      if (held) {
-        // the picture is drawn: its price is taken, whatever the cut does
-        const h = held;
-        held = null;
-        await settleWallet(h, price, pictureThb(input.painter)).catch((e) => console.error("redraw settle failed:", e));
-      }
+      // the hold rides with the clip: taken when the new cut is done (finishVideo), given back if it fails (fail)
+      const next: PromptStoryInput = { ...input, pictures, ...(held ? { redraw: { hold: held, satang: price, thb: pictureThb(input.painter) } } : {}) };
       await setRow(id, { input: next, cost_thb: Number(row.cost_thb ?? 0) + pictureThb(input.painter) });
+      held = null;
       bar.note({ step: "draw", done: 1, of: 1 });
       lap(`scene ${scene} picture drawn again`);
       await cutClip({ ...row, input: next, status: "drawing" }, agentName, pcms, gcpKey, bar, t0, lap);
@@ -1004,7 +1023,14 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
       charged = await settleWallet(row.hold_id, Number(row.held_satang), cost)
         .catch((e) => { console.error("quote video settle failed:", e); return null; });
     }
-    await setRow(row.id, { cost_thb: cost, ...(charged !== null ? { charged_satang: charged } : {}) }).catch(() => undefined);
+    // a คลิปตามโจทย์ cut again: the redrawn picture is in the clip now, so its hold is taken
+    let input: PromptStoryInput | undefined;
+    if (isPromptStory(row.input) && row.input.redraw) {
+      const { redraw, ...rest } = row.input;
+      await settleWallet(redraw.hold, redraw.satang, redraw.thb).catch((e) => console.error("redraw settle failed:", e));
+      input = rest;
+    }
+    await setRow(row.id, { cost_thb: cost, ...(charged !== null ? { charged_satang: charged } : {}), ...(input ? { input } : {}) }).catch(() => undefined);
     await clearInputs(row.id, isPromptStory(row.input));
   } else {
     await fail(row.id, new Error("render failed"));

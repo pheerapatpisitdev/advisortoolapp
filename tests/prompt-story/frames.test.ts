@@ -6,7 +6,8 @@ import type { PromptScene, PromptStoryInput } from "@/lib/prompt-story/types";
 import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
 
 const SIZE_LIST: VideoSize[] = ["portrait", "square", "landscape"];
-const PIC = `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#7fb3d5"/><circle cx="200" cy="200" r="120" fill="#f5b041"/></svg>')}`;
+/** the scene's picture is its own layer under the frames (make.ts freeParts); a frame only knows whether there is one */
+const PIC = true;
 const scene = (i: number, screen = "สั้นๆ นะคะ"): PromptScene => ({ voice: `เสียงที่ ${i} ค่ะ`, screen, picture: "a calm room", ...(i === 2 ? { showFigure: true } : {}) });
 const figure = { plan: "LIFEPROTECT" as const, variant: "WLF99H", sex: "M" as const, age: 35, sumAssured: 1_000_000, annual: 24_000, monthly: 2_000 };
 const input = (count: number, o: Partial<PromptStoryInput> = {}): PromptStoryInput => ({
@@ -18,8 +19,8 @@ const ctx = (i: PromptStoryInput, size: VideoSize): FreeContext => ({
 });
 
 describe("freeFrame", () => {
-  it("has one window and a fade between scenes", () => {
-    expect(freeWindows()).toHaveLength(1);
+  it("moves nothing between words, and fades between scenes", () => {
+    expect(freeWindows()).toEqual([]);
     expect(TRANSITIONS.freeScene).toBeDefined();
   });
 
@@ -29,7 +30,7 @@ describe("freeFrame", () => {
         const i = input(count);
         for (const s of i.scenes) {
           expect(freeFrame(s, PIC, ctx(i, size), 2)).toBeTruthy();
-          expect(freeFrame(s, null, ctx(i, size), 2)).toBeTruthy();
+          expect(freeFrame(s, false, ctx(i, size), 2)).toBeTruthy();
         }
       }
     });
@@ -41,7 +42,7 @@ describe("freeFrame", () => {
     const i = input(2, { title, scenes: [{ ...scene(1, screen), showFigure: true }, scene(2, screen)] });
     for (const size of SIZE_LIST) {
       const { w, h } = SIZES[size];
-      for (const pic of [PIC, null]) {
+      for (const pic of [true, false]) {
         const png = await renderPng(freeFrame(i.scenes[0], pic, ctx(i, size), 3), { width: w, height: h }, { hand: freeHandText(i) });
         expect(png.length).toBeGreaterThan(1000);
       }
@@ -54,11 +55,14 @@ describe("freeFrame", () => {
     for (const ch of [...i.title, ...i.scenes.flatMap((s) => [...s.screen]), ..."ชาย 35 ปี ทุน 1 ล้านเบี้ยปีละ 24,000 บาท"]) expect(hand).toContain(ch);
   });
 
-  it("moves the picture in and leaves the figure card to the showFigure scene", () => {
+  it("is transparent with no picture in it, and leaves the figure card to the showFigure scene", () => {
     const i = input(3);
-    const s0 = JSON.stringify(freeFrame(i.scenes[0], PIC, ctx(i, "portrait"), 0));
-    const s1 = JSON.stringify(freeFrame(i.scenes[0], PIC, ctx(i, "portrait"), 6));
-    expect(s0).not.toEqual(s1);
+    for (const pic of [true, false]) {
+      const f = JSON.stringify(freeFrame(i.scenes[0], pic, ctx(i, "portrait"), 2));
+      expect(f).not.toContain("<img");
+      expect(f).not.toContain("\"img\"");
+      expect(f).toContain("transparent");
+    }
     expect(JSON.stringify(freeFrame(i.scenes[1], PIC, ctx(i, "portrait"), 2))).toContain("ทุน");
     expect(JSON.stringify(freeFrame(i.scenes[0], PIC, ctx(i, "portrait"), 2))).not.toContain("ทุน");
   });

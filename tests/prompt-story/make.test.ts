@@ -11,10 +11,11 @@ import { promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/type
  */
 
 type Row = Record<string, unknown> & { id: string };
-const db = vi.hoisted(() => ({ rows: [] as Row[], files: new Map<string, Buffer>(), downloads: [] as string[] }));
+const db = vi.hoisted(() => ({ rows: [] as Row[], drafts: [] as Row[], files: new Map<string, Buffer>(), downloads: [] as string[] }));
 
-/** a small in-memory stand-in for the rows the pipeline reads and writes */
-function table() {
+/** a small in-memory stand-in for the rows the pipeline reads and writes: the clips, and the written drafts */
+function table(name: string) {
+  const list = name === "ins_prompt_drafts" ? db.drafts : db.rows;
   let op: "select" | "insert" | "update" = "select";
   let patch: Record<string, unknown> = {};
   let head = false;
@@ -31,10 +32,10 @@ function table() {
         error: null, hold_id: null, paid_by: null, held_satang: null, multiplier: null, cost_thb: 0, charged_satang: null, progress: null,
         ...patch,
       };
-      db.rows.push(row);
+      list.push(row);
       return [row];
     }
-    const hit = db.rows.filter((r) => filters.every((f) => f(r)));
+    const hit = list.filter((r) => filters.every((f) => f(r)));
     if (op === "update") for (const r of hit) Object.assign(r, structuredClone(patch));
     return hit.map((r) => structuredClone(r));
   };
@@ -71,7 +72,7 @@ const bucket = {
   createSignedUploadUrl: async (path: string) => ({ data: { signedUrl: `https://x/up/${path}` }, error: null }),
   createSignedUrl: async (path: string) => ({ data: { signedUrl: `https://x/${path}` }, error: null }),
 };
-vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => ({ from: () => table(), storage: { from: () => bucket } }) }));
+vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => ({ from: (name: string) => table(name), storage: { from: () => bucket } }) }));
 
 const wallet = vi.hoisted(() => ({
   walletSettings: vi.fn(), walletPrices: vi.fn(), holdWallet: vi.fn(), walletFrozen: vi.fn(),
@@ -128,6 +129,8 @@ let drawn = 0;
 
 beforeEach(() => {
   db.rows.length = 0;
+  db.drafts.length = 0;
+  db.drafts.push({ id: "draft-1", agent_id: "a1", made_clip_id: null });
   db.files.clear();
   db.downloads.length = 0;
   drawn = 0;
@@ -215,8 +218,32 @@ describe("createPromptStory", () => {
 
   it("lets the same draft be made again once its clip failed", async () => {
     const first = await createPromptStory(agent, input(), "");
-    rowOf((first as { id: string }).id).status = "failed";
+    ai.speak.mockRejectedValue(new Error("voice down"));
+    await produce((first as { id: string }).id, "ตัวแทน");
+    expect(rowOf((first as { id: string }).id).status).toBe("failed");
     expect("id" in await createPromptStory(agent, input(), "")).toBe(true);
+  });
+
+  it("two presses at once make one clip", async () => {
+    freeUsedUp();
+    const both = await Promise.all([createPromptStory(agent, input(), ""), createPromptStory(agent, input(), "")]);
+    expect(both.filter((m) => "id" in m)).toHaveLength(1);
+    expect(wallet.holdWallet).toHaveBeenCalledTimes(1);
+    expect(db.drafts[0].made_clip_id).toBe((both.find((m) => "id" in m) as { id: string }).id);
+  });
+
+  it("refuses a draft that is not the agent's, or none", async () => {
+    db.drafts[0].agent_id = "a2";
+    expect("refusal" in await createPromptStory(agent, input(), "")).toBe(true);
+    expect("refusal" in await createPromptStory(agent, input({ draftId: undefined }), "")).toBe(true);
+    expect(db.rows.filter((r) => r.agent_id === "a1")).toHaveLength(0);
+  });
+
+  it("gives the draft back when the clip cannot be paid for", async () => {
+    freeUsedUp();
+    wallet.holdWallet.mockResolvedValue(null);
+    expect("refusal" in await createPromptStory(agent, input(), "")).toBe(true);
+    expect(db.drafts[0].made_clip_id).toBeNull();
   });
 });
 
@@ -235,8 +262,27 @@ describe("produce, คลิปตามโจทย์", () => {
     expect(ai.submit).toHaveBeenCalledTimes(1);
     // the drawing route read each scene's own picture and drew every frame of every scene
     for (const s of [0, 1, 2]) expect(db.downloads).toContain(`${id}/pic-${s}.png`);
-    const job = ai.submit.mock.calls[0][0] as { inputs: { name: string }[] };
+    const job = ai.submit.mock.calls[0][0] as { inputs: { name: string }[]; command: string };
     for (const f of job.inputs) expect(db.files.has(`${id}/${f.name}`)).toBe(true);
+  });
+
+  it("files each picture once, as its scene's layer pushed in by ffmpeg, under few word frames", async () => {
+    ai.draw.mockImplementation(async (a: { prompt: string }) => {
+      if (a.prompt.includes("bills on a table")) throw new Error("painter down");
+      return { bytes: picture(++drawn) };
+    });
+    const made = await createPromptStory(agent, input(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const job = ai.submit.mock.calls[0][0] as { inputs: { name: string }[]; command: string };
+    const files = job.inputs.map((f) => db.files.get(`${id}/${f.name}`)!);
+    // scenes 0 and 2 carry their picture as a layer, once each; scene 1 has none and stays on paper
+    expect(files.filter((b) => b.equals(db.files.get(`${id}/pic-0.png`)!))).toHaveLength(1);
+    expect(files.filter((b) => b.equals(db.files.get(`${id}/pic-2.png`)!))).toHaveLength(1);
+    expect(job.command.match(/zoompan/g)).toHaveLength(2);
+    // a frame per word, not twelve a second: under 20 frames for a short line
+    const frames = job.inputs.length - 1 - 4 * 2 - 2;
+    expect(frames).toBeLessThan(4 * 20);
   });
 
   it("a picture that fails twice leaves its scene on paper and the clip still goes", async () => {
@@ -292,7 +338,7 @@ describe("redrawPicture", () => {
     expect(rowOf(id).status).toBe("rendering");
   });
 
-  it("charges one picture price, once", async () => {
+  it("charges one picture price, once, when the new cut is done", async () => {
     const id = await doneClip();
     wallet.holdWallet.mockClear();
     wallet.settleWallet.mockClear();
@@ -300,8 +346,15 @@ describe("redrawPicture", () => {
     const price = pictureSatang(DEFAULT_PRICES, "standard")!;
     expect(wallet.holdWallet).toHaveBeenCalledTimes(1);
     expect(wallet.holdWallet).toHaveBeenCalledWith("a1", price, "quote-video");
+    const hold = await wallet.holdWallet.mock.results[0].value;
+    // held while the clip is cut again, taken when Cloud Run says it is done
+    expect(wallet.settleWallet).not.toHaveBeenCalled();
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
     expect(wallet.settleWallet).toHaveBeenCalledTimes(1);
-    expect(wallet.settleWallet.mock.calls[0][1]).toBe(price);
+    expect(wallet.settleWallet.mock.calls[0].slice(0, 2)).toEqual([hold, price]);
+    // a second answer for the same cut takes nothing more
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    expect(wallet.settleWallet).toHaveBeenCalledTimes(1);
   });
 
   it("charges the owner nothing", async () => {
@@ -350,10 +403,15 @@ describe("redrawPicture", () => {
     expect(ai.submit).not.toHaveBeenCalled();
   });
 
-  it("a cut that fails after a redraw leaves the last finished clip standing", async () => {
+  it("a cut that fails after a redraw gives the picture's hold back and leaves the last finished clip standing", async () => {
     const id = await doneClip();
+    wallet.holdWallet.mockClear();
+    wallet.settleWallet.mockClear();
     await redrawPicture(agent, id, 0);
+    const hold = await wallet.holdWallet.mock.results[0].value;
     await finishVideo(structuredClone(rowOf(id)) as never, "failed");
+    expect(wallet.releaseWallet).toHaveBeenCalledWith(hold);
+    expect(wallet.settleWallet).not.toHaveBeenCalled();
     const row = rowOf(id);
     expect(row.status).toBe("done");
     expect(row.video_path).toBe(`${id}/quote.mp4`);
