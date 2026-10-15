@@ -167,21 +167,6 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
   },
 
   /**
-   * Kimi (Moonshot), OpenAI chat format, reads pictures.
-   *
-   * Both models think before they answer and the thinking counts against max_tokens, the
-   * GPT-5 trouble of 2026-09-22 again. K2.6 can be told not to; K3 always thinks
-   * ("reasoning is always on", default effort "max"), so it is held to "low" unless a caller
-   * asks for more.
-   */
-  async moonshot(args) {
-    const extra = /^kimi-k3/.test(args.model)
-      ? { reasoning_effort: args.effort ?? "low" }
-      : { thinking: { type: "disabled" } };
-    return openAiCompatible("https://api.moonshot.ai/v1/chat/completions", args, extra, true);
-  },
-
-  /**
    * OpenRouter, one key for many companies' models, in the OpenAI chat format; model names
    * carry their maker ("google/gemini-3.1-flash-lite"). The last link of each tier's chain,
    * for when every key of our own has failed (owner, 2026-10-14, option ก: the same models
