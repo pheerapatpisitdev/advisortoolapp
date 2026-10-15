@@ -31,6 +31,13 @@ describe("prompt-story script checker", () => {
     expect(checkScene(scene({ screen: "ปีละ 777 บาท" }), a).length).toBeGreaterThan(0);
     expect(checkScene(scene({ picture: "ป้าย 888" }), a).length).toBeGreaterThan(0);
   });
+  it("rejects any digit in a picture note, even an allowed number", () => {
+    const a = allowedFor("ลูกค้าอายุ 40", figure);
+    expect(checkScene(scene({ picture: "ป้ายอายุ 40" }), a).join(" ")).toContain("picture");
+    expect(checkScene(scene({ picture: "ภาพเลข 3,000,000" }), a).length).toBeGreaterThan(0);
+    expect(checkScene(scene({ picture: "ป้าย ๔๐" }), a).length).toBeGreaterThan(0);
+    expect(checkScene(scene({ voice: "อายุ 40", screen: "อายุ 40" }), a)).toEqual([]);
+  });
   it("checkScript lists only failing scenes, numbered from 0", () => {
     const out = checkScript([scene(), scene({ voice: "การันตี" })], "", undefined);
     expect(out.map((o) => o.scene)).toEqual([1]);

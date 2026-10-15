@@ -17,6 +17,8 @@ export function checkScene(scene: PromptScene, allowed: Set<number>): string[] {
   for (const field of ["voice", "screen", "picture"] as const) {
     const t = scene[field] ?? "";
     for (const x of FORBIDDEN) if (x.re.test(t)) reasons.push(`${field}: ${x.why}`);
+    // a picture note is drawn, never read: no digits in it at all, allowed or not
+    if (field === "picture" && /[\d๐-๙]/.test(t)) reasons.push("picture: มีตัวเลข");
     const stray = numbersIn(t).find((n, i, all) => !allowed.has(n) && !(i > 0 && all[i - 1] === n * 1_000_000));
     if (stray !== undefined) reasons.push(`${field}: ตัวเลข ${stray} ไม่อยู่ในโจทย์หรือแผน`);
   }
