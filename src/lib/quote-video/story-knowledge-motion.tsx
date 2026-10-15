@@ -608,6 +608,7 @@ export function knowBody(key: KnowSceneKey | "storyContact", c: StoryContext, t:
 
 /** the faces an episode draws: the hero, the narrator, and the family scene's or the family episode's */
 export function knowFaces(input: StoryVideoInput): string[] {
-  const family = topicOf(input.topic)?.shelf === "family" ? familyFaces(input) : [partnerFace(input), ...CHILDREN];
+  const shelf = topicOf(input.topic)?.shelf;
+  const family = shelf === "family" || shelf === "life" ? familyFaces(input) : [partnerFace(input), ...CHILDREN];
   return [input.faces.hero, input.faces.narrator, ...family];
 }

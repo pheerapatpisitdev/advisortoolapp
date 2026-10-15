@@ -5,6 +5,8 @@ import { lifeProtectModes, termAt as lifeProtectTerm } from "@/lib/lifeprotect-q
 import { DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, faceOf, FACES } from "@/lib/story/faces";
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { FESTIVALS, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import type { PensionPay } from "@/calc/pension/engine";
+import { pensionPremium, PENSION_NAME } from "./pension";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
 import { festivalGreeting } from "./story-after";
 import { knowEpisode, type KnowSceneKey } from "./story-knowledge";
@@ -58,7 +60,9 @@ export interface StoryVideoInput {
   figure?: StoryFigure;
   /** ยังหนุ่ม ไม่ต้องมี: Life Protect's premium at LADDER_AGES, for the hero's sex */
   ladder?: StoryLadder;
-  /** เสาหลักหายไป and ค่าเรียนลูก: the household's own numbers, as the agent typed them */
+  /** ใกล้เกษียณ: บำนาญ 95's premium for a monthly pension, worked out when the clip was ordered */
+  pension?: StoryPension;
+  /** เสาหลักหายไป, ค่าเรียนลูก, ผ่อนบ้าน and ใกล้เกษียณ: the household's own numbers, as the agent typed them */
   home?: StoryHome;
   /** เตือนชำระเบี้ย: the day the premium falls due (YYYY-MM-DD), and how much if the agent said */
   due?: { date: string; amount?: number };
@@ -66,8 +70,28 @@ export interface StoryVideoInput {
   festival?: Festival;
 }
 
-/** a month's spending and the years the children lean on it ("spend"); a child's age and a year's fees ("school") */
-export type StoryHome = { kind: "spend"; monthly: number; years: number } | { kind: "school"; childAge: number; tuition: number };
+/**
+ * a month's spending and the years the children lean on it ("spend"); a child's age and a year's fees ("school");
+ * the home loan still owed and the years left on it ("loan"); a month's spending once retired ("retire")
+ */
+export type StoryHome =
+  | { kind: "spend"; monthly: number; years: number } | { kind: "school"; childAge: number; tuition: number }
+  | { kind: "loan"; debt: number; years: number } | { kind: "retire"; monthly: number };
+
+/** บำนาญ 95 for ใกล้เกษียณ: who, from what age, and the engine's pension and premium */
+export interface StoryPension { sex: "M" | "F"; age: number; annuityAge: number; pay: PensionPay; sumAssured: number; monthlyPension: number; annual: number; payYears: number }
+
+/** บำนาญ 95's premium for the pension asked, or the words for what is wrong */
+export function storyPension(v: unknown): StoryPension | string {
+  const o = (v ?? {}) as Record<string, unknown>;
+  if (o.sex !== "M" && o.sex !== "F") return "เลือกเพศ";
+  if (o.pay !== "6" && o.pay !== "untilAnnuity") return "เลือกวิธีชำระเบี้ย";
+  const monthly = Number(o.monthly);
+  if (!Number.isInteger(monthly) || monthly < 1_000 || monthly > 1_000_000) return "บำนาญต่อเดือน 1,000 – 1,000,000 บาท";
+  const p = pensionPremium({ sex: o.sex, age: Number(o.age), annuityAge: Number(o.annuityAge), pay: o.pay, monthly });
+  if (typeof p === "string") return p;
+  return { sex: o.sex, age: Number(o.age), annuityAge: p.start, pay: o.pay, sumAssured: p.sumAssured, monthlyPension: p.monthlyPension, annual: p.annual, payYears: p.payYears };
+}
 
 export interface StoryLadder { sex: "M" | "F"; rows: { age: number; annual: number }[] }
 
@@ -140,6 +164,18 @@ export function storyHome(topic: StoryTopicInfo, v: unknown): StoryHome | string
     if (tuition === null) return "ค่าเรียนต่อปี 1,000 – 2,000,000 บาท";
     return { kind: "school", childAge, tuition };
   }
+  if (topic.home === "loan") {
+    const debt = int(o.debt, 100_000, 100_000_000);
+    if (debt === null) return "ยอดหนี้บ้าน 100,000 – 100,000,000 บาท";
+    const years = int(o.years, 1, 40);
+    if (years === null) return "ยังต้องผ่อนอีก 1 – 40 ปี";
+    return { kind: "loan", debt, years };
+  }
+  if (topic.home === "retire") {
+    const monthly = int(o.monthly, 1_000, 1_000_000);
+    if (monthly === null) return "ค่าใช้จ่ายหลังเกษียณต่อเดือน 1,000 – 1,000,000 บาท";
+    return { kind: "retire", monthly };
+  }
   return "เรื่องนี้ไม่ใช้ตัวเลขของบ้าน";
 }
 
@@ -165,7 +201,7 @@ export function storyDue(v: unknown): { date: string; amount?: number } | string
 }
 
 export function checkedStory(
-  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "home" | "due" | "festival"> & { figure?: unknown; ladder?: unknown; home?: unknown; due?: unknown; festival?: unknown },
+  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "home" | "due" | "festival"> & { figure?: unknown; ladder?: unknown; pension?: unknown; home?: unknown; due?: unknown; festival?: unknown },
   narrator: "F" | "M", voice?: string,
 ): StoryVideoInput | string {
   const topic = topicOf(String(v.topic ?? ""));
@@ -175,7 +211,7 @@ export function checkedStory(
   if (hero === narratorFace) return "ตัวเอกกับผู้เล่าใช้หน้าเดียวกันไม่ได้ เลือกหน้าอื่น";
   if (topic.heroSex && faceOf(hero)?.sex !== topic.heroSex) return "เรื่องนี้ตัวเอกเป็นแม่ เลือกหน้าผู้หญิง";
   let partner: string | undefined;
-  if (topic.shelf === "family" && v.faces?.partner !== undefined) {
+  if ((topic.shelf === "family" || topic.shelf === "life") && v.faces?.partner !== undefined) {
     const p = v.faces.partner;
     if (!pickable(p) || p === hero || p === narratorFace || faceOf(p)?.sex === faceOf(hero)?.sex) return "คู่ชีวิตต้องเป็นหน้าเพศตรงข้ามกับตัวเอก และไม่ซ้ำกับผู้เล่า";
     partner = p;
@@ -188,6 +224,12 @@ export function checkedStory(
     figure = f;
   }
   if (topic.figureRequired && !figure) return "ใส่แบบที่ลูกค้าซื้อ";
+  let pension: StoryPension | undefined;
+  if (v.pension && topic.figure === "pension") {
+    const p = storyPension(v.pension);
+    if (typeof p === "string") return p;
+    pension = p;
+  }
   let due: { date: string; amount?: number } | undefined;
   if (topic.ask === "due") {
     const d = storyDue(v.due);
@@ -215,7 +257,7 @@ export function checkedStory(
   return {
     product: "STORY", topic: topic.key, narrator, ...(voice ? { voice } : {}), style: "story", length: "full",
     size: sizeOf(v), palette: v.palette === "color" ? "color" : "reveal",
-    faces: { narrator: narratorFace, hero, ...(partner ? { partner } : {}) }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}), ...(home ? { home } : {}),
+    faces: { narrator: narratorFace, hero, ...(partner ? { partner } : {}) }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}), ...(pension ? { pension } : {}), ...(home ? { home } : {}),
     ...(due ? { due } : {}), ...(festival ? { festival } : {}),
   };
 }
@@ -286,6 +328,16 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
   remind: ["ใกล้ครบกำหนดชำระเบี้ย", "จ่ายให้ตรงเวลา ความคุ้มครองจะได้ต่อเนื่อง"],
   birthday: ["สุขสันต์วันเกิด", "ขอให้สุขภาพแข็งแรง มีความสุขมาก ๆ"],
   festival: ["", ""],
+  thinkfirst: ["“ขอคิดดูก่อน” คิดได้ แต่อย่ารอนานเกินไป", "ระหว่างที่คิด อายุเพิ่มทุกวันเกิด สุขภาพอาจเปลี่ยน เบี้ยก็ขึ้นตามอายุ"],
+  groupins: ["มีประกันกลุ่มบริษัทแล้ว พอไหม?", "ประกันกลุ่มผูกกับงาน ลาออก เปลี่ยนงาน หรือเกษียณ ความคุ้มครองก็หายไปด้วย"],
+  welfare: ["มีบัตรทอง ประกันสังคมแล้ว พอไหม?", "สิทธิรักษาช่วยค่ารักษา แต่ระหว่างป่วย รายได้อาจหยุด ค่าใช้จ่ายของบ้านไม่หยุดตาม"],
+  bank: ["ฝากธนาคาร กับ ทำประกัน ต่างกันยังไง?", "ออมไว้ใช้ ประกันไว้กันเรื่องใหญ่ ควรมีทั้งสองอย่าง"],
+  pricey: ["เบี้ยแพง ไม่มีงบ?", "เริ่มเท่าที่จ่ายไหว แบ่งจ่ายรายเดือนได้ เริ่มเล็กดีกว่าไม่เริ่ม"],
+  firstjob: ["ได้เงินเดือนแรกแล้ว แบ่งไปไหนบ้าง?", "แบ่งให้ตัวเองในอนาคตด้วย เริ่มตอนอายุน้อย เบี้ยถูก สมัครง่าย"],
+  wedding: ["แต่งงานแล้ว ต้องเตรียมอะไรเรื่องประกัน?", "ทุนชีวิตของกันและกัน ผู้รับประโยชน์เป็นคู่ชีวิต และประกันสุขภาพของทั้งสองคน"],
+  mortgage: ["ผ่อนบ้านอยู่ ถ้าคนผ่อนไม่อยู่ บ้านจะเป็นของใคร?", "ทุนประกันชีวิตอย่างน้อยเท่าหนี้บ้านที่เหลือ บ้านยังเป็นของครอบครัว"],
+  selfemployed: ["ฟรีแลนซ์ เจ้าของกิจการ สวัสดิการอยู่ไหน?", "ไม่มีเจ้านาย ก็ไม่มีสวัสดิการ สวัสดิการของเรา เราสร้างเองได้"],
+  preretire: ["เกษียณแล้ว เงินพอไหม?", "เงินเดือนหยุดตอนเกษียณ แต่ชีวิตยังไปต่ออีกหลายสิบปี เริ่มเตรียมก่อนวันเกษียณ"],
 };
 
 /** the caption a story clip goes up on a Page with: no customer, no premium of anyone's */
@@ -298,9 +350,9 @@ export function storyCaption(input: StoryVideoInput): string {
     return [
       ...EPISODE_CAPTION[input.topic],
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
-      ...(input.figure || input.ladder ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : planName(input.figure!.plan)} เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท`] : []),
+      ...(input.figure || input.ladder || input.pension ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : input.pension ? PENSION_NAME : planName(input.figure!.plan)} เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท`] : []),
       "",
-      { family: "#ครอบครัว #ประกันชีวิต", after: "#ดูแลหลังการขาย #ประกันชีวิต" }[topicOf(input.topic)?.shelf as string] ?? "#ความรู้ประกัน #ประกันชีวิต",
+      { family: "#ครอบครัว #ประกันชีวิต", after: "#ดูแลหลังการขาย #ประกันชีวิต", objection: "#ตอบข้อสงสัย #ประกันชีวิต", life: "#ช่วงชีวิต #ประกันชีวิต" }[topicOf(input.topic)?.shelf as string] ?? "#ความรู้ประกัน #ประกันชีวิต",
     ].join("\n");
   }
   return [

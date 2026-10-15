@@ -370,3 +370,141 @@ describe("หลังการขาย (story-after.ts)", () => {
     expect(clipHandText(clip("claimihu"), "")).toContain("120 วัน");
   });
 });
+
+describe("ตอบข้อโต้แย้ง (story-objection.ts)", () => {
+  const episodes = STORY_TOPICS.filter((t) => t.shelf === "objection");
+  const LIFE30 = { plan: "LIFEPROTECT", variant: "WLF99H", sex: "M", age: 30, sumAssured: 1_000_000 };
+  const SHIELD25 = { plan: "ISHIELD", variant: "WLCI20", sex: "F", age: 25, sumAssured: 500_000 };
+
+  it("is five episodes of six scenes, the agent's card last", () => {
+    expect(episodes.map((t) => t.key)).toEqual(["thinkfirst", "groupins", "welfare", "bank", "pricey"]);
+    for (const t of episodes) {
+      expect(storyScript(story({ topic: t.key }), "นิด").map((l) => l.key)).toEqual(["knowAsk", "knowOne", "knowTwo", "knowThree", "knowRecap", "storyContact"]);
+    }
+  });
+
+  it("shows the plans' own premiums in the scene the form names", () => {
+    const bank = storyScript(story({ topic: "bank", figure: LIFE30 })).map((l) => l.voice);
+    expect(bank[1]).toBe("ถ้าฝากธนาคารปีละ 14,400 บาท ครบปีแรกเราจะมีเงิน 14,400 บาท กับดอกเบี้ยอีกเล็กน้อยค่ะ");
+    expect(bank[2]).toContain("ทุน 1 ล้านบาท");
+    const pricey = storyScript(story({ topic: "pricey", figure: LIFE30 })).map((l) => l.voice);
+    expect(pricey[1]).toBe("ผู้ชายอายุ 30 ทุนชีวิต 1 ล้านบาท จ่ายเดือนละ 1,296 บาท เฉลี่ยวันละราว 39 บาทค่ะ");
+    const welfare = storyScript(story({ topic: "welfare", figure: SHIELD25 })).map((l) => l.voice);
+    expect(welfare[3]).toContain("ผู้หญิงอายุ 25 จ่ายเบี้ยปีละ 13,870 บาท");
+    const think = storyScript(story({ topic: "thinkfirst", faces: { narrator: "w26", hero: "m09" }, ladder: true })).map((l) => l.voice);
+    expect(think[2]).toBe("ผู้ชายอายุ 25 จ่ายปีละ 12,300 บาท แต่ถ้ารอถึง 45 จ่ายปีละ 25,600 บาทค่ะ");
+    for (const t of episodes) if (t.figure) expect(t.figureAt ?? 4, t.key).toBeGreaterThan(1);
+  });
+
+  it("claims no figure without the agent's numbers, and holds each story to the plan it tells of", () => {
+    for (const t of episodes) {
+      const lines = storyScript(story({ topic: t.key }), "").map((l) => l.voice).join(" ");
+      expect(lines, t.key).not.toMatch(/\d{2},\d{3}|ล้านบาท/);
+    }
+    expect(checkedStory({ topic: "welfare", figure: LIFE30 }, "F")).toMatch(/iShield/);
+    expect(checkedStory({ topic: "bank", figure: SHIELD25 }, "F")).toMatch(/Life Protect/);
+    expect(story({ topic: "groupins", faces: { narrator: "w26", hero: "m09", partner: "w40" } }).faces.partner).toBeUndefined();
+  });
+
+  it("draws in every shape, every letter in the handwriting face", () => {
+    for (const t of episodes) for (const size of ["portrait", "square", "landscape"] as const) {
+      const input = story({ topic: t.key, size, ...(t.key === "bank" ? { figure: LIFE30 } : {}) });
+      for (const s of storyScript(input)) {
+        expect(TRANSITIONS[s.key]).toBeDefined();
+        expect(clipWindows(s.key, input, size).length).toBeGreaterThan(0);
+      }
+    }
+    expect(clipHandText(story({ topic: "groupins" }), "")).toContain("ลาออก");
+  });
+
+  it("goes up on a Page with its own caption and no one's name", () => {
+    for (const t of episodes) {
+      const c = storyCaption(story({ topic: t.key }));
+      expect(c).toContain("#ตอบข้อสงสัย");
+      expect(c).not.toContain("คุณนิด");
+    }
+    expect(storyCaption(story({ topic: "bank", figure: LIFE30 }))).toContain("ตัวอย่างจาก Life Protect");
+  });
+});
+
+describe("ช่วงชีวิต (story-life.ts)", () => {
+  const episodes = STORY_TOPICS.filter((t) => t.shelf === "life");
+  const LIFE = { plan: "LIFEPROTECT", variant: "WLF99H", sex: "M", age: 35, sumAssured: 3_000_000 };
+  const dad = { narrator: "w26", hero: "m09" };
+  const PENSION = { sex: "M", age: 45, annuityAge: 60, pay: "untilAnnuity", monthly: 10_000 };
+
+  it("is five episodes of six scenes, the agent's card last", () => {
+    expect(episodes.map((t) => t.key)).toEqual(["firstjob", "wedding", "mortgage", "selfemployed", "preretire"]);
+    for (const t of episodes) {
+      expect(storyScript(story({ topic: t.key }), "นิด").map((l) => l.key)).toEqual(["knowAsk", "knowOne", "knowTwo", "knowThree", "knowRecap", "storyContact"]);
+    }
+  });
+
+  it("tells ผ่อนบ้าน from the home loan typed, and the premium from the plan's table", () => {
+    const s = story({ topic: "mortgage", faces: dad, home: { debt: 2_800_000, years: 22 }, figure: LIFE });
+    expect(s.home).toEqual({ kind: "loan", debt: 2_800_000, years: 22 });
+    const lines = storyScript(s, "เอก").map((l) => l.voice);
+    expect(lines[0]).toBe("บ้านหลังแรกของคุณเอก ยังมีหนี้อีก 2.8 ล้านบาท ต้องผ่อนอีก 22 ปีค่ะ");
+    expect(lines[3]).toBe("เช่น ผู้ชายอายุ 35 จ่ายปีละ 51,600 บาท ทุน 3 ล้านบาท พอปิดหนี้บ้าน บ้านยังเป็นของครอบครัวค่ะ");
+    expect(storyScript(story({ topic: "mortgage", faces: dad, home: { debt: 5_000_000, years: 22 }, figure: LIFE })).map((l) => l.voice)[3]).toContain("ส่วนใหญ่");
+  });
+
+  it("prices ใกล้เกษียณ's pension on บำนาญ 95's engine, and counts the years from when it starts", () => {
+    const s = story({ topic: "preretire", faces: dad, pension: PENSION, home: { monthly: 20_000 } });
+    expect(s.pension).toMatchObject({ sex: "M", age: 45, annuityAge: 60, pay: "untilAnnuity", payYears: 15 });
+    expect(s.pension!.monthlyPension).toBeGreaterThanOrEqual(9_900);
+    expect(s.pension!.annual).toBeGreaterThan(0);
+    const lines = storyScript(s).map((l) => l.voice);
+    expect(lines[1]).toBe("อายุ 60 เกษียณ เงินเดือนหยุด แต่ถ้าอยู่ถึง 85 เรายังต้องใช้เงินอีก 25 ปีค่ะ");
+    expect(lines[2]).toBe("ถ้าใช้เดือนละ 20,000 บาท 25 ปี ต้องมีเงิน 6 ล้านบาทค่ะ");
+    expect(lines[3]).toContain(`ออมปีละ ${s.pension!.annual.toLocaleString("en-US")} บาท ตั้งแต่อายุ 60`);
+    expect(storyCaption(s)).toContain("ตัวอย่างจาก บำนาญ สมาร์ท 95");
+    const at65 = story({ topic: "preretire", pension: { ...PENSION, annuityAge: 65 } });
+    expect(storyScript(at65).map((l) => l.voice)[1]).toContain("อีก 20 ปี");
+  });
+
+  it("refuses numbers out of range, a pension the engine will not price, and a plan the story does not pay on", () => {
+    expect(checkedStory({ topic: "mortgage", home: { debt: 10, years: 22 } }, "F")).toMatch(/ยอดหนี้บ้าน/);
+    expect(checkedStory({ topic: "mortgage", home: { debt: 2_800_000, years: 0 } }, "F")).toMatch(/ผ่อนอีก/);
+    expect(checkedStory({ topic: "preretire", home: { monthly: 10 } }, "F")).toMatch(/หลังเกษียณ/);
+    expect(checkedStory({ topic: "preretire", pension: { ...PENSION, age: 70 } }, "F")).toMatch(/อายุ/);
+    expect(checkedStory({ topic: "preretire", pension: { ...PENSION, monthly: 0 } }, "F")).toMatch(/บำนาญต่อเดือน/);
+    expect(checkedStory({ topic: "firstjob", figure: LIFE }, "F")).toMatch(/iShield/);
+    expect(checkedStory({ topic: "wedding", figure: { ...LIFE, plan: "ISHIELD", variant: "WLCI20", sumAssured: 1_000_000 } }, "F")).toMatch(/Life Protect/);
+    // numbers and a pension are kept only where the story uses them
+    expect(story({ topic: "firstjob", home: { debt: 2_800_000, years: 22 } }).home).toBeUndefined();
+    expect(story({ topic: "mortgage", pension: PENSION }).pension).toBeUndefined();
+  });
+
+  it("claims no premium without the agent's numbers", () => {
+    for (const t of episodes) {
+      const lines = storyScript(story({ topic: t.key }), "").map((l) => l.voice).join(" ");
+      expect(lines, t.key).not.toMatch(/\d{2},\d{3}|ล้านบาท/);
+    }
+  });
+
+  it("takes a partner of the other sex, and draws the hero's family", () => {
+    expect(story({ topic: "wedding", faces: { ...dad, partner: "w40" } }).faces.partner).toBe("w40");
+    expect(checkedStory({ topic: "wedding", faces: { ...dad, partner: "m14" } }, "F")).toMatch(/คู่ชีวิต/);
+    expect(clipFaces(story({ topic: "mortgage", faces: dad }))).toEqual(expect.arrayContaining(familyOf("m09").kids));
+  });
+
+  it("draws in every shape, every letter in the handwriting face", () => {
+    for (const t of episodes) for (const size of ["portrait", "square", "landscape"] as const) {
+      const input = story({ topic: t.key, size, ...(t.key === "preretire" ? { pension: PENSION, home: { monthly: 20_000 } } : {}), ...(t.key === "mortgage" ? { home: { debt: 2_800_000, years: 22 } } : {}) });
+      for (const s of storyScript(input)) {
+        expect(TRANSITIONS[s.key]).toBeDefined();
+        expect(clipWindows(s.key, input, size).length).toBeGreaterThan(0);
+      }
+    }
+    expect(clipHandText(story({ topic: "mortgage", home: { debt: 2_800_000, years: 22 } }), "")).toContain("หนี้บ้าน");
+  });
+
+  it("goes up on a Page with its own caption and no one's name", () => {
+    for (const t of episodes) {
+      const c = storyCaption(story({ topic: t.key }));
+      expect(c).toContain("#ช่วงชีวิต");
+      expect(c).not.toContain("คุณนิด");
+    }
+  });
+});
