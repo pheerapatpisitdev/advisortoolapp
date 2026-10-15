@@ -285,3 +285,22 @@ export const QUOTE_VIDEO_COLORS = {
   coinSide: "#e8b923",
   coinTop: "#ffe680",
 } as const;
+
+/**
+ * คลิปเล่าเรื่อง's palette (owner, 2026-10-15, mockup https://claude.ai/artifact/FmDZmdTf6Mwgb2Dza8hQtM):
+ * the paper the cartoon faces were brought to (public/story/faces), the pen's ink and red ring,
+ * the coins, a note's paper, the agent's navy button, and the subtitle's spoken word.
+ */
+export const STORY_CLIP_COLORS = {
+  paper: "#ece8df",
+  ink: "#22252b",
+  red: "#c2412d",
+  coin: "#d6a63a",
+  navy: "#022162",
+  note: "#fbf8f0",
+  jar: "#f6f2e9",
+  white: "#ffffff",
+  spoken: "#f2c75c",
+  /* the phone around the form's preview */
+  bezel: "#111317",
+} as const;

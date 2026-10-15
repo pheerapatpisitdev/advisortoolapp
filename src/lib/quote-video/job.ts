@@ -14,7 +14,8 @@ import { clipLength, FPS, H, W, XFADE, type ScenePlan } from "./timeline";
 
 export const TRANSITIONS: Record<string, string> = { lead: "fade", price: "slideleft", cover: "zoomin", value: "slideleft", compare: "slideleft", critical: "slideleft", terms: "slideleft", contact: "fade",
   story: "fade", qa: "slideleft", versus: "zoomin", steps: "slideleft",
-  fhcOpen: "fade", fhcScores: "slideleft", fhcGaps: "slideleft", fhcEvents: "zoomin", fhcPlan: "slideleft", fhcContact: "fade" };
+  fhcOpen: "fade", fhcScores: "slideleft", fhcGaps: "slideleft", fhcEvents: "zoomin", fhcPlan: "slideleft", fhcContact: "fade",
+  storyHook: "fade", storyPool: "fade", storyHit: "fade", storyHelp: "slideleft", storyAll: "fade", storyContact: "fade" };
 const f3 = (n: number) => n.toFixed(3);
 /** past this length a clip is encoded with the faster preset */
 export const LONG_CLIP_SEC = 70;

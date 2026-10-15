@@ -17,7 +17,7 @@ import { formatBaht } from "@/lib/wallet/money";
 import { videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 
 /** the prices the board shows under its button: each look and length, and the FHC summary */
-const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc"];
+const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc", "videoStory"];
 import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, walletPrices, walletSettings } from "@/lib/wallet/store";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
@@ -28,6 +28,10 @@ import { pensionTableImage, pensionTablePlan } from "./pension-table";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
+import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
+import { storyBackground, storyFrame, storyHandText, storyWindows } from "./story-motion";
+import { faceUris } from "./story-faces";
+import { crowdOf } from "@/lib/story/faces";
 import { motionBackground, motionBgHeight, motionFrame, motionWindows, MOTION_FPS } from "./motion";
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { WIDE_CHART_W, wideSceneLayer } from "./classic-wide";
@@ -72,14 +76,17 @@ export const FREE_VIDEOS = 2;
  * asked for and takes it when the clip is done.
  */
 export const videoPrice = (v: ClipInput, prices: Prices): number =>
-  (isFhcInput(v) ? prices.videoFhc : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
+  (isFhcInput(v) ? prices.videoFhc : isStoryInput(v) ? prices.videoStory
+    : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
 
 export type VideoStatus = "drawing" | "rendering" | "done" | "failed";
 export type { VideoInput } from "./script";
-/** what a clip's row holds: a quote, or an FHC summary (fhc.ts) */
-export type ClipInput = VideoInput | FhcVideoInput;
+/** what a clip's row holds: a quote, an FHC summary (fhc.ts), or a คลิปเล่าเรื่อง (story.ts) */
+export type ClipInput = VideoInput | FhcVideoInput | StoryVideoInput;
+/** a quote clip: neither an FHC summary nor a story */
+export const isQuoteInput = (v: ClipInput): v is VideoInput => !isFhcInput(v) && !isStoryInput(v);
 export interface VideoRow {
   id: string;
   agent_id: string;
@@ -331,6 +338,8 @@ export interface ClipParts {
   build: BuildOpts;
   layers: { photo: boolean };
   sceneDraws: (s: number) => { name: string; draw: () => Promise<Buffer> }[];
+  /** a still background under every scene, when the clip has one of its own (the story clip's paper) */
+  background?: () => Promise<Buffer>;
 }
 
 async function contactOf(agentId: string, agentName: string): Promise<Contact> {
@@ -347,11 +356,12 @@ const narratorOf = (input: ClipInput): "F" | "M" => (input.narrator === "M" ? "M
 
 /** the language a clip is told in: an iHealthy clip's own choice (owner, 2026-10-15), Thai for every other */
 export const langOfInput = (input: ClipInput): VideoLang =>
-  (!isFhcInput(input) && input.product === "IHEALTHY" ? readVideoLang(input.lang) : "th");
+  (isQuoteInput(input) && input.product === "IHEALTHY" ? readVideoLang(input.lang) : "th");
 
 /** the lines a clip speaks, in scene order */
 function spokenLines(row: VideoRow): { key: string; voice: string }[] {
   if (isFhcInput(row.input)) return fhcScript(row.input.fhc, row.customer_name, narratorOf(row.input));
+  if (isStoryInput(row.input)) return storyScript(row.input, row.customer_name, narratorOf(row.input));
   const facts = quoteVideoFacts(row.input);
   if (!facts) throw new Error("quote not priced");
   const length = readLength(row.input.length);
@@ -379,8 +389,38 @@ async function fhcParts(row: VideoRow & { input: FhcVideoInput }, agentName: str
   return { size, script, motion: true, plans, named, build: { driftHeight: motionBgHeight(dims), size: dims }, layers: { photo: false }, sceneDraws };
 }
 
+/**
+ * A story clip's parts (story.ts): six scenes drawn on paper, a frame every 1/MOTION_FPS while
+ * anything moves, over a still paper background rather than the Motion world's drifting one.
+ */
+async function storyParts(row: VideoRow & { input: StoryVideoInput }, agentName: string, secs: number[]): Promise<ClipParts> {
+  const input = row.input;
+  const size = clipSize(input);
+  const dims = SIZES[size];
+  const narrator = narratorOf(input);
+  const customer = row.customer_name;
+  const contact = await contactOf(row.agent_id, agentName);
+  const script = storyScript(input, customer, narrator);
+  if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
+  const crowd = crowdOf(input.faces.hero, input.faces.narrator);
+  const faces = await faceUris([...crowd, input.faces.narrator]);
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: storyWindows(s.key, input, size), fps: MOTION_FPS })));
+  const named = nameFiles(plans, plans.map(() => undefined));
+  const hand = storyHandText(input, customer) + contact.name;
+  const sceneDraws = (s: number) => {
+    const p = plans[s];
+    const ctx = { input, size, customer, narrator, contact, crowd, faces, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
+    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(storyFrame(p.key, ctx, fr.t ?? 0), { width: dims.w, height: dims.h }, { hand }) }));
+  };
+  return {
+    size, script, motion: true, plans, named, build: { size: dims }, layers: { photo: false }, sceneDraws,
+    background: () => renderPng(storyBackground(size), { width: dims.w, height: dims.h }),
+  };
+}
+
 async function clipParts(row: VideoRow, agentName: string, secs: number[]): Promise<ClipParts> {
   if (isFhcInput(row.input)) return fhcParts(row as VideoRow & { input: FhcVideoInput }, agentName, secs);
+  if (isStoryInput(row.input)) return storyParts(row as VideoRow & { input: StoryVideoInput }, agentName, secs);
   return quoteParts(row as VideoRow & { input: VideoInput }, agentName, secs);
 }
 
@@ -500,7 +540,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     if (!gcpKey) throw new Error("no gcp key");
     const narrator = narratorOf(row.input);
     // a brief the agent did not preview is written now, and kept with the clip so every scene drawer tells the same lines
-    if (!isFhcInput(row.input) && writes(row.input.brief) && !row.input.lines) {
+    if (isQuoteInput(row.input) && writes(row.input.brief) && !row.input.lines) {
       const facts = quoteVideoFacts(row.input);
       if (facts) {
         const { lines } = await writeLines(facts, row.input.brief, readLength(row.input.length));
@@ -528,7 +568,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
     lap(`voice done (${spokenScript.length} lines${voiceId ? ", ElevenLabs" : ""}${lang === "th" ? "" : `, ${lang}`})`);
     const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-    const { size, motion, plans, named, build, layers } = await clipParts(row, agentName, secs);
+    const { size, motion, plans, named, build, layers, background: ownBackground } = await clipParts(row, agentName, secs);
     const total = clipLength(plans);
 
     // the files every scene shares, or that need no drawing
@@ -537,7 +577,9 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const family = layers.photo ? await readFile(join(process.cwd(), "public/card/family.jpg")) : undefined;
     // the Motion Graphic style: one drifting background under every scene
     const dims = SIZES[size];
-    const background = motion ? await renderPng(motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) }) : undefined;
+    // a story clip: its own still paper instead
+    const background = ownBackground ? await ownBackground()
+      : motion ? await renderPng(motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) }) : undefined;
     plans.forEach((p, s) => {
       const sc = named.scenes[s];
       if (background) files.set(sc.base, { body: background, type: "image/png" });

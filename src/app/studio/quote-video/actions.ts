@@ -20,6 +20,7 @@ import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
+import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, storyFigure, type StoryVideoInput } from "@/lib/quote-video/story";
 import { getCustomer, listCustomers } from "@/lib/fhc/customers";
 import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
 import { checkedPension } from "@/lib/quote-video/pension";
@@ -292,6 +293,41 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   }
 }
 
+/** a premium for คลิปเล่าเรื่อง's jar scene, worked out as the form is filled (story.ts storyFigure) */
+export async function previewStoryFigure(v: { plan?: string; variant?: string; sex?: string; age?: number; sumAssured?: number }): Promise<{ annual: number; monthly: number } | { error: string }> {
+  await requireMember();
+  const f = storyFigure(v ?? {});
+  return typeof f === "string" ? { error: f } : { annual: f.annual, monthly: f.monthly };
+}
+
+/**
+ * คลิปเล่าเรื่อง (owner, 2026-10-15): a cartoon story clip. The premium it shows, if any, is
+ * worked out again here from the plan's table, never taken from the form.
+ */
+export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure"> & { figure?: unknown }, customer: string): Promise<Made> {
+  const viewer = await requireMember();
+  const eleven = elevenVoice(v?.voice);
+  if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
+  const input = checkedStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
+  if (typeof input === "string") return { ok: false, error: input };
+  const contact = await getContact(viewer.agentId);
+  if (!viewer.name.trim() || !contact.phone) {
+    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
+  }
+  const full = await voiceRefusal(input.voice);
+  if (full) return { ok: false, error: full };
+  try {
+    const made = await createVideo(viewer, input, cleanCustomerName(customer));
+    if ("refusal" in made) return { ok: false, error: made.refusal };
+    const { id } = made;
+    after(() => asWho(viewer.agentId, () => produce(id, viewer.name.trim())));
+    return { ok: true, id };
+  } catch (e) {
+    console.error("story video not started:", e instanceof Error ? e.message : "unknown error");
+    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+}
+
 /** a Page's calendar posts Reels, and a Reel is portrait (owner, 2026-10-11) */
 const NOT_PORTRAIT = "ลงปฏิทินเพจได้เฉพาะคลิปแนวตั้ง";
 const LENGTH_WORD = { short: " (สั้น 15 วิ)", full: "", long: " (ยาว 90 วิ)", max: " (2 นาที)" } as const;
@@ -381,6 +417,7 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   if (row.customer_name) return { ok: false, error: NAMED };
   if (isFhcInput(row.input)) return { ok: false, error: FHC_PRIVATE };
   if (clipSize(row.input) !== "portrait") return { ok: false, error: NOT_PORTRAIT };
+  if (isStoryInput(row.input)) return { ok: true, caption: storyCaption(row.input) };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
 }
@@ -413,9 +450,13 @@ export async function myCost(): Promise<CostView | null> {
   });
 }
 
-export async function myVideos(): Promise<VideoItem[]> {
+/**
+ * The agent's clips for one board: วิดีโอนำเสนอ's quotes and FHC summaries, or คลิปเล่าเรื่อง's
+ * stories (owner, 2026-10-15) — each board lists its own.
+ */
+export async function myVideos(board: "quote" | "story" = "quote"): Promise<VideoItem[]> {
   const viewer = await requireMember();
-  const list = await listVideos(viewer.agentId);
+  const list = (await listVideos(viewer.agentId, 60)).filter((v) => isStoryInput(v.input) === (board === "story")).slice(0, 30);
   const making = (v: VideoRow) => v.status === "drawing" || v.status === "rendering";
   const est = list.some(making) ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
   const now = Date.now();
@@ -427,7 +468,7 @@ export async function myVideos(): Promise<VideoItem[]> {
       status: v.status, note: readNote(v.progress),
       sinceStart: Math.max(0, (now - Date.parse(v.created_at)) / 1000),
       sinceRender: Number.isFinite(started) ? Math.max(0, (now - started) / 1000) : null,
-      est: est[clipKind(v.input as { fhc?: unknown; style?: unknown; length?: unknown })],
+      est: est[clipKind(v.input as { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown })],
     };
   };
   return Promise.all(list.map(async (v) => {
@@ -446,6 +487,19 @@ export async function myVideos(): Promise<VideoItem[]> {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
         status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v), fileName: file, ...(await links(file)), paid: paidLine(v),
+      };
+    }
+    if (isStoryInput(v.input)) {
+      const input = v.input;
+      const topic = STORY_TOPICS.find((x) => x.key === input.topic)?.name ?? "คลิปเล่าเรื่อง";
+      const fig = input.figure ? ` · ${planName(input.figure.plan)} ${SEX[input.figure.sex]} ${input.figure.age}` : "";
+      const who = `${topic}${SIZE_WORD[clipSize(input)]}${fig}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""}`;
+      const file = `เล่าเรื่อง-${v.customer_name || topic.replace(/\s+/g, "")}.mp4`;
+      return {
+        id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
+        title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
+        overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v),
       };
     }
     const input = v.input;

@@ -1,8 +1,9 @@
 import type { FhcSceneKey } from "./fhc";
 import type { SceneKey } from "./script";
+import type { StorySceneKey } from "./story";
 
-/** a quote clip's scenes, or an FHC summary's (fhc.ts) */
-export type AnySceneKey = SceneKey | FhcSceneKey;
+/** a quote clip's scenes, an FHC summary's (fhc.ts), or a story's (story.ts) */
+export type AnySceneKey = SceneKey | FhcSceneKey | StorySceneKey;
 
 /**
  * When everything in the clip happens (owner, 2026-10-11: the free effects — transitions, count-up,
