@@ -462,7 +462,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     return n ? n.toLocaleString("en-US") : "";
   };
   return (
-    <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+    // the desk's squared paper under the cards, as Organic Studio's (owner, 2026-10-15)
+    <div className="studio-desk mt-5 grid gap-5 rounded-xl border border-[var(--ct-hair)] p-3 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className={`${card} pb-0 lg:pb-5`}>
         <Step n={1} title="ทำวิดีโอเรื่อง" summary={summary.what} first>
           <div className="flex flex-wrap gap-2">

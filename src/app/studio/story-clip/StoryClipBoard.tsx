@@ -341,7 +341,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const voiceWord = look.voice ? eleven.find((v) => v.id === look.voice)?.name ?? "ElevenLabs" : look.narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
 
   return (
-    <div className="mt-5 space-y-5">
+    // the desk's squared paper under the cards, as Organic Studio's (owner, 2026-10-15)
+    <div className="studio-desk mt-5 space-y-5 rounded-xl border border-[var(--ct-hair)] p-3">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className={`${card} pb-0 lg:pb-5`}>
           <Step n={1} title="เลือกเรื่อง" summary={info.name} first>
