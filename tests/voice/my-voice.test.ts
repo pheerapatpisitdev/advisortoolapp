@@ -74,11 +74,18 @@ describe("ElevenLabs voice cloning (clone.ts)", () => {
     await expect(deleteVoice("k", "v1", { fetch: down as unknown as typeof fetch })).rejects.toThrow(/500/);
   });
 
-  it("counts the slots taken from the account's own voices", async () => {
+  it("counts only cloned voices, not voices added from the library", async () => {
     const fetch = vi.fn(async (url: string) => url.endsWith("/user/subscription")
-      ? new Response(JSON.stringify({ voice_limit: 30 }))
-      : new Response(JSON.stringify({ voices: [{ category: "premade" }, { category: "cloned" }, { category: "cloned" }, { category: "generated" }] })));
-    expect(await voiceSlots("k", { fetch: fetch as unknown as typeof globalThis.fetch })).toEqual({ used: 3, limit: 30 });
+      ? new Response(JSON.stringify({ voice_limit: 10 }))
+      : new Response(JSON.stringify({ voices: [{ category: "premade" }, { category: "cloned" }, { category: "cloned" }, { category: "generated" }, { category: "professional" }] })));
+    expect(await voiceSlots("k", { fetch: fetch as unknown as typeof globalThis.fetch })).toEqual({ used: 2, limit: 10 });
+  });
+
+  it("takes the account's own count when it is higher", async () => {
+    const fetch = vi.fn(async (url: string) => url.endsWith("/user/subscription")
+      ? new Response(JSON.stringify({ voice_limit: 10, voice_slots_used: 4 }))
+      : new Response(JSON.stringify({ voices: [{ category: "cloned" }] })));
+    expect(await voiceSlots("k", { fetch: fetch as unknown as typeof globalThis.fetch })).toEqual({ used: 4, limit: 10 });
   });
 });
 

@@ -44,8 +44,9 @@ export interface Slots { used: number; limit: number }
 
 /**
  * How many voice slots the account has and how many are taken. The subscription names the
- * limit; the taken ones are counted from the voices themselves (every voice that is not one of
- * ElevenLabs' own), which holds whichever field a plan reports.
+ * limit and the slots used; the cloned voices are counted too, whichever is more. Voices added
+ * from the library (professional, generated) take no clone slot, so they are not counted: the
+ * 23 library voices on the account read as 25 of 10 and turned every clone away (2026-10-15).
  */
 export async function voiceSlots(apiKey: string, opts: { fetch?: typeof fetch } = {}): Promise<Slots> {
   const f = opts.fetch ?? fetch;
@@ -57,7 +58,7 @@ export async function voiceSlots(apiKey: string, opts: { fetch?: typeof fetch } 
   if (!voices.ok) throw new Error(`api.elevenlabs.io ${voices.status}`);
   const s = (await sub.json()) as { voice_limit?: number; voice_slots_used?: number };
   const v = (await voices.json()) as { voices?: { category?: string }[] };
-  const own = (v.voices ?? []).filter((x) => x.category && x.category !== "premade").length;
+  const own = (v.voices ?? []).filter((x) => x.category === "cloned").length;
   return { used: Math.max(own, s.voice_slots_used ?? 0), limit: s.voice_limit ?? 0 };
 }
 
