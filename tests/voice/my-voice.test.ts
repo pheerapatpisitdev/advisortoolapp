@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { addVoice, deleteVoice, pcmToWav, voiceSlots, wavInfo } from "@/lib/voice/clone";
+import { mayClone, slotsFull } from "@/lib/voice/mine";
 import { consentText, drawCode, previewLine, spokenCode, takeTexts, TAKES } from "@/lib/voice/mine-words";
 import { encodeWav, loudness, QUIET, TAKE_RATE } from "@/lib/voice/wav-encode";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
@@ -85,5 +86,19 @@ describe("เสียงของฉัน's price", () => {
   it("is ฿199 once, the voice per clip as any ElevenLabs voice", () => {
     expect(DEFAULT_PRICES.voiceClone).toBe(19900);
     expect(DEFAULT_PRICES.elevenExtra).toBe(200);
+  });
+});
+
+describe("who may clone (mine.ts)", () => {
+  it("is everyone signed in, with no invitation (owner, 2026-10-15)", () => {
+    expect(mayClone({ kind: "member", agentId: "a1", staff: null } as never)).toBe(true);
+    expect(mayClone(null)).toBe(false);
+  });
+
+  it("stops a new voice only when the slots are known to be full", () => {
+    expect(slotsFull({ used: 30, limit: 30 })).toBe(true);
+    expect(slotsFull({ used: 29, limit: 30 })).toBe(false);
+    expect(slotsFull({ used: 3, limit: 0 })).toBe(false);
+    expect(slotsFull(null)).toBe(false);
   });
 });

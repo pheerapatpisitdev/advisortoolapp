@@ -284,7 +284,7 @@ describe("Studio's own menu", () => {
     expect(groups.map((g) => g.title ?? null)).toEqual([null, "สร้างงาน", "วางแผนและคลัง"]);
     expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
       ["/home", "/studio"],
-      ["/studio/quote-video", "/studio/story-clip", "/studio/write", "/studio/thumbnail", "/studio/describe"],
+      ["/studio/quote-video", "/studio/story-clip", "/studio/voice", "/studio/write", "/studio/thumbnail", "/studio/describe"],
       ["/studio/calendar", "/studio/hooks", "/studio/people"],
     ]);
     expect(groups[0].links[0]).toMatchObject({ label: "ระบบหลัก", icon: "back" });

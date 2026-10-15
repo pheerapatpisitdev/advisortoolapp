@@ -1,6 +1,6 @@
 "use server";
 import { requireMember } from "@/lib/auth/viewer";
-import { cloneVoice, deleteMyVoice, redoVoice, startVoice, submitVoice, VoiceError, type AgentVoice } from "@/lib/voice/mine";
+import { cloneVoice, deleteMyVoice, redoVoice, startVoice, activateVoice, VoiceError, type AgentVoice } from "@/lib/voice/mine";
 import type { VoiceSex } from "@/lib/voice/mine-words";
 
 /**
@@ -43,7 +43,7 @@ export async function recordAgain(id: string): Promise<VoiceResult> {
 
 export async function keepVoice(id: string): Promise<VoiceResult> {
   const viewer = await requireMember();
-  return run(async () => { await submitVoice(viewer, String(id)); return null; }, "voice not submitted");
+  return run(async () => { await activateVoice(viewer, String(id)); return null; }, "voice not kept");
 }
 
 export async function removeMyVoice(id: string): Promise<VoiceResult> {

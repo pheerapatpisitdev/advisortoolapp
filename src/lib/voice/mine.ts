@@ -10,10 +10,13 @@ import { consentText, drawCode, PREVIEW_REDOS, previewLine, TAKE_MAX_SEC, TAKE_M
  * เสียงของฉัน (owner, 2026-10-15, mockup https://claude.ai/artifact/8aEHEDbMbeCJXiaKa3ie7m): an
  * agent's own cloned voice, from the first take to its deletion.
  *
- * recording → preview → review → active, or rejected; deleted when the agent removes it or a
- * newer voice of theirs is approved. ฿199 (the voiceClone price) is charged once the clone is
- * made and given back if the Super Admin turns it down; the owner pays nothing, nor does anyone
- * while the wallet is off. During the pilot only the agents the owner invited may clone.
+ * recording → preview → active, or rejected; deleted when the agent removes it or a newer voice
+ * of theirs goes into use. Open to everyone in Studio, and a voice is in use as soon as the agent
+ * keeps it; the Super Admin hears it afterwards and may turn it off (owner, 2026-10-15, mockup
+ * https://claude.ai/artifact/ByQCQqEsEvLxuaBy2KgQJ2, choice ข). "review" is left from the pilot,
+ * when a voice waited for approval first. ฿199 (the voiceClone price) is charged once the clone
+ * is made and given back if the Super Admin turns it off; the owner pays nothing, nor does anyone
+ * while the wallet is off.
  */
 
 export type VoiceStatus = "recording" | "preview" | "review" | "active" | "rejected" | "deleted";
@@ -32,6 +35,8 @@ export interface AgentVoice {
   previewPath: string | null;
   paidBy: string | null;
   chargedSatang: number;
+  /** when the Super Admin heard it; null while it has not been heard */
+  reviewedAt: string | null;
   reason: string | null;
 }
 
@@ -47,7 +52,8 @@ function row(r: Record<string, unknown>): AgentVoice {
     sex: r.sex === "M" ? "M" : "F", code: String(r.code), consentText: String(r.consent_text), redoUsed: Number(r.redo_used ?? 0),
     redoOf: (r.redo_of as string | null) ?? null, elevenVoiceId: (r.eleven_voice_id as string | null) ?? null,
     consentPath: (r.consent_path as string | null) ?? null, previewPath: (r.preview_path as string | null) ?? null,
-    paidBy: (r.paid_by as string | null) ?? null, chargedSatang: Number(r.charged_satang ?? 0), reason: (r.reason as string | null) ?? null,
+    paidBy: (r.paid_by as string | null) ?? null, chargedSatang: Number(r.charged_satang ?? 0),
+    reviewedAt: (r.reviewed_at as string | null) ?? null, reason: (r.reason as string | null) ?? null,
   };
 }
 
@@ -65,12 +71,9 @@ async function elevenKey(): Promise<string> {
 /** a refusal the agent is shown as it is */
 export class VoiceError extends Error {}
 
-/** whether this agent may clone: invited to the pilot, or the owner */
-export async function mayClone(viewer: Viewer): Promise<boolean> {
-  if (can(viewer, "owner")) return true;
-  const { data, error } = await supabaseAdmin().from("ins_agent_voice_invites").select("agent_id").eq("agent_id", viewer.agentId).maybeSingle();
-  if (error) throw new Error(`อ่านรายชื่อผู้ได้รับเชิญไม่ได้: ${error.message}`);
-  return Boolean(data);
+/** whether this viewer may clone: everyone signed in to Studio (owner, 2026-10-15) */
+export function mayClone(viewer: Viewer | null): boolean {
+  return Boolean(viewer?.agentId);
 }
 
 /** an agent's voices still in play: the one in use, and a newer one on its way */
@@ -105,10 +108,12 @@ export async function yearlyRedosLeft(agentId: string, now = new Date()): Promis
  * drawn for the consent take. An unfinished voice is picked up again rather than started anew.
  */
 export async function startVoice(viewer: Viewer, sex: VoiceSex): Promise<AgentVoice> {
-  if (!(await mayClone(viewer))) throw new VoiceError("ช่วงนำร่อง เปิดให้ตัวแทนที่ได้รับเชิญเท่านั้น");
+  if (!mayClone(viewer)) throw new VoiceError("เข้าสู่ระบบก่อน");
   const mine = await myVoices(viewer.agentId);
   if (mine.pending?.status === "review") throw new VoiceError("เสียงของคุณรอแอดมินตรวจอยู่");
   if (mine.pending?.status === "preview") throw new VoiceError("มีเสียงที่โคลนแล้วรอคุณฟังอยู่ ฟังแล้วเลือกใช้หรืออัดใหม่");
+  // told before the takes, not after them: a full account cannot clone until a slot is free
+  if (slotsFull(await slotsNow())) throw new VoiceError(SLOTS_FULL);
   if (mine.pending) {
     // takes already up stay; the sex, and so the words, may have changed
     const code = drawCode();
@@ -148,6 +153,10 @@ async function payment(viewer: Viewer, v: AgentVoice): Promise<{ by: "staff" | "
   return { by: "wallet", satang: (await walletPrices()).voiceClone };
 }
 
+const SLOTS_FULL = "ตอนนี้ช่องเสียงเต็มชั่วคราว ยังอัดไม่ได้ ไม่มีการหักเงิน ลองใหม่ภายหลัง";
+/** no free voice slot; slots that cannot be read do not stop anyone */
+export const slotsFull = (slots: Slots | null) => Boolean(slots && slots.limit > 0 && slots.used >= slots.limit);
+
 /** the account's voice slots, or null when they cannot be read */
 export async function slotsNow(): Promise<Slots | null> {
   try {
@@ -172,8 +181,7 @@ export async function cloneVoice(viewer: Viewer, id: string): Promise<AgentVoice
     return { name: `take-${i + 1}.wav`, wav: Buffer.from(await data.arrayBuffer()) };
   }));
   const key = await elevenKey();
-  const slots = await voiceSlots(key).catch(() => null);
-  if (slots && slots.limit > 0 && slots.used >= slots.limit) throw new VoiceError("ช่องเสียงเต็มชั่วคราว ลองใหม่ภายหลัง");
+  if (slotsFull(await voiceSlots(key).catch(() => null))) throw new VoiceError(SLOTS_FULL);
   const pay = await payment(viewer, v);
   let holdId: string | null = null;
   if (pay.by === "wallet" && pay.satang > 0) {
@@ -223,11 +231,13 @@ export async function redoVoice(viewer: Viewer, id: string): Promise<AgentVoice>
   return { ...(await ownVoice(viewer.agentId, id)) };
 }
 
-/** the agent keeps it: on to the Super Admin */
-export async function submitVoice(viewer: Viewer, id: string): Promise<void> {
+/** the agent keeps it: in use at once, an older voice of theirs gone; the Super Admin hears it afterwards */
+export async function activateVoice(viewer: Viewer, id: string): Promise<void> {
   const v = await ownVoice(viewer.agentId, id);
-  if (v.status !== "preview") throw new VoiceError("ส่งตรวจได้หลังฟังตัวอย่างแล้ว");
-  await update(v.id, { status: "review" });
+  if (v.status !== "preview") throw new VoiceError("เลือกใช้ได้หลังฟังตัวอย่างแล้ว");
+  const { active } = await myVoices(v.agentId);
+  if (active && active.id !== v.id) await removeVoice(active);
+  await update(v.id, { status: "active" });
 }
 
 /** a voice out of ElevenLabs and storage, its row marked deleted */
@@ -259,30 +269,32 @@ export async function voiceFileUrl(path: string | null): Promise<string | null> 
   return data.signedUrl;
 }
 
-/** the voices waiting for the Super Admin, oldest first */
+/** the voices the Super Admin has not heard yet, in use or (from the pilot) waiting, oldest first */
 export async function voicesToReview(): Promise<AgentVoice[]> {
-  const { data, error } = await table().select("*").eq("status", "review").order("updated_at", { ascending: true }).limit(50);
+  const { data, error } = await table().select("*").or("status.eq.review,and(status.eq.active,reviewed_at.is.null)").order("updated_at", { ascending: true }).limit(50);
   if (error) throw new Error(`อ่านเสียงรอตรวจไม่ได้: ${error.message}`);
   return (data ?? []).map(row);
 }
 
-/** approved: the voice is the agent's, and an older one of theirs goes */
+/** heard and fine; one still waiting from the pilot goes into use, and an older one of theirs goes */
 export async function approveVoice(id: string, by: string): Promise<void> {
   const { data, error } = await table().select("*").eq("id", id).maybeSingle();
   if (error || !data) throw new Error("ไม่พบเสียงนี้");
   const v = row(data);
-  if (v.status !== "review") throw new Error("เสียงนี้ไม่ได้รอตรวจ");
-  const { active } = await myVoices(v.agentId);
-  if (active && active.id !== v.id) await removeVoice(active);
+  if (v.status !== "review" && v.status !== "active") throw new Error("เสียงนี้ไม่ได้รอตรวจ");
+  if (v.status === "review") {
+    const { active } = await myVoices(v.agentId);
+    if (active && active.id !== v.id) await removeVoice(active);
+  }
   await update(v.id, { status: "active", reviewed_at: new Date().toISOString(), reviewed_by: by });
 }
 
-/** turned down: the voice deleted, the money given back */
+/** turned off: the voice deleted, the money given back */
 export async function rejectVoice(id: string, by: string, reason: string): Promise<void> {
   const { data, error } = await table().select("*").eq("id", id).maybeSingle();
   if (error || !data) throw new Error("ไม่พบเสียงนี้");
   const v = row(data);
-  if (v.status !== "review") throw new Error("เสียงนี้ไม่ได้รอตรวจ");
+  if (v.status !== "review" && v.status !== "active") throw new Error("เสียงนี้ไม่ได้ใช้งานอยู่");
   await removeVoice(v, "rejected", { reviewed_at: new Date().toISOString(), reviewed_by: by, reason });
   if (v.chargedSatang > 0) await adjustWallet(v.agentId, v.chargedSatang, "คืนค่าเปิดใช้เสียงของฉัน (ไม่ผ่านการตรวจ)", by);
 }
@@ -292,37 +304,6 @@ export async function myVoiceChoice(agentId: string): Promise<ElevenChoice | nul
   const { active } = await myVoices(agentId).catch(() => ({ active: null }));
   if (!active?.elevenVoiceId) return null;
   return { id: active.elevenVoiceId, name: "เสียงของฉัน", sex: active.sex, tag: "เสียงโคลนของคุณ", sample: (await voiceFileUrl(active.previewPath)) ?? "", mine: true };
-}
-
-/** the agents invited to the pilot, newest first */
-export async function voiceInvites(): Promise<{ agentId: string; invitedAt: string }[]> {
-  const { data, error } = await supabaseAdmin().from("ins_agent_voice_invites").select("agent_id, invited_at").order("invited_at", { ascending: false });
-  if (error) throw new Error(`อ่านรายชื่อผู้ได้รับเชิญไม่ได้: ${error.message}`);
-  return (data ?? []).map((r) => ({ agentId: String(r.agent_id), invitedAt: String(r.invited_at) }));
-}
-
-/** an agent (by UnitOS code) or a member (by email), as an id; null when neither is found */
-export async function agentByCodeOrEmail(codeOrEmail: string): Promise<string | null> {
-  const q = codeOrEmail.trim();
-  if (!q) return null;
-  const db = supabaseAdmin();
-  if (q.includes("@")) {
-    const { data } = await db.from("ins_members").select("id").ilike("email", q).limit(1).maybeSingle();
-    return data ? String(data.id) : null;
-  }
-  const { data } = await db.from("agents").select("id").eq("agent_code", q).limit(1).maybeSingle();
-  return data ? String(data.id) : null;
-}
-
-export async function inviteToVoice(agentId: string, by: string): Promise<void> {
-  const { error } = await supabaseAdmin().from("ins_agent_voice_invites").upsert({ agent_id: agentId, invited_by: by }, { onConflict: "agent_id" });
-  if (error) throw new Error(`เชิญไม่สำเร็จ: ${error.message}`);
-}
-
-/** no longer invited: a voice already made stays theirs */
-export async function uninviteFromVoice(agentId: string): Promise<void> {
-  const { error } = await supabaseAdmin().from("ins_agent_voice_invites").delete().eq("agent_id", agentId);
-  if (error) throw new Error(`ยกเลิกคำเชิญไม่สำเร็จ: ${error.message}`);
 }
 
 /** the voices in use, newest first */

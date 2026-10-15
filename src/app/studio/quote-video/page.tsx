@@ -57,7 +57,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));
   const mine = keyed ? await myVoiceChoice(viewer.agentId).catch(() => null) : null;
   const eleven = keyed ? [...(mine ? [mine] : []), ...elevenVoicesFor(can(viewer, "owner"))] : [];
-  const canClone = keyed && !mine && (await mayClone(viewer).catch(() => false));
+  const canClone = keyed && !mine && mayClone(viewer);
   const [cost, prices] = await Promise.all([myCost(), walletPrices()]);
   const initial = await myVideos().catch((e) => {
     console.error("quote videos not read:", e);

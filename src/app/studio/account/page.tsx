@@ -23,7 +23,7 @@ export default async function AccountPage() {
   });
   const photo = await photoUrl(contact.photoPath);
   // เสียงของฉัน (owner, 2026-10-15): for the agents invited to the pilot
-  const voice = (await mayClone(viewer).catch(() => false)) ? await myVoices(viewer.agentId).catch(() => null) : null;
+  const voice = mayClone(viewer) ? await myVoices(viewer.agentId).catch(() => null) : null;
   return (
     <div className="mx-auto max-w-md space-y-6" style={STUDIO_FIELDS}>
       {viewer.kind === "member" ? (
