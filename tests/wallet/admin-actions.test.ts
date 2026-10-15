@@ -43,7 +43,7 @@ describe("savePrices (owner, 2026-10-12)", () => {
     drawStandard: "1", drawSharp: "2", drawGemini: "5", describe: "1",
     videoClassic: "5", videoMotion: "10", videoFhc: "3", elevenExtra: "2.50",
     videoLongClassic: "8", videoLongMotion: "15", videoMaxClassic: "10", videoMaxMotion: "20",
-    videoStory: "4", videoStoryShort: "3",
+    videoStory: "4", videoStoryShort: "3", voiceClone: "199",
   };
 
   it("saves every price in satang, the owner's alone", async () => {
@@ -53,7 +53,7 @@ describe("savePrices (owner, 2026-10-12)", () => {
       drawStandard: 100, drawSharp: 200, drawGemini: 500, describe: 100,
       videoClassic: 500, videoMotion: 1000, videoFhc: 300, elevenExtra: 250,
       videoLongClassic: 800, videoLongMotion: 1500, videoMaxClassic: 1000, videoMaxMotion: 2000,
-      videoStory: 400, videoStoryShort: 300,
+      videoStory: 400, videoStoryShort: 300, voiceClone: 19900,
     });
   });
 

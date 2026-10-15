@@ -4,7 +4,8 @@ import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
-import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS } from "@/lib/voice/elevenlabs";
+import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS, type ElevenChoice } from "@/lib/voice/elevenlabs";
+import { myVoiceChoice } from "@/lib/voice/mine";
 import { providerKey } from "@/lib/ai/client";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
@@ -89,8 +90,24 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
   return { min: 500_000, max: 50_000_000 };
 }
 
+/**
+ * The voice a clip asked for: one of the listed ElevenLabs voices, or the agent's own cloned one
+ * (เสียงของฉัน, owner 2026-10-15) — never another agent's: an id is the agent's only when their
+ * approved voice has it.
+ */
+async function voiceAsked(agentId: string, id: unknown): Promise<ElevenChoice | undefined> {
+  if (typeof id !== "string" || !id) return undefined;
+  const listed = elevenVoice(id);
+  if (listed) return listed;
+  const mine = await myVoiceChoice(agentId);
+  return mine && mine.id === id ? mine : undefined;
+}
+
+/** how a clip's voice reads in the list of clips */
+const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียงของฉัน");
+
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
-function checked(v: VideoInput): VideoInput | string {
+function checked(v: VideoInput, mine?: ElevenChoice): VideoInput | string {
   // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
   const budget = v.budget ? cleanBudget(v.budget) : undefined;
   if (typeof budget === "string") return budget;
@@ -106,7 +123,7 @@ function checked(v: VideoInput): VideoInput | string {
   // another language (owner, 2026-10-15): Gemini's narrator, fixed lines, the 15-second clip or the whole one
   const foreign = c.product === "IHEALTHY" && readVideoLang(c.lang) !== "th";
   // an ElevenLabs voice sets the endings itself: a man's voice says ครับ
-  const eleven = foreign ? undefined : elevenVoice(v.voice);
+  const eleven = foreign ? undefined : elevenVoice(v.voice) ?? (mine && mine.id === v.voice ? mine : undefined);
   const narrator = eleven ? eleven.sex : v.narrator === "M" ? "M" : "F";
   const style = v.style === "motion" ? "motion" : "classic";
   const askedLength = readLength(v.length);
@@ -158,7 +175,7 @@ export interface ScriptPreview {
 export async function previewScript(v: VideoInput, customer: string, seed = 0, rewrite = true): Promise<ScriptPreview | { error: string }> {
   const viewer = await requireMember();
   // lines sent back without a rewrite are the agent's own edits: checked, then spoken as they are
-  const c = checked(rewrite ? { ...v, lines: undefined } : v);
+  const c = checked(rewrite ? { ...v, lines: undefined } : v, await voiceAsked(viewer.agentId, v?.voice));
   if (typeof c === "string") return { error: c };
   const f = quoteVideoFacts(c);
   if (!f) return { error: NOT_PRICED };
@@ -268,7 +285,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   if (typeof customerId !== "string") return { ok: false, error: "เลือกลูกค้า" };
   const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
   if (!c) return { ok: false, error: "ไม่พบลูกค้าคนนี้ในรายชื่อ FHC ของคุณ" };
-  const eleven = elevenVoice(v?.voice);
+  const eleven = await voiceAsked(viewer.agentId, v?.voice);
   if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
@@ -306,7 +323,7 @@ export async function previewStoryFigure(v: { plan?: string; variant?: string; s
  */
 export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "home"> & { figure?: unknown; ladder?: unknown; home?: unknown }, customer: string): Promise<Made> {
   const viewer = await requireMember();
-  const eleven = elevenVoice(v?.voice);
+  const eleven = await voiceAsked(viewer.agentId, v?.voice);
   if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
   const input = checkedStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
   if (typeof input === "string") return { ok: false, error: input };
@@ -339,8 +356,8 @@ const SIZE_WORD: Record<VideoSize, string> = { portrait: "", square: " · จั
 const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ในอายุนี้ ลองเปลี่ยนอายุ ทุน หรือแผน";
 
 export async function previewQuote(v: VideoInput): Promise<Preview | { error: string }> {
-  await requireMember();
-  const c = checked(v);
+  const viewer = await requireMember();
+  const c = checked(v, await voiceAsked(viewer.agentId, v?.voice));
   if (typeof c === "string") return { error: c };
   const f = quoteVideoFacts(c);
   if (!f) return { error: NOT_PRICED };
@@ -363,7 +380,7 @@ function setupWords(c: Extract<VideoInput, { product: "IHEALTHY" }>): { line: st
 
 export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
   const viewer = await requireMember();
-  const c = checked(v);
+  const c = checked(v, await voiceAsked(viewer.agentId, v?.voice));
   if (typeof c === "string") return { ok: false, error: c };
   if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
   // every member's since 2026-10-13, but the two cloned voices are the owner's
@@ -482,7 +499,7 @@ export async function myVideos(board: "quote" | "story" = "quote"): Promise<Vide
     if (isFhcInput(v.input)) {
       const input = v.input;
       const file = `สรุปFHC-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
-      const who = `สรุป FHC${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""}`;
+      const who = `สรุป FHC${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""}`;
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
@@ -493,7 +510,7 @@ export async function myVideos(board: "quote" | "story" = "quote"): Promise<Vide
       const input = v.input;
       const topic = STORY_TOPICS.find((x) => x.key === input.topic)?.name ?? "คลิปเล่าเรื่อง";
       const fig = input.figure ? ` · ${planName(input.figure.plan)} ${SEX[input.figure.sex]} ${input.figure.age}` : "";
-      const who = `${topic}${SIZE_WORD[clipSize(input)]}${fig}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""}`;
+      const who = `${topic}${SIZE_WORD[clipSize(input)]}${fig}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""}`;
       const file = `เล่าเรื่อง-${v.customer_name || topic.replace(/\s+/g, "")}.mp4`;
       return {
         id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
@@ -513,7 +530,7 @@ export async function myVideos(board: "quote" | "story" = "quote"): Promise<Vide
         : input.product === "PLB"
         ? `${sumWords(input.sumAssured)} · ${input.variant.slice(3).replace(/^0/, "")} ปี`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${input.voice ? ` · เสียง ${elevenVoice(input.voice)?.name ?? "ElevenLabs"}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,
