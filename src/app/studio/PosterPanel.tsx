@@ -235,7 +235,7 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
           </div>
           {drawError && <p role="alert" className="rounded-lg border border-[var(--ct-alert-line)] bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">{drawError}</p>}
           <p className="text-xs leading-relaxed text-[var(--ct-mute)]">
-            AI วาดเฉพาะภาพ ไม่มีตัวหนังสือ แล้วระบบพิมพ์ข้อความไทยทับด้วยฟอนต์จริง จึงไม่เพี้ยน · ค่ารูปนับรวมในงบคอนเทนต์เดือนนี้
+            AI วาดเฉพาะภาพ ไม่มีตัวหนังสือ แล้วระบบพิมพ์ข้อความไทยทับด้วยฟอนต์จริง จึงไม่เพี้ยน
           </p>
         </fieldset>
         <p className="text-xs text-[var(--ct-mute)]">ตัวเลขบนภาพถูกตรวจเทียบตารางเบี้ยเมื่อกดบันทึก</p>

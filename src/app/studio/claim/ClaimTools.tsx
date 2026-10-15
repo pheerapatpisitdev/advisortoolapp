@@ -327,7 +327,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
         label={pending
           ? `กำลังอ่านเอกสารและเขียน ${making} ${unit}… (ราว 30–60 วินาที)`
           : `สร้าง${format === "post" ? "รีวิวเคลม" : format === "ad" ? "โฆษณารีวิวเคลม" : "สคริปต์รีวิวเคลม"} ${count} ${unit}`}
-        note={blocked ?? (quota ? quota.text : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
+        note={blocked ?? (quota ? quota.text : `ราว ฿${estimate}`)}
         topUp={!blocked && Boolean(quota?.topUp)}
         warning={blocked ? null : overBudget(Number(estimate), left)}
       />

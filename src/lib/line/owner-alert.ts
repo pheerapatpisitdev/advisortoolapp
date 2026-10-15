@@ -119,7 +119,7 @@ export function newMemberText(m: { name: string; email: string; createdAt: strin
   ].join("\n");
 }
 
-async function pushToOwner(text: string): Promise<boolean> {
+export async function pushToOwner(text: string): Promise<boolean> {
   const r = await row();
   if (!r?.owner_line_user_id) return false;
   await push(r.owner_line_user_id, [{ type: "text", text }]);

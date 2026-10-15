@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatBaht, holdSatang, holdSatangFor } from "@/lib/wallet/money";
 import type { RoundPass } from "@/lib/wallet/round";
 import { holdWallet, walletFrozen, walletSettings } from "@/lib/wallet/store";
+import { freeCapRefusal, freePaused } from "@/lib/wallet/free-cap";
 import { can, type Viewer } from "./access";
 
 /**
@@ -14,7 +15,8 @@ import { can, type Viewer } from "./access";
  * ten rounds to try Studio (five at first, raised to ten the same day), for a paying room and a trial room alike, never given again —
  * after them every round is paid from the agent's own wallet. The owner alone is outside it;
  * an assistant has the ten and a wallet as any agent does, whatever was ticked for them
- * (owner, 2026-10-02). The owner's content ceiling on /admin/ai still stands over the free rounds.
+ * (owner, 2026-10-02). The month's เพดานงบใช้ฟรี stands over an agent's free rounds: once it
+ * is reached they pause until the 1st and the wallet pays (owner, 2026-10-15; src/lib/wallet/free-cap.ts).
  *
  * Counted from 1 October 2026 in Thailand, so rounds used under the monthly allowance before
  * the change do not eat into the ten (owner, 2026-09-30). Moved to 10 October 2026 11:10 to give
@@ -133,13 +135,15 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
   if (!access) return { ok: false, refusal: PASS_UNREADABLE };
   if (!passOpen(access)) return { ok: false, refusal: PASS_EXPIRED };
   const window = windowOf(access);
-  const freeId = await takeFreeRound(viewer, round, target, window).catch((e) => {
+  // a member's rounds came with the pass they paid for: the free ceiling is the agents' alone
+  const paused = viewer.kind !== "member" && await freePaused();
+  const freeId = paused ? null : await takeFreeRound(viewer, round, target, window).catch((e) => {
     console.error(`round ${round} not counted, refused:`, e);
     return undefined;
   });
   if (freeId === undefined) return { ok: false, refusal: UNCOUNTED };
   if (freeId !== null) return { ok: true, paidBy: "free", auditId: freeId, agentId: viewer.agentId };
-  const refusal = overAllowance({ limit: window.limit, used: window.limit }) ?? "";
+  const refusal = paused ? freeCapRefusal() : overAllowance({ limit: window.limit, used: window.limit }) ?? "";
   // an unreadable wallet is a closed one: the round is refused, never let through unpaid
   const settings = await walletSettings().catch((e) => {
     console.error("wallet settings unreadable:", e);
@@ -155,7 +159,7 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
   });
   if (!holdId) {
     // a frozen wallet refuses a hold the same way an empty one does; it is told apart only here
-    return { ok: false, refusal: (await walletFrozen(viewer.agentId)) ? WALLET_FROZEN : walletShort(heldSatang) };
+    return { ok: false, refusal: (await walletFrozen(viewer.agentId)) ? WALLET_FROZEN : paused ? freeCapRefusal() : walletShort(heldSatang) };
   }
   const { error } = await supabaseAdmin().from("ins_audit").insert({ agent_id: viewer.agentId, action: round, target, detail: { wallet: true } });
   // the round is paid for by the hold, so a lost line costs the count, not the money

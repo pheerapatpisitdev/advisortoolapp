@@ -1,7 +1,6 @@
 import { currentScope, maySeePiece, pieceFilter } from "@/lib/auth/scope";
 import { admits, monthSpend, release, reserve, spendSince, sweepHolds, type SpendLine } from "@/lib/ai/ledger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { inWalletRound } from "@/lib/wallet/round";
 import { walletChargedThb } from "@/lib/wallet/store";
 import type { ContentWord, WordHit, WordKind } from "./check";
 import { removeClipsOf } from "./clip-store";
@@ -86,25 +85,17 @@ export const isContentStatus = (v: unknown): v is ContentStatus =>
  * it too. When the pot runs dry the bot goes quiet — so this page stops well before that, at
  * a ceiling of its own, and a busy afternoon of writing posts cannot cost a lead their answer.
  * The owner sets the ceiling on /admin/ai (since 2026-09-24); this is it until they do.
+ *
+ * Retired 2026-10-15 (owner chose ก): เพดานงบใช้ฟรีต่อเดือน took its place. It stood over the
+ * owner's own work too and left clips out; the new one stands over agents' free rounds and clips
+ * alone, at the round's start (src/lib/wallet/free-cap.ts). contentCap is now Infinity, so the
+ * checks and holds that ask it all pass; they are left until they are taken out.
  */
 export const DEFAULT_CONTENT_CAP_THB = 30;
 
-/**
- * The ceiling, or the default when the owner never set one. A read that failed is not an
- * unset ceiling: it throws, so the caller refuses to spend rather than spending against ฿30
- * it made up.
- */
+/** the old ceiling, retired (see above): nothing stops on it */
 export async function contentCap(): Promise<number> {
-  // a round the agent pays for from their wallet is not the owner's money (owner, 2026-09-30):
-  // it is bounded by the wallet's hold instead (src/lib/wallet/round.ts)
-  if (inWalletRound()) return Infinity;
-  const { data, error } = await supabaseAdmin().from("ins_ai_settings").select("content_budget_thb").maybeSingle();
-  if (error) {
-    console.error("content cap unreadable:", error.message);
-    throw new Error(`อ่านงบคอนเทนต์ไม่ได้: ${error.message}`);
-  }
-  const set = data?.content_budget_thb;
-  return set === null || set === undefined ? DEFAULT_CONTENT_CAP_THB : Number(set);
+  return Infinity;
 }
 
 /** what the content tasks have cost in these ledger lines */

@@ -4,15 +4,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 /** The owner's price table (owner, 2026-10-12), on /admin/prices since 2026-10-15 (owner chose ข). */
 
-vi.mock("@/app/admin/wallet/actions", () => ({ savePrices: vi.fn(), saveWallet: vi.fn(), adjustAgentWallet: vi.fn(), unfreezeAgentWallet: vi.fn(), saveMemberPass: vi.fn(), saveReferral: vi.fn() }));
+vi.mock("@/app/admin/wallet/actions", () => ({ savePrices: vi.fn(), saveWallet: vi.fn(), adjustAgentWallet: vi.fn(), unfreezeAgentWallet: vi.fn(), saveMemberPass: vi.fn(), saveReferral: vi.fn(), saveFreeCap: vi.fn() }));
 const { PricesAdmin } = await import("@/app/admin/prices/PricesAdmin");
 const { DEFAULT_PRICES } = await import("@/lib/wallet/prices");
 
 const { DEFAULT_PASS_SETTINGS } = await import("@/lib/members/pass");
 
 // the Super Admin's alone since 2026-10-15, so there is no read-only way to draw it any more
-const draw = (_editable: true, prices = DEFAULT_PRICES, pass: typeof DEFAULT_PASS_SETTINGS | null = DEFAULT_PASS_SETTINGS) =>
-  renderToStaticMarkup(createElement(PricesAdmin, { prices, pass, referral: null, report: null }));
+type Free = Parameters<typeof PricesAdmin>[0]["free"];
+const draw = (_editable: true, prices = DEFAULT_PRICES, pass: typeof DEFAULT_PASS_SETTINGS | null = DEFAULT_PASS_SETTINGS, free: Free = null) =>
+  renderToStaticMarkup(createElement(PricesAdmin, { prices, pass, referral: null, report: null, free }));
 
 describe("the price table", () => {
   it("shows each price in baht for the owner to change, with a save button", () => {
@@ -54,5 +55,31 @@ describe("the member pass box (owner, 2026-10-13)", () => {
 
   it("says so when the settings cannot be read", () => {
     expect(draw(true, DEFAULT_PRICES, null)).toContain("อ่านการตั้งค่าค่าสมาชิกไม่ได้");
+  });
+});
+
+describe("เพดานงบใช้ฟรีต่อเดือน (owner, 2026-10-15)", () => {
+  const free = (cap: number | null, studioThb: number, clipsThb: number): Free =>
+    ({ cap, spent: { studioThb, clipsThb, thb: studioThb + clipsThb }, monthly: 500, until: "1 พ.ย." });
+
+  it("shows the ceiling, the month's use split by Studio and clips, and how far along it is", () => {
+    const html = draw(true, DEFAULT_PRICES, DEFAULT_PASS_SETTINGS, free(300, 111.55, 54.21));
+    expect(html).toMatch(/id="free-cap"[^>]*value="300"/);
+    expect(html).toContain("ใช้ไปเดือนนี้ <b>฿165.76</b> จาก ฿300");
+    expect(html).toContain("55% · ยังใช้ได้");
+    expect(html).toContain("รอบฟรี Studio ฿111.55");
+    expect(html).toContain("คลิปฟรี ฿54.21");
+    expect(html).toContain("ต้องไม่เกินงบ AI รวม ฿500");
+  });
+
+  it("says when it is full and when the free rounds come back", () => {
+    expect(draw(true, DEFAULT_PRICES, DEFAULT_PASS_SETTINGS, free(300, 250, 60))).toContain("เต็มแล้ว · รอบฟรีหยุดถึงวันที่ 1 พ.ย.");
+  });
+
+  it("is an empty box with no ceiling, and says so when it cannot be read", () => {
+    const none = draw(true, DEFAULT_PRICES, DEFAULT_PASS_SETTINGS, free(null, 10, 0));
+    expect(none).toMatch(/id="free-cap"[^>]*value=""/);
+    expect(none).not.toContain("% · ยังใช้ได้");
+    expect(draw(true)).toContain("อ่านเพดานงบใช้ฟรีไม่ได้");
   });
 });

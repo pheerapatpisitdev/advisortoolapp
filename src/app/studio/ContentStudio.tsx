@@ -1325,7 +1325,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             note={quota
               // an agent's own allowance and wallet are what they can act on; the owner's baht is the owner's
               ? quota.text
-              : `ราว ฿${estimate} · สร้างได้อีกราว ${more} ชิ้น · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)} จาก ฿${spend.cap}`}
+              : Number.isFinite(left) ? `ราว ฿${estimate} · สร้างได้อีกราว ${more} ชิ้น · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}` : `ราว ฿${estimate}`}
             topUp={Boolean(quota?.topUp)}
             warning={overBudget(pieceCount * perPiece, left)}
           />

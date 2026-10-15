@@ -177,7 +177,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
         label={pending
           ? `กำลังเกลา ${making} ${unit}… (ราว 20–40 วินาที)`
           : `เกลา${format === "post" ? "โพสต์" : format === "ad" ? "โฆษณา" : "สคริปต์"} ${count} ${unit}`}
-        note={blocked ?? (quota ? quota.text : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
+        note={blocked ?? (quota ? quota.text : `ราว ฿${estimate}`)}
         topUp={!blocked && Boolean(quota?.topUp)}
         warning={blocked ? null : overBudget(Number(estimate), left)}
       />

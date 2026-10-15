@@ -23,22 +23,32 @@ describe("the note under the make button", () => {
   });
 });
 
+describe("the note once the month's เพดานงบใช้ฟรี is reached", () => {
+  const paused = { until: "1 พ.ย." };
+
+  it("says the free rounds wait for the 1st and the wallet pays, though some are left", () => {
+    expect(roundsNote({ used: 2, limit: 10, wallet: { satang: 8420, multiplier: 2 }, paused }, "1.20"))
+      .toEqual({ text: "ราว ฿2.40 จากกระเป๋า · รอบฟรีของเดือนนี้หมดแล้ว ได้ใหม่วันที่ 1 พ.ย. · คงเหลือ ฿84.20", topUp: true });
+  });
+
+  it("says when they come back if the wallet is off", () => {
+    expect(roundsNote({ used: 2, limit: 10, wallet: null, paused }, "1.20"))
+      .toEqual({ text: "รอบฟรีของเดือนนี้หมดแล้ว · ได้รอบฟรีใหม่วันที่ 1 พ.ย.", topUp: false });
+  });
+
+  it("is the usual words once the free rounds are used anyway", () => {
+    expect(roundsNote({ used: 10, limit: 10, wallet: { satang: 8420, multiplier: 2 }, paused }, "1.20").text)
+      .toBe("ราว ฿2.40 จากกระเป๋า · รอบฟรีหมดแล้ว · คงเหลือ ฿84.20");
+  });
+});
+
 describe("the money the page reckons with", () => {
-  const wallet = { satang: 5000, multiplier: 2 };
-
-  it("is the owner's ceiling left for staff and for a round inside the free month", () => {
-    expect(moneyLeft({ cap: 30, spent: 12.5, rounds: null })).toBe(17.5);
-    expect(moneyLeft({ cap: 30, spent: 12.5, rounds: { used: 3, limit: 20, wallet } })).toBe(17.5);
-    expect(moneyLeft({ cap: 30, spent: 45, rounds: { used: 3, limit: 20, wallet } })).toBe(0);
+  it("is unbounded now the content ceiling is retired", () => {
+    expect(moneyLeft({ cap: null, spent: 45 })).toBe(Infinity);
   });
 
-  it("is unbounded for a round the agent pays from the wallet, whatever the ceiling says", () => {
-    expect(moneyLeft({ cap: 30, spent: 30, rounds: { used: 20, limit: 20, wallet } })).toBe(Infinity);
-    expect(moneyLeft({ cap: 30, spent: 45, rounds: { used: 25, limit: 20, wallet } })).toBe(Infinity);
-  });
-
-  it("stays the ceiling after the free month when the owner has the wallet off", () => {
-    expect(moneyLeft({ cap: 30, spent: 30, rounds: { used: 20, limit: 20, wallet: null } })).toBe(0);
-    expect(moneyLeft({ cap: 30, spent: 10, rounds: { used: 20, limit: 20 } })).toBe(20);
+  it("is a ceiling's money left when there is one", () => {
+    expect(moneyLeft({ cap: 30, spent: 12.5 })).toBe(17.5);
+    expect(moneyLeft({ cap: 30, spent: 45 })).toBe(0);
   });
 });

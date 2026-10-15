@@ -36,7 +36,7 @@ import { writeRecruit, type RecruitWriteInput } from "@/lib/content/recruit-run"
 import { proofread, type Fix } from "@/lib/content/proofread";
 import { ADS_MOVED, GOALS, LENGTHS, angleText, anglesFor, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
-  DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, deleteHookTemplate, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
+  addHookTemplate, contentCap, deleteHookTemplate, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
   getHookTemplate, holdContentBudget, hookMenu, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, recentHooks, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
@@ -60,6 +60,7 @@ import { getCampaign, listCampaignPieces, type AdCampaign } from "@/lib/ads/camp
 import { contactBlock, getPageContact } from "@/lib/ads/page-contact";
 import { campaignLang } from "@/lib/ads/campaign-lang";
 import { allowanceOf, takeRound } from "@/lib/auth/quota";
+import { freePaused, nextFirst } from "@/lib/wallet/free-cap";
 import { chargeFixed, payRound } from "@/lib/wallet/round";
 import type { Rounds } from "@/lib/wallet/note";
 import { pictureSatang } from "@/lib/wallet/prices";
@@ -917,15 +918,20 @@ export async function contentSpend(): Promise<ContentSpend> {
       contentSpentThisMonth(), contentCap(), allowanceOf(viewer),
       can(viewer, "owner") ? Promise.resolve(null) : walletView(viewer.agentId),
     ]);
-    return { spent, cap, rounds: allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit, wallet } };
+    const paused = allowance.limit !== null && viewer.kind !== "member" && await freePaused() ? { until: nextFirst(new Date()) } : null;
+    return {
+      spent, cap: Number.isFinite(cap) ? cap : null,
+      rounds: allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit, wallet, paused },
+    };
   } catch {
-    return { spent: 0, cap: DEFAULT_CONTENT_CAP_THB, rounds: null };
+    return { spent: 0, cap: null, rounds: null };
   }
 }
 
 export interface ContentSpend {
   spent: number;
-  cap: number;
+  /** null: no ceiling over the month's content (the old one was retired 2026-10-15) */
+  cap: number | null;
   /** the agent's free AI rounds and their wallet (src/lib/auth/quota.ts); null for staff */
   rounds: Rounds | null;
 }

@@ -52,7 +52,6 @@ describe("/admin/ai when the ledger is down", () => {
     const page = await loadAiPage();
     expect(page.spentThisMonth).toBeNull();
     expect(page.spend).toEqual([]);
-    expect(page.content).toEqual({ spent: null, cap: 30, fallback: 30 });
     expect(page.providers).toContain("anthropic");
   });
 
@@ -66,17 +65,17 @@ describe("/admin/ai when the ledger is down", () => {
 
 describe("saves answer instead of throwing", () => {
   it("refuses a ฿0 month in Thai", async () => {
-    await expect(saveSettings("", "", "0", "")).resolves.toEqual({ ok: false, error: "งบต้องมากกว่า 0 — ถ้าไม่อยากจำกัดให้เว้นว่าง" });
+    await expect(saveSettings("", "", "0")).resolves.toEqual({ ok: false, error: "งบต้องมากกว่า 0 — ถ้าไม่อยากจำกัดให้เว้นว่าง" });
   });
 
   it("saves an ordinary budget", async () => {
     upsertError = null;
-    await expect(saveSettings("", "", "120", "25")).resolves.toEqual({ ok: true });
+    await expect(saveSettings("", "", "120")).resolves.toEqual({ ok: true });
   });
 
   it("says a database refusal rather than throwing it", async () => {
     upsertError = { message: "permission denied" };
-    const r = await saveSettings("", "", "120", "");
+    const r = await saveSettings("", "", "120");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain("บันทึกค่าเริ่มต้นไม่สำเร็จ");
     upsertError = null;

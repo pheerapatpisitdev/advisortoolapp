@@ -3,6 +3,7 @@ import { allowanceOf } from "@/lib/auth/quota";
 import { gatePage } from "@/lib/auth/viewer";
 import { listPeople } from "@/lib/content/people-store";
 import { listThumbnails } from "@/lib/content/thumbnail-history";
+import { freePaused, nextFirst } from "@/lib/wallet/free-cap";
 import type { Rounds } from "@/lib/wallet/note";
 import { walletView } from "@/lib/wallet/store";
 import { ThumbnailBoard } from "./ThumbnailBoard";
@@ -28,8 +29,9 @@ export default async function ThumbnailPage() {
       return null;
     }),
     // what is left to draw with, as Organic shows it (contentSpend); unreadable leaves the line out
-    owner ? Promise.resolve(null) : Promise.all([allowanceOf(viewer), walletView(viewer.agentId)])
-      .then(([a, wallet]): Rounds | null => (a.limit === null ? null : { used: a.used, limit: a.limit, wallet }))
+    owner ? Promise.resolve(null) : Promise.all([allowanceOf(viewer), walletView(viewer.agentId), viewer.kind !== "member" && freePaused()])
+      .then(([a, wallet, paused]): Rounds | null => (a.limit === null ? null
+        : { used: a.used, limit: a.limit, wallet, paused: paused ? { until: nextFirst(new Date()) } : null }))
       .catch(() => null),
   ]);
   return (

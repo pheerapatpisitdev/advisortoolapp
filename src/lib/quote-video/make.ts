@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { providerKey } from "@/lib/ai/client";
+import { freeCapRefusal, freePaused } from "@/lib/wallet/free-cap";
 import { recordUsage } from "@/lib/ai/ledger";
 import { asWho } from "@/lib/ai/who";
 import { speakLine, TTS_RATE, TtsQuotaError } from "@/lib/ai/tts";
@@ -161,7 +162,8 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   if (can(viewer, "owner")) return { kind: "staff" };
   const { limit, from } = await freeClips(viewer);
   const used = await freeUsed(viewer.agentId, from);
-  if (used < limit) return { kind: "free", left: limit - used, of: limit };
+  // past the month's เพดานงบใช้ฟรี an agent's free clips wait for the 1st (owner, 2026-10-15)
+  if (used < limit && !(viewer.kind !== "member" && await freePaused())) return { kind: "free", left: limit - used, of: limit };
   const s = await walletSettings().catch(() => null);
   if (!s?.enabled) return { kind: "closed" };
   const [balance, prices] = await Promise.all([balanceSatang(viewer.agentId), walletPrices()]);
@@ -187,10 +189,12 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     if (!access) return { refusal: PASS_UNREADABLE };
     if (!passOpen(access)) return { refusal: PASS_EXPIRED };
     const { limit, from } = await freeClips(viewer, access);
-    if ((await freeUsed(viewer.agentId, from)) < limit) pay = { paid_by: "free" };
+    // a member's clips came with the pass; an agent's pause once the month's free ceiling is reached
+    const paused = viewer.kind !== "member" && await freePaused();
+    if (!paused && (await freeUsed(viewer.agentId, from)) < limit) pay = { paid_by: "free" };
     else {
       const s = await walletSettings().catch(() => null);
-      if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${limit} ครั้งแล้ว` };
+      if (!s?.enabled) return { refusal: paused ? freeCapRefusal() : `ใช้วิดีโอฟรีครบ ${limit} ครั้งแล้ว` };
       const held = videoPrice(input, await walletPrices());
       const hold = await holdWallet(viewer.agentId, held, VIDEO_ROUND).catch((e) => {
         console.error("quote video hold failed:", e);
@@ -199,7 +203,7 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       if (!hold) {
         return { refusal: (await walletFrozen(viewer.agentId).catch(() => false))
           ? "กระเป๋าเงินถูกพักไว้ชั่วคราว — ติดต่อสำนักงานนะครับ"
-          : `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"` };
+          : paused ? freeCapRefusal() : `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"` };
       }
       pay = { paid_by: "wallet", hold_id: hold, held_satang: held, multiplier: 1 };
     }

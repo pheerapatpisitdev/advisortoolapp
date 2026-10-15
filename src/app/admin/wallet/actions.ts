@@ -4,6 +4,7 @@ import { audit, requireStaff } from "@/lib/auth/viewer";
 import { savePassSettings } from "@/lib/members/pass-store";
 import { saveReferralSettings } from "@/lib/referrals/store";
 import { readAdjust, readMultiplier, readPassSettings, readPrices, readReferralSettings, readUnfreeze } from "@/lib/wallet/admin-input";
+import { monthlyBudget, readFreeBudget, saveFreeBudget } from "@/lib/wallet/free-cap";
 import { adjustWallet, saveWalletPrices, saveWalletSettings, unfreezeWallet } from "@/lib/wallet/store";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
@@ -63,6 +64,29 @@ export async function saveMemberPass(raw: { enabled: boolean; baht: string; tria
   await audit("member-pass-settings", null, { ...p.value });
   revalidatePath("/admin/prices");
   revalidatePath("/admin/members");
+  return { ok: true };
+}
+
+/** เพดานงบใช้ฟรีต่อเดือน (owner, 2026-10-15): the most agents' free rounds and clips may cost a month */
+export async function saveFreeCap(raw: string): Promise<Result> {
+  await requireStaff("backoffice");
+  let monthly: number | null;
+  try {
+    monthly = await monthlyBudget();
+  } catch (e) {
+    console.error("monthly budget unreadable:", e);
+    return { ok: false, error: "อ่านงบ AI รวมต่อเดือนไม่ได้ ลองใหม่อีกครั้ง" };
+  }
+  const r = readFreeBudget(raw, monthly);
+  if (!r.ok) return r;
+  try {
+    await saveFreeBudget(r.value);
+  } catch (e) {
+    console.error("free cap not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261111_free_budget ถูก apply แล้ว" };
+  }
+  await audit("free-cap", null, { thb: r.value });
+  revalidatePath("/admin/prices");
   return { ok: true };
 }
 

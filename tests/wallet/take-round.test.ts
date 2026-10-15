@@ -28,6 +28,13 @@ vi.mock("@/lib/members/access", async (orig) => ({
   memberAccess: access.memberAccess,
 }));
 
+// the month's เพดานงบใช้ฟรี: not reached unless a test says so
+const cap = vi.hoisted(() => ({ freePaused: vi.fn() }));
+vi.mock("@/lib/wallet/free-cap", async (orig) => ({
+  ...(await orig<typeof import("@/lib/wallet/free-cap")>()),
+  freePaused: cap.freePaused,
+}));
+
 const { takeRound, FREE_ROUNDS, FREE_ROUNDS_FROM } = await import("@/lib/auth/quota");
 const { PASS_EXPIRED, PASS_UNREADABLE } = await import("@/lib/members/access");
 const { DEFAULT_PASS_SETTINGS } = await import("@/lib/members/pass");
@@ -50,6 +57,7 @@ beforeEach(() => {
   wallet.holdWallet.mockResolvedValue("h1");
   wallet.walletFrozen.mockResolvedValue(false);
   access.memberAccess.mockResolvedValue({ gated: false });
+  cap.freePaused.mockResolvedValue(false);
 });
 
 describe("takeRound", () => {
@@ -247,5 +255,30 @@ describe("takeRound for an outside member (owner, 2026-10-13)", () => {
   it("never asks about a pass for the owner", async () => {
     await takeRound({ ...agent, staff: { owner: true, publish: true, connect: true, admin: true } }, "ai-write");
     expect(access.memberAccess).not.toHaveBeenCalled();
+  });
+});
+
+describe("takeRound past the month's เพดานงบใช้ฟรี (owner, 2026-10-15)", () => {
+  it("leaves an agent's free rounds untouched and pays from the wallet", async () => {
+    cap.freePaused.mockResolvedValue(true);
+    expect(await takeRound(agent, "ai-write")).toMatchObject({ ok: true, paidBy: "wallet", holdId: "h1" });
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("says the free rounds come back on the 1st when the wallet cannot pay", async () => {
+    cap.freePaused.mockResolvedValue(true);
+    wallet.holdWallet.mockResolvedValue(null);
+    const r = await takeRound(agent, "ai-write");
+    expect(r.ok === false && r.refusal).toMatch(/รอบฟรีของเดือนนี้หมดแล้ว.*วันที่ 1 /);
+    wallet.walletSettings.mockResolvedValue({ enabled: false, multiplier: 2 });
+    const off = await takeRound(agent, "ai-write");
+    expect(off.ok === false && off.refusal).toMatch(/รอบฟรีของเดือนนี้หมดแล้ว/);
+  });
+
+  it("never asks for a member, whose rounds came with the pass", async () => {
+    cap.freePaused.mockResolvedValue(true);
+    const member: Viewer = { ...agent, kind: "member" };
+    expect(await takeRound(member, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41, agentId: agent.agentId });
+    expect(cap.freePaused).not.toHaveBeenCalled();
   });
 });

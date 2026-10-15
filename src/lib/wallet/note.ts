@@ -9,10 +9,20 @@ export interface Rounds {
   limit: number;
   /** null while the owner has the wallet off (src/lib/wallet/store.ts walletView) */
   wallet?: { satang: number; multiplier: number } | null;
+  /** the month's เพดานงบใช้ฟรี is reached: free rounds wait for the 1st (src/lib/wallet/free-cap.ts) */
+  paused?: { until: string } | null;
 }
 
 export function roundsNote(rounds: Rounds, estimate: string | number): { text: string; topUp: boolean } {
   const left = Math.max(0, rounds.limit - rounds.used);
+  if (rounds.paused && left > 0) {
+    if (!rounds.wallet) return { text: `รอบฟรีของเดือนนี้หมดแล้ว · ได้รอบฟรีใหม่วันที่ ${rounds.paused.until}`, topUp: false };
+    const price = (Number(estimate) * rounds.wallet.multiplier).toFixed(2);
+    return {
+      text: `ราว ฿${price} จากกระเป๋า · รอบฟรีของเดือนนี้หมดแล้ว ได้ใหม่วันที่ ${rounds.paused.until} · คงเหลือ ${formatBaht(rounds.wallet.satang)}`,
+      topUp: true,
+    };
+  }
   if (left > 0 || !rounds.wallet) {
     return { text: `ราว ฿${estimate} · รอบฟรีเหลือ ${left} จาก ${rounds.limit} ครั้ง`, topUp: false };
   }
@@ -25,13 +35,9 @@ export function roundsNote(rounds: Rounds, estimate: string | number): { text: s
 
 /**
  * The content money the page reckons with for อัตโนมัติ and the over-budget warning. The
- * owner's monthly content ceiling is the answer for the owner and for a free round; a round the agent pays
- * from the wallet ignores the ceiling on the server (contentCap() is Infinity inside it), so
- * the page must too, or a paying agent is quietly given no pictures and told to raise a
- * budget that is not theirs to raise (owner, 2026-09-30).
+ * monthly content ceiling it was bounded by is retired (owner, 2026-10-15: เพดานงบใช้ฟรี took
+ * its place, asked when a round starts), so nothing on the page runs short: `cap` null.
  */
-export function moneyLeft(spend: { cap: number; spent: number; rounds: Rounds | null }): number {
-  const r = spend.rounds;
-  if (r && r.used >= r.limit && r.wallet) return Infinity;
-  return Math.max(0, spend.cap - spend.spent);
+export function moneyLeft(spend: { cap: number | null; spent: number }): number {
+  return spend.cap === null ? Infinity : Math.max(0, spend.cap - spend.spent);
 }

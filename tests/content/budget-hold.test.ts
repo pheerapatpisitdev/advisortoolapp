@@ -20,7 +20,7 @@ const walletStore = vi.hoisted(() => ({
 vi.mock("@/lib/wallet/store", () => walletStore);
 
 const { admits, monthStart } = await import("@/lib/ai/ledger");
-const { CONTENT_EDIT_TASK, CONTENT_RESERVE_TASK, contentCap, contentSpentThisMonth, DEFAULT_CONTENT_CAP_THB, holdContentBudget } = await import("@/lib/content/store");
+const { CONTENT_EDIT_TASK, CONTENT_RESERVE_TASK, contentCap, contentSpentThisMonth, holdContentBudget } = await import("@/lib/content/store");
 
 const spent = (baht: number) => ({ calls: 1, baht, lines: [{ model: "x", task: "content", calls: 1, baht }] });
 
@@ -77,17 +77,9 @@ describe("contentSpentThisMonth", () => {
 });
 
 describe("contentCap", () => {
-  it("is the default only when the owner never set one", async () => {
-    settings.result = { data: null, error: null };
-    expect(await contentCap()).toBe(DEFAULT_CONTENT_CAP_THB);
-    settings.result = { data: { content_budget_thb: 50 }, error: null };
-    expect(await contentCap()).toBe(50);
-  });
-
-  it("throws on a failed read, so nothing spends against a made-up ceiling", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    settings.result = { data: null, error: { message: "timeout" } };
-    await expect(contentCap()).rejects.toThrow("timeout");
+  it("stops nothing: the content ceiling was retired for เพดานงบใช้ฟรี (owner, 2026-10-15)", async () => {
+    settings.result = { data: { content_budget_thb: 30 }, error: null };
+    expect(await contentCap()).toBe(Infinity);
   });
 });
 
@@ -122,16 +114,5 @@ describe("rounds an agent pays for from the wallet", () => {
     ledger.monthSpend.mockResolvedValue(spent(10));
     walletStore.walletChargedThb.mockResolvedValueOnce(4);
     expect(await contentSpentThisMonth()).toBe(6);
-  });
-
-  it("are not stopped by the owner's ceiling", async () => {
-    const { payRound } = await import("@/lib/wallet/round");
-    settings.result = { data: { content_budget_thb: 30 }, error: null };
-    const cap = await payRound(
-      { ok: true, paidBy: "wallet", holdId: "h", heldSatang: 1, multiplier: 2 },
-      async () => ({ ok: false, cap: await contentCap() }),
-    );
-    expect(cap.cap).toBe(Infinity);
-    expect(await contentCap()).toBe(30);
   });
 });

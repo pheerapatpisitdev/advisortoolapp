@@ -248,7 +248,7 @@ export function SayingTools({ writer, onWriter, painter, onPainter, people, pers
         label={pending
           ? `กำลังเขียน ${making} ${unit}… (ราว 20–40 วินาที)`
           : `สร้าง${format === "post" ? "โพสต์" : "สคริปต์"}${SAYING_NAME} ${count} ${unit}`}
-        note={blocked ?? (quota ? quota.text : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
+        note={blocked ?? (quota ? quota.text : `ราว ฿${estimate}`)}
         topUp={!blocked && Boolean(quota?.topUp)}
         warning={blocked ? null : overBudget(Number(estimate), left)}
       />

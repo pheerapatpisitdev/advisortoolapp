@@ -65,9 +65,9 @@ const KIND_LABEL: Record<string, string> = { text: "ข้อความ", imag
 /** The quality an image row is asked for, so one model at two prices reads as two choices. */
 const QUALITY_LABEL: Record<string, string> = { low: "คุณภาพต่ำ", medium: "คุณภาพมาตรฐาน", high: "คุณภาพสูง (คมชัด)" };
 
-export function AiClient({ keys, models, settings, providers, spentThisMonth, content, video, rates }: {
+export function AiClient({ keys, models, settings, providers, spentThisMonth, video, rates }: {
   keys: KeyRow[]; models: ModelRow[]; settings: Settings | null; providers: string[];
-  spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
+  spentThisMonth: number | null;
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
   /** the premium tables in force (src/calc/plans/tables-meta.ts): their own card since 2026-10-15 */
   rates: { version: string; expiresOn: string; daysLeft: number; expired: boolean };
@@ -338,7 +338,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
             const f = new FormData(e.currentTarget);
             // sent as typed: the server reads the numbers, and says in Thai what it refused
             run("settings", () => saveSettings(String(f.get("small") ?? ""), String(f.get("large") ?? ""),
-                String(f.get("budget") ?? ""), String(f.get("contentBudget") ?? "")),
+                String(f.get("budget") ?? "")),
                 "บันทึกค่าเริ่มต้นและงบแล้ว");
           }}
         >
@@ -363,18 +363,10 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
                    className={`mt-1 w-32 ${input}`} placeholder="ไม่จำกัด" />
             <span className="mt-1 block text-xs text-[var(--bot-ink-mute)]">เว้นว่าง = ไม่จำกัด</span>
           </label>
-          {/* a slice of the budget above: the bot answering leads draws on the rest */}
-          <label className="text-sm">
-            <span className="block text-xs text-[var(--bot-ink-mute)]">งบสร้างคอนเทนต์ต่อเดือน (บาท)</span>
-            <input name="contentBudget" type="number" inputMode="decimal" min={0} step="any" defaultValue={settings?.content_budget_thb ?? ""}
-                   className={`mt-1 w-32 ${input}`} placeholder={`${content.fallback}`} />
-            <span className="mt-1 block text-xs text-[var(--bot-ink-mute)]">
-              เว้นว่าง = ฿{content.fallback.toLocaleString("th-TH")} ·{" "}
-              {content.spent === null
-                ? "อ่านยอดใช้ไม่สำเร็จ"
-                : <>ใช้ไป {baht(content.spent)} จาก {content.cap.toLocaleString("th-TH")} บาท</>}
-            </span>
-          </label>
+          {/* งบสร้างคอนเทนต์ was here until 2026-10-15: เพดานงบใช้ฟรี on ราคาและโปรโมชัน took its place (owner chose ก) */}
+          <p className="basis-full text-xs text-[var(--bot-ink-mute)] sm:basis-auto sm:self-center">
+            เพดานงบใช้ฟรีของตัวแทนตั้งที่หน้า <a href="/admin/prices" className="underline">ราคาและโปรโมชัน</a>
+          </p>
           <button disabled={pending} className="rounded bg-[var(--bot-navy)] px-3 py-1.5 text-sm text-[var(--bot-surface)] disabled:opacity-40">
             {busy === "settings" ? "กำลังบันทึก…" : "บันทึก"}
           </button>

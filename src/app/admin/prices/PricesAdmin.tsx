@@ -3,10 +3,11 @@ import { useState, useTransition } from "react";
 import type { PassSettings } from "@/lib/members/pass";
 import type { ReferralSettings } from "@/lib/referrals/referral";
 import type { ReferralReport } from "@/lib/referrals/store";
+import type { FreeCap } from "@/lib/wallet/free-cap";
 import { formatBaht } from "@/lib/wallet/money";
 import { PRICE_ITEMS, priceBaht, type PriceGroup, type Prices } from "@/lib/wallet/prices";
 import { Card, Empty } from "../ui";
-import { saveMemberPass, savePrices, saveReferral } from "../wallet/actions";
+import { saveFreeCap, saveMemberPass, savePrices, saveReferral } from "../wallet/actions";
 import { ask, input, primary, Said } from "../wallet/form";
 
 /**
@@ -14,7 +15,7 @@ import { ask, input, primary, Said } from "../wallet/form";
  * the price of each piece, the members' monthly pass, and ชวนเพื่อน. All three were cards on
  * กระเป๋าเงินตัวแทน, whose name said only the first thing on it.
  */
-export function PricesAdmin({ prices, pass, referral, report }: {
+export function PricesAdmin({ prices, pass, referral, report, free }: {
   /** the fixed prices agents pay (owner, 2026-10-12) */
   prices: Prices;
   /** the outside members' 30-day pass (owner, 2026-10-13); null when it cannot be read */
@@ -22,13 +23,97 @@ export function PricesAdmin({ prices, pass, referral, report }: {
   /** เพื่อนชวนเพื่อน (owner, 2026-10-14); null when it cannot be read */
   referral: ReferralSettings | null;
   report: ReferralReport | null;
+  /** เพดานงบใช้ฟรีต่อเดือน and this month's use (owner, 2026-10-15); null when it cannot be read */
+  free: FreeView | null;
 }) {
   return (
     <>
+      <FreeCapCard free={free} />
       <PriceCard prices={prices} />
       <MemberPassCard pass={pass} />
       <ReferralAdminCard referral={referral} report={report} passOn={pass?.enabled ?? false} />
     </>
+  );
+}
+
+type FreeView = Pick<FreeCap, "cap" | "spent"> & { monthly: number | null; until: string };
+
+const thb = (n: number) => `฿${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/**
+ * เพดานงบใช้ฟรีต่อเดือน (owner, 2026-10-15; mockup https://claude.ai/artifact/3TVTjpUcpnPz9ApRNjV241,
+ * option ก): the most agents' free rounds and clips may cost the owner a month, and how much of
+ * it is used. src/lib/wallet/free-cap.ts says what is counted and what happens when it is full.
+ */
+function FreeCapCard({ free }: { free: FreeView | null }) {
+  const [typed, setTyped] = useState(free?.cap == null ? "" : String(free.cap));
+  const [said, setSaid] = useState<{ ok: boolean; text: string }>();
+  const [pending, start] = useTransition();
+
+  if (!free) {
+    return (
+      <Card title="เพดานงบใช้ฟรีต่อเดือน">
+        <Empty>อ่านเพดานงบใช้ฟรีไม่ได้ — ตรวจว่า migration 20261111_free_budget ถูก apply แล้ว</Empty>
+      </Card>
+    );
+  }
+  const save = () => {
+    setSaid(undefined);
+    start(async () => setSaid(await ask(() => saveFreeCap(typed), "บันทึกเพดานแล้ว")));
+  };
+  const { cap, spent } = free;
+  const full = cap !== null && spent.thb >= cap;
+  const pct = cap ? Math.round((spent.thb / cap) * 100) : null;
+  // the bar is drawn against the ceiling, or against what was spent when there is none
+  const scale = Math.max(cap ?? 0, spent.thb, 0.01);
+  const width = (n: number) => `${Math.min(100, (n / scale) * 100)}%`;
+
+  return (
+    <Card title="เพดานงบใช้ฟรีต่อเดือน" hint="ค่า AI ที่เราออกให้ตัวแทนใช้ฟรีได้สูงสุดต่อเดือน · ไม่นับงานของเจ้าของ สมาชิกที่จ่ายค่าสมาชิก ถาม AI บอท และงานที่ตัวแทนจ่ายจากกระเป๋าเงิน">
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label htmlFor="free-cap" className="block text-xs text-[var(--bot-ink-mute)]">
+            เพดานต่อเดือน (บาท)
+            <input id="free-cap" inputMode="decimal" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="ไม่จำกัด"
+                   className={`mt-1 block w-32 text-right tabular-nums text-[var(--bot-ink)] ${input}`} />
+          </label>
+          <button type="button" onClick={save} disabled={pending} className={primary}>
+            {pending ? "กำลังบันทึก…" : "บันทึก"}
+          </button>
+          <span className="text-xs text-[var(--bot-ink-mute)]">
+            เว้นว่าง = ไม่จำกัด{free.monthly !== null && ` · ต้องไม่เกินงบ AI รวม ฿${free.monthly.toLocaleString("en-US")}`}
+          </span>
+          {said && <Said {...said} />}
+        </div>
+
+        <div>
+          <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm tabular-nums">
+            <span>ใช้ไปเดือนนี้ <b>{thb(spent.thb)}</b>{cap !== null && <> จาก ฿{cap.toLocaleString("en-US")}</>}</span>
+            {pct !== null && (
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${full
+                ? "bg-[var(--bot-red-soft)] text-[var(--bot-red-ink)]"
+                : pct >= 80 ? "bg-[var(--bot-sand-soft)] text-[var(--bot-sand-ink)]" : "bg-[var(--bot-ok-soft)] text-[var(--bot-ok)]"}`}>
+                {full ? `เต็มแล้ว · รอบฟรีหยุดถึงวันที่ ${free.until}` : `${pct}% · ยังใช้ได้`}
+              </span>
+            )}
+          </div>
+          <div className="mt-1.5 flex h-3 overflow-hidden rounded-md bg-[var(--bot-navy-soft)]" role="img" aria-label={pct === null ? "ไม่จำกัด" : `ใช้ไป ${pct} เปอร์เซ็นต์`}>
+            <div style={{ width: width(spent.studioThb), background: "var(--bot-navy)" }} />
+            <div style={{ width: width(spent.clipsThb), background: "var(--bot-blue)" }} />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-4 text-xs text-[var(--bot-ink-mute)] tabular-nums">
+            <span><span className="mr-1.5 inline-block size-2.5 rounded-sm bg-[var(--bot-navy)] align-[-1px]" />รอบฟรี Studio {thb(spent.studioThb)}</span>
+            <span><span className="mr-1.5 inline-block size-2.5 rounded-sm bg-[var(--bot-blue)] align-[-1px]" />คลิปฟรี {thb(spent.clipsThb)}</span>
+          </div>
+        </div>
+
+        <dl className="grid gap-1.5 text-sm sm:grid-cols-[auto_1fr] sm:gap-x-4">
+          <dt className="font-semibold">ใช้ไป 80%</dt><dd>ส่ง LINE แจ้งเจ้าของ</dd>
+          <dt className="font-semibold">เต็มเพดาน</dt><dd>รอบฟรีและคลิปฟรีของตัวแทนหยุดชั่วคราวจนถึงวันที่ 1 ของเดือนถัดไป และส่ง LINE แจ้งเจ้าของอีกครั้ง</dd>
+          <dt className="font-semibold">ยังใช้ได้ตามปกติ</dt><dd>งานที่จ่ายจากกระเป๋าเงิน รอบของสมาชิกที่จ่ายค่าสมาชิกแล้ว ถาม AI บอทตอบลูกค้า และงานของเจ้าของ</dd>
+        </dl>
+      </div>
+    </Card>
   );
 }
 

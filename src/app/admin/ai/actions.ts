@@ -3,13 +3,11 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { clearAiConfigCache, testProviders, type ProviderCheck } from "@/lib/ai/client";
 import { monthSpend, monthStart, spendSince, type SpendLine } from "@/lib/ai/ledger";
-import { contentBaht, DEFAULT_CONTENT_CAP_THB } from "@/lib/content/store";
 import { JUDGE } from "@/lib/ai/providers";
 import { providerMap } from "@/lib/ai/provider-of";
-import { checkBudgets } from "./budget";
+import { checkBudget } from "./budget";
 import { usageByPerson, type PersonUse } from "./people";
 import { requireStaff } from "@/lib/auth/viewer";
-import { walletChargedThb } from "@/lib/wallet/store";
 import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/video/settings";
 import { parseAwsKey } from "@/lib/video/engines/lambda";
 import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
@@ -79,7 +77,7 @@ function failed(what: string, e: unknown): Result {
  * it yet and the key itself is the switch.
  */
 const JUDGE_ROW: ModelRow = { id: `${JUDGE.provider}-${JUDGE.model}`, provider: JUDGE.provider, kind: "judge", model_name: JUDGE.model, enabled: true, quality: null };
-export interface Settings { small_model: string | null; large_model: string | null; monthly_budget_thb: number | null; content_budget_thb: number | null;
+export interface Settings { small_model: string | null; large_model: string | null; monthly_budget_thb: number | null;
   /** when the owner last pressed รีเซ็ตยอด this month; null = counting from the first of the month */
   spend_reset_at?: string | null }
 
@@ -108,11 +106,6 @@ export async function loadAiPage(): Promise<{
   keys: KeyRow[]; models: ModelRow[]; settings: Settings | null; providers: string[];
   /** null when the ledger could not be read — the page still opens, so the keys stay reachable */
   spentThisMonth: number | null; spend: ProviderSpend[];
-  /**
-   * What the content workbench has spent of its own ceiling, the ceiling in force, and what
-   * that ceiling is when the box is left empty — the page says so beside the box.
-   */
-  content: { spent: number | null; cap: number; fallback: number };
   /** the clip render services: how they are set, and the last four characters of each key held */
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
   /** who used AI this month and how much; null when it could not be read */
@@ -125,7 +118,7 @@ export async function loadAiPage(): Promise<{
     supabase.from("ins_api_keys").select("provider, tail, enabled"),
     supabase.from("model_configs").select("id, provider, kind, model_name, enabled, params").order("provider").order("model_name"),
     supabase.from("ins_model_prefs").select("model_id, enabled"),
-    supabase.from("ins_ai_settings").select("small_model, large_model, monthly_budget_thb, content_budget_thb, spend_reset_at").maybeSingle(),
+    supabase.from("ins_ai_settings").select("small_model, large_model, monthly_budget_thb, spend_reset_at").maybeSingle(),
     // the model rather than the provider is what the ledger records, so the lines are joined
     // back to the model table below; the ledger has no column saying which company was paid
     //
@@ -142,9 +135,6 @@ export async function loadAiPage(): Promise<{
       return null;
     }),
   ]);
-  // the ceiling leaves out what agents paid for from their wallets (src/lib/content/store.ts),
-  // so the figure beside it does too, or the two disagree by exactly that (owner, 2026-09-30)
-  const contentSpent = spend ? Math.max(0, contentBaht(spend.lines) - (await walletChargedThb(since))) : null;
   const disabled = new Set((prefs.data ?? []).filter((p) => !p.enabled).map((p) => p.model_id));
   const heldKeys = (keys.data ?? []) as { provider: string; tail: string; enabled: boolean | null }[];
   // a settings row that cannot be read must not take the keys page down with it
@@ -181,11 +171,6 @@ export async function loadAiPage(): Promise<{
     providers: [...PROVIDERS],
     spentThisMonth: spend ? spend.baht : null,
     spend: spend ? byProvider(spend.lines, (models.data ?? []) as { provider: string; model_name: string }[]) : [],
-    content: {
-      spent: contentSpent,
-      cap: settings.data?.content_budget_thb == null ? DEFAULT_CONTENT_CAP_THB : Number(settings.data.content_budget_thb),
-      fallback: DEFAULT_CONTENT_CAP_THB,
-    },
   };
 }
 
@@ -385,17 +370,21 @@ export async function setModelEnabled(id: string, enabled: boolean): Promise<Res
 }
 
 /**
- * The defaults and the two budgets. The budgets come as the strings typed into the boxes and
- * are read here, by the rules in ./budget.ts — the browser is not the guard.
+ * The defaults and the monthly budget. The budget comes as the string typed into the box and
+ * is read here, by the rules in ./budget.ts — the browser is not the guard. งบสร้างคอนเทนต์,
+ * the second box, went on 2026-10-15 for เพดานงบใช้ฟรี on ราคาและโปรโมชัน (owner chose ก).
  */
-export async function saveSettings(smallModel: string, largeModel: string, monthlyBudget: string, contentBudget: string): Promise<Result> {
+export async function saveSettings(smallModel: string, largeModel: string, monthlyBudget: string): Promise<Result> {
   await requireStaff("backoffice");
-  const budgets = checkBudgets(monthlyBudget, contentBudget, DEFAULT_CONTENT_CAP_THB);
+  const free = await supabaseAdmin().from("ins_ai_settings").select("free_budget_thb").maybeSingle();
+  // before 20261111_free_budget the column is not there: no ceiling to keep the budget above
+  const freeCap = free.error || free.data?.free_budget_thb == null ? null : Number(free.data.free_budget_thb);
+  const budgets = checkBudget(monthlyBudget, freeCap);
   if (!budgets.ok) return budgets;
   try {
     const { error } = await supabaseAdmin().from("ins_ai_settings").upsert({
       id: true, small_model: smallModel || null, large_model: largeModel || null,
-      monthly_budget_thb: budgets.monthly, content_budget_thb: budgets.content, updated_at: new Date().toISOString(),
+      monthly_budget_thb: budgets.monthly, updated_at: new Date().toISOString(),
     }, { onConflict: "id" });
     if (error) return failed("บันทึกค่าเริ่มต้นไม่สำเร็จ", error);
   } catch (e) {
