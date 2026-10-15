@@ -6,7 +6,7 @@ import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import type { StoryVideoInput } from "./story";
 import { familyFaces } from "./story-family";
 import { knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine, type PicIcon } from "./story-knowledge";
-import { Contact, Img, type StoryContext } from "./story-motion";
+import { Contact, contactSpec, Img, type StoryContext } from "./story-motion";
 import { SIZES, type VideoSize } from "./timeline";
 
 /**
@@ -160,7 +160,7 @@ const sceneOf = (e: KnowEpisode, key: KnowSceneKey) => e.scenes.find((s) => s.ke
 /** When a knowledge scene's things move, in scene seconds: the card's as กองกลาง's */
 export function knowWindows(key: KnowSceneKey | "storyContact", input: StoryVideoInput): [number, number][] {
   const spec = key === "storyContact"
-    ? { face: a(0.2, "pop"), name: a(0.6, "up"), cta: a(1.1, "up"), legal: a(1.6, "fade") }
+    ? contactSpec()
     : kspec(sceneOf(knowEpisode(input), key));
   return Object.values(spec).map((x) => [x.at, x.at + x.dur]);
 }
@@ -602,7 +602,7 @@ function Person({ c, p, size, gap, gone }: { c: StoryContext; p: Kin; size: numb
 
 /** One knowledge scene's frame body at scene time t (story-frames.ts adds the subtitle and footer). */
 export function knowBody(key: KnowSceneKey | "storyContact", c: StoryContext, t: number, episode: KnowEpisode) {
-  if (key === "storyContact") return <Contact c={c} t={t} cta={episode.cta} />;
+  if (key === "storyContact") return <Contact c={c} t={t} />;
   return <Scene c={c} t={t} show={sceneOf(episode, key)} />;
 }
 
