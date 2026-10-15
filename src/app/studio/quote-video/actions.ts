@@ -14,6 +14,7 @@ import { iHealthyCard } from "@/lib/ihealthy-card";
 import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
+import { isPromptStory } from "@/lib/prompt-story/types";
 import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, VOICE_FULL, voiceFullNotice } from "@/lib/quote-video/voice-quota";
@@ -454,6 +455,7 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   const post = readPostText(row.post_text);
   if (post?.kind === "post") return { ok: true, caption: post.text };
   if (isStoryInput(row.input)) return { ok: true, caption: storyCaption(row.input) };
+  if (isPromptStory(row.input)) return { ok: true, caption: row.input.caption };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
 }
@@ -538,6 +540,17 @@ export async function myVideos(board: "quote" | "story" = "quote"): Promise<Vide
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
       };
     }
+    if (isPromptStory(v.input)) {
+      const input = v.input;
+      const who = `${input.title}${SIZE_WORD[clipSize(input)]}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""}`;
+      const file = `ตามโจทย์-${v.customer_name || input.title.replace(/\s+/g, "")}.mp4`;
+      return {
+        id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
+        title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
+        overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
+      };
+    }
     const input = v.input;
     const product = productOf(input);
     const what = input.product === "IHEALTHY"
@@ -593,6 +606,9 @@ function postBasis(row: VideoRow): PostBasis | null {
     if (input.home?.kind === "school") facts.push(`ลูกอายุ ${input.home.childAge} ค่าเรียนปีละ ${input.home.tuition.toLocaleString("en-US")} บาท`);
     if (input.due?.amount) facts.push(`เบี้ยที่ต้องชำระ ${input.due.amount.toLocaleString("en-US")} บาท`);
     return linesBasis(row.customer_name ? "customer" : "post", `คลิปเล่าเรื่อง "${topic}"`, facts, row.customer_name || undefined);
+  }
+  if (isPromptStory(input)) {
+    return linesBasis(row.customer_name ? "customer" : "post", `คลิป "${input.title}"`, [input.brief, ...input.scenes.map((x) => x.voice)], row.customer_name || undefined);
   }
   const f = quoteVideoFacts(input);
   if (!f) return null;

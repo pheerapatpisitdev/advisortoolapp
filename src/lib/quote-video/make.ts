@@ -29,6 +29,7 @@ import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job
 import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
+import { isPromptStory, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { storyBackground } from "./story-motion";
 import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./story-frames";
@@ -77,6 +78,7 @@ export const FREE_VIDEOS = 2;
  * asked for and takes it when the clip is done.
  */
 export const videoPrice = (v: ClipInput, prices: Prices): number =>
+  isPromptStory(v) ? promptStoryPrice(v, prices) :
   (isFhcInput(v) ? prices.videoFhc : isStoryInput(v) ? (topicOf(v.topic)?.short ? prices.videoStoryShort : prices.videoStory)
     : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
@@ -85,9 +87,9 @@ export const VIDEO_ROUND = "quote-video";
 export type VideoStatus = "drawing" | "rendering" | "done" | "failed";
 export type { VideoInput } from "./script";
 /** what a clip's row holds: a quote, an FHC summary (fhc.ts), or a คลิปเล่าเรื่อง (story.ts) */
-export type ClipInput = VideoInput | FhcVideoInput | StoryVideoInput;
+export type ClipInput = VideoInput | FhcVideoInput | StoryVideoInput | PromptStoryInput;
 /** a quote clip: neither an FHC summary nor a story */
-export const isQuoteInput = (v: ClipInput): v is VideoInput => !isFhcInput(v) && !isStoryInput(v);
+export const isQuoteInput = (v: ClipInput): v is VideoInput => !isFhcInput(v) && !isStoryInput(v) && !isPromptStory(v);
 export interface VideoRow {
   id: string;
   agent_id: string;
@@ -365,6 +367,7 @@ export const langOfInput = (input: ClipInput): VideoLang =>
 function spokenLines(row: VideoRow): { key: string; voice: string }[] {
   if (isFhcInput(row.input)) return fhcScript(row.input.fhc, row.customer_name, narratorOf(row.input));
   if (isStoryInput(row.input)) return storyScript(row.input, row.customer_name, narratorOf(row.input));
+  if (isPromptStory(row.input)) return row.input.scenes.map((s, i) => ({ key: `scene${i + 1}`, voice: s.voice }));
   const facts = quoteVideoFacts(row.input);
   if (!facts) throw new Error("quote not priced");
   const length = readLength(row.input.length);

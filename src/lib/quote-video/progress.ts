@@ -43,7 +43,7 @@ export const MAX_RENDER_SEC = 15 * 60;
 
 export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown }): ClipKind {
   if (input.fhc) return "fhc";
-  if (input.product === "STORY") return "story";
+  if (input.product === "STORY" || input.product === "FREESTORY") return "story";
   const length = input.length === "short" || input.length === "long" || input.length === "max" ? input.length : "full";
   return `${input.style === "motion" ? "motion" : "classic"}-${length}`;
 }
