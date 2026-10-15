@@ -182,7 +182,7 @@ export function numbersIn(text: string): number[] {
 }
 
 /** words the voice never says, and promises no clip makes (script.ts keeps the same words out) */
-const FORBIDDEN: { re: RegExp; why: string }[] = [
+export const FORBIDDEN: { re: RegExp; why: string }[] = [
   { re: /เบี้ย/, why: "ใช้คำว่า เบี้ย" },
   { re: /เสียชีวิต|ตาย/, why: "ใช้คำว่า เสียชีวิต" },
   { re: /เวนคืน/, why: "ใช้คำว่า เวนคืน" },
