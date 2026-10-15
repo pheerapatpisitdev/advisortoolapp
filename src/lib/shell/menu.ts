@@ -47,7 +47,8 @@ export type MenuIcon =
   | "badge"
   | "tag"
   | "chart"
-  | "gear";
+  | "gear"
+  | "send";
 
 export interface MenuLink {
   href: string;
@@ -240,6 +241,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
           { href: "/admin/crm", label: "ลูกค้าจากแชท", icon: "chat", hue: "#2b6a7a" },
           // which Pages are connected, and whether the bot answers and the workbench posts on each
           { href: "/admin/pages", label: "เพจและช่องทาง", icon: "flag", hue: "#2b5f80" },
+          // the LINE account: connection, the bot's switch, broadcasts and the chat menus (owner chose ข, 2026-10-15)
+          { href: "/admin/line", label: "LINE OA", icon: "send", hue: "#2b5a83" },
           // try the bot as a customer, teach it, and set what it sends a newcomer
           { href: "/admin/teach", label: "สอนบอท", icon: "bot", hue: "#2b5486" },
         ],

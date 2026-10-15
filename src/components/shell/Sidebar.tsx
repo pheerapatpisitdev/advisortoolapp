@@ -135,6 +135,9 @@ function Icon({ name }: { name: MenuIcon }) {
     case "chart":
       return <svg {...common}><path d="M4.5 19.5h15M7 16.5v-4M11 16.5v-8M15 16.5V10M19 16.5V6" /></svg>;
     // ตั้งค่า AI และระบบ, a gear
+    // LINE OA: a paper plane, for the broadcasts sent from it
+    case "send":
+      return <svg {...common}><path d="M20.5 3.5 3.5 10.6l6.6 2.8 2.8 6.6 7.6-16.5zM10.1 13.4l4.6-4.6" /></svg>;
     case "gear":
       return <svg {...common}><path d="M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM12 3.5v2.3M12 18.2v2.3M3.5 12h2.3M18.2 12h2.3M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6" /></svg>;
     // อีซี่ โพรเทค 6 is sold on the premium having a last year, so its mark is a clock
