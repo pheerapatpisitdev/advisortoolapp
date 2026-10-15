@@ -124,6 +124,8 @@ export const GEMINI = [
   { n: "F" as const, name: "ผู้หญิง", tag: "Kore", sample: "/voice-samples/gemini-F.mp3" },
   { n: "M" as const, name: "ผู้ชาย", tag: "Orus", sample: "/voice-samples/gemini-M.mp3" },
 ];
+/** a narrator's sample in the clip's language: the 15-second iHealthy lines, read by Kore or Orus (owner, 2026-10-15) */
+const sampleIn = (g: (typeof GEMINI)[number], lang: VideoLang) => (lang === "th" ? g.sample : `/voice-samples/gemini-${g.n}-${lang}.mp3`);
 const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10", PLB: "PLB12" } as const;
 /** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
 const MAX_COMPARE = 3;
@@ -737,7 +739,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               {GEMINI.map((g) => (
                 <span key={g.n} className="inline-flex items-center gap-2">
                   <button type="button" className={chip((!voice || foreign) && narrator === g.n)} onClick={() => { pickVoice(""); pickNarrator(g.n); }}>{g.name} <span className="font-normal opacity-80">· {g.tag}</span></button>
-                  <button type="button" className={small} onClick={() => playSample(g.sample)} aria-label={`ฟังตัวอย่างเสียง${g.name}`}>{playing === g.sample ? "■ หยุด" : "▶ ฟัง"}</button>
+                  <button type="button" className={small} onClick={() => playSample(sampleIn(g, foreign ? lang : "th"))} aria-label={`ฟังตัวอย่างเสียง${g.name}`}>{playing === sampleIn(g, foreign ? lang : "th") ? "■ หยุด" : "▶ ฟัง"}</button>
                 </span>
               ))}
             </div>
@@ -757,7 +759,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             ))}
             <p className="mt-1 text-xs text-[var(--ct-mute)]">
               {foreign
-                ? `เสียง AI ของ Google พูด${LANG_NAME[lang]} · เสียง ElevenLabs ซ่อนไว้ เพราะเป็นเสียงคนไทย`
+                ? `เสียง AI ของ Google พูด ${LANG_NAME[lang]} · เสียง ElevenLabs ซ่อนไว้ เพราะเป็นเสียงคนไทย`
                 : voice ? "เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs" : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้
             </p>
           </div>
