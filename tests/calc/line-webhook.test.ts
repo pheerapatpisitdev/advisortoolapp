@@ -134,6 +134,14 @@ describe("a LINE customer's message", () => {
     expect(replies).toHaveLength(0);
   });
 
+  // the owner's code from /admin/line is answered by the link, never by a brain (owner, 2026-10-15)
+  it("is not answered by the bot when it is the owner's link code", async () => {
+    await handle(said("ผูก 048213"));
+    expect(answer).not.toHaveBeenCalled();
+    expect(replies).toHaveLength(1);
+    expect(replies[0][0]).toMatchObject({ type: "text" });
+  });
+
   // the switch on /admin/line (owner, 2026-10-15): a person answers in LINE OA Manager
   it("gets no bot while the LINE bot is switched off", async () => {
     botOn = false;

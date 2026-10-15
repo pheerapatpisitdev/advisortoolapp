@@ -10,6 +10,10 @@ const referrals = vi.hoisted(() => ({ attachReferral: vi.fn() }));
 vi.mock("@/lib/referrals/store", () => referrals);
 const supers = vi.hoisted(() => ({ superFromGoogle: vi.fn() }));
 vi.mock("@/lib/auth/google-super", () => supers);
+const alerts = vi.hoisted(() => ({ alertNewMember: vi.fn() }));
+vi.mock("@/lib/line/owner-alert", () => alerts);
+// outside a request there is no `after`; here it runs at once, so what it would do can be seen
+vi.mock("next/server", async (actual) => ({ ...(await actual<typeof import("next/server")>()), after: (fn: () => unknown) => void fn() }));
 
 const { GET: start } = await import("@/app/auth/google/route");
 const { GET: callback } = await import("@/app/auth/google/callback/route");
@@ -144,6 +148,8 @@ describe("GET /auth/google/callback", () => {
     const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, `${cookie}; ref=SOMCHA7`));
     expect(referrals.attachReferral).toHaveBeenCalledWith("m9", "SOMCHA7");
     expect(session.startSession).toHaveBeenCalledWith("m9");
+    // the owner's LINE hears of the new member (owner chose ก, 2026-10-15)
+    expect(alerts.alertNewMember).toHaveBeenCalledWith("m9");
     expect(res.headers.get("set-cookie")).toMatch(/ref=;.*Max-Age=0/);
   });
 
@@ -153,6 +159,7 @@ describe("GET /auth/google/callback", () => {
     const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, `${cookie}; ref=SOMCHA7`));
     expect(referrals.attachReferral).not.toHaveBeenCalled();
     expect(res.headers.get("set-cookie")).not.toMatch(/ref=;/);
+    expect(alerts.alertNewMember).not.toHaveBeenCalled();
   });
 
   it("signs a new member in even when the invitation cannot be noted", async () => {

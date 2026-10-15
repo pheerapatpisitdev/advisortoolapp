@@ -4,6 +4,7 @@ import { claimEvent, loadSession, saveTurn } from "@/lib/chat/session";
 import { push, reply, showLoading, toBatches, toMessages, MAX_MESSAGES, type LineMessage, type Said } from "@/lib/line/client";
 import { showQuotedMenu } from "@/lib/line/menu-link";
 import { lineBotEnabled } from "@/lib/line/settings";
+import { tryLink } from "@/lib/line/owner-alert";
 import { wantsQuotedMenu } from "@/lib/line/rich-menu";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { countLessonHit, loadLessons } from "@/lib/chat/lessons-store";
@@ -126,6 +127,8 @@ export async function handle(event: LineEvent, destination = "", opts: { started
 
   // LINE redelivers an event it believes failed; the second arrival must not be answered again
   if (event.webhookEventId && !(await claimEvent("line", event.webhookEventId))) return;
+  // the owner's code from /admin/line, which links this chat for alerts: not a customer's question
+  if (await tryLink(text, userId, replyToken)) return;
 
   const userHash = hashUserId(userId);
   const session = await loadSession("line", userHash);

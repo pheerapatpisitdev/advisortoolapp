@@ -3,8 +3,12 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Friends } from "@/lib/line/client";
 import type { Broadcast, Part, Reply } from "@/lib/line/broadcasts";
+import type { OwnerLine } from "@/lib/line/owner-alert";
 import { Card, Empty } from "../ui";
-import { broadcastAction, cancelBroadcastAction, rebuildMenusAction, setBotAction, type Result } from "./actions";
+import {
+  broadcastAction, cancelBroadcastAction, notifyNewMemberAction, rebuildMenusAction, setBotAction, startLinkAction,
+  testAlertAction, unlinkAction, type Result,
+} from "./actions";
 
 export interface LineView {
   hook: { ok: boolean; detail: string; endpoint: string | null };
@@ -12,6 +16,8 @@ export interface LineView {
   quota: { limit: number | null; used: number } | null;
   chats: { last: string | null; people7d: number } | null;
   botOn: boolean;
+  /** null when it could not be read */
+  owner: OwnerLine | null;
   broadcasts: Broadcast[] | null;
   replyChoices: Reply[];
   maxParts: number;
@@ -126,6 +132,7 @@ function Status({ view }: { view: LineView }) {
         </dl>
       </Card>
 
+      <OwnerAlerts owner={view.owner} />
       <BotSwitch on={view.botOn} />
     </>
   );
@@ -137,6 +144,65 @@ function Row({ k, children }: { k: string; children: React.ReactNode }) {
       <dt className="w-40 shrink-0 text-[var(--bot-ink-mute)]">{k}</dt>
       <dd className="min-w-0 flex-1 break-words">{children}</dd>
     </div>
+  );
+}
+
+/**
+ * The owner's own LINE, linked once by typing a code into the account's chat, so the account
+ * can tell the owner when a member joins (owner chose ก, 2026-10-15).
+ */
+function OwnerAlerts({ owner }: { owner: OwnerLine | null }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [result, setResult] = useState<Result | null>(null);
+  const [code, setCode] = useState<{ code: string; until: string } | null>(
+    owner?.pendingCode && owner.pendingUntil ? { code: owner.pendingCode, until: owner.pendingUntil } : null,
+  );
+  const run = (fn: () => Promise<Result>) => start(async () => {
+    setResult(await fn());
+    router.refresh();
+  });
+  const newCode = () => start(async () => {
+    const r = await startLinkAction();
+    setResult(r.ok ? null : r);
+    if (r.ok && r.code && r.until) setCode({ code: r.code, until: r.until });
+  });
+
+  return (
+    <Card title="แจ้งเตือนเข้า LINE ของฉัน" hint="แต่ละครั้งที่แจ้งใช้โควตา 1 จาก 300 ข้อความต่อเดือน (โควตาเดียวกับบรอดแคสต์)">
+      {owner === null ? <Empty>อ่านการตั้งค่าไม่สำเร็จ ลองเปิดหน้านี้ใหม่</Empty> : owner.linked ? (
+        <div className="space-y-2 text-sm">
+          <p><Pill tone="ok">ผูกแล้ว</Pill>{owner.linkedAt && <span className="ml-2 text-[var(--bot-ink-mute)]">เมื่อ {when(owner.linkedAt)}</span>}</p>
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-3">
+            <input
+              type="checkbox" checked={owner.notifyNewMember} disabled={pending} className="h-5 w-5 accent-[var(--bot-ok)]"
+              onChange={() => run(() => notifyNewMemberAction(!owner.notifyNewMember))}
+            />
+            แจ้งเมื่อมีสมาชิกใหม่
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={quiet} disabled={pending} onClick={() => run(testAlertAction)}>ส่งข้อความทดสอบ</button>
+            <button type="button" className={quiet} disabled={pending} onClick={() => run(unlinkAction)}>ยกเลิกการผูก</button>
+          </div>
+        </div>
+      ) : code && Date.parse(code.until) > Date.now() ? (
+        <div className="space-y-2 text-sm">
+          <p>พิมพ์ข้อความนี้ในแชทกับบัญชี LINE OA จากมือถือของคุณ ภายใน {when(code.until)} น.</p>
+          <p className="inline-block rounded-lg bg-[var(--bot-navy-soft)] px-3 py-1.5 text-2xl font-bold tracking-widest tabular-nums">ผูก {code.code}</p>
+          <p><Pill tone="warn">รอคุณพิมพ์รหัส</Pill></p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={quiet} disabled={pending} onClick={() => router.refresh()}>พิมพ์แล้ว ตรวจอีกครั้ง</button>
+            <button type="button" className={quiet} disabled={pending} onClick={newCode}>ขอรหัสใหม่</button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2 text-sm">
+          <p>ผูก LINE ของคุณครั้งเดียว แล้วบัญชี LINE OA จะส่งข้อความหาคุณทันทีเมื่อมีคนสมัครสมาชิกใหม่ด้วย Google</p>
+          <button type="button" className={quiet} disabled={pending} onClick={newCode}>ขอรหัสผูก LINE</button>
+        </div>
+      )}
+      <Said result={result} />
+    </Card>
   );
 }
 
