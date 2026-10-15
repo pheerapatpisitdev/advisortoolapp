@@ -1,7 +1,8 @@
-import { DEFAULT_HERO_FACE, faceOf } from "@/lib/story/faces";
+import { defaultPartner, faceOf } from "@/lib/story/faces";
 import { planName, termShort } from "@/lib/story/plans";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
 import type { StoryVideoInput } from "./story";
+import { familyScenes, FAMILY_CLOSE, type FamilyTopic } from "./story-family";
 
 /**
  * ความรู้ประกัน 1 นาที (owner, 2026-10-15, mockup https://claude.ai/artifact/LUVQ8Pob2DJbBp5petTsNu):
@@ -31,8 +32,8 @@ export type KnowShow =
   | { layout: "flow"; title: [string, string]; dir: "out" | "in"; note: NoteLine[] }
   /** the one who wonders and a note; greyed when the news is bad */
   | { layout: "note"; title: [string, string]; dim?: boolean; note: NoteLine[] }
-  /** a list on a card: ticks, crosses or empty boxes */
-  | { layout: "list"; title: [string, string]; mark: "check" | "cross" | "box"; items: string[] }
+  /** a list on a card: ticks, crosses, empty boxes or warnings */
+  | { layout: "list"; title: [string, string]; mark: "check" | "cross" | "box" | "warn"; items: string[] }
   /** the line to remember */
   | { layout: "recap"; lines: NoteLine[] }
   /** premiums at three ages, as bars */
@@ -40,27 +41,38 @@ export type KnowShow =
   /** a family, and a note */
   | { layout: "family"; title: [string, string]; note: NoteLine[] }
   /** a gift box, and a note */
-  | { layout: "gift"; title: [string, string]; note: NoteLine[] };
+  | { layout: "gift"; title: [string, string]; note: NoteLine[] }
+  /** เรื่องครอบครัว: a row of the family, with the bills that hang on them, a note, a bag of money coming, or question marks */
+  | { layout: "kin"; title: [string, string]; people: Kin[]; tags?: { items: string[]; red?: boolean }; note?: NoteLine[]; bag?: boolean; marks?: boolean }
+  /** a sum worked out on a card, under a title */
+  | { layout: "card"; title: [string, string]; lines: NoteLine[] }
+  /** the years ahead, an age and what it is, down a line */
+  | { layout: "timeline"; title: [string, string]; rows: { age: number; label: string }[] };
+
+/**
+ * One of the family in a row: the hero drawn largest; "gone" fades from colour to a dashed grey
+ * outline as the scene plays, "dash" is a grey outline throughout (the baby still to come),
+ * "sick" is drawn grey.
+ */
+export interface Kin { id: string; size: "hero" | "adult" | "kid" | "old"; state?: "gone" | "dash" | "sick" }
 
 export interface KnowScene { key: KnowSceneKey; show: KnowShow; voice: string }
 export interface KnowEpisode { scenes: KnowScene[]; cta: string; contactVoice: string }
 
-const n = (v: number) => Math.round(v).toLocaleString("en-US");
-const withBaht = (baht: number) => {
+export const n = (v: number) => Math.round(v).toLocaleString("en-US");
+export const withBaht = (baht: number) => {
   const s = spokenBaht(baht);
   return s.endsWith("ล้าน") ? `${s}บาท` : `${s} บาท`;
 };
-const big = (text: string, tone?: NoteLine["tone"]): NoteLine => ({ text, big: true, ...(tone ? { tone } : {}) });
-const small = (text: string): NoteLine => ({ text });
+export const big = (text: string, tone?: NoteLine["tone"]): NoteLine => ({ text, big: true, ...(tone ? { tone } : {}) });
+export const small = (text: string): NoteLine => ({ text });
 
 /** the one who wonders: the hero's face, and their sex as it shows */
-const askerSex = (input: StoryVideoInput): "M" | "F" => faceOf(input.faces.hero)?.sex ?? "F";
+export const askerSex = (input: StoryVideoInput): "M" | "F" => faceOf(input.faces.hero)?.sex ?? "F";
 
-/** the hero's partner in the family scene: of the other sex, never the narrator */
+/** the hero's partner in a family scene: the one picked (เรื่องครอบครัว), or of the other sex, never the narrator */
 export function partnerFace(input: StoryVideoInput): string {
-  const other = askerSex(input) === "F" ? "M" : "F";
-  const pick = [DEFAULT_HERO_FACE[other], other === "M" ? "m14" : "w40"].find((f) => f !== input.faces.narrator && f !== input.faces.hero);
-  return pick ?? DEFAULT_HERO_FACE[other];
+  return input.faces.partner ?? defaultPartner(input.faces.hero, input.faces.narrator);
 }
 
 function sumVsPremium(input: StoryVideoInput): KnowScene[] {
@@ -129,7 +141,7 @@ const mythJinx = (): KnowScene[] => [
 ];
 
 /** each episode's closing: what the card's button says, and the voice under it */
-const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48">, string> = {
+const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic>, string> = {
   sumvspremium: "อยากรู้ว่าทุนเท่าไรถึงพอ ทักมาได้เลย",
   declare: "ไม่แน่ใจว่าต้องแถลงอะไร ทักมาถามได้เลย",
   mythclaim: "อยากให้ช่วยดูเงื่อนไข ทักมาได้เลย",
@@ -137,18 +149,25 @@ const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48">, string> = {
   mythjinx: "อยากเตรียมไว้ให้คนที่รัก ทักมาได้เลย",
 };
 
-/** An episode of ความรู้ประกัน 1 นาที: its five scenes and its close, in the narrator's endings. */
+/** An episode of ความรู้ประกัน 1 นาที or เรื่องครอบครัว: its five scenes and its close, in the narrator's endings. */
 export function knowEpisode(input: StoryVideoInput, customer?: string, narrator: "F" | "M" = "F"): KnowEpisode {
   if (input.topic === "pool48") throw new Error("กองกลาง 48 คน is a story, not an episode");
   const name = cleanCustomerName(customer);
+  const family = () => familyScenes(input.topic as FamilyTopic, input, name);
   const scenes = {
     sumvspremium: () => sumVsPremium(input),
     declare,
     mythclaim: mythClaim,
     mythyoung: () => mythYoung(input),
     mythjinx: mythJinx,
+    pillar: family,
+    mompillar: family,
+    tuition: family,
+    prebaby: family,
+    eldercare: family,
   }[input.topic]();
-  const close = CLOSE[input.topic];
+  // story-family.ts imports this file's helpers, so its words are looked up here, at call time
+  const close = input.topic in FAMILY_CLOSE ? FAMILY_CLOSE[input.topic as FamilyTopic] : CLOSE[input.topic as keyof typeof CLOSE];
   const said = (s: string) => spokenBy(s.replace(/\s+/g, " ").trim(), narrator);
   return {
     scenes: scenes.map((s) => ({ ...s, voice: said(s.voice) })),
@@ -162,12 +181,15 @@ export function knowText(e: KnowEpisode): string {
   const words: string[] = [e.cta];
   for (const { show } of e.scenes) {
     if ("title" in show) words.push(...show.title);
-    if ("note" in show) words.push(...show.note.map((l) => l.text));
+    if ("note" in show && show.note) words.push(...show.note.map((l) => l.text));
+    if (show.layout === "card") words.push(...show.lines.map((l) => l.text));
     if (show.layout === "myth") words.push(...show.quote, "ความเชื่อ");
     if (show.layout === "fact") words.push(show.crossed, "ความจริง");
     if (show.layout === "list") words.push(...show.items);
     if (show.layout === "recap") words.push(...show.lines.map((l) => l.text), "จำง่าย ๆ");
     if (show.layout === "bars") words.push(...show.lead, ...show.rows.flatMap((r) => [r.label, r.text]));
+    if (show.layout === "kin" && show.tags) words.push(...show.tags.items);
+    if (show.layout === "timeline") words.push(...show.rows.map((r) => r.label));
   }
   return words.join("");
 }

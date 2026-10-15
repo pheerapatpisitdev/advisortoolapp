@@ -9,7 +9,7 @@ import { checkedStory, isStoryInput, storyCaption, storyFigure, storyScript, typ
 import { noteLines, storyHandText, storyTitles } from "@/lib/quote-video/story-motion";
 import { clipFaces, clipHandText, clipWindows } from "@/lib/quote-video/story-frames";
 import { planScenes } from "@/lib/quote-video/timeline";
-import { CHILDREN, CROWD, CROWD_HERO, crowdOf, FACES, faceOf } from "@/lib/story/faces";
+import { BABY, CHILDREN, CROWD, CROWD_HERO, crowdOf, ELDERS, FACES, faceOf, familyOf, GRANDMAS, GRANDPAS, KIDS } from "@/lib/story/faces";
 import { STORY_TOPICS } from "@/lib/story/topics";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 
@@ -106,7 +106,7 @@ describe("กองกลาง 48 คน's crowd (lib/story/faces.ts)", () => {
   });
 
   it("has every face's file, in colour and in grey", () => {
-    for (const f of [...FACES, ...CHILDREN.map((id) => ({ id }))]) {
+    for (const f of [...FACES, ...[...KIDS, BABY, ...ELDERS].map((id) => ({ id }))]) {
       expect(existsSync(join(process.cwd(), "public/story/faces", `${f.id}.jpg`)), f.id).toBe(true);
       expect(existsSync(join(process.cwd(), "public/story/faces", `${f.id}-g.jpg`)), f.id).toBe(true);
     }
@@ -206,5 +206,87 @@ describe("ความรู้ประกัน 1 นาที (story-knowledg
       expect(c).not.toContain("คุณนิด");
     }
     expect(storyCaption(story({ topic: "mythyoung", ladder: true }))).toContain("ตัวอย่างจาก Life Protect");
+  });
+});
+
+describe("เรื่องครอบครัว (story-family.ts)", () => {
+  const episodes = STORY_TOPICS.filter((t) => t.shelf === "family");
+  const LIFE = { plan: "LIFEPROTECT", variant: "WLF99H", sex: "M", age: 35, sumAssured: 3_000_000 };
+  const dad = { narrator: "w26", hero: "m09" };
+
+  it("is five episodes of six scenes, the agent's card last", () => {
+    expect(episodes.map((t) => t.key)).toEqual(["pillar", "mompillar", "tuition", "prebaby", "eldercare"]);
+    for (const t of episodes) {
+      expect(storyScript(story({ topic: t.key }), "นิด").map((l) => l.key)).toEqual(["knowAsk", "knowOne", "knowTwo", "knowThree", "knowRecap", "storyContact"]);
+    }
+  });
+
+  it("works เสาหลักหายไป's sum from the household's numbers, and the premium from the plan's table", () => {
+    const s = story({ topic: "pillar", faces: dad, home: { monthly: 25_000, years: 10 }, figure: LIFE });
+    expect(s.home).toEqual({ kind: "spend", monthly: 25_000, years: 10 });
+    const lines = storyScript(s, "เอก").map((l) => l.voice);
+    expect(lines[3]).toBe("ถ้าบ้านนี้ใช้เดือนละ 25,000 บาท และลูกยังต้องพึ่งอีก 10 ปี ครอบครัวต้องมีเงินราว 3 ล้านบาทค่ะ");
+    expect(lines[4]).toBe("ประกันชีวิตทำหน้าที่แทนเสาหลัก เงินก้อนถึงมือครอบครัว เช่น ทุน 3 ล้านบาท ผู้ชายอายุ 35 จ่ายเบี้ยปีละ 51,600 บาทค่ะ");
+  });
+
+  it("claims no figure without the agent's numbers", () => {
+    for (const t of episodes) {
+      const lines = storyScript(story({ topic: t.key }), "").map((l) => l.voice).join(" ");
+      expect(lines, t.key).not.toMatch(/\d{2},\d{3}|ล้านบาท|\d+ ปี/);
+    }
+  });
+
+  it("counts ค่าเรียนลูก's years to a degree at 22", () => {
+    const s = story({ topic: "tuition", home: { childAge: 6, tuition: 60_000 } });
+    const lines = storyScript(s, "นิด").map((l) => l.voice);
+    expect(lines[1]).toBe("กว่าจะเรียนจบปริญญาตรีตอนอายุ 22 ลูกยังต้องเรียนอีก 16 ปีค่ะ");
+    expect(lines[2]).toBe("ถ้าค่าเรียนเฉลี่ยปีละ 60,000 บาท รวม 16 ปี เป็นเงิน 960,000 บาทค่ะ");
+  });
+
+  it("refuses numbers out of range, a plan the story does not pay on, and a father as แม่คือเสาหลักอีกต้น", () => {
+    expect(checkedStory({ topic: "pillar", home: { monthly: 10, years: 10 } }, "F")).toMatch(/ค่าใช้จ่ายต่อเดือน/);
+    expect(checkedStory({ topic: "tuition", home: { childAge: 22, tuition: 60_000 } }, "F")).toMatch(/อายุลูก/);
+    expect(checkedStory({ topic: "pillar", figure: SHIELD }, "F")).toMatch(/Life Protect/);
+    expect(checkedStory({ topic: "eldercare", figure: { ...LIFE, sex: "F" } }, "F")).toMatch(/iShield/);
+    expect(checkedStory({ topic: "mompillar", faces: dad }, "F")).toMatch(/แม่/);
+    // numbers are kept only where the story uses them
+    expect(story({ topic: "prebaby", home: { monthly: 25_000, years: 10 } }).home).toBeUndefined();
+  });
+
+  it("takes a partner of the other sex, and none for a story without one", () => {
+    expect(story({ topic: "pillar", faces: { ...dad, partner: "w40" } }).faces.partner).toBe("w40");
+    expect(checkedStory({ topic: "pillar", faces: { ...dad, partner: "m14" } }, "F")).toMatch(/คู่ชีวิต/);
+    expect(story({ topic: "declare", faces: { ...dad, partner: "w40" } }).faces.partner).toBeUndefined();
+  });
+
+  it("draws the same family for the same hero: children, the baby and grandparents from their own sheets", () => {
+    const f = familyOf("w15");
+    expect(f).toEqual(familyOf("w15"));
+    expect(KIDS).toEqual(expect.arrayContaining(f.kids));
+    expect(f.kids[0]).not.toBe(f.kids[1]);
+    expect(GRANDPAS).toContain(f.grandpa);
+    expect(GRANDMAS).toContain(f.grandma);
+    expect(clipFaces(story({ topic: "eldercare" }))).toEqual(expect.arrayContaining([f.grandpa, f.grandma]));
+    expect(clipFaces(story({ topic: "prebaby" }))).toContain(BABY);
+  });
+
+  it("draws in every shape, every letter in the handwriting face", () => {
+    for (const t of episodes) for (const size of ["portrait", "square", "landscape"] as const) {
+      const input = story({ topic: t.key, size });
+      for (const s of storyScript(input)) {
+        expect(TRANSITIONS[s.key]).toBeDefined();
+        expect(clipWindows(s.key, input, size).length).toBeGreaterThan(0);
+      }
+    }
+    expect(clipHandText(story({ topic: "tuition", home: { childAge: 6, tuition: 60_000 } }), "")).toContain("มหาวิทยาลัย");
+    expect(clipHandText(story({ topic: "pillar" }), "")).toContain("ค่าเทอมลูก");
+  });
+
+  it("goes up on a Page with its own caption and no one's name", () => {
+    for (const t of episodes) {
+      const c = storyCaption(story({ topic: t.key }));
+      expect(c).toContain("#ครอบครัว");
+      expect(c).not.toContain("คุณนิด");
+    }
   });
 });

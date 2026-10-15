@@ -4,7 +4,7 @@ import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectModes, termAt as lifeProtectTerm } from "@/lib/lifeprotect-quote";
 import { DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, faceOf, FACES } from "@/lib/story/faces";
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { LADDER_AGES, LADDER_PLAN, topicOf, type StoryTopic } from "@/lib/story/topics";
+import { GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, topicOf, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
 import { knowEpisode, type KnowSceneKey } from "./story-knowledge";
 import { sizeOf, type VideoSize } from "./timeline";
@@ -52,12 +52,17 @@ export interface StoryVideoInput {
   size?: VideoSize;
   /** "reveal": the crowd grey until everyone is covered (the mockup's default); "color" throughout */
   palette: "reveal" | "color";
-  /** the agent's own cartoon, and the hero's */
-  faces: { narrator: string; hero: string };
+  /** the agent's own cartoon, the hero's, and for เรื่องครอบครัว the hero's partner if the agent picked one */
+  faces: { narrator: string; hero: string; partner?: string };
   figure?: StoryFigure;
   /** ยังหนุ่ม ไม่ต้องมี: Life Protect's premium at LADDER_AGES, for the hero's sex */
   ladder?: StoryLadder;
+  /** เสาหลักหายไป and ค่าเรียนลูก: the household's own numbers, as the agent typed them */
+  home?: StoryHome;
 }
+
+/** a month's spending and the years the children lean on it ("spend"); a child's age and a year's fees ("school") */
+export type StoryHome = { kind: "spend"; monthly: number; years: number } | { kind: "school"; childAge: number; tuition: number };
 
 export interface StoryLadder { sex: "M" | "F"; rows: { age: number; annual: number }[] }
 
@@ -109,6 +114,30 @@ export function storyLadder(sex: "M" | "F"): StoryLadder | string {
   return { sex, rows };
 }
 
+/** the household's numbers for a topic that takes them, or the words for what is wrong */
+export function storyHome(topic: StoryTopicInfo, v: unknown): StoryHome | string {
+  const o = (v ?? {}) as Record<string, unknown>;
+  const int = (x: unknown, lo: number, hi: number) => {
+    const n = Number(x);
+    return Number.isInteger(n) && n >= lo && n <= hi ? n : null;
+  };
+  if (topic.home === "spend") {
+    const monthly = int(o.monthly, 1_000, 1_000_000);
+    if (monthly === null) return "ค่าใช้จ่ายต่อเดือน 1,000 – 1,000,000 บาท";
+    const years = int(o.years, 1, 40);
+    if (years === null) return "จำนวนปีที่ลูกยังต้องพึ่ง 1 – 40 ปี";
+    return { kind: "spend", monthly, years };
+  }
+  if (topic.home === "school") {
+    const childAge = int(o.childAge, 0, GRADUATE_AGE - 1);
+    if (childAge === null) return `อายุลูก 0 – ${GRADUATE_AGE - 1} ปี`;
+    const tuition = int(o.tuition, 1_000, 2_000_000);
+    if (tuition === null) return "ค่าเรียนต่อปี 1,000 – 2,000,000 บาท";
+    return { kind: "school", childAge, tuition };
+  }
+  return "เรื่องนี้ไม่ใช้ตัวเลขของบ้าน";
+}
+
 /** a face the form offers (the children are drawn in, never picked) */
 const pickable = (v: unknown): v is string => typeof v === "string" && FACES.some((f) => f.id === v);
 
@@ -118,18 +147,32 @@ const pickable = (v: unknown): v is string => typeof v === "string" && FACES.som
  * ladder (`ladder: true`) for ยังหนุ่ม ไม่ต้องมี, worked out here for the hero's sex.
  */
 export function checkedStory(
-  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder"> & { figure?: unknown; ladder?: unknown }, narrator: "F" | "M", voice?: string,
+  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "home"> & { figure?: unknown; ladder?: unknown; home?: unknown }, narrator: "F" | "M", voice?: string,
 ): StoryVideoInput | string {
   const topic = topicOf(String(v.topic ?? ""));
   if (!topic) return "เลือกเรื่อง";
   const narratorFace = pickable(v.faces?.narrator) ? v.faces.narrator : DEFAULT_NARRATOR_FACE;
   const hero = pickable(v.faces?.hero) ? v.faces.hero : DEFAULT_HERO_FACE.F;
   if (hero === narratorFace) return "ตัวเอกกับผู้เล่าใช้หน้าเดียวกันไม่ได้ เลือกหน้าอื่น";
+  if (topic.heroSex && faceOf(hero)?.sex !== topic.heroSex) return "เรื่องนี้ตัวเอกเป็นแม่ เลือกหน้าผู้หญิง";
+  let partner: string | undefined;
+  if (topic.shelf === "family" && v.faces?.partner !== undefined) {
+    const p = v.faces.partner;
+    if (!pickable(p) || p === hero || p === narratorFace || faceOf(p)?.sex === faceOf(hero)?.sex) return "คู่ชีวิตต้องเป็นหน้าเพศตรงข้ามกับตัวเอก และไม่ซ้ำกับผู้เล่า";
+    partner = p;
+  }
   let figure: StoryFigure | undefined;
   if (v.figure && topic.figure === "plan") {
     const f = storyFigure(v.figure as Parameters<typeof storyFigure>[0]);
     if (typeof f === "string") return f;
+    if (topic.plans && !topic.plans.includes(f.plan)) return `เรื่องนี้ใช้เบี้ยของ ${topic.plans.map(planName).join(" หรือ ")}`;
     figure = f;
+  }
+  let home: StoryHome | undefined;
+  if (v.home && topic.home) {
+    const h = storyHome(topic, v.home);
+    if (typeof h === "string") return h;
+    home = h;
   }
   let ladder: StoryLadder | undefined;
   if (v.ladder === true && topic.figure === "ladder") {
@@ -140,7 +183,7 @@ export function checkedStory(
   return {
     product: "STORY", topic: topic.key, narrator, ...(voice ? { voice } : {}), style: "story", length: "full",
     size: sizeOf(v), palette: v.palette === "color" ? "color" : "reveal",
-    faces: { narrator: narratorFace, hero }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}),
+    faces: { narrator: narratorFace, hero, ...(partner ? { partner } : {}) }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}), ...(home ? { home } : {}),
   };
 }
 
@@ -199,6 +242,11 @@ const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
   mythclaim: ["“ประกันเคลมยาก” จริงไหม?", "ประกันจ่ายตามเงื่อนไขในกรมธรรม์ รู้เงื่อนไข เคลมก็ง่าย"],
   mythyoung: ["“ยังหนุ่มยังสาว ไม่ต้องมีประกัน” จริงไหม?", "ยิ่งเริ่มเร็ว เบี้ยยิ่งถูก และสมัครง่ายตอนสุขภาพยังดี"],
   mythjinx: ["ซื้อประกัน เหมือนแช่งตัวเองหรือเปล่า?", "ประกันไม่ได้ทำให้เกิดเรื่องร้าย แต่ทำให้คนที่เรารักไม่ต้องลำบาก"],
+  pillar: ["ถ้าวันหนึ่ง เสาหลักของบ้านหายไป?", "รายได้หายไปในวันเดียว แต่ค่าบ้าน ค่าเทอม ค่ากิน ยังอยู่ ประกันชีวิตทำหน้าที่แทนเสาหลัก"],
+  mompillar: ["แม่ก็เป็นเสาหลักอีกต้น", "แม่มีทั้งรายได้ และงานดูแลทั้งบ้าน ทุนประกันของแม่จึงควรคิดทั้งสองอย่าง"],
+  tuition: ["ลูกยังต้องเรียนอีกกี่ปี ถ้าวันหนึ่งพ่อแม่ไม่อยู่ ใครจ่าย?", "ประกันชีวิตทุนเท่าค่าเรียน ช่วยให้ลูกเรียนจนจบ"],
+  prebaby: ["ก่อนมีลูก ต้องเตรียมอะไร?", "ประกันสุขภาพแม่ ประกันชีวิตพ่อแม่ และเงินสำรอง เตรียมก่อน อุ่นใจกว่า"],
+  eldercare: ["ถ้าคนที่ดูแลพ่อแม่ ล้มป่วยเสียเอง?", "ประกันโรคร้ายแรงจ่ายเงินก้อนตามเงื่อนไข ใช้รักษาตัว และดูแลพ่อแม่ต่อได้"],
 };
 
 /** the caption a story clip goes up on a Page with: no customer, no premium of anyone's */
@@ -209,7 +257,7 @@ export function storyCaption(input: StoryVideoInput): string {
       "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
       ...(input.figure || input.ladder ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : planName(input.figure!.plan)} เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท`] : []),
       "",
-      "#ความรู้ประกัน #ประกันชีวิต",
+      topicOf(input.topic)?.shelf === "family" ? "#ครอบครัว #ประกันชีวิต" : "#ความรู้ประกัน #ประกันชีวิต",
     ].join("\n");
   }
   return [
