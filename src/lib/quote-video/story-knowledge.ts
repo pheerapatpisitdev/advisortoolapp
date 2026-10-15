@@ -4,6 +4,8 @@ import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
 import type { StoryVideoInput } from "./story";
 import { AFTER_CLOSE, afterScenes, type AfterTopic } from "./story-after";
 import { familyScenes, FAMILY_CLOSE, type FamilyTopic } from "./story-family";
+import { lifeScenes, LIFE_CLOSE, type LifeTopic } from "./story-life";
+import { objectionScenes, OBJECTION_CLOSE, type ObjectionTopic } from "./story-objection";
 
 /**
  * ความรู้ประกัน 1 นาที (owner, 2026-10-15, mockup https://claude.ai/artifact/LUVQ8Pob2DJbBp5petTsNu):
@@ -146,7 +148,7 @@ const mythJinx = (): KnowScene[] => [
 ];
 
 /** each episode's closing: what the card's button says, and the voice under it */
-const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | AfterTopic>, string> = {
+const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | AfterTopic | ObjectionTopic | LifeTopic>, string> = {
   sumvspremium: "อยากรู้ว่าทุนเท่าไรถึงพอ ทักมาได้เลย",
   declare: "ไม่แน่ใจว่าต้องแถลงอะไร ทักมาถามได้เลย",
   mythclaim: "อยากให้ช่วยดูเงื่อนไข ทักมาได้เลย",
@@ -154,12 +156,14 @@ const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | A
   mythjinx: "อยากเตรียมไว้ให้คนที่รัก ทักมาได้เลย",
 };
 
-/** An episode of ความรู้ประกัน 1 นาที or เรื่องครอบครัว: its five scenes and its close, in the narrator's endings. */
+/** An episode of any shelf but กองกลาง 48 คน: its scenes and its close, in the narrator's endings. */
 export function knowEpisode(input: StoryVideoInput, customer?: string, narrator: "F" | "M" = "F"): KnowEpisode {
   if (input.topic === "pool48") throw new Error("กองกลาง 48 คน is a story, not an episode");
   const name = cleanCustomerName(customer);
   const family = () => familyScenes(input.topic as FamilyTopic, input, name);
   const afterSale = () => afterScenes(input.topic as AfterTopic, input, name);
+  const objection = () => objectionScenes(input.topic as ObjectionTopic, input);
+  const life = () => lifeScenes(input.topic as LifeTopic, input, name);
   const scenes = {
     sumvspremium: () => sumVsPremium(input),
     declare,
@@ -177,10 +181,23 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     remind: afterSale,
     birthday: afterSale,
     festival: afterSale,
+    thinkfirst: objection,
+    groupins: objection,
+    welfare: objection,
+    bank: objection,
+    pricey: objection,
+    firstjob: life,
+    wedding: life,
+    mortgage: life,
+    selfemployed: life,
+    preretire: life,
   }[input.topic]();
   // story-family.ts and story-after.ts import this file's helpers, so their words are looked up here, at call time
   const after = input.topic in AFTER_CLOSE ? AFTER_CLOSE[input.topic as AfterTopic] : null;
-  const close = after ? after.cta : input.topic in FAMILY_CLOSE ? FAMILY_CLOSE[input.topic as FamilyTopic] : CLOSE[input.topic as keyof typeof CLOSE];
+  const close = after ? after.cta
+    : input.topic in FAMILY_CLOSE ? FAMILY_CLOSE[input.topic as FamilyTopic]
+      : input.topic in OBJECTION_CLOSE ? OBJECTION_CLOSE[input.topic as ObjectionTopic]
+        : input.topic in LIFE_CLOSE ? LIFE_CLOSE[input.topic as LifeTopic] : CLOSE[input.topic as keyof typeof CLOSE];
   const said = (s: string) => spokenBy(s.replace(/\s+/g, " ").trim(), narrator);
   return {
     scenes: scenes.map((s) => ({ ...s, voice: said(s.voice) })),

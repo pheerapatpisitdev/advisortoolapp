@@ -21,7 +21,7 @@ import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
-import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, storyFigure, type StoryVideoInput } from "@/lib/quote-video/story";
+import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
 import { getCustomer, listCustomers } from "@/lib/fhc/customers";
 import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
 import { checkedPension } from "@/lib/quote-video/pension";
@@ -326,11 +326,18 @@ export async function previewStoryFigure(v: { plan?: string; variant?: string; s
   return typeof f === "string" ? { error: f } : { annual: f.annual, monthly: f.monthly };
 }
 
+/** บำนาญ 95's premium for คลิปเล่าเรื่อง's ใกล้เกษียณ, worked out as the form is filled (story.ts storyPension) */
+export async function previewStoryPension(v: { sex?: string; age?: number; annuityAge?: number; pay?: string; monthly?: number }): Promise<{ annual: number; monthlyPension: number; annuityAge: number } | { error: string }> {
+  await requireMember();
+  const p = storyPension(v ?? {});
+  return typeof p === "string" ? { error: p } : { annual: p.annual, monthlyPension: p.monthlyPension, annuityAge: p.annuityAge };
+}
+
 /**
  * คลิปเล่าเรื่อง (owner, 2026-10-15): a cartoon story clip. The premium it shows, if any, is
  * worked out again here from the plan's table, never taken from the form.
  */
-export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "home"> & { figure?: unknown; ladder?: unknown; home?: unknown }, customer: string): Promise<Made> {
+export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "home"> & { figure?: unknown; ladder?: unknown; pension?: unknown; home?: unknown }, customer: string): Promise<Made> {
   const viewer = await requireMember();
   const eleven = await voiceAsked(viewer.agentId, v?.voice);
   if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };

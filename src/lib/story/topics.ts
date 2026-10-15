@@ -14,6 +14,11 @@
  * the children still lean on it ("spend"), or a child's age and a year's school fees ("school").
  * `ask`: what else a topic needs typed in — the day a premium falls due ("due"), or which
  * festival ("festival"). `short`: two scenes and the card, at the short clip's price.
+ *
+ * ตอบข้อโต้แย้ง and ช่วงชีวิต (owner, 2026-10-16, mockup https://claude.ai/artifact/RiKE8s8a3tAPBW4sfygMaR):
+ * five answers to what customers say, and five turns of a life. ผ่อนบ้าน takes the home loan
+ * ("loan": what is still owed and the years left), ใกล้เกษียณ a month's spending once retired
+ * ("retire") and บำนาญ 95's premium ("pension"). `figureAt`: the scene the figure shows in.
  */
 
 import type { StoryPlan } from "./plans";
@@ -21,24 +26,28 @@ import type { StoryPlan } from "./plans";
 export type StoryTopic =
   | "pool48" | "sumvspremium" | "declare" | "mythclaim" | "mythyoung" | "mythjinx"
   | "pillar" | "mompillar" | "tuition" | "prebaby" | "eldercare"
-  | "deliver" | "claimihu" | "claimish" | "remind" | "birthday" | "festival";
-export type StoryShelf = "story" | "knowledge" | "family" | "after";
+  | "deliver" | "claimihu" | "claimish" | "remind" | "birthday" | "festival"
+  | "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey"
+  | "firstjob" | "wedding" | "mortgage" | "selfemployed" | "preretire";
+export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after";
 
 export interface StoryTopicInfo {
   key: StoryTopic;
   name: string;
   shelf: StoryShelf;
   blurb: string;
-  figure: "plan" | "ladder" | null;
+  figure: "plan" | "ladder" | "pension" | null;
   /** the plans a "plan" figure may come from; every plan when unset */
   plans?: StoryPlan[];
-  home?: "spend" | "school";
+  home?: "spend" | "school" | "loan" | "retire";
   /** the hero is the children's mother, so a woman */
   heroSex?: "F";
   /** the clip cannot be told without the plan's figure (the policy handed over) */
   figureRequired?: boolean;
   ask?: "due" | "festival";
   short?: boolean;
+  /** the scene a figure shows in, where it is not the shelf's usual (4, or 5 for เรื่องครอบครัว) */
+  figureAt?: number;
 }
 
 export const STORY_TOPICS: StoryTopicInfo[] = [
@@ -53,6 +62,16 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "tuition", name: "ค่าเรียนลูก", shelf: "family", blurb: "ถ้าวันหนึ่งพ่อแม่ไม่อยู่ ลูกยังต้องเรียนอีกกี่ปี ใครจ่าย", figure: "plan", plans: ["LIFEPROTECT"], home: "school" },
   { key: "prebaby", name: "ก่อนมีลูก ต้องเตรียมอะไร", shelf: "family", blurb: "คู่รักกับคนตัวเล็กที่กำลังจะมา", figure: null },
   { key: "eldercare", name: "ใครดูแลพ่อแม่ตอนแก่", shelf: "family", blurb: "ถ้าคนที่ดูแลพ่อแม่ ล้มป่วยเสียเอง", figure: "plan", plans: ["ISHIELD"] },
+  { key: "thinkfirst", name: "“ขอคิดดูก่อน”", shelf: "objection", blurb: "คิดก่อนดีแล้ว แต่ระหว่างคิด อายุกับสุขภาพไม่รอ", figure: "ladder", figureAt: 3 },
+  { key: "groupins", name: "“มีประกันกลุ่มบริษัทแล้ว”", shelf: "objection", blurb: "ประกันกลุ่มดี แต่ผูกกับงาน", figure: null },
+  { key: "welfare", name: "“มีบัตรทอง ประกันสังคมแล้ว”", shelf: "objection", blurb: "สิทธิรักษามีจริง แต่รายได้ระหว่างป่วยใครจ่าย", figure: "plan", plans: ["ISHIELD"] },
+  { key: "bank", name: "“เอาเงินไปฝากธนาคารดีกว่า”", shelf: "objection", blurb: "ออมไว้ใช้ ประกันไว้กันเรื่องใหญ่ ควรมีทั้งสอง", figure: "plan", plans: ["LIFEPROTECT"], figureAt: 2 },
+  { key: "pricey", name: "“เบี้ยแพง ไม่มีงบ”", shelf: "objection", blurb: "เริ่มเท่าที่ไหว ดีกว่าไม่เริ่ม", figure: "plan", plans: ["LIFEPROTECT"], figureAt: 2 },
+  { key: "firstjob", name: "เงินเดือนแรก", shelf: "life", blurb: "เพิ่งเริ่มทำงาน แบ่งเงินให้ตัวเองในอนาคตด้วย", figure: "plan", plans: ["ISHIELD"], figureAt: 4 },
+  { key: "wedding", name: "แต่งงานแล้ว", shelf: "life", blurb: "จากหนึ่งเป็นสอง ภาระก็เป็นของสองคน", figure: "plan", plans: ["LIFEPROTECT"], figureAt: 3 },
+  { key: "mortgage", name: "ผ่อนบ้าน", shelf: "life", blurb: "บ้านยังผ่อนไม่หมด ถ้าคนผ่อนไม่อยู่ บ้านจะเป็นของใคร", figure: "plan", plans: ["LIFEPROTECT"], home: "loan", figureAt: 4 },
+  { key: "selfemployed", name: "ฟรีแลนซ์ · เจ้าของกิจการ", shelf: "life", blurb: "ไม่มีเจ้านาย ก็ไม่มีสวัสดิการ ต้องสร้างเอง", figure: "plan", plans: ["ISHIELD"], figureAt: 4 },
+  { key: "preretire", name: "ใกล้เกษียณ", shelf: "life", blurb: "เงินเดือนหยุดที่เกษียณ แต่ชีวิตยังไปต่ออีกหลายสิบปี", figure: "pension", home: "retire", figureAt: 4 },
   { key: "deliver", name: "ส่งมอบกรมธรรม์", shelf: "after", blurb: "ขอบคุณ สรุปสิ่งที่ได้ เบี้ย เริ่มคุ้มครองเมื่อไร", figure: "plan", figureRequired: true },
   { key: "claimihu", name: "วิธีเคลม · นอนโรงพยาบาล", shelf: "after", blurb: "iHealthy Ultra: ต้องสำรองจ่ายไหม ยื่นเมื่อไร ได้เงินเมื่อไร", figure: null },
   { key: "claimish", name: "วิธีเคลม · โรคร้ายแรง", shelf: "after", blurb: "iShield: จ่ายตามระยะของโรค ยื่นเคลมยังไง", figure: "plan", plans: ["ISHIELD"] },
@@ -74,6 +93,10 @@ export const topicOf = (key: string): StoryTopicInfo | undefined => STORY_TOPICS
 /** the ages the ladder of ยังหนุ่ม ไม่ต้องมี compares, on Life Protect paid to 99, a sum of 1 million */
 export const LADDER_AGES = [25, 35, 45];
 export const LADDER_PLAN = { plan: "LIFEPROTECT", variant: "WLF99H", sumAssured: 1_000_000 } as const;
+
+/** ใกล้เกษียณ: retired at this age unless บำนาญ 95 starts paying at another, money needed to this age */
+export const RETIRE_AGE = 60;
+export const LIVE_TO = 85;
 
 /** ค่าเรียนลูก counts the years to a bachelor's degree, finished at this age */
 export const GRADUATE_AGE = 22;

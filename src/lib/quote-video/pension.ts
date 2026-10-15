@@ -55,6 +55,19 @@ export function checkedPension(v: PensionVideoInput): PensionVideoInput | string
   return { product: "PENSION", sex: v.sex, age: v.age, annuityAge: v.annuityAge, pay: v.pay, sumAssured: r.quote.sumAssured };
 }
 
+/** บำนาญ 95 in คลิปเล่าเรื่อง's ใกล้เกษียณ: what a monthly pension costs a year, the engine's own figures */
+export interface PensionPremium { sumAssured: number; monthlyPension: number; annual: number; start: number; payYears: number }
+
+/** A monthly pension from an age, priced: its sum, the pension and the year's premium; the engine's words otherwise. */
+export function pensionPremium(v: { sex: "M" | "F"; age: number; annuityAge: number; pay: PensionPay; monthly: number }): PensionPremium | string {
+  const c = checkedPension({ product: "PENSION", sex: v.sex, age: v.age, annuityAge: v.annuityAge, pay: v.pay, monthly: v.monthly } as PensionVideoInput);
+  if (typeof c === "string") return c;
+  const r = quote(c, "sumAssured", c.sumAssured);
+  if (!r.ok) return r.error;
+  const q = r.quote;
+  return { sumAssured: q.sumAssured, monthlyPension: Math.floor(q.monthlyPension), annual: Math.floor(q.modePremium), start: q.plan.annuityStartAge, payYears: q.payYears };
+}
+
 /**
  * The sum a budget buys: the premium basis of the same engine, in the instalment the customer
  * named. The engine's own words when it is too little or too much.

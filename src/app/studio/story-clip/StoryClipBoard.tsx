@@ -1,16 +1,17 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pension/engine";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
 import { STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { FESTIVALS, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
 import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, defaultPartner, FACE_PAPER, FACES, faceSrc, familyOf, type FaceTag } from "@/lib/story/faces";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
-import { makeStoryVideo, myCost, myVideos, previewStoryFigure, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
+import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
 import { ChevronDownIcon } from "../ui/icons";
 import { MyVoiceRow } from "../voice/MyVoiceRow";
 import { ClipList } from "../quote-video/ClipList";
@@ -26,6 +27,10 @@ import { costLine, GEMINI, SizePicker, Step } from "../quote-video/QuoteVideoBoa
  *
  * หลังการขาย (mockup https://claude.ai/artifact/7V5MfG21asotVJm9TCJojc) adds a shelf of six: the
  * plan the customer bought (needed to hand the policy over), a premium's due day, a festival.
+ *
+ * ตอบข้อโต้แย้ง and ช่วงชีวิต (mockup https://claude.ai/artifact/RiKE8s8a3tAPBW4sfygMaR) add two
+ * shelves of five: the home loan for ผ่อนบ้าน, and for ใกล้เกษียณ a month's spending once retired
+ * and บำนาญ 95's premium for the pension wanted.
  */
 
 const chip = (on: boolean) =>
@@ -35,12 +40,14 @@ const label = "mb-1 block text-sm font-medium";
 const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no-underline hover:bg-[var(--ct-soft)] inline-flex items-center";
 
 /** the stories still to come, as the mockup listed them */
-const COMING = ["หนี้ไม่ตายตามเจ้าของ", "ซื้อตอนหนุ่มถูกกว่า", "เกษียณแล้วเงินพอไหม", "ผู้หญิงมักอายุยืนกว่า", "ลดหย่อนภาษีปลายปี"];
-const SHELF_NAME = { story: "เล่าเรื่อง", knowledge: "ความรู้ประกัน 1 นาที", family: "ครอบครัว", after: "หลังการขาย" } as const;
+const COMING = ["ซื้อตอนหนุ่มถูกกว่า", "ผู้หญิงมักอายุยืนกว่า", "ลดหย่อนภาษีปลายปี"];
+const SHELF_NAME = { story: "เล่าเรื่อง", knowledge: "ความรู้ประกัน 1 นาที", objection: "ตอบข้อโต้แย้ง", family: "ครอบครัว", life: "ช่วงชีวิต", after: "หลังการขาย" } as const;
+/** the dropdown's order, as the mockup listed the shelves */
+const SHELVES = ["story", "knowledge", "family", "objection", "life", "after"] as const;
 /** a date input's value, a month from today: the usual next due day is near */
 const inAMonth = () => { const d = new Date(Date.now() + 30 * 86_400_000); return d.toISOString().slice(0, 10); };
 /** the family topics that have the hero's partner in them */
-const WITH_PARTNER: StoryTopic[] = ["pillar", "mompillar", "prebaby"];
+const WITH_PARTNER: StoryTopic[] = ["pillar", "mompillar", "prebaby", "wedding", "mortgage"];
 const baht = (v: number) => v.toLocaleString("en-US");
 const digits = (v: string, max: number) => { const n = Number(v.replace(/[^\d]/g, "").slice(0, max)); return n ? baht(n) : ""; };
 const TAG_WORD: Record<FaceTag, string> = { glasses: "ใส่แว่น", curly: "ผมหยิก", hat: "ใส่หมวก" };
@@ -137,6 +144,8 @@ function FamilyPreview({ info, hero, partner, size }: { info: StoryTopicInfo; he
     info.key === "eldercare" ? [{ id: f.grandpa }, { id: hero, big: true }, { id: f.grandma }]
       : info.key === "prebaby" ? [{ id: hero }, { id: partner }, { id: BABY, dash: true }]
         : info.key === "tuition" ? [{ id: hero, big: true }, { id: f.kids[0] }]
+          : info.key === "wedding" ? [{ id: hero, big: true }, { id: partner, big: true }]
+          : info.key === "mortgage" ? [{ id: partner }, { id: hero, big: true }, { id: f.kids[0] }]
           : [{ id: partner }, { id: hero, big: true }, { id: f.kids[0] }, { id: f.kids[1] }];
   return (
     <div className="rounded-[26px] p-2.5" style={{ background: STORY_CLIP_COLORS.bezel }}>
@@ -172,6 +181,12 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const knowledge = info.shelf === "knowledge";
   const family = info.shelf === "family";
   const afterSale = info.shelf === "after";
+  const objection = info.shelf === "objection";
+  const life = info.shelf === "life";
+  // the one who wonders: ความรู้ประกัน and ตอบข้อโต้แย้ง have one, not a hero
+  const asks = knowledge || objection;
+  // ช่วงชีวิต draws a family for these two, the one who wonders for the rest
+  const lifeFamily = topic === "wedding" || topic === "mortgage";
   const episode = info.shelf !== "story";
   const [dueDate, setDueDate] = useState("");
   const [dueAmount, setDueAmount] = useState("");
@@ -185,6 +200,13 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [years, setYears] = useState("10");
   const [childAge, setChildAge] = useState("6");
   const [tuition, setTuition] = useState("60,000");
+  const [debt, setDebt] = useState("2,800,000");
+  const [loanYears, setLoanYears] = useState("22");
+  const [retireMonthly, setRetireMonthly] = useState("20,000");
+  const [annuityAge, setAnnuityAge] = useState(String(RETIRE_AGE));
+  const [pay, setPay] = useState<PensionPay>("untilAnnuity");
+  const [pensionMonthly, setPensionMonthly] = useState("10,000");
+  const [pension, setPension] = useState<{ annual: number; monthlyPension: number; annuityAge: number } | { error: string } | null>(null);
   const [withFigure, setWithFigure] = useState(false);
   const [ladder, setLadder] = useState<{ age: number; annual: number }[] | { error: string } | null>(null);
   const [plan, setPlan] = useState<StoryPlan>("ISHIELD");
@@ -249,6 +271,25 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     return () => clearTimeout(t);
   }, [withFigure, info.figure, plan, variant, heroSex, age, sumBaht]);
 
+  // ใกล้เกษียณ: บำนาญ 95's premium for the pension wanted
+  const pensionBaht = Number(pensionMonthly.replace(/[^\d]/g, "")) || 0;
+  const pensionAges = availablePensionAges(Number(age), pay);
+  // a pension age this age and way of paying allow: 60 where it can, else the first
+  const agesKey = pensionAges.join(",");
+  useEffect(() => {
+    const ok = agesKey ? agesKey.split(",") : [];
+    if (ok.length && !ok.includes(annuityAge)) setAnnuityAge(ok.includes(String(RETIRE_AGE)) ? String(RETIRE_AGE) : ok[0]);
+  }, [agesKey, annuityAge]);
+  useEffect(() => {
+    if (!withFigure || info.figure !== "pension") return;
+    setPension(null);
+    const t = setTimeout(() => {
+      previewStoryPension({ sex: heroSex, age: Number(age), annuityAge: Number(annuityAge), pay, monthly: pensionBaht })
+        .then(setPension).catch(() => setPension({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [withFigure, info.figure, heroSex, age, annuityAge, pay, pensionBaht]);
+
   // ยังหนุ่ม ไม่ต้องมี: Life Protect at each age, for the hero's sex
   useEffect(() => {
     if (!withFigure || info.figure !== "ladder") return;
@@ -296,19 +337,33 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
 
   const figureOk = (withFigure || info.figureRequired) && info.figure === "plan" && figure && !("error" in figure) ? figure : null;
   const ladderOk = withFigure && info.figure === "ladder" && ladder && !("error" in ladder) ? ladder : null;
+  const pensionOk = withFigure && info.figure === "pension" && pension && !("error" in pension) ? pension : null;
+  const figureAt = info.figureAt ?? (family ? 5 : 4);
   const showsFigure = (withFigure || Boolean(info.figureRequired)) && info.figure !== null;
   const voiceBlocked = Boolean(quota) && !look.voice;
   const line = costLine(cost, info.short ? "videoStoryShort" : "videoStory");
   // the household's numbers, as the form has them
   const num = (v: string) => Number(v.replace(/[^\d]/g, "")) || 0;
   const showsHome = withHome && Boolean(info.home);
-  const home = info.home === "spend" ? { monthly: num(monthly), years: num(years) } : { childAge: Number(childAge), tuition: num(tuition) };
-  const homeTotal = info.home === "spend" ? num(monthly) * 12 * num(years) : num(tuition) * (GRADUATE_AGE - Number(childAge));
+  // ใกล้เกษียณ counts from the age บำนาญ 95 starts paying, else from retiring at 60
+  const retireYears = LIVE_TO - (pensionOk ? pensionOk.annuityAge : RETIRE_AGE);
+  const home = info.home === "spend" ? { monthly: num(monthly), years: num(years) }
+    : info.home === "loan" ? { debt: num(debt), years: num(loanYears) }
+      : info.home === "retire" ? { monthly: num(retireMonthly) }
+        : { childAge: Number(childAge), tuition: num(tuition) };
+  const homeTotal = info.home === "spend" ? num(monthly) * 12 * num(years)
+    : info.home === "retire" ? num(retireMonthly) * 12 * retireYears
+      : info.home === "loan" ? num(debt) : num(tuition) * (GRADUATE_AGE - Number(childAge));
   const homeBad = !showsHome ? null
     : info.home === "spend"
       ? num(monthly) < 1_000 || num(monthly) > 1_000_000 ? "ค่าใช้จ่ายต่อเดือน 1,000 – 1,000,000 บาท" : num(years) < 1 || num(years) > 40 ? "จำนวนปีที่ลูกยังต้องพึ่ง 1 – 40 ปี" : null
-      : num(tuition) < 1_000 || num(tuition) > 2_000_000 ? "ค่าเรียนต่อปี 1,000 – 2,000,000 บาท" : null;
-  const ready = (!showsFigure || Boolean(info.figure === "plan" ? figureOk : ladderOk)) && !homeBad && (info.ask !== "due" || Boolean(dueDate));
+      : info.home === "loan"
+        ? num(debt) < 100_000 || num(debt) > 100_000_000 ? "ยอดหนี้บ้าน 100,000 – 100,000,000 บาท" : num(loanYears) < 1 || num(loanYears) > 40 ? "ยังต้องผ่อนอีก 1 – 40 ปี" : null
+        : info.home === "retire"
+          ? num(retireMonthly) < 1_000 || num(retireMonthly) > 1_000_000 ? "ค่าใช้จ่ายหลังเกษียณต่อเดือน 1,000 – 1,000,000 บาท" : null
+          : num(tuition) < 1_000 || num(tuition) > 2_000_000 ? "ค่าเรียนต่อปี 1,000 – 2,000,000 บาท" : null;
+  const figureReady = info.figure === "plan" ? figureOk : info.figure === "pension" ? pensionOk : ladderOk;
+  const ready = (!showsFigure || Boolean(figureReady)) && !homeBad && (info.ask !== "due" || Boolean(dueDate));
   const name = customer.trim();
 
   async function make() {
@@ -320,6 +375,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
         faces: { narrator: narratorFace, hero: heroFace, ...(withPartner && partner ? { partner } : {}) },
         ...(showsFigure && info.figure === "plan" ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
         ...(showsFigure && info.figure === "ladder" ? { ladder: true } : {}),
+        ...(showsFigure && info.figure === "pension" ? { pension: { sex: heroSex, age: Number(age), annuityAge: Number(annuityAge), pay, monthly: pensionBaht } } : {}),
         ...(showsHome ? { home } : {}),
         ...(info.ask === "due" ? { due: { date: dueDate, ...(num(dueAmount) ? { amount: num(dueAmount) } : {}) } } : {}),
         ...(info.ask === "festival" ? { festival } : {}),
@@ -359,7 +415,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   value={topic} onChange={(e) => pickTopic(e.target.value as StoryTopic)}
                   className="min-h-tap w-full appearance-none rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-2 pl-3 pr-10 text-sm font-medium outline-none focus:border-[var(--ct-accent)]"
                 >
-                  {(["story", "knowledge", "family", "after"] as const).map((shelf) => (
+                  {SHELVES.map((shelf) => (
                     <optgroup key={shelf} label={SHELF_NAME[shelf]}>
                       {STORY_TOPICS.filter((x) => x.shelf === shelf).map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
                     </optgroup>
@@ -382,7 +438,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             </details>
           </Step>
 
-          <Step n={2} title="ตัวละคร" summary={`ผู้เล่า: คุณ · ${knowledge ? "คนที่สงสัย" : "ตัวเอก"}: ${name ? `คุณ${name}` : "คนทั่วไป"}`}>
+          <Step n={2} title="ตัวละคร" summary={`ผู้เล่า: คุณ · ${asks ? "คนที่สงสัย" : "ตัวเอก"}: ${name ? `คุณ${name}` : "คนทั่วไป"}`}>
             <div className="grid gap-4 @md:grid-cols-2">
               <div className="min-w-0 space-y-2">
                 <span className={label}>ผู้เล่าเรื่อง (คุณ)</span>
@@ -393,7 +449,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 {topic === "festival" ? (
                   <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">คลิปเทศกาลใช้หน้าของคุณ ไม่มีชื่อลูกค้า ส่งได้ทุกคนและลงเพจได้</p>
                 ) : <>
-                <label htmlFor="sc-customer" className={label}>{afterSale ? "ลูกค้า" : knowledge ? "คนที่สงสัย" : info.heroSex ? "ตัวเอกของเรื่อง (แม่)" : family && topic !== "prebaby" && topic !== "eldercare" ? "ตัวเอกของเรื่อง (พ่อหรือแม่)" : "ตัวเอกของเรื่อง"}</label>
+                <label htmlFor="sc-customer" className={label}>{afterSale ? "ลูกค้า" : asks ? "คนที่สงสัย" : info.heroSex ? "ตัวเอกของเรื่อง (แม่)" : family && topic !== "prebaby" && topic !== "eldercare" ? "ตัวเอกของเรื่อง (พ่อหรือแม่)" : "ตัวเอกของเรื่อง"}</label>
                 <input id="sc-customer" className={field} value={customer} maxLength={40} placeholder="ชื่อลูกค้า เช่น นิด (เว้นว่าง = คนทั่วไป ลงเพจได้)" onChange={(e) => setCustomer(e.target.value)} />
                 <div className="flex gap-2">
                   <button type="button" className={chip(heroSex === "F")} onClick={() => pickSex("F")}>หญิง</button>
@@ -410,10 +466,10 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 </div>
               )}
             </div>
-            <p className="text-xs text-[var(--ct-mute)]">{afterSale ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในคลิปและบนการ์ดตัวแทน · ไม่ถามเลขกรมธรรม์ วันเกิด หรือเบอร์ลูกค้า" : knowledge ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในประโยคปิดท้ายและบนปุ่มของการ์ดตัวแทน" : family ? "ลูก และพ่อแม่ของตัวเอก ระบบเลือกจากหน้าชุดเด็กและผู้สูงอายุให้ · ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน" : "อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง"}</p>
+            <p className="text-xs text-[var(--ct-mute)]">{afterSale ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในคลิปและบนการ์ดตัวแทน · ไม่ถามเลขกรมธรรม์ วันเกิด หรือเบอร์ลูกค้า" : asks ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในประโยคปิดท้ายและบนปุ่มของการ์ดตัวแทน" : life ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน · คู่ชีวิตและลูกในเรื่อง ระบบเลือกหน้าให้" : family ? "ลูก และพ่อแม่ของตัวเอก ระบบเลือกจากหน้าชุดเด็กและผู้สูงอายุให้ · ชื่อลูกค้า (ถ้าใส่) ขึ้นในเรื่องและบนการ์ดตัวแทน" : "อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง"}</p>
           </Step>
 
-          <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
+          <Step n={3} title={info.figureRequired ? "แบบที่ลูกค้าซื้อ" : info.ask === "due" ? "วันครบกำหนดชำระเบี้ย" : info.ask === "festival" ? "เทศกาล" : info.home ? "ตัวเลขของบ้าน และเบี้ยจริง" : "ข้อมูลจากแบบประกัน"} summary={[showsHome ? "ตัวเลขของบ้าน" : "", !showsFigure ? "" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : info.figure === "pension" ? "ตัวเลขจริง · บำนาญ 95" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`].filter(Boolean).join(" · ") || "ไม่ใช้"}>
             {info.home && (
               <div className="space-y-2 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
                 <span className={label}>ตัวเลขของบ้าน (ไม่ใส่ก็ได้)</span>
@@ -447,10 +503,32 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                     </div>
                   </div>
                 )}
+                {showsHome && info.home === "loan" && (
+                  <div className="grid gap-3 @sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="sc-debt" className={label}>ยอดหนี้บ้านคงเหลือ (บาท)</label>
+                      <input id="sc-debt" inputMode="numeric" className={field} value={debt} onChange={(e) => setDebt(digits(e.target.value, 9))} />
+                    </div>
+                    <div>
+                      <label htmlFor="sc-loan-years" className={label}>ยังต้องผ่อนอีก (ปี)</label>
+                      <input id="sc-loan-years" inputMode="numeric" className={field} value={loanYears} onChange={(e) => setLoanYears(e.target.value.replace(/[^\d]/g, "").slice(0, 2))} />
+                    </div>
+                  </div>
+                )}
+                {showsHome && info.home === "retire" && (
+                  <div>
+                    <label htmlFor="sc-retire" className={label}>ค่าใช้จ่ายหลังเกษียณ ต่อเดือน (บาท)</label>
+                    <input id="sc-retire" inputMode="numeric" className={field} value={retireMonthly} onChange={(e) => setRetireMonthly(digits(e.target.value, 7))} />
+                  </div>
+                )}
                 {showsHome && (
                   <p className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
                     {homeBad ?? (info.home === "spend"
                       ? <>ครอบครัวต้องมีเงินราว <b>{baht(homeTotal)} บาท</b> <span className="text-[var(--ct-mute)]">· ขึ้นในฉากที่ 4</span></>
+                      : info.home === "loan"
+                      ? <>ทุนประกันชีวิตควรมีอย่างน้อย <b>{baht(homeTotal)} บาท</b> <span className="text-[var(--ct-mute)]">· ขึ้นในฉากที่ 1 และ 3</span></>
+                      : info.home === "retire"
+                      ? <>ใช้อีก {retireYears} ปี ถึงอายุ {LIVE_TO} · รวม <b>{baht(homeTotal)} บาท</b> <span className="text-[var(--ct-mute)]">· ขึ้นในฉากที่ 3</span></>
                       : <>เรียนอีก {GRADUATE_AGE - Number(childAge)} ปี ถึงจบปริญญาตรีตอนอายุ {GRADUATE_AGE} · รวม <b>{baht(homeTotal)} บาท</b> <span className="text-[var(--ct-mute)]">· ขึ้นในฉากที่ 2 และ 3</span></>)}
                   </p>
                 )}
@@ -482,7 +560,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 <b className="block text-sm">ไม่ใช้</b><span className="text-xs text-[var(--ct-mute)]">เรื่องทั่วไป ไม่มีตัวเลขเบี้ย ลงเพจหรือทำแอดได้</span>
               </button>
               <button type="button" onClick={() => setWithFigure(true)} className={`rounded-xl border p-3 text-left ${withFigure ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)]"}`}>
-                <b className="block text-sm">ใส่ตัวเลขจริง</b><span className="text-xs text-[var(--ct-mute)]">{info.figure === "ladder" ? "เบี้ยจริงที่อายุ 25 / 35 / 45 ขึ้นเป็นกราฟในฉากที่ 2" : topic === "claimish" ? "ใส่ทุนของลูกค้า ขึ้นเป็นยอดที่ได้ในฉากที่ 3" : `ดึงเบี้ยจากตารางในระบบ ขึ้นเป็นโน้ตในฉากที่ ${family ? 5 : 4}`}</span>
+                <b className="block text-sm">ใส่ตัวเลขจริง</b><span className="text-xs text-[var(--ct-mute)]">{info.figure === "ladder" ? `เบี้ยจริงที่อายุ 25 / 35 / 45 ขึ้นเป็นกราฟในฉากที่ ${info.figureAt ?? 2}` : topic === "claimish" ? "ใส่ทุนของลูกค้า ขึ้นเป็นยอดที่ได้ในฉากที่ 3" : info.figure === "pension" ? `บำนาญ 95: ออมปีละเท่าไร รับเดือนละเท่าไร ขึ้นในฉากที่ ${figureAt}` : `ดึงเบี้ยจากตารางในระบบ ขึ้นเป็นโน้ตในฉากที่ ${figureAt}`}</span>
               </button>
               <div className="rounded-xl border border-dashed border-[var(--ct-hair)] p-3 text-[var(--ct-mute)]">
                 <b className="block text-sm">ลูกค้า FHC</b><span className="text-xs">เร็ว ๆ นี้</span>
@@ -495,6 +573,41 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   {ladderOk
                     ? <div className="space-y-0.5">{ladderOk.map((r) => <div key={r.age} className="flex justify-between gap-2"><span>อายุ {r.age}</span><b>ปีละ {r.annual.toLocaleString("en-US")} บาท</b></div>)}</div>
                     : <p className="text-[var(--ct-mute)]">{ladder && "error" in ladder ? ladder.error : "กำลังคิดเบี้ย…"}</p>}
+                </div>
+              </div>
+            )}
+            {showsFigure && info.figure === "pension" && (
+              <div className="space-y-3 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
+                <p className="text-xs text-[var(--ct-mute)]">บำนาญ สมาร์ท 95 · {heroSex === "F" ? "หญิง" : "ชาย"} ตามหน้าตัวเอก · ตัวเลขจากเครื่องคิดหน้า /bumnan95</p>
+                <div className="grid gap-3 @sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="sc-p-age" className={label}>อายุตอนนี้</label>
+                    <select id="sc-p-age" className={field} value={age} onChange={(e) => setAge(e.target.value)}>
+                      {Array.from({ length: PENSION_LIMITS.ageMax - PENSION_LIMITS.ageMin + 1 }, (_, i) => PENSION_LIMITS.ageMin + i).map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="sc-p-start" className={label}>เริ่มรับบำนาญอายุ</label>
+                    <select id="sc-p-start" className={field} value={annuityAge} onChange={(e) => setAnnuityAge(e.target.value)}>
+                      {pensionAges.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="sc-p-pay" className={label}>ชำระเบี้ย</label>
+                    <select id="sc-p-pay" className={field} value={pay} onChange={(e) => setPay(e.target.value as PensionPay)}>
+                      <option value="untilAnnuity">จนถึงอายุเริ่มรับบำนาญ</option>
+                      <option value="6">6 ปี</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="sc-p-monthly" className={label}>บำนาญที่อยากได้ ต่อเดือน (บาท)</label>
+                    <input id="sc-p-monthly" inputMode="numeric" className={field} value={pensionMonthly} onChange={(e) => setPensionMonthly(digits(e.target.value, 7))} />
+                  </div>
+                </div>
+                <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
+                  {pensionOk
+                    ? <p><b className="text-base">ออมปีละ {pensionOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">รับเดือนละ {pensionOk.monthlyPension.toLocaleString("en-US")} บาท ตั้งแต่อายุ {pensionOk.annuityAge} · ขึ้นในฉากที่ {figureAt}</span></p>
+                    : <p className="text-[var(--ct-mute)]">{!pensionAges.length ? `อายุ ${age} เลือกรับบำนาญแบบนี้ไม่ได้ ลองเปลี่ยนอายุหรือวิธีชำระเบี้ย` : pension && "error" in pension ? pension.error : "กำลังคิดเบี้ย…"}</p>}
                 </div>
               </div>
             )}
@@ -529,7 +642,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 </div>
                 <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
                   {figureOk
-                    ? <p><b className="text-base">ปีละ {figureOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">หรือเดือนละ {figureOk.monthly.toLocaleString("en-US")} บาท · ขึ้นในฉากที่ {family ? 5 : 4}{topic === "pool48" ? " เป็นโน้ตแปะ" : " ตัวอย่าง"}</span></p>
+                    ? <p><b className="text-base">ปีละ {figureOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">หรือเดือนละ {figureOk.monthly.toLocaleString("en-US")} บาท · ขึ้นในฉากที่ {figureAt}{topic === "pool48" ? " เป็นโน้ตแปะ" : " ตัวอย่าง"}</span></p>
                     : <p className="text-[var(--ct-mute)]">{figure && "error" in figure ? figure.error : "กำลังคิดเบี้ย…"}</p>}
                 </div>
               </div>
@@ -579,13 +692,13 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             <div className="mx-auto max-w-[220px]">
               {afterSale
                 ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimihu" || topic === "claimish"} />
-                : knowledge
+                : asks || (life && !lifeFamily)
                 ? <KnowPreview hero={heroFace} title={info.name} size={look.size} />
-                : family
+                : family || life
                   ? <FamilyPreview info={info} hero={heroFace} partner={partnerFace} size={look.size} />
                   : <OpeningPreview hero={heroFace} narrator={narratorFace} palette={look.palette} size={look.size} />}
             </div>
-            <p className="text-center text-xs text-[var(--ct-mute)]">{afterSale ? "ฉากเปิด" : knowledge ? "ฉากเปิด · คนที่สงสัย" : family ? "ฉากเปิด · ครอบครัวของตัวเอก" : `ฉากเปิด · วงแดงคือตัวเอก${name ? ` (คุณ${name})` : ""}`}</p>
+            <p className="text-center text-xs text-[var(--ct-mute)]">{afterSale ? "ฉากเปิด" : asks ? "ฉากเปิด · คนที่สงสัย" : life && !lifeFamily ? "ฉากเปิด · ตัวเอก" : family || life ? "ฉากเปิด · ครอบครัวของตัวเอก" : `ฉากเปิด · วงแดงคือตัวเอก${name ? ` (คุณ${name})` : ""}`}</p>
           </section>
 
           {/* the cost and the button: pinned to the foot of the tools, so they are always in view */}
