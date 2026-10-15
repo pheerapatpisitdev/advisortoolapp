@@ -8,12 +8,14 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  * Fails open: a switch that cannot be read is a customer answered, as before the switch.
  */
 export async function lineBotEnabled(): Promise<boolean> {
-  const { data, error } = await supabaseAdmin().from("ins_ai_settings").select("line_bot_enabled").maybeSingle();
-  if (error) {
-    console.error("[line] bot switch not read, answering:", error.message);
+  try {
+    const { data, error } = await supabaseAdmin().from("ins_ai_settings").select("line_bot_enabled").maybeSingle();
+    if (error) throw new Error(error.message);
+    return (data as { line_bot_enabled?: boolean } | null)?.line_bot_enabled !== false;
+  } catch (e) {
+    console.error("[line] bot switch not read, answering:", e);
     return true;
   }
-  return (data as { line_bot_enabled?: boolean } | null)?.line_bot_enabled !== false;
 }
 
 export async function setLineBotEnabled(on: boolean): Promise<void> {

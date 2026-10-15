@@ -26,6 +26,7 @@ const session = {
   conversationId: null as string | null,
 };
 let claimed = true;
+let botOn = true;
 const quoted = async (): Promise<Answer> => ({
   messages: [{ text: "เบี้ยประมาณ…", card: "/api/card?x=1" }],
   replies: ["สนใจสมัคร", "🛡 มรดกเพื่อครอบครัว"],
@@ -73,6 +74,7 @@ vi.mock("@/lib/chat/record", () => ({
   openLead: async () => {},
 }));
 vi.mock("@/lib/assistant/dispatch", () => ({ answerAny: answer }));
+vi.mock("@/lib/line/settings", () => ({ lineBotEnabled: async () => botOn }));
 
 const { handle } = await import("@/lib/line/conversation");
 const { forgetMenuIds } = await import("@/lib/line/menu-link");
@@ -87,7 +89,7 @@ const said = (text: string, extra: object = {}) => ({
 
 beforeEach(() => {
   process.env.LINE_CHANNEL_SECRET = "secret";
-  replies.length = 0; pushes.length = 0; linked.length = 0; replyFails = false; pushFails = false; turnsSaved = 0; claimed = true;
+  replies.length = 0; pushes.length = 0; linked.length = 0; replyFails = false; pushFails = false; turnsSaved = 0; claimed = true; botOn = true;
   aliasId = "rm-quoted"; menuApiFails = false; forgetMenuIds();
   session.messages = []; session.slots = null; session.handedOverAt = null;
   answer.mockReset();
@@ -128,6 +130,14 @@ describe("a LINE customer's message", () => {
   it("gets no bot in a thread a person has taken", async () => {
     session.handedOverAt = new Date().toISOString();
     await handle(said("กรอกแล้วครับ"));
+    expect(answer).not.toHaveBeenCalled();
+    expect(replies).toHaveLength(0);
+  });
+
+  // the switch on /admin/line (owner, 2026-10-15): a person answers in LINE OA Manager
+  it("gets no bot while the LINE bot is switched off", async () => {
+    botOn = false;
+    await handle(said("ชาย 35 ล้านนึง"));
     expect(answer).not.toHaveBeenCalled();
     expect(replies).toHaveLength(0);
   });

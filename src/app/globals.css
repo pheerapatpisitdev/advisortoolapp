@@ -48,6 +48,11 @@ body {
   /* the shadow and lit sides of it: pressed, and hovered */
   --bot-navy-deep: #01143d;
   --bot-navy-lift: #0a2f7a;
+  /* LINE's own green and its chat's colours, for /admin/line's preview: LINE's brand, not ours
+     to re-point, as Facebook's blue is not */
+  --line-oa-green: #06c755;
+  --line-oa-chat: #8cabd9;
+  --line-oa-frame: #1d2128;
   /* a tint to fill behind something without the navy shouting */
   --bot-navy-soft: #dde3f0;
 

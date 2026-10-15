@@ -20,7 +20,7 @@ export interface LineView {
 
 /** The same look as /admin/welcome. Every control is at least 44px tall: the owner uses this on a phone. */
 const input = "min-h-11 w-full rounded border border-[var(--bot-line-strong)] bg-[var(--bot-surface)] px-3 py-2 text-sm";
-const primary = "min-h-11 rounded bg-[#06c755] px-4 text-sm font-semibold text-white disabled:opacity-40";
+const primary = "min-h-11 rounded bg-[var(--line-oa-green)] px-4 text-sm font-semibold text-white disabled:opacity-40";
 const quiet = "min-h-11 rounded border border-[var(--bot-line-strong)] px-3 text-sm font-medium text-[var(--bot-ink-foot)] hover:bg-[var(--bot-band)] disabled:opacity-40";
 
 const TABS = [
@@ -276,7 +276,7 @@ function Broadcasting({ view }: { view: LineView }) {
                     <button
                       key={r.text} type="button" aria-pressed={on}
                       onClick={() => setReplies((rs) => (on ? rs.filter((x) => x !== r.text) : [...rs, r.text]))}
-                      className={`min-h-11 rounded-full border px-3 text-sm ${on ? "border-[#06c755] bg-[#06c755] text-white" : "border-[var(--bot-line-strong)] text-[var(--bot-ink-foot)]"}`}
+                      className={`min-h-11 rounded-full border px-3 text-sm ${on ? "border-[var(--line-oa-green)] bg-[var(--line-oa-green)] text-white" : "border-[var(--bot-line-strong)] text-[var(--bot-ink-foot)]"}`}
                     >
                       {r.label}
                     </button>
@@ -350,15 +350,15 @@ function Preview({ parts, replies }: { parts: Draft; replies: Reply[] }) {
   return (
     <div className="lg:sticky lg:top-4 lg:self-start">
       <p className="mb-1.5 text-xs text-[var(--bot-ink-mute)]">ลูกค้าจะเห็นแบบนี้</p>
-      <div className="overflow-hidden rounded-[28px] border-8 border-[#1d2128] bg-[#8cabd9]">
-        <div className="bg-[#1d2128] px-3 py-1.5 text-xs text-white">advisortool.app</div>
+      <div className="overflow-hidden rounded-[28px] border-8 border-[var(--line-oa-frame)] bg-[var(--line-oa-chat)]">
+        <div className="bg-[var(--line-oa-frame)] px-3 py-1.5 text-xs text-white">advisortool.app</div>
         <div className="grid min-h-80 content-start gap-2 px-2.5 py-3">
           {parts.length === 0 && <p className="text-center text-xs text-white/80">ยังไม่มีข้อความ</p>}
           {parts.map((p, i) => (
             <div key={p.key} className="flex items-start gap-1.5">
               <div className={`grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--bot-navy)] text-[10px] text-white ${i ? "invisible" : ""}`}>AT</div>
               {p.type === "text"
-                ? <div className="max-w-[210px] whitespace-pre-wrap break-words rounded-2xl bg-white px-2.5 py-2 text-[13px] text-[#15181d]">{p.text}</div>
+                ? <div className="max-w-[210px] whitespace-pre-wrap break-words rounded-2xl bg-white px-2.5 py-2 text-[13px] text-[var(--bot-ink)]">{p.text}</div>
                 // eslint-disable-next-line @next/next/no-img-element
                 : <img src={p.url} alt="" className="max-w-[190px] rounded-xl" />}
             </div>
@@ -366,7 +366,7 @@ function Preview({ parts, replies }: { parts: Draft; replies: Reply[] }) {
         </div>
         {replies.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-2.5 pb-3">
-            {replies.map((r) => <span key={r.text} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[#06c755]">{r.label}</span>)}
+            {replies.map((r) => <span key={r.text} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[var(--line-oa-green)]">{r.label}</span>)}
           </div>
         )}
       </div>
@@ -462,7 +462,7 @@ function Menus({ view }: { view: LineView }) {
             </div>
             <div className="grid gap-0.5 rounded bg-[var(--bot-navy)] p-0.5" style={{ gridTemplateColumns: `repeat(${m.columns}, minmax(0, 1fr))` }}>
               {m.buttons.map((b) => (
-                <div key={b.title} className="bg-[#0a2f7a] px-2 py-3 text-center text-xs text-white">
+                <div key={b.title} className="bg-[var(--bot-navy-lift)] px-2 py-3 text-center text-xs text-white">
                   {b.title}<span className="block text-[10px] opacity-75">{b.sub}</span>
                 </div>
               ))}
