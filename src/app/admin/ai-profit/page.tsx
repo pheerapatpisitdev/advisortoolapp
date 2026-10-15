@@ -92,6 +92,11 @@ function Result({ what, eq, thb, word }: { what: string; eq: string; thb: number
 }
 
 function ProfitView({ p }: { p: Profit }) {
+  const s = p.cost.split;
+  const paidProfit = p.revenue.thb - s.paidThb;
+  const unpaid = s.freeRoundsThb + s.ownerThb + s.askThb + s.systemThb;
+  /** rounds paid from a wallet; a pass is counted on its own */
+  const charged = p.revenue.items.filter((x) => x.costThb != null).reduce((n, x) => n + x.count, 0);
   return (
     <>
       <div className="grid gap-3 md:grid-cols-3">
@@ -117,23 +122,47 @@ function ProfitView({ p }: { p: Profit }) {
       <Result what="กำไรจากการใช้งาน" eq={`② ${baht(p.revenue.thb)} − ① ${baht(p.cost.thb)} =`} thb={p.profitThb} word={["กำไร", "ขาดทุน"]} />
       <Result what="เงินสดเข้า หักค่า AI" eq={`③ ${signed(p.moneyIn.thb)} − ① ${baht(p.cost.thb)} =`} thb={p.cashThb} word={["เหลือ", "ขาด"]} />
 
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-[var(--bot-ok-line)] bg-[var(--bot-ok-soft)] px-4 py-3">
+          <div className="text-xs text-[var(--bot-ink-mute)]">งานที่มีคนจ่าย</div>
+          <div className={`text-2xl font-semibold tabular-nums ${tone(paidProfit)}`}>{paidProfit < 0 ? `ขาดทุน ${baht(paidProfit)}` : `กำไร ${baht(paidProfit)}`}</div>
+          {s.paidThb > 0 && <div className="text-xs text-[var(--bot-ink-mute)]">เก็บได้ {(p.revenue.thb / s.paidThb).toFixed(1)} เท่าของต้นทุน</div>}
+        </div>
+        <div className="rounded-lg border border-[var(--bot-red)] bg-[var(--bot-red-soft)] px-4 py-3">
+          <div className="text-xs text-[var(--bot-ink-mute)]">งานที่ไม่มีใครจ่าย</div>
+          <div className="text-2xl font-semibold tabular-nums text-[var(--bot-red-ink)]">ต้นทุน {baht(unpaid)}</div>
+          <div className="text-xs text-[var(--bot-ink-mute)]">รอบฟรี, เจ้าของ, ถาม AI, บอท</div>
+        </div>
+      </div>
+
       <Card title="แยกว่ากำไรหรือขาดทุนตรงไหน">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead><tr><th className={th}>ส่วนงาน</th><th className={`${th} text-right`}>① ต้นทุน</th><th className={`${th} text-right`}>② เก็บได้</th><th className={`${th} text-right`}>กำไร / ขาดทุน</th></tr></thead>
             <tbody>
               <tr>
-                <td className={td}>งานที่ผู้ใช้สั่ง (Studio, วิดีโอ, ถาม AI)</td>
-                <td className={`${td} ${r}`}>{baht(p.cost.userThb)}</td>
+                <td className={td}>
+                  <b>งานที่มีคนจ่าย</b>
+                  <span className="block text-xs text-[var(--bot-ink-mute)]">หักจากกระเป๋าเงิน {charged.toLocaleString("en-US")} ครั้ง{p.moneyIn.passes.count ? ` + ค่าสมาชิก ${p.moneyIn.passes.count} ครั้ง` : ""}</span>
+                </td>
+                <td className={`${td} ${r}`}>{baht(s.paidThb)}</td>
                 <td className={`${td} ${r}`}>{baht(p.revenue.thb)}</td>
-                <td className={`${td} ${r} ${tone(p.userProfitThb)}`}>{signed(p.userProfitThb)}</td>
+                <td className={`${td} ${r} ${tone(paidProfit)}`}>{signed(paidProfit)}</td>
               </tr>
-              <tr>
-                <td className={td}>บอทตอบลูกค้าและงานของระบบ <span className="text-[var(--bot-ink-mute)]">ไม่มีใครจ่าย</span></td>
-                <td className={`${td} ${r}`}>{baht(p.cost.systemThb)}</td>
-                <td className={`${td} ${r}`}>–</td>
-                <td className={`${td} ${r} ${tone(-p.cost.systemThb)}`}>{signed(-p.cost.systemThb)}</td>
-              </tr>
+              <tr><td colSpan={4} className="bg-[var(--bot-band)] px-2.5 py-1.5 text-xs font-semibold text-[var(--bot-ink-mute)]">งานที่ไม่มีใครจ่าย</td></tr>
+              {([
+                ["รอบฟรีของตัวแทนและสมาชิก", "รอบฟรีของตัวแทน และรอบกับคลิปที่มากับค่าสมาชิก", s.freeRoundsThb],
+                ["งานของเจ้าของ", "บัญชีเจ้าของและ Super Admin ใช้ฟรี", s.ownerThb],
+                ["ถาม AI", "ฟรีทุกคน", s.askThb],
+                ["บอทตอบลูกค้าและงานของระบบ", "Messenger, LINE, เว็บ", s.systemThb],
+              ] as const).map(([name, why, thb]) => (
+                <tr key={name}>
+                  <td className={`${td} pl-6`}>{name}<span className="block text-xs text-[var(--bot-ink-mute)]">{why}</span></td>
+                  <td className={`${td} ${r}`}>{baht(thb)}</td>
+                  <td className={`${td} ${r}`}>–</td>
+                  <td className={`${td} ${r} ${tone(-thb)}`}>{signed(-thb)}</td>
+                </tr>
+              ))}
               <tr className="font-semibold">
                 <td className="px-2.5 py-2">รวม</td>
                 <td className={`px-2.5 py-2 ${r}`}>{baht(p.cost.thb)}</td>
@@ -143,6 +172,39 @@ function ProfitView({ p }: { p: Profit }) {
             </tbody>
           </table>
         </div>
+      </Card>
+
+      <Card title="② เก็บจากผู้ใช้ แยกตามงาน" hint="ต้นทุนของแต่ละงานคือค่า AI ที่ระบบจดไว้ตอนหักเงินรอบนั้นจริง">
+        {p.revenue.items.length === 0 ? <Empty>ช่วงนี้ยังไม่มีใครจ่ายค่า AI</Empty> : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead><tr>
+                <th className={th}>งาน</th><th className={`${th} text-right`}>ครั้ง</th><th className={`${th} text-right`}>ต้นทุน</th>
+                <th className={`${th} text-right`}>เก็บได้</th><th className={`${th} text-right`}>กำไร</th>
+              </tr></thead>
+              <tbody>
+                {p.revenue.items.map((x) => {
+                  const gain = x.thb - (x.costThb ?? 0);
+                  return (
+                    <tr key={x.key}>
+                      <td className={td}>{x.name}</td>
+                      <td className={`${td} ${r}`}>{x.count.toLocaleString("en-US")}</td>
+                      <td className={`${td} ${r}`}>{x.costThb == null ? "–" : baht(x.costThb)}</td>
+                      <td className={`${td} ${r}`}>{baht(x.thb)}</td>
+                      <td className={`${td} ${r} ${tone(gain)}`}>{signed(gain)}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="font-semibold">
+                  <td className="px-2.5 py-2">รวม</td><td className={`px-2.5 py-2 ${r}`}>{charged.toLocaleString("en-US")}</td>
+                  <td className={`px-2.5 py-2 ${r}`}>{baht(s.paidThb)}</td><td className={`px-2.5 py-2 ${r}`}>{baht(p.revenue.thb)}</td>
+                  <td className={`px-2.5 py-2 ${r} ${tone(paidProfit)}`}>{signed(paidProfit)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">ไม่นับเงินที่เติมเข้ากระเป๋าจนกว่าผู้ใช้จะใช้จริง · ค่าสมาชิกไม่มีต้นทุนในแถวนี้ รอบที่มากับค่าสมาชิกนับอยู่ในรอบฟรี</p>
       </Card>
 
       <Card title="③ เงินที่ลูกค้าโอนเข้า">
@@ -168,41 +230,22 @@ function ProfitView({ p }: { p: Profit }) {
         )}
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="① ต้นทุน แยกตามบริษัท AI">
-          {p.cost.providers.length === 0 ? <Empty>ช่วงนี้ยังไม่มีค่า AI</Empty> : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead><tr><th className={th}>บริษัท</th><th className={`${th} text-right`}>ค่า AI</th></tr></thead>
-                <tbody>
-                  {p.cost.providers.map((x) => (
-                    <tr key={x.provider}><td className={td}>{PROVIDER_LABEL[x.provider] ?? x.provider}</td><td className={`${td} ${r}`}>{baht(x.thb)}</td></tr>
-                  ))}
-                  <tr className="font-semibold"><td className="px-2.5 py-2">รวม</td><td className={`px-2.5 py-2 ${r}`}>{baht(p.cost.thb)}</td></tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-          <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">ตัวเลขที่ระบบคำนวณ อาจต่างจากบิลจริงเล็กน้อย (อัตราแลกเปลี่ยน ส่วนลด หรือค่าแพ็กเกจรายเดือน)</p>
-        </Card>
-
-        <Card title="② เก็บจากผู้ใช้ แยกตามงาน">
-          {p.revenue.items.length === 0 ? <Empty>ช่วงนี้ยังไม่มีใครจ่ายค่า AI</Empty> : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead><tr><th className={th}>งาน</th><th className={`${th} text-right`}>ครั้ง</th><th className={`${th} text-right`}>เก็บได้</th></tr></thead>
-                <tbody>
-                  {p.revenue.items.map((x) => (
-                    <tr key={x.key}><td className={td}>{x.name}</td><td className={`${td} ${r}`}>{x.count.toLocaleString("en-US")}</td><td className={`${td} ${r}`}>{baht(x.thb)}</td></tr>
-                  ))}
-                  <tr className="font-semibold"><td className="px-2.5 py-2">รวม</td><td className="px-2.5 py-2" /><td className={`px-2.5 py-2 ${r}`}>{baht(p.revenue.thb)}</td></tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-          <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">ไม่นับเงินที่เติมเข้ากระเป๋าจนกว่าผู้ใช้จะใช้จริง · รอบฟรีและงานของเจ้าของนับเป็นต้นทุน แต่ไม่มีรายได้</p>
-        </Card>
-      </div>
+      <Card title="① ต้นทุน แยกตามบริษัท AI">
+        {p.cost.providers.length === 0 ? <Empty>ช่วงนี้ยังไม่มีค่า AI</Empty> : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead><tr><th className={th}>บริษัท</th><th className={`${th} text-right`}>ค่า AI</th></tr></thead>
+              <tbody>
+                {p.cost.providers.map((x) => (
+                  <tr key={x.provider}><td className={td}>{PROVIDER_LABEL[x.provider] ?? x.provider}</td><td className={`${td} ${r}`}>{baht(x.thb)}</td></tr>
+                ))}
+                <tr className="font-semibold"><td className="px-2.5 py-2">รวม</td><td className={`px-2.5 py-2 ${r}`}>{baht(p.cost.thb)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">ตัวเลขที่ระบบคำนวณ อาจต่างจากบิลจริงเล็กน้อย (อัตราแลกเปลี่ยน ส่วนลด หรือค่าแพ็กเกจรายเดือน)</p>
+      </Card>
     </>
   );
 }
