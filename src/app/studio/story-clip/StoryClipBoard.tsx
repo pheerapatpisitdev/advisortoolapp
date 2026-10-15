@@ -5,7 +5,7 @@ import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pe
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
 import { STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
-import { FESTIVALS, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
+import { FESTIVALS, figureShown, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
 import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, defaultPartner, FACE_PAPER, FACES, faceSrc, familyOf, type FaceTag } from "@/lib/story/faces";
@@ -261,15 +261,16 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
 
   // the premium, worked out as the form changes
   const sumBaht = Number(sum.replace(/[^\d]/g, "")) || 0;
+  const showsFigure = figureShown(info, withFigure);
   useEffect(() => {
-    if (!withFigure || info.figure !== "plan") return;
+    if (!showsFigure || info.figure !== "plan") return;
     setFigure(null);
     const t = setTimeout(() => {
       previewStoryFigure({ plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht })
         .then(setFigure).catch(() => setFigure({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
     }, 300);
     return () => clearTimeout(t);
-  }, [withFigure, info.figure, plan, variant, heroSex, age, sumBaht]);
+  }, [showsFigure, info.figure, plan, variant, heroSex, age, sumBaht]);
 
   // ใกล้เกษียณ: บำนาญ 95's premium for the pension wanted
   const pensionBaht = Number(pensionMonthly.replace(/[^\d]/g, "")) || 0;
@@ -335,11 +336,10 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   }
   useEffect(() => () => player.current?.pause(), []);
 
-  const figureOk = (withFigure || info.figureRequired) && info.figure === "plan" && figure && !("error" in figure) ? figure : null;
+  const figureOk = showsFigure && info.figure === "plan" && figure && !("error" in figure) ? figure : null;
   const ladderOk = withFigure && info.figure === "ladder" && ladder && !("error" in ladder) ? ladder : null;
   const pensionOk = withFigure && info.figure === "pension" && pension && !("error" in pension) ? pension : null;
   const figureAt = info.figureAt ?? (family ? 5 : 4);
-  const showsFigure = (withFigure || Boolean(info.figureRequired)) && info.figure !== null;
   const voiceBlocked = Boolean(quota) && !look.voice;
   const line = costLine(cost, info.short ? "videoStoryShort" : "videoStory");
   // the household's numbers, as the form has them

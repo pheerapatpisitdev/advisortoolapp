@@ -90,6 +90,13 @@ export const THAI_MONTHS = ["มกราคม", "กุมภาพันธ�
 
 export const topicOf = (key: string): StoryTopicInfo | undefined => STORY_TOPICS.find((t) => t.key === key);
 
+/**
+ * Whether the form prices a real figure: the agent switched ใส่ตัวเลขจริง on, or the story cannot
+ * be told without one (ส่งมอบกรมธรรม์ hides the switch, so it is never on there).
+ */
+export const figureShown = (topic: StoryTopicInfo, switchedOn: boolean): boolean =>
+  (switchedOn || Boolean(topic.figureRequired)) && topic.figure !== null;
+
 /** the ages the ladder of ยังหนุ่ม ไม่ต้องมี compares, on Life Protect paid to 99, a sum of 1 million */
 export const LADDER_AGES = [25, 35, 45];
 export const LADDER_PLAN = { plan: "LIFEPROTECT", variant: "WLF99H", sumAssured: 1_000_000 } as const;

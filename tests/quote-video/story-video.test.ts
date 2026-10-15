@@ -12,7 +12,7 @@ import { noteLines, storyHandText, storyTitles } from "@/lib/quote-video/story-m
 import { clipFaces, clipHandText, clipWindows } from "@/lib/quote-video/story-frames";
 import { planScenes } from "@/lib/quote-video/timeline";
 import { BABY, CHILDREN, CROWD, CROWD_HERO, crowdOf, ELDERS, FACES, faceOf, familyOf, GRANDMAS, GRANDPAS, KIDS } from "@/lib/story/faces";
-import { STORY_TOPICS } from "@/lib/story/topics";
+import { figureShown, STORY_TOPICS, topicOf } from "@/lib/story/topics";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 
 const story = (over: Record<string, unknown> = {}): StoryVideoInput => {
@@ -506,5 +506,16 @@ describe("ช่วงชีวิต (story-life.ts)", () => {
       expect(c).toContain("#ช่วงชีวิต");
       expect(c).not.toContain("คุณนิด");
     }
+  });
+});
+
+describe("the form's real figure (topics.ts figureShown)", () => {
+  it("prices ส่งมอบกรมธรรม์'s plan without the ใส่ตัวเลขจริง switch it hides", () => {
+    expect(figureShown(topicOf("deliver")!, false)).toBe(true);
+  });
+  it("prices other stories only when the switch is on, and never one with no figure", () => {
+    expect(figureShown(topicOf("pool48")!, false)).toBe(false);
+    expect(figureShown(topicOf("pool48")!, true)).toBe(true);
+    expect(figureShown(topicOf("groupins")!, true)).toBe(false);
   });
 });
