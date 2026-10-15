@@ -45,3 +45,6 @@ export function clipFrame(key: StorySceneKey, c: StoryContext, t: number) {
     </div>
   );
 }
+
+/** คลิปตามโจทย์ draws its scenes by index and picture (prompt-story/frames.tsx), not by key */
+export { freeFrame, freeHandText, freeWindows } from "@/lib/prompt-story/frames";
