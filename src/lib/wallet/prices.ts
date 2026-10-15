@@ -15,7 +15,8 @@ export type PriceKey =
   /** the longer clips (owner, 2026-10-13): ~90 seconds and ~2 minutes, in each look */
   | "videoLongClassic" | "videoLongMotion" | "videoMaxClassic" | "videoMaxMotion"
   /** คลิปเล่าเรื่อง (owner, 2026-10-15): priced as the classic clip until the owner sets its own */
-  | "videoStory";
+  | "videoStory"
+  | "voiceClone";
 
 export type Prices = Record<PriceKey, number>;
 
@@ -35,6 +36,8 @@ export const DEFAULT_PRICES: Prices = {
   videoMaxClassic: 1000,
   videoMaxMotion: 2000,
   videoStory: 500,
+  // เสียงของฉัน (owner, 2026-10-15): once, when the agent's voice is cloned
+  voiceClone: 19900,
 };
 
 const paint = (id: string): number => (PAINTERS.find((p) => p.id === id)?.thb ?? 0) + OVERHEAD_THB;
@@ -57,6 +60,7 @@ export const PRICE_ITEMS: { key: PriceKey; group: PriceGroup; label: string; uni
   { key: "videoMaxMotion", group: "video", label: "วิดีโอ Motion Graphic 2 นาที", unit: "คลิป", costThb: 1.1 },
   { key: "videoFhc", group: "video", label: "วิดีโอสรุป FHC", unit: "คลิป", costThb: 0.4 },
   { key: "videoStory", group: "video", label: "คลิปเล่าเรื่อง", unit: "คลิป", costThb: 0.4 },
+  { key: "voiceClone", group: "video", label: "เปิดใช้เสียงของฉัน (ครั้งเดียว)", unit: "เสียง", costThb: 0 },
   { key: "elevenExtra", group: "video", label: "เสียง ElevenLabs (บวกเพิ่มต่อคลิป)", unit: "คลิป", costThb: 1, extra: true },
   { key: "drawStandard", group: "picture", label: "วาดรูป มาตรฐาน", unit: "รูป", costThb: paint("standard") },
   { key: "drawSharp", group: "picture", label: "วาดรูป คมชัด", unit: "รูป", costThb: paint("sharp") },

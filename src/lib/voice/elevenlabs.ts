@@ -37,7 +37,8 @@ const TIMEOUT_MS = 90_000;
  * https://claude.ai/artifact/S5wegf68PAyznqmsjX16Xu). A shared voice speaks by its id without
  * being added to the account.
  */
-export interface ElevenChoice { id: string; name: string; sex: "F" | "M"; tag: string; sample: string; adminOnly?: boolean }
+/** `mine`: the agent's own cloned voice (เสียงของฉัน, lib/voice/mine.ts), listed for them alone */
+export interface ElevenChoice { id: string; name: string; sex: "F" | "M"; tag: string; sample: string; adminOnly?: boolean; mine?: true }
 export const ELEVEN_VOICES: ElevenChoice[] = [
   { id: "XLXcyPK1jTjw1pYLLcM9", name: "สมชาย", sex: "M", tag: "อบอุ่น ทุ้ม", sample: "/voice-samples/somchai.mp3" },
   { id: "deCz1h6mjB7HnY2xQz08", name: "เดชา", sex: "M", tag: "ทุ้มลึก มั่นใจ", sample: "/voice-samples/decha.mp3" },

@@ -12,6 +12,8 @@ describe("the owner's price list", () => {
       videoLongClassic: 800, videoLongMotion: 1500, videoMaxClassic: 1000, videoMaxMotion: 2000,
       // คลิปเล่าเรื่อง (owner, 2026-10-15): the classic clip's price until the owner sets its own
       videoStory: 500,
+      // เสียงของฉัน (owner, 2026-10-15): ฿199 once
+      voiceClone: 19900,
     });
   });
 

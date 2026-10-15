@@ -3,7 +3,7 @@ import type { WalletEntry } from "./store";
 /** what each paid round is called, by the `round` a charge carries; shared by the wallet page and /home's history */
 export const ROUND_NAMES: Record<string, string> = {
   "ai-write": "เขียนโพสต์", "ai-recruit": "หาทีม", "ai-knowledge": "ความรู้", "ai-draft": "เขียนเอง", "ai-thanks": "ขอบคุณลูกค้า", "ai-showcase": "โชว์ผลงาน", "ai-saying": "คำคม",
-  "ai-claim": "รีวิวเคลม", "ai-draw": "วาดภาพ", "ai-clip": "ถอดเสียงคลิป", "ai-edit": "ตัดต่อคลิป", "ai-describe": "ถอดรูปเป็น prompt", "quote-video": "วิดีโอนำเสนอ",
+  "ai-claim": "รีวิวเคลม", "ai-draw": "วาดภาพ", "ai-clip": "ถอดเสียงคลิป", "ai-edit": "ตัดต่อคลิป", "ai-describe": "ถอดรูปเป็น prompt", "quote-video": "วิดีโอนำเสนอ", "voice-clone": "เปิดใช้เสียงของฉัน",
 };
 
 export const entryLabel = (e: Pick<WalletEntry, "kind" | "round" | "note">) =>
