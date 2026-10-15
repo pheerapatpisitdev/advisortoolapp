@@ -9,6 +9,7 @@ import { formatBaht } from "@/lib/wallet/money";
 import type { Rounds } from "@/lib/wallet/note";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { paintPrice, usePrices } from "../ui/prices";
+import { canPickFolder, saveToComputer } from "../saveToComputer";
 
 /** the cover on show: one just made, or one opened from the history */
 /** `paid`: what this cover took, said under one just made (an agent's free round or wallet baht) */
@@ -21,6 +22,30 @@ const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-pan
 const label = "text-sm font-medium";
 const ratio = (s: ThumbSize) => (s === "9:16" ? "9 / 16" : "16 / 9");
 const when = (iso: string) => new Date(iso).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" });
+
+/**
+ * "ดาวน์โหลด": on a computer with the Save As window (Chrome / Edge) it asks for a folder;
+ * elsewhere the plain download link it always was, which on a computer says where the file went.
+ */
+function SaveCover({ url, name }: { url: string; name: string }) {
+  const [note, setNote] = useState("");
+  const say = (t: string) => { setNote(t); setTimeout(() => setNote(""), 4000); };
+  return (
+    <a
+      href={url} download={name} className={`${btn} inline-flex items-center`} aria-live="polite"
+      onClick={(e) => {
+        if (!canPickFolder()) {
+          if (window.matchMedia("(pointer: fine)").matches) say("บันทึกแล้ว · อยู่ในโฟลเดอร์ Downloads");
+          return;
+        }
+        e.preventDefault();
+        saveToComputer(url, name, { description: "รูปภาพ JPG", mime: "image/jpeg", ext: ".jpg" })
+          .then((r) => { if (r === "picked") say("บันทึกแล้ว ✓"); })
+          .catch(() => say("บันทึกไม่สำเร็จ ลองอีกครั้ง"));
+      }}
+    >{note || "ดาวน์โหลด"}</a>
+  );
+}
 
 const PAINTER_CHOICES = PAINTERS.filter((p) => p.modelId);
 
@@ -238,7 +263,7 @@ export function ThumbnailBoard({ people, initial, owner, rounds: initialRounds }
               <p className="text-xs text-[var(--ct-mute)]">{shown.model}{owner ? ` · ใช้ไป ฿${shown.costThb.toFixed(2)}` : shown.paid ? ` · ${shown.paid}` : ""}</p>
               {shown.note && <p className="text-sm text-[var(--ct-mute)]">{shown.note}</p>}
               <div className="flex flex-wrap gap-2">
-                <a href={shown.url} download={`cover-${shown.settings.size.replace(":", "x")}.jpg`} className={`${btn} inline-flex items-center`}>ดาวน์โหลด</a>
+                <SaveCover url={shown.url} name={`cover-${shown.settings.size.replace(":", "x")}.jpg`} />
                 <button type="button" className={btn} disabled={busy || needsPerson || !headline.trim()} onClick={make}>สร้างอีกภาพ</button>
                 <button type="button" className={btn} onClick={() => reuse(shown.settings)}>ใช้ค่าชุดนี้</button>
               </div>
@@ -267,7 +292,7 @@ export function ThumbnailBoard({ people, initial, owner, rounds: initialRounds }
                   <p className="mt-2 line-clamp-2 text-sm">{item.settings.headline}</p>
                   <p className="text-xs text-[var(--ct-mute)]">{item.settings.size} · {when(item.createdAt)}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {item.imageUrl && <a href={item.imageUrl} download className={`${btn} inline-flex items-center`}>ดาวน์โหลด</a>}
+                    {item.imageUrl && <SaveCover url={item.imageUrl} name={`cover-${item.settings.size.replace(":", "x")}.jpg`} />}
                     <button type="button" className={btn} onClick={() => reuse(item.settings)}>ใช้ค่าชุดนี้</button>
                     <button type="button" className={btn} onClick={() => { if (window.confirm("ลบภาพปกนี้?")) remove(item.id); }}>ลบ</button>
                   </div>

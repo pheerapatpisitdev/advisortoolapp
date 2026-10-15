@@ -1,15 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
+import { isComputer, saveToComputer } from "../saveToComputer";
 
-type State = "idle" | "working" | "again" | "saved" | "failed";
+type State = "idle" | "working" | "again" | "saved" | "downloads" | "failed";
 
 /**
  * "บันทึกวิดีโอ" (owner, 2026-10-11): on a phone or tablet it hands the file to the system share
  * sheet, where "บันทึกวิดีโอ" (iPhone / iPad) or Photos / Gallery (Android) puts it in the album —
  * the way CardButton hands over a card. A browser cannot write to the album by itself.
  *
- * A browser that will not share a file (a computer, an old phone) gets the plain download the
- * button always was. Some phones lose the tap while the file is fetched and refuse to open the
+ * On a computer it asks where to save (Save As, Chrome / Edge); a computer browser without that
+ * window, or an old phone, gets the plain download the button always was. Some phones lose the tap while the file is fetched and refuse to open the
  * sheet: the file is kept, and a second tap — a fresh gesture — opens it.
  */
 export function SaveVideoButton({ href, watch, filename, className }: { href: string; watch: string; filename: string; className: string }) {
@@ -17,8 +18,8 @@ export function SaveVideoButton({ href, watch, filename, className }: { href: st
   const [file, setFile] = useState<File | null>(null);
 
   useEffect(() => {
-    if (state !== "saved" && state !== "failed") return;
-    const t = setTimeout(() => setState("idle"), 2500);
+    if (state !== "saved" && state !== "downloads" && state !== "failed") return;
+    const t = setTimeout(() => setState("idle"), state === "downloads" ? 4000 : 2500);
     return () => clearTimeout(t);
   }, [state]);
 
@@ -34,6 +35,16 @@ export function SaveVideoButton({ href, watch, filename, className }: { href: st
   };
 
   const save = async () => {
+    if (isComputer()) {
+      setState("working");
+      try {
+        const r = await saveToComputer(watch, filename, { description: "วิดีโอ MP4", mime: "video/mp4", ext: ".mp4" }, () => { window.location.href = href; });
+        setState(r === "picked" ? "saved" : r === "downloads" ? "downloads" : "idle");
+      } catch {
+        setState("failed");
+      }
+      return;
+    }
     // the second tap: the file is ready, so the sheet opens inside this gesture
     if (file) {
       const ok = await sheet(file);
@@ -66,7 +77,8 @@ export function SaveVideoButton({ href, watch, filename, className }: { href: st
 
   const text = state === "working" ? "กำลังเตรียมไฟล์…"
     : state === "again" ? "แตะอีกครั้งเพื่อบันทึก"
-      : state === "saved" ? "ส่งไปที่เครื่องแล้ว ✓"
+      : state === "saved" ? (isComputer() ? "บันทึกแล้ว ✓" : "ส่งไปที่เครื่องแล้ว ✓")
+        : state === "downloads" ? "บันทึกแล้ว · อยู่ในโฟลเดอร์ Downloads"
         : state === "failed" ? "บันทึกไม่สำเร็จ ลองอีกครั้ง"
           : "บันทึกวิดีโอ";
   return (
