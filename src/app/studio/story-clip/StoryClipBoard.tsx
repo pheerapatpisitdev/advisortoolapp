@@ -11,6 +11,7 @@ import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, de
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import { makeStoryVideo, myCost, myVideos, previewStoryFigure, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
+import { ChevronDownIcon } from "../ui/icons";
 import { MyVoiceRow } from "../voice/MyVoiceRow";
 import { ClipList } from "../quote-video/ClipList";
 import { costLine, GEMINI, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
@@ -349,27 +350,36 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
           <p className="mt-0.5 text-xs text-[var(--ct-mute)]">เลือกแล้วกดสร้าง คลิปจะขึ้นบนโต๊ะ “กำลังสร้าง”</p>
         </div>
           <Step n={1} title="เลือกเรื่อง" summary={info.name} first>
-            {(["story", "knowledge", "family", "after"] as const).map((shelf) => (
-              <div key={shelf}>
-                <span className="mb-1.5 block text-xs font-medium text-[var(--ct-mute)]">{SHELF_NAME[shelf]}</span>
-                <div className="grid gap-2 @sm:grid-cols-2">
-                  {STORY_TOPICS.filter((x) => x.shelf === shelf).map((x) => (
-                    <button key={x.key} type="button" onClick={() => pickTopic(x.key)} aria-pressed={topic === x.key}
-                      className={`rounded-xl border p-3 text-left ${topic === x.key ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)] hover:border-[var(--ct-line)]"}`}>
-                      <b className="block text-sm">{x.name}</b>
-                      <span className="block text-xs text-[var(--ct-mute)]">{x.blurb}</span>
-                      <span className="mt-1 block text-[11px] text-[var(--ct-mute)]">{x.short ? `คลิปสั้น 15–20 วินาที · ฿${priceBaht(prices.videoStoryShort)}` : `${x.figureRequired ? "ใช้แบบที่ลูกค้าซื้อ · " : x.figure || x.home ? "ใส่ตัวเลขจริงได้ · " : ""}6 ฉาก ประมาณ ${shelf === "story" ? "45" : "50"} วินาที`}</span>
-                    </button>
+            {/* one dropdown in place of seventeen cards (owner, 2026-10-15, mockup https://claude.ai/artifact/JFd5q1CfETqB8ZZkDRANce),
+                as Organic Studio's สร้างจาก; the chosen story's card below it */}
+            <label className="block">
+              <span className={label}>เรื่อง</span>
+              <span className="relative block">
+                <select
+                  value={topic} onChange={(e) => pickTopic(e.target.value as StoryTopic)}
+                  className="min-h-tap w-full appearance-none rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] py-2 pl-3 pr-10 text-sm font-medium outline-none focus:border-[var(--ct-accent)]"
+                >
+                  {(["story", "knowledge", "family", "after"] as const).map((shelf) => (
+                    <optgroup key={shelf} label={SHELF_NAME[shelf]}>
+                      {STORY_TOPICS.filter((x) => x.shelf === shelf).map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
+                    </optgroup>
                   ))}
-                </div>
-              </div>
-            ))}
-            <div>
-              <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">เรื่องต่อไป · เร็ว ๆ นี้</span>
-              <div className="flex flex-wrap gap-1.5">
+                </select>
+                <ChevronDownIcon aria-hidden className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--ct-mute)]" />
+              </span>
+            </label>
+            <div className="rounded-xl border border-[var(--ct-solid)] bg-[var(--ct-soft)] p-3">
+              <span className="block text-[11px] font-semibold text-[var(--ct-accent)]">{SHELF_NAME[info.shelf]}</span>
+              <b className="block text-sm">{info.name}</b>
+              <span className="block text-xs text-[var(--ct-mute)]">{info.blurb}</span>
+              <span className="mt-1 block text-[11px] text-[var(--ct-mute)]">{info.short ? `คลิปสั้น 15–20 วินาที · ฿${priceBaht(prices.videoStoryShort)}` : `${info.figureRequired ? "ใช้แบบที่ลูกค้าซื้อ · " : info.figure || info.home ? "ใส่ตัวเลขจริงได้ · " : ""}6 ฉาก ประมาณ ${info.shelf === "story" ? "45" : "50"} วินาที`}</span>
+            </div>
+            <details>
+              <summary className="min-h-9 cursor-pointer text-xs font-medium text-[var(--ct-mute)]">เรื่องต่อไป · เร็ว ๆ นี้ ({COMING.length})</summary>
+              <div className="mt-1 flex flex-wrap gap-1.5">
                 {COMING.map((c) => <span key={c} className="rounded-full border border-dashed border-[var(--ct-line)] px-3 py-1 text-xs text-[var(--ct-mute)]">{c}</span>)}
               </div>
-            </div>
+            </details>
           </Step>
 
           <Step n={2} title="ตัวละคร" summary={`ผู้เล่า: คุณ · ${knowledge ? "คนที่สงสัย" : "ตัวเอก"}: ${name ? `คุณ${name}` : "คนทั่วไป"}`}>
