@@ -17,7 +17,7 @@ import { formatBaht } from "@/lib/wallet/money";
 import { videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 
 /** the prices the board shows under its button: each look and length, and the FHC summary */
-const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc", "videoStory"];
+const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc", "videoStory", "videoStoryShort"];
 import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, walletPrices, walletSettings } from "@/lib/wallet/store";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
@@ -28,6 +28,7 @@ import { pensionTableImage, pensionTablePlan } from "./pension-table";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
+import { topicOf } from "@/lib/story/topics";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { storyBackground } from "./story-motion";
 import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./story-frames";
@@ -76,7 +77,7 @@ export const FREE_VIDEOS = 2;
  * asked for and takes it when the clip is done.
  */
 export const videoPrice = (v: ClipInput, prices: Prices): number =>
-  (isFhcInput(v) ? prices.videoFhc : isStoryInput(v) ? prices.videoStory
+  (isFhcInput(v) ? prices.videoFhc : isStoryInput(v) ? (topicOf(v.topic)?.short ? prices.videoStoryShort : prices.videoStory)
     : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";

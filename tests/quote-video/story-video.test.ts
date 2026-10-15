@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import claims from "../../data/claims/admission-criteria.json";
+import contract from "../../data/riders/ihealthy-ultra-contract.json";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { videoPrice } from "@/lib/quote-video/make";
 import { MOTION_FPS } from "@/lib/quote-video/motion";
@@ -288,5 +290,83 @@ describe("เรื่องครอบครัว (story-family.ts)", () => {
       expect(c).toContain("#ครอบครัว");
       expect(c).not.toContain("คุณนิด");
     }
+  });
+});
+
+describe("หลังการขาย (story-after.ts)", () => {
+  const after = STORY_TOPICS.filter((t) => t.shelf === "after");
+  const SHIELD_BOUGHT = { plan: "ISHIELD", variant: "WLCI20", sex: "F", age: 35, sumAssured: 1_000_000 };
+  const extra: Record<string, Record<string, unknown>> = {
+    deliver: { figure: SHIELD_BOUGHT },
+    remind: { due: { date: "2026-11-15", amount: 33_800 } },
+    festival: { festival: "songkran" },
+  };
+  const clip = (topic: string, over: Record<string, unknown> = {}) => story({ topic, ...extra[topic], ...over });
+
+  it("is three long clips of six scenes and three short ones of three, the agent's card last", () => {
+    expect(after.map((t) => t.key)).toEqual(["deliver", "claimihu", "claimish", "remind", "birthday", "festival"]);
+    for (const t of after) {
+      const keys = storyScript(clip(t.key), "นิด").map((l) => l.key);
+      expect(keys.length, t.key).toBe(t.short ? 3 : 6);
+      expect(keys[keys.length - 1]).toBe("storyContact");
+    }
+  });
+
+  it("hands over the policy only with the plan the customer bought, its cover from the plan's own table", () => {
+    expect(checkedStory({ topic: "deliver" }, "F")).toBe("ใส่แบบที่ลูกค้าซื้อ");
+    const lines = storyScript(clip("deliver"), "นิด").map((l) => l.voice);
+    expect(lines[1]).toContain("ระยะเริ่มต้น 20 โรค จ่าย 25 เปอร์เซ็นต์ต่อโรค");
+    expect(lines[2]).toBe("เบี้ยปีละ 33,800 บาท จ่าย 20 ปีค่ะ จ่ายให้ตรงเวลา ความคุ้มครองจะได้ต่อเนื่องนะคะ");
+    expect(lines[3]).toContain("90 วัน");
+    // Life Protect names the beneficiary instead of a waiting period
+    const life = storyScript(clip("deliver", { figure: { plan: "LIFEPROTECT", variant: "WLF19H", sex: "F", age: 35, sumAssured: 2_000_000 } }), "นิด").map((l) => l.voice);
+    expect(life[3]).toContain("ผู้รับประโยชน์");
+    // the free-look period stays out until the owner confirms the company's days
+    expect([...lines, ...life].join(" ")).not.toMatch(/ยกเลิก/);
+  });
+
+  it("tells iHealthy Ultra's claim in the contract's own days", () => {
+    const lines = storyScript(clip("claimihu")).map((l) => l.voice).join(" ");
+    expect(lines).toContain(`ภายใน ${contract.claimEvidenceDays} วัน บริษัทจ่ายภายใน ${contract.payoutDays} วัน`);
+    expect(claims.timeline.steps.map((s) => s.when)).toEqual(["วันที่ 1", "30 วัน", "90 วัน", "120 วัน"]);
+  });
+
+  it("works iShield's payout from the customer's sum, and says it in shares without one", () => {
+    const withSum = storyScript(clip("claimish", { figure: SHIELD_BOUGHT })).map((l) => l.voice);
+    expect(withSum[2]).toBe("ถ้าทุน 1 ล้านบาท ระยะเริ่มต้นได้ 250,000 บาท ระยะรุนแรงได้สูงสุด 1 ล้านบาทค่ะ");
+    expect(storyScript(clip("claimish")).map((l) => l.voice).join(" ")).not.toMatch(/\d{3},\d{3}/);
+    expect(checkedStory({ topic: "claimish", figure: { ...SHIELD_BOUGHT, plan: "LIFEPROTECT", variant: "WLF19H" } }, "F")).toMatch(/iShield/);
+  });
+
+  it("reminds of the day in Thai, with the amount only when the agent gave one", () => {
+    expect(storyScript(clip("remind"), "นิด")[0].voice).toBe("คุณนิดคะ เบี้ยประกันครบกำหนดวันที่ 15 พฤศจิกายน ยอด 33,800 บาทค่ะ");
+    expect(storyScript(clip("remind", { due: { date: "2026-02-03" } }))[0].voice).toBe("เบี้ยประกันครบกำหนดวันที่ 3 กุมภาพันธ์ค่ะ");
+    expect(checkedStory({ topic: "remind", due: { date: "2026-02-30" } }, "F")).toBe("ใส่วันครบกำหนดชำระเบี้ย");
+    expect(checkedStory({ topic: "remind", due: { date: "2026-02-03", amount: -5 } }, "F")).toMatch(/ยอดเบี้ย/);
+  });
+
+  it("greets a festival from the agent's own face, and refuses one it does not know", () => {
+    const s = clip("festival");
+    expect(storyScript(s)[0].voice).toBe("สุขสันต์วันสงกรานต์ค่ะ");
+    expect(clipFaces(s)).toContain("w26");
+    expect(checkedStory({ topic: "festival", festival: "halloween" }, "F")).toBe("เลือกเทศกาล");
+    expect(storyCaption(s)).toContain("#สงกรานต์");
+  });
+
+  it("prices the short clips as short, the rest as a story", () => {
+    expect(videoPrice(clip("birthday"), DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoStoryShort);
+    expect(videoPrice(clip("claimihu"), DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoStory);
+  });
+
+  it("draws in every shape, every letter in the handwriting face", () => {
+    for (const t of after) for (const size of ["portrait", "square", "landscape"] as const) {
+      const input = clip(t.key, { size });
+      for (const s of storyScript(input)) {
+        expect(TRANSITIONS[s.key]).toBeDefined();
+        expect(clipWindows(s.key, input, size).length).toBeGreaterThan(0);
+      }
+    }
+    expect(clipHandText(clip("remind"), "")).toContain("15");
+    expect(clipHandText(clip("claimihu"), "")).toContain("120 วัน");
   });
 });

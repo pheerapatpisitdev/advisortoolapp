@@ -92,6 +92,7 @@ function momPillar(input: StoryVideoInput, name: string): KnowScene[] {
 /** the stage a child of this age is at */
 const stageAt = (age: number) => (age < 6 ? "อนุบาล" : age < 12 ? "ประถม" : age < 18 ? "มัธยม" : "มหาวิทยาลัย");
 const MILESTONES = [{ age: 6, label: "ประถม" }, { age: 12, label: "มัธยม" }, { age: 18, label: "มหาวิทยาลัย" }, { age: GRADUATE_AGE, label: "เรียนจบ" }];
+const row = (m: { age: number; label: string }) => ({ at: String(m.age), label: m.label });
 
 function tuition(input: StoryVideoInput, name: string): KnowScene[] {
   const c = familyCast(input);
@@ -108,9 +109,9 @@ function tuition(input: StoryVideoInput, name: string): KnowScene[] {
       : scene("knowAsk", { layout: "kin", title: ["ลูกยังต้องเรียน", "อีกหลายปี"], people: [kin(c.hero, "hero"), kin(kid, "adult")] },
         `ลูก${whose}ยังต้องเรียนอีกหลายปีค่ะ`),
     h
-      ? scene("knowOne", { layout: "timeline", title: [`อีก ${years} ปี`, "กว่าจะเรียนจบ"], rows: [{ age: h.childAge, label: stageAt(h.childAge) }, ...MILESTONES.filter((m) => m.age > h.childAge)] },
+      ? scene("knowOne", { layout: "timeline", title: [`อีก ${years} ปี`, "กว่าจะเรียนจบ"], rows: [{ age: h.childAge, label: stageAt(h.childAge) }, ...MILESTONES.filter((m) => m.age > h.childAge)].map(row) },
         `กว่าจะเรียนจบปริญญาตรีตอนอายุ ${GRADUATE_AGE} ลูกยังต้องเรียนอีก ${years} ปีค่ะ`)
-      : scene("knowOne", { layout: "timeline", title: ["กว่าจะเรียนจบ", ""], rows: MILESTONES },
+      : scene("knowOne", { layout: "timeline", title: ["กว่าจะเรียนจบ", ""], rows: MILESTONES.map(row) },
         "ตั้งแต่ประถม มัธยม จนจบมหาวิทยาลัย ยังต้องเรียนอีกหลายปีค่ะ"),
     h
       ? scene("knowTwo", { layout: "card", title: ["ค่าเรียน", "รวมทั้งหมด"], lines: [small(`ปีละ ${n(h.tuition)} บาท`), small(`× ${years} ปี`), big(`= ${n(h.tuition * years)} บาท`)] },

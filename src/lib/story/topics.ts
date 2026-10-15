@@ -4,20 +4,25 @@
  * the form lists them, the clip is told from them.
  *
  * And เรื่องครอบครัว's five (mockup https://claude.ai/artifact/CeobBBQKLvtnZuDw1ETLtM), told
- * through the hero's family.
+ * through the hero's family; and หลังการขาย's six (mockup https://claude.ai/artifact/7V5MfG21asotVJm9TCJojc),
+ * for a customer who has bought: the policy handed over, how to claim, and short clips — a
+ * premium falling due, a birthday, a festival.
  *
  * `figure`: what real premium a topic can show — a plan the agent picks ("plan", from `plans`
  * where the story fits one kind of cover), Life Protect at 25, 35 and 45 ("ladder"), or none.
  * `home`: the household's own numbers the agent may type in — a month's spending and the years
  * the children still lean on it ("spend"), or a child's age and a year's school fees ("school").
+ * `ask`: what else a topic needs typed in — the day a premium falls due ("due"), or which
+ * festival ("festival"). `short`: two scenes and the card, at the short clip's price.
  */
 
 import type { StoryPlan } from "./plans";
 
 export type StoryTopic =
   | "pool48" | "sumvspremium" | "declare" | "mythclaim" | "mythyoung" | "mythjinx"
-  | "pillar" | "mompillar" | "tuition" | "prebaby" | "eldercare";
-export type StoryShelf = "story" | "knowledge" | "family";
+  | "pillar" | "mompillar" | "tuition" | "prebaby" | "eldercare"
+  | "deliver" | "claimihu" | "claimish" | "remind" | "birthday" | "festival";
+export type StoryShelf = "story" | "knowledge" | "family" | "after";
 
 export interface StoryTopicInfo {
   key: StoryTopic;
@@ -30,6 +35,10 @@ export interface StoryTopicInfo {
   home?: "spend" | "school";
   /** the hero is the children's mother, so a woman */
   heroSex?: "F";
+  /** the clip cannot be told without the plan's figure (the policy handed over) */
+  figureRequired?: boolean;
+  ask?: "due" | "festival";
+  short?: boolean;
 }
 
 export const STORY_TOPICS: StoryTopicInfo[] = [
@@ -44,7 +53,21 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "tuition", name: "ค่าเรียนลูก", shelf: "family", blurb: "ถ้าวันหนึ่งพ่อแม่ไม่อยู่ ลูกยังต้องเรียนอีกกี่ปี ใครจ่าย", figure: "plan", plans: ["LIFEPROTECT"], home: "school" },
   { key: "prebaby", name: "ก่อนมีลูก ต้องเตรียมอะไร", shelf: "family", blurb: "คู่รักกับคนตัวเล็กที่กำลังจะมา", figure: null },
   { key: "eldercare", name: "ใครดูแลพ่อแม่ตอนแก่", shelf: "family", blurb: "ถ้าคนที่ดูแลพ่อแม่ ล้มป่วยเสียเอง", figure: "plan", plans: ["ISHIELD"] },
+  { key: "deliver", name: "ส่งมอบกรมธรรม์", shelf: "after", blurb: "ขอบคุณ สรุปสิ่งที่ได้ เบี้ย เริ่มคุ้มครองเมื่อไร", figure: "plan", figureRequired: true },
+  { key: "claimihu", name: "วิธีเคลม · นอนโรงพยาบาล", shelf: "after", blurb: "iHealthy Ultra: ต้องสำรองจ่ายไหม ยื่นเมื่อไร ได้เงินเมื่อไร", figure: null },
+  { key: "claimish", name: "วิธีเคลม · โรคร้ายแรง", shelf: "after", blurb: "iShield: จ่ายตามระยะของโรค ยื่นเคลมยังไง", figure: "plan", plans: ["ISHIELD"] },
+  { key: "remind", name: "เตือนชำระเบี้ย", shelf: "after", blurb: "วันครบกำหนด และยอด", figure: null, ask: "due", short: true },
+  { key: "birthday", name: "สุขสันต์วันเกิด", shelf: "after", blurb: "อวยพรลูกค้า ไม่พูดเรื่องขาย", figure: null, short: true },
+  { key: "festival", name: "เทศกาล", shelf: "after", blurb: "ปีใหม่ ตรุษจีน สงกรานต์ วันแม่ วันพ่อ ส่งท้ายปี", figure: null, ask: "festival", short: true },
 ];
+
+/** the festivals a greeting clip is made for, in the year's order */
+export type Festival = "newyear" | "cny" | "songkran" | "mother" | "father" | "yearend";
+export const FESTIVALS: { key: Festival; name: string }[] = [
+  { key: "newyear", name: "ปีใหม่" }, { key: "cny", name: "ตรุษจีน" }, { key: "songkran", name: "สงกรานต์" },
+  { key: "mother", name: "วันแม่" }, { key: "father", name: "วันพ่อ" }, { key: "yearend", name: "ส่งท้ายปี" },
+];
+export const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
 export const topicOf = (key: string): StoryTopicInfo | undefined => STORY_TOPICS.find((t) => t.key === key);
 

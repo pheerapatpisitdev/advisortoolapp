@@ -2,6 +2,7 @@ import { defaultPartner, faceOf } from "@/lib/story/faces";
 import { planName, termShort } from "@/lib/story/plans";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
 import type { StoryVideoInput } from "./story";
+import { AFTER_CLOSE, afterScenes, type AfterTopic } from "./story-after";
 import { familyScenes, FAMILY_CLOSE, type FamilyTopic } from "./story-family";
 
 /**
@@ -43,11 +44,15 @@ export type KnowShow =
   /** a gift box, and a note */
   | { layout: "gift"; title: [string, string]; note: NoteLine[] }
   /** เรื่องครอบครัว: a row of the family, with the bills that hang on them, a note, a bag of money coming, or question marks */
-  | { layout: "kin"; title: [string, string]; people: Kin[]; tags?: { items: string[]; red?: boolean }; note?: NoteLine[]; bag?: boolean; marks?: boolean }
+  | { layout: "kin"; title: [string, string]; people: Kin[]; tags?: { items: string[]; red?: boolean }; note?: NoteLine[]; bag?: boolean; marks?: boolean; hearts?: boolean }
   /** a sum worked out on a card, under a title */
   | { layout: "card"; title: [string, string]; lines: NoteLine[] }
-  /** the years ahead, an age and what it is, down a line */
-  | { layout: "timeline"; title: [string, string]; rows: { age: number; label: string }[] };
+  /** the steps or years ahead, a mark (an age, a day, a number) and what it is, down a line */
+  | { layout: "timeline"; title: [string, string]; rows: { at: string; label: string }[] }
+  /** หลังการขาย: a drawn thing (the policy, a calendar with its day, a cake, a festival's sign), a face, a note */
+  | { layout: "pic"; title: [string, string]; icon: PicIcon; day?: string; face?: string; note?: NoteLine[]; hearts?: boolean };
+
+export type PicIcon = "policy" | "calendar" | "cake" | "fireworks" | "lantern" | "water" | "jasmine" | "canna" | "gift" | "bag";
 
 /**
  * One of the family in a row: the hero drawn largest; "gone" fades from colour to a dashed grey
@@ -141,7 +146,7 @@ const mythJinx = (): KnowScene[] => [
 ];
 
 /** each episode's closing: what the card's button says, and the voice under it */
-const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic>, string> = {
+const CLOSE: Record<Exclude<StoryVideoInput["topic"], "pool48" | FamilyTopic | AfterTopic>, string> = {
   sumvspremium: "อยากรู้ว่าทุนเท่าไรถึงพอ ทักมาได้เลย",
   declare: "ไม่แน่ใจว่าต้องแถลงอะไร ทักมาถามได้เลย",
   mythclaim: "อยากให้ช่วยดูเงื่อนไข ทักมาได้เลย",
@@ -154,6 +159,7 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
   if (input.topic === "pool48") throw new Error("กองกลาง 48 คน is a story, not an episode");
   const name = cleanCustomerName(customer);
   const family = () => familyScenes(input.topic as FamilyTopic, input, name);
+  const afterSale = () => afterScenes(input.topic as AfterTopic, input, name);
   const scenes = {
     sumvspremium: () => sumVsPremium(input),
     declare,
@@ -165,14 +171,21 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     tuition: family,
     prebaby: family,
     eldercare: family,
+    deliver: afterSale,
+    claimihu: afterSale,
+    claimish: afterSale,
+    remind: afterSale,
+    birthday: afterSale,
+    festival: afterSale,
   }[input.topic]();
-  // story-family.ts imports this file's helpers, so its words are looked up here, at call time
-  const close = input.topic in FAMILY_CLOSE ? FAMILY_CLOSE[input.topic as FamilyTopic] : CLOSE[input.topic as keyof typeof CLOSE];
+  // story-family.ts and story-after.ts import this file's helpers, so their words are looked up here, at call time
+  const after = input.topic in AFTER_CLOSE ? AFTER_CLOSE[input.topic as AfterTopic] : null;
+  const close = after ? after.cta : input.topic in FAMILY_CLOSE ? FAMILY_CLOSE[input.topic as FamilyTopic] : CLOSE[input.topic as keyof typeof CLOSE];
   const said = (s: string) => spokenBy(s.replace(/\s+/g, " ").trim(), narrator);
   return {
     scenes: scenes.map((s) => ({ ...s, voice: said(s.voice) })),
     cta: name ? `คุณ${name} ${close}` : close,
-    contactVoice: said(`${name ? `คุณ${name} ` : ""}${close}นะคะ`),
+    contactVoice: said(after ? after.voice : `${name ? `คุณ${name} ` : ""}${close}นะคะ`),
   };
 }
 
@@ -189,7 +202,8 @@ export function knowText(e: KnowEpisode): string {
     if (show.layout === "recap") words.push(...show.lines.map((l) => l.text), "จำง่าย ๆ");
     if (show.layout === "bars") words.push(...show.lead, ...show.rows.flatMap((r) => [r.label, r.text]));
     if (show.layout === "kin" && show.tags) words.push(...show.tags.items);
-    if (show.layout === "timeline") words.push(...show.rows.map((r) => r.label));
+    if (show.layout === "timeline") words.push(...show.rows.flatMap((r) => [r.at, r.label]));
+    if (show.layout === "pic" && show.day) words.push(show.day);
   }
   return words.join("");
 }

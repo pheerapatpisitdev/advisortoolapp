@@ -1,10 +1,11 @@
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { CHILDREN } from "@/lib/story/faces";
 import { topicOf } from "@/lib/story/topics";
+import type React from "react";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import type { StoryVideoInput } from "./story";
 import { familyFaces } from "./story-family";
-import { knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine } from "./story-knowledge";
+import { knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine, type PicIcon } from "./story-knowledge";
 import { Contact, Img, type StoryContext } from "./story-motion";
 import { SIZES, type VideoSize } from "./timeline";
 
@@ -17,6 +18,9 @@ import { SIZES, type VideoSize } from "./timeline";
  * เรื่องครอบครัว (mockup https://claude.ai/artifact/CeobBBQKLvtnZuDw1ETLtM) adds a row of the
  * family — with the bills on stickers, a note, a bag of money coming down to them, or question
  * marks; one of them fading to a dashed outline — a line of the years ahead, and a sum on a card.
+ *
+ * หลังการขาย (mockup https://claude.ai/artifact/7V5MfG21asotVJm9TCJojc) adds a drawn thing — the
+ * policy, a calendar with the day due, a cake, a festival's sign — with a face and a note.
  */
 
 const C = STORY_CLIP_COLORS;
@@ -46,8 +50,10 @@ interface Geo {
   mythFace: Rect;
   /** the family's row, and lower with the bag above it; beside or under it the stickers and note */
   kin: { row: Rect; rowBag: Rect; bag: Rect; side: Rect; sideBag: Rect };
-  /** the years ahead: the line's left, its first row, the step between rows */
+  /** the years ahead: the line's first row, the step between rows */
   line: { x: number; y: number; step: number };
+  /** a drawn thing with a face and a note; with a note only ("solo"); with a face only ("pair") */
+  pic: { icon: Rect; face: Rect; note: Rect; iconSolo: Rect; noteSolo: Rect; iconPair: Rect; facePair: Rect };
 }
 
 /** where each layout stands, for each shape of clip */
@@ -61,6 +67,11 @@ const GEO: Record<VideoSize, Geo> = {
     gift: { x: 340, y: 480, w: 400, h: 400 }, mythFace: { x: 340, y: 870, w: 400, h: 400 },
     kin: { row: { x: 60, y: 480, w: 960, h: 420 }, rowBag: { x: 60, y: 790, w: 960, h: 320 }, bag: { x: 390, y: 410, w: 300, h: 330 }, side: { x: 100, y: 1000, w: 880, h: 420 }, sideBag: { x: 100, y: 1160, w: 880, h: 400 } },
     line: { x: 250, y: 500, step: 190 },
+    pic: {
+      icon: { x: 390, y: 360, w: 300, h: 300 }, face: { x: 390, y: 690, w: 300, h: 300 }, note: { x: 140, y: 1040, w: 800, h: 380 },
+      iconSolo: { x: 390, y: 400, w: 300, h: 300 }, noteSolo: { x: 140, y: 760, w: 800, h: 480 },
+      iconPair: { x: 390, y: 380, w: 300, h: 300 }, facePair: { x: 320, y: 720, w: 440, h: 440 },
+    },
   },
   square: {
     title: 50, titleSize: 76, text: 32, stamp: 40, quote: 190, quoteSize: 86,
@@ -71,6 +82,11 @@ const GEO: Record<VideoSize, Geo> = {
     gift: { x: 90, y: 270, w: 340, h: 340 }, mythFace: { x: 400, y: 480, w: 280, h: 280 },
     kin: { row: { x: 60, y: 210, w: 960, h: 330 }, rowBag: { x: 60, y: 400, w: 960, h: 210 }, bag: { x: 450, y: 190, w: 180, h: 200 }, side: { x: 140, y: 575, w: 800, h: 280 }, sideBag: { x: 140, y: 630, w: 800, h: 230 } },
     line: { x: 330, y: 240, step: 120 },
+    pic: {
+      icon: { x: 110, y: 220, w: 250, h: 250 }, face: { x: 110, y: 500, w: 250, h: 250 }, note: { x: 420, y: 250, w: 610, h: 480 },
+      iconSolo: { x: 110, y: 270, w: 280, h: 280 }, noteSolo: { x: 440, y: 230, w: 590, h: 520 },
+      iconPair: { x: 150, y: 260, w: 340, h: 340 }, facePair: { x: 590, y: 260, w: 340, h: 340 },
+    },
   },
   landscape: {
     title: 46, titleSize: 80, text: 38, stamp: 40, quote: 190, quoteSize: 96,
@@ -81,6 +97,11 @@ const GEO: Record<VideoSize, Geo> = {
     gift: { x: 300, y: 260, w: 440, h: 440 }, mythFace: { x: 790, y: 470, w: 340, h: 340 },
     kin: { row: { x: 100, y: 290, w: 1020, h: 430 }, rowBag: { x: 100, y: 520, w: 1020, h: 300 }, bag: { x: 480, y: 220, w: 260, h: 280 }, side: { x: 1180, y: 320, w: 640, h: 440 }, sideBag: { x: 1180, y: 320, w: 640, h: 440 } },
     line: { x: 760, y: 240, step: 125 },
+    pic: {
+      icon: { x: 180, y: 250, w: 300, h: 300 }, face: { x: 540, y: 270, w: 340, h: 340 }, note: { x: 980, y: 280, w: 820, h: 480 },
+      iconSolo: { x: 320, y: 260, w: 360, h: 360 }, noteSolo: { x: 800, y: 260, w: 900, h: 480 },
+      iconPair: { x: 500, y: 250, w: 380, h: 380 }, facePair: { x: 1040, y: 250, w: 380, h: 380 },
+    },
   },
 };
 
@@ -117,6 +138,7 @@ function kspec(show: KnowShow): Record<string, Anim> {
       if (show.note) s.note = a(at + 0.2, "pop");
       if (show.marks) s.marks = a(1.1, "pop");
       if (show.people.some((p) => p.state === "gone")) s.gone = a(1.2, "stroke", 1.4);
+      if (show.hearts) s.hearts = a(1.1, "up");
       return s;
     }
     case "timeline":
@@ -125,6 +147,11 @@ function kspec(show: KnowShow): Record<string, Anim> {
       show.rows.forEach((_, i) => { s[`row${i}`] = a(0.6 + i * 0.35, "left"); });
       return s;
     case "card": return { title: a(0.2, "up"), card: a(0.6, "pop") };
+    case "pic":
+      return {
+        title: a(0.2, "up"), icon: a(0.5, "pop"),
+        ...(show.face ? { face: a(0.9, "pop") } : {}), ...(show.note ? { note: a(1.3, "pop") } : {}), ...(show.hearts ? { hearts: a(1.3, "up") } : {}),
+      };
   }
 }
 
@@ -390,6 +417,7 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
           </div>
           {show.marks ? mark(row.x + Math.round(row.w * 0.78), row.y + Math.round(row.h * 0.05), Math.round(row.h * 0.4), 14) : null}
           {show.marks ? mark(row.x + Math.round(row.w * 0.12), row.y + Math.round(row.h * 0.2), Math.round(row.h * 0.28), -12) : null}
+          {show.hearts ? <Hearts an={s.hearts} t={t} x={row.x} y={row.y + row.h + 20} w={row.w} size={Math.round(row.h * 0.16)} /> : null}
           {show.tags ? (
             <div style={abs({ left: side.x, top: side.y, width: side.w, flexWrap: "wrap", justifyContent: "center", ...(under ? {} : { flexDirection: "column", alignItems: "center" }) })}>
               {show.tags.items.map((tag, i) => {
@@ -411,16 +439,21 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
       const last = show.rows.length - 1;
       const len = last * L.step;
       const ageSize = Math.round(g.text * 1.8);
+      const labelSize = Math.round(g.text * 1.25);
       const dot = Math.round(g.text * 0.7);
+      // the marks' column as wide as the widest, the whole centred (a Thai letter is ~0.5 of the size wide)
+      const markW = Math.max(Math.round(ageSize * 1.5), Math.max(...show.rows.map((r) => [...r.at].length)) * Math.round(ageSize * 0.5) + Math.round(g.text * 0.6));
+      const labelW = Math.max(...show.rows.map((r) => [...r.label].length)) * Math.round(labelSize * 0.5);
+      const x = Math.min(L.x, Math.max(60, Math.round((w - dot - g.text * 0.7 - markW - labelW) / 2)));
       return (
         <>
           <Title g={g} w={w} an={s.title} t={t} text={show.title} />
-          <div style={abs({ left: L.x - 4, top: L.y + Math.round(ageSize * 0.6), width: 8, height: Math.max(0, Math.round(len * p)), background: C.ink, borderRadius: 4 })} />
+          <div style={abs({ left: x - 4, top: L.y + Math.round(ageSize * 0.6), width: 8, height: Math.max(0, Math.round(len * p)), background: C.ink, borderRadius: 4 })} />
           {show.rows.map((r, i) => (
-            <El key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: L.x - Math.round(dot / 2), top: L.y + i * L.step, alignItems: "center", fontFamily: HAND, color: i === last ? GREEN : C.ink }}>
+            <El key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: x - Math.round(dot / 2), top: L.y + i * L.step, alignItems: "center", fontFamily: HAND, color: i === last ? GREEN : C.ink }}>
               <div style={box({ width: dot, height: dot, borderRadius: dot, background: C.coin, border: `4px solid ${C.ink}`, flexShrink: 0 })} />
-              <div style={box({ marginLeft: Math.round(g.text * 0.7), width: Math.round(ageSize * 1.5), fontSize: ageSize, fontWeight: 700 })}>{String(r.age)}</div>
-              <div style={box({ fontSize: Math.round(g.text * 1.25), fontWeight: 600 })}>{r.label}</div>
+              <div style={box({ marginLeft: Math.round(g.text * 0.7), width: markW, fontSize: ageSize, fontWeight: 700, flexShrink: 0 })}>{r.at}</div>
+              <div style={box({ width: w - x - dot - Math.round(g.text * 0.7) - markW - 50, fontSize: labelSize, fontWeight: 600, flexWrap: "wrap" })}>{r.label}</div>
             </El>
           ))}
         </>
@@ -433,8 +466,109 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
           <Note g={g} r={{ ...g.card, y: g.card.y + Math.round(g.card.h * 0.1) }} an={s.card} t={t} lines={show.lines} tilt={0.8} scale={1.2} />
         </>
       );
+    case "pic": {
+      const P = g.pic;
+      const icon = show.face && show.note ? P.icon : show.face ? P.iconPair : P.iconSolo;
+      const faceR = show.note ? P.face : P.facePair;
+      const il = look(s.icon, t);
+      const fl = look(s.face, t);
+      return (
+        <>
+          <Title g={g} w={w} an={s.title} t={t} text={show.title} />
+          <div style={abs({ left: icon.x, top: icon.y, width: icon.w, height: icon.h, opacity: il.opacity, ...(il.transform ? { transform: il.transform } : {}) })}>
+            {ICON[show.icon]({ x: 0, y: 0, w: icon.w, h: icon.h })}
+            {show.icon === "bag" ? <div style={abs({ left: 0, width: icon.w, top: Math.round(icon.h * 0.42), justifyContent: "center", fontSize: Math.round(icon.h * 0.32), fontWeight: 600, color: C.ink })}>฿</div> : null}
+            {show.icon === "calendar" && show.day ? <div style={abs({ left: 0, width: icon.w, top: Math.round(icon.h * 0.4), justifyContent: "center", fontFamily: HAND, fontSize: Math.round(icon.h * 0.36), fontWeight: 700, color: C.ink })}>{show.day}</div> : null}
+          </div>
+          {show.face ? (
+            <div style={abs({ left: faceR.x, top: faceR.y, width: faceR.w, height: faceR.h, opacity: fl.opacity, ...(fl.transform ? { transform: fl.transform } : {}) })}>
+              <Img src={c.faces[show.face]} r={{ x: 0, y: 0, w: faceR.w, h: faceR.h }} />
+            </div>
+          ) : null}
+          {show.hearts && show.face ? <Hearts an={s.hearts} t={t} x={faceR.x - faceR.w / 2} y={faceR.y + faceR.h + 10} w={faceR.w * 2} size={Math.round(faceR.w * 0.16)} /> : null}
+          {show.note ? <Note g={g} r={show.face ? P.note : P.noteSolo} an={s.note} t={t} lines={show.note} /> : null}
+        </>
+      );
+    }
   }
 }
+
+/** three hearts in a row, rising in */
+function Hearts({ an, t, x, y, w, size }: { an?: Anim; t: number; x: number; y: number; w: number; size: number }) {
+  const l = look(an, t);
+  return (
+    <div style={abs({ left: Math.round(x), top: Math.round(y), width: Math.round(w), justifyContent: "center", opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}) })}>
+      {[0, 1, 2].map((i) => (
+        <div key={i} style={box({ width: size, height: size, margin: `0 ${Math.round(size * 0.3)}px`, marginTop: i === 1 ? 0 : Math.round(size * 0.3) })}>
+          <svg width={size} height={size} viewBox="0 0 100 100"><path d="M50 88 C20 66 6 50 6 32 C6 18 18 8 31 8 C40 8 46 13 50 20 C54 13 60 8 69 8 C82 8 94 18 94 32 C94 50 80 66 50 88 Z" fill={C.red} stroke={C.ink} strokeWidth={4} /></svg>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** the drawn things of หลังการขาย, each in a 100 × 100 box */
+const svgBox = (r: Rect, body: React.ReactNode) => <svg width={r.w} height={r.h} viewBox="0 0 100 100">{body}</svg>;
+const FLOWER = (r: Rect, petal: string) => svgBox(r, (
+  <>
+    <path d="M50 58 V96" stroke={C.green} strokeWidth={5} />
+    {[0, 72, 144, 216, 288].map((deg) => <ellipse key={deg} cx={50} cy={30} rx={13} ry={20} fill={petal} stroke={C.ink} strokeWidth={3} transform={`rotate(${deg} 50 46)`} />)}
+    <circle cx={50} cy={46} r={9} fill={C.coin} stroke={C.ink} strokeWidth={3} />
+  </>
+));
+const ICON: Record<PicIcon, (r: Rect) => React.ReactNode> = {
+  policy: (r) => svgBox(r, (
+    <>
+      <rect x={20} y={6} width={60} height={82} rx={6} fill={C.note} stroke={C.ink} strokeWidth={3.4} />
+      <path d="M31 26 H69 M31 39 H69 M31 52 H56" stroke={C.ink} strokeWidth={3} strokeLinecap="round" />
+      <circle cx={64} cy={72} r={10} fill={C.red} />
+      <path d="M58 79 L54 96 L64 90 L74 96 L70 79" fill={C.red} />
+    </>
+  )),
+  calendar: (r) => svgBox(r, (
+    <>
+      <rect x={12} y={18} width={76} height={70} rx={8} fill={C.note} stroke={C.ink} strokeWidth={3.4} />
+      <path d="M12 30 Q12 18 24 18 H76 Q88 18 88 30 V38 H12 Z" fill={C.red} stroke={C.ink} strokeWidth={3.4} />
+      <path d="M30 8 V26 M70 8 V26" stroke={C.ink} strokeWidth={4} strokeLinecap="round" />
+    </>
+  )),
+  cake: (r) => svgBox(r, (
+    <>
+      <rect x={16} y={52} width={68} height={36} rx={6} fill={C.cake} stroke={C.ink} strokeWidth={3.4} />
+      <path d="M16 65 Q33 74 50 65 Q67 74 84 65" fill="none" stroke={C.ink} strokeWidth={3} />
+      <rect x={26} y={38} width={48} height={15} rx={4} fill={C.note} stroke={C.ink} strokeWidth={3} />
+      <path d="M50 20 V38" stroke={C.ink} strokeWidth={3} />
+      <path d="M50 6 Q57 15 50 20 Q43 15 50 6" fill={C.coin} stroke={C.ink} strokeWidth={2} />
+    </>
+  )),
+  fireworks: (r) => svgBox(r, (
+    <>
+      <path d="M30 34 V12 M30 34 L48 24 M30 34 L48 44 M30 34 L12 24 M30 34 L12 44 M30 34 V56" stroke={C.red} strokeWidth={3.4} strokeLinecap="round" />
+      <path d="M70 62 V36 M70 62 L90 50 M70 62 L90 74 M70 62 L50 50 M70 62 L50 74 M70 62 V88" stroke={C.coin} strokeWidth={3.4} strokeLinecap="round" />
+      <circle cx={62} cy={14} r={4} fill={C.green} /><circle cx={16} cy={78} r={3.5} fill={C.coin} /><circle cx={92} cy={22} r={3} fill={C.red} />
+    </>
+  )),
+  lantern: (r) => svgBox(r, (
+    <>
+      <path d="M50 4 V16" stroke={C.ink} strokeWidth={3} />
+      <rect x={38} y={14} width={24} height={8} rx={2} fill={C.coin} stroke={C.ink} strokeWidth={3} />
+      <ellipse cx={50} cy={50} rx={34} ry={28} fill={C.red} stroke={C.ink} strokeWidth={3.4} />
+      <path d="M50 22 Q34 50 50 78 M50 22 Q66 50 50 78" fill="none" stroke={C.ink} strokeWidth={2.4} />
+      <rect x={38} y={77} width={24} height={8} rx={2} fill={C.coin} stroke={C.ink} strokeWidth={3} />
+      <path d="M44 85 V96 M50 85 V98 M56 85 V96" stroke={C.coin} strokeWidth={3} />
+    </>
+  )),
+  water: (r) => svgBox(r, (
+    <>
+      <path d="M14 48 H86 Q82 86 50 88 Q18 86 14 48 Z" fill={C.water} stroke={C.ink} strokeWidth={3.4} />
+      <path d="M32 36 Q38 26 32 16 M50 36 Q56 26 50 16 M68 36 Q74 26 68 16" stroke={C.waterInk} strokeWidth={3} fill="none" strokeLinecap="round" />
+    </>
+  )),
+  jasmine: (r) => FLOWER(r, C.white),
+  canna: (r) => FLOWER(r, C.coin),
+  gift: (r) => GIFT(r),
+  bag: (r) => BAG(r),
+};
 
 const KIN_GAP = 10;
 /** how much of an adult's width each of the family takes */
