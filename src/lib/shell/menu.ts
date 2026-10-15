@@ -280,6 +280,8 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
         links: [
           // which tools people use, who used them, and what each AI company cost (owner, 2026-10-14)
           { href: "/admin/stats", label: "การใช้งานและค่า AI", icon: "chart", hue: "#5b2e80" },
+          // what the AI cost against what people paid for it (owner, 2026-10-15)
+          { href: "/admin/ai-profit", label: "กำไรค่า AI", icon: "calc", hue: "#612d7e" },
         ],
       },
       {

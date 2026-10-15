@@ -4,9 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { clearAiConfigCache, testProviders, type ProviderCheck } from "@/lib/ai/client";
 import { monthSpend, monthStart, spendSince, type SpendLine } from "@/lib/ai/ledger";
 import { contentBaht, DEFAULT_CONTENT_CAP_THB } from "@/lib/content/store";
-import { EMBEDDERS, JUDGE } from "@/lib/ai/providers";
-import { TTS_MODEL } from "@/lib/ai/tts";
-import { ELEVEN_MODEL, ELEVENLABS } from "@/lib/voice/elevenlabs";
+import { JUDGE } from "@/lib/ai/providers";
+import { providerMap } from "@/lib/ai/provider-of";
 import { checkBudgets } from "./budget";
 import { usageByPerson, type PersonUse } from "./people";
 import { requireStaff } from "@/lib/auth/viewer";
@@ -251,35 +250,11 @@ async function renderKeysShown(held: { provider: string; tail: string }[]): Prom
  * A single total says the month is costing money; it does not say which of five keys is
  * doing it, and that is the question somebody looking at this card is actually asking.
  */
-/**
- * The judge is asked for by an alias and answers under its version — "jev-latest" out,
- * "jev-1.13.0" back — and the ledger keeps the version, because that is what was paid for.
- * The card is asked which company, so any version of Jev is TypeSafe's.
- */
-function judgeVersionOf(model: string | null): string | undefined {
-  return model && model.startsWith(JUDGE.model.split("-")[0]) ? JUDGE.provider : undefined;
-}
-
 function byProvider(lines: SpendLine[], models: { provider: string; model_name: string }[]): ProviderSpend[] {
-  // the embedders and the judge are priced in code, not in the table, and still cost money
-  const providerOf = new Map([
-    ...models.map((m) => [m.model_name, m.provider] as const),
-    ...EMBEDDERS.map((e) => [e.model, e.provider] as const),
-    [JUDGE.model, JUDGE.provider] as const,
-    // a clip's render, written to the ledger under its engine (src/lib/video/jobs.ts): its key's name here
-    ["rendi", "rendi"] as const,
-    ["lambda", "aws"] as const,
-    ["cloudrun", "gcp"] as const,
-    // the วิดีโอนำเสนอ voices (owner, 2026-10-15): priced in code too, so the reference table
-    // has neither, and ElevenLabs' row read "ยังไม่มีค่าใช้จ่าย" over ฿28 of clips
-    [TTS_MODEL, "google"] as const,
-    [ELEVEN_MODEL, ELEVENLABS] as const,
-  ]);
+  const providerOf = providerMap(models);
   const acc = new Map<string, { calls: number; baht: number; tasks: Map<string, number>; lines: SpendDetail[] }>();
   for (const l of lines) {
-    // a model the reference table no longer lists still cost money, and saying so under its
-    // own name beats dropping the line and quietly under-reporting the month
-    const provider = providerOf.get(l.model ?? "") ?? judgeVersionOf(l.model) ?? (l.model ? `${l.model} (ไม่รู้จักค่าย)` : "ไม่ทราบ");
+    const provider = providerOf(l.model);
     const at = acc.get(provider) ?? { calls: 0, baht: 0, tasks: new Map<string, number>(), lines: [] };
     at.calls += l.calls;
     at.baht += l.baht;

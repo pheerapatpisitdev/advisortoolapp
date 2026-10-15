@@ -16,7 +16,7 @@ const MAX_ROWS = 50_000;
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
-async function all(what: string, page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<Row[]> {
+export async function all(what: string, page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<Row[]> {
   const out: Row[] = [];
   for (let at = 0; at < MAX_ROWS; at += PAGE) {
     const { data, error } = await page(at, at + PAGE - 1);

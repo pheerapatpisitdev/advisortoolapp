@@ -170,13 +170,14 @@ describe("what the menu shows to somebody who has not signed in", () => {
       // (/admin/pages); สอน AI, ห้องสอนบอท and ข้อความต้อนรับ became สอนบอท (/admin/teach);
       // ราคาและโปรโมชัน (/admin/prices) left กระเป๋าเงิน. /home (ระบบหลัก) is its first line for
       // anybody but the Super Admin, as it is in Studio's
-      // and เสียงของตัวแทน (/admin/voices) since เสียงของฉัน (owner, 2026-10-15), LINE OA (/admin/line) the same day
+      // and เสียงของตัวแทน (/admin/voices) since เสียงของฉัน (owner, 2026-10-15), LINE OA (/admin/line) the same day,
+      // กำไรค่า AI (/admin/ai-profit) the same day too
       ["/home", "/admin", "/admin/crm", "/admin/pages", "/admin/line", "/admin/teach", "/admin/ads", "/admin/team", "/admin/members", "/admin/history", "/admin/voices",
-        "/admin/wallet", "/admin/prices", "/admin/stats", "/admin/ai"].sort(),
+        "/admin/wallet", "/admin/prices", "/admin/stats", "/admin/ai-profit", "/admin/ai"].sort(),
     );
   });
 
-  it("groups the back office's fourteen pages by the job, each with a mark of its own (owner chose ข, 2026-10-15)", () => {
+  it("groups the back office's fifteen pages by the job, each with a mark of its own (owner chose ข, 2026-10-15)", () => {
     const superAdmin = { name: "x", room: "Super Admin", publish: true, connect: true, admin: true, owner: true, super: true };
     const groups = menuGroups(true, superAdmin);
     expect(groups.map((g) => g.title ?? null)).toEqual([null, "ลูกค้าและบอท", "การตลาด", "ผู้ใช้", "เงิน", "รายงาน", "ตั้งค่าระบบ"]);
@@ -186,11 +187,11 @@ describe("what the menu shows to somebody who has not signed in", () => {
       ["โฆษณา"],
       ["ทีมงาน", "สมาชิกทั่วไป", "ประวัติผู้ใช้", "เสียงของตัวแทน"],
       ["กระเป๋าเงิน", "ราคาและโปรโมชัน"],
-      ["การใช้งานและค่า AI"],
+      ["การใช้งานและค่า AI", "กำไรค่า AI"],
       ["ตั้งค่า AI และระบบ"],
     ]);
     const links = groups.flatMap((g) => g.links);
-    expect(links).toHaveLength(14);
+    expect(links).toHaveLength(15);
     expect(new Set(links.map((l) => l.icon)).size).toBe(links.length);
     expect(new Set(links.map((l) => l.hue)).size).toBe(links.length);
   });
@@ -199,7 +200,7 @@ describe("what the menu shows to somebody who has not signed in", () => {
     const nobody = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const pages = (w: typeof nobody) => menuGroups(true, w).flatMap((g) => g.links.map((l) => l.href)).filter((h) => h.startsWith("/admin"));
     expect(pages(nobody)).toEqual(pages({ ...nobody, owner: true, admin: true, connect: true, publish: true }));
-    expect(pages(nobody)).toHaveLength(14);
+    expect(pages(nobody)).toHaveLength(15);
   });
 
   it("gives no agent a way to the back office, the owner's own account included (owner, 2026-10-15)", () => {
