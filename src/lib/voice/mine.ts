@@ -71,10 +71,16 @@ async function elevenKey(): Promise<string> {
 /** a refusal the agent is shown as it is */
 export class VoiceError extends Error {}
 
-/** whether this viewer may clone: everyone signed in to Studio (owner, 2026-10-15) */
+/**
+ * whether this viewer may clone: the owner (015495) alone since 2026-10-16 (owner, mockup
+ * https://claude.ai/artifact/Wn9cVu9vuSGH95yiTWRfMk); everyone signed in to Studio before that
+ */
 export function mayClone(viewer: Viewer | null): boolean {
-  return Boolean(viewer?.agentId);
+  return Boolean(viewer?.agentId) && can(viewer, "owner");
 }
+
+/** what anyone else is told, on the page and from every step (owner chose ก, 2026-10-16) */
+export const CLONE_CLOSED = "ฟังก์ชันนี้ปิดใช้งานอยู่";
 
 /** an agent's voices still in play: the one in use, and a newer one on its way */
 export async function myVoices(agentId: string): Promise<{ active: AgentVoice | null; pending: AgentVoice | null; last: AgentVoice | null }> {
@@ -108,7 +114,7 @@ export async function yearlyRedosLeft(agentId: string, now = new Date()): Promis
  * drawn for the consent take. An unfinished voice is picked up again rather than started anew.
  */
 export async function startVoice(viewer: Viewer, sex: VoiceSex): Promise<AgentVoice> {
-  if (!mayClone(viewer)) throw new VoiceError("เข้าสู่ระบบก่อน");
+  if (!mayClone(viewer)) throw new VoiceError(CLONE_CLOSED);
   const mine = await myVoices(viewer.agentId);
   if (mine.pending?.status === "review") throw new VoiceError("เสียงของคุณรอแอดมินตรวจอยู่");
   if (mine.pending?.status === "preview") throw new VoiceError("มีเสียงที่โคลนแล้วรอคุณฟังอยู่ ฟังแล้วเลือกใช้หรืออัดใหม่");
@@ -173,6 +179,7 @@ export async function slotsNow(): Promise<Slots | null> {
  * made, but for the consent take, kept as the record of consent.
  */
 export async function cloneVoice(viewer: Viewer, id: string): Promise<AgentVoice> {
+  if (!mayClone(viewer)) throw new VoiceError(CLONE_CLOSED);
   const v = await ownVoice(viewer.agentId, id);
   if (v.status !== "recording") throw new VoiceError("เสียงนี้โคลนแล้ว");
   const takes = await Promise.all(Array.from({ length: TAKES }, async (_, i) => {
@@ -218,6 +225,7 @@ export async function cloneVoice(viewer: Viewer, id: string): Promise<AgentVoice
 
 /** not like the agent: record again, free up to PREVIEW_REDOS times, with a new code */
 export async function redoVoice(viewer: Viewer, id: string): Promise<AgentVoice> {
+  if (!mayClone(viewer)) throw new VoiceError(CLONE_CLOSED);
   const v = await ownVoice(viewer.agentId, id);
   if (v.status !== "preview") throw new VoiceError("อัดใหม่ได้ตอนฟังตัวอย่างเท่านั้น");
   if (v.redoUsed >= PREVIEW_REDOS) throw new VoiceError(`อัดใหม่ครบ ${PREVIEW_REDOS} ครั้งแล้ว`);
@@ -233,6 +241,7 @@ export async function redoVoice(viewer: Viewer, id: string): Promise<AgentVoice>
 
 /** the agent keeps it: in use at once, an older voice of theirs gone; the Super Admin hears it afterwards */
 export async function activateVoice(viewer: Viewer, id: string): Promise<void> {
+  if (!mayClone(viewer)) throw new VoiceError(CLONE_CLOSED);
   const v = await ownVoice(viewer.agentId, id);
   if (v.status !== "preview") throw new VoiceError("เลือกใช้ได้หลังฟังตัวอย่างแล้ว");
   const { active } = await myVoices(v.agentId);

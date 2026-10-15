@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { refuseUnless, requireMember } from "@/lib/auth/viewer";
-import { saveTake, VoiceError } from "@/lib/voice/mine";
+import { CLONE_CLOSED, mayClone, saveTake, VoiceError } from "@/lib/voice/mine";
 
 /**
  * One take of เสียงของฉัน (owner, 2026-10-15): a WAV the recorder made, up to a minute, too big
@@ -14,6 +14,8 @@ export async function POST(req: NextRequest) {
   const refused = await refuseUnless();
   if (refused) return refused;
   const viewer = await requireMember();
+  // the owner's alone since 2026-10-16
+  if (!mayClone(viewer)) return Response.json({ ok: false, error: CLONE_CLOSED }, { status: 403 });
   const form = await req.formData().catch(() => null);
   const id = String(form?.get("id") ?? "");
   const n = Number(form?.get("n") ?? 0);
