@@ -1,8 +1,10 @@
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { CHILDREN } from "@/lib/story/faces";
+import { topicOf } from "@/lib/story/topics";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import type { StoryVideoInput } from "./story";
-import { knowEpisode, partnerFace, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine } from "./story-knowledge";
+import { familyFaces } from "./story-family";
+import { knowEpisode, partnerFace, type Kin, type KnowEpisode, type KnowSceneKey, type KnowShow, type NoteLine } from "./story-knowledge";
 import { Contact, Img, type StoryContext } from "./story-motion";
 import { SIZES, type VideoSize } from "./timeline";
 
@@ -11,6 +13,10 @@ import { SIZES, type VideoSize } from "./timeline";
  * approved them in the mockup (2026-10-15): a question with the one who wonders, a belief stamped
  * and struck out, money flowing out or in, notes, lists with ticks or crosses, bars of real
  * premiums, a family, a gift, and the line to remember. Titles in the handwriting face (Mali).
+ *
+ * เรื่องครอบครัว (mockup https://claude.ai/artifact/CeobBBQKLvtnZuDw1ETLtM) adds a row of the
+ * family — with the bills on stickers, a note, a bag of money coming down to them, or question
+ * marks; one of them fading to a dashed outline — a line of the years ahead, and a sum on a card.
  */
 
 const C = STORY_CLIP_COLORS;
@@ -38,6 +44,10 @@ interface Geo {
   family: Rect;
   gift: Rect;
   mythFace: Rect;
+  /** the family's row, and lower with the bag above it; beside or under it the stickers and note */
+  kin: { row: Rect; rowBag: Rect; bag: Rect; side: Rect; sideBag: Rect };
+  /** the years ahead: the line's left, its first row, the step between rows */
+  line: { x: number; y: number; step: number };
 }
 
 /** where each layout stands, for each shape of clip */
@@ -49,6 +59,8 @@ const GEO: Record<VideoSize, Geo> = {
     flow: { face: { x: 60, y: 520, w: 360, h: 360 }, arrow: { x: 440, y: 650, w: 190, h: 95 }, icon: { x: 660, y: 540, w: 340, h: 300 }, note: { x: 100, y: 1000, w: 880, h: 300 } },
     fact: { x: 100, y: 640, w: 880, h: 500 }, bars: { x: 90, y: 640, w: 900, h: 560 }, family: { x: 70, y: 500, w: 940, h: 420 },
     gift: { x: 340, y: 480, w: 400, h: 400 }, mythFace: { x: 340, y: 870, w: 400, h: 400 },
+    kin: { row: { x: 60, y: 480, w: 960, h: 420 }, rowBag: { x: 60, y: 790, w: 960, h: 320 }, bag: { x: 390, y: 410, w: 300, h: 330 }, side: { x: 100, y: 1000, w: 880, h: 420 }, sideBag: { x: 100, y: 1160, w: 880, h: 400 } },
+    line: { x: 250, y: 500, step: 190 },
   },
   square: {
     title: 50, titleSize: 76, text: 32, stamp: 40, quote: 190, quoteSize: 86,
@@ -57,6 +69,8 @@ const GEO: Record<VideoSize, Geo> = {
     flow: { face: { x: 90, y: 250, w: 280, h: 280 }, arrow: { x: 390, y: 350, w: 150, h: 80 }, icon: { x: 580, y: 250, w: 290, h: 260 }, note: { x: 170, y: 590, w: 740, h: 220 } },
     fact: { x: 170, y: 400, w: 740, h: 400 }, bars: { x: 120, y: 330, w: 840, h: 380 }, family: { x: 60, y: 260, w: 560, h: 360 },
     gift: { x: 90, y: 270, w: 340, h: 340 }, mythFace: { x: 400, y: 480, w: 280, h: 280 },
+    kin: { row: { x: 60, y: 210, w: 960, h: 330 }, rowBag: { x: 60, y: 400, w: 960, h: 210 }, bag: { x: 450, y: 190, w: 180, h: 200 }, side: { x: 140, y: 575, w: 800, h: 280 }, sideBag: { x: 140, y: 630, w: 800, h: 230 } },
+    line: { x: 330, y: 240, step: 120 },
   },
   landscape: {
     title: 46, titleSize: 80, text: 38, stamp: 40, quote: 190, quoteSize: 96,
@@ -65,6 +79,8 @@ const GEO: Record<VideoSize, Geo> = {
     flow: { face: { x: 220, y: 260, w: 380, h: 380 }, arrow: { x: 660, y: 400, w: 200, h: 100 }, icon: { x: 920, y: 280, w: 360, h: 330 }, note: { x: 1340, y: 300, w: 480, h: 380 } },
     fact: { x: 460, y: 390, w: 1000, h: 420 }, bars: { x: 360, y: 330, w: 1200, h: 380 }, family: { x: 140, y: 290, w: 980, h: 420 },
     gift: { x: 300, y: 260, w: 440, h: 440 }, mythFace: { x: 790, y: 470, w: 340, h: 340 },
+    kin: { row: { x: 100, y: 290, w: 1020, h: 430 }, rowBag: { x: 100, y: 520, w: 1020, h: 300 }, bag: { x: 480, y: 220, w: 260, h: 280 }, side: { x: 1180, y: 320, w: 640, h: 440 }, sideBag: { x: 1180, y: 320, w: 640, h: 440 } },
+    line: { x: 760, y: 240, step: 125 },
   },
 };
 
@@ -91,6 +107,24 @@ function kspec(show: KnowShow): Record<string, Anim> {
       return s;
     case "family": return { title: a(0.2, "up"), people: a(0.5, "pop"), note: a(1.3, "pop") };
     case "gift": return { title: a(0.2, "up"), gift: a(0.5, "pop"), note: a(1.2, "pop") };
+    case "kin": {
+      s.title = a(0.2, "up");
+      s.people = a(0.5, "pop");
+      let at = 1.0;
+      if (show.bag) { s.bag = a(at, "pop"); at += 0.4; }
+      (show.tags?.items ?? []).forEach((_, i) => { s[`tag${i}`] = a(at + i * 0.35, "pop"); });
+      at += (show.tags?.items.length ?? 0) * 0.35;
+      if (show.note) s.note = a(at + 0.2, "pop");
+      if (show.marks) s.marks = a(1.1, "pop");
+      if (show.people.some((p) => p.state === "gone")) s.gone = a(1.2, "stroke", 1.4);
+      return s;
+    }
+    case "timeline":
+      s.title = a(0.2, "up");
+      s.line = a(0.5, "stroke", 0.4 + show.rows.length * 0.35);
+      show.rows.forEach((_, i) => { s[`row${i}`] = a(0.6 + i * 0.35, "left"); });
+      return s;
+    case "card": return { title: a(0.2, "up"), card: a(0.6, "pop") };
   }
 }
 
@@ -239,8 +273,8 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
         </>
       );
     case "list": {
-      const markWord = { check: "✓", cross: "✗", box: "☐" }[show.mark];
-      const markColor = show.mark === "check" ? GREEN : show.mark === "cross" ? C.red : C.ink;
+      const markWord = { check: "✓", cross: "✗", box: "☐", warn: "!" }[show.mark];
+      const markColor = show.mark === "check" ? GREEN : show.mark === "cross" || show.mark === "warn" ? C.red : C.ink;
       const cl = look(s.card, t);
       return (
         <>
@@ -328,7 +362,108 @@ function Scene({ c, t, show }: { c: StoryContext; t: number; show: KnowShow }) {
         </>
       );
     }
+    case "kin": {
+      const k = g.kin;
+      const row = show.bag ? k.rowBag : k.row;
+      const side = show.bag ? k.sideBag : k.side;
+      const pl = look(s.people, t);
+      const gone = look(s.gone, t).p;
+      const bl = look(s.bag, t);
+      const ml = look(s.marks, t);
+      const sizes = kinSizes(show.people, row);
+      // portrait and square have the stickers and note under the row; landscape beside it
+      const under = c.size !== "landscape";
+      const mark = (x: number, y: number, size: number, rot: number) => (
+        <div style={abs({ left: x, top: y, fontFamily: HAND, fontWeight: 700, fontSize: size, color: C.red, opacity: ml.opacity, transform: `rotate(${rot}deg)${ml.transform ? ` ${ml.transform}` : ""}` })}>?</div>
+      );
+      return (
+        <>
+          <Title g={g} w={w} an={s.title} t={t} text={show.title} />
+          {show.bag ? (
+            <div style={abs({ left: k.bag.x, top: k.bag.y, width: k.bag.w, height: k.bag.h, opacity: bl.opacity, ...(bl.transform ? { transform: bl.transform } : {}) })}>
+              {BAG({ x: 0, y: 0, w: k.bag.w, h: k.bag.h })}
+              <div style={abs({ left: 0, width: k.bag.w, top: Math.round(k.bag.h * 0.42), justifyContent: "center", fontSize: Math.round(k.bag.h * 0.32), fontWeight: 600, color: C.ink })}>฿</div>
+            </div>
+          ) : null}
+          <div style={abs({ left: row.x, top: row.y, width: row.w, height: row.h, justifyContent: "center", alignItems: "flex-end", opacity: pl.opacity, ...(pl.transform ? { transform: pl.transform } : {}) })}>
+            {show.people.map((p, i) => <Person key={`${p.id}${i}`} c={c} p={p} size={sizes[i]} gap={i ? KIN_GAP : 0} gone={gone} />)}
+          </div>
+          {show.marks ? mark(row.x + Math.round(row.w * 0.78), row.y + Math.round(row.h * 0.05), Math.round(row.h * 0.4), 14) : null}
+          {show.marks ? mark(row.x + Math.round(row.w * 0.12), row.y + Math.round(row.h * 0.2), Math.round(row.h * 0.28), -12) : null}
+          {show.tags ? (
+            <div style={abs({ left: side.x, top: side.y, width: side.w, flexWrap: "wrap", justifyContent: "center", ...(under ? {} : { flexDirection: "column", alignItems: "center" }) })}>
+              {show.tags.items.map((tag, i) => {
+                const tl = look(s[`tag${i}`], t);
+                const color = show.tags!.red ? C.red : C.ink;
+                return (
+                  <div key={i} style={box({ margin: Math.round(g.text * 0.3), background: C.note, border: `4px solid ${color}`, borderRadius: 14, padding: `${Math.round(g.text * 0.2)}px ${Math.round(g.text * 0.55)}px`, fontFamily: HAND, fontWeight: 600, fontSize: Math.round(g.text * 1.15), color, opacity: tl.opacity, transform: `rotate(${i % 2 ? 2 : -2}deg)${tl.transform ? ` ${tl.transform}` : ""}` })}>{tag}</div>
+                );
+              })}
+            </div>
+          ) : null}
+          {show.note ? <Note g={g} r={side} an={s.note} t={t} lines={show.note} /> : null}
+        </>
+      );
+    }
+    case "timeline": {
+      const L = g.line;
+      const p = look(s.line, t).p;
+      const last = show.rows.length - 1;
+      const len = last * L.step;
+      const ageSize = Math.round(g.text * 1.8);
+      const dot = Math.round(g.text * 0.7);
+      return (
+        <>
+          <Title g={g} w={w} an={s.title} t={t} text={show.title} />
+          <div style={abs({ left: L.x - 4, top: L.y + Math.round(ageSize * 0.6), width: 8, height: Math.max(0, Math.round(len * p)), background: C.ink, borderRadius: 4 })} />
+          {show.rows.map((r, i) => (
+            <El key={i} an={s[`row${i}`]} t={t} style={{ position: "absolute", left: L.x - Math.round(dot / 2), top: L.y + i * L.step, alignItems: "center", fontFamily: HAND, color: i === last ? GREEN : C.ink }}>
+              <div style={box({ width: dot, height: dot, borderRadius: dot, background: C.coin, border: `4px solid ${C.ink}`, flexShrink: 0 })} />
+              <div style={box({ marginLeft: Math.round(g.text * 0.7), width: Math.round(ageSize * 1.5), fontSize: ageSize, fontWeight: 700 })}>{String(r.age)}</div>
+              <div style={box({ fontSize: Math.round(g.text * 1.25), fontWeight: 600 })}>{r.label}</div>
+            </El>
+          ))}
+        </>
+      );
+    }
+    case "card":
+      return (
+        <>
+          <Title g={g} w={w} an={s.title} t={t} text={show.title} />
+          <Note g={g} r={{ ...g.card, y: g.card.y + Math.round(g.card.h * 0.1) }} an={s.card} t={t} lines={show.lines} tilt={0.8} scale={1.2} />
+        </>
+      );
   }
+}
+
+const KIN_GAP = 10;
+/** how much of an adult's width each of the family takes */
+const KIN_WEIGHT: Record<Kin["size"], number> = { hero: 1.25, adult: 1, old: 1, kid: 0.72 };
+
+/** each person's size in the row: as large as the row's width and height allow */
+function kinSizes(people: Kin[], row: Rect): number[] {
+  const weights = people.map((p) => KIN_WEIGHT[p.size]);
+  const unit = Math.min((row.w - KIN_GAP * (people.length - 1)) / weights.reduce((x, y) => x + y, 0), row.h / Math.max(...weights));
+  return weights.map((x) => Math.floor(unit * x));
+}
+
+/** one of the family: in colour, or grey ("sick"), or a grey dashed outline ("dash"; "gone" fades into one as the scene plays) */
+function Person({ c, p, size, gap, gone }: { c: StoryContext; p: Kin; size: number; gap: number; gone: number }) {
+  const fade = p.state === "gone" ? gone : p.state === "dash" ? 1 : 0;
+  const colour = p.state === "sick" ? 0 : 1 - fade;
+  const grey = p.state === "sick" ? 1 : 0.38 * fade;
+  const r = { x: 0, y: 0, w: size, h: size };
+  return (
+    <div style={box({ position: "relative", width: size, height: size, marginLeft: gap, flexShrink: 0 })}>
+      {grey > 0 ? <Img src={c.faces[`${p.id}-g`]} r={r} opacity={grey} /> : null}
+      {colour > 0 ? <Img src={c.faces[p.id]} r={r} opacity={colour} /> : null}
+      {fade > 0 ? (
+        <div style={abs({ left: 0, top: 0, width: size, height: size, opacity: fade })}>
+          <svg width={size} height={size} viewBox="0 0 100 100"><circle cx={50} cy={50} r={46} fill="none" stroke={C.ink} strokeWidth={2.4} strokeDasharray="7 6" /></svg>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /** One knowledge scene's frame body at scene time t (story-frames.ts adds the subtitle and footer). */
@@ -337,7 +472,8 @@ export function knowBody(key: KnowSceneKey | "storyContact", c: StoryContext, t:
   return <Scene c={c} t={t} show={sceneOf(episode, key)} />;
 }
 
-/** the faces an episode draws: the hero, the narrator, and the family scene's */
+/** the faces an episode draws: the hero, the narrator, and the family scene's or the family episode's */
 export function knowFaces(input: StoryVideoInput): string[] {
-  return [input.faces.hero, input.faces.narrator, partnerFace(input), ...CHILDREN];
+  const family = topicOf(input.topic)?.shelf === "family" ? familyFaces(input) : [partnerFace(input), ...CHILDREN];
+  return [input.faces.hero, input.faces.narrator, ...family];
 }
