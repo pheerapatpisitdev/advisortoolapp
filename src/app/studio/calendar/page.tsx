@@ -18,6 +18,7 @@ import { gatePage, placedBy } from "@/lib/auth/viewer";
 import { seesEveryPage } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { PlanCalendar } from "./PlanCalendar";
+import { PagePicker } from "./PagePicker";
 
 export const dynamic = "force-dynamic";
 /** the board's own actions (a drop posts through Facebook) run from this page, as /studio's do */
@@ -105,8 +106,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     // through forClient, as every piece the browser is handed: a clip's job keeps its round on the row
     listPublished(from, to).then((l) => l.map(forClient)).catch(() => []),
   ]);
-  // one Page, never all of them together and no switch between them (owner, 2026-09-28): the
-  // one its card on /studio asked for, else the first
+  // one Page, never all of them together (owner, 2026-09-28): the one its card on /studio or the
+  // switch by the title asked for, else the first
   const pageFilter = setup.pages.find((p) => p.pageId === params.page)?.pageId ?? setup.pages[0]?.pageId ?? "";
   // the rail is this Page's project (2026-09-30): what waits for another Page is not offered here
   const waiting = await listWaiting(pageFilter || undefined).then((l) => l.map(forClient)).catch(() => []);
@@ -145,8 +146,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   // the menu, the palette and the tabs come from ../layout.tsx
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">
-        ปฏิทินโพสต์{pageFilter && <span className="font-normal text-[var(--ct-mute)]"> · {pageName(pageFilter)}</span>}
+      <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold">
+        ปฏิทินโพสต์
+        {setup.pages.length > 1 ? (
+          <PagePicker
+            pages={setup.pages.map((p) => ({ pageId: p.pageId, pageName: p.pageName }))}
+            current={pageFilter}
+            hrefs={Object.fromEntries(setup.pages.map((p) => [p.pageId, query({ page: p.pageId })]))}
+          />
+        ) : pageFilter && <span className="font-normal text-[var(--ct-mute)]">· {pageName(pageFilter)}</span>}
       </h1>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
