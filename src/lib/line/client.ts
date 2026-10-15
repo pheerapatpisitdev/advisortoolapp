@@ -213,3 +213,108 @@ export async function listRichMenus(): Promise<{ richMenuId: string; name: strin
 export async function deleteRichMenu(richMenuId: string): Promise<void> {
   await menuOk(await menuCall("DELETE", `${API}/richmenu/${richMenuId}`), "delete menu");
 }
+
+/* ── the back office (/admin/line) ───────────────────────────────────────────────────────
+ * Reading the account and broadcasting to it. A broadcast is a push to every friend at once:
+ * each friend it reaches is one of the month's 300. */
+
+/** The month's allowance of pushed messages and how much of it is spent; null when unread. */
+export async function quota(): Promise<{ limit: number | null; used: number } | null> {
+  try {
+    const [q, c] = await Promise.all([
+      menuOk(await menuCall("GET", `${API}/message/quota`), "read quota"),
+      menuOk(await menuCall("GET", `${API}/message/quota/consumption`), "read consumption"),
+    ]);
+    const limit = (await q.json()) as { type: string; value?: number };
+    const used = (await c.json()) as { totalUsage: number };
+    return { limit: limit.type === "limited" ? limit.value ?? null : null, used: used.totalUsage };
+  } catch (e) {
+    console.error("[line] quota not read:", e);
+    return null;
+  }
+}
+
+export interface Friends {
+  followers: number;
+  /** the friends a broadcast reaches: those who have not blocked the account */
+  reach: number;
+  blocks: number;
+  /** the day LINE counted them, yyyy-mm-dd: yesterday, in Japan's time, is the latest it has */
+  date: string;
+}
+
+/** Yesterday as LINE counts days (UTC+9), as yyyyMMdd. */
+function lineYesterday(now = Date.now()): string {
+  return new Date(now + 9 * 3_600_000 - 86_400_000).toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+/** How many friends the account has, as of yesterday; null while LINE is still counting. */
+export async function friends(): Promise<Friends | null> {
+  for (const back of [0, 1]) {
+    const day = lineYesterday(Date.now() - back * 86_400_000);
+    try {
+      const res = await menuOk(await menuCall("GET", `${API}/insight/followers?date=${day}`), "read friends");
+      const d = (await res.json()) as { status: string; followers?: number; targetedReaches?: number; blocks?: number };
+      if (d.status !== "ready") continue;
+      return {
+        followers: d.followers ?? 0,
+        reach: d.targetedReaches ?? 0,
+        blocks: d.blocks ?? 0,
+        date: `${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6)}`,
+      };
+    } catch (e) {
+      console.error("[line] friends not read:", e);
+      return null;
+    }
+  }
+  return null;
+}
+
+/** LINE sends the webhook a test call and says what it got back. */
+export async function testWebhook(): Promise<{ ok: boolean; detail: string; endpoint: string | null }> {
+  try {
+    const [test, info] = await Promise.all([
+      menuCall("POST", `${API}/channel/webhook/test`, {}),
+      menuCall("GET", `${API}/channel/webhook/endpoint`),
+    ]);
+    const t = (await test.json()) as { success?: boolean; statusCode?: number; reason?: string; message?: string };
+    const i = info.ok ? ((await info.json()) as { endpoint: string; active: boolean }) : null;
+    return {
+      ok: t.success === true && (i?.active ?? false),
+      detail: t.success ? `${t.statusCode} ${t.reason ?? ""}`.trim() : (t.reason ?? t.message ?? `LINE ${test.status}`),
+      endpoint: i?.active ? i.endpoint : null,
+    };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e), endpoint: null };
+  }
+}
+
+/**
+ * Sends the messages to every friend. The retry key makes LINE take one request per key, so a
+ * broadcast sent twice by mistake reaches nobody twice: LINE answers the second with 409.
+ * Returns LINE's id for the request, which its insight is read by.
+ */
+export async function broadcast(messages: LineMessage[], retryKey: string): Promise<{ requestId: string | null; duplicate: boolean }> {
+  const res = await fetch(`${API}/message/broadcast`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token()}`, "x-line-retry-key": retryKey },
+    body: JSON.stringify({ messages }),
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+  });
+  const requestId = res.headers.get("x-line-request-id") ?? res.headers.get("x-line-accepted-request-id");
+  if (res.status === 409) return { requestId, duplicate: true };
+  if (!res.ok) throw new Error(`LINE ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  return { requestId, duplicate: false };
+}
+
+/** How many saw a broadcast; null when LINE will not say (fewer than 20 reached) or has not yet. */
+export async function broadcastSeen(requestId: string): Promise<number | null> {
+  try {
+    const res = await menuCall("GET", `${API}/insight/message/event?requestId=${encodeURIComponent(requestId)}`);
+    if (!res.ok) return null;
+    const d = (await res.json()) as { overview?: { uniqueImpression?: number | null } };
+    return d.overview?.uniqueImpression ?? null;
+  } catch {
+    return null;
+  }
+}

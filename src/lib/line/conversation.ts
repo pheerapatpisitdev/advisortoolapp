@@ -3,6 +3,7 @@ import { hashUserId } from "@/lib/line/verify";
 import { claimEvent, loadSession, saveTurn } from "@/lib/chat/session";
 import { push, reply, showLoading, toBatches, toMessages, MAX_MESSAGES, type LineMessage, type Said } from "@/lib/line/client";
 import { showQuotedMenu } from "@/lib/line/menu-link";
+import { lineBotEnabled } from "@/lib/line/settings";
 import { wantsQuotedMenu } from "@/lib/line/rich-menu";
 import { answerAny } from "@/lib/assistant/dispatch";
 import { countLessonHit, loadLessons } from "@/lib/chat/lessons-store";
@@ -144,6 +145,11 @@ export async function handle(event: LineEvent, destination = "", opts: { started
    * still counted.
    */
   if (session.handedOverAt) {
+    await record(conversationId, ledger, productOf(session.slots));
+    return;
+  }
+  // the switch on /admin/line: a person is answering in LINE OA Manager
+  if (!(await lineBotEnabled())) {
     await record(conversationId, ledger, productOf(session.slots));
     return;
   }
