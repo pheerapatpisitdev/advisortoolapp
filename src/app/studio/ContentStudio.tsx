@@ -369,7 +369,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const [logoSpot, setLogoSpot] = useLogoSpot();
   /** handed to the รีวิวเคลม and หาทีม forms, which carry the same logo */
   const logo = { page: project?.pageId, spot: logoSpot, onSpot: setLogoSpot };
-  const [count, setCount] = useState(3);
+  const [count, setCount] = useState(1);
   const [adAngles, setAdAngles] = useState(2);
   const [adTones, setAdTones] = useState(2);
   const [hookId, setHookId] = useState(initialHook ?? "");
