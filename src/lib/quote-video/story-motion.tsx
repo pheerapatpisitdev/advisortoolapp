@@ -1,15 +1,18 @@
-import { STORY_CLIP_COLORS } from "@/lib/card-theme";
+import { CARD_PALETTE as P, QUOTE_VIDEO_COLORS, STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { CROWD_HERO, FACE_PAPER } from "@/lib/story/faces";
+import { topicOf } from "@/lib/story/topics";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { heroName, planName, storyEvent, termShort, type StorySceneKey, type StoryVideoInput } from "./story";
+import { AFTER_CLOSE, type AfterTopic } from "./story-after";
 import type { KnowSceneKey } from "./story-knowledge";
 import { LEAD, SIZES, type VideoSize } from "./timeline";
+import { VIDEO_WORDS } from "./video-words";
 
 /**
  * คลิปเล่าเรื่อง's six scenes (story.ts), drawn on paper with the owner's cartoon faces, as the
  * owner approved them in the mockup (2026-10-15): the crowd of 48 popping in, a coin on every
  * face and the jar filling, the one it happens to ringed in red, the jar paying out, everyone
- * coloured in, and the agent's own cartoon with their contact.
+ * coloured in, and the agent's card.
  *
  * Each frame is transparent over the paper (storyBackground), drawn at scene time t; the
  * Motion Graphic world's helpers (motion.tsx) time the movements. Titles are in a handwriting
@@ -20,7 +23,6 @@ const C = STORY_CLIP_COLORS;
 const INK = C.ink;
 const RED = C.red;
 const COIN = C.coin;
-const NAVY = C.navy;
 const NOTE = C.note;
 const HAND = "Mali";
 
@@ -33,7 +35,8 @@ interface Geo {
   crowd: Rect;
   pool: { crowd: Rect; jar: Rect };
   help: { jar: Rect; arrow: Rect; hero: Rect; name: Rect; note: Rect };
-  contact: { face: Rect; text: Rect; center: boolean };
+  /** the agent's card, as วิดีโอนำเสนอ draws it (draw.tsx and classic-wide.tsx ContactScene) */
+  contact: { side: number; top: number; face: number; px: (portrait: number, square: number, landscape: number) => number };
   sub: number;
 }
 
@@ -44,7 +47,7 @@ const GEO: Record<VideoSize, Geo> = {
     crowd: { x: 110, y: 380, w: 860, h: 1140 },
     pool: { crowd: { x: 170, y: 360, w: 740, h: 880 }, jar: { x: 390, y: 1270, w: 300, h: 330 } },
     help: { jar: { x: 80, y: 560, w: 340, h: 380 }, arrow: { x: 430, y: 690, w: 190, h: 95 }, hero: { x: 630, y: 520, w: 380, h: 380 }, name: { x: 600, y: 920, w: 440, h: 80 }, note: { x: 140, y: 1100, w: 800, h: 330 } },
-    contact: { face: { x: 330, y: 200, w: 420, h: 420 }, text: { x: 80, y: 660, w: 920, h: 900 }, center: true },
+    contact: { side: 70, top: 220, face: 220, px: (v) => v },
     sub: 96,
   },
   square: {
@@ -52,7 +55,7 @@ const GEO: Record<VideoSize, Geo> = {
     crowd: { x: 130, y: 225, w: 820, h: 560 },
     pool: { crowd: { x: 70, y: 230, w: 620, h: 520 }, jar: { x: 730, y: 330, w: 280, h: 310 } },
     help: { jar: { x: 90, y: 250, w: 250, h: 280 }, arrow: { x: 350, y: 350, w: 150, h: 80 }, hero: { x: 540, y: 215, w: 280, h: 280 }, name: { x: 490, y: 500, w: 380, h: 64 }, note: { x: 230, y: 590, w: 620, h: 170 } },
-    contact: { face: { x: 90, y: 170, w: 330, h: 330 }, text: { x: 460, y: 150, w: 560, h: 700 }, center: false },
+    contact: { side: 56, top: 90, face: 170, px: (_, v) => v },
     sub: 60,
   },
   landscape: {
@@ -60,7 +63,7 @@ const GEO: Record<VideoSize, Geo> = {
     crowd: { x: 220, y: 230, w: 1480, h: 500 },
     pool: { crowd: { x: 110, y: 230, w: 1200, h: 470 }, jar: { x: 1420, y: 250, w: 360, h: 400 } },
     help: { jar: { x: 200, y: 260, w: 340, h: 380 }, arrow: { x: 580, y: 400, w: 200, h: 100 }, hero: { x: 830, y: 220, w: 400, h: 400 }, name: { x: 810, y: 630, w: 440, h: 80 }, note: { x: 1320, y: 300, w: 520, h: 300 } },
-    contact: { face: { x: 240, y: 200, w: 460, h: 460 }, text: { x: 780, y: 180, w: 1020, h: 640 }, center: false },
+    contact: { side: 90, top: 130, face: 220, px: (_, __, v) => v },
     sub: 60,
   },
 };
@@ -91,9 +94,12 @@ export function storySpec(key: PoolSceneKey, input: StoryVideoInput, size: Video
       for (let r = 0; r < rows; r++) s[`row${r}`] = a(0.5 + r * 0.22, input.palette === "color" ? "pop" : "fade", 0.7);
       return s;
     case "storyContact":
-      return { face: a(0.2, "pop"), name: a(0.6, "up"), cta: a(1.1, "up"), legal: a(1.6, "fade") };
+      return contactSpec();
   }
 }
+
+/** the agent's card, every story's last scene: its heading, the card, and the small print */
+export const contactSpec = (): Record<string, Anim> => ({ head: a(0.2, "up"), card: a(0.7, "up"), legal: a(1.4, "fade") });
 
 export const storyWindows = (key: PoolSceneKey, input: StoryVideoInput, size: VideoSize): [number, number][] =>
   Object.values(storySpec(key, input, size)).map((x) => [x.at, x.at + x.dur]);
@@ -104,7 +110,7 @@ export interface StoryContext {
   /** the hero's name as told, "" for a clip without one */
   customer: string;
   narrator: "F" | "M";
-  contact: { name: string; phone: string; line?: string; more?: string };
+  contact: { name: string; phone: string; line?: string; more?: string; photo?: string };
   /** the 48, the hero at CROWD_HERO (lib/story/faces.ts crowdOf) */
   crowd: string[];
   /** face id → data URI; `${id}-g` the grey one (story-faces.ts) */
@@ -313,37 +319,65 @@ function All({ c, t }: { c: StoryContext; t: number }) {
   );
 }
 
-/** the agent's card, every story's last scene; `cta`: what its button says, when not กองกลาง's */
-export function Contact({ c, t, cta }: { c: StoryContext; t: number; cta?: string }) {
-  const s = storySpec("storyContact", c.input, c.size);
+/**
+ * the agent's card, every story's last scene (owner, 2026-10-16, choice ข, mockup
+ * https://claude.ai/artifact/Ba6GTBtTTzGwqsFmqysnd2): วิดีโอนำเสนอ's closing card, the agent's
+ * photo or their initial, laid on the story's paper, with the story's own small print under it.
+ * An after-sale clip (หลังการขาย) does not offer to look at a plan: its big line is the story's
+ * own close, "ด้วยความห่วงใย" and the like, and with no customer named it has no heading over it
+ * (owner, 2026-10-16).
+ */
+export function Contact({ c, t }: { c: StoryContext; t: number }) {
+  const s = contactSpec();
+  const { w, h } = SIZES[c.size];
   const g = GEO[c.size].contact;
   const k = c.contact;
-  const f = look(s.face, t);
-  const more = k.more ? k.more.split("\n").filter(Boolean).slice(0, 3) : [];
-  const scale = c.size === "portrait" ? 1 : 0.8;
-  const px = (v: number) => Math.round(v * scale);
-  const name = heroName(c.customer);
-  return (
-    <>
-      <div style={{ display: "flex", position: "absolute", left: g.face.x, top: g.face.y, width: g.face.w, height: g.face.h, opacity: f.opacity, ...(f.transform ? { transform: f.transform } : {}) }}>
-        <Img src={c.faces[c.input.faces.narrator]} r={{ x: 0, y: 0, w: g.face.w, h: g.face.h }} />
+  const vw = VIDEO_WORDS.th;
+  const after = topicOf(c.input.topic)?.shelf === "after";
+  const lines = after ? [AFTER_CLOSE[c.input.topic as AfterTopic].cta] : vw.contactLines(c.narrator);
+  // "สนใจรายละเอียดเพิ่มเติม" is a sales line: an after-sale clip with no customer goes without one
+  const kicker = c.customer ? vw.contactFor(c.customer) : after ? "" : vw.contactMore;
+  const initial = [...k.name.trim()][0] ?? "?";
+  const more = k.more ? k.more.split("\n").filter(Boolean) : [];
+  const portrait = c.size === "portrait";
+  const wide = c.size === "landscape";
+  const big = g.px(88, 62, 84);
+  const head = (
+    <El an={s.head} t={t} style={{ flexDirection: "column", ...(wide ? { width: 820, flexShrink: 0 } : {}) }}>
+      {kicker ? <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: P.accent })}>{kicker}</div> : null}
+      <div style={box({ flexDirection: "column", fontSize: big, fontWeight: 600, color: P.figure, lineHeight: vw.lineHeight, marginTop: kicker ? (portrait ? 40 : 12) : 0 })}>
+        {lines.map((l, i) => <div key={i} style={box({})}>{l}</div>)}
       </div>
-      <div style={abs({ left: g.text.x, top: g.text.y, width: g.text.w, flexDirection: "column", alignItems: g.center ? "center" : "flex-start", color: INK })}>
-        <El an={s.name} t={t} style={{ flexDirection: "column", alignItems: g.center ? "center" : "flex-start" }}>
-          <div style={box({ fontFamily: HAND, fontWeight: 600, fontSize: px(84) })}>{k.name}</div>
-          <div style={box({ fontSize: px(44), marginTop: 8 })}>{`โทร ${k.phone}`}</div>
-          {k.line ? <div style={box({ fontSize: px(44) })}>{`LINE ${k.line}`}</div> : null}
-          {more.map((m, i) => <div key={i} style={box({ fontSize: px(36), marginTop: i ? 0 : 6, opacity: 0.85 })}>{m}</div>)}
+    </El>
+  );
+  return (
+    <div style={abs({ left: g.side, width: w - g.side * 2, top: g.top, height: h - g.top - GEO[c.size].sub - 140, flexDirection: wide ? "row" : "column", alignItems: wide ? "center" : "flex-start" })}>
+      {head}
+      <div style={box({ flexDirection: "column", ...(wide ? { flex: 1 } : { width: w - g.side * 2 }), marginLeft: wide ? 40 : 0, marginTop: g.px(120, 36, 0) })}>
+        <El an={s.card} t={t} style={{ background: C.white, border: `3px solid ${P.hair}`, borderRadius: g.px(44, 36, 36), padding: g.px(44, 30, 40), alignItems: "center" }}>
+          {k.photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={k.photo} width={g.face} height={g.face} style={{ borderRadius: g.face / 2, objectFit: "cover" }} alt="" />
+          ) : (
+            <div style={box({ width: g.face, height: g.face, borderRadius: g.face / 2, background: QUOTE_VIDEO_COLORS.noPhoto, alignItems: "center", justifyContent: "center", fontSize: g.px(110, 84, 110), fontWeight: 600, color: P.figure })}>{initial}</div>
+          )}
+          <div style={box({ flexDirection: "column", marginLeft: g.px(44, 34, 34), flexShrink: 1 })}>
+            <div style={box({ fontSize: g.px(58, 44, 56), fontWeight: 600, color: P.ink })}>{k.name}</div>
+            <div style={box({ fontSize: g.px(46, 34, 44), color: P.mute, marginTop: g.px(10, 6, 6) })}>{`${vw.phone} ${k.phone}`}</div>
+            {k.line ? <div style={box({ fontSize: g.px(46, 34, 44), color: P.mute })}>{`LINE ${k.line}`}</div> : null}
+          </div>
         </El>
-        <El an={s.cta} t={t} style={{ width: g.text.w, justifyContent: "center", marginTop: px(40), background: NAVY, color: C.white, borderRadius: 28, padding: `${px(28)}px ${px(40)}px`, fontSize: px(46), fontWeight: 600, textAlign: "center" }}>
-          {cta ?? `อยากรู้ว่า${name || "คุณ"}ต้องหยอดเท่าไร ทักมาได้เลย`}
-        </El>
-        <El an={s.legal} t={t} style={{ width: g.text.w, justifyContent: g.center ? "center" : "flex-start", marginTop: px(36), fontSize: px(28), opacity: 0.75, textAlign: g.center ? "center" : "left" }}>
+        {more.length > 0 && (
+          <El an={s.card} t={t} style={{ flexDirection: "column", fontSize: g.px(44, 34, 44), color: P.ink, lineHeight: 1.45, marginTop: g.px(30, 30, 30) }}>
+            {more.map((m, i) => <div key={i} style={box({})}>{m}</div>)}
+          </El>
+        )}
+        <El an={s.legal} t={t} style={{ flexWrap: "wrap", fontSize: g.px(32, 22, 26), color: P.mute, marginTop: g.px(24, 18, 18) }}>
           {/* the drawing breaks Thai only at a space: one where the line may wrap */}
           ผู้ซื้อควรทำความเข้าใจรายละเอียดความคุ้มครอง และเงื่อนไขก่อนตัดสินใจทำประกันภัยทุกครั้ง
         </El>
       </div>
-    </>
+    </div>
   );
 }
 
