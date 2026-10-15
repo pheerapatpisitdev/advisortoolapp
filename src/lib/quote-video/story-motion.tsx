@@ -1,7 +1,9 @@
 import { CARD_PALETTE as P, QUOTE_VIDEO_COLORS, STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { CROWD_HERO, FACE_PAPER } from "@/lib/story/faces";
+import { topicOf } from "@/lib/story/topics";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { heroName, planName, storyEvent, termShort, type StorySceneKey, type StoryVideoInput } from "./story";
+import { AFTER_CLOSE, type AfterTopic } from "./story-after";
 import type { KnowSceneKey } from "./story-knowledge";
 import { LEAD, SIZES, type VideoSize } from "./timeline";
 import { VIDEO_WORDS } from "./video-words";
@@ -320,7 +322,10 @@ function All({ c, t }: { c: StoryContext; t: number }) {
 /**
  * the agent's card, every story's last scene (owner, 2026-10-16, choice ข, mockup
  * https://claude.ai/artifact/Ba6GTBtTTzGwqsFmqysnd2): วิดีโอนำเสนอ's closing card, the agent's
- * photo or their initial, laid on the story's paper, with the story's own small print under it
+ * photo or their initial, laid on the story's paper, with the story's own small print under it.
+ * An after-sale clip (หลังการขาย) does not offer to look at a plan: its big line is the story's
+ * own close, "ด้วยความห่วงใย" and the like, and with no customer named it has no heading over it
+ * (owner, 2026-10-16).
  */
 export function Contact({ c, t }: { c: StoryContext; t: number }) {
   const s = contactSpec();
@@ -328,7 +333,10 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
   const g = GEO[c.size].contact;
   const k = c.contact;
   const vw = VIDEO_WORDS.th;
-  const [said, help] = vw.contactLines(c.narrator);
+  const after = topicOf(c.input.topic)?.shelf === "after";
+  const lines = after ? [AFTER_CLOSE[c.input.topic as AfterTopic].cta] : vw.contactLines(c.narrator);
+  // "สนใจรายละเอียดเพิ่มเติม" is a sales line: an after-sale clip with no customer goes without one
+  const kicker = c.customer ? vw.contactFor(c.customer) : after ? "" : vw.contactMore;
   const initial = [...k.name.trim()][0] ?? "?";
   const more = k.more ? k.more.split("\n").filter(Boolean) : [];
   const portrait = c.size === "portrait";
@@ -336,10 +344,9 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
   const big = g.px(88, 62, 84);
   const head = (
     <El an={s.head} t={t} style={{ flexDirection: "column", ...(wide ? { width: 820, flexShrink: 0 } : {}) }}>
-      <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: P.accent })}>{c.customer ? vw.contactFor(c.customer) : vw.contactMore}</div>
-      <div style={box({ flexDirection: "column", fontSize: big, fontWeight: 600, color: P.figure, lineHeight: vw.lineHeight, marginTop: portrait ? 40 : 12 })}>
-        <div style={box({})}>{said}</div>
-        <div style={box({})}>{help}</div>
+      {kicker ? <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: P.accent })}>{kicker}</div> : null}
+      <div style={box({ flexDirection: "column", fontSize: big, fontWeight: 600, color: P.figure, lineHeight: vw.lineHeight, marginTop: kicker ? (portrait ? 40 : 12) : 0 })}>
+        {lines.map((l, i) => <div key={i} style={box({})}>{l}</div>)}
       </div>
     </El>
   );
