@@ -4,9 +4,7 @@ import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
-import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS, type ElevenChoice } from "@/lib/voice/elevenlabs";
-import { myVoiceChoice } from "@/lib/voice/mine";
-import { providerKey } from "@/lib/ai/client";
+import { elevenVoice, type ElevenChoice } from "@/lib/voice/elevenlabs";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -14,10 +12,11 @@ import { iHealthyCard } from "@/lib/ihealthy-card";
 import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
+import { ADMIN_VOICE, voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
-import { bangkokClock, VOICE_FULL, voiceFullNotice } from "@/lib/quote-video/voice-quota";
+import { bangkokClock, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
@@ -105,14 +104,6 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
  * (เสียงของฉัน, owner 2026-10-15) — never another agent's: an id is the agent's only when their
  * approved voice has it.
  */
-async function voiceAsked(agentId: string, id: unknown): Promise<ElevenChoice | undefined> {
-  if (typeof id !== "string" || !id) return undefined;
-  const listed = elevenVoice(id);
-  if (listed) return listed;
-  const mine = await myVoiceChoice(agentId);
-  return mine && mine.id === id ? mine : undefined;
-}
-
 /** how a clip's voice reads in the list of clips */
 const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียงของฉัน");
 
@@ -238,23 +229,6 @@ export async function voiceQuota(): Promise<VoiceQuota | null> {
   return until ? { until: until.toISOString(), clock: bangkokClock(until) } : null;
 }
 
-/** a Gemini-voiced clip is not started while the voice is used up: it would only fail */
-async function voiceRefusal(voice: string | undefined): Promise<string | null> {
-  if (voice) {
-    // ElevenLabs' month runs low: say so before anything is held or spent (owner, 2026-10-13)
-    const key = await providerKey(ELEVENLABS).catch(() => null);
-    if (!key) return "เสียง ElevenLabs ใช้ไม่ได้ตอนนี้ เลือกเสียง Gemini แทน";
-    const left = await elevenCreditsLeft(key).catch((e) => {
-      console.error("eleven credits not read:", e instanceof Error ? e.message : "unknown error");
-      return Infinity;
-    });
-    return left < ELEVEN_RESERVE ? "เสียง ElevenLabs ของเดือนนี้ใกล้หมดแล้ว เลือกเสียง Gemini แทน" : null;
-  }
-  const q = await voiceQuota();
-  return q ? voiceFullNotice(q.clock) : null;
-}
-
-const ADMIN_VOICE = "เสียงนี้ใช้ได้เฉพาะแอดมิน เลือกเสียงอื่นแทน";
 
 /** an FHC summary is one customer's money: it never goes to a Page (owner, 2026-10-12) */
 const FHC_PRIVATE = "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ลงเพจไม่ได้";

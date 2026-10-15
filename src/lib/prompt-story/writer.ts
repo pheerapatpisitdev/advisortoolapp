@@ -14,8 +14,8 @@ import type { PromptScene } from "./types";
 
 export const WRITER_TASK = "prompt-story-script";
 const TIMEOUT_MS = 20_000;
-const TITLE_MAX = 28;
-const SCREEN_MAX = 40;
+export const TITLE_MAX = 28;
+export const SCREEN_MAX = 40;
 
 export type Written =
   | { ok: true; title: string; caption: string; scenes: PromptScene[]; notes: number[] }
