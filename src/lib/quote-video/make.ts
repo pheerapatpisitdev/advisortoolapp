@@ -29,9 +29,9 @@ import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job
 import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
-import { storyBackground, storyFrame, storyHandText, storyWindows } from "./story-motion";
+import { storyBackground } from "./story-motion";
+import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./story-frames";
 import { faceUris } from "./story-faces";
-import { crowdOf } from "@/lib/story/faces";
 import { motionBackground, motionBgHeight, motionFrame, motionWindows, MOTION_FPS } from "./motion";
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { WIDE_CHART_W, wideSceneLayer } from "./classic-wide";
@@ -402,15 +402,15 @@ async function storyParts(row: VideoRow & { input: StoryVideoInput }, agentName:
   const contact = await contactOf(row.agent_id, agentName);
   const script = storyScript(input, customer, narrator);
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
-  const crowd = crowdOf(input.faces.hero, input.faces.narrator);
-  const faces = await faceUris([...crowd, input.faces.narrator]);
-  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: storyWindows(s.key, input, size), fps: MOTION_FPS })));
+  const crowd = clipCrowd(input);
+  const faces = await faceUris(clipFaces(input));
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: clipWindows(s.key, input, size), fps: MOTION_FPS })));
   const named = nameFiles(plans, plans.map(() => undefined));
-  const hand = storyHandText(input, customer) + contact.name;
+  const hand = clipHandText(input, customer) + contact.name;
   const sceneDraws = (s: number) => {
     const p = plans[s];
     const ctx = { input, size, customer, narrator, contact, crowd, faces, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
-    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(storyFrame(p.key, ctx, fr.t ?? 0), { width: dims.w, height: dims.h }, { hand }) }));
+    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(clipFrame(p.key, ctx, fr.t ?? 0), { width: dims.w, height: dims.h }, { hand }) }));
   };
   return {
     size, script, motion: true, plans, named, build: { size: dims }, layers: { photo: false }, sceneDraws,

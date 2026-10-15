@@ -301,6 +301,9 @@ export const STORY_CLIP_COLORS = {
   jar: "#f6f2e9",
   white: "#ffffff",
   spoken: "#f2c75c",
+  /* ความรู้ประกัน 1 นาที: the fact's stamp and a promise kept, and a belief's struck-out words */
+  green: "#2f7d4f",
+  struck: "#8b8c90",
   /* the phone around the form's preview */
   bezel: "#111317",
 } as const;

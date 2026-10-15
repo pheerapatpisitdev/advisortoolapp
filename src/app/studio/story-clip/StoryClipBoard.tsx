@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
 import { STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
+import { LADDER_AGES, LADDER_PLAN, STORY_TOPICS, topicOf, type StoryTopic } from "@/lib/story/topics";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
 import { CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, FACE_PAPER, FACES, faceSrc, type FaceTag } from "@/lib/story/faces";
@@ -27,7 +28,8 @@ const card = "rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5
 const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no-underline hover:bg-[var(--ct-soft)] inline-flex items-center";
 
 /** the stories still to come, as the mockup listed them */
-const COMING = ["เสาหลักหายไป", "แม่คือเสาหลักอีกต้น", "หนี้ไม่ตายตามเจ้าของ", "ซื้อตอนหนุ่มถูกกว่า", "เกษียณแล้วเงินพอไหม", "ทุนประกัน กับ เบี้ย", "แถลงสุขภาพให้ครบ", "ลดหย่อนภาษีปลายปี", "“ยังหนุ่ม ไม่ต้องมี”"];
+const COMING = ["เสาหลักหายไป", "แม่คือเสาหลักอีกต้น", "หนี้ไม่ตายตามเจ้าของ", "ซื้อตอนหนุ่มถูกกว่า", "เกษียณแล้วเงินพอไหม", "ลดหย่อนภาษีปลายปี"];
+const SHELF_NAME = { story: "เล่าเรื่อง", knowledge: "ความรู้ประกัน 1 นาที" } as const;
 const TAG_WORD: Record<FaceTag, string> = { glasses: "ใส่แว่น", curly: "ผมหยิก", hat: "ใส่หมวก" };
 const DEFAULT_TERM: Record<StoryPlan, string> = { ISHIELD: "WLCI10", LIFEPROTECT: "WLF19H" };
 /** what each plan's figure makes of the story (story.ts storyEvent) */
@@ -99,6 +101,22 @@ function OpeningPreview({ hero, narrator, palette, size }: { hero: string; narra
   );
 }
 
+/** an episode's opening: its name and the one who wonders */
+function KnowPreview({ hero, title, size }: { hero: string; title: string; size: VideoSize }) {
+  return (
+    <div className="rounded-[26px] p-2.5" style={{ background: STORY_CLIP_COLORS.bezel }}>
+      <div className="relative flex flex-col items-center overflow-hidden rounded-[18px] px-[8%] pt-[8%]" style={{ background: FACE_PAPER, aspectRatio: size === "landscape" ? "16 / 9" : size === "square" ? "1 / 1" : "9 / 16", color: STORY_CLIP_COLORS.ink }}>
+        <p className="text-center text-xl font-semibold leading-tight">{title}</p>
+        <div className="relative mt-[12%] w-[55%]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={faceSrc(hero)} alt="" className="aspect-square w-full" />
+          <span className="absolute -right-3 -top-2 text-4xl font-bold" style={{ color: STORY_CLIP_COLORS.red }}>?</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
@@ -111,7 +129,11 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [heroSex, setHeroSex] = useState<"M" | "F">("F");
   const [heroFace, setHeroFace] = useState(DEFAULT_HERO_FACE.F);
   const [customer, setCustomer] = useState("");
+  const [topic, setTopic] = useState<StoryTopic>("pool48");
+  const info = topicOf(topic)!;
+  const knowledge = info.shelf === "knowledge";
   const [withFigure, setWithFigure] = useState(false);
+  const [ladder, setLadder] = useState<{ age: number; annual: number }[] | { error: string } | null>(null);
   const [plan, setPlan] = useState<StoryPlan>("ISHIELD");
   const [variant, setVariant] = useState(DEFAULT_TERM.ISHIELD);
   const [age, setAge] = useState("35");
@@ -153,14 +175,26 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   // the premium, worked out as the form changes
   const sumBaht = Number(sum.replace(/[^\d]/g, "")) || 0;
   useEffect(() => {
-    if (!withFigure) return;
+    if (!withFigure || info.figure !== "plan") return;
     setFigure(null);
     const t = setTimeout(() => {
       previewStoryFigure({ plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht })
         .then(setFigure).catch(() => setFigure({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
     }, 300);
     return () => clearTimeout(t);
-  }, [withFigure, plan, variant, heroSex, age, sumBaht]);
+  }, [withFigure, info.figure, plan, variant, heroSex, age, sumBaht]);
+
+  // ยังหนุ่ม ไม่ต้องมี: Life Protect at each age, for the hero's sex
+  useEffect(() => {
+    if (!withFigure || info.figure !== "ladder") return;
+    setLadder(null);
+    Promise.all(LADDER_AGES.map((a) => previewStoryFigure({ ...LADDER_PLAN, sex: heroSex, age: a })))
+      .then((rs) => {
+        const bad = rs.find((r): r is { error: string } => "error" in r);
+        setLadder(bad ?? rs.map((r, i) => ({ age: LADDER_AGES[i], annual: (r as { annual: number }).annual })));
+      })
+      .catch(() => setLadder({ error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
+  }, [withFigure, info.figure, heroSex]);
 
   // Gemini's voice used up for the day: the warning goes by itself when the day turns over
   useEffect(() => {
@@ -195,10 +229,12 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   }
   useEffect(() => () => player.current?.pause(), []);
 
-  const figureOk = withFigure && figure && !("error" in figure) ? figure : null;
+  const figureOk = withFigure && info.figure === "plan" && figure && !("error" in figure) ? figure : null;
+  const ladderOk = withFigure && info.figure === "ladder" && ladder && !("error" in ladder) ? ladder : null;
+  const showsFigure = withFigure && info.figure !== null;
   const voiceBlocked = Boolean(quota) && !look.voice;
   const line = costLine(cost, "videoStory");
-  const ready = !withFigure || Boolean(figureOk);
+  const ready = !showsFigure || Boolean(info.figure === "plan" ? figureOk : ladderOk);
   const name = customer.trim();
 
   async function make() {
@@ -206,9 +242,10 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     setError(null);
     try {
       const r = await makeStoryVideo({
-        topic: "pool48", size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}),
+        topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}),
         faces: { narrator: narratorFace, hero: heroFace },
-        ...(withFigure ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
+        ...(showsFigure && info.figure === "plan" ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
+        ...(showsFigure && info.figure === "ladder" ? { ladder: true } : {}),
       }, customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -229,19 +266,22 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     <div className="mt-5 space-y-5">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className={`${card} pb-0 lg:pb-5`}>
-          <Step n={1} title="เลือกเรื่อง" summary="กองกลาง 48 คน" first>
-            <div className="flex items-start gap-3 rounded-xl border border-[var(--ct-solid)] bg-[var(--ct-soft)] p-3">
-              <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg" style={{ background: FACE_PAPER }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={faceSrc("m14")} alt="" className="absolute -left-1 top-1 h-9 w-9" />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={faceSrc("w04")} alt="" className="absolute -bottom-1 -right-1 h-9 w-9" />
-              </span>
-              <span>
-                <b className="block text-sm">กองกลาง 48 คน</b>
-                <span className="block text-xs text-[var(--ct-mute)]">ทุกคนหยอดคนละนิด ใครเจอเรื่องใหญ่ เงินกองกลางไปช่วย · 6 ฉาก ประมาณ 45 วินาที</span>
-              </span>
-            </div>
+          <Step n={1} title="เลือกเรื่อง" summary={info.name} first>
+            {(["story", "knowledge"] as const).map((shelf) => (
+              <div key={shelf}>
+                <span className="mb-1.5 block text-xs font-medium text-[var(--ct-mute)]">{SHELF_NAME[shelf]}</span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {STORY_TOPICS.filter((x) => x.shelf === shelf).map((x) => (
+                    <button key={x.key} type="button" onClick={() => setTopic(x.key)} aria-pressed={topic === x.key}
+                      className={`rounded-xl border p-3 text-left ${topic === x.key ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)] hover:border-[var(--ct-line)]"}`}>
+                      <b className="block text-sm">{x.name}</b>
+                      <span className="block text-xs text-[var(--ct-mute)]">{x.blurb}</span>
+                      <span className="mt-1 block text-[11px] text-[var(--ct-mute)]">{x.figure ? "ใส่ตัวเลขจริงได้ · " : ""}6 ฉาก ประมาณ {shelf === "story" ? "45" : "50"} วินาที</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
             <div>
               <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">เรื่องต่อไป · เร็ว ๆ นี้</span>
               <div className="flex flex-wrap gap-1.5">
@@ -250,7 +290,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             </div>
           </Step>
 
-          <Step n={2} title="ตัวละคร" summary={`ผู้เล่า: คุณ · ตัวเอก: ${name ? `คุณ${name}` : "คนทั่วไป"}`}>
+          <Step n={2} title="ตัวละคร" summary={`ผู้เล่า: คุณ · ${knowledge ? "คนที่สงสัย" : "ตัวเอก"}: ${name ? `คุณ${name}` : "คนทั่วไป"}`}>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="min-w-0 space-y-2">
                 <span className={label}>ผู้เล่าเรื่อง (คุณ)</span>
@@ -258,7 +298,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 <FacePicker id="sc-narrator" value={narratorFace} onPick={pickNarratorFace} exclude={heroFace} />
               </div>
               <div className="min-w-0 space-y-2">
-                <label htmlFor="sc-customer" className={label}>ตัวเอกของเรื่อง</label>
+                <label htmlFor="sc-customer" className={label}>{knowledge ? "คนที่สงสัย" : "ตัวเอกของเรื่อง"}</label>
                 <input id="sc-customer" className={field} value={customer} maxLength={40} placeholder="ชื่อลูกค้า เช่น นิด (เว้นว่าง = คนทั่วไป ลงเพจได้)" onChange={(e) => setCustomer(e.target.value)} />
                 <div className="flex gap-2">
                   <button type="button" className={chip(heroSex === "F")} onClick={() => pickSex("F")}>หญิง</button>
@@ -267,29 +307,43 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 <FacePicker id="sc-hero" value={heroFace} onPick={setHeroFace} sex={heroSex} exclude={narratorFace} />
               </div>
             </div>
-            <p className="text-xs text-[var(--ct-mute)]">อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง</p>
+            <p className="text-xs text-[var(--ct-mute)]">{knowledge ? "ชื่อลูกค้า (ถ้าใส่) ขึ้นในประโยคปิดท้ายและบนปุ่มของการ์ดตัวแทน" : "อีก 47 คนในโหล ระบบเลือกจากคลัง ชายหญิงครึ่งต่อครึ่ง"}</p>
           </Step>
 
-          <Step n={3} title="ข้อมูลจากแบบประกัน" summary={withFigure ? `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}` : "ไม่ใช้"}>
+          <Step n={3} title="ข้อมูลจากแบบประกัน" summary={!showsFigure ? "ไม่ใช้" : info.figure === "ladder" ? "ตัวเลขจริง · Life Protect" : `ตัวเลขจริง · ${STORY_PLANS.find((p) => p.code === plan)!.name}`}>
+            {!info.figure ? (
+              <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">ตอนนี้ไม่มีตัวเลขเบี้ย ใช้ได้กับลูกค้าทุกคนและลงเพจได้ทันที</p>
+            ) : (
+            <>
             <div className="grid gap-2 sm:grid-cols-3">
               <button type="button" onClick={() => setWithFigure(false)} className={`rounded-xl border p-3 text-left ${!withFigure ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)]"}`}>
                 <b className="block text-sm">ไม่ใช้</b><span className="text-xs text-[var(--ct-mute)]">เรื่องทั่วไป ไม่มีตัวเลขเบี้ย ลงเพจหรือทำแอดได้</span>
               </button>
               <button type="button" onClick={() => setWithFigure(true)} className={`rounded-xl border p-3 text-left ${withFigure ? "border-[var(--ct-solid)] bg-[var(--ct-soft)]" : "border-[var(--ct-hair)]"}`}>
-                <b className="block text-sm">ใส่ตัวเลขจริง</b><span className="text-xs text-[var(--ct-mute)]">ดึงเบี้ยจากตารางในระบบ ขึ้นเป็นโน้ตในฉากที่ 4</span>
+                <b className="block text-sm">ใส่ตัวเลขจริง</b><span className="text-xs text-[var(--ct-mute)]">{info.figure === "ladder" ? "เบี้ยจริงที่อายุ 25 / 35 / 45 ขึ้นเป็นกราฟในฉากที่ 2" : "ดึงเบี้ยจากตารางในระบบ ขึ้นเป็นโน้ตในฉากที่ 4"}</span>
               </button>
               <div className="rounded-xl border border-dashed border-[var(--ct-hair)] p-3 text-[var(--ct-mute)]">
                 <b className="block text-sm">ลูกค้า FHC</b><span className="text-xs">เร็ว ๆ นี้</span>
               </div>
             </div>
-            {withFigure && (
+            {showsFigure && info.figure === "ladder" && (
+              <div className="space-y-2 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
+                <p className="text-xs text-[var(--ct-mute)]">Life Protect ทุน 1 ล้าน จ่ายถึงอายุ 99 · {heroSex === "F" ? "หญิง" : "ชาย"} ตามหน้าคนที่สงสัย</p>
+                <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
+                  {ladderOk
+                    ? <div className="space-y-0.5">{ladderOk.map((r) => <div key={r.age} className="flex justify-between gap-2"><span>อายุ {r.age}</span><b>ปีละ {r.annual.toLocaleString("en-US")} บาท</b></div>)}</div>
+                    : <p className="text-[var(--ct-mute)]">{ladder && "error" in ladder ? ladder.error : "กำลังคิดเบี้ย…"}</p>}
+                </div>
+              </div>
+            )}
+            {showsFigure && info.figure === "plan" && (
               <div className="space-y-3 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
                 <div>
                   <span className={label}>แบบที่ใช้เป็นตัวอย่าง</span>
                   <div className="flex flex-wrap gap-2">
                     {STORY_PLANS.map((p) => <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => { setPlan(p.code); setVariant(DEFAULT_TERM[p.code]); }}>{p.name}</button>)}
                   </div>
-                  <p className="mt-1 text-xs text-[var(--ct-mute)]">{PLAN_STORY[plan]} ให้ตรงกับสิ่งที่แบบนี้จ่ายจริง</p>
+                  {topic === "pool48" && <p className="mt-1 text-xs text-[var(--ct-mute)]">{PLAN_STORY[plan]} ให้ตรงกับสิ่งที่แบบนี้จ่ายจริง</p>}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div>
@@ -312,22 +366,24 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 </div>
                 <div className="rounded-lg bg-[var(--ct-soft)] px-4 py-3 text-sm tabular-nums">
                   {figureOk
-                    ? <p><b className="text-base">ปีละ {figureOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">หรือเดือนละ {figureOk.monthly.toLocaleString("en-US")} บาท · ขึ้นในฉากที่ 4 เป็นโน้ตแปะ</span></p>
+                    ? <p><b className="text-base">ปีละ {figureOk.annual.toLocaleString("en-US")} บาท</b> <span className="text-[var(--ct-mute)]">หรือเดือนละ {figureOk.monthly.toLocaleString("en-US")} บาท · ขึ้นในฉากที่ 4{topic === "pool48" ? " เป็นโน้ตแปะ" : " ตัวอย่าง"}</span></p>
                     : <p className="text-[var(--ct-mute)]">{figure && "error" in figure ? figure.error : "กำลังคิดเบี้ย…"}</p>}
                 </div>
               </div>
             )}
+            </>
+            )}
           </Step>
 
-          <Step n={4} title="หน้าตาคลิป" summary={[look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].join(" · ")}>
+          <Step n={4} title="หน้าตาคลิป" summary={[knowledge ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
             <SizePicker size={look.size} pick={(size) => pickLook({ size })} />
-            <div>
+            {!knowledge && <div>
               <span className={label}>สีของตัวละคร</span>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={chip(look.palette === "reveal")} onClick={() => pickLook({ palette: "reveal" })}>ขาวดำ แล้วลงสีเมื่อมีประกัน</button>
                 <button type="button" className={chip(look.palette === "color")} onClick={() => pickLook({ palette: "color" })}>สีทั้งคลิป</button>
               </div>
-            </div>
+            </div>}
             <div>
               <span className={label}>เสียงพากย์</span>
               <div className="flex flex-wrap items-center gap-2">
@@ -383,9 +439,11 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
 
         <aside className="space-y-2 lg:sticky lg:top-6 lg:self-start" aria-label="ตัวอย่างฉากเปิด">
           <div className="mx-auto max-w-[300px] lg:max-w-none">
-            <OpeningPreview hero={heroFace} narrator={narratorFace} palette={look.palette} size={look.size} />
+            {knowledge
+              ? <KnowPreview hero={heroFace} title={info.name} size={look.size} />
+              : <OpeningPreview hero={heroFace} narrator={narratorFace} palette={look.palette} size={look.size} />}
           </div>
-          <p className="text-center text-xs text-[var(--ct-mute)]">ฉากเปิด · วงแดงคือตัวเอก{name ? ` (คุณ${name})` : ""}</p>
+          <p className="text-center text-xs text-[var(--ct-mute)]">{knowledge ? "ฉากเปิด · คนที่สงสัย" : `ฉากเปิด · วงแดงคือตัวเอก${name ? ` (คุณ${name})` : ""}`}</p>
         </aside>
       </div>
 

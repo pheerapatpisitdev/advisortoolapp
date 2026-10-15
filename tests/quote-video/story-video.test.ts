@@ -6,9 +6,11 @@ import { videoPrice } from "@/lib/quote-video/make";
 import { MOTION_FPS } from "@/lib/quote-video/motion";
 import { clipKind } from "@/lib/quote-video/progress";
 import { checkedStory, isStoryInput, storyCaption, storyFigure, storyScript, type StoryVideoInput } from "@/lib/quote-video/story";
-import { noteLines, storyHandText, storyTitles, storyWindows } from "@/lib/quote-video/story-motion";
+import { noteLines, storyHandText, storyTitles } from "@/lib/quote-video/story-motion";
+import { clipFaces, clipHandText, clipWindows } from "@/lib/quote-video/story-frames";
 import { planScenes } from "@/lib/quote-video/timeline";
-import { CROWD, CROWD_HERO, crowdOf, FACES, faceOf } from "@/lib/story/faces";
+import { CHILDREN, CROWD, CROWD_HERO, crowdOf, FACES, faceOf } from "@/lib/story/faces";
+import { STORY_TOPICS } from "@/lib/story/topics";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
 
 const story = (over: Record<string, unknown> = {}): StoryVideoInput => {
@@ -104,7 +106,7 @@ describe("กองกลาง 48 คน's crowd (lib/story/faces.ts)", () => {
   });
 
   it("has every face's file, in colour and in grey", () => {
-    for (const f of FACES) {
+    for (const f of [...FACES, ...CHILDREN.map((id) => ({ id }))]) {
       expect(existsSync(join(process.cwd(), "public/story/faces", `${f.id}.jpg`)), f.id).toBe(true);
       expect(existsSync(join(process.cwd(), "public/story/faces", `${f.id}-g.jpg`)), f.id).toBe(true);
     }
@@ -115,7 +117,7 @@ describe("กองกลาง 48 คน on screen (story-motion.tsx)", () => {
   it("draws a frame for every movement, in every shape", () => {
     for (const size of ["portrait", "square", "landscape"] as const) {
       const input = story({ size, figure: SHIELD });
-      const plans = planScenes(storyScript(input, "นิด").map((s) => ({ ...s, voiceSec: 5, windows: storyWindows(s.key, input, size), fps: MOTION_FPS })));
+      const plans = planScenes(storyScript(input, "นิด").map((s) => ({ ...s, voiceSec: 5, windows: clipWindows(s.key, input, size), fps: MOTION_FPS })));
       expect(plans).toHaveLength(6);
       for (const p of plans) {
         expect(p.frames.length).toBeGreaterThan(10);
@@ -142,5 +144,67 @@ describe("คลิปเล่าเรื่อง's price", () => {
   it("is its own price on the owner's list, with ElevenLabs on top", () => {
     expect(videoPrice(story(), DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoStory);
     expect(videoPrice({ ...story(), voice: "x" }, DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoStory + DEFAULT_PRICES.elevenExtra);
+  });
+});
+
+describe("ความรู้ประกัน 1 นาที (story-knowledge.ts)", () => {
+  const episodes = STORY_TOPICS.filter((t) => t.shelf === "knowledge");
+
+  it("is five episodes of six scenes, the agent's card last", () => {
+    expect(episodes.map((t) => t.key)).toEqual(["sumvspremium", "declare", "mythclaim", "mythyoung", "mythjinx"]);
+    for (const t of episodes) {
+      expect(storyScript(story({ topic: t.key }), "นิด").map((l) => l.key)).toEqual(["knowAsk", "knowOne", "knowTwo", "knowThree", "knowRecap", "storyContact"]);
+    }
+  });
+
+  it("shows ทุน กับ เบี้ย's example from the plan's table, and claims no figure without one", () => {
+    const withFig = storyScript(story({ topic: "sumvspremium", figure: SHIELD }), "นิด");
+    expect(withFig[3].voice).toBe("เช่น ผู้หญิงอายุ 35 จ่ายเบี้ยปีละ 33,800 บาท ได้ความคุ้มครองโรคร้ายแรง ทุน 1 ล้านบาทค่ะ");
+    expect(withFig[5].voice).toBe("คุณนิด อยากรู้ว่าทุนเท่าไรถึงพอ ทักมาได้เลยนะคะ");
+    const plain = storyScript(story({ topic: "sumvspremium" }), "").map((l) => l.voice).join(" ");
+    expect(plain).not.toMatch(/\d/);
+  });
+
+  it("keeps a premium only where the episode shows one", () => {
+    expect(story({ topic: "declare", figure: SHIELD }).figure).toBeUndefined();
+    expect(story({ topic: "sumvspremium", ladder: true }).ladder).toBeUndefined();
+    expect(story({ topic: "mythyoung", faces: { narrator: "w26", hero: "m23" }, ladder: true }).ladder).toEqual({
+      sex: "M", rows: [{ age: 25, annual: 12_300 }, { age: 35, annual: 17_200 }, { age: 45, annual: 25_600 }],
+    });
+  });
+
+  it("tells ยังหนุ่ม ไม่ต้องมี with the ladder's own figures, and to a woman as ยังสาว", () => {
+    const man = storyScript(story({ topic: "mythyoung", faces: { narrator: "w26", hero: "m23" }, ladder: true }));
+    expect(man[1].voice).toBe("ความจริงคือ ยิ่งเริ่มเร็ว เบี้ยยิ่งถูก ผู้ชายอายุ 25 จ่ายปีละ 12,300 บาท แต่ถ้ารอถึง 45 จ่ายปีละ 25,600 บาทค่ะ");
+    const woman = story({ topic: "mythyoung", ladder: true });
+    expect(woman.ladder?.sex).toBe("F");
+    expect(clipHandText(woman, "")).toContain("“ยังสาว");
+  });
+
+  it("names no time limit for บอกล้างสัญญา: each policy has its own", () => {
+    const lines = storyScript(story({ topic: "declare" })).map((l) => l.voice).join(" ");
+    expect(lines).toContain("บริษัทมีสิทธิบอกล้างสัญญา");
+    expect(lines).not.toMatch(/\d+ ?(ปี|เดือน|วัน)/);
+  });
+
+  it("draws in every shape, with the family's faces, and no child is ever the hero", () => {
+    for (const t of episodes) for (const size of ["portrait", "square", "landscape"] as const) {
+      const input = story({ topic: t.key, size });
+      for (const s of storyScript(input)) {
+        expect(TRANSITIONS[s.key]).toBeDefined();
+        expect(clipWindows(s.key, input, size).length).toBeGreaterThan(0);
+      }
+    }
+    expect(clipFaces(story({ topic: "mythjinx" }))).toEqual(expect.arrayContaining(["w15", "w26", ...CHILDREN]));
+    expect(story({ topic: "declare", faces: { narrator: "w26", hero: "c01" } }).faces.hero).toBe("w15");
+  });
+
+  it("goes up on a Page with its own caption and no one's name", () => {
+    for (const t of episodes) {
+      const c = storyCaption(story({ topic: t.key }));
+      expect(c).toContain("#ความรู้ประกัน");
+      expect(c).not.toContain("คุณนิด");
+    }
+    expect(storyCaption(story({ topic: "mythyoung", ladder: true }))).toContain("ตัวอย่างจาก Life Protect");
   });
 });

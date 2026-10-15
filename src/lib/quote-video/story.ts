@@ -2,9 +2,11 @@ import { iShieldTable } from "@/lib/ishield-table";
 import { iShieldModes, termAt as iShieldTerm, termTakes } from "@/lib/ishield-quote";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectModes, termAt as lifeProtectTerm } from "@/lib/lifeprotect-quote";
-import { DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, isFace } from "@/lib/story/faces";
-import { STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
+import { DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, faceOf, FACES } from "@/lib/story/faces";
+import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
+import { LADDER_AGES, LADDER_PLAN, topicOf, type StoryTopic } from "@/lib/story/topics";
 import { cleanCustomerName, spokenBaht, spokenBy } from "./script";
+import { knowEpisode, type KnowSceneKey } from "./story-knowledge";
 import { sizeOf, type VideoSize } from "./timeline";
 
 /**
@@ -20,10 +22,11 @@ import { sizeOf, type VideoSize } from "./timeline";
  * clip is ordered and copied into the clip's input, like the FHC summary's figures.
  */
 
-export type StoryTopic = "pool48";
-export const STORY_TOPICS: { key: StoryTopic; name: string }[] = [{ key: "pool48", name: "กองกลาง 48 คน" }];
+export { STORY_TOPICS, type StoryTopic } from "@/lib/story/topics";
+export { planName, termShort } from "@/lib/story/plans";
 
-export type StorySceneKey = "storyHook" | "storyPool" | "storyHit" | "storyHelp" | "storyAll" | "storyContact";
+/** กองกลาง 48 คน's scenes, ความรู้ประกัน 1 นาที's (story-knowledge.ts), and the agent's card both end on */
+export type StorySceneKey = "storyHook" | "storyPool" | "storyHit" | "storyHelp" | "storyAll" | KnowSceneKey | "storyContact";
 
 
 /** A real premium shown in the jar scene: the plan's own, worked out when the clip was ordered. */
@@ -52,7 +55,11 @@ export interface StoryVideoInput {
   /** the agent's own cartoon, and the hero's */
   faces: { narrator: string; hero: string };
   figure?: StoryFigure;
+  /** ยังหนุ่ม ไม่ต้องมี: Life Protect's premium at LADDER_AGES, for the hero's sex */
+  ladder?: StoryLadder;
 }
+
+export interface StoryLadder { sex: "M" | "F"; rows: { age: number; annual: number }[] }
 
 export const isStoryInput = (v: { product?: string }): v is StoryVideoInput => v.product === "STORY";
 
@@ -91,22 +98,49 @@ export function storyFigure(v: { plan?: unknown; variant?: unknown; sex?: unknow
   return { plan: plan.code, variant, sex, age, sumAssured: sum, annual: Math.round(annual / 100), monthly: Math.round(monthly / 100) };
 }
 
-/** What was sent, made into a story clip's input, or the words for what is wrong. */
-export function checkedStory(v: Omit<Partial<StoryVideoInput>, "figure"> & { figure?: unknown }, narrator: "F" | "M", voice?: string): StoryVideoInput | string {
-  if (!STORY_TOPICS.some((t) => t.key === v.topic)) return "เลือกเรื่อง";
-  const narratorFace = isFace(v.faces?.narrator) ? v.faces.narrator : DEFAULT_NARRATOR_FACE;
-  const hero = isFace(v.faces?.hero) ? v.faces.hero : DEFAULT_HERO_FACE.F;
+/** Life Protect's premium at each of LADDER_AGES for one sex, or the words for what is wrong */
+export function storyLadder(sex: "M" | "F"): StoryLadder | string {
+  const rows: StoryLadder["rows"] = [];
+  for (const age of LADDER_AGES) {
+    const f = storyFigure({ ...LADDER_PLAN, sex, age });
+    if (typeof f === "string") return f;
+    rows.push({ age, annual: f.annual });
+  }
+  return { sex, rows };
+}
+
+/** a face the form offers (the children are drawn in, never picked) */
+const pickable = (v: unknown): v is string => typeof v === "string" && FACES.some((f) => f.id === v);
+
+/**
+ * What was sent, made into a story clip's input, or the words for what is wrong. A premium is
+ * kept only where the topic shows one: a plan's for กองกลาง 48 คน and ทุนประกัน กับ เบี้ย, the
+ * ladder (`ladder: true`) for ยังหนุ่ม ไม่ต้องมี, worked out here for the hero's sex.
+ */
+export function checkedStory(
+  v: Omit<Partial<StoryVideoInput>, "figure" | "ladder"> & { figure?: unknown; ladder?: unknown }, narrator: "F" | "M", voice?: string,
+): StoryVideoInput | string {
+  const topic = topicOf(String(v.topic ?? ""));
+  if (!topic) return "เลือกเรื่อง";
+  const narratorFace = pickable(v.faces?.narrator) ? v.faces.narrator : DEFAULT_NARRATOR_FACE;
+  const hero = pickable(v.faces?.hero) ? v.faces.hero : DEFAULT_HERO_FACE.F;
   if (hero === narratorFace) return "ตัวเอกกับผู้เล่าใช้หน้าเดียวกันไม่ได้ เลือกหน้าอื่น";
   let figure: StoryFigure | undefined;
-  if (v.figure) {
+  if (v.figure && topic.figure === "plan") {
     const f = storyFigure(v.figure as Parameters<typeof storyFigure>[0]);
     if (typeof f === "string") return f;
     figure = f;
   }
+  let ladder: StoryLadder | undefined;
+  if (v.ladder === true && topic.figure === "ladder") {
+    const l = storyLadder(faceOf(hero)?.sex ?? "F");
+    if (typeof l === "string") return l;
+    ladder = l;
+  }
   return {
-    product: "STORY", topic: "pool48", narrator, ...(voice ? { voice } : {}), style: "story", length: "full",
+    product: "STORY", topic: topic.key, narrator, ...(voice ? { voice } : {}), style: "story", length: "full",
     size: sizeOf(v), palette: v.palette === "color" ? "color" : "reveal",
-    faces: { narrator: narratorFace, hero }, ...(figure ? { figure } : {}),
+    faces: { narrator: narratorFace, hero }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}),
   };
 }
 
@@ -116,9 +150,6 @@ const withBaht = (baht: number) => {
   const s = spokenBaht(baht);
   return s.endsWith("ล้าน") ? `${s}บาท` : `${s} บาท`;
 };
-export const planName = (p: StoryPlan) => STORY_PLANS.find((x) => x.code === p)?.name ?? p;
-export const termShort = (f: Pick<StoryFigure, "plan" | "variant">) =>
-  STORY_PLANS.find((x) => x.code === f.plan)?.terms.find((t) => t.variant === f.variant)?.short ?? "";
 
 /**
  * What befalls the hero, by the plan the figure comes from: a critical-illness plan pays for the
@@ -138,8 +169,12 @@ export const heroName = (customer: string) => (customer ? `คุณ${customer}`
 
 export interface StorySceneScript { key: StorySceneKey; voice: string }
 
-/** The six spoken lines of กองกลาง 48 คน, with the narrator's ending. */
+/** The six spoken lines of a story clip, with the narrator's ending: กองกลาง 48 คน, or an episode. */
 export function storyScript(input: StoryVideoInput, customer?: string, narrator: "F" | "M" = "F"): StorySceneScript[] {
+  if (input.topic !== "pool48") {
+    const e = knowEpisode(input, customer, narrator);
+    return [...e.scenes.map((s) => ({ key: s.key, voice: s.voice })), { key: "storyContact", voice: e.contactVoice }];
+  }
   const name = heroName(cleanCustomerName(customer));
   const ev = storyEvent(input.figure);
   const f = input.figure;
@@ -157,8 +192,26 @@ export function storyScript(input: StoryVideoInput, customer?: string, narrator:
   return lines.map((s) => ({ key: s.key, voice: spokenBy(s.voice.replace(/\s+/g, " ").trim(), narrator) }));
 }
 
+/** what an episode of ความรู้ประกัน 1 นาที says on a Page, above its tags */
+const EPISODE_CAPTION: Record<Exclude<StoryTopic, "pool48">, string[]> = {
+  sumvspremium: ["ทุนประกัน กับ เบี้ยประกัน ต่างกันยังไง?", "เบี้ยคือเงินที่เราจ่าย ทุนคือเงินที่บริษัทจ่ายให้เมื่อเกิดเรื่องที่คุ้มครอง"],
+  declare: ["ปิดเรื่องสุขภาพไว้นิดเดียว จะเป็นอะไรไหม?", "ตอบใบคำขอให้ตรงความจริง บอกครบวันนี้ เคลมได้วันหน้า"],
+  mythclaim: ["“ประกันเคลมยาก” จริงไหม?", "ประกันจ่ายตามเงื่อนไขในกรมธรรม์ รู้เงื่อนไข เคลมก็ง่าย"],
+  mythyoung: ["“ยังหนุ่มยังสาว ไม่ต้องมีประกัน” จริงไหม?", "ยิ่งเริ่มเร็ว เบี้ยยิ่งถูก และสมัครง่ายตอนสุขภาพยังดี"],
+  mythjinx: ["ซื้อประกัน เหมือนแช่งตัวเองหรือเปล่า?", "ประกันไม่ได้ทำให้เกิดเรื่องร้าย แต่ทำให้คนที่เรารักไม่ต้องลำบาก"],
+};
+
 /** the caption a story clip goes up on a Page with: no customer, no premium of anyone's */
 export function storyCaption(input: StoryVideoInput): string {
+  if (input.topic !== "pool48") {
+    return [
+      ...EPISODE_CAPTION[input.topic],
+      "มีคำถามเรื่องประกัน ทักมาคุยกันได้เลย",
+      ...(input.figure || input.ladder ? ["", `*เบี้ยในคลิปเป็นตัวอย่างจาก ${input.ladder ? "Life Protect" : planName(input.figure!.plan)} เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท`] : []),
+      "",
+      "#ความรู้ประกัน #ประกันชีวิต",
+    ].join("\n");
+  }
   return [
     "ถ้าใน 48 คน มีคนหนึ่งเจอเรื่องใหญ่ จะเป็นใคร?",
     "ประกันคือการหยอดเงินคนละนิดลงโหลใบเดียวกัน ใครเจอเรื่องใหญ่ เงินในโหลก็ไปช่วยคนนั้น",

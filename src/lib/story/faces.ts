@@ -32,7 +32,10 @@ export const FACES: Face[] = [
   ...Array.from({ length: WOMEN }, (_, i) => id("w", i)),
 ].map((f) => ({ id: f, sex: f.startsWith("m") ? "M" as const : "F" as const, tags: TAGS[f] ?? [] }));
 
-const IDS = new Set(FACES.map((f) => f.id));
+/** two children for the family scenes (c01 a girl, c02 a boy): drawn in, never picked in the form */
+export const CHILDREN = ["c01", "c02"];
+
+const IDS = new Set([...FACES.map((f) => f.id), ...CHILDREN]);
 export const isFace = (v: unknown): v is string => typeof v === "string" && IDS.has(v);
 export const faceOf = (faceId: string): Face | undefined => FACES.find((f) => f.id === faceId);
 

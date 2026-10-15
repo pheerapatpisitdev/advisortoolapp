@@ -2,6 +2,7 @@ import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { CROWD_HERO, FACE_PAPER } from "@/lib/story/faces";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { heroName, planName, storyEvent, termShort, type StorySceneKey, type StoryVideoInput } from "./story";
+import type { KnowSceneKey } from "./story-knowledge";
 import { LEAD, SIZES, type VideoSize } from "./timeline";
 
 /**
@@ -64,10 +65,13 @@ const GEO: Record<VideoSize, Geo> = {
   },
 };
 
+/** กองกลาง 48 คน's scenes (an episode of ความรู้ประกัน 1 นาที has its own, story-knowledge.ts) */
+export type PoolSceneKey = Exclude<StorySceneKey, KnowSceneKey>;
+
 const rowsOf = (size: VideoSize) => GEO[size].rows;
 
 /** When each element of a scene moves, in scene seconds. */
-export function storySpec(key: StorySceneKey, input: StoryVideoInput, size: VideoSize): Record<string, Anim> {
+export function storySpec(key: PoolSceneKey, input: StoryVideoInput, size: VideoSize): Record<string, Anim> {
   const rows = rowsOf(size);
   const s: Record<string, Anim> = { title: a(0.2, "up") };
   switch (key) {
@@ -91,7 +95,7 @@ export function storySpec(key: StorySceneKey, input: StoryVideoInput, size: Vide
   }
 }
 
-export const storyWindows = (key: StorySceneKey, input: StoryVideoInput, size: VideoSize): [number, number][] =>
+export const storyWindows = (key: PoolSceneKey, input: StoryVideoInput, size: VideoSize): [number, number][] =>
   Object.values(storySpec(key, input, size)).map((x) => [x.at, x.at + x.dur]);
 
 export interface StoryContext {
@@ -110,7 +114,7 @@ export interface StoryContext {
 }
 
 /** the big title and the line under it, scene by scene: drawn, and the handwriting face is cut to them */
-export function storyTitles(input: StoryVideoInput, customer: string): Record<Exclude<StorySceneKey, "storyContact">, [string, string]> {
+export function storyTitles(input: StoryVideoInput, customer: string): Record<Exclude<PoolSceneKey, "storyContact">, [string, string]> {
   const ev = storyEvent(input.figure);
   const name = heroName(customer);
   return {
@@ -160,7 +164,7 @@ function cells(area: Rect, cols: number, rows: number): Rect[] {
 }
 
 // eslint-disable-next-line @next/next/no-img-element
-const Img = ({ src, r, opacity = 1 }: { src?: string; r: Rect; opacity?: number }) => (src ? <img src={src} width={r.w} height={r.h} style={{ position: "absolute", left: r.x, top: r.y, opacity }} alt="" /> : null);
+export const Img = ({ src, r, opacity = 1 }: { src?: string; r: Rect; opacity?: number }) => (src ? <img src={src} width={r.w} height={r.h} style={{ position: "absolute", left: r.x, top: r.y, opacity }} alt="" /> : null);
 
 /**
  * The 48. `color`: how coloured each row is, 0 grey to 1 colour (a "color" palette is always 1);
@@ -309,7 +313,8 @@ function All({ c, t }: { c: StoryContext; t: number }) {
   );
 }
 
-function Contact({ c, t }: { c: StoryContext; t: number }) {
+/** the agent's card, every story's last scene; `cta`: what its button says, when not กองกลาง's */
+export function Contact({ c, t, cta }: { c: StoryContext; t: number; cta?: string }) {
   const s = storySpec("storyContact", c.input, c.size);
   const g = GEO[c.size].contact;
   const k = c.contact;
@@ -331,7 +336,7 @@ function Contact({ c, t }: { c: StoryContext; t: number }) {
           {more.map((m, i) => <div key={i} style={box({ fontSize: px(36), marginTop: i ? 0 : 6, opacity: 0.85 })}>{m}</div>)}
         </El>
         <El an={s.cta} t={t} style={{ width: g.text.w, justifyContent: "center", marginTop: px(40), background: NAVY, color: C.white, borderRadius: 28, padding: `${px(28)}px ${px(40)}px`, fontSize: px(46), fontWeight: 600, textAlign: "center" }}>
-          {`อยากรู้ว่า${name || "คุณ"}ต้องหยอดเท่าไร ทักมาได้เลย`}
+          {cta ?? `อยากรู้ว่า${name || "คุณ"}ต้องหยอดเท่าไร ทักมาได้เลย`}
         </El>
         <El an={s.legal} t={t} style={{ width: g.text.w, justifyContent: g.center ? "center" : "flex-start", marginTop: px(36), fontSize: px(28), opacity: 0.75, textAlign: g.center ? "center" : "left" }}>
           {/* the drawing breaks Thai only at a space: one where the line may wrap */}
@@ -343,7 +348,7 @@ function Contact({ c, t }: { c: StoryContext; t: number }) {
 }
 
 /** the words of the line as the voice reaches them, on a dark strip near the foot */
-function Subtitle({ c, t }: { c: StoryContext; t: number }) {
+export function Subtitle({ c, t }: { c: StoryContext; t: number }) {
   const { w } = SIZES[c.size];
   const total = c.words.reduce((x, wd) => x + wd.length, 0) || 1;
   let acc = 0;
@@ -363,7 +368,7 @@ function Subtitle({ c, t }: { c: StoryContext; t: number }) {
 }
 
 /** One frame of a story scene at scene time t: transparent, over the paper. */
-export function storyFrame(key: StorySceneKey, c: StoryContext, t: number) {
+export function storyFrame(key: PoolSceneKey, c: StoryContext, t: number) {
   const { w, h } = SIZES[c.size];
   const body = {
     storyHook: <Hook c={c} t={t} />,

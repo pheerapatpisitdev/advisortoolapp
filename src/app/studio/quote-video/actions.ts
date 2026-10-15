@@ -304,7 +304,7 @@ export async function previewStoryFigure(v: { plan?: string; variant?: string; s
  * คลิปเล่าเรื่อง (owner, 2026-10-15): a cartoon story clip. The premium it shows, if any, is
  * worked out again here from the plan's table, never taken from the form.
  */
-export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure"> & { figure?: unknown }, customer: string): Promise<Made> {
+export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder"> & { figure?: unknown; ladder?: unknown }, customer: string): Promise<Made> {
   const viewer = await requireMember();
   const eleven = elevenVoice(v?.voice);
   if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
