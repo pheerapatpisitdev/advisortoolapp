@@ -51,7 +51,7 @@ export interface HistSources {
   pieces: { id: string; createdAt: string; format: string; planName: string; hook: string; campaignId: string | null }[];
   /** ins_audit rows of putting pieces on a Page: post, schedule, reschedule, unschedule */
   posts: { id: string; at: string; action: string; pieceId: string | null; pageName: string | null; hook: string; when: string | null }[];
-  videos: { id: string; createdAt: string; product: string | null; fhc: boolean; motion: boolean; customer: string; status: string }[];
+  videos: { id: string; createdAt: string; product: string | null; fhc: boolean; motion: boolean; customer: string; status: string; /** a คลิปตามโจทย์'s brief */ brief?: string }[];
   customers: { id: string; createdAt: string; name: string; gaps: Gap[] }[];
   thumbnails: { id: string; createdAt: string }[];
   readings: { id: string; createdAt: string; summary: string }[];
@@ -128,12 +128,13 @@ export function buildHistory(s: HistSources): HistItem[] {
 
   for (const v of s.videos) {
     const story = v.product === "STORY";
-    const plan = v.fhc ? "สรุป FHC" : story ? "คลิปเล่าเรื่อง" : `วิดีโอนำเสนอ ${PRODUCT_NAME[v.product ?? "LIFEPROTECT"] ?? ""}`.trim();
+    const free = v.product === "FREESTORY";
+    const plan = v.fhc ? "สรุป FHC" : story ? "คลิปเล่าเรื่อง" : free ? `คลิปตามโจทย์${v.brief ? ` “${snippet(v.brief, 40)}”` : ""}` : `วิดีโอนำเสนอ ${PRODUCT_NAME[v.product ?? "LIFEPROTECT"] ?? ""}`.trim();
     items.push({
       key: `clip-${v.id}`, kind: "clip", word: KIND_WORD.clip, at: v.createdAt,
       title: v.customer ? `${plan} · ${v.customer}` : plan,
-      note: [VIDEO_STATE[v.status] ?? v.status, v.fhc || story ? "" : v.motion ? "Motion Graphic" : "ปกติ"].filter(Boolean).join(" · "),
-      href: story ? "/studio/story-clip" : "/studio/quote-video",
+      note: [VIDEO_STATE[v.status] ?? v.status, v.fhc || story || free ? "" : v.motion ? "Motion Graphic" : "ปกติ"].filter(Boolean).join(" · "),
+      href: free ? "/studio/prompt-story" : story ? "/studio/story-clip" : "/studio/quote-video",
       action: v.status === "done" ? "ดูคลิป" : "เปิด",
     });
   }

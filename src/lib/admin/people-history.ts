@@ -95,6 +95,23 @@ export function buildRounds(rows: RoundRow[]): AdminItem[] {
   }));
 }
 
+/* ----------------------------- คลิปตามโจทย์ drafts ----------------------------- */
+
+export interface DraftRow { id: string; at: string; by: string | null; brief: unknown; madeClipId: string | null }
+
+/** every script the คลิปตามโจทย์ writer wrote for a person, with the brief it was written from (read-only) */
+export function buildDrafts(rows: DraftRow[]): AdminItem[] {
+  return rows.map((r) => {
+    const brief = typeof (r.brief as { brief?: unknown } | null)?.brief === "string" ? (r.brief as { brief: string }).brief : "";
+    return {
+      key: `draft-${r.id}`, kind: "studio", word: ADMIN_KIND_WORD.studio, at: r.at, by: r.by, media: [],
+      title: `เขียนบทคลิปตามโจทย์${brief ? ` “${snip(brief, 60)}”` : ""}`,
+      note: r.madeClipId ? "ทำเป็นคลิปแล้ว" : "ยังไม่ได้ทำคลิป",
+      text: brief || undefined,
+    };
+  });
+}
+
 /* --------------------------------- ถาม AI --------------------------------- */
 
 export interface AskRow { id: string; at: string; by: string | null; question: string; answer: string; model: string | null; failed: boolean }

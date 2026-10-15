@@ -114,6 +114,7 @@ export async function readHistoryOf(
       return {
         id: str(r.id), createdAt: str(r.created_at), product: str(input.product) || null,
         fhc: Boolean(input.fhc), motion: input.style === "motion", customer: str(r.customer_name), status: str(r.status),
+        ...(input.product === "FREESTORY" ? { brief: str(input.brief) } : {}),
       };
     }),
     customers: customers.map((r) => ({

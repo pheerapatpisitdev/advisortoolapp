@@ -13,12 +13,14 @@ import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
 import { ADMIN_VOICE, voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
+import { promptStoryCaption } from "@/lib/prompt-story/caption";
 import { isPromptStory } from "@/lib/prompt-story/types";
+import { boardOf, type Board } from "@/lib/quote-video/board";
+import { paidLine } from "@/lib/quote-video/paid-line";
 import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
-import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
@@ -429,7 +431,7 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   const post = readPostText(row.post_text);
   if (post?.kind === "post") return { ok: true, caption: post.text };
   if (isStoryInput(row.input)) return { ok: true, caption: storyCaption(row.input) };
-  if (isPromptStory(row.input)) return { ok: true, caption: row.input.caption };
+  if (isPromptStory(row.input)) return { ok: true, caption: promptStoryCaption(row.input) };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
 }
@@ -464,11 +466,11 @@ export async function myCost(): Promise<CostView | null> {
 
 /**
  * The agent's clips for one board: วิดีโอนำเสนอ's quotes and FHC summaries, or คลิปเล่าเรื่อง's
- * stories (owner, 2026-10-15) — each board lists its own.
+ * stories (owner, 2026-10-15), or คลิปตามโจทย์'s — each board lists its own.
  */
-export async function myVideos(board: "quote" | "story" = "quote"): Promise<VideoItem[]> {
+export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
   const viewer = await requireMember();
-  const list = (await listVideos(viewer.agentId, 60)).filter((v) => isStoryInput(v.input) === (board === "story")).slice(0, 30);
+  const list = (await listVideos(viewer.agentId, 60)).filter((v) => boardOf(v.input) === board).slice(0, 30);
   const making = (v: VideoRow) => v.status === "drawing" || v.status === "rendering";
   const est = list.some(making) ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
   const now = Date.now();
@@ -635,10 +637,3 @@ export async function keepPostText(id: string, text: unknown): Promise<{ ok: tru
 
 const isVoiceFull = (v: VideoRow) => v.status === "failed" && Boolean(v.error?.startsWith(VOICE_FULL));
 
-function paidLine(v: VideoRow): string | null {
-  return v.paid_by === "free"
-    ? (v.status === "failed" ? "คืนสิทธิ์ฟรีแล้ว" : "ใช้สิทธิ์ฟรี")
-    : v.paid_by === "wallet"
-      ? (v.status === "failed" ? "คืนเงินแล้ว" : v.charged_satang !== null ? `หักจากกระเป๋า ${formatBaht(Number(v.charged_satang))}` : "กันเงินไว้ระหว่างทำ")
-      : null;
-}
