@@ -97,8 +97,13 @@ describe("เสียงของฉัน's price", () => {
 });
 
 describe("who may clone (mine.ts)", () => {
-  it("is everyone signed in, with no invitation (owner, 2026-10-15)", () => {
-    expect(mayClone({ kind: "member", agentId: "a1", staff: null } as never)).toBe(true);
+  it("is the owner alone (owner, 2026-10-16)", () => {
+    const owner = { owner: true, publish: true, connect: true, admin: true };
+    const assistant = { owner: false, publish: true, connect: true, admin: true };
+    expect(mayClone({ kind: "agent", agentId: "o1", staff: owner } as never)).toBe(true);
+    expect(mayClone({ kind: "agent", agentId: "s1", staff: assistant } as never)).toBe(false);
+    expect(mayClone({ kind: "agent", agentId: "a1", staff: null } as never)).toBe(false);
+    expect(mayClone({ kind: "member", agentId: "m1", staff: null } as never)).toBe(false);
     expect(mayClone(null)).toBe(false);
   });
 

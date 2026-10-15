@@ -285,7 +285,7 @@ describe("Studio's own menu", () => {
     expect(groups.map((g) => g.title ?? null)).toEqual([null, "สร้างงาน", "วางแผนและคลัง"]);
     expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
       ["/home", "/studio"],
-      ["/studio/quote-video", "/studio/story-clip", "/studio/voice", "/studio/write", "/studio/thumbnail", "/studio/describe"],
+      ["/studio/quote-video", "/studio/story-clip", "/studio/write", "/studio/thumbnail", "/studio/describe"],
       ["/studio/calendar", "/studio/hooks", "/studio/people"],
     ]);
     expect(groups[0].links[0]).toMatchObject({ label: "ระบบหลัก", icon: "back" });
@@ -299,6 +299,13 @@ describe("Studio's own menu", () => {
     // an assistant has an agent's Studio and the front page to choose among their Pages (owner, 2026-10-02)
     expect(top({ ...who, publish: true })).toEqual(["/home", "/studio"]);
     expect(top({ ...who, publish: true, connect: true })).toEqual(["/home", "/studio"]);
+  });
+
+  it("lists เสียงของฉัน for the owner alone (owner, 2026-10-16)", () => {
+    const who = { name: "a", room: "r", publish: true, connect: true, admin: true, owner: false };
+    const make = (w: typeof who) => studioMenu(w)[1].links.map((l) => l.href);
+    expect(make(who)).not.toContain("/studio/voice");
+    expect(make({ ...who, owner: true })).toContain("/studio/voice");
   });
 
   it("lists ภาพปกคลิป right after Organic Studio, for everyone who has Studio (owner, 2026-10-09; opened to all 2026-10-14)", () => {
