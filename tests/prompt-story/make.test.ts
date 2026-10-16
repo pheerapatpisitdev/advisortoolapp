@@ -11,7 +11,7 @@ import { promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/type
  */
 
 type Row = Record<string, unknown> & { id: string };
-const db = vi.hoisted(() => ({ rows: [] as Row[], drafts: [] as Row[], files: new Map<string, Buffer>(), downloads: [] as string[] }));
+const db = vi.hoisted(() => ({ rows: [] as Row[], drafts: [] as Row[], files: new Map<string, Buffer>(), downloads: [] as string[], notes: [] as { step: string; done: number; of: number }[] }));
 
 /** a small in-memory stand-in for the rows the pipeline reads and writes: the clips, and the written drafts */
 function table(name: string) {
@@ -37,6 +37,7 @@ function table(name: string) {
     }
     const hit = list.filter((r) => filters.every((f) => f(r)));
     if (op === "update") for (const r of hit) Object.assign(r, structuredClone(patch));
+    if (op === "update" && hit.length && patch.progress) db.notes.push(patch.progress as never);
     return hit.map((r) => structuredClone(r));
   };
   const b = {
@@ -133,6 +134,7 @@ beforeEach(() => {
   db.drafts.push({ id: "draft-1", agent_id: "a1", made_clip_id: null });
   db.files.clear();
   db.downloads.length = 0;
+  db.notes.length = 0;
   drawn = 0;
   pass.open = true;
   for (const f of Object.values(wallet)) f.mockReset();
@@ -299,6 +301,27 @@ describe("produce, คลิปตามโจทย์", () => {
     expect((row.input as PromptStoryInput).pictures).toEqual([`${id}/pic-0.png`, null, `${id}/pic-2.png`]);
     // the picture not drawn is not charged
     expect(row.held_satang).toBe(promptStoryPrice(input(), DEFAULT_PRICES) - pictureSatang(DEFAULT_PRICES, "standard")!);
+  });
+
+  it("shows the pictures as their own step, before the voice", async () => {
+    const made = await createPromptStory(agent, input(), "");
+    await produce((made as { id: string }).id, "ตัวแทน");
+    const steps = db.notes.map((n) => n.step);
+    expect(db.notes.filter((n) => n.step === "pictures").map((n) => n.done)).toEqual([0, 1, 2, 3]);
+    expect(steps.indexOf("pictures")).toBeLessThan(steps.indexOf("voice"));
+    expect(steps.indexOf("draw")).toBeGreaterThan(steps.lastIndexOf("voice"));
+  });
+
+  it("a free clip whose every picture failed gives its whole hold back at the end", async () => {
+    ai.draw.mockRejectedValue(new Error("painter down"));
+    const made = await createPromptStory(agent, input(), "");
+    const id = (made as { id: string }).id;
+    const hold = rowOf(id).hold_id;
+    await produce(id, "ตัวแทน");
+    expect(rowOf(id).held_satang).toBe(0);
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    expect(wallet.releaseWallet).toHaveBeenCalledWith(hold);
+    expect(wallet.settleWallet).not.toHaveBeenCalled();
   });
 
   it("a failed clip gives the hold back", async () => {

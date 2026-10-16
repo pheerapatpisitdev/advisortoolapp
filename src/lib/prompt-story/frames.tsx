@@ -45,27 +45,35 @@ export function figureLines(input: PromptStoryInput) {
   ];
 }
 
-/** every letter the handwriting face is cut to: the title, each scene's words and the figure card */
+/**
+ * Whether a scene shows the figure card, which takes the place of its words: the page shows the
+ * agent "การ์ดเบี้ยจริง (ระบบวาด)" there, so no word they cannot see goes into the clip.
+ */
+const carded = (scene: PromptScene, input: PromptStoryInput) => Boolean(scene.showFigure && figureLines(input));
+
+/** every letter the handwriting face is cut to: the title, each scene's words as drawn, and the figure card */
 export function freeHandText(input: PromptStoryInput): string {
-  return [input.title, ...input.scenes.map((s) => s.screen), ...(figureLines(input) ?? []).map((l) => l.text), "0123456789,.·"].join("");
+  return [input.title, ...input.scenes.filter((s) => !carded(s, input)).map((s) => s.screen), ...(figureLines(input) ?? []).map((l) => l.text), "0123456789,.·"].join("");
 }
 
 /** One frame of a scene at scene time t: the words over the scene's picture layer (`picture`), or over the paper. */
 export function freeFrame(scene: PromptScene, picture: boolean, c: FreeContext, t: number) {
   const { w, h } = SIZES[c.size];
   const g = GEO[c.size];
-  const card = scene.showFigure ? figureLines(c.input) : null;
+  const card = carded(scene, c.input) ? figureLines(c.input) : null;
   // the drawing breaks Thai only at a space: a line with none is shrunk until it fits across
   const avail = w - g.side * 2 - 80;
   const len = [...scene.screen].length || 1;
   const size = scene.screen.includes(" ") ? g.size : Math.min(g.size, Math.floor(avail / (len * 0.52)));
   return (
     <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", overflow: "hidden" }}>
-      <div style={abs({ left: g.side, width: w - g.side * 2, top: picture ? g.top : Math.round(h * 0.36), justifyContent: "center" })}>
-        <div style={box({ justifyContent: "center", textAlign: "center", background: picture ? "rgba(236,232,223,0.9)" : "transparent", borderRadius: 32, padding: picture ? "20px 36px" : "0 36px", maxWidth: w - g.side * 2, fontFamily: HAND, fontWeight: 600, fontSize: size, lineHeight: 1.2, color: C.ink })}>
-          {scene.screen}
+      {card ? null : (
+        <div style={abs({ left: g.side, width: w - g.side * 2, top: picture ? g.top : Math.round(h * 0.36), justifyContent: "center" })}>
+          <div style={box({ justifyContent: "center", textAlign: "center", background: picture ? "rgba(236,232,223,0.9)" : "transparent", borderRadius: 32, padding: picture ? "20px 36px" : "0 36px", maxWidth: w - g.side * 2, fontFamily: HAND, fontWeight: 600, fontSize: size, lineHeight: 1.2, color: C.ink })}>
+            {scene.screen}
+          </div>
         </div>
-      </div>
+      )}
       {card ? <Note g={{ text: g.text }} r={{ x: g.note.x, y: g.note.y, w: g.note.w, h: 0 }} t={t} lines={card} /> : null}
       <Subtitle c={c as unknown as StoryContext} t={t} />
     </div>

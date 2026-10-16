@@ -667,10 +667,10 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
   const size = clipSize(input);
   const of = input.scenes.length;
   let done = 0;
-  bar.note({ step: "draw", done: 0, of });
+  bar.note({ step: "pictures", done: 0, of });
   const pictures = await pool(input.scenes, 3, async (scene, s): Promise<string | null> => {
     const png = await drawScenePicture(scene, input.style, input.painter, size);
-    bar.note({ step: "draw", done: ++done, of });
+    bar.note({ step: "pictures", done: ++done, of });
     if (!png) return null;
     await upload(id, picName(s), png, "image/png");
     return `${id}/${picName(s)}`;
@@ -933,7 +933,7 @@ export async function redrawPicture(
       await releaseWallet(h).catch((e) => console.error("redraw hold not released:", e));
     };
     try {
-      bar.note({ step: "draw", done: 0, of: 1 });
+      bar.note({ step: "pictures", done: 0, of: 1 });
       const png = await drawScenePicture(input.scenes[scene], input.style, input.painter, clipSize(input));
       if (!png) {
         await giveBack();
@@ -949,7 +949,7 @@ export async function redrawPicture(
       const next: PromptStoryInput = { ...input, pictures, ...(held ? { redraw: { hold: held, satang: price, thb: pictureThb(input.painter) } } : {}) };
       await setRow(id, { input: next, cost_thb: Number(row.cost_thb ?? 0) + pictureThb(input.painter) });
       held = null;
-      bar.note({ step: "draw", done: 1, of: 1 });
+      bar.note({ step: "pictures", done: 1, of: 1 });
       lap(`scene ${scene} picture drawn again`);
       await cutClip({ ...row, input: next, status: "drawing" }, agentName, pcms, gcpKey, bar, t0, lap);
     } catch (e) {
@@ -1018,10 +1018,13 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
     const cost = Number(row.cost_thb ?? 0) + RENDER_COST_THB;
     let charged: number | null = null;
     // a free คลิปตามโจทย์ holds its pictures too; a clip cut again was settled at its first finish
-    if (row.hold_id && row.held_satang && row.charged_satang == null) {
-      // the price is fixed: the whole hold is the charge
-      charged = await settleWallet(row.hold_id, Number(row.held_satang), cost)
-        .catch((e) => { console.error("quote video settle failed:", e); return null; });
+    if (row.hold_id && row.charged_satang == null) {
+      // the price is fixed: the whole hold is the charge; a free คลิปตามโจทย์ whose every picture
+      // failed has nothing left to charge, and its hold goes back whole
+      if (Number(row.held_satang) > 0) {
+        charged = await settleWallet(row.hold_id, Number(row.held_satang), cost)
+          .catch((e) => { console.error("quote video settle failed:", e); return null; });
+      } else await release(row);
     }
     // a คลิปตามโจทย์ cut again: the redrawn picture is in the clip now, so its hold is taken
     let input: PromptStoryInput | undefined;

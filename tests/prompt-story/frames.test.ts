@@ -49,6 +49,20 @@ describe("freeFrame", () => {
     }
   });
 
+  it("draws the figure card in place of the figure scene's words", () => {
+    const i = input(3, { scenes: [scene(1, "คำฉากหนึ่ง"), { ...scene(2, "ซ่อนฉากสอง"), showFigure: true }, scene(3, "คำฉากสาม")] });
+    // what is drawn, leaving out the subtitles' context (which carries the whole input)
+    const drawn = (el: unknown) => JSON.stringify(el, (k, v) => (k === "c" ? undefined : v));
+    const f = drawn(freeFrame(i.scenes[1], true, ctx(i, "portrait"), 2));
+    expect(f).toContain("ทุน");
+    expect(f).not.toContain("ซ่อนฉากสอง");
+    expect(freeHandText(i)).not.toContain("ซ่อนฉากสอง");
+    // without a figure the card is not drawn, so the words stay
+    const plain = input(3, { figure: undefined, scenes: [scene(1), { ...scene(2, "คำฉากสอง"), showFigure: true }, scene(3)] });
+    expect(drawn(freeFrame(plain.scenes[1], true, ctx(plain, "portrait"), 2))).toContain("คำฉากสอง");
+    expect(freeHandText(plain)).toContain("คำฉากสอง");
+  });
+
   it("cuts the handwriting face to the title, every screen and the figure card", () => {
     const i = input(3, { title: "หัวเรื่องยาว", scenes: [scene(1, "คำที่หนึ่ง"), scene(2, "คำที่สอง"), scene(3, "คำที่สาม")] });
     const hand = freeHandText(i);
