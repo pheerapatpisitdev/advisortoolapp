@@ -14,6 +14,8 @@ describe("the owner's price list", () => {
       videoStory: 500,
       // หลังการขาย's short clips (owner, 2026-10-15): ฿3
       videoStoryShort: 300,
+      // คลิปตามโจทย์ (owner, 2026-10-16): ฿5, its own row
+      videoPrompt: 500,
       // เสียงของฉัน (owner, 2026-10-15): ฿199 once
       voiceClone: 19900,
     });

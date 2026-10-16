@@ -4,7 +4,7 @@ import { promptStoryPrice } from "@/lib/prompt-story/types";
 import type { Prices } from "@/lib/wallet/prices";
 
 // satang: the clip ฿5, pictures ฿1 / ฿2 / ฿5, ElevenLabs +฿2
-const prices = { videoStory: 500, drawStandard: 100, drawSharp: 200, drawGemini: 500, elevenExtra: 200 } as Prices;
+const prices = { videoPrompt: 500, drawStandard: 100, drawSharp: 200, drawGemini: 500, elevenExtra: 200 } as Prices;
 const base = { scenes: 5, painter: "standard" as const, prices };
 
 describe("totalLine", () => {

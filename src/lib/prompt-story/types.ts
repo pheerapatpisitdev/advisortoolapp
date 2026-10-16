@@ -44,4 +44,4 @@ export const promptPicturesPrice = (v: PromptStoryInput, prices: Prices): number
 
 /** the clip, a picture per scene, and the ElevenLabs extra when a voice is chosen */
 export const promptStoryPrice = (v: PromptStoryInput, prices: Prices): number =>
-  prices.videoStory + promptPicturesPrice(v, prices) + (v.voice ? prices.elevenExtra : 0);
+  prices.videoPrompt + promptPicturesPrice(v, prices) + (v.voice ? prices.elevenExtra : 0);
