@@ -183,6 +183,8 @@ export interface WideQuoteContext {
   contact: Contact;
   words: string[];
   voiceSec: number;
+  /** the opening's picture where the clip's theme has its own (themes.tsx) */
+  hero?: (s: Record<string, Anim>, t: number, w: number, h: number) => ReactNode;
 }
 
 /** มรดก's opening (motion.tsx LegacyLead) side by side: the shield on the left, the legacy and the most the family receives on the right */
@@ -196,7 +198,7 @@ function LegacyLead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
     <>
       <Header g={g} left={f.planLine} right={f.insuredWho} />
       <Body g={g} top={g.px(130, 150)} style={{ alignItems: "center" }}>
-        {shieldFamily(s, t, shieldW, Math.round(shieldW * 1.075))}
+        {c.hero ? <div style={box({ width: shieldW, height: Math.round(shieldW * 1.075), flexShrink: 0 })}>{c.hero(s, t, shieldW, Math.round(shieldW * 1.075))}</div> : shieldFamily(s, t, shieldW, Math.round(shieldW * 1.075))}
         <div style={box({ flexDirection: "column", flex: 1, marginLeft: g.px(36, 80) })}>
           {c.customer && <El an={s.name} t={t} style={{ fontSize: g.px(30, 42), color: WHITE, marginBottom: 12 }}>จัดทำสำหรับ <span style={{ color: GOLD, fontWeight: 600, marginLeft: 10 }}>คุณ{c.customer}</span></El>}
           {c.headline?.length ? (
@@ -349,6 +351,7 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
       <Header g={g} left={f.planLine} right={f.insuredWho} />
       <Body g={g} top={g.px(130, 150)} style={{ alignItems: "center" }}>
         <div style={box({ position: "relative", width: shieldW, height: shieldH, flexShrink: 0 })}>
+          {c.hero ? c.hero(s, t, shieldW, shieldH) : <>
           <svg width={shieldW} height={shieldH} viewBox="0 0 120 130">
             {stroke({ d: "M60 8 L108 26 V62 C108 94 86 114 60 124 C34 114 12 94 12 62 V26 Z", len: 330, p: look(s.shield, t).p, color: GOLD, width: 5 })}
           </svg>
@@ -358,6 +361,7 @@ function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
               <path d="M30 96 C32 76 58 76 60 96 Z M60 96 C62 76 88 76 90 96 Z" fill={WHITE} />
             </svg>
           </El>
+          </>}
         </div>
         <div style={box({ flexDirection: "column", flex: 1, marginLeft: g.px(40, 80) })}>
           {c.customer && <El an={s.name} t={t} style={{ fontSize: g.px(32, 42), color: WHITE, marginBottom: 12 }}>{preparedLine(vw, c.customer).map((p, i) => <span key={i} style={{ ...(p.name ? { color: GOLD, fontWeight: 600 } : {}), marginLeft: i ? 10 : 0 }}>{p.text}</span>)}</El>}

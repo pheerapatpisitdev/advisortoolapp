@@ -5,6 +5,7 @@ import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { PlbVariant } from "@/lib/quote-video/plb";
+import { DEFAULT_THEME, readTheme, THEME_KEYS, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
@@ -69,6 +70,7 @@ const LENGTH_KEY = "quote-video-length";
 /** the language an iHealthy clip was told in last time (owner, 2026-10-15) */
 const LANG_KEY = "quote-video-lang";
 const STYLE_KEY = "quote-video-style";
+const THEME_KEY = "quote-video-theme";
 /** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
 const BRIEF_KEY = "quote-video-brief";
 /** the four lengths (owner, 2026-10-13: up to 2 minutes; told.ts sceneOrder) */
@@ -249,6 +251,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   /** an ElevenLabs voice instead, of the narrator's sex where there is one */
   const elevenInstead = eleven.find((v) => v.sex === narrator && !v.mine) ?? eleven.find((v) => !v.mine);
   const [style, setStyle] = useState<VideoStyle>("classic");
+  // ธีม (owner, 2026-10-17): the Motion Graphic look, remembered in this browser
+  const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
   const [pickedLength, setLength] = useState<VideoLength>("full");
   // ภาษาในวิดีโอ (owner, 2026-10-15, mockup https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb): iHealthy Ultra only
   // the iHealthy page's shortcut opens in the language the page was read in; otherwise the one kept
@@ -283,6 +287,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   useEffect(() => {
     try {
       if (localStorage.getItem(STYLE_KEY) === "motion") setStyle("motion");
+      setTheme(readTheme(localStorage.getItem(THEME_KEY)));
       const l = localStorage.getItem(LENGTH_KEY);
       if (l === "short" || l === "long" || l === "max") setLength(l);
       const b = JSON.parse(localStorage.getItem(BRIEF_KEY) ?? "null") as Partial<VideoBrief> | null;
@@ -292,6 +297,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   function pickStyle(v: VideoStyle) {
     setStyle(v);
     try { localStorage.setItem(STYLE_KEY, v); } catch { /* not remembered, still used */ }
+  }
+  function pickTheme(v: ThemeKey) {
+    setTheme(v);
+    try { localStorage.setItem(THEME_KEY, v); } catch { /* not remembered, still used */ }
   }
   function pickLength(v: VideoLength) {
     setLength(v);
@@ -304,9 +313,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length));
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
+  const themed = style === "motion" && theme !== DEFAULT_THEME ? { theme } : {};
   const look = foreign
-    ? { narrator, style, length, size, budget: budgetOf() }
-    : { narrator, ...(voice ? { voice } : {}), style, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
+    ? { narrator, style, ...themed, length, size, budget: budgetOf() }
+    : { narrator, ...(voice ? { voice } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
   const input = (): VideoInput => (product === "IHEALTHY"
     ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...(foreign ? { lang } : {}), ...look }
     : product === "PENSION"
@@ -737,8 +747,22 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", length)])} บาท</button>
                   <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices[videoPriceKey("motion", length)])} บาท</button>
                 </div>
-                <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "พื้นน้ำเงิน ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
+                <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
               </div>
+              {style === "motion" && (
+                <div>
+                  <span className={label}>ธีม</span>
+                  <div className="flex flex-wrap gap-2">
+                    {THEME_KEYS.map((k) => (
+                      <button key={k} type="button" className={chip(theme === k)} onClick={() => pickTheme(k)}>
+                        <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: THEME_LABELS[k].swatch }} />
+                        {THEME_LABELS[k].name}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--ct-mute)]">{THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
+                </div>
+              )}
             </>
           )}
           <SizePicker size={size} pick={pickSize} />

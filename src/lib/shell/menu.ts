@@ -249,6 +249,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       { href: "/admin/ads", label: "โฆษณา", icon: "megaphone", hue: "#5b2e80" },
       { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#612d7e" },
       { href: "/admin/voices", label: "เสียงของตัวแทน", icon: "pulse", hue: "#682d7c" },
+      { href: "/admin/collage", label: "คลังภาพคอลลาจ", icon: "image", hue: "#6d2c7a" },
     ],
   },
 ];
