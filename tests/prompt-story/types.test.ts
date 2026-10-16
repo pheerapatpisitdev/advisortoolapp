@@ -17,11 +17,11 @@ describe("prompt story input", () => {
     expect(isPromptStory({ product: "STORY" })).toBe(false);
   });
   it("prices the clip plus a picture per scene", () => {
-    expect(promptStoryPrice(input(), DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoStory + 5 * DEFAULT_PRICES.drawStandard);
+    expect(promptStoryPrice(input(), DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoPrompt + 5 * DEFAULT_PRICES.drawStandard);
   });
   it("adds the ElevenLabs extra with a voice", () => {
     expect(promptStoryPrice(input({ voice: "x" }), DEFAULT_PRICES)).toBe(
-      DEFAULT_PRICES.videoStory + 5 * DEFAULT_PRICES.drawStandard + DEFAULT_PRICES.elevenExtra);
+      DEFAULT_PRICES.videoPrompt + 5 * DEFAULT_PRICES.drawStandard + DEFAULT_PRICES.elevenExtra);
   });
   it("videoPrice agrees", () => {
     expect(videoPrice(input({ voice: "x" }), DEFAULT_PRICES)).toBe(promptStoryPrice(input({ voice: "x" }), DEFAULT_PRICES));

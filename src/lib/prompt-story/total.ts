@@ -27,7 +27,7 @@ export function totalLine(v: {
     return { text: `ใช้สิทธิ์ฟรี 1 ครั้งกับค่าคลิป · ${pictures} = ฿${sum} หักจากกระเป๋า`, baht: sum };
   }
   const total = priceBaht(promptStoryPrice(shell, v.prices));
-  const clip = priceBaht(v.prices.videoStory);
+  const clip = priceBaht(v.prices.videoPrompt);
   if (v.voice) return { text: `ค่าคลิป ฿${clip} + ${pictures} + เสียง ElevenLabs ฿${priceBaht(v.prices.elevenExtra)} = ฿${total}`, baht: total };
   return { text: `ค่าคลิป ฿${clip} + ${pictures} = ฿${total} · เสียง ElevenLabs +฿${priceBaht(v.prices.elevenExtra)} (ถ้าเลือก)`, baht: total };
 }

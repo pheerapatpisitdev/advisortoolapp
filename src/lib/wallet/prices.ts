@@ -17,6 +17,8 @@ export type PriceKey =
   /** คลิปเล่าเรื่อง (owner, 2026-10-15): priced as the classic clip until the owner sets its own */
   | "videoStory"
   | "videoStoryShort"
+  /** คลิปตามโจทย์ (owner, 2026-10-16): its own price, apart from คลิปเล่าเรื่อง; the pictures are charged on top */
+  | "videoPrompt"
   | "voiceClone";
 
 export type Prices = Record<PriceKey, number>;
@@ -38,6 +40,8 @@ export const DEFAULT_PRICES: Prices = {
   videoMaxMotion: 2000,
   videoStory: 500,
   videoStoryShort: 300,
+  // คลิปตามโจทย์ (owner, 2026-10-16): ฿5 to start, the same as คลิปเล่าเรื่อง was
+  videoPrompt: 500,
   // เสียงของฉัน (owner, 2026-10-15): once, when the agent's voice is cloned
   voiceClone: 19900,
 };
@@ -63,6 +67,7 @@ export const PRICE_ITEMS: { key: PriceKey; group: PriceGroup; label: string; uni
   { key: "videoFhc", group: "video", label: "วิดีโอสรุป FHC", unit: "คลิป", costThb: 0.4 },
   { key: "videoStory", group: "video", label: "คลิปเล่าเรื่อง", unit: "คลิป", costThb: 0.4 },
   { key: "videoStoryShort", group: "video", label: "คลิปสั้นหลังการขาย (เตือนเบี้ย วันเกิด เทศกาล)", unit: "คลิป", costThb: 0.2 },
+  { key: "videoPrompt", group: "video", label: "คลิปตามโจทย์ (ไม่รวมค่าวาดรูปต่อฉาก)", unit: "คลิป", costThb: 0.4 },
   { key: "voiceClone", group: "video", label: "เปิดใช้เสียงของฉัน (ครั้งเดียว)", unit: "เสียง", costThb: 0 },
   { key: "elevenExtra", group: "video", label: "เสียง ElevenLabs (บวกเพิ่มต่อคลิป)", unit: "คลิป", costThb: 1, extra: true },
   { key: "drawStandard", group: "picture", label: "วาดรูป มาตรฐาน", unit: "รูป", costThb: paint("standard") },
