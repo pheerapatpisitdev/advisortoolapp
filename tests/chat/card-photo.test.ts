@@ -9,7 +9,7 @@ beforeAll(() => {
 describe("the ask for a customer's photo", () => {
   it("names the Page and the customer, for ten minutes", () => {
     const t = signCardPhoto("page1", "psid1", 1_000);
-    expect(verifyCardPhoto(t, 1_000 + 9 * 60_000)).toEqual({ pageId: "page1", psid: "psid1" });
+    expect(verifyCardPhoto(t, 1_000 + 9 * 60_000)).toEqual({ pageId: "page1", psid: "psid1", expires: 1_000 + 10 * 60_000 });
     expect(verifyCardPhoto(t, 1_000 + 11 * 60_000)).toBeNull();
   });
 

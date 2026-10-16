@@ -150,10 +150,11 @@ export async function GET(req: NextRequest) {
       width: widthOf(card.columns.length, geo),
       height: heightOf(card),
       fonts: [...await loadFonts(), ...extra],
-      // The card is a customer-facing quote. Its URL already contains the complete
-      // arrangement, and the cache version in cardQuery invalidates older card formats.
-      // Do not let an old rendered image be reused after the selected base/sum changes.
-      headers: { ...CARD_HEADERS, "cache-control": "no-store" },
+      // Kept by the CDN like every other card (it was no-store from 2026-09-20 until 2026-10-17,
+      // and each view was drawn again). The URL names the whole arrangement and canonical.ts
+      // keeps it to one address per picture, so a new base, sum or rider is a new picture.
+      // A change of rates or layout must bump `cv` in cardQuery, or the old drawing stays a day.
+      headers: CARD_HEADERS,
     },
   );
 }
