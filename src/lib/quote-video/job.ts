@@ -22,13 +22,13 @@ const f3 = (n: number) => n.toFixed(3);
 export const LONG_CLIP_SEC = 70;
 
 /** A file the job reads, before it has a link: its input name and what it is. */
-export interface JobFile { name: string; kind: "audio" | "base" | "photo" | "table" | "pen" | "list" | "frame"; scene?: number; frame?: number }
+export interface JobFile { name: string; kind: "audio" | "base" | "photo" | "movie" | "table" | "pen" | "list" | "frame"; scene?: number; frame?: number }
 
 /** a scene's files; `pens`: the value table's finished pen notes, one transparent layer each */
-export interface SceneFiles { base: string; layer?: { kind: "photo" | "table"; name: string; pens?: string[] }; list: string; frames: string[] }
+export interface SceneFiles { base: string; layer?: { kind: "photo" | "movie" | "table"; name: string; pens?: string[] }; list: string; frames: string[] }
 
 /** Names every file of the clip, in_1 the narration. `pens`: how many pen-note layers the scene's table has. */
-export function nameFiles(plans: ScenePlan[], layers: ("photo" | "table" | undefined)[], pens: number[] = []): { audio: string; scenes: SceneFiles[]; files: JobFile[] } {
+export function nameFiles(plans: ScenePlan[], layers: ("photo" | "movie" | "table" | undefined)[], pens: number[] = []): { audio: string; scenes: SceneFiles[]; files: JobFile[] } {
   let n = 0;
   const next = () => `in_${++n}`;
   const files: JobFile[] = [];
@@ -127,6 +127,15 @@ export function buildJob(
       // a slow push-in, 1.00 → 1.12 over the scene; scaled up first so the zoom does not judder
       f.push(`[${li}:v]scale=${photo.w * 2}:${photo.h * 2}:force_original_aspect_ratio=increase,crop=${photo.w * 2}:${photo.h * 2},`
         + `zoompan=z='1+0.12*on/${frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=${photo.w}x${photo.h}:fps=${FPS},setsar=1[ph${s}]`);
+      f.push(`[${cur}][ph${s}]overlay=x=${photo.x}:y=${photo.y}[m${s}]`);
+      cur = `m${s}`;
+    } else if (sc.layer?.kind === "movie") {
+      // ภาพขยับ: the 5-second clip scaled to cover the photo box, slowed a little to reach the scene's
+      // length (never past 1.5×), its last frame held for the rest
+      const li = add(sc.layer.name, "");
+      const slow = Math.min(1.5, Math.max(1, p.dur / 5));
+      f.push(`[${li}:v]fps=${FPS},setpts=${f3(slow)}*PTS,scale=${photo.w}:${photo.h}:force_original_aspect_ratio=increase,crop=${photo.w}:${photo.h},setsar=1,`
+        + `tpad=stop_mode=clone:stop_duration=${d},trim=duration=${d},setpts=PTS-STARTPTS,format=rgba[ph${s}]`);
       f.push(`[${cur}][ph${s}]overlay=x=${photo.x}:y=${photo.y}[m${s}]`);
       cur = `m${s}`;
     } else if (sc.layer?.kind === "table" && opts.tableHeight) {

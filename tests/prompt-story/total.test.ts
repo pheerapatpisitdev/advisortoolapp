@@ -4,7 +4,7 @@ import { promptStoryPrice } from "@/lib/prompt-story/types";
 import type { Prices } from "@/lib/wallet/prices";
 
 // satang: the clip ฿5, pictures ฿1 / ฿2 / ฿5, ElevenLabs +฿2
-const prices = { videoPrompt: 500, drawStandard: 100, drawSharp: 200, drawGemini: 500, elevenExtra: 200 } as Prices;
+const prices = { videoPrompt: 500, motionScene: 1500, drawStandard: 100, drawSharp: 200, drawGemini: 500, elevenExtra: 200 } as Prices;
 const base = { scenes: 5, painter: "standard" as const, prices };
 
 describe("totalLine", () => {
@@ -45,5 +45,17 @@ describe("totalLine", () => {
     expect(off.text).toBe("ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ จึงยังสร้างคลิปตามโจทย์ไม่ได้");
     expect(totalLine({ ...base, kind: "free" }).blocked).toBeFalsy();
     expect(totalLine({ ...base, kind: "wallet" }).blocked).toBeFalsy();
+  });
+});
+
+describe("totalLine with ภาพขยับ", () => {
+  it("adds each moving scene to the line and the sum, as promptStoryPrice does", () => {
+    const t = totalLine({ scenes: 5, moving: 2, painter: "standard", prices, kind: "wallet" });
+    expect(t.baht).toBe("40");
+    expect(t.text).toContain("รูป 5 × ฿1 + ภาพขยับ 2 × ฿15");
+  });
+
+  it("is in a free clip's pictures, and never more scenes than there are", () => {
+    expect(totalLine({ scenes: 3, moving: 9, painter: "standard", prices, kind: "free" }).baht).toBe("48");
   });
 });

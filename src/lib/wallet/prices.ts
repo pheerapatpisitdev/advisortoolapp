@@ -19,6 +19,8 @@ export type PriceKey =
   | "videoStoryShort"
   /** คลิปตามโจทย์ (owner, 2026-10-16): its own price, apart from คลิปเล่าเรื่อง; the pictures are charged on top */
   | "videoPrompt"
+  /** ภาพขยับ (owner, 2026-10-17): one scene of a คลิปตามโจทย์ moved, 5 seconds, Kling 2.5 Turbo Pro */
+  | "motionScene"
   | "voiceClone";
 
 export type Prices = Record<PriceKey, number>;
@@ -42,6 +44,8 @@ export const DEFAULT_PRICES: Prices = {
   videoStoryShort: 300,
   // คลิปตามโจทย์ (owner, 2026-10-16): ฿5 to start, the same as คลิปเล่าเรื่อง was
   videoPrompt: 500,
+  // ภาพขยับ ต่อฉาก (owner, 2026-10-17): ฿15 over Kling's ~฿12.6
+  motionScene: 1500,
   // เสียงของฉัน (owner, 2026-10-15): once, when the agent's voice is cloned
   voiceClone: 19900,
 };
@@ -68,6 +72,7 @@ export const PRICE_ITEMS: { key: PriceKey; group: PriceGroup; label: string; uni
   { key: "videoStory", group: "video", label: "คลิปเล่าเรื่อง", unit: "คลิป", costThb: 0.4 },
   { key: "videoStoryShort", group: "video", label: "คลิปสั้นหลังการขาย (เตือนเบี้ย วันเกิด เทศกาล)", unit: "คลิป", costThb: 0.2 },
   { key: "videoPrompt", group: "video", label: "คลิปตามโจทย์ (ไม่รวมค่าวาดรูปต่อฉาก)", unit: "คลิป", costThb: 0.4 },
+  { key: "motionScene", group: "video", label: "ภาพขยับ ต่อฉาก (คลิปตามโจทย์ 5 วินาที)", unit: "ฉาก", costThb: 12.6 },
   { key: "voiceClone", group: "video", label: "เปิดใช้เสียงของฉัน (ครั้งเดียว)", unit: "เสียง", costThb: 0 },
   { key: "elevenExtra", group: "video", label: "เสียง ElevenLabs (บวกเพิ่มต่อคลิป)", unit: "คลิป", costThb: 1, extra: true },
   { key: "drawStandard", group: "picture", label: "วาดรูป มาตรฐาน", unit: "รูป", costThb: paint("standard") },

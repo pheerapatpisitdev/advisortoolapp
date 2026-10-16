@@ -16,6 +16,8 @@ describe("the owner's price list", () => {
       videoStoryShort: 300,
       // คลิปตามโจทย์ (owner, 2026-10-16): ฿5, its own row
       videoPrompt: 500,
+      // ภาพขยับ ต่อฉาก (owner, 2026-10-17): ฿15
+      motionScene: 1500,
       // เสียงของฉัน (owner, 2026-10-15): ฿199 once
       voiceClone: 19900,
     });

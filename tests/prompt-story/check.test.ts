@@ -64,4 +64,10 @@ describe("prompt-story script checker", () => {
     expect(out.map((o) => o.scene)).toEqual([1]);
     expect(out[0].reasons.length).toBeGreaterThan(0);
   });
+  it("holds a scene's move to the same rules: no digits, no promises, no other insurer", () => {
+    const a = allowedFor("ลูกค้าอายุ 40", figure);
+    expect(checkScene(scene({ move: "sign shows 40" }), a).join(" ")).toContain("move");
+    expect(checkScene(scene({ move: "guarantee" }), a)).toEqual([]);
+    expect(checkScene(scene({ move: "The mother smiles and the child waves" }), a)).toEqual([]);
+  });
 });
