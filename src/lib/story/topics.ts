@@ -26,7 +26,7 @@ import type { StoryPlan } from "./plans";
 export type StoryTopic =
   | "pool48" | "sumvspremium" | "declare" | "mythclaim" | "mythyoung" | "mythjinx"
   | "pillar" | "mompillar" | "tuition" | "prebaby" | "eldercare"
-  | "deliver" | "claimihu" | "claimish" | "remind" | "birthday" | "festival"
+  | "deliver" | "claimish" | "remind" | "birthday" | "festival"
   | "thinkfirst" | "groupins" | "welfare" | "bank" | "pricey"
   | "firstjob" | "wedding" | "mortgage" | "selfemployed" | "preretire";
 export type StoryShelf = "story" | "knowledge" | "objection" | "family" | "life" | "after";
@@ -73,7 +73,6 @@ export const STORY_TOPICS: StoryTopicInfo[] = [
   { key: "selfemployed", name: "ฟรีแลนซ์ · เจ้าของกิจการ", shelf: "life", blurb: "ไม่มีเจ้านาย ก็ไม่มีสวัสดิการ ต้องสร้างเอง", figure: "plan", plans: ["ISHIELD"], figureAt: 4 },
   { key: "preretire", name: "ใกล้เกษียณ", shelf: "life", blurb: "เงินเดือนหยุดที่เกษียณ แต่ชีวิตยังไปต่ออีกหลายสิบปี", figure: "pension", home: "retire", figureAt: 4 },
   { key: "deliver", name: "ส่งมอบกรมธรรม์", shelf: "after", blurb: "ขอบคุณ สรุปสิ่งที่ได้ เบี้ย เริ่มคุ้มครองเมื่อไร", figure: "plan", figureRequired: true },
-  { key: "claimihu", name: "วิธีเคลม · นอนโรงพยาบาล", shelf: "after", blurb: "iHealthy Ultra: ต้องสำรองจ่ายไหม ยื่นเมื่อไร ได้เงินเมื่อไร", figure: null },
   { key: "claimish", name: "วิธีเคลม · โรคร้ายแรง", shelf: "after", blurb: "iShield: จ่ายตามระยะของโรค ยื่นเคลมยังไง", figure: "plan", plans: ["ISHIELD"] },
   { key: "remind", name: "เตือนชำระเบี้ย", shelf: "after", blurb: "วันครบกำหนด และยอด", figure: null, ask: "due", short: true },
   { key: "birthday", name: "สุขสันต์วันเกิด", shelf: "after", blurb: "อวยพรลูกค้า ไม่พูดเรื่องขาย", figure: null, short: true },

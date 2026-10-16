@@ -692,7 +692,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
           <section className="space-y-2 border-t border-[var(--ct-hair)] py-4" aria-label="ตัวอย่างฉากเปิด">
             <div className="mx-auto max-w-[220px]">
               {afterSale
-                ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimihu" || topic === "claimish"} />
+                ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimish"} />
                 : asks || (life && !lifeFamily)
                 ? <KnowPreview hero={heroFace} title={info.name} size={look.size} />
                 : family || life
