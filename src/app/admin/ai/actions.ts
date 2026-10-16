@@ -14,6 +14,7 @@ import { saveVideoSettings, videoSettings, type VideoSettings } from "@/lib/vide
 import { parseAwsKey } from "@/lib/video/engines/lambda";
 import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
+import { checkMotionKey, MOTION_PROVIDER, type MotionCheck } from "@/lib/video/motion-key";
 
 const monthStartMs = () => monthStart().getTime();
 const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false };
@@ -116,6 +117,8 @@ export async function loadAiPage(): Promise<{
   content: { spent: number | null; cap: number; fallback: number };
   /** the clip render services: how they are set, and the last four characters of each key held */
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
+  /** ภาพขยับ's fal.ai key, its last four characters and switch; null until one is saved */
+  motion: KeyRow | null;
   /** who used AI this month and how much; null when it could not be read */
   people: PersonUse[] | null;
 }> {
@@ -158,8 +161,10 @@ export async function loadAiPage(): Promise<{
     people,
     video: { settings: videoCfg, keys: videoKeys },
     keys: heldKeys
-      .filter((k) => !(RENDER_PROVIDERS as readonly string[]).includes(k.provider))
+      .filter((k) => !(RENDER_PROVIDERS as readonly string[]).includes(k.provider) && k.provider !== MOTION_PROVIDER)
       .map((k) => ({ provider: k.provider, tail: k.tail, enabled: k.enabled !== false })),
+    motion: heldKeys.filter((k) => k.provider === MOTION_PROVIDER)
+      .map((k) => ({ provider: k.provider, tail: k.tail, enabled: k.enabled !== false }))[0] ?? null,
     /**
      * Only the companies above. `model_configs` is shared with another product, so it lists
      * models this system has no key for and no code to call — Grok is in it still, and would
@@ -356,6 +361,41 @@ export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
  * the fallback chain, the judge refuses — and the key stays where it is for when it is
  * wanted again. For TypeSafe it is also the shadow's off switch.
  */
+/** ภาพขยับ's fal.ai key: a plain API key, stored like the AI keys (owner, 2026-10-16) */
+export async function saveMotionKey(key: string): Promise<Result> {
+  await requireStaff("backoffice");
+  const value = cleanKey(key);
+  if (value.length < 8) return { ok: false, error: "กุญแจสั้นเกินไป — วางกุญแจทั้งเส้นอีกครั้ง" };
+  return storeKey(MOTION_PROVIDER, value);
+}
+
+/** off keeps the key and stops every call to fal */
+export async function setMotionEnabled(enabled: boolean): Promise<Result> {
+  await requireStaff("backoffice");
+  try {
+    const { error } = await supabaseAdmin().from("ins_api_keys").update({ enabled: Boolean(enabled) }).eq("provider", MOTION_PROVIDER);
+    if (error) return failed("เปิด/ปิด fal.ai ไม่สำเร็จ", error);
+  } catch (e) {
+    return failed("เปิด/ปิด fal.ai ไม่สำเร็จ", e);
+  }
+  clearAiConfigCache();
+  revalidatePath("/admin/ai");
+  return { ok: true };
+}
+
+/**
+ * Asks fal whether the held key is good (checkMotionKey: a price lookup, no video made). Read
+ * straight from the table, so a key switched off can still be tested before it is switched on.
+ */
+export async function testMotionKey(): Promise<MotionCheck | { state: "no-key" }> {
+  await requireStaff("backoffice");
+  const { data, error } = await supabaseAdmin().rpc("ins_get_api_keys", { p_passphrase: passphrase() });
+  if (error) return { state: "bad", error: "อ่านกุญแจไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  const key = ((data ?? []) as { provider: string; api_key: string }[]).find((k) => k.provider === MOTION_PROVIDER)?.api_key;
+  if (!key) return { state: "no-key" };
+  return checkMotionKey(key);
+}
+
 export async function setProviderEnabled(provider: string, enabled: boolean): Promise<Result> {
   await requireStaff("backoffice");
   if (!PROVIDERS.includes(provider as Provider)) return { ok: false, error: "ค่ายไม่ถูกต้อง" };
