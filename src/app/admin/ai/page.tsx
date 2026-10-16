@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * admin page wore it, so two open tabs of the back office could not be told apart.
  */
 export const metadata: Metadata = {
-  title: "ตั้งค่า AI และระบบ | AdvisorTool",
+  title: "คีย์และโมเดล | AdvisorTool",
 };
 
 export default async function AiPage() {
@@ -24,7 +24,7 @@ export default async function AiPage() {
   const daysLeft = daysUntil(new Date(), meta.expiresOn);
   return (
     <>
-      <PageHead title="ตั้งค่า AI และระบบ" hint="กุญแจ โมเดล งบ และบริการอื่นที่ระบบใช้ ยอดใช้จ่ายอยู่ที่หน้าการใช้งานและค่า AI" />
+      <PageHead title="คีย์และโมเดล" hint="กุญแจ โมเดล งบ และบริการอื่นที่ระบบใช้ ยอดใช้จ่ายอยู่ที่หน้าการใช้งานและค่า AI" />
       <AiClient {...data} rates={{ version: meta.version, expiresOn: meta.expiresOn, daysLeft: Math.max(0, daysLeft), expired: meta.expired }} />
     </>
   );

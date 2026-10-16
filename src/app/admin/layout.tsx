@@ -3,6 +3,7 @@ import { AppShell } from "@/components/shell/AppShell";
 import { gatePage } from "@/lib/auth/viewer";
 import { shellWho } from "@/lib/shell/who";
 import type { Metadata } from "next";
+import { SectionTabs } from "./SectionTabs";
 
 /**
  * The tab's name for every back-office page that does not name itself.
@@ -33,7 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // named for where it is, as Studio's menu is (owner chose ข, 2026-10-14); no way out to the
     // front of the app: the Super Admin has none (2026-10-15)
     <AppShell signedIn who={who} brand={{ href: "/admin", label: "หลังบ้าน" }}>
-      <div className="mx-auto max-w-5xl p-4 pt-16 sm:p-6 sm:pt-16 lg:pt-6">{children}</div>
+      <div className="mx-auto max-w-5xl p-4 pt-16 sm:p-6 sm:pt-16 lg:pt-6"><SectionTabs />{children}</div>
     </AppShell>
   );
 }

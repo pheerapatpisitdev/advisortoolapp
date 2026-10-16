@@ -199,6 +199,61 @@ const MEMBERSHIP: MenuLink = { href: "/membership", label: "สมาชิก",
 const FHC_CUSTOMERS: MenuLink = { href: "/fhc/customers", label: "ลูกค้า FHC ของฉัน", icon: "users", hue: "#3d3578" };
 
 /**
+ * The back office in the five jobs the owner named (2026-10-16): the API, prices and models;
+ * the AI bot; the LINE account; the connections to Facebook Pages; and the history of what
+ * every user did. What is left over sits under "งานอื่น". The sidebar and the tab strip at the
+ * top of every back-office page both read this list, so a page can be in one place only.
+ */
+export interface AdminSection {
+  title: string;
+  pages: { href: string; label: string; icon: MenuIcon; hue: string }[];
+}
+export const ADMIN_SECTIONS: AdminSection[] = [
+  {
+    title: "1 API ราคา โมเดล",
+    pages: [
+      { href: "/admin/ai", label: "คีย์และโมเดล", icon: "gear", hue: "#2b6f74" },
+      { href: "/admin/prices", label: "ราคาและโปรโมชัน", icon: "tag", hue: "#2b6a7a" },
+      { href: "/admin/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b5f80" },
+      { href: "/admin/ai-profit", label: "กำไรค่า AI", icon: "calc", hue: "#2b5a83" },
+    ],
+  },
+  {
+    title: "2 AI Bot",
+    pages: [
+      { href: "/admin/teach", label: "สอนบอท", icon: "bot", hue: "#2b5486" },
+      { href: "/admin/crm", label: "ลูกค้าจากแชท", icon: "chat", hue: "#2e4a86" },
+    ],
+  },
+  {
+    title: "3 LINE OA",
+    pages: [{ href: "/admin/line", label: "LINE OA", icon: "send", hue: "#334084" }],
+  },
+  {
+    title: "4 เชื่อมต่อเพจ",
+    pages: [
+      { href: "/admin/pages", label: "เพจและช่องทาง", icon: "flag", hue: "#3a3784" },
+      { href: "/admin/team", label: "ทีมงานและสิทธิ์", icon: "badge", hue: "#3d3684" },
+    ],
+  },
+  {
+    title: "5 ประวัติผู้ใช้",
+    pages: [
+      { href: "/admin/history", label: "ประวัติผู้ใช้", icon: "clock", hue: "#443283" },
+      { href: "/admin/stats", label: "การใช้งานและค่า AI", icon: "chart", hue: "#4f2f82" },
+    ],
+  },
+  {
+    title: "งานอื่น",
+    pages: [
+      { href: "/admin/ads", label: "โฆษณา", icon: "megaphone", hue: "#5b2e80" },
+      { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#612d7e" },
+      { href: "/admin/voices", label: "เสียงของตัวแทน", icon: "pulse", hue: "#682d7c" },
+    ],
+  },
+];
+
+/**
  * The two menus: the back office's, and everybody else's.
  *
  * Inside /admin the menu lists the back-office tools and nothing more. It used to carry the
@@ -234,64 +289,10 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
           { href: "/admin", label: "ภาพรวม", icon: "grid", hue: "#2b736f" },
         ],
       },
-      {
-        title: "ลูกค้าและบอท",
-        links: [
-          // the people who wrote to the Pages; "ลูกค้า FHC ของฉัน" is the agent's own list
-          { href: "/admin/crm", label: "ลูกค้าจากแชท", icon: "chat", hue: "#2b6a7a" },
-          // which Pages are connected, and whether the bot answers and the workbench posts on each
-          { href: "/admin/pages", label: "เพจและช่องทาง", icon: "flag", hue: "#2b5f80" },
-          // the LINE account: connection, the bot's switch, broadcasts and the chat menus (owner chose ข, 2026-10-15)
-          { href: "/admin/line", label: "LINE OA", icon: "send", hue: "#2b5a83" },
-          // try the bot as a customer, teach it, and set what it sends a newcomer
-          { href: "/admin/teach", label: "สอนบอท", icon: "bot", hue: "#2b5486" },
-        ],
-      },
-      {
-        title: "การตลาด",
-        links: [
-          { href: "/admin/ads", label: "โฆษณา", icon: "megaphone", hue: "#2e4a86" },
-        ],
-      },
-      {
-        title: "ผู้ใช้",
-        links: [
-          // the assistants: who may post to which Page in Studio
-          { href: "/admin/team", label: "ทีมงาน", icon: "badge", hue: "#334084" },
-          // members outside UnitOS who signed up themselves (owner, 2026-10-01)
-          { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#3a3784" },
-          // everybody's whole history: every transaction and everything made (owner, 2026-10-15)
-          { href: "/admin/history", label: "ประวัติผู้ใช้", icon: "clock", hue: "#3d3684" },
-          // เสียงของฉัน: the voice slots, the pilot's invites, and the cloned voices to hear (owner, 2026-10-15)
-          { href: "/admin/voices", label: "เสียงของตัวแทน", icon: "pulse", hue: "#3f3584" },
-        ],
-      },
-      {
-        title: "เงิน",
-        links: [
-          // the Studio wallets: on or off, the multiplier, a hand on a balance (owner, 2026-09-30)
-          { href: "/admin/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#443283" },
-          // the price of each piece, the members' pass and ชวนเพื่อน
-          { href: "/admin/prices", label: "ราคาและโปรโมชัน", icon: "tag", hue: "#4f2f82" },
-        ],
-      },
-      {
-        title: "รายงาน",
-        links: [
-          // which tools people use, who used them, and what each AI company cost (owner, 2026-10-14)
-          { href: "/admin/stats", label: "การใช้งานและค่า AI", icon: "chart", hue: "#5b2e80" },
-          // what the AI cost against what people paid for it (owner, 2026-10-15)
-          { href: "/admin/ai-profit", label: "กำไรค่า AI", icon: "calc", hue: "#612d7e" },
-        ],
-      },
-      {
-        title: "ตั้งค่าระบบ",
-        links: [
-          // keys, models, the budget, the clip renderers and the premium tables in force
-          // (MCP / API, the keys for other systems, went on 2026-10-15: nobody held one)
-          { href: "/admin/ai", label: "ตั้งค่า AI และระบบ", icon: "gear", hue: "#682d7c" },
-        ],
-      },
+      ...ADMIN_SECTIONS.map((sec) => ({
+        title: sec.title,
+        links: sec.pages.map((pg) => ({ href: pg.href, label: pg.label, icon: pg.icon, hue: pg.hue })),
+      })),
     ];
   }
 
