@@ -216,7 +216,7 @@ export async function themeHero(theme: ThemeKey | undefined, sex: "M" | "F"): Pr
       return (
         <div style={box({ position: "relative", width: w, height: h })}>
           <El an={s.shield ?? s.family} t={t} style={{ position: "absolute", left: Math.round((w - d) / 2), top: Math.round((h - d) / 2 - h * 0.04), width: d, height: d, borderRadius: d / 2, background: X.collageCircle }} />
-          <El an={s.family} t={t} style={{ position: "absolute", left: Math.round((w - fw) / 2), top: Math.round(h - fw * 0.8), width: fw, height: fw, transform: `rotate(${(Math.floor(t * 6) % 2 ? 0.8 : -0.6)}deg)` }}>
+          <El an={s.family} t={t} style={{ position: "absolute", left: Math.round((w - fw) / 2), top: Math.round(h - fw * 0.86), width: fw, height: fw, transform: `rotate(${(Math.floor(t * 6) % 2 ? 0.8 : -0.6)}deg)` }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={family} width={fw} height={fw} style={{ width: fw, height: fw }} alt="" />
           </El>
@@ -261,5 +261,10 @@ export function collageSounds(scenes: { start: number; anims: Anim[] }[]): { at:
 
 let soundFiles: Promise<Record<SoundKind, Buffer>> | undefined;
 /** the four sounds as 24 kHz 16-bit mono, read once a process */
-export const collageSoundFiles = () => (soundFiles ??= Promise.all((["pop", "swish", "slap", "pen"] as const).map(async (k) => [k, await readFile(join(process.cwd(), `public/collage/sfx/${k}.pcm`))] as const))
-  .then((pairs) => Object.fromEntries(pairs) as Record<SoundKind, Buffer>));
+export const collageSoundFiles = () => (soundFiles ??= Promise.all([
+  // each named in full, so the deploy's file tracing finds them (next.config.ts lists them too)
+  readFile(join(process.cwd(), "public/collage/sfx/pop.pcm")),
+  readFile(join(process.cwd(), "public/collage/sfx/swish.pcm")),
+  readFile(join(process.cwd(), "public/collage/sfx/slap.pcm")),
+  readFile(join(process.cwd(), "public/collage/sfx/pen.pcm")),
+]).then(([pop, swish, slap, pen]) => ({ pop, swish, slap, pen })));

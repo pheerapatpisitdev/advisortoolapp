@@ -41,6 +41,10 @@ const nextConfig: NextConfig = {
     // rejection that ends the whole process mid-request — a picture drawn, paid for and lost
     // (2026-10-01, /api/content-draw and -generate)
     "/api/content-*": POSTER_FILES,
+    // วิดีโอนำเสนอ's คอลลาจกระดาษ theme reads its paper, its cut-out family and its sounds from disk
+    // (owner, 2026-10-17): the clip is made from Studio's actions and drawn by the draw route
+    "/api/quote-video/**": ["./public/collage/**"],
+    "/studio/quote-video": [...POSTER_FILES, "./public/collage/**"],
     // the quote PDF launches the bundled Chrome, whose brotli-packed binary is read from disk
     "/api/quote-pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
   },
