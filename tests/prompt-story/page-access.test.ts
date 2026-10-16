@@ -92,12 +92,20 @@ describe("the page and the menu", () => {
   const who2 = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
   const linksOf = (w: typeof who2) => studioMenu(w).flatMap((g) => g.links);
 
-  it("lists คลิปตามโจทย์ right after คลิปเล่าเรื่อง, for an agent and for the owner", () => {
-    for (const w of [who2, { ...who2, owner: true }]) {
-      const hrefs = linksOf(w).map((l) => l.href);
-      expect(hrefs.indexOf(PAGE)).toBe(hrefs.indexOf("/studio/story-clip") + 1);
-      expect(linksOf(w).find((l) => l.href === PAGE)?.label).toBe("คลิปตามโจทย์");
+  it("lists คลิปตามโจทย์ right after คลิปเล่าเรื่อง for the owner alone (owner, 2026-10-17)", () => {
+    const owner = { ...who2, owner: true };
+    const hrefs = linksOf(owner).map((l) => l.href);
+    expect(hrefs.indexOf(PAGE)).toBe(hrefs.indexOf("/studio/story-clip") + 1);
+    expect(linksOf(owner).find((l) => l.href === PAGE)?.label).toBe("คลิปตามโจทย์");
+    for (const w of [who2, { ...who2, admin: true, publish: true, connect: true }]) {
+      expect(linksOf(w).map((l) => l.href)).not.toContain(PAGE);
     }
+  });
+
+  it("tells anyone else who opens the address that it is closed (owner chose ก, 2026-10-17)", () => {
+    const src = readFileSync(path.resolve(__dirname, "../../src/app/studio/prompt-story/page.tsx"), "utf8");
+    expect(src).toMatch(/if \(!mayPromptStory\(viewer\)\)/);
+    expect(src).toMatch(/PROMPT_STORY_CLOSED/);
   });
 
   it("keeps the clip's time (the clip is made after the answer, inside the page) and the gate", () => {

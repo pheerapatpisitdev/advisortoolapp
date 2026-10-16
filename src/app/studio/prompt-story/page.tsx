@@ -2,6 +2,8 @@ import { providerKey } from "@/lib/ai/client";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
+import { mayPromptStory, PROMPT_STORY_CLOSED } from "@/lib/prompt-story/access";
+import Link from "next/link";
 import { mayClone, myVoiceChoice } from "@/lib/voice/mine";
 import { elevenVoicesFor, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
@@ -19,10 +21,22 @@ export const metadata = {
 
 /**
  * คลิปตามโจทย์ (owner, 2026-10-16, mockup https://claude.ai/artifact/4SfQNZjNuNR86jKo83D4Bn):
- * every agent's and every สมาชิกทั่วไป's with a live pass, as คลิปเล่าเรื่อง is.
+ * every agent's and every สมาชิกทั่วไป's with a live pass, as คลิปเล่าเรื่อง is. The owner's alone
+ * since 2026-10-17; anyone else who opens the address is told it is closed (owner chose ก, mockup
+ * https://claude.ai/artifact/LcRWfmRo4opwx7mymfd7fM).
  */
 export default async function PromptStoryPage() {
   const viewer = await gatePage("/studio/prompt-story");
+  if (!mayPromptStory(viewer)) {
+    return (
+      <div className="max-w-6xl">
+        <h1 className="text-xl font-semibold">คลิปตามโจทย์</h1>
+        <p className="mt-3 max-w-md rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5 text-sm">
+          {PROMPT_STORY_CLOSED} ทำคลิปได้ที่ <Link href="/studio/story-clip">คลิปเล่าเรื่อง</Link> หรือ <Link href="/studio/quote-video">วิดีโอนำเสนอ</Link>
+        </p>
+      </div>
+    );
+  }
   // putting a clip on a Page's calendar is the owner's alone, as for the other clips
   const pages = can(viewer, "owner") ? (await myPages().catch(() => [])).map((p) => ({ id: p.pageId, name: p.pageName })) : [];
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));

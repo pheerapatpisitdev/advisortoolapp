@@ -370,8 +370,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80" },
     // a cartoon story clip, why insurance at all (owner, 2026-10-15): every agent's, paid like the one above
     { href: "/studio/story-clip", label: "คลิปเล่าเรื่อง", icon: "woman", hue: "#2e5a80" },
-    // a clip from the agent's own brief, script edited before it is paid for (owner, 2026-10-16): paid like the one above
-    { href: "/studio/prompt-story", label: "คลิปตามโจทย์", icon: "quote", hue: "#2e5a80" },
+    // a clip from the agent's own brief, script edited before it is paid for (owner, 2026-10-16): the owner's alone since 2026-10-17
+    ...(who?.owner ? [{ href: "/studio/prompt-story", label: "คลิปตามโจทย์", icon: "quote" as const, hue: "#2e5a80" }] : []),
     // the agent's own cloned voice for those clips (owner, 2026-10-15): the owner's alone since 2026-10-16
     ...(who?.owner ? [{ href: "/studio/voice", label: "เสียงของฉัน", icon: "mic" as const, hue: "#2e5a80" }] : []),
     // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
