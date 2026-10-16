@@ -25,6 +25,7 @@ const { signIn, signOut } = await import("@/app/login/actions");
 
 const AGENT = {
   id: "3f1c2b1e-7a52-4d8f-9a4b-0c7d7e2b9a11", agent_code: "015495", name: "บอย",
+  role: "member", is_admin: false, member_tier: "premium", membership_expires_at: null, created_at: "2026-01-01T00:00:00Z",
   tenant: { id: "t1", slug: "83g", name: "83G", status: "active", config: null, key_epoch: null },
 };
 
@@ -89,6 +90,17 @@ describe("signIn with the agent code", () => {
     expect(db.writes("ins_login_attempts", "update")).toHaveLength(0);
     expect(db.writes("ins_login_attempts", "delete")).toHaveLength(0);
     expect(auth.startSession).not.toHaveBeenCalled();
+  });
+
+  it("tells a basic agent of a room that locks advisortool to renew, and lets them in nowhere (owner, 2026-10-16)", async () => {
+    const basic = { ...AGENT, member_tier: "basic", tenant: { ...AGENT.tenant, config: { premiumOnly: ["ad-studio"] } } };
+    who.agentsByCode.mockResolvedValue([basic]);
+    expect(await signIn(form("015495"))).toEqual({ error: "advisortool สำหรับสมาชิก Premium ของทีม", premium: true });
+    expect(auth.startSession).not.toHaveBeenCalled();
+    expect(nav.redirect).not.toHaveBeenCalled();
+    // still counted as a failure: the code is somebody's, but it let nobody in
+    expect(db.writes("ins_login_attempts", "update")).toHaveLength(0);
+    expect(db.writes("ins_login_attempts", "delete")).toHaveLength(0);
   });
 
   it("does not let a burst through: a sixth attempt from the address is refused unverified", async () => {

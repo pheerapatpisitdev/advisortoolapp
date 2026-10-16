@@ -20,28 +20,49 @@ const FOR: Record<Tab, string> = {
  * `error` is why Google sent somebody back (/login?error=…, src/lib/auth/google.ts); it opens
  * the member tab, where it is said.
  */
-export function LoginForm({ next, signupOpen, error: googleError, notice = null, invitedBy = null }: {
+/**
+ * A basic agent of a room that keeps advisortool for Premium (owner, 2026-10-16): said in the
+ * sand of the invitation box, not the red of a wrong code, since nothing was typed wrong.
+ */
+function PremiumOnly() {
+  return (
+    <div role="status" className="rounded-lg border border-[var(--bot-sand-line)] bg-[var(--bot-sand-soft)] px-3.5 py-3 text-sm text-[var(--bot-sand-ink)]">
+      <p className="text-[15px] font-semibold text-[var(--bot-ink)]">advisortool สำหรับสมาชิก Premium ของทีม</p>
+      <p className="mt-1">ตอนนี้บัญชีของคุณเป็นระดับธรรมดา ต่ออายุหรืออัปเกรดเป็น Premium ได้ในเว็บของทีม แล้วกลับมาเข้าใหม่ได้ทันที</p>
+    </div>
+  );
+}
+
+export function LoginForm({ next, signupOpen, error: googleError, notice = null, invitedBy = null, premium = false }: {
   next: string; signupOpen: boolean; error: string | null;
   /** why somebody was sent here, said above the tabs (door.tsx) */
   notice?: string | null;
   /** the first name of whoever sent the invitation link this visitor came through (src/lib/referrals) */
   invitedBy?: string | null;
+  /** sent here as a basic agent of a room that keeps advisortool for Premium (door.tsx) */
+  premium?: boolean;
 }) {
   // the member tab is for people who can still sign up; while sign-up is off a visitor is
   // almost surely a UnitOS agent, so that tab opens first (both stay available). An invited
   // friend signs up with Google, so theirs is the member tab too
-  const [tab, setTab] = useState<Tab>(signupOpen || googleError || invitedBy ? "member" : "unitos");
+  const [tab, setTab] = useState<Tab>(!premium && (signupOpen || googleError || invitedBy) ? "member" : "unitos");
   const [error, setError] = useState<string>();
+  // the code typed was a basic agent's: the Premium box takes the error's place
+  const [locked, setLocked] = useState(false);
   const [pending, start] = useTransition();
-  const clear = () => setError(undefined);
+  const clear = () => {
+    setError(undefined);
+    setLocked(false);
+  };
   // method="post": a submit before hydration must not put the code in the URL. onSubmit, not
   // action=: React 19 resets a form after its action, which would wipe what was typed
-  const submit = (action: (fd: FormData) => Promise<{ error: string } | undefined>) => (e: FormEvent<HTMLFormElement>) => {
+  const submit = (action: (fd: FormData) => Promise<{ error: string; premium?: true } | undefined>) => (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     start(async () => {
       const res = await action(fd);
-      if (res?.error) setError(res.error);
+      if (res?.premium) setLocked(true);
+      else if (res?.error) setError(res.error);
     });
   };
   const pick = (t: Tab) => {
@@ -65,6 +86,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
           <p><b>คุณ{invitedBy}</b> ชวนคุณมาใช้ AdvisorTool<br />เครื่องคิดเบี้ย ถาม AI และ Studio ทำโพสต์</p>
         </div>
       )}
+      {premium && <div className="mt-4"><PremiumOnly /></div>}
       {notice && <p role="status" className="mt-4 rounded-lg bg-[var(--bot-band)] px-3 py-2 text-center text-sm text-[var(--bot-ink)]">{notice}</p>}
       <div role="tablist" className="mt-6 flex gap-1 rounded-lg bg-[var(--bot-band)] p-1">
         <button type="button" role="tab" aria-selected={tab === "member"} className={tabClass("member")} onClick={() => pick("member")}>สมาชิกทั่วไป</button>
@@ -94,6 +116,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
               className={`${INPUT} tracking-[0.3em] tabular-nums placeholder:tracking-[0.2em]`}
             />
           </Field>
+          {locked && !premium && <PremiumOnly />}
           {error && <FormError>{error}</FormError>}
           <button disabled={pending} className={PRIMARY}>{pending ? "กำลังตรวจสอบ…" : "เข้าสู่ระบบ"}</button>
         </form>

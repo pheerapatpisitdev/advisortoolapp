@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { admit, admitMember, admitSuper, can, type AgentRow, type MemberRow, type StaffRow } from "@/lib/auth/access";
+import { admit, admitMember, admitSuper, agentTier, can, membershipExpiresAt, premiumOnlyMenus, refusal, studioLocked, type AgentRow, type MemberRow, type StaffRow } from "@/lib/auth/access";
 
 const room = (over: Partial<NonNullable<AgentRow["tenant"]>> = {}): NonNullable<AgentRow["tenant"]> => ({
   id: "t1", slug: "83g", name: "83G", status: "active", config: null, key_epoch: null, ...over,
 });
 const agent = (over: Partial<AgentRow> = {}): AgentRow => ({
-  id: "a1", agent_code: "015495", name: "บอย", tenant: room(), ...over,
+  id: "a1", agent_code: "015495", name: "บอย",
+  role: "member", is_admin: false, member_tier: "premium", membership_expires_at: "2099-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z",
+  tenant: room(), ...over,
 });
 const staff = (over: Partial<StaffRow> = {}): StaffRow => ({
   is_owner: false, can_publish: true, can_connect: false, can_admin: false, ...over,
@@ -141,5 +143,74 @@ describe("admitMember (owner, 2026-10-01)", () => {
 
   it("marks a UnitOS agent as one", () => {
     expect(admit(agent(), null, Date.now())?.kind).toBe("unitos");
+  });
+});
+
+/**
+ * UnitClub's Premium / basic tiers (owner, 2026-10-16): a room that puts advisortool ("ad-studio")
+ * on its Premium-only list keeps its basic agents out, by the same rule as UnitOS's
+ * _shared/line-submit.ts agentLocked and app.agent_locked.
+ */
+describe("Premium-only advisortool", () => {
+  const NOW = Date.parse("2026-10-16T12:00:00Z");
+  const locks = (over: Record<string, unknown> = {}) => room({ config: { premiumOnly: ["ad-studio", "lotto"], ...over } });
+  const basic = (over: Partial<AgentRow> = {}) => agent({ member_tier: "basic", tenant: locks(), ...over });
+
+  it("keeps a basic agent out of a room that locks advisortool", () => {
+    expect(admit(basic(), null, NOW, NOW)).toBeNull();
+    expect(refusal(basic(), null, NOW, NOW)).toBe("premium");
+  });
+
+  it("lets a Premium agent of the same room in", () => {
+    const v = admit(agent({ tenant: locks() }), null, NOW, NOW);
+    expect(v?.agentId).toBe("a1");
+    expect(refusal(agent({ tenant: locks() }), null, NOW, NOW)).toBeNull();
+  });
+
+  it("never locks a room's managers or admins, whatever their tier says", () => {
+    for (const over of [{ role: "manager" }, { role: "admin" }, { is_admin: true }]) {
+      expect(admit(basic(over), null, NOW, NOW)).not.toBeNull();
+    }
+  });
+
+  it("lets a basic agent in where the room does not lock advisortool", () => {
+    expect(admit(agent({ member_tier: "basic" }), null, NOW, NOW)).not.toBeNull();   // no list: the default, without ad-studio
+    expect(admit(basic({ tenant: room({ config: { premiumOnly: [] } }) }), null, NOW, NOW)).not.toBeNull();
+    expect(admit(basic({ tenant: room({ config: { premiumOnly: ["lotto"] } }) }), null, NOW, NOW)).not.toBeNull();
+    expect(admit(basic({ tenant: room({ config: { premiumOnly: "ad-studio" } }) }), null, NOW, NOW)).not.toBeNull();
+  });
+
+  it("counts a Premium agent past their date as basic in a room that charges a membership", () => {
+    const lapsed = { member_tier: "premium", membership_expires_at: "2026-10-01T00:00:00Z" };
+    expect(admit(agent({ ...lapsed, tenant: locks({ flags: { memberFee: true } }) }), null, NOW, NOW)).toBeNull();
+    expect(refusal(agent({ ...lapsed, tenant: locks({ flags: { memberFee: true } }) }), null, NOW, NOW)).toBe("premium");
+    // the same date in a room that charges nothing stays Premium
+    expect(admit(agent({ ...lapsed, tenant: locks() }), null, NOW, NOW)).not.toBeNull();
+    // the moment the date is reached counts as past it
+    const at = agent({ membership_expires_at: "2026-10-16T12:00:00Z", tenant: locks({ flags: { memberFee: true } }) });
+    expect(studioLocked(at, NOW)).toBe(true);
+    expect(studioLocked(at, NOW - 1)).toBe(false);
+  });
+
+  it("dates a membership with no date from joining: 30 days from 2026-07-01, 90 before", () => {
+    const fresh = { membership_expires_at: null, created_at: "2026-09-01T00:00:00Z" };
+    expect(membershipExpiresAt(agent(fresh))?.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    const old = { membership_expires_at: null, created_at: "2026-06-30T00:00:00Z" };
+    expect(membershipExpiresAt(agent(old))?.toISOString()).toBe("2026-09-28T00:00:00.000Z");
+    expect(agentTier(agent(fresh), true, NOW)).toBe("basic");
+    expect(agentTier(agent({ membership_expires_at: null, created_at: null }), true, NOW)).toBe("premium");
+  });
+
+  it("reads the room's list as UnitClub does", () => {
+    expect(premiumOnlyMenus(null)).toEqual(["activities", "rewards", "challenges", "lotto", "leaderboard"]);
+    expect(premiumOnlyMenus({ premiumOnly: [] })).toEqual([]);
+    expect(premiumOnlyMenus({ premiumOnly: ["ad-studio", "ad-studio", "sales", "nonsense", 7] })).toEqual(["ad-studio"]);
+  });
+
+  it("says nothing of tiers for a room closed for another reason", () => {
+    const closed = basic({ tenant: { ...locks(), status: "canceled" } });
+    expect(admit(closed, null, NOW, NOW)).toBeNull();
+    expect(refusal(closed, null, NOW, NOW)).toBeNull();
+    expect(refusal(null, null, NOW, NOW)).toBeNull();
   });
 });

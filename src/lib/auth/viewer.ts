@@ -5,14 +5,15 @@ import { memberAccess, passOpen } from "@/lib/members/access";
 import { PASS_PAGE } from "@/lib/members/pass";
 import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { admit, admitMember, admitSuper, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
+import { admit, admitMember, admitSuper, can, refusal, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
 import { sessionNotBefore } from "./epoch";
 import { safeNext } from "./next";
 import { readSession } from "./session";
 
 export type { Perm, Viewer } from "./access";
 
-const AGENT_COLUMNS = "id, agent_code, name, tenant:tenants(id, slug, name, status, config, key_epoch)";
+const AGENT_COLUMNS =
+  "id, agent_code, name, role, is_admin, member_tier, membership_expires_at, created_at, tenant:tenants(id, slug, name, status, config, key_epoch)";
 
 /** UnitOS's agent row with its room, or null. */
 export async function agentById(id: string): Promise<AgentRow | null> {
@@ -84,6 +85,21 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
 });
 
 /**
+ * Why a session that no longer lets anybody in was turned away, when it is for UnitClub's tier
+ * (owner, 2026-10-16): the agent goes to the front page told to renew or upgrade. Read only on
+ * the way out, so it costs the signed-in nothing.
+ */
+async function whyOut(): Promise<"premium" | null> {
+  const session = await readSession();
+  if (!session) return null;
+  const [agent, staff, notBefore] = await Promise.all([
+    agentById(session.agentId), staffRow(session.agentId), sessionNotBefore(session.agentId),
+  ]);
+  if (notBefore !== null && session.issuedAt < notBefore) return null;
+  return refusal(agent, staff, session.issuedAt);
+}
+
+/**
  * For server actions and routes: a layout's gate does not cover an action, so each one asks.
  * The front of the app's: the Super Admin runs the back office only (owner, 2026-10-15), so
  * Studio's rounds, the wallet and the rest are refused to them here.
@@ -132,7 +148,8 @@ export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   if (!viewer) {
     // the page actually asked for, when the middleware passed it on; the caller's guess otherwise
     const asked = safeNext((await headers()).get("x-pathname"), next);
-    redirect(`/?next=${encodeURIComponent(asked)}`);
+    const premium = (await whyOut().catch(() => null)) === "premium" ? "premium=1&" : "";
+    redirect(`/?${premium}next=${encodeURIComponent(asked)}`);
   }
   if (viewer.kind === "member" && passPage(next) && !passOpen(await memberAccess(viewer))) {
     redirect(`${PASS_PAGE}?expired=1`);
