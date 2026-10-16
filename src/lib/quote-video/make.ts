@@ -130,7 +130,8 @@ export const hashToken = (token: string) => createHash("sha256").update(token).d
 /** How the next clip would be paid for, as the board says it under the button. */
 export type CostView =
   | { kind: "staff" }
-  | { kind: "free"; left: number; of: number }
+  /** walletOff: the wallet is shut, so a คลิปตามโจทย์'s pictures (paid even on a free clip) cannot be */
+  | { kind: "free"; left: number; of: number; walletOff?: true }
   /** the price of each look (an FHC summary its own), and whether the wallet holds it */
   | { kind: "wallet"; balance: string; prices: Partial<Record<PriceKey, { price: string; enough: boolean }>> }
   | { kind: "closed" };
@@ -170,8 +171,8 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   if (can(viewer, "owner")) return { kind: "staff" };
   const { limit, from } = await freeClips(viewer);
   const used = await freeUsed(viewer.agentId, from);
-  if (used < limit) return { kind: "free", left: limit - used, of: limit };
   const s = await walletSettings().catch(() => null);
+  if (used < limit) return { kind: "free", left: limit - used, of: limit, ...(s?.enabled ? {} : { walletOff: true as const }) };
   if (!s?.enabled) return { kind: "closed" };
   const [balance, prices] = await Promise.all([balanceSatang(viewer.agentId), walletPrices()]);
   const priced = (satang: number) => ({ price: formatBaht(satang), enough: balance >= satang });

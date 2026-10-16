@@ -116,7 +116,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const briefOk = brief.trim().length > 0 && brief.length <= BRIEF_MAX;
   const stale = Boolean(written) && (written!.brief !== brief || written!.scenes !== scenes || JSON.stringify(written!.figure) !== JSON.stringify(figureAsked));
   const voiceBlocked = Boolean(quota) && !look.voice;
-  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, prices, kind: cost?.kind ?? "wallet" });
+  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff });
   const closed = cost?.kind === "closed";
 
   async function write() {
@@ -222,10 +222,10 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
                 {cost?.kind === "wallet" && <><br /><span className="text-xs text-[var(--ct-mute)]">ยอดคงเหลือ {cost.balance}</span></>}
               </p>
               <button
-                type="button" onClick={make} disabled={making || writing || closed || voiceBlocked}
+                type="button" onClick={make} disabled={making || writing || closed || voiceBlocked || Boolean(total.blocked)}
                 className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
               >
-                {making ? "กำลังเริ่ม…" : total.baht === "0" ? "สร้างคลิป" : `สร้างคลิป ฿${total.baht}`}
+                {making ? "กำลังเริ่ม…" : total.baht === "0" || total.blocked ? "สร้างคลิป" : `สร้างคลิป ฿${total.baht}`}
               </button>
             </>
           )}

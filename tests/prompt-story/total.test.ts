@@ -38,4 +38,12 @@ describe("totalLine", () => {
     expect(owner.baht).toBe("0");
     expect(owner.text).toBe("เจ้าของใช้ฟรี");
   });
+
+  it("blocks a free clip while the wallet is off: its pictures have nowhere to be paid from", () => {
+    const off = totalLine({ ...base, kind: "free", walletOff: true });
+    expect(off.blocked).toBe(true);
+    expect(off.text).toBe("ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ จึงยังสร้างคลิปตามโจทย์ไม่ได้");
+    expect(totalLine({ ...base, kind: "free" }).blocked).toBeFalsy();
+    expect(totalLine({ ...base, kind: "wallet" }).blocked).toBeFalsy();
+  });
 });
