@@ -23,6 +23,27 @@ describe("prompt-story script checker", () => {
     expect(checkScene(scene({ voice: "รับประกันผลตอบแทน" }), a).length).toBeGreaterThan(0);
     expect(checkScene(scene({ voice: "การันตี" }), a).length).toBeGreaterThan(0);
   });
+  it("fails a promise of no health check, in any field, spaced or not", () => {
+    const a = allowedFor("");
+    for (const t of ["สมัครง่าย ไม่ต้องตรวจสุขภาพ", "ไม่ต้อง ตรวจ สุขภาพ เลย", "ไม่ตรวจสุขภาพ"]) {
+      expect(checkScene(scene({ voice: t }), a).join(" ")).toMatch(/ตรวจสุขภาพ/);
+      expect(checkScene(scene({ screen: t }), a).join(" ")).toMatch(/ตรวจสุขภาพ/);
+    }
+    // the title and the caption go through the same check (createPromptStory, writer)
+    expect(checkScene({ voice: "", screen: "ไม่ต้องตรวจสุขภาพ", picture: "" }, a)).not.toEqual([]);
+    expect(checkScene({ voice: "แผนนี้ไม่ต้องตรวจสุขภาพ", screen: "", picture: "" }, a)).not.toEqual([]);
+  });
+  it("fails naming another insurer, in any field", () => {
+    const a = allowedFor("");
+    for (const t of ["ดีกว่าเมืองไทยประกันชีวิต", "ถูกกว่า AIA", "เทียบกับ prudential", "อลิอันซ์", "FWD ไม่มีแบบนี้", "กรุงเทพประกันชีวิต"]) {
+      expect(checkScene(scene({ voice: t }), a).join(" ")).toMatch(/บริษัท/);
+      expect(checkScene(scene({ screen: t }), a).join(" ")).toMatch(/บริษัท/);
+      expect(checkScene({ voice: t, screen: "", picture: "" }, a)).not.toEqual([]);
+    }
+  });
+  it("leaves ordinary words alone", () => {
+    expect(checkScene(scene({ voice: "ตรวจสุขภาพประจำปีกันด้วยนะ ประกันชีวิตไทยทุกคนควรมี" }), allowedFor(""))).toEqual([]);
+  });
   it("passes a scene with no numbers", () => {
     expect(checkScene(scene(), allowedFor(""))).toEqual([]);
   });
