@@ -39,3 +39,15 @@ export const voiceFullText = (until: Date) => `${VOICE_FULL} ลองใหม�
 
 /** the form's warning while the voice is used up (mockup https://claude.ai/artifact/EKUYHGVtP3hxNMPxuJDaBt, ข) */
 export const voiceFullNotice = (clock: string) => `เสียงพากย์ Google ของวันนี้ใช้ครบแล้ว สร้างได้อีกครั้งหลัง ${clock} น.`;
+
+/**
+ * What a clip form says about Gemini's voice (owner, 2026-10-17, mockup https://claude.ai/artifact/WdDKuEDh2k42TZ9nFJjW9x):
+ * when a Thai clip has a fallback reader waiting, a green note and no block; otherwise the old warning.
+ * `clock` is when the day's cap turns over; null when the key is off in /admin/ai instead.
+ */
+export function voiceNotice(q: { clock: string | null; fallback: boolean }, thai: boolean): { text: string; ok: boolean; blocked: boolean } {
+  if (thai && q.fallback) {
+    return { text: "เสียง Gemini ใช้ไม่ได้ตอนนี้ ระบบจะใช้เสียง ElevenLabs แทนให้เอง (อ้อม สำหรับผู้หญิง สมชาย สำหรับผู้ชาย) ไม่คิดเพิ่ม", ok: true, blocked: false };
+  }
+  return { text: q.clock ? voiceFullNotice(q.clock) : thai ? "เสียงพากย์ Google ใช้ไม่ได้ตอนนี้ เลือกเสียง ElevenLabs แทน" : "เสียงพากย์ภาษานี้ใช้ Google ซึ่งใช้ไม่ได้ตอนนี้ ลองใหม่ภายหลัง", ok: false, blocked: true };
+}

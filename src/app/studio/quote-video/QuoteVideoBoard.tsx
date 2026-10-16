@@ -14,7 +14,7 @@ import type { VideoSize } from "@/lib/quote-video/timeline";
 import { MyVoiceRow } from "../voice/MyVoiceRow";
 import { ClipList } from "./ClipList";
 import { makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
-import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
+import { voiceNotice } from "@/lib/quote-video/voice-quota";
 import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
 
@@ -241,7 +241,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // the voice-used-up warning (owner, 2026-10-12, mockup ข): gone by itself when the day turns over
   const [quota, setQuota] = useState<VoiceQuota | null>(firstQuota);
   useEffect(() => {
-    if (!quota) return;
+    if (!quota?.until) return;
     const t = setTimeout(() => setQuota(null), Math.max(0, Date.parse(quota.until) - Date.now()) + 5000);
     return () => clearTimeout(t);
   }, [quota]);
@@ -434,7 +434,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // every clip comes in every shape (owner, 2026-10-13)
   const shownSize = size;
   // a Gemini-voiced clip would only fail while the voice is used up
-  const voiceBlocked = Boolean(quota) && (!voice || foreign);
+  const notice = quota && (!voice || foreign) ? voiceNotice(quota, !foreign) : null;
+  const voiceBlocked = Boolean(notice?.blocked);
   const voiceWord = voice && !foreign ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs" : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
   const summary = {
     brief: [HOOK_WORD[brief.hook], brief.loop ? "วนลูป" : ""].filter(Boolean).join(" · "),
@@ -782,10 +783,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               {error.contact && <Link href="/studio/account" className="font-medium underline">ไปที่บัญชีของฉัน</Link>}
             </p>
           )}
-          {voiceBlocked && quota && (
-            <p role="status" className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]">
-              {voiceFullNotice(quota.clock)}
-              {elevenInstead && !foreign && (
+          {notice && (
+            <p role="status" className={notice.ok ? "rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]" : "rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]"}>
+              {notice.text}
+              {notice.blocked && elevenInstead && !foreign && (
                 <>{" "}หรือ <button type="button" className="font-semibold underline" onClick={() => pickVoice(elevenInstead.id)}>เปลี่ยนไปใช้เสียง ElevenLabs</button> ซึ่งทำได้ทันที</>
               )}
             </p>

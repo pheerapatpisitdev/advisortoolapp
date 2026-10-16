@@ -5,7 +5,7 @@ import type { CostView } from "@/lib/quote-video/make";
 import { totalLine } from "@/lib/prompt-story/total";
 import { BRIEF_MAX, type PictureStyle, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
-import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
+import { voiceNotice } from "@/lib/quote-video/voice-quota";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { pictureSatang, priceBaht, type Prices } from "@/lib/wallet/prices";
 import { myCost, myVideos, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
@@ -95,7 +95,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
 
   // Gemini's voice used up for the day: the warning goes by itself when the day turns over
   useEffect(() => {
-    if (!quota) return;
+    if (!quota?.until) return;
     const t = setTimeout(() => setQuota(null), Math.max(0, Date.parse(quota.until) - Date.now()) + 5000);
     return () => clearTimeout(t);
   }, [quota]);
@@ -115,7 +115,8 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const figureAsked = withFigure ? figure : null;
   const briefOk = brief.trim().length > 0 && brief.length <= BRIEF_MAX;
   const stale = Boolean(written) && (written!.brief !== brief || written!.scenes !== scenes || JSON.stringify(written!.figure) !== JSON.stringify(figureAsked));
-  const voiceBlocked = Boolean(quota) && !look.voice;
+  const notice = quota && !look.voice ? voiceNotice(quota, true) : null;
+  const voiceBlocked = Boolean(notice?.blocked);
   const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff });
   const closed = cost?.kind === "closed";
 
@@ -211,8 +212,8 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
               {!error.contact && error.text.includes("กระเป๋า") && <Link href="/studio/wallet" className="font-medium underline">เติมเงิน</Link>}
             </p>
           )}
-          {voiceBlocked && quota && (
-            <p role="status" className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]">{voiceFullNotice(quota.clock)}</p>
+          {notice && (
+            <p role="status" className={notice.ok ? "rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]" : "rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]"}>{notice.text}</p>
           )}
           {draft && (
             <>

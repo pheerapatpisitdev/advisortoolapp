@@ -7,7 +7,7 @@ import type { CostView } from "@/lib/quote-video/make";
 import { STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { FESTIVALS, figureShown, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { VideoSize } from "@/lib/quote-video/timeline";
-import { voiceFullNotice } from "@/lib/quote-video/voice-quota";
+import { voiceNotice } from "@/lib/quote-video/voice-quota";
 import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, defaultPartner, FACE_PAPER, FACES, faceSrc, familyOf, type FaceTag } from "@/lib/story/faces";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
@@ -305,7 +305,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
 
   // Gemini's voice used up for the day: the warning goes by itself when the day turns over
   useEffect(() => {
-    if (!quota) return;
+    if (!quota?.until) return;
     const t = setTimeout(() => setQuota(null), Math.max(0, Date.parse(quota.until) - Date.now()) + 5000);
     return () => clearTimeout(t);
   }, [quota]);
@@ -340,7 +340,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const ladderOk = withFigure && info.figure === "ladder" && ladder && !("error" in ladder) ? ladder : null;
   const pensionOk = withFigure && info.figure === "pension" && pension && !("error" in pension) ? pension : null;
   const figureAt = info.figureAt ?? (family ? 5 : 4);
-  const voiceBlocked = Boolean(quota) && !look.voice;
+  const notice = quota && !look.voice ? voiceNotice(quota, true) : null;
+  const voiceBlocked = Boolean(notice?.blocked);
   const line = costLine(cost, info.short ? "videoStoryShort" : "videoStory");
   // the household's numbers, as the form has them
   const num = (v: string) => Number(v.replace(/[^\d]/g, "")) || 0;
@@ -709,8 +710,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 {error.contact && <Link href="/studio/account" className="font-medium underline">ไปที่บัญชีของฉัน</Link>}
               </p>
             )}
-            {voiceBlocked && quota && (
-              <p role="status" className="rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]">{voiceFullNotice(quota.clock)}</p>
+            {notice && (
+              <p role="status" className={notice.ok ? "rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm text-[var(--ct-accent)]" : "rounded-lg border border-[var(--ct-warn-line)] bg-[var(--ct-warn-bg)] px-3 py-2 text-sm text-[var(--ct-warn-ink)]"}>{notice.text}</p>
             )}
             {line && (
               <p className={`rounded-lg px-3 py-2 text-sm ${line.blocked ? "bg-[var(--ct-alert-bg)] text-[var(--ct-alert)]" : "bg-[var(--ct-soft)]"}`}>

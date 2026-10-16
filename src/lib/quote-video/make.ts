@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { providerKey } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
 import { asWho } from "@/lib/ai/who";
-import { speakLine, TTS_RATE, TtsQuotaError } from "@/lib/ai/tts";
+import { TTS_RATE, TtsQuotaError } from "@/lib/ai/tts";
+import { speakClip } from "./speak";
 import { sayNumbers } from "./say-numbers";
 import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
@@ -736,13 +737,16 @@ export async function produce(id: string, agentName: string): Promise<void> {
     // the ElevenLabs voices are Thai ones, so it is Gemini's narrator (owner, 2026-10-15)
     const lang = langOfInput(row.input);
     const voiceId = lang === "th" ? row.input.voice : undefined;
-    const speak = (s: { voice: string }) => speakLine(lang === "th" ? sayNumbers(s.voice) : s.voice, VIDEO_TASK_VOICE, { narrator, voice: voiceId, lang })
-      .then((r) => { bar.note({ step: "voice", done: ++lines, of: spokenScript.length }); return r; });
-    // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
-    const spoken = voiceId ? await pool(spokenScript, 2, speak) : await Promise.all(spokenScript.map(speak));
+    // Gemini's voice cannot be used (off, no key, day cap full): a Thai clip is read whole by อ้อม / สมชาย instead (owner, 2026-10-17)
+    const { spoken, fellBackTo } = await speakClip(
+      spokenScript.map((s) => (lang === "th" ? sayNumbers(s.voice) : s.voice)),
+      { task: VIDEO_TASK_VOICE, narrator, voice: voiceId, lang, pool,
+        onLine: () => bar.note({ step: "voice", done: ++lines, of: spokenScript.length }),
+        onSwitch: () => { lines = 0; bar.note({ step: "voice", done: 0, of: spokenScript.length }); } },
+    );
     const pcms = spoken.map((s) => s.pcm);
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) + picturesThb });
-    lap(`voice done (${spokenScript.length} lines${voiceId ? ", ElevenLabs" : ""}${lang === "th" ? "" : `, ${lang}`})`);
+    lap(`voice done (${spokenScript.length} lines${voiceId || fellBackTo ? ", ElevenLabs" : ""}${fellBackTo ? " (in place of Gemini)" : ""}${lang === "th" ? "" : `, ${lang}`})`);
     // kept with the clip, so a picture redrawn later is cut without speaking again
     if (isPromptStory(row.input)) await pool(pcms, 8, (pcm, i) => upload(id, voiceName(i), pcm, "application/octet-stream"));
     await cutClip(row, agentName, pcms, gcpKey, bar, t0, lap);

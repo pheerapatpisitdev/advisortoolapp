@@ -13,13 +13,14 @@ import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
 import { ADMIN_VOICE, voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
+import { fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
 import { promptStoryCaption } from "@/lib/prompt-story/caption";
 import { isPromptStory, promptPicturePrice } from "@/lib/prompt-story/types";
 import { priceBaht } from "@/lib/wallet/prices";
 import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
-import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipEstimates, clipSize, langOfInput, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
@@ -112,6 +113,12 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
  */
 /** how a clip's voice reads in the list of clips */
 const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียงของฉัน");
+/** " · เสียง X" for the voice a clip asked for; " · เสียง อ้อม (ElevenLabs แทน Gemini)" when it was switched (make.ts speakClip) */
+const voiceWord = (input: { voice?: string }) => {
+  if (input.voice) return ` · ${voiceLabel(input.voice)}`;
+  const fell = (input as { voiceFallback?: unknown }).voiceFallback;
+  return typeof fell === "string" ? ` · เสียง ${fell} (ElevenLabs แทน Gemini)` : "";
+};
 
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
 function checked(v: VideoInput, mine?: ElevenChoice): VideoInput | string {
@@ -220,19 +227,25 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   return { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
 }
 
-export interface VoiceQuota { until: string; clock: string }
+export interface VoiceQuota { until: string | null; clock: string | null; fallback: boolean }
 
 /**
- * Gemini's voice used up for the day (owner, 2026-10-12, mockup ข): when it comes back, or null.
- * A wrong answer here only hides the warning; the clip itself still fails with the reason.
+ * Gemini's voice cannot be used (owner, 2026-10-12, mockup ข; 2026-10-17: also when it is switched off):
+ * when it comes back (null while it is off), and whether อ้อม / สมชาย are ready to read in its place.
+ * Null when it works. A wrong answer here only hides the note; the clip itself still switches or fails.
  */
 export async function voiceQuota(): Promise<VoiceQuota | null> {
   await requireMember();
-  const until = await voiceFullUntil().catch((e) => {
-    console.error("voice quota not read:", e instanceof Error ? e.message : "unknown error");
-    return null;
-  });
-  return until ? { until: until.toISOString(), clock: bangkokClock(until) } : null;
+  const [until, on] = await Promise.all([
+    voiceFullUntil().catch((e) => {
+      console.error("voice quota not read:", e instanceof Error ? e.message : "unknown error");
+      return null;
+    }),
+    geminiUsable(),
+  ]);
+  if (on && !until) return null;
+  const fallback = Boolean(await fallbackReader("F").catch(() => null));
+  return { until: until ? until.toISOString() : null, clock: until ? bangkokClock(until) : null, fallback };
 }
 
 
@@ -386,7 +399,7 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
   }
-  const full = await voiceRefusal(c.voice);
+  const full = await voiceRefusal(c.voice, langOfInput(c) === "th");
   if (full) return { ok: false, error: full };
   try {
     const made = await createVideo(viewer, c, c.length === "short" ? "" : cleanCustomerName(customer));
@@ -502,7 +515,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
     if (isFhcInput(v.input)) {
       const input = v.input;
       const file = `สรุปFHC-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
-      const who = `สรุป FHC${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""}`;
+      const who = `สรุป FHC${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${voiceWord(input)}`;
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
@@ -513,7 +526,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
       const input = v.input;
       const topic = STORY_TOPICS.find((x) => x.key === input.topic)?.name ?? "คลิปเล่าเรื่อง";
       const fig = input.figure ? ` · ${planName(input.figure.plan)} ${SEX[input.figure.sex]} ${input.figure.age}` : "";
-      const who = `${topic}${SIZE_WORD[clipSize(input)]}${fig}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""}`;
+      const who = `${topic}${SIZE_WORD[clipSize(input)]}${fig}${voiceWord(input)}`;
       const file = `เล่าเรื่อง-${v.customer_name || topic.replace(/\s+/g, "")}.mp4`;
       return {
         id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
@@ -524,7 +537,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
     }
     if (isPromptStory(v.input)) {
       const input = v.input;
-      const who = `${input.title}${SIZE_WORD[clipSize(input)]}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""}`;
+      const who = `${input.title}${SIZE_WORD[clipSize(input)]}${voiceWord(input)}`;
       const file = `ตามโจทย์-${v.customer_name || input.title.replace(/\s+/g, "")}.mp4`;
       return {
         id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
@@ -545,7 +558,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         : input.product === "PLB"
         ? `${sumWords(input.sumAssured)} · ${input.variant.slice(3).replace(/^0/, "")} ปี`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,

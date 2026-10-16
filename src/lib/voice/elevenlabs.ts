@@ -62,8 +62,8 @@ export const elevenVoicesFor = (owner: boolean): ElevenChoice[] => ELEVEN_VOICES
  * fewer than this are left — it would fail half-spoken. About six ~50-second clips.
  */
 export const ELEVEN_RESERVE = 1500;
-export async function elevenCreditsLeft(apiKey: string): Promise<number> {
-  const res = await fetch(`${API}/user/subscription`, { headers: { "xi-api-key": apiKey }, signal: AbortSignal.timeout(10_000) });
+export async function elevenCreditsLeft(apiKey: string, f: typeof fetch = fetch): Promise<number> {
+  const res = await f(`${API}/user/subscription`, { headers: { "xi-api-key": apiKey }, signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`api.elevenlabs.io ${res.status}`);
   const s = await res.json();
   return Number(s.character_limit) - Number(s.character_count);
