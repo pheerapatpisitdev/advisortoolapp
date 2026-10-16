@@ -2,7 +2,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/assistant/rate-limit";
-import { admit } from "@/lib/auth/access";
+import { admit, refusal } from "@/lib/auth/access";
 import { safeNext } from "@/lib/auth/next";
 import { endEverySession } from "@/lib/auth/epoch";
 import { noteLogin } from "@/lib/auth/login-log";
@@ -28,6 +28,7 @@ const MAX_FAILURES = 5;
 const SITE_CODE_FAILURES = 30;
 
 const BROKEN = "ระบบขัดข้อง ลองใหม่อีกครั้ง";
+const PREMIUM_ONLY = "advisortool สำหรับสมาชิก Premium ของทีม";
 
 function sinceWindow(): string {
   return new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
@@ -75,7 +76,7 @@ async function codeFailures(since: string): Promise<number> {
  * other, so the counts include this attempt. A count or a write that fails refuses the
  * sign-in rather than letting it through uncounted.
  */
-export async function signIn(formData: FormData): Promise<{ error: string } | undefined> {
+export async function signIn(formData: FormData): Promise<{ error: string; premium?: true } | undefined> {
   const code = String(formData.get("code") ?? "").trim();
   const next = safeNext(formData.get("next"));
   if (!/^\d{6}$/.test(code)) return { error: "กรุณากรอกรหัสตัวแทน 6 หลัก" };
@@ -118,8 +119,15 @@ export async function signIn(formData: FormData): Promise<{ error: string } | un
       return { error: "รหัสนี้มีในมากกว่าหนึ่งห้อง กรุณาเข้าจากเมนูใน UnitOS" };
     }
     const agent = agents[0] ?? null;
-    const viewer = agent ? admit(agent, await staffRow(agent.id), Date.now()) : null;
+    const staff = agent ? await staffRow(agent.id) : null;
+    const viewer = agent ? admit(agent, staff, Date.now()) : null;
 
+    if (!viewer && refusal(agent, staff, Date.now()) === "premium") {
+      // the right code of a basic agent in a room that keeps advisortool for Premium (owner,
+      // 2026-10-16): told to renew rather than that the code is wrong. It stays counted as a
+      // failure, as a code held in two rooms does: it still says the code is somebody's
+      return { error: PREMIUM_ONLY, premium: true };
+    }
     if (!viewer) {
       const left = MAX_FAILURES - fromIp;
       // one answer for an unknown code and a closed room, so the page does not say which codes exist

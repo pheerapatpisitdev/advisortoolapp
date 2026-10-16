@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("react", async (orig) => ({ ...(await orig<typeof import("react")>()), cache: <T,>(f: T) => f }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+const nav = vi.hoisted(() => ({ redirect: vi.fn((to: string) => { throw new Error(`redirect ${to}`); }) }));
+vi.mock("next/navigation", () => nav);
 const session = vi.hoisted(() => ({ value: null as null | { agentId: string; issuedAt: number } }));
 vi.mock("@/lib/auth/session", () => ({ readSession: async () => session.value }));
 vi.mock("@/lib/supabase/admin", async () => {
@@ -11,11 +12,12 @@ vi.mock("@/lib/supabase/admin", async () => {
 });
 
 import { db } from "../helpers/fake-db";
-const { displayNames, getViewer, placedBy } = await import("@/lib/auth/viewer");
+const { displayNames, gatePage, getViewer, placedBy } = await import("@/lib/auth/viewer");
 
 const AGENT_ROW = {
   id: "a1", agent_code: "015495", name: "บอย",
-  tenant: { id: "t1", slug: "83g", name: "83G", status: "active", config: null, key_epoch: null },
+  role: "member", is_admin: false, member_tier: "premium", membership_expires_at: null, created_at: "2026-01-01T00:00:00Z",
+  tenant: { id: "t1", slug: "83g", name: "83G", status: "active", config: null as unknown, key_epoch: null },
 };
 const MEMBER_ROW = { id: "m1", email: "somchai@gmail.com", name: "สมชาย", status: "active", revoked_at: null };
 
@@ -99,6 +101,42 @@ describe("getViewer and signing out everywhere", () => {
     expect((await getViewer())?.agentId).toBe("a1");
     expect(logged).toHaveBeenCalled();
     logged.mockRestore();
+  });
+});
+
+/**
+ * A session handed out before the agent became basic, in a room that keeps advisortool for
+ * Premium (owner, 2026-10-16): out on the next click, sent to the front page told why.
+ */
+describe("getViewer and UnitClub's tiers", () => {
+  const locked = { ...AGENT_ROW, tenant: { ...AGENT_ROW.tenant, config: { premiumOnly: ["ad-studio"] } } };
+
+  it("ends a basic agent's session in a room that locks advisortool", async () => {
+    session.value = { agentId: "a1", issuedAt: Date.now() - 86_400_000 };
+    db.on("agents", { data: { ...locked, member_tier: "basic" } });
+    db.on("ins_staff", { data: null });
+    expect(await getViewer()).toBeNull();
+    await expect(gatePage("/studio")).rejects.toThrow("redirect /?premium=1&next=%2Fstudio");
+  });
+
+  it("ends it when a Premium membership runs out in a room that charges one", async () => {
+    session.value = { agentId: "a1", issuedAt: Date.now() - 86_400_000 };
+    db.on("agents", { data: { ...locked, membership_expires_at: "2026-01-01T00:00:00Z", tenant: { ...locked.tenant, config: { premiumOnly: ["ad-studio"], flags: { memberFee: true } } } } });
+    db.on("ins_staff", { data: null });
+    expect(await getViewer()).toBeNull();
+  });
+
+  it("keeps a Premium agent's session, and a staff member's", async () => {
+    session.value = { agentId: "a1", issuedAt: Date.now() };
+    db.on("agents", { data: locked });
+    db.on("ins_staff", { data: null });
+    expect((await gatePage("/studio")).agentId).toBe("a1");
+    db.on("agents", { data: { ...locked, member_tier: "basic", role: "manager" } });
+    expect((await getViewer())?.agentId).toBe("a1");
+  });
+
+  it("sends somebody signed out to the plain front page", async () => {
+    await expect(gatePage("/studio")).rejects.toThrow("redirect /?next=%2Fstudio");
   });
 });
 

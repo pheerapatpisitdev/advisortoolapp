@@ -11,12 +11,25 @@ export interface AgentRow {
   id: string;
   agent_code: string;
   name: string | null;
+  /** what UnitClub's tiers are read from (studioLocked below) */
+  role: string | null;
+  is_admin: boolean | null;
+  member_tier: string | null;
+  membership_expires_at: string | null;
+  created_at: string | null;
   tenant: {
     id: string;
     slug: string;
     name: string | null;
     status: string;
-    config: { features?: { advisorTool?: boolean; adStudio?: boolean }; isDemo?: boolean } | null;
+    config: {
+      features?: { advisorTool?: boolean; adStudio?: boolean };
+      isDemo?: boolean;
+      /** the menus this room keeps for Premium agents; "ad-studio" is advisortool */
+      premiumOnly?: unknown;
+      /** memberFee: the room charges a membership, so a Premium agent past their date is basic */
+      flags?: { memberFee?: unknown };
+    } | null;
     key_epoch: string | null;
   } | null;
 }
@@ -60,7 +73,104 @@ export interface Viewer {
  */
 export const OPEN_ROOMS = ["trialing", "active", "past_due"];
 
-export function admit(agent: AgentRow | null, staff: StaffRow | null, issuedAt: number): Viewer | null {
+// ---- UnitClub's Premium / basic tiers (owner, 2026-10-16) ----
+// Each room picks the menus only its Premium agents may open (tenants.config.premiumOnly);
+// advisortool is the menu "ad-studio". UnitClub locks its menu and its ticket (unitos-sso) by
+// these rules; here they close the agent code and the sessions already handed out. Ported
+// letter for letter from UnitOS/supabase/functions/_shared/line-submit.ts (membershipExpiresAt,
+// agentTier, premiumOnlyMenus, agentLocked), itself a port of the web app and of
+// app.agent_locked in the database: change the rule there first, then here.
+
+const MEMBERSHIP_DAYS = 90;
+const MEMBERSHIP_DAYS_NEW = 30;
+const MEMBERSHIP_CUTOVER = "2026-07-01";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type TierFields = Pick<AgentRow, "role" | "is_admin" | "member_tier" | "membership_expires_at" | "created_at">;
+
+/** When the membership runs out: the date UnitClub set, else 30 days from joining (90 before 2026-07-01). */
+export function membershipExpiresAt(agent: TierFields): Date | null {
+  if (agent.membership_expires_at) {
+    const t = new Date(agent.membership_expires_at);
+    return Number.isNaN(t.getTime()) ? null : t;
+  }
+  const createdAt = agent.created_at;
+  const base = createdAt ? new Date(createdAt) : null;
+  if (!base || Number.isNaN(base.getTime())) return null;
+  const days = String(createdAt || "").slice(0, 10) >= MEMBERSHIP_CUTOVER ? MEMBERSHIP_DAYS_NEW : MEMBERSHIP_DAYS;
+  return new Date(base.getTime() + days * DAY_MS);
+}
+
+/**
+ * Basic: set basic, or a room that charges a membership and the date has passed. A room's
+ * admins and managers are always Premium; no tier or an unknown one is Premium.
+ */
+export function agentTier(agent: TierFields, memberFeeOn: boolean, now: number = Date.now()): "premium" | "basic" {
+  if (agent.is_admin || agent.role === "admin" || agent.role === "manager") return "premium";
+  if (agent.member_tier === "basic") return "basic";
+  if (memberFeeOn) {
+    const expiresAt = membershipExpiresAt(agent);
+    if (expiresAt && now >= expiresAt.getTime()) return "basic";
+  }
+  return "premium";
+}
+
+/** a room that never set its list; advisortool is not on it */
+export const PREMIUM_ONLY_DEFAULT = ["activities", "rewards", "challenges", "lotto"];
+/** the menus tied to LINE, open to every tier whatever a room's list says */
+const PREMIUM_NEVER_LOCK = ["line-submit", "recruit", "sales", "schedule"];
+/** the menu ids a room's list may hold */
+const PREMIUM_MENU_IDS = [
+  "goals", "goal-track", "financial-goals", "sales", "recruit", "qualification", "team-competition",
+  "rewards", "activities", "leaderboard", "challenges", "lms", "course-replay", "schedule", "events",
+  "card", "documents", "training", "ad-studio", "line-submit", "insurance-forms", "portfolio", "lotto",
+];
+
+/** The menus this room keeps for Premium: its own list when it is one ([] locks nothing), the default otherwise. */
+export function premiumOnlyMenus(config: Record<string, unknown> | null | undefined): string[] {
+  const raw = config?.premiumOnly;
+  const ids = [...new Set((Array.isArray(raw) ? raw : PREMIUM_ONLY_DEFAULT).filter((id) =>
+    typeof id === "string" && id !== "leaderboard" && !PREMIUM_NEVER_LOCK.includes(id) && PREMIUM_MENU_IDS.includes(id)))] as string[];
+  return ids.includes("activities") ? [...ids, "leaderboard"] : ids;
+}
+
+/** A basic agent, and the room keeps this menu for Premium. */
+export function agentLocked(
+  agent: TierFields, config: Record<string, unknown> | null | undefined, memberFeeOn: boolean, menu: string,
+  now: number = Date.now(),
+): boolean {
+  return agentTier(agent, memberFeeOn, now) === "basic" && premiumOnlyMenus(config).includes(menu);
+}
+
+/** advisortool is closed to this agent for their tier, as unitos-sso decides it. */
+export function studioLocked(agent: AgentRow, now: number = Date.now()): boolean {
+  const config = agent.tenant?.config ?? null;
+  const memberFeeOn = !!config?.flags?.memberFee;
+  return agentLocked(agent, config as Record<string, unknown> | null, memberFeeOn, "ad-studio", now);
+}
+
+/**
+ * Why an agent is kept out, when it is for their tier: the room is open to them otherwise, so
+ * the front page says to renew or upgrade rather than that the code is wrong. null for anybody
+ * let in, and for anybody kept out for another reason.
+ */
+export function refusal(agent: AgentRow | null, staff: StaffRow | null, issuedAt: number, now: number = Date.now()): "premium" | null {
+  if (!agent || !admitRoom(agent, staff, issuedAt)) return null;
+  return studioLocked(agent, now) ? "premium" : null;
+}
+
+/**
+ * The one gate for a UnitOS agent: the code typed on the front page, the ticket from UnitOS's
+ * menu (/sso) and every request after (getViewer) all come through here. A basic agent of a
+ * room that keeps advisortool for Premium is out on the next click (owner, 2026-10-16).
+ */
+export function admit(agent: AgentRow | null, staff: StaffRow | null, issuedAt: number, now: number = Date.now()): Viewer | null {
+  const viewer = admitRoom(agent, staff, issuedAt);
+  if (!viewer || !agent || studioLocked(agent, now)) return null;
+  return viewer;
+}
+
+function admitRoom(agent: AgentRow | null, staff: StaffRow | null, issuedAt: number): Viewer | null {
   const room = agent?.tenant;
   if (!agent || !room) return null;
   if (!OPEN_ROOMS.includes(room.status)) return null;

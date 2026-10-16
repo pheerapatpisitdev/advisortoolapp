@@ -8,7 +8,7 @@ import { REF_COOKIE } from "@/lib/referrals/referral";
 import { inviterOf } from "@/lib/referrals/store";
 import { LoginForm } from "./LoginForm";
 
-export type DoorParams = Promise<{ next?: string; error?: string }>;
+export type DoorParams = Promise<{ next?: string; error?: string; premium?: string }>;
 
 /**
  * The door for UnitOS agents (their code) and for members outside UnitOS, who come in with
@@ -33,5 +33,8 @@ export async function LoginDoor({ searchParams }: { searchParams: DoorParams }) 
   // an invitation that cannot be read greets nobody
   const ref = (await cookies()).get(REF_COOKIE)?.value;
   const inviter = ref ? await inviterOf(ref).catch(() => null) : null;
-  return <LoginForm next={next} signupOpen={settings.signupOpen} error={googleError(params.error)} notice={notice} invitedBy={inviter?.name ?? null} />;
+  // sent here from UnitOS's menu (/sso) or out of a session, as a basic agent of a room that
+  // keeps advisortool for Premium (owner, 2026-10-16)
+  const premium = params.premium === "1";
+  return <LoginForm next={next} signupOpen={settings.signupOpen} error={googleError(params.error)} notice={notice} invitedBy={inviter?.name ?? null} premium={premium} />;
 }
