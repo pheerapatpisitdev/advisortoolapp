@@ -4,9 +4,7 @@ import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
-import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS, type ElevenChoice } from "@/lib/voice/elevenlabs";
-import { myVoiceChoice } from "@/lib/voice/mine";
-import { providerKey } from "@/lib/ai/client";
+import { elevenVoice, type ElevenChoice } from "@/lib/voice/elevenlabs";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -14,11 +12,17 @@ import { iHealthyCard } from "@/lib/ihealthy-card";
 import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
+import { ADMIN_VOICE, voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
+import { promptStoryCaption } from "@/lib/prompt-story/caption";
+import { isPromptStory, promptPicturePrice } from "@/lib/prompt-story/types";
+import { priceBaht } from "@/lib/wallet/prices";
+import { walletPrices } from "@/lib/wallet/store";
+import { boardOf, type Board } from "@/lib/quote-video/board";
+import { paidLine } from "@/lib/quote-video/paid-line";
 import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
-import { bangkokClock, VOICE_FULL, voiceFullNotice } from "@/lib/quote-video/voice-quota";
+import { bangkokClock, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
-import { formatBaht } from "@/lib/wallet/money";
 import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
@@ -83,6 +87,8 @@ export interface VideoItem {
   progress?: ProgressState | null;
   /** the words the AI wrote to go with it, and the writes left (post-text.ts) */
   post?: ClipPost | null;
+  /** a finished คลิปตามโจทย์: its scenes, and what a picture drawn again costs ("1"; null for the owner) */
+  redraw?: { scenes: number; price: string | null };
 }
 export interface ClipPost { text: string; tone: PostText["tone"]; voice: PostText["voice"]; kind: PostText["kind"]; left: number }
 const clipPost = (raw: unknown): ClipPost | null => {
@@ -104,14 +110,6 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
  * (เสียงของฉัน, owner 2026-10-15) — never another agent's: an id is the agent's only when their
  * approved voice has it.
  */
-async function voiceAsked(agentId: string, id: unknown): Promise<ElevenChoice | undefined> {
-  if (typeof id !== "string" || !id) return undefined;
-  const listed = elevenVoice(id);
-  if (listed) return listed;
-  const mine = await myVoiceChoice(agentId);
-  return mine && mine.id === id ? mine : undefined;
-}
-
 /** how a clip's voice reads in the list of clips */
 const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียงของฉัน");
 
@@ -237,23 +235,6 @@ export async function voiceQuota(): Promise<VoiceQuota | null> {
   return until ? { until: until.toISOString(), clock: bangkokClock(until) } : null;
 }
 
-/** a Gemini-voiced clip is not started while the voice is used up: it would only fail */
-async function voiceRefusal(voice: string | undefined): Promise<string | null> {
-  if (voice) {
-    // ElevenLabs' month runs low: say so before anything is held or spent (owner, 2026-10-13)
-    const key = await providerKey(ELEVENLABS).catch(() => null);
-    if (!key) return "เสียง ElevenLabs ใช้ไม่ได้ตอนนี้ เลือกเสียง Gemini แทน";
-    const left = await elevenCreditsLeft(key).catch((e) => {
-      console.error("eleven credits not read:", e instanceof Error ? e.message : "unknown error");
-      return Infinity;
-    });
-    return left < ELEVEN_RESERVE ? "เสียง ElevenLabs ของเดือนนี้ใกล้หมดแล้ว เลือกเสียง Gemini แทน" : null;
-  }
-  const q = await voiceQuota();
-  return q ? voiceFullNotice(q.clock) : null;
-}
-
-const ADMIN_VOICE = "เสียงนี้ใช้ได้เฉพาะแอดมิน เลือกเสียงอื่นแทน";
 
 /** an FHC summary is one customer's money: it never goes to a Page (owner, 2026-10-12) */
 const FHC_PRIVATE = "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ลงเพจไม่ได้";
@@ -454,6 +435,7 @@ export async function calendarCaption(id: string): Promise<{ ok: true; caption: 
   const post = readPostText(row.post_text);
   if (post?.kind === "post") return { ok: true, caption: post.text };
   if (isStoryInput(row.input)) return { ok: true, caption: storyCaption(row.input) };
+  if (isPromptStory(row.input)) return { ok: true, caption: promptStoryCaption(row.input) };
   const f = quoteVideoFacts(row.input);
   return { ok: true, caption: f ? pageCaption(f) : "" };
 }
@@ -488,14 +470,16 @@ export async function myCost(): Promise<CostView | null> {
 
 /**
  * The agent's clips for one board: วิดีโอนำเสนอ's quotes and FHC summaries, or คลิปเล่าเรื่อง's
- * stories (owner, 2026-10-15) — each board lists its own.
+ * stories (owner, 2026-10-15), or คลิปตามโจทย์'s — each board lists its own.
  */
-export async function myVideos(board: "quote" | "story" = "quote"): Promise<VideoItem[]> {
+export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
   const viewer = await requireMember();
-  const list = (await listVideos(viewer.agentId, 60)).filter((v) => isStoryInput(v.input) === (board === "story")).slice(0, 30);
+  const list = (await listVideos(viewer.agentId, 60)).filter((v) => boardOf(v.input) === board).slice(0, 30);
   const making = (v: VideoRow) => v.status === "drawing" || v.status === "rendering";
   const est = list.some(making) ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
   const now = Date.now();
+  const owner = can(viewer, "owner");
+  const prices = !owner && list.some((v) => v.status === "done" && isPromptStory(v.input)) ? await walletPrices().catch(() => null) : null;
   // how far a clip being made is: the board runs the bar on from here between its reads
   const progressOf = (v: VideoRow): ProgressState | null => {
     if (v.status !== "drawing" && v.status !== "rendering") return null;
@@ -536,6 +520,18 @@ export async function myVideos(board: "quote" | "story" = "quote"): Promise<Vide
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
         status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
+      };
+    }
+    if (isPromptStory(v.input)) {
+      const input = v.input;
+      const who = `${input.title}${SIZE_WORD[clipSize(input)]}${input.voice ? ` · ${voiceLabel(input.voice)}` : ""}`;
+      const file = `ตามโจทย์-${v.customer_name || input.title.replace(/\s+/g, "")}.mp4`;
+      return {
+        id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
+        title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
+        overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
+        ...(v.status === "done" && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)) } } : {}),
       };
     }
     const input = v.input;
@@ -594,6 +590,9 @@ function postBasis(row: VideoRow): PostBasis | null {
     if (input.due?.amount) facts.push(`เบี้ยที่ต้องชำระ ${input.due.amount.toLocaleString("en-US")} บาท`);
     return linesBasis(row.customer_name ? "customer" : "post", `คลิปเล่าเรื่อง "${topic}"`, facts, row.customer_name || undefined);
   }
+  if (isPromptStory(input)) {
+    return linesBasis(row.customer_name ? "customer" : "post", `คลิป "${input.title}"`, [input.brief, ...input.scenes.map((x) => x.voice)], row.customer_name || undefined);
+  }
   const f = quoteVideoFacts(input);
   if (!f) return null;
   const lang = input.product === "IHEALTHY" && readVideoLang(input.lang) !== "th" ? LANG_NAME[readVideoLang(input.lang)] : undefined;
@@ -645,10 +644,3 @@ export async function keepPostText(id: string, text: unknown): Promise<{ ok: tru
 
 const isVoiceFull = (v: VideoRow) => v.status === "failed" && Boolean(v.error?.startsWith(VOICE_FULL));
 
-function paidLine(v: VideoRow): string | null {
-  return v.paid_by === "free"
-    ? (v.status === "failed" ? "คืนสิทธิ์ฟรีแล้ว" : "ใช้สิทธิ์ฟรี")
-    : v.paid_by === "wallet"
-      ? (v.status === "failed" ? "คืนเงินแล้ว" : v.charged_satang !== null ? `หักจากกระเป๋า ${formatBaht(Number(v.charged_satang))}` : "กันเงินไว้ระหว่างทำ")
-      : null;
-}

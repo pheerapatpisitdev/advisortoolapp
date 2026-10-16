@@ -76,7 +76,7 @@ function readLook(): Look {
 }
 
 /** a grid of faces to pick one from, narrowed by sex and by look */
-function FacePicker({ id, value, onPick, sex, exclude }: { id: string; value: string; onPick: (f: string) => void; sex?: "M" | "F"; exclude?: string }) {
+export function FacePicker({ id, value, onPick, sex, exclude }: { id: string; value: string; onPick: (f: string) => void; sex?: "M" | "F"; exclude?: string }) {
   const [tag, setTag] = useState<FaceTag | null>(null);
   const shown = FACES.filter((f) => (!sex || f.sex === sex) && f.id !== exclude && (!tag || f.tags.includes(tag)));
   return (

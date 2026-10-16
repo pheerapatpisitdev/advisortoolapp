@@ -69,7 +69,7 @@ const GEO: Record<VideoSize, Geo> = {
 };
 
 /** กองกลาง 48 คน's scenes (an episode of ความรู้ประกัน 1 นาที has its own, story-knowledge.ts) */
-export type PoolSceneKey = Exclude<StorySceneKey, KnowSceneKey>;
+export type PoolSceneKey = Exclude<StorySceneKey, KnowSceneKey | "freeScene">;
 
 const rowsOf = (size: VideoSize) => GEO[size].rows;
 

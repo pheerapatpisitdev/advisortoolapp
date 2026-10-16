@@ -15,6 +15,7 @@ import { buildToday } from "@/lib/home/today";
 import { memberAccess } from "@/lib/members/access";
 import { listVideos } from "@/lib/quote-video/make";
 import { referralCard } from "@/lib/referrals/card";
+import { boardOf } from "@/lib/quote-video/board";
 import { walletView } from "@/lib/wallet/store";
 import { HomeToday } from "./HomeToday";
 
@@ -95,10 +96,13 @@ export default async function Home() {
     clipsMaking: videos && videos
       .filter((v) => v.status === "drawing" || v.status === "rendering")
       .map((v) => {
-        // a คลิปเล่าเรื่อง is made on its own board (owner, 2026-10-15)
-        const story = (v.input as { product?: string }).product === "STORY";
-        const what = story ? "คลิปเล่าเรื่อง" : "วิดีโอนำเสนอ";
-        return { id: v.id, label: v.customer_name ? `${what} · ${v.customer_name}` : what, status: v.status as "drawing" | "rendering", href: story ? "/studio/story-clip" : "/studio/quote-video" };
+        // a คลิปเล่าเรื่อง and a คลิปตามโจทย์ are made on their own boards (owner, 2026-10-15/16)
+        const board = boardOf(v.input as { product?: string });
+        const free = board === "prompt";
+        const what = free ? "คลิปตามโจทย์" : board === "story" ? "คลิปเล่าเรื่อง" : "วิดีโอนำเสนอ";
+        const brief = free ? (v.input as { brief?: string }).brief?.trim().split("\n")[0].slice(0, 40) : "";
+        const label = v.customer_name ? `${what} · ${v.customer_name}` : brief ? `${what} · ${brief}` : what;
+        return { id: v.id, label, status: v.status as "drawing" | "rendering", href: free ? "/studio/prompt-story" : board === "story" ? "/studio/story-clip" : "/studio/quote-video" };
       }),
   });
 

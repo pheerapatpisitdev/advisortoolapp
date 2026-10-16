@@ -175,7 +175,7 @@ function Title({ g, w, an, t, text }: { g: Geo; w: number; an?: Anim; t: number;
 }
 
 /** a note on paper, taped, its lines one under another (the drawing breaks Thai only at a space) */
-function Note({ g, r, an, t, lines, tilt = -1.2, scale = 1 }: { g: Geo; r: Rect; an?: Anim; t: number; lines: NoteLine[]; tilt?: number; scale?: number }) {
+export function Note({ g, r, an, t, lines, tilt = -1.2, scale = 1 }: { g: Pick<Geo, "text">; r: Rect; an?: Anim; t: number; lines: NoteLine[]; tilt?: number; scale?: number }) {
   const l = look(an, t);
   return (
     <div style={{ display: "flex", position: "absolute", left: r.x, top: r.y, width: r.w, flexDirection: "column", alignItems: "center", background: C.note, border: `4px solid ${C.ink}`, borderRadius: 16, padding: "26px 28px", opacity: l.opacity, transform: `rotate(${tilt}deg)${l.transform ? ` ${l.transform}` : ""}`, fontFamily: HAND, color: C.ink }}>

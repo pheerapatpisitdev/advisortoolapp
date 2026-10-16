@@ -88,6 +88,19 @@ describe("leftWords", () => {
   });
 });
 
+describe("คลิปตามโจทย์'s pictures", () => {
+  it("has its own words, apart from the scenes being drawn", () => {
+    expect(progressView(drawing({ step: "pictures", done: 2, of: 5 })).text).toBe("วาดรูปประกอบ 2/5");
+    expect(progressView(drawing({ step: "draw", done: 2, of: 5 })).text).toBe("วาดภาพแล้ว 2/5 ฉาก");
+    expect(readNote({ step: "pictures", done: 1, of: 3 })).toEqual({ step: "pictures", done: 1, of: 3 });
+  });
+  it("comes before the voice on the bar and never goes back while drawing", () => {
+    const pcts = [0, 3, 5].map((done) => progressView(drawing({ step: "pictures", done, of: 5 })).pct);
+    expect([...pcts].sort((a, b) => a - b)).toEqual(pcts);
+    expect(pcts[2]).toBeLessThanOrEqual(progressView(drawing({ step: "files", done: 0, of: 0 })).pct);
+  });
+});
+
 describe("readNote", () => {
   it("reads a row's progress and refuses anything else", () => {
     expect(readNote({ step: "draw", done: 2, of: 5 })).toEqual({ step: "draw", done: 2, of: 5 });

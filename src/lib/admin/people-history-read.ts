@@ -12,7 +12,7 @@ import { displayNames } from "@/lib/auth/viewer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { walletSummary } from "@/lib/wallet/store";
 import {
-  buildAsks, buildLogins, buildOpens, buildPasses, buildRounds, buildSetup, fromHistory, mergeItems, ROUND_ACTIONS, SKIP_SETUP,
+  buildAsks, buildDrafts, buildLogins, buildOpens, buildPasses, buildRounds, buildSetup, fromHistory, mergeItems, ROUND_ACTIONS, SKIP_SETUP,
   type AdminItem, type AskCost, type Media,
 } from "./people-history";
 
@@ -81,7 +81,7 @@ async function readItems(w: Window): Promise<{ items: AdminItem[]; aiThb: number
   const hi = w.to.toISOString();
   const mine = <Q,>(q: Q, column = "agent_id"): Q => (w.who ? (q as unknown as { eq(c: string, v: string): Q }).eq(column, w.who) : q);
 
-  const [base, rounds, setup, asks, ledger, logins, opens, passes] = await Promise.all([
+  const [base, rounds, setup, asks, ledger, logins, opens, passes, drafts] = await Promise.all([
     readHistoryOf(w.who, false, w.from, w.to, w.limit),
     read("rounds", mine(db.from("ins_audit").select("id, agent_id, at, action, target, detail"))
       .in("action", ROUND_ACTIONS).gte("at", lo).lt("at", hi).order("at", { ascending: false }).limit(w.limit)),
@@ -105,6 +105,9 @@ async function readItems(w: Window): Promise<{ items: AdminItem[]; aiThb: number
     read("calculator opens", mine(db.from("ins_tool_opens").select("agent_id, tool, at"))
       .gte("at", lo).lt("at", hi).order("at", { ascending: false }).limit(w.limit * 3)),
     read("passes", mine(db.from("ins_member_passes").select("id, member_id, kind, days, amount_satang, note, created_at"), "member_id")
+      .gte("created_at", lo).lt("created_at", hi).order("created_at", { ascending: false }).limit(w.limit)),
+    // the scripts the คลิปตามโจทย์ writer wrote, with their briefs: read only
+    read("prompt drafts", mine(db.from("ins_prompt_drafts").select("id, agent_id, brief, made_clip_id, created_at"))
       .gte("created_at", lo).lt("created_at", hi).order("created_at", { ascending: false }).limit(w.limit)),
   ]);
 
@@ -155,6 +158,9 @@ async function readItems(w: Window): Promise<{ items: AdminItem[]; aiThb: number
     buildPasses(passes.map((r) => ({
       id: String(r.id), at: str(r.created_at), by: str(r.member_id), kind: str(r.kind), days: Number(r.days ?? 0),
       satang: Number(r.amount_satang ?? 0), note: str(r.note) || null,
+    }))),
+    buildDrafts(drafts.map((r) => ({
+      id: str(r.id), at: str(r.created_at), by: str(r.agent_id) || null, brief: r.brief, madeClipId: str(r.made_clip_id) || null,
     }))),
   );
   // a round's line is for the piece its target names: rounds keep it for the pictures below

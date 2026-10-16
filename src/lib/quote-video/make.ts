@@ -29,8 +29,14 @@ import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job
 import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
+import { isPromptStory, promptPicturePrice, promptPicturesPrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
+import { drawScenePicture } from "@/lib/prompt-story/pictures";
+import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
+import { freeFrame, freeHandText, freeWindows } from "@/lib/prompt-story/frames";
+import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
-import { storyBackground } from "./story-motion";
+import { contactSpec, storyBackground, storyFrame, type StoryContext } from "./story-motion";
 import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./story-frames";
 import { faceUris } from "./story-faces";
 import { motionBackground, motionBgHeight, motionFrame, motionWindows, MOTION_FPS } from "./motion";
@@ -40,7 +46,7 @@ import { CLASSIC_BOXES } from "./table-geo";
 import { extraOf, linesOf, loops, readLength, type Told } from "./told";
 import { writes } from "./brief";
 import { writeLines } from "./writer";
-import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, type VideoInput } from "./script";
+import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBy, type VideoInput } from "./script";
 import { clipLength, LOOP_TAIL, planScenes, SIZES, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay, voiceFullText } from "./voice-quota";
 import { readVideoLang, SCRIPT_FAMILY, wordsLetters, type VideoLang } from "./video-words";
@@ -68,6 +74,8 @@ const LINK_SECONDS = 2 * 3600;
 /** a Cloud Run run of one clip: a couple of CPU-minutes, in baht */
 const RENDER_COST_THB = 0.01 * 36;
 export const FAILED = "ทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง";
+/** a finished คลิปตามโจทย์ whose new cut failed: the clip as it was stands */
+export const RECUT_FAILED = "ตัดคลิปใหม่ไม่สำเร็จ คลิปเดิมยังอยู่ ลองวาดใหม่อีกครั้ง";
 /** every agent's free clips, once (owner, 2026-10-11); a member's pass carries its own (freeClips) */
 export const FREE_VIDEOS = 2;
 /**
@@ -77,6 +85,7 @@ export const FREE_VIDEOS = 2;
  * asked for and takes it when the clip is done.
  */
 export const videoPrice = (v: ClipInput, prices: Prices): number =>
+  isPromptStory(v) ? promptStoryPrice(v, prices) :
   (isFhcInput(v) ? prices.videoFhc : isStoryInput(v) ? (topicOf(v.topic)?.short ? prices.videoStoryShort : prices.videoStory)
     : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
@@ -85,9 +94,9 @@ export const VIDEO_ROUND = "quote-video";
 export type VideoStatus = "drawing" | "rendering" | "done" | "failed";
 export type { VideoInput } from "./script";
 /** what a clip's row holds: a quote, an FHC summary (fhc.ts), or a คลิปเล่าเรื่อง (story.ts) */
-export type ClipInput = VideoInput | FhcVideoInput | StoryVideoInput;
+export type ClipInput = VideoInput | FhcVideoInput | StoryVideoInput | PromptStoryInput;
 /** a quote clip: neither an FHC summary nor a story */
-export const isQuoteInput = (v: ClipInput): v is VideoInput => !isFhcInput(v) && !isStoryInput(v);
+export const isQuoteInput = (v: ClipInput): v is VideoInput => !isFhcInput(v) && !isStoryInput(v) && !isPromptStory(v);
 export interface VideoRow {
   id: string;
   agent_id: string;
@@ -121,7 +130,8 @@ export const hashToken = (token: string) => createHash("sha256").update(token).d
 /** How the next clip would be paid for, as the board says it under the button. */
 export type CostView =
   | { kind: "staff" }
-  | { kind: "free"; left: number; of: number }
+  /** walletOff: the wallet is shut, so a คลิปตามโจทย์'s pictures (paid even on a free clip) cannot be */
+  | { kind: "free"; left: number; of: number; walletOff?: true }
   /** the price of each look (an FHC summary its own), and whether the wallet holds it */
   | { kind: "wallet"; balance: string; prices: Partial<Record<PriceKey, { price: string; enough: boolean }>> }
   | { kind: "closed" };
@@ -161,8 +171,8 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   if (can(viewer, "owner")) return { kind: "staff" };
   const { limit, from } = await freeClips(viewer);
   const used = await freeUsed(viewer.agentId, from);
-  if (used < limit) return { kind: "free", left: limit - used, of: limit };
   const s = await walletSettings().catch(() => null);
+  if (used < limit) return { kind: "free", left: limit - used, of: limit, ...(s?.enabled ? {} : { walletOff: true as const }) };
   if (!s?.enabled) return { kind: "closed" };
   const [balance, prices] = await Promise.all([balanceSatang(viewer.agentId), walletPrices()]);
   const priced = (satang: number) => ({ price: formatBaht(satang), enough: balance >= satang });
@@ -176,7 +186,7 @@ export async function costView(viewer: Viewer): Promise<CostView> {
  * Starts a clip's row and says who pays: the owner nothing, then the agent's free clips (freeClips),
  * then the wallet — the hold set aside before anything is spent. A refusal is the words to show.
  */
-export async function createVideo(viewer: Viewer, input: ClipInput, customer: string): Promise<{ id: string } | { refusal: string }> {
+export async function createVideo(viewer: Viewer, input: ClipInput, customer: string, id?: string): Promise<{ id: string } | { refusal: string }> {
   let pay: Partial<VideoRow> = { paid_by: "staff" };
   if (!can(viewer, "owner")) {
     // an outside member makes clips while their pass is live (owner, 2026-10-13); unreadable refuses
@@ -187,24 +197,26 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     if (!access) return { refusal: PASS_UNREADABLE };
     if (!passOpen(access)) return { refusal: PASS_EXPIRED };
     const { limit, from } = await freeClips(viewer, access);
-    if ((await freeUsed(viewer.agentId, from)) < limit) pay = { paid_by: "free" };
-    else {
+    if ((await freeUsed(viewer.agentId, from)) < limit) {
+      // a คลิปตามโจทย์'s free clip covers the clip only: its pictures are still paid from the wallet (spec, Money)
+      const pictures = isPromptStory(input) ? promptPicturesPrice(input, await walletPrices()) : 0;
+      if (pictures > 0) {
+        const s = await walletSettings().catch(() => null);
+        if (!s?.enabled) return { refusal: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" };
+        const hold = await holdFor(viewer.agentId, pictures, `ค่าภาพประกอบต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(pictures)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
+        if ("refusal" in hold) return hold;
+        pay = { paid_by: "free", hold_id: hold.id, held_satang: pictures, multiplier: 1 };
+      } else pay = { paid_by: "free" };
+    } else {
       const s = await walletSettings().catch(() => null);
       if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${limit} ครั้งแล้ว` };
       const held = videoPrice(input, await walletPrices());
-      const hold = await holdWallet(viewer.agentId, held, VIDEO_ROUND).catch((e) => {
-        console.error("quote video hold failed:", e);
-        return null;
-      });
-      if (!hold) {
-        return { refusal: (await walletFrozen(viewer.agentId).catch(() => false))
-          ? "กระเป๋าเงินถูกพักไว้ชั่วคราว — ติดต่อสำนักงานนะครับ"
-          : `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"` };
-      }
-      pay = { paid_by: "wallet", hold_id: hold, held_satang: held, multiplier: 1 };
+      const hold = await holdFor(viewer.agentId, held, `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
+      if ("refusal" in hold) return hold;
+      pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
-  const { data, error } = await rows().insert({ agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
+  const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
     throw new Error(`video not created: ${error?.message}`);
@@ -212,9 +224,19 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
   return { id: data.id as string };
 }
 
-/** the wallet's hold, if any, given back in full */
+/** `satang` set aside in the agent's wallet, or the words to show when it cannot be */
+async function holdFor(agentId: string, satang: number, short: string): Promise<{ id: string } | { refusal: string }> {
+  const hold = await holdWallet(agentId, satang, VIDEO_ROUND).catch((e) => {
+    console.error("quote video hold failed:", e);
+    return null;
+  });
+  if (hold) return { id: hold };
+  return { refusal: (await walletFrozen(agentId).catch(() => false)) ? "กระเป๋าเงินถูกพักไว้ชั่วคราว — ติดต่อสำนักงานนะครับ" : short };
+}
+
+/** the wallet's hold, if any, given back in full (a free คลิปตามโจทย์ holds its pictures) */
 async function release(row: Pick<VideoRow, "hold_id" | "paid_by">): Promise<void> {
-  if (row.paid_by !== "wallet" || !row.hold_id) return;
+  if (!row.hold_id) return;
   await releaseWallet(row.hold_id).catch((e) => console.error("quote video hold not released:", e));
 }
 
@@ -272,10 +294,15 @@ async function pool<T, R>(items: T[], n: number, fn: (t: T, i: number) => Promis
   return out;
 }
 
-/** every file under the clip's folder but the finished video */
-async function clearInputs(id: string): Promise<void> {
+/** a คลิปตามโจทย์'s pictures and voice, kept with a finished clip so one scene can be drawn again */
+const KEPT = /\/(pic-\d+\.png|voice-\d+\.pcm)$/;
+const picName = (s: number) => `pic-${s}.png`;
+const voiceName = (s: number) => `voice-${s}.pcm`;
+
+/** every file under the clip's folder but the finished video; `keep`: and the pictures and voice it can be cut again from */
+async function clearInputs(id: string, keep = false): Promise<void> {
   const { data } = await bucket().list(id, { limit: 1000 });
-  const paths = (data ?? []).map((o) => `${id}/${o.name}`).filter((p) => !p.endsWith("/quote.mp4"));
+  const paths = (data ?? []).map((o) => `${id}/${o.name}`).filter((p) => !p.endsWith("/quote.mp4") && !(keep && KEPT.test(p)));
   for (let i = 0; i < paths.length; i += 100) await bucket().remove(paths.slice(i, i + 100)).catch(() => undefined);
 }
 
@@ -285,9 +312,26 @@ async function fail(id: string, why: unknown): Promise<void> {
   // Gemini's voice used up for the day: the card says when to try again, and marks the day (voiceFullUntil)
   const error = why instanceof TtsQuotaError ? voiceFullText(voiceDay().until) : FAILED;
   const { data } = await rows().update({ status: "failed", error, updated_at: new Date().toISOString() })
-    .eq("id", id).in("status", ["drawing", "rendering"]).select("hold_id, paid_by").maybeSingle();
-  if (data) await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
-  await clearInputs(id).catch(() => undefined);
+    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input").maybeSingle();
+  if (data) {
+    await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
+    // a คลิปตามโจทย์ that failed gives its draft back, to be made again
+    const input = (data as Pick<VideoRow, "input">).input;
+    if (input && isPromptStory(input) && input.draftId) await releaseDraft(input.draftId, id);
+    await clearInputs(id).catch(() => undefined);
+    return;
+  }
+  // a finished clip being cut again (redrawPicture): the cut it had stands, paid already, and stays redrawable
+  const { data: kept } = await rows().update({ status: "done", error: RECUT_FAILED, updated_at: new Date().toISOString() })
+    .eq("id", id).in("status", ["drawing", "rendering"]).not("video_path", "is", null).select("id, input").maybeSingle();
+  // the redrawn picture is not in the clip: its hold goes back
+  const input = (kept as Pick<VideoRow, "input"> | null)?.input;
+  if (input && isPromptStory(input) && input.redraw) {
+    const { redraw, ...rest } = input;
+    await releaseWallet(redraw.hold).catch((e) => console.error("redraw hold not released:", e));
+    await setRow(id, { input: rest }).catch(() => undefined);
+  }
+  await clearInputs(id, Boolean(kept)).catch(() => undefined);
 }
 
 /**
@@ -365,10 +409,80 @@ export const langOfInput = (input: ClipInput): VideoLang =>
 function spokenLines(row: VideoRow): { key: string; voice: string }[] {
   if (isFhcInput(row.input)) return fhcScript(row.input.fhc, row.customer_name, narratorOf(row.input));
   if (isStoryInput(row.input)) return storyScript(row.input, row.customer_name, narratorOf(row.input));
+  if (isPromptStory(row.input)) return freeScript(row.input, row.customer_name, narratorOf(row.input));
   const facts = quoteVideoFacts(row.input);
   if (!facts) throw new Error("quote not priced");
   const length = readLength(row.input.length);
   return quoteVideoScript(facts, length === "short" ? "" : row.customer_name, narratorOf(row.input), length, toldOf(row.input));
+}
+
+/** the agent's close on a คลิปตามโจทย์'s card, as the story clips end */
+const FREE_CLOSE = "สนใจรายละเอียดเพิ่มเติม ทักมาได้เลยนะคะ";
+
+/**
+ * A คลิปตามโจทย์'s lines: each scene's own, then the agent's close on the card. Every picture
+ * scene is "freeScene" (the planner and nameFiles go by position, so the key need not differ),
+ * the card "storyContact" as the story clips'.
+ */
+function freeScript(input: PromptStoryInput, customer: string, narrator: "F" | "M"): { key: "freeScene" | "storyContact"; voice: string }[] {
+  const said = (v: string) => spokenBy(v.replace(/\s+/g, " ").trim(), narrator);
+  return [
+    ...input.scenes.map((sc) => ({ key: "freeScene" as const, voice: said(sc.voice) })),
+    { key: "storyContact" as const, voice: said(`${customer ? `คุณ${customer} ` : ""}${FREE_CLOSE}`) },
+  ];
+}
+
+/** a filed picture, as it was drawn */
+async function pictureFile(path: string): Promise<Buffer> {
+  const { data } = await bucket().download(path);
+  if (!data) throw new Error(`picture ${path.split("/").pop()} not read`);
+  return Buffer.from(await data.arrayBuffer());
+}
+
+/**
+ * A คลิปตามโจทย์'s parts (prompt-story/frames.tsx): each scene on the story clips' paper, its
+ * picture filed once as the scene's photo layer, full frame, which ffmpeg scales to cover and
+ * pushes in slowly (buildJob's photo zoom, 1.00 → 1.12), with transparent frames of the words over
+ * it, one per word; then the agent's card. A scene whose picture fell back has the paper only.
+ */
+async function freeParts(row: VideoRow & { input: PromptStoryInput }, agentName: string, secs: number[]): Promise<ClipParts> {
+  const input = row.input;
+  const size = clipSize(input);
+  const dims = SIZES[size];
+  const narrator = narratorOf(input);
+  const customer = row.customer_name;
+  const contact = await contactOf(row.agent_id, agentName);
+  const script = freeScript(input, customer, narrator);
+  if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
+  const card = Object.values(contactSpec()).map((x): [number, number] => [x.at, x.at + x.dur]);
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
+  const pictureAt = (s: number) => (plans[s].key === "freeScene" ? input.pictures?.[s] ?? null : null);
+  const named = nameFiles(plans, plans.map((_, s) => (pictureAt(s) ? "photo" as const : undefined)));
+  const hand = freeHandText(input) + contact.name;
+  const sceneDraws = (s: number) => {
+    const p = plans[s];
+    const ctx = { input, size, customer, narrator, contact, crowd: [], faces: {}, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
+    const dimsOf = { width: dims.w, height: dims.h };
+    if (p.key === "storyContact") {
+      // the card reads only the clip's size, the agent and the words: a story clip's context in shape
+      const c = ctx as unknown as StoryContext;
+      return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(storyFrame("storyContact", c, fr.t ?? 0), dimsOf, { hand }) }));
+    }
+    const path = pictureAt(s);
+    const layer = named.scenes[s].layer;
+    return [
+      ...(path && layer ? [{ name: layer.name, draw: () => pictureFile(path) }] : []),
+      ...p.frames.map((fr, k) => ({
+        name: named.scenes[s].frames[k],
+        draw: () => renderPng(freeFrame(input.scenes[s], Boolean(path), ctx, fr.t ?? 0), dimsOf, { hand }),
+      })),
+    ];
+  };
+  return {
+    // the photo box is the whole frame; layers.photo stays false, as that is the family photo of a quote clip
+    size, script, motion: true, plans, named, build: { size: dims, photo: { x: 0, y: 0, w: dims.w, h: dims.h } }, layers: { photo: false }, sceneDraws,
+    background: () => renderPng(storyBackground(size), { width: dims.w, height: dims.h }),
+  };
 }
 
 /** An FHC summary's parts: always the Motion Graphic world, six scenes (fhc-motion.tsx). */
@@ -424,6 +538,7 @@ async function storyParts(row: VideoRow & { input: StoryVideoInput }, agentName:
 async function clipParts(row: VideoRow, agentName: string, secs: number[]): Promise<ClipParts> {
   if (isFhcInput(row.input)) return fhcParts(row as VideoRow & { input: FhcVideoInput }, agentName, secs);
   if (isStoryInput(row.input)) return storyParts(row as VideoRow & { input: StoryVideoInput }, agentName, secs);
+  if (isPromptStory(row.input)) return freeParts(row as VideoRow & { input: PromptStoryInput }, agentName, secs);
   return quoteParts(row as VideoRow & { input: VideoInput }, agentName, secs);
 }
 
@@ -527,15 +642,68 @@ async function upload(id: string, name: string, body: Buffer | string, type: str
 /** uploads in flight beside the drawing, at most */
 const UPLOADS_IN_FLIGHT = 8;
 
+/** the board's bar for one making (progress.ts): each write waits for the one before, so the count never goes back */
+function progressBar(id: string) {
+  let noted: Promise<void> = Promise.resolve();
+  return {
+    note: (n: ProgressNote) => { noted = noted.then(() => noteProgress(id, n)).catch(() => undefined); },
+    flush: () => noted,
+  };
+}
+type Bar = ReturnType<typeof progressBar>;
+/** how long each step took, in the log, to see where a clip runs out of time */
+const lapper = (id: string, t0: number) => (what: string) => console.log(`quote video ${id}: ${what} at ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+type Lap = ReturnType<typeof lapper>;
+
+/** what one picture of a painter costs us, in baht */
+const pictureThb = (painter: string) => PAINTERS.find((p) => p.id === painter)?.thb ?? 0;
+
+/**
+ * A คลิปตามโจทย์'s pictures, three at a time, each filed as "<id>/pic-<n>.png" and named on the
+ * row's input. A picture that fails twice leaves its scene on paper, and is not charged: the
+ * clip's hold settles that much less (redrawing it later is one picture's price).
+ */
+async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Bar): Promise<{ input: PromptStoryInput; costThb: number }> {
+  const { id, input } = row;
+  const size = clipSize(input);
+  const of = input.scenes.length;
+  let done = 0;
+  bar.note({ step: "pictures", done: 0, of });
+  const pictures = await pool(input.scenes, 3, async (scene, s): Promise<string | null> => {
+    const png = await drawScenePicture(scene, input.style, input.painter, size);
+    bar.note({ step: "pictures", done: ++done, of });
+    if (!png) return null;
+    await upload(id, picName(s), png, "image/png");
+    return `${id}/${picName(s)}`;
+  });
+  const next: PromptStoryInput = { ...input, pictures };
+  const missing = pictures.filter((p) => p === null).length;
+  const patch: Partial<VideoRow> = { input: next };
+  if (missing && row.hold_id && row.held_satang) {
+    patch.held_satang = Math.max(0, Number(row.held_satang) - missing * promptPicturePrice(input, await walletPrices()));
+  }
+  await setRow(id, patch);
+  return { input: next, costThb: (of - missing) * pictureThb(input.painter) };
+}
+
+/** every line a คลิปตามโจทย์ spoke, as it was filed; null when any is missing */
+async function keptVoice(id: string, lines: number): Promise<Buffer[] | null> {
+  const out = await Promise.all(Array.from({ length: lines }, async (_, i): Promise<Buffer | null> => {
+    const { data } = await bucket().download(`${id}/${voiceName(i)}`);
+    return data ? Buffer.from(await data.arrayBuffer()) : null;
+  }));
+  return out.includes(null) ? null : (out as Buffer[]);
+}
+
 /**
  * The whole making, up to Cloud Run taking the job. Never throws: a failure is written to the row.
  * The voice and the files every scene shares are made here; each scene's pictures are drawn by a
  * call of its own to the drawing route (drawScene), all at once, so no one call draws a whole clip.
+ * A คลิปตามโจทย์ draws its pictures first and keeps them, and its voice, with the clip.
  */
 export async function produce(id: string, agentName: string): Promise<void> {
   const t0 = Date.now();
-  // how long each step took, in the log, to see where a clip runs out of time
-  const lap = (what: string) => console.log(`quote video ${id}: ${what} at ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  const lap = lapper(id, t0);
   try {
     const { data: row, error } = await rows().select("*").eq("id", id).single<VideoRow>();
     if (error || !row) throw new Error("row not read");
@@ -552,103 +720,245 @@ export async function produce(id: string, agentName: string): Promise<void> {
         lap("lines written to the brief");
       }
     }
+    const bar = progressBar(id);
+    let picturesThb = 0;
+    if (isPromptStory(row.input)) {
+      const drawn = await drawPictures(row as VideoRow & { input: PromptStoryInput }, bar);
+      row.input = drawn.input;
+      picturesThb = drawn.costThb;
+      lap(`pictures drawn (${drawn.input.pictures?.filter(Boolean).length}/${drawn.input.scenes.length})`);
+    }
     const spokenScript = spokenLines(row);
 
-    // the board's bar (progress.ts): each write waits for the one before, so the count never goes back
-    let noted: Promise<void> = Promise.resolve();
-    const note = (n: ProgressNote) => { noted = noted.then(() => noteProgress(id, n)).catch(() => undefined); };
     let lines = 0;
-    note({ step: "voice", done: 0, of: spokenScript.length });
+    bar.note({ step: "voice", done: 0, of: spokenScript.length });
     // figures become Thai words for a Thai voice only; another language's voice reads its own lines, and
     // the ElevenLabs voices are Thai ones, so it is Gemini's narrator (owner, 2026-10-15)
     const lang = langOfInput(row.input);
     const voiceId = lang === "th" ? row.input.voice : undefined;
     const speak = (s: { voice: string }) => speakLine(lang === "th" ? sayNumbers(s.voice) : s.voice, VIDEO_TASK_VOICE, { narrator, voice: voiceId, lang })
-      .then((r) => { note({ step: "voice", done: ++lines, of: spokenScript.length }); return r; });
+      .then((r) => { bar.note({ step: "voice", done: ++lines, of: spokenScript.length }); return r; });
     // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
     const spoken = voiceId ? await pool(spokenScript, 2, speak) : await Promise.all(spokenScript.map(speak));
     const pcms = spoken.map((s) => s.pcm);
-    await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) });
+    await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) + picturesThb });
     lap(`voice done (${spokenScript.length} lines${voiceId ? ", ElevenLabs" : ""}${lang === "th" ? "" : `, ${lang}`})`);
-    const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-    const { size, motion, plans, named, build, layers, background: ownBackground } = await clipParts(row, agentName, secs);
-    const total = clipLength(plans);
-
-    // the files every scene shares, or that need no drawing
-    const files = new Map<string, { body: Buffer | string; type: string }>();
-    files.set(named.audio, { body: mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE), type: "audio/wav" });
-    const family = layers.photo ? await readFile(join(process.cwd(), "public/card/family.jpg")) : undefined;
-    // the Motion Graphic style: one drifting background under every scene
-    const dims = SIZES[size];
-    // a story clip: its own still paper instead
-    const background = ownBackground ? await ownBackground()
-      : motion ? await renderPng(motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) }) : undefined;
-    plans.forEach((p, s) => {
-      const sc = named.scenes[s];
-      if (background) files.set(sc.base, { body: background, type: "image/png" });
-      files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });
-      if (sc.layer?.kind === "photo" && family) files.set(sc.layer.name, { body: family, type: "image/jpeg" });
-    });
-    const drawToken = randomBytes(32).toString("hex");
-    const plan: DrawPlan = { tokenHash: hashToken(drawToken), secs };
-    files.set("plan.json", { body: JSON.stringify(plan), type: "text/plain" });
-    note({ step: "files", done: 0, of: 0 });
-    await pool([...files.entries()], 8, ([name, f]) => upload(id, name, f.body, f.type));
-    let scenes = 0;
-    note({ step: "draw", done: 0, of: plans.length });
-    lap(`shared files up; drawing ${plans.length} scenes (${motion ? "motion" : "classic"}, ${plans.reduce((n, p) => n + p.frames.length, 0)} frames)`);
-
-    // every scene at once, each in its own call and its own time
-    const left = Math.max(10_000, PRODUCE_BUDGET_MS - (Date.now() - t0));
-    const drawn = await Promise.all(plans.map((_, s) => fetch(siteUrl(VIDEO_DRAW_PATH), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, scene: s, token: drawToken, agentName }),
-      signal: AbortSignal.timeout(left),
-    }).then(async (r) => {
-      if (!r.ok) return `scene ${s}: ${r.status} ${(await r.text()).slice(0, 120)}`;
-      note({ step: "draw", done: ++scenes, of: plans.length });
-      return null;
-    }, (e) => `scene ${s}: ${e instanceof Error ? e.name : "no answer"}`)));
-    const missed = drawn.filter(Boolean);
-    if (missed.length) throw new Error(`scenes not drawn — ${missed.join("; ")}`);
-    lap("all scenes drawn");
-    note({ step: "submit", done: 0, of: 0 });
-
-    const paths = named.files.map((f) => `${id}/${f.name}`);
-    const signed: string[] = [];
-    for (let i = 0; i < paths.length; i += 200) {
-      const { data, error: e } = await bucket().createSignedUrls(paths.slice(i, i + 200), LINK_SECONDS);
-      if (e || !data) throw new Error(`links: ${e?.message}`);
-      for (const d of data) {
-        if (!d.signedUrl) throw new Error("a link is missing");
-        signed.push(d.signedUrl);
-      }
-    }
-    const built = buildJob(plans, named, build);
-    const job = { inputs: named.files.map((f, i) => ({ name: f.name, url: signed[i] })), command: built.command, outputs: built.outputs };
-
-    const out = await bucket().createSignedUploadUrl(`${id}/quote.mp4`);
-    if (out.error || !out.data?.signedUrl) throw new Error("no upload link");
-    const jobId = randomUUID();
-    const token = randomBytes(32).toString("hex");
-    const callbackUrl = siteUrl(VIDEO_CALLBACK_PATH);
-    const uploadsTo = { out_1: { uploadUrl: out.data.signedUrl, path: `${id}/quote.mp4` } };
-    const payloadPath = `${id}/job.json`;
-    const pay = await bucket().upload(payloadPath, JSON.stringify({ id: jobId, job, uploads: uploadsTo, callbackUrl, token }), { contentType: "text/plain", upsert: true });
-    if (pay.error) throw new Error(`payload: ${pay.error.message}`);
-    const payLink = await bucket().createSignedUrl(payloadPath, LINK_SECONDS);
-    if (payLink.error || !payLink.data?.signedUrl) throw new Error("no payload link");
-
-    // the last progress write lands before the row leaves "drawing" (it writes only a drawing row)
-    await noted;
-    // recorded before the run is asked, so a callback that comes back at once finds it
-    await setRow(id, { status: "rendering", duration_sec: total, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
-    await cloudRunEngine(gcpKey).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
-    lap("handed to Cloud Run");
+    // kept with the clip, so a picture redrawn later is cut without speaking again
+    if (isPromptStory(row.input)) await pool(pcms, 8, (pcm, i) => upload(id, voiceName(i), pcm, "application/octet-stream"));
+    await cutClip(row, agentName, pcms, gcpKey, bar, t0, lap);
   } catch (e) {
     await fail(id, e);
   }
+}
+
+/**
+ * From the spoken lines to Cloud Run taking the job: the scenes planned, the shared files up, every
+ * scene drawn by the drawing route, the links signed and the job handed over. produce and
+ * redrawPicture both end here. Throws; the caller fails the clip.
+ */
+async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey: string, bar: Bar, t0: number, lap: Lap): Promise<void> {
+  const id = row.id;
+  const note = bar.note;
+  const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
+  const { size, motion, plans, named, build, layers, background: ownBackground } = await clipParts(row, agentName, secs);
+  const total = clipLength(plans);
+
+  // the files every scene shares, or that need no drawing
+  const files = new Map<string, { body: Buffer | string; type: string }>();
+  files.set(named.audio, { body: mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE), type: "audio/wav" });
+  const family = layers.photo ? await readFile(join(process.cwd(), "public/card/family.jpg")) : undefined;
+  // the Motion Graphic style: one drifting background under every scene
+  const dims = SIZES[size];
+  // a story clip: its own still paper instead
+  const background = ownBackground ? await ownBackground()
+    : motion ? await renderPng(motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) }) : undefined;
+  plans.forEach((p, s) => {
+    const sc = named.scenes[s];
+    if (background) files.set(sc.base, { body: background, type: "image/png" });
+    files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });
+    if (sc.layer?.kind === "photo" && family) files.set(sc.layer.name, { body: family, type: "image/jpeg" });
+  });
+  const drawToken = randomBytes(32).toString("hex");
+  const plan: DrawPlan = { tokenHash: hashToken(drawToken), secs };
+  files.set("plan.json", { body: JSON.stringify(plan), type: "text/plain" });
+  note({ step: "files", done: 0, of: 0 });
+  await pool([...files.entries()], 8, ([name, f]) => upload(id, name, f.body, f.type));
+  let scenes = 0;
+  note({ step: "draw", done: 0, of: plans.length });
+  lap(`shared files up; drawing ${plans.length} scenes (${motion ? "motion" : "classic"}, ${plans.reduce((n, p) => n + p.frames.length, 0)} frames)`);
+
+  // every scene at once, each in its own call and its own time
+  const left = Math.max(10_000, PRODUCE_BUDGET_MS - (Date.now() - t0));
+  const drawn = await Promise.all(plans.map((_, s) => fetch(siteUrl(VIDEO_DRAW_PATH), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id, scene: s, token: drawToken, agentName }),
+    signal: AbortSignal.timeout(left),
+  }).then(async (r) => {
+    if (!r.ok) return `scene ${s}: ${r.status} ${(await r.text()).slice(0, 120)}`;
+    note({ step: "draw", done: ++scenes, of: plans.length });
+    return null;
+  }, (e) => `scene ${s}: ${e instanceof Error ? e.name : "no answer"}`)));
+  const missed = drawn.filter(Boolean);
+  if (missed.length) throw new Error(`scenes not drawn — ${missed.join("; ")}`);
+  lap("all scenes drawn");
+  note({ step: "submit", done: 0, of: 0 });
+
+  const paths = named.files.map((f) => `${id}/${f.name}`);
+  const signed: string[] = [];
+  for (let i = 0; i < paths.length; i += 200) {
+    const { data, error: e } = await bucket().createSignedUrls(paths.slice(i, i + 200), LINK_SECONDS);
+    if (e || !data) throw new Error(`links: ${e?.message}`);
+    for (const d of data) {
+      if (!d.signedUrl) throw new Error("a link is missing");
+      signed.push(d.signedUrl);
+    }
+  }
+  const built = buildJob(plans, named, build);
+  const job = { inputs: named.files.map((f, i) => ({ name: f.name, url: signed[i] })), command: built.command, outputs: built.outputs };
+
+  // a clip cut again (redrawPicture) writes over its finished video
+  const out = row.video_path
+    ? await bucket().createSignedUploadUrl(`${id}/quote.mp4`, { upsert: true })
+    : await bucket().createSignedUploadUrl(`${id}/quote.mp4`);
+  if (out.error || !out.data?.signedUrl) throw new Error("no upload link");
+  const jobId = randomUUID();
+  const token = randomBytes(32).toString("hex");
+  const callbackUrl = siteUrl(VIDEO_CALLBACK_PATH);
+  const uploadsTo = { out_1: { uploadUrl: out.data.signedUrl, path: `${id}/quote.mp4` } };
+  const payloadPath = `${id}/job.json`;
+  const pay = await bucket().upload(payloadPath, JSON.stringify({ id: jobId, job, uploads: uploadsTo, callbackUrl, token }), { contentType: "text/plain", upsert: true });
+  if (pay.error) throw new Error(`payload: ${pay.error.message}`);
+  const payLink = await bucket().createSignedUrl(payloadPath, LINK_SECONDS);
+  if (payLink.error || !payLink.data?.signedUrl) throw new Error("no payload link");
+
+  // the last progress write lands before the row leaves "drawing" (it writes only a drawing row)
+  await bar.flush();
+  // recorded before the run is asked, so a callback that comes back at once finds it
+  await setRow(id, { status: "rendering", duration_sec: total, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
+  await cloudRunEngine(gcpKey).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
+  lap("handed to Cloud Run");
+}
+
+/** the script's fields as the agent knows them */
+const FIELD: Record<string, string> = { voice: "คำพูด", screen: "ข้อความบนจอ", picture: "ภาพ" };
+const reasonWords = (r: string) => r.replace(/^(voice|screen|picture): /, (_, f: string) => `${FIELD[f]}: `);
+
+/**
+ * Starts a คลิปตามโจทย์ (spec 2026-10-16, Money): the script, as the agent may have edited it, is
+ * checked again — a scene that breaks the rules is refused by number — and the draft is claimed
+ * for this clip in one conditional update (claimDraft), so it is not made twice; it is given back
+ * when the clip cannot be paid for or fails. Then it is paid for as every clip is
+ * (createVideo): one hold of the clip and every picture, or the pictures alone on a free clip.
+ */
+export async function createPromptStory(viewer: Viewer, input: PromptStoryInput, customer: string): Promise<{ id: string } | { refusal: string }> {
+  const bad = checkScript(input.scenes, input.brief, input.figure)[0];
+  if (bad) return { refusal: `ฉากที่ ${bad.scene + 1} ใช้ไม่ได้ — ${bad.reasons.map(reasonWords).join(", ")} แก้แล้วกดสร้างอีกครั้ง` };
+  const allowed = allowedFor(input.brief, input.figure);
+  const title = checkScene({ voice: "", screen: input.title, picture: "" }, allowed);
+  if (title.length) return { refusal: `ชื่อคลิปใช้ไม่ได้ — ${title.map((r) => r.replace(/^screen: /, "")).join(", ")}` };
+  const caption = checkScene({ voice: input.caption, screen: "", picture: "" }, allowed);
+  if (caption.length) return { refusal: `ข้อความโพสต์ใช้ไม่ได้ — ${caption.map((r) => r.replace(/^voice: /, "")).join(", ")}` };
+  if (!input.draftId) return { refusal: "เขียนบทก่อน แล้วค่อยกดสร้างคลิป" };
+  // the draft is taken for this clip in one step: a second press, at once or later, finds it taken
+  const id = randomUUID();
+  if (!(await claimDraft(viewer.agentId, input.draftId, id))) return { refusal: "บทนี้กดสร้างคลิปไปแล้ว ดูคลิปในรายการด้านล่าง" };
+  try {
+    const made = await createVideo(viewer, input, customer, id);
+    if ("refusal" in made) await releaseDraft(input.draftId, id);
+    return made;
+  } catch (e) {
+    await releaseDraft(input.draftId, id);
+    throw e;
+  }
+}
+
+const BUSY = "คลิปนี้กำลังทำอยู่ รอให้เสร็จก่อนแล้วค่อยวาดใหม่";
+
+/**
+ * วาดภาพฉากนี้ใหม่ (spec 2026-10-16): one scene's picture of the agent's own finished คลิปตามโจทย์
+ * drawn again for one picture's price (the owner free), and the clip cut again from the voice kept
+ * with it — the voice is never asked again. The picture's price is held until the new cut is done
+ * (finishVideo takes it); a picture that cannot be drawn, or a cut that fails, gives it back and
+ * leaves the clip as it was. The answer comes once the clip is taken; the drawing and the cut are
+ * handed to `run` (the action passes Next's after), or awaited here when none is given.
+ */
+export async function redrawPicture(
+  viewer: Viewer, id: string, scene: number, run: (work: () => Promise<void>) => unknown = (work) => work(),
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const row = await videoOf(viewer.agentId, id);
+  if (!row || !isPromptStory(row.input)) return { ok: false, error: "ไม่พบวิดีโอนี้" };
+  if (row.status === "drawing" || row.status === "rendering") return { ok: false, error: BUSY };
+  if (row.status !== "done" || !row.video_path) return { ok: false, error: "วาดใหม่ได้เฉพาะคลิปที่ทำเสร็จแล้ว" };
+  const input = row.input;
+  if (!Number.isInteger(scene) || scene < 0 || scene >= input.scenes.length) return { ok: false, error: "ไม่พบฉากนี้" };
+  const gcpKey = await providerKey("gcp");
+  if (!gcpKey) return { ok: false, error: FAILED };
+  const pcms = await keptVoice(id, input.scenes.length + 1);
+  if (!pcms) return { ok: false, error: "คลิปนี้ไม่มีเสียงเก็บไว้ วาดใหม่ไม่ได้ ทำคลิปใหม่แทน" };
+
+  let hold: string | null = null;
+  let price = 0;
+  if (!can(viewer, "owner")) {
+    // as createVideo: an outside member pays while their pass is live
+    const access = await memberAccess(viewer).catch(() => null);
+    if (!access) return { ok: false, error: PASS_UNREADABLE };
+    if (!passOpen(access)) return { ok: false, error: PASS_EXPIRED };
+    price = promptPicturePrice(input, await walletPrices());
+    if (price > 0) {
+      const s = await walletSettings().catch(() => null);
+      if (!s?.enabled) return { ok: false, error: "ค่าวาดภาพจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" };
+      const h = await holdFor(viewer.agentId, price, `วาดภาพใหม่ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(price)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
+      if ("refusal" in h) return { ok: false, error: h.refusal };
+      hold = h.id;
+    }
+  }
+  // the clip leaves done once: a second press finds it busy
+  const { data: taken, error } = await rows().update({ status: "drawing", progress: null, error: null, updated_at: new Date().toISOString() })
+    .eq("id", id).eq("agent_id", viewer.agentId).eq("status", "done").select("id").maybeSingle();
+  if (error || !taken) {
+    if (hold) await releaseWallet(hold).catch((e) => console.error("redraw hold not released:", e));
+    return { ok: false, error: BUSY };
+  }
+
+  const agentName = viewer.name.trim();
+  await run(async () => {
+    const t0 = Date.now();
+    const lap = lapper(id, t0);
+    const bar = progressBar(id);
+    let held = hold;
+    const giveBack = async () => {
+      if (!held) return;
+      const h = held;
+      held = null;
+      await releaseWallet(h).catch((e) => console.error("redraw hold not released:", e));
+    };
+    try {
+      bar.note({ step: "pictures", done: 0, of: 1 });
+      const png = await drawScenePicture(input.scenes[scene], input.style, input.painter, clipSize(input));
+      if (!png) {
+        await giveBack();
+        await bar.flush();
+        await rows().update({ status: "done", error: `วาดภาพฉากที่ ${scene + 1} ไม่สำเร็จ ไม่ได้หักเงิน ลองใหม่อีกครั้ง`, updated_at: new Date().toISOString() })
+          .eq("id", id).eq("status", "drawing");
+        return;
+      }
+      await upload(id, picName(scene), png, "image/png");
+      const pictures = input.scenes.map((_, s) => input.pictures?.[s] ?? null);
+      pictures[scene] = `${id}/${picName(scene)}`;
+      // the hold rides with the clip: taken when the new cut is done (finishVideo), given back if it fails (fail)
+      const next: PromptStoryInput = { ...input, pictures, ...(held ? { redraw: { hold: held, satang: price, thb: pictureThb(input.painter) } } : {}) };
+      await setRow(id, { input: next, cost_thb: Number(row.cost_thb ?? 0) + pictureThb(input.painter) });
+      held = null;
+      bar.note({ step: "pictures", done: 1, of: 1 });
+      lap(`scene ${scene} picture drawn again`);
+      await cutClip({ ...row, input: next, status: "drawing" }, agentName, pcms, gcpKey, bar, t0, lap);
+    } catch (e) {
+      await giveBack();
+      await fail(id, e);
+    }
+  });
+  return { ok: true };
 }
 
 /**
@@ -708,13 +1018,24 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
     await asWho(row.agent_id, () => recordUsage("cloudrun", VIDEO_TASK_RENDER, 0, 0, RENDER_COST_THB));
     const cost = Number(row.cost_thb ?? 0) + RENDER_COST_THB;
     let charged: number | null = null;
-    if (row.paid_by === "wallet" && row.hold_id && row.held_satang) {
-      // the price is fixed: the whole hold is the charge
-      charged = await settleWallet(row.hold_id, Number(row.held_satang), cost)
-        .catch((e) => { console.error("quote video settle failed:", e); return null; });
+    // a free คลิปตามโจทย์ holds its pictures too; a clip cut again was settled at its first finish
+    if (row.hold_id && row.charged_satang == null) {
+      // the price is fixed: the whole hold is the charge; a free คลิปตามโจทย์ whose every picture
+      // failed has nothing left to charge, and its hold goes back whole
+      if (Number(row.held_satang) > 0) {
+        charged = await settleWallet(row.hold_id, Number(row.held_satang), cost)
+          .catch((e) => { console.error("quote video settle failed:", e); return null; });
+      } else await release(row);
     }
-    await setRow(row.id, { cost_thb: cost, ...(charged !== null ? { charged_satang: charged } : {}) }).catch(() => undefined);
-    await clearInputs(row.id);
+    // a คลิปตามโจทย์ cut again: the redrawn picture is in the clip now, so its hold is taken
+    let input: PromptStoryInput | undefined;
+    if (isPromptStory(row.input) && row.input.redraw) {
+      const { redraw, ...rest } = row.input;
+      await settleWallet(redraw.hold, redraw.satang, redraw.thb).catch((e) => console.error("redraw settle failed:", e));
+      input = rest;
+    }
+    await setRow(row.id, { cost_thb: cost, ...(charged !== null ? { charged_satang: charged } : {}), ...(input ? { input } : {}) }).catch(() => undefined);
+    await clearInputs(row.id, isPromptStory(row.input));
   } else {
     await fail(row.id, new Error("render failed"));
   }
@@ -727,7 +1048,9 @@ export async function listVideos(agentId: string, limit = 30): Promise<VideoRow[
   const list = (data ?? []) as VideoRow[];
   const now = Date.now();
   for (const v of list) {
-    if ((v.status === "drawing" || v.status === "rendering") && now - Date.parse(v.created_at) > VIDEO_TIMEOUT_MS) {
+    // a finished clip cut again (redrawPicture) is timed from when it was taken again
+    const since = Date.parse(v.video_path ? v.updated_at : v.created_at);
+    if ((v.status === "drawing" || v.status === "rendering") && now - since > VIDEO_TIMEOUT_MS) {
       await fail(v.id, new Error("timed out"));
       v.status = "failed";
       v.error = FAILED;

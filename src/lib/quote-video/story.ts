@@ -29,7 +29,7 @@ export { STORY_TOPICS, type StoryTopic } from "@/lib/story/topics";
 export { planName, termShort } from "@/lib/story/plans";
 
 /** กองกลาง 48 คน's scenes, ความรู้ประกัน 1 นาที's (story-knowledge.ts), and the agent's card both end on */
-export type StorySceneKey = "storyHook" | "storyPool" | "storyHit" | "storyHelp" | "storyAll" | KnowSceneKey | "storyContact";
+export type StorySceneKey = "storyHook" | "storyPool" | "storyHit" | "storyHelp" | "storyAll" | KnowSceneKey | "storyContact" | "freeScene";
 
 
 /** A real premium shown in the jar scene: the plan's own, worked out when the clip was ordered. */

@@ -8,7 +8,8 @@
  * is split by measured time: rendering is most of a clip's making. Pure and browser-safe.
  */
 
-export type ProgressStep = "voice" | "files" | "draw" | "submit";
+/** "pictures": a คลิปตามโจทย์'s painted pictures, before its voice */
+export type ProgressStep = "pictures" | "voice" | "files" | "draw" | "submit";
 /** what produce has done, on the row: `done` of `of` lines spoken or scenes drawn */
 export interface ProgressNote { step: ProgressStep; done: number; of: number }
 
@@ -43,7 +44,7 @@ export const MAX_RENDER_SEC = 15 * 60;
 
 export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown }): ClipKind {
   if (input.fhc) return "fhc";
-  if (input.product === "STORY") return "story";
+  if (input.product === "STORY" || input.product === "FREESTORY") return "story";
   const length = input.length === "short" || input.length === "long" || input.length === "max" ? input.length : "full";
   return `${input.style === "motion" ? "motion" : "classic"}-${length}`;
 }
@@ -78,7 +79,8 @@ export interface ProgressState {
 export interface ProgressView { pct: number; text: string; leftSec: number | null }
 
 /** where each step before rendering starts and ends, as a share of that part of the bar */
-const SPAN: Record<ProgressStep, [number, number]> = { voice: [0, 0.35], files: [0.35, 0.45], draw: [0.45, 0.9], submit: [0.9, 1] };
+// a คลิปตามโจทย์'s pictures share the voice's part: the bar counts them, then counts the voice from its start
+const SPAN: Record<ProgressStep, [number, number]> = { pictures: [0, 0.35], voice: [0, 0.35], files: [0.35, 0.45], draw: [0.45, 0.9], submit: [0.9, 1] };
 /** the most the bar shows before the clip is done */
 export const HOLD = 98;
 
@@ -88,6 +90,7 @@ export const preShare = (e: Estimate) => Math.min(0.6, Math.max(0.15, e.pre / Ma
 function stepText(n: ProgressNote | null): string {
   if (!n) return "เริ่มทำ…";
   switch (n.step) {
+    case "pictures": return `วาดรูปประกอบ ${n.done}/${n.of}`;
     case "voice": return `ทำเสียงแล้ว ${n.done}/${n.of} ประโยค`;
     case "files": return "เตรียมไฟล์";
     case "draw": return `วาดภาพแล้ว ${n.done}/${n.of} ฉาก`;
@@ -125,7 +128,7 @@ export function leftWords(sec: number | null): string {
 export function readNote(v: unknown): ProgressNote | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
-  if (o.step !== "voice" && o.step !== "files" && o.step !== "draw" && o.step !== "submit") return null;
+  if (o.step !== "pictures" && o.step !== "voice" && o.step !== "files" && o.step !== "draw" && o.step !== "submit") return null;
   const done = Number(o.done);
   const of = Number(o.of);
   return { step: o.step, done: Number.isFinite(done) ? done : 0, of: Number.isFinite(of) ? of : 0 };
