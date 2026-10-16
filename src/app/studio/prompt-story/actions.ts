@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { asWho } from "@/lib/ai/who";
 import { can } from "@/lib/auth/access";
 import { requireMember } from "@/lib/auth/viewer";
+import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
 import { getContact } from "@/lib/quote-video/contact";
 import { createPromptStory, produce, redrawPicture } from "@/lib/quote-video/make";
 import { cleanCustomerName } from "@/lib/quote-video/script";
@@ -26,6 +27,15 @@ export type WrittenPromptStory =
 
 export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; figure?: unknown }): Promise<WrittenPromptStory> {
   const viewer = await requireMember();
+  // an outside member writes scripts while their pass is live, as they make clips (make.ts createVideo)
+  if (!can(viewer, "owner")) {
+    const access = await memberAccess(viewer).catch((e) => {
+      console.error("prompt story refused, pass unreadable:", e);
+      return null;
+    });
+    if (!access) return { ok: false, error: PASS_UNREADABLE };
+    if (!passOpen(access)) return { ok: false, error: PASS_EXPIRED };
+  }
   const brief = typeof v?.brief === "string" ? v.brief.trim() : "";
   if (!brief) return { ok: false, error: "พิมพ์โจทย์ก่อนนะคะ" };
   if (brief.length > BRIEF_MAX) return { ok: false, error: `โจทย์ยาวเกินไป ใส่ได้ไม่เกิน ${BRIEF_MAX} ตัวอักษร` };
@@ -41,8 +51,13 @@ export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; fi
   if ((await draftsLastHour(viewer.agentId)) >= HOURLY_LIMIT) return { ok: false, error: `เขียนบทครบ ${HOURLY_LIMIT} ครั้งในชั่วโมงนี้แล้ว รอสักครู่แล้วลองใหม่นะคะ` };
 
   const w = await writeStory({ brief, scenes: v.scenes, figure });
-  if (!w.ok) return { ok: false, error: w.refusal };
-  const id = await saveDraft(viewer.agentId, { brief, scenes: v.scenes, figure: figure ?? null }, { title: w.title, caption: w.caption, scenes: w.scenes, notes: w.notes });
+  const asked = { brief, scenes: v.scenes, figure: figure ?? null };
+  // a refused brief cost a model call too: kept, marked refused, so the hour counts it
+  if (!w.ok) {
+    await saveDraft(viewer.agentId, asked, { refused: true, refusal: w.refusal });
+    return { ok: false, error: w.refusal };
+  }
+  const id = await saveDraft(viewer.agentId, asked, { title: w.title, caption: w.caption, scenes: w.scenes, notes: w.notes });
   return { ok: true, id, title: w.title, caption: w.caption, scenes: w.scenes, notes: w.notes };
 }
 
