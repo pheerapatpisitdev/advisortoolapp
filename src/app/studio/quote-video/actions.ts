@@ -14,7 +14,9 @@ import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
 import { ADMIN_VOICE, voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { promptStoryCaption } from "@/lib/prompt-story/caption";
-import { isPromptStory } from "@/lib/prompt-story/types";
+import { isPromptStory, promptPicturePrice } from "@/lib/prompt-story/types";
+import { priceBaht } from "@/lib/wallet/prices";
+import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
 import { clipEstimates, clipSize, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
@@ -85,6 +87,8 @@ export interface VideoItem {
   progress?: ProgressState | null;
   /** the words the AI wrote to go with it, and the writes left (post-text.ts) */
   post?: ClipPost | null;
+  /** a finished คลิปตามโจทย์: its scenes, and what a picture drawn again costs ("1"; null for the owner) */
+  redraw?: { scenes: number; price: string | null };
 }
 export interface ClipPost { text: string; tone: PostText["tone"]; voice: PostText["voice"]; kind: PostText["kind"]; left: number }
 const clipPost = (raw: unknown): ClipPost | null => {
@@ -474,6 +478,8 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
   const making = (v: VideoRow) => v.status === "drawing" || v.status === "rendering";
   const est = list.some(making) ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
   const now = Date.now();
+  const owner = can(viewer, "owner");
+  const prices = !owner && list.some((v) => v.status === "done" && isPromptStory(v.input)) ? await walletPrices().catch(() => null) : null;
   // how far a clip being made is: the board runs the bar on from here between its reads
   const progressOf = (v: VideoRow): ProgressState | null => {
     if (v.status !== "drawing" && v.status !== "rendering") return null;
@@ -525,6 +531,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
         status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
+        ...(v.status === "done" && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)) } } : {}),
       };
     }
     const input = v.input;

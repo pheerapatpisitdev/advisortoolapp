@@ -1,8 +1,7 @@
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
-import { SCREEN_MAX, TITLE_MAX } from "./writer";
-import type { PictureStyle, PromptScene, PromptStoryInput } from "./types";
+import { BRIEF_MAX, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
  * คลิปตามโจทย์'s form, checked on the server before anything is held: the brief and the script as
@@ -12,7 +11,7 @@ import type { PictureStyle, PromptScene, PromptStoryInput } from "./types";
 
 /** scripts per agent per rolling hour, to cap the owner's model spend (spec, Money) */
 export const HOURLY_LIMIT = 20;
-export const BRIEF_MAX = 600;
+export { BRIEF_MAX };
 export const SCENE_COUNTS = [3, 5, 8] as const;
 const STYLES: PictureStyle[] = ["cartoon", "real", "flat"];
 const PAINTER_IDS: PromptStoryInput["painter"][] = ["standard", "sharp", "gemini"];

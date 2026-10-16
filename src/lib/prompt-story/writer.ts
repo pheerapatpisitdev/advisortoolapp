@@ -2,7 +2,7 @@ import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
 import { allowedFor, checkScene, checkScript } from "./check";
-import type { PromptScene } from "./types";
+import { SCREEN_MAX, TITLE_MAX, type PromptScene } from "./types";
 
 /**
  * The script of a คลิปตามโจทย์: one small-tier model call (never Claude) turns the agent's brief
@@ -14,8 +14,7 @@ import type { PromptScene } from "./types";
 
 export const WRITER_TASK = "prompt-story-script";
 const TIMEOUT_MS = 20_000;
-export const TITLE_MAX = 28;
-export const SCREEN_MAX = 40;
+export { SCREEN_MAX, TITLE_MAX };
 
 export type Written =
   | { ok: true; title: string; caption: string; scenes: PromptScene[]; notes: number[] }

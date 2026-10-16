@@ -2,6 +2,12 @@ import type { StoryFigure } from "@/lib/quote-video/story";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { pictureSatang, type Prices } from "@/lib/wallet/prices";
 
+/** a clip's title and one scene's words on the screen, in characters */
+export const TITLE_MAX = 28;
+export const SCREEN_MAX = 40;
+/** a brief, in characters */
+export const BRIEF_MAX = 600;
+
 export type PictureStyle = "cartoon" | "real" | "flat";
 
 export type PromptScene = { voice: string; screen: string; picture: string; showFigure?: boolean };

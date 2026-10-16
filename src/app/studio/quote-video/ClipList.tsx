@@ -2,10 +2,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { VideoSize } from "@/lib/quote-video/timeline";
+import { RedrawScenes } from "../prompt-story/RedrawScenes";
 import { ClipProgress } from "./ClipProgress";
 import { PostPanel } from "./PostPanel";
 import { SaveVideoButton } from "./SaveVideoButton";
-import { addToCalendar, calendarCaption, removeVideo, type ClipPost, type VideoItem } from "./actions";
+import { addToCalendar, calendarCaption, myVideos, removeVideo, type ClipPost, type VideoItem } from "./actions";
 
 /**
  * The clips an agent has made, with what can be done with each: watch, save, copy the link,
@@ -56,6 +57,9 @@ export function ClipList({ items, setItems, pages }: {
     const r = await addToCalendar(cal.id, cal.page, cal.caption).catch(() => ({ ok: false as const, error: "ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง" }));
     setCal((c) => (c ? (r.ok ? { ...c, busy: false, done: r.pageId } : { ...c, busy: false, error: r.error }) : c));
   }
+
+  // a picture drawn again puts its clip back to being made: ask the list again
+  const refreshPrompt = () => { myVideos("prompt").then(setItems).catch(() => undefined); };
 
   async function remove(id: string) {
     setDeleteError(null);
@@ -119,6 +123,7 @@ export function ClipList({ items, setItems, pages }: {
             )}
           </div>
           {v.progress && <ClipProgress state={v.progress} />}
+          {v.status === "done" && v.error && <p role="alert" className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
           {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
           {v.voiceFull && <p className="text-xs text-[var(--ct-mute)]">ไม่เสียเงิน และไม่นับเป็นคลิปฟรี</p>}
           <div className="flex flex-wrap gap-2">
@@ -138,6 +143,9 @@ export function ClipList({ items, setItems, pages }: {
             >
               {v.post ? (v.post.kind === "customer" ? "ดูข้อความส่งลูกค้า" : "ดูข้อความโพสต์") : v.named || v.personal ? "✎ เขียนข้อความส่งลูกค้าด้วย AI" : "✎ เขียนข้อความโพสต์ด้วย AI"}
             </button>
+          )}
+          {v.status === "done" && v.redraw && (
+            <RedrawScenes id={v.id} scenes={v.redraw.scenes} price={v.redraw.price} onStarted={refreshPrompt} />
           )}
           {writing === v.id && (
             <PostPanel id={v.id} post={v.post} customer={v.named || v.personal} onPost={(p) => gotPost(v.id, p)} onClose={() => setWriting(null)} />
