@@ -315,6 +315,18 @@ const AVATAR = H.plan + H.insured - 12;
  * because the address it gives expires, and a Page that will not say, a customer with no
  * picture or a slow answer all end the same way: the card is drawn without, as it always was.
  */
+const CARD_CACHE = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400";
+
+/**
+ * A card with a face on it is one customer's. It is kept only under its own signed address,
+ * which nobody else has, and only for what is left of the ask's ten minutes, so the face is
+ * gone from the CDN when the address itself stops working. No stale copy is served after that.
+ */
+function faceCacheControl(expires: number, now = Date.now()): string {
+  const left = Math.floor((expires - now) / 1000);
+  return left > 0 ? `public, max-age=${left}, s-maxage=${left}` : "private, no-store";
+}
+
 async function loadCustomerPhoto(token: string | null): Promise<string | undefined> {
   const who = token ? verifyCardPhoto(token) : null;
   if (!who) return undefined;
@@ -362,7 +374,8 @@ export async function GET(req: NextRequest) {
   if (moved) return moved;
   // a `ph` that does not verify (forged, or past its ten minutes) is padding like any other key
   const ph = req.nextUrl.searchParams.get("ph");
-  if (ph !== null && !verifyCardPhoto(ph)) {
+  const asked = ph !== null ? verifyCardPhoto(ph) : null;
+  if (ph !== null && !asked) {
     const plain = new URL(req.nextUrl);
     plain.searchParams.delete("ph");
     return NextResponse.redirect(plain, 308);
@@ -521,10 +534,7 @@ export async function GET(req: NextRequest) {
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
       ],
-      // a card with a face on it is one customer's: never kept where anyone else could be served it
-      headers: {
-        "cache-control": face ? "private, no-store" : "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400",
-      },
+      headers: { "cache-control": face && asked ? faceCacheControl(asked.expires) : CARD_CACHE },
     },
   );
 }
