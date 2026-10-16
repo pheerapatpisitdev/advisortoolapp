@@ -1,8 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import claims from "../../data/claims/admission-criteria.json";
-import contract from "../../data/riders/ihealthy-ultra-contract.json";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { videoPrice } from "@/lib/quote-video/make";
 import { MOTION_FPS } from "@/lib/quote-video/motion";
@@ -304,7 +302,7 @@ describe("หลังการขาย (story-after.ts)", () => {
   const clip = (topic: string, over: Record<string, unknown> = {}) => story({ topic, ...extra[topic], ...over });
 
   it("is three long clips of six scenes and three short ones of three, the agent's card last", () => {
-    expect(after.map((t) => t.key)).toEqual(["deliver", "claimihu", "claimish", "remind", "birthday", "festival"]);
+    expect(after.map((t) => t.key)).toEqual(["deliver", "claimish", "remind", "birthday", "festival"]);
     for (const t of after) {
       const keys = storyScript(clip(t.key), "นิด").map((l) => l.key);
       expect(keys.length, t.key).toBe(t.short ? 3 : 6);
@@ -323,12 +321,6 @@ describe("หลังการขาย (story-after.ts)", () => {
     expect(life[3]).toContain("ผู้รับประโยชน์");
     // the free-look period stays out until the owner confirms the company's days
     expect([...lines, ...life].join(" ")).not.toMatch(/ยกเลิก/);
-  });
-
-  it("tells iHealthy Ultra's claim in the contract's own days", () => {
-    const lines = storyScript(clip("claimihu")).map((l) => l.voice).join(" ");
-    expect(lines).toContain(`ภายใน ${contract.claimEvidenceDays} วัน บริษัทจ่ายภายใน ${contract.payoutDays} วัน`);
-    expect(claims.timeline.steps.map((s) => s.when)).toEqual(["วันที่ 1", "30 วัน", "90 วัน", "120 วัน"]);
   });
 
   it("works iShield's payout from the customer's sum, and says it in shares without one", () => {
@@ -355,7 +347,7 @@ describe("หลังการขาย (story-after.ts)", () => {
 
   it("prices the short clips as short, the rest as a story", () => {
     expect(videoPrice(clip("birthday"), DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoStoryShort);
-    expect(videoPrice(clip("claimihu"), DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoStory);
+    expect(videoPrice(clip("claimish"), DEFAULT_PRICES)).toBe(DEFAULT_PRICES.videoStory);
   });
 
   it("draws in every shape, every letter in the handwriting face", () => {
@@ -367,7 +359,6 @@ describe("หลังการขาย (story-after.ts)", () => {
       }
     }
     expect(clipHandText(clip("remind"), "")).toContain("15");
-    expect(clipHandText(clip("claimihu"), "")).toContain("120 วัน");
   });
 });
 

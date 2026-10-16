@@ -1,5 +1,3 @@
-import contract from "../../../data/riders/ihealthy-ultra-contract.json";
-import claims from "../../../data/claims/admission-criteria.json";
 import { iShieldTable } from "@/lib/ishield-table";
 import { planName, termShort } from "@/lib/story/plans";
 import { THAI_MONTHS, type Festival } from "@/lib/story/topics";
@@ -11,33 +9,24 @@ import { big, n, small, withBaht, type KnowScene, type KnowShow, type NoteLine, 
  * for a customer who has bought, on the same scene keys and drawing as ความรู้ประกัน 1 นาที.
  *
  * - ส่งมอบกรมธรรม์: thanks, what the plan covers and costs, when cover starts, keeping the policy safe.
- * - วิธีเคลม: in hospital on iHealthy Ultra, from its contract and claim rules in data/; a critical
- *   illness on iShield, from its illness table. No document list: the owner has not given one, so
- *   the steps stay at "tell your agent, send the doctor's diagnosis".
+ * - วิธีเคลม: a critical illness on iShield, from its illness table. No document list: the owner
+ *   has not given one, so the steps stay at "tell your agent, send the doctor's diagnosis". The
+ *   in-hospital iHealthy Ultra claim clip was removed by the owner (2026-10-17).
  * - Short clips, two scenes and the card: a premium falling due, a birthday, a festival.
  *
  * Every number here comes from data/ or the plan's table, or from what the agent typed. The
  * free-look period is left out until the owner confirms the company's days (2026-10-15).
  */
 
-export type AfterTopic = "deliver" | "claimihu" | "claimish" | "remind" | "birthday" | "festival";
+export type AfterTopic = "deliver" | "claimish" | "remind" | "birthday" | "festival";
 
 /** each clip's closing: the card's button, and the voice under it */
 export const AFTER_CLOSE: Record<AfterTopic, { cta: string; voice: string }> = {
   deliver: { cta: "มีอะไรทักมาได้ตลอด", voice: "เคลม จ่ายเบี้ย หรือเปลี่ยนข้อมูล ทักมาได้ตลอดนะคะ" },
-  claimihu: { cta: "ป่วยเมื่อไร ทักก่อนเข้าโรงพยาบาล", voice: "ป่วยเมื่อไร ทักมาก่อนเข้าโรงพยาบาลนะคะ จะช่วยดูให้ค่ะ" },
   claimish: { cta: "เคลมเมื่อไร ทักมาได้เลย", voice: "เคลมเมื่อไร ทักมาได้เลยนะคะ" },
   remind: { cta: "ติดขัดอะไร ทักมาได้เลย", voice: "ติดขัดอะไร ทักมาได้เลยนะคะ" },
   birthday: { cta: "ด้วยความห่วงใย", voice: "ด้วยความห่วงใยค่ะ" },
   festival: { cta: "ด้วยความห่วงใย", voice: "ด้วยความห่วงใยค่ะ" },
-};
-
-/** iHealthy Ultra's own days, from its contract and the claim rules (data/riders, data/claims) */
-export const IHU = {
-  evidenceDays: contract.claimEvidenceDays,
-  payoutDays: contract.payoutDays,
-  /** when each kind of cover starts: วันที่ 1, 30 วัน, 90 วัน, 120 วัน */
-  starts: claims.timeline.steps.map((s) => s.when),
 };
 
 const scene = (key: KnowScene["key"], show: KnowShow, voice: string): KnowScene => ({ key, show, voice });
@@ -72,21 +61,6 @@ function deliver(input: StoryVideoInput, name: string): KnowScene[] {
         "เงินก้อนนี้จะถึงมือผู้รับประโยชน์ที่ระบุไว้ในกรมธรรม์ ตรวจชื่อให้ถูก และบอกให้เขารู้ไว้นะคะ"),
     scene("knowRecap", { layout: "list", title: ["เก็บไว้ให้ดี", ""], mark: "check", items: ["เก็บกรมธรรม์ไว้ที่ปลอดภัย", "บอกคนในบ้านว่าเก็บที่ไหน", "บันทึกเบอร์ตัวแทนไว้"] },
       "เก็บกรมธรรม์ไว้ที่ปลอดภัย บอกคนในบ้านว่าเก็บไว้ที่ไหน และบันทึกเบอร์ตัวแทนไว้นะคะ"),
-  ];
-}
-
-function claimIhu(): KnowScene[] {
-  const [day1, illness, fax, special] = IHU.starts;
-  return [
-    scene("knowAsk", { layout: "ask", title: ["ต้องนอนโรงพยาบาล", "เคลมยังไง?"] }, "ถ้าป่วยต้องนอนโรงพยาบาล ใช้ประกันสุขภาพยังไงคะ"),
-    scene("knowOne", { layout: "card", title: ["โรงพยาบาลคู่สัญญา", ""], lines: [small("ยื่นบัตรประกัน"), big("ไม่ต้องสำรองจ่าย", "green"), small(`ใช้ได้หลังกรมธรรม์มีผล ${fax}`)] },
-      `ที่โรงพยาบาลคู่สัญญา ยื่นบัตรประกัน ไม่ต้องสำรองจ่ายค่ะ ใช้ได้หลังกรมธรรม์มีผล ${fax}`),
-    scene("knowTwo", { layout: "list", title: ["ต้องสำรองจ่ายก่อน", "เมื่อ"], mark: "warn", items: ["ยังไม่พ้นระยะรอคอย", "ไม่ใช่โรงพยาบาลคู่สัญญา", "ตรวจพบโรคใหม่ครั้งแรก", "จ่ายเบี้ยล่าช้า"] },
-      "บางกรณีต้องสำรองจ่ายก่อน เช่น ยังไม่พ้นระยะรอคอย ไม่ใช่โรงพยาบาลคู่สัญญา หรือตรวจพบโรคใหม่ครั้งแรกค่ะ"),
-    scene("knowThree", { layout: "timeline", title: ["สำรองจ่ายแล้ว", "เบิกคืน"], rows: [{ at: "1", label: "เก็บใบเสร็จ เอกสารแพทย์" }, { at: `${IHU.evidenceDays} วัน`, label: "ยื่นเอกสารภายใน" }, { at: `${IHU.payoutDays} วัน`, label: "บริษัทจ่ายภายใน" }] },
-      `สำรองจ่ายแล้ว ยื่นใบเสร็จและเอกสารแพทย์ภายใน ${IHU.evidenceDays} วัน บริษัทจ่ายภายใน ${IHU.payoutDays} วัน หลังได้รับเอกสารครบค่ะ`),
-    scene("knowRecap", { layout: "timeline", title: ["เริ่มคุ้มครอง", "เมื่อไร"], rows: [{ at: day1.replace("วันที่ 1", "วันแรก"), label: "อุบัติเหตุ" }, { at: illness, label: "เจ็บป่วยทั่วไป" }, { at: fax, label: "ไม่ต้องสำรองจ่าย" }, { at: special, label: "8 กลุ่มโรค" }] },
-      `อุบัติเหตุคุ้มครองวันแรก เจ็บป่วยทั่วไปหลัง ${illness} และ 8 กลุ่มโรคหลัง ${special}ค่ะ`),
   ];
 }
 
@@ -159,7 +133,6 @@ function festival(input: StoryVideoInput): KnowScene[] {
 export function afterScenes(topic: AfterTopic, input: StoryVideoInput, name: string): KnowScene[] {
   return {
     deliver: () => deliver(input, name),
-    claimihu: claimIhu,
     claimish: () => claimIshield(input),
     remind: () => remind(input, name),
     birthday: () => birthday(input, name),

@@ -176,7 +176,6 @@ export function knowEpisode(input: StoryVideoInput, customer?: string, narrator:
     prebaby: family,
     eldercare: family,
     deliver: afterSale,
-    claimihu: afterSale,
     claimish: afterSale,
     remind: afterSale,
     birthday: afterSale,
