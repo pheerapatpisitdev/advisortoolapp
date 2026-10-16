@@ -26,7 +26,7 @@ import { getContact, photoDataUri } from "./contact";
 import { CHART_W, sceneLayer, tableImage, type Contact } from "./draw";
 import { noteDrawing, tablePlan } from "./table-pen";
 import { pensionTableImage, pensionTablePlan } from "./pension-table";
-import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
+import { addSounds, buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
 import { fhcFrame, fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
@@ -40,7 +40,9 @@ import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec, storyBackground, storyFrame, type StoryContext } from "./story-motion";
 import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./story-frames";
 import { faceUris } from "./story-faces";
-import { motionBackground, motionBgHeight, motionFrame, motionWindows, MOTION_FPS } from "./motion";
+import { motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
+import { readTheme } from "./theme-keys";
+import { collageSoundFiles, collageSounds, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Hero, type SoundKind } from "./themes";
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { WIDE_CHART_W, wideSceneLayer } from "./classic-wide";
 import { CLASSIC_BOXES } from "./table-geo";
@@ -388,6 +390,8 @@ export interface ClipParts {
   sceneDraws: (s: number) => { name: string; draw: () => Promise<Buffer> }[];
   /** a still background under every scene, when the clip has one of its own (the story clip's paper) */
   background?: () => Promise<Buffer>;
+  /** คอลลาจกระดาษ's paper and pops, at their times in the clip */
+  sounds?: { at: number; kind: SoundKind }[];
 }
 
 async function contactOf(agentId: string, agentName: string): Promise<Contact> {
@@ -568,6 +572,10 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const boxes = CLASSIC_BOXES[size];
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const motion = row.input.style === "motion";
+  // the Motion Graphic look (owner, 2026-10-17): its opening picture is read once, when a frame first needs it
+  const theme = motion ? readTheme(row.input.theme) : undefined;
+  let heroOnce: Promise<Hero | undefined> | undefined;
+  const hero = () => (heroOnce ??= themeHero(theme, row.input.sex));
   // the classic value scene: where the table stops and which pen note is written at each stop
   const valueAt = script.findIndex((s) => s.key === "value");
   // บำนาญ 95's table carries its notes in the picture, and only walks down (pension-table.tsx)
@@ -601,10 +609,13 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     const words = script[s].voice.split(" ").filter(Boolean);
     if (motion) {
       const mctx = { facts, narrator, customer, contact, words, voiceSec: secs[s], ...shown };
-      const frame = (t: number) => (size === "portrait" ? motionFrame(p.key, mctx, t) : wideQuoteFrame(p.key, mctx, t, size));
-      // the value scene writes its pen notes in the handwriting face
-      const withPen = { pen: p.key === "value" };
-      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }, { ...withPen, ...script$ }) }));
+      const frame = (t: number, hero: Hero | undefined) => {
+        const c = hero ? { ...mctx, hero } : mctx;
+        return themed(size === "portrait" ? motionFrame(p.key, c, t) : wideQuoteFrame(p.key, c, t, size), theme, t);
+      };
+      // the value scene writes its pen notes in the handwriting face; a theme with a face of its own writes everything in it
+      const withPen = { pen: p.key === "value", ...(themeFont(theme) ? { hand: THEME_LETTERS } : {}) };
+      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: async () => renderPng(frame(fr.t ?? 0, await hero()), { width: dims.w, height: dims.h }, { ...withPen, ...script$ }) }));
     }
     const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, ...(pen ? { notes: pen.notes } : {}), ...shown };
     const withPen = { pen: p.key === "value" };
@@ -622,6 +633,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   return {
     script, motion, plans, named, sceneDraws,
     size,
+    ...(theme === "collage" ? { sounds: collageSounds(plans.map((p, i) => ({ start: p.start, anims: Object.values(motionSpec(script[i].key, facts, secs[i], script[i].voice)) }))) } : {}),
     build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height, size: dims, photo: boxes.photo, table: boxes.table },
     layers: { photo: layers.includes("photo") },
   };
@@ -764,18 +776,20 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   const id = row.id;
   const note = bar.note;
   const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-  const { size, motion, plans, named, build, layers, background: ownBackground } = await clipParts(row, agentName, secs);
+  const { size, motion, plans, named, build, layers, background: ownBackground, sounds } = await clipParts(row, agentName, secs);
   const total = clipLength(plans);
 
   // the files every scene shares, or that need no drawing
   const files = new Map<string, { body: Buffer | string; type: string }>();
-  files.set(named.audio, { body: mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE), type: "audio/wav" });
+  const narration = mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE);
+  const sfx = sounds?.length ? await collageSoundFiles() : undefined;
+  files.set(named.audio, { body: sfx ? addSounds(narration, sounds!.map((c) => ({ pcm: sfx[c.kind], at: c.at, gain: SOUND_GAIN[c.kind] })), TTS_RATE) : narration, type: "audio/wav" });
   const family = layers.photo ? await readFile(join(process.cwd(), "public/card/family.jpg")) : undefined;
   // the Motion Graphic style: one drifting background under every scene
   const dims = SIZES[size];
   // a story clip: its own still paper instead
   const background = ownBackground ? await ownBackground()
-    : motion ? await renderPng(motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) }) : undefined;
+    : motion ? await renderPng(await themeBackground(readTheme((row.input as { theme?: unknown }).theme), dims, motionBgHeight(dims)) ?? motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) }) : undefined;
   plans.forEach((p, s) => {
     const sc = named.scenes[s];
     if (background) files.set(sc.base, { body: background, type: "image/png" });

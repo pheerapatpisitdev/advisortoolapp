@@ -203,6 +203,8 @@ export interface MotionContext {
   contact: { name: string; phone: string; line?: string; more?: string; photo?: string };
   words: string[];
   voiceSec: number;
+  /** the opening's picture where the clip's theme has its own (themes.tsx); the shield and the family otherwise */
+  hero?: (s: Record<string, Anim>, t: number, w: number, h: number) => ReactNode;
 }
 
 export const abs = (s: React.CSSProperties): React.CSSProperties => ({ display: "flex", position: "absolute", ...s });
@@ -288,7 +290,7 @@ function LegacyLead({ c, t }: { c: MotionContext; t: number }) {
           {c.headline!.map((h, i) => <div key={i} style={box({ fontSize: 62, fontWeight: 700, color: i === 0 ? WHITE : GOLD, lineHeight: 1.25 })}>{h}</div>)}
         </div>
       ) : null}
-      <div style={abs({ left: (W - 330) / 2, top: 280 + y, width: 330, height: 355 })}>{shieldFamily(s, t, 330, 355)}</div>
+      <div style={abs({ left: (W - 330) / 2, top: 280 + y, width: 330, height: 355 })}>{c.hero ? c.hero(s, t, 330, 355) : shieldFamily(s, t, 330, 355)}</div>
       <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 650 + y, justifyContent: "center", fontSize: 50, fontWeight: 600, color: WHITE, opacity: 0.9 }}>{f.planLine}</El>
       <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 760 + y, justifyContent: "center", fontSize: big.length > 16 ? 112 : 140, fontWeight: 700, color: GOLD, lineHeight: 1.1 }}>{big}</El>
       <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 945 + y, justifyContent: "center", fontSize: 46, color: WHITE }}>{f.lead.label}</El>
@@ -320,6 +322,7 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
         </div>
       ) : null}
       <div style={abs({ left: (W - 400) / 2, top: c.headline?.length ? 400 : 290, width: 400, height: c.headline?.length ? 340 : 430 })}>
+        {c.hero ? c.hero(s, t, 400, c.headline?.length ? 340 : 430) : <>
         <svg width={400} height={c.headline?.length ? 340 : 430} viewBox="0 0 120 130">
           {stroke({ d: "M60 8 L108 26 V62 C108 94 86 114 60 124 C34 114 12 94 12 62 V26 Z", len: 330, p: shield, color: GOLD, width: 5 })}
         </svg>
@@ -329,6 +332,7 @@ function Lead({ c, t }: { c: MotionContext; t: number }) {
             <path d="M30 96 C32 76 58 76 60 96 Z M60 96 C62 76 88 76 90 96 Z" fill={WHITE} />
           </svg>
         </El>
+        </>}
       </div>
       <El an={s.kicker} t={t} style={{ position: "absolute", left: 0, width: W, top: 760, justifyContent: "center", fontSize: 58, fontWeight: 600, color: WHITE }}>{f.lead.label}</El>
       <El an={s.big} t={t} style={{ position: "absolute", left: 0, width: W, top: 850, justifyContent: "center", fontSize: f.lead.amount.length > 9 ? 130 : 150, fontWeight: 700, color: GOLD }}>{n.toLocaleString("en-US")}</El>

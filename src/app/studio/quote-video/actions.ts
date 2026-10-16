@@ -37,6 +37,7 @@ import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } fr
 import { readVideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
 import { readLength } from "@/lib/quote-video/told";
+import { DEFAULT_THEME, readTheme, THEME_LABELS } from "@/lib/quote-video/theme-keys";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
@@ -140,6 +141,8 @@ function checked(v: VideoInput, mine?: ElevenChoice): VideoInput | string {
   const eleven = foreign ? undefined : elevenVoice(v.voice) ?? (mine && mine.id === v.voice ? mine : undefined);
   const narrator = eleven ? eleven.sex : v.narrator === "M" ? "M" : "F";
   const style = v.style === "motion" ? "motion" : "classic";
+  // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
+  const theme = style === "motion" ? readTheme(v.theme) : DEFAULT_THEME;
   const askedLength = readLength(v.length);
   const length = foreign && askedLength !== "short" ? "full" : askedLength;
   // every clip in every shape (owner, 2026-10-13)
@@ -155,7 +158,7 @@ function checked(v: VideoInput, mine?: ElevenChoice): VideoInput | string {
     if (first) return `${FIELD_WORD[first[0]] ?? "ประโยค"}: ${first[1]}`;
     lines = l;
   }
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style, length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style, ...(theme !== DEFAULT_THEME ? { theme } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
 }
 
 /** what each written field is called on the board, for a refusal */
@@ -558,7 +561,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         : input.product === "PLB"
         ? `${sumWords(input.sumAssured)} · ${input.variant.slice(3).replace(/^0/, "")} ปี`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? " (Motion)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${input.theme && input.theme !== DEFAULT_THEME ? ` · ${THEME_LABELS[readTheme(input.theme)].name}` : ""})` : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,

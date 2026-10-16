@@ -1,3 +1,4 @@
+import type { ThemeKey } from "./theme-keys";
 import type { PlanCardInput } from "@/lib/card-link";
 import { iHealthyCard } from "@/lib/ihealthy-card";
 import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
@@ -61,6 +62,8 @@ export type VideoInput = (
   voice?: string;
   /** แบบปกติ (photo, card, table) or Motion Graphic, the Premium one (owner, 2026-10-11) */
   style?: VideoStyle;
+  /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง */
+  theme?: ThemeKey;
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */
   length?: VideoLength;
   /** portrait unless a square or landscape Motion Graphic clip was asked for (owner, 2026-10-11; timeline.ts) */

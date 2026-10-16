@@ -196,5 +196,22 @@ export function mixNarration(lines: { pcm: Buffer; at: number }[], total: number
   return out;
 }
 
+/**
+ * Sounds laid over a mixed narration (mixNarration's WAV), added to what is already there and held
+ * inside 16 bits, so a pop under a word leaves the word as it was. คอลลาจกระดาษ's paper and pops.
+ */
+export function addSounds(wav: Buffer, cues: { pcm: Buffer; at: number; gain: number }[], rate = 24000): Buffer {
+  const out = Buffer.from(wav);
+  const end = out.length - 44;
+  for (const { pcm, at, gain } of cues) {
+    const start = Math.round(at * rate) * 2;
+    for (let i = 0; i + 1 < pcm.length && start + i + 1 < end; i += 2) {
+      const v = out.readInt16LE(44 + start + i) + Math.round(pcm.readInt16LE(i) * gain);
+      out.writeInt16LE(Math.max(-32768, Math.min(32767, v)), 44 + start + i);
+    }
+  }
+  return out;
+}
+
 /** how long 16-bit mono PCM at `rate` plays */
 export const pcmSeconds = (pcm: Buffer, rate = 24000) => pcm.length / 2 / rate;
