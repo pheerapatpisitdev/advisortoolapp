@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import { Card, Empty } from "../ui";
 import type { VideoSettings } from "@/lib/video/settings";
 import type { RenderProvider } from "@/lib/video/render-providers";
+import { MOTION_PROVIDERS, type MotionProvider } from "@/lib/video/motion-key";
 import {
   checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings, resetSpend,
   saveMotionKey, setMotionEnabled, testMotionKey,
@@ -70,8 +71,8 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
   keys: KeyRow[]; models: ModelRow[]; settings: Settings | null; providers: string[];
   spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
-  /** ภาพขยับ's fal.ai key (owner, 2026-10-16): its own card, since it has no chat model to test */
-  motion: KeyRow | null;
+  /** ภาพขยับ's keys, fal.ai and Runware (owner, 2026-10-16): their own card, since they have no chat model to test */
+  motion: KeyRow[];
   /** the premium tables in force (src/calc/plans/tables-meta.ts): their own card since 2026-10-15 */
   rates: { version: string; expiresOn: string; daysLeft: number; expired: boolean };
 }) {
@@ -124,9 +125,10 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
   const [engine, setEngine] = useState<VideoSettings>(video.settings);
   // Google Cloud Run: the service account file is pasted whole; region and job are typed beside it
   const [gcp, setGcp] = useState({ region: "asia-southeast1", job: "clip-ffmpeg" });
-  const motionOn = motion?.enabled ?? true;
-  const [motionCheck, setMotionCheck] = useState<ProviderCheck>();
-  const [motionTesting, setMotionTesting] = useState(false);
+  // ภาพขยับ: what each key's last test said, and which one is being tested
+  const [motionChecks, setMotionChecks] = useState<Partial<Record<MotionProvider, ProviderCheck>>>({});
+  const setMotionCheck = (p: MotionProvider, c: ProviderCheck | undefined) => setMotionChecks((m) => ({ ...m, [p]: c }));
+  const [motionTesting, setMotionTesting] = useState<MotionProvider>();
   const gcpHeld = video.keys.find((k) => k.provider === "gcp");
   const input = "rounded border border-[var(--bot-line-strong)] bg-[var(--bot-surface)] px-2 py-1";
 
@@ -307,61 +309,72 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
         </form>
       </Card>
 
-      <Card title="ภาพขยับ" hint="ทำรูปการ์ตูนในคลิปให้ขยับ ผ่าน fal.ai (Kling) เก็บกุญแจเข้ารหัสแบบเดียวกับค่าย AI แสดงเฉพาะ 4 ตัวท้าย">
-        <div className={`flex flex-wrap items-center gap-2 rounded-md border border-[var(--bot-line)] p-2 ${motionOn ? "" : "opacity-60"}`}>
-          <span className="w-44 text-sm">{PROVIDER_LABEL.fal}</span>
-          <span className="w-24 text-xs text-[var(--bot-ink-mute)]">{motion ? `••••${motion.tail}` : "ยังไม่ได้ตั้ง"}</span>
-          <label className={`flex w-20 items-center gap-1.5 text-xs ${motion ? "cursor-pointer" : "invisible"}`} title={motionOn ? "ปิดเพื่อหยุดเรียก fal โดยไม่ต้องลบกุญแจ" : "เปิดเพื่อให้ระบบเรียก fal ได้อีก"}>
-            <input
-              type="checkbox" role="switch" className="sr-only" checked={motionOn} disabled={pending || !motion}
-              onChange={(e) => run("motion", () => setMotionEnabled(e.target.checked), `${e.target.checked ? "เปิด" : "ปิด"} fal.ai แล้ว`)}
-            />
-            <span aria-hidden className={`relative inline-block h-4 w-7 rounded-full transition-colors ${motionOn ? "bg-[var(--bot-ok)]" : "bg-[var(--bot-line-strong)]"}`}>
-              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-[var(--bot-surface)] transition-all ${motionOn ? "left-3.5" : "left-0.5"}`} />
-            </span>
-            <span className={motionOn ? "text-[var(--bot-ok)]" : "text-[var(--bot-ink-mute)]"}>{motionOn ? "เปิด" : "ปิด"}</span>
-          </label>
-          <Status check={motionCheck} />
-          {motion && (
-            <button
-              type="button" disabled={motionTesting}
-              className="rounded border border-[var(--bot-line-strong)] px-3 py-1 text-xs font-medium text-[var(--bot-ink-foot)] hover:bg-[var(--bot-band)] disabled:opacity-40"
-              onClick={async () => {
-                setMotionTesting(true);
-                try {
-                  const r = await testMotionKey();
-                  // said in the AI keys' own words, so the chip reads the same as theirs
-                  setMotionCheck(r.state === "bad" ? { provider: "fal", state: "failed", ms: 0, error: r.error }
-                    : r.state === "ok" ? { provider: "fal", state: "ok", ms: r.ms } : { provider: "fal", state: "no-key", ms: 0 });
-                } catch {
-                  setMotionCheck({ provider: "fal", state: "failed", ms: 0, error: "ทดสอบไม่สำเร็จ ลองใหม่อีกครั้ง" });
-                } finally {
-                  setMotionTesting(false);
-                }
-              }}
-            >
-              {motionTesting ? "กำลังทดสอบ…" : "ทดสอบ"}
-            </button>
-          )}
-          <span className="flex min-w-64 flex-1 items-center gap-2">
-            <input
-              type="password" placeholder={motion ? "วางกุญแจใหม่" : "วางกุญแจ fal.ai"} autoComplete="off"
-              className={`min-w-0 flex-1 text-sm ${input}`}
-              value={draft.motion ?? ""} onChange={(e) => setDraft({ ...draft, motion: e.target.value })}
-            />
-            <button
-              type="button" disabled={pending || !(draft.motion ?? "").trim()}
-              className="shrink-0 rounded bg-[var(--bot-navy)] px-3 py-1 text-xs text-[var(--bot-surface)] disabled:opacity-40"
-              onClick={() => run("motion", () => saveMotionKey(draft.motion ?? ""), "บันทึกกุญแจ fal.ai แล้ว",
-                () => { setDraft((d) => ({ ...d, motion: "" })); setMotionCheck(undefined); })}
-            >
-              {busy === "motion" ? "กำลังบันทึก…" : "บันทึก"}
-            </button>
-          </span>
-          <Said note={note} where="motion" className="basis-full" />
+      <Card title="ภาพขยับ" hint="ทำรูปการ์ตูนในคลิปให้ขยับ ผ่าน fal.ai หรือ Runware เก็บกุญแจเข้ารหัสแบบเดียวกับค่าย AI แสดงเฉพาะ 4 ตัวท้าย">
+        <div className="space-y-2">
+          {MOTION_PROVIDERS.map((p) => {
+            const held = motion.find((k) => k.provider === p);
+            const on = held?.enabled ?? true;
+            const label = PROVIDER_LABEL[p] ?? p;
+            const where = `motion:${p}`;
+            return (
+              <div key={p} className={`flex flex-wrap items-center gap-2 rounded-md border border-[var(--bot-line)] p-2 ${on ? "" : "opacity-60"}`}>
+                <span className="w-44 text-sm">{label}</span>
+                <span className="w-24 text-xs text-[var(--bot-ink-mute)]">{held ? `••••${held.tail}` : "ยังไม่ได้ตั้ง"}</span>
+                <label className={`flex w-20 items-center gap-1.5 text-xs ${held ? "cursor-pointer" : "invisible"}`} title={on ? "ปิดเพื่อหยุดเรียกเจ้านี้ โดยไม่ต้องลบกุญแจ" : "เปิดเพื่อให้ระบบเรียกเจ้านี้ได้อีก"}>
+                  <input
+                    type="checkbox" role="switch" className="sr-only" checked={on} disabled={pending || !held}
+                    onChange={(e) => run(where, () => setMotionEnabled(p, e.target.checked), `${e.target.checked ? "เปิด" : "ปิด"} ${label} แล้ว`)}
+                  />
+                  <span aria-hidden className={`relative inline-block h-4 w-7 rounded-full transition-colors ${on ? "bg-[var(--bot-ok)]" : "bg-[var(--bot-line-strong)]"}`}>
+                    <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-[var(--bot-surface)] transition-all ${on ? "left-3.5" : "left-0.5"}`} />
+                  </span>
+                  <span className={on ? "text-[var(--bot-ok)]" : "text-[var(--bot-ink-mute)]"}>{on ? "เปิด" : "ปิด"}</span>
+                </label>
+                <Status check={motionChecks[p]} />
+                {held && (
+                  <button
+                    type="button" disabled={motionTesting === p}
+                    className="rounded border border-[var(--bot-line-strong)] px-3 py-1 text-xs font-medium text-[var(--bot-ink-foot)] hover:bg-[var(--bot-band)] disabled:opacity-40"
+                    onClick={async () => {
+                      setMotionTesting(p);
+                      try {
+                        const r = await testMotionKey(p);
+                        // said in the AI keys' own words, so the chip reads the same as theirs; Runware's credit goes under it
+                        setMotionCheck(p, r.state === "bad" ? { provider: p, state: "failed", ms: 0, error: r.error }
+                          : r.state === "ok" ? { provider: p, state: "ok", ms: r.ms, ...(r.credit ? { note: r.credit } : {}) }
+                          : { provider: p, state: "no-key", ms: 0 });
+                      } catch {
+                        setMotionCheck(p, { provider: p, state: "failed", ms: 0, error: "ทดสอบไม่สำเร็จ ลองใหม่อีกครั้ง" });
+                      } finally {
+                        setMotionTesting(undefined);
+                      }
+                    }}
+                  >
+                    {motionTesting === p ? "กำลังทดสอบ…" : "ทดสอบ"}
+                  </button>
+                )}
+                <span className="flex min-w-64 flex-1 items-center gap-2">
+                  <input
+                    type="password" placeholder={held ? "วางกุญแจใหม่" : `วางกุญแจ ${label.split(" (")[0]}`} autoComplete="off"
+                    className={`min-w-0 flex-1 text-sm ${input}`}
+                    value={draft[where] ?? ""} onChange={(e) => setDraft({ ...draft, [where]: e.target.value })}
+                  />
+                  <button
+                    type="button" disabled={pending || !(draft[where] ?? "").trim()}
+                    className="shrink-0 rounded bg-[var(--bot-navy)] px-3 py-1 text-xs text-[var(--bot-surface)] disabled:opacity-40"
+                    onClick={() => run(where, () => saveMotionKey(p, draft[where] ?? ""), `บันทึกกุญแจ ${label.split(" (")[0]} แล้ว`,
+                      () => { setDraft((d) => ({ ...d, [where]: "" })); setMotionCheck(p, undefined); })}
+                  >
+                    {busy === where ? "กำลังบันทึก…" : "บันทึก"}
+                  </button>
+                </span>
+                <Said note={note} where={where} className="basis-full" />
+              </div>
+            );
+          })}
         </div>
         <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">
-          ปุ่มทดสอบแค่ถาม fal ว่ากุญแจถูกไหม ไม่ได้สั่งทำวิดีโอ จึงไม่เสียเงิน ถ้าปิดสวิตช์ กุญแจยังเก็บไว้ แต่ระบบจะไม่เรียก fal
+          ปุ่มทดสอบแค่ถามว่ากุญแจถูกไหม ไม่ได้สั่งทำวิดีโอ จึงไม่เสียเงิน Runware บอกเครดิตที่เหลือมาด้วย ส่วน fal ไม่บอก ถ้าปิดสวิตช์ กุญแจยังเก็บไว้ แต่ระบบจะไม่เรียกเจ้านั้น
         </p>
       </Card>
 
