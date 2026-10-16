@@ -35,7 +35,7 @@ export function VoicesAdmin({ slots, queue, active }: {
             <div className="h-2.5 overflow-hidden rounded-full bg-[var(--bot-line)]"><div className="h-full bg-[var(--bot-navy)]" style={{ width: `${pct}%` }} /></div>
             <p className="text-sm tabular-nums">ใช้ไป {slots.used} จาก {slots.limit || "ไม่ทราบ"} ช่อง · เสียงตัวแทนที่ใช้งานอยู่ {active.length}</p>
           </div>
-        ) : <Empty>อ่านช่องเสียงไม่ได้ ตรวจคีย์ ElevenLabs ในหน้าตั้งค่า AI และระบบ</Empty>}
+        ) : <Empty>อ่านช่องเสียงไม่ได้ ตรวจคีย์ ElevenLabs ในหน้าคีย์และโมเดล</Empty>}
       </Card>
 
       <Card title={`ยังไม่ได้ฟัง (${queue.length})`} hint="ตัวแทนใช้เสียงเหล่านี้ทำคลิปได้แล้ว ฟังเสียงโคลน และท่อนที่อ่านประโยคยินยอม ชื่อต้องตรงกับบัญชี รหัสต้องตรง · ปิดเสียง: ระบบลบเสียงและคืนเงินเอง">

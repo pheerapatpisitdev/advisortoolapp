@@ -180,15 +180,15 @@ describe("what the menu shows to somebody who has not signed in", () => {
   it("groups the back office's fifteen pages by the job, each with a mark of its own (owner chose ข, 2026-10-15)", () => {
     const superAdmin = { name: "x", room: "Super Admin", publish: true, connect: true, admin: true, owner: true, super: true };
     const groups = menuGroups(true, superAdmin);
-    expect(groups.map((g) => g.title ?? null)).toEqual([null, "ลูกค้าและบอท", "การตลาด", "ผู้ใช้", "เงิน", "รายงาน", "ตั้งค่าระบบ"]);
+    expect(groups.map((g) => g.title ?? null)).toEqual([null, "1 API ราคา โมเดล", "2 AI Bot", "3 LINE OA", "4 เชื่อมต่อเพจ", "5 ประวัติผู้ใช้", "งานอื่น"]);
     expect(groups.map((g) => g.links.map((l) => l.label))).toEqual([
       ["ภาพรวม"],
-      ["ลูกค้าจากแชท", "เพจและช่องทาง", "LINE OA", "สอนบอท"],
-      ["โฆษณา"],
-      ["ทีมงาน", "สมาชิกทั่วไป", "ประวัติผู้ใช้", "เสียงของตัวแทน"],
-      ["กระเป๋าเงิน", "ราคาและโปรโมชัน"],
-      ["การใช้งานและค่า AI", "กำไรค่า AI"],
-      ["ตั้งค่า AI และระบบ"],
+      ["คีย์และโมเดล", "ราคาและโปรโมชัน", "กระเป๋าเงิน", "กำไรค่า AI"],
+      ["สอนบอท", "ลูกค้าจากแชท"],
+      ["LINE OA"],
+      ["เพจและช่องทาง", "ทีมงานและสิทธิ์"],
+      ["ประวัติผู้ใช้", "การใช้งานและค่า AI"],
+      ["โฆษณา", "สมาชิกทั่วไป", "เสียงของตัวแทน"],
     ]);
     const links = groups.flatMap((g) => g.links);
     expect(links).toHaveLength(15);
