@@ -9,6 +9,7 @@ import { createPromptStory, produce, redrawPicture } from "@/lib/quote-video/mak
 import { cleanCustomerName } from "@/lib/quote-video/script";
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { ADMIN_VOICE, voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
+import { mayPromptStory, PROMPT_STORY_CLOSED } from "@/lib/prompt-story/access";
 import { BRIEF_MAX, checkedPromptStory, HOURLY_LIMIT } from "@/lib/prompt-story/checked";
 import { draftsLastHour, saveDraft } from "@/lib/prompt-story/drafts";
 import { writeStory } from "@/lib/prompt-story/writer";
@@ -27,6 +28,8 @@ export type WrittenPromptStory =
 
 export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; figure?: unknown }): Promise<WrittenPromptStory> {
   const viewer = await requireMember();
+  // the owner's alone since 2026-10-17 (prompt-story/access.ts)
+  if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
   // an outside member writes scripts while their pass is live, as they make clips (make.ts createVideo)
   if (!can(viewer, "owner")) {
     const access = await memberAccess(viewer).catch((e) => {
@@ -67,6 +70,7 @@ export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; fi
  */
 export async function makePromptStory(v: Record<string, unknown>, customer: string): Promise<Made> {
   const viewer = await requireMember();
+  if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
   const eleven = await voiceAsked(viewer.agentId, v?.voice);
   if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
   const input = checkedPromptStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
@@ -92,6 +96,7 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
 /** วาดภาพฉากนี้ใหม่: `scene` from 0; the drawing and the cut run after the answer */
 export async function redrawPromptPicture(id: string, scene: number): Promise<{ ok: true } | { ok: false; error: string }> {
   const viewer = await requireMember();
+  if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id) || typeof scene !== "number") return { ok: false, error: "ไม่พบวิดีโอนี้" };
   try {
     return await redrawPicture(viewer, id, scene, (work) => after(() => asWho(viewer.agentId, work)));

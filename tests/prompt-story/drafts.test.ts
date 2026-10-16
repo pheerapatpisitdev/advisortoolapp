@@ -5,6 +5,8 @@ let hourCount = 0;
 const saved: unknown[][] = [];
 const written = vi.fn();
 vi.mock("@/lib/auth/viewer", () => ({ requireMember: async () => ({ agentId: "agent-1" }) }));
+// the owner's alone since 2026-10-17 (actions-make.test.ts checks the refusal); the limits below stay for when it reopens
+vi.mock("@/lib/prompt-story/access", () => ({ mayPromptStory: () => true, PROMPT_STORY_CLOSED: "ปิด" }));
 vi.mock("@/lib/prompt-story/drafts", () => ({
   draftsLastHour: async () => hourCount,
   saveDraft: async (...a: unknown[]) => { saved.push(a); return "draft-1"; },

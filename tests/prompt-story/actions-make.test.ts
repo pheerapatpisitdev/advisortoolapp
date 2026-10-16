@@ -37,7 +37,10 @@ describe("checkedPromptStory", () => {
 
 const made = vi.hoisted(() => ({ create: vi.fn(), produce: vi.fn(), redraw: vi.fn(), after: vi.fn(), contact: { phone: "0812345678" } }));
 vi.mock("next/server", () => ({ after: (f: () => unknown) => made.after(f) }));
-vi.mock("@/lib/auth/viewer", () => ({ requireMember: async () => ({ kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: null }) }));
+// the owner makes these clips (alone since 2026-10-17); `viewer.as` turns the caller into someone else
+const OWNER = { owner: true, publish: true, connect: true, admin: true };
+const viewer = vi.hoisted(() => ({ as: null as Record<string, unknown> | null }));
+vi.mock("@/lib/auth/viewer", () => ({ requireMember: async () => viewer.as ?? { kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: OWNER } }));
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => made.contact }));
 vi.mock("@/lib/quote-video/voice-check", () => ({ voiceAsked: async () => undefined, voiceRefusal: async () => null, ADMIN_VOICE: "x" }));
 vi.mock("@/lib/quote-video/make", () => ({
@@ -48,9 +51,10 @@ vi.mock("@/lib/quote-video/make", () => ({
 vi.mock("@/lib/prompt-story/drafts", () => ({ draftsLastHour: async () => 0, saveDraft: async () => "d" }));
 vi.mock("@/lib/prompt-story/writer", () => ({ writeStory: vi.fn(), SCREEN_MAX: 40, TITLE_MAX: 28 }));
 
-const { makePromptStory, redrawPromptPicture } = await import("@/app/studio/prompt-story/actions");
+const { makePromptStory, redrawPromptPicture, writePromptStory } = await import("@/app/studio/prompt-story/actions");
 
 beforeEach(() => {
+  viewer.as = null;
   for (const f of [made.create, made.produce, made.redraw, made.after]) f.mockReset();
   made.contact = { phone: "0812345678" };
   made.create.mockResolvedValue({ id: "v1" });
@@ -89,5 +93,24 @@ describe("redrawPromptPicture", () => {
     expect((await redrawPromptPicture("x", 1)).ok).toBe(false);
     expect((await redrawPromptPicture(DRAFT, "1" as unknown as number)).ok).toBe(false);
     expect(made.redraw).not.toHaveBeenCalled();
+  });
+});
+
+describe("anyone but the owner (owner chose ก, 2026-10-17)", () => {
+  const others = [
+    { kind: "unitos", agentId: "a2", name: "ตัวแทน", staff: null },
+    { kind: "unitos", agentId: "s1", name: "ผู้ช่วย", staff: { owner: false, publish: true, connect: true, admin: true } },
+    { kind: "member", agentId: "m1", name: "สมาชิก", staff: null },
+  ];
+  it("is told the tool is closed at every step, and nothing is written, held or drawn", async () => {
+    for (const v of others) {
+      viewer.as = v;
+      expect(await writePromptStory({ brief: "ทุน 1 ล้าน", scenes: 3 })).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
+      expect(await makePromptStory(form(), "")).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
+      expect(await redrawPromptPicture(DRAFT, 1)).toEqual({ ok: false, error: "ฟังก์ชันนี้ปิดใช้งานอยู่" });
+    }
+    expect(made.create).not.toHaveBeenCalled();
+    expect(made.redraw).not.toHaveBeenCalled();
+    expect(made.after).not.toHaveBeenCalled();
   });
 });
