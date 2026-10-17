@@ -112,6 +112,9 @@ const route = async (_url: unknown, init?: { body?: string }) => {
 };
 
 const agent = { kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: null } as unknown as Viewer;
+// the free clips' machinery, as a member has it while the pass is switched off: a UnitClub agent
+// has no free clips since the ฿15 starter credit took their place (owner, 2026-10-18)
+const taster = { kind: "member", agentId: "a1", name: "ตัวแทน", staff: null } as unknown as Viewer;
 const owner = { ...agent, staff: { owner: true, publish: true, connect: true, admin: true } } as unknown as Viewer;
 
 const input = (over: Partial<PromptStoryInput> = {}): PromptStoryInput => ({
@@ -185,8 +188,13 @@ describe("createPromptStory", () => {
     expect(row.held_satang).toBe(promptStoryPrice(input(), DEFAULT_PRICES));
   });
 
-  it("a free clip still pays its pictures from the wallet", async () => {
+  it("an agent's clip is paid from the wallet whole, the starter credit first (owner, 2026-10-18)", async () => {
     const made = await createPromptStory(agent, input(), "");
+    expect(rowOf((made as { id: string }).id).paid_by).toBe("wallet");
+  });
+
+  it("a free clip still pays its pictures from the wallet", async () => {
+    const made = await createPromptStory(taster, input(), "");
     const row = rowOf((made as { id: string }).id);
     const pictures = 3 * pictureSatang(DEFAULT_PRICES, "standard")!;
     expect(row.paid_by).toBe("free");
@@ -314,7 +322,7 @@ describe("produce, คลิปตามโจทย์", () => {
 
   it("a free clip whose every picture failed gives its whole hold back at the end", async () => {
     ai.draw.mockRejectedValue(new Error("painter down"));
-    const made = await createPromptStory(agent, input(), "");
+    const made = await createPromptStory(taster, input(), "");
     const id = (made as { id: string }).id;
     const hold = rowOf(id).hold_id;
     await produce(id, "ตัวแทน");

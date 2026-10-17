@@ -134,9 +134,9 @@ describe("creditLots (owner, 2026-10-17)", () => {
     const rows = [row(1, "trial", 3, "2026-10-17"), row(2, "paid", 30, "2026-10-18")];
     expect(creditLots(rows, on, at("2026-10-18"))).toEqual({
       lots: [
-        { passId: 1, satang: 1500, startsAt: at("2026-10-17"), expiresAt: at("2026-10-20") },
+        { passId: 1, kind: "trial", satang: 1500, startsAt: at("2026-10-17"), expiresAt: at("2026-10-20") },
         // paid during the trial: usable at once, its 30 days stacked after the trial
-        { passId: 2, satang: 5000, startsAt: at("2026-10-18"), expiresAt: at("2026-11-19") },
+        { passId: 2, kind: "paid", satang: 5000, startsAt: at("2026-10-18"), expiresAt: at("2026-11-19") },
       ],
       voids: [],
     });

@@ -3,8 +3,8 @@ import { revalidatePath } from "next/cache";
 import { audit, requireStaff } from "@/lib/auth/viewer";
 import { savePassSettings } from "@/lib/members/pass-store";
 import { saveReferralSettings } from "@/lib/referrals/store";
-import { readAdjust, readMultiplier, readPassSettings, readPrices, readReferralSettings, readUnfreeze } from "@/lib/wallet/admin-input";
-import { adjustWallet, saveWalletPrices, saveWalletSettings, unfreezeWallet } from "@/lib/wallet/store";
+import { readAdjust, readMultiplier, readPassSettings, readPrices, readReferralSettings, readStarterCredit, readUnfreeze } from "@/lib/wallet/admin-input";
+import { adjustWallet, saveAgentStarterCredit, saveWalletPrices, saveWalletSettings, unfreezeWallet } from "@/lib/wallet/store";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
 export type Result = { ok: true } | { ok: false; error: string };
@@ -43,6 +43,25 @@ export async function savePrices(raw: Record<string, string>): Promise<Result> {
   await audit("wallet-prices", null, p.prices);
   revalidatePath("/admin/prices");
   revalidatePath("/studio", "layout");
+  return { ok: true };
+}
+
+/**
+ * A UnitClub agent's one starter credit in Studio (owner, 2026-10-18), in place of the ten free
+ * rounds and two free clips. A change reaches only agents not given theirs yet. The owner's alone.
+ */
+export async function saveAgentCredit(baht: string): Promise<Result> {
+  await requireStaff("backoffice");
+  const r = readStarterCredit(baht);
+  if (!r.ok) return r;
+  try {
+    await saveAgentStarterCredit(r.satang);
+  } catch (e) {
+    console.error("agent starter credit not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261121_agent_starter_credit ถูก apply แล้ว" };
+  }
+  await audit("agent-starter-credit", null, { satang: r.satang });
+  revalidatePath("/admin/prices");
   return { ok: true };
 }
 

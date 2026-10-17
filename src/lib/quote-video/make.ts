@@ -163,6 +163,8 @@ export interface FreeClips {
  * everyone else the two, once. Throws when the pass cannot be read.
  */
 export async function freeClips(viewer: Viewer, access?: MemberAccess): Promise<FreeClips> {
+  // a UnitClub agent's two free clips gave way to the ฿15 starter credit (owner, 2026-10-18)
+  if (viewer.kind === "unitos") return { limit: 0, from: null };
   const a = access ?? await memberAccess(viewer);
   return (a.gated && videosFrom(a.state, a.settings)) || { limit: FREE_VIDEOS, from: null };
 }

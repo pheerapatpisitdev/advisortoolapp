@@ -20,7 +20,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 // an outside member's pass credit (owner, 2026-10-17): its own reads, tested in tests/members/credit.test.ts
-const credit = vi.hoisted(() => ({ creditLeft: vi.fn() }));
+const credit = vi.hoisted(() => ({ creditLeft: vi.fn(), ensureStarterCredit: vi.fn() }));
 vi.mock("@/lib/members/credit", () => credit);
 
 const store = await import("@/lib/wallet/store");
@@ -31,6 +31,7 @@ beforeEach(() => {
   db.settings = { data: null, error: null };
   db.wallet = { data: null, error: null };
   credit.creditLeft.mockResolvedValue({ satang: 0, of: 0, expiresAt: null });
+  credit.ensureStarterCredit.mockResolvedValue(undefined);
 });
 
 describe("walletSettings", () => {
@@ -148,6 +149,15 @@ describe("walletStatus and walletFrozen", () => {
     credit.creditLeft.mockResolvedValueOnce({ satang: 3800, of: 5000, expiresAt: "2026-11-19T00:00:00Z" });
     expect(await store.walletStatus("m1")).toEqual({ satang: 5800, own: 2000, credit: 3800, frozen: false });
     expect(credit.creditLeft).toHaveBeenCalledWith("m1");
+  });
+
+  it("asks for a UnitClub agent's starter credit before reading, and reads on when that fails (owner, 2026-10-18)", async () => {
+    credit.ensureStarterCredit.mockRejectedValueOnce(new Error("down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await store.walletStatus("a1")).toMatchObject({ satang: 0 });
+    expect(credit.ensureStarterCredit).toHaveBeenCalledWith("a1");
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 
   it("say whether a refund or a dispute froze the wallet", async () => {

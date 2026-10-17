@@ -38,6 +38,12 @@ const agent: Viewer = {
   trial: false, staff: null,
 };
 
+/**
+ * the free rounds' machinery, as a member has it while the owner has the pass switched off: a
+ * UnitClub agent has none since the ฿15 starter credit took their place (owner, 2026-10-18)
+ */
+const taster: Viewer = { ...agent, kind: "member", agentId: "00000000-0000-4000-8000-000000000007", tenantId: null };
+
 /** what the free-round function answers: the round's line, or null once ten are used */
 const freeUsed = () => { db.free = null; };
 
@@ -45,7 +51,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.free = 41;
   db.freeError = null;
-  db.rpc.mockImplementation(async () => ({ data: db.free, error: db.freeError }));
+  // as the database does: a limit of 0 lets no round in free
+  db.rpc.mockImplementation(async (_fn: string, args?: { p_limit?: number }) =>
+    ({ data: args?.p_limit === 0 ? null : db.free, error: db.freeError }));
   wallet.walletSettings.mockResolvedValue({ enabled: true, multiplier: 2, agentId: agent.agentId });
   wallet.holdWallet.mockResolvedValue("h1");
   wallet.walletFrozen.mockResolvedValue(false);
@@ -60,18 +68,28 @@ describe("takeRound", () => {
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
-  it("gives an assistant the free rounds, then their own wallet, like any agent (owner, 2026-10-02)", async () => {
+  it("gives a UnitClub agent no free round: the round is held, and ins_wallet_hold spends the starter credit first (owner, 2026-10-18)", async () => {
+    expect(await takeRound(agent, "ai-write")).toMatchObject({ ok: true, paidBy: "wallet", holdId: "h1" });
+    expect(db.rpc).toHaveBeenCalledWith("ins_take_free_round", expect.objectContaining({ p_agent: agent.agentId, p_limit: 0 }));
+    expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, holdSatang("ai-write", 2), "ai-write");
+  });
+
+  it("pays an assistant's round the same way as any agent's (owner, 2026-10-02)", async () => {
     const assistant: Viewer = { ...agent, staff: { owner: false, publish: true, connect: true, admin: true } };
-    expect(await takeRound(assistant, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41, agentId: agent.agentId });
-    freeUsed();
     expect(await takeRound(assistant, "ai-write")).toMatchObject({ ok: true, paidBy: "wallet", holdId: "h1" });
     expect(wallet.holdWallet).toHaveBeenCalledWith(agent.agentId, holdSatang("ai-write", 2), "ai-write");
   });
 
+  it("tells an agent the credit and the wallet together fell short", async () => {
+    wallet.holdWallet.mockResolvedValueOnce(null);
+    const r = await takeRound(agent, "ai-write");
+    expect(r.ok === false && r.refusal).toMatch(/^เครดิตและเงินในกระเป๋าไม่พอ/);
+  });
+
   it("uses the free rounds first, counted and written down in one locked call, and carries the line's id", async () => {
-    expect(await takeRound(agent, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41, agentId: agent.agentId });
+    expect(await takeRound(taster, "ai-write")).toEqual({ ok: true, paidBy: "free", auditId: 41, agentId: taster.agentId });
     expect(db.rpc).toHaveBeenCalledWith("ins_take_free_round", {
-      p_agent: agent.agentId, p_action: "ai-write", p_target: null,
+      p_agent: taster.agentId, p_action: "ai-write", p_target: null,
       p_limit: 10, p_from: "2026-10-10T04:10:00.000Z", p_rounds: ["ai-write", "ai-recruit", "ai-claim", "ai-draw", "ai-knowledge", "ai-draft", "ai-thanks", "ai-showcase", "ai-saying", "ai-clip", "ai-edit", "ai-describe"],
     });
     // the database wrote the line; nothing is written beside it, and no wallet is touched
@@ -82,7 +100,7 @@ describe("takeRound", () => {
   it("refuses the round when the free rounds cannot be counted, rather than run it free and uncounted", async () => {
     db.freeError = { message: "connection reset" };
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    const r = await takeRound(agent, "ai-write");
+    const r = await takeRound(taster, "ai-write");
     err.mockRestore();
     expect(r).toMatchObject({ ok: false });
     expect(r.ok === false && r.refusal).toMatch(/นับรอบฟรีไม่ได้/);
@@ -101,7 +119,7 @@ describe("takeRound", () => {
     let left = 1;
     db.rpc.mockImplementation(async () => ({ data: left-- > 0 ? 7 : null, error: null }));
     wallet.holdWallet.mockResolvedValue(null);
-    const passes = await Promise.all(Array.from({ length: 10 }, () => takeRound(agent, "ai-write")));
+    const passes = await Promise.all(Array.from({ length: 10 }, () => takeRound(taster, "ai-write")));
     expect(passes.filter((p) => p.ok && p.paidBy === "free")).toHaveLength(1);
     expect(passes.filter((p) => !p.ok)).toHaveLength(9);
   });
@@ -177,7 +195,7 @@ describe("takeRound", () => {
   it("says the old words while the owner has the wallet off", async () => {
     freeUsed();
     wallet.walletSettings.mockResolvedValueOnce({ enabled: false, multiplier: 2, agentId: agent.agentId });
-    const r = await takeRound(agent, "ai-write");
+    const r = await takeRound(taster, "ai-write");
     expect(r.ok === false && r.refusal).toMatch(/รอบฟรีครบ 10 ครั้ง/);
     expect(wallet.holdWallet).not.toHaveBeenCalled();
   });

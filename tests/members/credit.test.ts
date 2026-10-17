@@ -28,8 +28,8 @@ describe("syncCredits", () => {
     await syncCredits("m1", [row(1, "trial", 3, "2026-10-17"), row(2, "paid", 30, "2026-10-18")], on, at("2026-10-18"));
     const [steps] = db.writes("ins_member_credits", "upsert");
     expect(steps[0].args[0]).toEqual([
-      { member_id: "m1", pass_id: 1, amount_satang: 1500, left_satang: 1500, starts_at: at("2026-10-17").toISOString(), expires_at: at("2026-10-20").toISOString() },
-      { member_id: "m1", pass_id: 2, amount_satang: 5000, left_satang: 5000, starts_at: at("2026-10-18").toISOString(), expires_at: at("2026-11-19").toISOString() },
+      { member_id: "m1", pass_id: 1, kind: "trial", amount_satang: 1500, left_satang: 1500, starts_at: at("2026-10-17").toISOString(), expires_at: at("2026-10-20").toISOString() },
+      { member_id: "m1", pass_id: 2, kind: "paid", amount_satang: 5000, left_satang: 5000, starts_at: at("2026-10-18").toISOString(), expires_at: at("2026-11-19").toISOString() },
     ]);
     expect(steps[0].args[1]).toEqual({ onConflict: "pass_id", ignoreDuplicates: true });
     expect(db.writes("ins_member_credits", "update")).toHaveLength(0);
