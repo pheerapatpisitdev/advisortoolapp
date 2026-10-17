@@ -147,19 +147,21 @@ export function themed(frame: ReactNode, t: ThemeKey | undefined, at = 0): React
   return p ? repaint(frame, p, "ground", p.collage ? { n: 0, step: Math.floor(at * 6) } : undefined) : frame;
 }
 
-/** คอลลาจกระดาษ's pictures, read once a process: the crumpled paper and the family cut out in dots */
-let collageFiles: Promise<{ paper: string; family: string }> | undefined;
-const collagePictures = () => (collageFiles ??= Promise.all([
-  readFile(join(process.cwd(), "public/collage/paper.jpg")),
-  readFile(join(process.cwd(), "public/collage/family.png")),
-]).then(([paper, family]) => ({ paper: `data:image/jpeg;base64,${paper.toString("base64")}`, family: `data:image/png;base64,${family.toString("base64")}` })));
+/** คอลลาจกระดาษ's family cut out in dots, read once a process */
+let familyFile: Promise<string> | undefined;
+const collageFamily = () => (familyFile ??= readFile(join(process.cwd(), "public/collage/family.png")).then((b) => `data:image/png;base64,${b.toString("base64")}`));
 
-/** the drifting ground of a themed clip: motion.tsx's shapes, in the theme's colours */
+/** the crumpled paper grounds, each read once a process (each named in full for the deploy's file tracing) */
+const textureFiles: Partial<Record<"paper" | "paper-light", Promise<string>>> = {};
+const texture = (k: "paper" | "paper-light") => (textureFiles[k] ??= readFile(join(process.cwd(), k === "paper" ? "public/collage/paper.jpg" : "public/collage/paper-light.jpg"))
+  .then((b) => `data:image/jpeg;base64,${b.toString("base64")}`));
+
+/** the drifting ground of a themed clip: its paper, or motion.tsx's shapes in the theme's colours */
 export async function themeBackground(t: ThemeKey, size: { w: number; h: number }, bgH: number): Promise<ReactNode | null> {
   const p = PALETTES[t];
   if (!p) return null;
-  if (p.collage) {
-    const { paper } = await collagePictures();
+  if (p.texture) {
+    const paper = await texture(p.texture);
     return (
       <div style={{ display: "flex", position: "relative", width: size.w, height: bgH, background: p.ground, overflow: "hidden" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -207,7 +209,7 @@ export async function themeHero(theme: ThemeKey | undefined, sex: "M" | "F"): Pr
     };
   }
   if (theme === "collage") {
-    const { family } = await collagePictures();
+    const family = await collageFamily();
     // the family cut out in dots, on a yellow circle of paper, as in the owner's Pinterest pictures
     return function collageHero(s, t, w, h) {
       const d = Math.round(Math.min(w, h) * 0.92);
