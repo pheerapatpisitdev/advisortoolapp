@@ -7,12 +7,12 @@ vi.mock("@/lib/auth/viewer", async () => {
   return { ...asOwner, requireStaff: staff.requireStaff };
 });
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-const wallet = vi.hoisted(() => ({ saveWalletSettings: vi.fn(async () => {}), saveWalletPrices: vi.fn(async () => {}), adjustWallet: vi.fn(), unfreezeWallet: vi.fn() }));
+const wallet = vi.hoisted(() => ({ saveWalletSettings: vi.fn(async () => {}), saveWalletPrices: vi.fn(async () => {}), saveAgentStarterCredit: vi.fn(async () => {}), adjustWallet: vi.fn(), unfreezeWallet: vi.fn() }));
 vi.mock("@/lib/wallet/store", () => wallet);
 const pass = vi.hoisted(() => ({ savePassSettings: vi.fn(async () => {}) }));
 vi.mock("@/lib/members/pass-store", () => pass);
 
-const { adjustAgentWallet, saveMemberPass, savePrices, saveWallet, unfreezeAgentWallet } = await import("@/app/admin/wallet/actions");
+const { adjustAgentWallet, saveAgentCredit, saveMemberPass, savePrices, saveWallet, unfreezeAgentWallet } = await import("@/app/admin/wallet/actions");
 const { OWNER } = await import("../helpers/signed-in");
 const AGENT = "00000000-0000-4000-8000-000000000002";
 
@@ -116,6 +116,22 @@ describe("unfreezeAgentWallet (owner, 2026-10-01)", () => {
   it("says so when the wallet was not frozen", async () => {
     wallet.unfreezeWallet.mockResolvedValueOnce(null);
     expect(await unfreezeAgentWallet(AGENT, "เหตุผล")).toEqual({ ok: false, error: "กระเป๋านี้ไม่ได้ถูกพักอยู่" });
+  });
+});
+
+describe("saveAgentCredit (owner, 2026-10-18)", () => {
+  it("saves a UnitClub agent's starter credit in satang, the owner's alone", async () => {
+    expect(await saveAgentCredit("15")).toEqual({ ok: true });
+    expect(wallet.saveAgentStarterCredit).toHaveBeenCalledWith(1500);
+    expect(staff.requireStaff).toHaveBeenCalledWith("backoffice");
+  });
+  it("saves nothing when the amount is out of range, and says so when the save fails", async () => {
+    expect(await saveAgentCredit("2.5")).toMatchObject({ ok: false });
+    expect(wallet.saveAgentStarterCredit).not.toHaveBeenCalled();
+    wallet.saveAgentStarterCredit.mockRejectedValueOnce(new Error("boom"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await saveAgentCredit("15")).toMatchObject({ ok: false });
+    err.mockRestore();
   });
 });
 

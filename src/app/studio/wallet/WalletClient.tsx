@@ -4,7 +4,7 @@ import { cardAllowed, formatBaht, perPostUnder, postsFor, TOPUP_THB, type TopUpT
 import type { Prices } from "@/lib/wallet/prices";
 import { entryLabel } from "@/lib/wallet/labels";
 import type { WalletEntry } from "@/lib/wallet/store";
-import type { CreditLotView } from "@/lib/members/credit";
+import { neverEnds, type CreditLotView } from "@/lib/members/credit";
 import { PriceList } from "./PriceList";
 import { startTopUp, topUpStatus } from "./actions";
 
@@ -32,11 +32,11 @@ export function historyLines(entries: WalletEntry[], lots: CreditLotView[], now:
     return { id: e.id, label: `${entryLabel(e)}${by}`, satang: e.kind === "charge" ? paid : e.amountSatang, at: e.createdAt, strong: e.amountSatang >= 0 && e.kind !== "charge" };
   });
   for (const l of lots) {
-    const name = l.kind === "trial" ? "เครดิตทดลอง" : "เครดิตสมาชิก 30 วัน";
-    lines.push({ id: `lot-${l.passId}`, label: name, satang: l.amountSatang, at: l.startsAt, strong: true });
+    const name = l.kind === "starter" ? "เครดิตเริ่มต้น UnitClub" : l.kind === "trial" ? "เครดิตทดลอง" : "เครดิตสมาชิก 30 วัน";
+    lines.push({ id: `lot-${l.id}`, label: name, satang: l.amountSatang, at: l.startsAt, strong: true });
     const ended = l.voidedAt ?? (new Date(l.expiresAt).getTime() <= now.getTime() ? l.expiresAt : null);
     if (ended && l.leftSatang > 0) {
-      lines.push({ id: `lot-${l.passId}-end`, label: l.voidedAt ? `${name} ถูกยกเลิก (คืนเงินค่าสมาชิก)` : `${name} หมดอายุ`, satang: -l.leftSatang, at: ended, strong: false });
+      lines.push({ id: `lot-${l.id}-end`, label: l.voidedAt ? `${name} ถูกยกเลิก (คืนเงินค่าสมาชิก)` : `${name} หมดอายุ`, satang: -l.leftSatang, at: ended, strong: false });
     }
   }
   return lines.sort((a, b) => b.at.localeCompare(a.at));
@@ -44,7 +44,10 @@ export function historyLines(entries: WalletEntry[], lots: CreditLotView[], now:
 
 export function WalletClient({ enabled, multiplier, balanceSatang, frozen = false, entries, rounds, videos, prices, paid, credit = null }: {
   enabled: boolean;
-  /** an outside member's pass credit (owner, 2026-10-17): the balance split, and the lots for the history; null for an agent */
+  /**
+   * a member's pass credit (owner, 2026-10-17) or a UnitClub agent's starter credit (2026-10-18):
+   * the balance split, and the lots for the history; null while there are still free rounds
+   */
   credit?: { own: number; satang: number; expiresAt: string | null; lots: CreditLotView[] } | null;
   /** the owner's price list, shown under the top-ups (owner, 2026-10-12) */
   prices: Prices;
@@ -105,7 +108,10 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
         {credit ? (
           <div className="mt-2 space-y-1 text-sm tabular-nums">
             <p className="flex justify-between gap-3">
-              <span>เครดิตสมาชิก (ใช้ก่อน{credit.expiresAt ? ` · หมดอายุ ${shortDate(credit.expiresAt)}` : ""})</span>
+              <span>
+                {credit.lots.some((l) => l.kind === "starter") ? "เครดิตเริ่มต้น UnitClub" : "เครดิตสมาชิก"} (ใช้ก่อน
+                {credit.expiresAt && !neverEnds(credit.expiresAt) ? ` · หมดอายุ ${shortDate(credit.expiresAt)}` : " · ไม่มีวันหมดอายุ"})
+              </span>
               <b>{formatBaht(credit.satang)}</b>
             </p>
             <p className="flex justify-between gap-3"><span>เงินที่เติมเอง (ไม่มีวันหมดอายุ)</span><b>{formatBaht(credit.own)}</b></p>

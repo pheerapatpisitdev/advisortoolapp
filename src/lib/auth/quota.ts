@@ -44,18 +44,27 @@ export interface FreeWindow {
 
 const ONE_TIME: FreeWindow = { limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM };
 
-/** the free rounds a gated member's live pass carries, else the one-time ten */
-function windowOf(access: Awaited<ReturnType<typeof memberAccess>>): FreeWindow {
+/** a UnitClub agent's free rounds: none since the starter credit took their place (owner, 2026-10-18) */
+const AGENT: FreeWindow = { limit: 0, from: FREE_ROUNDS_FROM };
+
+/**
+ * The free rounds a viewer has: none for a UnitClub agent (their ฿15 starter credit pays, owner
+ * 2026-10-18) or for a gated member's live pass (its credit pays, 2026-10-17); the one-time ten
+ * only for a member while the owner has the pass switched off.
+ */
+function windowOf(viewer: Viewer, access: Awaited<ReturnType<typeof memberAccess>>): FreeWindow {
+  if (viewer.kind === "unitos") return AGENT;
   return (access.gated && roundsFrom(access.state, access.settings)) || ONE_TIME;
 }
 
 /**
- * Which free rounds count: a member with a live pass has none — the pass carries credit instead,
- * which the wallet's hold spends first (owner, 2026-10-17); everyone else the one-time ten. memberAccess reads
- * nothing for a UnitOS agent or while the switch is off. Throws when the pass cannot be read.
+ * Which free rounds count (windowOf): none for a UnitClub agent or a member's live pass — their
+ * credit, which the wallet's hold spends first, took their place — and the one-time ten for a
+ * member while the switch is off. memberAccess reads nothing for a UnitOS agent or while the
+ * switch is off. Throws when the pass cannot be read.
  */
 export async function freeWindow(viewer: Viewer): Promise<FreeWindow> {
-  return windowOf(await memberAccess(viewer));
+  return windowOf(viewer, await memberAccess(viewer));
 }
 
 export async function allowanceOf(viewer: Viewer): Promise<Allowance> {
@@ -139,7 +148,7 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
   });
   if (!access) return { ok: false, refusal: PASS_UNREADABLE };
   if (!passOpen(access)) return { ok: false, refusal: PASS_EXPIRED };
-  const window = windowOf(access);
+  const window = windowOf(viewer, access);
   const freeId = await takeFreeRound(viewer, round, target, window).catch((e) => {
     console.error(`round ${round} not counted, refused:`, e);
     return undefined;

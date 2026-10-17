@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readAdjust, readMultiplier, readPassSettings, readReferralSettings } from "@/lib/wallet/admin-input";
+import { readAdjust, readMultiplier, readPassSettings, readStarterCredit, readReferralSettings } from "@/lib/wallet/admin-input";
 
 describe("the multiplier the owner types", () => {
   it("is a number from 1 to 10", () => {
@@ -48,6 +48,14 @@ describe("the member pass the owner types (owner, 2026-10-13)", () => {
     for (const trialDays of ["31", "-1", "1.5", ""]) expect(readPassSettings({ ...typed, trialDays })).toMatchObject({ ok: false });
     for (const trialCredit of ["-1", "1001", "2.5", ""]) expect(readPassSettings({ ...typed, trialCredit })).toMatchObject({ ok: false });
     for (const credit of ["-1", "1001", "2.5", ""]) expect(readPassSettings({ ...typed, credit })).toMatchObject({ ok: false });
+  });
+});
+
+describe("a UnitClub agent's starter credit as the owner types it (owner, 2026-10-18)", () => {
+  it("is whole baht from ฿0 (none) to ฿1,000, made into satang", () => {
+    expect(readStarterCredit("15")).toEqual({ ok: true, satang: 1500 });
+    expect(readStarterCredit(" 0 ")).toEqual({ ok: true, satang: 0 });
+    for (const t of ["-1", "1001", "1.5", "", "abc"]) expect(readStarterCredit(t)).toMatchObject({ ok: false });
   });
 });
 

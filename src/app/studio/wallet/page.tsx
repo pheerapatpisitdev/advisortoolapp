@@ -32,16 +32,17 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
       </div>
     );
   }
-  const [settings, wallet, entries, allowance, videosLeft, lots] = await Promise.all([
+  // read first: it writes a UnitClub agent's starter credit the first time (owner, 2026-10-18)
+  const wallet = await walletStatus(viewer.agentId).catch(() => ({ satang: 0, own: 0, credit: 0, frozen: false }));
+  const [settings, entries, allowance, videosLeft, lots] = await Promise.all([
     walletSettings().catch(() => ({ enabled: false, multiplier: 2 })),
-    walletStatus(viewer.agentId).catch(() => ({ satang: 0, own: 0, credit: 0, frozen: false })),
     walletEntries(viewer.agentId).catch(() => []),
     allowanceOf(viewer),
     freeVideosLeft(viewer).catch(() => null),
-    // an outside member's pass credit (owner, 2026-10-17); an agent has none
-    viewer.kind === "member" ? creditLotsOf(viewer.agentId).catch(() => null) : null,
+    // a member's pass credit (owner, 2026-10-17) or a UnitClub agent's starter credit (2026-10-18)
+    creditLotsOf(viewer.agentId).catch(() => null),
   ]);
-  // the free rounds and clips a pass used to carry are gone for a member: their credit is shown instead
+  // with no free rounds left to give (a member's pass, a UnitClub agent), the credit is shown instead
   const credit = lots && allowance.limit === 0
     ? { own: wallet.own, satang: wallet.credit, expiresAt: creditOf(lots, new Date()).expiresAt, lots }
     : null;

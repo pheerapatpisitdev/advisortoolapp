@@ -57,3 +57,20 @@ describe("the member pass box (owner, 2026-10-13)", () => {
     expect(draw(true, DEFAULT_PRICES, null)).toContain("อ่านการตั้งค่าค่าสมาชิกไม่ได้");
   });
 });
+
+describe("the UnitClub starter credit box (owner, 2026-10-18)", () => {
+  const box = (agentCredit: number | null) =>
+    renderToStaticMarkup(createElement(PricesAdmin, { prices: DEFAULT_PRICES, pass: DEFAULT_PASS_SETTINGS, referral: null, report: null, agentCredit }));
+
+  it("shows the amount in baht, once and never ending, with a save button", () => {
+    const html = box(1500);
+    expect(html).toContain("เครดิตเริ่มต้นตัวแทน UnitClub");
+    expect(html).toMatch(/id="agent-credit"[^>]*value="15"/);
+    expect(html).toContain("ได้ครั้งเดียว ไม่มีวันหมดอายุ");
+    expect(html).toContain("0 = ไม่ให้เครดิต");
+  });
+
+  it("says so when the amount cannot be read", () => {
+    expect(box(null)).toContain("อ่านเครดิตเริ่มต้นไม่ได้");
+  });
+});

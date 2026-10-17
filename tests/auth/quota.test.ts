@@ -44,15 +44,15 @@ beforeEach(() => {
 });
 
 describe("the free rounds", () => {
-  it("are ten, for a paying room and a trial room alike", async () => {
+  it("are none for a UnitClub agent, paying room or trial room: the ฿15 starter credit took their place (owner, 2026-10-18)", async () => {
     expect(FREE_ROUNDS).toBe(10);
-    expect(await allowanceOf(agent)).toEqual({ limit: 10, used: 0 });
-    expect(await allowanceOf({ ...agent, trial: true })).toEqual({ limit: 10, used: 0 });
+    expect(await allowanceOf(agent)).toEqual({ limit: 0, used: 0 });
+    expect(await allowanceOf({ ...agent, trial: true })).toEqual({ limit: 0, used: 0 });
   });
 
-  it("count every round since 10 October 2026 11:10 in Thailand, never from the start of a month", async () => {
+  it("still count every round since 10 October 2026 11:10 in Thailand, never from the start of a month", async () => {
     db.count = 3;
-    expect(await allowanceOf(agent)).toEqual({ limit: 10, used: 3 });
+    expect(await allowanceOf(agent)).toEqual({ limit: 0, used: 3 });
     expect(db.since).toBe(new Date("2026-10-10T11:10:00+07:00").toISOString());
     expect(FREE_ROUNDS_FROM.toISOString()).toBe("2026-10-10T04:10:00.000Z");
   });
@@ -62,10 +62,10 @@ describe("the free rounds", () => {
       .toEqual({ limit: null, used: 0 });
   });
 
-  it("are an assistant's as any agent's, whatever was ticked (owner, 2026-10-02)", async () => {
+  it("are an assistant's as any agent's, whatever was ticked (owner, 2026-10-02): none, the credit pays", async () => {
     db.count = 4;
     expect(await allowanceOf({ ...agent, staff: { owner: false, publish: true, connect: true, admin: true } }))
-      .toEqual({ limit: 10, used: 4 });
+      .toEqual({ limit: 0, used: 4 });
   });
 });
 
@@ -98,8 +98,8 @@ describe("a member's rounds under the pass (owner, 2026-10-13)", () => {
     await expect(allowanceOf(member)).rejects.toThrow("down");
   });
 
-  it("are an agent's one-time ten, whatever the pass says", async () => {
-    expect(await freeWindow(agent)).toEqual({ limit: FREE_ROUNDS, from: FREE_ROUNDS_FROM });
+  it("are none for an agent, whatever the pass says (owner, 2026-10-18)", async () => {
+    expect(await freeWindow(agent)).toEqual({ limit: 0, from: FREE_ROUNDS_FROM });
   });
 
   it("are never looked up for the owner", async () => {

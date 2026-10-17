@@ -81,8 +81,8 @@ describe("a frozen wallet (owner, 2026-10-01)", () => {
 describe("a member's wallet with pass credit (owner, 2026-10-17; mockup 3NoZWL3b)", () => {
   const NOW = new Date("2026-10-25T03:00:00Z");
   const lots = [
-    { passId: 2, kind: "paid" as const, amountSatang: 5000, leftSatang: 3800, startsAt: "2026-10-20T03:00:00Z", expiresAt: "2026-11-19T03:00:00Z", voided: false, voidedAt: null },
-    { passId: 1, kind: "trial" as const, amountSatang: 1500, leftSatang: 1100, startsAt: "2026-10-17T03:00:00Z", expiresAt: "2026-10-20T03:00:00Z", voided: false, voidedAt: null },
+    { id: 12, passId: 2, kind: "paid" as const, amountSatang: 5000, leftSatang: 3800, startsAt: "2026-10-20T03:00:00Z", expiresAt: "2026-11-19T03:00:00Z", voided: false, voidedAt: null },
+    { id: 11, passId: 1, kind: "trial" as const, amountSatang: 1500, leftSatang: 1100, startsAt: "2026-10-17T03:00:00Z", expiresAt: "2026-10-20T03:00:00Z", voided: false, voidedAt: null },
   ];
   const entries = [
     { id: "c2", kind: "charge" as const, amountSatang: -300, creditSatang: 700, round: "ai-draw", note: null, createdAt: "2026-10-24T03:00:00Z" },
@@ -119,5 +119,20 @@ describe("a member's wallet with pass credit (owner, 2026-10-17; mockup 3NoZWL3b
     expect(historyLines([], voided, NOW).map((l) => l.label)).toEqual([
       "เครดิตสมาชิก 30 วัน ถูกยกเลิก (คืนเงินค่าสมาชิก)", "เครดิตสมาชิก 30 วัน",
     ]);
+  });
+});
+
+describe("a UnitClub agent's starter credit (owner, 2026-10-18; mockup TFmpdUSV)", () => {
+  const starter = { id: 30, passId: null, kind: "starter" as const, amountSatang: 1500, leftSatang: 800, startsAt: "2026-10-18T03:00:00Z", expiresAt: "9999-12-31T00:00:00+00:00", voided: false, voidedAt: null };
+
+  it("is named as UnitClub's and never said to run out", () => {
+    const html = renderToStaticMarkup(createElement(WalletClient, {
+      enabled: true, multiplier: 2, balanceSatang: 3300, entries: [], rounds: { used: 4, limit: 0 }, paid: null, videos: null, prices: DEFAULT_PRICES,
+      credit: { own: 2500, satang: 800, expiresAt: starter.expiresAt, lots: [starter] },
+    }));
+    expect(html).toContain("เครดิตเริ่มต้น UnitClub");
+    expect(html).toContain("ไม่มีวันหมดอายุ");
+    expect(html).not.toContain("หมดอายุ 31");
+    expect(historyLines([], [starter], new Date("2026-10-25T03:00:00Z")).map((l) => [l.label, l.satang])).toEqual([["เครดิตเริ่มต้น UnitClub", 1500]]);
   });
 });

@@ -93,6 +93,13 @@ export function readPassSettings(raw: { enabled: boolean; baht: string; trialDay
   };
 }
 
+/** a UnitClub agent's starter credit as the owner types it: whole baht, ฿0 (none) to ฿1,000 (owner, 2026-10-18) */
+export function readStarterCredit(raw: string): { ok: true; satang: number } | { ok: false; error: string } {
+  const baht = wholeIn(raw, 0, MAX_PASS_CREDIT_BAHT);
+  if (baht === null) return { ok: false, error: `เครดิตเริ่มต้นต้องเป็นบาทเต็ม ตั้งแต่ 0 ถึง ${MAX_PASS_CREDIT_BAHT.toLocaleString("en-US")}` };
+  return { ok: true, satang: baht * 100 };
+}
+
 export const MAX_REFERRAL_DAYS = 30;
 export const MAX_REFERRAL_DAYS_CAP = 365;
 export const MAX_REFERRAL_BAHT = 100;

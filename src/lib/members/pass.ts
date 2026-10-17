@@ -131,6 +131,7 @@ export function videosFrom(
 /** One lot of Studio credit as the pass ledger says it should be (src/lib/members/credit.ts). */
 export interface CreditLot {
   passId: number;
+  kind: "trial" | "paid";
   satang: number;
   /** spendable from the moment it was earned: a renewal's ฿50 is usable at once */
   startsAt: Date;
@@ -152,7 +153,7 @@ export function creditLots(rows: PassRow[], settings: PassSettings, now: Date): 
     const satang = p.kind === "trial" ? settings.trialCreditSatang : settings.creditSatang;
     if (!(satang > 0)) continue;
     const row = byId.get(p.rowId);
-    lots.push({ passId: p.rowId, satang, startsAt: new Date(row?.createdAt ?? p.start), expiresAt: p.end });
+    lots.push({ passId: p.rowId, kind: p.kind, satang, startsAt: new Date(row?.createdAt ?? p.start), expiresAt: p.end });
   }
   const voids = rows.filter((r) => r.kind === "revoked" && r.revokes != null).map((r) => r.revokes as number);
   return { lots, voids };

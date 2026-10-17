@@ -1,4 +1,4 @@
-import { creditLeft } from "@/lib/members/credit";
+import { creditLeft, ensureStarterCredit } from "@/lib/members/credit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { DEFAULT_MULTIPLIER } from "./money";
 import { cleanPrices, DEFAULT_PRICES, type Prices } from "./prices";
@@ -75,6 +75,24 @@ export async function walletPrices(): Promise<Prices> {
   }
 }
 
+/** a UnitClub agent's one starter credit in satang (owner, 2026-10-18: ฿15); null when it cannot be read */
+export async function agentStarterCredit(): Promise<number | null> {
+  const { data, error } = await supabaseAdmin().from("ins_ai_settings").select("agent_starter_credit_satang").maybeSingle();
+  if (error) {
+    console.error("agent starter credit unreadable:", error.message);
+    return null;
+  }
+  return Number(data?.agent_starter_credit_satang ?? 1500);
+}
+
+export async function saveAgentStarterCredit(satang: number): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_ai_settings").upsert(
+    { id: true, agent_starter_credit_satang: satang, updated_at: new Date().toISOString() },
+    { onConflict: "id" },
+  );
+  if (error) throw new Error(`บันทึกเครดิตเริ่มต้นไม่ได้: ${error.message}`);
+}
+
 export async function saveWalletPrices(prices: Prices): Promise<void> {
   const { error } = await supabaseAdmin().from("ins_ai_settings").upsert(
     { id: true, wallet_prices: cleanPrices(prices), updated_at: new Date().toISOString() },
@@ -85,12 +103,16 @@ export async function saveWalletPrices(prices: Prices): Promise<void> {
 
 /**
  * What there is to spend, after holds of requests that died are given back: `own`, the money
- * topped up, and `credit`, an outside member's live pass credit (owner, 2026-10-17), which a
+ * topped up, and `credit`, an outside member's live pass credit (owner, 2026-10-17) or a
+ * UnitClub agent's starter credit (2026-10-18), which a
  * hold takes first; `satang` is the two together. Whether a refund or a dispute froze the wallet
  * (owner, 2026-10-01): a frozen wallet pays for no round from its own money.
  */
 export async function walletStatus(agentId: string): Promise<{ satang: number; own: number; credit: number; frozen: boolean }> {
   await call("ins_wallet_sweep_holds");
+  // a UnitClub agent's starter credit, written the first time it is seen (owner, 2026-10-18);
+  // one that cannot be written now is written by the first hold instead
+  await ensureStarterCredit(agentId).catch((e) => console.error("starter credit not written:", e));
   const [{ data, error }, credit] = await Promise.all([
     supabaseAdmin().from("ins_wallets").select("balance_satang, frozen_at").eq("agent_id", agentId).maybeSingle(),
     creditLeft(agentId),

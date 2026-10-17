@@ -6,7 +6,7 @@ import type { ReferralReport } from "@/lib/referrals/store";
 import { formatBaht } from "@/lib/wallet/money";
 import { PRICE_ITEMS, priceBaht, type PriceGroup, type Prices } from "@/lib/wallet/prices";
 import { Card, Empty } from "../ui";
-import { saveMemberPass, savePrices, saveReferral } from "../wallet/actions";
+import { saveAgentCredit, saveMemberPass, savePrices, saveReferral } from "../wallet/actions";
 import { ask, input, primary, Said } from "../wallet/form";
 
 /**
@@ -14,9 +14,11 @@ import { ask, input, primary, Said } from "../wallet/form";
  * the price of each piece, the members' monthly pass, and ชวนเพื่อน. All three were cards on
  * กระเป๋าเงินตัวแทน, whose name said only the first thing on it.
  */
-export function PricesAdmin({ prices, pass, referral, report }: {
+export function PricesAdmin({ prices, pass, referral, report, agentCredit = null }: {
   /** the fixed prices agents pay (owner, 2026-10-12) */
   prices: Prices;
+  /** a UnitClub agent's one starter credit in satang (owner, 2026-10-18); null when it cannot be read */
+  agentCredit?: number | null;
   /** the outside members' 30-day pass (owner, 2026-10-13); null when it cannot be read */
   pass: PassSettings | null;
   /** เพื่อนชวนเพื่อน (owner, 2026-10-14); null when it cannot be read */
@@ -26,6 +28,7 @@ export function PricesAdmin({ prices, pass, referral, report }: {
   return (
     <>
       <PriceCard prices={prices} />
+      <AgentCreditCard satang={agentCredit} />
       <MemberPassCard pass={pass} />
       <ReferralAdminCard referral={referral} report={report} passOn={pass?.enabled ?? false} />
     </>
@@ -53,7 +56,7 @@ function PriceCard({ prices }: { prices: Prices }) {
     start(async () => setSaid(await ask(() => savePrices(typed), "บันทึกราคาแล้ว")));
   };
   return (
-    <Card title="ราคาต่อชิ้น" hint={`ตัวแทนจ่ายตามนี้เมื่อใช้รอบฟรีหมดแล้ว และเห็นราคานี้ในหน้ากระเป๋าเงิน · ต้นทุนเป็นตัวเลขประมาณ ช่องสีแดงคือราคาไม่เกินต้นทุน`}>
+    <Card title="ราคาต่อชิ้น" hint={`ตัวแทนและสมาชิกจ่ายตามนี้ จากเครดิตก่อนแล้วจึงเงินที่เติมเอง และเห็นราคานี้ในหน้ากระเป๋าเงิน · ต้นทุนเป็นตัวเลขประมาณ ช่องสีแดงคือราคาไม่เกินต้นทุน`}>
       <div className="space-y-4">
         {GROUPS.map(({ group, title }) => (
           <div key={group}>
@@ -93,6 +96,45 @@ function PriceCard({ prices }: { prices: Prices }) {
             {said && <Said {...said} />}
           </div>
         )}
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * A UnitClub agent's one starter credit (owner, 2026-10-18; mockup TFmpdUSV): baht in Studio in
+ * place of the ten free rounds and two free clips, given once and never ending.
+ */
+function AgentCreditCard({ satang }: { satang: number | null }) {
+  const [baht, setBaht] = useState(satang === null ? "" : String(satang / 100));
+  const [said, setSaid] = useState<{ ok: boolean; text: string }>();
+  const [pending, start] = useTransition();
+  if (satang === null) {
+    return (
+      <Card title="เครดิตเริ่มต้นตัวแทน UnitClub">
+        <Empty>อ่านเครดิตเริ่มต้นไม่ได้ — ตรวจว่า migration 20261121_agent_starter_credit ถูก apply แล้ว</Empty>
+      </Card>
+    );
+  }
+  const save = () => {
+    setSaid(undefined);
+    start(async () => setSaid(await ask(() => saveAgentCredit(baht), "บันทึกแล้ว")));
+  };
+  return (
+    <Card title="เครดิตเริ่มต้นตัวแทน UnitClub" hint="ตัวแทนที่เข้าด้วยรหัส UnitOS ได้ครั้งเดียว ไม่มีวันหมดอายุ ใช้ใน Studio ก่อนเงินที่เติมเอง แทนรอบฟรี 10 รอบและวิดีโอฟรี 2 คลิป · เจ้าของใช้ฟรีเหมือนเดิม">
+      <div className="space-y-3">
+        <label htmlFor="agent-credit" className="block text-xs text-[var(--bot-ink-mute)]">
+          เครดิตเริ่มต้น (บาท)
+          <input id="agent-credit" inputMode="numeric" value={baht} onChange={(e) => setBaht(e.target.value)}
+                 className={`mt-1 block w-32 text-right tabular-nums text-[var(--bot-ink)] ${input}`} />
+        </label>
+        <p className="text-xs text-[var(--bot-ink-mute)]">0 = ไม่ให้เครดิต · เปลี่ยนแล้วมีผลกับตัวแทนที่ยังไม่ได้รับเท่านั้น คนที่ได้ไปแล้วไม่เปลี่ยน</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={save} disabled={pending} className={primary}>
+            {pending ? "กำลังบันทึก…" : "บันทึก"}
+          </button>
+          {said && <Said {...said} />}
+        </div>
       </div>
     </Card>
   );
