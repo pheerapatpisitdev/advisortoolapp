@@ -205,6 +205,8 @@ export interface MotionContext {
   voiceSec: number;
   /** the opening's picture where the clip's theme has its own (themes.tsx); the shield and the family otherwise */
   hero?: (s: Record<string, Anim>, t: number, w: number, h: number) => ReactNode;
+  /** pictures a theme lays over a scene's empty lower part, under the subtitle (themes.tsx collageDecor) */
+  decor?: (key: SceneKey, t: number) => ReactNode;
 }
 
 export const abs = (s: React.CSSProperties): React.CSSProperties => ({ display: "flex", position: "absolute", ...s });
@@ -1056,6 +1058,7 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {body}
+      {c.decor?.(key, t)}
       <Subtitle words={c.words} t={t} voiceSec={c.voiceSec} />
       <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: 26, color: WHITE, opacity: 0.6 })}>Design by www.unitclub.app</div>
     </div>
