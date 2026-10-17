@@ -1,5 +1,5 @@
 /**
- * "Design by www.unitclub.app", closing every card picture (owner, 2026-10-10).
+ * "Application by www.advisortool.app", closing every card picture (owner, 2026-10-10; wording 2026-10-17).
  *
  * A card travels as an image — saved, forwarded, printed — and arrives without the chat it was
  * sent in, so the address is drawn into it. Set as www rather than https://: on a picture it is
@@ -7,8 +7,8 @@
  *
  * The drawing library lays out a fixed canvas, so each card adds SITE_FOOTER_H to its height.
  */
-export const SITE_ADDRESS = "www.unitclub.app";
-const SITE_LINE = `Design by ${SITE_ADDRESS}`;
+export const SITE_ADDRESS = "www.advisortool.app";
+const SITE_LINE = `Application by ${SITE_ADDRESS}`;
 
 const GAP = 24;
 const LINE = 36;

@@ -85,7 +85,7 @@ function Subtitle({ g, words, word }: { g: Geo; words: string[]; word: number })
 function Footer({ g, layer }: { g: Geo; layer: Layer }) {
   return (
     <On layer={layer} own="base" style={{ position: "absolute", left: 0, width: g.w, bottom: 16, justifyContent: "center", fontSize: 20, color: P.mute }}>
-      Design by www.unitclub.app
+      Application by www.advisortool.app
     </On>
   );
 }

@@ -98,7 +98,7 @@ function Subtitle({ words, word }: { words: string[]; word: number }) {
 function Footer({ layer }: { layer: Layer }) {
   return (
     <On layer={layer} own="base" style={{ position: "absolute", left: 0, right: 0, bottom: 44, justifyContent: "center", fontSize: 28, color: P.mute }}>
-      Design by www.unitclub.app
+      Application by www.advisortool.app
     </On>
   );
 }

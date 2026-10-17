@@ -1061,7 +1061,7 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
       {body}
       {c.decor?.(key, t)}
       <Subtitle words={c.words} t={t} voiceSec={c.voiceSec} />
-      <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: 26, color: WHITE, opacity: 0.6 })}>Design by www.unitclub.app</div>
+      <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: 26, color: WHITE, opacity: 0.6 })}>Application by www.advisortool.app</div>
     </div>
   );
 }

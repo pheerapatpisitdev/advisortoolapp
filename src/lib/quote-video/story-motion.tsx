@@ -416,7 +416,7 @@ export function storyFrame(key: PoolSceneKey, c: StoryContext, t: number) {
     <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", color: INK }}>
       {body}
       <Subtitle c={c} t={t} />
-      <div style={abs({ left: 0, width: w, bottom: c.size === "portrait" ? 34 : 18, justifyContent: "center", fontSize: 26, color: INK, opacity: 0.55 })}>Design by www.unitclub.app</div>
+      <div style={abs({ left: 0, width: w, bottom: c.size === "portrait" ? 34 : 18, justifyContent: "center", fontSize: 26, color: INK, opacity: 0.55 })}>Application by www.advisortool.app</div>
     </div>
   );
 }

@@ -118,7 +118,7 @@ function Frame({ g, words, t, voiceSec, children }: { g: Geo; words: string[]; t
     <div style={{ display: "flex", position: "relative", width: g.w, height: g.h, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {children}
       <Subtitle g={g} words={words} t={t} voiceSec={voiceSec} />
-      <div style={abs({ left: 0, width: g.w, bottom: 14, justifyContent: "center", fontSize: 22, color: WHITE, opacity: 0.6 })}>Design by www.unitclub.app</div>
+      <div style={abs({ left: 0, width: g.w, bottom: 14, justifyContent: "center", fontSize: 22, color: WHITE, opacity: 0.6 })}>Application by www.advisortool.app</div>
     </div>
   );
 }
