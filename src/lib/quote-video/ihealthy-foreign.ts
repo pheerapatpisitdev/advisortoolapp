@@ -159,7 +159,13 @@ function ceilingLine(lang: Foreign, f: QuoteVideoFacts, short: boolean): string 
 
 export function foreignScript(f: QuoteVideoFacts, lang: Foreign, name: string, short: boolean): SceneScript[] {
   const monthly = bahtSaid(lang, num(f.spokenPrice.amount));
-  const inc = list(lang, (f.includes ?? ["ประกันชีวิต"]).map((x) => INCLUDES[lang][x] ?? x));
+  // the longer clip names each rider and its sum (owner, 2026-10-17, ก); the 15-second one says "your riders"
+  const included = (f.includes ?? ["ประกันชีวิต"])
+    .flatMap((x) => (!short && x === "สัญญาเพิ่มเติม" && f.riderNames?.length
+      // mid-sentence: "critical illness DCI", not "Critical illness DCI"
+      ? f.riderNames.map((n) => (lang === "en" || lang === "ru" ? n.replace(/^(\p{Lu})(?=\p{Ll})/u, (c) => c.toLowerCase()) : n))
+      : [INCLUDES[lang][x] ?? x]));
+  const inc = list(lang, included);
   const b = budget(lang, f);
   const join = (...xs: string[]) => xs.filter(Boolean).join(" ");
 

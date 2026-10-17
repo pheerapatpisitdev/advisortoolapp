@@ -41,12 +41,27 @@ describe("Life Protect clip with the page's riders (owner, 2026-10-17, mockup 1�
 
   it("says what the price includes, and never that a rising medical premium stays level", () => {
     const voice = voiceOf({ ...base, riders: WP_MEB });
-    expect(voice).toContain("เดือนละ 2,712 บาท รวมสัญญายกเว้นเบี้ย และค่ารักษาพยาบาลไว้แล้ว");
-    expect(voice).toContain("ส่วนค่ารักษาพยาบาลปรับตามอายุค่ะ");
+    expect(voice).toContain("เดือนละ 2,712 บาท เป็นสัญญาหลัก 2,583 บาท ดับบลิวพี ฟิต 13 บาท และค่าชดเชยรายวัน 117 บาท");
+    expect(voice).toContain("ส่วนค่าชดเชยรายวันปรับตามอายุค่ะ");
     expect(voice).not.toContain("เท่าเดิมตลอด");
     expect(voiceOf(base)).toContain("ยอดออมเท่าเดิมตลอดค่ะ");
-    expect(voiceOf({ ...base, riders: WP_MEB }, "short")).toContain("วันละ 83 บาท รวมสัญญายกเว้นเบี้ย และค่ารักษาพยาบาล");
-    expect(factLines(facts({ ...base, riders: WP_MEB })).join("\n")).toContain("ยอดออมรวมสัญญายกเว้นเบี้ย และค่ารักษาพยาบาลไว้แล้ว ค่ารักษาพยาบาลปรับตามอายุ");
+    expect(voiceOf({ ...base, riders: WP_MEB }, "short")).toContain("วันละ 83 บาท รวมสัญญายกเว้นเบี้ย และค่าชดเชยรายวัน");
+    expect(factLines(facts({ ...base, riders: WP_MEB })).join("\n")).toContain("ยอดออมรวมสัญญายกเว้นเบี้ย และค่าชดเชยรายวันไว้แล้ว ค่าชดเชยรายวันปรับตามอายุ");
+  });
+
+  it("tells what each rider pays out after the death benefit (owner, 2026-10-17, ก)", () => {
+    const cover = (v: VideoInput) => quoteVideoScript(facts(v), undefined, "F").find((s) => s.key === "cover")!.voice;
+    expect(cover({ ...base, riders: WP_MEB })).toContain(
+      "ยังมีสัญญาเพิ่มเติมอีก 2 ตัว ดับบลิวพี ฟิต ถ้าทุพพลภาพสิ้นเชิงถาวร ไม่ต้องจ่ายเบี้ยที่เหลือ แต่ความคุ้มครองยังอยู่ครบ และค่าชดเชยรายวัน นอนโรงพยาบาลรับเงินวันละ 1,000 บาทค่ะ",
+    );
+    expect(cover({ ...base, riders: { waiver: { code: "WP", option: "BEYOND" } } })).toContain("ยังมีสัญญาเพิ่มเติม ดับบลิวพี บียอนด์ ถ้าทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง");
+    // a child's พีบี is named without the payer the screen adds, and never with "เสียชีวิต"
+    const pb = { ...base, age: 5, riders: { waiver: { code: "PB", option: "FIT" }, payer: { sex: "F" as const, age: 35 } } };
+    expect(voiceOf(pb)).toContain("และพีบี ฟิต 20 บาท");
+    expect(cover(pb)).toContain("พีบี ฟิต ถ้าผู้ชำระเบี้ยเป็นอะไรไป");
+    expect(cover(pb)).not.toContain("เสียชีวิต");
+    expect(cover(base)).not.toContain("สัญญาเพิ่มเติม");
+    expect(factLines(facts({ ...base, riders: WP_MEB })).join("\n")).toContain("แยกตามสัญญา: สัญญาหลัก 2,583 บาท · ดับบลิวพี ฟิต 13 บาท · ค่าชดเชยรายวัน 117 บาท");
   });
 
   it("puts the riders' premium in a column of its own on the clip's table, still 960 wide", () => {

@@ -10,7 +10,7 @@ import {
   MODES, deathBenefitOf, iHealthyPricing, plansFor,
 } from "@/lib/ihealthy-quote";
 import { priceRiders } from "@/lib/ihealthy-rider-quote";
-import { riderLines } from "@/lib/ihealthy-rider-lines";
+import { riderLines, riderSpokenNames } from "@/lib/ihealthy-rider-lines";
 import { parseLang, type Lang } from "@/lib/ihealthy-lang";
 import { baseWords, WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 import { translateFacts } from "@/lib/ihealthy-translate";
@@ -80,6 +80,8 @@ export interface IHealthyCard {
    * which half of it to argue with. The total is the price; this is what the price is for.
    */
   lines: { label: string }[];
+  /** the riders the fold attached, each said in full with its sum, the daily cash left out (ihealthy-rider-lines.ts riderSpokenNames) */
+  riderNames: string[];
   /** the company will not take the monthly instalment this arrangement comes to */
   belowMinimum?: string;
   /**
@@ -255,6 +257,7 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
         ? (standardLabels ?? [here.standard.label]).map((label) => ({ label }))
         : []),
     ],
+    riderNames: here === undefined || extras === undefined ? [] : riderSpokenNames(w, asked, priced.extraCodes, table.standard.code),
     ...(headline?.belowMinimum
       ? { belowMinimum: w.belowMinimum(table.minMonthly) }
       : {}),

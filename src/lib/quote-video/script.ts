@@ -157,11 +157,16 @@ export interface QuoteVideoFacts {
   benefits?: { label: string; amount: string }[];
   /** iHealthy: what the price is made of, as said aloud: "ประกันชีวิต", "ค่าชดเชยรายวัน", "สัญญาเพิ่มเติม" */
   includes?: string[];
+  /** iHealthy: each rider the page attached, said in full in the clip's language — "โรคร้ายแรง DCI ทุน 200,000 บาท" (owner, 2026-10-17, ก) */
+  riderNames?: string[];
   /**
    * Life Protect quoted with its page's riders (owner, 2026-10-17, 1ก): what the price includes as
-   * said aloud ("สัญญายกเว้นเบี้ย และค่ารักษาพยาบาล"), and the part whose premium moves with age, if any
+   * said aloud ("สัญญายกเว้นเบี้ย และค่าชดเชยรายวัน"), and the part whose premium moves with age, if any.
+   * The longer clips also say the instalment contract by contract (`split`, in the spoken
+   * instalment, whole baht) and what each rider pays out (`parts`) (owner, 2026-10-17,
+   * mockup https://claude.ai/artifact/XaTkLWYU8twVqtMfrYFLGN, ก)
    */
-  riders?: { said: string; rises?: string };
+  riders?: { said: string; rises?: string; split?: { name: string; baht: string }[]; parts: { name: string; what: string }[] };
   footNote?: string;
   /** บำนาญ 95: the pension's schedule (pension.ts) */
   pension?: PensionVideoFacts;
@@ -179,8 +184,23 @@ export const planInput = (v: Extract<VideoInput, { variant: string }>): PlanCard
   ...("riders" in v && v.riders && productOf(v) === LIFEPROTECT_PLAN ? { riders: v.riders } : {}),
 });
 
-/** each waiver as the voice says it; the medical plan is "ค่ารักษาพยาบาล" */
+/** each waiver as the voice says it; the medical plan (MEB) is "ค่าชดเชยรายวัน", as the chat and the pages call it */
 const WAIVER_SAID: Record<string, string> = { WP: "สัญญายกเว้นเบี้ย", PB: "สัญญาผู้ชำระเบี้ย" };
+const MEDICAL_SAID = "ค่าชดเชยรายวัน";
+
+/**
+ * What each waiver pays out, said the owner's way ("เป็นอะไรไป", never "เสียชีวิต"): the
+ * wording of data/riders/waiver-benefits.json, by code and flavour.
+ */
+const WAIVER_WHAT: Record<string, string> = {
+  "WP.FIT": "ถ้าทุพพลภาพสิ้นเชิงถาวร ไม่ต้องจ่ายเบี้ยที่เหลือ แต่ความคุ้มครองยังอยู่ครบ",
+  "WP.BEYOND": "ถ้าทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง ไม่ต้องจ่ายเบี้ยที่เหลือ แต่ความคุ้มครองยังอยู่ครบ",
+  "PB.FIT": "ถ้าผู้ชำระเบี้ยเป็นอะไรไป หรือทุพพลภาพสิ้นเชิงถาวร บริษัทจ่ายเบี้ยที่เหลือแทนจนครบ",
+  "PB.BEYOND": "ถ้าผู้ชำระเบี้ยเป็นอะไรไป ทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง บริษัทจ่ายเบี้ยที่เหลือแทนจนครบ",
+};
+
+/** "+12.91" → "13": a rider's share said in whole baht (the screen keeps the satang) */
+const wholeBaht = (amount: string) => Math.round(Number(amount.replace(/[^\d.]/g, ""))).toLocaleString("en-US");
 
 /** a split row's contract as the screen names it: "ดับบลิวพี ฟิต", "ค่ารักษาพยาบาล MEB แผน 1,000" */
 export const riderShort = (label: string) => label.replace(/^สัญญาเพิ่มเติม/, "").replace(/\((MEB)\)/, "$1").replace(/\s+/g, " ").trim();
@@ -190,17 +210,39 @@ export const riderShort = (label: string) => label.replace(/^สัญญาเ�
  * premium moves while the plan's stays level (the medical plan's rises with age) — read off the
  * value table's own rider column, so it is never said where the table does not show it.
  */
-function riderFacts(riders: CardRiders | undefined, rows: ValueTableRow[]): QuoteVideoFacts["riders"] {
+function riderFacts(
+  riders: CardRiders | undefined, rows: ValueTableRow[], split: { title: string; rows: { label: string; amount: string }[] }, spokenLabel: string,
+): QuoteVideoFacts["riders"] {
   if (!riders?.waiver && riders?.medical === undefined) return undefined;
   const said = [
     ...(riders.waiver ? [WAIVER_SAID[riders.waiver.code] ?? "สัญญาเพิ่มเติม"] : []),
-    ...(riders.medical !== undefined ? ["ค่ารักษาพยาบาล"] : []),
+    ...(riders.medical !== undefined ? [MEDICAL_SAID] : []),
   ];
   const paying = rows.filter((r) => r.due !== "—").map((r) => r.rider);
   const moves = paying.some((x) => x !== paying[0]);
+  // the split's rows run สัญญาหลัก, the waiver, the medical plan (lifeprotect-card.ts): the voice
+  // names them its own way, the waiver by its flavour without the payer the screen adds
+  const [main, ...rest] = split.rows;
+  const whole = rest.length === said.length;
+  const waiverName = riders.waiver
+    ? whole ? riderShort(rest[0].label).replace(/\s*\(.*\)$/, "") : WAIVER_SAID[riders.waiver.code] ?? "สัญญาเพิ่มเติม"
+    : undefined;
+  const names = [...(waiverName ? [waiverName] : []), ...(riders.medical !== undefined ? [MEDICAL_SAID] : [])];
+  // said only where the split is of the instalment the voice says, and has a row for every rider
+  const split_ = main && whole && split.title.endsWith(spokenLabel)
+    ? [{ name: "สัญญาหลัก", baht: wholeBaht(main.amount) }, ...rest.map((r, i) => ({ name: names[i], baht: wholeBaht(r.amount) }))]
+    : undefined;
+  const parts = [
+    ...(riders.waiver && waiverName && WAIVER_WHAT[`${riders.waiver.code}.${riders.waiver.option}`]
+      ? [{ name: waiverName, what: WAIVER_WHAT[`${riders.waiver.code}.${riders.waiver.option}`] }] : []),
+    ...(riders.medical !== undefined
+      ? [{ name: MEDICAL_SAID, what: `นอนโรงพยาบาลรับเงินวันละ ${riders.medical.toLocaleString("en-US")} บาท` }] : []),
+  ];
   return {
     said: said.length > 1 ? `${said.slice(0, -1).join(" ")} และ${said[said.length - 1]}` : said[0],
-    ...(moves ? { rises: riders.medical !== undefined ? "ค่ารักษาพยาบาล" : "สัญญาเพิ่มเติม" } : {}),
+    ...(moves ? { rises: riders.medical !== undefined ? MEDICAL_SAID : "สัญญาเพิ่มเติม" } : {}),
+    ...(split_ ? { split: split_ } : {}),
+    parts,
   };
 }
 
@@ -237,7 +279,7 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
   const lifeProtect = product === LIFEPROTECT_PLAN;
   const coverToAge = last.age + 1;
   const payToEnd = paying.length === table.rows.length;
-  const riders = lifeProtect && card.summary.split ? riderFacts(input.riders, table.rows) : undefined;
+  const riders = lifeProtect && card.summary.split ? riderFacts(input.riders, table.rows, card.summary.split, spoken.label) : undefined;
   // the plan's own premium is level; with a medical plan beside it the whole instalment is not
   const level = riders?.rises ? "เบี้ยสัญญาหลักคงที่" : "เบี้ยคงที่ตลอด";
   const facts: QuoteVideoFacts = {
@@ -399,6 +441,7 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     coverToAge: 98,
     benefits,
     includes,
+    ...(shown.riderNames.length ? { riderNames: shown.riderNames } : {}),
     ...(compare.length >= 2 ? { compare } : {}),
   };
 }
@@ -444,9 +487,16 @@ function budgetLead(f: QuoteVideoFacts, lead: string): string {
   return `${lead}${f.budget.per === "month" ? "เดือนละ" : "ปีละ"} ${f.budget.amount} บาท `;
 }
 
+/**
+ * What the price includes, as said: "ประกันชีวิต" with the daily cash and the riders. `full` names each
+ * rider and its sum where the short clip says "สัญญาเพิ่มเติม" (owner, 2026-10-17, ก).
+ */
+export const includesList = (f: QuoteVideoFacts, full = false): string[] =>
+  (f.includes ?? ["ประกันชีวิต"]).flatMap((x) => (full && x === "สัญญาเพิ่มเติม" && f.riderNames?.length ? f.riderNames : [x]));
+
 /** "ประกันชีวิต", "ประกันชีวิตและค่าชดเชยรายวัน" (or กับ), "ประกันชีวิต ค่าชดเชยรายวัน และสัญญาเพิ่มเติม" */
-export function includesSaid(f: QuoteVideoFacts, and = "และ"): string {
-  const w = f.includes ?? ["ประกันชีวิต"];
+export function includesSaid(f: QuoteVideoFacts, and = "และ", full = false): string {
+  const w = includesList(f, full);
   if (w.length === 1) return w[0];
   if (w.length === 2) return `${w[0]}${and}${w[1]}`;
   return `${w.slice(0, -1).join(" ")} และ${w[w.length - 1]}`;
@@ -604,7 +654,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     const others = (f.compare ?? []).filter((p) => !p.main);
     return [
       { key: "lead", voice: `${hello} ขอเล่าแผนประกันสุขภาพนี้ให้ฟังสั้นๆ นะคะ ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}แผน ${f.planName} เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`.replace(/\s+/g, " ") },
-      { key: "price", voice: `ปีแรกค่าใช้จ่ายเดือนละ ${f.spokenPrice.amount} บาท รวม${includesSaid(f, "กับ")}ไว้แล้วค่ะ` },
+      { key: "price", voice: `ปีแรกค่าใช้จ่ายเดือนละ ${f.spokenPrice.amount} บาท รวม${includesSaid(f, "กับ", true)}ไว้แล้วค่ะ` },
       { key: "cover", voice: healthCoverLine(f) },
       ...(others.length
         ? [{ key: "compare" as const, voice: `ถ้าอยากเทียบ ${others.map((p) => `แผน ${p.name} วงเงิน ${p.ceiling} เดือนละ ${p.monthly} บาท`).join(" และ")} ต่ออายุได้ถึงอายุ ${f.coverToAge} เลยค่ะ` }]
@@ -652,7 +702,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   return [
     { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ${budgetLead(f, "ถ้าออม")}ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
     { key: "price", voice: lifeProtectPriceLine(f) },
-    { key: "cover", voice: cover },
+    { key: "cover", voice: `${cover}${ridersCoverLine(f)}` },
     { key: "value", voice: value },
     { key: "contact", voice: closing },
   ];
@@ -664,9 +714,24 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
  */
 function lifeProtectPriceLine(f: QuoteVideoFacts): string {
   const r = f.riders;
-  const price = `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท${r ? ` รวม${r.said}ไว้แล้ว` : ""}`;
+  // the instalment contract by contract where it can be said (owner, 2026-10-17, ก); else what it includes
+  const parts = r?.split
+    ? ` เป็น${r.split.map((p, i) => `${i === r.split!.length - 1 ? "และ" : ""}${p.name} ${p.baht} บาท`).join(" ")}`
+    : r ? ` รวม${r.said}ไว้แล้ว` : "";
+  const price = `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท${parts}`;
   const years = f.payToEnd ? `ออมสบายๆ ถึงอายุ ${f.coverToAge}` : `ออมเพียง ${f.payYears} ปีก็ครบ`;
   return `${price} ${years} ${r?.rises ? `ส่วน${r.rises}ปรับตามอายุค่ะ` : "ยอดออมเท่าเดิมตลอดค่ะ"}`;
+}
+
+/**
+ * What each Life Protect rider pays out, after the death benefit (owner, 2026-10-17, mockup
+ * https://claude.ai/artifact/XaTkLWYU8twVqtMfrYFLGN, ก): " ยังมีสัญญาเพิ่มเติมอีก 2 ตัว …ค่ะ"; nothing without riders.
+ */
+function ridersCoverLine(f: QuoteVideoFacts): string {
+  const parts = f.riders?.parts ?? [];
+  if (!parts.length) return "";
+  const each = parts.map((p, i) => `${parts.length > 1 && i === parts.length - 1 ? "และ" : ""}${p.name} ${p.what}`);
+  return ` ยังมีสัญญาเพิ่มเติม${parts.length > 1 ? `อีก ${parts.length} ตัว` : ""} ${each.join(" ")}ค่ะ`;
 }
 
 /**

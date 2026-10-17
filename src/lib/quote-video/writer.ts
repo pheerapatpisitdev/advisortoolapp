@@ -32,6 +32,10 @@ export function factLines(f: QuoteVideoFacts): string[] {
     ...(f.payYears && !f.payToEnd ? [`ออม ${f.payYears} ปี ครบตอนอายุ ${f.lastPayAge}`] : []),
     ...(f.payToEnd ? [`ออมถึงอายุ ${f.coverToAge} ${f.riders?.rises ? "เบี้ยสัญญาหลักเท่าเดิมตลอด" : "ยอดเท่าเดิมตลอด"}`] : []),
     ...(f.riders ? [`ยอดออมรวม${f.riders.said}ไว้แล้ว${f.riders.rises ? ` ${f.riders.rises}ปรับตามอายุ` : ""}`] : []),
+    // each rider's share and what it pays out (owner, 2026-10-17, ก)
+    ...(f.riders?.split ? [`แยกตามสัญญา: ${f.riders.split.map((p) => `${p.name} ${p.baht} บาท`).join(" · ")}`] : []),
+    ...(f.riders?.parts ?? []).map((p) => `สัญญาเพิ่มเติม ${p.name}: ${p.what}`),
+    ...(f.riderNames?.length ? [`สัญญาเพิ่มเติมที่แนบ: ${f.riderNames.join(" · ")}`] : []),
     `คุ้มครองถึงอายุ ${f.coverToAge}`,
     ...f.cover.map((r) => `${r.label}: ${r.amount}`),
     ...(f.breakEven ? [`อายุ ${f.breakEven.age} ขอเงินก้อนคืนได้ ${f.breakEven.cash} บาท มากกว่ายอดออมรวม ${f.totalPaid} บาท`] : []),

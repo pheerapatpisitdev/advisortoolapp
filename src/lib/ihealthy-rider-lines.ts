@@ -42,6 +42,19 @@ export function riderShortName(w: IHealthyWords, r: AttachedRider): string {
 }
 
 /**
+ * Every rider the engine priced, said in full for a วิดีโอนำเสนอ voice (owner, 2026-10-17,
+ * mockup https://claude.ai/artifact/XaTkLWYU8twVqtMfrYFLGN, ก): its short name, what was
+ * picked, and the sum with its currency — "โรคร้ายแรง DCI ทุน 200,000 บาท". Nothing is counted
+ * away as the card does past four, and `skip` (the daily cash the voice already names) is left out.
+ */
+export function riderSpokenNames(w: IHealthyWords, riders: AttachedRider[], codes: string[], skip?: string): string[] {
+  return riders.filter((r) => codes.includes(r.code) && r.code !== skip)
+    .sort((a, b) => rank(a.code) - rank(b.code))
+    .map((r) => riderShortName(w, { ...r, payer: undefined, sumAssured: undefined })
+      + (r.sumAssured !== undefined ? ` ${w.sumShort(r.sumAssured.toLocaleString("en-US"))} ${w.baht}` : ""));
+}
+
+/**
  * The card's lines for the riders the engine priced, in the fold's order.
  *
  * `riders` are the ticks as picked and `codes` what the engine actually charged for: a tick
