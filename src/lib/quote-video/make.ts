@@ -15,7 +15,7 @@ import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen, type MemberAcces
 import { videosFrom } from "@/lib/members/pass";
 import { siteUrl } from "@/lib/site-url";
 import { formatBaht } from "@/lib/wallet/money";
-import { videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
+import { pictureSatang, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 
 /** the prices the board shows under its button: each look and length, and the FHC summary */
 const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc", "videoStory", "videoStoryShort", "videoPrompt"];
@@ -42,15 +42,16 @@ import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./st
 import { faceUris } from "./story-faces";
 import { motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
-import { collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
+import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
 import { pieceSticker } from "@/lib/collage/library";
+import { drawIdea, fallbackPiece, writeIdeas } from "@/lib/collage/ai-pieces";
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { WIDE_CHART_W, wideSceneLayer } from "./classic-wide";
 import { CLASSIC_BOXES } from "./table-geo";
 import { extraOf, linesOf, loops, readLength, type Told } from "./told";
 import { writes } from "./brief";
 import { writeLines } from "./writer";
-import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBy, type VideoInput } from "./script";
+import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBy, type SceneKey, type VideoInput } from "./script";
 import { clipLength, LOOP_TAIL, planScenes, SIZES, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay, voiceFullText } from "./voice-quota";
 import { readVideoLang, SCRIPT_FAMILY, wordsLetters, type VideoLang } from "./video-words";
@@ -91,7 +92,7 @@ export const FREE_VIDEOS = 2;
 export const videoPrice = (v: ClipInput, prices: Prices): number =>
   isPromptStory(v) ? promptStoryPrice(v, prices) :
   (isFhcInput(v) ? prices.videoFhc : isStoryInput(v) ? (topicOf(v.topic)?.short ? prices.videoStoryShort : prices.videoStory)
-    : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
+    : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))] + aiPiecesPrice(v, prices)) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
 
@@ -203,10 +204,11 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     const { limit, from } = await freeClips(viewer, access);
     if ((await freeUsed(viewer.agentId, from)) < limit) {
       // a คลิปตามโจทย์'s free clip covers the clip only: its pictures are still paid from the wallet (spec, Money)
-      const pictures = isPromptStory(input) ? promptPicturesPrice(input, await walletPrices()) : 0;
+      // so do the cut-outs AI draws for a คอลลาจ clip (owner, 2026-10-17)
+      const pictures = isPromptStory(input) ? promptPicturesPrice(input, await walletPrices()) : isQuoteInput(input) ? aiPiecesPrice(input, await walletPrices()) : 0;
       if (pictures > 0) {
         const s = await walletSettings().catch(() => null);
-        if (!s?.enabled) return { refusal: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" };
+        if (!s?.enabled) return { refusal: isPromptStory(input) ? "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" : "ภาพตัดแปะที่ AI วาดจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ — เลือก \"ภาพจากคลัง\" แทนได้" };
         const hold = await holdFor(viewer.agentId, pictures, `ค่าภาพประกอบต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(pictures)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
         if ("refusal" in hold) return hold;
         pay = { paid_by: "free", hold_id: hold.id, held_satang: pictures, multiplier: 1 };
@@ -407,6 +409,60 @@ async function contactOf(agentId: string, agentName: string): Promise<Contact> {
 
 const narratorOf = (input: ClipInput): "F" | "M" => (input.narrator === "M" ? "M" : "F");
 
+/** the scenes of a quote clip whose cut-out AI draws new: คอลลาจ, portrait, asked for (themes.tsx aiSpots) */
+export function aiPieceScenes(v: VideoInput): { key: SceneKey; voice: string }[] {
+  if (v.pieces !== "ai" || v.style !== "motion" || readTheme(v.theme) !== "collage" || clipSize(v) !== "portrait") return [];
+  const facts = quoteVideoFacts(v);
+  if (!facts) return [];
+  const script = quoteVideoScript(facts, "", narratorOf(v), readLength(v.length), toldOf(v));
+  const keys = new Set(aiSpots(script.map((x) => x.key), facts.coverStyle).map((x) => x.key));
+  return script.filter((x) => keys.has(x.key)).map((x) => ({ key: x.key, voice: x.voice }));
+}
+/** what those cut-outs cost the agent: one standard picture each (owner, 2026-10-17, ข 3 ก) */
+function aiPiecesPrice(v: VideoInput, prices: Prices): number {
+  const n = aiPieceScenes(v).length;
+  return n ? n * (pictureSatang(prices, "standard") ?? 0) : 0;
+}
+const pieceName = (key: SceneKey) => `piece-${key}.png`;
+
+/**
+ * A คอลลาจ clip's AI cut-outs: an idea for each scene from its line, drawn, cut out and filed beside
+ * the clip; one that fails is the library's in the clip, and is taken off the hold. Never throws.
+ */
+async function drawAiPieces(row: VideoRow & { input: VideoInput }): Promise<{ input: VideoInput; costThb: number }> {
+  const scenes = aiPieceScenes(row.input);
+  if (!scenes.length || row.input.aiPieces) return { input: row.input, costThb: 0 };
+  const facts = quoteVideoFacts(row.input)!;
+  const ideas = await writeIdeas(scenes, { sex: row.input.sex, age: row.input.age, plan: facts.planLine }).catch(() => []);
+  let costThb = 0;
+  const drawn = await pool(ideas, 3, async (idea) => {
+    const got = await drawIdea(idea).catch(() => null);
+    if (!got) return [idea.key, null] as const;
+    costThb += got.costThb;
+    await upload(row.id, pieceName(idea.key), got.png, "image/png");
+    return [idea.key, `${row.id}/${pieceName(idea.key)}`] as const;
+  }).catch(() => [] as (readonly [SceneKey, string | null])[]);
+  const aiPieces = Object.fromEntries(scenes.map((sc) => [sc.key, drawn.find(([k]) => k === sc.key)?.[1] ?? null])) as VideoInput["aiPieces"];
+  const missing = Object.values(aiPieces ?? {}).filter((p) => !p).length;
+  const input: VideoInput = { ...row.input, aiPieces };
+  const patch: Partial<VideoRow> = { input };
+  if (missing && row.hold_id && row.held_satang) {
+    patch.held_satang = Math.max(0, Number(row.held_satang) - missing * (pictureSatang(await walletPrices(), "standard") ?? 0));
+  }
+  await setRow(row.id, patch).catch((e) => console.error(`quote video ${row.id}: pieces not written:`, e));
+  return { input, costThb };
+}
+
+/** a scene's cut-out for the clip: its AI one when drawn, the library's otherwise */
+const pieceFor = (input: VideoInput) => async (piece: string, key: SceneKey): Promise<Buffer | null> => {
+  const path = input.aiPieces?.[key];
+  if (path) {
+    const { data } = await bucket().download(path);
+    if (data) return Buffer.from(await data.arrayBuffer());
+  }
+  return pieceSticker(input.aiPieces && key in input.aiPieces ? fallbackPiece(key) : piece);
+};
+
 /** the language a clip is told in: an iHealthy clip's own choice (owner, 2026-10-15), Thai for every other */
 export const langOfInput = (input: ClipInput): VideoLang =>
   (isQuoteInput(input) && input.product === "IHEALTHY" ? readVideoLang(input.lang) : "th");
@@ -579,7 +635,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const hero = () => (heroOnce ??= themeHero(theme, row.input.sex));
   // คอลลาจ's library pictures in the portrait scenes, read once, when a frame first needs them
   let decorOnce: Promise<Decor | undefined> | undefined;
-  const decor = () => (decorOnce ??= theme === "collage" && size === "portrait" ? collageDecor(pieceSticker, facts.coverStyle) : Promise.resolve(undefined));
+  const decor = () => (decorOnce ??= theme === "collage" && size === "portrait" ? collageDecor(pieceFor(row.input), facts.coverStyle) : Promise.resolve(undefined));
   // the classic value scene: where the table stops and which pen note is written at each stop
   const valueAt = script.findIndex((s) => s.key === "value");
   // บำนาญ 95's table carries its notes in the picture, and only walks down (pension-table.tsx)
@@ -754,6 +810,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const lang = langOfInput(row.input);
     const voiceId = lang === "th" ? row.input.voice : undefined;
     // Gemini's voice cannot be used (off, no key, day cap full): a Thai clip is read whole by อ้อม / สมชาย instead (owner, 2026-10-17)
+    // a คอลลาจ clip's AI cut-outs are drawn while the lines are spoken (owner, 2026-10-17)
+    const piecesP = isQuoteInput(row.input) ? drawAiPieces(row as VideoRow & { input: VideoInput }) : Promise.resolve(null);
     const { spoken, fellBackTo } = await speakClip(
       spokenScript.map((s) => (lang === "th" ? sayNumbers(s.voice) : s.voice)),
       { task: VIDEO_TASK_VOICE, narrator, voice: voiceId, lang, pool,
@@ -761,6 +819,12 @@ export async function produce(id: string, agentName: string): Promise<void> {
         onSwitch: () => { lines = 0; bar.note({ step: "voice", done: 0, of: spokenScript.length }); } },
     );
     const pcms = spoken.map((s) => s.pcm);
+    const pieces = await piecesP;
+    if (pieces) {
+      row.input = pieces.input;
+      picturesThb += pieces.costThb;
+      if (pieces.costThb) lap(`AI cut-outs drawn (${Object.values((pieces.input as VideoInput).aiPieces ?? {}).filter(Boolean).length})`);
+    }
     await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) + picturesThb });
     lap(`voice done (${spokenScript.length} lines${voiceId || fellBackTo ? ", ElevenLabs" : ""}${fellBackTo ? " (in place of Gemini)" : ""}${lang === "th" ? "" : `, ${lang}`})`);
     // kept with the clip, so a picture redrawn later is cut without speaking again

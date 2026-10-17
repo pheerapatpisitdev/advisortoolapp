@@ -71,6 +71,7 @@ const LENGTH_KEY = "quote-video-length";
 const LANG_KEY = "quote-video-lang";
 const STYLE_KEY = "quote-video-style";
 const THEME_KEY = "quote-video-theme";
+const PIECES_KEY = "quote-video-pieces";
 /** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
 const BRIEF_KEY = "quote-video-brief";
 /** the four lengths (owner, 2026-10-13: up to 2 minutes; told.ts sceneOrder) */
@@ -253,6 +254,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [style, setStyle] = useState<VideoStyle>("classic");
   // ธีม (owner, 2026-10-17): the Motion Graphic look, remembered in this browser
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
+  // คอลลาจ's cut-outs (owner, 2026-10-17): drawn new by AI unless the library's were asked for here before
+  const [aiPieces, setAiPieces] = useState(true);
   const [pickedLength, setLength] = useState<VideoLength>("full");
   // ภาษาในวิดีโอ (owner, 2026-10-15, mockup https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb): iHealthy Ultra only
   // the iHealthy page's shortcut opens in the language the page was read in; otherwise the one kept
@@ -288,6 +291,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     try {
       if (localStorage.getItem(STYLE_KEY) === "motion") setStyle("motion");
       setTheme(readTheme(localStorage.getItem(THEME_KEY)));
+      if (localStorage.getItem(PIECES_KEY) === "library") setAiPieces(false);
       const l = localStorage.getItem(LENGTH_KEY);
       if (l === "short" || l === "long" || l === "max") setLength(l);
       const b = JSON.parse(localStorage.getItem(BRIEF_KEY) ?? "null") as Partial<VideoBrief> | null;
@@ -297,6 +301,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   function pickStyle(v: VideoStyle) {
     setStyle(v);
     try { localStorage.setItem(STYLE_KEY, v); } catch { /* not remembered, still used */ }
+  }
+  function pickPieces(ai: boolean) {
+    setAiPieces(ai);
+    try { localStorage.setItem(PIECES_KEY, ai ? "ai" : "library"); } catch { /* not remembered, still used */ }
   }
   function pickTheme(v: ThemeKey) {
     setTheme(v);
@@ -313,7 +321,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length));
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
-  const themed = style === "motion" && theme !== DEFAULT_THEME ? { theme } : {};
+  const themed = style === "motion" && theme !== DEFAULT_THEME ? { theme, ...(theme === "collage" && size === "portrait" && aiPieces ? { pieces: "ai" as const } : {}) } : {};
   const look = foreign
     ? { narrator, style, ...themed, length, size, budget: budgetOf() }
     : { narrator, ...(voice ? { voice } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
@@ -761,6 +769,20 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     ))}
                   </div>
                   <p className="mt-1 text-xs text-[var(--ct-mute)]">{THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
+                </div>
+              )}
+              {style === "motion" && theme === "collage" && (
+                <div>
+                  <span className={label}>ภาพตัดแปะ</span>
+                  {size === "portrait" ? (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" className={chip(aiPieces)} onClick={() => pickPieces(true)}>AI คิดและวาดใหม่ <span className="font-normal opacity-80">· ภาพละ {priceBaht(prices.drawStandard)} บาท</span></button>
+                        <button type="button" className={chip(!aiPieces)} onClick={() => pickPieces(false)}>ภาพจากคลัง <span className="font-normal opacity-80">· ไม่มีค่าภาพ</span></button>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{aiPieces ? "AI อ่านบทแล้ววาดภาพให้คลิปนี้โดยเฉพาะ ฉากละ 1 ภาพ (ฉากราคา คุ้มครอง ติดต่อ) ใช้เวลาเพิ่มประมาณ 1 นาที ภาพไหนวาดไม่สำเร็จ ใช้ภาพจากคลังแทนและไม่คิดเงินภาพนั้น" : "ใช้ภาพตัดแปะที่วาดไว้ในคลังแล้ว"}</p>
+                    </>
+                  ) : <p className="text-xs text-[var(--ct-mute)]">ภาพตัดแปะในฉากมีเฉพาะคลิปแนวตั้ง</p>}
                 </div>
               )}
             </>
