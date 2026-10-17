@@ -333,6 +333,8 @@ export interface VideoThemePalette {
   font?: "Mali";
   /** the ground under the drawing: a colour and its soft round shapes */
   ground: string; shapes: { color: string; opacity: number }[];
+  /** a paper picture as the ground instead of the colour and shapes (public/collage, themes.tsx) */
+  texture?: "paper" | "paper-light";
   /** คอลลาจกระดาษ: cards and pills become paper laid crooked that shifts a little each frame, big figures sit on a paper strip */
   collage?: true;
 }
@@ -349,12 +351,14 @@ export const VIDEO_THEME_COLORS = {
     card: "#fbf8f0", onCard: "#22252b", onCardRgb: "34,37,43", second: "#d6a63a", red: "#c2412d", green: "#2f7d4f", pen: "#c2412d", bluePen: "#2f5fa8",
     subBg: "rgba(251,248,240,0.94)", subInk: "#22252b", subRgb: "34,37,43", subAccent: "#c2412d",
     font: "Mali", ground: "#ece8df", shapes: [{ color: "#e3ddd0", opacity: 0.8 }, { color: "#f3efe6", opacity: 0.8 }, { color: "#e3ddd0", opacity: 0.6 }, { color: "#f3efe6", opacity: 0.7 }],
+    // the crumpled paper, a shade lighter than คอลลาจ's (owner chose ค, 2026-10-17)
+    texture: "paper-light",
   },
   collage: {
     ink: "#141414", inkRgb: "20,20,20", accent: "#d9a400", fill: "#f1c62f", onFill: "#141414",
     card: "#fbfaf6", onCard: "#141414", onCardRgb: "20,20,20", second: "#e8dcae", red: "#d3261e", green: "#1f7a3d", pen: "#d3261e", bluePen: "#2f5fa8",
     subBg: "#141414", subInk: "#fbfaf6", subRgb: "251,250,246", subAccent: "#f1c62f",
-    ground: "#e9e3d6", shapes: [], collage: true,
+    ground: "#e9e3d6", shapes: [], texture: "paper", collage: true,
   },
 } satisfies Record<string, VideoThemePalette>;
 
