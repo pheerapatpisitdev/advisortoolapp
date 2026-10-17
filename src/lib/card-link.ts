@@ -66,6 +66,42 @@ export interface BundleCardInput {
   mode?: PayMode;
 }
 
+/** The Life Protect page's riders, written into a link the way every link of ours writes them. */
+export function writeRiders(q: URLSearchParams, riders: CardRiders | undefined): void {
+  if (riders?.waiver) q.set("rider", `${riders.waiver.code}.${riders.waiver.option}`);
+  if (riders?.payer) q.set("payer", `${riders.payer.sex}${riders.payer.age}`);
+  if (riders?.medical !== undefined) q.set("meb", String(riders.medical));
+}
+
+/**
+ * The Life Protect page's riders named in a query: undefined when there are none, null when
+ * one is written in a shape no link of ours has. Whether they can be priced on this insured
+ * is the card's question (lib/lifeprotect-card.ts), not the reader's.
+ */
+export function readRiders(get: (key: string) => string | null | undefined): CardRiders | undefined | null {
+  const rider = get("rider") ?? null;
+  const payer = get("payer") ?? null;
+  const meb = get("meb") ?? null;
+  if (rider === null && payer === null && meb === null) return undefined;
+  const out: CardRiders = {};
+  if (rider !== null) {
+    const m = /^([A-Z0-9]+)\.([A-Z0-9_]+)$/.exec(rider);
+    if (!m) return null;
+    out.waiver = { code: m[1], option: m[2] };
+  }
+  if (payer !== null) {
+    const m = /^([MF])(\d{1,2})$/.exec(payer);
+    if (!m) return null;
+    out.payer = { sex: m[1] as Sex, age: Number(m[2]) };
+  }
+  if (meb !== null) {
+    const plan = Number(meb);
+    if (!Number.isInteger(plan) || plan <= 0) return null;
+    out.medical = plan;
+  }
+  return out;
+}
+
 /** What a card can be asked for: an arrangement priced from the customer's own sum, or one the agency sells under its own name and tier. */
 export type CardInput = PlanCardInput | BundleCardInput;
 
@@ -87,10 +123,7 @@ function cardQuery(input: CardInput, characters = false): string {
     });
   if (input.mode) q.set("mode", input.mode);
   // after the arrangement and before the fingerprint, the order canonical.ts keeps
-  const riders = input.kind === "plan" ? input.riders : undefined;
-  if (riders?.waiver) q.set("rider", `${riders.waiver.code}.${riders.waiver.option}`);
-  if (riders?.payer) q.set("payer", `${riders.payer.sex}${riders.payer.age}`);
-  if (riders?.medical !== undefined) q.set("meb", String(riders.medical));
+  writeRiders(q, input.kind === "plan" ? input.riders : undefined);
   // the chat's table only: the characters on the chart are asked for, not assumed
   if (characters) q.set("fig", "1");
   /**

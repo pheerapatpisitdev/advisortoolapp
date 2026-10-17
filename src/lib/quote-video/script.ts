@@ -1,5 +1,5 @@
 import type { ThemeKey } from "./theme-keys";
-import type { PlanCardInput } from "@/lib/card-link";
+import type { CardRiders, PlanCardInput } from "@/lib/card-link";
 import { iHealthyCard } from "@/lib/ihealthy-card";
 import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
 import { setupQuery } from "./ihealthy-setup";
@@ -45,7 +45,8 @@ export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "conta
 
 /** What the agent asked for. A row written before products existed has no `product`: Life Protect. */
 export type VideoInput = (
-  | { product?: "LIFEPROTECT" | "ISHIELD"; variant: string; age: number; sex: "M" | "F"; sumAssured: number }
+  /** `riders`: Life Protect only, the riders its page priced in (owner, 2026-10-17, 1ก); absent = the plan alone */
+  | { product?: "LIFEPROTECT" | "ISHIELD"; variant: string; age: number; sex: "M" | "F"; sumAssured: number; riders?: CardRiders }
   /** `setup`: the iHealthy Ultra page's base, sum, territory, coverage and riders as its address writes them (ihealthy-setup.ts); absent = the page's defaults */
   /** `lang`: the language the clip is told in (owner, 2026-10-15; video-words.ts); absent = Thai */
   | { product: "IHEALTHY"; age: number; sex: "M" | "F"; plan: string; compare: string[]; setup?: string; lang?: VideoLang }
@@ -148,6 +149,11 @@ export interface QuoteVideoFacts {
   benefits?: { label: string; amount: string }[];
   /** iHealthy: what the price is made of, as said aloud: "ประกันชีวิต", "ค่าชดเชยรายวัน", "สัญญาเพิ่มเติม" */
   includes?: string[];
+  /**
+   * Life Protect quoted with its page's riders (owner, 2026-10-17, 1ก): what the price includes as
+   * said aloud ("สัญญายกเว้นเบี้ย และค่ารักษาพยาบาล"), and the part whose premium moves with age, if any
+   */
+  riders?: { said: string; rises?: string };
   footNote?: string;
   /** บำนาญ 95: the pension's schedule (pension.ts) */
   pension?: PensionVideoFacts;
@@ -162,7 +168,33 @@ const SEX_WHO = { M: "คุณผู้ชาย", F: "คุณผู้หญ
 
 export const planInput = (v: Extract<VideoInput, { variant: string }>): PlanCardInput => ({
   kind: "plan", planCode: productOf(v), variant: v.variant, age: v.age, sex: v.sex, sumAssured: v.sumAssured,
+  ...("riders" in v && v.riders && productOf(v) === LIFEPROTECT_PLAN ? { riders: v.riders } : {}),
 });
+
+/** each waiver as the voice says it; the medical plan is "ค่ารักษาพยาบาล" */
+const WAIVER_SAID: Record<string, string> = { WP: "สัญญายกเว้นเบี้ย", PB: "สัญญาผู้ชำระเบี้ย" };
+
+/** a split row's contract as the screen names it: "ดับบลิวพี ฟิต", "ค่ารักษาพยาบาล MEB แผน 1,000" */
+export const riderShort = (label: string) => label.replace(/^สัญญาเพิ่มเติม/, "").replace(/\((MEB)\)/, "$1").replace(/\s+/g, " ").trim();
+
+/**
+ * What the riders add to a Life Protect clip: the voice's words for them, and whether their
+ * premium moves while the plan's stays level (the medical plan's rises with age) — read off the
+ * value table's own rider column, so it is never said where the table does not show it.
+ */
+function riderFacts(riders: CardRiders | undefined, rows: ValueTableRow[]): QuoteVideoFacts["riders"] {
+  if (!riders?.waiver && riders?.medical === undefined) return undefined;
+  const said = [
+    ...(riders.waiver ? [WAIVER_SAID[riders.waiver.code] ?? "สัญญาเพิ่มเติม"] : []),
+    ...(riders.medical !== undefined ? ["ค่ารักษาพยาบาล"] : []),
+  ];
+  const paying = rows.filter((r) => r.due !== "—").map((r) => r.rider);
+  const moves = paying.some((x) => x !== paying[0]);
+  return {
+    said: said.length > 1 ? `${said.slice(0, -1).join(" ")} และ${said[said.length - 1]}` : said[0],
+    ...(moves ? { rises: riders.medical !== undefined ? "ค่ารักษาพยาบาล" : "สัญญาเพิ่มเติม" } : {}),
+  };
+}
 
 /** The facts for an arrangement; undefined for anything the clip cannot state (no price, not sold). */
 export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteVideoFacts | undefined {
@@ -197,6 +229,9 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
   const lifeProtect = product === LIFEPROTECT_PLAN;
   const coverToAge = last.age + 1;
   const payToEnd = paying.length === table.rows.length;
+  const riders = lifeProtect && card.summary.split ? riderFacts(input.riders, table.rows) : undefined;
+  // the plan's own premium is level; with a medical plan beside it the whole instalment is not
+  const level = riders?.rises ? "เบี้ยสัญญาหลักคงที่" : "เบี้ยคงที่ตลอด";
   const facts: QuoteVideoFacts = {
     product,
     planLine: card.planLine,
@@ -211,11 +246,15 @@ function planFacts(v: Exclude<Extract<VideoInput, { variant: string }>, { produc
     prices: card.summary.rows.map((r) => ({ label: r.label, amount: r.amount, main: r.main })),
     spokenPrice: { per: spoken.label === "รายปี" ? "ปีละ" : spoken.label === "ราย 6 เดือน" ? "งวดละ" : "เดือนละ", amount: spoken.amount },
     pills: payToEnd
-      ? [`จ่ายเบี้ยถึงอายุ ${coverToAge}`, "เบี้ยคงที่ตลอด"]
-      : lifeProtect ? [`จ่ายเบี้ยแค่ ${paying.length} ปี`, "เบี้ยคงที่ตลอด"] : [`จ่ายเบี้ยแค่ ${paying.length} ปี`, `คุ้มครองถึงอายุ ${coverToAge}`],
+      ? [`จ่ายเบี้ยถึงอายุ ${coverToAge}`, level]
+      : lifeProtect ? [`จ่ายเบี้ยแค่ ${paying.length} ปี`, level] : [`จ่ายเบี้ยแค่ ${paying.length} ปี`, `คุ้มครองถึงอายุ ${coverToAge}`],
     ...(payToEnd ? {} : { penNote: `จ่ายครบอายุ ${paying[paying.length - 1].age} แล้วหยุดส่ง` }),
     ...(payToEnd ? { payToEnd } : {}),
-    priceNotes: [],
+    // what the headline instalment is made of, as the card's box splits it (owner, 2026-10-17, 1ก)
+    priceNotes: riders && card.summary.split
+      ? [card.summary.split.title, ...card.summary.split.rows.map((r) => `${riderShort(r.label)}  ${r.amount} บาท`)]
+      : [],
+    ...(riders ? { riders } : {}),
     coverTitle: section.title,
     cover: section.rows.map((r) => ({ label: r.label, amount: r.amount, mark: Boolean(r.mark) })),
     coverStyle: lifeProtect ? "bars" : "rows",
@@ -536,7 +575,7 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
   }
   return [
     { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}${f.budget ? "" : "ถ้าเป็นอะไรไป "}ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
-    { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท ${years} คุ้มครองถึงอายุ ${f.coverToAge} ค่ะ` },
+    { key: "price", voice: `ออมแค่วันละ ${f.perDayAmount} บาท${f.riders ? ` รวม${f.riders.said}` : ""} ${years} คุ้มครองถึงอายุ ${f.coverToAge} ค่ะ` },
     { key: "contact", voice: ask },
   ];
 }
@@ -604,13 +643,22 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
     : `ถ้าเป็นอะไรไป ครอบครัวได้ ${spokenBaht(digits(first.amount))} และดูแลยาวไปถึงอายุ ${f.coverToAge} เลยค่ะ`;
   return [
     { key: "lead", voice: `${hello} ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ ${who} ${budgetLead(f, "ถ้าออม")}ทำทุน ${spokenBaht(digits(f.insuredLine))} ถ้าเป็นอะไรไป ครอบครัวได้เงินก้อนสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ค่ะ` },
-    { key: "price", voice: f.payToEnd
-      ? `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ออมสบายๆ ถึงอายุ ${f.coverToAge} ยอดออมเท่าเดิมตลอดค่ะ`
-      : `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท ออมเพียง ${f.payYears} ปีก็ครบ ยอดออมเท่าเดิมตลอดค่ะ` },
+    { key: "price", voice: lifeProtectPriceLine(f) },
     { key: "cover", voice: cover },
     { key: "value", voice: value },
     { key: "contact", voice: closing },
   ];
+}
+
+/**
+ * Life Protect's price, said; with riders (owner, 2026-10-17, mockup https://claude.ai/artifact/ESb8JXLfKhv3VVn95SXzEf)
+ * the instalment says what it includes, and "เท่าเดิมตลอด" only where the whole of it is level.
+ */
+function lifeProtectPriceLine(f: QuoteVideoFacts): string {
+  const r = f.riders;
+  const price = `ออมแค่วันละ ${f.perDayAmount} บาท หรือ${f.spokenPrice.per} ${f.spokenPrice.amount} บาท${r ? ` รวม${r.said}ไว้แล้ว` : ""}`;
+  const years = f.payToEnd ? `ออมสบายๆ ถึงอายุ ${f.coverToAge}` : `ออมเพียง ${f.payYears} ปีก็ครบ`;
+  return `${price} ${years} ${r?.rises ? `ส่วน${r.rises}ปรับตามอายุค่ะ` : "ยอดออมเท่าเดิมตลอดค่ะ"}`;
 }
 
 /**
@@ -767,7 +815,7 @@ export function pageCaption(f: QuoteVideoFacts): string {
   }
   return [
     `มรดก ${spokenBaht(f.lead.baht)} สำหรับครอบครัว`,
-    `${who} ทุน ${sum} ตกวันละ ${f.perDayAmount} บาท จ่ายแค่ ${f.payYears} ปี`,
+    `${who} ทุน ${sum} ตกวันละ ${f.perDayAmount} บาท${f.riders ? ` (รวม${f.riders.said})` : ""} จ่ายแค่ ${f.payYears} ปี`,
     `คุ้มครองถึงอายุ ${f.coverToAge} · เงินไม่หายไปไหน เวนคืนได้`,
     "",
     ask,

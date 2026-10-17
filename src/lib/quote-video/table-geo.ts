@@ -26,6 +26,27 @@ export const ROW_H = 52;
  * column wide enough for the "เบี้ยคงที่" brace and its word beside the figures (owner, 2026-10-13)
  */
 export const COLS = [80, 80, 250, 180, 180, 190] as const;
+/**
+ * the same with the riders' premium in a column of its own after the plan's, as the Life Protect
+ * page has it (owner, 2026-10-17, 1ก): the year and age narrower, the premium column kept for its brace
+ */
+export const RIDER_COLS = [64, 66, 250, 130, 140, 150, 160] as const;
+const HEADS = ["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
+const RIDER_HEADS = ["ปีที่", "อายุ", "เบี้ย/ปี", "สัญญาเพิ่มเติม", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"];
+
+/** whether a table was quoted with riders: its rows carry their premium */
+export const hasRiderColumn = (f: { rows?: { rider?: string }[] }) => Boolean(f.rows?.some((r) => r.rider !== undefined));
+/** the columns a table is cut into */
+export const colsOf = (f: { rows?: { rider?: string }[] }): readonly number[] => (hasRiderColumn(f) ? RIDER_COLS : COLS);
+/** the left edge of column i of these columns */
+export const edgeOf = (cols: readonly number[], i: number) => cols.slice(0, i).reduce((s, w) => s + w, 0);
+/** the header over the value table: each column's name, width, and whether it sits left; the riders' name in two lines to fit */
+export function valueHeads(f: { rows?: { rider?: string }[] }): { h: string; w: number; left: boolean; lines?: string[] }[] {
+  const rider = hasRiderColumn(f);
+  const cols = colsOf(f);
+  return (rider ? RIDER_HEADS : HEADS).map((h, i) => ({ h, w: cols[i], left: i < 2, ...(rider && i === 3 ? { lines: ["สัญญา", "เพิ่มเติม"] } : {}) }));
+}
+
 /** a cell's side padding */
 export const CELL_PAD = 14;
 /** the left edge of column i; colX(COLS.length) is the table's width */

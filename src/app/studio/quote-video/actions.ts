@@ -24,7 +24,10 @@ import { clipEstimates, clipSize, langOfInput, costView, createVideo, deleteVide
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
-import { cleanCustomerName, pageCaption, productOf, quoteVideoFacts, type Product, type VideoInput } from "@/lib/quote-video/script";
+import { cleanCustomerName, pageCaption, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
+import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
+import { lifeProtectPriced } from "@/lib/lifeprotect-card";
+import { quoteCard } from "@/lib/quote-card";
 import { fhcVideoFacts, isFhcInput, type FhcVideoInput } from "@/lib/quote-video/fhc";
 import { checkedStory, isStoryInput, planName, STORY_TOPICS, storyCaption, storyFigure, storyPension, type StoryVideoInput } from "@/lib/quote-video/story";
 import { getCustomer, listCustomers } from "@/lib/fhc/customers";
@@ -61,6 +64,8 @@ export interface Preview {
   resolved: { sum?: number; plan?: string; monthly?: number; tier?: number };
   /** iHealthy from its page (owner, 2026-10-14): the page's arrangement the clip is priced on */
   setup?: { line: string; riders: string };
+  /** Life Protect from its page (owner, 2026-10-17, 1ก): the riders the clip's price includes, by name */
+  riders?: string;
 }
 export interface VideoItem {
   id: string;
@@ -126,10 +131,11 @@ function checked(v: VideoInput, mine?: ElevenChoice): VideoInput | string {
   // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
   const budget = v.budget ? cleanBudget(v.budget) : undefined;
   if (typeof budget === "string") return budget;
+  // a budget works the sum out from the plan alone: the page's riders go with the page's own sum
   const asked = !budget || v.product === "IHEALTHY" ? v
     : v.product === "LEGACY" ? { ...v, tier: 1 }
     // Protection Life's stand-in must be one of its page's steps
-    : v.product === "PLB" ? { ...v, sumAssured: 300_000 } : { ...v, sumAssured: 500_000 };
+    : v.product === "PLB" ? { ...v, sumAssured: 300_000 } : { ...v, sumAssured: 500_000, riders: undefined };
   const checkedAsked = checkedQuote(asked);
   if (typeof checkedAsked === "string") return checkedAsked;
   const worked = budget ? resolveBudget(checkedAsked, budget) : checkedAsked;
@@ -227,7 +233,23 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   if (!Number.isInteger(v.sumAssured) || v.sumAssured < min || v.sumAssured > max || v.sumAssured % SUM_STEP) {
     return `ทุนประกัน ${min.toLocaleString("en-US")} – ${max.toLocaleString("en-US")} บาท ทีละ 50,000`;
   }
-  return { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
+  const riders = product === "LIFEPROTECT" && "riders" in v ? cleanRiders(v.riders) : undefined;
+  if (riders) {
+    const plan = { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured };
+    // the page's riders on an age or sum they are not sold at: said, rather than a clip without them
+    if (!lifeProtectPriced({ ...planInput(plan), riders }, new Date()) && lifeProtectPriced(planInput(plan), new Date())) return RIDERS_NOT_SOLD;
+  }
+  return { product, variant: v.variant, sex: v.sex, age: v.age, sumAssured: v.sumAssured, ...(riders ? { riders } : {}) };
+}
+
+const RIDERS_NOT_SOLD = "สัญญาเพิ่มเติมที่เลือกจากหน้า Life Protect ซื้อไม่ได้ในอายุหรือทุนนี้ กด “ไม่ใส่สัญญาเพิ่มเติม” หรือเปลี่ยนกลับ";
+
+/** riders as the board sent them back: through a link's own writing and reading, so only a shape our links have survives */
+function cleanRiders(raw: unknown): CardRiders | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const q = new URLSearchParams();
+  try { writeRiders(q, raw as CardRiders); } catch { return undefined; }
+  return readRiders((k) => q.get(k)) ?? undefined;
 }
 
 export interface VoiceQuota { until: string | null; clock: string | null; fallback: boolean }
@@ -381,7 +403,14 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
       : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht }
       : c.product === "LEGACY" ? { tier: c.tier } : { sum: c.sumAssured },
     ...(c.product === "IHEALTHY" && c.setup ? { setup: setupWords(c) } : {}),
+    ...("riders" in c && c.riders ? { riders: riderWords(c) } : {}),
   };
+}
+
+/** the riders a Life Protect clip is priced with, as the card's split names them */
+function riderWords(c: Extract<VideoInput, { variant: string }>): string {
+  const split = quoteCard(planInput(c))?.summary?.split;
+  return split ? split.rows.slice(1).map((r) => riderShort(r.label)).join(" · ") : "";
 }
 
 /** the page's arrangement in the form's words: the base, sum and territory, then what is attached */

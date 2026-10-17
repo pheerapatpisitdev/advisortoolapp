@@ -675,7 +675,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
         <div className="order-2">
           <ContactButtons
             copyText={quoteText} cardPath={card} tableCardPath={tableCard}
-            videoHref={who ? videoStartHref({ product: "LIFEPROTECT", sex, age: who.age, sumAssured, variant }) : undefined}
+            videoHref={who ? videoStartHref({ product: "LIFEPROTECT", sex, age: who.age, sumAssured, variant, ...(cardRiders ? { riders: cardRiders } : {}) }) : undefined}
           />
         </div>
       </div>
