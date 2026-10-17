@@ -65,20 +65,12 @@ describe("LoginForm's look (owner, 2026-10-01)", () => {
   });
 });
 
-describe("LoginForm's how-to video (owner, 2026-10-13: option ก)", () => {
-  it("offers the video under the card on both tabs", () => {
+describe("LoginForm without the how-to video (owner, 2026-10-18: removed, option ก)", () => {
+  it("shows no video card on either tab", () => {
     for (const open of [true, false]) {
       const html = draw(open);
-      expect(html).toContain("ดูวิธีสมัครและใช้งาน");
-      // under the card: after the tab's last line, not between the tabs and the way in
-      const lastLine = open ? "นโยบายความเป็นส่วนตัว" : "</form>";
-      expect(html.indexOf("ดูวิธีสมัครและใช้งาน")).toBeGreaterThan(html.indexOf(lastLine));
+      expect(html).not.toContain("ดูวิธีสมัครและใช้งาน");
+      expect(html).not.toContain("/videos/signup-demo");
     }
-  });
-
-  it("loads nothing until it is pressed: no video element in the first paint", () => {
-    const html = draw(true);
-    expect(html).not.toContain("<video");
-    expect(html).toContain('src="/videos/signup-demo.jpg"');
   });
 });
