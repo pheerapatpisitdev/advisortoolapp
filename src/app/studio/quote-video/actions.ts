@@ -164,7 +164,9 @@ function checked(v: VideoInput, mine?: ElevenChoice): VideoInput | string {
     if (first) return `${FIELD_WORD[first[0]] ?? "ประโยค"}: ${first[1]}`;
     lines = l;
   }
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style, ...(theme !== DEFAULT_THEME ? { theme } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
+  // คอลลาจ's cut-outs drawn new by AI (owner, 2026-10-17): portrait only, as the pictures are laid there
+  const pieces = theme === "collage" && size === "portrait" && v.pieces === "ai" ? { pieces: "ai" as const } : {};
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style, ...(theme !== DEFAULT_THEME ? { theme } : {}), ...pieces, length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
 }
 
 /** what each written field is called on the board, for a refusal */

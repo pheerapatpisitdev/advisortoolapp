@@ -65,6 +65,10 @@ export type VideoInput = (
   style?: VideoStyle;
   /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง */
   theme?: ThemeKey;
+  /** คอลลาจกระดาษ's cut-outs drawn new by AI for this clip (owner chose ข, 2026-10-17); absent = the library's */
+  pieces?: "ai";
+  /** each scene's AI cut-out as filed in the clip's folder, null where it failed (the library's stands in) */
+  aiPieces?: Partial<Record<SceneKey, string | null>>;
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */
   length?: VideoLength;
   /** portrait unless a square or landscape Motion Graphic clip was asked for (owner, 2026-10-11; timeline.ts) */

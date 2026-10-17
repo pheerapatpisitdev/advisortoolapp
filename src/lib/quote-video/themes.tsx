@@ -290,6 +290,15 @@ const DECOR: Partial<Record<SceneKey, Spot[]>> = {
 /** the cover's pictures only where its bars leave the lower part empty (Life Protect, iShield) */
 const DECOR_COVER_STYLE = "bars";
 
+/**
+ * The pictures AI draws new for a clip (owner chose ข, 2026-10-17, https://claude.ai/artifact/Jt7qBS1N9fDhn8vj1DoTbt):
+ * every spot of the clip's scenes but the family, which stays the app's own photo. Portrait only,
+ * as the decor is.
+ */
+export const aiSpots = (keys: SceneKey[], coverStyle?: string): { key: SceneKey; piece: string }[] =>
+  keys.flatMap((key) => (key === "cover" && coverStyle !== DECOR_COVER_STYLE ? [] : (DECOR[key] ?? []))
+    .filter((d) => d.piece !== "family").map((d) => ({ key, piece: d.piece })));
+
 /** each picture's moment in its scene, for its sound (collageSounds) */
 export const decorAnims = (key: SceneKey, coverStyle?: string): Anim[] =>
   key === "cover" && coverStyle !== DECOR_COVER_STYLE ? [] : (DECOR[key] ?? []).map((d) => a(d.at, "pop"));
@@ -302,25 +311,27 @@ export type Decor = (key: SceneKey, t: number) => ReactNode;
  * pieceSticker), null when it has not been drawn — that picture is left out, and the clip is made all
  * the same. Never throws.
  */
-export async function collageDecor(load: (piece: string) => Promise<Buffer | null>, coverStyle?: string): Promise<Decor> {
-  const pieces = [...new Set(Object.values(DECOR).flat().map((d) => d!.piece))];
-  const got = await Promise.all(pieces.map(async (piece): Promise<[string, Sticker | null]> => {
+export async function collageDecor(load: (piece: string, key: SceneKey) => Promise<Buffer | null>, coverStyle?: string): Promise<Decor> {
+  // a picture is read for each scene it stands in: an AI one is that scene's own (aiSpots)
+  const spots = (Object.entries(DECOR) as [SceneKey, Spot[]][]).flatMap(([key, list]) => list.map((d) => ({ key, piece: d.piece })));
+  const got = await Promise.all(spots.map(async ({ key, piece }): Promise<[string, Sticker | null]> => {
     try {
-      const png = piece === "family" ? await readFile(join(process.cwd(), "public/collage/family.png")) : await load(piece);
-      if (!png) return [piece, null];
+      const png = piece === "family" ? await readFile(join(process.cwd(), "public/collage/family.png")) : await load(piece, key);
+      if (!png) return [`${key}/${piece}`, null];
       const m = await sharp(png).metadata();
-      return [piece, { uri: `data:image/png;base64,${png.toString("base64")}`, w: m.width ?? 1, h: m.height ?? 1 }];
+      return [`${key}/${piece}`, { uri: `data:image/png;base64,${png.toString("base64")}`, w: m.width ?? 1, h: m.height ?? 1 }];
     } catch {
-      return [piece, null];
+      return [`${key}/${piece}`, null];
     }
   }));
-  const stickers = new Map(got);
+  const found = new Map(got);
+  const stickers = { get: (piece: string, key: SceneKey) => found.get(`${key}/${piece}`) };
   return function collageScene(key, t) {
     if (key === "cover" && coverStyle !== DECOR_COVER_STYLE) return null;
-    const spots = (DECOR[key] ?? []).filter((d) => stickers.get(d.piece) && t >= d.at);
-    if (!spots.length) return null;
-    return spots.map((d, i) => {
-      const st = stickers.get(d.piece)!;
+    const shown = (DECOR[key] ?? []).filter((d) => stickers.get(d.piece, key) && t >= d.at);
+    if (!shown.length) return null;
+    return shown.map((d, i) => {
+      const st = stickers.get(d.piece, key)!;
       const k = Math.min(d.box.w / st.w, d.box.h / st.h);
       const w = Math.round(st.w * k), h = Math.round(st.h * k);
       // pop: big, a touch past, then settled; after that the paper wobble six times a second
