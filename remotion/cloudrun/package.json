@@ -1,0 +1,6 @@
+{
+  "name": "advisortool-remotion-render",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@remotion/renderer": "4.0.531", "remotion": "4.0.531", "react": "19.1.0", "react-dom": "19.1.0" }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "advisortool-remotion",
+  "private": true,
+  "type": "module",
+  "description": "Trial: วิดีโอนำเสนอ's Motion Graphic themes drawn by Remotion (owner, 2026-10-17)",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "bundle": "remotion bundle src/index.ts --out-dir build",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.531",
+    "@remotion/cli": "4.0.531",
+    "@remotion/renderer": "4.0.531",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.531"
+  }
+}

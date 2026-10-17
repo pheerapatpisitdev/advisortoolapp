@@ -1,0 +1,5 @@
+# gcloud builds submit remotion --config remotion/cloudrun/cloudbuild.yaml (after npm run bundle and the prepare step)
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "cloudrun/Dockerfile", "-t", "asia-southeast1-docker.pkg.dev/advisortool-video/clip/remotion-port:latest", "."]
+images: ["asia-southeast1-docker.pkg.dev/advisortool-video/clip/remotion-port:latest"]
