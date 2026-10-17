@@ -194,7 +194,7 @@ describe("takeRound", () => {
 
 describe("takeRound for an outside member (owner, 2026-10-13)", () => {
   const member: Viewer = { ...agent, kind: "member", agentId: "00000000-0000-4000-8000-000000000009", tenantId: null };
-  const on = { ...DEFAULT_PASS_SETTINGS, enabled: true, rounds: 10 };
+  const on = { ...DEFAULT_PASS_SETTINGS, enabled: true };
   const start = new Date("2026-10-12T03:00:00Z");
   const live = { status: "live", period: { rowId: 1, kind: "paid", start, end: new Date(start.getTime() + 30 * 86_400_000) }, end: new Date(start.getTime() + 30 * 86_400_000) };
 
@@ -219,21 +219,32 @@ describe("takeRound for an outside member (owner, 2026-10-13)", () => {
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
-  it("counts a live member's free rounds from the period's start, reading the pass once", async () => {
+  it("gives a live member no free round: the round is held from the pass's credit, then their own money (owner, 2026-10-17)", async () => {
     access.memberAccess.mockResolvedValue({ gated: true, state: live, settings: on });
-    expect(await takeRound(member, "ai-write")).toMatchObject({ ok: true, paidBy: "free" });
+    freeUsed();
+    expect(await takeRound(member, "ai-write")).toMatchObject({ ok: true, paidBy: "wallet", holdId: "h1" });
     expect(db.rpc).toHaveBeenCalledWith("ins_take_free_round", expect.objectContaining({
-      p_agent: member.agentId, p_limit: 10, p_from: start.toISOString(),
+      p_agent: member.agentId, p_limit: 0, p_from: start.toISOString(),
     }));
+    // ins_wallet_hold takes from the credit first (supabase/migrations/20261120_member_credit.sql)
+    expect(wallet.holdWallet).toHaveBeenCalledWith(member.agentId, holdSatang("ai-write", 2), "ai-write");
     expect(access.memberAccess).toHaveBeenCalledTimes(1);
   });
 
-  it("says the period's own number when its rounds are used and the wallet is off", async () => {
-    access.memberAccess.mockResolvedValue({ gated: true, state: live, settings: { ...on, rounds: 25 } });
+  it("says the credit and the wallet together fell short, not that free rounds ran out", async () => {
+    access.memberAccess.mockResolvedValue({ gated: true, state: live, settings: on });
+    freeUsed();
+    wallet.holdWallet.mockResolvedValueOnce(null);
+    const r = await takeRound(member, "ai-write");
+    expect(r.ok === false && r.refusal).toMatch(/^เครดิตและเงินในกระเป๋าไม่พอ — รอบนี้ต้องมีอย่างน้อย ฿10\.00/);
+  });
+
+  it("says Studio cannot be paid for when the wallet is off", async () => {
+    access.memberAccess.mockResolvedValue({ gated: true, state: live, settings: on });
     freeUsed();
     wallet.walletSettings.mockResolvedValueOnce({ enabled: false, multiplier: 2, agentId: member.agentId });
     const r = await takeRound(member, "ai-write");
-    expect(r.ok === false && r.refusal).toMatch(/รอบฟรีครบ 25 ครั้ง/);
+    expect(r.ok === false && r.refusal).toBe("ตอนนี้ยังใช้เครดิตและกระเป๋าเงินไม่ได้ครับ");
   });
 
   it("keeps the one-time ten while the switch is off", async () => {

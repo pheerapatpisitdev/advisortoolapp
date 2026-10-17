@@ -5,6 +5,7 @@ import {
   daysLeft,
   roundsFrom,
   videosFrom,
+  creditLots,
   onTrial,
   DEFAULT_PASS_SETTINGS,
   type PassRow,
@@ -102,9 +103,9 @@ describe("daysLeft", () => {
 describe("roundsFrom", () => {
   const on = { ...DEFAULT_PASS_SETTINGS, enabled: true };
   const rows = [row(1, "trial", 3, "2026-10-13")];
-  it("live and enabled gives the limit from the period start", () => {
+  it("a live pass carries no free rounds since the credit took their place (owner, 2026-10-17)", () => {
     const s = passState(rows, at("2026-10-14"));
-    expect(roundsFrom(s, on)).toEqual({ limit: 10, from: at("2026-10-13") });
+    expect(roundsFrom(s, on)).toEqual({ limit: 0, from: at("2026-10-13") });
   });
   it("expired, none or disabled gives null", () => {
     expect(roundsFrom(passState(rows, at("2026-11-01")), on)).toBeNull();
@@ -116,14 +117,47 @@ describe("roundsFrom", () => {
 describe("videosFrom (owner, 2026-10-14)", () => {
   const on = { ...DEFAULT_PASS_SETTINGS, enabled: true };
   const rows = [row(1, "trial", 3, "2026-10-13"), row(2, "paid", 30, "2026-10-14")];
-  it("counts the period's own clips afresh from its start, each period anew", () => {
-    expect(videosFrom(passState(rows, at("2026-10-14")), on)).toEqual({ limit: 2, from: at("2026-10-13") });
-    expect(videosFrom(passState(rows, at("2026-10-20")), { ...on, videos: 4 })).toEqual({ limit: 4, from: at("2026-10-16") });
+  it("a live pass carries no free clips since the credit took their place (owner, 2026-10-17)", () => {
+    expect(videosFrom(passState(rows, at("2026-10-14")), on)).toEqual({ limit: 0, from: at("2026-10-13") });
+    expect(videosFrom(passState(rows, at("2026-10-20")), on)).toEqual({ limit: 0, from: at("2026-10-16") });
   });
   it("expired, none or switched off gives null: the one-time two apply", () => {
     expect(videosFrom(passState(rows, at("2026-12-01")), on)).toBeNull();
     expect(videosFrom({ status: "none" }, on)).toBeNull();
     expect(videosFrom(passState(rows, at("2026-10-14")), DEFAULT_PASS_SETTINGS)).toBeNull();
+  });
+});
+
+describe("creditLots (owner, 2026-10-17)", () => {
+  const on = { ...DEFAULT_PASS_SETTINGS, enabled: true };
+  it("the trial carries ฿15 to its end, each payment ฿50 from the moment it was paid to its period's end", () => {
+    const rows = [row(1, "trial", 3, "2026-10-17"), row(2, "paid", 30, "2026-10-18")];
+    expect(creditLots(rows, on, at("2026-10-18"))).toEqual({
+      lots: [
+        { passId: 1, satang: 1500, startsAt: at("2026-10-17"), expiresAt: at("2026-10-20") },
+        // paid during the trial: usable at once, its 30 days stacked after the trial
+        { passId: 2, satang: 5000, startsAt: at("2026-10-18"), expiresAt: at("2026-11-19") },
+      ],
+      voids: [],
+    });
+  });
+  it("leaves out periods already over, and granted and friend days, which carry no credit", () => {
+    const rows = [row(1, "trial", 3, "2026-09-01"), row(2, "granted", 7, "2026-10-17"), row(3, "referral", 3, "2026-10-17")];
+    expect(creditLots(rows, on, at("2026-10-18")).lots).toEqual([]);
+  });
+  it("an early renewal is its own lot, ending with the period it bought", () => {
+    const rows = [row(1, "paid", 30, "2026-10-01"), row(2, "paid", 30, "2026-10-20")];
+    expect(creditLots(rows, on, at("2026-10-20")).lots.map((l) => [l.passId, l.expiresAt])).toEqual([
+      [1, at("2026-10-31")], [2, at("2026-11-30")],
+    ]);
+  });
+  it("names the refunded passes, whose lot is voided, and writes none for them", () => {
+    const rows = [row(1, "paid", 30, "2026-10-10"), row(2, "revoked", 0, "2026-10-12", 1)];
+    expect(creditLots(rows, on, at("2026-10-12"))).toEqual({ lots: [], voids: [1] });
+  });
+  it("writes no lot for an amount the owner set to ฿0", () => {
+    const rows = [row(1, "trial", 3, "2026-10-17")];
+    expect(creditLots(rows, { ...on, trialCreditSatang: 0 }, at("2026-10-17")).lots).toEqual([]);
   });
 });
 

@@ -106,8 +106,8 @@ describe("listMembers", () => {
     // the pass switched off (nothing saved): no pass column, the one-time ten (owner, 2026-10-13)
     db.on("ins_ai_settings", { data: null });
     expect(await store.listMembers()).toEqual([
-      { id: "m2", name: "ข", email: "b@gmail.com", status: "suspended", createdAt: "2026-10-02T00:00:00Z", balanceSatang: 0, freeUsed: 3, freeLimit: 10, footprint: { pieces: 12, customers: 4, people: 0 }, pass: null },
-      { id: "m1", name: "ก", email: "a@gmail.com", status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 5000, freeUsed: 10, freeLimit: 10, footprint: null, pass: null },
+      { id: "m2", name: "ข", email: "b@gmail.com", status: "suspended", createdAt: "2026-10-02T00:00:00Z", balanceSatang: 0, freeUsed: 3, freeLimit: 10, creditSatang: 0, footprint: { pieces: 12, customers: 4, people: 0 }, pass: null },
+      { id: "m1", name: "ก", email: "a@gmail.com", status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 5000, freeUsed: 10, freeLimit: 10, creditSatang: 0, footprint: null, pass: null },
     ]);
   });
 });

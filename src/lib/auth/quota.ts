@@ -50,8 +50,8 @@ function windowOf(access: Awaited<ReturnType<typeof memberAccess>>): FreeWindow 
 }
 
 /**
- * Which free rounds count: a member with a live pass has the pass's rounds, counted afresh from
- * the period's start (owner, 2026-10-13); everyone else the one-time ten. memberAccess reads
+ * Which free rounds count: a member with a live pass has none — the pass carries credit instead,
+ * which the wallet's hold spends first (owner, 2026-10-17); everyone else the one-time ten. memberAccess reads
  * nothing for a UnitOS agent or while the switch is off. Throws when the pass cannot be read.
  */
 export async function freeWindow(viewer: Viewer): Promise<FreeWindow> {
@@ -71,12 +71,19 @@ export async function allowanceOf(viewer: Viewer): Promise<Allowance> {
 /** The refusal to show, or null when a round may start. */
 export function overAllowance(a: Allowance): string | null {
   if (a.limit === null || a.used < a.limit) return null;
+  // a member's pass has credit, not free rounds (owner, 2026-10-17): with the wallet off there is nothing to pay from
+  if (a.limit === 0) return "ตอนนี้ยังใช้เครดิตและกระเป๋าเงินไม่ได้ครับ";
   return `ใช้รอบฟรีครบ ${a.limit} ครั้งแล้ว`;
 }
 
-/** the refusal when the free rounds are used and the wallet has not got this round's price */
-export const walletShort = (neededSatang: number): string =>
-  `รอบฟรีหมดแล้ว — รอบนี้ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(neededSatang)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`;
+/**
+ * the refusal when the free rounds are used and the wallet has not got this round's price; for a
+ * member (no free rounds, `free` 0) it is the credit and their own money together that fell short
+ */
+export const walletShort = (neededSatang: number, free?: number): string =>
+  free === 0
+    ? `เครดิตและเงินในกระเป๋าไม่พอ — รอบนี้ต้องมีอย่างน้อย ${formatBaht(neededSatang)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`
+    : `รอบฟรีหมดแล้ว — รอบนี้ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(neededSatang)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`;
 
 /** the refusal when the free rounds could not be counted: a round nobody can count is not run free */
 export const UNCOUNTED = "นับรอบฟรีไม่ได้ในตอนนี้ ลองใหม่อีกครั้งนะครับ";
@@ -155,7 +162,7 @@ export async function takeRound(viewer: Viewer, round: AiRound, target: string |
   });
   if (!holdId) {
     // a frozen wallet refuses a hold the same way an empty one does; it is told apart only here
-    return { ok: false, refusal: (await walletFrozen(viewer.agentId)) ? WALLET_FROZEN : walletShort(heldSatang) };
+    return { ok: false, refusal: (await walletFrozen(viewer.agentId)) ? WALLET_FROZEN : walletShort(heldSatang, window.limit) };
   }
   const { error } = await supabaseAdmin().from("ins_audit").insert({ agent_id: viewer.agentId, action: round, target, detail: { wallet: true } });
   // the round is paid for by the hold, so a lost line costs the count, not the money

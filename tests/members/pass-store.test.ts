@@ -148,7 +148,7 @@ describe("passSettings", () => {
   it("falls back to the defaults with no row", async () => {
     db.results = [{ data: null }];
     expect((await store.passSettings()).enabled).toBe(false);
-    expect(sent("select")).toEqual([["member_pass_enabled, member_pass_satang, member_trial_days, member_pass_rounds, member_pass_videos", undefined]]);
+    expect(sent("select")).toEqual([["member_pass_enabled, member_pass_satang, member_trial_days, member_trial_credit_satang, member_pass_credit_satang", undefined]]);
   });
   it("throws on error", async () => {
     db.results = [{ error: { message: "boom" } }];
@@ -165,11 +165,11 @@ describe("grantPass", () => {
 
 describe("savePassSettings", () => {
   it("upserts the one settings row", async () => {
-    await store.savePassSettings({ enabled: true, satang: 9900, trialDays: 3, rounds: 10, videos: 2 });
+    await store.savePassSettings({ enabled: true, satang: 19900, trialDays: 3, trialCreditSatang: 1500, creditSatang: 5000 });
     const up = db.calls.find((c) => c.op === "upsert");
     expect(up?.arg).toEqual({
-      id: true, member_pass_enabled: true, member_pass_satang: 9900, member_trial_days: 3, member_pass_rounds: 10,
-      member_pass_videos: 2,
+      id: true, member_pass_enabled: true, member_pass_satang: 19900, member_trial_days: 3,
+      member_trial_credit_satang: 1500, member_pass_credit_satang: 5000,
       updated_at: expect.any(String),
     });
     expect(up?.arg2).toEqual({ onConflict: "id" });

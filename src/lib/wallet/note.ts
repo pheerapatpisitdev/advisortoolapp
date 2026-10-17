@@ -13,10 +13,15 @@ export interface Rounds {
 
 export function roundsNote(rounds: Rounds, estimate: string | number): { text: string; topUp: boolean } {
   const left = Math.max(0, rounds.limit - rounds.used);
+  if (rounds.limit === 0 && !rounds.wallet) return { text: `ราว ฿${estimate} · ตอนนี้ยังใช้เครดิตและกระเป๋าเงินไม่ได้`, topUp: false };
   if (left > 0 || !rounds.wallet) {
     return { text: `ราว ฿${estimate} · รอบฟรีเหลือ ${left} จาก ${rounds.limit} ครั้ง`, topUp: false };
   }
   const price = (Number(estimate) * rounds.wallet.multiplier).toFixed(2);
+  // a member's pass has credit, not free rounds (owner, 2026-10-17): the balance is the two together
+  if (rounds.limit === 0) {
+    return { text: `ราว ฿${price} · หักจากเครดิตและกระเป๋า · คงเหลือ ${formatBaht(rounds.wallet.satang)}`, topUp: true };
+  }
   return {
     text: `ราว ฿${price} จากกระเป๋า · รอบฟรีหมดแล้ว · คงเหลือ ${formatBaht(rounds.wallet.satang)}`,
     topUp: true,

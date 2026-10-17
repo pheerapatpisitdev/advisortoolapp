@@ -26,6 +26,17 @@ describe("งานวันนี้ tiles", () => {
     ]);
   });
 
+  it("shows a member's Studio credit, credit and own money together, in place of free rounds (owner, 2026-10-17)", () => {
+    const t = buildToday({ ...base, walletSatang: 5800, rounds: { limit: 0, used: 4 }, passEnd: new Date("2026-11-14T09:00:00+07:00") });
+    expect(t.tiles.map((x) => [x.key, x.label, x.value, x.note, x.href])).toEqual([
+      ["pass", "สมาชิก", "31 วัน", "ถึง 14 พ.ย.", "/membership"],
+      ["rounds", "เครดิต Studio", "฿58", "รวมเงินที่เติมเอง", "/studio/wallet"],
+    ]);
+    expect(buildToday({ ...base, walletSatang: 0, rounds: { limit: 0, used: 0 } }).tiles.find((x) => x.key === "rounds")?.tone).toBe("warn");
+    // the wallet off: nothing to spend, so no tile rather than "0 of 0 rounds"
+    expect(buildToday({ ...base, walletSatang: null, rounds: { limit: 0, used: 0 } }).tiles).toEqual([]);
+  });
+
   it("shows a member's pass instead of the wallet, in sand from three days out", () => {
     const t = buildToday({ ...base, walletSatang: 5000, passEnd: new Date("2026-10-16T09:00:00+07:00") });
     expect(t.tiles).toHaveLength(1);

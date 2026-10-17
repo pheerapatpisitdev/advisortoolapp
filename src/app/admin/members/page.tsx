@@ -39,7 +39,7 @@ export default async function MembersPage() {
     }),
   ]);
   const hint = pass?.enabled
-    ? `${WHO}จ่ายค่าสมาชิก ฿${price(pass.satang)} ต่อ 30 วัน ได้ Studio ฟรี ${pass.rounds} รอบทุก 30 วัน`
+    ? `${WHO}จ่ายค่าสมาชิก ฿${price(pass.satang)} ต่อ 30 วัน ได้เครดิต Studio ฿${price(pass.creditSatang)} ทุก 30 วัน${pass.trialDays > 0 ? ` · ทดลอง ${pass.trialDays} วันได้ ฿${price(pass.trialCreditSatang)}` : ""}`
     : `${WHO}รอบฟรี 10 รอบ แล้วเติมเงินในกระเป๋า`;
   return (
     <>

@@ -4,6 +4,7 @@ import { cardAllowed, formatBaht, perPostUnder, postsFor, TOPUP_THB, type TopUpT
 import type { Prices } from "@/lib/wallet/prices";
 import { entryLabel } from "@/lib/wallet/labels";
 import type { WalletEntry } from "@/lib/wallet/store";
+import type { CreditLotView } from "@/lib/members/credit";
 import { PriceList } from "./PriceList";
 import { startTopUp, topUpStatus } from "./actions";
 
@@ -13,8 +14,38 @@ const signed = (satang: number) => `${satang >= 0 ? "+" : "−"}${formatBaht(Mat
 const POLL_MS = 2000;
 const POLL_TRIES = 30;
 
-export function WalletClient({ enabled, multiplier, balanceSatang, frozen = false, entries, rounds, videos, prices, paid }: {
+/** one line of the history: a wallet entry, or a credit lot given or run out (owner, 2026-10-17) */
+interface Line { id: string; label: string; satang: number; at: string; strong: boolean }
+
+const TZ = "Asia/Bangkok";
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { timeZone: TZ, day: "numeric", month: "short" });
+
+/**
+ * The history as the member reads it: a charge the credit paid shows its whole price, marked
+ * เครดิตสมาชิก; each lot is a line when it is given and, once over, what was left of it goes as
+ * a line of its own (mockup 3NoZWL3b).
+ */
+export function historyLines(entries: WalletEntry[], lots: CreditLotView[], now: Date): Line[] {
+  const lines: Line[] = entries.map((e) => {
+    const paid = e.amountSatang - e.creditSatang;
+    const by = e.creditSatang > 0 ? (e.amountSatang < 0 ? ` · เครดิต ${formatBaht(e.creditSatang)}` : " · เครดิตสมาชิก") : "";
+    return { id: e.id, label: `${entryLabel(e)}${by}`, satang: e.kind === "charge" ? paid : e.amountSatang, at: e.createdAt, strong: e.amountSatang >= 0 && e.kind !== "charge" };
+  });
+  for (const l of lots) {
+    const name = l.kind === "trial" ? "เครดิตทดลอง" : "เครดิตสมาชิก 30 วัน";
+    lines.push({ id: `lot-${l.passId}`, label: name, satang: l.amountSatang, at: l.startsAt, strong: true });
+    const ended = l.voidedAt ?? (new Date(l.expiresAt).getTime() <= now.getTime() ? l.expiresAt : null);
+    if (ended && l.leftSatang > 0) {
+      lines.push({ id: `lot-${l.passId}-end`, label: l.voidedAt ? `${name} ถูกยกเลิก (คืนเงินค่าสมาชิก)` : `${name} หมดอายุ`, satang: -l.leftSatang, at: ended, strong: false });
+    }
+  }
+  return lines.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+export function WalletClient({ enabled, multiplier, balanceSatang, frozen = false, entries, rounds, videos, prices, paid, credit = null }: {
   enabled: boolean;
+  /** an outside member's pass credit (owner, 2026-10-17): the balance split, and the lots for the history; null for an agent */
+  credit?: { own: number; satang: number; expiresAt: string | null; lots: CreditLotView[] } | null;
   /** the owner's price list, shown under the top-ups (owner, 2026-10-12) */
   prices: Prices;
   /** the free วิดีโอนำเสนอ clips left of all of them; null when they could not be counted */
@@ -64,17 +95,31 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
   });
 
   const freeLeft = Math.max(0, rounds.limit - rounds.used);
+  const lines = historyLines(entries, credit?.lots ?? [], new Date());
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <section className="rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5">
         <p className="text-sm text-[var(--ct-mute)]">ยอดในกระเป๋า</p>
         <p className="mt-1 text-3xl font-semibold tabular-nums">{formatBaht(balance)}</p>
-        <p className="mt-2 text-sm text-[var(--ct-mute)]">
-          รอบ AI ฟรีเหลือ {freeLeft}/{rounds.limit}{videos ? ` · วิดีโอฟรีเหลือ ${videos.left}/${videos.of}` : ""} · หมดแล้วจึงตัดจากกระเป๋าตามราคา ·{" "}
-          {/* the way to the price list, now the menu has no ราคา of its own for agents (owner, 2026-10-13) */}
-          <a href="#prices" className="font-medium text-[var(--ct-ink)] underline underline-offset-2">ดูราคา</a>
-        </p>
+        {credit ? (
+          <div className="mt-2 space-y-1 text-sm tabular-nums">
+            <p className="flex justify-between gap-3">
+              <span>เครดิตสมาชิก (ใช้ก่อน{credit.expiresAt ? ` · หมดอายุ ${shortDate(credit.expiresAt)}` : ""})</span>
+              <b>{formatBaht(credit.satang)}</b>
+            </p>
+            <p className="flex justify-between gap-3"><span>เงินที่เติมเอง (ไม่มีวันหมดอายุ)</span><b>{formatBaht(credit.own)}</b></p>
+            <p className="text-[var(--ct-mute)]">
+              <a href="#prices" className="font-medium text-[var(--ct-ink)] underline underline-offset-2">ดูราคา</a>
+            </p>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-[var(--ct-mute)]">
+            รอบ AI ฟรีเหลือ {freeLeft}/{rounds.limit}{videos ? ` · วิดีโอฟรีเหลือ ${videos.left}/${videos.of}` : ""} · หมดแล้วจึงตัดจากกระเป๋าตามราคา ·{" "}
+            {/* the way to the price list, now the menu has no ราคา of its own for agents (owner, 2026-10-13) */}
+            <a href="#prices" className="font-medium text-[var(--ct-ink)] underline underline-offset-2">ดูราคา</a>
+          </p>
+        )}
         {frozen && (
           <p className="mt-3 text-sm font-medium text-[var(--ct-warn-ink)]" role="status">
             กระเป๋าเงินถูกพักไว้ชั่วคราว เพราะมีการคืนเงินหรือโต้แย้งการชำระเงินที่เติมไว้ — ระหว่างนี้ใช้ AI จากกระเป๋าและเติมเงินไม่ได้ กรุณาติดต่อสำนักงานครับ
@@ -115,17 +160,17 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium">ประวัติ</h2>
-        {entries.length === 0 ? (
+        {lines.length === 0 ? (
           <p className="text-sm text-[var(--ct-mute)]">ยังไม่มีรายการ</p>
         ) : (
           <ul className="divide-y divide-[var(--ct-hair)] rounded-xl border border-[var(--ct-hair)]">
-            {entries.map((e) => (
+            {lines.map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                 <span className="min-w-0">
-                  <span className="block truncate">{entryLabel(e)}</span>
-                  <span className="block text-xs text-[var(--ct-mute)]">{new Date(e.createdAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "medium", timeStyle: "short" })}</span>
+                  <span className="block truncate">{e.label}</span>
+                  <span className="block text-xs text-[var(--ct-mute)]">{new Date(e.at).toLocaleString("th-TH", { timeZone: TZ, dateStyle: "medium", timeStyle: "short" })}</span>
                 </span>
-                <span className={`shrink-0 tabular-nums ${e.amountSatang >= 0 ? "font-medium" : "text-[var(--ct-mute)]"}`}>{signed(e.amountSatang)}</span>
+                <span className={`shrink-0 tabular-nums ${e.strong ? "font-medium" : "text-[var(--ct-mute)]"}`}>{signed(e.satang)}</span>
               </li>
             ))}
           </ul>

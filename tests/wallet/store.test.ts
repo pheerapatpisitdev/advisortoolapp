@@ -19,6 +19,10 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
+// an outside member's pass credit (owner, 2026-10-17): its own reads, tested in tests/members/credit.test.ts
+const credit = vi.hoisted(() => ({ creditLeft: vi.fn() }));
+vi.mock("@/lib/members/credit", () => credit);
+
 const store = await import("@/lib/wallet/store");
 
 beforeEach(() => {
@@ -26,6 +30,7 @@ beforeEach(() => {
   db.rpc.mockResolvedValue({ data: null, error: null });
   db.settings = { data: null, error: null };
   db.wallet = { data: null, error: null };
+  credit.creditLeft.mockResolvedValue({ satang: 0, of: 0, expiresAt: null });
 });
 
 describe("walletSettings", () => {
@@ -138,9 +143,16 @@ describe("balanceSatang", () => {
 });
 
 describe("walletStatus and walletFrozen", () => {
+  it("counts a member's live credit with their own money, apart and together (owner, 2026-10-17)", async () => {
+    db.wallet = { data: { balance_satang: 2000, frozen_at: null }, error: null };
+    credit.creditLeft.mockResolvedValueOnce({ satang: 3800, of: 5000, expiresAt: "2026-11-19T00:00:00Z" });
+    expect(await store.walletStatus("m1")).toEqual({ satang: 5800, own: 2000, credit: 3800, frozen: false });
+    expect(credit.creditLeft).toHaveBeenCalledWith("m1");
+  });
+
   it("say whether a refund or a dispute froze the wallet", async () => {
     db.wallet = { data: { balance_satang: "300", frozen_at: "2026-10-01T03:00:00Z" }, error: null };
-    expect(await store.walletStatus("a1")).toEqual({ satang: 300, frozen: true });
+    expect(await store.walletStatus("a1")).toEqual({ satang: 300, own: 300, credit: 0, frozen: true });
     expect(await store.walletFrozen("a1")).toBe(true);
     db.wallet = { data: { balance_satang: 300, frozen_at: null }, error: null };
     expect(await store.walletFrozen("a1")).toBe(false);

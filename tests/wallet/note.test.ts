@@ -23,6 +23,17 @@ describe("the note under the make button", () => {
   });
 });
 
+describe("the note for a member, whose pass carries credit, not free rounds (owner, 2026-10-17)", () => {
+  it("says the round comes from the credit and the wallet, with the two together left", () => {
+    expect(roundsNote({ used: 3, limit: 0, wallet: { satang: 5800, multiplier: 2 } }, "1.20"))
+      .toEqual({ text: "ราว ฿2.40 · หักจากเครดิตและกระเป๋า · คงเหลือ ฿58.00", topUp: true });
+  });
+  it("never says free rounds ran out, even with the wallet off", () => {
+    expect(roundsNote({ used: 0, limit: 0, wallet: null }, "1.20"))
+      .toEqual({ text: "ราว ฿1.20 · ตอนนี้ยังใช้เครดิตและกระเป๋าเงินไม่ได้", topUp: false });
+  });
+});
+
 describe("the money the page reckons with", () => {
   const wallet = { satang: 5000, multiplier: 2 };
 

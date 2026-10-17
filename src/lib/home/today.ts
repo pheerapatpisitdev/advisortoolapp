@@ -96,7 +96,12 @@ export function buildToday(i: TodayInput): Today {
     tiles.push({ key: "wallet", label: "กระเป๋าเงิน", value: baht(i.walletSatang), note: "เติมเงิน", href: "/studio/wallet", tone: "plain" });
   }
 
-  if (i.rounds) {
+  if (i.rounds && i.rounds.limit === 0) {
+    // a member's pass carries credit, not free rounds (owner, 2026-10-17): what Studio can spend, credit and own money together
+    if (i.walletSatang !== null) {
+      tiles.push({ key: "rounds", label: "เครดิต Studio", value: baht(i.walletSatang), note: "รวมเงินที่เติมเอง", href: "/studio/wallet", tone: i.walletSatang === 0 ? "warn" : "plain" });
+    }
+  } else if (i.rounds) {
     const left = Math.max(0, i.rounds.limit - i.rounds.used);
     tiles.push({
       key: "rounds", label: "รอบฟรี Studio", value: String(left), note: `จาก ${i.rounds.limit} รอบ`,

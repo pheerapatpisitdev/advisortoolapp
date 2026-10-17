@@ -4,6 +4,7 @@
 import { cache } from "react";
 import type { Viewer } from "@/lib/auth/access";
 import { passState, type PassRow, type PassSettings, type PassState } from "./pass";
+import { syncCredits } from "./credit";
 import { ensureTrial, passRows, passSettings } from "./pass-store";
 
 export type MemberAccess = { gated: false } | { gated: true; state: PassState; settings: PassSettings };
@@ -28,6 +29,10 @@ const passRead = cache(async (memberId: string): Promise<{ settings: PassSetting
     await ensureTrial(memberId, settings.trialDays);
     rows = await passRows(memberId);
   }
+  // the credit the ledger earns, written the first time it is seen (owner, 2026-10-17); a write
+  // that fails leaves the member paying from their own money until the next visit, so it is
+  // logged rather than locking them out
+  await syncCredits(memberId, rows, settings).catch((e) => console.error("member credit not synced:", e));
   return { settings, rows };
 });
 

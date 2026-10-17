@@ -14,32 +14,31 @@ const NOW = "2026-10-13T03:00:00Z";
 const row = (r: Partial<PassRow> & Pick<PassRow, "id" | "kind" | "days">): PassRow =>
   ({ revokes: null, createdAt: "2026-10-13T02:00:00Z", amountSatang: null, note: null, ...r });
 const base: Props = {
-  on: true, pass: { status: "none" }, now: NOW, rounds: null, videos: null, passRounds: 10, passVideos: 2,
+  on: true, pass: { status: "none" }, now: NOW, credit: null, passCredit: 5000,
   priceSatang: 9900, balanceSatang: null, rows: [], paid: null,
 };
 const draw = (p: Partial<Props>) => renderToStaticMarkup(createElement(MembershipClient, { ...base, ...p }));
 
 describe("the membership page", () => {
-  it("in the trial: free until the date, the rounds left, and renewing by PromptPay below ฿150", () => {
+  it("in the trial: free until the date, the trial credit left, and renewing by PromptPay below ฿150 (owner, 2026-10-17)", () => {
     const html = draw({
       pass: { status: "live", kind: "trial", end: "2026-10-15T17:30:00Z", periodEnd: "2026-10-15T17:30:00Z" },
-      rounds: { left: 8, limit: 10 }, videos: { left: 2, of: 2 }, rows: [row({ id: 1, kind: "trial", days: 3 })],
+      credit: { satang: 1100, of: 1500, expiresAt: "2026-10-15T17:30:00Z" }, rows: [row({ id: 1, kind: "trial", days: 3 })],
     });
     expect(html).toContain("ทดลองใช้ฟรีถึง 16 ต.ค. 2569");
     expect(html).toContain("เหลือ 3 วัน");
-    expect(html).toContain("รอบนี้เหลือ");
-    expect(html).toContain("<b>8</b> / 10 รอบ");
-    expect(html).toContain("<b>2</b> / 2 คลิป");
-    expect(html).toContain("ช่วงทดลองได้ตามนี้ · จ่ายแล้วได้ใหม่ทุก 30 วัน");
+    expect(html).toContain("เครดิตทดลอง");
+    expect(html).toContain("<b>฿11</b> / ฿15");
+    expect(html).toContain("หมดอายุพร้อมช่วงทดลอง · จ่ายแล้วได้ ฿50 ทุกครั้ง");
     expect(html).toContain("ต่ออายุ 30 วัน ฿99");
-    expect(html).toContain("จ่ายด้วยพร้อมเพย์");
+    expect(html).toContain("ได้ 30 วัน + เครดิต ฿50 · จ่ายด้วยพร้อมเพย์");
     expect(html).toContain("ทดลองใช้ฟรี · +3 วัน");
   });
 
   it("paid: usable until the end, renewing stacks on it, history newest first", () => {
     const html = draw({
       pass: { status: "live", kind: "paid", end: "2026-11-14T17:30:00Z", periodEnd: "2026-11-14T17:30:00Z" },
-      rounds: { left: 7, limit: 10 }, videos: { left: 1, of: 2 },
+      credit: { satang: 3800, of: 5000, expiresAt: "2026-11-14T17:30:00Z" },
       rows: [
         row({ id: 1, kind: "trial", days: 3, createdAt: "2026-10-12T02:00:00Z" }),
         row({ id: 2, kind: "paid", days: 30, amountSatang: 9900 }),
@@ -48,10 +47,11 @@ describe("the membership page", () => {
       ],
     });
     expect(html).toContain("ใช้ได้ถึง 15 พ.ย. 2569");
-    expect(html).toContain("<b>7</b> / 10 รอบ");
-    expect(html).toContain("<b>1</b> / 2 คลิป");
-    expect(html).toContain("ได้ใหม่ 15 พ.ย. · ที่เหลือไม่สะสม · เกินแล้วหักกระเป๋าตามราคา");
+    expect(html).toContain("เครดิต Studio รอบนี้");
+    expect(html).toContain("<b>฿38</b> / ฿50");
+    expect(html).toContain("ที่เหลือหมดอายุ 15 พ.ย. ไม่ทบ · หมดแล้วใช้เงินที่เติมเอง");
     expect(html).toContain("ต่ออายุอีก 30 วัน ฿99");
+    expect(html).toContain("นับต่อจาก 15 พ.ย. · ได้เครดิตอีก ฿50");
     expect(html).toContain("จ่าย ฿99 · +30 วัน");
     expect(html).toContain("เพิ่มให้โดยเจ้าของ · +5 วัน · ชดเชย");
     expect(html).toContain("ยกเลิกเพราะคืนเงิน");
@@ -70,34 +70,32 @@ describe("the membership page", () => {
     expect(html).toContain("เมื่อ 10 ต.ค. 2569");
     expect(html).toContain("เงินในกระเป๋า Studio ฿42.50 ยังอยู่ครบ ใช้ได้อีกเมื่อต่ออายุ");
     expect(html).toContain("ต่ออายุ 30 วัน ฿99");
-    expect(html).not.toContain("รอบนี้เหลือ");
+    expect(html).not.toContain("เครดิต Studio รอบนี้");
+    expect(html).toContain("ได้ 30 วัน + เครดิต ฿50");
   });
 
-  it("lists what every 30 days brings, on the live page and the expired one (owner, 2026-10-14)", () => {
-    const live = draw({
-      pass: { status: "live", kind: "paid", end: "2026-11-14T17:30:00Z", periodEnd: "2026-11-14T17:30:00Z" },
-      passRounds: 30,
-    });
+  it("lists what every 30 days brings, on the live page and the expired one (owner, 2026-10-17)", () => {
+    const live = draw({ pass: { status: "live", kind: "paid", end: "2026-11-14T17:30:00Z", periodEnd: "2026-11-14T17:30:00Z" } });
     expect(live).toContain("ทุก 30 วันได้");
     expect(live).toContain("ถาม AI ไม่จำกัด");
-    expect(live).toContain("Studio ฟรี 30 รอบ");
-    expect(live).toContain("วิดีโอนำเสนอฟรี 2 คลิป");
-    expect(live).toContain("เขียนโพสต์ วาดรูป ภาพปกคลิป ถอดรูปเป็น prompt");
+    expect(live).toContain("เครดิต Studio ฿50");
+    expect(live).toContain("หน้าคำนวณเบี้ยทุกแบบ");
+    expect(live).not.toContain("รอบ</");
+    expect(live).not.toContain("คลิป</");
 
-    const expired = draw({ pass: { status: "expired", end: "2026-10-10T00:00:00Z" }, passRounds: 30 });
+    const expired = draw({ pass: { status: "expired", end: "2026-10-10T00:00:00Z" } });
     expect(expired).toContain("ต่ออายุ ฿99 ได้ 30 วัน");
-    expect(expired).toContain("Studio ฟรี 30 รอบ");
-    expect(expired).toContain("วิดีโอนำเสนอฟรี 2 คลิป");
+    expect(expired).toContain("เครดิต Studio ฿50");
     expect(expired).not.toContain("ทุก 30 วันได้");
   });
 
-  it("leaves the clips out of the list and the meters when the owner sets none", () => {
+  it("leaves the credit out of the list and the meter when the owner sets none", () => {
     const html = draw({
       pass: { status: "live", kind: "paid", end: "2026-11-14T17:30:00Z", periodEnd: "2026-11-14T17:30:00Z" },
-      rounds: { left: 7, limit: 10 }, videos: { left: 0, of: 0 }, passVideos: 0,
+      credit: { satang: 0, of: 0, expiresAt: null }, passCredit: 0,
     });
-    expect(html).not.toContain("วิดีโอนำเสนอฟรี");
-    expect(html).toContain("<b>7</b> / 10 รอบ");
+    expect(html).not.toContain("เครดิต Studio");
+    expect(html).toContain("ถาม AI ไม่จำกัด");
   });
 
   it("no pass at all reads as expired, without a date", () => {

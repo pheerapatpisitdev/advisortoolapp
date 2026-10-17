@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { allowanceOf } from "@/lib/auth/quota";
+import { creditLotsOf, creditOf } from "@/lib/members/credit";
 import { freeVideosLeft } from "@/lib/quote-video/make";
 import { walletEntries, walletPrices, walletSettings, walletStatus } from "@/lib/wallet/store";
 import { PriceList } from "./PriceList";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "กระเป๋าเงิน | Studio" };
 
 /**
- * An agent's wallet: what is in it, the free rounds left, the five top-ups, and what it was
+ * An agent's wallet: what is in it (a member's pass credit apart, 2026-10-17), the free rounds left, the five top-ups, and what it was
  * spent on (owner, 2026-09-30). Every read has a fallback, so the page opens, empty, before the
  * wallet's tables exist. The owner has no wallet: they use AI without paying; assistants have one
  * as any agent (owner, 2026-10-02). A wallet a refund or
@@ -31,13 +32,19 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
       </div>
     );
   }
-  const [settings, wallet, entries, allowance, videosLeft] = await Promise.all([
+  const [settings, wallet, entries, allowance, videosLeft, lots] = await Promise.all([
     walletSettings().catch(() => ({ enabled: false, multiplier: 2 })),
-    walletStatus(viewer.agentId).catch(() => ({ satang: 0, frozen: false })),
+    walletStatus(viewer.agentId).catch(() => ({ satang: 0, own: 0, credit: 0, frozen: false })),
     walletEntries(viewer.agentId).catch(() => []),
     allowanceOf(viewer),
     freeVideosLeft(viewer).catch(() => null),
+    // an outside member's pass credit (owner, 2026-10-17); an agent has none
+    viewer.kind === "member" ? creditLotsOf(viewer.agentId).catch(() => null) : null,
   ]);
+  // the free rounds and clips a pass used to carry are gone for a member: their credit is shown instead
+  const credit = lots && allowance.limit === 0
+    ? { own: wallet.own, satang: wallet.credit, expiresAt: creditOf(lots, new Date()).expiresAt, lots }
+    : null;
   return (
     <WalletClient
       enabled={settings.enabled}
@@ -48,6 +55,7 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
       rounds={{ used: allowance.used, limit: allowance.limit ?? 0 }}
       videos={videosLeft}
       prices={prices}
+      credit={credit}
       paid={typeof paid === "string" ? paid : null}
     />
   );

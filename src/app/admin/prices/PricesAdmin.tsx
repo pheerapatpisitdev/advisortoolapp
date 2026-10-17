@@ -109,8 +109,8 @@ function MemberPassCard({ pass }: { pass: PassSettings | null }) {
   const [enabled, setEnabled] = useState(pass?.enabled ?? false);
   const [baht, setBaht] = useState(pass ? typedBaht(pass.satang) : "");
   const [trialDays, setTrialDays] = useState(String(pass?.trialDays ?? ""));
-  const [rounds, setRounds] = useState(String(pass?.rounds ?? ""));
-  const [videos, setVideos] = useState(String(pass?.videos ?? ""));
+  const [trialCredit, setTrialCredit] = useState(pass ? String(pass.trialCreditSatang / 100) : "");
+  const [credit, setCredit] = useState(pass ? String(pass.creditSatang / 100) : "");
   const [said, setSaid] = useState<{ ok: boolean; text: string }>();
   const [pending, start] = useTransition();
 
@@ -124,7 +124,7 @@ function MemberPassCard({ pass }: { pass: PassSettings | null }) {
 
   const save = () => {
     setSaid(undefined);
-    start(async () => setSaid(await ask(() => saveMemberPass({ enabled, baht, trialDays, rounds, videos }), "บันทึกแล้ว")));
+    start(async () => setSaid(await ask(() => saveMemberPass({ enabled, baht, trialDays, trialCredit, credit }), "บันทึกแล้ว")));
   };
   const field = (label: string, id: string, value: string, set: (v: string) => void, mode: "decimal" | "numeric") => (
     <label htmlFor={id} className="block text-xs text-[var(--bot-ink-mute)]">
@@ -144,12 +144,12 @@ function MemberPassCard({ pass }: { pass: PassSettings | null }) {
         <div className="flex flex-wrap gap-4">
           {field("ราคาต่อ 30 วัน (บาท)", "pass-price", baht, setBaht, "decimal")}
           {field("ทดลองใช้ฟรี (วัน)", "trial-days", trialDays, setTrialDays, "numeric")}
-          {field("Studio ฟรีต่อ 30 วัน (รอบ)", "pass-rounds", rounds, setRounds, "numeric")}
-          {/* วิดีโอนำเสนอ per period, counted afresh like the rounds (owner, 2026-10-14) */}
-          {field("วิดีโอฟรีต่อ 30 วัน (คลิป)", "pass-videos", videos, setVideos, "numeric")}
+          {/* Studio credit in place of free rounds and clips (owner, 2026-10-17; mockup 3NoZWL3b) */}
+          {field("เครดิตช่วงทดลอง (บาท)", "trial-credit", trialCredit, setTrialCredit, "numeric")}
+          {field("เครดิตต่อ 30 วัน (บาท)", "pass-credit", credit, setCredit, "numeric")}
         </div>
         <p className="text-xs text-[var(--bot-ink-mute)]">
-          ราคาต่ำกว่า ฿150 จ่ายได้แค่พร้อมเพย์ (ค่าธรรมเนียมบัตรสูง) · {pass.trialDays > 0
+          เครดิตใช้ใน Studio ตามราคาด้านบน ก่อนเงินที่เติมเอง หมดอายุพร้อมรอบ ไม่ทบ · ราคาต่ำกว่า ฿150 จ่ายได้แค่พร้อมเพย์ (ค่าธรรมเนียมบัตรสูง) · {pass.trialDays > 0
             ? `เปิดสวิตช์แล้ว สมาชิกที่มีอยู่ได้ทดลอง ${pass.trialDays} วัน นับจากครั้งแรกที่เข้าใช้หลังเปิด`
             : "ทดลองใช้ 0 วัน = สมาชิกต้องจ่ายก่อนจึงใช้ได้"}
         </p>

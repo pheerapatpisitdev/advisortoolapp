@@ -16,7 +16,7 @@ const ON = { enabled: true, days: 3, daysCap: 30, satang: 1000, satangCap: 10000
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://www.advisortool.app");
   store.referralSettings.mockResolvedValue(ON);
-  pass.passSettings.mockResolvedValue({ enabled: true, satang: 9900, trialDays: 3, rounds: 10 });
+  pass.passSettings.mockResolvedValue({ enabled: true, satang: 9900, trialDays: 3, trialCreditSatang: 1500, creditSatang: 5000 });
   store.codeFor.mockResolvedValue("SOMCHA7");
   store.friendsOf.mockResolvedValue([]);
 });
@@ -37,7 +37,7 @@ describe("the invite card", () => {
     expect(await referralCard(viewer({ kind: "unitos", staff: { owner: true, publish: true, connect: true, admin: true } }))).toBeNull();
     store.referralSettings.mockResolvedValueOnce({ ...ON, enabled: false });
     expect(await referralCard(viewer())).toBeNull();
-    pass.passSettings.mockResolvedValueOnce({ enabled: false, satang: 9900, trialDays: 3, rounds: 10 });
+    pass.passSettings.mockResolvedValueOnce({ enabled: false, satang: 9900, trialDays: 3, trialCreditSatang: 1500, creditSatang: 5000 });
     expect(await referralCard(viewer())).toBeNull();
   });
 });

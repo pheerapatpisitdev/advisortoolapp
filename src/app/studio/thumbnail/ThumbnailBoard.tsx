@@ -53,6 +53,8 @@ const PAINTER_CHOICES = PAINTERS.filter((p) => p.modelId);
 function roundsLine(r: Rounds): { text: string; topUp: boolean } {
   const left = Math.max(0, r.limit - r.used);
   if (left > 0) return { text: `รอบฟรีเหลือ ${left} จาก ${r.limit} ครั้ง · หมดแล้วหักจากกระเป๋าเงินตามราคาโมเดล`, topUp: false };
+  // a member's pass has credit, not free rounds (owner, 2026-10-17)
+  if (r.limit === 0 && r.wallet) return { text: `หักจากเครดิตและกระเป๋าตามราคาโมเดล · คงเหลือ ${formatBaht(r.wallet.satang)}`, topUp: true };
   if (r.wallet) return { text: `รอบฟรีหมดแล้ว · หักจากกระเป๋าเงินตามราคาโมเดล · คงเหลือ ${formatBaht(r.wallet.satang)}`, topUp: true };
   return { text: `ใช้รอบฟรีครบ ${r.limit} ครั้งแล้ว`, topUp: false };
 }

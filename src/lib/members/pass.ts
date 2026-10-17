@@ -32,9 +32,10 @@ export interface PassSettings {
   enabled: boolean;
   satang: number;
   trialDays: number;
-  rounds: number;
-  /** วิดีโอนำเสนอ free clips per period (owner, 2026-10-14) */
-  videos: number;
+  /** Studio credit the trial carries (owner, 2026-10-17: ฿15) */
+  trialCreditSatang: number;
+  /** Studio credit every paid 30 days carries (owner, 2026-10-17: ฿50); it replaced the free rounds and clips */
+  creditSatang: number;
 }
 
 export const DAY_MS = 86_400_000;
@@ -47,8 +48,8 @@ export const DEFAULT_PASS_SETTINGS: PassSettings = {
   enabled: false,
   satang: 9900,
   trialDays: 3,
-  rounds: 10,
-  videos: 2,
+  trialCreditSatang: 1500,
+  creditSatang: 5000,
 };
 
 /**
@@ -106,25 +107,53 @@ export function daysLeft(end: Date, now: Date): number {
 }
 
 /**
- * The free-round allowance a live pass carries, counted from the live period's start.
- * null means no pass allowance: callers fall back to the one-time 10.
+ * The free rounds a live pass carries: none since the credit took their place (owner,
+ * 2026-10-17) — a member's rounds are paid from the pass's credit, then their own money.
+ * null means no pass allowance: callers fall back to the one-time 10 (the switch is off).
  */
 export function roundsFrom(
   state: PassState,
   settings: PassSettings,
 ): { limit: number; from: Date } | null {
   if (!settings.enabled || state.status !== "live") return null;
-  return { limit: settings.rounds, from: state.period.start };
+  return { limit: 0, from: state.period.start };
 }
 
-/**
- * The free วิดีโอนำเสนอ clips a live pass carries, counted from the live period's start (owner,
- * 2026-10-14). null means no pass allowance: callers fall back to the one-time two.
- */
+/** The free วิดีโอนำเสนอ clips a live pass carries: none, as roundsFrom. null: the one-time two. */
 export function videosFrom(
   state: PassState,
   settings: PassSettings,
 ): { limit: number; from: Date } | null {
   if (!settings.enabled || state.status !== "live") return null;
-  return { limit: settings.videos, from: state.period.start };
+  return { limit: 0, from: state.period.start };
+}
+
+/** One lot of Studio credit as the pass ledger says it should be (src/lib/members/credit.ts). */
+export interface CreditLot {
+  passId: number;
+  satang: number;
+  /** spendable from the moment it was earned: a renewal's ฿50 is usable at once */
+  startsAt: Date;
+  /** the end of the period its row bought */
+  expiresAt: Date;
+}
+
+/**
+ * The lots a member's ledger earns that are not over yet: one per trial or paid row whose
+ * period ends after `now` — granted and referral days carry no credit (owner, 2026-10-17).
+ * `voids`: the paid rows a refund or dispute cancelled, whose lot is taken away.
+ */
+export function creditLots(rows: PassRow[], settings: PassSettings, now: Date): { lots: CreditLot[]; voids: number[] } {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const lots: CreditLot[] = [];
+  for (const p of passPeriods(rows)) {
+    if (p.kind !== "trial" && p.kind !== "paid") continue;
+    if (p.end.getTime() <= now.getTime()) continue;
+    const satang = p.kind === "trial" ? settings.trialCreditSatang : settings.creditSatang;
+    if (!(satang > 0)) continue;
+    const row = byId.get(p.rowId);
+    lots.push({ passId: p.rowId, satang, startsAt: new Date(row?.createdAt ?? p.start), expiresAt: p.end });
+  }
+  const voids = rows.filter((r) => r.kind === "revoked" && r.revokes != null).map((r) => r.revokes as number);
+  return { lots, voids };
 }

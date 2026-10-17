@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/app/studio/wallet/actions", () => ({ startTopUp: vi.fn(), topUpStatus: vi.fn() }));
-const { WalletClient } = await import("@/app/studio/wallet/WalletClient");
+const { WalletClient, historyLines } = await import("@/app/studio/wallet/WalletClient");
 const { DEFAULT_PRICES } = await import("@/lib/wallet/prices");
 
 const draw = (multiplier: number, enabled = true) => renderToStaticMarkup(createElement(WalletClient, {
@@ -56,7 +56,7 @@ describe("the price list (owner, 2026-10-12)", () => {
 describe("a frozen wallet (owner, 2026-10-01)", () => {
   const frozen = renderToStaticMarkup(createElement(WalletClient, {
     enabled: true, multiplier: 2, balanceSatang: 0, frozen: true, entries: [
-      { id: "e1", kind: "clawback", amountSatang: -1500, round: null, note: "คืนเงินยอดเติมผ่าน Stripe รวม ฿100.00", createdAt: "2026-10-01T03:00:00Z" },
+      { id: "e1", kind: "clawback", amountSatang: -1500, creditSatang: 0, round: null, note: "คืนเงินยอดเติมผ่าน Stripe รวม ฿100.00", createdAt: "2026-10-01T03:00:00Z" },
     ], rounds: { used: 10, limit: 10 }, paid: null, videos: null, prices: DEFAULT_PRICES,
   }));
 
@@ -75,5 +75,49 @@ describe("a frozen wallet (owner, 2026-10-01)", () => {
 
   it("says nothing of a pause on a wallet that is not frozen", () => {
     expect(draw(2)).not.toContain("ถูกพักไว้");
+  });
+});
+
+describe("a member's wallet with pass credit (owner, 2026-10-17; mockup 3NoZWL3b)", () => {
+  const NOW = new Date("2026-10-25T03:00:00Z");
+  const lots = [
+    { passId: 2, kind: "paid" as const, amountSatang: 5000, leftSatang: 3800, startsAt: "2026-10-20T03:00:00Z", expiresAt: "2026-11-19T03:00:00Z", voided: false, voidedAt: null },
+    { passId: 1, kind: "trial" as const, amountSatang: 1500, leftSatang: 1100, startsAt: "2026-10-17T03:00:00Z", expiresAt: "2026-10-20T03:00:00Z", voided: false, voidedAt: null },
+  ];
+  const entries = [
+    { id: "c2", kind: "charge" as const, amountSatang: -300, creditSatang: 700, round: "ai-draw", note: null, createdAt: "2026-10-24T03:00:00Z" },
+    { id: "c1", kind: "charge" as const, amountSatang: 0, creditSatang: 500, round: "quote-video", note: null, createdAt: "2026-10-22T03:00:00Z" },
+    { id: "t1", kind: "topup" as const, amountSatang: 2000, creditSatang: 0, round: null, note: null, createdAt: "2026-10-21T03:00:00Z" },
+  ];
+
+  it("splits the balance into credit first and own money", () => {
+    const html = renderToStaticMarkup(createElement(WalletClient, {
+      enabled: true, multiplier: 2, balanceSatang: 5500, entries, rounds: { used: 0, limit: 0 }, paid: null, videos: null, prices: DEFAULT_PRICES,
+      credit: { own: 1700, satang: 3800, expiresAt: "2026-11-19T03:00:00Z", lots },
+    }));
+    expect(html).toContain("฿55.00");
+    expect(html).toContain("เครดิตสมาชิก (ใช้ก่อน · หมดอายุ 19 พ.ย.)");
+    expect(html).toContain("฿38.00");
+    expect(html).toContain("เงินที่เติมเอง (ไม่มีวันหมดอายุ)");
+    expect(html).toContain("฿17.00");
+    expect(html).not.toContain("รอบ AI ฟรีเหลือ");
+  });
+
+  it("reads each charge at its whole price, marks what the credit paid, and shows lots given and run out", () => {
+    expect(historyLines(entries, lots, NOW).map((l) => [l.label, l.satang])).toEqual([
+      ["วาดภาพ · เครดิต ฿7.00", -1000],
+      ["วิดีโอนำเสนอ · เครดิตสมาชิก", -500],
+      ["เติมเงิน", 2000],
+      ["เครดิตสมาชิก 30 วัน", 5000],
+      ["เครดิตทดลอง หมดอายุ", -1100],
+      ["เครดิตทดลอง", 1500],
+    ]);
+  });
+
+  it("says a refunded pass's credit was cancelled, not that it ran out", () => {
+    const voided = [{ ...lots[0], voided: true, voidedAt: "2026-10-23T03:00:00Z" }];
+    expect(historyLines([], voided, NOW).map((l) => l.label)).toEqual([
+      "เครดิตสมาชิก 30 วัน ถูกยกเลิก (คืนเงินค่าสมาชิก)", "เครดิตสมาชิก 30 วัน",
+    ]);
   });
 });

@@ -71,15 +71,15 @@ describe("the free rounds", () => {
 
 describe("a member's rounds under the pass (owner, 2026-10-13)", () => {
   const member: Viewer = { ...agent, kind: "member", tenantId: null };
-  const on = { ...DEFAULT_PASS_SETTINGS, enabled: true, rounds: 10 };
+  const on = { ...DEFAULT_PASS_SETTINGS, enabled: true };
   const start = new Date("2026-10-12T03:00:00Z");
   const live = { status: "live", period: { rowId: 1, kind: "paid", start, end: new Date("2026-11-11T03:00:00Z") }, end: new Date("2026-11-11T03:00:00Z") };
 
-  it("are the pass's rounds, counted from the live period's start", async () => {
+  it("are none under a live pass: its credit pays instead (owner, 2026-10-17)", async () => {
     access.memberAccess.mockResolvedValue({ gated: true, state: live, settings: on });
-    expect(await freeWindow(member)).toEqual({ limit: 10, from: start });
+    expect(await freeWindow(member)).toEqual({ limit: 0, from: start });
     db.count = 4;
-    expect(await allowanceOf(member)).toEqual({ limit: 10, used: 4 });
+    expect(await allowanceOf(member)).toEqual({ limit: 0, used: 4 });
     expect(db.since).toBe(start.toISOString());
   });
 

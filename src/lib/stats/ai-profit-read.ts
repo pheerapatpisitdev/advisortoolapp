@@ -17,7 +17,7 @@ export async function readProfit(from: Date, to: Date): Promise<Profit> {
     db.from("model_configs").select("provider, model_name"),
     all("ledger", (a, b) => db.from("ins_usage_ledger").select("model, task, agent_id, cost_thb")
       .gte("created_at", lo).lt("created_at", hi).order("created_at").order("id").range(a, b)),
-    all("wallet", (a, b) => db.from("ins_wallet_entries").select("kind, round, amount_satang, cost_thb")
+    all("wallet", (a, b) => db.from("ins_wallet_entries").select("kind, round, amount_satang, credit_satang, cost_thb")
       .in("kind", ["charge", "topup", "clawback"]).gte("created_at", lo).lt("created_at", hi).order("created_at").order("id").range(a, b)),
     all("passes", (a, b) => db.from("ins_member_passes").select("kind, amount_satang, revokes")
       .in("kind", ["paid", "revoked"]).gte("created_at", lo).lt("created_at", hi).order("id").range(a, b)),
@@ -47,9 +47,7 @@ export async function readProfit(from: Date, to: Date): Promise<Profit> {
     providerOf: providerMap((models.data ?? []) as { provider: string; model_name: string }[]),
     owners: new Set([...(owners.data ?? []).map((r) => String(r.agent_id)), ...(supers.data ?? []).map((r) => String(r.id))]),
     ledger: ledger.map((r) => ({ model: typeof r.model === "string" ? r.model : null, task: typeof r.task === "string" ? r.task : "", agentId: typeof r.agent_id === "string" ? r.agent_id : null, thb: Number(r.cost_thb ?? 0) })),
-    charges: wallet.filter((r) => r.kind === "charge").map((r) => ({
-      round: typeof r.round === "string" ? r.round : null, satang: Number(r.amount_satang ?? 0), costThb: Number(r.cost_thb ?? 0),
-    })),
+    charges: chargesOf(wallet),
     passes: passes.map((p) => ({
       satang: p.kind === "paid" ? Number(p.amount_satang ?? 0) : -(sold.get(Number(p.revokes)) ?? 0),
     })).filter((p) => p.satang !== 0),
@@ -58,5 +56,19 @@ export async function readProfit(from: Date, to: Date): Promise<Profit> {
     moneyIn: wallet.filter((r) => r.kind === "topup" || r.kind === "clawback")
       .map((r) => ({ kind: r.kind as "topup" | "clawback", satang: Number(r.amount_satang ?? 0) })),
     unspentSatang: balances ? balances.reduce((n, r) => n + Number(r.balance_satang ?? 0), 0) : null,
+  });
+}
+
+/**
+ * The wallets' charges as paid work. A member's pass credit paid for part or all of some rounds
+ * (owner, 2026-10-17): that part's money came in with the pass, so only the own money's share of
+ * a round counts as paid work and the rest of its cost falls under free rounds, as the pass's
+ * rounds did; a round the credit paid in full is left out.
+ */
+export function chargesOf(rows: Record<string, unknown>[]): { round: string | null; satang: number; costThb: number }[] {
+  return rows.filter((r) => r.kind === "charge").flatMap((r) => {
+    const own = -Number(r.amount_satang ?? 0), credit = Number(r.credit_satang ?? 0), cost = Number(r.cost_thb ?? 0);
+    if (credit > 0 && own <= 0) return [];
+    return [{ round: typeof r.round === "string" ? r.round : null, satang: -own, costThb: credit > 0 ? cost * (own / (own + credit)) : cost }];
   });
 }

@@ -1,3 +1,4 @@
+import { creditLeft } from "@/lib/members/credit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { DEFAULT_MULTIPLIER } from "./money";
 import { cleanPrices, DEFAULT_PRICES, type Prices } from "./prices";
@@ -16,6 +17,8 @@ export interface WalletEntry {
   /** referral: baht for a friend who paid for their first pass, or taken back after its refund (owner, 2026-10-14) */
   kind: "topup" | "charge" | "adjust" | "clawback" | "referral";
   amountSatang: number;
+  /** what a member's credit paid of a charge (owner, 2026-10-17); amountSatang is the own money's part */
+  creditSatang: number;
   round: string | null;
   note: string | null;
   createdAt: string;
@@ -81,14 +84,20 @@ export async function saveWalletPrices(prices: Prices): Promise<void> {
 }
 
 /**
- * The balance to spend, after holds of requests that died are given back, and whether a refund
- * or a dispute froze the wallet (owner, 2026-10-01): a frozen wallet pays for no round.
+ * What there is to spend, after holds of requests that died are given back: `own`, the money
+ * topped up, and `credit`, an outside member's live pass credit (owner, 2026-10-17), which a
+ * hold takes first; `satang` is the two together. Whether a refund or a dispute froze the wallet
+ * (owner, 2026-10-01): a frozen wallet pays for no round from its own money.
  */
-export async function walletStatus(agentId: string): Promise<{ satang: number; frozen: boolean }> {
+export async function walletStatus(agentId: string): Promise<{ satang: number; own: number; credit: number; frozen: boolean }> {
   await call("ins_wallet_sweep_holds");
-  const { data, error } = await supabaseAdmin().from("ins_wallets").select("balance_satang, frozen_at").eq("agent_id", agentId).maybeSingle();
+  const [{ data, error }, credit] = await Promise.all([
+    supabaseAdmin().from("ins_wallets").select("balance_satang, frozen_at").eq("agent_id", agentId).maybeSingle(),
+    creditLeft(agentId),
+  ]);
   if (error) throw new Error(`อ่านยอดกระเป๋าไม่ได้: ${error.message}`);
-  return { satang: Number(data?.balance_satang ?? 0), frozen: Boolean(data?.frozen_at) };
+  const own = Number(data?.balance_satang ?? 0);
+  return { satang: own + credit.satang, own, credit: credit.satang, frozen: Boolean(data?.frozen_at) };
 }
 
 export async function balanceSatang(agentId: string): Promise<number> {
@@ -230,11 +239,11 @@ export async function walletChargedThb(since: Date): Promise<number> {
 
 export async function walletEntries(agentId: string, limit = 30): Promise<WalletEntry[]> {
   const { data, error } = await supabaseAdmin().from("ins_wallet_entries")
-    .select("id, kind, amount_satang, round, note, created_at")
+    .select("id, kind, amount_satang, credit_satang, round, note, created_at")
     .eq("agent_id", agentId).order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`อ่านประวัติกระเป๋าไม่ได้: ${error.message}`);
   return (data ?? []).map((r) => ({
-    id: String(r.id), kind: r.kind as WalletEntry["kind"], amountSatang: Number(r.amount_satang),
+    id: String(r.id), kind: r.kind as WalletEntry["kind"], amountSatang: Number(r.amount_satang), creditSatang: Number(r.credit_satang ?? 0),
     round: (r.round as string | null) ?? null, note: (r.note as string | null) ?? null, createdAt: String(r.created_at),
   }));
 }

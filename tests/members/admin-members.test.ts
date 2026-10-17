@@ -96,14 +96,18 @@ describe("listMembers with the pass (owner, 2026-10-13)", () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it("counts each live member's rounds from their period, at the owner's number, and says how the pass stands", async () => {
-    db.on("ins_ai_settings", { data: { member_pass_enabled: true, member_pass_satang: 9900, member_trial_days: 3, member_pass_rounds: 5 } });
+  it("gives live members no free rounds but their credit left, and says how the pass stands (owner, 2026-10-17)", async () => {
+    db.on("ins_ai_settings", { data: { member_pass_enabled: true, member_pass_satang: 19900, member_trial_days: 3, member_trial_credit_satang: 1500, member_pass_credit_satang: 5000 } });
+    // what the query filters to: live lots with something left, two of them the paid member's
+    db.on("ins_member_credits", { data: [
+      { member_id: "paid", left_satang: 3000 }, { member_id: "paid", left_satang: 800 }, { member_id: "trial", left_satang: 1100 },
+    ] });
     const list = await listMembers();
     const by = Object.fromEntries(list.map((m) => [m.id, m]));
-    expect(by.paid).toMatchObject({ freeUsed: 5, freeLimit: 5, pass: { status: "live", end: "2026-11-11T00:00:00.000Z", trial: false } });
-    expect(by.trial).toMatchObject({ freeUsed: 2, freeLimit: 5, pass: { status: "live", end: "2026-10-16T00:00:00.000Z", trial: true } });
-    expect(by.never).toMatchObject({ freeUsed: 2, freeLimit: 10, pass: { status: "none", end: null, trial: false } });
-    expect(by.lapsed).toMatchObject({ freeUsed: 2, freeLimit: 10, pass: { status: "expired", end: "2026-10-01T00:00:00.000Z", trial: false } });
+    expect(by.paid).toMatchObject({ freeUsed: 0, freeLimit: 0, creditSatang: 3800, pass: { status: "live", end: "2026-11-11T00:00:00.000Z", trial: false } });
+    expect(by.trial).toMatchObject({ freeUsed: 0, freeLimit: 0, creditSatang: 1100, pass: { status: "live", end: "2026-10-16T00:00:00.000Z", trial: true } });
+    expect(by.never).toMatchObject({ freeLimit: 10, creditSatang: 0, pass: { status: "none", end: null, trial: false } });
+    expect(by.lapsed).toMatchObject({ freeLimit: 10, creditSatang: 0, pass: { status: "expired", end: "2026-10-01T00:00:00.000Z", trial: false } });
 
     const counts = db.log.filter((l) => l.table === "ins_audit");
     const from = Object.fromEntries(counts.map((l) => [l.steps.find((s) => s.method === "eq")?.args[1], countedFrom(l.steps)]));
@@ -113,12 +117,14 @@ describe("listMembers with the pass (owner, 2026-10-13)", () => {
       never: FREE_ROUNDS_FROM.toISOString(),
       lapsed: FREE_ROUNDS_FROM.toISOString(),
     });
-    // one read of the ledger for the whole list, not one per member
+    // one read of the ledger and one of the credit for the whole list, not one per member
     expect(db.log.filter((l) => l.table === "ins_member_passes")).toHaveLength(1);
+    expect(db.log.filter((l) => l.table === "ins_member_credits")).toHaveLength(1);
   });
 
   it("shows a member who paid during the trial as paid, not trial (review, 2026-10-13)", async () => {
-    db.on("ins_ai_settings", { data: { member_pass_enabled: true, member_pass_satang: 9900, member_trial_days: 3, member_pass_rounds: 5 } });
+    db.on("ins_ai_settings", { data: { member_pass_enabled: true, member_pass_satang: 9900, member_trial_days: 3 } });
+    db.on("ins_member_credits", { data: [] });
     db.on("ins_member_passes", { data: [
       row(2, "trial", "trial", 3, "2026-10-13T00:00:00.000Z"),
       row(4, "trial", "paid", 30, "2026-10-13T06:00:00.000Z"),
@@ -143,10 +149,10 @@ describe("listMembers with the pass (owner, 2026-10-13)", () => {
 
 describe("the member list on /admin/members (owner, 2026-10-13)", () => {
   type Summary = Awaited<ReturnType<typeof listMembers>>[number];
-  const m = (id: string, pass: Summary["pass"], freeUsed = 2, freeLimit = 10): Summary =>
-    ({ id, name: id, email: `${id}@gmail.com`, status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 0, freeUsed, freeLimit, footprint: null, pass });
+  const m = (id: string, pass: Summary["pass"], freeUsed = 2, freeLimit = 10, creditSatang = 0): Summary =>
+    ({ id, name: id, email: `${id}@gmail.com`, status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 0, freeUsed, freeLimit, creditSatang, footprint: null, pass });
   const members = [
-    m("paid", { status: "live", end: "2026-11-11T00:00:00.000Z", trial: false }, 3, 10),
+    m("paid", { status: "live", end: "2026-11-11T00:00:00.000Z", trial: false }, 0, 0, 3800),
     m("soon", { status: "live", end: "2026-10-15T00:00:00.000Z", trial: false }),
     m("trial", { status: "live", end: "2026-10-16T00:00:00.000Z", trial: true }),
     m("lapsed", { status: "expired", end: "2026-10-01T00:00:00.000Z", trial: false }),
@@ -167,7 +173,9 @@ describe("the member list on /admin/members (owner, 2026-10-13)", () => {
     expect(html).toMatch(chip("sand", "16 ต.ค. · ทดลอง"));
     expect(html).toMatch(chip("red", "หมด 1 ต.ค."));
     expect(html).toMatch(chip("red", "ยังไม่เคยใช้"));
-    expect(html).toContain("3/10");
+    // the credit left in place of free rounds (owner, 2026-10-17)
+    expect(html).toContain("เครดิตเหลือ");
+    expect(html).toContain("฿38.00");
     expect(html).toContain("เพิ่มวัน");
   });
 

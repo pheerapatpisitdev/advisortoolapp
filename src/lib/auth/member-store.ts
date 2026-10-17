@@ -117,8 +117,10 @@ export interface MemberSummary {
   balanceSatang: number;
   /** free rounds used in the member's current window, at most freeLimit */
   freeUsed: number;
-  /** the live pass's rounds, or the one-time FREE_ROUNDS (owner, 2026-10-13) */
+  /** the live pass's rounds (none since the credit), or the one-time FREE_ROUNDS (owner, 2026-10-13) */
   freeLimit: number;
+  /** the pass's Studio credit left now (owner, 2026-10-17); 0 with no live lot */
+  creditSatang: number;
   /** what a delete would take, counted for suspended members only (the only ones ลบ shows on) */
   footprint: { pieces: number; customers: number; people: number } | null;
   /** null while the owner has the pass switched off; `end` is the last period's end */
@@ -153,16 +155,31 @@ export async function listMembers(limit = 200): Promise<MemberSummary[]> {
     return Math.min(count ?? 0, windows[i].limit);
   }));
   const footprints = await Promise.all(rows.map((r) => (r.status === "suspended" ? footprintOf(r.id) : null)));
+  const credit = settings.enabled ? await creditLeftOf(ids, now) : new Map<string, number>();
   return rows.map((r, i) => {
     const s = states[i];
     return {
       id: r.id, name: r.name, email: r.email, status: r.status, createdAt: r.created_at,
-      balanceSatang: balance.get(r.id) ?? 0, freeUsed: used[i], freeLimit: windows[i].limit, footprint: footprints[i],
+      balanceSatang: balance.get(r.id) ?? 0, freeUsed: used[i], freeLimit: windows[i].limit,
+      creditSatang: credit.get(r.id) ?? 0, footprint: footprints[i],
       pass: !settings.enabled ? null
         : s.status === "none" ? { status: "none", end: null, trial: false }
         : { status: s.status, end: s.end.toISOString(), trial: onTrial(s) },
     };
   });
+}
+
+/** each member's live Studio credit, in one query, as ins_wallet_hold counts it */
+async function creditLeftOf(ids: string[], now: Date): Promise<Map<string, number>> {
+  const { data, error } = await supabaseAdmin().from("ins_member_credits").select("member_id, left_satang")
+    .in("member_id", ids).is("voided_at", null).gt("left_satang", 0)
+    .lte("starts_at", now.toISOString()).gt("expires_at", now.toISOString());
+  if (error) throw new Error(`อ่านเครดิตสมาชิกไม่ได้: ${error.message}`);
+  const out = new Map<string, number>();
+  for (const r of (data ?? []) as { member_id: string; left_satang: number }[]) {
+    out.set(r.member_id, (out.get(r.member_id) ?? 0) + Number(r.left_satang));
+  }
+  return out;
 }
 
 async function footprintOf(id: string): Promise<NonNullable<MemberSummary["footprint"]>> {

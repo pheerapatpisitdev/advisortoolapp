@@ -2,13 +2,12 @@ import "../studio/theme.css";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
-import { allowanceOf } from "@/lib/auth/quota";
 import { gatePage, type Viewer } from "@/lib/auth/viewer";
 import { shellWho } from "@/lib/shell/who";
 import { memberAccess } from "@/lib/members/access";
+import { creditLeft } from "@/lib/members/credit";
 import type { PassState } from "@/lib/members/pass";
 import { passRows } from "@/lib/members/pass-store";
-import { freeVideosLeft } from "@/lib/quote-video/make";
 import { referralCard } from "@/lib/referrals/card";
 import { balanceSatang } from "@/lib/wallet/store";
 import { MembershipClient, type PassView } from "./MembershipClient";
@@ -22,8 +21,8 @@ const viewOf = (s: PassState): PassView =>
     : { status: "none" };
 
 /**
- * An outside member's 30-day pass (owner, 2026-10-13): until when, the Studio rounds and clips left
- * this period, what every 30 days brings (2026-10-14), renewing through Stripe, and what was added
+ * An outside member's 30-day pass (owner, 2026-10-13): until when, the Studio credit left this
+ * period (2026-10-17), what every 30 days brings, renewing through Stripe, and what was added
  * or taken back. Not gated by the pass — gatePage asks only for a sign-in here — since this is
  * where an expired member is sent. The wallet's page in Studio wears the same palette, so this
  * one does too.
@@ -39,8 +38,8 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
   if (!access.gated) {
     return (
       <Frame viewer={viewer}>
-        <MembershipClient on={false} pass={{ status: "none" }} now={new Date().toISOString()} rounds={null} videos={null}
-          passRounds={0} passVideos={0} priceSatang={0} balanceSatang={null} rows={[]} paid={null} />
+        <MembershipClient on={false} pass={{ status: "none" }} now={new Date().toISOString()} credit={null}
+          passCredit={0} priceSatang={0} balanceSatang={null} rows={[]} paid={null} />
       </Frame>
     );
   }
@@ -49,10 +48,9 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
   const { settings } = access;
   const live = access.state.status === "live";
   // the extras degrade: a count or a balance that cannot be read is left off the page
-  const [allowance, videos, balance, referral] = await Promise.all([
-    live ? allowanceOf(viewer).catch((e) => { console.error("membership: rounds unreadable:", e); return null; }) : null,
-    // the pass's free วิดีโอนำเสนอ this period (owner, 2026-10-14)
-    live ? freeVideosLeft(viewer).catch((e) => { console.error("membership: clips unreadable:", e); return null; }) : null,
+  const [credit, balance, referral] = await Promise.all([
+    // the pass's Studio credit (owner, 2026-10-17), written by memberAccess above
+    live ? creditLeft(viewer.agentId).catch((e) => { console.error("membership: credit unreadable:", e); return null; }) : null,
     !live ? balanceSatang(viewer.agentId).catch((e) => { console.error("membership: balance unreadable:", e); return null; }) : null,
     // ชวนเพื่อน (owner, 2026-10-14): left off when the switch is off or it cannot be read
     referralCard(viewer).catch((e) => { console.error("membership: referral card unreadable:", e); return null; }),
@@ -64,10 +62,8 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
         on
         pass={viewOf(access.state)}
         now={new Date().toISOString()}
-        rounds={allowance && allowance.limit !== null ? { left: Math.max(0, allowance.limit - allowance.used), limit: allowance.limit } : null}
-        videos={videos}
-        passRounds={settings.rounds}
-        passVideos={settings.videos}
+        credit={credit}
+        passCredit={settings.creditSatang}
         priceSatang={settings.satang}
         balanceSatang={balance}
         rows={rows}

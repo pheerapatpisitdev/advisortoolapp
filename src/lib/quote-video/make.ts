@@ -148,7 +148,8 @@ export type CostView =
   /** walletOff: the wallet is shut, so a คลิปตามโจทย์'s pictures (paid even on a free clip) cannot be */
   | { kind: "free"; left: number; of: number; walletOff?: true }
   /** the price of each look (an FHC summary its own), and whether the wallet holds it */
-  | { kind: "wallet"; balance: string; prices: Partial<Record<PriceKey, { price: string; enough: boolean }>> }
+  /** credit: a member's pass, which has credit rather than free clips (owner, 2026-10-17); balance is credit and own money together */
+  | { kind: "wallet"; balance: string; prices: Partial<Record<PriceKey, { price: string; enough: boolean }>>; credit?: true }
   | { kind: "closed" };
 
 /** Which free clips count: since `from` when it is set, else every one ever made. */
@@ -158,8 +159,8 @@ export interface FreeClips {
 }
 
 /**
- * A member with a live pass has the pass's clips, counted afresh from the period's start (owner,
- * 2026-10-14, option ก); everyone else the two, once. Throws when the pass cannot be read.
+ * A member with a live pass has no free clips: the pass's credit pays first (owner, 2026-10-17);
+ * everyone else the two, once. Throws when the pass cannot be read.
  */
 export async function freeClips(viewer: Viewer, access?: MemberAccess): Promise<FreeClips> {
   const a = access ?? await memberAccess(viewer);
@@ -194,6 +195,7 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   return {
     kind: "wallet", balance: formatBaht(balance),
     prices: Object.fromEntries(VIDEO_KEYS.map((k) => [k, priced(prices[k])])),
+    ...(limit === 0 ? { credit: true as const } : {}),
   };
 }
 
@@ -225,9 +227,11 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       } else pay = { paid_by: "free" };
     } else {
       const s = await walletSettings().catch(() => null);
-      if (!s?.enabled) return { refusal: `ใช้วิดีโอฟรีครบ ${limit} ครั้งแล้ว` };
+      if (!s?.enabled) return { refusal: limit === 0 ? "ตอนนี้ยังใช้เครดิตและกระเป๋าเงินไม่ได้ครับ" : `ใช้วิดีโอฟรีครบ ${limit} ครั้งแล้ว` };
       const held = videoPrice(input, await walletPrices());
-      const hold = await holdFor(viewer.agentId, held, `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
+      const hold = await holdFor(viewer.agentId, held, limit === 0
+        ? `เครดิตและเงินในกระเป๋าไม่พอ — คลิปนี้ ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`
+        : `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
       if ("refusal" in hold) return hold;
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }

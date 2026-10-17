@@ -33,6 +33,12 @@ export function costLine(c: CostView | null, key: PriceKey): { text: string; blo
   if (c.kind === "closed") return { text: "ใช้วิดีโอฟรีครบแล้ว", blocked: true, topUp: false };
   const p = c.prices[key];
   if (!p) return null;
+  // a member's pass pays from its credit first, then their own money (owner, 2026-10-17)
+  if (c.credit) {
+    return p.enough
+      ? { text: `หักจากเครดิตและกระเป๋า ${p.price} (คงเหลือ ${c.balance})`, blocked: false, topUp: false }
+      : { text: `เครดิตและเงินในกระเป๋าไม่พอ (คลิปนี้ ${p.price} · คงเหลือ ${c.balance})`, blocked: true, topUp: true };
+  }
   return p.enough
     ? { text: `ใช้วิดีโอฟรีครบแล้ว · หักจากกระเป๋า ${p.price} (ยอดคงเหลือ ${c.balance})`, blocked: false, topUp: false }
     : { text: `ยอดในกระเป๋าไม่พอ (คลิปนี้ ${p.price} · ยอดคงเหลือ ${c.balance})`, blocked: true, topUp: true };

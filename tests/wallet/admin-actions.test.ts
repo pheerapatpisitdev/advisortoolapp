@@ -120,11 +120,11 @@ describe("unfreezeAgentWallet (owner, 2026-10-01)", () => {
 });
 
 describe("saveMemberPass (owner, 2026-10-13)", () => {
-  const typed = { enabled: true, baht: "99", trialDays: "3", rounds: "10", videos: "2" };
+  const typed = { enabled: true, baht: "199", trialDays: "3", trialCredit: "15", credit: "50" };
 
-  it("saves the switch, the price in satang, the trial and the rounds", async () => {
+  it("saves the switch, the price in satang, the trial and the two credits (owner, 2026-10-17)", async () => {
     expect(await saveMemberPass(typed)).toEqual({ ok: true });
-    expect(pass.savePassSettings).toHaveBeenCalledWith({ enabled: true, satang: 9900, trialDays: 3, rounds: 10, videos: 2 });
+    expect(pass.savePassSettings).toHaveBeenCalledWith({ enabled: true, satang: 19900, trialDays: 3, trialCreditSatang: 1500, creditSatang: 5000 });
   });
 
   it("is the owner's alone: an admin who is not the owner saves nothing", async () => {

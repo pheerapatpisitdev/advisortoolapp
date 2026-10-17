@@ -109,7 +109,7 @@ export function MembersAdmin({ settings, members, passOn = false, revenueSatang 
                 <tr className="text-left text-[var(--bot-ink-mute)]">
                   <th className="py-2 pr-3">ชื่อ</th><th className="pr-3">อีเมล</th><th className="pr-3">สมัคร</th>
                   <th className="pr-3">สถานะ</th>{passOn && <th className="pr-3">ใช้ได้ถึง</th>}
-                  <th className="pr-3 text-right">กระเป๋า</th><th className="pr-3 text-right">{passOn ? "รอบฟรี (รอบนี้)" : "รอบฟรี"}</th><th />
+                  <th className="pr-3 text-right">กระเป๋า</th><th className="pr-3 text-right">{passOn ? "เครดิตเหลือ" : "รอบฟรี"}</th><th />
                 </tr>
               </thead>
               <tbody>
@@ -122,8 +122,8 @@ export function MembersAdmin({ settings, members, passOn = false, revenueSatang 
                     <td className="pr-3">{m.status === "active" ? "ใช้งาน" : <span className="text-[var(--bot-red-ink)]">ระงับ</span>}</td>
                     {passOn && <td className="pr-3">{m.pass && <PassChip pass={m.pass} now={clock} />}</td>}
                     <td className="pr-3 text-right tabular-nums">{baht(m.balanceSatang)}</td>
-                    {/* no window while the pass is not running: such a member cannot use Studio at all */}
-                    <td className="pr-3 text-right tabular-nums">{passOn && m.pass?.status !== "live" ? "—" : `${m.freeUsed}/${m.freeLimit}`}</td>
+                    {/* the pass's credit (owner, 2026-10-17); nothing while the pass is not running: such a member cannot use Studio at all */}
+                    <td className="pr-3 text-right tabular-nums">{!passOn ? `${m.freeUsed}/${m.freeLimit}` : m.pass?.status !== "live" ? "—" : baht(m.creditSatang)}</td>
                     <td className="whitespace-nowrap py-2 text-right">
                       {passOn && (
                         <>
