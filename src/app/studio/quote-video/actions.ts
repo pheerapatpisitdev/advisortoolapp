@@ -310,7 +310,7 @@ export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
  * วิดีโอสรุป FHC (owner, 2026-10-12): one saved customer's check as a clip. The figures are copied
  * from the check as it was saved; the name goes in only when the agent leaves it ticked.
  */
-export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; size?: VideoSize }): Promise<Made> {
+export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; size?: VideoSize; theme?: string }): Promise<Made> {
   const viewer = await requireMember();
   if (typeof customerId !== "string") return { ok: false, error: "เลือกลูกค้า" };
   const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
@@ -327,6 +327,8 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
     product: "FHC", customerId: c.id, age: c.age, sex: c.sex,
     narrator: eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", ...(eleven ? { voice: eleven.id } : {}),
     style: "motion", length: "full", size: sizeOf(v ?? {}), fhc: fhcVideoFacts(c),
+    // the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17); น้ำเงินทอง is no field at all
+    ...(readTheme(v?.theme) !== DEFAULT_THEME ? { theme: readTheme(v?.theme) } : {}),
   };
   try {
     const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "");
@@ -549,7 +551,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
     if (isFhcInput(v.input)) {
       const input = v.input;
       const file = `สรุปFHC-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
-      const who = `สรุป FHC${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${voiceWord(input)}`;
+      const who = `สรุป FHC${input.theme && input.theme !== DEFAULT_THEME ? ` (${THEME_LABELS[readTheme(input.theme)].name})` : ""}${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${voiceWord(input)}`;
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,

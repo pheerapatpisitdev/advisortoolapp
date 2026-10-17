@@ -414,7 +414,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     setError(null);
     try {
       const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), size })
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), size, theme })
         : await makeVideo(input(), customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -459,6 +459,21 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const notice = quota && (!voice || foreign) ? voiceNotice(quota, !foreign) : null;
   const voiceBlocked = Boolean(notice?.blocked);
   const voiceWord = voice && !foreign ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs" : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
+  // the Motion Graphic look: วิดีโอนำเสนอ's in Motion, and สรุป FHC's (owner, 2026-10-17)
+  const themeChips = (
+    <div>
+      <span className={label}>ธีม</span>
+      <div className="flex flex-wrap gap-2">
+        {THEME_KEYS.map((k) => (
+          <button key={k} type="button" className={chip(theme === k)} onClick={() => pickTheme(k)}>
+            <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: THEME_LABELS[k].swatch }} />
+            {THEME_LABELS[k].name}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1 text-xs text-[var(--ct-mute)]">{THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
+    </div>
+  );
   const summary = {
     brief: [HOOK_WORD[brief.hook], brief.loop ? "วนลูป" : ""].filter(Boolean).join(" · "),
     what: kind === "fhc" ? "สรุป FHC" : `${PRODUCTS.find((p) => p.code === product)?.name ?? ""}${foreign ? ` · ${LANG_NAME[lang]}` : ""}`,
@@ -474,7 +489,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
-      kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : "",
+      kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : THEME_LABELS[theme].name,
       SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",
       voiceWord,
     ].filter(Boolean).join(" · "),
@@ -770,20 +785,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                 </div>
                 <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
               </div>
-              {style === "motion" && (
-                <div>
-                  <span className={label}>ธีม</span>
-                  <div className="flex flex-wrap gap-2">
-                    {THEME_KEYS.map((k) => (
-                      <button key={k} type="button" className={chip(theme === k)} onClick={() => pickTheme(k)}>
-                        <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: THEME_LABELS[k].swatch }} />
-                        {THEME_LABELS[k].name}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-xs text-[var(--ct-mute)]">{THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
-                </div>
-              )}
+              {style === "motion" && themeChips}
               {style === "motion" && theme === "collage" && (
                 <div>
                   <span className={label}>ภาพตัดแปะ</span>
@@ -797,6 +799,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                     </>
                   ) : <p className="text-xs text-[var(--ct-mute)]">ภาพตัดแปะในฉากมีเฉพาะคลิปแนวตั้ง</p>}
                 </div>
+              )}
+            </>
+          )}
+          {kind === "fhc" && (
+            <>
+              {themeChips}
+              {theme === "collage" && (
+                <p className="text-xs text-[var(--ct-mute)]">{size === "portrait" ? "ภาพตัดแปะ: AI เลือกจากคลังให้ตรงกับแต่ละฉาก วางในฉากที่มีที่ว่าง ไม่มีค่าภาพ" : "ภาพตัดแปะในฉากมีเฉพาะคลิปแนวตั้ง"}</p>
               )}
             </>
           )}

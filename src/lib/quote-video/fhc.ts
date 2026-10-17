@@ -1,3 +1,4 @@
+import type { ThemeKey } from "./theme-keys";
 import { AREA_LABEL, type Gap, type GapState } from "@/lib/fhc/gaps";
 import type { EventKey } from "@/lib/fhc/assumptions";
 import type { EventRow, Level, Score, ScoreKey } from "@/lib/fhc/health";
@@ -60,6 +61,10 @@ export interface FhcVideoInput {
   /** portrait, square or landscape (owner, 2026-10-12: the FHC summary comes in every size) */
   size?: VideoSize;
   fhc: FhcVideoFacts;
+  /** the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง */
+  theme?: ThemeKey;
+  /** คอลลาจกระดาษ's library piece for each scene, as AI picked it from the lines (collage/pick.ts); null = none */
+  picks?: Partial<Record<FhcSceneKey, string | null>>;
 }
 
 export const isFhcInput = (v: { product?: string }): v is FhcVideoInput => v.product === "FHC";

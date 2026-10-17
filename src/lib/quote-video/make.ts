@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -28,8 +29,8 @@ import { CHART_W, sceneLayer, tableImage, type Contact } from "./draw";
 import { noteDrawing, tablePlan } from "./table-pen";
 import { pensionTableImage, pensionTablePlan } from "./pension-table";
 import { addSounds, buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
-import { fhcScript, isFhcInput, type FhcVideoInput } from "./fhc";
-import { fhcFrame, fhcWindows } from "./fhc-motion";
+import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
+import { fhcFrame, fhcRoom, fhcSpec, fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
 import { isPromptStory, promptPicturePrice, promptPicturesPrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
@@ -41,12 +42,14 @@ import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec, storyBackground, storyFrame, type StoryContext } from "./story-motion";
 import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./story-frames";
 import { faceUris } from "./story-faces";
-import { motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
+import { a, motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
 import { clipProps, REMOTION_JOB, remotionFits, type ClipProps, type RemotionMotion } from "./remotion";
 import { remotionFor } from "./remotion-switch";
 import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
 import { pieceSticker } from "@/lib/collage/library";
+import { drawnPieces, pickPieces } from "@/lib/collage/pick";
+import { DECOR_AT, stickerAt, stickerOf, type Sticker } from "@/lib/collage/decor";
 import { drawIdea, fallbackPiece, writeIdeas } from "@/lib/collage/ai-pieces";
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { WIDE_CHART_W, wideSceneLayer } from "./classic-wide";
@@ -561,23 +564,80 @@ async function freeParts(row: VideoRow & { input: PromptStoryInput }, agentName:
 
 /** An FHC summary's parts: always the Motion Graphic world, six scenes (fhc-motion.tsx). */
 async function fhcParts(row: VideoRow & { input: FhcVideoInput }, agentName: string, secs: number[]): Promise<ClipParts> {
+  return fhcPartsFor(row, await contactOf(row.agent_id, agentName), secs);
+}
+
+/** An FHC clip's parts, the agent's contact in hand: no database but the picked pieces, so a local render draws the same clip. */
+export function fhcPartsFor(row: Pick<VideoRow, "customer_name"> & { input: FhcVideoInput }, contact: Contact, secs: number[]): ClipParts {
   const facts = row.input.fhc;
   const size = clipSize(row.input);
   const dims = SIZES[size];
   const narrator = narratorOf(row.input);
   const customer = row.customer_name;
-  const contact = await contactOf(row.agent_id, agentName);
   const script = fhcScript(facts, customer, narrator);
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: fhcWindows(s.key, facts), fps: MOTION_FPS })));
   const named = nameFiles(plans, plans.map(() => undefined));
+  // the Motion Graphic look (owner, 2026-10-17): repainted as วิดีโอนำเสนอ's is; คอลลาจ's picked pieces in a portrait clip's free room
+  const theme = readTheme(row.input.theme);
+  const picks = theme === "collage" && size === "portrait" ? row.input.picks ?? {} : {};
+  let decorOnce: Promise<((key: FhcSceneKey, t: number) => ReactNode) | undefined> | undefined;
+  const decor = () => (decorOnce ??= fhcDecor(picks, facts, { customer, contact }));
+  const font = themeFont(theme) ? { hand: THEME_LETTERS } : {};
   const sceneDraws = (s: number) => {
     const p = plans[s];
     const ctx = { facts, narrator, customer, contact, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
-    const frame = (t: number) => (size === "portrait" ? fhcFrame(p.key, ctx, t) : wideFhcFrame(p.key, ctx, t, size));
-    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(frame(fr.t ?? 0), { width: dims.w, height: dims.h }) }));
+    const frame = (t: number, scenery?: (key: FhcSceneKey, t: number) => ReactNode) =>
+      themed(size === "portrait" ? fhcFrame(p.key, { ...ctx, ...(scenery ? { decor: scenery } : {}) }, t) : wideFhcFrame(p.key, ctx, t, size), theme, t);
+    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: async () => renderPng(frame(fr.t ?? 0, await decor()), { width: dims.w, height: dims.h }, font) }));
   };
-  return { size, script, motion: true, plans, named, build: { driftHeight: motionBgHeight(dims), size: dims }, layers: { photo: false }, sceneDraws };
+  return {
+    size, script, motion: true, plans, named, build: { driftHeight: motionBgHeight(dims), size: dims }, layers: { photo: false }, sceneDraws,
+    ...(theme === "collage" ? { sounds: collageSounds(plans.map((p) => ({ start: p.start, anims: [...Object.values(fhcSpec(p.key, facts)), ...(picks[p.key] ? [a(DECOR_AT, "pop")] : [])] }))) } : {}),
+  };
+}
+
+/** FHC's scenes, what each one's picture is beside, and the piece it falls back to when AI picks none (collage/pick.ts) */
+const FHC_PIECE: Record<FhcSceneKey, { role: string; fallback: string }> = {
+  fhcOpen: { role: "the opening, under the customer's name", fallback: "hand-wave" },
+  fhcScores: { role: "under the six-area money health results", fallback: "piggy" },
+  fhcGaps: { role: "under how much cover the family is missing", fallback: "umbrella" },
+  fhcEvents: { role: "under the life events nobody controls", fallback: "alarm-clock" },
+  fhcPlan: { role: "under the recommended plan", fallback: "handshake" },
+  fhcContact: { role: "beside the agent's contact card", fallback: "hand-phone" },
+};
+
+/** a คอลลาจ FHC clip's pieces, picked once while the lines are spoken and kept on the row; never throws */
+async function pickFhcPieces(row: VideoRow & { input: FhcVideoInput }): Promise<FhcVideoInput> {
+  const input = row.input;
+  if (readTheme(input.theme) !== "collage" || clipSize(input) !== "portrait" || input.picks) return input;
+  try {
+    const script = fhcScript(input.fhc, row.customer_name, narratorOf(input));
+    const scenes = script.map((s) => ({ key: s.key, voice: s.voice, role: FHC_PIECE[s.key].role }));
+    const picks = await pickPieces(scenes, await drawnPieces(), Object.fromEntries(script.map((s) => [s.key, FHC_PIECE[s.key].fallback])) as Partial<Record<FhcSceneKey, string>>);
+    const next: FhcVideoInput = { ...input, picks };
+    await setRow(row.id, { input: next });
+    return next;
+  } catch (e) {
+    console.error(`fhc video ${row.id}: pieces not picked:`, e instanceof Error ? e.message : "unknown");
+    return input;
+  }
+}
+
+/** each picked piece in its scene's free room (fhcRoom); a piece that cannot be read is left out */
+async function fhcDecor(picks: Partial<Record<FhcSceneKey, string | null>>, facts: FhcVideoInput["fhc"], c: { customer: string; contact: Contact }): Promise<((key: FhcSceneKey, t: number) => ReactNode) | undefined> {
+  const keys = Object.entries(picks).filter((e): e is [FhcSceneKey, string] => typeof e[1] === "string");
+  if (!keys.length) return undefined;
+  const got = new Map<FhcSceneKey, Sticker>();
+  await Promise.all(keys.map(async ([key, piece]) => {
+    const png = await pieceSticker(piece).catch(() => null);
+    if (png) got.set(key, await stickerOf(png));
+  }));
+  return (key, t) => {
+    const st = got.get(key);
+    const room = st ? fhcRoom(key, facts, c) : null;
+    return st && room ? stickerAt(st, room, t) : null;
+  };
 }
 
 /**
@@ -825,6 +885,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
     // Gemini's voice cannot be used (off, no key, day cap full): a Thai clip is read whole by อ้อม / สมชาย instead (owner, 2026-10-17)
     // a คอลลาจ clip's AI cut-outs are drawn while the lines are spoken (owner, 2026-10-17)
     const piecesP = isQuoteInput(row.input) ? drawAiPieces(row as VideoRow & { input: VideoInput }) : Promise.resolve(null);
+    // a คอลลาจ FHC clip's library pieces, picked by AI from the lines (owner, 2026-10-17)
+    const picksP = isFhcInput(row.input) ? pickFhcPieces(row as VideoRow & { input: FhcVideoInput }) : Promise.resolve(null);
     const { spoken, fellBackTo } = await speakClip(
       spokenScript.map((s) => (lang === "th" ? sayNumbers(s.voice) : s.voice)),
       { task: VIDEO_TASK_VOICE, narrator, voice: voiceId, lang, pool,
@@ -832,6 +894,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
         onSwitch: () => { lines = 0; bar.note({ step: "voice", done: 0, of: spokenScript.length }); } },
     );
     const pcms = spoken.map((s) => s.pcm);
+    const picked = await picksP;
+    if (picked) row.input = picked;
     const pieces = await piecesP;
     if (pieces) {
       row.input = pieces.input;

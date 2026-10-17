@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
@@ -61,6 +62,40 @@ export interface FhcMotionContext {
   contact: { name: string; phone: string; line?: string; more?: string; photo?: string };
   words: string[];
   voiceSec: number;
+  /** คอลลาจกระดาษ's cut-out in the room a scene leaves free (make.ts fhcParts, collage/decor.tsx) */
+  decor?: (key: FhcSceneKey, t: number) => ReactNode;
+}
+
+/** the lowest a scene's picture may reach: above the subtitle's three lines */
+const ROOM_FLOOR = 1500;
+/** a room lower than this takes no picture: it would be too small to read */
+const ROOM_MIN = 240;
+const ROOM_MAX = 440;
+const ROOM_W = 620;
+
+/**
+ * The room a portrait scene leaves free under what it shows, for คอลลาจ's cut-out (owner, 2026-10-17,
+ * mockup https://claude.ai/artifact/RcQRD93uywHi12PhSWVGbH): measured from each scene's layout
+ * below, so a customer with more rows gets a smaller picture, or none.
+ */
+export function fhcRoom(key: FhcSceneKey, f: FhcVideoFacts, c: { customer: string; contact: { more?: string } }): { left: number; top: number; w: number; h: number } | null {
+  const below = (top: number, floor = ROOM_FLOOR) => {
+    const h = Math.min(ROOM_MAX, floor - top);
+    return h >= ROOM_MIN ? { left: Math.round((W - ROOM_W) / 2), top: floor - h, w: ROOM_W, h } : null;
+  };
+  switch (key) {
+    case "fhcOpen": return below(c.customer ? 1260 : 1050);
+    // rows of 146 from 320 (measured 2026-10-17); the legend stands at 1300
+    case "fhcScores": return below(320 + f.scores.length * 146 + 30, 1270);
+    case "fhcGaps": return below(330 + f.gaps.length * 252 + 20);
+    case "fhcEvents": return below(320 + f.events.length * 200 + 30);
+    // the first plan's card to ~760, then a row of 112 each and the total
+    case "fhcPlan": return f.plan.length > 1 ? below(820 + (f.plan.length - 1) * 112 + 140) : below(f.plan.length ? 800 : 960);
+    case "fhcContact": {
+      const more = c.contact.more ? c.contact.more.split("\n").length : 0;
+      return below((more ? 990 + more * 64 + 24 : 1020) + 110);
+    }
+  }
 }
 
 function Header({ f, title }: { f: FhcVideoFacts; title: string }) {
@@ -98,7 +133,7 @@ function Open({ c, t }: { c: FhcMotionContext; t: number }) {
           <div style={box({ fontSize: 96, fontWeight: 700, color: GOLD })}>{`คุณ${c.customer}`}</div>
         </El>
       ) : null}
-      <El an={s.date} t={t} style={{ position: "absolute", left: SIDE, top: c.customer ? 1150 : 960, fontSize: 40, color: WHITE, opacity: 0.8 }}>{`ตรวจเมื่อ ${f.checkedOn}`}</El>
+      <El an={s.date} t={t} style={{ position: "absolute", left: SIDE, top: c.customer ? 1170 : 960, fontSize: 40, color: WHITE, opacity: 0.8 }}>{`ตรวจเมื่อ ${f.checkedOn}`}</El>
     </>
   );
 }
@@ -292,6 +327,7 @@ export function fhcFrame(key: FhcSceneKey, c: FhcMotionContext, t: number) {
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H, background: "transparent", fontFamily: "Plex", color: WHITE }}>
       {body}
+      {c.decor?.(key, t)}
       <Subtitle words={c.words} t={t} voiceSec={c.voiceSec} />
       <div style={abs({ left: 0, width: W, bottom: 34, justifyContent: "center", fontSize: 26, color: WHITE, opacity: 0.6 })}>Design by www.unitclub.app</div>
     </div>
