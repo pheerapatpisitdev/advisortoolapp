@@ -62,7 +62,8 @@ interface GeminiAudio {
 }
 
 /** One line spoken, and what it cost in baht; the cost also goes on the ledger under `task` (attributed by asWho). */
-export async function speakThai(text: string, task: string, opts: { narrator?: Narrator; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
+/** `gemini` names one of the 30 voices (src/lib/voice/gemini.ts); without it the narrator's own, Kore or Orus */
+export async function speakThai(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
   const narrator = opts.narrator ?? "F";
   const style = !opts.lang || opts.lang === "th" ? STYLE[narrator] : STYLE_IN[opts.lang][narrator];
   const key = await providerKey("google");
@@ -81,7 +82,7 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
           contents: [{ parts: [{ text: style + text }] }],
           generationConfig: {
             responseModalities: ["AUDIO"],
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICES[narrator] } } },
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: opts.gemini ?? TTS_VOICES[narrator] } } },
           },
         }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -114,7 +115,7 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
  * ElevenLabs voice when `voice` names one, Gemini's narrator otherwise. Same PCM either way;
  * the cost goes on the ledger under `task` (ElevenLabs' credits as its output count).
  */
-export async function speakLine(text: string, task: string, opts: { narrator?: Narrator; voice?: string; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
+export async function speakLine(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; voice?: string; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
   if (!opts.voice) return speakThai(text, task, opts);
   const key = await providerKey(ELEVENLABS);
   if (!key) throw new TtsError("ยังไม่ได้ตั้งค่าคีย์ ElevenLabs");

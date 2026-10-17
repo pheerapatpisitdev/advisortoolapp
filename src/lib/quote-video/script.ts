@@ -61,6 +61,8 @@ export type VideoInput = (
   narrator?: "F" | "M";
   /** an ElevenLabs voice's id when the clip is read by one, Gemini's narrator otherwise (owner, 2026-10-11) */
   voice?: string;
+  /** one of Gemini's 30 voices by name (owner, 2026-10-17); none = the narrator's own, Kore or Orus */
+  gemini?: string;
   /** แบบปกติ (photo, card, table) or Motion Graphic, the Premium one (owner, 2026-10-11) */
   style?: VideoStyle;
   /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง */

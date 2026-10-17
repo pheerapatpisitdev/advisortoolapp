@@ -13,7 +13,8 @@ import type { VideoBrief, WrittenLines } from "@/lib/quote-video/brief";
 import { REWRITES, StoryBrief, type ScriptState } from "./StoryBrief";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ClipList } from "./ClipList";
-import { VoicePicker, type GeminiVoice } from "./VoicePicker";
+import { geminiOf, VoicePicker } from "./VoicePicker";
+import { GEMINI_DEFAULT, geminiVoice, type GeminiChoice } from "@/lib/voice/gemini";
 import { makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
 import { voiceNotice } from "@/lib/quote-video/voice-quota";
 import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
@@ -121,8 +122,12 @@ export function SizePicker({ size, pick }: { size: VideoSize; pick: (s: VideoSiz
   );
 }
 const VOICE_KEY = "quote-video-eleven";
-/** a narrator's sample in the clip's language: the 15-second iHealthy lines, read by Kore or Orus (owner, 2026-10-15) */
-const sampleIn = (g: GeminiVoice, lang: VideoLang) => (lang === "th" ? g.sample : `/voice-samples/gemini-${g.n}-${lang}.mp3`);
+const GEMINI_KEY = "quote-video-gemini";
+/**
+ * a voice's sample in the clip's language: the 15-second iHealthy lines, read by Kore or Orus (owner,
+ * 2026-10-15); the other 28 have their Thai sample only
+ */
+const sampleIn = (g: GeminiChoice, lang: VideoLang) => (lang === "th" || g.name !== GEMINI_DEFAULT[g.sex] ? g.sample : `/voice-samples/gemini-${g.sex}-${lang}.mp3`);
 const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10", PLB: "PLB12" } as const;
 /** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
 const MAX_COMPARE = 3;
@@ -189,6 +194,18 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   function pickVoice(id: string) {
     setVoice(id);
     try { localStorage.setItem(VOICE_KEY, id); } catch { /* not remembered, still used */ }
+  }
+  // one of Gemini's 30 voices (owner, 2026-10-17), or "" for the narrator's own; kept like the others
+  const [gemini, setGemini] = useState("");
+  useEffect(() => {
+    try {
+      const kept = geminiVoice(localStorage.getItem(GEMINI_KEY));
+      if (kept) setGemini(kept.name);
+    } catch { /* storage closed: the narrator's own stands */ }
+  }, []);
+  function pickGemini(name: string) {
+    setGemini(name);
+    try { localStorage.setItem(GEMINI_KEY, name); } catch { /* not remembered, still used */ }
   }
   const [plan, setPlan] = useState(start?.plan && ihuPlans.some((p) => p.code === start.plan) ? start.plan : "GOLD");
   const [compare, setCompare] = useState<string[]>([]);
@@ -305,8 +322,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const themed = style === "motion" && theme !== DEFAULT_THEME ? { theme, ...(theme === "collage" && size === "portrait" && aiPieces ? { pieces: "ai" as const } : {}) } : {};
   const look = foreign
-    ? { narrator, style, ...themed, length, size, budget: budgetOf() }
-    : { narrator, ...(voice ? { voice } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
+    ? { narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
+    : { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
   const input = (): VideoInput => (product === "IHEALTHY"
     ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...(foreign ? { lang } : {}), ...look }
     : product === "PENSION"
@@ -352,7 +369,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   useEffect(() => {
     setScript(null);
     setScriptError(null);
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, setup, lang, lpRiders]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, gemini, setup, lang, lpRiders]);
 
   /** ดูสคริปต์: written to the brief (again: another try), or the agent's edits read back */
   async function showScript(again: boolean) {
@@ -392,7 +409,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     setError(null);
     try {
       const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), size, theme })
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme })
         : await makeVideo(input(), customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -436,7 +453,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // a Gemini-voiced clip would only fail while the voice is used up
   const notice = quota && (!voice || foreign) ? voiceNotice(quota, !foreign) : null;
   const voiceBlocked = Boolean(notice?.blocked);
-  const voiceWord = voice && !foreign ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs" : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
+  const named = geminiOf({ narrator, gemini });
+  const voiceWord = voice && !foreign ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs"
+    : named.name !== GEMINI_DEFAULT[named.sex] ? `เสียง ${named.name}` : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
   // the Motion Graphic look: วิดีโอนำเสนอ's in Motion, and สรุป FHC's (owner, 2026-10-17)
   const themeChips = (
     <div>
@@ -790,8 +809,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           )}
           <SizePicker size={size} pick={pickSize} />
           <VoicePicker
-            id="qv-voice" narrator={narrator} voice={voice} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)} foreign={foreign}
-            onPick={(n, id) => { pickVoice(id); if (!id) pickNarrator(n); }}
+            id="qv-voice" pick={{ narrator, voice, gemini }} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)} foreign={foreign}
+            onPick={(p) => { pickVoice(p.voice); if (!p.voice) { pickNarrator(p.narrator); pickGemini(p.gemini); } }}
             sampleOf={(g) => sampleIn(g, foreign ? lang : "th")}
             note={`${foreign
               ? `เสียง AI ของ Google พูด ${LANG_NAME[lang]} · เสียง ElevenLabs ซ่อนไว้ เพราะเป็นเสียงคนไทย`

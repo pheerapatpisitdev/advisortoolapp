@@ -50,6 +50,8 @@ export interface StoryVideoInput {
   topic: StoryTopic;
   narrator?: "F" | "M";
   voice?: string;
+  /** one of Gemini's 30 voices by name (owner, 2026-10-17); none = the narrator's own, Kore or Orus */
+  gemini?: string;
   style: "story";
   length: "full";
   size?: VideoSize;

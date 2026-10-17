@@ -8,7 +8,8 @@ import { VoicePicker } from "../quote-video/VoicePicker";
 
 /** หน้าตาคลิป: the size, the narrator's face and the voice, as คลิปเล่าเรื่อง asks them */
 
-export interface Look { size: VideoSize; narrator: "F" | "M"; voice: string }
+/** `gemini`: one of Gemini's 30 voices by name, or "" for the narrator's own (owner, 2026-10-17) */
+export interface Look { size: VideoSize; narrator: "F" | "M"; voice: string; gemini: string }
 
 const label = "mb-1 block text-sm font-medium";
 
@@ -31,8 +32,8 @@ export function LookStep({ look, pick, face, pickFace, customer, setCustomer, el
         <FacePicker id="ps-face" value={face} onPick={pickFace} />
       </div>
       <VoicePicker
-        id="ps-voice" narrator={look.narrator} voice={look.voice} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)}
-        onPick={(narrator, voice) => pick({ voice, narrator })}
+        id="ps-voice" pick={look} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)}
+        onPick={(p) => pick(p)}
       />
       <label className="block">
         <span className={label}>ชื่อลูกค้า (ไม่ใส่ก็ได้)</span>

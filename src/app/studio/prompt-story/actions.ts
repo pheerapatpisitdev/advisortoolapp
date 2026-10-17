@@ -9,6 +9,7 @@ import { createPromptStory, produce, redrawPicture } from "@/lib/quote-video/mak
 import { cleanCustomerName } from "@/lib/quote-video/script";
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
+import { geminiVoice } from "@/lib/voice/gemini";
 import { mayPromptStory, PROMPT_STORY_CLOSED } from "@/lib/prompt-story/access";
 import { BRIEF_MAX, checkedPromptStory, HOURLY_LIMIT } from "@/lib/prompt-story/checked";
 import { draftsLastHour, saveDraft } from "@/lib/prompt-story/drafts";
@@ -77,8 +78,11 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
   const closed = await closedFor(viewer, "prompt-story");
   if (closed) return { ok: false, error: closed };
   const eleven = voiceAsked(v?.voice);
-  const input = checkedPromptStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
-  if (typeof input === "string") return { ok: false, error: input };
+  // one of Gemini's 30 voices (owner, 2026-10-17)
+  const gemini = eleven ? undefined : geminiVoice(v?.gemini);
+  const asked = checkedPromptStory(v ?? {}, eleven ? eleven.sex : gemini ? gemini.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
+  if (typeof asked === "string") return { ok: false, error: asked };
+  const input = gemini ? { ...asked, gemini: gemini.name } : asked;
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };

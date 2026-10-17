@@ -5,6 +5,7 @@ import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
 import { elevenVoice } from "@/lib/voice/elevenlabs";
+import { GEMINI_DEFAULT, geminiVoice } from "@/lib/voice/gemini";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -116,8 +117,11 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
 /** how a clip's voice reads in the list of clips; a voice no longer listed reads as ElevenLabs */
 const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียง ElevenLabs");
 /** " · เสียง X" for the voice a clip asked for; " · เสียง อ้อม (ElevenLabs แทน Gemini)" when it was switched (make.ts speakClip) */
-const voiceWord = (input: { voice?: string }) => {
+const voiceWord = (input: { voice?: string; gemini?: string }) => {
   if (input.voice) return ` · ${voiceLabel(input.voice)}`;
+  // one of Gemini's 30 by name (owner, 2026-10-17); Kore and Orus were never named
+  const gemini = geminiVoice(input.gemini);
+  if (gemini && gemini.name !== GEMINI_DEFAULT[gemini.sex]) return ` · เสียง ${gemini.name}`;
   const fell = (input as { voiceFallback?: unknown }).voiceFallback;
   return typeof fell === "string" ? ` · เสียง ${fell} (ElevenLabs แทน Gemini)` : "";
 };
@@ -141,7 +145,9 @@ function checked(v: VideoInput): VideoInput | string {
   const foreign = c.product === "IHEALTHY" && readVideoLang(c.lang) !== "th";
   // an ElevenLabs voice sets the endings itself: a man's voice says ครับ
   const eleven = foreign ? undefined : elevenVoice(v.voice);
-  const narrator = eleven ? eleven.sex : v.narrator === "M" ? "M" : "F";
+  // one of Gemini's 30 voices (owner, 2026-10-17), in every language; its sex sets the endings
+  const gemini = eleven ? undefined : geminiVoice(v.gemini);
+  const narrator = eleven ? eleven.sex : gemini ? gemini.sex : v.narrator === "M" ? "M" : "F";
   const style = v.style === "motion" ? "motion" : "classic";
   // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
   const theme = style === "motion" ? readTheme(v.theme) : DEFAULT_THEME;
@@ -162,7 +168,7 @@ function checked(v: VideoInput): VideoInput | string {
   }
   // คอลลาจ's cut-outs drawn new by AI (owner, 2026-10-17): portrait only, as the pictures are laid there
   const pieces = theme === "collage" && size === "portrait" && v.pieces === "ai" ? { pieces: "ai" as const } : {};
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), style, ...(theme !== DEFAULT_THEME ? { theme } : {}), ...pieces, length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...(theme !== DEFAULT_THEME ? { theme } : {}), ...pieces, length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
 }
 
 /** what each written field is called on the board, for a refusal */
@@ -309,7 +315,7 @@ export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
  * วิดีโอสรุป FHC (owner, 2026-10-12): one saved customer's check as a clip. The figures are copied
  * from the check as it was saved; the name goes in only when the agent leaves it ticked.
  */
-export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; size?: VideoSize; theme?: string }): Promise<Made> {
+export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; gemini?: string; size?: VideoSize; theme?: string }): Promise<Made> {
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "quote-video");
   if (closed) return { ok: false, error: closed };
@@ -317,6 +323,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
   if (!c) return { ok: false, error: "ไม่พบลูกค้าคนนี้ในรายชื่อ FHC ของคุณ" };
   const eleven = voiceAsked(v?.voice);
+  const gemini = eleven ? undefined : geminiVoice(v?.gemini);
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
@@ -325,7 +332,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   if (full) return { ok: false, error: full };
   const input: FhcVideoInput = {
     product: "FHC", customerId: c.id, age: c.age, sex: c.sex,
-    narrator: eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", ...(eleven ? { voice: eleven.id } : {}),
+    narrator: eleven ? eleven.sex : gemini ? gemini.sex : v?.narrator === "M" ? "M" : "F", ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}),
     style: "motion", length: "full", size: sizeOf(v ?? {}), fhc: fhcVideoFacts(c),
     // the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17); น้ำเงินทอง is no field at all
     ...(readTheme(v?.theme) !== DEFAULT_THEME ? { theme: readTheme(v?.theme) } : {}),
@@ -365,8 +372,10 @@ export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" 
   const closed = await closedFor(viewer, "story-clip");
   if (closed) return { ok: false, error: closed };
   const eleven = voiceAsked(v?.voice);
-  const input = checkedStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
-  if (typeof input === "string") return { ok: false, error: input };
+  const gemini = eleven ? undefined : geminiVoice(v?.gemini);
+  const asked = checkedStory(v ?? {}, eleven ? eleven.sex : gemini ? gemini.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
+  if (typeof asked === "string") return { ok: false, error: asked };
+  const input: StoryVideoInput = gemini ? { ...asked, gemini: gemini.name } : asked;
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };

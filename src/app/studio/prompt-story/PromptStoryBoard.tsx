@@ -14,6 +14,7 @@ import { Step } from "../quote-video/QuoteVideoBoard";
 import { makePromptStory, writePromptStory } from "./actions";
 import { DEFAULT_FIGURE, FigurePicker, type FigureChoice } from "./FigurePicker";
 import { LookStep, type Look } from "./LookStep";
+import { geminiVoice } from "@/lib/voice/gemini";
 import { ScriptEditor, type Draft } from "./ScriptEditor";
 
 /**
@@ -29,13 +30,13 @@ const PAINTERS: { id: PromptStoryInput["painter"]; name: string }[] = [{ id: "st
 const SCENES = [3, 5, 8] as const;
 const LOOK_KEY = "prompt-story-look";
 const FACE_KEY = "story-narrator-face";
-const DEFAULT_LOOK: Look = { size: "portrait", narrator: "F", voice: "" };
+const DEFAULT_LOOK: Look = { size: "portrait", narrator: "F", voice: "", gemini: "" };
 
 function readLook(): Look {
   try {
     const raw = JSON.parse(localStorage.getItem(LOOK_KEY) ?? "null") as Partial<Look> | null;
     if (!raw) return DEFAULT_LOOK;
-    return { size: raw.size === "square" || raw.size === "landscape" ? raw.size : "portrait", narrator: raw.narrator === "M" ? "M" : "F", voice: typeof raw.voice === "string" ? raw.voice : "" };
+    return { size: raw.size === "square" || raw.size === "landscape" ? raw.size : "portrait", narrator: raw.narrator === "M" ? "M" : "F", voice: typeof raw.voice === "string" ? raw.voice : "", gemini: geminiVoice(raw.gemini)?.name ?? "" };
   } catch {
     return DEFAULT_LOOK;
   }
@@ -145,7 +146,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     try {
       const r = await makePromptStory({
         draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes,
-        style, painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}),
+        style, painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: face }, ...(written.figure ? { figure: written.figure } : {}),
       }, customer);
       if (!r.ok) {

@@ -15,7 +15,8 @@ import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryPensi
 import { ChevronDownIcon } from "../ui/icons";
 import { ClipList } from "../quote-video/ClipList";
 import { costLine, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
-import { VoicePicker } from "../quote-video/VoicePicker";
+import { geminiOf, VoicePicker } from "../quote-video/VoicePicker";
+import { GEMINI_DEFAULT, geminiVoice } from "@/lib/voice/gemini";
 
 /**
  * คลิปเล่าเรื่อง's form (owner, 2026-10-15, mockup https://claude.ai/artifact/FmDZmdTf6Mwgb2Dza8hQtM):
@@ -56,8 +57,9 @@ const PLAN_STORY: Record<StoryPlan, string> = { ISHIELD: "คลิปเล่�
 
 const NARRATOR_KEY = "story-narrator-face";
 const LOOK_KEY = "story-look";
-interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string }
-const DEFAULT_LOOK: Look = { size: "portrait", palette: "reveal", narrator: "F", voice: "" };
+/** `gemini`: one of Gemini's 30 voices by name, or "" for the narrator's own (owner, 2026-10-17) */
+interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string }
+const DEFAULT_LOOK: Look = { size: "portrait", palette: "reveal", narrator: "F", voice: "", gemini: "" };
 
 function readLook(): Look {
   try {
@@ -68,6 +70,7 @@ function readLook(): Look {
       palette: raw.palette === "color" ? "color" : "reveal",
       narrator: raw.narrator === "M" ? "M" : "F",
       voice: typeof raw.voice === "string" ? raw.voice : "",
+      gemini: geminiVoice(raw.gemini)?.name ?? "",
     };
   } catch {
     return DEFAULT_LOOK;
@@ -358,7 +361,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     setError(null);
     try {
       const r = await makeStoryVideo({
-        topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}),
+        topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: narratorFace, hero: heroFace, ...(withPartner && partner ? { partner } : {}) },
         ...(showsFigure && info.figure === "plan" ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
         ...(showsFigure && info.figure === "ladder" ? { ladder: true } : {}),
@@ -381,7 +384,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
 
   const terms = STORY_PLANS.find((p) => p.code === plan)!.terms;
   const plans = STORY_PLANS.filter((p) => !info.plans || info.plans.includes(p.code));
-  const voiceWord = look.voice ? eleven.find((v) => v.id === look.voice)?.name ?? "ElevenLabs" : look.narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
+  const named = geminiOf(look);
+  const voiceWord = look.voice ? eleven.find((v) => v.id === look.voice)?.name ?? "ElevenLabs"
+    : named.name !== GEMINI_DEFAULT[named.sex] ? `เสียง ${named.name}` : look.narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
 
   return (
     // Organic Studio's desk (owner, 2026-10-15, mockup https://claude.ai/artifact/8B39tj4VDgrd9RsdCC23RL, option ค):
@@ -648,8 +653,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
               </div>
             </div>}
             <VoicePicker
-              id="sc-voice" narrator={look.narrator} voice={look.voice} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)}
-              onPick={(narrator, voice) => pickLook({ voice, narrator })}
+              id="sc-voice" pick={look} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)}
+              onPick={(p) => pickLook(p)}
             />
           </Step>
 

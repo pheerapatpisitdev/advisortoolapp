@@ -35,13 +35,15 @@ export interface Spoken { pcm: Buffer; costThb: number }
  */
 export async function speakClip(lines: string[], o: {
   task: string; narrator: Narrator; lang: SpeechLang; voice?: string; fetch?: typeof fetch;
+  /** one of Gemini's 30 voices by name; without it the narrator's own */
+  gemini?: string;
   /** runs `fn` over the lines, `n` at a time */
   pool: <T, R>(items: T[], n: number, fn: (t: T, i: number) => Promise<R>) => Promise<R[]>;
   onLine?: () => void; onSwitch?: () => void;
 }): Promise<{ spoken: Spoken[]; fellBackTo: ElevenChoice | null }> {
   // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
   const run = (voice?: string) => o.pool(lines, voice ? 2 : Math.max(1, lines.length), (line) =>
-    speakLine(line, o.task, { narrator: o.narrator, voice, lang: o.lang, fetch: o.fetch }).then((r) => { o.onLine?.(); return r; }));
+    speakLine(line, o.task, { narrator: o.narrator, gemini: o.gemini, voice, lang: o.lang, fetch: o.fetch }).then((r) => { o.onLine?.(); return r; }));
   try {
     return { spoken: await run(o.voice), fellBackTo: null };
   } catch (e) {

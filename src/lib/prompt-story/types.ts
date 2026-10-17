@@ -24,6 +24,8 @@ export interface PromptStoryInput {
   size?: VideoSize;
   narrator?: "F" | "M";
   voice?: string;
+  /** one of Gemini's 30 voices by name (owner, 2026-10-17); none = the narrator's own, Kore or Orus */
+  gemini?: string;
   faces: { narrator: string };
   figure?: StoryFigure;
   /** each scene's picture in the clip's folder ("<id>/pic-<n>.png", n from 0), null where it fell back to paper */

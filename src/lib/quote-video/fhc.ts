@@ -56,6 +56,8 @@ export interface FhcVideoInput {
   sex: "M" | "F";
   narrator?: "F" | "M";
   voice?: string;
+  /** one of Gemini's 30 voices by name (owner, 2026-10-17); none = the narrator's own, Kore or Orus */
+  gemini?: string;
   style: "motion";
   length: "full";
   /** portrait, square or landscape (owner, 2026-10-12: the FHC summary comes in every size) */

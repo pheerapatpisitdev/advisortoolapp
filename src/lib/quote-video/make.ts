@@ -60,6 +60,7 @@ import { writeLines } from "./writer";
 import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBy, type SceneKey, type VideoInput } from "./script";
 import { clipLength, LOOP_TAIL, planScenes, SIZES, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay, voiceFullText } from "./voice-quota";
+import { geminiVoice } from "@/lib/voice/gemini";
 import { readVideoLang, SCRIPT_FAMILY, wordsLetters, type VideoLang } from "./video-words";
 import { clipKind, DEFAULT_ESTIMATES, estimatesFrom, type ClipKind, type Estimate, type ProgressNote } from "./progress";
 
@@ -889,7 +890,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const picksP = isFhcInput(row.input) ? pickFhcPieces(row as VideoRow & { input: FhcVideoInput }) : Promise.resolve(null);
     const { spoken, fellBackTo } = await speakClip(
       spokenScript.map((s) => (lang === "th" ? sayNumbers(s.voice) : s.voice)),
-      { task: VIDEO_TASK_VOICE, narrator, voice: voiceId, lang, pool,
+      { task: VIDEO_TASK_VOICE, narrator, voice: voiceId, gemini: geminiVoice(row.input.gemini)?.name, lang, pool,
         onLine: () => bar.note({ step: "voice", done: ++lines, of: spokenScript.length }),
         onSwitch: () => { lines = 0; bar.note({ step: "voice", done: 0, of: spokenScript.length }); } },
     );
