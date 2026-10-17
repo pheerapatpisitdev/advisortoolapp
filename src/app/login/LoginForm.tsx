@@ -6,7 +6,6 @@ import { Field, FormError } from "@/components/auth/fields";
 import { GOOGLE, GoogleG } from "@/components/auth/google-button";
 import { INPUT, MUTE, PRIMARY } from "@/components/auth/styles";
 import { signIn } from "./actions";
-import { SignupVideo } from "./SignupVideo";
 
 type Tab = "member" | "unitos";
 
@@ -77,7 +76,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
     }`;
 
   return (
-    <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์" below={<SignupVideo />}>
+    <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์">
       {invitedBy && (
         <div className="mt-4 flex items-center gap-3 rounded-lg bg-[var(--bot-sand-soft)] px-3 py-2.5 text-sm text-[var(--bot-sand-ink)]">
           <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--bot-navy)] font-semibold text-[var(--bot-surface)]">
