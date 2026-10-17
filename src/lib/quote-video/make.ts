@@ -424,7 +424,8 @@ export interface ClipParts {
 async function contactOf(agentId: string, agentName: string): Promise<Contact> {
   const contactRow = await getContact(agentId);
   return {
-    name: agentName, phone: contactRow.phone,
+    // the ชื่อที่แสดง typed for the card in บัญชีของฉัน, else the account's (owner, 2026-10-18)
+    name: contactRow.name || agentName, phone: contactRow.phone,
     ...(contactRow.line ? { line: contactRow.line } : {}),
     ...(contactRow.more ? { more: contactRow.more } : {}),
     ...(await photoDataUri(contactRow.photoPath).then((p) => (p ? { photo: p } : {}))),

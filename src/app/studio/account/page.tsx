@@ -17,7 +17,7 @@ export default async function AccountPage() {
   const viewer = await gatePage("/studio/account");
   const contact = await getContact(viewer.agentId).catch((e) => {
     console.error("contact not read:", e);
-    return { phone: "", line: "", more: "", photoPath: null };
+    return { name: "", phone: "", line: "", more: "", photoPath: null };
   });
   const photo = await photoUrl(contact.photoPath);
   return (
@@ -27,7 +27,7 @@ export default async function AccountPage() {
       ) : (
         <h1 className="text-xl font-semibold">บัญชีของฉัน</h1>
       )}
-      <ContactForm name={viewer.name} phone={contact.phone} line={contact.line} more={contact.more} photo={photo} />
+      <ContactForm accountName={viewer.name} name={contact.name} phone={contact.phone} line={contact.line} more={contact.more} photo={photo} />
     </div>
   );
 }

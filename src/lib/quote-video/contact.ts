@@ -3,19 +3,27 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
  * How customers reach an agent (owner, 2026-10-11): the phone, LINE and photo the closing scene
- * of a วิดีโอนำเสนอ shows, edited in บัญชีของฉัน. The name is the agent's display name, kept
- * where it always was. Name and phone are needed for a clip; photo, LINE and the รายละเอียดเพิ่มเติม
- * under the card (owner, 2026-10-14) are not.
+ * of a วิดีโอนำเสนอ shows, edited in บัญชีของฉัน. The name is the agent's display name, unless they
+ * typed one for the card here (owner, 2026-10-18). Name and phone are needed for a clip; photo, LINE
+ * and the รายละเอียดเพิ่มเติม under the card (owner, 2026-10-14) are not.
  */
 
 export const CONTACT_BUCKET = "agent-contact";
-export interface AgentContact { phone: string; line: string; more: string; photoPath: string | null }
-const EMPTY: AgentContact = { phone: "", line: "", more: "", photoPath: null };
+/** `name` is the ชื่อที่แสดง typed for the card; "" means the account's display name */
+export interface AgentContact { name: string; phone: string; line: string; more: string; photoPath: string | null }
+const EMPTY: AgentContact = { name: "", phone: "", line: "", more: "", photoPath: null };
+export const NAME_MAX = 40;
 export const MORE_MAX = 80;
 export const MORE_LINES = 2;
 
 const table = () => supabaseAdmin().from("ins_agent_contact");
 const bucket = () => supabaseAdmin().storage.from(CONTACT_BUCKET);
+
+/** ชื่อที่แสดง on the card: one line, at most 40 characters; "" leaves the account's name */
+export function cleanContactName(raw: string): string | null {
+  const s = raw.replace(/[\p{Cc}\s]+/gu, " ").trim();
+  return [...s].length <= NAME_MAX ? s : null;
+}
 
 /** "081-234-5678", "+66 81 234 5678": digits with spaces, dashes or a leading +; 9–15 digits */
 export function cleanPhone(raw: string): string | null {
@@ -41,13 +49,13 @@ export function cleanMore(raw: string): string | null {
 }
 
 export async function getContact(agentId: string): Promise<AgentContact> {
-  const { data, error } = await table().select("phone, line_id, more, photo_path").eq("agent_id", agentId).maybeSingle();
+  const { data, error } = await table().select("display_name, phone, line_id, more, photo_path").eq("agent_id", agentId).maybeSingle();
   if (error) throw new Error(`contact not read: ${error.message}`);
-  return data ? { phone: data.phone ?? "", line: data.line_id ?? "", more: data.more ?? "", photoPath: data.photo_path ?? null } : EMPTY;
+  return data ? { name: data.display_name ?? "", phone: data.phone ?? "", line: data.line_id ?? "", more: data.more ?? "", photoPath: data.photo_path ?? null } : EMPTY;
 }
 
-export async function saveContact(agentId: string, phone: string, line: string, more: string): Promise<void> {
-  const { error } = await table().upsert({ agent_id: agentId, phone, line_id: line, more, updated_at: new Date().toISOString() }, { onConflict: "agent_id" });
+export async function saveContact(agentId: string, name: string, phone: string, line: string, more: string): Promise<void> {
+  const { error } = await table().upsert({ agent_id: agentId, display_name: name, phone, line_id: line, more, updated_at: new Date().toISOString() }, { onConflict: "agent_id" });
   if (error) throw new Error(`contact not saved: ${error.message}`);
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanLine, cleanMore, cleanPhone } from "@/lib/quote-video/contact";
+import { cleanContactName, cleanLine, cleanMore, cleanPhone } from "@/lib/quote-video/contact";
 import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "@/lib/quote-video/job";
 import { cleanCustomerName, pageCaption, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
 import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
@@ -336,5 +336,13 @@ describe("agent contact", () => {
     expect(cleanMore("หนึ่ง\nสอง\nสาม")).toBeNull();
     expect(cleanMore("ก".repeat(80))).toBe("ก".repeat(80));
     expect(cleanMore("ก".repeat(81))).toBeNull();
+  });
+
+  it("takes a ชื่อที่แสดง for the card of one line and up to 40 characters, empty meaning the account's (owner, 2026-10-18)", () => {
+    expect(cleanContactName("")).toBe("");
+    expect(cleanContactName("   ")).toBe("");
+    expect(cleanContactName("  พีรพัฒน์ \n  ที่ปรึกษาประกัน ")).toBe("พีรพัฒน์ ที่ปรึกษาประกัน");
+    expect(cleanContactName("ก".repeat(40))).toBe("ก".repeat(40));
+    expect(cleanContactName("ก".repeat(41))).toBeNull();
   });
 });

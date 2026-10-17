@@ -6,8 +6,9 @@ import { saveMyContact, saveMyPhoto, type Result } from "./actions";
 
 const CARD = "space-y-4 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 const SIDE = 512;
-/** as cleanMore in src/lib/quote-video/contact.ts (that file is server-only) */
+/** as cleanMore and NAME_MAX in src/lib/quote-video/contact.ts (that file is server-only) */
 const MORE_MAX = 80;
+const NAME_MAX = 40;
 
 /** the picked photo, cut square from its middle and made small, as a JPEG */
 async function squareJpeg(file: File): Promise<Blob> {
@@ -23,8 +24,10 @@ async function squareJpeg(file: File): Promise<Blob> {
 /**
  * ข้อมูลติดต่อในวิดีโอนำเสนอ (owner, 2026-10-11): what a customer sees at the end of a clip.
  * Name and phone are needed to make one; photo, LINE and รายละเอียดเพิ่มเติม (2026-10-14) are not.
+ * The name is the account's unless one is typed here for the card (2026-10-18).
  */
-export function ContactForm({ name, phone, line, more, photo }: { name: string; phone: string; line: string; more: string; photo: string | null }) {
+export function ContactForm({ accountName, name, phone, line, more, photo }: { accountName: string; name: string; phone: string; line: string; more: string; photo: string | null }) {
+  const [typed, setTyped] = useState(name);
   const [moreLen, setMoreLen] = useState([...more].length);
   const [shown, setShown] = useState(photo);
   const [result, setResult] = useState<Result>();
@@ -49,12 +52,12 @@ export function ContactForm({ name, phone, line, more, photo }: { name: string; 
     }
   }
 
-  const initial = [...name.trim()][0] ?? "?";
+  const initial = [...(typed.trim() || accountName.trim())][0] ?? "?";
   return (
     <form method="post" className={CARD} onSubmit={(e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       const fd = new FormData(e.currentTarget);
-      start(async () => setResult(await saveMyContact(String(fd.get("phone") ?? ""), String(fd.get("line") ?? ""), String(fd.get("more") ?? ""))));
+      start(async () => setResult(await saveMyContact(String(fd.get("name") ?? ""), String(fd.get("phone") ?? ""), String(fd.get("line") ?? ""), String(fd.get("more") ?? ""))));
     }}>
       <div>
         <h2 className="font-semibold">ข้อมูลติดต่อในวิดีโอนำเสนอ</h2>
@@ -74,7 +77,9 @@ export function ContactForm({ name, phone, line, more, photo }: { name: string; 
         </div>
       </div>
       {photoError && <FormError>{photoError}</FormError>}
-      <p className="text-sm">ชื่อที่แสดง: <b>{name}</b></p>
+      <Field id="contact-name" label="ชื่อที่แสดง" hint={`ชื่อที่ลูกค้าเห็นท้ายวิดีโอ · ไม่เกิน ${NAME_MAX} ตัวอักษร · เว้นว่างไว้ = ใช้ชื่อบัญชี “${accountName}”`}>
+        <input id="contact-name" name="name" defaultValue={name} maxLength={NAME_MAX} placeholder={accountName} className={INPUT} onChange={(e) => { setTyped(e.target.value); setResult(undefined); }} />
+      </Field>
       <Field id="contact-phone" label="เบอร์โทร">
         <input id="contact-phone" name="phone" type="tel" defaultValue={phone} maxLength={20} placeholder="081-234-5678" className={INPUT} onChange={() => setResult(undefined)} />
       </Field>

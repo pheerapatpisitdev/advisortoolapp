@@ -84,7 +84,7 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
   if (typeof asked === "string") return { ok: false, error: asked };
   const input = gemini ? { ...asked, gemini: gemini.name } : asked;
   const contact = await getContact(viewer.agentId);
-  if (!viewer.name.trim() || !contact.phone) {
+  if (!(contact.name || viewer.name).trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
   }
   const full = await voiceRefusal(input.voice);

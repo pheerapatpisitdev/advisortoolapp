@@ -325,7 +325,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   const eleven = voiceAsked(v?.voice);
   const gemini = eleven ? undefined : geminiVoice(v?.gemini);
   const contact = await getContact(viewer.agentId);
-  if (!viewer.name.trim() || !contact.phone) {
+  if (!(contact.name || viewer.name).trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
   }
   const full = await voiceRefusal(eleven?.id);
@@ -377,7 +377,7 @@ export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" 
   if (typeof asked === "string") return { ok: false, error: asked };
   const input: StoryVideoInput = gemini ? { ...asked, gemini: gemini.name } : asked;
   const contact = await getContact(viewer.agentId);
-  if (!viewer.name.trim() || !contact.phone) {
+  if (!(contact.name || viewer.name).trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
   }
   const full = await voiceRefusal(input.voice);
@@ -442,7 +442,7 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
   if (typeof c === "string") return { ok: false, error: c };
   if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
   const contact = await getContact(viewer.agentId);
-  if (!viewer.name.trim() || !contact.phone) {
+  if (!(contact.name || viewer.name).trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
   }
   const full = await voiceRefusal(c.voice, langOfInput(c) === "th");
