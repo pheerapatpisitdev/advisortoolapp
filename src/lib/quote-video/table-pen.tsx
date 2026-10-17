@@ -5,7 +5,7 @@ import {
   STEADY_WORD, STOP_WORD, type PenBeat, type Stroke,
 } from "./pen";
 import type { QuoteVideoFacts } from "./script";
-import { CELL_PAD, colX, ROW_H, TABLE, type Rect } from "./table-geo";
+import { CELL_PAD, colsOf, edgeOf, ROW_H, TABLE, type Rect } from "./table-geo";
 import { PEN_HANDOVER, type TablePlan } from "./timeline";
 
 /**
@@ -60,6 +60,13 @@ export function tableNotes(f: QuoteVideoFacts, win: Rect = TABLE): TableNote[] {
   const be = f.breakEven?.index ?? -1;
   const notes: TableNote[] = [];
   const red = (s: Stroke, width = INK) => ({ s, ink: RED, width });
+  // the columns this table is cut into: with riders (owner, 2026-10-17, 1ก) their premium sits after
+  // the plan's and the running total, the cash and the cover each move one along
+  const cols = colsOf(f);
+  const rider = cols.length > 6 ? 1 : 0;
+  const colX = (i: number) => edgeOf(cols, i);
+  const PAID_END = 4 + rider;
+  const CASH_END = 5 + rider;
 
   for (const beat of penBeats(f)) {
     if (beat === "steady") {
@@ -69,10 +76,12 @@ export function tableNotes(f: QuoteVideoFacts, win: Rect = TABLE): TableNote[] {
       const left = right - 22;
       const y = top(0) + 5;
       const h = top(last + 1) - 10;
+      const ages = colX(1) + CELL_PAD + Math.max(...rows.map((r) => fig(String(r.age))));
+      const room = !rider || left - 10 - penTextWidth(STEADY_WORD, SIZE) >= ages + 6;
       notes.push({
         beat, to: 0,
         strokes: [red(braceLeft(left, y, h))],
-        labels: [{ text: STEADY_WORD, x: left - 10, anchor: "end", y: y + h / 2 - LINE / 2, tilt: -6, ink: RED }],
+        labels: room ? [{ text: STEADY_WORD, x: left - 10, anchor: "end", y: y + h / 2 - LINE / 2, tilt: -6, ink: RED }] : [],
       });
     }
     if (beat === "stop") {
@@ -91,7 +100,7 @@ export function tableNotes(f: QuoteVideoFacts, win: Rect = TABLE): TableNote[] {
     }
     if (beat === "growth") {
       const widest = Math.max(...rows.slice(0, be).map((r) => fig(r.cash ?? "")));
-      const left = colX(5) - CELL_PAD - widest - 22 - 22;
+      const left = colX(CASH_END) - CELL_PAD - widest - 22 - 22;
       const y = top(0) + 4;
       const h = top(be) - 4 - y;
       // the words go down to the years the running total has stopped, its cells empty; with no
@@ -100,7 +109,7 @@ export function tableNotes(f: QuoteVideoFacts, win: Rect = TABLE): TableNote[] {
       const room = stopped < 0 ? 0 : top(be) - top(stopped);
       const words = GROWTH_WORDS.length * LINE;
       const wordsTop = room >= words ? top(stopped) + (room - words) / 2 : undefined;
-      const fits = wordsTop !== undefined && Math.max(...GROWTH_WORDS.map((t) => penTextWidth(t, SIZE))) <= left - 10 - colX(3);
+      const fits = wordsTop !== undefined && Math.max(...GROWTH_WORDS.map((t) => penTextWidth(t, SIZE))) <= left - 10 - colX(3 + rider);
       notes.push({
         beat, to: fits ? wordsTop + words / 2 - win.h / 2 : top(be) - win.h * 0.6,
         strokes: [{ s: braceLeft(left, y, h), ink: BLUE, width: INK }],
@@ -110,15 +119,15 @@ export function tableNotes(f: QuoteVideoFacts, win: Rect = TABLE): TableNote[] {
     if (beat === "breakEven") {
       const cash = rows[be].cash ?? "";
       const cw = fig(cash);
-      const cx = colX(5) - CELL_PAD - cw / 2;
+      const cx = colX(CASH_END) - CELL_PAD - cw / 2;
       const ringLeft = cx - cw / 2 - 18;
       const strokes = [red(ring(cx, mid(be), cw / 2 + 18, 25), 5)];
       const labels: Label[] = [];
       // the tag and its arrow only where the running total has stopped, as on the card
       if (rows[be].paid === null) {
-        const from = colX(4) - CELL_PAD - 75;
+        const from = colX(PAID_END) - CELL_PAD - 75;
         strokes.unshift(...arrow([from, top(be) + 4], [(from + ringLeft) / 2 + 10, top(be) - ROW_H * 1.9], [ringLeft - 14, mid(be) - 8]).map((s) => red(s)));
-        labels.push({ text: `${BREAK_EVEN_WORD} >`, x: colX(4) - CELL_PAD, anchor: "end", y: top(be) + 9, tilt: -2, ink: RED, chip: true });
+        labels.push({ text: `${BREAK_EVEN_WORD} >`, x: colX(PAID_END) - CELL_PAD, anchor: "end", y: top(be) + 9, tilt: -2, ink: RED, chip: true });
       }
       notes.push({ beat, to: top(be) - win.h * 0.3, strokes, labels });
     }
@@ -133,7 +142,7 @@ export function tableNotes(f: QuoteVideoFacts, win: Rect = TABLE): TableNote[] {
       const last = Math.min(rows.length - 1, Math.floor((wordsTop + words) / ROW_H));
       if (!rows.slice(first, last + 1).every(blankPremium)) continue;
       const widest = Math.max(...rows.slice(after, after + span).map((r) => fig(r.cash ?? "")));
-      const left = colX(5) - CELL_PAD - widest - 22 - 22;
+      const left = colX(CASH_END) - CELL_PAD - widest - 22 - 22;
       notes.push({
         beat, to: y + h + 10 - win.h,
         strokes: [red(braceLeft(left, y, h))],

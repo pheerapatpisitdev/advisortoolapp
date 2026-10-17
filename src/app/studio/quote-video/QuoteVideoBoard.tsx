@@ -215,6 +215,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [compare, setCompare] = useState<string[]>([]);
   // iHealthy from its page (owner, 2026-10-14): the page's base, sum, territory, coverage and riders
   const [setup, setSetup] = useState(startProduct === "IHEALTHY" ? start?.setup : undefined);
+  // Life Protect from its page (owner, 2026-10-17, 1ก): the riders its price included
+  const [riders, setRiders] = useState(startProduct === "LIFEPROTECT" ? start?.riders : undefined);
   const [sex, setSex] = useState<"M" | "F">(start?.sex ?? "M");
   const [age, setAge] = useState(String(start?.age ?? 35));
   const [sum, setSum] = useState((start?.sumAssured ?? 1_000_000).toLocaleString("en-US"));
@@ -308,6 +310,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }
   // where the clip begins: a sum (or plan), or what the customer can save each month / year
   const [source, setSource] = useState<"sum" | "month" | "year">("sum");
+  // the page's riders go with the page's own sum: a budget prices the plan alone
+  const lpRiders = product === "LIFEPROTECT" && source === "sum" ? riders : undefined;
   const [budget, setBudget] = useState("3,000");
   // an FHC summary has its own price, whatever its look (owner, 2026-10-12: ฿3); a quote clip its look's and length's
   const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length));
@@ -331,7 +335,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ? { product, sex, age: Number(age), tier, ...look }
       : product === "PLB"
         ? { product, variant: variant as PlbVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
-        : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look });
+        : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look });
 
   function pickProduct(p: Product) {
     setProduct(p);
@@ -356,13 +360,13 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, tier, setup, lpRiders]);
 
   // the script shown is the one for what the form holds: anything changed, and it is written again
   useEffect(() => {
     setScript(null);
     setScriptError(null);
-  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, setup, lang]);
+  }, [kind, product, sex, age, sum, variant, plan, compare, source, budget, pensionStart, pay, monthly, pensionSum, length, brief, customer, narrator, voice, setup, lang, lpRiders]);
 
   /** ดูสคริปต์: written to the brief (again: another try), or the agent's edits read back */
   async function showScript(again: boolean) {
@@ -653,6 +657,15 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                   )}
                 </div>
               )}
+              {product === "LIFEPROTECT" && source === "sum" && (riders ? (
+                <div className="space-y-1 rounded-lg border-[1.5px] border-[var(--ct-accent)] px-4 py-3 text-sm">
+                  <p className="font-semibold">ใช้สัญญาเพิ่มเติมจากหน้า Life Protect</p>
+                  {ok?.riders && <p>สัญญาเพิ่มเติม: {ok.riders}</p>}
+                  <button type="button" className="text-xs text-[var(--ct-mute)] underline" onClick={() => setRiders(undefined)}>ไม่ใส่สัญญาเพิ่มเติม</button>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--ct-mute)]">อยากใส่สัญญาเพิ่มเติม ให้กด “ทำวิดีโอ” จากหน้า Life Protect</p>
+              ))}
               {product === "IHEALTHY" && (
                 <>
                   {setup && (

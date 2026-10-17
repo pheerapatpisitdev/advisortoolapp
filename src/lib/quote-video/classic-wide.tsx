@@ -2,12 +2,12 @@ import type { CSSProperties, ReactNode } from "react";
 import { Chart } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
-import { abs, box, On, Swept, type DrawContext, type Layer } from "./draw";
+import { abs, box, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
 import type { SceneKey } from "./script";
-import { CLASSIC_BOXES, COLS, type Rect } from "./table-geo";
+import { CLASSIC_BOXES, valueHeads, type Rect } from "./table-geo";
 import { noteInWindow } from "./table-pen";
 import { countAt, SIZES, type OverlayState, type VideoSize } from "./timeline";
 import { preparedLine, wordsOf } from "./video-words";
@@ -227,6 +227,8 @@ function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
   const f = c.facts;
   const mark = f.priceMark ?? f.leadMark;
   const baht = wordsOf(f).baht;
+  // a square has no room for a Life Protect price split line by line (owner, 2026-10-17): its contracts share one line
+  const notes = !g.wide && f.priceNotes.length > 2 ? [f.priceNotes[0], f.priceNotes.slice(1).join(" · ")] : f.priceNotes;
   // a column of its own: the drawing library lays a fragment out as a row
   const words = (
     <div style={box({ flexDirection: "column", alignItems: "flex-start" })}>
@@ -238,9 +240,9 @@ function Price({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
         </On>
       )}
       {f.penNote && <On layer={layer} own="base" style={{ fontSize: g.px(34, 46), color: P.pen, transform: "rotate(-3deg)", marginTop: g.px(8, 20) }}>{f.penNote}</On>}
-      {f.priceNotes.length > 0 && (
+      {notes.length > 0 && (
         <On layer={layer} own="base" style={{ flexDirection: "column", fontSize: g.px(20, 26), color: P.mute, marginTop: 12 }}>
-          {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 6 })}>{n}</div>)}
+          {notes.map((n) => <div key={n} style={box({ marginBottom: 6 })}>{n}</div>)}
         </On>
       )}
     </div>
@@ -441,7 +443,7 @@ function Value({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
   const t = g.table;
   const heads = f.pension
     ? PENSION_VIDEO_COLUMNS.map((x, i) => ({ h: x.head, w: x.width, left: i === 0 }))
-    : ["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"].map((h, i) => ({ h, w: COLS[i], left: i < 2 }));
+    : valueHeads(f);
   const p = f.pension;
   return (
     <>
@@ -461,8 +463,8 @@ function Value({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
         </On>
       )}
       <On layer={layer} own="base" style={{ position: "absolute", left: t.x, top: t.y - 52, width: t.w, height: 52, background: P.figure, color: C.paper, fontSize: 26, alignItems: "center" }}>
-        {heads.map(({ h, w, left }) => (
-          <div key={h} style={box({ width: w, justifyContent: left ? "flex-start" : "flex-end", paddingLeft: left ? 14 : 0, paddingRight: left ? 0 : 14 })}>{h}</div>
+        {heads.map((x) => (
+          <HeadCell key={x.h} {...x} />
         ))}
       </On>
       <On layer={layer} own="base" style={{ position: "absolute", left: t.x, top: t.y + t.h, width: t.w, height: 3, background: P.hair }} />

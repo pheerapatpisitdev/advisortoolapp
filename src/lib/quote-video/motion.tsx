@@ -360,6 +360,8 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
   const main = f.prices.find((p) => p.main);
   const daily = f.perDayAmount;
   const vw = wordsOf(f);
+  // under the price cards: four of them (บำนาญ 95 lists every instalment) reach further down
+  const pillsTop = Math.max(1100, 560 + f.prices.length * 150 + 10);
   return (
     <>
       <Header f={f} title={f.priceTitle} />
@@ -386,14 +388,13 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
           </El>
         ))}
       </div>
-      {/* under the price cards: four of them (บำนาญ 95 lists every instalment) reach further down */}
-      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: Math.max(1100, 560 + f.prices.length * 150 + 10), flexWrap: "wrap" })}>
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: pillsTop, flexWrap: "wrap" })}>
         {f.pills.map((pill, i) => (
           <El key={pill} an={s[`pill${i}`]} t={t} style={{ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 30px", fontSize: 38, fontWeight: 600, marginRight: 22, marginBottom: 16 }}>{`✓ ${pill}`}</El>
         ))}
       </div>
       {f.priceNotes.length > 0 && (
-        <El an={s.notes} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1120, flexDirection: "column", fontSize: 34, color: WHITE, opacity: 0.85 }}>
+        <El an={s.notes} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? pillsTop + 96 : 1120, flexDirection: "column", fontSize: 34, color: WHITE, opacity: 0.85 }}>
           {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 10 })}>{n}</div>)}
         </El>
       )}

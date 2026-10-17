@@ -1,3 +1,4 @@
+import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import { cleanSetup } from "./ihealthy-setup";
 import type { Product } from "./script";
@@ -31,6 +32,8 @@ export interface VideoStart {
   tier?: number;
   /** iHealthy: the language the page was read in, which the clip starts in (owner, 2026-10-15); absent = Thai */
   lang?: VideoLang;
+  /** Life Protect: the riders its page priced in, written as its card links write them (owner, 2026-10-17, 1ก) */
+  riders?: CardRiders;
 }
 
 export function videoStartHref(s: VideoStart): string {
@@ -45,6 +48,7 @@ export function videoStartHref(s: VideoStart): string {
   if (s.pay) q.set("pay", s.pay);
   if (s.tier !== undefined) q.set("tier", String(s.tier));
   if (s.lang && s.lang !== "th") q.set("lang", s.lang);
+  if (s.product === "LIFEPROTECT") writeRiders(q, s.riders);
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
@@ -76,6 +80,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const setup = product === "IHEALTHY" ? cleanSetup(one(params.ihu)) : undefined;
   const lang = product === "IHEALTHY" ? readVideoLang(one(params.lang)) : "th";
   const plb = product === "PLB";
+  const riders = product === "LIFEPROTECT" ? readRiders((k) => one(params[k])) : undefined;
   return {
     product,
     ...(sex === "M" || sex === "F" ? { sex } : {}),
@@ -88,5 +93,6 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...(Number.isInteger(tier) && tier >= 1 && tier <= 10 ? { tier } : {}),
     ...(setup ? { setup } : {}),
     ...(lang !== "th" ? { lang } : {}),
+    ...(riders ? { riders } : {}),
   };
 }

@@ -8,7 +8,7 @@ import { formatBaht } from "@/calc/money";
 import { shortBaht } from "@/lib/short-baht";
 import { coverRows } from "@/lib/cover-rows";
 import { PAY_MODE_LABEL, type DeathBenefit, type PayMode, type QuoteInput, type QuoteResult, type Sex } from "@/calc/types";
-import type { BundleCardInput, CardInput, CardRiders, PlanCardInput } from "@/lib/card-link";
+import { readRiders, type BundleCardInput, type CardInput, type PlanCardInput } from "@/lib/card-link";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import { cashProjection, type Projection } from "@/lib/cash-projection";
 import { ageTicks } from "@/lib/age-ticks";
@@ -189,39 +189,11 @@ function planInputFrom(params: URLSearchParams): PlanCardInput | undefined {
   if (!who) return undefined;
   const sumAssured = Number(params.get("sum"));
   if (!Number.isInteger(sumAssured) || sumAssured <= 0) return undefined;
-  const riders = ridersFrom(params);
+  const riders = readRiders((k) => params.get(k));
   if (riders === null || (riders && planCode !== LIFEPROTECT_PLAN)) return undefined;
   return { kind: "plan", planCode, variant, ...who, sumAssured, mode: modeFrom(params), ...(riders ? { riders } : {}) };
 }
 
-/**
- * The Life Protect page's riders named in a query: undefined when there are none, null when
- * one is written in a shape no link of ours has. Whether they can be priced on this insured
- * is the card's question (lib/lifeprotect-card.ts), not the reader's.
- */
-function ridersFrom(params: URLSearchParams): CardRiders | undefined | null {
-  const rider = params.get("rider");
-  const payer = params.get("payer");
-  const meb = params.get("meb");
-  if (rider === null && payer === null && meb === null) return undefined;
-  const out: CardRiders = {};
-  if (rider !== null) {
-    const m = /^([A-Z0-9]+)\.([A-Z0-9_]+)$/.exec(rider);
-    if (!m) return null;
-    out.waiver = { code: m[1], option: m[2] };
-  }
-  if (payer !== null) {
-    const m = /^([MF])(\d{1,2})$/.exec(payer);
-    if (!m) return null;
-    out.payer = { sex: m[1] as Sex, age: Number(m[2]) };
-  }
-  if (meb !== null) {
-    const plan = Number(meb);
-    if (!Number.isInteger(plan) || plan <= 0) return null;
-    out.medical = plan;
-  }
-  return out;
-}
 
 /**
  * A card's parameters, read from a URL. Everything is checked against the registry, so a

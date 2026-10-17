@@ -6,7 +6,7 @@ import { highlighterUri } from "@/lib/highlighter";
 import type { CardChart } from "@/lib/quote-card";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import type { Extra } from "./told";
-import { COLS, PHOTO, ROW_H, TABLE } from "./table-geo";
+import { colsOf, PHOTO, ROW_H, TABLE, valueHeads } from "./table-geo";
 import { noteInWindow, type TableNote } from "./table-pen";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
@@ -310,8 +310,9 @@ function Price({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
         </On>
       )}
       {f.priceNotes.length > 0 && (
-        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? 1330 : 1080, flexDirection: "column", fontSize: 34, color: P.mute }}>
-          {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 10 })}>{n}</div>)}
+        // a Life Protect price split by contract (owner, 2026-10-17) is four lines: set closer, clear of the subtitle
+        <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: f.pills.length ? (f.priceNotes.length > 2 ? 1310 : 1330) : 1080, flexDirection: "column", fontSize: f.priceNotes.length > 2 ? 30 : 34, color: P.mute }}>
+          {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: f.priceNotes.length > 2 ? 2 : 10 })}>{n}</div>)}
         </On>
       )}
     </>
@@ -613,7 +614,7 @@ function Value({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
   // บำนาญ 95's own columns (pension-table.tsx); the other plans' value table otherwise
   const heads = c.facts.pension
     ? PENSION_VIDEO_COLUMNS.map((x, i) => ({ h: x.head, w: x.width, left: i === 0 }))
-    : ["ปีที่", "อายุ", "เบี้ย/ปี", "เบี้ยสะสม", "เวนคืนได้", "คุ้มครอง"].map((h, i) => ({ h, w: COLS[i], left: i < 2 }));
+    : valueHeads(c.facts);
   return (
     <>
       <PensionValueTop c={c} layer={layer} />
@@ -623,8 +624,8 @@ function Value({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState 
         </On>
       )}
       <On layer={layer} own="base" style={{ position: "absolute", left: TABLE.x, top: TABLE.y - 60, width: TABLE.w, height: 60, background: P.figure, color: C.paper, fontSize: 28, alignItems: "center" }}>
-        {heads.map(({ h, w, left }) => (
-          <div key={h} style={box({ width: w, justifyContent: left ? "flex-start" : "flex-end", paddingLeft: left ? 14 : 0, paddingRight: left ? 0 : 14 })}>{h}</div>
+        {heads.map((x) => (
+          <HeadCell key={x.h} {...x} />
         ))}
       </On>
       {/* the window's frame, under the subtitle */}
@@ -751,6 +752,15 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
   );
 }
 
+/** a value-table column's name; the riders' one in two smaller lines, to fit its narrow column */
+export function HeadCell({ h, w, left, lines }: { h: string; w: number; left: boolean; lines?: string[] }) {
+  return (
+    <div style={box({ width: w, flexDirection: "column", justifyContent: "center", alignItems: left ? "flex-start" : "flex-end", paddingLeft: left ? 14 : 0, paddingRight: left ? 0 : 14, ...(lines ? { fontSize: 20, lineHeight: 1.1 } : {}) })}>
+      {(lines ?? [h]).map((l) => <div key={l} style={box({})}>{l}</div>)}
+    </div>
+  );
+}
+
 /** the chart over the value table, as wide as the scene allows */
 export const CHART_W = W - (SIDE - 10) * 2;
 export { chartBlockHeight };
@@ -758,23 +768,30 @@ export { chartBlockHeight };
 /** The whole value table as one tall picture, without its header (drawn on the base). */
 export function tableImage(f: QuoteVideoFacts) {
   const all = f.rows ?? [];
+  const cols = colsOf(f);
+  // with riders, their premium sits after the plan's (owner, 2026-10-17, 1ก): every later column moves one along
+  const rider = cols.length > 6 ? 1 : 0;
   const height = Math.max(ROW_H, all.length * ROW_H);
   const el = (
     <div style={{ display: "flex", flexDirection: "column", width: TABLE.w, height, background: C.paper, fontFamily: "Plex", fontSize: 28, color: P.ink }}>
       {all.map((r, i) => {
         // a premium no longer due is left blank, as on the card: the pen writes there
-        const cells = [String(r.year), String(r.age), r.due === "—" ? "" : r.due, r.paid ?? "", r.cash ?? "", r.cover];
+        const cells = [
+          String(r.year), String(r.age), r.due === "—" ? "" : r.due,
+          ...(rider ? [r.rider === undefined || r.rider === "—" ? "" : r.rider] : []),
+          r.paid ?? "", r.cash ?? "", r.cover,
+        ];
         return (
           <div key={r.year} style={box({ height: ROW_H, alignItems: "center", background: i % 2 ? "rgba(2,33,98,0.045)" : C.paper })}>
             {cells.map((v, k) => (
               <div
                 key={k}
                 style={box({
-                  width: COLS[k], height: ROW_H, alignItems: "center",
+                  width: cols[k], height: ROW_H, alignItems: "center",
                   justifyContent: k < 2 ? "flex-start" : "flex-end", paddingLeft: k < 2 ? 14 : 0, paddingRight: k < 2 ? 0 : 14,
                   ...(k === 1 && r.breakEven ? { background: P.highlighter, fontWeight: 600 } : {}),
-                  ...(k === 4 && (r.pastBreakEven || r.breakEven) ? { color: P.gain, fontWeight: r.breakEven ? 600 : 400 } : {}),
-                  ...(k === 4 && r.empty ? { color: P.mute } : {}),
+                  ...(k === 4 + rider && (r.pastBreakEven || r.breakEven) ? { color: P.gain, fontWeight: r.breakEven ? 600 : 400 } : {}),
+                  ...(k === 4 + rider && r.empty ? { color: P.mute } : {}),
                 })}
               >
                 {v}
