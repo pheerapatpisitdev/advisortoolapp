@@ -33,7 +33,7 @@ export const REMOTION_PLAN_LABEL: Record<RemotionPlan, string> = { LIFEPROTECT: 
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "1a5a1ff537fc";
+export const REMOTION_DRAWING = "589ee123783f";
 
 /** the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg */
 export const REMOTION_JOB = "remotion-render";
