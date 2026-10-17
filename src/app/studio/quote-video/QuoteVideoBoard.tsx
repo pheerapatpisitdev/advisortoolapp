@@ -13,6 +13,7 @@ import type { VideoBrief, WrittenLines } from "@/lib/quote-video/brief";
 import { REWRITES, StoryBrief, type ScriptState } from "./StoryBrief";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ClipList } from "./ClipList";
+import { VoicePicker, type GeminiVoice } from "./VoicePicker";
 import { makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
 import { voiceNotice } from "@/lib/quote-video/voice-quota";
 import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
@@ -22,7 +23,6 @@ const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
 const label = "mb-1 block text-sm font-medium";
-const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no-underline hover:bg-[var(--ct-soft)] inline-flex items-center";
 
 /** what the next clip costs, under the button (คลิปเล่าเรื่อง's board too) */
 export function costLine(c: CostView | null, key: PriceKey): { text: string; blocked: boolean; topUp: boolean } | null {
@@ -121,13 +121,8 @@ export function SizePicker({ size, pick }: { size: VideoSize; pick: (s: VideoSiz
   );
 }
 const VOICE_KEY = "quote-video-eleven";
-/** Gemini's two narrators and their samples (owner, 2026-10-11) */
-export const GEMINI = [
-  { n: "F" as const, name: "ผู้หญิง", tag: "Kore", sample: "/voice-samples/gemini-F.mp3" },
-  { n: "M" as const, name: "ผู้ชาย", tag: "Orus", sample: "/voice-samples/gemini-M.mp3" },
-];
 /** a narrator's sample in the clip's language: the 15-second iHealthy lines, read by Kore or Orus (owner, 2026-10-15) */
-const sampleIn = (g: (typeof GEMINI)[number], lang: VideoLang) => (lang === "th" ? g.sample : `/voice-samples/gemini-${g.n}-${lang}.mp3`);
+const sampleIn = (g: GeminiVoice, lang: VideoLang) => (lang === "th" ? g.sample : `/voice-samples/gemini-${g.n}-${lang}.mp3`);
 const DEFAULT_TERM = { LIFEPROTECT: "WLF19H", ISHIELD: "WLCI10", PLB: "PLB12" } as const;
 /** the plans a clip compares, the main one included (owner, 2026-10-11: three fit a phone screen) */
 const MAX_COMPARE = 3;
@@ -195,20 +190,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     setVoice(id);
     try { localStorage.setItem(VOICE_KEY, id); } catch { /* not remembered, still used */ }
   }
-  // one sample plays at a time
-  const player = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState<string | null>(null);
-  function playSample(src: string) {
-    const was = player.current;
-    was?.pause();
-    if (playing === src) { setPlaying(null); return; }
-    const a = new Audio(src);
-    a.onended = () => setPlaying(null);
-    player.current = a;
-    setPlaying(src);
-    a.play().catch(() => setPlaying(null));
-  }
-  useEffect(() => () => player.current?.pause(), []);
   const [plan, setPlan] = useState(start?.plan && ihuPlans.some((p) => p.code === start.plan) ? start.plan : "GOLD");
   const [compare, setCompare] = useState<string[]>([]);
   // iHealthy from its page (owner, 2026-10-14): the page's base, sum, territory, coverage and riders
@@ -808,36 +789,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             </>
           )}
           <SizePicker size={size} pick={pickSize} />
-          <div>
-            <span className={label}>เสียงพากย์</span>
-            <div className="flex flex-wrap items-center gap-2">
-              {GEMINI.map((g) => (
-                <span key={g.n} className="inline-flex items-center gap-2">
-                  <button type="button" className={chip((!voice || foreign) && narrator === g.n)} onClick={() => { pickVoice(""); pickNarrator(g.n); }}>{g.name} <span className="font-normal opacity-80">· {g.tag}</span></button>
-                  <button type="button" className={small} onClick={() => playSample(sampleIn(g, foreign ? lang : "th"))} aria-label={`ฟังตัวอย่างเสียง${g.name}`}>{playing === sampleIn(g, foreign ? lang : "th") ? "■ หยุด" : "▶ ฟัง"}</button>
-                </span>
-              ))}
-            </div>
-            {/* ElevenLabs' voices, a row each for men and women (owner, 2026-10-13: every member, free choice) */}
-            {eleven.length > 0 && !foreign && (["M", "F"] as const).map((sex) => (
-              <div key={sex} className="mt-3">
-                <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">ElevenLabs {sex === "M" ? "ผู้ชาย" : "ผู้หญิง"} · เหมือนคนพูด +{priceBaht(prices.elevenExtra)} บาท</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  {eleven.filter((v) => v.sex === sex).map((v) => (
-                    <span key={v.id} className="inline-flex items-center gap-1.5">
-                      <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· {v.tag}</span></button>
-                      <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■" : "▶"}</button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-            <p className="mt-1 text-xs text-[var(--ct-mute)]">
-              {foreign
-                ? `เสียง AI ของ Google พูด ${LANG_NAME[lang]} · เสียง ElevenLabs ซ่อนไว้ เพราะเป็นเสียงคนไทย`
-                : voice ? "เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs" : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้
-            </p>
-          </div>
+          <VoicePicker
+            id="qv-voice" narrator={narrator} voice={voice} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)} foreign={foreign}
+            onPick={(n, id) => { pickVoice(id); if (!id) pickNarrator(n); }}
+            sampleOf={(g) => sampleIn(g, foreign ? lang : "th")}
+            note={`${foreign
+              ? `เสียง AI ของ Google พูด ${LANG_NAME[lang]} · เสียง ElevenLabs ซ่อนไว้ เพราะเป็นเสียงคนไทย`
+              : voice ? `เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs · +${priceBaht(prices.elevenExtra)} บาท` : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้`}
+          />
         </Step>
 
         {/* the cost and the button: pinned to the foot of a phone's screen, so they are always in view */}

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pension/engine";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
@@ -14,7 +14,8 @@ import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
 import { ChevronDownIcon } from "../ui/icons";
 import { ClipList } from "../quote-video/ClipList";
-import { costLine, GEMINI, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
+import { costLine, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
+import { VoicePicker } from "../quote-video/VoicePicker";
 
 /**
  * คลิปเล่าเรื่อง's form (owner, 2026-10-15, mockup https://claude.ai/artifact/FmDZmdTf6Mwgb2Dza8hQtM):
@@ -36,7 +37,6 @@ const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
 const label = "mb-1 block text-sm font-medium";
-const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no-underline hover:bg-[var(--ct-soft)] inline-flex items-center";
 
 /** the stories still to come, as the mockup listed them */
 const COMING = ["ซื้อตอนหนุ่มถูกกว่า", "ผู้หญิงมักอายุยืนกว่า", "ลดหย่อนภาษีปลายปี"];
@@ -321,20 +321,6 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
       voiceQuota().then(setQuota).catch(() => undefined);
     };
   }, [pending]);
-
-  // one voice sample plays at a time
-  const player = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState<string | null>(null);
-  function playSample(src: string) {
-    player.current?.pause();
-    if (playing === src) { setPlaying(null); return; }
-    const a = new Audio(src);
-    a.onended = () => setPlaying(null);
-    player.current = a;
-    setPlaying(src);
-    a.play().catch(() => setPlaying(null));
-  }
-  useEffect(() => () => player.current?.pause(), []);
 
   const figureOk = showsFigure && info.figure === "plan" && figure && !("error" in figure) ? figure : null;
   const ladderOk = withFigure && info.figure === "ladder" && ladder && !("error" in ladder) ? ladder : null;
@@ -661,30 +647,10 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 <button type="button" className={chip(look.palette === "color")} onClick={() => pickLook({ palette: "color" })}>สีทั้งคลิป</button>
               </div>
             </div>}
-            <div>
-              <span className={label}>เสียงพากย์</span>
-              <div className="flex flex-wrap items-center gap-2">
-                {GEMINI.map((g) => (
-                  <span key={g.n} className="inline-flex items-center gap-2">
-                    <button type="button" className={chip(!look.voice && look.narrator === g.n)} onClick={() => pickLook({ voice: "", narrator: g.n })}>{g.name} <span className="font-normal opacity-80">· {g.tag}</span></button>
-                    <button type="button" className={small} onClick={() => playSample(g.sample)} aria-label={`ฟังตัวอย่างเสียง${g.name}`}>{playing === g.sample ? "■ หยุด" : "▶ ฟัง"}</button>
-                  </span>
-                ))}
-              </div>
-              {eleven.length > 0 && (["M", "F"] as const).map((sex) => (
-                <div key={sex} className="mt-3">
-                  <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">ElevenLabs {sex === "M" ? "ผู้ชาย" : "ผู้หญิง"} · เหมือนคนพูด +{priceBaht(prices.elevenExtra)} บาท</span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {eleven.filter((v) => v.sex === sex).map((v) => (
-                      <span key={v.id} className="inline-flex items-center gap-1.5">
-                        <button type="button" className={chip(look.voice === v.id)} onClick={() => pickLook({ voice: v.id, narrator: v.sex })}>{v.name} <span className="font-normal opacity-80">· {v.tag}</span></button>
-                        <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■" : "▶"}</button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <VoicePicker
+              id="sc-voice" narrator={look.narrator} voice={look.voice} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)}
+              onPick={(narrator, voice) => pickLook({ voice, narrator })}
+            />
           </Step>
 
           {/* the opening scene, at the foot of the tools (owner, 2026-10-15: no third column) */}
