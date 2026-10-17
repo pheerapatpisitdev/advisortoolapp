@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClosedNotice } from "@/components/ClosedNotice";
 import { gatePage } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
 import { AD_LIMITS } from "@/lib/content/ads";
@@ -40,7 +41,7 @@ export const metadata: Metadata = { title: "Ads Studio | Studio" };
 export default async function StudioAdsPage({ searchParams }: {
   searchParams: Promise<{ page?: string; campaign?: string; new?: string; fb?: string; warn?: string; detail?: string; tab?: string; days?: string; ad?: string; create?: string }>;
 }) {
-  await gatePage("/studio/ads", "owner");
+  const viewer = await gatePage("/studio/ads", "owner");
   const { page, campaign, new: making, fb, warn, detail, tab: tabAsked, days: daysAsked, ad, create } = await searchParams;
   const fresh = making === "1";
   const days = parseDays(daysAsked);
@@ -117,18 +118,21 @@ export default async function StudioAdsPage({ searchParams }: {
   const contact = home.pageId && (view.kind === "page" || view.kind === "new") ? await pageContact(home.pageId) : null;
 
   return (
-    <AdsStudio
-      home={home}
-      view={view}
-      openId={openId}
-      days={days}
-      contact={contact}
-      drawerPeople={drawerPeople}
-      rules={{ limits: AD_LIMITS }}
-      products={CONTENT_PRODUCTS.map((p) => ({ href: p.href, name: p.name }))}
-      outcome={fb ?? null}
-      warn={warn ?? null}
-      detail={detail ?? null}
-    />
+    <>
+      <ClosedNotice viewer={viewer} feature="ads" />
+      <AdsStudio
+        home={home}
+        view={view}
+        openId={openId}
+        days={days}
+        contact={contact}
+        drawerPeople={drawerPeople}
+        rules={{ limits: AD_LIMITS }}
+        products={CONTENT_PRODUCTS.map((p) => ({ href: p.href, name: p.name }))}
+        outcome={fb ?? null}
+        warn={warn ?? null}
+        detail={detail ?? null}
+      />
+    </>
   );
 }

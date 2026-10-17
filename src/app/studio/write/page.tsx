@@ -1,4 +1,5 @@
 import { gatePage } from "@/lib/auth/viewer";
+import { ClosedNotice } from "@/components/ClosedNotice";
 import { StudioPage } from "../StudioPage";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,12 @@ export const metadata = {
 // the menu, the palette and the tabs come from ../layout.tsx
 export default async function ContentPage({ searchParams }: { searchParams: Promise<{ hook?: string; open?: string; day?: string; page?: string }> }) {
   // the layout's gate is not re-run on every navigation between Studio's pages, so each page asks too
-  await gatePage("/studio/write");
+  const viewer = await gatePage("/studio/write");
   const { hook, open, day, page } = await searchParams;
-  return <StudioPage hook={hook} open={open} day={day} page={page} />;
+  return (
+    <>
+      <ClosedNotice viewer={viewer} feature="write" />
+      <StudioPage hook={hook} open={open} day={day} page={page} />
+    </>
+  );
 }

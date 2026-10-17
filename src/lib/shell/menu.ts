@@ -38,6 +38,7 @@ export type MenuIcon =
   | "calendar"
   | "quote"
   | "woman"
+  | "power"
   | "wallet"
   | "image"
   | "back"
@@ -211,6 +212,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   {
     title: "1 API ราคา โมเดล",
     pages: [
+      // a tool switched off while something it needs is down (owner chose ก ก ก, 2026-10-17)
+      { href: "/admin/switches", label: "เปิด-ปิดฟังก์ชัน", icon: "power", hue: "#2b7470" },
       { href: "/admin/ai", label: "คีย์และโมเดล", icon: "gear", hue: "#2b6f74" },
       { href: "/admin/prices", label: "ราคาและโปรโมชัน", icon: "tag", hue: "#2b6a7a" },
       { href: "/admin/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b5f80" },
@@ -441,6 +444,8 @@ export interface Who {
   member?: boolean;
   /** the Super Admin (owner, 2026-10-15): the back office only, no way back to the front */
   super?: boolean;
+  /** the menu items of the tools switched off for now (src/lib/switches), marked ปิดชั่วคราว */
+  closed?: string[];
 }
 
 

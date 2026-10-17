@@ -106,6 +106,9 @@ function Icon({ name }: { name: MenuIcon }) {
     // Maryjane, Studio's writer: a woman with a fringe and her hair down to her shoulders
     case "woman":
       return <svg {...common}><path d="M12 3.8c3 0 5 2.2 5 5.2 0 3 .4 5 1.8 6.6-1.9.6-3.8.4-5.3-.6M12 3.8c-3 0-5 2.2-5 5.2 0 3-.4 5-1.8 6.6 1.9.6 3.8.4 5.3-.6M9.2 8.6c1.8-.1 3.9-.9 5-2.4M12 6.4a3.3 3.3 0 0 1 0 8.6M12 6.4a3.3 3.3 0 0 0 0 8.6M4.8 21c.8-2.4 3.7-3.8 7.2-3.8s6.4 1.4 7.2 3.8" /></svg>;
+    // เปิด-ปิดฟังก์ชัน: a power button
+    case "power":
+      return <svg {...common}><path d="M12 4v7M7.4 6.9a7 7 0 1 0 9.2 0" /></svg>;
     // the agent's Studio wallet
     case "wallet":
       return <svg {...common}><path d="M4.5 7.5h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18V8l11-3v2.5M16.5 13.5h.01" /></svg>;
@@ -253,13 +256,15 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
           <ul className="space-y-1">
             {group.links.map((link) => {
               const here = !link.external && isCurrent(link.href, path);
+              // switched off for now (เปิด-ปิดฟังก์ชัน): still listed, marked, so nobody wonders where it went
+              const closed = who?.closed?.includes(link.href) === true;
               return (
                 <li key={link.href}>
                   <Link
                     href={link.href}
                     {...(link.external ? { target: "_blank", rel: "noreferrer" } : {})}
                     aria-current={here ? "page" : undefined}
-                    title={link.label}
+                    title={closed ? `${link.label} (ปิดชั่วคราว)` : link.label}
                     className="shell-btn flex items-center gap-2.5 px-2 py-1.5 text-sm no-underline rail:justify-center rail:px-0"
                     style={{
                       // read by .shell-btn and .shell-chip for the tint, the edge and the fill
@@ -269,7 +274,8 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
                     }}
                   >
                     <span className="shell-chip"><Icon name={link.icon} /></span>
-                    <span className="min-w-0 truncate rail:sr-only">{link.label}</span>
+                    <span className={`min-w-0 truncate rail:sr-only ${closed ? "opacity-60" : ""}`}>{link.label}</span>
+                    {closed && <span className="shell-closed ml-auto shrink-0 rounded-full px-2 text-[11px] font-semibold rail:sr-only">ปิดชั่วคราว</span>}
                   </Link>
                 </li>
               );

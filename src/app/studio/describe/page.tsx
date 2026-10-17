@@ -1,4 +1,5 @@
 import { gatePage } from "@/lib/auth/viewer";
+import { ClosedNotice } from "@/components/ClosedNotice";
 import { listReadings } from "@/lib/content/describe-history";
 import { DescribeBoard } from "./DescribeBoard";
 
@@ -25,6 +26,7 @@ export default async function DescribePage() {
         อัปโหลดรูป แล้ว AI เขียน prompt ภาษาอังกฤษแยกหมวดสำหรับวาดรูปแบบเดียวกัน ก๊อปไปใช้ได้ทั้งในช่องบรีฟภาพของ Studio และเครื่องมือวาดรูปอื่น
         นับเป็น 1 รอบ เก็บรูปย่อและ prompt ล่าสุด 200 รายการไว้ให้คุณคนเดียว ลบได้
       </p>
+      <ClosedNotice viewer={viewer} feature="describe" />
       <DescribeBoard initial={history} />
     </div>
   );

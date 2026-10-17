@@ -4,6 +4,7 @@ import { parseSwatches } from "@/lib/content/palette";
 import { isThumbBase64, saveReading } from "@/lib/content/describe-history";
 import { within } from "@/lib/content/deadline";
 import { refuseUnless, requireMember } from "@/lib/auth/viewer";
+import { closedNow } from "@/lib/switches/store";
 
 /**
  * A picture read into a prompt, as a plain request rather than a server action, as the picture
@@ -25,6 +26,9 @@ const bad = (error: string) => Response.json({ ok: false, error }, { status: 400
 export async function POST(req: Request) {
   const refused = await refuseUnless();
   if (refused) return refused;
+  // switched off by the Super Admin (เปิด-ปิดฟังก์ชัน)
+  const closed = await closedNow("describe");
+  if (closed) return Response.json({ ok: false, error: closed }, { status: 503 });
   const body = await req.json().catch(() => null) as { image?: { base64?: unknown; mimeType?: unknown; palette?: unknown; thumb?: unknown; asPerson?: unknown } } | null;
   const image = body?.image;
   if (!image || typeof image.base64 !== "string" || typeof image.mimeType !== "string") return bad("ไม่พบรูปที่จะอ่าน");

@@ -666,6 +666,13 @@ body:has(.theme-legacy) {
   transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease;
 }
 
+/* a tool switched off for now (เปิด-ปิดฟังก์ชัน): drawn in the menu's own ink and rule, so it reads on every ground */
+.shell-closed {
+  border: 1px solid var(--shell-line);
+  color: var(--shell-mute);
+  line-height: 1.5;
+}
+
 .shell-btn:hover {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.05)),

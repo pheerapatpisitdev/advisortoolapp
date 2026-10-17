@@ -1,4 +1,5 @@
 import { providerKey } from "@/lib/ai/client";
+import { ClosedNotice } from "@/components/ClosedNotice";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
@@ -72,6 +73,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
+      <ClosedNotice viewer={viewer} feature="quote-video" />
       <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} />
     </div>
   );

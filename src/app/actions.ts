@@ -9,6 +9,7 @@ import type { ChatMessage } from "@/lib/ai/types";
 import type { AnySlots } from "@/lib/assistant/slots";
 import { cleanHistory, cleanSlots } from "@/lib/chat/public-input";
 import { memberAccess, PASS_EXPIRED_CHAT, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
+import { closedFor } from "@/lib/switches/store";
 
 /**
  * The home page's assistant, for people signed in only (owner, 2026-10-12: "เป็นระบบปิด").
@@ -47,6 +48,9 @@ export async function askCopilot(
   // a failed read of who is asking is nobody: no answer is given on a guess
   const viewer = await getViewer().catch(() => null);
   if (!viewer) return { text: SIGN_IN, model: "—" };
+  // switched off by the Super Admin (เปิด-ปิดฟังก์ชัน)
+  const closed = await closedFor(viewer, "ask");
+  if (closed) return { text: closed, model: "—" };
   if (!allow(`copilot:${viewer.agentId}`)) return { text: BUSY, model: "—", failed: true };
   // an outside member asks while their pass is live (owner, 2026-10-13); unreadable is no answer
   const access = await memberAccess(viewer).catch((e) => {

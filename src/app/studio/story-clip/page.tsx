@@ -1,4 +1,5 @@
 import { providerKey } from "@/lib/ai/client";
+import { ClosedNotice } from "@/components/ClosedNotice";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
@@ -37,6 +38,7 @@ export default async function StoryClipPage() {
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         คลิปการ์ตูนลายเส้น อธิบายให้ลูกค้าเข้าใจว่าทำไมต้องมีประกัน ไม่ได้ขายแผนไหน ใช้ส่งก่อนคุย ลงเพจ หรือทำแอด
       </p>
+      <ClosedNotice viewer={viewer} feature="story-clip" />
       <StoryClipBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} />
     </div>
   );

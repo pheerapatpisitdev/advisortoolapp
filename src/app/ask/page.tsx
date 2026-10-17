@@ -1,4 +1,5 @@
 import "../home-theme.css";
+import { ClosedNotice } from "@/components/ClosedNotice";
 import { openingGuide } from "@/lib/copilot/guide";
 import { Chat } from "../Chat";
 import { AppShell } from "@/components/shell/AppShell";
@@ -37,6 +38,7 @@ export default async function Ask() {
             phone's menu button, which is fixed at the top left */}
         {reminder && <div className="mb-2 shrink-0 max-lg:ml-12"><PassReminder {...reminder} /></div>}
         {/* built on the server from the plan registry, so a new plan brings its own button */}
+        <div className="shrink-0 max-lg:ml-12"><ClosedNotice viewer={viewer} feature="ask" /></div>
         <Chat guide={openingGuide()} />
       </div>
       </AppShell>

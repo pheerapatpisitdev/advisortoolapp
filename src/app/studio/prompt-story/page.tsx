@@ -1,4 +1,5 @@
 import { providerKey } from "@/lib/ai/client";
+import { ClosedNotice } from "@/components/ClosedNotice";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
@@ -51,6 +52,7 @@ export default async function PromptStoryPage() {
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         พิมพ์โจทย์ของลูกค้าเอง AI เขียนบทให้ฟรี แก้ได้ทุกช่อง แล้วค่อยสร้างเป็นคลิปพร้อมรูป เสียง และการ์ดตัวแทนท้ายคลิป
       </p>
+      <ClosedNotice viewer={viewer} feature="prompt-story" />
       <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} />
     </div>
   );

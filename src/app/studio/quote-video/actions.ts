@@ -45,6 +45,7 @@ import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
 import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
+import { closedFor } from "@/lib/switches/store";
 
 /** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
 
@@ -194,6 +195,9 @@ export interface ScriptPreview {
  */
 export async function previewScript(v: VideoInput, customer: string, seed = 0, rewrite = true): Promise<ScriptPreview | { error: string }> {
   const viewer = await requireMember();
+  // switched off by the Super Admin (เปิด-ปิดฟังก์ชัน): an AI-written script is a job too
+  const closed = await closedFor(viewer, "quote-video");
+  if (closed) return { error: closed };
   // lines sent back without a rewrite are the agent's own edits: checked, then spoken as they are
   const c = checked(rewrite ? { ...v, lines: undefined } : v);
   if (typeof c === "string") return { error: c };
@@ -307,6 +311,8 @@ export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
  */
 export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; size?: VideoSize; theme?: string }): Promise<Made> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "quote-video");
+  if (closed) return { ok: false, error: closed };
   if (typeof customerId !== "string") return { ok: false, error: "เลือกลูกค้า" };
   const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
   if (!c) return { ok: false, error: "ไม่พบลูกค้าคนนี้ในรายชื่อ FHC ของคุณ" };
@@ -356,6 +362,8 @@ export async function previewStoryPension(v: { sex?: string; age?: number; annui
  */
 export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "home"> & { figure?: unknown; ladder?: unknown; pension?: unknown; home?: unknown }, customer: string): Promise<Made> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "story-clip");
+  if (closed) return { ok: false, error: closed };
   const eleven = voiceAsked(v?.voice);
   const input = checkedStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
   if (typeof input === "string") return { ok: false, error: input };
@@ -419,6 +427,8 @@ function setupWords(c: Extract<VideoInput, { product: "IHEALTHY" }>): { line: st
 
 export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "quote-video");
+  if (closed) return { ok: false, error: closed };
   const c = checked(v);
   if (typeof c === "string") return { ok: false, error: c };
   if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };

@@ -8,6 +8,7 @@ const auth = vi.hoisted(() => ({
   requireMember: vi.fn(async () => ({ agentId: "11111111-1111-4111-8111-111111111111", staff: null })),
 }));
 vi.mock("@/lib/auth/viewer", () => auth);
+vi.mock("@/lib/switches/store", () => ({ closedNow: async () => null }));
 const run = vi.hoisted(() => ({ describePicture: vi.fn() }));
 vi.mock("@/lib/content/describe-run", () => run);
 const hist = vi.hoisted(() => ({ saveReading: vi.fn() }));

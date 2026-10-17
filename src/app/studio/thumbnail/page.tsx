@@ -1,4 +1,5 @@
 import { can } from "@/lib/auth/access";
+import { ClosedNotice } from "@/components/ClosedNotice";
 import { allowanceOf } from "@/lib/auth/quota";
 import { gatePage } from "@/lib/auth/viewer";
 import { listPeople } from "@/lib/content/people-store";
@@ -38,6 +39,7 @@ export default async function ThumbnailPage() {
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         เลือกขนาด ใส่หัวข้อคลิป ให้ AI คิดหัวปก แล้ววาดภาพปกพร้อมตัวหนังสือไทย ตรวจคำที่วาดให้ทุกภาพ เก็บภาพล่าสุด 200 รายการไว้ที่นี่
       </p>
+      <ClosedNotice viewer={viewer} feature="thumbnail" />
       <ThumbnailBoard people={people.map((p) => ({ id: p.id, name: p.name }))} initial={history} owner={owner} rounds={rounds} />
     </div>
   );

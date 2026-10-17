@@ -64,6 +64,7 @@ import { chargeFixed, payRound } from "@/lib/wallet/round";
 import type { Rounds } from "@/lib/wallet/note";
 import { pictureSatang } from "@/lib/wallet/prices";
 import { walletPrices, walletView } from "@/lib/wallet/store";
+import { closedFor } from "@/lib/switches/store";
 
 /**
  * The content workbench's doors, open to anyone who finds the page — the owner put it in the
@@ -221,6 +222,9 @@ interface AdRound {
 
 export async function generateContent(given: GenerateInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  // switched off by the Super Admin (เปิด-ปิดฟังก์ชัน); an ad is the owner's, who is never refused
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   let input = given;
   // an ad is the owner's, written into a campaign: what the campaign holds replaces what was sent
   let ad: AdRound | null = null;
@@ -491,6 +495,8 @@ function englishAd(href: string, angle: string): { expat: boolean; angle: AngleI
 /** หาทีม: a round from a picked topic (src/lib/content/recruit.ts), under the plan form's hourly limit. */
 export async function generateRecruit(input: RecruitWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   if (input.format === "ad") return { ok: false, error: ADS_MOVED };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
@@ -507,6 +513,8 @@ export async function generateRecruit(input: RecruitWriteInput): Promise<Generat
 /** ความรู้: a round from a picked subject (src/lib/content/knowledge.ts), under the plan form's hourly limit. */
 export async function generateKnowledge(input: KnowledgeWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   }
@@ -526,6 +534,8 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
 /** เขียนเอง: the agent's draft polished into versions (src/lib/content/draft.ts), under the hourly limit. */
 export async function generateDraft(input: DraftWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   if (input.format === "ad") return { ok: false, error: ADS_MOVED };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
@@ -544,6 +554,8 @@ export async function generateDraft(input: DraftWriteInput): Promise<GenerateRes
 /** ขอบคุณลูกค้า: a thank-you from a picked occasion (src/lib/content/thanks.ts), under the hourly limit. */
 export async function generateThanks(input: ThanksWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   if (input.format === "ad") return { ok: false, error: ADS_MOVED };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
@@ -564,6 +576,8 @@ export async function generateThanks(input: ThanksWriteInput): Promise<GenerateR
 /** คำคม: a saying from a picked topic or the agent's own words (src/lib/content/saying.ts), under the hourly limit. */
 export async function generateSaying(input: SayingWriteInput): Promise<GenerateResult> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   if (input.format === "ad") return { ok: false, error: ADS_MOVED };
   if (!perHour(`content:${await caller()}`)) {
     return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
@@ -1023,6 +1037,8 @@ export type DrawBackgroundResult = { ok: true; item: ContentItem; note?: string 
  */
 export async function drawBackground(id: string, request = "", painter?: string, person?: PiecePerson | null): Promise<DrawBackgroundResult> {
   const viewer = await requireMember();
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   // the picture's time starts with the request (deadline.ts, review 2026-10-01)
   const clock = deadline();
   if (!drawPerHour(`draw:${await caller()}`)) {

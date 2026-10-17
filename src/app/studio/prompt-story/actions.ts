@@ -15,6 +15,7 @@ import { draftsLastHour, saveDraft } from "@/lib/prompt-story/drafts";
 import { writeStory } from "@/lib/prompt-story/writer";
 import type { PromptScene } from "@/lib/prompt-story/types";
 import type { Made } from "@/app/studio/quote-video/actions";
+import { closedFor } from "@/lib/switches/store";
 
 /**
  * คลิปตามโจทย์: the agent's brief written into a script and kept as a draft, the clip made from
@@ -30,6 +31,8 @@ export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; fi
   const viewer = await requireMember();
   // the owner's alone since 2026-10-17 (prompt-story/access.ts)
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
+  const closed = await closedFor(viewer, "prompt-story");
+  if (closed) return { ok: false, error: closed };
   // an outside member writes scripts while their pass is live, as they make clips (make.ts createVideo)
   if (!can(viewer, "owner")) {
     const access = await memberAccess(viewer).catch((e) => {
@@ -71,6 +74,8 @@ export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; fi
 export async function makePromptStory(v: Record<string, unknown>, customer: string): Promise<Made> {
   const viewer = await requireMember();
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
+  const closed = await closedFor(viewer, "prompt-story");
+  if (closed) return { ok: false, error: closed };
   const eleven = voiceAsked(v?.voice);
   const input = checkedPromptStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
   if (typeof input === "string") return { ok: false, error: input };
@@ -96,6 +101,8 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
 export async function redrawPromptPicture(id: string, scene: number): Promise<{ ok: true } | { ok: false; error: string }> {
   const viewer = await requireMember();
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
+  const closed = await closedFor(viewer, "prompt-story");
+  if (closed) return { ok: false, error: closed };
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id) || typeof scene !== "number") return { ok: false, error: "ไม่พบวิดีโอนี้" };
   try {
     return await redrawPicture(viewer, id, scene, (work) => after(() => asWho(viewer.agentId, work)));
