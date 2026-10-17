@@ -4,7 +4,7 @@ import { QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
 import { addSounds, mixNarration } from "@/lib/quote-video/job";
 import { a } from "@/lib/quote-video/motion";
 import { readTheme, THEME_KEYS } from "@/lib/quote-video/theme-keys";
-import { collageSounds, themed } from "@/lib/quote-video/themes";
+import { collageDecor, collageSounds, decorAnims, themed } from "@/lib/quote-video/themes";
 
 type El = ReactElement<{ style?: Record<string, unknown>; children?: ReactNode }>;
 const kids = (e: El) => [e.props.children].flat().filter(isValidElement) as El[];
@@ -57,5 +57,23 @@ describe("คอลลาจ's sounds", () => {
     expect(out.readInt16LE(44 + 2 * 3)).toBe(1000 + 15000);
     expect(out.readInt16LE(44 + 2 * 6)).toBe(1000);
     expect(wav.readInt16LE(44)).toBe(1000);
+  });
+});
+
+describe("คอลลาจ's library pictures in the scenes", () => {
+  it("pops one under the price and the contact, two under a bar cover, none under a cover that fills the page", () => {
+    expect(decorAnims("price").map((x) => x.kind)).toEqual(["pop"]);
+    expect(decorAnims("contact")).toHaveLength(1);
+    expect(decorAnims("cover", "bars")).toHaveLength(2);
+    expect(decorAnims("cover", "rows")).toEqual([]);
+    expect(decorAnims("value")).toEqual([]);
+  });
+
+  it("leaves out a picture not drawn yet, and never fails the clip over one", async () => {
+    const decor = await collageDecor(async (piece) => { if (piece === "umbrella") throw new Error("storage down"); return null; }, "bars");
+    expect(decor("price", 5)).toBeNull();
+    // the family is the app's own picture, so the cover still has it
+    expect([decor("cover", 5)].flat().filter(Boolean)).toHaveLength(1);
+    expect(decor("cover", 0.5)).toBeNull();
   });
 });

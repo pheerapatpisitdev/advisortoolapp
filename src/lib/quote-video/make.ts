@@ -42,7 +42,8 @@ import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./st
 import { faceUris } from "./story-faces";
 import { motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
-import { collageSoundFiles, collageSounds, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Hero, type SoundKind } from "./themes";
+import { collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
+import { pieceSticker } from "@/lib/collage/library";
 import { wideFhcFrame, wideQuoteFrame } from "./wide";
 import { WIDE_CHART_W, wideSceneLayer } from "./classic-wide";
 import { CLASSIC_BOXES } from "./table-geo";
@@ -576,6 +577,9 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const theme = motion ? readTheme(row.input.theme) : undefined;
   let heroOnce: Promise<Hero | undefined> | undefined;
   const hero = () => (heroOnce ??= themeHero(theme, row.input.sex));
+  // คอลลาจ's library pictures in the portrait scenes, read once, when a frame first needs them
+  let decorOnce: Promise<Decor | undefined> | undefined;
+  const decor = () => (decorOnce ??= theme === "collage" && size === "portrait" ? collageDecor(pieceSticker, facts.coverStyle) : Promise.resolve(undefined));
   // the classic value scene: where the table stops and which pen note is written at each stop
   const valueAt = script.findIndex((s) => s.key === "value");
   // บำนาญ 95's table carries its notes in the picture, and only walks down (pension-table.tsx)
@@ -609,13 +613,13 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     const words = script[s].voice.split(" ").filter(Boolean);
     if (motion) {
       const mctx = { facts, narrator, customer, contact, words, voiceSec: secs[s], ...shown };
-      const frame = (t: number, hero: Hero | undefined) => {
-        const c = hero ? { ...mctx, hero } : mctx;
+      const frame = (t: number, hero: Hero | undefined, scenery: Decor | undefined) => {
+        const c = { ...mctx, ...(hero ? { hero } : {}), ...(scenery ? { decor: scenery } : {}) };
         return themed(size === "portrait" ? motionFrame(p.key, c, t) : wideQuoteFrame(p.key, c, t, size), theme, t);
       };
       // the value scene writes its pen notes in the handwriting face; a theme with a face of its own writes everything in it
       const withPen = { pen: p.key === "value", ...(themeFont(theme) ? { hand: THEME_LETTERS } : {}) };
-      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: async () => renderPng(frame(fr.t ?? 0, await hero()), { width: dims.w, height: dims.h }, { ...withPen, ...script$ }) }));
+      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: async () => renderPng(frame(fr.t ?? 0, await hero(), await decor()), { width: dims.w, height: dims.h }, { ...withPen, ...script$ }) }));
     }
     const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, ...(pen ? { notes: pen.notes } : {}), ...shown };
     const withPen = { pen: p.key === "value" };
@@ -633,7 +637,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   return {
     script, motion, plans, named, sceneDraws,
     size,
-    ...(theme === "collage" ? { sounds: collageSounds(plans.map((p, i) => ({ start: p.start, anims: Object.values(motionSpec(script[i].key, facts, secs[i], script[i].voice)) }))) } : {}),
+    ...(theme === "collage" ? { sounds: collageSounds(plans.map((p, i) => ({ start: p.start, anims: [...Object.values(motionSpec(script[i].key, facts, secs[i], script[i].voice)), ...(size === "portrait" ? decorAnims(script[i].key, facts.coverStyle) : [])] }))) } : {}),
     build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height, size: dims, photo: boxes.photo, table: boxes.table },
     layers: { photo: layers.includes("photo") },
   };

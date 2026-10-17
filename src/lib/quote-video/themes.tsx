@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
+import sharp from "sharp";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type VideoThemePalette } from "@/lib/card-theme";
 import { DEFAULT_HERO_FACE, familyOf } from "@/lib/story/faces";
 import { faceUris } from "./story-faces";
-import { abs, box, El, MOTION_BG_H, type Anim } from "./motion";
+import { a, abs, box, El, MOTION_BG_H, type Anim } from "./motion";
+import type { SceneKey } from "./script";
 import type { ThemeKey } from "./theme-keys";
 import { W } from "./timeline";
 
@@ -270,3 +272,67 @@ export const collageSoundFiles = () => (soundFiles ??= Promise.all([
   readFile(join(process.cwd(), "public/collage/sfx/slap.pcm")),
   readFile(join(process.cwd(), "public/collage/sfx/pen.pcm")),
 ]).then(([pop, swish, slap, pen]) => ({ pop, swish, slap, pen })));
+
+/**
+ * คอลลาจกระดาษ's library pictures in the scenes (owner, 2026-10-17, as the collage mockup laid them):
+ * a hand holding coins under the price, an umbrella over the family under the cover, a hand holding
+ * a phone under the contact card. Each pops in, stop-motion, into the scene's empty lower part.
+ */
+interface Spot { piece: string; at: number; box: { left: number; top: number; w: number; h: number } }
+const DECOR: Partial<Record<SceneKey, Spot[]>> = {
+  price: [{ piece: "hand-coins", at: 2.2, box: { left: 400, top: 1150, w: 620, h: 430 } }],
+  cover: [
+    { piece: "family", at: 1.2, box: { left: 300, top: 1250, w: 480, h: 340 } },
+    { piece: "umbrella", at: 1.7, box: { left: 250, top: 1060, w: 580, h: 250 } },
+  ],
+  contact: [{ piece: "hand-phone", at: 1.2, box: { left: 330, top: 1150, w: 620, h: 440 } }],
+};
+/** the cover's pictures only where its bars leave the lower part empty (Life Protect, iShield) */
+const DECOR_COVER_STYLE = "bars";
+
+/** each picture's moment in its scene, for its sound (collageSounds) */
+export const decorAnims = (key: SceneKey, coverStyle?: string): Anim[] =>
+  key === "cover" && coverStyle !== DECOR_COVER_STYLE ? [] : (DECOR[key] ?? []).map((d) => a(d.at, "pop"));
+
+type Sticker = { uri: string; w: number; h: number };
+/** what a theme lays over a scene (motion.tsx MotionContext.decor) */
+export type Decor = (key: SceneKey, t: number) => ReactNode;
+/**
+ * The decor for a clip, from the pictures drawn so far: `load` gives a piece's sticker (library.ts
+ * pieceSticker), null when it has not been drawn — that picture is left out, and the clip is made all
+ * the same. Never throws.
+ */
+export async function collageDecor(load: (piece: string) => Promise<Buffer | null>, coverStyle?: string): Promise<Decor> {
+  const pieces = [...new Set(Object.values(DECOR).flat().map((d) => d!.piece))];
+  const got = await Promise.all(pieces.map(async (piece): Promise<[string, Sticker | null]> => {
+    try {
+      const png = piece === "family" ? await readFile(join(process.cwd(), "public/collage/family.png")) : await load(piece);
+      if (!png) return [piece, null];
+      const m = await sharp(png).metadata();
+      return [piece, { uri: `data:image/png;base64,${png.toString("base64")}`, w: m.width ?? 1, h: m.height ?? 1 }];
+    } catch {
+      return [piece, null];
+    }
+  }));
+  const stickers = new Map(got);
+  return function collageScene(key, t) {
+    if (key === "cover" && coverStyle !== DECOR_COVER_STYLE) return null;
+    const spots = (DECOR[key] ?? []).filter((d) => stickers.get(d.piece) && t >= d.at);
+    if (!spots.length) return null;
+    return spots.map((d, i) => {
+      const st = stickers.get(d.piece)!;
+      const k = Math.min(d.box.w / st.w, d.box.h / st.h);
+      const w = Math.round(st.w * k), h = Math.round(st.h * k);
+      // pop: big, a touch past, then settled; after that the paper wobble six times a second
+      const since = t - d.at;
+      const scale = since < 1 / 12 ? 0.45 : since < 2 / 12 ? 0.85 : since < 3 / 12 ? 1.08 : 1;
+      const tilt = (((i * 7 + Math.floor(t * 6)) % 3) - 1) * 0.9 + (i % 2 ? 1.5 : -1.5);
+      return (
+        <div key={d.piece} style={{ display: "flex", position: "absolute", left: d.box.left + Math.round((d.box.w - w) / 2), top: d.box.top + d.box.h - h, width: w, height: h, transform: `rotate(${tilt.toFixed(2)}deg) scale(${scale})` }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={st.uri} width={w} height={h} style={{ width: w, height: h }} alt="" />
+        </div>
+      );
+    });
+  };
+}
