@@ -71,10 +71,11 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     console.error("fhc customers not read:", e);
     return [];
   });
+  // the Studio's full width, so the two-column tools leave the desk room (owner chose ก, 2026-10-17)
   return (
-    <div className="max-w-5xl">
+    <div>
       <h1 className="text-xl font-semibold">วิดีโอนำเสนอ</h1>
-      <p className="mt-1 text-sm text-[var(--ct-mute)]">
+      <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
       <ClosedNotice viewer={viewer} feature="quote-video" />

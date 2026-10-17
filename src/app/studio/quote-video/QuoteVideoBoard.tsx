@@ -495,15 +495,82 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     const n = Number(e.target.value.replace(/[^\d]/g, "").slice(0, 8));
     return n ? n.toLocaleString("en-US") : "";
   };
+  // หน้าตาวิดีโอ: under both columns on a wide screen for a quote, its fields in two columns there;
+  // a FHC summary has no โจทย์การเล่า, so there it fills the right column
+  const lookStep = (
+    <Step n={kind === "quote" ? 5 : 4} title="หน้าตาวิดีโอ" summary={summary.look}>
+      <div className={kind === "quote" ? "space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-5 xl:gap-y-3 xl:space-y-0" : "space-y-3"}>
+        {kind === "quote" && (
+          <>
+            <div>
+              <span className={label}>ความยาว</span>
+              <div className="flex flex-wrap gap-2">
+                {LENGTH_CHOICES.filter((c) => !foreign || c.length === "short" || c.length === "full").map((c) => (
+                  <button key={c.length} type="button" className={chip(length === c.length)} onClick={() => pickLength(c.length)}>
+                    {c.name} <span className="font-normal opacity-80">· {priceBaht(prices[videoPriceKey(style, c.length)])} บาท</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-[var(--ct-mute)]">{LENGTH_CHOICES.find((c) => c.length === length)?.hint}</p>
+            </div>
+            <div>
+              <span className={label}>สไตล์</span>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", length)])} บาท</button>
+                <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices[videoPriceKey("motion", length)])} บาท</button>
+              </div>
+              <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
+            </div>
+            {style === "motion" && themeChips}
+            {style === "motion" && theme === "collage" && (
+              <div>
+                <span className={label}>ภาพตัดแปะ</span>
+                {size === "portrait" ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className={chip(aiPieces)} onClick={() => pickPieces(true)}>AI คิดและวาดใหม่ <span className="font-normal opacity-80">· ภาพละ {priceBaht(prices.drawStandard)} บาท</span></button>
+                      <button type="button" className={chip(!aiPieces)} onClick={() => pickPieces(false)}>ภาพจากคลัง <span className="font-normal opacity-80">· ไม่มีค่าภาพ</span></button>
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--ct-mute)]">{aiPieces ? "AI อ่านบทแล้ววาดภาพให้คลิปนี้โดยเฉพาะ ฉากละ 1 ภาพ (ฉากราคา คุ้มครอง ติดต่อ) ใช้เวลาเพิ่มประมาณ 1 นาที ภาพไหนวาดไม่สำเร็จ ใช้ภาพจากคลังแทนและไม่คิดเงินภาพนั้น" : "ใช้ภาพตัดแปะที่วาดไว้ในคลังแล้ว"}</p>
+                  </>
+                ) : <p className="text-xs text-[var(--ct-mute)]">ภาพตัดแปะในฉากมีเฉพาะคลิปแนวตั้ง</p>}
+              </div>
+            )}
+          </>
+        )}
+        {kind === "fhc" && (
+          <>
+            {themeChips}
+            {theme === "collage" && (
+              <p className="text-xs text-[var(--ct-mute)]">{size === "portrait" ? "ภาพตัดแปะ: AI เลือกจากคลังให้ตรงกับแต่ละฉาก วางในฉากที่มีที่ว่าง ไม่มีค่าภาพ" : "ภาพตัดแปะในฉากมีเฉพาะคลิปแนวตั้ง"}</p>
+            )}
+          </>
+        )}
+        <SizePicker size={size} pick={pickSize} />
+        <VoicePicker
+          id="qv-voice" pick={{ narrator, voice, gemini }} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)} foreign={foreign}
+          onPick={(p) => { pickVoice(p.voice); if (!p.voice) { pickNarrator(p.narrator); pickGemini(p.gemini); } }}
+          sampleOf={(g) => sampleIn(g, foreign ? lang : "th")}
+          note={`${foreign
+            ? `เสียง AI ของ Google พูด ${LANG_NAME[lang]} · เสียง ElevenLabs ซ่อนไว้ เพราะเป็นเสียงคนไทย`
+            : voice ? `เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs · +${priceBaht(prices.elevenExtra)} บาท` : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้`}
+        />
+      </div>
+    </Step>
+  );
   return (
     // Organic Studio's desk (owner, 2026-10-15, mockup https://claude.ai/artifact/8B39tj4VDgrd9RsdCC23RL, option ค):
-    // the form in a tools column that scrolls on its own, the clips on the squared desk beside it
-    <div className="mt-5 grid items-start gap-3 lg:grid-cols-[280px_minmax(0,1fr)]">
+    // the form in a tools column that scrolls on its own, the clips on the squared desk beside it;
+    // on a wide screen the tools column splits in two, steps 1–3 left, โจทย์การเล่า right and
+    // หน้าตาวิดีโอ across both underneath (owner chose ก, mockup https://claude.ai/artifact/M7JUpGcpRLPpRh69dDRV29)
+    <div className="mt-5 grid items-start gap-3 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[640px_minmax(0,1fr)]">
       <aside className="@container min-w-0 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-4 pb-0 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
         <div className="-mx-4 -mt-4 mb-4 border-b border-[var(--ct-hair)] px-4 py-2.5">
           <h2 className="font-semibold">เครื่องมือ</h2>
           <p className="mt-0.5 text-xs text-[var(--ct-mute)]">เลือกแล้วกดสร้าง คลิปจะขึ้นบนโต๊ะ “กำลังสร้าง”</p>
         </div>
+        <div className="xl:grid xl:grid-cols-2">
+        <div className="min-w-0 xl:pr-5">
         <Step n={1} title="ทำวิดีโอเรื่อง" summary={summary.what} first>
           <div className="flex flex-wrap gap-2">
             {PRODUCTS.map((p) => <button key={p.code} type="button" className={chip(kind === "quote" && product === p.code)} onClick={() => { setKind("quote"); pickProduct(p.code); }}>{p.name}</button>)}
@@ -742,7 +809,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             </Step>
           </>
         )}
+        </div>
 
+        {/* the right column: its first step drops the top rule, the column rule stands in for it */}
+        <div className="min-w-0 xl:border-l xl:border-[var(--ct-hair)] xl:pl-5 xl:[&>section:first-child]:border-t-0 xl:[&>section:first-child]:pt-0">
         {kind === "quote" && foreign && (
           <Step n={4} title="โจทย์การเล่า" summary="บทมาตรฐาน">
             <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">
@@ -759,67 +829,15 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             />
           </Step>
         )}
+        {kind === "fhc" && lookStep}
+        </div>
+        {kind === "quote" && <div className="min-w-0 xl:col-span-2">{lookStep}</div>}
+        </div>
 
-        <Step n={kind === "quote" ? 5 : 4} title="หน้าตาวิดีโอ" summary={summary.look}>
-          {kind === "quote" && (
-            <>
-              <div>
-                <span className={label}>ความยาว</span>
-                <div className="flex flex-wrap gap-2">
-                  {LENGTH_CHOICES.filter((c) => !foreign || c.length === "short" || c.length === "full").map((c) => (
-                    <button key={c.length} type="button" className={chip(length === c.length)} onClick={() => pickLength(c.length)}>
-                      {c.name} <span className="font-normal opacity-80">· {priceBaht(prices[videoPriceKey(style, c.length)])} บาท</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-1 text-xs text-[var(--ct-mute)]">{LENGTH_CHOICES.find((c) => c.length === length)?.hint}</p>
-              </div>
-              <div>
-                <span className={label}>สไตล์</span>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", length)])} บาท</button>
-                  <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices[videoPriceKey("motion", length)])} บาท</button>
-                </div>
-                <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
-              </div>
-              {style === "motion" && themeChips}
-              {style === "motion" && theme === "collage" && (
-                <div>
-                  <span className={label}>ภาพตัดแปะ</span>
-                  {size === "portrait" ? (
-                    <>
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" className={chip(aiPieces)} onClick={() => pickPieces(true)}>AI คิดและวาดใหม่ <span className="font-normal opacity-80">· ภาพละ {priceBaht(prices.drawStandard)} บาท</span></button>
-                        <button type="button" className={chip(!aiPieces)} onClick={() => pickPieces(false)}>ภาพจากคลัง <span className="font-normal opacity-80">· ไม่มีค่าภาพ</span></button>
-                      </div>
-                      <p className="mt-1 text-xs text-[var(--ct-mute)]">{aiPieces ? "AI อ่านบทแล้ววาดภาพให้คลิปนี้โดยเฉพาะ ฉากละ 1 ภาพ (ฉากราคา คุ้มครอง ติดต่อ) ใช้เวลาเพิ่มประมาณ 1 นาที ภาพไหนวาดไม่สำเร็จ ใช้ภาพจากคลังแทนและไม่คิดเงินภาพนั้น" : "ใช้ภาพตัดแปะที่วาดไว้ในคลังแล้ว"}</p>
-                    </>
-                  ) : <p className="text-xs text-[var(--ct-mute)]">ภาพตัดแปะในฉากมีเฉพาะคลิปแนวตั้ง</p>}
-                </div>
-              )}
-            </>
-          )}
-          {kind === "fhc" && (
-            <>
-              {themeChips}
-              {theme === "collage" && (
-                <p className="text-xs text-[var(--ct-mute)]">{size === "portrait" ? "ภาพตัดแปะ: AI เลือกจากคลังให้ตรงกับแต่ละฉาก วางในฉากที่มีที่ว่าง ไม่มีค่าภาพ" : "ภาพตัดแปะในฉากมีเฉพาะคลิปแนวตั้ง"}</p>
-              )}
-            </>
-          )}
-          <SizePicker size={size} pick={pickSize} />
-          <VoicePicker
-            id="qv-voice" pick={{ narrator, voice, gemini }} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)} foreign={foreign}
-            onPick={(p) => { pickVoice(p.voice); if (!p.voice) { pickNarrator(p.narrator); pickGemini(p.gemini); } }}
-            sampleOf={(g) => sampleIn(g, foreign ? lang : "th")}
-            note={`${foreign
-              ? `เสียง AI ของ Google พูด ${LANG_NAME[lang]} · เสียง ElevenLabs ซ่อนไว้ เพราะเป็นเสียงคนไทย`
-              : voice ? `เสียงเหมือนคนพูด ใช้เสียงในบัญชี ElevenLabs · +${priceBaht(prices.elevenExtra)} บาท` : "เสียง AI ของ Google ราคาเดิม"} · ครั้งหน้าเปิดมาเป็นค่าเดิมทั้งขั้นนี้`}
-          />
-        </Step>
-
-        {/* the cost and the button: pinned to the foot of a phone's screen, so they are always in view */}
-        <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] px-4 pb-4 pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.08)]">
+        {/* the cost and the button: pinned to the foot of a phone's screen, so they are always in view;
+            on a wide screen the notes sit left of the button */}
+        <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-[var(--ct-hair)] bg-[var(--ct-panel)] px-4 pb-4 pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] xl:grid xl:grid-cols-[minmax(0,1fr)_220px] xl:items-center xl:gap-3 xl:space-y-0">
+          <div className="min-w-0 space-y-2">
           {error && (
             <p role="alert" className="rounded-lg bg-[var(--ct-alert-bg)] px-3 py-2 text-sm text-[var(--ct-alert)]">
               {error.text}{" "}
@@ -840,13 +858,15 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               {line.topUp && <Link href="/studio/wallet" className="font-medium underline">เติมเงิน</Link>}
             </p>
           )}
+          <p className="hidden text-xs text-[var(--ct-mute)] xl:block">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นบนโต๊ะ</p>
+          </div>
           <button
             type="button" onClick={make} disabled={busy || (kind === "fhc" ? !fhcPick : !ok) || Boolean(line?.blocked) || voiceBlocked}
             className="w-full rounded-lg bg-[var(--ct-solid)] px-5 py-2.5 text-sm font-medium text-[var(--ct-solid-ink)] hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "กำลังเริ่ม…" : "สร้างวิดีโอ"}
           </button>
-          <p className="hidden text-xs text-[var(--ct-mute)] lg:block">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นบนโต๊ะ</p>
+          <p className="hidden text-xs text-[var(--ct-mute)] lg:block xl:hidden">ใช้เวลาประมาณ 1–2 นาที ปิดหน้านี้ได้ คลิปจะขึ้นบนโต๊ะ</p>
         </div>
       </aside>
 
