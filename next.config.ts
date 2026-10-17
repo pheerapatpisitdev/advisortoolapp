@@ -77,6 +77,9 @@ const nextConfig: NextConfig = {
       // the Google button on the front page
       { source: "/backoffice", destination: "/", permanent: false },
       { source: "/backoffice/:path*", destination: "/", permanent: false },
+      // เสียงของฉัน, the agent's own cloned voice, until the owner took it out (2026-10-17)
+      { source: "/studio/voice", destination: "/studio/quote-video", permanent: false },
+      { source: "/admin/voices", destination: "/admin", permanent: false },
     ];
   },
 };

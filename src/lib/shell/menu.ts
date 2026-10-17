@@ -38,7 +38,6 @@ export type MenuIcon =
   | "calendar"
   | "quote"
   | "woman"
-  | "mic"
   | "wallet"
   | "image"
   | "back"
@@ -248,7 +247,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     pages: [
       { href: "/admin/ads", label: "โฆษณา", icon: "megaphone", hue: "#5b2e80" },
       { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#612d7e" },
-      { href: "/admin/voices", label: "เสียงของตัวแทน", icon: "pulse", hue: "#682d7c" },
       { href: "/admin/collage", label: "คลังภาพคอลลาจ", icon: "image", hue: "#6d2c7a" },
     ],
   },
@@ -373,8 +371,6 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     { href: "/studio/story-clip", label: "คลิปเล่าเรื่อง", icon: "woman", hue: "#2e5a80" },
     // a clip from the agent's own brief, script edited before it is paid for (owner, 2026-10-16): the owner's alone since 2026-10-17
     ...(who?.owner ? [{ href: "/studio/prompt-story", label: "คลิปตามโจทย์", icon: "quote" as const, hue: "#2e5a80" }] : []),
-    // the agent's own cloned voice for those clips (owner, 2026-10-15): the owner's alone since 2026-10-16
-    ...(who?.owner ? [{ href: "/studio/voice", label: "เสียงของฉัน", icon: "mic" as const, hue: "#2e5a80" }] : []),
     // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
     { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80" },
     // video covers (owner, 2026-10-09): every agent's and member's since 2026-10-14, paid as a picture

@@ -6,7 +6,7 @@ vi.mock("@/lib/ai/client", () => ({ providerKey: async (p: string) => (p === "el
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: (...a: unknown[]) => usage(...a) }));
 
 import { speakLine } from "@/lib/ai/tts";
-import { ELEVEN_VOICES, elevenVoice, elevenVoicesFor, speakEleven } from "@/lib/voice/elevenlabs";
+import { ELEVEN_VOICES, elevenVoice, speakEleven } from "@/lib/voice/elevenlabs";
 import { existsSync } from "node:fs";
 import { videoPrice } from "@/lib/quote-video/make";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
@@ -60,12 +60,11 @@ describe("the voices and the price", () => {
     expect(videoPrice({ ...base, voice: "abc" }, { ...DEFAULT_PRICES, videoClassic: 800, elevenExtra: 300 })).toBe(1100);
   });
 
-  it("opens the shared Thai voices to every member and keeps the two clones the owner's (owner, 2026-10-13)", () => {
-    const member = elevenVoicesFor(false);
-    expect(member).toHaveLength(11);
-    expect(member.filter((v) => v.sex === "F")).toHaveLength(5);
-    expect(member.some((v) => v.adminOnly)).toBe(false);
-    expect(elevenVoicesFor(true).filter((v) => v.adminOnly).map((v) => v.name)).toEqual(["luck", "บอย"]);
+  it("lists the eleven shared Thai voices for every member, no cloned ones (owner, 2026-10-13; clones out 2026-10-17)", () => {
+    expect(ELEVEN_VOICES).toHaveLength(11);
+    expect(ELEVEN_VOICES.filter((v) => v.sex === "F")).toHaveLength(5);
+    expect(ELEVEN_VOICES.map((v) => v.name)).not.toContain("luck");
+    expect(ELEVEN_VOICES.map((v) => v.name)).not.toContain("บอย");
     for (const v of ELEVEN_VOICES) expect(existsSync(`public${v.sample}`), v.sample).toBe(true);
     expect(new Set(ELEVEN_VOICES.map((v) => v.id)).size).toBe(ELEVEN_VOICES.length);
   });

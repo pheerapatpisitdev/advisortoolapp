@@ -4,7 +4,7 @@ import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { requireMember, requireStaff } from "@/lib/auth/viewer";
-import { elevenVoice, type ElevenChoice } from "@/lib/voice/elevenlabs";
+import { elevenVoice } from "@/lib/voice/elevenlabs";
 import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { NAMED, sendToCalendar } from "@/lib/quote-video/calendar";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -12,7 +12,7 @@ import { iHealthyCard } from "@/lib/ihealthy-card";
 import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
-import { ADMIN_VOICE, voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
+import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
 import { promptStoryCaption } from "@/lib/prompt-story/caption";
 import { isPromptStory, promptPicturePrice } from "@/lib/prompt-story/types";
@@ -112,13 +112,8 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
   return { min: 500_000, max: 50_000_000 };
 }
 
-/**
- * The voice a clip asked for: one of the listed ElevenLabs voices, or the agent's own cloned one
- * (เสียงของฉัน, owner 2026-10-15) — never another agent's: an id is the agent's only when their
- * approved voice has it.
- */
-/** how a clip's voice reads in the list of clips */
-const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียงของฉัน");
+/** how a clip's voice reads in the list of clips; a voice no longer listed reads as ElevenLabs */
+const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียง ElevenLabs");
 /** " · เสียง X" for the voice a clip asked for; " · เสียง อ้อม (ElevenLabs แทน Gemini)" when it was switched (make.ts speakClip) */
 const voiceWord = (input: { voice?: string }) => {
   if (input.voice) return ` · ${voiceLabel(input.voice)}`;
@@ -127,7 +122,7 @@ const voiceWord = (input: { voice?: string }) => {
 };
 
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */
-function checked(v: VideoInput, mine?: ElevenChoice): VideoInput | string {
+function checked(v: VideoInput): VideoInput | string {
   // from a budget: the form is checked with a stand-in sum, then the budget works out the real one
   const budget = v.budget ? cleanBudget(v.budget) : undefined;
   if (typeof budget === "string") return budget;
@@ -144,7 +139,7 @@ function checked(v: VideoInput, mine?: ElevenChoice): VideoInput | string {
   // another language (owner, 2026-10-15): Gemini's narrator, fixed lines, the 15-second clip or the whole one
   const foreign = c.product === "IHEALTHY" && readVideoLang(c.lang) !== "th";
   // an ElevenLabs voice sets the endings itself: a man's voice says ครับ
-  const eleven = foreign ? undefined : elevenVoice(v.voice) ?? (mine && mine.id === v.voice ? mine : undefined);
+  const eleven = foreign ? undefined : elevenVoice(v.voice);
   const narrator = eleven ? eleven.sex : v.narrator === "M" ? "M" : "F";
   const style = v.style === "motion" ? "motion" : "classic";
   // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
@@ -200,7 +195,7 @@ export interface ScriptPreview {
 export async function previewScript(v: VideoInput, customer: string, seed = 0, rewrite = true): Promise<ScriptPreview | { error: string }> {
   const viewer = await requireMember();
   // lines sent back without a rewrite are the agent's own edits: checked, then spoken as they are
-  const c = checked(rewrite ? { ...v, lines: undefined } : v, await voiceAsked(viewer.agentId, v?.voice));
+  const c = checked(rewrite ? { ...v, lines: undefined } : v);
   if (typeof c === "string") return { error: c };
   const f = quoteVideoFacts(c);
   if (!f) return { error: NOT_PRICED };
@@ -315,8 +310,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   if (typeof customerId !== "string") return { ok: false, error: "เลือกลูกค้า" };
   const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
   if (!c) return { ok: false, error: "ไม่พบลูกค้าคนนี้ในรายชื่อ FHC ของคุณ" };
-  const eleven = await voiceAsked(viewer.agentId, v?.voice);
-  if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
+  const eleven = voiceAsked(v?.voice);
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
@@ -362,8 +356,7 @@ export async function previewStoryPension(v: { sex?: string; age?: number; annui
  */
 export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" | "ladder" | "pension" | "home"> & { figure?: unknown; ladder?: unknown; pension?: unknown; home?: unknown }, customer: string): Promise<Made> {
   const viewer = await requireMember();
-  const eleven = await voiceAsked(viewer.agentId, v?.voice);
-  if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
+  const eleven = voiceAsked(v?.voice);
   const input = checkedStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
   if (typeof input === "string") return { ok: false, error: input };
   const contact = await getContact(viewer.agentId);
@@ -395,8 +388,8 @@ const SIZE_WORD: Record<VideoSize, string> = { portrait: "", square: " · จั
 const NOT_PRICED = "แผนนี้คิดราคาไม่ได้ในอายุนี้ ลองเปลี่ยนอายุ ทุน หรือแผน";
 
 export async function previewQuote(v: VideoInput): Promise<Preview | { error: string }> {
-  const viewer = await requireMember();
-  const c = checked(v, await voiceAsked(viewer.agentId, v?.voice));
+  await requireMember();
+  const c = checked(v);
   if (typeof c === "string") return { error: c };
   const f = quoteVideoFacts(c);
   if (!f) return { error: NOT_PRICED };
@@ -426,11 +419,9 @@ function setupWords(c: Extract<VideoInput, { product: "IHEALTHY" }>): { line: st
 
 export async function makeVideo(v: VideoInput, customer: string): Promise<Made> {
   const viewer = await requireMember();
-  const c = checked(v, await voiceAsked(viewer.agentId, v?.voice));
+  const c = checked(v);
   if (typeof c === "string") return { ok: false, error: c };
   if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
-  // every member's since 2026-10-13, but the two cloned voices are the owner's
-  if (elevenVoice(c.voice)?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
   const contact = await getContact(viewer.agentId);
   if (!viewer.name.trim() || !contact.phone) {
     return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };

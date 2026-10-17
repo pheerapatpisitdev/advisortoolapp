@@ -44,14 +44,13 @@ function readLook(): Look {
 /** what the script was written from: the clip is made from these, not from a form edited since */
 interface Written { brief: string; scenes: 3 | 5 | 8; figure: FigureChoice | null }
 
-export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven, canClone = false }: {
+export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
   prices: Prices;
   quota: VoiceQuota | null;
   pages: { id: string; name: string }[];
   eleven: ElevenChoice[];
-  canClone?: boolean;
 }) {
   const [brief, setBrief] = useState("");
   const [scenes, setScenes] = useState<3 | 5 | 8>(5);
@@ -79,7 +78,10 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       const f = localStorage.getItem(FACE_KEY);
       if (f && FACES.some((x) => x.id === f)) setFace(f);
     } catch { /* the default stands */ }
-    setLook(readLook());
+    // a voice no longer listed (the cloned ones, gone 2026-10-17) falls back to Gemini's
+    const kept = readLook();
+    setLook(eleven.some((v) => v.id === kept.voice) ? kept : { ...kept, voice: "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read once, as the page opens
   }, []);
   function pickLook(next: Partial<Look>) {
     setLook((was) => {
@@ -200,7 +202,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           {withFigure && <FigurePicker value={figure} onChange={setFigure} onPremium={setPremium} />}
         </Step>
         <Step n={4} title="หน้าตาคลิป" summary="">
-          <LookStep look={look} pick={pickLook} face={face} pickFace={pickFace} customer={customer} setCustomer={setCustomer} eleven={eleven} canClone={canClone} prices={prices} />
+          <LookStep look={look} pick={pickLook} face={face} pickFace={pickFace} customer={customer} setCustomer={setCustomer} eleven={eleven} prices={prices} />
         </Step>
 
         {/* what it costs and the buttons: pinned to the foot of the tools, always in view */}

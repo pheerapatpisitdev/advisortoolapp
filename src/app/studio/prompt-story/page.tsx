@@ -4,8 +4,7 @@ import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
 import { mayPromptStory, PROMPT_STORY_CLOSED } from "@/lib/prompt-story/access";
 import Link from "next/link";
-import { mayClone, myVoiceChoice } from "@/lib/voice/mine";
-import { elevenVoicesFor, ELEVENLABS } from "@/lib/voice/elevenlabs";
+import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
 import { myCost, myVideos, voiceQuota } from "../quote-video/actions";
 import { PromptStoryBoard } from "./PromptStoryBoard";
@@ -40,9 +39,7 @@ export default async function PromptStoryPage() {
   // putting a clip on a Page's calendar is the owner's alone, as for the other clips
   const pages = can(viewer, "owner") ? (await myPages().catch(() => [])).map((p) => ({ id: p.pageId, name: p.pageName })) : [];
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));
-  const mine = keyed ? await myVoiceChoice(viewer.agentId).catch(() => null) : null;
-  const eleven = keyed ? [...(mine ? [mine] : []), ...elevenVoicesFor(can(viewer, "owner"))] : [];
-  const canClone = keyed && !mine && mayClone(viewer);
+  const eleven = keyed ? ELEVEN_VOICES : [];
   const [cost, prices, quota] = await Promise.all([myCost(), walletPrices(), voiceQuota()]);
   const initial = await myVideos("prompt").catch((e) => {
     console.error("prompt story videos not read:", e);
@@ -54,7 +51,7 @@ export default async function PromptStoryPage() {
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         พิมพ์โจทย์ของลูกค้าเอง AI เขียนบทให้ฟรี แก้ได้ทุกช่อง แล้วค่อยสร้างเป็นคลิปพร้อมรูป เสียง และการ์ดตัวแทนท้ายคลิป
       </p>
-      <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} canClone={canClone} />
+      <PromptStoryBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} />
     </div>
   );
 }

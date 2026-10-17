@@ -10,8 +10,7 @@ import { plbTable } from "@/lib/plb-table";
 import { planLabel } from "@/lib/ihealthy-facts";
 import { availablePensionAges, PENSION_LIMITS } from "@/calc/pension/engine";
 import { videoStartFrom } from "@/lib/quote-video/link";
-import { mayClone, myVoiceChoice } from "@/lib/voice/mine";
-import { elevenVoicesFor, ELEVENLABS } from "@/lib/voice/elevenlabs";
+import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
 import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
@@ -51,13 +50,10 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     Array.from({ length: PENSION_LIMITS.ageMax - PENSION_LIMITS.ageMin + 1 }, (_, i) => PENSION_LIMITS.ageMin + i)
       .map((a) => [a, availablePensionAges(a, pay)]),
   )])) as Record<"6" | "untilAnnuity", Record<number, number[]>>;
-  // the ElevenLabs voices: the owner's alone for now, and only while a key is saved (owner, 2026-10-11)
-  // every member picks an ElevenLabs voice freely; the two cloned ones are the owner's (owner, 2026-10-13)
-  // เสียงของฉัน (owner, 2026-10-15): the agent's own cloned voice first, or the way to make one
+  // the ElevenLabs voices, only while a key is saved (owner, 2026-10-11); every member picks freely
+  // (owner, 2026-10-13); no cloned voices since 2026-10-17
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));
-  const mine = keyed ? await myVoiceChoice(viewer.agentId).catch(() => null) : null;
-  const eleven = keyed ? [...(mine ? [mine] : []), ...elevenVoicesFor(can(viewer, "owner"))] : [];
-  const canClone = keyed && !mine && mayClone(viewer);
+  const eleven = keyed ? ELEVEN_VOICES : [];
   const [cost, prices] = await Promise.all([myCost(), walletPrices()]);
   const initial = await myVideos().catch((e) => {
     console.error("quote videos not read:", e);
@@ -76,7 +72,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} canClone={canClone} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} />
     </div>
   );
 }
