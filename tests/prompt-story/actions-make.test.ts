@@ -42,7 +42,7 @@ const OWNER = { owner: true, publish: true, connect: true, admin: true };
 const viewer = vi.hoisted(() => ({ as: null as Record<string, unknown> | null }));
 vi.mock("@/lib/auth/viewer", () => ({ requireMember: async () => viewer.as ?? { kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: OWNER } }));
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => made.contact }));
-vi.mock("@/lib/quote-video/voice-check", () => ({ voiceAsked: async () => undefined, voiceRefusal: async () => null, ADMIN_VOICE: "x" }));
+vi.mock("@/lib/quote-video/voice-check", () => ({ voiceAsked: () => undefined, voiceRefusal: async () => null }));
 vi.mock("@/lib/quote-video/make", () => ({
   createPromptStory: (...a: unknown[]) => made.create(...a),
   produce: (...a: unknown[]) => made.produce(...a),
