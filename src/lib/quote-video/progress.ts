@@ -13,7 +13,7 @@ export type ProgressStep = "pictures" | "voice" | "files" | "draw" | "submit";
 /** what produce has done, on the row: `done` of `of` lines spoken or scenes drawn */
 export interface ProgressNote { step: ProgressStep; done: number; of: number }
 
-export type ClipKind = `${"classic" | "motion"}-${"short" | "full" | "long" | "max"}` | "fhc" | "story";
+export type ClipKind = `${"classic" | "motion" | "remotion"}-${"short" | "full" | "long" | "max"}` | "fhc" | "story";
 /** seconds: from asking to the render starting, and the render itself */
 export interface Estimate { pre: number; render: number }
 
@@ -31,6 +31,12 @@ export const DEFAULT_ESTIMATES: Record<ClipKind, Estimate> = {
   "classic-max": { pre: 215, render: 640 },
   "motion-long": { pre: 80, render: 280 },
   "motion-max": { pre: 110, render: 370 },
+  // Motion Graphic drawn by Remotion (owner, 2026-10-17; remotion.ts): no drawing before the render, which the
+  // trial measured at 45–73 s on Cloud Run for a full clip, plus its start; the other lengths scaled as above
+  "remotion-full": { pre: 35, render: 90 },
+  "remotion-short": { pre: 25, render: 45 },
+  "remotion-long": { pre: 60, render: 165 },
+  "remotion-max": { pre: 80, render: 220 },
   fhc: { pre: 45, render: 155 },
   // คลิปเล่าเรื่อง (owner, 2026-10-15): guessed as an FHC summary until it has its own
   story: { pre: 60, render: 155 },
@@ -42,11 +48,11 @@ export const RECENT = 20;
 /** a render longer than this is a clip that hung, not a measure */
 export const MAX_RENDER_SEC = 15 * 60;
 
-export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown }): ClipKind {
+export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown }): ClipKind {
   if (input.fhc) return "fhc";
   if (input.product === "STORY" || input.product === "FREESTORY") return "story";
   const length = input.length === "short" || input.length === "long" || input.length === "max" ? input.length : "full";
-  return `${input.style === "motion" ? "motion" : "classic"}-${length}`;
+  return `${input.style === "motion" ? (input.engine === "remotion" ? "remotion" : "motion") : "classic"}-${length}`;
 }
 
 const median = (xs: number[]) => {

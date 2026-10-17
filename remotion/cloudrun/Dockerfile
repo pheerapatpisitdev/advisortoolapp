@@ -13,4 +13,5 @@ COPY cloudrun/package.json ./
 RUN npm install --omit=dev --no-audit --no-fund && node -e "require('@remotion/renderer').ensureBrowser().then(()=>console.log('browser ok'))"
 COPY build ./build
 COPY render.mjs job.mjs ./
+COPY cloudrun/smoke.mjs ./cloudrun/
 CMD ["node", "job.mjs"]

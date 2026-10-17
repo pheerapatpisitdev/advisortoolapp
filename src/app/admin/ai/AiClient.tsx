@@ -6,10 +6,11 @@ import type { RenderProvider } from "@/lib/video/render-providers";
 import { MOTION_PROVIDERS, type MotionProvider } from "@/lib/video/motion-key";
 import {
   checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings, resetSpend,
-  saveMotionKey, setMotionEnabled, testMotionKey,
+  saveMotionKey, setMotionEnabled, testMotionKey, setRemotionFor,
   type KeyRow, type VideoKeyRow, type ModelRow, type ProviderCheck, type Result, type Settings,
 } from "./actions";
 import { PROVIDER_LABEL } from "./labels";
+import { REMOTION_FOR, REMOTION_FOR_LABEL, type RemotionFor } from "@/lib/quote-video/remotion";
 
 /**
  * What the last save said, and where on the page it belongs.
@@ -67,7 +68,7 @@ const KIND_LABEL: Record<string, string> = { text: "ข้อความ", imag
 /** The quality an image row is asked for, so one model at two prices reads as two choices. */
 const QUALITY_LABEL: Record<string, string> = { low: "คุณภาพต่ำ", medium: "คุณภาพมาตรฐาน", high: "คุณภาพสูง (คมชัด)" };
 
-export function AiClient({ keys, models, settings, providers, spentThisMonth, content, video, motion, rates }: {
+export function AiClient({ keys, models, settings, providers, spentThisMonth, content, video, motion, rates, remotion }: {
   keys: KeyRow[]; models: ModelRow[]; settings: Settings | null; providers: string[];
   spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
@@ -75,6 +76,8 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
   motion: KeyRow[];
   /** the premium tables in force (src/calc/plans/tables-meta.ts): their own card since 2026-10-15 */
   rates: { version: string; expiresOn: string; daysLeft: number; expired: boolean };
+  /** who gets วิดีโอนำเสนอ's Motion Graphic clips drawn by Remotion (owner, 2026-10-17) */
+  remotion: RemotionFor;
 }) {
   const [pending, start] = useTransition();
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -123,6 +126,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
   };
 
   const [engine, setEngine] = useState<VideoSettings>(video.settings);
+  const [remotionWho, setRemotionWho] = useState<RemotionFor>(remotion);
   // Google Cloud Run: the service account file is pasted whole; region and job are typed beside it
   const [gcp, setGcp] = useState({ region: "asia-southeast1", job: "clip-ffmpeg" });
   // ภาพขยับ: what each key's last test said, and which one is being tested
@@ -307,6 +311,23 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
           </button>
           <Said note={note} where="engine" className="basis-full text-sm" />
         </form>
+      </Card>
+
+      <Card title="วิดีโอนำเสนอ Motion Graphic" hint="ใครได้คลิปที่วาดด้วย Remotion บน Cloud Run (ลื่น 30 ภาพต่อวินาที ไม่ต้องวาดบน Vercel) · ตอนนี้เฉพาะ Life Protect แนวตั้ง แบบอื่นยังใช้เครื่องเดิม">
+        <fieldset className="space-y-1.5" disabled={pending}>
+          <legend className="sr-only">ผู้ที่ได้คลิป Remotion</legend>
+          {REMOTION_FOR.map((v) => (
+            <label key={v} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio" name="remotion-for" id={`remotion-${v}`} checked={remotionWho === v}
+                onChange={() => { const was = remotionWho; setRemotionWho(v); run("remotion", async () => { const r = await setRemotionFor(v); if (!r.ok) setRemotionWho(was); return r; }, `ตั้งเป็น "${REMOTION_FOR_LABEL[v]}" แล้ว`); }}
+              />
+              <span>{REMOTION_FOR_LABEL[v]}</span>
+            </label>
+          ))}
+        </fieldset>
+        <p className="mt-1 text-xs text-[var(--bot-ink-mute)]">มีผลกับคลิปที่สร้างหลังจากนี้ · คลิปที่กำลังทำอยู่ทำต่อด้วยเครื่องเดิมของมันจนเสร็จ</p>
+        <Said note={note} where="remotion" className="block text-sm" />
       </Card>
 
       <Card title="ภาพขยับ" hint="ทำรูปการ์ตูนในคลิปให้ขยับ ผ่าน fal.ai หรือ Runware เก็บกุญแจเข้ารหัสแบบเดียวกับค่าย AI แสดงเฉพาะ 4 ตัวท้าย">

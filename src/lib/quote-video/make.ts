@@ -44,6 +44,7 @@ import { faceUris } from "./story-faces";
 import { motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
 import { clipProps, REMOTION_JOB, remotionFits, type ClipProps, type RemotionMotion } from "./remotion";
+import { remotionFor } from "./remotion-switch";
 import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
 import { pieceSticker } from "@/lib/collage/library";
 import { drawIdea, fallbackPiece, writeIdeas } from "@/lib/collage/ai-pieces";
@@ -80,6 +81,8 @@ export const VIDEO_TIMEOUT_MS = 20 * 60_000;
 const LINK_SECONDS = 2 * 3600;
 /** a Cloud Run run of one clip: a couple of CPU-minutes, in baht */
 const RENDER_COST_THB = 0.01 * 36;
+/** a Remotion render (remotion.ts): about 80 s of 8 vCPU / 8 GiB at Cloud Run's list price, $0.0001920/s at 36 baht (trial 2026-10-17) */
+const REMOTION_COST_THB = 80 * 0.000192 * 36;
 export const FAILED = "ทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง";
 /** a finished คลิปตามโจทย์ whose new cut failed: the clip as it was stands */
 export const RECUT_FAILED = "ตัดคลิปใหม่ไม่สำเร็จ คลิปเดิมยังอยู่ ลองวาดใหม่อีกครั้ง";
@@ -224,8 +227,11 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
-  // the owner's Motion Graphic clips are drawn by Remotion (owner, 2026-10-17; remotion.ts), everyone else's as before
-  if (can(viewer, "owner") && isQuoteInput(input) && remotionFits(input)) input = { ...input, engine: "remotion" };
+  // a Motion Graphic clip drawn by Remotion, as the switch on /admin/ai says (owner, 2026-10-17; remotion.ts)
+  if (isQuoteInput(input) && remotionFits(input)) {
+    const who = await remotionFor();
+    if (who === "all" || (who === "owner" && can(viewer, "owner"))) input = { ...input, engine: "remotion" };
+  }
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
@@ -280,7 +286,7 @@ export async function clipEstimates(now = Date.now()): Promise<Record<ClipKind, 
     const asked = Date.parse(r.created_at);
     const done = Date.parse(r.updated_at);
     if (![started, asked, done].every(Number.isFinite)) return [];
-    return [{ kind: clipKind(r.input as { fhc?: unknown; style?: unknown; length?: unknown }), pre: (started - asked) / 1000, render: (done - started) / 1000 }];
+    return [{ kind: clipKind(r.input as { fhc?: unknown; style?: unknown; length?: unknown; engine?: unknown }), pre: (started - asked) / 1000, render: (done - started) / 1000 }];
   });
   estimates = { at: now, value: estimatesFrom(samples) };
   return estimates.value;
@@ -1158,8 +1164,9 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
       .eq("id", row.id).eq("status", "rendering").select("id").maybeSingle();
     if (error) throw new Error(`video ${row.id} not finished: ${error.message}`);
     if (!data) return;
-    await asWho(row.agent_id, () => recordUsage("cloudrun", VIDEO_TASK_RENDER, 0, 0, RENDER_COST_THB));
-    const cost = Number(row.cost_thb ?? 0) + RENDER_COST_THB;
+    const renderThb = (row.input as { engine?: unknown }).engine === "remotion" ? REMOTION_COST_THB : RENDER_COST_THB;
+    await asWho(row.agent_id, () => recordUsage("cloudrun", VIDEO_TASK_RENDER, 0, 0, renderThb));
+    const cost = Number(row.cost_thb ?? 0) + renderThb;
     let charged: number | null = null;
     // a free คลิปตามโจทย์ holds its pictures too; a clip cut again was settled at its first finish
     if (row.hold_id && row.charged_satang == null) {

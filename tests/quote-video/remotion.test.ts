@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
-import { REMOTION_JOB, remotionFits, type ClipProps } from "@/lib/quote-video/remotion";
+import { REMOTION_DRAWING, REMOTION_JOB, remotionFits, type ClipProps } from "@/lib/quote-video/remotion";
 import type { VideoInput } from "@/lib/quote-video/script";
+import { clipKind } from "@/lib/quote-video/progress";
 
 /**
- * วิดีโอนำเสนอ's Motion Graphic clips drawn by Remotion (owner, 2026-10-17; remotion.ts): the owner's
- * portrait Thai/English clips are marked when made, and are handed to the Remotion job with their
- * props, voice and cut-outs as links, no frame drawn on Vercel. Everyone else's are made as before.
+ * วิดีโอนำเสนอ's Motion Graphic clips drawn by Remotion (owner, 2026-10-17; remotion.ts): a portrait
+ * Life Protect clip is marked when made, as the /admin/ai switch says, and is handed to the Remotion
+ * job with its props, voice and cut-outs as links, no frame drawn on Vercel. The rest are made as before.
  */
 
 type Row = Record<string, unknown> & { id: string };
@@ -101,6 +102,8 @@ vi.mock("@/lib/ai/tts", async (orig) => ({
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 // the engine as built: which job it was told to run (the Remotion render names its own), then what it was handed
 vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: (_k: string, deps: { job?: string } = {}) => ({ submit: (...a: unknown[]) => ai.submit(deps.job ?? "clip-ffmpeg", ...a) }) }));
+const sw = vi.hoisted(() => ({ who: "all" as "off" | "owner" | "all" }));
+vi.mock("@/lib/quote-video/remotion-switch", () => ({ remotionFor: async () => sw.who }));
 vi.mock("@/lib/collage/library", async (orig) => ({ ...(await orig<object>()), pieceSticker: async (k: string) => Buffer.from(`sticker-${k}`) }));
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
@@ -115,6 +118,7 @@ const rowOf = (id: string) => db.rows.find((r) => r.id === id)!;
 const drawCalls = () => (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(([u]) => String(u).includes("/api/quote-video/draw")).length;
 
 beforeEach(() => {
+  sw.who = "all";
   db.rows.length = 0;
   db.files.clear();
   db.downloads.length = 0;
@@ -136,34 +140,56 @@ beforeEach(() => {
 });
 
 describe("remotionFits", () => {
-  it("takes a portrait Motion Graphic clip in Thai or English only", () => {
+  it("takes a portrait Motion Graphic Life Protect clip only, as the trial measured", () => {
     expect(remotionFits(lp())).toBe(true);
+    expect(remotionFits(lp({ product: undefined } as Partial<VideoInput>))).toBe(true);
     expect(remotionFits(lp({ style: "classic" }))).toBe(false);
     expect(remotionFits(lp({ size: "square" }))).toBe(false);
     expect(remotionFits(lp({ size: "landscape" }))).toBe(false);
-    const ihealthy = { product: "IHEALTHY", age: 35, sex: "F", plan: "SILVER", compare: [], style: "motion" } as VideoInput;
-    expect(remotionFits({ ...ihealthy, lang: "en" } as VideoInput)).toBe(true);
-    expect(remotionFits({ ...ihealthy, lang: "zh" } as VideoInput)).toBe(false);
+    expect(remotionFits(lp({ product: "ISHIELD" } as Partial<VideoInput>))).toBe(false);
+    expect(remotionFits({ product: "IHEALTHY", age: 35, sex: "F", plan: "SILVER", compare: [], style: "motion" } as VideoInput)).toBe(false);
   });
 });
 
-describe("createVideo", () => {
-  it("marks the owner's portrait Motion Graphic clip for Remotion", async () => {
-    const made = await createVideo(owner, lp(), "");
-    expect((rowOf((made as { id: string }).id).input as VideoInput).engine).toBe("remotion");
+it("a Remotion clip's progress is guessed from Remotion clips, not the frames'", () => {
+  expect(clipKind({ style: "motion", engine: "remotion" })).toBe("remotion-full");
+  expect(clipKind({ style: "motion", engine: "remotion", length: "short" })).toBe("remotion-short");
+  expect(clipKind({ style: "motion" })).toBe("motion-full");
+});
+
+const engineOf = async (viewer: Viewer, input = lp()) => {
+  const made = await createVideo(viewer, input, "");
+  return (rowOf((made as { id: string }).id).input as VideoInput).engine;
+};
+
+describe("createVideo, as the switch says", () => {
+  it("Remotion ทุกคน: every agent's portrait Motion Graphic Life Protect clip", async () => {
+    expect(await engineOf(agent)).toBe("remotion");
+    expect(await engineOf(owner)).toBe("remotion");
   });
 
-  it("leaves everyone else's clips, and the owner's other ones, to the frames as before", async () => {
-    for (const [viewer, input] of [[agent, lp()], [owner, lp({ style: "classic" })], [owner, lp({ size: "square" })]] as const) {
-      const made = await createVideo(viewer, input, "");
-      expect((rowOf((made as { id: string }).id).input as VideoInput).engine).toBeUndefined();
+  it("Remotion เฉพาะเจ้าของ: the owner's alone", async () => {
+    sw.who = "owner";
+    expect(await engineOf(owner)).toBe("remotion");
+    expect(await engineOf(agent)).toBeUndefined();
+  });
+
+  it("เครื่องเดิม ทุกคน: nobody's", async () => {
+    sw.who = "off";
+    expect(await engineOf(owner)).toBeUndefined();
+    expect(await engineOf(agent)).toBeUndefined();
+  });
+
+  it("a clip Remotion has not been tried on stays on the frames, whatever the switch", async () => {
+    for (const input of [lp({ style: "classic" }), lp({ size: "square" }), lp({ product: "ISHIELD" } as Partial<VideoInput>)]) {
+      expect(await engineOf(owner, input)).toBeUndefined();
     }
   });
 });
 
 describe("produce, drawn by Remotion", () => {
   it("draws no frame, puts the voice and the cut-outs up, and hands the props to the Remotion job", async () => {
-    const made = await createVideo(owner, lp(), "");
+    const made = await createVideo(agent, lp(), "");
     const id = (made as { id: string }).id;
     await produce(id, "ตัวแทน");
     const row = rowOf(id);
@@ -180,6 +206,7 @@ describe("produce, drawn by Remotion", () => {
     const props = payload.remotion.props as ClipProps;
     expect(props.scenes.map((s) => s.key)).toEqual(["lead", "price", "cover", "value", "contact"]);
     expect(props.theme).toBe("collage");
+    expect(props.drawing).toBe(REMOTION_DRAWING);
     expect(props.facts.lead.amount).toBe("2,000,000");
     expect(props.audio).toBe(`https://x/${id}/voice.wav`);
     expect(props.pieces["price/hand-coins"]).toBe(`https://x/${id}/piece-price-hand-coins.png`);
@@ -190,7 +217,8 @@ describe("produce, drawn by Remotion", () => {
     expect(rowOf(id).status).toBe("done");
   });
 
-  it("an agent's Motion Graphic clip is still drawn on Vercel and cut by clip-ffmpeg", async () => {
+  it("with the switch on เครื่องเดิม, a Motion Graphic clip is drawn on Vercel and cut by clip-ffmpeg", async () => {
+    sw.who = "off";
     const made = await createVideo(agent, lp(), "");
     const id = (made as { id: string }).id;
     await produce(id, "ตัวแทน");
