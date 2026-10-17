@@ -1,5 +1,6 @@
 import { providerKey } from "@/lib/ai/client";
-import { ClosedNotice } from "@/components/ClosedNotice";
+import { ClosedNotice, LockedPage } from "@/components/ClosedNotice";
+import { closedFor } from "@/lib/switches/store";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
@@ -29,6 +30,9 @@ export const metadata = {
 export default async function QuoteVideoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // every agent's (owner, 2026-10-11): two free clips, then the wallet
   const viewer = await gatePage("/studio/quote-video");
+  // switched off by the Super Admin: locked, nothing of the tool shown (owner, 2026-10-17)
+  const locked = await closedFor(viewer, "quote-video");
+  if (locked) return <LockedPage feature="quote-video" message={locked} />;
   // putting a clip on a Page's calendar is the owner's alone (owner, 2026-10-11)
   const pages = can(viewer, "owner") ? (await myPages().catch(() => [])).map((p) => ({ id: p.pageId, name: p.pageName })) : [];
   const ihu = iHealthyTable();

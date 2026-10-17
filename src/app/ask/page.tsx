@@ -1,5 +1,6 @@
 import "../home-theme.css";
-import { ClosedNotice } from "@/components/ClosedNotice";
+import { ClosedNotice, LockedPage } from "@/components/ClosedNotice";
+import { closedFor } from "@/lib/switches/store";
 import { openingGuide } from "@/lib/copilot/guide";
 import { Chat } from "../Chat";
 import { AppShell } from "@/components/shell/AppShell";
@@ -24,6 +25,8 @@ export default async function Ask() {
   const viewer = await gatePage("/ask");
   // a member's last three days: the bar over the chat (owner, 2026-10-13)
   const reminder = await reminderOf(viewer, memberAccess);
+  // switched off by the Super Admin: locked, no chat at all (owner, 2026-10-17)
+  const locked = await closedFor(viewer, "ask");
   return (
     <div className="home-chat">
       {/* who is signed in, for the foot of the menu: their name and ออกจากระบบ, or เข้าสู่ระบบ */}
@@ -37,9 +40,15 @@ export default async function Ask() {
         {/* inside the screen-tall column, so the chat gives up the bar's height; clear of the
             phone's menu button, which is fixed at the top left */}
         {reminder && <div className="mb-2 shrink-0 max-lg:ml-12"><PassReminder {...reminder} /></div>}
-        {/* built on the server from the plan registry, so a new plan brings its own button */}
-        <div className="shrink-0 max-lg:ml-12"><ClosedNotice viewer={viewer} feature="ask" /></div>
-        <Chat guide={openingGuide()} />
+        {locked ? (
+          <LockedPage feature="ask" message={locked} back={{ href: "/home", label: "กลับหน้าหลัก" }} />
+        ) : (
+          <>
+            <div className="shrink-0 max-lg:ml-12"><ClosedNotice viewer={viewer} feature="ask" /></div>
+            {/* built on the server from the plan registry, so a new plan brings its own button */}
+            <Chat guide={openingGuide()} />
+          </>
+        )}
       </div>
       </AppShell>
     </div>

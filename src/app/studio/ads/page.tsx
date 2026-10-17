@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ClosedNotice } from "@/components/ClosedNotice";
+import { ClosedNotice, LockedPage } from "@/components/ClosedNotice";
+import { closedFor } from "@/lib/switches/store";
 import { gatePage } from "@/lib/auth/viewer";
 import { myPages } from "@/lib/auth/pages";
 import { AD_LIMITS } from "@/lib/content/ads";
@@ -42,6 +43,9 @@ export default async function StudioAdsPage({ searchParams }: {
   searchParams: Promise<{ page?: string; campaign?: string; new?: string; fb?: string; warn?: string; detail?: string; tab?: string; days?: string; ad?: string; create?: string }>;
 }) {
   const viewer = await gatePage("/studio/ads", "owner");
+  // switched off by the Super Admin: locked, nothing of the tool shown (owner, 2026-10-17)
+  const locked = await closedFor(viewer, "ads");
+  if (locked) return <LockedPage feature="ads" message={locked} />;
   const { page, campaign, new: making, fb, warn, detail, tab: tabAsked, days: daysAsked, ad, create } = await searchParams;
   const fresh = making === "1";
   const days = parseDays(daysAsked);

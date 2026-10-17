@@ -1,5 +1,6 @@
 import { providerKey } from "@/lib/ai/client";
-import { ClosedNotice } from "@/components/ClosedNotice";
+import { ClosedNotice, LockedPage } from "@/components/ClosedNotice";
+import { closedFor } from "@/lib/switches/store";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
@@ -23,6 +24,9 @@ export const metadata = {
  */
 export default async function StoryClipPage() {
   const viewer = await gatePage("/studio/story-clip");
+  // switched off by the Super Admin: locked, nothing of the tool shown (owner, 2026-10-17)
+  const locked = await closedFor(viewer, "story-clip");
+  if (locked) return <LockedPage feature="story-clip" message={locked} />;
   // putting a clip on a Page's calendar is the owner's alone, as for วิดีโอนำเสนอ
   const pages = can(viewer, "owner") ? (await myPages().catch(() => [])).map((p) => ({ id: p.pageId, name: p.pageName })) : [];
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));

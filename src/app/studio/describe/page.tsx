@@ -1,5 +1,6 @@
 import { gatePage } from "@/lib/auth/viewer";
-import { ClosedNotice } from "@/components/ClosedNotice";
+import { ClosedNotice, LockedPage } from "@/components/ClosedNotice";
+import { closedFor } from "@/lib/switches/store";
 import { listReadings } from "@/lib/content/describe-history";
 import { DescribeBoard } from "./DescribeBoard";
 
@@ -14,6 +15,9 @@ export const metadata = {
 export default async function DescribePage() {
   // the layout's gate is not re-run on every navigation between Studio's pages, so each page asks too
   const viewer = await gatePage("/studio/describe");
+  // switched off by the Super Admin: locked, nothing of the tool shown (owner, 2026-10-17)
+  const locked = await closedFor(viewer, "describe");
+  if (locked) return <LockedPage feature="describe" message={locked} />;
   // a history that cannot be read leaves the page working, without it, and says so (null)
   const history = await listReadings(viewer.agentId).catch((e) => {
     console.error("describe history not read:", e);

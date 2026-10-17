@@ -256,8 +256,28 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
           <ul className="space-y-1">
             {group.links.map((link) => {
               const here = !link.external && isCurrent(link.href, path);
-              // switched off for now (เปิด-ปิดฟังก์ชัน): still listed, marked, so nobody wonders where it went
+              // switched off for now (เปิด-ปิดฟังก์ชัน): still listed, marked, so nobody wonders where it went;
+              // locked for all but the owner and the Super Admin, who go on trying it (owner, 2026-10-17)
               const closed = who?.closed?.includes(link.href) === true;
+              if (closed && !who?.owner) {
+                return (
+                  <li key={link.href}>
+                    <span
+                      aria-disabled="true"
+                      title={`${link.label} (ปิดชั่วคราว)`}
+                      className="flex cursor-not-allowed items-center gap-2.5 px-2 py-1.5 text-sm rail:justify-center rail:px-0"
+                      style={{ ["--hue" as string]: link.hue, color: "var(--shell-mute)" }}
+                    >
+                      <span className="shell-chip opacity-40"><Icon name={link.icon} /></span>
+                      <span className="min-w-0 truncate rail:sr-only">{link.label}</span>
+                      <span className="shell-closed ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-semibold rail:sr-only">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                        ปิดชั่วคราว
+                      </span>
+                    </span>
+                  </li>
+                );
+              }
               return (
                 <li key={link.href}>
                   <Link

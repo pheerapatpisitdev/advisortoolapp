@@ -1,5 +1,6 @@
 import { can } from "@/lib/auth/access";
-import { ClosedNotice } from "@/components/ClosedNotice";
+import { ClosedNotice, LockedPage } from "@/components/ClosedNotice";
+import { closedFor } from "@/lib/switches/store";
 import { allowanceOf } from "@/lib/auth/quota";
 import { gatePage } from "@/lib/auth/viewer";
 import { listPeople } from "@/lib/content/people-store";
@@ -20,6 +21,9 @@ export default async function ThumbnailPage() {
   // every agent's and member's since 2026-10-14 (owner chose ก): a cover is paid as a picture in
   // Organic is, a free round then the wallet; the owner draws free
   const viewer = await gatePage("/studio/thumbnail");
+  // switched off by the Super Admin: locked, nothing of the tool shown (owner, 2026-10-17)
+  const locked = await closedFor(viewer, "thumbnail");
+  if (locked) return <LockedPage feature="thumbnail" message={locked} />;
   const owner = can(viewer, "owner");
   const [people, history, rounds] = await Promise.all([
     listPeople().catch(() => []),
