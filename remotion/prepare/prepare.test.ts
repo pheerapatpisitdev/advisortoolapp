@@ -1,5 +1,5 @@
 import { execFileSync, execSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 import { it, vi } from "vitest";
@@ -66,11 +66,10 @@ it("prepares the Remotion props, assets and (OLD=1) the current engine's clips",
   const { quotePartsFor } = await import("@/lib/quote-video/make");
   const { addSounds, buildJob, concatList, mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
   const { clipLength, SIZES } = await import("@/lib/quote-video/timeline");
-  const { extraOf, linesOf, loops } = await import("@/lib/quote-video/told");
-  const { collageSoundFiles, SOUND_GAIN, themeBackground } = await import("@/lib/quote-video/themes");
+  const { aiSpots, collageSoundFiles, SOUND_GAIN, themeBackground } = await import("@/lib/quote-video/themes");
+  const { clipProps } = await import("@/lib/quote-video/remotion");
   const { motionBackground, motionBgHeight } = await import("@/lib/quote-video/motion");
   const { renderPng } = await import("@/lib/content/poster-png");
-  const { DEFAULT_HERO_FACE, familyOf } = await import("@/lib/story/faces");
 
   for (const d of ["fonts", "collage", "story/faces", "audio", "props"]) mkdirSync(join(PUB, d), { recursive: true });
   mkdirSync(OUT, { recursive: true });
@@ -82,11 +81,9 @@ it("prepares the Remotion props, assets and (OLD=1) the current engine's clips",
   await googleFont("Sriracha", 400, join(PUB, "fonts/Sriracha-400.ttf"));
   for (const f of ["paper.jpg", "paper-light.jpg", "family.png"]) copyFileSync(join(APP, "public/collage", f), join(PUB, "collage", f));
 
+  // every cartoon face: วาดมือบนกระดาษ's opening picks the insured's, their partner's and a child's by sex
+  for (const f of readdirSync(join(APP, "public/story/faces"))) copyFileSync(join(APP, "public/story/faces", f), join(PUB, "story/faces", f));
   const sex = "M" as const;
-  const hero = DEFAULT_HERO_FACE[sex];
-  for (const id of [hero, DEFAULT_HERO_FACE.F, familyOf(hero).kids[0]]) {
-    for (const g of ["", "-g"]) copyFileSync(join(APP, `public/story/faces/${id}${g}.jpg`), join(PUB, `story/faces/${id}${g}.jpg`));
-  }
 
   const inputOf = (theme: string) => ({ product: "LIFEPROTECT" as const, variant: "WLF19H", age: 35, sex, sumAssured: 1_000_000, style: "motion" as const, theme: theme as "navy", size: "portrait" as const });
   const facts = quoteVideoFacts(inputOf("navy"), TODAY)!;
@@ -118,15 +115,10 @@ it("prepares the Remotion props, assets and (OLD=1) the current engine's clips",
     const wav = sfx ? addSounds(narration, parts.sounds!.map((c) => ({ pcm: sfx[c.kind], at: c.at, gain: SOUND_GAIN[c.kind] })), 24000) : narration;
     writeFileSync(join(PUB, `audio/${theme}.wav`), wav);
 
-    const told = {};
-    const lines = linesOf(facts, told);
-    const props = {
-      theme, sex, facts, customer: "", narrator: "F", contact: CONTACT, total,
-      scenes: parts.plans.map((p, i) => ({ key: p.key, voice: script[i].voice, voiceSec: secs[i], start: p.start, dur: p.dur })),
-      shown: { ...(lines ? { headline: lines.headline } : {}), loop: loops(told), extra: extraOf(facts, told) },
-      audio: `audio/${theme}.wav`,
-      pieces: Object.fromEntries(PIECES.map((k) => [k, `pieces/${k}.png`])),
-    };
+    // the props as the app makes them (make.ts cutWithRemotion), with files here in place of its links
+    const keys = parts.plans.map((p) => p.key as import("@/lib/quote-video/script").SceneKey);
+    const pieces = theme === "collage" ? Object.fromEntries(aiSpots(keys, facts.coverStyle).map((s) => [`${s.key}/${s.piece}`, `pieces/${s.piece}.png`])) : {};
+    const props = clipProps(parts.motion$!, parts.plans as never, script, secs, total, `audio/${theme}.wav`, pieces);
     writeFileSync(join(PUB, `props/${theme}.json`), JSON.stringify(props));
     report[theme] = { total, frames: parts.plans.reduce((n, p) => n + p.frames.length, 0), sounds: parts.sounds?.length ?? 0 };
 

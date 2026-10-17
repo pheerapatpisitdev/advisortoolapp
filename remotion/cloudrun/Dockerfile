@@ -1,5 +1,6 @@
-# The Remotion trial's renderer on Cloud Run: the pre-built bundle (build/, with its public files and
-# each theme's props) rendered by @remotion/renderer in Chrome's headless shell. THEME picks the clip.
+# วิดีโอนำเสนอ's Remotion render on Cloud Run (src/lib/quote-video/remotion.ts): the pre-built bundle (build/,
+# with its fonts and pictures) rendered by @remotion/renderer in Chrome's headless shell. job.mjs takes the app's
+# payload (JOB_URL); render.mjs is the trial's (THEME, from the props baked in by the prepare step).
 FROM node:22-bookworm-slim
 # what Chrome's headless shell needs on Debian (remotion.dev/docs/miscellaneous/linux-dependencies),
 # and one plain face for a sign no web font has
@@ -11,5 +12,5 @@ WORKDIR /app
 COPY cloudrun/package.json ./
 RUN npm install --omit=dev --no-audit --no-fund && node -e "require('@remotion/renderer').ensureBrowser().then(()=>console.log('browser ok'))"
 COPY build ./build
-COPY render.mjs ./
-CMD ["node", "render.mjs"]
+COPY render.mjs job.mjs ./
+CMD ["node", "job.mjs"]

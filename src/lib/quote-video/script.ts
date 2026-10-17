@@ -65,6 +65,8 @@ export type VideoInput = (
   style?: VideoStyle;
   /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง */
   theme?: ThemeKey;
+  /** who draws a Motion Graphic clip: Remotion on Cloud Run (owner's clips first, 2026-10-17; remotion.ts); absent = the satori frames */
+  engine?: "remotion";
   /** คอลลาจกระดาษ's cut-outs drawn new by AI for this clip (owner chose ข, 2026-10-17); absent = the library's */
   pieces?: "ai";
   /** each scene's AI cut-out as filed in the clip's folder, null where it failed (the library's stands in) */

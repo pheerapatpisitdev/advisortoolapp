@@ -102,7 +102,8 @@ const tokens = new Map<string, { token: string; expiresAt: number }>();
 
 const tokenKey = (k: GcpKey) => `${k.clientEmail}:${createHash("sha256").update(k.privateKey).digest("hex").slice(0, 12)}`;
 
-interface Deps { fetch?: typeof fetch; now?: () => number }
+/** `job`: another job than the key names, run with the same key (the Remotion render, quote-video/remotion.ts) */
+interface Deps { fetch?: typeof fetch; now?: () => number; job?: string }
 
 async function accessToken(k: GcpKey, f: typeof fetch, now: () => number): Promise<string> {
   const cached = tokens.get(tokenKey(k));
@@ -157,7 +158,7 @@ export function cloudRunEngine(key: string, deps: Deps = {}): RenderEngine {
       if (!opts.payloadUrl) throw new EngineError("internal: no payload link for the Cloud Run job", false);
       const id = opts.id ?? crypto.randomUUID();
       const token = await accessToken(k, f, now);
-      const name = `projects/${encodeURIComponent(k.projectId)}/locations/${encodeURIComponent(k.region)}/jobs/${encodeURIComponent(k.job)}`;
+      const name = `projects/${encodeURIComponent(k.projectId)}/locations/${encodeURIComponent(k.region)}/jobs/${encodeURIComponent(deps.job ?? k.job)}`;
       let res: Response;
       try {
         res = await f(`${RUN_API}/${name}:run`, {

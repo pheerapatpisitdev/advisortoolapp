@@ -22,6 +22,7 @@ const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic
 import { balanceSatang, holdWallet, releaseWallet, settleWallet, walletFrozen, walletPrices, walletSettings } from "@/lib/wallet/store";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
+import type { FfmpegJob } from "@/lib/video/command";
 import { getContact, photoDataUri } from "./contact";
 import { CHART_W, sceneLayer, tableImage, type Contact } from "./draw";
 import { noteDrawing, tablePlan } from "./table-pen";
@@ -42,6 +43,7 @@ import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./st
 import { faceUris } from "./story-faces";
 import { motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
+import { clipProps, REMOTION_JOB, remotionFits, type ClipProps, type RemotionMotion } from "./remotion";
 import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
 import { pieceSticker } from "@/lib/collage/library";
 import { drawIdea, fallbackPiece, writeIdeas } from "@/lib/collage/ai-pieces";
@@ -222,6 +224,8 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
+  // the owner's Motion Graphic clips are drawn by Remotion (owner, 2026-10-17; remotion.ts), everyone else's as before
+  if (can(viewer, "owner") && isQuoteInput(input) && remotionFits(input)) input = { ...input, engine: "remotion" };
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
@@ -395,6 +399,8 @@ export interface ClipParts {
   background?: () => Promise<Buffer>;
   /** คอลลาจกระดาษ's paper and pops, at their times in the clip */
   sounds?: { at: number; kind: SoundKind }[];
+  /** a portrait Motion Graphic quote clip: what its frames are drawn from, for Remotion (remotion.ts) */
+  motion$?: RemotionMotion;
 }
 
 async function contactOf(agentId: string, agentName: string): Promise<Contact> {
@@ -693,6 +699,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   return {
     script, motion, plans, named, sceneDraws,
     size,
+    ...(motion && size === "portrait" ? { motion$: { theme: theme!, sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) } } } : {}),
     ...(theme === "collage" ? { sounds: collageSounds(plans.map((p, i) => ({ start: p.start, anims: [...Object.values(motionSpec(script[i].key, facts, secs[i], script[i].voice)), ...(size === "portrait" ? decorAnims(script[i].key, facts.coverStyle) : [])] }))) } : {}),
     build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height, size: dims, photo: boxes.photo, table: boxes.table },
     layers: { photo: layers.includes("photo") },
@@ -844,8 +851,11 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   const id = row.id;
   const note = bar.note;
   const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-  const { size, motion, plans, named, build, layers, background: ownBackground, sounds } = await clipParts(row, agentName, secs);
+  const { size, motion, plans, named, build, layers, background: ownBackground, sounds, motion$, script } = await clipParts(row, agentName, secs);
   const total = clipLength(plans);
+  if (motion$ && isQuoteInput(row.input) && row.input.engine === "remotion" && remotionFits(row.input)) {
+    return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms }, gcpKey, bar, lap);
+  }
 
   // the files every scene shares, or that need no drawing
   const files = new Map<string, { body: Buffer | string; type: string }>();
@@ -902,7 +912,16 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   }
   const built = buildJob(plans, named, build);
   const job = { inputs: named.files.map((f, i) => ({ name: f.name, url: signed[i] })), command: built.command, outputs: built.outputs };
+  await handOver(row, gcpKey, bar, total, lap, { job });
+}
 
+/**
+ * The run handed over, as every clip ends: the finished video's upload link, the payload file the
+ * job reads (JOB_URL), the row marked rendering, the job started. `job`: clip-ffmpeg's command;
+ * `remotion`: the Remotion render's props instead (remotion.ts), run on its own job.
+ */
+async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, lap: Lap, run: { job: FfmpegJob } | { remotion: { props: ClipProps } }): Promise<void> {
+  const id = row.id;
   // a clip cut again (redrawPicture) writes over its finished video
   const out = row.video_path
     ? await bucket().createSignedUploadUrl(`${id}/quote.mp4`, { upsert: true })
@@ -912,8 +931,9 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   const token = randomBytes(32).toString("hex");
   const callbackUrl = siteUrl(VIDEO_CALLBACK_PATH);
   const uploadsTo = { out_1: { uploadUrl: out.data.signedUrl, path: `${id}/quote.mp4` } };
+  const job: FfmpegJob = "job" in run ? run.job : { inputs: [], command: "", outputs: [{ name: "out_1", file: "quote.mp4", contentType: "video/mp4" }] };
   const payloadPath = `${id}/job.json`;
-  const pay = await bucket().upload(payloadPath, JSON.stringify({ id: jobId, job, uploads: uploadsTo, callbackUrl, token }), { contentType: "text/plain", upsert: true });
+  const pay = await bucket().upload(payloadPath, JSON.stringify({ id: jobId, ...run, job, uploads: uploadsTo, callbackUrl, token }), { contentType: "text/plain", upsert: true });
   if (pay.error) throw new Error(`payload: ${pay.error.message}`);
   const payLink = await bucket().createSignedUrl(payloadPath, LINK_SECONDS);
   if (payLink.error || !payLink.data?.signedUrl) throw new Error("no payload link");
@@ -922,8 +942,45 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   await bar.flush();
   // recorded before the run is asked, so a callback that comes back at once finds it
   await setRow(id, { status: "rendering", duration_sec: total, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
-  await cloudRunEngine(gcpKey).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
-  lap("handed to Cloud Run");
+  const remotion = "remotion" in run;
+  await cloudRunEngine(gcpKey, remotion ? { job: REMOTION_JOB } : {}).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
+  lap(remotion ? "handed to Cloud Run (Remotion)" : "handed to Cloud Run");
+}
+
+/**
+ * A Motion Graphic clip drawn by Remotion (remotion.ts): no frame is drawn here. The narration (and
+ * คอลลาจ's sounds) goes up as one WAV, คอลลาจ's cut-outs as the pieceFor gives them, and the job
+ * gets the clip's motion context with links to both.
+ */
+async function cutWithRemotion(
+  row: VideoRow & { input: VideoInput }, motion: RemotionMotion,
+  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; sounds?: { at: number; kind: SoundKind }[]; pcms: Buffer[] },
+  gcpKey: string, bar: Bar, lap: Lap,
+): Promise<void> {
+  const id = row.id;
+  bar.note({ step: "files", done: 0, of: 0 });
+  const narration = mixNarration(c.pcms.map((pcm, i) => ({ pcm, at: c.plans[i].voiceAt })), c.total, TTS_RATE);
+  const sfx = c.sounds?.length ? await collageSoundFiles() : undefined;
+  await upload(id, "voice.wav", sfx ? addSounds(narration, c.sounds!.map((x) => ({ pcm: sfx[x.kind], at: x.at, gain: SOUND_GAIN[x.kind] })), TTS_RATE) : narration, "audio/wav");
+  // the family is the app's own photo, in the render's image; the other cut-outs are this clip's or the library's
+  const spots = motion.theme === "collage" ? aiSpots(c.plans.map((p) => p.key as SceneKey), motion.facts.coverStyle) : [];
+  const load = pieceFor(row.input);
+  const got = (await Promise.all(spots.map(async ({ key, piece }) => {
+    const png = await load(piece, key).catch(() => null);
+    if (!png) return null;
+    const name = `piece-${key}-${piece}.png`;
+    await upload(id, name, png, "image/png");
+    return { at: `${key}/${piece}`, name };
+  }))).filter((x): x is { at: string; name: string } => x !== null);
+  const names = ["voice.wav", ...got.map((g) => g.name)];
+  const { data, error: e } = await bucket().createSignedUrls(names.map((n) => `${id}/${n}`), LINK_SECONDS);
+  const urls = (data ?? []).map((d) => d.signedUrl);
+  if (e || urls.length !== names.length || urls.some((u) => !u)) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
+  const pieces = Object.fromEntries(got.map((g, i) => [g.at, urls[i + 1] as string]));
+  lap(`voice and ${got.length} cut-outs up for Remotion`);
+  bar.note({ step: "submit", done: 0, of: 0 });
+  const props = clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, pieces);
+  await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } });
 }
 
 /** the script's fields as the agent knows them */

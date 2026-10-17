@@ -4,33 +4,18 @@ import { motionBackground, motionBgHeight, motionFrame, type MotionContext } fro
 import { collageDecor, themeBackground, themed, themeHero, type Decor, type Hero } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
-import type { QuoteVideoFacts, SceneKey } from "@/lib/quote-video/script";
-import type { ThemeKey } from "@/lib/quote-video/theme-keys";
-import type { Extra } from "@/lib/quote-video/told";
+import type { ClipProps } from "@/lib/quote-video/remotion";
 import { readFile } from "./shims/fs";
 
 /**
- * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (trial, owner 2026-10-17). The frames are
+ * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (owner 2026-10-17; src/lib/quote-video/remotion.ts). The frames are
  * the app's own: motionFrame (motion.tsx) at the scene's time, repainted by themed (themes.tsx),
  * with the theme's hero, cut-outs and ground from the same functions. What the current engine
  * does in ffmpeg — the ground drifting under each scene, the cross-fades — is done here, at every
  * one of the 30 frames a second rather than 12.
  */
 
-// a type, not an interface: Remotion's props must fit Record<string, unknown>
-export type ClipProps = {
-  theme: ThemeKey;
-  sex: "M" | "F";
-  facts: QuoteVideoFacts;
-  customer: string;
-  narrator: "F" | "M";
-  contact: MotionContext["contact"];
-  total: number;
-  scenes: { key: SceneKey; voice: string; voiceSec: number; start: number; dur: number }[];
-  shown: { headline?: string[]; loop: boolean; extra: Extra };
-  audio: string;
-  pieces: Record<string, string>;
-};
+export type { ClipProps };
 
 /** satori lays every box out as a flex box (yoga): Chrome is told the same, so the positions match */
 const SATORI_CSS = `
@@ -56,8 +41,11 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
       const bgH = motionBgHeight({ h });
       const [hero, decor, ground] = await Promise.all([
         themeHero(p.theme, p.sex),
-        // the cut-outs as the app's pieceFor would give them; here, the trial's stand-ins
-        p.theme === "collage" ? collageDecor(async (piece) => (p.pieces[piece] ? (await readFile(`public/${p.pieces[piece]}`)) as unknown as Buffer : null), p.facts.coverStyle) : undefined,
+        // the cut-outs as the app's pieceFor gave them (links), or the trial's stand-ins (files here)
+        p.theme === "collage" ? collageDecor(async (piece, key) => {
+          const at = p.pieces[`${key}/${piece}`];
+          return at ? (await readFile(/^https?:\/\//.test(at) ? at : `public/${at}`)) as unknown as Buffer : null;
+        }, p.facts.coverStyle) : undefined,
         themeBackground(p.theme, { w, h }, bgH),
       ]);
       setGot({ hero, decor, ground: ground ?? motionBackground({ w, h }) });
@@ -113,7 +101,7 @@ export function Clip(p: ClipProps) {
     <AbsoluteFill className="sat" style={{ background: "#000" }}>
       <style>{SATORI_CSS}</style>
       {layers}
-      <Audio src={staticFile(p.audio)} />
+      <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
     </AbsoluteFill>
   );
 }

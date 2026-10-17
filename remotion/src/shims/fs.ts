@@ -10,10 +10,10 @@ export class Bytes extends Uint8Array {
   }
 }
 
-/** readFile(join(process.cwd(), "public/…")): the same file from this project's public folder */
+/** readFile(join(process.cwd(), "public/…")): the same file from this project's public folder; a link as it is */
 export async function readFile(file: string): Promise<Bytes> {
-  const rel = file.slice(file.indexOf("public/") + "public/".length);
-  const r = await fetch(staticFile(rel));
-  if (!r.ok) throw new Error(`${rel}: ${r.status}`);
+  const rel = /^https?:\/\//.test(file) ? file : staticFile(file.slice(file.indexOf("public/") + "public/".length));
+  const r = await fetch(rel);
+  if (!r.ok) throw new Error(`a file: ${r.status}`);
   return new Bytes(await r.arrayBuffer());
 }
