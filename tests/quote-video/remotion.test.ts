@@ -2,14 +2,15 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
-import { REMOTION_DRAWING, REMOTION_JOB, remotionFits, type ClipProps } from "@/lib/quote-video/remotion";
+import { REMOTION_DRAWING, REMOTION_JOB, remotionFits, remotionPlan, type ClipProps } from "@/lib/quote-video/remotion";
 import type { VideoInput } from "@/lib/quote-video/script";
 import { clipKind } from "@/lib/quote-video/progress";
 
 /**
  * วิดีโอนำเสนอ's Motion Graphic clips drawn by Remotion (owner, 2026-10-17; remotion.ts): a portrait
- * Life Protect clip is marked when made, as the /admin/ai switch says, and is handed to the Remotion
- * job with its props, voice and cut-outs as links, no frame drawn on Vercel. The rest are made as before.
+ * Life Protect or iHealthy clip is marked when made, as the /admin/ai switch's row for its plan says,
+ * and is handed to the Remotion job with its props, voice, cut-outs and (Chinese, Russian, Burmese)
+ * script face as links, no frame drawn on Vercel. The rest are made as before.
  */
 
 type Row = Record<string, unknown> & { id: string };
@@ -102,8 +103,16 @@ vi.mock("@/lib/ai/tts", async (orig) => ({
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 // the engine as built: which job it was told to run (the Remotion render names its own), then what it was handed
 vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: (_k: string, deps: { job?: string } = {}) => ({ submit: (...a: unknown[]) => ai.submit(deps.job ?? "clip-ffmpeg", ...a) }) }));
-const sw = vi.hoisted(() => ({ who: "all" as "off" | "owner" | "all" }));
-vi.mock("@/lib/quote-video/remotion-switch", () => ({ remotionFor: async () => sw.who }));
+const sw = vi.hoisted(() => ({ who: "all" as "off" | "owner" | "all", ih: "owner" as "off" | "owner" | "all", asked: [] as string[] }));
+vi.mock("@/lib/quote-video/remotion-switch", () => ({ remotionFor: async (plan: string) => { sw.asked.push(plan); return plan === "IHEALTHY" ? sw.ih : sw.who; } }));
+// the script face as Google gives it, cut down: two weights, or nothing when it cannot be had
+const font = vi.hoisted(() => ({ asked: [] as string[], fails: false }));
+vi.mock("@/lib/google-font", () => ({
+  googleFontSubset: async (family: string, text: string) => {
+    font.asked.push(`${family}\n${text}`);
+    return font.fails ? undefined : [400, 600].map((weight) => ({ name: family, data: new TextEncoder().encode(`${family}-${weight}`).buffer, weight, style: "normal" }));
+  },
+}));
 vi.mock("@/lib/collage/library", async (orig) => ({ ...(await orig<object>()), pieceSticker: async (k: string) => Buffer.from(`sticker-${k}`) }));
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
@@ -113,12 +122,20 @@ const { createVideo, finishVideo, produce } = await import("@/lib/quote-video/ma
 const agent = { kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: null } as unknown as Viewer;
 const owner = { ...agent, staff: { owner: true, publish: true, connect: true, admin: true } } as unknown as Viewer;
 const lp = (over: Partial<VideoInput> = {}): VideoInput => ({ product: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000, style: "motion", theme: "collage", ...over } as VideoInput);
+const ih = (over: Partial<VideoInput> = {}): VideoInput => ({
+  product: "IHEALTHY", age: 40, sex: "F", plan: "BRONZE", compare: ["SILVER", "GOLD"],
+  setup: "base=WLF99H&sa=150000&area=&cover=&r=MEB%3A1000&r=DCI%3A%3A200000", style: "motion", theme: "navy", ...over,
+} as VideoInput);
 const pcm = () => Buffer.alloc(24000 * 2);
 const rowOf = (id: string) => db.rows.find((r) => r.id === id)!;
 const drawCalls = () => (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(([u]) => String(u).includes("/api/quote-video/draw")).length;
 
 beforeEach(() => {
   sw.who = "all";
+  sw.ih = "owner";
+  sw.asked.length = 0;
+  font.asked.length = 0;
+  font.fails = false;
   db.rows.length = 0;
   db.files.clear();
   db.downloads.length = 0;
@@ -140,14 +157,24 @@ beforeEach(() => {
 });
 
 describe("remotionFits", () => {
-  it("takes a portrait Motion Graphic Life Protect clip only, as the trial measured", () => {
+  it("takes a portrait Motion Graphic Life Protect or iHealthy clip only, as the trials measured", () => {
     expect(remotionFits(lp())).toBe(true);
     expect(remotionFits(lp({ product: undefined } as Partial<VideoInput>))).toBe(true);
     expect(remotionFits(lp({ style: "classic" }))).toBe(false);
     expect(remotionFits(lp({ size: "square" }))).toBe(false);
     expect(remotionFits(lp({ size: "landscape" }))).toBe(false);
     expect(remotionFits(lp({ product: "ISHIELD" } as Partial<VideoInput>))).toBe(false);
-    expect(remotionFits({ product: "IHEALTHY", age: 35, sex: "F", plan: "SILVER", compare: [], style: "motion" } as VideoInput)).toBe(false);
+    expect(remotionFits(ih())).toBe(true);
+    expect(remotionFits(ih({ lang: "zh" } as Partial<VideoInput>))).toBe(true);
+    expect(remotionFits(ih({ style: "classic" }))).toBe(false);
+    expect(remotionFits(ih({ size: "square" }))).toBe(false);
+    expect(remotionFits(ih({ size: "landscape" }))).toBe(false);
+  });
+  it("names the plan whose row on the switch a clip follows", () => {
+    expect(remotionPlan(lp())).toBe("LIFEPROTECT");
+    expect(remotionPlan(lp({ product: undefined } as Partial<VideoInput>))).toBe("LIFEPROTECT");
+    expect(remotionPlan(ih())).toBe("IHEALTHY");
+    expect(remotionPlan(ih({ size: "square" }))).toBeNull();
   });
 });
 
@@ -180,7 +207,22 @@ describe("createVideo, as the switch says", () => {
     expect(await engineOf(agent)).toBeUndefined();
   });
 
+  it("each plan follows its own row: iHealthy the owner's alone while Life Protect is everyone's", async () => {
+    expect(await engineOf(owner, ih())).toBe("remotion");
+    expect(await engineOf(agent, ih())).toBeUndefined();
+    expect(await engineOf(agent)).toBe("remotion");
+    expect(sw.asked).toEqual(["IHEALTHY", "IHEALTHY", "LIFEPROTECT"]);
+    sw.ih = "all";
+    expect(await engineOf(agent, ih({ lang: "my" } as Partial<VideoInput>))).toBe("remotion");
+    sw.ih = "off";
+    expect(await engineOf(owner, ih())).toBeUndefined();
+  });
+
   it("a clip Remotion has not been tried on stays on the frames, whatever the switch", async () => {
+    sw.ih = "all";
+    for (const input of [ih({ size: "square" }), ih({ size: "landscape" }), ih({ style: "classic" })]) {
+      expect(await engineOf(owner, input)).toBeUndefined();
+    }
     for (const input of [lp({ style: "classic" }), lp({ size: "square" }), lp({ product: "ISHIELD" } as Partial<VideoInput>)]) {
       expect(await engineOf(owner, input)).toBeUndefined();
     }
@@ -226,5 +268,55 @@ describe("produce, drawn by Remotion", () => {
     expect(drawCalls()).toBe(5);
     expect(ai.submit.mock.calls[0][0]).toBe("clip-ffmpeg");
     expect(JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion).toBeUndefined();
+  });
+
+  it("an iHealthy clip goes the same way, its riders in the facts, with no script face in Thai", async () => {
+    const made = await createVideo(owner, ih(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect(row.error).toBeNull();
+    expect(row.status).toBe("rendering");
+    expect(drawCalls()).toBe(0);
+    expect(ai.submit.mock.calls[0][0]).toBe(REMOTION_JOB);
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as ClipProps;
+    expect(props.scenes.map((s) => s.key)).toContain("compare");
+    expect(props.facts.product).toBe("IHEALTHY");
+    expect(props.scriptFont).toBeUndefined();
+    expect(font.asked).toEqual([]);
+  });
+
+  it.each([["zh", "Noto Sans SC"], ["ru", "Noto Sans"], ["my", "Noto Sans Myanmar"]] as const)("in %s, the old engine's face (%s) goes up beside the voice, cut to the clip's letters", async (lang, family) => {
+    const made = await createVideo(owner, ih({ lang } as Partial<VideoInput>), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    expect(rowOf(id).error).toBeNull();
+    expect(rowOf(id).status).toBe("rendering");
+    expect(font.asked).toHaveLength(1);
+    const [asked, text] = font.asked[0].split("\n");
+    expect(asked).toBe(family);
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as ClipProps;
+    // every word on screen is among the letters the face was cut to
+    for (const ch of new Set(props.scenes.map((s) => s.voice).join(""))) expect(text).toContain(ch);
+    expect(props.scriptFont).toEqual([
+      { url: `https://x/${id}/script-400.ttf`, weight: 400 }, { url: `https://x/${id}/script-600.ttf`, weight: 600 },
+    ]);
+    expect(db.files.get(`${id}/script-600.ttf`)!.toString()).toBe(`${family}-600`);
+  });
+
+  it("a script face that cannot be had fails the clip, and nothing is charged", async () => {
+    font.fails = true;
+    sw.ih = "all";
+    wallet.releaseWallet.mockResolvedValue(undefined);
+    const made = await createVideo(agent, ih({ lang: "zh" } as Partial<VideoInput>), "");
+    const id = (made as { id: string }).id;
+    expect((rowOf(id).input as VideoInput).engine).toBe("remotion");
+    // as though paid from the wallet: the hold is what must go back
+    Object.assign(rowOf(id), { paid_by: "wallet", hold_id: "hold-x" });
+    await produce(id, "ตัวแทน");
+    expect(rowOf(id).status).toBe("failed");
+    expect(ai.submit).not.toHaveBeenCalled();
+    expect(wallet.releaseWallet).toHaveBeenCalledWith("hold-x");
+    expect(wallet.settleWallet).not.toHaveBeenCalled();
   });
 });

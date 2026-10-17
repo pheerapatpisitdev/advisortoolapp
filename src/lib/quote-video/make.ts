@@ -44,7 +44,7 @@ import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./st
 import { faceUris } from "./story-faces";
 import { a, motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
-import { clipProps, REMOTION_JOB, remotionFits, type ClipProps, type RemotionMotion } from "./remotion";
+import { clipProps, REMOTION_JOB, remotionFits, remotionPlan, type ClipProps, type RemotionMotion } from "./remotion";
 import { remotionFor } from "./remotion-switch";
 import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
 import { pieceSticker } from "@/lib/collage/library";
@@ -61,6 +61,7 @@ import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, s
 import { clipLength, LOOP_TAIL, planScenes, SIZES, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay, voiceFullText } from "./voice-quota";
 import { geminiVoice } from "@/lib/voice/gemini";
+import { googleFontSubset } from "@/lib/google-font";
 import { readVideoLang, SCRIPT_FAMILY, wordsLetters, type VideoLang } from "./video-words";
 import { clipKind, DEFAULT_ESTIMATES, estimatesFrom, type ClipKind, type Estimate, type ProgressNote } from "./progress";
 
@@ -231,9 +232,10 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
-  // a Motion Graphic clip drawn by Remotion, as the switch on /admin/ai says (owner, 2026-10-17; remotion.ts)
-  if (isQuoteInput(input) && remotionFits(input)) {
-    const who = await remotionFor();
+  // a Motion Graphic clip drawn by Remotion, as the switch's row for its plan on /admin/ai says (owner, 2026-10-17; remotion.ts)
+  const plan = isQuoteInput(input) ? remotionPlan(input) : null;
+  if (isQuoteInput(input) && plan) {
+    const who = await remotionFor(plan);
     if (who === "all" || (who === "owner" && can(viewer, "owner"))) input = { ...input, engine: "remotion" };
   }
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
@@ -411,6 +413,8 @@ export interface ClipParts {
   sounds?: { at: number; kind: SoundKind }[];
   /** a portrait Motion Graphic quote clip: what its frames are drawn from, for Remotion (remotion.ts) */
   motion$?: RemotionMotion;
+  /** Chinese, Russian and Burmese: the face their letters are drawn in, and every letter the clip shows */
+  scriptFace?: { family: string; text: string };
 }
 
 async function contactOf(agentId: string, agentName: string): Promise<Contact> {
@@ -767,6 +771,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     script, motion, plans, named, sceneDraws,
     size,
     ...(motion && size === "portrait" ? { motion$: { theme: theme!, sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) } } } : {}),
+    ...(script$.script ? { scriptFace: script$.script } : {}),
     ...(theme === "collage" ? { sounds: collageSounds(plans.map((p, i) => ({ start: p.start, anims: [...Object.values(motionSpec(script[i].key, facts, secs[i], script[i].voice)), ...(size === "portrait" ? decorAnims(script[i].key, facts.coverStyle) : [])] }))) } : {}),
     build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height, size: dims, photo: boxes.photo, table: boxes.table },
     layers: { photo: layers.includes("photo") },
@@ -922,10 +927,10 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   const id = row.id;
   const note = bar.note;
   const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-  const { size, motion, plans, named, build, layers, background: ownBackground, sounds, motion$, script } = await clipParts(row, agentName, secs);
+  const { size, motion, plans, named, build, layers, background: ownBackground, sounds, motion$, script, scriptFace } = await clipParts(row, agentName, secs);
   const total = clipLength(plans);
   if (motion$ && isQuoteInput(row.input) && row.input.engine === "remotion" && remotionFits(row.input)) {
-    return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms }, gcpKey, bar, lap);
+    return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms, scriptFace }, gcpKey, bar, lap);
   }
 
   // the files every scene shares, or that need no drawing
@@ -1020,16 +1025,22 @@ async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, 
 
 /**
  * A Motion Graphic clip drawn by Remotion (remotion.ts): no frame is drawn here. The narration (and
- * คอลลาจ's sounds) goes up as one WAV, คอลลาจ's cut-outs as the pieceFor gives them, and the job
- * gets the clip's motion context with links to both.
+ * คอลลาจ's sounds) goes up as one WAV, คอลลาจ's cut-outs as the pieceFor gives them, a Chinese,
+ * Russian or Burmese clip's face cut to its letters, and the job gets the clip's motion context
+ * with links to them all.
  */
 async function cutWithRemotion(
   row: VideoRow & { input: VideoInput }, motion: RemotionMotion,
-  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; sounds?: { at: number; kind: SoundKind }[]; pcms: Buffer[] },
+  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; sounds?: { at: number; kind: SoundKind }[]; pcms: Buffer[]; scriptFace?: { family: string; text: string } },
   gcpKey: string, bar: Bar, lap: Lap,
 ): Promise<void> {
   const id = row.id;
   bar.note({ step: "files", done: 0, of: 0 });
+  // the same face the old engine draws these letters in; without it they would be boxes, so no clip (poster-png's rule)
+  const faces = c.scriptFace ? await googleFontSubset(c.scriptFace.family, c.scriptFace.text) : undefined;
+  if (c.scriptFace && !faces) throw new Error(`font ${c.scriptFace.family} not loaded`);
+  const fonts = (faces ?? []).map((f) => ({ name: `script-${f.weight}.ttf`, weight: f.weight, data: Buffer.from(f.data) }));
+  await Promise.all(fonts.map((f) => upload(id, f.name, f.data, "application/octet-stream")));
   const narration = mixNarration(c.pcms.map((pcm, i) => ({ pcm, at: c.plans[i].voiceAt })), c.total, TTS_RATE);
   const sfx = c.sounds?.length ? await collageSoundFiles() : undefined;
   await upload(id, "voice.wav", sfx ? addSounds(narration, c.sounds!.map((x) => ({ pcm: sfx[x.kind], at: x.at, gain: SOUND_GAIN[x.kind] })), TTS_RATE) : narration, "audio/wav");
@@ -1043,14 +1054,15 @@ async function cutWithRemotion(
     await upload(id, name, png, "image/png");
     return { at: `${key}/${piece}`, name };
   }))).filter((x): x is { at: string; name: string } => x !== null);
-  const names = ["voice.wav", ...got.map((g) => g.name)];
+  const names = ["voice.wav", ...got.map((g) => g.name), ...fonts.map((f) => f.name)];
   const { data, error: e } = await bucket().createSignedUrls(names.map((n) => `${id}/${n}`), LINK_SECONDS);
   const urls = (data ?? []).map((d) => d.signedUrl);
   if (e || urls.length !== names.length || urls.some((u) => !u)) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
   const pieces = Object.fromEntries(got.map((g, i) => [g.at, urls[i + 1] as string]));
-  lap(`voice and ${got.length} cut-outs up for Remotion`);
+  const scriptFont = fonts.map((f, i) => ({ url: urls[1 + got.length + i] as string, weight: f.weight }));
+  lap(`voice and ${got.length} cut-outs${fonts.length ? ` and ${c.scriptFace!.family} (${fonts.length})` : ""} up for Remotion`);
   bar.note({ step: "submit", done: 0, of: 0 });
-  const props = clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, pieces);
+  const props = clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, pieces, scriptFont);
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } });
 }
 

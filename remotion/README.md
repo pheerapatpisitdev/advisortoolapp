@@ -24,6 +24,13 @@ steps 2, 3 and 5 below before pushing, so the image and the app agree.
    `gcloud run jobs execute remotion-port --region asia-southeast1 --wait --args=node,cloudrun/smoke.mjs --update-env-vars THEME=paper,PUBLIC=build/public,PREFIX=render`.
 5. Image: `gcloud builds submit . --config cloudrun/cloudbuild.yaml --region asia-southeast1` (tags clip/remotion-render;
    the job takes :latest at its next run). `cloudrun/stats.sh <execution>` reads a trial run's timing.
+   An image with a new fingerprint refuses the live app's clips until the app is pushed: to try it first, build it
+   under a tag of its own (`remotion-render:drawing-<fingerprint>`, the yaml with its tag changed), point remotion-port
+   at it for step 4, point it back, and at push time add `latest` to that tag
+   (`gcloud artifacts docker tags add …:drawing-<fingerprint> …:latest`).
+
+iHealthy (owner chose 1ก 2ก): `IHEALTHY=th:collage,zh:navy,ru:paper,my:clean` on step 2 writes `props/ih-<lang>.json` with
+each language's Noto face cut down as the app cuts it; `THEME=ih-zh` runs one on steps 3 and 4.
 
 `remotion.config.ts` aliases `@` to the app's `src`, and `node:fs/promises`, `node:path`, `sharp` to `src/shims`, which read
 the same files from this project's `public/` in the browser. `.sat` CSS in `Clip.tsx` makes Chrome lay boxes out as satori does.

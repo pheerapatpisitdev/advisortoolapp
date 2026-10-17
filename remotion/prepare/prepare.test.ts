@@ -16,6 +16,11 @@ import { it, vi } from "vitest";
  * the cut-out library is replaced by stand-ins (no database is read).
  *
  *   npx vitest run --config remotion/prepare/vitest.config.ts       (THEMES=navy,paper OLD=1)
+ *
+ * IHEALTHY=th:collage,zh:navy,ru:paper,my:clean writes iHealthy clips instead (props/ih-<lang>.json),
+ * each language in the theme named, with the Chinese, Russian or Burmese face cut down by the app's
+ * own googleFontSubset, as make.ts sends it. The Mac has no Burmese voice: those lines are silence of
+ * about the length they would take.
  */
 
 const ROOT = join(__dirname, "..");
@@ -61,7 +66,7 @@ async function googleFont(family: string, weight: number, file: string) {
   writeFileSync(file, Buffer.from(await fetch(url).then((r) => r.arrayBuffer())));
 }
 
-it("prepares the Remotion props, assets and (OLD=1) the current engine's clips", async () => {
+it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props, assets and (OLD=1) the current engine's clips", async () => {
   const { quoteVideoFacts, quoteVideoScript } = await import("@/lib/quote-video/script");
   const { quotePartsFor } = await import("@/lib/quote-video/make");
   const { addSounds, buildJob, concatList, mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
@@ -149,5 +154,70 @@ it("prepares the Remotion props, assets and (OLD=1) the current engine's clips",
     console.log(theme, JSON.stringify(report[theme]));
   }
   writeFileSync(join(OUT, `prepare-${process.env.OLD === "1" ? "old" : "props"}.json`), JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report, null, 2));
+});
+
+/** the Mac's voice for a language, 24 kHz 16-bit mono; null where it has none */
+const SAY: Record<string, string | null> = { th: "Narisa", en: "Samantha", zh: "Tingting", ru: "Milena", my: null };
+
+it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each language, with its script face", async () => {
+  const { quoteVideoFacts, quoteVideoScript } = await import("@/lib/quote-video/script");
+  const { quotePartsFor } = await import("@/lib/quote-video/make");
+  const { addSounds, mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
+  const { clipLength } = await import("@/lib/quote-video/timeline");
+  const { aiSpots, collageSoundFiles, SOUND_GAIN } = await import("@/lib/quote-video/themes");
+  const { clipProps } = await import("@/lib/quote-video/remotion");
+  const { googleFontSubset } = await import("@/lib/google-font");
+  for (const d of ["fonts", "audio", "props"]) mkdirSync(join(PUB, d), { recursive: true });
+  await standIns();
+
+  const report: Record<string, unknown> = {};
+  for (const pair of process.env.IHEALTHY!.split(",")) {
+    const [lang, theme = "navy"] = pair.split(":") as ["th" | "zh" | "ru" | "my", "navy"];
+    const input = {
+      product: "IHEALTHY" as const, age: 40, sex: "F" as const, plan: "BRONZE", compare: ["SILVER", "GOLD"],
+      setup: "base=WLF99H&sa=150000&area=&cover=&r=MEB%3A1000&r=DCI%3A%3A200000",
+      style: "motion" as const, theme, size: "portrait" as const, length: "full" as const, narrator: "F" as const,
+      ...(lang !== "th" ? { lang } : {}),
+    };
+    const facts = quoteVideoFacts(input as never, TODAY)!;
+    const script = quoteVideoScript(facts, "", "F", "full", {});
+    const vdir = join(OUT, `voice-ih-${lang}`);
+    mkdirSync(vdir, { recursive: true });
+    const pcms = script.map((s, i) => {
+      const pcm = join(vdir, `${i}.pcm`);
+      if (!existsSync(pcm) || readFileSync(join(vdir, `${i}.txt`), "utf8") !== s.voice) {
+        const voice = SAY[lang];
+        if (voice) {
+          execFileSync("say", ["-v", voice, "-o", join(vdir, `${i}.aiff`), s.voice]);
+          execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", join(vdir, `${i}.aiff`), "-ar", "24000", "-ac", "1", "-f", "s16le", pcm]);
+        } else writeFileSync(pcm, Buffer.alloc(Math.round(Math.max(2, [...s.voice].length * 0.07) * 24000) * 2));
+        writeFileSync(join(vdir, `${i}.txt`), s.voice);
+      }
+      return readFileSync(pcm);
+    });
+    const secs = pcms.map((p) => pcmSeconds(p, 24000));
+    const parts = quotePartsFor({ input, customer_name: "" } as never, CONTACT, secs);
+    const total = clipLength(parts.plans);
+    const narration = mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000);
+    const sfx = parts.sounds?.length ? await collageSoundFiles() : undefined;
+    writeFileSync(join(PUB, `audio/ih-${lang}.wav`), sfx ? addSounds(narration, parts.sounds!.map((c) => ({ pcm: sfx[c.kind], at: c.at, gain: SOUND_GAIN[c.kind] })), 24000) : narration);
+    const keys = parts.plans.map((p) => p.key as import("@/lib/quote-video/script").SceneKey);
+    const pieces = theme === "collage"
+      ? Object.fromEntries(aiSpots(keys, facts.coverStyle).filter((s) => existsSync(pieceFile(s.piece))).map((s) => [`${s.key}/${s.piece}`, `pieces/${s.piece}.png`])) : {};
+    // the face as make.ts cutWithRemotion fetches it
+    const face = parts.scriptFace;
+    const faces = face ? await googleFontSubset(face.family, face.text) : undefined;
+    if (face && !faces) throw new Error(`font ${face.family} not loaded`);
+    const scriptFont = (faces ?? []).map((f) => {
+      const file = `fonts/script-${lang}-${f.weight}.ttf`;
+      writeFileSync(join(PUB, file), Buffer.from(f.data));
+      return { url: file, weight: f.weight };
+    });
+    const props = clipProps(parts.motion$!, parts.plans as never, script, secs, total, `audio/ih-${lang}.wav`, pieces, scriptFont);
+    writeFileSync(join(PUB, `props/ih-${lang}.json`), JSON.stringify(props));
+    report[`ih-${lang}`] = { theme, total, scenes: keys, face: face?.family ?? null, faceBytes: (faces ?? []).map((f) => f.data.byteLength) };
+  }
+  writeFileSync(join(OUT, "prepare-ihealthy.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 });

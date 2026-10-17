@@ -1,6 +1,6 @@
 // A run of job.mjs against a stand-in app: the payload, the voice and the cut-outs served as links, the video PUT
 // and the callback caught here. THEME=collage node cloudrun/smoke.mjs (after the prepare step and the bundle).
-// DRAWING=x sends props made for another drawing (the image must refuse them). In the image (PUBLIC=build/public),
+// THEME=ih-zh runs the iHealthy props (IHEALTHY prepare step). DRAWING=x sends props made for another drawing (the image must refuse them). In the image (PUBLIC=build/public),
 // BUCKET names where the clip and the callback go, with the job's own account, as render.mjs does.
 import { createServer } from "node:http";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -27,6 +27,7 @@ const props = JSON.parse(readFileSync(`${pub}/props/${theme}.json`, "utf8"));
 if (process.env.DRAWING) props.drawing = process.env.DRAWING;
 props.audio = `${base}/${props.audio}`;
 for (const k of Object.keys(props.pieces)) props.pieces[k] = `${base}/${props.pieces[k]}`;
+for (const f of props.scriptFont ?? []) f.url = `${base}/${f.url}`;
 const payload = { id: "smoke", remotion: { props }, uploads: { out_1: { uploadUrl: `${base}/upload`, path: "smoke/quote.mp4" } }, callbackUrl: `${base}/callback`, token: "t" };
 writeFileSync(`${pub}/smoke-payload.json`, JSON.stringify(payload));
 const t0 = Date.now();

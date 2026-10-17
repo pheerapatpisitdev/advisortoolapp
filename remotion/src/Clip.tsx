@@ -4,7 +4,7 @@ import { motionBackground, motionBgHeight, motionFrame, type MotionContext } fro
 import { collageDecor, themeBackground, themed, themeHero, type Decor, type Hero } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
-import type { ClipProps } from "@/lib/quote-video/remotion";
+import { SCRIPT_RANGE, type ClipProps } from "@/lib/quote-video/remotion";
 import { readFile } from "./shims/fs";
 
 /**
@@ -38,6 +38,13 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
         const f = new FontFace(family, `url(${staticFile(file)})`, { weight: String(weight) });
         document.fonts.add(await f.load());
       }));
+      // Chinese, Russian, Burmese: the clip's Noto face under each family's own name, for the letters
+      // that family has not got, as satori falls back to it; Thai, Latin and the figures stay as they are
+      const families = [...new Set(FONTS.map(([family]) => family))];
+      await Promise.all((p.scriptFont ?? []).flatMap(({ url, weight }) => families.map(async (family) => {
+        const f = new FontFace(family, `url(${/^https?:\/\//.test(url) ? url : staticFile(url)})`, { weight: String(weight), unicodeRange: SCRIPT_RANGE });
+        document.fonts.add(await f.load());
+      })));
       const bgH = motionBgHeight({ h });
       const [hero, decor, ground] = await Promise.all([
         themeHero(p.theme, p.sex),
