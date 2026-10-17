@@ -5,7 +5,6 @@ import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import { FacePicker } from "../story-clip/StoryClipBoard";
 import { GEMINI, SizePicker } from "../quote-video/QuoteVideoBoard";
-import { MyVoiceRow } from "../voice/MyVoiceRow";
 
 /** หน้าตาคลิป: the size, the narrator's face and the voice, as คลิปเล่าเรื่อง asks them */
 
@@ -16,7 +15,7 @@ const chip = (on: boolean) =>
 const small = "min-h-9 rounded-lg border border-[var(--ct-line)] px-3 text-sm no-underline hover:bg-[var(--ct-soft)] inline-flex items-center";
 const label = "mb-1 block text-sm font-medium";
 
-export function LookStep({ look, pick, face, pickFace, customer, setCustomer, eleven, canClone, prices }: {
+export function LookStep({ look, pick, face, pickFace, customer, setCustomer, eleven, prices }: {
   look: Look;
   pick: (next: Partial<Look>) => void;
   face: string;
@@ -24,7 +23,6 @@ export function LookStep({ look, pick, face, pickFace, customer, setCustomer, el
   customer: string;
   setCustomer: (v: string) => void;
   eleven: ElevenChoice[];
-  canClone: boolean;
   prices: Prices;
 }) {
   // one voice sample plays at a time
@@ -51,7 +49,6 @@ export function LookStep({ look, pick, face, pickFace, customer, setCustomer, el
       </div>
       <div>
         <span className={label}>เสียงพากย์</span>
-        <MyVoiceRow eleven={eleven} voice={look.voice} pick={(id) => pick({ voice: id, narrator: eleven.find((v) => v.id === id)?.sex ?? look.narrator })} play={playSample} playing={playing} chip={chip} small={small} extra={extra} canClone={canClone} />
         <div className="flex flex-wrap items-center gap-2">
           {GEMINI.map((g) => (
             <span key={g.n} className="inline-flex items-center gap-2">
@@ -64,9 +61,9 @@ export function LookStep({ look, pick, face, pickFace, customer, setCustomer, el
           <div key={sex} className="mt-3">
             <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">ElevenLabs {sex === "M" ? "ผู้ชาย" : "ผู้หญิง"} · เหมือนคนพูด +{extra} บาท</span>
             <div className="flex flex-wrap items-center gap-2">
-              {eleven.filter((v) => v.sex === sex && !v.mine).map((v) => (
+              {eleven.filter((v) => v.sex === sex).map((v) => (
                 <span key={v.id} className="inline-flex items-center gap-1.5">
-                  <button type="button" className={chip(look.voice === v.id)} onClick={() => pick({ voice: v.id, narrator: v.sex })}>{v.name} <span className="font-normal opacity-80">· {v.tag}{v.adminOnly ? " · แอดมิน" : ""}</span></button>
+                  <button type="button" className={chip(look.voice === v.id)} onClick={() => pick({ voice: v.id, narrator: v.sex })}>{v.name} <span className="font-normal opacity-80">· {v.tag}</span></button>
                   <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■" : "▶"}</button>
                 </span>
               ))}

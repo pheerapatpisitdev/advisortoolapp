@@ -1,22 +1,13 @@
 import { providerKey } from "@/lib/ai/client";
 import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS, type ElevenChoice } from "@/lib/voice/elevenlabs";
-import { myVoiceChoice } from "@/lib/voice/mine";
 import { voiceFullUntil } from "./make";
 import { fallbackReader, geminiUsable } from "./speak";
 import { bangkokClock, voiceFullNotice } from "./voice-quota";
 
 /** The voice a clip form asked for, before anything is held: shared by every clip's action. */
 
-export const ADMIN_VOICE = "เสียงนี้ใช้ได้เฉพาะแอดมิน เลือกเสียงอื่นแทน";
-
-/** the ElevenLabs voice asked for: one of the library's, or the agent's own cloned one */
-export async function voiceAsked(agentId: string, id: unknown): Promise<ElevenChoice | undefined> {
-  if (typeof id !== "string" || !id) return undefined;
-  const listed = elevenVoice(id);
-  if (listed) return listed;
-  const mine = await myVoiceChoice(agentId);
-  return mine && mine.id === id ? mine : undefined;
-}
+/** the ElevenLabs voice asked for: one of the library's, nothing else */
+export const voiceAsked = (id: unknown): ElevenChoice | undefined => (typeof id === "string" && id ? elevenVoice(id) : undefined);
 
 /** a Gemini-voiced clip is not started while the voice is used up: it would only fail */
 export async function voiceRefusal(voice: string | undefined, thai = true): Promise<string | null> {

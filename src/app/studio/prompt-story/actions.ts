@@ -8,7 +8,7 @@ import { getContact } from "@/lib/quote-video/contact";
 import { createPromptStory, produce, redrawPicture } from "@/lib/quote-video/make";
 import { cleanCustomerName } from "@/lib/quote-video/script";
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
-import { ADMIN_VOICE, voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
+import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
 import { mayPromptStory, PROMPT_STORY_CLOSED } from "@/lib/prompt-story/access";
 import { BRIEF_MAX, checkedPromptStory, HOURLY_LIMIT } from "@/lib/prompt-story/checked";
 import { draftsLastHour, saveDraft } from "@/lib/prompt-story/drafts";
@@ -71,8 +71,7 @@ export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; fi
 export async function makePromptStory(v: Record<string, unknown>, customer: string): Promise<Made> {
   const viewer = await requireMember();
   if (!mayPromptStory(viewer)) return { ok: false, error: PROMPT_STORY_CLOSED };
-  const eleven = await voiceAsked(viewer.agentId, v?.voice);
-  if (eleven?.adminOnly && !can(viewer, "owner")) return { ok: false, error: ADMIN_VOICE };
+  const eleven = voiceAsked(v?.voice);
   const input = checkedPromptStory(v ?? {}, eleven ? eleven.sex : v?.narrator === "M" ? "M" : "F", eleven?.id);
   if (typeof input === "string") return { ok: false, error: input };
   const contact = await getContact(viewer.agentId);

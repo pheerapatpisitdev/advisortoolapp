@@ -33,8 +33,6 @@ describe("the fallback voices", () => {
   it("are อ้อม for a woman and สมชาย for a man, both on the account's shared list", () => {
     expect(elevenVoice(FALLBACK_VOICE.F)?.name).toBe("อ้อม");
     expect(elevenVoice(FALLBACK_VOICE.M)?.name).toBe("สมชาย");
-    expect(elevenVoice(FALLBACK_VOICE.F)?.adminOnly).toBeFalsy();
-    expect(elevenVoice(FALLBACK_VOICE.M)?.adminOnly).toBeFalsy();
   });
 });
 

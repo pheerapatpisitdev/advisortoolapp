@@ -12,7 +12,6 @@ import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wall
 import type { VideoBrief, WrittenLines } from "@/lib/quote-video/brief";
 import { REWRITES, StoryBrief, type ScriptState } from "./StoryBrief";
 import type { VideoSize } from "@/lib/quote-video/timeline";
-import { MyVoiceRow } from "../voice/MyVoiceRow";
 import { ClipList } from "./ClipList";
 import { makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
 import { voiceNotice } from "@/lib/quote-video/voice-quota";
@@ -135,7 +134,7 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices, canClone = false }: {
+export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
   /** the owner's price list (/admin/wallet), for the prices on the chips */
   prices: Prices;
@@ -151,8 +150,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   pages: { id: string; name: string }[];
   /** the ElevenLabs voices this viewer may pick; empty hides the AI-voice switch */
   eleven: ElevenChoice[];
-  /** invited to clone a voice and without one yet (เสียงของฉัน) */
-  canClone?: boolean;
 }) {
   // a plan page's shortcut (owner, 2026-10-11) fills the form with the quote it was showing
   const startProduct = start?.product && start.product !== "FHC" ? start.product : "LIFEPROTECT";
@@ -252,7 +249,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }, [quota]);
   const refreshQuota = () => voiceQuota().then(setQuota).catch(() => undefined);
   /** an ElevenLabs voice instead, of the narrator's sex where there is one */
-  const elevenInstead = eleven.find((v) => v.sex === narrator && !v.mine) ?? eleven.find((v) => !v.mine);
+  const elevenInstead = eleven.find((v) => v.sex === narrator) ?? eleven[0];
   const [style, setStyle] = useState<VideoStyle>("classic");
   // ธีม (owner, 2026-10-17): the Motion Graphic look, remembered in this browser
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
@@ -803,7 +800,6 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
           <SizePicker size={size} pick={pickSize} />
           <div>
             <span className={label}>เสียงพากย์</span>
-            {!foreign && <MyVoiceRow eleven={eleven} voice={voice} pick={pickVoice} play={playSample} playing={playing} chip={chip} small={small} extra={priceBaht(prices.elevenExtra)} canClone={canClone} />}
             <div className="flex flex-wrap items-center gap-2">
               {GEMINI.map((g) => (
                 <span key={g.n} className="inline-flex items-center gap-2">
@@ -817,9 +813,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               <div key={sex} className="mt-3">
                 <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">ElevenLabs {sex === "M" ? "ผู้ชาย" : "ผู้หญิง"} · เหมือนคนพูด +{priceBaht(prices.elevenExtra)} บาท</span>
                 <div className="flex flex-wrap items-center gap-2">
-                  {eleven.filter((v) => v.sex === sex && !v.mine).map((v) => (
+                  {eleven.filter((v) => v.sex === sex).map((v) => (
                     <span key={v.id} className="inline-flex items-center gap-1.5">
-                      <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· {v.tag}{v.adminOnly ? " · แอดมิน" : ""}</span></button>
+                      <button type="button" className={chip(voice === v.id)} onClick={() => pickVoice(v.id)}>{v.name} <span className="font-normal opacity-80">· {v.tag}</span></button>
                       <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■" : "▶"}</button>
                     </span>
                   ))}

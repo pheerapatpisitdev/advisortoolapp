@@ -13,7 +13,6 @@ import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
 import { ChevronDownIcon } from "../ui/icons";
-import { MyVoiceRow } from "../voice/MyVoiceRow";
 import { ClipList } from "../quote-video/ClipList";
 import { costLine, GEMINI, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
 
@@ -162,15 +161,13 @@ function FamilyPreview({ info, hero, partner, size }: { info: StoryTopicInfo; he
   );
 }
 
-export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven, canClone = false }: {
+export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
   prices: Prices;
   quota: VoiceQuota | null;
   pages: { id: string; name: string }[];
   eleven: ElevenChoice[];
-  /** invited to clone a voice and without one yet (เสียงของฉัน) */
-  canClone?: boolean;
 }) {
   const [narratorFace, setNarratorFace] = useState(DEFAULT_NARRATOR_FACE);
   const [heroSex, setHeroSex] = useState<"M" | "F">("F");
@@ -227,7 +224,10 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
       const f = localStorage.getItem(NARRATOR_KEY);
       if (f && FACES.some((x) => x.id === f)) setNarratorFace(f);
     } catch { /* the default stands */ }
-    setLook(readLook());
+    // a voice no longer listed (the cloned ones, gone 2026-10-17) falls back to Gemini's
+    const kept = readLook();
+    setLook(eleven.some((v) => v.id === kept.voice) ? kept : { ...kept, voice: "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read once, as the page opens
   }, []);
   function pickNarratorFace(f: string) {
     setNarratorFace(f);
@@ -663,7 +663,6 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             </div>}
             <div>
               <span className={label}>เสียงพากย์</span>
-              <MyVoiceRow eleven={eleven} voice={look.voice} pick={(id) => pickLook({ voice: id, narrator: eleven.find((v) => v.id === id)?.sex ?? look.narrator })} play={playSample} playing={playing} chip={chip} small={small} extra={priceBaht(prices.elevenExtra)} canClone={canClone} />
               <div className="flex flex-wrap items-center gap-2">
                 {GEMINI.map((g) => (
                   <span key={g.n} className="inline-flex items-center gap-2">
@@ -676,9 +675,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 <div key={sex} className="mt-3">
                   <span className="mb-1 block text-xs font-medium text-[var(--ct-mute)]">ElevenLabs {sex === "M" ? "ผู้ชาย" : "ผู้หญิง"} · เหมือนคนพูด +{priceBaht(prices.elevenExtra)} บาท</span>
                   <div className="flex flex-wrap items-center gap-2">
-                    {eleven.filter((v) => v.sex === sex && !v.mine).map((v) => (
+                    {eleven.filter((v) => v.sex === sex).map((v) => (
                       <span key={v.id} className="inline-flex items-center gap-1.5">
-                        <button type="button" className={chip(look.voice === v.id)} onClick={() => pickLook({ voice: v.id, narrator: v.sex })}>{v.name} <span className="font-normal opacity-80">· {v.tag}{v.adminOnly ? " · แอดมิน" : ""}</span></button>
+                        <button type="button" className={chip(look.voice === v.id)} onClick={() => pickLook({ voice: v.id, narrator: v.sex })}>{v.name} <span className="font-normal opacity-80">· {v.tag}</span></button>
                         <button type="button" className={small} onClick={() => playSample(v.sample)} aria-label={`ฟังตัวอย่างเสียง ${v.name}`}>{playing === v.sample ? "■" : "▶"}</button>
                       </span>
                     ))}

@@ -106,22 +106,6 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      {/* เสียงของฉัน (owner, 2026-10-15): the wording is a draft until the owner's legal review */}
-      <Section id="voice" title="ข้อมูลเสียง (เสียงของฉัน)">
-        <p>
-          ตัวแทนที่เลือกใช้ <strong>เสียงของฉัน</strong> อัดเสียงตัวเองในหน้าเว็บ เพื่อสร้างเสียงสังเคราะห์ที่ใช้พากย์คลิปของตัวแทนคนนั้นเท่านั้น
-          ก่อนอัด ตัวแทนต้องยืนยันว่าเป็นเสียงของตัวเอง และอ่านประโยคยินยอมพร้อมรหัสที่ระบบสุ่มให้
-        </p>
-        <p>
-          เสียงที่อัดถูกส่งให้ <strong>ElevenLabs</strong> เพื่อสร้างเสียงสังเคราะห์ และถูกลบจากระบบของเราทันทีที่สร้างเสร็จ
-          เราเก็บไว้เพียงท่อนที่อ่านประโยคยินยอม เวลาที่ยินยอม และตัวอย่างเสียงสังเคราะห์หนึ่งประโยค ไว้เป็นหลักฐานและให้ผู้ดูแลระบบตรวจ
-        </p>
-        <p>
-          ตัวแทนลบเสียงของตัวเองได้ทุกเมื่อในหน้าเสียงของฉัน ระบบจะลบเสียงสังเคราะห์ออกจาก ElevenLabs และลบไฟล์เสียงที่เก็บไว้ทั้งหมดทันที
-          คลิปที่ทำไว้แล้วยังอยู่
-        </p>
-      </Section>
-
       <Section id="never" title="ข้อมูลที่ไม่เก็บและไม่ถาม">
         <p>
           นอกจากชื่อและอีเมลของสมาชิกที่สมัครด้วย Google ข้างต้น เว็บไซต์นี้ไม่ถามและไม่เก็บชื่อ เบอร์โทร อีเมล เลขบัตรประชาชน เลขกรมธรรม์ ประวัติการรักษาพยาบาล
@@ -151,7 +135,6 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong>เสียงพากย์คลิป</strong> สร้างโดย Google หรือ <strong>ElevenLabs</strong> จากข้อความในคลิป
-          และเสียงที่ตัวแทนอัดสำหรับเสียงของฉันถูกส่งให้ ElevenLabs ตามหัวข้อข้อมูลเสียงข้างต้น
         </p>
         <p>
           <strong>ตัวเลขเบี้ยประกันไม่ได้มาจากโมเดลภาษา</strong> แต่คำนวณในระบบของเราเองจากตารางเบี้ยของบริษัทประกัน
@@ -216,11 +199,6 @@ export default function PrivacyPage() {
             day a language model reads the previous day&rsquo;s chats, without your identity, and suggests
             better answers, which the agent reviews one by one. The sender is stored only as a one-way
             hash of the platform&rsquo;s id, which cannot be turned back into a person.
-            An agent who uses &ldquo;my voice&rdquo; records their own voice in Studio, with a consent
-            sentence read aloud; the recording goes to ElevenLabs to make a synthetic voice for that
-            agent&rsquo;s clips only and is deleted here once the voice is made. Only the consent take, its
-            time and one sample line are kept, until the agent deletes the voice, which removes it from
-            ElevenLabs too.
           </p>
           <p>
             <strong>What we keep for longer.</strong> A record of how far a conversation got — which plan,

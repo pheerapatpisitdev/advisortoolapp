@@ -2,8 +2,7 @@ import { providerKey } from "@/lib/ai/client";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
-import { mayClone, myVoiceChoice } from "@/lib/voice/mine";
-import { elevenVoicesFor, ELEVENLABS } from "@/lib/voice/elevenlabs";
+import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
 import { myCost, myVideos, voiceQuota } from "../quote-video/actions";
 import { StoryClipBoard } from "./StoryClipBoard";
@@ -25,11 +24,8 @@ export default async function StoryClipPage() {
   const viewer = await gatePage("/studio/story-clip");
   // putting a clip on a Page's calendar is the owner's alone, as for วิดีโอนำเสนอ
   const pages = can(viewer, "owner") ? (await myPages().catch(() => [])).map((p) => ({ id: p.pageId, name: p.pageName })) : [];
-  // เสียงของฉัน (owner, 2026-10-15): the agent's own cloned voice first, or the way to make one
   const keyed = Boolean(await providerKey(ELEVENLABS).catch(() => null));
-  const mine = keyed ? await myVoiceChoice(viewer.agentId).catch(() => null) : null;
-  const eleven = keyed ? [...(mine ? [mine] : []), ...elevenVoicesFor(can(viewer, "owner"))] : [];
-  const canClone = keyed && !mine && mayClone(viewer);
+  const eleven = keyed ? ELEVEN_VOICES : [];
   const [cost, prices, quota] = await Promise.all([myCost(), walletPrices(), voiceQuota()]);
   const initial = await myVideos("story").catch((e) => {
     console.error("story videos not read:", e);
@@ -41,7 +37,7 @@ export default async function StoryClipPage() {
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         คลิปการ์ตูนลายเส้น อธิบายให้ลูกค้าเข้าใจว่าทำไมต้องมีประกัน ไม่ได้ขายแผนไหน ใช้ส่งก่อนคุย ลงเพจ หรือทำแอด
       </p>
-      <StoryClipBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} canClone={canClone} />
+      <StoryClipBoard initial={initial} cost={cost} prices={prices} quota={quota} pages={pages} eleven={eleven} />
     </div>
   );
 }
