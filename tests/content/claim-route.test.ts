@@ -21,6 +21,8 @@ const pages = vi.hoisted(() => ({ projectPage: vi.fn() }));
 vi.mock("@/lib/auth/pages", () => pages);
 const ceiling = vi.hoisted(() => ({ ceilingBeforeRound: vi.fn(async (): Promise<number | null> => null) }));
 vi.mock("@/lib/content/ceiling", () => ceiling);
+const switches = vi.hoisted(() => ({ closedFor: vi.fn(async (): Promise<string | null> => null) }));
+vi.mock("@/lib/switches/store", () => switches);
 
 const { POST, PUT } = await import("@/app/api/content-claim/route");
 
@@ -60,6 +62,19 @@ beforeEach(() => {
   run.writeClaim.mockResolvedValue({ ok: true, items: [] });
   pages.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });
   ceiling.ceilingBeforeRound.mockResolvedValue(null);
+  switches.closedFor.mockResolvedValue(null);
+});
+
+describe("the Organic Studio switch (owner, 2026-10-18)", () => {
+  it("closes the reading and the writing, counting nothing", async () => {
+    switches.closedFor.mockResolvedValue("ปิดชั่วคราว");
+    for (const res of [await POST(readRequest() as never), await PUT(writeRequest() as never)]) {
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ ok: false, error: "ปิดชั่วคราว" });
+    }
+    expect(quota.takeRound).not.toHaveBeenCalled();
+    expect(switches.closedFor).toHaveBeenCalledWith({ agentId: "a1" }, "write");
+  });
 });
 
 describe("writing a รีวิวเคลม", () => {

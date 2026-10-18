@@ -16,9 +16,13 @@ export const FEATURES = [
   { key: "write", label: "Organic Studio", note: "เขียนโพสต์และวาดภาพโพสต์", hrefs: ["/studio/write"] },
   { key: "thumbnail", label: "ภาพปกคลิป", hrefs: ["/studio/thumbnail"] },
   { key: "describe", label: "ถอดรูปเป็น prompt", hrefs: ["/studio/describe"] },
-  { key: "ads", label: "Ads Studio", note: "ตอนนี้เปิดให้เจ้าของคนเดียว", hrefs: ["/studio/ads"] },
+  // hidden from /admin/switches while Ads is the owner's alone, whom no switch stops (owner chose 7ก, 2026-10-18)
+  { key: "ads", label: "Ads Studio", note: "ตอนนี้เปิดให้เจ้าของคนเดียว", hrefs: ["/studio/ads"], hidden: true },
   { key: "ask", label: "ถาม AI", note: "แชทในแอป /ask", hrefs: ["/ask"] },
-] as const satisfies readonly { key: string; label: string; note?: string; hrefs: readonly string[] }[];
+] as const satisfies readonly { key: string; label: string; note?: string; hrefs: readonly string[]; hidden?: boolean }[];
+
+/** the rows /admin/switches shows: a tool no switch can reach is left off the page */
+export const SHOWN_FEATURES = FEATURES.filter((f) => !("hidden" in f && f.hidden));
 
 export type FeatureKey = (typeof FEATURES)[number]["key"];
 

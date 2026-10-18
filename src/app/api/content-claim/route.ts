@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { closedFor } from "@/lib/switches/store";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { MAX_DOCS } from "@/lib/content/claim";
 import { ADS_MOVED } from "@/lib/content/prompt";
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
   if (files.length === 0 || files.length > MAX_DOCS) return bad(`เลือกรูปเอกสาร 1–${MAX_DOCS} รูปนะครับ`);
   if (!readsPerHour(`claim-read:${clientIp(req.headers)}`)) return bad("อ่านเอกสารครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ", 429);
   const viewer = await requireMember();
+  // the Organic Studio switch closes this too, not only the page's own actions (owner, 2026-10-18)
+  const closed = await closedFor(viewer, "write");
+  if (closed) return bad(closed, 503);
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
   const pass = await takeRound(viewer, "ai-claim");
@@ -96,6 +100,9 @@ export async function PUT(req: NextRequest) {
   // the writing is a round of its own, as the reading is: without it a second round from the
   // same papers (the page keeps their reading) or a PUT sent by hand wrote past the allowance
   const viewer = await requireMember();
+  // the Organic Studio switch closes this too, not only the page's own actions (owner, 2026-10-18)
+  const closed = await closedFor(viewer, "write");
+  if (closed) return bad(closed, 503);
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
   const pass = await takeRound(viewer, "ai-claim");

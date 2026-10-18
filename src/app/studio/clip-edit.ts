@@ -9,6 +9,7 @@ import { clipReadUrl, removeClip } from "@/lib/content/clip-store";
 import { onPage } from "@/lib/content/publish-label";
 import { getContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { requireMember } from "@/lib/auth/viewer";
+import { closedFor } from "@/lib/switches/store";
 import { limiter } from "@/lib/assistant/rate-limit";
 import { ceilingBeforeRound } from "@/lib/content/ceiling";
 import { takeRound } from "@/lib/auth/quota";
@@ -227,6 +228,9 @@ export async function renderEdit(id: string): Promise<EditResult> {
   const viewer = await requireMember();
   const off = await editingOn();
   if (off) return { ok: false, error: off };
+  // the Organic Studio switch closes the cut too (owner, 2026-10-18)
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   const g = await guarded(id);
   if (!g.ok) return g;
   try {

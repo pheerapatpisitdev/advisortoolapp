@@ -104,3 +104,11 @@ describe("who is refused (store.ts)", () => {
     expect((db.written[1].feature_switches as Record<string, { at: string }>).ask.at).toBe("2026-10-17T01:00:00Z");
   });
 });
+
+describe("the rows /admin/switches shows (owner chose 7ก, 2026-10-18)", () => {
+  it("leaves Ads Studio off: the owner alone uses it, and no switch stops the owner", async () => {
+    const { SHOWN_FEATURES, FEATURES } = await import("@/lib/switches/features");
+    expect(SHOWN_FEATURES.map((f) => f.key)).not.toContain("ads");
+    expect(SHOWN_FEATURES).toHaveLength(FEATURES.length - 1);
+  });
+});

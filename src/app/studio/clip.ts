@@ -9,6 +9,7 @@ import { onPage } from "@/lib/content/publish-label";
 import { getContent, listWords, saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { projectPage } from "@/lib/auth/pages";
 import { requireMember } from "@/lib/auth/viewer";
+import { closedFor } from "@/lib/switches/store";
 import { takeRound } from "@/lib/auth/quota";
 import { limiter } from "@/lib/assistant/rate-limit";
 import { ceilingBeforeRound } from "@/lib/content/ceiling";
@@ -124,6 +125,9 @@ const listener = (v: { kind: string; agentId: string }) => `clip:${v.kind}:${v.a
 /** ถอดเสียง: one paid round per press (owner, 2026-10-02); a round that fails is not charged. */
 export async function transcribeClip(id: string): Promise<ClipResult> {
   const viewer = await requireMember();
+  // the Organic Studio switch closes the listen too (owner, 2026-10-18)
+  const closed = await closedFor(viewer, "write");
+  if (closed) return { ok: false, error: closed };
   if (!listensPerHour(listener(viewer))) return { ok: false, error: "ถอดเสียงครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   const item = await getContent(id).catch(() => null);
   if (!item?.output.video) return { ok: false, error: "ชิ้นนี้ยังไม่มีคลิป" };
