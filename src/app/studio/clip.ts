@@ -1,10 +1,11 @@
 "use server";
 
 import {
-  clipFiles, clipOutput, clipPath, clipProblem, CLIP_HREF, EDIT_JOB_TIMEOUT_MS, editBusy, forClient, isClipPath, MAX_CAPTION, MAX_CLIP_BRIEF, NO_FLAGS,
+  clipFiles, clipOutput, clipPath, clipProblem, CLIP_HREF, EDIT_JOB_TIMEOUT_MS, editBusy, forClient, isClipPath, lengthProblem, MAX_CAPTION, MAX_CLIP_BRIEF, NO_FLAGS,
   type ClipFile, type ClipVideo,
 } from "@/lib/content/clip";
-import { clipSize, createClipUpload, removeClip } from "@/lib/content/clip-store";
+import { clipReadUrl, clipSize, createClipUpload, removeClip } from "@/lib/content/clip-store";
+import { mp4Seconds, rangeReader } from "@/lib/content/mp4-length";
 import { onPage } from "@/lib/content/publish-label";
 import { getContent, listWords, saveContent, saveOutputIf, type ContentItem } from "@/lib/content/store";
 import { projectPage } from "@/lib/auth/pages";
@@ -92,6 +93,20 @@ export async function finishClipUpload(input: { pieceId: string; path: string; f
   try {
     const size = await clipSize(input.path);
     if (size === null || size !== file.sizeBytes) return { ok: false, error: "ไฟล์ไปไม่ครบ — อัปโหลดใหม่อีกครั้งนะครับ" };
+    // the length the file itself carries, over the browser's word for it (owner chose 17ก, 2026-10-18);
+    // a file this cannot read keeps the browser's figure, which clipProblem already passed
+    const real = await mp4Seconds(rangeReader(await clipReadUrl(input.path, 300)), size).catch((e) => {
+      console.error("clip length not read from the file:", e instanceof Error ? e.message.replace(/https?:\/\/\S+/g, "<url>") : e);
+      return null;
+    });
+    if (real !== null) {
+      const tooLong = lengthProblem(real);
+      if (tooLong) {
+        await removeClip(input.path);
+        return { ok: false, error: tooLong };
+      }
+      file.durationSec = real;
+    }
     const brief = (typeof input.brief === "string" ? input.brief : "").trim().slice(0, MAX_CLIP_BRIEF);
     // a save can race another (a caption edit): read again and build on that, up to three times
     for (let attempt = 0; attempt < 3; attempt++) {

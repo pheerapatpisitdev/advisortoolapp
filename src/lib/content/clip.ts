@@ -201,6 +201,19 @@ export function clipFiles(v: ClipVideo): string[] {
   return [v.path, v.edit?.proxyPath, v.edit?.renderedPath].filter((p): p is string => Boolean(p));
 }
 
+/** "2:40 นาที" or "45 วินาที": a clip's length as the agent reads it */
+const spoken = (sec: number): string => {
+  const s = Math.round(sec);
+  return s < 60 ? `${s} วินาที` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} นาที`;
+};
+
+/** Why a length read from the file itself cannot be a Reel, with the length it found (owner chose 17ก, 2026-10-18); null when it can. */
+export function lengthProblem(sec: number): string | null {
+  if (sec < CLIP_MIN_SEC) return `คลิปยาว ${spoken(sec)} — Reel ต้องยาวอย่างน้อย ${CLIP_MIN_SEC} วินาที`;
+  if (sec > CLIP_MAX_SEC + 0.5) return `คลิปยาว ${spoken(sec)} ใช้ได้ไม่เกิน ${CLIP_MAX_SEC} วินาที — ตัดให้สั้นลงแล้วอัปโหลดใหม่`;
+  return null;
+}
+
 /** Why a file cannot be a Reel, in the agent's words; null when it can. */
 export function clipProblem(f: ClipFile): string | null {
   if (!EXT[f.mime]) return "รับเฉพาะไฟล์ .mp4 หรือ .mov";

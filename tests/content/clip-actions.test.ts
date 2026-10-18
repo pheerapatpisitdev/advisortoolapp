@@ -7,6 +7,8 @@ const clips = vi.hoisted(() => ({ createClipUpload: vi.fn(), clipSize: vi.fn(), 
 const pages = vi.hoisted(() => ({ projectPage: vi.fn() }));
 vi.mock("@/lib/content/store", () => store);
 vi.mock("@/lib/content/clip-store", () => clips);
+const length = vi.hoisted(() => ({ seconds: null as number | null }));
+vi.mock("@/lib/content/mp4-length", () => ({ rangeReader: () => async () => new Uint8Array(), mp4Seconds: async () => length.seconds }));
 vi.mock("@/lib/auth/pages", () => pages);
 const quota = vi.hoisted(() => ({ takeRound: vi.fn(async () => ({ ok: true, paidBy: "staff" })) }));
 vi.mock("@/lib/auth/quota", () => quota);
@@ -123,6 +125,25 @@ describe("finishClipUpload", () => {
     expect(saved.video).toMatchObject({ path, sizeBytes: file.sizeBytes, caption: "เดิม", brief: "เรื่องภาษี" });
     expect(saved.video?.transcript).toBeUndefined();
     expect(clips.removeClip).toHaveBeenCalledWith(old);
+  });
+
+  it("refuses a clip whose own file is longer than a Reel, whatever the browser said, and lets the file go (owner chose 17ก)", async () => {
+    store.getContent.mockResolvedValue(item());
+    clips.clipSize.mockResolvedValue(file.sizeBytes);
+    length.seconds = 160;
+    expect(await finishClipUpload({ pieceId: PIECE, path, file })).toEqual({ ok: false, error: "คลิปยาว 2:40 นาที ใช้ได้ไม่เกิน 90 วินาที — ตัดให้สั้นลงแล้วอัปโหลดใหม่" });
+    expect(clips.removeClip).toHaveBeenCalledWith(path);
+    expect(store.saveOutputIf).not.toHaveBeenCalled();
+    length.seconds = null;
+  });
+
+  it("keeps the length the file says", async () => {
+    store.getContent.mockResolvedValue(item());
+    clips.clipSize.mockResolvedValue(file.sizeBytes);
+    length.seconds = 41.5;
+    expect((await finishClipUpload({ pieceId: PIECE, path, file })).ok).toBe(true);
+    expect((store.saveOutputIf.mock.calls[0][1] as ContentItem["output"]).video?.durationSec).toBe(41.5);
+    length.seconds = null;
   });
 
   it("refuses a missing file or one of another size", async () => {
