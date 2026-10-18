@@ -6,6 +6,7 @@ import { creditLotsOf, creditOf } from "@/lib/members/credit";
 import { freeVideosLeft } from "@/lib/quote-video/make";
 import { walletEntries, walletPrices, walletSettings, walletStatus } from "@/lib/wallet/store";
 import { PriceList } from "./PriceList";
+import { memberAccess, passOpen } from "@/lib/members/access";
 import { WalletClient } from "./WalletClient";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,9 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
     // a member's pass credit (owner, 2026-10-17) or a UnitClub agent's starter credit (2026-10-18)
     creditLotsOf(viewer.agentId).catch(() => null),
   ]);
+  // a member whose pass ran out renews before topping up (owner chose 5ก, 2026-10-18); unreadable shows the buttons, the action checks again
+  const access = await memberAccess(viewer).catch(() => null);
+  const passEnded = access ? !passOpen(access) : false;
   // with no free rounds left to give (a member's pass, a UnitClub agent), the credit is shown instead
   const credit = lots && allowance.limit === 0
     ? { own: wallet.own, satang: wallet.credit, expiresAt: creditOf(lots, new Date()).expiresAt, lots }
@@ -52,6 +56,7 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
       multiplier={settings.multiplier}
       balanceSatang={wallet.satang}
       frozen={wallet.frozen}
+      passEnded={passEnded}
       entries={entries}
       rounds={{ used: allowance.used, limit: allowance.limit ?? 0 }}
       videos={videosLeft}

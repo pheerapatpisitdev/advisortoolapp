@@ -12,6 +12,12 @@ describe("the note under the make button", () => {
       .toEqual({ text: "ราว ฿2.40 จากกระเป๋า · รอบฟรีหมดแล้ว · คงเหลือ ฿84.20", topUp: true });
   });
 
+  it("prices the pictures at the price list, not the painter's cost times the multiplier (owner, 2026-10-18)", () => {
+    // 2 pieces written for ฿0.60 × 2, and 2 Gemini pictures at ฿5 each
+    expect(roundsNote({ used: 5, limit: 5, wallet: { satang: 8420, multiplier: 2 } }, "5.80", { writeThb: 0.6, picturesSatang: 1000 }).text)
+      .toBe("ราว ฿11.20 จากกระเป๋า · รอบฟรีหมดแล้ว · คงเหลือ ฿84.20");
+  });
+
   it("offers a top-up even at ฿0", () => {
     expect(roundsNote({ used: 5, limit: 5, wallet: { satang: 0, multiplier: 2 } }, 1).topUp).toBe(true);
   });

@@ -16,12 +16,19 @@ vi.mock("@/lib/wallet/store", () => wallet);
 const create = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/stripe/client", () => ({ stripe: () => ({ checkout: { sessions: { create } } }) }));
 vi.mock("@/lib/site-url", () => ({ siteOrigin: () => "https://x.test" }));
+const pass = vi.hoisted(() => ({ open: true }));
+vi.mock("@/lib/members/access", async (orig) => ({
+  ...(await orig<typeof import("@/lib/members/access")>()),
+  memberAccess: async () => ({ gated: true }),
+  passOpen: () => pass.open,
+}));
 
 const { startTopUp, topUpStatus } = await import("@/app/studio/wallet/actions");
 
 beforeEach(() => {
   vi.clearAllMocks();
   who.viewer = AGENT;
+  pass.open = true;
   wallet.walletSettings.mockResolvedValue({ enabled: true, multiplier: 2 });
   wallet.openTopUp.mockResolvedValue(undefined);
   wallet.walletFrozen.mockResolvedValue(false);
@@ -51,6 +58,12 @@ describe("startTopUp", () => {
     const r = await startTopUp(100);
     expect(r).toMatchObject({ ok: false });
     expect(r.ok === false && r.error).toMatch(/ติดต่อสำนักงาน/);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a member whose pass ran out, and asks Stripe nothing (owner chose 5ก, 2026-10-18)", async () => {
+    pass.open = false;
+    expect(await startTopUp(100)).toEqual({ ok: false, error: "ต่ออายุสมาชิกก่อน แล้วจึงเติมเงินได้" });
     expect(create).not.toHaveBeenCalled();
   });
 

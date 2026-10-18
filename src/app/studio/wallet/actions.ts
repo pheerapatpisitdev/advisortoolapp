@@ -1,10 +1,11 @@
 "use server";
 import { can } from "@/lib/auth/access";
 import { requireMember } from "@/lib/auth/viewer";
+import { memberAccess, passOpen } from "@/lib/members/access";
 import { siteOrigin } from "@/lib/site-url";
 import { stripe } from "@/lib/stripe/client";
 import { checkoutParams } from "@/lib/wallet/checkout";
-import { isTopUpThb, toSatang } from "@/lib/wallet/money";
+import { isTopUpThb, PASS_FIRST, toSatang } from "@/lib/wallet/money";
 import { balanceSatang, openTopUp, topUpState, walletFrozen, walletSettings, type TopUpStatus } from "@/lib/wallet/store";
 
 /**
@@ -24,6 +25,9 @@ export async function startTopUp(thb: unknown): Promise<StartResult> {
   if (!settings?.enabled) return { ok: false, error: "ตอนนี้ยังเติมเงินไม่ได้ครับ" };
   // a wallet a refund or a dispute froze takes no new money until the owner lifts it (owner, 2026-10-01)
   if (await walletFrozen(viewer.agentId)) return { ok: false, error: "กระเป๋าเงินถูกพักไว้ชั่วคราว — ติดต่อสำนักงานนะครับ" };
+  // a member whose pass ran out renews first: money topped up then could buy nothing (owner chose 5ก, 2026-10-18)
+  const access = await memberAccess(viewer).catch(() => null);
+  if (!access || !passOpen(access)) return { ok: false, error: PASS_FIRST };
   try {
     const session = await stripe().checkout.sessions.create(checkoutParams({ agentId: viewer.agentId, thb, origin: siteOrigin() }));
     if (!session.url) throw new Error(`session ${session.id} has no url`);

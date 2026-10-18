@@ -1,4 +1,4 @@
-import { BudgetExceeded, chat } from "@/lib/ai/client";
+import { BudgetExceeded } from "@/lib/ai/client";
 import type { GenerateResult } from "@/app/studio/actions";
 import { myPages } from "@/lib/auth/pages";
 import { requireStaff } from "@/lib/auth/viewer";
@@ -24,7 +24,7 @@ import {
   contentCap, contentSpentThisMonth, holdContentBudget, listWords, releaseContentBudget, saveContent, type ContentItem,
 } from "@/lib/content/store";
 import { ownerWording } from "@/lib/content/wording";
-import { fallbackWriters, UnreadableReply } from "@/lib/content/write";
+import { fallbackWriters, UnreadableReply, writeChat } from "@/lib/content/write";
 
 /**
  * รีวิวเคลม ads written into a campaign (spec 2026-10-06 claim review): the facts the claim form
@@ -111,7 +111,7 @@ export async function writeClaimAds(input: ClaimAdInput): Promise<GenerateResult
 
     const angles = claimAngleLines({ angle: input.angle, custom: input.custom }, count);
     const settled = await Promise.allSettled(angles.map(async (a) => {
-      const r = await chat({
+      const r = await writeChat({
         tier: "large", task: "content", messages: claimAdMessages(facts, a, reader, input.withTable, lang),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),

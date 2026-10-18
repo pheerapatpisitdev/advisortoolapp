@@ -154,7 +154,8 @@ export type CostView =
   | { kind: "free"; left: number; of: number; walletOff?: true }
   /** the price of each look (an FHC summary its own), and whether the wallet holds it */
   /** credit: a member's pass, which has credit rather than free clips (owner, 2026-10-17); balance is credit and own money together */
-  | { kind: "wallet"; balance: string; prices: Partial<Record<PriceKey, { price: string; enough: boolean }>>; credit?: true }
+  /** satang: the balance as a number, for a clip whose voice or cut-outs add to its look's price (costLine) */
+  | { kind: "wallet"; balance: string; satang: number; prices: Partial<Record<PriceKey, { price: string; enough: boolean; satang: number }>>; credit?: true }
   | { kind: "closed" };
 
 /** Which free clips count: since `from` when it is set, else every one ever made. */
@@ -198,9 +199,9 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   if (used < limit) return { kind: "free", left: limit - used, of: limit, ...(s?.enabled ? {} : { walletOff: true as const }) };
   if (!s?.enabled) return { kind: "closed" };
   const [balance, prices] = await Promise.all([balanceSatang(viewer.agentId), walletPrices()]);
-  const priced = (satang: number) => ({ price: formatBaht(satang), enough: balance >= satang });
+  const priced = (satang: number) => ({ price: formatBaht(satang), enough: balance >= satang, satang });
   return {
-    kind: "wallet", balance: formatBaht(balance),
+    kind: "wallet", balance: formatBaht(balance), satang: balance,
     prices: Object.fromEntries(VIDEO_KEYS.map((k) => [k, priced(prices[k])])),
     ...(limit === 0 ? { credit: true as const } : {}),
   };

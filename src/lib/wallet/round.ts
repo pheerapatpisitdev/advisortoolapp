@@ -50,7 +50,20 @@ export function roundCharge(meter: Meter, pass: WalletPass): number {
 /** inside a round the agent pays for: the owner's content ceiling does not stand over it */
 export const inWalletRound = (): boolean => meters.getStore() !== undefined;
 
-export interface Outcome { ok: boolean; items?: unknown[] }
+/** `missing`: pieces asked for that were not written — the round is charged only its share of what came */
+export interface Outcome { ok: boolean; items?: unknown[]; missing?: number }
+
+/**
+ * The share of a round the agent got: a round of 5 that wrote 3 pays 3/5 of its charge (owner
+ * chose this, 2026-10-18 — "กดสร้างเพิ่ม" for the rest pays again, so the first round must not
+ * have taken it already). A round that says nothing of missing pieces pays whole.
+ */
+export function deliveredShare(r: Outcome): number {
+  const got = Array.isArray(r.items) ? r.items.length : 0;
+  const missing = Number(r.missing);
+  if (!Number.isFinite(missing) || missing <= 0 || got <= 0) return 1;
+  return got / (got + missing);
+}
 
 /** a round gave the agent something: it went through, or it saved pieces before it stopped */
 export const delivered = (r: Outcome): boolean => r.ok || (Array.isArray(r.items) && r.items.length > 0);
@@ -108,7 +121,7 @@ async function paid<R extends Outcome>(pass: Extract<RoundPass, { ok: true }>, r
       if (wanted > pass.heldSatang) {
         console.warn(`wallet hold ${pass.holdId}: the round cost ${wanted} satang with the multiplier but held ${pass.heldSatang}; charged the hold`);
       }
-      await settleWallet(pass.holdId, roundCharge(meter, pass), meter.spentThb);
+      await settleWallet(pass.holdId, Math.ceil(roundCharge(meter, pass) * deliveredShare(result)), meter.spentThb);
     } else {
       await releaseWallet(pass.holdId);
     }

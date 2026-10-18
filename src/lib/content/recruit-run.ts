@@ -1,4 +1,4 @@
-import { BudgetExceeded, chat } from "@/lib/ai/client";
+import { BudgetExceeded } from "@/lib/ai/client";
 import { isLogoSpot } from "./logo";
 import { roundLogo } from "./logo-store";
 import type { GenerateResult } from "@/app/studio/actions";
@@ -14,7 +14,7 @@ import {
   contentCap, contentSpentThisMonth, holdContentBudget, listWords, recentHooks, releaseContentBudget, saveContent, type ContentItem,
 } from "./store";
 import { withAvoid } from "./one-call-run";
-import { fallbackWriters, UnreadableReply } from "./write";
+import { fallbackWriters, UnreadableReply, writeChat } from "./write";
 import { formulaOf, markFormula } from "./formula";
 import { ownerWording } from "./wording";
 
@@ -83,7 +83,7 @@ export async function writeRecruit(input: RecruitWriteInput, pageId: string | nu
     const [words, avoid] = await Promise.all([listWords(), (input.avoid === false ? Promise.resolve([]) : recentHooks(RECRUIT_HREF, pageId))]);
 
     const settled = await Promise.allSettled(recruitTones(input.tone ?? "", count).map(async (tone) => {
-      const r = await chat({
+      const r = await writeChat({
         tier: "large", task: "content", messages: withAvoid(recruitMessages(topic, tone, reader, format, length, loop, formula), avoid),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),

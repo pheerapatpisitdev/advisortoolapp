@@ -4,7 +4,7 @@ import { assembleLongAd, englishMoney, longAdMessages, parseLongAd, type LongAdC
 import { assembleNumbersAd, assembleShortAd, englishShortMoney, numbersCta, numbersOpeningMessages, parseOpening, parseShortAd, shortAdMessages, shortCta } from "./ad-kinds";
 import type { KnowledgeSub } from "@/lib/ads/ad-kind";
 import { parsePoster, posterText, type PosterSpec } from "./poster";
-import { WRITERS } from "./models";
+import { FREE_WRITER_MODEL, WRITERS } from "./models";
 import { headlineMessages, parseHeadlines, type NumberSheet } from "./numbers";
 import { parsePlans, planMessages, type PiecePlan } from "./plan";
 import { buildMessages, type AngleId, type Ask } from "./prompt";
@@ -89,9 +89,31 @@ export function parsePieces(reply: string, plans: PiecePlan[], angle: AngleId): 
 }
 
 export class UnreadableReply extends Error {
-  constructor() {
-    super("AI ตอบกลับมาไม่ครบ ลองกดสร้างใหม่อีกครั้งนะครับ");
+  constructor(message = "AI ตอบกลับมาไม่ครบ ลองกดสร้างใหม่อีกครั้งนะครับ") {
+    super(message);
     this.name = "UnreadableReply";
+  }
+}
+
+/** the free writer's shared quota is used up or it is down: said as such, every round shows its message */
+export const FREE_FULL = "ทดลองฟรีเต็มแล้วสำหรับตอนนี้ ลองใหม่ภายหลัง หรือเลือกตัวเขียนแบบเสียเงิน";
+export class FreeWriterFull extends UnreadableReply {
+  constructor() {
+    super(FREE_FULL);
+    this.name = "FreeWriterFull";
+  }
+}
+
+/**
+ * A writer's call; when the free writer was picked and fails, the round stops and says the free
+ * writer is full, rather than paying another writer behind a ฿0 label (owner chose 4ก, 2026-10-18).
+ */
+export async function writeChat(args: Parameters<typeof chat>[0]): Promise<Awaited<ReturnType<typeof chat>>> {
+  try {
+    return await chat(args);
+  } catch (e) {
+    if (args.prefer === FREE_WRITER_MODEL && !(e instanceof BudgetExceeded)) throw new FreeWriterFull();
+    throw e;
   }
 }
 
@@ -153,7 +175,7 @@ export function fallbackWriters(prefer: string | undefined): string[] | undefine
   const paid = WRITERS.filter((w) => w.thb > 0);
   const cheapest = Math.min(...paid.map((w) => w.thb));
   const picked = WRITERS.find((w) => w.model === prefer);
-  if (picked?.thb === 0) return [prefer, ...paid.filter((w) => w.thb <= cheapest).map((w) => w.model)];
+  if (picked?.thb === 0) return [prefer];
   return picked && picked.thb <= cheapest ? [prefer] : paid.map((w) => w.model);
 }
 
@@ -192,7 +214,7 @@ const WRITE_TIMEOUT_MS = 60_000;
 export async function write(ask: Ask, opts: { only?: string; prefer?: string; budgetMs?: number } = {}): Promise<Round> {
   const within = fallbackWriters(opts.prefer);
   const settled = await Promise.allSettled(ask.plans.map(async (p) => {
-    const r = await timed((timeoutMs) => chat({
+    const r = await timed((timeoutMs) => writeChat({
       tier: "large", task: "content", messages: buildMessages({ ...ask, plans: [p] }),
       // low effort: ad copy from a fixed brief needs little reasoning, and the room left over
       // is for the post; 4,000 covers what thinking remains plus a long script
@@ -226,7 +248,7 @@ export async function writeLongAds(opts: { brief: string; plans: PiecePlan[]; ct
   const { contact, ...shown } = opts.ctx;
   const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
   const settled = await Promise.allSettled(opts.plans.map(async (plan) => {
-    const r = await timed((timeoutMs) => chat({
+    const r = await timed((timeoutMs) => writeChat({
       tier: "large", task: "content", messages: longAdMessages(opts.brief, plan, shown, opts.lang ?? "th"),
       maxTokens: 3000, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
       within: fallbackWriters(opts.prefer),
@@ -271,7 +293,7 @@ export async function writeShortAds(opts: {
   const lang = opts.lang ?? "th";
   const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
   const settled = await Promise.allSettled(opts.plans.map(async (plan) => {
-    const r = await timed((timeoutMs) => chat({
+    const r = await timed((timeoutMs) => writeChat({
       tier: "large", task: "content", messages: shortAdMessages(opts.brief, plan, shown, opts.kind, opts.sub, lang),
       maxTokens: 3000, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
       within: fallbackWriters(opts.prefer),
@@ -316,7 +338,7 @@ export async function writeNumbersAds(opts: {
   const lang = opts.lang ?? "th";
   const cellMs = opts.clock?.budget(Infinity, opts.saveMs ?? 0);
   const settled = await Promise.allSettled(opts.plans.map(async (plan) => {
-    const r = await timed((timeoutMs) => chat({
+    const r = await timed((timeoutMs) => writeChat({
       tier: "large", task: "content", messages: numbersOpeningMessages(opts.brief, plan, shown, opts.body, lang),
       maxTokens: 1200, json: true, timeoutMs, effort: "low", prefer: opts.prefer,
       within: fallbackWriters(opts.prefer),

@@ -21,7 +21,7 @@ import {
   removeBackground, saveBackground, saveContent, saveOutputIf, type ContentItem,
 } from "./store";
 import { withAvoid } from "./one-call-run";
-import { fallbackWriters, UnreadableReply } from "./write";
+import { fallbackWriters, UnreadableReply, writeChat } from "./write";
 import { formulaOf, markFormula } from "./formula";
 import { ownerWording } from "./wording";
 
@@ -147,7 +147,7 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
     const angles = claimAngleLines({ angle: input.angle, custom: input.custom }, count);
     const reader = (input.reader ?? "").trim().slice(0, MAX_READER);
     const settled = await Promise.allSettled(angles.map(async (a) => {
-      const r = await chat({
+      const r = await writeChat({
         tier: "large", task: "content", messages: withAvoid(claimMessages(facts, a, reader, format, length, loop, formula), avoid),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),

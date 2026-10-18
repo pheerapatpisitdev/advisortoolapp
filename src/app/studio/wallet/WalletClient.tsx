@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
-import { cardAllowed, formatBaht, perPostUnder, postsFor, TOPUP_THB, type TopUpThb } from "@/lib/wallet/money";
+import Link from "next/link";
+import { cardAllowed, formatBaht, PASS_FIRST, perPostUnder, postsFor, TOPUP_THB, type TopUpThb } from "@/lib/wallet/money";
 import type { Prices } from "@/lib/wallet/prices";
 import { entryLabel } from "@/lib/wallet/labels";
 import type { WalletEntry } from "@/lib/wallet/store";
@@ -42,7 +43,7 @@ export function historyLines(entries: WalletEntry[], lots: CreditLotView[], now:
   return lines.sort((a, b) => b.at.localeCompare(a.at));
 }
 
-export function WalletClient({ enabled, multiplier, balanceSatang, frozen = false, entries, rounds, videos, prices, paid, credit = null }: {
+export function WalletClient({ enabled, multiplier, balanceSatang, frozen = false, passEnded = false, entries, rounds, videos, prices, paid, credit = null }: {
   enabled: boolean;
   /**
    * a member's pass credit (owner, 2026-10-17) or a UnitClub agent's starter credit (2026-10-18):
@@ -55,6 +56,8 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
   videos: { left: number; of: number } | null;
   /** a refund or a dispute paused the wallet until the owner lifts it (owner, 2026-10-01) */
   frozen?: boolean;
+  /** a member's pass ran out: renew first, no top-up buttons */
+  passEnded?: boolean;
   /** the owner's price multiplier, for what each top-up buys in posts */
   multiplier: number;
   balanceSatang: number;
@@ -140,6 +143,11 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
         <h2 className="text-sm font-medium">เติมเงิน</h2>
         {frozen ? (
           <p className="text-sm text-[var(--ct-mute)]">เติมเงินได้อีกครั้งเมื่อสำนักงานปลดการพักกระเป๋าแล้วครับ</p>
+        ) : passEnded ? (
+          <p className="text-sm">
+            {PASS_FIRST}{" "}
+            <Link href="/membership" className="font-medium underline underline-offset-2">ต่ออายุสมาชิก</Link>
+          </p>
         ) : enabled ? (
           <>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

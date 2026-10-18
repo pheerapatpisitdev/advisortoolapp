@@ -6,6 +6,7 @@ import { THEME_LABEL, type Theme } from "@/lib/content/poster";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { AUTO_THEME, ThemeSwatches, type ThemeChoice } from "../ThemeSwatches";
 import { PictureBrief } from "../ui/PictureBrief";
+import { paintPrice, usePrices } from "../ui/prices";
 import { PictureFold, pictureSummary } from "../ui/form-parts";
 import { field } from "./styles";
 
@@ -34,6 +35,7 @@ export function PictureFields({ value, onChange, people, back }: {
   back: string;
 }) {
   const { writer, painter, theme, person, brief } = value;
+  const prices = usePrices();
   // อัตโนมัติ as the month having room; the server settles it on what is left at the press
   const writes = writerOf(writer ?? AUTO);
   const paints = painterFor(painter ?? AUTO, Infinity, Boolean(person));
@@ -82,7 +84,7 @@ export function PictureFields({ value, onChange, people, back }: {
 
       <div>
         <PersonPicker people={people} value={person} onChange={(p) => onChange({ person: p })} back={back} />
-        {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ซึ่งรักษาหน้าคนได้ดีที่สุด ราวภาพละ ฿2.4 · ชุดและสถานที่พิมพ์ในบรีฟภาพด้านล่าง</span>}
+        {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ซึ่งรักษาหน้าคนได้ดีที่สุด ภาพละ {paintPrice(prices, "gemini")} · ชุดและสถานที่พิมพ์ในบรีฟภาพด้านล่าง</span>}
       </div>
 
       <PictureBrief

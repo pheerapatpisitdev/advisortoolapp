@@ -1,4 +1,4 @@
-import { BudgetExceeded, chat } from "@/lib/ai/client";
+import { BudgetExceeded } from "@/lib/ai/client";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { GenerateResult } from "@/app/studio/actions";
 import { findWords, strayNumbers } from "./check";
@@ -15,7 +15,7 @@ import {
   contentCap, contentSpentThisMonth, holdContentBudget, listWords, recentHooks, releaseContentBudget, saveContent, type ContentItem,
 } from "./store";
 import { avoidSection } from "./plan";
-import { fallbackWriters, UnreadableReply } from "./write";
+import { fallbackWriters, UnreadableReply, writeChat } from "./write";
 import { markFormula, type Formula } from "./formula";
 import { ownerWording } from "./wording";
 
@@ -83,7 +83,7 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
     const [words, avoid] = await Promise.all([listWords(), r.avoid === false ? Promise.resolve([]) : recentHooks(r.href, r.pageId)]);
 
     const settled = await Promise.allSettled(Array.from({ length: r.count }, async (_, i) => {
-      const reply = await chat({
+      const reply = await writeChat({
         tier: "large", task: "content", messages: withAvoid(r.messages(i), avoid),
         maxTokens: 4000, json: true, timeoutMs: WRITE_TIMEOUT_MS, effort: "low",
         prefer: writer.model, within: fallbackWriters(writer.model),

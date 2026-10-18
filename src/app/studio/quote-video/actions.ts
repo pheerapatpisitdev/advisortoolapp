@@ -21,7 +21,7 @@ import { priceBaht } from "@/lib/wallet/prices";
 import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
-import { clipEstimates, clipSize, langOfInput, costView, createVideo, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
+import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
@@ -68,6 +68,8 @@ export interface Preview {
   setup?: { line: string; riders: string };
   /** Life Protect from its page (owner, 2026-10-17, 1ก): the riders the clip's price includes, by name */
   riders?: string;
+  /** what this clip costs the agent whole: its look, an ElevenLabs voice and AI cut-outs (owner, 2026-10-18) */
+  clipSatang?: number;
 }
 export interface VideoItem {
   id: string;
@@ -418,6 +420,7 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
       : c.product === "LEGACY" ? { tier: c.tier } : { sum: c.sumAssured },
     ...(c.product === "IHEALTHY" && c.setup ? { setup: setupWords(c) } : {}),
     ...("riders" in c && c.riders ? { riders: riderWords(c) } : {}),
+    ...(await walletPrices().then((p) => ({ clipSatang: videoPrice(c, p) })).catch(() => ({}))),
   };
 }
 

@@ -89,3 +89,6 @@ export function chargeSatang(costThb: number, multiplier: number, heldSatang: nu
   if (!Number.isFinite(costThb) || costThb <= 0) return 0;
   return Math.min(heldSatang, upToSatang(costThb * multiplier));
 }
+
+/** a member whose pass ran out is told to renew before topping up (owner chose 5ก, 2026-10-18) */
+export const PASS_FIRST = "ต่ออายุสมาชิกก่อน แล้วจึงเติมเงินได้";

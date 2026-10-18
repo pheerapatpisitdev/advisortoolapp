@@ -130,6 +130,23 @@ describe("payRound on a wallet round", () => {
     expect(wallet.settleWallet).toHaveBeenCalledWith("h1", 100, 0.5);
   });
 
+  it("charges only the share of pieces written when some were missing (owner, 2026-10-18)", async () => {
+    await payRound(pass, async () => {
+      meterCost(2.5);
+      return { ok: true, items: [1, 2, 3], missing: 2 };
+    });
+    // ฿2.50 × 2 = 500 satang, of which 3 of 5 pieces came
+    expect(wallet.settleWallet).toHaveBeenCalledWith("h1", 300, 2.5);
+  });
+
+  it("charges a fixed-price round its share too", async () => {
+    await payRound(pass, async () => {
+      chargeFixed(500);
+      return { ok: true, items: [1], missing: 1 };
+    });
+    expect(wallet.settleWallet).toHaveBeenCalledWith("h1", 250, 0);
+  });
+
   it("still answers when settling fails: the hold is swept back later", async () => {
     wallet.settleWallet.mockRejectedValueOnce(new Error("db down"));
     const err = vi.spyOn(console, "error").mockImplementation(() => {});

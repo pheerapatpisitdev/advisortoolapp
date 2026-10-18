@@ -50,7 +50,8 @@ import { CalendarIcon, CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from "./u
 import { thaiDayLabel } from "@/lib/content/calendar";
 import { PlainText } from "./ui/editor-fields";
 import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "./ui/form-parts";
-import { PainterOptions } from "@/app/studio/ui/prices";
+import { PainterOptions, paintPrice, usePrices } from "@/app/studio/ui/prices";
+import { pictureSatang } from "@/lib/wallet/prices";
 
 /**
  * The content workbench, laid out as the owner's Maryjane project lays out its run page:
@@ -736,6 +737,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     // a รีวิวเคลม poster's papers are its picture already
     ? items.filter((i) => i.format !== "script" && i.format !== "clip" && !i.output.poster?.background && !i.output.poster?.documents?.length && !drawing.has(i.id) && !onPage(i.publish))
     : [];
+  const prices = usePrices();
   const redraw = painterFor(painter, moneyLeft(spend), Boolean(person));
   function drawBare() {
     void drawPictures(bare, painterOf(painter, moneyLeft(spend)).id, brief.trim(), person);
@@ -1006,7 +1008,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   const paints = painterFor(painter, left, Boolean(person));
   const perPiece = writes.thb + OVERHEAD_THB + (format === "script" ? 0 : paints.thb);
   const estimate = (pieceCount * perPiece).toFixed(1);
-  const quota = spend.rounds ? roundsNote(spend.rounds, estimate) : null;
+  // the wallet takes each picture at its fixed price, not the painter's cost (owner, 2026-10-18)
+  const picturesSatang = format === "script" ? 0 : (pictureSatang(prices, paints.id) ?? 0) * pieceCount;
+  const quota = spend.rounds ? roundsNote(spend.rounds, estimate, { writeThb: pieceCount * (writes.thb + OVERHEAD_THB), picturesSatang }) : null;
   const more = Math.floor(left / perPiece);
   const pictureLine = pictureSummary({
     format, writer: writes.short, painter: paints.modelId ? paints.short : null,
@@ -1305,7 +1309,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           {format !== "script" && painter !== "none" && (
             <div>
               <PersonPicker people={people} value={person} onChange={setPerson} back={workbenchHref({ page: project?.pageId })} />
-              {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ซึ่งรักษาหน้าคนได้ดีที่สุด ราวภาพละ ฿2.4 · ชุดและสถานที่พิมพ์ในบรีฟภาพด้านล่าง</span>}
+              {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ซึ่งรักษาหน้าคนได้ดีที่สุด ภาพละ {paintPrice(prices, "gemini")} · ชุดและสถานที่พิมพ์ในบรีฟภาพด้านล่าง</span>}
             </div>
           )}
 
@@ -1425,7 +1429,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 type="button" onClick={drawBare}
                 className="min-h-tap rounded-lg border border-[var(--ct-accent)] px-3 font-medium text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]"
               >
-                วาดภาพให้ {bare.length} ชิ้น · ราว ฿{(redraw.thb * bare.length).toFixed(2)}
+                วาดภาพให้ {bare.length} ชิ้น · ราว ฿{(((pictureSatang(prices, redraw.id) ?? 0) * bare.length) / 100).toFixed(2)}
               </button>
             </div>
           )}

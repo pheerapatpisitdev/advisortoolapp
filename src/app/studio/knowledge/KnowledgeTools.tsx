@@ -17,7 +17,8 @@ import { PictureBrief } from "../ui/PictureBrief";
 import { PosterWords, type PosterWordsValue } from "../ui/PosterWords";
 import { cleanPosterWords } from "@/lib/content/poster-words";
 import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "../ui/form-parts";
-import { PainterOptions } from "@/app/studio/ui/prices";
+import { PainterOptions, paintPrice, usePrices } from "@/app/studio/ui/prices";
+import { pictureSatang } from "@/lib/wallet/prices";
 
 /** ความรู้'s tools (owner, 2026-09-29): a kind, a subject from its bank or the owner's own, the round — sells nothing (knowledge.ts). */
 
@@ -82,6 +83,10 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
   // a person in the picture is drawn by Gemini whatever was picked, at Gemini's price
   const paints = painterFor(painter, left, Boolean(person));
   const drawn = format === "script" ? 0 : paints.thb * count;
+  // what the wallet takes for the pictures: each at its fixed price, not the painter's cost (owner, 2026-10-18)
+  const prices = usePrices();
+  const picturesSatang = format === "script" ? 0 : (pictureSatang(prices, paints.id) ?? 0) * count;
+  const geminiPrice = paintPrice(prices, "gemini");
   const estimate = (count * (pick.thb + OVERHEAD_THB) + drawn).toFixed(2);
   const unit = "ชิ้น";
 
@@ -95,7 +100,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
     await run(count, round.format, () => knowledgeRound(round), paintWith, person, brief.trim());
   }
 
-  const quota = rounds ? roundsNote(rounds, estimate) : null;
+  const quota = rounds ? roundsNote(rounds, estimate, { writeThb: count * (pick.thb + OVERHEAD_THB), picturesSatang }) : null;
 
   return (
     <>
@@ -181,7 +186,7 @@ export function KnowledgeTools({ writer, onWriter, painter, onPainter, people, p
         {format !== "script" && painter !== "none" && (
           <div>
             <PersonPicker people={people} value={person} onChange={onPerson} back={workbenchHref({ page: logo.page })} />
-            {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ราวภาพละ ฿2.4</span>}
+            {person && <span className="mt-1 block text-xs text-[var(--ct-mute)]">วาดด้วย Gemini Image ภาพละ {geminiPrice}</span>}
           </div>
         )}
 

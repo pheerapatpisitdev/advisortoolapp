@@ -9,6 +9,7 @@ import { DEFAULT_THEME, readTheme, THEME_KEYS, THEME_LABELS, type ThemeKey } fro
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
+import { formatBaht } from "@/lib/wallet/money";
 import type { VideoBrief, WrittenLines } from "@/lib/quote-video/brief";
 import { REWRITES, StoryBrief, type ScriptState } from "./StoryBrief";
 import type { VideoSize } from "@/lib/quote-video/timeline";
@@ -26,13 +27,22 @@ const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-pan
 const label = "mb-1 block text-sm font-medium";
 
 /** what the next clip costs, under the button (คลิปเล่าเรื่อง's board too) */
-export function costLine(c: CostView | null, key: PriceKey): { text: string; blocked: boolean; topUp: boolean } | null {
+/**
+ * `total`: the clip's whole price when its voice or AI cut-outs add to the look's (previewQuote),
+ * said as the look plus the extra, so the button never says less than the wallet will hold
+ * (owner, 2026-10-18)
+ */
+export function costLine(c: CostView | null, key: PriceKey, total?: number): { text: string; blocked: boolean; topUp: boolean } | null {
   if (!c) return null;
   if (c.kind === "staff") return { text: "เจ้าของใช้ฟรี", blocked: false, topUp: false };
   if (c.kind === "free") return { text: `ใช้วิดีโอฟรี 1 ครั้ง · เหลือ ${c.left}/${c.of} ครั้ง`, blocked: false, topUp: false };
   if (c.kind === "closed") return { text: "ใช้วิดีโอฟรีครบแล้ว", blocked: true, topUp: false };
-  const p = c.prices[key];
-  if (!p) return null;
+  const base = c.prices[key];
+  if (!base) return null;
+  const extra = total !== undefined && Number.isFinite(total) ? total - base.satang : 0;
+  const p = extra > 0
+    ? { price: `${formatBaht(total!)} (คลิป ${base.price} + เสียง/ภาพ ${formatBaht(extra)})`, enough: c.satang >= total! }
+    : base;
   // a member's pass pays from its credit first, then their own money (owner, 2026-10-17)
   if (c.credit) {
     return p.enough
@@ -323,7 +333,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const lpRiders = product === "LIFEPROTECT" && source === "sum" ? riders : undefined;
   const [budget, setBudget] = useState("3,000");
   // an FHC summary has its own price, whatever its look (owner, 2026-10-12: ฿3); a quote clip its look's and length's
-  const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length));
+  const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length), kind === "fhc" || !preview || "error" in preview ? undefined : preview.clipSatang);
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
   const themed = style === "motion" && theme !== DEFAULT_THEME ? { theme, ...(theme === "collage" && size === "portrait" && aiPieces ? { pieces: "ai" as const } : {}) } : {};
