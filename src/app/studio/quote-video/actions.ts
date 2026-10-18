@@ -1,5 +1,6 @@
 "use server";
 import { after } from "next/server";
+import { limiter } from "@/lib/assistant/rate-limit";
 import { mayPromptStory } from "@/lib/prompt-story/access";
 import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
@@ -200,6 +201,8 @@ export interface ScriptPreview {
  * ดูสคริปต์ (owner, 2026-10-13): the lines a brief is told with, written now, and the whole clip's
  * voice with them. Free; the board allows three more tries per clip. `seed` asks for another try.
  */
+const previewsPerHour = limiter(60, 60 * 60_000);
+
 export async function previewScript(v: VideoInput, customer: string, seed = 0, rewrite = true): Promise<ScriptPreview | { error: string }> {
   const viewer = await requireMember();
   // switched off by the Super Admin (เปิด-ปิดฟังก์ชัน): an AI-written script is a job too
@@ -208,6 +211,8 @@ export async function previewScript(v: VideoInput, customer: string, seed = 0, r
   // lines sent back without a rewrite are the agent's own edits: checked, then spoken as they are
   const c = checked(rewrite ? { ...v, lines: undefined } : v);
   if (typeof c === "string") return { error: c };
+  // an AI rewrite is a model call the owner pays for: sixty an hour each, once the form is right (owner, 2026-10-18)
+  if (rewrite && !previewsPerHour(`script:${viewer.agentId}`)) return { error: "ดูตัวอย่างบทครบ 60 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
   const f = quoteVideoFacts(c);
   if (!f) return { error: NOT_PRICED };
   const length = readLength(c.length);

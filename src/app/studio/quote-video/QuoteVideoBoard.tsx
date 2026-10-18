@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useFreshLinks } from "./fresh-links";
 import { useEffect, useRef, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
@@ -408,6 +409,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     }
   }
 
+  // links renewed when the agent comes back to a board left open past the hour they last
+  useFreshLinks(() => { myVideos().then(setItems).catch(() => undefined); });
   // a clip still being made is asked about every few seconds
   const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
   useEffect(() => {

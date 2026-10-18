@@ -61,6 +61,10 @@ interface GeminiAudio {
   error?: { message?: string; details?: unknown[] };
 }
 
+/** a per-minute 429 waited out this many times, a little longer each time */
+const PER_MINUTE_TRIES = 3;
+export const PER_MINUTE_WAIT_MS = 4_000;
+
 /** One line spoken, and what it cost in baht; the cost also goes on the ledger under `task` (attributed by asWho). */
 /** `gemini` names one of the 30 voices (src/lib/voice/gemini.ts); without it the narrator's own, Kore or Orus */
 export async function speakThai(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
@@ -72,7 +76,10 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
   let res!: Response;
   let body: GeminiAudio = {};
   let data: string | undefined;
-  // now and then the voice answers 200 with no audio in it (seen in Chinese and Burmese, 2026-10-15); asked again, it speaks
+  // now and then the voice answers 200 with no audio in it (seen in Chinese and Burmese, 2026-10-15); asked again, it speaks.
+  // A per-minute 429 is waited out and asked again, three times, before the line counts as failed —
+  // one line hitting it switched the whole clip to ElevenLabs (owner, 2026-10-18)
+  let busy = 0;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       res = await f(`https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`, {
@@ -93,6 +100,12 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
     }
     body = (await res.json().catch(() => ({}))) as GeminiAudio;
     data = body.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData?.data;
+    if (res.status === 429 && !JSON.stringify(body.error?.details ?? []).includes("PerDay") && busy < PER_MINUTE_TRIES) {
+      busy++;
+      await new Promise((r) => setTimeout(r, PER_MINUTE_WAIT_MS * busy));
+      attempt--;
+      continue;
+    }
     if (data || !res.ok) break;
   }
   if (!res.ok || !data) {

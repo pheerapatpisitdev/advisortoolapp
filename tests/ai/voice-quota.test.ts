@@ -20,11 +20,30 @@ describe("Gemini's daily voice cap", () => {
     await expect(speakThai("สวัสดีค่ะ", "t", { fetch: f as unknown as typeof fetch })).rejects.toBeInstanceOf(TtsQuotaError);
   });
 
-  it("a 429 on the per-minute quota stays the plain retry error", async () => {
+  it("a 429 on the per-minute quota is waited out three times, then stays the plain retry error", async () => {
+    vi.useFakeTimers();
     const f = refusal("GenerateRequestsPerMinutePerProjectPerModel");
-    const e = await speakThai("สวัสดีค่ะ", "t", { fetch: f as unknown as typeof fetch }).catch((x) => x);
+    const said = speakThai("สวัสดีค่ะ", "t", { fetch: f as unknown as typeof fetch }).catch((x) => x);
+    await vi.advanceTimersByTimeAsync(60_000);
+    const e = await said;
+    vi.useRealTimers();
     expect(e).toBeInstanceOf(TtsError);
     expect(e).not.toBeInstanceOf(TtsQuotaError);
+    expect(f).toHaveBeenCalledTimes(4);
+  });
+
+  it("a per-minute 429 then an answer speaks the line (owner, 2026-10-18)", async () => {
+    vi.useFakeTimers();
+    const busy = refusal("GenerateRequestsPerMinutePerProjectPerModel");
+    const audio = { candidates: [{ content: { parts: [{ inlineData: { data: Buffer.from("pcm").toString("base64") } }] } }] };
+    let n = 0;
+    const f = vi.fn(async (...a: unknown[]) => (++n === 1 ? busy(...(a as [])) : new Response(JSON.stringify(audio), { status: 200 })));
+    const said = speakThai("สวัสดีค่ะ", "t", { fetch: f as unknown as typeof fetch });
+    await vi.advanceTimersByTimeAsync(10_000);
+    const r = await said;
+    vi.useRealTimers();
+    expect(r.pcm.toString()).toBe("pcm");
+    expect(f).toHaveBeenCalledTimes(2);
   });
 });
 

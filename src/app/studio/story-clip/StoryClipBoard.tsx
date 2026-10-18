@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useFreshLinks } from "../quote-video/fresh-links";
 import { useEffect, useState } from "react";
 import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pension/engine";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
@@ -312,6 +313,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     return () => clearTimeout(t);
   }, [quota]);
 
+  // links renewed when the agent comes back to a board left open past the hour they last
+  useFreshLinks(() => { myVideos("story").then(setItems).catch(() => undefined); });
   // a clip still being made is asked about every few seconds
   const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
   useEffect(() => {

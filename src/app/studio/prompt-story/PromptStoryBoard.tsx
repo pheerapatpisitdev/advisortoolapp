@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useFreshLinks } from "../quote-video/fresh-links";
 import { useEffect, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import { totalLine } from "@/lib/prompt-story/total";
@@ -103,6 +104,8 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     return () => clearTimeout(t);
   }, [quota]);
 
+  // links renewed when the agent comes back to a board left open past the hour they last
+  useFreshLinks(() => { myVideos("prompt").then(setItems).catch(() => undefined); });
   // a clip still being made is asked about every few seconds
   const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
   useEffect(() => {

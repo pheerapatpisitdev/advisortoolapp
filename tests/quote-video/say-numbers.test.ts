@@ -30,3 +30,14 @@ describe("sayNumbers", () => {
     expect(sayNumbers("สนใจ ทักมาคุยกันได้เลยนะคะ")).toBe("สนใจ ทักมาคุยกันได้เลยนะคะ");
   });
 });
+
+describe("a split said in whole baht (owner, 2026-10-18)", () => {
+  it("adds up to the whole premium rounded, never ฿1 off", async () => {
+    const { wholeShares } = await import("@/lib/quote-video/script");
+    // 1,000.40 + 12.40 + 30.40 = 1,043.20: row by row 1,000 + 12 + 30 = 1,042
+    const said = wholeShares(["1,000.40", "+12.40", "+30.40"]).map((x) => Number(x.replace(/,/g, "")));
+    expect(said.reduce((a, b) => a + b, 0)).toBe(1043);
+    [1000.4, 12.4, 30.4].forEach((x, i) => expect(Math.abs(said[i] - x)).toBeLessThan(1));
+    expect(wholeShares(["2,500.00", "+0.50"])).toEqual(["2,500", "1"]);
+  });
+});

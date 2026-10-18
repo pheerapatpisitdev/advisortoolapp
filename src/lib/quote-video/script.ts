@@ -199,8 +199,20 @@ const WAIVER_WHAT: Record<string, string> = {
   "PB.BEYOND": "ถ้าผู้ชำระเบี้ยเป็นอะไรไป ทุพพลภาพสิ้นเชิงถาวร หรือเป็นโรคร้ายแรง บริษัทจ่ายเบี้ยที่เหลือแทนจนครบ",
 };
 
-/** "+12.91" → "13": a rider's share said in whole baht (the screen keeps the satang) */
-const wholeBaht = (amount: string) => Math.round(Number(amount.replace(/[^\d.]/g, ""))).toLocaleString("en-US");
+/**
+ * Each share said in whole baht (the screen keeps the satang), rounded so they add up to the
+ * whole premium rounded — row by row the voice's parts could miss the total by ฿1 (owner,
+ * 2026-10-18): the baht left over go to the shares with the largest fractions.
+ */
+export function wholeShares(amounts: string[]): string[] {
+  const n = amounts.map((a) => Number(a.replace(/[^\d.]/g, "")) || 0);
+  const target = Math.round(n.reduce((a, b) => a + b, 0) * 100) / 100;
+  const floors = n.map(Math.floor);
+  let left = Math.round(target) - floors.reduce((a, b) => a + b, 0);
+  const order = n.map((x, i) => ({ i, frac: x - Math.floor(x) })).sort((a, b) => b.frac - a.frac);
+  for (const { i } of order) { if (left <= 0) break; floors[i]++; left--; }
+  return floors.map((x) => x.toLocaleString("en-US"));
+}
 
 /** a split row's contract as the screen names it: "ดับบลิวพี ฟิต", "ค่ารักษาพยาบาล MEB แผน 1,000" */
 export const riderShort = (label: string) => label.replace(/^สัญญาเพิ่มเติม/, "").replace(/\((MEB)\)/, "$1").replace(/\s+/g, " ").trim();
@@ -230,7 +242,7 @@ function riderFacts(
   const names = [...(waiverName ? [waiverName] : []), ...(riders.medical !== undefined ? [MEDICAL_SAID] : [])];
   // said only where the split is of the instalment the voice says, and has a row for every rider
   const split_ = main && whole && split.title.endsWith(spokenLabel)
-    ? [{ name: "สัญญาหลัก", baht: wholeBaht(main.amount) }, ...rest.map((r, i) => ({ name: names[i], baht: wholeBaht(r.amount) }))]
+    ? ((b) => [{ name: "สัญญาหลัก", baht: b[0] }, ...rest.map((_, i) => ({ name: names[i], baht: b[i + 1] }))])(wholeShares([main.amount, ...rest.map((r) => r.amount)]))
     : undefined;
   const parts = [
     ...(riders.waiver && waiverName && WAIVER_WHAT[`${riders.waiver.code}.${riders.waiver.option}`]

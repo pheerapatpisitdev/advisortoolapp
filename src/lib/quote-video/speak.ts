@@ -41,8 +41,9 @@ export async function speakClip(lines: string[], o: {
   pool: <T, R>(items: T[], n: number, fn: (t: T, i: number) => Promise<R>) => Promise<R[]>;
   onLine?: () => void; onSwitch?: () => void;
 }): Promise<{ spoken: Spoken[]; fellBackTo: ElevenChoice | null }> {
-  // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it
-  const run = (voice?: string) => o.pool(lines, voice ? 2 : Math.max(1, lines.length), (line) =>
+  // ElevenLabs' Starter plan takes three lines at a time: two at once stays under it. Gemini three
+  // at a time, not every line at once, which ran into its per-minute limit (owner, 2026-10-18)
+  const run = (voice?: string) => o.pool(lines, voice ? 2 : 3, (line) =>
     speakLine(line, o.task, { narrator: o.narrator, gemini: o.gemini, voice, lang: o.lang, fetch: o.fetch }).then((r) => { o.onLine?.(); return r; }));
   try {
     return { spoken: await run(o.voice), fellBackTo: null };
