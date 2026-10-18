@@ -107,3 +107,20 @@ describe("the wallet history's clip names (owner, 2026-10-18)", () => {
     expect([charge("quote-video"), charge("quote-video-story"), charge("quote-video-prompt")]).toEqual(["วิดีโอนำเสนอ", "คลิปเล่าเรื่อง", "คลิปตามโจทย์"]);
   });
 });
+
+describe("a writing round's hold (owner, 2026-10-18)", () => {
+  it("covers five pieces on the dearest writer, and never holds less than ฿5", async () => {
+    const { writeHoldThb } = await import("@/lib/wallet/money");
+    const { WRITERS } = await import("@/lib/content/models");
+    const dearest = Math.max(...WRITERS.map((w) => w.thb));
+    expect(writeHoldThb(5, dearest)).toBeGreaterThan(5 * dearest);
+    expect(writeHoldThb(1, 0)).toBe(5);
+    expect(writeHoldThb(5, dearest, true)).toBe(5);
+  });
+
+  it("reckons the overhead as models.ts does", async () => {
+    const { writeHoldThb } = await import("@/lib/wallet/money");
+    const { OVERHEAD_THB } = await import("@/lib/content/models");
+    expect(writeHoldThb(10, 1)).toBeCloseTo(1.5 * (10 * (1 + OVERHEAD_THB) + 2 * OVERHEAD_THB), 9);
+  });
+});

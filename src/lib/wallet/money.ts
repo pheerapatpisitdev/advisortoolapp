@@ -92,3 +92,15 @@ export function chargeSatang(costThb: number, multiplier: number, heldSatang: nu
 
 /** a member whose pass ran out is told to renew before topping up (owner chose 5ก, 2026-10-18) */
 export const PASS_FIRST = "ต่ออายุสมาชิกก่อน แล้วจึงเติมเงินได้";
+
+/** a call's overhead beside the writing, as src/lib/content/models.ts OVERHEAD_THB has it (kept here: this file is browser-safe) */
+const WRITE_OVERHEAD_THB = 0.03;
+
+/**
+ * What a writing round holds, in baht before the multiplier: its pieces on the writer picked,
+ * and the planner and proofreader beside them, with half again for a fallback writer; never
+ * less than the ฿5 it always held. ตัวเลขชัดๆ is the headline call alone.
+ */
+export const writeHoldThb = (count: number, writerThb: number, numbers = false): number =>
+  numbers ? ROUND_HOLD_THB["ai-write"] : Math.max(ROUND_HOLD_THB["ai-write"], 1.5 * (count * (writerThb + WRITE_OVERHEAD_THB) + 2 * WRITE_OVERHEAD_THB));
+

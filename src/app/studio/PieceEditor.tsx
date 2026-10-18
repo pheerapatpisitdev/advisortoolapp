@@ -192,7 +192,8 @@ export function PieceEditor({ item, productName, drawing, onSaved, onDraw, onSta
     ...item.output,
     hooks: d.hooks, body: d.body, closing: d.closing,
     hashtags: d.tags.split(/\s+/).filter(Boolean),
-    poster: d.poster,
+    // a script is filmed, not posted as a picture: saving it gave it the stand-in poster (2026-10-18)
+    ...(item.format === "script" && !item.output.poster ? {} : { poster: d.poster }),
   });
   const output = outputOf(draft);
   const isAd = item.format === "ad";

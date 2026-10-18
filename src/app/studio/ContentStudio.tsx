@@ -604,7 +604,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   async function loadMore() {
     setLoadingMore(true);
     try {
-      const wb = await contentWorkbench({ status: tab, planHref: plan || undefined, offset: items.length, page: project?.pageId });
+      // after the oldest piece shown: pieces trashed or used since the list opened no longer skip as many (2026-10-18)
+      const oldest = items.reduce<string | undefined>((o, x) => (!o || x.createdAt < o ? x.createdAt : o), undefined);
+      const wb = await contentWorkbench({ status: tab, planHref: plan || undefined, ...(oldest ? { before: oldest } : { offset: items.length }), page: project?.pageId });
       if (wb.failed) throw new Error("workbench not read");
       // a piece that moved tab meanwhile shifts the pages by one: never show it twice
       setItems((list) => {

@@ -38,7 +38,7 @@ import { proofread, type Fix } from "@/lib/content/proofread";
 import { ADS_MOVED, GOALS, LENGTHS, angleText, anglesFor, MAX_FACT, MAX_READER, settleExpat, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
 import {
   DEFAULT_CONTENT_CAP_THB, addHookTemplate, contentCap, deleteHookTemplate, contentSpentThisMonth, countByStatus, countHookUse, deleteContent, getContent,
-  getHookTemplate, holdContentBudget, hookMenu, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
+  getHookTemplate, hasFormulaFrom, holdContentBudget, hookMenu, isContentStatus, listContent, listWords, recentLooks, releaseContentBudget, removeBackground,
   saveBackground, saveContent, saveOutputIf, setFixes, setStatus, recentHooks, usedHooks, type ContentItem, type ContentStatus, type Flags,
 } from "@/lib/content/store";
 import { DISCLAIMER, UnreadableReply, headlines, plan, write, writeLongAds, writeNumbersAds, writeShortAds } from "@/lib/content/write";
@@ -66,6 +66,7 @@ import type { Rounds } from "@/lib/wallet/note";
 import { pictureSatang } from "@/lib/wallet/prices";
 import { walletPrices, walletView } from "@/lib/wallet/store";
 import { closedFor } from "@/lib/switches/store";
+import { writeHoldThb } from "@/lib/wallet/money";
 
 /**
  * The content workbench's doors: every one asks who is calling (requireMember / requireStaff),
@@ -328,8 +329,10 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
   // the owner's ceiling before a round is counted, not after (ceiling.ts, review 2026-10-01)
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: await capReached(ceiling) };
-  // the agent's own monthly allowance (src/lib/auth/quota.ts); staff are outside it
-  const pass = await takeRound(viewer, "ai-write");
+  // the agent's own monthly allowance (src/lib/auth/quota.ts); staff are outside it. The wallet
+  // holds what this round may cost, not a fixed ฿5: five pieces on the dearest writer passed it
+  // and were charged short (owner, 2026-10-18)
+  const pass = await takeRound(viewer, "ai-write", null, writeHoldThb(count, writerOf(input.writer).thb, angle === "numbers"));
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, async (): Promise<GenerateResult> => {
     let hold: string | null = null;
@@ -643,6 +646,8 @@ async function learnFormula(item: ContentItem): Promise<void> {
   // the formula library is Thai, and every Thai round writes from it: an English hook stays out
   if (item.hookTemplateId || !hook || langOf(item.output) === "en") return;
   try {
+    // used, binned and used again: the formula it gave the first time stands
+    if (await hasFormulaFrom(item.id)) return;
     // a formula is nice to have; it does not spend past the owner's ceiling
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
     if (spent >= cap) return;
@@ -897,7 +902,8 @@ export interface Workbench {
 const WORKBENCH_PAGE = 40;
 
 /** `page`: the Page whose project is open; the server settles it (projectPage), so another Page's cannot be asked for */
-export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number; page?: string }): Promise<Workbench> {
+/** `before`: the oldest piece the board shows, to load the ones after it (a cursor, not a count: owner 2026-10-18) */
+export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number; before?: string; page?: string }): Promise<Workbench> {
   await requireMember();
   try {
     const project = await projectPage(filter.page);
@@ -906,7 +912,10 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
     const pageId = project.pageId ?? undefined;
     const offset = Math.max(0, Math.floor(Number(filter.offset) || 0));
     const [items, counts] = await Promise.all([
-      listContent({ status: filter.status, planHref: filter.planHref, pageId }, WORKBENCH_PAGE, offset),
+      listContent({
+        status: filter.status, planHref: filter.planHref, pageId,
+        ...(typeof filter.before === "string" && !Number.isNaN(Date.parse(filter.before)) ? { before: filter.before } : {}),
+      }, WORKBENCH_PAGE, typeof filter.before === "string" ? 0 : offset),
       countByStatus(filter.planHref, pageId),
     ]);
     // a clip's render job keeps its round and webhook secret's hash on the row; the browser gets neither

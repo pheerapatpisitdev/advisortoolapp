@@ -19,6 +19,7 @@ const store = vi.hoisted(() => ({
   contentSpentThisMonth: vi.fn(), contentCap: vi.fn(), setFixes: vi.fn(), saveBackground: vi.fn(), setStatus: vi.fn(),
   listContent: vi.fn(), countByStatus: vi.fn(), recentLooks: vi.fn(async (): Promise<object[]> => []),
   usedHooks: vi.fn(async (): Promise<string[]> => []), saveContent: vi.fn(),
+  hasFormulaFrom: vi.fn(async () => false),
 }));
 const fb = vi.hoisted(() => ({ postPhoto: vi.fn(), deletePost: vi.fn(), isPublished: vi.fn() }));
 const ai = vi.hoisted(() => ({ chat: vi.fn(), drawImage: vi.fn() }));
@@ -243,6 +244,15 @@ describe("the bin", () => {
     expect(later).toHaveLength(1);
     await later[0]();
     expect(ai.chat).toHaveBeenCalledOnce();
+  });
+
+  it("a piece back from the bin and used again is not asked for its formula twice (2026-10-18)", async () => {
+    later.length = 0;
+    row = { ...make(null), status: "trashed" };
+    store.hasFormulaFrom.mockResolvedValueOnce(true);
+    expect(await setContentStatus("p1", "used")).toEqual({ ok: true });
+    await later[0]();
+    expect(ai.chat).not.toHaveBeenCalled();
   });
 
   it("approving an ad leaves the hook-formula library alone — an ad headline is not an organic hook", async () => {

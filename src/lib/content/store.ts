@@ -257,9 +257,11 @@ export async function getContentUnscoped(id: string): Promise<ContentItem | null
 }
 
 /** `includeAds`: Organic Studio shows no ad piece, so its callers omit it; Ads Studio reads its ads through listCampaignPieces, and nothing passes this today (kept for a reader that wants both) */
-export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string; includeAds?: boolean } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
+/** `before`: the next page after the piece made then (a cursor: a piece trashed or used meanwhile skips nothing, 2026-10-18) */
+export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string; includeAds?: boolean; before?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+  if (filter.before) q = q.lt("created_at", filter.before);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.planHref) q = q.eq("plan_href", filter.planHref);
   if (filter.pageId) q = q.eq("page_id", filter.pageId);
@@ -551,6 +553,13 @@ export async function addHookTemplate(t: { template: string; category: HookCateg
   });
   // 23505 is the unique index on the formula's text: the library has it already, which is fine
   if (error && error.code !== "23505") throw new Error(error.message);
+}
+
+/** whether a formula was drawn from this piece already: a piece back from the bin is not paid for twice (2026-10-18) */
+export async function hasFormulaFrom(sourceId: string): Promise<boolean> {
+  const { count, error } = await supabaseAdmin().from("ins_hook_templates").select("id", { count: "exact", head: true }).eq("source_content_id", sourceId);
+  if (error) throw new Error(error.message);
+  return (count ?? 0) > 0;
 }
 
 /**
