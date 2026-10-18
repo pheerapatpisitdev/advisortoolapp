@@ -27,8 +27,12 @@ export async function GET(req: NextRequest) {
       headers: { "content-type": data.type || "image/png", "cache-control": "private, max-age=86400, immutable" },
     });
   }
-  const owner = await logoOwner(q.get("page"));
+  const asked = q.get("page");
+  const owner = await logoOwner(asked);
   if (!owner) return Response.json({ ok: false, error: "กรุณาเข้าสู่ระบบก่อน" }, { status: 401 });
+  // a Page the caller does not look after has no logo to show them — not their own one, labelled
+  // as the Page's (owner, 2026-10-18), as POST already refuses to file one for it
+  if (asked && !("pageId" in owner)) return Response.json({ ok: true, path: null });
   try {
     return Response.json({ ok: true, path: await currentLogo(owner) });
   } catch (e) {

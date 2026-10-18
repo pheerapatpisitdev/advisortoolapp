@@ -140,6 +140,8 @@ describe("balanceSatang", () => {
     expect(db.rpc).toHaveBeenCalledWith("ins_wallet_sweep_holds");
     db.wallet = { data: { balance_satang: "8420" }, error: null };
     expect(await store.balanceSatang("a1")).toBe(8420);
+    // the second read within the minute leaves the sweep alone (owner, 2026-10-18 — Vercel CPU)
+    expect(db.rpc.mock.calls.filter(([n]) => n === "ins_wallet_sweep_holds")).toHaveLength(1);
   });
 });
 

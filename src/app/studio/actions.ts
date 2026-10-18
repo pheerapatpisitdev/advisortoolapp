@@ -357,7 +357,7 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
       const avoid = [...new Set([...recent, ...used])];
       // no formula chosen: the planner picks one for each piece from a short menu. The library is
       // Thai, so an English round and an ad (which has its own planner call) keep writing their own
-      const menu = !template && lang !== "en" && input.format !== "ad" && angle !== "numbers" ? await hookMenu() : [];
+      const menu = !template && lang !== "en" && input.format !== "ad" && angle !== "numbers" ? await hookMenu(project.pageId) : [];
       const told = angleText(angle, custom);
 
       // ตัวเลขชัดๆ: every figure from the engine, only the headline from a model (spec 2026-09-24)

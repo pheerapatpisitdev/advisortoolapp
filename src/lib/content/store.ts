@@ -489,9 +489,16 @@ export async function listHookTemplates(): Promise<HookTemplate[]> {
  * library's use_count goes up for every piece written, trashed ones too — this is what the
  * formula earned, not what it was tried on.
  */
-export async function hookPostCounts(): Promise<Record<string, number>> {
-  const { data, error } = await supabaseAdmin().from("ins_content").select("hook_template_id")
-    .not("hook_template_id", "is", null).in("publish_state", ["scheduled", "published"]).limit(5000);
+/**
+ * `pageId`: that Page's alone; `days`: the last so many days only (owner, 2026-10-18 — every round
+ * read up to 5,000 rows of every Page's history). The library page counts every Page's.
+ */
+export async function hookPostCounts(opts: { pageId?: string | null; days?: number } = {}): Promise<Record<string, number>> {
+  let q = supabaseAdmin().from("ins_content").select("hook_template_id")
+    .not("hook_template_id", "is", null).in("publish_state", ["scheduled", "published"]);
+  if (opts.pageId) q = q.eq("page_id", opts.pageId);
+  if (opts.days) q = q.gte("created_at", new Date(Date.now() - opts.days * 86_400_000).toISOString());
+  const { data, error } = await q.limit(5000);
   if (error) throw new Error(error.message);
   const counts: Record<string, number> = {};
   for (const r of (data ?? []) as { hook_template_id: string }[]) counts[r.hook_template_id] = (counts[r.hook_template_id] ?? 0) + 1;
@@ -503,11 +510,12 @@ export async function hookPostCounts(): Promise<Record<string, number>> {
  * a Page and a draw of the rest, a category at a time (pickHookMenu). A library that cannot be
  * read gives no menu, and the planner writes its own hooks as it did before.
  */
-export async function hookMenu(): Promise<HookTemplate[]> {
+/** `pageId`: the Page the round writes for; its last 90 days say which formulas went up */
+export async function hookMenu(pageId?: string | null): Promise<HookTemplate[]> {
   try {
     const [{ data, error }, posted] = await Promise.all([
       supabaseAdmin().from("ins_hook_templates").select(HOOK_COLUMNS),
-      hookPostCounts(),
+      hookPostCounts({ pageId, days: 90 }),
     ]);
     if (error) throw new Error(error.message);
     // no example lines: the menu shows formulas only, and those are nobody's words

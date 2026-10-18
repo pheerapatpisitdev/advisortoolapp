@@ -108,8 +108,21 @@ export async function saveWalletPrices(prices: Prices): Promise<void> {
  * hold takes first; `satang` is the two together. Whether a refund or a dispute froze the wallet
  * (owner, 2026-10-01): a frozen wallet pays for no round from its own money.
  */
-export async function walletStatus(agentId: string): Promise<{ satang: number; own: number; credit: number; frozen: boolean }> {
+/** the last sweep of holds left by requests that died, on this instance */
+let sweptAt = 0;
+/**
+ * Holds left by requests that died, given back — at most once a minute from one instance (owner,
+ * 2026-10-18: every balance read ran it, on a project already past Vercel's CPU allowance). A
+ * hold lives 15 or 30 minutes, so a minute more is nothing to the agent.
+ */
+async function sweepHolds(now = Date.now()): Promise<void> {
+  if (now - sweptAt < 60_000) return;
+  sweptAt = now;
   await call("ins_wallet_sweep_holds");
+}
+
+export async function walletStatus(agentId: string): Promise<{ satang: number; own: number; credit: number; frozen: boolean }> {
+  await sweepHolds();
   // a UnitClub agent's starter credit, written the first time it is seen (owner, 2026-10-18);
   // one that cannot be written now is written by the first hold instead
   await ensureStarterCredit(agentId).catch((e) => console.error("starter credit not written:", e));

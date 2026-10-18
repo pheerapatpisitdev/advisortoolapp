@@ -113,6 +113,8 @@ export async function finishClipUpload(input: { pieceId: string; path: string; f
       const a = await attachable(input.pieceId);
       if (!a.ok) return a;
       const before = a.item.output.video;
+      // only a file just uploaded is a new clip: the piece's own preview or edited take is not (2026-10-18)
+      if (before && input.path !== before.path && clipFiles(before).includes(input.path)) return { ok: false, error: "ข้อมูลคลิปไม่ถูกต้อง อัปโหลดใหม่อีกครั้งนะครับ" };
       const video: ClipVideo = {
         path: input.path, durationSec: file.durationSec, width: file.width, height: file.height,
         sizeBytes: file.sizeBytes, mime: file.mime, uploadedAt: new Date().toISOString(),

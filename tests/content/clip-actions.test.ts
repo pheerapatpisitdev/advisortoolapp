@@ -239,3 +239,17 @@ describe("saveClipCaption", () => {
     expect(store.saveOutputIf).not.toHaveBeenCalled();
   });
 });
+
+describe("finishClipUpload and the piece's own files (2026-10-18)", () => {
+  it("refuses the piece's edited take sent back as a new clip", async () => {
+    const original = `${PIECE}/11111111-2222-4333-8444-555555555555.mp4`;
+    const take = `${PIECE}/66666666-7777-4888-8999-000000000000.mp4`;
+    store.getContent.mockResolvedValue(item({ output: { ...item().output, video: {
+      path: original, durationSec: 40, width: 1080, height: 1920, sizeBytes: 1, mime: "video/mp4", uploadedAt: "", caption: "", flags: NO_FLAGS,
+      edit: { renderedPath: take } as never,
+    } } }));
+    clips.clipSize.mockResolvedValue(file.sizeBytes);
+    expect(await finishClipUpload({ pieceId: PIECE, path: take, file })).toEqual({ ok: false, error: "ข้อมูลคลิปไม่ถูกต้อง อัปโหลดใหม่อีกครั้งนะครับ" });
+    expect(store.saveOutputIf).not.toHaveBeenCalled();
+  });
+});
