@@ -1,5 +1,6 @@
 "use server";
 import { requireMember } from "@/lib/auth/viewer";
+import { said } from "@/lib/auth/said";
 import { todayKey } from "@/lib/content/calendar";
 import { mayPlanOn } from "@/lib/content/day-plan";
 import { getContent, setPlan, setPlanDone, type ContentItem } from "@/lib/content/store";
@@ -30,7 +31,7 @@ async function saving(write: () => Promise<ContentItem>): Promise<PlanResult> {
   }
 }
 
-export async function planPiece(input: { id: string; day: string }): Promise<PlanResult> {
+async function planPieceNow(input: { id: string; day: string }): Promise<PlanResult> {
   await requireMember();
   const item = await mine(String(input.id));
   if (!item) return { ok: false, error: NOT_FOUND };
@@ -38,17 +39,34 @@ export async function planPiece(input: { id: string; day: string }): Promise<Pla
   return saving(() => setPlan(item.id, input.day));
 }
 
-export async function unplanPiece(id: string): Promise<PlanResult> {
+async function unplanPieceNow(id: string): Promise<PlanResult> {
   await requireMember();
   const item = await mine(String(id));
   if (!item) return { ok: false, error: NOT_FOUND };
   return saving(() => setPlan(item.id, null));
 }
 
-export async function markPlanDone(input: { id: string; done: boolean }): Promise<PlanResult> {
+async function markPlanDoneNow(input: { id: string; done: boolean }): Promise<PlanResult> {
   await requireMember();
   const item = await mine(String(input.id));
   if (!item) return { ok: false, error: NOT_FOUND };
   if (!item.plan) return { ok: false, error: "ชิ้นนี้ยังไม่ได้วางแผน" };
   return saving(() => setPlanDone(item.id, input.done === true));
+}
+
+/** each action answers its refusals instead of throwing them (said.ts, owner 2026-10-18) */
+export async function planPiece(...args: Parameters<typeof planPieceNow>): Promise<PlanResult> {
+  const refused = await requireMember().then(() => null, (e: unknown) => said(() => Promise.reject(e)));
+  if (refused) return refused;
+  return said(() => planPieceNow(...args));
+}
+export async function unplanPiece(...args: Parameters<typeof unplanPieceNow>): Promise<PlanResult> {
+  const refused = await requireMember().then(() => null, (e: unknown) => said(() => Promise.reject(e)));
+  if (refused) return refused;
+  return said(() => unplanPieceNow(...args));
+}
+export async function markPlanDone(...args: Parameters<typeof markPlanDoneNow>): Promise<PlanResult> {
+  const refused = await requireMember().then(() => null, (e: unknown) => said(() => Promise.reject(e)));
+  if (refused) return refused;
+  return said(() => markPlanDoneNow(...args));
 }

@@ -162,7 +162,8 @@ export type CostView =
   /** credit: a member's pass, which has credit rather than free clips (owner, 2026-10-17); balance is credit and own money together */
   /** satang: the balance as a number, for a clip whose voice or cut-outs add to its look's price (costLine) */
   | { kind: "wallet"; balance: string; satang: number; prices: Partial<Record<PriceKey, { price: string; enough: boolean; satang: number }>>; credit?: true }
-  | { kind: "closed" };
+  /** noFree: the agent never had free clips (a member's pass, a UnitClub agent): not "used up" */
+  | { kind: "closed"; noFree?: true };
 
 /** Which free clips count: since `from` when it is set, else every one ever made. */
 export interface FreeClips {
@@ -203,7 +204,7 @@ export async function costView(viewer: Viewer): Promise<CostView> {
   const used = await freeUsed(viewer.agentId, from);
   const s = await walletSettings().catch(() => null);
   if (used < limit) return { kind: "free", left: limit - used, of: limit, ...(s?.enabled ? {} : { walletOff: true as const }) };
-  if (!s?.enabled) return { kind: "closed" };
+  if (!s?.enabled) return limit === 0 ? { kind: "closed", noFree: true } : { kind: "closed" };
   const [balance, prices] = await Promise.all([balanceSatang(viewer.agentId), walletPrices()]);
   const priced = (satang: number) => ({ price: formatBaht(satang), enough: balance >= satang, satang });
   return {

@@ -21,3 +21,10 @@ describe("costLine with an ElevenLabs voice or AI cut-outs", () => {
     expect(short.text).toContain("ยอดในกระเป๋าไม่พอ");
   });
 });
+
+describe("costLine with the wallet shut", () => {
+  it("never tells an agent with no free clips that they used them up", () => {
+    expect(costLine({ kind: "closed", noFree: true }, "videoClassic")?.text).toBe("ตอนนี้ยังใช้เครดิตและกระเป๋าเงินไม่ได้");
+    expect(costLine({ kind: "closed" }, "videoClassic")?.text).toBe("ใช้วิดีโอฟรีครบแล้ว");
+  });
+});

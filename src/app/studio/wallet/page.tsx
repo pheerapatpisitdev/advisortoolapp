@@ -48,7 +48,7 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
   const passEnded = access ? !passOpen(access) : false;
   // with no free rounds left to give (a member's pass, a UnitClub agent), the credit is shown instead
   const credit = lots && allowance.limit === 0
-    ? { own: wallet.own, satang: wallet.credit, expiresAt: creditOf(lots, new Date()).expiresAt, lots }
+    ? { name: viewer.kind === "member" ? "เครดิตสมาชิก" : "เครดิตเริ่มต้น UnitClub", own: wallet.own, satang: wallet.credit, expiresAt: creditOf(lots, new Date()).expiresAt, lots }
     : null;
   return (
     <WalletClient
@@ -57,6 +57,7 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
       balanceSatang={wallet.satang}
       frozen={wallet.frozen}
       passEnded={passEnded}
+      creditUnread={lots === null && allowance.limit === 0}
       entries={entries}
       rounds={{ used: allowance.used, limit: allowance.limit ?? 0 }}
       videos={videosLeft}

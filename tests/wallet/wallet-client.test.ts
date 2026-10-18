@@ -93,7 +93,7 @@ describe("a member's wallet with pass credit (owner, 2026-10-17; mockup 3NoZWL3b
   it("splits the balance into credit first and own money", () => {
     const html = renderToStaticMarkup(createElement(WalletClient, {
       enabled: true, multiplier: 2, balanceSatang: 5500, entries, rounds: { used: 0, limit: 0 }, paid: null, videos: null, prices: DEFAULT_PRICES,
-      credit: { own: 1700, satang: 3800, expiresAt: "2026-11-19T03:00:00Z", lots },
+      credit: { name: "เครดิตสมาชิก", own: 1700, satang: 3800, expiresAt: "2026-11-19T03:00:00Z", lots },
     }));
     expect(html).toContain("฿55.00");
     expect(html).toContain("เครดิตสมาชิก (ใช้ก่อน · หมดอายุ 19 พ.ย.)");
@@ -128,11 +128,21 @@ describe("a UnitClub agent's starter credit (owner, 2026-10-18; mockup TFmpdUSV)
   it("is named as UnitClub's and never said to run out", () => {
     const html = renderToStaticMarkup(createElement(WalletClient, {
       enabled: true, multiplier: 2, balanceSatang: 3300, entries: [], rounds: { used: 4, limit: 0 }, paid: null, videos: null, prices: DEFAULT_PRICES,
-      credit: { own: 2500, satang: 800, expiresAt: starter.expiresAt, lots: [starter] },
+      credit: { name: "เครดิตเริ่มต้น UnitClub", own: 2500, satang: 800, expiresAt: starter.expiresAt, lots: [starter] },
     }));
     expect(html).toContain("เครดิตเริ่มต้น UnitClub");
     expect(html).toContain("ไม่มีวันหมดอายุ");
     expect(html).not.toContain("หมดอายุ 31");
     expect(historyLines([], [starter], new Date("2026-10-25T03:00:00Z")).map((l) => [l.label, l.satang])).toEqual([["เครดิตเริ่มต้น UnitClub", 1500]]);
+  });
+});
+
+describe("credit that could not be read (owner, 2026-10-18)", () => {
+  it("says so, not 0/0 free rounds", () => {
+    const html = renderToStaticMarkup(createElement(WalletClient, {
+      enabled: true, multiplier: 2, balanceSatang: 0, entries: [], rounds: { used: 0, limit: 0 }, paid: null, videos: null, prices: DEFAULT_PRICES, creditUnread: true,
+    }));
+    expect(html).toContain("อ่านเครดิตไม่ได้ ลองเปิดหน้านี้ใหม่");
+    expect(html).not.toContain("รอบ AI ฟรีเหลือ 0/0");
   });
 });

@@ -1,5 +1,6 @@
 "use server";
 import { myPages } from "@/lib/auth/pages";
+import { said } from "@/lib/auth/said";
 import { bangkokAt, dayKey, dropTime, lastDropDay, nextDayKey, nextOpenDay, timeOfDay, todayKey } from "@/lib/content/calendar";
 import { move, PAST_DAY, POST_SCOPE, publish, withdraw, type PublishResult } from "@/lib/content/publish-flow";
 import { getContent, listPublished } from "@/lib/content/store";
@@ -51,7 +52,7 @@ export async function publishSetup(): Promise<PublishSetup> {
   }
 }
 
-export async function publishPiece(input: {
+async function publishPieceNow(input: {
   id: string;
   pageId: string;
   /** ISO time to hold it for; null posts now */
@@ -79,7 +80,7 @@ export async function publishPiece(input: {
  * evening, …); a held one keeps its Page and its time of day and moves to the new day, unless
  * that time has gone on the new day, when it takes a slot the same way.
  */
-export async function scheduleOnDay(input: { id: string; day: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
+async function scheduleOnDayNow(input: { id: string; day: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
   await requireStaff("publish");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day)) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
   // Thailand's today, now — a board left open overnight still thinks it is yesterday
@@ -119,7 +120,7 @@ async function takenOn(day: string, pageId: string | null, except: string): Prom
  * time a drop would give it — through the same checks as every other way up. Several are sent
  * one after another by the workbench, so each sees the ones before it as taken.
  */
-export async function scheduleNextOpen(input: { id: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
+async function scheduleNextOpenNow(input: { id: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
   await requireStaff("publish");
   const today = todayKey();
   let rows: Awaited<ReturnType<typeof listPublished>>;
@@ -137,7 +138,7 @@ export async function scheduleNextOpen(input: { id: string; pageId: string; conf
 }
 
 /** The day sheet's บันทึกเวลา: a Thai "YYYY-MM-DDTHH:MM", for a waiting piece or a held one. */
-export async function scheduleAt(input: { id: string; local: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
+async function scheduleAtNow(input: { id: string; local: string; pageId: string; confirmNumbers?: boolean; confirmSpoken?: boolean; confirmStale?: boolean; force?: boolean }): Promise<PublishResult> {
   await requireStaff("publish");
   const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(input.local);
   if (!m) return { ok: false, error: "เลือกวันและเวลาก่อนนะครับ" };
@@ -150,7 +151,7 @@ export async function scheduleAt(input: { id: string; local: string; pageId: str
 }
 
 /** Takes back a post Facebook is holding, before its time. It can be scheduled again after. */
-export async function cancelScheduled(id: string): Promise<PublishResult> {
+async function cancelScheduledNow(id: string): Promise<PublishResult> {
   await requireStaff("publish");
   const item = await getContent(id).catch(() => null);
   const p = item?.publish;
@@ -162,4 +163,31 @@ export async function cancelScheduled(id: string): Promise<PublishResult> {
     console.error("content cancel failed:", e);
     return { ok: false, error: "ยกเลิกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
+}
+
+/** each action answers its refusals instead of throwing them (said.ts, owner 2026-10-18) */
+export async function publishPiece(...args: Parameters<typeof publishPieceNow>): Promise<PublishResult> {
+  const refused = await requireStaff("publish").then(() => null, (e: unknown) => said(() => Promise.reject(e)));
+  if (refused) return refused;
+  return said(() => publishPieceNow(...args));
+}
+export async function scheduleOnDay(...args: Parameters<typeof scheduleOnDayNow>): Promise<PublishResult> {
+  const refused = await requireStaff("publish").then(() => null, (e: unknown) => said(() => Promise.reject(e)));
+  if (refused) return refused;
+  return said(() => scheduleOnDayNow(...args));
+}
+export async function scheduleNextOpen(...args: Parameters<typeof scheduleNextOpenNow>): Promise<PublishResult> {
+  const refused = await requireStaff("publish").then(() => null, (e: unknown) => said(() => Promise.reject(e)));
+  if (refused) return refused;
+  return said(() => scheduleNextOpenNow(...args));
+}
+export async function scheduleAt(...args: Parameters<typeof scheduleAtNow>): Promise<PublishResult> {
+  const refused = await requireStaff("publish").then(() => null, (e: unknown) => said(() => Promise.reject(e)));
+  if (refused) return refused;
+  return said(() => scheduleAtNow(...args));
+}
+export async function cancelScheduled(...args: Parameters<typeof cancelScheduledNow>): Promise<PublishResult> {
+  const refused = await requireStaff("publish").then(() => null, (e: unknown) => said(() => Promise.reject(e)));
+  if (refused) return refused;
+  return said(() => cancelScheduledNow(...args));
 }

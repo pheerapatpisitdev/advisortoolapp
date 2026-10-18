@@ -43,13 +43,16 @@ export function historyLines(entries: WalletEntry[], lots: CreditLotView[], now:
   return lines.sort((a, b) => b.at.localeCompare(a.at));
 }
 
-export function WalletClient({ enabled, multiplier, balanceSatang, frozen = false, passEnded = false, entries, rounds, videos, prices, paid, credit = null }: {
+export function WalletClient({ enabled, multiplier, balanceSatang, frozen = false, passEnded = false, creditUnread = false, entries, rounds, videos, prices, paid, credit = null }: {
   enabled: boolean;
   /**
    * a member's pass credit (owner, 2026-10-17) or a UnitClub agent's starter credit (2026-10-18):
    * the balance split, and the lots for the history; null while there are still free rounds
    */
-  credit?: { own: number; satang: number; expiresAt: string | null; lots: CreditLotView[] } | null;
+  /** name: "เครดิตเริ่มต้น UnitClub" for a UnitClub agent, "เครดิตสมาชิก" for a member, whatever its lots */
+  credit?: { name: string; own: number; satang: number; expiresAt: string | null; lots: CreditLotView[] } | null;
+  /** the credit lots could not be read */
+  creditUnread?: boolean;
   /** the owner's price list, shown under the top-ups (owner, 2026-10-12) */
   prices: Prices;
   /** the free วิดีโอนำเสนอ clips left of all of them; null when they could not be counted */
@@ -112,7 +115,7 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
           <div className="mt-2 space-y-1 text-sm tabular-nums">
             <p className="flex justify-between gap-3">
               <span>
-                {credit.lots.some((l) => l.kind === "starter") ? "เครดิตเริ่มต้น UnitClub" : "เครดิตสมาชิก"} (ใช้ก่อน
+                {credit.name} (ใช้ก่อน
                 {credit.expiresAt && !neverEnds(credit.expiresAt) ? ` · หมดอายุ ${shortDate(credit.expiresAt)}` : " · ไม่มีวันหมดอายุ"})
               </span>
               <b>{formatBaht(credit.satang)}</b>
@@ -122,6 +125,9 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
               <a href="#prices" className="font-medium text-[var(--ct-ink)] underline underline-offset-2">ดูราคา</a>
             </p>
           </div>
+        ) : creditUnread ? (
+          // the credit could not be read: said, not shown as "0/0 free rounds" (owner, 2026-10-18)
+          <p className="mt-2 text-sm text-[var(--ct-warn-ink)]" role="status">อ่านเครดิตไม่ได้ ลองเปิดหน้านี้ใหม่</p>
         ) : (
           <p className="mt-2 text-sm text-[var(--ct-mute)]">
             รอบ AI ฟรีเหลือ {freeLeft}/{rounds.limit}{videos ? ` · วิดีโอฟรีเหลือ ${videos.left}/${videos.of}` : ""} · หมดแล้วจึงตัดจากกระเป๋าตามราคา ·{" "}

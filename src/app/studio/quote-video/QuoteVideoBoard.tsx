@@ -36,7 +36,8 @@ export function costLine(c: CostView | null, key: PriceKey, total?: number): { t
   if (!c) return null;
   if (c.kind === "staff") return { text: "เจ้าของใช้ฟรี", blocked: false, topUp: false };
   if (c.kind === "free") return { text: `ใช้วิดีโอฟรี 1 ครั้ง · เหลือ ${c.left}/${c.of} ครั้ง`, blocked: false, topUp: false };
-  if (c.kind === "closed") return { text: "ใช้วิดีโอฟรีครบแล้ว", blocked: true, topUp: false };
+  // an agent who never had free clips is not told they used them up (owner, 2026-10-18)
+  if (c.kind === "closed") return { text: c.noFree ? "ตอนนี้ยังใช้เครดิตและกระเป๋าเงินไม่ได้" : "ใช้วิดีโอฟรีครบแล้ว", blocked: true, topUp: false };
   const base = c.prices[key];
   if (!base) return null;
   const extra = total !== undefined && Number.isFinite(total) ? total - base.satang : 0;
