@@ -7,7 +7,7 @@
  *   });
  *
  * One table (ins_describe_history) and one bucket (describe-thumbs), honouring only the calls
- * the store makes: insert, select, delete, eq, in, order, limit, range — and upload, remove,
+ * the store makes: insert, select, delete, eq, in, lt, order, limit, range — and upload, remove,
  * createSignedUrls. `created_at` rises by a second with every insert, as the database's clock
  * would. Every answer is a copy, so code holding an old read never sees a later write.
  */
@@ -43,6 +43,7 @@ class Query {
   private payload: Row | null = null;
   private eqs: [string, unknown][] = [];
   private ins: [string, unknown[]][] = [];
+  private lts: [string, string][] = [];
   private sort: { col: string; asc: boolean } | null = null;
   private from = 0;
   private to = Infinity;
@@ -52,13 +53,14 @@ class Query {
   delete() { this.op = "delete"; return this; }
   eq(col: string, v: unknown) { this.eqs.push([col, v]); return this; }
   in(col: string, vs: unknown[]) { this.ins.push([col, vs]); return this; }
+  lt(col: string, v: string) { this.lts.push([col, v]); return this; }
   order(col: string, o?: { ascending?: boolean }) { this.sort = { col, asc: o?.ascending !== false }; return this; }
   limit(n: number) { this.to = Math.min(this.to, this.from + n - 1); return this; }
   range(a: number, b: number) { this.from = a; this.to = b; return this; }
 
   private matching(): Row[] {
     return historyDb.rows.filter((r) =>
-      this.eqs.every(([c, v]) => r[c] === v) && this.ins.every(([c, vs]) => vs.includes(r[c])));
+      this.eqs.every(([c, v]) => r[c] === v) && this.ins.every(([c, vs]) => vs.includes(r[c])) && this.lts.every(([c, v]) => String(r[c]) < v));
   }
 
   then(ok: (v: { data: unknown; error: Err }) => unknown, bad?: (e: unknown) => unknown) {

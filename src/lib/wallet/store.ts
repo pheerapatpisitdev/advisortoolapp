@@ -275,6 +275,13 @@ export async function openTopUp(sessionId: string, agentId: string, satang: numb
   if (error) throw new Error(`บันทึกรายการเติมเงินไม่ได้: ${error.message}`);
 }
 
+/** the amount a top-up was opened for, in satang; null when there is no such top-up */
+export async function topUpOpened(sessionId: string): Promise<number | null> {
+  const { data, error } = await supabaseAdmin().from("ins_wallet_topups").select("amount_satang").eq("stripe_session_id", sessionId).maybeSingle();
+  if (error) throw new Error(`อ่านรายการเติมเงินไม่ได้: ${error.message}`);
+  return data ? Number(data.amount_satang) : null;
+}
+
 /** the asker's own top-up only: another agent's session id reads as not found */
 export async function topUpState(sessionId: string, agentId: string): Promise<TopUpStatus | null> {
   const { data, error } = await supabaseAdmin().from("ins_wallet_topups").select("status")

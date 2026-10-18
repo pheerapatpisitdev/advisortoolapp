@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const wallet = vi.hoisted(() => ({ creditTopUp: vi.fn(), markTopUp: vi.fn(), clawBack: vi.fn(), linkPaymentIntent: vi.fn(), topUpStatus: vi.fn() }));
+const wallet = vi.hoisted(() => ({ creditTopUp: vi.fn(), markTopUp: vi.fn(), clawBack: vi.fn(), linkPaymentIntent: vi.fn(), topUpStatus: vi.fn(), topUpOpened: vi.fn(async (): Promise<number | null> => null) }));
 vi.mock("@/lib/wallet/store", () => wallet);
 const pass = vi.hoisted(() => ({ addPaidPass: vi.fn(), revokePaidPass: vi.fn(), linkPassPaymentIntent: vi.fn() }));
 vi.mock("@/lib/members/pass-store", () => pass);
@@ -107,6 +107,15 @@ describe("applying it", () => {
     expect(await applyWalletAction(credit)).toBe("credited");
     expect(await applyWalletAction(credit)).toBe("duplicate");
     expect(wallet.creditTopUp).toHaveBeenCalledWith("cs_test_1", AGENT, 10000, null);
+  });
+
+  it("credits what Stripe charged when it differs from the button, and says so for the admin (owner chose 33ก)", async () => {
+    wallet.creditTopUp.mockResolvedValueOnce("credited");
+    wallet.topUpOpened.mockResolvedValueOnce(10000);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await applyWalletAction({ kind: "credit", sessionId: "cs_d", agentId: AGENT, satang: 9000, paymentIntent: null })).toBe("credited");
+    expect(wallet.creditTopUp).toHaveBeenCalledWith("cs_d", AGENT, 9000, null);
+    expect(warn.mock.calls.some(([m]) => String(m).includes("opened 10000 satang, paid 9000 satang"))).toBe(true);
   });
 
   it("logs a session nobody opened here and credits nothing", async () => {

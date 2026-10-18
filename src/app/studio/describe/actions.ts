@@ -1,6 +1,6 @@
 "use server";
 import { requireMember } from "@/lib/auth/viewer";
-import { clearReadings, deleteReading } from "@/lib/content/describe-history";
+import { clearReadings, deleteReading, listReadings, type Reading } from "@/lib/content/describe-history";
 
 /**
  * Taking things out of one's own history. The agent is always the signed-in member's — an id
@@ -32,4 +32,14 @@ export async function clearReadingsAction(): Promise<{ ok: boolean }> {
     console.error("history not cleared:", e);
     return { ok: false };
   }
+}
+
+/** ดูเพิ่ม: the next page of the asker's own history, after the oldest one shown; null when it cannot be read */
+export async function moreReadingsAction(before: string): Promise<Reading[] | null> {
+  const viewer = await requireMember().catch(() => null);
+  if (!viewer || typeof before !== "string") return null;
+  return listReadings(viewer.agentId, { before }).catch((e) => {
+    console.error("describe history page not read:", e);
+    return null;
+  });
 }

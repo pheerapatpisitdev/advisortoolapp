@@ -3,7 +3,7 @@ import { addPaidPass, linkPassPaymentIntent, revokePaidPass } from "@/lib/member
 import { revokeReferral, rewardReferral } from "@/lib/referrals/store";
 import { stripe } from "@/lib/stripe/client";
 import { formatBaht } from "./money";
-import { clawBack, creditTopUp, linkPaymentIntent, markTopUp, topUpStatus, type ClawbackKind } from "./store";
+import { clawBack, creditTopUp, linkPaymentIntent, markTopUp, topUpOpened, topUpStatus, type ClawbackKind } from "./store";
 
 /**
  * What a Stripe event means for a wallet. Money is added here and nowhere else: when Stripe
@@ -221,5 +221,13 @@ export async function applyWalletAction(a: WalletAction): Promise<string> {
   const r = await creditTopUp(a.sessionId, a.agentId, a.satang, a.paymentIntent);
   // paid at Stripe, but not a top-up opened here for this agent: a person must look
   if (r === "unknown") console.error(`stripe session ${a.sessionId} paid for agent ${a.agentId}, but no top-up of theirs was opened here`);
+  // the wallet takes what Stripe charged, which a discount code would make less than the button
+  // pressed (owner chose 33ก, 2026-10-18): credited as paid, and said in the log for the admin
+  if (r === "credited") {
+    const opened = await topUpOpened(a.sessionId).catch(() => null);
+    if (opened !== null && opened !== a.satang) {
+      console.warn(`STRIPE TOP-UP AMOUNT DIFFERS: session ${a.sessionId} opened ${opened} satang, paid ${a.satang} satang — credited what was paid`);
+    }
+  }
   return r;
 }

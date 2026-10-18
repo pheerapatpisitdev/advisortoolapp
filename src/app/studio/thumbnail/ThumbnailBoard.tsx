@@ -5,6 +5,8 @@ import type { PiecePerson } from "@/lib/content/people";
 import { PAINTERS } from "@/lib/content/models";
 import { MAX_HEADLINE, MAX_SUB, MAX_TOPIC, SIZES, STYLES, type Idea, type ThumbSize, type ThumbStyle } from "@/lib/content/thumbnail";
 import type { ThumbCheck, ThumbSettings, Thumbnail } from "@/lib/content/thumbnail-history";
+import { HISTORY_PAGE } from "@/lib/content/history-page";
+import { moreThumbnailsAction } from "./actions";
 import { formatBaht } from "@/lib/wallet/money";
 import { ask } from "../ask";
 import type { Rounds } from "@/lib/wallet/note";
@@ -78,6 +80,19 @@ export function ThumbnailBoard({ people, initial, owner, rounds: initialRounds }
   const [error, setError] = useState<string | null>(null);
   const [shown, setShown] = useState<Shown | null>(null);
   const [items, setItems] = useState<Thumbnail[] | null>(initial);
+  // the history comes thirty at a time (owner, 2026-10-18): ดูเพิ่ม asks for the next, after the oldest shown
+  const [more, setMore] = useState(Boolean(initial && initial.length >= HISTORY_PAGE));
+  const [loadingMore, setLoadingMore] = useState(false);
+  async function loadMore() {
+    const oldest = items?.[items.length - 1]?.createdAt;
+    if (!oldest || loadingMore) return;
+    setLoadingMore(true);
+    const page = await moreThumbnailsAction(oldest).catch(() => null);
+    setLoadingMore(false);
+    if (!page) return;
+    setItems((list) => (list ? [...list, ...page.filter((x) => !list.some((y) => y.id === x.id))] : list));
+    setMore(page.length >= HISTORY_PAGE);
+  }
   const [deleteFailed, setDeleteFailed] = useState(false);
 
   const settings = (): ThumbSettings => ({
@@ -302,6 +317,9 @@ export function ThumbnailBoard({ people, initial, owner, rounds: initialRounds }
                 </li>
               ))}
             </ul>
+          )}
+          {more && (
+            <button type="button" className={`${btn} mt-3`} disabled={loadingMore} onClick={loadMore}>{loadingMore ? "กำลังโหลด…" : "ดูเพิ่ม"}</button>
           )}
         </section>
       </div>

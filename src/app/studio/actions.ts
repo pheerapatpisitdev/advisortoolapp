@@ -926,6 +926,9 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
   }
 }
 
+/** the most of the owner's monthly room shown to anyone but the owner */
+const ROOM_SHOWN_THB = 100;
+
 export async function contentSpend(): Promise<ContentSpend> {
   const viewer = await requireMember();
   try {
@@ -934,7 +937,11 @@ export async function contentSpend(): Promise<ContentSpend> {
       contentSpentThisMonth(), contentCap(), allowanceOf(viewer),
       can(viewer, "owner") ? Promise.resolve(null) : walletView(viewer.agentId),
     ]);
-    return { spent, cap, rounds: allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit, wallet } };
+    const rounds = allowance.limit === null ? null : { used: allowance.used, limit: allowance.limit, wallet };
+    if (can(viewer, "owner")) return { spent, cap, rounds };
+    // the owner's ceiling and spend are the owner's (2026-10-18): anyone else is told only how much
+    // room is left, up to ฿100, which is all the page needs to pick a painter and warn of a round too dear
+    return { spent: 0, cap: Math.max(0, Math.min(ROOM_SHOWN_THB, cap - spent)), rounds };
   } catch {
     return { spent: 0, cap: DEFAULT_CONTENT_CAP_THB, rounds: null };
   }

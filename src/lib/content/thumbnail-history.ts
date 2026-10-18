@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { HISTORY_PAGE } from "./history-page";
 import { MAX_HEADLINE, MAX_SUB, isStyle, type ThumbSize, type ThumbStyle } from "./thumbnail";
 
 /**
@@ -117,11 +118,14 @@ async function trim(agentId: string): Promise<void> {
   }
 }
 
-export async function listThumbnails(agentId: string): Promise<Thumbnail[]> {
+/** a page of the history (owner, 2026-10-18: it read and signed all {HISTORY_MAX} on every open); `before`: the page after that time */
+
+export async function listThumbnails(agentId: string, page: { before?: string } = {}): Promise<Thumbnail[]> {
   if (!UUID.test(agentId)) return [];
   const db = supabaseAdmin();
   const { data, error } = await db.from(TABLE).select("id, created_at, settings, model, cost_thb, image_path")
-    .eq("agent_id", agentId).order("created_at", { ascending: false }).limit(HISTORY_MAX);
+    .eq("agent_id", agentId).lt("created_at", page.before && !Number.isNaN(Date.parse(page.before)) ? page.before : "9999-12-31")
+    .order("created_at", { ascending: false }).limit(HISTORY_PAGE);
   if (error) throw new Error(`history: ${error.message}`);
   const rows = (data ?? []) as { id: string; created_at: string; settings: unknown; model: string; cost_thb: number; image_path: string }[];
   if (!rows.length) return [];

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { splitPrompt } from "@/lib/content/describe";
 import type { Reading } from "@/lib/content/describe-history";
 import { DescribePicker, type DescribeOk } from "../ui/DescribePicker";
-import { clearReadingsAction, deleteReadingAction } from "./actions";
+import { clearReadingsAction, deleteReadingAction, moreReadingsAction } from "./actions";
+import { HISTORY_PAGE } from "@/lib/content/history-page";
 import { ask } from "../ask";
 
 /** what the result area shows: a read just made, or one opened from the history */
@@ -20,6 +21,19 @@ const when = (iso: string) =>
  */
 export function DescribeBoard({ initial }: { initial: Reading[] | null }) {
   const [items, setItems] = useState<Reading[] | null>(initial);
+  // the history comes thirty at a time (owner, 2026-10-18): ดูเพิ่ม asks for the next, after the oldest shown
+  const [more, setMore] = useState(Boolean(initial && initial.length >= HISTORY_PAGE));
+  const [loadingMore, setLoadingMore] = useState(false);
+  async function loadMore() {
+    const oldest = items?.[items.length - 1]?.createdAt;
+    if (!oldest || loadingMore) return;
+    setLoadingMore(true);
+    const page = await moreReadingsAction(oldest).catch(() => null);
+    setLoadingMore(false);
+    if (!page) return;
+    setItems((list) => (list ? [...list, ...page.filter((x) => !list.some((y) => y.id === x.id))] : list));
+    setMore(page.length >= HISTORY_PAGE);
+  }
   const [shown, setShown] = useState<Shown | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -129,6 +143,9 @@ export function DescribeBoard({ initial }: { initial: Reading[] | null }) {
               </li>
             ))}
           </ul>
+        )}
+        {more && (
+          <button type="button" className={`${btn} mt-3`} disabled={loadingMore} onClick={loadMore}>{loadingMore ? "กำลังโหลด…" : "ดูเพิ่ม"}</button>
         )}
       </section>
     </div>

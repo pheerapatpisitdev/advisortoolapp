@@ -199,3 +199,14 @@ describe("clearReadings sweeps the member's folder", () => {
     expect([...historyDb.files.keys()].filter((p) => p.startsWith(`${B}/`))).toHaveLength(2);
   });
 });
+
+describe("listReadings, a page at a time (owner, 2026-10-18)", () => {
+  it("reads thirty, then the rest after the oldest shown", async () => {
+    for (let i = 0; i < 35; i++) await saveReading(A, reading(i));
+    const first = await listReadings(A);
+    expect(first).toHaveLength(30);
+    const rest = await listReadings(A, { before: first[first.length - 1].createdAt });
+    expect(rest).toHaveLength(5);
+    expect(new Set([...first, ...rest].map((r) => r.id)).size).toBe(35);
+  });
+});

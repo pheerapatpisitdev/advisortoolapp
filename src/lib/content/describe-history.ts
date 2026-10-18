@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { HISTORY_PAGE } from "./history-page";
 import { parseSwatches, type Swatch } from "./palette";
 
 /**
@@ -85,11 +86,14 @@ async function trim(agentId: string): Promise<void> {
 }
 
 /** the member's own history, newest first, each with a signed link to its thumbnail */
-export async function listReadings(agentId: string): Promise<Reading[]> {
+/** a page of the history (owner, 2026-10-18: it read and signed all {HISTORY_MAX} on every open); `before`: the page after that time */
+
+export async function listReadings(agentId: string, page: { before?: string } = {}): Promise<Reading[]> {
   if (!UUID.test(agentId)) return [];
   const db = supabaseAdmin();
   const { data, error } = await db.from(TABLE).select("id, created_at, prompt, summary_th, palette, thumb_path")
-    .eq("agent_id", agentId).order("created_at", { ascending: false }).limit(HISTORY_MAX);
+    .eq("agent_id", agentId).lt("created_at", page.before && !Number.isNaN(Date.parse(page.before)) ? page.before : "9999-12-31")
+    .order("created_at", { ascending: false }).limit(HISTORY_PAGE);
   if (error) throw new Error(`history: ${error.message}`);
   const rows = (data ?? []) as { id: string; created_at: string; prompt: string; summary_th: string; palette: unknown; thumb_path: string }[];
   if (!rows.length) return [];
