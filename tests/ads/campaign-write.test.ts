@@ -45,6 +45,8 @@ vi.mock("@/lib/auth/viewer", async () => {
 });
 // a fresh address per request, so the hourly limit of ten rounds never stands in a test's way
 vi.mock("next/headers", () => ({ headers: async () => new Map([["x-real-ip", `10.0.0.${++ip.n}`]]) }));
+// the hourly limit counts per agent now (owner, 2026-10-18), and every test is the same owner: it never stands in a test's way
+vi.mock("@/lib/assistant/rate-limit", async (orig) => ({ ...(await orig<typeof import("@/lib/assistant/rate-limit")>()), limiter: () => () => true }));
 vi.mock("@/lib/auth/quota", () => quota);
 vi.mock("@/lib/auth/pages", async (orig) => ({ ...(await orig<typeof import("@/lib/auth/pages")>()), projectPage: project.projectPage, myPages: project.myPages }));
 vi.mock("@/lib/ads/campaign-store", async (orig) => ({ ...(await orig<typeof import("@/lib/ads/campaign-store")>()), ...campaigns }));

@@ -55,7 +55,7 @@ import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publis
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 import { can } from "@/lib/auth/access";
 import { myPages, projectPage } from "@/lib/auth/pages";
-import { requireMember, requireStaff } from "@/lib/auth/viewer";
+import { getViewer, requireMember, requireStaff } from "@/lib/auth/viewer";
 import { getCampaign, listCampaignPieces, type AdCampaign } from "@/lib/ads/campaign-store";
 import { contactBlock, getPageContact } from "@/lib/ads/page-contact";
 import { campaignLang } from "@/lib/ads/campaign-lang";
@@ -78,9 +78,15 @@ const proofPerHour = limiter(40, 60 * 60_000);
 /** a picture is about ฿0.4 and takes half a minute; every new post orders one, so forty an hour */
 const drawPerHour = limiter(40, 60 * 60_000);
 
+/**
+ * Whose hour a limit counts: the signed-in agent's own (owner, 2026-10-18 — by address, an
+ * office behind one connection shared ten rounds an hour); the address only for nobody signed in.
+ */
 async function caller(): Promise<string> {
-  return clientIp(await headers());
+  const viewer = await getViewer().catch(() => null);
+  return viewer ? `agent:${viewer.agentId}` : clientIp(await headers());
 }
+const HOUR_FULL = "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ";
 
 /** the ceiling reached, as the owner is told it */
 const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว (กันไว้ให้บอทตอบลูกค้า) — เพิ่มงบได้ที่หน้า /admin/ai`;
@@ -317,9 +323,7 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
   // an English piece is saved marked, with the English regulator line and always a poster (lang.ts)
   const inTongue = (o: ContentOutput): ContentOutput => (expat ? englishOutput(o, brief.product.name) : o);
 
-  if (!perHour(`content:${await caller()}`)) {
-    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
-  }
+  if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   // the owner's ceiling before a round is counted, not after (ceiling.ts, review 2026-10-01)
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
@@ -498,11 +502,10 @@ export async function generateRecruit(input: RecruitWriteInput): Promise<Generat
   const closed = await closedFor(viewer, "write");
   if (closed) return { ok: false, error: closed };
   if (input.format === "ad") return { ok: false, error: ADS_MOVED };
-  if (!perHour(`content:${await caller()}`)) {
-    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
-  }
   const project = await projectPage(input.page);
   if (!project.ok) return project;
+  // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
+  if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-recruit");
@@ -515,15 +518,14 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "write");
   if (closed) return { ok: false, error: closed };
-  if (!perHour(`content:${await caller()}`)) {
-    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
-  }
   // a subject not given is said before a round is counted
   if (!subjectOf(String(input.kind ?? ""), String(input.subject ?? ""), typeof input.custom === "string" ? input.custom : "")) {
     return { ok: false, error: "เลือกหัวข้อ หรือพิมพ์หัวข้อเองก่อนนะครับ" };
   }
   const project = await projectPage(input.page);
   if (!project.ok) return project;
+  // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
+  if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-knowledge");
@@ -537,13 +539,12 @@ export async function generateDraft(input: DraftWriteInput): Promise<GenerateRes
   const closed = await closedFor(viewer, "write");
   if (closed) return { ok: false, error: closed };
   if (input.format === "ad") return { ok: false, error: ADS_MOVED };
-  if (!perHour(`content:${await caller()}`)) {
-    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
-  }
   // an empty draft is said before a round is counted
   if (!cleanDraft(input.draft)) return { ok: false, error: "พิมพ์ร่างก่อนนะครับ" };
   const project = await projectPage(input.page);
   if (!project.ok) return project;
+  // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
+  if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-draft");
@@ -557,15 +558,14 @@ export async function generateThanks(input: ThanksWriteInput): Promise<GenerateR
   const closed = await closedFor(viewer, "write");
   if (closed) return { ok: false, error: closed };
   if (input.format === "ad") return { ok: false, error: ADS_MOVED };
-  if (!perHour(`content:${await caller()}`)) {
-    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
-  }
   // an occasion not given is said before a round is counted
   if (!occasionOf(String(input.occasion ?? ""), typeof input.custom === "string" ? input.custom : "")) {
     return { ok: false, error: "เลือกโอกาส หรือพิมพ์เองก่อนนะครับ" };
   }
   const project = await projectPage(input.page);
   if (!project.ok) return project;
+  // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
+  if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-thanks");
@@ -579,14 +579,13 @@ export async function generateSaying(input: SayingWriteInput): Promise<GenerateR
   const closed = await closedFor(viewer, "write");
   if (closed) return { ok: false, error: closed };
   if (input.format === "ad") return { ok: false, error: ADS_MOVED };
-  if (!perHour(`content:${await caller()}`)) {
-    return { ok: false, error: "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ" };
-  }
   // nothing to write from, or words too long for the poster, is said before a round is counted
   const read = readSaying(input);
   if (!read.ok) return { ok: false, error: read.error };
   const project = await projectPage(input.page);
   if (!project.ok) return project;
+  // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
+  if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-saying");

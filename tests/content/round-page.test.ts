@@ -86,3 +86,12 @@ describe("the workbench's lists", () => {
     expect(store.listContent).not.toHaveBeenCalled();
   });
 });
+
+describe("the hourly limit (owner, 2026-10-18)", () => {
+  it("is not spent by a form that is not right yet", async () => {
+    project.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });
+    for (let i = 0; i < 12; i++) expect(await generateDraft({ draft: "", count: 1 } as never)).toEqual({ ok: false, error: "พิมพ์ร่างก่อนนะครับ" });
+    await generateDraft({ draft: "ร่างของฉัน", count: 1 } as never);
+    expect(runs.writeDraft).toHaveBeenCalledTimes(1);
+  });
+});

@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { closedFor } from "@/lib/switches/store";
-import { clientIp, limiter } from "@/lib/assistant/rate-limit";
+import { limiter } from "@/lib/assistant/rate-limit";
 import { MAX_DOCS } from "@/lib/content/claim";
 import { ADS_MOVED } from "@/lib/content/prompt";
 import { MAX_PAPERS, okRatio } from "@/lib/content/poster";
@@ -51,11 +51,12 @@ export async function POST(req: NextRequest) {
   const files = images(form, "docs");
   if (typeof files === "string") return bad(files);
   if (files.length === 0 || files.length > MAX_DOCS) return bad(`เลือกรูป 1–${MAX_DOCS} รูปนะครับ`);
-  if (!readsPerHour(`showcase-read:${clientIp(req.headers)}`)) return bad("อ่านรูปครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ", 429);
   const viewer = await requireMember();
   // the Organic Studio switch closes this too, not only the page's own actions (owner, 2026-10-18)
   const closed = await closedFor(viewer, "write");
   if (closed) return bad(closed, 503);
+  // counted per agent, not per address: an office behind one connection shared it (owner, 2026-10-18)
+  if (!readsPerHour(`showcase-read:${viewer.agentId}`)) return bad("อ่านรูปครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ", 429);
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
   const pass = await takeRound(viewer, "ai-showcase");
@@ -86,7 +87,6 @@ export async function PUT(req: NextRequest) {
   if (typeof files === "string") return bad(files);
   const ratios = form.getAll("ratio").map(Number);
   if (files.length > MAX_PAPERS || ratios.length !== files.length || !ratios.every(okRatio)) return bad("ขนาดรูปไม่ถูกต้อง ลองเลือกรูปใหม่อีกครั้งนะครับ");
-  if (!roundsPerHour(`showcase-write:${clientIp(req.headers)}`)) return bad("สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ", 429);
   // the Page whose project the round goes into, settled before a round is counted
   const project = await projectPage(String(form.get("page") ?? ""));
   if (!project.ok) return bad(project.error, 403);
@@ -94,6 +94,8 @@ export async function PUT(req: NextRequest) {
   // the Organic Studio switch closes this too, not only the page's own actions (owner, 2026-10-18)
   const closed = await closedFor(viewer, "write");
   if (closed) return bad(closed, 503);
+  // counted per agent, not per address: an office behind one connection shared it (owner, 2026-10-18)
+  if (!roundsPerHour(`showcase-write:${viewer.agentId}`)) return bad("สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ", 429);
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
   const pass = await takeRound(viewer, "ai-showcase");
