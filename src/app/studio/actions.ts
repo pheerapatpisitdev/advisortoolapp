@@ -48,7 +48,7 @@ import { kindSteer } from "@/lib/content/ad-kinds";
 import { adFactsPlan, numbersAdFigures } from "@/lib/content/ad-figures";
 import { hasLadder, headlineFigures, headlineOwner, headlineSheet, otherPeople, premiumTable, restatedFigures, tableText, type HeadlinePick, type PremiumTable } from "@/lib/content/premium-table";
 import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, numbersYardstick, type NumberSheet } from "@/lib/content/numbers";
-import { numberSheets } from "@/lib/content/numbers-plans";
+import { numberSheets, numbersReady } from "@/lib/content/numbers-plans";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
 import { maybeOnPage, onPage, publishView } from "@/lib/content/publish-label";
 import { forClient } from "@/lib/content/clip";
@@ -319,6 +319,14 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
   // an English piece is saved marked, with the English regulator line and always a poster (lang.ts)
   const inTongue = (o: ContentOutput): ContentOutput => (expat ? englishOutput(o, brief.product.name) : o);
 
+  // ตัวเลขชัดๆ that cannot be written is said before a round is counted (owner, 2026-10-18); the
+  // "(ตารางเบี้ยอาจหมดอายุ)" only where a rate table is there to have run out
+  if (angle === "numbers") {
+    if (input.format !== "post") return { ok: false, error: "มุมตัวเลขชัดๆ ใช้ได้กับโพสต์เฟซบุ๊กเท่านั้น" };
+    const ready = numbersReady(brief.product.href, undefined, lang);
+    if (ready === "none") return { ok: false, error: "แบบนี้ยังไม่มีมุมตัวเลขชัดๆ ลองมุมอื่นก่อนนะครับ" };
+    if (ready === "stale") return { ok: false, error: "แบบนี้ยังคำนวณตัวเลขไม่ได้ในตอนนี้ (ตารางเบี้ยอาจหมดอายุ) ลองมุมอื่นก่อนนะครับ" };
+  }
   if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   // the owner's ceiling before a round is counted, not after (ceiling.ts, review 2026-10-01)
   const ceiling = await ceilingBeforeRound(viewer);

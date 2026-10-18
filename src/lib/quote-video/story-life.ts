@@ -125,7 +125,7 @@ function preRetire(input: StoryVideoInput, name: string): KnowScene[] {
   const years = LIVE_TO - start;
   return [
     scene("knowAsk", { layout: "ask", title: ["เกษียณแล้ว", "เงินพอไหม?"] }, `${name ? `คุณ${name} ` : ""}เกษียณแล้ว เงินจะพอใช้ไหมคะ`),
-    scene("knowOne", { layout: "timeline", title: ["ชีวิตหลังเกษียณ", ""], rows: [{ at: String(p?.age ?? 45), label: "ยังมีรายได้" }, { at: String(start), label: "เกษียณ เงินเดือนหยุด" }, { at: String(LIVE_TO), label: `ยังต้องใช้เงินอีก ${years} ปี` }] },
+    scene("knowOne", { layout: "timeline", title: ["ชีวิตหลังเกษียณ", ""], rows: [{ at: p?.age ? String(p.age) : "วันนี้", label: "ยังมีรายได้" }, { at: String(start), label: "เกษียณ เงินเดือนหยุด" }, { at: String(LIVE_TO), label: `ยังต้องใช้เงินอีก ${years} ปี` }] },
       `อายุ ${start} เกษียณ เงินเดือนหยุด แต่ถ้าอยู่ถึง ${LIVE_TO} เรายังต้องใช้เงินอีก ${years} ปีค่ะ`),
     spend
       ? scene("knowTwo", { layout: "card", title: ["ลองคิดเร็ว ๆ", ""], lines: [small(`ใช้เดือนละ ${n(spend.monthly)}`), small(`× 12 เดือน × ${years} ปี`), big(`= ${n(spend.monthly * 12 * years)} บาท`, "red")] },

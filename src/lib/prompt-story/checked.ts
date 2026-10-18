@@ -26,7 +26,7 @@ const len = (s: string) => [...s].length;
 export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "M", voice?: string): PromptStoryInput | string {
   if (typeof v.draftId !== "string" || !DRAFT_ID.test(v.draftId)) return "เขียนบทก่อน แล้วค่อยกดสร้างคลิป";
   const brief = typeof v.brief === "string" ? v.brief.trim() : "";
-  if (!brief) return "พิมพ์โจทย์ก่อนนะคะ";
+  if (!brief) return "พิมพ์โจทย์ก่อนนะครับ";
   if (brief.length > BRIEF_MAX) return `โจทย์ยาวเกินไป ใส่ได้ไม่เกิน ${BRIEF_MAX} ตัวอักษร`;
   const title = text(v.title);
   if (!title || len(title) > TITLE_MAX) return `ใส่ชื่อคลิป ไม่เกิน ${TITLE_MAX} ตัวอักษร`;

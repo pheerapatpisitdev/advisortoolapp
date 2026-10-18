@@ -56,6 +56,17 @@ export function numberSheets(href: string, count: number, today: Date = new Date
   });
 }
 
+/**
+ * Whether ตัวเลขชัดๆ can be written for this product now, asked before a round is counted
+ * (owner, 2026-10-18): "none" when it has no numbers plan, "stale" when its rate table prices no
+ * case today (expired), "ok" otherwise.
+ */
+export function numbersReady(href: string, today: Date = new Date(), lang: Lang = "th"): "none" | "stale" | "ok" {
+  const plan = (lang === "en" ? EXPAT_NUMBERS_PLANS : NUMBERS_PLANS)[href];
+  if (!plan) return "none";
+  return numberSheets(href, 1, today, lang).length ? "ok" : "stale";
+}
+
 /** every line of a sheet with ตลอดชีพ in place of 99 (wording.ts) — the engines say "ถึงอายุ 99" */
 export function lifelongSheet(s: NumberSheet): NumberSheet {
   return {

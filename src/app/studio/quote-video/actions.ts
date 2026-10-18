@@ -328,7 +328,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   const gemini = eleven ? undefined : geminiVoice(v?.gemini);
   const contact = await getContact(viewer.agentId);
   if (!(contact.name || viewer.name).trim() || !contact.phone) {
-    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
+    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอนะครับ" };
   }
   const full = await voiceRefusal(eleven?.id);
   if (full) return { ok: false, error: full };
@@ -347,7 +347,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
     return { ok: true, id };
   } catch (e) {
     console.error("fhc video not started:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 
@@ -380,7 +380,7 @@ export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" 
   const input: StoryVideoInput = gemini ? { ...asked, gemini: gemini.name } : asked;
   const contact = await getContact(viewer.agentId);
   if (!(contact.name || viewer.name).trim() || !contact.phone) {
-    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
+    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอนะครับ" };
   }
   const full = await voiceRefusal(input.voice);
   if (full) return { ok: false, error: full };
@@ -392,7 +392,7 @@ export async function makeStoryVideo(v: Omit<Partial<StoryVideoInput>, "figure" 
     return { ok: true, id };
   } catch (e) {
     console.error("story video not started:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 
@@ -446,7 +446,7 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
   if (!quoteVideoFacts(c)) return { ok: false, error: NOT_PRICED };
   const contact = await getContact(viewer.agentId);
   if (!(contact.name || viewer.name).trim() || !contact.phone) {
-    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
+    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอนะครับ" };
   }
   const full = await voiceRefusal(c.voice, langOfInput(c) === "th");
   if (full) return { ok: false, error: full };
@@ -459,7 +459,7 @@ export async function makeVideo(v: VideoInput, customer: string): Promise<Made> 
     return { ok: true, id };
   } catch (e) {
     console.error("quote video not started:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 
@@ -478,7 +478,7 @@ export async function removeVideo(id: string): Promise<{ ok: true } | { ok: fals
     return { ok: true };
   } catch (e) {
     console.error("quote video not deleted:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "ลบไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "ลบไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 
@@ -517,7 +517,7 @@ export async function addToCalendar(id: string, pageId: string, caption: string)
     return { ok: true, pageId };
   } catch (e) {
     console.error("quote video not put on the calendar:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เพิ่มลงปฏิทินไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "เพิ่มลงปฏิทินไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 
@@ -682,7 +682,7 @@ export async function writePostText(id: string, tone: unknown, voice: unknown): 
     await savePost(viewer.agentId, id, post);
   } catch (e) {
     console.error("clip post not kept:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เก็บข้อความไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "เก็บข้อความไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
   return { ok: true, post: clipPost(post)! };
 }
@@ -700,7 +700,7 @@ export async function keepPostText(id: string, text: unknown): Promise<{ ok: tru
     return { ok: true };
   } catch (e) {
     console.error("clip post edit not kept:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เก็บข้อความไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "เก็บข้อความไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 

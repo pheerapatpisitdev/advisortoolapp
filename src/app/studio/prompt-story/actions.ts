@@ -44,7 +44,7 @@ export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; fi
     if (!passOpen(access)) return { ok: false, error: PASS_EXPIRED };
   }
   const brief = typeof v?.brief === "string" ? v.brief.trim() : "";
-  if (!brief) return { ok: false, error: "พิมพ์โจทย์ก่อนนะคะ" };
+  if (!brief) return { ok: false, error: "พิมพ์โจทย์ก่อนนะครับ" };
   if (brief.length > BRIEF_MAX) return { ok: false, error: `โจทย์ยาวเกินไป ใส่ได้ไม่เกิน ${BRIEF_MAX} ตัวอักษร` };
   if (v.scenes !== 3 && v.scenes !== 5 && v.scenes !== 8) return { ok: false, error: "เลือกจำนวนฉาก 3, 5 หรือ 8" };
 
@@ -55,7 +55,7 @@ export async function writePromptStory(v: { brief: string; scenes: 3 | 5 | 8; fi
     figure = f;
   }
 
-  if ((await draftsLastHour(viewer.agentId)) >= HOURLY_LIMIT) return { ok: false, error: `เขียนบทครบ ${HOURLY_LIMIT} ครั้งในชั่วโมงนี้แล้ว รอสักครู่แล้วลองใหม่นะคะ` };
+  if ((await draftsLastHour(viewer.agentId)) >= HOURLY_LIMIT) return { ok: false, error: `เขียนบทครบ ${HOURLY_LIMIT} ครั้งในชั่วโมงนี้แล้ว รอสักครู่แล้วลองใหม่นะครับ` };
 
   const w = await writeStory({ brief, scenes: v.scenes, figure });
   const asked = { brief, scenes: v.scenes, figure: figure ?? null };
@@ -85,7 +85,7 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
   const input = gemini ? { ...asked, gemini: gemini.name } : asked;
   const contact = await getContact(viewer.agentId);
   if (!(contact.name || viewer.name).trim() || !contact.phone) {
-    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอ" };
+    return { ok: false, needContact: true, error: "ใส่ชื่อและเบอร์ในบัญชีของฉันก่อน ลูกค้าจะเห็นตอนท้ายวิดีโอนะครับ" };
   }
   const full = await voiceRefusal(input.voice);
   if (full) return { ok: false, error: full };
@@ -97,7 +97,7 @@ export async function makePromptStory(v: Record<string, unknown>, customer: stri
     return { ok: true, id };
   } catch (e) {
     console.error("prompt story not started:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "เริ่มทำวิดีโอไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 
@@ -112,6 +112,6 @@ export async function redrawPromptPicture(id: string, scene: number): Promise<{ 
     return await redrawPicture(viewer, id, scene, (work) => after(() => asWho(viewer.agentId, work)));
   } catch (e) {
     console.error("prompt story redraw not started:", e instanceof Error ? e.message : "unknown error");
-    return { ok: false, error: "วาดภาพใหม่ไม่สำเร็จ ลองใหม่อีกครั้ง" };
+    return { ok: false, error: "วาดภาพใหม่ไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
