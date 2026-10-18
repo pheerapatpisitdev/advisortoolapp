@@ -26,7 +26,8 @@ interface Loaded {
 export function ClaimPaperCheck({ item, onChecked, onPending }: { item: { id: string; output: { poster?: PosterSpec | null } }; onChecked: (item: ContentItem) => void; onPending?: (pending: boolean) => void }) {
   const docs = item.output.poster?.documents ?? [];
   const key = docs.map((d) => d.path).join("|");
-  const [papers, setPapers] = useState<(Loaded | null)[] | null>(null);
+  // every paper loads, or the whole check says it failed: none is ever missing on its own
+  const [papers, setPapers] = useState<Loaded[] | null>(null);
   const [failed, setFailed] = useState(false);
   /** the stickers the owner adds, per paper */
   const [boxes, setBoxes] = useState<Box[][]>([]);
@@ -75,7 +76,7 @@ export function ClaimPaperCheck({ item, onChecked, onPending }: { item: { id: st
       const form = new FormData();
       form.set("id", item.id);
       for (const [i, p] of papers.entries()) {
-        if (!p || !boxes[i]?.length) continue;
+        if (!boxes[i]?.length) continue;
         form.set(`paper-${i}`, await burn(p.blob, boxes[i]), `paper-${i}.jpg`);
         form.set(`ratio-${i}`, String(p.width / p.height));
       }
@@ -106,7 +107,7 @@ export function ClaimPaperCheck({ item, onChecked, onPending }: { item: { id: st
         <p className="text-sm text-[var(--ct-mute)]">กำลังโหลดรูปเอกสาร…</p>
       ) : (
         <>
-          {papers.map((p, i) => p && (
+          {papers.map((p, i) => (
             <div key={i} className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 {docs.length > 1 && <span className="text-sm font-medium">ใบที่ {i + 1}</span>}

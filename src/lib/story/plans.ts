@@ -9,6 +9,8 @@ export const STORY_PLANS: { code: StoryPlan; name: string; terms: { variant: str
   { code: "LIFEPROTECT", name: "Life Protect", terms: [{ variant: "WLF09H", short: "จ่าย 9 ปี" }, { variant: "WLF19H", short: "จ่าย 19 ปี" }, { variant: "WLF99H", short: "จ่ายถึงอายุ 99" }] },
 ];
 
+/** the term a story clip opens on for each plan; one list for คลิปเล่าเรื่อง and คลิปตามโจทย์ */
+export const STORY_DEFAULT_TERM: Record<StoryPlan, string> = { ISHIELD: "WLCI10", LIFEPROTECT: "WLF19H" };
 export const planName = (p: StoryPlan) => STORY_PLANS.find((x) => x.code === p)?.name ?? p;
 export const termShort = (f: { plan: StoryPlan; variant: string }) =>
   STORY_PLANS.find((x) => x.code === f.plan)?.terms.find((t) => t.variant === f.variant)?.short ?? "";

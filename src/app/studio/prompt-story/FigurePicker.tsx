@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
+import { STORY_DEFAULT_TERM, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { previewStoryFigure } from "../quote-video/actions";
 
 /**
@@ -15,9 +15,8 @@ const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 py-1.5 text-sm ${on ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] font-medium text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`;
 const field = "w-full rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 py-2 text-sm";
 const label = "mb-1 block text-sm font-medium";
-const DEFAULT_TERM: Record<StoryPlan, string> = { ISHIELD: "WLCI10", LIFEPROTECT: "WLF19H" };
 
-export const DEFAULT_FIGURE: FigureChoice = { plan: "ISHIELD", variant: DEFAULT_TERM.ISHIELD, sex: "M", age: 40, sumAssured: 1_000_000 };
+export const DEFAULT_FIGURE: FigureChoice = { plan: "ISHIELD", variant: STORY_DEFAULT_TERM.ISHIELD, sex: "M", age: 40, sumAssured: 1_000_000 };
 
 export function FigurePicker({ value, onChange, onPremium }: {
   value: FigureChoice;
@@ -45,7 +44,7 @@ export function FigurePicker({ value, onChange, onPremium }: {
     <div className="space-y-3 rounded-xl border border-dashed border-[var(--ct-line)] p-3">
       <div className="flex flex-wrap gap-2">
         {STORY_PLANS.map((p) => (
-          <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => onChange({ ...value, plan: p.code, variant: DEFAULT_TERM[p.code] })}>{p.name}</button>
+          <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => onChange({ ...value, plan: p.code, variant: STORY_DEFAULT_TERM[p.code] })}>{p.name}</button>
         ))}
       </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="เพศ">

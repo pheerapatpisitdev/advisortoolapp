@@ -1,5 +1,6 @@
 "use server";
 import { after } from "next/server";
+import { mayPromptStory } from "@/lib/prompt-story/access";
 import { asWho } from "@/lib/ai/who";
 import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
@@ -539,6 +540,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
   const est = list.some(making) ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
   const now = Date.now();
   const owner = can(viewer, "owner");
+  const mayRedraw = mayPromptStory(viewer);
   const prices = !owner && list.some((v) => v.status === "done" && isPromptStory(v.input)) ? await walletPrices().catch(() => null) : null;
   // how far a clip being made is: the board runs the bar on from here between its reads
   const progressOf = (v: VideoRow): ProgressState | null => {
@@ -591,7 +593,8 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
         status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
-        ...(v.status === "done" && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)) } } : {}),
+        // only who may make a คลิปตามโจทย์ may draw a scene again (redrawPicture refuses the rest, owner 2026-10-18)
+        ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)) } } : {}),
       };
     }
     const input = v.input;

@@ -6,6 +6,7 @@ import { PAINTERS } from "@/lib/content/models";
 import { MAX_HEADLINE, MAX_SUB, MAX_TOPIC, SIZES, STYLES, type Idea, type ThumbSize, type ThumbStyle } from "@/lib/content/thumbnail";
 import type { ThumbCheck, ThumbSettings, Thumbnail } from "@/lib/content/thumbnail-history";
 import { formatBaht } from "@/lib/wallet/money";
+import { ask } from "../ask";
 import type { Rounds } from "@/lib/wallet/note";
 import { PersonPicker, type PersonOption } from "../PersonPicker";
 import { paintPrice, usePrices } from "../ui/prices";
@@ -296,7 +297,7 @@ export function ThumbnailBoard({ people, initial, owner, rounds: initialRounds }
                   <div className="mt-2 flex flex-wrap gap-2">
                     {item.imageUrl && <SaveCover url={item.imageUrl} name={`cover-${item.settings.size.replace(":", "x")}.jpg`} />}
                     <button type="button" className={btn} onClick={() => reuse(item.settings)}>ใช้ค่าชุดนี้</button>
-                    <button type="button" className={btn} onClick={() => { if (window.confirm("ลบภาพปกนี้?")) remove(item.id); }}>ลบ</button>
+                    <button type="button" className={btn} onClick={async () => { if (await ask("ลบภาพปกนี้?", "ลบ")) remove(item.id); }}>ลบ</button>
                   </div>
                 </li>
               ))}

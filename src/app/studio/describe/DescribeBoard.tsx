@@ -5,6 +5,7 @@ import { splitPrompt } from "@/lib/content/describe";
 import type { Reading } from "@/lib/content/describe-history";
 import { DescribePicker, type DescribeOk } from "../ui/DescribePicker";
 import { clearReadingsAction, deleteReadingAction } from "./actions";
+import { ask } from "../ask";
 
 /** what the result area shows: a read just made, or one opened from the history */
 interface Shown { prompt: string; summaryTh: string; costThb?: number }
@@ -56,7 +57,7 @@ export function DescribeBoard({ initial }: { initial: Reading[] | null }) {
   }
 
   async function clearAll() {
-    if (!window.confirm("ลบประวัติทั้งหมดของคุณ?")) return;
+    if (!(await ask("ลบประวัติทั้งหมดของคุณ?", "ลบ"))) return;
     const res = await clearReadingsAction();
     setDeleteFailed(!res.ok);
     if (res.ok) setItems([]);

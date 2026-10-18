@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { availablePensionAges, PENSION_LIMITS, type PensionPay } from "@/calc/pension/engine";
 import { STORY_CLIP_COLORS } from "@/lib/card-theme";
 import type { CostView } from "@/lib/quote-video/make";
-import { STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
+import { STORY_DEFAULT_TERM, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { FESTIVALS, figureShown, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { VideoSize } from "@/lib/quote-video/timeline";
 import { voiceNotice } from "@/lib/quote-video/voice-quota";
@@ -51,7 +51,6 @@ const WITH_PARTNER: StoryTopic[] = ["pillar", "mompillar", "prebaby", "wedding",
 const baht = (v: number) => v.toLocaleString("en-US");
 const digits = (v: string, max: number) => { const n = Number(v.replace(/[^\d]/g, "").slice(0, max)); return n ? baht(n) : ""; };
 const TAG_WORD: Record<FaceTag, string> = { glasses: "ใส่แว่น", curly: "ผมหยิก", hat: "ใส่หมวก" };
-const DEFAULT_TERM: Record<StoryPlan, string> = { ISHIELD: "WLCI10", LIFEPROTECT: "WLF19H" };
 /** what each plan's figure makes of the story (story.ts storyEvent) */
 const PLAN_STORY: Record<StoryPlan, string> = { ISHIELD: "คลิปเล่าว่าป่วยเป็นโรคร้ายแรง", LIFEPROTECT: "คลิปเล่าว่าจากไปไม่ทันตั้งตัว เงินไปถึงครอบครัว" };
 
@@ -210,7 +209,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [withFigure, setWithFigure] = useState(false);
   const [ladder, setLadder] = useState<{ age: number; annual: number }[] | { error: string } | null>(null);
   const [plan, setPlan] = useState<StoryPlan>("ISHIELD");
-  const [variant, setVariant] = useState(DEFAULT_TERM.ISHIELD);
+  const [variant, setVariant] = useState(STORY_DEFAULT_TERM.ISHIELD);
   const [age, setAge] = useState("35");
   const [sum, setSum] = useState("1,000,000");
   const [figure, setFigure] = useState<{ annual: number; monthly: number } | { error: string } | null>(null);
@@ -255,7 +254,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     setTopic(t);
     // แม่คือเสาหลักอีกต้น is told by the children's mother; a story held to one plan starts on it
     if (next.heroSex && heroSex !== next.heroSex) pickSex(next.heroSex);
-    if (next.plans && !next.plans.includes(plan)) { setPlan(next.plans[0]); setVariant(DEFAULT_TERM[next.plans[0]]); }
+    if (next.plans && !next.plans.includes(plan)) { setPlan(next.plans[0]); setVariant(STORY_DEFAULT_TERM[next.plans[0]]); }
   }
   function pickHero(f: string) {
     setHeroFace(f);
@@ -608,7 +607,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                 <div>
                   <span className={label}>แบบที่ใช้เป็นตัวอย่าง</span>
                   <div className="flex flex-wrap gap-2">
-                    {plans.map((p) => <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => { setPlan(p.code); setVariant(DEFAULT_TERM[p.code]); }}>{p.name}</button>)}
+                    {plans.map((p) => <button key={p.code} type="button" className={chip(plan === p.code)} onClick={() => { setPlan(p.code); setVariant(STORY_DEFAULT_TERM[p.code]); }}>{p.name}</button>)}
                   </div>
                   {topic === "pool48" && <p className="mt-1 text-xs text-[var(--ct-mute)]">{PLAN_STORY[plan]} ให้ตรงกับสิ่งที่แบบนี้จ่ายจริง</p>}
                   {info.plans && <p className="mt-1 text-xs text-[var(--ct-mute)]">เรื่องนี้ใช้ {plans.map((p) => p.name).join(" หรือ ")} ให้ตรงกับสิ่งที่แบบนี้จ่ายจริง</p>}

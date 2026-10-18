@@ -2,30 +2,26 @@ import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let hourCount = 0;
+/** rows taken this test: saveDraft's, less those given back */
 const saved: unknown[][] = [];
+const scripts = new Map<string, unknown>();
 const written = vi.fn();
 vi.mock("@/lib/auth/viewer", () => ({ requireMember: async () => ({ agentId: "agent-1" }) }));
 // the owner's alone since 2026-10-17 (actions-make.test.ts checks the refusal); the limits below stay for when it reopens
 vi.mock("@/lib/prompt-story/access", () => ({ mayPromptStory: () => true, PROMPT_STORY_CLOSED: "ปิด" }));
 vi.mock("@/lib/prompt-story/drafts", () => ({
-  draftsLastHour: async () => hourCount,
-  saveDraft: async (...a: unknown[]) => { saved.push(a); return "draft-1"; },
+  draftsUpTo: async (_a: string, id: string) => hourCount + Number(id.split("-")[1]),
+  saveDraft: async (...a: unknown[]) => { saved.push(a); const id = `draft-${saved.length}`; scripts.set(id, a[2]); return id; },
+  writeDraft: async (id: string, script: unknown) => { scripts.set(id, script); },
+  dropDraft: async () => { saved.pop(); },
 }));
 vi.mock("@/lib/prompt-story/writer", () => ({ writeStory: (...a: unknown[]) => written(...a) }));
-// a สมาชิกทั่วไป writes scripts only while their pass is live, as they make clips (make.ts createVideo)
-const pass = vi.hoisted(() => ({ open: true, unreadable: false }));
-vi.mock("@/lib/members/access", async (orig) => ({
-  ...(await orig<typeof import("@/lib/members/access")>()),
-  memberAccess: async () => { if (pass.unreadable) throw new Error("down"); return { gated: true }; },
-  passOpen: () => pass.open,
-}));
-import { PASS_EXPIRED, PASS_UNREADABLE } from "@/lib/members/access";
 
 import { writePromptStory } from "@/app/studio/prompt-story/actions";
 
 const OK = { ok: true, title: "t", caption: "c", scenes: [{ voice: "v", screen: "s", picture: "p" }], notes: [] };
 
-beforeEach(() => { hourCount = 0; saved.length = 0; pass.open = true; pass.unreadable = false; written.mockReset(); written.mockResolvedValue(OK); });
+beforeEach(() => { hourCount = 0; saved.length = 0; scripts.clear(); written.mockReset(); written.mockResolvedValue(OK); });
 
 describe("writePromptStory", () => {
   it("refuses the 21st script in an hour, in Thai, without writing", async () => {
@@ -34,6 +30,8 @@ describe("writePromptStory", () => {
     expect(r.ok).toBe(false);
     expect(!r.ok && /[ก-๙]/.test(r.error)).toBe(true);
     expect(written).not.toHaveBeenCalled();
+    // the row it took is given back, so the hour is not spent by a refusal
+    expect(saved).toHaveLength(0);
   });
   it("allows the 20th", async () => {
     hourCount = 19;
@@ -54,28 +52,22 @@ describe("writePromptStory", () => {
     written.mockResolvedValue({ ok: false, refusal: "ไม่เกี่ยวกับประกัน" });
     expect(await writePromptStory({ brief: "สูตรต้มยำ", scenes: 3 })).toEqual({ ok: false, error: "ไม่เกี่ยวกับประกัน" });
     expect(saved).toHaveLength(1);
-    expect(saved[0][2]).toEqual({ refused: true, refusal: "ไม่เกี่ยวกับประกัน" });
+    expect(scripts.get("draft-1")).toEqual({ refused: true, refusal: "ไม่เกี่ยวกับประกัน" });
   });
   it("refused briefs count toward the 20", async () => {
     written.mockResolvedValue({ ok: false, refusal: "ไม่เกี่ยวกับประกัน" });
     for (let i = 0; i < 20; i++) {
       await writePromptStory({ brief: `เรื่องอื่น ${i}`, scenes: 3 });
-      hourCount = saved.length;
     }
     expect(written).toHaveBeenCalledTimes(20);
     const r = await writePromptStory({ brief: "อีกเรื่อง", scenes: 3 });
     expect(r.ok).toBe(false);
     expect(written).toHaveBeenCalledTimes(20);
   });
-  it("refuses a member whose pass has run out, or cannot be read, before any model call", async () => {
-    pass.open = false;
-    expect(await writePromptStory({ brief: "ชวนวางแผน", scenes: 3 })).toEqual({ ok: false, error: PASS_EXPIRED });
-    pass.open = true;
-    pass.unreadable = true;
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await writePromptStory({ brief: "ชวนวางแผน", scenes: 3 })).toEqual({ ok: false, error: PASS_UNREADABLE });
-    expect(written).not.toHaveBeenCalled();
-    expect(saved).toHaveLength(0);
+  it("takes its row before counting, so two presses at once cannot both pass the 20th (owner, 2026-10-18)", async () => {
+    hourCount = 19;
+    const [a, b] = await Promise.all([writePromptStory({ brief: "หนึ่ง", scenes: 3 }), writePromptStory({ brief: "สอง", scenes: 3 })]);
+    expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
   });
   it("returns the scenes and the saved draft id", async () => {
     const r = await writePromptStory({ brief: "ชวนวางแผน", scenes: 5 });

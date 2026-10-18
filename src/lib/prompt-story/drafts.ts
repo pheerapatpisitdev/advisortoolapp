@@ -9,12 +9,30 @@ export async function saveDraft(agentId: string, brief: unknown, script: unknown
   return (data as { id: string }).id;
 }
 
-/** how many scripts this person asked for in the last rolling hour, refused ones too */
-export async function draftsLastHour(agentId: string): Promise<number> {
+/** a draft's script written once the AI answered (writePromptStory took the row first, as `{ pending: true }`) */
+export async function writeDraft(id: string, script: unknown): Promise<void> {
+  const { error } = await drafts().update({ script }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * The hour's scripts up to and including this draft's row: the presses before it, not after, so
+ * of two at once on the 20th the first goes through and the second is turned away.
+ */
+export async function draftsUpTo(agentId: string, id: string): Promise<number> {
+  const { data: own, error: e1 } = await drafts().select("created_at").eq("id", id).maybeSingle();
+  if (e1 || !own) throw new Error(e1?.message ?? "draft not read");
   const since = new Date(Date.now() - 3_600_000).toISOString();
-  const { count, error } = await drafts().select("id", { count: "exact", head: true }).eq("agent_id", agentId).gte("created_at", since);
+  const { count, error } = await drafts().select("id", { count: "exact", head: true }).eq("agent_id", agentId)
+    .gte("created_at", since).lte("created_at", (own as { created_at: string }).created_at);
   if (error) throw new Error(error.message);
   return count ?? 0;
+}
+
+/** a draft row taken over the hour's cap, given back */
+export async function dropDraft(id: string): Promise<void> {
+  const { error } = await drafts().delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }
 
 /**

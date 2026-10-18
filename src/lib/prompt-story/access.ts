@@ -2,7 +2,8 @@ import { can, type Viewer } from "@/lib/auth/access";
 
 /**
  * whether this viewer may make a คลิปตามโจทย์: the owner (015495) alone since 2026-10-17 (owner,
- * mockup https://claude.ai/artifact/LcRWfmRo4opwx7mymfd7fM); every agent and live-pass member before that
+ * mockup https://claude.ai/artifact/LcRWfmRo4opwx7mymfd7fM); every agent and live-pass member before that.
+ * Opened to members again, writePromptStory needs its pass check back (make.ts createVideo keeps its own).
  */
 export function mayPromptStory(viewer: Viewer | null): boolean {
   return Boolean(viewer?.agentId) && can(viewer, "owner");
