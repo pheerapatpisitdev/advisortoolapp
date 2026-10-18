@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { capReached } from "@/lib/content/budget-words";
 import { closedFor } from "@/lib/switches/store";
 import { limiter } from "@/lib/assistant/rate-limit";
 import { MAX_DOCS } from "@/lib/content/claim";
@@ -35,7 +36,6 @@ const roundsPerHour = limiter(10, 60 * 60_000);
 const bad = (error: string, status = 400) => Response.json({ ok: false, error }, { status });
 const NO_CONSENT = "ต้องติ๊กยืนยันว่าลูกค้ายินยอมให้ใช้เอกสารนี้ก่อนนะครับ";
 /** the owner's content ceiling reached, said before a round is counted (ceiling.ts, review 2026-10-01) */
-const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
 
 function images(form: FormData, name: string): File[] | string {
   const files = form.getAll(name).filter((f): f is File => f instanceof File && f.size > 0);
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   // counted per agent, not per address: an office behind one connection shared it (owner, 2026-10-18)
   if (!readsPerHour(`claim-read:${viewer.agentId}`)) return bad("อ่านเอกสารครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ", 429);
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
+  if (ceiling !== null) return Response.json({ ok: false, error: await capReached(ceiling) });
   const pass = await takeRound(viewer, "ai-claim");
   if (!pass.ok) return bad(pass.refusal, 429);
   // the upload is read inside the round: a body that aborts here releases a wallet hold at
@@ -106,7 +106,7 @@ export async function PUT(req: NextRequest) {
   // counted per agent, not per address: an office behind one connection shared it (owner, 2026-10-18)
   if (!roundsPerHour(`claim-write:${viewer.agentId}`)) return bad("สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ", 429);
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
+  if (ceiling !== null) return Response.json({ ok: false, error: await capReached(ceiling) });
   const pass = await takeRound(viewer, "ai-claim");
   if (!pass.ok) return bad(pass.refusal, 429);
   // the upload is read inside the round, as POST's is (an aborted body must not lock a hold)
@@ -136,7 +136,7 @@ async function writeIntoCampaign(form: FormData, campaignId: string, facts: unkn
     return bad(e instanceof Error ? e.message : "ไม่มีสิทธิ์ใช้ส่วนนี้", 403);
   }
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return Response.json({ ok: false, error: capReached(ceiling) });
+  if (ceiling !== null) return Response.json({ ok: false, error: await capReached(ceiling) });
   const pass = await takeRound(viewer, "ai-claim");
   if (!pass.ok) return bad(pass.refusal, 429);
   const withTable = form.get("table") === "on";

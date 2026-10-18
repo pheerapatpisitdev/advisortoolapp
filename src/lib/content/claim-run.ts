@@ -1,4 +1,5 @@
 import { BudgetExceeded, chat } from "@/lib/ai/client";
+import { capReached, tooDear } from "./budget-words";
 import { isLogoSpot } from "./logo";
 import { roundLogo } from "./logo-store";
 import type { ChatImage } from "@/lib/ai/types";
@@ -39,7 +40,6 @@ export const READ_HOLD_THB = 0.5;
 export const READ_TIMEOUT_MS = 120_000;
 export const WRITE_TIMEOUT_MS = 60_000;
 
-export const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
 export const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
 /** facts with nothing to tell (tooThin), as the owner is told it */
 export const THIN_FACTS = "AI อ่านโรคหรือยอดเงินจากเอกสารไม่ได้ — ลองรูปที่ชัดขึ้น หรือเล่าในช่อง “เล่าเพิ่ม” นะครับ";
@@ -51,9 +51,9 @@ export async function readClaim(images: ChatImage[]): Promise<ReadResult> {
   let hold: string | null = null;
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    if (spent >= cap) return { ok: false, error: capReached(cap) };
+    if (spent >= cap) return { ok: false, error: await capReached(cap) };
     const held = await holdContentBudget(READ_HOLD_THB, cap);
-    if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พออ่านเอกสาร` };
+    if (!held.ok) return { ok: false, error: await tooDear("อ่านเอกสาร", held.left) };
     hold = held.id;
     const [system, user] = readMessages(images.length);
     const r = await chat({
@@ -137,7 +137,7 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
   let hold: string | null = null;
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    if (spent >= cap) return { ok: false, error: capReached(cap) };
+    if (spent >= cap) return { ok: false, error: await capReached(cap) };
     const writer = writerOf(input.writer, cap - spent);
     const held = await holdContentBudget(count * (writer.thb + OVERHEAD_THB), cap);
     if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอรอบนี้ — ลดจำนวนชิ้นหรือเลือกโมเดลประหยัด` };

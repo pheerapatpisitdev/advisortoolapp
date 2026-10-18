@@ -90,7 +90,7 @@ export function PictureFold({ summary, children }: { summary: string; children: 
  */
 export function overBudget(estimate: number, left: number): string | null {
   return estimate > left
-    ? `ราว ฿${estimate.toFixed(2)} เกินงบที่เหลือ ฿${left.toFixed(2)} — ภาพบางชิ้นอาจวาดไม่ได้ ลดจำนวนชิ้น เลือกไม่วาดภาพ หรือเพิ่มงบที่หน้า /admin/ai`
+    ? `ราว ฿${estimate.toFixed(2)} เกินงบที่เหลือ ฿${left.toFixed(2)} — ภาพบางชิ้นอาจวาดไม่ได้ ลดจำนวนชิ้น เลือกไม่วาดภาพ หรือแจ้งแอดมินให้เพิ่มงบ`
     : null;
 }
 

@@ -1,4 +1,5 @@
 import { BudgetExceeded } from "@/lib/ai/client";
+import { capReached } from "./budget-words";
 import type { ChatMessage } from "@/lib/ai/types";
 import type { GenerateResult } from "@/app/studio/actions";
 import { findWords, strayNumbers } from "./check";
@@ -28,7 +29,6 @@ import { ownerWording } from "./wording";
  */
 
 const WRITE_TIMEOUT_MS = 60_000;
-const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
 const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
 
 export interface OneCallRound {
@@ -75,7 +75,7 @@ export async function oneCallRound(r: OneCallRound): Promise<GenerateResult> {
   let hold: string | null = null;
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    if (spent >= cap) return { ok: false, error: capReached(cap) };
+    if (spent >= cap) return { ok: false, error: await capReached(cap) };
     const writer = writerOf(r.writer, cap - spent);
     const held = await holdContentBudget(r.count * (writer.thb + OVERHEAD_THB), cap);
     if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอรอบนี้ — ลดจำนวนชิ้นหรือเลือกโมเดลประหยัด` };

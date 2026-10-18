@@ -230,7 +230,7 @@ export function SayingTools({ writer, onWriter, painter, onPainter, people, pers
             <span className="mt-1 block text-xs text-[var(--ct-mute)]">
               {painter === AUTO
                 ? `ตอนนี้${paints.modelId ? `วาดด้วย ${paints.short}` : "ไม่วาดภาพ"} — งบเหลือต่ำกว่า ฿${AUTO_FLOOR_THB} จะหยุดวาดเอง`
-                : painter === "none" ? "ใช้พื้นสีตามโทน วาดทีหลังได้ในหน้าแก้ไข" : `${paints.short} · AI วาดภาพบรรยากาศการทำงานให้ทุกชิ้นหลังเขียนเสร็จ`}
+                : painter === "none" ? "ใช้พื้นสีตามโทน วาดทีหลังได้ในหน้าแก้ไข" : `${paints.short} · AI วาดภาพธรรมชาติหรือชีวิตประจำวันที่เข้ากับคำคมให้ทุกชิ้นหลังเขียนเสร็จ`}
             </span>
           </label>
         )}

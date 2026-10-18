@@ -1,5 +1,6 @@
 "use server";
 import { headers } from "next/headers";
+import { capReached, tooDear } from "@/lib/content/budget-words";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
@@ -88,12 +89,7 @@ async function caller(): Promise<string> {
 }
 const HOUR_FULL = "สร้างครบ 10 รอบในชั่วโมงนี้แล้ว รอสักพักแล้วลองใหม่นะครับ";
 
-/** the ceiling reached, as the owner is told it */
-const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว (กันไว้ให้บอทตอบลูกค้า) — เพิ่มงบได้ที่หน้า /admin/ai`;
 const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
-/** the ceiling not reached, but this request would pass it */
-const tooDear = (what: string, left: number) =>
-  `งบสร้างคอนเทนต์เดือนนี้เหลือ ${left.toFixed(2)} บาท ไม่พอ${what} — ${what === "รอบนี้" ? "ลดจำนวนชิ้น เลือกโมเดลประหยัด หรือ" : ""}เพิ่มงบได้ที่หน้า /admin/ai`;
 
 /** a round that ran out of its function's time (deadline.ts), as the owner is told it */
 const OUT_OF_TIME = "รอบนี้ใช้เวลานานเกินไป AI ตอบไม่ทัน — ลองใหม่อีกครั้ง หรือลดจำนวนชิ้นนะครับ";
@@ -326,7 +322,7 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
   if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   // the owner's ceiling before a round is counted, not after (ceiling.ts, review 2026-10-01)
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
+  if (ceiling !== null) return { ok: false, error: await capReached(ceiling) };
   // the agent's own monthly allowance (src/lib/auth/quota.ts); staff are outside it
   const pass = await takeRound(viewer, "ai-write");
   if (!pass.ok) return { ok: false, error: pass.refusal };
@@ -334,14 +330,14 @@ export async function generateContent(given: GenerateInput): Promise<GenerateRes
     let hold: string | null = null;
     try {
       const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-      if (spent >= cap) return { ok: false, error: capReached(cap) };
+      if (spent >= cap) return { ok: false, error: await capReached(cap) };
       // อัตโนมัติ decides on the money actually left, not on what the page last saw
       const writer = writerOf(input.writer, cap - spent);
       const writeWith = writer.model;
       // the round's price set aside first, so rounds started together see each other's money
       const estimate = angle === "numbers" ? OVERHEAD_THB * 2 : count * (writer.thb + OVERHEAD_THB);
       const held = await holdContentBudget(estimate, cap);
-      if (!held.ok) return { ok: false, error: tooDear("รอบนี้", held.left) };
+      if (!held.ok) return { ok: false, error: await tooDear("รอบนี้", held.left, true) };
       hold = held.id;
       // this Page's latest openings for the product, whatever became of them, then the asker's used ones
       const [recent, used, template, words] = await Promise.all([
@@ -507,7 +503,7 @@ export async function generateRecruit(input: RecruitWriteInput): Promise<Generat
   // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
   if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
+  if (ceiling !== null) return { ok: false, error: await capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-recruit");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeRecruit(input, project.pageId));
@@ -527,7 +523,7 @@ export async function generateKnowledge(input: KnowledgeWriteInput): Promise<Gen
   // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
   if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
+  if (ceiling !== null) return { ok: false, error: await capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-knowledge");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeKnowledge(input, project.pageId));
@@ -546,7 +542,7 @@ export async function generateDraft(input: DraftWriteInput): Promise<GenerateRes
   // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
   if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
+  if (ceiling !== null) return { ok: false, error: await capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-draft");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeDraft(input, project.pageId));
@@ -567,7 +563,7 @@ export async function generateThanks(input: ThanksWriteInput): Promise<GenerateR
   // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
   if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
+  if (ceiling !== null) return { ok: false, error: await capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-thanks");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeThanks(input, project.pageId));
@@ -587,7 +583,7 @@ export async function generateSaying(input: SayingWriteInput): Promise<GenerateR
   // counted once the form is right: a mistake in it costs none of the hour (owner, 2026-10-18)
   if (!perHour(`content:${await caller()}`)) return { ok: false, error: HOUR_FULL };
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return { ok: false, error: capReached(ceiling) };
+  if (ceiling !== null) return { ok: false, error: await capReached(ceiling) };
   const pass = await takeRound(viewer, "ai-saying");
   if (!pass.ok) return { ok: false, error: pass.refusal };
   return payRound(pass, () => writeSaying(input, project.pageId));
@@ -1045,7 +1041,7 @@ export async function drawBackground(id: string, request = "", painter?: string,
   }
   // the owner's ceiling before a round is counted, not after (ceiling.ts, review 2026-10-01)
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${ceiling} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai` };
+  if (ceiling !== null) return { ok: false, error: await capReached(ceiling) };
   // asked before the piece is read: a piece that is not theirs costs a look, not a round
   const seen = await getContent(id).catch(() => null);
   if (!seen) return { ok: false, error: "ไม่พบชิ้นงานนี้" };
@@ -1074,7 +1070,7 @@ export async function drawBackground(id: string, request = "", painter?: string,
       const who = found && wanted ? { id: wanted.id, pose: POSES.some((p) => p.id === wanted.pose) ? wanted.pose : "auto" } : undefined;
       const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
       if (spent >= cap) {
-        return { ok: false, error: `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai` };
+        return { ok: false, error: await capReached(cap) };
       }
       // only an id from the list, อัตโนมัติ settled on the money left; "none" draws nothing; a
       // person in it is drawn by Gemini whatever was picked, and priced so
@@ -1086,7 +1082,7 @@ export async function drawBackground(id: string, request = "", painter?: string,
       // the picture's price set aside first (plus the request's translation), so forty orders at once cannot all fit in the last baht
       // a brief is translated and, when the model draws the words too, they are read back: a second small call
       const held = await holdContentBudget(chosen.thb + OVERHEAD_THB * (request.trim() ? 2 : 1), cap);
-      if (!held.ok) return { ok: false, error: tooDear("วาดรูปนี้", held.left) };
+      if (!held.ok) return { ok: false, error: await tooDear("วาดรูปนี้", held.left) };
       hold = held.id;
       const lang = langOf(item.output);
       const poster = item.output.poster ?? defaultPoster(item.output.hooks[0], contentProduct(item.planHref)?.name ?? "", lang);

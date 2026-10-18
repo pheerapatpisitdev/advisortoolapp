@@ -187,7 +187,7 @@ describe("createPromptStory", () => {
     const made = await createPromptStory(agent, input(), "");
     expect("id" in made).toBe(true);
     expect(wallet.holdWallet).toHaveBeenCalledTimes(1);
-    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", promptStoryPrice(input(), DEFAULT_PRICES), "quote-video");
+    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", promptStoryPrice(input(), DEFAULT_PRICES), "quote-video-prompt");
     const row = rowOf((made as { id: string }).id);
     expect(row.paid_by).toBe("wallet");
     expect(row.held_satang).toBe(promptStoryPrice(input(), DEFAULT_PRICES));
@@ -204,7 +204,7 @@ describe("createPromptStory", () => {
     const pictures = 3 * pictureSatang(DEFAULT_PRICES, "standard")!;
     expect(row.paid_by).toBe("free");
     expect(row.held_satang).toBe(pictures);
-    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", pictures, "quote-video");
+    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", pictures, "quote-video-prompt");
   });
 
   it("charges the owner nothing", async () => {
@@ -381,7 +381,7 @@ describe("redrawPicture", () => {
     await redrawPicture(agent, id, 0);
     const price = pictureSatang(DEFAULT_PRICES, "standard")!;
     expect(wallet.holdWallet).toHaveBeenCalledTimes(1);
-    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", price, "quote-video");
+    expect(wallet.holdWallet).toHaveBeenCalledWith("a1", price, "quote-video-prompt");
     const hold = await wallet.holdWallet.mock.results[0].value;
     // held while the clip is cut again, taken when Cloud Run says it is done
     expect(wallet.settleWallet).not.toHaveBeenCalled();

@@ -99,3 +99,11 @@ describe("what a top-up buys, counted in posts (owner, 2026-10-01)", () => {
     expect(perPostUnder(2.4)).toBe(2);
   });
 });
+
+describe("the wallet history's clip names (owner, 2026-10-18)", () => {
+  it("names each clip tool by its own round", async () => {
+    const { entryLabel } = await import("@/lib/wallet/labels");
+    const charge = (round: string) => entryLabel({ kind: "charge", round, note: null });
+    expect([charge("quote-video"), charge("quote-video-story"), charge("quote-video-prompt")]).toEqual(["วิดีโอนำเสนอ", "คลิปเล่าเรื่อง", "คลิปตามโจทย์"]);
+  });
+});

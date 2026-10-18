@@ -1,4 +1,5 @@
 import { BudgetExceeded, chat, drawImage } from "@/lib/ai/client";
+import { capReached, tooDear } from "./budget-words";
 import { limiter } from "@/lib/assistant/rate-limit";
 import { can } from "@/lib/auth/access";
 import { takeRound } from "@/lib/auth/quota";
@@ -56,7 +57,6 @@ export type ThumbResult =
   | { ok: false; error: string };
 
 const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
-const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
 const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
 
 /** a Thai scene in English: image models read Thai badly and try to draw it */
@@ -78,7 +78,7 @@ export async function makeThumbnail(settings: ThumbSettings, painter?: string): 
   if (!drawPerHour(`thumb:${viewer.agentId}`)) return fail("สร้างภาพปกครบ 40 รูปในชั่วโมงนี้แล้ว รอสักพักนะครับ");
   // the owner's ceiling before a round is counted, not after (ceiling.ts)
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return fail(capReached(ceiling));
+  if (ceiling !== null) return fail(await capReached(ceiling));
   const clock = deadline();
   // the hold is the price of the painter it would be drawn by — Gemini when a person is asked
   // for, whose photos are only known inside the round, so the dearer guess — and the charge the
@@ -100,7 +100,7 @@ async function draw(
   try {
     const found = settings.source === "person" && settings.personId ? await personPhotos(settings.personId) : null;
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    if (spent >= cap) return fail(capReached(cap));
+    if (spent >= cap) return fail(await capReached(cap));
     const chosen = painterFor(painter ?? "gemini", cap - spent, Boolean(found?.photos.length));
     if (!chosen.modelId) return fail("เลือกโมเดลวาดรูปด้วยครับ");
     // the agent pays the chosen painter's fixed price, whatever the drawing costs (owner, 2026-10-12)
@@ -108,7 +108,7 @@ async function draw(
     if (price !== null) chargeFixed(price);
     const charged = paidBy === "wallet" && price !== null ? { chargedSatang: price } : {};
     const held = await holdContentBudget(chosen.thb + OVERHEAD_THB * 3, cap);
-    if (!held.ok) return fail(`งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอวาดภาพปกนี้ — เพิ่มงบได้ที่หน้า /admin/ai`);
+    if (!held.ok) return fail(await tooDear("วาดภาพปกนี้", held.left));
     hold = held.id;
     const ms = clock.budget(TRANSLATE_MS, 200_000);
     if (/[฀-๿]/.test(settings.scene) && !ms) throw new OutOfTime("translation");
@@ -165,7 +165,7 @@ export async function makeIdeas(topic: string): Promise<IdeasResult> {
   if (!text) return fail("พิมพ์หัวข้อหรือสคริปต์คลิปก่อนครับ");
   if (!ideasPerHour(`thumb-ideas:${viewer.agentId}`)) return fail("ขอหัวปกครบ 30 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ");
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return fail(capReached(ceiling));
+  if (ceiling !== null) return fail(await capReached(ceiling));
   try {
     const r = await within(chat({
       tier: "large", task: IDEAS_TASK, messages: ideasMessages(text), json: true, maxTokens: 1200, timeoutMs: 30_000,

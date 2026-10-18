@@ -77,7 +77,7 @@ describe("writing a showcase", () => {
     pages.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });
 
     ceiling.ceilingBeforeRound.mockResolvedValue(30);
-    expect(await (await PUT(writeRequest() as never)).json()).toEqual({ ok: false, error: expect.stringContaining("ครบ 30 บาท") });
+    expect(await (await PUT(writeRequest() as never)).json()).toEqual({ ok: false, error: "งบ AI ของระบบเดือนนี้เต็มแล้ว แจ้งแอดมิน" });
     ceiling.ceilingBeforeRound.mockResolvedValue(null);
 
     quota.takeRound.mockResolvedValue({ ok: false, refusal: "ใช้ครบแล้วเดือนนี้" });

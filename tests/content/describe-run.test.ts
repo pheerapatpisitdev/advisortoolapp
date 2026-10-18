@@ -128,7 +128,7 @@ describe("describePicture", () => {
     ceiling.ceilingBeforeRound.mockResolvedValueOnce(300);
     const r = await describePicture(IMG);
     expect(r).toMatchObject({ ok: false });
-    expect((r as { error: string }).error).toContain("300");
+    expect((r as { error: string }).error).toBe("งบ AI ของระบบเดือนนี้เต็มแล้ว แจ้งแอดมิน");
     expect(quota.takeRound).not.toHaveBeenCalled();
     expect(ai.chat).not.toHaveBeenCalled();
   });
@@ -144,7 +144,7 @@ describe("describePicture", () => {
     store.holdContentBudget.mockResolvedValueOnce({ ok: false, left: 0.2 });
     const r = await describePicture(IMG);
     expect(r).toMatchObject({ ok: false });
-    expect((r as { error: string }).error).toContain("0.20");
+    expect((r as { error: string }).error).toBe("งบ AI ของระบบเดือนนี้เหลือไม่พออ่านรูปนี้ — แจ้งแอดมิน");
     expect(ai.chat).not.toHaveBeenCalled();
     expect(store.releaseContentBudget).not.toHaveBeenCalled();
   });

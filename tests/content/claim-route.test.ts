@@ -9,9 +9,12 @@ vi.mock("@/lib/content/claim-run", () => run);
 const ads = vi.hoisted(() => ({ writeClaimAds: vi.fn() }));
 vi.mock("@/lib/ads/claim-ad-run", () => ads);
 const staff = vi.hoisted(() => ({ owner: true }));
+const seenAsOwner = vi.hoisted(() => ({ on: false }));
 vi.mock("@/lib/auth/viewer", () => ({
   refuseUnless: vi.fn(async () => null),
   requireMember: vi.fn(async () => ({ agentId: "a1" })),
+  // whose words the ceiling is said in (budget-words.ts): the owner's when staff.owner and seen
+  getViewer: vi.fn(async () => (staff.owner && seenAsOwner.on ? { agentId: "owner", staff: { owner: true } } : { agentId: "a1", staff: null })),
   requireStaff: vi.fn(async () => {
     if (!staff.owner) throw new Error("ไม่มีสิทธิ์ใช้ส่วนนี้");
     return { agentId: "owner" };
@@ -133,7 +136,8 @@ describe("writing a รีวิวเคลม", () => {
     // the round's own check came after takeRound, so a refused round still cost a free round (review, 2026-10-01)
     ceiling.ceilingBeforeRound.mockResolvedValue(30);
     for (const res of [await PUT(writeRequest() as never), await POST(readRequest() as never)]) {
-      expect(await res.json()).toEqual({ ok: false, error: expect.stringContaining("ครบ 30 บาท") });
+      // an agent cannot open /admin/ai: told to tell the admin (owner, 2026-10-18)
+      expect(await res.json()).toEqual({ ok: false, error: "งบ AI ของระบบเดือนนี้เต็มแล้ว แจ้งแอดมิน" });
     }
     expect(ceiling.ceilingBeforeRound).toHaveBeenCalledWith({ agentId: "a1" });
     expect(quota.takeRound).not.toHaveBeenCalled();
@@ -195,7 +199,10 @@ describe("writing รีวิวเคลม ads into a campaign", () => {
 
   it("is refused before a round is counted once the ceiling is reached", async () => {
     ceiling.ceilingBeforeRound.mockResolvedValue(30);
+    seenAsOwner.on = true;
     const res = await PUT(campaignRequest({ consent: "on" }) as never);
+    seenAsOwner.on = false;
+    // the owner is pointed at /admin/ai, where the ceiling is raised
     expect(await res.json()).toEqual({ ok: false, error: expect.stringContaining("ครบ 30 บาท") });
     expect(quota.takeRound).not.toHaveBeenCalled();
     expect(ads.writeClaimAds).not.toHaveBeenCalled();

@@ -1,8 +1,9 @@
 import { BudgetExceeded, chat } from "@/lib/ai/client";
+import { capReached, tooDear } from "./budget-words";
 import type { ChatImage } from "@/lib/ai/types";
 import type { GenerateResult } from "@/app/studio/actions";
 import {
-  attachPapers, BUDGET_OUT, capReached, READ_FALLBACK, READ_HOLD_THB, READ_TIMEOUT_MS, READER, type Paper,
+  attachPapers, BUDGET_OUT, READ_FALLBACK, READ_HOLD_THB, READ_TIMEOUT_MS, READER, type Paper,
 } from "./claim-run";
 import { formulaOf } from "./formula";
 import { modeChecks } from "./mode-checks";
@@ -29,9 +30,9 @@ export async function readShowcase(images: ChatImage[]): Promise<ShowcaseReadRes
   let hold: string | null = null;
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    if (spent >= cap) return { ok: false, error: capReached(cap) };
+    if (spent >= cap) return { ok: false, error: await capReached(cap) };
     const held = await holdContentBudget(READ_HOLD_THB, cap);
-    if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พออ่านรูป — เพิ่มงบได้ที่หน้าตั้งค่า` };
+    if (!held.ok) return { ok: false, error: await tooDear("อ่านรูป", held.left) };
     hold = held.id;
     const [system, user] = showcaseReadMessages(images.length);
     const r = await chat({

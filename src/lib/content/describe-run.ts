@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { capReached, tooDear } from "./budget-words";
 import { BudgetExceeded, chat } from "@/lib/ai/client";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { takeRound } from "@/lib/auth/quota";
@@ -45,8 +46,6 @@ const fail = (error: string): DescribeResult => ({ ok: false, error });
 
 const BAD_PICTURE = "ใช้ได้เฉพาะรูป jpg, png หรือ webp ที่ไม่ใหญ่เกินไป";
 const UNREADABLE = "อ่านรูปนี้ไม่สำเร็จ ลองรูปอื่นนะครับ";
-const capReached = (cap: number) => `เดือนนี้ใช้งบสร้างคอนเทนต์ครบ ${cap} บาทแล้ว — เพิ่มงบได้ที่หน้า /admin/ai`;
-const tooDear = (left: number) => `งบสร้างคอนเทนต์เดือนนี้เหลือ ${left.toFixed(2)} บาท ไม่พออ่านรูปนี้ — เพิ่มงบได้ที่หน้า /admin/ai`;
 const BUDGET_OUT = "ถึงงบค่า AI ของเดือนนี้แล้ว";
 const TOO_SLOW = "AI ตอบไม่ทัน — ลองใหม่อีกครั้งนะครับ";
 
@@ -61,7 +60,7 @@ export async function describePicture(input: DescribeInput): Promise<DescribeRes
   if (!readPerHour(`describe:${clientIp(await headers())}`)) return fail("อ่านรูปครบ 20 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ");
   // the ceiling before the round is counted, so a round it would refuse costs nobody a free round
   const ceiling = await ceilingBeforeRound(viewer);
-  if (ceiling !== null) return fail(capReached(ceiling));
+  if (ceiling !== null) return fail(await capReached(ceiling));
   // a fixed price the owner sets (owner, 2026-10-12: ฿1 — src/lib/wallet/prices.ts)
   const price = (await walletPrices()).describe;
   const pass = await takeRound(viewer, "ai-describe", null, { satang: price });
@@ -71,9 +70,9 @@ export async function describePicture(input: DescribeInput): Promise<DescribeRes
     chargeFixed(price);
     try {
       const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-      if (spent >= cap) return fail(capReached(cap));
+      if (spent >= cap) return fail(await capReached(cap));
       const held = await holdContentBudget(DESCRIBE_HOLD_THB, cap);
-      if (!held.ok) return fail(tooDear(held.left));
+      if (!held.ok) return fail(await tooDear("อ่านรูปนี้", held.left));
       hold = held.id;
       const read = await within(chat({
         tier: "large", task: DESCRIBE_TASK, messages: describeMessages({ base64, mimeType }, palette, asPerson),

@@ -110,6 +110,12 @@ export const videoPrice = (v: ClipInput, prices: Prices): number =>
     : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))] + aiPiecesPrice(v, prices)) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
+/**
+ * Each clip tool's own round, so the wallet's history names it (owner, 2026-10-18): every one
+ * starts "quote-video", which the hold sweep keeps 30 minutes (20261124_clip_rounds.sql).
+ */
+export const clipRound = (v: ClipInput): string =>
+  isPromptStory(v) ? `${VIDEO_ROUND}-prompt` : isStoryInput(v) ? `${VIDEO_ROUND}-story` : VIDEO_ROUND;
 
 export type VideoStatus = "drawing" | "rendering" | "done" | "failed";
 export type { VideoInput } from "./script";
@@ -229,7 +235,7 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       if (pictures > 0) {
         const s = await walletSettings().catch(() => null);
         if (!s?.enabled) return { refusal: isPromptStory(input) ? "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" : "ภาพตัดแปะที่ AI วาดจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ — เลือก \"ภาพจากคลัง\" แทนได้" };
-        const hold = await holdFor(viewer.agentId, pictures, `ค่าภาพประกอบต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(pictures)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
+        const hold = await holdFor(viewer.agentId, pictures, clipRound(input), `ค่าภาพประกอบต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(pictures)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
         if ("refusal" in hold) return hold;
         pay = { paid_by: "free", hold_id: hold.id, held_satang: pictures, multiplier: 1 };
       } else pay = { paid_by: "free" };
@@ -237,7 +243,7 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       const s = await walletSettings().catch(() => null);
       if (!s?.enabled) return { refusal: limit === 0 ? "ตอนนี้ยังใช้เครดิตและกระเป๋าเงินไม่ได้ครับ" : `ใช้วิดีโอฟรีครบ ${limit} ครั้งแล้ว` };
       const held = videoPrice(input, await walletPrices());
-      const hold = await holdFor(viewer.agentId, held, limit === 0
+      const hold = await holdFor(viewer.agentId, held, clipRound(input), limit === 0
         ? `เครดิตและเงินในกระเป๋าไม่พอ — คลิปนี้ ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`
         : `ใช้วิดีโอฟรีครบแล้ว — ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(held)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
       if ("refusal" in hold) return hold;
@@ -259,8 +265,8 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
 }
 
 /** `satang` set aside in the agent's wallet, or the words to show when it cannot be */
-async function holdFor(agentId: string, satang: number, short: string): Promise<{ id: string } | { refusal: string }> {
-  const hold = await holdWallet(agentId, satang, VIDEO_ROUND).catch((e) => {
+async function holdFor(agentId: string, satang: number, round: string, short: string): Promise<{ id: string } | { refusal: string }> {
+  const hold = await holdWallet(agentId, satang, round).catch((e) => {
     console.error("quote video hold failed:", e);
     return null;
   });
@@ -1147,7 +1153,7 @@ export async function redrawPicture(
     if (price > 0) {
       const s = await walletSettings().catch(() => null);
       if (!s?.enabled) return { ok: false, error: "ค่าวาดภาพจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" };
-      const h = await holdFor(viewer.agentId, price, `วาดภาพใหม่ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(price)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
+      const h = await holdFor(viewer.agentId, price, clipRound(row.input), `วาดภาพใหม่ต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(price)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
       if ("refusal" in h) return { ok: false, error: h.refusal };
       hold = h.id;
     }

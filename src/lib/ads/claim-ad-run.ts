@@ -9,8 +9,9 @@ import { contactBlock, getPageContact } from "@/lib/ads/page-contact";
 import { CLAIM_HREF, MAX_CLAIM_PIECES, claimAngleLines, cleanFacts, factsBlock } from "@/lib/content/claim";
 import { assembleClaimAd, claimAdMessages, claimAdPoster, parseClaimAd } from "@/lib/content/claim-ad";
 import {
-  BUDGET_OUT, THIN_FACTS, WRITE_TIMEOUT_MS, attachPapers, capReached, tooThin, type Paper,
+  BUDGET_OUT, THIN_FACTS, WRITE_TIMEOUT_MS, attachPapers, tooThin, type Paper,
 } from "@/lib/content/claim-run";
+import { capReached } from "@/lib/content/budget-words";
 import { forClient } from "@/lib/content/clip";
 import { flagsFor } from "@/lib/content/flags";
 import { englishOutput } from "@/lib/content/lang";
@@ -98,7 +99,7 @@ export async function writeClaimAds(input: ClaimAdInput): Promise<GenerateResult
   let hold: string | null = null;
   try {
     const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
-    if (spent >= cap) return { ok: false, error: capReached(cap) };
+    if (spent >= cap) return { ok: false, error: await capReached(cap) };
     const writer = writerOf(campaign.writer ?? undefined, cap - spent);
     const held = await holdContentBudget(count * (writer.thb + OVERHEAD_THB), cap);
     if (!held.ok) return { ok: false, error: `งบสร้างคอนเทนต์เดือนนี้เหลือ ${held.left.toFixed(2)} บาท ไม่พอรอบนี้ — ลดจำนวนชิ้นหรือเลือกโมเดลประหยัด` };

@@ -1454,7 +1454,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                   <button type="button" onClick={loadPages} className="inline-flex min-h-tap items-center font-medium underline">ลองใหม่</button>
                 </p>
               ) : !pickPage ? (
-                <p className="text-sm text-[var(--ct-alert)]">เพจ {project?.pageName ?? "นี้"} ยังไม่ได้อนุญาตให้ระบบโพสต์ — เชื่อมเพจที่หน้าตั้งค่าเพจก่อน</p>
+                <p className="text-sm text-[var(--ct-alert)]">เพจ {project?.pageName ?? "นี้"} ยังไม่ได้อนุญาตให้ระบบโพสต์ — แจ้ง Super Admin ให้เชื่อมเพจ</p>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm">ลง <b>{project?.pageName}</b></span>
