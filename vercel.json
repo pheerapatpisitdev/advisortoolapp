@@ -20,6 +20,10 @@
     {
       "path": "/api/content-video/sweep",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/quote-video/sweep",
+      "schedule": "30 4 * * *"
     }
   ]
 }

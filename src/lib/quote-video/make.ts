@@ -83,6 +83,11 @@ export const VIDEO_CALLBACK_PATH = "/api/quote-video/job";
  * Run's 15 (its task timeout), with room — a 2-minute clip renders for longer (owner, 2026-10-13)
  */
 export const VIDEO_TIMEOUT_MS = 20 * 60_000;
+/**
+ * a clip handed to Cloud Run has five minutes more, so one about to finish is not failed under it;
+ * the wallet keeps a clip's hold 30 minutes (20261123_clip_hold_life.sql), past both (owner chose 1ก, 2026-10-18)
+ */
+export const RENDER_TIMEOUT_MS = 25 * 60_000;
 const LINK_SECONDS = 2 * 3600;
 /** a Cloud Run run of one clip: a couple of CPU-minutes, in baht */
 const RENDER_COST_THB = 0.01 * 36;
@@ -1241,6 +1246,11 @@ export async function videoOfJob(jobId: string): Promise<VideoRow | null> {
 
 /** Cloud Run's word on a job: the clip is done (the file is ours already) or failed. */
 export async function finishVideo(row: VideoRow, state: "done" | "failed", outPath?: string): Promise<void> {
+  // a clip failed for taking too long whose render still arrived: its file is nobody's, so it goes
+  if (row.status === "failed" && !row.video_path && state === "done" && outPath === `${row.id}/quote.mp4`) {
+    await bucket().remove([outPath]).catch(() => undefined);
+    return;
+  }
   if (row.status !== "rendering") return;
   if (state === "done" && outPath === `${row.id}/quote.mp4`) {
     // the row moves once: a callback sent twice settles once
@@ -1258,6 +1268,12 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
       // failed has nothing left to charge, and its hold goes back whole
       if (Number(row.held_satang) > 0) {
         charged = await settleWallet(row.hold_id, Number(row.held_satang), cost)
+          .then((c) => {
+            // the hold was gone before the clip finished: nothing was taken, and the clip's line
+            // says so (paid-line.ts) instead of "กันเงินไว้ระหว่างทำ" for good (owner, 2026-10-18)
+            if (c === null) console.error(`quote video ${row.id}: done, but hold ${row.hold_id} was gone — not charged`);
+            return c ?? 0;
+          })
           .catch((e) => { console.error("quote video settle failed:", e); return null; });
       } else await release(row);
     }
@@ -1275,16 +1291,50 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
   }
 }
 
-/** An agent's clips, newest first; any stuck past the time limit is marked failed on the way. */
+/**
+ * Whether a clip is still being made past its time: drawing 20 minutes, rendering 25. A finished
+ * clip cut again (redrawPicture) is timed from when it was taken again.
+ */
+export function isStuck(v: Pick<VideoRow, "status" | "video_path" | "created_at" | "updated_at">, now: number): boolean {
+  if (v.status !== "drawing" && v.status !== "rendering") return false;
+  const since = Date.parse(v.video_path ? v.updated_at : v.created_at);
+  return now - since > (v.status === "rendering" ? RENDER_TIMEOUT_MS : VIDEO_TIMEOUT_MS);
+}
+
+/** the last whole-table sweep, so a burst of board loads asks the table once a minute at most */
+let sweptAt = 0;
+
+/**
+ * Every agent's clips stuck past their time, failed and their holds given back (owner chose 2ก,
+ * 2026-10-18): run when anyone opens /home or a clip board, and once a day by the cron
+ * (/api/quote-video/sweep), so a clip whose maker closed the tab does not stay "กำลังสร้าง".
+ * `force`: the cron's run, never skipped. Returns how many it failed.
+ */
+export async function sweepStuckVideos(now = Date.now(), force = false): Promise<number> {
+  if (!force && now - sweptAt < 60_000) return 0;
+  sweptAt = now;
+  const { data, error } = await rows().select("id, status, video_path, created_at, updated_at")
+    .in("status", ["drawing", "rendering"]).is("deleted_at", null)
+    .lt("created_at", new Date(now - VIDEO_TIMEOUT_MS).toISOString()).limit(100);
+  if (error) throw new Error(`stuck videos not read: ${error.message}`);
+  let n = 0;
+  for (const v of (data ?? []) as Pick<VideoRow, "id" | "status" | "video_path" | "created_at" | "updated_at">[]) {
+    if (!isStuck(v, now)) continue;
+    await fail(v.id, new Error("timed out"));
+    n++;
+  }
+  return n;
+}
+
+/** An agent's clips, newest first; any stuck past the time limit, theirs or anyone's, is marked failed on the way. */
 export async function listVideos(agentId: string, limit = 30): Promise<VideoRow[]> {
+  await sweepStuckVideos().catch((e) => console.error("stuck clip sweep failed:", e instanceof Error ? e.message : e));
   const { data, error } = await rows().select("*").eq("agent_id", agentId).is("deleted_at", null).order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`videos not read: ${error.message}`);
   const list = (data ?? []) as VideoRow[];
   const now = Date.now();
   for (const v of list) {
-    // a finished clip cut again (redrawPicture) is timed from when it was taken again
-    const since = Date.parse(v.video_path ? v.updated_at : v.created_at);
-    if ((v.status === "drawing" || v.status === "rendering") && now - since > VIDEO_TIMEOUT_MS) {
+    if (isStuck(v, now)) {
       await fail(v.id, new Error("timed out"));
       v.status = "failed";
       v.error = FAILED;

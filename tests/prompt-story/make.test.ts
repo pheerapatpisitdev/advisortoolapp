@@ -49,6 +49,7 @@ function table(name: string) {
     in: (k: string, vs: unknown[]) => { filters.push((r) => vs.includes(val(r, k))); return b; },
     is: (k: string, v: unknown) => { filters.push((r) => (val(r, k) ?? null) === v); return b; },
     not: (k: string, _op: string, v: unknown) => { filters.push((r) => (val(r, k) ?? null) !== v); return b; },
+    lt: (k: string, v: string) => { filters.push((r) => String(val(r, k)) < v); return b; },
     gte: () => b, order: () => b, limit: () => b,
     single: async () => { const d = run(); return { data: d[0] ?? null, error: d[0] ? null : { message: "no row" } }; },
     maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
@@ -102,7 +103,8 @@ vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: () => ({ submit
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
 
-const { createPromptStory, drawScene, finishVideo, produce, redrawPicture } = await import("@/lib/quote-video/make");
+const { createPromptStory, drawScene, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos } = await import("@/lib/quote-video/make");
+const { paidLine } = await import("@/lib/quote-video/paid-line");
 
 /** the drawing route as produce calls it: each scene drawn for real, by drawScene */
 const route = async (_url: unknown, init?: { body?: string }) => {
@@ -448,5 +450,72 @@ describe("redrawPicture", () => {
     expect(row.video_path).toBe(`${id}/quote.mp4`);
     expect(db.files.has(`${id}/pic-0.png`)).toBe(true);
     expect(db.files.has(`${id}/voice-0.pcm`)).toBe(true);
+  });
+});
+
+describe("a clip's money when it runs long (owner chose 1ก 2ก, 2026-10-18)", () => {
+  const MIN = 60_000;
+  const ago = (min: number, now: number) => new Date(now - min * MIN).toISOString();
+  const stuckRow = (over: Row) => ({
+    agent_id: "someone-else", deleted_at: null, video_path: null, job: null, error: null, paid_by: "wallet", held_satang: 500,
+    multiplier: 1, cost_thb: 0, charged_satang: null, progress: null, input: {}, ...over,
+  });
+
+  it("a clip done after its hold was swept says it was not charged, not held for good", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, input(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    wallet.settleWallet.mockResolvedValue(null);
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    expect(rowOf(id).status).toBe("done");
+    expect(rowOf(id).charged_satang).toBe(0);
+    expect(paidLine(rowOf(id) as never)).toBe("ทำเสร็จ · ไม่ได้หักเงิน");
+  });
+
+  it("a settle that throws leaves the charge unknown, not zero", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, input(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    wallet.settleWallet.mockRejectedValue(new Error("db down"));
+    await finishVideo(structuredClone(rowOf(id)) as never, "done", `${id}/quote.mp4`);
+    expect(rowOf(id).charged_satang).toBeNull();
+  });
+
+  it("drawing is stuck after 20 minutes, rendering after 25", () => {
+    const now = Date.now();
+    const row = (status: string, min: number) => ({ status, video_path: null, created_at: ago(min, now), updated_at: ago(min, now) }) as never;
+    expect(isStuck(row("drawing", 19), now)).toBe(false);
+    expect(isStuck(row("drawing", 21), now)).toBe(true);
+    expect(isStuck(row("rendering", 22), now)).toBe(false);
+    expect(isStuck(row("rendering", 26), now)).toBe(true);
+    expect(isStuck(row("done", 60), now)).toBe(false);
+  });
+
+  it("the sweep fails anyone's stuck clips and gives their holds back, and leaves the rest", async () => {
+    const now = Date.now();
+    db.rows.push(
+      stuckRow({ id: "old-draw", status: "drawing", hold_id: "h1", created_at: ago(40, now), updated_at: ago(40, now) }),
+      stuckRow({ id: "old-render", status: "rendering", hold_id: "h2", created_at: ago(26, now), updated_at: ago(12, now) }),
+      stuckRow({ id: "late-render", status: "rendering", hold_id: "h3", created_at: ago(22, now), updated_at: ago(8, now) }),
+      stuckRow({ id: "fresh", status: "drawing", hold_id: "h4", created_at: ago(3, now), updated_at: ago(3, now) }),
+    );
+    expect(await sweepStuckVideos(now, true)).toBe(2);
+    expect(rowOf("old-draw").status).toBe("failed");
+    expect(rowOf("old-render").status).toBe("failed");
+    expect(rowOf("late-render").status).toBe("rendering");
+    expect(rowOf("fresh").status).toBe("drawing");
+    expect(wallet.releaseWallet.mock.calls.map((c) => c[0]).sort()).toEqual(["h1", "h2"]);
+  });
+
+  it("a render that arrives after the clip was failed has its file removed", async () => {
+    const now = Date.now();
+    db.rows.push(stuckRow({ id: "gone", status: "failed", hold_id: "h5", created_at: ago(30, now), updated_at: ago(2, now) }));
+    db.files.set("gone/quote.mp4", Buffer.from("mp4"));
+    await finishVideo(structuredClone(rowOf("gone")) as never, "done", "gone/quote.mp4");
+    expect(db.files.has("gone/quote.mp4")).toBe(false);
+    expect(rowOf("gone").status).toBe("failed");
+    expect(wallet.settleWallet).not.toHaveBeenCalled();
   });
 });

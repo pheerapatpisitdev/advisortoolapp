@@ -51,6 +51,12 @@ describe("paid line", () => {
     expect(paidLine(v({ held_satang: 1500 }))).toContain("กันเงิน");
   });
   it("a failed free clip gives both back", () => expect(paidLine(v({ status: "failed", held_satang: 1500 }))).toBe("คืนสิทธิ์ฟรีและเงินแล้ว"));
+  it("a free clip whose picture hold was gone says nothing was taken", () =>
+    expect(paidLine(v({ held_satang: 1500, charged_satang: 0 }))).toBe("ใช้สิทธิ์ฟรี · ไม่ได้หักค่าภาพ"));
+  it("a wallet clip whose hold was gone says done, not charged", () =>
+    expect(paidLine(v({ paid_by: "wallet", held_satang: 500, charged_satang: 0 }))).toBe("ทำเสร็จ · ไม่ได้หักเงิน"));
+  it("a wallet clip still being made says held", () =>
+    expect(paidLine(v({ status: "drawing", paid_by: "wallet", held_satang: 500 }))).toBe("กันเงินไว้ระหว่างทำ"));
 });
 
 describe("history", () => {
