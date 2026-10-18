@@ -101,7 +101,9 @@ export async function writeShowcase(input: ShowcaseWriteInput, pageId: string | 
     checks: modeChecks(SHOWCASE_HREF, undefined),
     logoSpot: input.logoSpot, posterWords: cleanPosterWords(input.posterWords), pageId, label: "showcase",
   });
-  // a script is spoken to camera: no poster, so no pictures on one
-  if (!round.ok || !input.papers.length || format === "script") return round;
-  return { ...round, items: await Promise.all(round.items.map((item) => attachPapers(item, input.papers))) };
+  // a script is spoken to camera: no poster, so no pictures on one. A round that stopped part
+  // way still saved pieces, and each of those gets the papers as รีวิวเคลม's do (2026-10-18)
+  if (!round.items?.length || !input.papers.length || format === "script") return round;
+  const items = await Promise.all(round.items.map((item) => attachPapers(item, input.papers)));
+  return { ...round, items };
 }

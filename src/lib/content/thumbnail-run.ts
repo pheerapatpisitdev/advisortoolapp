@@ -150,6 +150,9 @@ async function draw(
   }
 }
 
+/** one ideas call on the large writer, about: what is set aside for it */
+const IDEAS_HOLD_THB = 0.7;
+
 export type IdeasResult = { ok: true; ideas: Idea[] } | { ok: false; error: string };
 
 export async function makeIdeas(topic: string): Promise<IdeasResult> {
@@ -166,7 +169,15 @@ export async function makeIdeas(topic: string): Promise<IdeasResult> {
   if (!ideasPerHour(`thumb-ideas:${viewer.agentId}`)) return fail("ขอหัวปกครบ 30 ครั้งในชั่วโมงนี้แล้ว รอสักพักนะครับ");
   const ceiling = await ceilingBeforeRound(viewer);
   if (ceiling !== null) return fail(await capReached(ceiling));
+  // the month's content money set aside before the call, as every other step does, so thirty
+  // presses at once cannot all fit in the last baht (owner, 2026-10-18); free to the agent still
+  let hold: string | null = null;
   try {
+    const [spent, cap] = await Promise.all([contentSpentThisMonth(), contentCap()]);
+    if (spent >= cap) return fail(await capReached(cap));
+    const held = await holdContentBudget(IDEAS_HOLD_THB, cap);
+    if (!held.ok) return fail(await tooDear("คิดหัวปก", held.left));
+    hold = held.id;
     const r = await within(chat({
       tier: "large", task: IDEAS_TASK, messages: ideasMessages(text), json: true, maxTokens: 1200, timeoutMs: 30_000,
     }), 50_000, "ideas");
@@ -177,5 +188,7 @@ export async function makeIdeas(topic: string): Promise<IdeasResult> {
     if (e instanceof OutOfTime) return fail("AI ตอบไม่ทัน ลองใหม่อีกครั้งนะครับ");
     console.error("thumbnail ideas failed:", e);
     return fail("AI คิดหัวปกไม่สำเร็จ ลองกดอีกครั้งนะครับ");
+  } finally {
+    if (hold) await releaseContentBudget(hold);
   }
 }

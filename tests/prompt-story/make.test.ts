@@ -11,12 +11,12 @@ import { promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/type
  */
 
 type Row = Record<string, unknown> & { id: string };
-const db = vi.hoisted(() => ({ rows: [] as Row[], drafts: [] as Row[], files: new Map<string, Buffer>(), downloads: [] as string[], notes: [] as { step: string; done: number; of: number }[] }));
+const db = vi.hoisted(() => ({ tick: 0, rows: [] as Row[], drafts: [] as Row[], files: new Map<string, Buffer>(), downloads: [] as string[], notes: [] as { step: string; done: number; of: number }[] }));
 
 /** a small in-memory stand-in for the rows the pipeline reads and writes: the clips, and the written drafts */
 function table(name: string) {
   const list = name === "ins_prompt_drafts" ? db.drafts : db.rows;
-  let op: "select" | "insert" | "update" = "select";
+  let op: "select" | "insert" | "update" | "delete" = "select";
   let patch: Record<string, unknown> = {};
   let head = false;
   const filters: ((r: Row) => boolean)[] = [];
@@ -26,7 +26,8 @@ function table(name: string) {
   };
   const run = () => {
     if (op === "insert") {
-      const now = new Date().toISOString();
+      // each row a moment after the last, as the database's clock would have them
+      const now = new Date(Date.now() + ++db.tick).toISOString();
       const row: Row = {
         id: randomUUID(), created_at: now, updated_at: now, status: "drawing", deleted_at: null, video_path: null, job: null,
         error: null, hold_id: null, paid_by: null, held_satang: null, multiplier: null, cost_thb: 0, charged_satang: null, progress: null,
@@ -36,6 +37,7 @@ function table(name: string) {
       return [row];
     }
     const hit = list.filter((r) => filters.every((f) => f(r)));
+    if (op === "delete") { for (const r of hit) list.splice(list.indexOf(r), 1); return []; }
     if (op === "update") for (const r of hit) Object.assign(r, structuredClone(patch));
     if (op === "update" && hit.length && patch.progress) db.notes.push(patch.progress as never);
     return hit.map((r) => structuredClone(r));
@@ -44,6 +46,8 @@ function table(name: string) {
     select: (_c?: string, o?: { head?: boolean }) => { head = Boolean(o?.head); return b; },
     insert: (v: Record<string, unknown>) => { op = "insert"; patch = structuredClone(v); return b; },
     update: (v: Record<string, unknown>) => { op = "update"; patch = v; return b; },
+    delete: () => { op = "delete"; return b; },
+    lte: (k: string, v: string) => { filters.push((r) => String(val(r, k)) <= v); return b; },
     eq: (k: string, v: unknown) => { filters.push((r) => val(r, k) === v); return b; },
     neq: (k: string, v: unknown) => { filters.push((r) => val(r, k) !== v); return b; },
     in: (k: string, vs: unknown[]) => { filters.push((r) => vs.includes(val(r, k))); return b; },
@@ -531,5 +535,18 @@ describe("deleting an old clip the voice quota failed (owner, 2026-10-18)", () =
     expect(await deleteVideo("a1", "q1")).toBe("deleted");
     expect(rowOf("q1").deleted_at).not.toBeNull();
     expect(await voiceFullUntil()).toBeNull();
+  });
+});
+
+describe("the last free clip, pressed twice at once (owner, 2026-10-18)", () => {
+  it("is free once; the other press is taken back and asked again, its hold given back", async () => {
+    db.rows.push({ id: randomUUID(), agent_id: "a1", paid_by: "free", status: "done", deleted_at: null, input: {}, created_at: new Date(Date.now() - 60_000).toISOString() });
+    db.drafts.push({ id: "draft-2", agent_id: "a1", made_clip_id: null });
+    const [a, b] = await Promise.all([createPromptStory(taster, input(), ""), createPromptStory(taster, input({ draftId: "draft-2" }), "")]);
+    const made = [a, b].filter((r) => "id" in r);
+    expect(made).toHaveLength(1);
+    expect([a, b].find((r) => "refusal" in r)).toEqual({ refusal: "ใช้วิดีโอฟรีครบแล้ว กดสร้างอีกครั้งเพื่อจ่ายจากกระเป๋านะครับ" });
+    expect(wallet.releaseWallet).toHaveBeenCalled();
+    expect(db.rows.filter((r) => r.paid_by === "free")).toHaveLength(2);
   });
 });

@@ -184,10 +184,12 @@ export async function freeClips(viewer: Viewer, access?: MemberAccess): Promise<
 }
 
 /** the agent's free clips used in the window: those not failed (a failed one is handed back) */
-async function freeUsed(agentId: string, from: Date | null): Promise<number> {
+async function freeUsed(agentId: string, from: Date | null, upTo?: string): Promise<number> {
   let q = rows().select("id", { count: "exact", head: true })
     .eq("agent_id", agentId).eq("paid_by", "free").neq("status", "failed");
   if (from) q = q.gte("created_at", from.toISOString());
+  // the free clips made up to and including one row: those before it, not after
+  if (upTo) q = q.lte("created_at", upTo);
   const { count, error } = await q;
   if (error) throw new Error(`free clips not counted: ${error.message}`);
   return count ?? 0;
@@ -221,6 +223,7 @@ export async function costView(viewer: Viewer): Promise<CostView> {
  */
 export async function createVideo(viewer: Viewer, input: ClipInput, customer: string, id?: string): Promise<{ id: string } | { refusal: string }> {
   let pay: Partial<VideoRow> = { paid_by: "staff" };
+  let freeWindow: { limit: number; from: Date | null } | null = null;
   if (!can(viewer, "owner")) {
     // an outside member makes clips while their pass is live (owner, 2026-10-13); unreadable refuses
     const access = await memberAccess(viewer).catch((e) => {
@@ -230,6 +233,7 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     if (!access) return { refusal: PASS_UNREADABLE };
     if (!passOpen(access)) return { refusal: PASS_EXPIRED };
     const { limit, from } = await freeClips(viewer, access);
+    freeWindow = { limit, from };
     if ((await freeUsed(viewer.agentId, from)) < limit) {
       // a คลิปตามโจทย์'s free clip covers the clip only: its pictures are still paid from the wallet (spec, Money)
       // so do the cut-outs AI draws for a คอลลาจ clip (owner, 2026-10-17)
@@ -258,10 +262,20 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     const who = await remotionFor(plan);
     if (who === "all" || (who === "owner" && can(viewer, "owner"))) input = { ...input, engine: "remotion" };
   }
-  const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id").single();
+  const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id, created_at").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
     throw new Error(`video not created: ${error?.message}`);
+  }
+  // free clips counted again once the row is in, up to it: of presses at once on the last free
+  // clip only the first is free; the rest are taken back and asked to press again (owner, 2026-10-18)
+  if (pay.paid_by === "free" && freeWindow) {
+    const n = await freeUsed(viewer.agentId, freeWindow.from, String(data.created_at)).catch(() => 0);
+    if (n > freeWindow.limit) {
+      await rows().delete().eq("id", data.id);
+      if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
+      return { refusal: "ใช้วิดีโอฟรีครบแล้ว กดสร้างอีกครั้งเพื่อจ่ายจากกระเป๋านะครับ" };
+    }
   }
   return { id: data.id as string };
 }

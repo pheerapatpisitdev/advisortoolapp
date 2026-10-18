@@ -13,7 +13,8 @@ const signed = (satang: number) => `${satang >= 0 ? "+" : "−"}${formatBaht(Mat
 
 /** polls every two seconds for up to a minute after Stripe sends the agent back */
 const POLL_MS = 2000;
-const POLL_TRIES = 30;
+// ten asks over about two and a half minutes, each further apart (owner, 2026-10-18: it was 30 every 2 s)
+const POLL_TRIES = 10;
 
 /** one line of the history: a wallet entry, or a credit lot given or run out (owner, 2026-10-17) */
 interface Line { id: string; label: string; satang: number; at: string; strong: boolean }
@@ -69,7 +70,7 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
   paid: string | null;
 }) {
   const [balance, setBalance] = useState(balanceSatang);
-  const [waiting, setWaiting] = useState<"checking" | "late" | "failed" | null>(paid ? "checking" : null);
+  const [waiting, setWaiting] = useState<"checking" | "late" | "failed" | "notYours" | null>(paid ? "checking" : null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -89,8 +90,11 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
         return;
       }
       if (r?.status === "failed" || r?.status === "expired") return setWaiting("failed");
+      // the top-up's row is written before Stripe opens, so none at all is somebody else's link (2026-10-18)
+      if (r && r.status === null) return setWaiting("notYours");
       if (++tries >= POLL_TRIES) return setWaiting("late");
-      setTimeout(tick, POLL_MS);
+      // asked less and less often: most top-ups land in the first seconds (owner, 2026-10-18 — Vercel CPU)
+      setTimeout(tick, POLL_MS * 1.5 ** (tries - 1));
     };
     void tick();
     return () => { stop = true; };
@@ -142,6 +146,7 @@ export function WalletClient({ enabled, multiplier, balanceSatang, frozen = fals
         )}
         {waiting === "checking" && <p className="mt-3 text-sm font-medium" role="status">กำลังยืนยันการชำระเงิน…</p>}
         {waiting === "late" && <p className="mt-3 text-sm" role="status">ยังไม่ได้รับการยืนยันจาก Stripe — ยอดจะเข้าเองเมื่อ Stripe แจ้ง ลองเปิดหน้านี้ใหม่ภายหลังนะครับ</p>}
+        {waiting === "notYours" && <p className="mt-3 text-sm text-[var(--ct-warn-ink)]" role="status">ไม่พบรายการเติมเงินนี้ในบัญชีของคุณ</p>}
         {waiting === "failed" && <p className="mt-3 text-sm text-[var(--ct-warn-ink)]" role="status">การชำระเงินไม่สำเร็จ ยังไม่ได้ตัดเงินครับ</p>}
       </section>
 

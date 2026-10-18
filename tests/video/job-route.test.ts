@@ -172,7 +172,7 @@ describe("the job webhook", () => {
     expect(round.settleLater).not.toHaveBeenCalled();
   });
 
-  it("an unsigned Rendi-style webhook naming a Cloud Run job only asks again, and Cloud Run has nothing to say", async () => {
+  it("an unsigned Rendi-style webhook naming a Cloud Run job asks nobody, and changes nothing (owner, 2026-10-18)", async () => {
     const cloudrun = { name: "cloudrun" as EngineName, takesId: true, submit: vi.fn(), status: vi.fn(async () => null), cleanup: vi.fn(async () => undefined) };
     eng.engineNamed.mockImplementation(async (n: EngineName) => (n === "cloudrun" ? (cloudrun as RenderEngine) : null));
     clipDb.reset(dbRow(job({ engine: "cloudrun", id: "cr-1", tried: ["cloudrun"] })));
@@ -180,9 +180,17 @@ describe("the job webhook", () => {
     const lie = { data: { command_id: "cr-1", status: "SUCCESS" }, state: "done", outputs: { out_1: { path: TAKE } } };
 
     expect((await post(lie)).status).toBe(200);
-    expect(cloudrun.status).toHaveBeenCalledWith("cr-1");
+    expect(cloudrun.status).not.toHaveBeenCalled();
     expect(JSON.stringify(clipDb.row)).toBe(before);
     expect(round.settleLater).not.toHaveBeenCalled();
+  });
+
+  it("refuses a Rendi-style webhook without the key once RENDI_WEBHOOK_KEY is set", async () => {
+    vi.stubEnv("RENDI_WEBHOOK_KEY", "k-123");
+    clipDb.reset(dbRow(job({ engine: "rendi", id: "cmd-9", tried: ["rendi"], dest: undefined })));
+    expect((await post({ data: { command_id: "cmd-9" } })).status).toBe(401);
+    expect(rendi.status).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
   });
 
   it("a second callback for a job already finished changes nothing", async () => {

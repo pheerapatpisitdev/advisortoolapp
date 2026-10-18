@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { limiter } from "@/lib/assistant/rate-limit";
 import { callsBack, checkJob, finishJob, hashToken, pieceOfJob } from "@/lib/video/jobs";
 
 /**
@@ -33,6 +34,16 @@ function sameToken(given: string, expectedHash: string | undefined): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** the webhook URL's key against the one set, in constant time */
+function sameKey(given: string, key: string): boolean {
+  const a = Buffer.from(given);
+  const b = Buffer.from(key);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** an unsigned Rendi webhook makes us ask Rendi: twice per job per half minute at most */
+const asksPerJob = limiter(2, 30_000);
+
 type Body = {
   id?: unknown; token?: unknown; state?: unknown; outputs?: unknown; error?: unknown;
   data?: { command_id?: unknown } | null;
@@ -47,12 +58,17 @@ export async function POST(req: Request) {
   }
   if (!body || typeof body !== "object") return NextResponse.json({ error: "bad body" }, { status: 400 });
 
-  // Rendi: unsigned — only a reason to ask again
+  // Rendi: unsigned — only a reason to ask again. With RENDI_WEBHOOK_KEY set (and ?key= on the
+  // dashboard's webhook URL) nobody else may send one; without it, two asks per job per half
+  // minute, and only for a Rendi job (owner, 2026-10-18)
   const commandId = body.data && typeof body.data === "object" ? body.data.command_id : undefined;
   if (typeof commandId === "string" && commandId) {
+    const key = process.env.RENDI_WEBHOOK_KEY;
+    if (key && !sameKey(new URL(req.url).searchParams.get("key") ?? "", key)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    if (!asksPerJob(`rendi:${commandId}`)) return ok();
     try {
       const found = await pieceOfJob(commandId);
-      if (found) await checkJob(found.pieceId);
+      if (found && found.job.engine === "rendi") await checkJob(found.pieceId);
     } catch (e) {
       // the edit page's poll asks too; Rendi need not send it again
       console.error("rendi webhook: job not checked:", e instanceof Error ? e.message : "unknown error");
