@@ -103,3 +103,21 @@ export function pieceFilter(scope: Scope): string | null {
   const offPage = agents ? `and(page_id.is.null,or(${agents}))` : "page_id.is.null";
   return onPage ? `${onPage},${offPage}` : offPage;
 }
+
+/**
+ * A person in the people library (owner chose 15ก, 2026-10-18): the agent's who added them, as
+ * maySee says — and, when they are drawn for one Page, everyone who looks after that Page, so
+ * the staff writing a Page's pieces draw the same people. A person for every Page (no page_id)
+ * stays the adder's alone: an agent's own face is theirs.
+ */
+export function maySeePerson(scope: Scope, person: { agentId: string | null; pageId: string | null }): boolean {
+  if (maySee(scope, person.agentId)) return true;
+  return Boolean(person.pageId) && (scope.pages === null || scope.pages.includes(person.pageId!));
+}
+
+/** maySeePerson as a PostgREST `or` filter on agent_id and page_id; null when everything is visible. */
+export function personFilter(scope: Scope): string | null {
+  const agents = agentFilter(scope);
+  if (agents === null) return null;
+  return scope.pages === null ? `${agents},page_id.not.is.null` : scope.pages.length ? `${agents},page_id.in.(${scope.pages.join(",")})` : agents;
+}

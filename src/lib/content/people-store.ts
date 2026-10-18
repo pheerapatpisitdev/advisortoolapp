@@ -1,4 +1,4 @@
-import { agentFilter, currentScope, maySee } from "@/lib/auth/scope";
+import { currentScope, maySeePerson, personFilter } from "@/lib/auth/scope";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { ReferenceImage } from "@/lib/ai/images";
 import { MAX_PHOTOS, pickReferences } from "./people";
@@ -9,8 +9,8 @@ import { MAX_PHOTOS, pickReferences } from "./people";
  * shape before any storage call, so a request cannot point the server at another file.
  *
  * A person is the agent's who added them (owner, 2026-09-27: "ไม่แชร์ห้องกัน") — an agent's
- * own face is theirs, not their office's. Staff see each other's, as they share the Page's
- * pieces. Every lookup here asks src/lib/auth/scope.ts, photos included, so a path that is not
+ * own face is theirs, not their office's. A person drawn for one Page is also that Page's, seen
+ * by everyone who looks after it (owner chose 15ก, 2026-10-18; maySeePerson). Every lookup here asks src/lib/auth/scope.ts, photos included, so a path that is not
  * the asker's is refused like a path that does not exist.
  */
 
@@ -47,7 +47,7 @@ const toPerson = (r: Record<string, unknown>): Person => ({
 const COLUMNS = "id, name, photos, consented_at, page_id";
 
 export async function listPeople(): Promise<Person[]> {
-  const only = agentFilter(await currentScope());
+  const only = personFilter(await currentScope());
   let q = supabaseAdmin().from("ins_people").select(COLUMNS);
   if (only) q = q.or(only);
   const { data, error } = await q.order("created_at");
@@ -62,7 +62,7 @@ export async function getPerson(id: string): Promise<Person | null> {
     currentScope(),
   ]);
   if (error) throw new Error(error.message);
-  return data && maySee(scope, data.agent_id as string | null) ? toPerson(data) : null;
+  return data && maySeePerson(scope, { agentId: data.agent_id as string | null, pageId: (data.page_id as string | null) ?? null }) ? toPerson(data) : null;
 }
 
 /**
