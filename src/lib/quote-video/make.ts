@@ -1349,7 +1349,9 @@ export async function listVideos(agentId: string, limit = 30): Promise<VideoRow[
  * the free clips and the wallet's lines are not undone. Not while it is being made.
  */
 export async function deleteVideo(agentId: string, id: string): Promise<"deleted" | "busy" | "missing"> {
-  const { data, error } = await rows().update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+  // updated_at is left as it was: a clip failed on the day's voice and deleted later would
+  // otherwise read as that voice full again today (voiceFullUntil) (owner, 2026-10-18)
+  const { data, error } = await rows().update({ deleted_at: new Date().toISOString() })
     .eq("id", id).eq("agent_id", agentId).is("deleted_at", null).in("status", ["done", "failed"]).select("id").maybeSingle();
   if (error) throw new Error(`video ${id} not deleted: ${error.message}`);
   if (!data) {

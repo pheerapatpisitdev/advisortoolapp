@@ -22,6 +22,17 @@ import { keptDuration } from "./timeline";
  */
 
 export const RENDER_DOWN = "ระบบตัดต่อขัดข้อง ลองใหม่ภายหลัง";
+/** a fault trying again will not mend: no engine, a key missing or refused (owner, 2026-10-18) */
+export const RENDER_SETUP = "ระบบตัดต่อยังตั้งค่าไม่ครบ แจ้งแอดมิน";
+
+/**
+ * The words for a cut that could not start: the set-up ones (ยังไม่ได้ตั้งค่า…, ตั้งค่า … ไม่ครบ,
+ * a 401 or 403 from the service) say to tell the admin; anything else may pass, so try again later.
+ */
+export function renderError(e: unknown): string {
+  const m = e instanceof Error ? e.message : "";
+  return m === RENDER_SETUP || /ตั้งค่า|\((401|403)\)/.test(m) ? RENDER_SETUP : RENDER_DOWN;
+}
 export const TOO_SHORT = "คลิปที่เหลือสั้นเกินไป — Reel ต้องยาวอย่างน้อย 3 วินาที";
 export const NOT_PREPARED = "ยังเตรียมคลิปไม่เสร็จ — รอสักครู่แล้วลองใหม่";
 export const CLIP_GONE = "ไฟล์คลิปหมดอายุแล้ว — แนบคลิปใหม่ก่อน";
@@ -139,7 +150,7 @@ export async function startRender(item: ContentItem, pass: EditPass, claim?: str
     await settleLater(pass, false, 0).catch((err) => console.error(`round of ${item.id} not handed back:`, err instanceof Error ? err.message : err));
     if (claim) await releaseSubmit(item.id, claim);
     for (const p of uploaded) await removeClip(p);
-    throw new Error(RENDER_DOWN);
+    throw new Error(renderError(e));
   }
   return (await getContentUnscoped(item.id).catch(() => null)) ?? item;
 }

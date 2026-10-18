@@ -74,6 +74,8 @@ function read(text: string, count: number, figure?: StoryFigure): Read | null {
 
 const empty = (s: PromptScene | undefined) => !s || !s.voice || !s.screen || !s.picture;
 
+export const WRITE_FAILED = "AI เขียนบทไม่สำเร็จ ลองกดเขียนใหม่ ไม่เสียเงิน";
+
 export async function writeStory(input: { brief: string; scenes: 3 | 5 | 8; figure?: StoryFigure; ask?: Ask }): Promise<Written> {
   const { brief, figure } = input;
   const count = input.scenes;
@@ -87,9 +89,9 @@ export async function writeStory(input: { brief: string; scenes: 3 | 5 | 8; figu
   } catch (e) {
     console.error("prompt story not written:", e instanceof Error ? e.message : "unknown error");
   }
-  if (!first) {
-    return { ok: true, title: "วางแผนดูแลครอบครัว", caption: "ทักมาคุยกันได้เลยค่ะ", scenes: PLAIN.map((s) => ({ ...s })), notes: [0, 1, 2] };
-  }
+  // the AI down or its reply unreadable: said so, not three plain scenes for the 5 or 8 asked,
+  // put down to the AI breaking the rules (owner, 2026-10-18); writing a script costs nothing
+  if (!first) return { ok: false, refusal: WRITE_FAILED };
   if (!first.onTopic) return { ok: false, refusal: first.refusal || "โจทย์นี้ไม่เกี่ยวกับประกันหรือการวางแผนการเงินครอบครัว" };
 
   const scenes: PromptScene[] = Array.from({ length: count }, (_, i) => first!.scenes[i] ?? ({ voice: "", screen: "", picture: "" } as PromptScene));

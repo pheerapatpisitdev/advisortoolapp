@@ -16,7 +16,7 @@ import { takeRound } from "@/lib/auth/quota";
 import { videoSettings } from "@/lib/video/settings";
 import { prepareJob } from "@/lib/video/command";
 import { avoidAfterFailure, checkJob, claimSubmit, JOB_BUSY, releaseSubmit, submitJob, submitting } from "@/lib/video/jobs";
-import { CLIP_GONE, LINK_SECONDS, NOT_PREPARED, pageTheme, RENDER_DOWN, renderChecks, renderCostThb, startRender } from "@/lib/video/render-run";
+import { CLIP_GONE, LINK_SECONDS, NOT_PREPARED, pageTheme, renderChecks, renderError, renderCostThb, startRender } from "@/lib/video/render-run";
 import type { Theme } from "@/lib/content/poster";
 
 /**
@@ -106,12 +106,12 @@ export async function openEdit(id: string): Promise<EditResult> {
     } catch (e) {
       console.error(`prepare of ${id} not started:`, e instanceof Error ? e.message.replace(/https?:\/\/\S+/g, "<url>") : e);
       await releaseSubmit(id, claimed.claim);
-      return { ok: false, error: RENDER_DOWN };
+      return { ok: false, error: renderError(e) };
     }
     return answer((await getContent(id)) ?? claimed.item);
   } catch (e) {
     console.error(`edit of ${id} not opened:`, e);
-    return { ok: false, error: RENDER_DOWN };
+    return { ok: false, error: renderError(e) };
   }
 }
 
@@ -139,7 +139,7 @@ export async function pollEdit(id: string): Promise<EditResult> {
     return answer((await checkJob(id)).item);
   } catch (e) {
     console.error(`edit of ${id} not polled:`, e);
-    return { ok: false, error: RENDER_DOWN };
+    return { ok: false, error: renderError(e) };
   }
 }
 
@@ -262,7 +262,7 @@ export async function renderEdit(id: string): Promise<EditResult> {
     return answer(await startRender(claimed.item, pass, claimed.claim));
   } catch (e) {
     console.error(`render of ${id} not made:`, e instanceof Error ? e.message : e);
-    return { ok: false, error: RENDER_DOWN };
+    return { ok: false, error: renderError(e) };
   }
 }
 

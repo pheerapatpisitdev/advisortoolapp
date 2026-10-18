@@ -36,7 +36,7 @@ const { NO_FLAGS, clipOutput } = await import("@/lib/content/clip");
 const { getContentUnscoped } = await import("@/lib/content/store");
 const { EngineError } = await import("@/lib/video/engines/types");
 const { claimSubmit } = await import("@/lib/video/jobs");
-const { HOOK_Y, RENDER_DOWN, SUB_Y, TOO_SHORT, tooLong, pageTheme, renderChecks, renderCostThb, startRender } = await import("@/lib/video/render-run");
+const { HOOK_Y, RENDER_SETUP, SUB_Y, TOO_SHORT, tooLong, pageTheme, renderChecks, renderCostThb, startRender } = await import("@/lib/video/render-run");
 
 const PIECE = "0b7d3f4e-1c2a-4b5d-8e9f-0a1b2c3d4e5f";
 const SOURCE = `${PIECE}/11111111-1111-4111-8111-111111111111.mp4`;
@@ -210,7 +210,7 @@ describe("startRender", () => {
     if (typeof claimed === "string") throw new Error(claimed);
     eng.enginesInOrder.mockResolvedValue([]);
 
-    await expect(startRender(claimed.item, WALLET, claimed.claim)).rejects.toThrow(RENDER_DOWN);
+    await expect(startRender(claimed.item, WALLET, claimed.claim)).rejects.toThrow(RENDER_SETUP); // no engine set up: trying again cannot help
 
     expect(round.settleLater).toHaveBeenCalledWith(WALLET, false, 0);
     expect(storedEdit().job ?? null).toBeNull();
@@ -226,7 +226,7 @@ describe("startRender", () => {
     eng.enginesInOrder.mockResolvedValue([]);
     round.settleLater.mockRejectedValueOnce(new Error("wallet down"));
 
-    await expect(startRender(claimed.item, WALLET, claimed.claim)).rejects.toThrow(RENDER_DOWN);
+    await expect(startRender(claimed.item, WALLET, claimed.claim)).rejects.toThrow(RENDER_SETUP); // no engine set up: trying again cannot help
 
     expect(storedEdit().submitting).toBeUndefined();
     expect([...clipDb.files.keys()].filter((p) => p.endsWith(".png"))).toEqual([]);

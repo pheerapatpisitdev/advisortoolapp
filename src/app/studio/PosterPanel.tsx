@@ -88,7 +88,10 @@ export function PosterPanel({ value, onChange, onDraw, busy, people, person: dra
   /** the paid photograph goes only when the owner says so */
   async function dropPicture() {
     if (!(await ask("ทิ้งภาพที่ AI วาดไว้? วาดใหม่ต้องจ่ายอีกรอบ", "ใช้สีพื้น"))) return;
-    onChange({ layout: value.layout, theme: value.theme, blocks: value.blocks });
+    // only the photograph goes: the Page's logo and the papers' share stay (owner, 2026-10-18)
+    const { background: _photo, personAside: _aside, ...kept } = value;
+    void _photo; void _aside;
+    onChange(kept);
   }
 
   async function draw() {

@@ -189,6 +189,7 @@ export function ShowcaseTools({ writer, onWriter, painter, onPainter, people, pe
       form.set("angle", round.angle);
       form.set("custom", round.custom);
       form.set("reader", round.reader);
+      form.set("avoid", round.avoid ? "on" : "off");
       // a script is spoken: no poster, so no papers. Otherwise up to three on the poster, the
       // receipts and issued policies first (they show the work best), then the rest in the order given —
       // each with the AI's stickers, checked in the editor before anything is posted

@@ -49,7 +49,7 @@ vi.mock("@/lib/auth/viewer", () => auth);
 const { NO_FLAGS, clipOutput } = await import("@/lib/content/clip");
 const { EngineError } = await import("@/lib/video/engines/types");
 const { JOB_BUSY } = await import("@/lib/video/jobs");
-const { RENDER_DOWN, TOO_SHORT, renderCostThb } = await import("@/lib/video/render-run");
+const { RENDER_DOWN, RENDER_SETUP, TOO_SHORT, renderCostThb } = await import("@/lib/video/render-run");
 const { openEdit, pollEdit, renderEdit, saveEdit, useOriginal } = await import("@/app/studio/clip-edit");
 const { saveFinishTicks } = await import("@/app/studio/ticks");
 
@@ -239,7 +239,7 @@ describe("openEdit", () => {
 
   it("a prepare no engine takes lets its claim go, so the next open tries again", async () => {
     eng.enginesInOrder.mockResolvedValueOnce([]);
-    expect(await openEdit(PIECE)).toEqual({ ok: false, error: RENDER_DOWN });
+    expect(await openEdit(PIECE)).toEqual({ ok: false, error: RENDER_SETUP });
     expect(storedEdit().submitting).toBeUndefined();
     expect(storedEdit().job ?? null).toBeNull();
     expect((await openEdit(PIECE)).ok).toBe(true);

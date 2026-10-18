@@ -186,6 +186,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
       form.set("angle", round.angle);
       form.set("custom", round.custom);
       form.set("reader", round.reader);
+      form.set("avoid", round.avoid ? "on" : "off");
       // a script is spoken: no poster, so no papers. Otherwise up to three on the poster, the
       // approval letters first (they show the payment best), then the rest in the order given —
       // each with the AI's stickers, checked in the editor before anything is posted

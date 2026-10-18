@@ -87,6 +87,17 @@ describe("writing a รีวิวเคลม", () => {
     expect(run.writeClaim).toHaveBeenCalledWith(expect.anything(), "p1");
   });
 
+  it("passes the กันซ้ำ toggle on: off turns it off, unsaid keeps it on (owner, 2026-10-18)", async () => {
+    quota.takeRound.mockResolvedValue({ ok: true, paidBy: "staff" });
+    const off = writeRequest();
+    const form = await off.formData();
+    form.set("avoid", "off");
+    await PUT(new Request("http://localhost/api/content-claim", { method: "PUT", body: form, headers: { "x-forwarded-for": `10.0.3.${Math.random()}` } }) as never);
+    expect(run.writeClaim.mock.calls[0][0]).toMatchObject({ avoid: false });
+    await PUT(writeRequest() as never);
+    expect(run.writeClaim.mock.calls[1][0]).toMatchObject({ avoid: true });
+  });
+
   it("refuses an ad before anything is counted or written — ads moved to Ads Studio", async () => {
     const res = await PUT(writeRequest("ad") as never);
     expect(res.status).toBe(400);

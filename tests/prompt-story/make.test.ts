@@ -50,7 +50,9 @@ function table(name: string) {
     is: (k: string, v: unknown) => { filters.push((r) => (val(r, k) ?? null) === v); return b; },
     not: (k: string, _op: string, v: unknown) => { filters.push((r) => (val(r, k) ?? null) !== v); return b; },
     lt: (k: string, v: string) => { filters.push((r) => String(val(r, k)) < v); return b; },
-    gte: () => b, order: () => b, limit: () => b,
+    gte: (k: string, v: unknown) => { if (typeof v === "string") filters.push((r) => String(val(r, k)) >= v); return b; },
+    like: (k: string, pat: string) => { filters.push((r) => String(val(r, k) ?? "").startsWith(pat.replace(/%$/, ""))); return b; },
+    order: () => b, limit: () => b,
     single: async () => { const d = run(); return { data: d[0] ?? null, error: d[0] ? null : { message: "no row" } }; },
     maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
     then: (ok: (v: unknown) => unknown, no?: (e: unknown) => unknown) => {
@@ -103,7 +105,8 @@ vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: () => ({ submit
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
 
-const { createPromptStory, drawScene, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos } = await import("@/lib/quote-video/make");
+const { createPromptStory, deleteVideo, drawScene, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos, voiceFullUntil } = await import("@/lib/quote-video/make");
+const { VOICE_FULL } = await import("@/lib/quote-video/voice-quota");
 const { paidLine } = await import("@/lib/quote-video/paid-line");
 
 /** the drawing route as produce calls it: each scene drawn for real, by drawScene */
@@ -517,5 +520,16 @@ describe("a clip's money when it runs long (owner chose 1ก 2ก, 2026-10-18)",
     expect(db.files.has("gone/quote.mp4")).toBe(false);
     expect(rowOf("gone").status).toBe("failed");
     expect(wallet.settleWallet).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleting an old clip the voice quota failed (owner, 2026-10-18)", () => {
+  it("does not make today's voice read as full", async () => {
+    const old = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
+    db.rows.push({ id: "q1", agent_id: "a1", status: "failed", deleted_at: null, video_path: null, error: `${VOICE_FULL} พรุ่งนี้`, created_at: old, updated_at: old, input: {} });
+    expect(await voiceFullUntil()).toBeNull();
+    expect(await deleteVideo("a1", "q1")).toBe("deleted");
+    expect(rowOf("q1").deleted_at).not.toBeNull();
+    expect(await voiceFullUntil()).toBeNull();
   });
 });

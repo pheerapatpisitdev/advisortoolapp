@@ -1433,7 +1433,8 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               </button>
             </div>
           )}
-          {tab !== "trashed" && !picking && pickable.length > 1 && (
+          {/* a planner may not post, so has nothing to hold on a Page (owner, 2026-10-18) */}
+          {tab !== "trashed" && !picking && !planner && pickable.length > 1 && (
             <button type="button" onClick={startPicking} className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[var(--ct-line)] bg-[var(--ct-panel)] px-3 text-sm text-[var(--ct-accent)] hover:bg-[var(--ct-soft)]">
               <CalendarIcon className="size-4" />ตั้งเวลาหลายชิ้น
             </button>

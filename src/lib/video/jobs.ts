@@ -36,7 +36,8 @@ export const NO_ENGINE = "ยังไม่ได้ตั้งค่าตั
 export const NO_OTHER_ENGINE = "ไม่มีตัวตัดต่ออื่นให้ลองแล้ว";
 export const JOB_BUSY = "คลิปนี้มีงานตัดต่อค้างอยู่ — รอให้เสร็จก่อนนะครับ";
 export const JOB_FAILED = "ตัดต่อไม่สำเร็จ — ลองอีกครั้งได้";
-export const JOB_TIMED_OUT = "ตัดต่อนานเกิน 15 นาที — ลองอีกครั้งได้";
+/** shown from COLLECT_LATEST_MS (10.5 minutes) on, as well as past the 15-minute bound: true of both (owner, 2026-10-18) */
+export const JOB_TIMED_OUT = "ตัดต่อนานเกิน 10 นาที — ลองอีกครั้งได้";
 export const JOB_NO_FILES = "ตัวตัดต่อไม่ได้ส่งไฟล์กลับมา — ลองอีกครั้งได้";
 
 /**

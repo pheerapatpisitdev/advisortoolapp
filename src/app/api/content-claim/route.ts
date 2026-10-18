@@ -115,6 +115,8 @@ export async function PUT(req: NextRequest) {
       format: String(form.get("format") ?? ""), length: String(form.get("length") ?? ""), loop: form.get("loop") === "on", formula: String(form.get("formula") ?? ""), pro: form.get("pro") === "on",
       logoSpot: String(form.get("logoSpot") ?? ""), posterWords: String(form.get("posterWords") ?? ""),
       angle: String(form.get("angle") ?? ""), custom: String(form.get("custom") ?? ""), reader: String(form.get("reader") ?? ""),
+      // กันซ้ำกับโพสต์เก่า as the form has it; a form that does not say keeps it on (owner, 2026-10-18)
+      avoid: form.get("avoid") !== "off",
     }, project.pageId);
   }));
 }
