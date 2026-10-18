@@ -29,7 +29,8 @@ export interface DraftWriteInput {
 export async function writeDraft(input: DraftWriteInput, pageId: string | null): Promise<GenerateResult> {
   const draft = cleanDraft(input.draft);
   if (!draft) return { ok: false, error: "พิมพ์ร่างก่อนนะครับ" };
-  const format: Format = input.format === "script" || input.format === "ad" ? input.format : "post";
+  // an ad is written in Ads Studio, never here (the actions refuse one before a round): post or script
+  const format: Format = input.format === "script" ? "script" : "post";
   const length: Length | null = format === "script" ? (LENGTHS.find((l) => l.id === input.length)?.id ?? "60") : null;
   const loop = format === "script" && input.loop === true;
   const formula = formulaOf(input, format);

@@ -120,13 +120,13 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
     return Boolean(last) && last!.papers.length === list.length && last!.papers.every((f, i) => f === list[i]);
   };
   const estimate = ((sameAsRead(files) ? 0 : READ_THB) + count * (pick.thb + OVERHEAD_THB) + drawn).toFixed(2);
-  const unit = format === "ad" ? "แบบ" : "ชิ้น";
+  const unit = "ชิ้น";
 
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
     const papers = files;
-    const round = { format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, avoid, angle, custom: custom.trim(), reader: reader.trim(), note: note.trim(), count, writer, words: cleanPosterWords(posterWords) };
+    const round = { format, length, loop: format === "script" && loop, formula, avoid, angle, custom: custom.trim(), reader: reader.trim(), note: note.trim(), count, writer, words: cleanPosterWords(posterWords) };
     // อัตโนมัติ settled at the press, on the money left then, as the plan form does
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
     const pictureBrief = brief.trim();
@@ -237,7 +237,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
         )}
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
-        {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
+        <FormulaPicker value={formula} onChange={setFormula} />
         <AvoidToggle value={avoid} onChange={setAvoid} />
 
         <FormSection title="เรื่องที่เล่า">
@@ -332,7 +332,7 @@ export function ClaimTools({ writer, onWriter, painter, onPainter, people, perso
         onPress={create} disabled={pending || Boolean(blocked)}
         label={pending
           ? `กำลังอ่านเอกสารและเขียน ${making} ${unit}… (ราว 30–60 วินาที)`
-          : `สร้าง${format === "post" ? "รีวิวเคลม" : format === "ad" ? "โฆษณารีวิวเคลม" : "สคริปต์รีวิวเคลม"} ${count} ${unit}`}
+          : `สร้าง${format === "post" ? "รีวิวเคลม" : "สคริปต์รีวิวเคลม"} ${count} ${unit}`}
         note={blocked ?? (quota ? quota.text : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
         topUp={!blocked && Boolean(quota?.topUp)}
         warning={blocked ? null : overBudget(Number(estimate), left)}

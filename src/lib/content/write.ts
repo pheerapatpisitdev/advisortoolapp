@@ -225,7 +225,7 @@ export async function write(ask: Ask, opts: { only?: string; prefer?: string; bu
     const output = parsed && ownerWording(parsed);
     if (!output) {
       // the reply is the only evidence of why; its opening is enough to tell the shapes apart
-      console.error(`content piece unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+      console.error(`content piece unreadable (${r.model}, ${r.outputTokens} tokens, ${r.text.length} chars)`); // the reply itself may carry a customer's details: not logged
       throw new UnreadableReply();
     }
     // the formula named on the piece; สูตรอ่าน-ดูจนจบ's reason is the planner's, its loops the writer's
@@ -257,7 +257,7 @@ export async function writeLongAds(opts: { brief: string; plans: PiecePlan[]; ct
     // an English ad's words say money as its table does, its headline and description too (ads.ts)
     const ad = parsed && opts.lang === "en" ? englishMoney(parsed) : parsed;
     if (!ad) {
-      console.error(`content long ad unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+      console.error(`content long ad unreadable (${r.model}, ${r.outputTokens} tokens, ${r.text.length} chars)`); // the reply itself may carry a customer's details: not logged
       throw new UnreadableReply();
     }
     const poster = modelPoster(ad.poster);
@@ -301,7 +301,7 @@ export async function writeShortAds(opts: {
     const parsed = parseShortAd(r.text);
     const ad = parsed && lang === "en" ? englishShortMoney(parsed) : parsed;
     if (!ad) {
-      console.error(`content ${opts.kind} ad unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+      console.error(`content ${opts.kind} ad unreadable (${r.model}, ${r.outputTokens} tokens, ${r.text.length} chars)`); // the reply itself may carry a customer's details: not logged
       throw new UnreadableReply();
     }
     const poster = modelPoster(ad.poster);

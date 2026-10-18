@@ -12,7 +12,6 @@ import { defaultPoster, posterUrl, THEME_LABEL, THEMES } from "@/lib/content/pos
 import { MAX_PIECES } from "@/lib/content/plan";
 import { onPage, publishView } from "@/lib/content/publish-label";
 import { anglesFor, EXPAT_HREF, EXPAT_NICHES, FORMAT_SHORT, GOALS, MAX_FACT, MAX_READER, NICHES, readerFor, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
-import { MAX_ANGLES, MAX_TONES } from "@/lib/content/ads";
 import { AUTO, AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, painterOf, writerOf } from "@/lib/content/models";
 import type { ContentItem, ContentStatus } from "@/lib/content/store";
 import { contentSpend, contentWorkbench, removeContent, setContentStatus, type ContentSpend, type DrawBackgroundResult, type GenerateResult } from "./actions";
@@ -371,8 +370,6 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   /** handed to the รีวิวเคลม and หาทีม forms, which carry the same logo */
   const logo = { page: project?.pageId, spot: logoSpot, onSpot: setLogoSpot };
   const [count, setCount] = useState(1);
-  const [adAngles, setAdAngles] = useState(2);
-  const [adTones, setAdTones] = useState(2);
   const [hookId, setHookId] = useState(initialHook ?? "");
   const [toasts, setToasts] = useState<Toast[]>([]);
   /** one word per source, the newest three on screen */
@@ -435,7 +432,6 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
    * beside the finished card and read as a second piece being made.
    */
   const [making, setMaking] = useState(0);
-  const [makingFormat, setMakingFormat] = useState<Format>("post");
   const pending = making > 0;
 
   /**
@@ -630,9 +626,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     const pictureBrief = brief.trim();
     const pictureOf = person;
     await runRound(pieceCount, format, () => generateRound({
-      href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, formula: format === "ad" ? null : formula, avoid, count,
-      hookTemplateId: format === "ad" ? null : hookId || null, adAngles, adTones, writer,
-      reader, expat: expatOn, goal: format === "ad" ? "" : goal, fact: format === "ad" ? "" : fact, theme,
+      href, format, angle, custom, length: format === "script" ? length : null, loop: format === "script" && loop, formula, avoid, count,
+      hookTemplateId: hookId || null, writer,
+      reader, expat: expatOn, goal, fact, theme,
       ...(format !== "script" && logoSpot ? { logoSpot } : {}), page: project?.pageId,
     }), (fresh) => {
       // the painter as it was at the press, even if the owner changes it while waiting
@@ -651,7 +647,6 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     if (pending) return;
     hush("round");
     setMaking(asked);
-    setMakingFormat(fmt);
     hush("round-note");
     try {
       let res: GenerateResult;
@@ -1000,7 +995,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     openEditor(item.id);
   }
 
-  const pieceCount = format === "ad" ? adAngles * adTones : count;
+  const pieceCount = count;
   // what one piece costs with the picks made, the picture included (scripts have none)
   const left = moneyLeft(spend);
   const writes = writerOf(writer, left);
@@ -1175,32 +1170,9 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           )}
 
           {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
-          {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
+          <FormulaPicker value={formula} onChange={setFormula} />
           <AvoidToggle value={avoid} onChange={setAvoid} />
 
-          {format === "ad" && (
-            <div className="space-y-3 rounded-lg bg-[var(--ct-ground)] p-3">
-              <p className="text-xs leading-relaxed text-[var(--ct-mute)]">
-                ได้โฆษณาหลายแบบในรอบเดียว: แต่ละ “มุมขาย” เขียนด้วยหลาย “น้ำเสียง” เอาไปยิงเทียบกันใน Ads Manager ว่าแบบไหนได้ผล
-              </p>
-              <div role="group" aria-labelledby={`${formId}-angles`}>
-                <span id={`${formId}-angles`} className="mb-1.5 block text-sm font-medium">มุมขาย</span>
-                <div className="flex gap-2">
-                  {Array.from({ length: MAX_ANGLES }, (_, i) => i + 1).map((n) => (
-                    <button key={n} type="button" aria-pressed={adAngles === n} onClick={() => setAdAngles(n)} className={`${chip(adAngles === n)} min-w-11`}>{n}</button>
-                  ))}
-                </div>
-              </div>
-              <div role="group" aria-labelledby={`${formId}-tones`}>
-                <span id={`${formId}-tones`} className="mb-1.5 block text-sm font-medium">น้ำเสียงต่อมุม</span>
-                <div className="flex gap-2">
-                  {Array.from({ length: MAX_TONES }, (_, i) => i + 1).map((n) => (
-                    <button key={n} type="button" aria-pressed={adTones === n} onClick={() => setAdTones(n)} className={`${chip(adTones === n)} min-w-11`}>{n}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
 
           <FormSection title="เรื่องที่เล่า">
           <div>
@@ -1224,7 +1196,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 <input value={custom} onChange={(e) => setCustom(e.target.value)} maxLength={120} placeholder="เช่น ทำไมยิ่งอายุมากยิ่งซื้อยาก" className={field} />
               </label>
             )}
-            {format !== "ad" && !angle && count > 1 && <span className="mt-1 block text-xs text-[var(--ct-mute)]">แต่ละชิ้นเล่าคนละมุม</span>}
+            {!angle && count > 1 && <span className="mt-1 block text-xs text-[var(--ct-mute)]">แต่ละชิ้นเล่าคนละมุม</span>}
           </div>
 
           <div role="group" aria-labelledby={`${formId}-reader`}>
@@ -1321,11 +1293,11 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
           {/* the press, its count and its price stay in reach however long the form runs:
               pinned to the foot of the column on a desk, to the foot of the screen on a phone */}
           <PressBar
-            count={count} max={MAX_PIECES} onCount={format === "ad" ? undefined : setCount}
-            unit={format === "ad" ? "แบบ" : "ชิ้น"} onPress={generate} disabled={pending || !href}
+            count={count} max={MAX_PIECES} onCount={setCount}
+            unit="ชิ้น" onPress={generate} disabled={pending || !href}
             label={pending
-              ? `กำลังเขียน ${making} ${makingFormat === "ad" ? "แบบ" : "ชิ้น"}… (ราว 20–40 วินาที)`
-              : format === "ad" ? `สร้างโฆษณา ${pieceCount} แบบ` : `สร้าง ${count} ชิ้น`}
+              ? `กำลังเขียน ${making} ชิ้น… (ราว 20–40 วินาที)`
+              : `สร้าง ${count} ชิ้น`}
             note={quota
               // an agent's own allowance and wallet are what they can act on; the owner's baht is the owner's
               ? quota.text
@@ -1357,7 +1329,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               {pending && (
                 <p role="status" className="flex items-center gap-2 text-sm font-medium text-[var(--ct-accent)]">
                   <span className="size-2.5 rounded-full bg-[var(--ct-accent)] motion-safe:animate-pulse" />
-                  กำลังสร้าง {making} {makingFormat === "ad" ? "แบบ" : "ชิ้น"} อยู่เบื้องหลัง · {writingFor} วินาที — แก้ชิ้นนี้ต่อได้เลย
+                  กำลังสร้าง {making} ชิ้น อยู่เบื้องหลัง · {writingFor} วินาที — แก้ชิ้นนี้ต่อได้เลย
                 </p>
               )}
               {batch && <DrawProgress batch={batch} />}
@@ -1481,7 +1453,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             <div role="status" className="space-y-3">
               <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium text-[var(--ct-accent)]">
                 <span className="size-2.5 rounded-full bg-[var(--ct-accent)] motion-safe:animate-pulse" />
-                กำลังเขียน {making} {makingFormat === "ad" ? "แบบ" : "ชิ้น"}…
+                กำลังเขียน {making} ชิ้น…
                 <span className="font-normal tabular-nums text-[var(--ct-mute)]">
                   {writingFor} วินาที{writingFor > 60 ? " — นานกว่าปกติ แต่ยังทำงานอยู่" : " (ปกติ 20–40 วินาที)"}
                 </span>

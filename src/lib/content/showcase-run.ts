@@ -41,7 +41,7 @@ export async function readShowcase(images: ChatImage[]): Promise<ShowcaseReadRes
     });
     const read = parseShowcaseRead(r.text, images.length);
     if (!read) {
-      console.error(`showcase read unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+      console.error(`showcase read unreadable (${r.model}, ${r.outputTokens} tokens, ${r.text.length} chars)`); // the reply itself may carry a customer's details: not logged
       return { ok: false, error: "AI อ่านรูปไม่สำเร็จ ลองใหม่อีกครั้ง หรือแคปหน้าจอให้ชัดขึ้นนะครับ" };
     }
     return { ok: true, costThb: r.costThb, ...read };

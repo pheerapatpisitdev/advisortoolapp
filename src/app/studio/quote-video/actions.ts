@@ -48,7 +48,7 @@ import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type P
 import { POST_TRIES, readTone, readVoice } from "@/lib/quote-video/post-tones";
 import { closedFor } from "@/lib/switches/store";
 
-/** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — two free clips each, then the Studio wallet. */
+/** วิดีโอนำเสนอ (owner, 2026-10-11): every agent's — a member's free clips or a UnitClub agent's starter credit, then the Studio wallet. */
 
 /** the paying terms each product's clip offers, as its page names them */
 const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number }[]> = {
@@ -118,14 +118,12 @@ function sumLimits(product: "LIFEPROTECT" | "ISHIELD") {
 
 /** how a clip's voice reads in the list of clips; a voice no longer listed reads as ElevenLabs */
 const voiceLabel = (id: string) => (elevenVoice(id) ? `เสียง ${elevenVoice(id)!.name}` : "เสียง ElevenLabs");
-/** " · เสียง X" for the voice a clip asked for; " · เสียง อ้อม (ElevenLabs แทน Gemini)" when it was switched (make.ts speakClip) */
+/** " · เสียง X" for the voice a clip asked for */
 const voiceWord = (input: { voice?: string; gemini?: string }) => {
   if (input.voice) return ` · ${voiceLabel(input.voice)}`;
   // one of Gemini's 30 by name (owner, 2026-10-17); Kore and Orus were never named
   const gemini = geminiVoice(input.gemini);
-  if (gemini && gemini.name !== GEMINI_DEFAULT[gemini.sex]) return ` · เสียง ${gemini.name}`;
-  const fell = (input as { voiceFallback?: unknown }).voiceFallback;
-  return typeof fell === "string" ? ` · เสียง ${fell} (ElevenLabs แทน Gemini)` : "";
+  return gemini && gemini.name !== GEMINI_DEFAULT[gemini.sex] ? ` · เสียง ${gemini.name}` : "";
 };
 
 /** What was sent, made into an input the engine is asked about — or the words for what is wrong. */

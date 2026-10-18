@@ -62,7 +62,7 @@ export async function readClaim(images: ChatImage[]): Promise<ReadResult> {
     });
     const read = parseRead(r.text, images.length);
     if (!read) {
-      console.error(`claim read unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+      console.error(`claim read unreadable (${r.model}, ${r.outputTokens} tokens, ${r.text.length} chars)`); // the reply itself may carry a customer's details: not logged
       return { ok: false, error: "AI อ่านเอกสารไม่สำเร็จ ลองใหม่อีกครั้ง หรือถ่ายรูปให้ชัดขึ้นนะครับ" };
     }
     return { ok: true, costThb: r.costThb, ...read };
@@ -155,7 +155,7 @@ export async function writeClaim(input: ClaimWriteInput, pageId: string | null):
       const parsed = parseClaimPiece(r.text, facts, a.label, format);
       const output = parsed && applyPosterWords(ownerWording(parsed), ownWords);
       if (!output) {
-        console.error(`claim piece unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+        console.error(`claim piece unreadable (${r.model}, ${r.outputTokens} tokens, ${r.text.length} chars)`); // the reply itself may carry a customer's details: not logged
         throw new UnreadableReply();
       }
       return {

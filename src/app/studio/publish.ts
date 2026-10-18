@@ -20,9 +20,8 @@ const shown = (r: PublishResult): PublishResult => (r.ok ? { ok: true, item: for
  * marked block stops it; amounts not in the rate tables must be confirmed) and the Page's
  * permission to post. Only posts go up — a script is filmed and an ad goes through Ads Manager.
  *
- * There is no PIN. One was built and the owner took it out on 2026-09-25, as /admin has no
- * login by the owner's decision: whoever can open /content can post. Don't put one back
- * unasked.
+ * There is no PIN (the owner took one out on 2026-09-25): posting is gated by sign-in and the
+ * publish permission (requireStaff("publish")). Don't put one back unasked.
  */
 
 export interface PublishPage {

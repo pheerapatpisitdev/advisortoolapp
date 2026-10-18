@@ -68,9 +68,9 @@ import { walletPrices, walletView } from "@/lib/wallet/store";
 import { closedFor } from "@/lib/switches/store";
 
 /**
- * The content workbench's doors, open to anyone who finds the page — the owner put it in the
- * main menu knowing that. What stands in for a gate is three limits: ten rounds an hour from
- * one address, a monthly ceiling for content alone, and the whole system's budget behind it.
+ * The content workbench's doors: every one asks who is calling (requireMember / requireStaff),
+ * then three limits stand behind it — ten rounds an hour per agent, a monthly ceiling for
+ * content alone, and the whole system's budget (2026-10-18).
  */
 
 const MAX_CUSTOM = 120;
@@ -119,9 +119,6 @@ export interface GenerateInput {
   pro?: boolean;
   count: number;
   hookTemplateId: string | null;
-  /** no longer read: an ad is written into a campaign (Ads Studio); Organic's form still sends them */
-  adAngles?: number;
-  adTones?: number;
   /** an id from WRITERS; anything else is the default */
   writer?: string;
   /** who the piece talks to, what it is for, and something true the owner knows; all optional */
@@ -629,12 +626,6 @@ export async function proofreadPiece(id: string): Promise<ProofreadResult> {
     console.error("content proofread failed:", e);
     return { fixes: [] };
   }
-}
-
-/** The editor's older door to proofreadPiece: the fixes alone. */
-export async function proofreadContent(id: string): Promise<Fix[]> {
-  await requireMember();
-  return (await proofreadPiece(id)).fixes;
 }
 
 /**

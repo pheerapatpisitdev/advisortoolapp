@@ -119,7 +119,7 @@ export async function writeClaimAds(input: ClaimAdInput): Promise<GenerateResult
       });
       const ad = parseClaimAd(r.text, lang);
       if (!ad) {
-        console.error(`claim ad unreadable (${r.model}, ${r.outputTokens} tokens):`, r.text.slice(0, 600));
+        console.error(`claim ad unreadable (${r.model}, ${r.outputTokens} tokens, ${r.text.length} chars)`); // the reply itself may carry a customer's details: not logged
         throw new UnreadableReply();
       }
       const poster = claimAdPoster(ad, facts, lang);

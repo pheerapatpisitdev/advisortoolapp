@@ -82,12 +82,12 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
   const picturesSatang = format === "script" ? 0 : (pictureSatang(prices, paints.id) ?? 0) * count;
   const geminiPrice = paintPrice(prices, "gemini");
   const estimate = (count * (pick.thb + OVERHEAD_THB) + drawn).toFixed(2);
-  const unit = format === "ad" ? "แบบ" : "เวอร์ชัน";
+  const unit = "เวอร์ชัน";
 
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { draft: draft.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, count, writer,
+    const round = { draft: draft.trim(), reader: reader.trim(), format, length, loop: format === "script" && loop, formula, count, writer,
       ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}),
       ...(format !== "script" && cleanPosterWords(posterWords) ? { posterWords: cleanPosterWords(posterWords) } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
@@ -125,7 +125,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
         )}
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
-        {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
+        <FormulaPicker value={formula} onChange={setFormula} />
 
         <FormSection title="เรื่องที่เล่า">
           <label className="block">
@@ -181,7 +181,7 @@ export function DraftTools({ writer, onWriter, painter, onPainter, people, perso
         onPress={create} disabled={pending || Boolean(blocked)}
         label={pending
           ? `กำลังเกลา ${making} ${unit}… (ราว 20–40 วินาที)`
-          : `เกลา${format === "post" ? "โพสต์" : format === "ad" ? "โฆษณา" : "สคริปต์"} ${count} ${unit}`}
+          : `เกลา${format === "post" ? "โพสต์" : "สคริปต์"} ${count} ${unit}`}
         note={blocked ?? (quota ? quota.text : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
         topUp={!blocked && Boolean(quota?.topUp)}
         warning={blocked ? null : overBudget(Number(estimate), left)}

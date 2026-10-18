@@ -173,7 +173,8 @@ export interface FreeClips {
 
 /**
  * A member with a live pass has no free clips: the pass's credit pays first (owner, 2026-10-17);
- * everyone else the two, once. Throws when the pass cannot be read.
+ * a UnitClub agent none either, their starter credit pays (2026-10-18); a member with the pass
+ * switch off the two, once. Throws when the pass cannot be read.
  */
 export async function freeClips(viewer: Viewer, access?: MemberAccess): Promise<FreeClips> {
   // a UnitClub agent's two free clips gave way to the ฿15 starter credit (owner, 2026-10-18)

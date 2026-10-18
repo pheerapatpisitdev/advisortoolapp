@@ -91,12 +91,12 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
   const picturesSatang = format === "script" ? 0 : (pictureSatang(prices, paints.id) ?? 0) * count;
   const geminiPrice = paintPrice(prices, "gemini");
   const estimate = (count * (pick.thb + OVERHEAD_THB) + drawn).toFixed(2);
-  const unit = format === "ad" ? "แบบ" : "ชิ้น";
+  const unit = "ชิ้น";
 
   async function create() {
     if (pending || blocked) return;
     // the form as it was at the press, whatever changes while the round is out
-    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula: format === "ad" ? null : formula, avoid, count, writer,
+    const round = { topic, custom: custom.trim(), reader: reader.trim(), tone, format, length, loop: format === "script" && loop, formula, avoid, count, writer,
       ...(format !== "script" && logo.spot ? { logoSpot: logo.spot } : {}),
       ...(format !== "script" && cleanPosterWords(posterWords) ? { posterWords: cleanPosterWords(posterWords) } : {}), page: logo.page };
     const paintWith = round.format === "script" ? "none" : painterFor(painter, left, Boolean(person)).id;
@@ -139,7 +139,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
         )}
 
         {format === "script" && <LoopToggle value={loop} onChange={setLoop} />}
-        {format !== "ad" && <FormulaPicker value={formula} onChange={setFormula} />}
+        <FormulaPicker value={formula} onChange={setFormula} />
         <AvoidToggle value={avoid} onChange={setAvoid} />
 
         <FormSection title="เรื่องที่เล่า">
@@ -217,7 +217,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
         onPress={create} disabled={pending || Boolean(blocked)}
         label={pending
           ? `กำลังเขียน ${making} ${unit}… (ราว 20–40 วินาที)`
-          : `สร้าง${format === "post" ? "โพสต์" : format === "ad" ? "โฆษณา" : "สคริปต์"}${RECRUIT_NAME} ${count} ${unit}`}
+          : `สร้าง${format === "post" ? "โพสต์" : "สคริปต์"}${RECRUIT_NAME} ${count} ${unit}`}
         note={blocked ?? (quota ? quota.text : `ราว ฿${estimate} · งบคอนเทนต์เดือนนี้เหลือ ฿${left.toFixed(2)}`)}
         topUp={!blocked && Boolean(quota?.topUp)}
         warning={blocked ? null : overBudget(Number(estimate), left)}

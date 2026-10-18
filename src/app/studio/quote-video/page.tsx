@@ -28,7 +28,7 @@ export const metadata = {
 
 // the menu, the palette and the tabs come from ../layout.tsx
 export default async function QuoteVideoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  // every agent's (owner, 2026-10-11): two free clips, then the wallet
+  // every agent's (owner, 2026-10-11): a member's free clips or a UnitClub agent's starter credit, then the wallet
   const viewer = await gatePage("/studio/quote-video");
   // switched off by the Super Admin: locked, nothing of the tool shown (owner, 2026-10-17)
   const locked = await closedFor(viewer, "quote-video");

@@ -18,7 +18,7 @@ export const metadata = {
   description: "เครื่องมือทำโพสต์ของแต่ละเพจเฟซบุ๊ก",
 };
 
-/** far enough ahead to take in every post Facebook will hold (it holds up to 75 days) */
+/** far enough ahead to take in every post held on Facebook: this app holds one at most 30 days ahead (calendar.ts lastDropDay), with room */
 const AHEAD_MS = 90 * 24 * 60 * 60 * 1000;
 
 // the menu, the palette and the tabs come from layout.tsx
