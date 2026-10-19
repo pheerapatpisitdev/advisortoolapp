@@ -13,7 +13,7 @@ export type ProgressStep = "pictures" | "voice" | "files" | "draw" | "submit";
 /** what produce has done, on the row: `done` of `of` lines spoken or scenes drawn */
 export interface ProgressNote { step: ProgressStep; done: number; of: number }
 
-export type ClipKind = `${"classic" | "motion" | "remotion"}-${"short" | "full" | "long" | "max"}` | "fhc" | "story";
+export type ClipKind = `${"classic" | "motion" | "remotion"}-${"short" | "full" | "long" | "max"}` | "fhc" | "story" | "story-remotion";
 /** seconds: from asking to the render starting, and the render itself */
 export interface Estimate { pre: number; render: number }
 
@@ -40,6 +40,8 @@ export const DEFAULT_ESTIMATES: Record<ClipKind, Estimate> = {
   fhc: { pre: 45, render: 155 },
   // คลิปเล่าเรื่อง (owner, 2026-10-15): guessed as an FHC summary until it has its own
   story: { pre: 60, render: 155 },
+  // คลิปเล่าเรื่อง and คลิปตามโจทย์ drawn by Remotion (2026-10-19): the voice up, then the render; a guess until clips are made
+  "story-remotion": { pre: 30, render: 75 },
 };
 /** fewer finished clips of a kind than this, and its default stands */
 export const MIN_SAMPLES = 3;
@@ -50,7 +52,7 @@ export const MAX_RENDER_SEC = 15 * 60;
 
 export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown }): ClipKind {
   if (input.fhc) return "fhc";
-  if (input.product === "STORY" || input.product === "FREESTORY") return "story";
+  if (input.product === "STORY" || input.product === "FREESTORY") return input.engine === "remotion" ? "story-remotion" : "story";
   const length = input.length === "short" || input.length === "long" || input.length === "max" ? input.length : "full";
   return `${input.style === "motion" ? (input.engine === "remotion" ? "remotion" : "motion") : "classic"}-${length}`;
 }

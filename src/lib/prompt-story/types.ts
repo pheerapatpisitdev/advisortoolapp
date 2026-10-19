@@ -34,6 +34,8 @@ export interface PromptStoryInput {
   draftId?: string;
   /** a picture redrawn and being cut in: its wallet hold, taken when the cut is done, given back if it fails */
   redraw?: { hold: string; satang: number; thb: number };
+  /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (quote-video/remotion.ts) */
+  engine?: "remotion";
 }
 
 export const isPromptStory = (v: { product?: string }): v is PromptStoryInput => v.product === "FREESTORY";

@@ -44,7 +44,7 @@ import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./st
 import { faceUris } from "./story-faces";
 import { a, motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
-import { clipProps, REMOTION_JOB, remotionFits, remotionPlan, type ClipProps, type RemotionMotion } from "./remotion";
+import { clipProps, REMOTION_JOB, remotionFits, remotionPlanOf, storyClipProps, type ClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
 import { failReason, renderThbFor, secondsBetween, type ClipEngine, type CostParts } from "./run-record";
 import { remotionFor } from "./remotion-switch";
 import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
@@ -261,11 +261,12 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
-  // a Motion Graphic clip drawn by Remotion, as the switch's row for its plan on /admin/ai says (owner, 2026-10-17; remotion.ts)
-  const plan = isQuoteInput(input) ? remotionPlan(input) : null;
-  if (isQuoteInput(input) && plan) {
+  // drawn by Remotion, as the switch's row for its plan or tool on /admin/ai says (owner, 2026-10-17; remotion.ts):
+  // a Motion Graphic quote clip, a คลิปเล่าเรื่อง, a คลิปตามโจทย์ (owner chose ก ก ก, 2026-10-19)
+  const plan = remotionPlanOf(input);
+  if (plan) {
     const who = await remotionFor(plan);
-    if (who === "all" || (who === "owner" && can(viewer, "owner"))) input = { ...input, engine: "remotion" };
+    if (who === "all" || (who === "owner" && can(viewer, "owner"))) input = { ...input, engine: "remotion" } as ClipInput;
   }
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id, created_at").single();
   if (error || !data) {
@@ -976,6 +977,10 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
   const { size, motion, plans, named, build, layers, background: ownBackground, sounds, motion$, script, scriptFace } = await clipParts(row, agentName, secs);
   const total = clipLength(plans);
+  // a คลิปเล่าเรื่อง or คลิปตามโจทย์ drawn by Remotion, any size (owner chose ก ก ก, 2026-10-19)
+  if ((isStoryInput(row.input) || isPromptStory(row.input)) && row.input.engine === "remotion") {
+    return cutStoryWithRemotion(row as VideoRow & { input: StoryVideoInput | PromptStoryInput }, agentName, { plans, script, secs, total, pcms, since }, gcpKey, bar, lap);
+  }
   if (motion$ && isQuoteInput(row.input) && row.input.engine === "remotion" && remotionFits(row.input)) {
     return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms, scriptFace, since }, gcpKey, bar, lap);
   }
@@ -1043,7 +1048,7 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
  * job reads (JOB_URL), the row marked rendering, the job started. `job`: clip-ffmpeg's command;
  * `remotion`: the Remotion render's props instead (remotion.ts), run on its own job.
  */
-async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, lap: Lap, run: { job: FfmpegJob } | { remotion: { props: ClipProps } }, since: number): Promise<void> {
+async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, lap: Lap, run: { job: FfmpegJob } | { remotion: { props: ClipProps | StoryClipProps } }, since: number): Promise<void> {
   const id = row.id;
   // a clip cut again (redrawPicture) writes over its finished video
   const out = row.video_path
@@ -1111,6 +1116,35 @@ async function cutWithRemotion(
   lap(`voice and ${got.length} cut-outs${fonts.length ? ` and ${c.scriptFace!.family} (${fonts.length})` : ""} up for Remotion`);
   bar.note({ step: "submit", done: 0, of: 0 });
   const props = clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, pieces, scriptFont);
+  await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
+}
+
+/**
+ * A คลิปเล่าเรื่อง or คลิปตามโจทย์ drawn by Remotion (remotion.ts StoryClipProps): no frame is drawn here. The
+ * narration goes up as one WAV, a คลิปตามโจทย์'s pictures are linked where they are filed, and the job gets the
+ * clip's input with each scene's place; the cartoon faces are in the render's image.
+ */
+async function cutStoryWithRemotion(
+  row: VideoRow & { input: StoryVideoInput | PromptStoryInput }, agentName: string,
+  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; pcms: Buffer[]; since: number },
+  gcpKey: string, bar: Bar, lap: Lap,
+): Promise<void> {
+  const id = row.id;
+  bar.note({ step: "files", done: 0, of: 0 });
+  await upload(id, "voice.wav", mixNarration(c.pcms.map((pcm, i) => ({ pcm, at: c.plans[i].voiceAt })), c.total, TTS_RATE), "audio/wav");
+  // a คลิปตามโจทย์ scene's picture, filed when it was drawn; a scene whose picture fell back has the paper only
+  const free = isPromptStory(row.input) ? row.input : null;
+  const pictures = c.plans.map((p, s) => (free && p.key === "freeScene" ? free.pictures?.[s] ?? null : null));
+  const paths = [`${id}/voice.wav`, ...pictures.filter((x): x is string => Boolean(x))];
+  const { data, error: e } = await bucket().createSignedUrls(paths, LINK_SECONDS);
+  const urls = (data ?? []).map((d) => d.signedUrl);
+  if (e || urls.length !== paths.length || urls.some((u) => !u)) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
+  let next = 1;
+  const pictureLinks = pictures.map((p) => (p ? (urls[next++] as string) : undefined));
+  const contact = await contactOf(row.agent_id, agentName);
+  lap(`voice${free ? ` and ${next - 1} pictures` : ""} up for Remotion`);
+  bar.note({ step: "submit", done: 0, of: 0 });
+  const props = storyClipProps(row.input, clipSize(row.input), row.customer_name, narratorOf(row.input), contact, c.plans, c.script, c.secs, c.total, urls[0] as string, pictureLinks);
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
 }
 

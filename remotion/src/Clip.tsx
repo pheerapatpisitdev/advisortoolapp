@@ -5,6 +5,7 @@ import { collageDecor, themeBackground, themed, themeHero, type Decor, type Hero
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import { SCRIPT_RANGE, type ClipProps } from "@/lib/quote-video/remotion";
+import { KeepWords } from "./KeepWords";
 import { readFile } from "./shims/fs";
 
 /**
@@ -18,14 +19,34 @@ import { readFile } from "./shims/fs";
 export type { ClipProps };
 
 /** satori lays every box out as a flex box (yoga): Chrome is told the same, so the positions match */
-const SATORI_CSS = `
+export const SATORI_CSS = `
 .sat div, .sat span { display: flex; position: relative; box-sizing: border-box; min-width: 0; min-height: 0; }
 .sat { font-synthesis: none; -webkit-font-smoothing: antialiased; }
 `;
-const FONTS: [string, string, number][] = [
+export const FONTS: [string, string, number][] = [
   ["Plex", "fonts/IBMPlexSansThai-Regular.ttf", 400], ["Plex", "fonts/IBMPlexSansThai-SemiBold.ttf", 600],
   ["Mali", "fonts/Mali-400.ttf", 400], ["Mali", "fonts/Mali-600.ttf", 600], ["Sriracha", "fonts/Sriracha-400.ttf", 400],
 ];
+
+/**
+ * The symbols satori takes from Noto Sans Symbols 2 for letters the card's fonts lack (draw-png.ts FALLBACK) —
+ * ☐ ✓ ✗ ★ and the like: the same face here, under each family's name for those letters only, at both weights,
+ * so Chrome draws them as satori does rather than in whatever face the machine has.
+ */
+const SYMBOLS = { file: "fonts/NotoSansSymbols2-400.ttf", range: "U+2190-21FF, U+2300-23FF, U+2460-24FF, U+25A0-27BF, U+2900-297F, U+2B00-2BFF, U+1F100-1F1FF" };
+
+/** the fonts every Remotion clip draws in: the families, and the symbols under each (SYMBOLS) */
+export async function loadFonts(): Promise<void> {
+  await Promise.all(FONTS.map(async ([family, file, weight]) => {
+    const f = new FontFace(family, `url(${staticFile(file)})`, { weight: String(weight) });
+    document.fonts.add(await f.load());
+  }));
+  const families = [...new Set(FONTS.map(([family]) => family))];
+  await Promise.all(families.flatMap((family) => [400, 600].map(async (weight) => {
+    const f = new FontFace(family, `url(${staticFile(SYMBOLS.file)})`, { weight: String(weight), unicodeRange: SYMBOLS.range });
+    document.fonts.add(await f.load());
+  })));
+}
 
 interface Loaded { hero?: Hero; decor?: Decor; ground: ReactNode }
 
@@ -34,10 +55,7 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
   const [got, setGot] = useState<Loaded | null>(null);
   useEffect(() => {
     (async () => {
-      await Promise.all(FONTS.map(async ([family, file, weight]) => {
-        const f = new FontFace(family, `url(${staticFile(file)})`, { weight: String(weight) });
-        document.fonts.add(await f.load());
-      }));
+      await loadFonts();
       // Chinese, Russian, Burmese: the clip's Noto face under each family's own name, for the letters
       // that family has not got, as satori falls back to it; Thai, Latin and the figures stay as they are
       const families = [...new Set(FONTS.map(([family]) => family))];
@@ -63,7 +81,7 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
 }
 
 /** ffmpeg's xfade, as job.ts names it per scene: how the outgoing and incoming scenes look at q (0 → 1) */
-function crossing(kind: string, q: number, w: number): { out: CSSProperties; in: CSSProperties } {
+export function crossing(kind: string, q: number, w: number): { out: CSSProperties; in: CSSProperties } {
   switch (kind) {
     case "slideleft": return { out: { transform: `translateX(${-q * w}px)` }, in: { transform: `translateX(${(1 - q) * w}px)` } };
     case "zoomin": {
@@ -100,7 +118,8 @@ export function Clip(p: ClipProps) {
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
-        <div style={{ position: "absolute", inset: 0, display: "flex" }}>{themed(motionFrame(sc.key, c, t), p.theme, t)}</div>
+        {/* Thai lines break at spaces only, as satori breaks them (KeepWords; owner chose ก, 2026-10-19) */}
+        <KeepWords>{themed(motionFrame(sc.key, c, t), p.theme, t)}</KeepWords>
       </AbsoluteFill>
     );
   });

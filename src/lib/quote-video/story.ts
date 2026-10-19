@@ -70,6 +70,8 @@ export interface StoryVideoInput {
   due?: { date: string; amount?: number };
   /** เทศกาล: which one */
   festival?: Festival;
+  /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (remotion.ts) */
+  engine?: "remotion";
 }
 
 /**

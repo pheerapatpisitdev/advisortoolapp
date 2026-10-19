@@ -33,7 +33,8 @@ async function render(event, out, { fetchFn, log, concurrency }) {
   const inputProps = event.remotion?.props;
   if (!inputProps?.scenes?.length) throw new Error("no props");
   const t0 = Date.now();
-  const composition = await selectComposition({ serveUrl, id: "QuoteMotion", inputProps });
+  // วิดีโอนำเสนอ's Motion Graphic clip, or (props.composition) a คลิปเล่าเรื่อง / คลิปตามโจทย์
+  const composition = await selectComposition({ serveUrl, id: inputProps.composition ?? "QuoteMotion", inputProps });
   let last = -25;
   await renderMedia({
     composition, serveUrl, inputProps, codec: "h264", crf: 21, concurrency, outputLocation: out,

@@ -7,7 +7,7 @@
 # When the job is there already it ends at once. Otherwise (5–10 minutes):
 #   1. the prepare step (both runs: the four themes, then iHealthy's languages) and the bundle
 #   2. the image, :drawing-<fingerprint> (skipped when a stopped run built it already)
-#   3. a smoke render of it on the trial job remotion-port (paper theme), which must end in a clip
+#   3. smoke renders of it on the trial job remotion-port (a paper วิดีโอนำเสนอ, กองกลาง 48 คน, a คลิปตามโจทย์), which must end in clips
 #   4. the job remotion-<fingerprint> (8 vCPU / 8 GiB, as clip-runner), startable by clip-render
 #   5. the drawing jobs past the newest three deleted (no app still deployed names them)
 set -euo pipefail
@@ -43,11 +43,17 @@ else
   (cd "$ROOT/remotion" && g builds submit . --config cloudrun/cloudbuild.yaml --region "$REGION" --substitutions "_TAG=drawing-$FP")
 fi
 
-# 3. one clip from it before anyone gets it
+# 3. clips from it before anyone gets it: a วิดีโอนำเสนอ (paper), กองกลาง 48 คน and a คลิปตามโจทย์, at once
 g run jobs update remotion-port --region "$REGION" --image "$IMAGE"
-g run jobs execute remotion-port --region "$REGION" --wait --args=node,cloudrun/smoke.mjs \
-  --update-env-vars THEME=paper,PUBLIC=build/public,PREFIX=ship \
-  || { echo "ship: the smoke render of drawing-$FP failed (gcloud run jobs executions list --job remotion-port)" >&2; exit 1; }
+pids=()
+for theme in paper st-pool48 st-free; do
+  g run jobs execute remotion-port --region "$REGION" --wait --args=node,cloudrun/smoke.mjs \
+    --update-env-vars "THEME=$theme,PUBLIC=build/public,PREFIX=ship" >/dev/null 2>&1 &
+  pids+=("$!:$theme")
+done
+for p in "${pids[@]}"; do
+  wait "${p%%:*}" || { echo "ship: the smoke render ${p#*:} of drawing-$FP failed (gcloud run jobs executions list --job remotion-port)" >&2; exit 1; }
+done
 
 # 4. the job the app will start
 g run jobs create "$JOB" --region "$REGION" --image "$IMAGE" --cpu 8 --memory 8Gi --max-retries 0 --task-timeout 900 \

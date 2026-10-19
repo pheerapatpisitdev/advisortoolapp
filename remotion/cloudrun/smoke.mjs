@@ -26,7 +26,9 @@ const base = `http://localhost:${server.address().port}`;
 const props = JSON.parse(readFileSync(`${pub}/props/${theme}.json`, "utf8"));
 if (process.env.DRAWING) props.drawing = process.env.DRAWING;
 props.audio = `${base}/${props.audio}`;
-for (const k of Object.keys(props.pieces)) props.pieces[k] = `${base}/${props.pieces[k]}`;
+for (const k of Object.keys(props.pieces ?? {})) props.pieces[k] = `${base}/${props.pieces[k]}`;
+// a story sample (THEME=st-pool48, st-free): its pictures as links too
+for (const sc of props.scenes) if (sc.picture) sc.picture = `${base}/${sc.picture}`;
 for (const f of props.scriptFont ?? []) f.url = `${base}/${f.url}`;
 const payload = { id: "smoke", remotion: { props }, uploads: { out_1: { uploadUrl: `${base}/upload`, path: "smoke/quote.mp4" } }, callbackUrl: `${base}/callback`, token: "t" };
 writeFileSync(`${pub}/smoke-payload.json`, JSON.stringify(payload));

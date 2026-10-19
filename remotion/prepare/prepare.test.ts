@@ -84,6 +84,8 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props, assets an
   await googleFont("Mali", 400, join(PUB, "fonts/Mali-400.ttf"));
   await googleFont("Mali", 600, join(PUB, "fonts/Mali-600.ttf"));
   await googleFont("Sriracha", 400, join(PUB, "fonts/Sriracha-400.ttf"));
+  // the symbols satori draws from Noto Sans Symbols 2 (draw-png.ts FALLBACK): ☐ ✓ ✗ (Clip.tsx SYMBOLS)
+  await googleFont("Noto Sans Symbols 2", 400, join(PUB, "fonts/NotoSansSymbols2-400.ttf"));
   for (const f of ["paper.jpg", "paper-light.jpg", "family.png"]) copyFileSync(join(APP, "public/collage", f), join(PUB, "collage", f));
 
   // every cartoon face: วาดมือบนกระดาษ's opening picks the insured's, their partner's and a child's by sex
@@ -220,4 +222,55 @@ it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each languag
   }
   writeFileSync(join(OUT, "prepare-ihealthy.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
+});
+
+/** a silent 24 kHz mono WAV as long as a clip: the story samples' voice, for the composition's <Audio> */
+function silentWav(sec: number): Buffer {
+  const n = Math.ceil(sec * 24000);
+  const b = Buffer.alloc(44 + n * 2);
+  b.write("RIFF", 0); b.writeUInt32LE(36 + n * 2, 4); b.write("WAVE", 8); b.write("fmt ", 12); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(24000, 24); b.writeUInt32LE(48000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write("data", 36); b.writeUInt32LE(n * 2, 40);
+  return b;
+}
+
+/**
+ * คลิปเล่าเรื่อง and คลิปตามโจทย์ samples for the StoryClip composition (owner chose ก ก ก, 2026-10-19): กองกลาง 48 คน
+ * (48 cartoon faces) and a คลิปตามโจทย์ with the app's family photo in place of AI pictures, as props/st-pool48.json and
+ * props/st-free.json. A line runs about 9 letters a second; the voice is silence (no Mac voice needed).
+ */
+it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", async () => {
+  const { storyScript } = await import("@/lib/quote-video/story");
+  const { clipWindows, freeWindows } = await import("@/lib/quote-video/story-frames");
+  const { contactSpec } = await import("@/lib/quote-video/story-motion");
+  const { planScenes, clipLength } = await import("@/lib/quote-video/timeline");
+  const { MOTION_FPS } = await import("@/lib/quote-video/motion");
+  const { storyClipProps } = await import("@/lib/quote-video/remotion");
+  for (const d of ["audio", "props", "free"]) mkdirSync(join(PUB, d), { recursive: true });
+  const secsOf = (voice: string) => Math.max(2.5, [...voice].length / 9);
+
+  const pool = { product: "STORY", topic: "pool48", style: "story", length: "full", palette: "reveal", size: "portrait", narrator: "F", faces: { hero: "w15", narrator: "m03" } } as const;
+  const script = storyScript(pool as never, "", "F");
+  const secs = script.map((s) => secsOf(s.voice));
+  const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: clipWindows(s.key, pool as never, "portrait"), fps: MOTION_FPS })));
+  writeFileSync(join(PUB, "audio/st-pool48.wav"), silentWav(clipLength(plans)));
+  writeFileSync(join(PUB, "props/st-pool48.json"), JSON.stringify(storyClipProps(pool as never, "portrait", "", "F", CONTACT, plans, script, secs, clipLength(plans), "audio/st-pool48.wav", [])));
+
+  // the app's family photo, as it is and mirrored, in place of the painter's pictures (no one's personal details)
+  const fam = join(APP, "public/card/family.jpg");
+  await sharp(fam).jpeg({ quality: 88 }).toFile(join(PUB, "free/pic-0.jpg"));
+  await sharp(fam).flop().jpeg({ quality: 88 }).toFile(join(PUB, "free/pic-1.jpg"));
+  const free = {
+    product: "FREESTORY", brief: "", title: "ดูแลคนที่เรารัก", caption: "", style: "flat", painter: "sharp", size: "portrait", narrator: "M", faces: { narrator: "m03" },
+    scenes: [
+      { voice: "ทุกครอบครัวมีคนที่เรารักและอยากดูแลให้ดีที่สุด", screen: "ดูแลคนที่เรารัก", picture: "" },
+      { voice: "วางแผนวันนี้ เพื่อให้คนที่เรารักไม่ต้องกังวลเรื่องค่าใช้จ่ายในวันข้างหน้า", screen: "วางแผนตั้งแต่วันนี้", picture: "" },
+    ],
+    pictures: ["free/pic-0.jpg", "free/pic-1.jpg"],
+  } as const;
+  const fScript = [...free.scenes.map((s) => ({ key: "freeScene" as const, voice: s.voice })), { key: "storyContact" as const, voice: "สนใจรายละเอียดเพิ่มเติม ทักมาได้เลยนะครับ" }];
+  const fSecs = fScript.map((s) => secsOf(s.voice));
+  const card = Object.values(contactSpec()).map((x): [number, number] => [x.at, x.at + x.dur]);
+  const fPlans = planScenes(fScript.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: fSecs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
+  writeFileSync(join(PUB, "audio/st-free.wav"), silentWav(clipLength(fPlans)));
+  writeFileSync(join(PUB, "props/st-free.json"), JSON.stringify(storyClipProps(free as never, "portrait", "", "M", CONTACT, fPlans, fScript, fSecs, clipLength(fPlans), "audio/st-free.wav", [...free.pictures])));
 });

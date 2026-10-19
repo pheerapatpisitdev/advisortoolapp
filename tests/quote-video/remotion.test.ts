@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
-import { REMOTION_DRAWING, REMOTION_JOB, remotionFits, remotionPlan, type ClipProps } from "@/lib/quote-video/remotion";
+import { REMOTION_DRAWING, REMOTION_JOB, remotionFits, remotionPlan, remotionPlanOf, type ClipProps, type StoryClipProps } from "@/lib/quote-video/remotion";
+import { checkedStory, storyScript, type StoryVideoInput } from "@/lib/quote-video/story";
+import type { PromptStoryInput } from "@/lib/prompt-story/types";
 import type { VideoInput } from "@/lib/quote-video/script";
 import { clipKind } from "@/lib/quote-video/progress";
 
@@ -183,6 +185,21 @@ describe("remotionFits", () => {
   });
 });
 
+describe("คลิปเล่าเรื่อง and คลิปตามโจทย์ on Remotion (owner chose ก ก ก, 2026-10-19)", () => {
+  it("every size follows the tool's own row; an FHC summary never", () => {
+    for (const size of ["portrait", "square", "landscape"]) {
+      expect(remotionPlanOf({ product: "STORY", size } as never)).toBe("STORY");
+      expect(remotionPlanOf({ product: "FREESTORY", size } as never)).toBe("FREESTORY");
+    }
+    expect(remotionPlanOf({ fhc: {}, style: "motion" } as never)).toBeNull();
+    expect(remotionPlanOf(lp({ style: "classic" }))).toBeNull();
+  });
+  it("guesses a Remotion story clip's progress from Remotion story clips", () => {
+    expect(clipKind({ product: "STORY", engine: "remotion" })).toBe("story-remotion");
+    expect(clipKind({ product: "FREESTORY" })).toBe("story");
+  });
+});
+
 it("a Remotion clip's progress is guessed from Remotion clips, not the frames'", () => {
   expect(clipKind({ style: "motion", engine: "remotion" })).toBe("remotion-full");
   expect(clipKind({ style: "motion", engine: "remotion", length: "short" })).toBe("remotion-short");
@@ -240,6 +257,78 @@ describe("createVideo, as the switch says", () => {
     expect(await engineOf(owner, is)).toBe("remotion");
     expect(await engineOf(agent, is)).toBeUndefined();
     expect(sw.asked).toEqual(["ISHIELD", "ISHIELD"]);
+  });
+});
+
+const pool = (over: Record<string, unknown> = {}): StoryVideoInput => {
+  const st = checkedStory({ topic: "pool48", faces: { narrator: "w26", hero: "w15" }, ...over }, "F");
+  if (typeof st === "string") throw new Error(st);
+  return st;
+};
+const free = (over: Partial<PromptStoryInput> = {}): PromptStoryInput => ({
+  product: "FREESTORY", brief: "", title: "ดูแลคนที่เรารัก", caption: "", style: "flat", painter: "sharp", narrator: "M", faces: { narrator: "m03" },
+  scenes: [{ voice: "ทุกครอบครัวมีคนที่เรารัก", screen: "ดูแลคนที่เรารัก", picture: "ครอบครัว" }, { voice: "วางแผนวันนี้", screen: "วางแผน", picture: "โต๊ะ" }], ...over,
+});
+
+describe("createVideo, คลิปเล่าเรื่อง and คลิปตามโจทย์", () => {
+  it("as their rows say, owner-only to start", async () => {
+    sw.who = "owner";
+    expect((rowOf((await createVideo(owner, pool({ size: "landscape" }), "") as { id: string }).id).input as StoryVideoInput).engine).toBe("remotion");
+    expect((rowOf((await createVideo(agent, pool(), "") as { id: string }).id).input as StoryVideoInput).engine).toBeUndefined();
+    expect((rowOf((await createVideo(owner, free(), "") as { id: string }).id).input as PromptStoryInput).engine).toBe("remotion");
+    expect(sw.asked).toEqual(["STORY", "STORY", "FREESTORY"]);
+    sw.who = "off";
+    expect((rowOf((await createVideo(owner, pool(), "") as { id: string }).id).input as StoryVideoInput).engine).toBeUndefined();
+  });
+});
+
+describe("produce, a story clip drawn by Remotion", () => {
+  it("draws no frame, puts the voice up, and hands StoryClip the input and each scene's place", async () => {
+    const made = await createVideo(owner, pool({ size: "square" }), "สมชาย");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect(row.error).toBeNull();
+    expect(row.status).toBe("rendering");
+    expect(drawCalls()).toBe(0);
+    expect(db.files.has(`${id}/voice.wav`)).toBe(true);
+    expect(ai.submit.mock.calls[0][0]).toBe(REMOTION_JOB);
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as StoryClipProps;
+    expect(props.composition).toBe("StoryClip");
+    expect(props.kind).toBe("story");
+    expect(props.size).toBe("square");
+    expect(props.drawing).toBe(REMOTION_DRAWING);
+    expect(props.customer).toBe("สมชาย");
+    expect(props.scenes.map((x) => x.key)).toEqual(storyScript(row.input as StoryVideoInput, "สมชาย", "F").map((x) => x.key));
+    expect(props.scenes.every((x) => x.picture === undefined)).toBe(true);
+    expect(props.audio).toBe(`https://x/${id}/voice.wav`);
+    expect(props.total).toBe(row.duration_sec);
+    expect((row as { cost_parts?: { engine?: string } }).cost_parts?.engine).toBe("remotion");
+  });
+
+  it("a คลิปตามโจทย์ links each scene's picture where it was filed, and none on the card", async () => {
+    ai.draw.mockResolvedValue({ bytes: Buffer.from("picture") });
+    const made = await createVideo(owner, free(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect(row.error).toBeNull();
+    expect(row.status).toBe("rendering");
+    expect(drawCalls()).toBe(0);
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as StoryClipProps;
+    expect(props.kind).toBe("free");
+    expect(props.scenes.map((x) => x.key)).toEqual(["freeScene", "freeScene", "storyContact"]);
+    expect(props.scenes.map((x) => x.picture)).toEqual([`https://x/${id}/pic-0.png`, `https://x/${id}/pic-1.png`, undefined]);
+  });
+
+  it("with the row on เครื่องเดิม, a story clip is drawn on Vercel as before", async () => {
+    sw.who = "off";
+    const made = await createVideo(owner, pool(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    expect(rowOf(id).status).toBe("rendering");
+    expect(drawCalls()).toBeGreaterThan(0);
+    expect(ai.submit.mock.calls[0][0]).toBe("clip-ffmpeg");
   });
 });
 

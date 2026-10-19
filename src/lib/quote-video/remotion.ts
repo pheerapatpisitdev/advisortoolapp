@@ -1,8 +1,11 @@
 import type { MotionContext } from "./motion";
 import type { QuoteVideoFacts, SceneKey, VideoInput } from "./script";
 import type { ThemeKey } from "./theme-keys";
-import type { ScenePlan } from "./timeline";
+import type { ScenePlan, VideoSize } from "./timeline";
 import type { Extra } from "./told";
+import type { PromptStoryInput } from "@/lib/prompt-story/types";
+import type { StoryVideoInput } from "./story";
+import type { StoryContext } from "./story-motion";
 
 /**
  * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (owner, 2026-10-17: "ต่อ Remotion เข้าแอปจริงเลย";
@@ -26,15 +29,17 @@ export const REMOTION_FOR_LABEL: Record<RemotionFor, string> = { off: "เคร
 export const readRemotionFor = (v: unknown): RemotionFor => (REMOTION_FOR.includes(v as RemotionFor) ? (v as RemotionFor) : "off");
 
 /** the plans Remotion draws, each with its own row on the switch */
-export type RemotionPlan = "LIFEPROTECT" | "IHEALTHY" | "ISHIELD";
-export const REMOTION_PLANS: RemotionPlan[] = ["LIFEPROTECT", "IHEALTHY", "ISHIELD"];
-export const REMOTION_PLAN_LABEL: Record<RemotionPlan, string> = { LIFEPROTECT: "Life Protect", IHEALTHY: "iHealthy", ISHIELD: "iShield" };
+export type RemotionPlan = "LIFEPROTECT" | "IHEALTHY" | "ISHIELD" | "STORY" | "FREESTORY";
+export const REMOTION_PLANS: RemotionPlan[] = ["LIFEPROTECT", "IHEALTHY", "ISHIELD", "STORY", "FREESTORY"];
+export const REMOTION_PLAN_LABEL: Record<RemotionPlan, string> = {
+  LIFEPROTECT: "Life Protect", IHEALTHY: "iHealthy", ISHIELD: "iShield", STORY: "คลิปเล่าเรื่อง", FREESTORY: "คลิปตามโจทย์",
+};
 
 /**
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "60d944716e34";
+export const REMOTION_DRAWING = "e1a9c4212f30";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -72,6 +77,41 @@ export type ClipProps = RemotionMotion & {
 };
 
 /**
+ * คลิปเล่าเรื่อง and คลิปตามโจทย์ drawn by Remotion (the Remotion move, owner chose to do them first,
+ * 2026-10-19): the composition StoryClip draws each scene with the app's own clipFrame / freeFrame
+ * (story-frames.tsx, prompt-story/frames.tsx) over the paper, as the frames engine does; a คลิปตามโจทย์
+ * scene's picture is pushed in 1.00 → 1.12 as buildJob's zoompan does.
+ */
+export type StoryClipProps = {
+  composition: "StoryClip";
+  /** REMOTION_DRAWING as the app had it */
+  drawing: string;
+  kind: "story" | "free";
+  input: StoryVideoInput | PromptStoryInput;
+  size: VideoSize;
+  customer: string;
+  narrator: "F" | "M";
+  contact: StoryContext["contact"];
+  total: number;
+  /** each scene: its key, its words, where it stands, and a คลิปตามโจทย์ scene's picture (a link, or a file in the project's public folder) */
+  scenes: { key: string; voice: string; voiceSec: number; start: number; dur: number; picture?: string }[];
+  audio: string;
+};
+
+/** the props for a คลิปเล่าเรื่อง or คลิปตามโจทย์: its input and each scene's place, voice and picture (links) */
+export function storyClipProps(
+  input: StoryVideoInput | PromptStoryInput, size: VideoSize, customer: string, narrator: "F" | "M", contact: StoryContext["contact"],
+  plans: { key: string; start: number; dur: number }[], script: { voice: string }[], secs: number[], total: number, audio: string,
+  pictures: (string | undefined)[],
+): StoryClipProps {
+  return {
+    composition: "StoryClip", drawing: REMOTION_DRAWING, kind: input.product === "FREESTORY" ? "free" : "story",
+    input, size, customer, narrator, contact, total, audio,
+    scenes: plans.map((p, i) => ({ key: p.key, voice: script[i].voice, voiceSec: secs[i], start: p.start, dur: p.dur, ...(pictures[i] ? { picture: pictures[i] } : {}) })),
+  };
+}
+
+/**
  * The letters Plex has not got that the script faces carry: CJK and its punctuation, Cyrillic,
  * Myanmar. Clip.tsx gives the face these alone, so Thai, Latin and the figures stay in Plex, as in satori.
  */
@@ -90,6 +130,16 @@ export function remotionPlan(input: VideoInput): RemotionPlan | null {
 
 /** whether a clip can be drawn by Remotion */
 export const remotionFits = (input: VideoInput): boolean => remotionPlan(input) !== null;
+
+/**
+ * the switch row any clip follows, when Remotion can draw it: a quote clip as remotionPlan says, every
+ * คลิปเล่าเรื่อง and คลิปตามโจทย์ in any size (owner chose ก ก ก, 2026-10-19), never an FHC summary yet
+ */
+export function remotionPlanOf(input: { product?: string; fhc?: unknown }): RemotionPlan | null {
+  if (input.fhc) return null;
+  if (input.product === "STORY" || input.product === "FREESTORY") return input.product;
+  return remotionPlan(input as VideoInput);
+}
 
 /** the props for one clip: its motion context, its scenes as planned, its voice and cut-outs */
 export function clipProps(
