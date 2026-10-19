@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cleanContactName, cleanLine, cleanMore, cleanPhone } from "@/lib/quote-video/contact";
-import { buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "@/lib/quote-video/job";
+import { mixNarration, pcmSeconds } from "@/lib/quote-video/job";
 import { cleanCustomerName, pageCaption, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBaht } from "@/lib/quote-video/script";
 import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
 import { motionWindows, MOTION_FPS } from "@/lib/quote-video/motion";
@@ -8,7 +8,6 @@ import { cleanBudget, resolveBudget } from "@/lib/quote-video/budget";
 import { clipLength, LEAD, planScenes, XFADE } from "@/lib/quote-video/timeline";
 import { beatCues, penBeats } from "@/lib/quote-video/pen";
 import { tablePlan } from "@/lib/quote-video/table-pen";
-import { tableY } from "@/lib/quote-video/job";
 
 const TODAY = new Date("2026-10-11T00:00:00+07:00");
 const input = { variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
@@ -100,23 +99,6 @@ describe("quote video timeline and job", () => {
     expect(value.frames.at(-1)!.state.pen).toEqual([2, 2, 2, 2, 2]);
   });
 
-  it("lists frames for the concat demuxer and builds one command", () => {
-    const layers = plans.map((p) => (p.key === "lead" ? "photo" as const : p.key === "value" ? "table" as const : undefined));
-    const named = nameFiles(plans, layers, plans.map((p) => (p.key === "value" ? pen.notes.length : 0)));
-    const list = concatList(plans[0], named.scenes[0].frames);
-    expect(list.startsWith("ffconcat version 1.0\n")).toBe(true);
-    expect(list.trim().split("\n").at(-1)).toBe(`file ${named.scenes[0].frames.at(-1)}`);
-    const job = buildJob(plans, named, { tableHeight: 3000 });
-    // the five finished notes ride on the table, each shown from when it is written
-    expect(named.files.filter((x) => x.kind === "pen")).toHaveLength(5);
-    expect(job.command.match(/overlay=0:0:enable='gte\(t,/g)).toHaveLength(5);
-    expect(job.command).toContain("xfade=transition=slideleft");
-    expect(job.command).toContain("zoompan=");
-    expect(job.command).toContain("-f concat -safe 0 -i {{");
-    expect(job.inputNames[0]).toBe("in_1");
-    expect(new Set(named.files.map((x) => x.name)).size).toBe(named.files.length);
-  });
-
   it("lays the narration on one WAV", () => {
     const pcm = Buffer.alloc(24000 * 2, 1);
     const wav = mixNarration([{ pcm, at: 0.5 }], 2);
@@ -155,13 +137,6 @@ describe("pen notes on the value scene (owner, 2026-10-13)", () => {
     // the break-even comes to stand about a third of the way down the window
     const be = notes.find((n) => n.beat === "breakEven")!;
     expect(be.at).toBe(f.breakEven!.index * 52 - 228);
-  });
-
-  it("moves the table in eased steps, each from where the last left it", () => {
-    expect(tableY([])).toBe("0");
-    const y = tableY([{ at: 1, dur: 1, to: 300 }, { at: 3, dur: 1, to: 500 }]);
-    expect(y).toContain("(300)*");
-    expect(y).toContain("(200)*");
   });
 
   it("writes iShield's notes too", () => {

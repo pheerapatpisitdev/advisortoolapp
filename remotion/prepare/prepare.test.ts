@@ -1,5 +1,5 @@
-import { execFileSync, execSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 import { it, vi } from "vitest";
@@ -11,11 +11,10 @@ import { it, vi } from "vitest";
  * in (job.ts). They are written as each theme's inputProps for the Remotion composition, which
  * draws the frames with motion.tsx and themes.tsx themselves.
  *
- * With OLD=1 it also makes the same clip on the current engine (satori frames + buildJob's
- * ffmpeg command), locally, to compare. The voice is the Mac's Narisa; no paid call is made, and
- * the cut-out library is replaced by stand-ins (no database is read).
+ * The voice is the Mac's Narisa; no paid call is made, and the cut-out library is replaced by
+ * stand-ins (no database is read). (The OLD=1 comparison with the satori engine went with it, 2026-10-20.)
  *
- *   npx vitest run --config remotion/prepare/vitest.config.ts       (THEMES=navy,paper OLD=1)
+ *   npx vitest run --config remotion/prepare/vitest.config.ts       (THEMES=navy,paper)
  *
  * IHEALTHY=th:collage,zh:navy,ru:paper,my:clean writes iHealthy clips instead (props/ih-<lang>.json),
  * each language in the theme named, with the Chinese, Russian or Burmese face cut down by the app's
@@ -66,15 +65,13 @@ async function googleFont(family: string, weight: number, file: string) {
   writeFileSync(file, Buffer.from(await fetch(url).then((r) => r.arrayBuffer())));
 }
 
-it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props, assets and (OLD=1) the current engine's clips", async () => {
+it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets", async () => {
   const { quoteVideoFacts, quoteVideoScript } = await import("@/lib/quote-video/script");
   const { quotePartsFor } = await import("@/lib/quote-video/make");
-  const { addSounds, buildJob, concatList, mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
-  const { clipLength, SIZES } = await import("@/lib/quote-video/timeline");
-  const { aiSpots, collageSoundFiles, SOUND_GAIN, themeBackground } = await import("@/lib/quote-video/themes");
+  const { addSounds, mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
+  const { clipLength } = await import("@/lib/quote-video/timeline");
+  const { aiSpots, collageSoundFiles, SOUND_GAIN } = await import("@/lib/quote-video/themes");
   const { clipProps } = await import("@/lib/quote-video/remotion");
-  const { motionBackground, motionBgHeight } = await import("@/lib/quote-video/motion");
-  const { renderPng } = await import("@/lib/content/poster-png");
 
   for (const d of ["fonts", "collage", "story/faces", "audio", "props"]) mkdirSync(join(PUB, d), { recursive: true });
   mkdirSync(OUT, { recursive: true });
@@ -129,33 +126,8 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props, assets an
     writeFileSync(join(PUB, `props/${theme}.json`), JSON.stringify(props));
     report[theme] = { total, frames: parts.plans.reduce((n, p) => n + p.frames.length, 0), sounds: parts.sounds?.length ?? 0 };
 
-    if (process.env.OLD !== "1") continue;
-    // the current engine, as cutClip lays it out: every frame drawn (Vercel does this, a call per scene), then buildJob's ffmpeg
-    const dims = SIZES[parts.size];
-    const dir = join(OUT, "old", theme);
-    rmSync(dir, { recursive: true, force: true });
-    mkdirSync(dir, { recursive: true });
-    const t0 = Date.now();
-    writeFileSync(join(dir, parts.named.audio), wav);
-    const bg = await renderPng(await themeBackground(theme, dims, motionBgHeight(dims)) ?? motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) });
-    let frames = 0;
-    for (const [s, p] of parts.plans.entries()) {
-      const sc = parts.named.scenes[s];
-      writeFileSync(join(dir, sc.base), bg);
-      writeFileSync(join(dir, sc.list), concatList(p, sc.frames));
-      for (const d of parts.sceneDraws(s)) { writeFileSync(join(dir, d.name), await d.draw()); frames++; }
-    }
-    const drawMs = Date.now() - t0;
-    const job = buildJob(parts.plans, parts.named, parts.build);
-    const cmd = job.command.replace(/\{\{(in_\d+)\}\}/g, "$1").replace("{{out_1}}", "out.mp4");
-    const t1 = Date.now();
-    execSync(`ffmpeg -loglevel error -y ${cmd}`, { cwd: dir });
-    const ffmpegMs = Date.now() - t1;
-    copyFileSync(join(dir, "out.mp4"), join(OUT, `old-${theme}.mp4`));
-    report[theme] = { ...(report[theme] as object), old: { frames, drawMs, ffmpegMs, bytes: statSync(join(dir, "out.mp4")).size } };
-    console.log(theme, JSON.stringify(report[theme]));
   }
-  writeFileSync(join(OUT, `prepare-${process.env.OLD === "1" ? "old" : "props"}.json`), JSON.stringify(report, null, 2));
+  writeFileSync(join(OUT, "prepare-props.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 });
 

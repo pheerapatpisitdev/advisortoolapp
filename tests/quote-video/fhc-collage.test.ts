@@ -120,7 +120,7 @@ vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: 
 const drawnTrees = vi.hoisted(() => [] as string[]);
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async (el: unknown) => { drawnTrees.push(JSON.stringify(el)); return Buffer.from("png"); } }));
 
-const { createVideo, drawScene, produce } = await import("@/lib/quote-video/make");
+const { createVideo, produce } = await import("@/lib/quote-video/make");
 
 const agent = { kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: null } as unknown as Viewer;
 const rowOf = (id: string) => db.rows.find((r) => r.id === id)!;
@@ -155,11 +155,8 @@ beforeEach(async () => {
   ai.submit.mockReset();
   ai.submit.mockResolvedValue(undefined);
   chatAsk.fn.mockReset();
-  vi.stubGlobal("fetch", vi.fn(async (_u: unknown, init?: { body?: string }) => {
-    const b = JSON.parse(init?.body ?? "{}");
-    const r = await drawScene(b.id, b.scene, b.token, b.agentName);
-    return new Response("{}", { status: r === "drawn" ? 200 : 401 });
-  }));
+  // no drawing route since every clip is drawn by Remotion (owner, 2026-10-20)
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -214,10 +211,11 @@ describe("a คอลลาจ สรุป FHC", () => {
     expect(row.status).toBe("rendering");
     const picks = (row.input as FhcVideoInput).picks!;
     expect(picks).toMatchObject({ fhcOpen: "hand-wave", fhcScores: "piggy", fhcGaps: "umbrella", fhcPlan: "handshake", fhcContact: "hand-phone" });
-    // the plan's picture is in its frames; the scores' has no room in a full check, so it is not
-    const uri = (k: string) => STICKER(k).toString("base64");
-    expect(drawnTrees.some((t) => t.includes(uri("handshake")))).toBe(true);
-    expect(drawnTrees.some((t) => t.includes(uri("piggy")))).toBe(false);
+    // every picked piece goes up beside the voice; FhcClip lays each where its scene has room (fhcRoom)
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as { composition: string; picks: Record<string, string> };
+    expect(props.composition).toBe("FhcClip");
+    expect(Object.keys(props.picks).sort()).toEqual(["fhcContact", "fhcGaps", "fhcOpen", "fhcPlan", "fhcScores"]);
+    expect(db.files.get(`${id}/pick-fhcPlan.png`)!.toString()).toBe(STICKER("handshake").toString());
   });
 
   it("น้ำเงินทอง picks nothing and draws as before", async () => {

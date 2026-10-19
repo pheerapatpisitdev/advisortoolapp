@@ -15,7 +15,6 @@ import { parseAwsKey } from "@/lib/video/engines/lambda";
 import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
 import { checkMotionKey, isMotionProvider, type MotionCheck } from "@/lib/video/motion-key";
-import { readRemotionFor, REMOTION_PLANS, remotionPlans, saveRemotionFor, type RemotionFor, type RemotionPlan } from "@/lib/quote-video/remotion-switch";
 
 const monthStartMs = () => monthStart().getTime();
 const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false };
@@ -122,8 +121,6 @@ export async function loadAiPage(): Promise<{
   motion: KeyRow[];
   /** who used AI this month and how much; null when it could not be read */
   people: PersonUse[] | null;
-  /** who gets วิดีโอนำเสนอ's Motion Graphic clips drawn by Remotion, plan by plan (remotion-switch.ts) */
-  remotion: Record<RemotionPlan, RemotionFor>;
 }> {
   await requireStaff("backoffice");
   const supabase = supabaseAdmin();
@@ -162,7 +159,6 @@ export async function loadAiPage(): Promise<{
   const videoKeys = await renderKeysShown(heldKeys);
   return {
     people,
-    remotion: await remotionPlans(),
     video: { settings: videoCfg, keys: videoKeys },
     keys: heldKeys
       .filter((k) => !(RENDER_PROVIDERS as readonly string[]).includes(k.provider) && !isMotionProvider(k.provider))
@@ -355,19 +351,6 @@ export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
     await saveVideoSettings({ engine: s.engine, fallback: s.fallback, rendiMaxSeconds: s.rendiMaxSeconds, enabled: s.enabled });
   } catch (e) {
     return failed("บันทึกตัวตัดต่อไม่สำเร็จ", e);
-  }
-  revalidatePath("/admin/ai");
-  return { ok: true };
-}
-
-/** who gets วิดีโอนำเสนอ's Motion Graphic clips drawn by Remotion; a clip already made keeps its engine */
-export async function setRemotionFor(plan: string, v: string): Promise<Result> {
-  await requireStaff("backoffice");
-  if (readRemotionFor(v) !== v || !(REMOTION_PLANS as string[]).includes(plan)) return { ok: false, error: "ค่าสวิตช์ไม่ถูกต้อง" };
-  try {
-    await saveRemotionFor(plan as RemotionPlan, v as RemotionFor);
-  } catch (e) {
-    return failed("บันทึกสวิตช์ Remotion ไม่สำเร็จ", e);
   }
   revalidatePath("/admin/ai");
   return { ok: true };

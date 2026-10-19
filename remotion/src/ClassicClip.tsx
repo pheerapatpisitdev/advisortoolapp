@@ -23,7 +23,7 @@ export type { ClassicClipProps };
 /** the photo the lead and a looping close carry (make.ts cutClip's family) */
 const FAMILY = "card/family.jpg";
 
-/** how far down the table stands at t: job.ts tableY, each move eased in and out from where the last left it */
+/** how far down the table stands at t: as the old ffmpeg cut moved it (tableY), each move eased in and out from where the last left it */
 export function tableAt(moves: TableMove[], t: number): number {
   let from = 0;
   let y = 0;
