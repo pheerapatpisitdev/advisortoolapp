@@ -42,6 +42,13 @@ const VOICE_TIMEOUT_MS = 30_000;
  * the usage ledger, like the other checks — a diagnostic, not work for anyone.
  */
 async function checkVoice(apiKey: string): Promise<{ ok: boolean; error?: string }> {
+  // now and then the voice answers 200 with no audio and speaks when asked again, as speakThai
+  // knows (src/lib/ai/tts.ts) — seen on the second live run, 2026-10-19
+  const first = await askVoice(apiKey);
+  return first.error === "no audio" ? askVoice(apiKey) : first;
+}
+
+async function askVoice(apiKey: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`, {
       method: "POST",
