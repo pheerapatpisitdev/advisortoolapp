@@ -1,5 +1,8 @@
-# gcloud builds submit remotion --config remotion/cloudrun/cloudbuild.yaml (after npm run bundle and the prepare step)
+# gcloud builds submit remotion --config remotion/cloudrun/cloudbuild.yaml (after npm run bundle and the prepare step).
+# remotion/cloudrun/ship.sh builds each drawing's image as :drawing-<REMOTION_DRAWING> (--substitutions _TAG=…).
+substitutions:
+  _TAG: latest
 steps:
   - name: gcr.io/cloud-builders/docker
-    args: ["build", "-f", "cloudrun/Dockerfile", "-t", "asia-southeast1-docker.pkg.dev/advisortool-video/clip/remotion-render:latest", "."]
-images: ["asia-southeast1-docker.pkg.dev/advisortool-video/clip/remotion-render:latest"]
+    args: ["build", "-f", "cloudrun/Dockerfile", "-t", "asia-southeast1-docker.pkg.dev/advisortool-video/clip/remotion-render:${_TAG}", "."]
+images: ["asia-southeast1-docker.pkg.dev/advisortool-video/clip/remotion-render:${_TAG}"]

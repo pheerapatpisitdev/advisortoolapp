@@ -23,3 +23,8 @@ if ! npx vitest run --reporter=dot >/tmp/advisortool-pre-push.log 2>&1; then
   exit 1
 fi
 echo "pre-push: types and tests pass."
+# the Remotion job for the drawing this code names, made before the code is live (remotion/cloudrun/ship.sh)
+if ! remotion/cloudrun/ship.sh; then
+  echo "pre-push: the Remotion job for this drawing is not ready — nothing pushed." >&2
+  exit 1
+fi

@@ -45,6 +45,7 @@ import { faceUris } from "./story-faces";
 import { a, motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
 import { clipProps, REMOTION_JOB, remotionFits, remotionPlan, type ClipProps, type RemotionMotion } from "./remotion";
+import { failReason, renderThbFor, secondsBetween, type ClipEngine, type CostParts } from "./run-record";
 import { remotionFor } from "./remotion-switch";
 import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
 import { pieceSticker } from "@/lib/collage/library";
@@ -145,6 +146,10 @@ export interface VideoRow {
   progress: unknown;
   /** the words the agent's AI wrote to go with it (post-text.ts); absent before the column is */
   post_text?: unknown;
+  /** the real reason it failed (run-record.ts), the server's alone */
+  fail_reason?: string | null;
+  /** what its making cost, part by part (run-record.ts), the server's alone */
+  cost_parts?: CostParts | null;
 }
 export type PaidBy = "staff" | "free" | "wallet";
 
@@ -367,7 +372,10 @@ async function fail(id: string, why: unknown): Promise<void> {
   // only the writer that moves the row to failed gives the hold back
   // Gemini's voice used up for the day: the card says when to try again, and marks the day (voiceFullUntil)
   const error = why instanceof TtsQuotaError ? voiceFullText(voiceDay().until) : FAILED;
-  const { data } = await rows().update({ status: "failed", error, updated_at: new Date().toISOString() })
+  // the stage it failed in, for the reason kept (run-record.ts); unread, the reason goes without it
+  const { data: was } = await rows().select("status").eq("id", id).maybeSingle();
+  const fail_reason = failReason(why, (was as Pick<VideoRow, "status"> | null)?.status);
+  const { data } = await rows().update({ status: "failed", error, fail_reason, updated_at: new Date().toISOString() })
     .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input").maybeSingle();
   if (data) {
     await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
@@ -378,7 +386,7 @@ async function fail(id: string, why: unknown): Promise<void> {
     return;
   }
   // a finished clip being cut again (redrawPicture): the cut it had stands, paid already, and stays redrawable
-  const { data: kept } = await rows().update({ status: "done", error: RECUT_FAILED, updated_at: new Date().toISOString() })
+  const { data: kept } = await rows().update({ status: "done", error: RECUT_FAILED, fail_reason, updated_at: new Date().toISOString() })
     .eq("id", id).in("status", ["drawing", "rendering"]).not("video_path", "is", null).select("id, input").maybeSingle();
   // the redrawn picture is not in the clip: its hold goes back
   const input = (kept as Pick<VideoRow, "input"> | null)?.input;
@@ -943,7 +951,9 @@ export async function produce(id: string, agentName: string): Promise<void> {
       picturesThb += pieces.costThb;
       if (pieces.costThb) lap(`AI cut-outs drawn (${Object.values((pieces.input as VideoInput).aiPieces ?? {}).filter(Boolean).length})`);
     }
-    await setRow(id, { cost_thb: spoken.reduce((n, s) => n + s.costThb, 0) + picturesThb });
+    const voiceThb = spoken.reduce((n, s) => n + s.costThb, 0);
+    row.cost_parts = { voice: voiceThb, pictures: picturesThb };
+    await setRow(id, { cost_thb: voiceThb + picturesThb, cost_parts: row.cost_parts });
     lap(`voice done (${spokenScript.length} lines${voiceId || fellBackTo ? ", ElevenLabs" : ""}${fellBackTo ? " (in place of Gemini)" : ""}${lang === "th" ? "" : `, ${lang}`})`);
     // kept with the clip, so a picture redrawn later is cut without speaking again
     if (isPromptStory(row.input)) await pool(pcms, 8, (pcm, i) => upload(id, voiceName(i), pcm, "application/octet-stream"));
@@ -961,11 +971,13 @@ export async function produce(id: string, agentName: string): Promise<void> {
 async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey: string, bar: Bar, t0: number, lap: Lap): Promise<void> {
   const id = row.id;
   const note = bar.note;
+  // the cut starts here: what comes before it is the voice (run-record.ts prepSec)
+  const since = Date.now();
   const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
   const { size, motion, plans, named, build, layers, background: ownBackground, sounds, motion$, script, scriptFace } = await clipParts(row, agentName, secs);
   const total = clipLength(plans);
   if (motion$ && isQuoteInput(row.input) && row.input.engine === "remotion" && remotionFits(row.input)) {
-    return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms, scriptFace }, gcpKey, bar, lap);
+    return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms, scriptFace, since }, gcpKey, bar, lap);
   }
 
   // the files every scene shares, or that need no drawing
@@ -1023,7 +1035,7 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   }
   const built = buildJob(plans, named, build);
   const job = { inputs: named.files.map((f, i) => ({ name: f.name, url: signed[i] })), command: built.command, outputs: built.outputs };
-  await handOver(row, gcpKey, bar, total, lap, { job });
+  await handOver(row, gcpKey, bar, total, lap, { job }, since);
 }
 
 /**
@@ -1031,7 +1043,7 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
  * job reads (JOB_URL), the row marked rendering, the job started. `job`: clip-ffmpeg's command;
  * `remotion`: the Remotion render's props instead (remotion.ts), run on its own job.
  */
-async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, lap: Lap, run: { job: FfmpegJob } | { remotion: { props: ClipProps } }): Promise<void> {
+async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, lap: Lap, run: { job: FfmpegJob } | { remotion: { props: ClipProps } }, since: number): Promise<void> {
   const id = row.id;
   // a clip cut again (redrawPicture) writes over its finished video
   const out = row.video_path
@@ -1051,9 +1063,10 @@ async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, 
 
   // the last progress write lands before the row leaves "drawing" (it writes only a drawing row)
   await bar.flush();
-  // recorded before the run is asked, so a callback that comes back at once finds it
-  await setRow(id, { status: "rendering", duration_sec: total, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
   const remotion = "remotion" in run;
+  const parts: CostParts = { ...(row.cost_parts ?? {}), engine: remotion ? "remotion" : "ffmpeg", prepSec: secondsBetween(since, Date.now()) ?? undefined };
+  // recorded before the run is asked, so a callback that comes back at once finds it
+  await setRow(id, { status: "rendering", duration_sec: total, cost_parts: parts, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
   await cloudRunEngine(gcpKey, remotion ? { job: REMOTION_JOB } : {}).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
   lap(remotion ? "handed to Cloud Run (Remotion)" : "handed to Cloud Run");
 }
@@ -1066,7 +1079,7 @@ async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, 
  */
 async function cutWithRemotion(
   row: VideoRow & { input: VideoInput }, motion: RemotionMotion,
-  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; sounds?: { at: number; kind: SoundKind }[]; pcms: Buffer[]; scriptFace?: { family: string; text: string } },
+  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; sounds?: { at: number; kind: SoundKind }[]; pcms: Buffer[]; scriptFace?: { family: string; text: string }; since: number },
   gcpKey: string, bar: Bar, lap: Lap,
 ): Promise<void> {
   const id = row.id;
@@ -1098,7 +1111,7 @@ async function cutWithRemotion(
   lap(`voice and ${got.length} cut-outs${fonts.length ? ` and ${c.scriptFace!.family} (${fonts.length})` : ""} up for Remotion`);
   bar.note({ step: "submit", done: 0, of: 0 });
   const props = clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, pieces, scriptFont);
-  await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } });
+  await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
 }
 
 /** the script's fields as the agent knows them */
@@ -1209,11 +1222,12 @@ export async function redrawPicture(
       pictures[scene] = `${id}/${picName(scene)}`;
       // the hold rides with the clip: taken when the new cut is done (finishVideo), given back if it fails (fail)
       const next: PromptStoryInput = { ...input, pictures, ...(held ? { redraw: { hold: held, satang: price, thb: pictureThb(input.painter) } } : {}) };
-      await setRow(id, { input: next, cost_thb: Number(row.cost_thb ?? 0) + pictureThb(input.painter) });
+      const cost_parts: CostParts = { ...(row.cost_parts ?? {}), pictures: (row.cost_parts?.pictures ?? 0) + pictureThb(input.painter) };
+      await setRow(id, { input: next, cost_thb: Number(row.cost_thb ?? 0) + pictureThb(input.painter), cost_parts });
       held = null;
       bar.note({ step: "pictures", done: 1, of: 1 });
       lap(`scene ${scene} picture drawn again`);
-      await cutClip({ ...row, input: next, status: "drawing" }, agentName, pcms, gcpKey, bar, t0, lap);
+      await cutClip({ ...row, input: next, cost_parts, status: "drawing" }, agentName, pcms, gcpKey, bar, t0, lap);
     } catch (e) {
       await giveBack();
       await fail(id, e);
@@ -1268,7 +1282,7 @@ export async function videoOfJob(jobId: string): Promise<VideoRow | null> {
 }
 
 /** Cloud Run's word on a job: the clip is done (the file is ours already) or failed. */
-export async function finishVideo(row: VideoRow, state: "done" | "failed", outPath?: string): Promise<void> {
+export async function finishVideo(row: VideoRow, state: "done" | "failed", outPath?: string, jobError?: string): Promise<void> {
   // a clip failed for taking too long whose render still arrived: its file is nobody's, so it goes
   if (row.status === "failed" && !row.video_path && state === "done" && outPath === `${row.id}/quote.mp4`) {
     await bucket().remove([outPath]).catch(() => undefined);
@@ -1276,12 +1290,15 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
   }
   if (row.status !== "rendering") return;
   if (state === "done" && outPath === `${row.id}/quote.mp4`) {
+    // how long the run took, from the hand-over to this answer (run-record.ts)
+    const renderSec = secondsBetween(row.job?.startedAt, Date.now());
     // the row moves once: a callback sent twice settles once
     const { data, error } = await rows().update({ status: "done", video_path: outPath, error: null, updated_at: new Date().toISOString() })
       .eq("id", row.id).eq("status", "rendering").select("id").maybeSingle();
     if (error) throw new Error(`video ${row.id} not finished: ${error.message}`);
     if (!data) return;
-    const renderThb = (row.input as { engine?: unknown }).engine === "remotion" ? REMOTION_COST_THB : RENDER_COST_THB;
+    const remotion = (row.input as { engine?: unknown }).engine === "remotion";
+    const renderThb = remotion ? REMOTION_COST_THB : RENDER_COST_THB;
     await asWho(row.agent_id, () => recordUsage("cloudrun", VIDEO_TASK_RENDER, 0, 0, renderThb));
     const cost = Number(row.cost_thb ?? 0) + renderThb;
     let charged: number | null = null;
@@ -1307,10 +1324,13 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
       await settleWallet(redraw.hold, redraw.satang, redraw.thb).catch((e) => console.error("redraw settle failed:", e));
       input = rest;
     }
-    await setRow(row.id, { cost_thb: cost, ...(charged !== null ? { charged_satang: charged } : {}), ...(input ? { input } : {}) }).catch(() => undefined);
+    // the run's own seconds, priced at its machine's rate, beside the fixed figure charged above (run-record.ts)
+    const engine: ClipEngine = remotion ? "remotion" : "ffmpeg";
+    const cost_parts: CostParts = { ...(row.cost_parts ?? {}), engine, ...(renderSec !== null ? { renderSec, renderThb: renderThbFor(engine, renderSec) } : {}) };
+    await setRow(row.id, { cost_thb: cost, cost_parts, ...(charged !== null ? { charged_satang: charged } : {}), ...(input ? { input } : {}) }).catch(() => undefined);
     await clearInputs(row.id, isPromptStory(row.input));
   } else {
-    await fail(row.id, new Error("render failed"));
+    await fail(row.id, new Error(jobError ? `render failed: ${jobError}` : "render failed"));
   }
 }
 

@@ -23,7 +23,7 @@ function sameToken(given: string, expectedHash: string | undefined): boolean {
 }
 
 export async function POST(req: Request) {
-  let body: { id?: unknown; token?: unknown; state?: unknown; outputs?: unknown };
+  let body: { id?: unknown; token?: unknown; state?: unknown; outputs?: unknown; error?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -44,7 +44,8 @@ export async function POST(req: Request) {
   const outputs = body.outputs && typeof body.outputs === "object" ? (body.outputs as Record<string, { path?: unknown }>) : {};
   const path = typeof outputs.out_1?.path === "string" ? outputs.out_1.path : undefined;
   try {
-    await finishVideo(row, state, path);
+    // the job's own words on a failed run, kept as the clip's reason (run-record.ts)
+    await finishVideo(row, state, path, typeof body.error === "string" ? body.error.slice(0, 300) : undefined);
   } catch (e) {
     console.error(`quote video job ${id}: not finished:`, e instanceof Error ? e.message : "unknown error");
     return NextResponse.json({ error: "try again" }, { status: 500 });

@@ -10,7 +10,7 @@ import { REMOTION_DRAWING } from "@/lib/quote-video/remotion";
  * props were made by another version of it would be drawn wrong, so the image refuses it
  * (remotion/src/Root.tsx). REMOTION_DRAWING is that version — a fingerprint of every file the
  * composition bundles, from the app's src and data. Changing any of them fails this test until
- * the fingerprint is set to the new one, and the image is built again with it (README, step 5).
+ * the fingerprint is set to the new one; the pre-push hook then makes that drawing's job (remotion/cloudrun/ship.sh).
  */
 
 const root = path.resolve(__dirname, "../..");
@@ -44,5 +44,5 @@ async function drawingNow(): Promise<string> {
 
 it("REMOTION_DRAWING is the fingerprint of the drawing code the Remotion image is built from", async () => {
   const now = await drawingNow();
-  expect(REMOTION_DRAWING, `the drawing code changed: set REMOTION_DRAWING = "${now}" in src/lib/quote-video/remotion.ts and build the Remotion image again (remotion/README.md)`).toBe(now);
+  expect(REMOTION_DRAWING, `the drawing code changed: set REMOTION_DRAWING = "${now}" in src/lib/quote-video/remotion.ts; the push to main makes its job (remotion/cloudrun/ship.sh)`).toBe(now);
 }, 60_000);

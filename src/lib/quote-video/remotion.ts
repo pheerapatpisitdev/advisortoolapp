@@ -33,10 +33,14 @@ export const REMOTION_PLAN_LABEL: Record<RemotionPlan, string> = { LIFEPROTECT: 
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "589ee123783f";
+export const REMOTION_DRAWING = "2a6364638552";
 
-/** the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg */
-export const REMOTION_JOB = "remotion-render";
+/**
+ * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
+ * job a drawing, built by the pre-push hook before the code that names it reaches main (remotion/cloudrun/ship.sh),
+ * so the app as deployed and the job it starts always carry the same drawing (Remotion move phase 0, 2026-10-19)
+ */
+export const REMOTION_JOB = `remotion-${REMOTION_DRAWING}`;
 
 /** what a Motion Graphic quote clip is drawn from, beside its scenes: quotePartsFor's own context */
 export type RemotionMotion = {

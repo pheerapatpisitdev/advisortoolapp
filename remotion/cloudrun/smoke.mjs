@@ -44,3 +44,5 @@ if (process.env.BUCKET) {
   if (callback?.state === "done") await put(`${name}.mp4`, readFileSync(`${out}/smoke-${theme}.mp4`), "video/mp4");
   await put(`${name}.json`, JSON.stringify(result), "application/json");
 }
+// a run that did not end in a clip fails the job, so ship.sh stops before a broken image goes live
+if (callback?.state !== "done") process.exitCode = 1;
