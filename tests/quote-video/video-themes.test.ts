@@ -8,9 +8,9 @@ type El = ReactElement<{ style?: Record<string, unknown>; children?: ReactNode }
 const kids = (e: El) => [e.props.children].flat().filter(isValidElement) as El[];
 
 describe("วิดีโอนำเสนอ themes (owner, 2026-10-17)", () => {
-  it("keeps the two the owner kept on 2026-10-20, ธีมเทศกาล in its days, and reads anything else as น้ำเงินทอง", () => {
-    expect(STANDING_THEMES).toEqual(["navy", "paper"]);
-    expect(THEME_KEYS).toEqual(["navy", "paper", "festival"]);
+  it("keeps the two the owner kept on 2026-10-20 and ตัวหนังสือเด้ง, ธีมเทศกาล in its days, and reads anything else as น้ำเงินทอง", () => {
+    expect(STANDING_THEMES).toEqual(["navy", "paper", "kinetic"]);
+    expect(THEME_KEYS).toEqual(["navy", "paper", "kinetic", "festival"]);
     expect(readTheme("paper")).toBe("paper");
     // a clip asked for in a look since taken away
     expect(readTheme("collage")).toBe("navy");

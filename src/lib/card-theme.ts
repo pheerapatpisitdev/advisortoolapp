@@ -405,8 +405,15 @@ export const FESTIVAL_DECOR = {
   canna: "#f5c400", cannaDeep: "#e09a00",
 } as const;
 
+/** ตัวหนังสือเด้ง (owner, 2026-10-20; quote-video/kinetic.tsx): the grounds the scenes take in turn, their words and figures */
+export const KINETIC_COLORS = [
+  { ground: "#111111", ink: "#ffffff", figure: "#facc15", soft: "rgba(255,255,255,0.6)" },
+  { ground: "#facc15", ink: "#111111", figure: "#022162", soft: "rgba(17,17,17,0.6)" },
+  { ground: "#022162", ink: "#ffffff", figure: "#f2c75c", soft: "rgba(255,255,255,0.6)" },
+] as const;
+
 /** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
   paperFaceRing: "#22252b",
-  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b" },
+  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15" },
 } as const;

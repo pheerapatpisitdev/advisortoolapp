@@ -27,7 +27,7 @@ import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "d185373a5715";
+export const REMOTION_DRAWING = "b8726d027a37";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one

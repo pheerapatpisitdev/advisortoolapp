@@ -6,6 +6,7 @@ import { themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
+import { kineticFrame } from "@/lib/quote-video/kinetic";
 import { SCRIPT_RANGE, type ClipProps } from "@/lib/quote-video/remotion";
 import { KeepWords } from "./KeepWords";
 
@@ -119,6 +120,14 @@ export function Clip(p: ClipProps) {
     const next = p.scenes[s + 1];
     if (t < XFADE && s > 0) style = crossing(TRANSITIONS[sc.key] ?? "fade", t / XFADE, w).in;
     else if (next && T >= next.start) style = crossing(TRANSITIONS[next.key] ?? "fade", (T - next.start) / XFADE, w).out;
+    // ตัวหนังสือเด้ง (kinetic.tsx): the scene's spoken words alone, in place of its drawing
+    if (p.theme === "kinetic") {
+      return (
+        <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
+          {kineticFrame({ voice: sc.voice, voiceSec: sc.voiceSec, index: s, header: p.facts.planLine, ...(sc.key === "contact" ? { contact: p.contact } : {}) }, t, w, h)}
+        </AbsoluteFill>
+      );
+    }
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>

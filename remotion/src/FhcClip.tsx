@@ -7,6 +7,7 @@ import { themeBackground, themed } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
+import { kineticFrame } from "@/lib/quote-video/kinetic";
 import type { FhcClipProps } from "@/lib/quote-video/remotion";
 import { crossing, loadFonts, SATORI_CSS } from "./Clip";
 import { KeepWords } from "./KeepWords";
@@ -53,6 +54,14 @@ export function FhcClip(p: FhcClipProps) {
     if (t < XFADE && s > 0) style = crossing(TRANSITIONS[sc.key] ?? "fade", t / XFADE, w).in;
     else if (next && T >= next.start) style = crossing(TRANSITIONS[next.key] ?? "fade", (T - next.start) / XFADE, w).out;
     const body = p.size === "portrait" ? fhcFrame(sc.key, c, t) : wideFhcFrame(sc.key, c, t, p.size);
+    // ตัวหนังสือเด้ง (kinetic.tsx): the scene's spoken words alone, in place of its drawing
+    if (p.theme === "kinetic") {
+      return (
+        <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
+          {kineticFrame({ voice: sc.voice, voiceSec: sc.voiceSec, index: s, header: "สรุปสุขภาพการเงิน", ...(sc.key === "fhcContact" ? { contact: p.contact } : {}) }, t, w, h)}
+        </AbsoluteFill>
+      );
+    }
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
