@@ -1,6 +1,8 @@
 import { providerKey } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
 import { ELEVEN_MODEL, ELEVENLABS, speakEleven } from "@/lib/voice/elevenlabs";
+import { voiceDay } from "@/lib/quote-video/voice-quota";
+import { googleToken, parseGcpKey, type GcpKey } from "@/lib/video/engines/cloudrun";
 
 /**
  * Thai speech from Gemini (owner, 2026-10-11: the วิดีโอนำเสนอ voice). Uses the Google key the
@@ -65,11 +67,19 @@ interface GeminiAudio {
 const PER_MINUTE_TRIES = 3;
 export const PER_MINUTE_WAIT_MS = 4_000;
 
-/** One line spoken, and what it cost in baht; the cost also goes on the ledger under `task` (attributed by asWho). */
-/** `gemini` names one of the 30 voices (src/lib/voice/gemini.ts); without it the narrator's own, Kore or Orus */
-export async function speakThai(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
+const styleOf = (narrator: Narrator, lang?: SpeechLang) => (!lang || lang === "th" ? STYLE[narrator] : STYLE_IN[lang][narrator]);
+
+const RETRY = "ทำเสียงพากย์ไม่สำเร็จ ลองใหม่อีกครั้ง";
+
+/**
+ * One line spoken, and what it cost in baht; the cost also goes on the ledger under `task` (attributed by asWho).
+ * `gemini` names one of the 30 voices (src/lib/voice/gemini.ts); without it the narrator's own, Kore or Orus.
+ * `wait: false` gives up on a busy minute at once instead of waiting it out, for a caller with somewhere else to go.
+ */
+export async function speakThai(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; lang?: SpeechLang; fetch?: typeof fetch; wait?: boolean } = {}): Promise<{ pcm: Buffer; costThb: number }> {
   const narrator = opts.narrator ?? "F";
-  const style = !opts.lang || opts.lang === "th" ? STYLE[narrator] : STYLE_IN[opts.lang][narrator];
+  const style = styleOf(narrator, opts.lang);
+  const tries = opts.wait === false ? 0 : PER_MINUTE_TRIES;
   const key = await providerKey("google");
   if (!key) throw new TtsError("ยังไม่ได้ตั้งค่าคีย์ Google สำหรับเสียงพากย์");
   const f = opts.fetch ?? fetch;
@@ -100,7 +110,7 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
     }
     body = (await res.json().catch(() => ({}))) as GeminiAudio;
     data = body.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData?.data;
-    if (res.status === 429 && !JSON.stringify(body.error?.details ?? []).includes("PerDay") && busy < PER_MINUTE_TRIES) {
+    if (res.status === 429 && !JSON.stringify(body.error?.details ?? []).includes("PerDay") && busy < tries) {
       busy++;
       await new Promise((r) => setTimeout(r, PER_MINUTE_WAIT_MS * busy));
       attempt--;
@@ -124,12 +134,123 @@ export async function speakThai(text: string, task: string, opts: { narrator?: N
 }
 
 /**
+ * The same Gemini voice through Google Cloud Text-to-Speech (owner, 2026-10-20, mockup
+ * https://claude.ai/artifact/YTAVDuGqVAhGzVYeLvU3Sa): limited per minute, with no 100-a-day cap.
+ * Signed in with the service-account key Cloud Run uses ("gcp"), which holds roles/aiplatform.user.
+ * Same 30 voice names, same price; the style goes in its own `prompt` field so it is never read out.
+ */
+export const CLOUD_TTS_MODEL = "gemini-2.5-flash-tts";
+const CLOUD_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
+const LANG_CODE: Record<SpeechLang, string> = { th: "th-TH", en: "en-US", zh: "cmn-CN", ru: "ru-RU", my: "my-MM" };
+/** a second of speech is billed as this many audio tokens (Google's Gemini-TTS price list) */
+const AUDIO_TOKENS_PER_SEC = 25;
+
+interface CloudAudio { audioContent?: string; error?: { message?: string } }
+
+/** the Cloud key, when one is stored and readable */
+export async function cloudVoiceKey(): Promise<GcpKey | null> {
+  const stored = await providerKey("gcp").catch(() => null);
+  return stored ? parseGcpKey(stored) : null;
+}
+
+/** the samples of a WAV file (Cloud's LINEAR16 comes with a header); anything else is taken as samples already */
+export function wavPcm(b: Buffer): Buffer {
+  if (b.length < 12 || b.toString("ascii", 0, 4) !== "RIFF" || b.toString("ascii", 8, 12) !== "WAVE") return b;
+  let at = 12;
+  while (at + 8 <= b.length) {
+    const size = b.readUInt32LE(at + 4);
+    if (b.toString("ascii", at, at + 4) === "data") return b.subarray(at + 8, Math.min(b.length, at + 8 + size));
+    at += 8 + size + (size % 2);
+  }
+  return b.subarray(44);
+}
+
+export async function speakCloud(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; lang?: SpeechLang; fetch?: typeof fetch; key?: GcpKey | null } = {}): Promise<{ pcm: Buffer; costThb: number }> {
+  const narrator = opts.narrator ?? "F";
+  const style = styleOf(narrator, opts.lang).replace(/\s*[:：]\s*$/, "");
+  const k = opts.key ?? (await cloudVoiceKey());
+  if (!k) throw new TtsError("ยังไม่ได้ตั้งค่า Google Cloud สำหรับเสียงพากย์");
+  const f = opts.fetch ?? fetch;
+  let token: string;
+  try {
+    token = await googleToken(k, { fetch: f });
+  } catch (e) {
+    console.error("tts cloud: no token:", e instanceof Error ? e.message : "unknown error");
+    throw new TtsError(RETRY);
+  }
+  let res!: Response;
+  let body: CloudAudio = {};
+  let busy = 0;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      res = await f(CLOUD_TTS_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${token}`, "x-goog-user-project": k.projectId },
+        body: JSON.stringify({
+          input: { text, prompt: style },
+          voice: { languageCode: LANG_CODE[opts.lang ?? "th"], name: opts.gemini ?? TTS_VOICES[narrator], modelName: CLOUD_TTS_MODEL },
+          audioConfig: { audioEncoding: "LINEAR16", sampleRateHertz: TTS_RATE },
+        }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch (e) {
+      console.error("tts cloud: no answer:", e instanceof Error ? e.name : "unknown error");
+      throw new TtsError(RETRY);
+    }
+    body = (await res.json().catch(() => ({}))) as CloudAudio;
+    if (res.status === 429 && busy < PER_MINUTE_TRIES) {
+      busy++;
+      await new Promise((r) => setTimeout(r, PER_MINUTE_WAIT_MS * busy));
+      attempt--;
+      continue;
+    }
+    if (body.audioContent || !res.ok) break;
+  }
+  if (!res.ok || !body.audioContent) {
+    console.error(`tts cloud: ${res.status}`, body.error?.message?.slice(0, 200) ?? "no audio");
+    throw new TtsError(RETRY);
+  }
+  const pcm = wavPcm(Buffer.from(body.audioContent, "base64"));
+  // Cloud sends no token count: the audio is billed by its length, the words in by their size (a few satang at most)
+  const outTok = Math.round((pcm.length / (TTS_RATE * 2)) * AUDIO_TOKENS_PER_SEC);
+  const inTok = (style + text).length;
+  const costThb = ((inTok * PRICE.in + outTok * PRICE.out) / 1e6) * THB_PER_USD;
+  await recordUsage(CLOUD_TTS_MODEL, task, inTok, outTok, costThb);
+  return { pcm, costThb };
+}
+
+/** the Gemini API's day cap as this server last saw it: lines go straight to Cloud until it turns over */
+let apiFullUntil = 0;
+/** for tests: forget the day cap seen */
+export const forgetApiFull = () => { apiFullUntil = 0; };
+
+/**
+ * A line in a Gemini voice, in the owner's order (2026-10-20): 1 the Gemini API, 2 the same voice
+ * on Cloud when the API cannot (day cap, busy minute, off, any failure). Lines of one clip may come
+ * from either; it is the same model and voice name. Without a Cloud key it is the API alone, as before.
+ */
+export async function speakGemini(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
+  const [apiKey, cloud] = await Promise.all([providerKey("google").catch(() => null), cloudVoiceKey()]);
+  if (!cloud) return speakThai(text, task, opts);
+  if (apiKey && Date.now() >= apiFullUntil) {
+    try {
+      return await speakThai(text, task, { ...opts, wait: false });
+    } catch (e) {
+      if (!(e instanceof TtsError)) throw e;
+      if (e instanceof TtsQuotaError) apiFullUntil = voiceDay().until.getTime();
+      console.error("tts: Gemini API not usable, line goes to Cloud -", e.message);
+    }
+  }
+  return speakCloud(text, task, { ...opts, key: cloud });
+}
+
+/**
  * One line read by the voice a clip asked for (owner, 2026-10-11: the AI-voice switch): an
- * ElevenLabs voice when `voice` names one, Gemini's narrator otherwise. Same PCM either way;
+ * ElevenLabs voice when `voice` names one, Gemini's narrator otherwise (API, then Cloud). Same PCM either way;
  * the cost goes on the ledger under `task` (ElevenLabs' credits as its output count).
  */
 export async function speakLine(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; voice?: string; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
-  if (!opts.voice) return speakThai(text, task, opts);
+  if (!opts.voice) return speakGemini(text, task, opts);
   const key = await providerKey(ELEVENLABS);
   if (!key) throw new TtsError("ยังไม่ได้ตั้งค่าคีย์ ElevenLabs");
   let spoken: Awaited<ReturnType<typeof speakEleven>>;

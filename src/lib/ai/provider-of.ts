@@ -1,5 +1,5 @@
 import { EMBEDDERS, JUDGE } from "./providers";
-import { TTS_MODEL } from "./tts";
+import { CLOUD_TTS_MODEL, TTS_MODEL } from "./tts";
 import { ELEVEN_MODEL, ELEVENLABS } from "@/lib/voice/elevenlabs";
 
 /**
@@ -20,6 +20,8 @@ export function providerMap(models: { provider: string; model_name: string }[]):
     // the วิดีโอนำเสนอ voices (owner, 2026-10-15): priced in code too, so the reference table
     // has neither, and ElevenLabs' row read "ยังไม่มีค่าใช้จ่าย" over ฿28 of clips
     [TTS_MODEL, "google"] as const,
+    // the same voice through Google Cloud (owner, 2026-10-20): billed to the Cloud key's project
+    [CLOUD_TTS_MODEL, "gcp"] as const,
     [ELEVEN_MODEL, ELEVENLABS] as const,
   ]);
   // a model the reference table no longer lists still cost money, and saying so under its
