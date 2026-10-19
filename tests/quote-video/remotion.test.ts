@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
-import { REMOTION_DRAWING, REMOTION_JOB, remotionFits, remotionPlan, remotionPlanOf, type ClassicClipProps, type ClipProps, type FhcClipProps, type StoryClipProps } from "@/lib/quote-video/remotion";
+import { REMOTION_DRAWING, REMOTION_JOB, type ClassicClipProps, type ClipProps, type FhcClipProps, type StoryClipProps } from "@/lib/quote-video/remotion";
 import { checkedStory, storyScript, type StoryVideoInput } from "@/lib/quote-video/story";
 import type { PromptStoryInput } from "@/lib/prompt-story/types";
 import type { VideoInput } from "@/lib/quote-video/script";
@@ -105,8 +105,6 @@ vi.mock("@/lib/ai/tts", async (orig) => ({
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 // the engine as built: which job it was told to run (the Remotion render names its own), then what it was handed
 vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: (_k: string, deps: { job?: string } = {}) => ({ submit: (...a: unknown[]) => ai.submit(deps.job ?? "clip-ffmpeg", ...a) }) }));
-const sw = vi.hoisted(() => ({ who: "all" as "off" | "owner" | "all", ih: "owner" as "off" | "owner" | "all", asked: [] as string[] }));
-vi.mock("@/lib/quote-video/remotion-switch", () => ({ remotionFor: async (plan: string) => { sw.asked.push(plan); return plan === "IHEALTHY" ? sw.ih : sw.who; } }));
 // the script face as Google gives it, cut down: two weights, or nothing when it cannot be had
 const font = vi.hoisted(() => ({ asked: [] as string[], fails: false }));
 vi.mock("@/lib/google-font", () => ({
@@ -133,9 +131,6 @@ const rowOf = (id: string) => db.rows.find((r) => r.id === id)!;
 const drawCalls = () => (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(([u]) => String(u).includes("/api/quote-video/draw")).length;
 
 beforeEach(() => {
-  sw.who = "all";
-  sw.ih = "owner";
-  sw.asked.length = 0;
   font.asked.length = 0;
   font.fails = false;
   db.rows.length = 0;
@@ -158,40 +153,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
-describe("remotionFits", () => {
-  it("takes every quote clip since the move's last round (owner, 2026-10-20: \"ย้ายที่เหลือเลย\")", () => {
-    for (const size of ["portrait", "square", "landscape"] as const) {
-      for (const style of ["motion", "classic"] as const) {
-        expect(remotionFits(lp({ size, style }))).toBe(true);
-        expect(remotionFits(ih({ size, style }))).toBe(true);
-        expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20", size, style } as Partial<VideoInput>))).toBe(true);
-      }
-    }
-  });
-  it("names the row on the switch a clip follows: its plan for Motion Graphic, แบบปกติ's own for the rest", () => {
-    expect(remotionPlan(lp())).toBe("LIFEPROTECT");
-    expect(remotionPlan(lp({ product: undefined } as Partial<VideoInput>))).toBe("LIFEPROTECT");
-    expect(remotionPlan(lp({ size: "landscape" }))).toBe("LIFEPROTECT");
-    expect(remotionPlan(ih({ size: "square" }))).toBe("IHEALTHY");
-    expect(remotionPlan(lp({ product: "ISHIELD", variant: "WLCI20" } as Partial<VideoInput>))).toBe("ISHIELD");
-    expect(remotionPlan(lp({ product: "PLB", variant: "PLB15" } as Partial<VideoInput>))).toBe("PLB");
-    expect(remotionPlan({ product: "PENSION", age: 40, sex: "M", annuityAge: 55, pay: "untilAnnuity", sumAssured: 183824, style: "motion" } as unknown as VideoInput)).toBe("PENSION");
-    expect(remotionPlan({ product: "LEGACY", age: 35, sex: "M", tier: 1, style: "motion", size: "square" } as unknown as VideoInput)).toBe("LEGACY");
-    for (const input of [lp({ style: "classic" }), ih({ style: "classic", size: "landscape" }), { product: "LEGACY", age: 35, sex: "M", tier: 1, style: "classic" } as unknown as VideoInput]) {
-      expect(remotionPlan(input)).toBe("CLASSIC");
-    }
-  });
-});
-
 describe("คลิปเล่าเรื่อง and คลิปตามโจทย์ on Remotion (owner chose ก ก ก, 2026-10-19)", () => {
-  it("every size follows the tool's own row; an FHC summary its own, a แบบปกติ clip แบบปกติ's", () => {
-    for (const size of ["portrait", "square", "landscape"]) {
-      expect(remotionPlanOf({ product: "STORY", size } as never)).toBe("STORY");
-      expect(remotionPlanOf({ product: "FREESTORY", size } as never)).toBe("FREESTORY");
-      expect(remotionPlanOf({ product: "FHC", fhc: {}, style: "motion", size } as never)).toBe("FHC");
-    }
-    expect(remotionPlanOf(lp({ style: "classic" }))).toBe("CLASSIC");
-  });
   it("guesses a Remotion story clip's progress from Remotion story clips", () => {
     expect(clipKind({ product: "STORY", engine: "remotion" })).toBe("story-remotion");
     expect(clipKind({ product: "FREESTORY" })).toBe("story");
@@ -204,58 +166,6 @@ it("a Remotion clip's progress is guessed from Remotion clips, not the frames'",
   expect(clipKind({ style: "motion" })).toBe("motion-full");
 });
 
-const engineOf = async (viewer: Viewer, input = lp()) => {
-  const made = await createVideo(viewer, input, "");
-  return (rowOf((made as { id: string }).id).input as VideoInput).engine;
-};
-
-describe("createVideo, as the switch says", () => {
-  it("Remotion ทุกคน: every agent's portrait Motion Graphic Life Protect clip", async () => {
-    expect(await engineOf(agent)).toBe("remotion");
-    expect(await engineOf(owner)).toBe("remotion");
-  });
-
-  it("Remotion เฉพาะเจ้าของ: the owner's alone", async () => {
-    sw.who = "owner";
-    expect(await engineOf(owner)).toBe("remotion");
-    expect(await engineOf(agent)).toBeUndefined();
-  });
-
-  it("เครื่องเดิม ทุกคน: nobody's", async () => {
-    sw.who = "off";
-    expect(await engineOf(owner)).toBeUndefined();
-    expect(await engineOf(agent)).toBeUndefined();
-  });
-
-  it("each plan follows its own row: iHealthy the owner's alone while Life Protect is everyone's", async () => {
-    expect(await engineOf(owner, ih())).toBe("remotion");
-    expect(await engineOf(agent, ih())).toBeUndefined();
-    expect(await engineOf(agent)).toBe("remotion");
-    expect(sw.asked).toEqual(["IHEALTHY", "IHEALTHY", "LIFEPROTECT"]);
-    sw.ih = "all";
-    expect(await engineOf(agent, ih({ lang: "my" } as Partial<VideoInput>))).toBe("remotion");
-    sw.ih = "off";
-    expect(await engineOf(owner, ih())).toBeUndefined();
-  });
-
-  it("แบบปกติ, square and landscape follow their rows, as every other clip does", async () => {
-    sw.who = "owner";
-    sw.asked.length = 0;
-    expect(await engineOf(owner, lp({ style: "classic" }))).toBe("remotion");
-    expect(await engineOf(agent, lp({ style: "classic" }))).toBeUndefined();
-    expect(await engineOf(owner, lp({ size: "landscape" }))).toBe("remotion");
-    expect(sw.asked).toEqual(["CLASSIC", "CLASSIC", "LIFEPROTECT"]);
-  });
-
-  it("iShield follows its own row (the Remotion move's phase 1)", async () => {
-    sw.who = "owner";
-    sw.asked.length = 0;
-    const is = lp({ product: "ISHIELD", variant: "WLCI20" } as Partial<VideoInput>);
-    expect(await engineOf(owner, is)).toBe("remotion");
-    expect(await engineOf(agent, is)).toBeUndefined();
-    expect(sw.asked).toEqual(["ISHIELD", "ISHIELD"]);
-  });
-});
 
 const pool = (over: Record<string, unknown> = {}): StoryVideoInput => {
   const st = checkedStory({ topic: "pool48", faces: { narrator: "w26", hero: "w15" }, ...over }, "F");
@@ -266,16 +176,25 @@ const free = (over: Partial<PromptStoryInput> = {}): PromptStoryInput => ({
   product: "FREESTORY", brief: "", title: "ดูแลคนที่เรารัก", caption: "", style: "flat", painter: "sharp", narrator: "M", faces: { narrator: "m03" },
   scenes: [{ voice: "ทุกครอบครัวมีคนที่เรารัก", screen: "ดูแลคนที่เรารัก", picture: "ครอบครัว" }, { voice: "วางแผนวันนี้", screen: "วางแผน", picture: "โต๊ะ" }], ...over,
 });
+const fhcFacts = {
+  age: 35, sex: "M", checkedOn: "12 ตุลาคม 2569",
+  scores: [{ key: "emergency", label: "เงินสำรองฉุกเฉิน", level: "red", value: "2.5 เดือน" }],
+  gaps: [{ key: "life", label: "ชีวิต", state: "short", unit: "sum", have: 500_000, should: 2_000_000 }],
+  events: [{ key: "jobLoss", name: "ตกงาน", level: "red", line: "ไม่มีประกัน · ควรมีเงินสำรอง 6 เดือน" }],
+  plan: [{ key: "life", label: "ชีวิต", product: "Life Protect x 2 ชำระ 19 ปี", detail: "ทุน 1,500,000 บาท", monthly: 3_600, per: "ออมเดือนละ" }],
+};
 
-describe("createVideo, คลิปเล่าเรื่อง and คลิปตามโจทย์", () => {
-  it("as their rows say, owner-only to start", async () => {
-    sw.who = "owner";
-    expect((rowOf((await createVideo(owner, pool({ size: "landscape" }), "") as { id: string }).id).input as StoryVideoInput).engine).toBe("remotion");
-    expect((rowOf((await createVideo(agent, pool(), "") as { id: string }).id).input as StoryVideoInput).engine).toBeUndefined();
-    expect((rowOf((await createVideo(owner, free(), "") as { id: string }).id).input as PromptStoryInput).engine).toBe("remotion");
-    expect(sw.asked).toEqual(["STORY", "STORY", "FREESTORY"]);
-    sw.who = "off";
-    expect((rowOf((await createVideo(owner, pool(), "") as { id: string }).id).input as StoryVideoInput).engine).toBeUndefined();
+describe("createVideo: every clip is Remotion's (owner, 2026-10-20: \"ให้ใช้ Remotion ตลอดไปเลย ไม่ต้องมีสวิตช์\")", () => {
+  it("marks every look, size, plan and tool, for everyone", async () => {
+    const story = pool();
+    const inputs = [lp(), lp({ style: "classic" }), lp({ size: "landscape" }), ih({ lang: "zh" } as Partial<VideoInput>),
+      lp({ product: "PLB", variant: "PLB15" } as Partial<VideoInput>), story, free()];
+    for (const viewer of [agent, owner]) {
+      for (const input of inputs) {
+        const made = await createVideo(viewer, input as never, "");
+        expect((rowOf((made as { id: string }).id).input as { engine?: string }).engine).toBe("remotion");
+      }
+    }
   });
 });
 
@@ -318,24 +237,7 @@ describe("produce, a story clip drawn by Remotion", () => {
     expect(props.scenes.map((x) => x.picture)).toEqual([`https://x/${id}/pic-0.png`, `https://x/${id}/pic-1.png`, undefined]);
   });
 
-  it("with the row on เครื่องเดิม, a story clip is drawn on Vercel as before", async () => {
-    sw.who = "off";
-    const made = await createVideo(owner, pool(), "");
-    const id = (made as { id: string }).id;
-    await produce(id, "ตัวแทน");
-    expect(rowOf(id).status).toBe("rendering");
-    expect(drawCalls()).toBeGreaterThan(0);
-    expect(ai.submit.mock.calls[0][0]).toBe("clip-ffmpeg");
-  });
 });
-
-const fhcFacts = {
-  age: 35, sex: "M", checkedOn: "12 ตุลาคม 2569",
-  scores: [{ key: "emergency", label: "เงินสำรองฉุกเฉิน", level: "red", value: "2.5 เดือน" }],
-  gaps: [{ key: "life", label: "ชีวิต", state: "short", unit: "sum", have: 500_000, should: 2_000_000 }],
-  events: [{ key: "jobLoss", name: "ตกงาน", level: "red", line: "ไม่มีประกัน · ควรมีเงินสำรอง 6 เดือน" }],
-  plan: [{ key: "life", label: "ชีวิต", product: "Life Protect x 2 ชำระ 19 ปี", detail: "ทุน 1,500,000 บาท", monthly: 3_600, per: "ออมเดือนละ" }],
-};
 
 describe("produce, the move's last round on Remotion (owner, 2026-10-20)", () => {
   it("แบบปกติ: no frame drawn; ClassicClip gets each scene's overlay states, the photo and the table's moves", async () => {
@@ -418,17 +320,6 @@ describe("produce, drawn by Remotion", () => {
     expect(rowOf(id).status).toBe("done");
   });
 
-  it("with the switch on เครื่องเดิม, a Motion Graphic clip is drawn on Vercel and cut by clip-ffmpeg", async () => {
-    sw.who = "off";
-    const made = await createVideo(agent, lp(), "");
-    const id = (made as { id: string }).id;
-    await produce(id, "ตัวแทน");
-    expect(rowOf(id).status).toBe("rendering");
-    expect(drawCalls()).toBe(5);
-    expect(ai.submit.mock.calls[0][0]).toBe("clip-ffmpeg");
-    expect(JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion).toBeUndefined();
-  });
-
   it("an iHealthy clip goes the same way, its riders in the facts, with no script face in Thai", async () => {
     const made = await createVideo(owner, ih(), "");
     const id = (made as { id: string }).id;
@@ -465,7 +356,6 @@ describe("produce, drawn by Remotion", () => {
 
   it("a script face that cannot be had fails the clip, and nothing is charged", async () => {
     font.fails = true;
-    sw.ih = "all";
     wallet.releaseWallet.mockResolvedValue(undefined);
     const made = await createVideo(agent, ih({ lang: "zh" } as Partial<VideoInput>), "");
     const id = (made as { id: string }).id;

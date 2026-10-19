@@ -35,11 +35,17 @@ export const PAINTERS: Painter[] = [
 ];
 
 /**
- * อัตโนมัติ: the best while the month's content budget has room, the cheap ones near its end.
+ * อัตโนมัติ: the choice that decides for itself, the default for both rows. What decides is money.
  *
- * The owner asked for a choice that decides for itself. What decides is money: below this
- * much left, a round of Sonnet with pictures could take the last of the month's budget, so
- * the writer drops to Gemini Flash and the pictures stop. The default for both rows.
+ * The writer goes by who pays (owner, 2026-10-20, option ค, mockup
+ * https://claude.ai/artifact/8Q8C6PhaXGJvvSsUtU7z8X): a round the agent's wallet pays for is
+ * written by the best, Sonnet 5; a round the owner pays for — a free round, the owner's own, an
+ * assistant's — by the cheap one, Gemini Flash. Sonnet was ฿246 of the ฿252 the owner paid for
+ * posts in the thirty days before, nearly all of it free rounds. A wallet round has no ceiling,
+ * so the money left is Infinity there (contentCap(), moneyLeft()); any finite figure is the owner's.
+ *
+ * The picture still goes by the money left: below this much, a round with pictures could take
+ * the last of the month's budget, so the pictures stop.
  */
 export const AUTO = "auto";
 export const AUTO_FLOOR_THB = 5;
@@ -52,10 +58,24 @@ export const OVERHEAD_THB = 0.03;
 
 const byId = <T extends { id: string }>(list: T[], id: string) => list.find((x) => x.id === id)!;
 
-/** A writer id as the owner picked it — "auto" included — made into the model to use. */
+/** a round with no ceiling over it is one the agent's own wallet pays for */
+const walletPays = (leftThb: number): boolean => leftThb === Infinity;
+
+/**
+ * A writer id as the owner picked it — "auto" included — made into the model to use.
+ * `leftThb`: the content money left for this round; Infinity in a round the wallet pays for.
+ */
 export function writerOf(id: string | null | undefined, leftThb = Infinity): Writer {
-  if (id === AUTO || !WRITERS.some((w) => w.id === id)) return byId(WRITERS, leftThb >= AUTO_FLOOR_THB ? "best" : "cheap");
+  if (id === AUTO || !WRITERS.some((w) => w.id === id)) return byId(WRITERS, walletPays(leftThb) ? "best" : "cheap");
   return byId(WRITERS, id!);
+}
+
+/** The line under the writer dropdown on อัตโนมัติ: which writer this round gets, and why. */
+export function autoWriterNote(leftThb: number): string {
+  const best = byId(WRITERS, "best").short;
+  return walletPays(leftThb)
+    ? `ตอนนี้ใช้ ${best} · หักจากกระเป๋า`
+    : `รอบนี้เป็นรอบฟรี ใช้ ${byId(WRITERS, "cheap").short} · ถ้าจ่ายจากกระเป๋า จะเขียนด้วย ${best}`;
 }
 
 /** A painter id, "auto" included, made into the painter to use; "none" draws nothing. */

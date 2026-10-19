@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, PAINTERS, WRITERS, painterFor, painterOf, shortModel, writerOf } from "@/lib/content/models";
+import { AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, PAINTERS, WRITERS, autoWriterNote, painterFor, painterOf, shortModel, writerOf } from "@/lib/content/models";
 import { fallbackWriters } from "@/lib/content/write";
 
 describe("the models the owner may pick", () => {
@@ -33,14 +33,26 @@ describe("the models the owner may pick", () => {
       expect(DEFAULT_PAINTER).toBe("auto");
     });
 
-    it("writes with the best and draws the standard picture while the budget has room", () => {
-      expect(writerOf("auto", AUTO_FLOOR_THB).model).toBe("claude-sonnet-5");
-      expect(painterOf("auto", 20).id).toBe("standard");
+    it("writes with the best in a round the agent's wallet pays for (no ceiling: Infinity)", () => {
+      expect(writerOf("auto", Infinity).model).toBe("claude-sonnet-5");
+      expect(writerOf("auto").model).toBe("claude-sonnet-5");
     });
 
-    it("drops to the cheap writer and no picture near the end of the month's budget", () => {
-      expect(writerOf("auto", AUTO_FLOOR_THB - 0.01).model).toBe("gemini-3.7-flash");
+    it("writes with the cheap writer in a round the owner pays for, however much budget is left", () => {
+      // a free round, the owner's own, an assistant's free rounds: all under the owner's ceiling
+      expect(writerOf("auto", 250).model).toBe("gemini-3.7-flash");
+      expect(writerOf("auto", AUTO_FLOOR_THB).model).toBe("gemini-3.7-flash");
+      expect(writerOf("auto", 0).model).toBe("gemini-3.7-flash");
+    });
+
+    it("draws the standard picture while the budget has room, and none near its end", () => {
+      expect(painterOf("auto", 20).id).toBe("standard");
       expect(painterOf("auto", 1).id).toBe("none");
+    });
+
+    it("says under the dropdown which writer this round gets, and why", () => {
+      expect(autoWriterNote(Infinity)).toBe("ตอนนี้ใช้ Sonnet 5 · หักจากกระเป๋า");
+      expect(autoWriterNote(120)).toBe("รอบนี้เป็นรอบฟรี ใช้ Gemini Flash · ถ้าจ่ายจากกระเป๋า จะเขียนด้วย Sonnet 5");
     });
 
     it("leaves an explicit pick alone whatever the budget", () => {

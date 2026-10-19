@@ -1,12 +1,8 @@
-import type { ReactNode } from "react";
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { randomBytes, randomUUID } from "node:crypto";
 import { providerKey } from "@/lib/ai/client";
 import { TTS_RATE } from "@/lib/ai/tts";
 import { speakClip } from "./speak";
 import { sayNumbers } from "./say-numbers";
-import { renderPng } from "@/lib/content/poster-png";
 import { valueTableChart } from "@/lib/quote-card";
 import { can } from "@/lib/auth/access";
 import type { Viewer } from "@/lib/auth/access";
@@ -21,41 +17,38 @@ import { balanceSatang, holdWallet, releaseWallet, walletFrozen, walletPrices, w
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import type { FfmpegJob } from "@/lib/video/command";
 import { getContact, photoDataUri } from "./contact";
-import { CHART_W, sceneLayer, tableImage, type Contact } from "./draw";
-import { noteDrawing, tablePlan } from "./table-pen";
-import { pensionTableImage, pensionTablePlan } from "./pension-table";
-import { addSounds, buildJob, concatList, mixNarration, nameFiles, pcmSeconds } from "./job";
+import { CHART_W, type Contact } from "./draw";
+import { tablePlan } from "./table-pen";
+import { pensionTablePlan } from "./pension-table";
+import { addSounds, mixNarration, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
-import { fhcFrame, fhcRoom, fhcSpec, fhcWindows } from "./fhc-motion";
+import { fhcSpec, fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
 import { isPromptStory, promptPicturePrice, promptPicturesPrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
 import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
-import { freeFrame, freeHandText, freeWindows } from "@/lib/prompt-story/frames";
+import { freeWindows } from "@/lib/prompt-story/frames";
 import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
-import { contactSpec, storyBackground, storyFrame, type StoryContext } from "./story-motion";
-import { clipCrowd, clipFaces, clipFrame, clipHandText, clipWindows } from "./story-frames";
-import { faceUris } from "./story-faces";
-import { a, motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
+import { contactSpec } from "./story-motion";
+import { clipWindows } from "./story-frames";
+import { a, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
-import { clipProps, REMOTION_DRAWING, REMOTION_JOB, remotionFits, remotionPlanOf, storyClipProps, type ClassicClipProps, type ClipProps, type FhcClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
+import { clipProps, REMOTION_DRAWING, REMOTION_JOB, storyClipProps, type ClassicClipProps, type ClipProps, type FhcClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
 import { secondsBetween, type CostParts } from "./run-record";
-import { remotionFor } from "./remotion-switch";
-import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
+import { aiSpots, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, type SoundKind } from "./themes";
 import { pieceSticker } from "@/lib/collage/library";
 import { drawnPieces, pickPieces } from "@/lib/collage/pick";
-import { DECOR_AT, stickerAt, stickerOf, type Sticker } from "@/lib/collage/decor";
+import { DECOR_AT } from "@/lib/collage/decor";
 import { drawIdea, fallbackPiece, writeIdeas } from "@/lib/collage/ai-pieces";
-import { wideFhcFrame, wideQuoteFrame } from "./wide";
-import { WIDE_CHART_W, wideSceneLayer } from "./classic-wide";
+import { WIDE_CHART_W } from "./classic-wide";
 import { CLASSIC_BOXES } from "./table-geo";
 import { extraOf, linesOf, loops, readLength, type Told } from "./told";
 import { writes } from "./brief";
 import { writeLines } from "./writer";
 import { planInput, productOf, quoteVideoFacts, quoteVideoScript, sceneMotion, spokenBy, type SceneKey, type VideoInput } from "./script";
-import { clipLength, LOOP_TAIL, planScenes, SIZES, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
+import { clipLength, LOOP_TAIL, planScenes, sizeOf, type ScenePlan, type VideoSize } from "./timeline";
 import { VOICE_FULL, voiceDay } from "./voice-quota";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { googleFontSubset } from "@/lib/google-font";
@@ -174,14 +167,8 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
-  // drawn by Remotion, as the switch's row for its plan or tool on /admin/ai says (owner, 2026-10-17; remotion.ts):
-  // a Motion Graphic quote clip, a คลิปเล่าเรื่อง, a คลิปตามโจทย์ (owner chose ก ก ก, 2026-10-19)
-  const plan = remotionPlanOf(input);
-  if (plan) {
-    // the switch unread is the old engine, never a clip refused (every clip asks it since 2026-10-20)
-    const who = await remotionFor(plan).catch(() => "off" as const);
-    if (who === "all" || (who === "owner" && can(viewer, "owner"))) input = { ...input, engine: "remotion" } as ClipInput;
-  }
+  // every clip is drawn by Remotion (owner, 2026-10-20, ข): the row says so, for its progress estimate (progress.ts)
+  input = { ...input, engine: "remotion" } as ClipInput;
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id, created_at").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
@@ -278,24 +265,6 @@ export async function voiceFullUntil(now = new Date()): Promise<Date | null> {
 }
 
 /**
- * The page's own time limit is 300 s (page.tsx maxDuration, the Hobby plan's most): past this the
- * making gives up on its own, so the row says failed and the hold goes back, rather than the
- * platform killing it mid-way with the row left drawing (owner, 2026-10-12: a Premium clip did).
- */
-const PRODUCE_BUDGET_MS = 270_000;
-/** the drawing route, one scene per call (owner, 2026-10-12: a Premium clip drew too long in one) */
-export const VIDEO_DRAW_PATH = "/api/quote-video/draw";
-/** what produce keeps for the scene drawers: the voice lengths, and the secret they must bring */
-const planPath = (id: string) => `${id}/plan.json`;
-interface DrawPlan { tokenHash: string; secs: number[] }
-
-/**
- * Everything about a clip that follows from its row and how long each line was spoken: the
- * script, the scenes and their file names, what each picture shows. produce and every scene
- * drawer work it out the same way, so only the voice lengths travel between them.
- */
-type BuildOpts = Parameters<typeof buildJob>[2];
-/**
  * The clip's shape (owner, 2026-10-11): a Motion Graphic quote or an FHC summary in the size asked
  * for; the classic style and the 15-second clip always portrait.
  */
@@ -312,18 +281,11 @@ export interface ClipParts {
   script: { key: string; voice: string }[];
   motion: boolean;
   plans: ScenePlan[];
-  named: ReturnType<typeof nameFiles>;
-  /** what ffmpeg needs besides the scenes: the classic table's pan, or the Motion background's drift */
-  build: BuildOpts;
-  layers: { photo: boolean };
-  sceneDraws: (s: number) => { name: string; draw: () => Promise<Buffer> }[];
-  /** a still background under every scene, when the clip has one of its own (the story clip's paper) */
-  background?: () => Promise<Buffer>;
   /** คอลลาจกระดาษ's paper and pops, at their times in the clip */
   sounds?: { at: number; kind: SoundKind }[];
-  /** a portrait Motion Graphic quote clip: what its frames are drawn from, for Remotion (remotion.ts) */
+  /** a Motion Graphic quote clip: what its frames are drawn from (remotion.ts ClipProps) */
   motion$?: RemotionMotion;
-  /** a แบบปกติ quote clip: what its layers are drawn from, for Remotion (remotion.ts ClassicClipProps) */
+  /** a แบบปกติ quote clip: what its layers are drawn from (remotion.ts ClassicClipProps) */
   classic$?: Omit<ClassicClipProps, "composition" | "drawing" | "total" | "scenes" | "audio" | "scriptFont"> & { layers: ("photo" | "table" | undefined)[] };
   /** Chinese, Russian and Burmese: the face their letters are drawn in, and every letter the clip shows */
   scriptFace?: { family: string; text: string };
@@ -427,90 +389,31 @@ function freeScript(input: PromptStoryInput, customer: string, narrator: "F" | "
   ];
 }
 
-/** a filed picture, as it was drawn */
-async function pictureFile(path: string): Promise<Buffer> {
-  const { data } = await bucket().download(path);
-  if (!data) throw new Error(`picture ${path.split("/").pop()} not read`);
-  return Buffer.from(await data.arrayBuffer());
-}
-
 /**
- * A คลิปตามโจทย์'s parts (prompt-story/frames.tsx): each scene on the story clips' paper, its
- * picture filed once as the scene's photo layer, full frame, which ffmpeg scales to cover and
- * pushes in slowly (buildJob's photo zoom, 1.00 → 1.12), with transparent frames of the words over
- * it, one per word; then the agent's card. A scene whose picture fell back has the paper only.
+ * A คลิปตามโจทย์'s parts: its lines and scenes as planned (StoryClip draws them with prompt-story/frames.tsx),
+ * each scene's picture linked where it was filed (cutStoryWithRemotion).
  */
-async function freeParts(row: VideoRow & { input: PromptStoryInput }, agentName: string, secs: number[]): Promise<ClipParts> {
+function freeParts(row: VideoRow & { input: PromptStoryInput }, secs: number[]): ClipParts {
   const input = row.input;
-  const size = clipSize(input);
-  const dims = SIZES[size];
-  const narrator = narratorOf(input);
-  const customer = row.customer_name;
-  const contact = await contactOf(row.agent_id, agentName);
-  const script = freeScript(input, customer, narrator);
+  const script = freeScript(input, row.customer_name, narratorOf(input));
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const card = Object.values(contactSpec()).map((x): [number, number] => [x.at, x.at + x.dur]);
   const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: s.key === "storyContact" ? card : freeWindows(), fps: MOTION_FPS })));
-  const pictureAt = (s: number) => (plans[s].key === "freeScene" ? input.pictures?.[s] ?? null : null);
-  const named = nameFiles(plans, plans.map((_, s) => (pictureAt(s) ? "photo" as const : undefined)));
-  const hand = freeHandText(input) + contact.name;
-  const sceneDraws = (s: number) => {
-    const p = plans[s];
-    const ctx = { input, size, customer, narrator, contact, crowd: [], faces: {}, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
-    const dimsOf = { width: dims.w, height: dims.h };
-    if (p.key === "storyContact") {
-      // the card reads only the clip's size, the agent and the words: a story clip's context in shape
-      const c = ctx as unknown as StoryContext;
-      return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(storyFrame("storyContact", c, fr.t ?? 0), dimsOf, { hand }) }));
-    }
-    const path = pictureAt(s);
-    const layer = named.scenes[s].layer;
-    return [
-      ...(path && layer ? [{ name: layer.name, draw: () => pictureFile(path) }] : []),
-      ...p.frames.map((fr, k) => ({
-        name: named.scenes[s].frames[k],
-        draw: () => renderPng(freeFrame(input.scenes[s], Boolean(path), ctx, fr.t ?? 0), dimsOf, { hand }),
-      })),
-    ];
-  };
-  return {
-    // the photo box is the whole frame; layers.photo stays false, as that is the family photo of a quote clip
-    size, script, motion: true, plans, named, build: { size: dims, photo: { x: 0, y: 0, w: dims.w, h: dims.h } }, layers: { photo: false }, sceneDraws,
-    background: () => renderPng(storyBackground(size), { width: dims.w, height: dims.h }),
-  };
+  return { size: clipSize(input), script, motion: true, plans };
 }
 
-/** An FHC summary's parts: always the Motion Graphic world, six scenes (fhc-motion.tsx). */
-async function fhcParts(row: VideoRow & { input: FhcVideoInput }, agentName: string, secs: number[]): Promise<ClipParts> {
-  return fhcPartsFor(row, await contactOf(row.agent_id, agentName), secs);
-}
-
-/** An FHC clip's parts, the agent's contact in hand: no database but the picked pieces, so a local render draws the same clip. */
-export function fhcPartsFor(row: Pick<VideoRow, "customer_name"> & { input: FhcVideoInput }, contact: Contact, secs: number[]): ClipParts {
+/** An FHC summary's parts: always the Motion Graphic world, six scenes (fhc-motion.tsx; FhcClip draws them). */
+export function fhcPartsFor(row: Pick<VideoRow, "customer_name"> & { input: FhcVideoInput }, secs: number[]): ClipParts {
   const facts = row.input.fhc;
   const size = clipSize(row.input);
-  const dims = SIZES[size];
-  const narrator = narratorOf(row.input);
-  const customer = row.customer_name;
-  const script = fhcScript(facts, customer, narrator);
+  const script = fhcScript(facts, row.customer_name, narratorOf(row.input));
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: fhcWindows(s.key, facts), fps: MOTION_FPS })));
-  const named = nameFiles(plans, plans.map(() => undefined));
-  // the Motion Graphic look (owner, 2026-10-17): repainted as วิดีโอนำเสนอ's is; คอลลาจ's picked pieces in a portrait clip's free room
+  // คอลลาจ's paper and pops, the picked pieces' among them in a portrait clip's free room
   const theme = readTheme(row.input.theme);
   const picks = theme === "collage" && size === "portrait" ? row.input.picks ?? {} : {};
-  let decorOnce: Promise<((key: FhcSceneKey, t: number) => ReactNode) | undefined> | undefined;
-  const decor = () => (decorOnce ??= fhcDecor(picks, facts, { customer, contact }));
-  const font = themeFont(theme) ? { hand: THEME_LETTERS } : {};
-  const sceneDraws = (s: number) => {
-    const p = plans[s];
-    const ctx = { facts, narrator, customer, contact, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
-    const frame = (t: number, scenery?: (key: FhcSceneKey, t: number) => ReactNode) =>
-      themed(size === "portrait" ? fhcFrame(p.key, { ...ctx, ...(scenery ? { decor: scenery } : {}) }, t) : wideFhcFrame(p.key, ctx, t, size), theme, t);
-    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: async () => renderPng(frame(fr.t ?? 0, await decor()), { width: dims.w, height: dims.h }, font) }));
-  };
   return {
-    size, script, motion: true, plans, named, build: { driftHeight: motionBgHeight(dims), size: dims }, layers: { photo: false }, sceneDraws,
+    size, script, motion: true, plans,
     ...(theme === "collage" ? { sounds: collageSounds(plans.map((p) => ({ start: p.start, anims: [...Object.values(fhcSpec(p.key, facts)), ...(picks[p.key] ? [a(DECOR_AT, "pop")] : [])] }))) } : {}),
   };
 }
@@ -542,55 +445,20 @@ async function pickFhcPieces(row: VideoRow & { input: FhcVideoInput }): Promise<
   }
 }
 
-/** each picked piece in its scene's free room (fhcRoom); a piece that cannot be read is left out */
-async function fhcDecor(picks: Partial<Record<FhcSceneKey, string | null>>, facts: FhcVideoInput["fhc"], c: { customer: string; contact: Contact }): Promise<((key: FhcSceneKey, t: number) => ReactNode) | undefined> {
-  const keys = Object.entries(picks).filter((e): e is [FhcSceneKey, string] => typeof e[1] === "string");
-  if (!keys.length) return undefined;
-  const got = new Map<FhcSceneKey, Sticker>();
-  await Promise.all(keys.map(async ([key, piece]) => {
-    const png = await pieceSticker(piece).catch(() => null);
-    if (png) got.set(key, await stickerOf(png));
-  }));
-  return (key, t) => {
-    const st = got.get(key);
-    const room = st ? fhcRoom(key, facts, c) : null;
-    return st && room ? stickerAt(st, room, t) : null;
-  };
-}
-
-/**
- * A story clip's parts (story.ts): six scenes drawn on paper, a frame every 1/MOTION_FPS while
- * anything moves, over a still paper background rather than the Motion world's drifting one.
- */
-async function storyParts(row: VideoRow & { input: StoryVideoInput }, agentName: string, secs: number[]): Promise<ClipParts> {
+/** A story clip's parts: its lines and scenes as planned (StoryClip draws them with story-frames.tsx). */
+function storyParts(row: VideoRow & { input: StoryVideoInput }, secs: number[]): ClipParts {
   const input = row.input;
   const size = clipSize(input);
-  const dims = SIZES[size];
-  const narrator = narratorOf(input);
-  const customer = row.customer_name;
-  const contact = await contactOf(row.agent_id, agentName);
-  const script = storyScript(input, customer, narrator);
+  const script = storyScript(input, row.customer_name, narratorOf(input));
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
-  const crowd = clipCrowd(input);
-  const faces = await faceUris(clipFaces(input));
   const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: clipWindows(s.key, input, size), fps: MOTION_FPS })));
-  const named = nameFiles(plans, plans.map(() => undefined));
-  const hand = clipHandText(input, customer) + contact.name;
-  const sceneDraws = (s: number) => {
-    const p = plans[s];
-    const ctx = { input, size, customer, narrator, contact, crowd, faces, words: script[s].voice.split(" ").filter(Boolean), voiceSec: secs[s] };
-    return p.frames.map((fr, k) => ({ name: named.scenes[s].frames[k], draw: () => renderPng(clipFrame(p.key, ctx, fr.t ?? 0), { width: dims.w, height: dims.h }, { hand }) }));
-  };
-  return {
-    size, script, motion: true, plans, named, build: { size: dims }, layers: { photo: false }, sceneDraws,
-    background: () => renderPng(storyBackground(size), { width: dims.w, height: dims.h }),
-  };
+  return { size, script, motion: true, plans };
 }
 
 async function clipParts(row: VideoRow, agentName: string, secs: number[]): Promise<ClipParts> {
-  if (isFhcInput(row.input)) return fhcParts(row as VideoRow & { input: FhcVideoInput }, agentName, secs);
-  if (isStoryInput(row.input)) return storyParts(row as VideoRow & { input: StoryVideoInput }, agentName, secs);
-  if (isPromptStory(row.input)) return freeParts(row as VideoRow & { input: PromptStoryInput }, agentName, secs);
+  if (isFhcInput(row.input)) return fhcPartsFor(row as VideoRow & { input: FhcVideoInput }, secs);
+  if (isStoryInput(row.input)) return storyParts(row as VideoRow & { input: StoryVideoInput }, secs);
+  if (isPromptStory(row.input)) return freeParts(row as VideoRow & { input: PromptStoryInput }, secs);
   return quoteParts(row as VideoRow & { input: VideoInput }, agentName, secs);
 }
 
@@ -607,7 +475,6 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const contact: Contact = lang === "th" ? agentContact : { ...agentContact, more: undefined };
   const narrator = narratorOf(row.input);
   const size = clipSize(row.input);
-  const dims = SIZES[size];
   // the 15-second clip goes up on a public Page: no customer's name, whatever was typed
   const length = readLength(row.input.length);
   const customer = length === "short" ? "" : row.customer_name;
@@ -619,13 +486,8 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const boxes = CLASSIC_BOXES[size];
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const motion = row.input.style === "motion";
-  // the Motion Graphic look (owner, 2026-10-17): its opening picture is read once, when a frame first needs it
+  // the Motion Graphic look (owner, 2026-10-17)
   const theme = motion ? readTheme(row.input.theme) : undefined;
-  let heroOnce: Promise<Hero | undefined> | undefined;
-  const hero = () => (heroOnce ??= themeHero(theme, row.input.sex));
-  // คอลลาจ's library pictures in the portrait scenes, read once, when a frame first needs them
-  let decorOnce: Promise<Decor | undefined> | undefined;
-  const decor = () => (decorOnce ??= theme === "collage" && size === "portrait" ? collageDecor(pieceFor(row.input), facts.coverStyle) : Promise.resolve(undefined));
   // the classic value scene: where the table stops and which pen note is written at each stop
   const valueAt = script.findIndex((s) => s.key === "value");
   // บำนาญ 95's table carries its notes in the picture, and only walks down (pension-table.tsx)
@@ -638,57 +500,25 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     ...(pen && i === valueAt ? { table: pen.plan } : {}),
     ...(loop && i === script.length - 1 ? { tail: LOOP_TAIL } : {}),
   })));
-  // a looping clip's last scene is its opening again, photo and all (owner, 2026-10-13, choice ก)
+  // a แบบปกติ scene's layer: the family photo on the lead (and a looping clip's last scene, its opening again,
+  // owner 2026-10-13, choice ก), the value table on the value scene (ClassicClip)
   const layers = plans.map((p) => (motion ? undefined
     : p.key === "lead" || (loop && p.key === "contact") ? "photo" as const : p.key === "value" ? "table" as const : undefined));
-  const named = nameFiles(plans, layers, plans.map((_, i) => (pen && i === valueAt ? pen.notes.length : 0)));
   // a landscape clip's chart stands beside the table, narrower; a square one has no room for it
   // Protection Life has a variant but no value table, so no chart
   const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" && productOf(row.input) !== "PLB" && size !== "square"
     ? valueTableChart(planInput(row.input), size === "landscape" ? WIDE_CHART_W : CHART_W) : undefined;
-  const table = facts.pension ? pensionTableImage(facts) : tableImage(facts);
   // Chinese, Russian and Burmese letters come from a face of their own, cut to what this clip shows
   const family = SCRIPT_FAMILY[lang];
   const script$ = family
     ? { script: { family, text: [JSON.stringify(facts), ...script.map((x) => x.voice), wordsLetters(lang), customer, contact.name, contact.line ?? ""].join("") } }
     : {};
-  /** one scene's pictures: its base (classic), every overlay frame, and the value table */
-  const sceneDraws = (s: number): { name: string; draw: () => Promise<Buffer> }[] => {
-    const p = plans[s];
-    const sc = named.scenes[s];
-    const words = script[s].voice.split(" ").filter(Boolean);
-    if (motion) {
-      const mctx = { facts, narrator, customer, contact, words, voiceSec: secs[s], ...shown };
-      const frame = (t: number, hero: Hero | undefined, scenery: Decor | undefined) => {
-        const c = { ...mctx, ...(hero ? { hero } : {}), ...(scenery ? { decor: scenery } : {}) };
-        return themed(size === "portrait" ? motionFrame(p.key, c, t) : wideQuoteFrame(p.key, c, t, size), theme, t);
-      };
-      // the value scene writes its pen notes in the handwriting face; a theme with a face of its own writes everything in it
-      const withPen = { pen: p.key === "value", ...(themeFont(theme) ? { hand: THEME_LETTERS } : {}) };
-      return p.frames.map((fr, k) => ({ name: sc.frames[k], draw: async () => renderPng(frame(fr.t ?? 0, await hero(), await decor()), { width: dims.w, height: dims.h }, { ...withPen, ...script$ }) }));
-    }
-    const ctx = { facts, narrator, customer, contact, ...(chart ? { chart } : {}), words, ...(pen ? { notes: pen.notes } : {}), ...shown };
-    const withPen = { pen: p.key === "value" };
-    const layer = (which: "base" | "over", state?: (typeof p.frames)[number]["state"]) => (size === "portrait"
-      ? sceneLayer(p.key, ctx, which, state) : wideSceneLayer(p.key, ctx, which, size, state));
-    return [
-      { name: sc.base, draw: () => renderPng(layer("base"), { width: dims.w, height: dims.h }, script$) },
-      ...p.frames.map((fr, k) => ({ name: sc.frames[k], draw: () => renderPng(layer("over", fr.state), { width: dims.w, height: dims.h }, { ...withPen, ...script$ }) })),
-      ...(sc.layer?.kind === "table" ? [{ name: sc.layer.name, draw: () => renderPng(table.el, { width: table.width, height: table.height }, { pen: Boolean(facts.pension) }) }] : []),
-      ...(sc.layer?.pens ?? []).map((name, k) => ({
-        name, draw: () => renderPng(noteDrawing(pen!.notes[k], table.height), { width: table.width, height: table.height }, withPen),
-      })),
-    ];
-  };
   return {
-    script, motion, plans, named, sceneDraws,
-    size,
+    script, motion, plans, size,
     ...(motion ? { motion$: { theme: theme!, ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) } } } : {}),
     ...(!motion ? { classic$: { size, facts, narrator, customer, contact, ...(chart ? { chart } : {}), ...(pen?.notes.length ? { notes: pen.notes } : {}), shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) }, layers } } : {}),
     ...(script$.script ? { scriptFace: script$.script } : {}),
     ...(theme === "collage" ? { sounds: collageSounds(plans.map((p, i) => ({ start: p.start, anims: [...Object.values(motionSpec(script[i].key, facts, secs[i], script[i].voice)), ...(size === "portrait" ? decorAnims(script[i].key, facts.coverStyle) : [])] }))) } : {}),
-    build: motion ? { driftHeight: motionBgHeight(dims), size: dims } : { tableHeight: table.height, size: dims, photo: boxes.photo, table: boxes.table },
-    layers: { photo: layers.includes("photo") },
   };
 }
 
@@ -705,8 +535,6 @@ async function upload(id: string, name: string, body: Buffer | string, type: str
     await new Promise((r) => setTimeout(r, 1000 * attempt));
   }
 }
-/** uploads in flight beside the drawing, at most */
-const UPLOADS_IN_FLIGHT = 8;
 
 /** the board's bar for one making (progress.ts): each write waits for the one before, so the count never goes back */
 function progressBar(id: string) {
@@ -763,8 +591,7 @@ async function keptVoice(id: string, lines: number): Promise<Buffer[] | null> {
 
 /**
  * The whole making, up to Cloud Run taking the job. Never throws: a failure is written to the row.
- * The voice and the files every scene shares are made here; each scene's pictures are drawn by a
- * call of its own to the drawing route (drawScene), all at once, so no one call draws a whole clip.
+ * The voice is made here; Remotion on Cloud Run draws every frame (cutClip).
  * A คลิปตามโจทย์ draws its pictures first and keeps them, and its voice, with the clip.
  */
 export async function produce(id: string, agentName: string): Promise<void> {
@@ -835,98 +662,35 @@ export async function produce(id: string, agentName: string): Promise<void> {
 }
 
 /**
- * From the spoken lines to Cloud Run taking the job: the scenes planned, the shared files up, every
- * scene drawn by the drawing route, the links signed and the job handed over. produce and
- * redrawPicture both end here. Throws; the caller fails the clip.
+ * From the spoken lines to Cloud Run taking the job: the scenes planned and handed to Remotion with the
+ * voice and pictures as links (no frame is drawn here). produce and redrawPicture both end here.
+ * Throws; the caller fails the clip.
  */
 async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey: string, bar: Bar, t0: number, lap: Lap): Promise<void> {
-  const id = row.id;
-  const note = bar.note;
   // the cut starts here: what comes before it is the voice (run-record.ts prepSec)
   const since = Date.now();
   const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-  const { size, motion, plans, named, build, layers, background: ownBackground, sounds, motion$, classic$, script, scriptFace } = await clipParts(row, agentName, secs);
+  const { plans, sounds, motion$, classic$, script, scriptFace } = await clipParts(row, agentName, secs);
   const total = clipLength(plans);
-  // a แบบปกติ quote clip drawn by Remotion, any plan and size (owner, 2026-10-20: "ย้ายที่เหลือเลย")
-  if (classic$ && isQuoteInput(row.input) && row.input.engine === "remotion") {
-    return cutClassicWithRemotion(row as VideoRow & { input: VideoInput }, classic$, { plans, script, secs, total, pcms, since, scriptFace }, gcpKey, bar, lap);
-  }
-  // an FHC summary drawn by Remotion, any size (owner, 2026-10-20: "ย้ายที่เหลือเลย")
-  if (isFhcInput(row.input) && row.input.engine === "remotion") {
+  // every clip is drawn by Remotion (owner, 2026-10-20: "ให้ใช้ Remotion ตลอดไปเลย ไม่ต้องมีสวิตช์"):
+  // สรุป FHC, คลิปเล่าเรื่อง and คลิปตามโจทย์, then วิดีโอนำเสนอ in its look
+  if (isFhcInput(row.input)) {
     return cutFhcWithRemotion(row as VideoRow & { input: FhcVideoInput }, agentName, { plans, script, secs, total, pcms, since, sounds }, gcpKey, bar, lap);
   }
-  // a คลิปเล่าเรื่อง or คลิปตามโจทย์ drawn by Remotion, any size (owner chose ก ก ก, 2026-10-19)
-  if ((isStoryInput(row.input) || isPromptStory(row.input)) && row.input.engine === "remotion") {
+  if (isStoryInput(row.input) || isPromptStory(row.input)) {
     return cutStoryWithRemotion(row as VideoRow & { input: StoryVideoInput | PromptStoryInput }, agentName, { plans, script, secs, total, pcms, since }, gcpKey, bar, lap);
   }
-  if (motion$ && isQuoteInput(row.input) && row.input.engine === "remotion" && remotionFits(row.input)) {
-    return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms, scriptFace, since }, gcpKey, bar, lap);
-  }
-
-  // the files every scene shares, or that need no drawing
-  const files = new Map<string, { body: Buffer | string; type: string }>();
-  const narration = mixNarration(pcms.map((pcm, i) => ({ pcm, at: plans[i].voiceAt })), total, TTS_RATE);
-  const sfx = sounds?.length ? await collageSoundFiles() : undefined;
-  files.set(named.audio, { body: sfx ? addSounds(narration, sounds!.map((c) => ({ pcm: sfx[c.kind], at: c.at, gain: SOUND_GAIN[c.kind] })), TTS_RATE) : narration, type: "audio/wav" });
-  const family = layers.photo ? await readFile(join(process.cwd(), "public/card/family.jpg")) : undefined;
-  // the Motion Graphic style: one drifting background under every scene
-  const dims = SIZES[size];
-  // a story clip: its own still paper instead
-  const background = ownBackground ? await ownBackground()
-    : motion ? await renderPng(await themeBackground(readTheme((row.input as { theme?: unknown }).theme), dims, motionBgHeight(dims)) ?? motionBackground(dims), { width: dims.w, height: motionBgHeight(dims) }) : undefined;
-  plans.forEach((p, s) => {
-    const sc = named.scenes[s];
-    if (background) files.set(sc.base, { body: background, type: "image/png" });
-    files.set(sc.list, { body: concatList(p, sc.frames), type: "text/plain" });
-    if (sc.layer?.kind === "photo" && family) files.set(sc.layer.name, { body: family, type: "image/jpeg" });
-  });
-  const drawToken = randomBytes(32).toString("hex");
-  const plan: DrawPlan = { tokenHash: hashToken(drawToken), secs };
-  files.set("plan.json", { body: JSON.stringify(plan), type: "text/plain" });
-  note({ step: "files", done: 0, of: 0 });
-  await pool([...files.entries()], 8, ([name, f]) => upload(id, name, f.body, f.type));
-  let scenes = 0;
-  note({ step: "draw", done: 0, of: plans.length });
-  lap(`shared files up; drawing ${plans.length} scenes (${motion ? "motion" : "classic"}, ${plans.reduce((n, p) => n + p.frames.length, 0)} frames)`);
-
-  // every scene at once, each in its own call and its own time
-  const left = Math.max(10_000, PRODUCE_BUDGET_MS - (Date.now() - t0));
-  const drawn = await Promise.all(plans.map((_, s) => fetch(siteUrl(VIDEO_DRAW_PATH), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ id, scene: s, token: drawToken, agentName }),
-    signal: AbortSignal.timeout(left),
-  }).then(async (r) => {
-    if (!r.ok) return `scene ${s}: ${r.status} ${(await r.text()).slice(0, 120)}`;
-    note({ step: "draw", done: ++scenes, of: plans.length });
-    return null;
-  }, (e) => `scene ${s}: ${e instanceof Error ? e.name : "no answer"}`)));
-  const missed = drawn.filter(Boolean);
-  if (missed.length) throw new Error(`scenes not drawn — ${missed.join("; ")}`);
-  lap("all scenes drawn");
-  note({ step: "submit", done: 0, of: 0 });
-
-  const paths = named.files.map((f) => `${id}/${f.name}`);
-  const signed: string[] = [];
-  for (let i = 0; i < paths.length; i += 200) {
-    const { data, error: e } = await bucket().createSignedUrls(paths.slice(i, i + 200), LINK_SECONDS);
-    if (e || !data) throw new Error(`links: ${e?.message}`);
-    for (const d of data) {
-      if (!d.signedUrl) throw new Error("a link is missing");
-      signed.push(d.signedUrl);
-    }
-  }
-  const built = buildJob(plans, named, build);
-  const job = { inputs: named.files.map((f, i) => ({ name: f.name, url: signed[i] })), command: built.command, outputs: built.outputs };
-  await handOver(row, gcpKey, bar, total, lap, { job }, since);
+  if (classic$) return cutClassicWithRemotion(row as VideoRow & { input: VideoInput }, classic$, { plans, script, secs, total, pcms, since, scriptFace }, gcpKey, bar, lap);
+  if (motion$) return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms, scriptFace, since }, gcpKey, bar, lap);
+  throw new Error("no way to draw this clip");
 }
 
 /**
  * The run handed over, as every clip ends: the finished video's upload link, the payload file the
- * job reads (JOB_URL), the row marked rendering, the job started. `job`: clip-ffmpeg's command;
- * `remotion`: the Remotion render's props instead (remotion.ts), run on its own job.
+ * job reads (JOB_URL) with the Remotion render's props (remotion.ts), the row marked rendering, the
+ * drawing's own job (REMOTION_JOB) started.
  */
-async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, lap: Lap, run: { job: FfmpegJob } | { remotion: { props: ClipProps | StoryClipProps | FhcClipProps | ClassicClipProps } }, since: number): Promise<void> {
+async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, lap: Lap, run: { remotion: { props: ClipProps | StoryClipProps | FhcClipProps | ClassicClipProps } }, since: number): Promise<void> {
   const id = row.id;
   // a clip cut again (redrawPicture) writes over its finished video
   const out = row.video_path
@@ -937,7 +701,8 @@ async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, 
   const token = randomBytes(32).toString("hex");
   const callbackUrl = siteUrl(VIDEO_CALLBACK_PATH);
   const uploadsTo = { out_1: { uploadUrl: out.data.signedUrl, path: `${id}/quote.mp4` } };
-  const job: FfmpegJob = "job" in run ? run.job : { inputs: [], command: "", outputs: [{ name: "out_1", file: "quote.mp4", contentType: "video/mp4" }] };
+  // the engine's job shape, with no ffmpeg command: job.mjs renders the props and puts out_1
+  const job: FfmpegJob = { inputs: [], command: "", outputs: [{ name: "out_1", file: "quote.mp4", contentType: "video/mp4" }] };
   const payloadPath = `${id}/job.json`;
   const pay = await bucket().upload(payloadPath, JSON.stringify({ id: jobId, ...run, job, uploads: uploadsTo, callbackUrl, token }), { contentType: "text/plain", upsert: true });
   if (pay.error) throw new Error(`payload: ${pay.error.message}`);
@@ -946,12 +711,11 @@ async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, 
 
   // the last progress write lands before the row leaves "drawing" (it writes only a drawing row)
   await bar.flush();
-  const remotion = "remotion" in run;
-  const parts: CostParts = { ...(row.cost_parts ?? {}), engine: remotion ? "remotion" : "ffmpeg", prepSec: secondsBetween(since, Date.now()) ?? undefined };
+  const parts: CostParts = { ...(row.cost_parts ?? {}), engine: "remotion", prepSec: secondsBetween(since, Date.now()) ?? undefined };
   // recorded before the run is asked, so a callback that comes back at once finds it
   await setRow(id, { status: "rendering", duration_sec: total, cost_parts: parts, job: { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() } });
-  await cloudRunEngine(gcpKey, remotion ? { job: REMOTION_JOB } : {}).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
-  lap(remotion ? "handed to Cloud Run (Remotion)" : "handed to Cloud Run");
+  await cloudRunEngine(gcpKey, { job: REMOTION_JOB }).submit(job, { callbackUrl, token, uploads: uploadsTo, id: jobId, payloadUrl: payLink.data.signedUrl });
+  lap("handed to Cloud Run (Remotion)");
 }
 
 /**
@@ -1231,39 +995,6 @@ export async function redrawPicture(
   });
   return { ok: true };
 }
-
-/**
- * One scene's pictures drawn and filed (the drawing route, called by produce). Only for a clip
- * still drawing, and only with the secret produce left beside it. Throws on any failure; produce
- * then fails the clip.
- */
-export async function drawScene(id: string, scene: number, token: string, agentName: string): Promise<"drawn" | "refused"> {
-  const t0 = Date.now();
-  const { data: row, error } = await rows().select("*").eq("id", id).maybeSingle<VideoRow>();
-  if (error) throw new Error(`row not read: ${error.message}`);
-  if (!row || row.status !== "drawing") return "refused";
-  const { data: blob } = await bucket().download(planPath(id));
-  if (!blob) return "refused";
-  const plan = JSON.parse(await blob.text()) as DrawPlan;
-  const a = Buffer.from(hashToken(token));
-  const b = Buffer.from(String(plan.tokenHash));
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return "refused";
-  const parts = await clipParts(row, agentName, plan.secs);
-  if (!Number.isInteger(scene) || scene < 0 || scene >= parts.plans.length) return "refused";
-  const draws = parts.sceneDraws(scene);
-  // one at a time keeps the drawing's memory flat; uploads run beside it
-  const inFlight = new Set<Promise<void>>();
-  for (const d of draws) {
-    const u = upload(id, d.name, await d.draw(), "image/png");
-    inFlight.add(u);
-    void u.then(() => inFlight.delete(u), () => undefined);
-    if (inFlight.size >= UPLOADS_IN_FLIGHT) await Promise.race(inFlight);
-  }
-  await Promise.all(inFlight);
-  console.log(`quote video ${id}: scene ${scene} (${parts.plans[scene].key}) ${draws.length} pictures in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  return "drawn";
-}
-
 
 /**
  * An agent's own clip deleted (owner, 2026-10-11): its files go, the row is marked and stays, so
