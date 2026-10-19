@@ -275,16 +275,15 @@ export function GlobalSavingCalculator() {
                       <td className={TD}>{r.premium ? baht(Math.min(r.premium, GS_TAX_CAP)) : ""}</td>
                     </tr>
                   ))}
-                  <tr className="border-t-2 border-[var(--lg-panel-line)] bg-[var(--bot-navy-soft)] font-semibold text-[var(--bot-navy)]">
-                    <td className={`${TD} !text-left`} colSpan={2}>รวม</td>
+                  {/* the last line is everything received in each scenario — paybacks, maturity and the bonus
+                      together — where it used to give the bonus alone (owner chose ก, 2026-10-20) */}
+                  <tr className="bg-[var(--bot-navy)] font-bold text-white print:bg-transparent print:!text-black">
+                    <td className={`${TD} !text-left font-semibold`} colSpan={2}>รวมรับทั้งหมด</td>
                     <td className={TD}>{baht(GS_PREM_YEARS * q.premium)}</td>
                     <td className={TD} />
                     <td className={TD}>{baht(q.guaranteed)}</td>
                     <td className={TD} />
-                    {q.scenarios.map((s) => {
-                      const sum = s.bonuses.reduce((a, b) => a + b.value, 0);
-                      return <td key={s.rate} className={TD}>{sum > 0 ? baht(sum) : "—"}</td>;
-                    })}
+                    {q.scenarios.map((s) => <td key={s.rate} className={TD}>{baht(s.total)}</td>)}
                     <td className={TD}>{baht(GS_PREM_YEARS * Math.min(q.premium, GS_TAX_CAP))}</td>
                   </tr>
                 </tbody>
