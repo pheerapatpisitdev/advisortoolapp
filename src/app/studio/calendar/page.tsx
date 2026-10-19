@@ -19,6 +19,7 @@ import { seesEveryPage } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { PlanCalendar } from "./PlanCalendar";
 import { PagePicker } from "./PagePicker";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 export const dynamic = "force-dynamic";
 /** the board's own actions (a drop posts through Facebook) run from this page, as /studio's do */
@@ -147,6 +148,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-4">
       <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold">
+        <ToolLogo id="ca" size="lg" />
         ปฏิทินโพสต์
         {setup.pages.length > 1 ? (
           <PagePicker

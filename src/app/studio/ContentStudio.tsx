@@ -51,6 +51,7 @@ import { PlainText } from "./ui/editor-fields";
 import { FormatPicker, FormSection, AvoidToggle, LoopToggle, overBudget, PictureFold, PressBar, pictureSummary, FormulaPicker, useAvoid, useFormula, useLoop } from "./ui/form-parts";
 import { PainterOptions, paintPrice, usePrices } from "@/app/studio/ui/prices";
 import { pictureSatang } from "@/lib/wallet/prices";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 /**
  * The content workbench, laid out as the owner's Maryjane project lays out its run page:
@@ -1025,7 +1026,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
   return (
     <div>
       <div>
-        <h1 className="text-xl font-semibold">Organic Studio{project?.pageName && <span className="font-normal text-[var(--ct-mute)]"> · {project.pageName}</span>}</h1>
+        <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="og" size="lg" /><span>Organic Studio{project?.pageName && <span className="font-normal text-[var(--ct-mute)]"> · {project.pageName}</span>}</span></h1>
         <p className="mt-1 text-sm text-[var(--ct-mute)]">AI เขียนจากข้อมูลจริงของแบบประกัน ตัวเลขทุกตัวมาจากตารางเบี้ย อ่านทวนก่อนโพสต์ทุกครั้ง</p>
       </div>
 

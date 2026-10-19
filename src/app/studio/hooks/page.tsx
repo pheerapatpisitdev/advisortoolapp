@@ -3,6 +3,7 @@ import { gatePage } from "@/lib/auth/viewer";
 import { hookPostCounts, listHookTemplates } from "@/lib/content/store";
 import { HookLibrary } from "./HookLibrary";
 import { LoadFailed } from "../ui/LoadFailed";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function HooksPage() {
   ]);
   return (
     <div className="max-w-5xl">
-      <h1 className="text-xl font-semibold">คลังสูตรประโยคเปิด</h1>
+      <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="hk" size="lg" />คลังสูตรประโยคเปิด</h1>
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         สูตรที่มีช่อง [ ] ให้ AI เติมตามแบบประกัน เริ่มต้น 30 สูตร และเพิ่มเองทุกครั้งที่ทีมงานกด “ใช้จริง” กับชิ้นงาน
       </p>

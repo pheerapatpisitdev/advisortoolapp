@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "@/app/login/actions";
+import { ToolLogo } from "./ToolLogo";
 import { accountLinks, isCurrent, menuGroups, RAIL_KEY, type MenuGroup, type MenuIcon, type Who } from "@/lib/shell/menu";
 
 /** the name at the top of the menu, and where it leads */
@@ -271,7 +272,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
                       className="flex cursor-not-allowed items-center gap-2.5 px-2 py-1.5 text-sm rail:justify-center rail:px-0"
                       style={{ ["--hue" as string]: link.hue, color: "var(--shell-mute)" }}
                     >
-                      <span className="shell-chip opacity-40"><Icon name={link.icon} /></span>
+                      {link.logo ? <span className="inline-flex opacity-40"><ToolLogo id={link.logo} /></span> : <span className="shell-chip opacity-40"><Icon name={link.icon} /></span>}
                       <span className="min-w-0 truncate rail:sr-only">{link.label}</span>
                       <span className="shell-closed ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-semibold rail:sr-only">
                         <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
@@ -296,7 +297,7 @@ export function Sidebar({ signedIn, menu, brand, footer, who: given }: {
                       fontWeight: here ? 600 : 400,
                     }}
                   >
-                    <span className="shell-chip"><Icon name={link.icon} /></span>
+                    {link.logo ? <ToolLogo id={link.logo} /> : <span className="shell-chip"><Icon name={link.icon} /></span>}
                     <span className={`min-w-0 truncate rail:sr-only ${closed ? "opacity-60" : ""}`}>{link.label}</span>
                     {closed && <span className="shell-closed ml-auto shrink-0 rounded-full px-2 text-[11px] font-semibold rail:sr-only">ปิดชั่วคราว</span>}
                   </Link>
