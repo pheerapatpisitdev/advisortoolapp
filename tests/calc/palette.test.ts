@@ -57,6 +57,8 @@ const MAY_HOLD_LITERALS = [
   "src/app/group-insurance/theme.css", // the risk-level ramp
   "src/components/group-insurance/QuoteSheetDoc.tsx", // a fixed 794px sheet, no variables to read
   "src/app/manifest.ts", // the PWA manifest takes colours, not variables
+  "src/lib/quote-video/build-scene.ts", // the builders' picture under a clip's bar: SVG markup, no variables to read
+  "src/lib/quote-video/life-scene.ts", // the life-in-ten-events picture under a clip's bar: SVG markup, no variables to read
 ];
 
 /**

@@ -7,6 +7,7 @@ import { pensionBars } from "./pension";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
 import { gsMoney, rateLabel } from "./gsaving";
+import { captionShown, wordAt } from "./caption";
 import { countAt, H, LEAD, W, wordTimes } from "./timeline";
 import type { Extra } from "./told";
 import { preparedLine, wordsOf } from "./video-words";
@@ -243,19 +244,16 @@ function Header({ f, title }: { f: QuoteVideoFacts; title: string }) {
   );
 }
 
+/** the piece of the line the voice is on (caption.ts), one line of the band at most */
 export function Subtitle({ words, t, voiceSec }: { words: string[]; t: number; voiceSec: number }) {
-  const total = words.reduce((n, w) => n + w.length, 0) || 1;
-  const LEAD = 0.35;
-  let acc = 0;
+  const times = wordTimes(words.join(" "), voiceSec);
+  const shown = captionShown(words, (W - 128) / 41, wordAt(words, t, voiceSec, LEAD));
   return (
     <div style={abs({ left: 36, width: W - 72, bottom: 96, justifyContent: "center" })}>
       <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(0,0,0,0.45)", borderRadius: 30, padding: "18px 28px", fontSize: 41, lineHeight: 1.45 })}>
-        {words.map((w, i) => {
-          const from = LEAD + (acc / total) * voiceSec;
-          acc += w.length;
-          const to = LEAD + (acc / total) * voiceSec;
-          const color = t >= to ? WHITE : t >= from ? GOLD : "rgba(255,255,255,0.55)";
-          return <div key={i} style={box({ color, marginRight: i < words.length - 1 ? 12 : 0 })}>{w}</div>;
+        {shown.map((i, k) => {
+          const color = t >= times[i].to ? WHITE : t >= times[i].from ? GOLD : "rgba(255,255,255,0.55)";
+          return <div key={i} style={box({ color, marginRight: k < shown.length - 1 ? 12 : 0 })}>{words[i]}</div>;
         })}
       </div>
     </div>

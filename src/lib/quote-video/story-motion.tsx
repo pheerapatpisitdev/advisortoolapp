@@ -5,7 +5,8 @@ import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { heroName, planName, storyEvent, termShort, type StorySceneKey, type StoryVideoInput } from "./story";
 import { AFTER_CLOSE, type AfterTopic } from "./story-after";
 import type { KnowSceneKey } from "./story-knowledge";
-import { LEAD, SIZES, type VideoSize } from "./timeline";
+import { captionShown, wordAt } from "./caption";
+import { LEAD, SIZES, wordTimes, type VideoSize } from "./timeline";
 import { VIDEO_WORDS } from "./video-words";
 
 /**
@@ -384,17 +385,17 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
 /** the words of the line as the voice reaches them, on a dark strip near the foot */
 export function Subtitle({ c, t }: { c: StoryContext; t: number }) {
   const { w } = SIZES[c.size];
-  const total = c.words.reduce((x, wd) => x + wd.length, 0) || 1;
-  let acc = 0;
+  const fontSize = c.size === "portrait" ? 41 : 36;
+  const maxWidth = c.size === "landscape" ? 1400 : w - 120;
+  const times = wordTimes(c.words.join(" "), c.voiceSec);
+  // the piece the voice is on (caption.ts), one line of the band at most
+  const shown = captionShown(c.words, (maxWidth - 56) / fontSize, wordAt(c.words, t, c.voiceSec, LEAD));
   return (
     <div style={abs({ left: 60, width: w - 120, bottom: GEO[c.size].sub, justifyContent: "center" })}>
-      <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(20,22,26,0.82)", borderRadius: 28, padding: "16px 28px", fontSize: c.size === "portrait" ? 41 : 36, lineHeight: 1.45, maxWidth: c.size === "landscape" ? 1400 : w - 120 })}>
-        {c.words.map((wd, i) => {
-          const from = LEAD + (acc / total) * c.voiceSec;
-          acc += wd.length;
-          const to = LEAD + (acc / total) * c.voiceSec;
-          const color = t >= to ? C.white : t >= from ? C.spoken : "rgba(255,255,255,0.55)";
-          return <div key={i} style={box({ color, marginRight: i < c.words.length - 1 ? 12 : 0 })}>{wd}</div>;
+      <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(20,22,26,0.82)", borderRadius: 28, padding: "16px 28px", fontSize, lineHeight: 1.45, maxWidth })}>
+        {shown.map((i, k) => {
+          const color = t >= times[i].to ? C.white : t >= times[i].from ? C.spoken : "rgba(255,255,255,0.55)";
+          return <div key={i} style={box({ color, marginRight: k < shown.length - 1 ? 12 : 0 })}>{c.words[i]}</div>;
         })}
       </div>
     </div>

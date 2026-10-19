@@ -1,14 +1,15 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { leftWords, progressView, type ProgressState } from "@/lib/quote-video/progress";
+import { LoadingScene } from "./LoadingScene";
 
 /**
  * The bar on a clip being made (owner, 2026-10-13; mockup https://claude.ai/artifact/G36jyJWaHD7yj248ReEk3E §9):
  * the percentage, the step it is on, and about how long is left. The board asks after the clip
  * every five seconds (useClipWatch); between reads the bar runs on by itself, a second at a time,
- * and never goes back.
+ * and never goes back. Under it a picture moves on as the bar fills (LoadingScene).
  */
-export function ClipProgress({ state }: { state: ProgressState }) {
+export function ClipProgress({ state, clipId }: { state: ProgressState; clipId: string }) {
   // when this reading arrived, noted in the same render it arrives in: the bar runs on from it
   const read = useRef({ state, at: Date.now() });
   if (read.current.state !== state) read.current = { state, at: Date.now() };
@@ -38,6 +39,7 @@ export function ClipProgress({ state }: { state: ProgressState }) {
         <span>{view.text}</span>
         {left && <span className="shrink-0">{left}</span>}
       </p>
+      <LoadingScene pct={pct} clipId={clipId} />
     </div>
   );
 }
