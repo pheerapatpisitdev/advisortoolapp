@@ -1,13 +1,10 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { initWasm } from "@resvg/resvg-wasm";
-import { isAlreadyInitialized, renderPng } from "@/lib/content/poster-png";
+import { renderPng } from "@/lib/content/poster-png";
 
 /**
- * The poster renderer run for real: fonts read, wasm started, a PNG out. Its failures are the
- * quiet kind — a missing .wasm, a moved font — and would otherwise first show up as a broken
- * picture on the page.
+ * The poster renderer run for real: fonts read, satori's wasm started, resvg's native build
+ * loaded, a PNG out. Its failures are the quiet kind — a missing .wasm or binary, a moved font —
+ * and would otherwise first show up as a broken picture on the page.
  */
 
 const size = (png: Buffer) => ({ width: png.readUInt32BE(16), height: png.readUInt32BE(20) });
@@ -26,11 +23,8 @@ describe("renderPng", () => {
     expect(size(png)).toEqual({ width: 1080, height: 1350 });
   }, 30_000);
 
-  it("recognises the package's own words for a second start, which counts as ready", async () => {
-    await renderPng({ type: "div", props: { style: { display: "flex" }, children: "x" } } as never, { width: 10, height: 10 });
-    const wasm = readFileSync(join(process.cwd(), "node_modules/@resvg/resvg-wasm/index_bg.wasm"));
-    const e = await initWasm(wasm).then(() => null, (err) => err);
-    // the day resvg rewords this, the test fails before a reloaded dev server does
-    expect(isAlreadyInitialized(e)).toBe(true);
+  it("draws again in the same process, as a clip's hundreds of frames do", async () => {
+    const el = { type: "div", props: { style: { display: "flex" }, children: "x" } } as never;
+    for (let i = 0; i < 3; i++) expect(size(await renderPng(el, { width: 10, height: 10 }))).toEqual({ width: 10, height: 10 });
   }, 30_000);
 });

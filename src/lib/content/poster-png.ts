@@ -10,8 +10,6 @@ import { PEN_TEXT } from "@/lib/quote-video/pen";
  * resvg rather than next/og, and why — is src/lib/draw-png.ts, which every picture now shares.
  */
 
-export { isAlreadyInitialized } from "@/lib/draw-png";
-
 const FONT_DIR = join(process.cwd(), "src/app/api/card");
 
 let fonts: Promise<{ regular: Buffer; semibold: Buffer }> | null = null;

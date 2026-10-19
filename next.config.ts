@@ -1,10 +1,12 @@
 import type { NextConfig } from "next";
 
-/** what drawing a content poster reads off disk at run time: the Thai faces and two .wasm files */
+/**
+ * what drawing a content poster reads off disk at run time: the Thai faces and satori's hb.wasm
+ * (resvg's native build is a package the tracer follows by itself, since 2026-10-19)
+ */
 const POSTER_FILES = [
   "./src/app/api/card/*.ttf",
   "./node_modules/harfbuzzjs/hb.wasm",
-  "./node_modules/@resvg/resvg-wasm/index_bg.wasm",
 ];
 
 const nextConfig: NextConfig = {
@@ -12,11 +14,11 @@ const nextConfig: NextConfig = {
   // dev server's .next (which leaves it throwing "Cannot find module './xxx.js'").
   // Use `npm run verify`, which sets NEXT_DIST_DIR=.next-build.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
-  // the content posters draw with satori 0.33 and resvg, which load .wasm files from
-  // node_modules at run time; bundled, their paths are rewritten and the deployed function
-  // fails with ENOENT on hb.wasm (the owner's Maryjane project hit exactly this)
-  // Chrome for the quote PDF is a binary the bundler must leave alone, like the poster's .wasm
-  serverExternalPackages: ["satori", "@resvg/resvg-wasm", "puppeteer-core", "@sparticuz/chromium"],
+  // the content posters draw with satori 0.33, which loads hb.wasm from node_modules at run
+  // time; bundled, its path is rewritten and the deployed function fails with ENOENT on hb.wasm
+  // (the owner's Maryjane project hit exactly this); resvg's native build is a .node binary the
+  // bundler must leave alone, and so is Chrome for the quote PDF
+  serverExternalPackages: ["satori", "@resvg/resvg-js", "puppeteer-core", "@sparticuz/chromium"],
   // the quote cards draw Thai text, and the drawing library needs the font files themselves —
   // the health card reads the same two faces from where the other one keeps them
   outputFileTracingIncludes: {

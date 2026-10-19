@@ -1,8 +1,6 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { ReactNode } from "react";
 import satori, { type SatoriOptions } from "satori";
-import { Resvg, initWasm } from "@resvg/resvg-wasm";
+import { Resvg } from "@resvg/resvg-js";
 import { googleFontSubset } from "@/lib/google-font";
 
 /**
@@ -15,31 +13,16 @@ import { googleFontSubset } from "@/lib/google-font";
  * poster-png.ts); the cards, tables and LINE menu followed when the owner saw the same fault
  * on the value table (2026-10-09).
  *
- * The wasm handling is Maryjane's, with its reasons kept:
- * - the wasm is read from a path built at runtime from process.cwd(), because a literal
- *   ".wasm" import or require.resolve is rewritten by the bundler and breaks in production;
- * - next.config.ts lists both packages as external and traces their .wasm files, or the
- *   deployed function fails with ENOENT on hb.wasm while working on a laptop;
- * - a failed load is forgotten rather than cached, and "Already initialized" (a dev reload
- *   re-running this module while the package keeps its own flag) counts as ready.
+ * The SVG becomes a PNG in resvg's native build, not its wasm one (owner chose ก, 2026-10-19,
+ * mockup https://claude.ai/artifact/7HwmKFHWKpBXwWncZQU9Nj): the same resvg 2.6.2, its part of a
+ * 1080×1920 table 33 ms against 55 (the whole picture 50 against 72), and Vercel's CPU was over its plan.
+ * - satori's hb.wasm is still read off disk at run time: next.config.ts lists satori as external
+ *   and traces hb.wasm, or the deployed function fails with ENOENT while working on a laptop;
+ * - the machine's own fonts are never loaded: satori has turned every letter into a path, and
+ *   scanning them made each picture four times slower (218 ms) than the wasm build.
  */
 
 export type DrawFont = SatoriOptions["fonts"][number];
-
-export function isAlreadyInitialized(e: unknown): boolean {
-  return e instanceof Error && e.message.includes("Already initialized");
-}
-
-let wasm: Promise<void> | null = null;
-function ensureWasm(): Promise<void> {
-  const dir = join(process.cwd(), "node_modules", "@resvg", "resvg-wasm");
-  wasm ??= initWasm(readFileSync(join(dir, "index_bg.wasm"))).catch((e) => {
-    if (isAlreadyInitialized(e)) return;
-    wasm = null;
-    throw e;
-  });
-  return wasm;
-}
 
 /**
  * The faces next/og would have fetched for letters the card's own fonts lack — a ✦, a word of
@@ -74,21 +57,9 @@ const loadAdditionalAsset: SatoriOptions["loadAdditionalAsset"] = async (code, s
 export async function drawPng(
   element: ReactNode, size: { width: number; height: number }, fonts: DrawFont[],
 ): Promise<Buffer> {
-  await ensureWasm();
   const svg = await satori(element, { width: size.width, height: size.height, fonts, loadAdditionalAsset });
-  // the wasm side's memory is freed here, not left to the garbage collector: a process drawing a
-  // clip's hundreds of frames otherwise runs out of it ("unreachable", 2026-10-12)
-  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size.width } });
-  try {
-    const image = resvg.render();
-    try {
-      return Buffer.from(image.asPng());
-    } finally {
-      image.free();
-    }
-  } finally {
-    resvg.free();
-  }
+  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size.width }, font: { loadSystemFonts: false } });
+  return resvg.render().asPng();
 }
 
 /**

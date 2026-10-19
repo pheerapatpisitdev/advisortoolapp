@@ -5,7 +5,7 @@ import nextConfig from "../../next.config";
 
 /**
  * Posting a piece draws its poster on the server, inside the page the owner pressed from, and
- * the drawing reads two .wasm files off disk at run time — which the bundler cannot see, so
+ * the drawing reads satori's .wasm off disk at run time — which the bundler cannot see, so
  * each such page must list them. On 2026-09-25 the calendar (then /content/calendar) shipped without them and
  * every post from the calendar failed with ENOENT on index_bg.wasm.
  *
@@ -15,7 +15,7 @@ import nextConfig from "../../next.config";
  * died that way mid-request — a picture drawn and paid for, then lost with the process.
  */
 
-const WASM = ["./node_modules/harfbuzzjs/hb.wasm", "./node_modules/@resvg/resvg-wasm/index_bg.wasm"];
+const WASM = ["./node_modules/harfbuzzjs/hb.wasm"];
 /** the pages whose server actions reach drawPoster (publish-flow) */
 const DRAWING_PAGES = ["/api/content-poster", "/studio", "/studio/calendar"];
 
