@@ -1,8 +1,11 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MoneyInput } from "@/components/MoneyInput";
 import { Highlighted } from "@/components/Highlighted";
 import { SiteCredit } from "@/components/sales/SiteCredit";
+import { boxIn, GsPens, textIn } from "@/components/global-saving/GsPens";
+import { barPens, tablePens } from "@/lib/global-saving-pens";
+import { BLUE_PEN } from "@/lib/card-theme";
 import {
   GS_AGE_MAX, GS_AGE_MIN, GS_CODE, GS_MAX_PREMIUM, GS_MIN_PREMIUM, GS_PREM_YEARS, GS_TAX_CAP, GS_TERM,
   quoteGlobalSaving, type GsBasis,
@@ -52,6 +55,30 @@ export function GlobalSavingCalculator() {
   }
 
   const top = q ? Math.max(...q.scenarios.map((s) => s.total)) * 1.12 : 1;
+
+  // the pen notes (lib/global-saving-pens.ts), aimed by measuring the table and the bars as drawn
+  const yearly = useRef<HTMLTableElement>(null);
+  const bars = useRef<HTMLDivElement>(null);
+  const penKey = q ? `${q.sa}|${q.premium}|${age}` : "";
+  const drawTable = (el: HTMLElement) => {
+    const rows = (el as HTMLTableElement).tBodies[0]?.rows;
+    if (!q || !rows || rows.length < GS_TERM) return null;
+    return tablePens(
+      { cell: (y, c) => boxIn(rows[y - 1].cells[c], el), text: (y, c) => textIn(rows[y - 1].cells[c], el) },
+      { premYears: GS_PREM_YEARS, term: GS_TERM, payback: q.scenarios[0].rows[0].payback, maturity: q.scenarios[0].maturity,
+        bonusYears: q.scenarios[0].bonuses.map((b) => b.year) },
+    );
+  };
+  const drawBars = (el: HTMLElement) => {
+    const cols = [...el.querySelectorAll("[data-bar]")];
+    if (!q || !cols.length) return null;
+    const last = cols[cols.length - 1].querySelector("[data-bonus]");
+    return barPens({
+      guaranteed: cols.map((c) => boxIn(c.querySelector("[data-guaranteed]")!, el)),
+      totals: cols.map((c) => boxIn(c.querySelector("[data-total]")!, el)),
+      topBonus: last ? boxIn(last, el) : null,
+    }, q.guaranteed);
+  };
 
   return (
     <div className="gs-tool flex flex-col gap-8">
@@ -108,7 +135,7 @@ export function GlobalSavingCalculator() {
             <div className="grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-x-6 gap-y-4 rounded-lg bg-[var(--lg-panel)] p-4">
               <div>
                 <div className="text-sm text-[var(--lg-mute)]">เงินการันตีรวม (เงินคืน + ครบสัญญา)</div>
-                <div className="text-2xl font-semibold tabular-nums sm:text-3xl"><Highlighted>{baht(q.guaranteed)} บาท</Highlighted></div>
+                <div className="whitespace-nowrap text-2xl font-semibold tabular-nums sm:text-3xl"><Highlighted>{baht(q.guaranteed)} บาท</Highlighted></div>
                 <div className="text-xs text-[var(--lg-mute)]">จากเบี้ยรวม {baht(GS_PREM_YEARS * q.premium)} บาท · ได้แน่นอน</div>
               </div>
               <Figure label="ทุนประกัน" value={baht(q.sa)} note="บาท" />
@@ -122,25 +149,28 @@ export function GlobalSavingCalculator() {
               <h2 className="text-base font-semibold">
                 เงินรับรวมเมื่อถือครบ {GS_TERM} ปี <span className="ml-1 text-sm font-normal text-[var(--lg-mute)]">แยกตามผลตอบแทนดัชนีต่อปี</span>
               </h2>
-              <div className="mt-3 grid h-56 grid-cols-5 items-end gap-1.5 border-b border-[var(--lg-panel-line)] sm:h-64 sm:gap-2.5" aria-hidden>
+              <div className="relative mt-3">
+              <div ref={bars} className="grid h-56 grid-cols-5 items-end gap-1.5 border-b border-[var(--lg-panel-line)] pt-12 sm:h-64 sm:gap-2.5" aria-hidden>
                 {q.scenarios.map((s, i) => {
                   const bonus = s.total - q.guaranteed;
                   return (
-                    <div key={s.rate} className="flex h-full flex-col justify-end text-center">
-                      <div className="mb-1 text-xs font-semibold tabular-nums sm:text-sm">{baht(s.total)}</div>
+                    <div key={s.rate} data-bar className="flex h-full flex-col justify-end text-center">
+                      <div data-total className="mb-1 text-xs font-semibold tabular-nums sm:text-sm">{baht(s.total)}</div>
                       {bonus > 0 && (
-                        <div className="flex justify-center rounded-t pt-0.5 text-[10px] tabular-nums sm:text-xs"
+                        <div data-bonus className="flex justify-center rounded-t pt-0.5 text-[10px] tabular-nums sm:text-xs"
                              style={{ height: `${bonus / top * 100}%`, background: BONUS_FILL[i], color: BONUS_INK[i] }}>
                           +{baht(bonus)}
                         </div>
                       )}
-                      <div className="flex items-center justify-center bg-[var(--bot-navy)] text-[10px] text-white sm:text-xs"
+                      <div data-guaranteed className="flex items-center justify-center bg-[var(--bot-navy)] text-[10px] text-white sm:text-xs"
                            style={{ height: `${q.guaranteed / top * 100}%` }}>
                         {i === 0 ? "การันตี" : ""}
                       </div>
                     </div>
                   );
                 })}
+              </div>
+              <GsPens over={bars} draw={drawBars} deps={penKey} />
               </div>
               <div className="mt-1.5 grid grid-cols-5 gap-1.5 text-center text-xs text-[var(--lg-mute)] sm:gap-2.5 sm:text-sm">
                 {q.scenarios.map((s) => (
@@ -196,7 +226,9 @@ export function GlobalSavingCalculator() {
               ตารางที่ 2 · ผลประโยชน์รายปี <span className="ml-1 text-sm font-normal text-[var(--lg-mute)]">ปีที่ 1–{GS_TERM}</span>
             </h2>
             <div className="mt-2 overflow-x-auto rounded-lg border border-[var(--lg-panel-line)]">
-              <table className="print-table w-full text-sm tabular-nums">
+              {/* the pen notes are drawn over the table and scroll with it */}
+              <div className="relative min-w-max">
+              <table ref={yearly} className="print-table w-full min-w-full text-sm tabular-nums">
                 <thead>
                   <tr>
                     <th colSpan={2} className="bg-[var(--bot-navy-deep)] print:!bg-transparent" />
@@ -216,10 +248,11 @@ export function GlobalSavingCalculator() {
                   {q.scenarios[0].rows.map((r) => (
                     <tr key={r.year} className={`border-t border-[var(--lg-hair)] even:bg-[var(--lg-panel)]/50
                       ${r.year === GS_PREM_YEARS ? "border-b-2 border-b-[var(--bot-navy)]" : ""}`}>
+                      {/* left empty after year 8 and outside the bonus years: the pens write there */}
                       <td className={`${TD} !text-left`}>{r.year}</td>
                       <td className={TD}>{age + r.year - 1}</td>
-                      <td className={`${TD} ${r.premium ? "" : "text-[var(--lg-mute)]"}`}>{r.premium ? baht(r.premium) : "—"}</td>
-                      <td className={`${TD} ${r.year <= GS_PREM_YEARS ? "" : "text-[var(--lg-mute)]"}`}>{baht(r.paid)}</td>
+                      <td className={TD}>{r.premium ? baht(r.premium) : ""}</td>
+                      <td className={TD}>{r.year <= GS_PREM_YEARS ? baht(r.paid) : ""}</td>
                       <td className={`${TD} ${r.year === GS_TERM ? "font-semibold" : ""}`}>
                         {r.year === GS_TERM ? <Highlighted>{baht(r.payback)}</Highlighted> : baht(r.payback)}
                       </td>
@@ -227,12 +260,12 @@ export function GlobalSavingCalculator() {
                       {q.scenarios.map((s) => {
                         const b = s.bonuses.find((x) => x.year === r.year);
                         return (
-                          <td key={s.rate} className={`${TD} ${b ? "font-semibold text-[var(--bot-navy-lift)]" : "text-[var(--lg-mute)]"}`}>
-                            {b && b.value > 0 ? baht(b.value) : "—"}
+                          <td key={s.rate} className={`${TD} ${b ? "font-semibold text-[var(--bot-navy-lift)]" : ""}`}>
+                            {b ? (b.value > 0 ? baht(b.value) : "—") : ""}
                           </td>
                         );
                       })}
-                      <td className={`${TD} ${r.premium ? "" : "text-[var(--lg-mute)]"}`}>{r.premium ? baht(Math.min(r.premium, GS_TAX_CAP)) : "—"}</td>
+                      <td className={TD}>{r.premium ? baht(Math.min(r.premium, GS_TAX_CAP)) : ""}</td>
                     </tr>
                   ))}
                   <tr className="border-t-2 border-[var(--lg-panel-line)] bg-[var(--bot-navy-soft)] font-semibold text-[var(--bot-navy)]">
@@ -249,9 +282,15 @@ export function GlobalSavingCalculator() {
                   </tr>
                 </tbody>
               </table>
+              <GsPens over={yearly} draw={drawTable} deps={penKey} />
+              </div>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-[var(--lg-mute)]">
-              โบนัสดัชนีจ่ายจริง 2 ครั้ง คือสิ้นปีที่ 10 และตอนครบสัญญา ปีอื่นจึงเว้นว่าง · เส้นใต้แถวปีที่ {GS_PREM_YEARS} = ปีสุดท้ายที่จ่ายเบี้ย
+            <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+              <span style={{ color: BLUE_PEN }}>✎ ปากกาน้ำเงิน = เงินที่การันตี ได้แน่นอน</span>
+              <span className="text-[var(--lg-pen)]">✎ ปากกาแดง = เบี้ยที่จ่าย และโบนัสดัชนีที่ไม่การันตี</span>
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--lg-mute)]">
+              โบนัสดัชนีจ่ายจริง 2 ครั้ง คือสิ้นปีที่ 10 และตอนครบสัญญา ปีอื่นจึงเว้นว่าง
             </p>
             <SiteCredit />
           </section>
