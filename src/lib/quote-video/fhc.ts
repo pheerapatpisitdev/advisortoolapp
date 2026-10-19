@@ -1,4 +1,5 @@
 import type { ThemeKey } from "./theme-keys";
+import type { FestivalKey } from "./festival";
 import { AREA_LABEL, type Gap, type GapState } from "@/lib/fhc/gaps";
 import type { EventKey } from "@/lib/fhc/assumptions";
 import type { EventRow, Level, Score, ScoreKey } from "@/lib/fhc/health";
@@ -65,6 +66,8 @@ export interface FhcVideoInput {
   fhc: FhcVideoFacts;
   /** the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง. Read with readTheme */
   theme?: ThemeKey;
+  /** ธีมเทศกาล's festival, kept from the day the clip was asked for (festival.ts); with theme "festival" only */
+  festival?: FestivalKey;
   /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (remotion.ts) */
   engine?: "remotion";
 }

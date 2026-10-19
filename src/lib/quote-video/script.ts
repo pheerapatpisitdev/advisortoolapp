@@ -1,4 +1,5 @@
 import type { ThemeKey } from "./theme-keys";
+import type { FestivalKey } from "./festival";
 import type { CardRiders, PlanCardInput } from "@/lib/card-link";
 import { iHealthyCard } from "@/lib/ihealthy-card";
 import { iHealthyFacts as benefitSheet } from "@/lib/ihealthy-facts";
@@ -73,6 +74,8 @@ export type VideoInput = (
   style?: VideoStyle;
   /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง. Read with readTheme: a row from before 2026-10-20 may name one taken away */
   theme?: ThemeKey;
+  /** ธีมเทศกาล's festival, kept from the day the clip was asked for (festival.ts); with theme "festival" only */
+  festival?: FestivalKey;
   /** who draws a Motion Graphic clip: Remotion on Cloud Run (owner, 2026-10-17; remotion.ts, set when made by the /admin/ai switch); absent = the satori frames */
   engine?: "remotion";
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */

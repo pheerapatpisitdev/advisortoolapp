@@ -5,6 +5,7 @@ import { wideQuoteFrame } from "@/lib/quote-video/wide";
 import { themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
+import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
 import { SCRIPT_RANGE, type ClipProps } from "@/lib/quote-video/remotion";
 import { KeepWords } from "./KeepWords";
 
@@ -74,7 +75,7 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
       await loadFonts();
       await loadScriptFonts(p.scriptFont);
       const bgH = motionBgHeight({ h });
-      const [hero, ground] = await Promise.all([themeHero(p.theme, p.sex), themeBackground(p.theme, { w, h }, bgH)]);
+      const [hero, ground] = await Promise.all([themeHero(p.theme, p.sex), themeBackground(p.theme, { w, h }, bgH, p.festival?.key)]);
       setGot({ hero, ground: ground ?? motionBackground({ w, h }) });
       continueRender(handle);
     })().catch((e) => { console.error(e); throw e; });
@@ -102,6 +103,7 @@ export function Clip(p: ClipProps) {
   const got = useLoaded(p, w, h);
   if (!got) return null;
   const T = frame / fps;
+  const fest = p.theme === "festival" ? p.festival : undefined;
   const drift = motionBgHeight({ h }) - h;
   const layers = p.scenes.map((sc, s) => {
     if (T < sc.start || T >= sc.start + sc.dur) return null;
@@ -120,15 +122,18 @@ export function Clip(p: ClipProps) {
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
+        {fest ? festivalBack(fest.key, T, w, h) : null}
         {/* Thai lines break at spaces only, as satori breaks them (KeepWords; owner chose ก, 2026-10-19) */}
-        <KeepWords>{themed(p.size && p.size !== "portrait" ? wideQuoteFrame(sc.key, c, t, p.size) : motionFrame(sc.key, c, t), p.theme)}</KeepWords>
+        <KeepWords>{themed(p.size && p.size !== "portrait" ? wideQuoteFrame(sc.key, c, t, p.size) : motionFrame(sc.key, c, t), p.theme, p.festival?.key)}</KeepWords>
       </AbsoluteFill>
     );
   });
   return (
     <AbsoluteFill className="sat" style={{ background: "#000" }}>
       <style>{SATORI_CSS}</style>
+      {/* ธีมเทศกาล (festival-decor.tsx): its decorations go in each scene's layer, its greeting over all */}
       {layers}
+      {fest ? festivalFront(fest.key, fest.greeting, w, h) : null}
       <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
     </AbsoluteFill>
   );

@@ -36,6 +36,7 @@ import { contactSpec } from "./story-motion";
 import { clipWindows } from "./story-frames";
 import { motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
+import { festivalGreeting, readFestival } from "./festival";
 import { clipProps, REMOTION_DRAWING, REMOTION_JOB, storyClipProps, type ClassicClipProps, type ClipProps, type FhcClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
 import { secondsBetween, type CostParts } from "./run-record";
 import { WIDE_CHART_W } from "./classic-wide";
@@ -351,6 +352,12 @@ export function fhcPartsFor(row: Pick<VideoRow, "customer_name"> & { input: FhcV
   return { size, script, motion: true, plans };
 }
 
+/** ธีมเทศกาล's festival and its greeting for the clip (festival.ts); nothing for another look, or a festival not named */
+function festivalOf(theme: string | undefined, kept: unknown): { festival?: { key: NonNullable<ReturnType<typeof readFestival>>; greeting: string } } {
+  const key = theme === "festival" ? readFestival(kept) : undefined;
+  return key ? { festival: { key, greeting: festivalGreeting(key, new Date()) } } : {};
+}
+
 /** A story clip's parts: its lines and scenes as planned (StoryClip draws them with story-frames.tsx). */
 function storyParts(row: VideoRow & { input: StoryVideoInput }, secs: number[]): ClipParts {
   const input = row.input;
@@ -423,7 +430,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     : {};
   return {
     script, motion, plans, size,
-    ...(motion ? { motion$: { theme: theme!, ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) } } } : {}),
+    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) } } } : {}),
     ...(!motion ? { classic$: { size, facts, narrator, customer, contact, ...(chart ? { chart } : {}), ...(pen?.notes.length ? { notes: pen.notes } : {}), shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) }, layers } } : {}),
     ...(script$.script ? { scriptFace: script$.script } : {}),
   };
@@ -709,7 +716,7 @@ async function cutFhcWithRemotion(
   lap("voice up for Remotion");
   bar.note({ step: "submit", done: 0, of: 0 });
   const props: FhcClipProps = {
-    composition: "FhcClip", drawing: REMOTION_DRAWING, size, theme, facts: row.input.fhc, customer: row.customer_name, narrator: narratorOf(row.input), contact,
+    composition: "FhcClip", drawing: REMOTION_DRAWING, size, theme, ...festivalOf(theme, row.input.festival), facts: row.input.fhc, customer: row.customer_name, narrator: narratorOf(row.input), contact,
     total: c.total, audio: data.signedUrl,
     scenes: c.plans.map((p, i) => ({ key: p.key as FhcSceneKey, voice: c.script[i].voice, voiceSec: c.secs[i], start: p.start, dur: p.dur })),
   };

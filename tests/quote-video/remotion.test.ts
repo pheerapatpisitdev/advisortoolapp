@@ -313,6 +313,16 @@ describe("produce, drawn by Remotion", () => {
     expect(rowOf(id).status).toBe("done");
   });
 
+  it("a ธีมเทศกาล clip carries its festival and greeting to the Remotion job", async () => {
+    const made = await createVideo(agent, lp({ theme: "festival", festival: "cny" }), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    expect(rowOf(id).error).toBeNull();
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as ClipProps;
+    expect(props.theme).toBe("festival");
+    expect(props.festival).toEqual({ key: "cny", greeting: "ซินเจียยู่อี่ ซินนี้ฮวดไช้" });
+  });
+
   it("an iHealthy clip goes the same way, its riders in the facts, with no script face in Thai", async () => {
     const made = await createVideo(owner, ih(), "");
     const id = (made as { id: string }).id;

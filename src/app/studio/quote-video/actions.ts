@@ -45,7 +45,8 @@ import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } fr
 import { readVideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
 import { readLength } from "@/lib/quote-video/told";
-import { DEFAULT_THEME, readTheme, THEME_LABELS } from "@/lib/quote-video/theme-keys";
+import { DEFAULT_THEME, readTheme, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
+import { FESTIVALS, festivalOn, readFestival, type FestivalKey } from "@/lib/quote-video/festival";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
@@ -156,7 +157,7 @@ function checked(v: VideoInput): VideoInput | string {
   const narrator = eleven ? eleven.sex : gemini ? gemini.sex : v.narrator === "M" ? "M" : "F";
   const style = v.style === "motion" ? "motion" : "classic";
   // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
-  const theme = style === "motion" ? readTheme(v.theme) : DEFAULT_THEME;
+  const look = lookOf(style === "motion" ? v.theme : undefined);
   const askedLength = readLength(v.length);
   const length = foreign && askedLength !== "short" ? "full" : askedLength;
   // every clip in every shape (owner, 2026-10-13)
@@ -172,7 +173,30 @@ function checked(v: VideoInput): VideoInput | string {
     if (first) return `${FIELD_WORD[first[0]] ?? "ประโยค"}: ${first[1]}`;
     lines = l;
   }
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...(theme !== DEFAULT_THEME ? { theme } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...look, length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
+}
+
+/**
+ * A clip's look as it is kept: none for น้ำเงินทอง; ธีมเทศกาล with the festival on today (festival.ts),
+ * or น้ำเงินทอง when the festival's days ended while the form stood open.
+ */
+function lookOf(asked: unknown): { theme?: ThemeKey; festival?: FestivalKey } {
+  const theme = readTheme(asked);
+  if (theme === "festival") {
+    const on = festivalOn();
+    return on ? { theme, festival: on.key } : {};
+  }
+  return theme !== DEFAULT_THEME ? { theme } : {};
+}
+
+/** the look a clip's title names: ธีมเทศกาล by its festival; none for น้ำเงินทอง or a look taken away */
+function lookName(input: { theme?: unknown; festival?: unknown }): string | null {
+  const theme = readTheme(input.theme);
+  if (theme === "festival") {
+    const festival = readFestival(input.festival);
+    return festival ? `ธีม${FESTIVALS[festival].name}` : null;
+  }
+  return theme !== DEFAULT_THEME ? THEME_LABELS[theme].name : null;
 }
 
 /** what each written field is called on the board, for a refusal */
@@ -352,7 +376,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
     narrator: eleven ? eleven.sex : gemini ? gemini.sex : v?.narrator === "M" ? "M" : "F", ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}),
     style: "motion", length: "full", size: sizeOf(v ?? {}), fhc: fhcVideoFacts(c),
     // the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17); น้ำเงินทอง is no field at all
-    ...(readTheme(v?.theme) !== DEFAULT_THEME ? { theme: readTheme(v?.theme) } : {}),
+    ...lookOf(v?.theme),
   };
   try {
     const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "");
@@ -598,7 +622,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
     if (isFhcInput(v.input)) {
       const input = v.input;
       const file = `สรุปFHC-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
-      const who = `สรุป FHC${readTheme(input.theme) !== DEFAULT_THEME ? ` (${THEME_LABELS[readTheme(input.theme)].name})` : ""}${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${voiceWord(input)}`;
+      const who = `สรุป FHC${lookName(input) ? ` (${lookName(input)})` : ""}${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${voiceWord(input)}`;
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
@@ -644,7 +668,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         : input.product === "GSAVING"
         ? `ออมปีละ ${input.premium.toLocaleString("en-US")} · ดัชนี ${rateLabel(input.rate)}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${readTheme(input.theme) !== DEFAULT_THEME ? ` · ${THEME_LABELS[readTheme(input.theme)].name}` : ""})` : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,

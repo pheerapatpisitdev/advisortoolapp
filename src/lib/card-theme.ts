@@ -348,8 +348,65 @@ export const VIDEO_THEME_COLORS = {
   },
 } satisfies Record<string, VideoThemePalette>;
 
+/**
+ * ธีมเทศกาล (owner, 2026-10-20; quote-video/festival.ts): each festival's colours, the Motion Graphic
+ * drawing repainted into them as a theme is (themes.tsx), over its own ground.
+ */
+const SHAPES = (a: string, b: string) => [{ color: a, opacity: 0.7 }, { color: b, opacity: 0.8 }, { color: a, opacity: 0.5 }, { color: b, opacity: 0.7 }];
+export const VIDEO_FESTIVAL_COLORS = {
+  // ปีใหม่: the navy night under gold fireworks
+  newyear: {
+    ink: "#ffffff", inkRgb: "255,255,255", accent: "#f2c75c", fill: "#f2c75c", onFill: "#01143d",
+    card: "#ffffff", onCard: "#022162", onCardRgb: "2,33,98", second: "#9fc3ff", red: "#ff8a80", green: "#6ee7a8", pen: "#ff8a80", bluePen: "#9fc3ff",
+    subBg: "rgba(0,0,0,0.45)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#f2c75c",
+    ground: "#0a1a4a", shapes: SHAPES("#12266a", "#071238"),
+  },
+  // ตรุษจีน: red and gold, the lanterns'
+  cny: {
+    ink: "#ffffff", inkRgb: "255,255,255", accent: "#fde047", fill: "#fde047", onFill: "#7f1d1d",
+    card: "#fff7e6", onCard: "#7f1d1d", onCardRgb: "127,29,29", second: "#fca5a5", red: "#ffd0c2", green: "#bbf7d0", pen: "#fde047", bluePen: "#fde68a",
+    subBg: "rgba(60,0,0,0.55)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#fde047",
+    ground: "#a51b1b", shapes: SHAPES("#b92525", "#8c1414"),
+  },
+  // สงกรานต์: water blue on light, flowers
+  songkran: {
+    ink: "#0b3d6b", inkRgb: "11,61,107", accent: "#0e7ac4", fill: "#0e7ac4", onFill: "#ffffff",
+    card: "#ffffff", onCard: "#0b3d6b", onCardRgb: "11,61,107", second: "#7cc4ef", red: "#d64045", green: "#1f9d55", pen: "#e0457b", bluePen: "#0e7ac4",
+    subBg: "rgba(11,61,107,0.88)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd23f",
+    ground: "#e3f3fc", shapes: SHAPES("#cbe8f8", "#f1f9fe"),
+  },
+  // วันแม่: a soft blue, jasmine falling
+  mother: {
+    ink: "#1e3a5f", inkRgb: "30,58,95", accent: "#2563eb", fill: "#2563eb", onFill: "#ffffff",
+    card: "#ffffff", onCard: "#1e3a5f", onCardRgb: "30,58,95", second: "#93c5fd", red: "#d64045", green: "#1f9d55", pen: "#d64045", bluePen: "#2563eb",
+    subBg: "rgba(30,58,95,0.88)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd23f",
+    ground: "#e8f1fb", shapes: SHAPES("#d6e6f8", "#f4f8fd"),
+  },
+  // ลอยกระทง: the full moon's night, candle gold
+  loykrathong: {
+    ink: "#ffffff", inkRgb: "255,255,255", accent: "#ffd27a", fill: "#ffd27a", onFill: "#0d1b3d",
+    card: "#ffffff", onCard: "#0d1b3d", onCardRgb: "13,27,61", second: "#8fb3ff", red: "#ff8a80", green: "#7ee2a8", pen: "#ffb86b", bluePen: "#8fb3ff",
+    subBg: "rgba(0,0,0,0.5)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd27a",
+    ground: "#0d1b3d", shapes: SHAPES("#152a5a", "#08122a"),
+  },
+  // วันพ่อ: yellow, the canna's
+  father: {
+    ink: "#3d2e00", inkRgb: "61,46,0", accent: "#a16207", fill: "#f5c400", onFill: "#3d2e00",
+    card: "#ffffff", onCard: "#3d2e00", onCardRgb: "61,46,0", second: "#e0b84a", red: "#c2410c", green: "#3f7d20", pen: "#c2410c", bluePen: "#1d4ed8",
+    subBg: "rgba(61,46,0,0.88)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd84d",
+    ground: "#fff6cf", shapes: SHAPES("#fdeba0", "#fffbe8"),
+  },
+} satisfies Record<string, VideoThemePalette>;
+
+/** what each festival's decorations are drawn in (themes.tsx festivalLayer) */
+export const FESTIVAL_DECOR = {
+  gold: "#f2c75c", white: "#ffffff", lantern: "#ef4444", lanternGold: "#fde047", drop: "#3b7ea1", petal: "#f9a8d4",
+  petalHeart: "#fde047", moon: "#fff3c4", leaf: "#2f7d4f", flame: "#ffb347", jasmine: "#ffffff", jasmineHeart: "#fde68a",
+  canna: "#f5c400", cannaDeep: "#e09a00",
+} as const;
+
 /** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
   paperFaceRing: "#22252b",
-  swatch: { navy: "#022162", paper: "#ece8df" },
+  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b" },
 } as const;

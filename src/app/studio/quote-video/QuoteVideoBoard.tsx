@@ -6,7 +6,9 @@ import type { CostView } from "@/lib/quote-video/make";
 import type { VideoStart } from "@/lib/quote-video/link";
 import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-video/script";
 import type { PlbVariant } from "@/lib/quote-video/plb";
-import { DEFAULT_THEME, readTheme, THEME_KEYS, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
+import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
+import { festivalOn } from "@/lib/quote-video/festival";
+import { VIDEO_FESTIVAL_COLORS } from "@/lib/card-theme";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
@@ -95,6 +97,8 @@ const LENGTH_KEY = "quote-video-length";
 const LANG_KEY = "quote-video-lang";
 const STYLE_KEY = "quote-video-style";
 const THEME_KEY = "quote-video-theme";
+/** the festival the agent turned ธีมเทศกาล off for, by its first day, so it is not picked again until the next one */
+const FESTIVAL_OFF_KEY = "quote-video-festival-off";
 /** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
 const BRIEF_KEY = "quote-video-brief";
 /** the four lengths (owner, 2026-10-13: up to 2 minutes; told.ts sceneOrder) */
@@ -275,6 +279,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [style, setStyle] = useState<VideoStyle>("classic");
   // ธีม (owner, 2026-10-17): the Motion Graphic look, remembered in this browser
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
+  // ธีมเทศกาล (owner, 2026-10-20): offered in a festival's seven days, and picked by itself unless turned off for it
+  const [festival, setFestival] = useState<ReturnType<typeof festivalOn>>(null);
   const [pickedLength, setLength] = useState<VideoLength>("full");
   // ภาษาในวิดีโอ (owner, 2026-10-15, mockup https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb): iHealthy Ultra only
   // the iHealthy page's shortcut opens in the language the page was read in; otherwise the one kept
@@ -309,7 +315,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   useEffect(() => {
     try {
       if (localStorage.getItem(STYLE_KEY) === "motion") setStyle("motion");
-      setTheme(readTheme(localStorage.getItem(THEME_KEY)));
+      const on = festivalOn();
+      setFestival(on);
+      const kept = readTheme(localStorage.getItem(THEME_KEY));
+      const off = localStorage.getItem(FESTIVAL_OFF_KEY) === on?.first;
+      setTheme(on && !off ? "festival" : kept === "festival" ? DEFAULT_THEME : kept);
       const l = localStorage.getItem(LENGTH_KEY);
       if (l === "short" || l === "long" || l === "max") setLength(l);
       const b = JSON.parse(localStorage.getItem(BRIEF_KEY) ?? "null") as Partial<VideoBrief> | null;
@@ -322,7 +332,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   }
   function pickTheme(v: ThemeKey) {
     setTheme(v);
-    try { localStorage.setItem(THEME_KEY, v); } catch { /* not remembered, still used */ }
+    try {
+      localStorage.setItem(THEME_KEY, v);
+      // another look picked in a festival's days turns ธีมเทศกาล off until the next festival
+      if (festival) {
+        if (v === "festival") localStorage.removeItem(FESTIVAL_OFF_KEY);
+        else localStorage.setItem(FESTIVAL_OFF_KEY, festival.first);
+      }
+    } catch { /* not remembered, still used */ }
   }
   function pickLength(v: VideoLength) {
     setLength(v);
@@ -473,19 +490,21 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const named = geminiOf({ narrator, gemini });
   const voiceWord = voice && !foreign ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs"
     : named.name !== GEMINI_DEFAULT[named.sex] ? `เสียง ${named.name}` : narrator === "M" ? "เสียงชาย" : "เสียงหญิง";
+  /** a look's name: ธีมเทศกาล by the festival on */
+  const themeName = (k: ThemeKey) => (k === "festival" && festival ? `ธีม${festival.name}` : THEME_LABELS[k].name);
   // the Motion Graphic look: วิดีโอนำเสนอ's in Motion, and สรุป FHC's (owner, 2026-10-17)
   const themeChips = (
     <div>
       <span className={label}>ธีม</span>
       <div className="flex flex-wrap gap-2">
-        {THEME_KEYS.map((k) => (
+        {[...STANDING_THEMES, ...(festival ? ["festival" as const] : [])].map((k) => (
           <button key={k} type="button" className={chip(theme === k)} onClick={() => pickTheme(k)}>
-            <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: THEME_LABELS[k].swatch }} />
-            {THEME_LABELS[k].name}
+            <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: k === "festival" && festival ? VIDEO_FESTIVAL_COLORS[festival.key].ground : THEME_LABELS[k].swatch }} />
+            {themeName(k)}
           </button>
         ))}
       </div>
-      <p className="mt-1 text-xs text-[var(--ct-mute)]">{THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
+      <p className="mt-1 text-xs text-[var(--ct-mute)]">{theme === "festival" && festival ? `สีและของประดับ${festival.name} คำอวยพร “${festival.greeting}” ด้านบน · กดธีมอื่นเพื่อปิด` : THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
     </div>
   );
   const summary = {
@@ -503,7 +522,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
-      kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : THEME_LABELS[theme].name,
+      kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : themeName(theme),
       SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",
       voiceWord,
     ].filter(Boolean).join(" · "),
