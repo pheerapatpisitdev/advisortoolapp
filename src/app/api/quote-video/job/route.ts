@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { finishVideo, hashToken, videoOfJob } from "@/lib/quote-video/make";
+import { finishVideo, hashToken, videoOfJob } from "@/lib/quote-video/rows";
 
 /**
  * Cloud Run telling us a วิดีโอนำเสนอ render has ended (src/lib/quote-video/make.ts). The body is

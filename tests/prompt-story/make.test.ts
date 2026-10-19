@@ -110,6 +110,7 @@ vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: 
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
 
 const { createPromptStory, deleteVideo, drawScene, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos, voiceFullUntil } = await import("@/lib/quote-video/make");
+const { clipStates } = await import("@/lib/quote-video/rows");
 const { VOICE_FULL } = await import("@/lib/quote-video/voice-quota");
 const { paidLine } = await import("@/lib/quote-video/paid-line");
 
@@ -514,6 +515,20 @@ describe("a clip's money when it runs long (owner chose 1ก 2ก, 2026-10-18)",
     expect(rowOf("late-render").status).toBe("rendering");
     expect(rowOf("fresh").status).toBe("drawing");
     expect(wallet.releaseWallet.mock.calls.map((c) => c[0]).sort()).toEqual(["h1", "h2"]);
+  });
+
+  it("a board waiting on clips reads its own alone, and a stuck one fails on the way (owner chose ก, 2026-10-19)", async () => {
+    const now = Date.now();
+    db.rows.push(
+      stuckRow({ id: "mine-stuck", agent_id: "me", status: "drawing", hold_id: "h6", created_at: ago(40, now), updated_at: ago(40, now) }),
+      stuckRow({ id: "mine-fresh", agent_id: "me", status: "rendering", hold_id: "h7", created_at: ago(3, now), updated_at: ago(1, now) }),
+      stuckRow({ id: "mine-gone", agent_id: "me", status: "drawing", deleted_at: ago(1, now), created_at: ago(2, now), updated_at: ago(2, now) }),
+      stuckRow({ id: "theirs", status: "drawing", created_at: ago(2, now), updated_at: ago(2, now) }),
+    );
+    const states = await clipStates("me", ["mine-stuck", "mine-fresh", "mine-gone", "theirs"]);
+    expect(Object.fromEntries(states.map((v) => [v.id, v.status]))).toEqual({ "mine-stuck": "failed", "mine-fresh": "rendering" });
+    expect(rowOf("mine-stuck").status).toBe("failed");
+    expect(wallet.releaseWallet.mock.calls.map((c) => c[0])).toEqual(["h6"]);
   });
 
   it("a render that arrives after the clip was failed has its file removed", async () => {

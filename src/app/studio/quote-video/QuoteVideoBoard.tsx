@@ -18,6 +18,7 @@ import { ClipList } from "./ClipList";
 import { geminiOf, VoicePicker } from "./VoicePicker";
 import { GEMINI_DEFAULT, geminiVoice, type GeminiChoice } from "@/lib/voice/gemini";
 import { makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
+import { useClipWatch } from "./useClipWatch";
 import { voiceNotice } from "@/lib/quote-video/voice-quota";
 import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
@@ -411,18 +412,12 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
 
   // links renewed when the agent comes back to a board left open past the hour they last
   useFreshLinks(() => { myVideos().then(setItems).catch(() => undefined); });
-  // a clip still being made is asked about every few seconds
-  const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
-  useEffect(() => {
-    if (!pending) return;
-    const t = setInterval(() => { myVideos().then(setItems).catch(() => undefined); }, 4000);
-    return () => {
-      clearInterval(t);
-      // a clip that ended may have given a free clip or money back, or found the voice used up
-      myCost().then(setCost).catch(() => undefined);
-      refreshQuota();
-    };
-  }, [pending]);
+  // a clip still being made is asked after every few seconds, alone (useClipWatch); when it ends:
+  useClipWatch("quote", items, setItems, () => {
+    // a clip that ended may have given a free clip or money back, or found the voice used up
+    myCost().then(setCost).catch(() => undefined);
+    refreshQuota();
+  });
 
   async function make() {
     setBusy(true);

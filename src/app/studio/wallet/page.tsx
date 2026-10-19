@@ -3,7 +3,7 @@ import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { allowanceOf } from "@/lib/auth/quota";
 import { creditLotsOf, creditOf } from "@/lib/members/credit";
-import { freeVideosLeft } from "@/lib/quote-video/make";
+import { freeVideosLeft } from "@/lib/quote-video/rows";
 import { walletEntries, walletPrices, walletSettings, walletStatus } from "@/lib/wallet/store";
 import { PriceList } from "./PriceList";
 import { memberAccess, passOpen } from "@/lib/members/access";

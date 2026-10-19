@@ -13,6 +13,7 @@ import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, de
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
+import { useClipWatch } from "../quote-video/useClipWatch";
 import { ChevronDownIcon } from "../ui/icons";
 import { ClipList } from "../quote-video/ClipList";
 import { costLine, SizePicker, Step } from "../quote-video/QuoteVideoBoard";
@@ -315,17 +316,11 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
 
   // links renewed when the agent comes back to a board left open past the hour they last
   useFreshLinks(() => { myVideos("story").then(setItems).catch(() => undefined); });
-  // a clip still being made is asked about every few seconds
-  const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
-  useEffect(() => {
-    if (!pending) return;
-    const t = setInterval(() => { myVideos("story").then(setItems).catch(() => undefined); }, 4000);
-    return () => {
-      clearInterval(t);
-      myCost().then(setCost).catch(() => undefined);
-      voiceQuota().then(setQuota).catch(() => undefined);
-    };
-  }, [pending]);
+  // a clip still being made is asked after every few seconds, alone (useClipWatch); when it ends:
+  useClipWatch("story", items, setItems, () => {
+    myCost().then(setCost).catch(() => undefined);
+    voiceQuota().then(setQuota).catch(() => undefined);
+  });
 
   const figureOk = showsFigure && info.figure === "plan" && figure && !("error" in figure) ? figure : null;
   const ladderOk = withFigure && info.figure === "ladder" && ladder && !("error" in ladder) ? ladder : null;

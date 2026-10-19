@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { refuseUnlessCron } from "@/lib/cron-auth";
-import { sweepStuckVideos } from "@/lib/quote-video/make";
+import { sweepStuckVideos } from "@/lib/quote-video/rows";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;

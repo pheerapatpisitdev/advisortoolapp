@@ -13,7 +13,7 @@ import { whenShort } from "@/lib/home/history";
 import { readHistory } from "@/lib/home/history-read";
 import { buildToday } from "@/lib/home/today";
 import { memberAccess } from "@/lib/members/access";
-import { listVideos } from "@/lib/quote-video/make";
+import { listVideos } from "@/lib/quote-video/rows";
 import { referralCard } from "@/lib/referrals/card";
 import { boardOf } from "@/lib/quote-video/board";
 import { walletView } from "@/lib/wallet/store";

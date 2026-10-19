@@ -10,6 +10,7 @@ import { voiceNotice } from "@/lib/quote-video/voice-quota";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { pictureSatang, priceBaht, type Prices } from "@/lib/wallet/prices";
 import { myCost, myVideos, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
+import { useClipWatch } from "../quote-video/useClipWatch";
 import { ClipList } from "../quote-video/ClipList";
 import { Step } from "../quote-video/QuoteVideoBoard";
 import { makePromptStory, writePromptStory } from "./actions";
@@ -106,17 +107,11 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
 
   // links renewed when the agent comes back to a board left open past the hour they last
   useFreshLinks(() => { myVideos("prompt").then(setItems).catch(() => undefined); });
-  // a clip still being made is asked about every few seconds
-  const pending = items?.some((v) => v.status === "drawing" || v.status === "rendering");
-  useEffect(() => {
-    if (!pending) return;
-    const t = setInterval(() => { myVideos("prompt").then(setItems).catch(() => undefined); }, 4000);
-    return () => {
-      clearInterval(t);
-      myCost().then(setCost).catch(() => undefined);
-      voiceQuota().then(setQuota).catch(() => undefined);
-    };
-  }, [pending]);
+  // a clip still being made is asked after every few seconds, alone (useClipWatch); when it ends:
+  useClipWatch("prompt", items, setItems, () => {
+    myCost().then(setCost).catch(() => undefined);
+    voiceQuota().then(setQuota).catch(() => undefined);
+  });
 
   const figureAsked = withFigure ? figure : null;
   const briefOk = brief.trim().length > 0 && brief.length <= BRIEF_MAX;

@@ -23,6 +23,7 @@ import { priceBaht } from "@/lib/wallet/prices";
 import { walletPrices } from "@/lib/wallet/store";
 import { boardOf, type Board } from "@/lib/quote-video/board";
 import { paidLine } from "@/lib/quote-video/paid-line";
+import { clipStates } from "@/lib/quote-video/rows";
 import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
 import { bangkokClock, VOICE_FULL } from "@/lib/quote-video/voice-quota";
@@ -534,6 +535,33 @@ export async function myCost(): Promise<CostView | null> {
   });
 }
 
+/** how far a clip being made is: the board runs the bar on from here between its reads */
+function progressAt(v: Pick<VideoRow, "status" | "job" | "progress" | "created_at" | "input">, est: Awaited<ReturnType<typeof clipEstimates>>, now: number): ProgressState | null {
+  if (v.status !== "drawing" && v.status !== "rendering") return null;
+  const started = v.status === "rendering" ? Date.parse(v.job?.startedAt ?? "") : NaN;
+  return {
+    status: v.status, note: readNote(v.progress),
+    sinceStart: Math.max(0, (now - Date.parse(v.created_at)) / 1000),
+    sinceRender: Number.isFinite(started) ? Math.max(0, (now - started) / 1000) : null,
+    est: est[clipKind(v.input as { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown })],
+  };
+}
+
+/**
+ * The clips a board is waiting on, their state and bar alone (owner chose ก, 2026-10-19, mockup
+ * https://claude.ai/artifact/7HwmKFHWKpBXwWncZQU9Nj): what the board asks every few seconds in
+ * place of the whole list and its links, which it reads again once one of them ends.
+ */
+export async function clipsMaking(ids: string[]): Promise<{ id: string; status: VideoStatus; progress: ProgressState | null }[]> {
+  const viewer = await requireMember();
+  const wanted = (Array.isArray(ids) ? ids : []).filter((id) => typeof id === "string" && /^[0-9a-f-]{36}$/.test(id)).slice(0, 30);
+  if (!wanted.length) return [];
+  const list = await clipStates(viewer.agentId, wanted);
+  const est = list.some((v) => v.status === "drawing" || v.status === "rendering") ? await clipEstimates().catch(() => DEFAULT_ESTIMATES) : DEFAULT_ESTIMATES;
+  const now = Date.now();
+  return list.map((v) => ({ id: v.id, status: v.status, progress: progressAt(v, est, now) }));
+}
+
 /**
  * The agent's clips for one board: วิดีโอนำเสนอ's quotes and FHC summaries, or คลิปเล่าเรื่อง's
  * stories (owner, 2026-10-15), or คลิปตามโจทย์'s — each board lists its own.
@@ -547,17 +575,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
   const owner = can(viewer, "owner");
   const mayRedraw = mayPromptStory(viewer);
   const prices = !owner && list.some((v) => v.status === "done" && isPromptStory(v.input)) ? await walletPrices().catch(() => null) : null;
-  // how far a clip being made is: the board runs the bar on from here between its reads
-  const progressOf = (v: VideoRow): ProgressState | null => {
-    if (v.status !== "drawing" && v.status !== "rendering") return null;
-    const started = v.status === "rendering" ? Date.parse(v.job?.startedAt ?? "") : NaN;
-    return {
-      status: v.status, note: readNote(v.progress),
-      sinceStart: Math.max(0, (now - Date.parse(v.created_at)) / 1000),
-      sinceRender: Number.isFinite(started) ? Math.max(0, (now - started) / 1000) : null,
-      est: est[clipKind(v.input as { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown })],
-    };
-  };
+  const progressOf = (v: VideoRow) => progressAt(v, est, now);
   return Promise.all(list.map(async (v) => {
     const done = v.status === "done" && v.video_path;
     const links = async (file: string) => ({

@@ -7,7 +7,7 @@ import { calculatorName } from "@/lib/stats/calculators";
 import { readStats, whoAre } from "@/lib/stats/usage-read";
 import { passState } from "@/lib/members/pass";
 import { passRowsOf } from "@/lib/members/pass-store";
-import { VIDEO_BUCKET } from "@/lib/quote-video/make";
+import { VIDEO_BUCKET } from "@/lib/quote-video/rows";
 import { displayNames } from "@/lib/auth/viewer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { walletSummary } from "@/lib/wallet/store";
