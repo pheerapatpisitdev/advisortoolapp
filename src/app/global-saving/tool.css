@@ -9,6 +9,14 @@
   --gs-b5: var(--bot-navy-lift);
 }
 
+/* the index fact sheet's asset colours: equities in navy, government bonds in green, credit in violet */
+.gs-index {
+  --gs-eq2: #2a4f9a;
+  --gs-eq3: #6f8fd0;
+  --gs-bond2: #5f8c72;
+  --gs-credit: #5c4b8a;
+}
+
 .gs-tool :is(input, select) {
   background-color: var(--lg-raise);
   color: var(--lg-white);

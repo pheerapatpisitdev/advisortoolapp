@@ -8,11 +8,11 @@ import {
  * plain SVG on the page's tokens, so it needs no chart library and prints in the same ink.
  */
 
-/** each asset group in its own family of the app's colours: equities navy, government bonds green, credit violet, commodities sand */
+/** each asset group in its own family of the app's colours (the in-between shades in global-saving/tool.css): equities navy, government bonds green, credit violet, commodities sand */
 const GROUP_COLOURS: Record<string, string[]> = {
-  "หุ้น": ["var(--bot-navy)", "#2a4f9a", "#6f8fd0"],
-  "พันธบัตรรัฐบาล": ["var(--bot-ok)", "#5f8c72", "var(--bot-ok-line)"],
-  "ตราสารหนี้เอกชน": ["#5c4b8a"],
+  "หุ้น": ["var(--bot-navy)", "var(--gs-eq2)", "var(--gs-eq3)"],
+  "พันธบัตรรัฐบาล": ["var(--bot-ok)", "var(--gs-bond2)", "var(--bot-ok-line)"],
+  "ตราสารหนี้เอกชน": ["var(--gs-credit)"],
   "โภคภัณฑ์": ["var(--bot-sand-line)", "var(--bot-sand)"],
 };
 
@@ -34,7 +34,7 @@ export function IndexFactsheet() {
   const count = INDEX_ALLOCATION.reduce((s, g) => s + g.items.length, 0);
 
   return (
-    <section className="mt-10 space-y-5 border-t border-[var(--lg-hair)] pt-8" aria-labelledby="gs-index">
+    <section className="gs-index mt-10 space-y-5 border-t border-[var(--lg-hair)] pt-8" aria-labelledby="gs-index">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs tracking-wide text-[var(--lg-mute)]">ดัชนีอ้างอิงของแบบนี้ · หลายสินทรัพย์ ควบคุมความผันผวน</p>
