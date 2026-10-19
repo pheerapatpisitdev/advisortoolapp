@@ -16,7 +16,7 @@ import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
-import { fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
+import { cloudUsable, fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
 import { promptStoryCaption } from "@/lib/prompt-story/caption";
 import { isPromptStory, promptPicturePrice } from "@/lib/prompt-story/types";
 import { priceBaht } from "@/lib/wallet/prices";
@@ -275,6 +275,8 @@ export interface VoiceQuota { until: string | null; clock: string | null; fallba
  */
 export async function voiceQuota(): Promise<VoiceQuota | null> {
   await requireMember();
+  // the Gemini voice on Cloud has no day cap: nothing to warn about (owner, 2026-10-20)
+  if (await cloudUsable()) return null;
   const [until, on] = await Promise.all([
     voiceFullUntil().catch((e) => {
       console.error("voice quota not read:", e instanceof Error ? e.message : "unknown error");

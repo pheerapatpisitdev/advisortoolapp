@@ -1,5 +1,5 @@
 import { providerKey } from "@/lib/ai/client";
-import { speakLine, TtsError, type Narrator, type SpeechLang } from "@/lib/ai/tts";
+import { cloudVoiceKey, speakLine, TtsError, type Narrator, type SpeechLang } from "@/lib/ai/tts";
 import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS, type ElevenChoice } from "@/lib/voice/elevenlabs";
 
 /**
@@ -9,9 +9,14 @@ import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS, type Eleven
  */
 export const FALLBACK_VOICE = { F: "nealpwJT5tCyJFKDzEq8", M: "XLXcyPK1jTjw1pYLLcM9" } as const satisfies Record<Narrator, string>;
 
-/** Gemini's key is on in /admin/ai; the daily cap is a separate check (voiceFullUntil) */
+/** Gemini's voice can be asked: the API key on in /admin/ai, or the Cloud key; the API's daily cap is a separate check (voiceFullUntil) */
 export async function geminiUsable(): Promise<boolean> {
-  return Boolean(await providerKey("google").catch(() => null));
+  return Boolean(await providerKey("google").catch(() => null)) || (await cloudUsable());
+}
+
+/** the Gemini voice on Cloud can take every line (owner, 2026-10-20): it has no daily cap, so no clip need wait for 14:00 */
+export async function cloudUsable(): Promise<boolean> {
+  return Boolean(await cloudVoiceKey());
 }
 
 /** the fallback reader for this narrator, when ElevenLabs can take the clip: a key, and credits above the reserve */
@@ -29,7 +34,7 @@ export interface Spoken { pcm: Buffer; costThb: number }
 
 /**
  * Every line of a clip spoken. A clip that named an ElevenLabs voice is read by it; any other is
- * read by Gemini, and if that cannot be done a Thai clip is read again, whole, by the fallback
+ * read by Gemini (the API, then Cloud, line by line: speakGemini), and if that cannot be done a Thai clip is read again, whole, by the fallback
  * reader, so one clip never has two voices. Another language keeps Gemini's failure for now (the
  * Thai voices have not been heard on it). `fellBackTo` names the reader when the switch happened.
  */
