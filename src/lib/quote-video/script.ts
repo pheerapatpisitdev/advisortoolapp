@@ -176,6 +176,11 @@ export interface QuoteVideoFacts {
   plb?: PlbVideoFacts;
 }
 
+/**
+ * a phrase kept whole on one line: a word joiner between its words, where Chrome (Remotion) would
+ * otherwise break a Thai line; never between a letter and its marks, which would draw them apart
+ */
+export const KEEP_ONE_LINE = (...words: string[]) => words.join("\u2060");
 const digits = (s: string) => Number(s.replace(/[^\d]/g, ""));
 const SEX_WHO = { M: "คุณผู้ชาย", F: "คุณผู้หญิง" } as const;
 
@@ -348,7 +353,8 @@ function iShieldShape(f: QuoteVideoFacts, footNote: string | undefined, payYears
   const death = find(/เสียชีวิต/);
   const maturity = find(/ครบสัญญา/);
   const cover: CoverRow[] = [
-    ...(early ? [{ label: `ตรวจพบระยะเริ่มต้น (${ill.earlyCount} โรค) ต่อโรค`, amount: early.amount, mark: true }] : []),
+    // "ต่อโรค" kept on one line: Chrome (Remotion) would split it ต่อ / โรค (owner chose ก, 2026-10-19)
+    ...(early ? [{ label: `ตรวจพบระยะเริ่มต้น (${ill.earlyCount} โรค) ${KEEP_ONE_LINE("ต่อ", "โรค")}`, amount: early.amount, mark: true }] : []),
     ...(major ? [{ label: `ระยะรุนแรง (${ill.majorCount} โรค) รวมสูงสุด`, amount: major.amount, mark: true }] : []),
     ...(death ? [{ label: "เสียชีวิต", amount: death.amount, mark: true }] : []),
     ...(maturity ? [{ label: maturity.label, amount: maturity.amount, mark: true }] : []),

@@ -177,7 +177,7 @@ describe("iShield and iHealthy Ultra clips (owner, 2026-10-11)", () => {
     expect(f.lead).toMatchObject({ label: "รับเงินก้อนสูงสุดเมื่อตรวจพบโรคร้ายแรง", amount: "1,000,000", note: "คุ้มครอง 70 โรค · จ่ายตั้งแต่ระยะเริ่มต้น" });
     expect(f.breakEven).toMatchObject({ age: 60, cash: "676,000" });
     expect(f.pills).toEqual(["จ่ายเบี้ยแค่ 10 ปี", "เบี้ยเท่าเดิมทุกปี"]);
-    expect(f.cover.map((r) => r.label)).toEqual(["ตรวจพบระยะเริ่มต้น (20 โรค) ต่อโรค", "ระยะรุนแรง (50 โรค) รวมสูงสุด", "เสียชีวิต", "อยู่ครบสัญญาอายุ 85 ปี"]);
+    expect(f.cover.map((r) => r.label)).toEqual(["ตรวจพบระยะเริ่มต้น (20 โรค) ต่อ\u2060โรค", "ระยะรุนแรง (50 โรค) รวมสูงสุด", "เสียชีวิต", "อยู่ครบสัญญาอายุ 85 ปี"]);
     const lines = quoteVideoScript(f, "สมชาย").map((s) => s.voice);
     // the owner's corrected wording (2026-10-11): early stage first, the major stage "รวมสูงสุด", nothing stacked
     expect(lines[0]).toBe("สวัสดีค่ะ คุณสมชาย ขอเล่าแผนนี้ให้ฟังสั้นๆ นะคะ อายุ 35 ทำทุน 1 ล้าน คุ้มครองโรคร้ายแรง 70 โรค จ่ายเป็นเงินก้อนตั้งแต่ระยะเริ่มต้นเลยค่ะ");

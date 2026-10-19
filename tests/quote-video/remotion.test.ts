@@ -157,13 +157,17 @@ beforeEach(() => {
 });
 
 describe("remotionFits", () => {
-  it("takes a portrait Motion Graphic Life Protect or iHealthy clip only, as the trials measured", () => {
+  it("takes a portrait Motion Graphic Life Protect, iHealthy or iShield clip only, as the trials measured", () => {
     expect(remotionFits(lp())).toBe(true);
     expect(remotionFits(lp({ product: undefined } as Partial<VideoInput>))).toBe(true);
     expect(remotionFits(lp({ style: "classic" }))).toBe(false);
     expect(remotionFits(lp({ size: "square" }))).toBe(false);
     expect(remotionFits(lp({ size: "landscape" }))).toBe(false);
-    expect(remotionFits(lp({ product: "ISHIELD" } as Partial<VideoInput>))).toBe(false);
+    // iShield: the Remotion move's phase 1 (owner chose ก ก, 2026-10-19)
+    expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20" } as Partial<VideoInput>))).toBe(true);
+    expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20", style: "classic" } as Partial<VideoInput>))).toBe(false);
+    expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20", size: "square" } as Partial<VideoInput>))).toBe(false);
+    expect(remotionFits(lp({ product: "PLB" } as Partial<VideoInput>))).toBe(false);
     expect(remotionFits(ih())).toBe(true);
     expect(remotionFits(ih({ lang: "zh" } as Partial<VideoInput>))).toBe(true);
     expect(remotionFits(ih({ style: "classic" }))).toBe(false);
@@ -174,6 +178,7 @@ describe("remotionFits", () => {
     expect(remotionPlan(lp())).toBe("LIFEPROTECT");
     expect(remotionPlan(lp({ product: undefined } as Partial<VideoInput>))).toBe("LIFEPROTECT");
     expect(remotionPlan(ih())).toBe("IHEALTHY");
+    expect(remotionPlan(lp({ product: "ISHIELD", variant: "WLCI20" } as Partial<VideoInput>))).toBe("ISHIELD");
     expect(remotionPlan(ih({ size: "square" }))).toBeNull();
   });
 });
@@ -223,9 +228,18 @@ describe("createVideo, as the switch says", () => {
     for (const input of [ih({ size: "square" }), ih({ size: "landscape" }), ih({ style: "classic" })]) {
       expect(await engineOf(owner, input)).toBeUndefined();
     }
-    for (const input of [lp({ style: "classic" }), lp({ size: "square" }), lp({ product: "ISHIELD" } as Partial<VideoInput>)]) {
+    for (const input of [lp({ style: "classic" }), lp({ size: "square" }), lp({ product: "ISHIELD", variant: "WLCI20", size: "square" } as Partial<VideoInput>)]) {
       expect(await engineOf(owner, input)).toBeUndefined();
     }
+  });
+
+  it("iShield follows its own row (the Remotion move's phase 1)", async () => {
+    sw.who = "owner";
+    sw.asked.length = 0;
+    const is = lp({ product: "ISHIELD", variant: "WLCI20" } as Partial<VideoInput>);
+    expect(await engineOf(owner, is)).toBe("remotion");
+    expect(await engineOf(agent, is)).toBeUndefined();
+    expect(sw.asked).toEqual(["ISHIELD", "ISHIELD"]);
   });
 });
 

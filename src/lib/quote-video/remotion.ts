@@ -14,8 +14,9 @@ import type { Extra } from "./told";
  * Who gets it is the switch on /admin/ai (remotion-switch.ts), one row a plan. Life Protect in portrait,
  * as the trial measured it (mockup https://claude.ai/artifact/1ccgwYoiQsJoDtuA5irZVd), and iHealthy in
  * portrait in all five languages, the owner's first (owner chose 1ก 2ก, mockup
- * https://claude.ai/artifact/Bz9r68ApXPeuzosx1yC69a): the other plans and the square and landscape
- * shapes stay on the satori frames until each is tried.
+ * https://claude.ai/artifact/Bz9r68ApXPeuzosx1yC69a), and iShield in portrait, the Remotion move's phase 1
+ * (owner chose ก ก, 2026-10-19, mockup https://claude.ai/artifact/1tNeLnWfAsoHMrw9dw17gR): the other plans and
+ * the square and landscape shapes stay on the satori frames until each is tried.
  */
 
 /** who gets them: the switch on /admin/ai (remotion-switch.ts reads and saves it) */
@@ -25,15 +26,15 @@ export const REMOTION_FOR_LABEL: Record<RemotionFor, string> = { off: "เคร
 export const readRemotionFor = (v: unknown): RemotionFor => (REMOTION_FOR.includes(v as RemotionFor) ? (v as RemotionFor) : "off");
 
 /** the plans Remotion draws, each with its own row on the switch */
-export type RemotionPlan = "LIFEPROTECT" | "IHEALTHY";
-export const REMOTION_PLANS: RemotionPlan[] = ["LIFEPROTECT", "IHEALTHY"];
-export const REMOTION_PLAN_LABEL: Record<RemotionPlan, string> = { LIFEPROTECT: "Life Protect", IHEALTHY: "iHealthy" };
+export type RemotionPlan = "LIFEPROTECT" | "IHEALTHY" | "ISHIELD";
+export const REMOTION_PLANS: RemotionPlan[] = ["LIFEPROTECT", "IHEALTHY", "ISHIELD"];
+export const REMOTION_PLAN_LABEL: Record<RemotionPlan, string> = { LIFEPROTECT: "Life Protect", IHEALTHY: "iHealthy", ISHIELD: "iShield" };
 
 /**
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "2a6364638552";
+export const REMOTION_DRAWING = "60d944716e34";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -80,7 +81,7 @@ export const SCRIPT_RANGE = [
   "U+2E80-2FDF", "U+3000-303F", "U+3040-30FF", "U+3100-312F", "U+31C0-31EF", "U+3200-9FFF", "U+F900-FAFF", "U+FE30-FE4F", "U+FF00-FFEF", "U+20000-2FA1F", // CJK
 ].join(", ");
 
-/** the plan whose switch row a clip follows, when Remotion can draw it: a portrait Motion Graphic Life Protect or iHealthy clip */
+/** the plan whose switch row a clip follows, when Remotion can draw it: a portrait Motion Graphic Life Protect, iHealthy or iShield clip */
 export function remotionPlan(input: VideoInput): RemotionPlan | null {
   if (input.style !== "motion" || (input.size ?? "portrait") !== "portrait") return null;
   const product = input.product ?? "LIFEPROTECT";
