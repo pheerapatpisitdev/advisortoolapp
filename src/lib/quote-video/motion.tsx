@@ -6,6 +6,7 @@ import type { QuoteVideoFacts, SceneKey } from "./script";
 import { pensionBars } from "./pension";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
+import { gsMoney, rateLabel } from "./gsaving";
 import { countAt, H, LEAD, W, wordTimes } from "./timeline";
 import type { Extra } from "./told";
 import { preparedLine, wordsOf } from "./video-words";
@@ -62,6 +63,15 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       return s;
     }
     case "cover": {
+      if (f.coverStyle === "payback") {
+        // Global Savings: the small paybacks run out year by year, then the maturity rises, then what is certain in a card
+        const mat = Math.max(2.4, voiceSec * 0.3);
+        return {
+          kicker: a(0.2, "up"), sub: a(0.5, "fade"), ticks: a(0.8, "grow", 1.6), tickLabel: a(1.6, "fade"), ends: a(1.0, "fade"),
+          mat: a(mat, "grow"), matLabel: a(mat + 0.6, "pop"), card: a(Math.max(3.2, voiceSec * 0.55), "up"),
+          pen: a(Math.max(3.8, voiceSec * 0.72), "pop"), note: a(Math.max(4.2, voiceSec * 0.85), "fade"),
+        };
+      }
       if (f.coverStyle === "flat") {
         // Protection Life: the bar drawn out from the insured's age to the term's end, then the rule
         return { kicker: a(0.2, "up"), sub: a(0.5, "fade"), bar: a(0.8, "grow", 1.4), ends: a(1.6, "fade"), years: a(2.0, "pop"), rule: a(Math.max(2.6, voiceSec * 0.6), "up"), pen: a(Math.max(3.2, voiceSec * 0.8), "fade") };
@@ -125,6 +135,12 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
       s.note = a(Math.max(3.2, voiceSec * 0.85), "fade");
       return s;
     }
+    case "index":
+      // Global Savings: the return named, what comes back at it counted up, the seven bars grown, the picked one lit
+      return {
+        kicker: a(0.2, "up"), sub: a(0.5, "fade"), big: a(0.9, "pop"), count: a(0.9, "count"), bars: a(1.3, "grow", 1.4),
+        on: a(Math.max(2.4, voiceSec * 0.35), "pop"), pill: a(Math.max(3.2, voiceSec * 0.7), "pop"), note: a(Math.max(3.6, voiceSec * 0.8), "fade"),
+      };
     case "compare": {
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
       (f.compare ?? []).forEach((_, i) => { s[`col${i}`] = a(0.8 + i * 0.5, "pop"); });
@@ -308,7 +324,7 @@ function LegacyLead({ c, t }: { c: MotionContext; t: number }) {
 
 function Lead({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
-  if (f.legacy || f.plb) return <LegacyLead c={c} t={t} />;
+  if (f.legacy || f.plb || f.gsaving) return <LegacyLead c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shield = look(s.shield, t).p;
   const n = countAt(f.lead.baht, look(s.count, t).p);
@@ -628,6 +644,155 @@ function Terms({ c, t }: { c: MotionContext; t: number }) {
         </El>
       )}
       <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: after + (p.tax ? 220 : 110), justifyContent: "center", fontSize: 32, color: WHITE, opacity: 0.75 }}>ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน</El>
+    </>
+  );
+}
+
+/**
+ * Global Savings' guaranteed money (owner, 2026-10-20): the small yearly paybacks as a row of short
+ * bars, then the maturity rising far above them in gold. Shared by the portrait and the wide clips
+ * (`w`: the drawing's width; `big`: the type's scale).
+ */
+export function gsPayback(f: QuoteVideoFacts, s: Record<string, Anim>, t: number, w: number, big = 1) {
+  const g = f.gsaving;
+  if (!g) return null;
+  const h = Math.round(360 * big);
+  const matW = Math.round(w * 0.17);
+  const n = g.term - 1;
+  const step = (w - matW - Math.round(28 * big)) / n;
+  const tickW = Math.max(6, Math.round(step * 0.55));
+  const tickH = Math.round(h * 0.1);
+  const shown = Math.round(n * look(s.ticks, t).p);
+  const m = look(s.mat, t);
+  const matH = Math.round(h * 0.78);
+  return (
+    <div style={box({ flexDirection: "column", width: w })}>
+      <div style={box({ position: "relative", width: w, height: h })}>
+        {Array.from({ length: shown }, (_, i) => (
+          <div key={i} style={abs({ left: Math.round(i * step), top: h - tickH, width: tickW, height: tickH, background: SKY, borderRadius: "6px 6px 0 0" })} />
+        ))}
+        <El an={s.tickLabel} t={t} style={{ position: "absolute", left: 0, top: h - tickH - Math.round(66 * big), fontSize: Math.round(40 * big), color: WHITE }}>{`ปีละ ${gsMoney(g.payback)}`}</El>
+        {m.opacity ? (
+          <div style={abs({ left: w - matW, top: h - Math.max(4, Math.round(matH * m.p)), width: matW, height: Math.max(4, Math.round(matH * m.p)), background: GOLD, borderRadius: "12px 12px 0 0" })} />
+        ) : null}
+        <El an={s.matLabel} t={t} style={{ position: "absolute", right: 0, top: h - matH - Math.round(74 * big), fontSize: Math.round(54 * big), fontWeight: 700, color: GOLD }}>{gsMoney(g.maturity)}</El>
+        <div style={abs({ left: 0, top: h, width: w, height: 4, background: "rgba(255,255,255,0.55)" })} />
+      </div>
+      <El an={s.ends} t={t} style={{ width: w, marginTop: Math.round(18 * big), justifyContent: "space-between", fontSize: Math.round(38 * big), color: WHITE }}>
+        <div style={box({})}>ปีที่ 1</div>
+        <div style={box({})}>{`ปีที่ ${g.term - 1}`}</div>
+        <div style={box({ color: GOLD, fontWeight: 700 })}>{`ปีที่ ${g.term}`}</div>
+      </El>
+    </div>
+  );
+}
+
+/** the guaranteed money as a white card: the paybacks, the maturity, the two together */
+export function gsSureCard(f: QuoteVideoFacts, w: number, big = 1) {
+  return (
+    <div style={box({ flexDirection: "column", width: w, background: WHITE, color: NAVY, borderRadius: Math.round(30 * big), padding: `${Math.round(22 * big)}px ${Math.round(34 * big)}px` })}>
+      {f.cover.map((r, i) => (
+        <div key={r.label} style={box({ justifyContent: "space-between", alignItems: "center", width: "100%", marginTop: i ? Math.round(10 * big) : 0, fontSize: Math.round((r.mark || i === f.cover.length - 1 ? 40 : 36) * big), fontWeight: i === f.cover.length - 1 ? 700 : 400 })}>
+          <div style={box({ flexShrink: 1, marginRight: 20 })}>{r.label}</div>
+          <div style={box({ fontWeight: 700 })}>{r.amount}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Global Savings' fourth scene (owner, 2026-10-20): the seven index returns, −1% to +5%, as bars —
+ * the same guaranteed base under every one, the bonus on top, the return the agent picked in gold.
+ * Shared by the portrait and the wide clips.
+ */
+export function gsIndexBars(f: QuoteVideoFacts, s: Record<string, Anim>, t: number, w: number, h: number, big = 1) {
+  const g = f.gsaving;
+  if (!g) return null;
+  const grow = look(s.bars, t).p;
+  const on = look(s.on, t).p;
+  const top = Math.max(...g.bars.map((b) => b.total)) * 1.05;
+  const gap = Math.round(12 * big);
+  const bw = (w - gap * (g.bars.length - 1)) / g.bars.length;
+  const labelH = Math.round(58 * big);
+  const chartH = h - labelH;
+  return (
+    <div style={box({ flexDirection: "column", width: w })}>
+      <div style={box({ position: "relative", width: w, height: chartH })}>
+        {g.bars.map((b, i) => {
+          const baseH = Math.round((g.guaranteed / top) * chartH * grow);
+          const bonusH = Math.round(((b.total - g.guaranteed) / top) * chartH * grow);
+          const lit = b.on && on > 0;
+          return (
+            <div key={b.rate} style={abs({ left: Math.round(i * (bw + gap)), top: 0, width: Math.round(bw), height: chartH, flexDirection: "column", justifyContent: "flex-end" })}>
+              {bonusH > 1 ? <div style={box({ width: "100%", height: bonusH, background: lit ? GOLD : SKY, borderRadius: "10px 10px 0 0" })} /> : null}
+              <div style={box({ width: "100%", height: Math.max(2, baseH), background: "rgba(255,255,255,0.88)", ...(lit ? { boxShadow: `inset 0 0 0 ${Math.round(5 * big)}px ${GOLD}` } : {}), ...(bonusH > 1 ? {} : { borderRadius: "10px 10px 0 0" }) })} />
+            </div>
+          );
+        })}
+      </div>
+      <div style={box({ width: w, height: labelH, marginTop: Math.round(8 * big) })}>
+        {g.bars.map((b, i) => (
+          <div key={b.rate} style={box({ width: Math.round(bw), marginLeft: i ? gap : 0, justifyContent: "center", fontSize: Math.round((b.on ? 38 : 32) * big), fontWeight: b.on ? 700 : 400, color: b.on && on > 0 ? GOLD : WHITE, opacity: b.on ? 1 : 0.8 })}>{rateLabel(b.rate)}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** the fourth scene's words over the bars: the return, and what comes back at it */
+export function gsIndexHead(f: QuoteVideoFacts) {
+  const g = f.gsaving!;
+  const up = g.rate > 0;
+  return {
+    sub: `${up ? "ถ้าดัชนีโตเฉลี่ยปีละ" : "ถ้าดัชนีเฉลี่ยปีละ"} ${rateLabel(g.rate)}`,
+    label: up ? "รวมรับประมาณ" : "รวมรับ (การันตี)",
+    pill: up ? `โบนัส ${gsMoney(g.bonus10 + g.bonus15)} บาท ไม่การันตี` : `✓ ยังได้การันตี ${gsMoney(g.guaranteed)} เต็ม`,
+    up,
+  };
+}
+
+function CoverPayback({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!f.gsaving) return null;
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 700, color: WHITE }}>{f.coverTitle}</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 300, fontSize: 44, color: WHITE, opacity: 0.9 }}>ส่วนการันตี ได้แน่นอน</El>
+      <div style={abs({ left: SIDE, top: 430, width: W - SIDE * 2 })}>{gsPayback(f, s, t, W - SIDE * 2)}</div>
+      <El an={s.card} t={t} style={{ position: "absolute", left: SIDE, top: 930, width: W - SIDE * 2 }}>{gsSureCard(f, W - SIDE * 2)}</El>
+      <El an={s.pen} t={t} style={{ position: "absolute", left: 0, width: W, top: 1200, justifyContent: "center" }}>
+        <div style={box({ background: GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>✓ การันตี ได้แน่นอน</div>
+      </El>
+      {f.coverNote && <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 1300, justifyContent: "center", fontSize: 38, color: WHITE, opacity: 0.85 }}>{f.coverNote}</El>}
+    </>
+  );
+}
+
+function IndexScene({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const g = f.gsaving;
+  const s = motionSpec("index", f, c.voiceSec);
+  if (!g) return null;
+  const head = gsIndexHead(f);
+  const n = countAt(Math.round(g.total), look(s.count, t).p);
+  return (
+    <>
+      <Header f={f} title={f.planLine} />
+      <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 52, fontWeight: 700, color: WHITE }}>โบนัสตามดัชนีโลก</El>
+      <El an={s.sub} t={t} style={{ position: "absolute", left: SIDE, top: 285, fontSize: 48, color: WHITE }}>{head.sub}</El>
+      <El an={s.big} t={t} style={{ position: "absolute", left: SIDE, top: 380, alignItems: "baseline" }}>
+        <div style={box({ fontSize: 40, color: WHITE, opacity: 0.85, marginRight: 22 })}>{head.label}</div>
+        <div style={box({ fontSize: 104, fontWeight: 700, color: GOLD })}>{n.toLocaleString("en-US")}</div>
+        <div style={box({ fontSize: 44, color: WHITE, marginLeft: 16 })}>บาท</div>
+      </El>
+      <div style={abs({ left: SIDE, top: 560, width: W - SIDE * 2 })}>{gsIndexBars(f, s, t, W - SIDE * 2, 600)}</div>
+      <El an={s.pill} t={t} style={{ position: "absolute", left: 0, width: W, top: 1210, justifyContent: "center" }}>
+        <div style={box({ background: head.up ? RED : GREEN, color: WHITE, borderRadius: 40, padding: "8px 32px", fontSize: 42, fontWeight: 600 })}>{head.pill}</div>
+      </El>
+      <El an={s.note} t={t} style={{ position: "absolute", left: 0, width: W, top: 1310, justifyContent: "center", fontSize: 32, color: WHITE, opacity: 0.75 }}>ตัวอย่างเท่านั้น · ผลในอดีตไม่ยืนยันอนาคต</El>
     </>
   );
 }
@@ -1045,11 +1210,13 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
     lead: <Lead c={c} t={t} />,
     price: <Price c={c} t={t} />,
     cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
-      : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} /> : <CoverRows c={c} t={t} />,
+      : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} />
+      : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
     compare: <Compare c={c} t={t} />,
     critical: <Critical c={c} t={t} />,
     terms: <Terms c={c} t={t} />,
+    index: <IndexScene c={c} t={t} />,
     contact: c.loop ? <LoopEnd c={c} t={t} /> : <Contact c={c} t={t} />,
     story: <StoryScene c={c} t={t} />,
     qa: <QaScene c={c} t={t} />,

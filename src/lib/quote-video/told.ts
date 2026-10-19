@@ -65,6 +65,9 @@ export function extraOf(f: QuoteVideoFacts, told: Told): Extra {
     // Protection Life (owner, 2026-10-14): the whole term's money kept against what the family receives within it; the screen says it pays nothing at the end
     : f.product === "PLB" && f.plb
       ? { left: { label: `เก็บเงินเอง ${f.plb.years} ปี`, amount: f.plb.total, unit: "บาท" }, right: { label: `ครอบครัวได้ภายใน ${f.plb.years} ปี`, amount: f.lead.amount, unit: "บาท" }, note: "ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน" }
+    // Global Savings 15/8 (owner, 2026-10-20): what is saved against what comes back for certain; the bonus only as "ไม่การันตี"
+    : f.product === "GSAVING" && f.gsaving
+      ? { left: { label: `ออม ${f.gsaving.payYears} ปี รวม`, amount: f.totalPaid ?? "", unit: "บาท" }, right: { label: "รับคืนการันตี", amount: f.lead.amount, unit: "บาท" }, note: "+ คุ้มครองชีวิต + โบนัสดัชนี (ไม่การันตี)" }
       : {
         left: { label: f.payToEnd ? `เก็บเงินเองถึงอายุ ${f.lastPayAge}` : `เก็บเงินเอง ${f.payYears} ปี`, amount: f.totalPaid ?? "", unit: "บาท" },
         right: { label: f.product === "ISHIELD" ? "รับเงินก้อนสูงสุด" : "ครอบครัวได้เงินก้อน", amount: bahtSaid(f.lead.baht), unit: "บาท" },
@@ -98,6 +101,9 @@ export function extraVoice(key: Extract<SceneKey, "story" | "qa" | "versus" | "s
     case "versus": {
       if (f.product === "PENSION") {
         return `ระหว่างที่ยังทำงาน ยอดออมปีละ ${x.versus.left.amount} บาท นำไปลดหย่อนภาษีได้ตามเกณฑ์สรรพากร ยิ่งฐานภาษีสูง ยิ่งประหยัดได้มากค่ะ`;
+      }
+      if (f.product === "GSAVING" && f.gsaving) {
+        return `ออม ${f.gsaving.payYears} ปี รวม ${x.versus.left.amount} บาท แผนนี้รับคืนการันตี ${x.versus.right.amount} บาท ระหว่างนั้นยังคุ้มครองชีวิต และมีโอกาสได้โบนัสตามดัชนีโลกอีกค่ะ`;
       }
       if (f.product === "PLB" && f.plb) {
         return `ถ้าเก็บเงินเอง ${f.plb.years} ปี ก็มีเงิน ${f.plb.total} บาท แต่แผนนี้ ถ้าเป็นอะไรไปในช่วง ${f.plb.years} ปีนี้ ครอบครัวได้เงินก้อนถึง ${x.versus.right.amount} บาทค่ะ`;

@@ -34,6 +34,8 @@ export interface VideoStart {
   lang?: VideoLang;
   /** Life Protect: the riders its page priced in, written as its card links write them (owner, 2026-10-17, 1ก) */
   riders?: CardRiders;
+  /** Global Savings: the yearly premium, whole baht (owner, 2026-10-20) */
+  premium?: number;
 }
 
 export function videoStartHref(s: VideoStart): string {
@@ -47,12 +49,13 @@ export function videoStartHref(s: VideoStart): string {
   if (s.annuityAge !== undefined) q.set("start", String(s.annuityAge));
   if (s.pay) q.set("pay", s.pay);
   if (s.tier !== undefined) q.set("tier", String(s.tier));
+  if (s.premium !== undefined) q.set("premium", String(s.premium));
   if (s.lang && s.lang !== "th") q.set("lang", s.lang);
   if (s.product === "LIFEPROTECT") writeRiders(q, s.riders);
   return `${VIDEO_PAGE}?${q.toString()}`;
 }
 
-const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB"];
+const PRODUCTS: readonly Product[] = ["LIFEPROTECT", "ISHIELD", "IHEALTHY", "PENSION", "LEGACY", "PLB", "GSAVING"];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 /** Protection Life's terms and sums: only the /plb page's own are read from an address */
 const PLB_TERMS = ["PLB05", "PLB10", "PLB12", "PLB15"];
@@ -77,6 +80,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
   const start = Number(one(params.start));
   const pay = one(params.pay);
   const tier = Number(one(params.tier));
+  const premium = Number(one(params.premium));
   const setup = product === "IHEALTHY" ? cleanSetup(one(params.ihu)) : undefined;
   const lang = product === "IHEALTHY" ? readVideoLang(one(params.lang)) : "th";
   const plb = product === "PLB";
@@ -91,6 +95,7 @@ export function videoStartFrom(params: Record<string, string | string[] | undefi
     ...([55, 60, 65, 70].includes(start) ? { annuityAge: start } : {}),
     ...(pay === "6" || pay === "untilAnnuity" ? { pay } : {}),
     ...(Number.isInteger(tier) && tier >= 1 && tier <= 10 ? { tier } : {}),
+    ...(product === "GSAVING" && Number.isInteger(premium) && premium > 0 && premium <= 20_000_000 ? { premium } : {}),
     ...(setup ? { setup } : {}),
     ...(lang !== "th" ? { lang } : {}),
     ...(riders ? { riders } : {}),

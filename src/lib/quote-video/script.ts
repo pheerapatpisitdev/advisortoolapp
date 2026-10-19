@@ -10,6 +10,7 @@ import type { PensionPay } from "@/calc/pension/engine";
 import { pensionVideoFacts, roughBaht, type PensionVideoFacts } from "./pension";
 import { legacyVideoFacts, type LegacyVideoFacts } from "./legacy";
 import { plbVideoFacts, termsSaid, type PlbVariant, type PlbVideoFacts } from "./plb";
+import { gsavingVideoFacts, gsIndexLine, gsLeadLine, gsMoney, rateLabel, type GsVideoFacts } from "./gsaving";
 import type { SceneMotion, VideoSize } from "./timeline";
 import type { VideoBrief, WrittenLines } from "./brief";
 import { extraVoice, linesOf, loops, sceneOrder, type Told } from "./told";
@@ -29,17 +30,20 @@ import { foreignScript } from "./ihealthy-foreign";
  * บำนาญ สมาร์ท 95 is the fourth (owner, 2026-10-13; pension.ts): a monthly pension from an age.
  * มรดกเพื่อครอบครัว is the fifth (owner, 2026-10-14; legacy.ts): the /legacy bundle, a tier of 1–10 million.
  * Protection Life is the sixth (owner, 2026-10-14; plb.ts): the /plb term cover, 5–15 years.
+ * Global Savings 15/8 is the seventh (owner, 2026-10-20; gsaving.ts): the /global-saving index-linked savings plan.
  * iHealthy Ultra, มรดก and Protection Life keep "ค่าใช้จ่าย": none builds anything to save. The screen keeps the
  * cards' own words. Words in a line are separated by single spaces: the subtitles light up one
  * of those pieces at a time.
  */
 
-export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB";
+export type Product = "LIFEPROTECT" | "ISHIELD" | "IHEALTHY" | "PENSION" | "LEGACY" | "PLB" | "GSAVING";
 export type SceneKey = "lead" | "price" | "cover" | "value" | "compare" | "contact"
   /** มรดก's fourth scene, where the others have their value table: the critical-illness lump sum */
   | "critical"
   /** Protection Life's fourth scene, where the others have their value table: the four terms side by side */
   | "terms"
+  /** Global Savings' fourth scene: the seven index returns as bars, the picked one gold (gsaving.ts) */
+  | "index"
   /** the longer clips' own (told.ts, owner 2026-10-13): the customer's story, a comparison, two questions, how to start */
   | "story" | "versus" | "qa" | "steps";
 
@@ -56,6 +60,8 @@ export type VideoInput = (
   | { product: "LEGACY"; age: number; sex: "M" | "F"; tier: number }
   /** Protection Life: a term (paid and covered alike) and a sum from the /plb page's steps (plb.ts) */
   | { product: "PLB"; variant: PlbVariant; age: number; sex: "M" | "F"; sumAssured: number }
+  /** Global Savings 15/8: the yearly premium and the index's return, % a year, the clip's example is worked at (gsaving.ts) */
+  | { product: "GSAVING"; age: number; sex: "M" | "F"; premium: number; rate: number }
 ) & {
   /** who reads it (owner, 2026-10-11): a woman (Kore) unless a man is asked for */
   narrator?: "F" | "M";
@@ -134,8 +140,8 @@ export interface QuoteVideoFacts {
   priceNotes: string[];
   coverTitle: string;
   cover: CoverRow[];
-  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; มรดก its bands as a staircase; Protection Life one flat bar; the others list their rows */
-  coverStyle: "bars" | "rows" | "steps" | "bands" | "flat";
+  /** Life Protect draws its two death benefits as bars; บำนาญ 95 its pension's steps; มรดก its bands as a staircase; Protection Life one flat bar; Global Savings its paybacks on a timeline (the classic clip lists them); the others list their rows */
+  coverStyle: "bars" | "rows" | "steps" | "bands" | "flat" | "payback";
   coverPen?: string;
   coverNote?: string;
   coverToAge: number;
@@ -174,6 +180,8 @@ export interface QuoteVideoFacts {
   legacy?: LegacyVideoFacts;
   /** Protection Life: the term, the sum, the four terms side by side (plb.ts) */
   plb?: PlbVideoFacts;
+  /** Global Savings 15/8: the guarantee, the bonus at the picked return, the seven returns (gsaving.ts) */
+  gsaving?: GsVideoFacts;
 }
 
 /**
@@ -269,6 +277,7 @@ export function quoteVideoFacts(v: VideoInput, today: Date = new Date()): QuoteV
     : v.product === "PENSION" ? pensionVideoFacts(v)
     : v.product === "LEGACY" ? legacyVideoFacts(v, today)
     : v.product === "PLB" ? plbVideoFacts(v, today)
+    : v.product === "GSAVING" ? gsavingVideoFacts(v)
     : planFacts(v, today);
   if (!f || !v.budget) return f;
   // a clip begun from a budget says what the customer saves, in the instalment they named
@@ -594,6 +603,9 @@ function leadFact(f: QuoteVideoFacts, name: string): string {
   if (f.product === "PLB" && f.plb) {
     return `แผนนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ด้วยค่าใช้จ่าย")}${plbLeadLine(f.plb)}`;
   }
+  if (f.product === "GSAVING" && f.gsaving) {
+    return `แผนออมนี้ ${name ? "" : `${who} ปี `}${budgetLead(f, "ถ้าออม")}${gsLeadLine(f.gsaving)}`;
+  }
   if (f.product === "IHEALTHY") {
     return `แผน ${f.planName} ${name ? "" : `${who} `}${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ`;
   }
@@ -633,6 +645,13 @@ function shortScript(f: QuoteVideoFacts): SceneScript[] {
       { key: "contact", voice: ask },
     ];
   }
+  if (f.product === "GSAVING" && f.gsaving) {
+    return [
+      { key: "lead", voice: `${budgetLead(f, "ถ้าออม")}${gsLeadLine(f.gsaving)}` },
+      { key: "price", voice: `ออมแค่วันละ ${f.gsaving.perDay} บาท เพียง ${f.gsaving.payYears} ปี แถมลดหย่อนภาษีได้ค่ะ` },
+      { key: "contact", voice: ask },
+    ];
+  }
   if (f.product === "IHEALTHY") {
     return [
       { key: "lead", voice: `${budgetLead(f, "ด้วยงบ")}เหมาจ่ายค่ารักษาสูงสุดถึง ${spokenWithBaht(f.lead.baht)}ต่อปีค่ะ` },
@@ -667,6 +686,7 @@ function femaleScript(f: QuoteVideoFacts, customer?: string): SceneScript[] {
   if (f.product === "PENSION" && f.pension) return pensionScript(f, f.pension, hello, who, closing, Boolean(name));
   if (f.product === "LEGACY" && f.legacy) return legacyScript(f, f.legacy, hello, who, closing);
   if (f.product === "PLB" && f.plb) return plbScript(f, f.plb, hello, who, closing);
+  if (f.product === "GSAVING" && f.gsaving) return gsScript(f, f.gsaving, hello, who, closing);
 
   if (f.product === "IHEALTHY") {
     const others = (f.compare ?? []).filter((p) => !p.main);
@@ -825,6 +845,21 @@ function plbScript(f: QuoteVideoFacts, p: PlbVideoFacts, hello: string, who: str
   ];
 }
 
+/**
+ * Global Savings 15/8's five lines (owner, 2026-10-20, storyboard https://claude.ai/artifact/BKLRMPpKEaG81BdXBKCsv9):
+ * the guarantee, the level saving with its tax relief, the paybacks and the maturity (certain), and
+ * the index bonus at the return the agent picked — always "ประมาณ" and "ไม่การันตี" (gsaving.ts).
+ */
+function gsScript(f: QuoteVideoFacts, g: GsVideoFacts, hello: string, who: string, closing: string): SceneScript[] {
+  return [
+    { key: "lead", voice: `${hello} ขอเล่าแผนออมนี้ให้ฟังสั้นๆ นะคะ ${who} ปี ${budgetLead(f, "ถ้าออม")}${gsLeadLine(g)}` },
+    { key: "price", voice: `ออมแค่วันละ ${g.perDay} บาท หรือปีละ ${gsMoney(g.premium)} บาท ออมเพียง ${g.payYears} ปีก็ครบ ยอดออมเท่าเดิมทุกปี แล้วยังนำไปลดหย่อนภาษีได้ด้วยค่ะ` },
+    { key: "cover", voice: `ระหว่างทางรับเงินคืน 1% ของทุนทุกปี ครบ ${g.term} ปีรับอีก ${bahtSaid(Math.round(g.maturity))} รวมเงินการันตี ${bahtSaid(Math.round(g.guaranteed))} ได้แน่นอนค่ะ ระหว่างนี้ยังคุ้มครองชีวิตสูงสุด ${bahtSaid(Math.round(g.deathMax))}ด้วยค่ะ` },
+    { key: "index", voice: gsIndexLine(g) },
+    { key: "contact", voice: closing },
+  ];
+}
+
 /** How each scene of this clip moves (timeline.ts draws the frames from it). */
 export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
   switch (key) {
@@ -839,6 +874,8 @@ export function sceneMotion(f: QuoteVideoFacts, key: SceneKey): SceneMotion {
     case "critical": return { count: true, sweeps: 1 };
     // Protection Life's chosen term lit, then the total under the rows
     case "terms": return { sweeps: 2, spread: true };
+    // Global Savings: the picked return lit, then the total at it
+    case "index": return { sweeps: 2, spread: true };
     case "contact": return {};
     // one highlighter a point, a question, a step as the voice reaches it; the comparison counted up
     case "story": return { sweeps: 3, spread: true };
@@ -881,6 +918,18 @@ export function pageCaption(f: QuoteVideoFacts): string {
       `Protection Life คุ้มครองชีวิต ${p.sumShort} ถ้าเป็นอะไรไปภายใน ${p.years} ปี ครอบครัวได้ ${f.lead.amount} บาท`,
       `${who} ค่าใช้จ่ายตกวันละ ${p.perDay} บาท (ปีละ ${p.annual} บาท) เท่าเดิมทุกปี`,
       `คุ้มครองถึงอายุ ${p.endAge} · เลือกระยะได้ ${termsSaid(p.terms)} ปี${p.tax ? " · ลดหย่อนภาษีได้" : ""}`,
+      "",
+      ask,
+    ].join("\n");
+  }
+  if (f.product === "GSAVING" && f.gsaving) {
+    const g = f.gsaving;
+    return [
+      `Global Savings 15/8 ออม ${g.payYears} ปี รับเงินการันตีรวม ${f.lead.amount} บาท`,
+      `${who} ออมปีละ ${gsMoney(g.premium)} บาท (ตกวันละ ${g.perDay} บาท) ลดหย่อนภาษีได้`,
+      g.rate > 0
+        ? `ถ้าดัชนีโตเฉลี่ยปีละ ${rateLabel(g.rate)} รวมรับประมาณ ${gsMoney(g.total)} บาท (โบนัสดัชนีไม่การันตี)`
+        : `ดัชนีไม่โตก็ยังได้เงินการันตีเต็มจำนวน · โบนัสดัชนีไม่การันตี`,
       "",
       ask,
     ].join("\n");

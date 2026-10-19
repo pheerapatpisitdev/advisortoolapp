@@ -11,6 +11,7 @@ import { noteInWindow, type TableNote } from "./table-pen";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
+import { gsMoney, rateLabel } from "./gsaving";
 import { countAt, H, W, type OverlayState } from "./timeline";
 import { preparedLine, wordsOf } from "./video-words";
 
@@ -119,7 +120,7 @@ const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
 function Lead({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
-  if (f.legacy || f.plb) return <LegacyLead c={c} layer={layer} s={s} />;
+  if (f.legacy || f.plb || f.gsaving) return <LegacyLead c={c} layer={layer} s={s} />;
   const vw = wordsOf(f);
   return (
     <>
@@ -528,9 +529,70 @@ function TermsScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
   );
 }
 
+/**
+ * Global Savings' seven index returns as bars in the classic look (owner, 2026-10-20): the navy
+ * guaranteed base under every one, the bonus on top, the picked return's bonus in the highlighter's
+ * yellow. Shared by the portrait and the wide classic clips.
+ */
+export function classicIndexBars(f: QuoteVideoFacts, w: number, h: number, big = 1) {
+  const g = f.gsaving;
+  if (!g) return null;
+  const top = Math.max(...g.bars.map((b) => b.total)) * 1.05;
+  const gap = Math.round(12 * big);
+  const bw = (w - gap * (g.bars.length - 1)) / g.bars.length;
+  const labelH = Math.round(56 * big);
+  const chartH = h - labelH;
+  return (
+    <div style={box({ flexDirection: "column", width: w })}>
+      <div style={box({ position: "relative", width: w, height: chartH, borderBottom: `3px solid ${P.rule}` })}>
+        {g.bars.map((b, i) => {
+          const baseH = Math.round((g.guaranteed / top) * chartH);
+          const bonusH = Math.round(((b.total - g.guaranteed) / top) * chartH);
+          return (
+            <div key={b.rate} style={abs({ left: Math.round(i * (bw + gap)), top: 0, width: Math.round(bw), height: chartH, flexDirection: "column", justifyContent: "flex-end" })}>
+              {bonusH > 1 ? <div style={box({ width: "100%", height: bonusH, background: b.on ? P.highlighter : C.motionSky, borderRadius: "10px 10px 0 0", ...(b.on ? { border: `3px solid ${P.figure}` } : {}) })} /> : null}
+              <div style={box({ width: "100%", height: baseH, background: P.figure, ...(bonusH > 1 ? {} : { borderRadius: "10px 10px 0 0" }) })} />
+            </div>
+          );
+        })}
+      </div>
+      <div style={box({ width: w, height: labelH, marginTop: Math.round(8 * big) })}>
+        {g.bars.map((b, i) => (
+          <div key={b.rate} style={box({ width: Math.round(bw), marginLeft: i ? gap : 0, justifyContent: "center", fontSize: Math.round((b.on ? 38 : 32) * big), fontWeight: b.on ? 700 : 400, color: b.on ? P.figure : P.mute })}>{rateLabel(b.rate)}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Global Savings' fourth scene (owner, 2026-10-20): the picked return, what comes back at it, the seven returns as bars */
+function IndexScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
+  const f = c.facts;
+  const g = f.gsaving;
+  if (!g) return null;
+  const up = g.rate > 0;
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>โบนัสตามดัชนีโลก</On>
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 340 }}><Swept p={s.sweep[0] ?? 1} size={52}>{`${up ? "ถ้าดัชนีโตเฉลี่ยปีละ" : "ถ้าดัชนีเฉลี่ยปีละ"} ${rateLabel(g.rate)}`}</Swept></On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 450, alignItems: "baseline" }}>
+        <div style={box({ fontSize: 40, color: P.mute, marginRight: 20 })}>{up ? "รวมรับประมาณ" : "รวมรับ (การันตี)"}</div>
+        <div style={box({ fontSize: 100, fontWeight: 700, color: P.figure })}>{gsMoney(g.total)}</div>
+        <div style={box({ fontSize: 44, color: P.ink, marginLeft: 14 })}>บาท</div>
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 640 }}>{classicIndexBars(f, W - SIDE * 2, 520)}</On>
+      <On layer={layer} own="over" style={{ position: "absolute", left: SIDE, top: 1220 }}>
+        <Swept p={s.sweep[1] ?? 1} size={46}>{up ? `โบนัส ${gsMoney(g.bonus10 + g.bonus15)} บาท ไม่การันตี` : `ยังได้การันตี ${gsMoney(g.guaranteed)} บาทเต็ม`}</Swept>
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, justifyContent: "flex-end", top: 1320, fontSize: 48, color: up ? P.pen : BLUE_PEN, transform: "rotate(-2deg)" }}>{up ? "ตัวอย่างเท่านั้น" : "ได้แน่นอน ✓"}</On>
+    </>
+  );
+}
+
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
-  if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
+  // Global Savings' paybacks are listed in the classic clip: the timeline is the Motion clip's (owner, 2026-10-20)
+  if (c.facts.coverStyle === "rows" || c.facts.coverStyle === "payback") return <RowsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "bands") return <BandsCover c={c} layer={layer} s={s} />;
   const f = c.facts;
@@ -733,6 +795,7 @@ export function sceneLayer(key: SceneKey, c: DrawContext, layer: Layer, state: O
     compare: <Compare c={c} layer={layer} s={state} />,
     critical: <Critical c={c} layer={layer} s={state} />,
     terms: <TermsScene c={c} layer={layer} s={state} />,
+    index: <IndexScene c={c} layer={layer} s={state} />,
     price: <Price c={c} layer={layer} s={state} />,
     cover: <Cover c={c} layer={layer} s={state} />,
     value: <Value c={c} layer={layer} s={state} />,

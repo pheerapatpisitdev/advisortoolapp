@@ -64,7 +64,11 @@ const PRODUCTS: { code: Product; name: string; page: string }[] = [
   { code: "PENSION", name: "บำนาญ 95", page: "/bumnan95" },
   { code: "LEGACY", name: "มรดก", page: "/legacy" },
   { code: "PLB", name: "Protection Life", page: "/plb" },
+  { code: "GSAVING", name: "Global Savings 15/8", page: "/global-saving" },
 ];
+/** Global Savings' index returns the agent picks the clip's example at (owner, 2026-10-20): −1% to +5% */
+const GS_RATE_CHOICES = [-1, 0, 1, 2, 3, 4, 5];
+const gsRateWord = (r: number) => `${r > 0 ? "+" : r < 0 ? "−" : ""}${Math.abs(r)}%`;
 /** Protection Life's sums as its page's slider steps them (owner, 2026-10-14): "3 แสน", "1.5 ล้าน" */
 const plbSumWord = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000} ล้าน` : `${n / 100_000} แสน`);
 /** มรดก's sizes (owner, 2026-10-14): the bundle's ten tiers, a million each */
@@ -237,6 +241,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [sum, setSum] = useState((start?.sumAssured ?? 1_000_000).toLocaleString("en-US"));
   const [variant, setVariant] = useState(startVariant);
   const [customer, setCustomer] = useState("");
+  // Global Savings (owner, 2026-10-20): the yearly premium, and the index return the clip's example is worked at
+  const [gsPremium, setGsPremium] = useState((start?.premium ?? 50_000).toLocaleString("en-US"));
+  const [gsRate, setGsRate] = useState(3);
   // มรดก (owner, 2026-10-14): how many millions the family receives
   const [tier, setTier] = useState(start?.tier ?? 1);
   // บำนาญ 95 (owner, 2026-10-13): when the pension starts, how it is paid for, and how much a month
@@ -357,6 +364,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ? { product, sex, age: Number(age), tier, ...look }
       : product === "PLB"
         ? { product, variant: variant as PlbVariant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...look }
+      : product === "GSAVING"
+        // a budget works the premium out itself
+        ? { product, sex, age: Number(age), premium: Number(gsPremium.replace(/[^\d]/g, "")), rate: gsRate, ...look }
         : { product, variant, sex, age: Number(age), sumAssured: Number(sum.replace(/[^\d]/g, "")), ...(lpRiders ? { riders: lpRiders } : {}), ...look });
 
   function pickProduct(p: Product) {
@@ -702,7 +712,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               <div>
                 <span className={label}>เริ่มจาก</span>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : product === "PENSION" ? "บำนาญต่อเดือน" : product === "LEGACY" ? "ขนาดมรดก" : product === "PLB" ? "ทุน" : "ทุนประกัน"}</button>
+                  <button type="button" className={chip(source === "sum")} onClick={() => setSource("sum")}>{product === "IHEALTHY" ? "เลือกแผนเอง" : product === "PENSION" ? "บำนาญต่อเดือน" : product === "LEGACY" ? "ขนาดมรดก" : product === "PLB" ? "ทุน" : product === "GSAVING" ? "เบี้ยต่อปี" : "ทุนประกัน"}</button>
                   <button type="button" className={chip(source === "month")} onClick={() => setSource("month")}>{product === "LEGACY" || product === "PLB" ? "งบเดือน" : "งบต่อเดือน"}</button>
                   <button type="button" className={chip(source === "year")} onClick={() => setSource("year")}>{product === "LEGACY" || product === "PLB" ? "งบปี" : "งบต่อปี"}</button>
                 </div>
@@ -726,13 +736,20 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                       <input id="qv-budget" inputMode="numeric" className={field} value={budget} onChange={(e) => setBudget(money(e))} />
                       <p className="mt-1 text-xs text-[var(--ct-mute)]">{product === "IHEALTHY" ? "ระบบเลือกแผนที่วงเงินสูงสุดที่เบี้ยไม่เกินงบ" : product === "PENSION" ? "ระบบคิดทุนจากงบนี้ ด้วยเครื่องคิดเดียวกับหน้า บำนาญ 95"
                         : product === "LEGACY" ? "ระบบเลือกขนาดมรดกที่ใหญ่ที่สุดที่ค่าใช้จ่ายปีแรกไม่เกินงบ · รายเดือนขั้นต่ำ 1,000 บาท"
-                        : product === "PLB" ? "ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า Protection Life) ที่ค่าใช้จ่ายไม่เกินงบ ในระยะที่เลือก · รายเดือนขั้นต่ำ 1,000 บาท" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
+                        : product === "PLB" ? "ระบบเลือกทุนสูงสุด (ตามขั้นของหน้า Protection Life) ที่ค่าใช้จ่ายไม่เกินงบ ในระยะที่เลือก · รายเดือนขั้นต่ำ 1,000 บาท"
+                        : product === "GSAVING" ? "แบบนี้จ่ายรายปี งบต่อเดือนคิดเป็นเบี้ยปีละ 12 เท่า · ขั้นต่ำปีละ 20,000 บาท" : "ระบบเลือกทุนสูงสุด (ทีละ 50,000) ที่เบี้ยไม่เกินงบ"}</p>
                     </div>
                   ) : product === "PENSION" ? (
                     <div>
                       <label htmlFor="qv-monthly" className={label}>บำนาญที่อยากได้ต่อเดือน (บาท)</label>
                       <input id="qv-monthly" inputMode="numeric" className={field} value={monthly} onChange={(e) => { setMonthly(money(e)); setPensionSum(undefined); }} />
                       <p className="mt-1 text-xs text-[var(--ct-mute)]">ทุนประกัน 75,000 – 20 ล้านบาท</p>
+                    </div>
+                  ) : product === "GSAVING" ? (
+                    <div>
+                      <label htmlFor="qv-gs-premium" className={label}>เบี้ยต่อปี (บาท)</label>
+                      <input id="qv-gs-premium" inputMode="numeric" className={field} value={gsPremium} onChange={(e) => setGsPremium(money(e))} />
+                      <p className="mt-1 text-xs text-[var(--ct-mute)]">ขั้นต่ำ 20,000 · จ่าย 8 ปี ครบสัญญา 15 ปี · รับอายุ 0–75 ปี</p>
                     </div>
                   ) : product === "PLB" ? (
                     <div>
@@ -757,6 +774,15 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+              {product === "GSAVING" && (
+                <div>
+                  <span className={label}>ดัชนีต่อปี (ตัวอย่างในคลิป)</span>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="ดัชนีต่อปี">
+                    {GS_RATE_CHOICES.map((r) => <button key={r} type="button" aria-pressed={gsRate === r} className={chip(gsRate === r)} onClick={() => setGsRate(r)}>{gsRateWord(r)}</button>)}
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--ct-mute)]">ใช้กับโบนัสในฉากที่ 4 และเสียง · ส่วนการันตีเท่าเดิมทุกค่า · คลิปบอกว่า “ประมาณ” และ “ไม่การันตี” ทุกครั้ง</p>
                 </div>
               )}
               {product === "LIFEPROTECT" && source === "sum" && (riders ? (

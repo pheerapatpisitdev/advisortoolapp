@@ -6,6 +6,8 @@ import { SiteCredit } from "@/components/sales/SiteCredit";
 import { boxIn, GsPens, textIn } from "@/components/global-saving/GsPens";
 import { barPens, tablePens } from "@/lib/global-saving-pens";
 import { BLUE_PEN } from "@/lib/card-theme";
+import { VideoButton } from "@/components/sales/VideoButton";
+import { videoStartHref } from "@/lib/quote-video/link";
 import {
   GS_AGE_MAX, GS_AGE_MIN, GS_CODE, GS_MAX_PREMIUM, GS_MIN_PREMIUM, GS_PREM_YEARS, GS_TAX_CAP, GS_TERM,
   quoteGlobalSaving, type GsBasis,
@@ -121,6 +123,11 @@ export function GlobalSavingCalculator() {
             {q?.warnings.map((w) => (
               <div key={w} role="alert" className="rounded-md bg-[var(--bot-red-soft)] px-3 py-2 text-sm text-[var(--bot-red-ink)]">{w}</div>
             ))}
+            {/* วิดีโอนำเสนอ from this quote (owner, 2026-10-20): signed-in agents only; the index return is picked in Studio */}
+            {q ? (
+              <VideoButton href={videoStartHref({ product: "GSAVING", age, premium: Math.ceil(q.premium) })}
+                           className="flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--lg-gold)] px-4 text-sm font-medium text-[var(--lg-gold)]" />
+            ) : null}
             <div className="space-y-0.5 border-t border-[var(--lg-hair)] pt-3 text-xs leading-relaxed text-[var(--lg-mute)]">
               <div>รหัสแบบ {GS_CODE} · กรุงไทย-แอกซา</div>
               <div>เงินคืน 1% ของทุนทุกปี · ครบสัญญา 801% ของทุน</div>

@@ -120,7 +120,10 @@ function prompt(b: PostBasis, tone: PostTone, voice: PostVoice, fix?: string): s
   const end = voice === "F" ? "ค่ะ หรือ คะ (คำถาม)" : "ครับ";
   const words = b.product === "LEGACY" || b.product === "PLB"
     ? "- แบบนี้ไม่มีเงินคืน ห้ามใช้คำว่า ออม เงินคืน ใช้ \"ค่าใช้จ่าย\" แทน"
-    : "";
+    : b.product === "GSAVING"
+      // Global Savings (owner, 2026-10-20): the index bonus is never promised
+      ? "- โบนัสตามดัชนีไม่แน่นอน ห้ามบอกตัวเลขโบนัส ห้ามพูดว่าโบนัสได้แน่นอน"
+      : "";
   const what = b.kind === "post"
     ? [
       `เขียนข้อความโพสต์ Facebook ที่ตัวแทนประกันจะโพสต์คู่กับคลิปนี้ ${thai ? "เป็นภาษาไทย" : `เป็นภาษา ${b.lang} ทั้งหมด`}`,

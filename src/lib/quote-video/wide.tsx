@@ -4,7 +4,7 @@ import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
-import { abs, box, chartPaths, easeBack, El, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
+import { abs, box, chartPaths, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
 import { leadBig, leadPill } from "./plb";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { countAt, SIZES, type VideoSize } from "./timeline";
@@ -271,6 +271,69 @@ function CoverFlat({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   );
 }
 
+/** Global Savings' paybacks (motion.tsx gsPayback): the timeline, and what is certain in a card beside it (landscape) or under it */
+function CoverPayback({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  if (!f.gsaving) return null;
+  const full = g.w - g.side * 2;
+  const lineW = g.wide ? 1000 : full;
+  const big = g.px(0.62, 0.9);
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={f.coverTitle} />
+      <Body g={g} style={{ flexDirection: g.wide ? "row" : "column", alignItems: g.wide ? "center" : "flex-start" }}>
+        {gsPayback(f, s, t, lineW, big)}
+        <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 60, flex: 1 } : { marginTop: 26, width: full }) })}>
+          <El an={s.card} t={t} style={{}}>{gsSureCard(f, g.wide ? full - lineW - 60 : full, g.px(0.66, 0.7))}</El>
+          <El an={s.pen} t={t} style={{ alignSelf: "flex-start", marginTop: g.px(14, 24), background: GREEN, color: WHITE, borderRadius: 40, padding: "6px 26px", fontSize: g.px(28, 36), fontWeight: 600 }}>✓ การันตี ได้แน่นอน</El>
+        </div>
+      </Body>
+    </>
+  );
+}
+
+/** Global Savings' index returns (motion.tsx gsIndexBars): the bars, and the return and what comes back at it beside (landscape) or above them */
+function IndexScene({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const gs = f.gsaving;
+  const s = motionSpec("index", f, c.voiceSec);
+  if (!gs) return null;
+  const head = gsIndexHead(f);
+  const n = countAt(Math.round(gs.total), look(s.count, t).p);
+  const full = g.w - g.side * 2;
+  const barsW = g.wide ? 1000 : full;
+  const words = (
+    <div style={box({ flexDirection: "column", ...(g.wide ? { marginLeft: 70, flex: 1 } : { marginBottom: 18 }) })}>
+      <El an={s.sub} t={t} style={{ fontSize: g.px(34, 44), color: WHITE }}>{head.sub}</El>
+      <El an={s.big} t={t} style={{ alignItems: "baseline", marginTop: g.px(4, 14) }}>
+        <div style={box({ fontSize: g.px(28, 34), color: WHITE, opacity: 0.85, marginRight: 16 })}>{head.label}</div>
+        <div style={box({ fontSize: g.px(64, 86), fontWeight: 700, color: GOLD })}>{n.toLocaleString("en-US")}</div>
+      </El>
+      {g.wide && (
+        <>
+          <El an={s.pill} t={t} style={{ alignSelf: "flex-start", marginTop: 30, background: head.up ? RED : GREEN, color: WHITE, borderRadius: 40, padding: "8px 28px", fontSize: 36, fontWeight: 600 }}>{head.pill}</El>
+          <El an={s.note} t={t} style={{ marginTop: 20, fontSize: 28, color: WHITE, opacity: 0.75 }}>ตัวอย่างเท่านั้น · ผลในอดีตไม่ยืนยันอนาคต</El>
+        </>
+      )}
+    </div>
+  );
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text="โบนัสตามดัชนีโลก" />
+      <Body g={g} style={{ flexDirection: g.wide ? "row-reverse" : "column", alignItems: g.wide ? "center" : "flex-start", justifyContent: g.wide ? "flex-end" : "flex-start" }}>
+        {words}
+        {gsIndexBars(f, s, t, barsW, g.px(360, 560), g.px(0.72, 0.9))}
+        {!g.wide && (
+          <El an={s.pill} t={t} style={{ alignSelf: "flex-start", marginTop: 16, background: head.up ? RED : GREEN, color: WHITE, borderRadius: 40, padding: "6px 24px", fontSize: 30, fontWeight: 600 }}>{head.pill}</El>
+        )}
+      </Body>
+    </>
+  );
+}
+
 /** Protection Life's terms (motion.tsx plbTermCards): the cards on the left, the total and the tax on the right of a landscape frame */
 function Terms({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
@@ -339,7 +402,7 @@ function Critical({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
 
 function Lead({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
-  if (f.legacy || f.plb) return <LegacyLead g={g} c={c} t={t} />;
+  if (f.legacy || f.plb || f.gsaving) return <LegacyLead g={g} c={c} t={t} />;
   const s = motionSpec("lead", f, c.voiceSec);
   const shieldW = g.px(330, 500);
   const shieldH = Math.round(shieldW * 1.075);
@@ -755,11 +818,13 @@ export function wideQuoteFrame(key: SceneKey, c: WideQuoteContext, t: number, si
     lead: <Lead g={g} c={c} t={t} />,
     price: <Price g={g} c={c} t={t} />,
     cover: c.facts.coverStyle === "bars" ? <CoverBars g={g} c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps g={g} c={c} t={t} />
-      : c.facts.coverStyle === "bands" ? <CoverBands g={g} c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
+      : c.facts.coverStyle === "bands" ? <CoverBands g={g} c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat g={g} c={c} t={t} />
+      : c.facts.coverStyle === "payback" ? <CoverPayback g={g} c={c} t={t} /> : <CoverRows g={g} c={c} t={t} />,
     value: c.facts.pension ? <PensionValue g={g} c={c} t={t} /> : <Value g={g} c={c} t={t} />,
     compare: <Compare g={g} c={c} t={t} />,
     critical: <Critical g={g} c={c} t={t} />,
     terms: <Terms g={g} c={c} t={t} />,
+    index: <IndexScene g={g} c={c} t={t} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} t={Math.max(t, 4)} /> : (
       <ContactScene g={g} s={motionSpec("contact", c.facts, c.voiceSec)} t={t} title={wordsOf(c.facts).contactMore} header={c.facts.insuredWho}

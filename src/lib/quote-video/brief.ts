@@ -68,6 +68,11 @@ export const STORIES: StoryAngle[] = [
   { key: "plbburden", product: "PLB", name: "คุ้มครองช่วงที่ภาระยังอยู่", about: "ภาระที่ยังผ่อนอยู่ในช่วงนี้ เช่น บ้าน รถ หนี้ ลูกที่ยังเรียน เลือกระยะคุ้มครอง 5 ถึง 15 ปีให้ตรงกับภาระ" },
   { key: "plblight", product: "PLB", name: "ค่าใช้จ่ายเบา เท่าเดิมทุกปี", about: "ค่าใช้จ่ายตกวันละไม่กี่บาท เท่าเดิมทุกปีตลอดสัญญา แลกกับเงินก้อนให้ครอบครัว" },
   { key: "plbtax", product: "PLB", name: "ลดหย่อนภาษีได้", about: "ค่าใช้จ่ายนำไปลดหย่อนภาษีได้ตามเกณฑ์สรรพากร", when: (f) => Boolean(f.plb?.tax) },
+  // Global Savings 15/8 (owner, 2026-10-20): a savings plan — the money back is certain, the index bonus never is
+  { key: "gssure", product: "GSAVING", name: "เงินคืนแน่นอน", about: "ออมสั้นแค่ 8 ปี ได้เงินคืนทุกปี และเงินก้อนตอนครบสัญญา ส่วนนี้ได้แน่นอน" },
+  { key: "gsbonus", product: "GSAVING", name: "โบนัสตามดัชนีโลก", about: "มีโบนัสตามดัชนีโลกเพิ่มจากเงินคืน จ่ายสิ้นปีที่ 10 และตอนครบสัญญา โบนัสส่วนนี้ไม่แน่นอน" },
+  { key: "gstax", product: "GSAVING", name: "ลดหย่อนภาษี", about: "ระหว่างที่ออม ยอดออมนำไปลดหย่อนภาษีได้ตามเกณฑ์สรรพากร" },
+  { key: "gsshort", product: "GSAVING", name: "ออมสั้น ครบเร็ว", about: "ออมแค่ 8 ปี ครบสัญญา 15 ปี ระหว่างนั้นยังคุ้มครองชีวิตด้วย" },
 ];
 
 export const storiesFor = (f: QuoteVideoFacts): StoryAngle[] => STORIES.filter((s) => s.product === f.product && (!s.when || s.when(f)));
@@ -156,6 +161,10 @@ export function allowedNumbers(f: QuoteVideoFacts, note = ""): Set<number> {
     if (p.sum < 1_000_000 && p.sum % 100_000 === 0) add(p.sum / 100_000);
     for (const r of p.terms) { add(r.years); add(r.endAge); add(r.annual); }
   }
+  if (f.gsaving) {
+    const g = f.gsaving;
+    for (const n of [g.premium, g.perDay, g.payYears, g.term, g.paid, g.payback, g.maturity, g.guaranteed, g.deathMax, g.taxYearly, g.total, g.bonus10, g.bonus15, 10]) add(typeof n === "number" ? Math.round(n) : n);
+  }
   if (f.pension) {
     const p = f.pension;
     add(p.start); add(p.monthly); add(p.guaranteeTo); add(p.sumAssured);
@@ -212,6 +221,8 @@ export function lineProblem(text: string, f: QuoteVideoFacts, max: number, note 
     if (/รอคอย|ระยะรอ|ตั้งแต่วันนี้|ตั้งแต่วันแรก|คุ้มครองเลย/.test(t)) return "พูดถึงระยะรอคอย หรือสัญญาว่าคุ้มครองตั้งแต่วันแรก";
     if (!f.plb?.tax && /ภาษี/.test(t)) return "ระยะ 5 ปี ไม่พูดเรื่องลดหย่อนภาษี";
   }
+  // Global Savings: the index bonus is never promised (owner, 2026-10-20)
+  if (f.product === "GSAVING" && /โบนัส[^\n]{0,20}?(?<!ไม่)(แน่นอน|ได้แน่|ชัวร์)/.test(t)) return "สัญญาว่าโบนัสได้แน่นอน";
   const allowed = allowedNumbers(f, note);
   const stray = numbersIn(t).find((n, i, all) => !allowed.has(n) && !(i > 0 && all[i - 1] === n * 1_000_000));
   if (stray !== undefined) return `มีตัวเลข ${stray.toLocaleString("en-US")} ที่ไม่อยู่ในใบเสนอ`;
@@ -294,6 +305,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: "เกษียณแล้ว อยากมีเงินเข้าบัญชีทุกเดือนไหมคะ",
       LEGACY: "ถ้าพรุ่งนี้คุณไม่อยู่ ครอบครัวจะมีเงินก้อนดูแลต่อไหมคะ",
       PLB: "ถ้าพรุ่งนี้คุณไม่อยู่ ภาระที่ยังผ่อนอยู่ ใครจะจ่ายต่อคะ",
+      GSAVING: "เงินเก็บของคุณ ตอนนี้งอกเงยบ้างไหมคะ",
     },
     shock: {
       LIFEPROTECT: perDay ? `วันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
@@ -302,6 +314,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: `ออมวันนี้ แล้วรับเดือนละ ${f.pension?.monthly ?? ""} บาท ไปจนถึงอายุ 95`,
       LEGACY: perDay ? `ค่าใช้จ่ายปีแรกวันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
       PLB: perDay ? `ค่าใช้จ่ายวันละ ${perDay} บาท แลกเป็นเงินก้อนให้ครอบครัวได้ถึง ${lead}` : `เงินก้อนให้ครอบครัวได้ถึง ${lead}`,
+      GSAVING: perDay ? `ออมวันละ ${perDay} บาท แค่ 8 ปี รับคืนรวม ${lead}` : `ออมแค่ 8 ปี รับคืนรวม ${lead}`,
     },
     myth: {
       LIFEPROTECT: "หลายคนคิดว่าประกันชีวิตคือเงินที่จ่ายทิ้ง แต่แผนนี้ เงินที่ออมไว้ไม่หายไปไหนค่ะ",
@@ -310,6 +323,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: "หลายคนคิดว่าเกษียณแล้วจะมีเงินพอใช้ แต่ไม่มีใครจ่ายเงินเดือนให้เราอีกแล้วค่ะ",
       LEGACY: "หลายคนคิดว่าประกันชีวิตดูแลแค่ครอบครัว แต่แผนนี้ ป่วยหนักก็ได้เงินก้อนไว้รักษาตัวเองค่ะ",
       PLB: perDay ? `หลายคนคิดว่าประกันชีวิตต้องแพง แต่แผนนี้ ค่าใช้จ่ายแค่วันละ ${perDay} บาทค่ะ` : "หลายคนคิดว่าประกันชีวิตต้องแพง แต่แผนนี้ ค่าใช้จ่ายเบาและเท่าเดิมทุกปีค่ะ",
+      GSAVING: "หลายคนคิดว่าประกันออมทรัพย์ต้องออมนาน แต่แผนนี้ออมแค่ 8 ปีก็ครบค่ะ",
     },
     story: {
       LIFEPROTECT: `ลองนึกภาพนะคะ ${aud?.scene ?? "คนที่คุณรักต้องใช้ชีวิตต่อ"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
@@ -318,6 +332,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: `ลองนึกภาพนะคะ ${aud?.scene ?? "วันที่เลิกทำงาน"} แต่ค่าใช้จ่ายยังมีทุกเดือน`,
       LEGACY: `ลองนึกภาพนะคะ ${aud?.scene ?? "คนที่คุณรักต้องใช้ชีวิตต่อ"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
       PLB: `ลองนึกภาพนะคะ ${aud?.scene ?? "บ้านยังผ่อน ลูกยังเรียน"} ถ้าวันหนึ่งคุณไม่อยู่ ใครจะดูแลต่อ`,
+      GSAVING: `ลองนึกภาพนะคะ ${aud?.scene ?? "อีก 15 ปีข้างหน้า"} มีเงินก้อนรออยู่ จากการออมแค่ 8 ปี`,
     },
     list: {
       LIFEPROTECT: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ${f.payToEnd ? (f.riders?.rises ? "เบี้ยสัญญาหลักเท่าเดิมตลอด" : "ยอดออมเท่าเดิมตลอด") : `ออมแค่ ${f.payYears} ปี`} สอง เงินก้อนให้ครอบครัว ${lead} สาม เงินที่ออมไม่หายไปไหน`,
@@ -326,6 +341,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง รับบำนาญทุกเดือนถึงอายุ 95 สอง นำไปลดหย่อนภาษีได้ สาม 15 ปีแรกรับประกันจ่าย",
       LEGACY: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง เงินก้อนให้ครอบครัว ${lead} สอง ป่วยหนักได้เงินก้อนรักษาตัว สาม ประกันชีวิตยังอยู่ต่อ`,
       PLB: `แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง เงินก้อนให้ครอบครัว ${lead} สอง ค่าใช้จ่ายเท่าเดิมทุกปี สาม เลือกระยะได้ตามภาระ`,
+      GSAVING: "แผนนี้มี 3 อย่างที่คนชอบค่ะ หนึ่ง ออมแค่ 8 ปี สอง ได้เงินคืนทุกปี สาม มีโบนัสตามดัชนีโลก",
     },
   };
   const heads: Record<typeof kind, Record<Product, string[]>> = {
@@ -336,6 +352,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: ["เกษียณแล้ว", "อยากมีเงินเดือนไหม?"],
       LEGACY: ["ถ้าพรุ่งนี้คุณไม่อยู่", "ครอบครัวมีเงินก้อนไหม?"],
       PLB: ["ถ้าพรุ่งนี้คุณไม่อยู่", "ภาระใครจ่ายต่อ?"],
+      GSAVING: ["เงินเก็บของคุณ", "งอกเงยบ้างไหม?"],
     },
     shock: {
       LIFEPROTECT: perDay ? [`วันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
@@ -344,6 +361,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: [`รับเดือนละ ${f.pension?.monthly ?? ""} บาท`, "ไปจนถึงอายุ 95"],
       LEGACY: perDay ? [`ปีแรกวันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
       PLB: perDay ? [`วันละ ${perDay} บาท`, `แลกเงินก้อน ${lead}`] : [`เงินก้อน ${lead}`],
+      GSAVING: [perDay ? `ออมวันละ ${perDay} บาท` : "ออมแค่ 8 ปี", `รับคืนรวม ${lead}`],
     },
     myth: {
       LIFEPROTECT: ["ประกันชีวิต", "คือเงินจ่ายทิ้ง จริงไหม?"],
@@ -352,6 +370,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: ["เกษียณแล้ว", "เงินพอใช้จริงไหม?"],
       LEGACY: ["ประกันชีวิต", "ดูแลแค่ครอบครัว จริงไหม?"],
       PLB: ["ประกันชีวิต", "ต้องแพง จริงไหม?"],
+      GSAVING: ["ประกันออมทรัพย์", "ต้องออมนาน จริงไหม?"],
     },
     story: {
       LIFEPROTECT: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
@@ -360,6 +379,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: ["วันที่เลิกทำงาน", "เงินเดือนมาจากไหน?"],
       LEGACY: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
       PLB: ["ถ้าวันหนึ่งคุณไม่อยู่", "ใครจะดูแลต่อ?"],
+      GSAVING: ["อีก 15 ปีข้างหน้า", "มีเงินก้อนรอไหม?"],
     },
     list: {
       LIFEPROTECT: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
@@ -368,6 +388,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
       PENSION: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       LEGACY: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
       PLB: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
+      GSAVING: ["3 อย่างที่คนชอบ", "ในแผนนี้"],
     },
   };
   const loops: Record<typeof kind, string> = {
@@ -384,6 +405,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     PENSION: "ยินดีช่วยวางแผนเกษียณให้ค่ะ",
     LEGACY: "ยินดีช่วยดูแผนมรดกให้ครอบครัวของคุณค่ะ",
     PLB: "ยินดีช่วยเลือกระยะคุ้มครองให้พอดีกับภาระค่ะ",
+    GSAVING: "ยินดีช่วยวางแผนออมให้ค่ะ",
   };
   const tails: Record<Product, string> = {
     LIFEPROTECT: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรักแทนคุณค่ะ",
@@ -392,6 +414,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     PENSION: "แผนนี้คือเงินเดือนที่คุณจ่ายให้ตัวเองไว้ใช้หลังเกษียณค่ะ",
     LEGACY: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรัก และดูแลตัวคุณเองตอนป่วยหนักค่ะ",
     PLB: "แผนนี้คือเงินก้อนที่ดูแลคนที่คุณรัก ในช่วงที่ภาระยังอยู่ค่ะ",
+    GSAVING: "แผนนี้คือเงินออมที่ได้คืนแน่นอน และมีโอกาสโตตามดัชนีโลกค่ะ",
   };
   const points: Record<Product, string[]> = {
     LIFEPROTECT: ["ภาระยังอยู่", "คนที่รักยังต้องใช้เงิน", "เงินก้อนดูแลแทนคุณ"],
@@ -400,6 +423,7 @@ export function fallbackLines(f: QuoteVideoFacts, b: VideoBrief, seed = 0): Writ
     PENSION: ["รายได้ประจำหายไป", "ค่าใช้จ่ายยังมีทุกเดือน", "บำนาญจ่ายแทนเงินเดือน"],
     LEGACY: ["ภาระยังอยู่", "ป่วยหนักต้องใช้เงินก้อน", "มรดกดูแลทั้งสองทาง"],
     PLB: ["ภาระยังผ่อนอยู่", "คนที่รักยังต้องใช้เงิน", "เงินก้อนดูแลแทนคุณ"],
+    GSAVING: ["ออมสั้นแค่ 8 ปี", "เงินคืนทุกปี", "โบนัสตามดัชนีโลก"],
   };
   return {
     kind,

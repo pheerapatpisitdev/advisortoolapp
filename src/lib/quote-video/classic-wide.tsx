@@ -2,7 +2,8 @@ import type { CSSProperties, ReactNode } from "react";
 import { Chart } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
-import { abs, box, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
+import { abs, box, classicIndexBars, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
+import { gsMoney, rateLabel } from "./gsaving";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
@@ -102,7 +103,7 @@ function Right({ g, from, children, style }: { g: Geo; from: number; children: R
 function Lead({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
   const from = g.photo.x + g.photo.w + g.px(36, 60);
-  if (f.legacy || f.plb) return <LegacyLead g={g} c={c} layer={layer} s={s} from={from} />;
+  if (f.legacy || f.plb || f.gsaving) return <LegacyLead g={g} c={c} layer={layer} s={s} from={from} />;
   const vw = wordsOf(f);
   return (
     <Right g={g} from={from} style={{ top: g.photo.y, justifyContent: "center", height: g.photo.h }}>
@@ -193,6 +194,37 @@ function Terms({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: Ov
           <On layer={layer} own="base" style={{ fontSize: g.px(24, 28), color: P.mute }}>ความคุ้มครองล้วน ครบสัญญาไม่มีเงินคืน</On>
         </div>
       </div>
+    </>
+  );
+}
+
+/** Global Savings' index returns (draw.tsx IndexScene), in a square or landscape frame: the bars, and the return and its total beside or above them */
+function IndexScene({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
+  const f = c.facts;
+  const gs = f.gsaving;
+  if (!gs) return null;
+  const up = gs.rate > 0;
+  const full = g.w - g.side * 2;
+  const barsW = g.wide ? 980 : full;
+  const wordsX = g.wide ? g.side + barsW + 60 : g.side;
+  const wordsTop = g.top + g.px(70, 100);
+  const barsTop = g.wide ? g.top + g.px(70, 80) : g.top + 220;
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top, ...kickerStyle(g) }}>โบนัสตามดัชนีโลก</On>
+      <div style={abs({ left: wordsX, top: wordsTop, width: g.wide ? g.w - wordsX - g.side : full, flexDirection: "column", alignItems: "flex-start" })}>
+        <On layer={layer} own="over"><Swept p={s.sweep[0] ?? 1} size={g.px(36, 44)}>{`${up ? "ถ้าดัชนีโตเฉลี่ยปีละ" : "ถ้าดัชนีเฉลี่ยปีละ"} ${rateLabel(gs.rate)}`}</Swept></On>
+        <On layer={layer} own="base" style={{ alignItems: "baseline", marginTop: g.px(4, 16) }}>
+          <div style={box({ fontSize: g.px(28, 34), color: P.mute, marginRight: 14 })}>{up ? "รวมรับประมาณ" : "รวมรับ (การันตี)"}</div>
+          <div style={box({ fontSize: g.px(60, 80), fontWeight: 700, color: P.figure })}>{gsMoney(gs.total)}</div>
+        </On>
+        {g.wide && (
+          <On layer={layer} own="over" style={{ marginTop: 30 }}>
+            <Swept p={s.sweep[1] ?? 1} size={38}>{up ? `โบนัส ${gsMoney(gs.bonus10 + gs.bonus15)} บาท ไม่การันตี` : `ยังได้การันตี ${gsMoney(gs.guaranteed)} บาทเต็ม`}</Swept>
+          </On>
+        )}
+      </div>
+      <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: barsTop }}>{classicIndexBars(f, barsW, g.px(330, 540), g.px(0.72, 0.9))}</On>
     </>
   );
 }
@@ -324,7 +356,8 @@ function Bars({ g, layer, x, y, w, tall, bars }: {
 
 function Cover({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
-  if (f.coverStyle === "rows") return <RowsCover g={g} c={c} layer={layer} s={s} />;
+  // Global Savings' paybacks are listed in the classic clip (draw.tsx Cover)
+  if (f.coverStyle === "rows" || f.coverStyle === "payback") return <RowsCover g={g} c={c} layer={layer} s={s} />;
   const chartW = g.wide ? 940 : g.w - g.side * 2;
   const tall = g.px(300, 420);
   const y = g.wide ? g.top + 90 : g.top + 260;
@@ -660,6 +693,7 @@ export function wideSceneLayer(key: SceneKey, c: DrawContext, layer: Layer, size
     compare: <Compare g={g} c={c} layer={layer} s={state} />,
     critical: <Critical g={g} c={c} layer={layer} s={state} />,
     terms: <Terms g={g} c={c} layer={layer} s={state} />,
+    index: <IndexScene g={g} c={c} layer={layer} s={state} />,
     // a looping clip ends on its opening, held, and nothing else (owner, 2026-10-13, choices ก and ข)
     contact: c.loop ? <Lead g={g} c={c} layer={layer} s={{ ...state, count: 1, sweep: [1] }} /> : <ContactScene g={g} c={c} layer={layer} />,
     story: <StoryScene g={g} c={c} layer={layer} s={state} />,

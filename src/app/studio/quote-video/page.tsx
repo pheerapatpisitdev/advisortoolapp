@@ -17,6 +17,7 @@ import { walletPrices } from "@/lib/wallet/store";
 import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 import { ToolLogo } from "@/components/shell/ToolLogo";
+import { GS_AGE_MAX, GS_AGE_MIN } from "@/calc/global-saving/engine";
 
 export const dynamic = "force-dynamic";
 // a clip is drawn after the request is answered (after()), inside this page's time
@@ -50,6 +51,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
     PENSION: { min: PENSION_LIMITS.ageMin, max: PENSION_LIMITS.ageMax },
     LEGACY: { min: lg.ageMin, max: lg.ageMax },
     PLB: { min: pb.ageMin, max: pb.ageMax },
+    // Global Savings 15/8 (owner, 2026-10-20): the page's own range
+    GSAVING: { min: GS_AGE_MIN, max: GS_AGE_MAX },
   };
   // บำนาญ 95: the pension ages each age may choose, for each way of paying (the engine's own plans)
   const pensionAges = Object.fromEntries((["6", "untilAnnuity"] as const).map((pay) => [pay, Object.fromEntries(

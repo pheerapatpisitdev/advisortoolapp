@@ -76,6 +76,15 @@ export function productQas(product: Product, variant?: string): SpokenQa[] {
         { key: "monthly", q: "จ่ายรายเดือนได้ไหม", a: `ได้ค่ะ ถ้ายอดรายเดือนถึง ${t.minMonthly.toLocaleString("en-US")} บาท ไม่ถึงก็เลือกราย 6 เดือนหรือรายปี` },
       ];
     }
+    // Global Savings 15/8 (owner, 2026-10-20): the page's own facts (src/calc/global-saving/engine.ts)
+    case "GSAVING":
+      return [
+        { key: "sure", q: "ส่วนไหนได้แน่นอน", a: "เงินคืน 1% ของทุนทุกปี กับเงินครบสัญญา 801% ของทุน ได้แน่นอนค่ะ ส่วนโบนัสตามดัชนีไม่แน่นอน" },
+        { key: "bonus", q: "โบนัสดัชนีจ่ายตอนไหน", a: "จ่าย 2 ครั้งค่ะ สิ้นปีที่ 10 กับตอนครบสัญญาปีที่ 15 ถ้าดัชนีติดลบ โบนัสเป็นศูนย์ แต่เงินที่การันตียังได้ครบ" },
+        { key: "tax", q: "ลดหย่อนภาษีได้ไหม", a: "ได้ค่ะ ตามที่ออมจริง สูงสุด 100,000 บาทต่อปี นับรวมกับประกันชีวิตฉบับอื่น ตามเกณฑ์สรรพากร" },
+        { key: "years", q: "ต้องออมกี่ปี", a: "ออม 8 ปีค่ะ ครบสัญญาปีที่ 15 ระหว่างนั้นยังคุ้มครองชีวิตด้วย" },
+        { key: "min", q: "ออมขั้นต่ำเท่าไหร่", a: "ขั้นต่ำปีละ 20,000 บาทค่ะ" },
+      ];
     case "PENSION":
       return [
         { key: "pay", q: "ออม 6 ปี กับออมจนรับบำนาญ ต่างกันยังไง", a: "ทุนเท่ากันได้บำนาญเท่ากันค่ะ แบบ 6 ปีออมต่อปีมากกว่าแต่จบเร็ว อีกแบบออมน้อยกว่าแต่นานกว่า" },
@@ -94,6 +103,7 @@ const FIRST: Record<string, string[]> = {
   salary: ["known", "after"], tax: ["tax", "pay"], guarantee: ["known", "pay"], steps: ["known", "after"],
   family: ["until", "after"], illness: ["after", "count"], light: ["rises", "monthly"],
   plbfamily: ["covers", "end"], plbburden: ["covers", "level"], plblight: ["level", "monthly"], plbtax: ["tax", "level"],
+  gssure: ["sure", "years"], gsbonus: ["bonus", "sure"], gstax: ["tax", "years"], gsshort: ["years", "sure"],
 };
 
 /** the two questions a clip answers, for its product and story */

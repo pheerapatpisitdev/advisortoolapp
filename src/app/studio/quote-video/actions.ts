@@ -39,6 +39,7 @@ import { MONTHLY_FACTOR_FIRST } from "@/calc/pension/engine";
 import { checkedPension } from "@/lib/quote-video/pension";
 import { checkedLegacy } from "@/lib/quote-video/legacy";
 import { checkedPlb } from "@/lib/quote-video/plb";
+import { checkedGsaving, rateLabel } from "@/lib/quote-video/gsaving";
 import { GAP_WORD } from "@/lib/fhc/gaps";
 import { cleanBrief, storiesFor, writes, writtenProblems, type WrittenLines } from "@/lib/quote-video/brief";
 import { readVideoLang } from "@/lib/quote-video/video-words";
@@ -59,14 +60,14 @@ const TERMS: Record<"LIFEPROTECT" | "ISHIELD", { variant: string; years: number 
   ISHIELD: [{ variant: "WLCI05", years: 5 }, { variant: "WLCI10", years: 10 }, { variant: "WLCI15", years: 15 }, { variant: "WLCI20", years: 20 }],
 };
 const SUM_STEP = 50_000;
-const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life" };
+const NAMES: Record<Product, string> = { LIFEPROTECT: "Life Protect", ISHIELD: "iShield", IHEALTHY: "iHealthy Ultra", PENSION: "บำนาญ 95", LEGACY: "มรดก", PLB: "Protection Life", GSAVING: "Global Savings 15/8" };
 
 export interface Preview {
   lead: { label: string; amount: string }; mark: string; prices: { label: string; amount: string; main: boolean }[];
   /** the stories this quote backs, for โจทย์การเล่า (brief.ts storiesFor) */
   stories: { key: string; name: string }[];
   /** what the form asked for settled into: the sum, or iHealthy's plan (a budget works these out); บำนาญ 95's monthly pension too; มรดก's tier */
-  resolved: { sum?: number; plan?: string; monthly?: number; tier?: number };
+  resolved: { sum?: number; plan?: string; monthly?: number; tier?: number; premium?: number };
   /** iHealthy from its page (owner, 2026-10-14): the page's arrangement the clip is priced on */
   setup?: { line: string; riders: string };
   /** Life Protect from its page (owner, 2026-10-17, 1ก): the riders the clip's price includes, by name */
@@ -239,6 +240,7 @@ function checkedQuote(v: VideoInput): VideoInput | string {
   if (v.product === "PENSION") return checkedPension(v);
   if (v.product === "LEGACY") return checkedLegacy(v);
   if (v.product === "PLB") return checkedPlb(v);
+  if (v.product === "GSAVING") return checkedGsaving(v);
   const product = productOf(v);
   if (product !== "LIFEPROTECT" && product !== "ISHIELD") return "เลือกแบบประกัน";
   const term = TERMS[product].find((x) => x.variant === v.variant);
@@ -422,7 +424,8 @@ export async function previewQuote(v: VideoInput): Promise<Preview | { error: st
     stories: storiesFor(f).map((x) => ({ key: x.key, name: x.name })),
     resolved: c.product === "IHEALTHY" ? { plan: c.plan }
       : c.product === "PENSION" ? { sum: c.sumAssured, monthly: f.lead.baht }
-      : c.product === "LEGACY" ? { tier: c.tier } : { sum: c.sumAssured },
+      : c.product === "LEGACY" ? { tier: c.tier }
+      : c.product === "GSAVING" ? { sum: f.gsaving?.sa, premium: c.premium } : { sum: c.sumAssured },
     ...(c.product === "IHEALTHY" && c.setup ? { setup: setupWords(c) } : {}),
     ...("riders" in c && c.riders ? { riders: riderWords(c) } : {}),
     ...(await walletPrices().then((p) => ({ clipSatang: videoPrice(c, p) })).catch(() => ({}))),
@@ -630,6 +633,8 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         ? `มรดก ${input.tier} ล้าน`
         : input.product === "PLB"
         ? `${sumWords(input.sumAssured)} · ${input.variant.slice(3).replace(/^0/, "")} ปี`
+        : input.product === "GSAVING"
+        ? `ออมปีละ ${input.premium.toLocaleString("en-US")} · ดัชนี ${rateLabel(input.rate)}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
     const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${input.theme && input.theme !== DEFAULT_THEME ? ` · ${THEME_LABELS[readTheme(input.theme)].name}` : ""})` : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
