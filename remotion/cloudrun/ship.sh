@@ -7,7 +7,7 @@
 # When the job is there already it ends at once. Otherwise (5–10 minutes):
 #   1. the prepare step (both runs: the four themes, then iHealthy's languages) and the bundle
 #   2. the image, :drawing-<fingerprint> (skipped when a stopped run built it already)
-#   3. smoke renders of it on the trial job remotion-port (a paper วิดีโอนำเสนอ, กองกลาง 48 คน, a คลิปตามโจทย์), which must end in clips
+#   3. smoke renders of it on the trial job remotion-port (a paper วิดีโอนำเสนอ, กองกลาง 48 คน, a คลิปตามโจทย์, a แบบปกติ), which must end in clips
 #   4. the job remotion-<fingerprint> (8 vCPU / 8 GiB, as clip-runner), startable by clip-render
 #   5. the drawing jobs past the newest three deleted (no app still deployed names them)
 set -euo pipefail
@@ -43,10 +43,10 @@ else
   (cd "$ROOT/remotion" && g builds submit . --config cloudrun/cloudbuild.yaml --region "$REGION" --substitutions "_TAG=drawing-$FP")
 fi
 
-# 3. clips from it before anyone gets it: a วิดีโอนำเสนอ (paper), กองกลาง 48 คน and a คลิปตามโจทย์, at once
+# 3. clips from it before anyone gets it: a วิดีโอนำเสนอ (paper), กองกลาง 48 คน, a คลิปตามโจทย์ and a แบบปกติ, at once
 g run jobs update remotion-port --region "$REGION" --image "$IMAGE"
 pids=()
-for theme in paper st-pool48 st-free; do
+for theme in paper st-pool48 st-free c-lp; do
   g run jobs execute remotion-port --region "$REGION" --wait --args=node,cloudrun/smoke.mjs \
     --update-env-vars "THEME=$theme,PUBLIC=build/public,PREFIX=ship" >/dev/null 2>&1 &
   pids+=("$!:$theme")

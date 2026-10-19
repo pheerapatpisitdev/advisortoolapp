@@ -67,6 +67,8 @@ export interface FhcVideoInput {
   theme?: ThemeKey;
   /** คอลลาจกระดาษ's library piece for each scene, as AI picked it from the lines (collage/pick.ts); null = none */
   picks?: Partial<Record<FhcSceneKey, string | null>>;
+  /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (remotion.ts) */
+  engine?: "remotion";
 }
 
 export const isFhcInput = (v: { product?: string }): v is FhcVideoInput => v.product === "FHC";

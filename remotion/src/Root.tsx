@@ -3,6 +3,8 @@ import { REMOTION_DRAWING } from "@/lib/quote-video/remotion";
 import { SIZES } from "@/lib/quote-video/timeline";
 import { Clip, type ClipProps } from "./Clip";
 import { StoryClip, type StoryClipProps } from "./StoryClip";
+import { FhcClip, type FhcClipProps } from "./FhcClip";
+import { ClassicClip, type ClassicClipProps } from "./ClassicClip";
 
 /** props made for another version of the drawing code would be drawn wrong: refused, so the clip fails and is not charged */
 function sameDrawing(drawing: string | undefined) {
@@ -11,7 +13,8 @@ function sameDrawing(drawing: string | undefined) {
 
 /**
  * QuoteMotion: วิดีโอนำเสนอ's Motion Graphic clip, its theme and its facts in the inputProps (prepare/prepare.test.ts writes them).
- * StoryClip: คลิปเล่าเรื่อง and คลิปตามโจทย์, in the clip's own size.
+ * StoryClip: คลิปเล่าเรื่อง and คลิปตามโจทย์, in the clip's own size. FhcClip: an FHC summary, any size.
+ * ClassicClip: วิดีโอนำเสนอ แบบปกติ, any plan and size.
  */
 export function Root() {
   return (
@@ -26,7 +29,8 @@ export function Root() {
         defaultProps={{} as ClipProps}
         calculateMetadata={({ props }) => {
           sameDrawing(props.drawing);
-          return { durationInFrames: Math.max(1, Math.round((props.total ?? 1) * 30)) };
+          const { w, h } = SIZES[props.size ?? "portrait"];
+          return { width: w, height: h, durationInFrames: Math.max(1, Math.round((props.total ?? 1) * 30)) };
         }}
       />
       <Composition
@@ -37,6 +41,34 @@ export function Root() {
         fps={30}
         durationInFrames={30}
         defaultProps={{} as StoryClipProps}
+        calculateMetadata={({ props }) => {
+          sameDrawing(props.drawing);
+          const { w, h } = SIZES[props.size ?? "portrait"];
+          return { width: w, height: h, durationInFrames: Math.max(1, Math.round((props.total ?? 1) * 30)) };
+        }}
+      />
+      <Composition
+        id="FhcClip"
+        component={FhcClip}
+        width={1080}
+        height={1920}
+        fps={30}
+        durationInFrames={30}
+        defaultProps={{} as FhcClipProps}
+        calculateMetadata={({ props }) => {
+          sameDrawing(props.drawing);
+          const { w, h } = SIZES[props.size ?? "portrait"];
+          return { width: w, height: h, durationInFrames: Math.max(1, Math.round((props.total ?? 1) * 30)) };
+        }}
+      />
+      <Composition
+        id="ClassicClip"
+        component={ClassicClip}
+        width={1080}
+        height={1920}
+        fps={30}
+        durationInFrames={30}
+        defaultProps={{} as ClassicClipProps}
         calculateMetadata={({ props }) => {
           sameDrawing(props.drawing);
           const { w, h } = SIZES[props.size ?? "portrait"];

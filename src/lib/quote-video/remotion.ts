@@ -1,11 +1,14 @@
 import type { MotionContext } from "./motion";
 import type { QuoteVideoFacts, SceneKey, VideoInput } from "./script";
 import type { ThemeKey } from "./theme-keys";
-import type { ScenePlan, VideoSize } from "./timeline";
+import type { OverlayState, ScenePlan, TableMove, VideoSize } from "./timeline";
+import type { CardChart } from "@/lib/quote-card";
+import type { TableNote } from "./table-pen";
 import type { Extra } from "./told";
 import type { PromptStoryInput } from "@/lib/prompt-story/types";
 import type { StoryVideoInput } from "./story";
 import type { StoryContext } from "./story-motion";
+import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 
 /**
  * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (owner, 2026-10-17: "ต่อ Remotion เข้าแอปจริงเลย";
@@ -29,18 +32,18 @@ export const REMOTION_FOR_LABEL: Record<RemotionFor, string> = { off: "เคร
 export const readRemotionFor = (v: unknown): RemotionFor => (REMOTION_FOR.includes(v as RemotionFor) ? (v as RemotionFor) : "off");
 
 /** the plans Remotion draws, each with its own row on the switch */
-export type RemotionPlan = "LIFEPROTECT" | "IHEALTHY" | "ISHIELD" | "PLB" | "PENSION" | "LEGACY" | "STORY" | "FREESTORY";
-export const REMOTION_PLANS: RemotionPlan[] = ["LIFEPROTECT", "IHEALTHY", "ISHIELD", "PLB", "PENSION", "LEGACY", "STORY", "FREESTORY"];
+export type RemotionPlan = "LIFEPROTECT" | "IHEALTHY" | "ISHIELD" | "PLB" | "PENSION" | "LEGACY" | "CLASSIC" | "FHC" | "STORY" | "FREESTORY";
+export const REMOTION_PLANS: RemotionPlan[] = ["LIFEPROTECT", "IHEALTHY", "ISHIELD", "PLB", "PENSION", "LEGACY", "CLASSIC", "FHC", "STORY", "FREESTORY"];
 export const REMOTION_PLAN_LABEL: Record<RemotionPlan, string> = {
   LIFEPROTECT: "Life Protect", IHEALTHY: "iHealthy", ISHIELD: "iShield", PLB: "PLB", PENSION: "บำนาญ 95", LEGACY: "มรดก",
-  STORY: "คลิปเล่าเรื่อง", FREESTORY: "คลิปตามโจทย์",
+  CLASSIC: "แบบปกติ (ทุกแผน)", FHC: "สรุป FHC", STORY: "คลิปเล่าเรื่อง", FREESTORY: "คลิปตามโจทย์",
 };
 
 /**
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "5b8cde62c0c3";
+export const REMOTION_DRAWING = "017648660269";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -52,6 +55,8 @@ export const REMOTION_JOB = `remotion-${REMOTION_DRAWING}`;
 /** what a Motion Graphic quote clip is drawn from, beside its scenes: quotePartsFor's own context */
 export type RemotionMotion = {
   theme: ThemeKey;
+  /** the clip's shape: portrait draws motionFrame, square and landscape wideQuoteFrame (wide.tsx); none = portrait */
+  size?: VideoSize;
   sex: "M" | "F";
   facts: QuoteVideoFacts;
   customer: string;
@@ -113,6 +118,54 @@ export function storyClipProps(
 }
 
 /**
+ * An FHC summary drawn by Remotion (the composition FhcClip): fhcFrame / wideFhcFrame at the scene's time,
+ * repainted by themed, over the theme's drifting ground; คอลลาจ's picked pieces, portrait only, as links.
+ */
+export type FhcClipProps = {
+  composition: "FhcClip";
+  drawing: string;
+  size: VideoSize;
+  theme: ThemeKey;
+  facts: FhcVideoFacts;
+  customer: string;
+  narrator: "F" | "M";
+  contact: MotionContext["contact"];
+  /** each scene's picked piece, a link (or a file in the project's public folder) */
+  picks: Partial<Record<FhcSceneKey, string>>;
+  total: number;
+  scenes: { key: FhcSceneKey; voice: string; voiceSec: number; start: number; dur: number }[];
+  audio: string;
+};
+
+/**
+ * A แบบปกติ clip drawn by Remotion (the composition ClassicClip), as buildJob lays it in ffmpeg: each scene's base,
+ * the family photo pushed in 1.00 → 1.12 or the value table moving down its window with its finished pen notes,
+ * then the overlay frame of the moment (each held until the next, as the concat list holds it).
+ */
+export type ClassicClipProps = {
+  composition: "ClassicClip";
+  drawing: string;
+  size: VideoSize;
+  facts: QuoteVideoFacts;
+  narrator: "F" | "M";
+  customer: string;
+  contact: MotionContext["contact"];
+  chart?: CardChart;
+  /** the value scene's pen notes (table-pen.tsx tablePlan); none for บำนาญ 95, whose table carries its own */
+  notes?: (TableNote & { at: number })[];
+  shown: { headline?: string[]; loop: boolean; extra: Extra };
+  total: number;
+  scenes: {
+    key: SceneKey; voice: string; voiceSec: number; start: number; dur: number;
+    frames: { t: number; state: OverlayState }[];
+    layer?: "photo" | "table";
+    table?: { moves: TableMove[]; shown: number[] };
+  }[];
+  audio: string;
+  scriptFont?: { url: string; weight: number }[];
+};
+
+/**
  * The letters Plex has not got that the script faces carry: CJK and its punctuation, Cyrillic,
  * Myanmar. Clip.tsx gives the face these alone, so Thai, Latin and the figures stay in Plex, as in satori.
  */
@@ -128,7 +181,9 @@ export const SCRIPT_RANGE = [
  * mockup https://claude.ai/artifact/R9fqJa7Sd6ZkonxAsAW5TT)
  */
 export function remotionPlan(input: VideoInput): RemotionPlan | null {
-  if (input.style !== "motion" || (input.size ?? "portrait") !== "portrait") return null;
+  // every shape, and แบบปกติ of every plan on a row of its own, since the Remotion move's last round
+  // (owner, 2026-10-20: "ย้ายที่เหลือเลย")
+  if (input.style !== "motion") return "CLASSIC";
   const product = input.product ?? "LIFEPROTECT";
   return (REMOTION_PLANS as string[]).includes(product) ? (product as RemotionPlan) : null;
 }
@@ -141,7 +196,8 @@ export const remotionFits = (input: VideoInput): boolean => remotionPlan(input) 
  * คลิปเล่าเรื่อง and คลิปตามโจทย์ in any size (owner chose ก ก ก, 2026-10-19), never an FHC summary yet
  */
 export function remotionPlanOf(input: { product?: string; fhc?: unknown }): RemotionPlan | null {
-  if (input.fhc) return null;
+  // an FHC summary, every size, its own row (owner, 2026-10-20: "ย้ายที่เหลือเลย")
+  if (input.fhc) return "FHC";
   if (input.product === "STORY" || input.product === "FREESTORY") return input.product;
   return remotionPlan(input as VideoInput);
 }
