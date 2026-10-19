@@ -48,7 +48,8 @@ export type MenuIcon =
   | "tag"
   | "chart"
   | "gear"
-  | "send";
+  | "send"
+  | "coins";
 
 export interface MenuLink {
   href: string;
@@ -217,6 +218,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       { href: "/admin/ai", label: "คีย์และโมเดล", icon: "gear", hue: "#2b6f74" },
       { href: "/admin/prices", label: "ราคาและโปรโมชัน", icon: "tag", hue: "#2b6a7a" },
       { href: "/admin/wallet", label: "กระเป๋าเงิน", icon: "wallet", hue: "#2b5f80" },
+      // who put money in, day by day (owner chose ข, 2026-10-19)
+      { href: "/admin/topups", label: "ประวัติเติมเงิน", icon: "coins", hue: "#2b5d81" },
       { href: "/admin/ai-profit", label: "กำไรค่า AI", icon: "calc", hue: "#2b5a83" },
     ],
   },

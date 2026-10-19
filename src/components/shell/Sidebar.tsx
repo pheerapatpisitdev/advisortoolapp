@@ -135,6 +135,9 @@ function Icon({ name }: { name: MenuIcon }) {
     case "chart":
       return <svg {...common}><path d="M4.5 19.5h15M7 16.5v-4M11 16.5v-8M15 16.5V10M19 16.5V6" /></svg>;
     // ตั้งค่า AI และระบบ, a gear
+    // ประวัติเติมเงิน, a stack of coins
+    case "coins":
+      return <svg {...common}><path d="M5.5 7c0-1.4 2.9-2.5 6.5-2.5s6.5 1.1 6.5 2.5-2.9 2.5-6.5 2.5S5.5 8.4 5.5 7zM5.5 7v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5V7M5.5 12v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5" /></svg>;
     // LINE OA: a paper plane, for the broadcasts sent from it
     case "send":
       return <svg {...common}><path d="M20.5 3.5 3.5 10.6l6.6 2.8 2.8 6.6 7.6-16.5zM10.1 13.4l4.6-4.6" /></svg>;
