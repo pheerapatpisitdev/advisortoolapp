@@ -39,7 +39,7 @@ export default async function AiProfitPage({ searchParams }: { searchParams: Pro
   }
 
   const chips: { p: Period; label: string }[] = [
-    { p: "7d", label: "7 วัน" }, { p: "30d", label: "30 วัน" }, { p: "month", label: "เดือนนี้" },
+    { p: "today", label: "วันนี้" }, { p: "7d", label: "7 วัน" }, { p: "30d", label: "30 วัน" }, { p: "month", label: "เดือนนี้" },
     ...pastMonths(now).map((m) => ({ p: m as Period, label: monthLabel(m) })),
   ];
 

@@ -93,11 +93,12 @@ describe("สถิติการใช้งาน", () => {
 
 describe("periods", () => {
   it("reads ?p= safely", () => {
-    expect(["7d", "30d", "month", "2026-09", "2026-10", "2026-08", "x", undefined].map((p) => parsePeriod(p, now)))
-      .toEqual(["7d", "30d", "month", "2026-09", "month", "month", "month", "month"]);
+    expect(["today", "7d", "30d", "month", "2026-09", "2026-10", "2026-08", "x", undefined].map((p) => parsePeriod(p, now)))
+      .toEqual(["today", "7d", "30d", "month", "2026-09", "month", "month", "month", "month"]);
   });
 
   it("starts rolling periods at midnight Bangkok and ends tomorrow", () => {
+    expect(periodRange("today", now).map((d) => d.toISOString())).toEqual(["2026-10-13T17:00:00.000Z", "2026-10-14T17:00:00.000Z"]);
     expect(periodRange("7d", now).map((d) => d.toISOString())).toEqual(["2026-10-07T17:00:00.000Z", "2026-10-14T17:00:00.000Z"]);
     expect(periodRange("2026-09", now).map((d) => d.toISOString())).toEqual(["2026-08-31T17:00:00.000Z", "2026-09-30T17:00:00.000Z"]);
     expect(pastMonths(now)).toEqual(["2026-09"]);

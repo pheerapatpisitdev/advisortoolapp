@@ -202,8 +202,8 @@ export function buildStats(s: StatsInput): Stats {
   };
 }
 
-/** the period chips: the last 7 or 30 days, this month, or a month by "2026-09" */
-export type Period = "7d" | "30d" | "month" | `${number}-${number}`;
+/** the period chips: today, the last 7 or 30 days, this month, or a month by "2026-09" */
+export type Period = "today" | "7d" | "30d" | "month" | `${number}-${number}`;
 
 export const FIRST_MONTH = "2026-09";
 
@@ -218,7 +218,7 @@ const prevMonth = (m: string) => {
 };
 
 export function parsePeriod(v: unknown, now: Date): Period {
-  if (v === "7d" || v === "30d" || v === "month") return v;
+  if (v === "today" || v === "7d" || v === "30d" || v === "month") return v;
   const thisMonth = ymd(now).slice(0, 7);
   if (typeof v === "string" && /^20\d\d-(0[1-9]|1[0-2])$/.test(v) && v >= FIRST_MONTH && v < thisMonth) return v as Period;
   return "month";
@@ -228,6 +228,7 @@ export function parsePeriod(v: unknown, now: Date): Period {
 export function periodRange(p: Period, now: Date): [Date, Date] {
   const today = new Date(`${ymd(now)}T00:00:00+07:00`);
   const tomorrow = new Date(today.getTime() + 86_400_000);
+  if (p === "today") return [today, tomorrow];
   if (p === "7d") return [new Date(tomorrow.getTime() - 7 * 86_400_000), tomorrow];
   if (p === "30d") return [new Date(tomorrow.getTime() - 30 * 86_400_000), tomorrow];
   const m = p === "month" ? ymd(now).slice(0, 7) : p;
