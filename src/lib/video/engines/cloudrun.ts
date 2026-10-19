@@ -144,6 +144,11 @@ async function accessToken(k: GcpKey, f: typeof fetch, now: () => number): Promi
   return body.access_token;
 }
 
+/** a token from the same key for another Google Cloud API: the Gemini voice on Cloud (src/lib/ai/tts.ts, owner 2026-10-20) */
+export function googleToken(k: GcpKey, deps: { fetch?: typeof fetch; now?: () => number } = {}): Promise<string> {
+  return accessToken(k, deps.fetch ?? fetch, deps.now ?? Date.now);
+}
+
 export function cloudRunEngine(key: string, deps: Deps = {}): RenderEngine {
   const f = deps.fetch ?? fetch;
   const now = deps.now ?? Date.now;
