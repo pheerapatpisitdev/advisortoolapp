@@ -73,7 +73,9 @@ export function buildScene(pct: number, t: number, uid = "b"): string {
   const n = BRICKS.length;
   const laid = Math.min(n, Math.floor(clamp(p / 60) * n + 1e-9));
   const finish = clamp((p - 60) / 30), done = p >= 100;
-  let s = `<rect x="0" y="${GROUND}" width="300" height="20" fill="#eef1f5"/><line x1="0" y1="${GROUND}" x2="300" y2="${GROUND}" stroke="#c9cfd9" stroke-width="1.5"/>`;
+  // its own sky, so the card holds no colour of its own
+  let s = `<defs><linearGradient id="sky-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eaf3ff"/><stop offset="1" stop-color="#f8fbff"/></linearGradient></defs><rect width="300" height="190" fill="url(#sky-${uid})"/>`;
+  s += `<rect x="0" y="${GROUND}" width="300" height="20" fill="#eef1f5"/><line x1="0" y1="${GROUND}" x2="300" y2="${GROUND}" stroke="#c9cfd9" stroke-width="1.5"/>`;
   s += tree(p, done, t);
   // the pile of bricks by the path, smaller as they are laid
   const pile = done ? 0 : Math.max(1, Math.ceil((1 - laid / n) * 6));

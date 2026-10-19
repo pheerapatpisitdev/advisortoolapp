@@ -25,7 +25,7 @@ export function LoadingScene({ pct, clipId }: { pct: number; clipId: string }) {
   return (
     <svg
       viewBox="0 0 300 190" role="img" aria-label={kind === "life" ? "ชีวิตคนหนึ่ง ตั้งแต่เกิดจนจากไป" : "คนงานกำลังสร้างบ้าน"}
-      className="block h-auto w-full rounded-lg bg-gradient-to-b from-[#eaf3ff] to-[#f8fbff]"
+      className="block h-auto w-full rounded-lg"
       // drawn from the bar's number only: no one's words go into it
       dangerouslySetInnerHTML={{ __html: loadingScene(kind, pct, t, uid) }}
     />
