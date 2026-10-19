@@ -35,17 +35,21 @@ export const FONTS: [string, string, number][] = [
  */
 const SYMBOLS = { file: "fonts/NotoSansSymbols2-400.ttf", range: "U+2190-21FF, U+2300-23FF, U+2460-24FF, U+25A0-27BF, U+2900-297F, U+2B00-2BFF, U+1F100-1F1FF" };
 
-/** the fonts every Remotion clip draws in: the families, and the symbols under each (SYMBOLS) */
+/**
+ * the fonts every Remotion clip draws in, in satori's order of fallback. Chrome tries a family's faces last-added
+ * first and moves on when a face lacks the letter, so each family gets, added in this order: Noto Sans Symbols 2 for
+ * the symbol ranges (SYMBOLS), then Plex under its name (satori's next font for a letter Mali or Sriracha lacks,
+ * such as ✓), then its own faces. A letter the family has is drawn in it, ✓ in a Mali line in Plex, ☐ in Symbols 2.
+ */
 export async function loadFonts(): Promise<void> {
-  await Promise.all(FONTS.map(async ([family, file, weight]) => {
-    const f = new FontFace(family, `url(${staticFile(file)})`, { weight: String(weight) });
-    document.fonts.add(await f.load());
-  }));
   const families = [...new Set(FONTS.map(([family]) => family))];
-  await Promise.all(families.flatMap((family) => [400, 600].map(async (weight) => {
-    const f = new FontFace(family, `url(${staticFile(SYMBOLS.file)})`, { weight: String(weight), unicodeRange: SYMBOLS.range });
-    document.fonts.add(await f.load());
-  })));
+  const plex = FONTS.filter(([family]) => family === "Plex");
+  const face = (family: string, file: string, weight: number, unicodeRange?: string) =>
+    new FontFace(family, `url(${staticFile(file)})`, { weight: String(weight), ...(unicodeRange ? { unicodeRange } : {}) }).load();
+  const symbols = await Promise.all(families.flatMap((family) => [400, 600].map((weight) => face(family, SYMBOLS.file, weight, SYMBOLS.range))));
+  const plexUnder = await Promise.all(families.filter((family) => family !== "Plex").flatMap((family) => plex.map(([, file, weight]) => face(family, file, weight))));
+  const own = await Promise.all(FONTS.map(([family, file, weight]) => face(family, file, weight)));
+  for (const f of [...symbols, ...plexUnder, ...own]) document.fonts.add(f);
 }
 
 interface Loaded { hero?: Hero; decor?: Decor; ground: ReactNode }
