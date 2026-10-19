@@ -12,6 +12,7 @@ import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
 import { gsMoney, rateLabel } from "./gsaving";
+import { GS_VIDEO_COLUMNS } from "./gsaving-table";
 import { countAt, H, W, type OverlayState } from "./timeline";
 import { preparedLine, wordsOf } from "./video-words";
 
@@ -589,10 +590,60 @@ function IndexScene({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayS
   );
 }
 
+/** the header cells of Global Savings' table: the bonus columns in two lines */
+export const gsHeads = () => GS_VIDEO_COLUMNS.map((x, i) => ({ h: x.head, w: x.width, left: i < 2, ...(x.lines ? { lines: x.lines } : {}) }));
+
+/**
+ * Global Savings' third scene in the classic clip (owner, 2026-10-20, mockup FkimdNb2v5u2mUJhdiQB2R, ก ก):
+ * what is saved, what comes back for certain and the cover over the yearly table, whose picture
+ * (gsaving-table.tsx) the clip lays into the window and walks down.
+ */
+function GsTableCover({ c, layer }: { c: DrawContext; layer: Layer }) {
+  const g = c.facts.gsaving;
+  if (!g) return null;
+  const card = { border: `3px solid ${P.hair}`, borderRadius: 22, padding: "16px 24px", flexDirection: "column" as const };
+  return (
+    <>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 250, fontSize: 44, fontWeight: 600, color: P.accent }}>เงินคืนทุกปี + โบนัสดัชนี 3 ตัวอย่าง</On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: SIDE, top: 340, width: W - SIDE * 2, flexDirection: "column" }}>
+        <div style={box({ width: "100%" })}>
+          <div style={box({ ...card, flex: 1, marginRight: 22 })}>
+            <div style={box({ fontSize: 30, color: P.mute })}>{`ออมรวม ${g.payYears} ปี`}</div>
+            <div style={box({ fontSize: 64, fontWeight: 600, color: P.figure, lineHeight: 1.15 })}>{gsMoney(g.paid)}</div>
+          </div>
+          <div style={box({ ...card, flex: 1 })}>
+            <div style={box({ fontSize: 30, color: P.mute })}>รับคืนการันตี</div>
+            <div style={box({ fontSize: 64, fontWeight: 600, color: P.figure, lineHeight: 1.15 })}><Highlit>{gsMoney(g.guaranteed)}</Highlit></div>
+          </div>
+        </div>
+        <div style={box({ ...card, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 22 })}>
+          <div style={box({ fontSize: 30, color: P.mute })}>คุ้มครองชีวิตสูงสุด</div>
+          <div style={box({ fontSize: 50, fontWeight: 600, color: P.figure })}>{`${gsMoney(g.deathMax)} บาท`}</div>
+        </div>
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: TABLE.x, top: TABLE.y - 60, width: TABLE.w, height: 60, background: P.figure, color: C.paper, fontSize: 28, alignItems: "center" }}>
+        {gsHeads().map((x) => <HeadCell key={x.h} {...x} />)}
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: TABLE.x, top: TABLE.y + TABLE.h, width: TABLE.w, height: 3, background: P.hair }} />
+    </>
+  );
+}
+
+/** a figure with the highlighter behind it, as the cards draw one */
+function Highlit({ children }: { children: ReactNode }) {
+  return (
+    <div style={box({ position: "relative", padding: "0 6px" })}>
+      <div style={abs({ left: 0, right: 0, top: "48%", bottom: "4%", background: P.highlighter })} />
+      <div style={box({ position: "relative" })}>{children}</div>
+    </div>
+  );
+}
+
 function Cover({ c, layer, s }: { c: DrawContext; layer: Layer; s: OverlayState }) {
   if (c.facts.coverStyle === "flat") return <FlatCover c={c} layer={layer} s={s} />;
-  // Global Savings' paybacks are listed in the classic clip: the timeline is the Motion clip's (owner, 2026-10-20)
-  if (c.facts.coverStyle === "rows" || c.facts.coverStyle === "payback") return <RowsCover c={c} layer={layer} s={s} />;
+  // Global Savings: the yearly table with three index examples, as the other plans' value scene (owner, 2026-10-20, ก ก)
+  if (c.facts.coverStyle === "payback") return <GsTableCover c={c} layer={layer} />;
+  if (c.facts.coverStyle === "rows") return <RowsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "steps") return <StepsCover c={c} layer={layer} s={s} />;
   if (c.facts.coverStyle === "bands") return <BandsCover c={c} layer={layer} s={s} />;
   const f = c.facts;

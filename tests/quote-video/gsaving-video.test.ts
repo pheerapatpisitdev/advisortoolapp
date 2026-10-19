@@ -4,6 +4,8 @@ import { fallbackLines, lineProblem, storiesFor, writtenProblems, WRITTEN_HOOKS 
 import { resolveBudget } from "@/lib/quote-video/budget";
 import { checkedGsaving, gsavingVideoFacts, GS_RATES, type GsVideoInput } from "@/lib/quote-video/gsaving";
 import { videoStartFrom, videoStartHref } from "@/lib/quote-video/link";
+import { gsTableImage, gsTablePlan, GS_VIDEO_COLUMNS } from "@/lib/quote-video/gsaving-table";
+import { TABLE } from "@/lib/quote-video/table-geo";
 import { productQas } from "@/lib/quote-video/qa";
 import { pageCaption, quoteVideoFacts, quoteVideoScript, sceneMotion } from "@/lib/quote-video/script";
 import { extraOf, extraVoice } from "@/lib/quote-video/told";
@@ -105,6 +107,32 @@ describe("Global Savings 15/8 in วิดีโอนำเสนอ", () => {
     expect(videoStartFrom(q)).toEqual({ product: "GSAVING", age: 35, premium: 50_000 });
     // a premium is read only for this plan
     expect(videoStartFrom({ product: "PLB", premium: "50000" })).toEqual({ product: "PLB" });
+  });
+
+  it("sets −1%, +3% and +5% side by side in the classic clip's table, whatever index was picked (ก ก)", () => {
+    for (const rate of [-1, 3, 5]) {
+      const g = gsavingVideoFacts({ ...PAGE, rate })!.gsaving!;
+      expect(g.rows).toHaveLength(15);
+      expect(g.totals.map(Math.round)).toEqual([407_916, 585_666, 747_726]);
+      // the bonus only in the years it is paid, one figure a return
+      expect(g.rows.filter((r) => r.bonus).map((r) => [r.year, r.bonus!.map(Math.round)])).toEqual([[10, [0, 37_143, 67_921]], [15, [0, 140_608, 271_890]]]);
+      expect(g.rows[7].premium).toBe(50_000);
+      expect(g.rows[8].premium).toBe(0);
+      expect(Math.round(g.rows[14].payback)).toBe(400_909);
+    }
+    expect(GS_VIDEO_COLUMNS.reduce((w, c) => w + c.width, 0)).toBe(TABLE.w);
+  });
+
+  it("walks the table down to everything received when the voice says ครบ", () => {
+    const f = quoteVideoFacts(PAGE)!;
+    const cover = quoteVideoScript(f, "").find((l) => l.key === "cover")!;
+    const { height } = gsTableImage(f);
+    const { plan, notes } = gsTablePlan(f, cover.voice, 12, TABLE);
+    expect(notes).toEqual([]);
+    expect(plan.moves).toHaveLength(1);
+    expect(plan.moves[0].to).toBe(height - TABLE.h);
+    expect(plan.moves[0].at).toBeGreaterThan(1);
+    expect(plan.moves[0].at).toBeLessThan(12);
   });
 
   it("tells the longer clips with Global Savings' facts only", () => {

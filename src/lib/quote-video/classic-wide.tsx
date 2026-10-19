@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Chart } from "@/app/api/card/chart-drawing";
 import { insuredFace } from "@/app/api/card/insured-face";
 import { BLUE_PEN, CARD_PALETTE as P, QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
-import { abs, box, classicIndexBars, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
+import { abs, box, classicIndexBars, gsHeads, HeadCell, On, Swept, type DrawContext, type Layer } from "./draw";
 import { gsMoney, rateLabel } from "./gsaving";
 import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
@@ -354,10 +354,39 @@ function Bars({ g, layer, x, y, w, tall, bars }: {
   );
 }
 
+/** Global Savings' table scene in a square or landscape frame: the figures above (square) or beside (landscape) the window */
+function GsTableCover({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer }) {
+  const gs = c.facts.gsaving;
+  if (!gs) return null;
+  const t = g.table;
+  const fig = (label: string, value: string, mark = false) => (
+    <div style={box({ flexDirection: "column", marginRight: g.wide ? 0 : 40, marginBottom: g.wide ? 30 : 0 })}>
+      <div style={box({ fontSize: g.px(22, 30), color: P.mute })}>{label}</div>
+      <div style={box({ fontSize: g.px(40, 64), fontWeight: 600, color: P.figure, lineHeight: 1.15, ...(mark ? { background: `linear-gradient(transparent 50%, ${P.highlighter} 50%, ${P.highlighter} 92%, transparent 92%)` } : {}) })}>{value}</div>
+    </div>
+  );
+  return (
+    <>
+      {/* a square frame has room above its window for the figures only */}
+      {g.wide && <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.top, ...kickerStyle(g) }}>เงินคืนทุกปี + โบนัสดัชนี 3 ตัวอย่าง</On>}
+      <On layer={layer} own="base" style={{ position: "absolute", left: g.side, top: g.wide ? g.top + 90 : g.top + 6, flexDirection: g.wide ? "column" : "row" }}>
+        {fig(`ออมรวม ${gs.payYears} ปี`, gsMoney(gs.paid))}
+        {fig("รับคืนการันตี", gsMoney(gs.guaranteed), true)}
+        {fig("คุ้มครองชีวิตสูงสุด", gsMoney(gs.deathMax))}
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: t.x, top: t.y - 52, width: t.w, height: 52, background: P.figure, color: C.paper, fontSize: 26, alignItems: "center" }}>
+        {gsHeads().map((x) => <HeadCell key={x.h} {...x} />)}
+      </On>
+      <On layer={layer} own="base" style={{ position: "absolute", left: t.x, top: t.y + t.h, width: t.w, height: 3, background: P.hair }} />
+    </>
+  );
+}
+
 function Cover({ g, c, layer, s }: { g: Geo; c: DrawContext; layer: Layer; s: OverlayState }) {
   const f = c.facts;
-  // Global Savings' paybacks are listed in the classic clip (draw.tsx Cover)
-  if (f.coverStyle === "rows" || f.coverStyle === "payback") return <RowsCover g={g} c={c} layer={layer} s={s} />;
+  // Global Savings: the yearly table with three index examples (draw.tsx GsTableCover)
+  if (f.coverStyle === "payback") return <GsTableCover g={g} c={c} layer={layer} />;
+  if (f.coverStyle === "rows") return <RowsCover g={g} c={c} layer={layer} s={s} />;
   const chartW = g.wide ? 940 : g.w - g.side * 2;
   const tall = g.px(300, 420);
   const y = g.wide ? g.top + 90 : g.top + 260;

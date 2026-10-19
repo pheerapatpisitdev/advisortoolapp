@@ -20,6 +20,7 @@ import { getContact, photoDataUri } from "./contact";
 import { CHART_W, type Contact } from "./draw";
 import { tablePlan } from "./table-pen";
 import { pensionTablePlan } from "./pension-table";
+import { gsTablePlan } from "./gsaving-table";
 import { addSounds, mixNarration, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
 import { fhcSpec, fhcWindows } from "./fhc-motion";
@@ -489,10 +490,12 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   // the Motion Graphic look (owner, 2026-10-17)
   const theme = motion ? readTheme(row.input.theme) : undefined;
   // the classic value scene: where the table stops and which pen note is written at each stop
-  const valueAt = script.findIndex((s) => s.key === "value");
-  // บำนาญ 95's table carries its notes in the picture, and only walks down (pension-table.tsx)
+  // Global Savings has its table on the third scene, where the others list their cover (owner, 2026-10-20, ก ก)
+  const tableKey = facts.gsaving ? "cover" : "value";
+  const valueAt = script.findIndex((s) => s.key === tableKey);
+  // บำนาญ 95's and Global Savings' tables carry their notes in the picture, and only walk down (pension-table.tsx, gsaving-table.tsx)
   const pen = !motion && valueAt >= 0
-    ? (facts.pension ? pensionTablePlan : tablePlan)(facts, script[valueAt].voice, secs[valueAt], boxes.table)
+    ? (facts.pension ? pensionTablePlan : facts.gsaving ? gsTablePlan : tablePlan)(facts, script[valueAt].voice, secs[valueAt], boxes.table)
     : undefined;
   const plans = planScenes(script.map((s, i) => ({
     key: s.key, voice: s.voice, voiceSec: secs[i],
@@ -503,7 +506,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   // a แบบปกติ scene's layer: the family photo on the lead (and a looping clip's last scene, its opening again,
   // owner 2026-10-13, choice ก), the value table on the value scene (ClassicClip)
   const layers = plans.map((p) => (motion ? undefined
-    : p.key === "lead" || (loop && p.key === "contact") ? "photo" as const : p.key === "value" ? "table" as const : undefined));
+    : p.key === "lead" || (loop && p.key === "contact") ? "photo" as const : p.key === tableKey ? "table" as const : undefined));
   // a landscape clip's chart stands beside the table, narrower; a square one has no room for it
   // Protection Life has a variant but no value table, so no chart
   const chart = "variant" in row.input && productOf(row.input) !== "IHEALTHY" && productOf(row.input) !== "PLB" && size !== "square"

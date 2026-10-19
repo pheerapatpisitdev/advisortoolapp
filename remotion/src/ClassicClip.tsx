@@ -3,6 +3,7 @@ import { AbsoluteFill, Audio, continueRender, delayRender, Img, staticFile, useC
 import { sceneLayer, tableImage, type DrawContext, type Layer } from "@/lib/quote-video/draw";
 import { wideSceneLayer } from "@/lib/quote-video/classic-wide";
 import { pensionTableImage } from "@/lib/quote-video/pension-table";
+import { gsTableImage } from "@/lib/quote-video/gsaving-table";
 import { noteDrawing } from "@/lib/quote-video/table-pen";
 import { CLASSIC_BOXES } from "@/lib/quote-video/table-geo";
 import { TRANSITIONS } from "@/lib/quote-video/job";
@@ -66,7 +67,7 @@ export function ClassicClip(p: ClassicClipProps) {
   const frame = useCurrentFrame();
   const { fps, width: w } = useVideoConfig();
   const ready = useReady(p);
-  const table = useMemo(() => (p.facts.pension ? pensionTableImage(p.facts) : tableImage(p.facts)), [p.facts]);
+  const table = useMemo(() => (p.facts.pension ? pensionTableImage(p.facts) : p.facts.gsaving ? gsTableImage(p.facts) : tableImage(p.facts)), [p.facts]);
   if (!ready) return null;
   const T = frame / fps;
   const boxes = CLASSIC_BOXES[p.size];

@@ -33,6 +33,12 @@ export const GS_DEFAULT_PREMIUM = 50_000;
 /** one index return as the fourth scene's bars show it */
 export interface GsBar { rate: number; total: number; on: boolean }
 
+/** the returns the classic clip's table sets side by side (owner, 2026-10-20, ก ก): one weak, the middle, one strong */
+export const GS_TABLE_RATES = [-1, 3, 5] as const;
+
+/** one policy year of the classic clip's table; `bonus` only in the years the index bonus is paid, one per GS_TABLE_RATES */
+export interface GsTableRow { year: number; age: number; premium: number; payback: number; death: number; bonus?: number[] }
+
 /** Global Savings' part of the facts */
 export interface GsVideoFacts {
   /** the yearly premium, whole baht */
@@ -62,6 +68,9 @@ export interface GsVideoFacts {
   /** what the premium takes off taxable income a year */
   taxYearly: number;
   bars: GsBar[];
+  /** the classic clip's yearly table, and everything received at each of GS_TABLE_RATES */
+  rows: GsTableRow[];
+  totals: number[];
 }
 
 const money = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -107,12 +116,21 @@ export function gsavingVideoFacts(v: GsVideoInput): QuoteVideoFacts | undefined 
   const rows = q.scenarios[0].rows;
   const perDay = perDayText(Math.round(q.premium * 100));
   const who = `${ok.sex === "F" ? "หญิง" : "ชาย"} ${ok.age} ปี`;
+  const compared = GS_TABLE_RATES.map((r) => scenario(q.sa, q.premium, r / 100, ok.age));
+  const table: GsTableRow[] = rows.map((r) => {
+    const paid = compared.map((c) => c.bonuses.find((b) => b.year === r.year));
+    return {
+      year: r.year, age: ok.age + r.year - 1, premium: r.premium, payback: r.payback, death: r.death,
+      ...(paid[0] ? { bonus: paid.map((b) => b?.value ?? 0) } : {}),
+    };
+  });
   const g: GsVideoFacts = {
     premium: q.premium, sa: q.sa, perDay, rate: ok.rate, payYears: GS_PREM_YEARS, term: GS_TERM,
     paid: GS_PREM_YEARS * q.premium, payback: rows[0].payback, maturity: q.scenarios[0].maturity,
     guaranteed: q.guaranteed, deathFirst: rows[0].death, deathMax: rows[GS_PREM_YEARS - 1].death,
     bonus10: b10?.value ?? 0, bonus15: b15?.value ?? 0, total: at.total, taxYearly: Math.min(q.premium, GS_TAX_CAP),
     bars: GS_RATES.map((r) => ({ rate: r, total: scenario(q.sa, q.premium, r / 100, ok.age).total, on: r === ok.rate })),
+    rows: table, totals: compared.map((c) => c.total),
   };
   return {
     product: "GSAVING",
