@@ -7,7 +7,8 @@ import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
 import { abs, box, chartPaths, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
 import { leadBig, leadPill } from "./plb";
 import type { QuoteVideoFacts, SceneKey } from "./script";
-import { countAt, SIZES, type VideoSize } from "./timeline";
+import { captionShown, wordAt } from "./caption";
+import { countAt, LEAD, SIZES, wordTimes, type VideoSize } from "./timeline";
 import type { Extra } from "./told";
 import { preparedLine, VIDEO_WORDS, wordsOf, type VideoWords } from "./video-words";
 
@@ -93,20 +94,18 @@ function Grid({ g, cols, gap, children }: { g: Geo; cols: number; gap: number; c
   );
 }
 
+/** the piece of the line the voice is on (caption.ts), one line of the band at most */
 function Subtitle({ g, words, t, voiceSec }: { g: Geo; words: string[]; t: number; voiceSec: number }) {
-  const total = words.reduce((x, w) => x + w.length, 0) || 1;
-  const LEAD = 0.35;
   const width = Math.min(g.w - 64, 1560);
-  let acc = 0;
+  const fontSize = g.px(32, 38);
+  const times = wordTimes(words.join(" "), voiceSec);
+  const shown = captionShown(words, (width - 48) / fontSize, wordAt(words, t, voiceSec, LEAD));
   return (
     <div style={abs({ left: Math.round((g.w - width) / 2), width, bottom: g.px(52, 50), justifyContent: "center" })}>
-      <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(0,0,0,0.45)", borderRadius: 26, padding: "12px 24px", fontSize: g.px(32, 38), lineHeight: 1.4 })}>
-        {words.map((w, i) => {
-          const from = LEAD + (acc / total) * voiceSec;
-          acc += w.length;
-          const to = LEAD + (acc / total) * voiceSec;
-          const color = t >= to ? WHITE : t >= from ? GOLD : "rgba(255,255,255,0.55)";
-          return <div key={i} style={box({ color, marginRight: i < words.length - 1 ? 10 : 0 })}>{w}</div>;
+      <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(0,0,0,0.45)", borderRadius: 26, padding: "12px 24px", fontSize, lineHeight: 1.4 })}>
+        {shown.map((i, k) => {
+          const color = t >= times[i].to ? WHITE : t >= times[i].from ? GOLD : "rgba(255,255,255,0.55)";
+          return <div key={i} style={box({ color, marginRight: k < shown.length - 1 ? 10 : 0 })}>{words[i]}</div>;
         })}
       </div>
     </div>

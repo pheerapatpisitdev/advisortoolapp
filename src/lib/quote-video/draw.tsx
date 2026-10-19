@@ -12,6 +12,7 @@ import { PENSION_VIDEO_COLUMNS } from "./pension-table";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
 import { gsMoney, rateLabel } from "./gsaving";
+import { captionShown } from "./caption";
 import { countAt, H, W, type OverlayState } from "./timeline";
 import { preparedLine, wordsOf } from "./video-words";
 
@@ -84,12 +85,14 @@ function Header({ f, layer }: { f: QuoteVideoFacts; layer: Layer }) {
   );
 }
 
+/** the piece of the line the voice is on (caption.ts), one line of the band at most */
 function Subtitle({ words, word }: { words: string[]; word: number }) {
+  const shown = captionShown(words, (W - 140) / 42, word);
   return (
     <div style={abs({ left: 40, right: 40, bottom: 120, justifyContent: "center" })}>
       <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(13,18,32,0.84)", borderRadius: 26, padding: "18px 30px", fontSize: 42, lineHeight: 1.45 })}>
-        {words.map((w, i) => (
-          <div key={i} style={box({ marginRight: i < words.length - 1 ? 12 : 0, color: i < word ? C.paper : i === word ? C.spoken : "rgba(255,255,255,0.55)" })}>{w}</div>
+        {shown.map((i, k) => (
+          <div key={i} style={box({ marginRight: k < shown.length - 1 ? 12 : 0, color: i < word ? C.paper : i === word ? C.spoken : "rgba(255,255,255,0.55)" })}>{words[i]}</div>
         ))}
       </div>
     </div>

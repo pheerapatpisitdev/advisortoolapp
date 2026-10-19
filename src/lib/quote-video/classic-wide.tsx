@@ -10,6 +10,7 @@ import { leadBig, leadPill } from "./plb";
 import type { SceneKey } from "./script";
 import { CLASSIC_BOXES, valueHeads, type Rect } from "./table-geo";
 import { noteInWindow } from "./table-pen";
+import { captionShown } from "./caption";
 import { countAt, SIZES, type OverlayState, type VideoSize } from "./timeline";
 import { preparedLine, wordsOf } from "./video-words";
 
@@ -70,13 +71,16 @@ function Header({ g, c, layer }: { g: Geo; c: DrawContext; layer: Layer }) {
   );
 }
 
+/** the piece of the line the voice is on (caption.ts), one line of the band at most */
 function Subtitle({ g, words, word }: { g: Geo; words: string[]; word: number }) {
   const width = Math.min(g.w - 64, 1560);
+  const fontSize = g.px(32, 38);
+  const shown = captionShown(words, (width - 48) / fontSize, word);
   return (
     <div style={abs({ left: Math.round((g.w - width) / 2), width, bottom: g.px(56, 54), justifyContent: "center" })}>
-      <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(13,18,32,0.84)", borderRadius: 22, padding: "12px 24px", fontSize: g.px(32, 38), lineHeight: 1.4 })}>
-        {words.map((w, i) => (
-          <div key={i} style={box({ marginRight: i < words.length - 1 ? 10 : 0, color: i < word ? C.paper : i === word ? C.spoken : "rgba(255,255,255,0.55)" })}>{w}</div>
+      <div style={box({ flexWrap: "wrap", justifyContent: "center", background: "rgba(13,18,32,0.84)", borderRadius: 22, padding: "12px 24px", fontSize, lineHeight: 1.4 })}>
+        {shown.map((i, k) => (
+          <div key={i} style={box({ marginRight: k < shown.length - 1 ? 10 : 0, color: i < word ? C.paper : i === word ? C.spoken : "rgba(255,255,255,0.55)" })}>{words[i]}</div>
         ))}
       </div>
     </div>
