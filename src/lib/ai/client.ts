@@ -226,6 +226,11 @@ function liveKeys(config: Config): Record<string, string> {
   return Object.fromEntries(Object.entries(config.keys).filter(([provider]) => !config.off.has(provider)));
 }
 
+/** The providers that have a key and are not switched off on ตั้งค่า AI — what the AI-down check asks. */
+export async function liveProviders(): Promise<string[]> {
+  return Object.keys(liveKeys(await loadConfig()));
+}
+
 /** A provider's key, as the chain would use it — for calls that are not a chat (Gemini's Files API); null when off or missing. */
 export async function providerKey(provider: string): Promise<string | null> {
   return liveKeys(await loadConfig())[provider] ?? null;

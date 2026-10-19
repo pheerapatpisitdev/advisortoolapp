@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import type { Friends } from "@/lib/line/client";
 import type { Broadcast, Part, Reply } from "@/lib/line/broadcasts";
 import type { OwnerLine } from "@/lib/line/owner-alert";
+import { HEALTH_LABEL, healthLabel, type Health } from "@/lib/ai/health-rules";
 import { Card, Empty } from "../ui";
 import {
-  broadcastAction, cancelBroadcastAction, notifyNewMemberAction, rebuildMenusAction, setBotAction, startLinkAction,
+  broadcastAction, cancelBroadcastAction, notifyAiDownAction, notifyNewMemberAction, rebuildMenusAction, setBotAction, startLinkAction,
   testAlertAction, unlinkAction, type Result,
 } from "./actions";
 
@@ -18,6 +19,8 @@ export interface LineView {
   botOn: boolean;
   /** null when it could not be read */
   owner: OwnerLine | null;
+  /** each AI provider's standing from the last check; null when it could not be read */
+  health: Health[] | null;
   broadcasts: Broadcast[] | null;
   replyChoices: Reply[];
   maxParts: number;
@@ -132,7 +135,7 @@ function Status({ view }: { view: LineView }) {
         </dl>
       </Card>
 
-      <OwnerAlerts owner={view.owner} />
+      <OwnerAlerts owner={view.owner} health={view.health} />
       <BotSwitch on={view.botOn} />
     </>
   );
@@ -151,7 +154,7 @@ function Row({ k, children }: { k: string; children: React.ReactNode }) {
  * The owner's own LINE, linked once by typing a code into the account's chat, so the account
  * can tell the owner when a member joins (owner chose ก, 2026-10-15).
  */
-function OwnerAlerts({ owner }: { owner: OwnerLine | null }) {
+function OwnerAlerts({ owner, health }: { owner: OwnerLine | null; health: Health[] | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [result, setResult] = useState<Result | null>(null);
@@ -180,6 +183,14 @@ function OwnerAlerts({ owner }: { owner: OwnerLine | null }) {
             />
             แจ้งเมื่อมีสมาชิกใหม่
           </label>
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-3">
+            <input
+              type="checkbox" checked={owner.notifyAiDown} disabled={pending} className="h-5 w-5 accent-[var(--bot-ok)]"
+              onChange={() => run(() => notifyAiDownAction(!owner.notifyAiDown))}
+            />
+            แจ้งเมื่อ AI เจ้าไหนใช้ไม่ได้
+          </label>
+          <AiStanding health={health} />
           <div className="flex flex-wrap gap-2">
             <button type="button" className={quiet} disabled={pending} onClick={() => run(testAlertAction)}>ส่งข้อความทดสอบ</button>
             <button type="button" className={quiet} disabled={pending} onClick={() => run(unlinkAction)}>ยกเลิกการผูก</button>
@@ -197,12 +208,35 @@ function OwnerAlerts({ owner }: { owner: OwnerLine | null }) {
         </div>
       ) : (
         <div className="space-y-2 text-sm">
-          <p>ผูก LINE ของคุณครั้งเดียว แล้วบัญชี LINE OA จะส่งข้อความหาคุณทันทีเมื่อมีคนสมัครสมาชิกใหม่ด้วย Google</p>
+          <p>ผูก LINE ของคุณครั้งเดียว แล้วบัญชี LINE OA จะส่งข้อความหาคุณทันทีเมื่อมีคนสมัครสมาชิกใหม่ด้วย Google และเมื่อ AI เจ้าไหนใช้ไม่ได้</p>
           <button type="button" className={quiet} disabled={pending} onClick={newCode}>ขอรหัสผูก LINE</button>
         </div>
       )}
       <Said result={result} />
     </Card>
+  );
+}
+
+const ORDER = Object.keys(HEALTH_LABEL);
+const clock = (iso: string) => new Date(iso).toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
+
+/** Each provider as the last 30-minute check left it: green answering, red down since a time. */
+function AiStanding({ health }: { health: Health[] | null }) {
+  if (health === null) return <p className="ml-8 text-xs text-[var(--bot-ink-mute)]">อ่านสถานะ AI ไม่สำเร็จ</p>;
+  if (health.length === 0) return <p className="ml-8 text-xs text-[var(--bot-ink-mute)]">ยังไม่ได้ตรวจ ระบบตรวจทุก 30 นาที</p>;
+  const rows = [...health].sort((a, b) => ORDER.indexOf(a.provider) - ORDER.indexOf(b.provider));
+  const last = rows.map((h) => h.lastChecked).filter((s): s is string => Boolean(s)).sort().at(-1);
+  return (
+    <div className="ml-8 space-y-1">
+      <div className="flex flex-wrap gap-1.5">
+        {rows.map((h) => (
+          <Pill key={h.provider} tone={h.ok ? "ok" : h.alerted ? "bad" : "warn"}>
+            {healthLabel(h.provider)}{!h.ok && h.downSince ? ` · ${h.alerted ? "" : "พลาด 1 รอบ "}${clock(h.downSince)}` : ""}
+          </Pill>
+        ))}
+      </div>
+      {last && <p className="text-xs text-[var(--bot-ink-mute)]">ตรวจล่าสุด {clock(last)} น. · ตรวจทุก 30 นาที · เสียงพากย์ Gemini ทุก 2 ชม.</p>}
+    </div>
   );
 }
 

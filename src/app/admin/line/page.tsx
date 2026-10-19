@@ -7,6 +7,8 @@ import { listBroadcasts, MAX_PARTS, REPLY_CHOICES, type Broadcast } from "@/lib/
 import { MENUS } from "@/lib/line/rich-menu";
 import { lineBotEnabled } from "@/lib/line/settings";
 import { ownerLine, type OwnerLine } from "@/lib/line/owner-alert";
+import { readHealth } from "@/lib/ai/health";
+import type { Health } from "@/lib/ai/health-rules";
 import { LineTabs, type LineView } from "./LineTabs";
 
 export const dynamic = "force-dynamic";
@@ -51,14 +53,15 @@ async function chats(): Promise<{ last: string | null; people7d: number } | null
  */
 export default async function LinePage() {
   await gatePage("/admin/line", "backoffice");
-  const [info, hook, f, q, c, botOn, owner, list] = await Promise.all([
+  const [info, hook, f, q, c, botOn, owner, list, health] = await Promise.all([
     botInfo(), testWebhook(), friends(), quota(), chats().catch(() => null), lineBotEnabled(),
     ownerLine().catch((e): OwnerLine | null => { console.error("[line] owner link not read:", e); return null; }),
     listBroadcasts().catch((e): Broadcast[] | null => { console.error("[line] broadcasts not read:", e); return null; }),
+    readHealth().catch((e): Health[] | null => { console.error("[ai-health] standing not read:", e); return null; }),
   ]);
 
   const view: LineView = {
-    hook, friends: f, quota: q, chats: c, botOn, owner, broadcasts: list,
+    hook, friends: f, quota: q, chats: c, botOn, owner, broadcasts: list, health,
     replyChoices: REPLY_CHOICES, maxParts: MAX_PARTS,
     menus: Object.values(MENUS).map((m) => ({
       name: m.name, alias: m.alias, bar: m.chatBarText, columns: m.columns,

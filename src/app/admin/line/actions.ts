@@ -4,7 +4,7 @@ import { audit, requireStaff } from "@/lib/auth/viewer";
 import { bucketPrefix, cancelBroadcast, createBroadcast, readBroadcastInput, sendBroadcast } from "@/lib/line/broadcasts";
 import { rebuildMenus } from "@/lib/line/rebuild";
 import { setLineBotEnabled } from "@/lib/line/settings";
-import { sendTestAlert, setNotifyNewMember, startLink, unlink } from "@/lib/line/owner-alert";
+import { sendTestAlert, setNotifyAiDown, setNotifyNewMember, startLink, unlink } from "@/lib/line/owner-alert";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
 export type Result = { ok: true; note?: string } | { ok: false; error: string };
@@ -106,6 +106,19 @@ export async function notifyNewMemberAction(on: boolean): Promise<Result> {
     return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
   await audit("line-notify-new-member", null, { on });
+  revalidatePath("/admin/line");
+  return { ok: true };
+}
+
+export async function notifyAiDownAction(on: boolean): Promise<Result> {
+  await requireStaff("backoffice");
+  try {
+    await setNotifyAiDown(on === true);
+  } catch (e) {
+    console.error("[line] AI-down switch not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+  await audit("line-notify-ai-down", null, { on });
   revalidatePath("/admin/line");
   return { ok: true };
 }
