@@ -45,6 +45,7 @@ import { faceUris } from "./story-faces";
 import { a, motionBackground, motionBgHeight, motionFrame, motionSpec, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
 import { clipProps, REMOTION_JOB, remotionFits, remotionPlanOf, storyClipProps, type ClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
+import { tellOwnerClipFailed } from "./fail-alert";
 import { failReason, renderThbFor, secondsBetween, type ClipEngine, type CostParts } from "./run-record";
 import { remotionFor } from "./remotion-switch";
 import { aiSpots, collageDecor, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, THEME_LETTERS, themeBackground, themed, themeFont, themeHero, type Decor, type Hero, type SoundKind } from "./themes";
@@ -377,24 +378,32 @@ async function fail(id: string, why: unknown): Promise<void> {
   const { data: was } = await rows().select("status").eq("id", id).maybeSingle();
   const fail_reason = failReason(why, (was as Pick<VideoRow, "status"> | null)?.status);
   const { data } = await rows().update({ status: "failed", error, fail_reason, updated_at: new Date().toISOString() })
-    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input").maybeSingle();
+    .eq("id", id).in("status", ["drawing", "rendering"]).is("video_path", null).select("hold_id, paid_by, input, agent_id, held_satang").maybeSingle();
   if (data) {
     await release(data as Pick<VideoRow, "hold_id" | "paid_by">);
     // a คลิปตามโจทย์ that failed gives its draft back, to be made again
     const input = (data as Pick<VideoRow, "input">).input;
     if (input && isPromptStory(input) && input.draftId) await releaseDraft(input.draftId, id);
+    // the owner's LINE told, every failed clip (owner chose ก ก, 2026-10-19)
+    const d = data as Pick<VideoRow, "agent_id" | "paid_by" | "held_satang">;
+    await tellOwnerClipFailed({ id, agent_id: d.agent_id, input, paid_by: d.paid_by, held_satang: d.held_satang, fail_reason, error });
     await clearInputs(id).catch(() => undefined);
     return;
   }
   // a finished clip being cut again (redrawPicture): the cut it had stands, paid already, and stays redrawable
   const { data: kept } = await rows().update({ status: "done", error: RECUT_FAILED, fail_reason, updated_at: new Date().toISOString() })
-    .eq("id", id).in("status", ["drawing", "rendering"]).not("video_path", "is", null).select("id, input").maybeSingle();
+    .eq("id", id).in("status", ["drawing", "rendering"]).not("video_path", "is", null).select("id, input, agent_id, paid_by").maybeSingle();
   // the redrawn picture is not in the clip: its hold goes back
   const input = (kept as Pick<VideoRow, "input"> | null)?.input;
   if (input && isPromptStory(input) && input.redraw) {
     const { redraw, ...rest } = input;
     await releaseWallet(redraw.hold).catch((e) => console.error("redraw hold not released:", e));
     await setRow(id, { input: rest }).catch(() => undefined);
+  }
+  if (kept) {
+    const k = kept as Pick<VideoRow, "agent_id" | "paid_by">;
+    const recut = input && isPromptStory(input) && input.redraw ? input.redraw.satang : 0;
+    await tellOwnerClipFailed({ id, agent_id: k.agent_id, input, paid_by: k.paid_by, held_satang: null, fail_reason, error: RECUT_FAILED, recut: { satang: recut } });
   }
   await clearInputs(id, Boolean(kept)).catch(() => undefined);
 }

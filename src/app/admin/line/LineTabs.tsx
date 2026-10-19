@@ -7,7 +7,7 @@ import type { OwnerLine } from "@/lib/line/owner-alert";
 import { HEALTH_LABEL, healthLabel, type Health } from "@/lib/ai/health-rules";
 import { Card, Empty } from "../ui";
 import {
-  broadcastAction, cancelBroadcastAction, notifyAiDownAction, notifyNewMemberAction, rebuildMenusAction, setBotAction, startLinkAction,
+  broadcastAction, cancelBroadcastAction, notifyAiDownAction, notifyClipFailedAction, notifyNewMemberAction, rebuildMenusAction, setBotAction, startLinkAction,
   testAlertAction, unlinkAction, type Result,
 } from "./actions";
 
@@ -189,6 +189,13 @@ function OwnerAlerts({ owner, health }: { owner: OwnerLine | null; health: Healt
               onChange={() => run(() => notifyAiDownAction(!owner.notifyAiDown))}
             />
             แจ้งเมื่อ AI เจ้าไหนใช้ไม่ได้
+          </label>
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-3">
+            <input
+              type="checkbox" checked={owner.notifyClipFailed} disabled={pending} className="h-5 w-5 accent-[var(--bot-ok)]"
+              onChange={() => run(() => notifyClipFailedAction(!owner.notifyClipFailed))}
+            />
+            แจ้งเมื่อคลิปไม่สำเร็จ
           </label>
           <AiStanding health={health} />
           <div className="flex flex-wrap gap-2">
