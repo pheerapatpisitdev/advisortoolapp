@@ -313,7 +313,7 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
         </form>
       </Card>
 
-      <Card title="วิดีโอที่วาดด้วย Remotion" hint="ใครได้คลิปที่วาดด้วย Remotion บน Cloud Run (ลื่น 30 ภาพต่อวินาที ไม่ต้องวาดบน Vercel) แยกตามแผนและเครื่องมือ · ตอนนี้ Motion แนวตั้งทุกแผนยกเว้นสรุป FHC คลิปเล่าเรื่องและคลิปตามโจทย์ทุกขนาด แบบอื่นยังใช้เครื่องเดิม">
+      <Card title="วิดีโอที่วาดด้วย Remotion" hint="ใครได้คลิปที่วาดด้วย Remotion บน Cloud Run (ลื่น 30 ภาพต่อวินาที ไม่ต้องวาดบน Vercel) แยกตามแผนและเครื่องมือ · ทุกคลิปวาดด้วย Remotion ได้แล้ว แถวที่ตั้ง “เครื่องเดิม” ยังวาดบน Vercel">
         <div className="space-y-3">
           {REMOTION_PLANS.map((plan) => (
             <fieldset key={plan} disabled={pending}>

@@ -274,3 +274,28 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the story clip samples", asyn
   writeFileSync(join(PUB, "audio/st-free.wav"), silentWav(clipLength(fPlans)));
   writeFileSync(join(PUB, "props/st-free.json"), JSON.stringify(storyClipProps(free as never, "portrait", "", "M", CONTACT, fPlans, fScript, fSecs, clipLength(fPlans), "audio/st-free.wav", [...free.pictures])));
 });
+
+/**
+ * A แบบปกติ sample for the ClassicClip composition (owner, 2026-10-20: "ย้ายที่เหลือเลย"): Life Protect, portrait, its
+ * lead's family photo (card/family.jpg, which every แบบปกติ clip's render reads from the bundle) and its value table
+ * with the pen notes, as props/c-lp.json. The voice is silence, a line about 9 letters a second.
+ */
+it.skipIf(Boolean(process.env.IHEALTHY))("prepares the แบบปกติ sample", async () => {
+  const { quoteVideoFacts, quoteVideoScript } = await import("@/lib/quote-video/script");
+  const { quotePartsFor } = await import("@/lib/quote-video/make");
+  const { clipLength } = await import("@/lib/quote-video/timeline");
+  const { REMOTION_DRAWING } = await import("@/lib/quote-video/remotion");
+  for (const d of ["audio", "props", "card"]) mkdirSync(join(PUB, d), { recursive: true });
+  copyFileSync(join(APP, "public/card/family.jpg"), join(PUB, "card/family.jpg"));
+  const input = { product: "LIFEPROTECT" as const, variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000, style: "classic" as const, size: "portrait" as const };
+  const script = quoteVideoScript(quoteVideoFacts(input, TODAY)!, "", "F", "full", {});
+  const secs = script.map((s) => Math.max(2.5, [...s.voice].length / 9));
+  const parts = quotePartsFor({ input, customer_name: "" }, CONTACT, secs);
+  const total = clipLength(parts.plans);
+  writeFileSync(join(PUB, "audio/c-lp.wav"), silentWav(total));
+  const { layers, ...drawn } = parts.classic$!;
+  writeFileSync(join(PUB, "props/c-lp.json"), JSON.stringify({
+    composition: "ClassicClip", drawing: REMOTION_DRAWING, ...drawn, total, audio: "audio/c-lp.wav",
+    scenes: parts.plans.map((p, i) => ({ key: p.key, voice: parts.script[i].voice, voiceSec: secs[i], start: p.start, dur: p.dur, frames: p.frames, ...(layers[i] ? { layer: layers[i] } : {}), ...(p.table ? { table: p.table } : {}) })),
+  }));
+});

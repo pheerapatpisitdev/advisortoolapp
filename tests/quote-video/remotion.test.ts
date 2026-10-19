@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Viewer } from "@/lib/auth/access";
 import { DEFAULT_PRICES } from "@/lib/wallet/prices";
-import { REMOTION_DRAWING, REMOTION_JOB, remotionFits, remotionPlan, remotionPlanOf, type ClipProps, type StoryClipProps } from "@/lib/quote-video/remotion";
+import { REMOTION_DRAWING, REMOTION_JOB, remotionFits, remotionPlan, remotionPlanOf, type ClassicClipProps, type ClipProps, type FhcClipProps, type StoryClipProps } from "@/lib/quote-video/remotion";
 import { checkedStory, storyScript, type StoryVideoInput } from "@/lib/quote-video/story";
 import type { PromptStoryInput } from "@/lib/prompt-story/types";
 import type { VideoInput } from "@/lib/quote-video/script";
@@ -159,44 +159,38 @@ beforeEach(() => {
 });
 
 describe("remotionFits", () => {
-  it("takes a portrait Motion Graphic Life Protect, iHealthy or iShield clip only, as the trials measured", () => {
-    expect(remotionFits(lp())).toBe(true);
-    expect(remotionFits(lp({ product: undefined } as Partial<VideoInput>))).toBe(true);
-    expect(remotionFits(lp({ style: "classic" }))).toBe(false);
-    expect(remotionFits(lp({ size: "square" }))).toBe(false);
-    expect(remotionFits(lp({ size: "landscape" }))).toBe(false);
-    // iShield: the Remotion move's phase 1 (owner chose ก ก, 2026-10-19)
-    expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20" } as Partial<VideoInput>))).toBe(true);
-    expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20", style: "classic" } as Partial<VideoInput>))).toBe(false);
-    expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20", size: "square" } as Partial<VideoInput>))).toBe(false);
-    // PLB, บำนาญ 95, มรดก: same drawing (owner chose ก ก, 2026-10-19); portrait Motion Graphic only
-    expect(remotionPlan(lp({ product: "PLB", variant: "PLB15" } as Partial<VideoInput>))).toBe("PLB");
-    expect(remotionPlan({ product: "PENSION", age: 40, sex: "M", annuityAge: 55, pay: "untilAnnuity", sumAssured: 183824, style: "motion" } as unknown as VideoInput)).toBe("PENSION");
-    expect(remotionPlan({ product: "LEGACY", age: 35, sex: "M", tier: 1, style: "motion", size: "square" } as unknown as VideoInput)).toBeNull();
-    expect(remotionPlan({ product: "LEGACY", age: 35, sex: "M", tier: 1, style: "classic" } as unknown as VideoInput)).toBeNull();
-    expect(remotionFits(ih())).toBe(true);
-    expect(remotionFits(ih({ lang: "zh" } as Partial<VideoInput>))).toBe(true);
-    expect(remotionFits(ih({ style: "classic" }))).toBe(false);
-    expect(remotionFits(ih({ size: "square" }))).toBe(false);
-    expect(remotionFits(ih({ size: "landscape" }))).toBe(false);
+  it("takes every quote clip since the move's last round (owner, 2026-10-20: \"ย้ายที่เหลือเลย\")", () => {
+    for (const size of ["portrait", "square", "landscape"] as const) {
+      for (const style of ["motion", "classic"] as const) {
+        expect(remotionFits(lp({ size, style }))).toBe(true);
+        expect(remotionFits(ih({ size, style }))).toBe(true);
+        expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20", size, style } as Partial<VideoInput>))).toBe(true);
+      }
+    }
   });
-  it("names the plan whose row on the switch a clip follows", () => {
+  it("names the row on the switch a clip follows: its plan for Motion Graphic, แบบปกติ's own for the rest", () => {
     expect(remotionPlan(lp())).toBe("LIFEPROTECT");
     expect(remotionPlan(lp({ product: undefined } as Partial<VideoInput>))).toBe("LIFEPROTECT");
-    expect(remotionPlan(ih())).toBe("IHEALTHY");
+    expect(remotionPlan(lp({ size: "landscape" }))).toBe("LIFEPROTECT");
+    expect(remotionPlan(ih({ size: "square" }))).toBe("IHEALTHY");
     expect(remotionPlan(lp({ product: "ISHIELD", variant: "WLCI20" } as Partial<VideoInput>))).toBe("ISHIELD");
-    expect(remotionPlan(ih({ size: "square" }))).toBeNull();
+    expect(remotionPlan(lp({ product: "PLB", variant: "PLB15" } as Partial<VideoInput>))).toBe("PLB");
+    expect(remotionPlan({ product: "PENSION", age: 40, sex: "M", annuityAge: 55, pay: "untilAnnuity", sumAssured: 183824, style: "motion" } as unknown as VideoInput)).toBe("PENSION");
+    expect(remotionPlan({ product: "LEGACY", age: 35, sex: "M", tier: 1, style: "motion", size: "square" } as unknown as VideoInput)).toBe("LEGACY");
+    for (const input of [lp({ style: "classic" }), ih({ style: "classic", size: "landscape" }), { product: "LEGACY", age: 35, sex: "M", tier: 1, style: "classic" } as unknown as VideoInput]) {
+      expect(remotionPlan(input)).toBe("CLASSIC");
+    }
   });
 });
 
 describe("คลิปเล่าเรื่อง and คลิปตามโจทย์ on Remotion (owner chose ก ก ก, 2026-10-19)", () => {
-  it("every size follows the tool's own row; an FHC summary never", () => {
+  it("every size follows the tool's own row; an FHC summary its own, a แบบปกติ clip แบบปกติ's", () => {
     for (const size of ["portrait", "square", "landscape"]) {
       expect(remotionPlanOf({ product: "STORY", size } as never)).toBe("STORY");
       expect(remotionPlanOf({ product: "FREESTORY", size } as never)).toBe("FREESTORY");
+      expect(remotionPlanOf({ product: "FHC", fhc: {}, style: "motion", size } as never)).toBe("FHC");
     }
-    expect(remotionPlanOf({ fhc: {}, style: "motion" } as never)).toBeNull();
-    expect(remotionPlanOf(lp({ style: "classic" }))).toBeNull();
+    expect(remotionPlanOf(lp({ style: "classic" }))).toBe("CLASSIC");
   });
   it("guesses a Remotion story clip's progress from Remotion story clips", () => {
     expect(clipKind({ product: "STORY", engine: "remotion" })).toBe("story-remotion");
@@ -244,14 +238,13 @@ describe("createVideo, as the switch says", () => {
     expect(await engineOf(owner, ih())).toBeUndefined();
   });
 
-  it("a clip Remotion has not been tried on stays on the frames, whatever the switch", async () => {
-    sw.ih = "all";
-    for (const input of [ih({ size: "square" }), ih({ size: "landscape" }), ih({ style: "classic" })]) {
-      expect(await engineOf(owner, input)).toBeUndefined();
-    }
-    for (const input of [lp({ style: "classic" }), lp({ size: "square" }), lp({ product: "ISHIELD", variant: "WLCI20", size: "square" } as Partial<VideoInput>)]) {
-      expect(await engineOf(owner, input)).toBeUndefined();
-    }
+  it("แบบปกติ, square and landscape follow their rows, as every other clip does", async () => {
+    sw.who = "owner";
+    sw.asked.length = 0;
+    expect(await engineOf(owner, lp({ style: "classic" }))).toBe("remotion");
+    expect(await engineOf(agent, lp({ style: "classic" }))).toBeUndefined();
+    expect(await engineOf(owner, lp({ size: "landscape" }))).toBe("remotion");
+    expect(sw.asked).toEqual(["CLASSIC", "CLASSIC", "LIFEPROTECT"]);
   });
 
   it("iShield follows its own row (the Remotion move's phase 1)", async () => {
@@ -333,6 +326,65 @@ describe("produce, a story clip drawn by Remotion", () => {
     expect(rowOf(id).status).toBe("rendering");
     expect(drawCalls()).toBeGreaterThan(0);
     expect(ai.submit.mock.calls[0][0]).toBe("clip-ffmpeg");
+  });
+});
+
+const fhcFacts = {
+  age: 35, sex: "M", checkedOn: "12 ตุลาคม 2569",
+  scores: [{ key: "emergency", label: "เงินสำรองฉุกเฉิน", level: "red", value: "2.5 เดือน" }],
+  gaps: [{ key: "life", label: "ชีวิต", state: "short", unit: "sum", have: 500_000, should: 2_000_000 }],
+  events: [{ key: "jobLoss", name: "ตกงาน", level: "red", line: "ไม่มีประกัน · ควรมีเงินสำรอง 6 เดือน" }],
+  plan: [{ key: "life", label: "ชีวิต", product: "Life Protect x 2 ชำระ 19 ปี", detail: "ทุน 1,500,000 บาท", monthly: 3_600, per: "ออมเดือนละ" }],
+};
+
+describe("produce, the move's last round on Remotion (owner, 2026-10-20)", () => {
+  it("แบบปกติ: no frame drawn; ClassicClip gets each scene's overlay states, the photo and the table's moves", async () => {
+    const made = await createVideo(owner, lp({ style: "classic" }), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const row = rowOf(id);
+    expect(row.error).toBeNull();
+    expect(row.status).toBe("rendering");
+    expect(drawCalls()).toBe(0);
+    expect(ai.submit.mock.calls[0][0]).toBe(REMOTION_JOB);
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as ClassicClipProps;
+    expect(props.composition).toBe("ClassicClip");
+    expect(props.size).toBe("portrait");
+    expect(props.scenes.find((x) => x.key === "lead")?.layer).toBe("photo");
+    const value = props.scenes.find((x) => x.key === "value")!;
+    expect(value.layer).toBe("table");
+    expect(value.table?.moves.length).toBeGreaterThan(0);
+    expect(props.notes?.length).toBe(value.table?.shown.length);
+    expect(props.scenes.every((x) => x.frames.length > 0)).toBe(true);
+    expect(props.audio).toBe(`https://x/${id}/voice.wav`);
+  });
+
+  it("a landscape Motion Graphic clip: QuoteMotion in its shape, no cut-outs off portrait", async () => {
+    const made = await createVideo(owner, lp({ size: "landscape" }), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    expect(rowOf(id).status).toBe("rendering");
+    expect(drawCalls()).toBe(0);
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as ClipProps;
+    expect(props.size).toBe("landscape");
+    expect(props.pieces).toEqual({});
+    expect([...db.files.keys()].some((k) => k.includes("/piece-"))).toBe(false);
+  });
+
+  it("an FHC summary: FhcClip with the summary's facts", async () => {
+    const made = await createVideo(owner, { product: "FHC", customerId: "c1", age: 35, sex: "M", style: "motion", length: "full", size: "square", fhc: fhcFacts } as never, "สมชาย");
+    const id = (made as { id: string }).id;
+    expect((rowOf(id).input as { engine?: string }).engine).toBe("remotion");
+    await produce(id, "ตัวแทน");
+    expect(rowOf(id).error).toBeNull();
+    expect(rowOf(id).status).toBe("rendering");
+    expect(drawCalls()).toBe(0);
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as FhcClipProps;
+    expect(props.composition).toBe("FhcClip");
+    expect(props.size).toBe("square");
+    expect(props.facts.age).toBe(35);
+    expect(props.scenes[0].key).toBe("fhcOpen");
+    expect(props.picks).toEqual({});
   });
 });
 

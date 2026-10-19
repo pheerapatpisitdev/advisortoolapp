@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { motionBackground, motionBgHeight, motionFrame, type MotionContext } from "@/lib/quote-video/motion";
+import { wideQuoteFrame } from "@/lib/quote-video/wide";
 import { collageDecor, themeBackground, themed, themeHero, type Decor, type Hero } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
@@ -52,6 +53,18 @@ export async function loadFonts(): Promise<void> {
   for (const f of [...symbols, ...plexUnder, ...own]) document.fonts.add(f);
 }
 
+/**
+ * Chinese, Russian, Burmese: the clip's Noto face under each family's own name, for the letters that family has
+ * not got, as satori falls back to it; Thai, Latin and the figures stay as they are
+ */
+export async function loadScriptFonts(scriptFont?: { url: string; weight: number }[]): Promise<void> {
+  const families = [...new Set(FONTS.map(([family]) => family))];
+  await Promise.all((scriptFont ?? []).flatMap(({ url, weight }) => families.map(async (family) => {
+    const f = new FontFace(family, `url(${/^https?:\/\//.test(url) ? url : staticFile(url)})`, { weight: String(weight), unicodeRange: SCRIPT_RANGE });
+    document.fonts.add(await f.load());
+  })));
+}
+
 interface Loaded { hero?: Hero; decor?: Decor; ground: ReactNode }
 
 function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
@@ -60,18 +73,13 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
   useEffect(() => {
     (async () => {
       await loadFonts();
-      // Chinese, Russian, Burmese: the clip's Noto face under each family's own name, for the letters
-      // that family has not got, as satori falls back to it; Thai, Latin and the figures stay as they are
-      const families = [...new Set(FONTS.map(([family]) => family))];
-      await Promise.all((p.scriptFont ?? []).flatMap(({ url, weight }) => families.map(async (family) => {
-        const f = new FontFace(family, `url(${/^https?:\/\//.test(url) ? url : staticFile(url)})`, { weight: String(weight), unicodeRange: SCRIPT_RANGE });
-        document.fonts.add(await f.load());
-      })));
+      await loadScriptFonts(p.scriptFont);
       const bgH = motionBgHeight({ h });
       const [hero, decor, ground] = await Promise.all([
         themeHero(p.theme, p.sex),
         // the cut-outs as the app's pieceFor gave them (links), or the trial's stand-ins (files here)
-        p.theme === "collage" ? collageDecor(async (piece, key) => {
+        // คอลลาจ's library pictures in a portrait clip's scenes only, as quotePartsFor's decor
+        p.theme === "collage" && (p.size ?? "portrait") === "portrait" ? collageDecor(async (piece, key) => {
           const at = p.pieces[`${key}/${piece}`];
           return at ? (await readFile(/^https?:\/\//.test(at) ? at : `public/${at}`)) as unknown as Buffer : null;
         }, p.facts.coverStyle) : undefined,
@@ -123,7 +131,7 @@ export function Clip(p: ClipProps) {
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
         {/* Thai lines break at spaces only, as satori breaks them (KeepWords; owner chose ก, 2026-10-19) */}
-        <KeepWords>{themed(motionFrame(sc.key, c, t), p.theme, t)}</KeepWords>
+        <KeepWords>{themed(p.size && p.size !== "portrait" ? wideQuoteFrame(sc.key, c, t, p.size) : motionFrame(sc.key, c, t), p.theme, t)}</KeepWords>
       </AbsoluteFill>
     );
   });
