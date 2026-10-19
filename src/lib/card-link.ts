@@ -167,7 +167,7 @@ export const TABLE_WITH_DISEASES: ReadonlySet<string> = new Set(["ISHIELD"]);
  * DRAWING_REVISION bump, which would also change the Remotion image's drawing fingerprint and
  * need the image built again for a change no clip draws.
  */
-const DISEASE_TABLE_REVISION = "i1";
+const DISEASE_TABLE_REVISION = "i2";
 
 /** What a บำนาญ สมาร์ท 95 table picture is drawn from: the person, the pension age, the paying term and the sum. */
 export interface PensionTableInput {
