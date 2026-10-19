@@ -40,8 +40,7 @@ import { DraftTools } from "./draft/DraftTools";
 import { ThanksTools } from "./thanks/ThanksTools";
 import { SayingTools } from "./saying/SayingTools";
 import { ShowcaseTools } from "./showcase/ShowcaseTools";
-import { CLIP_HREF, CLIP_NAME, isReelPiece } from "@/lib/content/clip";
-import { ClipTools } from "./clip/ClipTools";
+import { CLIP_HREF, isReelPiece } from "@/lib/content/clip";
 import { ClipCard } from "./clip/ClipCard";
 import { ClipEditor } from "./clip/ClipEditor";
 import { MODE_PLANS, modeName } from "@/lib/content/modes";
@@ -93,11 +92,12 @@ interface Props {
 
 
 /** what a round is made from: a plan, a claim, a recruit topic, a knowledge subject, the agent's own draft, a thank-you, a saying — or a clip the agent filmed */
-type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft" | "thanks" | "saying" | "showcase" | "clip";
-const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft", "thanks", "saying", "showcase", "clip"];
+// คลิป left for its own page, /studio/clip-edit (owner chose ก, 2026-10-19)
+type Mode = "plan" | "claim" | "recruit" | "knowledge" | "draft" | "thanks" | "saying" | "showcase";
+const MODES: readonly Mode[] = ["plan", "claim", "recruit", "knowledge", "draft", "thanks", "saying", "showcase"];
 /** the tools in the "สร้างจาก" dropdown, in the order the owner reads them */
 const MODE_OPTIONS: readonly (readonly [Mode, string])[] = [
-  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME], ["thanks", THANKS_NAME], ["saying", SAYING_NAME], ["showcase", SHOWCASE_NAME], ["clip", CLIP_NAME],
+  ["plan", "แบบประกัน"], ["claim", CLAIM_NAME], ["recruit", RECRUIT_NAME], ["knowledge", KNOWLEDGE_NAME], ["draft", DRAFT_NAME], ["thanks", THANKS_NAME], ["saying", SAYING_NAME], ["showcase", SHOWCASE_NAME],
 ];
 
 const TABS: { id: ContentStatus; label: string }[] = [
@@ -1146,9 +1146,6 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                 })}
               />
           </div>
-          <div hidden={mode !== "clip"}>
-            <ClipTools page={project?.pageId} onItem={clipArrived} folded={!formOpen} formId={mode === "clip" ? formId : undefined} />
-          </div>
           <div hidden={mode !== "plan"}>
           <div id={mode === "plan" ? formId : undefined} className={`space-y-3 p-3 ${formOpen ? "" : "hidden lg:block"}`}>
           <label className="block">
@@ -1391,7 +1388,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
               >
                 <option value="">ทุกแบบ</option>
                 {products.map((p) => <option key={p.href} value={p.href}>{p.name}</option>)}
-                {MODE_PLANS.map((m) => <option key={m.href} value={m.href}>{m.name}</option>)}
+                {MODE_PLANS.filter((m) => m.href !== CLIP_HREF).map((m) => <option key={m.href} value={m.href}>{m.name}</option>)}
               </select>
             </label>
           </div>

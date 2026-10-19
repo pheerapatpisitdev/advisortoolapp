@@ -538,15 +538,27 @@ describe("the workbench list", () => {
     const wb = await contentWorkbench({ status: "draft", planHref: "/cancer", offset: 40 });
     expect(wb.failed).toBeUndefined();
     // the owner's first Page's project, none being named (2026-09-30)
-    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: "/cancer", pageId: PAGE }, 40, 40);
+    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: "/cancer", notPlanHref: "clip", pageId: PAGE }, 40, 40);
     expect(wb.counts.draft).toBe(57);
+  });
+
+  it("lists the clips alone for ตัดต่อคลิป, and leaves them out of Organic even when asked by plan (owner chose ก, 2026-10-19)", async () => {
+    store.listContent.mockResolvedValueOnce([]);
+    store.countByStatus.mockResolvedValueOnce({ draft: 0, used: 0, trashed: 0 });
+    await contentWorkbench({ status: "used", clips: true });
+    expect(store.listContent).toHaveBeenCalledWith({ status: "used", planHref: "clip", notPlanHref: undefined, pageId: PAGE }, 40, 0);
+    expect(store.countByStatus).toHaveBeenCalledWith("clip", PAGE, undefined);
+    store.listContent.mockResolvedValueOnce([]);
+    store.countByStatus.mockResolvedValueOnce({ draft: 0, used: 0, trashed: 0 });
+    await contentWorkbench({ status: "draft", planHref: "clip" });
+    expect(store.listContent).toHaveBeenLastCalledWith({ status: "draft", planHref: undefined, notPlanHref: "clip", pageId: PAGE }, 40, 0);
   });
 
   it("reads a nonsense offset as the start", async () => {
     store.listContent.mockResolvedValueOnce([]);
     store.countByStatus.mockResolvedValueOnce({ draft: 0, used: 0, trashed: 0 });
     await contentWorkbench({ status: "draft", offset: -5 });
-    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined, pageId: PAGE }, 40, 0);
+    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined, notPlanHref: "clip", pageId: PAGE }, 40, 0);
   });
 });
 

@@ -286,7 +286,7 @@ describe("Studio's own menu", () => {
     expect(groups.map((g) => g.title ?? null)).toEqual([null, "สร้างงาน", "วางแผนและคลัง"]);
     expect(groups.map((g) => g.links.map((l) => l.href))).toEqual([
       ["/home", "/studio"],
-      ["/studio/quote-video", "/studio/story-clip", "/studio/write", "/studio/thumbnail", "/studio/describe"],
+      ["/studio/quote-video", "/studio/story-clip", "/studio/write", "/studio/clip-edit", "/studio/thumbnail", "/studio/describe"],
       ["/studio/calendar", "/studio/hooks", "/studio/people"],
     ]);
     expect(groups[0].links[0]).toMatchObject({ label: "ระบบหลัก", icon: "back" });
@@ -307,13 +307,14 @@ describe("Studio's own menu", () => {
     expect(studioMenu(who).flatMap((g) => g.links.map((l) => l.href))).not.toContain("/studio/voice");
   });
 
-  it("lists ภาพปกคลิป right after Organic Studio, for everyone who has Studio (owner, 2026-10-09; opened to all 2026-10-14)", () => {
+  it("lists ตัดต่อคลิป right after Organic Studio, then ภาพปกคลิป, for everyone who has Studio (owner, 2026-10-09; opened to all 2026-10-14; ตัดต่อคลิป 2026-10-19)", () => {
     const who = { name: "a", room: "r", publish: false, connect: false, admin: false, owner: false };
     const owner = { ...who, owner: true, admin: true, publish: true, connect: true };
     for (const w of [undefined, who, { ...who, member: true }, { ...who, publish: true }, { ...who, admin: true, publish: true, connect: true }, owner]) {
       const links = studioMenu(w as typeof who).flatMap((g) => g.links);
       const at = links.findIndex((l) => l.href === "/studio/write");
-      expect(links[at + 1]).toMatchObject({ href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image" });
+      expect(links[at + 1]).toMatchObject({ href: "/studio/clip-edit", label: "ตัดต่อคลิป" });
+      expect(links[at + 2]).toMatchObject({ href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image" });
       expect(links.map((l) => l.href)).toContain("/studio/describe");
     }
     const hrefs = studioMenu(owner).flatMap((g) => g.links).map((l) => l.href);

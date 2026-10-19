@@ -76,8 +76,8 @@ describe("the workbench's lists", () => {
   it("are the Page's the request resolved to", async () => {
     project.projectPage.mockResolvedValue({ ok: true, pageId: "p1" });
     await contentWorkbench({ status: "draft", page: "p1" });
-    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined, pageId: "p1" }, 40, 0);
-    expect(store.countByStatus).toHaveBeenCalledWith(undefined, "p1");
+    expect(store.listContent).toHaveBeenCalledWith({ status: "draft", planHref: undefined, notPlanHref: "clip", pageId: "p1" }, 40, 0);
+    expect(store.countByStatus).toHaveBeenCalledWith(undefined, "p1", "clip");
   });
 
   it("are empty for a Page taken from the caller while the page was open", async () => {

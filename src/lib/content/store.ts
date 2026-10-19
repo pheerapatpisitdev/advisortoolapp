@@ -258,12 +258,14 @@ export async function getContentUnscoped(id: string): Promise<ContentItem | null
 
 /** `includeAds`: Organic Studio shows no ad piece, so its callers omit it; Ads Studio reads its ads through listCampaignPieces, and nothing passes this today (kept for a reader that wants both) */
 /** `before`: the next page after the piece made then (a cursor: a piece trashed or used meanwhile skips nothing, 2026-10-18) */
-export async function listContent(filter: { status?: ContentStatus; planHref?: string; pageId?: string; includeAds?: boolean; before?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
+/** `notPlanHref`: every plan but this one — Organic leaves the clips to their own page (2026-10-19) */
+export async function listContent(filter: { status?: ContentStatus; planHref?: string; notPlanHref?: string; pageId?: string; includeAds?: boolean; before?: string } = {}, limit = 40, offset = 0): Promise<ContentItem[]> {
   const only = await ownersFilter();
   let q = supabaseAdmin().from("ins_content").select(COLUMNS).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
   if (filter.before) q = q.lt("created_at", filter.before);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.planHref) q = q.eq("plan_href", filter.planHref);
+  if (filter.notPlanHref) q = q.neq("plan_href", filter.notPlanHref);
   if (filter.pageId) q = q.eq("page_id", filter.pageId);
   if (!filter.includeAds) q = q.neq("format", "ad");
   if (only) q = q.or(only);
@@ -273,11 +275,12 @@ export async function listContent(filter: { status?: ContentStatus; planHref?: s
 }
 
 /** How many pieces sit under each tab. Three head-only counts; the table is small. */
-export async function countByStatus(planHref?: string, pageId?: string): Promise<Record<ContentStatus, number>> {
+export async function countByStatus(planHref?: string, pageId?: string, notPlanHref?: string): Promise<Record<ContentStatus, number>> {
   const only = await ownersFilter();
   const counts = await Promise.all(CONTENT_STATUSES.map(async (status) => {
     let q = supabaseAdmin().from("ins_content").select("id", { count: "exact", head: true }).eq("status", status).neq("format", "ad");
     if (planHref) q = q.eq("plan_href", planHref);
+    if (notPlanHref) q = q.neq("plan_href", notPlanHref);
     if (pageId) q = q.eq("page_id", pageId);
     if (only) q = q.or(only);
     const { count, error } = await q.or(offPage());

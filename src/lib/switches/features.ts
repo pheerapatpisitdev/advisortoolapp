@@ -13,7 +13,7 @@ export const FEATURES = [
   { key: "quote-video", label: "วิดีโอนำเสนอ", note: "รวมสรุป FHC", hrefs: ["/studio/quote-video"] },
   { key: "story-clip", label: "คลิปเล่าเรื่อง", hrefs: ["/studio/story-clip"] },
   { key: "prompt-story", label: "คลิปตามโจทย์", note: "ตอนนี้เปิดให้เจ้าของคนเดียว", hrefs: ["/studio/prompt-story"] },
-  { key: "write", label: "Organic Studio", note: "เขียนโพสต์และวาดภาพโพสต์", hrefs: ["/studio/write"] },
+  { key: "write", label: "Organic Studio", note: "เขียนโพสต์และวาดภาพโพสต์", hrefs: ["/studio/write", "/studio/clip-edit"] },
   { key: "thumbnail", label: "ภาพปกคลิป", hrefs: ["/studio/thumbnail"] },
   { key: "describe", label: "ถอดรูปเป็น prompt", hrefs: ["/studio/describe"] },
   // hidden from /admin/switches while Ads is the owner's alone, whom no switch stops (owner chose 7ก, 2026-10-18)

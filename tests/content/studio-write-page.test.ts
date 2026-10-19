@@ -66,7 +66,7 @@ describe("when the Pages cannot be read (final review, 2026-09-30)", () => {
     pages.failed = true;
     expect(await projectOf({ page: "pB" })).toEqual({ pageId: "pB", pageName: "B" });
     expect(actions.contentWorkbench).toHaveBeenCalledWith({ status: "draft", page: "pB" });
-    expect(store.listContent).toHaveBeenCalledWith({ status: "used", pageId: "pB" }, 20);
+    expect(store.listContent).toHaveBeenCalledWith({ status: "used", pageId: "pB", notPlanHref: "clip" }, 20);
   });
 
   it("lists nothing rather than every Page's pieces together when no Page was asked for", async () => {

@@ -51,7 +51,7 @@ import { NUMBERS_CLOSING, NUMBERS_CLOSING_EN, numbersBody, numbersPoster, number
 import { numberSheets, numbersReady } from "@/lib/content/numbers-plans";
 import { OVERHEAD_THB, PAINTERS, painterFor, writerOf } from "@/lib/content/models";
 import { maybeOnPage, onPage, publishView } from "@/lib/content/publish-label";
-import { forClient } from "@/lib/content/clip";
+import { CLIP_HREF, forClient } from "@/lib/content/clip";
 import { CONCURRENT, clear, move, refused, withdraw } from "@/lib/content/publish-flow";
 import { MIN_AHEAD_MS } from "@/lib/facebook/publish";
 import { can } from "@/lib/auth/access";
@@ -903,7 +903,11 @@ const WORKBENCH_PAGE = 40;
 
 /** `page`: the Page whose project is open; the server settles it (projectPage), so another Page's cannot be asked for */
 /** `before`: the oldest piece the board shows, to load the ones after it (a cursor, not a count: owner 2026-10-18) */
-export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number; before?: string; page?: string }): Promise<Workbench> {
+/**
+ * `clips`: the clip pieces alone, for ตัดต่อคลิป (/studio/clip-edit); without it, every piece
+ * but those — the clips left Organic for their own page (owner chose ก, 2026-10-19).
+ */
+export async function contentWorkbench(filter: { status: ContentStatus; planHref?: string; offset?: number; before?: string; page?: string; clips?: boolean }): Promise<Workbench> {
   await requireMember();
   try {
     const project = await projectPage(filter.page);
@@ -911,12 +915,15 @@ export async function contentWorkbench(filter: { status: ContentStatus; planHref
     if (!project.ok) return { items: [], counts: { draft: 0, used: 0, trashed: 0 }, failed: true };
     const pageId = project.pageId ?? undefined;
     const offset = Math.max(0, Math.floor(Number(filter.offset) || 0));
+    const clips = filter.clips === true;
+    const planHref = clips ? CLIP_HREF : filter.planHref === CLIP_HREF ? undefined : filter.planHref;
+    const notPlanHref = clips ? undefined : CLIP_HREF;
     const [items, counts] = await Promise.all([
       listContent({
-        status: filter.status, planHref: filter.planHref, pageId,
+        status: filter.status, planHref, notPlanHref, pageId,
         ...(typeof filter.before === "string" && !Number.isNaN(Date.parse(filter.before)) ? { before: filter.before } : {}),
       }, WORKBENCH_PAGE, typeof filter.before === "string" ? 0 : offset),
-      countByStatus(filter.planHref, pageId),
+      countByStatus(planHref, pageId, notPlanHref),
     ]);
     // a clip's render job keeps its round and webhook secret's hash on the row; the browser gets neither
     return { items: items.map(forClient), counts };

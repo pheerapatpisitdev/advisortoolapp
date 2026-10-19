@@ -379,6 +379,8 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
     ...(who?.owner ? [{ href: "/studio/prompt-story", label: "คลิปตามโจทย์", icon: "quote" as const, hue: "#2e5a80" }] : []),
     // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
     { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80" },
+    // a filmed clip cut, subtitled and posted as a Reel: Organic's คลิป tab until 2026-10-19 (owner chose ก)
+    { href: "/studio/clip-edit", label: "ตัดต่อคลิป", icon: "studio", hue: "#2e5a80" },
     // video covers (owner, 2026-10-09): every agent's and member's since 2026-10-14, paid as a picture
     { href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image", hue: "#2e5a80" },
     // a picture read into a drawing prompt (owner, 2026-10-08): every agent's, the cost is theirs

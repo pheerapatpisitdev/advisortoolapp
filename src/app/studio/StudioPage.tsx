@@ -8,7 +8,8 @@ import { myPages } from "@/lib/auth/pages";
 import { can } from "@/lib/auth/access";
 import { getViewer } from "@/lib/auth/viewer";
 import { planTitle } from "@/lib/content/day-plan";
-import { forClient } from "@/lib/content/clip";
+import { redirect } from "next/navigation";
+import { CLIP_HREF, forClient } from "@/lib/content/clip";
 import { getContent, listContent, listHookTemplates, listPlanned } from "@/lib/content/store";
 import { contentSpend, contentWorkbench } from "./actions";
 import { ContentStudio } from "./ContentStudio";
@@ -27,6 +28,8 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
   const found = open && /^[0-9a-f-]{36}$/.test(open) ? await getContent(open).catch(() => null) : null;
   // a clip's render job keeps its round and webhook secret's hash on the row; the browser gets neither
   const opened = found ? forClient(found) : null;
+  // a clip opens on its own page now (owner chose ก, 2026-10-19): the calendar's แก้ไข, the history's links
+  if (opened?.planHref === CLIP_HREF) redirect(`/studio/clip-edit?open=${opened.id}`);
   // the project (owner, 2026-09-30): one of the caller's Pages — the opened piece's, else the one
   // its card asked for, else the first — or none for an agent with no Pages, as projectPage settles it
   const [mine, connected] = await Promise.all([myPages().catch(() => null), pageConnections().catch(() => [])]);
@@ -44,7 +47,7 @@ export async function StudioPage({ hook, open, day, page }: { hook?: string; ope
   const [initial, used, hooks, spend, people, planned, clipEditing] = await Promise.all([
     contentWorkbench({ status: "draft", page: pageId }),
     // nothing for a project not known: every Page's pieces would show together
-    mine || pageId ? listContent({ status: "used", pageId }, 20).catch(() => []) : Promise.resolve([]),
+    mine || pageId ? listContent({ status: "used", pageId, notPlanHref: CLIP_HREF }, 20).catch(() => []) : Promise.resolve([]),
     listHookTemplates().catch(() => []),
     contentSpend(),
     listPeople().catch(() => []),
