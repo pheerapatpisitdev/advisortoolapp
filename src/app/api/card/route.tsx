@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pngResponse } from "@/lib/draw-png";
-import { insuredFace } from "./insured-face";
+import { insuredWho, whoRowHeight, type WhoStyle } from "./insured-who";
 import { highlighterUri } from "@/lib/highlighter";
 import { NextResponse, type NextRequest } from "next/server";
 import { SiteFooter, SITE_FOOTER_H } from "./site-footer";
@@ -10,6 +10,7 @@ import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
 import { QUOTE_CARD_ONLY_KEYS, toCanonical } from "./canonical";
 import { verifyCardPhoto } from "@/lib/card-photo";
 import { profileOn } from "@/lib/crm/names";
+import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -101,9 +102,9 @@ function boxHeight(s: CardSummary): number {
     + (s.split ? 2 * H.splitGap + H.hairline + H.splitTitle + s.split.rows.length * H.splitRow : 0);
 }
 
-function heightOf(card: QuoteCard): number {
+function heightOf(card: QuoteCard, top: number): number {
   return PAD * 2
-    + H.plan + H.insured
+    + top
     + (card.premium ? H.head : H.noPrice + (card.perDay ? H.perDay : 0))
     + (card.summary ? H.boxGap + boxHeight(card.summary) : 0)
     + (card.priceNote ? H.noteGap + notesHeight([card.priceNote]) : 0)
@@ -385,6 +386,11 @@ export async function GET(req: NextRequest) {
   if (!input || !card) return new Response("ไม่พบแบบประกันตามที่ระบุ", { status: 400 });
   /** the theme the plan is sold under, so the card matches the page it was quoted from */
   const p = cardPaletteFor();
+  /** the customer's name the send panel added, over "ชาย 35 ปี" — or nothing, as before */
+  const name = cleanCustomerName(req.nextUrl.searchParams.get(NAME_KEY));
+  const named = name ? addressedAs(name) : undefined;
+  const whoStyle: WhoStyle = { size: 44, face: 66, color: p.figure, mute: p.mute };
+  const top = whoRowHeight(H.plan + H.insured, named, whoStyle);
 
   const [regular, semibold, photo, face] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
@@ -410,10 +416,11 @@ export async function GET(req: NextRequest) {
       >
         {/* The insured sits opposite the plan rather than under it: who a card is for is what
             an agent checks before forwarding it, and at this size a glance answers it. The row
-            keeps the two bands' combined height, so the canvas arithmetic is unchanged. */}
+            keeps the two bands' combined height, taller only by what a customer's name needs,
+            which heightOf adds to the canvas. */}
         <div
           style={{
-            display: "flex", height: H.plan + H.insured, flexShrink: 0,
+            display: "flex", height: top, flexShrink: 0,
             width: "100%", justifyContent: "space-between", alignItems: "center",
           }}
         >
@@ -433,15 +440,7 @@ export async function GET(req: NextRequest) {
               <div style={{ ...band(H.insured), fontSize: 27, color: p.mute }}>{card.insuredLine}</div>
             </div>
           </div>
-          <div
-            style={{
-              display: "flex", flexShrink: 0, marginLeft: 24, alignItems: "center", gap: 14,
-              fontSize: 44, fontWeight: 600, lineHeight: 1, color: p.figure,
-            }}
-          >
-            {insuredFace(input.sex, 66)}
-            {card.insuredWho}
-          </div>
+          {insuredWho(input.sex, card.insuredWho, named, whoStyle)}
         </div>
 
         {/* the premium and what it comes to, with the family at the right of them: the picture
@@ -529,12 +528,12 @@ export async function GET(req: NextRequest) {
     ),
     {
       width: WIDTH,
-      height: heightOf(card),
+      height: heightOf(card, top),
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
       ],
-      headers: { "cache-control": face && asked ? faceCacheControl(asked.expires) : CARD_CACHE },
+      headers: { "cache-control": named ? NAMED_CACHE : face && asked ? faceCacheControl(asked.expires) : CARD_CACHE },
     },
   );
 }

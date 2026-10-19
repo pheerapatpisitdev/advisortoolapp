@@ -1,8 +1,9 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { CopyButton, copyText as toClipboard } from "./CopyButton";
 import { VideoButton } from "./VideoButton";
 import { THAI_CONTACT, type ContactWords } from "@/lib/ihealthy-words";
+import { cleanCustomerName, NAME_MAX, withCustomerName } from "@/lib/customer-name";
 
 /**
  * The way out of the page once a price is on screen: one "ส่งให้ลูกค้า" that opens a panel of
@@ -27,6 +28,30 @@ type Status = "idle" | "working" | "sent" | "saved" | "nothing";
 /** the compact bar asks the full panel on the same page to open */
 const OPEN_EVENT = "send-kit:open";
 
+/**
+ * The customer's name typed in the panel, shared with the phone bar's คัดลอก on the same page
+ * so both copy the same text. Cleared when the panel leaves the page: the next quote may be
+ * somebody else's.
+ */
+let typedName = "";
+const nameListeners = new Set<() => void>();
+function setTypedName(value: string) {
+  typedName = value;
+  nameListeners.forEach((l) => l());
+}
+function useTypedName(): string {
+  return useSyncExternalStore(
+    (l) => { nameListeners.add(l); return () => { nameListeners.delete(l); }; },
+    () => typedName,
+    () => "",
+  );
+}
+
+/** the text with the customer's name as its first line (owner, 2026-10-19), or as it was */
+function namedText(text: string | undefined, name: string | undefined, w: ContactWords["kit"]): string | undefined {
+  return text && name ? `${w.forLine(w.addressed(name))}\n\n${text}` : text;
+}
+
 export function ContactButtons(
   { copyText, cardPath, tableCardPath, tableLabel, diseaseCardPath, videoHref, compact = false, words }:
     {
@@ -43,6 +68,7 @@ export function ContactButtons(
     },
 ) {
   const w = (words ?? THAI_CONTACT).kit;
+  const name = cleanCustomerName(useTypedName());
   const pieces = useMemo(() => [
     cardPath && { kind: "card", path: cardPath, filename: "quote.png", label: w.card },
     tableCardPath && { kind: "table", path: tableCardPath, filename: "value-table.png", label: tableLabel ?? w.table },
@@ -61,17 +87,34 @@ export function ContactButtons(
         {(pieces.length > 0 || copyText) && (
           <button type="button" className={main} onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>{w.open}</button>
         )}
-        {copyText && <CopyButton text={copyText} compact words={words?.copy} className={quiet} />}
+        {copyText && <CopyButton text={namedText(copyText, name, w)!} compact words={words?.copy} className={quiet} />}
       </div>
     );
   }
   return <Kit pieces={pieces} text={copyText} videoHref={videoHref} w={w} copyWords={words?.copy} main={main} quiet={quiet} shape={shape} />;
 }
 
-function Kit({ pieces, text, videoHref, w, copyWords, main, quiet, shape }: {
+function Kit({ pieces: plain, text: plainText, videoHref, w, copyWords, main, quiet, shape }: {
   pieces: Piece[]; text?: string; videoHref?: string; w: ContactWords["kit"]; copyWords?: ContactWords["copy"];
   main: string; quiet: string; shape: string;
 }) {
+  const typed = useTypedName();
+  /** the name the pictures are drawn with: settled for a moment, so each letter is not a drawing */
+  const [settled, setSettled] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(cleanCustomerName(typed)), 500);
+    return () => clearTimeout(t);
+  }, [typed]);
+  // the next quote may be somebody else's
+  useEffect(() => () => setTypedName(""), []);
+  // the card and the tables carry the name; the illnesses are the contract's, the same for everyone
+  const pieces = useMemo(
+    () => plain.map((p) => (p.kind === "diseases" ? p : { ...p, path: withCustomerName(p.path, settled) })),
+    [plain, settled],
+  );
+  const shown = cleanCustomerName(typed);
+  const text = namedText(plainText, shown, w);
+
   const [open, setOpen] = useState(false);
   const [off, setOff] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<Status>("idle");
@@ -189,6 +232,17 @@ function Kit({ pieces, text, videoHref, w, copyWords, main, quiet, shape }: {
       <button type="button" className={main} aria-expanded={open} onClick={() => setOpen((o) => !o)}>{w.open}</button>
       {open && (
         <div className="grid gap-3 rounded-sm border border-[var(--lg-panel-line)] p-3">
+          <div className="grid gap-1">
+            <label htmlFor="send-kit-name" className="text-sm font-medium">
+              {w.name} <span className="font-normal text-[var(--lg-mute)]">{w.nameOptional}</span>
+            </label>
+            <input
+              id="send-kit-name" type="text" value={typed} maxLength={NAME_MAX + 4} autoComplete="off"
+              placeholder={w.namePlaceholder} onChange={(e) => setTypedName(e.target.value)}
+              className="rounded-sm border border-[var(--lg-panel-line)] bg-transparent px-3 py-2 text-base outline-none focus-visible:border-[var(--lg-gold)]"
+            />
+            {shown && <span className="text-xs text-[var(--lg-mute)]">{w.nameHint(w.addressed(shown))}</span>}
+          </div>
           <span className="text-xs text-[var(--lg-mute)]">{w.choose}</span>
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${pieces.length + (text ? 1 : 0)}, minmax(0, 1fr))` }}>
             {pieces.map((p) => {

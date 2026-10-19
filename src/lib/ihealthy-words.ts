@@ -196,6 +196,14 @@ export interface ContactWords {
     sent: string;
     /** after a send on a computer: pictures downloaded, text copied */
     saved: string;
+    /** the customer's name, optional, for the pictures and the text (owner, 2026-10-19) */
+    name: string; nameOptional: string; namePlaceholder: string;
+    /** under the box: how the name will read, and that it is not kept */
+    nameHint: (shown: string) => string;
+    /** the name as the reader is addressed — "คุณ" is Thai's alone */
+    addressed: (name: string) => string;
+    /** the copied text's first line */
+    forLine: (shown: string) => string;
   };
 }
 
@@ -269,6 +277,10 @@ export const THAI_CONTACT: ContactWords = {
     send: (n, t) => (n && t ? `ส่ง ${n} รูป + ข้อความ` : n ? `ส่ง ${n} รูป` : "ส่งข้อความ"),
     save: "บันทึกรูปลงเครื่อง", working: "กำลังเตรียม…", loading: "กำลังสร้าง…", nothing: "เลือกอย่างน้อย 1 อย่าง",
     sent: "ส่งแล้ว ✓ ข้อความคัดลอกไว้ วางต่อได้", saved: "ดาวน์โหลดรูปแล้ว · คัดลอกข้อความแล้ว ✓",
+    name: "ชื่อลูกค้า", nameOptional: "(ไม่บังคับ)", namePlaceholder: "เช่น สมชาย",
+    nameHint: (s) => `ขึ้นบนรูปและข้อความว่า "${s}" · ไม่เก็บชื่อไว้ในระบบ`,
+    addressed: (n) => `คุณ${n}`,
+    forLine: (s) => `เสนอแด่ ${s}`,
   },
 };
 
@@ -543,6 +555,10 @@ const en: IHealthyWords = {
       send: (n, t) => (n && t ? `Send ${n} image${n > 1 ? "s" : ""} + text` : n ? `Send ${n} image${n > 1 ? "s" : ""}` : "Send text"),
       save: "Save images", working: "Preparing…", loading: "Creating…", nothing: "Choose at least one",
       sent: "Sent ✓ Text copied too, paste it if needed", saved: "Images downloaded · text copied ✓",
+      name: "Customer name", nameOptional: "(optional)", namePlaceholder: "e.g. Somchai",
+      nameHint: (s) => `Shown on the images and text as "${s}" · not stored`,
+      addressed: (n) => n,
+      forLine: (s) => `Prepared for ${s}`,
     },
   },
 
@@ -769,6 +785,10 @@ const zh: IHealthyWords = {
       send: (n, t) => (n && t ? `发送 ${n} 张图片 + 文字` : n ? `发送 ${n} 张图片` : "发送文字"),
       save: "保存图片", working: "正在准备…", loading: "正在生成…", nothing: "请至少选择一项",
       sent: "已发送 ✓ 文字也已复制，可直接粘贴", saved: "图片已下载 · 文字已复制 ✓",
+      name: "客户姓名", nameOptional: "（选填）", namePlaceholder: "例如 王先生",
+      nameHint: (s) => `图片和文字上显示“${s}” · 不会保存`,
+      addressed: (n) => n,
+      forLine: (s) => `致 ${s}`,
     },
   },
 
@@ -987,6 +1007,10 @@ const ru: IHealthyWords = {
       send: (n, t) => (n && t ? `Отправить фото (${n}) + текст` : n ? `Отправить фото (${n})` : "Отправить текст"),
       save: "Сохранить фото", working: "Готовим…", loading: "Создаём…", nothing: "Выберите хотя бы одно",
       sent: "Отправлено ✓ Текст тоже скопирован", saved: "Фото скачаны · текст скопирован ✓",
+      name: "Имя клиента", nameOptional: "(необязательно)", namePlaceholder: "например, Анна",
+      nameHint: (s) => `На картинках и в тексте: «${s}» · не сохраняется`,
+      addressed: (n) => n,
+      forLine: (s) => `Для: ${s}`,
     },
   },
 
@@ -1205,6 +1229,10 @@ const my: IHealthyWords = {
       send: (n, t) => (n && t ? `ပုံ ${n} ပုံ + စာသား ပို့ရန်` : n ? `ပုံ ${n} ပုံ ပို့ရန်` : "စာသား ပို့ရန်"),
       save: "ပုံများ သိမ်းရန်", working: "ပြင်ဆင်နေသည်…", loading: "ပြုလုပ်နေသည်…", nothing: "အနည်းဆုံး တစ်ခု ရွေးပါ",
       sent: "ပို့ပြီး ✓ စာသားကိုလည်း ကူးထားသည်", saved: "ပုံများ ဒေါင်းလုဒ်ပြီး · စာသား ကူးပြီး ✓",
+      name: "ဖောက်သည်အမည်", nameOptional: "(မထည့်လည်းရ)", namePlaceholder: "ဥပမာ အောင်အောင်",
+      nameHint: (s) => `ပုံနှင့် စာသားတွင် "${s}" ဟု ပြမည် · မသိမ်းဆည်းပါ`,
+      addressed: (n) => n,
+      forLine: (s) => `${s} အတွက်`,
     },
   },
 

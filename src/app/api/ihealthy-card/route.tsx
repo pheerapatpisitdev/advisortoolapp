@@ -1,5 +1,6 @@
 import { pngResponse } from "@/lib/draw-png";
-import { insuredFace } from "../card/insured-face";
+import { insuredWho, whoRowHeight, type WhoStyle } from "../card/insured-who";
+import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 import type { NextRequest } from "next/server";
 import { iHealthyCard, type IHealthyCard } from "@/lib/ihealthy-card";
 import { WORDS } from "@/lib/ihealthy-words";
@@ -7,7 +8,7 @@ import {
   band, CARD_HEADERS, GOLD, GOLD_LIT, GROUND, GROUND_DEEP, H, Line, loadFonts, MUTE, PAD, PlanTable, RULE,
   geometryOf, scriptFonts, spacer, WHITE, widthOf,
 } from "./draw";
-import { HEALTH_CARD_KEYS, HEALTH_REPEATABLE, toCanonical } from "../card/canonical";
+import { HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE, toCanonical } from "../card/canonical";
 import { SiteFooter, SITE_FOOTER_H } from "../card/site-footer";
 
 export const runtime = "nodejs";
@@ -20,11 +21,11 @@ export const revalidate = 86400;
 
 
 
-function heightOf(card: IHealthyCard): number {
+function heightOf(card: IHealthyCard, top: number): number {
   const table = H.head + card.rows.length * H.row
     + (card.premiumRows.length > 0 ? H.section + card.premiumRows.length * H.row : 0);
   return PAD * 2
-    + H.plan + H.insured
+    + top
     + (card.premium ? H.premium : H.noPrice)
     + card.lines.length * H.line
     + (card.belowMinimum ? H.warn : 0)
@@ -48,15 +49,17 @@ function heightOf(card: IHealthyCard): number {
  */
 export async function GET(req: NextRequest) {
   // one address per picture, so the CDN's copy is the one served (src/app/api/card/canonical.ts)
-  const moved = toCanonical(req, HEALTH_CARD_KEYS, HEALTH_REPEATABLE);
+  const moved = toCanonical(req, HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE);
   if (moved) return moved;
   let card = iHealthyCard(req.nextUrl.searchParams);
+  /** the customer's name the send panel added, over the insured — see the quote card */
+  const name = cleanCustomerName(req.nextUrl.searchParams.get(NAME_KEY));
   // Chinese, Russian and Burmese need letters the Thai face does not have. Where they cannot
   // be had the card is drawn in Thai: a picture in the page's own language is a quote, and
   // one in empty boxes is not.
   // the card's words and the language's own labels (the table's headings come from WORDS),
   // since the drawing has no fallback face of its own for a letter left out of the cut
-  let extra = await scriptFonts(card.lang, JSON.stringify(card) + JSON.stringify(WORDS[card.lang]));
+  let extra = await scriptFonts(card.lang, JSON.stringify(card) + JSON.stringify(WORDS[card.lang]) + (name ?? ""));
   if (extra === undefined) {
     const thai = new URLSearchParams(req.nextUrl.searchParams);
     thai.delete("l");
@@ -66,6 +69,10 @@ export async function GET(req: NextRequest) {
   const w = WORDS[card.lang];
   const geo = geometryOf(card.lang);
   const selected = card.columns.findIndex((c) => c.selected);
+  // "คุณ" is Thai's; on a card in another language the name stands alone
+  const named = name ? addressedAs(name, card.lang === "th") : undefined;
+  const whoStyle: WhoStyle = { size: 44, face: 66, color: GOLD_LIT, mute: MUTE };
+  const top = whoRowHeight(H.plan + H.insured, named, whoStyle);
 
 
   return pngResponse(
@@ -85,7 +92,7 @@ export async function GET(req: NextRequest) {
         {/* The insured opposite the plan, at a size a glance answers — see the quote card. */}
         <div
           style={{
-            display: "flex", height: H.plan + H.insured, flexShrink: 0,
+            display: "flex", height: top, flexShrink: 0,
             width: "100%", justifyContent: "space-between", alignItems: "center",
           }}
         >
@@ -93,15 +100,7 @@ export async function GET(req: NextRequest) {
             <div style={{ ...band(H.plan), fontSize: 30, fontWeight: 600, color: GOLD }}>{card.planLine}</div>
             <div style={{ ...band(H.insured), fontSize: 25, color: MUTE }}>{card.insuredLine}</div>
           </div>
-          <div
-            style={{
-              display: "flex", flexShrink: 0, marginLeft: 24, alignItems: "center", gap: 14,
-              fontSize: 44, fontWeight: 600, lineHeight: 1, color: GOLD_LIT,
-            }}
-          >
-            {insuredFace(card.sex, 66)}
-            {card.insuredWho}
-          </div>
+          {insuredWho(card.sex, card.insuredWho, named, whoStyle)}
         </div>
 
         {card.premium ? (
@@ -148,13 +147,13 @@ export async function GET(req: NextRequest) {
     ),
     {
       width: widthOf(card.columns.length, geo),
-      height: heightOf(card),
+      height: heightOf(card, top),
       fonts: [...await loadFonts(), ...extra],
       // Kept by the CDN like every other card (it was no-store from 2026-09-20 until 2026-10-17,
       // and each view was drawn again). The URL names the whole arrangement and canonical.ts
       // keeps it to one address per picture, so a new base, sum or rider is a new picture.
       // A change of rates or layout must bump `cv` in cardQuery, or the old drawing stays a day.
-      headers: CARD_HEADERS,
+      headers: named ? { "cache-control": NAMED_CACHE } : CARD_HEADERS,
     },
   );
 }

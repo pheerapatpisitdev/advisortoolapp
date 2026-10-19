@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pngResponse } from "@/lib/draw-png";
-import { insuredFace } from "../insured-face";
+import { insuredWho, whoRowHeight, type WhoStyle } from "../insured-who";
+import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 import type { NextRequest } from "next/server";
 import { cardInputFrom, valueTableCard, valueTableChart, type CardChart, type ValueTableCard, type ValueTableRow } from "@/lib/quote-card";
 import { cardPaletteFor, type CardPalette } from "@/lib/card-theme";
@@ -273,11 +274,11 @@ function Half(
   );
 }
 
-function heightOf(card: ValueTableCard, chart: CardChart | undefined, quote: string, width: number): number {
+function heightOf(card: ValueTableCard, chart: CardChart | undefined, quote: string, width: number, top: number): number {
   const perHalf = card.rows.length;
   return PAD * 2
     + (chart ? chartBlockHeight(chart) : 0)
-    + H.plan + H.insured + H.premium
+    + top + H.premium
     + H.gap + H.hairline + H.afterHairline
     + H.caption + H.head + perHalf * H.row
     + H.quoteGap + quoteLines(quote, width - PAD * 2) * H.quoteLine
@@ -310,6 +311,11 @@ export async function GET(req: NextRequest) {
   if (!input || !card) return new Response("ไม่พบแบบประกันตามที่ระบุ", { status: 400 });
   /** the theme the plan is sold under, so the sheet matches the page it was quoted from */
   const p = cardPaletteFor();
+  /** the customer's name the send panel added, over "ชาย 35 ปี" — see the card route */
+  const name = cleanCustomerName(req.nextUrl.searchParams.get(NAME_KEY));
+  const named = name ? addressedAs(name) : undefined;
+  const whoStyle: WhoStyle = { size: 42, face: 64, color: p.figure, mute: p.mute };
+  const top = whoRowHeight(H.plan + H.insured, named, whoStyle);
 
   const [regular, semibold, pen] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
@@ -362,7 +368,7 @@ export async function GET(req: NextRequest) {
         {/* The insured opposite the plan, at a size a glance answers — see the card route. */}
         <div
           style={{
-            display: "flex", height: H.plan + H.insured, flexShrink: 0,
+            display: "flex", height: top, flexShrink: 0,
             width: "100%", justifyContent: "space-between", alignItems: "center",
           }}
         >
@@ -370,15 +376,7 @@ export async function GET(req: NextRequest) {
             <div style={{ ...band(H.plan), fontSize: 27, fontWeight: 600, color: p.accent }}>{card.planLine}</div>
             <div style={{ ...band(H.insured), fontSize: 25, color: p.ink }}>{card.insuredLine}</div>
           </div>
-          <div
-            style={{
-              display: "flex", flexShrink: 0, marginLeft: 24, alignItems: "center", gap: 14,
-              fontSize: 42, fontWeight: 600, lineHeight: 1, color: p.figure,
-            }}
-          >
-            {insuredFace(input.sex, 64)}
-            {card.insuredWho}
-          </div>
+          {insuredWho(input.sex, card.insuredWho, named, whoStyle)}
         </div>
         <div style={{ ...band(H.premium), fontFamily: "Plex", fontWeight: 600, fontSize: 30, color: p.figure }}>
           {card.premiumLine}
@@ -439,13 +437,13 @@ export async function GET(req: NextRequest) {
     ),
     {
       width,
-      height: heightOf(card, chart, quote, width),
+      height: heightOf(card, chart, quote, width, top),
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
         ...(pen ?? []),
       ],
-      headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
+      headers: { "cache-control": named ? NAMED_CACHE : "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
     },
   );
 }

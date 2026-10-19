@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { NAME_KEY } from "@/lib/customer-name";
 
 /**
  * One address per picture.
@@ -19,19 +20,28 @@ import { NextResponse, type NextRequest } from "next/server";
  * Values are not touched: a different age is a different card.
  */
 
-/** the quote card and its value table: src/lib/card-link.ts cardQuery, in its order */
-export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "fig", "v"] as const;
+/**
+ * the quote card and its value table: src/lib/card-link.ts cardQuery, in its order, then the
+ * customer's name the send panel may add (src/lib/customer-name.ts)
+ */
+export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "fig", "v", NAME_KEY] as const;
 /**
  * The quote card alone also reads `ph`, the bot's signed ask for a customer's photo
  * (src/lib/card-photo.ts). Not the table's: it draws no face, so a `ph` there is padding.
  */
 export const QUOTE_CARD_ONLY_KEYS = [...QUOTE_CARD_KEYS, "ph"] as const;
-/** the pension plan's yearly table: src/lib/card-link.ts pensionTablePath, in its order */
-export const PENSION_TABLE_KEYS = ["age", "sex", "start", "pay", "sum", "v"] as const;
+/** the pension plan's yearly table: src/lib/card-link.ts pensionTablePath, in its order, then the name */
+export const PENSION_TABLE_KEYS = ["age", "sex", "start", "pay", "sum", "v", NAME_KEY] as const;
 /** one contract's illnesses: src/lib/card-link.ts diseaseCardPath */
 export const DISEASE_CARD_KEYS = ["of"] as const;
 /** the health card and its table: src/lib/ihealthy-link.ts cardQuery and cardPath, the menu's fit=phone */
 export const HEALTH_CARD_KEYS = ["age", "sex", "base", "sa", "plan", "area", "cover", "mode", "r", "v", "cv", "l", "fit"] as const;
+/**
+ * The health card alone also reads the customer's name the send panel adds
+ * (src/lib/customer-name.ts), last, as on the quote card. The plans-side-by-side table is the
+ * bot's and draws no name, so a `name` there is padding.
+ */
+export const HEALTH_QUOTE_KEYS = [...HEALTH_CARD_KEYS, NAME_KEY] as const;
 /** the one key a health link carries several of: one `r` per rider */
 export const HEALTH_REPEATABLE = ["r"] as const;
 

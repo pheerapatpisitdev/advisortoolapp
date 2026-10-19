@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { NextRequest } from "next/server";
 import { pngResponse } from "@/lib/draw-png";
-import { insuredFace } from "../insured-face";
+import { insuredWho, whoRowHeight, type WhoStyle } from "../insured-who";
+import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
 import { cardPaletteFor, BLUE_PEN } from "@/lib/card-theme";
 import { highlighterUri, loopUri } from "@/lib/highlighter";
 import { PENSION_TABLE_KEYS, toCanonical } from "../canonical";
@@ -98,6 +99,11 @@ export async function GET(req: NextRequest) {
   const { age, sex, pay, quote: q } = asked;
   const rows = q.illustration;
   const p = cardPaletteFor();
+  /** the customer's name the send panel added, over "ชาย 35 ปี" — see the card route */
+  const name = cleanCustomerName(req.nextUrl.searchParams.get(NAME_KEY));
+  const named = name ? addressedAs(name) : undefined;
+  const whoStyle: WhoStyle = { size: 42, face: 64, color: p.figure, mute: p.mute };
+  const top = whoRowHeight(H.plan + H.insured, named, whoStyle);
 
   const [regular, semibold, pen] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
@@ -126,7 +132,7 @@ export async function GET(req: NextRequest) {
   const premiumLine = `เบี้ยปีละ ${pensionFigure(q.annualPremium)} บาท · บำนาญเดือนละ ${pensionFigure(q.monthlyPension)} บาท`;
   const closing = `รวมรับบำนาญถึงอายุ 95 ประมาณ ${pensionFigure(q.totalPension)} บาท จากเบี้ยรวม ${pensionFigure(q.totalPremium)} บาท`;
 
-  const height = PAD * 2 + H.plan + H.insured + H.premium + H.gap + H.hairline + H.afterHairline
+  const height = PAD * 2 + top + H.premium + H.gap + H.hairline + H.afterHairline
     + CHART_H + tableHeight + H.closingGap + H.closing + SITE_FOOTER_H;
 
   return pngResponse(
@@ -137,15 +143,12 @@ export async function GET(req: NextRequest) {
           background: p.ground, fontFamily: "Plex", color: p.ink,
         }}
       >
-        <div style={{ display: "flex", height: H.plan + H.insured, flexShrink: 0, width: "100%", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", height: top, flexShrink: 0, width: "100%", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ ...band(H.plan), fontSize: 27, fontWeight: 600, color: p.accent }}>{planLine}</div>
             <div style={{ ...band(H.insured), fontSize: 25, color: p.ink }}>{insuredLine}</div>
           </div>
-          <div style={{ display: "flex", flexShrink: 0, marginLeft: 24, alignItems: "center", gap: 14, fontSize: 42, fontWeight: 600, lineHeight: 1, color: p.figure }}>
-            {insuredFace(sex, 64)}
-            {who}
-          </div>
+          {insuredWho(sex, who, named, whoStyle)}
         </div>
         <div style={{ ...band(H.premium), fontWeight: 600, fontSize: 30, color: p.figure }}>{premiumLine}</div>
 
@@ -256,7 +259,7 @@ export async function GET(req: NextRequest) {
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
         ...(pen ?? []),
       ],
-      headers: { "cache-control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
+      headers: { "cache-control": named ? NAMED_CACHE : "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400" },
     },
   );
 }
