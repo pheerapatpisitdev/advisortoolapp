@@ -72,7 +72,9 @@ describe("speakClip", () => {
     const { f, asked } = net(geminiFull);
     const out = await speakClip(["หนึ่ง"], { ...base, narrator: "M", lang: "th", voice: "abc", fetch: f });
     expect(out.fellBackTo).toBeNull();
-    expect(asked).toEqual(["abc"]);
+    expect(out.google).toBeNull();
+    // the account is read first (elevenReady), then the voice speaks
+    expect(asked).toEqual(["credits", "abc"]);
   });
 
   it("another language keeps failing as before (Thai voices are not tried on it yet)", async () => {

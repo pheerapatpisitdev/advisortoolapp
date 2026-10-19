@@ -1,5 +1,4 @@
-import { providerKey } from "@/lib/ai/client";
-import { elevenCreditsLeft, elevenVoice, ELEVEN_RESERVE, ELEVENLABS, type ElevenChoice } from "@/lib/voice/elevenlabs";
+import { elevenVoice, type ElevenChoice } from "@/lib/voice/elevenlabs";
 import { voiceFullUntil } from "./make";
 import { cloudUsable, fallbackReader, geminiUsable } from "./speak";
 import { bangkokClock, voiceFullNotice } from "./voice-quota";
@@ -11,16 +10,9 @@ export const voiceAsked = (id: unknown): ElevenChoice | undefined => (typeof id 
 
 /** a Gemini-voiced clip is not started while the voice is used up: it would only fail */
 export async function voiceRefusal(voice: string | undefined, thai = true): Promise<string | null> {
-  if (voice) {
-    // ElevenLabs' month runs low: say so before anything is held or spent (owner, 2026-10-13)
-    const key = await providerKey(ELEVENLABS).catch(() => null);
-    if (!key) return "เสียง ElevenLabs ใช้ไม่ได้ตอนนี้ เลือกเสียง Gemini แทน";
-    const left = await elevenCreditsLeft(key).catch((e) => {
-      console.error("eleven credits not read:", e instanceof Error ? e.message : "unknown error");
-      return Infinity;
-    });
-    return left < ELEVEN_RESERVE ? "เสียง ElevenLabs ของเดือนนี้ใกล้หมดแล้ว เลือกเสียง Gemini แทน" : null;
-  }
+  // an ElevenLabs voice that cannot speak no longer stops the clip: it is read in Google's voice of
+  // the same sex instead, without the +฿2 (owner, 2026-10-20, ก ก ก — speakClip)
+  if (voice) return null;
   // the Gemini voice on Cloud reads whatever the API's day cap leaves (owner, 2026-10-20)
   if (await cloudUsable()) return null;
   // Gemini cannot read it, but a Thai clip goes on to อ้อม / สมชาย (owner, 2026-10-17)

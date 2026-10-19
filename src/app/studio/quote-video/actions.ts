@@ -16,7 +16,7 @@ import { cleanSetup, setupQuery } from "@/lib/quote-video/ihealthy-setup";
 import { iShieldTable } from "@/lib/ishield-table";
 import { getContact } from "@/lib/quote-video/contact";
 import { voiceAsked, voiceRefusal } from "@/lib/quote-video/voice-check";
-import { cloudUsable, fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
+import { cloudUsable, elevenReady, fallbackReader, geminiUsable } from "@/lib/quote-video/speak";
 import { promptStoryCaption } from "@/lib/prompt-story/caption";
 import { isPromptStory, promptPicturePrice } from "@/lib/prompt-story/types";
 import { priceBaht } from "@/lib/wallet/prices";
@@ -26,7 +26,7 @@ import { paidLine } from "@/lib/quote-video/paid-line";
 import { clipStates } from "@/lib/quote-video/rows";
 import { clipEstimates, clipSize, langOfInput, costView, createVideo, videoPrice, deleteVideo, listVideos, produce, savePost, videoLink, videoOf, voiceFullUntil, type CostView, type VideoRow, type VideoStatus } from "@/lib/quote-video/make";
 import { clipKind, DEFAULT_ESTIMATES, readNote, type ProgressState } from "@/lib/quote-video/progress";
-import { bangkokClock, VOICE_FULL } from "@/lib/quote-video/voice-quota";
+import { bangkokClock, googleInPlace, VOICE_FULL } from "@/lib/quote-video/voice-quota";
 import { sizeOf, type VideoSize } from "@/lib/quote-video/timeline";
 import { cleanCustomerName, pageCaption, planInput, productOf, quoteVideoFacts, riderShort, type Product, type VideoInput } from "@/lib/quote-video/script";
 import { readRiders, writeRiders, type CardRiders } from "@/lib/card-link";
@@ -96,6 +96,8 @@ export interface VideoItem {
   size: VideoSize;
   /** failed because Gemini's voice was used up for the day */
   voiceFull: boolean;
+  /** Google read it in place of the ElevenLabs voice asked for (owner, 2026-10-20) */
+  voiceSwap?: string | null;
   /** longer than a Reel may be (90 s): it goes to the customer, not to a Page */
   overReel?: boolean;
   /** a clip still being made: how far, as read now (progress.ts); null once done or failed */
@@ -291,6 +293,12 @@ export async function voiceQuota(): Promise<VoiceQuota | null> {
   return { until: until ? until.toISOString() : null, clock: until ? bangkokClock(until) : null, fallback };
 }
 
+
+/** the ElevenLabs voices cannot speak now (no key, free plan, out of credits): the form says Google reads instead (owner, 2026-10-20) */
+export async function elevenOff(): Promise<boolean> {
+  await requireMember();
+  return !(await elevenReady());
+}
 
 /** an FHC summary is one customer's money: it never goes to a Page (owner, 2026-10-12) */
 const FHC_PRIVATE = "วิดีโอสรุป FHC เป็นข้อมูลส่วนตัวของลูกค้า ลงเพจไม่ได้";
@@ -596,7 +604,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v), fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v), fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
       };
     }
     if (isStoryInput(v.input)) {
@@ -608,7 +616,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
       return {
         id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
       };
     }
@@ -619,7 +627,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
       return {
         id: v.id, named: Boolean(v.customer_name), personal: false, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
-        status: v.status, error: v.error, voiceFull: isVoiceFull(v), progress: progressOf(v),
+        status: v.status, error: v.error, voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v), progress: progressOf(v),
         overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC, fileName: file, ...(await links(file)), paid: paidLine(v), post: clipPost(v.post_text),
         // only who may make a คลิปตามโจทย์ may draw a scene again (redrawPicture refuses the rest, owner 2026-10-18)
         ...(v.status === "done" && mayRedraw && (owner || prices) ? { redraw: { scenes: input.scenes.length, price: owner || !prices ? null : priceBaht(promptPicturePrice(input, prices)) } } : {}),
@@ -647,7 +655,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
       title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
       status: v.status,
       error: v.error,
-      voiceFull: isVoiceFull(v),
+      voiceFull: isVoiceFull(v), voiceSwap: voiceSwapOf(v),
       progress: progressOf(v),
       overReel: Number(v.duration_sec ?? 0) > REEL_MAX_SEC,
       personal: false,
@@ -735,5 +743,9 @@ export async function keepPostText(id: string, text: unknown): Promise<{ ok: tru
   }
 }
 
+const voiceSwapOf = (v: VideoRow): string | null => {
+  const google = v.cost_parts?.googleVoice;
+  return google ? googleInPlace(elevenVoice((v.input as { voice?: string }).voice)?.name ?? "ElevenLabs", google) : null;
+};
 const isVoiceFull = (v: VideoRow) => v.status === "failed" && Boolean(v.error?.startsWith(VOICE_FULL));
 
