@@ -36,11 +36,11 @@ export function PictureFields({ value, onChange, people, back }: {
 }) {
   const { writer, painter, theme, person, brief } = value;
   const prices = usePrices();
-  // อัตโนมัติ as the month having room; the server settles it on what is left at the press
+  // a campaign's rounds run later, free or from the wallet: อัตโนมัติ's writer is settled at each press
   const writes = writerOf(writer ?? AUTO);
   const paints = painterFor(painter ?? AUTO, Infinity, Boolean(person));
   const summary = pictureSummary({
-    format: "ad", writer: writes.short, painter: paints.short,
+    format: "ad", writer: writer === null ? "อัตโนมัติ" : writes.short, painter: paints.short,
     theme: theme === AUTO_THEME ? "โทนสี AI เลือก" : `โทน${THEME_LABEL[theme as Theme]}`,
     person: person ? people.find((p) => p.id === person.id)?.name : undefined,
     brief: brief.trim() || undefined,
@@ -56,7 +56,7 @@ export function PictureFields({ value, onChange, people, back }: {
         </select>
         <span className="mt-1 block text-xs text-[var(--ct-mute)]">
           {writer === null
-            ? `ปกติใช้ ${writes.short} — งบเหลือต่ำกว่า ฿${AUTO_FLOOR_THB} จะสลับเป็นแบบประหยัดเอง`
+            ? `รอบฟรีใช้ ${writerOf("cheap").short} · รอบที่จ่ายจากกระเป๋าใช้ ${writerOf("best").short}`
             : `${writes.short} · ราคาต่อชิ้น`}
         </span>
       </label>

@@ -6,7 +6,7 @@ import { LogoPicker } from "../ui/LogoPicker";
 import {
   FACT_LIMIT, MAX_DOCS, MAX_SHOWCASE_CUSTOM, MAX_SHOWCASE_PIECES, SHOWCASE_ANGLES, showcaseAngleLines, type ShowcaseDocRead, type ShowcaseFacts,
 } from "@/lib/content/showcase";
-import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, WRITERS, painterFor, writerOf } from "@/lib/content/models";
+import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, WRITERS, autoWriterNote, painterFor, writerOf } from "@/lib/content/models";
 import type { PiecePerson } from "@/lib/content/people";
 import { roundsNote, type Rounds } from "@/lib/wallet/note";
 import { MAX_PAPERS } from "@/lib/content/poster";
@@ -302,6 +302,7 @@ export function ShowcaseTools({ writer, onWriter, painter, onPainter, people, pe
             <option value={AUTO}>อัตโนมัติ</option>
             {WRITERS.map((w) => <option key={w.id} value={w.id}>{w.label} · {w.short}</option>)}
           </select>
+          {writer === AUTO && <span className="mt-1 block text-xs text-[var(--ct-mute)]">{autoWriterNote(left)}</span>}
         </label>
 
         {format !== "script" && (

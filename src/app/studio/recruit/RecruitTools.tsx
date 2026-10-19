@@ -3,7 +3,7 @@ import { useEffect, useId, useState } from "react";
 import { workbenchHref } from "@/lib/content/workbench-link";
 import type { LogoSpot } from "@/lib/content/logo";
 import { LogoPicker } from "../ui/LogoPicker";
-import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, WRITERS, painterFor, writerOf } from "@/lib/content/models";
+import { AUTO, AUTO_FLOOR_THB, OVERHEAD_THB, WRITERS, autoWriterNote, painterFor, writerOf } from "@/lib/content/models";
 import type { PiecePerson } from "@/lib/content/people";
 import { roundsNote, type Rounds } from "@/lib/wallet/note";
 import { LENGTHS, MAX_READER, type Format, type Length } from "@/lib/content/prompt";
@@ -183,6 +183,7 @@ export function RecruitTools({ writer, onWriter, painter, onPainter, people, per
             <option value={AUTO}>อัตโนมัติ</option>
             {WRITERS.map((w) => <option key={w.id} value={w.id}>{w.label} · {w.short}</option>)}
           </select>
+          {writer === AUTO && <span className="mt-1 block text-xs text-[var(--ct-mute)]">{autoWriterNote(left)}</span>}
         </label>
 
         {format !== "script" && (

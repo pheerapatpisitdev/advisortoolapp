@@ -12,7 +12,7 @@ import { defaultPoster, posterUrl, THEME_LABEL, THEMES } from "@/lib/content/pos
 import { MAX_PIECES } from "@/lib/content/plan";
 import { onPage, publishView } from "@/lib/content/publish-label";
 import { anglesFor, EXPAT_HREF, EXPAT_NICHES, FORMAT_SHORT, GOALS, MAX_FACT, MAX_READER, NICHES, readerFor, type AngleId, type Format, type GoalId, type Length } from "@/lib/content/prompt";
-import { AUTO, AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, OVERHEAD_THB, PAINTERS, WRITERS, painterFor, painterOf, writerOf } from "@/lib/content/models";
+import { AUTO, AUTO_FLOOR_THB, DEFAULT_PAINTER, DEFAULT_WRITER, OVERHEAD_THB, PAINTERS, WRITERS, autoWriterNote, painterFor, painterOf, writerOf } from "@/lib/content/models";
 import type { ContentItem, ContentStatus } from "@/lib/content/store";
 import { contentSpend, contentWorkbench, removeContent, setContentStatus, type ContentSpend, type DrawBackgroundResult, type GenerateResult } from "./actions";
 import { publishSetup, scheduleNextOpen, type PublishPage } from "./publish";
@@ -1248,7 +1248,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
             </select>
             <span className="mt-1 block text-xs text-[var(--ct-mute)]">
               {writer === AUTO
-                ? `ตอนนี้ใช้ ${writes.short} — งบเหลือต่ำกว่า ฿${AUTO_FLOOR_THB} จะสลับเป็นแบบประหยัดเอง`
+                ? autoWriterNote(left)
                 : `${writes.short} · ราคาต่อชิ้น`}
             </span>
           </label>

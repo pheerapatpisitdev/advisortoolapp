@@ -171,7 +171,8 @@ describe("a Thai round with the table", () => {
   });
 
   it("holds the round's price under the content budget, on the campaign's writer", async () => {
-    campaigns.getCampaign.mockResolvedValue({ ...campaign, writer: "claude-sonnet-5" });
+    // the form keeps a writer's id (src/app/studio/ads/PictureFields.tsx), not its model's name
+    campaigns.getCampaign.mockResolvedValue({ ...campaign, writer: "best" });
     await writeClaimAds(input);
     expect(store.holdContentBudget).toHaveBeenCalledTimes(1);
     expect(store.releaseContentBudget).toHaveBeenCalledWith("hold-1");
