@@ -104,11 +104,11 @@ const LENGTH_CHOICES: { length: VideoLength; name: string; hint: string }[] = [
   { length: "long", name: "ยาว · ~90 วินาที", hint: "7 ฉาก: เพิ่มเรื่องของลูกค้า และถาม-ตอบ 2 ข้อ" },
   { length: "max", name: "2 นาที", hint: "9 ฉาก: เพิ่มเรื่องของลูกค้า เทียบกับเก็บเงินเอง ถาม-ตอบ และขั้นตอนเริ่มต้น · ยาวเกิน Reels ส่งให้ลูกค้าโดยตรง" },
 ];
-/** the three shapes (owner, 2026-10-11, mockup https://claude.ai/artifact/8bhEgAdp4pCBiv581F1weq) */
-const SIZE_CHOICES: { size: VideoSize; name: string; use: string; shape: [number, number]; hint: string }[] = [
-  { size: "portrait", name: "แนวตั้ง 9:16", use: "Reels · Stories · TikTok · LINE VOOM", shape: [16, 28], hint: "เหมาะกับดูบนมือถือและลงเพจเป็น Reels" },
-  { size: "square", name: "จัตุรัส 1:1", use: "ฟีด Facebook / Instagram · แชท LINE", shape: [24, 24], hint: "ดูได้เต็มช่องในฟีดและแชท ไม่ต้องหมุนมือถือ · ลงปฏิทินเพจไม่ได้ (Reels รับแค่แนวตั้ง)" },
-  { size: "landscape", name: "แนวนอน 16:9", use: "YouTube · เปิดให้ลูกค้าดูบน iPad / ทีวี", shape: [32, 18], hint: "เหมาะเปิดบน iPad / ทีวี หรือ YouTube · บนมือถือจะเป็นแถบสั้นๆ ถ้าไม่หมุนจอ · ลงปฏิทินเพจไม่ได้" },
+/** the three shapes (owner, 2026-10-11, mockup https://claude.ai/artifact/8bhEgAdp4pCBiv581F1weq); icons only (owner ก, 2026-10-20, mockup https://claude.ai/artifact/5sAgpnxR8WqbzoB5QrQu4t) */
+const SIZE_CHOICES: { size: VideoSize; name: string; ratio: string; shape: [number, number] }[] = [
+  { size: "portrait", name: "แนวตั้ง 9:16", ratio: "9:16", shape: [16, 28] },
+  { size: "square", name: "จัตุรัส 1:1", ratio: "1:1", shape: [24, 24] },
+  { size: "landscape", name: "แนวนอน 16:9", ratio: "16:9", shape: [32, 18] },
 ];
 const HOOK_WORD: Record<VideoBrief["hook"], string> = { question: "ถามสะกิด", shock: "ตัวเลขช็อก", myth: "สวนความเชื่อ", story: "เล่าเรื่อง", list: "ลิสต์ 3 ข้อ", plain: "ตรงไปตรงมา", auto: "ระบบเลือกฮุก" };
 
@@ -127,20 +127,18 @@ export function Step({ n, title, summary, first, children }: { n: number; title:
 }
 
 export function SizePicker({ size, pick }: { size: VideoSize; pick: (s: VideoSize) => void }) {
-  const hint = SIZE_CHOICES.find((c) => c.size === size)?.hint;
   return (
     <div>
       <span className={label}>ขนาดวิดีโอ</span>
       <div className="flex flex-wrap gap-2">
         {SIZE_CHOICES.map((c) => (
-          <button key={c.size} type="button" onClick={() => pick(c.size)}
-            className={`flex min-h-11 items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm ${size === c.size ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}>
+          <button key={c.size} type="button" onClick={() => pick(c.size)} title={c.name} aria-label={c.name} aria-pressed={size === c.size}
+            className={`flex h-[72px] w-[72px] flex-col items-center justify-center gap-1.5 rounded-xl border text-xs tabular-nums ${size === c.size ? "border-[var(--ct-solid)] bg-[var(--ct-soft)] text-[var(--ct-accent)]" : "border-[var(--ct-line)] text-[var(--ct-mute)] hover:bg-[var(--ct-ground)]"}`}>
             <span aria-hidden className="shrink-0 rounded-[3px] border-2 border-current opacity-80" style={{ width: c.shape[0], height: c.shape[1] }} />
-            <span><span className="block font-medium">{c.name}</span><span className="block text-xs opacity-80">{c.use}</span></span>
+            <span aria-hidden>{c.ratio}</span>
           </button>
         ))}
       </div>
-      {hint && <p className="mt-1 text-xs text-[var(--ct-mute)]">{hint}</p>}
     </div>
   );
 }
