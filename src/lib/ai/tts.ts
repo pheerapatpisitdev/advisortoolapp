@@ -147,6 +147,17 @@ const AUDIO_TOKENS_PER_SEC = 25;
 
 interface CloudAudio { audioContent?: string; error?: { message?: string } }
 
+/**
+ * A line Cloud turned away for a full minute is asked again in the next one, this many times: about
+ * three minutes at most, inside the 300 s a clip's request may run (studio pages' maxDuration).
+ */
+export const CLOUD_BUSY_TRIES = 3;
+
+/** to the start of the next minute, plus 1–4 s so the lines that waited together do not all ask at once */
+export function nextMinuteWait(now = Date.now(), jitter = Math.random()): number {
+  return 60_000 - (now % 60_000) + 1_000 + Math.floor(jitter * 3_000);
+}
+
 /** the Cloud key, when one is stored and readable */
 export async function cloudVoiceKey(): Promise<GcpKey | null> {
   const stored = await providerKey("gcp").catch(() => null);
@@ -198,9 +209,13 @@ export async function speakCloud(text: string, task: string, opts: { narrator?: 
       throw new TtsError(RETRY);
     }
     body = (await res.json().catch(() => ({}))) as CloudAudio;
-    if (res.status === 429 && busy < PER_MINUTE_TRIES) {
+    // Cloud's minute is full (5 a minute on this project, first live clips 2026-10-20): wait for the
+    // next one rather than fail the clip (owner: "wait until the next minute so the clip still finishes")
+    if (res.status === 429 && busy < CLOUD_BUSY_TRIES) {
       busy++;
-      await new Promise((r) => setTimeout(r, PER_MINUTE_WAIT_MS * busy));
+      const wait = nextMinuteWait();
+      console.error(`tts cloud: minute full, waiting ${Math.round(wait / 1000)} s (${busy}/${CLOUD_BUSY_TRIES})`);
+      await new Promise((r) => setTimeout(r, wait));
       attempt--;
       continue;
     }
