@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { QUOTE_VIDEO_COLORS as C } from "@/lib/card-theme";
+import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_EXTRA as X } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
 import type { QuoteVideoFacts, SceneKey } from "./script";
@@ -230,7 +230,57 @@ export const abs = (s: React.CSSProperties): React.CSSProperties => ({ display: 
 export const box = (s: React.CSSProperties = {}): React.CSSProperties => ({ display: "flex", ...s });
 const num = (s: string) => Number(s.replace(/[^\d]/g, ""));
 
+/**
+ * ไวท์บอร์ด (owner, 2026-10-20): while a frame is repainted for it (themes.tsx themed), every piece is
+ * written in left to right behind a marker instead of its own entrance. The repaint runs the pieces
+ * there and then, so the switch is on only while it does.
+ */
+let penMode: false | "survey" | { latest: number; drawn: boolean } = false;
+/** the starts of the pieces being written, found by the survey pass */
+let writing: number[] = [];
+/** what places a piece rather than draws it: kept on the outside box when the marker writes it */
+const PLACE_KEYS = ["position", "left", "top", "right", "bottom", "width", "height", "margin", "marginTop", "marginBottom", "marginLeft", "marginRight", "alignSelf", "flex", "flexGrow", "flexShrink", "zIndex"] as const;
+export function setPenMode(on: false | "survey" | "draw") {
+  if (on === "survey") writing = [];
+  // one marker only: on the piece that started last
+  penMode = on === "draw" ? { latest: Math.max(-1, ...writing), drawn: false } : on;
+}
+
+/** the marker at the edge being written, its tip at the box's (0,0) */
+function marker() {
+  const m = X.marker;
+  return (
+    <svg width={70} height={190} viewBox="-14 -170 70 190" style={{ position: "absolute", left: -14, top: -170 }}>
+      <g transform="rotate(32)">
+        <path d="M0 0 L-6 -16 L6 -16 Z" fill={m.tip} />
+        <rect x={-10} y={-104} width={20} height={88} rx={4} fill={m.body} />
+        <rect x={-10} y={-44} width={20} height={10} fill={m.band} />
+      </g>
+    </svg>
+  );
+}
+
 export function El({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSProperties; children?: ReactNode }) {
+  if (penMode && an && an.kind !== "count") {
+    const p = clamp01((t - an.at) / an.dur);
+    if (p <= 0) return <div style={{ display: "flex", ...style, opacity: 0 }}>{children}</div>;
+    if (p >= 1) return <div style={{ display: "flex", ...style }}>{children}</div>;
+    if (penMode === "survey") writing.push(an.at);
+    const mine = typeof penMode === "object" && !penMode.drawn && an.at === penMode.latest;
+    if (mine && typeof penMode === "object") penMode.drawn = true;
+    // the place on the outside, with the marker; the piece inside, cut at the edge written so far
+    const place: React.CSSProperties = { display: "flex" };
+    const piece: React.CSSProperties = { display: "flex", ...style };
+    for (const k of PLACE_KEYS) if (k in style) { (place as Record<string, unknown>)[k] = style[k]; delete (piece as Record<string, unknown>)[k]; }
+    if (style.width !== undefined) piece.width = style.width;
+    if (style.height !== undefined) piece.height = style.height;
+    return (
+      <div style={place}>
+        <div style={{ ...piece, flexGrow: 1, clipPath: `inset(-40% ${((1 - p) * 100).toFixed(1)}% -40% -10%)` }}>{children}</div>
+        {mine ? <div style={{ display: "flex", position: "absolute", left: `${(p * 100).toFixed(1)}%`, top: "60%", width: 0, height: 0 }}>{marker()}</div> : null}
+      </div>
+    );
+  }
   const l = look(an, t);
   return <div style={{ display: "flex", ...style, opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}) }}>{children}</div>;
 }

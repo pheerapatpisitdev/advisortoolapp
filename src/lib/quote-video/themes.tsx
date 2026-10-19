@@ -4,7 +4,7 @@ import { Children, cloneElement, Fragment, isValidElement, type ReactElement, ty
 import { QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type VideoThemePalette } from "@/lib/card-theme";
 import { DEFAULT_HERO_FACE, familyOf } from "@/lib/story/faces";
 import { faceUris } from "./story-faces";
-import { abs, box, El, MOTION_BG_H, type Anim } from "./motion";
+import { abs, box, El, MOTION_BG_H, setPenMode, type Anim } from "./motion";
 import type { FestivalKey } from "./festival";
 import type { ThemeKey } from "./theme-keys";
 import { W } from "./timeline";
@@ -129,7 +129,16 @@ function repaint(node: ReactNode, p: Palette, under: Surface): ReactNode {
 /** a frame in its theme; the navy looks come back as they went in */
 export function themed(frame: ReactNode, t: ThemeKey | undefined, festival?: FestivalKey): ReactNode {
   const p = paletteOf(t, festival);
-  return p ? repaint(frame, p, "ground") : frame;
+  if (!p) return frame;
+  if (!p.marker) return repaint(frame, p, "ground");
+  // ไวท์บอร์ด: the pieces are run here, so their marker is on for this repaint only (motion.tsx El);
+  // a first pass finds what is being written, so the second draws one marker, on the last piece started
+  try {
+    setPenMode("survey");
+    repaint(frame, p, "ground");
+    setPenMode("draw");
+    return repaint(frame, p, "ground");
+  } finally { setPenMode(false); }
 }
 
 /** the crumpled paper ground, read once a process (named in full for the deploy's file tracing) */

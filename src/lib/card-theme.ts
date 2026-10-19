@@ -330,11 +330,13 @@ export interface VideoThemePalette {
   /** the subtitle's band, its words and the word being said */
   subBg: string; subInk: string; subRgb: string; subAccent: string;
   /** the face every word is set in: Plex unless the theme has its own (renderPng loads it) */
-  font?: "Mali";
+  font?: "Mali" | "Sriracha";
   /** the ground under the drawing: a colour and its soft round shapes */
   ground: string; shapes: { color: string; opacity: number }[];
   /** a paper picture as the ground instead of the colour and shapes (public/collage, themes.tsx) */
   texture?: "paper-light";
+  /** ไวท์บอร์ด: each piece written in left to right behind a marker, in place of its own entrance (motion.tsx El) */
+  marker?: true;
 }
 
 export const VIDEO_THEME_COLORS = {
@@ -345,6 +347,14 @@ export const VIDEO_THEME_COLORS = {
     font: "Mali", ground: "#ece8df", shapes: [{ color: "#e3ddd0", opacity: 0.8 }, { color: "#f3efe6", opacity: 0.8 }, { color: "#e3ddd0", opacity: 0.6 }, { color: "#f3efe6", opacity: 0.7 }],
     // the crumpled paper (owner chose ค, 2026-10-17)
     texture: "paper-light",
+  },
+  // ไวท์บอร์ด (owner, 2026-10-20): black and navy marker on a white board, the red pen for what to remember
+  board: {
+    ink: "#1a1a1a", inkRgb: "26,26,26", accent: "#022162", fill: "#fde68a", onFill: "#1a1a1a",
+    card: "#ffffff", onCard: "#1a1a1a", onCardRgb: "26,26,26", second: "#7aa0d8", red: "#c2412d", green: "#2f7d4f", pen: "#c2412d", bluePen: "#022162",
+    subBg: "rgba(26,26,26,0.85)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#fde68a",
+    font: "Sriracha", ground: "#fbfbf8", shapes: [{ color: "#f1f2ee", opacity: 0.8 }, { color: "#ffffff", opacity: 0.9 }, { color: "#eef0ec", opacity: 0.6 }, { color: "#f6f7f3", opacity: 0.8 }],
+    marker: true,
   },
 } satisfies Record<string, VideoThemePalette>;
 
@@ -415,5 +425,7 @@ export const KINETIC_COLORS = [
 /** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
   paperFaceRing: "#22252b",
-  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15" },
+  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15", board: "#fbfbf8" },
+  /** ไวท์บอร์ด's marker: its body, cap band and tip */
+  marker: { body: "#022162", band: "#c2412d", tip: "#1a1a1a" },
 } as const;

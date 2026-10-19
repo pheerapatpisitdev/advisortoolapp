@@ -3,14 +3,15 @@ import { describe, expect, it } from "vitest";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS } from "@/lib/card-theme";
 import { readTheme, STANDING_THEMES, THEME_KEYS } from "@/lib/quote-video/theme-keys";
 import { themed } from "@/lib/quote-video/themes";
+import { a, El } from "@/lib/quote-video/motion";
 
 type El = ReactElement<{ style?: Record<string, unknown>; children?: ReactNode }>;
 const kids = (e: El) => [e.props.children].flat().filter(isValidElement) as El[];
 
 describe("วิดีโอนำเสนอ themes (owner, 2026-10-17)", () => {
-  it("keeps the two the owner kept on 2026-10-20 and ตัวหนังสือเด้ง, ธีมเทศกาล in its days, and reads anything else as น้ำเงินทอง", () => {
-    expect(STANDING_THEMES).toEqual(["navy", "paper", "kinetic"]);
-    expect(THEME_KEYS).toEqual(["navy", "paper", "kinetic", "festival"]);
+  it("keeps the two the owner kept on 2026-10-20 with ไวท์บอร์ด and ตัวหนังสือเด้ง, ธีมเทศกาล in its days, and reads anything else as น้ำเงินทอง", () => {
+    expect(STANDING_THEMES).toEqual(["navy", "paper", "board", "kinetic"]);
+    expect(THEME_KEYS).toEqual(["navy", "paper", "board", "kinetic", "festival"]);
     expect(readTheme("paper")).toBe("paper");
     // a clip asked for in a look since taken away
     expect(readTheme("collage")).toBe("navy");
@@ -40,5 +41,17 @@ describe("วิดีโอนำเสนอ themes (owner, 2026-10-17)", () =
     expect(big.props.style?.transform).toBeUndefined();
     expect(card.props.style?.background).toBe(VIDEO_THEME_COLORS.paper.card);
     expect(card.props.style?.color).toBe(VIDEO_THEME_COLORS.paper.onCard);
+  });
+
+  it("writes ไวท์บอร์ด's pieces in behind one marker, on the piece started last", () => {
+    const frame = h("div", { style: { display: "flex" } },
+      h(El, { an: a(0, "pop", 1), t: 0.5, style: { fontSize: 60 } }, "มรดก"),
+      h(El, { an: a(0.2, "fade", 1), t: 0.5, style: { fontSize: 60 } }, "2,000,000"),
+      h(El, { an: a(2, "fade", 1), t: 0.5, style: { fontSize: 60 } }, "ยังไม่ถึง"));
+    const html = JSON.stringify(themed(frame, "board"), (_k, v) => (typeof v === "function" ? undefined : v));
+    expect(html.match(/inset\(/g)).toHaveLength(2);
+    expect(html.match(/rotate\(32\)/g)).toHaveLength(1);
+    // outside the repaint the pieces enter as before
+    expect(JSON.stringify(El({ an: a(0, "fade", 1), t: 0.5, style: {} }))).not.toMatch(/inset/);
   });
 });
