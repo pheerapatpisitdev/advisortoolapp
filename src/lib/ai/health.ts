@@ -47,7 +47,9 @@ async function checkVoice(apiKey: string): Promise<{ ok: boolean; error?: string
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: "สวัสดี" }] }],
+        // said as an instruction, the way speakThai asks: a bare word is taken as a question, and
+        // the voice model refuses with a 400 "tried to generate text" (first live run, 2026-10-19)
+        contents: [{ parts: [{ text: "พูดว่า: สวัสดีครับ" }] }],
         generationConfig: {
           responseModalities: ["AUDIO"],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } },
