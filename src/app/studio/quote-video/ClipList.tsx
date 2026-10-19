@@ -122,7 +122,7 @@ export function ClipList({ items, setItems, pages }: {
               </span>
             )}
           </div>
-          {v.progress && <ClipProgress state={v.progress} />}
+          {v.progress && <ClipProgress state={v.progress} clipId={v.id} />}
           {v.status === "done" && v.error && <p role="alert" className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
           {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
           {v.voiceFull && <p className="text-xs text-[var(--ct-mute)]">ไม่เสียเงิน และไม่นับเป็นคลิปฟรี</p>}
