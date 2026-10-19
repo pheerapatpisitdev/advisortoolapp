@@ -51,10 +51,10 @@ function useReady(pictures: string[]): boolean {
 export function StoryClip(p: StoryClipProps) {
   const frame = useCurrentFrame();
   const { fps, width: w } = useVideoConfig();
-  // the cartoon faces, colour and grey, from the bundle's story/faces as story-faces.ts reads them
+  // the cartoon faces, colour and grey, from the bundle's story/faces as story-faces.ts reads them; มินิมอล draws its people instead
   const story = p.kind === "story" ? (p.input as StoryVideoInput) : null;
   const faces: Record<string, string> = {};
-  for (const id of story ? clipFaces(story) : []) {
+  for (const id of story && story.art !== "minimal" ? clipFaces(story) : []) {
     faces[id] = staticFile(`story/faces/${id}.jpg`);
     faces[`${id}-g`] = staticFile(`story/faces/${id}-g.jpg`);
   }
@@ -79,7 +79,7 @@ export function StoryClip(p: StoryClipProps) {
       : freeFrame(free.scenes[s], Boolean(sc.picture), c as unknown as Parameters<typeof freeFrame>[2], t);
     return (
       <AbsoluteFill key={`${sc.key}-${s}`} style={{ overflow: "hidden", ...style }}>
-        <div style={{ position: "absolute", inset: 0, display: "flex" }}>{storyBackground(p.size)}</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex" }}>{storyBackground(p.size, story ?? undefined)}</div>
         {sc.picture ? (
           <Img src={asUrl(sc.picture)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1 + PUSH * Math.min(1, t / sc.dur)})` }} />
         ) : null}

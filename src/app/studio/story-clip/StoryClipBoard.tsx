@@ -11,6 +11,7 @@ import type { VideoSize } from "@/lib/quote-video/timeline";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
 import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, defaultPartner, FACE_PAPER, FACES, faceSrc, familyOf, type FaceTag } from "@/lib/story/faces";
+import { checkedLook, DEFAULT_CAST, Figure, FIGURE_GROUNDS, FIGURE_HAIRS, FIGURE_PANTS, FIGURE_SHIRTS, GROUNDS, HAIR_WORD, isGround, lookFromId, POSES, type FigureGround, type FigureLook } from "@/lib/story/figure";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
 import { makeStoryVideo, myCost, myVideos, previewStoryFigure, previewStoryPension, voiceQuota, type VideoItem, type VoiceQuota } from "../quote-video/actions";
@@ -59,9 +60,26 @@ const PLAN_STORY: Record<StoryPlan, string> = { ISHIELD: "คลิปเล่�
 
 const NARRATOR_KEY = "story-narrator-face";
 const LOOK_KEY = "story-look";
-/** `gemini`: one of Gemini's 30 voices by name, or "" for the narrator's own (owner, 2026-10-17) */
-interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string }
-const DEFAULT_LOOK: Look = { size: "portrait", palette: "reveal", narrator: "F", voice: "", gemini: "" };
+const CAST_KEY = "story-cast";
+/**
+ * `gemini`: one of Gemini's 30 voices by name, or "" for the narrator's own (owner, 2026-10-17);
+ * `art`: the hand-drawn faces, or มินิมอล's whole people on one of three grounds (owner, 2026-10-20)
+ */
+interface Look { size: VideoSize; palette: "reveal" | "color"; narrator: "F" | "M"; voice: string; gemini: string; art: "faces" | "minimal"; ground: FigureGround }
+const DEFAULT_LOOK: Look = { size: "portrait", palette: "reveal", narrator: "F", voice: "", gemini: "", art: "faces", ground: "lav" };
+/** มินิมอล's two the agent dresses: the hero as a woman and as a man (the step-2 choice picks one), and the agent */
+interface Cast { hero: Record<"M" | "F", FigureLook>; narrator: FigureLook }
+const DEFAULT_FORM_CAST: Cast = { hero: DEFAULT_CAST.hero, narrator: DEFAULT_CAST.narrator };
+
+function readCast(): Cast {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CAST_KEY) ?? "null") as { hero?: { M?: unknown; F?: unknown }; narrator?: unknown } | null;
+    const m = checkedLook(raw?.hero?.M), f = checkedLook(raw?.hero?.F), n = checkedLook(raw?.narrator);
+    return { hero: { M: m?.sex === "M" ? m : DEFAULT_CAST.hero.M, F: f?.sex === "F" ? f : DEFAULT_CAST.hero.F }, narrator: n ?? DEFAULT_CAST.narrator };
+  } catch {
+    return DEFAULT_FORM_CAST;
+  }
+}
 
 function readLook(): Look {
   try {
@@ -73,6 +91,8 @@ function readLook(): Look {
       narrator: raw.narrator === "M" ? "M" : "F",
       voice: typeof raw.voice === "string" ? raw.voice : "",
       gemini: geminiVoice(raw.gemini)?.name ?? "",
+      art: raw.art === "minimal" ? "minimal" : "faces",
+      ground: isGround(raw.ground) ? raw.ground : "lav",
     };
   } catch {
     return DEFAULT_LOOK;
@@ -166,6 +186,71 @@ function FamilyPreview({ info, hero, partner, size }: { info: StoryTopicInfo; he
   );
 }
 
+const swatch = (on: boolean) => `h-8 w-8 shrink-0 rounded-full border-2 ${on ? "border-[var(--ct-solid)] ring-2 ring-[var(--ct-solid)] ring-offset-2 ring-offset-[var(--ct-panel)]" : "border-[var(--ct-line)]"}`;
+
+/** มินิมอล's dressing room: one person's sex, hair, glasses, cap, top and bottom, beside them as drawn */
+function FigureBuilder({ value, onChange, ground, sexes = ["F", "M"] }: { value: FigureLook; onChange: (l: FigureLook) => void; ground: FigureGround; sexes?: ("M" | "F")[] }) {
+  const set = (next: Partial<FigureLook>) => onChange({ ...value, ...next });
+  return (
+    <div className="grid grid-cols-[96px_minmax(0,1fr)] items-start gap-3">
+      <div className="overflow-hidden rounded-xl" style={{ background: GROUNDS[ground].bg }}>
+        <Figure look={{ ...value, age: "adult" }} pose={POSES.stand(0)} w={96} h={140} g={GROUNDS[ground]} />
+      </div>
+      <div className="min-w-0 space-y-2 text-xs">
+        {sexes.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {sexes.map((x) => <button key={x} type="button" className={chip(value.sex === x)} onClick={() => set(x === value.sex ? {} : { sex: x, hair: x === "F" ? "long" : "short", bottom: "pants" })}>{x === "F" ? "หญิง" : "ชาย"}</button>)}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="ทรงผม">
+          {(Object.keys(HAIR_WORD) as FigureLook["hair"][]).map((x) => <button key={x} type="button" className={chip(value.hair === x)} onClick={() => set({ hair: x })}>ผม{HAIR_WORD[x]}</button>)}
+          {FIGURE_HAIRS.map((c, i) => <button key={c} type="button" aria-label={`ผมสี${["ดำ", "น้ำตาล", "เทา"][i]}`} aria-pressed={value.hairColor === c} className={swatch(value.hairColor === c)} style={{ background: c }} onClick={() => set({ hairColor: c })} />)}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" className={chip(value.glasses)} aria-pressed={value.glasses} onClick={() => set({ glasses: !value.glasses })}>แว่น</button>
+          <button type="button" className={chip(value.hat)} aria-pressed={value.hat} onClick={() => set({ hat: !value.hat })}>หมวกแก๊ป</button>
+          <button type="button" className={chip(value.sleeve === "short")} onClick={() => set({ sleeve: "short" })}>แขนสั้น</button>
+          <button type="button" className={chip(value.sleeve === "long")} onClick={() => set({ sleeve: "long" })}>แขนยาว</button>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="สีเสื้อ">
+          {FIGURE_SHIRTS.map((c) => <button key={c} type="button" aria-label="สีเสื้อ" aria-pressed={value.shirt === c} className={swatch(value.shirt === c)} style={{ background: c }} onClick={() => set({ shirt: c })} />)}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="ท่อนล่าง">
+          <button type="button" className={chip(value.bottom === "pants")} onClick={() => set({ bottom: "pants" })}>กางเกง</button>
+          <button type="button" className={chip(value.bottom === "skirt")} onClick={() => set({ bottom: "skirt" })}>กระโปรง</button>
+          {FIGURE_PANTS.map((c) => <button key={c} type="button" aria-label="สีท่อนล่าง" aria-pressed={value.pants === c} className={swatch(value.pants === c)} style={{ background: c }} onClick={() => set({ pants: c })} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** มินิมอล's opening as the clip draws it: the 48 standing in rows, or the hero under the story's name */
+function MinimalPreview({ title, hero, crowd, ground, size, pose }: { title: string; hero: FigureLook; crowd?: string[]; ground: FigureGround; size: VideoSize; pose: "stand" | "think" | "wave" }) {
+  const g = GROUNDS[ground];
+  const cols = size === "landscape" ? 12 : size === "square" ? 8 : 6;
+  return (
+    <div className="rounded-[26px] p-2.5" style={{ background: STORY_CLIP_COLORS.bezel }}>
+      <div className="relative flex flex-col items-center overflow-hidden rounded-[18px] px-[8%] pt-[8%]" style={{ background: g.bg, aspectRatio: size === "landscape" ? "16 / 9" : size === "square" ? "1 / 1" : "9 / 16", color: g.ink }}>
+        <p className="text-center text-xl font-semibold leading-tight">{title}</p>
+        {crowd ? (
+          <div className="mt-3 grid w-full" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+            {crowd.map((id, i) => (
+              <div key={i} className="aspect-square w-full" style={i === CROWD_HERO ? { boxShadow: `0 0 0 2px ${STORY_CLIP_COLORS.red}`, borderRadius: 999 } : undefined}>
+                <Figure look={i === CROWD_HERO ? { ...hero, age: "adult" } : lookFromId(id)} pose={POSES.stand(i * 0.37)} w={40} h={40} g={g} shadow={false} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-[10%] w-[60%]">
+            <Figure look={{ ...hero, age: "adult" }} pose={POSES[pose](0.6)} w={160} h={220} g={g} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQuota, pages, eleven }: {
   initial: VideoItem[] | null;
   cost: CostView | null;
@@ -217,6 +302,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const [sum, setSum] = useState("1,000,000");
   const [figure, setFigure] = useState<{ annual: number; monthly: number } | { error: string } | null>(null);
   const [look, setLook] = useState<Look>(DEFAULT_LOOK);
+  const [cast, setCast] = useState<Cast>(DEFAULT_FORM_CAST);
+  const [dressing, setDressing] = useState<"hero" | "narrator">("hero");
+  const mini = look.art === "minimal";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ text: string; contact?: boolean } | null>(null);
   const [items, setItems] = useState<VideoItem[] | null>(initial);
@@ -232,6 +320,7 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     // a voice no longer listed (the cloned ones, gone 2026-10-17) falls back to Gemini's
     const kept = readLook();
     setLook(eleven.some((v) => v.id === kept.voice) ? kept : { ...kept, voice: "" });
+    setCast(readCast());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- read once, as the page opens
   }, []);
   function pickNarratorFace(f: string) {
@@ -244,6 +333,13 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
       const l = { ...was, ...next };
       try { localStorage.setItem(LOOK_KEY, JSON.stringify(l)); } catch { /* not remembered, still used */ }
       return l;
+    });
+  }
+  function dress(next: Partial<Cast>) {
+    setCast((was) => {
+      const c = { ...was, ...next };
+      try { localStorage.setItem(CAST_KEY, JSON.stringify(c)); } catch { /* not remembered, still used */ }
+      return c;
     });
   }
   function pickSex(s: "M" | "F") {
@@ -361,7 +457,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
     try {
       const r = await makeStoryVideo({
         topic, size: look.size, palette: look.palette, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
-        faces: { narrator: narratorFace, hero: heroFace, ...(withPartner && partner ? { partner } : {}) },
+        faces: { narrator: narratorFace, hero: heroFace, ...(withPartner && partner && !mini ? { partner } : {}) },
+        ...(mini ? { art: "minimal" as const, ground: look.ground, cast: { hero: cast.hero[heroSex], narrator: cast.narrator } } : {}),
         ...(showsFigure && info.figure === "plan" ? { figure: { plan, variant, sex: heroSex, age: Number(age), sumAssured: sumBaht } } : {}),
         ...(showsFigure && info.figure === "ladder" ? { ladder: true } : {}),
         ...(showsFigure && info.figure === "pension" ? { pension: { sex: heroSex, age: Number(age), annuityAge: Number(annuityAge), pay, monthly: pensionBaht } } : {}),
@@ -434,7 +531,9 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
               <div className="min-w-0 space-y-2">
                 <span className={label}>ผู้เล่าเรื่อง (คุณ)</span>
                 <p className="text-xs text-[var(--ct-mute)]">ขึ้นท้ายคลิปพร้อมชื่อ เบอร์ และ LINE จากบัญชีของฉัน · เลือกครั้งเดียว จำไว้ในเครื่องนี้</p>
-                <FacePicker id="sc-narrator" value={narratorFace} onPick={pickNarratorFace} exclude={heroFace} />
+                {mini
+                  ? <p className="rounded-lg bg-[var(--ct-soft)] px-3 py-2 text-sm">สไตล์มินิมอล: แต่งตัวคุณที่ขั้นที่ 4</p>
+                  : <FacePicker id="sc-narrator" value={narratorFace} onPick={pickNarratorFace} exclude={heroFace} />}
               </div>
               <div className="min-w-0 space-y-2">
                 {topic === "festival" ? (
@@ -446,10 +545,12 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
                   <button type="button" className={chip(heroSex === "F")} onClick={() => pickSex("F")}>หญิง</button>
                   {!info.heroSex && <button type="button" className={chip(heroSex === "M")} onClick={() => pickSex("M")}>ชาย</button>}
                 </div>
-                <FacePicker id="sc-hero" value={heroFace} onPick={pickHero} sex={heroSex} exclude={narratorFace} />
+                {mini
+                  ? <p className="text-xs text-[var(--ct-mute)]">แต่งตัวละครหลักที่ขั้นที่ 4</p>
+                  : <FacePicker id="sc-hero" value={heroFace} onPick={pickHero} sex={heroSex} exclude={narratorFace} />}
                 </>}
               </div>
-              {withPartner && (
+              {withPartner && !mini && (
                 <div className="min-w-0 space-y-2 md:col-span-2">
                   <span className={label}>คู่ชีวิต</span>
                   <p className="text-xs text-[var(--ct-mute)]">ระบบเลือกหน้า{heroSex === "F" ? "ผู้ชาย" : "ผู้หญิง"}ให้ กดเปลี่ยนหน้าได้</p>
@@ -642,7 +743,38 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
             )}
           </Step>
 
-          <Step n={4} title="หน้าตาคลิป" summary={[episode ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
+          <Step n={4} title="หน้าตาคลิป" summary={[mini ? `มินิมอล · ${GROUNDS[look.ground].name}` : "", episode ? "" : look.palette === "reveal" ? "ขาวดำแล้วลงสี" : "สีทั้งคลิป", voiceWord].filter(Boolean).join(" · ")}>
+            <div>
+              <span className={label}>สไตล์ภาพ</span>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={chip(!mini)} onClick={() => pickLook({ art: "faces" })}>การ์ตูนหน้าคน</button>
+                <button type="button" className={chip(mini)} onClick={() => pickLook({ art: "minimal" })}>มินิมอล</button>
+              </div>
+            </div>
+            {mini && <>
+              <div>
+                <span className={label}>สีพื้น</span>
+                <div className="flex flex-wrap gap-2">
+                  {FIGURE_GROUNDS.map((g) => (
+                    <button key={g} type="button" className={chip(look.ground === g)} onClick={() => pickLook({ ground: g })}>
+                      <span aria-hidden className="mr-1.5 inline-block h-3 w-3 rounded-full border border-black/20 align-[-1px]" style={{ background: GROUNDS[g].bg }} />{GROUNDS[g].name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className={label}>แต่งตัวละคร</span>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="แต่งตัวละครไหน">
+                  {topic !== "festival" && <button type="button" className={chip(dressing === "hero")} onClick={() => setDressing("hero")}>ตัวละครหลัก</button>}
+                  <button type="button" className={chip(dressing === "narrator" || topic === "festival")} onClick={() => setDressing("narrator")}>ตัวคุณ (ผู้เล่า)</button>
+                </div>
+                {dressing === "hero" && topic !== "festival"
+                  ? <FigureBuilder value={cast.hero[heroSex]} ground={look.ground} sexes={info.heroSex ? [info.heroSex] : ["F", "M"]}
+                      onChange={(l) => { if (l.sex !== heroSex) pickSex(l.sex); dress({ hero: { ...cast.hero, [l.sex]: l } }); }} />
+                  : <FigureBuilder value={cast.narrator} ground={look.ground} onChange={(l) => dress({ narrator: l })} />}
+                <p className="text-xs text-[var(--ct-mute)]">คนอื่นในเรื่อง เช่น คู่ชีวิต ลูก พ่อแม่ คนในโหล ระบบแต่งให้เอง · จำค่าที่แต่งไว้ในเครื่องนี้</p>
+              </div>
+            </>}
             <SizePicker size={look.size} pick={(size) => pickLook({ size })} />
             {!episode && <div>
               <span className={label}>สีของตัวละคร</span>
@@ -660,7 +792,12 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
           {/* the opening scene, at the foot of the tools (owner, 2026-10-15: no third column) */}
           <section className="space-y-2 border-t border-[var(--ct-hair)] py-4" aria-label="ตัวอย่างฉากเปิด">
             <div className="mx-auto max-w-[220px]">
-              {afterSale
+              {mini
+                ? <MinimalPreview
+                    title={topic === "pool48" ? "48 คน" : topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name}
+                    hero={topic === "festival" ? cast.narrator : cast.hero[heroSex]} ground={look.ground} size={look.size}
+                    crowd={topic === "pool48" ? crowdOf(heroFace, narratorFace) : undefined} pose={afterSale ? "wave" : asks ? "think" : "stand"} />
+                : afterSale
                 ? <KnowPreview hero={topic === "festival" ? narratorFace : heroFace} title={topic === "festival" ? FESTIVALS.find((f) => f.key === festival)!.name : info.name} size={look.size} ask={topic === "claimish"} />
                 : asks || (life && !lifeFamily)
                 ? <KnowPreview hero={heroFace} title={info.name} size={look.size} />
