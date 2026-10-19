@@ -7,6 +7,7 @@ import { contentProduct } from "@/lib/content/products";
 import { listPlanned, listUnplanned, type ContentItem } from "@/lib/content/store";
 import { ChevronLeftIcon, ChevronRightIcon } from "../ui/icons";
 import { PlanBoard, type PlanCard } from "./PlanBoard";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 /**
  * The calendar of an agent with no Page (owner, 2026-09-30): the month's planned pieces and a
@@ -48,7 +49,7 @@ export async function PlanCalendar({ params }: { params: { y?: string; m?: strin
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">ปฏิทินโพสต์</h1>
+        <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="ca" size="lg" />ปฏิทินโพสต์</h1>
         <p className="mt-1 text-sm text-[var(--ct-mute)]">วางแผนว่าจะโพสต์ชิ้นไหนวันไหน — ระบบไม่โพสต์เอง ถึงวันคัดลอกไปโพสต์แล้วกด “โพสต์แล้ว”</p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">

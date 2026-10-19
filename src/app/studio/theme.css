@@ -110,3 +110,61 @@ body:has(.content-page) { background: var(--ct-ground); }
   outline: 3px solid var(--ct-accent);
   outline-offset: 3px;
 }
+
+/* ── Adobe buttons (owner chose ข, 2026-10-19) ─────────────────────────────────────────────
+ *
+ * Studio's buttons as Adobe draws them, and nothing else about its pages: square corners,
+ * the labels of the main buttons bold, a firmer edge on the others, and Adobe's blue in place
+ * of the navy for the solid fill and the accent. The posters are pictures and keep theirs.
+ *
+ * Done here rather than in each tool, because the buttons are written out by hand in some
+ * forty places: anything clickable drawn round in Studio is squared, whatever its class says.
+ * The blue on white is #1473e6 in both themes, white on it 4.6:1; the accent ink on the dark
+ * panel is the lighter #4b9cf5 at 6:1.
+ */
+.content-page,
+:root:has(.content-page) {
+  --ct-solid: #1473e6;
+  --ct-solid-ink: #ffffff;
+  --ct-solid-hover: #0d66d0;
+  --ct-accent: #0d66d0;
+  --ct-soft: #e5f0fe;
+  --shell-active: var(--ct-accent);
+  --shell-active-bg: var(--ct-soft);
+}
+:root[data-studio-theme="dark"]:has(.content-page),
+:root[data-studio-theme="dark"] .content-page {
+  --ct-solid: #1473e6;
+  --ct-solid-ink: #ffffff;
+  --ct-solid-hover: #2680eb;
+  --ct-accent: #4b9cf5;
+  --ct-soft: #1a2b44;
+}
+
+.content-page :is(button, a, summary, [role="button"]):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-full) {
+  border-radius: 4px;
+}
+.content-page :is(button, a)[class*="bg-[var(--ct-solid)]"] { font-weight: 700; }
+.content-page :is(button, a)[class*="bg-[var(--ct-solid)]"]:not(:disabled):hover { background-color: var(--ct-solid-hover); opacity: 1; }
+.content-page :is(button, a)[class*="border-[var(--ct-line)]"]:not([class*="bg-[var(--ct-solid)]"]) { border-width: 2px; }
+.content-page button.font-medium { font-weight: 700; }
+
+/* the menu's buttons with an edge of their own, the page you are on edged in the blue
+   (owner, 2026-10-19: "อยากให้มีขอบ") — in place of the hue's tint and its stripe up the side */
+.content-page .shell-btn {
+  border: 1.5px solid var(--ct-line);
+  border-radius: 4px;
+  background: var(--ct-panel);
+}
+.content-page .shell-btn:hover {
+  background: var(--ct-soft);
+  border-color: var(--ct-accent);
+  box-shadow: none;
+  transform: none;
+}
+.content-page .shell-btn[aria-current="page"] {
+  background: var(--ct-soft);
+  border: 2px solid var(--ct-solid);
+  box-shadow: none;
+  padding-left: 0.5rem;
+}

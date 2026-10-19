@@ -1,4 +1,5 @@
 import { ClosedNotice, LockedPage } from "@/components/ClosedNotice";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 import { can } from "@/lib/auth/access";
 import { myPages } from "@/lib/auth/pages";
 import { gatePage } from "@/lib/auth/viewer";
@@ -48,7 +49,7 @@ export default async function ClipEditPage({ searchParams }: { searchParams: Pro
   ]);
   return (
     <div>
-      <h1 className="text-xl font-semibold">ตัดต่อคลิป</h1>
+      <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="ce" size="lg" />ตัดต่อคลิป</h1>
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         แนบคลิปที่ถ่ายเอง ระบบถอดเสียง ร่างแคปชัน และตรวจคำให้ แล้วตัดประโยคที่ไม่ใช้ ใส่ซับกับ hook ก่อนลงเพจเป็น Reel
       </p>

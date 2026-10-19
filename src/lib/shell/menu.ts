@@ -13,6 +13,8 @@
  * preference, it is a button that does nothing.
  */
 
+import type { ToolLogoId } from "./tool-logos";
+
 /** The drawings the menu has. One per kind of work, not one per link — see `icon` below. */
 export type MenuIcon =
   | "grid"
@@ -86,6 +88,8 @@ export interface MenuLink {
    * rather than choosing a colour — which is the point: no one here is picking colours.
    */
   hue: string;
+  /** a Studio tool's Adobe-style square in place of the chip (owner chose ข, 2026-10-19) */
+  logo?: ToolLogoId;
   /** True only for links that leave this application. */
   external?: boolean;
 }
@@ -372,28 +376,28 @@ export function studioMenu(who?: Who | null): MenuGroup[] {
   ];
   const make: MenuLink[] = [
     // a narrated clip of a quote (owner, 2026-10-11): every agent's, two free then the wallet
-    { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80" },
+    { href: "/studio/quote-video", label: "วิดีโอนำเสนอ", icon: "spark", hue: "#2e5a80", logo: "qv" },
     // a cartoon story clip, why insurance at all (owner, 2026-10-15): every agent's, paid like the one above
-    { href: "/studio/story-clip", label: "คลิปเล่าเรื่อง", icon: "woman", hue: "#2e5a80" },
+    { href: "/studio/story-clip", label: "คลิปเล่าเรื่อง", icon: "woman", hue: "#2e5a80", logo: "sc" },
     // a clip from the agent's own brief, script edited before it is paid for (owner, 2026-10-16): the owner's alone since 2026-10-17
-    ...(who?.owner ? [{ href: "/studio/prompt-story", label: "คลิปตามโจทย์", icon: "quote" as const, hue: "#2e5a80" }] : []),
+    ...(who?.owner ? [{ href: "/studio/prompt-story", label: "คลิปตามโจทย์", icon: "quote" as const, hue: "#2e5a80", logo: "pc" as const }] : []),
     // the writer: Maryjane from 2026-09-27, Organic Studio from 2026-09-28 (owner)
-    { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80" },
+    { href: "/studio/write", label: "Organic Studio", icon: "pen", hue: "#2e5a80", logo: "og" },
     // a filmed clip cut, subtitled and posted as a Reel: Organic's คลิป tab until 2026-10-19 (owner chose ก)
-    { href: "/studio/clip-edit", label: "ตัดต่อคลิป", icon: "studio", hue: "#2e5a80" },
+    { href: "/studio/clip-edit", label: "ตัดต่อคลิป", icon: "studio", hue: "#2e5a80", logo: "ce" },
     // video covers (owner, 2026-10-09): every agent's and member's since 2026-10-14, paid as a picture
-    { href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image", hue: "#2e5a80" },
+    { href: "/studio/thumbnail", label: "ภาพปกคลิป", icon: "image", hue: "#2e5a80", logo: "th" },
     // a picture read into a drawing prompt (owner, 2026-10-08): every agent's, the cost is theirs
-    { href: "/studio/describe", label: "ถอดรูปเป็น prompt", icon: "image", hue: "#302f79" },
+    { href: "/studio/describe", label: "ถอดรูปเป็น prompt", icon: "image", hue: "#302f79", logo: "dp" },
     // puts an ad piece on Facebook as a paused ad: spends the owner's ad account, so the owner's alone (2026-10-04)
-    ...(who?.owner ? [{ href: "/studio/ads", label: "Ads Studio", icon: "megaphone" as const, hue: "#352f80" }] : []),
+    ...(who?.owner ? [{ href: "/studio/ads", label: "Ads Studio", icon: "megaphone" as const, hue: "#352f80", logo: "ad" as const }] : []),
   ];
   const keep: MenuLink[] = [
     // the calendar is every agent's: a Page's for the staff who post to it (owner, 2026-09-27), a
     // plan for everyone else (2026-09-30)
-    { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a" },
-    { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79" },
-    { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80" },
+    { href: "/studio/calendar", label: "ปฏิทินโพสต์", icon: "calendar", hue: "#2e4a7a", logo: "ca" },
+    { href: "/studio/hooks", label: "คลังสูตรประโยคเปิด", icon: "quote", hue: "#302f79", logo: "hk" },
+    { href: "/studio/people", label: "คลังบุคคล", icon: "users", hue: "#352f80", logo: "pe" },
   ];
   return [{ links: top }, { title: "สร้างงาน", links: make }, { title: "วางแผนและคลัง", links: keep }];
 }

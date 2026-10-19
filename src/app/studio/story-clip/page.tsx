@@ -8,6 +8,7 @@ import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
 import { myCost, myVideos, voiceQuota } from "../quote-video/actions";
 import { StoryClipBoard } from "./StoryClipBoard";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 export const dynamic = "force-dynamic";
 // a clip is drawn after the request is answered (after()), inside this page's time
@@ -38,7 +39,7 @@ export default async function StoryClipPage() {
   });
   return (
     <div className="max-w-5xl">
-      <h1 className="text-xl font-semibold">คลิปเล่าเรื่อง</h1>
+      <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="sc" size="lg" />คลิปเล่าเรื่อง</h1>
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         คลิปการ์ตูนลายเส้น อธิบายให้ลูกค้าเข้าใจว่าทำไมต้องมีประกัน ไม่ได้ขายแผนไหน ใช้ส่งก่อนคุย ลงเพจ หรือทำแอด
       </p>

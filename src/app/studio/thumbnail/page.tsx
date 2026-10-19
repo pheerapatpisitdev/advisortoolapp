@@ -8,6 +8,7 @@ import { listThumbnails } from "@/lib/content/thumbnail-history";
 import type { Rounds } from "@/lib/wallet/note";
 import { walletView } from "@/lib/wallet/store";
 import { ThumbnailBoard } from "./ThumbnailBoard";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function ThumbnailPage() {
   ]);
   return (
     <div className="max-w-5xl">
-      <h1 className="text-xl font-semibold">ภาพปกคลิป</h1>
+      <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="th" size="lg" />ภาพปกคลิป</h1>
       <p className="mt-1 text-sm text-[var(--ct-mute)]">
         เลือกขนาด ใส่หัวข้อคลิป ให้ AI คิดหัวปก แล้ววาดภาพปกพร้อมตัวหนังสือไทย ตรวจคำที่วาดให้ทุกภาพ เก็บภาพล่าสุด 200 รายการไว้ที่นี่
       </p>

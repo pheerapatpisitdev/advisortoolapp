@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { studioHref } from "@/lib/ads/manager-view";
 import type { Connection } from "./actions";
 import { solid } from "./styles";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 /**
  * Ads Studio's top bar (desktop redesign, 2026-10-05): the name, the Page, the connected ad
@@ -52,7 +53,7 @@ export function TopBar({ pages, pageId, connection, days, hrefs }: {
 
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--ct-hair)] pb-3">
-      <h1 className="mr-1 text-lg font-semibold">Ads Studio</h1>
+      <h1 className="mr-1 flex items-center gap-2.5 text-lg font-semibold"><ToolLogo id="ad" size="lg" />Ads Studio</h1>
 
       {pageId && pages.length > 0 && (
         <label className="flex min-w-0 items-center gap-2">

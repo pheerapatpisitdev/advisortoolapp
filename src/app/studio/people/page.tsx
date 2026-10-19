@@ -7,6 +7,7 @@ import { pageConnections } from "@/lib/facebook/connection";
 import { myPages } from "@/lib/auth/pages";
 import { PeopleBoard } from "./PeopleBoard";
 import { LoadFailed } from "../ui/LoadFailed";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +44,9 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         </Link>
       )}
       <div>
-        <h1 className="text-xl font-semibold">
-          คลังบุคคล{currentName && <span className="font-normal text-[var(--ct-mute)]"> · {currentName}</span>}
+        <h1 className="flex items-center gap-2.5 text-xl font-semibold">
+          <ToolLogo id="pe" size="lg" />
+          <span>คลังบุคคล{currentName && <span className="font-normal text-[var(--ct-mute)]"> · {currentName}</span>}</span>
         </h1>
         <p className="mt-1 text-sm text-[var(--ct-mute)]">
           คนที่จะให้ AI วาดลงในภาพโปสเตอร์ ใส่รูปหน้าชัดๆ ได้ถึง 10 รูปจากหลายมุม (รูปแรกคือรูปหลัก) แสงดี ไม่ใส่แว่นดำหรือหมวก — ยิ่งรูปดี หน้ายิ่งเหมือน

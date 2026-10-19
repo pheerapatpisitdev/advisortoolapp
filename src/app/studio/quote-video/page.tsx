@@ -16,6 +16,7 @@ import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
 import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 export const dynamic = "force-dynamic";
 // a clip is drawn after the request is answered (after()), inside this page's time
@@ -74,7 +75,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   // the Studio's full width, so the two-column tools leave the desk room (owner chose ก, 2026-10-17)
   return (
     <div>
-      <h1 className="text-xl font-semibold">วิดีโอนำเสนอ</h1>
+      <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="qv" size="lg" />วิดีโอนำเสนอ</h1>
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>

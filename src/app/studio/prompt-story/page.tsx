@@ -10,6 +10,7 @@ import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
 import { myCost, myVideos, voiceQuota } from "../quote-video/actions";
 import { PromptStoryBoard } from "./PromptStoryBoard";
+import { ToolLogo } from "@/components/shell/ToolLogo";
 
 export const dynamic = "force-dynamic";
 // a clip is drawn after the request is answered (after()), inside this page's time
@@ -31,7 +32,7 @@ export default async function PromptStoryPage() {
   if (!mayPromptStory(viewer)) {
     return (
       <div className="max-w-6xl">
-        <h1 className="text-xl font-semibold">คลิปตามโจทย์</h1>
+        <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="pc" size="lg" />คลิปตามโจทย์</h1>
         <p className="mt-3 max-w-md rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5 text-sm">
           {PROMPT_STORY_CLOSED} ทำคลิปได้ที่ <Link href="/studio/story-clip">คลิปเล่าเรื่อง</Link> หรือ <Link href="/studio/quote-video">วิดีโอนำเสนอ</Link>
         </p>
@@ -52,7 +53,7 @@ export default async function PromptStoryPage() {
   });
   return (
     <div className="max-w-6xl">
-      <h1 className="text-xl font-semibold">คลิปตามโจทย์</h1>
+      <h1 className="flex items-center gap-2.5 text-xl font-semibold"><ToolLogo id="pc" size="lg" />คลิปตามโจทย์</h1>
       <p className="mt-1 max-w-[70ch] text-sm text-[var(--ct-mute)]">
         พิมพ์โจทย์ของลูกค้าเอง AI เขียนบทให้ฟรี แก้ได้ทุกช่อง แล้วค่อยสร้างเป็นคลิปพร้อมรูป เสียง และการ์ดตัวแทนท้ายคลิป
       </p>
