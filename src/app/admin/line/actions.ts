@@ -4,7 +4,7 @@ import { audit, requireStaff } from "@/lib/auth/viewer";
 import { bucketPrefix, cancelBroadcast, createBroadcast, readBroadcastInput, sendBroadcast } from "@/lib/line/broadcasts";
 import { rebuildMenus } from "@/lib/line/rebuild";
 import { setLineBotEnabled } from "@/lib/line/settings";
-import { sendTestAlert, setNotifyAiDown, setNotifyNewMember, startLink, unlink } from "@/lib/line/owner-alert";
+import { sendTestAlert, setNotifyAiDown, setNotifyClipFailed, setNotifyNewMember, startLink, unlink } from "@/lib/line/owner-alert";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
 export type Result = { ok: true; note?: string } | { ok: false; error: string };
@@ -119,6 +119,19 @@ export async function notifyAiDownAction(on: boolean): Promise<Result> {
     return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
   await audit("line-notify-ai-down", null, { on });
+  revalidatePath("/admin/line");
+  return { ok: true };
+}
+
+export async function notifyClipFailedAction(on: boolean): Promise<Result> {
+  await requireStaff("backoffice");
+  try {
+    await setNotifyClipFailed(on === true);
+  } catch (e) {
+    console.error("[line] clip-failed switch not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  }
+  await audit("line-notify-clip-failed", null, { on });
   revalidatePath("/admin/line");
   return { ok: true };
 }
