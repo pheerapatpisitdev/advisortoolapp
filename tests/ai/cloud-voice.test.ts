@@ -9,7 +9,7 @@ const keys: Record<string, string | null> = { google: "g_test", elevenlabs: "sk_
 vi.mock("@/lib/ai/client", () => ({ providerKey: async (p: string) => keys[p] ?? null }));
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 
-import { CLOUD_TTS_MODEL, forgetApiFull, speakGemini, wavPcm } from "@/lib/ai/tts";
+import { CLOUD_BUSY_TRIES, CLOUD_TTS_MODEL, forgetApiFull, nextMinuteWait, speakGemini, wavPcm } from "@/lib/ai/tts";
 import { cloudUsable, speakClip } from "@/lib/quote-video/speak";
 
 const pcm = Buffer.alloc(48_000, 1);
@@ -120,6 +120,38 @@ describe("speakClip: ElevenLabs only when both Gemini ways fail", () => {
     const out = await speakClip(["หนึ่ง", "สอง"], { task: "t", pool, narrator: "F", lang: "th", fetch: f });
     expect(out.fellBackTo).toBeNull();
     expect(asked).not.toContain("eleven");
+  });
+});
+
+describe("Cloud's full minute (5 a minute on this project, 2026-10-20)", () => {
+  const cloudBusy = () => new Response(JSON.stringify({ error: { message: "Quota exceeded for aiplatform.googleapis.com/global_generate_content_requests_per_minute_per_project_per_base_model" } }), { status: 429 });
+
+  it("waits for the next minute and the line is spoken", async () => {
+    vi.useFakeTimers();
+    let n = 0;
+    const { f, asked } = net(apiFull, () => (++n <= 2 ? cloudBusy() : cloudOk()));
+    const said = speakGemini("หนึ่ง", "t", { fetch: f });
+    await vi.advanceTimersByTimeAsync(2 * 65_000);
+    const r = await said;
+    vi.useRealTimers();
+    expect(r.pcm.equals(pcm)).toBe(true);
+    expect(asked).toEqual(["api", "cloud", "cloud", "cloud"]);
+  });
+
+  it("gives up after three full minutes", async () => {
+    vi.useFakeTimers();
+    const { f, asked } = net(apiFull, cloudBusy);
+    const said = speakGemini("หนึ่ง", "t", { fetch: f }).catch((x) => x);
+    await vi.advanceTimersByTimeAsync(4 * 65_000);
+    const e = await said;
+    vi.useRealTimers();
+    expect(e).toBeInstanceOf(Error);
+    expect(asked.filter((a) => a === "cloud")).toHaveLength(1 + CLOUD_BUSY_TRIES);
+  });
+
+  it("the wait runs to the next minute plus a few seconds", () => {
+    expect(nextMinuteWait(Date.UTC(2026, 9, 20, 0, 0, 50), 0)).toBe(11_000);
+    expect(nextMinuteWait(Date.UTC(2026, 9, 20, 0, 0, 0), 0.999)).toBe(60_000 + 1_000 + 2_997);
   });
 });
 
