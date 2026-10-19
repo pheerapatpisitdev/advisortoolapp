@@ -21,7 +21,6 @@ Config.overrideWebpackConfig((c) => ({
       "react-dom": here("node_modules/react-dom"),
       "fs/promises$": here("src/shims/fs.ts"),
       path$: here("src/shims/path.ts"),
-      sharp: here("src/shims/sharp.ts"),
     },
   },
 }));

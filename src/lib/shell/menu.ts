@@ -264,7 +264,6 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     pages: [
       { href: "/admin/ads", label: "โฆษณา", icon: "megaphone", hue: "#5b2e80" },
       { href: "/admin/members", label: "สมาชิกทั่วไป", icon: "users", hue: "#612d7e" },
-      { href: "/admin/collage", label: "คลังภาพคอลลาจ", icon: "image", hue: "#6d2c7a" },
     ],
   },
 ];

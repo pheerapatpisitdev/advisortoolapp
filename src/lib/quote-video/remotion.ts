@@ -26,7 +26,7 @@ import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "5e64833afcff";
+export const REMOTION_DRAWING = "ad8500eb9a13";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -54,10 +54,8 @@ export type ClipProps = RemotionMotion & {
   drawing: string;
   total: number;
   scenes: { key: SceneKey; voice: string; voiceSec: number; start: number; dur: number }[];
-  /** the mixed narration (and คอลลาจ's sounds): a link, or a file in the project's public folder */
+  /** the mixed narration: a link, or a file in the project's public folder */
   audio: string;
-  /** คอลลาจ's cut-outs by "scene/piece": links, or files in the project's public folder */
-  pieces: Record<string, string>;
   /**
    * Chinese, Russian and Burmese: the Noto face the old engine draws them in (video-words.ts
    * SCRIPT_FAMILY), cut to the clip's letters, one file a weight: links, or files in the project's public folder
@@ -102,7 +100,7 @@ export function storyClipProps(
 
 /**
  * An FHC summary drawn by Remotion (the composition FhcClip): fhcFrame / wideFhcFrame at the scene's time,
- * repainted by themed, over the theme's drifting ground; คอลลาจ's picked pieces, portrait only, as links.
+ * repainted by themed, over the theme's drifting ground.
  */
 export type FhcClipProps = {
   composition: "FhcClip";
@@ -113,8 +111,6 @@ export type FhcClipProps = {
   customer: string;
   narrator: "F" | "M";
   contact: MotionContext["contact"];
-  /** each scene's picked piece, a link (or a file in the project's public folder) */
-  picks: Partial<Record<FhcSceneKey, string>>;
   total: number;
   scenes: { key: FhcSceneKey; voice: string; voiceSec: number; start: number; dur: number }[];
   audio: string;
@@ -159,13 +155,13 @@ export const SCRIPT_RANGE = [
 ].join(", ");
 
 
-/** the props for one clip: its motion context, its scenes as planned, its voice and cut-outs */
+/** the props for one clip: its motion context, its scenes as planned, its voice */
 export function clipProps(
   motion: RemotionMotion, plans: Pick<ScenePlan<SceneKey>, "key" | "start" | "dur">[], script: { voice: string }[],
-  secs: number[], total: number, audio: string, pieces: Record<string, string>, scriptFont?: ClipProps["scriptFont"],
+  secs: number[], total: number, audio: string, scriptFont?: ClipProps["scriptFont"],
 ): ClipProps {
   return {
-    ...motion, drawing: REMOTION_DRAWING, total, audio, pieces, ...(scriptFont?.length ? { scriptFont } : {}),
+    ...motion, drawing: REMOTION_DRAWING, total, audio, ...(scriptFont?.length ? { scriptFont } : {}),
     scenes: plans.map((p, i) => ({ key: p.key, voice: script[i].voice, voiceSec: secs[i], start: p.start, dur: p.dur })),
   };
 }

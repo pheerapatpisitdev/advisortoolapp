@@ -33,7 +33,7 @@ echo "ship: the drawing changed — making $JOB (5–10 minutes)…"
 # 1. props, fonts, pictures and the bundle
 [ -d "$ROOT/remotion/node_modules" ] || (cd "$ROOT/remotion" && npm ci --no-audit --no-fund)
 (cd "$ROOT" && npx vitest run --config remotion/prepare/vitest.config.ts --reporter=dot)
-(cd "$ROOT" && IHEALTHY=th:collage,zh:navy,ru:paper,my:clean npx vitest run --config remotion/prepare/vitest.config.ts --reporter=dot)
+(cd "$ROOT" && IHEALTHY=th:paper,zh:navy,ru:paper,my:navy npx vitest run --config remotion/prepare/vitest.config.ts --reporter=dot)
 (cd "$ROOT/remotion" && rm -rf build && npm run bundle)
 
 # 2. the image

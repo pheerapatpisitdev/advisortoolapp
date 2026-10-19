@@ -113,7 +113,6 @@ vi.mock("@/lib/google-font", () => ({
     return font.fails ? undefined : [400, 600].map((weight) => ({ name: family, data: new TextEncoder().encode(`${family}-${weight}`).buffer, weight, style: "normal" }));
   },
 }));
-vi.mock("@/lib/collage/library", async (orig) => ({ ...(await orig<object>()), pieceSticker: async (k: string) => Buffer.from(`sticker-${k}`) }));
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
 
@@ -121,7 +120,7 @@ const { createVideo, finishVideo, produce } = await import("@/lib/quote-video/ma
 
 const agent = { kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: null } as unknown as Viewer;
 const owner = { ...agent, staff: { owner: true, publish: true, connect: true, admin: true } } as unknown as Viewer;
-const lp = (over: Partial<VideoInput> = {}): VideoInput => ({ product: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000, style: "motion", theme: "collage", ...over } as VideoInput);
+const lp = (over: Partial<VideoInput> = {}): VideoInput => ({ product: "LIFEPROTECT", variant: "WLF19H", age: 35, sex: "M", sumAssured: 1_000_000, style: "motion", theme: "paper", ...over } as VideoInput);
 const ih = (over: Partial<VideoInput> = {}): VideoInput => ({
   product: "IHEALTHY", age: 40, sex: "F", plan: "BRONZE", compare: ["SILVER", "GOLD"],
   setup: "base=WLF99H&sa=150000&area=&cover=&r=MEB%3A1000&r=DCI%3A%3A200000", style: "motion", theme: "navy", ...over,
@@ -261,7 +260,7 @@ describe("produce, the move's last round on Remotion (owner, 2026-10-20)", () =>
     expect(props.audio).toBe(`https://x/${id}/voice.wav`);
   });
 
-  it("a landscape Motion Graphic clip: QuoteMotion in its shape, no cut-outs off portrait", async () => {
+  it("a landscape Motion Graphic clip: QuoteMotion in its shape", async () => {
     const made = await createVideo(owner, lp({ size: "landscape" }), "");
     const id = (made as { id: string }).id;
     await produce(id, "ตัวแทน");
@@ -269,8 +268,6 @@ describe("produce, the move's last round on Remotion (owner, 2026-10-20)", () =>
     expect(drawCalls()).toBe(0);
     const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as ClipProps;
     expect(props.size).toBe("landscape");
-    expect(props.pieces).toEqual({});
-    expect([...db.files.keys()].some((k) => k.includes("/piece-"))).toBe(false);
   });
 
   it("an FHC summary: FhcClip with the summary's facts", async () => {
@@ -286,12 +283,11 @@ describe("produce, the move's last round on Remotion (owner, 2026-10-20)", () =>
     expect(props.size).toBe("square");
     expect(props.facts.age).toBe(35);
     expect(props.scenes[0].key).toBe("fhcOpen");
-    expect(props.picks).toEqual({});
   });
 });
 
 describe("produce, drawn by Remotion", () => {
-  it("draws no frame, puts the voice and the cut-outs up, and hands the props to the Remotion job", async () => {
+  it("draws no frame, puts the voice up, and hands the props to the Remotion job", async () => {
     const made = await createVideo(agent, lp(), "");
     const id = (made as { id: string }).id;
     await produce(id, "ตัวแทน");
@@ -300,19 +296,16 @@ describe("produce, drawn by Remotion", () => {
     expect(row.status).toBe("rendering");
     expect(drawCalls()).toBe(0);
     expect(db.files.has(`${id}/voice.wav`)).toBe(true);
-    expect([...db.files.keys()].filter((k) => k.includes("/piece-")).sort()).toEqual([
-      `${id}/piece-contact-hand-phone.png`, `${id}/piece-cover-umbrella.png`, `${id}/piece-price-hand-coins.png`,
-    ]);
+    expect([...db.files.keys()].some((k) => k.includes("/piece-"))).toBe(false);
     expect(ai.submit).toHaveBeenCalledTimes(1);
     expect(ai.submit.mock.calls[0][0]).toBe(REMOTION_JOB);
     const payload = JSON.parse(db.files.get(`${id}/job.json`)!.toString());
     const props = payload.remotion.props as ClipProps;
     expect(props.scenes.map((s) => s.key)).toEqual(["lead", "price", "cover", "value", "contact"]);
-    expect(props.theme).toBe("collage");
+    expect(props.theme).toBe("paper");
     expect(props.drawing).toBe(REMOTION_DRAWING);
     expect(props.facts.lead.amount).toBe("2,000,000");
     expect(props.audio).toBe(`https://x/${id}/voice.wav`);
-    expect(props.pieces["price/hand-coins"]).toBe(`https://x/${id}/piece-price-hand-coins.png`);
     expect(props.total).toBe(row.duration_sec);
     expect(payload.uploads.out_1.path).toBe(`${id}/quote.mp4`);
     // the job answers the same callback as clip-ffmpeg's

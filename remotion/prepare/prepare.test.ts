@@ -2,21 +2,21 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
-import { it, vi } from "vitest";
+import { it } from "vitest";
 
 /**
  * The Remotion trial's prepare step (owner, 2026-10-17: "ย้ายทั้งหมดเลย"). Everything the clip shows
  * comes from the app's own functions, here in Node: the quote's facts, the spoken lines, each
- * scene's start and length (quotePartsFor's plans), the narration laid out and คอลลาจ's sounds mixed
- * in (job.ts). They are written as each theme's inputProps for the Remotion composition, which
- * draws the frames with motion.tsx and themes.tsx themselves.
+ * scene's start and length (quotePartsFor's plans), the narration laid out (job.ts). They are
+ * written as each theme's inputProps for the Remotion composition, which draws the frames with
+ * motion.tsx and themes.tsx themselves.
  *
- * The voice is the Mac's Narisa; no paid call is made, and the cut-out library is replaced by
- * stand-ins (no database is read). (The OLD=1 comparison with the satori engine went with it, 2026-10-20.)
+ * The voice is the Mac's Narisa; no paid call is made and no database is read. (The OLD=1
+ * comparison with the satori engine went with it, 2026-10-20.)
  *
  *   npx vitest run --config remotion/prepare/vitest.config.ts       (THEMES=navy,paper)
  *
- * IHEALTHY=th:collage,zh:navy,ru:paper,my:clean writes iHealthy clips instead (props/ih-<lang>.json),
+ * IHEALTHY=th:paper,zh:navy,ru:paper,my:navy writes iHealthy clips instead (props/ih-<lang>.json),
  * each language in the theme named, with the Chinese, Russian or Burmese face cut down by the app's
  * own googleFontSubset, as make.ts sends it. The Mac has no Burmese voice: those lines are silence of
  * about the length they would take.
@@ -27,34 +27,9 @@ const PUB = join(ROOT, "public");
 const OUT = join(ROOT, "out");
 const APP = join(ROOT, "..");
 
-/** คอลลาจ's library pictures: stand-ins drawn here, the same for both engines */
-const PIECES = ["hand-coins", "umbrella", "hand-phone"] as const;
-const pieceFile = (k: string) => join(PUB, "pieces", `${k}.png`);
-vi.mock("@/lib/collage/library", async (orig) => ({
-  ...(await orig<object>()),
-  pieceSticker: async (k: string) => (existsSync(pieceFile(k)) ? readFileSync(pieceFile(k)) : null),
-}));
-
 const TODAY = new Date("2026-10-17T12:00:00+07:00");
 const CONTACT = { name: "ภีรพัฒน์ ตัวอย่าง", phone: "081-234-5678", line: "@unitclub" };
-const THEMES = (process.env.THEMES ?? "navy,clean,paper,collage").split(",") as ("navy" | "clean" | "paper" | "collage")[];
-
-/** crude grey cut-outs with a white paper edge, in place of the library's AI pictures */
-const STAND_IN: Record<(typeof PIECES)[number], string> = {
-  "hand-coins": `<g fill="#8a8a8a"><rect x="250" y="250" width="300" height="130" rx="60"/><rect x="420" y="180" width="70" height="120" rx="30"/></g>
-    <g fill="#c9c9c9" stroke="#555" stroke-width="6">${[0, 1, 2, 3].map((i) => `<ellipse cx="330" cy="${220 - i * 34}" rx="80" ry="24"/>`).join("")}</g>`,
-  umbrella: `<path d="M80 260 Q400 -40 720 260 Z" fill="#9a9a9a"/><path d="M400 250 V420 Q400 460 360 450" stroke="#666" stroke-width="18" fill="none"/>`,
-  "hand-phone": `<rect x="300" y="60" width="200" height="360" rx="30" fill="#555"/><rect x="318" y="90" width="164" height="290" rx="10" fill="#ddd"/>
-    <rect x="230" y="300" width="330" height="150" rx="70" fill="#8a8a8a"/>`,
-};
-async function standIns() {
-  mkdirSync(join(PUB, "pieces"), { recursive: true });
-  for (const k of PIECES) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><filter id="e"><feMorphology operator="dilate" radius="14"/></filter>
-      <g filter="url(#e)" opacity="1">${STAND_IN[k].replace(/fill="#[0-9a-f]+"/g, 'fill="#fff"').replace(/stroke="#[0-9a-f]+"/g, 'stroke="#fff"')}</g>${STAND_IN[k]}</svg>`;
-    writeFileSync(pieceFile(k), await sharp(Buffer.from(svg)).png().toBuffer());
-  }
-}
+const THEMES = (process.env.THEMES ?? "navy,paper").split(",") as ("navy" | "paper")[];
 
 /** a Google font's whole face (OFL), saved once: Google gives a plain TrueType file to a client that names no browser */
 async function googleFont(family: string, weight: number, file: string) {
@@ -68,14 +43,12 @@ async function googleFont(family: string, weight: number, file: string) {
 it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets", async () => {
   const { quoteVideoFacts, quoteVideoScript } = await import("@/lib/quote-video/script");
   const { quotePartsFor } = await import("@/lib/quote-video/make");
-  const { addSounds, mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
+  const { mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
   const { clipLength } = await import("@/lib/quote-video/timeline");
-  const { aiSpots, collageSoundFiles, SOUND_GAIN } = await import("@/lib/quote-video/themes");
   const { clipProps } = await import("@/lib/quote-video/remotion");
 
   for (const d of ["fonts", "collage", "story/faces", "audio", "props"]) mkdirSync(join(PUB, d), { recursive: true });
   mkdirSync(OUT, { recursive: true });
-  await standIns();
   // the fonts: Plex as the cards have it, Mali (วาดมือบนกระดาษ) and Sriracha (pen notes) from Google
   for (const w of ["Regular", "SemiBold"]) copyFileSync(join(APP, `src/app/api/card/IBMPlexSansThai-${w}.ttf`), join(PUB, `fonts/IBMPlexSansThai-${w}.ttf`));
   await googleFont("Mali", 400, join(PUB, "fonts/Mali-400.ttf"));
@@ -83,7 +56,7 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
   await googleFont("Sriracha", 400, join(PUB, "fonts/Sriracha-400.ttf"));
   // the symbols satori draws from Noto Sans Symbols 2 (draw-png.ts FALLBACK): ☐ ✓ ✗ (Clip.tsx SYMBOLS)
   await googleFont("Noto Sans Symbols 2", 400, join(PUB, "fonts/NotoSansSymbols2-400.ttf"));
-  for (const f of ["paper.jpg", "paper-light.jpg", "family.png"]) copyFileSync(join(APP, "public/collage", f), join(PUB, "collage", f));
+  copyFileSync(join(APP, "public/collage/paper-light.jpg"), join(PUB, "collage/paper-light.jpg"));
 
   // every cartoon face: วาดมือบนกระดาษ's opening picks the insured's, their partner's and a child's by sex
   for (const f of readdirSync(join(APP, "public/story/faces"))) copyFileSync(join(APP, "public/story/faces", f), join(PUB, "story/faces", f));
@@ -114,17 +87,12 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
     const row = { input, customer_name: "" };
     const parts = quotePartsFor(row, CONTACT, secs);
     const total = clipLength(parts.plans);
-    const narration = mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000);
-    const sfx = parts.sounds?.length ? await collageSoundFiles() : undefined;
-    const wav = sfx ? addSounds(narration, parts.sounds!.map((c) => ({ pcm: sfx[c.kind], at: c.at, gain: SOUND_GAIN[c.kind] })), 24000) : narration;
-    writeFileSync(join(PUB, `audio/${theme}.wav`), wav);
+    writeFileSync(join(PUB, `audio/${theme}.wav`), mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000));
 
     // the props as the app makes them (make.ts cutWithRemotion), with files here in place of its links
-    const keys = parts.plans.map((p) => p.key as import("@/lib/quote-video/script").SceneKey);
-    const pieces = theme === "collage" ? Object.fromEntries(aiSpots(keys, facts.coverStyle).map((s) => [`${s.key}/${s.piece}`, `pieces/${s.piece}.png`])) : {};
-    const props = clipProps(parts.motion$!, parts.plans as never, script, secs, total, `audio/${theme}.wav`, pieces);
+    const props = clipProps(parts.motion$!, parts.plans as never, script, secs, total, `audio/${theme}.wav`);
     writeFileSync(join(PUB, `props/${theme}.json`), JSON.stringify(props));
-    report[theme] = { total, frames: parts.plans.reduce((n, p) => n + p.frames.length, 0), sounds: parts.sounds?.length ?? 0 };
+    report[theme] = { total, frames: parts.plans.reduce((n, p) => n + p.frames.length, 0) };
 
   }
   writeFileSync(join(OUT, "prepare-props.json"), JSON.stringify(report, null, 2));
@@ -137,13 +105,11 @@ const SAY: Record<string, string | null> = { th: "Narisa", en: "Samantha", zh: "
 it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each language, with its script face", async () => {
   const { quoteVideoFacts, quoteVideoScript } = await import("@/lib/quote-video/script");
   const { quotePartsFor } = await import("@/lib/quote-video/make");
-  const { addSounds, mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
+  const { mixNarration, pcmSeconds } = await import("@/lib/quote-video/job");
   const { clipLength } = await import("@/lib/quote-video/timeline");
-  const { aiSpots, collageSoundFiles, SOUND_GAIN } = await import("@/lib/quote-video/themes");
   const { clipProps } = await import("@/lib/quote-video/remotion");
   const { googleFontSubset } = await import("@/lib/google-font");
   for (const d of ["fonts", "audio", "props"]) mkdirSync(join(PUB, d), { recursive: true });
-  await standIns();
 
   const report: Record<string, unknown> = {};
   for (const pair of process.env.IHEALTHY!.split(",")) {
@@ -173,12 +139,8 @@ it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each languag
     const secs = pcms.map((p) => pcmSeconds(p, 24000));
     const parts = quotePartsFor({ input, customer_name: "" } as never, CONTACT, secs);
     const total = clipLength(parts.plans);
-    const narration = mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000);
-    const sfx = parts.sounds?.length ? await collageSoundFiles() : undefined;
-    writeFileSync(join(PUB, `audio/ih-${lang}.wav`), sfx ? addSounds(narration, parts.sounds!.map((c) => ({ pcm: sfx[c.kind], at: c.at, gain: SOUND_GAIN[c.kind] })), 24000) : narration);
+    writeFileSync(join(PUB, `audio/ih-${lang}.wav`), mixNarration(pcms.map((pcm, i) => ({ pcm, at: parts.plans[i].voiceAt })), total, 24000));
     const keys = parts.plans.map((p) => p.key as import("@/lib/quote-video/script").SceneKey);
-    const pieces = theme === "collage"
-      ? Object.fromEntries(aiSpots(keys, facts.coverStyle).filter((s) => existsSync(pieceFile(s.piece))).map((s) => [`${s.key}/${s.piece}`, `pieces/${s.piece}.png`])) : {};
     // the face as make.ts cutWithRemotion fetches it
     const face = parts.scriptFace;
     const faces = face ? await googleFontSubset(face.family, face.text) : undefined;
@@ -188,7 +150,7 @@ it.runIf(Boolean(process.env.IHEALTHY))("prepares iHealthy props in each languag
       writeFileSync(join(PUB, file), Buffer.from(f.data));
       return { url: file, weight: f.weight };
     });
-    const props = clipProps(parts.motion$!, parts.plans as never, script, secs, total, `audio/ih-${lang}.wav`, pieces, scriptFont);
+    const props = clipProps(parts.motion$!, parts.plans as never, script, secs, total, `audio/ih-${lang}.wav`, scriptFont);
     writeFileSync(join(PUB, `props/ih-${lang}.json`), JSON.stringify(props));
     report[`ih-${lang}`] = { theme, total, scenes: keys, face: face?.family ?? null, faceBytes: (faces ?? []).map((f) => f.data.byteLength) };
   }

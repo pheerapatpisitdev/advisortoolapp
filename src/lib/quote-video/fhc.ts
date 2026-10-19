@@ -63,10 +63,8 @@ export interface FhcVideoInput {
   /** portrait, square or landscape (owner, 2026-10-12: the FHC summary comes in every size) */
   size?: VideoSize;
   fhc: FhcVideoFacts;
-  /** the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง */
+  /** the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง. Read with readTheme */
   theme?: ThemeKey;
-  /** คอลลาจกระดาษ's library piece for each scene, as AI picked it from the lines (collage/pick.ts); null = none */
-  picks?: Partial<Record<FhcSceneKey, string | null>>;
   /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (remotion.ts) */
   engine?: "remotion";
 }

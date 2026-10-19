@@ -71,14 +71,10 @@ export type VideoInput = (
   gemini?: string;
   /** แบบปกติ (photo, card, table) or Motion Graphic, the Premium one (owner, 2026-10-11) */
   style?: VideoStyle;
-  /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง */
+  /** a Motion Graphic clip's look (owner, 2026-10-17; theme-keys.ts); absent = น้ำเงินทอง. Read with readTheme: a row from before 2026-10-20 may name one taken away */
   theme?: ThemeKey;
   /** who draws a Motion Graphic clip: Remotion on Cloud Run (owner, 2026-10-17; remotion.ts, set when made by the /admin/ai switch); absent = the satori frames */
   engine?: "remotion";
-  /** คอลลาจกระดาษ's cut-outs drawn new by AI for this clip (owner chose ข, 2026-10-17); absent = the library's */
-  pieces?: "ai";
-  /** each scene's AI cut-out as filed in the clip's folder, null where it failed (the library's stands in) */
-  aiPieces?: Partial<Record<SceneKey, string | null>>;
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */
   length?: VideoLength;
   /** portrait unless a square or landscape Motion Graphic clip was asked for (owner, 2026-10-11; timeline.ts) */

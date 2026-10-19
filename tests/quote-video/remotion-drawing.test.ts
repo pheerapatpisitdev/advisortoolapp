@@ -15,7 +15,7 @@ import { REMOTION_DRAWING } from "@/lib/quote-video/remotion";
 
 const root = path.resolve(__dirname, "../..");
 const SHIMS: Record<string, string> = {
-  "node:fs/promises": "remotion/src/shims/fs.ts", "node:path": "remotion/src/shims/path.ts", sharp: "remotion/src/shims/sharp.ts",
+  "node:fs/promises": "remotion/src/shims/fs.ts", "node:path": "remotion/src/shims/path.ts",
 };
 
 /** the fingerprint of the drawing code as it stands; remotion.ts is read without the line that holds it */
@@ -27,7 +27,7 @@ async function drawingNow(): Promise<string> {
     plugins: [{
       name: "shims",
       setup(b) {
-        b.onResolve({ filter: /^(node:fs\/promises|node:path|sharp)$/ }, (a) => ({ path: path.join(root, SHIMS[a.path]) }));
+        b.onResolve({ filter: /^(node:fs\/promises|node:path)$/ }, (a) => ({ path: path.join(root, SHIMS[a.path]) }));
       },
     }],
   });

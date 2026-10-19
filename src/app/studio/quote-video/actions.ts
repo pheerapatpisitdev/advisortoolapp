@@ -172,9 +172,7 @@ function checked(v: VideoInput): VideoInput | string {
     if (first) return `${FIELD_WORD[first[0]] ?? "ประโยค"}: ${first[1]}`;
     lines = l;
   }
-  // คอลลาจ's cut-outs drawn new by AI (owner, 2026-10-17): portrait only, as the pictures are laid there
-  const pieces = theme === "collage" && size === "portrait" && v.pieces === "ai" ? { pieces: "ai" as const } : {};
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...(theme !== DEFAULT_THEME ? { theme } : {}), ...pieces, length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...(theme !== DEFAULT_THEME ? { theme } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
 }
 
 /** what each written field is called on the board, for a refusal */
@@ -600,7 +598,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
     if (isFhcInput(v.input)) {
       const input = v.input;
       const file = `สรุปFHC-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
-      const who = `สรุป FHC${input.theme && input.theme !== DEFAULT_THEME ? ` (${THEME_LABELS[readTheme(input.theme)].name})` : ""}${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${voiceWord(input)}`;
+      const who = `สรุป FHC${readTheme(input.theme) !== DEFAULT_THEME ? ` (${THEME_LABELS[readTheme(input.theme)].name})` : ""}${SIZE_WORD[clipSize(input)]} · ${SEX[input.sex]} ${input.age}${voiceWord(input)}`;
       return {
         id: v.id, named: true, personal: true, size: clipSize(input), createdAt: v.created_at,
         title: v.customer_name ? `คุณ${v.customer_name} · ${who}` : who,
@@ -646,7 +644,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         : input.product === "GSAVING"
         ? `ออมปีละ ${input.premium.toLocaleString("en-US")} · ดัชนี ${rateLabel(input.rate)}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${input.theme && input.theme !== DEFAULT_THEME ? ` · ${THEME_LABELS[readTheme(input.theme)].name}` : ""})` : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${readTheme(input.theme) !== DEFAULT_THEME ? ` · ${THEME_LABELS[readTheme(input.theme)].name}` : ""})` : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,

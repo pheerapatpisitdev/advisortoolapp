@@ -43,9 +43,6 @@ const nextConfig: NextConfig = {
     // rejection that ends the whole process mid-request — a picture drawn, paid for and lost
     // (2026-10-01, /api/content-draw and -generate)
     "/api/content-*": POSTER_FILES,
-    // วิดีโอนำเสนอ's คอลลาจกระดาษ sounds are mixed into the voice from disk when the clip is made from Studio's
-    // actions (owner, 2026-10-17); Remotion draws every frame since 2026-10-20, so the API routes need none of it
-    "/studio/quote-video": [...POSTER_FILES, "./public/collage/**"],
     // the quote PDF launches the bundled Chrome, whose brotli-packed binary is read from disk
     "/api/quote-pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
   },

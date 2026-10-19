@@ -9,7 +9,7 @@ import type { Viewer } from "@/lib/auth/access";
 import { memberAccess, PASS_EXPIRED, PASS_UNREADABLE, passOpen } from "@/lib/members/access";
 import { siteUrl } from "@/lib/site-url";
 import { formatBaht } from "@/lib/wallet/money";
-import { pictureSatang, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
+import { videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 
 /** the prices the board shows under its button: each look and length, and the FHC summary */
 const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc", "videoStory", "videoStoryShort", "videoPrompt"];
@@ -21,9 +21,9 @@ import { CHART_W, type Contact } from "./draw";
 import { tablePlan } from "./table-pen";
 import { pensionTablePlan } from "./pension-table";
 import { gsTablePlan } from "./gsaving-table";
-import { addSounds, mixNarration, pcmSeconds } from "./job";
+import { mixNarration, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
-import { fhcSpec, fhcWindows } from "./fhc-motion";
+import { fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
 import { isPromptStory, promptPicturePrice, promptPicturesPrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
@@ -34,15 +34,10 @@ import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec } from "./story-motion";
 import { clipWindows } from "./story-frames";
-import { a, motionSpec, motionWindows, MOTION_FPS } from "./motion";
+import { motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
 import { clipProps, REMOTION_DRAWING, REMOTION_JOB, storyClipProps, type ClassicClipProps, type ClipProps, type FhcClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
 import { secondsBetween, type CostParts } from "./run-record";
-import { aiSpots, collageSoundFiles, collageSounds, decorAnims, SOUND_GAIN, type SoundKind } from "./themes";
-import { pieceSticker } from "@/lib/collage/library";
-import { drawnPieces, pickPieces } from "@/lib/collage/pick";
-import { DECOR_AT } from "@/lib/collage/decor";
-import { drawIdea, fallbackPiece, writeIdeas } from "@/lib/collage/ai-pieces";
 import { WIDE_CHART_W } from "./classic-wide";
 import { CLASSIC_BOXES } from "./table-geo";
 import { extraOf, linesOf, loops, readLength, type Told } from "./told";
@@ -84,7 +79,7 @@ const LINK_SECONDS = 2 * 3600;
 export const videoPrice = (v: ClipInput, prices: Prices): number =>
   isPromptStory(v) ? promptStoryPrice(v, prices) :
   (isFhcInput(v) ? prices.videoFhc : isStoryInput(v) ? (topicOf(v.topic)?.short ? prices.videoStoryShort : prices.videoStory)
-    : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))] + aiPiecesPrice(v, prices)) + (v.voice ? prices.elevenExtra : 0);
+    : prices[videoPriceKey(v.style === "motion" ? "motion" : "classic", readLength(v.length))]) + (v.voice ? prices.elevenExtra : 0);
 /** the round name on the wallet's hold and charge lines */
 export const VIDEO_ROUND = "quote-video";
 /**
@@ -148,11 +143,10 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     freeWindow = { limit, from };
     if ((await freeUsed(viewer.agentId, from)) < limit) {
       // a คลิปตามโจทย์'s free clip covers the clip only: its pictures are still paid from the wallet (spec, Money)
-      // so do the cut-outs AI draws for a คอลลาจ clip (owner, 2026-10-17)
-      const pictures = isPromptStory(input) ? promptPicturesPrice(input, await walletPrices()) : isQuoteInput(input) ? aiPiecesPrice(input, await walletPrices()) : 0;
+      const pictures = isPromptStory(input) ? promptPicturesPrice(input, await walletPrices()) : 0;
       if (pictures > 0) {
         const s = await walletSettings().catch(() => null);
-        if (!s?.enabled) return { refusal: isPromptStory(input) ? "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" : "ภาพตัดแปะที่ AI วาดจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้ — เลือก \"ภาพจากคลัง\" แทนได้" };
+        if (!s?.enabled) return { refusal: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" };
         const hold = await holdFor(viewer.agentId, pictures, clipRound(input), `ค่าภาพประกอบต้องมีเงินในกระเป๋าอย่างน้อย ${formatBaht(pictures)} เติมเงินได้ที่เมนู "กระเป๋าเงิน"`);
         if ("refusal" in hold) return hold;
         pay = { paid_by: "free", hold_id: hold.id, held_satang: pictures, multiplier: 1 };
@@ -282,8 +276,6 @@ export interface ClipParts {
   script: { key: string; voice: string }[];
   motion: boolean;
   plans: ScenePlan[];
-  /** คอลลาจกระดาษ's paper and pops, at their times in the clip */
-  sounds?: { at: number; kind: SoundKind }[];
   /** a Motion Graphic quote clip: what its frames are drawn from (remotion.ts ClipProps) */
   motion$?: RemotionMotion;
   /** a แบบปกติ quote clip: what its layers are drawn from (remotion.ts ClassicClipProps) */
@@ -304,60 +296,6 @@ async function contactOf(agentId: string, agentName: string): Promise<Contact> {
 }
 
 const narratorOf = (input: ClipInput): "F" | "M" => (input.narrator === "M" ? "M" : "F");
-
-/** the scenes of a quote clip whose cut-out AI draws new: คอลลาจ, portrait, asked for (themes.tsx aiSpots) */
-export function aiPieceScenes(v: VideoInput): { key: SceneKey; voice: string }[] {
-  if (v.pieces !== "ai" || v.style !== "motion" || readTheme(v.theme) !== "collage" || clipSize(v) !== "portrait") return [];
-  const facts = quoteVideoFacts(v);
-  if (!facts) return [];
-  const script = quoteVideoScript(facts, "", narratorOf(v), readLength(v.length), toldOf(v));
-  const keys = new Set(aiSpots(script.map((x) => x.key), facts.coverStyle).map((x) => x.key));
-  return script.filter((x) => keys.has(x.key)).map((x) => ({ key: x.key, voice: x.voice }));
-}
-/** what those cut-outs cost the agent: one standard picture each (owner, 2026-10-17, ข 3 ก) */
-function aiPiecesPrice(v: VideoInput, prices: Prices): number {
-  const n = aiPieceScenes(v).length;
-  return n ? n * (pictureSatang(prices, "standard") ?? 0) : 0;
-}
-const pieceName = (key: SceneKey) => `piece-${key}.png`;
-
-/**
- * A คอลลาจ clip's AI cut-outs: an idea for each scene from its line, drawn, cut out and filed beside
- * the clip; one that fails is the library's in the clip, and is taken off the hold. Never throws.
- */
-async function drawAiPieces(row: VideoRow & { input: VideoInput }): Promise<{ input: VideoInput; costThb: number }> {
-  const scenes = aiPieceScenes(row.input);
-  if (!scenes.length || row.input.aiPieces) return { input: row.input, costThb: 0 };
-  const facts = quoteVideoFacts(row.input)!;
-  const ideas = await writeIdeas(scenes, { sex: row.input.sex, age: row.input.age, plan: facts.planLine }).catch(() => []);
-  let costThb = 0;
-  const drawn = await pool(ideas, 3, async (idea) => {
-    const got = await drawIdea(idea).catch(() => null);
-    if (!got) return [idea.key, null] as const;
-    costThb += got.costThb;
-    await upload(row.id, pieceName(idea.key), got.png, "image/png");
-    return [idea.key, `${row.id}/${pieceName(idea.key)}`] as const;
-  }).catch(() => [] as (readonly [SceneKey, string | null])[]);
-  const aiPieces = Object.fromEntries(scenes.map((sc) => [sc.key, drawn.find(([k]) => k === sc.key)?.[1] ?? null])) as VideoInput["aiPieces"];
-  const missing = Object.values(aiPieces ?? {}).filter((p) => !p).length;
-  const input: VideoInput = { ...row.input, aiPieces };
-  const patch: Partial<VideoRow> = { input };
-  if (missing && row.hold_id && row.held_satang) {
-    patch.held_satang = Math.max(0, Number(row.held_satang) - missing * (pictureSatang(await walletPrices(), "standard") ?? 0));
-  }
-  await setRow(row.id, patch).catch((e) => console.error(`quote video ${row.id}: pieces not written:`, e));
-  return { input, costThb };
-}
-
-/** a scene's cut-out for the clip: its AI one when drawn, the library's otherwise */
-const pieceFor = (input: VideoInput) => async (piece: string, key: SceneKey): Promise<Buffer | null> => {
-  const path = input.aiPieces?.[key];
-  if (path) {
-    const { data } = await bucket().download(path);
-    if (data) return Buffer.from(await data.arrayBuffer());
-  }
-  return pieceSticker(input.aiPieces && key in input.aiPieces ? fallbackPiece(key) : piece);
-};
 
 /** the language a clip is told in: an iHealthy clip's own choice (owner, 2026-10-15), Thai for every other */
 export const langOfInput = (input: ClipInput): VideoLang =>
@@ -410,40 +348,7 @@ export function fhcPartsFor(row: Pick<VideoRow, "customer_name"> & { input: FhcV
   const script = fhcScript(facts, row.customer_name, narratorOf(row.input));
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
   const plans = planScenes(script.map((s, i) => ({ key: s.key, voice: s.voice, voiceSec: secs[i], windows: fhcWindows(s.key, facts), fps: MOTION_FPS })));
-  // คอลลาจ's paper and pops, the picked pieces' among them in a portrait clip's free room
-  const theme = readTheme(row.input.theme);
-  const picks = theme === "collage" && size === "portrait" ? row.input.picks ?? {} : {};
-  return {
-    size, script, motion: true, plans,
-    ...(theme === "collage" ? { sounds: collageSounds(plans.map((p) => ({ start: p.start, anims: [...Object.values(fhcSpec(p.key, facts)), ...(picks[p.key] ? [a(DECOR_AT, "pop")] : [])] }))) } : {}),
-  };
-}
-
-/** FHC's scenes, what each one's picture is beside, and the piece it falls back to when AI picks none (collage/pick.ts) */
-const FHC_PIECE: Record<FhcSceneKey, { role: string; fallback: string }> = {
-  fhcOpen: { role: "the opening, under the customer's name", fallback: "hand-wave" },
-  fhcScores: { role: "under the six-area money health results", fallback: "piggy" },
-  fhcGaps: { role: "under how much cover the family is missing", fallback: "umbrella" },
-  fhcEvents: { role: "under the life events nobody controls", fallback: "alarm-clock" },
-  fhcPlan: { role: "under the recommended plan", fallback: "handshake" },
-  fhcContact: { role: "beside the agent's contact card", fallback: "hand-phone" },
-};
-
-/** a คอลลาจ FHC clip's pieces, picked once while the lines are spoken and kept on the row; never throws */
-async function pickFhcPieces(row: VideoRow & { input: FhcVideoInput }): Promise<FhcVideoInput> {
-  const input = row.input;
-  if (readTheme(input.theme) !== "collage" || clipSize(input) !== "portrait" || input.picks) return input;
-  try {
-    const script = fhcScript(input.fhc, row.customer_name, narratorOf(input));
-    const scenes = script.map((s) => ({ key: s.key, voice: s.voice, role: FHC_PIECE[s.key].role }));
-    const picks = await pickPieces(scenes, await drawnPieces(), Object.fromEntries(script.map((s) => [s.key, FHC_PIECE[s.key].fallback])) as Partial<Record<FhcSceneKey, string>>);
-    const next: FhcVideoInput = { ...input, picks };
-    await setRow(row.id, { input: next });
-    return next;
-  } catch (e) {
-    console.error(`fhc video ${row.id}: pieces not picked:`, e instanceof Error ? e.message : "unknown");
-    return input;
-  }
+  return { size, script, motion: true, plans };
 }
 
 /** A story clip's parts: its lines and scenes as planned (StoryClip draws them with story-frames.tsx). */
@@ -521,7 +426,6 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     ...(motion ? { motion$: { theme: theme!, ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) } } } : {}),
     ...(!motion ? { classic$: { size, facts, narrator, customer, contact, ...(chart ? { chart } : {}), ...(pen?.notes.length ? { notes: pen.notes } : {}), shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) }, layers } } : {}),
     ...(script$.script ? { scriptFace: script$.script } : {}),
-    ...(theme === "collage" ? { sounds: collageSounds(plans.map((p, i) => ({ start: p.start, anims: [...Object.values(motionSpec(script[i].key, facts, secs[i], script[i].voice)), ...(size === "portrait" ? decorAnims(script[i].key, facts.coverStyle) : [])] }))) } : {}),
   };
 }
 
@@ -633,10 +537,6 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const lang = langOfInput(row.input);
     const voiceId = lang === "th" ? row.input.voice : undefined;
     // Gemini's voice cannot be used (off, no key, day cap full): a Thai clip is read whole by อ้อม / สมชาย instead (owner, 2026-10-17)
-    // a คอลลาจ clip's AI cut-outs are drawn while the lines are spoken (owner, 2026-10-17)
-    const piecesP = isQuoteInput(row.input) ? drawAiPieces(row as VideoRow & { input: VideoInput }) : Promise.resolve(null);
-    // a คอลลาจ FHC clip's library pieces, picked by AI from the lines (owner, 2026-10-17)
-    const picksP = isFhcInput(row.input) ? pickFhcPieces(row as VideoRow & { input: FhcVideoInput }) : Promise.resolve(null);
     const { spoken, fellBackTo, google } = await speakClip(
       spokenScript.map((s) => (lang === "th" ? sayNumbers(s.voice) : s.voice)),
       { task: VIDEO_TASK_VOICE, narrator, voice: voiceId, gemini: geminiVoice(row.input.gemini)?.name, lang, pool,
@@ -644,14 +544,6 @@ export async function produce(id: string, agentName: string): Promise<void> {
         onSwitch: () => { lines = 0; bar.note({ step: "voice", done: 0, of: spokenScript.length }); } },
     );
     const pcms = spoken.map((s) => s.pcm);
-    const picked = await picksP;
-    if (picked) row.input = picked;
-    const pieces = await piecesP;
-    if (pieces) {
-      row.input = pieces.input;
-      picturesThb += pieces.costThb;
-      if (pieces.costThb) lap(`AI cut-outs drawn (${Object.values((pieces.input as VideoInput).aiPieces ?? {}).filter(Boolean).length})`);
-    }
     const voiceThb = spoken.reduce((n, s) => n + s.costThb, 0);
     row.cost_parts = { voice: voiceThb, pictures: picturesThb, ...(google ? { googleVoice: google } : {}) };
     const voicePatch: Partial<VideoRow> = { cost_thb: voiceThb + picturesThb, cost_parts: row.cost_parts };
@@ -678,18 +570,18 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   // the cut starts here: what comes before it is the voice (run-record.ts prepSec)
   const since = Date.now();
   const secs = pcms.map((pcm) => pcmSeconds(pcm, TTS_RATE));
-  const { plans, sounds, motion$, classic$, script, scriptFace } = await clipParts(row, agentName, secs);
+  const { plans, motion$, classic$, script, scriptFace } = await clipParts(row, agentName, secs);
   const total = clipLength(plans);
   // every clip is drawn by Remotion (owner, 2026-10-20: "ให้ใช้ Remotion ตลอดไปเลย ไม่ต้องมีสวิตช์"):
   // สรุป FHC, คลิปเล่าเรื่อง and คลิปตามโจทย์, then วิดีโอนำเสนอ in its look
   if (isFhcInput(row.input)) {
-    return cutFhcWithRemotion(row as VideoRow & { input: FhcVideoInput }, agentName, { plans, script, secs, total, pcms, since, sounds }, gcpKey, bar, lap);
+    return cutFhcWithRemotion(row as VideoRow & { input: FhcVideoInput }, agentName, { plans, script, secs, total, pcms, since }, gcpKey, bar, lap);
   }
   if (isStoryInput(row.input) || isPromptStory(row.input)) {
     return cutStoryWithRemotion(row as VideoRow & { input: StoryVideoInput | PromptStoryInput }, agentName, { plans, script, secs, total, pcms, since }, gcpKey, bar, lap);
   }
   if (classic$) return cutClassicWithRemotion(row as VideoRow & { input: VideoInput }, classic$, { plans, script, secs, total, pcms, since, scriptFace }, gcpKey, bar, lap);
-  if (motion$) return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, sounds, pcms, scriptFace, since }, gcpKey, bar, lap);
+  if (motion$) return cutWithRemotion(row as VideoRow & { input: VideoInput }, motion$, { plans, script, secs, total, pcms, scriptFace, since }, gcpKey, bar, lap);
   throw new Error("no way to draw this clip");
 }
 
@@ -727,14 +619,13 @@ async function handOver(row: VideoRow, gcpKey: string, bar: Bar, total: number, 
 }
 
 /**
- * A Motion Graphic clip drawn by Remotion (remotion.ts): no frame is drawn here. The narration (and
- * คอลลาจ's sounds) goes up as one WAV, คอลลาจ's cut-outs as the pieceFor gives them, a Chinese,
- * Russian or Burmese clip's face cut to its letters, and the job gets the clip's motion context
- * with links to them all.
+ * A Motion Graphic clip drawn by Remotion (remotion.ts): no frame is drawn here. The narration goes
+ * up as one WAV, a Chinese, Russian or Burmese clip's face cut to its letters, and the job gets the
+ * clip's motion context with links to them.
  */
 async function cutWithRemotion(
   row: VideoRow & { input: VideoInput }, motion: RemotionMotion,
-  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; sounds?: { at: number; kind: SoundKind }[]; pcms: Buffer[]; scriptFace?: { family: string; text: string }; since: number },
+  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; pcms: Buffer[]; scriptFace?: { family: string; text: string }; since: number },
   gcpKey: string, bar: Bar, lap: Lap,
 ): Promise<void> {
   const id = row.id;
@@ -744,29 +635,15 @@ async function cutWithRemotion(
   if (c.scriptFace && !faces) throw new Error(`font ${c.scriptFace.family} not loaded`);
   const fonts = (faces ?? []).map((f) => ({ name: `script-${f.weight}.ttf`, weight: f.weight, data: Buffer.from(f.data) }));
   await Promise.all(fonts.map((f) => upload(id, f.name, f.data, "application/octet-stream")));
-  const narration = mixNarration(c.pcms.map((pcm, i) => ({ pcm, at: c.plans[i].voiceAt })), c.total, TTS_RATE);
-  const sfx = c.sounds?.length ? await collageSoundFiles() : undefined;
-  await upload(id, "voice.wav", sfx ? addSounds(narration, c.sounds!.map((x) => ({ pcm: sfx[x.kind], at: x.at, gain: SOUND_GAIN[x.kind] })), TTS_RATE) : narration, "audio/wav");
-  // the family is the app's own photo, in the render's image; the other cut-outs are this clip's or the library's
-  // คอลลาจ's cut-outs stand in a portrait clip's free room only (quotePartsFor's decor)
-  const spots = motion.theme === "collage" && (motion.size ?? "portrait") === "portrait" ? aiSpots(c.plans.map((p) => p.key as SceneKey), motion.facts.coverStyle) : [];
-  const load = pieceFor(row.input);
-  const got = (await Promise.all(spots.map(async ({ key, piece }) => {
-    const png = await load(piece, key).catch(() => null);
-    if (!png) return null;
-    const name = `piece-${key}-${piece}.png`;
-    await upload(id, name, png, "image/png");
-    return { at: `${key}/${piece}`, name };
-  }))).filter((x): x is { at: string; name: string } => x !== null);
-  const names = ["voice.wav", ...got.map((g) => g.name), ...fonts.map((f) => f.name)];
+  await upload(id, "voice.wav", mixNarration(c.pcms.map((pcm, i) => ({ pcm, at: c.plans[i].voiceAt })), c.total, TTS_RATE), "audio/wav");
+  const names = ["voice.wav", ...fonts.map((f) => f.name)];
   const { data, error: e } = await bucket().createSignedUrls(names.map((n) => `${id}/${n}`), LINK_SECONDS);
   const urls = (data ?? []).map((d) => d.signedUrl);
   if (e || urls.length !== names.length || urls.some((u) => !u)) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
-  const pieces = Object.fromEntries(got.map((g, i) => [g.at, urls[i + 1] as string]));
-  const scriptFont = fonts.map((f, i) => ({ url: urls[1 + got.length + i] as string, weight: f.weight }));
-  lap(`voice and ${got.length} cut-outs${fonts.length ? ` and ${c.scriptFace!.family} (${fonts.length})` : ""} up for Remotion`);
+  const scriptFont = fonts.map((f, i) => ({ url: urls[1 + i] as string, weight: f.weight }));
+  lap(`voice${fonts.length ? ` and ${c.scriptFace!.family} (${fonts.length})` : ""} up for Remotion`);
   bar.note({ step: "submit", done: 0, of: 0 });
-  const props = clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, pieces, scriptFont);
+  const props = clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, scriptFont);
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
 }
 
@@ -813,41 +690,27 @@ async function cutClassicWithRemotion(
 }
 
 /**
- * An FHC summary drawn by Remotion (remotion.ts FhcClipProps): no frame is drawn here. The narration (and
- * คอลลาจ's sounds) goes up as one WAV, a portrait คอลลาจ clip's picked pieces as pictures, and the job gets the
- * summary's facts with each scene's place.
+ * An FHC summary drawn by Remotion (remotion.ts FhcClipProps): no frame is drawn here. The narration goes up as
+ * one WAV, and the job gets the summary's facts with each scene's place.
  */
 async function cutFhcWithRemotion(
   row: VideoRow & { input: FhcVideoInput }, agentName: string,
-  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; pcms: Buffer[]; since: number; sounds?: { at: number; kind: SoundKind }[] },
+  c: { plans: ScenePlan[]; script: { voice: string }[]; secs: number[]; total: number; pcms: Buffer[]; since: number },
   gcpKey: string, bar: Bar, lap: Lap,
 ): Promise<void> {
   const id = row.id;
   bar.note({ step: "files", done: 0, of: 0 });
-  const narration = mixNarration(c.pcms.map((pcm, i) => ({ pcm, at: c.plans[i].voiceAt })), c.total, TTS_RATE);
-  const sfx = c.sounds?.length ? await collageSoundFiles() : undefined;
-  await upload(id, "voice.wav", sfx ? addSounds(narration, c.sounds!.map((x) => ({ pcm: sfx[x.kind], at: x.at, gain: SOUND_GAIN[x.kind] })), TTS_RATE) : narration, "audio/wav");
+  await upload(id, "voice.wav", mixNarration(c.pcms.map((pcm, i) => ({ pcm, at: c.plans[i].voiceAt })), c.total, TTS_RATE), "audio/wav");
   const size = clipSize(row.input);
   const theme = readTheme(row.input.theme);
-  // the picked pieces stand in a portrait คอลลาจ clip's free room only (fhcPartsFor's decor)
-  const picks = theme === "collage" && size === "portrait" ? Object.entries(row.input.picks ?? {}).filter((e): e is [FhcSceneKey, string] => typeof e[1] === "string") : [];
-  const got = (await Promise.all(picks.map(async ([key, piece]) => {
-    const png = await pieceSticker(piece).catch(() => null);
-    if (!png) return null;
-    const name = `pick-${key}.png`;
-    await upload(id, name, png, "image/png");
-    return { key, name };
-  }))).filter((x): x is { key: FhcSceneKey; name: string } => x !== null);
-  const names = ["voice.wav", ...got.map((g) => g.name)];
-  const { data, error: e } = await bucket().createSignedUrls(names.map((n) => `${id}/${n}`), LINK_SECONDS);
-  const urls = (data ?? []).map((d) => d.signedUrl);
-  if (e || urls.length !== names.length || urls.some((u) => !u)) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
+  const { data, error: e } = await bucket().createSignedUrl(`${id}/voice.wav`, LINK_SECONDS);
+  if (e || !data?.signedUrl) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
   const contact = await contactOf(row.agent_id, agentName);
-  lap(`voice and ${got.length} pieces up for Remotion`);
+  lap("voice up for Remotion");
   bar.note({ step: "submit", done: 0, of: 0 });
   const props: FhcClipProps = {
     composition: "FhcClip", drawing: REMOTION_DRAWING, size, theme, facts: row.input.fhc, customer: row.customer_name, narrator: narratorOf(row.input), contact,
-    picks: Object.fromEntries(got.map((g, i) => [g.key, urls[i + 1] as string])), total: c.total, audio: urls[0] as string,
+    total: c.total, audio: data.signedUrl,
     scenes: c.plans.map((p, i) => ({ key: p.key as FhcSceneKey, voice: c.script[i].voice, voiceSec: c.secs[i], start: p.start, dur: p.dur })),
   };
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);

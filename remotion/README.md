@@ -25,8 +25,8 @@ The steps below are what ship.sh does, for trying a drawing by hand.
 2. From the repo root: `npx vitest run --config remotion/prepare/vitest.config.ts` — writes `public/props/<theme>.json`,
    `public/audio/<theme>.wav`, fonts, pictures and stand-in cut-outs (Mac `say -v Narisa`; no database, no paid call).
    `OLD=1` also makes the same clips on the current engine in `out/`.
-3. `npm run bundle`, then `THEME=collage OUT=$PWD/out/collage.mp4 node render.mjs`.
-4. `THEME=collage node cloudrun/smoke.mjs` runs job.mjs against a stand-in app (links, upload, callback) on this Mac
+3. `npm run bundle`, then `THEME=paper OUT=$PWD/out/paper.mp4 node render.mjs`.
+4. `THEME=paper node cloudrun/smoke.mjs` runs job.mjs against a stand-in app (links, upload, callback) on this Mac
    (`DRAWING=x` checks the refusal). The same on Cloud Run, through the trial job, which can write the trial bucket:
    `gcloud run jobs execute remotion-port --region asia-southeast1 --wait --args=node,cloudrun/smoke.mjs --update-env-vars THEME=paper,PUBLIC=build/public,PREFIX=render`.
 5. Image: `gcloud builds submit . --config cloudrun/cloudbuild.yaml --region asia-southeast1` (tags clip/remotion-render:latest, or `--substitutions _TAG=drawing-<fingerprint>`;
@@ -36,9 +36,9 @@ The steps below are what ship.sh does, for trying a drawing by hand.
    at it for step 4, point it back, and at push time add `latest` to that tag
    (`gcloud artifacts docker tags add …:drawing-<fingerprint> …:latest`).
 
-iHealthy (owner chose 1ก 2ก): `IHEALTHY=th:collage,zh:navy,ru:paper,my:clean` on step 2 writes `props/ih-<lang>.json` with
+iHealthy (owner chose 1ก 2ก): `IHEALTHY=th:paper,zh:navy,ru:paper,my:navy` on step 2 writes `props/ih-<lang>.json` with
 each language's Noto face cut down as the app cuts it; `THEME=ih-zh` runs one on steps 3 and 4.
 
-`remotion.config.ts` aliases `@` to the app's `src`, and `node:fs/promises`, `node:path`, `sharp` to `src/shims`, which read
+`remotion.config.ts` aliases `@` to the app's `src`, and `node:fs/promises` and `node:path` to `src/shims`, which read
 the same files from this project's `public/` in the browser. `.sat` CSS in `Clip.tsx` makes Chrome lay boxes out as satori does.
 Licence: Remotion's free licence (company of up to 3 people); re-read LICENSE.md before moving to Remotion 5.

@@ -1,5 +1,5 @@
 // A run of job.mjs against a stand-in app: the payload, the voice and the cut-outs served as links, the video PUT
-// and the callback caught here. THEME=collage node cloudrun/smoke.mjs (after the prepare step and the bundle).
+// and the callback caught here. THEME=paper node cloudrun/smoke.mjs (after the prepare step and the bundle).
 // THEME=ih-zh runs the iHealthy props (IHEALTHY prepare step). DRAWING=x sends props made for another drawing (the image must refuse them). In the image (PUBLIC=build/public),
 // BUCKET names where the clip and the callback go, with the job's own account, as render.mjs does.
 import { createServer } from "node:http";
@@ -9,7 +9,7 @@ import { runJob } from "../job.mjs";
 const root = new URL("..", import.meta.url).pathname;
 const pub = `${root}${process.env.PUBLIC || "public"}`;
 const out = process.env.BUCKET ? "/tmp" : `${root}out`;
-const theme = process.env.THEME || "collage";
+const theme = process.env.THEME || "paper";
 let callback;
 const server = createServer((req, res) => {
   const chunks = [];
@@ -26,7 +26,6 @@ const base = `http://localhost:${server.address().port}`;
 const props = JSON.parse(readFileSync(`${pub}/props/${theme}.json`, "utf8"));
 if (process.env.DRAWING) props.drawing = process.env.DRAWING;
 props.audio = `${base}/${props.audio}`;
-for (const k of Object.keys(props.pieces ?? {})) props.pieces[k] = `${base}/${props.pieces[k]}`;
 // a story sample (THEME=st-pool48, st-free): its pictures as links too
 for (const sc of props.scenes) if (sc.picture) sc.picture = `${base}/${sc.picture}`;
 for (const f of props.scriptFont ?? []) f.url = `${base}/${f.url}`;

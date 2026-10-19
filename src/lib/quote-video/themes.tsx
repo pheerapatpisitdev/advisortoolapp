@@ -1,12 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
-import sharp from "sharp";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type VideoThemePalette } from "@/lib/card-theme";
 import { DEFAULT_HERO_FACE, familyOf } from "@/lib/story/faces";
 import { faceUris } from "./story-faces";
-import { a, abs, box, El, MOTION_BG_H, type Anim } from "./motion";
-import type { SceneKey } from "./script";
+import { abs, box, El, MOTION_BG_H, type Anim } from "./motion";
 import type { ThemeKey } from "./theme-keys";
 import { W } from "./timeline";
 
@@ -99,14 +97,14 @@ const SVG_PAINT = ["fill", "stroke", "stopColor"] as const;
  * The drawing repainted in a theme. Components are drawn here (they are plain functions of their
  * props, as the drawing library calls them), so every element it reaches is a plain one.
  */
-function repaint(node: ReactNode, p: Palette, under: Surface, c?: Cut): ReactNode {
-  if (Array.isArray(node)) return node.map((n) => repaint(n, p, under, c));
+function repaint(node: ReactNode, p: Palette, under: Surface): ReactNode {
+  if (Array.isArray(node)) return node.map((n) => repaint(n, p, under));
   if (!isValidElement(node)) return node;
   const el = node as ReactElement<Record<string, unknown>>;
-  if (typeof el.type === "function") return repaint((el.type as (props: unknown) => ReactNode)(el.props), p, under, c);
+  if (typeof el.type === "function") return repaint((el.type as (props: unknown) => ReactNode)(el.props), p, under);
   const props = el.props;
   const kids = props.children as ReactNode;
-  if ((el.type as unknown) === Fragment) return cloneElement(el, {}, ...Children.toArray(kids).map((k) => repaint(k, p, under, c)));
+  if ((el.type as unknown) === Fragment) return cloneElement(el, {}, ...Children.toArray(kids).map((k) => repaint(k, p, under)));
   const style = props.style as Record<string, unknown> | undefined;
   const own = surfaceOf(style?.background ?? style?.backgroundColor, under);
   const next: Record<string, unknown> = {};
@@ -120,42 +118,19 @@ function repaint(node: ReactNode, p: Palette, under: Surface, c?: Cut): ReactNod
     next.style = s;
   }
   for (const k of SVG_PAINT) if (typeof props[k] === "string") next[k] = swap(props[k], (col) => ink(p, col, own));
-  let children = kids === undefined ? [] : Children.toArray(kids).map((k) => repaint(k, p, own, c));
-  if (c && style && next.style) {
-    const s = next.style as Record<string, unknown>;
-    const n = c.n++;
-    // a card or a pill: a piece of paper, laid a little crooked, that shifts six times a second
-    if (own !== under && (own === "card" || own === "fill")) {
-      Object.assign(s, { borderRadius: 4, boxShadow: "0 8px 16px rgba(0,0,0,0.18)", transform: tilt(s.transform, wobble(n, c.step, 1.2)) });
-    }
-    // a big gold figure on the ground: set on a strip of paper of its own
-    const big = typeof style.fontSize === "number" && style.fontSize >= 96 && typeof style.color === "string" && norm(style.color) === GOLD;
-    if (big && under === "ground") {
-      s.transform = tilt(s.transform, wobble(n, c.step, 0.8));
-      children = [<div key="strip" style={{ display: "flex", background: p.card, color: p.onCard, padding: "6px 34px", transform: "rotate(-2deg)", boxShadow: "0 8px 18px rgba(0,0,0,0.2)" }}>{children}</div>];
-    }
-  }
+  const children = kids === undefined ? [] : Children.toArray(kids).map((k) => repaint(k, p, own));
   return cloneElement(el, next, ...children);
 }
 
-/** คอลลาจกระดาษ's state through one frame: which element is being drawn, and the frame's stop-motion step */
-interface Cut { n: number; step: number }
-/** stop motion: a few hand-placed positions, changed six times a second, a little different for each piece */
-const wobble = (n: number, step: number, deg: number) => (((n * 7 + step) % 3) - 1) * deg + (n % 2 ? 0.6 : -0.6);
-const tilt = (was: unknown, deg: number) => `${typeof was === "string" ? `${was} ` : ""}rotate(${deg.toFixed(2)}deg)`;
 /** a frame in its theme; the navy looks come back as they went in */
-export function themed(frame: ReactNode, t: ThemeKey | undefined, at = 0): ReactNode {
+export function themed(frame: ReactNode, t: ThemeKey | undefined): ReactNode {
   const p = t ? PALETTES[t] : undefined;
-  return p ? repaint(frame, p, "ground", p.collage ? { n: 0, step: Math.floor(at * 6) } : undefined) : frame;
+  return p ? repaint(frame, p, "ground") : frame;
 }
 
-/** คอลลาจกระดาษ's family cut out in dots, read once a process */
-let familyFile: Promise<string> | undefined;
-const collageFamily = () => (familyFile ??= readFile(join(process.cwd(), "public/collage/family.png")).then((b) => `data:image/png;base64,${b.toString("base64")}`));
-
-/** the crumpled paper grounds, each read once a process (each named in full for the deploy's file tracing) */
-const textureFiles: Partial<Record<"paper" | "paper-light", Promise<string>>> = {};
-const texture = (k: "paper" | "paper-light") => (textureFiles[k] ??= readFile(join(process.cwd(), k === "paper" ? "public/collage/paper.jpg" : "public/collage/paper-light.jpg"))
+/** the crumpled paper ground, read once a process (named in full for the deploy's file tracing) */
+let paperFile: Promise<string> | undefined;
+const texture = () => (paperFile ??= readFile(join(process.cwd(), "public/collage/paper-light.jpg"))
   .then((b) => `data:image/jpeg;base64,${b.toString("base64")}`));
 
 /** the drifting ground of a themed clip: its paper, or motion.tsx's shapes in the theme's colours */
@@ -163,7 +138,7 @@ export async function themeBackground(t: ThemeKey, size: { w: number; h: number 
   const p = PALETTES[t];
   if (!p) return null;
   if (p.texture) {
-    const paper = await texture(p.texture);
+    const paper = await texture();
     return (
       <div style={{ display: "flex", position: "relative", width: size.w, height: bgH, background: p.ground, overflow: "hidden" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -210,24 +185,6 @@ export async function themeHero(theme: ThemeKey | undefined, sex: "M" | "F"): Pr
       );
     };
   }
-  if (theme === "collage") {
-    const family = await collageFamily();
-    // the family cut out in dots, on a yellow circle of paper, as in the owner's Pinterest pictures
-    return function collageHero(s, t, w, h) {
-      const d = Math.round(Math.min(w, h) * 0.92);
-      // the picture is square, the family filling its middle (22%–78% down)
-      const fw = Math.round(w * 1.2);
-      return (
-        <div style={box({ position: "relative", width: w, height: h })}>
-          <El an={s.shield ?? s.family} t={t} style={{ position: "absolute", left: Math.round((w - d) / 2), top: Math.round((h - d) / 2 - h * 0.04), width: d, height: d, borderRadius: d / 2, background: X.collageCircle }} />
-          <El an={s.family} t={t} style={{ position: "absolute", left: Math.round((w - fw) / 2), top: Math.round(h - fw * 0.86), width: fw, height: fw, transform: `rotate(${(Math.floor(t * 6) % 2 ? 0.8 : -0.6)}deg)` }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={family} width={fw} height={fw} style={{ width: fw, height: fw }} alt="" />
-          </El>
-        </div>
-      );
-    };
-  }
   return undefined;
 }
 
@@ -237,113 +194,3 @@ export const THEME_LETTERS = (() => {
   for (let c = 0x0e01; c <= 0x0e5b; c++) s += String.fromCharCode(c);
   return s;
 })();
-
-/** คอลลาจกระดาษ's sounds (owner, 2026-10-17): paper sliding in, a slap as a piece lands, a pop, the pen */
-export type SoundKind = "pop" | "swish" | "slap" | "pen";
-const SOUND_OF: Partial<Record<Anim["kind"], SoundKind>> = { pop: "pop", grow: "slap", up: "swish", left: "swish", stroke: "pen" };
-export const SOUND_GAIN: Record<SoundKind, number> = { pop: 0.4, swish: 0.35, slap: 0.4, pen: 0.22 };
-
-/**
- * When each sound plays in the finished clip: one as each piece of a scene moves in (its Anim), none
- * for a fade or a count, the pen once a scene, and two of a kind never closer than a fifth of a second.
- */
-export function collageSounds(scenes: { start: number; anims: Anim[] }[]): { at: number; kind: SoundKind }[] {
-  const out: { at: number; kind: SoundKind }[] = [];
-  for (const { start, anims } of scenes) {
-    let pen = false;
-    for (const an of [...anims].sort((x, y) => x.at - y.at)) {
-      const kind = SOUND_OF[an.kind];
-      if (!kind || (kind === "pen" && pen)) continue;
-      if (kind === "pen") pen = true;
-      const at = start + an.at;
-      if (out.some((o) => Math.abs(o.at - at) < (o.kind === kind ? 0.2 : 0.08))) continue;
-      out.push({ at, kind });
-    }
-  }
-  return out.sort((x, y) => x.at - y.at);
-}
-
-let soundFiles: Promise<Record<SoundKind, Buffer>> | undefined;
-/** the four sounds as 24 kHz 16-bit mono, read once a process */
-export const collageSoundFiles = () => (soundFiles ??= Promise.all([
-  // each named in full, so the deploy's file tracing finds them (next.config.ts lists them too)
-  readFile(join(process.cwd(), "public/collage/sfx/pop.pcm")),
-  readFile(join(process.cwd(), "public/collage/sfx/swish.pcm")),
-  readFile(join(process.cwd(), "public/collage/sfx/slap.pcm")),
-  readFile(join(process.cwd(), "public/collage/sfx/pen.pcm")),
-]).then(([pop, swish, slap, pen]) => ({ pop, swish, slap, pen })));
-
-/**
- * คอลลาจกระดาษ's library pictures in the scenes (owner, 2026-10-17, as the collage mockup laid them):
- * a hand holding coins under the price, an umbrella over the family under the cover, a hand holding
- * a phone under the contact card. Each pops in, stop-motion, into the scene's empty lower part.
- */
-interface Spot { piece: string; at: number; box: { left: number; top: number; w: number; h: number } }
-const DECOR: Partial<Record<SceneKey, Spot[]>> = {
-  price: [{ piece: "hand-coins", at: 2.2, box: { left: 400, top: 1150, w: 620, h: 430 } }],
-  cover: [
-    { piece: "family", at: 1.2, box: { left: 300, top: 1250, w: 480, h: 340 } },
-    { piece: "umbrella", at: 1.7, box: { left: 250, top: 1060, w: 580, h: 250 } },
-  ],
-  contact: [{ piece: "hand-phone", at: 1.2, box: { left: 330, top: 1150, w: 620, h: 440 } }],
-};
-/** the cover's pictures only where its bars leave the lower part empty (Life Protect, iShield) */
-const DECOR_COVER_STYLE = "bars";
-
-/**
- * The pictures AI draws new for a clip (owner chose ข, 2026-10-17, https://claude.ai/artifact/Jt7qBS1N9fDhn8vj1DoTbt):
- * every spot of the clip's scenes but the family, which stays the app's own photo. Portrait only,
- * as the decor is.
- */
-export const aiSpots = (keys: SceneKey[], coverStyle?: string): { key: SceneKey; piece: string }[] =>
-  keys.flatMap((key) => (key === "cover" && coverStyle !== DECOR_COVER_STYLE ? [] : (DECOR[key] ?? []))
-    .filter((d) => d.piece !== "family").map((d) => ({ key, piece: d.piece })));
-
-/** each picture's moment in its scene, for its sound (collageSounds) */
-export const decorAnims = (key: SceneKey, coverStyle?: string): Anim[] =>
-  key === "cover" && coverStyle !== DECOR_COVER_STYLE ? [] : (DECOR[key] ?? []).map((d) => a(d.at, "pop"));
-
-type Sticker = { uri: string; w: number; h: number };
-/** what a theme lays over a scene (motion.tsx MotionContext.decor) */
-export type Decor = (key: SceneKey, t: number) => ReactNode;
-/**
- * The decor for a clip, from the pictures drawn so far: `load` gives a piece's sticker (library.ts
- * pieceSticker), null when it has not been drawn — that picture is left out, and the clip is made all
- * the same. Never throws.
- */
-export async function collageDecor(load: (piece: string, key: SceneKey) => Promise<Buffer | null>, coverStyle?: string): Promise<Decor> {
-  // a picture is read for each scene it stands in: an AI one is that scene's own (aiSpots)
-  const spots = (Object.entries(DECOR) as [SceneKey, Spot[]][]).flatMap(([key, list]) => list.map((d) => ({ key, piece: d.piece })));
-  const got = await Promise.all(spots.map(async ({ key, piece }): Promise<[string, Sticker | null]> => {
-    try {
-      const png = piece === "family" ? await readFile(join(process.cwd(), "public/collage/family.png")) : await load(piece, key);
-      if (!png) return [`${key}/${piece}`, null];
-      const m = await sharp(png).metadata();
-      return [`${key}/${piece}`, { uri: `data:image/png;base64,${png.toString("base64")}`, w: m.width ?? 1, h: m.height ?? 1 }];
-    } catch {
-      return [`${key}/${piece}`, null];
-    }
-  }));
-  const found = new Map(got);
-  const stickers = { get: (piece: string, key: SceneKey) => found.get(`${key}/${piece}`) };
-  return function collageScene(key, t) {
-    if (key === "cover" && coverStyle !== DECOR_COVER_STYLE) return null;
-    const shown = (DECOR[key] ?? []).filter((d) => stickers.get(d.piece, key) && t >= d.at);
-    if (!shown.length) return null;
-    return shown.map((d, i) => {
-      const st = stickers.get(d.piece, key)!;
-      const k = Math.min(d.box.w / st.w, d.box.h / st.h);
-      const w = Math.round(st.w * k), h = Math.round(st.h * k);
-      // pop: big, a touch past, then settled; after that the paper wobble six times a second
-      const since = t - d.at;
-      const scale = since < 1 / 12 ? 0.45 : since < 2 / 12 ? 0.85 : since < 3 / 12 ? 1.08 : 1;
-      const tilt = (((i * 7 + Math.floor(t * 6)) % 3) - 1) * 0.9 + (i % 2 ? 1.5 : -1.5);
-      return (
-        <div key={d.piece} style={{ display: "flex", position: "absolute", left: d.box.left + Math.round((d.box.w - w) / 2), top: d.box.top + d.box.h - h, width: w, height: h, transform: `rotate(${tilt.toFixed(2)}deg) scale(${scale})` }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={st.uri} width={w} height={h} style={{ width: w, height: h }} alt="" />
-        </div>
-      );
-    });
-  };
-}
