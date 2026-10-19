@@ -314,7 +314,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // step 4 as it was left last time, in this browser only (owner, 2026-10-12)
   useEffect(() => {
     try {
-      if (localStorage.getItem(STYLE_KEY) === "motion") setStyle("motion");
+      const keptStyle = localStorage.getItem(STYLE_KEY);
+      if (keptStyle === "motion" || keptStyle === "chat") setStyle(keptStyle);
       const on = festivalOn();
       setFestival(on);
       const kept = readTheme(localStorage.getItem(THEME_KEY));
@@ -522,7 +523,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       : `${source === "sum" ? sumWord(Number(sum.replace(/[^\d]/g, "")) || 0) : `งบ${source === "month" ? "เดือน" : "ปี"}ละ ${budget}`} · ${termWord(variant)}`,
     look: [
       kind === "quote" ? ({ short: "สั้น", full: "เต็ม", long: "90 วิ", max: "2 นาที" } as const)[length] : "",
-      kind === "quote" ? (style === "motion" ? "Motion" : "ปกติ") : themeName(theme),
+      kind === "quote" ? (style === "motion" ? "Motion" : style === "chat" && !foreign ? "แชท" : "ปกติ") : themeName(theme),
       SIZE_CHOICES.find((c) => c.size === shownSize)?.name.split(" ")[0] ?? "",
       voiceWord,
     ].filter(Boolean).join(" · "),
@@ -552,10 +553,12 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             <div>
               <span className={label}>สไตล์</span>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={chip(style === "classic")} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", length)])} บาท</button>
+                <button type="button" className={chip(style === "classic" || (style === "chat" && foreign))} onClick={() => pickStyle("classic")}>แบบปกติ · {priceBaht(prices[videoPriceKey("classic", length)])} บาท</button>
                 <button type="button" className={chip(style === "motion")} onClick={() => pickStyle("motion")}>Motion Graphic · {priceBaht(prices[videoPriceKey("motion", length)])} บาท</button>
+                {/* แชทถาม-ตอบ (owner, 2026-10-20): the customer asks in Thai, so Thai clips only */}
+                {!foreign && <button type="button" className={chip(style === "chat")} onClick={() => pickStyle("chat")}>แชทถาม-ตอบ · {priceBaht(prices[videoPriceKey("chat", length)])} บาท</button>}
               </div>
-              <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
+              <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : style === "chat" && !foreign ? "หน้าจอแชท ลูกค้าถาม ตัวแทนตอบ พร้อมส่งการ์ดราคา ตาราง และนามบัตรในแชท" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
             </div>
             {style === "motion" && themeChips}
           </>

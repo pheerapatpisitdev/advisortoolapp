@@ -155,7 +155,8 @@ function checked(v: VideoInput): VideoInput | string {
   // one of Gemini's 30 voices (owner, 2026-10-17), in every language; its sex sets the endings
   const gemini = eleven ? undefined : geminiVoice(v.gemini);
   const narrator = eleven ? eleven.sex : gemini ? gemini.sex : v.narrator === "M" ? "M" : "F";
-  const style = v.style === "motion" ? "motion" : "classic";
+  // แชทถาม-ตอบ (owner, 2026-10-20): its customer asks in Thai, so a clip in another language is แบบปกติ
+  const style = v.style === "motion" ? "motion" : v.style === "chat" && !foreign ? "chat" : "classic";
   // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
   const look = lookOf(style === "motion" ? v.theme : undefined);
   const askedLength = readLength(v.length);
@@ -668,7 +669,7 @@ export async function myVideos(board: Board = "quote"): Promise<VideoItem[]> {
         : input.product === "GSAVING"
         ? `ออมปีละ ${input.premium.toLocaleString("en-US")} · ดัชนี ${rateLabel(input.rate)}`
         : `${sumWords(input.sumAssured)} · ${TERMS[product as "LIFEPROTECT" | "ISHIELD"].find((x) => x.variant === input.variant)?.years ?? "?"} ปี`.replace("99 ปี", "ถึงอายุ 99");
-    const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
+    const who = `${NAMES[product]}${input.style === "motion" ? ` (Motion${lookName(input) ? ` · ${lookName(input)}` : ""})` : input.style === "chat" ? " (แชท)" : ""}${SIZE_WORD[clipSize(input)]}${LENGTH_WORD[readLength(input.length)]}${input.brief?.loop ? " ↻" : ""}${voiceWord(input)} · ${SEX[input.sex]} ${input.age} · ${what}`;
     const file = `${NAMES[product].replace(/\s+/g, "")}-${v.customer_name || `${SEX[input.sex]}${input.age}`}.mp4`;
     return {
       id: v.id,

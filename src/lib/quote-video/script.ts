@@ -93,7 +93,8 @@ export type VideoInput = (
 /** 15 s, ~50 s, ~90 s, ~2 min (owner, 2026-10-13: "สูงสุดถึง 2 นาที"; told.ts sceneOrder) */
 export type VideoLength = "short" | "full" | "long" | "max";
 
-export type VideoStyle = "classic" | "motion";
+/** แชทถาม-ตอบ (owner, 2026-10-20; chat.tsx): drawn by Remotion as Motion Graphic is, priced as แบบปกติ */
+export type VideoStyle = "classic" | "motion" | "chat";
 
 /** A man ends his sentences with ครับ, a woman with ค่ะ / นะคะ (owner, 2026-10-11). */
 export function spokenBy(line: string, narrator: "F" | "M" = "F"): string {

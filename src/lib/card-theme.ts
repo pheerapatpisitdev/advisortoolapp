@@ -422,6 +422,13 @@ export const KINETIC_COLORS = [
   { ground: "#022162", ink: "#ffffff", figure: "#f2c75c", soft: "rgba(255,255,255,0.6)" },
 ] as const;
 
+/** แชทถาม-ตอบ (owner, 2026-10-20; quote-video/chat.tsx): a plain chat, nobody's brand */
+export const CHAT_COLORS = {
+  ground: "#eef1f6", head: "#022162", headInk: "#ffffff", online: "#4ade80", avatar: "#f5e6c8",
+  mine: "#1f5bd6", mineInk: "#ffffff", theirs: "#ffffff", theirsInk: "#141a26", dots: "#9aa4b8", dotsMine: "#cfe0ff",
+  mark: "#facc15", cardHead: "#022162", cardInk: "#141a26", rule: "#e5e7eb", mute: "#8a93a6", pen: "#c2412d", button: "#1f5bd6",
+} as const;
+
 /** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
   paperFaceRing: "#22252b",

@@ -54,7 +54,8 @@ export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unkno
   if (input.fhc) return "fhc";
   if (input.product === "STORY" || input.product === "FREESTORY") return input.engine === "remotion" ? "story-remotion" : "story";
   const length = input.length === "short" || input.length === "long" || input.length === "max" ? input.length : "full";
-  return `${input.style === "motion" ? (input.engine === "remotion" ? "remotion" : "motion") : "classic"}-${length}`;
+  // แชทถาม-ตอบ is drawn the Motion way (make.ts)
+  return `${input.style === "motion" || input.style === "chat" ? (input.engine === "remotion" ? "remotion" : "motion") : "classic"}-${length}`;
 }
 
 const median = (xs: number[]) => {

@@ -398,11 +398,12 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const shown = { ...(linesOf(facts, told) ? { headline: linesOf(facts, told)!.headline } : {}), loop, extra: extraOf(facts, told) };
   const boxes = CLASSIC_BOXES[size];
   if (secs.length !== script.length) throw new Error("voice lengths do not match the script");
-  const motion = row.input.style === "motion";
+  // แชทถาม-ตอบ (owner, 2026-10-20) is drawn the Motion way, with the chat for its drawing
+  const motion = row.input.style === "motion" || row.input.style === "chat";
   // the Motion Graphic look (owner, 2026-10-17)
-  const theme = motion ? readTheme(row.input.theme) : undefined;
+  const theme = row.input.style === "chat" ? "chat" as const : motion ? readTheme(row.input.theme) : undefined;
   // the piggy jar tells the price in one portrait Motion clip in two, at random (owner, 2026-10-20, ค); it needs a daily price
-  const priceJar = motion && size === "portrait" && jarFits(facts) && Math.random() < 0.5;
+  const priceJar = row.input.style === "motion" && size === "portrait" && jarFits(facts) && Math.random() < 0.5;
   // the classic value scene: where the table stops and which pen note is written at each stop
   // Global Savings has its table on the third scene, where the others list their cover (owner, 2026-10-20, ก ก)
   const tableKey = facts.gsaving ? "cover" : "value";

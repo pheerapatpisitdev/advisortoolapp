@@ -22,7 +22,7 @@ export function clipWhat(input: unknown): string {
   if (isStoryInput(v)) return `คลิปเล่าเรื่อง · ${topicOf(String(v.topic ?? ""))?.name ?? "ไม่ทราบตอน"}`;
   if (isPromptStory(v)) return `คลิปตามโจทย์ · ${String(v.title ?? "").trim() || "ไม่มีชื่อ"}`;
   const plan = NAMES[(v.product ?? "LIFEPROTECT") as Product] ?? v.product;
-  return `วิดีโอนำเสนอ · ${plan}${v.style === "motion" ? " (Motion)" : ""}`;
+  return `วิดีโอนำเสนอ · ${plan}${v.style === "motion" ? " (Motion)" : v.style === "chat" ? " (แชท)" : ""}`;
 }
 
 const baht = (satang: number) => `฿${(satang / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;

@@ -101,9 +101,10 @@ export function priceBaht(satang: number): string {
 
 /**
  * The price key of a quote clip of this look and length (owner, 2026-10-13): the 15-second and the
- * ~50-second clips share their look's price, the longer two have their own.
+ * ~50-second clips share their look's price, the longer two have their own. แชทถาม-ตอบ (owner,
+ * 2026-10-20) is priced as แบบปกติ.
  */
-export function videoPriceKey(style: "classic" | "motion", length: "short" | "full" | "long" | "max"): PriceKey {
+export function videoPriceKey(style: "classic" | "motion" | "chat", length: "short" | "full" | "long" | "max"): PriceKey {
   if (length === "long") return style === "motion" ? "videoLongMotion" : "videoLongClassic";
   if (length === "max") return style === "motion" ? "videoMaxMotion" : "videoMaxClassic";
   return style === "motion" ? "videoMotion" : "videoClassic";
