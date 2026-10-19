@@ -109,17 +109,13 @@ vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: () => ({ submit
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
 
-const { createPromptStory, deleteVideo, drawScene, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos, voiceFullUntil } = await import("@/lib/quote-video/make");
+const { createPromptStory, deleteVideo, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos, voiceFullUntil } = await import("@/lib/quote-video/make");
 const { clipStates } = await import("@/lib/quote-video/rows");
 const { VOICE_FULL } = await import("@/lib/quote-video/voice-quota");
 const { paidLine } = await import("@/lib/quote-video/paid-line");
 
-/** the drawing route as produce calls it: each scene drawn for real, by drawScene */
-const route = async (_url: unknown, init?: { body?: string }) => {
-  const b = JSON.parse(init?.body ?? "{}");
-  const r = await drawScene(b.id, b.scene, b.token, b.agentName);
-  return new Response("{}", { status: r === "drawn" ? 200 : 401 });
-};
+/** no drawing route since every clip is drawn by Remotion (owner, 2026-10-20): any fetch here is a mistake */
+const route = async () => new Response("{}", { status: 404 });
 
 const agent = { kind: "unitos", agentId: "a1", name: "ตัวแทน", staff: null } as unknown as Viewer;
 // the free clips' machinery, as a member has it while the pass is switched off: a UnitClub agent
@@ -280,13 +276,16 @@ describe("produce, คลิปตามโจทย์", () => {
     for (const s of [0, 1, 2, 3]) expect(db.files.has(`${id}/voice-${s}.pcm`)).toBe(true);
     expect(ai.speak).toHaveBeenCalledTimes(4);
     expect(ai.submit).toHaveBeenCalledTimes(1);
-    // the drawing route read each scene's own picture and drew every frame of every scene
-    for (const s of [0, 1, 2]) expect(db.downloads).toContain(`${id}/pic-${s}.png`);
-    const job = ai.submit.mock.calls[0][0] as { inputs: { name: string }[]; command: string };
-    for (const f of job.inputs) expect(db.files.has(`${id}/${f.name}`)).toBe(true);
+    // Remotion gets the clip as StoryClip props, each scene's picture a link to where it was filed (no frame drawn here)
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as { composition: string; kind: string; scenes: { key: string; picture?: string }[] };
+    expect(props.composition).toBe("StoryClip");
+    expect(props.kind).toBe("free");
+    expect(props.scenes.map((x) => x.key)).toEqual(["freeScene", "freeScene", "freeScene", "storyContact"]);
+    for (const s of [0, 1, 2]) expect(props.scenes[s].picture).toContain(`${id}/pic-${s}.png`);
+    expect(props.scenes[3].picture).toBeUndefined();
   });
 
-  it("files each picture once, as its scene's layer pushed in by ffmpeg, under few word frames", async () => {
+  it("links each scene's picture once; a scene whose picture failed has none and stays on paper", async () => {
     ai.draw.mockImplementation(async (a: { prompt: string }) => {
       if (a.prompt.includes("bills on a table")) throw new Error("painter down");
       return { bytes: picture(++drawn) };
@@ -294,15 +293,10 @@ describe("produce, คลิปตามโจทย์", () => {
     const made = await createPromptStory(agent, input(), "");
     const id = (made as { id: string }).id;
     await produce(id, "ตัวแทน");
-    const job = ai.submit.mock.calls[0][0] as { inputs: { name: string }[]; command: string };
-    const files = job.inputs.map((f) => db.files.get(`${id}/${f.name}`)!);
-    // scenes 0 and 2 carry their picture as a layer, once each; scene 1 has none and stays on paper
-    expect(files.filter((b) => b.equals(db.files.get(`${id}/pic-0.png`)!))).toHaveLength(1);
-    expect(files.filter((b) => b.equals(db.files.get(`${id}/pic-2.png`)!))).toHaveLength(1);
-    expect(job.command.match(/zoompan/g)).toHaveLength(2);
-    // a frame per word, not twelve a second: under 20 frames for a short line
-    const frames = job.inputs.length - 1 - 4 * 2 - 2;
-    expect(frames).toBeLessThan(4 * 20);
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props as { scenes: { picture?: string }[] };
+    expect(props.scenes[0].picture).toContain(`${id}/pic-0.png`);
+    expect(props.scenes[1].picture).toBeUndefined();
+    expect(props.scenes[2].picture).toContain(`${id}/pic-2.png`);
   });
 
   it("a picture that fails twice leaves its scene on paper and the clip still goes", async () => {
@@ -327,7 +321,7 @@ describe("produce, คลิปตามโจทย์", () => {
     const steps = db.notes.map((n) => n.step);
     expect(db.notes.filter((n) => n.step === "pictures").map((n) => n.done)).toEqual([0, 1, 2, 3]);
     expect(steps.indexOf("pictures")).toBeLessThan(steps.indexOf("voice"));
-    expect(steps.indexOf("draw")).toBeGreaterThan(steps.lastIndexOf("voice"));
+    expect(steps.indexOf("files")).toBeGreaterThan(steps.lastIndexOf("voice"));
   });
 
   it("a free clip whose every picture failed gives its whole hold back at the end", async () => {

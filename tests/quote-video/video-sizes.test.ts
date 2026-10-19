@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { renderPng } from "@/lib/content/poster-png";
-import { buildJob, nameFiles } from "@/lib/quote-video/job";
 import { clipSize } from "@/lib/quote-video/make";
-import { motionBgHeight, motionWindows, MOTION_BG_H, MOTION_FPS } from "@/lib/quote-video/motion";
+import { motionBgHeight, MOTION_BG_H } from "@/lib/quote-video/motion";
 import { fhcScript, type FhcVideoFacts } from "@/lib/quote-video/fhc";
 import { quoteVideoFacts, quoteVideoScript } from "@/lib/quote-video/script";
-import { planScenes, SIZES, sizeOf } from "@/lib/quote-video/timeline";
+import { SIZES, sizeOf } from "@/lib/quote-video/timeline";
 import { wideFhcFrame, wideQuoteFrame } from "@/lib/quote-video/wide";
 
 const lp = { variant: "WLF19H", age: 35, sex: "M" as const, sumAssured: 1_000_000 };
@@ -34,18 +33,6 @@ describe("video sizes (owner, 2026-10-11)", () => {
     expect(motionBgHeight(SIZES.landscape)).toBe(1080 + MOTION_BG_H - 1920);
   });
 
-  it("renders the job at the clip's size, portrait when none is given", () => {
-    const f = quoteVideoFacts({ ...lp, style: "motion" }, new Date("2026-10-11T00:00:00+07:00"))!;
-    const script = quoteVideoScript(f);
-    const plans = planScenes(script.map((s) => ({ key: s.key, voice: s.voice, voiceSec: 6, windows: motionWindows(s.key, f, 6), fps: MOTION_FPS })));
-    const named = nameFiles(plans, plans.map(() => undefined));
-    const land = buildJob(plans, named, { driftHeight: motionBgHeight(SIZES.landscape), size: SIZES.landscape }).command;
-    expect(land).toContain("-s 1920x1080");
-    expect(land).toContain("crop=w=1920:h=1080:x=0:y='480*");
-    const tall = buildJob(plans, named, { driftHeight: MOTION_BG_H }).command;
-    expect(tall).toContain("-s 1080x1920");
-    expect(tall).toContain("crop=w=1080:h=1920:x=0:y='480*");
-  });
 });
 
 describe("square and landscape scenes draw", () => {
