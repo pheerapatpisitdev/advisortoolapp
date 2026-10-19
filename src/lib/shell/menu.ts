@@ -156,6 +156,13 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
     ],
   },
   {
+    // bought to grow money over a set term, not for the death cover: its own heading (owner, ก, 2026-10-20)
+    title: "ประกันออมทรัพย์",
+    links: [
+      { href: "/global-saving", label: "Global Savings 15/8", icon: "coins", hue: "#1f4f8a" },
+    ],
+  },
+  {
     title: "ประกันโรคร้ายแรง",
     links: [
       { href: "/legacy", label: "Family Legacy", icon: "home", hue: "#722b73" },
@@ -189,7 +196,7 @@ export const SALES_SECTIONS: { title: string; links: MenuLink[] }[] = [
 ];
 
 /**
- * The same eleven, flat.
+ * The same pages, flat.
  *
  * The test that checks none of the pages on disk has been left out of the menu counts them
  * here. Derived rather than written twice, so a page added to a section cannot go missing

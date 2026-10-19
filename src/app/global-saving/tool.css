@@ -1,0 +1,28 @@
+/* Global Savings Plus 15/8: the index bonus steps from a pale to a deep blue across the five
+   scenarios, all on the page's navy so the guaranteed base below them stays the one strong
+   colour. The bank columns sit on the page's grey band, set apart from the plan's own. */
+.gs-tool {
+  --gs-b1: var(--bot-line);
+  --gs-b2: #b9cbea;
+  --gs-b3: var(--bot-blue);
+  --gs-b4: #4f78c4;
+  --gs-b5: var(--bot-navy-lift);
+}
+
+.gs-tool :is(input, select) {
+  background-color: var(--lg-raise);
+  color: var(--lg-white);
+  border-color: var(--lg-panel-line);
+}
+
+.gs-tool td.gs-bank {
+  background: var(--lg-panel);
+  color: var(--lg-mute);
+}
+.gs-tool th.gs-bank {
+  background: var(--bot-ink-mute);
+}
+
+@media print {
+  .gs-tool [style*="background"] { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
