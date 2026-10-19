@@ -20,6 +20,8 @@ export interface CostParts {
   renderSec?: number;
   /** renderSec at the job's machine's list price, in baht */
   renderThb?: number;
+  /** the Google voice that read a clip whose ElevenLabs voice could not (owner, 2026-10-20) */
+  googleVoice?: string;
 }
 
 /**

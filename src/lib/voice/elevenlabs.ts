@@ -57,10 +57,19 @@ export const ELEVEN_VOICES: ElevenChoice[] = [
  */
 export const ELEVEN_RESERVE = 1500;
 export async function elevenCreditsLeft(apiKey: string, f: typeof fetch = fetch): Promise<number> {
+  return (await elevenAccount(apiKey, f)).left;
+}
+
+/**
+ * The account behind the key: credits left this month, and whether it is on the free plan — which
+ * may not use the library voices every choice above is (402 "Free users cannot use library voices
+ * via the API", first seen 2026-10-20 after the paid account was banned).
+ */
+export async function elevenAccount(apiKey: string, f: typeof fetch = fetch): Promise<{ left: number; free: boolean }> {
   const res = await f(`${API}/user/subscription`, { headers: { "xi-api-key": apiKey }, signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`api.elevenlabs.io ${res.status}`);
   const s = await res.json();
-  return Number(s.character_limit) - Number(s.character_count);
+  return { left: Number(s.character_limit) - Number(s.character_count), free: s.tier === "free" };
 }
 export const elevenVoice = (id: string | undefined): ElevenChoice | undefined => ELEVEN_VOICES.find((v) => v.id === id);
 

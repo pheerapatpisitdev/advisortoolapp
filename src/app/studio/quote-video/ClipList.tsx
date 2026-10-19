@@ -126,6 +126,7 @@ export function ClipList({ items, setItems, pages }: {
           {v.status === "done" && v.error && <p role="alert" className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
           {v.status === "failed" && v.error && <p className="text-xs text-[var(--ct-alert)]">{v.error}</p>}
           {v.voiceFull && <p className="text-xs text-[var(--ct-mute)]">ไม่เสียเงิน และไม่นับเป็นคลิปฟรี</p>}
+          {v.voiceSwap && <p className="text-xs text-[var(--ct-accent)]">{v.voiceSwap}</p>}
           <div className="flex flex-wrap gap-2">
             {v.status === "done" && v.save && v.watch && <SaveVideoButton href={v.save} watch={v.watch} filename={v.fileName} className={small} />}
             {v.status === "done" && <button type="button" className={small} onClick={() => copy(v)}>{copied === v.id ? "คัดลอกแล้ว" : "คัดลอกลิงก์"}</button>}

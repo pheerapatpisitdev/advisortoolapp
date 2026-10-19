@@ -19,7 +19,8 @@ import { geminiOf, VoicePicker } from "./VoicePicker";
 import { GEMINI_DEFAULT, geminiVoice, type GeminiChoice } from "@/lib/voice/gemini";
 import { makeFhcVideo, makeVideo, myCost, myVideos, previewQuote, previewScript, voiceQuota, type FhcChoice, type Preview, type VideoItem, type VoiceQuota } from "./actions";
 import { useClipWatch } from "./useClipWatch";
-import { voiceNotice } from "@/lib/quote-video/voice-quota";
+import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
+import { useElevenOff } from "./useElevenOff";
 import { VIDEO_LANGS, type VideoLang } from "@/lib/quote-video/video-words";
 import { LANG_NAME } from "@/lib/ihealthy-lang";
 
@@ -474,7 +475,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // every clip comes in every shape (owner, 2026-10-13)
   const shownSize = size;
   // a Gemini-voiced clip would only fail while the voice is used up
-  const notice = quota && (!voice || foreign) ? voiceNotice(quota, !foreign) : null;
+  const elevenIsOff = useElevenOff(eleven.length > 0);
+  const notice = voice && !foreign && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && (!voice || foreign) ? voiceNotice(quota, !foreign) : null;
   const voiceBlocked = Boolean(notice?.blocked);
   const named = geminiOf({ narrator, gemini });
   const voiceWord = voice && !foreign ? eleven.find((v) => v.id === voice)?.name ?? "ElevenLabs"

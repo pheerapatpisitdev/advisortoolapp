@@ -634,7 +634,7 @@ export async function produce(id: string, agentName: string): Promise<void> {
     const piecesP = isQuoteInput(row.input) ? drawAiPieces(row as VideoRow & { input: VideoInput }) : Promise.resolve(null);
     // a คอลลาจ FHC clip's library pieces, picked by AI from the lines (owner, 2026-10-17)
     const picksP = isFhcInput(row.input) ? pickFhcPieces(row as VideoRow & { input: FhcVideoInput }) : Promise.resolve(null);
-    const { spoken, fellBackTo } = await speakClip(
+    const { spoken, fellBackTo, google } = await speakClip(
       spokenScript.map((s) => (lang === "th" ? sayNumbers(s.voice) : s.voice)),
       { task: VIDEO_TASK_VOICE, narrator, voice: voiceId, gemini: geminiVoice(row.input.gemini)?.name, lang, pool,
         onLine: () => bar.note({ step: "voice", done: ++lines, of: spokenScript.length }),
@@ -650,9 +650,14 @@ export async function produce(id: string, agentName: string): Promise<void> {
       if (pieces.costThb) lap(`AI cut-outs drawn (${Object.values((pieces.input as VideoInput).aiPieces ?? {}).filter(Boolean).length})`);
     }
     const voiceThb = spoken.reduce((n, s) => n + s.costThb, 0);
-    row.cost_parts = { voice: voiceThb, pictures: picturesThb };
-    await setRow(id, { cost_thb: voiceThb + picturesThb, cost_parts: row.cost_parts });
-    lap(`voice done (${spokenScript.length} lines${voiceId || fellBackTo ? ", ElevenLabs" : ""}${fellBackTo ? " (in place of Gemini)" : ""}${lang === "th" ? "" : `, ${lang}`})`);
+    row.cost_parts = { voice: voiceThb, pictures: picturesThb, ...(google ? { googleVoice: google } : {}) };
+    const voicePatch: Partial<VideoRow> = { cost_thb: voiceThb + picturesThb, cost_parts: row.cost_parts };
+    // the ElevenLabs voice was not used: its +฿2 comes off what the wallet takes (owner, 2026-10-20, ก)
+    if (google && row.paid_by === "wallet" && row.hold_id && row.held_satang) {
+      row.held_satang = voicePatch.held_satang = Math.max(0, Number(row.held_satang) - (await walletPrices()).elevenExtra);
+    }
+    await setRow(id, voicePatch);
+    lap(`voice done (${spokenScript.length} lines${google ? `, Google ${google} in place of ElevenLabs` : voiceId || fellBackTo ? ", ElevenLabs" : ""}${fellBackTo ? " (in place of Gemini)" : ""}${lang === "th" ? "" : `, ${lang}`})`);
     // kept with the clip, so a picture redrawn later is cut without speaking again
     if (isPromptStory(row.input)) await pool(pcms, 8, (pcm, i) => upload(id, voiceName(i), pcm, "application/octet-stream"));
     await cutClip(row, agentName, pcms, gcpKey, bar, t0, lap);

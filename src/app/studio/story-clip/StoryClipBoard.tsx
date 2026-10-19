@@ -8,7 +8,8 @@ import type { CostView } from "@/lib/quote-video/make";
 import { STORY_DEFAULT_TERM, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { FESTIVALS, figureShown, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, LIVE_TO, RETIRE_AGE, STORY_TOPICS, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { VideoSize } from "@/lib/quote-video/timeline";
-import { voiceNotice } from "@/lib/quote-video/voice-quota";
+import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
+import { useElevenOff } from "../quote-video/useElevenOff";
 import { BABY, CROWD_HERO, crowdOf, DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, defaultPartner, FACE_PAPER, FACES, faceSrc, familyOf, type FaceTag } from "@/lib/story/faces";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, type Prices } from "@/lib/wallet/prices";
@@ -326,7 +327,8 @@ export function StoryClipBoard({ initial, cost: firstCost, prices, quota: firstQ
   const ladderOk = withFigure && info.figure === "ladder" && ladder && !("error" in ladder) ? ladder : null;
   const pensionOk = withFigure && info.figure === "pension" && pension && !("error" in pension) ? pension : null;
   const figureAt = info.figureAt ?? (family ? 5 : 4);
-  const notice = quota && !look.voice ? voiceNotice(quota, true) : null;
+  const elevenIsOff = useElevenOff(eleven.length > 0);
+  const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
   const voiceBlocked = Boolean(notice?.blocked);
   const line = costLine(cost, info.short ? "videoStoryShort" : "videoStory");
   // the household's numbers, as the form has them

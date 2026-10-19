@@ -51,3 +51,16 @@ export function voiceNotice(q: { clock: string | null; fallback: boolean }, thai
   }
   return { text: q.clock ? voiceFullNotice(q.clock) : thai ? "เสียงพากย์ Google ใช้ไม่ได้ตอนนี้ เลือกเสียง ElevenLabs แทน" : "เสียงพากย์ภาษานี้ใช้ Google ซึ่งใช้ไม่ได้ตอนนี้ ลองใหม่ภายหลัง", ok: false, blocked: true };
 }
+
+/**
+ * The form's note while the ElevenLabs voices cannot speak (owner, 2026-10-20, mockup
+ * https://claude.ai/artifact/J34jDCp3JK3adTytUcZ36f, ก): the clip still starts, read by Google.
+ */
+export const ELEVEN_TO_GOOGLE = {
+  text: "เสียง ElevenLabs ใช้ไม่ได้ตอนนี้ ระบบจะใช้เสียง Google เพศเดียวกันแทนให้เอง ไม่คิดค่าเสียง ElevenLabs",
+  ok: true,
+  blocked: false,
+} as const;
+
+/** the clip card's line when Google read a clip in place of its ElevenLabs voice */
+export const googleInPlace = (eleven: string, google: string) => `เสียง ${eleven} ใช้ไม่ได้ตอนนี้ ใช้เสียง Google (${google}) แทน · ไม่คิดค่าเสียง ElevenLabs`;
