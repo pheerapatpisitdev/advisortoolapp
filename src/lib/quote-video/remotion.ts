@@ -29,17 +29,18 @@ export const REMOTION_FOR_LABEL: Record<RemotionFor, string> = { off: "เคร
 export const readRemotionFor = (v: unknown): RemotionFor => (REMOTION_FOR.includes(v as RemotionFor) ? (v as RemotionFor) : "off");
 
 /** the plans Remotion draws, each with its own row on the switch */
-export type RemotionPlan = "LIFEPROTECT" | "IHEALTHY" | "ISHIELD" | "STORY" | "FREESTORY";
-export const REMOTION_PLANS: RemotionPlan[] = ["LIFEPROTECT", "IHEALTHY", "ISHIELD", "STORY", "FREESTORY"];
+export type RemotionPlan = "LIFEPROTECT" | "IHEALTHY" | "ISHIELD" | "PLB" | "PENSION" | "LEGACY" | "STORY" | "FREESTORY";
+export const REMOTION_PLANS: RemotionPlan[] = ["LIFEPROTECT", "IHEALTHY", "ISHIELD", "PLB", "PENSION", "LEGACY", "STORY", "FREESTORY"];
 export const REMOTION_PLAN_LABEL: Record<RemotionPlan, string> = {
-  LIFEPROTECT: "Life Protect", IHEALTHY: "iHealthy", ISHIELD: "iShield", STORY: "คลิปเล่าเรื่อง", FREESTORY: "คลิปตามโจทย์",
+  LIFEPROTECT: "Life Protect", IHEALTHY: "iHealthy", ISHIELD: "iShield", PLB: "PLB", PENSION: "บำนาญ 95", LEGACY: "มรดก",
+  STORY: "คลิปเล่าเรื่อง", FREESTORY: "คลิปตามโจทย์",
 };
 
 /**
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "e1a9c4212f30";
+export const REMOTION_DRAWING = "5b8cde62c0c3";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -121,7 +122,11 @@ export const SCRIPT_RANGE = [
   "U+2E80-2FDF", "U+3000-303F", "U+3040-30FF", "U+3100-312F", "U+31C0-31EF", "U+3200-9FFF", "U+F900-FAFF", "U+FE30-FE4F", "U+FF00-FFEF", "U+20000-2FA1F", // CJK
 ].join(", ");
 
-/** the plan whose switch row a clip follows, when Remotion can draw it: a portrait Motion Graphic Life Protect, iHealthy or iShield clip */
+/**
+ * the plan whose switch row a clip follows, when Remotion can draw it: a portrait Motion Graphic clip of any plan
+ * (Life Protect, iHealthy, iShield; PLB, บำนาญ 95 and มรดก since owner chose ก ก, 2026-10-19,
+ * mockup https://claude.ai/artifact/R9fqJa7Sd6ZkonxAsAW5TT)
+ */
 export function remotionPlan(input: VideoInput): RemotionPlan | null {
   if (input.style !== "motion" || (input.size ?? "portrait") !== "portrait") return null;
   const product = input.product ?? "LIFEPROTECT";

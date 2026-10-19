@@ -169,7 +169,11 @@ describe("remotionFits", () => {
     expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20" } as Partial<VideoInput>))).toBe(true);
     expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20", style: "classic" } as Partial<VideoInput>))).toBe(false);
     expect(remotionFits(lp({ product: "ISHIELD", variant: "WLCI20", size: "square" } as Partial<VideoInput>))).toBe(false);
-    expect(remotionFits(lp({ product: "PLB" } as Partial<VideoInput>))).toBe(false);
+    // PLB, บำนาญ 95, มรดก: same drawing (owner chose ก ก, 2026-10-19); portrait Motion Graphic only
+    expect(remotionPlan(lp({ product: "PLB", variant: "PLB15" } as Partial<VideoInput>))).toBe("PLB");
+    expect(remotionPlan({ product: "PENSION", age: 40, sex: "M", annuityAge: 55, pay: "untilAnnuity", sumAssured: 183824, style: "motion" } as unknown as VideoInput)).toBe("PENSION");
+    expect(remotionPlan({ product: "LEGACY", age: 35, sex: "M", tier: 1, style: "motion", size: "square" } as unknown as VideoInput)).toBeNull();
+    expect(remotionPlan({ product: "LEGACY", age: 35, sex: "M", tier: 1, style: "classic" } as unknown as VideoInput)).toBeNull();
     expect(remotionFits(ih())).toBe(true);
     expect(remotionFits(ih({ lang: "zh" } as Partial<VideoInput>))).toBe(true);
     expect(remotionFits(ih({ style: "classic" }))).toBe(false);
