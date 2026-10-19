@@ -149,8 +149,25 @@ export function cardPath(input: CardInput): string {
  * asks for them; the sales page's saved picture and the PDF are drawn without.
  */
 export function valueTablePath(input: PlanCardInput, opts: { characters?: boolean } = {}): string {
-  return `/api/card/table?${cardQuery(input, opts.characters)}`;
+  const path = `/api/card/table?${cardQuery(input, opts.characters)}`;
+  return TABLE_WITH_DISEASES.has(input.planCode) ? `${path}${DISEASE_TABLE_REVISION}` : path;
 }
+
+/**
+ * The plans whose value table carries their illnesses under the years, so one picture holds
+ * the price and the cover (owner, 2026-10-19, option ก on mockup
+ * https://claude.ai/artifact/WVkVf2BcZB8pD8GWxeF1aE). Their sales page sends no separate
+ * illness picture; the bot still sends one to a customer who asks which illnesses.
+ */
+export const TABLE_WITH_DISEASES: ReadonlySet<string> = new Set(["ISHIELD"]);
+
+/**
+ * Added to those tables' `v`, so a table drawn before the illnesses were under it is not served
+ * from a cache under the old address. Bump it when that block changes. It stands in for a
+ * DRAWING_REVISION bump, which would also change the Remotion image's drawing fingerprint and
+ * need the image built again for a change no clip draws.
+ */
+const DISEASE_TABLE_REVISION = "i1";
 
 /** What a บำนาญ สมาร์ท 95 table picture is drawn from: the person, the pension age, the paying term and the sum. */
 export interface PensionTableInput {

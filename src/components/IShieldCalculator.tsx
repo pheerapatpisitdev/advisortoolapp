@@ -10,7 +10,11 @@ import {
   cashAt, deathBenefitOf, iShieldModes, illnessBenefit, payYears, termAt, termTakes,
 } from "@/lib/ishield-quote";
 import { iShieldQuoteText, type IShieldAge } from "@/lib/ishield-cta";
-import { cardPath, diseaseCardPath, valueTablePath } from "@/lib/card-link";
+import { cardPath, valueTablePath } from "@/lib/card-link";
+import ishieldDiseases from "../../data/riders/ishield-diseases.json";
+
+/** the illnesses iShield's table carries under its years (src/app/api/card/disease-list.tsx), counted */
+const ILLNESSES = ishieldDiseases.early.length + ishieldDiseases.major.length;
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import { ContactButtons } from "@/components/sales/ContactButtons";
@@ -276,7 +280,7 @@ export function IShieldCalculator({ table, sticky = false }: IShieldCalculatorPr
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
           <ContactButtons
-            copyText={quoteText} cardPath={card} tableCardPath={tableCard} diseaseCardPath={diseaseCardPath("ISHIELD")}
+            copyText={quoteText} cardPath={card} tableCardPath={tableCard} tableLabel={`ตาราง + ${ILLNESSES} โรค`}
             videoHref={who ? videoStartHref({ product: "ISHIELD", sex, age: who.age, sumAssured, variant: term.variant }) : undefined}
           />
         </div>

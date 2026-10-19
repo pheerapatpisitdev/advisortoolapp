@@ -13,6 +13,12 @@ import { googleFontSubset } from "@/lib/google-font";
 import { Chart, chartBlockHeight } from "../chart-drawing";
 import { quoteFor } from "@/lib/life-quotes";
 import { SiteFooter, SITE_FOOTER_H } from "../site-footer";
+import { diseaseListFor, type DiseaseList } from "@/lib/copilot/knowledge";
+import { DiseaseListBlock, diseaseListHeight } from "../disease-list";
+import { TABLE_WITH_DISEASES } from "@/lib/card-link";
+
+/** the room between the last year and the illnesses' title */
+const DISEASES_GAP = 56;
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -274,9 +280,13 @@ function Half(
   );
 }
 
-function heightOf(card: ValueTableCard, chart: CardChart | undefined, quote: string, width: number, top: number): number {
+function heightOf(
+  card: ValueTableCard, chart: CardChart | undefined, quote: string, width: number, top: number,
+  diseases: DiseaseList | undefined,
+): number {
   const perHalf = card.rows.length;
   return PAD * 2
+    + (diseases ? DISEASES_GAP + diseaseListHeight(diseases, width - PAD * 2) : 0)
     + (chart ? chartBlockHeight(chart) : 0)
     + top + H.premium
     + H.gap + H.hairline + H.afterHairline
@@ -316,6 +326,7 @@ export async function GET(req: NextRequest) {
   const named = name ? addressedAs(name) : undefined;
   const whoStyle: WhoStyle = { size: 42, face: 64, color: p.figure, mute: p.mute };
   const top = whoRowHeight(H.plan + H.insured, named, whoStyle);
+  const diseases = input.kind === "plan" && TABLE_WITH_DISEASES.has(input.planCode) ? diseaseListFor(input.planCode) : undefined;
 
   const [regular, semibold, pen] = await Promise.all([
     loadFont("IBMPlexSansThai-Regular.ttf"),
@@ -422,6 +433,12 @@ export async function GET(req: NextRequest) {
           ))}
         </div>
 
+        {diseases && (
+          <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, paddingTop: DISEASES_GAP }}>
+            <DiseaseListBlock list={diseases} width={width - PAD * 2} p={p} />
+          </div>
+        )}
+
         <div
           style={{
             display: "flex", flexShrink: 0, justifyContent: "center", textAlign: "center",
@@ -437,7 +454,7 @@ export async function GET(req: NextRequest) {
     ),
     {
       width,
-      height: heightOf(card, chart, quote, width, top),
+      height: heightOf(card, chart, quote, width, top, diseases),
       fonts: [
         { name: "Plex", data: regular, weight: 400, style: "normal" },
         { name: "Plex", data: semibold, weight: 600, style: "normal" },
