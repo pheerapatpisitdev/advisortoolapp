@@ -34,7 +34,7 @@ import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec } from "./story-motion";
 import { clipWindows } from "./story-frames";
-import { motionWindows, MOTION_FPS } from "./motion";
+import { jarFits, motionWindows, MOTION_FPS } from "./motion";
 import { readTheme } from "./theme-keys";
 import { festivalGreeting, readFestival } from "./festival";
 import { clipProps, REMOTION_DRAWING, REMOTION_JOB, storyClipProps, type ClassicClipProps, type ClipProps, type FhcClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
@@ -401,6 +401,8 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const motion = row.input.style === "motion";
   // the Motion Graphic look (owner, 2026-10-17)
   const theme = motion ? readTheme(row.input.theme) : undefined;
+  // the piggy jar tells the price in one portrait Motion clip in two, at random (owner, 2026-10-20, ค); it needs a daily price
+  const priceJar = motion && size === "portrait" && jarFits(facts) && Math.random() < 0.5;
   // the classic value scene: where the table stops and which pen note is written at each stop
   // Global Savings has its table on the third scene, where the others list their cover (owner, 2026-10-20, ก ก)
   const tableKey = facts.gsaving ? "cover" : "value";
@@ -430,7 +432,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     : {};
   return {
     script, motion, plans, size,
-    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) } } } : {}),
+    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}) } } } : {}),
     ...(!motion ? { classic$: { size, facts, narrator, customer, contact, ...(chart ? { chart } : {}), ...(pen?.notes.length ? { notes: pen.notes } : {}), shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) }, layers } } : {}),
     ...(script$.script ? { scriptFace: script$.script } : {}),
   };

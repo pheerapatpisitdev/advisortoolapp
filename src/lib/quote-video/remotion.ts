@@ -27,7 +27,7 @@ import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "b8726d027a37";
+export const REMOTION_DRAWING = "bbd85f1a970f";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -48,7 +48,8 @@ export type RemotionMotion = {
   customer: string;
   narrator: "F" | "M";
   contact: MotionContext["contact"];
-  shown: { headline?: string[]; loop: boolean; extra: Extra };
+  /** priceJar: the price told as the piggy jar (motion.tsx PriceJar) */
+  shown: { headline?: string[]; loop: boolean; extra: Extra; priceJar?: boolean };
 };
 
 /** a type, not an interface: Remotion's props must fit Record<string, unknown> */

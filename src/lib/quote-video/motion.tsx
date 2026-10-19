@@ -211,6 +211,8 @@ export function look(an: Anim | undefined, t: number): { opacity: number; transf
 
 export interface MotionContext {
   facts: QuoteVideoFacts;
+  /** the price told as the piggy jar instead of the coins and cards (PriceJar; make.ts picks it at random) */
+  priceJar?: boolean;
   /** โจทย์การเล่า (told.ts): the hook's headline over the opening, whether the clip loops, the longer clips' scenes */
   headline?: string[];
   loop?: boolean;
@@ -410,6 +412,82 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
           {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 10 })}>{n}</div>)}
         </El>
       )}
+    </>
+  );
+}
+
+/** a quote the piggy jar can tell: a standing daily price, the years it is paid, and the sum it ends in */
+export const jarFits = (f: QuoteVideoFacts) => Boolean(f.perDayAmount && f.payYears && !f.priceBig && f.lead.amount);
+
+const JAR = "M125 260 L125 240 Q125 230 135 230 L225 230 Q235 230 235 240 L235 260 Q272 278 272 320 L272 470 Q272 500 242 500 L118 500 Q88 500 88 470 L88 320 Q88 278 125 260 Z";
+const JAR_SHIELD = "M180 230 L285 272 L285 365 Q285 455 180 505 Q75 455 75 365 L75 272 Z";
+
+/**
+ * The price as a piggy jar (owner, 2026-10-20, idea 2 on https://claude.ai/artifact/MsvkeeeepPz4XG4TDvhN9n,
+ * "ตามที่แนะนำ"; one clip in two at random, make.ts): a coin of the daily price drops in again and
+ * again while the years count up to the last one paid and the jar fills, then the jar becomes the
+ * shield with the sum the family gets, and the price rows come in under it.
+ */
+function PriceJar({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const years = f.payYears!;
+  const fill = Math.max(3, Math.min(6, c.voiceSec * 0.55));
+  const run = Math.min(1, Math.max(0, (t - 0.6) / fill));
+  const done = 0.6 + fill;
+  const turn = Math.min(1, Math.max(0, (t - done - 0.2) / 0.8));
+  const ease = (q: number) => q * q * (3 - 2 * q);
+  const year = Math.max(1, Math.ceil(run * years));
+  const level = 255 * ease(run);
+  const drop = ((t * 1000) % 450) / 450;
+  const rowsAt = done + 1.2;
+  const big = 1 - 0.4 * (1 - ease(turn));
+  return (
+    <>
+      <Header f={f} title={f.priceTitle} />
+      <div style={abs({ left: 0, width: W, top: 180, flexDirection: "column", alignItems: "center" })}>
+        <div style={box({ fontSize: 50, fontWeight: 600, color: WHITE })}>{`หยอดวันละ ${f.perDayAmount} บาท`}</div>
+        <div style={box({ fontSize: 76, fontWeight: 700, color: GOLD, marginTop: 6 })}>{run < 1 ? `ปีที่ ${year}` : `ครบ ${years} ปี`}</div>
+      </div>
+      <div style={abs({ left: (W - 720) / 2, top: 330, width: 720, height: 600 })}>
+        <svg width={720} height={600} viewBox="60 200 240 320">
+          <defs><clipPath id="jar"><path d={JAR} /></clipPath></defs>
+          <g opacity={1 - ease(turn)}>
+            <path d={JAR} fill="rgba(255,255,255,0.08)" />
+            <rect x={80} y={500 - level} width={200} height={level} fill={GOLD} clipPath="url(#jar)" />
+            <path d={JAR} fill="none" stroke={WHITE} strokeWidth={4} />
+            <rect x={150} y={236} width={60} height={8} rx={4} fill={NAVY} />
+            {run < 1 ? (
+              // from the top of the picture into the slot, under the year's count
+              <g transform={`translate(180 ${212 + 60 * drop * drop})`} opacity={1 - Math.max(0, (drop - 0.8) / 0.2)}>
+                <circle r={16} fill={GOLD} stroke={WHITE} strokeWidth={3} />
+              </g>
+            ) : null}
+          </g>
+          <g opacity={ease(turn)} transform={`translate(180 365) scale(${big}) translate(-180 -365)`}>
+            <path d={JAR_SHIELD} fill={GOLD} stroke={WHITE} strokeWidth={5} />
+          </g>
+        </svg>
+        <div style={abs({ left: 0, width: 720, top: 250, flexDirection: "column", alignItems: "center", opacity: ease(turn) })}>
+          <div style={box({ fontSize: f.lead.amount.length > 9 ? 56 : 66, fontWeight: 700, color: NAVY })}>{f.lead.amount}</div>
+          <div style={box({ fontSize: 40, fontWeight: 600, color: NAVY })}>บาท</div>
+        </div>
+      </div>
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 950, justifyContent: "center", fontSize: 44, fontWeight: 600, color: WHITE, opacity: ease(turn) })}>{f.lead.label}</div>
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 1040, flexDirection: "column" })}>
+        {f.prices.map((r, i) => {
+          const q = ease(Math.min(1, Math.max(0, (t - rowsAt - i * 0.4) / 0.5)));
+          return (
+            <div key={r.label} style={box({
+              justifyContent: "space-between", alignItems: "center", borderRadius: 30, padding: "14px 36px", marginBottom: 16,
+              background: r.main ? WHITE : "rgba(255,255,255,0.1)", border: `3px solid ${r.main ? WHITE : "rgba(255,255,255,0.22)"}`,
+              color: r.main ? NAVY : WHITE, fontSize: 40, opacity: q, transform: `translateX(${Math.round((1 - q) * 80)}px)`,
+            })}>
+              <div style={box({})}>{r.label}</div>
+              <div style={box({ fontWeight: 700, fontSize: r.main ? 54 : 44 })}>{r.amount}</div>
+            </div>
+          );
+        })}
+      </div>
     </>
   );
 }
@@ -1204,7 +1282,7 @@ function StepsScene({ c, t }: { c: MotionContext; t: number }) {
 export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
   const body = {
     lead: <Lead c={c} t={t} />,
-    price: <Price c={c} t={t} />,
+    price: c.priceJar && jarFits(c.facts) ? <PriceJar c={c} t={t} /> : <Price c={c} t={t} />,
     cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} />
       : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : <CoverRows c={c} t={t} />,
