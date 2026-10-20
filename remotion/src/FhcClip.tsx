@@ -3,7 +3,7 @@ import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurren
 import { fhcFrame } from "@/lib/quote-video/fhc-motion";
 import { wideFhcFrame } from "@/lib/quote-video/wide";
 import { motionBackground, motionBgHeight } from "@/lib/quote-video/motion";
-import { themeBackground, themed } from "@/lib/quote-video/themes";
+import { lookOf, mineFront, themeBackground, themed } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
@@ -28,7 +28,7 @@ function useLoaded(p: FhcClipProps, w: number, h: number): Loaded | null {
   useEffect(() => {
     (async () => {
       await loadFonts();
-      const ground = await themeBackground(p.theme, { w, h }, motionBgHeight({ h }), p.festival?.key);
+      const ground = await themeBackground(p.theme, { w, h }, motionBgHeight({ h }), lookOf(p));
       setGot({ ground: ground ?? motionBackground({ w, h }) });
       continueRender(handle);
     })().catch((e) => { console.error(e); throw e; });
@@ -66,7 +66,7 @@ export function FhcClip(p: FhcClipProps) {
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
         {fest ? festivalBack(fest.key, T, w, h) : null}
-        <KeepWords>{themed(body, p.theme, p.festival?.key)}</KeepWords>
+        <KeepWords>{themed(body, p.theme, lookOf(p))}</KeepWords>
       </AbsoluteFill>
     );
   });
@@ -76,6 +76,7 @@ export function FhcClip(p: FhcClipProps) {
       {/* ธีมเทศกาล (festival-decor.tsx): its decorations go in each scene's layer, its greeting over all */}
       {layers}
       {fest ? festivalFront(fest.key, fest.greeting, w, h) : null}
+      {p.theme === "mine" && p.myColor ? mineFront(p.myColor, p.contact, w, h) : null}
       <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
     </AbsoluteFill>
   );

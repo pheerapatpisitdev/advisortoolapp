@@ -8,7 +8,8 @@ import type { Product, VideoInput, VideoLength, VideoStyle } from "@/lib/quote-v
 import type { PlbVariant } from "@/lib/quote-video/plb";
 import { DEFAULT_THEME, readTheme, STANDING_THEMES, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
 import { festivalOn } from "@/lib/quote-video/festival";
-import { VIDEO_FESTIVAL_COLORS } from "@/lib/card-theme";
+import { MY_COLORS, POSTER_THEMES, VIDEO_FESTIVAL_COLORS, type MyColor } from "@/lib/card-theme";
+import { THEME_LABEL } from "@/lib/content/poster";
 import { PLB_SUMS } from "@/lib/quote-pdf/pages";
 import type { ElevenChoice } from "@/lib/voice/elevenlabs";
 import { priceBaht, videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
@@ -99,6 +100,8 @@ const STYLE_KEY = "quote-video-style";
 const THEME_KEY = "quote-video-theme";
 /** the festival the agent turned ธีมเทศกาล off for, by its first day, so it is not picked again until the next one */
 const FESTIVAL_OFF_KEY = "quote-video-festival-off";
+/** สีของฉัน's colour, kept in this browser (owner, 2026-10-20) */
+const MY_COLOR_KEY = "quote-video-my-color";
 /** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
 const BRIEF_KEY = "quote-video-brief";
 /** the four lengths (owner, 2026-10-13: up to 2 minutes; told.ts sceneOrder) */
@@ -281,6 +284,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [theme, setTheme] = useState<ThemeKey>(DEFAULT_THEME);
   // ธีมเทศกาล (owner, 2026-10-20): offered in a festival's seven days, and picked by itself unless turned off for it
   const [festival, setFestival] = useState<ReturnType<typeof festivalOn>>(null);
+  // สีของฉัน (owner, 2026-10-20): the agent's colour, chosen once and kept
+  const [myColor, setMyColor] = useState<MyColor>("emerald");
   const [pickedLength, setLength] = useState<VideoLength>("full");
   // ภาษาในวิดีโอ (owner, 2026-10-15, mockup https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb): iHealthy Ultra only
   // the iHealthy page's shortcut opens in the language the page was read in; otherwise the one kept
@@ -316,6 +321,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     try {
       const keptStyle = localStorage.getItem(STYLE_KEY);
       if (keptStyle === "motion" || keptStyle === "chat") setStyle(keptStyle);
+      const color = localStorage.getItem(MY_COLOR_KEY);
+      if (MY_COLORS.includes(color as MyColor)) setMyColor(color as MyColor);
       const on = festivalOn();
       setFestival(on);
       const kept = readTheme(localStorage.getItem(THEME_KEY));
@@ -330,6 +337,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   function pickStyle(v: VideoStyle) {
     setStyle(v);
     try { localStorage.setItem(STYLE_KEY, v); } catch { /* not remembered, still used */ }
+  }
+  function pickMyColor(v: MyColor) {
+    setMyColor(v);
+    try { localStorage.setItem(MY_COLOR_KEY, v); } catch { /* not remembered, still used */ }
   }
   function pickTheme(v: ThemeKey) {
     setTheme(v);
@@ -355,7 +366,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length), kind === "fhc" || !preview || "error" in preview ? undefined : preview.clipSatang);
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
-  const themed = style === "motion" && theme !== DEFAULT_THEME ? { theme } : {};
+  const themed = style === "motion" && theme !== DEFAULT_THEME ? { theme, ...(theme === "mine" ? { myColor } : {}) } : {};
   const look = foreign
     ? { narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
     : { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
@@ -443,7 +454,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     setError(null);
     try {
       const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme })
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(theme === "mine" ? { myColor } : {}) })
         : await makeVideo(input(), customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -506,6 +517,20 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
         ))}
       </div>
       <p className="mt-1 text-xs text-[var(--ct-mute)]">{theme === "festival" && festival ? `สีและของประดับ${festival.name} คำอวยพร “${festival.greeting}” ด้านบน · กดธีมอื่นเพื่อปิด` : THEME_LABELS[theme].note} · ราคาเท่ากันทุกธีม</p>
+      {theme === "mine" && (
+        <div className="mt-2">
+          <span className={label}>สีประจำตัว</span>
+          <div className="flex flex-wrap gap-2">
+            {MY_COLORS.map((k) => (
+              <button key={k} type="button" className={chip(myColor === k)} onClick={() => pickMyColor(k)}>
+                <span aria-hidden className="inline-block h-3.5 w-5 shrink-0 rounded-[3px] border border-black/15" style={{ background: `linear-gradient(135deg, ${POSTER_THEMES[k].from}, ${POSTER_THEMES[k].to})` }} />
+                {THEME_LABEL[k]}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-[var(--ct-mute)]">เลือกครั้งเดียว ครั้งหน้าเปิดมาเป็นสีเดิม</p>
+        </div>
+      )}
     </div>
   );
   const summary = {

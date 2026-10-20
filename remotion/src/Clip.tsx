@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { motionBackground, motionBgHeight, motionFrame, type MotionContext } from "@/lib/quote-video/motion";
 import { wideQuoteFrame } from "@/lib/quote-video/wide";
-import { themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video/themes";
+import { lookOf, mineFront, themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
@@ -77,7 +77,7 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
       await loadFonts();
       await loadScriptFonts(p.scriptFont);
       const bgH = motionBgHeight({ h });
-      const [hero, ground] = await Promise.all([themeHero(p.theme, p.sex), themeBackground(p.theme, { w, h }, bgH, p.festival?.key)]);
+      const [hero, ground] = await Promise.all([themeHero(p.theme, p.sex), themeBackground(p.theme, { w, h }, bgH, lookOf(p))]);
       setGot({ hero, ground: ground ?? motionBackground({ w, h }) });
       continueRender(handle);
     })().catch((e) => { console.error(e); throw e; });
@@ -149,7 +149,7 @@ export function Clip(p: ClipProps) {
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
         {fest ? festivalBack(fest.key, T, w, h) : null}
         {/* Thai lines break at spaces only, as satori breaks them (KeepWords; owner chose ก, 2026-10-19) */}
-        <KeepWords>{themed(p.size && p.size !== "portrait" ? wideQuoteFrame(sc.key, c, t, p.size) : motionFrame(sc.key, c, t), p.theme, p.festival?.key)}</KeepWords>
+        <KeepWords>{themed(p.size && p.size !== "portrait" ? wideQuoteFrame(sc.key, c, t, p.size) : motionFrame(sc.key, c, t), p.theme, lookOf(p))}</KeepWords>
       </AbsoluteFill>
     );
   });
@@ -159,6 +159,7 @@ export function Clip(p: ClipProps) {
       {/* ธีมเทศกาล (festival-decor.tsx): its decorations go in each scene's layer, its greeting over all */}
       {layers}
       {fest ? festivalFront(fest.key, fest.greeting, w, h) : null}
+      {p.theme === "mine" && p.myColor ? mineFront(p.myColor, p.contact, w, h) : null}
       <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
     </AbsoluteFill>
   );

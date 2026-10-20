@@ -47,6 +47,7 @@ import { LANG_NAME } from "@/lib/ihealthy-lang";
 import { readLength } from "@/lib/quote-video/told";
 import { DEFAULT_THEME, readTheme, THEME_LABELS, type ThemeKey } from "@/lib/quote-video/theme-keys";
 import { FESTIVALS, festivalOn, readFestival, type FestivalKey } from "@/lib/quote-video/festival";
+import { MY_COLORS, type MyColor } from "@/lib/card-theme";
 import { writeLines } from "@/lib/quote-video/writer";
 import { quoteVideoScript, type SceneScript } from "@/lib/quote-video/script";
 import { linesBasis, quoteBasis, readPostText, writePost, type PostBasis, type PostText } from "@/lib/quote-video/post-text";
@@ -158,7 +159,7 @@ function checked(v: VideoInput): VideoInput | string {
   // แชทถาม-ตอบ (owner, 2026-10-20): its customer asks in Thai, so a clip in another language is แบบปกติ
   const style = v.style === "motion" ? "motion" : v.style === "chat" && !foreign ? "chat" : "classic";
   // a Motion Graphic clip's look (owner, 2026-10-17); น้ำเงินทอง is kept as no theme at all
-  const look = lookOf(style === "motion" ? v.theme : undefined);
+  const look = lookOf(style === "motion" ? v.theme : undefined, v.myColor);
   const askedLength = readLength(v.length);
   const length = foreign && askedLength !== "short" ? "full" : askedLength;
   // every clip in every shape (owner, 2026-10-13)
@@ -181,8 +182,10 @@ function checked(v: VideoInput): VideoInput | string {
  * A clip's look as it is kept: none for น้ำเงินทอง; ธีมเทศกาล with the festival on today (festival.ts),
  * or น้ำเงินทอง when the festival's days ended while the form stood open.
  */
-function lookOf(asked: unknown): { theme?: ThemeKey; festival?: FestivalKey } {
+function lookOf(asked: unknown, color?: unknown): { theme?: ThemeKey; festival?: FestivalKey; myColor?: MyColor } {
   const theme = readTheme(asked);
+  // สีของฉัน (owner, 2026-10-20): a colour from the list, or น้ำเงินทอง
+  if (theme === "mine") return MY_COLORS.includes(color as MyColor) ? { theme, myColor: color as MyColor } : {};
   if (theme === "festival") {
     const on = festivalOn();
     return on ? { theme, festival: on.key } : {};
@@ -357,7 +360,7 @@ export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
  * วิดีโอสรุป FHC (owner, 2026-10-12): one saved customer's check as a clip. The figures are copied
  * from the check as it was saved; the name goes in only when the agent leaves it ticked.
  */
-export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; gemini?: string; size?: VideoSize; theme?: string }): Promise<Made> {
+export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; gemini?: string; size?: VideoSize; theme?: string; myColor?: string }): Promise<Made> {
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "quote-video");
   if (closed) return { ok: false, error: closed };
@@ -377,7 +380,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
     narrator: eleven ? eleven.sex : gemini ? gemini.sex : v?.narrator === "M" ? "M" : "F", ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}),
     style: "motion", length: "full", size: sizeOf(v ?? {}), fhc: fhcVideoFacts(c),
     // the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17); น้ำเงินทอง is no field at all
-    ...lookOf(v?.theme),
+    ...lookOf(v?.theme, v?.myColor),
   };
   try {
     const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "");

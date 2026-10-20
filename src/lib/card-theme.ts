@@ -429,10 +429,34 @@ export const CHAT_COLORS = {
   mark: "#facc15", cardHead: "#022162", cardInk: "#141a26", rule: "#e5e7eb", mute: "#8a93a6", pen: "#c2412d", button: "#1f5bd6",
 } as const;
 
+/**
+ * สีของฉัน (owner, 2026-10-20, idea 7 on https://claude.ai/artifact/MsvkeeeepPz4XG4TDvhN9n): the agent's own
+ * colour for every clip, one of the quote cards' sets (POSTER_THEMES), made into a video palette.
+ */
+export const MY_COLORS = ["emerald", "royal", "violet", "red", "orange", "teal", "terracotta", "charcoal", "noir", "sky", "mint", "blush", "sunny", "champagne"] as const;
+export type MyColor = (typeof MY_COLORS)[number];
+const rgbOf = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",");
+export function myColorPalette(key: MyColor): VideoThemePalette {
+  const c = POSTER_THEMES[key];
+  const shapes = [{ color: c.to, opacity: 0.7 }, { color: c.from, opacity: 0.8 }, { color: c.to, opacity: 0.5 }, { color: c.from, opacity: 0.7 }];
+  // white words on a dark set; the set's own dark words on a light one
+  return c.headline === "#ffffff"
+    ? {
+      ink: "#ffffff", inkRgb: "255,255,255", accent: c.badgeBg, fill: c.badgeBg, onFill: c.badgeInk,
+      card: "#ffffff", onCard: c.to, onCardRgb: rgbOf(c.to), second: c.sub, red: "#ff8a80", green: "#6ee7a8", pen: "#ff8a80", bluePen: c.sub,
+      subBg: "rgba(0,0,0,0.45)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: c.badgeBg, ground: c.from, shapes,
+    }
+    : {
+      ink: c.headline, inkRgb: rgbOf(c.headline), accent: c.badgeBg, fill: c.badgeBg, onFill: c.badgeInk,
+      card: "#ffffff", onCard: c.headline, onCardRgb: rgbOf(c.headline), second: c.sub, red: "#d64045", green: "#1f9d55", pen: "#d64045", bluePen: c.headline,
+      subBg: `rgba(${rgbOf(c.headline)},0.88)`, subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd23f", ground: c.from, shapes,
+    };
+}
+
 /** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
   paperFaceRing: "#22252b",
-  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15", board: "#fbfbf8" },
+  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15", board: "#fbfbf8", mine: "#0f5132" },
   /** ไวท์บอร์ด's marker: its body, cap band and tip */
   marker: { body: "#022162", band: "#c2412d", tip: "#1a1a1a" },
 } as const;

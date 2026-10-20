@@ -34,9 +34,10 @@ import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec } from "./story-motion";
 import { clipWindows } from "./story-frames";
-import { jarFits, motionWindows, MOTION_FPS } from "./motion";
+import { jarFits, motionWindows, MOTION_FPS, roadFits } from "./motion";
 import { readTheme } from "./theme-keys";
 import { festivalGreeting, readFestival } from "./festival";
+import { MY_COLORS, type MyColor } from "@/lib/card-theme";
 import { clipProps, REMOTION_DRAWING, REMOTION_JOB, storyClipProps, type ClassicClipProps, type ClipProps, type FhcClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
 import { secondsBetween, type CostParts } from "./run-record";
 import { WIDE_CHART_W } from "./classic-wide";
@@ -352,6 +353,11 @@ export function fhcPartsFor(row: Pick<VideoRow, "customer_name"> & { input: FhcV
   return { size, script, motion: true, plans };
 }
 
+/** สีของฉัน's colour for the clip; nothing for another look, or a colour not on the list */
+function myColorOf(theme: string | undefined, kept: unknown): { myColor?: MyColor } {
+  return theme === "mine" && MY_COLORS.includes(kept as MyColor) ? { myColor: kept as MyColor } : {};
+}
+
 /** ธีมเทศกาล's festival and its greeting for the clip (festival.ts); nothing for another look, or a festival not named */
 function festivalOf(theme: string | undefined, kept: unknown): { festival?: { key: NonNullable<ReturnType<typeof readFestival>>; greeting: string } } {
   const key = theme === "festival" ? readFestival(kept) : undefined;
@@ -404,6 +410,8 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
   const theme = row.input.style === "chat" ? "chat" as const : motion ? readTheme(row.input.theme) : undefined;
   // the piggy jar tells the price in one portrait Motion clip in two, at random (owner, 2026-10-20, ค); it needs a daily price
   const priceJar = row.input.style === "motion" && size === "portrait" && jarFits(facts) && Math.random() < 0.5;
+  // the road of life tells the cover the same way (owner, 2026-10-20, idea 4)
+  const coverRoad = row.input.style === "motion" && size === "portrait" && roadFits(facts) && Math.random() < 0.5;
   // the classic value scene: where the table stops and which pen note is written at each stop
   // Global Savings has its table on the third scene, where the others list their cover (owner, 2026-10-20, ก ก)
   const tableKey = facts.gsaving ? "cover" : "value";
@@ -433,7 +441,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     : {};
   return {
     script, motion, plans, size,
-    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}) } } } : {}),
+    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}), ...(coverRoad ? { coverRoad } : {}) } } } : {}),
     ...(!motion ? { classic$: { size, facts, narrator, customer, contact, ...(chart ? { chart } : {}), ...(pen?.notes.length ? { notes: pen.notes } : {}), shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) }, layers } } : {}),
     ...(script$.script ? { scriptFace: script$.script } : {}),
   };
@@ -719,7 +727,7 @@ async function cutFhcWithRemotion(
   lap("voice up for Remotion");
   bar.note({ step: "submit", done: 0, of: 0 });
   const props: FhcClipProps = {
-    composition: "FhcClip", drawing: REMOTION_DRAWING, size, theme, ...festivalOf(theme, row.input.festival), facts: row.input.fhc, customer: row.customer_name, narrator: narratorOf(row.input), contact,
+    composition: "FhcClip", drawing: REMOTION_DRAWING, size, theme, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), facts: row.input.fhc, customer: row.customer_name, narrator: narratorOf(row.input), contact,
     total: c.total, audio: data.signedUrl,
     scenes: c.plans.map((p, i) => ({ key: p.key as FhcSceneKey, voice: c.script[i].voice, voiceSec: c.secs[i], start: p.start, dur: p.dur })),
   };

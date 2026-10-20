@@ -1,5 +1,6 @@
 import type { ThemeKey } from "./theme-keys";
 import type { FestivalKey } from "./festival";
+import type { MyColor } from "@/lib/card-theme";
 import { AREA_LABEL, type Gap, type GapState } from "@/lib/fhc/gaps";
 import type { EventKey } from "@/lib/fhc/assumptions";
 import type { EventRow, Level, Score, ScoreKey } from "@/lib/fhc/health";
@@ -68,6 +69,8 @@ export interface FhcVideoInput {
   theme?: ThemeKey;
   /** ธีมเทศกาล's festival, kept from the day the clip was asked for (festival.ts); with theme "festival" only */
   festival?: FestivalKey;
+  /** สีของฉัน's colour, as the agent keeps it (card-theme.ts MY_COLORS); with theme "mine" only */
+  myColor?: MyColor;
   /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (remotion.ts) */
   engine?: "remotion";
 }

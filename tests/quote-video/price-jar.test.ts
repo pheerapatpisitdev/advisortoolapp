@@ -22,4 +22,15 @@ describe("the piggy jar (owner, 2026-10-20)", () => {
     expect(quotePartsFor({ input: lp, customer_name: "" }, contact, secs).motion$?.shown.priceJar).toBeUndefined();
     random.mockRestore();
   });
+
+  it("tells the cover as the road of life in one portrait clip in two, reading the cover at each age", async () => {
+    const { coverAt, roadFits } = await import("@/lib/quote-video/motion");
+    const f = quoteVideoFacts(lp)!;
+    expect(roadFits(f)).toBe(true);
+    expect(coverAt(f, 40)).toBe("2,000,000");
+    expect(coverAt(f, 70)).toBe("1,000,000");
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.1);
+    expect(quotePartsFor({ input: lp, customer_name: "" }, contact, [10, 10, 10, 10, 10]).motion$?.shown.coverRoad).toBe(true);
+    random.mockRestore();
+  });
 });

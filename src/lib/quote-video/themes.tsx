@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
-import { QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type VideoThemePalette } from "@/lib/card-theme";
+import { myColorPalette, QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type MyColor, type VideoThemePalette } from "@/lib/card-theme";
 import { DEFAULT_HERO_FACE, familyOf } from "@/lib/story/faces";
 import { faceUris } from "./story-faces";
 import { abs, box, El, MOTION_BG_H, setPenMode, type Anim } from "./motion";
@@ -19,9 +19,38 @@ import { W } from "./timeline";
 
 type Palette = VideoThemePalette;
 const PALETTES: Partial<Record<ThemeKey, Palette>> = VIDEO_THEME_COLORS;
-/** a theme's colours: ธีมเทศกาล's are its festival's (festival.ts); none for น้ำเงินทอง, or a festival not named */
-const paletteOf = (t: ThemeKey | undefined, festival?: FestivalKey): Palette | undefined =>
-  (t === "festival" ? (festival ? VIDEO_FESTIVAL_COLORS[festival] : undefined) : t ? PALETTES[t] : undefined);
+/** what a look needs beside its key: ธีมเทศกาล's festival, สีของฉัน's colour */
+export interface LookOf { festival?: FestivalKey; myColor?: MyColor }
+/** the look a clip's props name (remotion.ts) */
+export const lookOf = (p: { festival?: { key: FestivalKey }; myColor?: MyColor }): LookOf => ({ festival: p.festival?.key, myColor: p.myColor });
+
+/**
+ * สีของฉัน's band (owner, 2026-10-20): the agent's photo and name over every scene, in the strip the
+ * scenes leave empty — above the header on a portrait clip, at the foot's right on a wide one.
+ */
+export function mineFront(myColor: MyColor, contact: { name: string; photo?: string }, w: number, h: number): ReactNode {
+  const p = myColorPalette(myColor);
+  const portrait = h > w;
+  const d = portrait ? 44 : 30;
+  const initials = [...contact.name.replace(/^คุณ/, "")].slice(0, 2).join("");
+  return (
+    <div style={{ position: "absolute", display: "flex", justifyContent: portrait ? "center" : "flex-end", left: 0, width: w, ...(portrait ? { top: 8 } : { bottom: 8 }), paddingRight: portrait ? 0 : 24 }}>
+      <div style={{ display: "flex", alignItems: "center", background: p.fill, color: p.onFill, borderRadius: 40, padding: portrait ? "4px 26px 4px 5px" : "2px 18px 2px 3px", fontFamily: "Plex", fontSize: portrait ? 30 : 22, fontWeight: 600 }}>
+        <div style={{ display: "flex", width: d, height: d, borderRadius: d, overflow: "hidden", background: p.card, color: p.onCard, alignItems: "center", justifyContent: "center", fontSize: Math.round(d * 0.42), marginRight: 12 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {contact.photo ? <img src={contact.photo} width={d} height={d} style={{ width: d, height: d, objectFit: "cover" }} alt="" /> : initials}
+        </div>
+        {contact.name}
+      </div>
+    </div>
+  );
+}
+
+/** a theme's colours: ธีมเทศกาล's are its festival's (festival.ts), สีของฉัน's the agent's; none for น้ำเงินทอง, or a look not named */
+const paletteOf = (t: ThemeKey | undefined, look: LookOf = {}): Palette | undefined =>
+  (t === "festival" ? (look.festival ? VIDEO_FESTIVAL_COLORS[look.festival] : undefined)
+    : t === "mine" ? (look.myColor ? myColorPalette(look.myColor) : undefined)
+    : t ? PALETTES[t] : undefined);
 
 export const themeFont = (t: ThemeKey | undefined) => (t ? PALETTES[t]?.font : undefined);
 
@@ -127,8 +156,8 @@ function repaint(node: ReactNode, p: Palette, under: Surface): ReactNode {
 }
 
 /** a frame in its theme; the navy looks come back as they went in */
-export function themed(frame: ReactNode, t: ThemeKey | undefined, festival?: FestivalKey): ReactNode {
-  const p = paletteOf(t, festival);
+export function themed(frame: ReactNode, t: ThemeKey | undefined, look?: LookOf): ReactNode {
+  const p = paletteOf(t, look);
   if (!p) return frame;
   if (!p.marker) return repaint(frame, p, "ground");
   // ไวท์บอร์ด: the pieces are run here, so their marker is on for this repaint only (motion.tsx El);
@@ -147,8 +176,8 @@ const texture = () => (paperFile ??= readFile(join(process.cwd(), "public/collag
   .then((b) => `data:image/jpeg;base64,${b.toString("base64")}`));
 
 /** the drifting ground of a themed clip: its paper, or motion.tsx's shapes in the theme's colours */
-export async function themeBackground(t: ThemeKey, size: { w: number; h: number }, bgH: number, festival?: FestivalKey): Promise<ReactNode | null> {
-  const p = paletteOf(t, festival);
+export async function themeBackground(t: ThemeKey, size: { w: number; h: number }, bgH: number, look?: LookOf): Promise<ReactNode | null> {
+  const p = paletteOf(t, look);
   if (!p) return null;
   if (p.texture) {
     const paper = await texture();

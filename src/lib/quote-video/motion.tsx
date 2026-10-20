@@ -213,6 +213,8 @@ export interface MotionContext {
   facts: QuoteVideoFacts;
   /** the price told as the piggy jar instead of the coins and cards (PriceJar; make.ts picks it at random) */
   priceJar?: boolean;
+  /** the cover told as the road of life instead of its bars or bands (CoverRoad; make.ts picks it at random) */
+  coverRoad?: boolean;
   /** โจทย์การเล่า (told.ts): the hook's headline over the opening, whether the clip loops, the longer clips' scenes */
   headline?: string[];
   loop?: boolean;
@@ -462,6 +464,84 @@ function Price({ c, t }: { c: MotionContext; t: number }) {
           {f.priceNotes.map((n) => <div key={n} style={box({ marginBottom: 10 })}>{n}</div>)}
         </El>
       )}
+    </>
+  );
+}
+
+/** a quote the road can tell: whole-life cover from today's age, with a last paying year before its end */
+export const roadFits = (f: QuoteVideoFacts) =>
+  (f.coverStyle === "bars" || f.coverStyle === "bands") && Boolean(f.lastPayAge) && f.coverToAge > f.age && f.lastPayAge! < f.coverToAge;
+
+/** the cover at an age, read from the cover rows ("ก่อนอายุ 60", "อายุ 60 ปีขึ้นไป"); the opening sum where they say no age */
+export function coverAt(f: QuoteVideoFacts, age: number): string {
+  for (const r of f.cover) {
+    const before = /ก่อนอายุ\s*(\d+)/.exec(r.label);
+    if (before && age < Number(before[1])) return r.amount;
+    const from = /(?:อายุ|ตั้งแต่อายุ)\s*(\d+)\s*(?:ปี)?\s*(?:ขึ้นไป|เป็นต้นไป)/.exec(r.label);
+    if (from && age >= Number(from[1])) return r.amount;
+  }
+  return f.lead.amount;
+}
+
+/**
+ * The cover as the road of life (owner, 2026-10-20, idea 4 on https://claude.ai/artifact/MsvkeeeepPz4XG4TDvhN9n,
+ * "ทำได้เลย"; one clip in two at random, make.ts): the insured walks from today's age to the end of cover under
+ * an umbrella, the age and the cover at it counting as they go, past flags at the last year paid, at 60 and
+ * at the end.
+ */
+function CoverRoad({ c, t }: { c: MotionContext; t: number }) {
+  const f = c.facts;
+  const walk = Math.max(3, c.voiceSec - 0.8);
+  const q = Math.min(1, Math.max(0, (t - 0.5) / walk));
+  const ease = q * q * (3 - 2 * q);
+  const age = f.age + (f.coverToAge - f.age) * ease;
+  // the whole road about one and a half screens long, the walker a fifth of the way in
+  const step = 1500 / (f.coverToAge - f.age);
+  const at = 220;
+  const X = (a: number) => at + (a - f.age) * step;
+  const shift = at - X(age);
+  const ROAD = 1260;
+  const flags: { age: number; words: string; color: string }[] = [
+    { age: f.age, words: "เริ่มวันนี้", color: WHITE },
+    { age: f.lastPayAge!, words: `จ่ายครบ ${f.payYears ?? f.lastPayAge! - f.age} ปี`, color: RED },
+    ...(60 > f.lastPayAge! + 3 && 60 < f.coverToAge - 3 ? [{ age: 60, words: "เกษียณ", color: WHITE }] : []),
+    { age: f.coverToAge, words: `คุ้มครองถึง ${f.coverToAge}`, color: GOLD },
+  ];
+  const sw = q < 1 ? Math.sin(t * 9) * 16 : 0;
+  return (
+    <>
+      <Header f={f} title={f.coverTitle} />
+      <div style={abs({ left: 0, width: W, top: 190, flexDirection: "column", alignItems: "center" })}>
+        <div style={box({ fontSize: 96, fontWeight: 700, color: GOLD })}>{`อายุ ${Math.round(age)}`}</div>
+        <div style={box({ fontSize: 46, color: WHITE, marginTop: 8 })}>{`คุ้มครอง ${coverAt(f, Math.round(age))} บาท`}</div>
+      </div>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", left: 0, top: 0 }}>
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((k) => <ellipse key={k} cx={((k * 360 + shift * 0.35) % 2880 + 2880) % 2880 - 400} cy={ROAD + 10} rx={300} ry={170} fill="rgba(255,255,255,0.06)" />)}
+        <g transform={`translate(${shift} 0)`}>
+          <line x1={X(f.age) - 400} y1={ROAD} x2={X(f.coverToAge) + 600} y2={ROAD} stroke={GOLD} strokeWidth={8} strokeLinecap="round" />
+          {flags.map((fl, i) => {
+            // taller than the walker and his umbrella, every other one taller still so close flags' words do not meet
+            const top = i % 2 ? 660 : 540;
+            return (
+            <g key={fl.words} transform={`translate(${X(fl.age)} ${ROAD})`}>
+              <line x1={0} y1={0} x2={0} y2={-top} stroke={fl.color} strokeWidth={6} />
+              <path d={`M0 ${-top} L110 ${22 - top} L0 ${44 - top} Z`} fill={fl.color} />
+              <text x={0} y={-top - 20} textAnchor="middle" fill={fl.color} fontSize={40} fontWeight={700} fontFamily="Plex">{fl.words}</text>
+              <text x={0} y={60} textAnchor="middle" fill={WHITE} fontSize={34} fontFamily="Plex">{`อายุ ${fl.age}`}</text>
+            </g>
+            );
+          })}
+        </g>
+        <g transform={`translate(${at} ${ROAD - 4 - Math.abs(Math.sin(t * 9)) * 6 * (q < 1 ? 1 : 0)})`}>
+          <path d="M-110 -330 Q0 -440 110 -330 Q82 -350 55 -330 Q28 -350 0 -330 Q-28 -350 -55 -330 Q-82 -350 -110 -330 Z" fill={GOLD} />
+          <line x1={0} y1={-330} x2={0} y2={-240} stroke={GOLD} strokeWidth={8} />
+          <circle cx={0} cy={-205} r={34} fill={WHITE} />
+          <line x1={0} y1={-170} x2={0} y2={-80} stroke={WHITE} strokeWidth={14} strokeLinecap="round" />
+          <line x1={0} y1={-150} x2={-34} y2={-110} stroke={WHITE} strokeWidth={12} strokeLinecap="round" />
+          <line x1={0} y1={-80} x2={sw} y2={0} stroke={WHITE} strokeWidth={14} strokeLinecap="round" />
+          <line x1={0} y1={-80} x2={-sw} y2={0} stroke={WHITE} strokeWidth={14} strokeLinecap="round" />
+        </g>
+      </svg>
     </>
   );
 }
@@ -1333,7 +1413,7 @@ export function motionFrame(key: SceneKey, c: MotionContext, t: number) {
   const body = {
     lead: <Lead c={c} t={t} />,
     price: c.priceJar && jarFits(c.facts) ? <PriceJar c={c} t={t} /> : <Price c={c} t={t} />,
-    cover: c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
+    cover: c.coverRoad && roadFits(c.facts) ? <CoverRoad c={c} t={t} /> : c.facts.coverStyle === "bars" ? <CoverBars c={c} t={t} /> : c.facts.coverStyle === "steps" ? <CoverSteps c={c} t={t} />
       : c.facts.coverStyle === "bands" ? <CoverBands c={c} t={t} /> : c.facts.coverStyle === "flat" ? <CoverFlat c={c} t={t} />
       : c.facts.coverStyle === "payback" ? <CoverPayback c={c} t={t} /> : <CoverRows c={c} t={t} />,
     value: c.facts.pension ? <PensionValue c={c} t={t} /> : <Value c={c} t={t} />,
