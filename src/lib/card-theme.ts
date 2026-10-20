@@ -453,6 +453,9 @@ export function myColorPalette(key: MyColor): VideoThemePalette {
     };
 }
 
+/** น้องโล่ (owner, 2026-10-20; quote-video/mascot.tsx): the brand's shield, the same in every look */
+export const MASCOT_COLORS = { body: "#1f5bd6", rim: "#c6bc99", eye: "#ffffff", pupil: "#01143d", cheek: "#f9a8d4", mouth: "#ffffff", hand: "#ffffff" } as const;
+
 /** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
   paperFaceRing: "#22252b",

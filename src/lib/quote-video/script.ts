@@ -79,6 +79,10 @@ export type VideoInput = (
   festival?: FestivalKey;
   /** สีของฉัน's colour, as the agent keeps it (card-theme.ts MY_COLORS); with theme "mine" only */
   myColor?: MyColor;
+  /** น้องโล่ in the corner (owner, 2026-10-20; mascot.tsx); absent = none, as clips before it */
+  mascot?: boolean;
+  /** the next scene's figure carried over each join (owner, 2026-10-20; carry.tsx); absent = the plain joins */
+  carry?: boolean;
   /** who draws a Motion Graphic clip: Remotion on Cloud Run (owner, 2026-10-17; remotion.ts, set when made by the /admin/ai switch); absent = the satori frames */
   engine?: "remotion";
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */

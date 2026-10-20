@@ -102,6 +102,9 @@ const THEME_KEY = "quote-video-theme";
 const FESTIVAL_OFF_KEY = "quote-video-festival-off";
 /** สีของฉัน's colour, kept in this browser (owner, 2026-10-20) */
 const MY_COLOR_KEY = "quote-video-my-color";
+/** น้องโล่ and the carried figures, kept in this browser (owner, 2026-10-20); on unless turned off here */
+const MASCOT_KEY = "quote-video-mascot";
+const CARRY_KEY = "quote-video-carry";
 /** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
 const BRIEF_KEY = "quote-video-brief";
 /** the four lengths (owner, 2026-10-13: up to 2 minutes; told.ts sceneOrder) */
@@ -286,6 +289,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const [festival, setFestival] = useState<ReturnType<typeof festivalOn>>(null);
   // สีของฉัน (owner, 2026-10-20): the agent's colour, chosen once and kept
   const [myColor, setMyColor] = useState<MyColor>("emerald");
+  // น้องโล่ and ตัวเลขลอยต่อ (owner, 2026-10-20): on for every Motion clip unless turned off
+  const [mascot, setMascot] = useState(true);
+  const [carry, setCarry] = useState(true);
   const [pickedLength, setLength] = useState<VideoLength>("full");
   // ภาษาในวิดีโอ (owner, 2026-10-15, mockup https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb): iHealthy Ultra only
   // the iHealthy page's shortcut opens in the language the page was read in; otherwise the one kept
@@ -321,6 +327,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     try {
       const keptStyle = localStorage.getItem(STYLE_KEY);
       if (keptStyle === "motion" || keptStyle === "chat") setStyle(keptStyle);
+      if (localStorage.getItem(MASCOT_KEY) === "off") setMascot(false);
+      if (localStorage.getItem(CARRY_KEY) === "off") setCarry(false);
       const color = localStorage.getItem(MY_COLOR_KEY);
       if (MY_COLORS.includes(color as MyColor)) setMyColor(color as MyColor);
       const on = festivalOn();
@@ -337,6 +345,14 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   function pickStyle(v: VideoStyle) {
     setStyle(v);
     try { localStorage.setItem(STYLE_KEY, v); } catch { /* not remembered, still used */ }
+  }
+  function pickMascot(on: boolean) {
+    setMascot(on);
+    try { localStorage.setItem(MASCOT_KEY, on ? "on" : "off"); } catch { /* not remembered, still used */ }
+  }
+  function pickCarry(on: boolean) {
+    setCarry(on);
+    try { localStorage.setItem(CARRY_KEY, on ? "on" : "off"); } catch { /* not remembered, still used */ }
   }
   function pickMyColor(v: MyColor) {
     setMyColor(v);
@@ -366,7 +382,9 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const line = costLine(cost, kind === "fhc" ? "videoFhc" : videoPriceKey(style, length), kind === "fhc" || !preview || "error" in preview ? undefined : preview.clipSatang);
 
   const budgetOf = () => (source === "sum" ? undefined : { baht: Number(budget.replace(/[^\d]/g, "")), per: source });
-  const themed = style === "motion" && theme !== DEFAULT_THEME ? { theme, ...(theme === "mine" ? { myColor } : {}) } : {};
+  const themed = style === "motion"
+    ? { ...(theme !== DEFAULT_THEME ? { theme, ...(theme === "mine" ? { myColor } : {}) } : {}), ...(mascot ? { mascot: true } : {}), ...(carry ? { carry: true } : {}) }
+    : {};
   const look = foreign
     ? { narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
     : { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
@@ -454,7 +472,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     setError(null);
     try {
       const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(theme === "mine" ? { myColor } : {}) })
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(theme === "mine" ? { myColor } : {}), ...(mascot ? { mascot: true } : {}) })
         : await makeVideo(input(), customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -529,6 +547,24 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
             ))}
           </div>
           <p className="mt-1 text-xs text-[var(--ct-mute)]">เลือกครั้งเดียว ครั้งหน้าเปิดมาเป็นสีเดิม</p>
+        </div>
+      )}
+      <div className="mt-2">
+        <span className={label}>น้องโล่</span>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={chip(mascot)} onClick={() => pickMascot(true)}>ใส่ตัวการ์ตูน</button>
+          <button type="button" className={chip(!mascot)} onClick={() => pickMascot(false)}>ไม่ใส่</button>
+        </div>
+        <p className="mt-1 text-xs text-[var(--ct-mute)]">โล่ตัวน้อยมุมซ้ายล่าง กะพริบตา ชี้ ตกใจตอนเห็นยอดเงิน และโบกมือตอนจบ</p>
+      </div>
+      {kind === "quote" && (
+        <div className="mt-2">
+          <span className={label}>รอยต่อฉาก</span>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={chip(carry)} onClick={() => pickCarry(true)}>ตัวเลขลอยต่อ</button>
+            <button type="button" className={chip(!carry)} onClick={() => pickCarry(false)}>แบบเดิม</button>
+          </div>
+          <p className="mt-1 text-xs text-[var(--ct-mute)]">ตัวเลขสำคัญของฉากถัดไปขยายขึ้นกลางจอตอนเปลี่ยนฉาก แล้วลอยหายเข้าฉากใหม่</p>
         </div>
       )}
     </div>

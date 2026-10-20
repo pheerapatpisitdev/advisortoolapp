@@ -28,7 +28,7 @@ import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "c3ee00898ad5";
+export const REMOTION_DRAWING = "680ce86181c1";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -44,6 +44,10 @@ export type RemotionMotion = {
   festival?: { key: FestivalKey; greeting: string };
   /** สีของฉัน's colour (card-theme.ts MY_COLORS); with theme "mine" only */
   myColor?: MyColor;
+  /** น้องโล่ in the corner (mascot.tsx) */
+  mascot?: boolean;
+  /** the next scene's figure carried over each join (carry.tsx) */
+  carry?: boolean;
   /** the clip's shape: portrait draws motionFrame, square and landscape wideQuoteFrame (wide.tsx); none = portrait */
   size?: VideoSize;
   sex: "M" | "F";
@@ -118,6 +122,8 @@ export type FhcClipProps = {
   festival?: { key: FestivalKey; greeting: string };
   /** สีของฉัน's colour (card-theme.ts MY_COLORS); with theme "mine" only */
   myColor?: MyColor;
+  /** น้องโล่ in the corner (mascot.tsx) */
+  mascot?: boolean;
   facts: FhcVideoFacts;
   customer: string;
   narrator: "F" | "M";

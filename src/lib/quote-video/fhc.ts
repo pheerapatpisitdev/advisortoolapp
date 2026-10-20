@@ -71,6 +71,8 @@ export interface FhcVideoInput {
   festival?: FestivalKey;
   /** สีของฉัน's colour, as the agent keeps it (card-theme.ts MY_COLORS); with theme "mine" only */
   myColor?: MyColor;
+  /** น้องโล่ in the corner (owner, 2026-10-20; mascot.tsx); absent = none, as clips before it */
+  mascot?: boolean;
   /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (remotion.ts) */
   engine?: "remotion";
 }

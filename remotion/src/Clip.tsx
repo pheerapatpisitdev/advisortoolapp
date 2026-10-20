@@ -2,11 +2,13 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { motionBackground, motionBgHeight, motionFrame, type MotionContext } from "@/lib/quote-video/motion";
 import { wideQuoteFrame } from "@/lib/quote-video/wide";
-import { lookOf, mineFront, themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video/themes";
+import { lookFill, lookOf, mineFront, themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
 import { kineticFrame } from "@/lib/quote-video/kinetic";
+import { mascotFront } from "@/lib/quote-video/mascot";
+import { carryFront } from "@/lib/quote-video/carry";
 import { chatFrame } from "@/lib/quote-video/chat";
 import { SCRIPT_RANGE, type ClipProps } from "@/lib/quote-video/remotion";
 import { KeepWords } from "./KeepWords";
@@ -106,6 +108,7 @@ export function Clip(p: ClipProps) {
   if (!got) return null;
   const T = frame / fps;
   const fest = p.theme === "festival" ? p.festival : undefined;
+  const now = [...p.scenes].reverse().find((sc) => sc.start <= T);
   // แชทถาม-ตอบ (chat.tsx): one conversation over the whole clip, a ติ๊ง as each question comes in
   if (p.theme === "chat") {
     return (
@@ -158,6 +161,9 @@ export function Clip(p: ClipProps) {
       <style>{SATORI_CSS}</style>
       {/* ธีมเทศกาล (festival-decor.tsx): its decorations go in each scene's layer, its greeting over all */}
       {layers}
+      {/* the next scene's figure carried over each join (carry.tsx), and น้องโล่ (mascot.tsx) in the scene now on */}
+      {p.carry && p.theme !== "kinetic" ? carryFront(p.scenes, p.facts, T, w, h, lookFill(p.theme, lookOf(p))) : null}
+      {p.mascot && p.theme !== "kinetic" && now ? mascotFront(now.key, T - now.start, T, w, h) : null}
       {fest ? festivalFront(fest.key, fest.greeting, w, h) : null}
       {p.theme === "mine" && p.myColor ? mineFront(p.myColor, p.contact, w, h) : null}
       <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />

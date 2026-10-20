@@ -46,6 +46,12 @@ export function mineFront(myColor: MyColor, contact: { name: string; photo?: str
   );
 }
 
+/** a look's gold pill and its words, for what is laid over the scenes (carry.tsx): the navy look's own where it has none */
+export function lookFill(t: ThemeKey | undefined, look?: LookOf): { fill: string; onFill: string } {
+  const p = paletteOf(t, look);
+  return p ? { fill: p.fill, onFill: p.onFill } : { fill: C.motionGold, onFill: C.motionNavy };
+}
+
 /** a theme's colours: ธีมเทศกาล's are its festival's (festival.ts), สีของฉัน's the agent's; none for น้ำเงินทอง, or a look not named */
 const paletteOf = (t: ThemeKey | undefined, look: LookOf = {}): Palette | undefined =>
   (t === "festival" ? (look.festival ? VIDEO_FESTIVAL_COLORS[look.festival] : undefined)

@@ -353,6 +353,12 @@ export function fhcPartsFor(row: Pick<VideoRow, "customer_name"> & { input: FhcV
   return { size, script, motion: true, plans };
 }
 
+/** น้องโล่ and the carried figures, for a Motion Graphic quote clip that asked for them (not แชทถาม-ตอบ) */
+function extrasOf(input: VideoInput): { mascot?: boolean; carry?: boolean } {
+  if (input.style !== "motion") return {};
+  return { ...(input.mascot ? { mascot: true } : {}), ...(input.carry ? { carry: true } : {}) };
+}
+
 /** สีของฉัน's colour for the clip; nothing for another look, or a colour not on the list */
 function myColorOf(theme: string | undefined, kept: unknown): { myColor?: MyColor } {
   return theme === "mine" && MY_COLORS.includes(kept as MyColor) ? { myColor: kept as MyColor } : {};
@@ -441,7 +447,7 @@ export function quotePartsFor(row: Pick<VideoRow, "customer_name"> & { input: Vi
     : {};
   return {
     script, motion, plans, size,
-    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}), ...(coverRoad ? { coverRoad } : {}) } } } : {}),
+    ...(motion ? { motion$: { theme: theme!, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), ...extrasOf(row.input), ...(size !== "portrait" ? { size } : {}), sex: row.input.sex, facts, customer, narrator, contact, shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}), ...(priceJar ? { priceJar } : {}), ...(coverRoad ? { coverRoad } : {}) } } } : {}),
     ...(!motion ? { classic$: { size, facts, narrator, customer, contact, ...(chart ? { chart } : {}), ...(pen?.notes.length ? { notes: pen.notes } : {}), shown: { loop, extra: shown.extra, ...(shown.headline ? { headline: shown.headline } : {}) }, layers } } : {}),
     ...(script$.script ? { scriptFace: script$.script } : {}),
   };
@@ -727,7 +733,7 @@ async function cutFhcWithRemotion(
   lap("voice up for Remotion");
   bar.note({ step: "submit", done: 0, of: 0 });
   const props: FhcClipProps = {
-    composition: "FhcClip", drawing: REMOTION_DRAWING, size, theme, ...festivalOf(theme, row.input.festival), ...myColorOf(theme, row.input.myColor), facts: row.input.fhc, customer: row.customer_name, narrator: narratorOf(row.input), contact,
+    composition: "FhcClip", drawing: REMOTION_DRAWING, size, theme, ...festivalOf(theme, row.input.festival), ...(row.input.mascot ? { mascot: true } : {}), ...myColorOf(theme, row.input.myColor), facts: row.input.fhc, customer: row.customer_name, narrator: narratorOf(row.input), contact,
     total: c.total, audio: data.signedUrl,
     scenes: c.plans.map((p, i) => ({ key: p.key as FhcSceneKey, voice: c.script[i].voice, voiceSec: c.secs[i], start: p.start, dur: p.dur })),
   };
