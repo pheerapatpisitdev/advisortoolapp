@@ -3,6 +3,7 @@ import { iShieldModes, termAt as iShieldTerm, termTakes } from "@/lib/ishield-qu
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectModes, termAt as lifeProtectTerm } from "@/lib/lifeprotect-quote";
 import { DEFAULT_HERO_FACE, DEFAULT_NARRATOR_FACE, faceOf, FACES } from "@/lib/story/faces";
+import { checkedLook, isGround, type FigureGround, type FigureLook } from "@/lib/story/figure";
 import { planName, STORY_PLANS, type StoryPlan } from "@/lib/story/plans";
 import { FESTIVALS, GRADUATE_AGE, LADDER_AGES, LADDER_PLAN, topicOf, type Festival, type StoryTopic, type StoryTopicInfo } from "@/lib/story/topics";
 import type { PensionPay } from "@/calc/pension/engine";
@@ -72,6 +73,13 @@ export interface StoryVideoInput {
   festival?: Festival;
   /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (remotion.ts) */
   engine?: "remotion";
+  /**
+   * มินิมอล (owner, 2026-10-20, lib/story/figure.tsx): whole people drawn flat in place of the faces, on one of
+   * three grounds, the hero and the agent as the agent dressed them. None = the hand-drawn faces.
+   */
+  art?: "minimal";
+  ground?: FigureGround;
+  cast?: { hero: FigureLook; narrator: FigureLook };
 }
 
 /**
@@ -252,6 +260,14 @@ export function checkedStory(
     if (typeof h === "string") return h;
     home = h;
   }
+  let minimal: Pick<StoryVideoInput, "art" | "ground" | "cast"> = {};
+  if (v.art === "minimal") {
+    const heroLook = checkedLook(v.cast?.hero), narratorLook = checkedLook(v.cast?.narrator);
+    if (!heroLook || !narratorLook) return "แต่งตัวละครให้ครบอีกครั้ง";
+    // the hero is drawn as dressed, and told as the face's sex says: the two must agree
+    if (heroLook.sex !== faceOf(hero)?.sex) return "เพศของตัวละครหลักไม่ตรงกับที่เลือกไว้ เลือกใหม่อีกครั้ง";
+    minimal = { art: "minimal", ground: isGround(v.ground) ? v.ground : "lav", cast: { hero: heroLook, narrator: narratorLook } };
+  }
   let ladder: StoryLadder | undefined;
   if (v.ladder === true && topic.figure === "ladder") {
     const l = storyLadder(faceOf(hero)?.sex ?? "F");
@@ -262,7 +278,7 @@ export function checkedStory(
     product: "STORY", topic: topic.key, narrator, ...(voice ? { voice } : {}), style: "story", length: "full",
     size: sizeOf(v), palette: v.palette === "color" ? "color" : "reveal",
     faces: { narrator: narratorFace, hero, ...(partner ? { partner } : {}) }, ...(figure ? { figure } : {}), ...(ladder ? { ladder } : {}), ...(pension ? { pension } : {}), ...(home ? { home } : {}),
-    ...(due ? { due } : {}), ...(festival ? { festival } : {}),
+    ...(due ? { due } : {}), ...(festival ? { festival } : {}), ...minimal,
   };
 }
 

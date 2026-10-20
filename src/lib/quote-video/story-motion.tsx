@@ -1,5 +1,6 @@
 import { CARD_PALETTE as P, QUOTE_VIDEO_COLORS, STORY_CLIP_COLORS } from "@/lib/card-theme";
 import { CROWD_HERO, FACE_PAPER } from "@/lib/story/faces";
+import { blend, Figure, GROUNDS, lookFromId, POSES, type Drawn, type Pose, type PoseName } from "@/lib/story/figure";
 import { topicOf } from "@/lib/story/topics";
 import { a, abs, box, El, look, stroke, type Anim } from "./motion";
 import { heroName, planName, storyEvent, termShort, type StorySceneKey, type StoryVideoInput } from "./story";
@@ -152,7 +153,7 @@ function Title({ c, an, t, text }: { c: StoryContext; an?: Anim; t: number; text
   const g = GEO[c.size];
   const { w } = SIZES[c.size];
   return (
-    <El an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: INK }}>
+    <El an={an} t={t} style={{ position: "absolute", left: 40, width: w - 80, top: g.title, flexDirection: "column", alignItems: "center", fontFamily: HAND, color: paperInk(c.input) }}>
       <div style={box({ fontSize: g.titleSize, fontWeight: 600, lineHeight: 1.15 })}>{text[0]}</div>
       <div style={box({ fontSize: Math.round(g.titleSize * 0.46), marginTop: 6, textAlign: "center" })}>{text[1]}</div>
     </El>
@@ -173,13 +174,45 @@ function cells(area: Rect, cols: number, rows: number): Rect[] {
 // eslint-disable-next-line @next/next/no-img-element
 export const Img = ({ src, r, opacity = 1 }: { src?: string; r: Rect; opacity?: number }) => (src ? <img src={src} width={r.w} height={r.h} style={{ position: "absolute", left: r.x, top: r.y, opacity }} alt="" /> : null);
 
+/** มินิมอล (lib/story/figure.tsx): whole people in place of the faces, on the ground the agent picked */
+export const minimal = (input: StoryVideoInput) => input.art === "minimal";
+export const groundOf = (input: StoryVideoInput) => GROUNDS[input.ground ?? "lav"];
+/** the colour of words written straight on the ground: light on the dark one */
+export const paperInk = (input: StoryVideoInput) => (minimal(input) ? groundOf(input).ink : INK);
+
+/** how someone is drawn: the hero and the agent as the agent dressed them, anyone else from their id */
+export function lookFor(id: string, input: StoryVideoInput): Drawn {
+  const cast = input.cast;
+  if (cast && id === input.faces.hero) return { ...cast.hero, age: "adult" };
+  if (cast && id === input.faces.narrator) return { ...cast.narrator, age: "adult" };
+  return lookFromId(id);
+}
+
+/**
+ * Someone in the box `r`: their face, or (มินิมอล) their whole self in `pose`, moving at scene time t.
+ * `gray`: the grey face, or drawn grey; `dash`: only a dashed outline (มินิมอล; a face scene draws its own ring).
+ */
+export function Pic({ c, id, r, opacity = 1, gray, dash, pose = "stand", t = 0, dir }: {
+  c: StoryContext; id: string; r: Rect; opacity?: number; gray?: boolean; dash?: boolean; pose?: PoseName | Pose; t?: number; dir?: 1 | -1;
+}) {
+  if (!minimal(c.input)) return <Img src={c.faces[gray ? `${id}-g` : id]} r={r} opacity={opacity} />;
+  const p = typeof pose === "string" ? POSES[pose](t) : pose;
+  return (
+    <div style={abs({ left: r.x, top: r.y, width: r.w, height: r.h, opacity })}>
+      <Figure look={lookFor(id, c.input)} pose={p} w={r.w} h={r.h} g={groundOf(c.input)} gray={gray} dash={dash} dir={dir} />
+    </div>
+  );
+}
+
 /**
  * The 48. `color`: how coloured each row is, 0 grey to 1 colour (a "color" palette is always 1);
  * `rowAn`: each row's entrance; `opacity`: each face's own, the hero's apart.
  */
-function Crowd({ c, area, t, rowAn, color, opacity, coins }: {
+function Crowd({ c, area, t, rowAn, color, opacity, coins, pose }: {
   c: StoryContext; area: Rect; t: number; rowAn?: (r: number) => Anim | undefined;
   color: (r: number) => number; opacity?: (i: number) => number; coins?: (r: number) => Anim | undefined;
+  /** มินิมอล: how the people stand, row by row */
+  pose?: (r: number) => PoseName;
 }) {
   const g = GEO[c.size];
   const rects = cells(area, g.cols, g.rows);
@@ -192,11 +225,14 @@ function Crowd({ c, area, t, rowAn, color, opacity, coins }: {
         const p = c.input.palette === "color" ? 1 : color(row);
         const o = (opacity?.(i) ?? 1) * l.opacity;
         const coin = coins?.(row);
+        const tall = minimal(c.input) ? { x: 0, y: -Math.round(r.h * 0.5), w: r.w, h: Math.round(r.h * 1.5) } : { x: 0, y: 0, w: r.w, h: r.h };
         const cl = coin ? look(coin, t) : null;
         return (
           <div key={i} style={{ display: "flex", position: "absolute", left: r.x, top: r.y, width: r.w, height: r.h, opacity: o, ...(l.transform ? { transform: l.transform } : {}) }}>
-            {p < 1 ? <Img src={c.faces[`${id}-g`]} r={{ x: 0, y: 0, w: r.w, h: r.h }} /> : null}
-            {p > 0 ? <Img src={c.faces[id]} r={{ x: 0, y: 0, w: r.w, h: r.h }} opacity={p} /> : null}
+            {/* each a little out of step with the next, so the crowd does not breathe as one; มินิมอล's people stand
+                taller than their cell, each row a little in front of the one behind */}
+            {p < 1 ? <Pic c={c} id={id} r={tall} gray pose={pose?.(row)} t={t + i * 0.37} /> : null}
+            {p > 0 ? <Pic c={c} id={id} r={tall} opacity={p} pose={pose?.(row)} t={t + i * 0.37} /> : null}
             {cl && cl.opacity > 0 ? (
               <div style={abs({ right: -Math.round(r.w * 0.06), bottom: -Math.round(r.w * 0.04), width: Math.round(r.w * 0.34), height: Math.round(r.w * 0.34), borderRadius: 999, background: COIN, border: `${Math.max(3, Math.round(r.w * 0.035))}px solid ${INK}`, opacity: cl.opacity, ...(cl.transform ? { transform: cl.transform } : {}) })} />
             ) : null}
@@ -254,7 +290,8 @@ function Hit({ c, t }: { c: StoryContext; t: number }) {
   const dim = look(s.dim, t).p;
   const hero = cells(g.crowd, g.cols, g.rows)[CROWD_HERO];
   const h = look(s.hero, t);
-  const grow = h.p > 0 ? 1 + 0.25 * Math.min(1, h.p) : 1;
+  // มินิมอล: a whole person is small in a crowd's cell, so the hero comes forward further, and slumps
+  const grow = h.p > 0 ? 1 + (minimal(c.input) ? 1.3 : 0.25) * Math.min(1, h.p) : 1;
   const big = { x: Math.round(hero.x - (hero.w * (grow - 1)) / 2), y: Math.round(hero.y - (hero.h * (grow - 1)) / 2), w: Math.round(hero.w * grow), h: Math.round(hero.h * grow) };
   const ring = { x: big.x - Math.round(big.w * 0.22), y: big.y - Math.round(big.h * 0.2), w: Math.round(big.w * 1.44), h: Math.round(big.h * 1.4) };
   const heroId = c.crowd[CROWD_HERO];
@@ -262,7 +299,7 @@ function Hit({ c, t }: { c: StoryContext; t: number }) {
     <>
       <Title c={c} an={s.title} t={t} text={storyTitles(c.input, c.customer).storyHit} />
       <Crowd c={c} area={g.crowd} t={t} color={() => 0} opacity={(i) => (i === CROWD_HERO ? 0 : 1 - 0.72 * dim)} />
-      <Img src={c.faces[c.input.palette === "color" ? heroId : `${heroId}-g`]} r={big} />
+      <Pic c={c} id={heroId} r={big} gray={c.input.palette !== "color"} pose={h.p > 0 ? "slump" : "stand"} t={t} />
       <div style={abs({ left: ring.x, top: ring.y, width: ring.w, height: ring.h })}>
         <svg width={ring.w} height={ring.h} viewBox="0 0 100 100">
           {stroke({ d: "M50 6 C80 4 96 26 94 52 C92 80 70 96 46 94 C20 92 4 72 6 46 C8 22 26 8 56 8", len: 300, p: look(s.ring, t).p, color: RED, width: 5 })}
@@ -282,21 +319,24 @@ function Help({ c, t }: { c: StoryContext; t: number }) {
   const j = look(s.jar, t);
   const nl = look(s.note, t);
   const name = heroName(c.customer);
+  const ink = paperInk(c.input);
+  // มินิมอล: slumped as the money comes, sitting up as it reaches them
+  const up = blend(POSES.slump(t), POSES.sit(t), look(s.color, t).p);
   return (
     <>
       <Title c={c} an={s.title} t={t} text={storyTitles(c.input, c.customer).storyHelp} />
       <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: SIZES[c.size].w, height: SIZES[c.size].h, opacity: j.opacity }}>{jar(g.jar, 1 - 0.75 * look(s.arrow, t).p)}</div>
       <div style={abs({ left: g.arrow.x, top: g.arrow.y, width: g.arrow.w, height: g.arrow.h })}>
         <svg width={g.arrow.w} height={g.arrow.h} viewBox="0 0 80 40">
-          {stroke({ d: "M4 24 Q36 8 64 20 M52 9 L66 20 L52 31", len: 110, p: look(s.arrow, t).p, color: INK, width: 4 })}
+          {stroke({ d: "M4 24 Q36 8 64 20 M52 9 L66 20 L52 31", len: 110, p: look(s.arrow, t).p, color: ink, width: 4 })}
         </svg>
       </div>
       <div style={{ display: "flex", position: "absolute", left: g.hero.x, top: g.hero.y, width: g.hero.w, height: g.hero.h, opacity: h.opacity, ...(h.transform ? { transform: h.transform } : {}) }}>
-        {color < 1 ? <Img src={c.faces[`${heroId}-g`]} r={{ x: 0, y: 0, w: g.hero.w, h: g.hero.h }} /> : null}
-        <Img src={c.faces[heroId]} r={{ x: 0, y: 0, w: g.hero.w, h: g.hero.h }} opacity={color} />
+        {color < 1 ? <Pic c={c} id={heroId} r={{ x: 0, y: 0, w: g.hero.w, h: g.hero.h }} gray pose={up} /> : null}
+        <Pic c={c} id={heroId} r={{ x: 0, y: 0, w: g.hero.w, h: g.hero.h }} opacity={color} pose={up} />
       </div>
       {name ? (
-        <El an={s.name} t={t} style={{ position: "absolute", left: g.name.x, width: g.name.w, top: g.name.y, justifyContent: "center", fontFamily: HAND, fontWeight: 600, fontSize: Math.round(g.name.h * 0.72), color: INK }}>{name}</El>
+        <El an={s.name} t={t} style={{ position: "absolute", left: g.name.x, width: g.name.w, top: g.name.y, justifyContent: "center", fontFamily: HAND, fontWeight: 600, fontSize: Math.round(g.name.h * 0.72), color: ink }}>{name}</El>
       ) : null}
       {note ? (
         <div style={{ display: "flex", position: "absolute", left: g.note.x, top: g.note.y, width: g.note.w, flexDirection: "column", alignItems: "center", background: NOTE, border: `4px solid ${INK}`, borderRadius: 14, padding: "22px 26px", opacity: nl.opacity, transform: `rotate(-1.5deg)${nl.transform ? ` ${nl.transform}` : ""}`, fontFamily: HAND, color: INK }}>
@@ -315,7 +355,7 @@ function All({ c, t }: { c: StoryContext; t: number }) {
   return (
     <>
       <Title c={c} an={s.title} t={t} text={storyTitles(c.input, c.customer).storyAll} />
-      <Crowd c={c} area={GEO[c.size].crowd} t={t} rowAn={reveal ? undefined : (r) => s[`row${r}`]} color={(r) => (reveal ? look(s[`row${r}`], t).p : 1)} />
+      <Crowd c={c} area={GEO[c.size].crowd} t={t} rowAn={reveal ? undefined : (r) => s[`row${r}`]} color={(r) => (reveal ? look(s[`row${r}`], t).p : 1)} pose={(r) => (look(s[`row${r}`], t).p > 0.5 ? "cheer" : "stand")} />
     </>
   );
 }
@@ -343,10 +383,12 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
   const portrait = c.size === "portrait";
   const wide = c.size === "landscape";
   const big = g.px(88, 62, 84);
+  // on the dark ground the card's navy words would be lost: they take the ground's own ink
+  const onDark = minimal(c.input) && c.input.ground === "dark";
   const head = (
     <El an={s.head} t={t} style={{ flexDirection: "column", ...(wide ? { width: 820, flexShrink: 0 } : {}) }}>
-      {kicker ? <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: P.accent })}>{kicker}</div> : null}
-      <div style={box({ flexDirection: "column", fontSize: big, fontWeight: 600, color: P.figure, lineHeight: vw.lineHeight, marginTop: kicker ? (portrait ? 40 : 12) : 0 })}>
+      {kicker ? <div style={box({ fontSize: g.px(44, 34, 44), fontWeight: 600, color: onDark ? paperInk(c.input) : P.accent })}>{kicker}</div> : null}
+      <div style={box({ flexDirection: "column", fontSize: big, fontWeight: 600, color: onDark ? paperInk(c.input) : P.figure, lineHeight: vw.lineHeight, marginTop: kicker ? (portrait ? 40 : 12) : 0 })}>
         {lines.map((l, i) => <div key={i} style={box({})}>{l}</div>)}
       </div>
     </El>
@@ -373,11 +415,18 @@ export function Contact({ c, t }: { c: StoryContext; t: number }) {
             {more.map((m, i) => <div key={i} style={box({})}>{m}</div>)}
           </El>
         )}
-        <El an={s.legal} t={t} style={{ flexWrap: "wrap", fontSize: g.px(32, 22, 26), color: P.mute, marginTop: g.px(24, 18, 18) }}>
+        <El an={s.legal} t={t} style={{ flexWrap: "wrap", fontSize: g.px(32, 22, 26), color: onDark ? paperInk(c.input) : P.mute, opacity: onDark ? 0.8 : 1, marginTop: g.px(24, 18, 18) }}>
           {/* the drawing breaks Thai only at a space: one where the line may wrap */}
           ผู้ซื้อควรทำความเข้าใจรายละเอียดความคุ้มครอง และเงื่อนไขก่อนตัดสินใจทำประกันภัยทุกครั้ง
         </El>
       </div>
+      {/* มินิมอล, portrait: the agent waves under their card (the mockup's last scene); the wider shapes have no room */}
+      {minimal(c.input) && portrait && c.input.faces.narrator ? (
+        // in the band between the small print and the subtitle: 1420–1700 of the 1920
+        <El an={s.legal} t={t} style={{ position: "absolute", left: Math.round((w - g.side * 2 - 260) / 2), top: 1420 - g.top, width: 260, height: 280 }}>
+          <Pic c={c} id={c.input.faces.narrator} r={{ x: 0, y: 0, w: 260, h: 280 }} pose="wave" t={t} />
+        </El>
+      ) : null}
     </div>
   );
 }
@@ -414,16 +463,16 @@ export function storyFrame(key: PoolSceneKey, c: StoryContext, t: number) {
     storyContact: <Contact c={c} t={t} />,
   }[key];
   return (
-    <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", color: INK }}>
+    <div style={{ display: "flex", position: "relative", width: w, height: h, background: "transparent", fontFamily: "Plex", color: paperInk(c.input) }}>
       {body}
       <Subtitle c={c} t={t} />
-      <div style={abs({ left: 0, width: w, bottom: c.size === "portrait" ? 34 : 18, justifyContent: "center", fontSize: 26, color: INK, opacity: 0.55 })}>Application by www.advisortool.app</div>
+      <div style={abs({ left: 0, width: w, bottom: c.size === "portrait" ? 34 : 18, justifyContent: "center", fontSize: 26, color: paperInk(c.input), opacity: 0.55 })}>Application by www.advisortool.app</div>
     </div>
   );
 }
 
-/** the paper every scene is drawn on: the faces' own colour, so they sit on it with no edge */
-export function storyBackground(size: VideoSize) {
+/** the paper every scene is drawn on: the faces' own colour, so they sit on it with no edge; มินิมอล's ground its own */
+export function storyBackground(size: VideoSize, input?: StoryVideoInput) {
   const { w, h } = SIZES[size];
-  return <div style={{ display: "flex", width: w, height: h, background: FACE_PAPER }} />;
+  return <div style={{ display: "flex", width: w, height: h, background: input && minimal(input) ? groundOf(input).bg : FACE_PAPER }} />;
 }
