@@ -4,7 +4,7 @@ import { gatePage } from "@/lib/auth/viewer";
 import { monthLabel, parsePeriod, pastMonths, periodRange, type Period } from "@/lib/stats/usage";
 import { readProfit } from "@/lib/stats/ai-profit-read";
 import type { Profit } from "@/lib/stats/ai-profit";
-import { PROVIDER_LABEL } from "../ai/labels";
+import { spendLabel } from "../ai/labels";
 import { Card, Empty, PageHead } from "../ui";
 
 export const dynamic = "force-dynamic";
@@ -138,7 +138,7 @@ function ProfitView({ p }: { p: Profit }) {
               <thead><tr><th className={`${th} rounded-tl-md`}>บริษัท</th><th className={`${th} rounded-tr-md text-right`}>ค่า AI</th></tr></thead>
               <tbody>
                 {p.cost.providers.map((x) => (
-                  <tr key={x.provider}><td className={td}>{PROVIDER_LABEL[x.provider] ?? x.provider}</td><td className={`${td} ${r}`}>{baht(x.thb)}</td></tr>
+                  <tr key={x.provider}><td className={td}>{spendLabel(x.provider)}</td><td className={`${td} ${r}`}>{baht(x.thb)}</td></tr>
                 ))}
                 <tr className="font-semibold"><td className="px-2.5 py-2">รวมต้นทุน</td><td className={`px-2.5 py-2 ${r}`}>{baht(p.cost.thb)}</td></tr>
               </tbody>
