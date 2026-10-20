@@ -53,12 +53,15 @@ const loadAdditionalAsset: SatoriOptions["loadAdditionalAsset"] = async (code, s
   return (await googleFontSubset(family, segment, "400")) ?? [];
 };
 
-/** The element as a PNG, `width` × `height`, in `fonts`. */
+/**
+ * The element as a PNG, `width` × `height`, in `fonts`; `scale` draws it that many times larger,
+ * for a picture laid out at the page's own sizes that must stay sharp when zoomed on a phone.
+ */
 export async function drawPng(
-  element: ReactNode, size: { width: number; height: number }, fonts: DrawFont[],
+  element: ReactNode, size: { width: number; height: number; scale?: number }, fonts: DrawFont[],
 ): Promise<Buffer> {
   const svg = await satori(element, { width: size.width, height: size.height, fonts, loadAdditionalAsset });
-  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size.width }, font: { loadSystemFonts: false } });
+  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size.width * (size.scale ?? 1) }, font: { loadSystemFonts: false } });
   return resvg.render().asPng();
 }
 
@@ -68,7 +71,7 @@ export async function drawPng(
  */
 export async function pngResponse(
   element: ReactNode,
-  options: { width: number; height: number; fonts: DrawFont[]; headers?: Record<string, string> },
+  options: { width: number; height: number; scale?: number; fonts: DrawFont[]; headers?: Record<string, string> },
 ): Promise<Response> {
   const png = await drawPng(element, options, options.fonts);
   return new Response(new Uint8Array(png), {

@@ -6,8 +6,10 @@ import { SiteCredit } from "@/components/sales/SiteCredit";
 import { boxIn, GsPens, textIn } from "@/components/global-saving/GsPens";
 import { barPens, tablePens } from "@/lib/global-saving-pens";
 import { BLUE_PEN } from "@/lib/card-theme";
-import { VideoButton } from "@/components/sales/VideoButton";
+import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
+import { gsavingCardPath } from "@/lib/global-saving-card";
+import { gsQuoteText } from "@/lib/global-saving-text";
 import {
   GS_AGE_MAX, GS_AGE_MIN, GS_CODE, GS_MAX_PREMIUM, GS_MIN_PREMIUM, GS_PREM_YEARS, GS_TAX_CAP, GS_TERM,
   quoteGlobalSaving, type GsBasis,
@@ -55,6 +57,12 @@ export function GlobalSavingCalculator() {
     if (q) setAmount(next === "premium" ? Math.ceil(q.premium) : q.sa);
     setBasis(next);
   }
+
+  // ส่งให้ลูกค้า: the whole page as one picture (owner chose ข, 2026-10-20) and the quote as text
+  const sendable = q && !q.warnings.length ? q : null;
+  const copyText = sendable ? gsQuoteText(age, sendable) : undefined;
+  const tableCard = sendable && amount !== "" ? gsavingCardPath({ age, basis, amount }) : undefined;
+  const videoHref = q ? videoStartHref({ product: "GSAVING", age, premium: Math.ceil(q.premium) }) : undefined;
 
   const top = q ? Math.max(...q.scenarios.map((s) => s.total)) * 1.12 : 1;
 
@@ -123,11 +131,9 @@ export function GlobalSavingCalculator() {
             {q?.warnings.map((w) => (
               <div key={w} role="alert" className="rounded-md bg-[var(--bot-red-soft)] px-3 py-2 text-sm text-[var(--bot-red-ink)]">{w}</div>
             ))}
-            {/* วิดีโอนำเสนอ from this quote (owner, 2026-10-20): signed-in agents only; the index return is picked in Studio */}
-            {q ? (
-              <VideoButton href={videoStartHref({ product: "GSAVING", age, premium: Math.ceil(q.premium) })}
-                           className="flex min-h-11 w-full items-center justify-center rounded-lg border border-[var(--lg-gold)] px-4 text-sm font-medium text-[var(--lg-gold)]" />
-            ) : null}
+            {/* ส่งให้ลูกค้า and วิดีโอนำเสนอ from this quote (owner, 2026-10-20): the video for signed-in agents only,
+                its index return picked in Studio */}
+            {q ? <ContactButtons copyText={copyText} tableCardPath={tableCard} tableLabel="ตาราง + ดัชนี" videoHref={videoHref} /> : null}
             <div className="space-y-0.5 border-t border-[var(--lg-hair)] pt-3 text-xs leading-relaxed text-[var(--lg-mute)]">
               <div>รหัสแบบ {GS_CODE} · กรุงไทย-แอกซา</div>
               <div>เงินคืน 1% ของทุนทุกปี · ครบสัญญา 801% ของทุน</div>
@@ -301,6 +307,13 @@ export function GlobalSavingCalculator() {
             <SiteCredit />
           </section>
         </>
+      )}
+
+      {/* on a phone the send bar stays at the foot of the screen, as on the other plans' pages */}
+      {copyText && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden">
+          <ContactButtons copyText={copyText} tableCardPath={tableCard} tableLabel="ตาราง + ดัชนี" compact />
+        </div>
       )}
     </div>
   );
