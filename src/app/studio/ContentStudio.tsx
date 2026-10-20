@@ -23,6 +23,7 @@ import { PersonPicker, type PersonOption } from "./PersonPicker";
 import { AUTO_THEME, ThemeSwatches, type ThemeChoice } from "./ThemeSwatches";
 import { LogoPicker, useLogoSpot } from "./ui/LogoPicker";
 import { ask } from "./ask";
+import { isComputer } from "./saveToComputer";
 import { PieceCard, PieceSkeleton } from "./PieceCard";
 import { PieceEditor } from "./PieceEditor";
 import { ScriptCard } from "./ScriptCard";
@@ -891,15 +892,26 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
     if (now.tab === "draft") setItems((list) => (list.some((x) => x.id === next.id) ? list : [next, ...list]));
   }
 
-  async function copy(item: ContentItem) {
+  /**
+   * `withPicture`: the card's รูป + ข้อความ, which saves the poster in the same tap — the words
+   * wait on the clipboard to be pasted under it in Facebook (owner chose ข, 2026-10-20).
+   * writeText is reached before any await, so it still counts as the tap on an iPhone.
+   */
+  async function copy(item: ContentItem, withPicture = false): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(item.format === "ad" ? `${item.output.body}\n\n${footer(item.output)}` : fullText(item.output));
+      if (withPicture) {
+        say("copy", isComputer() ? "คัดลอกข้อความแล้ว · รูปอยู่ใน Downloads" : "คัดลอกข้อความแล้ว — บันทึกรูป แล้วไปวางใน Facebook ได้เลย", "notice");
+        return true;
+      }
       setCopied(item.id);
       hush("copy");
       window.clearTimeout(copiedTimer.current);
       copiedTimer.current = window.setTimeout(() => setCopied(null), 2000);
+      return true;
     } catch {
       say("copy", "คัดลอกไม่ได้ กด “แก้ไข” แล้วเลือกข้อความคัดลอกเองนะครับ");
+      return false;
     }
   }
 
@@ -1534,7 +1546,7 @@ export function ContentStudio({ products, lengths, hooks, initialHook, initial, 
                     onEdit={() => openEditor(item.id)}
                     onStatus={(s) => changeStatus(item, s)}
                     onDelete={() => remove(item)}
-                    onCopy={() => copy(item)}
+                    onCopy={(withPicture) => copy(item, withPicture)}
                     pick={picking ? {
                       on: picked.has(item.id),
                       why: whyNot(item),
