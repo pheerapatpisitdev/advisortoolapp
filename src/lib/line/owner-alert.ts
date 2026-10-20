@@ -186,6 +186,20 @@ export async function alertAiDown(text: string): Promise<boolean> {
 }
 
 /**
+ * A message to the owner with no switch of its own, for something that should never go quiet
+ * (the daily read of the Global Savings index, src/lib/index-levels/store.ts). Never throws.
+ * False when nothing was sent — not linked, or LINE refused it.
+ */
+export async function alertOwner(text: string): Promise<boolean> {
+  try {
+    return await pushToOwner(text);
+  } catch (e) {
+    console.error("[line] owner alert not sent:", e);
+    return false;
+  }
+}
+
+/**
  * Tells the owner a clip has just failed (src/lib/quote-video/fail-alert.ts). Never throws: the
  * clip is already marked failed and its money given back, and a message that could not go out is
  * only written to the log. False when nothing was sent — not linked, or the switch is off.

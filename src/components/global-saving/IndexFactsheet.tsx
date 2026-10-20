@@ -97,7 +97,7 @@ export function IndexFactsheet() {
         ผลการดำเนินงานในอดีตมิได้เป็นสิ่งยืนยันผลในอนาคต · ตัวเลขผลตอบแทนเป็นค่าก่อนปรับด้วยอัตราการมีส่วนร่วมในผลตอบแทน
         · ข้อมูลตั้งแต่ พ.ค. 2565 เป็นผลจริง ก่อนหน้านั้นจำลองย้อนหลัง (Backtesting) · ที่มา: เอกสารข้อมูล {INDEX_NAME} ·{" "}
         <a href={INDEX_LINK} target="_blank" rel="noopener noreferrer" className="text-[var(--lg-gold)] underline underline-offset-4">
-          ดูดัชนีเรียลไทม์ที่กรุงไทย-แอกซา ↗
+          ดูต้นทางที่กรุงไทย-แอกซา ↗
         </a>
       </p>
     </section>
