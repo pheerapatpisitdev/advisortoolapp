@@ -15,6 +15,7 @@ import { videoStartFrom } from "@/lib/quote-video/link";
 import { ELEVEN_VOICES, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { walletPrices } from "@/lib/wallet/store";
 import { fhcChoices, myCost, myVideos, voiceQuota } from "./actions";
+import { fxFor } from "@/lib/quote-video/fx-switch";
 import { QuoteVideoBoard } from "./QuoteVideoBoard";
 import { ToolLogo } from "@/components/shell/ToolLogo";
 import { GS_AGE_MAX, GS_AGE_MIN } from "@/calc/global-saving/engine";
@@ -70,6 +71,8 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
   });
   // Gemini's voice used up for the day: the form warns before anyone asks (owner, 2026-10-12)
   const quota = await voiceQuota();
+  // ลูกเล่นคลิปใหม่: the music switch shows to whoever the back office gives the new look (fx-switch.ts)
+  const fx = await fxFor(viewer);
   const start = videoStartFrom(await searchParams);
   const fhc = await fhcChoices(start?.fhc).catch((e) => {
     console.error("fhc customers not read:", e);
@@ -83,7 +86,7 @@ export default async function QuoteVideoPage({ searchParams }: { searchParams: P
         ใส่ข้อมูลลูกค้า แล้วได้คลิปพร้อมเสียงพากย์ ไว้ส่งทาง LINE / Messenger
       </p>
       <ClosedNotice viewer={viewer} feature="quote-video" />
-      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} />
+      <QuoteVideoBoard ihuPlans={ihuPlans} ages={ages} pensionAges={pensionAges} initial={initial} cost={cost} pages={pages} eleven={eleven} start={start} fhc={fhc} quota={quota} prices={prices} fx={fx} />
     </div>
   );
 }

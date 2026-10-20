@@ -8,6 +8,8 @@ import type { StoryClipProps } from "@/lib/quote-video/remotion";
 import type { StorySceneKey, StoryVideoInput } from "@/lib/quote-video/story";
 import type { PromptStoryInput } from "@/lib/prompt-story/types";
 import { crossing, loadFonts, SATORI_CSS } from "./Clip";
+import { FxSound } from "./Fx";
+import { joinCues, transitionOf } from "@/lib/quote-video/fx";
 import { KeepWords } from "./KeepWords";
 
 /**
@@ -71,8 +73,8 @@ export function StoryClip(p: StoryClipProps) {
     };
     let style: CSSProperties = {};
     const next = p.scenes[s + 1];
-    if (t < XFADE && s > 0) style = crossing(TRANSITIONS[sc.key] ?? "fade", t / XFADE, w).in;
-    else if (next && T >= next.start) style = crossing(TRANSITIONS[next.key] ?? "fade", (T - next.start) / XFADE, w).out;
+    if (t < XFADE && s > 0) style = crossing(transitionOf(sc.key, Boolean(p.fx), TRANSITIONS), t / XFADE, w).in;
+    else if (next && T >= next.start) style = crossing(transitionOf(next.key, Boolean(p.fx), TRANSITIONS), (T - next.start) / XFADE, w).out;
     const free = p.kind === "free" ? (p.input as PromptStoryInput) : null;
     const body = !free ? clipFrame(sc.key as StorySceneKey, c, t)
       : sc.key === "storyContact" ? storyFrame("storyContact", c, t)
@@ -92,6 +94,7 @@ export function StoryClip(p: StoryClipProps) {
       <style>{SATORI_CSS}</style>
       {layers}
       <Audio src={asUrl(p.audio)} />
+      {p.fx ? <FxSound music={p.fx.music} cues={joinCues(p.scenes)} scenes={p.scenes} total={p.total} fps={fps} /> : null}
     </AbsoluteFill>
   );
 }

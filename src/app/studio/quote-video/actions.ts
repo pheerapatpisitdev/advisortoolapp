@@ -175,7 +175,7 @@ function checked(v: VideoInput): VideoInput | string {
     if (first) return `${FIELD_WORD[first[0]] ?? "ประโยค"}: ${first[1]}`;
     lines = l;
   }
-  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...look, ...(style === "motion" && v.mascot === true ? { mascot: true } : {}), ...(style === "motion" && v.carry === true ? { carry: true } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}) };
+  return { ...c, narrator, ...(eleven ? { voice: eleven.id } : {}), ...(gemini ? { gemini: gemini.name } : {}), style, ...look, ...(style === "motion" && v.mascot === true ? { mascot: true } : {}), ...(style === "motion" && v.carry === true ? { carry: true } : {}), length, size, ...(brief ? { brief } : {}), ...(lines ? { lines } : {}), ...(v.noMusic === true ? { noMusic: true } : {}) };
 }
 
 /**
@@ -360,7 +360,7 @@ export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
  * วิดีโอสรุป FHC (owner, 2026-10-12): one saved customer's check as a clip. The figures are copied
  * from the check as it was saved; the name goes in only when the agent leaves it ticked.
  */
-export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; gemini?: string; size?: VideoSize; theme?: string; myColor?: string; mascot?: boolean }): Promise<Made> {
+export async function makeFhcVideo(customerId: string, withName: boolean, v: { narrator?: "F" | "M"; voice?: string; gemini?: string; size?: VideoSize; theme?: string; myColor?: string; mascot?: boolean; noMusic?: boolean }): Promise<Made> {
   const viewer = await requireMember();
   const closed = await closedFor(viewer, "quote-video");
   if (closed) return { ok: false, error: closed };
@@ -382,6 +382,8 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
     // the Motion Graphic look, as วิดีโอนำเสนอ's (owner, 2026-10-17); น้ำเงินทอง is no field at all
     ...lookOf(v?.theme, v?.myColor),
     ...(v?.mascot === true ? { mascot: true } : {}),
+    // ลูกเล่นคลิปใหม่'s music turned off (fx.ts); kept only when the clip gets the new look (make.ts createVideo)
+    ...(v?.noMusic === true ? { noMusic: true } : {}),
   };
   try {
     const made = await createVideo(viewer, input, withName === true ? cleanCustomerName(c.name) : "");

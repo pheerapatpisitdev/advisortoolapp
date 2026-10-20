@@ -48,6 +48,9 @@ export interface StoryFigure {
 /** what a story clip's row holds as its input */
 export interface StoryVideoInput {
   product: "STORY";
+  /** ลูกเล่นคลิปใหม่ (fx.ts): made with the music, the sounds and the new joins; the agent turned the music off */
+  fx?: true;
+  noMusic?: true;
   topic: StoryTopic;
   narrator?: "F" | "M";
   voice?: string;

@@ -262,6 +262,14 @@ function marker() {
   );
 }
 
+/**
+ * ลูกเล่นคลิปใหม่ (fx.ts): while a clip with the new look is drawn, what comes up comes in from a blur. Set by the
+ * composition for each frame it draws (remotion/src), off otherwise. Only the pieces that rise in ("up": headlines,
+ * cards, notes), and only while they rise: a blur is costly to render without a graphics card.
+ */
+let fxBlur = false;
+export function setFxBlur(on: boolean) { fxBlur = on; }
+
 export function El({ an, t, style, children }: { an?: Anim; t: number; style: React.CSSProperties; children?: ReactNode }) {
   if (penMode && an && an.kind !== "count") {
     const p = clamp01((t - an.at) / an.dur);
@@ -284,7 +292,8 @@ export function El({ an, t, style, children }: { an?: Anim; t: number; style: Re
     );
   }
   const l = look(an, t);
-  return <div style={{ display: "flex", ...style, opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}) }}>{children}</div>;
+  const blur = fxBlur && an?.kind === "up" && l.p > 0 && l.p < 1 ? { filter: `blur(${((1 - l.p) * 14).toFixed(1)}px)` } : {};
+  return <div style={{ display: "flex", ...style, opacity: l.opacity, ...(l.transform ? { transform: l.transform } : {}), ...blur }}>{children}</div>;
 }
 
 function Header({ f, title }: { f: QuoteVideoFacts; title: string }) {

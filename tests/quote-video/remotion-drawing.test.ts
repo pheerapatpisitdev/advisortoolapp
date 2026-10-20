@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { build } from "esbuild";
 import { expect, it } from "vitest";
@@ -38,6 +38,11 @@ async function drawingNow(): Promise<string> {
     let text = readFileSync(path.join(root, f), "utf8");
     if (f.endsWith("src/lib/quote-video/remotion.ts")) text = text.replace(/^export const REMOTION_DRAWING = .*$/m, "");
     h.update(`${f}\n${text}\n`);
+  }
+  // ลูกเล่นคลิปใหม่'s music and sound effects go into the image too (remotion/prepare copies them to public/fx)
+  for (const f of readdirSync(path.join(root, "remotion/sounds")).sort()) {
+    h.update(`remotion/sounds/${f}\n`);
+    h.update(readFileSync(path.join(root, "remotion/sounds", f)));
   }
   return h.digest("hex").slice(0, 12);
 }

@@ -372,3 +372,26 @@ describe("produce, drawn by Remotion", () => {
     expect(wallet.settleWallet).not.toHaveBeenCalled();
   });
 });
+
+describe("ลูกเล่นคลิปใหม่ (owner chose ก, 2026-10-20: the owner alone first)", () => {
+  it("is kept on the owner's clips, with the music choice, and never taken from what the form sent", async () => {
+    const mine = await createVideo(owner, lp({ noMusic: true } as Partial<VideoInput>), "");
+    expect(rowOf((mine as { id: string }).id).input).toMatchObject({ fx: true, noMusic: true });
+    const theirs = await createVideo(agent, lp({ fx: true, noMusic: true } as Partial<VideoInput>), "");
+    const input = rowOf((theirs as { id: string }).id).input as Record<string, unknown>;
+    expect(input.fx).toBeUndefined();
+    expect(input.noMusic).toBeUndefined();
+  });
+
+  it("reaches the render: the music for the product, and nothing on a clip without it", async () => {
+    const made = await createVideo(owner, lp(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    const props = JSON.parse(db.files.get(`${id}/job.json`)!.toString()).remotion.props;
+    expect(props.fx).toEqual({ music: "warm" });
+    const plain = await createVideo(agent, lp(), "");
+    const pid = (plain as { id: string }).id;
+    await produce(pid, "ตัวแทน");
+    expect(JSON.parse(db.files.get(`${pid}/job.json`)!.toString()).remotion.props.fx).toBeUndefined();
+  });
+});
