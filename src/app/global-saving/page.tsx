@@ -3,6 +3,8 @@ import { CalcTitle } from "@/components/sales/CalcTitle";
 import { Rule } from "@/components/sales/Blocks";
 import { GlobalSavingCalculator } from "@/components/global-saving/GlobalSavingCalculator";
 import { IndexFactsheet } from "@/components/global-saving/IndexFactsheet";
+import { LiveIndex } from "@/components/global-saving/LiveIndex";
+import { loadIndexWeeks } from "@/lib/index-levels/store";
 import { GS_AGE_MAX, GS_AGE_MIN, GS_PREM_YEARS, GS_TERM } from "@/calc/global-saving/engine";
 
 export const metadata = {
@@ -14,9 +16,14 @@ export const metadata = {
 
 /**
  * An agents' tool like the other plan pages (owner approved the mockup ก ก, 2026-10-20): the
- * plan's name and facts, the calculator, the index its bonus follows, and the legal lines.
+ * plan's name and facts, the calculator, the index's newest weekly level (owner chose ก,
+ * 2026-10-20), the index its bonus follows, and the legal lines. Drawn again every hour, and at
+ * once when the morning read finds a new week (/api/index-levels/sync).
  */
-export default function GlobalSavingPage() {
+export const revalidate = 3600;
+
+export default async function GlobalSavingPage() {
+  const weeks = await loadIndexWeeks();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">
       <CalcTitle name="Global Savings Plus 15/8" kind="ประกันออมทรัพย์ ผลตอบแทนตามดัชนี (Index Linked)"
@@ -24,6 +31,7 @@ export default function GlobalSavingPage() {
       <section id="calc" className="scroll-mt-4">
         <GlobalSavingCalculator />
       </section>
+      <LiveIndex weeks={weeks} />
       <IndexFactsheet />
       <footer className="pb-10">
         <Rule />
