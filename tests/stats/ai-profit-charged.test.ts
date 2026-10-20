@@ -37,9 +37,18 @@ describe("the charged card", () => {
     expect(html).not.toContain("฿199.00");
   });
 
-  it("splits the whole cost by whose work it was", () => {
+  it("splits the whole cost by whose work it was, paid against not paid first", () => {
     expect(html).toContain("ต้นทุน ฿6.00 ไปอยู่ที่ไหน");
-    for (const name of ["งานที่เก็บเงินแล้ว", "รอบฟรีของผู้ใช้", "งานของเจ้าของ", "ถาม AI (ฟรีทุกคน)", "บอทและระบบ"]) expect(html).toContain(name);
+    // ฿2 of paid work out of ฿6; the owner's ฿3 and the bots' ฿1 were not paid for
+    expect(html).toMatch(/เก็บเงินได้<\/span><span[^>]*>฿2\.00 · 33%/);
+    expect(html).toMatch(/ไม่ได้เก็บเงิน<\/span><span[^>]*>฿4\.00 · 67%/);
+    for (const name of ["งานที่เก็บเงินแล้ว", "รอบฟรีของผู้ใช้", "งานของเจ้าของ", "ถาม AI", "บอทและระบบ"]) expect(html).toContain(name);
+  });
+
+  it("lists the parts biggest first", () => {
+    const at = (name: string) => html.indexOf(`>${name}<`);
+    expect(at("งานของเจ้าของ")).toBeLessThan(at("งานที่เก็บเงินแล้ว"));
+    expect(at("งานที่เก็บเงินแล้ว")).toBeLessThan(at("บอทและระบบ"));
   });
 
   it("says so when nothing was taken", () => {

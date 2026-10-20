@@ -8,6 +8,12 @@ const tone = (n: number) => (n < 0 ? "text-[var(--bot-red-ink)]" : n > 0 ? "text
 const th = "bg-[var(--bot-navy)] px-2.5 py-2 text-left font-semibold whitespace-nowrap text-white";
 const td = "border-b border-[var(--bot-line)] px-2.5 py-2 align-middle";
 const r = "text-right tabular-nums";
+/** a share of the whole, "16%"; a share too small to round up says so rather than "0%" */
+const pct = (part: number, whole: number) => {
+  if (whole <= 0 || part <= 0) return "0%";
+  const n = Math.round((part / whole) * 100);
+  return n === 0 ? "<1%" : `${n}%`;
+};
 
 /**
  * What was taken from people's wallets for work delivered, by job, against that work's own AI
@@ -22,13 +28,15 @@ export function Charged({ p }: { p: Profit }) {
   const cost = sum((x) => x.costThb ?? 0);
   const count = sum((x) => x.count);
   const s = p.cost.split;
+  // where the cost went, biggest first, paid work green and the rest red (owner chose ก, 2026-10-20,
+  // mockup https://claude.ai/artifact/Rrn5QbY6qEGGorkJosgyDH)
   const parts = [
-    { name: "งานที่เก็บเงินแล้ว", thb: s.paidThb, color: "var(--bot-ok)" },
-    { name: "รอบฟรีของผู้ใช้", thb: s.freeRoundsThb, color: "var(--bot-sand)" },
-    { name: "งานของเจ้าของ", thb: s.ownerThb, color: "var(--bot-blue)" },
-    { name: "ถาม AI (ฟรีทุกคน)", thb: s.askThb, color: "var(--bot-olive)" },
-    { name: "บอทและระบบ", thb: s.systemThb, color: "var(--bot-grey)" },
-  ];
+    { name: "งานที่เก็บเงินแล้ว", why: "ผู้ใช้จ่ายจากกระเป๋าเงิน", thb: s.paidThb, paid: true },
+    { name: "รอบฟรีของผู้ใช้", why: "ตัวแทนและสมาชิกใช้สิทธิ์ฟรีหรือเครดิตทดลอง", thb: s.freeRoundsThb, paid: false },
+    { name: "งานของเจ้าของ", why: "คุณและ Super Admin ใช้ฟรี", thb: s.ownerThb, paid: false },
+    { name: "ถาม AI", why: "ฟรีทุกคน", thb: s.askThb, paid: false },
+    { name: "บอทและระบบ", why: "บอทตอบแชทลูกค้า และงานเบื้องหลังของระบบ", thb: s.systemThb, paid: false },
+  ].sort((a, b) => b.thb - a.thb);
   const whole = parts.reduce((n, x) => n + x.thb, 0);
   return (
     <section aria-label="เงินที่ตัดจากกระเป๋าผู้ใช้" className="rounded-lg border border-[var(--bot-line)] bg-[var(--bot-surface)] p-4">
@@ -71,19 +79,31 @@ export function Charged({ p }: { p: Profit }) {
         </div>
       )}
       {whole > 0 && (
-        <div className="mt-4 flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">ต้นทุน {baht(p.cost.thb)} ไปอยู่ที่ไหน</h3>
-          <div className="flex h-3 overflow-hidden rounded-full bg-[var(--bot-line)]" role="img" aria-label="ต้นทุนแบ่งตามประเภทงาน">
-            {parts.map((x) => x.thb > 0 && <span key={x.name} style={{ width: `${(x.thb / whole) * 100}%`, background: x.color }} />)}
+        <div className="mt-5 flex flex-col gap-3">
+          <h3 className="text-sm font-semibold">ต้นทุน {baht(whole)} ไปอยู่ที่ไหน</h3>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="rounded-md bg-[var(--bot-ok-soft)] px-3 py-2.5 text-[var(--bot-ok)]">
+              <span className="block text-[13px]">เก็บเงินได้</span>
+              <span className="text-xl font-semibold tabular-nums">{baht(s.paidThb)} · {pct(s.paidThb, whole)}</span>
+            </div>
+            <div className="rounded-md bg-[var(--bot-red-soft)] px-3 py-2.5 text-[var(--bot-red-ink)]">
+              <span className="block text-[13px]">ไม่ได้เก็บเงิน</span>
+              <span className="text-xl font-semibold tabular-nums">{baht(whole - s.paidThb)} · {pct(whole - s.paidThb, whole)}</span>
+            </div>
           </div>
-          <div className="grid gap-x-4 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="flex flex-col gap-2.5" aria-label="ต้นทุนแบ่งตามประเภทงาน">
             {parts.map((x) => (
-              <div key={x.name} className="flex justify-between gap-2">
-                <span><span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-[-1px]" style={{ background: x.color }} />{x.name}</span>
-                <span className="tabular-nums">{baht(x.thb)}</span>
-              </div>
+              <li key={x.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1">
+                <span className="text-sm font-medium">{x.name}</span>
+                <span className="whitespace-nowrap text-sm tabular-nums">{baht(x.thb)}<span className="ml-1.5 text-[13px] text-[var(--bot-ink-mute)]">{pct(x.thb, whole)}</span></span>
+                <span className="col-span-2 h-2 overflow-hidden rounded bg-[var(--bot-band)]">
+                  <span className="block h-full rounded" style={{ width: `${(x.thb / whole) * 100}%`, background: x.paid ? "var(--bot-ok)" : "var(--bot-red)" }} />
+                </span>
+                <span className="col-span-2 text-xs text-[var(--bot-ink-mute)]">{x.why}</span>
+              </li>
             ))}
-          </div>
+          </ul>
+          <p className="text-xs text-[var(--bot-ink-mute)]">เรียงจากมากไปน้อย · เขียว = เก็บเงินได้ · แดง = ไม่ได้เก็บเงิน</p>
         </div>
       )}
     </section>
