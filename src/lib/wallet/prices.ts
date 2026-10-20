@@ -51,21 +51,24 @@ export type PriceGroup = "video" | "picture";
  * Each price as the owner sets it and an agent reads it. `costThb` is what one costs the
  * providers, about, so the owner's table can say when a price is under it: a picture is its
  * painter's measured price and the prompt's translation; a read, two measured reads of
- * ฿0.27 and ฿0.30 (2026-10-08); a clip, its Cloud Run run (make.ts RENDER_COST_THB) and voice;
- * an ElevenLabs voice, a clip's characters on the Starter plan (2026-10-11).
+ * ฿0.27 and ฿0.30 (2026-10-08). A clip is its Gemini voice, its Remotion run by the seconds it
+ * took and its brief, measured on the done clips of 13–20 Oct (owner, 2026-10-20, ก; mockup
+ * https://claude.ai/artifact/FdpaVmjPqhw1VaZJAH3ALN): about ฿0.021 a second of clip, so the
+ * looks and lengths without enough clips yet are that rate times their usual length. An
+ * ElevenLabs voice is what it costs over Gemini's, about three times a line.
  */
 export const PRICE_ITEMS: { key: PriceKey; group: PriceGroup; label: string; unit: string; costThb: number; extra?: true }[] = [
-  { key: "videoClassic", group: "video", label: "วิดีโอแบบปกติ (รวมคลิปสั้น 15 วินาที)", unit: "คลิป", costThb: 0.4 },
-  { key: "videoMotion", group: "video", label: "วิดีโอ Motion Graphic", unit: "คลิป", costThb: 0.4 },
-  { key: "videoLongClassic", group: "video", label: "วิดีโอแบบปกติ ยาว ~90 วินาที", unit: "คลิป", costThb: 0.7 },
-  { key: "videoLongMotion", group: "video", label: "วิดีโอ Motion Graphic ยาว ~90 วินาที", unit: "คลิป", costThb: 0.8 },
-  { key: "videoMaxClassic", group: "video", label: "วิดีโอแบบปกติ 2 นาที", unit: "คลิป", costThb: 0.9 },
-  { key: "videoMaxMotion", group: "video", label: "วิดีโอ Motion Graphic 2 นาที", unit: "คลิป", costThb: 1.1 },
-  { key: "videoFhc", group: "video", label: "วิดีโอสรุป FHC", unit: "คลิป", costThb: 0.4 },
-  { key: "videoStory", group: "video", label: "คลิปเล่าเรื่อง", unit: "คลิป", costThb: 0.4 },
-  { key: "videoStoryShort", group: "video", label: "คลิปสั้นหลังการขาย (เตือนเบี้ย วันเกิด เทศกาล)", unit: "คลิป", costThb: 0.2 },
-  { key: "videoPrompt", group: "video", label: "คลิปตามโจทย์ (ไม่รวมค่าวาดรูปต่อฉาก)", unit: "คลิป", costThb: 0.4 },
-  { key: "elevenExtra", group: "video", label: "เสียง ElevenLabs (บวกเพิ่มต่อคลิป)", unit: "คลิป", costThb: 1, extra: true },
+  { key: "videoClassic", group: "video", label: "วิดีโอแบบปกติ (รวมคลิปสั้น 15 วินาที)", unit: "คลิป", costThb: 1.5 },
+  { key: "videoMotion", group: "video", label: "วิดีโอ Motion Graphic", unit: "คลิป", costThb: 1.9 },
+  { key: "videoLongClassic", group: "video", label: "วิดีโอแบบปกติ ยาว ~90 วินาที", unit: "คลิป", costThb: 2 },
+  { key: "videoLongMotion", group: "video", label: "วิดีโอ Motion Graphic ยาว ~90 วินาที", unit: "คลิป", costThb: 2.2 },
+  { key: "videoMaxClassic", group: "video", label: "วิดีโอแบบปกติ 2 นาที", unit: "คลิป", costThb: 3.3 },
+  { key: "videoMaxMotion", group: "video", label: "วิดีโอ Motion Graphic 2 นาที", unit: "คลิป", costThb: 3.3 },
+  { key: "videoFhc", group: "video", label: "วิดีโอสรุป FHC", unit: "คลิป", costThb: 1.6 },
+  { key: "videoStory", group: "video", label: "คลิปเล่าเรื่อง", unit: "คลิป", costThb: 0.8 },
+  { key: "videoStoryShort", group: "video", label: "คลิปสั้นหลังการขาย (เตือนเบี้ย วันเกิด เทศกาล)", unit: "คลิป", costThb: 0.5 },
+  { key: "videoPrompt", group: "video", label: "คลิปตามโจทย์ (ไม่รวมค่าวาดรูปต่อฉาก)", unit: "คลิป", costThb: 1 },
+  { key: "elevenExtra", group: "video", label: "เสียง ElevenLabs (บวกเพิ่มต่อคลิป)", unit: "คลิป", costThb: 1.5, extra: true },
   { key: "drawStandard", group: "picture", label: "วาดรูป มาตรฐาน", unit: "รูป", costThb: paint("standard") },
   { key: "drawSharp", group: "picture", label: "วาดรูป คมชัด", unit: "รูป", costThb: paint("sharp") },
   { key: "drawGemini", group: "picture", label: "วาดรูป Gemini (ใช้อัตโนมัติเมื่อใส่รูปคนจริง)", unit: "รูป", costThb: paint("gemini") },

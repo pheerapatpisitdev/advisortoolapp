@@ -208,7 +208,10 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
     if (error) throw new Error(`video ${row.id} not finished: ${error.message}`);
     if (!data) return;
     const remotion = (row.input as { engine?: unknown }).engine === "remotion";
-    const renderThb = remotion ? REMOTION_COST_THB : RENDER_COST_THB;
+    const engine: ClipEngine = remotion ? "remotion" : "ffmpeg";
+    // the run's own seconds at its machine's rate (owner, 2026-10-20, ก: the fixed ฿0.55 was under
+    // the ฿0.77 a clip averaged, and ฿1.87 for two minutes); the fixed figure only without a time
+    const renderThb = renderSec !== null ? renderThbFor(engine, renderSec) : remotion ? REMOTION_COST_THB : RENDER_COST_THB;
     await asWho(row.agent_id, () => recordUsage("cloudrun", VIDEO_TASK_RENDER, 0, 0, renderThb));
     const cost = Number(row.cost_thb ?? 0) + renderThb;
     let charged: number | null = null;
@@ -234,8 +237,7 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
       await settleWallet(redraw.hold, redraw.satang, redraw.thb).catch((e) => console.error("redraw settle failed:", e));
       input = rest;
     }
-    // the run's own seconds, priced at its machine's rate, beside the fixed figure charged above (run-record.ts)
-    const engine: ClipEngine = remotion ? "remotion" : "ffmpeg";
+    // the run's own seconds, priced at its machine's rate (run-record.ts), the same figure booked above
     const cost_parts: CostParts = { ...(row.cost_parts ?? {}), engine, ...(renderSec !== null ? { renderSec, renderThb: renderThbFor(engine, renderSec) } : {}) };
     await setRow(row.id, { cost_thb: cost, cost_parts, ...(charged !== null ? { charged_satang: charged } : {}), ...(input ? { input } : {}) }).catch(() => undefined);
     await clearInputs(row.id, isPromptStory(row.input));
