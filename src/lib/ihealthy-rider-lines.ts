@@ -55,6 +55,20 @@ export function riderSpokenNames(w: IHealthyWords, riders: AttachedRider[], code
 }
 
 /**
+ * The same riders as rows for the วิดีโอนำเสนอ cover scene (owner, 2026-10-20, mockup
+ * https://claude.ai/artifact/Uw3cgf8SmZrKbvYmvWML6o, ก): the short name on the left and the sum on
+ * the right, "โรคร้ายแรง DCI" · "200,000". `skip` (the daily cash, a row of the benefit table) is left out.
+ */
+export function riderParts(w: IHealthyWords, riders: AttachedRider[], codes: string[], skip?: string): { name: string; sum?: string }[] {
+  return riders.filter((r) => codes.includes(r.code) && r.code !== skip)
+    .sort((a, b) => rank(a.code) - rank(b.code))
+    .map((r) => ({
+      name: riderShortName(w, { ...r, payer: undefined, sumAssured: undefined }),
+      ...(r.sumAssured !== undefined ? { sum: r.sumAssured.toLocaleString("en-US") } : {}),
+    }));
+}
+
+/**
  * The card's lines for the riders the engine priced, in the fold's order.
  *
  * `riders` are the ticks as picked and `codes` what the engine actually charged for: a tick

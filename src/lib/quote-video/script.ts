@@ -173,6 +173,15 @@ export interface QuoteVideoFacts {
   benefits?: { label: string; amount: string }[];
   /** iHealthy: what the price is made of, as said aloud: "ประกันชีวิต", "ค่าชดเชยรายวัน", "สัญญาเพิ่มเติม" */
   includes?: string[];
+  /** iHealthy: the base plan's sum, said after "ประกันชีวิต" ("ประกันชีวิตทุน 150,000 บาท") */
+  lifeSum?: number;
+  /**
+   * iHealthy: the cover scene in three groups (owner, 2026-10-20, mockup
+   * https://claude.ai/artifact/Uw3cgf8SmZrKbvYmvWML6o, ก) — สัญญาหลัก with the life sum, the health
+   * plan's rows, สัญญาเพิ่มเติม (the daily cash and the fold's riders). Motion draws these in place of
+   * `cover`; the classic clip, which names the base in its header, keeps `cover`.
+   */
+  coverGroups?: { title: string; rows: (CoverRow & { main?: boolean })[] }[];
   /** iHealthy: each rider the page attached, said in full in the clip's language — "โรคร้ายแรง DCI ทุน 200,000 บาท" (owner, 2026-10-17, ก) */
   riderNames?: string[];
   /**
@@ -440,6 +449,13 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
   const daily = benefits.some((b) => b.label === "ค่าชดเชยรายวัน");
   const riders = Math.max(0, card.lines.length - 2 - (daily ? 1 : 0));
   const includes = ["ประกันชีวิต", ...(daily ? ["ค่าชดเชยรายวัน"] : []), ...(riders ? ["สัญญาเพิ่มเติม"] : [])];
+  // the cover scene's groups: the daily cash moves from the health plan's rows to the riders' (owner, 2026-10-20, ก)
+  const isDaily = (b: (typeof both)[number]) => b.thai.label === "ค่าชดเชยรายวัน";
+  const care = both.filter((b) => !isDaily(b));
+  const addOns = [
+    ...both.filter(isDaily).map((b) => ({ label: b.shown.label, amount: b.shown.amount, mark: true })),
+    ...shown.riderParts.map((r) => ({ label: r.name, amount: r.sum ?? "", mark: true })),
+  ];
   const wanted = new Set([v.plan, ...v.compare]);
   const codes = iHealthyPlanCodes();
   const perDay = new RegExp(`\\s*${w.perDay.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`);
@@ -474,10 +490,17 @@ function iHealthyFacts(v: Extract<VideoInput, { product: "IHEALTHY" }>, today: D
     priceNotes: [shown.lines.map((l) => l.label).join(" · "), w.firstYearOnly],
     coverTitle: vw.coverTitle(col.name),
     cover: both.map((b) => ({ label: b.shown.label, amount: b.shown.amount, mark: true })),
+    coverGroups: [
+      // the plan's name kept on one line: a long label (Russian) breaks after the "·", not before "2"
+      { title: w.base, rows: [{ label: vw.lifeRow(shown.base.name.replace(/ /g, "\u00a0")), amount: shown.base.sum.toLocaleString("en-US"), mark: true, main: true }] },
+      { title: vw.careOf(shown.planLine), rows: care.map((b) => ({ label: b.shown.label, amount: b.shown.amount, mark: true })) },
+      ...(addOns.length ? [{ title: vw.ridersTitle, rows: addOns }] : []),
+    ],
     coverStyle: "rows",
     coverToAge: 98,
     benefits,
     includes,
+    lifeSum: card.base.sum,
     ...(shown.riderNames.length ? { riderNames: shown.riderNames } : {}),
     ...(compare.length >= 2 ? { compare } : {}),
   };
@@ -529,13 +552,18 @@ function budgetLead(f: QuoteVideoFacts, lead: string): string {
  * rider and its sum where the short clip says "สัญญาเพิ่มเติม" (owner, 2026-10-17, ก).
  */
 export const includesList = (f: QuoteVideoFacts, full = false): string[] =>
-  (f.includes ?? ["ประกันชีวิต"]).flatMap((x) => (full && x === "สัญญาเพิ่มเติม" && f.riderNames?.length ? f.riderNames : [x]));
+  (f.includes ?? ["ประกันชีวิต"]).flatMap((x) =>
+    full && x === "สัญญาเพิ่มเติม" && f.riderNames?.length ? f.riderNames
+    // iHealthy says the base plan's sum with it (owner, 2026-10-20, ก): "ประกันชีวิตทุน 150,000 บาท"
+    : x === "ประกันชีวิต" && f.lifeSum ? [`ประกันชีวิตทุน ${f.lifeSum.toLocaleString("en-US")} บาท`]
+    : [x]);
 
 /** "ประกันชีวิต", "ประกันชีวิตและค่าชดเชยรายวัน" (or กับ), "ประกันชีวิต ค่าชดเชยรายวัน และสัญญาเพิ่มเติม" */
 export function includesSaid(f: QuoteVideoFacts, and = "และ", full = false): string {
   const w = includesList(f, full);
   if (w.length === 1) return w[0];
-  if (w.length === 2) return `${w[0]}${and}${w[1]}`;
+  // "ประกันชีวิตทุน 150,000 บาท กับค่าชดเชยรายวัน": a space after a figure, as the longer list has
+  if (w.length === 2) return `${w[0]}${w[0].endsWith("บาท") ? " " : ""}${and}${w[1]}`;
   return `${w.slice(0, -1).join(" ")} และ${w[w.length - 1]}`;
 }
 

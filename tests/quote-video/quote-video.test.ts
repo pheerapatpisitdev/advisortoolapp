@@ -171,7 +171,7 @@ describe("iShield and iHealthy Ultra clips (owner, 2026-10-11)", () => {
     const lines = quoteVideoScript(f, "สมชาย");
     expect(lines.map((s) => s.key)).toEqual(["lead", "price", "cover", "compare", "contact"]);
     expect(lines[0].voice).toBe("สวัสดีค่ะ คุณสมชาย ขอเล่าแผนประกันสุขภาพนี้ให้ฟังสั้นๆ นะคะ แผน Gold เหมาจ่ายค่ารักษาสูงสุดถึง 25 ล้านบาทต่อปีค่ะ");
-    expect(lines[1].voice).toBe("ปีแรกค่าใช้จ่ายเดือนละ 3,524 บาท รวมประกันชีวิตกับค่าชดเชยรายวันไว้แล้วค่ะ");
+    expect(lines[1].voice).toBe("ปีแรกค่าใช้จ่ายเดือนละ 3,524 บาท รวมประกันชีวิตทุน 50,000 บาท กับค่าชดเชยรายวันไว้แล้วค่ะ");
     expect(lines[2].voice).toBe("ค่าห้องวันละ 9,000 บาท ผ่าตัดเล็ก อุบัติเหตุ และรักษามะเร็ง จ่ายตามจริง มีผู้ป่วยนอกปีละ 12,000 บาท และนอนโรงพยาบาลรับเพิ่มวันละ 1,000 บาทค่ะ");
     expect(lines[3].voice).toBe("ถ้าอยากเทียบ แผน Silver วงเงิน 15 ล้าน เดือนละ 2,768 บาท และแผน Diamond วงเงิน 70 ล้าน เดือนละ 6,152 บาท ต่ออายุได้ถึงอายุ 98 เลยค่ะ");
   });
@@ -236,7 +236,7 @@ describe("15-second clip (owner, 2026-10-11)", () => {
     const ihu = quoteVideoFacts({ product: "IHEALTHY", age: 35, sex: "M", plan: "GOLD", compare: [] }, TODAY)!;
     expect(quoteVideoScript(ihu, "", "F", "short").map((x) => x.voice).slice(0, 2)).toEqual([
       "เหมาจ่ายค่ารักษาสูงสุดถึง 25 ล้านบาทต่อปีค่ะ",
-      "ปีแรกเดือนละ 3,524 บาท รวมประกันชีวิตและค่าชดเชยรายวันค่ะ",
+      "ปีแรกเดือนละ 3,524 บาท รวมประกันชีวิตทุน 50,000 บาท และค่าชดเชยรายวันค่ะ",
     ]);
     const to99 = quoteVideoFacts({ variant: "WLF99H", age: 35, sex: "M", sumAssured: 1_000_000 }, TODAY)!;
     expect(quoteVideoScript(to99, "", "F", "short")[1].voice).toBe("ออมแค่วันละ 48 บาท ออมถึงอายุ 99 คุ้มครองถึงอายุ 99 ค่ะ");

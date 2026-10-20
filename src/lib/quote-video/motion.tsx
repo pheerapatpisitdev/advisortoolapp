@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_EXTRA as X } from "@/lib/card-theme";
 import { CHART_WRITE, chartNotes } from "./chart-pen";
 import { beatCues, penBeats } from "./pen";
-import type { QuoteVideoFacts, SceneKey } from "./script";
+import type { CoverRow, QuoteVideoFacts, SceneKey } from "./script";
 import { pensionBars } from "./pension";
 import { bandAges, shortBaht, stairs } from "./legacy";
 import { leadBig, leadPill } from "./plb";
@@ -96,9 +96,12 @@ export function motionSpec(key: SceneKey, f: QuoteVideoFacts, voiceSec: number, 
         };
       }
       const s: Record<string, Anim> = { kicker: a(0.2, "up") };
-      const n = f.cover.length;
+      const n = coverRowsOf(f).length;
       // each row slides in as the voice reaches it, more or less
-      f.cover.forEach((_, i) => { s[`row${i}`] = a(0.8 + (i * Math.max(1, voiceSec * 0.7)) / Math.max(1, n), "left"); });
+      const rowAt = (i: number) => 0.8 + (i * Math.max(1, voiceSec * 0.7)) / Math.max(1, n);
+      for (let i = 0; i < n; i++) s[`row${i}`] = a(rowAt(i), "left");
+      // a group's heading fades in with its first row (iHealthy, owner 2026-10-20, ก)
+      coverGroupStarts(f).forEach((first, k) => { s[`head${k}`] = a(rowAt(first), "fade"); });
       if (f.coverNote) s.note = a(Math.min(voiceSec, 0.8 + voiceSec * 0.7), "fade");
       return s;
     }
@@ -1143,22 +1146,48 @@ function PensionValue({ c, t }: { c: MotionContext; t: number }) {
   );
 }
 
+/** the cover scene's rows top to bottom: every group's rows in turn (iHealthy), or `cover` */
+export const coverRowsOf = (f: QuoteVideoFacts): (CoverRow & { main?: boolean })[] =>
+  f.coverGroups ? f.coverGroups.flatMap((g) => g.rows) : f.cover;
+
+/** where each group's first row falls in coverRowsOf; none without groups */
+export function coverGroupStarts(f: QuoteVideoFacts): number[] {
+  let at = 0;
+  return (f.coverGroups ?? []).map((g) => { const first = at; at += g.rows.length; return first; });
+}
+
 function CoverRows({ c, t }: { c: MotionContext; t: number }) {
   const f = c.facts;
   const s = motionSpec("cover", f, c.voiceSec);
-  const tight = f.cover.length > 4;
+  const rows = coverRowsOf(f);
+  const heads = new Map(coverGroupStarts(f).map((first, k) => [first, k]));
+  // three headings take the room of about two rows: a grouped scene of seven rows packs as tightly as ten
+  const tight = rows.length > 4;
+  const tighter = rows.length + heads.size * 0.7 > 9;
   return (
     <>
       <Header f={f} title={f.planLine} />
       <El an={s.kicker} t={t} style={{ position: "absolute", left: SIDE, top: 190, fontSize: 58, fontWeight: 600, color: WHITE }}>{f.coverTitle}</El>
-      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: 320, flexDirection: "column" })}>
-        {f.cover.map((r, i) => (
-          <El key={r.label} an={s[`row${i}`]} t={t} style={{ alignItems: "center", background: "rgba(255,255,255,0.1)", border: "3px solid rgba(255,255,255,0.22)", borderRadius: 34, padding: tight ? "14px 28px" : "20px 30px", marginBottom: tight ? 16 : 24 }}>
-            <div style={box({ width: 64, height: 64, borderRadius: 32, background: GREEN, color: WHITE, fontSize: 40, fontWeight: 700, alignItems: "center", justifyContent: "center", flexShrink: 0 })}>✓</div>
-            <div style={box({ flex: 1, flexShrink: 1, marginLeft: 24, fontSize: tight ? 36 : 40, color: WHITE })}>{r.label}</div>
-            <div style={box({ marginLeft: 20, fontSize: tight ? 40 : 46, fontWeight: 700, color: GOLD, flexShrink: 0 })}>{/^[\d,]+$/.test(r.amount) ? `${r.amount}` : r.amount}</div>
-          </El>
-        ))}
+      <div style={abs({ left: SIDE, width: W - SIDE * 2, top: heads.size ? 300 : 320, flexDirection: "column" })}>
+        {rows.map((r, i) => {
+          const k = heads.get(i);
+          const main = Boolean(r.main);
+          return (
+            <Fragment key={`${r.label}${i}`}>
+              {k !== undefined && f.coverGroups && (
+                <El an={s[`head${k}`]} t={t} style={{ fontSize: tighter ? 30 : 34, color: WHITE, opacity: 0.75, marginTop: k ? (tighter ? 4 : 10) : 0, marginBottom: tighter ? 8 : 12 }}>{f.coverGroups[k].title}</El>
+              )}
+              <El an={s[`row${i}`]} t={t} style={{
+                alignItems: "center", borderRadius: 34, padding: tighter ? "10px 26px" : tight ? "14px 28px" : "20px 30px", marginBottom: tighter ? 12 : tight ? 16 : 24,
+                background: main ? WHITE : "rgba(255,255,255,0.1)", border: `3px solid ${main ? WHITE : "rgba(255,255,255,0.22)"}`,
+              }}>
+                {!main && <div style={box({ width: tighter ? 54 : 64, height: tighter ? 54 : 64, borderRadius: 32, background: GREEN, color: WHITE, fontSize: tighter ? 34 : 40, fontWeight: 700, alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 24 })}>✓</div>}
+                <div style={box({ flex: 1, flexShrink: 1, fontSize: tighter ? 34 : tight ? 36 : 40, color: main ? NAVY : WHITE, fontWeight: main ? 600 : 400 })}>{r.label}</div>
+                <div style={box({ marginLeft: 20, fontSize: main ? 56 : tighter ? 38 : tight ? 40 : 46, fontWeight: 700, color: main ? NAVY : GOLD, flexShrink: 0 })}>{r.amount}</div>
+              </El>
+            </Fragment>
+          );
+        })}
       </div>
       {f.coverNote && <El an={s.note} t={t} style={{ position: "absolute", left: SIDE, width: W - SIDE * 2, top: 1240, fontSize: 32, color: WHITE, opacity: 0.85 }}>{f.coverNote}</El>}
     </>

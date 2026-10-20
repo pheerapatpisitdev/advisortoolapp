@@ -44,6 +44,14 @@ export interface VideoWords {
   renewNote: (age: number) => string;
   /** "paid as charged" short enough for a row of the clip, where the card's own words run long */
   asCharged: string;
+  /**
+   * The Motion cover scene's three groups (owner, 2026-10-20, mockup
+   * https://claude.ai/artifact/Uw3cgf8SmZrKbvYmvWML6o, ก): the base plan's row, the health plan's
+   * heading, and the riders' heading. The base plan's own heading is the card's `base`.
+   */
+  lifeRow: (base: string) => string;
+  careOf: (plan: string) => string;
+  ridersTitle: string;
   /** the large lines' spacing: Burmese stacks marks above and below its letters */
   lineHeight: number;
 }
@@ -66,6 +74,9 @@ const TH: VideoWords = {
   perMonth: "เดือนละ",
   renewNote: (age) => `ต่ออายุได้ถึงอายุ ${age} · เบี้ยปีแรก ปีต่อไปคิดตามอายุที่เพิ่มขึ้น`,
   asCharged: "ตามที่จ่ายจริง",
+  lifeRow: (base) => `ทุนชีวิต · ${base}`,
+  careOf: (plan) => `ค่ารักษา ${plan}`,
+  ridersTitle: "สัญญาเพิ่มเติม",
   lineHeight: 1.3,
 };
 
@@ -87,6 +98,9 @@ const EN: VideoWords = {
   perMonth: "Per month",
   renewNote: (age) => `Renewable to age ${age} · first-year premium; later years are priced on the higher age`,
   asCharged: "As charged",
+  lifeRow: (base) => `Life cover · ${base}`,
+  careOf: (plan) => `Medical cover · ${plan}`,
+  ridersTitle: "Riders",
   lineHeight: 1.3,
 };
 
@@ -108,6 +122,9 @@ const ZH: VideoWords = {
   perMonth: "每月",
   renewNote: (age) => `可续保至 ${age} 岁 · 首年保费，之后按增长的年龄计算`,
   asCharged: "按实际费用",
+  lifeRow: (base) => `人寿保障 · ${base}`,
+  careOf: (plan) => `医疗保障 · ${plan}`,
+  ridersTitle: "附加合同",
   lineHeight: 1.3,
 };
 
@@ -129,6 +146,9 @@ const RU: VideoWords = {
   perMonth: "В месяц",
   renewNote: (age) => `Продление до ${age} лет · взнос за первый год, далее по возрасту`,
   asCharged: "По факту",
+  lifeRow: (base) => `Страхование жизни · ${base}`,
+  careOf: (plan) => `Лечение · ${plan}`,
+  ridersTitle: "Дополнительные договоры",
   lineHeight: 1.3,
 };
 
@@ -150,6 +170,9 @@ const MY: VideoWords = {
   perMonth: "တစ်လ",
   renewNote: (age) => `အသက် ${age} အထိ သက်တမ်းတိုးနိုင် · ပထမနှစ် ပရီမီယံ၊ နောက်နှစ်များ အသက်အလိုက်`,
   asCharged: "ကုန်ကျသလောက်",
+  lifeRow: (base) => `အသက်အာမခံ · ${base}`,
+  careOf: (plan) => `ကျန်းမာရေးအစီအစဉ် · ${plan}`,
+  ridersTitle: "ဖြည့်စွက်စာချုပ်များ",
   lineHeight: 1.6,
 };
 

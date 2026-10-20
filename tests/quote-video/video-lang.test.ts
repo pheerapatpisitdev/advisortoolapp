@@ -47,7 +47,7 @@ describe("iHealthy clip in the page's five languages (owner, 2026-10-15)", () =>
   it("says the figures the card states", () => {
     const en = quoteVideoScript(factsIn("en"));
     expect(en[0].voice).toBe("Hello! Here's a quick look at this health plan. For a woman aged 35, the Silver plan pays medical bills up to 15 million baht a year.");
-    expect(en[1].voice).toBe("In the first year it's 3,222 baht a month, with life cover and daily hospital cash already included.");
+    expect(en[1].voice).toBe("In the first year it's 3,222 baht a month, with life cover of 50,000 baht and daily hospital cash already included.");
     expect(quoteVideoScript(factsIn("zh"))[0].voice).toContain("1500万泰铢");
     expect(quoteVideoScript(factsIn("ru"))[1].voice).toContain("3222 бата в месяц");
     expect(quoteVideoScript(factsIn("my"))[1].voice).toContain("ဘတ် ၃,၂၂၂");

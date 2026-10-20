@@ -10,7 +10,7 @@ import {
   MODES, deathBenefitOf, iHealthyPricing, plansFor,
 } from "@/lib/ihealthy-quote";
 import { priceRiders } from "@/lib/ihealthy-rider-quote";
-import { riderLines, riderSpokenNames } from "@/lib/ihealthy-rider-lines";
+import { riderLines, riderParts, riderSpokenNames } from "@/lib/ihealthy-rider-lines";
 import { parseLang, type Lang } from "@/lib/ihealthy-lang";
 import { baseWords, WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
 import { translateFacts } from "@/lib/ihealthy-translate";
@@ -82,6 +82,10 @@ export interface IHealthyCard {
   lines: { label: string }[];
   /** the riders the fold attached, each said in full with its sum, the daily cash left out (ihealthy-rider-lines.ts riderSpokenNames) */
   riderNames: string[];
+  /** the base plan and its sum apart, for the วิดีโอนำเสนอ cover scene's สัญญาหลัก row */
+  base: { name: string; sum: number };
+  /** the same riders as `riderNames`, name and sum apart, for the clip's สัญญาเพิ่มเติม rows (ihealthy-rider-lines.ts riderParts) */
+  riderParts: { name: string; sum?: string }[];
   /** the company will not take the monthly instalment this arrangement comes to */
   belowMinimum?: string;
   /**
@@ -258,6 +262,8 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
         : []),
     ],
     riderNames: here === undefined || extras === undefined ? [] : riderSpokenNames(w, asked, priced.extraCodes, table.standard.code),
+    base: { name: baseName, sum: v.sumAssured },
+    riderParts: here === undefined || extras === undefined ? [] : riderParts(w, asked, priced.extraCodes, table.standard.code),
     ...(headline?.belowMinimum
       ? { belowMinimum: w.belowMinimum(table.minMonthly) }
       : {}),
