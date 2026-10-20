@@ -3,9 +3,10 @@ import { insuredFace } from "../../card/insured-face";
 import type { NextRequest } from "next/server";
 import { iHealthyTableCard, type IHealthyTableCard } from "@/lib/ihealthy-card";
 import {
-  band, CARD_HEADERS, GOLD, GOLD_LIT, GROUND, GROUND_DEEP, H, loadFonts, MUTE, PAD, PlanTable, RULE,
-  spacer, WHITE, widthOf,
+  band, CARD_HEADERS, GOLD, GOLD_LIT, GROUND, GROUND_DEEP, geometryOf, H, loadFonts, MUTE, PAD, PlanTable, RULE,
+  spacer, Subtitle, subtitleHeight, WHITE, widthOf,
 } from "../draw";
+import { WORDS } from "@/lib/ihealthy-words";
 import { HEALTH_CARD_KEYS, HEALTH_REPEATABLE, toCanonical } from "../../card/canonical";
 import { SiteFooter, SITE_FOOTER_H } from "../../card/site-footer";
 
@@ -13,12 +14,12 @@ export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
 export const revalidate = 86400;
 
-/** Heading, table, notes — and the bands between them, as on the card. */
-function heightOf(card: IHealthyTableCard): number {
+/** Heading, table, notes — and the bands between them, as on the card; `sub` is the line under the heading. */
+function heightOf(card: IHealthyTableCard, sub: number): number {
   const table = H.head + card.rows.length * H.row
     + (card.premiumRows.length > 0 ? H.section + card.premiumRows.length * H.row : 0);
   return PAD * 2
-    + H.plan + H.insured
+    + H.who + sub
     + H.gap + H.hairline + H.afterHairline + table
     + SITE_FOOTER_H;
 }
@@ -38,6 +39,12 @@ export async function GET(req: NextRequest) {
   const moved = toCanonical(req, HEALTH_CARD_KEYS, HEALTH_REPEATABLE);
   if (moved) return moved;
   const card = iHealthyTableCard(req.nextUrl.searchParams);
+  // the bot sends it in English as well as Thai, and the two headings of the table are words
+  const w = WORDS[card.lang];
+  const geo = geometryOf(card.lang);
+  const width = widthOf(card.columns.length, geo);
+  const fonts = await loadFonts();
+  const sub = await subtitleHeight(card.insuredLine, width - PAD * 2, fonts);
 
 
   return pngResponse(
@@ -57,14 +64,11 @@ export async function GET(req: NextRequest) {
         {/* The insured opposite the heading, at a size a glance answers — see the quote card. */}
         <div
           style={{
-            display: "flex", height: H.plan + H.insured, flexShrink: 0,
+            display: "flex", height: H.who, flexShrink: 0,
             width: "100%", justifyContent: "space-between", alignItems: "center",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ ...band(H.plan), fontSize: 30, fontWeight: 600, color: GOLD }}>{card.headLine}</div>
-            <div style={{ ...band(H.insured), fontSize: 25, color: MUTE }}>{card.insuredLine}</div>
-          </div>
+          <div style={{ ...band(H.plan), fontSize: 30, fontWeight: 600, color: GOLD, alignItems: "center" }}>{card.headLine}</div>
           <div
             style={{
               display: "flex", flexShrink: 0, marginLeft: 24, alignItems: "center", gap: 14,
@@ -75,21 +79,22 @@ export async function GET(req: NextRequest) {
             {card.insuredWho}
           </div>
         </div>
+        <Subtitle text={card.insuredLine} width={width - PAD * 2} />
 
         <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
           <div style={spacer(H.gap)} />
           <div style={spacer(H.hairline, RULE)} />
           <div style={spacer(H.afterHairline)} />
-          <PlanTable card={card} selected={-1} />
+          <PlanTable card={card} selected={-1} w={w} geo={geo} />
         </div>
         <SiteFooter color={MUTE} />
 
       </div>
     ),
     {
-      width: widthOf(card.columns.length),
-      height: heightOf(card),
-      fonts: await loadFonts(),
+      width,
+      height: heightOf(card, sub),
+      fonts,
       headers: CARD_HEADERS,
     },
   );

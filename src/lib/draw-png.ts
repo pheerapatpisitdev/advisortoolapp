@@ -66,6 +66,16 @@ export async function drawPng(
 }
 
 /**
+ * How tall the element lays out at `width`, by satori itself: no height given, it sizes the
+ * picture to the content. For a band whose wrapping cannot be known in advance — the canvases
+ * are summed band by band, so the band has to be told its height before it is drawn.
+ */
+export async function laidOutHeight(element: ReactNode, width: number, fonts: DrawFont[]): Promise<number> {
+  const svg = await satori(element, { width, fonts, loadAdditionalAsset });
+  return Number(/height="([\d.]+)"/.exec(svg)?.[1] ?? 0);
+}
+
+/**
  * The drop-in for next/og's ImageResponse that the routes used: the same element, size, fonts
  * and headers in, a PNG response out.
  */

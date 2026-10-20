@@ -280,7 +280,9 @@ export function cardQuery(table: IHealthyTable, v: IHealthyInitial): string {
   // from the old 150,000-baht base to the 50,000-baht Health Ultra Package. 7: drawn with
   // satori 0.33, which stacks Thai tone marks (src/lib/draw-png.ts). 8: "Application by www.advisortool.app" footer.
   // 9: each attached rider named on its own line instead of a count.
-  return `${queryFrom(table, v)}&v=${cardPaletteVersion(CARD_PALETTE)}&cv=9`;
+  // 10: who it is for beside the plan's name, the base and territory under it — a long line
+  // had pushed "ชาย 45 ปี" off the picture's right edge.
+  return `${queryFrom(table, v)}&v=${cardPaletteVersion(CARD_PALETTE)}&cv=10`;
 }
 
 /**

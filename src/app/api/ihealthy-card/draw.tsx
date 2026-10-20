@@ -6,6 +6,7 @@ import { highlighterUri } from "@/lib/highlighter";
 import { googleFontSubset } from "@/lib/google-font";
 import type { Lang } from "@/lib/ihealthy-lang";
 import { WORDS, type IHealthyWords } from "@/lib/ihealthy-words";
+import { laidOutHeight, type DrawFont } from "@/lib/draw-png";
 
 /**
  * The ink both health pictures are drawn with: the palette, the bands, and the three
@@ -75,6 +76,8 @@ export function geometryOf(lang: Lang): Geometry {
  */
 export const H = {
   plan: 46,
+  /** the plan's name with who it is for opposite it, the face being the tallest thing there */
+  who: 72,
   insured: 42,
   premium: 126,
   noPrice: 60,
@@ -99,6 +102,34 @@ export const band = (height: number) => ({ display: "flex", height, flexShrink: 
 export const spacer = (height: number, background?: string) => (
   { display: "flex", height, flexShrink: 0, ...(background ? { background } : {}) }
 ) as const;
+
+/**
+ * What the plan rides on — base, sum, territory, cover — across the card's whole width, under
+ * the plan's name rather than beside who it is for. Beside it, a long one (English, or a
+ * territory and a deductible) pushed "ชาย 45 ปี" off the right edge of the picture (owner,
+ * 2026-10-20, mockup https://claude.ai/artifact/DbpnPR1MVnnVtKXzDrmqgE).
+ *
+ * Still too long for the width, it breaks at a " · " and nowhere else, so a territory is never
+ * cut in half. The band's height is asked of `subtitleHeight` before the card is drawn.
+ */
+export function Subtitle({ text, width }: { text: string; width: number }) {
+  const parts = text.split(" · ").map((part, i) => (i === 0 ? part : `· ${part}`));
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", width, columnGap: 7, flexShrink: 0, fontFamily: "Plex" }}>
+      {parts.map((part) => (
+        <div key={part} style={{ ...band(H.insured), alignItems: "center", whiteSpace: "nowrap", fontSize: 25, color: MUTE }}>
+          {part}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The height `Subtitle` lays out to at `width`: one band, or one more for each break. */
+export async function subtitleHeight(text: string, width: number, fonts: DrawFont[]): Promise<number> {
+  const height = await laidOutHeight(<Subtitle text={text} width={width} />, width, fonts);
+  return Math.max(1, Math.round(height / H.insured)) * H.insured;
+}
 
 /** One of the card's own figures: what it is on the left, what it costs on the right. */
 export function Line({ label }: { label: string }) {

@@ -286,6 +286,8 @@ export function iHealthyCard(query: URLSearchParams, today: Date = new Date()): 
  * other that disagreed about a premium would be worse than sending neither.
  */
 export interface IHealthyTableCard {
+  /** the quote card's language, so the table's own headings follow it */
+  lang: Lang;
   headLine: string;
   /** who it is for, e.g. "ชาย 35 ปี"; drawn large in the corner */
   insuredWho: string;
@@ -301,6 +303,7 @@ export interface IHealthyTableCard {
 export function iHealthyTableCard(query: URLSearchParams, today: Date = new Date()): IHealthyTableCard {
   const card = iHealthyCard(query, today);
   return {
+    lang: card.lang,
     // the bot sends this one in English on the Expat Pages; the other languages have no caller
     headLine: card.lang === "en" ? "iHealthy Ultra · Compare plans" : "iHealthy Ultra · เปรียบเทียบแผน",
     insuredWho: card.insuredWho,

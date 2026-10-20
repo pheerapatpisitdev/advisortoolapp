@@ -6,7 +6,7 @@ import { iHealthyCard, type IHealthyCard } from "@/lib/ihealthy-card";
 import { WORDS } from "@/lib/ihealthy-words";
 import {
   band, CARD_HEADERS, GOLD, GOLD_LIT, GROUND, GROUND_DEEP, H, Line, loadFonts, MUTE, PAD, PlanTable, RULE,
-  geometryOf, scriptFonts, spacer, WHITE, widthOf,
+  geometryOf, scriptFonts, spacer, Subtitle, subtitleHeight, WHITE, widthOf,
 } from "./draw";
 import { HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE, toCanonical } from "../card/canonical";
 import { SiteFooter, SITE_FOOTER_H } from "../card/site-footer";
@@ -15,12 +15,7 @@ export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
 export const revalidate = 86400;
 
-
-
-
-
-
-
+/** The canvas, band by band; `top` is the plan's row and the line under it. */
 function heightOf(card: IHealthyCard, top: number): number {
   const table = H.head + card.rows.length * H.row
     + (card.premiumRows.length > 0 ? H.section + card.premiumRows.length * H.row : 0);
@@ -33,8 +28,6 @@ function heightOf(card: IHealthyCard, top: number): number {
     + H.gap + H.hairline + H.afterHairline + table
     + SITE_FOOTER_H;
 }
-
-
 
 /**
  * The health quote drawn as one picture: the card, and the benefit table under it.
@@ -72,7 +65,11 @@ export async function GET(req: NextRequest) {
   // "คุณ" is Thai's; on a card in another language the name stands alone
   const named = name ? addressedAs(name, card.lang === "th") : undefined;
   const whoStyle: WhoStyle = { size: 44, face: 66, color: GOLD_LIT, mute: MUTE };
-  const top = whoRowHeight(H.plan + H.insured, named, whoStyle);
+  const width = widthOf(card.columns.length, geo);
+  const fonts = [...await loadFonts(), ...extra];
+  const whoRow = whoRowHeight(H.who, named, whoStyle);
+  const subRow = await subtitleHeight(card.insuredLine, width - PAD * 2, fonts);
+  const top = whoRow + subRow;
 
 
   return pngResponse(
@@ -92,16 +89,14 @@ export async function GET(req: NextRequest) {
         {/* The insured opposite the plan, at a size a glance answers — see the quote card. */}
         <div
           style={{
-            display: "flex", height: top, flexShrink: 0,
+            display: "flex", height: whoRow, flexShrink: 0,
             width: "100%", justifyContent: "space-between", alignItems: "center",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ ...band(H.plan), fontSize: 30, fontWeight: 600, color: GOLD }}>{card.planLine}</div>
-            <div style={{ ...band(H.insured), fontSize: 25, color: MUTE }}>{card.insuredLine}</div>
-          </div>
+          <div style={{ ...band(H.plan), fontSize: 30, fontWeight: 600, color: GOLD, alignItems: "center" }}>{card.planLine}</div>
           {insuredWho(card.sex, card.insuredWho, named, whoStyle)}
         </div>
+        <Subtitle text={card.insuredLine} width={width - PAD * 2} />
 
         {card.premium ? (
           <div style={{ ...band(H.premium), alignItems: "baseline", paddingTop: 12 }}>
@@ -146,9 +141,9 @@ export async function GET(req: NextRequest) {
       </div>
     ),
     {
-      width: widthOf(card.columns.length, geo),
+      width,
       height: heightOf(card, top),
-      fonts: [...await loadFonts(), ...extra],
+      fonts,
       // Kept by the CDN like every other card (it was no-store from 2026-09-20 until 2026-10-17,
       // and each view was drawn again). The URL names the whole arrangement and canonical.ts
       // keeps it to one address per picture, so a new base, sum or rider is a new picture.
