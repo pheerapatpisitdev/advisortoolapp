@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 import { formulaBadge } from "@/lib/content/finish-check";
 import { lookLabel, readLook } from "@/lib/content/looks";
 import { aiTextState } from "@/lib/content/poster-text";
@@ -15,7 +16,8 @@ import { FeedCaption } from "./ui/FeedPreview";
 
 /**
  * One piece on the workbench, in the shape of Maryjane's piece-card: the picture on top, the
- * words under it, and a bar of four buttons — the decision, the picture, the tools, the bin.
+ * words under it, and two bars of buttons: taking it out to post (the words, the picture, both
+ * in one tap) over deciding about it (ใช้จริง, แก้ไข, ทิ้ง) — owner chose ข, 2026-10-20.
  *
  * The words are the caption as the Page will show it (owner, 2026-09-29): hook, body, closing,
  * hashtags and the lines under them in one run, folded at ดูเพิ่มเติม — not a bold hook over four
@@ -35,7 +37,8 @@ interface Props {
   onEdit: () => void;
   onStatus: (status: ContentItem["status"]) => void;
   onDelete: () => void;
-  onCopy: () => void;
+  /** the words to the clipboard; `withPicture` when รูป + ข้อความ is saving the poster too. Resolves false when the copy failed */
+  onCopy: (withPicture: boolean) => Promise<boolean>;
   /** ตั้งเวลาหลายชิ้น: the card is ticked rather than opened; `why` says why it cannot be */
   pick?: { on: boolean; toggle: () => void; why?: string };
 }
@@ -51,9 +54,22 @@ const AI_WORDS: Record<ReturnType<typeof aiTextState>, string> = {
 export function PieceCard({ item, index, productName, busy, drawing, onEdit, onStatus, onDelete, onCopy, pick }: Props) {
   const blocking = (item.flags.policy ?? []).some((f) => f.severity === "block");
   const toCheck = item.flags.numbers.length + item.flags.words.length + (item.flags.policy?.length ?? 0);
-  const cell = "flex min-h-tap items-center justify-center gap-1.5 text-sm hover:bg-[var(--ct-soft)] disabled:opacity-50";
+  const cellBase = "flex min-h-tap items-center justify-center gap-1.5 text-sm disabled:opacity-50";
+  const cell = `${cellBase} hover:bg-[var(--ct-soft)]`;
   const picture = posterUrl(item.output.poster ?? defaultPoster(item.output.hooks[0], productName));
   const saver = usePictureSaver(picture, `poster-${item.id.slice(0, 8)}.png`);
+  // which of the two picture buttons was pressed, so only that one shows กำลังเตรียม… / บันทึกแล้ว
+  const [via, setVia] = useState<"picture" | "both">("picture");
+  const saveLabel = <>{saver.state === "saved" && <CheckIcon className="size-4" />}{SAVE_LABEL[saver.state]}</>;
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(copiedTimer.current), []);
+  const copyWords = async () => {
+    if (!(await onCopy(false))) return;
+    setCopied(true);
+    window.clearTimeout(copiedTimer.current);
+    copiedTimer.current = window.setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <article className={`overflow-hidden rounded-xl border bg-[var(--ct-panel)] ${pick?.on ? "border-[var(--ct-accent)] ring-2 ring-[var(--ct-accent)]" : "border-[var(--ct-hair)]"} ${item.status === "trashed" || pick?.why ? "opacity-70" : ""}`}>
@@ -114,9 +130,31 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
           <button type="button" disabled={busy} onClick={onDelete} className={`${cell} text-[var(--ct-alert)]`}>ลบถาวร</button>
         </div>
       ) : (
-        <div className="grid grid-cols-4 divide-x divide-[var(--ct-hair)] border-t border-[var(--ct-hair)]">
+        <>
+        {/* taking it out to post: the words, the picture, or both in one tap */}
+        <div className="grid grid-cols-3 divide-x divide-[var(--ct-hair)] border-t border-[var(--ct-hair)]">
+          <button type="button" onClick={copyWords} className={cell} aria-live="polite">
+            {copied ? <><CheckIcon className="size-4" />คัดลอกแล้ว</> : "คัดลอกข้อความ"}
+          </button>
+          <button type="button" disabled={drawing || saver.state === "saving"} onClick={() => { setVia("picture"); saver.save(); }} className={cell} aria-live="polite">
+            {drawing ? "รอภาพ…" : via === "picture" ? saveLabel : SAVE_LABEL.idle}
+          </button>
+          <button
+            type="button" disabled={drawing || saver.state === "saving"}
+            onClick={() => {
+              // the clipboard before the share sheet: both have to start inside the tap
+              setVia("both");
+              void onCopy(true);
+              saver.save();
+            }}
+            className={`${cellBase} bg-[var(--ct-solid)] font-medium text-[var(--ct-solid-ink)]`} aria-live="polite"
+          >
+            {drawing ? "รอภาพ…" : via === "both" ? (saver.state === "idle" ? "รูป + ข้อความ" : saveLabel) : "รูป + ข้อความ"}
+          </button>
+        </div>
+        <div className="grid grid-cols-3 divide-x divide-[var(--ct-hair)] border-t border-[var(--ct-hair)]">
           {item.status === "used" ? (
-            <button type="button" onClick={onCopy} className={cell}>คัดลอก</button>
+            <span className={`${cellBase} font-medium text-[var(--ct-accent)]`}><CheckIcon className="size-4" />ใช้แล้ว</span>
           ) : (
             <button type="button" disabled={busy} onClick={async () => {
               // a piece that breaks Facebook's rules is marked used only when the owner says so:
@@ -127,14 +165,12 @@ export function PieceCard({ item, index, productName, busy, drawing, onEdit, onS
               <CheckIcon className="size-4" />ใช้จริง
             </button>
           )}
-          <button type="button" disabled={drawing || saver.state === "saving"} onClick={saver.save} className={cell} aria-live="polite">
-            {drawing ? "รอภาพ…" : <>{saver.state === "saved" && <CheckIcon className="size-4" />}{SAVE_LABEL[saver.state]}</>}
-          </button>
           <button type="button" onClick={onEdit} className={cell}>แก้ไข</button>
           <button type="button" disabled={busy} onClick={() => onStatus("trashed")} className={`${cell} text-[var(--ct-alert)]`}>
             ทิ้ง
           </button>
         </div>
+        </>
       )}
     </article>
   );
