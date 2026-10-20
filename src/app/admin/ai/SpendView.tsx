@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { PersonUse, ProviderSpend, SpendDetail } from "./actions";
-import { PROVIDER_LABEL } from "./labels";
+import { spendLabel } from "./labels";
 import { taskLabel } from "./task-labels";
 
 /*
@@ -107,7 +107,7 @@ function ByJob({ spend }: { spend: ProviderSpend[] }) {
       const j = by.get(l.task) ?? { calls: 0, baht: 0, who: new Set<string>() };
       j.calls += l.calls;
       j.baht += l.baht;
-      j.who.add(PROVIDER_LABEL[p.provider] ?? p.provider);
+      j.who.add(spendLabel(p.provider));
       by.set(l.task, j);
     }
   }
@@ -186,7 +186,7 @@ export function SpendView({ spend, people }: { spend: ProviderSpend[]; people: P
         <div className="space-y-2">
           {spend.map((s) => (
             <div key={s.provider} className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--bot-line)] p-2">
-              <span className="w-56 text-sm">{PROVIDER_LABEL[s.provider] ?? s.provider}</span>
+              <span className="w-56 text-sm">{spendLabel(s.provider)}</span>
               <Spend spend={s} top={top} open={opened.has(s.provider)} onToggle={() => toggle(s.provider)} />
               {opened.has(s.provider) && <Detail lines={s.lines} />}
             </div>
