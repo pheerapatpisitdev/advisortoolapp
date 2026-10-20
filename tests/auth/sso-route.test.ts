@@ -48,6 +48,13 @@ describe("/sso and UnitClub's tiers", () => {
     expect(auth.startSession).not.toHaveBeenCalled();
   });
 
+  it("lets a basic agent on the สิทธิ์เข้าพิเศษ list in (owner, 2026-10-20)", async () => {
+    who.agentById.mockResolvedValue({ ...AGENT, member_tier: "basic" });
+    db.on("ins_special_access", { data: { agent_id: "a1" } });
+    expect(await land()).toBe("https://advisortool.test/");
+    expect(auth.startSession).toHaveBeenCalledWith("a1");
+  });
+
   it("sends a closed room to the plain front page", async () => {
     who.agentById.mockResolvedValue({ ...AGENT, member_tier: "basic", tenant: { ...AGENT.tenant, status: "canceled" } });
     expect(await land()).toBe("https://advisortool.test/");

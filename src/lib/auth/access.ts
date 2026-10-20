@@ -154,19 +154,25 @@ export function studioLocked(agent: AgentRow, now: number = Date.now()): boolean
  * the front page says to renew or upgrade rather than that the code is wrong. null for anybody
  * let in, and for anybody kept out for another reason.
  */
-export function refusal(agent: AgentRow | null, staff: StaffRow | null, issuedAt: number, now: number = Date.now()): "premium" | null {
-  if (!agent || !admitRoom(agent, staff, issuedAt)) return null;
+export function refusal(
+  agent: AgentRow | null, staff: StaffRow | null, issuedAt: number, now: number = Date.now(), special = false,
+): "premium" | null {
+  if (!agent || special || !admitRoom(agent, staff, issuedAt)) return null;
   return studioLocked(agent, now) ? "premium" : null;
 }
 
 /**
  * The one gate for a UnitOS agent: the code typed on the front page, the ticket from UnitOS's
  * menu (/sso) and every request after (getViewer) all come through here. A basic agent of a
- * room that keeps advisortool for Premium is out on the next click (owner, 2026-10-16).
+ * room that keeps advisortool for Premium is out on the next click (owner, 2026-10-16), unless
+ * the owner put them on the สิทธิ์เข้าพิเศษ list (`special`, ins_special_access, 2026-10-20);
+ * their room must still be open.
  */
-export function admit(agent: AgentRow | null, staff: StaffRow | null, issuedAt: number, now: number = Date.now()): Viewer | null {
+export function admit(
+  agent: AgentRow | null, staff: StaffRow | null, issuedAt: number, now: number = Date.now(), special = false,
+): Viewer | null {
   const viewer = admitRoom(agent, staff, issuedAt);
-  if (!viewer || !agent || studioLocked(agent, now)) return null;
+  if (!viewer || !agent || (studioLocked(agent, now) && !special)) return null;
   return viewer;
 }
 

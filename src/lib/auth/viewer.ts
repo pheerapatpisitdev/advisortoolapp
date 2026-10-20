@@ -5,9 +5,10 @@ import { memberAccess, passOpen } from "@/lib/members/access";
 import { PASS_PAGE } from "@/lib/members/pass";
 import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { admit, admitMember, admitSuper, can, refusal, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
+import { admitMember, admitSuper, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
 import { sessionNotBefore } from "./epoch";
 import { safeNext } from "./next";
+import { admitAgent, refusalOf } from "./special";
 import { readSession } from "./session";
 
 export type { Perm, Viewer } from "./access";
@@ -76,7 +77,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     agentById(session.agentId), staffRow(session.agentId), sessionNotBefore(session.agentId),
   ]);
   if (notBefore !== null && session.issuedAt < notBefore) return null;
-  if (agent) return admit(agent, staff, session.issuedAt);
+  if (agent) return admitAgent(agent, staff, session.issuedAt);
   // not UnitOS's: a member who signed up here (owner, 2026-10-01), the Super Admin
   // (2026-10-15), or nobody
   const member = await memberById(session.agentId);
@@ -96,7 +97,7 @@ async function whyOut(): Promise<"premium" | null> {
     agentById(session.agentId), staffRow(session.agentId), sessionNotBefore(session.agentId),
   ]);
   if (notBefore !== null && session.issuedAt < notBefore) return null;
-  return refusal(agent, staff, session.issuedAt);
+  return refusalOf(agent, staff, session.issuedAt);
 }
 
 /**

@@ -2,11 +2,11 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/assistant/rate-limit";
-import { admit, refusal } from "@/lib/auth/access";
 import { safeNext } from "@/lib/auth/next";
 import { endEverySession } from "@/lib/auth/epoch";
 import { noteLogin } from "@/lib/auth/login-log";
 import { endSession, readSession, startSession } from "@/lib/auth/session";
+import { admitAgent, refusalOf } from "@/lib/auth/special";
 import { agentsByCode, staffRow } from "@/lib/auth/viewer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -120,9 +120,9 @@ export async function signIn(formData: FormData): Promise<{ error: string; premi
     }
     const agent = agents[0] ?? null;
     const staff = agent ? await staffRow(agent.id) : null;
-    const viewer = agent ? admit(agent, staff, Date.now()) : null;
+    const viewer = agent ? await admitAgent(agent, staff, Date.now()) : null;
 
-    if (!viewer && refusal(agent, staff, Date.now()) === "premium") {
+    if (!viewer && (await refusalOf(agent, staff, Date.now())) === "premium") {
       // the right code of a basic agent in a room that keeps advisortool for Premium (owner,
       // 2026-10-16): told to renew rather than that the code is wrong. It stays counted as a
       // failure, as a code held in two rooms does: it still says the code is somebody's

@@ -34,7 +34,7 @@ export function historyLines(entries: WalletEntry[], lots: CreditLotView[], now:
     return { id: e.id, label: `${entryLabel(e)}${by}`, satang: e.kind === "charge" ? paid : e.amountSatang, at: e.createdAt, strong: e.amountSatang >= 0 && e.kind !== "charge" };
   });
   for (const l of lots) {
-    const name = l.kind === "starter" ? "เครดิตเริ่มต้น UnitClub" : l.kind === "trial" ? "เครดิตทดลอง" : "เครดิตสมาชิก 30 วัน";
+    const name = l.kind === "special" ? "งบพิเศษรายเดือน" : l.kind === "starter" ? "เครดิตเริ่มต้น UnitClub" : l.kind === "trial" ? "เครดิตทดลอง" : "เครดิตสมาชิก 30 วัน";
     lines.push({ id: `lot-${l.id}`, label: name, satang: l.amountSatang, at: l.startsAt, strong: true });
     const ended = l.voidedAt ?? (new Date(l.expiresAt).getTime() <= now.getTime() ? l.expiresAt : null);
     if (ended && l.leftSatang > 0) {
