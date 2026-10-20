@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { allowanceOf } from "@/lib/auth/quota";
-import { creditLotsOf, creditOf } from "@/lib/members/credit";
+import { creditLotsOf, creditOf, currentLot } from "@/lib/members/credit";
 import { freeVideosLeft } from "@/lib/quote-video/rows";
 import { walletEntries, walletPrices, walletSettings, walletStatus } from "@/lib/wallet/store";
 import { PriceList } from "./PriceList";
@@ -48,7 +48,7 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
   const passEnded = access ? !passOpen(access) : false;
   // with no free rounds left to give (a member's pass, a UnitClub agent), the credit is shown instead
   const credit = lots && allowance.limit === 0
-    ? { name: viewer.kind === "member" ? "เครดิตสมาชิก" : "เครดิตเริ่มต้น UnitClub", own: wallet.own, satang: wallet.credit, expiresAt: creditOf(lots, new Date()).expiresAt, lots }
+    ? { name: viewer.kind === "member" ? "เครดิตสมาชิก" : lots.some((l) => l.kind === "special" && currentLot(l, new Date())) ? "งบพิเศษรายเดือน" : "เครดิตเริ่มต้น UnitClub", own: wallet.own, satang: wallet.credit, expiresAt: creditOf(lots, new Date()).expiresAt, lots }
     : null;
   return (
     <WalletClient

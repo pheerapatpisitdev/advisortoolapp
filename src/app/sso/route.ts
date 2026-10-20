@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { admit, refusal } from "@/lib/auth/access";
 import { noteLogin } from "@/lib/auth/login-log";
 import { startSession } from "@/lib/auth/session";
+import { admitAgent, refusalOf } from "@/lib/auth/special";
 import { agentById, staffRow } from "@/lib/auth/viewer";
 import { requestOrigin } from "@/lib/facebook/origin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -33,10 +33,10 @@ export async function GET(req: Request) {
 
   const agentId = String(data.agent_id);
   const [agent, staff] = await Promise.all([agentById(agentId), staffRow(agentId)]);
-  if (!admit(agent, staff, Date.now())) {
+  if (!(await admitAgent(agent, staff, Date.now()))) {
     // a basic agent of a room that keeps advisortool for Premium: unitos-sso issues them no
     // ticket, so this is one issued just before the tier changed; the front page says why
-    return refusal(agent, staff, Date.now()) === "premium" ? NextResponse.redirect(`${origin}/?premium=1`) : toLogin();
+    return (await refusalOf(agent, staff, Date.now())) === "premium" ? NextResponse.redirect(`${origin}/?premium=1`) : toLogin();
   }
 
   await startSession(agentId);

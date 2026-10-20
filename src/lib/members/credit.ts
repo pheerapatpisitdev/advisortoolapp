@@ -38,8 +38,11 @@ export interface CreditLotView {
   id: number;
   /** the pass row that earned it; null for a UnitClub agent's starter lot */
   passId: number | null;
-  /** what earned it: a member's trial (฿15) or payment (฿50), or a UnitClub agent's one starter credit (฿15, owner 2026-10-18) */
-  kind: "trial" | "paid" | "starter";
+  /**
+   * what earned it: a member's trial (฿15) or payment (฿50), a UnitClub agent's one starter credit
+   * (฿15, owner 2026-10-18), or a month of the owner's สิทธิ์เข้าพิเศษ budget (2026-10-20)
+   */
+  kind: "trial" | "paid" | "starter" | "special";
   amountSatang: number;
   leftSatang: number;
   startsAt: string;
@@ -55,7 +58,7 @@ export async function creditLotsOf(memberId: string, limit = 20): Promise<Credit
     .eq("member_id", memberId).order("starts_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`อ่านเครดิตสมาชิกไม่ได้: ${error.message}`);
   return ((data ?? []) as Record<string, unknown>[]).map((r) => {
-    const kind: CreditLotView["kind"] = r.kind === "trial" || r.kind === "starter" ? r.kind : "paid";
+    const kind: CreditLotView["kind"] = r.kind === "trial" || r.kind === "starter" || r.kind === "special" ? r.kind : "paid";
     return {
       id: Number(r.id), passId: r.pass_id == null ? null : Number(r.pass_id), kind,
       amountSatang: Number(r.amount_satang), leftSatang: Number(r.left_satang),

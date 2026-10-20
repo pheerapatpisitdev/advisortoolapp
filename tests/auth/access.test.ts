@@ -161,6 +161,15 @@ describe("Premium-only advisortool", () => {
     expect(refusal(basic(), null, NOW, NOW)).toBe("premium");
   });
 
+  it("lets an agent on the สิทธิ์เข้าพิเศษ list in past the lock, never into a closed room (owner, 2026-10-20)", () => {
+    expect(admit(basic(), null, NOW, NOW, true)?.agentId).toBe("a1");
+    expect(refusal(basic(), null, NOW, NOW, true)).toBeNull();
+    const lapsed = agent({ member_tier: "premium", membership_expires_at: "2026-08-23T00:00:00Z", tenant: locks({ flags: { memberFee: true } }) });
+    expect(admit(lapsed, null, NOW, NOW, true)).not.toBeNull();
+    expect(admit(basic({ tenant: room({ status: "suspended", config: { premiumOnly: ["ad-studio"] } }) }), null, NOW, NOW, true)).toBeNull();
+    expect(admit(basic({ tenant: locks({ features: { adStudio: false } }) }), null, NOW, NOW, true)).toBeNull();
+  });
+
   it("lets a Premium agent of the same room in", () => {
     const v = admit(agent({ tenant: locks() }), null, NOW, NOW);
     expect(v?.agentId).toBe("a1");
