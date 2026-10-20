@@ -4,7 +4,7 @@ import type { Level } from "@/lib/fhc/health";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
 import { fhcSpec } from "./fhc-motion";
 import { chartNotes, NOTES_ABOVE, NOTES_BELOW } from "./chart-pen";
-import { abs, box, chartPaths, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
+import { abs, box, chartPaths, coverGroupStarts, easeBack, El, gsIndexBars, gsIndexHead, gsPayback, gsSureCard, heartCross, legacyStairs, look, motionSpec, pensionSteps, pensionTimeline, plbTermCards, plbTimeline, shieldFamily, stroke, type Anim } from "./motion";
 import { leadBig, leadPill } from "./plb";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import { captionShown, wordAt } from "./caption";
@@ -691,8 +691,49 @@ function PensionValue({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   );
 }
 
+/**
+ * iHealthy's cover in its three groups (owner, 2026-10-20, ก) on a square or landscape clip: สัญญาหลัก
+ * and สัญญาเพิ่มเติม down the left, the health plan's rows down the right. The rows keep the order
+ * motionSpec times them in (coverRowsOf), so each still slides in as the voice reaches it.
+ */
+function CoverGroups({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
+  const f = c.facts;
+  const s = motionSpec("cover", f, c.voiceSec);
+  const groups = f.coverGroups ?? [];
+  const starts = coverGroupStarts(f);
+  const many = groups.reduce((n, gr) => n + gr.rows.length, 0) > 7;
+  const gap = g.px(28, 50);
+  const colW = Math.floor((g.w - g.side * 2 - gap) / 2);
+  const group = (k: number) => (
+    <div key={k} style={box({ flexDirection: "column", marginBottom: g.px(10, 16) })}>
+      <El an={s[`head${k}`]} t={t} style={{ fontSize: g.px(24, 30), color: WHITE, opacity: 0.75, marginBottom: g.px(6, 10) }}>{groups[k].title}</El>
+      {groups[k].rows.map((r, j) => {
+        const main = Boolean(r.main);
+        return (
+          <El key={`${r.label}${j}`} an={s[`row${starts[k] + j}`]} t={t} style={{ ...card(g, main), alignItems: "center", padding: many ? g.px("6px 16px", "8px 22px") : g.px("8px 18px", "12px 26px"), marginBottom: g.px(many ? 8 : 10, many ? 10 : 14) }}>
+            {!main && <div style={box({ width: g.px(34, 46), height: g.px(34, 46), borderRadius: 24, background: GREEN, color: WHITE, fontSize: g.px(20, 28), fontWeight: 700, alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: g.px(14, 18) })}>✓</div>}
+            <div style={box({ flex: 1, flexShrink: 1, fontSize: g.px(many ? 22 : 24, many ? 28 : 32), color: main ? NAVY : WHITE, fontWeight: main ? 600 : 400 })}>{r.label}</div>
+            <div style={box({ marginLeft: 12, fontSize: main ? g.px(36, 46) : g.px(many ? 24 : 26, many ? 30 : 36), fontWeight: 700, color: main ? NAVY : GOLD, flexShrink: 0 })}>{r.amount}</div>
+          </El>
+        );
+      })}
+    </div>
+  );
+  return (
+    <>
+      <Header g={g} left={f.planLine} right={f.insuredWho} />
+      <Kicker g={g} an={s.kicker} t={t} text={f.coverTitle} />
+      <Body g={g}>
+        <div style={box({ width: colW, flexDirection: "column", marginRight: gap })}>{groups.map((_, k) => k).filter((k) => k !== 1).map(group)}</div>
+        <div style={box({ width: colW, flexDirection: "column" })}>{groups.length > 1 && group(1)}</div>
+      </Body>
+    </>
+  );
+}
+
 function CoverRows({ g, c, t }: { g: Geo; c: WideQuoteContext; t: number }) {
   const f = c.facts;
+  if (f.coverGroups) return <CoverGroups g={g} c={c} t={t} />;
   const s = motionSpec("cover", f, c.voiceSec);
   const many = f.cover.length;
   const cols = g.wide && many > 4 ? 2 : 1;

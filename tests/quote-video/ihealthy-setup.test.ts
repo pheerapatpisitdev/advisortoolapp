@@ -17,7 +17,7 @@ describe("iHealthy clip priced on the page's arrangement (owner, 2026-10-14)", (
     const { f, voice } = priceVoice();
     expect(f.spokenPrice.amount).toBe("2,966");
     expect(f.includes).toEqual(["ประกันชีวิต", "ค่าชดเชยรายวัน"]);
-    expect(voice).toContain("รวมประกันชีวิตกับค่าชดเชยรายวันไว้แล้ว");
+    expect(voice).toContain("รวมประกันชีวิตทุน 50,000 บาท กับค่าชดเชยรายวันไว้แล้ว");
   });
 
   it("follows the page when the daily cash was taken off: the page's figures, and the voice stops naming it", () => {
@@ -27,7 +27,7 @@ describe("iHealthy clip priced on the page's arrangement (owner, 2026-10-14)", (
     expect(f.prices.map((p) => p.amount)).toEqual(page.premiumRows.map((r) => r.cells[at].text));
     expect(f.spokenPrice.amount).toBe("2,849");
     expect(f.includes).toEqual(["ประกันชีวิต"]);
-    expect(voice).toContain("รวมประกันชีวิตไว้แล้ว");
+    expect(voice).toContain("รวมประกันชีวิตทุน 50,000 บาทไว้แล้ว");
     expect(voice).not.toContain("ค่าชดเชยรายวัน");
     expect(quoteVideoScript(f).find((s) => s.key === "cover")!.voice).not.toContain("นอนโรงพยาบาลรับเพิ่ม");
   });

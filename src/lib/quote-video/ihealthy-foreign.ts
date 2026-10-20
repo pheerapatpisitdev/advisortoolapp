@@ -73,6 +73,14 @@ const INCLUDES: Record<Foreign, Record<string, string>> = {
   my: { ประกันชีวิต: "အသက်အာမခံ", ค่าชดเชยรายวัน: "ဆေးရုံတက် နေ့စဉ်ငွေ", สัญญาเพิ่มเติม: "ထပ်ဆောင်းအာမခံများ" },
 };
 
+/** the base plan's cover said with its sum (owner, 2026-10-20, ก), as the Thai "ประกันชีวิตทุน 150,000 บาท" */
+function lifeWith(lang: Foreign, sum: string): string {
+  if (lang === "en") return `life cover of ${sum}`;
+  if (lang === "zh") return `${sum}人寿保障`;
+  if (lang === "ru") return `страхование жизни на сумму ${sum}`;
+  return `${sum} အသက်အာမခံ`;
+}
+
 /** the opening's who: "a woman aged 35" */
 function who(lang: Foreign, f: QuoteVideoFacts): string {
   const woman = f.sex === "F";
@@ -164,6 +172,7 @@ export function foreignScript(f: QuoteVideoFacts, lang: Foreign, name: string, s
     .flatMap((x) => (!short && x === "สัญญาเพิ่มเติม" && f.riderNames?.length
       // mid-sentence: "critical illness DCI", not "Critical illness DCI"
       ? f.riderNames.map((n) => (lang === "en" || lang === "ru" ? n.replace(/^(\p{Lu})(?=\p{Ll})/u, (c) => c.toLowerCase()) : n))
+      : x === "ประกันชีวิต" && f.lifeSum ? [lifeWith(lang, bahtSaid(lang, f.lifeSum))]
       : [INCLUDES[lang][x] ?? x]));
   const inc = list(lang, included);
   const b = budget(lang, f);
