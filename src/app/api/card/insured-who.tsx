@@ -8,10 +8,26 @@ const NAME_GAP = 8;
 /** the face and "ชาย 35 ปี" under a name, against their size without one */
 const UNDER = 0.68;
 
-/** A long name is set smaller, so it never reaches across into the plan's own lines. */
-function nameSize(name: string, size: number): number {
+/** Past this many letters a name with a space in it goes onto two lines, first name over surname. */
+const ONE_LINE = 20;
+
+/**
+ * The name as it is set: one line, or two split at the first space once it is long. Smaller
+ * alone could not do it: a thirty-letter name beside "Life Protect x 2 · ชำระเบี้ยครบอายุ 99 ปี"
+ * ran off the card's right edge at the smallest size (2026-10-20). A name with no space stays
+ * one line and is set smaller still.
+ */
+function nameLines(name: string): string[] {
   const length = Array.from(name).length;
-  return Math.round(size * (length <= 10 ? 1 : length <= 16 ? 0.8 : 0.66));
+  const space = name.indexOf(" ");
+  if (length <= ONE_LINE || space < 0) return [name];
+  return [name.slice(0, space), name.slice(space + 1).trim()];
+}
+
+/** A long name is set smaller, so it never reaches across into the plan's own lines. */
+function nameSize(lines: string[], size: number): number {
+  const length = Math.max(...lines.map((line) => Array.from(line).length));
+  return Math.round(size * (length <= 10 ? 1 : length <= 16 ? 0.8 : length <= 24 ? 0.66 : 0.56));
 }
 
 /**
@@ -21,7 +37,8 @@ function nameSize(name: string, size: number): number {
  */
 export function whoRowHeight(base: number, name: string | undefined, s: WhoStyle): number {
   if (!name) return base;
-  return Math.max(base, Math.ceil(nameSize(name, s.size) * 1.2) + NAME_GAP + Math.round(s.face * UNDER));
+  const lines = nameLines(name);
+  return Math.max(base, lines.length * Math.ceil(nameSize(lines, s.size) * 1.2) + NAME_GAP + Math.round(s.face * UNDER));
 }
 
 /**
@@ -45,9 +62,11 @@ export function insuredWho(sex: "M" | "F", who: string, name: string | undefined
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, marginLeft: 24 }}>
-      <div style={{ display: "flex", fontSize: nameSize(name, s.size), fontWeight: 600, lineHeight: 1.2, color: s.color }}>
-        {name}
-      </div>
+      {nameLines(name).map((line, i, lines) => (
+        <div key={i} style={{ display: "flex", fontSize: nameSize(lines, s.size), fontWeight: 600, lineHeight: 1.2, color: s.color }}>
+          {line}
+        </div>
+      ))}
       <div
         style={{
           display: "flex", alignItems: "center", gap: 10, marginTop: NAME_GAP,
