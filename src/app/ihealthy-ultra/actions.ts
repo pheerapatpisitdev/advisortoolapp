@@ -1,4 +1,6 @@
 "use server";
+import { printing } from "@/lib/auth/print-pass";
+import { getViewer } from "@/lib/auth/viewer";
 import { priceRiders } from "@/lib/ihealthy-rider-quote";
 import type { RiderQuoteInput, RiderQuoteResult } from "@/lib/ihealthy-rider-quote";
 
@@ -16,5 +18,7 @@ export type {
  * action.
  */
 export async function priceWithRiders(input: RiderQuoteInput): Promise<RiderQuoteResult> {
+  // members only, like the page (owner, 2026-10-20); our PDF printer carries its own pass
+  if (!(await printing()) && !(await getViewer())) throw new Error("กรุณาเข้าสู่ระบบก่อน");
   return priceRiders(input);
 }

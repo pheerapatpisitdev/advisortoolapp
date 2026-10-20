@@ -25,6 +25,8 @@ function fakeBrowser(over: { pdf?: () => Promise<Uint8Array>; close?: () => Prom
 }
 
 beforeEach(() => {
+  // the printer's pass is signed with the deploy's secret (src/lib/auth/print-pass.ts)
+  vi.stubEnv("ADMIN_SESSION_SECRET", "test-secret");
   launch.mockReset();
   vi.useFakeTimers();
   vi.stubGlobal("window", {});
@@ -108,11 +110,23 @@ describe("renderQuotePdf", () => {
     expect(b.page.setCookie.mock.invocationCallOrder[0]).toBeLessThan(b.page.goto.mock.invocationCallOrder[0]);
   });
 
-  it("sets no cookie for Thai", async () => {
+  it("sets no language cookie for Thai", async () => {
     const b = fakeBrowser();
     launch.mockResolvedValue(b);
     await renderQuotePdf("http://x/plb", { timeoutMs: 1000 });
-    expect(b.page.setCookie).not.toHaveBeenCalled();
+    expect(b.page.setCookie).not.toHaveBeenCalledWith(expect.objectContaining({ name: "ihu-lang" }));
+  });
+
+  // the calculators are for members only since 2026-10-20 (owner); this Chrome has no session
+  it("carries the printer's pass into the members-only page, before it loads", async () => {
+    const b = fakeBrowser();
+    launch.mockResolvedValue(b);
+    await renderQuotePdf("http://x/plb", { timeoutMs: 1000 });
+    const call = b.page.setCookie.mock.calls.find((c) => (c as unknown as [{ name: string }])[0].name === "ins_print");
+    expect(call).toBeDefined();
+    const { validPrintPass } = await import("@/lib/auth/print-pass");
+    expect(validPrintPass((call as unknown as [{ value: string }])[0].value)).toBe(true);
+    expect(b.page.setCookie.mock.invocationCallOrder.at(-1)!).toBeLessThan(b.page.goto.mock.invocationCallOrder[0]);
   });
 
   /** The page stamps "พิมพ์เมื่อ" in the browser's zone, and Vercel's is UTC (final review, item 3). */

@@ -7,7 +7,9 @@ import type { Who } from "@/lib/shell/menu";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { admitMember, admitSuper, can, type AgentRow, type MemberRow, type Perm, type StaffRow, type SuperAdminRow, type Viewer } from "./access";
 import { sessionNotBefore } from "./epoch";
+import { CALC_PATHS, type CalcPath } from "./calc-paths";
 import { safeNext } from "./next";
+import { printing } from "./print-pass";
 import { admitAgent, refusalOf } from "./special";
 import { readSession } from "./session";
 
@@ -130,8 +132,13 @@ export async function refuseUnless(perm?: Perm): Promise<Response | null> {
   return null;
 }
 
-/** the pages an outside member needs a live pass for: หน้าหลัก, ถาม AI and Studio (owner, 2026-10-13; /ask since 2026-10-14) */
-const passPage = (next: string) => next === "/home" || next.startsWith("/home/") || next === "/ask" || next === "/studio" || next.startsWith("/studio/");
+const under = (next: string, path: string) => next === path || next.startsWith(`${path}/`) || next.startsWith(`${path}?`);
+
+/**
+ * the pages an outside member needs a live pass for: หน้าหลัก, ถาม AI and Studio (owner,
+ * 2026-10-13; /ask since 2026-10-14), and the calculators (2026-10-20)
+ */
+const passPage = (next: string) => ["/home", "/ask", "/studio", ...CALC_PATHS].some((p) => under(next, p));
 
 /**
  * For pages. Somebody not signed in is sent to sign in and brought back; somebody signed in
@@ -159,6 +166,16 @@ export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
   if (viewer.kind === "super" && !office) redirect("/admin");
   if (perm && !can(viewer, perm)) redirect(office ? "/home" : "/studio");
   return viewer;
+}
+
+/**
+ * For the calculator pages (owner, 2026-10-20): a member's page like the others, except to our
+ * own PDF printer, which carries a two-minute pass instead of a session (./print-pass.ts). The
+ * printer gets null: a page drawn for it shows nobody's name.
+ */
+export async function gateCalc(path: CalcPath): Promise<Viewer | null> {
+  if (await printing()) return null;
+  return gatePage(path);
 }
 
 /** The little the menu needs to know, handed down from a layout (see `Who` in src/lib/shell/menu.ts). */

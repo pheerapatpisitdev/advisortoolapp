@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { healthQuote } from "@/lib/assistant/ihealthy/quote";
 import {
-  cheaperEn, fullTableLinkEn, healthMenuEn, healthQuoteEn, otherPlansEn, territoryAnswerEn,
+  cheaperEn, fullTableEn, healthMenuEn, healthQuoteEn, otherPlansEn, territoryAnswerEn,
 } from "@/lib/assistant/ihealthy-en/quote";
 import { HAND_OVER_EN } from "@/lib/assistant/ihealthy-en/words";
 
@@ -42,7 +42,7 @@ describe("the other English plan answers", () => {
   it("other plans, cheaper, territory and full table speak English", () => {
     const replies = [
       otherPlansEn(35, "F"), cheaperEn(35, "F", "SILVER"), cheaperEn(35, "F", "BRONZE"),
-      territoryAnswerEn({ ...KNOWN, plan: "BRONZE" }, "ทั่วโลก"), fullTableLinkEn({ ...KNOWN }),
+      territoryAnswerEn({ ...KNOWN, plan: "BRONZE" }, "ทั่วโลก"), fullTableEn({ ...KNOWN }),
     ];
     for (const r of replies) for (const m of r.messages) expect(m.text).not.toMatch(THAI);
   });

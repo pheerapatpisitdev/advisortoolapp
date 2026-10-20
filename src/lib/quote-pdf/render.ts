@@ -1,5 +1,6 @@
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
+import { PRINT_COOKIE, printPassFor } from "@/lib/auth/print-pass";
 import { LANG_COOKIE } from "@/lib/ihealthy-lang";
 
 /** How long the answer waits for Chrome to go away before it leaves it to go on its own. */
@@ -52,6 +53,9 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number; la
       // quote printed at eight in the morning would say one in the morning
       await page.emulateTimezone("Asia/Bangkok");
       if (opts.lang === "en") await page.setCookie({ name: LANG_COOKIE, value: "en", url });
+      // the calculators are for members only (owner, 2026-10-20); this Chrome has no session,
+      // so it carries the printer's two-minute pass instead (src/lib/auth/print-pass.ts)
+      await page.setCookie({ name: PRINT_COOKIE, value: printPassFor(), url, httpOnly: true });
       await page.goto(url, { waitUntil: "networkidle0", timeout: timeoutMs });
       // set by the calculator once it has seeded itself from the link; printing before that
       // would print the default figures

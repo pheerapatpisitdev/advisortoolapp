@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  pagePathFor, planInitialFrom, planQueryFor, quotePdfPath, type PlanInitial,
+  planInitialFrom, planQueryFor, quotePdfPath, type PlanInitial,
 } from "@/lib/quote-pdf/link";
 import { PLAN_PAGES, pageForPlan, type PlanPage } from "@/lib/quote-pdf/pages";
 
@@ -45,8 +45,6 @@ describe("the PDF path for a quote", () => {
     expect(quotePdfPath({ kind: "ihealthy", query: "age=30&sex=M" })).toMatch(/^\/api\/quote-pdf\?page=ihealthy-ultra&age=30&sex=M&v=.+$/);
     expect(quotePdfPath({ kind: "ihealthy", query: "age=30&sex=M", lang: "en" }))
       .toMatch(/^\/api\/quote-pdf\?page=ihealthy-ultra&age=30&sex=M&l=en&v=.+$/);
-    // the page reads its language from a cookie, so its own link carries none
-    expect(pagePathFor("/api/quote-pdf?page=ihealthy-ultra&age=30&sex=M&l=en&v=1")).toBe("/ihealthy-ultra?age=30&sex=M");
   });
 });
 
@@ -87,20 +85,5 @@ describe("a page's initial values from its query", () => {
       expect(PLAN_PAGES[page].sums).toContain(x.sumAssured);
       expect(planInitialFrom(page, parse(planQueryFor({ ...x, sumAssured: x.sumAssured + 1 }))), page).toBeUndefined();
     }
-  });
-});
-
-describe("the page link for a PDF path", () => {
-  it("turns a pdf path into the page link", () => {
-    expect(pagePathFor("/api/quote-pdf?page=plb&age=35&sex=F&sum=1000000&variant=PLB12&v=x"))
-      .toBe("/plb?age=35&sex=F&sum=1000000&variant=PLB12");
-  });
-
-  it("points an iHealthy PDF at its own page, and knows no other", () => {
-    expect(pagePathFor("/api/quote-pdf?page=ihealthy-ultra&age=30&v=x")).toBe("/ihealthy-ultra?age=30");
-    // LINE's flag is the route's, not the page's
-    expect(pagePathFor("/api/quote-pdf?page=ihealthy-ultra&age=30&v=x&openExternalBrowser=1")).toBe("/ihealthy-ultra?age=30");
-    expect(pagePathFor("/api/quote-pdf?page=constructor&age=30&v=x")).toBeUndefined();
-    expect(pagePathFor("/api/quote-pdf?age=30")).toBeUndefined();
   });
 });

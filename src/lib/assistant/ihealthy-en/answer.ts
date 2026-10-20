@@ -9,7 +9,7 @@ import { asksForPicture, asksShareOfBill, type HealthSlots } from "../ihealthy/r
 import { FAQ_EN, HEALTH } from "./faq";
 import { HEALTH_PLAN_INFO_SYSTEM_EN, HEALTH_SMALL_TALK_SYSTEM_EN, healthFactsForEn } from "./prompts";
 import {
-  cheaperEn, fullTableLinkEn, healthMenuEn, healthQuoteEn, otherPlansEn, territoryAnswerEn,
+  cheaperEn, fullTableEn, healthMenuEn, healthQuoteEn, otherPlansEn, territoryAnswerEn,
 } from "./quote";
 import { personInEn, planNamedInEn, routeHealthEn, territoryNamedInEn } from "./route";
 import {
@@ -131,7 +131,7 @@ export async function answerHealthEn(
         ? { ...healthQuoteEn({ ...who, plan: known.plan }), slots: known }
         : { ...healthMenuEn(who.age, who.sex), slots: known };
     }
-    if (FULL_TABLE.test(asked)) return { ...fullTableLinkEn(who), slots: known };
+    if (FULL_TABLE.test(asked)) return { ...fullTableEn(who), slots: known };
     if (asked === SEE_OTHER_PLANS_EN || OTHER_PLANS.test(asked)) {
       return { ...otherPlansEn(who.age, who.sex), slots: known };
     }

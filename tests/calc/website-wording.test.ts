@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChatOptions } from "@/lib/ai/client";
+import { siteUrl } from "@/lib/site-url";
 
 /**
  * What the website's chat says that the inbox says differently.
@@ -44,8 +45,8 @@ describe("the website's chat", () => {
       const written = forTheWebsite(said);
       expect(written, said).not.toMatch(/(?:ตอบ|คุยต่อ|ติดต่อกลับ|แจ้ง|ไว้)ในแชทนี้/);
     }
-    // the group page, on a line of its own, becomes a path in this site
-    expect(forTheWebsite(group)).toContain("](/group-insurance)");
+    // a page of this site on a line of its own becomes a path in it
+    expect(forTheWebsite(siteUrl("/privacy"))).toContain("](/privacy)");
   });
 
   it("prices iShield from its own opening button instead of sending the reader away", async () => {

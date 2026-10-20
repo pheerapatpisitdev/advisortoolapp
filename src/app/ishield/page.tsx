@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import { IShieldCalculator } from "@/components/IShieldCalculator";
 import { iShieldTable } from "@/lib/ishield-table";
 import { iShieldFacts } from "@/lib/ishield-facts";
@@ -15,6 +16,8 @@ export const metadata = {
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
 export default async function IShieldPage() {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/ishield");
   const table = iShieldTable();
   const facts = iShieldFacts();
   return (

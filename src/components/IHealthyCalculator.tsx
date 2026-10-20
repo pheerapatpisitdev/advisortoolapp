@@ -25,7 +25,6 @@ import type { AttachedRider } from "@/lib/ihealthy-rider-quote";
 import type { Attached } from "@/components/ihealthy/RiderPanel";
 import { ContactButtons } from "@/components/sales/ContactButtons";
 import { videoStartHref } from "@/lib/quote-video/link";
-import { LinkButton } from "@/components/sales/LinkButton";
 import { iHealthyQuoteText, type IHealthyCtaFacts } from "@/lib/ihealthy-cta";
 import { HTML_LANG, type Lang } from "@/lib/ihealthy-lang";
 import { WORDS, baseWords } from "@/lib/ihealthy-words";
@@ -638,14 +637,14 @@ export function IHealthyCalculator(
       {/* The way out of the page, and last of the three things on it: a health rider is
           bought on the twenty-eight rows above, so the buttons sit where a reader arrives
           having read them rather than above the table they came for. */}
-      {/* The agent's two ways of handing this over, kept apart from the customer's own
-          button below: one puts the arrangement on paper, the other puts its address on the
-          clipboard. Both are the agent working, not the customer deciding. */}
-      <div className="grid grid-cols-2 gap-2 print:hidden">
-        <button type="button" onClick={() => window.print()} className={tool}>
+      {/* The agent's way of putting the arrangement on paper, kept apart from the customer's
+          own button below. The copy-link button beside it went when the calculators became
+          members-only (owner chose ก, 2026-10-20): a customer cannot open the page any more,
+          so the picture in "ส่งให้ลูกค้า" is what goes to them. */}
+      <div className="print:hidden">
+        <button type="button" onClick={() => window.print()} className={`${tool} w-full`}>
           {w.printOrPdf}
         </button>
-        <LinkButton className={tool} words={{ copy: w.copyLink, copied: w.linkCopied }} />
       </div>
 
       <div className="print:hidden">

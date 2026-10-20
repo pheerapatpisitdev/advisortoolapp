@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// signed in: the action is for members only since 2026-10-20 (tests/auth/calc-gate.test.ts)
+vi.mock("@/lib/auth/viewer", () => ({ getViewer: async () => ({ agentId: "a1", kind: "unitos" }) }));
+vi.mock("@/lib/auth/print-pass", () => ({ printing: async () => false }));
+
 import { priceWithRiders, type RiderQuoteInput } from "@/app/ihealthy-ultra/actions";
 import { arrangementKey, attachedRiders, withinOffer } from "@/components/ihealthy/rider-request";
 

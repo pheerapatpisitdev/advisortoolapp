@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import { pensionFacts } from "@/lib/pension-facts";
 import { CalcTitle } from "@/components/sales/CalcTitle";
 import { PensionCalculator } from "@/components/pension/PensionCalculator";
@@ -14,7 +15,9 @@ export const metadata = {
  * An agents' tool since 2026-10-14 (owner: the system is closed, so the selling went and the
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
-export default function PensionPage() {
+export default async function PensionPage() {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/bumnan95");
   const facts = pensionFacts();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">

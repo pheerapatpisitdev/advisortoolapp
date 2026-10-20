@@ -1,4 +1,5 @@
 import { siteOrigin, siteUrl } from "@/lib/site-url";
+import { isCalcPath } from "@/lib/auth/calc-paths";
 import { APPLICATION_FORM, FORM_NEXT } from "./common";
 
 /**
@@ -24,10 +25,24 @@ const BOLD = /\*\*([^*]+)\*\*/g;
  * them, so the sentence still reads if the link is never pressed.
  */
 export function forMessenger(text: string): string {
-  return text
+  return withoutCalcLinks(text)
     .replace(LINK, (_, label: string, path: string) => `${label} ${siteUrl(path)}`)
     .replace(BOLD, "$1")
     .replace(/^\s*-\s+/gm, "• ");
+}
+
+/**
+ * The calculators are for members only since 2026-10-20 (owner chose ก: the bots stop sending
+ * their links), so a customer in the inbox would only meet the sign-in page. A model may still
+ * write one, from the knowledge or from habit: a markdown link keeps its words and loses the
+ * address, and a bare address to one is dropped with the space before it.
+ */
+export function withoutCalcLinks(text: string): string {
+  const ours = `(?:${escaped(siteOrigin())}|https?://(?:www\\.)?advisortool\\.app)`;
+  const local = (href: string) => href.replace(new RegExp(`^${ours}`), "");
+  return text
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (whole, label: string, href: string) => (isCalcPath(local(href)) ? label : whole))
+    .replace(new RegExp(`[ \\t]*${ours}(/[^\\s)\\]]*)`, "g"), (whole, path: string) => (isCalcPath(path) ? "" : whole));
 }
 
 /**
@@ -96,6 +111,7 @@ export function formattingRule(channel: Channel): string {
     ? "\n\nช่องทางนี้เป็นแชท LINE ซึ่งแสดงข้อความล้วน:"
     : "\n\nช่องทางนี้เป็นกล่องข้อความของเพจ ซึ่งแสดงข้อความล้วน:")
       + " ห้ามใช้มาร์กดาวน์ (ห้ามใช้ ** หรือ [ข้อความ](ลิงก์))"
-      + " ถ้าจะอ้างถึงหน้าเว็บ ให้เขียนที่อยู่เต็มเท่านั้น"
-      + ` เช่น ${siteUrl("/lifeprotect")}`;
+      // the calculators are members-only since 2026-10-20 (owner): a customer cannot open them
+      + " ห้ามส่งลิงก์หน้าคิดเบี้ยของเว็บ เพราะลูกค้าเปิดไม่ได้ (ใช้ได้เฉพาะสมาชิก)"
+      + " ถ้าลูกค้าอยากเห็นตัวเลข ให้ถามอายุกับเพศเพื่อคิดเบี้ยให้ในแชทนี้";
 }

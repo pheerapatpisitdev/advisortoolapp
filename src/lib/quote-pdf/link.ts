@@ -104,22 +104,3 @@ export function quotePdfPath(
  * on Android shows a PDF as a blank page. The route accepts it and prints past it.
  */
 export const EXTERNAL_BROWSER = "openExternalBrowser";
-
-/** The page address that opens on the same values as a PDF path, minus the PDF-only keys. */
-export function pagePathFor(pdfPath: string): string | undefined {
-  const [, search = ""] = pdfPath.split("?");
-  const params = new URLSearchParams(search);
-  const page = params.get("page");
-  if (page === null) return undefined;
-  params.delete("page");
-  params.delete("v");
-  params.delete(EXTERNAL_BROWSER);
-  // the page takes its language from a cookie, never from its address
-  params.delete("l");
-  const path = page === "ihealthy-ultra"
-    ? "/ihealthy-ultra"
-    : Object.hasOwn(PLAN_PAGES, page) ? PLAN_PAGES[page as PlanPage].path : undefined;
-  if (path === undefined) return undefined;
-  const rest = params.toString();
-  return rest ? `${path}?${rest}` : path;
-}

@@ -114,11 +114,13 @@ describe("the answers it gives without paying a model", () => {
     expect(chat).not.toHaveBeenCalled();
   });
 
-  it("sends the whole sheet as a link to the page, opened where the customer is", async () => {
+  // a file, not the page's link: the calculators are for members only since 2026-10-20 (owner chose ก)
+  it("sends the whole sheet as the page's PDF, arranged where the customer is", async () => {
     const answer = await answerHealth(said("ขอตารางเต็ม"), quoted);
-    const link = answer.messages.map((m) => m.text).join("\n");
-    expect(link).toContain("/ihealthy-ultra?");
-    expect(link).toContain("plan=GOLD");
+    const file = answer.messages.map((m) => m.file).find(Boolean);
+    expect(file).toMatch(/^\/api\/quote-pdf\?page=ihealthy-ultra&/);
+    expect(file).toContain("plan=GOLD");
+    expect(answer.messages.map((m) => m.text).join("\n")).not.toContain("/ihealthy-ultra?");
     expect(chat).not.toHaveBeenCalled();
   });
 
@@ -141,11 +143,11 @@ describe("the answers it gives without paying a model", () => {
     });
   }
 
-  it("still treats a request for the whole sheet as the page, not the picture", async () => {
-    // the picture carries the headline rows; the sheet has twenty-three categories and is a
-    // web page, so asking for everything must not be answered with the smaller thing
+  it("still treats a request for the whole sheet as the file, not the picture", async () => {
+    // the picture carries the headline rows; the sheet has twenty-three categories and is the
+    // page printed, so asking for everything must not be answered with the smaller thing
     const answer = await answerHealth(said("ขอตารางผลประโยชน์ทั้งหมด"), quoted);
-    expect(answer.messages.map((m) => m.text).join("\n")).toContain("/ihealthy-ultra?");
+    expect(answer.messages.some((m) => m.file?.startsWith("/api/quote-pdf?page=ihealthy-ultra&"))).toBe(true);
   });
 
   it("hands over the form when the customer decides", async () => {

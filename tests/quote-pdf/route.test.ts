@@ -63,15 +63,16 @@ describe("GET /api/quote-pdf", () => {
     expect(render).not.toHaveBeenCalled();
   });
 
-  it("answers 503 with the page link when Chrome fails", async () => {
+  // no page link: the calculators are for members only since 2026-10-20 (owner), and this is a customer's link
+  it("answers 503 asking to try again when Chrome fails", async () => {
     render.mockRejectedValue(new Error("no chrome"));
     const res = await GET(req(PLB));
     expect(res.status).toBe(503);
     expect(res.headers.get("content-type")).toContain("text/html");
     expect(res.headers.get("cache-control")).toBe("no-store");
     const body = await res.text();
-    expect(body).toContain("/plb?age=35");
-    expect(body).toContain("ส่งไฟล์ไม่สำเร็จครับ เปิดหน้านี้แล้วกดปุ่มบันทึก PDF ได้เลยครับ");
+    expect(body).not.toContain("/plb?age=35");
+    expect(body).toContain("ทำไฟล์ไม่สำเร็จครับ รอสักครู่แล้วเปิดลิงก์นี้อีกครั้งได้เลยครับ");
   });
 
   it("limits a caller, but not the bot", async () => {

@@ -6,7 +6,7 @@ import { planLabel } from "@/lib/ihealthy-facts";
 import { queryFrom } from "@/lib/ihealthy-link";
 import { plansFor, territoriesFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
-import { siteUrl } from "@/lib/site-url";
+import { quotePdfPath } from "@/lib/quote-pdf/link";
 import {
   WANTS_IN, aboutCompany, affirms, asksAboutCompany, asksCheaper, handOverForm, keepGivenFigures, one,
   recentTurns, saysFormDone, spoken, stallReply, stalls, wantsToBuy, type Reply,
@@ -124,7 +124,7 @@ export async function answerHealth(
         ? { ...healthQuote({ ...who, plan: known.plan }), slots: known }
         : { ...healthMenu(who.age, who.sex), slots: known };
     }
-    if (asksFullTable(asked)) return { ...fullTableLink(who), slots: known };
+    if (asksFullTable(asked)) return { ...fullTable(who), slots: known };
     if (asksOtherPlans(asked) || asked === SEE_OTHER_PLANS) {
       return { ...otherPlansReply(who.age, who.sex), slots: known };
     }
@@ -209,10 +209,12 @@ function territoryAnswer(
 }
 
 /**
- * The whole benefit sheet runs to twenty-eight categories; a picture of it is a document. The
- * page already draws it, so the customer is sent there with their own arrangement filled in.
+ * The whole benefit sheet runs to twenty-eight categories; a picture of it is a document. It
+ * used to be a link to the page, but the calculators are for members only since 2026-10-20
+ * (owner chose ก: the bots send the file or a picture instead of a link), so the customer gets
+ * the page printed, with their own arrangement filled in.
  */
-function fullTableLink(slots: HealthSlots & { age: number; sex: Sex }): Reply {
+function fullTable(slots: HealthSlots & { age: number; sex: Sex }): Reply {
   const table = iHealthyTable();
   const sellable = plansFor(table, slots.age).map((p) => p.code);
   const plan = slots.plan && sellable.includes(slots.plan) ? slots.plan : sellable[sellable.length - 1];
@@ -221,8 +223,7 @@ function fullTableLink(slots: HealthSlots & { age: number; sex: Sex }): Reply {
   }));
   return {
     messages: [
-      { text: "ตารางผลประโยชน์เต็มทุกหมวดอยู่ในหน้านี้ครับ เปิดมาจะกรอกอายุกับแผนไว้ให้แล้ว" },
-      { text: siteUrl(`/ihealthy-ultra?${query}`) },
+      { text: "ตารางผลประโยชน์เต็มทุกหมวดอยู่ในไฟล์นี้ครับ กรอกอายุกับแผนไว้ให้แล้ว", file: quotePdfPath({ kind: "ihealthy", query }) },
     ],
     replies: [SEE_OTHER_PLANS, WANTS_IN],
   };

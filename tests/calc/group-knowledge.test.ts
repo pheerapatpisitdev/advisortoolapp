@@ -81,15 +81,13 @@ describe("a question about a company's staff", () => {
 
 describe("the handover a company gets", () => {
   /**
-   * Written out rather than asked of a model, and this is the test that records why: the
-   * version that put the link in a prompt was watched on production writing a perfectly
-   * sensible reply with the link left out.
+   * It carried the calculator's link until the calculators became members-only (owner chose ก,
+   * 2026-10-20): a customer would only meet the sign-in page, so the admin prices it instead.
    */
-  it("always carries the page, on a bubble of its own so it is one tap", () => {
-    const reply = handOverGroup();
-    const links = reply.messages.filter((m) => m.text.includes("/group-insurance"));
-    expect(links).toHaveLength(1);
-    expect(links[0].text.trim()).toMatch(/^https?:\/\/\S+\/group-insurance$/);
+  it("sends no link to the members-only calculator", () => {
+    const text = handOverGroup().messages.map((m) => m.text).join("\n");
+    expect(text).not.toContain("/group-insurance");
+    expect(text).not.toMatch(/https?:\/\//);
   });
 
   it("says the product exists and hands the details to a person", () => {
