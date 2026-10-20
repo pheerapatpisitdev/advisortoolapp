@@ -6,6 +6,7 @@ import { readProfit } from "@/lib/stats/ai-profit-read";
 import type { Profit } from "@/lib/stats/ai-profit";
 import { spendLabel } from "../ai/labels";
 import { Card, Empty, PageHead } from "../ui";
+import { Charged } from "./Charged";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "กำไรค่า AI | AdvisorTool" };
@@ -116,6 +117,8 @@ function ProfitView({ p }: { p: Profit }) {
         </p>
       )}
 
+      <Charged p={p} />
+
       <div className="grid gap-3 md:grid-cols-2">
         <Card title="เงินเข้ามาจากไหน">
           <table className="w-full border-collapse text-sm">
@@ -150,3 +153,4 @@ function ProfitView({ p }: { p: Profit }) {
     </>
   );
 }
+
