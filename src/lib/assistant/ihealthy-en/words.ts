@@ -57,8 +57,7 @@ export const SHARE_OF_BILL_EN = "There are versions with a deductible or a co-pa
   + "paying the first part of a bill yourself. Both are sold in Thailand only — let me work out the figures for you. "
   + HAND_OVER_EN;
 
-export const FULL_TABLE_EN = "The full benefit table is on this page, with your age and plan filled in — "
-  + "tap English at the top to read it in English.";
+export const FULL_TABLE_EN = "Here is the full benefit table as a PDF, with your age and plan filled in.";
 
 export const OUT_OF_RANGE_EN = (min: number, max: number, age: number) =>
   `iHealthy Ultra covers ages ${min}–${max}, so age ${age} is outside the range. ${HAND_OVER_EN}`;

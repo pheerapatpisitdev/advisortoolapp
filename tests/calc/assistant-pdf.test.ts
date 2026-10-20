@@ -311,7 +311,8 @@ describe("a message that only sounds like a request for the file", () => {
     ] as const) {
       const a = await answerAny([...history], slots, "facebook");
       expect(a.messages[0].text).toContain("ประกันกลุ่มสำหรับองค์กรมีครับ");
-      expect(spoken(a)).toContain("/group-insurance");
+      // no link to the calculator: it is for members only since 2026-10-20 (owner)
+      expect(spoken(a)).not.toContain("/group-insurance");
       expect(a.messages.some((m) => m.file)).toBe(false);
     }
   });

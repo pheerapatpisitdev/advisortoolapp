@@ -4,7 +4,7 @@ import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { initialFrom, queryFrom } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { PLAN_PAGES, type PlanPage } from "@/lib/quote-pdf/pages";
-import { EXTERNAL_BROWSER, pagePathFor, planInitialFrom, planQueryFor } from "@/lib/quote-pdf/link";
+import { EXTERNAL_BROWSER, planInitialFrom, planQueryFor } from "@/lib/quote-pdf/link";
 import { renderQuotePdf } from "@/lib/quote-pdf/render";
 import { siteOrigin } from "@/lib/site-url";
 
@@ -67,7 +67,6 @@ export async function GET(req: Request): Promise<Response> {
 
   let target: string;
   let name: string;
-  let pdfPath: string;
   if (isIHealthy) {
     const table = iHealthyTable();
     const query: Record<string, string[]> = {};
@@ -80,7 +79,6 @@ export async function GET(req: Request): Promise<Response> {
     if (pairs(new URLSearchParams(written), skip).join("&") !== pairs(params, skip).join("&")) return invalid();
     target = `${siteOrigin()}/ihealthy-ultra?${written}`;
     name = `ihealthy-ultra-${english ? "en-" : ""}${initial.sex}${initial.age}`;
-    pdfPath = `/api/quote-pdf?page=ihealthy-ultra&${written}${english ? "&l=en" : ""}`;
   } else {
     const plan = page as PlanPage;
     const initial = planInitialFrom(plan, Object.fromEntries(params));
@@ -88,7 +86,6 @@ export async function GET(req: Request): Promise<Response> {
     const query = planQueryFor(initial);
     target = `${siteOrigin()}${PLAN_PAGES[plan].path}?${query}`;
     name = `${plan}-${initial.sex}${initial.age}`;
-    pdfPath = `/api/quote-pdf?page=${plan}&${query}`;
   }
 
   /**
@@ -119,8 +116,8 @@ export async function GET(req: Request): Promise<Response> {
     });
   } catch (e) {
     console.error("quote-pdf: render failed", e);
-    const link = pagePathFor(pdfPath);
-    const a = link ? `<p><a href="${link.replace(/&/g, "&amp;")}">${link.replace(/&/g, "&amp;")}</a></p>` : "";
-    return html(503, `<p>ส่งไฟล์ไม่สำเร็จครับ เปิดหน้านี้แล้วกดปุ่มบันทึก PDF ได้เลยครับ</p>${a}`);
+    // the sales page used to be offered here, but the calculators are for members only since
+    // 2026-10-20 (owner) and whoever holds this link is usually a customer: try again instead
+    return html(503, "<p>ทำไฟล์ไม่สำเร็จครับ รอสักครู่แล้วเปิดลิงก์นี้อีกครั้งได้เลยครับ</p>");
   }
 }

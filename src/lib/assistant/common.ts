@@ -1,7 +1,6 @@
 import type { ChatMessage } from "@/lib/ai/types";
 import { listPlans } from "@/calc/plans/registry";
 import { businessDate } from "@/calc/calendar";
-import { siteUrl } from "@/lib/site-url";
 import { INSURER } from "@/lib/insurer";
 
 /**
@@ -305,16 +304,16 @@ export const APPLY_STEPS = [
  * Written out rather than left to a model, which is the part worth keeping. The version that
  * asked a model to send this link was watched doing exactly what a prompt cannot prevent: it
  * had the instruction in front of it, wrote a perfectly sensible answer, and left the link
- * out. Three fixed bubbles cannot leave the link out, cannot invent a premium, and cost
+ * out. Fixed bubbles cannot leave anything out, cannot invent a premium, and cost
  * nothing to send.
  *
- * The link is on its own bubble so it is one tap, the same as the form above.
+ * It used to send the group calculator's link too; the calculators are for members only since
+ * 2026-10-20 (owner chose ก: no page links to customers), so the admin prices it instead.
  */
 export function handOverGroup(): Reply {
   return {
     messages: [
-      { text: "ประกันกลุ่มสำหรับองค์กรมีครับ 😊 คิดเบี้ยและออกใบเสนอราคาได้ที่หน้านี้เลย" },
-      { text: siteUrl("/group-insurance") },
+      { text: "ประกันกลุ่มสำหรับองค์กรมีครับ 😊 เดี๋ยวแอดมินคิดเบี้ยและทำใบเสนอราคาให้" },
       { text: "รายละเอียดความคุ้มครองและเงื่อนไขของแบบกลุ่ม แจ้งจำนวนพนักงานกับลักษณะธุรกิจไว้ในแชทนี้ได้เลย เดี๋ยวแอดมินเช็กให้แล้วติดต่อกลับไปครับ" },
     ],
   };

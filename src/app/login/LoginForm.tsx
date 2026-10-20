@@ -32,8 +32,12 @@ function PremiumOnly() {
   );
 }
 
-export function LoginForm({ next, signupOpen, error: googleError, notice = null, invitedBy = null, premium = false }: {
+export function LoginForm({ next, signupOpen, error: googleError, notice = null, invitedBy = null, premium = false, signupHint = "ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร", prices = null }: {
   next: string; signupOpen: boolean; error: string | null;
+  /** the line under the Google button for somebody new: the trial, from the back office (door.tsx) */
+  signupHint?: string;
+  /** ค่าบริการ, drawn under the card (owner, 2026-10-20); null when the settings cannot be read */
+  prices?: React.ReactNode;
   /** why somebody was sent here, said above the tabs (door.tsx) */
   notice?: string | null;
   /** the first name of whoever sent the invitation link this visitor came through (src/lib/referrals) */
@@ -76,7 +80,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
     }`;
 
   return (
-    <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์">
+    <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์" below={prices}>
       {invitedBy && (
         <div className="mt-4 flex items-center gap-3 rounded-lg bg-[var(--bot-sand-soft)] px-3 py-2.5 text-sm text-[var(--bot-sand-ink)]">
           <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--bot-navy)] font-semibold text-[var(--bot-surface)]">
@@ -99,7 +103,7 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
           <a href={`/auth/google?next=${encodeURIComponent(next)}`} className={GOOGLE}>
             <GoogleG />ดำเนินการต่อด้วย Google
           </a>
-          {signupOpen && <p className={`text-center text-sm ${MUTE}`}>ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร ฟรี 10 รอบ</p>}
+          {signupOpen && <p className={`text-center text-sm ${MUTE}`}>{signupHint}</p>}
           <p className={`text-center text-xs ${MUTE}`}>
             การดำเนินการต่อถือว่ายอมรับ{" "}
             <Link href="/privacy" className="underline underline-offset-2">นโยบายความเป็นส่วนตัว</Link>
@@ -119,6 +123,9 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
           {error && <FormError>{error}</FormError>}
           <button disabled={pending} className={PRIMARY}>{pending ? "กำลังตรวจสอบ…" : "เข้าสู่ระบบ"}</button>
         </form>
+      )}
+      {prices && (
+        <a href="#prices" className="mt-5 block text-center text-sm font-semibold text-[var(--bot-navy)] underline-offset-2 hover:underline">ดูค่าบริการ ↓</a>
       )}
     </AuthCard>
   );

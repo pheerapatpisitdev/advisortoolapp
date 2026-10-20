@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import { cookies } from "next/headers";
 import { IHealthyCalculator } from "@/components/IHealthyCalculator";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -66,6 +67,8 @@ function foldQuote(standardCode: string, initial: IHealthyInitial): Attached | u
 export default async function IHealthyPage(
   { searchParams }: { searchParams: Promise<IHealthyQuery> },
 ) {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/ihealthy-ultra");
   const table = iHealthyTable();
   const lang = await readerLang();
   const w = WORDS[lang];

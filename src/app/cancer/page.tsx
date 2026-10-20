@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import { CancerCalculator } from "@/components/CancerCalculator";
 import { cancerTable } from "@/lib/cancer-table";
 import { CalcTitle } from "@/components/sales/CalcTitle";
@@ -14,6 +15,8 @@ export const metadata = {
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
 export default async function CancerPage() {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/cancer");
   const table = cancerTable();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">

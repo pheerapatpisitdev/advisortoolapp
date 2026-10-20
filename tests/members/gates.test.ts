@@ -14,7 +14,12 @@ const nav = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ redirect: nav.redirect }));
 // getViewer is cached per request; each call here is its own request
 vi.mock("react", async (orig) => ({ ...(await orig<typeof import("react")>()), cache: <T,>(f: T) => f }));
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+// the PDF printer's pass, when a test hands one over (src/lib/auth/print-pass.ts)
+const jar = vi.hoisted(() => ({ print: undefined as string | undefined }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ get: (name: string) => (name === "ins_print" && jar.print ? { value: jar.print } : undefined) }),
+}));
 
 // getViewer reads the session, then the rows: the member's row or the UnitOS agent's
 const who = vi.hoisted(() => ({ agentId: "m1", member: null as unknown, agent: null as unknown }));
@@ -39,7 +44,8 @@ vi.mock("@/lib/wallet/store", () => wallet);
 const brain = vi.hoisted(() => ({ answer: vi.fn() }));
 vi.mock("@/lib/copilot/answer", () => ({ answerFromKnowledge: brain.answer }));
 
-const { gatePage } = await import("@/lib/auth/viewer");
+const { gateCalc, gatePage } = await import("@/lib/auth/viewer");
+const { printPassFor } = await import("@/lib/auth/print-pass");
 const { askCopilot } = await import("@/app/actions");
 const { createVideo } = await import("@/lib/quote-video/make");
 const { PASS_EXPIRED, PASS_EXPIRED_CHAT, PASS_UNREADABLE } = await import("@/lib/members/access");
@@ -79,9 +85,50 @@ const signedInAs = (kind: "member" | "unitos") => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  jar.print = undefined;
   signedInAs("member");
   access.memberAccess.mockResolvedValue({ gated: true, state: expired, settings: on });
   brain.answer.mockResolvedValue({ text: "คำตอบ", model: "m" });
+});
+
+/**
+ * The calculators are for members only since 2026-10-20 (owner): "สมาชิกหมายถึงคนที่ทดลองใช้ด้วย",
+ * so a member on trial or paid is in, an expired one renews, somebody signed out signs in.
+ */
+describe("gateCalc", () => {
+  it("turns an expired member from a calculator to the membership page", async () => {
+    await expect(gateCalc("/lifeprotect")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
+    await expect(gateCalc("/ihealthy-ultra")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
+    await expect(gateCalc("/fhc")).rejects.toThrow("NEXT_REDIRECT /membership?expired=1");
+  });
+
+  it("lets a member on trial in", async () => {
+    const trial: PassState = { ...live, period: { ...live.period, kind: "trial" } } as PassState;
+    access.memberAccess.mockResolvedValue({ gated: true, state: trial, settings: on });
+    expect(await gateCalc("/ishield")).toMatchObject({ kind: "member" });
+    expect(nav.redirect).not.toHaveBeenCalled();
+  });
+
+  it("lets a UnitOS agent in without asking about a pass", async () => {
+    signedInAs("unitos");
+    expect(await gateCalc("/bumnan95")).toMatchObject({ kind: "unitos" });
+    expect(access.memberAccess).not.toHaveBeenCalled();
+  });
+
+  it("sends somebody signed out to sign in and back", async () => {
+    rowsAre({});
+    await expect(gateCalc("/plb")).rejects.toThrow("NEXT_REDIRECT /?next=%2Fplb");
+  });
+
+  it("lets our PDF printer through on its pass, with nobody signed in", async () => {
+    vi.stubEnv("ADMIN_SESSION_SECRET", "test-secret");
+    rowsAre({});
+    jar.print = printPassFor();
+    expect(await gateCalc("/lifeprotect")).toBeNull();
+    jar.print = printPassFor(Date.now() - 3 * 60 * 1000);
+    await expect(gateCalc("/lifeprotect")).rejects.toThrow("NEXT_REDIRECT /?next=%2Flifeprotect");
+    vi.unstubAllEnvs();
+  });
 });
 
 describe("gatePage", () => {

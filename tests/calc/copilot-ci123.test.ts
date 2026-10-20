@@ -76,7 +76,8 @@ describe("CI 123 in the chat", () => {
     expect(answer.messages[0].text).toContain(onThePage(2, 35, "M"));
     // Messenger shows plain text: no markdown, and the page as a whole address
     expect(answer.messages[0].text).not.toContain("**");
-    expect(answer.messages[0].text).toMatch(/https?:\/\/\S+\/ci123/);
+    // the calculator is for members only since 2026-10-20 (owner): the inbox gets no link to it
+    expect(answer.messages[0].text).not.toMatch(/https?:\/\/\S+\/ci123/);
     expect(answer.messages[0].card).toContain("bundle=CI123_SET");
     // the Life Protect conversation it interrupted is carried through untouched
     expect(answer.slots).toMatchObject({ product: "lifeprotect", age: 35, sex: "M" });

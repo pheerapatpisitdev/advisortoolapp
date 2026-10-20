@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import { LifeTreasureCalculator } from "@/components/LifeTreasureCalculator";
 import { lifeTreasureTable } from "@/lib/lifetreasure-table";
 import { lifeTreasureFacts } from "@/lib/lifetreasure-facts";
@@ -15,6 +16,8 @@ export const metadata = {
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
 export default async function LifeTreasurePage() {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/lifetreasure");
   const table = lifeTreasureTable();
   const facts = lifeTreasureFacts();
   return (

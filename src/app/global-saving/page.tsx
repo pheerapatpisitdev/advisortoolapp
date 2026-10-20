@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import Link from "next/link";
 import { CalcTitle } from "@/components/sales/CalcTitle";
 import { Rule } from "@/components/sales/Blocks";
@@ -17,12 +18,13 @@ export const metadata = {
 /**
  * An agents' tool like the other plan pages (owner approved the mockup ก ก, 2026-10-20): the
  * plan's name and facts, the calculator, the index's newest weekly level (owner chose ก,
- * 2026-10-20), the index its bonus follows, and the legal lines. Drawn again every hour, and at
- * once when the morning read finds a new week (/api/index-levels/sync).
+ * 2026-10-20), the index its bonus follows, and the legal lines. Drawn for each visit since the
+ * calculators became members-only (owner, 2026-10-20): the gate reads the visitor's session.
  */
-export const revalidate = 3600;
 
 export default async function GlobalSavingPage() {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/global-saving");
   const weeks = await loadIndexWeeks();
   return (
     <main className="calc-page mx-auto max-w-lg px-4 pb-28 sm:max-w-2xl sm:pb-10 lg:max-w-6xl">

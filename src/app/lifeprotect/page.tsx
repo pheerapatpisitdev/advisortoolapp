@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import { LifeProtectCalculator } from "@/components/LifeProtectCalculator";
 import { lifeProtectTable } from "@/lib/lifeprotect-table";
 import { lifeProtectFacts } from "@/lib/lifeprotect-facts";
@@ -15,6 +16,8 @@ export const metadata = {
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
 export default async function LifeProtectPage() {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/lifeprotect");
   const table = lifeProtectTable();
   const facts = lifeProtectFacts();
   // One column at every width: the page is read top to bottom, and the order the parts come

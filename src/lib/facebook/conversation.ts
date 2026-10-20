@@ -13,7 +13,6 @@ import { agentTyped, customerOf, eventKey, referralOf, textOf, type Messaging } 
 import { productFromAd } from "@/lib/facebook/from-ad";
 import { attribute, openConversation, openLead, record, type RecordedEvent } from "@/lib/chat/record";
 import { WANTS_IN } from "@/lib/assistant/common";
-import { pagePathFor } from "@/lib/quote-pdf/link";
 import { RECRUIT_PRODUCT } from "@/lib/crm/plans";
 import { GATHER_MS, botTurn, gathered, keepTranscript, wroteJustBefore } from "@/lib/chat/transcript";
 import { isExpatPage, languageOf } from "@/lib/assistant/expat";
@@ -95,7 +94,7 @@ const OUT_OF_BUDGET = "ขอเวลาสักครู่นะครับ
  */
 const CARD_UNSENT = "ใบเสนอราคาเป็นรูปครับ เปิดดูได้ที่ลิงก์นี้เลย";
 
-const PDF_UNSENT = "ส่งไฟล์ไม่สำเร็จครับ เปิดหน้านี้แล้วกดปุ่มบันทึก PDF ได้เลยครับ";
+const PDF_UNSENT = "แนบไฟล์ไม่สำเร็จครับ กดลิงก์นี้เพื่อเปิดไฟล์ได้เลยครับ";
 const PDF_WAIT = "รอสักครู่แล้วขอใหม่นะครับ";
 
 /**
@@ -106,7 +105,7 @@ const OWN_WORDS = {
   th: { busy: BUSY, broken: BROKEN, outOfBudget: OUT_OF_BUDGET, cardUnsent: CARD_UNSENT, pdfUnsent: PDF_UNSENT, pdfWait: PDF_WAIT },
   en: {
     busy: BUSY_EN, broken: BROKEN_EN, outOfBudget: OUT_OF_BUDGET_EN, cardUnsent: CARD_UNSENT_EN,
-    pdfUnsent: "I couldn't send the file — open this page and tap the save-as-PDF button:",
+    pdfUnsent: "I couldn't attach the file — tap this link to open it:",
     pdfWait: "Give me a moment and ask again, please.",
   },
 };
@@ -171,8 +170,9 @@ const PDF_FETCH_MS = 55_000;
  *
  * The route is public and rate-limited per address, so the bot says who it is with the cron
  * key — and where there is none, goes without it and takes the limit like anyone else. Whatever
- * goes wrong, the customer is given the sales page itself, where the same figures sit under a
- * save button: a bare failure would leave them with a promise ("กำลังทำไฟล์ให้ครับ") and nothing.
+ * goes wrong, the customer is given the file's own link: a bare failure would leave them with a
+ * promise ("กำลังทำไฟล์ให้ครับ") and nothing. It was the sales page until the calculators became
+ * members-only (owner, 2026-10-20), and a customer cannot open those.
  */
 async function sendPdf(
   psid: string, pdfPath: string, replies: string[] | undefined, pageId?: string,
@@ -192,9 +192,8 @@ async function sendPdf(
     const name = /filename="?([^";]+)"?/i.exec(res.headers.get("content-disposition") ?? "")?.[1];
     await sendFile(psid, new Uint8Array(await res.arrayBuffer()), name ?? "quote.pdf", replies, pageId);
   } catch (e) {
-    console.error("pdf failed, sending the page instead:", e);
-    const page = pagePathFor(pdfPath);
-    await sendMessage(psid, page ? `${words.pdfUnsent}\n${siteUrl(page)}` : words.pdfUnsent, replies, { pageId })
+    console.error("pdf failed, sending its link instead:", e);
+    await sendMessage(psid, `${words.pdfUnsent}\n${siteUrl(pdfPath)}`, replies, { pageId })
       .catch((err) => console.error("pdf link failed:", err));
   }
 }

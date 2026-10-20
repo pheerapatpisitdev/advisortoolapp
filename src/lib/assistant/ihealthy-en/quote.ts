@@ -8,7 +8,6 @@ import { phoneColumns } from "@/lib/ihealthy-phone";
 import { deathBenefitOf, iHealthyPricing, plansFor, shownAt, territoriesFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable, type IHealthyTable } from "@/lib/ihealthy-table";
 import { baseWords, WORDS } from "@/lib/ihealthy-words";
-import { siteUrl } from "@/lib/site-url";
 import { quotePdfPath } from "@/lib/quote-pdf/link";
 import { baht, one, type QuoteFigures, type Reply } from "../common";
 import { arrangementFor } from "../ihealthy/quote";
@@ -214,7 +213,8 @@ export function territoryAnswerEn(
   };
 }
 
-export function fullTableLinkEn(slots: HealthSlots & { age: number; sex: Sex }): Reply {
+/** the page printed in English rather than a link to it: the calculators are members-only since 2026-10-20 (owner) */
+export function fullTableEn(slots: HealthSlots & { age: number; sex: Sex }): Reply {
   const table = iHealthyTable();
   const sellable = plansFor(table, slots.age).map((p) => p.code);
   const plan = slots.plan && sellable.includes(slots.plan) ? slots.plan : sellable[sellable.length - 1];
@@ -222,7 +222,7 @@ export function fullTableLinkEn(slots: HealthSlots & { age: number; sex: Sex }):
     age: slots.age, sex: slots.sex, plan, territory: slots.territory,
   }));
   return {
-    messages: [{ text: FULL_TABLE_EN }, { text: siteUrl(`/ihealthy-ultra?${query}`) }],
+    messages: [{ text: FULL_TABLE_EN, file: quotePdfPath({ kind: "ihealthy", query, lang: "en" }) }],
     replies: [SEE_OTHER_PLANS_EN, WANTS_IN_EN],
   };
 }

@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import { EasyProtectCalculator } from "@/components/EasyProtectCalculator";
 import { easyProtectTable } from "@/lib/easyprotect-table";
 import { easyProtectFacts } from "@/lib/easyprotect-facts";
@@ -15,6 +16,8 @@ export const metadata = {
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
 export default async function EasyProtectPage() {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/easyprotect");
   const table = easyProtectTable();
   const facts = easyProtectFacts();
   return (

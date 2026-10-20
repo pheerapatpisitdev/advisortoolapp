@@ -49,10 +49,12 @@ describe("a company asking about cover for its staff", () => {
     expect(textOf(answer)).not.toContain("ขออายุกับเพศ");
   });
 
-  it("gets the page and a person, without a model being asked anything", async () => {
+  it("gets a person, without a model being asked anything", async () => {
     const answer = await answerAny(said("ประกันกลุ่มสำหรับพนักงานมีไหม"), null);
     const text = textOf(answer);
-    expect(text).toContain("/group-insurance");
+    expect(text).toContain("ประกันกลุ่มสำหรับองค์กรมีครับ");
+    // no link to the calculator, members-only since 2026-10-20 (owner)
+    expect(text).not.toContain("/group-insurance");
     expect(text).toContain("แอดมิน");
     expect(chat).not.toHaveBeenCalled();
   });
@@ -77,7 +79,7 @@ describe("a company asking about cover for its staff", () => {
   it("answers mid-quotation without throwing the quotation away", async () => {
     const stored = { product: "ihealthy" as const, intent: "quote" as const, age: 35, sex: "F" as const, plan: "GOLD" };
     const answer = await answerAny(said("แล้วแบบทำให้พนักงานทั้งบริษัทมีไหม"), stored);
-    expect(textOf(answer)).toContain("/group-insurance");
+    expect(textOf(answer)).toContain("ประกันกลุ่มสำหรับองค์กรมีครับ");
     expect(answer.slots).toMatchObject(stored);
     expect(chat).not.toHaveBeenCalled();
   });

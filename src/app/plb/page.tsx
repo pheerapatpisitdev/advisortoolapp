@@ -1,3 +1,4 @@
+import { gateCalc } from "@/lib/auth/viewer";
 import { PlbCalculator } from "@/components/PlbCalculator";
 import { plbTable } from "@/lib/plb-table";
 import { plbFacts } from "@/lib/plb-facts";
@@ -15,6 +16,8 @@ export const metadata = {
  * calculator stays): the plan's name and facts, the calculator, and the legal lines.
  */
 export default async function PlbPage() {
+  // members only, trial included (owner, 2026-10-20)
+  await gateCalc("/plb");
   const table = plbTable();
   const facts = plbFacts();
   return (

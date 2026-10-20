@@ -108,7 +108,8 @@ describe("ประกันมะเร็ง in the chat", () => {
       formatBaht(quoteBundle(BUNDLE, 4, { age: 35, sex: "M", mode: "annual" })!.totalAnnual),
     );
     expect(answer.messages[0].text).not.toContain("**");
-    expect(answer.messages[0].text).toMatch(/https?:\/\/\S+\/cancer/);
+    // the calculator is for members only since 2026-10-20 (owner): the inbox gets no link to it
+    expect(answer.messages[0].text).not.toMatch(/https?:\/\/\S+\/cancer/);
     expect(answer.messages[0].card).toContain("bundle=CANCER_SET");
   });
 });

@@ -610,20 +610,21 @@ describe("a PDF the customer asked for", () => {
     expect(fetched.mock.calls[0][1]?.headers?.authorization).toBeUndefined();
   });
 
-  it("is handed over as the page's address when the route cannot print it", async () => {
+  // the file's own link, not the page's: the calculators are members-only since 2026-10-20 (owner)
+  it("is handed over as the file's link when the route cannot print it", async () => {
     fetched.mockResolvedValue(new Response("down", { status: 503 }));
     await handle(asked);
     expect(files).toHaveLength(0);
-    expect(sent.text[1]).toContain("ส่งไฟล์ไม่สำเร็จครับ เปิดหน้านี้แล้วกดปุ่มบันทึก PDF ได้เลยครับ");
-    expect(sent.text[1]).toContain("/plb?age=35");
-    expect(sent.text[1]).not.toContain("quote-pdf");
+    expect(sent.text[1]).toContain("แนบไฟล์ไม่สำเร็จครับ กดลิงก์นี้เพื่อเปิดไฟล์ได้เลยครับ");
+    expect(sent.text[1]).toMatch(/https?:\/\/\S+\/api\/quote-pdf\?page=plb&age=35/);
+    expect(sent.text[1]).not.toMatch(/\/plb\?/);
   });
 
-  it("is handed over as the page's address when Messenger refuses the file", async () => {
+  it("is handed over as the file's link when Messenger refuses the file", async () => {
     fetched.mockResolvedValue(new Response(new Uint8Array([1]), { status: 200 }));
     fileFails = true;
     await handle(asked);
-    expect(sent.text[1]).toContain("/plb?age=35");
+    expect(sent.text[1]).toContain("/api/quote-pdf?page=plb&age=35");
   });
 
   it("is handed over in English on an Expat Page when the file cannot be printed", async () => {
@@ -634,8 +635,8 @@ describe("a PDF the customer asked for", () => {
       slots: { product: "ihealthy", intent: "quote", lang: "en" },
     }) as unknown as Answer);
     await handle({ sender: { id: "psid-pdf-en" }, message: { mid: "mpe", text: "Send me the PDF" } }, "112079600278201");
-    expect(sent.text[1]).toContain("I couldn't send the file");
-    expect(sent.text[1]).toContain("/ihealthy-ultra?age=35&sex=M");
+    expect(sent.text[1]).toContain("I couldn't attach the file");
+    expect(sent.text[1]).toContain("/api/quote-pdf?page=ihealthy-ultra&age=35&sex=M&l=en");
   });
 
   it("is asked to wait when the route says too many", async () => {

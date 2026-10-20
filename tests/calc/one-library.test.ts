@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatOptions } from "@/lib/ai/client";
+import { siteUrl } from "@/lib/site-url";
 
 /**
  * One set of knowledge, whichever door the customer came through.
@@ -135,9 +136,17 @@ describe("which door the message came through", () => {
 
   it("gives the inbox a whole address for a link", () => {
     // a relative path means nothing to someone reading it in Messenger
-    const text = forMessenger("ใช้ที่ [หน้า iShield](/ishield) ครับ");
-    expect(text).toMatch(/หน้า iShield https?:\/\/\S+\/ishield/);
+    const text = forMessenger("อ่านได้ที่ [นโยบายความเป็นส่วนตัว](/privacy) ครับ");
+    expect(text).toMatch(/นโยบายความเป็นส่วนตัว https?:\/\/\S+\/privacy/);
     expect(text).not.toMatch(/\]\(/);
+  });
+
+  // the calculators are for members only since 2026-10-20 (owner chose ก): no link to one reaches a customer
+  it("keeps a calculator's words and drops its address in the inbox", () => {
+    expect(forMessenger("ใช้ที่ [หน้า iShield](/ishield) ครับ")).toBe("ใช้ที่ หน้า iShield ครับ");
+    expect(forMessenger(`ดูได้ที่ ${siteUrl("/lifeprotect?age=35")} ครับ`)).toBe("ดูได้ที่ ครับ");
+    expect(forMessenger("เปิด https://www.advisortool.app/ihealthy-ultra?plan=GOLD\nแล้วกดคิด")).toBe("เปิด\nแล้วกดคิด");
+    expect(forMessenger(`ฟอร์ม ${siteUrl("/privacy")}`)).toContain("/privacy");
   });
 
   it("keeps a quotation's figures identical either way", async () => {
@@ -153,7 +162,8 @@ describe("which door the message came through", () => {
     await answerAny(said("HIC ซื้อคู่กับ MEB ได้ไหม"), null, "facebook");
     const system = chat.mock.calls.at(-1)![0].messages[0].content as string;
     expect(system).toContain("ห้ามใช้มาร์กดาวน์");
-    expect(system).toMatch(/https?:\/\/\S+\/lifeprotect/);
+    expect(system).toContain("ห้ามส่งลิงก์หน้าคิดเบี้ย");
+    expect(system).not.toMatch(/https?:\/\/\S+\/lifeprotect/);
 
     chat.mockClear();
     await answerAny(said("HIC ซื้อคู่กับ MEB ได้ไหม"), null, "web");
