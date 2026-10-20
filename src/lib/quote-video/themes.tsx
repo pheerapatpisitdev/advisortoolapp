@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
-import { QUOTE_VIDEO_COLORS as C, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type VideoThemePalette } from "@/lib/card-theme";
+import { QUOTE_VIDEO_COLORS as C, VIDEO_FESTIVAL_COLORS, VIDEO_THEME_COLORS, VIDEO_THEME_EXTRA as X, type VideoThemePalette } from "@/lib/card-theme";
 import { DEFAULT_HERO_FACE, familyOf } from "@/lib/story/faces";
 import { faceUris } from "./story-faces";
-import { abs, box, El, MOTION_BG_H, type Anim } from "./motion";
+import { abs, box, El, MOTION_BG_H, setPenMode, type Anim } from "./motion";
+import type { FestivalKey } from "./festival";
 import type { ThemeKey } from "./theme-keys";
 import { W } from "./timeline";
 
@@ -18,6 +19,9 @@ import { W } from "./timeline";
 
 type Palette = VideoThemePalette;
 const PALETTES: Partial<Record<ThemeKey, Palette>> = VIDEO_THEME_COLORS;
+/** a theme's colours: ธีมเทศกาล's are its festival's (festival.ts); none for น้ำเงินทอง, or a festival not named */
+const paletteOf = (t: ThemeKey | undefined, festival?: FestivalKey): Palette | undefined =>
+  (t === "festival" ? (festival ? VIDEO_FESTIVAL_COLORS[festival] : undefined) : t ? PALETTES[t] : undefined);
 
 export const themeFont = (t: ThemeKey | undefined) => (t ? PALETTES[t]?.font : undefined);
 
@@ -123,9 +127,18 @@ function repaint(node: ReactNode, p: Palette, under: Surface): ReactNode {
 }
 
 /** a frame in its theme; the navy looks come back as they went in */
-export function themed(frame: ReactNode, t: ThemeKey | undefined): ReactNode {
-  const p = t ? PALETTES[t] : undefined;
-  return p ? repaint(frame, p, "ground") : frame;
+export function themed(frame: ReactNode, t: ThemeKey | undefined, festival?: FestivalKey): ReactNode {
+  const p = paletteOf(t, festival);
+  if (!p) return frame;
+  if (!p.marker) return repaint(frame, p, "ground");
+  // ไวท์บอร์ด: the pieces are run here, so their marker is on for this repaint only (motion.tsx El);
+  // a first pass finds what is being written, so the second draws one marker, on the last piece started
+  try {
+    setPenMode("survey");
+    repaint(frame, p, "ground");
+    setPenMode("draw");
+    return repaint(frame, p, "ground");
+  } finally { setPenMode(false); }
 }
 
 /** the crumpled paper ground, read once a process (named in full for the deploy's file tracing) */
@@ -134,8 +147,8 @@ const texture = () => (paperFile ??= readFile(join(process.cwd(), "public/collag
   .then((b) => `data:image/jpeg;base64,${b.toString("base64")}`));
 
 /** the drifting ground of a themed clip: its paper, or motion.tsx's shapes in the theme's colours */
-export async function themeBackground(t: ThemeKey, size: { w: number; h: number }, bgH: number): Promise<ReactNode | null> {
-  const p = PALETTES[t];
+export async function themeBackground(t: ThemeKey, size: { w: number; h: number }, bgH: number, festival?: FestivalKey): Promise<ReactNode | null> {
+  const p = paletteOf(t, festival);
   if (!p) return null;
   if (p.texture) {
     const paper = await texture();

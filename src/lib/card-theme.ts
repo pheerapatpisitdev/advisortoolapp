@@ -330,11 +330,13 @@ export interface VideoThemePalette {
   /** the subtitle's band, its words and the word being said */
   subBg: string; subInk: string; subRgb: string; subAccent: string;
   /** the face every word is set in: Plex unless the theme has its own (renderPng loads it) */
-  font?: "Mali";
+  font?: "Mali" | "Sriracha";
   /** the ground under the drawing: a colour and its soft round shapes */
   ground: string; shapes: { color: string; opacity: number }[];
   /** a paper picture as the ground instead of the colour and shapes (public/collage, themes.tsx) */
   texture?: "paper-light";
+  /** ไวท์บอร์ด: each piece written in left to right behind a marker, in place of its own entrance (motion.tsx El) */
+  marker?: true;
 }
 
 export const VIDEO_THEME_COLORS = {
@@ -346,10 +348,91 @@ export const VIDEO_THEME_COLORS = {
     // the crumpled paper (owner chose ค, 2026-10-17)
     texture: "paper-light",
   },
+  // ไวท์บอร์ด (owner, 2026-10-20): black and navy marker on a white board, the red pen for what to remember
+  board: {
+    ink: "#1a1a1a", inkRgb: "26,26,26", accent: "#022162", fill: "#fde68a", onFill: "#1a1a1a",
+    card: "#ffffff", onCard: "#1a1a1a", onCardRgb: "26,26,26", second: "#7aa0d8", red: "#c2412d", green: "#2f7d4f", pen: "#c2412d", bluePen: "#022162",
+    subBg: "rgba(26,26,26,0.85)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#fde68a",
+    font: "Sriracha", ground: "#fbfbf8", shapes: [{ color: "#f1f2ee", opacity: 0.8 }, { color: "#ffffff", opacity: 0.9 }, { color: "#eef0ec", opacity: 0.6 }, { color: "#f6f7f3", opacity: 0.8 }],
+    marker: true,
+  },
 } satisfies Record<string, VideoThemePalette>;
+
+/**
+ * ธีมเทศกาล (owner, 2026-10-20; quote-video/festival.ts): each festival's colours, the Motion Graphic
+ * drawing repainted into them as a theme is (themes.tsx), over its own ground.
+ */
+const SHAPES = (a: string, b: string) => [{ color: a, opacity: 0.7 }, { color: b, opacity: 0.8 }, { color: a, opacity: 0.5 }, { color: b, opacity: 0.7 }];
+export const VIDEO_FESTIVAL_COLORS = {
+  // ปีใหม่: the navy night under gold fireworks
+  newyear: {
+    ink: "#ffffff", inkRgb: "255,255,255", accent: "#f2c75c", fill: "#f2c75c", onFill: "#01143d",
+    card: "#ffffff", onCard: "#022162", onCardRgb: "2,33,98", second: "#9fc3ff", red: "#ff8a80", green: "#6ee7a8", pen: "#ff8a80", bluePen: "#9fc3ff",
+    subBg: "rgba(0,0,0,0.45)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#f2c75c",
+    ground: "#0a1a4a", shapes: SHAPES("#12266a", "#071238"),
+  },
+  // ตรุษจีน: red and gold, the lanterns'
+  cny: {
+    ink: "#ffffff", inkRgb: "255,255,255", accent: "#fde047", fill: "#fde047", onFill: "#7f1d1d",
+    card: "#fff7e6", onCard: "#7f1d1d", onCardRgb: "127,29,29", second: "#fca5a5", red: "#ffd0c2", green: "#bbf7d0", pen: "#fde047", bluePen: "#fde68a",
+    subBg: "rgba(60,0,0,0.55)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#fde047",
+    ground: "#a51b1b", shapes: SHAPES("#b92525", "#8c1414"),
+  },
+  // สงกรานต์: water blue on light, flowers
+  songkran: {
+    ink: "#0b3d6b", inkRgb: "11,61,107", accent: "#0e7ac4", fill: "#0e7ac4", onFill: "#ffffff",
+    card: "#ffffff", onCard: "#0b3d6b", onCardRgb: "11,61,107", second: "#7cc4ef", red: "#d64045", green: "#1f9d55", pen: "#e0457b", bluePen: "#0e7ac4",
+    subBg: "rgba(11,61,107,0.88)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd23f",
+    ground: "#e3f3fc", shapes: SHAPES("#cbe8f8", "#f1f9fe"),
+  },
+  // วันแม่: a soft blue, jasmine falling
+  mother: {
+    ink: "#1e3a5f", inkRgb: "30,58,95", accent: "#2563eb", fill: "#2563eb", onFill: "#ffffff",
+    card: "#ffffff", onCard: "#1e3a5f", onCardRgb: "30,58,95", second: "#93c5fd", red: "#d64045", green: "#1f9d55", pen: "#d64045", bluePen: "#2563eb",
+    subBg: "rgba(30,58,95,0.88)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd23f",
+    ground: "#e8f1fb", shapes: SHAPES("#d6e6f8", "#f4f8fd"),
+  },
+  // ลอยกระทง: the full moon's night, candle gold
+  loykrathong: {
+    ink: "#ffffff", inkRgb: "255,255,255", accent: "#ffd27a", fill: "#ffd27a", onFill: "#0d1b3d",
+    card: "#ffffff", onCard: "#0d1b3d", onCardRgb: "13,27,61", second: "#8fb3ff", red: "#ff8a80", green: "#7ee2a8", pen: "#ffb86b", bluePen: "#8fb3ff",
+    subBg: "rgba(0,0,0,0.5)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd27a",
+    ground: "#0d1b3d", shapes: SHAPES("#152a5a", "#08122a"),
+  },
+  // วันพ่อ: yellow, the canna's
+  father: {
+    ink: "#3d2e00", inkRgb: "61,46,0", accent: "#a16207", fill: "#f5c400", onFill: "#3d2e00",
+    card: "#ffffff", onCard: "#3d2e00", onCardRgb: "61,46,0", second: "#e0b84a", red: "#c2410c", green: "#3f7d20", pen: "#c2410c", bluePen: "#1d4ed8",
+    subBg: "rgba(61,46,0,0.88)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd84d",
+    ground: "#fff6cf", shapes: SHAPES("#fdeba0", "#fffbe8"),
+  },
+} satisfies Record<string, VideoThemePalette>;
+
+/** what each festival's decorations are drawn in (themes.tsx festivalLayer) */
+export const FESTIVAL_DECOR = {
+  gold: "#f2c75c", white: "#ffffff", lantern: "#ef4444", lanternGold: "#fde047", drop: "#3b7ea1", petal: "#f9a8d4",
+  petalHeart: "#fde047", moon: "#fff3c4", leaf: "#2f7d4f", flame: "#ffb347", jasmine: "#ffffff", jasmineHeart: "#fde68a",
+  canna: "#f5c400", cannaDeep: "#e09a00",
+} as const;
+
+/** ตัวหนังสือเด้ง (owner, 2026-10-20; quote-video/kinetic.tsx): the grounds the scenes take in turn, their words and figures */
+export const KINETIC_COLORS = [
+  { ground: "#111111", ink: "#ffffff", figure: "#facc15", soft: "rgba(255,255,255,0.6)" },
+  { ground: "#facc15", ink: "#111111", figure: "#022162", soft: "rgba(17,17,17,0.6)" },
+  { ground: "#022162", ink: "#ffffff", figure: "#f2c75c", soft: "rgba(255,255,255,0.6)" },
+] as const;
+
+/** แชทถาม-ตอบ (owner, 2026-10-20; quote-video/chat.tsx): a plain chat, nobody's brand */
+export const CHAT_COLORS = {
+  ground: "#eef1f6", head: "#022162", headInk: "#ffffff", online: "#4ade80", avatar: "#f5e6c8",
+  mine: "#1f5bd6", mineInk: "#ffffff", theirs: "#ffffff", theirsInk: "#141a26", dots: "#9aa4b8", dotsMine: "#cfe0ff",
+  mark: "#facc15", cardHead: "#022162", cardInk: "#141a26", rule: "#e5e7eb", mute: "#8a93a6", pen: "#c2412d", button: "#1f5bd6",
+} as const;
 
 /** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
   paperFaceRing: "#22252b",
-  swatch: { navy: "#022162", paper: "#ece8df" },
+  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15", board: "#fbfbf8" },
+  /** ไวท์บอร์ด's marker: its body, cap band and tip */
+  marker: { body: "#022162", band: "#c2412d", tip: "#1a1a1a" },
 } as const;

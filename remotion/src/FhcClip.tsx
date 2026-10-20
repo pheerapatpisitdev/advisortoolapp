@@ -6,6 +6,8 @@ import { motionBackground, motionBgHeight } from "@/lib/quote-video/motion";
 import { themeBackground, themed } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
+import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
+import { kineticFrame } from "@/lib/quote-video/kinetic";
 import type { FhcClipProps } from "@/lib/quote-video/remotion";
 import { crossing, loadFonts, SATORI_CSS } from "./Clip";
 import { KeepWords } from "./KeepWords";
@@ -26,7 +28,7 @@ function useLoaded(p: FhcClipProps, w: number, h: number): Loaded | null {
   useEffect(() => {
     (async () => {
       await loadFonts();
-      const ground = await themeBackground(p.theme, { w, h }, motionBgHeight({ h }));
+      const ground = await themeBackground(p.theme, { w, h }, motionBgHeight({ h }), p.festival?.key);
       setGot({ ground: ground ?? motionBackground({ w, h }) });
       continueRender(handle);
     })().catch((e) => { console.error(e); throw e; });
@@ -40,6 +42,7 @@ export function FhcClip(p: FhcClipProps) {
   const got = useLoaded(p, w, h);
   if (!got) return null;
   const T = frame / fps;
+  const fest = p.theme === "festival" ? p.festival : undefined;
   const drift = motionBgHeight({ h }) - h;
   const layers = p.scenes.map((sc, s) => {
     if (T < sc.start || T >= sc.start + sc.dur) return null;
@@ -51,17 +54,28 @@ export function FhcClip(p: FhcClipProps) {
     if (t < XFADE && s > 0) style = crossing(TRANSITIONS[sc.key] ?? "fade", t / XFADE, w).in;
     else if (next && T >= next.start) style = crossing(TRANSITIONS[next.key] ?? "fade", (T - next.start) / XFADE, w).out;
     const body = p.size === "portrait" ? fhcFrame(sc.key, c, t) : wideFhcFrame(sc.key, c, t, p.size);
+    // ตัวหนังสือเด้ง (kinetic.tsx): the scene's spoken words alone, in place of its drawing
+    if (p.theme === "kinetic") {
+      return (
+        <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
+          {kineticFrame({ voice: sc.voice, voiceSec: sc.voiceSec, index: s, header: "สรุปสุขภาพการเงิน", ...(sc.key === "fhcContact" ? { contact: p.contact } : {}) }, t, w, h)}
+        </AbsoluteFill>
+      );
+    }
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
-        <KeepWords>{themed(body, p.theme)}</KeepWords>
+        {fest ? festivalBack(fest.key, T, w, h) : null}
+        <KeepWords>{themed(body, p.theme, p.festival?.key)}</KeepWords>
       </AbsoluteFill>
     );
   });
   return (
     <AbsoluteFill className="sat" style={{ background: "#000" }}>
       <style>{SATORI_CSS}</style>
+      {/* ธีมเทศกาล (festival-decor.tsx): its decorations go in each scene's layer, its greeting over all */}
       {layers}
+      {fest ? festivalFront(fest.key, fest.greeting, w, h) : null}
       <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
     </AbsoluteFill>
   );

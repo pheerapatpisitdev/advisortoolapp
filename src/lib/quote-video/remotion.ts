@@ -1,6 +1,7 @@
 import type { MotionContext } from "./motion";
 import type { QuoteVideoFacts, SceneKey } from "./script";
 import type { ThemeKey } from "./theme-keys";
+import type { FestivalKey } from "./festival";
 import type { OverlayState, ScenePlan, TableMove, VideoSize } from "./timeline";
 import type { CardChart } from "@/lib/quote-card";
 import type { TableNote } from "./table-pen";
@@ -26,7 +27,7 @@ import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "321f5913af1a";
+export const REMOTION_DRAWING = "ee6d981975b6";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -38,6 +39,8 @@ export const REMOTION_JOB = `remotion-${REMOTION_DRAWING}`;
 /** what a Motion Graphic quote clip is drawn from, beside its scenes: quotePartsFor's own context */
 export type RemotionMotion = {
   theme: ThemeKey;
+  /** ธีมเทศกาล's festival and the greeting it shows (festival.ts); with theme "festival" only */
+  festival?: { key: FestivalKey; greeting: string };
   /** the clip's shape: portrait draws motionFrame, square and landscape wideQuoteFrame (wide.tsx); none = portrait */
   size?: VideoSize;
   sex: "M" | "F";
@@ -45,7 +48,8 @@ export type RemotionMotion = {
   customer: string;
   narrator: "F" | "M";
   contact: MotionContext["contact"];
-  shown: { headline?: string[]; loop: boolean; extra: Extra };
+  /** priceJar: the price told as the piggy jar (motion.tsx PriceJar) */
+  shown: { headline?: string[]; loop: boolean; extra: Extra; priceJar?: boolean };
 };
 
 /** a type, not an interface: Remotion's props must fit Record<string, unknown> */
@@ -107,6 +111,8 @@ export type FhcClipProps = {
   drawing: string;
   size: VideoSize;
   theme: ThemeKey;
+  /** ธีมเทศกาล's festival and the greeting it shows (festival.ts); with theme "festival" only */
+  festival?: { key: FestivalKey; greeting: string };
   facts: FhcVideoFacts;
   customer: string;
   narrator: "F" | "M";

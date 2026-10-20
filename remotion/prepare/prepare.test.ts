@@ -47,7 +47,7 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
   const { clipLength } = await import("@/lib/quote-video/timeline");
   const { clipProps } = await import("@/lib/quote-video/remotion");
 
-  for (const d of ["fonts", "collage", "story/faces", "audio", "props"]) mkdirSync(join(PUB, d), { recursive: true });
+  for (const d of ["fonts", "collage", "story/faces", "audio", "props", "video"]) mkdirSync(join(PUB, d), { recursive: true });
   mkdirSync(OUT, { recursive: true });
   // the fonts: Plex as the cards have it, Mali (วาดมือบนกระดาษ) and Sriracha (pen notes) from Google
   for (const w of ["Regular", "SemiBold"]) copyFileSync(join(APP, `src/app/api/card/IBMPlexSansThai-${w}.ttf`), join(PUB, `fonts/IBMPlexSansThai-${w}.ttf`));
@@ -57,6 +57,8 @@ it.skipIf(Boolean(process.env.IHEALTHY))("prepares the Remotion props and assets
   // the symbols satori draws from Noto Sans Symbols 2 (draw-png.ts FALLBACK): ☐ ✓ ✗ (Clip.tsx SYMBOLS)
   await googleFont("Noto Sans Symbols 2", 400, join(PUB, "fonts/NotoSansSymbols2-400.ttf"));
   copyFileSync(join(APP, "public/collage/paper-light.jpg"), join(PUB, "collage/paper-light.jpg"));
+  // แชทถาม-ตอบ's ติ๊ง as a customer's message comes in (chat.tsx)
+  copyFileSync(join(APP, "public/video/ding.wav"), join(PUB, "video/ding.wav"));
 
   // every cartoon face: วาดมือบนกระดาษ's opening picks the insured's, their partner's and a child's by sex
   for (const f of readdirSync(join(APP, "public/story/faces"))) copyFileSync(join(APP, "public/story/faces", f), join(PUB, "story/faces", f));
