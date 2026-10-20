@@ -3,6 +3,8 @@ import { gatePage } from "@/lib/auth/viewer";
 import { DEFAULT_CLOSED, SHOWN_FEATURES } from "@/lib/switches/features";
 import { readSwitches } from "@/lib/switches/store";
 import { PageHead } from "../ui";
+import { readFxMode } from "@/lib/quote-video/fx-switch";
+import { FxSwitch } from "./FxSwitch";
 import { SwitchBoard } from "./SwitchBoard";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +17,7 @@ export const metadata: Metadata = { title: "เปิด-ปิดฟังก�
  */
 export default async function AdminSwitchesPage() {
   await gatePage("/admin/switches", "backoffice");
-  const switches = await readSwitches();
+  const [switches, fxMode] = await Promise.all([readSwitches(), readFxMode()]);
   return (
     <>
       <PageHead title="เปิด-ปิดฟังก์ชัน" hint="ปิดเครื่องมือชั่วคราวเวลาขัดข้อง ผู้ใช้จะเห็นข้อความแจ้งแทนการกดแล้วล้ม เจ้าของและ Super Admin ยังใช้ทดสอบได้" />
@@ -23,6 +25,7 @@ export default async function AdminSwitchesPage() {
         rows={SHOWN_FEATURES.map((f) => ({ key: f.key, label: f.label, note: "note" in f ? f.note : undefined, ...switches[f.key] }))}
         placeholder={DEFAULT_CLOSED}
       />
+      <div className="mt-6"><FxSwitch mode={fxMode} /></div>
     </>
   );
 }

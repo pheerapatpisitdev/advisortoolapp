@@ -11,6 +11,11 @@ import { kineticFrame } from "@/lib/quote-video/kinetic";
 import { mascotFront } from "@/lib/quote-video/mascot";
 import type { FhcClipProps } from "@/lib/quote-video/remotion";
 import { crossing, loadFonts, SATORI_CSS } from "./Clip";
+import { FxSound } from "./Fx";
+import { setFxBlur } from "@/lib/quote-video/motion";
+import { transitionOf } from "@/lib/quote-video/fx";
+import { fhcCues } from "@/lib/quote-video/fx-cues";
+import { fxIcon, iconFor } from "@/lib/quote-video/fx-icons";
 import { KeepWords } from "./KeepWords";
 
 /**
@@ -41,6 +46,8 @@ export function FhcClip(p: FhcClipProps) {
   const frame = useCurrentFrame();
   const { fps, width: w, height: h } = useVideoConfig();
   const got = useLoaded(p, w, h);
+  // ลูกเล่นคลิปใหม่ (fx.ts): set for every frame, so a summary without it draws exactly as before
+  setFxBlur(Boolean(p.fx));
   if (!got) return null;
   const T = frame / fps;
   const fest = p.theme === "festival" ? p.festival : undefined;
@@ -53,9 +60,12 @@ export function FhcClip(p: FhcClipProps) {
     const y = drift * (s % 2 ? 1 - t / sc.dur : t / sc.dur);
     let style: CSSProperties = {};
     const next = p.scenes[s + 1];
-    if (t < XFADE && s > 0) style = crossing(TRANSITIONS[sc.key] ?? "fade", t / XFADE, w).in;
-    else if (next && T >= next.start) style = crossing(TRANSITIONS[next.key] ?? "fade", (T - next.start) / XFADE, w).out;
-    const body = p.size === "portrait" ? fhcFrame(sc.key, c, t) : wideFhcFrame(sc.key, c, t, p.size);
+    if (t < XFADE && s > 0) style = crossing(transitionOf(sc.key, Boolean(p.fx), TRANSITIONS), t / XFADE, w).in;
+    else if (next && T >= next.start) style = crossing(transitionOf(next.key, Boolean(p.fx), TRANSITIONS), (T - next.start) / XFADE, w).out;
+    const icon = p.fx && p.size === "portrait" ? iconFor("FHC", sc.key) : null;
+    const frameOf = p.size === "portrait" ? fhcFrame(sc.key, c, t) : wideFhcFrame(sc.key, c, t, p.size);
+    // ลูกเล่นคลิปใหม่'s icon, in the frame so the theme repaints it with the rest (fx-icons.tsx)
+    const body = icon ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{fxIcon(icon, t)}</div> : frameOf;
     // ตัวหนังสือเด้ง (kinetic.tsx): the scene's spoken words alone, in place of its drawing
     if (p.theme === "kinetic") {
       return (
@@ -82,6 +92,7 @@ export function FhcClip(p: FhcClipProps) {
       {fest ? festivalFront(fest.key, fest.greeting, w, h) : null}
       {p.theme === "mine" && p.myColor ? mineFront(p.myColor, p.contact, w, h) : null}
       <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
+      {p.fx ? <FxSound music={p.fx.music} cues={fhcCues(p.scenes, p.size === "portrait" && p.theme !== "kinetic")} scenes={p.scenes} total={p.total} fps={fps} /> : null}
     </AbsoluteFill>
   );
 }

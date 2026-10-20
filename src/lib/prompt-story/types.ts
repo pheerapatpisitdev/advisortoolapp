@@ -15,6 +15,9 @@ export type PromptScene = { voice: string; screen: string; picture: string; show
 /** a คลิปตามโจทย์: the agent's own brief turned into a script, pictures and a clip */
 export interface PromptStoryInput {
   product: "FREESTORY";
+  /** ลูกเล่นคลิปใหม่ (fx.ts): made with the music, the sounds and the new joins; the agent turned the music off */
+  fx?: true;
+  noMusic?: true;
   brief: string;
   title: string;
   caption: string;

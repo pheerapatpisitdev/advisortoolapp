@@ -12,6 +12,11 @@ import { carryFront } from "@/lib/quote-video/carry";
 import { chatFrame } from "@/lib/quote-video/chat";
 import { SCRIPT_RANGE, type ClipProps } from "@/lib/quote-video/remotion";
 import { KeepWords } from "./KeepWords";
+import { FxSound } from "./Fx";
+import { setFxBlur } from "@/lib/quote-video/motion";
+import { transitionOf } from "@/lib/quote-video/fx";
+import { quoteCues } from "@/lib/quote-video/fx-cues";
+import { fxIcon, iconFor } from "@/lib/quote-video/fx-icons";
 
 /**
  * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (owner 2026-10-17; src/lib/quote-video/remotion.ts). The frames are
@@ -90,6 +95,8 @@ function useLoaded(p: ClipProps, w: number, h: number): Loaded | null {
 /** ffmpeg's xfade, as job.ts names it per scene: how the outgoing and incoming scenes look at q (0 → 1) */
 export function crossing(kind: string, q: number, w: number): { out: CSSProperties; in: CSSProperties } {
   switch (kind) {
+    // ลูกเล่นคลิปใหม่'s fourth way in (fx.ts): the scene uncovered from left to right
+    case "wipe": return { out: {}, in: { clipPath: `inset(0 ${((1 - q) * 100).toFixed(1)}% 0 0)` } };
     case "slideleft": return { out: { transform: `translateX(${-q * w}px)` }, in: { transform: `translateX(${(1 - q) * w}px)` } };
     case "zoomin": {
       // ffmpeg: the first zooms to 2× over the first half, then the second fades in over it
@@ -105,6 +112,8 @@ export function Clip(p: ClipProps) {
   const frame = useCurrentFrame();
   const { fps, width: w, height: h } = useVideoConfig();
   const got = useLoaded(p, w, h);
+  // ลูกเล่นคลิปใหม่ (fx.ts): set for every frame, so a clip without it draws exactly as before
+  setFxBlur(Boolean(p.fx));
   if (!got) return null;
   const T = frame / fps;
   const fest = p.theme === "festival" ? p.festival : undefined;
@@ -116,6 +125,8 @@ export function Clip(p: ClipProps) {
         <style>{SATORI_CSS}</style>
         {chatFrame({ facts: p.facts, sex: p.sex, contact: p.contact, scenes: p.scenes }, T, w, h)}
         <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
+        {/* the conversation keeps its own ติ๊ง: the new look adds the music only */}
+        {p.fx ? <FxSound music={p.fx.music} cues={[]} scenes={p.scenes} total={p.total} fps={fps} /> : null}
         {p.scenes.map((sc) => (
           <Sequence key={sc.key + sc.start} from={Math.round(sc.start * fps)} durationInFrames={Math.round(0.6 * fps)}>
             <Audio src={staticFile("video/ding.wav")} volume={0.5} />
@@ -137,8 +148,8 @@ export function Clip(p: ClipProps) {
     const y = drift * (s % 2 ? 1 - t / sc.dur : t / sc.dur);
     let style: CSSProperties = {};
     const next = p.scenes[s + 1];
-    if (t < XFADE && s > 0) style = crossing(TRANSITIONS[sc.key] ?? "fade", t / XFADE, w).in;
-    else if (next && T >= next.start) style = crossing(TRANSITIONS[next.key] ?? "fade", (T - next.start) / XFADE, w).out;
+    if (t < XFADE && s > 0) style = crossing(transitionOf(sc.key, Boolean(p.fx), TRANSITIONS), t / XFADE, w).in;
+    else if (next && T >= next.start) style = crossing(transitionOf(next.key, Boolean(p.fx), TRANSITIONS), (T - next.start) / XFADE, w).out;
     // ตัวหนังสือเด้ง (kinetic.tsx): the scene's spoken words alone, in place of its drawing
     if (p.theme === "kinetic") {
       return (
@@ -147,12 +158,16 @@ export function Clip(p: ClipProps) {
         </AbsoluteFill>
       );
     }
+    const portrait = !p.size || p.size === "portrait";
+    // ลูกเล่นคลิปใหม่'s icon, in the frame so the theme repaints it with the rest (fx-icons.tsx)
+    const icon = p.fx && portrait ? iconFor(p.facts.product, sc.key) : null;
+    const frameOf = portrait ? motionFrame(sc.key, c, t) : wideQuoteFrame(sc.key, c, t, p.size as "square" | "landscape");
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
         {fest ? festivalBack(fest.key, T, w, h) : null}
         {/* Thai lines break at spaces only, as satori breaks them (KeepWords; owner chose ก, 2026-10-19) */}
-        <KeepWords>{themed(p.size && p.size !== "portrait" ? wideQuoteFrame(sc.key, c, t, p.size) : motionFrame(sc.key, c, t), p.theme, lookOf(p))}</KeepWords>
+        <KeepWords>{themed(icon ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{fxIcon(icon, t)}</div> : frameOf, p.theme, lookOf(p))}</KeepWords>
       </AbsoluteFill>
     );
   });
@@ -167,6 +182,7 @@ export function Clip(p: ClipProps) {
       {fest ? festivalFront(fest.key, fest.greeting, w, h) : null}
       {p.theme === "mine" && p.myColor ? mineFront(p.myColor, p.contact, w, h) : null}
       <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
+      {p.fx ? <FxSound music={p.fx.music} cues={p.theme === "kinetic" ? quoteCues(p.scenes, p.facts, false).filter((c) => c.sound === "whoosh") : quoteCues(p.scenes, p.facts, !p.size || p.size === "portrait")} scenes={p.scenes} total={p.total} fps={fps} /> : null}
     </AbsoluteFill>
   );
 }

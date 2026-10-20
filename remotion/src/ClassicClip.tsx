@@ -10,6 +10,9 @@ import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE, type OverlayState, type TableMove } from "@/lib/quote-video/timeline";
 import type { ClassicClipProps } from "@/lib/quote-video/remotion";
 import { crossing, loadFonts, loadScriptFonts, SATORI_CSS } from "./Clip";
+import { FxSound } from "./Fx";
+import { transitionOf } from "@/lib/quote-video/fx";
+import { classicCues } from "@/lib/quote-video/fx-cues";
 import { KeepWords } from "./KeepWords";
 
 /**
@@ -81,8 +84,8 @@ export function ClassicClip(p: ClassicClipProps) {
     const draw = (which: Layer, state?: OverlayState) => (p.size === "portrait" ? sceneLayer(sc.key, c, which, state) : wideSceneLayer(sc.key, c, which, p.size, state));
     let style: CSSProperties = {};
     const next = p.scenes[s + 1];
-    if (t < XFADE && s > 0) style = crossing(TRANSITIONS[sc.key] ?? "fade", t / XFADE, w).in;
-    else if (next && T >= next.start) style = crossing(TRANSITIONS[next.key] ?? "fade", (T - next.start) / XFADE, w).out;
+    if (t < XFADE && s > 0) style = crossing(transitionOf(sc.key, Boolean(p.fx), TRANSITIONS), t / XFADE, w).in;
+    else if (next && T >= next.start) style = crossing(transitionOf(next.key, Boolean(p.fx), TRANSITIONS), (T - next.start) / XFADE, w).out;
     const win = boxes.table;
     const y = sc.table ? tableAt(sc.table.moves, t) : 0;
     return (
@@ -112,6 +115,7 @@ export function ClassicClip(p: ClassicClipProps) {
       <style>{SATORI_CSS}</style>
       {layers}
       <Audio src={/^https?:\/\//.test(p.audio) ? p.audio : staticFile(p.audio)} />
+      {p.fx ? <FxSound music={p.fx.music} cues={classicCues(p.scenes)} scenes={p.scenes} total={p.total} fps={fps} /> : null}
     </AbsoluteFill>
   );
 }

@@ -104,6 +104,8 @@ const FESTIVAL_OFF_KEY = "quote-video-festival-off";
 const MY_COLOR_KEY = "quote-video-my-color";
 /** น้องโล่ and the carried figures, kept in this browser (owner, 2026-10-20); on unless turned off here */
 const MASCOT_KEY = "quote-video-mascot";
+/** ลูกเล่นคลิปใหม่'s music, on unless turned off here (owner, 2026-10-20; src/lib/quote-video/fx.ts) */
+const MUSIC_KEY = "quote-video-music";
 const CARRY_KEY = "quote-video-carry";
 /** โจทย์การเล่า as it was left: the technique, the customer, the loop (owner, 2026-10-13) */
 const BRIEF_KEY = "quote-video-brief";
@@ -165,7 +167,7 @@ const MAX_COMPARE = 3;
 
 export interface PlanChoice { code: string; name: string }
 
-export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices }: {
+export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: firstCost, start, pages, eleven, fhc, quota: firstQuota, prices, fx = false }: {
   ihuPlans: PlanChoice[]; initial: VideoItem[] | null; cost: CostView | null; start?: VideoStart;
   /** the owner's price list (/admin/wallet), for the prices on the chips */
   prices: Prices;
@@ -181,6 +183,8 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   pages: { id: string; name: string }[];
   /** the ElevenLabs voices this viewer may pick; empty hides the AI-voice switch */
   eleven: ElevenChoice[];
+  /** this viewer's clips get ลูกเล่นคลิปใหม่ (fx-switch.ts): the music switch shows */
+  fx?: boolean;
 }) {
   // a plan page's shortcut (owner, 2026-10-11) fills the form with the quote it was showing
   const startProduct = start?.product && start.product !== "FHC" ? start.product : "LIFEPROTECT";
@@ -292,6 +296,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   // น้องโล่ and ตัวเลขลอยต่อ (owner, 2026-10-20): on for every Motion clip unless turned off
   const [mascot, setMascot] = useState(true);
   const [carry, setCarry] = useState(true);
+  const [music, setMusic] = useState(true);
   const [pickedLength, setLength] = useState<VideoLength>("full");
   // ภาษาในวิดีโอ (owner, 2026-10-15, mockup https://claude.ai/artifact/H3HkP5iMpLD1rvEiCtdngb): iHealthy Ultra only
   // the iHealthy page's shortcut opens in the language the page was read in; otherwise the one kept
@@ -329,6 +334,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
       if (keptStyle === "motion" || keptStyle === "chat") setStyle(keptStyle);
       if (localStorage.getItem(MASCOT_KEY) === "off") setMascot(false);
       if (localStorage.getItem(CARRY_KEY) === "off") setCarry(false);
+      if (localStorage.getItem(MUSIC_KEY) === "off") setMusic(false);
       const color = localStorage.getItem(MY_COLOR_KEY);
       if (MY_COLORS.includes(color as MyColor)) setMyColor(color as MyColor);
       const on = festivalOn();
@@ -349,6 +355,10 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   function pickMascot(on: boolean) {
     setMascot(on);
     try { localStorage.setItem(MASCOT_KEY, on ? "on" : "off"); } catch { /* not remembered, still used */ }
+  }
+  function pickMusic(on: boolean) {
+    setMusic(on);
+    try { localStorage.setItem(MUSIC_KEY, on ? "on" : "off"); } catch { /* not remembered, still used */ }
   }
   function pickCarry(on: boolean) {
     setCarry(on);
@@ -385,9 +395,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   const themed = style === "motion"
     ? { ...(theme !== DEFAULT_THEME ? { theme, ...(theme === "mine" ? { myColor } : {}) } : {}), ...(mascot ? { mascot: true } : {}), ...(carry ? { carry: true } : {}) }
     : {};
+  // the music only means something on a clip with the new look, which the server decides (make.ts createVideo)
+  const quiet = fx && !music ? { noMusic: true as const } : {};
   const look = foreign
-    ? { narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
-    : { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
+    ? { ...quiet, narrator, ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf() }
+    : { ...quiet, narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), style, ...themed, length, size, budget: budgetOf(), brief, ...(script?.lines ? { lines: script.lines } : {}) };
   const input = (): VideoInput => (product === "IHEALTHY"
     ? { product, sex, age: Number(age), plan, compare: compare.filter((c) => c !== plan), ...(setup ? { setup } : {}), ...(foreign ? { lang } : {}), ...look }
     : product === "PENSION"
@@ -472,7 +484,7 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
     setError(null);
     try {
       const r = kind === "fhc"
-        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(theme === "mine" ? { myColor } : {}), ...(mascot ? { mascot: true } : {}) })
+        ? await makeFhcVideo(fhcId, withName, { narrator, ...(voice ? { voice } : {}), ...(gemini ? { gemini } : {}), size, theme, ...(theme === "mine" ? { myColor } : {}), ...(mascot ? { mascot: true } : {}), ...(fx && !music ? { noMusic: true } : {}) })
         : await makeVideo(input(), customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });
@@ -523,6 +535,17 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
   /** a look's name: ธีมเทศกาล by the festival on */
   const themeName = (k: ThemeKey) => (k === "festival" && festival ? `ธีม${festival.name}` : THEME_LABELS[k].name);
   // the Motion Graphic look: วิดีโอนำเสนอ's in Motion, and สรุป FHC's (owner, 2026-10-17)
+  // ลูกเล่นคลิปใหม่ (fx.ts): every look gets the music, so its switch stands apart from the Motion Graphic's chips
+  const musicChips = fx ? (
+    <div>
+      <span className={label}>เพลงพื้นหลัง</span>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={chip(music)} onClick={() => pickMusic(true)}>ใส่เพลง</button>
+        <button type="button" className={chip(!music)} onClick={() => pickMusic(false)}>ไม่ใส่</button>
+      </div>
+      <p className="mt-1 text-xs text-[var(--ct-mute)]">เพลงเบาๆ ลดเสียงลงเองตอนพูด · เสียงประกอบ (วูบ ติ๊ง เหรียญ) มีทุกคลิป</p>
+    </div>
+  ) : null;
   const themeChips = (
     <div>
       <span className={label}>ธีม</span>
@@ -622,9 +645,11 @@ export function QuoteVideoBoard({ ihuPlans, ages, pensionAges, initial, cost: fi
               <p className="mt-1 text-xs text-[var(--ct-mute)]">{style === "motion" ? "ไอคอนและกราฟเคลื่อนไหวอธิบายทีละเรื่อง ใช้เวลาสร้างนานกว่าเล็กน้อย" : style === "chat" && !foreign ? "หน้าจอแชท ลูกค้าถาม ตัวแทนตอบ พร้อมส่งการ์ดราคา ตาราง และนามบัตรในแชท" : "การ์ด รูปครอบครัว และตารางมูลค่า แบบเดียวกับใบเสนอ"}</p>
             </div>
             {style === "motion" && themeChips}
+            {musicChips}
           </>
         )}
         {kind === "fhc" && themeChips}
+        {kind === "fhc" && musicChips}
         <SizePicker size={size} pick={pickSize} />
         <VoicePicker
           id="qv-voice" pick={{ narrator, voice, gemini }} eleven={eleven} extraBaht={priceBaht(prices.elevenExtra)} foreign={foreign}

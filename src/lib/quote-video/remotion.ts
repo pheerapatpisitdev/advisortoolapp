@@ -11,6 +11,7 @@ import type { PromptStoryInput } from "@/lib/prompt-story/types";
 import type { StoryVideoInput } from "./story";
 import type { StoryContext } from "./story-motion";
 import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
+import type { FxProps } from "./fx";
 
 /**
  * วิดีโอนำเสนอ's Motion Graphic clip drawn by Remotion (owner, 2026-10-17: "ต่อ Remotion เข้าแอปจริงเลย";
@@ -28,7 +29,7 @@ import type { FhcSceneKey, FhcVideoFacts } from "./fhc";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "680ce86181c1";
+export const REMOTION_DRAWING = "e5cd7b64d4ae";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -60,7 +61,7 @@ export type RemotionMotion = {
 };
 
 /** a type, not an interface: Remotion's props must fit Record<string, unknown> */
-export type ClipProps = RemotionMotion & {
+export type ClipProps = RemotionMotion & FxProps & {
   /** REMOTION_DRAWING as the app had it */
   drawing: string;
   total: number;
@@ -80,7 +81,7 @@ export type ClipProps = RemotionMotion & {
  * (story-frames.tsx, prompt-story/frames.tsx) over the paper, as the frames engine does; a คลิปตามโจทย์
  * scene's picture is pushed in 1.00 → 1.12 as buildJob's zoompan does.
  */
-export type StoryClipProps = {
+export type StoryClipProps = FxProps & {
   composition: "StoryClip";
   /** REMOTION_DRAWING as the app had it */
   drawing: string;
@@ -113,7 +114,7 @@ export function storyClipProps(
  * An FHC summary drawn by Remotion (the composition FhcClip): fhcFrame / wideFhcFrame at the scene's time,
  * repainted by themed, over the theme's drifting ground.
  */
-export type FhcClipProps = {
+export type FhcClipProps = FxProps & {
   composition: "FhcClip";
   drawing: string;
   size: VideoSize;
@@ -138,7 +139,7 @@ export type FhcClipProps = {
  * the family photo pushed in 1.00 → 1.12 or the value table moving down its window with its finished pen notes,
  * then the overlay frame of the moment (each held until the next, as the concat list holds it).
  */
-export type ClassicClipProps = {
+export type ClassicClipProps = FxProps & {
   composition: "ClassicClip";
   drawing: string;
   size: VideoSize;

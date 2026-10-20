@@ -38,6 +38,8 @@ import { jarFits, motionWindows, MOTION_FPS, roadFits } from "./motion";
 import { readTheme } from "./theme-keys";
 import { festivalGreeting, readFestival } from "./festival";
 import { MY_COLORS, type MyColor } from "@/lib/card-theme";
+import { fxPropsOf, type FxChoice } from "./fx";
+import { fxFor } from "./fx-switch";
 import { clipProps, REMOTION_DRAWING, REMOTION_JOB, storyClipProps, type ClassicClipProps, type ClipProps, type FhcClipProps, type RemotionMotion, type StoryClipProps } from "./remotion";
 import { secondsBetween, type CostParts } from "./run-record";
 import { WIDE_CHART_W } from "./classic-wide";
@@ -164,8 +166,13 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
       pay = { paid_by: "wallet", hold_id: hold.id, held_satang: held, multiplier: 1 };
     }
   }
-  // every clip is drawn by Remotion (owner, 2026-10-20, ข): the row says so, for its progress estimate (progress.ts)
-  input = { ...input, engine: "remotion" } as ClipInput;
+  // every clip is drawn by Remotion (owner, 2026-10-20, ข): the row says so, for its progress estimate (progress.ts);
+  // ลูกเล่นคลิปใหม่ is kept on the row when the back office's switch gives it to this maker (fx-switch.ts); the
+  // music choice only means something with it
+  const fx = await fxFor(viewer);
+  const { fx: _asked, noMusic, ...plain } = input as ClipInput & FxChoice;
+  void _asked;
+  input = { ...plain, engine: "remotion", ...(fx ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id, created_at").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
@@ -667,7 +674,7 @@ async function cutWithRemotion(
   const scriptFont = fonts.map((f, i) => ({ url: urls[1 + i] as string, weight: f.weight }));
   lap(`voice${fonts.length ? ` and ${c.scriptFace!.family} (${fonts.length})` : ""} up for Remotion`);
   bar.note({ step: "submit", done: 0, of: 0 });
-  const props = clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, scriptFont);
+  const props: ClipProps = { ...clipProps(motion, c.plans as ScenePlan<SceneKey>[], c.script, c.secs, c.total, urls[0] as string, scriptFont), ...fxPropsOf(row.input) };
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
 }
 
@@ -703,7 +710,7 @@ async function cutClassicWithRemotion(
   bar.note({ step: "submit", done: 0, of: 0 });
   const { layers, ...drawn } = classic;
   const props: ClassicClipProps = {
-    composition: "ClassicClip", drawing: REMOTION_DRAWING, ...drawn, total: c.total, audio: urls[0] as string,
+    composition: "ClassicClip", drawing: REMOTION_DRAWING, ...drawn, ...fxPropsOf(row.input), total: c.total, audio: urls[0] as string,
     ...(fonts.length ? { scriptFont: fonts.map((f, i) => ({ url: urls[i + 1] as string, weight: f.weight })) } : {}),
     scenes: c.plans.map((p, i) => ({
       key: p.key as SceneKey, voice: c.script[i].voice, voiceSec: c.secs[i], start: p.start, dur: p.dur, frames: p.frames,
@@ -734,7 +741,7 @@ async function cutFhcWithRemotion(
   bar.note({ step: "submit", done: 0, of: 0 });
   const props: FhcClipProps = {
     composition: "FhcClip", drawing: REMOTION_DRAWING, size, theme, ...festivalOf(theme, row.input.festival), ...(row.input.mascot ? { mascot: true } : {}), ...myColorOf(theme, row.input.myColor), facts: row.input.fhc, customer: row.customer_name, narrator: narratorOf(row.input), contact,
-    total: c.total, audio: data.signedUrl,
+    ...fxPropsOf(row.input), total: c.total, audio: data.signedUrl,
     scenes: c.plans.map((p, i) => ({ key: p.key as FhcSceneKey, voice: c.script[i].voice, voiceSec: c.secs[i], start: p.start, dur: p.dur })),
   };
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
@@ -765,7 +772,7 @@ async function cutStoryWithRemotion(
   const contact = await contactOf(row.agent_id, agentName);
   lap(`voice${free ? ` and ${next - 1} pictures` : ""} up for Remotion`);
   bar.note({ step: "submit", done: 0, of: 0 });
-  const props = storyClipProps(row.input, clipSize(row.input), row.customer_name, narratorOf(row.input), contact, c.plans, c.script, c.secs, c.total, urls[0] as string, pictureLinks);
+  const props: StoryClipProps = { ...storyClipProps(row.input, clipSize(row.input), row.customer_name, narratorOf(row.input), contact, c.plans, c.script, c.secs, c.total, urls[0] as string, pictureLinks), ...fxPropsOf(row.input) };
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
 }
 

@@ -53,6 +53,9 @@ export interface FhcVideoFacts {
 /** what an FHC clip's row holds as its input */
 export interface FhcVideoInput {
   product: "FHC";
+  /** ลูกเล่นคลิปใหม่ (fx.ts): made with the music, the sounds and the new joins; the agent turned the music off */
+  fx?: true;
+  noMusic?: true;
   customerId: string;
   age: number;
   sex: "M" | "F";

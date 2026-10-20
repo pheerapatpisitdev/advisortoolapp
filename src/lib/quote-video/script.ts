@@ -83,6 +83,9 @@ export type VideoInput = (
   mascot?: boolean;
   /** the next scene's figure carried over each join (owner, 2026-10-20; carry.tsx); absent = the plain joins */
   carry?: boolean;
+  /** ลูกเล่นคลิปใหม่ (fx.ts): made with the music, the sounds and the moving icons; the agent turned the music off */
+  fx?: true;
+  noMusic?: true;
   /** who draws a Motion Graphic clip: Remotion on Cloud Run (owner, 2026-10-17; remotion.ts, set when made by the /admin/ai switch); absent = the satori frames */
   engine?: "remotion";
   /** the whole story (~50 s) or the 15-second one for a Page's Reels (owner, 2026-10-11) */
