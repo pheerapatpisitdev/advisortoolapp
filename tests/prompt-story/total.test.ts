@@ -4,7 +4,7 @@ import { promptStoryPrice } from "@/lib/prompt-story/types";
 import type { Prices } from "@/lib/wallet/prices";
 
 // satang: the clip ฿5, pictures ฿1 / ฿2 / ฿5, ElevenLabs +฿2
-const prices = { videoPrompt: 500, drawStandard: 100, drawSharp: 200, drawGemini: 500, elevenExtra: 200 } as Prices;
+const prices = { videoPrompt: 500, videoPromptDesign: 1500, drawStandard: 100, drawSharp: 200, drawGemini: 500, elevenExtra: 200 } as Prices;
 const base = { scenes: 5, painter: "standard" as const, prices };
 
 describe("totalLine", () => {
@@ -12,6 +12,18 @@ describe("totalLine", () => {
     const t = totalLine({ ...base, kind: "wallet" });
     expect(t.baht).toBe("10");
     expect(t.text).toBe("ค่าคลิป ฿5 + รูป 5 × ฿1 = ฿10 · เสียง ElevenLabs +฿2 (ถ้าเลือก)");
+  });
+
+  it("prices ดีไซน์พิเศษ at its own clip price", () => {
+    const t = totalLine({ ...base, kind: "wallet", design: "blue" });
+    expect(t.baht).toBe("20");
+    expect(t.text).toBe("ค่าคลิปดีไซน์พิเศษ ฿15 + รูป 5 × ฿1 = ฿20 · เสียง ElevenLabs +฿2 (ถ้าเลือก)");
+  });
+
+  it("a free clip in ดีไซน์พิเศษ pays the pictures and the extra", () => {
+    const t = totalLine({ ...base, kind: "free", design: "film" });
+    expect(t.baht).toBe("15");
+    expect(t.text).toBe("ใช้สิทธิ์ฟรี 1 ครั้งกับค่าคลิป · รูป 5 × ฿1 + ดีไซน์พิเศษ ฿10 = ฿15 หักจากกระเป๋า");
   });
 
   it("adds the voice when one is chosen", () => {

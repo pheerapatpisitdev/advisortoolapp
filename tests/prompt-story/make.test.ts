@@ -108,9 +108,14 @@ vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 vi.mock("@/lib/video/engines/cloudrun", () => ({ cloudRunEngine: () => ({ submit: (...a: unknown[]) => ai.submit(...a) }) }));
 vi.mock("@/lib/quote-video/contact", () => ({ getContact: async () => ({ phone: "0812345678" }), photoDataUri: async () => null }));
 vi.mock("@/lib/content/poster-png", () => ({ renderPng: async () => Buffer.from("png") }));
+const shot = vi.hoisted(() => ({ submit: vi.fn(), state: vi.fn() }));
+vi.mock("@/lib/shotstack/api", () => ({
+  submitRender: (...a: unknown[]) => shot.submit(...a),
+  renderState: (...a: unknown[]) => shot.state(...a),
+}));
 
 const { createPromptStory, deleteVideo, finishVideo, isStuck, produce, redrawPicture, sweepStuckVideos, voiceFullUntil } = await import("@/lib/quote-video/make");
-const { clipStates } = await import("@/lib/quote-video/rows");
+const { clipStates, collectShotstack } = await import("@/lib/quote-video/rows");
 const { VOICE_FULL } = await import("@/lib/quote-video/voice-quota");
 const { paidLine } = await import("@/lib/quote-video/paid-line");
 
@@ -159,6 +164,9 @@ beforeEach(() => {
   ai.speak.mockImplementation(async () => ({ pcm: pcm(), costThb: 0.01 }));
   ai.submit.mockReset();
   ai.submit.mockResolvedValue(undefined);
+  shot.submit.mockReset();
+  shot.submit.mockResolvedValue({ id: "render-1", env: "v1" });
+  shot.state.mockReset();
   vi.stubGlobal("fetch", vi.fn(route));
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -557,5 +565,90 @@ describe("the last free clip, pressed twice at once (owner, 2026-10-18)", () => 
     expect([a, b].find((r) => "refusal" in r)).toEqual({ refusal: "ใช้วิดีโอฟรีครบแล้ว กดสร้างอีกครั้งเพื่อจ่ายจากกระเป๋านะครับ" });
     expect(wallet.releaseWallet).toHaveBeenCalled();
     expect(db.rows.filter((r) => r.paid_by === "free")).toHaveLength(2);
+  });
+});
+
+describe("ดีไซน์พิเศษ (Shotstack, owner 2026-10-21)", () => {
+  const design = (over: Partial<PromptStoryInput> = {}) => input({ design: "gold", ...over });
+
+  it("is priced at its own ฿15 and marked as Shotstack's", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, design(), "");
+    const row = rowOf((made as { id: string }).id);
+    expect(row.held_satang).toBe(DEFAULT_PRICES.videoPromptDesign + 3 * DEFAULT_PRICES.drawStandard);
+    expect((row.input as PromptStoryInput).engine).toBe("shotstack");
+    expect((row.input as PromptStoryInput).fx).toBeUndefined();
+  });
+
+  it("a free clip still pays the pictures and ดีไซน์พิเศษ's extra", async () => {
+    const made = await createPromptStory(taster, design(), "");
+    const row = rowOf((made as { id: string }).id);
+    expect(row.paid_by).toBe("free");
+    expect(row.held_satang).toBe(DEFAULT_PRICES.videoPromptDesign - DEFAULT_PRICES.videoPrompt + 3 * DEFAULT_PRICES.drawStandard);
+  });
+
+  it("hands the clip to Shotstack, not Cloud Run, with the cover, the scenes and the card", async () => {
+    const made = await createPromptStory(agent, design(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    expect(ai.submit).not.toHaveBeenCalled();
+    expect(shot.submit).toHaveBeenCalledTimes(1);
+    const [, edit, callback] = shot.submit.mock.calls[0] as [string, { timeline: { tracks: { clips: { asset: { type: string; text?: string; src?: string } }[] }[] } }, string];
+    expect(callback).toMatch(/\/api\/quote-video\/shotstack\?job=[0-9a-f-]{36}&token=[0-9a-f]{64}$/);
+    const clips = edit.timeline.tracks.flatMap((t) => t.clips);
+    const words = clips.filter((c) => c.asset.type === "rich-text").map((c) => c.asset.text);
+    expect(words).toContain("ดูแลครอบครัว");
+    expect(words).toContain("ถ้าเสาหลักหายไป");
+    expect(words.some((w) => w?.includes("ทักมาคุยกันได้นะคะ"))).toBe(true);
+    expect(clips.filter((c) => c.asset.type === "image")).toHaveLength(3);
+    expect(clips.some((c) => c.asset.src?.endsWith("/video/music-warm.mp3"))).toBe(true);
+    const row = rowOf(id);
+    expect(row.status).toBe("rendering");
+    expect(row.job).toMatchObject({ render: "render-1", env: "v1" });
+    expect((row.cost_parts as { engine?: string }).engine).toBe("shotstack");
+  });
+
+  it("fails and gives the hold back when no Shotstack key is set", async () => {
+    freeUsedUp();
+    const client = await import("@/lib/ai/client");
+    const keyed = vi.spyOn(client, "providerKey");
+    keyed.mockImplementation(async (p: string) => (p === "shotstack" ? null : "key"));
+    const made = await createPromptStory(agent, design(), "");
+    await produce((made as { id: string }).id, "ตัวแทน");
+    keyed.mockRestore();
+    const row = rowOf((made as { id: string }).id);
+    expect(row.status).toBe("failed");
+    expect(wallet.releaseWallet).toHaveBeenCalled();
+  });
+
+  it("copies the finished file in and settles, priced by the clip's length", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, design(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    shot.state.mockResolvedValue({ status: "done", url: "https://cdn.shotstack.io/x.mp4" });
+    vi.stubGlobal("fetch", vi.fn(async (u: string) => (u === "https://cdn.shotstack.io/x.mp4" ? new Response("mp4-bytes") : route())));
+    expect(await collectShotstack(structuredClone(rowOf(id)) as never)).toBe(true);
+    const row = rowOf(id);
+    expect(row.status).toBe("done");
+    expect(row.video_path).toBe(`${id}/quote.mp4`);
+    expect(db.files.has(`${id}/quote.mp4`)).toBe(true);
+    expect(wallet.settleWallet).toHaveBeenCalledWith(row.hold_id, row.held_satang, expect.any(Number));
+    expect((row.cost_parts as { engine?: string }).engine).toBe("shotstack");
+  });
+
+  it("leaves a render still working alone, and fails a failed one with its hold back", async () => {
+    freeUsedUp();
+    const made = await createPromptStory(agent, design(), "");
+    const id = (made as { id: string }).id;
+    await produce(id, "ตัวแทน");
+    shot.state.mockResolvedValueOnce({ status: "working" });
+    expect(await collectShotstack(structuredClone(rowOf(id)) as never)).toBe(false);
+    expect(rowOf(id).status).toBe("rendering");
+    shot.state.mockResolvedValueOnce({ status: "failed", error: "bad asset" });
+    expect(await collectShotstack(structuredClone(rowOf(id)) as never)).toBe(true);
+    expect(rowOf(id).status).toBe("failed");
+    expect((rowOf(id).fail_reason as string)).toContain("Shotstack: bad asset");
+    expect(wallet.releaseWallet).toHaveBeenCalled();
   });
 });

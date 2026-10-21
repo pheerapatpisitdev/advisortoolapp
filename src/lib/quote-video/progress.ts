@@ -13,7 +13,7 @@ export type ProgressStep = "pictures" | "voice" | "files" | "draw" | "submit";
 /** what produce has done, on the row: `done` of `of` lines spoken or scenes drawn */
 export interface ProgressNote { step: ProgressStep; done: number; of: number }
 
-export type ClipKind = `${"classic" | "motion" | "remotion"}-${"short" | "full" | "long" | "max"}` | "fhc" | "story" | "story-remotion";
+export type ClipKind = `${"classic" | "motion" | "remotion"}-${"short" | "full" | "long" | "max"}` | "fhc" | "story" | "story-remotion" | "prompt-design";
 /** seconds: from asking to the render starting, and the render itself */
 export interface Estimate { pre: number; render: number }
 
@@ -42,6 +42,8 @@ export const DEFAULT_ESTIMATES: Record<ClipKind, Estimate> = {
   story: { pre: 60, render: 155 },
   // คลิปเล่าเรื่อง and คลิปตามโจทย์ drawn by Remotion (2026-10-19): the voice up, then the render; a guess until clips are made
   "story-remotion": { pre: 30, render: 75 },
+  // คลิปตามโจทย์ ดีไซน์พิเศษ put together by Shotstack (2026-10-21): its 45 s samples took about a minute
+  "prompt-design": { pre: 30, render: 70 },
 };
 /** fewer finished clips of a kind than this, and its default stands */
 export const MIN_SAMPLES = 3;
@@ -52,6 +54,7 @@ export const MAX_RENDER_SEC = 15 * 60;
 
 export function clipKind(input: { fhc?: unknown; style?: unknown; length?: unknown; product?: unknown; engine?: unknown }): ClipKind {
   if (input.fhc) return "fhc";
+  if (input.product === "FREESTORY" && input.engine === "shotstack") return "prompt-design";
   if (input.product === "STORY" || input.product === "FREESTORY") return input.engine === "remotion" ? "story-remotion" : "story";
   const length = input.length === "short" || input.length === "long" || input.length === "max" ? input.length : "full";
   // แชทถาม-ตอบ is drawn the Motion way (make.ts)

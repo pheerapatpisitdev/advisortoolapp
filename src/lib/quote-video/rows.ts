@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { providerKey } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
 import { asWho } from "@/lib/ai/who";
 import { TtsQuotaError } from "@/lib/ai/tts";
@@ -8,10 +9,11 @@ import { videosFrom } from "@/lib/members/pass";
 import { releaseDraft } from "@/lib/prompt-story/drafts";
 import { isPromptStory, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { renderState, type ShotstackEnv } from "@/lib/shotstack/api";
 import { releaseWallet, settleWallet } from "@/lib/wallet/store";
 import { tellOwnerClipFailed } from "./fail-alert";
 import type { FhcVideoInput } from "./fhc";
-import { failReason, renderThbFor, secondsBetween, type ClipEngine, type CostParts } from "./run-record";
+import { failReason, renderThbFor, secondsBetween, shotstackThbFor, type ClipEngine, type CostParts } from "./run-record";
 import type { VideoInput } from "./script";
 import type { StoryVideoInput } from "./story";
 import { voiceDay, voiceFullText } from "./voice-quota";
@@ -57,7 +59,8 @@ export interface VideoRow {
   input: ClipInput;
   customer_name: string;
   status: VideoStatus;
-  job: { id: string; tokenHash: string; startedAt: string } | null;
+  /** the render handed over; a ดีไซน์พิเศษ's also names Shotstack's render and the key's environment */
+  job: { id: string; tokenHash: string; startedAt: string; render?: string; env?: "v1" | "stage" } | null;
   video_path: string | null;
   duration_sec: number | null;
   error: string | null;
@@ -207,12 +210,14 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
       .eq("id", row.id).eq("status", "rendering").select("id").maybeSingle();
     if (error) throw new Error(`video ${row.id} not finished: ${error.message}`);
     if (!data) return;
-    const remotion = (row.input as { engine?: unknown }).engine === "remotion";
-    const engine: ClipEngine = remotion ? "remotion" : "ffmpeg";
+    const said = (row.input as { engine?: unknown }).engine;
+    const engine: ClipEngine = said === "remotion" || said === "shotstack" ? said : "ffmpeg";
     // the run's own seconds at its machine's rate (owner, 2026-10-20, ก: the fixed ฿0.55 was under
-    // the ฿0.77 a clip averaged, and ฿1.87 for two minutes); the fixed figure only without a time
-    const renderThb = renderSec !== null ? renderThbFor(engine, renderSec) : remotion ? REMOTION_COST_THB : RENDER_COST_THB;
-    await asWho(row.agent_id, () => recordUsage("cloudrun", VIDEO_TASK_RENDER, 0, 0, renderThb));
+    // the ฿0.77 a clip averaged, and ฿1.87 for two minutes); the fixed figure only without a time.
+    // Shotstack bills the clip's length instead (run-record.ts)
+    const renderThb = engine === "shotstack" ? shotstackThbFor(Number(row.duration_sec ?? 0), row.job?.env)
+      : renderSec !== null ? renderThbFor(engine, renderSec) : engine === "remotion" ? REMOTION_COST_THB : RENDER_COST_THB;
+    await asWho(row.agent_id, () => recordUsage(engine === "shotstack" ? "shotstack" : "cloudrun", VIDEO_TASK_RENDER, 0, 0, renderThb));
     const cost = Number(row.cost_thb ?? 0) + renderThb;
     let charged: number | null = null;
     // a free คลิปตามโจทย์ holds its pictures too; a clip cut again was settled at its first finish
@@ -238,12 +243,53 @@ export async function finishVideo(row: VideoRow, state: "done" | "failed", outPa
       input = rest;
     }
     // the run's own seconds, priced at its machine's rate (run-record.ts), the same figure booked above
-    const cost_parts: CostParts = { ...(row.cost_parts ?? {}), engine, ...(renderSec !== null ? { renderSec, renderThb: renderThbFor(engine, renderSec) } : {}) };
+    const cost_parts: CostParts = { ...(row.cost_parts ?? {}), engine, ...(renderSec !== null ? { renderSec, renderThb } : {}) };
     await setRow(row.id, { cost_thb: cost, cost_parts, ...(charged !== null ? { charged_satang: charged } : {}), ...(input ? { input } : {}) }).catch(() => undefined);
     await clearInputs(row.id, isPromptStory(row.input));
   } else {
     await fail(row.id, new Error(jobError ? `render failed: ${jobError}` : "render failed"));
   }
+}
+
+/**
+ * A ดีไซน์พิเศษ's render, asked of Shotstack itself (never a posted body's word): done, its file is
+ * copied in as "<id>/quote.mp4" and the clip ends as every clip does (finishVideo); failed, the clip
+ * fails and its hold goes back; still working, nothing. The callback route and the sweep both come
+ * here. `render`: Shotstack's id when the row has not kept it yet (a callback faster than the row).
+ * Returns whether the clip has ended.
+ */
+export async function collectShotstack(row: VideoRow, render?: string): Promise<boolean> {
+  if (row.status !== "rendering") return false;
+  const id = row.job?.render ?? render;
+  if (!id) return false;
+  const key = await providerKey("shotstack");
+  if (!key) throw new Error("no shotstack key");
+  const envs: ShotstackEnv[] = row.job?.env ? [row.job.env] : ["v1", "stage"];
+  let state: Awaited<ReturnType<typeof renderState>> | null = null;
+  let env: ShotstackEnv | undefined;
+  for (const e of envs) {
+    try {
+      state = await renderState(key, e, id);
+      env = e;
+      break;
+    } catch (err) {
+      if (e === envs[envs.length - 1]) throw err;
+    }
+  }
+  if (!state || state.status === "working") return false;
+  const known = env && !row.job?.env && row.job ? { ...row, job: { ...row.job, render: id, env } } : row;
+  if (state.status === "failed") {
+    await finishVideo(known, "failed", undefined, `Shotstack: ${state.error}`.slice(0, 300));
+    return true;
+  }
+  const res = await fetch(state.url, { signal: AbortSignal.timeout(90_000) });
+  if (!res.ok) throw new Error(`Shotstack file not read (${res.status})`);
+  const file = Buffer.from(await res.arrayBuffer());
+  const path = `${row.id}/quote.mp4`;
+  const { error } = await bucket().upload(path, file, { contentType: "video/mp4", upsert: true });
+  if (error) throw new Error(`Shotstack file not kept: ${error.message}`);
+  await finishVideo(known, "done", path);
+  return true;
 }
 
 /**
@@ -268,13 +314,18 @@ let sweptAt = 0;
 export async function sweepStuckVideos(now = Date.now(), force = false): Promise<number> {
   if (!force && now - sweptAt < 60_000) return 0;
   sweptAt = now;
-  const { data, error } = await rows().select("id, status, video_path, created_at, updated_at")
+  const { data, error } = await rows().select("id, status, video_path, created_at, updated_at, job, input")
     .in("status", ["drawing", "rendering"]).is("deleted_at", null)
     .lt("created_at", new Date(now - VIDEO_TIMEOUT_MS).toISOString()).limit(100);
   if (error) throw new Error(`stuck videos not read: ${error.message}`);
   let n = 0;
-  for (const v of (data ?? []) as Pick<VideoRow, "id" | "status" | "video_path" | "created_at" | "updated_at">[]) {
+  for (const v of (data ?? []) as Pick<VideoRow, "id" | "status" | "video_path" | "created_at" | "updated_at" | "job" | "input">[]) {
     if (!isStuck(v, now)) continue;
+    // a ดีไซน์พิเศษ whose callback never came: Shotstack is asked before the clip is failed
+    if (v.status === "rendering" && v.job?.render) {
+      const full = await rows().select("*").eq("id", v.id).maybeSingle<VideoRow>().then((r) => r.data ?? null, () => null);
+      if (full && (await collectShotstack(full).catch((e) => { console.error(`shotstack ${v.id}: not collected:`, e instanceof Error ? e.message : e); return false; }))) continue;
+    }
     await fail(v.id, new Error("timed out"));
     n++;
   }

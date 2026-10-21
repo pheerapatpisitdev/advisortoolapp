@@ -25,11 +25,13 @@ import { mixNarration, pcmSeconds } from "./job";
 import { fhcScript, isFhcInput, type FhcSceneKey, type FhcVideoInput } from "./fhc";
 import { fhcWindows } from "./fhc-motion";
 import { topicOf } from "@/lib/story/topics";
-import { isPromptStory, promptPicturePrice, promptPicturesPrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { isPromptStory, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
 import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
-import { freeWindows } from "@/lib/prompt-story/frames";
+import { figureLines, freeWindows } from "@/lib/prompt-story/frames";
+import { submitRender } from "@/lib/shotstack/api";
+import { DESIGN_LOOKS, designEdit, isDesignLook, type DesignLook, type DesignPart } from "@/lib/shotstack/looks";
 import { PAINTERS } from "@/lib/content/models";
 import { isStoryInput, storyScript, type StoryVideoInput } from "./story";
 import { contactSpec } from "./story-motion";
@@ -146,8 +148,8 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
     const { limit, from } = await freeClips(viewer, access);
     freeWindow = { limit, from };
     if ((await freeUsed(viewer.agentId, from)) < limit) {
-      // a คลิปตามโจทย์'s free clip covers the clip only: its pictures are still paid from the wallet (spec, Money)
-      const pictures = isPromptStory(input) ? promptPicturesPrice(input, await walletPrices()) : 0;
+      // a คลิปตามโจทย์'s free clip covers the clip only: its pictures, and ดีไซน์พิเศษ's extra, are still paid from the wallet (spec, Money)
+      const pictures = isPromptStory(input) ? promptFreePrice(input, await walletPrices()) : 0;
       if (pictures > 0) {
         const s = await walletSettings().catch(() => null);
         if (!s?.enabled) return { refusal: "ค่าภาพประกอบจ่ายจากกระเป๋าเงิน แต่กระเป๋าเงินยังไม่เปิดใช้" };
@@ -172,7 +174,9 @@ export async function createVideo(viewer: Viewer, input: ClipInput, customer: st
   const fx = await fxFor(viewer);
   const { fx: _asked, noMusic, ...plain } = input as ClipInput & FxChoice;
   void _asked;
-  input = { ...plain, engine: "remotion", ...(fx ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
+  // a คลิปตามโจทย์ in ดีไซน์พิเศษ is Shotstack's (owner, 2026-10-21); ลูกเล่นคลิปใหม่ is Remotion's, so not on it
+  const shotstack = isPromptStory(input) && Boolean(input.design);
+  input = { ...plain, engine: shotstack ? "shotstack" : "remotion", ...(fx && !shotstack ? { fx: true, ...(noMusic ? { noMusic: true } : {}) } : {}) } as ClipInput;
   const { data, error } = await rows().insert({ ...(id ? { id } : {}), agent_id: viewer.agentId, input, customer_name: customer, ...pay }).select("id, created_at").single();
   if (error || !data) {
     if (pay.hold_id) await releaseWallet(pay.hold_id).catch(() => undefined);
@@ -538,8 +542,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
   try {
     const { data: row, error } = await rows().select("*").eq("id", id).single<VideoRow>();
     if (error || !row) throw new Error("row not read");
-    const gcpKey = await providerKey("gcp");
-    if (!gcpKey) throw new Error("no gcp key");
+    const gcpKey = await renderKeyOf(row.input);
+    if (!gcpKey) throw new Error(shotstackOf(row.input) ? "no shotstack key" : "no gcp key");
     const narrator = narratorOf(row.input);
     // a brief the agent did not preview is written now, and kept with the clip so every scene drawer tells the same lines
     if (isQuoteInput(row.input) && writes(row.input.brief) && !row.input.lines) {
@@ -607,6 +611,9 @@ async function cutClip(row: VideoRow, agentName: string, pcms: Buffer[], gcpKey:
   // สรุป FHC, คลิปเล่าเรื่อง and คลิปตามโจทย์, then วิดีโอนำเสนอ in its look
   if (isFhcInput(row.input)) {
     return cutFhcWithRemotion(row as VideoRow & { input: FhcVideoInput }, agentName, { plans, script, secs, total, pcms, since }, gcpKey, bar, lap);
+  }
+  if (shotstackOf(row.input)) {
+    return cutWithShotstack(row as VideoRow & { input: PromptStoryInput }, agentName, { plans, secs, total, pcms, since }, gcpKey, bar, lap);
   }
   if (isStoryInput(row.input) || isPromptStory(row.input)) {
     return cutStoryWithRemotion(row as VideoRow & { input: StoryVideoInput | PromptStoryInput }, agentName, { plans, script, secs, total, pcms, since }, gcpKey, bar, lap);
@@ -776,6 +783,86 @@ async function cutStoryWithRemotion(
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
 }
 
+/** a คลิปตามโจทย์ in ดีไซน์พิเศษ: Shotstack puts it together (owner, 2026-10-21) */
+const shotstackOf = (input: ClipInput): input is PromptStoryInput => isPromptStory(input) && input.engine === "shotstack" && isDesignLook(input.design);
+
+/** the key the clip's cut needs: Shotstack's for ดีไซน์พิเศษ, Cloud Run's for every clip Remotion draws */
+const renderKeyOf = (input: ClipInput): Promise<string | null> => providerKey(shotstackOf(input) ? "shotstack" : "gcp");
+
+/** ดีไซน์พิเศษ opens on the clip's title for this long, before the first scene and its voice */
+const DESIGN_COVER_SEC = 2.5;
+/** where Shotstack calls back when a render is done or failed */
+export const SHOTSTACK_CALLBACK_PATH = "/api/quote-video/shotstack";
+
+/**
+ * A คลิปตามโจทย์ in ดีไซน์พิเศษ (owner, 2026-10-21, mockup https://claude.ai/artifact/FqkpbJneL55sMh9HSyGr4L
+ * v2, ก ก): the same scenes, voice and pictures as Remotion's, put together by Shotstack in the chosen
+ * look (shotstack/looks.ts) after a short title cover. The narration goes up as one WAV, the pictures
+ * are linked where they are filed, and Shotstack posts to SHOTSTACK_CALLBACK_PATH with this job's id
+ * and token; that route copies the finished file in as "<id>/quote.mp4" and ends the clip as every
+ * clip ends (finishVideo). The row is marked rendering before Shotstack is asked, as handOver does.
+ */
+async function cutWithShotstack(
+  row: VideoRow & { input: PromptStoryInput }, agentName: string,
+  c: { plans: ScenePlan[]; secs: number[]; total: number; pcms: Buffer[]; since: number },
+  key: string, bar: Bar, lap: Lap,
+): Promise<void> {
+  const id = row.id;
+  const input = row.input;
+  const look = input.design as DesignLook;
+  bar.note({ step: "files", done: 0, of: 0 });
+  await upload(id, "voice.wav", mixNarration(c.pcms.map((pcm, i) => ({ pcm, at: c.plans[i].voiceAt })), c.total, TTS_RATE), "audio/wav");
+  const pictures = input.pictures ?? [];
+  const paths = [`${id}/voice.wav`, ...pictures.filter((x): x is string => Boolean(x))];
+  const { data, error: e } = await bucket().createSignedUrls(paths, LINK_SECONDS);
+  const urls = (data ?? []).map((d) => d.signedUrl);
+  if (e || urls.length !== paths.length || urls.some((u) => !u)) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
+  let next = 1;
+  const pictureLinks = pictures.map((p) => (p ? (urls[next++] as string) : null));
+  const contact = await contactOf(row.agent_id, agentName);
+  const narrator = narratorOf(input);
+  const figure = figureLines(input)?.map((l) => l.text) ?? null;
+  const at = DESIGN_COVER_SEC;
+  const parts: DesignPart[] = [{ kind: "cover", start: 0, length: at + 0.4, title: input.title }];
+  c.plans.forEach((plan, i) => {
+    if (plan.key === "storyContact") {
+      parts.push({
+        kind: "contact", start: at + plan.start, length: plan.dur,
+        greeting: `${row.customer_name ? `คุณ${row.customer_name} ` : ""}ทักมาคุยกันได้${narrator === "M" ? "นะครับ" : "นะคะ"}`,
+        name: contact.name, reach: contact.line ? `LINE ${contact.line}` : contact.phone,
+      });
+      return;
+    }
+    const scene = input.scenes[i];
+    if (!scene) return;
+    parts.push({
+      kind: "scene", start: at + plan.start, length: plan.dur, picture: pictureLinks[i] ?? null, text: scene.screen,
+      ...(scene.showFigure && figure ? { lines: figure } : {}),
+    });
+  });
+  const total = Math.round((at + c.total) * 1000) / 1000;
+  const music = DESIGN_LOOKS.find((l) => l.id === look)?.music ?? "calm";
+  const edit = designEdit({
+    look, size: clipSize(input), total, voice: urls[0] as string, voiceAt: at,
+    music: siteUrl(`/video/music-${music}.mp3`),
+    fonts: { regular: siteUrl("/video/IBMPlexSansThai-Regular.ttf"), semibold: siteUrl("/video/IBMPlexSansThai-SemiBold.ttf") },
+    parts,
+  });
+  lap(`voice and ${next - 1} pictures up for Shotstack (${look})`);
+  bar.note({ step: "submit", done: 0, of: 0 });
+  const jobId = randomUUID();
+  const token = randomBytes(32).toString("hex");
+  const callback = siteUrl(`${SHOTSTACK_CALLBACK_PATH}?job=${jobId}&token=${token}`);
+  await bar.flush();
+  const job = { id: jobId, tokenHash: hashToken(token), startedAt: new Date().toISOString() };
+  const cost: CostParts = { ...(row.cost_parts ?? {}), engine: "shotstack", prepSec: secondsBetween(c.since, Date.now()) ?? undefined };
+  // recorded before Shotstack is asked, so a callback that comes back at once finds it
+  await setRow(id, { status: "rendering", duration_sec: total, cost_parts: cost, job });
+  const sent = await submitRender(key, edit, callback);
+  await setRow(id, { job: { ...job, render: sent.id, env: sent.env } });
+  lap(`handed to Shotstack (${sent.env}, render ${sent.id})`);
+}
+
 /** the script's fields as the agent knows them */
 const FIELD: Record<string, string> = { voice: "คำพูด", screen: "ข้อความบนจอ", picture: "ภาพ" };
 const reasonWords = (r: string) => r.replace(/^(voice|screen|picture): /, (_, f: string) => `${FIELD[f]}: `);
@@ -828,7 +915,7 @@ export async function redrawPicture(
   if (row.status !== "done" || !row.video_path) return { ok: false, error: "วาดใหม่ได้เฉพาะคลิปที่ทำเสร็จแล้ว" };
   const input = row.input;
   if (!Number.isInteger(scene) || scene < 0 || scene >= input.scenes.length) return { ok: false, error: "ไม่พบฉากนี้" };
-  const gcpKey = await providerKey("gcp");
+  const gcpKey = await renderKeyOf(input);
   if (!gcpKey) return { ok: false, error: FAILED };
   const pcms = await keptVoice(id, input.scenes.length + 1);
   if (!pcms) return { ok: false, error: "คลิปนี้ไม่มีเสียงเก็บไว้ วาดใหม่ไม่ได้ ทำคลิปใหม่แทน" };
