@@ -120,8 +120,10 @@ describe("ค่าบริการ on the front page", () => {
     expect(html).toContain("เครื่องคิดเบี้ยทุกแบบประกัน");
   });
 
-  it("lists the top-ups, and no per-item prices (owner took them out)", () => {
-    for (const n of ["฿50", "฿100", "฿150", "฿200", "฿500"]) expect(html).toContain(`>${n}<`);
+  it("says topping up is possible, without the amounts box or per-item prices (owner took both out)", () => {
+    expect(html).toContain("ใช้เกินเครดิต เติมเงินใช้ต่อได้");
+    expect(html).not.toContain("เติมเงินกระเป๋า Studio");
+    for (const n of ["฿50", "฿100", "฿150", "฿200", "฿500"]) expect(html).not.toContain(`>${n}<`);
     expect(html).not.toContain("ราคาต่อชิ้น");
     expect(html).not.toContain("วาดรูป");
   });
