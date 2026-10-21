@@ -20,6 +20,8 @@ export interface Undecided {
   people?: { age: number; sex: "M" | "F" }[];
   /** the application form has gone, which the report counts and the bot does not repeat */
   formSent?: true;
+  /** the last turn was answered from the library, so "ขอรายละเอียดเพิ่มเติม" is about that answer */
+  answered?: true;
 }
 
 /**

@@ -31,6 +31,9 @@ import { matchLesson, type Lesson } from "./lessons";
 /** The last line of the menu, which is how a turn knows the menu was the last thing said. */
 const ASKED_WHICH = "สนใจแบบไหนครับ";
 
+/** Asking for more of the answer just given, rather than for anything new. */
+const FOLLOW_UP = /รายละเอียด|เพิ่มเติม|อธิบาย|ขยายความ|ละเอียด|ต่อเลย|ยังไงต่อ|แล้วถ้า|ไม่เข้าใจ|หมายถึง|ตัวอย่าง|กำลังถาม|ถามเรื่อง|เกี่ยวกับ/;
+
 /** One answer, and everything the bot should remember about this customer next turn. */
 export type AnyAnswer = Reply & {
   slots: AnySlots;
@@ -485,12 +488,21 @@ async function routeAny(
    * Checked after the company's own answer, which is free and is the better one: "ของอะไร"
    * asks which insurer, and the library would spend a model call arriving somewhere worse.
    */
-  if (!lead && ASKS_SOMETHING.test(asked)) {
+  /**
+   * No plan buttons under a library answer, and "ขอรายละเอียดเพิ่มเติม" after one stays on it.
+   *
+   * A customer asking how a stomach-ache admission is claimed was answered, then shown Life
+   * Protect, มรดก and iShield under the answer; asking for more detail, they were greeted
+   * "สวัสดี" and shown the menu again (owner, 2026-10-21: the bot sells too much). A question
+   * about a rule is not a lead, and the follow-up to an answer is a request for more of it.
+   */
+  const followsAnswer = stored?.product === "undecided" && stored.answered === true && FOLLOW_UP.test(asked);
+  if (!lead && (ASKS_SOMETHING.test(asked) || followsAnswer)) {
     const answer = await answerFromLibrary(history, asked, channel);
     if (answer) {
       return {
-        messages: [{ text: answer }], replies: askWhich().replies,
-        slots: undecided, fromLibrary: true,
+        messages: [{ text: answer }],
+        slots: { ...undecided, answered: true as const }, fromLibrary: true,
       };
     }
   }
