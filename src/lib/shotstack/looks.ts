@@ -1,4 +1,4 @@
-import { SIZES, type VideoSize } from "@/lib/quote-video/timeline";
+import { SIZES, XFADE, type VideoSize } from "@/lib/quote-video/timeline";
 import { thaiLines } from "./lines";
 
 /**
@@ -121,7 +121,8 @@ export function designEdit(c: DesignClip): { timeline: object; output: object } 
       const width = p.band && p.band.inset ? w - 2 * px(p.band.inset) - px(60) : textW;
       const color = onPicture ? p.ink : c.look === "gold" ? p.ink : "#ffffff";
       const set = part.lines?.length ? part.lines.map((l) => lines(l, sceneSize, width)).join("\n") : lines(part.text, sceneSize, width);
-      words.push(text(set, { start: part.start + 0.3, length: part.length - 0.3, size: sceneSize, color, y: onPicture ? fromFoot(p.textFromFoot) : 0, width }));
+      // the words leave before the scene's overlap with the next (XFADE), while its band is still there
+      words.push(text(set, { start: part.start + 0.3, length: Math.max(0.5, part.length - 0.3 - XFADE), size: sceneSize, color, y: onPicture ? fromFoot(p.textFromFoot) : 0, width }));
     } else {
       words.push(text(part.greeting, { start: part.start, length: part.length, size: px(76), color: c.look === "gold" ? "#5a3a12" : p.ink, y: 0.06 }));
       const who = [part.name, part.reach].filter(Boolean).join(" · ");
