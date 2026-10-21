@@ -16,6 +16,7 @@ import { ClipList } from "../quote-video/ClipList";
 import { Step } from "../quote-video/QuoteVideoBoard";
 import { makePromptStory, writePromptStory } from "./actions";
 import { DEFAULT_FIGURE, FigurePicker, type FigureChoice } from "./FigurePicker";
+import { isDesignLook } from "@/lib/shotstack/looks";
 import { LookStep, type Look } from "./LookStep";
 import { geminiVoice } from "@/lib/voice/gemini";
 import { ScriptEditor, type Draft } from "./ScriptEditor";
@@ -33,13 +34,16 @@ const PAINTERS: { id: PromptStoryInput["painter"]; name: string }[] = [{ id: "st
 const SCENES = [3, 5, 8] as const;
 const LOOK_KEY = "prompt-story-look";
 const FACE_KEY = "story-narrator-face";
-const DEFAULT_LOOK: Look = { size: "portrait", narrator: "F", voice: "", gemini: "" };
+const DEFAULT_LOOK: Look = { size: "portrait", narrator: "F", voice: "", gemini: "", design: "" };
 
 function readLook(): Look {
   try {
     const raw = JSON.parse(localStorage.getItem(LOOK_KEY) ?? "null") as Partial<Look> | null;
     if (!raw) return DEFAULT_LOOK;
-    return { size: raw.size === "square" || raw.size === "landscape" ? raw.size : "portrait", narrator: raw.narrator === "M" ? "M" : "F", voice: typeof raw.voice === "string" ? raw.voice : "", gemini: geminiVoice(raw.gemini)?.name ?? "" };
+    return {
+      size: raw.size === "square" || raw.size === "landscape" ? raw.size : "portrait", narrator: raw.narrator === "M" ? "M" : "F",
+      voice: typeof raw.voice === "string" ? raw.voice : "", gemini: geminiVoice(raw.gemini)?.name ?? "", design: isDesignLook(raw.design) ? raw.design : "",
+    };
   } catch {
     return DEFAULT_LOOK;
   }
@@ -120,7 +124,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const elevenIsOff = useElevenOff(eleven.length > 0);
   const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
   const voiceBlocked = Boolean(notice?.blocked);
-  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff });
+  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, design: look.design || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff });
   const closed = cost?.kind === "closed";
 
   async function write() {
@@ -147,7 +151,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       const r = await makePromptStory({
         draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes,
         style, painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
-        faces: { narrator: face }, ...(written.figure ? { figure: written.figure } : {}),
+        faces: { narrator: face }, ...(written.figure ? { figure: written.figure } : {}), ...(look.design ? { design: look.design } : {}),
       }, customer);
       if (!r.ok) {
         setError({ text: r.error, contact: r.needContact });

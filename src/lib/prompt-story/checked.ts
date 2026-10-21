@@ -1,6 +1,7 @@
 import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
+import { isDesignLook } from "@/lib/shotstack/looks";
 import { BRIEF_MAX, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
@@ -64,5 +65,7 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
     size: sizeOf(v), narrator, ...(voice ? { voice } : {}),
     faces: { narrator: typeof face === "string" && FACES.some((f) => f.id === face) ? face : DEFAULT_NARRATOR_FACE },
     ...(figure ? { figure } : {}),
+    // ดีไซน์พิเศษ (owner, 2026-10-21): one of the three looks, else the clip Remotion draws
+    ...(isDesignLook(v.design) ? { design: v.design } : {}),
   };
 }

@@ -1,5 +1,6 @@
 import type { StoryFigure } from "@/lib/quote-video/story";
 import type { VideoSize } from "@/lib/quote-video/timeline";
+import type { DesignLook } from "@/lib/shotstack/looks";
 import { pictureSatang, type Prices } from "@/lib/wallet/prices";
 
 /** a clip's title and one scene's words on the screen, in characters */
@@ -37,8 +38,13 @@ export interface PromptStoryInput {
   draftId?: string;
   /** a picture redrawn and being cut in: its wallet hold, taken when the cut is done, given back if it fails */
   redraw?: { hold: string; satang: number; thb: number };
-  /** drawn by Remotion, as the switch on /admin/ai said when the clip was asked for (quote-video/remotion.ts) */
-  engine?: "remotion";
+  /**
+   * ดีไซน์พิเศษ (owner, 2026-10-21): the clip put together by Shotstack in this look (shotstack/looks.ts);
+   * none is the clip Remotion draws
+   */
+  design?: DesignLook;
+  /** who puts the clip together: Remotion, or Shotstack for a ดีไซน์พิเศษ (set by createVideo, never by the form) */
+  engine?: "remotion" | "shotstack";
 }
 
 export const isPromptStory = (v: { product?: string }): v is PromptStoryInput => v.product === "FREESTORY";
@@ -46,9 +52,16 @@ export const isPromptStory = (v: { product?: string }): v is PromptStoryInput =>
 /** one of the clip's pictures, at its painter's price (a redraw costs this) */
 export const promptPicturePrice = (v: Pick<PromptStoryInput, "painter">, prices: Prices): number => pictureSatang(prices, v.painter) ?? 0;
 
-/** every scene's picture: what a free clip still pays from the wallet */
+/** every scene's picture */
 export const promptPicturesPrice = (v: PromptStoryInput, prices: Prices): number => v.scenes.length * promptPicturePrice(v, prices);
 
-/** the clip, a picture per scene, and the ElevenLabs extra when a voice is chosen */
+/** ดีไซน์พิเศษ over the plain clip: what it adds to แบบเดิม's price, so a free clip still pays it */
+export const promptDesignExtra = (v: Pick<PromptStoryInput, "design">, prices: Prices): number =>
+  v.design ? Math.max(0, prices.videoPromptDesign - prices.videoPrompt) : 0;
+
+/** what a free clip still pays from the wallet (spec, Money): its pictures, and ดีไซน์พิเศษ's extra */
+export const promptFreePrice = (v: PromptStoryInput, prices: Prices): number => promptPicturesPrice(v, prices) + promptDesignExtra(v, prices);
+
+/** the clip (ดีไซน์พิเศษ's own price when chosen), a picture per scene, and the ElevenLabs extra when a voice is chosen */
 export const promptStoryPrice = (v: PromptStoryInput, prices: Prices): number =>
-  prices.videoPrompt + promptPicturesPrice(v, prices) + (v.voice ? prices.elevenExtra : 0);
+  prices.videoPrompt + promptDesignExtra(v, prices) + promptPicturesPrice(v, prices) + (v.voice ? prices.elevenExtra : 0);

@@ -16,6 +16,12 @@ describe("checkedPromptStory", () => {
     expect(typeof v).toBe("object");
     expect(v).toMatchObject({ product: "FREESTORY", draftId: DRAFT, size: "square", narrator: "M", style: "cartoon", painter: "standard", faces: { narrator: "w26" } });
   });
+  it("keeps ดีไซน์พิเศษ's look, drops one it does not know, and never takes the engine from the form", () => {
+    expect(checkedPromptStory(form({ design: "film" }), "F")).toMatchObject({ design: "film" });
+    const odd = checkedPromptStory(form({ design: "neon", engine: "shotstack" }), "F") as unknown as Record<string, unknown>;
+    expect(odd.design).toBeUndefined();
+    expect(odd.engine).toBeUndefined();
+  });
   it("refuses a form without a written draft, a bad count, style or painter", () => {
     expect(typeof checkedPromptStory(form({ draftId: "x" }), "F")).toBe("string");
     expect(typeof checkedPromptStory(form({ scenes: form().scenes.slice(0, 2) }), "F")).toBe("string");

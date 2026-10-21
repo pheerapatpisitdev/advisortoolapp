@@ -15,6 +15,7 @@ import { parseAwsKey } from "@/lib/video/engines/lambda";
 import { gcpKeyFromUpload, parseGcpKey } from "@/lib/video/engines/cloudrun";
 import { RENDER_PROVIDERS, type RenderProvider } from "@/lib/video/render-providers";
 import { checkMotionKey, isMotionProvider, type MotionCheck } from "@/lib/video/motion-key";
+import { checkShotstackKey, type ShotstackCheck } from "@/lib/shotstack/api";
 
 const monthStartMs = () => monthStart().getTime();
 const DEFAULT_VIDEO: VideoSettings = { engine: "rendi", fallback: true, rendiMaxSeconds: 60, enabled: false };
@@ -246,7 +247,7 @@ async function renderKeysShown(held: { provider: string; tail: string }[]): Prom
   }
   return rows.map((k) => ({
     provider: k.provider,
-    shown: k.provider === "rendi" ? `••••${k.tail}` : labels[k.provider] ?? "ตั้งไว้แล้ว",
+    shown: k.provider === "rendi" || k.provider === "shotstack" ? `••••${k.tail}` : labels[k.provider] ?? "ตั้งไว้แล้ว",
   }));
 }
 
@@ -354,6 +355,19 @@ export async function saveVideoEngine(s: VideoSettings): Promise<Result> {
   }
   revalidatePath("/admin/ai");
   return { ok: true };
+}
+
+/**
+ * Asks Shotstack whether the held key is good and which environment it belongs to: one GET of
+ * the template list per environment, no clip made (checkShotstackKey).
+ */
+export async function testShotstackKey(): Promise<ShotstackCheck | { state: "no-key" }> {
+  await requireStaff("backoffice");
+  const { data, error } = await supabaseAdmin().rpc("ins_get_api_keys", { p_passphrase: passphrase() });
+  if (error) return { state: "bad", error: "อ่านกุญแจไม่สำเร็จ ลองใหม่อีกครั้ง" };
+  const key = ((data ?? []) as { provider: string; api_key: string }[]).find((k) => k.provider === "shotstack")?.api_key;
+  if (!key) return { state: "no-key" };
+  return checkShotstackKey(key);
 }
 
 /** ภาพขยับ's keys, fal.ai and Runware: plain API keys, stored like the AI keys (owner, 2026-10-16) */

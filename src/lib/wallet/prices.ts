@@ -18,7 +18,8 @@ export type PriceKey =
   | "videoStory"
   | "videoStoryShort"
   /** คลิปตามโจทย์ (owner, 2026-10-16): its own price, apart from คลิปเล่าเรื่อง; the pictures are charged on top */
-  | "videoPrompt";
+  | "videoPrompt"
+  | "videoPromptDesign";
 
 export type Prices = Record<PriceKey, number>;
 
@@ -41,6 +42,8 @@ export const DEFAULT_PRICES: Prices = {
   videoStoryShort: 300,
   // คลิปตามโจทย์ (owner, 2026-10-16): ฿5 to start, the same as คลิปเล่าเรื่อง was
   videoPrompt: 500,
+  // คลิปตามโจทย์ ดีไซน์พิเศษ (owner, 2026-10-21, ก ก): ฿15, Shotstack puts it together
+  videoPromptDesign: 1500,
 };
 
 const paint = (id: string): number => (PAINTERS.find((p) => p.id === id)?.thb ?? 0) + OVERHEAD_THB;
@@ -68,6 +71,8 @@ export const PRICE_ITEMS: { key: PriceKey; group: PriceGroup; label: string; uni
   { key: "videoStory", group: "video", label: "คลิปเล่าเรื่อง", unit: "คลิป", costThb: 0.8 },
   { key: "videoStoryShort", group: "video", label: "คลิปสั้นหลังการขาย (เตือนเบี้ย วันเกิด เทศกาล)", unit: "คลิป", costThb: 0.5 },
   { key: "videoPrompt", group: "video", label: "คลิปตามโจทย์ (ไม่รวมค่าวาดรูปต่อฉาก)", unit: "คลิป", costThb: 1 },
+  // Shotstack's pay-as-you-go 20¢ a minute on a ~45 s clip, with the voice
+  { key: "videoPromptDesign", group: "video", label: "คลิปตามโจทย์ ดีไซน์พิเศษ (ไม่รวมค่าวาดรูปต่อฉาก)", unit: "คลิป", costThb: 6 },
   { key: "elevenExtra", group: "video", label: "เสียง ElevenLabs (บวกเพิ่มต่อคลิป)", unit: "คลิป", costThb: 1.5, extra: true },
   { key: "drawStandard", group: "picture", label: "วาดรูป มาตรฐาน", unit: "รูป", costThb: paint("standard") },
   { key: "drawSharp", group: "picture", label: "วาดรูป คมชัด", unit: "รูป", costThb: paint("sharp") },

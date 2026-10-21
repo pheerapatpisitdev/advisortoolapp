@@ -6,7 +6,7 @@ import type { RenderProvider } from "@/lib/video/render-providers";
 import { MOTION_PROVIDERS, type MotionProvider } from "@/lib/video/motion-key";
 import {
   checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings, resetSpend,
-  saveMotionKey, setMotionEnabled, testMotionKey,
+  saveMotionKey, setMotionEnabled, testMotionKey, testShotstackKey,
   type KeyRow, type VideoKeyRow, type ModelRow, type ProviderCheck, type Result, type Settings,
 } from "./actions";
 import { PROVIDER_LABEL } from "./labels";
@@ -129,6 +129,9 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
   const [motionChecks, setMotionChecks] = useState<Partial<Record<MotionProvider, ProviderCheck>>>({});
   const setMotionCheck = (p: MotionProvider, c: ProviderCheck | undefined) => setMotionChecks((m) => ({ ...m, [p]: c }));
   const [motionTesting, setMotionTesting] = useState<MotionProvider>();
+  // Shotstack: its last test, which also says Production or Sandbox
+  const [shotstackCheck, setShotstackCheck] = useState<ProviderCheck>();
+  const [shotstackTesting, setShotstackTesting] = useState(false);
   const gcpHeld = video.keys.find((k) => k.provider === "gcp");
   const input = "rounded border border-[var(--bot-line-strong)] bg-[var(--bot-surface)] px-2 py-1";
 
@@ -206,17 +209,43 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
         </p>
       </Card>
 
-      <Card title="ตัวตัดต่อวิดีโอ" hint="บริการที่ใช้ตัดคลิปเป็นรีล เก็บกุญแจแบบเดียวกับค่าย AI Rendi แสดง 4 ตัวท้าย ส่วน AWS และ Google แสดงว่าชี้ไปที่ไหน">
+      <Card title="ตัวตัดต่อวิดีโอ" hint="บริการที่ใช้ตัดคลิปเป็นรีล และ Shotstack ที่ทำคลิปตามโจทย์แบบดีไซน์พิเศษ เก็บกุญแจแบบเดียวกับค่าย AI Rendi และ Shotstack แสดง 4 ตัวท้าย ส่วน AWS และ Google แสดงว่าชี้ไปที่ไหน">
         <div className="space-y-2">
           {([
             ["rendi", "Rendi", "วางกุญแจ API ของ Rendi"],
             ["aws", "AWS Lambda", "accessKeyId:secretAccessKey:region:functionName"],
+            // ดีไซน์พิเศษ of คลิปตามโจทย์ (owner, 2026-10-21): a Production key, or a Sandbox one to try it watermarked
+            ["shotstack", "Shotstack (ดีไซน์พิเศษ)", "วางกุญแจ Shotstack (Production หรือ Sandbox)"],
           ] as [RenderProvider, string, string][]).map(([p, label, placeholder]) => {
             const held = video.keys.find((k) => k.provider === p);
             return (
               <div key={p} className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--bot-line)] p-2">
                 <span className="w-44 text-sm">{label}</span>
                 <span className="w-44 break-all text-xs text-[var(--bot-ink-mute)]">{held ? held.shown : "ยังไม่ได้ตั้ง"}</span>
+                {p === "shotstack" && held && (
+                  <>
+                    <Status check={shotstackCheck} />
+                    <button
+                      type="button" disabled={shotstackTesting}
+                      className="rounded border border-[var(--bot-line-strong)] px-3 py-1 text-xs font-medium text-[var(--bot-ink-foot)] hover:bg-[var(--bot-band)] disabled:opacity-40"
+                      onClick={async () => {
+                        setShotstackTesting(true);
+                        try {
+                          const r = await testShotstackKey();
+                          setShotstackCheck(r.state === "bad" ? { provider: p, state: "failed", ms: 0, error: r.error }
+                            : r.state === "ok" ? { provider: p, state: "ok", ms: r.ms, note: r.env === "v1" ? "Production" : "Sandbox · คลิปมีลายน้ำ" }
+                            : { provider: p, state: "no-key", ms: 0 });
+                        } catch {
+                          setShotstackCheck({ provider: p, state: "failed", ms: 0, error: "ทดสอบไม่สำเร็จ ลองใหม่อีกครั้ง" });
+                        } finally {
+                          setShotstackTesting(false);
+                        }
+                      }}
+                    >
+                      {shotstackTesting ? "กำลังทดสอบ…" : "ทดสอบ"}
+                    </button>
+                  </>
+                )}
                 <span className="flex min-w-64 flex-1 items-center gap-2">
                   <input
                     type="password" placeholder={placeholder} autoComplete="off"

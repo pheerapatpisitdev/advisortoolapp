@@ -60,6 +60,7 @@ const MAY_HOLD_LITERALS = [
   "src/lib/quote-video/build-scene.ts", // the builders' picture under a clip's bar: SVG markup, no variables to read
   "src/lib/quote-video/life-scene.ts", // the life-in-ten-events picture under a clip's bar: SVG markup, no variables to read
   "src/lib/story/figure.tsx", // มินิมอล's people and grounds: drawn into a clip's frames, and the clothes' colours are the clip's own input
+  "src/lib/shotstack/looks.ts", // ดีไซน์พิเศษ's three looks: Shotstack's timeline takes colours, not variables, and the form's thumbnails show the same
   "src/app/api/card/gsaving-card/route.tsx", // Global Savings' whole page as a picture: the page's own tokens, written down for a drawing that cannot read them (card-theme.ts is bundled into the video image)
 ];
 

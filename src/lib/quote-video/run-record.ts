@@ -6,7 +6,8 @@
  * alone (migration 20261126); nothing here changes what anyone is charged.
  */
 
-export type ClipEngine = "remotion" | "ffmpeg";
+/** shotstack: a คลิปตามโจทย์ in ดีไซน์พิเศษ, put together by Shotstack (owner, 2026-10-21) */
+export type ClipEngine = "remotion" | "ffmpeg" | "shotstack";
 
 export interface CostParts {
   /** the voice, every line, in baht */
@@ -32,12 +33,21 @@ const VCPU_SEC_USD = 0.000024;
 const GIB_SEC_USD = 0.0000025;
 const THB_PER_USD = 36;
 /** each job's machine: remotion-<drawing> 8 vCPU / 8 GiB, clip-ffmpeg 4 vCPU / 8 GiB */
-const MACHINE: Record<ClipEngine, { vcpu: number; gib: number }> = { remotion: { vcpu: 8, gib: 8 }, ffmpeg: { vcpu: 4, gib: 8 } };
+const MACHINE: Record<Exclude<ClipEngine, "shotstack">, { vcpu: number; gib: number }> = { remotion: { vcpu: 8, gib: 8 }, ffmpeg: { vcpu: 4, gib: 8 } };
 
 /** baht for `secs` of an engine's job; the seconds count from the hand-over, so a little over what is billed */
-export function renderThbFor(engine: ClipEngine, secs: number): number {
+export function renderThbFor(engine: Exclude<ClipEngine, "shotstack">, secs: number): number {
   const m = MACHINE[engine];
   return round(Math.max(0, secs) * (m.vcpu * VCPU_SEC_USD + m.gib * GIB_SEC_USD) * THB_PER_USD, 4);
+}
+
+/**
+ * Shotstack bills the clip's own length, not the time it took: pay-as-you-go 20¢ a minute (shotstack.io/pricing,
+ * 2026-10-21). A Sandbox render is free (it carries their watermark).
+ */
+const SHOTSTACK_USD_PER_MIN = 0.2;
+export function shotstackThbFor(clipSec: number, env: "v1" | "stage" | undefined): number {
+  return env === "stage" ? 0 : round((Math.max(0, clipSec) / 60) * SHOTSTACK_USD_PER_MIN * THB_PER_USD, 4);
 }
 
 /** seconds between two times, to a tenth; null when either is not a time */
