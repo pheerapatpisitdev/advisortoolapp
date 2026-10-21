@@ -84,8 +84,9 @@ describe("a question about a rule, asked in the page's inbox", () => {
     const a = await answerAny(said("HIC ซื้อคู่กับ MEB ได้ไหม"), null);
     expect(a.fromLibrary).toBe(true);
     expect(a.messages[0].text).toBe("ตอบจากคลัง");
-    // the funnel is not dropped: the two buttons are still offered under the answer
-    expect(a.replies?.length).toBe(3);
+    // a question about a rule is not a lead: no plan buttons under the answer (owner, 2026-10-21)
+    expect(a.replies).toBeUndefined();
+    expect(a.slots).toMatchObject({ product: "undecided", answered: true });
 
     // and the library it read is the whole library, not one plan's summary
     const system = chat.mock.calls.at(-1)![0].messages[0].content as string;
@@ -93,6 +94,26 @@ describe("a question about a rule, asked in the page's inbox", () => {
       expect(system, plan).toContain(`รหัส ${plan}`);
     }
     expect(system).toContain("ไม่สามารถซื้อคู่กับ MEX, MEB หรือ iHealthy Ultra");
+  });
+
+  it("answers “ขอรายละเอียดเพิ่มเติม” after an answer with more of it, not the menu", async () => {
+    // the conversation the owner sent: a claim question, answered, then asked for more detail
+    const history = [
+      { role: "user" as const, content: "ลูกค้าปวดท้องเข้าโรงพยาบาล มีกฎเกณฑ์ยังไงบ้าง?" },
+      { role: "assistant" as const, content: "ต้องมีข้อบ่งชี้ตามเกณฑ์อย่างน้อย 2 ข้อขึ้นไป" },
+      { role: "user" as const, content: "ขอรายละเอียดเพิ่มเติม" },
+    ];
+    const a = await answerAny(history, { product: "undecided", answered: true });
+    expect(a.fromLibrary).toBe(true);
+    expect(a.messages[0].text).toBe("ตอบจากคลัง");
+    expect(a.messages.some((m) => m.text.includes("สนใจแบบไหน"))).toBe(false);
+    expect(a.replies).toBeUndefined();
+  });
+
+  it("still shows the menu to a first “ขอรายละเอียด” with no answer before it", async () => {
+    const a = await answerAny(said("ขอรายละเอียดเพิ่มเติม"), null);
+    expect(a.messages.at(-1)!.text).toContain("สนใจแบบไหน");
+    expect(a.fromLibrary).toBeUndefined();
   });
 
   it("still answers a question about the company itself without paying for a model", async () => {
