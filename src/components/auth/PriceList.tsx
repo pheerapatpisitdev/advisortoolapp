@@ -1,9 +1,15 @@
 import { thb, type FrontPrices } from "@/lib/pricing/front";
 
 /**
- * ค่าบริการ, under the sign-in box (owner, 2026-10-20; mockup QEphNuJbqufEhqVJzRKrcC, ก ก ก):
- * what each way in costs, said before anybody signs up. The calculators, ถาม AI and Studio are
- * all for members since that day, trial included, so every package lists them.
+ * ค่าบริการ, under the sign-in box — beside it on a wide screen (owner, 2026-10-20; mockup
+ * QEphNuJbqufEhqVJzRKrcC, ก ก ก): what each way in costs, said before anybody signs up. The
+ * calculators, ถาม AI and Studio are all for members since that day, trial included, so every
+ * package lists them. The top-up box that stood under the packages came out on 2026-10-21
+ * (owner, mockup 3wFMS2rqo91HRpZ74FNx9y); the amounts stay on Studio's own price list.
+ *
+ * The two packages sit side by side where the list has the room — a phone on its side, or a
+ * computer screen — and one under the other on a phone, and on an iPad on its side (lg), where
+ * the list shares the width with the sign-in card.
  */
 export function PriceList({ prices }: { prices: FrontPrices }) {
   const m = prices.member;
@@ -12,7 +18,7 @@ export function PriceList({ prices }: { prices: FrontPrices }) {
       <h2 id="prices-title" className="text-center text-xl font-semibold tracking-tight">ค่าบริการ</h2>
       <p className="mt-1 text-center text-sm text-[var(--bot-ink-mute)]">เครื่องคิดเบี้ย ถาม AI และ Studio ใช้ได้เฉพาะสมาชิก รวมคนที่กำลังทดลองใช้</p>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         <Plan who="เข้าด้วย Google" name="สมาชิกทั่วไป">
           {m.paid ? (
             <>
@@ -59,18 +65,6 @@ export function PriceList({ prices }: { prices: FrontPrices }) {
           </Tier>
         </Plan>
       </div>
-
-      {prices.topUpsThb.length > 0 && (
-        <div className="mt-3 rounded-xl border border-[var(--bot-line)] bg-[var(--bot-surface)] px-4 py-3.5">
-          <h3 className="font-semibold">เติมเงินกระเป๋า Studio</h3>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {prices.topUpsThb.map((n) => (
-              <span key={n} className="rounded-lg border border-[var(--bot-line-strong)] px-3 py-1 font-semibold tabular-nums">฿{thb(n)}</span>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">จ่ายผ่าน PromptPay หรือบัตร · ใช้เครดิตก่อน แล้วค่อยตัดจากเงินที่เติม</p>
-        </div>
-      )}
     </section>
   );
 }
