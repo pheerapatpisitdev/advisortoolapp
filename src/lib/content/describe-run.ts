@@ -27,9 +27,6 @@ export const DESCRIBE_HOLD_THB = 0.5;
 /** each provider's own try, and the whole read: a fallback starts its clock again, so the whole is bounded apart (the route allows 60 s) */
 const TRY_MS = 25_000;
 const WHOLE_MS = 50_000;
-/** the models that can see a picture, as the other picture readers pin them (poster-read.ts): the large tier's chain ends in GLM, which is sent no picture and would invent one */
-const READER = "gemini-3.7-flash";
-const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
 
 /** a read is cheaper and quicker than a picture, so twenty an hour against drawing's forty */
 const readPerHour = limiter(20, 60 * 60_000);
@@ -76,7 +73,8 @@ export async function describePicture(input: DescribeInput): Promise<DescribeRes
       hold = held.id;
       const read = await within(chat({
         tier: "large", task: DESCRIBE_TASK, messages: describeMessages({ base64, mimeType }, palette, asPerson),
-        json: true, maxTokens: 1500, timeoutMs: TRY_MS, prefer: READER, within: READ_FALLBACK,
+        json: true, maxTokens: 1500, timeoutMs: TRY_MS,
+        // the reader and its fallbacks: the lane อ่านรูปและเอกสาร on ตั้งค่า AI (src/lib/ai/lanes.ts)
       }), WHOLE_MS, "describe");
       const described = parseDescribed(read.text);
       if (!described) return fail(UNREADABLE);

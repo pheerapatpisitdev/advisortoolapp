@@ -21,11 +21,11 @@ export const VOICE_EVERY_MS = 2 * 60 * 60_000;
 const VOICE_SLACK_MS = 10 * 60_000;
 
 /** the companies that write the bot's answers — when all of them fail, the bot is silent */
-export const WRITERS = ["anthropic", "openai", "google", "zai", "typhoon", "openrouter"] as const;
+export const WRITERS = ["anthropic", "openai", "google", "zai", "typhoon", "deepseek", "openrouter"] as const;
 
 /** What the owner sees each provider called, in LINE and on /admin/line. */
 export const HEALTH_LABEL: Record<string, string> = {
-  anthropic: "Anthropic", openai: "OpenAI", google: "Google (Gemini)", zai: "Z.ai", typhoon: "Typhoon",
+  anthropic: "Anthropic", openai: "OpenAI", google: "Google (Gemini)", zai: "Z.ai", typhoon: "Typhoon", deepseek: "DeepSeek",
   typesafe: "TypeSafe", elevenlabs: "ElevenLabs", openrouter: "OpenRouter", [GEMINI_VOICE]: "เสียงพากย์ Gemini",
 };
 export const healthLabel = (p: string) => HEALTH_LABEL[p] ?? p;

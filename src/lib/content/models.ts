@@ -108,5 +108,6 @@ const SHORT: Record<string, string> = {
   "gpt-5-mini": "GPT-5 mini", "glm-5.3": "GLM-5.3", "glm-5.3-flash": "GLM Flash",
   "claude-haiku-4-5-20251001": "Haiku", "gemini-3.1-flash-lite": "Gemini Lite",
   "typhoon-v2.5-30b-a3b-instruct": "Typhoon",
+  "deepseek-flash": "DeepSeek Flash", "deepseek-v4-pro": "DeepSeek Pro",
 };
 export const shortModel = (name: string | null | undefined): string => (name ? SHORT[name] ?? name : "");

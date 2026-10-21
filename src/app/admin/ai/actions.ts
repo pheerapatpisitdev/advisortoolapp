@@ -31,8 +31,8 @@ export type { PersonUse } from "./people";
  * chain; it is listed so its key can be set and tested here (owner, 2026-10-11).
  */
 // Kimi (Moonshot) removed 2026-10-15: never funded, owner asked for it to go
-// OpenRouter last on the page, below ElevenLabs (owner, 2026-10-14)
-const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "typesafe", "elevenlabs", "openrouter"] as const;
+// OpenRouter last on the page, below ElevenLabs (owner, 2026-10-14); DeepSeek after Typhoon (2026-10-21)
+const PROVIDERS = ["anthropic", "openai", "google", "zai", "typhoon", "deepseek", "typesafe", "elevenlabs", "openrouter"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 /**
@@ -430,16 +430,17 @@ export async function setModelEnabled(id: string, enabled: boolean): Promise<Res
 }
 
 /**
- * The defaults and the two budgets. The budgets come as the strings typed into the boxes and
- * are read here, by the rules in ./budget.ts — the browser is not the guard.
+ * The two budgets, as the strings typed into the boxes, read here by the rules in ./budget.ts —
+ * the browser is not the guard. The small and large models chosen here before are now the top of
+ * ลำดับหลักและสำรอง (./lanes-actions.ts); their columns are left as they are and read by nothing.
  */
-export async function saveSettings(smallModel: string, largeModel: string, monthlyBudget: string, contentBudget: string): Promise<Result> {
+export async function saveSettings(monthlyBudget: string, contentBudget: string): Promise<Result> {
   await requireStaff("backoffice");
   const budgets = checkBudgets(monthlyBudget, contentBudget, DEFAULT_CONTENT_CAP_THB);
   if (!budgets.ok) return budgets;
   try {
     const { error } = await supabaseAdmin().from("ins_ai_settings").upsert({
-      id: true, small_model: smallModel || null, large_model: largeModel || null,
+      id: true,
       monthly_budget_thb: budgets.monthly, content_budget_thb: budgets.content, updated_at: new Date().toISOString(),
     }, { onConflict: "id" });
     if (error) return failed("บันทึกค่าเริ่มต้นไม่สำเร็จ", error);

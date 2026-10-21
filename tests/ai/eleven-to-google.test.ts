@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 // A clip whose chosen ElevenLabs voice cannot speak is read again in Google's voice of the same sex
 // (owner, 2026-10-20, mockup https://claude.ai/artifact/J34jDCp3JK3adTytUcZ36f, ก ก ก ก)
 const keys: Record<string, string | null> = { google: "g_test", elevenlabs: "sk_test" };
-vi.mock("@/lib/ai/client", () => ({ providerKey: async (p: string) => keys[p] ?? null }));
+vi.mock("@/lib/ai/client", () => ({ providerKey: async (p: string) => keys[p] ?? null, voiceLane: async () => ["gemini-api", "gemini-cloud", "elevenlabs"] }));
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 
 import { elevenReady, speakClip } from "@/lib/quote-video/speak";

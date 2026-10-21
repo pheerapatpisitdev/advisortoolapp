@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CALLERS } from "@/lib/ai/providers";
-import { fallbackOrder } from "@/lib/ai/client";
+import { laneChain } from "@/lib/ai/client";
+import { LANES, laneIds } from "@/lib/ai/lanes";
 
 function stub() {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify({
@@ -55,21 +56,21 @@ describe("OpenRouter in the fallback chain", () => {
   ];
   const keys = { google: "g", anthropic: "a", openrouter: "o" };
 
-  it("comes last in each tier, after every model of our own", () => {
+  it("comes last in every text lane's defaults, after every model of our own", () => {
+    for (const lane of LANES.filter((l) => l.kind === "text" && l.defaults.some((d) => d.includes("/")))) {
+      expect(lane.defaults.at(-1)).toMatch(/^(google|anthropic)\//);
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const small = fallbackOrder(models as any, "small", null, keys).map((m) => m.id);
-    expect(small.slice(0, 2)).toEqual(["gemini-small", "haiku"]);
-    expect(small).toContain("openrouter-small");
-    expect(small.indexOf("openrouter-small")).toBeGreaterThan(small.indexOf("haiku"));
+    const small = laneChain(models as any, laneIds({}, "bot-small"), keys).map((m) => m.id);
+    expect(small).toEqual(["gemini-small", "haiku", "openrouter-small"]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const large = fallbackOrder(models as any, "large", null, keys).map((m) => m.id);
-    expect(large[0]).toBe("sonnet");
-    expect(large.indexOf("openrouter-large")).toBe(1);
+    const large = laneChain(models as any, laneIds({}, "write-post"), keys).map((m) => m.id);
+    expect(large).toEqual(["sonnet"]);
   });
 
   it("is skipped while it has no key", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ids = fallbackOrder(models as any, "large", null, { google: "g", anthropic: "a" }).map((m) => m.id);
+    const ids = laneChain(models as any, laneIds({}, "bot-large"), { google: "g", anthropic: "a" }).map((m) => m.id);
     expect(ids).not.toContain("openrouter-large");
   });
 });
@@ -85,11 +86,10 @@ describe("the free Gemma", () => {
   ];
   const keys = { google: "g", anthropic: "a", openrouter: "o" };
 
-  it("is never reached by a fallback chain, at any tier", () => {
-    for (const tier of ["small", "large"] as const) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect(fallbackOrder(models as any, tier, null, keys).map((m) => m.id)).not.toContain("openrouter-gemma-free");
-    }
+  it("is in no lane, and never the rescue of a lane with nothing left", () => {
+    for (const lane of LANES) expect(lane.defaults).not.toContain("google/gemma-4-31b-it:free");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(laneChain(models as any, ["gone-model"], keys).map((m) => m.id)).not.toContain("openrouter-gemma-free");
   });
 
   it("is sent nothing about reasoning", async () => {

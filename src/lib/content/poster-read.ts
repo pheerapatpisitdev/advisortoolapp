@@ -11,8 +11,6 @@ import { within } from "./deadline";
  * agent is asked to read it themselves.
  */
 
-const READER = "gemini-3.7-flash";
-const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
 const READ_TIMEOUT_MS = 60_000;
 
 const SYSTEM = [
@@ -40,7 +38,7 @@ export async function readPosterText(bytes: Buffer, mimeType: string, poster: Pi
     const ask = chat({
       tier: "large", task: "content-poster-read", json: true, maxTokens: 1500,
       timeoutMs: opts.timeoutMs ? Math.min(READ_TIMEOUT_MS, opts.timeoutMs) : READ_TIMEOUT_MS,
-      prefer: READER, within: READ_FALLBACK,
+      // the reader and its fallbacks: the lane อ่านรูปและเอกสาร on ตั้งค่า AI (src/lib/ai/lanes.ts)
       messages: [
         { role: "system", content: SYSTEM },
         { role: "user", content: "Read all the text on this poster.", images: [{ base64: bytes.toString("base64"), mimeType }] },

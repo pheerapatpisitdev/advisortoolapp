@@ -12,7 +12,7 @@ import { alertText, fresh, GEMINI_VOICE, step, voiceDue, type Event, type Health
  */
 
 /** the providers on ตั้งค่า AI; the render services share the key table but have no ping */
-const CHECKED = ["anthropic", "openai", "google", "zai", "typhoon", "typesafe", "elevenlabs", "openrouter"];
+const CHECKED = ["anthropic", "openai", "google", "zai", "typhoon", "deepseek", "typesafe", "elevenlabs", "openrouter"];
 
 interface Row {
   provider: string; ok: boolean; fails: number; down_since: string | null;

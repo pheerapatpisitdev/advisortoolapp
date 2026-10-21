@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 // Gemini's voice cannot be used (off, no key, day cap full): a Thai clip is read by ElevenLabs instead
 // (owner, 2026-10-17: เสียง ก อ้อม / สมชาย, price unchanged)
 const keys: Record<string, string | null> = { google: "g_test", elevenlabs: "sk_test" };
-vi.mock("@/lib/ai/client", () => ({ providerKey: async (p: string) => keys[p] ?? null }));
+vi.mock("@/lib/ai/client", () => ({ providerKey: async (p: string) => keys[p] ?? null, voiceLane: async () => ["gemini-api", "gemini-cloud", "elevenlabs"] }));
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 
 import { FALLBACK_VOICE, geminiUsable, speakClip } from "@/lib/quote-video/speak";

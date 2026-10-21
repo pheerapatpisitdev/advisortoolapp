@@ -6,20 +6,10 @@ import { monthSpend, recordUsage, spendSince } from "./ledger";
 import { IMAGE_CALLERS, TAKES_REFERENCES, withAspect, type Aspect, type DrawnImage, type ReferenceImage } from "./images";
 import { CALLERS, EMBEDDERS, JUDGE, type JudgeAnswer, type JudgeQuestion } from "./providers";
 import { ELEVENLABS, listVoices } from "@/lib/voice/elevenlabs";
+import { laneIds, laneOf, parseLanes, type SavedLanes } from "./lanes";
 import type { ChatMessage, ChatResult, ModelRow, Tier } from "./types";
 
 const USD_TO_THB = 36;
-
-/**
- * Preference order per tier. The first enabled model whose provider has a key wins; if a
- * call fails the next one is tried, so one provider being down does not take the bot down.
- */
-const TIER_PREFERENCE: Record<Tier, string[]> = {
-  // Typhoon last: there for when the others are down, or picked on the admin page (owner, 2026-10-10)
-  // OpenRouter after them: our own first models again through one more door, for when every key of ours fails (owner, 2026-10-14)
-  small: ["gemini-3.1-flash-lite", "gpt-5-mini", "glm-5.3-flash", "claude-haiku-4-5-20251001", "typhoon-v2.5-30b-a3b-instruct", "google/gemini-3.1-flash-lite"],
-  large: ["claude-sonnet-5", "gpt-5", "gemini-3.7-flash", "glm-5.3", "anthropic/claude-sonnet-5"],
-};
 
 export class BudgetExceeded extends Error {
   constructor() {
@@ -34,8 +24,8 @@ interface Config {
   off: Set<string>;
   models: ModelRow[];
   budgetThb: number | null;
-  smallModel: string | null;
-  largeModel: string | null;
+  /** ลำดับหลักและสำรอง as saved on ตั้งค่า AI; a lane not saved is its defaults (src/lib/ai/lanes.ts) */
+  lanes: SavedLanes;
 }
 
 function passphrase(): string {
@@ -52,12 +42,14 @@ async function loadConfig(): Promise<Config> {
   const supabase = supabaseAdmin();
   // Model names and prices come from the shared reference table (read only); which of them
   // this app may use, and the keys themselves, live in this app's own tables.
-  const [keys, models, prefs, settings, switches] = await Promise.all([
+  const [keys, models, prefs, settings, switches, lanes] = await Promise.all([
     supabase.rpc("ins_get_api_keys", { p_passphrase: passphrase() }),
     supabase.from("model_configs").select("id, provider, kind, model_name, enabled, price, params"),
     supabase.from("ins_model_prefs").select("model_id, enabled"),
     supabase.from("ins_ai_settings").select("small_model, large_model, monthly_budget_thb").maybeSingle(),
     supabase.from("ins_api_keys").select("provider, enabled"),
+    // read on its own: before the column's migration it answers an error, and the defaults stand
+    supabase.from("ins_ai_settings").select("lanes").maybeSingle(),
   ]);
   const disabled = new Set((prefs.data ?? []).filter((p) => !p.enabled).map((p) => p.model_id));
   const off = new Set(((switches?.data ?? []) as { provider: string; enabled: boolean | null }[])
@@ -68,8 +60,7 @@ async function loadConfig(): Promise<Config> {
     off,
     models: ((models.data ?? []) as ModelRow[]).map((m) => ({ ...m, enabled: m.enabled && !disabled.has(m.id) })),
     budgetThb: settings.data?.monthly_budget_thb ?? null,
-    smallModel: settings.data?.small_model ?? null,
-    largeModel: settings.data?.large_model ?? null,
+    lanes: lanes?.error ? {} : parseLanes((lanes?.data as { lanes?: unknown } | null)?.lanes),
   };
   /**
    * A read that came back with no keys is a failure, not a configuration: every model needs
@@ -144,17 +135,6 @@ async function record(model: string, task: string, inTok: number, outTok: number
 }
 
 /**
- * How far past the tier's own price a fallback may go before it is refused.
- *
- * Four, which is wide enough to survive a provider being down — the small tier's models
- * spread further than that between cheapest and dearest — and narrow enough that the thing
- * the ledger recorded cannot happen again: a routing call, worth 0.009 baht, answered at
- * 0.819 by the large tier's model. Ninety times, unnoticed, on a budget that switches the
- * assistant off when it runs out.
- */
-const PRICE_CEILING = 4;
-
-/**
  * OpenRouter's free models ("…:free"): a shared daily quota, and hosts that may keep what they
  * are sent. Used only where picked by name (Studio's ทดลองฟรี); never reached by a fallback,
  * so a customer's chat is never sent to one (owner, 2026-10-14).
@@ -165,60 +145,25 @@ export const isFreeModel = (name: string) => name.endsWith(":free");
 const priceOf = (m: ModelRow) => m.price.inputPerMTokUsd + m.price.outputPerMTokUsd / 4;
 
 /**
- * The models to try, in order, for one task.
+ * The text models to try, in the order named: those enabled, with a key that is on. Nothing is
+ * added behind the list — a lane is what the owner set on ตั้งค่า AI, and before lanes a fallback
+ * past the list is how a routing call worth 0.009 baht came to be answered at 0.819 by the large
+ * tier's model, ninety times, unnoticed.
  *
- * Three rules, and the order of them is the point.
+ * One exception, and only when `rescue`: a list none of whose models can answer now (every key
+ * off, a model taken out of the table) falls back to the cheapest paid model there is. A bot that
+ * answers dearly is better than one that falls silent with nobody told. A free model ("…:free")
+ * is never that rescue, so a customer's chat is never sent to one.
  *
- * The owner's own choice from the admin page goes first and is never questioned: an explicit
- * decision is not an accident, and this is not the place to overrule it.
- *
- * Then the tier's preference list, which is what the task was designed around.
- *
- * Then everything else — but cheapest first, and only up to a multiple of what this tier
- * already costs. It used to be "then everything else" with no order and no limit, which is
- * how a classifier came to be answered by the most expensive model in the account. Keeping
- * the fallback matters, because one provider having a bad afternoon must not take the
- * assistant down; keeping it bounded matters for the same reason, since the budget running
- * out takes the assistant down too, only for longer and without a message.
- *
- * Exported for the test that holds the ceiling in place.
+ * Exported for the tests that hold these rules in place.
  */
-export function fallbackOrder(models: ModelRow[], tier: Tier, chosen: string | null, keys?: Record<string, string>): ModelRow[] {
-  const enabled = models.filter((m) => m.kind === "text" && m.enabled && (!keys || keys[m.provider]));
-  /**
-   * Deduplicated, because the owner's choice is usually one of the tier's own models.
-   *
-   * gemini-3.7-flash is picked for the large tier on the admin page today and is also third
-   * in that tier's list, so the chain read: gemini-3.7-flash, sonnet, gpt-5, gemini-3.7-flash
-   * again. The second attempt is the one that matters — it lands exactly when the first has
-   * just failed, which is when the provider is down, so the fallback spends a call and a
-   * customer's wait asking the same dead endpoint a second time before trying anyone else.
-   */
-  const order = [...new Set(chosen ? [chosen, ...TIER_PREFERENCE[tier]] : TIER_PREFERENCE[tier])];
-  const preferred = order
-    .map((name) => enabled.find((m) => m.model_name === name))
+export function laneChain(models: ModelRow[], names: (string | undefined)[], keys?: Record<string, string>, rescue = true): ModelRow[] {
+  const usable = (m: ModelRow) => m.kind === "text" && m.enabled && (!keys || Boolean(keys[m.provider]));
+  const out = [...new Set(names.filter((n): n is string => Boolean(n)))]
+    .map((name) => models.find((m) => m.model_name === name && usable(m)))
     .filter((m): m is ModelRow => Boolean(m));
-
-  // the ceiling is measured against what this tier actually costs, so it moves with the
-  // prices rather than against a number written here once
-  // over the priced models only: Typhoon is free, and four times nothing would shut every
-  // model outside the list out of the fallback
-  const priced = preferred.map(priceOf).filter((p) => p > 0);
-  const baseline = priced.length ? Math.min(...priced) : undefined;
-  const rest = enabled
-    .filter((m) => !preferred.includes(m) && !isFreeModel(m.model_name))
-    .filter((m) => baseline === undefined || priceOf(m) <= baseline * PRICE_CEILING)
-    .sort((a, b) => priceOf(a) - priceOf(b));
-
-  const out = [...preferred, ...rest];
-  /**
-   * A tier with nothing in it falls back to the cheapest thing available rather than to
-   * nothing. Refusing to answer at all is worse than answering dearly, and this only happens
-   * when the preference list has gone stale against the model table.
-   */
-  const paid = enabled.filter((m) => !isFreeModel(m.model_name));
-  if (out.length === 0 && paid.length > 0) return [...paid].sort((a, b) => priceOf(a) - priceOf(b));
-  return out;
+  if (out.length > 0 || !rescue) return out;
+  return models.filter((m) => usable(m) && !isFreeModel(m.model_name)).sort((a, b) => priceOf(a) - priceOf(b));
 }
 
 /** The keys the chain may use: every key the owner has not switched off. */
@@ -231,23 +176,14 @@ export async function liveProviders(): Promise<string[]> {
   return Object.keys(liveKeys(await loadConfig()));
 }
 
+/** the voice services a clip may use, in the order set on ตั้งค่า AI (lane เสียงพากย์คลิป) */
+export async function voiceLane(): Promise<string[]> {
+  return laneIds((await loadConfig()).lanes, "voice");
+}
+
 /** A provider's key, as the chain would use it — for calls that are not a chat (Gemini's Files API); null when off or missing. */
 export async function providerKey(provider: string): Promise<string | null> {
   return liveKeys(await loadConfig())[provider] ?? null;
-}
-
-/** The named text models that can answer now: the first as given, the rest cheapest first. */
-function keptTo(config: Config, names: string[]): ModelRow[] {
-  const keys = liveKeys(config);
-  const usable = (name: string) => config.models.find((m) => m.kind === "text" && m.enabled && m.model_name === name && keys[m.provider]);
-  const [first, ...rest] = [...new Set(names)];
-  const tail = rest.map(usable).filter((m): m is ModelRow => Boolean(m)).sort((a, b) => priceOf(a) - priceOf(b));
-  const head = usable(first);
-  return head ? [head, ...tail] : tail;
-}
-
-function candidates(config: Config, tier: Tier): ModelRow[] {
-  return fallbackOrder(config.models, tier, tier === "small" ? config.smallModel : config.largeModel, liveKeys(config));
 }
 
 /**
@@ -335,14 +271,14 @@ export interface ChatOptions {
    */
   only?: string;
   /**
-   * A model to try first, ahead of the tier's own choice; the usual fallback follows it, so
-   * a pick that is down is answered by the next rather than not at all.
+   * A model to try first, ahead of the lane (src/lib/ai/lanes.ts); the lane follows it, so a
+   * pick that is down is answered by the next rather than not at all.
    */
   prefer?: string;
   /**
-   * With `prefer`: the only models its fallback may use, cheapest first. /content passes the
-   * writers it offers, so a pick of ประหยัด that fails is not answered by Sonnet at six
-   * times the price, nor by a model the bake-off turned away for its Thai.
+   * With `prefer`: the only models to try, in this order, in place of the lane. /content passes
+   * `[prefer]` alone for ประหยัด, so a cheap pick that fails is not answered by Sonnet at six
+   * times the price (fallbackWriters).
    */
   within?: string[];
 }
@@ -353,13 +289,12 @@ export async function chat({ tier, task, messages, maxTokens = 700, json, mediaR
   const config = await loadConfig();
   await assertWithinBudget(config);
   const tried: string[] = [];
+  const keys = liveKeys(config);
   const chain = only
-    ? config.models.filter((m) => m.kind === "text" && m.enabled && m.model_name === only && liveKeys(config)[m.provider])
+    ? config.models.filter((m) => m.kind === "text" && m.enabled && m.model_name === only && keys[m.provider])
     : prefer && within
-      ? keptTo(config, [prefer, ...within])
-      : prefer
-        ? fallbackOrder(config.models, tier, prefer, liveKeys(config))
-        : candidates(config, tier);
+      ? laneChain(config.models, [prefer, ...within], keys, false)
+      : laneChain(config.models, [prefer, ...laneIds(config.lanes, laneOf(task, tier))], keys);
   if (only && chain.length === 0) throw new Error(`โมเดล ${only} ใช้ไม่ได้ในตอนนี้`);
   /**
    * A reply that stopped at maxTokens, kept in case nobody does better. Cut-off words were
@@ -407,15 +342,6 @@ export async function chat({ tier, task, messages, maxTokens = 700, json, mediaR
   throw new Error(`ไม่มีผู้ให้บริการ AI ที่ตอบได้\n${tried.join("\n")}`);
 }
 
-/**
- * Image models to try, in order, by their model_configs id. Cheapest first — gpt-image-2 at
- * medium quality is $0.012 a picture — then Gemini's lite model at $0.034 if OpenAI is down.
- * Nothing past the list is tried: the dearest image model is five times the first, and a
- * picture nobody asked to be expensive should not become so because a provider was busy.
- */
-const IMAGE_PREFERENCE = ["gpt-image-medium", "gemini-image-lite"];
-/** with a person's photos: Gemini keeps a face best, OpenAI's edit endpoint behind it */
-const REFERENCE_PREFERENCE = ["gemini-image", "gpt-image-medium", "gemini-image-lite"];
 
 /** an image takes far longer than a reply; 90 seconds each, two tries, inside the route's 300 */
 const IMAGE_TIMEOUT_MS = 90_000;
@@ -437,8 +363,10 @@ export async function drawImage({ task, prompt, prefer, references, aspect }: {
   // a picked model goes first; the cheap list stays behind it for when it is down
   const withPeople = Boolean(references?.length);
   // a person's photos go first to the model best at keeping them, whatever the painter picked
-  const order = withPeople ? REFERENCE_PREFERENCE : prefer ? [prefer, ...IMAGE_PREFERENCE] : IMAGE_PREFERENCE;
-  const models = [...new Set(order)]
+  // the lanes of รูปภาพ on ตั้งค่า AI, by model_configs id: nothing past them is tried, so a picture
+  // nobody asked to be expensive does not become so because a provider was busy
+  const order = withPeople ? laneIds(config.lanes, "image-face") : [prefer, ...laneIds(config.lanes, "image-plain")];
+  const models = [...new Set(order.filter((id): id is string => Boolean(id)))]
     .map((id) => config.models.find((m) => m.id === id && m.kind === "image" && m.enabled))
     .filter((m): m is ModelRow => Boolean(m && keys[m.provider] && IMAGE_CALLERS[m.provider]))
     // a caller that cannot send the photos would draw a stranger

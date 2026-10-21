@@ -71,9 +71,11 @@ describe("describePicture", () => {
     expect(round.payRound).toHaveBeenCalledTimes(1);
   });
 
-  it("reads with a model that can see pictures, and no fallback that cannot (GLM drops images and would invent one)", async () => {
+  it("reads by the lane อ่านรูปและเอกสาร, which holds only models that see pictures (GLM drops images and would invent one)", async () => {
     await describePicture(IMG);
-    expect(ai.chat.mock.calls[0][0]).toMatchObject({ prefer: "gemini-3.7-flash", within: ["gpt-5", "claude-sonnet-5"] });
+    const call = ai.chat.mock.calls[0][0];
+    expect(call).not.toHaveProperty("prefer");
+    expect(call).not.toHaveProperty("within");
   });
 
   it("gives up after 50 seconds however the fallbacks run, releasing the hold and delivering nothing", async () => {

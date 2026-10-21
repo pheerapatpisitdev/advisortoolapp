@@ -81,9 +81,9 @@ describe("the models the owner may pick", () => {
       expect(fallbackWriters(writerOf("auto", 1).model)).toEqual(["gemini-3.7-flash"]);
     });
 
-    it("lets the dearer picks fall back across the list, and nothing when no pick", () => {
-      // across the paid list only: the free writer's shared quota is never a paid pick's fallback
-      expect(fallbackWriters("claude-sonnet-5")).toEqual(WRITERS.filter((w) => w.thb > 0).map((w) => w.model));
+    it("lets the dearer picks fall back along the lane เขียนโพสต์, and nothing when no pick", () => {
+      // undefined is the lane on ตั้งค่า AI, which never holds the free writer
+      expect(fallbackWriters("claude-sonnet-5")).toBeUndefined();
       expect(fallbackWriters(undefined)).toBeUndefined();
     });
   });

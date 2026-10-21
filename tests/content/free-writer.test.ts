@@ -26,7 +26,8 @@ describe("Studio's ทดลองฟรี writer", () => {
   });
 
   it("is no paid pick's fallback, and ประหยัด still falls back to nothing dearer", () => {
-    expect(fallbackWriters("claude-sonnet-5")).not.toContain(FREE_WRITER_MODEL);
+    // a paid pick follows the lane เขียนโพสต์, which never holds the free writer
+    expect(fallbackWriters("claude-sonnet-5")).toBeUndefined();
     expect(fallbackWriters("gemini-3.7-flash")).toEqual(["gemini-3.7-flash"]);
   });
 

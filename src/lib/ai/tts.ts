@@ -1,4 +1,4 @@
-import { providerKey } from "@/lib/ai/client";
+import { providerKey, voiceLane } from "@/lib/ai/client";
 import { recordUsage } from "@/lib/ai/ledger";
 import { ELEVEN_MODEL, ELEVENLABS, speakEleven } from "@/lib/voice/elevenlabs";
 import { voiceDay } from "@/lib/quote-video/voice-quota";
@@ -240,23 +240,35 @@ let apiFullUntil = 0;
 export const forgetApiFull = () => { apiFullUntil = 0; };
 
 /**
- * A line in a Gemini voice, in the owner's order (2026-10-20): 1 the Gemini API, 2 the same voice
- * on Cloud when the API cannot (day cap, busy minute, off, any failure). Lines of one clip may come
- * from either; it is the same model and voice name. Without a Cloud key it is the API alone, as before.
+ * A line in a Gemini voice, the two ways to it in the order of the lane เสียงพากย์คลิป on ตั้งค่า AI
+ * (owner, 2026-10-21; until then and by default the owner's order of 2026-10-20: 1 the Gemini API,
+ * 2 the same voice on Cloud). A way switched off there is not asked. Lines of one clip may come
+ * from either; it is the same model and voice name. The API waits out a busy minute only when it
+ * is the last way left; Cloud with a way after it hands its failure on rather than ending the line.
  */
 export async function speakGemini(text: string, task: string, opts: { narrator?: Narrator; gemini?: string; lang?: SpeechLang; fetch?: typeof fetch } = {}): Promise<{ pcm: Buffer; costThb: number }> {
-  const [apiKey, cloud] = await Promise.all([providerKey("google").catch(() => null), cloudVoiceKey()]);
-  if (!cloud) return speakThai(text, task, opts);
-  if (apiKey && Date.now() >= apiFullUntil) {
+  const [apiKey, cloud, lane] = await Promise.all([providerKey("google").catch(() => null), cloudVoiceKey(), voiceLane().catch(() => ["gemini-api", "gemini-cloud"])]);
+  // a way that cannot be asked now is left out, so the last one asked is the one that may wait
+  const ways = lane.filter((w) => (w === "gemini-api" && apiKey && Date.now() >= apiFullUntil) || (w === "gemini-cloud" && cloud));
+  if (ways.length === 0) {
+    if (!lane.some((w) => w === "gemini-api" || w === "gemini-cloud")) throw new TtsError("ปิดเสียง Gemini ไว้ในลำดับหลักและสำรอง");
+    // nothing on can be asked: the API says why in its own words (no key, the day's cap)
+    if (lane.includes("gemini-api")) return speakThai(text, task, opts);
+    throw new TtsError("ยังไม่ได้ตั้งค่า Google Cloud สำหรับเสียงพากย์");
+  }
+  for (const [i, way] of ways.entries()) {
+    const last = i === ways.length - 1;
     try {
-      return await speakThai(text, task, { ...opts, wait: false });
+      return way === "gemini-api"
+        ? await speakThai(text, task, last ? opts : { ...opts, wait: false })
+        : await speakCloud(text, task, { ...opts, key: cloud });
     } catch (e) {
-      if (!(e instanceof TtsError)) throw e;
-      if (e instanceof TtsQuotaError) apiFullUntil = voiceDay().until.getTime();
-      console.error("tts: Gemini API not usable, line goes to Cloud -", e.message);
+      if (!(e instanceof TtsError) || last) throw e;
+      if (way === "gemini-api" && e instanceof TtsQuotaError) apiFullUntil = voiceDay().until.getTime();
+      console.error(`tts: ${way} not usable, line goes to ${ways[i + 1]} -`, e.message);
     }
   }
-  return speakCloud(text, task, { ...opts, key: cloud });
+  throw new TtsError(RETRY);
 }
 
 /**

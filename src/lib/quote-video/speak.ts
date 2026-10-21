@@ -1,4 +1,4 @@
-import { providerKey } from "@/lib/ai/client";
+import { providerKey, voiceLane } from "@/lib/ai/client";
 import { cloudVoiceKey, speakLine, TtsError, TTS_VOICES, type Narrator, type SpeechLang } from "@/lib/ai/tts";
 import { elevenAccount, elevenVoice, ELEVEN_RESERVE, ELEVENLABS, type ElevenChoice } from "@/lib/voice/elevenlabs";
 
@@ -49,6 +49,10 @@ export interface Spoken { pcm: Buffer; costThb: number }
  * A chosen ElevenLabs voice that cannot speak goes the other way (owner, 2026-10-20, mockup
  * https://claude.ai/artifact/J34jDCp3JK3adTytUcZ36f, ก ก): the whole clip again in Google's
  * narrator of the same sex, Kore or Orus, named by `google`.
+ *
+ * The lane เสียงพากย์คลิป on ตั้งค่า AI (owner, 2026-10-21) sets where ElevenLabs stands: switched
+ * off, a Thai clip never falls back to it; above both Gemini ways, a Thai clip with no voice of its
+ * own is read by it first and by Gemini if it cannot. A voice the member chose is never overruled.
  */
 export async function speakClip(lines: string[], o: {
   task: string; narrator: Narrator; lang: SpeechLang; voice?: string; fetch?: typeof fetch;
@@ -75,10 +79,26 @@ export async function speakClip(lines: string[], o: {
       return { spoken: await run(undefined, undefined), fellBackTo: null, google };
     }
   }
+  const lane = await voiceLane().catch(() => ["gemini-api", "gemini-cloud", "elevenlabs"]);
+  const at = (w: string) => (lane.includes(w) ? lane.indexOf(w) : Infinity);
+  const eleven = o.lang === "th" && lane.includes("elevenlabs");
+  if (eleven && at("elevenlabs") < Math.min(at("gemini-api"), at("gemini-cloud"))) {
+    const first = await fallbackReader(o.narrator, o.fetch);
+    if (first) {
+      try {
+        return { spoken: await run(first.id), fellBackTo: first, google: null };
+      } catch (e) {
+        if (!(e instanceof TtsError)) throw e;
+        console.error("tts: ElevenLabs first in the lane but not usable, switching to Gemini -", e.message);
+        o.onSwitch?.();
+      }
+    }
+    return { spoken: await run(), fellBackTo: null, google: null };
+  }
   try {
     return { spoken: await run(), fellBackTo: null, google: null };
   } catch (e) {
-    const to = o.lang === "th" && e instanceof TtsError ? await fallbackReader(o.narrator, o.fetch) : null;
+    const to = eleven && e instanceof TtsError ? await fallbackReader(o.narrator, o.fetch) : null;
     if (!to) throw e;
     console.error("tts: Gemini voice not usable, switching to", to.name, "-", (e as Error).message);
     o.onSwitch?.();

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 // one of Gemini's 30 voices reads the clip when one is named (owner, 2026-10-17)
-vi.mock("@/lib/ai/client", () => ({ providerKey: async () => "g_test" }));
+vi.mock("@/lib/ai/client", () => ({ providerKey: async () => "g_test", voiceLane: async () => ["gemini-api", "gemini-cloud", "elevenlabs"] }));
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: vi.fn() }));
 
 import { speakLine } from "@/lib/ai/tts";

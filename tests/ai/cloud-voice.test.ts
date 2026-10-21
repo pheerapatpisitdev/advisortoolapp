@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
 const GCP = JSON.stringify({ client_email: "clip-render@p.iam.gserviceaccount.com", private_key: privateKey, project_id: "advisortool-video", region: "asia-southeast1", job: "clip" });
 const keys: Record<string, string | null> = { google: "g_test", elevenlabs: "sk_test", gcp: GCP };
-vi.mock("@/lib/ai/client", () => ({ providerKey: async (p: string) => keys[p] ?? null }));
+/** the lane เสียงพากย์คลิป as saved on ตั้งค่า AI (owner, 2026-10-21) */
+let lane = ["gemini-api", "gemini-cloud", "elevenlabs"];
+vi.mock("@/lib/ai/client", () => ({ providerKey: async (p: string) => keys[p] ?? null, voiceLane: async () => lane }));
 vi.mock("@/lib/ai/ledger", () => ({ recordUsage: async () => undefined }));
 
 import { CLOUD_BUSY_TRIES, CLOUD_TTS_MODEL, forgetApiFull, nextMinuteWait, speakGemini, wavPcm } from "@/lib/ai/tts";
@@ -48,7 +50,7 @@ function net(api: () => Response, cloud: () => Response = cloudOk) {
 }
 const pool = async <T, R>(items: T[], _n: number, fn: (t: T, i: number) => Promise<R>) => Promise.all(items.map(fn));
 
-beforeEach(() => forgetApiFull());
+beforeEach(() => { forgetApiFull(); lane = ["gemini-api", "gemini-cloud", "elevenlabs"]; });
 
 describe("speakGemini: API first, Cloud second", () => {
   it("uses the API alone while it works", async () => {
@@ -168,5 +170,54 @@ describe("wavPcm", () => {
   it("keeps only the samples of a WAV, and leaves bare samples alone", () => {
     expect(wavPcm(wav(pcm)).equals(pcm)).toBe(true);
     expect(wavPcm(pcm)).toBe(pcm);
+  });
+});
+
+describe("the lane เสียงพากย์คลิป (owner, 2026-10-21)", () => {
+  it("Cloud above the API: Cloud reads, the API is not asked", async () => {
+    lane = ["gemini-cloud", "gemini-api", "elevenlabs"];
+    const { f, asked } = net(apiOk);
+    await speakGemini("หนึ่ง", "t", { fetch: f });
+    expect(asked).toEqual(["cloud"]);
+  });
+
+  it("Cloud above the API and down: the line goes on to the API", async () => {
+    lane = ["gemini-cloud", "gemini-api"];
+    const { f, asked } = net(apiOk, cloudDown);
+    const r = await speakGemini("หนึ่ง", "t", { fetch: f });
+    expect(r.pcm.equals(pcm)).toBe(true);
+    expect(asked).toEqual(["cloud", "api"]);
+  });
+
+  it("the API switched off: never asked", async () => {
+    lane = ["gemini-cloud", "elevenlabs"];
+    const { f, asked } = net(apiOk);
+    await speakGemini("หนึ่ง", "t", { fetch: f });
+    expect(asked).toEqual(["cloud"]);
+  });
+
+  it("both Gemini ways off: the line is refused, nothing asked", async () => {
+    lane = ["elevenlabs"];
+    const { f, asked } = net(apiOk);
+    await expect(speakGemini("หนึ่ง", "t", { fetch: f })).rejects.toThrow("ปิดเสียง Gemini");
+    expect(asked).toEqual([]);
+  });
+
+  it("ElevenLabs on top: a Thai clip with no voice of its own is read by อ้อม, Gemini not asked", async () => {
+    lane = ["elevenlabs", "gemini-api", "gemini-cloud"];
+    const { f, asked } = net(apiOk);
+    const out = await speakClip(["หนึ่ง", "สอง"], { task: "t", pool, narrator: "F", lang: "th", fetch: f });
+    expect(out.fellBackTo?.name).toBe("อ้อม");
+    expect(asked).toEqual(["eleven", "eleven"]);
+  });
+
+  it("ElevenLabs switched off: a Thai clip Gemini cannot read fails rather than switching", async () => {
+    lane = ["gemini-api"];
+    keys.gcp = null;
+    const { f, asked } = net(apiFull);
+    const e = await speakClip(["หนึ่ง"], { task: "t", pool, narrator: "F", lang: "th", fetch: f }).catch((x) => x);
+    keys.gcp = GCP;
+    expect(e).toBeInstanceOf(Error);
+    expect(asked).not.toContain("eleven");
   });
 });
