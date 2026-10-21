@@ -25,7 +25,7 @@ export interface FrontPrices {
   };
   /** an agent's one starter credit; null when it cannot be read, and the line is left out */
   agentStarterThb: number | null;
-  /** the top-up amounts; empty while the wallet is switched off */
+  /** the top-up amounts; empty while the wallet is switched off. The list no longer shows them (2026-10-21), only that topping up is possible */
   topUpsThb: number[];
 }
 
