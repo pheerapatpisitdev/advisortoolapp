@@ -31,9 +31,6 @@ import { ownerWording } from "./wording";
  * /api/content-claim only, which checks the consent tick and the files first.
  */
 
-/** Gemini draws the tightest boxes of the three; the others read the words well enough if it is down */
-export const READER = "gemini-3.7-flash";
-export const READ_FALLBACK = ["gpt-5", "claude-sonnet-5"];
 /** reading six photographs is about ฿0.1 on Gemini Flash; held at this so a fallback fits */
 export const READ_HOLD_THB = 0.5;
 /** six photographs and a long reply of boxes; a thinking model needs the room */
@@ -58,7 +55,8 @@ export async function readClaim(images: ChatImage[]): Promise<ReadResult> {
     const [system, user] = readMessages(images.length);
     const r = await chat({
       tier: "large", task: "content-claim-read", messages: [system, { ...user, images }],
-      maxTokens: 8000, json: true, timeoutMs: READ_TIMEOUT_MS, prefer: READER, within: READ_FALLBACK,
+      maxTokens: 8000, json: true, timeoutMs: READ_TIMEOUT_MS,
+      // the reader and its fallbacks: the lane อ่านรูปและเอกสาร on ตั้งค่า AI (src/lib/ai/lanes.ts)
     });
     const read = parseRead(r.text, images.length);
     if (!read) {

@@ -120,7 +120,7 @@ describe("runChatReview", () => {
     const prompt = chat.mock.calls[0][0].messages[1].content as string;
     expect(prompt).toContain("- ลดหย่อนภาษีได้ไหม");
     expect(prompt).toContain("ตัวแทน: ได้ครับ ตัดบัตรได้");
-    expect(chat.mock.calls[0][0]).toMatchObject({ task: "chat-review", prefer: "gemini-3.7-flash", json: true });
+    expect(chat.mock.calls[0][0]).toMatchObject({ task: "chat-review", tier: "large", json: true });
     expect(reviews[0]).toMatchObject({ summary: "ลูกค้าถามเรื่องบัตรเครดิต", conversations: 1, cost_thb: 0.12 });
     expect(items[0]).toMatchObject({ review_id: 1, kind: "agent", answer: "ได้ครับ ตัดบัตรเครดิตได้" });
   });

@@ -159,24 +159,25 @@ export interface WrittenPiece {
 }
 
 /**
- * The writers a pick may fall back to when its model is down.
+ * The writers a pick may fall back to when its model is down: undefined for the lane เขียนโพสต์
+ * on ตั้งค่า AI (src/lib/ai/lanes.ts), or the pick alone.
  *
  * ประหยัด — picked, or chosen by อัตโนมัติ because the month's money is nearly gone — falls
  * back to nothing dearer: a cheap pick answered by Sonnet at six times the price is exactly
- * the spend it was picked to avoid. The dearer picks keep the whole list.
+ * the spend it was picked to avoid. The dearer picks follow the lane.
  */
 export function fallbackWriters(prefer: string | undefined): string[] | undefined {
   if (!prefer) return undefined;
   /**
    * The free writer is nobody's fallback: its quota is shared by every member, so a paid pick
-   * that failed over to it would spend that quota on rounds that never chose it. It falls
-   * back itself to the cheapest paid writer, the nearest thing to free (owner, 2026-10-14).
+   * that failed over to it would spend that quota on rounds that never chose it. It is never in
+   * the lane, and does not fall back itself.
    */
   const paid = WRITERS.filter((w) => w.thb > 0);
   const cheapest = Math.min(...paid.map((w) => w.thb));
   const picked = WRITERS.find((w) => w.model === prefer);
   if (picked?.thb === 0) return [prefer];
-  return picked && picked.thb <= cheapest ? [prefer] : paid.map((w) => w.model);
+  return picked && picked.thb <= cheapest ? [prefer] : undefined;
 }
 
 /** What a round of parallel calls came to: the pieces, and how many the budget stopped. */

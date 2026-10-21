@@ -181,6 +181,17 @@ export const CALLERS: Record<string, (a: CallArgs) => Promise<CallResult>> = {
     const extra = args.model.endsWith(":free") ? {} : { reasoning: { effort: args.effort ?? "low", exclude: true } };
     return openAiCompatible("https://openrouter.ai/api/v1/chat/completions", args, extra, true);
   },
+
+  /**
+   * DeepSeek, in the OpenAI chat format (owner, 2026-10-21, mockup
+   * https://claude.ai/artifact/JmmL9bs2ZBqhBi829bjUey). Its models think before they answer unless
+   * told not to, and the thinking counts against max_tokens — the GPT-5 trouble of 2026-09-22 — so
+   * thinking is switched off on every call. deepseek-flash reads pictures; deepseek-v4-pro does not,
+   * and is sent the words alone.
+   */
+  async deepseek(args) {
+    return openAiCompatible("https://api.deepseek.com/chat/completions", args, { thinking: { type: "disabled" } }, args.model === "deepseek-flash");
+  },
 };
 
 /**

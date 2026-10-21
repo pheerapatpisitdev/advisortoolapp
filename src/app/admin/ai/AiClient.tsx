@@ -67,7 +67,7 @@ const KIND_LABEL: Record<string, string> = { text: "ข้อความ", imag
 /** The quality an image row is asked for, so one model at two prices reads as two choices. */
 const QUALITY_LABEL: Record<string, string> = { low: "คุณภาพต่ำ", medium: "คุณภาพมาตรฐาน", high: "คุณภาพสูง (คมชัด)" };
 
-export function AiClient({ keys, models, settings, providers, spentThisMonth, content, video, motion, rates }: {
+export function AiClient({ keys, models, settings, providers, spentThisMonth, content, video, motion, rates, lanesCard }: {
   keys: KeyRow[]; models: ModelRow[]; settings: Settings | null; providers: string[];
   spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
@@ -75,6 +75,8 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
   motion: KeyRow[];
   /** the premium tables in force (src/calc/plans/tables-meta.ts): their own card since 2026-10-15 */
   rates: { version: string; expiresOn: string; daysLeft: number; expired: boolean };
+  /** ลำดับหลักและสำรอง (./LanesCard.tsx), placed between the models and the budgets */
+  lanesCard?: React.ReactNode;
 }) {
   const [pending, start] = useTransition();
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -92,8 +94,6 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
   const [testing, setTesting] = useState(false);
   const checkOf = (p: string) => checks?.find((c) => c.provider === p);
   const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  // a free model ("…:free") is for Studio's ทดลองฟรี only, never the chat's tiers (owner, 2026-10-14)
-  const textModels = models.filter((m) => m.kind === "text" && !m.model_name.endsWith(":free"));
 
   const budget = settings?.monthly_budget_thb != null ? Number(settings.monthly_budget_thb) : null;
 
@@ -407,32 +407,19 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
         )}
       </Card>
 
-      <Card title="ค่าเริ่มต้นและงบ" hint="โมเดลเล็กใช้แยกข้อความและตอบสั้น โมเดลใหญ่ใช้ตอบจากเอกสาร">
+      {lanesCard}
+
+      <Card title="งบ" hint="ตัวหลักและตัวสำรองของแต่ละงาน ตั้งที่ลำดับหลักและสำรองด้านบน">
         <form
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
             const f = new FormData(e.currentTarget);
             // sent as typed: the server reads the numbers, and says in Thai what it refused
-            run("settings", () => saveSettings(String(f.get("small") ?? ""), String(f.get("large") ?? ""),
-                String(f.get("budget") ?? ""), String(f.get("contentBudget") ?? "")),
-                "บันทึกค่าเริ่มต้นและงบแล้ว");
+            run("settings", () => saveSettings(String(f.get("budget") ?? ""), String(f.get("contentBudget") ?? "")),
+                "บันทึกงบแล้ว");
           }}
         >
-          <label className="text-sm">
-            <span className="block text-xs text-[var(--bot-ink-mute)]">โมเดลเล็ก</span>
-            <select name="small" defaultValue={settings?.small_model ?? ""} className={`mt-1 ${input}`}>
-              <option value="">เลือกอัตโนมัติ</option>
-              {textModels.map((m) => <option key={m.id} value={m.model_name}>{m.model_name}</option>)}
-            </select>
-          </label>
-          <label className="text-sm">
-            <span className="block text-xs text-[var(--bot-ink-mute)]">โมเดลใหญ่</span>
-            <select name="large" defaultValue={settings?.large_model ?? ""} className={`mt-1 ${input}`}>
-              <option value="">เลือกอัตโนมัติ</option>
-              {textModels.map((m) => <option key={m.id} value={m.model_name}>{m.model_name}</option>)}
-            </select>
-          </label>
           <label className="text-sm">
             <span className="block text-xs text-[var(--bot-ink-mute)]">งบต่อเดือน (บาท)</span>
             {/* step "any": a step of 50 made the browser refuse ฿120 and block the whole form */}

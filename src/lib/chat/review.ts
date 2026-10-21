@@ -25,9 +25,6 @@ const MAX_ROWS = 3000;
 const PAGE_ROWS = 1000;
 const MAX_ITEMS = 8;
 
-/** the cheap reader the content bake-off found best value for Thai, and two like it behind it */
-const REVIEWER = "gemini-3.7-flash";
-const REVIEWER_FALLBACK = ["gpt-5-mini", "glm-5.3"];
 
 export type ItemKind = "unanswered" | "wrong" | "dropoff" | "agent";
 const KINDS: ItemKind[] = ["unanswered", "wrong", "dropoff", "agent"];
@@ -198,7 +195,7 @@ export async function runChatReview(now = new Date()): Promise<ReviewResult> {
 
   const r = await chat({
     tier: "large", task: "chat-review", json: true, maxTokens: 4000, timeoutMs: 90_000,
-    prefer: REVIEWER, within: REVIEWER_FALLBACK,
+    // the reviewer and its fallbacks: the lane ตอบจากเอกสาร · ทบทวนแชท on ตั้งค่า AI (src/lib/ai/lanes.ts)
     messages: [
       { role: "system", content: SYSTEM },
       { role: "user", content: `ความรู้ที่มีแล้ว:\n${known}\n\nบทสนทนา ${doc.threads} แชท:\n\n${doc.text}` },

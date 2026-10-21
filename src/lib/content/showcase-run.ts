@@ -3,7 +3,7 @@ import { capReached, tooDear } from "./budget-words";
 import type { ChatImage } from "@/lib/ai/types";
 import type { GenerateResult } from "@/app/studio/actions";
 import {
-  attachPapers, BUDGET_OUT, READ_FALLBACK, READ_HOLD_THB, READ_TIMEOUT_MS, READER, type Paper,
+  attachPapers, BUDGET_OUT, READ_HOLD_THB, READ_TIMEOUT_MS, type Paper,
 } from "./claim-run";
 import { formulaOf } from "./formula";
 import { modeChecks } from "./mode-checks";
@@ -37,7 +37,8 @@ export async function readShowcase(images: ChatImage[]): Promise<ShowcaseReadRes
     const [system, user] = showcaseReadMessages(images.length);
     const r = await chat({
       tier: "large", task: "content-showcase-read", messages: [system, { ...user, images }],
-      maxTokens: 8000, json: true, timeoutMs: READ_TIMEOUT_MS, prefer: READER, within: READ_FALLBACK,
+      maxTokens: 8000, json: true, timeoutMs: READ_TIMEOUT_MS,
+      // the reader and its fallbacks: the lane อ่านรูปและเอกสาร on ตั้งค่า AI (src/lib/ai/lanes.ts)
     });
     const read = parseShowcaseRead(r.text, images.length);
     if (!read) {
