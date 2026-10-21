@@ -124,9 +124,8 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
           <button disabled={pending} className={PRIMARY}>{pending ? "กำลังตรวจสอบ…" : "เข้าสู่ระบบ"}</button>
         </form>
       )}
-      {/* on a wide screen the list stands beside the card (AuthCard), so there is nothing to go down to */}
       {prices && (
-        <a href="#prices" className="mt-5 block text-center text-sm font-semibold text-[var(--bot-navy)] underline-offset-2 hover:underline lg:hidden">ดูค่าบริการ ↓</a>
+        <a href="#prices" className="mt-5 block text-center text-sm font-semibold text-[var(--bot-navy)] underline-offset-2 hover:underline">ดูค่าบริการ ↓</a>
       )}
     </AuthCard>
   );
