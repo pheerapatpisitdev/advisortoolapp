@@ -50,6 +50,16 @@ describe("designEdit", () => {
     expect(voice).toMatchObject({ start: 2.5, length: 42.5 });
   });
 
+  it("sets a figure card smaller when the film's foot bar is short, so no line leaves the frame", () => {
+    const parts = [{ kind: "scene" as const, start: 0, length: 5, picture: "https://x/p.png", text: "", lines: ["หญิง 35 ปี · ทุน 1 ล้าน", "เบี้ยปีละ 28,700 บาท", "Life Protect+ 19 ปี"] }];
+    const size = (c: DesignClip) => (tracks(c).flatMap((t) => t.clips).find((x) => x.asset.type === "rich-text")!.asset as unknown as { font: { size: number } }).font.size;
+    const portrait = size(clip({ look: "film", parts }));
+    const landscape = size(clip({ look: "film", size: "landscape", parts }));
+    expect(portrait).toBe(54);
+    expect(landscape).toBeLessThan(54);
+    expect(3 * landscape * 1.4).toBeLessThanOrEqual(1080 * 0.17 - 24);
+  });
+
   it("gives the film look its two black bars and no band", () => {
     const shapes = tracks(clip({ look: "film" })).flatMap((t) => t.clips).filter((x) => x.asset.type === "shape");
     expect(shapes).toHaveLength(2);

@@ -48,6 +48,11 @@ const FAMILY = "IBM Plex Sans Thai";
 /** each looping music file is 20 s long */
 const MUSIC_SEC = 20;
 const MUSIC_VOLUME = 0.12;
+/** the film look's black bars, as shares of the frame's height */
+const FILM_HEAD = 0.135;
+const FILM_FOOT = 0.17;
+/** a line of words, in its font sizes, as Shotstack sets them */
+const LINE_HEIGHT = 1.4;
 
 type Clip = Record<string, unknown>;
 
@@ -120,9 +125,19 @@ export function designEdit(c: DesignClip): { timeline: object; output: object } 
       }
       const width = p.band && p.band.inset ? w - 2 * px(p.band.inset) - px(60) : textW;
       const color = onPicture ? p.ink : c.look === "gold" ? p.ink : "#ffffff";
-      const set = part.lines?.length ? part.lines.map((l) => lines(l, sceneSize, width)).join("\n") : lines(part.text, sceneSize, width);
+      const setAt = (size: number) => (part.lines?.length ? part.lines.map((l) => lines(l, size, width)).join("\n") : lines(part.text, size, width));
+      // the words fit what holds them: the band, the film's foot bar (short on a square or landscape
+      // frame), or the frame itself; a figure card's three lines on a short bar are set smaller
+      const room = (c.look === "film" ? Math.round(h * FILM_FOOT) : onPicture ? bandH : h * 0.6) - px(24);
+      let size = sceneSize;
+      let set = setAt(size);
+      const tall = set.split("\n").length * size * LINE_HEIGHT;
+      if (tall > room) {
+        size = Math.max(px(28), Math.floor(room / (set.split("\n").length * LINE_HEIGHT)));
+        set = setAt(size);
+      }
       // the words leave before the scene's overlap with the next (XFADE), while its band is still there
-      words.push(text(set, { start: part.start + 0.3, length: Math.max(0.5, part.length - 0.3 - XFADE), size: sceneSize, color, y: onPicture ? fromFoot(p.textFromFoot) : 0, width }));
+      words.push(text(set, { start: part.start + 0.3, length: Math.max(0.5, part.length - 0.3 - XFADE), size, color, y: onPicture ? fromFoot(p.textFromFoot) : 0, width }));
     } else {
       words.push(text(part.greeting, { start: part.start, length: part.length, size: px(76), color: c.look === "gold" ? "#5a3a12" : p.ink, y: 0.06 }));
       const who = [part.name, part.reach].filter(Boolean).join(" · ");
@@ -135,7 +150,7 @@ export function designEdit(c: DesignClip): { timeline: object; output: object } 
   if (c.look === "film" && scenes.length) {
     const from = scenes[0].start;
     const to = scenes[scenes.length - 1].start + scenes[scenes.length - 1].length;
-    for (const [height, y] of [[Math.round(h * 0.135), 0.5 - 0.135 / 2], [Math.round(h * 0.17), -0.5 + 0.17 / 2]] as const) {
+    for (const [height, y] of [[Math.round(h * FILM_HEAD), 0.5 - FILM_HEAD / 2], [Math.round(h * FILM_FOOT), -0.5 + FILM_FOOT / 2]] as const) {
       bands.push({ asset: { type: "shape", shape: "rectangle", width: w, height, rectangle: { width: w, height, cornerRadius: 0 }, fill: { color: "#000000", opacity: 1 } }, start: from, length: to - from, offset: { x: 0, y } });
     }
   }
