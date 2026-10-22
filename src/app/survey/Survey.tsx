@@ -83,7 +83,8 @@ function Q({ title, hint, children }: { title: string; hint?: string; children: 
 
 const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
-export function Survey({ agentName, today }: { agentName: string; today: string }) {
+/** `voiceUrls`: links to the lines already made, by voice and words, so a tap plays at once */
+export function Survey({ agentName, today, voiceUrls = {} }: { agentName: string; today: string; voiceUrls?: Record<string, string> }) {
   const [female, setFemale] = useState(false);
   useEffect(() => {
     try { setFemale(localStorage.getItem(VOICE_KEY) === "F"); } catch { /* the default stands */ }
@@ -133,7 +134,7 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
   const [voiceError, setVoiceError] = useState("");
   const player = useRef<HTMLAudioElement | null>(null);
   const wanted = useRef("");
-  const urls = useRef(new Map<string, string>());
+  const urls = useRef(new Map<string, string>(Object.entries(voiceUrls)));
 
   const holds = companies.length > 0;
   const education = top === "education" || also.includes("education");
@@ -155,7 +156,7 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
     setAlso([...also, k]);
   }
 
-  const ctx = { female, agentName, top, decider, date, time };
+  const ctx = { female, agentName, top, decider };
 
   const answers = {
     companies, tie, reasons, household, years: num(years), care, help, planned, top, also,
@@ -184,7 +185,7 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
       a.src = SILENT;
       a.play().catch(() => {});
       setVoiceLine({ id, state: "wait" });
-      const r = await speakSurveyLine(k, { female, top, decider, date, time })
+      const r = await speakSurveyLine(k, { female, top, decider })
         .catch(() => ({ ok: false as const, error: "ทำเสียงไม่สำเร็จ ลองกดอีกครั้งนะครับ" }));
       if (wanted.current !== id) return;
       if (!r.ok) { stopVoice(); setVoiceError(r.error); return; }

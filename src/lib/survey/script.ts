@@ -1,11 +1,12 @@
-import { WORRY_LABEL, type Decider, type WorryKey } from "./answers";
+import { WORRIES, WORRY_LABEL, type Decider, type WorryKey } from "./answers";
 
 /**
  * Every line the agent says in สำรวจความคุ้มครอง, in the agency's own words, built in one place
  * so that what the page shows and what the voice reads (owner, 2026-10-22, mockup
  * 6eXVC2yugSk2rhBRok4Kv2) are the same sentence. The server builds a line again from its key and
  * these few values rather than reading any text from the browser: the voice only ever says the
- * script.
+ * script. Every line has a handful of forms at most (`allLines`), so all of them are made ahead
+ * and play at once (owner chose ค, 2026-10-22: the closing line no longer says the day and hour).
  */
 
 export const LINE_KEYS = [
@@ -20,31 +21,12 @@ export interface ScriptCtx {
   agentName: string;
   top: WorryKey | null;
   decider: Decider | null;
-  /** yyyy-mm-dd and HH:MM, for the closing line */
-  date: string;
-  time: string;
 }
 
 /** the name the opening line uses: the first word of the account's name */
 export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
 
-const DAY = ["วันอาทิตย์", "วันจันทร์", "วันอังคาร", "วันพุธ", "วันพฤหัสบดี", "วันศุกร์", "วันเสาร์"];
-const MONTH = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-
-/** "วันอาทิตย์ที่ 25 ตุลาคม", the way it is said aloud */
-export function spokenDay(day: string): string {
-  const [y, m, d] = day.split("-").map(Number);
-  return `${DAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}ที่ ${d} ${MONTH[m - 1]}`;
-}
-
-/** the hours the survey offers, as Thai speakers say them */
-export const SPOKEN_HOUR: Record<string, string> = {
-  "09:00": "เก้าโมงเช้า", "10:00": "สิบโมงเช้า", "11:00": "สิบเอ็ดโมง",
-  "13:00": "บ่ายโมง", "14:00": "บ่ายสองโมง", "15:00": "บ่ายสามโมง", "16:00": "สี่โมงเย็น",
-  "17:00": "ห้าโมงเย็น", "18:00": "หกโมงเย็น", "19:00": "หนึ่งทุ่ม",
-};
-
-/** The line, or "" when it needs a value it does not have yet (the closing before a time is picked). */
+/** The line as the agent says it. */
 export function scriptLine(key: LineKey, c: ScriptCtx): string {
   const me = c.female ? "ดิฉัน" : "ผม";
   const e = c.female ? "ค่ะ" : "ครับ";
@@ -67,11 +49,29 @@ export function scriptLine(key: LineKey, c: ScriptCtx): string {
     }
     case "when": return `วันธรรมดาหรือเสาร์อาทิตย์ดี${q}`;
     case "period": return `ช่วงเช้า ช่วงบ่าย หรือช่วงเย็นดี${q} แล้วสะดวกกี่โมงดี${q}`;
-    case "close": {
-      const hour = SPOKEN_HOUR[c.time];
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date) || !hour) return "";
-      return `ขอเวลา${me}ไปเลือกแผนที่ตรงกับเรื่องที่ห่วงก่อนนะ${q} แล้ว${spokenDay(c.date)} ${hour} ${me}ขอเข้าไปเล่าให้ฟัง${e}`;
-    }
+    case "close": return `ขอเวลา${me}ไปเลือกแผนที่ตรงกับเรื่องที่ห่วงก่อนนะ${q} แล้ววันที่นัดไว้ ${me}ขอเข้าไปเล่าให้ฟัง${e}`;
     case "contact": return `ขอชื่อ เบอร์โทร และวันเกิดไว้ใช้วางแผนคร่าว ๆ ก่อนนะ${q}`;
   }
+}
+
+/**
+ * Every form every line can take, in both voices: the shared lines (which worry, who comes along)
+ * and, given a name, that agent's own opening. About forty shared, two per agent.
+ */
+export function allLines(agentName?: string): { text: string; female: boolean }[] {
+  const out = new Map<string, { text: string; female: boolean }>();
+  for (const female of [false, true]) {
+    const base: ScriptCtx = { female, agentName: agentName ?? "", top: null, decider: null };
+    const add = (c: ScriptCtx, k: LineKey) => {
+      const text = scriptLine(k, c);
+      out.set(`${female}|${text}`, { text, female });
+    };
+    for (const k of LINE_KEYS) {
+      if (k === "open") { if (agentName) add(base, k); continue; }
+      if (k === "budget") { for (const top of [null, ...WORRIES]) add({ ...base, top }, k); continue; }
+      if (k === "place") { for (const decider of [null, "spouse", "parents"] as const) add({ ...base, decider }, k); continue; }
+      add(base, k);
+    }
+  }
+  return [...out.values()];
 }

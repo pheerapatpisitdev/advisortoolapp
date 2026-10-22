@@ -5,7 +5,7 @@ import { requireMember } from "@/lib/auth/viewer";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { saveSurveyCustomer } from "@/lib/fhc/customers";
 import { asWho } from "@/lib/ai/who";
-import { addDays, ageOn, bangkokToday, cleanSurvey, DECIDER_LABEL, MEET_AHEAD_DAYS, WORRIES, type Decider, type WorryKey } from "@/lib/survey/answers";
+import { ageOn, bangkokToday, cleanSurvey, DECIDER_LABEL, WORRIES, type Decider, type WorryKey } from "@/lib/survey/answers";
 import { firstName, LINE_KEYS, scriptLine, type LineKey } from "@/lib/survey/script";
 import { surveyVoiceUrl } from "@/lib/survey/voice";
 
@@ -44,25 +44,20 @@ export type VoiceReply = { ok: true; url: string } | { ok: false; error: string 
 /**
  * A script line read aloud (owner, 2026-10-22, mockup 6eXVC2yugSk2rhBRok4Kv2 ข: the clips' AI voice,
  * free to agents). The browser names the line and the few values in it; the words are built here
- * from the script, with the signed-in agent's own name, so the voice says nothing else.
+ * from the script, with the signed-in agent's own name, so the voice says nothing else. Lines are
+ * made ahead (src/lib/survey/voice.ts), so this mostly hands back a kept one.
  */
 export async function speakSurveyLine(key: unknown, raw: unknown): Promise<VoiceReply> {
   const viewer = await requireMember().catch(() => null);
   if (!viewer) return { ok: false, error: "เข้าสู่ระบบก่อน" };
   if (!LINE_KEYS.includes(key as LineKey)) return { ok: false, error: "ไม่พบบทพูดนี้" };
   const r = (raw ?? {}) as Record<string, unknown>;
-  // only a day the form could offer, so the closing line cannot be made for any date at all
-  const today = bangkokToday();
-  const date = typeof r.date === "string" && r.date > today && r.date <= addDays(today, MEET_AHEAD_DAYS) ? r.date : "";
   const text = scriptLine(key as LineKey, {
     female: r.female === true,
     agentName: firstName(viewer.name),
     top: WORRIES.includes(r.top as WorryKey) ? (r.top as WorryKey) : null,
     decider: typeof r.decider === "string" && Object.hasOwn(DECIDER_LABEL, r.decider) ? (r.decider as Decider) : null,
-    date,
-    time: typeof r.time === "string" ? r.time : "",
   });
-  if (!text) return { ok: false, error: "เลือกวันและเวลานัดก่อน" };
   if (!allowVoice(`${viewer.agentId}|${clientIp(await headers())}`)) return { ok: false, error: "กดถี่เกินไป รอสักครู่นะครับ" };
   try {
     // the system pays; the ledger still shows whose tap made a new line

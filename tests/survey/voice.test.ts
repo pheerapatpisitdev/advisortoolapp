@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { addDays, bangkokToday } from "@/lib/survey/answers";
-import { firstName, LINE_KEYS, scriptLine, spokenDay } from "@/lib/survey/script";
+import { allLines, firstName, LINE_KEYS, scriptLine } from "@/lib/survey/script";
 
 /**
  * บทพูดมีเสียง (owner, 2026-10-22, mockup 6eXVC2yugSk2rhBRok4Kv2 ข): the voice reads only the
@@ -17,13 +16,13 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const { speakSurveyLine } = await import("@/app/survey/actions");
 const { voicePath, wavOf } = await vi.importActual<typeof import("@/lib/survey/voice")>("@/lib/survey/voice");
 
-const CTX = { female: false, agentName: "เอก", top: null, decider: null, date: "", time: "" };
+const CTX = { female: false, agentName: "เอก", top: null, decider: null };
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("the script", () => {
   it("has a line for every key, in ครับ or ค่ะ", () => {
-    for (const k of LINE_KEYS.filter((k) => k !== "close")) {
+    for (const k of LINE_KEYS) {
       expect(scriptLine(k, CTX), k).not.toBe("");
       expect(scriptLine(k, { ...CTX, female: true }), k).not.toMatch(/ครับ|ผม/);
     }
@@ -31,13 +30,31 @@ describe("the script", () => {
     expect(scriptLine("open", { ...CTX, female: true, agentName: "เอ" })).toMatch(/^สวัสดีค่ะ ดิฉันเอ /);
   });
 
-  it("names the worry, who comes along, and the meeting as it is said aloud", () => {
+  it("names the worry and who comes along; the closing says no day or hour (owner chose ค)", () => {
     expect(scriptLine("budget", { ...CTX, top: "education" })).toContain("ดูแลเรื่องทุนการศึกษาลูกได้");
     expect(scriptLine("place", { ...CTX, decider: "spouse" })).toContain("นั่งคุยพร้อมคู่สมรส");
-    expect(scriptLine("close", { ...CTX, date: "2026-10-25", time: "15:00" })).toContain("วันอาทิตย์ที่ 25 ตุลาคม บ่ายสามโมง");
-    expect(scriptLine("close", { ...CTX, date: "2026-10-25", time: "" })).toBe("");
-    expect(spokenDay("2026-11-02")).toBe("วันจันทร์ที่ 2 พฤศจิกายน");
+    expect(scriptLine("close", CTX)).toBe("ขอเวลาผมไปเลือกแผนที่ตรงกับเรื่องที่ห่วงก่อนนะครับ แล้ววันที่นัดไว้ ผมขอเข้าไปเล่าให้ฟังครับ");
     expect(firstName("  สุรชัย ใจดี ")).toBe("สุรชัย");
+  });
+
+  it("lists every form a line can take, in both voices, so all can be made ahead", () => {
+    const shared = allLines();
+    // 13 plain lines, 5 budget forms and 3 place forms, each in two voices
+    expect(shared).toHaveLength(2 * (13 + 5 + 3));
+    expect(shared.some((l) => l.text.startsWith("สวัสดี"))).toBe(false);
+    const mine = allLines("เอก");
+    expect(mine).toHaveLength(shared.length + 2);
+    // whatever the form shows, its line is on the list
+    for (const female of [false, true]) {
+      for (const top of [null, "health", "retire", "education", "income"] as const) {
+        for (const decider of [null, "self", "spouse", "parents", "other"] as const) {
+          const c = { female, agentName: "เอก", top, decider };
+          for (const k of LINE_KEYS) {
+            expect(mine.some((l) => l.female === female && l.text === scriptLine(k, c)), `${k} ${top} ${decider}`).toBe(true);
+          }
+        }
+      }
+    }
   });
 });
 
@@ -74,12 +91,9 @@ describe("speakSurveyLine", () => {
     expect(await speakSurveyLine("anything", {})).toEqual({ ok: false, error: "ไม่พบบทพูดนี้" });
   });
 
-  it("makes the closing line only for a day the form offers", async () => {
+  it("reads the closing line in the voice asked for", async () => {
     viewer.requireMember.mockResolvedValue({ agentId: "a1", name: "เอก" });
-    const today = bangkokToday();
-    expect(await speakSurveyLine("close", { date: "2001-01-01", time: "15:00" })).toEqual({ ok: false, error: "เลือกวันและเวลานัดก่อน" });
-    expect(await speakSurveyLine("close", { date: addDays(today, 3), time: "15:00", female: true })).toMatchObject({ ok: true });
-    expect(voice.surveyVoiceUrl).toHaveBeenCalledTimes(1);
-    expect(voice.surveyVoiceUrl).toHaveBeenLastCalledWith(expect.stringContaining("บ่ายสามโมง ดิฉันขอเข้าไปเล่าให้ฟังค่ะ"), true);
+    expect(await speakSurveyLine("close", { female: true })).toMatchObject({ ok: true });
+    expect(voice.surveyVoiceUrl).toHaveBeenLastCalledWith(expect.stringContaining("แล้ววันที่นัดไว้ ดิฉันขอเข้าไปเล่าให้ฟังค่ะ"), true);
   });
 });

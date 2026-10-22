@@ -5,7 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 /**
  * A script line of สำรวจความคุ้มครอง read aloud (owner, 2026-10-22, mockup 6eXVC2yugSk2rhBRok4Kv2
  * ข): the clips' Gemini voice, Orus for ครับ and Kore for ค่ะ, paid for by the system. Each line is
- * made once and kept, so every agent after the first hears it at once and at no cost.
+ * made once and kept. Every shared line is made ahead (owner, 2026-10-22: "ซื้อลงในระบบ"), and an
+ * agent's own opening on their first visit, so a tap plays at once.
  */
 
 export const SURVEY_VOICE_TASK = "survey-voice";
@@ -53,4 +54,34 @@ export async function surveyVoiceUrl(text: string, female: boolean): Promise<str
   const made = await store.createSignedUrl(path, LINK_SECONDS);
   if (!made.data?.signedUrl) throw new Error(`เปิดเสียงไม่ได้: ${made.error?.message ?? "ไม่มีลิงก์"}`);
   return made.data.signedUrl;
+}
+
+/** the page's key for a line, the same on both sides */
+export const voiceKey = (text: string, female: boolean) => `${female ? "F" : "M"}|${text}`;
+
+/** Links to the lines already kept, by `voiceKey`; a line not made yet is simply missing. */
+export async function keptVoiceUrls(lines: { text: string; female: boolean }[]): Promise<Record<string, string>> {
+  if (!lines.length) return {};
+  const paths = lines.map((l) => voicePath(l.text, l.female));
+  const { data, error } = await supabaseAdmin().storage.from(BUCKET).createSignedUrls(paths, LINK_SECONDS);
+  if (error || !data) return {};
+  const out: Record<string, string> = {};
+  data.forEach((d, i) => { if (d.signedUrl && !d.error) out[voiceKey(lines[i].text, lines[i].female)] = d.signedUrl; });
+  return out;
+}
+
+/** Makes the lines not kept yet, one after another; returns how many were made. A failed line is left for a tap. */
+export async function prepareVoices(lines: { text: string; female: boolean }[]): Promise<number> {
+  const kept = await keptVoiceUrls(lines);
+  let made = 0;
+  for (const l of lines) {
+    if (kept[voiceKey(l.text, l.female)]) continue;
+    try {
+      await surveyVoiceUrl(l.text, l.female);
+      made++;
+    } catch (e) {
+      console.error("survey voice not made ahead:", e instanceof Error ? e.message : e);
+    }
+  }
+  return made;
 }
