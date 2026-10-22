@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LABEL, PANEL } from "@/components/plan/fields";
 import {
   BUDGETS, CARE_LABEL, COMPANIES, DECIDER_LABEL, HELP_LABEL, HOUSEHOLD_LABEL, PLACE_LABEL, REASON_LABEL, TIE_LABEL,
@@ -8,15 +8,17 @@ import {
   type Budget, type Care, type Company, type Decider, type Help, type Household, type Place, type Reason,
   type SurveyAnswers, type Tie, type WorryKey,
 } from "@/lib/survey/answers";
+import { scriptLine, type LineKey } from "@/lib/survey/script";
 import { summarize, summaryText } from "@/lib/survey/summary";
-import { saveSurvey } from "./actions";
+import { saveSurvey, speakSurveyLine } from "./actions";
 import { SurveySummary } from "./SurveySummary";
 
 /**
  * สำรวจความคุ้มครอง as the agent runs it (owner approved mockup SWVNeW6CQii59D6nhzUWpx,
  * 2026-10-22): five parts one screen at a time, a line to say above each question, and on
  * saving, the customer in the FHC list with a "สรุปก่อนนัด". The lines end in ครับ or ค่ะ as the
- * agent picks once; the choice stays in this browser.
+ * agent picks once; the choice stays in this browser. Each line plays in the clips' AI voice
+ * (owner, 2026-10-22, mockup 6eXVC2yugSk2rhBRok4Kv2 ข), made once on the server and kept.
  */
 
 const STEPS = ["ประกันที่มีอยู่", "การดูแล", "เรื่องที่ห่วง", "งบ & ผู้ตัดสินใจ", "นัดหมาย"] as const;
@@ -29,6 +31,9 @@ const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "�
 const PERIODS = { morning: ["09:00", "10:00", "11:00"], afternoon: ["13:00", "14:00", "15:00", "16:00"], evening: ["17:00", "18:00", "19:00"] } as const;
 const PERIOD_LABEL = { morning: "ช่วงเช้า", afternoon: "ช่วงบ่าย", evening: "ช่วงเย็น" } as const;
 type Period = keyof typeof PERIODS;
+/** a tenth of a second of silence, played inside the tap so iPhone lets the line play once it arrives */
+const SILENT = "data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+type VoiceState = "wait" | "on" | null;
 
 const entries = <K extends string>(o: Record<K, string>) => Object.entries(o) as [K, string][];
 
@@ -48,13 +53,20 @@ function Chips<T extends string | number>({ options, value, onPick, cols = 2, la
   );
 }
 
-/** the line the agent says, set apart from what they tap */
-function Say({ children }: { children: React.ReactNode }) {
+/** the line the agent says, set apart from what they tap, with ▶ ฟัง to hear it read */
+function Say({ text, state, onPlay }: { text: string; state: VoiceState; onPlay: () => void }) {
   return (
-    <p className="flex items-baseline gap-2 text-sm leading-relaxed text-[var(--lg-mute)]">
-      <span className="shrink-0 rounded-sm border border-[var(--lg-panel-line)] px-1.5 text-[11px] tracking-wide">พูด</span>
-      <span>“{children}”</span>
-    </p>
+    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2.5 text-sm leading-relaxed text-[var(--lg-mute)]">
+      <button
+        type="button" onClick={onPlay} aria-label={state === "on" ? "หยุดเสียง" : "ฟังบทพูดนี้"}
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs ${
+          state === "on" ? ON : state === "wait" ? "border-[var(--lg-panel-line)] text-[var(--lg-mute)]" : "border-[var(--lg-gold)] text-[var(--lg-gold)]"
+        }`}
+      >
+        {state === "wait" ? "กำลังเตรียมเสียง…" : state === "on" ? <>■ หยุด</> : <>▶ ฟัง</>}
+      </button>
+      <span>“{text}”</span>
+    </div>
   );
 }
 
@@ -76,13 +88,11 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
   useEffect(() => {
     try { setFemale(localStorage.getItem(VOICE_KEY) === "F"); } catch { /* the default stands */ }
   }, []);
+  useEffect(() => () => { player.current?.pause(); }, []);
   function setVoice(f: boolean) {
     setFemale(f);
     try { localStorage.setItem(VOICE_KEY, f ? "F" : "M"); } catch { /* this visit only */ }
   }
-  const me = female ? "ดิฉัน" : "ผม";
-  const e = female ? "ค่ะ" : "ครับ";
-  const q = female ? "คะ" : "ครับ";
 
   const [step, setStep] = useState(0);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -118,6 +128,12 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<{ id: string; answers: SurveyAnswers } | null>(null);
   const [copied, setCopied] = useState("");
+  // the line playing or being made, by voice and words; one at a time
+  const [voice, setVoiceLine] = useState<{ id: string; state: Exclude<VoiceState, null> } | null>(null);
+  const [voiceError, setVoiceError] = useState("");
+  const player = useRef<HTMLAudioElement | null>(null);
+  const wanted = useRef("");
+  const urls = useRef(new Map<string, string>());
 
   const holds = companies.length > 0;
   const education = top === "education" || also.includes("education");
@@ -139,12 +155,57 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
     setAlso([...also, k]);
   }
 
+  const ctx = { female, agentName, top, decider, date, time };
+
   const answers = {
     companies, tie, reasons, household, years: num(years), care, help, planned, top, also,
     kids: num(kids), eldest: num(eldest), budget, decider, place, date, time, name, phone, birth, sex, address,
   };
 
+  function stopVoice() {
+    wanted.current = "";
+    player.current?.pause();
+    setVoiceLine(null);
+  }
+
+  async function play(k: LineKey) {
+    const text = scriptLine(k, ctx);
+    const id = `${female ? "F" : "M"}|${text}`;
+    if (voice?.id === id) { stopVoice(); return; }
+    stopVoice();
+    setVoiceError("");
+    wanted.current = id;
+    const a = player.current ?? (player.current = new Audio());
+    // the silence below ends at once; only the line's own end stops the button
+    a.onended = null;
+    let url = urls.current.get(id);
+    if (!url) {
+      // unlocks this player inside the tap; the line itself arrives a few seconds later
+      a.src = SILENT;
+      a.play().catch(() => {});
+      setVoiceLine({ id, state: "wait" });
+      const r = await speakSurveyLine(k, { female, top, decider, date, time })
+        .catch(() => ({ ok: false as const, error: "ทำเสียงไม่สำเร็จ ลองกดอีกครั้งนะครับ" }));
+      if (wanted.current !== id) return;
+      if (!r.ok) { stopVoice(); setVoiceError(r.error); return; }
+      url = r.url;
+      urls.current.set(id, url);
+    }
+    a.src = url;
+    a.onended = () => { if (wanted.current === id) stopVoice(); };
+    setVoiceLine({ id, state: "on" });
+    a.play().catch(() => { if (wanted.current === id) { stopVoice(); setVoiceError("เปิดเสียงไม่ได้ กดฟังอีกครั้งนะครับ"); } });
+  }
+
+  /** the script line for `k`, with its play button */
+  const say = (k: LineKey) => {
+    const text = scriptLine(k, ctx);
+    const id = `${female ? "F" : "M"}|${text}`;
+    return <Say text={text} state={voice?.id === id ? voice.state : null} onPlay={() => void play(k)} />;
+  };
+
   function go(next: number) {
+    stopVoice();
     setError("");
     // no policy: part 2 (the agent's care) has nothing to ask about
     if (next === 1 && !holds) next = step === 0 ? 2 : 0;
@@ -202,7 +263,6 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
     );
   }
 
-  const withWhom = decider === "spouse" ? "พร้อมคู่สมรส" : decider === "parents" ? "พร้อมคุณพ่อคุณแม่" : "";
   const days = weekend === null ? [] : nextDays(today, weekend);
 
   return (
@@ -227,10 +287,10 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
       {step === 0 && (
         <>
           <section className={PANEL}>
-            <Say>สวัสดี{e} {me}{agentName} ตัวแทนจาก UnitClub ตอนนี้{me}ทำแบบสำรวจสั้น ๆ ว่าคนไทยมีประกันชีวิตกันแค่ไหน ใช้ราว 3 นาที ข้อไหนไม่สะดวกตอบ ข้ามได้เลย{e}</Say>
+            {say("open")}
           </section>
           <Q title="มีประกันชีวิตกับบริษัทไหนอยู่บ้าง" hint="เลือกได้หลายบริษัท">
-            <Say>ตอนนี้มีประกันชีวิตไว้กับบริษัทไหนบ้าง{q}</Say>
+            {say("companies")}
             <Chips label="บริษัท" options={COMPANIES.map((c): [Company, string] => [c, c])} value={companies}
                    onPick={(c) => { setCompanies(toggle(companies, c)); setNone(false); }} />
             <Chips label="ยังไม่มีประกัน" options={[["none", "ยังไม่มีประกัน"]]} value={none ? ["none"] : []}
@@ -240,15 +300,15 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
           {holds && (
             <>
               <Q title="ตัวแทนที่ดูแลเป็นใคร">
-                <Say>ตัวแทนที่ดูแลอยู่ รู้จักกันทางไหน{q}</Say>
+                {say("tie")}
                 <Chips label="ตัวแทน" options={entries(TIE_LABEL)} value={tie ? [tie] : []} onPick={(v) => setTie(tie === v ? null : v)} />
               </Q>
               <Q title="ตอนนั้นทำเพราะอะไร" hint="เลือกได้หลายข้อ">
-                <Say>ตอนนั้นตัดสินใจทำเพราะอะไร{q}</Say>
+                {say("reasons")}
                 <Chips label="เหตุผล" options={entries(REASON_LABEL)} value={reasons} onPick={(v) => setReasons(toggle(reasons, v))} />
               </Q>
               <Q title="คนในบ้านมีประกันครบไหม">
-                <Say>คนในบ้านมีประกันกันครบไหม{q} แล้วถือมากี่ปีแล้ว{q}</Say>
+                {say("household")}
                 <Chips label="คนในบ้าน" cols={3} options={entries(HOUSEHOLD_LABEL)} value={household ? [household] : []}
                        onPick={(v) => setHousehold(household === v ? null : v)} />
                 <label className="block">
@@ -265,11 +325,11 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
       {step === 1 && (
         <>
           <Q title="ตัวแทนยังดูแลอยู่ไหม">
-            <Say>ทุกวันนี้ตัวแทนยังติดต่อดูแลอยู่ไหม{q}</Say>
+            {say("care")}
             <Chips label="การดูแล" cols={3} options={entries(CARE_LABEL)} value={care ? [care] : []} onPick={(v) => setCare(care === v ? null : v)} />
           </Q>
           <Q title="อยากให้ช่วยเรื่องไหน" hint="เลือกได้หลายข้อ">
-            <Say>มีเรื่องไหนที่อยากให้{me}ช่วยดูให้ไหม{q} ไม่มีค่าใช้จ่าย{e}</Say>
+            {say("help")}
             <Chips label="ช่วยเรื่อง" options={entries(HELP_LABEL)} value={help} onPick={(v) => { setHelp(toggle(help, v)); setNoHelp(false); }} />
             <Chips label="ไม่ต้องช่วย" options={[["none", "ไม่ต้องช่วยอะไร"]]} value={noHelp ? ["none"] : []}
                    onPick={() => { setNoHelp(!noHelp); setHelp([]); }} />
@@ -281,13 +341,13 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
       {step === 2 && (
         <>
           <Q title="เคยมีคนวางแผนการเงินให้ไหม">
-            <Say>เคยมีใครนั่งวางแผนการเงินให้ทั้งครอบครัวบ้างไหม{q} แผนที่ดีช่วยให้ทุกช่วงชีวิตมีเงินพร้อมใช้ ไม่สะดุดเวลาเจอเรื่องไม่คาดคิด{e}</Say>
+            {say("planned")}
             <Chips label="เคยวางแผน" options={[["yes", "เคย"], ["no", "ไม่เคย"]]}
                    value={planned === null ? [] : [planned ? "yes" : "no"]}
                    onPick={(v) => setPlanned(planned === (v === "yes") ? null : v === "yes")} />
           </Q>
           <Q title="ถ้าจะมีเพิ่มอีกฉบับ เรื่องไหนสำคัญ">
-            <Say>{me}อ่านให้ฟัง 4 เรื่องนะ{q} แล้วบอก{me}ว่าเรื่องไหนห่วงที่สุด</Say>
+            {say("worries")}
             <div className="space-y-2">
               {WORRIES.map((k, i) => {
                 const state = top === k ? "top" : also.includes(k) ? "also" : "";
@@ -334,7 +394,7 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
       {step === 3 && (
         <>
           <Q title="เก็บเพิ่มได้เดือนละเท่าไร">
-            <Say>ถ้ามีแผนที่ดูแลเรื่อง{top ? WORRY_LABEL[top] : "ที่ห่วง"}ได้ คุณเก็บเพิ่มได้เดือนละเท่าไรที่ยังสบาย ไม่ตึงเกินไป{q}</Say>
+            {say("budget")}
             <Chips label="งบต่อเดือน" cols={3}
                    options={[...BUDGETS.map((b): [Budget, string] => [b, b.toLocaleString("en-US")]), ["more", "มากกว่า"], ["unsure", "ยังไม่แน่ใจ"]]}
                    value={budget === null ? [] : [budget]} onPick={(v) => setBudget(budget === v ? null : v)} />
@@ -346,7 +406,7 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
             )}
           </Q>
           <Q title="ตัดสินใจเองได้ไหม">
-            <Say>เรื่องเงินก้อนนี้ คุณตัดสินใจเองได้ หรืออยากให้ใครร่วมฟังด้วย{q}</Say>
+            {say("decider")}
             <Chips label="ผู้ตัดสินใจ" options={entries(DECIDER_LABEL)} value={decider ? [decider] : []} onPick={(v) => setDecider(decider === v ? null : v)} />
           </Q>
         </>
@@ -355,11 +415,11 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
       {step === 4 && (
         <>
           <Q title="ที่ไหน">
-            <Say>ถ้าจะนั่งคุย{withWhom} ปกติสะดวกที่ไหน{q}</Say>
+            {say("place")}
             <Chips label="สถานที่" options={entries(PLACE_LABEL)} value={place ? [place] : []} onPick={(v) => setPlace(place === v ? null : v)} />
           </Q>
           <Q title="วันไหน เวลาไหน">
-            <Say>วันธรรมดาหรือเสาร์อาทิตย์ดี{q}</Say>
+            {say("when")}
             <Chips label="วันธรรมดาหรือเสาร์อาทิตย์" options={[["weekday", "วันธรรมดา"], ["weekend", "เสาร์-อาทิตย์"]]}
                    value={weekend === null ? [] : [weekend ? "weekend" : "weekday"]}
                    onPick={(v) => { setWeekend(v === "weekend"); setDate(""); }} />
@@ -368,7 +428,7 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
             )}
             {date && (
               <>
-                <Say>ช่วงเช้า ช่วงบ่าย หรือช่วงเย็นดี{q} … สะดวกกี่โมงดี{q}</Say>
+                {say("period")}
                 <Chips label="ช่วงเวลา" cols={3} options={entries(PERIOD_LABEL)} value={period ? [period] : []}
                        onPick={(v) => { setPeriod(v); setTime(""); }} />
               </>
@@ -377,12 +437,10 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
               <Chips label="เวลา" cols={PERIODS[period].length === 4 ? 4 : 3}
                      options={PERIODS[period].map((t): [string, string] => [t, t])} value={time ? [time] : []} onPick={setTime} />
             )}
-            {date && time && (
-              <Say>ขอเวลา{me}ไปเลือกแผนที่ตรงกับเรื่องที่ห่วงก่อนนะ{q} แล้ว{thaiDay(date)} {time} น. {me}ขอเข้าไปเล่าให้ฟัง{e}</Say>
-            )}
+            {date && time && say("close")}
           </Q>
           <Q title="ข้อมูลติดต่อ">
-            <Say>ขอชื่อ เบอร์โทร และวันเกิดไว้ใช้วางแผนคร่าว ๆ ก่อนนะ{q}</Say>
+            {say("contact")}
             <label className="block">
               <span className={LABEL}>ชื่อลูกค้า</span>
               <input className={INPUT} value={name} maxLength={100} onChange={(ev) => setName(ev.target.value)} />
@@ -425,6 +483,7 @@ export function Survey({ agentName, today }: { agentName: string; today: string 
         </>
       )}
 
+      {voiceError && <p role="status" className="text-sm text-[var(--bot-red)]">{voiceError}</p>}
       {error && <p role="alert" className="rounded-sm border border-[var(--bot-red)] p-3 text-sm text-[var(--lg-white)]">{error}</p>}
 
       <div className="grid grid-cols-[1fr_2fr] gap-2">
