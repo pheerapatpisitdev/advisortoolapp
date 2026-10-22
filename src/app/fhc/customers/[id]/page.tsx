@@ -1,13 +1,16 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PlanView } from "@/components/plan/PlanView";
 import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
+import { afterPlan } from "@/lib/fhc/after";
 import { getCustomer } from "@/lib/fhc/customers";
 import { AREA_LABEL, GAP_WORD, offerPrice } from "@/lib/fhc/gaps";
+import { cleanFhc } from "@/lib/fhc/health";
 import { lineText } from "@/lib/fhc/share";
+import { ScoreBoard } from "../../ScoreBoard";
 import { PILL } from "../pill";
 import { CustomerActions } from "./CustomerActions";
+import { CustomerHeader } from "./CustomerHeader";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "ลูกค้า FHC | AdvisorTool" };
@@ -29,20 +32,27 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
   const thaiDay = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
   const date = thaiDay(c.createdAt);
   const first = c.gaps.find((g) => g.key === c.firstArea);
-  const message = `คุณ${c.name}\n\n${lineText(snapshot)}`;
+  // worked from the saved form and plan each time, so customers saved before this was written show it too
+  const form = cleanFhc(c.input);
+  const after = typeof form === "string" ? null : afterPlan(form, snapshot.plan, snapshot.scores);
+  const message = `คุณ${c.name}\n\n${lineText({ ...snapshot, after })}`;
 
   return (
     <main className="mx-auto max-w-lg space-y-4 px-4 pb-28 sm:max-w-3xl sm:pb-10">
-      <header className="pb-1 pt-8">
-        <Link href="/fhc/customers" className="text-sm text-[var(--lg-mute)]">‹ ลูกค้า FHC ของฉัน</Link>
-        <h1 className="lg-figure mt-2 text-3xl leading-tight text-[var(--lg-white)]">{c.name}</h1>
-        <p className="mt-2 text-sm tabular-nums text-[var(--lg-mute)]">
+      <CustomerHeader
+        id={c.id} name={c.name} contact={c.contact} note={c.note}
+        meta={<>
           {c.sex === "F" ? "หญิง" : "ชาย"} อายุ {c.age} · ตรวจเมื่อ {date}
           {snapshot.updatedAt && <> · อัปเดตผลล่าสุด {thaiDay(snapshot.updatedAt)}</>}
-        </p>
-        {c.contact && <p className="mt-1 text-sm text-[var(--lg-white)]">{c.contact}</p>}
-        {c.note && <p className="mt-1 text-sm text-[var(--lg-mute)]">โน้ต: {c.note}</p>}
-      </header>
+        </>}
+      />
+
+      {snapshot.scores?.length > 0 && (
+        <section className={BOX}>
+          <h2 className="mb-3 text-base font-medium text-[var(--lg-white)]">สุขภาพการเงิน</h2>
+          <ScoreBoard scores={snapshot.scores} after={after} />
+        </section>
+      )}
 
       <section className={BOX}>
         <h2 className="text-base font-medium text-[var(--lg-white)]">ขาดหรือไม่พอตรงไหน</h2>

@@ -16,6 +16,11 @@ describe("cleanDetails", () => {
     expect(cleanDetails({ name: "สมชาย", consent: "true" })).toBe("ต้องได้รับความยินยอมจากลูกค้าก่อนเก็บชื่อ");
   });
 
+  it("asks no consent again when the details are only being corrected", () => {
+    expect(cleanDetails({ name: "สมชาย", contact: "089" }, false)).toEqual({ name: "สมชาย", contact: "089", note: "" });
+    expect(cleanDetails({ name: " " }, false)).toBe("ใส่ชื่อลูกค้าก่อนนะครับ");
+  });
+
   it("cuts what is too long and ignores what is not text", () => {
     const d = cleanDetails({ name: "ก".repeat(300), contact: 12345, note: "x".repeat(900), consent: true });
     expect(typeof d).toBe("object");

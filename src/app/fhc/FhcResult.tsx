@@ -1,23 +1,14 @@
 "use client";
 import { PlanView } from "@/components/plan/PlanView";
-import type { Level } from "@/lib/fhc/health";
 import { lineText } from "@/lib/fhc/share";
 import type { FhcReply, FhcWords } from "./actions";
+import { DOT, ScoreBoard, WORD } from "./ScoreBoard";
 
 /**
  * The check's result: the AI's reading, six scores, the five events answered from our plans,
  * then the plan card from the planner engine. Printable on the app's A4 sheet; the agent's name and
  * the dependants' names appear on paper only, never in what is sent or stored.
  */
-
-const DOT: Record<Level, string> = {
-  green: "bg-[var(--bot-ok)]",
-  yellow: "bg-[var(--bot-sand)]",
-  red: "bg-[var(--bot-red)]",
-  none: "bg-[var(--bot-grey)]",
-};
-// said in words too, so a black-and-white print still reads
-const WORD: Record<Level, string> = { green: "ดี", yellow: "ควรปรับ", red: "ต้องแก้", none: "ไม่มีข้อมูล" };
 
 const BOX = "rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-4";
 
@@ -31,12 +22,12 @@ export function FhcResult({ result, words, interviewer, idate, names, editLocked
   editLocked?: boolean;
   onEdit: () => void;
 }) {
-  const { scores, events, plan, figures } = result;
+  const { scores, after, events, plan, figures } = result;
   const s = words?.summary;
   const named = names.filter(Boolean);
 
   function share() {
-    const text = lineText({ figures, scores, events, plan, summary: s });
+    const text = lineText({ figures, scores, after, events, plan, summary: s });
     window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   }
 
@@ -71,17 +62,9 @@ export function FhcResult({ result, words, interviewer, idate, names, editLocked
           <p className="mt-2 text-sm text-[var(--lg-mute)]">กำลังสรุปผล…</p>
         )}
 
-        <ul className="mt-4 grid gap-2 border-t border-[var(--lg-hair)] pt-3 sm:grid-cols-2">
-          {scores.map((x) => (
-            <li key={x.key} className="flex items-center gap-2.5 text-sm">
-              <span aria-hidden className={`h-3 w-3 shrink-0 rounded-full ${DOT[x.level]}`} />
-              <span className="min-w-0 flex-1 text-[var(--lg-white)]">{x.label}</span>
-              <span className="shrink-0 text-right text-xs text-[var(--lg-mute)]">
-                {x.shown} · <span className="text-[var(--lg-white)]">{WORD[x.level]}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-4 border-t border-[var(--lg-hair)] pt-3">
+          <ScoreBoard scores={scores} after={after} />
+        </div>
         <p className="mt-3 text-xs text-[var(--lg-mute)]">
           สินทรัพย์สุทธิ {Math.round(figures.netWorth).toLocaleString("en-US")} บาท · ค่าความสามารถในการทำงาน{" "}
           {Math.round(figures.lifetimeIncome).toLocaleString("en-US")} บาท

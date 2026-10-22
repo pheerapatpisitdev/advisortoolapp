@@ -143,11 +143,12 @@ const higherIsBetter = (v: number | null, t: { green: number; yellow: number }):
 const pct = (v: number) => `${Math.round(Math.min(v, 9.99) * 100)}%`;
 const baht = (n: number) => Math.round(n).toLocaleString("en-US");
 
-export function scores(f: FhcInput): Score[] {
+/** `newPremium`: baht a month of new premiums to take from what is left each month (after.ts) */
+export function scores(f: FhcInput, newPremium = 0): Score[] {
   const g = figures(f);
   const p = toPlanInput(f);
   const months = f.expense > 0 ? (f.cash + f.fixed) / f.expense : null;
-  const left = g.netMonth;
+  const left = g.netMonth - newPremium;
   const share = f.income > 0 ? left / f.income : null;
   // the home loan is left out: a mortgage of several years' income is ordinary
   const owed = f.carLoan + f.otherDebt;
