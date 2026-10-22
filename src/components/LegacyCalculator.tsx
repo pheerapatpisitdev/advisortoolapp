@@ -112,7 +112,7 @@ export function LegacyCalculator({ table, sticky = false }: LegacyCalculatorProp
     : undefined;
 
   return (
-    <div className="calc-split flex flex-col gap-6">
+    <div className="calc-split flex flex-col gap-6" data-sex={sex}>
       {/* the left column on a wide screen (calc-side); on one column it dissolves (contents) */}
       <div className="calc-side contents">
         <div className="space-y-6 rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-5">

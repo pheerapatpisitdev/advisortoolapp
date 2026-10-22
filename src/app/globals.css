@@ -128,6 +128,14 @@ body {
      to look like somebody's marker, and a marker is yellow. Navy ink on it holds 13:1. The
      card draws the same value from card-theme.ts, which cannot read this. */
   --bot-highlighter: #ffe14d;
+  /* The same pen in light pink, for a woman's quote on the calculators (owner, 2026-10-22).
+     Pages only: the card stays yellow. Navy ink on it holds 10:1. */
+  --bot-highlighter-female: #ffc9dc;
+}
+
+/* A calculator with หญิง chosen marks its figures in pink; each one carries data-sex. */
+.calc-split[data-sex="F"] {
+  --bot-highlighter: var(--bot-highlighter-female);
 }
 
 /* ── the sales pages, in the palette above ────────────────────────────────────
