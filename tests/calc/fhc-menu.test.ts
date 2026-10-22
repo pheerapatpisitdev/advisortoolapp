@@ -6,8 +6,8 @@ describe("the Financial Health Check customers link", () => {
     const groups = menuGroups(false);
     expect(groups[0].title).toBe("งานของฉัน");
     expect(groups[0].links.map((l) => l.href).slice(0, 2)).toEqual(["/home", "/fhc/customers"]);
-    // the check itself stays a sales page, alone under วางแผนประกัน
-    expect(groups.find((g) => g.title === "วางแผนประกัน")?.links.map((l) => l.href)).toEqual(["/fhc"]);
+    // the check itself stays a sales page under วางแผนประกัน, with สำรวจความคุ้มครอง beside it (owner, 2026-10-22)
+    expect(groups.find((g) => g.title === "วางแผนประกัน")?.links.map((l) => l.href)).toEqual(["/fhc", "/survey"]);
     const homes = groups.filter((g) => g.links.some((l) => l.href === "/fhc/customers"));
     expect(homes).toHaveLength(1);
   });
