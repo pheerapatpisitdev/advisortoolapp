@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatBaht } from "@/calc/money";
 import { PlanView } from "@/components/plan/PlanView";
 import { can } from "@/lib/auth/access";
 import { gatePage } from "@/lib/auth/viewer";
 import { getCustomer } from "@/lib/fhc/customers";
-import { AREA_LABEL, GAP_WORD } from "@/lib/fhc/gaps";
+import { AREA_LABEL, GAP_WORD, offerPrice } from "@/lib/fhc/gaps";
 import { lineText } from "@/lib/fhc/share";
 import { PILL } from "../pill";
 import { CustomerActions } from "./CustomerActions";
@@ -27,7 +26,8 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
   });
   if (!c) notFound();
   const { snapshot } = c;
-  const date = new Date(c.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
+  const thaiDay = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
+  const date = thaiDay(c.createdAt);
   const first = c.gaps.find((g) => g.key === c.firstArea);
   const message = `คุณ${c.name}\n\n${lineText(snapshot)}`;
 
@@ -38,6 +38,7 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
         <h1 className="lg-figure mt-2 text-3xl leading-tight text-[var(--lg-white)]">{c.name}</h1>
         <p className="mt-2 text-sm tabular-nums text-[var(--lg-mute)]">
           {c.sex === "F" ? "หญิง" : "ชาย"} อายุ {c.age} · ตรวจเมื่อ {date}
+          {snapshot.updatedAt && <> · อัปเดตผลล่าสุด {thaiDay(snapshot.updatedAt)}</>}
         </p>
         {c.contact && <p className="mt-1 text-sm text-[var(--lg-white)]">{c.contact}</p>}
         {c.note && <p className="mt-1 text-sm text-[var(--lg-mute)]">โน้ต: {c.note}</p>}
@@ -64,7 +65,12 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
                   <td className="px-3 py-2.5 text-right tabular-nums">{n(g.should)} {UNIT[g.unit]}</td>
                   <td className="px-3 py-2.5"><span className={`${PILL.base} ${PILL[g.state]}`}>{GAP_WORD[g.state]}</span></td>
                   <td className="px-3 py-2.5 text-[var(--lg-mute)]">
-                    {g.product ? `${g.product} ${g.annual ? `${formatBaht(g.annual)} บาท` : ""}` : g.state === "ok" ? "ไม่ต้องเพิ่ม" : "ยังไม่มีแบบที่พอดีกับงบ"}
+                    {g.product ? (
+                      <>
+                        {g.product}
+                        {g.annual ? <><br />{offerPrice(g)}</> : null}
+                      </>
+                    ) : g.state === "ok" ? "ไม่ต้องเพิ่ม" : "ยังไม่มีแบบที่พอดีกับงบ"}
                   </td>
                 </tr>
               ))}

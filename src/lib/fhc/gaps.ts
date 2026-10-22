@@ -1,3 +1,4 @@
+import { formatBaht } from "@/calc/money";
 import type { AreaKey, PlanResult } from "@/lib/plan/recommend";
 
 /**
@@ -42,6 +43,21 @@ export function gapsOf(plan: PlanResult): Gap[] {
 export function firstGap(plan: PlanResult, gaps: Gap[]): AreaKey | null {
   const open = new Set(gaps.filter((g) => g.state !== "ok").map((g) => g.key));
   return plan.order.find((k) => open.has(k)) ?? null;
+}
+
+/**
+ * The offer's price in words: health and critical-illness premiums are the first year's (they
+ * climb with age, as the plan card says), life and retirement are level. Read off the area, so
+ * rows saved before this was written say it too.
+ */
+export function offerPrice(g: Gap): string | null {
+  if (!g.annual) return null;
+  return `${g.key === "health" || g.key === "ci" ? "ปีแรก" : "ปีละ"} ${formatBaht(g.annual)} บาท`;
+}
+
+/** The same yearly figure spread over twelve months, for a list read at a glance. */
+export function offerMonthly(g: Gap): string | null {
+  return g.annual ? `เฉลี่ยเดือนละ ${formatBaht(Math.round(g.annual / 12))}` : null;
 }
 
 export function isGap(v: unknown): v is Gap[] {

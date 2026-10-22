@@ -52,6 +52,8 @@ export interface Snapshot {
   scores: Score[];
   events: EventRow[];
   plan: PlanResult;
+  /** set when the agent replaced the first check with a corrected one; created_at stays the first day */
+  updatedAt?: string;
 }
 
 interface Raw {
@@ -71,21 +73,53 @@ function shape(r: Raw): CustomerRow {
 
 const owns = (viewer: Viewer, agentId: string) => viewer.agentId === agentId;
 
-/** Saves one customer into the viewer's own account. Returns the new row's id. */
+/** a second save of the same name by the same agent this soon is the first one again (review, 2026-10-22) */
+export const RESAVE_MS = 60_000;
+
+/** The columns a check fills, for a new row and for a corrected one alike. */
+function checkColumns(form: FhcInput, snapshot: Snapshot) {
+  const gaps = gapsOf(snapshot.plan);
+  return { age: form.age, sex: form.sex, gaps, first_area: firstGap(snapshot.plan, gaps), input: form, snapshot };
+}
+
+/** Saves one customer into the viewer's own account. Returns the new row's id, or the one just saved under this name. */
 export async function saveCustomer(
   viewer: Viewer,
   d: Details,
   form: FhcInput,
   snapshot: Snapshot,
 ): Promise<string> {
-  const gaps = gapsOf(snapshot.plan);
-  const { data, error } = await supabaseAdmin().from(TABLE).insert({
+  const db = supabaseAdmin();
+  const since = new Date(Date.now() - RESAVE_MS).toISOString();
+  const { data: recent } = await db.from(TABLE).select("id")
+    .eq("agent_id", viewer.agentId).eq("name", d.name).gte("created_at", since).limit(1);
+  const again = (recent ?? []) as { id: string }[];
+  if (again.length) return again[0].id;
+  const { data, error } = await db.from(TABLE).insert({
     agent_id: viewer.agentId, name: d.name, contact: d.contact, note: d.note,
-    consent_at: new Date().toISOString(), age: form.age, sex: form.sex,
-    gaps, first_area: firstGap(snapshot.plan, gaps), input: form, snapshot,
+    consent_at: new Date().toISOString(), ...checkColumns(form, snapshot),
   }).select("id").single();
   if (error || !data) throw new Error(`เก็บรายชื่อไม่ได้: ${error?.message ?? "ไม่มีข้อมูลกลับมา"}`);
   return (data as { id: string }).id;
+}
+
+/**
+ * Replaces a saved customer's check with a corrected one, when the agent asks (owner, 2026-10-22,
+ * mockup MGFQ7GbQGeBxhUVisLjtij ข). Name, contact, note, consent and the first day stay.
+ */
+export async function updateCustomerCheck(
+  viewer: Viewer,
+  id: string,
+  ownerMay: boolean,
+  form: FhcInput,
+  snapshot: Snapshot,
+): Promise<boolean> {
+  if (!UUID.test(id)) return false;
+  let q = supabaseAdmin().from(TABLE).update(checkColumns(form, { ...snapshot, updatedAt: new Date().toISOString() })).eq("id", id);
+  if (!ownerMay) q = q.eq("agent_id", viewer.agentId);
+  const { data, error } = await q.select("id");
+  if (error) throw new Error(`อัปเดตผลไม่ได้: ${error.message}`);
+  return (data ?? []).length > 0;
 }
 
 /** Newest first. The owner may ask for everyone's. */

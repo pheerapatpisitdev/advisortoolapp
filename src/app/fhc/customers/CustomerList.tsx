@@ -1,8 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { formatBaht } from "@/calc/money";
-import { AREA_LABEL, GAP_WORD } from "@/lib/fhc/gaps";
+import { AREA_LABEL, GAP_WORD, offerMonthly, offerPrice } from "@/lib/fhc/gaps";
 import type { AreaKey } from "@/lib/plan/recommend";
 import type { CustomerRow } from "@/lib/fhc/customers";
 import { PILL } from "./pill";
@@ -28,7 +27,7 @@ export function CustomerList({ rows, names }: { rows: CustomerRow[]; names: Reco
       <section className="rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-6 text-sm leading-relaxed text-[var(--lg-mute)]">
         <p className="text-[var(--lg-white)]">ยังไม่มีลูกค้าในรายชื่อ</p>
         <p className="mt-2">
-          เปิดหน้า Financial Health Check เลือก “ตัวแทนทำกับลูกค้า” กรอกด้วยกัน แล้วใส่ชื่อลูกค้าพร้อมติ๊กยินยอมที่ท้ายฟอร์ม
+          เปิดหน้า Financial Health Check กรอกด้วยกันกับลูกค้า แล้วใส่ชื่อพร้อมติ๊กยินยอมที่ท้ายฟอร์ม
           ลูกค้าจะมาอยู่ตรงนี้
         </p>
       </section>
@@ -92,7 +91,7 @@ export function CustomerList({ rows, names }: { rows: CustomerRow[]; names: Reco
                     {first ? (
                       <>
                         <span className="text-[var(--lg-gold)]">เริ่มที่:</span> {AREA_LABEL[first.key]}
-                        {first.product && <> · {first.product}{first.annual ? ` ${formatBaht(first.annual)} บาท` : ""}</>}
+                        {first.product && <> · {first.product}{first.annual ? ` ${offerPrice(first)} (${offerMonthly(first)})` : ""}</>}
                       </>
                     ) : (
                       "ครบทุกด้าน ไม่ต้องตามเรื่องประกัน"
