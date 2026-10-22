@@ -1,5 +1,6 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { readCalcStart } from "@/lib/calc-start";
 import { MoneyInput } from "@/components/MoneyInput";
 import { InsuredFields } from "@/components/InsuredFields";
 import {
@@ -66,6 +67,14 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
   const [mode, setMode] = useState<PensionMode>("annual");
   const [basis, setBasis] = useState<PensionBasis>("monthlyPension");
   const [amount, setAmount] = useState<number | "">(10_000);
+
+  // สำรวจความคุ้มครอง's summary opens this with the customer's age, sex and yearly budget (owner, 2026-10-22)
+  useEffect(() => {
+    const s = readCalcStart(window.location.search, { min: PENSION_LIMITS.ageMin, max: PENSION_LIMITS.ageMax }, { min: 1, max: 20_000_000 });
+    if (s.age !== undefined) setAge(s.age);
+    if (s.sex) setSex(s.sex);
+    if (s.premium !== undefined) { setMode("annual"); setBasis("premium"); setAmount(s.premium); }
+  }, []);
   // riders: WP and PB are one or the other, so they share a single choice
   const [waiver, setWaiver] = useState<"none" | "WP" | "PB">("none");
   const [waiverOption, setWaiverOption] = useState<WaiverOption>("FIT");

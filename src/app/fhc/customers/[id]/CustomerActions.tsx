@@ -9,7 +9,8 @@ import { moveFhcCustomer, removeFhcCustomer } from "../actions";
 
 const BTN = "rounded-sm border py-3 text-sm";
 
-export function CustomerActions({ id, name, message, owner }: { id: string; name: string; message: string; owner: boolean }) {
+/** `video`: a สำรวจความคุ้มครอง customer has no check to make a clip of */
+export function CustomerActions({ id, name, message, owner, video = true }: { id: string; name: string; message: string; owner: boolean; video?: boolean }) {
   const router = useRouter();
   const [sure, setSure] = useState(false);
   const [code, setCode] = useState("");
@@ -45,7 +46,7 @@ export function CustomerActions({ id, name, message, owner }: { id: string; name
   return (
     <section className="space-y-3 print:hidden">
       <div className="grid gap-2 sm:grid-cols-2">
-        <Link href={fhcVideoHref(id)} className={`${BTN} lg-metal-face border-[var(--lg-gold)] text-center font-medium sm:col-span-2`}>สร้างวิดีโอสรุป</Link>
+        {video && <Link href={fhcVideoHref(id)} className={`${BTN} lg-metal-face border-[var(--lg-gold)] text-center font-medium sm:col-span-2`}>สร้างวิดีโอสรุป</Link>}
         <button type="button" onClick={line} className={`${BTN} border-[var(--lg-gold)] text-[var(--lg-gold)]`}>ส่งไป LINE</button>
         <button type="button" onClick={copy} className={`${BTN} border-[var(--lg-gold)] text-[var(--lg-gold)]`}>คัดลอกข้อความ</button>
       </div>

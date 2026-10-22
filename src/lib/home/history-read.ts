@@ -63,7 +63,7 @@ export async function readHistoryOf(
     read("clips", mine(db.from("ins_quote_videos").select("id, agent_id, created_at, input, customer_name, status"))
       .is("deleted_at", null).gte("created_at", lo).lt("created_at", hi)
       .order("created_at", { ascending: false }).limit(limit)),
-    read("fhc", mine(db.from("ins_fhc_customers").select("id, agent_id, created_at, name, gaps"))
+    read("fhc", mine(db.from("ins_fhc_customers").select("id, agent_id, created_at, name, gaps, kind"))
       .gte("created_at", lo).lt("created_at", hi)
       .order("created_at", { ascending: false }).limit(limit)),
     read("thumbnails", mine(db.from("ins_thumbnail_history").select("id, agent_id, created_at"))
@@ -118,7 +118,7 @@ export async function readHistoryOf(
       };
     }),
     customers: customers.map((r) => ({
-      id: str(r.id), createdAt: str(r.created_at), name: str(r.name), gaps: isGap(r.gaps) ? r.gaps : [],
+      id: str(r.id), createdAt: str(r.created_at), name: str(r.name), gaps: isGap(r.gaps) ? r.gaps : [], survey: r.kind === "survey",
     })),
     thumbnails: thumbnails.map((r) => ({ id: str(r.id), createdAt: str(r.created_at) })),
     readings: readings.map((r) => ({ id: str(r.id), createdAt: str(r.created_at), summary: str(r.summary_th) })),

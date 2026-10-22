@@ -4,11 +4,12 @@ import { useState } from "react";
 import { AREA_LABEL, GAP_WORD, offerMonthly, offerPrice } from "@/lib/fhc/gaps";
 import type { AreaKey } from "@/lib/plan/recommend";
 import type { CustomerRow } from "@/lib/fhc/customers";
+import { WORRY_LABEL, thaiDay } from "@/lib/survey/answers";
 import { PILL } from "./pill";
 
-/** The agent's customers, newest first, with the four covers counted and filterable. */
+/** The agent's customers, newest first, with the four covers counted and filterable; สำรวจความคุ้มครอง customers show their meeting instead. */
 
-type Filter = "all" | AreaKey;
+type Filter = "all" | "survey" | AreaKey;
 const AREAS: AreaKey[] = ["life", "health", "ci", "retire"];
 const WORD_FOR_FILTER: Record<AreaKey, string> = {
   life: "ขาดชีวิต", health: "ขาดสุขภาพ", ci: "ขาดโรคร้ายแรง", retire: "เกษียณไม่พอ",
@@ -20,7 +21,8 @@ const thaiDate = (iso: string) =>
 
 export function CustomerList({ rows, names }: { rows: CustomerRow[]; names: Record<string, string> | null }) {
   const [filter, setFilter] = useState<Filter>("all");
-  const shown = filter === "all" ? rows : rows.filter((r) => open(r, filter));
+  const shown = filter === "all" ? rows : filter === "survey" ? rows.filter((r) => r.kind === "survey") : rows.filter((r) => open(r, filter));
+  const surveys = rows.filter((r) => r.kind === "survey").length;
 
   if (rows.length === 0) {
     return (
@@ -50,7 +52,7 @@ export function CustomerList({ rows, names }: { rows: CustomerRow[]; names: Reco
       </div>
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="กรองตามที่ขาด">
-        {([["all", "ทั้งหมด"], ...AREAS.map((k) => [k, WORD_FOR_FILTER[k]])] as [Filter, string][]).map(([k, label]) => (
+        {([["all", "ทั้งหมด"], ...AREAS.map((k) => [k, WORD_FOR_FILTER[k]]), ...(surveys ? [["survey", `สำรวจ ${surveys}`]] : [])] as [Filter, string][]).map(([k, label]) => (
           <button
             key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}
             className={`rounded-full border px-3.5 py-1.5 text-sm ${
@@ -80,6 +82,13 @@ export function CustomerList({ rows, names }: { rows: CustomerRow[]; names: Reco
                       {r.sex === "F" ? "หญิง" : "ชาย"} {r.age} · {thaiDate(r.createdAt)}
                     </span>
                   </div>
+                  {r.kind === "survey" ? (
+                    <p className="text-sm text-[var(--lg-mute)]">
+                      <span className="mr-1.5 rounded-sm border border-[var(--lg-gold)] px-1.5 py-0.5 text-xs text-[var(--lg-gold)]">สำรวจ</span>
+                      {r.meet ? <>นัด {thaiDay(r.meet.date)} {r.meet.time} น.</> : "ยังไม่มีนัด"}
+                      {r.top && <> · ห่วง{WORRY_LABEL[r.top]}</>}
+                    </p>
+                  ) : (<>
                   <div className="flex flex-wrap gap-1.5">
                     {r.gaps.map((g) => (
                       <span key={g.key} className={`${PILL.base} ${PILL[g.state]}`}>
@@ -97,6 +106,7 @@ export function CustomerList({ rows, names }: { rows: CustomerRow[]; names: Reco
                       "ครบทุกด้าน ไม่ต้องตามเรื่องประกัน"
                     )}
                   </p>
+                  </>)}
                   {names && <p className="text-xs text-[var(--lg-mute)]">ตัวแทน: {names[r.agentId] ?? "ไม่ทราบชื่อ"}</p>}
                 </Link>
               </li>

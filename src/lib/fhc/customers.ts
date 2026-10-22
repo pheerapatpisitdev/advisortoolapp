@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { EventRow, FhcFigures, FhcInput, Score } from "./health";
 import { firstGap, gapsOf, isGap, type Gap } from "./gaps";
 import type { AreaKey, PlanResult } from "@/lib/plan/recommend";
+import type { SurveyAnswers, WorryKey } from "@/lib/survey/answers";
 
 /**
  * Customers an agent saved from the Financial Health Check. Every call takes the signed-in
@@ -12,7 +13,8 @@ import type { AreaKey, PlanResult } from "@/lib/plan/recommend";
 
 const TABLE = "ins_fhc_customers";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LIGHT = "id, agent_id, created_at, name, contact, note, age, sex, gaps, first_area";
+// a survey row's meeting and top worry come out of its answers; an FHC row's are null
+const LIGHT = "id, agent_id, created_at, name, contact, note, age, sex, gaps, first_area, kind, meet_date:input->>date, meet_time:input->>time, top:input->>top";
 
 export const NAME_MAX = 100;
 export const CONTACT_MAX = 100;
@@ -45,6 +47,11 @@ export interface CustomerRow {
   sex: "M" | "F";
   gaps: Gap[];
   firstArea: AreaKey | null;
+  /** saved from the FHC check, or from สำรวจความคุ้มครอง (owner, 2026-10-22) */
+  kind: "fhc" | "survey";
+  /** a survey's meeting, yyyy-mm-dd and HH:MM, and the worry ranked top */
+  meet: { date: string; time: string } | null;
+  top: WorryKey | null;
 }
 
 export interface Snapshot {
@@ -59,15 +66,20 @@ export interface Snapshot {
 interface Raw {
   id: string; agent_id: string; created_at: string; name: string; contact: string; note: string;
   age: number; sex: string; gaps: unknown; first_area: string | null;
+  kind: string | null; meet_date: string | null; meet_time: string | null; top: string | null;
 }
 
 const AREAS: AreaKey[] = ["life", "health", "ci", "retire"];
+const WORRIES: WorryKey[] = ["health", "retire", "education", "income"];
 
 function shape(r: Raw): CustomerRow {
   return {
     id: r.id, agentId: r.agent_id, createdAt: r.created_at, name: r.name, contact: r.contact, note: r.note,
     age: r.age, sex: r.sex === "F" ? "F" : "M", gaps: isGap(r.gaps) ? r.gaps : [],
     firstArea: AREAS.find((k) => k === r.first_area) ?? null,
+    kind: r.kind === "survey" ? "survey" : "fhc",
+    meet: r.meet_date && r.meet_time ? { date: r.meet_date, time: r.meet_time } : null,
+    top: WORRIES.find((k) => k === r.top) ?? null,
   };
 }
 
@@ -104,6 +116,25 @@ export async function saveCustomer(
 }
 
 /**
+ * Saves a สำรวจความคุ้มครอง customer into the viewer's own list (owner chose the one list,
+ * 2026-10-22). The answers and meeting are the row's `input`; it has no check, so no gaps.
+ */
+export async function saveSurveyCustomer(viewer: Viewer, a: SurveyAnswers, age: number): Promise<string> {
+  const db = supabaseAdmin();
+  const since = new Date(Date.now() - RESAVE_MS).toISOString();
+  const { data: recent } = await db.from(TABLE).select("id")
+    .eq("agent_id", viewer.agentId).eq("name", a.name).eq("kind", "survey").gte("created_at", since).limit(1);
+  const again = (recent ?? []) as { id: string }[];
+  if (again.length) return again[0].id;
+  const { data, error } = await db.from(TABLE).insert({
+    agent_id: viewer.agentId, kind: "survey", name: a.name, contact: a.phone, note: a.address,
+    consent_at: new Date().toISOString(), age, sex: a.sex, gaps: [], first_area: null, input: a, snapshot: {},
+  }).select("id").single();
+  if (error || !data) throw new Error(`เก็บรายชื่อไม่ได้: ${error?.message ?? "ไม่มีข้อมูลกลับมา"}`);
+  return (data as { id: string }).id;
+}
+
+/**
  * Replaces a saved customer's check with a corrected one, when the agent asks (owner, 2026-10-22,
  * mockup MGFQ7GbQGeBxhUVisLjtij ข). Name, contact, note, consent and the first day stay.
  */
@@ -115,7 +146,8 @@ export async function updateCustomerCheck(
   snapshot: Snapshot,
 ): Promise<boolean> {
   if (!UUID.test(id)) return false;
-  let q = supabaseAdmin().from(TABLE).update(checkColumns(form, { ...snapshot, updatedAt: new Date().toISOString() })).eq("id", id);
+  let q = supabaseAdmin().from(TABLE).update(checkColumns(form, { ...snapshot, updatedAt: new Date().toISOString() }))
+    .eq("id", id).eq("kind", "fhc");
   if (!ownerMay) q = q.eq("agent_id", viewer.agentId);
   const { data, error } = await q.select("id");
   if (error) throw new Error(`อัปเดตผลไม่ได้: ${error.message}`);

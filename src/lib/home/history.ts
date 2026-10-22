@@ -52,7 +52,7 @@ export interface HistSources {
   /** ins_audit rows of putting pieces on a Page: post, schedule, reschedule, unschedule */
   posts: { id: string; at: string; action: string; pieceId: string | null; pageName: string | null; hook: string; when: string | null }[];
   videos: { id: string; createdAt: string; product: string | null; fhc: boolean; motion: boolean; customer: string; status: string; /** a คลิปตามโจทย์'s brief */ brief?: string }[];
-  customers: { id: string; createdAt: string; name: string; gaps: Gap[] }[];
+  customers: { id: string; createdAt: string; name: string; gaps: Gap[]; survey?: boolean }[];
   thumbnails: { id: string; createdAt: string }[];
   readings: { id: string; createdAt: string; summary: string }[];
   sends: { id: string; createdAt: string; campaignId: string | null; campaignName: string | null; pageName: string | null; objective: string; budgetMinor: number; currency: string; error: string | null }[];
@@ -143,7 +143,7 @@ export function buildHistory(s: HistSources): HistItem[] {
     items.push({
       key: `fhc-${c.id}`, kind: "fhc", word: KIND_WORD.fhc, at: c.createdAt,
       title: `เพิ่มลูกค้า ${c.name}`,
-      note: gapLine(c.gaps) || "ครบทุกด้านแล้ว",
+      note: c.survey ? "สำรวจความคุ้มครอง" : gapLine(c.gaps) || "ครบทุกด้านแล้ว",
       href: `/fhc/customers/${c.id}`, action: "เปิด",
     });
   }

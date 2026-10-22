@@ -341,11 +341,12 @@ export interface FhcChoice {
 /** the agent's own FHC customers for the form's list; one more when the address named another the viewer may see (the owner) */
 export async function fhcChoices(also?: string): Promise<FhcChoice[]> {
   const viewer = await requireMember();
-  const own = await listCustomers(viewer, false);
+  // a สำรวจความคุ้มครอง customer has no check to tell
+  const own = (await listCustomers(viewer, false)).filter((c) => c.kind === "fhc");
   const rows: { id: string; name: string; sex: "M" | "F"; age: number; createdAt: string; gaps: { label?: string; key: string; state: "missing" | "short" | "ok" }[] }[] = [...own];
   if (also && !own.some((c) => c.id === also)) {
     const extra = await getCustomer(viewer, also, can(viewer, "owner")).catch(() => null);
-    if (extra) rows.unshift(extra);
+    if (extra?.kind === "fhc") rows.unshift(extra);
   }
   const AREA: Record<string, string> = { life: "ชีวิต", health: "สุขภาพ", ci: "โรคร้ายแรง", retire: "เกษียณ" };
   return rows.map((c) => ({
@@ -366,7 +367,7 @@ export async function makeFhcVideo(customerId: string, withName: boolean, v: { n
   if (closed) return { ok: false, error: closed };
   if (typeof customerId !== "string") return { ok: false, error: "เลือกลูกค้า" };
   const c = await getCustomer(viewer, customerId, can(viewer, "owner")).catch(() => null);
-  if (!c) return { ok: false, error: "ไม่พบลูกค้าคนนี้ในรายชื่อ FHC ของคุณ" };
+  if (!c || c.kind !== "fhc") return { ok: false, error: "ไม่พบลูกค้าคนนี้ในรายชื่อ FHC ของคุณ" };
   const eleven = voiceAsked(v?.voice);
   const gemini = eleven ? undefined : geminiVoice(v?.gemini);
   const contact = await getContact(viewer.agentId);

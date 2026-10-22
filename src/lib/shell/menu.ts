@@ -210,6 +210,9 @@ const MEMBERSHIP: MenuLink = { href: "/membership", label: "สมาชิก",
 /** What each customer the agent kept from the Financial Health Check still lacks. */
 const FHC_CUSTOMERS: MenuLink = { href: "/fhc/customers", label: "ลูกค้า FHC ของฉัน", icon: "users", hue: "#3d3578" };
 
+/** สำรวจความคุ้มครอง (owner, 2026-10-22): the agent's own call script, ending in a meeting; its customers join the FHC list. */
+const SURVEY: MenuLink = { href: "/survey", label: "สำรวจความคุ้มครอง", icon: "calendar", hue: "#3a4a7a" };
+
 /**
  * The back office in the five jobs the owner named (2026-10-16): the API, prices and models;
  * the AI bot; the LINE account; the connections to Facebook Pages; and the history of what
@@ -339,6 +342,7 @@ export function menuGroups(signedIn: boolean, who?: Who | null): MenuGroup[] {
       // the agent's own Financial Health Check customers (owner, 2026-10-10): their work, not a
       // sales page, so up here rather than under วางแผนประกัน since 2026-10-14
       FHC_CUSTOMERS,
+      SURVEY,
       { href: "/ask", label: "ถาม AI", icon: "spark", hue: "#2b5f73" },
       // for UnitOS agents, who sign in with their code on the way in (owner, 2026-09-27)
       { href: "/studio", label: "Studio", icon: "studio", hue: "#2e5a80" },
