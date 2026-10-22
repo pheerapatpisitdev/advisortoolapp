@@ -4,6 +4,7 @@ import { Choice, Field, HEALTH_NOW, INPUT, LABEL, MoneyField, n, PANEL, type Mon
 import {
   DEFAULT_EXPECTANCY, EVENTS, MAX_PEOPLE, RELATION_LABEL, WORK_ABILITY_LABEL, type Relation, type WorkAbility,
 } from "@/lib/fhc/assumptions";
+import { gapsOf, type Gap } from "@/lib/fhc/gaps";
 import { figures, type FhcInput } from "@/lib/fhc/health";
 import {
   HOSPITAL_LABEL, LIFE_EXPECTANCY, LIFE_WANT_LABEL, PLANNER_AGE, RETIRE_AGES, type Hospital, type LifeWant, type RetireAge,
@@ -11,7 +12,8 @@ import {
 import { defaultBudget, defaultRetireMonthly, type HealthNow } from "@/lib/plan/needs";
 import Link from "next/link";
 import { explainFhc, runFhc, type FhcReply, type FhcWords } from "./actions";
-import { saveFhcCustomer } from "./customers/actions";
+import { formChanges, gapChanges, type Change } from "./changes";
+import { saveFhcCustomer, updateFhcCustomer } from "./customers/actions";
 import { FhcResult } from "./FhcResult";
 
 /**
@@ -116,12 +118,21 @@ export function Fhc() {
   const [saveContact, setSaveContact] = useState("");
   const [saveNote, setSaveNote] = useState("");
   const [consent, setConsent] = useState(false);
-  const [savedAs, setSavedAs] = useState<{ id: string; name: string } | null>(null);
+  // `form` and `gaps` are what the list holds now, to tell a re-check that differs from it
+  const [savedAs, setSavedAs] = useState<{ id: string; name: string; form: FhcInput; gaps: Gap[] } | null>(null);
   const [saveError, setSaveError] = useState("");
+  // the save runs after the result shows; editing waits for it, or a second save would add the customer twice
+  const [saving, setSaving] = useState(false);
+  // a re-check that differs from the saved one: the agent keeps the new result or the old (owner, 2026-10-22, ข)
+  const [choice, setChoice] = useState<"" | "updated" | "old">("");
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState("");
   // asked of the customer only once this check has not already been kept
   const keeping = !savedAs;
 
   const [result, setResult] = useState<Extract<FhcReply, { ok: true }> | null>(null);
+  // the form behind `result`, as it was sent
+  const [checked, setChecked] = useState<FhcInput | null>(null);
   const [words, setWords] = useState<FhcWords | null>(null);
   const [editing, setEditing] = useState(true);
   const [error, setError] = useState("");
@@ -159,6 +170,8 @@ export function Fhc() {
     const form = input;
     setError("");
     setSaveError("");
+    setUpdateError("");
+    setChoice("");
     setWords(null);
     const mine = ++seq.current;
     setPending(true);
@@ -168,13 +181,16 @@ export function Fhc() {
       setPending(false);
       if (!reply.ok) { setError(reply.error); return; }
       setResult(reply);
+      setChecked(form);
       setEditing(false);
       if (save) {
+        setSaving(true);
         const kept = await saveFhcCustomer(form, reply.plan.order, {
           name: saveName, contact: saveContact, note: saveNote, consent,
         }).catch(() => ({ ok: false as const, error: "เก็บรายชื่อไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" }));
+        setSaving(false);
         if (mine !== seq.current) return;
-        if (kept.ok) setSavedAs({ id: kept.id, name: saveName.trim() });
+        if (kept.ok) setSavedAs({ id: kept.id, name: saveName.trim(), form, gaps: gapsOf(reply.plan) });
         else setSaveError(kept.error);
       }
       requestAnimationFrame(() => document.getElementById("fhc-result")?.scrollIntoView({ behavior: "smooth" }));
@@ -186,13 +202,74 @@ export function Fhc() {
   }
 
 
+  async function keepNew() {
+    if (!savedAs || !checked || !result) return;
+    setUpdating(true);
+    setUpdateError("");
+    const r = await updateFhcCustomer(savedAs.id, checked, result.plan.order)
+      .catch(() => ({ ok: false, error: "อัปเดตผลไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" }));
+    setUpdating(false);
+    if (r.ok) {
+      setSavedAs({ ...savedAs, form: checked, gaps: gapsOf(result.plan) });
+      setChoice("updated");
+    } else {
+      setUpdateError(r.error ?? "อัปเดตผลไม่สำเร็จ");
+    }
+  }
+
+  // what this result changed from the one in the list
+  const changed: Change[] = savedAs && checked ? formChanges(savedAs.form, checked) : [];
+  const moved: Change[] = savedAs && result && changed.length ? gapChanges(savedAs.gaps, gapsOf(result.plan)) : [];
+
   if (result && !editing) {
+    const banner = "mb-4 rounded-sm border bg-[var(--lg-panel)] p-3 text-sm text-[var(--lg-white)] print:hidden";
+    const seeIt = savedAs && (
+      <Link href={`/fhc/customers/${savedAs.id}`} className="text-[var(--lg-gold)] underline">
+        {changed.length ? "ดูผลเดิม" : "ดูสรุปว่าขาดอะไร"}
+      </Link>
+    );
     return (
       <div id="fhc-result" className="scroll-mt-20">
-        {savedAs && (
-          <p role="status" className="mb-4 rounded-sm border border-[var(--lg-gold)] bg-[var(--lg-panel)] p-3 text-sm text-[var(--lg-white)] print:hidden">
-            เก็บคุณ{savedAs.name}เข้ารายชื่อของคุณแล้ว{" "}
-            <Link href={`/fhc/customers/${savedAs.id}`} className="text-[var(--lg-gold)] underline">ดูสรุปว่าขาดอะไร</Link>
+        {saving && (
+          <p role="status" className={`${banner} border-[var(--lg-gold)]`}>กำลังเก็บคุณ{saveName.trim()}เข้ารายชื่อ…</p>
+        )}
+        {savedAs && !changed.length && (
+          <p role="status" className={`${banner} border-[var(--lg-gold)]`}>
+            {choice === "updated" ? `อัปเดตผลของคุณ${savedAs.name}ในรายชื่อแล้ว` : `เก็บคุณ${savedAs.name}เข้ารายชื่อของคุณแล้ว`} {seeIt}
+          </p>
+        )}
+        {savedAs && changed.length > 0 && choice !== "old" && (
+          <div role="status" className={`${banner} space-y-3 border-[var(--bot-sand-line)]`}>
+            <p className="font-medium">ผลนี้ต่างจากที่เก็บไว้ของคุณ{savedAs.name}</p>
+            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 tabular-nums">
+              {[...changed.slice(0, 5), ...moved].map((c) => (
+                <div key={c.label} className="contents">
+                  <dt className="text-[var(--lg-mute)]">{c.label}</dt>
+                  <dd className="text-right"><s className="text-[var(--lg-mute)]">{c.from}</s> → {c.to}</dd>
+                </div>
+              ))}
+            </dl>
+            {changed.length > 5 && <p className="text-xs text-[var(--lg-mute)]">และอีก {changed.length - 5} ช่องที่แก้</p>}
+            {updateError && <p role="alert" className="text-[var(--bot-red)]">{updateError}</p>}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button" onClick={keepNew} disabled={updating}
+                className="lg-metal-face rounded-sm border border-[var(--lg-gold)] py-2.5 font-medium disabled:opacity-60"
+              >
+                {updating ? "กำลังอัปเดต…" : "อัปเดตผลในรายชื่อ"}
+              </button>
+              <button
+                type="button" onClick={() => setChoice("old")} disabled={updating}
+                className="rounded-sm border border-[var(--lg-panel-line)] py-2.5 text-[var(--lg-mute)] disabled:opacity-60"
+              >
+                เก็บผลเดิมไว้
+              </button>
+            </div>
+          </div>
+        )}
+        {savedAs && changed.length > 0 && choice === "old" && (
+          <p role="status" className={`${banner} border-[var(--lg-panel-line)]`}>
+            ในรายชื่อยังเป็นผลเดิมของคุณ{savedAs.name} {seeIt}
           </p>
         )}
         {saveError && (
@@ -203,6 +280,7 @@ export function Fhc() {
         <FhcResult
           result={result} words={words} interviewer={interviewer} idate={idate}
           names={people.map((p) => p.name.trim())}
+          editLocked={saving || updating}
           onEdit={() => { setEditing(true); window.scrollTo({ top: 0 }); }}
         />
       </div>
@@ -398,7 +476,7 @@ export function Fhc() {
         {keeping && (
           <Card title="เก็บเข้ารายชื่อลูกค้าของฉัน" className="sm:col-span-2">
             <p className="text-xs leading-relaxed text-[var(--lg-mute)]">
-              ชื่อ ข้อมูลที่กรอก และผลตรวจนี้จะถูกเก็บไว้ในบัญชีของคุณ เห็นเฉพาะคุณ ไม่ติ๊กก็ตรวจอย่างเดียวได้ ไม่มีอะไรถูกเก็บ
+              ชื่อ ข้อมูลที่กรอก และผลตรวจนี้จะถูกเก็บไว้ในบัญชีของคุณ เห็นได้เฉพาะคุณกับผู้ดูแลระบบ ไม่ติ๊กก็ตรวจอย่างเดียวได้ ระบบจะไม่เก็บชื่อและช่องทางติดต่อ
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="ชื่อลูกค้า">
@@ -414,10 +492,16 @@ export function Fhc() {
             <label className="flex items-start gap-3 text-sm text-[var(--lg-white)]" htmlFor="fhc-save-consent">
               <input id="fhc-save-consent" type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
               <span>
-                ลูกค้ายินยอมให้เก็บชื่อ ข้อมูลที่กรอก และผลตรวจนี้ไว้กับตัวแทนผู้ดูแล เพื่อติดต่อและเสนอแบบประกัน ลูกค้าขอลบได้ทุกเมื่อ
+                ลูกค้ายินยอมให้เก็บชื่อ ข้อมูลที่กรอก และผลตรวจนี้ไว้กับตัวแทนผู้ดูแลและผู้ดูแลระบบ เพื่อติดต่อและเสนอแบบประกัน ลูกค้าขอลบได้ทุกเมื่อ
               </span>
             </label>
           </Card>
+        )}
+
+        {savedAs && (
+          <p className={`${PANEL} text-sm leading-relaxed text-[var(--lg-white)] sm:col-span-2`}>
+            คุณ{savedAs.name} อยู่ในรายชื่อของคุณแล้ว ตรวจใหม่แล้วเลือกได้ว่าจะอัปเดตผลหรือไม่
+          </p>
         )}
 
         <Card title="ผู้ทำแบบสอบถาม" className="sm:col-span-2">

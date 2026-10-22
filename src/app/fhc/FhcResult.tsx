@@ -21,12 +21,14 @@ const WORD: Record<Level, string> = { green: "ดี", yellow: "ควรปร�
 
 const BOX = "rounded-sm border border-[var(--lg-hair)] bg-[var(--lg-panel)] p-4";
 
-export function FhcResult({ result, words, interviewer, idate, names, onEdit }: {
+export function FhcResult({ result, words, interviewer, idate, names, editLocked = false, onEdit }: {
   result: Extract<FhcReply, { ok: true }>;
   words: FhcWords | null;
   interviewer: string;
   idate: string;
   names: string[];
+  /** while the customer is being saved or updated: editing now would save them twice */
+  editLocked?: boolean;
   onEdit: () => void;
 }) {
   const { scores, events, plan, figures } = result;
@@ -120,8 +122,8 @@ export function FhcResult({ result, words, interviewer, idate, names, onEdit }: 
           ส่งไป LINE
         </button>
         <button
-          type="button" onClick={onEdit}
-          className="rounded-sm border border-[var(--lg-panel-line)] py-3 text-sm text-[var(--lg-mute)]"
+          type="button" onClick={onEdit} disabled={editLocked}
+          className="rounded-sm border border-[var(--lg-panel-line)] py-3 text-sm text-[var(--lg-mute)] disabled:opacity-45"
         >
           แก้ข้อมูลแล้วตรวจใหม่
         </button>

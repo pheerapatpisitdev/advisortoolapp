@@ -27,7 +27,7 @@ export default async function FhcCustomersPage({ searchParams }: { searchParams:
         <p className="text-sm text-[var(--lg-mute)]">Financial Health Check</p>
         <h1 className="lg-figure mt-2 text-3xl leading-tight text-[var(--lg-white)]">{all ? "ลูกค้า FHC ของทุกคน" : "ลูกค้า FHC ของฉัน"}</h1>
         <p className="mt-3 text-sm leading-relaxed text-[var(--lg-mute)]">
-          ลูกค้าที่คุณเก็บชื่อไว้ตอนทำแบบสอบถามด้วยกัน เห็นเฉพาะคุณ ป้ายแต่ละใบบอกว่าลูกค้ายังขาด หรือมีแต่ไม่พอในด้านไหน
+          ลูกค้าที่คุณเก็บชื่อไว้ตอนทำแบบสอบถามด้วยกัน เห็นได้เฉพาะคุณกับผู้ดูแลระบบ ป้ายแต่ละใบบอกว่าลูกค้ายังขาด หรือมีแต่ไม่พอในด้านไหน
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-sm">
           <Link href="/fhc" className="lg-metal-face rounded-sm border border-[var(--lg-gold)] px-4 py-2 font-medium">ทำแบบสอบถามใหม่</Link>
