@@ -1,5 +1,6 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { readCalcStart } from "@/lib/calc-start";
 import { MoneyInput } from "@/components/MoneyInput";
 import { Highlighted } from "@/components/Highlighted";
 import { SiteCredit } from "@/components/sales/SiteCredit";
@@ -48,6 +49,13 @@ export function GlobalSavingCalculator() {
   const [age, setAge] = useState(35);
   const [basis, setBasis] = useState<GsBasis>("premium");
   const [amount, setAmount] = useState<number | "">(50_000);
+
+  // สำรวจความคุ้มครอง's summary opens this with the customer's age and yearly budget (owner, 2026-10-22)
+  useEffect(() => {
+    const s = readCalcStart(window.location.search, { min: GS_AGE_MIN, max: GS_AGE_MAX }, { min: GS_MIN_PREMIUM, max: GS_MAX_PREMIUM });
+    if (s.age !== undefined) setAge(s.age);
+    if (s.premium !== undefined) { setBasis("premium"); setAmount(s.premium); }
+  }, []);
 
   const q = useMemo(() => (amount === "" || amount <= 0 ? null : quoteGlobalSaving({ basis, amount, age })), [basis, amount, age]);
 

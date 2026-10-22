@@ -7,6 +7,9 @@ import { getCustomer } from "@/lib/fhc/customers";
 import { AREA_LABEL, GAP_WORD, offerPrice } from "@/lib/fhc/gaps";
 import { cleanFhc } from "@/lib/fhc/health";
 import { lineText } from "@/lib/fhc/share";
+import { bangkokToday, isSurvey } from "@/lib/survey/answers";
+import { summarize, summaryText } from "@/lib/survey/summary";
+import { SurveySummary } from "../../../survey/SurveySummary";
 import { ScoreBoard } from "../../ScoreBoard";
 import { PILL } from "../pill";
 import { CustomerActions } from "./CustomerActions";
@@ -30,6 +33,31 @@ export default async function FhcCustomerPage({ params }: { params: Promise<{ id
   if (!c) notFound();
   const { snapshot } = c;
   const thaiDay = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Bangkok" });
+
+  // a สำรวจความคุ้มครอง customer: the สรุปก่อนนัด in place of a check (owner, 2026-10-22)
+  if (c.kind === "survey") {
+    const a = isSurvey(c.input) ? c.input : null;
+    // ages and links as of the day the survey was saved
+    const day = new Date(c.createdAt).toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+    const s = a ? summarize(a, day) : null;
+    return (
+      <main className="mx-auto max-w-lg space-y-4 px-4 pb-28 sm:max-w-3xl sm:pb-10">
+        <CustomerHeader
+          id={c.id} name={c.name} contact={c.contact} note={c.note}
+          meta={<>{c.sex === "F" ? "หญิง" : "ชาย"} อายุ {c.age} · สำรวจความคุ้มครองเมื่อ {thaiDay(c.createdAt)}</>}
+        />
+        {a && s ? (
+          <>
+            <h2 className="text-base font-medium text-[var(--lg-white)]">สรุปก่อนนัด{a.date < bangkokToday() ? " (เลยวันนัดแล้ว)" : ""}</h2>
+            <SurveySummary a={a} s={s} />
+          </>
+        ) : (
+          <p className={`${BOX} text-sm text-[var(--lg-mute)]`}>อ่านคำตอบของลูกค้าคนนี้ไม่ได้</p>
+        )}
+        <CustomerActions id={c.id} name={c.name} message={a && s ? summaryText(a, s) : c.name} owner={owner} video={false} />
+      </main>
+    );
+  }
   const date = thaiDay(c.createdAt);
   const first = c.gaps.find((g) => g.key === c.firstArea);
   // worked from the saved form and plan each time, so customers saved before this was written show it too
