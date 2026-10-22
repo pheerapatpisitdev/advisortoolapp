@@ -24,13 +24,13 @@ export interface Details {
   note: string;
 }
 
-/** The saved details made safe, or the sentence to show when they cannot be. */
-export function cleanDetails(raw: unknown): Details | string {
+/** The saved details made safe, or the sentence to show when they cannot be. An edit asks no consent again: it was given when the customer was saved. */
+export function cleanDetails(raw: unknown, needConsent = true): Details | string {
   const r = (raw ?? {}) as Record<string, unknown>;
   const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
   const name = text(r.name, NAME_MAX);
   if (!name) return "ใส่ชื่อลูกค้าก่อนนะครับ";
-  if (r.consent !== true) return "ต้องได้รับความยินยอมจากลูกค้าก่อนเก็บชื่อ";
+  if (needConsent && r.consent !== true) return "ต้องได้รับความยินยอมจากลูกค้าก่อนเก็บชื่อ";
   return { name, contact: text(r.contact, CONTACT_MAX), note: text(r.note, NOTE_MAX) };
 }
 
@@ -122,6 +122,16 @@ export async function updateCustomerCheck(
   return (data ?? []).length > 0;
 }
 
+/** Corrects the name, contact and note (owner, 2026-10-22, mockup J1QgqER7XRAXde4AyTeEkr); the check and the consent stay. */
+export async function updateCustomerDetails(viewer: Viewer, id: string, ownerMay: boolean, d: Details): Promise<boolean> {
+  if (!UUID.test(id)) return false;
+  let q = supabaseAdmin().from(TABLE).update({ name: d.name, contact: d.contact, note: d.note }).eq("id", id);
+  if (!ownerMay) q = q.eq("agent_id", viewer.agentId);
+  const { data, error } = await q.select("id");
+  if (error) throw new Error(`แก้ข้อมูลไม่ได้: ${error.message}`);
+  return (data ?? []).length > 0;
+}
+
 /** Newest first. The owner may ask for everyone's. */
 export async function listCustomers(viewer: Viewer, all: boolean): Promise<CustomerRow[]> {
   let q = supabaseAdmin().from(TABLE).select(LIGHT).order("created_at", { ascending: false }).limit(1000);
@@ -131,15 +141,15 @@ export async function listCustomers(viewer: Viewer, all: boolean): Promise<Custo
   return ((data ?? []) as Raw[]).map(shape);
 }
 
-/** One customer with the check as it stood the day it was saved, or null if the viewer may not see it. */
-export async function getCustomer(viewer: Viewer, id: string, ownerMay: boolean): Promise<(CustomerRow & { snapshot: Snapshot }) | null> {
+/** One customer with the check as it stood the day it was saved (and the form it came from), or null if the viewer may not see it. */
+export async function getCustomer(viewer: Viewer, id: string, ownerMay: boolean): Promise<(CustomerRow & { snapshot: Snapshot; input: unknown }) | null> {
   if (!UUID.test(id)) return null;
-  const { data, error } = await supabaseAdmin().from(TABLE).select(`${LIGHT}, snapshot`).eq("id", id).maybeSingle();
+  const { data, error } = await supabaseAdmin().from(TABLE).select(`${LIGHT}, snapshot, input`).eq("id", id).maybeSingle();
   if (error) throw new Error(`อ่านรายชื่อไม่ได้: ${error.message}`);
   if (!data) return null;
-  const row = data as Raw & { snapshot: Snapshot };
+  const row = data as Raw & { snapshot: Snapshot; input: unknown };
   if (!owns(viewer, row.agent_id) && !ownerMay) return null;
-  return { ...shape(row), snapshot: row.snapshot };
+  return { ...shape(row), snapshot: row.snapshot, input: row.input };
 }
 
 export async function deleteCustomer(viewer: Viewer, id: string, ownerMay: boolean): Promise<boolean> {

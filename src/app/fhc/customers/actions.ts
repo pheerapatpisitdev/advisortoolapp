@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { can } from "@/lib/auth/access";
 import { agentsByCode, requireMember } from "@/lib/auth/viewer";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
-import { deleteCustomer, cleanDetails, moveCustomer, saveCustomer, updateCustomerCheck, type Snapshot } from "@/lib/fhc/customers";
+import {
+  deleteCustomer, cleanDetails, moveCustomer, saveCustomer, updateCustomerCheck, updateCustomerDetails, type Snapshot,
+} from "@/lib/fhc/customers";
 import { cleanFhc, events, figures, scores, toPlanInput, type FhcInput } from "@/lib/fhc/health";
 import { FIXED_PICK, isOrder } from "@/lib/plan/order";
 import { realPricer } from "@/lib/plan/pricer";
@@ -62,6 +64,23 @@ export async function updateFhcCustomer(id: string, raw: unknown, order: unknown
   } catch (e) {
     console.error("fhc customer not updated:", e);
     return { ok: false, error: "อัปเดตผลไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
+  }
+}
+
+/** The name, contact and note corrected from the customer's page; nothing else changes. */
+export async function editFhcCustomer(id: string, details: unknown): Promise<{ ok: boolean; error?: string }> {
+  const viewer = await requireMember().catch(() => null);
+  if (!viewer) return { ok: false, error: "เข้าสู่ระบบก่อน" };
+  const d = cleanDetails(details, false);
+  if (typeof d === "string") return { ok: false, error: d };
+  try {
+    const done = await updateCustomerDetails(viewer, String(id), can(viewer, "owner"), d);
+    revalidatePath("/fhc/customers");
+    revalidatePath(`/fhc/customers/${id}`);
+    return done ? { ok: true } : { ok: false, error: "ไม่พบรายชื่อนี้" };
+  } catch (e) {
+    console.error("fhc customer details not saved:", e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" };
   }
 }
 

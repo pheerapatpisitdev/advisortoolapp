@@ -32,7 +32,7 @@ const db = vi.hoisted(() => {
 });
 vi.mock("@/lib/supabase/admin", () => ({ supabaseAdmin: () => db.client }));
 
-const { saveCustomer, updateCustomerCheck } = await import("@/lib/fhc/customers");
+const { saveCustomer, updateCustomerCheck, updateCustomerDetails } = await import("@/lib/fhc/customers");
 const { cleanFhc } = await import("@/lib/fhc/health");
 
 const AGENT = "11111111-1111-4111-8111-111111111111";
@@ -78,5 +78,20 @@ describe("updateCustomerCheck", () => {
     db.set([], []);
     expect(await updateCustomerCheck(viewer, ID, false, form, snapshot)).toBe(false);
     expect(await updateCustomerCheck(viewer, "not-an-id", false, form, snapshot)).toBe(false);
+  });
+});
+
+describe("updateCustomerDetails", () => {
+  it("changes the name, contact and note only, on the agent's own row", async () => {
+    db.set([], [{ id: ID }]);
+    expect(await updateCustomerDetails(viewer, ID, false, { name: "สมชาย ใจดี", contact: "089-555-0142", note: "" })).toBe(true);
+    const set = db.calls.find((c) => c.op === "update")!.args[0] as Record<string, unknown>;
+    expect(set).toEqual({ name: "สมชาย ใจดี", contact: "089-555-0142", note: "" });
+    expect(db.calls).toContainEqual({ op: "update.eq", args: ["agent_id", AGENT] });
+  });
+
+  it("says no for another agent's row", async () => {
+    db.set([], []);
+    expect(await updateCustomerDetails(viewer, ID, false, { name: "x", contact: "", note: "" })).toBe(false);
   });
 });

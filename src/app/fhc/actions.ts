@@ -2,6 +2,7 @@
 import { headers } from "next/headers";
 import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { getViewer } from "@/lib/auth/viewer";
+import { afterPlan, type AfterPlan } from "@/lib/fhc/after";
 import {
   cleanFhc, events, figures, scores, toPlanInput, type EventRow, type FhcFigures, type Score,
 } from "@/lib/fhc/health";
@@ -26,7 +27,7 @@ const allowRun = limiter(20, 60_000);
 const allowExplain = limiter(6, 60_000);
 
 export type FhcReply =
-  | { ok: true; figures: FhcFigures; scores: Score[]; events: EventRow[]; plan: PlanResult }
+  | { ok: true; figures: FhcFigures; scores: Score[]; after: AfterPlan | null; events: EventRow[]; plan: PlanResult }
   | { ok: false; error: string };
 
 export async function runFhc(raw: unknown): Promise<FhcReply> {
@@ -38,7 +39,7 @@ export async function runFhc(raw: unknown): Promise<FhcReply> {
   const plan = recommend(p, realPricer(p.age, p.sex), await pickOrder(p));
   const sc = scores(f);
   await logRun({ ...p, from: "fhc", fhc: f }, { ...plan, scores: sc });
-  return { ok: true, figures: figures(f), scores: sc, events: events(f, sc, plan), plan };
+  return { ok: true, figures: figures(f), scores: sc, after: afterPlan(f, plan, sc), events: events(f, sc, plan), plan };
 }
 
 export interface FhcWords {

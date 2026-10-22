@@ -1,6 +1,7 @@
 import { formatBaht } from "@/calc/money";
 import { INSURER } from "@/lib/insurer";
 import type { PlanResult } from "@/lib/plan/recommend";
+import { tally, type AfterPlan } from "./after";
 import type { EventRow, FhcFigures, Level, Score } from "./health";
 import type { FhcSummary } from "./summary";
 
@@ -12,16 +13,18 @@ const baht = (n: number) => Math.round(n).toLocaleString("en-US");
 export const DISCLAIMER =
   `ตัวเลขเป็นการประมาณเบื้องต้นจากข้อมูลที่กรอก ไม่ใช่ข้อเสนอขาย เบี้ยจริงขึ้นกับการพิจารณารับประกันของบริษัท · รับประกันโดย ${INSURER}`;
 
-export function lineText({ figures, scores, events, plan, summary }: {
-  figures: FhcFigures; scores: Score[]; events: EventRow[]; plan: PlanResult; summary?: FhcSummary | null;
+export function lineText({ figures, scores, after, events, plan, summary }: {
+  figures: FhcFigures; scores: Score[]; after?: AfterPlan | null; events: EventRow[]; plan: PlanResult; summary?: FhcSummary | null;
 }): string {
   const offers = plan.areas.filter((a) => a.offer && (a.status === "fits" || a.status === "reduced"));
+  const will = after ? tally(after.scores) : null;
   return [
     "📋 Financial Health Check",
     ...(summary ? ["", summary.start] : []),
     "",
     "━━ สุขภาพการเงิน ━━",
     ...scores.map((s) => `${DOT[s.level]} ${s.label}: ${s.shown}`),
+    ...(will ? [`• ถ้าทำตามแผน: เขียว ${will.green} · เหลือง ${will.yellow} · แดง ${will.red}`] : []),
     `• สินทรัพย์สุทธิ ${baht(figures.netWorth)} บาท · ค่าความสามารถในการทำงาน ${baht(figures.lifetimeIncome)} บาท`,
     "",
     "━━ 5 เหตุการณ์ควบคุมไม่ได้ ━━",

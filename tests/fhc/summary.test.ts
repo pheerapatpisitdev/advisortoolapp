@@ -78,5 +78,16 @@ describe("lineText", () => {
     expect(text).toContain("การตกงาน");
     expect(text).toContain("iHealthy Ultra แผนซิลเวอร์");
     expect(text).toContain("ไม่ใช่ข้อเสนอขาย");
+    expect(text).not.toContain("ถ้าทำตามแผน");
+  });
+
+  it("counts the colours the plan would leave, right under the scores", () => {
+    const sc = scores(F);
+    const after = { annual: 1_200_000, scores: sc.map((s) => ({ ...s, level: s.key === "healthCi" ? "green" as const : s.level, same: false })) };
+    const text = lineText({ figures: figures(F), scores: sc, after, events: events(F, sc, PLAN), plan: PLAN });
+    const lines = text.split("\n");
+    const at = lines.findIndex((l) => l.startsWith("• ถ้าทำตามแผน:"));
+    expect(lines[at]).toMatch(/^• ถ้าทำตามแผน: เขียว \d+ · เหลือง \d+ · แดง \d+$/);
+    expect(lines[at - 1]).toContain(sc[sc.length - 1].label);
   });
 });
