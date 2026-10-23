@@ -136,17 +136,18 @@ const SVG_PAINT = ["fill", "stroke", "stopColor"] as const;
  * The drawing repainted in a theme. Components are drawn here (they are plain functions of their
  * props, as the drawing library calls them), so every element it reaches is a plain one.
  */
-function repaint(node: ReactNode, p: Palette, under: Surface): ReactNode {
-  if (Array.isArray(node)) return node.map((n) => repaint(n, p, under));
+function repaint(node: ReactNode, p: Palette, under: Surface, st: Turn = { note: 0 }): ReactNode {
+  if (Array.isArray(node)) return node.map((n) => repaint(n, p, under, st));
   if (!isValidElement(node)) return node;
   const el = node as ReactElement<Record<string, unknown>>;
-  if (typeof el.type === "function") return repaint((el.type as (props: unknown) => ReactNode)(el.props), p, under);
+  if (typeof el.type === "function") return repaint((el.type as (props: unknown) => ReactNode)(el.props), p, under, st);
   const props = el.props;
   const kids = props.children as ReactNode;
-  if ((el.type as unknown) === Fragment) return cloneElement(el, {}, ...Children.toArray(kids).map((k) => repaint(k, p, under)));
+  if ((el.type as unknown) === Fragment) return cloneElement(el, {}, ...Children.toArray(kids).map((k) => repaint(k, p, under, st)));
   const style = props.style as Record<string, unknown> | undefined;
   const own = surfaceOf(style?.background ?? style?.backgroundColor, under);
   const next: Record<string, unknown> = {};
+  let tape = false;
   if (style) {
     const s: Record<string, unknown> = { ...style };
     for (const k of ["background", "backgroundColor"]) if (k in s) s[k] = swap(s[k], (c) => ground(p, c, under));
@@ -154,12 +155,48 @@ function repaint(node: ReactNode, p: Palette, under: Surface): ReactNode {
       if (k in s) s[k] = swap(s[k], (c) => ink(p, c, own));
     }
     if (s.fontFamily === "Plex" && p.font) s.fontFamily = p.font;
+    // โน้ตแปะ writes everything in its marker: Sriracha has no bold, and a bold line would be drawn in Plex
+    if (p.notes && s.fontWeight !== undefined) s.fontWeight = 400;
+    // a gold pill in โน้ตแปะ is a small note of its own, the first colour, tilted and taped like the cards
+    if (p.notes && own === "fill" && own !== under) {
+      Object.assign(s, { borderRadius: 6, boxShadow: NOTE_SHADOW, transform: `${typeof s.transform === "string" ? `${s.transform} ` : ""}rotate(${NOTE_TILT[st.note++ % NOTE_TILT.length]}deg)` });
+      tape = true;
+    }
+    // the outermost box of a white card, or of the subtitle's band: what กระจกใส frosts and โน้ตแปะ tapes on
+    if (own !== under && (own === "card" || own === "sub")) {
+      if (p.glass) Object.assign(s, own === "card" ? GLASS_CARD(s) : GLASS_BAND);
+      if (p.notes && own === "card") {
+        const i = st.note++;
+        Object.assign(s, { background: p.notes[i % p.notes.length], borderRadius: 6, boxShadow: NOTE_SHADOW, transform: `${typeof s.transform === "string" ? `${s.transform} ` : ""}rotate(${NOTE_TILT[i % NOTE_TILT.length]}deg)` });
+        tape = true;
+      }
+    }
     next.style = s;
   }
   for (const k of SVG_PAINT) if (typeof props[k] === "string") next[k] = swap(props[k], (col) => ink(p, col, own));
-  const children = kids === undefined ? [] : Children.toArray(kids).map((k) => repaint(k, p, own));
-  return cloneElement(el, next, ...children);
+  const children = kids === undefined ? [] : Children.toArray(kids).map((k) => repaint(k, p, own, st));
+  return cloneElement(el, next, ...children, ...(tape ? [<div key="tape" style={TAPE} />] : []));
 }
+
+/** what a repaint keeps count of across one frame: the notes handed out so far, so each takes the next colour */
+interface Turn { note: number }
+
+/**
+ * กระจกใส's frosted card: a white edge all round (a card's coloured left edge stays), light from above, a soft shadow.
+ * No backdrop blur: the ground behind is soft light already, so a blur adds almost nothing to the eye, and it made a
+ * clip three times as long to render (329 s against 107 s for a 57 s Life Protect clip, 2026-10-24).
+ */
+const GLASS_EDGE = "2px solid rgba(255,255,255,0.28)";
+const GLASS_CARD = (s: Record<string, unknown>) => ({
+  boxShadow: "0 30px 70px -28px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.32)",
+  borderTop: GLASS_EDGE, borderRight: GLASS_EDGE, borderBottom: GLASS_EDGE, borderLeft: s.borderLeft ?? GLASS_EDGE,
+});
+const GLASS_BAND = { border: "2px solid rgba(255,255,255,0.16)" };
+
+/** โน้ตแปะ's notes: lifted off the pad, each at its own small tilt, a strip of tape across the top */
+const NOTE_SHADOW = "0 2px 0 rgba(0,0,0,0.04), 0 22px 40px -18px rgba(40,30,10,0.45), 0 6px 14px rgba(40,30,10,0.12)";
+const NOTE_TILT = [-2, 1.6, -1.2, 2.2];
+const TAPE = { display: "flex", position: "absolute", top: -18, left: "50%", width: 150, height: 40, marginLeft: -75, background: "rgba(255,255,255,0.62)", boxShadow: "0 1px 3px rgba(0,0,0,0.12)", transform: "rotate(-4deg)" } as const;
 
 /** a frame in its theme; the navy looks come back as they went in */
 export function themed(frame: ReactNode, t: ThemeKey | undefined, look?: LookOf): ReactNode {
@@ -196,14 +233,42 @@ export async function themeBackground(t: ThemeKey, size: { w: number; h: number 
   }
   const x = (v: number) => Math.round((v / W) * size.w);
   const y = (v: number) => Math.round((v / MOTION_BG_H) * bgH);
+  // โน้ตแปะ's squared pad: the grid at the same size on every clip, a little lighter in the middle
+  if (p.grid) {
+    const step = Math.round((p.grid.step / 1920) * Math.max(size.w, size.h));
+    const lines = `repeating-linear-gradient(0deg, ${p.grid.line} 0 2px, transparent 2px ${step}px), repeating-linear-gradient(90deg, ${p.grid.line} 0 2px, transparent 2px ${step}px)`;
+    return <div style={{ display: "flex", position: "relative", width: size.w, height: bgH, background: `${lines}, radial-gradient(ellipse at 50% 40%, ${p.pad?.middle ?? p.ground} 0%, ${p.ground} 70%, ${p.pad?.edge ?? p.ground} 100%)` }} />;
+  }
+  // กระจกใส's light: the shapes larger and soft-edged, over a night sky darker at the foot
+  const glow = p.glow ? 1.6 : 1;
   const spots = [
-    { left: x(-200), top: y(-120), d: 720 }, { left: x(820), top: y(900), d: 520 },
-    { left: x(300), top: y(1700), d: 860 }, { left: x(-160), top: y(1250), d: 380 },
+    { left: x(-200), top: y(-120), d: 720 * glow }, { left: x(820) - 200 * (glow - 1), top: y(900), d: 520 * glow },
+    { left: x(300), top: y(1700), d: 860 * glow }, { left: x(-160), top: y(1250), d: 380 * glow },
   ];
+  const sky = p.glow ? `linear-gradient(160deg, ${p.glow.top} 0%, ${p.ground} 55%, ${p.glow.foot} 100%)` : p.ground;
   return (
-    <div style={{ display: "flex", position: "relative", width: size.w, height: bgH, background: p.ground, overflow: "hidden" }}>
-      {spots.map((s, i) => <div key={i} style={abs({ left: s.left, top: s.top, width: s.d, height: s.d, borderRadius: s.d / 2, background: p.shapes[i].color, opacity: p.shapes[i].opacity })} />)}
+    <div style={{ display: "flex", position: "relative", width: size.w, height: bgH, background: sky, overflow: "hidden" }}>
+      {spots.map((s, i) => <div key={i} style={abs({ left: s.left, top: s.top, width: s.d, height: s.d, borderRadius: s.d / 2, opacity: p.shapes[i].opacity,
+        background: p.glow ? `radial-gradient(circle, ${p.shapes[i].color} 0%, transparent 68%)` : p.shapes[i].color })} />)}
     </div>
+  );
+}
+
+/**
+ * What a look lays between its ground and the drawing, the same in every scene: กระจกใส's one big glass panel, the app
+ * screen the scene sits in. The header above it and the subtitle below it stay on the ground. Nothing for the others.
+ */
+export function themeBack(t: ThemeKey | undefined, w: number, h: number, look?: LookOf): ReactNode {
+  const p = paletteOf(t, look);
+  if (!p?.glass) return null;
+  const portrait = h > w;
+  const side = Math.round(w * (portrait ? 0.035 : 0.03));
+  const top = Math.round(h * (portrait ? 0.068 : 0.1));
+  const bottom = Math.round(h * (portrait ? 0.135 : 0.17));
+  return (
+    <div style={{ display: "flex", position: "absolute", left: side, right: side, top, bottom, borderRadius: Math.round(Math.min(w, h) * 0.05),
+      background: "rgba(255,255,255,0.07)", border: "2px solid rgba(255,255,255,0.18)",
+      boxShadow: "0 40px 90px -30px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.22)" }} />
   );
 }
 
