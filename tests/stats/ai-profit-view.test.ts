@@ -10,7 +10,7 @@ const profit = buildProfit({
     { model: "gemini-2.5-flash", task: "studio-picture", agentId: "a1", thb: 3 },
     { model: "claude-sonnet-5", task: "bot-reply", agentId: null, thb: 1 },
   ],
-  providerOf: (m) => (m.startsWith("claude") ? "anthropic" : "google"),
+  providerOf: (m) => (m?.startsWith("claude") ? "anthropic" : "google"),
   charges: [],
   owners: new Set(),
   passes: [{ satang: 19900 }],
