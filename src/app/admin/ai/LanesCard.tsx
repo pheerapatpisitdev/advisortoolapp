@@ -43,7 +43,11 @@ const UNIT: Record<LaneKey, string> = {
 
 type Draft = Record<LaneKey, LaneEntry[]>;
 
-export function LanesCard({ lanes, savable }: { lanes: LaneView[]; savable: boolean }) {
+export function LanesCard({ lanes, savable, footer }: {
+  lanes: LaneView[]; savable: boolean;
+  /** the switches that take a model out of every lane at once (./ModelSwitches.tsx) */
+  footer?: React.ReactNode;
+}) {
   const viewOf = (key: LaneKey) => lanes.find((l) => l.key === key)!;
   const saved = (): Draft => Object.fromEntries(lanes.map((l) => [l.key, l.entries])) as Draft;
   const [draft, setDraft] = useState<Draft>(saved);
@@ -198,6 +202,13 @@ export function LanesCard({ lanes, savable }: { lanes: LaneView[]; savable: bool
         </button>
       </div>
       {!savable && <p className="mt-2 text-xs text-[var(--bot-sand-ink)]">ยังบันทึกลำดับไม่ได้ ฐานข้อมูลยังไม่พร้อม ระบบใช้ลำดับเดิมไปก่อน</p>}
+      {footer && (
+        <div className="mt-5 border-t border-[var(--bot-line)] pt-4">
+          <h3 className="text-sm font-semibold">ปิดโมเดลทั้งระบบ</h3>
+          <p className="mb-2 text-xs text-[var(--bot-ink-mute)]">ปิดโมเดลที่ไม่ต้องการให้ทุกหมวดข้ามไปพร้อมกัน ต่างจากช่อง “ใช้” ด้านบนที่ข้ามเฉพาะในหมวดนั้น</p>
+          {footer}
+        </div>
+      )}
     </Card>
   );
 }
