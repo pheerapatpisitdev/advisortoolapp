@@ -337,6 +337,16 @@ export interface VideoThemePalette {
   texture?: "paper-light";
   /** ไวท์บอร์ด: each piece written in left to right behind a marker, in place of its own entrance (motion.tsx El) */
   marker?: true;
+  /** กระจกใส: white cards and the subtitle frosted over the ground, one big glass panel behind each scene (themes.tsx) */
+  glass?: true;
+  /** โน้ตแปะ: the white cards as paper notes in these colours in turn, tilted and taped (themes.tsx) */
+  notes?: string[];
+  /** a squared pad under the ground: the grid line's colour and the square's side at 1920 high */
+  grid?: { line: string; step: number };
+  /** the ground's round shapes as soft light rather than flat discs, over a sky running from top to foot */
+  glow?: { top: string; foot: string };
+  /** the squared pad's lighter middle and darker edge */
+  pad?: { middle: string; edge: string };
 }
 
 export const VIDEO_THEME_COLORS = {
@@ -355,6 +365,25 @@ export const VIDEO_THEME_COLORS = {
     subBg: "rgba(26,26,26,0.85)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#fde68a",
     font: "Sriracha", ground: "#fbfbf8", shapes: [{ color: "#f1f2ee", opacity: 0.8 }, { color: "#ffffff", opacity: 0.9 }, { color: "#eef0ec", opacity: 0.6 }, { color: "#f6f7f3", opacity: 0.8 }],
     marker: true,
+  },
+  // กระจกใส (owner chose ข first, 2026-10-23; HyperFrames sample): frosted cards on a night-blue ground lit
+  // from behind in blue, teal and violet; gold for money, mint for what comes back
+  glass: {
+    ink: "#ffffff", inkRgb: "255,255,255", accent: "#ffd36b", fill: "#ffd36b", onFill: "#1a1405",
+    card: "rgba(255,255,255,0.13)", onCard: "#ffffff", onCardRgb: "255,255,255", second: "#9fc3ff", red: "#ff8a80", green: "#7df2c4", pen: "#ff8a80", bluePen: "#9fc3ff",
+    subBg: "rgba(10,16,40,0.5)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffd36b",
+    ground: "#070d24", shapes: [{ color: "#4078ff", opacity: 0.85 }, { color: "#00d2b4", opacity: 0.6 }, { color: "#be5aff", opacity: 0.55 }, { color: "#4078ff", opacity: 0.5 }],
+    glow: { top: "#0b1a4d", foot: "#120a2e" }, glass: true,
+  },
+  // โน้ตแปะ (owner chose ก, 2026-10-23; HyperFrames sample): a squared desk pad, paper notes taped on, the marker
+  // set of a desk: black for the words, blue for the figures and lines, red for what to remember
+  sticky: {
+    ink: "#1d1f24", inkRgb: "29,31,36", accent: "#2f6fd1", fill: "#ffe36e", onFill: "#1d1f24",
+    card: "#ffe36e", onCard: "#1d1f24", onCardRgb: "29,31,36", second: "#7a8496", red: "#d23a2c", green: "#1f8a55", pen: "#d23a2c", bluePen: "#2f6fd1",
+    subBg: "rgba(29,31,36,0.92)", subInk: "#ffffff", subRgb: "255,255,255", subAccent: "#ffe36e",
+    font: "Sriracha", ground: "#f7f5ef", shapes: [],
+    grid: { line: "rgba(34,52,90,0.08)", step: 72 }, pad: { middle: "#fbfaf6", edge: "#ebe7dc" },
+    notes: ["#ffe36e", "#ffb3cf", "#a9eccb", "#b9d7ff"],
   },
 } satisfies Record<string, VideoThemePalette>;
 
@@ -459,7 +488,7 @@ export const MASCOT_COLORS = { body: "#1f5bd6", rim: "#c6bc99", eye: "#ffffff", 
 /** the rest a theme draws in: the hand-drawn faces' rings, and each theme's chip in the form */
 export const VIDEO_THEME_EXTRA = {
   paperFaceRing: "#22252b",
-  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15", board: "#fbfbf8", mine: "#0f5132" },
+  swatch: { navy: "#022162", paper: "#ece8df", festival: "#e0457b", kinetic: "#facc15", board: "#fbfbf8", mine: "#0f5132", glass: "#3a4fa8", sticky: "#ffe36e" },
   /** ไวท์บอร์ด's marker: its body, cap band and tip */
   marker: { body: "#022162", band: "#c2412d", tip: "#1a1a1a" },
 } as const;

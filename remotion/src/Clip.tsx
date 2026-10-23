@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { motionBackground, motionBgHeight, motionFrame, type MotionContext } from "@/lib/quote-video/motion";
 import { wideQuoteFrame } from "@/lib/quote-video/wide";
-import { lookFill, lookOf, mineFront, themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video/themes";
+import { lookFill, lookOf, mineFront, themeBack, themeBackground, themed, themeHero, type Hero } from "@/lib/quote-video/themes";
 import { TRANSITIONS } from "@/lib/quote-video/job";
 import { XFADE } from "@/lib/quote-video/timeline";
 import { festivalBack, festivalFront } from "@/lib/quote-video/festival-decor";
@@ -165,6 +165,7 @@ export function Clip(p: ClipProps) {
     return (
       <AbsoluteFill key={sc.key} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", left: 0, top: -y, width: w, display: "flex" }}>{got.ground}</div>
+        {themeBack(p.theme, w, h, lookOf(p))}
         {fest ? festivalBack(fest.key, T, w, h) : null}
         {/* Thai lines break at spaces only, as satori breaks them (KeepWords; owner chose ก, 2026-10-19) */}
         <KeepWords>{themed(icon ? <div style={{ display: "flex", position: "relative", width: w, height: h }}>{frameOf}{fxIcon(icon, t)}</div> : frameOf, p.theme, lookOf(p))}</KeepWords>
