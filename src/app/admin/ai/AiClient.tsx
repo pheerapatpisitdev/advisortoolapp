@@ -1,13 +1,13 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Card, Empty } from "../ui";
+import { Card } from "../ui";
 import type { VideoSettings } from "@/lib/video/settings";
 import type { RenderProvider } from "@/lib/video/render-providers";
 import { MOTION_PROVIDERS, type MotionProvider } from "@/lib/video/motion-key";
 import {
-  checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setModelEnabled, setProviderEnabled, saveSettings, resetSpend,
+  checkKeys, saveApiKey, saveRenderKey, saveVideoEngine, setProviderEnabled, saveSettings, resetSpend,
   saveMotionKey, setMotionEnabled, testMotionKey, testShotstackKey,
-  type KeyRow, type VideoKeyRow, type ModelRow, type ProviderCheck, type Result, type Settings,
+  type KeyRow, type VideoKeyRow, type ProviderCheck, type Result, type Settings,
 } from "./actions";
 import { PROVIDER_LABEL } from "./labels";
 
@@ -61,21 +61,15 @@ function Status({ check }: { check?: ProviderCheck }) {
 }
 
 
-/** How a model's kind reads on the page. A judge answers in probabilities, never in words. */
-const KIND_LABEL: Record<string, string> = { text: "ข้อความ", image: "รูปภาพ", judge: "ตัดสิน (ไม่สร้างข้อความ)" };
-
-/** The quality an image row is asked for, so one model at two prices reads as two choices. */
-const QUALITY_LABEL: Record<string, string> = { low: "คุณภาพต่ำ", medium: "คุณภาพมาตรฐาน", high: "คุณภาพสูง (คมชัด)" };
-
-export function AiClient({ keys, models, settings, providers, spentThisMonth, content, video, motion, rates, lanesCard }: {
-  keys: KeyRow[]; models: ModelRow[]; settings: Settings | null; providers: string[];
+export function AiClient({ keys, settings, providers, spentThisMonth, content, video, motion, rates, lanesCard }: {
+  keys: KeyRow[]; settings: Settings | null; providers: string[];
   spentThisMonth: number | null; content: { spent: number | null; cap: number; fallback: number };
   video: { settings: VideoSettings; keys: VideoKeyRow[] };
   /** ภาพขยับ's keys, fal.ai and Runware (owner, 2026-10-16): their own card, since they have no chat model to test */
   motion: KeyRow[];
   /** the premium tables in force (src/calc/plans/tables-meta.ts): their own card since 2026-10-15 */
   rates: { version: string; expiresOn: string; daysLeft: number; expired: boolean };
-  /** ลำดับหลักและสำรอง (./LanesCard.tsx), placed between the models and the budgets */
+  /** ลำดับหลักและสำรอง (./LanesCard.tsx) with the all-lanes model switches at its foot, placed before the budgets */
   lanesCard?: React.ReactNode;
 }) {
   const [pending, start] = useTransition();
@@ -405,35 +399,6 @@ export function AiClient({ keys, models, settings, providers, spentThisMonth, co
         <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">
           ปุ่มทดสอบแค่ถามว่ากุญแจถูกไหม ไม่ได้สั่งทำวิดีโอ จึงไม่เสียเงิน Runware บอกเครดิตที่เหลือมาด้วย ส่วน fal ไม่บอก ถ้าปิดสวิตช์ กุญแจยังเก็บไว้ แต่ระบบจะไม่เรียกเจ้านั้น
         </p>
-      </Card>
-
-      <Card title="โมเดล" hint="ปิดโมเดลที่ไม่ต้องการให้ระบบเลือกใช้">
-        {models.length === 0 ? <Empty>ยังไม่มีโมเดลในระบบ</Empty> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-[var(--bot-line)] text-left text-[var(--bot-ink-mute)]"><th className="py-2">ค่าย</th><th className="py-2 pl-3">ประเภท</th><th className="py-2 pl-3">โมเดล</th><th className="py-2 pl-3">ใช้งาน</th></tr></thead>
-              <tbody>
-                {models.map((m) => (
-                  <tr key={m.id} className="border-b border-[var(--bot-line)]">
-                    <td className="py-1.5">{PROVIDER_LABEL[m.provider] ?? m.provider}</td>
-                    <td className="py-1.5 pl-3">{KIND_LABEL[m.kind] ?? m.kind}</td>
-                    <td className="py-1.5 pl-3">
-                      <span className="font-mono text-xs">{m.model_name}</span>
-                      {m.quality && <span className="ml-1.5 text-xs text-[var(--bot-ink-mute)]">· {QUALITY_LABEL[m.quality] ?? m.quality}</span>}
-                    </td>
-                    <td className="py-1.5 pl-3">
-                      <input type="checkbox" checked={m.enabled} disabled={pending || m.kind === "judge"}
-                             title={m.kind === "judge" ? "ยังไม่มีงานไหนเรียกใช้ เปิดปิดด้วยการใส่หรือลบกุญแจ" : undefined}
-                             onChange={(e) => run(`model:${m.id}`, () => setModelEnabled(m.id, e.target.checked), `${e.target.checked ? "เปิด" : "ปิด"}แล้ว`)} />
-                      {busy === `model:${m.id}` && <span className="ml-1.5 text-xs text-[var(--bot-ink-mute)]">กำลังบันทึก…</span>}
-                      <Said note={note} where={`model:${m.id}`} className="ml-1.5" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </Card>
 
       {lanesCard}

@@ -3,6 +3,9 @@ import Link from "next/link";
 import { gatePage } from "@/lib/auth/viewer";
 import { monthLabel, parsePeriod, pastMonths, periodRange, WHO_FROM, type Period } from "@/lib/stats/usage";
 import { readStats, whoAre } from "@/lib/stats/usage-read";
+import { readProfit } from "@/lib/stats/ai-profit-read";
+import type { Profit } from "@/lib/stats/ai-profit";
+import { ProfitView } from "../ai-profit/ProfitView";
 import { walletSummary } from "@/lib/wallet/store";
 import { monthStart } from "@/lib/ai/ledger";
 import { loadSpend } from "../ai/actions";
@@ -24,35 +27,44 @@ const baht = (n: number) => `฿${n.toLocaleString("en-US", { maximumFractionDig
  * three tabs — by tool (this page as it was), by person (with each wallet's balance), and by AI
  * company (from ตั้งค่า AI, with its jobs and who asked).
  */
+/**
+ * กำไร is the first tab and the one the page opens on since 2026-10-23 (owner chose ก, mockup
+ * https://claude.ai/artifact/1MZqF78ZXVU64Pv5wPzh2u): it was the page กำไรค่า AI, whose card of
+ * cost by company is now ตามค่าย AI here.
+ */
 const TABS = [
+  { key: "profit", label: "กำไร" },
   { key: "tool", label: "ตามเครื่องมือ" },
   { key: "person", label: "ตามคน" },
   { key: "provider", label: "ตามค่าย AI" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
-const isTab = (v: unknown): v is Tab => v === "tool" || v === "person" || v === "provider";
+const isTab = (v: unknown): v is Tab => v === "profit" || v === "tool" || v === "person" || v === "provider";
 export default async function StatsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await gatePage("/admin/stats", "backoffice");
   const now = new Date();
   const params = await searchParams;
   const period = parsePeriod(params.p, now);
-  const tab: Tab = isTab(params.tab) ? params.tab : "tool";
+  const tab: Tab = isTab(params.tab) ? params.tab : "profit";
   /** a link to this page that keeps what else was chosen */
   const here = (next: { p?: Period; tab?: Tab }) => {
     const q = new URLSearchParams();
     const p = next.p ?? period;
     const t = next.tab ?? tab;
     if (p !== "month") q.set("p", p);
-    if (t !== "tool") q.set("tab", t);
+    if (t !== "profit") q.set("tab", t);
     return q.size ? `/admin/stats?${q}` : "/admin/stats";
   };
   const [from, to] = periodRange(period, now);
 
+  // the tiles and tables belong to the other three tabs; the profit tab reads its own sum
   let stats: Awaited<ReturnType<typeof readStats>> | null = null;
+  let profit: Profit | null = null;
   try {
-    stats = await readStats(from, to, now);
+    if (tab === "profit") profit = await readProfit(from, to);
+    else stats = await readStats(from, to, now);
   } catch (e) {
-    console.error("admin stats: not read:", e);
+    console.error(tab === "profit" ? "ai profit: not read:" : "admin stats: not read:", e);
   }
   const [who, wallets, spend] = await Promise.all([
     stats ? whoAre(stats.people.map((p) => p.agentId)).catch(() => new Map()) : new Map(),
@@ -70,14 +82,14 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
   });
 
   const chips: { p: Period; label: string }[] = [
-    { p: "7d", label: "7 วัน" }, { p: "30d", label: "30 วัน" }, { p: "month", label: "เดือนนี้" },
+    { p: "today", label: "วันนี้" }, { p: "7d", label: "7 วัน" }, { p: "30d", label: "30 วัน" }, { p: "month", label: "เดือนนี้" },
     ...pastMonths(now).map((m) => ({ p: m as Period, label: monthLabel(m) })),
   ];
   const top = stats?.tools[0];
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHead title="การใช้งานและค่า AI" hint="ใครใช้เครื่องมืออะไร มากแค่ไหน และค่า AI ไปที่ไหน">
+      <PageHead title="การใช้งานและค่า AI" hint="เงินเข้าเทียบกับค่า AI ใครใช้เครื่องมืออะไร มากแค่ไหน และค่า AI ไปที่ไหน">
         {(
           <nav aria-label="ช่วงเวลา" className="flex flex-wrap gap-1.5">
             {chips.map((c) => (
@@ -96,7 +108,27 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         )}
       </PageHead>
 
-      {!stats ? (
+      {/* the tabs come first so they stay where they are when the tiles below them come and go */}
+      <nav aria-label="มุมมอง" className="flex gap-0.5 overflow-x-auto border-b border-[var(--bot-line)]">
+        {TABS.map((t) => (
+          <Link
+            key={t.key}
+            href={here({ tab: t.key })}
+            aria-current={t.key === tab ? "page" : undefined}
+            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm no-underline ${t.key === tab
+              ? "border-[var(--bot-navy)] font-semibold text-[var(--bot-ink)]"
+              : "border-transparent text-[var(--bot-ink-mute)] hover:text-[var(--bot-ink-foot)]"}`}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "profit" ? (
+        profit
+          ? <ProfitView p={profit} costHref={here({ tab: "provider" })} />
+          : <p className="rounded-lg border border-[var(--bot-red)] bg-[var(--bot-red-soft)] px-3 py-2.5 text-sm text-[var(--bot-red-ink)]">อ่านตัวเลขไม่ได้ตอนนี้ ลองโหลดหน้าใหม่อีกครั้ง</p>
+      ) : !stats ? (
         <p className="rounded-lg border border-[var(--bot-red)] bg-[var(--bot-red-soft)] px-3 py-2.5 text-sm text-[var(--bot-red-ink)]">อ่านสถิติไม่ได้ตอนนี้ ลองโหลดหน้าใหม่อีกครั้ง</p>
       ) : (
         <>
@@ -112,20 +144,6 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
               sub={`เติม ${stats.totals.topups} ครั้ง · หักใช้ไป ${baht(stats.totals.chargedSatang / 100)}`}
             />
           </div>
-          <nav className="flex gap-0.5 overflow-x-auto border-b border-[var(--bot-line)]">
-            {TABS.map((t) => (
-              <Link
-                key={t.key}
-                href={here({ tab: t.key })}
-                aria-current={t.key === tab ? "page" : undefined}
-                className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm no-underline ${t.key === tab
-                  ? "border-[var(--bot-navy)] font-semibold text-[var(--bot-ink)]"
-                  : "border-transparent text-[var(--bot-ink-mute)] hover:text-[var(--bot-ink-foot)]"}`}
-              >
-                {t.label}
-              </Link>
-            ))}
-          </nav>
           {tab === "provider" ? (
             <Card title="ค่า AI ตามค่าย" hint="เดือนนี้เสมอ ไม่ตามช่วงเวลาด้านบน: นับตั้งแต่ต้นเดือน หรือตั้งแต่กดรีเซ็ตยอดที่หน้าตั้งค่า AI · กด “ใช้ทำอะไร” ดูงานที่ใช้">
               {spend?.spend ? <SpendView spend={spend.spend} people={spend.people} /> : <p className="text-sm text-[var(--bot-red-ink)]">อ่านยอดใช้ AI ไม่สำเร็จ ลองโหลดหน้าใหม่อีกครั้ง</p>}

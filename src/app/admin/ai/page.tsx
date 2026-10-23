@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { loadAiPage } from "./actions";
 import { AiClient } from "./AiClient";
 import { LanesCard } from "./LanesCard";
+import { ModelSwitches } from "./ModelSwitches";
 import { loadLanes } from "./lanes-actions";
 import { gatePage } from "@/lib/auth/viewer";
 import { tablesMeta } from "@/calc/plans/tables-meta";
 import { daysUntil } from "@/calc/calendar";
-import { PageHead } from "../ui";
+import { Card, PageHead } from "../ui";
 
 export const dynamic = "force-dynamic";
 
@@ -28,13 +29,20 @@ export default async function AiPage() {
       return null;
     }),
   ]);
+  // the all-lanes model switches live at the foot of the lanes card (owner chose ก, 2026-10-23);
+  // when the lanes cannot be read they stand alone, so a model can still be switched off
+  const { models, ...rest } = data;
+  const switches = <ModelSwitches models={models} />;
+  const lanesCard = lanes
+    ? <LanesCard {...lanes} footer={switches} />
+    : <Card title="ปิดโมเดลทั้งระบบ" hint="ปิดโมเดลที่ไม่ต้องการให้ระบบเลือกใช้">{switches}</Card>;
   const meta = tablesMeta();
   // counted the way the overview's warning counts, so the two never disagree by a day
   const daysLeft = daysUntil(new Date(), meta.expiresOn);
   return (
     <>
       <PageHead title="คีย์และโมเดล" hint="กุญแจ โมเดล งบ และบริการอื่นที่ระบบใช้ ยอดใช้จ่ายอยู่ที่หน้าการใช้งานและค่า AI" />
-      <AiClient {...data} lanesCard={lanes && <LanesCard {...lanes} />} rates={{ version: meta.version, expiresOn: meta.expiresOn, daysLeft: Math.max(0, daysLeft), expired: meta.expired }} />
+      <AiClient {...rest} lanesCard={lanesCard} rates={{ version: meta.version, expiresOn: meta.expiresOn, daysLeft: Math.max(0, daysLeft), expired: meta.expired }} />
     </>
   );
 }
