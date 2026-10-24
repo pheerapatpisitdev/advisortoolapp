@@ -1,3 +1,4 @@
+import { bluewealthNames } from "@/lib/auth/bluewealth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { all } from "@/lib/stats/usage-read";
 import { balancesAfter, firstPaid, type MoneyKind, type MoneyRow, type Person } from "./money-in";
@@ -82,7 +83,10 @@ export async function readMoneyIn(from: Date, to: Date): Promise<MoneyIn> {
   for (const m of memberRows.data ?? []) {
     people.set(String(m.id), { name: String(m.name ?? ""), code: String(m.email ?? ""), tenant: null, unit: null, isMember: true });
   }
-  for (const a of agentRows.data ?? []) {
+  // Bluewealth's agents, as of their last sign-in (src/lib/auth/bluewealth.ts), named as UnitOS's are
+  const outside = agents.length ? await bluewealthNames(agents) : [];
+  const outsideRows = outside.map((b) => ({ ...b, tenant: { name: b.tenant_name ?? undefined } }));
+  for (const a of [...(agentRows.data ?? []), ...outsideRows]) {
     const t = (a as { tenant?: { name?: string } | { name?: string }[] | null }).tenant;
     const tenant = Array.isArray(t) ? t[0]?.name : t?.name;
     people.set(String(a.id), {

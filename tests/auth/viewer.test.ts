@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("react", async (orig) => ({ ...(await orig<typeof import("react")>()), cache: <T,>(f: T) => f }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers(), cookies: async () => ({ get: () => undefined }) }));
@@ -6,13 +6,15 @@ const nav = vi.hoisted(() => ({ redirect: vi.fn((to: string) => { throw new Erro
 vi.mock("next/navigation", () => nav);
 const session = vi.hoisted(() => ({ value: null as null | { agentId: string; issuedAt: number } }));
 vi.mock("@/lib/auth/session", () => ({ readSession: async () => session.value }));
+const bwRpc = vi.hoisted(() => vi.fn(async () => ({ data: [] as unknown[], error: null })));
+vi.mock("@supabase/supabase-js", () => ({ createClient: () => ({ rpc: bwRpc }) }));
 vi.mock("@/lib/supabase/admin", async () => {
   const { db } = await import("../helpers/fake-db");
   return { supabaseAdmin: () => db.client };
 });
 
 import { db } from "../helpers/fake-db";
-const { displayNames, gatePage, getViewer, placedBy } = await import("@/lib/auth/viewer");
+const { agentsByCode, displayNames, gatePage, getViewer, placedBy } = await import("@/lib/auth/viewer");
 
 const AGENT_ROW = {
   id: "a1", agent_code: "015495", name: "บอย",
@@ -137,6 +139,72 @@ describe("getViewer and UnitClub's tiers", () => {
 
   it("sends somebody signed out to the plain front page", async () => {
     await expect(gatePage("/studio")).rejects.toThrow("redirect /?next=%2Fstudio");
+  });
+});
+
+/** Bluewealth's agents (owner, 2026-10-24): asked after everybody of our own, and let in as UnitOS's agents are. */
+describe("Bluewealth's agents", () => {
+  const BW_ROW = {
+    ...AGENT_ROW, id: "b1", agent_code: "482913", name: "สมชาย",
+    tenant: { id: "tb", slug: "bluewealth", name: "Bluewealth", status: "active", config: { features: { adStudio: false } }, key_epoch: null },
+  };
+  beforeEach(() => {
+    vi.stubEnv("BLUEWEALTH_SUPABASE_URL", "https://bw.supabase.co");
+    vi.stubEnv("BLUEWEALTH_ANON_KEY", "anon");
+    vi.stubEnv("BLUEWEALTH_LOOKUP_KEY", "secret");
+    bwRpc.mockReset();
+    bwRpc.mockResolvedValue({ data: [], error: null });
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("lets a Bluewealth agent in as a UnitOS agent, once nobody of our own has the id", async () => {
+    session.value = { agentId: "b1", issuedAt: Date.now() };
+    db.on("agents", { data: null });
+    db.on("ins_staff", { data: null });
+    db.on("ins_members", { data: null });
+    db.on("ins_super_admins", { data: null });
+    bwRpc.mockResolvedValue({ data: [BW_ROW], error: null });
+    expect(await getViewer()).toMatchObject({ kind: "unitos", agentId: "b1", code: "482913", tenantName: "Bluewealth" });
+    expect(bwRpc).toHaveBeenCalledWith("advisortool_agents", { p_key: "secret", p_id: "b1" });
+  });
+
+  it("never asks Bluewealth about a UnitOS agent or a member", async () => {
+    session.value = { agentId: "a1", issuedAt: Date.now() };
+    db.on("agents", { data: AGENT_ROW });
+    db.on("ins_staff", { data: null });
+    await getViewer();
+    session.value = { agentId: "m1", issuedAt: Date.now() };
+    db.on("agents", { data: null });
+    db.on("ins_members", { data: MEMBER_ROW });
+    expect((await getViewer())?.kind).toBe("member");
+    expect(bwRpc).not.toHaveBeenCalled();
+  });
+
+  it("shuts a Bluewealth agent out while the Super Admin's switch is off", async () => {
+    session.value = { agentId: "b1", issuedAt: Date.now() };
+    db.on("agents", { data: null });
+    db.on("ins_staff", { data: null });
+    db.on("ins_members", { data: null });
+    db.on("ins_super_admins", { data: null });
+    db.on("ins_ai_settings", { data: { feature_switches: { bluewealth: { open: false } } } });
+    bwRpc.mockResolvedValue({ data: [BW_ROW], error: null });
+    expect(await getViewer()).toBeNull();
+  });
+
+  it("looks a code up in Bluewealth only when UnitClub has nobody with it", async () => {
+    db.on("agents", { data: [AGENT_ROW] });
+    expect((await agentsByCode("015495")).map((a) => a.id)).toEqual(["a1"]);
+    expect(bwRpc).not.toHaveBeenCalled();
+    db.on("agents", { data: [] });
+    bwRpc.mockResolvedValue({ data: [BW_ROW], error: null });
+    const [found] = await agentsByCode("482913");
+    expect(found).toMatchObject({ id: "b1", system: "bluewealth" });
+  });
+
+  it("names a Bluewealth agent from the copy kept at sign-in", async () => {
+    db.on("agents", { data: [] });
+    db.on("ins_bluewealth_agents", { data: [{ id: "b1", agent_code: "482913", name: "สมชาย", unit: null, tenant_name: "Bluewealth" }] });
+    expect(await displayNames(["b1"])).toEqual({ b1: "สมชาย" });
   });
 });
 

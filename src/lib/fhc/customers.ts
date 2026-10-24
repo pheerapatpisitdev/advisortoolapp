@@ -1,4 +1,5 @@
 import type { Viewer } from "@/lib/auth/access";
+import { bluewealthNames } from "@/lib/auth/bluewealth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { EventRow, FhcFigures, FhcInput, Score } from "./health";
 import { firstGap, gapsOf, isGap, type Gap } from "./gaps";
@@ -207,11 +208,12 @@ export async function agentNames(ids: string[]): Promise<Map<string, string>> {
   const names = new Map<string, string>();
   if (!uniq.length) return names;
   const db = supabaseAdmin();
-  const [agents, members] = await Promise.all([
+  const [agents, members, outside] = await Promise.all([
     db.from("agents").select("id, name, agent_code").in("id", uniq),
     db.from("ins_members").select("id, name, email").in("id", uniq),
+    bluewealthNames(uniq),
   ]);
-  for (const a of (agents.data ?? []) as { id: string; name: string | null; agent_code: string }[]) names.set(a.id, a.name?.trim() || a.agent_code);
+  for (const a of [...(agents.data ?? []), ...outside] as { id: string; name: string | null; agent_code: string }[]) names.set(a.id, a.name?.trim() || a.agent_code);
   for (const m of (members.data ?? []) as { id: string; name: string; email: string }[]) names.set(m.id, m.name.trim() || m.email);
   return names;
 }

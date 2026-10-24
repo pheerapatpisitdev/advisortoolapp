@@ -1,3 +1,4 @@
+import { bluewealthNames } from "@/lib/auth/bluewealth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { calculatorName } from "./calculators";
 import { buildStats, ROUND_TOOL, WHO_FROM, type Stats } from "./usage";
@@ -82,9 +83,10 @@ export async function whoAre(ids: string[]): Promise<Map<string, Who>> {
   const out = new Map<string, Who>();
   if (!uniq.length) return out;
   const db = supabaseAdmin();
-  const [agents, members] = await Promise.all([
+  const [agents, members, outside] = await Promise.all([
     db.from("agents").select("id, name, agent_code, unit, tenant_id").in("id", uniq),
     db.from("ins_members").select("id, name, email").in("id", uniq),
+    bluewealthNames(uniq),
   ]);
   const tenantIds = [...new Set(((agents.data ?? []) as Row[]).map((a) => str(a.tenant_id)).filter(Boolean))];
   const tenants = tenantIds.length ? await db.from("tenants").select("id, name").in("id", tenantIds) : { data: [] };
@@ -94,6 +96,10 @@ export async function whoAre(ids: string[]): Promise<Map<string, Who>> {
   }
   for (const m of (members.data ?? []) as Row[]) {
     out.set(str(m.id), { name: str(m.name).trim() || str(m.email), room: null, unit: null, member: true });
+  }
+  // Bluewealth's agents, as of their last sign-in (src/lib/auth/bluewealth.ts)
+  for (const b of outside) {
+    out.set(b.id, { name: b.name?.trim() || b.agent_code, room: b.tenant_name, unit: b.unit?.trim() || null, member: false });
   }
   return out;
 }

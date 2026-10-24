@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { saveBluewealthOpen } from "@/lib/auth/bluewealth";
 import { audit, requireStaff } from "@/lib/auth/viewer";
 import { cleanMessage, FEATURES, isFeature } from "@/lib/switches/features";
 import { saveSwitch } from "@/lib/switches/store";
@@ -21,6 +22,19 @@ export async function setFeatureSwitch(key: string, off: boolean, message: strin
   } catch (e) {
     console.error("feature switch not saved:", key, e instanceof Error ? e.message : e);
     return { ok: false, error: `บันทึก${FEATURES.find((f) => f.key === key)?.label ?? ""}ไม่สำเร็จ ลองใหม่อีกครั้ง` };
+  }
+}
+
+/** Whether Bluewealth's agents may sign in (src/lib/auth/bluewealth.ts) */
+export async function setBluewealthSwitch(open: boolean): Promise<SwitchResult> {
+  await requireStaff("backoffice");
+  try {
+    await saveBluewealthOpen(open === true);
+    await audit(open ? "bluewealth-open" : "bluewealth-close", null, {});
+    return { ok: true };
+  } catch (e) {
+    console.error("bluewealth switch not saved:", e instanceof Error ? e.message : e);
+    return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
 }
 

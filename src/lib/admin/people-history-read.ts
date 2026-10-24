@@ -8,6 +8,7 @@ import { readStats, whoAre } from "@/lib/stats/usage-read";
 import { passState } from "@/lib/members/pass";
 import { passRowsOf } from "@/lib/members/pass-store";
 import { VIDEO_BUCKET } from "@/lib/quote-video/rows";
+import { bluewealthNames } from "@/lib/auth/bluewealth";
 import { displayNames } from "@/lib/auth/viewer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { walletSummary } from "@/lib/wallet/store";
@@ -324,7 +325,9 @@ export async function readPersonHead(id: string): Promise<PersonHead | null> {
     // when they started here: their first line of work, else their first sign-in
     read("first", db.from("ins_audit").select("at").eq("agent_id", id).order("at").limit(1)),
   ]);
-  const a = agent[0];
+  // not UnitOS's: a Bluewealth agent as of their last sign-in (src/lib/auth/bluewealth.ts), shaped like UnitOS's row
+  const [outside] = agent[0] || member[0] || sup[0] ? [] : await bluewealthNames([id]);
+  const a: Row | undefined = agent[0] ?? (outside && { ...outside, tenant: { name: outside.tenant_name } });
   const m = member[0];
   const s = sup[0];
   if (!a && !m && !s) return null;
@@ -434,6 +437,8 @@ export async function readPeople(now = new Date()): Promise<PersonRow[]> {
   for (let i = 0; i < agentIds.length; i += 300) {
     for (const r of await read("codes", db.from("agents").select("id, agent_code").in("id", agentIds.slice(i, i + 300)))) codes.set(str(r.id), str(r.agent_code));
   }
+  const missing = agentIds.filter((i) => !codes.has(i));
+  if (missing.length) for (const b of await bluewealthNames(missing)) codes.set(b.id, b.agent_code);
 
   return [...ids].flatMap((id) => {
     const w = who.get(id);
