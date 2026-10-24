@@ -68,6 +68,20 @@ describe("signIn with the agent code", () => {
     expect(has(updates[0], "eq", "id", "a1")).toBe(true);
   });
 
+  it("remembers a Bluewealth agent's name and room when they sign in (owner, 2026-10-24)", async () => {
+    const outside = { ...AGENT, unit: "หน่วยสาทร", system: "bluewealth" as const, tenant: { ...AGENT.tenant, id: "tb", slug: "bluewealth", name: "Bluewealth" } };
+    who.agentsByCode.mockResolvedValue([outside]);
+    expect(await signIn(form("482913"))).toBeUndefined();
+    expect(auth.startSession).toHaveBeenCalledWith(AGENT.id);
+    const [kept] = db.writes("ins_bluewealth_agents", "upsert");
+    expect(kept[0].args[0]).toMatchObject({ id: AGENT.id, agent_code: "015495", unit: "หน่วยสาทร", tenant_name: "Bluewealth" });
+  });
+
+  it("keeps no copy of a UnitOS agent", async () => {
+    await signIn(form("015495"));
+    expect(db.writes("ins_bluewealth_agents", "upsert")).toHaveLength(0);
+  });
+
   it("writes the claim before it counts anything or looks the code up", async () => {
     const order: string[] = [];
     db.on("ins_login_attempts", (steps) => {

@@ -17,6 +17,10 @@ export interface AgentRow {
   member_tier: string | null;
   membership_expires_at: string | null;
   created_at: string | null;
+  /** หน่วย: read for Bluewealth's agents only, whose names the back office keeps (./bluewealth.ts) */
+  unit?: string | null;
+  /** set on a row read from Bluewealth's copy of UnitOS rather than UnitClub (./bluewealth.ts) */
+  system?: "bluewealth";
   tenant: {
     id: string;
     slug: string;
@@ -50,7 +54,8 @@ export type Perm = "publish" | "connect" | "admin" | "owner" | "backoffice";
 export interface Viewer {
   /**
    * a UnitOS agent, a member who signed up here (src/lib/auth/member.ts, owner 2026-10-01), or
-   * the Super Admin who runs the back office and nothing else (owner, 2026-10-15)
+   * the Super Admin who runs the back office and nothing else (owner, 2026-10-15). Bluewealth's
+   * agents are "unitos" too: they get what a UnitOS agent gets (owner, 2026-10-24, ./bluewealth.ts)
    */
   kind: "unitos" | "member" | "super";
   agentId: string;

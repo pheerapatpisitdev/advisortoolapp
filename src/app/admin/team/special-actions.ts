@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { admit, studioLocked, type AgentRow } from "@/lib/auth/access";
+import { bluewealthNames, rememberBluewealthAgent } from "@/lib/auth/bluewealth";
 import { listSpecialAccess, removeSpecialAccess, setSpecialAccess } from "@/lib/auth/special";
 import { agentsByCode, audit, requireStaff } from "@/lib/auth/viewer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -36,13 +37,17 @@ export async function listSpecial(): Promise<SpecialMember[]> {
     .in("id", rows.map((r) => r.agentId));
   if (error) throw new Error(`อ่านข้อมูลตัวแทนไม่ได้: ${error.message}`);
   const agents = new Map(((data ?? []) as unknown as AgentRow[]).map((a) => [a.id, a]));
+  // Bluewealth's agents, as of their last sign-in (src/lib/auth/bluewealth.ts)
+  const missing = rows.map((r) => r.agentId).filter((id) => !agents.has(id));
+  const outside = new Map((await bluewealthNames(missing)).map((b) => [b.id, b]));
   return rows.map((r) => {
     const a = agents.get(r.agentId);
+    const b = outside.get(r.agentId);
     return {
       agentId: r.agentId,
-      code: a?.agent_code ?? "",
-      name: a?.name?.trim() || a?.agent_code || "(ไม่พบใน UnitOS)",
-      room: a?.tenant?.name?.trim() || a?.tenant?.slug || "",
+      code: a?.agent_code ?? b?.agent_code ?? "",
+      name: a?.name?.trim() || a?.agent_code || b?.name?.trim() || b?.agent_code || "(ไม่พบใน UnitOS)",
+      room: a?.tenant?.name?.trim() || a?.tenant?.slug || b?.tenant_name || "",
       locked: a ? studioLocked(a) : false,
       monthlySatang: r.monthlySatang,
       since: r.createdAt,
@@ -81,6 +86,8 @@ export async function addSpecial(code: string, baht: string): Promise<{ ok: bool
   if (!agent || !admit(agent, null, Date.now(), Date.now(), true)) return { ok: false, error: "ไม่พบรหัสนี้ใน UnitOS หรือห้องของเขายังไม่เปิดใช้" };
   if ((await listSpecialAccess()).some((r) => r.agentId === agent.id)) return { ok: false, error: "คนนี้มีสิทธิ์เข้าพิเศษอยู่แล้ว — แก้งบจากรายชื่อด้านล่าง" };
   await setSpecialAccess(agent.id, amount.satang, me.code);
+  // named on the list before their first sign-in
+  if (agent.system === "bluewealth") await rememberBluewealthAgent(agent);
   await audit("special-add", agent.id, { code: agent.agent_code, satang: amount.satang });
   revalidatePath("/admin/team");
   return { ok: true };

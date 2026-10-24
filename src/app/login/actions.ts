@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/assistant/rate-limit";
 import { safeNext } from "@/lib/auth/next";
+import { rememberBluewealthAgent } from "@/lib/auth/bluewealth";
 import { endEverySession } from "@/lib/auth/epoch";
 import { noteLogin } from "@/lib/auth/login-log";
 import { endSession, readSession, startSession } from "@/lib/auth/session";
@@ -135,6 +136,8 @@ export async function signIn(formData: FormData): Promise<{ error: string; premi
       return { error: left > 0 ? `${why} เหลืออีก ${left} ครั้ง` : `${why} ถูกระงับชั่วคราว` };
     }
     agentId = viewer.agentId;
+    // a Bluewealth agent's name and room, kept for the back office (src/lib/auth/bluewealth.ts)
+    if (agent?.system === "bluewealth") await rememberBluewealthAgent(agent);
   } catch (e) {
     console.error("signIn failed after the attempt was recorded:", e);
     return { error: BROKEN };

@@ -1,3 +1,4 @@
+import { bluewealthNames } from "@/lib/auth/bluewealth";
 import { alertClipFailed } from "@/lib/line/owner-alert";
 import { isPromptStory } from "@/lib/prompt-story/types";
 import { siteUrl } from "@/lib/site-url";
@@ -78,6 +79,8 @@ async function whoMade(id: string): Promise<string> {
     const name = (r.name ?? "").trim();
     return name ? `${title(name)}${r.agent_code ? ` (ตัวแทน ${r.agent_code})` : ""}` : `ตัวแทน ${r.agent_code ?? id}`;
   }
+  const [b] = await bluewealthNames([id]);
+  if (b) return b.name?.trim() ? `${title(b.name.trim())} (ตัวแทน ${b.agent_code})` : `ตัวแทน ${b.agent_code}`;
   const { data: m } = await db.from("ins_members").select("name, email").eq("id", id).maybeSingle();
   if (m) {
     const r = m as { name: string | null; email: string | null };

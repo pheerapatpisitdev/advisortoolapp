@@ -4,6 +4,8 @@ import { DEFAULT_CLOSED, SHOWN_FEATURES } from "@/lib/switches/features";
 import { readSwitches } from "@/lib/switches/store";
 import { PageHead } from "../ui";
 import { readFxMode } from "@/lib/quote-video/fx-switch";
+import { bluewealthConfigured, bluewealthOpen } from "@/lib/auth/bluewealth";
+import { BluewealthSwitch } from "./BluewealthSwitch";
 import { FxSwitch } from "./FxSwitch";
 import { SwitchBoard } from "./SwitchBoard";
 
@@ -17,7 +19,7 @@ export const metadata: Metadata = { title: "เปิด-ปิดฟังก�
  */
 export default async function AdminSwitchesPage() {
   await gatePage("/admin/switches", "backoffice");
-  const [switches, fxMode] = await Promise.all([readSwitches(), readFxMode()]);
+  const [switches, fxMode, bluewealth] = await Promise.all([readSwitches(), readFxMode(), bluewealthOpen()]);
   return (
     <>
       <PageHead title="เปิด-ปิดฟังก์ชัน" hint="ปิดเครื่องมือชั่วคราวเวลาขัดข้อง ผู้ใช้จะเห็นข้อความแจ้งแทนการกดแล้วล้ม เจ้าของและ Super Admin ยังใช้ทดสอบได้" />
@@ -26,6 +28,7 @@ export default async function AdminSwitchesPage() {
         placeholder={DEFAULT_CLOSED}
       />
       <div className="mt-6"><FxSwitch mode={fxMode} /></div>
+      <div className="mt-6"><BluewealthSwitch open={bluewealth} connected={bluewealthConfigured()} /></div>
     </>
   );
 }
