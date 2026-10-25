@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { CardCell, CardColumn, CardTableRow } from "@/lib/ihealthy-card";
+import type { FullRowKind } from "@/lib/ihealthy-full-card";
 import { CARD_PALETTE } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import { googleFontSubset } from "@/lib/google-font";
@@ -147,10 +148,12 @@ export function Line({ label }: { label: string }) {
  * text is centred inside it. A cell that could grow would move every column to its right.
  */
 export function Cell(
-  { children, width, height, tint, dim, mark, align = "center", weight = 400, size = 20, color = MUTE }: {
+  { children, width, height, tint, dim, mark, indent, align = "center", weight = 400, size = 20, color = MUTE }: {
     children: string; width: number; height: number;
     tint?: boolean; dim?: boolean; mark?: boolean; align?: "center" | "flex-start";
     weight?: number; size?: number; color?: string;
+    /** a sub-row's title, set in under the category it belongs to */
+    indent?: boolean;
   },
 ) {
   return (
@@ -159,7 +162,7 @@ export function Cell(
         display: "flex", width, minWidth: width, maxWidth: width, height,
         boxSizing: "border-box", flexShrink: 0,
         alignItems: "center", justifyContent: align,
-        padding: align === "center" ? "0 8px" : "0 12px",
+        padding: align === "center" ? "0 8px" : indent ? "0 12px 0 36px" : "0 12px",
         borderRight: `1px solid ${GRID}`,
         background: tint ? TINT : "transparent",
         fontSize: size, fontWeight: weight, color,
@@ -187,16 +190,16 @@ export function Cell(
 
 /** One line of the table: a title, then a figure under each plan. */
 export function Row(
-  { label, cells, selected, mark, height = H.row, weight = 400, color = MUTE, geo = geometryOf("th") }: {
+  { label, cells, selected, mark, indent, height = H.row, weight = 400, color = MUTE, geo = geometryOf("th") }: {
     label: string; cells: CardCell[]; selected: number; height?: number; geo?: Geometry;
-    weight?: number; color?: string;
+    weight?: number; color?: string; indent?: boolean;
     /** highlight the selected plan's figure on this row */
     mark?: boolean;
   },
 ) {
   return (
     <div style={{ display: "flex", height, flexShrink: 0, borderTop: `1px solid ${GRID}` }}>
-      <Cell width={geo.title} height={height} align="flex-start" size={21} color={WHITE} weight={500} mark={mark}>
+      <Cell width={geo.title} height={height} align="flex-start" size={21} color={WHITE} weight={500} mark={mark} indent={indent}>
         {label}
       </Cell>
       {cells.map((c, i) => (
@@ -283,7 +286,8 @@ export const CARD_HEADERS = {
  */
 export function PlanTable(
   { card, selected, markLabel, w = WORDS.th, geo = geometryOf("th") }: {
-    card: { columns: CardColumn[]; rows: CardTableRow[]; premiumRows: { label: string; cells: CardCell[] }[] };
+    /** a row's `kind` is the whole table's (src/lib/ihealthy-full-card.ts); the card's rows have none */
+    card: { columns: CardColumn[]; rows: (CardTableRow & { kind?: FullRowKind })[]; premiumRows: { label: string; cells: CardCell[] }[] };
     selected: number;
     /** the row whose selected figure gets the highlighter; the quote card marks the yearly ceiling */
     markLabel?: string;
@@ -320,8 +324,22 @@ export function PlanTable(
       </div>
 
       {card.rows.map((r) =>
-        r.span === undefined ? (
-          <Row key={r.label} label={r.label} cells={r.cells} selected={selected} mark={r.label === markLabel} geo={geo} />
+        r.kind === "group" || r.kind === "heading" ? (
+          // a line with no figures of its own: a benefit group, or a category whose figures
+          // are on the sub-rows under it — across the whole table, so nothing reads as a dash
+          <div
+            key={r.label}
+            style={{
+              display: "flex", height: H.row, flexShrink: 0, alignItems: "center", paddingLeft: 12,
+              borderTop: `1px solid ${GRID}`,
+              ...(r.kind === "group" ? { background: GROUND_DEEP } : {}),
+              fontSize: 21, fontWeight: 600, color: r.kind === "group" ? GOLD : WHITE,
+            }}
+          >
+            {r.label}
+          </div>
+        ) : r.span === undefined ? (
+          <Row key={r.label} label={r.label} cells={r.cells} selected={selected} mark={r.label === markLabel} indent={r.kind === "sub"} geo={geo} />
         ) : (
           // One answer across every plan, because it is the same cover whichever is bought
           <div key={r.label} style={{ display: "flex", height: H.row, flexShrink: 0, borderTop: `1px solid ${GRID}` }}>
