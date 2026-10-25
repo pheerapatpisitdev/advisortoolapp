@@ -2,6 +2,7 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import { PRINT_COOKIE, printPassFor } from "@/lib/auth/print-pass";
 import { LANG_COOKIE } from "@/lib/ihealthy-lang";
+import type { PrintedLang } from "@/lib/quote-pdf/langs";
 
 /** How long the answer waits for Chrome to go away before it leaves it to go on its own. */
 const CLOSE_WAIT_MS = 2_000;
@@ -14,11 +15,20 @@ const CLOSE_WAIT_MS = 2_000;
  * here checks that, because the route is the only caller and the one place that decides it.
  * `CHROME_PATH` points local dev at an installed Chrome; on Vercel the bundled build is used.
  */
+
 /**
- * `lang: "en"` prints the iHealthy page in English. The page reads its language from a cookie
+ * The faces the server's Chrome is missing for a language. The bundled build carries Open Sans
+ * and nothing else — Latin and Cyrillic — and the page brings its own Thai, so Chinese and
+ * Burmese would print as boxes. Google's stylesheet cuts each face into unicode-range slices,
+ * so only the slices the page's letters fall in are downloaded.
+ */
+const SCRIPT_FACE: Partial<Record<PrintedLang, string>> = { zh: "Noto Sans SC", my: "Noto Sans Myanmar" };
+
+/**
+ * `lang` prints the iHealthy page in that language. The page reads its language from a cookie
  * and nothing else (src/lib/ihealthy-lang.ts), so the cookie is set before the page is opened.
  */
-export async function renderQuotePdf(url: string, opts: { timeoutMs?: number; lang?: "en" } = {}): Promise<Buffer> {
+export async function renderQuotePdf(url: string, opts: { timeoutMs?: number; lang?: PrintedLang } = {}): Promise<Buffer> {
   const timeoutMs = opts.timeoutMs ?? 45_000;
   // started before anything slow: unpacking the 67 MB Chrome and launching it are most of a
   // cold start, and the route's own limit is 60 s, so a bound that began after them could
@@ -52,7 +62,7 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number; la
       // the page stamps "พิมพ์เมื่อ" with the browser's clock, and a server's zone is UTC: a
       // quote printed at eight in the morning would say one in the morning
       await page.emulateTimezone("Asia/Bangkok");
-      if (opts.lang === "en") await page.setCookie({ name: LANG_COOKIE, value: "en", url });
+      if (opts.lang) await page.setCookie({ name: LANG_COOKIE, value: opts.lang, url });
       // the calculators are for members only (owner, 2026-10-20); this Chrome has no session,
       // so it carries the printer's two-minute pass instead (src/lib/auth/print-pass.ts)
       await page.setCookie({ name: PRINT_COOKIE, value: printPassFor(), url, httpOnly: true });
@@ -60,6 +70,22 @@ export async function renderQuotePdf(url: string, opts: { timeoutMs?: number; la
       // set by the calculator once it has seeded itself from the link; printing before that
       // would print the default figures
       await page.waitForSelector('html[data-pdf-ready="1"]', { timeout: timeoutMs });
+      const face = opts.lang ? SCRIPT_FACE[opts.lang] : undefined;
+      if (face) {
+        await page.evaluate(async (family: string) => {
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, "+")}:wght@400;600&display=block`;
+          await new Promise((done) => { link.onload = link.onerror = done; document.head.append(link); });
+          // added last to every element's own list, so Plex keeps the Thai, the Latin and the figures
+          for (const el of document.querySelectorAll<HTMLElement>("body, body *")) {
+            el.style.fontFamily = `${getComputedStyle(el).fontFamily}, "${family}"`;
+          }
+          const text = document.body.innerText;
+          await Promise.all([document.fonts.load(`400 16px "${family}"`, text), document.fonts.load(`600 16px "${family}"`, text)]);
+          await document.fonts.ready;
+        }, face);
+      }
       // the tables open their own sections for print; a page without the hook has nothing to open
       await page.evaluate(() => {
         const hook = (window as unknown as { __quotePdf?: { prepare?: () => unknown } }).__quotePdf;

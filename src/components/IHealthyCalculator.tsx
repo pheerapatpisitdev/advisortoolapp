@@ -19,6 +19,9 @@ import {
   baseFor, resolveArrangement, sumFor, sumsFor, type IHealthyInitial,
 } from "@/lib/ihealthy-choice";
 import { cardPath, queryFrom } from "@/lib/ihealthy-link";
+import { fullCardPath } from "@/lib/ihealthy-full-link";
+import { PdfButton } from "@/components/ihealthy/PdfButton";
+import { SEND_WORDS } from "@/lib/ihealthy-send-words";
 import { arrangementKey } from "@/components/ihealthy/rider-request";
 import { deathBenefitRows } from "@/lib/death-benefit";
 import type { AttachedRider } from "@/lib/ihealthy-rider-quote";
@@ -251,14 +254,24 @@ export function IHealthyCalculator(
    * Held back with the price, on the same test the card is: nothing is drawn from a lapsed
    * rate table or an age the company sells nothing at.
    */
-  const picture = shown && plan
-    ? cardPath(table, {
+  const drawn: IHealthyInitial | undefined = shown && plan
+    ? {
         age, sex, base: base.variant, sumAssured, mode,
         plan: plan.code,
         territory: territory ?? wantTerritory,
         coverage: coverage ?? wantCoverage,
         riders: answered?.riders ?? picked,
-      }, lang)
+      }
+    : undefined;
+  const picture = drawn ? cardPath(table, drawn, lang) : undefined;
+  /** the same arrangement as the whole table, every category (owner, 2026-10-25) */
+  const fullPicture = drawn ? fullCardPath(table, drawn, lang) : undefined;
+  /**
+   * The phone's PDF, made by our server from this arrangement (src/components/ihealthy/PdfButton.tsx).
+   * No `v`: the route sends any other to the current one, which is the address it caches.
+   */
+  const pdfPath = drawn
+    ? `/api/quote-pdf?page=ihealthy-ultra&${queryFrom(table, drawn)}${lang === "th" ? "" : `&l=${lang}`}`
     : undefined;
 
   /**
@@ -642,21 +655,23 @@ export function IHealthyCalculator(
           members-only (owner chose ก, 2026-10-20): a customer cannot open the page any more,
           so the picture in "ส่งให้ลูกค้า" is what goes to them. */}
       <div className="print:hidden">
-        <button type="button" onClick={() => window.print()} className={`${tool} w-full`}>
-          {w.printOrPdf}
-        </button>
+        <PdfButton
+          path={pdfPath} filename={`iHealthy-Ultra-${w.sex[sex]}${age}.pdf`} className={`${tool} w-full`}
+          words={{ idle: w.printOrPdf, making: SEND_WORDS[lang].pdfMaking, ready: SEND_WORDS[lang].pdfReady, failed: SEND_WORDS[lang].pdfFailed }}
+        />
       </div>
 
       <div className="print:hidden">
         <ContactButtons
           copyText={quoteText} cardPath={picture} words={w.contact}
+          tableCardPath={fullPicture} tableLabel={SEND_WORDS[lang].fullTableKit(data.plans.length)}
           videoHref={plan ? videoStartHref({ product: "IHEALTHY", sex, age, plan: plan.code, ...(videoSetup ? { setup: videoSetup } : {}), lang }) : undefined}
         />
       </div>
 
       {sticky && (quoteText || picture) && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--lg-hair)] bg-[var(--lg-ground)]/95 p-3 backdrop-blur sm:hidden print:hidden">
-          <ContactButtons copyText={quoteText} cardPath={picture} words={w.contact} compact />
+          <ContactButtons copyText={quoteText} cardPath={picture} tableCardPath={fullPicture} words={w.contact} compact />
         </div>
       )}
     </div>

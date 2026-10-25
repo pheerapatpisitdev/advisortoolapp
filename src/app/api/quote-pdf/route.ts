@@ -4,6 +4,7 @@ import { clientIp, limiter } from "@/lib/assistant/rate-limit";
 import { initialFrom, queryFrom } from "@/lib/ihealthy-link";
 import { iHealthyTable } from "@/lib/ihealthy-table";
 import { PLAN_PAGES, type PlanPage } from "@/lib/quote-pdf/pages";
+import { PRINTED_LANGS, type PrintedLang } from "@/lib/quote-pdf/langs";
 import { EXTERNAL_BROWSER, planInitialFrom, planQueryFor } from "@/lib/quote-pdf/link";
 import { renderQuotePdf } from "@/lib/quote-pdf/render";
 import { siteOrigin } from "@/lib/site-url";
@@ -61,9 +62,11 @@ export async function GET(req: Request): Promise<Response> {
   }
   // LINE's flag has one spelling; anything else in it is not LINE's
   if (params.has(EXTERNAL_BROWSER) && params.get(EXTERNAL_BROWSER) !== "1") return invalid();
-  // English, for the Expat Pages' bot; the page has other languages, but nothing prints them
-  if (params.has("l") && params.get("l") !== "en") return invalid();
-  const english = params.get("l") === "en";
+  // English for the Expat Pages' bot, and every language of the page for its own phone button
+  // (src/components/ihealthy/PdfButton.tsx); Thai is the address without one
+  const l = params.get("l");
+  if (l !== null && !(PRINTED_LANGS as readonly string[]).includes(l)) return invalid();
+  const lang = l as PrintedLang | null;
 
   let target: string;
   let name: string;
@@ -78,7 +81,7 @@ export async function GET(req: Request): Promise<Response> {
     const skip = ["page", "v", EXTERNAL_BROWSER, "l"];
     if (pairs(new URLSearchParams(written), skip).join("&") !== pairs(params, skip).join("&")) return invalid();
     target = `${siteOrigin()}/ihealthy-ultra?${written}`;
-    name = `ihealthy-ultra-${english ? "en-" : ""}${initial.sex}${initial.age}`;
+    name = `ihealthy-ultra-${lang ? `${lang}-` : ""}${initial.sex}${initial.age}`;
   } else {
     const plan = page as PlanPage;
     const initial = planInitialFrom(plan, Object.fromEntries(params));
@@ -105,7 +108,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   try {
-    const pdf = await renderQuotePdf(target, { timeoutMs: 45_000, ...(english ? { lang: "en" as const } : {}) });
+    const pdf = await renderQuotePdf(target, { timeoutMs: 45_000, ...(lang ? { lang } : {}) });
     return new Response(new Uint8Array(pdf), {
       status: 200,
       headers: {

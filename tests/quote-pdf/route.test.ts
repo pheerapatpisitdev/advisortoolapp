@@ -105,9 +105,20 @@ describe("GET /api/quote-pdf", () => {
     expect(render.mock.calls[0][1]).toMatchObject({ lang: "en" });
   });
 
-  it("refuses any language but English", async () => {
+  it("prints the proposal in each of the page's other languages, for its phone button", async () => {
     const query = queryFrom(iHealthyTable(), IHEALTHY_OPENING);
-    for (const l of ["zh", "th", "", "EN"]) {
+    for (const l of ["zh", "ru", "my"]) {
+      render.mockClear();
+      const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&l=${l}&v=${V}`));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-disposition")).toBe(`inline; filename="ihealthy-ultra-${l}-F35.pdf"`);
+      expect(render.mock.calls[0][1]).toMatchObject({ lang: l });
+    }
+  });
+
+  it("refuses a language the page does not have, and Thai written out", async () => {
+    const query = queryFrom(iHealthyTable(), IHEALTHY_OPENING);
+    for (const l of ["fr", "th", "", "EN"]) {
       const res = await GET(req(`/api/quote-pdf?page=ihealthy-ultra&${query}&l=${l}&v=${V}`));
       expect(res.status).toBe(400);
     }
