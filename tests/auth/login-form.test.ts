@@ -37,7 +37,7 @@ describe("LoginForm's member tab (owner, 2026-10-02)", () => {
   });
 
   it("tells newcomers the same button signs them up, only while sign-up is open", () => {
-    expect(draw(true)).toContain("กดปุ่มเดียวกันนี้เพื่อสมัคร");
+    expect(draw(true)).toContain("กดปุ่มนี้แล้วกรอกข้อมูลสั้นๆ");
     // the trial's own words come from the back office, through the door (src/lib/pricing/front.ts)
     expect(draw(true)).not.toContain("10 รอบ");
     expect(draw(false, "x")).not.toContain("เพื่อสมัคร");

@@ -9,7 +9,7 @@ import { inviterOf } from "@/lib/referrals/store";
 import { PriceList } from "@/components/auth/PriceList";
 import { isCalcPath } from "@/lib/auth/calc-paths";
 import { passSettings } from "@/lib/members/pass-store";
-import { frontPricesOf, signupHint, type FrontPrices } from "@/lib/pricing/front";
+import { frontPricesOf, SIGNUP_HINT, signupHint, type FrontPrices } from "@/lib/pricing/front";
 import { referralSettings } from "@/lib/referrals/store";
 import { agentStarterCredit, walletSettings } from "@/lib/wallet/store";
 import { LoginForm } from "./LoginForm";
@@ -51,7 +51,7 @@ export async function LoginDoor({ searchParams }: { searchParams: DoorParams }) 
     <LoginForm
       next={next} signupOpen={settings.signupOpen} error={googleError(params.error)} notice={notice}
       invitedBy={inviter?.name ?? null} premium={premium}
-      signupHint={prices ? signupHint(prices.member) : "ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร"}
+      signupHint={prices ? signupHint(prices.member) : SIGNUP_HINT}
       prices={prices && <PriceList prices={prices} />}
     />
   );

@@ -139,8 +139,8 @@ describe("ค่าบริการ on the front page", () => {
   });
 
   it("tells a newcomer about the trial only while there is one", () => {
-    expect(signupHint(prod.member)).toBe("ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร ทดลองฟรี 3 วัน");
-    expect(signupHint({ ...prod.member, trialDays: 0 })).toBe("ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร");
-    expect(signupHint({ ...prod.member, paid: false })).toBe("ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร");
+    expect(signupHint(prod.member)).toBe("ยังไม่มีบัญชี? กดปุ่มนี้แล้วกรอกข้อมูลสั้นๆ ทดลองฟรี 3 วัน");
+    expect(signupHint({ ...prod.member, trialDays: 0 })).toBe("ยังไม่มีบัญชี? กดปุ่มนี้แล้วกรอกข้อมูลสั้นๆ");
+    expect(signupHint({ ...prod.member, paid: false })).toBe("ยังไม่มีบัญชี? กดปุ่มนี้แล้วกรอกข้อมูลสั้นๆ");
   });
 });

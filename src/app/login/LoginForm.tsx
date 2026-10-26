@@ -5,6 +5,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { Field, FormError } from "@/components/auth/fields";
 import { GOOGLE, GoogleG } from "@/components/auth/google-button";
 import { INPUT, MUTE, PRIMARY } from "@/components/auth/styles";
+import { SIGNUP_HINT } from "@/lib/pricing/front";
 import { signIn } from "./actions";
 
 type Tab = "member" | "unitos";
@@ -32,7 +33,7 @@ function PremiumOnly() {
   );
 }
 
-export function LoginForm({ next, signupOpen, error: googleError, notice = null, invitedBy = null, premium = false, signupHint = "ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร", prices = null }: {
+export function LoginForm({ next, signupOpen, error: googleError, notice = null, invitedBy = null, premium = false, signupHint = SIGNUP_HINT, prices = null }: {
   next: string; signupOpen: boolean; error: string | null;
   /** the line under the Google button for somebody new: the trial, from the back office (door.tsx) */
   signupHint?: string;

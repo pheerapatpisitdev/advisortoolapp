@@ -55,9 +55,10 @@ export function thb(n: number): string {
   return Number.isInteger(n) ? n.toLocaleString("en-US") : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** before the trial is known: the Google button, then สมัครสมาชิก's few boxes (owner, 2026-10-27) */
+export const SIGNUP_HINT = "ยังไม่มีบัญชี? กดปุ่มนี้แล้วกรอกข้อมูลสั้นๆ";
+
 /** the line under the Google button for somebody without an account yet */
 export function signupHint(p: FrontPrices["member"]): string {
-  return p.paid && p.trialDays > 0
-    ? `ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร ทดลองฟรี ${p.trialDays} วัน`
-    : "ยังไม่มีบัญชี? กดปุ่มเดียวกันนี้เพื่อสมัคร";
+  return p.paid && p.trialDays > 0 ? `${SIGNUP_HINT} ทดลองฟรี ${p.trialDays} วัน` : SIGNUP_HINT;
 }
