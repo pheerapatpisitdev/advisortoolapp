@@ -67,11 +67,11 @@ export function MembersAdmin({ settings, members, passOn = false, revenueSatang 
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (members ?? []).filter((m) => !q || m.name.toLowerCase().includes(q) || m.email.includes(q));
+    return (members ?? []).filter((m) => !q || m.name.toLowerCase().includes(q) || m.email.includes(q) || !!m.office?.toLowerCase().includes(q));
   }, [members, query]);
   const clock = new Date(now);
   const count = (f: (p: Pass) => boolean) => (members ?? []).filter((m) => m.pass && f(m.pass)).length;
-  const columns = passOn ? 8 : 7;
+  const columns = passOn ? 9 : 8;
 
   return (
     <div className="space-y-5">
@@ -101,13 +101,13 @@ export function MembersAdmin({ settings, members, passOn = false, revenueSatang 
               <Tile value={revenueSatang === null ? "—" : baht(revenueSatang)} label="ค่าสมาชิกเดือนนี้" />
             </div>
           )}
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาชื่อหรืออีเมล"
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาชื่อ อีเมล หรือสำนักงาน"
                  className="w-full rounded-md border px-3 py-2 text-sm sm:w-72" />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[var(--bot-ink-mute)]">
-                  <th className="py-2 pr-3">ชื่อ</th><th className="pr-3">อีเมล</th><th className="pr-3">สมัคร</th>
+                  <th className="py-2 pr-3">ชื่อ - นามสกุล</th><th className="pr-3">สำนักงาน</th><th className="pr-3">อีเมล</th><th className="pr-3">สมัคร</th>
                   <th className="pr-3">สถานะ</th>{passOn && <th className="pr-3">ใช้ได้ถึง</th>}
                   <th className="pr-3 text-right">กระเป๋า</th><th className="pr-3 text-right">{passOn ? "เครดิตเหลือ" : "รอบฟรี"}</th><th />
                 </tr>
@@ -117,6 +117,7 @@ export function MembersAdmin({ settings, members, passOn = false, revenueSatang 
                   <Fragment key={m.id}>
                   <tr className="border-t">
                     <td className="py-2 pr-3">{m.name}</td>
+                    <td className="pr-3">{m.office ?? <span className="text-[var(--bot-ink-mute)]">ยังไม่กรอก</span>}</td>
                     <td className="pr-3 break-all">{m.email}</td>
                     <td className="pr-3">{day(m.createdAt)}</td>
                     <td className="pr-3">{m.status === "active" ? "ใช้งาน" : <span className="text-[var(--bot-red-ink)]">ระงับ</span>}</td>

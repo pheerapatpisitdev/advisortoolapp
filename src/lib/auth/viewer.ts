@@ -38,7 +38,7 @@ export async function agentsByCode(code: string): Promise<AgentRow[]> {
   return rows.length > 0 ? rows : bluewealthAgentsByCode(code);
 }
 
-const MEMBER_COLUMNS = "id, email, name, status, revoked_at";
+const MEMBER_COLUMNS = "id, email, name, status, revoked_at, office";
 
 /** A member who signed up here (src/lib/auth/member.ts), or null. */
 export async function memberById(id: string): Promise<MemberRow | null> {
@@ -150,6 +150,9 @@ const under = (next: string, path: string) => next === path || next.startsWith(`
  */
 const passPage = (next: string) => ["/home", "/ask", "/studio", ...CALC_PATHS].some((p) => under(next, p));
 
+/** สมัครสมาชิก: where a member gives their name and สำนักงาน before anything else (owner, 2026-10-27) */
+export const PROFILE_PAGE = "/signup";
+
 /**
  * For pages. Somebody not signed in is sent to sign in and brought back; somebody signed in
  * without the permission goes to Studio, which every agent may use, rather than to an error —
@@ -157,6 +160,7 @@ const passPage = (next: string) => ["/home", "/ask", "/studio", ...CALC_PATHS].s
  *
  * The Super Admin has the back office only: any other page sends them back to /admin.
  *
+ * A member who has not filled in สมัครสมาชิก goes there first (owner, 2026-10-27).
  * An outside member whose pass has run out is sent to renew it instead (owner, 2026-10-13).
  * Only a member is ever asked about a pass. A pass that cannot be read throws to the error
  * page: a redirect on it would loop or turn away a member who has paid.
@@ -168,6 +172,11 @@ export async function gatePage(next: string, perm?: Perm): Promise<Viewer> {
     const asked = safeNext((await headers()).get("x-pathname"), next);
     const premium = (await whyOut().catch(() => null)) === "premium" ? "premium=1&" : "";
     redirect(`/?${premium}next=${encodeURIComponent(asked)}`);
+  }
+  // before the pass: a member whose trial has ended still says who they are first
+  if (viewer.profileDue) {
+    const asked = safeNext((await headers()).get("x-pathname"), next);
+    redirect(`${PROFILE_PAGE}?next=${encodeURIComponent(asked)}`);
   }
   if (viewer.kind === "member" && passPage(next) && !passOpen(await memberAccess(viewer))) {
     redirect(`${PASS_PAGE}?expired=1`);

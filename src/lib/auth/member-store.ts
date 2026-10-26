@@ -33,9 +33,25 @@ export async function setEmail(id: string, email: string): Promise<void> {
   if (error) throw new Error(`บันทึกอีเมลไม่สำเร็จ: ${error.message}`);
 }
 
-export async function setName(id: string, name: string): Promise<void> {
-  const { error } = await supabaseAdmin().from("ins_members").update({ name }).eq("id", id);
-  if (error) throw new Error(`เปลี่ยนชื่อไม่สำเร็จ: ${error.message}`);
+export interface MemberProfile {
+  name: string;
+  email: string;
+  /** null until the member fills in สมัครสมาชิก (supabase/migrations/20261203_member_office.sql) */
+  office: string | null;
+  createdAt: string;
+}
+
+export async function memberProfile(id: string): Promise<MemberProfile | null> {
+  const { data, error } = await supabaseAdmin().from("ins_members").select("name, email, office, created_at").eq("id", id).maybeSingle();
+  if (error) throw new Error(`อ่านข้อมูลสมาชิกไม่ได้: ${error.message}`);
+  const d = data as { name: string; email: string; office: string | null; created_at: string } | null;
+  return d && { name: d.name, email: d.email, office: d.office, createdAt: d.created_at };
+}
+
+/** ชื่อ - นามสกุล and สำนักงาน together: the สมัครสมาชิก page and บัญชีของฉัน (owner, 2026-10-27). */
+export async function setProfile(id: string, p: { name: string; office: string }): Promise<void> {
+  const { error } = await supabaseAdmin().from("ins_members").update({ name: p.name, office: p.office }).eq("id", id);
+  if (error) throw new Error(`บันทึกข้อมูลสมาชิกไม่สำเร็จ: ${error.message}`);
 }
 
 /**
@@ -112,6 +128,8 @@ export interface MemberSummary {
   id: string;
   name: string;
   email: string;
+  /** null until the member fills in สมัครสมาชิก (owner, 2026-10-27) */
+  office: string | null;
   status: "active" | "suspended";
   createdAt: string;
   balanceSatang: number;
@@ -134,9 +152,9 @@ export interface MemberSummary {
  */
 export async function listMembers(limit = 200): Promise<MemberSummary[]> {
   const { data, error } = await supabaseAdmin().from("ins_members")
-    .select("id, name, email, status, created_at").order("created_at", { ascending: false }).limit(limit);
+    .select("id, name, email, office, status, created_at").order("created_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`อ่านรายชื่อสมาชิกไม่ได้: ${error.message}`);
-  const rows = (data ?? []) as { id: string; name: string; email: string; status: "active" | "suspended"; created_at: string }[];
+  const rows = (data ?? []) as { id: string; name: string; email: string; office: string | null; status: "active" | "suspended"; created_at: string }[];
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
   const { data: wallets, error: walletError } = await supabaseAdmin().from("ins_wallets")
@@ -159,7 +177,7 @@ export async function listMembers(limit = 200): Promise<MemberSummary[]> {
   return rows.map((r, i) => {
     const s = states[i];
     return {
-      id: r.id, name: r.name, email: r.email, status: r.status, createdAt: r.created_at,
+      id: r.id, name: r.name, email: r.email, office: r.office ?? null, status: r.status, createdAt: r.created_at,
       balanceSatang: balance.get(r.id) ?? 0, freeUsed: used[i], freeLimit: windows[i].limit,
       creditSatang: credit.get(r.id) ?? 0, footprint: footprints[i],
       pass: !settings.enabled ? null

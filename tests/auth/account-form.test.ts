@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("@/app/studio/account/actions", () => ({ renameMe: vi.fn() }));
+vi.mock("@/app/studio/account/actions", () => ({ saveMyProfile: vi.fn() }));
 const { AccountForm } = await import("@/app/studio/account/AccountForm");
 
-const html = renderToStaticMarkup(createElement(AccountForm, { name: "สมชาย", email: "somchai@gmail.com" }));
+const html = renderToStaticMarkup(createElement(AccountForm, { name: "สมชาย ใจดี", office: "AIA ตึกสาทร", email: "somchai@gmail.com" }));
 
 describe("AccountForm (owner, 2026-10-02)", () => {
   it("shows the Google account the member signs in with", () => {
@@ -13,8 +13,10 @@ describe("AccountForm (owner, 2026-10-02)", () => {
     expect(html).toContain("บัญชี Google");
   });
 
-  it("changes the name, and has no PIN left to change", () => {
-    expect(html).toMatch(/<label[^>]*for="account-name"[^>]*>ชื่อที่แสดง<\/label>/);
+  it("changes the name and the สำนักงาน, and has no PIN left to change", () => {
+    expect(html).toMatch(/<label[^>]*for="account-name"[^>]*>ชื่อ - นามสกุล<\/label>/);
+    expect(html).toMatch(/<label[^>]*for="account-office"[^>]*>สำนักงาน<\/label>/);
+    expect(html).toContain('value="AIA ตึกสาทร"');
     expect(html).not.toContain("PIN");
   });
 

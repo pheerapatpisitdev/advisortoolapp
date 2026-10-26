@@ -76,7 +76,7 @@ describe("grantPassDays", () => {
 });
 
 describe("listMembers with the pass (owner, 2026-10-13)", () => {
-  const member = (id: string) => ({ id, name: id, email: `${id}@gmail.com`, status: "active", created_at: "2026-10-01T00:00:00Z" });
+  const member = (id: string) => ({ id, name: id, email: `${id}@gmail.com`, office: id === "never" ? null : `สำนักงาน ${id}`, status: "active", created_at: "2026-10-01T00:00:00Z" });
   const row = (id: number, member_id: string, kind: string, days: number, created_at: string) =>
     ({ id, member_id, kind, days, revokes: null, created_at, amount_satang: kind === "paid" ? 9900 : null, note: null });
   /** what each member's count asked: the moment it counted from */
@@ -150,7 +150,7 @@ describe("listMembers with the pass (owner, 2026-10-13)", () => {
 describe("the member list on /admin/members (owner, 2026-10-13)", () => {
   type Summary = Awaited<ReturnType<typeof listMembers>>[number];
   const m = (id: string, pass: Summary["pass"], freeUsed = 2, freeLimit = 10, creditSatang = 0): Summary =>
-    ({ id, name: id, email: `${id}@gmail.com`, status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 0, freeUsed, freeLimit, creditSatang, footprint: null, pass });
+    ({ id, name: id, email: `${id}@gmail.com`, office: id === "never" ? null : `สำนักงาน ${id}`, status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 0, freeUsed, freeLimit, creditSatang, footprint: null, pass });
   const members = [
     m("paid", { status: "live", end: "2026-11-11T00:00:00.000Z", trial: false }, 0, 0, 3800),
     m("soon", { status: "live", end: "2026-10-15T00:00:00.000Z", trial: false }),
@@ -186,6 +186,13 @@ describe("the member list on /admin/members (owner, 2026-10-13)", () => {
     ]);
     expect(html.match(/>ลบ</g)).toHaveLength(1);
     expect(html.indexOf(">ลบ<")).toBeGreaterThan(html.indexOf("soon@gmail.com"));
+  });
+
+  it("shows each member's สำนักงาน, or ยังไม่กรอก (owner, 2026-10-27)", () => {
+    const html = draw(true);
+    expect(html).toContain(">สำนักงาน<");
+    expect(html).toContain(">สำนักงาน paid<");
+    expect(html).toMatch(/>ยังไม่กรอก</);
   });
 
   it("shows — on the money tile when the revenue cannot be read", () => {

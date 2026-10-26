@@ -24,6 +24,11 @@ describe("the new-member alert", () => {
     expect(text).toContain("สมาชิกทั้งหมด 3 คน");
     expect(text).toMatch(/\/admin\/members$/);
   });
+
+  it("says the member's สำนักงาน under the name (owner, 2026-10-27)", () => {
+    const text = newMemberText({ name: "สมชาย ใจดี", email: "somchai@gmail.com", office: "กรุงไทย-แอกซ่า สาขาบางนา", createdAt: "2026-10-27T03:00:00Z" }, 4);
+    expect(text).toContain("🆕 สมาชิกใหม่\nสมชาย ใจดี\nสำนักงาน: กรุงไทย-แอกซ่า สาขาบางนา\nsomchai@gmail.com\n");
+  });
 });
 
 describe("the failed-clip alert", () => {

@@ -148,8 +148,8 @@ describe("GET /auth/google/callback", () => {
     const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, `${cookie}; ref=SOMCHA7`));
     expect(referrals.attachReferral).toHaveBeenCalledWith("m9", "SOMCHA7");
     expect(session.startSession).toHaveBeenCalledWith("m9");
-    // the owner's LINE hears of the new member (owner chose ก, 2026-10-15)
-    expect(alerts.alertNewMember).toHaveBeenCalledWith("m9");
+    // the owner's LINE hears of the new member once they fill in สมัครสมาชิก (owner, 2026-10-27), not here
+    expect(alerts.alertNewMember).not.toHaveBeenCalled();
     expect(res.headers.get("set-cookie")).toMatch(/ref=;.*Max-Age=0/);
   });
 

@@ -12,3 +12,12 @@ export function cleanName(raw: unknown): string | null {
   const name = raw.trim().replace(/\s+/g, " ");
   return name.length >= 1 && name.length <= 60 ? name : null;
 }
+
+export const OFFICE_MAX = 100;
+
+/** สำนักงาน, typed by the member (owner chose ก, 2026-10-27): any company, any branch. */
+export function cleanOffice(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const office = raw.trim().replace(/\s+/g, " ");
+  return office.length >= 1 && office.length <= OFFICE_MAX ? office : null;
+}

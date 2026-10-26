@@ -64,6 +64,16 @@ describe("getViewer", () => {
 });
 
 /** Signing out ends every session issued before it, on any device (review, 2026-10-01). */
+describe("gatePage and สมัครสมาชิก (owner, 2026-10-27)", () => {
+  it("sends a member with no สำนักงาน to สมัครสมาชิก first, and brings them back after", async () => {
+    session.value = { agentId: "m1", issuedAt: Date.now() };
+    db.on("agents", { data: null });
+    db.on("ins_staff", { data: null });
+    db.on("ins_members", { data: { ...MEMBER_ROW, office: null } });
+    await expect(gatePage("/studio/account")).rejects.toThrow("redirect /signup?next=%2Fstudio%2Faccount");
+  });
+});
+
 describe("getViewer and signing out everywhere", () => {
   const signedOutAt = Date.parse("2026-10-01T03:00:00Z");
 

@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { cleanName } from "@/lib/auth/member";
-import { setName } from "@/lib/auth/member-store";
+import { cleanName, cleanOffice } from "@/lib/auth/member";
+import { setProfile } from "@/lib/auth/member-store";
 import { requireMember } from "@/lib/auth/viewer";
 import { cleanContactName, cleanLine, cleanMore, cleanPhone, MORE_MAX, NAME_MAX, photoUrl, saveContact, savePhoto } from "@/lib/quote-video/contact";
 
@@ -9,16 +9,21 @@ export type Result = { ok: true } | { ok: false; error: string };
 
 const MEMBERS_ONLY: Result = { ok: false, error: "หน้านี้สำหรับสมาชิกทั่วไปเท่านั้น" };
 
-/** A member's name, as everybody here sees it. Their Google account is Google's to change. */
-export async function renameMe(name: string): Promise<Result> {
+/**
+ * A member's ชื่อ - นามสกุล and สำนักงาน, as everybody here sees them (owner, 2026-10-27: the
+ * two boxes of สมัครสมาชิก, changed later here). Their Google account is Google's to change.
+ */
+export async function saveMyProfile(name: string, office: string): Promise<Result> {
   const viewer = await requireMember();
   if (viewer.kind !== "member") return MEMBERS_ONLY;
-  const clean = cleanName(name);
-  if (!clean) return { ok: false, error: "กรุณากรอกชื่อ (ไม่เกิน 60 ตัวอักษร)" };
+  const n = cleanName(name);
+  if (!n) return { ok: false, error: "กรุณากรอกชื่อ - นามสกุล (ไม่เกิน 60 ตัวอักษร)" };
+  const o = cleanOffice(office);
+  if (!o) return { ok: false, error: "กรุณากรอกสำนักงาน (ไม่เกิน 100 ตัวอักษร)" };
   try {
-    await setName(viewer.agentId, clean);
+    await setProfile(viewer.agentId, { name: n, office: o });
   } catch (e) {
-    console.error("rename failed:", e);
+    console.error("profile not saved:", e);
     return { ok: false, error: "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" };
   }
   revalidatePath("/studio", "layout");

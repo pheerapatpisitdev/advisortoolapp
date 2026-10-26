@@ -91,11 +91,27 @@ describe("counts", () => {
 
 });
 
+describe("memberProfile and setProfile (owner, 2026-10-27)", () => {
+  it("reads the name, Gmail, สำนักงาน and when the account was opened", async () => {
+    db.on("ins_members", { data: { name: "สมชาย", email: "s@gmail.com", office: null, created_at: "2026-10-27T01:00:00Z" } });
+    expect(await store.memberProfile("m1")).toEqual({ name: "สมชาย", email: "s@gmail.com", office: null, createdAt: "2026-10-27T01:00:00Z" });
+  });
+
+  it("writes the name and สำนักงาน together, and throws when it cannot", async () => {
+    db.on("ins_members", { data: null });
+    await store.setProfile("m1", { name: "สมชาย ใจดี", office: "AIA" });
+    const l = db.log.find((x) => x.table === "ins_members");
+    expect(JSON.stringify(l)).toContain("AIA");
+    db.on("ins_members", { error: { message: "boom" } });
+    await expect(store.setProfile("m1", { name: "ก", office: "ข" })).rejects.toThrow("บันทึกข้อมูลสมาชิกไม่สำเร็จ");
+  });
+});
+
 describe("listMembers", () => {
   it("lists members newest first with balance and free rounds used, capped at ten", async () => {
     db.on("ins_members", { data: [
-      { id: "m2", name: "ข", email: "b@gmail.com", status: "suspended", created_at: "2026-10-02T00:00:00Z" },
-      { id: "m1", name: "ก", email: "a@gmail.com", status: "active", created_at: "2026-10-01T00:00:00Z" },
+      { id: "m2", name: "ข", email: "b@gmail.com", office: null, status: "suspended", created_at: "2026-10-02T00:00:00Z" },
+      { id: "m1", name: "ก", email: "a@gmail.com", office: "AIA ตึกสาทร", status: "active", created_at: "2026-10-01T00:00:00Z" },
     ] });
     db.on("ins_wallets", { data: [{ agent_id: "m1", balance_satang: 5000 }] });
     db.on("ins_audit", (steps) => ({ count: has(steps, "eq", "agent_id", "m1") ? 14 : 3 }));
@@ -106,8 +122,8 @@ describe("listMembers", () => {
     // the pass switched off (nothing saved): no pass column, the one-time ten (owner, 2026-10-13)
     db.on("ins_ai_settings", { data: null });
     expect(await store.listMembers()).toEqual([
-      { id: "m2", name: "ข", email: "b@gmail.com", status: "suspended", createdAt: "2026-10-02T00:00:00Z", balanceSatang: 0, freeUsed: 3, freeLimit: 10, creditSatang: 0, footprint: { pieces: 12, customers: 4, people: 0 }, pass: null },
-      { id: "m1", name: "ก", email: "a@gmail.com", status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 5000, freeUsed: 10, freeLimit: 10, creditSatang: 0, footprint: null, pass: null },
+      { id: "m2", name: "ข", email: "b@gmail.com", office: null, status: "suspended", createdAt: "2026-10-02T00:00:00Z", balanceSatang: 0, freeUsed: 3, freeLimit: 10, creditSatang: 0, footprint: { pieces: 12, customers: 4, people: 0 }, pass: null },
+      { id: "m1", name: "ก", email: "a@gmail.com", office: "AIA ตึกสาทร", status: "active", createdAt: "2026-10-01T00:00:00Z", balanceSatang: 5000, freeUsed: 10, freeLimit: 10, creditSatang: 0, footprint: null, pass: null },
     ]);
   });
 });

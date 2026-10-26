@@ -123,10 +123,11 @@ const when = (iso: string) => new Date(iso).toLocaleString("th-TH", {
 });
 
 /** The alert's words for one new member. */
-export function newMemberText(m: { name: string; email: string; createdAt: string }, total: number | null): string {
+export function newMemberText(m: { name: string; email: string; office?: string | null; createdAt: string }, total: number | null): string {
   return [
     "🆕 สมาชิกใหม่",
     m.name,
+    ...(m.office ? [`สำนักงาน: ${m.office}`] : []),
     m.email,
     `${when(m.createdAt)} น.`,
     "",
@@ -143,8 +144,9 @@ async function pushToOwner(text: string): Promise<boolean> {
 }
 
 /**
- * Tells the owner a member has just joined. Never throws: the sign-in it follows has already
- * succeeded, and an alert that could not go out is only written to the log.
+ * Tells the owner a member has just joined, once they have filled in สมัครสมาชิก (owner,
+ * 2026-10-27). Never throws: the save it follows has already succeeded, and an alert that
+ * could not go out is only written to the log.
  */
 export async function alertNewMember(memberId: string): Promise<void> {
   try {
@@ -152,12 +154,12 @@ export async function alertNewMember(memberId: string): Promise<void> {
     if (!r?.owner_line_user_id || r.notify_new_member === false) return;
     const db = supabaseAdmin();
     const [m, count] = await Promise.all([
-      db.from("ins_members").select("name, email, created_at").eq("id", memberId).maybeSingle(),
+      db.from("ins_members").select("name, email, office, created_at").eq("id", memberId).maybeSingle(),
       db.from("ins_members").select("id", { count: "exact", head: true }),
     ]);
     if (m.error || !m.data) throw new Error(m.error?.message ?? "member not found");
-    const d = m.data as { name: string; email: string; created_at: string };
-    await push(r.owner_line_user_id, [{ type: "text", text: newMemberText({ name: d.name, email: d.email, createdAt: d.created_at }, count.count ?? null) }]);
+    const d = m.data as { name: string; email: string; office: string | null; created_at: string };
+    await push(r.owner_line_user_id, [{ type: "text", text: newMemberText({ name: d.name, email: d.email, office: d.office, createdAt: d.created_at }, count.count ?? null) }]);
   } catch (e) {
     console.error(`[line] new-member alert for ${memberId} not sent:`, e);
   }

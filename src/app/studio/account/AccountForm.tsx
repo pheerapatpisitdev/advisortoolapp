@@ -2,7 +2,8 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { Field, FormError } from "@/components/auth/fields";
 import { INPUT, MUTE, PRIMARY, STUDIO_FIELDS } from "@/components/auth/styles";
-import { renameMe, type Result } from "./actions";
+import { OFFICE_MAX } from "@/lib/auth/member";
+import { saveMyProfile, type Result } from "./actions";
 
 function Note({ result, done }: { result?: Result; done: string }) {
   if (!result) return null;
@@ -13,7 +14,7 @@ function Note({ result, done }: { result?: Result; done: string }) {
 
 const CARD = "space-y-4 rounded-xl border border-[var(--ct-hair)] bg-[var(--ct-panel)] p-5";
 
-export function AccountForm({ name, email }: { name: string; email: string }) {
+export function AccountForm({ name, office, email }: { name: string; office: string; email: string }) {
   const [nameResult, setNameResult] = useState<Result>();
   const [pending, start] = useTransition();
 
@@ -29,13 +30,16 @@ export function AccountForm({ name, email }: { name: string; email: string }) {
         // old name back in the box after a failed save
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
-        start(async () => setNameResult(await renameMe(String(fd.get("name") ?? ""))));
+        start(async () => setNameResult(await saveMyProfile(String(fd.get("name") ?? ""), String(fd.get("office") ?? ""))));
       }}>
-        <Field id="account-name" label="ชื่อที่แสดง">
+        <Field id="account-name" label="ชื่อ - นามสกุล">
           <input id="account-name" name="name" defaultValue={name} maxLength={60} className={INPUT} onChange={() => setNameResult(undefined)} />
         </Field>
+        <Field id="account-office" label="สำนักงาน">
+          <input id="account-office" name="office" defaultValue={office} maxLength={OFFICE_MAX} className={INPUT} onChange={() => setNameResult(undefined)} />
+        </Field>
         <Note result={nameResult} done="บันทึกแล้ว" />
-        <button disabled={pending} className={PRIMARY}>บันทึกชื่อ</button>
+        <button disabled={pending} className={PRIMARY}>บันทึก</button>
       </form>
     </div>
   );

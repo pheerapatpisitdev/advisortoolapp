@@ -1,4 +1,4 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { clientIp } from "@/lib/assistant/rate-limit";
 import { checkIdToken, exchangeCode, GOOGLE_COOKIE, GOOGLE_COOKIE_PATH, loginWithError, readLogin } from "@/lib/auth/google";
 import { memberFromGoogle } from "@/lib/auth/google-member";
@@ -8,7 +8,6 @@ import { startSession } from "@/lib/auth/session";
 import { requestOrigin } from "@/lib/facebook/origin";
 import { REF_COOKIE } from "@/lib/referrals/referral";
 import { attachReferral } from "@/lib/referrals/store";
-import { alertNewMember } from "@/lib/line/owner-alert";
 
 export const dynamic = "force-dynamic";
 
@@ -80,8 +79,7 @@ async function finish(req: Request): Promise<{ res: NextResponse; created: boole
   if (invited) await attachReferral(id, invited).catch((e) => console.error(`referral of new member ${id} not noted:`, e));
   await startSession(id);
   await noteLogin(id, how, req.headers);
-  // the owner's LINE hears of a new member (owner chose ก, 2026-10-15), after the answer, so the
-  // sign-in waits for nothing; alertNewMember never throws
-  if (created) after(() => alertNewMember(id));
+  // a new member is sent on to สมัครสมาชิก by the page's gate (src/lib/auth/viewer.ts); the
+  // owner's LINE hears of them from there, with the name and สำนักงาน (owner, 2026-10-27)
   return { res: NextResponse.redirect(`${origin}${to}`), created };
 }

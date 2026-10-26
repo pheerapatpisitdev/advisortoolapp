@@ -70,6 +70,8 @@ export interface Viewer {
   trial: boolean;
   /** null for an agent who is not staff: Studio only */
   staff: { owner: boolean; publish: boolean; connect: boolean; admin: boolean } | null;
+  /** a member who has not filled in สมัครสมาชิก yet: every page sends them there first (owner, 2026-10-27) */
+  profileDue?: true;
 }
 
 /**
@@ -218,6 +220,8 @@ export interface MemberRow {
   status: string;
   /** set on suspension: sessions issued before it are over */
   revoked_at: string | null;
+  /** สำนักงาน; null until the member fills in สมัครสมาชิก (owner, 2026-10-27) */
+  office?: string | null;
 }
 
 /** What a member's menu says in place of a room. */
@@ -241,6 +245,8 @@ export function admitMember(member: MemberRow | null, issuedAt: number): Viewer 
     tenantName: MEMBER_ROOM,
     trial: false,
     staff: null,
+    // null, not missing: a row read before the column existed asks nothing of anybody
+    ...(member.office === null ? { profileDue: true as const } : {}),
   };
 }
 

@@ -126,6 +126,12 @@ describe("admitMember (owner, 2026-10-01)", () => {
     });
   });
 
+  it("marks a member who has not filled in สมัครสมาชิก, and only one whose สำนักงาน is null (owner, 2026-10-27)", () => {
+    expect(admitMember(member({ office: null }), Date.now())?.profileDue).toBe(true);
+    expect(admitMember(member({ office: "AIA ตึกสาทร" }), Date.now())?.profileDue).toBeUndefined();
+    expect(admitMember(member(), Date.now())?.profileDue).toBeUndefined();
+  });
+
   it("names a member with a blank name by their email", () => {
     expect(admitMember(member({ name: "  " }), Date.now())?.name).toBe("somchai@gmail.com");
   });
