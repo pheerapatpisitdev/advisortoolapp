@@ -9,7 +9,7 @@
  */
 
 /** "pictures": a คลิปตามโจทย์'s painted pictures, before its voice */
-export type ProgressStep = "pictures" | "voice" | "files" | "draw" | "submit";
+export type ProgressStep = "pictures" | "motion" | "voice" | "files" | "draw" | "submit";
 /** what produce has done, on the row: `done` of `of` lines spoken or scenes drawn */
 export interface ProgressNote { step: ProgressStep; done: number; of: number }
 
@@ -92,7 +92,7 @@ export interface ProgressView { pct: number; text: string; leftSec: number | nul
 
 /** where each step before rendering starts and ends, as a share of that part of the bar */
 // a คลิปตามโจทย์'s pictures share the voice's part: the bar counts them, then counts the voice from its start
-const SPAN: Record<ProgressStep, [number, number]> = { pictures: [0, 0.35], voice: [0, 0.35], files: [0.35, 0.45], draw: [0.45, 0.9], submit: [0.9, 1] };
+const SPAN: Record<ProgressStep, [number, number]> = { pictures: [0, 0.35], motion: [0, 0.35], voice: [0, 0.35], files: [0.35, 0.45], draw: [0.45, 0.9], submit: [0.9, 1] };
 /** the most the bar shows before the clip is done */
 export const HOLD = 98;
 
@@ -103,6 +103,7 @@ function stepText(n: ProgressNote | null): string {
   if (!n) return "เริ่มทำ…";
   switch (n.step) {
     case "pictures": return `วาดรูปประกอบ ${n.done}/${n.of}`;
+    case "motion": return `ทำภาพขยับ ${n.done}/${n.of}`;
     case "voice": return `ทำเสียงแล้ว ${n.done}/${n.of} ประโยค`;
     case "files": return "เตรียมไฟล์";
     case "draw": return `วาดภาพแล้ว ${n.done}/${n.of} ฉาก`;
@@ -140,7 +141,7 @@ export function leftWords(sec: number | null): string {
 export function readNote(v: unknown): ProgressNote | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
-  if (o.step !== "pictures" && o.step !== "voice" && o.step !== "files" && o.step !== "draw" && o.step !== "submit") return null;
+  if (o.step !== "pictures" && o.step !== "motion" && o.step !== "voice" && o.step !== "files" && o.step !== "draw" && o.step !== "submit") return null;
   const done = Number(o.done);
   const of = Number(o.of);
   return { step: o.step, done: Number.isFinite(done) ? done : 0, of: Number.isFinite(of) ? of : 0 };

@@ -29,7 +29,7 @@ import type { FxProps } from "./fx";
  * The version of the drawing code a clip's props are made for: the image refuses props of another
  * (remotion/src/Root.tsx). tests/quote-video/remotion-drawing.test.ts says when it must change.
  */
-export const REMOTION_DRAWING = "f8a408d904fb";
+export const REMOTION_DRAWING = "2d5424c95e48";
 
 /**
  * the Cloud Run job that renders them (remotion/cloudrun), started with the same key as clip-ffmpeg: one
@@ -92,8 +92,11 @@ export type StoryClipProps = FxProps & {
   narrator: "F" | "M";
   contact: StoryContext["contact"];
   total: number;
-  /** each scene: its key, its words, where it stands, and a คลิปตามโจทย์ scene's picture (a link, or a file in the project's public folder) */
-  scenes: { key: string; voice: string; voiceSec: number; start: number; dur: number; picture?: string }[];
+  /**
+   * each scene: its key, its words, where it stands, a คลิปตามโจทย์ scene's picture (a link, or a file in
+   * the project's public folder), and its ภาพขยับ clip with how long it runs, shown in the picture's place
+   */
+  scenes: { key: string; voice: string; voiceSec: number; start: number; dur: number; picture?: string; movie?: { src: string; sec: number } }[];
   audio: string;
 };
 
@@ -101,12 +104,12 @@ export type StoryClipProps = FxProps & {
 export function storyClipProps(
   input: StoryVideoInput | PromptStoryInput, size: VideoSize, customer: string, narrator: "F" | "M", contact: StoryContext["contact"],
   plans: { key: string; start: number; dur: number }[], script: { voice: string }[], secs: number[], total: number, audio: string,
-  pictures: (string | undefined)[],
+  pictures: (string | undefined)[], movies: ({ src: string; sec: number } | undefined)[] = [],
 ): StoryClipProps {
   return {
     composition: "StoryClip", drawing: REMOTION_DRAWING, kind: input.product === "FREESTORY" ? "free" : "story",
     input, size, customer, narrator, contact, total, audio,
-    scenes: plans.map((p, i) => ({ key: p.key, voice: script[i].voice, voiceSec: secs[i], start: p.start, dur: p.dur, ...(pictures[i] ? { picture: pictures[i] } : {}) })),
+    scenes: plans.map((p, i) => ({ key: p.key, voice: script[i].voice, voiceSec: secs[i], start: p.start, dur: p.dur, ...(pictures[i] ? { picture: pictures[i] } : {}), ...(movies[i] ? { movie: movies[i] } : {}) })),
   };
 }
 

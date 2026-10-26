@@ -18,6 +18,8 @@ describe("the owner's price list", () => {
       videoPrompt: 500,
       // คลิปตามโจทย์ ดีไซน์พิเศษ (owner, 2026-10-21): ฿15
       videoPromptDesign: 1500,
+      // ภาพขยับ ต่อฉาก (owner, 2026-10-17): ฿15
+      motionScene: 1500,
     });
   });
 

@@ -181,6 +181,11 @@ export async function voiceLane(): Promise<string[]> {
   return laneIds((await loadConfig()).lanes, "voice");
 }
 
+/** ภาพขยับ's engines, in the order set on ตั้งค่า AI (lane วิดีโอ, src/lib/video/motion.ts) */
+export async function motionLane(): Promise<string[]> {
+  return laneIds((await loadConfig()).lanes, "video-motion");
+}
+
 /** A provider's key, as the chain would use it — for calls that are not a chat (Gemini's Files API); null when off or missing. */
 export async function providerKey(provider: string): Promise<string | null> {
   return liveKeys(await loadConfig())[provider] ?? null;

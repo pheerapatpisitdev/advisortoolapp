@@ -19,7 +19,9 @@ export type PriceKey =
   | "videoStoryShort"
   /** คลิปตามโจทย์ (owner, 2026-10-16): its own price, apart from คลิปเล่าเรื่อง; the pictures are charged on top */
   | "videoPrompt"
-  | "videoPromptDesign";
+  | "videoPromptDesign"
+  /** ภาพขยับ (owner, 2026-10-17): one scene of a คลิปตามโจทย์ moved, 5 seconds, Kling 2.5 Turbo Pro */
+  | "motionScene";
 
 export type Prices = Record<PriceKey, number>;
 
@@ -44,6 +46,8 @@ export const DEFAULT_PRICES: Prices = {
   videoPrompt: 500,
   // คลิปตามโจทย์ ดีไซน์พิเศษ (owner, 2026-10-21, ก ก): ฿15, Shotstack puts it together
   videoPromptDesign: 1500,
+  // ภาพขยับ ต่อฉาก (owner, 2026-10-17): ฿15 over Kling's ~฿12.6
+  motionScene: 1500,
 };
 
 const paint = (id: string): number => (PAINTERS.find((p) => p.id === id)?.thb ?? 0) + OVERHEAD_THB;
@@ -73,6 +77,7 @@ export const PRICE_ITEMS: { key: PriceKey; group: PriceGroup; label: string; uni
   { key: "videoPrompt", group: "video", label: "คลิปตามโจทย์ (ไม่รวมค่าวาดรูปต่อฉาก)", unit: "คลิป", costThb: 1 },
   // Shotstack's pay-as-you-go 20¢ a minute on a ~45 s clip, with the voice
   { key: "videoPromptDesign", group: "video", label: "คลิปตามโจทย์ ดีไซน์พิเศษ (ไม่รวมค่าวาดรูปต่อฉาก)", unit: "คลิป", costThb: 6 },
+  { key: "motionScene", group: "video", label: "ภาพขยับ ต่อฉาก (คลิปตามโจทย์ 5 วินาที)", unit: "ฉาก", costThb: 12.6 },
   { key: "elevenExtra", group: "video", label: "เสียง ElevenLabs (บวกเพิ่มต่อคลิป)", unit: "คลิป", costThb: 1.5, extra: true },
   { key: "drawStandard", group: "picture", label: "วาดรูป มาตรฐาน", unit: "รูป", costThb: paint("standard") },
   { key: "drawSharp", group: "picture", label: "วาดรูป คมชัด", unit: "รูป", costThb: paint("sharp") },

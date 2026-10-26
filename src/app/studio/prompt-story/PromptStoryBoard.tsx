@@ -4,7 +4,7 @@ import { useFreshLinks } from "../quote-video/fresh-links";
 import { useEffect, useState } from "react";
 import type { CostView } from "@/lib/quote-video/make";
 import { totalLine } from "@/lib/prompt-story/total";
-import { BRIEF_MAX, type PictureStyle, type PromptStoryInput } from "@/lib/prompt-story/types";
+import { BRIEF_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { ELEVEN_TO_GOOGLE, voiceNotice } from "@/lib/quote-video/voice-quota";
 import { useElevenOff } from "../quote-video/useElevenOff";
@@ -49,6 +49,10 @@ function readLook(): Look {
   }
 }
 
+/** the scenes with ภาพขยับ set as the agent chose: none, the opening scene, or every scene */
+const withMotion = (scenes: PromptScene[], m: "none" | "first" | "all" | "custom"): PromptScene[] =>
+  m === "custom" ? scenes : scenes.map((s, i) => ({ ...s, animate: m === "all" || (m === "first" && i === 0) }));
+
 /** what the script was written from: the clip is made from these, not from a form edited since */
 interface Written { brief: string; scenes: 3 | 5 | 8; figure: FigureChoice | null }
 
@@ -64,6 +68,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const [scenes, setScenes] = useState<3 | 5 | 8>(5);
   const [style, setStyle] = useState<PictureStyle>("cartoon");
   const [painter, setPainter] = useState<PromptStoryInput["painter"]>("standard");
+  const [motion, setMotion] = useState<"none" | "first" | "all" | "custom">("none");
   const [withFigure, setWithFigure] = useState(false);
   const [figure, setFigure] = useState<FigureChoice>(DEFAULT_FIGURE);
   const [premium, setPremium] = useState<number | null>(null);
@@ -124,7 +129,11 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
   const elevenIsOff = useElevenOff(eleven.length > 0);
   const notice = look.voice && elevenIsOff ? ELEVEN_TO_GOOGLE : quota && !look.voice ? voiceNotice(quota, true) : null;
   const voiceBlocked = Boolean(notice?.blocked);
-  const total = totalLine({ scenes: draft?.scenes.length ?? scenes, painter, voice: look.voice || undefined, design: look.design || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff });
+  const sceneCount = draft?.scenes.length ?? scenes;
+  // ดีไซน์พิเศษ is made from still pictures: no scene moves (checked.ts drops the switch too)
+  const still = Boolean(look.design);
+  const moving = still ? 0 : draft ? draft.scenes.filter((s) => s.animate).length : motion === "all" ? scenes : motion === "first" ? 1 : 0;
+  const total = totalLine({ scenes: sceneCount, moving, painter, voice: look.voice || undefined, design: look.design || undefined, prices, kind: cost?.kind ?? "wallet", walletOff: cost?.kind === "free" && cost.walletOff });
   const closed = cost?.kind === "closed";
 
   async function write() {
@@ -133,7 +142,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     try {
       const r = await writePromptStory({ brief, scenes, ...(figureAsked ? { figure: figureAsked } : {}) });
       if (!r.ok) { setError({ text: r.error }); return; }
-      setDraft({ id: r.id, title: r.title, caption: r.caption, scenes: r.scenes });
+      setDraft({ id: r.id, title: r.title, caption: r.caption, scenes: withMotion(r.scenes, motion) });
       setNotes(r.notes);
       setWritten({ brief, scenes, figure: figureAsked });
     } catch {
@@ -149,7 +158,8 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     setError(null);
     try {
       const r = await makePromptStory({
-        draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption, scenes: draft.scenes,
+        draftId: draft.id, brief: written.brief, title: draft.title, caption: draft.caption,
+        scenes: still ? draft.scenes.map((s) => ({ ...s, animate: false })) : draft.scenes,
         style, painter, size: look.size, narrator: look.narrator, ...(look.voice ? { voice: look.voice } : {}), ...(look.gemini ? { gemini: look.gemini } : {}),
         faces: { narrator: face }, ...(written.figure ? { figure: written.figure } : {}), ...(look.design ? { design: look.design } : {}),
       }, customer);
@@ -168,6 +178,15 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
     } finally {
       setMaking(false);
     }
+  }
+
+  function pickMotion(m: "none" | "first" | "all") {
+    setMotion(m);
+    if (draft) setDraft({ ...draft, scenes: withMotion(draft.scenes, m) });
+  }
+  function editDraft(next: Draft) {
+    setDraft(next);
+    setMotion("custom");
   }
 
   const figureReady = !withFigure || premium !== null;
@@ -198,6 +217,15 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="คุณภาพรูป">
             {PAINTERS.map((p) => <button key={p.id} type="button" role="radio" aria-checked={painter === p.id} className={chip(painter === p.id)} onClick={() => setPainter(p.id)}>{p.name} {painterWord(p.id)}</button>)}
           </div>
+          <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="ภาพขยับ">
+            <span className="text-xs text-[var(--ct-mute)]">ภาพขยับ</span>
+            <button type="button" role="radio" aria-checked={motion === "none"} disabled={still} className={chip(motion === "none")} onClick={() => pickMotion("none")}>ไม่ขยับ</button>
+            <button type="button" role="radio" aria-checked={motion === "first"} disabled={still} className={chip(motion === "first")} onClick={() => pickMotion("first")}>ฉากเปิด +฿{priceBaht(prices.motionScene)}</button>
+            <button type="button" role="radio" aria-checked={motion === "all"} disabled={still} className={chip(motion === "all")} onClick={() => pickMotion("all")}>ทุกฉาก +฿{priceBaht(prices.motionScene * sceneCount)}</button>
+          </div>
+          {still
+            ? <p className="text-xs text-[var(--ct-mute)]">ภาพขยับใช้กับคลิปแบบเดิม ดีไซน์พิเศษทำจากภาพนิ่ง</p>
+            : motion !== "none" && <p className="text-xs text-[var(--ct-mute)]">ภาพนิ่งของฉากขยับ 5 วินาที คำบนจอยังเป็นของระบบ ถ้าฉากไหนทำไม่สำเร็จจะใช้ภาพนิ่งและไม่เก็บเงินฉากนั้น</p>}
         </Step>
         <Step n={3} title="ใส่เบี้ยจริงจากตาราง (ไม่ใส่ก็ได้)" summary={withFigure ? "ใส่เบี้ยจริง" : "ไม่ใส่"}>
           <div className="flex flex-wrap gap-2">
@@ -249,7 +277,7 @@ export function PromptStoryBoard({ initial, cost: firstCost, prices, quota: firs
       </aside>
 
       <section aria-label="บทและวิดีโอ" className="studio-desk min-w-0 space-y-4 rounded-xl border border-[var(--ct-hair)] p-3 lg:min-h-[70dvh] lg:self-stretch">
-        {draft && <ScriptEditor draft={draft} notes={notes} onChange={setDraft} />}
+        {draft && <ScriptEditor draft={draft} notes={notes} onChange={editDraft} motionPrice={still ? undefined : priceBaht(prices.motionScene)} />}
         <ClipList items={items} setItems={setItems} pages={pages} />
       </section>
     </div>

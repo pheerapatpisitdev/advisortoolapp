@@ -2,7 +2,7 @@ import { storyFigure, type StoryFigure } from "@/lib/quote-video/story";
 import { sizeOf } from "@/lib/quote-video/timeline";
 import { DEFAULT_NARRATOR_FACE, FACES } from "@/lib/story/faces";
 import { isDesignLook } from "@/lib/shotstack/looks";
-import { BRIEF_MAX, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
+import { BRIEF_MAX, MOVE_MAX, SCREEN_MAX, TITLE_MAX, type PictureStyle, type PromptScene, type PromptStoryInput } from "./types";
 
 /**
  * คลิปตามโจทย์'s form, checked on the server before anything is held: the brief and the script as
@@ -51,6 +51,12 @@ export function checkedPromptStory(v: Record<string, unknown>, narrator: "F" | "
     if (!sc.voice || len(sc.voice) > VOICE_MAX) return `ฉากที่ ${i + 1}: ใส่คำพูด ไม่เกิน ${VOICE_MAX} ตัวอักษร`;
     if (!sc.screen || len(sc.screen) > SCREEN_MAX) return `ฉากที่ ${i + 1}: ใส่ข้อความบนจอ ไม่เกิน ${SCREEN_MAX} ตัวอักษร`;
     if (!sc.picture || len(sc.picture) > PICTURE_MAX) return `ฉากที่ ${i + 1}: ใส่ภาพที่อยากได้ ไม่เกิน ${PICTURE_MAX} ตัวอักษร`;
+    // ภาพขยับ: what moves, and whether this scene's picture is made to move
+    const move = text(o.move);
+    if (len(move) > MOVE_MAX) return `ฉากที่ ${i + 1}: การขยับยาวเกินไป ใส่ได้ไม่เกิน ${MOVE_MAX} ตัวอักษร`;
+    if (move) sc.move = move;
+    // ดีไซน์พิเศษ is put together by Shotstack from still pictures: ภาพขยับ is for the clip Remotion draws
+    if (o.animate === true && !isDesignLook(v.design)) sc.animate = true;
     // the figure card is drawn on one scene at most, and only when a plan was priced
     if (o.showFigure === true && figure && !shown) {
       sc.showFigure = true;

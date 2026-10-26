@@ -1,5 +1,5 @@
 "use client";
-import { SCREEN_MAX, TITLE_MAX, type PromptScene } from "@/lib/prompt-story/types";
+import { MOVE_MAX, SCREEN_MAX, TITLE_MAX, type PromptScene } from "@/lib/prompt-story/types";
 
 /**
  * The script the AI wrote, every box editable (owner's mockup, 2026-10-16, state 2): per scene the
@@ -13,8 +13,10 @@ const PICTURE_MAX = 300;
 
 export interface Draft { id: string; title: string; caption: string; scenes: PromptScene[] }
 
-export function ScriptEditor({ draft, notes, onChange }: {
+export function ScriptEditor({ draft, notes, onChange, motionPrice }: {
   draft: Draft;
+  /** ภาพขยับ's price for one scene, as the page shows it ("15"); none when the clip cannot move (ดีไซน์พิเศษ) */
+  motionPrice?: string;
   /** scenes (from 0) the writer had to make plain: the agent is told */
   notes: number[];
   onChange: (next: Draft) => void;
@@ -49,6 +51,19 @@ export function ScriptEditor({ draft, notes, onChange }: {
               value={s.showFigure ? "การ์ดเบี้ยจริง (ระบบวาด)" : s.screen} onChange={(e) => setScene(i, { screen: e.target.value })}
             />
             <input aria-label={`ภาพฉาก ${i + 1}`} className={field} maxLength={PICTURE_MAX} value={s.picture} onChange={(e) => setScene(i, { picture: e.target.value })} />
+            {motionPrice && (
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={Boolean(s.animate)} onChange={(e) => setScene(i, { animate: e.target.checked })} />
+                ภาพขยับ 5 วินาที +฿{motionPrice}
+              </label>
+            )}
+            {motionPrice && s.animate && (
+              <input
+                aria-label={`การขยับฉาก ${i + 1}`} className={field} maxLength={MOVE_MAX} value={s.move ?? ""}
+                placeholder="อะไรขยับในภาพ (ภาษาอังกฤษสั้น ๆ) เช่น The mother smiles, the child waves"
+                onChange={(e) => setScene(i, { move: e.target.value })}
+              />
+            )}
           </div>
         </div>
       ))}
