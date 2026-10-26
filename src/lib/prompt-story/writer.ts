@@ -2,7 +2,7 @@ import { chat } from "@/lib/ai/client";
 import { parseJsonReply } from "@/lib/ai/json-reply";
 import type { StoryFigure } from "@/lib/quote-video/story";
 import { allowedFor, checkScene, checkScript } from "./check";
-import { MOVE_MAX, SCREEN_MAX, TITLE_MAX, type PromptScene } from "./types";
+import { SCREEN_MAX, TITLE_MAX, type PromptScene } from "./types";
 
 /**
  * The script of a คลิปตามโจทย์: one small-tier model call (never Claude) turns the agent's brief
@@ -46,11 +46,10 @@ function system(brief: string, count: number, figure?: StoryFigure): string {
     "กฎ:",
     "- ห้ามใส่ตัวเลขที่ไม่อยู่ในโจทย์ ห้ามพูดถึงผลตอบแทน ดอกเบี้ย กำไร ห้ามใช้คำว่า รับประกัน การันตี",
     "- picture คือคำอธิบายภาพที่จะวาด ห้ามมีตัวเลขเลย ห้ามสั่งให้วาดข้อความหรือตัวอักษรในภาพ",
-    "- move คือสิ่งที่ขยับในภาพ เขียนเป็นภาษาอังกฤษสั้นๆ 1 ประโยค เช่น The mother smiles and the child waves, hair moves gently ห้ามมีตัวเลข ห้ามสั่งให้มีข้อความหรือตัวอักษรในภาพ",
     "- ห้ามอีโมจิ ห้ามลิงก์",
     figure ? "- มีตัวเลขแผนให้โชว์ได้ ให้ตั้ง showFigure เป็น true ได้อย่างมาก 1 ฉากเท่านั้น" : "- showFigure เป็น false ทุกฉาก",
     "",
-    `ตอบเป็น JSON object เดียว: {"onTopic": true/false, "refusal": "", "title": "ไม่เกิน ${TITLE_MAX} ตัวอักษร", "caption": "ข้อความโพสต์ 1–2 ประโยค", "scenes": [{"voice": "คำพูด 1–2 ประโยค", "screen": "ข้อความบนจอ ไม่เกิน ${SCREEN_MAX} ตัวอักษร", "picture": "คำอธิบายภาพ", "move": "what moves in the picture, one short English sentence", "showFigure": false}]}`,
+    `ตอบเป็น JSON object เดียว: {"onTopic": true/false, "refusal": "", "title": "ไม่เกิน ${TITLE_MAX} ตัวอักษร", "caption": "ข้อความโพสต์ 1–2 ประโยค", "scenes": [{"voice": "คำพูด 1–2 ประโยค", "screen": "ข้อความบนจอ ไม่เกิน ${SCREEN_MAX} ตัวอักษร", "picture": "คำอธิบายภาพ", "showFigure": false}]}`,
     `scenes ต้องมี ${count} ฉากพอดี`,
   ].join("\n");
 }
@@ -67,8 +66,6 @@ function read(text: string, count: number, figure?: StoryFigure): Read | null {
     const show = Boolean(figure) && o.showFigure === true && !shown;
     if (show) shown = true;
     const s: PromptScene = { voice: clean(o.voice, 400), screen: clean(o.screen, SCREEN_MAX), picture: clean(o.picture, 300) };
-    const move = clean(o.move, MOVE_MAX);
-    if (move) s.move = move;
     if (show) s.showFigure = true;
     return s;
   });

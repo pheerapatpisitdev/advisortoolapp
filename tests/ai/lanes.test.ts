@@ -75,8 +75,8 @@ describe("a lane's defaults", () => {
     expect(laneIds({}, "voice")).toEqual(["gemini-api", "gemini-cloud", "elevenlabs"]);
   });
 
-  it("cover all five groups (วิดีโอ added 2026-10-27)", () => {
-    expect(new Set(LANES.map((l) => l.group))).toEqual(new Set(["bot", "write", "image", "voice", "video"]));
+  it("cover all four groups", () => {
+    expect(new Set(LANES.map((l) => l.group))).toEqual(new Set(["bot", "write", "image", "voice"]));
   });
 });
 

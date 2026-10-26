@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { AbsoluteFill, Audio, continueRender, delayRender, Freeze, Img, OffthreadVideo, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, continueRender, delayRender, Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { clipCrowd, clipFaces, clipFrame, freeFrame } from "@/lib/quote-video/story-frames";
 import { storyBackground, storyFrame, type StoryContext } from "@/lib/quote-video/story-motion";
 import { TRANSITIONS } from "@/lib/quote-video/job";
@@ -15,9 +15,8 @@ import { KeepWords } from "./KeepWords";
 /**
  * คลิปเล่าเรื่อง and คลิปตามโจทย์ drawn by Remotion (src/lib/quote-video/remotion.ts StoryClipProps). The frames are
  * the app's own clipFrame / freeFrame at the scene's time, over the story paper; a คลิปตามโจทย์ scene's picture
- * fills the frame and is pushed in 1.00 → 1.12 over its scene, as buildJob's zoompan does — or, when its ภาพขยับ
- * clip was made, that clip plays in its place (MovieLayer); the cross-fades are job.ts's, at every one of the
- * 30 frames a second.
+ * fills the frame and is pushed in 1.00 → 1.12 over its scene, as buildJob's zoompan does; the cross-fades are
+ * job.ts's, at every one of the 30 frames a second.
  */
 
 export type { StoryClipProps };
@@ -49,26 +48,6 @@ function useReady(pictures: string[]): boolean {
     ]).then(() => { setReady(true); continueRender(handle); }, (e) => { console.error(e); throw e; });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return ready;
-}
-
-/**
- * ภาพขยับ (owner, 2026-10-27): the scene's moving clip, covering the frame like the still picture. Slowed
- * a little to reach the scene's length (never past 1.5×), then held on its last frame for the rest.
- */
-function MovieLayer({ movie, from, dur }: { movie: { src: string; sec: number }; from: number; dur: number }) {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const slow = Math.min(1.5, Math.max(1, dur / movie.sec));
-  // the last frame the clip has at this speed, a frame short of its end so the decoder always has it
-  const last = Math.max(0, Math.floor(movie.sec * slow * fps) - 2);
-  const at = Math.min(frame - from, last);
-  return (
-    <Sequence from={from} layout="none">
-      <Freeze frame={at}>
-        <OffthreadVideo src={asUrl(movie.src)} muted playbackRate={1 / slow} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-      </Freeze>
-    </Sequence>
-  );
 }
 
 export function StoryClip(p: StoryClipProps) {
@@ -103,9 +82,7 @@ export function StoryClip(p: StoryClipProps) {
     return (
       <AbsoluteFill key={`${sc.key}-${s}`} style={{ overflow: "hidden", ...style }}>
         <div style={{ position: "absolute", inset: 0, display: "flex" }}>{storyBackground(p.size, story ?? undefined)}</div>
-        {sc.movie ? (
-          <MovieLayer movie={sc.movie} from={Math.round(sc.start * fps)} dur={sc.dur} />
-        ) : sc.picture ? (
+        {sc.picture ? (
           <Img src={asUrl(sc.picture)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: `scale(${1 + PUSH * Math.min(1, t / sc.dur)})` }} />
         ) : null}
         <KeepWords>{body}</KeepWords>

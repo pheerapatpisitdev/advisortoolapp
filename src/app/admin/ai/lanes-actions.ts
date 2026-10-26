@@ -10,7 +10,6 @@ import {
   LANES, READ_TASKS, isLaneKey, laneDef, laneEntries, parseLanes,
   type LaneEntry, type LaneKey, type SavedLanes, type VoiceService,
 } from "@/lib/ai/lanes";
-import { MOTION_ENGINES, MOTION_TASK } from "@/lib/video/motion";
 import { PROVIDER_LABEL } from "./labels";
 import type { Result } from "./actions";
 
@@ -120,13 +119,6 @@ async function context() {
 
 function optionsOf(key: LaneKey, ctx: Awaited<ReturnType<typeof context>>): LaneOption[] {
   const def = laneDef(key);
-  if (def.kind === "video") {
-    // fal and Runware keys sit in ins_api_keys like the AI keys (the ภาพขยับ card), so the same status reads them
-    return MOTION_ENGINES.map((e) => ({
-      id: e.id, name: e.name, company: e.provider === "fal" ? "fal.ai" : "Runware",
-      price: `≈ ฿${e.thb.toFixed(1)}${e.sec === 5 ? "" : ` (${e.sec} วิ)`}`, status: ctx.status(e.provider),
-    }));
-  }
   if (def.kind === "voice") {
     return (Object.keys(VOICE) as VoiceService[]).map((id) => ({
       id, name: VOICE[id].name, company: VOICE[id].company, price: VOICE[id].price,
@@ -148,14 +140,6 @@ function optionsOf(key: LaneKey, ctx: Awaited<ReturnType<typeof context>>): Lane
 function usedOf(key: LaneKey, ctx: Awaited<ReturnType<typeof context>>, options: LaneOption[]): Record<string, number> {
   const def = laneDef(key);
   const used: Record<string, number> = {};
-  if (def.kind === "video") {
-    // each clip made is one ledger line under its engine's name (make.ts drawMotions)
-    for (const line of ctx.counts) {
-      const id = line.task === MOTION_TASK ? MOTION_ENGINES.find((e) => e.ledger === line.model)?.id : undefined;
-      if (id) used[id] = (used[id] ?? 0) + Number(line.calls);
-    }
-    return used;
-  }
   for (const line of ctx.counts) {
     let id: string | undefined;
     if (def.kind === "voice") id = (Object.keys(VOICE) as VoiceService[]).find((v) => VOICE[v].model === line.model);

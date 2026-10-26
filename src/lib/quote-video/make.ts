@@ -1,6 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { motionLane, providerKey } from "@/lib/ai/client";
-import { recordUsage } from "@/lib/ai/ledger";
+import { providerKey } from "@/lib/ai/client";
 import { TTS_RATE } from "@/lib/ai/tts";
 import { speakClip } from "./speak";
 import { sayNumbers } from "./say-numbers";
@@ -13,7 +12,7 @@ import { formatBaht } from "@/lib/wallet/money";
 import { videoPriceKey, type PriceKey, type Prices } from "@/lib/wallet/prices";
 
 /** the prices the board shows under its button: each look and length, and the FHC summary */
-const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc", "videoStory", "videoStoryShort", "videoPrompt", "motionScene"];
+const VIDEO_KEYS: PriceKey[] = ["videoClassic", "videoMotion", "videoLongClassic", "videoLongMotion", "videoMaxClassic", "videoMaxMotion", "videoFhc", "videoStory", "videoStoryShort", "videoPrompt"];
 import { balanceSatang, holdWallet, releaseWallet, walletFrozen, walletPrices, walletSettings } from "@/lib/wallet/store";
 import { cloudRunEngine } from "@/lib/video/engines/cloudrun";
 import type { FfmpegJob } from "@/lib/video/command";
@@ -29,7 +28,6 @@ import { topicOf } from "@/lib/story/topics";
 import { isPromptStory, promptFreePrice, promptPicturePrice, promptStoryPrice, type PromptStoryInput } from "@/lib/prompt-story/types";
 import { allowedFor, checkScene, checkScript } from "@/lib/prompt-story/check";
 import { drawScenePicture } from "@/lib/prompt-story/pictures";
-import { animateInLane, MOTION_TASK } from "@/lib/video/motion";
 import { claimDraft, releaseDraft } from "@/lib/prompt-story/drafts";
 import { figureLines, freeWindows } from "@/lib/prompt-story/frames";
 import { submitRender } from "@/lib/shotstack/api";
@@ -261,7 +259,6 @@ async function pool<T, R>(items: T[], n: number, fn: (t: T, i: number) => Promis
 /** a คลิปตามโจทย์'s kept pictures and voice, by these names (rows.ts KEPT) */
 const picName = (s: number) => `pic-${s}.png`;
 const voiceName = (s: number) => `voice-${s}.pcm`;
-const movName = (s: number) => `mov-${s}.mp4`;
 
 
 /**
@@ -502,7 +499,7 @@ const pictureThb = (painter: string) => PAINTERS.find((p) => p.id === painter)?.
  * row's input. A picture that fails twice leaves its scene on paper, and is not charged: the
  * clip's hold settles that much less (redrawing it later is one picture's price).
  */
-async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Bar): Promise<{ input: PromptStoryInput; costThb: number; held?: number }> {
+async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Bar): Promise<{ input: PromptStoryInput; costThb: number }> {
   const { id, input } = row;
   const size = clipSize(input);
   const of = input.scenes.length;
@@ -522,58 +519,7 @@ async function drawPictures(row: VideoRow & { input: PromptStoryInput }, bar: Ba
     patch.held_satang = Math.max(0, Number(row.held_satang) - missing * promptPicturePrice(input, await walletPrices()));
   }
   await setRow(id, patch);
-  return { input: next, costThb: (of - missing) * pictureThb(input.painter), held: patch.held_satang ?? undefined };
-}
-
-/** what moves when the script gave nothing */
-const DEFAULT_MOVE = "Gentle, natural movement of the characters and the surroundings";
-/** the most produce may run (the คลิปตามโจทย์ page's maxDuration), and what is kept after the motion clips for the cut */
-const PRODUCE_BUDGET_MS = 300_000;
-const MOTION_RESERVE_MS = 60_000;
-
-/**
- * ภาพขยับ: each scene asked to move (`animate`) has its picture made into a short clip by the first
- * engine of the วิดีโอ lane that can (src/lib/video/motion.ts), all at once, filed as
- * "<id>/mov-<n>.mp4" and named on the row's input with its length. A clip that is not made — no
- * engine with a key, no picture to move, every engine failing or too slow — leaves its scene on
- * the still picture; `missing` counts them, so the hold settles that much less. Run beside the
- * voice (produce), which writes the row once both are done.
- */
-async function drawMotions(id: string, input: PromptStoryInput, bar: Bar, t0: number): Promise<{ input: PromptStoryInput; costThb: number; missing: number }> {
-  const wanted = input.scenes.flatMap((s, i) => (s.animate ? [i] : []));
-  if (!wanted.length) return { input, costThb: 0, missing: 0 };
-  const lane = await motionLane();
-  const size = clipSize(input);
-  let done = 0;
-  bar.note({ step: "motion", done: 0, of: wanted.length });
-  const budgetMs = Math.max(30_000, PRODUCE_BUDGET_MS - MOTION_RESERVE_MS - (Date.now() - t0));
-  const made = await pool(wanted, 8, async (s): Promise<{ path: string; sec: number; thb: number } | null> => {
-    let out: { path: string; sec: number; thb: number } | null = null;
-    try {
-      const picture = input.pictures?.[s];
-      const { data } = picture ? await bucket().createSignedUrl(picture, 600) : { data: null };
-      const clip = data?.signedUrl
-        ? await animateInLane({ lane, keyOf: providerKey, imageUrl: data.signedUrl, move: input.scenes[s].move || DEFAULT_MOVE, size, budgetMs })
-        : null;
-      if (clip) {
-        await upload(id, movName(s), clip.bytes, "video/mp4");
-        await recordUsage(clip.engine.ledger, MOTION_TASK, 0, 0, clip.engine.thb);
-        out = { path: `${id}/${movName(s)}`, sec: clip.engine.sec, thb: clip.engine.thb };
-      }
-    } catch (e) {
-      console.error(`quote video ${id}: scene ${s} motion failed:`, e instanceof Error ? e.message : "unknown error");
-    }
-    bar.note({ step: "motion", done: ++done, of: wanted.length });
-    return out;
-  });
-  const movies: (string | null)[] = input.scenes.map(() => null);
-  const movieSecs: (number | null)[] = input.scenes.map(() => null);
-  wanted.forEach((s, k) => { movies[s] = made[k]?.path ?? null; movieSecs[s] = made[k]?.sec ?? null; });
-  return {
-    input: { ...input, movies, movieSecs },
-    costThb: made.reduce((n, m) => n + (m?.thb ?? 0), 0),
-    missing: made.filter((m) => m === null).length,
-  };
+  return { input: next, costThb: (of - missing) * pictureThb(input.painter) };
 }
 
 /** every line a คลิปตามโจทย์ spoke, as it was filed; null when any is missing */
@@ -611,17 +557,11 @@ export async function produce(id: string, agentName: string): Promise<void> {
     }
     const bar = progressBar(id);
     let picturesThb = 0;
-    let motionRun: ReturnType<typeof drawMotions> | null = null;
     if (isPromptStory(row.input)) {
       const drawn = await drawPictures(row as VideoRow & { input: PromptStoryInput }, bar);
       row.input = drawn.input;
-      if (drawn.held !== undefined) row.held_satang = drawn.held;
       picturesThb = drawn.costThb;
       lap(`pictures drawn (${drawn.input.pictures?.filter(Boolean).length}/${drawn.input.scenes.length})`);
-      // the moving pictures are made while the voice is spoken
-      motionRun = drawMotions(id, drawn.input, bar, t0);
-      // if the voice fails first, this is not left unhandled; the await below still throws its own
-      motionRun.catch(() => undefined);
     }
     const spokenScript = spokenLines(row);
 
@@ -640,21 +580,8 @@ export async function produce(id: string, agentName: string): Promise<void> {
     );
     const pcms = spoken.map((s) => s.pcm);
     const voiceThb = spoken.reduce((n, s) => n + s.costThb, 0);
-    let motionThb = 0;
-    const voicePatch: Partial<VideoRow> = {};
-    if (motionRun) {
-      const moved = await motionRun;
-      row.input = voicePatch.input = moved.input;
-      motionThb = moved.costThb;
-      // a scene left still is not charged (owner, 2026-10-17)
-      if (moved.missing && row.hold_id && row.held_satang) {
-        row.held_satang = voicePatch.held_satang = Math.max(0, Number(row.held_satang) - moved.missing * (await walletPrices()).motionScene);
-      }
-      const asked = moved.input.scenes.filter((s) => s.animate).length;
-      lap(`motion done (${asked - moved.missing}/${asked})`);
-    }
-    row.cost_parts = { voice: voiceThb, pictures: picturesThb, ...(motionThb ? { motion: motionThb } : {}), ...(google ? { googleVoice: google } : {}) };
-    Object.assign(voicePatch, { cost_thb: voiceThb + picturesThb + motionThb, cost_parts: row.cost_parts });
+    row.cost_parts = { voice: voiceThb, pictures: picturesThb, ...(google ? { googleVoice: google } : {}) };
+    const voicePatch: Partial<VideoRow> = { cost_thb: voiceThb + picturesThb, cost_parts: row.cost_parts };
     // the ElevenLabs voice was not used: its +฿2 comes off what the wallet takes (owner, 2026-10-20, ก)
     if (google && row.paid_by === "wallet" && row.hold_id && row.held_satang) {
       row.held_satang = voicePatch.held_satang = Math.max(0, Number(row.held_satang) - (await walletPrices()).elevenExtra);
@@ -843,19 +770,16 @@ async function cutStoryWithRemotion(
   // a คลิปตามโจทย์ scene's picture, filed when it was drawn; a scene whose picture fell back has the paper only
   const free = isPromptStory(row.input) ? row.input : null;
   const pictures = c.plans.map((p, s) => (free && p.key === "freeScene" ? free.pictures?.[s] ?? null : null));
-  // ภาพขยับ: a scene whose clip was made shows it in place of the still picture's push-in
-  const movies = c.plans.map((_, s) => (pictures[s] ? free?.movies?.[s] ?? null : null));
-  const paths = [`${id}/voice.wav`, ...pictures.filter((x): x is string => Boolean(x)), ...movies.filter((x): x is string => Boolean(x))];
+  const paths = [`${id}/voice.wav`, ...pictures.filter((x): x is string => Boolean(x))];
   const { data, error: e } = await bucket().createSignedUrls(paths, LINK_SECONDS);
   const urls = (data ?? []).map((d) => d.signedUrl);
   if (e || urls.length !== paths.length || urls.some((u) => !u)) throw new Error(`links: ${e?.message ?? "a link is missing"}`);
   let next = 1;
   const pictureLinks = pictures.map((p) => (p ? (urls[next++] as string) : undefined));
-  const movieLinks = movies.map((m, s) => (m ? { src: urls[next++] as string, sec: free?.movieSecs?.[s] ?? 5 } : undefined));
   const contact = await contactOf(row.agent_id, agentName);
-  lap(`voice${free ? ` and ${next - 1} pictures and clips` : ""} up for Remotion`);
+  lap(`voice${free ? ` and ${next - 1} pictures` : ""} up for Remotion`);
   bar.note({ step: "submit", done: 0, of: 0 });
-  const props: StoryClipProps = { ...storyClipProps(row.input, clipSize(row.input), row.customer_name, narratorOf(row.input), contact, c.plans, c.script, c.secs, c.total, urls[0] as string, pictureLinks, movieLinks), ...fxPropsOf(row.input) };
+  const props: StoryClipProps = { ...storyClipProps(row.input, clipSize(row.input), row.customer_name, narratorOf(row.input), contact, c.plans, c.script, c.secs, c.total, urls[0] as string, pictureLinks), ...fxPropsOf(row.input) };
   await handOver(row, gcpKey, bar, c.total, lap, { remotion: { props } }, c.since);
 }
 
@@ -1046,9 +970,7 @@ export async function redrawPicture(
       const pictures = input.scenes.map((_, s) => input.pictures?.[s] ?? null);
       pictures[scene] = `${id}/${picName(scene)}`;
       // the hold rides with the clip: taken when the new cut is done (finishVideo), given back if it fails (fail)
-      // the scene's moving clip was made from the old picture: it goes, the new still picture stands
-      const movies = input.movies?.map((p, s) => (s === scene ? null : p));
-      const next: PromptStoryInput = { ...input, pictures, ...(movies ? { movies } : {}), ...(held ? { redraw: { hold: held, satang: price, thb: pictureThb(input.painter) } } : {}) };
+      const next: PromptStoryInput = { ...input, pictures, ...(held ? { redraw: { hold: held, satang: price, thb: pictureThb(input.painter) } } : {}) };
       const cost_parts: CostParts = { ...(row.cost_parts ?? {}), pictures: (row.cost_parts?.pictures ?? 0) + pictureThb(input.painter) };
       await setRow(id, { input: next, cost_thb: Number(row.cost_thb ?? 0) + pictureThb(input.painter), cost_parts });
       held = null;

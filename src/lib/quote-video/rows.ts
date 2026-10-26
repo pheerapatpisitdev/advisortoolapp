@@ -133,7 +133,7 @@ export async function setRow(id: string, patch: Partial<VideoRow>): Promise<void
 }
 
 /** a คลิปตามโจทย์'s pictures and voice, kept with a finished clip so one scene can be drawn again */
-const KEPT = /\/(pic-\d+\.png|voice-\d+\.pcm|mov-\d+\.mp4)$/;
+const KEPT = /\/(pic-\d+\.png|voice-\d+\.pcm)$/;
 
 /** every file under the clip's folder but the finished video; `keep`: and the pictures and voice it can be cut again from */
 export async function clearInputs(id: string, keep = false): Promise<void> {

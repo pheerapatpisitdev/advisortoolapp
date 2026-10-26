@@ -1,9 +1,8 @@
 /**
  * ลำดับหลักและสำรอง: which model, picture model or voice service each kind of work tries first,
  * and what it falls back to (owner, 2026-10-21, mockup v3
- * https://claude.ai/artifact/JmmL9bs2ZBqhBi829bjUey). Five groups — Autobot, เขียน, รูปภาพ, เสียง, and
- * วิดีโอ (owner, 2026-10-27, https://claude.ai/artifact/8hH1hoAGzjqt3cqaWTXDX5) — of nine lanes, each set
- * on ตั้งค่า AI and saved in ins_ai_settings.lanes.
+ * https://claude.ai/artifact/JmmL9bs2ZBqhBi829bjUey). Four groups — Autobot, เขียน, รูปภาพ, เสียง —
+ * of eight lanes, each set on ตั้งค่า AI and saved in ins_ai_settings.lanes.
  *
  * A lane is only what it lists, in that order: nothing is added behind it. What a member picked
  * (a writer, a painter, a voice) still goes first; the lane is what follows it.
@@ -16,16 +15,12 @@ export type LaneKey =
   | "bot-small" | "bot-large"
   | "write-post" | "write-help" | "write-read"
   | "image-plain" | "image-face"
-  | "voice"
-  | "video-motion";
+  | "voice";
 
-export type LaneGroup = "bot" | "write" | "image" | "voice" | "video";
+export type LaneGroup = "bot" | "write" | "image" | "voice";
 
-/**
- * what a lane's ids name: a text model's model_name, an image model's model_configs id, a voice
- * service, or a picture-to-video engine (src/lib/video/motion.ts MOTION_ENGINES)
- */
-export type LaneKind = "text" | "image" | "voice" | "video";
+/** what a lane's ids name: a text model's model_name, an image model's model_configs id, a voice service */
+export type LaneKind = "text" | "image" | "voice";
 
 export interface LaneDef {
   key: LaneKey;
@@ -86,12 +81,6 @@ export const LANES: LaneDef[] = [
     key: "voice", group: "voice", kind: "voice", defaults: [...VOICE_SERVICES],
     title: "เสียงพากย์คลิป",
     sub: "เสียงที่สมาชิกเลือกมาก่อน · ElevenLabs ใช้เสียง อ้อม หรือ สมชาย ตามเพศผู้พากย์ และอ่านเฉพาะคลิปภาษาไทย",
-  },
-  {
-    // the owner's pick of 2026-10-17 (Kling) first, the same Kling at Runware behind it, Hailuo last
-    key: "video-motion", group: "video", kind: "video", defaults: ["kling-2.5-fal", "kling-2.5-runware", "hailuo-2.3-runware"],
-    title: "ภาพขยับ: ทำรูปการ์ตูนในฉากให้เป็นวิดีโอสั้น",
-    sub: "ราคาต่อ 1 ฉาก · ถ้าทุกตัวทำไม่สำเร็จ ฉากนั้นใช้รูปนิ่งแทนและคืนเงินฉากนั้นให้สมาชิก · ข้อความภาษาไทยยังเป็นของเราวางทับ AI ไม่ได้เขียนตัวหนังสือ",
   },
 ];
 

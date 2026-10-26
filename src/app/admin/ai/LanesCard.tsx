@@ -6,7 +6,7 @@ import { saveLanes, type LaneStatus, type LaneView } from "./lanes-actions";
 
 /**
  * ลำดับหลักและสำรอง (owner, 2026-10-21, mockup v3 https://claude.ai/artifact/JmmL9bs2ZBqhBi829bjUey):
- * five groups (วิดีโอ added 2026-10-27, https://claude.ai/artifact/8hH1hoAGzjqt3cqaWTXDX5), each with its own lanes; the top row of a lane is its main choice, the rest its
+ * four groups, each with its own lanes; the top row of a lane is its main choice, the rest its
  * backups in order. Saved one group at a time.
  */
 
@@ -27,10 +27,6 @@ const GROUPS: { key: LaneGroup; name: string; hint: string; note: string }[] = [
     key: "voice", name: "เสียง", hint: "เสียงพากย์คลิป",
     note: "เสียงพากย์ของวิดีโอนำเสนอและคลิปทุกแบบ เสียงที่สมาชิกเลือกมาก่อน ถ้าบริการนั้นใช้ไม่ได้ จะลองตามลำดับนี้",
   },
-  {
-    key: "video", name: "วิดีโอ", hint: "AI ทำภาพในคลิปให้ขยับ",
-    note: "AI ที่สร้างวิดีโอจากรูป ใช้กับ “ภาพขยับ” ในคลิปตามโจทย์ แบบภาพที่สมาชิกเลือก (ไม่ขยับ / ฉากเปิด / ทุกฉาก) ยังเป็นตัวกำหนดว่าจะทำกี่ฉาก ลำดับนี้บอกแค่ว่าใช้ AI เจ้าไหนก่อน กุญแจ fal.ai และ Runware อยู่ที่การ์ด “ภาพขยับ” ด้านล่าง",
-  },
 ];
 
 const STATUS: Record<LaneStatus, { text: string; tone: "ok" | "skip" }> = {
@@ -43,7 +39,6 @@ const STATUS: Record<LaneStatus, { text: string; tone: "ok" | "skip" }> = {
 const UNIT: Record<LaneKey, string> = {
   "bot-small": "ต่อ 1,000 คำตอบ", "bot-large": "ต่อ 1,000 คำตอบ", "write-post": "ต่อชิ้น",
   "write-help": "ต่อ 1,000 งาน", "write-read": "ต่อ 1,000 งาน", "image-plain": "ต่อรูป", "image-face": "ต่อรูป", voice: "ราคา",
-  "video-motion": "ต่อฉาก",
 };
 
 type Draft = Record<LaneKey, LaneEntry[]>;
@@ -94,7 +89,7 @@ export function LanesCard({ lanes, savable, footer }: {
       title="ลำดับหลักและสำรอง"
       hint="แต่ละหมวดมีลำดับของตัวเอง แถวบนสุดคือตัวหลัก ถ้าตัวหลักล่ม ช้าเกิน หรือตอบไม่ครบ ระบบจะลองสำรอง 1, 2, 3 ตามลำดับ และใช้เฉพาะแถวที่ติ๊ก “ใช้”"
     >
-      <div role="tablist" aria-label="หมวด" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div role="tablist" aria-label="หมวด" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {GROUPS.map((g) => {
           const on = g.key === group;
           return (
@@ -145,7 +140,7 @@ export function LanesCard({ lanes, savable, footer }: {
                           </td>
                           <td className="py-1.5 pr-2">
                             {o?.name ?? r.id}
-                            {o && o.name !== r.id && (def.kind === "text" || def.kind === "video") && <span className="ml-1.5 font-mono text-[0.65rem] text-[var(--bot-ink-faint)]">{r.id}</span>}
+                            {o && o.name !== r.id && def.kind === "text" && <span className="ml-1.5 font-mono text-[0.65rem] text-[var(--bot-ink-faint)]">{r.id}</span>}
                           </td>
                           <td className="py-1.5 pr-2 text-xs">{o?.company ?? ""}</td>
                           <td className="py-1.5 pr-2 text-right text-xs tabular-nums whitespace-nowrap">{o?.price ?? ""}</td>

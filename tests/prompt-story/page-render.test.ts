@@ -15,7 +15,7 @@ const scenes = [
 ];
 
 describe("ScriptEditor", () => {
-  const html = renderToStaticMarkup(createElement(ScriptEditor, { draft: { id: "d", title: "ร้านเราหยุดไม่ได้", caption: "ทักมาได้", scenes }, notes: [1], onChange: () => {}, motionPrice: "15" }));
+  const html = renderToStaticMarkup(createElement(ScriptEditor, { draft: { id: "d", title: "ร้านเราหยุดไม่ได้", caption: "ทักมาได้", scenes }, notes: [1], onChange: () => {} }));
 
   it("has a box for every scene's voice, screen words and picture, and for the title", () => {
     expect(html).toContain("บทพูดฉาก 2");

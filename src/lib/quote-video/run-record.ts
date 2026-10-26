@@ -14,8 +14,6 @@ export interface CostParts {
   voice?: number;
   /** AI pictures and cut-outs, in baht */
   pictures?: number;
-  /** ภาพขยับ: the moving scenes the วิดีโอ lane made, in baht */
-  motion?: number;
   engine?: ClipEngine;
   /** from the start of the cut (voice done) to Cloud Run taking the job: the drawing on Vercel, or Remotion's uploads */
   prepSec?: number;
