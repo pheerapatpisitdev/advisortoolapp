@@ -75,8 +75,24 @@ describe("a lane's defaults", () => {
     expect(laneIds({}, "voice")).toEqual(["gemini-api", "gemini-cloud", "elevenlabs"]);
   });
 
-  it("cover all four groups", () => {
-    expect(new Set(LANES.map((l) => l.group))).toEqual(new Set(["bot", "write", "image", "voice"]));
+  it("cover all five groups (วิดีโอ added 2026-10-27)", () => {
+    expect(new Set(LANES.map((l) => l.group))).toEqual(new Set(["bot", "write", "image", "voice", "video"]));
+  });
+});
+
+describe("the วิดีโอ lanes (owner, 2026-10-27, ก)", () => {
+  it("take a clip's script and its post text, whatever size was asked", () => {
+    expect(laneOf("quote-video-brief", "small")).toBe("video-script");
+    expect(laneOf("prompt-story-script", "small")).toBe("video-script");
+    expect(laneOf("quote-video-post", "large")).toBe("video-post");
+    expect(laneOf("content-image-brief", "small")).toBe("write-help");
+  });
+
+  it("keep งานช่วย's saved order until saved themselves, so nothing changes on the day they split off", () => {
+    const help = [{ id: "gpt-5-mini", on: true }, { id: "gemini-3.1-flash-lite", on: false }];
+    expect(laneIds({ "write-help": help }, "video-script")).toEqual(["gpt-5-mini"]);
+    expect(laneIds({ "write-help": help, "video-post": [{ id: "glm-5.3-flash", on: true }] }, "video-post")).toEqual(["glm-5.3-flash"]);
+    expect(laneIds({}, "video-script")).toEqual(laneIds({}, "write-help"));
   });
 });
 

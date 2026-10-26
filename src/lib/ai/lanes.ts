@@ -1,8 +1,9 @@
 /**
  * ลำดับหลักและสำรอง: which model, picture model or voice service each kind of work tries first,
  * and what it falls back to (owner, 2026-10-21, mockup v3
- * https://claude.ai/artifact/JmmL9bs2ZBqhBi829bjUey). Four groups — Autobot, เขียน, รูปภาพ, เสียง —
- * of eight lanes, each set on ตั้งค่า AI and saved in ins_ai_settings.lanes.
+ * https://claude.ai/artifact/JmmL9bs2ZBqhBi829bjUey). Five groups — Autobot, เขียน, รูปภาพ, เสียง, and
+ * วิดีโอ (owner, 2026-10-27, ก, https://claude.ai/artifact/N3J5kgXMb1XQEogq2Lou7M) — of ten lanes, each
+ * set on ตั้งค่า AI and saved in ins_ai_settings.lanes.
  *
  * A lane is only what it lists, in that order: nothing is added behind it. What a member picked
  * (a writer, a painter, a voice) still goes first; the lane is what follows it.
@@ -15,9 +16,10 @@ export type LaneKey =
   | "bot-small" | "bot-large"
   | "write-post" | "write-help" | "write-read"
   | "image-plain" | "image-face"
-  | "voice";
+  | "voice"
+  | "video-script" | "video-post";
 
-export type LaneGroup = "bot" | "write" | "image" | "voice";
+export type LaneGroup = "bot" | "write" | "image" | "voice" | "video";
 
 /** what a lane's ids name: a text model's model_name, an image model's model_configs id, a voice service */
 export type LaneKind = "text" | "image" | "voice";
@@ -33,6 +35,11 @@ export interface LaneDef {
   defaults: string[];
   /** a text lane whose work sends pictures: only models that read them may be added */
   readsPictures?: boolean;
+  /**
+   * a lane split off another (the วิดีโอ lanes off งานช่วย): until it is saved itself, it is that
+   * lane as saved, so the work it takes over keeps the order it had
+   */
+  inherits?: LaneKey;
 }
 
 /** the voice services, in the owner's order of 2026-10-20 */
@@ -62,7 +69,7 @@ export const LANES: LaneDef[] = [
   },
   {
     key: "write-help", group: "write", kind: "text", defaults: SMALL,
-    title: "งานช่วย: วางโครง ตรวจคำ พาดหัว บรีฟคลิป แผนประกัน", sub: "ราคาต่อ 1,000 งาน",
+    title: "งานช่วย: วางโครง ตรวจคำ พาดหัว บรีฟรูป แผนประกัน", sub: "ราคาต่อ 1,000 งาน",
   },
   {
     key: "write-read", group: "write", kind: "text", readsPictures: true,
@@ -81,6 +88,14 @@ export const LANES: LaneDef[] = [
     key: "voice", group: "voice", kind: "voice", defaults: [...VOICE_SERVICES],
     title: "เสียงพากย์คลิป",
     sub: "เสียงที่สมาชิกเลือกมาก่อน · ElevenLabs ใช้เสียง อ้อม หรือ สมชาย ตามเพศผู้พากย์ และอ่านเฉพาะคลิปภาษาไทย",
+  },
+  {
+    key: "video-script", group: "video", kind: "text", defaults: SMALL, inherits: "write-help",
+    title: "สคริปต์วิดีโอ", sub: "ปุ่ม “ดูสคริปต์” ในวิดีโอนำเสนอ และบทของคลิปตามโจทย์ · เดิมใช้ลำดับ “งานช่วย” ของหมวดเขียน",
+  },
+  {
+    key: "video-post", group: "video", kind: "text", defaults: SMALL, inherits: "write-help",
+    title: "ข้อความโพสต์กับคลิป", sub: "ข้อความที่แนบไปกับคลิปตอนส่ง LINE / Messenger · เดิมใช้ลำดับ “งานช่วย” ของหมวดเขียน",
   },
 ];
 
@@ -104,9 +119,10 @@ export function parseLanes(raw: unknown): SavedLanes {
   return out;
 }
 
-/** a lane as the page shows it: as saved, or the defaults all switched on */
+/** a lane as the page shows it: as saved, else the lane it was split off as saved, else the defaults all switched on */
 export function laneEntries(saved: SavedLanes, key: LaneKey): LaneEntry[] {
-  return saved[key] ?? laneDef(key).defaults.map((id) => ({ id, on: true }));
+  const def = laneDef(key);
+  return saved[key] ?? (def.inherits && saved[def.inherits]) ?? def.defaults.map((id) => ({ id, on: true }));
 }
 
 /** the ids a lane will try, in order */
@@ -117,12 +133,18 @@ export function laneIds(saved: SavedLanes, key: LaneKey): string[] {
 /** the chat bots' work: Messenger, LINE and the web chat, and the review of their real chats */
 const BOT_TASK = /^(route|small_talk|smalltalk|plan_info)(_|$)|^chat-review$/;
 
+/** the วิดีโอ group's text work: a clip's script (วิดีโอนำเสนอ's brief, คลิปตามโจทย์'s script) and its post text */
+export const VIDEO_SCRIPT_TASKS = new Set(["quote-video-brief", "prompt-story-script"]);
+export const VIDEO_POST_TASKS = new Set(["quote-video-post"]);
+
 /** Studio's reading of a picture or a document: needs a model that reads pictures */
 export const READ_TASKS = new Set(["content-poster-read", "content-showcase-read", "content-claim-read", "content-describe-picture"]);
 
 /** Which lane a chat call belongs to, by the task it records itself under and the size it asked for. */
 export function laneOf(task: string, tier: Tier): LaneKey {
   if (BOT_TASK.test(task)) return tier === "small" ? "bot-small" : "bot-large";
+  if (VIDEO_SCRIPT_TASKS.has(task)) return "video-script";
+  if (VIDEO_POST_TASKS.has(task)) return "video-post";
   if (READ_TASKS.has(task)) return "write-read";
   return tier === "small" ? "write-help" : "write-post";
 }

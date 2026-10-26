@@ -2,11 +2,11 @@
 import { useState, useTransition } from "react";
 import { Card } from "../ui";
 import { LANES, type LaneEntry, type LaneGroup, type LaneKey } from "@/lib/ai/lanes";
-import { saveLanes, type LaneStatus, type LaneView } from "./lanes-actions";
+import { saveLanes, type LaneStatus, type LaneView, type VideoInfo, type VideoUse } from "./lanes-actions";
 
 /**
  * ลำดับหลักและสำรอง (owner, 2026-10-21, mockup v3 https://claude.ai/artifact/JmmL9bs2ZBqhBi829bjUey):
- * four groups, each with its own lanes; the top row of a lane is its main choice, the rest its
+ * five groups (วิดีโอ added 2026-10-27, ก, https://claude.ai/artifact/N3J5kgXMb1XQEogq2Lou7M), each with its own lanes; the top row of a lane is its main choice, the rest its
  * backups in order. Saved one group at a time.
  */
 
@@ -17,7 +17,7 @@ const GROUPS: { key: LaneGroup; name: string; hint: string; note: string }[] = [
   },
   {
     key: "write", name: "เขียน", hint: "Studio โพสต์ บรีฟคลิป แผนประกัน",
-    note: "งานเขียนทั้งหมดนอกบอท: โพสต์ Studio, บรีฟวิดีโอ, คำแนะนำในหน้าวางแผน, สรุปตรวจสุขภาพการเงิน และการอ่านรูปหรือเอกสารที่สมาชิกอัปโหลด",
+    note: "งานเขียนทั้งหมดนอกบอท: โพสต์ Studio, คำแนะนำในหน้าวางแผน, สรุปตรวจสุขภาพการเงิน และการอ่านรูปหรือเอกสารที่สมาชิกอัปโหลด สคริปต์วิดีโอและข้อความโพสต์กับคลิปอยู่ที่หมวดวิดีโอ",
   },
   {
     key: "image", name: "รูปภาพ", hint: "รูปโพสต์ ภาพปก ภาพในคลิป",
@@ -26,6 +26,10 @@ const GROUPS: { key: LaneGroup; name: string; hint: string; note: string }[] = [
   {
     key: "voice", name: "เสียง", hint: "เสียงพากย์คลิป",
     note: "เสียงพากย์ของวิดีโอนำเสนอและคลิปทุกแบบ เสียงที่สมาชิกเลือกมาก่อน ถ้าบริการนั้นใช้ไม่ได้ จะลองตามลำดับนี้",
+  },
+  {
+    key: "video", name: "วิดีโอ", hint: "AI ทุกตัวที่ช่วยทำคลิป",
+    note: "ทุกขั้นของการทำคลิป เรียงตามลำดับที่ระบบทำ วิดีโอนำเสนอ คลิปตามโจทย์ และคลิปของตัวแทนใน Studio ใช้ AI ในหมวดนี้ ตัวเลขเป็นของ 30 วันล่าสุด",
   },
 ];
 
@@ -39,12 +43,15 @@ const STATUS: Record<LaneStatus, { text: string; tone: "ok" | "skip" }> = {
 const UNIT: Record<LaneKey, string> = {
   "bot-small": "ต่อ 1,000 คำตอบ", "bot-large": "ต่อ 1,000 คำตอบ", "write-post": "ต่อชิ้น",
   "write-help": "ต่อ 1,000 งาน", "write-read": "ต่อ 1,000 งาน", "image-plain": "ต่อรูป", "image-face": "ต่อรูป", voice: "ราคา",
+  "video-script": "เฉลี่ยจริง ต่อ 1,000 งาน", "video-post": "เฉลี่ยจริง ต่อ 1,000 งาน",
 };
 
 type Draft = Record<LaneKey, LaneEntry[]>;
 
-export function LanesCard({ lanes, savable, footer }: {
+export function LanesCard({ lanes, savable, video, footer }: {
   lanes: LaneView[]; savable: boolean;
+  /** what made clips in the last 30 days (lanes-actions videoInfo); null when the ledger could not be read */
+  video?: VideoInfo | null;
   /** the switches that take a model out of every lane at once (./ModelSwitches.tsx) */
   footer?: React.ReactNode;
 }) {
@@ -89,7 +96,7 @@ export function LanesCard({ lanes, savable, footer }: {
       title="ลำดับหลักและสำรอง"
       hint="แต่ละหมวดมีลำดับของตัวเอง แถวบนสุดคือตัวหลัก ถ้าตัวหลักล่ม ช้าเกิน หรือตอบไม่ครบ ระบบจะลองสำรอง 1, 2, 3 ตามลำดับ และใช้เฉพาะแถวที่ติ๊ก “ใช้”"
     >
-      <div role="tablist" aria-label="หมวด" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div role="tablist" aria-label="หมวด" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {GROUPS.map((g) => {
           const on = g.key === group;
           return (
@@ -105,9 +112,10 @@ export function LanesCard({ lanes, savable, footer }: {
         })}
       </div>
       <p className="mt-3 text-xs text-[var(--bot-ink-mute)]">{GROUPS.find((g) => g.key === group)!.note}</p>
+      {group === "video" && video && <VideoSummary video={video} />}
 
       <div className="mt-4 grid gap-5">
-        {inGroup.map((def) => {
+        {inGroup.map((def, n) => {
           const view = viewOf(def.key);
           const rows = draft[def.key];
           const optionOf = (id: string) => view.options.find((o) => o.id === id);
@@ -115,7 +123,7 @@ export function LanesCard({ lanes, savable, footer }: {
           let rank = 0;
           return (
             <div key={def.key} className="min-w-0">
-              <h3 className="text-sm font-semibold">{def.title}</h3>
+              <h3 className="text-sm font-semibold">{def.group === "video" ? `${n + 1} · ${def.title}` : def.title}</h3>
               <p className="text-xs text-[var(--bot-ink-mute)]">{def.sub}</p>
               <div className="mt-2 overflow-x-auto">
                 <table className="w-full text-sm">
@@ -183,6 +191,7 @@ export function LanesCard({ lanes, savable, footer }: {
             </div>
           );
         })}
+        {group === "video" && <VideoSteps video={video ?? null} from={inGroup.length + 1} goTo={(g) => { setGroup(g); setNote(undefined); }} />}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -210,5 +219,74 @@ export function LanesCard({ lanes, savable, footer }: {
         </div>
       )}
     </Card>
+  );
+}
+
+const thb = (n: number) => `฿${n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** the วิดีโอ group's three numbers: what the AI steps cost, the clips put together, and the dearest AI */
+export function VideoSummary({ video }: { video: VideoInfo }) {
+  const render = video.render.reduce((a, r) => ({ uses: a.uses + r.uses, thb: a.thb + r.thb }), { uses: 0, thb: 0 });
+  const dearest = [...video.pictures, ...video.voice, ...video.clipRead].sort((a, b) => b.thb - a.thb)[0];
+  const box = "rounded-md border border-[var(--bot-line)] bg-[var(--bot-band)] px-3 py-2";
+  return (
+    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+      <div className={box}><b className="block tabular-nums">≈ ฿{Math.round(video.aiThb).toLocaleString("th-TH")}</b><span className="text-xs text-[var(--bot-ink-mute)]">ค่า AI ทำคลิป 30 วัน (ไม่รวมค่ารวมวิดีโอ)</span></div>
+      <div className={box}><b className="block tabular-nums">{render.uses.toLocaleString("th-TH")} คลิป</b><span className="text-xs text-[var(--bot-ink-mute)]">รวมเป็นวิดีโอ ≈ ฿{Math.round(render.thb).toLocaleString("th-TH")}</span></div>
+      {dearest && <div className={box}><b className="block">{dearest.name}</b><span className="text-xs text-[var(--bot-ink-mute)]">ใช้เงินมากที่สุด ≈ ฿{Math.round(dearest.thb).toLocaleString("th-TH")}</span></div>}
+    </div>
+  );
+}
+
+/**
+ * The วิดีโอ group's steps that are not its own lanes, shown only: the pictures and the voice (set on
+ * รูปภาพ and เสียง, a button goes there), reading an agent's clip (one model), and putting the clip together.
+ */
+export function VideoSteps({ video, from, goTo }: { video: VideoInfo | null; from: number; goTo: (g: LaneGroup) => void }) {
+  if (!video) return <p className="text-xs text-[var(--bot-sand-ink)]">อ่านการใช้ AI ทำวิดีโอ 30 วันไม่ได้ตอนนี้ ลองโหลดหน้าใหม่</p>;
+  const steps: { title: string; chip: string; sub: string; unit: string; col: string; rows: VideoUse[]; go?: LaneGroup }[] = [
+    { title: "รูปในคลิปตามโจทย์", chip: "ใช้ลำดับของหมวดรูปภาพ", sub: "แสดงให้ดูอย่างเดียว ลำดับเดียวกับรูปโพสต์ · แบบรูปที่สมาชิกเลือกมาก่อน", unit: "รูป", col: "ค่าย", rows: video.pictures, go: "image" },
+    { title: "เสียงพากย์คลิป", chip: "ใช้ลำดับของหมวดเสียง", sub: "แสดงให้ดูอย่างเดียว · นับเป็นประโยค (คลิปหนึ่งมีหลายประโยค)", unit: "ประโยค", col: "ค่าย", rows: video.voice, go: "voice" },
+    { title: "อ่านเสียงพูดในคลิปที่ตัวแทนอัปโหลด", chip: "ใช้ได้ตัวเดียว", sub: "ทำซับไตเติลและตัดคลิปใน Studio · Gemini 3.7 Flash เป็นตัวเดียวในระบบที่ดูวิดีโอได้ จึงไม่มีตัวสำรอง", unit: "คลิป", col: "ค่าย", rows: video.clipRead },
+    { title: "รวมเป็นวิดีโอ", chip: "ไม่ใช่ AI", sub: "วาดกราฟิกและประกอบคลิป ตั้งค่าที่การ์ด “ตัวตัดต่อวิดีโอ” ด้านล่าง", unit: "คลิป", col: "ใช้กับ", rows: video.render },
+  ];
+  return (
+    <>
+      {steps.map((st, i) => (
+        <div key={st.title} className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <h3 className="text-sm font-semibold">{from + i} · {st.title}</h3>
+            <span className="rounded-full border border-[var(--bot-line-strong)] px-2 text-[0.68rem] text-[var(--bot-ink-mute)]">{st.chip}</span>
+            {st.go && (
+              <button type="button" onClick={() => goTo(st.go!)} className="text-xs text-[var(--bot-navy)] underline underline-offset-2">
+                ไปตั้งที่หมวด{GROUPS.find((g) => g.key === st.go)!.name} →
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-[var(--bot-ink-mute)]">{st.sub}</p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--bot-line)] text-left text-xs text-[var(--bot-ink-mute)]">
+                  <th className="py-1.5 pr-2">ตัวเลือก</th><th className="py-1.5 pr-2">{st.col}</th>
+                  <th className="py-1.5 pr-2 text-right">30 วัน</th><th className="py-1.5 text-right">ค่าใช้จ่าย 30 วัน</th>
+                </tr>
+              </thead>
+              <tbody>
+                {st.rows.length === 0 && <tr><td colSpan={4} className="py-1.5 text-xs text-[var(--bot-ink-faint)]">ยังไม่มีการใช้ใน 30 วันนี้</td></tr>}
+                {st.rows.map((r) => (
+                  <tr key={r.model} className="border-b border-[var(--bot-line)]">
+                    <td className="py-1.5 pr-2">{r.name}</td>
+                    <td className="py-1.5 pr-2 text-xs">{r.company}</td>
+                    <td className="py-1.5 pr-2 text-right text-xs tabular-nums whitespace-nowrap">{r.uses.toLocaleString("th-TH")} {st.unit}</td>
+                    <td className="py-1.5 text-right text-xs tabular-nums whitespace-nowrap">{thb(r.thb)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }

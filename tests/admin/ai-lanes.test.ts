@@ -25,6 +25,19 @@ const KEYS = [{ provider: "google", enabled: true }, { provider: "anthropic", en
 vi.mock("@/lib/auth/viewer", async () => (await import("../helpers/signed-in")).asOwner);
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 vi.mock("@/lib/ai/client", () => ({ clearAiConfigCache: () => undefined, providerKey: async () => null, voiceLane: async () => [] }));
+/** the ledger's clip lines (2026-10-27's real counts, a few of them) */
+const LEDGER = [
+  ...Array.from({ length: 4 }, () => ({ task: "quote-video-brief", model: "gemini-3.1-flash-lite", cost_thb: 0.0216 })),
+  { task: "prompt-story-script", model: "gpt-5-mini", cost_thb: 0.054 },
+  { task: "quote-video-post", model: "gemini-3.1-flash-lite", cost_thb: 0.012 },
+  { task: "prompt-story-picture", model: "gpt-image-2", cost_thb: 0.54 },
+  ...Array.from({ length: 3 }, () => ({ task: "quote-video-voice", model: "eleven_v3", cost_thb: 0.3 })),
+  { task: "quote-video-voice", model: "gemini-2.5-flash-preview-tts", cost_thb: 0.1 },
+  { task: "content-clip", model: "gemini-3.7-flash", cost_thb: 0.19 },
+  { task: "quote-video-render", model: "cloudrun", cost_thb: 0.49 },
+];
+let ledgerError: { message: string } | null = null;
+
 vi.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: () => ({
     rpc: async () => ({
@@ -44,6 +57,10 @@ vi.mock("@/lib/supabase/admin", () => ({
         if (table === "model_configs") return Promise.resolve({ data: MODELS });
         if (table === "ins_model_prefs") return Promise.resolve({ data: [] });
         if (table === "ins_api_keys") return Promise.resolve({ data: KEYS });
+        if (table === "ins_usage_ledger") {
+          const q = { in: () => q, gte: () => q, range: async () => ({ data: ledgerError ? null : LEDGER, error: ledgerError }) };
+          return q;
+        }
         return { maybeSingle: async () => ({ data: lanesError ? null : { lanes: saved }, error: lanesError }) };
       },
       upsert: async (v: Record<string, unknown>) => { upserted = v; return { error: null }; },
@@ -52,11 +69,12 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 const { loadLanes, saveLanes } = await import("@/app/admin/ai/lanes-actions");
-const { LanesCard } = await import("@/app/admin/ai/LanesCard");
+const { LanesCard, VideoSteps, VideoSummary } = await import("@/app/admin/ai/LanesCard");
 
 beforeEach(() => {
   saved = {};
   lanesError = null;
+  ledgerError = null;
   upserted = null;
 });
 
@@ -141,5 +159,40 @@ describe("the card", () => {
     expect(html).toContain("ข้าม · ปิดค่ายอยู่");
     expect(html).toContain("ข้าม · ยังไม่มีกุญแจ");
     expect(html).toContain("อ่านคำถาม · ตอบสั้น · ตอบเรื่องแบบประกัน");
+  });
+});
+
+describe("the วิดีโอ group (owner, 2026-10-27, ก, https://claude.ai/artifact/N3J5kgXMb1XQEogq2Lou7M)", () => {
+  it("prices its lanes by what the work really cost, and counts only the clip work", async () => {
+    const { lanes, video } = await loadLanes();
+    const script = lanes.find((l) => l.key === "video-script")!;
+    expect(script.options.find((o) => o.id === "gemini-3.1-flash-lite")!.price).toBe("฿22");
+    expect(script.options.find((o) => o.id === "gpt-5-mini")!.price).toBe("฿54");
+    expect(script.options.find((o) => o.id === "claude-sonnet-5")!.price).toBe("ยังไม่เคยใช้");
+    // งานช่วย keeps its estimate, and no longer counts the clip scripts
+    expect(lanes.find((l) => l.key === "write-help")!.options.find((o) => o.id === "gemini-3.1-flash-lite")!.price).toBe("฿30");
+    expect(video?.voice.map((v) => [v.name, v.uses])).toEqual([["ElevenLabs (อ้อม / สมชาย)", 3], ["เสียง Gemini (API)", 1]]);
+    expect(video?.render.map((r) => [r.model, r.uses])).toEqual([["cloudrun", 1], ["shotstack", 0]]);
+    expect(video?.aiThb).toBeCloseTo(0.0216 * 4 + 0.054 + 0.012 + 0.54 + 0.9 + 0.1 + 0.19, 6);
+  });
+
+  it("still shows its lanes when the ledger cannot be read", async () => {
+    ledgerError = { message: "down" };
+    const { lanes, video } = await loadLanes();
+    expect(video).toBeNull();
+    expect(lanes.find((l) => l.key === "video-script")!.options.find((o) => o.id === "gemini-3.1-flash-lite")!.price).toBe("฿30");
+  });
+
+  it("shows the steps it does not set, with links to the groups that do", async () => {
+    const { video } = await loadLanes();
+    const html = renderToStaticMarkup(createElement("div", null,
+      createElement(VideoSummary, { video: video! }), createElement(VideoSteps, { video, from: 3, goTo: () => undefined })));
+    for (const t of ["3 · รูปในคลิปตามโจทย์", "4 · เสียงพากย์คลิป", "5 · อ่านเสียงพูดในคลิปที่ตัวแทนอัปโหลด", "6 · รวมเป็นวิดีโอ"]) expect(html).toContain(t);
+    expect(html).toContain("ไปตั้งที่หมวดรูปภาพ →");
+    expect(html).toContain("ไปตั้งที่หมวดเสียง →");
+    expect(html).toContain("3 ประโยค");
+    expect(html).toContain("฿0.90");
+    expect(html).toContain("Remotion บน Google Cloud Run");
+    expect(html).toContain("ใช้เงินมากที่สุด");
   });
 });

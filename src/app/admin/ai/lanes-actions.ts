@@ -7,7 +7,7 @@ import { ELEVEN_MODEL, ELEVENLABS } from "@/lib/voice/elevenlabs";
 import { requireStaff } from "@/lib/auth/viewer";
 import { WRITERS, shortModel } from "@/lib/content/models";
 import {
-  LANES, READ_TASKS, isLaneKey, laneDef, laneEntries, parseLanes,
+  LANES, READ_TASKS, VIDEO_POST_TASKS, VIDEO_SCRIPT_TASKS, isLaneKey, laneDef, laneEntries, parseLanes,
   type LaneEntry, type LaneKey, type SavedLanes, type VoiceService,
 } from "@/lib/ai/lanes";
 import { PROVIDER_LABEL } from "./labels";
@@ -63,6 +63,8 @@ function laneOfLine(task: string, kind: "text" | "image" | "voice", model: strin
   if (kind === "voice") return "voice";
   if (kind === "image") return model === "gemini-3.1-flash-image" ? "image-face" : "image-plain";
   if (task === "chat-review") return "bot-large";
+  if (VIDEO_SCRIPT_TASKS.has(task)) return "video-script";
+  if (VIDEO_POST_TASKS.has(task)) return "video-post";
   if (BOT_TASK.test(task)) return "bot-small";
   if (READ_TASKS.has(task)) return "write-read";
   return POST_TASKS.has(task) ? "write-post" : "write-help";
@@ -79,7 +81,10 @@ const IMAGE_NAME: Record<string, string> = {
 const baht = (n: number) => (n === 0 ? "ฟรี" : `฿${n >= 10 ? Math.round(n).toLocaleString("th-TH") : n.toFixed(2)}`);
 
 /** a text model's price in a lane's unit: 1,000 short answers (1,500 tokens in, 300 out), or one post */
-function textPrice(m: ModelLine, key: LaneKey): string {
+function textPrice(m: ModelLine, key: LaneKey, video?: VideoInfo): string {
+  // the วิดีโอ lanes say what their work really cost, from the ledger
+  const real = video?.avg[key];
+  if (real) return real[m.model_name] !== undefined ? `฿${Math.round(real[m.model_name]).toLocaleString("th-TH")}` : "ยังไม่เคยใช้";
   const cost = (inTok: number, outTok: number) => ((inTok * (m.price.inputPerMTokUsd ?? 0) + outTok * (m.price.outputPerMTokUsd ?? 0)) / 1e6) * USD_TO_THB;
   if (key === "write-post") {
     // the bake-off's measured price where there is one; an estimate of one post's tokens otherwise
@@ -87,6 +92,75 @@ function textPrice(m: ModelLine, key: LaneKey): string {
     return measured !== undefined ? `฿${measured.toFixed(2)} / ชิ้น` : `≈ ${baht(cost(3000, 1200))} / ชิ้น`;
   }
   return baht(cost(1500, 300) * 1000);
+}
+
+/** one AI (or the render service) in a step of making a clip, with its last 30 days */
+export interface VideoUse { model: string; name: string; company: string; uses: number; thb: number }
+
+/**
+ * วิดีโอ (owner, 2026-10-27, ก, https://claude.ai/artifact/N3J5kgXMb1XQEogq2Lou7M): every step of making a
+ * clip with what did it in the last 30 days, from the ledger. Steps 1–2 are lanes of their own; the
+ * rest are shown only, set where they are (รูปภาพ, เสียง) or not set at all.
+ */
+export interface VideoInfo {
+  /** each lane's real average per 1,000 jobs, by model name: what its price column shows */
+  avg: Partial<Record<LaneKey, Record<string, number>>>;
+  pictures: VideoUse[];
+  voice: VideoUse[];
+  clipRead: VideoUse[];
+  render: VideoUse[];
+  /** every AI step's cost (not the render) */
+  aiThb: number;
+}
+
+const VIDEO_TASKS = ["quote-video-brief", "prompt-story-script", "quote-video-post", "prompt-story-picture", "quote-video-voice", "content-clip", "quote-video-render"];
+const PICTURE_NAME: Record<string, [string, string]> = {
+  "gpt-image-2": ["GPT Image", "OpenAI"], "gemini-3.1-flash-lite-image": ["Gemini Image Lite", "Google"], "gemini-3.1-flash-image": ["Gemini Image", "Google"],
+};
+const RENDER_NAME: Record<string, [string, string]> = {
+  cloudrun: ["Remotion บน Google Cloud Run", "ทุกคลิป"], shotstack: ["Shotstack", "คลิปตามโจทย์ ดีไซน์พิเศษ"],
+};
+
+async function videoInfo(): Promise<VideoInfo> {
+  const since = new Date(Date.now() - DAYS * 86_400_000).toISOString();
+  const sums = new Map<string, { uses: number; thb: number }>();
+  // a few thousand lines a month: read a page at a time
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabaseAdmin().from("ins_usage_ledger").select("task, model, cost_thb")
+      .in("task", VIDEO_TASKS).gte("created_at", since).range(from, from + 999);
+    if (error) throw new Error(`video usage not read: ${error.message}`);
+    for (const r of (data ?? []) as { task: string; model: string; cost_thb: number | string }[]) {
+      const k = `${r.task}|${r.model}`;
+      const s = sums.get(k) ?? { uses: 0, thb: 0 };
+      sums.set(k, { uses: s.uses + 1, thb: s.thb + Number(r.cost_thb) });
+    }
+    if (!data || data.length < 1000) break;
+  }
+  const of = (tasks: string[], name: (model: string) => [string, string]): VideoUse[] => {
+    const by = new Map<string, { uses: number; thb: number }>();
+    for (const [k, v] of sums) {
+      const [task, model] = k.split("|");
+      if (!tasks.includes(task)) continue;
+      const s = by.get(model) ?? { uses: 0, thb: 0 };
+      by.set(model, { uses: s.uses + v.uses, thb: s.thb + v.thb });
+    }
+    return [...by].map(([model, v]) => ({ model, name: name(model)[0], company: name(model)[1], ...v })).sort((a, b) => b.uses - a.uses);
+  };
+  const avgOf = (tasks: string[]) => Object.fromEntries(of(tasks, (m) => [m, ""]).map((u) => [u.model, (u.thb / u.uses) * 1000]));
+  const voiceName = (m: string): [string, string] => {
+    const id = (Object.keys(VOICE) as VoiceService[]).find((v) => VOICE[v].model === m);
+    return id ? [VOICE[id].name, VOICE[id].company] : [m, ""];
+  };
+  const pictures = of(["prompt-story-picture"], (m) => PICTURE_NAME[m] ?? [m, ""]);
+  const voice = of(["quote-video-voice"], voiceName);
+  const clipRead = of(["content-clip"], (m) => [shortModel(m), "Google"]);
+  const render = of(["quote-video-render"], (m) => RENDER_NAME[m] ?? [m, ""]);
+  // Shotstack is listed even before its first clip, so the step names both
+  if (!render.some((r) => r.model === "shotstack")) render.push({ model: "shotstack", name: RENDER_NAME.shotstack[0], company: RENDER_NAME.shotstack[1], uses: 0, thb: 0 });
+  const script = [...VIDEO_SCRIPT_TASKS];
+  const post = [...VIDEO_POST_TASKS];
+  const aiThb = [...of(script, (m) => [m, ""]), ...of(post, (m) => [m, ""]), ...pictures, ...voice, ...clipRead].reduce((n, u) => n + u.thb, 0);
+  return { avg: { "video-script": avgOf(script), "video-post": avgOf(post) }, pictures, voice, clipRead, render, aiThb };
 }
 
 async function context() {
@@ -117,7 +191,7 @@ async function context() {
   };
 }
 
-function optionsOf(key: LaneKey, ctx: Awaited<ReturnType<typeof context>>): LaneOption[] {
+function optionsOf(key: LaneKey, ctx: Awaited<ReturnType<typeof context>>, video?: VideoInfo): LaneOption[] {
   const def = laneDef(key);
   if (def.kind === "voice") {
     return (Object.keys(VOICE) as VoiceService[]).map((id) => ({
@@ -132,7 +206,7 @@ function optionsOf(key: LaneKey, ctx: Awaited<ReturnType<typeof context>>): Lane
       id: def.kind === "text" ? m.model_name : m.id,
       name: def.kind === "text" ? shortModel(m.model_name) : IMAGE_NAME[m.id] ?? m.id,
       company: PROVIDER_LABEL[m.provider] ?? m.provider,
-      price: def.kind === "text" ? textPrice(m, key) : `${baht((m.price.perImageUsd ?? 0) * USD_TO_THB)} / รูป`,
+      price: def.kind === "text" ? textPrice(m, key, video) : `${baht((m.price.perImageUsd ?? 0) * USD_TO_THB)} / รูป`,
       status: ctx.status(m.provider, m.enabled),
     }));
 }
@@ -153,13 +227,18 @@ function usedOf(key: LaneKey, ctx: Awaited<ReturnType<typeof context>>, options:
   return used;
 }
 
-export async function loadLanes(): Promise<{ lanes: LaneView[]; savable: boolean }> {
+export async function loadLanes(): Promise<{ lanes: LaneView[]; savable: boolean; video: VideoInfo | null }> {
   await requireStaff("backoffice");
-  const ctx = await context();
+  const [ctx, video] = await Promise.all([
+    context(),
+    // the วิดีโอ group's numbers are extra: without them its lanes still show, priced as the others
+    videoInfo().catch((e) => { console.error("อ่านการใช้ AI ทำวิดีโอไม่สำเร็จ:", e instanceof Error ? e.message : e); return null; }),
+  ]);
   return {
     savable: ctx.savable,
+    video,
     lanes: LANES.map((l) => {
-      const options = optionsOf(l.key, ctx);
+      const options = optionsOf(l.key, ctx, video ?? undefined);
       return { key: l.key, entries: laneEntries(ctx.saved, l.key), options, used: usedOf(l.key, ctx, options) };
     }),
   };
