@@ -80,13 +80,16 @@ export function DescribeBoard({ initial }: { initial: Reading[] | null }) {
   const btn = "min-h-9 shrink-0 rounded-lg border border-[var(--ct-line)] px-3 text-sm hover:bg-[var(--ct-soft)]";
   return (
     <div className="mt-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <DescribePicker onDone={done} asPerson={asPerson} />
-        <label className="inline-flex min-h-9 items-center gap-2 text-sm">
-          <input type="checkbox" checked={asPerson} onChange={(e) => setAsPerson(e.target.checked)} className="h-4 w-4" />
-          ใส่คนจากคลังบุคคลแทนคนในรูป
-        </label>
-      </div>
+      {/* a chosen picture waits for เริ่มถอด prompt before it is read and counted (owner chose ก, 2026-10-28) */}
+      <DescribePicker
+        onDone={done} asPerson={asPerson} confirm
+        beside={(working) => (
+          <label className="inline-flex min-h-9 items-center gap-2 text-sm">
+            <input type="checkbox" checked={asPerson} disabled={working} onChange={(e) => setAsPerson(e.target.checked)} className="h-4 w-4" />
+            ใส่คนจากคลังบุคคลแทนคนในรูป
+          </label>
+        )}
+      />
       {asPerson && <p className="mt-1 text-xs text-[var(--ct-mute)]">Subject จะเขียนเป็นคนจากรูปอ้างอิง เก็บท่าทาง สีหน้า และเสื้อผ้าจากรูปนี้ ตอนวาดให้เลือกบุคคลในช่อง &quot;ใส่บุคคลในภาพ&quot; ด้วย</p>}
       {shown && (
         <div className="mt-5">
