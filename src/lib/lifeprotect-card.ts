@@ -3,11 +3,11 @@ import { formatSatang } from "@/calc/money";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import type { PlanCardInput } from "@/lib/card-link";
 import { displayPremium } from "@/lib/legacy-cta";
-import { childPriceNote, lifeProtectFootnote, payerWords, waiverNote } from "@/lib/lifeprotect-cta";
-import { lifeProtectTable } from "@/lib/lifeprotect-table";
+import { childPriceNote, illnessDeathLine, illnessLabel, lifeProtectFootnote, payerWords, waiverNote } from "@/lib/lifeprotect-cta";
+import { lifeProtectTable, type LifeProtectIllness } from "@/lib/lifeprotect-table";
 import {
-  addModes, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, pickedRider, riderDueByYear, riderModes,
-  riderSoldAt, totalModes, type Payer,
+  addModes, illnessModes, illnessOf, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, pickedRider,
+  riderDueByYear, riderModes, riderSoldAt, totalModes, type Payer,
 } from "@/lib/lifeprotect-quote";
 
 export const LIFEPROTECT_PLAN = "LIFEPROTECT";
@@ -70,13 +70,29 @@ export function lifeProtectPriced(input: PlanCardInput, today: Date): LifeProtec
     ? medicalModes(table, medical, input.age, plan)
     : undefined;
 
-  const paid = modes ? totalModes(table, modes, addModes(riderPrice, medicalPrice)) : undefined;
+  // each critical-illness rider named must be one this insured can buy at that sum
+  const illness: { rider: LifeProtectIllness; sumAssured: number; price: ModePremium[] | undefined }[] = [];
+  for (const pick of asked?.illness ?? []) {
+    const rider = illnessOf(table, pick.code);
+    if (!rider || illness.some((i) => i.rider.code === pick.code)) return undefined;
+    const price = illnessModes(table, rider, { sex: input.sex, age: input.age, sumAssured: pick.sumAssured });
+    if (!price) return undefined;
+    illness.push({ rider, sumAssured: pick.sumAssured, price: table.expired ? undefined : price });
+  }
+
+  const paid = modes
+    ? totalModes(table, modes, addModes(riderPrice, medicalPrice, ...illness.map((i) => i.price)))
+    : undefined;
   const headline = displayPremium(paid, table.expired);
   const at = (m: ModePremium[] | undefined) => (headline ? m?.find((x) => x.mode === headline.mode) : undefined);
   const riderPart = at(riderPrice);
   const medicalPart = at(medicalPrice);
   const basePart = at(modes);
-  const split = headline && basePart && (riderPart || medicalPart)
+  const illnessParts = illness.flatMap((i) => {
+    const own = at(i.price);
+    return own ? [{ ...i, own }] : [];
+  });
+  const split = headline && basePart && (riderPart || medicalPart || illnessParts.length > 0)
     ? {
         title: `แยกตามสัญญา · ${PAY_MODE_LABEL[headline.mode]}`,
         rows: [
@@ -86,6 +102,7 @@ export function lifeProtectPriced(input: PlanCardInput, today: Date): LifeProtec
           ...(medical && medicalPart
             ? [{ label: `${medical.name} แผน ${plan!.toLocaleString("en-US")}`, amount: `+${formatSatang(medicalPart.total)}` }]
             : []),
+          ...illnessParts.map((i) => ({ label: illnessLabel(i.rider, i.sumAssured), amount: `+${formatSatang(i.own.total)}` })),
         ],
       }
     : undefined;
@@ -96,13 +113,21 @@ export function lifeProtectPriced(input: PlanCardInput, today: Date): LifeProtec
     paid,
     ...(split ? { split } : {}),
     ...(picked && riderPart ? { priceNote: waiverNote(picked.rider.name) } : {}),
-    footNotes: [...(childNote ? [childNote] : []), lifeProtectFootnote(Boolean(medicalPart))],
-    ...(riderPrice || medicalPrice
+    footNotes: [
+      ...(childNote ? [childNote] : []),
+      ...illnessParts.filter((i) => i.rider.paysOnDeath)
+        .map((i) => illnessDeathLine(i.rider.short, i.sumAssured, i.rider.coverToAge)),
+      lifeProtectFootnote([...(medicalPart ? [medical!.code] : []), ...illnessParts.map((i) => i.rider.short)]),
+    ],
+    ...(riderPrice || medicalPrice || illnessParts.length > 0
       ? {
           riderDue: (years: number) => riderDueByYear(
             table, term, input.age, years,
             picked && riderAnnual !== undefined ? { rider: picked.rider, annual: riderAnnual } : undefined,
             medicalPrice && plan !== undefined ? { plan } : undefined,
+            illnessParts.length > 0
+              ? { sex: input.sex, picks: illnessParts.map((i) => ({ code: i.rider.code, sumAssured: i.sumAssured })) }
+              : undefined,
           ),
         }
       : {}),

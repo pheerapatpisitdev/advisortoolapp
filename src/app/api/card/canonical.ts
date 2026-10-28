@@ -24,7 +24,7 @@ import { NAME_KEY } from "@/lib/customer-name";
  * the quote card and its value table: src/lib/card-link.ts cardQuery, in its order, then the
  * customer's name the send panel may add (src/lib/customer-name.ts)
  */
-export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "fig", "v", NAME_KEY] as const;
+export const QUOTE_CARD_KEYS = ["bundle", "tier", "plan", "variant", "age", "sex", "sum", "mode", "rider", "payer", "meb", "dci", "ci123", "fig", "v", NAME_KEY] as const;
 /**
  * The quote card alone also reads `ph`, the bot's signed ask for a customer's photo
  * (src/lib/card-photo.ts). Not the table's: it draws no face, so a `ph` there is padding.

@@ -1,9 +1,9 @@
 import type { ModePremium } from "@/calc/mode-premiums";
-import { applyModeFactor, applyModeFactorToFixed, toHundredths } from "@/calc/money";
+import { applyModeFactor, applyModeFactorToFixed, floorDiv, toHundredths } from "@/calc/money";
 import type { DeathBenefit, PayMode, Sex } from "@/calc/types";
 import { premiumBasedAmounts, waivePeriod } from "@/calc/riders/premium-based";
 import type {
-  LifeProtectMedical, LifeProtectRider, LifeProtectRiderOption, LifeProtectTable, LifeProtectTerm,
+  LifeProtectIllness, LifeProtectMedical, LifeProtectRider, LifeProtectRiderOption, LifeProtectTable, LifeProtectTerm,
 } from "@/lib/lifeprotect-table";
 
 /** The ages the page quotes a surrender value at, besides the end of the contract. */
@@ -139,26 +139,101 @@ export function medicalModes(
   }));
 }
 
+/** A critical-illness rider and the sum it is written for, as the page's controls set them. */
+export interface IllnessPick {
+  code: string;
+  sumAssured: number;
+}
+
+/** The contract a pick names, when the table still carries it. */
+export function illnessOf(table: LifeProtectTable, code: string): LifeProtectIllness | undefined {
+  return table.illness.find((r) => r.code === code);
+}
+
+export function illnessSoldAt(rider: LifeProtectIllness, age: number): boolean {
+  return age >= rider.ageMin && age <= rider.ageMax;
+}
+
+/**
+ * The rider's premium at the insured's age that year in every payment mode, in satang —
+ * rounded part by part the way variant-rate.ts (DCI) or composite-ci.ts (CI 123) rounds.
+ * Undefined where the table carries no rate at that age, or the cover has stopped.
+ */
+function illnessAt(
+  table: LifeProtectTable, rider: LifeProtectIllness, sex: Sex, age: number, sumAssured: number,
+): ModePremium[] | undefined {
+  if (rider.coverToAge !== undefined && age >= rider.coverToAge) return undefined;
+  const priced = rider.parts.flatMap((p) => {
+    const rate = p.rates[sex][age - rider.rateAgeMin];
+    if (rate === null || rate === undefined) return [];
+    const sum = Math.floor(p.cap === null ? p.share * sumAssured : Math.min(p.share * sumAssured, p.cap));
+    return [{ rate100: toHundredths(rate), sum }];
+  });
+  if (priced.length === 0) return undefined;
+  return MODES.map((mode) => {
+    const factor100 = toHundredths(table.modeFactors[mode]);
+    const total = priced.reduce((s, p) => s + (rider.rounding === "perThousand"
+      ? applyModeFactor(p.rate100, p.sum, factor100)
+      : applyModeFactorToFixed(floorDiv(p.rate100 * p.sum, 1000), factor100)), 0);
+    return { mode, total, belowMinimum: false };
+  });
+}
+
+/**
+ * The rider's premium this year in every payment mode. Undefined when this age may not buy
+ * it, the sum is outside what it is written for, or the yearly premium is under the smallest
+ * the company accepts (CI 123 is then void as a whole, as composite-ci.ts says).
+ */
+export function illnessModes(
+  table: LifeProtectTable, rider: LifeProtectIllness, who: Insured,
+): ModePremium[] | undefined {
+  if (!illnessSoldAt(rider, who.age) || who.sumAssured < rider.saMin || who.sumAssured > rider.saMax) return undefined;
+  const modes = illnessAt(table, rider, who.sex, who.age, who.sumAssured);
+  const annual = modes?.find((m) => m.mode === "annual");
+  if (!annual || (rider.minAnnual !== undefined && annual.total < rider.minAnnual * 100)) return undefined;
+  return modes;
+}
+
+/** Why a picked rider is not in the price at this age and sum, in the page's words; undefined when it is. */
+export function illnessWhyNot(table: LifeProtectTable, rider: LifeProtectIllness, who: Insured): string | undefined {
+  if (!illnessSoldAt(rider, who.age)) {
+    return `${rider.short} รับอายุ ${rider.ageMin === 0 ? "แรกเกิด" : rider.ageMin}–${rider.ageMax} ปี · อายุนี้จึงยังไม่ได้รวมอยู่ในราคา`;
+  }
+  if (illnessModes(table, rider, who)) return undefined;
+  if (rider.minAnnual !== undefined && who.sumAssured >= rider.saMin && who.sumAssured <= rider.saMax) {
+    return `${rider.short} เบี้ยต้องไม่ต่ำกว่า ${rider.minAnnual.toLocaleString("en-US")} บาทต่อปี · เพิ่มทุนเพื่อรวมในราคา`;
+  }
+  return `${rider.short} ทุน ${rider.saMin.toLocaleString("en-US")} – ${rider.saMax.toLocaleString("en-US")} บาท`;
+}
+
 /**
  * What the riders add to each policy year's yearly premium, in satang, from the first year
  * for `years` years — for the value table, which walks the contract a year at a time.
  *
  * A waiver costs the same each year it runs and runs as long as it waives (a child's พีบี
- * stops at 25). The medical rider renews yearly at the premium for the insured's age that
- * year, at today's rates, until the rate table runs out.
+ * stops at 25). The medical rider and the critical-illness riders renew yearly at the
+ * premium for the insured's age that year, at today's rates, until the rate table runs out
+ * or their cover stops (DCI at 75).
  */
 export function riderDueByYear(
   table: LifeProtectTable, term: LifeProtectTerm, age: number, years: number,
   waiver?: { rider: LifeProtectRider; annual: number },
   medical?: { plan: number },
+  illness?: { sex: Sex; picks: IllnessPick[] },
 ): number[] {
   const waiveYears = waiver ? riderWaiveYears(waiver.rider, term, age) : 0;
   const meb = table.medical;
   const planAt = meb && medical ? meb.plans.indexOf(medical.plan) : -1;
+  const ci = (illness?.picks ?? []).flatMap((p) => {
+    const rider = illnessOf(table, p.code);
+    return rider ? [{ rider, sumAssured: p.sumAssured }] : [];
+  });
   return Array.from({ length: years }, (_, i) => {
     const waived = waiver && i < waiveYears ? waiver.annual : 0;
     const renewal = meb && planAt >= 0 ? meb.renewal[age + i - meb.ageMin]?.[planAt] : undefined;
-    return waived + (renewal ? toHundredths(renewal) : 0);
+    const illnessDue = ci.reduce((s, c) =>
+      s + (illnessAt(table, c.rider, illness!.sex, age + i, c.sumAssured)?.find((m) => m.mode === "annual")?.total ?? 0), 0);
+    return waived + (renewal ? toHundredths(renewal) : 0) + illnessDue;
   });
 }
 

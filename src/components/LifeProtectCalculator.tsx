@@ -5,16 +5,16 @@ import type { Sex } from "@/calc/types";
 import { PAY_MODE_LABEL } from "@/calc/types";
 import { formatBaht, formatSatang } from "@/calc/money";
 import { PER, displayPremium, perDayText } from "@/lib/legacy-cta";
-import type { LifeProtectRider, LifeProtectTable } from "@/lib/lifeprotect-table";
+import type { LifeProtectIllness, LifeProtectRider, LifeProtectTable } from "@/lib/lifeprotect-table";
 import {
-  addModes, cashAt, deathBenefitOf, riderDueByYear, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
+  addModes, cashAt, deathBenefitOf, illnessModes, illnessWhyNot, riderDueByYear, lifeProtectModes, medicalModes, medicalPlansAt, needsParent, payYears, pickedRider, riderModes, riderSoldAt,
   riderWaiveYears, termAt, totalModes, type Payer, type RiderPick,
 } from "@/lib/lifeprotect-quote";
 import { cashProjection } from "@/lib/cash-projection";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { CashValueTable } from "@/components/lifeprotect/CashValueTable";
 import {
-  childPriceNote, lifeProtectFootnote, lifeProtectQuoteText, payerWords as payerWordsFor,
+  childPriceNote, illnessDeathLine, illnessLabel, lifeProtectFootnote, lifeProtectQuoteText, payerWords as payerWordsFor,
   riderWords, waiverNote, type LifeProtectAge,
 } from "@/lib/lifeprotect-cta";
 import { cardPath, valueTablePath, type CardRiders } from "@/lib/card-link";
@@ -54,6 +54,14 @@ const TERM_START = "WLF19H";
 const AGE_START = 35;
 /** The parent the page opens on when a child's rider needs one: the age the page opens on itself. */
 const PAYER_START: Payer = { sex: "M", age: AGE_START };
+/** The sums a critical-illness rider offers as buttons; any other is typed in the fourth box (owner, 2026-10-28) */
+const ILLNESS_SUMS = [500_000, 1_000_000, 2_000_000];
+/** A typed critical-illness sum lands on a step of this size, inside what the rider is written for. */
+const ILLNESS_STEP = 10_000;
+const illnessTypedSum = (r: LifeProtectIllness, n: number) =>
+  Math.min(r.saMax, Math.max(r.saMin, Math.round(n / ILLNESS_STEP) * ILLNESS_STEP));
+/** "5 แสน", "1 ล้าน" on a quarter of a phone screen */
+const sumWord = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000} ล้าน` : `${n / 100_000} แสน`);
 
 /**
  * The ages a rider is sold at, as the button and its popup say them. A rider a parent can
@@ -165,6 +173,12 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const [payer, setPayer] = useState<Payer>(PAYER_START);
   /** the medical plan quoted beside the plan, or none; it stacks with either waiver */
   const [medicalPlan, setMedicalPlan] = useState<number | null>(null);
+  /** the critical-illness riders switched on; they stack with everything and with each other */
+  const [illnessOn, setIllnessOn] = useState<Record<string, boolean>>({});
+  /** a critical-illness rider's own sum, once one is picked; until then it follows the plan's sum */
+  const [illnessSum, setIllnessSum] = useState<Record<string, number>>({});
+  /** a critical-illness sum as it is being typed, by rider */
+  const [illnessTyped, setIllnessTyped] = useState<Record<string, string>>({});
 
   const term = termAt(table, variant);
   // the picker only offers ages the plan takes, so a number here is always one of them
@@ -218,11 +232,30 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     : undefined;
 
   /**
+   * The critical-illness riders, each with the sum it is quoted at — the plan's own sum, held
+   * inside what the rider is written for, until one is picked. One switched on at an age or
+   * sum it cannot be bought at stays switched on, unquoted, with the reason said under it.
+   */
+  const illness = table.illness.map((rider) => {
+    const on = illnessOn[rider.code] === true;
+    const sum = illnessSum[rider.code] ?? Math.min(rider.saMax, Math.max(rider.saMin, sumAssured));
+    const insured = who ? { sex, age: who.age, sumAssured: sum } : undefined;
+    const price = on && insured && !table.expired ? illnessModes(table, rider, insured) : undefined;
+    const whyNot = on && insured ? illnessWhyNot(table, rider, insured) : undefined;
+    return { rider, on, sum, price, whyNot };
+  });
+  const illnessPriced = illness.filter((i) => i.price);
+  /** the riders whose premium renews with age, as the small print names them */
+  const renewing = [...(medicalPrice && medical ? [medical.code] : []), ...illnessPriced.map((i) => i.rider.short)];
+
+  /**
    * What the customer actually pays, plan and riders together. The instalment is settled on
    * this rather than on the plan alone, because the company's monthly floor is a floor on
    * the whole premium — a plan just under it becomes payable monthly once a rider is added.
    */
-  const paid = modes ? totalModes(table, modes, addModes(riderPrice, medicalPrice)) : undefined;
+  const paid = modes
+    ? totalModes(table, modes, addModes(riderPrice, medicalPrice, ...illnessPriced.map((i) => i.price)))
+    : undefined;
   const headline = displayPremium(paid, table.expired);
   const paidAnnual = paid?.find((m) => m.mode === "annual");
   // the figure in the largest type stays the plan's own price; what the rider adds and the
@@ -234,6 +267,10 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
   const riderLines = [
     ...(picked && riderPart ? [{ name: picked.option.name, own: riderPart }] : []),
     ...(medicalName && medicalPart ? [{ name: medicalName, own: medicalPart }] : []),
+    ...(headline ? illnessPriced.flatMap((i) => {
+      const own = i.price!.find((m) => m.mode === headline.mode);
+      return own ? [{ name: illnessLabel(i.rider, i.sum), own }] : [];
+    }) : []),
   ];
   // smallest instalment upward, so the block under the headline reads day, half-year, year
   const others = (paid ?? [])
@@ -257,6 +294,9 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           table, term, who.age, factors.length,
           picked && riderAnnual !== undefined ? { rider: picked.rider, annual: riderAnnual } : undefined,
           medicalPrice && medicalAt !== undefined ? { plan: medicalAt } : undefined,
+          illnessPriced.length > 0
+            ? { sex, picks: illnessPriced.map((i) => ({ code: i.rider.code, sumAssured: i.sum })) }
+            : undefined,
         ),
       })
     : undefined;
@@ -269,7 +309,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           // says which year its figure is; the table carries it in a column of its own
           + (paidAnnual.total > annual.total
             ? ` · สัญญาเพิ่มเติมปีแรก ${formatBaht(paidAnnual.total - annual.total)} บาท` : "")
-          + (medicalPrice ? " · เบี้ย MEB ตามอัตราปัจจุบันของแต่ละอายุ" : "")
+          + (renewing.length > 0 ? ` · เบี้ย ${renewing.join(", ")} ตามอัตราปัจจุบันของแต่ละอายุ` : "")
         : "")
     : "";
 
@@ -278,11 +318,12 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
    * page shows (owner, 2026-10-06). Only priced ones: a rider picked at an age it is not sold
    * at is not in the figures, so it is not in the picture either.
    */
-  const cardRiders: CardRiders | undefined = picked && riderPart || medicalPart
+  const cardRiders: CardRiders | undefined = picked && riderPart || medicalPart || illnessPriced.length > 0
     ? {
         ...(picked && riderPart ? { waiver: { code: picked.rider.code, option: picked.option.code } } : {}),
         ...(picked && riderPart && payerFor ? { payer: payerFor } : {}),
         ...(medicalPart && medicalAt !== undefined ? { medical: medicalAt } : {}),
+        ...(illnessPriced.length > 0 ? { illness: illnessPriced.map((i) => ({ code: i.rider.code, sumAssured: i.sum })) } : {}),
       }
     : undefined;
   // the same figures the card is showing, or nothing: a copied quote must never say more than the page
@@ -302,9 +343,12 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     : undefined;
   // who the rider's price was read off, said beside its name wherever the price is shown
   const payerWords = payerWordsFor(payerFor);
+  // what a rider paying on death adds for the family, under the plan's own figure
+  const deathExtra = illnessPriced.filter((i) => i.rider.paysOnDeath)
+    .map((i) => illnessDeathLine(i.rider.short, i.sum, i.rider.coverToAge));
   const quoteText = who && headline && death
     ? lifeProtectQuoteText({
-      sumAssured, termLabel: term.label, age: who.age, sex, modes: [headline, ...others], death, cash,
+      sumAssured, termLabel: term.label, age: who.age, sex, modes: [headline, ...others], death, cash, renewing, deathExtra,
       parts: basePart && riderLines.length > 0
         ? {
             base: basePart,
@@ -335,7 +379,8 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
     // the medical premium is the same on every term, but leaving it off would make the
     // button disagree with the total under it
     const total = yearly.total + (withRider?.find((m) => m.mode === "annual")?.total ?? 0)
-      + (medicalPrice?.find((m) => m.mode === "annual")?.total ?? 0);
+      + (medicalPrice?.find((m) => m.mode === "annual")?.total ?? 0)
+      + illnessPriced.reduce((sum, i) => sum + (i.price!.find((m) => m.mode === "annual")?.total ?? 0), 0);
     return `${formatBaht(total)}${PER.annual}`;
   };
 
@@ -670,6 +715,91 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
               )}
             </div>
           )}
+
+          {illness.length > 0 && (
+            <div>
+              <span className="block text-sm text-[var(--lg-mute)]">โรคร้ายแรง · เลือกได้ทั้ง {illness.length} สัญญา</span>
+              <div className="mt-1.5 space-y-4">
+                {illness.map(({ rider, on, sum, whyNot }) => {
+                  const sold = ageNum === undefined || (ageNum >= rider.ageMin && ageNum <= rider.ageMax);
+                  const typed = illnessTyped[rider.code];
+                  const settle = () => {
+                    const digits = typed?.replace(/\D/g, "") ?? "";
+                    if (digits !== "") setIllnessSum((o) => ({ ...o, [rider.code]: illnessTypedSum(rider, Number(digits)) }));
+                    setIllnessTyped((t) => Object.fromEntries(Object.entries(t).filter(([code]) => code !== rider.code)));
+                  };
+                  const choice = (label: string, active: boolean, onClick: () => void, disabled = false) => (
+                    <button
+                      type="button" onClick={onClick} aria-pressed={active} disabled={disabled}
+                      className={`rounded-sm border py-1.5 text-sm transition-colors ${
+                        active ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                      }${disabled ? " opacity-40" : ""}`}
+                    >
+                      {label}
+                    </button>
+                  );
+                  return (
+                    <div key={rider.code}>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="min-w-0 text-sm font-medium text-[var(--lg-white)]">{rider.short}</span>
+                        <div className="grid w-36 shrink-0 grid-cols-2 gap-2">
+                          {choice("ไม่เอา", !on || !sold, () => setIllnessOn((o) => ({ ...o, [rider.code]: false })))}
+                          {choice("เอา", on && sold, () => setIllnessOn((o) => ({ ...o, [rider.code]: true })), !sold)}
+                        </div>
+                      </div>
+                      {on && sold && (
+                        <div className="mt-2 grid grid-cols-4 gap-2">
+                          {ILLNESS_SUMS.filter((s) => s >= rider.saMin && s <= rider.saMax).map((s) => (
+                            <button
+                              key={s} type="button" onClick={() => setIllnessSum((o) => ({ ...o, [rider.code]: s }))}
+                              aria-pressed={sum === s}
+                              className={`rounded-sm border px-1 py-2 text-center text-sm transition-colors ${
+                                sum === s ? "lg-metal-face border-[var(--lg-gold)] font-medium" : "border-[var(--lg-panel-line)] text-[var(--lg-mute)]"
+                              }`}
+                            >
+                              {sumWord(s)}
+                            </button>
+                          ))}
+                          {/* any other sum is typed; it shows here whenever it is not one of the buttons */}
+                          <input
+                            id={`lp-ci-${rider.code}`} aria-label={`ทุน ${rider.short}`} type="text" inputMode="numeric" autoComplete="off"
+                            value={typed ?? (ILLNESS_SUMS.includes(sum) ? "" : sumShort(sum))}
+                            placeholder="พิมพ์เอง"
+                            onFocus={() => setIllnessTyped((o) => ({ ...o, [rider.code]: "" }))}
+                            onChange={(e) => {
+                              const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
+                              setIllnessTyped((o) => ({ ...o, [rider.code]: digits === "" ? "" : Number(digits).toLocaleString("en-US") }));
+                            }}
+                            onBlur={settle}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                            className={`w-full min-w-0 rounded-sm border px-1 py-2 text-center text-sm tabular-nums outline-none ${
+                              !ILLNESS_SUMS.includes(sum) && typed === undefined
+                                ? "lg-metal-face border-[var(--lg-gold)] font-medium"
+                                : "border-[var(--lg-panel-line)] bg-transparent text-[var(--lg-white)] focus:border-[var(--lg-gold)]"
+                            }`}
+                          />
+                        </div>
+                      )}
+                      {whyNot ? (
+                        <p className="mt-1.5 text-sm leading-relaxed text-[var(--lg-gold)]">{whyNot}</p>
+                      ) : (
+                        <p className="mt-1.5 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
+                          {rider.what} · รับอายุ {rider.ageMin === 0 ? "แรกเกิด" : rider.ageMin}–{rider.ageMax} ปี
+                          {rider.coverToAge !== undefined ? ` · คุ้มครองถึงอายุ ${rider.coverToAge}` : ""}
+                          {` · ทุน ${sumWord(rider.saMin)} – ${sumWord(rider.saMax)}`}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {illnessPriced.length > 0 && (
+                <p className="mt-2 text-xs leading-relaxed text-[var(--lg-mute)] opacity-80">
+                  เบี้ย {illnessPriced.map((i) => i.rider.short).join(" และ ")} เป็นเบี้ยปีนี้ ปรับตามอายุเมื่อต่อสัญญา
+                </p>
+              )}
+            </div>
+          )}
         </div>
         {/* on a phone the buttons follow the result (order-2); beside it they sit under the inputs */}
         <div className="order-2">
@@ -691,6 +821,10 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
             <div>
               {/* led by what the family inherits; the premium, riders and all, is the box's (owner, 2026-10-06) */}
               <LegacyHeadline legacy={legacyFromDeath(death!, sumAssured)} perDay={paidAnnual ? perDayText(paidAnnual.total) : undefined} />
+              {/* DCI pays on top of the plan; said beside the plan's figure rather than added into it */}
+              {deathExtra.map((line) => (
+                <p key={line} className="mt-2 text-sm leading-relaxed text-[var(--lg-gold)]">{line}</p>
+              ))}
               <div className="mt-3">{summary}</div>
               {/* neither waiver pays a baht to the family; they carry on paying the
                   premium. Said here so the block below is not read as theirs */}
@@ -723,6 +857,9 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
                   );
                 })}
               </dl>
+              {deathExtra.map((line) => (
+                <p key={line} className="mt-2 text-sm leading-relaxed text-[var(--lg-mute)]">{line}</p>
+              ))}
             </div>
           )}
 
@@ -748,7 +885,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
           )}
 
           <p className="border-t border-[var(--lg-panel-line)] pt-4 text-xs leading-[1.8] text-[var(--lg-mute)] opacity-80">
-            {lifeProtectFootnote(Boolean(medicalPart))}
+            {lifeProtectFootnote(renewing)}
           </p>
         </div>
       )}

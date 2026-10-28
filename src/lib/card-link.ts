@@ -21,7 +21,12 @@ export interface CardRiders {
   payer?: { sex: Sex; age: number };
   /** the medical plan, e.g. 1000 */
   medical?: number;
+  /** the critical-illness riders and their sums, in the page's order (owner, 2026-10-28) */
+  illness?: { code: string; sumAssured: number }[];
 }
+
+/** The query key each critical-illness rider is written under, e.g. dci=1000000. */
+const ILLNESS_KEYS: Record<string, string> = { DCI: "dci", CI123: "ci123" };
 
 /**
  * What a card can be asked for. It is the quote's own input minus what a customer never picks
@@ -71,6 +76,10 @@ export function writeRiders(q: URLSearchParams, riders: CardRiders | undefined):
   if (riders?.waiver) q.set("rider", `${riders.waiver.code}.${riders.waiver.option}`);
   if (riders?.payer) q.set("payer", `${riders.payer.sex}${riders.payer.age}`);
   if (riders?.medical !== undefined) q.set("meb", String(riders.medical));
+  for (const r of riders?.illness ?? []) {
+    const key = ILLNESS_KEYS[r.code];
+    if (key) q.set(key, String(r.sumAssured));
+  }
 }
 
 /**
@@ -82,7 +91,8 @@ export function readRiders(get: (key: string) => string | null | undefined): Car
   const rider = get("rider") ?? null;
   const payer = get("payer") ?? null;
   const meb = get("meb") ?? null;
-  if (rider === null && payer === null && meb === null) return undefined;
+  const illness = Object.entries(ILLNESS_KEYS).map(([code, key]) => ({ code, raw: get(key) ?? null }));
+  if (rider === null && payer === null && meb === null && illness.every((i) => i.raw === null)) return undefined;
   const out: CardRiders = {};
   if (rider !== null) {
     const m = /^([A-Z0-9]+)\.([A-Z0-9_]+)$/.exec(rider);
@@ -98,6 +108,12 @@ export function readRiders(get: (key: string) => string | null | undefined): Car
     const plan = Number(meb);
     if (!Number.isInteger(plan) || plan <= 0) return null;
     out.medical = plan;
+  }
+  for (const { code, raw } of illness) {
+    if (raw === null) continue;
+    const sum = Number(raw);
+    if (!/^\d{1,9}$/.test(raw) || sum <= 0) return null;
+    (out.illness ??= []).push({ code, sumAssured: sum });
   }
   return out;
 }

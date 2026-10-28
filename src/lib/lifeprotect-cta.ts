@@ -59,6 +59,10 @@ export interface LifeProtectQuoteFacts {
   parts?: { base: ModePremium; riders: { name: string; own: ModePremium }[] };
   death: DeathBenefit;
   cash: CashRow[];
+  /** the riders whose premium renews with age, by the names the small print uses */
+  renewing?: string[];
+  /** what a rider paying on death adds, one line each (illnessDeathLine) */
+  deathExtra?: string[];
 }
 
 /**
@@ -96,9 +100,10 @@ export function lifeProtectQuoteText(f: LifeProtectQuoteFacts): string {
     "",
     "👪 ครอบครัวได้รับเมื่อเสียชีวิต",
     ...deathBenefitRows(f.death).map((r) => `- ${r.label} ${baht(r.amount)} บาท`),
+    ...(f.deathExtra ?? []),
     // the cash values are a message of their own (lifeProtectCashText), sent after this one
     "",
-    "📌 เบี้ยคงที่ตลอดระยะเวลาชำระ",
+    `📌 ${levelLine(f.renewing ?? [])}`,
     "เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน",
   ];
   return lines.join("\n");
@@ -226,8 +231,25 @@ export function childPriceNote(age: number): string | undefined {
     : undefined;
 }
 
-/** the small print at the foot of the quote; the medical rider's premium is not level */
-export function lifeProtectFootnote(withMedical: boolean): string {
-  return (withMedical ? "เบี้ยสัญญาหลักคงที่ตลอดระยะเวลาชำระ · เบี้ย MEB ปรับตามอายุทุกปีที่ต่อสัญญา" : "เบี้ยคงที่ตลอดระยะเวลาชำระ")
-    + " · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน";
+/** whether the premium stays level, naming the riders whose premium renews with age (MEB, DCI, CI 123) */
+function levelLine(renewing: string[]): string {
+  return renewing.length > 0
+    ? `เบี้ยสัญญาหลักคงที่ตลอดระยะเวลาชำระ · เบี้ย ${renewing.join(", ")} ปรับตามอายุทุกปีที่ต่อสัญญา`
+    : "เบี้ยคงที่ตลอดระยะเวลาชำระ";
+}
+
+/** the small print at the foot of the quote; a rider that renews yearly is not level */
+export function lifeProtectFootnote(renewing: string[]): string {
+  return `${levelLine(renewing)} · เบี้ยมาตรฐาน อาจต่างไปตามผลพิจารณารับประกัน`;
+}
+
+/** a critical-illness rider's row in the split, e.g. "CI 123 ทุน 1,000,000" */
+export function illnessLabel(rider: { short: string }, sumAssured: number): string {
+  return `${rider.short} ทุน ${sumAssured.toLocaleString("en-US")}`;
+}
+
+/** what DCI adds for the family, said under the plan's own death benefit: it pays on top, until its cover stops */
+export function illnessDeathLine(short: string, sumAssured: number, coverToAge: number | undefined): string {
+  return `+ ${short} จ่ายอีก ${sumAssured.toLocaleString("en-US")} บาท เมื่อเสียชีวิตหรือเป็นโรคร้ายแรง`
+    + (coverToAge !== undefined ? ` ก่อนอายุ ${coverToAge}` : "");
 }

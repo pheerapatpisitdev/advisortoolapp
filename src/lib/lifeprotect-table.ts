@@ -117,6 +117,56 @@ export interface LifeProtectMedical {
   renewal: (number | null)[][];
 }
 
+/**
+ * One way a critical-illness rider pays, with its rates by the insured's age that year. DCI
+ * has one; CI 123 has six stages, each a share of its sum assured (some capped), each priced
+ * and rounded on its own — the way composite-ci.ts prices them.
+ */
+export interface LifeProtectIllnessPart {
+  /** the share of the rider's sum assured this part covers */
+  share: number;
+  /** the most it covers, in baht, where the company caps it */
+  cap: number | null;
+  /** rate per thousand, [sex][age - rateAgeMin], through the last age the rate table carries */
+  rates: Record<Sex, (number | null)[]>;
+}
+
+/**
+ * A critical-illness rider with a sum assured of its own — DCI, CI 123 (owner, 2026-10-28).
+ * Both stack with the waiver and the medical plan, and with each other, so each is a choice
+ * of its own. Its premium is the year's: it renews at the rate for the insured's age.
+ */
+export interface LifeProtectIllness {
+  code: string;
+  /** the contract's own name, e.g. "สัญญาเพิ่มเติมโรคร้ายแรง (DCI)" */
+  name: string;
+  /** the name a button and a split row carry, e.g. "CI 123" */
+  short: string;
+  /** what it pays, in one line under its buttons */
+  what: string;
+  /** the ages it is sold at, within the plan's own */
+  ageMin: number;
+  ageMax: number;
+  /** the sums it is written for, in baht */
+  saMin: number;
+  saMax: number;
+  /** the age its cover stops at, when it stops before the plan's */
+  coverToAge?: number;
+  /** its sum assured is also paid on death */
+  paysOnDeath: boolean;
+  /**
+   * How the parts are rounded: "perThousand" as base-premium.ts (one rate times the sum, the
+   * instalment rounded on its own), "composite" as composite-ci.ts (each part's yearly premium
+   * rounded, then the mode factor on it).
+   */
+  rounding: "perThousand" | "composite";
+  parts: LifeProtectIllnessPart[];
+  /** the age the parts' rates start at */
+  rateAgeMin: number;
+  /** the smallest yearly premium the company accepts for it, in baht; below it the rider is void */
+  minAnnual?: number;
+}
+
 export interface LifeProtectTable {
   planCode: string;
   ageMin: number;
@@ -143,6 +193,8 @@ export interface LifeProtectTable {
   riders: LifeProtectRider[];
   /** the medical-expense rider, when the plan carries it */
   medical?: LifeProtectMedical;
+  /** the critical-illness riders, in the order the page offers them */
+  illness: LifeProtectIllness[];
 }
 
 const PLAN_CODE = "LIFEPROTECT";
@@ -163,6 +215,12 @@ const RIDERS = ["PB", "WP"];
 
 /** The medical-expense rider the page offers beside the premium waivers. */
 const MEDICAL = "MEB";
+
+/** The critical-illness riders the page offers, with the words its buttons carry (owner, 2026-10-28). */
+const ILLNESS: { code: string; short: string; what: string }[] = [
+  { code: "DCI", short: "DCI", what: "จ่ายเมื่อเสียชีวิต หรือเป็นโรคร้ายแรง 31 โรค" },
+  { code: "CI123", short: "CI 123", what: "122 โรค จ่ายตั้งแต่ระยะเริ่มต้นถึงระยะรุนแรง เคลมได้หลายครั้ง" },
+];
 
 /** Built once per process; `expired` is asked again on every call, as in legacy-table.ts. */
 let cached: Omit<LifeProtectTable, "expired"> | undefined;
@@ -304,6 +362,42 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
       }
     : undefined;
 
+  /**
+   * Rates through every age the table carries, past the ages the rider is sold at, because a
+   * contract bought at 65 renews to 74 and the value table walks those years. A DCI with sum
+   * discounts would need the browser to know them; this plan's has none, and a table that
+   * grew some leaves DCI off the page rather than priced wrong.
+   */
+  const ratesFrom = (bySex: Record<Sex, Record<string, number>>, from: number) => {
+    const last = Math.max(...Object.keys(bySex.M).map(Number));
+    const at = (sex: Sex) => Array.from({ length: last - from + 1 }, (_, i) => bySex[sex][String(from + i)] ?? null);
+    return { M: at("M"), F: at("F") };
+  };
+  const illness: LifeProtectIllness[] = ILLNESS.flatMap(({ code, short, what }): LifeProtectIllness[] => {
+    const rule = rules.riders[code];
+    const rider = rates.riders[code];
+    if (!rule || rule.saMin === undefined || rule.saMaxCap === undefined) return [];
+    const sold = {
+      code, name: rule.name, short, what,
+      ageMin: Math.max(ageMin, rule.ageMin), ageMax: Math.min(ageMax, rule.ageMax),
+      saMin: rule.saMin, saMax: rule.saMaxCap,
+      ...(rule.coverToAge !== undefined ? { coverToAge: rule.coverToAge } : {}),
+      paysOnDeath: rule.paysOnDeath === true,
+      rateAgeMin: rule.ageMin,
+    };
+    if (rider?.kind === "ratePerThousandByVariantAgeSex" && rider.variants.length === 1
+      && rider.discountThresholds.length === 0 && rider.rounding !== "round") {
+      return [{ ...sold, rounding: "perThousand" as const, parts: [{ share: 1, cap: null, rates: ratesFrom(rider.rates[rider.variants[0]], rule.ageMin) }] }];
+    }
+    if (rider?.kind === "compositeCI") {
+      return [{
+        ...sold, rounding: "composite" as const, minAnnual: rider.minAnnual,
+        parts: rider.components.map((c) => ({ share: c.share, cap: c.cap, rates: ratesFrom(rider.rates[c.key], rule.ageMin) })),
+      }];
+    }
+    return [];
+  });
+
   cached = {
     planCode: PLAN_CODE,
     ageMin,
@@ -318,6 +412,7 @@ export function lifeProtectTable(today: Date = new Date()): LifeProtectTable {
     terms,
     riders,
     ...(medical ? { medical } : {}),
+    illness,
   };
   return { ...cached, expired };
 }

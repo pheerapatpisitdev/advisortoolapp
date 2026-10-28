@@ -219,6 +219,14 @@ export const planInput = (v: Extract<VideoInput, { variant: string }>): PlanCard
 /** each waiver as the voice says it; the medical plan (MEB) is "ค่าชดเชยรายวัน", as the chat and the pages call it */
 const WAIVER_SAID: Record<string, string> = { WP: "สัญญายกเว้นเบี้ย", PB: "สัญญาผู้ชำระเบี้ย" };
 const MEDICAL_SAID = "ค่าชดเชยรายวัน";
+/** the critical-illness riders the Life Protect page adds (owner, 2026-10-28), and what each pays, said the owner's way */
+const ILLNESS_SAID: Record<string, string> = { DCI: "สัญญาโรคร้ายแรง DCI", CI123: "สัญญาโรคร้ายแรง CI 123" };
+const illnessWhat = (code: string, sum: number): string => {
+  const baht = sum.toLocaleString("en-US");
+  return code === "DCI"
+    ? `ถ้าเป็นอะไรไป หรือเป็นโรคร้ายแรง รับเงินก้อน ${baht} บาท`
+    : `เป็นโรคร้ายแรง จ่ายตั้งแต่ระยะเริ่มต้นตามระยะของโรค ทุน ${baht} บาท`;
+};
 
 /**
  * What each waiver pays out, said the owner's way ("เป็นอะไรไป", never "เสียชีวิต"): the
@@ -257,10 +265,12 @@ export const riderShort = (label: string) => label.replace(/^สัญญาเ�
 function riderFacts(
   riders: CardRiders | undefined, rows: ValueTableRow[], split: { title: string; rows: { label: string; amount: string }[] }, spokenLabel: string,
 ): QuoteVideoFacts["riders"] {
-  if (!riders?.waiver && riders?.medical === undefined) return undefined;
+  if (!riders?.waiver && riders?.medical === undefined && !riders?.illness?.length) return undefined;
+  const illness = (riders.illness ?? []).map((r) => ({ ...r, name: ILLNESS_SAID[r.code] ?? "สัญญาเพิ่มเติม" }));
   const said = [
     ...(riders.waiver ? [WAIVER_SAID[riders.waiver.code] ?? "สัญญาเพิ่มเติม"] : []),
     ...(riders.medical !== undefined ? [MEDICAL_SAID] : []),
+    ...illness.map((r) => r.name),
   ];
   const paying = rows.filter((r) => r.due !== "—").map((r) => r.rider);
   const moves = paying.some((x) => x !== paying[0]);
@@ -271,7 +281,9 @@ function riderFacts(
   const waiverName = riders.waiver
     ? whole ? riderShort(rest[0].label).replace(/\s*\(.*\)$/, "") : WAIVER_SAID[riders.waiver.code] ?? "สัญญาเพิ่มเติม"
     : undefined;
-  const names = [...(waiverName ? [waiverName] : []), ...(riders.medical !== undefined ? [MEDICAL_SAID] : [])];
+  const names = [
+    ...(waiverName ? [waiverName] : []), ...(riders.medical !== undefined ? [MEDICAL_SAID] : []), ...illness.map((r) => r.name),
+  ];
   // said only where the split is of the instalment the voice says, and has a row for every rider
   const split_ = main && whole && split.title.endsWith(spokenLabel)
     ? ((b) => [{ name: "สัญญาหลัก", baht: b[0] }, ...rest.map((_, i) => ({ name: names[i], baht: b[i + 1] }))])(wholeShares([main.amount, ...rest.map((r) => r.amount)]))
@@ -281,6 +293,7 @@ function riderFacts(
       ? [{ name: waiverName, what: WAIVER_WHAT[`${riders.waiver.code}.${riders.waiver.option}`] }] : []),
     ...(riders.medical !== undefined
       ? [{ name: MEDICAL_SAID, what: `นอนโรงพยาบาลรับเงินวันละ ${riders.medical.toLocaleString("en-US")} บาท` }] : []),
+    ...illness.map((r) => ({ name: r.name, what: illnessWhat(r.code, r.sumAssured) })),
   ];
   return {
     said: said.length > 1 ? `${said.slice(0, -1).join(" ")} และ${said[said.length - 1]}` : said[0],
