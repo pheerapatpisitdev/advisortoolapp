@@ -23,13 +23,21 @@ const PLAN_MIN_SUM = 150_000;
 export const LIFEPROTECT_STEP = 150_000;
 export const LIFEPROTECT_SUMS = Array.from({ length: 331 }, (_, i) => LIFEPROTECT_FIRST + LIFEPROTECT_STEP * i);
 
+/** The largest sum the page sells. */
+const PAGE_MAX_SUM = 50_000_000;
+/** A typed sum is kept to the thousand: the plan is priced per thousand of sum. */
+const TYPED_STEP = 1_000;
+
 /**
- * The sums a link or PDF may name: every fifty thousand from the plan's smallest sum (150,000).
- * The chat quotes a million, 250,000 (cover of 500,000 before sixty) and other figures the
- * slider's steps skip, and a link for one of them must still open; the page puts the linked
- * sum in as one more stop (see the calculator).
+ * The sums a link or PDF may name: every thousand from the plan's smallest sum (150,000) to fifty
+ * million, so whatever was typed on the page (owner, 2026-10-29 — any figure, not the slider's
+ * steps) and whatever the chat quotes opens again; the page puts the linked sum in as one more stop
+ * (see the calculator).
  */
-export const LIFEPROTECT_LINK_SUMS = Array.from({ length: 998 }, (_, i) => PLAN_MIN_SUM + 50_000 * i);
+export const LIFEPROTECT_LINK_SUMS = Array.from(
+  { length: (PAGE_MAX_SUM - PLAN_MIN_SUM) / TYPED_STEP + 1 },
+  (_, i) => PLAN_MIN_SUM + TYPED_STEP * i,
+);
 
 /**
  * The sums a budget is fitted to on the page: the same fifty-thousand steps from 150,000 the
@@ -38,25 +46,15 @@ export const LIFEPROTECT_LINK_SUMS = Array.from({ length: 998 }, (_, i) => PLAN_
  * month was offered 650,000 by the page and 750,000 by the bot, and paying for 9 years was
  * "under the smallest sum" on the page while the bot sold him 400,000).
  */
-export const LIFEPROTECT_BUDGET_SUMS = LIFEPROTECT_LINK_SUMS;
-
-/** A typed sum moved onto the nearest step the page offers. */
-export function lifeProtectSumNear(typed: number): number {
-  const first = LIFEPROTECT_SUMS[0];
-  const last = LIFEPROTECT_SUMS[LIFEPROTECT_SUMS.length - 1];
-  const stepped = LIFEPROTECT_FIRST + Math.round((typed - LIFEPROTECT_FIRST) / LIFEPROTECT_STEP) * LIFEPROTECT_STEP;
-  return Math.min(last, Math.max(first, stepped));
-}
+export const LIFEPROTECT_BUDGET_SUMS = Array.from({ length: 998 }, (_, i) => PLAN_MIN_SUM + 50_000 * i);
 
 /**
- * The sum a typed figure lands on. From the slider's first step up it is the nearest step; under
- * it, the plan sells down to 150,000, so the figure is kept to the nearest fifty thousand (the
- * grid links already use) instead of being lifted to half a million. The page puts such a sum in
- * as one more stop.
+ * The sum a typed figure lands on: the figure itself, to the nearest thousand, held inside what
+ * the page sells (150,000 – 50 million). The page puts it in as one more stop on the slider.
  */
 export function lifeProtectTypedSum(typed: number): number {
-  if (typed >= LIFEPROTECT_SUMS[0]) return lifeProtectSumNear(typed);
-  return Math.max(PLAN_MIN_SUM, Math.round(typed / 50_000) * 50_000);
+  const kept = Math.round(typed / TYPED_STEP) * TYPED_STEP;
+  return Math.min(PAGE_MAX_SUM, Math.max(PLAN_MIN_SUM, kept));
 }
 
 /**

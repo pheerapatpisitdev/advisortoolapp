@@ -473,7 +473,7 @@ export function LifeProtectCalculator({ table, sticky = false }: LifeProtectCalc
               />
               <span className="text-lg text-[var(--lg-mute)]">บาท</span>
             </div>
-            <p className="mt-1 text-xs text-[var(--lg-mute)] opacity-70">แตะตัวเลขเพื่อพิมพ์ทุน · ขั้นละ 150,000</p>
+            <p className="mt-1 text-xs text-[var(--lg-mute)] opacity-70">แตะตัวเลขเพื่อพิมพ์ทุนเท่าไหร่ก็ได้ · 150,000 – 50 ล้าน</p>
             <input
               id="lp-sum" aria-label="ทุนประกัน" type="range" min={0} max={sums.length - 1} step={1} value={sumIndex}
               onChange={(e) => setSumIndex(Number(e.target.value))}

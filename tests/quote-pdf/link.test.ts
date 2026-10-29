@@ -32,8 +32,14 @@ describe("the PDF path for a quote", () => {
       .toMatch(/^\/api\/quote-pdf\?page=lifeprotect&age=35&sex=M&sum=250000&variant=WLF19H&v=.+$/);
   });
 
+  it("makes a path for any thousand typed on the page", () => {
+    expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 2_325_000 }))
+      .toMatch(/^\/api\/quote-pdf\?page=lifeprotect&age=35&sex=M&sum=2325000&variant=WLF99H&v=.+$/);
+  });
+
   it("makes none for a sum the page cannot show", () => {
-    expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 2_325_000 })).toBeUndefined();
+    expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 2_325_500 })).toBeUndefined();
+    expect(quotePdfPath({ kind: "plan", planCode: "LIFEPROTECT", variant: "WLF99H", age: 35, sex: "M", sumAssured: 60_000_000 })).toBeUndefined();
   });
 
   it("makes none for a plan with no page of its own", () => {

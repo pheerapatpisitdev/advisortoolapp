@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectSumNear, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
+import { LIFEPROTECT_BUDGET_SUMS, LIFEPROTECT_LINK_SUMS, LIFEPROTECT_SUMS, lifeProtectTypedSum, planInitialFromTable } from "@/lib/quote-pdf/pages";
 
 const offer = { sums: [500_000, 1_000_000], variants: ["A", "B"], ageMin: 20, ageMax: 59 };
 const q = (s: string) => new URLSearchParams(s);
@@ -41,16 +41,16 @@ describe("Life Protect's sums", () => {
     expect(LIFEPROTECT_LINK_SUMS.at(-1)).toBe(50_000_000);
   });
 
-  it.each([
-    [650_000, 650_000],
-    [700_000, 650_000],
-    [730_000, 800_000],
-    [1_000_000, 950_000],
-    [120_000, 500_000],
-    [0, 500_000],
-    [99_000_000, 50_000_000],
-  ])("a typed %i lands on %i", (typed, sum) => {
-    expect(lifeProtectSumNear(typed)).toBe(sum);
+  it("a link may name any thousand the page could have been typed with", () => {
+    expect(LIFEPROTECT_LINK_SUMS).toEqual(expect.arrayContaining([1_235_000, 777_000, 49_999_000]));
+    expect(LIFEPROTECT_LINK_SUMS).not.toContain(1_234_567);
+    expect(LIFEPROTECT_LINK_SUMS).not.toContain(149_000);
+  });
+
+  it("a budget still buys on fifty-thousand steps, as the chat does", () => {
+    expect(LIFEPROTECT_BUDGET_SUMS[0]).toBe(150_000);
+    expect(LIFEPROTECT_BUDGET_SUMS.at(-1)).toBe(50_000_000);
+    expect(LIFEPROTECT_BUDGET_SUMS.every((s) => s % 50_000 === 0)).toBe(true);
   });
 });
 
@@ -58,12 +58,14 @@ describe("lifeProtectTypedSum", () => {
   it.each([
     [150_000, 150_000],
     [300_000, 300_000],
+    [1_234_567, 1_235_000],
+    [1_234_499, 1_234_000],
+    [777_000, 777_000],
+    [1_000_000, 1_000_000],
     [120_000, 150_000],
     [10_000, 150_000],
-    [330_000, 350_000],
-    [499_999, 500_000],
-    [500_000, 500_000],
-    [1_000_000, 950_000],
+    [0, 150_000],
+    [99_000_000, 50_000_000],
   ])("a typed %i lands on %i", (typed, sum) => {
     expect(lifeProtectTypedSum(typed)).toBe(sum);
   });
