@@ -12,7 +12,6 @@ import { BLUE_PEN, BRACE_ROOM, PEN_TEXT, RING_PAD, needsBraceRoom, penNotes, pen
 import { googleFontSubset } from "@/lib/google-font";
 import { Chart, chartBlockHeight } from "../chart-drawing";
 import { quoteFor } from "@/lib/life-quotes";
-import { SiteFooter, SITE_FOOTER_H } from "../site-footer";
 import { diseaseListFor, type DiseaseList } from "@/lib/copilot/knowledge";
 import { DiseaseListBlock, diseaseListHeight } from "../disease-list";
 import { TABLE_WITH_DISEASES } from "@/lib/card-link";
@@ -291,8 +290,7 @@ function heightOf(
     + top + H.premium
     + H.gap + H.hairline + H.afterHairline
     + H.caption + H.head + perHalf * H.row
-    + H.quoteGap + quoteLines(quote, width - PAD * 2) * H.quoteLine
-    + SITE_FOOTER_H;
+    + H.quoteGap + quoteLines(quote, width - PAD * 2) * H.quoteLine;
 }
 
 /**
@@ -448,7 +446,6 @@ export async function GET(req: NextRequest) {
         >
           {quote}
         </div>
-        <SiteFooter color={p.mute} />
 
       </div>
     ),

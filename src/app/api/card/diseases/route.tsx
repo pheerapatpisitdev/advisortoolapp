@@ -5,7 +5,6 @@ import type { NextRequest } from "next/server";
 import { diseaseListFor } from "@/lib/copilot/knowledge";
 import { CARD_PALETTE } from "@/lib/card-theme";
 import { DiseaseListBlock, diseaseListHeight } from "../disease-list";
-import { SiteFooter, SITE_FOOTER_H } from "../site-footer";
 import { DISEASE_CARD_KEYS, toCanonical } from "../canonical";
 
 export const runtime = "nodejs";
@@ -46,7 +45,7 @@ export async function GET(req: NextRequest) {
     loadFont("IBMPlexSansThai-SemiBold.ttf"),
   ]);
   const inner = WIDTH - PAD * 2;
-  const height = PAD * 2 + diseaseListHeight(list, inner) + SITE_FOOTER_H;
+  const height = PAD * 2 + diseaseListHeight(list, inner);
 
   return pngResponse(
     (
@@ -63,7 +62,6 @@ export async function GET(req: NextRequest) {
         }}
       >
         <DiseaseListBlock list={list} width={inner} p={p} />
-        <SiteFooter color={p.mute} />
 
       </div>
     ),

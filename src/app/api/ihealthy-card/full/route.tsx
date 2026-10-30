@@ -10,7 +10,6 @@ import {
   scriptFonts, spacer, Subtitle, subtitleHeight, WHITE, widthOf,
 } from "../draw";
 import { HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE, toCanonical } from "../../card/canonical";
-import { SiteFooter, SITE_FOOTER_H } from "../../card/site-footer";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -23,7 +22,7 @@ const WIDER_TITLE = 140;
 function heightOf(card: ReturnType<typeof iHealthyFullCard>, top: number): number {
   const table = H.head + card.rows.length * H.row
     + (card.premiumRows.length > 0 ? H.section + card.premiumRows.length * H.row : 0);
-  return PAD * 2 + top + H.gap + H.hairline + H.afterHairline + table + SITE_FOOTER_H;
+  return PAD * 2 + top + H.gap + H.hairline + H.afterHairline + table;
 }
 
 /**
@@ -96,7 +95,6 @@ export async function GET(req: NextRequest) {
           <div style={spacer(H.afterHairline)} />
           <PlanTable card={card} selected={selected} markLabel={w.annualLimit} w={w} geo={geo} />
         </div>
-        <SiteFooter color={MUTE} />
       </div>
     ),
     {

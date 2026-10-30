@@ -9,7 +9,6 @@ import { highlighterUri, loopUri } from "@/lib/highlighter";
 import { PENSION_TABLE_KEYS, toCanonical } from "../canonical";
 import { RING_PAD, figureWidth, penSvgUri } from "../table/pen-notes";
 import { googleFontSubset } from "@/lib/google-font";
-import { SiteFooter, SITE_FOOTER_H } from "../site-footer";
 import { PENSION_AGES, quotePension, type PensionAge, type PensionBand, type PensionPay } from "@/calc/pension/engine";
 import {
   PENSION_COLUMNS, PENSION_PEN_TEXT, pensionCells, pensionPenNotes, pensionFigure,
@@ -133,7 +132,7 @@ export async function GET(req: NextRequest) {
   const closing = `รวมรับบำนาญถึงอายุ 95 ประมาณ ${pensionFigure(q.totalPension)} บาท จากเบี้ยรวม ${pensionFigure(q.totalPremium)} บาท`;
 
   const height = PAD * 2 + top + H.premium + H.gap + H.hairline + H.afterHairline
-    + CHART_H + tableHeight + H.closingGap + H.closing + SITE_FOOTER_H;
+    + CHART_H + tableHeight + H.closingGap + H.closing;
 
   return pngResponse(
     (
@@ -248,7 +247,6 @@ export async function GET(req: NextRequest) {
         >
           {closing}
         </div>
-        <SiteFooter color={p.mute} />
       </div>
     ),
     {

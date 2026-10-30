@@ -9,7 +9,6 @@ import {
   geometryOf, scriptFonts, spacer, Subtitle, subtitleHeight, WHITE, widthOf,
 } from "./draw";
 import { HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE, toCanonical } from "../card/canonical";
-import { SiteFooter, SITE_FOOTER_H } from "../card/site-footer";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -25,8 +24,7 @@ function heightOf(card: IHealthyCard, top: number): number {
     + card.lines.length * H.line
     + (card.belowMinimum ? H.warn : 0)
     + H.beforeDeath + card.death.length * H.death
-    + H.gap + H.hairline + H.afterHairline + table
-    + SITE_FOOTER_H;
+    + H.gap + H.hairline + H.afterHairline + table;
 }
 
 /**
@@ -136,7 +134,6 @@ export async function GET(req: NextRequest) {
           {/* the yearly ceiling of the plan quoted is what a health plan is chosen by */}
           <PlanTable card={card} selected={selected} markLabel={w.annualLimit} w={w} geo={geo} />
         </div>
-        <SiteFooter color={MUTE} />
 
       </div>
     ),
