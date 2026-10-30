@@ -20,6 +20,7 @@ import {
   healthKnowledgeDetail, healthKnowledgeSummary, healthTopicsFor,
 } from "@/lib/health-knowledge";
 import { lifeProtectNamedIn, lifeProtectQaSection } from "@/lib/lifeprotect-knowledge";
+import { quickQuoteSection, quickQuoteTopicsFor } from "@/lib/quickquote-knowledge";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PlanRules } from "@/calc/types";
 
@@ -440,8 +441,12 @@ export async function assembleKnowledge(
   /**
    * The Life Protect brain passes `lifeProtect` because its customers ask "ยกเลิกบูสเตอร์ได้ไหม"
    * without naming the plan — the whole conversation already is the plan.
+   *
+   * `agent` is the website's own chat, which only signed-in agents reach. The company's
+   * underwriting handbook is marked for internal use and the owner kept it there (2026-10-30),
+   * so it opens only when this is set — Messenger, LINE and the brains never set it.
    */
-  open: { lifeProtect?: boolean } = {},
+  open: { lifeProtect?: boolean; agent?: boolean } = {},
 ): Promise<string> {
   const plans = knowledgePlans()
     .map((p) => planSection(p.code, p.name, getPlan(p.code)!.rules))
@@ -451,6 +456,7 @@ export async function assembleKnowledge(
   const opened = listsFor(question);
   const faq = faqSection(question);
   const healthDetail = healthKnowledgeDetail(question);
+  const handbook = open.agent ? quickQuoteSection(question) : "";
 
   const text = [
     "# คลังความรู้ของระบบนี้",
@@ -473,6 +479,9 @@ export async function assembleKnowledge(
     // fetched by name like the three above; it is the company's Q&A sheet and runs to 7,000
     // characters an iHealthy question would carry for nothing
     ...(question === "" || open.lifeProtect || lifeProtectNamedIn(question) ? ["", lifeProtectQaSection()] : []),
+    // fetched by topic, and only for agents; placed here because its blocks are `### ` and
+    // `## รายชื่อโรค` has to stay the last `##` of the document (see the health blocks below)
+    ...(handbook ? ["", handbook] : []),
     /**
      * Group insurance, said in four lines and no more.
      *
@@ -527,7 +536,8 @@ export async function assembleKnowledge(
   console.info(
     `[knowledge] ${text.length} ตัวอักษร · โรค: ${opened.length ? opened.map((l) => l.name.slice(0, 18)).join("+") : "สรุปเท่านั้น"}`
     + ` · สุขภาพ: ${healthTopicsFor(question).map((t) => t.code).join("+") || "สรุปเท่านั้น"}`
-    + ` · faq: ${faq ? faq.split("\n").length - 1 : 0}`,
+    + ` · faq: ${faq ? faq.split("\n").length - 1 : 0}`
+    + ` · คู่มือ: ${handbook ? quickQuoteTopicsFor(question).map((t) => t.code).join("+") : "ไม่เปิด"}`,
   );
   return text;
 }

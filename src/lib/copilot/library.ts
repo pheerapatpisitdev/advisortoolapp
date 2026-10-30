@@ -72,7 +72,8 @@ export async function askLibrary(
   history: ChatMessage[], question: string, channel: Channel = "web",
 ): Promise<LibraryAnswer | undefined> {
   try {
-    const knowledge = await assembleKnowledge(question);
+    // the handbook is for agents, and the website chat is theirs alone
+    const knowledge = await assembleKnowledge(question, { agent: channel === "web" });
     const reply = await chat({
       tier: "small",
       task: "library",
