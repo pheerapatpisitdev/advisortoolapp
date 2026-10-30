@@ -15,6 +15,7 @@ import { Highlighted } from "@/components/Highlighted";
 import { Circled } from "@/components/Circled";
 import { PenLayer } from "@/components/PenLayer";
 import { SiteCredit } from "@/components/sales/SiteCredit";
+import { Watermark } from "@/components/sales/Watermark";
 import { PensionBandChart } from "./PensionBandChart";
 import {
   PENSION_CELL_PAD, PENSION_COLUMNS, PENSION_PEN_SCALE, pensionBraceRoom, pensionCells, pensionMarks,
@@ -308,6 +309,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
           <section className="rounded-lg border border-[var(--op-line)] bg-[var(--op-panel)] p-4">
             {/* open by default: the owner wants the year-by-year figures in view, not behind a press */}
             <h3 className="text-sm font-semibold">ตารางผลประโยชน์รายปี</h3>
+              <Watermark>
               <div className="mt-3 overflow-x-auto">
                 {/* the pen notes are drawn over the table and scroll with it */}
                 <div className="relative min-w-full">
@@ -359,6 +361,7 @@ export function PensionCalculator({ sticky = false }: { sticky?: boolean }) {
                   />
                 </div>
               </div>
+              </Watermark>
               <SiteCredit />
           </section>
         )}

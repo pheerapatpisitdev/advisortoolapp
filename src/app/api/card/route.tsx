@@ -10,6 +10,7 @@ import { QUOTE_CARD_ONLY_KEYS, toCanonical } from "./canonical";
 import { verifyCardPhoto } from "@/lib/card-photo";
 import { profileOn } from "@/lib/crm/names";
 import { addressedAs, cleanCustomerName, NAME_KEY, NAMED_CACHE } from "@/lib/customer-name";
+import { Watermark } from "./watermark";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -521,6 +522,7 @@ export async function GET(req: NextRequest) {
           </div>
         ) : null}
 
+        <Watermark width={WIDTH} color={p.figure} />
       </div>
     ),
     {

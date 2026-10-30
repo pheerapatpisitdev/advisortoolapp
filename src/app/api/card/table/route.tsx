@@ -15,6 +15,7 @@ import { quoteFor } from "@/lib/life-quotes";
 import { diseaseListFor, type DiseaseList } from "@/lib/copilot/knowledge";
 import { DiseaseListBlock, diseaseListHeight } from "../disease-list";
 import { TABLE_WITH_DISEASES } from "@/lib/card-link";
+import { Watermark } from "../watermark";
 
 /** the room between the last year and the illnesses' title */
 const DISEASES_GAP = 56;
@@ -447,6 +448,7 @@ export async function GET(req: NextRequest) {
           {quote}
         </div>
 
+        <Watermark width={width} color={p.figure} />
       </div>
     ),
     {

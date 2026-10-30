@@ -6,6 +6,7 @@ import { diseaseListFor } from "@/lib/copilot/knowledge";
 import { CARD_PALETTE } from "@/lib/card-theme";
 import { DiseaseListBlock, diseaseListHeight } from "../disease-list";
 import { DISEASE_CARD_KEYS, toCanonical } from "../canonical";
+import { Watermark } from "../watermark";
 
 export const runtime = "nodejs";
 /** The names come from a benefit sheet, which changes with a rate revision and not oftener. */
@@ -63,6 +64,7 @@ export async function GET(req: NextRequest) {
       >
         <DiseaseListBlock list={list} width={inner} p={p} />
 
+        <Watermark width={WIDTH} color={p.figure} />
       </div>
     ),
     {

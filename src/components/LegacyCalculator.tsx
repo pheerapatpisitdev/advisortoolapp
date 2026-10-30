@@ -15,6 +15,7 @@ import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { LegacyHeadline, PremiumSummary } from "@/components/sales/PremiumSummary";
 import { legacyFromDeath } from "@/lib/legacy-headline";
 import { formatBaht, formatSatang } from "@/calc/money";
+import { Watermark } from "@/components/sales/Watermark";
 
 /**
  * The card opens on a priced example rather than empty. A cold visitor should meet a number,
@@ -290,6 +291,7 @@ function ContractTable({ rows, total, showMonthly }: {
 }) {
   const cell = "px-1.5 py-1.5 text-right whitespace-nowrap tabular-nums";
   return (
+    <Watermark>
     <div className="-mx-1 overflow-x-auto">
       <table className="w-full border-collapse text-xs text-[var(--bot-navy)]">
         <thead>
@@ -321,5 +323,6 @@ function ContractTable({ rows, total, showMonthly }: {
         </tbody>
       </table>
     </div>
+    </Watermark>
   );
 }

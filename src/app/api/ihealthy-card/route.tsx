@@ -9,6 +9,7 @@ import {
   geometryOf, scriptFonts, spacer, Subtitle, subtitleHeight, WHITE, widthOf,
 } from "./draw";
 import { HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE, toCanonical } from "../card/canonical";
+import { Watermark } from "../card/watermark";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -135,6 +136,7 @@ export async function GET(req: NextRequest) {
           <PlanTable card={card} selected={selected} markLabel={w.annualLimit} w={w} geo={geo} />
         </div>
 
+        <Watermark width={width} color={WHITE} />
       </div>
     ),
     {

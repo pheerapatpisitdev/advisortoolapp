@@ -9,6 +9,7 @@ import { CardButton } from "@/components/sales/CardButton";
 import { PrintButton } from "@/components/sales/PrintButton";
 import { PdfPrepare } from "@/components/sales/PdfPrepare";
 import { SiteCredit } from "@/components/sales/SiteCredit";
+import { Watermark } from "@/components/sales/Watermark";
 import { CashValueChart } from "@/components/lifeprotect/CashValueChart";
 import { INSURER } from "@/lib/assistant/common";
 import { needsBraceRoom, penNotes } from "@/app/api/card/table/pen-notes";
@@ -181,6 +182,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
           header sticks to the page instead. Below that the box comes back, because six
           columns of `whitespace-nowrap` do not fit 375px and never will — there the headings
           still scroll away, which is the part of this not yet solved. */}
+      <Watermark>
       <div className="-mx-2.5 mt-2.5 w-[calc(100%+1.25rem)] max-lg:overflow-x-auto">
         <div className="relative" style={{ paddingTop: PEN_CAPTION }}>
         <table ref={tableRef} className="w-full border-collapse text-xs tabular-nums">
@@ -308,6 +310,7 @@ export function CashValueTable({ projection, caption, cardPath, planName, notes 
         />
         </div>
       </div>
+      </Watermark>
 
       {notes && zeroYears > 0 && (
         <p className="mt-2.5 border-l-2 border-[var(--lg-gold-deep)] py-2 pl-3 text-xs leading-[1.8] text-[var(--lg-mute)]">

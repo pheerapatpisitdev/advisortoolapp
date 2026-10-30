@@ -15,6 +15,7 @@ import { ContactButtons } from "@/components/sales/ContactButtons";
 import type { CancerTable } from "@/lib/cancer-table";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { PremiumSummary } from "@/components/sales/PremiumSummary";
+import { Watermark } from "@/components/sales/Watermark";
 
 const PER_LABEL: Record<PayMode, string> = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" };
 const ROW_MODES: PayMode[] = ["annual", "semi", "monthly"];
@@ -289,6 +290,7 @@ function AllTiers(
       <div className="text-sm text-[var(--lg-mute)]">
         เบี้ยทุกแพ็ก · {sex === "M" ? "ชาย" : "หญิง"} อายุ {age} ปี
       </div>
+      <Watermark>
       <table className="mt-3 w-full text-sm tabular-nums">
         <thead>
           <tr className="text-xs text-[var(--lg-mute)]">
@@ -320,6 +322,7 @@ function AllTiers(
           })}
         </tbody>
       </table>
+      </Watermark>
       <p className="mt-3 text-xs text-[var(--lg-mute)] opacity-80">
         รวมเบี้ย Life Protect x 2 ของแต่ละแพ็กแล้ว · รายเดือนต้องไม่ต่ำกว่า{" "}
         {table.minMonthlyTotal.toLocaleString("en-US")} บาท (—)

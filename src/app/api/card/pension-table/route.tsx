@@ -13,6 +13,7 @@ import { PENSION_AGES, quotePension, type PensionAge, type PensionBand, type Pen
 import {
   PENSION_COLUMNS, PENSION_PEN_TEXT, pensionCells, pensionPenNotes, pensionFigure,
 } from "@/lib/pension-pen-notes";
+import { Watermark } from "../watermark";
 
 export const runtime = "nodejs";
 /** The figures come from a dated rate table, so a day of caching is as far as it can go. */
@@ -247,6 +248,7 @@ export async function GET(req: NextRequest) {
         >
           {closing}
         </div>
+        <Watermark width={WIDTH} color={p.figure} />
       </div>
     ),
     {

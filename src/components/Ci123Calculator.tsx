@@ -11,6 +11,7 @@ import type { Ci123Table } from "@/lib/ci123-table";
 import { Highlighted } from "@/components/Highlighted";
 import { PanelPhoto } from "@/components/sales/PanelPhoto";
 import { PremiumSummary } from "@/components/sales/PremiumSummary";
+import { Watermark } from "@/components/sales/Watermark";
 
 const PER_LABEL: Record<PayMode, string> = { annual: "ต่อปี", semi: "ต่อ 6 เดือน", monthly: "ต่อเดือน" };
 const ROW_MODES: PayMode[] = ["annual", "semi", "monthly"];
@@ -248,6 +249,7 @@ function AllSums(
       <div className="text-sm text-[var(--lg-mute)]">
         เบี้ยทุกทุน · {sex === "M" ? "ชาย" : "หญิง"} อายุ {age} ปี
       </div>
+      <Watermark>
       <table className="mt-3 w-full text-sm tabular-nums">
         <thead>
           <tr className="text-xs text-[var(--lg-mute)]">
@@ -276,6 +278,7 @@ function AllSums(
           })}
         </tbody>
       </table>
+      </Watermark>
       <p className="mt-3 text-xs text-[var(--lg-mute)] opacity-80">
         รวมเบี้ย Life Protect x 2 ทุน {table.baseSum.toLocaleString("en-US")} แล้ว · รายเดือนต้องไม่ต่ำกว่า{" "}
         {table.minMonthlyTotal.toLocaleString("en-US")} บาท (—)

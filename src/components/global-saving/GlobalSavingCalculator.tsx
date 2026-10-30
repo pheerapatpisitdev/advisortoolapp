@@ -4,6 +4,7 @@ import { readCalcStart } from "@/lib/calc-start";
 import { MoneyInput } from "@/components/MoneyInput";
 import { Highlighted } from "@/components/Highlighted";
 import { SiteCredit } from "@/components/sales/SiteCredit";
+import { Watermark } from "@/components/sales/Watermark";
 import { boxIn, GsPens, textIn } from "@/components/global-saving/GsPens";
 import { barPens, tablePens } from "@/lib/global-saving-pens";
 import { BLUE_PEN } from "@/lib/card-theme";
@@ -213,6 +214,7 @@ export function GlobalSavingCalculator() {
             <h2 className="text-base font-semibold">
               ตารางที่ 1 · ภาพรวมผลประโยชน์ <span className="ml-1 text-sm font-normal text-[var(--lg-mute)]">เมื่ออยู่ครบสัญญา {GS_TERM} ปี เทียบกับฝากธนาคาร</span>
             </h2>
+            <Watermark>
             <div className="mt-2 overflow-x-auto rounded-lg border border-[var(--lg-panel-line)]">
               <table className="print-table w-full text-sm tabular-nums">
                 <thead>
@@ -240,12 +242,14 @@ export function GlobalSavingCalculator() {
                 </tbody>
               </table>
             </div>
+            </Watermark>
           </section>
 
           <section>
             <h2 className="text-base font-semibold">
               ตารางที่ 2 · ผลประโยชน์รายปี <span className="ml-1 text-sm font-normal text-[var(--lg-mute)]">ปีที่ 1–{GS_TERM}</span>
             </h2>
+            <Watermark>
             <div className="mt-2 overflow-x-auto rounded-lg border border-[var(--lg-panel-line)]">
               {/* the pen notes are drawn over the table and scroll with it */}
               <div className="relative min-w-max">
@@ -305,6 +309,7 @@ export function GlobalSavingCalculator() {
               <GsPens over={yearly} draw={drawTable} deps={penKey} />
               </div>
             </div>
+            </Watermark>
             <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
               <span style={{ color: BLUE_PEN }}>✎ ปากกาน้ำเงิน = เงินที่การันตี ได้แน่นอน</span>
               <span className="text-[var(--lg-pen)]">✎ ปากกาแดง = เบี้ยที่จ่าย และโบนัสดัชนีที่ไม่การันตี</span>
