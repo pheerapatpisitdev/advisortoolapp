@@ -36,7 +36,9 @@ describe("the whole table as a picture", () => {
   it("draws every category under the plan's ceiling, all six plans", () => {
     expect(card.columns).toHaveLength(6);
     expect(card.rows[1]).toMatchObject({ label: th.inpatient, kind: "group" });
-    for (const key of FULL_ROW_KEYS) expect(card.rows.map((r) => r.label)).toContain(th[key]);
+    // 19 is drawn inside 18's row (the pair), every other name has a row of its own
+    const named = card.rows.flatMap((r) => r.pair?.lines ?? [r.label]);
+    for (const key of FULL_ROW_KEYS) expect(named).toContain(th[key]);
     for (const r of card.rows) if ((r.kind === undefined || r.kind === "sub") && r.span === undefined) expect(r.cells).toHaveLength(6);
   });
 
@@ -56,6 +58,15 @@ describe("the whole table as a picture", () => {
     expect(card.premiumRows).toHaveLength(3);
   });
 
+  it("draws OPD 18 and 19 as one row with one shared limit", () => {
+    const gold = card.columns.findIndex((c) => c.name === "Gold");
+    const opd = row(th["18"]);
+    expect(opd.pair).toEqual({ lines: [th["18"], th["19"]], note: "วงเงินรวม/ปี" });
+    expect(opd.cells[gold].text).toBe("12,000");
+    expect(card.rows.find((r) => r.label === th["19"])).toBeUndefined();
+    expect(full(`${OPENING}&l=zh`).rows.find((r) => r.pair)?.pair?.lines[1]).toBe(FULL_ROW_LABEL.zh["19"]);
+  });
+
   it("is named in the page's language", () => {
     const en = full(`${OPENING}&l=en`);
     expect(en.rows.map((r) => r.label)).toContain(FULL_ROW_LABEL.en["18"]);
@@ -72,5 +83,7 @@ describe("the whole table as a picture", () => {
     const path = fullCardPath(iHealthyTable(WHILE_CURRENT), IHEALTHY_OPENING, "zh");
     expect(path).toMatch(/^\/api\/ihealthy-card\/full\?age=/);
     expect(path).toMatch(/&l=zh$/);
+    // its own revision on the card's, so the old whole table is not served from a cache
+    expect(path).toMatch(/&cv=\d+-f2&/);
   });
 });

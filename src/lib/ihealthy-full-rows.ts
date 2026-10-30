@@ -79,8 +79,8 @@ export const FULL_ROW_LABEL: Record<Lang, Record<FullRowKey, string>> = {
     "15": "15. ทันตกรรมจากอุบัติเหตุ (7 วัน)",
     "16": "16. ศัลยกรรมในช่องปาก",
     "17": "17. ภาวะแทรกซ้อนก่อน/หลังคลอด (12MWP)",
-    "18": "18. ค่าแพทย์และยา OPD ต่อปี",
-    "19": "19. กายภาพบำบัด OPD ต่อปี",
+    "18": "18. ค่าแพทย์และยา OPD",
+    "19": "19. กายภาพบำบัด OPD",
     "20": "20. หออภิบาลทารกแรกเกิด",
     "21": "21. แพทย์ทางเลือก ต่อปี",
     "22": "22. ทันตกรรม ต่อปี",
@@ -123,8 +123,8 @@ export const FULL_ROW_LABEL: Record<Lang, Record<FullRowKey, string>> = {
     "15": "15. Accidental dental (within 7 days)",
     "16": "16. Oral surgery",
     "17": "17. Pregnancy complications (12MWP)",
-    "18": "18. OPD doctor and drugs, a year",
-    "19": "19. OPD physiotherapy, a year",
+    "18": "18. OPD doctor and drugs",
+    "19": "19. OPD physiotherapy",
     "20": "20. Newborn intensive care",
     "21": "21. Alternative medicine, a year",
     "22": "22. Dental care, a year",
@@ -167,8 +167,8 @@ export const FULL_ROW_LABEL: Record<Lang, Record<FullRowKey, string>> = {
     "15": "15. 意外牙科(7天内)",
     "16": "16. 口腔外科手术",
     "17": "17. 妊娠及分娩并发症(12MWP)",
-    "18": "18. 门诊医生及药品(每年)",
-    "19": "19. 门诊物理治疗(每年)",
+    "18": "18. 门诊医生及药品",
+    "19": "19. 门诊物理治疗",
     "20": "20. 新生儿重症监护",
     "21": "21. 替代医学(每年)",
     "22": "22. 牙科治疗(每年)",
@@ -211,8 +211,8 @@ export const FULL_ROW_LABEL: Record<Lang, Record<FullRowKey, string>> = {
     "15": "15. Стоматология при травме (7 дней)",
     "16": "16. Хирургия полости рта",
     "17": "17. Осложнения беременности (12MWP)",
-    "18": "18. Врач и лекарства амбулаторно, в год",
-    "19": "19. Физиотерапия амбулаторно, в год",
+    "18": "18. Врач и лекарства амбулаторно",
+    "19": "19. Физиотерапия амбулаторно",
     "20": "20. Интенсивная терапия новорождённых",
     "21": "21. Альтернативная медицина, в год",
     "22": "22. Стоматология, в год",
@@ -255,8 +255,8 @@ export const FULL_ROW_LABEL: Record<Lang, Record<FullRowKey, string>> = {
     "15": "15. မတော်တဆ သွားဘက်ဆိုင်ရာ (7 ရက်)",
     "16": "16. ပါးစပ်အတွင်း ခွဲစိတ်မှု",
     "17": "17. ကိုယ်ဝန်ဆောင် နောက်ဆက်တွဲ (12MWP)",
-    "18": "18. ပြင်ပလူနာ ဆရာဝန်နှင့်ဆေး (တစ်နှစ်)",
-    "19": "19. ပြင်ပလူနာ ကိုယ်ကာယကုထုံး (တစ်နှစ်)",
+    "18": "18. ပြင်ပလူနာ ဆရာဝန်နှင့်ဆေး",
+    "19": "19. ပြင်ပလူနာ ကိုယ်ကာယကုထုံး",
     "20": "20. မွေးကင်းစ အထူးကြပ်မတ်ဆောင်",
     "21": "21. အခြားနည်းလမ်း ကုသမှု (တစ်နှစ်)",
     "22": "22. သွားဘက်ဆိုင်ရာ ကုသမှု (တစ်နှစ်)",
@@ -267,4 +267,18 @@ export const FULL_ROW_LABEL: Record<Lang, Record<FullRowKey, string>> = {
     "27": "27. ကာကွယ်ဆေးထိုးခြင်း (တစ်နှစ်)",
     "28": "28. နောက်ဆုံးအဆင့် စောင့်ရှောက်မှု (12MWP)",
   },
+};
+
+/**
+ * Categories 18 and 19 drawn as one row, the figure once, with this under it (owner, 2026-10-31,
+ * option ข on mockup https://claude.ai/artifact/KtniALzMC1rZPxLFWeVy5g): the doctor-and-drugs and
+ * the physiotherapy OPD are paid from one yearly limit, and two rows of the same figure read as two.
+ */
+export const SHARED_OPD: readonly [FullRowKey, FullRowKey] = ["18", "19"];
+export const SHARED_LIMIT_NOTE: Record<Lang, string> = {
+  th: "วงเงินรวม/ปี",
+  en: "shared limit/yr",
+  zh: "合计限额/年",
+  ru: "общий лимит/год",
+  my: "စုပေါင်းကန့်သတ်ငွေ/နှစ်",
 };

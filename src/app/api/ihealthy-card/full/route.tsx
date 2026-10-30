@@ -7,7 +7,7 @@ import { WORDS } from "@/lib/ihealthy-words";
 import { SEND_WORDS } from "@/lib/ihealthy-send-words";
 import {
   band, CARD_HEADERS, GOLD, GOLD_LIT, GROUND, GROUND_DEEP, geometryOf, H, loadFonts, MUTE, PAD, PlanTable, RULE,
-  scriptFonts, spacer, Subtitle, subtitleHeight, WHITE, widthOf,
+  rowHeight, scriptFonts, spacer, Subtitle, subtitleHeight, WHITE, widthOf,
 } from "../draw";
 import { HEALTH_QUOTE_KEYS, HEALTH_REPEATABLE, toCanonical } from "../../card/canonical";
 import { Watermark } from "../../card/watermark";
@@ -19,9 +19,9 @@ export const revalidate = 86400;
 /** How much wider the title column is than on the card: the short names are longer than the card's five. */
 const WIDER_TITLE = 140;
 
-/** Heading, table — every row one band high, the headings included — and the footer. */
+/** Heading, table — every row one band high, the headings included, a pair two — and the footer. */
 function heightOf(card: ReturnType<typeof iHealthyFullCard>, top: number): number {
-  const table = H.head + card.rows.length * H.row
+  const table = H.head + card.rows.reduce((sum, r) => sum + rowHeight(r), 0)
     + (card.premiumRows.length > 0 ? H.section + card.premiumRows.length * H.row : 0);
   return PAD * 2 + top + H.gap + H.hairline + H.afterHairline + table;
 }

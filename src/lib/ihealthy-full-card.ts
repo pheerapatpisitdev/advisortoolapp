@@ -1,7 +1,7 @@
 import { benefitCell } from "@/components/ihealthy/BenefitTable";
 import { iHealthyCard, type CardCell, type CardTableRow, type IHealthyCard } from "@/lib/ihealthy-card";
 import { iHealthyFacts, isHeading } from "@/lib/ihealthy-facts";
-import { FULL_ROW_LABEL, fullRowKey } from "@/lib/ihealthy-full-rows";
+import { FULL_ROW_LABEL, fullRowKey, SHARED_LIMIT_NOTE, SHARED_OPD } from "@/lib/ihealthy-full-rows";
 import { initialFrom } from "@/lib/ihealthy-link";
 import { plansFor } from "@/lib/ihealthy-quote";
 import { iHealthyTable } from "@/lib/ihealthy-table";
@@ -12,7 +12,11 @@ import { translateFacts } from "@/lib/ihealthy-translate";
  * figures hang on the sub-rows under it, or one of those sub-rows. A plain row has no kind.
  */
 export type FullRowKind = "group" | "heading" | "sub";
-export type FullTableRow = CardTableRow & { kind?: FullRowKind };
+export type FullTableRow = CardTableRow & {
+  kind?: FullRowKind;
+  /** two categories in one row (SHARED_OPD): both names, and the note under each figure */
+  pair?: { lines: [string, string]; note: string };
+};
 
 /**
  * The quote card's arrangement with every category of the sheet in its table (owner,
@@ -62,6 +66,16 @@ export function iHealthyFullCard(query: URLSearchParams, today: Date = new Date(
       ...(entry.no === null ? { kind: "sub" as const } : {}),
     });
   });
+
+  // 18 and 19 are one yearly limit: one row, the figure once — only while the sheet agrees
+  const [first, second] = SHARED_OPD.map((k) => rows.findIndex((r) => r.label === names[k]));
+  const same = (a: CardCell[], b: CardCell[]) => a.length === b.length && a.every((c, i) => c.text === b[i].text);
+  if (first >= 0 && second === first + 1 && same(rows[first].cells, rows[second].cells)) {
+    rows.splice(first, 2, {
+      ...rows[first],
+      pair: { lines: [rows[first].label, rows[second].label], note: SHARED_LIMIT_NOTE[card.lang] },
+    });
+  }
 
   // the card's first row is the yearly ceiling, and its one spanning row the daily cash
   const [ceiling] = card.rows;

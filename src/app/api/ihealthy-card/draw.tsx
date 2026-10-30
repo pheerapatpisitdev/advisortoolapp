@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { CardCell, CardColumn, CardTableRow } from "@/lib/ihealthy-card";
-import type { FullRowKind } from "@/lib/ihealthy-full-card";
+import type { FullTableRow } from "@/lib/ihealthy-full-card";
 import { CARD_PALETTE } from "@/lib/card-theme";
 import { highlighterUri } from "@/lib/highlighter";
 import { googleFontSubset } from "@/lib/google-font";
@@ -94,6 +94,8 @@ export const H = {
   afterHairline: 22,
   head: 62,
   row: 54,
+  /** two categories sharing one limit: two names, and the note under the figure */
+  pair: 84,
   /** the strip that says everything below it is price and not cover */
   section: 44,
 };
@@ -214,6 +216,50 @@ export function Row(
   );
 }
 
+/** How high a row of the table is drawn: one band, or the taller one of a pair. */
+export const rowHeight = (r: { pair?: unknown }) => (r.pair ? H.pair : H.row);
+
+/** A figure, not a dash or "ตามที่จ่ายจริง": only an amount is a limit the note can be about. */
+const isAmount = (text: string) => /^\d[\d,]*$/.test(text);
+
+/**
+ * Two categories paid from one limit (src/lib/ihealthy-full-card.ts): both names in the title,
+ * each plan's figure once, and the note under every figure that is an amount.
+ */
+function PairRow(
+  { label, pair, cells, selected, geo }: {
+    label: string; pair: { lines: [string, string]; note: string }; cells: CardCell[]; selected: number; geo: Geometry;
+  },
+) {
+  const box = (width: number) => ({
+    display: "flex", flexDirection: "column", justifyContent: "center",
+    width, minWidth: width, maxWidth: width, height: H.pair, boxSizing: "border-box", flexShrink: 0,
+    borderRight: `1px solid ${GRID}`,
+  }) as const;
+  return (
+    <div key={label} style={{ display: "flex", height: H.pair, flexShrink: 0, borderTop: `1px solid ${GRID}` }}>
+      <div style={{ ...box(geo.title), padding: "0 12px", fontSize: 21, fontWeight: 500, color: WHITE }}>
+        {pair.lines.map((line) => <div key={line} style={{ display: "flex" }}>{line}</div>)}
+      </div>
+      {cells.map((c, i) => (
+        <div
+          key={i}
+          style={{
+            ...box(geo.col), alignItems: "center", padding: "0 8px",
+            background: i === selected ? TINT : "transparent",
+            ...(c.dim ? { opacity: 0.85 } : {}),
+          }}
+        >
+          <div style={{ display: "flex", fontSize: 20, color: i === selected ? GOLD_LIT : MUTE }}>{c.text}</div>
+          {isAmount(c.text) && (
+            <div style={{ display: "flex", fontSize: 15, color: MUTE, marginTop: 2 }}>{pair.note}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Where the font files are, and why they are listed in next.config.ts.
  *
@@ -287,7 +333,7 @@ export const CARD_HEADERS = {
 export function PlanTable(
   { card, selected, markLabel, w = WORDS.th, geo = geometryOf("th") }: {
     /** a row's `kind` is the whole table's (src/lib/ihealthy-full-card.ts); the card's rows have none */
-    card: { columns: CardColumn[]; rows: (CardTableRow & { kind?: FullRowKind })[]; premiumRows: { label: string; cells: CardCell[] }[] };
+    card: { columns: CardColumn[]; rows: (CardTableRow & Pick<FullTableRow, "kind" | "pair">)[]; premiumRows: { label: string; cells: CardCell[] }[] };
     selected: number;
     /** the row whose selected figure gets the highlighter; the quote card marks the yearly ceiling */
     markLabel?: string;
@@ -338,6 +384,8 @@ export function PlanTable(
           >
             {r.label}
           </div>
+        ) : r.pair ? (
+          <PairRow key={r.label} label={r.label} pair={r.pair} cells={r.cells} selected={selected} geo={geo} />
         ) : r.span === undefined ? (
           <Row key={r.label} label={r.label} cells={r.cells} selected={selected} mark={r.label === markLabel} indent={r.kind === "sub"} geo={geo} />
         ) : (
