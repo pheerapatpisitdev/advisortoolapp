@@ -14,7 +14,7 @@ export function Watermark({ children }: { children: ReactNode }) {
       {children}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 flex select-none flex-col items-center justify-center overflow-hidden text-center font-semibold leading-[1.25] text-[var(--bot-navy,#022162)] opacity-[0.11]"
+        className="pointer-events-none absolute inset-0 flex select-none flex-col items-center justify-center overflow-hidden text-center font-semibold leading-[1.25] text-[var(--bot-navy)] opacity-[0.11]"
         style={{ transform: "rotate(-24deg)", fontSize: "4.8cqw" }}
       >
         <span>ข้อมูลเพื่อการศึกษาเท่านั้น</span>
