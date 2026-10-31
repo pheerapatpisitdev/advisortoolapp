@@ -6,8 +6,6 @@ const viewer = vi.hoisted(() => ({ getViewer: vi.fn() }));
 vi.mock("@/lib/auth/viewer", () => viewer);
 const members = vi.hoisted(() => ({ memberFromGoogle: vi.fn() }));
 vi.mock("@/lib/auth/google-member", () => members);
-const referrals = vi.hoisted(() => ({ attachReferral: vi.fn() }));
-vi.mock("@/lib/referrals/store", () => referrals);
 const supers = vi.hoisted(() => ({ superFromGoogle: vi.fn() }));
 vi.mock("@/lib/auth/google-super", () => supers);
 const alerts = vi.hoisted(() => ({ alertNewMember: vi.fn() }));
@@ -37,8 +35,7 @@ beforeEach(() => {
   vi.stubEnv("GOOGLE_CLIENT_ID", "cid");
   vi.stubEnv("GOOGLE_CLIENT_SECRET", "csecret");
   viewer.getViewer.mockResolvedValue(null);
-  members.memberFromGoogle.mockResolvedValue({ ok: true, id: "m1", created: false });
-  referrals.attachReferral.mockResolvedValue("attached");
+  members.memberFromGoogle.mockResolvedValue({ ok: true, id: "m1" });
   supers.superFromGoogle.mockResolvedValue({ ok: false, error: "denied", listed: false });
 });
 afterEach(() => {
@@ -141,37 +138,13 @@ describe("GET /auth/google/callback", () => {
     expect(res.headers.get("location")).toContain("/?error=broken");
   });
 
-  it("ties a new account to whoever invited it, and spends the invitation (เพื่อนชวนเพื่อน)", async () => {
-    members.memberFromGoogle.mockResolvedValueOnce({ ok: true, id: "m9", created: true });
+  it("signs a new member in, and the owner's LINE hears of them only from สมัครสมาชิก", async () => {
+    members.memberFromGoogle.mockResolvedValueOnce({ ok: true, id: "m9" });
     const { login, cookie } = begun();
     googleSays({ id_token: jwt(claims(login.nonce)) });
-    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, `${cookie}; ref=SOMCHA7`));
-    expect(referrals.attachReferral).toHaveBeenCalledWith("m9", "SOMCHA7");
+    await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, cookie));
     expect(session.startSession).toHaveBeenCalledWith("m9");
-    // the owner's LINE hears of the new member once they fill in สมัครสมาชิก (owner, 2026-10-27), not here
     expect(alerts.alertNewMember).not.toHaveBeenCalled();
-    expect(res.headers.get("set-cookie")).toMatch(/ref=;.*Max-Age=0/);
-  });
-
-  it("ties nobody to a member who already had an account, and keeps the invitation", async () => {
-    const { login, cookie } = begun();
-    googleSays({ id_token: jwt(claims(login.nonce)) });
-    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, `${cookie}; ref=SOMCHA7`));
-    expect(referrals.attachReferral).not.toHaveBeenCalled();
-    expect(res.headers.get("set-cookie")).not.toMatch(/ref=;/);
-    expect(alerts.alertNewMember).not.toHaveBeenCalled();
-  });
-
-  it("signs a new member in even when the invitation cannot be noted", async () => {
-    members.memberFromGoogle.mockResolvedValueOnce({ ok: true, id: "m9", created: true });
-    referrals.attachReferral.mockRejectedValueOnce(new Error("db down"));
-    const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { login, cookie } = begun();
-    googleSays({ id_token: jwt(claims(login.nonce)) });
-    const res = await callback(get(`/auth/google/callback?code=c1&state=${login.state}`, `${cookie}; ref=SOMCHA7`));
-    expect(session.startSession).toHaveBeenCalledWith("m9");
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/studio`);
-    expect(err).toHaveBeenCalled();
   });
 });
 

@@ -24,7 +24,6 @@ const { priceWithRiders } = await import("@/app/ihealthy-ultra/actions");
 const { frontPricesOf, signupHint } = await import("@/lib/pricing/front");
 const { PriceList } = await import("@/components/auth/PriceList");
 const { DEFAULT_PASS_SETTINGS } = await import("@/lib/members/pass");
-const { DEFAULT_REFERRAL_SETTINGS } = await import("@/lib/referrals/referral");
 
 const APP = path.resolve(__dirname, "../../src/app");
 
@@ -102,7 +101,6 @@ describe("priceWithRiders", () => {
 describe("ค่าบริการ on the front page", () => {
   const prod = frontPricesOf({
     pass: { enabled: true, satang: 19900, trialDays: 3, trialCreditSatang: 1500, creditSatang: 5000 },
-    referral: { ...DEFAULT_REFERRAL_SETTINGS, enabled: true, days: 3 },
     agentStarterSatang: 1500,
     walletOn: true,
   });
@@ -116,7 +114,7 @@ describe("ค่าบริการ on the front page", () => {
     expect(html).toContain("เครดิต Studio ฿15 ไว้ลองทำโพสต์ รูป คลิป");
     expect(html).toContain("เครดิต Studio ฿50 ทุกครั้งที่ต่ออายุ");
     expect(html).toContain("เครดิตเริ่มต้น Studio ฿15 ครั้งเดียว ไม่มีวันหมดอายุ");
-    expect(html).toContain("ชวนเพื่อนสมัคร ได้เพิ่ม 3 วันต่อคน");
+    expect(html).not.toContain("ชวนเพื่อน");
     expect(html).toContain("เครื่องคิดเบี้ยทุกแบบประกัน");
   });
 
@@ -130,7 +128,7 @@ describe("ค่าบริการ on the front page", () => {
 
   it("leaves out what is switched off", () => {
     const off = renderToStaticMarkup(createElement(PriceList, {
-      prices: frontPricesOf({ pass: DEFAULT_PASS_SETTINGS, referral: null, agentStarterSatang: null, walletOn: false }),
+      prices: frontPricesOf({ pass: DEFAULT_PASS_SETTINGS, agentStarterSatang: null, walletOn: false }),
     }));
     expect(off).toContain("สมัครสมาชิก");
     expect(off).not.toContain("รายเดือน");

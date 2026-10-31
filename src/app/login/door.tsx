@@ -1,16 +1,12 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { googleError } from "@/lib/auth/google";
 import { memberSettings } from "@/lib/auth/member-store";
 import { safeNext } from "@/lib/auth/next";
 import { getViewer } from "@/lib/auth/viewer";
-import { REF_COOKIE } from "@/lib/referrals/referral";
-import { inviterOf } from "@/lib/referrals/store";
 import { PriceList } from "@/components/auth/PriceList";
 import { isCalcPath } from "@/lib/auth/calc-paths";
 import { passSettings } from "@/lib/members/pass-store";
 import { frontPricesOf, SIGNUP_HINT, signupHint, type FrontPrices } from "@/lib/pricing/front";
-import { referralSettings } from "@/lib/referrals/store";
 import { agentStarterCredit, walletSettings } from "@/lib/wallet/store";
 import { LoginForm } from "./LoginForm";
 
@@ -40,17 +36,13 @@ export async function LoginDoor({ searchParams }: { searchParams: DoorParams }) 
     : next === "/ask" ? "เข้าระบบก่อนเพื่อใช้ถาม AI"
     : isCalcPath(next) ? calcNotice(prices)
     : null;
-  // a friend who came through an invitation link (/r/CODE) is greeted by the inviter's first name;
-  // an invitation that cannot be read greets nobody
-  const ref = (await cookies()).get(REF_COOKIE)?.value;
-  const inviter = ref ? await inviterOf(ref).catch(() => null) : null;
   // sent here from UnitOS's menu (/sso) or out of a session, as a basic agent of a room that
   // keeps advisortool for Premium (owner, 2026-10-16)
   const premium = params.premium === "1";
   return (
     <LoginForm
       next={next} signupOpen={settings.signupOpen} error={googleError(params.error)} notice={notice}
-      invitedBy={inviter?.name ?? null} premium={premium}
+      premium={premium}
       signupHint={prices ? signupHint(prices.member) : SIGNUP_HINT}
       prices={prices && <PriceList prices={prices} />}
     />
@@ -64,13 +56,12 @@ export async function LoginDoor({ searchParams }: { searchParams: DoorParams }) 
  */
 async function loadPrices(): Promise<FrontPrices | null> {
   try {
-    const [pass, referral, agentStarterSatang, wallet] = await Promise.all([
+    const [pass, agentStarterSatang, wallet] = await Promise.all([
       passSettings(),
-      referralSettings().catch(() => null),
       agentStarterCredit(),
       walletSettings().catch(() => ({ enabled: false })),
     ]);
-    return frontPricesOf({ pass, referral, agentStarterSatang, walletOn: wallet.enabled });
+    return frontPricesOf({ pass, agentStarterSatang, walletOn: wallet.enabled });
   } catch (e) {
     console.error("price list unreadable, left out:", e instanceof Error ? e.message : e);
     return null;

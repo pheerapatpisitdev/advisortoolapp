@@ -33,7 +33,6 @@ export function PriceList({ prices }: { prices: FrontPrices }) {
                   "ถาม AI ไม่จำกัด",
                   ...(m.passCreditThb > 0 ? [`เครดิต Studio ฿${thb(m.passCreditThb)} ทุกครั้งที่ต่ออายุ`] : []),
                   ...(prices.topUpsThb.length ? ["ใช้เกินเครดิต เติมเงินใช้ต่อได้"] : []),
-                  ...(m.referralDays ? [`ชวนเพื่อนสมัคร ได้เพิ่ม ${m.referralDays} วันต่อคน`] : []),
                 ]} />
                 <p className="mt-2 text-xs text-[var(--bot-ink-mute)]">จ่ายผ่าน PromptPay หรือบัตร · ไม่ตัดเงินอัตโนมัติ{m.passCreditThb > 0 ? " · เครดิตหมดอายุพร้อมรอบ 30 วัน" : ""}</p>
               </Tier>

@@ -7,8 +7,8 @@ import { adjustAgentWallet, saveWallet, unfreezeAgentWallet } from "./actions";
 import { ask, input, primary, quiet, Said } from "./form";
 
 /**
- * กระเป๋าเงิน: the switch, the wallets a refund froze, and every wallet's line. The prices, the
- * members' pass and ชวนเพื่อน went to ราคาและโปรโมชัน on 2026-10-15 (owner chose ข).
+ * กระเป๋าเงิน: the switch, the wallets a refund froze, and every wallet's line. The prices and
+ * the members' pass went to ราคาและโปรโมชัน on 2026-10-15 (owner chose ข).
  */
 export function WalletAdmin({ settings, rows, frozen = [] }: {
   settings: WalletSettings | null;
@@ -56,7 +56,7 @@ export function WalletAdmin({ settings, rows, frozen = [] }: {
       </Card>
 
       <p className="mb-5 text-sm text-[var(--bot-ink-mute)]">
-        ราคาต่อชิ้น ค่าสมาชิก และชวนเพื่อน อยู่ที่หน้า{" "}
+        ราคาต่อชิ้นและค่าสมาชิก อยู่ที่หน้า{" "}
         <a href="/admin/prices" className="text-[var(--bot-navy)]">ราคาและโปรโมชัน</a>
       </p>
 

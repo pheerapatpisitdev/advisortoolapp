@@ -1,11 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { ReferralCard } from "@/components/referral/ReferralCard";
 import { priceLabel } from "@/components/shell/PassReminder";
 import { daysLeft, onTrial, PASS_DAYS, type PassRow, type Period } from "@/lib/members/pass";
-import type { ReferralCardData } from "@/lib/referrals/card";
-import { shortName } from "@/lib/referrals/referral";
 import { CARD_FROM_THB, formatBaht } from "@/lib/wallet/money";
 import { passConfirmed, startPass } from "./actions";
 
@@ -18,6 +15,18 @@ export type PassView =
 const TZ = "Asia/Bangkok";
 const fullDate = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { timeZone: TZ, day: "numeric", month: "short", year: "numeric" });
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("th-TH", { timeZone: TZ, day: "numeric", month: "short" });
+
+/**
+ * A friend's name in an old ชวนเพื่อน line: the first name and the first letter of the rest
+ * ("มานี สุขใจ" → "มานี ส."). ชวนเพื่อน itself was taken out on 2026-11-01 (owner chose ก);
+ * the days it gave stay in the history.
+ */
+function shortName(name: string | null | undefined): string {
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "เพื่อน";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${Array.from(parts[1])[0]}.`;
+}
 
 /** one line of the history, in the mockup's words (owner, 2026-10-13) */
 function historyLabel(r: PassRow): string {
@@ -77,7 +86,7 @@ function PassGets({ creditSatang, detail }: { creditSatang: number; detail: bool
   );
 }
 
-export function MembershipClient({ on, pass, now, credit, passCredit, priceSatang, balanceSatang, rows, paid, referral = null }: {
+export function MembershipClient({ on, pass, now, credit, passCredit, priceSatang, balanceSatang, rows, paid }: {
   /** false while the owner has the pass switched off: members use the app free */
   on: boolean;
   pass: PassView;
@@ -92,8 +101,6 @@ export function MembershipClient({ on, pass, now, credit, passCredit, priceSatan
   rows: PassRow[];
   /** the Checkout Session Stripe came back with, if any */
   paid: string | null;
-  /** ชวนเพื่อน (owner, 2026-10-14); null when off or unreadable */
-  referral?: ReferralCardData | null;
 }) {
   const router = useRouter();
   const [waiting, setWaiting] = useState<"checking" | "late" | null>(paid ? "checking" : null);
@@ -206,8 +213,6 @@ export function MembershipClient({ on, pass, now, credit, passCredit, priceSatan
           <PassGets creditSatang={passCredit} detail />
         </section>
       )}
-
-      {referral && <ReferralCard card={referral} now={now} />}
 
       <div className="space-y-2">
         <button type="button" disabled={pending} onClick={renew}

@@ -2,8 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { audit, requireStaff } from "@/lib/auth/viewer";
 import { savePassSettings } from "@/lib/members/pass-store";
-import { saveReferralSettings } from "@/lib/referrals/store";
-import { readAdjust, readMultiplier, readPassSettings, readPrices, readReferralSettings, readStarterCredit, readUnfreeze } from "@/lib/wallet/admin-input";
+import { readAdjust, readMultiplier, readPassSettings, readPrices, readStarterCredit, readUnfreeze } from "@/lib/wallet/admin-input";
 import { adjustWallet, saveAgentStarterCredit, saveWalletPrices, saveWalletSettings, unfreezeWallet } from "@/lib/wallet/store";
 
 /** Returned rather than thrown: Next hides a thrown message in production (see src/app/admin/ai/actions.ts). */
@@ -83,25 +82,6 @@ export async function saveMemberPass(raw: { enabled: boolean; baht: string; tria
   await audit("member-pass-settings", null, { ...p.value });
   revalidatePath("/admin/prices");
   revalidatePath("/admin/members");
-  return { ok: true };
-}
-
-/**
- * เพื่อนชวนเพื่อน (owner, 2026-10-14): the switch, a member's free days and an agent's baht per
- * friend who pays, and each one's most a month. The owner's alone, like the pass's price.
- */
-export async function saveReferral(raw: { enabled: boolean; days: string; daysCap: string; baht: string; bahtCap: string }): Promise<Result> {
-  await requireStaff("backoffice");
-  const r = readReferralSettings(raw);
-  if (!r.ok) return r;
-  try {
-    await saveReferralSettings(r.value);
-  } catch (e) {
-    console.error("referral settings not saved:", e);
-    return { ok: false, error: "บันทึกไม่สำเร็จ — ตรวจว่า migration 20261103_referrals ถูก apply แล้ว" };
-  }
-  await audit("referral-settings", null, { ...r.value });
-  revalidatePath("/admin/prices");
   return { ok: true };
 }
 

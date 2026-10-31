@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 /** The owner's price table (owner, 2026-10-12), on /admin/prices since 2026-10-15 (owner chose ข). */
 
-vi.mock("@/app/admin/wallet/actions", () => ({ savePrices: vi.fn(), saveWallet: vi.fn(), adjustAgentWallet: vi.fn(), unfreezeAgentWallet: vi.fn(), saveMemberPass: vi.fn(), saveReferral: vi.fn() }));
+vi.mock("@/app/admin/wallet/actions", () => ({ savePrices: vi.fn(), saveWallet: vi.fn(), adjustAgentWallet: vi.fn(), unfreezeAgentWallet: vi.fn(), saveMemberPass: vi.fn() }));
 const { PricesAdmin } = await import("@/app/admin/prices/PricesAdmin");
 const { DEFAULT_PRICES } = await import("@/lib/wallet/prices");
 
@@ -12,7 +12,7 @@ const { DEFAULT_PASS_SETTINGS } = await import("@/lib/members/pass");
 
 // the Super Admin's alone since 2026-10-15, so there is no read-only way to draw it any more
 const draw = (_editable: true, prices = DEFAULT_PRICES, pass: typeof DEFAULT_PASS_SETTINGS | null = DEFAULT_PASS_SETTINGS) =>
-  renderToStaticMarkup(createElement(PricesAdmin, { prices, pass, referral: null, report: null }));
+  renderToStaticMarkup(createElement(PricesAdmin, { prices, pass }));
 
 describe("the price table", () => {
   it("shows each price in baht for the owner to change, with a save button", () => {
@@ -60,7 +60,7 @@ describe("the member pass box (owner, 2026-10-13)", () => {
 
 describe("the UnitClub starter credit box (owner, 2026-10-18)", () => {
   const box = (agentCredit: number | null) =>
-    renderToStaticMarkup(createElement(PricesAdmin, { prices: DEFAULT_PRICES, pass: DEFAULT_PASS_SETTINGS, referral: null, report: null, agentCredit }));
+    renderToStaticMarkup(createElement(PricesAdmin, { prices: DEFAULT_PRICES, pass: DEFAULT_PASS_SETTINGS, agentCredit }));
 
   it("shows the amount in baht, once and never ending, with a save button", () => {
     const html = box(1500);

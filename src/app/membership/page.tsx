@@ -8,7 +8,6 @@ import { memberAccess } from "@/lib/members/access";
 import { creditLeft } from "@/lib/members/credit";
 import type { PassState } from "@/lib/members/pass";
 import { passRows } from "@/lib/members/pass-store";
-import { referralCard } from "@/lib/referrals/card";
 import { balanceSatang } from "@/lib/wallet/store";
 import { MembershipClient, type PassView } from "./MembershipClient";
 
@@ -48,12 +47,10 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
   const { settings } = access;
   const live = access.state.status === "live";
   // the extras degrade: a count or a balance that cannot be read is left off the page
-  const [credit, balance, referral] = await Promise.all([
+  const [credit, balance] = await Promise.all([
     // the pass's Studio credit (owner, 2026-10-17), written by memberAccess above
     live ? creditLeft(viewer.agentId).catch((e) => { console.error("membership: credit unreadable:", e); return null; }) : null,
     !live ? balanceSatang(viewer.agentId).catch((e) => { console.error("membership: balance unreadable:", e); return null; }) : null,
-    // ชวนเพื่อน (owner, 2026-10-14): left off when the switch is off or it cannot be read
-    referralCard(viewer).catch((e) => { console.error("membership: referral card unreadable:", e); return null; }),
   ]);
 
   return (
@@ -68,7 +65,6 @@ export default async function MembershipPage({ searchParams }: { searchParams: P
         balanceSatang={balance}
         rows={rows}
         paid={typeof paid === "string" ? paid : null}
-        referral={referral}
       />
     </Frame>
   );

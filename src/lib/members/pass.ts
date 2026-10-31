@@ -1,7 +1,7 @@
 // The monthly pass for outside members (owner, 2026-10-13). Browser-safe: no server imports.
 // The ledger (ins_member_passes) only appends; the live end date is derived here, never stored.
 
-/** referral: free days for a friend who paid (src/lib/referrals, owner 2026-10-14) */
+/** referral: free days for a friend who paid (ชวนเพื่อน, 2026-10-14; taken out 2026-11-01, old rows stay) */
 export type PassKind = "trial" | "paid" | "granted" | "referral" | "revoked";
 
 export interface PassRow {

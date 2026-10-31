@@ -1,5 +1,4 @@
 import "../home-theme.css";
-import { ReferralCard } from "@/components/referral/ReferralCard";
 import { AppShell } from "@/components/shell/AppShell";
 import { PassReminder, reminderOf } from "@/components/shell/PassReminder";
 import { can } from "@/lib/auth/access";
@@ -14,7 +13,6 @@ import { readHistory } from "@/lib/home/history-read";
 import { buildToday } from "@/lib/home/today";
 import { memberAccess } from "@/lib/members/access";
 import { listVideos } from "@/lib/quote-video/rows";
-import { referralCard } from "@/lib/referrals/card";
 import { boardOf } from "@/lib/quote-video/board";
 import { walletView } from "@/lib/wallet/store";
 import { HomeToday } from "./HomeToday";
@@ -59,7 +57,7 @@ export default async function Home() {
   const owner = can(viewer, "owner");
   const [from, to] = bangkokDay(now);
 
-  const [reminder, access, wallet, allowance, pages, drafts, customers, videos, history, referral] = await Promise.all([
+  const [reminder, access, wallet, allowance, pages, drafts, customers, videos, history] = await Promise.all([
     reminderOf(viewer, memberAccess),
     memberAccess(viewer).catch(orNull("pass")),
     // the owner pays for nothing and has no wallet (2026-10-02)
@@ -73,8 +71,6 @@ export default async function Home() {
     readHistory(viewer, new Date(now.getTime() - HISTORY_DAYS * 24 * 60 * 60 * 1000), now, HISTORY_SHOWN)
       .then((list) => list.slice(0, HISTORY_SHOWN).map((h) => ({ ...h, when: whenShort(h.at, now) })))
       .catch(orNull("history")),
-    // ชวนเพื่อน for a UnitOS agent (owner, 2026-10-14); a member's card is on /membership
-    viewer.kind === "unitos" ? referralCard(viewer, now).catch(orNull("referral card")) : null,
   ]);
 
   const names = new Map(pages.map((p) => [p.pageId, p.pageName]));
@@ -111,7 +107,6 @@ export default async function Home() {
       <AppShell who={await shellWho(viewer)}>
         <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 pb-10 pt-3 lg:pt-6">
           <HomeToday today={today} notice={reminder && <PassReminder {...reminder} />} history={history} />
-          {referral && <ReferralCard card={referral} now={now.toISOString()} />}
         </div>
       </AppShell>
     </div>

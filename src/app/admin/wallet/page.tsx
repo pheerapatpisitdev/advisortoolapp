@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "กระเป๋าเงิน | AdvisorTool" };
 
 /**
- * กระเป๋าเงิน: the switch, every wallet's line, and the frozen ones. Its prices, the members'
- * pass and ชวนเพื่อน moved to /admin/prices on 2026-10-15 (owner chose ข). The day-by-day
+ * กระเป๋าเงิน: the switch, every wallet's line, and the frozen ones. Its prices and the members'
+ * pass moved to /admin/prices on 2026-10-15 (owner chose ข). The day-by-day
  * history of money in joined it as a second tab on 2026-10-23 (owner chose ก, mockup
  * https://claude.ai/artifact/1MZqF78ZXVU64Pv5wPzh2u); it used to be its own page, /admin/topups.
  */

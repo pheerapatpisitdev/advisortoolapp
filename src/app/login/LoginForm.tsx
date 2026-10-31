@@ -33,7 +33,7 @@ function PremiumOnly() {
   );
 }
 
-export function LoginForm({ next, signupOpen, error: googleError, notice = null, invitedBy = null, premium = false, signupHint = SIGNUP_HINT, prices = null }: {
+export function LoginForm({ next, signupOpen, error: googleError, notice = null, premium = false, signupHint = SIGNUP_HINT, prices = null }: {
   next: string; signupOpen: boolean; error: string | null;
   /** the line under the Google button for somebody new: the trial, from the back office (door.tsx) */
   signupHint?: string;
@@ -41,15 +41,12 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
   prices?: React.ReactNode;
   /** why somebody was sent here, said above the tabs (door.tsx) */
   notice?: string | null;
-  /** the first name of whoever sent the invitation link this visitor came through (src/lib/referrals) */
-  invitedBy?: string | null;
   /** sent here as a basic agent of a room that keeps advisortool for Premium (door.tsx) */
   premium?: boolean;
 }) {
   // the member tab is for people who can still sign up; while sign-up is off a visitor is
-  // almost surely a UnitOS agent, so that tab opens first (both stay available). An invited
-  // friend signs up with Google, so theirs is the member tab too
-  const [tab, setTab] = useState<Tab>(!premium && (signupOpen || googleError || invitedBy) ? "member" : "unitos");
+  // almost surely a UnitOS agent, so that tab opens first (both stay available)
+  const [tab, setTab] = useState<Tab>(!premium && (signupOpen || googleError) ? "member" : "unitos");
   const [error, setError] = useState<string>();
   // the code typed was a basic agent's: the Premium box takes the error's place
   const [locked, setLocked] = useState(false);
@@ -82,14 +79,6 @@ export function LoginForm({ next, signupOpen, error: googleError, notice = null,
 
   return (
     <AuthCard title="ยินดีต้อนรับสู่ advisortool" subtitle="ถาม AI ได้ไม่จำกัด · ใช้ Studio ช่วยเขียนคอนเทนต์" below={prices}>
-      {invitedBy && (
-        <div className="mt-4 flex items-center gap-3 rounded-lg bg-[var(--bot-sand-soft)] px-3 py-2.5 text-sm text-[var(--bot-sand-ink)]">
-          <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--bot-navy)] font-semibold text-[var(--bot-surface)]">
-            {Array.from(invitedBy)[0]}
-          </span>
-          <p><b>คุณ{invitedBy}</b> ชวนคุณมาใช้ AdvisorTool<br />เครื่องคิดเบี้ย ถาม AI และ Studio ทำโพสต์</p>
-        </div>
-      )}
       {premium && <div className="mt-4"><PremiumOnly /></div>}
       {notice && <p role="status" className="mt-4 rounded-lg bg-[var(--bot-band)] px-3 py-2 text-center text-sm text-[var(--bot-ink)]">{notice}</p>}
       <div role="tablist" className="mt-6 flex gap-1 rounded-lg bg-[var(--bot-band)] p-1">
